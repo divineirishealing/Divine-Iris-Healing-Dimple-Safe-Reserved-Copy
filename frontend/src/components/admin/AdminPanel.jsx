@@ -49,7 +49,7 @@ const AdminPanel = () => {
   const [showTestimonialForm, setShowTestimonialForm] = useState(false);
   const [editingId, setEditingId] = useState(null);
 
-  const [programForm, setProgramForm] = useState({ title: '', category: '', description: '', image: '', price_usd: 0, price_inr: 0, price_eur: 0, price_gbp: 0, visible: true, order: 0, program_type: 'online', offer_price_usd: 0, offer_price_inr: 0, offer_text: '', is_upcoming: false, start_date: '' });
+  const [programForm, setProgramForm] = useState({ title: '', category: '', description: '', image: '', price_usd: 0, price_inr: 0, price_eur: 0, price_gbp: 0, price_aed: 0, visible: true, order: 0, program_type: 'online', offer_price_usd: 0, offer_price_inr: 0, offer_text: '', is_upcoming: false, start_date: '', enrollment_open: true });
   const [sessionForm, setSessionForm] = useState({ title: '', description: '', image: '', price_usd: 0, price_inr: 0, price_eur: 0, price_gbp: 0, visible: true, order: 0 });
   const [testimonialForm, setTestimonialForm] = useState({ type: 'graphic', name: '', text: '', image: '', videoId: '', program_id: '', visible: true });
 
@@ -95,7 +95,7 @@ const AdminPanel = () => {
 
   const editProgram = (p) => {
     setEditingId(p.id);
-    setProgramForm({ title: p.title, category: p.category || '', description: p.description, image: p.image, price_usd: p.price_usd || 0, price_inr: p.price_inr || 0, price_eur: p.price_eur || 0, price_gbp: p.price_gbp || 0, visible: p.visible !== false, order: p.order || 0, program_type: p.program_type || 'online', offer_price_usd: p.offer_price_usd || 0, offer_price_inr: p.offer_price_inr || 0, offer_text: p.offer_text || '', is_upcoming: p.is_upcoming || false, start_date: p.start_date || '' });
+    setProgramForm({ title: p.title, category: p.category || '', description: p.description, image: p.image, price_usd: p.price_usd || 0, price_inr: p.price_inr || 0, price_eur: p.price_eur || 0, price_gbp: p.price_gbp || 0, price_aed: p.price_aed || 0, visible: p.visible !== false, order: p.order || 0, program_type: p.program_type || 'online', offer_price_usd: p.offer_price_usd || 0, offer_price_inr: p.offer_price_inr || 0, offer_text: p.offer_text || '', is_upcoming: p.is_upcoming || false, start_date: p.start_date || '', enrollment_open: p.enrollment_open !== false });
     setShowProgramForm(true);
   };
 
@@ -123,7 +123,7 @@ const AdminPanel = () => {
   const resetProgramForm = () => {
     setShowProgramForm(false);
     setEditingId(null);
-    setProgramForm({ title: '', category: '', description: '', image: '', price_usd: 0, price_inr: 0, price_eur: 0, price_gbp: 0, visible: true, order: 0, program_type: 'online', offer_price_usd: 0, offer_price_inr: 0, offer_text: '', is_upcoming: false, start_date: '' });
+    setProgramForm({ title: '', category: '', description: '', image: '', price_usd: 0, price_inr: 0, price_eur: 0, price_gbp: 0, price_aed: 0, visible: true, order: 0, program_type: 'online', offer_price_usd: 0, offer_price_inr: 0, offer_text: '', is_upcoming: false, start_date: '', enrollment_open: true });
   };
 
   // ===== SESSIONS =====
@@ -311,6 +311,7 @@ const AdminPanel = () => {
                       <ImageUploader value={programForm.image} onChange={url => setProgramForm({...programForm, image: url})} />
                     </div>
                     <div><Label>Price USD</Label><Input type="number" value={programForm.price_usd} onChange={e => setProgramForm({...programForm, price_usd: parseFloat(e.target.value) || 0})} /></div>
+                    <div><Label>Price AED</Label><Input type="number" value={programForm.price_aed} onChange={e => setProgramForm({...programForm, price_aed: parseFloat(e.target.value) || 0})} /></div>
                     <div><Label>Price INR</Label><Input type="number" value={programForm.price_inr} onChange={e => setProgramForm({...programForm, price_inr: parseFloat(e.target.value) || 0})} /></div>
                     <div><Label>Price EUR</Label><Input type="number" value={programForm.price_eur} onChange={e => setProgramForm({...programForm, price_eur: parseFloat(e.target.value) || 0})} /></div>
                     <div><Label>Price GBP</Label><Input type="number" value={programForm.price_gbp} onChange={e => setProgramForm({...programForm, price_gbp: parseFloat(e.target.value) || 0})} /></div>
@@ -329,6 +330,10 @@ const AdminPanel = () => {
                     <div className="flex items-center gap-2">
                       <Switch checked={programForm.is_upcoming} onCheckedChange={v => setProgramForm({...programForm, is_upcoming: v})} />
                       <Label>Show in Upcoming Programs section</Label>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Switch checked={programForm.enrollment_open !== false} onCheckedChange={v => setProgramForm({...programForm, enrollment_open: v})} />
+                      <Label>Enrollment Open (Pay Now visible)</Label>
                     </div>
                     <div className="flex items-center gap-2">
                       <Switch checked={programForm.visible} onCheckedChange={v => setProgramForm({...programForm, visible: v})} />
@@ -393,6 +398,7 @@ const AdminPanel = () => {
                     <div className="md:col-span-2"><Label>Description</Label><Textarea value={sessionForm.description} onChange={e => setSessionForm({...sessionForm, description: e.target.value})} rows={4} /></div>
                     <div className="md:col-span-2"><Label>Image</Label><ImageUploader value={sessionForm.image} onChange={url => setSessionForm({...sessionForm, image: url})} /></div>
                     <div><Label>Price USD</Label><Input type="number" value={sessionForm.price_usd} onChange={e => setSessionForm({...sessionForm, price_usd: parseFloat(e.target.value) || 0})} /></div>
+                    <div><Label>Price AED</Label><Input type="number" value={sessionForm.price_aed || 0} onChange={e => setSessionForm({...sessionForm, price_aed: parseFloat(e.target.value) || 0})} /></div>
                     <div><Label>Price INR</Label><Input type="number" value={sessionForm.price_inr} onChange={e => setSessionForm({...sessionForm, price_inr: parseFloat(e.target.value) || 0})} /></div>
                     <div className="flex items-center gap-2">
                       <Switch checked={sessionForm.visible} onCheckedChange={v => setSessionForm({...sessionForm, visible: v})} />

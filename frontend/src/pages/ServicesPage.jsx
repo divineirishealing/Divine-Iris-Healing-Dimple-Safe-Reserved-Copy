@@ -5,6 +5,7 @@ import { ChevronRight } from 'lucide-react';
 import Header from '../components/Header';
 import Footer from '../components/Footer';
 import FloatingButtons from '../components/FloatingButtons';
+import { useCurrency } from '../context/CurrencyContext';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
@@ -13,6 +14,7 @@ const IRIS_IMAGE = 'https://divineirishealing.com/assets/images/personal_session
 
 function ServicesPage() {
   const navigate = useNavigate();
+  const { getPrice, formatPrice } = useCurrency();
   const [sessions, setSessions] = useState([]);
   const [selectedSession, setSelectedSession] = useState(null);
 
@@ -126,18 +128,8 @@ function ServicesPage() {
 
                 {/* Pricing + Book Now */}
                 <div className="flex flex-wrap items-center gap-4 mb-4">
-                  {(selectedSession.price_usd > 0 || selectedSession.price_inr > 0) ? (
-                    <div className="flex items-baseline gap-3">
-                      {selectedSession.price_usd > 0 && (
-                        <span className="text-2xl font-bold text-[#D4AF37]">${selectedSession.price_usd}</span>
-                      )}
-                      {selectedSession.price_inr > 0 && selectedSession.price_usd > 0 && (
-                        <span className="text-gray-400">|</span>
-                      )}
-                      {selectedSession.price_inr > 0 && (
-                        <span className="text-lg text-gray-600">&#8377;{selectedSession.price_inr}</span>
-                      )}
-                    </div>
+                  {formatPrice(getPrice(selectedSession)) ? (
+                    <span className="text-2xl font-bold text-[#D4AF37]">{formatPrice(getPrice(selectedSession))}</span>
                   ) : (
                     <span className="text-sm text-gray-500 italic">Contact for pricing</span>
                   )}

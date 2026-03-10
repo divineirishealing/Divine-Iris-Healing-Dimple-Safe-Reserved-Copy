@@ -15,12 +15,14 @@ import MediaPage from './pages/MediaPage';
 import TransformationsPage from './pages/TransformationsPage';
 import { Toaster } from './components/ui/toaster';
 import { SiteSettingsProvider } from './context/SiteSettingsContext';
+import { CurrencyProvider } from './context/CurrencyContext';
 
 function App() {
   return (
     <div className="App">
-      <SiteSettingsProvider>
-        <BrowserRouter>
+      <CurrencyProvider>
+        <SiteSettingsProvider>
+          <BrowserRouter>
           <Routes>
             <Route path="/" element={<HomePage />} />
             <Route path="/admin" element={<AdminPage />} />
@@ -39,6 +41,7 @@ function App() {
         </BrowserRouter>
         <Toaster />
       </SiteSettingsProvider>
+      </CurrencyProvider>
     </div>
   );
 }

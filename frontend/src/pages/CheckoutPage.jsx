@@ -1,37 +1,26 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import axios from 'axios';
-import { Button } from '../components/ui/button';
-import { ArrowLeft, ShoppingCart } from 'lucide-react';
+import { useCurrency } from '../context/CurrencyContext';
+import { resolveImageUrl } from '../lib/imageUtils';
+import Header from '../components/Header';
+import Footer from '../components/Footer';
+import { ArrowLeft, Lock } from 'lucide-react';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
 
 function CheckoutPage() {
-  const { type, id } = useParams(); // type: 'program' or 'session'
+  const { type, id } = useParams();
   const navigate = useNavigate();
+  const { currency, setCurrency, currencies, getPrice, formatPrice } = useCurrency();
   const [item, setItem] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [currency, setCurrency] = useState('usd');
-  const [currencySymbol, setCurrencySymbol] = useState('$');
-  const [email, setEmail] = useState('');
-  const [name, setName] = useState('');
   const [processing, setProcessing] = useState(false);
 
   useEffect(() => {
     loadItem();
-    detectCurrency();
   }, [id, type]);
-
-  const detectCurrency = async () => {
-    try {
-      const response = await axios.get(`${API}/currency/detect`);
-      setCurrency(response.data.currency);
-      setCurrencySymbol(response.data.symbol);
-    } catch (error) {
-      console.error('Currency detection failed:', error);
-    }
-  };
 
   const loadItem = async () => {
     try {
@@ -45,169 +34,122 @@ function CheckoutPage() {
     }
   };
 
-  const getPrice = () => {
-    if (!item) return 0;
-    return item[`price_${currency}`] || item.price_usd || 0;
-  };
-
-  const handleCheckout = async (e) => {
-    e.preventDefault();
+  const handleCheckout = async () => {
     setProcessing(true);
-
     try {
-      const checkoutData = {
+      const response = await axios.post(`${API}/payments/create-checkout`, {
         item_type: type,
         item_id: id,
         currency: currency,
-        customer_email: email,
-        customer_name: name,
-        origin_url: window.location.origin
-      };
-
-      const response = await axios.post(`${API}/payments/checkout`, checkoutData);
-      
-      // Redirect to Stripe checkout
+        origin_url: window.location.origin,
+      });
       window.location.href = response.data.url;
     } catch (error) {
-      alert('Payment failed: ' + (error.response?.data?.detail || error.message));
+      alert(error.response?.data?.detail || 'Payment failed. Please try again.');
       setProcessing(false);
     }
   };
 
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-gray-100 flex items-center justify-center">
-        <div className="text-xl">Loading...</div>
+  if (loading) return <div className="min-h-screen flex items-center justify-center"><p className="text-lg text-gray-500">Loading...</p></div>;
+  if (!item) return (
+    <div className="min-h-screen flex items-center justify-center">
+      <div className="text-center">
+        <h2 className="text-2xl text-gray-900 mb-4">Item Not Found</h2>
+        <button onClick={() => navigate('/')} className="bg-[#D4AF37] text-white px-6 py-2 rounded-full text-sm">Back to Home</button>
       </div>
-    );
-  }
+    </div>
+  );
 
-  if (!item) {
-    return (
-      <div className="min-h-screen bg-gray-100 flex items-center justify-center">
-        <div className="text-center">
-          <h2 className="text-2xl font-bold mb-4">Item Not Found</h2>
-          <Button onClick={() => navigate('/')}>Back to Home</Button>
-        </div>
-      </div>
-    );
-  }
-
-  const price = getPrice();
+  const price = getPrice(item);
+  const offerPrice = type === 'program' ? (item[`offer_price_${currency}`] || 0) : 0;
+  const finalPrice = offerPrice > 0 ? offerPrice : price;
 
   return (
-    <div className="min-h-screen bg-gray-100 py-12 px-4">
-      <div className="max-w-4xl mx-auto">
-        <Button
-          variant="outline"
-          onClick={() => navigate(-1)}
-          className="mb-6"
-        >
-          <ArrowLeft size={18} className="mr-2" />
-          Back
-        </Button>
+    <div className="min-h-screen bg-gray-50">
+      <Header />
+      <div className="pt-20 pb-16">
+        <div className="container mx-auto px-4 max-w-4xl">
+          <button onClick={() => navigate(-1)} className="flex items-center gap-2 text-gray-500 hover:text-gray-800 mb-8 text-sm">
+            <ArrowLeft size={16} /> Back
+          </button>
 
-        <div className="bg-white rounded-lg shadow-lg overflow-hidden">
-          <div className="md:flex">
-            {/* Item Details */}
-            <div className="md:w-1/2 p-8">
-              <img
-                src={item.image}
-                alt={item.title}
-                className="w-full h-64 object-cover rounded-lg mb-6"
-              />
-              <h1 className="text-3xl font-bold text-gray-900 mb-4">
-                {item.title}
-              </h1>
-              <p className="text-gray-600 mb-4">{item.description}</p>
-              <div className="text-4xl font-bold text-yellow-600">
-                {currencySymbol}{price.toFixed(2)}
+          <div className="bg-white rounded-xl shadow-lg overflow-hidden">
+            <div className="md:flex">
+              {/* Left - Item summary */}
+              <div className="md:w-1/2 p-8 border-r border-gray-100">
+                {item.image && (
+                  <img src={resolveImageUrl(item.image)} alt={item.title} className="w-full h-48 object-cover rounded-lg mb-6" />
+                )}
+                <p className="text-[#D4AF37] text-xs tracking-wider uppercase mb-1">{type === 'program' ? item.category || 'Program' : 'Personal Session'}</p>
+                <h1 data-testid="checkout-item-title" className="text-2xl text-gray-900 mb-4">{item.title}</h1>
+                <p className="text-gray-500 text-sm leading-relaxed line-clamp-4 mb-6">{item.description}</p>
+
+                {/* Price display */}
+                <div className="border-t pt-4">
+                  {offerPrice > 0 && (
+                    <div className="flex items-baseline gap-2 mb-1">
+                      <span className="text-gray-400 line-through text-sm">{formatPrice(price)}</span>
+                      {item.offer_text && <span className="text-red-500 text-xs font-bold">{item.offer_text}</span>}
+                    </div>
+                  )}
+                  <div className="text-3xl font-bold text-[#D4AF37]">
+                    {formatPrice(finalPrice) || 'Contact for pricing'}
+                  </div>
+                </div>
               </div>
-            </div>
 
-            {/* Checkout Form */}
-            <div className="md:w-1/2 bg-gray-50 p-8">
-              <h2 className="text-2xl font-bold mb-6">Complete Your Purchase</h2>
-              
-              <form onSubmit={handleCheckout} className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Full Name *
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    value={name}
-                    onChange={(e) => setName(e.target.value)}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-transparent"
-                    placeholder="Enter your full name"
-                  />
-                </div>
+              {/* Right - Checkout */}
+              <div className="md:w-1/2 p-8 bg-gray-50">
+                <h2 className="text-lg font-semibold text-gray-900 mb-6">Complete Your Purchase</h2>
 
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Email Address *
-                  </label>
-                  <input
-                    type="email"
-                    required
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-transparent"
-                    placeholder="Enter your email"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Currency
-                  </label>
+                {/* Currency Selector */}
+                <div className="mb-6">
+                  <label className="text-xs text-gray-500 mb-1 block tracking-wider">CURRENCY</label>
                   <select
+                    data-testid="currency-selector"
                     value={currency}
-                    onChange={(e) => {
-                      setCurrency(e.target.value);
-                      const symbols = { usd: '$', inr: '₹', eur: '€', gbp: '£' };
-                      setCurrencySymbol(symbols[e.target.value]);
-                    }}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-transparent"
+                    onChange={(e) => setCurrency(e.target.value)}
+                    className="w-full border border-gray-200 rounded-lg px-4 py-3 text-sm focus:border-[#D4AF37] focus:ring-1 focus:ring-[#D4AF37] outline-none"
                   >
-                    <option value="usd">USD ($)</option>
-                    <option value="inr">INR (₹)</option>
-                    <option value="eur">EUR (€)</option>
-                    <option value="gbp">GBP (£)</option>
+                    {currencies.map(c => (
+                      <option key={c.code} value={c.code}>{c.symbol} - {c.name}</option>
+                    ))}
                   </select>
                 </div>
 
-                <div className="border-t pt-4 mt-6">
-                  <div className="flex justify-between text-lg font-semibold mb-4">
-                    <span>Total:</span>
-                    <span>{currencySymbol}{price.toFixed(2)}</span>
+                {/* Order Summary */}
+                <div className="bg-white rounded-lg p-4 mb-6 border">
+                  <div className="flex justify-between text-sm mb-2">
+                    <span className="text-gray-600">{item.title}</span>
+                    <span className="font-medium">{formatPrice(finalPrice)}</span>
                   </div>
-
-                  <Button
-                    type="submit"
-                    disabled={processing || price <= 0}
-                    className="w-full bg-yellow-600 hover:bg-yellow-700 text-white py-3 text-lg"
-                  >
-                    {processing ? (
-                      'Processing...'
-                    ) : (
-                      <>
-                        <ShoppingCart size={20} className="mr-2" />
-                        Proceed to Payment
-                      </>
-                    )}
-                  </Button>
-
-                  <p className="text-xs text-gray-500 mt-4 text-center">
-                    Secure payment powered by Stripe
-                  </p>
+                  <div className="border-t pt-2 mt-2 flex justify-between font-semibold">
+                    <span>Total</span>
+                    <span className="text-[#D4AF37]">{formatPrice(finalPrice)}</span>
+                  </div>
                 </div>
-              </form>
+
+                {/* Pay Button */}
+                <button
+                  data-testid="proceed-to-payment-btn"
+                  onClick={handleCheckout}
+                  disabled={processing || finalPrice <= 0}
+                  className="w-full bg-[#D4AF37] hover:bg-[#b8962e] disabled:bg-gray-300 text-white py-4 rounded-full text-sm tracking-wider transition-all duration-300 flex items-center justify-center gap-2 font-medium"
+                >
+                  {processing ? 'Redirecting to Stripe...' : (
+                    <><Lock size={14} /> Proceed to Payment</>
+                  )}
+                </button>
+
+                <p className="text-xs text-gray-400 mt-4 text-center flex items-center justify-center gap-1">
+                  <Lock size={10} /> Secure payment powered by Stripe
+                </p>
+              </div>
             </div>
           </div>
         </div>
       </div>
+      <Footer />
     </div>
   );
 }

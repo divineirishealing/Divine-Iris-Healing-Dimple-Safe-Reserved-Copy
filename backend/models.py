@@ -14,6 +14,7 @@ class Program(BaseModel):
     price_inr: float = 0.0
     price_eur: float = 0.0
     price_gbp: float = 0.0
+    price_aed: float = 0.0
     duration: str = "90 days"
     visible: bool = True
     order: int = 0
@@ -23,6 +24,7 @@ class Program(BaseModel):
     offer_text: str = ""
     is_upcoming: bool = False
     start_date: str = ""
+    enrollment_open: bool = True
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 class ProgramCreate(BaseModel):
@@ -35,6 +37,7 @@ class ProgramCreate(BaseModel):
     price_inr: float = 0.0
     price_eur: float = 0.0
     price_gbp: float = 0.0
+    price_aed: float = 0.0
     duration: Optional[str] = "90 days"
     visible: Optional[bool] = True
     order: Optional[int] = 0
@@ -44,6 +47,7 @@ class ProgramCreate(BaseModel):
     offer_text: Optional[str] = ""
     is_upcoming: Optional[bool] = False
     start_date: Optional[str] = ""
+    enrollment_open: Optional[bool] = True
 
 class Session(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
@@ -54,6 +58,7 @@ class Session(BaseModel):
     price_inr: float = 0.0
     price_eur: float = 0.0
     price_gbp: float = 0.0
+    price_aed: float = 0.0
     duration: str = "60-90 minutes"
     visible: bool = True
     order: int = 0
@@ -67,6 +72,7 @@ class SessionCreate(BaseModel):
     price_inr: float = 0.0
     price_eur: float = 0.0
     price_gbp: float = 0.0
+    price_aed: float = 0.0
     duration: Optional[str] = "60-90 minutes"
     visible: Optional[bool] = True
     order: Optional[int] = 0

@@ -130,21 +130,28 @@ function ProgramDetailPage() {
           <p className="text-[#D4AF37] text-xs tracking-[0.2em] mb-4">WHEN YOU ARE SEEKING</p>
           <p className="text-gray-600 text-sm mb-8">When you are done fixing, forcing, or proving — and you are ready to live with ease, clarity, and emotional freedom — this program becomes the foundation for that shift.</p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            {program.price_usd > 0 && (
+            {program.enrollment_open !== false ? (
               <button
                 data-testid="pay-now-btn"
                 onClick={() => navigate(`/checkout/program/${program.id}`)}
                 className="bg-[#D4AF37] hover:bg-[#b8962e] text-white px-8 py-3 rounded-full text-sm tracking-wider"
               >
-                Pay Now
+                Enroll Now
+              </button>
+            ) : (
+              <button
+                data-testid="express-interest-btn"
+                onClick={() => navigate('/contact')}
+                className="bg-[#D4AF37] hover:bg-[#b8962e] text-white px-8 py-3 rounded-full text-sm tracking-wider"
+              >
+                Express Your Interest
               </button>
             )}
             <button
-              data-testid="express-interest-btn"
               onClick={() => navigate('/contact')}
               className="bg-gray-900 hover:bg-gray-800 text-white px-8 py-3 rounded-full text-sm tracking-wider"
             >
-              Express Your Interest
+              Contact Us
             </button>
           </div>
         </div>

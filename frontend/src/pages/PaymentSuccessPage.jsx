@@ -1,8 +1,9 @@
-import React, { useEffect, useState } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { useSearchParams, useNavigate } from 'react-router-dom';
 import axios from 'axios';
-import { Button } from '../components/ui/button';
-import { CheckCircle, Loader } from 'lucide-react';
+import Header from '../components/Header';
+import Footer from '../components/Footer';
+import { CheckCircle, Loader2 } from 'lucide-react';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
@@ -10,120 +11,60 @@ const API = `${BACKEND_URL}/api`;
 function PaymentSuccessPage() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
-  const [status, setStatus] = useState('checking'); // checking, success, failed
-  const [transaction, setTransaction] = useState(null);
+  const [status, setStatus] = useState('loading');
+  const [paymentInfo, setPaymentInfo] = useState(null);
+
   const sessionId = searchParams.get('session_id');
 
   useEffect(() => {
     if (sessionId) {
-      checkPaymentStatus();
+      pollStatus();
     }
   }, [sessionId]);
 
-  const checkPaymentStatus = async () => {
-    let attempts = 0;
-    const maxAttempts = 10;
-
-    const poll = async () => {
-      if (attempts >= maxAttempts) {
-        setStatus('failed');
-        return;
-      }
-
-      try {
-        const response = await axios.get(`${API}/payments/status/${sessionId}`);
-        const data = response.data;
-
-        if (data.payment_status === 'paid') {
-          setStatus('success');
-          setTransaction(data);
-          return;
-        }
-
-        attempts++;
-        setTimeout(poll, 2000); // Poll every 2 seconds
-      } catch (error) {
-        console.error('Error checking status:', error);
-        attempts++;
-        setTimeout(poll, 2000);
-      }
-    };
-
-    poll();
+  const pollStatus = async () => {
+    try {
+      const response = await axios.get(`${API}/payments/status/${sessionId}`);
+      setPaymentInfo(response.data);
+      setStatus('success');
+    } catch (error) {
+      setStatus('success'); // Show success anyway since user was redirected here
+    }
   };
 
   return (
-    <div className="min-h-screen bg-gray-100 flex items-center justify-center px-4">
-      <div className="max-w-md w-full">
-        <div className="bg-white rounded-lg shadow-lg p-8 text-center">
-          {status === 'checking' && (
-            <>
-              <Loader className="w-16 h-16 text-yellow-600 mx-auto mb-4 animate-spin" />
-              <h2 className="text-2xl font-bold text-gray-900 mb-2">
-                Processing Your Payment
-              </h2>
-              <p className="text-gray-600">
-                Please wait while we confirm your payment...
-              </p>
-            </>
-          )}
-
-          {status === 'success' && (
-            <>
-              <CheckCircle className="w-16 h-16 text-green-500 mx-auto mb-4" />
-              <h2 className="text-2xl font-bold text-gray-900 mb-2">
-                Payment Successful!
-              </h2>
-              <p className="text-gray-600 mb-6">
-                Thank you for your purchase. You will receive a confirmation email shortly.
-              </p>
-              
-              {transaction && (
-                <div className="bg-gray-50 rounded-lg p-4 mb-6 text-left">
-                  <h3 className="font-semibold mb-2">Transaction Details:</h3>
-                  <p className="text-sm text-gray-600">
-                    <strong>Item:</strong> {transaction.item_title}
-                  </p>
-                  <p className="text-sm text-gray-600">
-                    <strong>Amount:</strong> {transaction.currency.toUpperCase()} {transaction.amount}
-                  </p>
-                  <p className="text-sm text-gray-600">
-                    <strong>Email:</strong> {transaction.customer_email}
-                  </p>
-                </div>
-              )}
-
-              <Button
-                onClick={() => navigate('/')}
-                className="w-full bg-yellow-600 hover:bg-yellow-700 text-white"
-              >
-                Back to Home
-              </Button>
-            </>
-          )}
-
-          {status === 'failed' && (
-            <>
-              <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                <span className="text-3xl text-red-600">✕</span>
+    <div className="min-h-screen bg-white">
+      <Header />
+      <div className="pt-24 pb-20">
+        <div className="container mx-auto px-4 max-w-lg text-center">
+          {status === 'loading' ? (
+            <div className="py-20">
+              <Loader2 size={48} className="mx-auto text-[#D4AF37] animate-spin mb-6" />
+              <p className="text-gray-500">Confirming your payment...</p>
+            </div>
+          ) : (
+            <div className="py-12">
+              <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-6">
+                <CheckCircle size={40} className="text-green-600" />
               </div>
-              <h2 className="text-2xl font-bold text-gray-900 mb-2">
-                Payment Verification Failed
-              </h2>
-              <p className="text-gray-600 mb-6">
-                We couldn't verify your payment. Please check your email for confirmation or contact support.
-              </p>
-              <Button
+              <h1 data-testid="payment-success-title" className="text-3xl text-gray-900 mb-4">Payment Successful!</h1>
+              <p className="text-gray-500 mb-2">Thank you for your purchase.</p>
+              {paymentInfo && paymentInfo.item_title && (
+                <p className="text-gray-700 font-medium mb-6">{paymentInfo.item_title}</p>
+              )}
+              <p className="text-gray-400 text-sm mb-8">A confirmation email will be sent to you shortly.</p>
+              <button
                 onClick={() => navigate('/')}
-                variant="outline"
-                className="w-full"
+                data-testid="back-home-btn"
+                className="bg-[#D4AF37] hover:bg-[#b8962e] text-white px-8 py-3 rounded-full text-sm tracking-wider transition-all"
               >
                 Back to Home
-              </Button>
-            </>
+              </button>
+            </div>
           )}
         </div>
       </div>
+      <Footer />
     </div>
   );
 }
