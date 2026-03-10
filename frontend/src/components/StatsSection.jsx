@@ -8,28 +8,24 @@ const API = `${BACKEND_URL}/api`;
 
 const statIcons = [Users, CalendarDays, Infinity, Award];
 
-/* Tiny DNA helix - exact small golden double-strand */
-const TinyDNA = ({ x, y, scale = 1, delay = 0 }) => (
-  <g transform={`translate(${x},${y}) scale(${scale})`} opacity="0.35">
+/* Tiny DNA helix - small dark-gold double-strand */
+const TinyDNA = ({ x, y, scale = 1, delay = 0, dur = 6 }) => (
+  <g transform={`translate(${x},${y}) scale(${scale})`} opacity="0.3">
     <animateTransform
       attributeName="transform"
       type="translate"
-      values={`${x},${y}; ${x},${y - 6}; ${x},${y}`}
-      dur={`${4 + delay}s`}
+      values={`${x},${y}; ${x},${y - 8}; ${x},${y}`}
+      dur={`${dur}s`}
       repeatCount="indefinite"
-      additive="sum"
     />
-    {/* Left strand */}
-    <path d="M0,0 C0,4 8,6 8,10 C8,14 0,16 0,20 C0,24 8,26 8,30" fill="none" stroke="#c9a84c" strokeWidth="0.8" strokeLinecap="round" />
-    {/* Right strand */}
-    <path d="M8,0 C8,4 0,6 0,10 C0,14 8,16 8,20 C8,24 0,26 0,30" fill="none" stroke="#c9a84c" strokeWidth="0.8" strokeLinecap="round" />
-    {/* Rungs */}
-    <line x1="1" y1="3" x2="7" y2="3" stroke="#c9a84c" strokeWidth="0.5" />
-    <line x1="3" y1="7" x2="5" y2="7" stroke="#c9a84c" strokeWidth="0.5" />
-    <line x1="1" y1="13" x2="7" y2="13" stroke="#c9a84c" strokeWidth="0.5" />
-    <line x1="3" y1="17" x2="5" y2="17" stroke="#c9a84c" strokeWidth="0.5" />
-    <line x1="1" y1="23" x2="7" y2="23" stroke="#c9a84c" strokeWidth="0.5" />
-    <line x1="3" y1="27" x2="5" y2="27" stroke="#c9a84c" strokeWidth="0.5" />
+    <path d="M0,0 C0,5 8,7 8,12 C8,17 0,19 0,24 C0,29 8,31 8,36" fill="none" stroke="#8b7a3a" strokeWidth="0.7" strokeLinecap="round" />
+    <path d="M8,0 C8,5 0,7 0,12 C0,17 8,19 8,24 C8,29 0,31 0,36" fill="none" stroke="#8b7a3a" strokeWidth="0.7" strokeLinecap="round" />
+    <line x1="1" y1="4" x2="7" y2="4" stroke="#8b7a3a" strokeWidth="0.4" />
+    <line x1="3" y1="9" x2="5" y2="9" stroke="#8b7a3a" strokeWidth="0.4" />
+    <line x1="1" y1="16" x2="7" y2="16" stroke="#8b7a3a" strokeWidth="0.4" />
+    <line x1="3" y1="21" x2="5" y2="21" stroke="#8b7a3a" strokeWidth="0.4" />
+    <line x1="1" y1="28" x2="7" y2="28" stroke="#8b7a3a" strokeWidth="0.4" />
+    <line x1="3" y1="33" x2="5" y2="33" stroke="#8b7a3a" strokeWidth="0.4" />
   </g>
 );
 
@@ -54,68 +50,69 @@ const StatsSection = () => {
   return (
     <section
       data-testid="stats-section"
-      className="py-20 relative overflow-hidden"
-      style={{ background: 'linear-gradient(135deg, #1a1508 0%, #2a1f0e 30%, #1e1810 60%, #2a1f0e 100%)' }}
+      className="py-24 relative overflow-hidden"
+      style={{ background: '#000000' }}
     >
-      {/* SVG layer for tiny animated DNA helixes */}
-      <svg className="absolute inset-0 w-full h-full pointer-events-none" preserveAspectRatio="none" viewBox="0 0 1920 240">
-        {/* Left edge cluster */}
-        <TinyDNA x={40} y={30} scale={1.2} delay={0} />
-        <TinyDNA x={80} y={80} scale={0.9} delay={1.5} />
-        <TinyDNA x={20} y={140} scale={1} delay={3} />
-        <TinyDNA x={120} y={50} scale={0.7} delay={0.8} />
-
-        {/* Between stat 1 & 2 */}
-        <TinyDNA x={400} y={20} scale={0.8} delay={2} />
-        <TinyDNA x={440} y={120} scale={1} delay={4} />
-
-        {/* Between stat 2 & 3 */}
-        <TinyDNA x={800} y={30} scale={0.9} delay={1} />
-        <TinyDNA x={850} y={150} scale={0.7} delay={3.5} />
-
-        {/* Between stat 3 & 4 */}
-        <TinyDNA x={1200} y={20} scale={1.1} delay={0.5} />
-        <TinyDNA x={1150} y={130} scale={0.8} delay={2.5} />
-
-        {/* Right edge cluster */}
-        <TinyDNA x={1700} y={40} scale={1.2} delay={1.2} />
-        <TinyDNA x={1800} y={100} scale={0.9} delay={3.8} />
-        <TinyDNA x={1750} y={170} scale={1} delay={0.3} />
-        <TinyDNA x={1850} y={60} scale={0.7} delay={2.8} />
-
-        {/* Extra scattered */}
-        <TinyDNA x={250} y={160} scale={0.6} delay={4.5} />
-        <TinyDNA x={600} y={170} scale={0.7} delay={1.8} />
-        <TinyDNA x={1000} y={160} scale={0.6} delay={3.2} />
-        <TinyDNA x={1400} y={170} scale={0.8} delay={0.7} />
-        <TinyDNA x={1550} y={20} scale={0.6} delay={2.2} />
-        <TinyDNA x={550} y={10} scale={0.7} delay={4.2} />
+      {/* SVG DNA layer */}
+      <svg className="absolute inset-0 w-full h-full pointer-events-none" preserveAspectRatio="none" viewBox="0 0 1920 280">
+        <TinyDNA x={50} y={20} scale={1.1} delay={0} dur={7} />
+        <TinyDNA x={30} y={120} scale={0.9} delay={2} dur={6} />
+        <TinyDNA x={100} y={200} scale={0.8} delay={4} dur={8} />
+        <TinyDNA x={350} y={10} scale={0.7} delay={1} dur={5} />
+        <TinyDNA x={500} y={220} scale={1} delay={3} dur={7} />
+        <TinyDNA x={700} y={15} scale={0.8} delay={5} dur={6} />
+        <TinyDNA x={780} y={180} scale={0.7} delay={0.5} dur={8} />
+        <TinyDNA x={1000} y={230} scale={0.9} delay={2.5} dur={5} />
+        <TinyDNA x={1150} y={10} scale={0.8} delay={4.5} dur={7} />
+        <TinyDNA x={1350} y={200} scale={1} delay={1.5} dur={6} />
+        <TinyDNA x={1500} y={20} scale={0.7} delay={3.5} dur={8} />
+        <TinyDNA x={1650} y={150} scale={0.9} delay={0.8} dur={5} />
+        <TinyDNA x={1800} y={30} scale={1.1} delay={2.8} dur={7} />
+        <TinyDNA x={1850} y={180} scale={0.8} delay={5.5} dur={6} />
+        <TinyDNA x={200} y={80} scale={0.6} delay={6} dur={8} />
+        <TinyDNA x={900} y={60} scale={0.7} delay={1.8} dur={5} />
+        <TinyDNA x={1250} y={120} scale={0.6} delay={4.2} dur={7} />
+        <TinyDNA x={600} y={100} scale={0.7} delay={3.2} dur={6} />
+        <TinyDNA x={1700} y={240} scale={0.8} delay={0.3} dur={8} />
+        <TinyDNA x={450} y={150} scale={0.6} delay={5.8} dur={5} />
       </svg>
 
       <div className="container mx-auto px-4 relative z-10">
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-8 max-w-5xl mx-auto">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-8 max-w-6xl mx-auto">
           {stats.map((stat, index) => {
             const Icon = statIcons[index] || Award;
             return (
               <div key={index} className="text-center" data-testid={`stat-${index}`}>
                 <Icon
-                  size={38}
+                  size={44}
                   strokeWidth={1.5}
-                  className="mx-auto mb-4"
-                  style={{ color: '#D4AF37' }}
+                  className="mx-auto mb-5"
+                  style={{
+                    color: '#d4a843',
+                    filter: 'drop-shadow(0 0 8px rgba(212,168,67,0.3))',
+                  }}
                 />
                 <div
-                  className="text-4xl md:text-5xl font-bold mb-2"
+                  className="mb-3"
                   style={{
-                    color: '#D4AF37',
+                    color: '#d4a843',
                     fontFamily: "'Cinzel', 'Playfair Display', serif",
+                    fontSize: '3.5rem',
+                    fontWeight: 600,
+                    letterSpacing: '0.02em',
+                    textShadow: '0 0 30px rgba(212,168,67,0.7), 0 0 60px rgba(212,168,67,0.5), 0 0 100px rgba(212,168,67,0.35), 0 0 150px rgba(212,168,67,0.2)',
                   }}
                 >
                   {stat.value}
                 </div>
                 <div
-                  className="text-xs md:text-sm tracking-[0.2em] uppercase"
-                  style={{ color: '#e8dcc8' }}
+                  style={{
+                    color: '#ffffff',
+                    fontFamily: "'Cinzel', serif",
+                    fontSize: '0.8rem',
+                    letterSpacing: '0.25em',
+                    textTransform: 'uppercase',
+                  }}
                 >
                   {stat.label}
                 </div>
