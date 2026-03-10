@@ -47,11 +47,17 @@ INDIA_BIN_PREFIXES = [
 
 
 # ─── MODELS ───
-class ProfileData(BaseModel):
+class ParticipantData(BaseModel):
     name: str
-    relationship: str
+    relationship: str  # Myself, Mother, Father, Sister, Brother, Spouse, Friend, Husband, Wife, Colleague, Other
     age: int
     gender: str
+
+
+class ProfileData(BaseModel):
+    booker_name: str
+    booker_email: str
+    participants: list[ParticipantData]
     country: str
 
 
@@ -133,18 +139,34 @@ def get_ppp_price(base_aed_price: float, currency: str) -> float:
 
 @router.post("/start")
 async def start_enrollment(profile: ProfileData, request: Request):
-    """Step 1: Create enrollment with profile data + IP detection"""
+    """Step 1: Create enrollment with booker info + participants + IP detection"""
     ip_info = await detect_ip_info(request)
+
+    if not profile.participants or len(profile.participants) == 0:
+        raise HTTPException(status_code=400, detail="At least one participant is required")
+
+    # Validate booker email (format + MX)
+    email = profile.booker_email.strip().lower()
+    if not validate_email_format(email):
+        raise HTTPException(status_code=400, detail="Invalid email format")
+    domain = email.split("@")[1]
+    if not check_mx_record(domain):
+        raise HTTPException(status_code=400, detail=f"Email domain '{domain}' cannot receive emails. Please use a valid email.")
+    disposable_domains = ["tempmail.com", "throwaway.email", "guerrillamail.com", "mailinator.com", "yopmail.com", "10minutemail.com"]
+    if domain in disposable_domains:
+        raise HTTPException(status_code=400, detail="Disposable email addresses are not allowed.")
 
     enrollment = {
         "id": str(uuid.uuid4()),
         "status": "profile_complete",
         "step": 1,
-        "profile": profile.dict(),
+        "booker_name": profile.booker_name,
+        "booker_email": email,
+        "country": profile.country,
+        "participants": [p.dict() for p in profile.participants],
+        "participant_count": len(profile.participants),
         "ip_info": ip_info,
         "attendance": None,
-        "email": None,
-        "email_verified": False,
         "phone": None,
         "phone_verified": False,
         "vpn_blocked": ip_info["is_vpn"] or ip_info["is_proxy"] or ip_info["is_hosting"],
@@ -157,9 +179,10 @@ async def start_enrollment(profile: ProfileData, request: Request):
     return {
         "enrollment_id": enrollment["id"],
         "step": 1,
+        "participant_count": len(profile.participants),
         "ip_country": ip_info["country"],
         "vpn_detected": enrollment["vpn_blocked"],
-        "message": "Profile saved. Proceed to attendance mode.",
+        "message": f"Profile saved for {len(profile.participants)} participant(s). Proceed to attendance mode.",
     }
 
 
@@ -176,9 +199,8 @@ async def set_attendance(enrollment_id: str, data: AttendanceData):
     offline_info = None
     if data.mode == "offline":
         offline_info = {
-            "venue": "Divine Iris Soulful Healing Studio",
-            "address": "Dubai, UAE",
-            "note": "Please arrive 15 minutes early. Comfortable clothing recommended.",
+            "note": "This is a remote healing session. You do not need to join any call. The healer will work on the participant's energy remotely.",
+            "instruction": "Please ensure the participant is in a calm, comfortable space during the scheduled session time.",
         }
 
     await db.enrollments.update_one(
@@ -198,41 +220,6 @@ async def set_attendance(enrollment_id: str, data: AttendanceData):
         "offline_info": offline_info,
         "message": "Attendance mode set. Proceed to contact verification.",
     }
-
-
-@router.post("/{enrollment_id}/validate-email")
-async def validate_email(enrollment_id: str, data: EmailValidation):
-    """Step 3a: Validate email (format + MX record, no OTP)"""
-    enrollment = await db.enrollments.find_one({"id": enrollment_id})
-    if not enrollment:
-        raise HTTPException(status_code=404, detail="Enrollment not found")
-
-    email = data.email.strip().lower()
-
-    # Format check
-    if not validate_email_format(email):
-        raise HTTPException(status_code=400, detail="Invalid email format. Please check and try again.")
-
-    # MX record check
-    domain = email.split("@")[1]
-    if not check_mx_record(domain):
-        raise HTTPException(status_code=400, detail=f"The email domain '{domain}' does not exist or cannot receive emails. Please use a valid email.")
-
-    # Check for disposable email domains
-    disposable_domains = ["tempmail.com", "throwaway.email", "guerrillamail.com", "mailinator.com", "yopmail.com", "10minutemail.com"]
-    if domain in disposable_domains:
-        raise HTTPException(status_code=400, detail="Disposable email addresses are not allowed. Please use a permanent email.")
-
-    await db.enrollments.update_one(
-        {"id": enrollment_id},
-        {"$set": {
-            "email": email,
-            "email_verified": True,
-            "updated_at": datetime.now(timezone.utc).isoformat(),
-        }}
-    )
-
-    return {"valid": True, "email": email, "message": "Email verified successfully."}
 
 
 @router.post("/{enrollment_id}/send-otp")
@@ -353,9 +340,10 @@ async def get_enrollment_pricing(enrollment_id: str, item_type: str, item_id: st
         raise HTTPException(status_code=404, detail="Item not found")
 
     ip_country = enrollment.get("ip_info", {}).get("country", "AE")
-    claimed_country = enrollment.get("profile", {}).get("country", "")
+    claimed_country = enrollment.get("country", "")
     vpn_blocked = enrollment.get("vpn_blocked", False)
-    phone = enrollment.get("phone") or ""  # Handle None case
+    phone = enrollment.get("phone") or ""
+    participant_count = enrollment.get("participant_count", 1)
 
     # ─── STRICT INDIA VALIDATION ───
     checks = {
@@ -400,6 +388,9 @@ async def get_enrollment_pricing(enrollment_id: str, item_type: str, item_id: st
     if allowed_currency == "inr":
         offer_price = float(item.get("offer_price_inr", 0))
 
+    per_person = offer_price if offer_price > 0 else price
+    total = round(per_person * participant_count, 2)
+
     return {
         "enrollment_id": enrollment_id,
         "item": {
@@ -411,9 +402,11 @@ async def get_enrollment_pricing(enrollment_id: str, item_type: str, item_id: st
         "pricing": {
             "currency": allowed_currency,
             "symbol": symbol,
-            "price": price,
-            "offer_price": offer_price if offer_price > 0 else None,
-            "final_price": offer_price if offer_price > 0 else price,
+            "price_per_person": price,
+            "offer_price_per_person": offer_price if offer_price > 0 else None,
+            "final_per_person": per_person,
+            "participant_count": participant_count,
+            "total": total,
             "offer_text": item.get("offer_text", ""),
         },
         "security": {
@@ -436,17 +429,15 @@ async def enrollment_checkout(enrollment_id: str, data: EnrollmentSubmit, reques
         raise HTTPException(status_code=404, detail="Enrollment not found")
 
     # Verify enrollment is complete
-    if not enrollment.get("email_verified"):
-        raise HTTPException(status_code=400, detail="Email not verified")
     if not enrollment.get("phone_verified"):
         raise HTTPException(status_code=400, detail="Phone not verified")
 
     # Get pricing (server-side, not from client)
     pricing_resp = await get_enrollment_pricing(enrollment_id, data.item_type, data.item_id)
-    final_price = pricing_resp["pricing"]["final_price"]
+    total = pricing_resp["pricing"]["total"]
     currency = pricing_resp["pricing"]["currency"]
 
-    if final_price <= 0:
+    if total <= 0:
         raise HTTPException(status_code=400, detail="Invalid price")
 
     # BIN validation placeholder - in production, this would check card BIN vs location
@@ -478,7 +469,7 @@ async def enrollment_checkout(enrollment_id: str, data: EnrollmentSubmit, reques
     )
 
     checkout_request = CheckoutSessionRequest(
-        amount=float(final_price),
+        amount=float(total),
         currency=currency,
         success_url=success_url,
         cancel_url=cancel_url,
@@ -487,9 +478,10 @@ async def enrollment_checkout(enrollment_id: str, data: EnrollmentSubmit, reques
             "item_type": data.item_type,
             "item_id": data.item_id,
             "item_title": item.get("title", ""),
-            "email": enrollment.get("email", ""),
+            "email": enrollment.get("booker_email", ""),
             "phone": enrollment.get("phone", ""),
-            "name": enrollment.get("profile", {}).get("name", ""),
+            "name": enrollment.get("booker_name", ""),
+            "participant_count": str(enrollment.get("participant_count", 1)),
             "currency": currency,
         }
     )
@@ -504,12 +496,14 @@ async def enrollment_checkout(enrollment_id: str, data: EnrollmentSubmit, reques
         "item_type": data.item_type,
         "item_id": data.item_id,
         "item_title": item.get("title", ""),
-        "amount": float(final_price),
+        "amount": float(total),
         "currency": currency,
         "payment_status": "pending",
-        "profile": enrollment.get("profile"),
-        "email": enrollment.get("email"),
+        "booker_name": enrollment.get("booker_name"),
+        "booker_email": enrollment.get("booker_email"),
         "phone": enrollment.get("phone"),
+        "participants": enrollment.get("participants"),
+        "participant_count": enrollment.get("participant_count", 1),
         "attendance": enrollment.get("attendance"),
         "created_at": datetime.now(timezone.utc),
         "updated_at": datetime.now(timezone.utc),
