@@ -52,7 +52,7 @@ const HeroSection = () => {
       data-testid="hero-section"
       className="relative min-h-screen flex items-center justify-center overflow-hidden"
       style={{
-        background: videoUrl ? '#000' : (sectionStyle.bg_color || 'linear-gradient(135deg, #1a1a2e 0%, #16213e 25%, #0f3460 50%, #1a1a2e 75%, #0d1b2a 100%)'),
+        background: sectionStyle.bg_color || 'linear-gradient(135deg, #1a1a2e 0%, #16213e 25%, #0f3460 50%, #1a1a2e 75%, #0d1b2a 100%)',
       }}
     >
       {/* Video Background */}
