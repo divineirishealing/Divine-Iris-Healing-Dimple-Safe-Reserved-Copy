@@ -67,13 +67,13 @@ const HeroSection = () => {
       )}
 
       {/* Content */}
-      <div className="relative z-10 text-center px-4">
+      <div className="relative z-10 px-4" style={{ textAlign: 'left' }}>
         <h1
           data-testid="hero-title"
-          className="text-white text-5xl sm:text-6xl md:text-8xl mb-4 tracking-wider animate-fade-in leading-tight whitespace-pre-line"
+          className="text-white text-5xl sm:text-6xl md:text-7xl mb-6 tracking-wider animate-fade-in leading-tight whitespace-pre-line"
           style={{
             fontWeight: sectionStyle.font_weight || 400,
-            fontFamily: sectionStyle.font_family ? `'${sectionStyle.font_family}', Georgia, serif` : undefined,
+            fontFamily: sectionStyle.font_family ? `'${sectionStyle.font_family}', Georgia, serif` : "'Cinzel', 'Playfair Display', Georgia, serif",
             fontSize: sectionStyle.font_size || undefined,
             color: sectionStyle.font_color || '#ffffff',
             fontStyle: sectionStyle.font_style || 'normal',
@@ -82,24 +82,19 @@ const HeroSection = () => {
           {heroTitle}
         </h1>
 
-        <div className="flex items-center justify-center space-x-4 mt-6 animate-fade-in" style={{ animationDelay: '0.3s' }}>
-          <div className="h-px w-12 md:w-20" style={{ backgroundColor: `${subtitleColor}40` }}></div>
-          <p
-            data-testid="hero-subtitle"
-            className="text-sm md:text-base tracking-[0.3em] font-light"
-            style={{ color: subtitleColor }}
-          >
-            {heroSubtitle}
-          </p>
-          <div className="h-px w-12 md:w-20" style={{ backgroundColor: `${subtitleColor}40` }}></div>
-        </div>
-      </div>
+        {/* Line above subtitle */}
+        <div className="w-32 md:w-44 h-px bg-white/50 mb-3 animate-fade-in" style={{ animationDelay: '0.2s' }}></div>
 
-      {/* Scroll indicator */}
-      <div className="absolute bottom-8 left-1/2 -translate-x-1/2 animate-bounce z-10">
-        <div className="w-6 h-10 border-2 border-white/30 rounded-full flex items-start justify-center p-2">
-          <div className="w-1 h-3 bg-white/40 rounded-full"></div>
-        </div>
+        <p
+          data-testid="hero-subtitle"
+          className="text-sm md:text-base tracking-[0.3em] font-light animate-fade-in"
+          style={{ color: subtitleColor, animationDelay: '0.3s' }}
+        >
+          {heroSubtitle}
+        </p>
+
+        {/* Line below subtitle */}
+        <div className="w-32 md:w-44 h-px bg-white/50 mt-3 animate-fade-in" style={{ animationDelay: '0.4s' }}></div>
       </div>
     </section>
   );
