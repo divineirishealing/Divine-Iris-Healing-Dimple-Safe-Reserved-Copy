@@ -9,6 +9,7 @@ import AllSessionsPage from './pages/AllSessionsPage';
 import CheckoutPage from './pages/CheckoutPage';
 import PaymentSuccessPage from './pages/PaymentSuccessPage';
 import PaymentCancelPage from './pages/PaymentCancelPage';
+import ContactPage from './pages/ContactPage';
 import { Toaster } from './components/ui/toaster';
 
 function App() {
@@ -25,6 +26,7 @@ function App() {
           <Route path="/checkout/:type/:id" element={<CheckoutPage />} />
           <Route path="/payment/success" element={<PaymentSuccessPage />} />
           <Route path="/payment/cancel" element={<PaymentCancelPage />} />
+          <Route path="/contact" element={<ContactPage />} />
         </Routes>
       </BrowserRouter>
       <Toaster />
