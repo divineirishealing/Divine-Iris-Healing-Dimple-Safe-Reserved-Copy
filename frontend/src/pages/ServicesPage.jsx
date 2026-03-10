@@ -145,13 +145,6 @@ function ServicesPage() {
 
                 <div className="flex flex-wrap gap-3">
                   <button
-                    onClick={() => navigate(`/checkout/session/${selectedSession.id}`)}
-                    data-testid="book-now-btn"
-                    className="bg-[#D4AF37] hover:bg-[#b8962e] text-white px-10 py-4 rounded-full text-[11px] tracking-[0.2em] transition-all duration-300 uppercase font-medium"
-                  >
-                    Book Now
-                  </button>
-                  <button
                     onClick={() => navigate(`/session/${selectedSession.id}`)}
                     data-testid="view-details-book-btn"
                     className="bg-[#1a1a1a] hover:bg-[#333] text-white px-10 py-4 rounded-full text-[11px] tracking-[0.2em] transition-all duration-300 uppercase font-medium"
