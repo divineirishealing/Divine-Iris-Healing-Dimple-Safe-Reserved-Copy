@@ -241,11 +241,61 @@ const AdminPanel = ({ onLogout }) => {
                       required
                       rows={4}
                     />
-                    <ImageUploader
-                      label="Program Image"
-                      value={programForm.image}
-                      onChange={(url) => setProgramForm({ ...programForm, image: url })}
-                    />
+                    
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium">Program Image *</label>
+                      <div className="text-xs text-gray-600 mb-2">Choose one option below:</div>
+                      
+                      {/* Simple file input */}
+                      <div className="border-2 border-dashed border-gray-300 rounded-lg p-4">
+                        <label className="block">
+                          <span className="text-sm font-medium text-gray-700">Upload from Computer:</span>
+                          <input
+                            type="file"
+                            accept="image/*"
+                            onChange={async (e) => {
+                              const file = e.target.files?.[0];
+                              if (!file) return;
+                              
+                              if (file.size > 5 * 1024 * 1024) {
+                                toast({ title: 'File too large', description: 'Max 5MB', variant: 'destructive' });
+                                return;
+                              }
+                              
+                              const formData = new FormData();
+                              formData.append('file', file);
+                              
+                              try {
+                                const response = await axios.post(`${API}/upload/image`, formData);
+                                const imageUrl = `${BACKEND_URL}${response.data.url}`;
+                                setProgramForm({ ...programForm, image: imageUrl });
+                                toast({ title: 'Image uploaded!' });
+                              } catch (error) {
+                                toast({ title: 'Upload failed', variant: 'destructive' });
+                              }
+                            }}
+                            className="mt-2 block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-yellow-50 file:text-yellow-700 hover:file:bg-yellow-100"
+                          />
+                        </label>
+                      </div>
+                      
+                      <div className="text-center text-sm text-gray-500">OR</div>
+                      
+                      {/* URL input */}
+                      <Input
+                        placeholder="Paste image URL (e.g., https://images.unsplash.com/...)"
+                        value={programForm.image}
+                        onChange={(e) => setProgramForm({ ...programForm, image: e.target.value })}
+                      />
+                      
+                      {/* Image preview */}
+                      {programForm.image && (
+                        <div className="mt-2">
+                          <img src={programForm.image} alt="Preview" className="w-full h-32 object-cover rounded border" />
+                        </div>
+                      )}
+                    </div>
+                    
                     <div className="flex gap-2">
                       <Button type="submit" className="flex-1">
                         <Plus size={18} className="mr-2" />
@@ -318,11 +368,61 @@ const AdminPanel = ({ onLogout }) => {
                       required
                       rows={4}
                     />
-                    <ImageUploader
-                      label="Session Image"
-                      value={sessionForm.image}
-                      onChange={(url) => setSessionForm({ ...sessionForm, image: url })}
-                    />
+                    
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium">Session Image *</label>
+                      <div className="text-xs text-gray-600 mb-2">Choose one option below:</div>
+                      
+                      {/* Simple file input */}
+                      <div className="border-2 border-dashed border-gray-300 rounded-lg p-4">
+                        <label className="block">
+                          <span className="text-sm font-medium text-gray-700">Upload from Computer:</span>
+                          <input
+                            type="file"
+                            accept="image/*"
+                            onChange={async (e) => {
+                              const file = e.target.files?.[0];
+                              if (!file) return;
+                              
+                              if (file.size > 5 * 1024 * 1024) {
+                                toast({ title: 'File too large', description: 'Max 5MB', variant: 'destructive' });
+                                return;
+                              }
+                              
+                              const formData = new FormData();
+                              formData.append('file', file);
+                              
+                              try {
+                                const response = await axios.post(`${API}/upload/image`, formData);
+                                const imageUrl = `${BACKEND_URL}${response.data.url}`;
+                                setSessionForm({ ...sessionForm, image: imageUrl });
+                                toast({ title: 'Image uploaded!' });
+                              } catch (error) {
+                                toast({ title: 'Upload failed', variant: 'destructive' });
+                              }
+                            }}
+                            className="mt-2 block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-yellow-50 file:text-yellow-700 hover:file:bg-yellow-100"
+                          />
+                        </label>
+                      </div>
+                      
+                      <div className="text-center text-sm text-gray-500">OR</div>
+                      
+                      {/* URL input */}
+                      <Input
+                        placeholder="Paste image URL (e.g., https://images.unsplash.com/...)"
+                        value={sessionForm.image}
+                        onChange={(e) => setSessionForm({ ...sessionForm, image: e.target.value })}
+                      />
+                      
+                      {/* Image preview */}
+                      {sessionForm.image && (
+                        <div className="mt-2">
+                          <img src={sessionForm.image} alt="Preview" className="w-full h-32 object-cover rounded border" />
+                        </div>
+                      )}
+                    </div>
+                    
                     <div className="flex gap-2">
                       <Button type="submit" className="flex-1">
                         <Plus size={18} className="mr-2" />
