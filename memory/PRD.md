@@ -11,45 +11,45 @@ Build a pixel-perfect clone of https://divineirishealing.com/ - a wellness/heali
 - **Frontend**: React + TailwindCSS + shadcn/ui
 - **Backend**: FastAPI + Motor (async MongoDB)
 - **Database**: MongoDB
-- **Fonts**: Playfair Display (headings), Lato (body)
-- **Color scheme**: Gold (#D4AF37), Dark backgrounds, White sections
+- **Fonts**: Configurable via admin (default: Playfair Display headings, Lato body)
+- **Color scheme**: Configurable via admin (default: Gold #D4AF37)
 
-## What's Been Implemented (Feb 2026)
+## What's Been Implemented
 
-### Phase 1 & 2 - Visual Fidelity & Bug Fixes (COMPLETED)
+### Phase 1 & 2 - Visual Fidelity & Bug Fixes (COMPLETED - Feb 2026)
 - [x] Playfair Display + Lato fonts integrated globally
-- [x] Hero section with Divine Iris logo, dark gradient background, golden "ETERNAL HAPPINESS"
-- [x] About section with real Dimple Ranawat photo from original site
-- [x] Golden full-screen menu overlay (matching original site)
-- [x] Header with MENU hamburger + social icons
-- [x] Programs section with DB-backed cards + uploaded image support
-- [x] Sessions section with tab navigation + detail view + card grid
-- [x] Stats section (gold numbers on dark background)
-- [x] Testimonials section with YouTube video carousel + play overlay
-- [x] Newsletter subscription section
-- [x] Footer with Menu, Programs, Contact columns
-- [x] Floating email + WhatsApp buttons
-- [x] Sponsor section with original site image
-- [x] Transformations page with 24 testimonial image cards
-- [x] Services page with sidebar layout (session list + detail)
-- [x] Program detail page with hero, content, "Your Experience", CTA, testimonials
-- [x] Session detail page
-- [x] All Programs + All Sessions listing pages
-- [x] Contact page with form
-- [x] **Image upload/display bug FIXED** - relative URL storage + resolveImageUrl utility
-- [x] **Admin logout on refresh bug FIXED** - localStorage persistence
-- [x] Admin panel with tabs: Transactions, Programs, Sessions, Testimonials, Stats, Subscribers
+- [x] Hero section, About section, golden menu overlay, footer with programs
+- [x] Image upload/display bug FIXED
+- [x] Admin logout on refresh FIXED
+
+### Phase 3 - Enhanced Admin Panel (COMPLETED - Feb 2026)
+- [x] **Visibility Toggle**: Show/hide programs, sessions, testimonials on public site
+- [x] **Reordering**: Up/down arrow controls to rearrange display order
+- [x] **Site Settings**: Global font, color, and size customization (Cinzel, Caveat, Playfair Display, Montserrat, etc.)
+- [x] Programs CRUD with image upload, pricing, category
+- [x] Sessions CRUD with image upload, pricing
+- [x] Testimonials management (graphic images + video YouTube) with text for search indexing
+- [x] Subscribers list, Stats view
+
+### Phase 4 - Personal Sessions (COMPLETED - Feb 2026)
+- [x] **21 sessions** from original site seeded with real images/descriptions
+- [x] Services page with sidebar layout (session list left, detail right)
+- [x] Clicking session shows detail with image, description, "View Details & Book" button
+
+### Phase 5 - Transformations Page (COMPLETED - Feb 2026)
+- [x] 44 testimonials (32 graphic + 12 video) from original site
+- [x] **Real-time search** across testimonial text and names
+- [x] **Tab filtering**: All / Graphic / Video
+- [x] Image lightbox for graphic testimonials
+- [x] YouTube video modal for video testimonials
+- [x] Added to footer and navigation menu
 
 ### Backend APIs
-- Programs CRUD: GET/POST/PUT/DELETE /api/programs
-- Sessions CRUD: GET/POST/PUT/DELETE /api/sessions
-- Testimonials CRUD: GET/POST/DELETE /api/testimonials
-- Stats CRUD: GET/PUT /api/stats
-- Newsletter: GET/POST /api/newsletter
-- Image Upload: POST /api/upload/image
-- Image Serving: GET /api/image/{filename}
-- Payments: POST /api/payments/checkout, GET /api/payments/status/{id}, GET /api/payments/transactions
-- Currency Detection: GET /api/currency/detect
+- Programs CRUD + visibility toggle + reorder: /api/programs
+- Sessions CRUD + visibility toggle + reorder: /api/sessions
+- Testimonials CRUD + search + type filter + visibility: /api/testimonials
+- Site Settings: GET/PUT /api/settings
+- Stats, Newsletter, Image Upload/Serving, Payments, Currency
 
 ### Admin Credentials
 - URL: /admin
@@ -59,20 +59,18 @@ Build a pixel-perfect clone of https://divineirishealing.com/ - a wellness/heali
 ## Prioritized Backlog
 
 ### P0 - High Priority
-- [ ] Complete Stripe payment flow testing (end-to-end with test key)
+- [ ] Complete Stripe payment flow (end-to-end with test key)
 - [ ] Multi-currency detection on frontend (based on user's country/IP)
-- [ ] Wire "Pay Now" buttons to Stripe checkout with currency selection
 
 ### P1 - Medium Priority
-- [ ] "Express Your Interest" button → contact page with pre-filled program name
-- [ ] Expand admin panel for all content sections (sponsor text, about text, etc.)
+- [ ] "Express Your Interest" → contact page with pre-filled program name
 - [ ] Media page with video content from original site
 
-### P2 - Low Priority  
-- [ ] Full responsiveness audit on mobile devices
-- [ ] SEO meta tags for all pages
-- [ ] Performance optimization (lazy loading, image compression)
+### P2 - Low Priority
+- [ ] Full responsiveness audit on mobile
+- [ ] SEO meta tags
+- [ ] Transactions view in admin panel
 
 ### P3 - Future
-- [ ] Email notifications for admin on new subscriptions/inquiries
-- [ ] Analytics dashboard in admin panel
+- [ ] Email notifications for admin
+- [ ] Analytics dashboard
