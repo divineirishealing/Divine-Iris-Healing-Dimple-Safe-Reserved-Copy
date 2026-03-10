@@ -568,53 +568,210 @@ const AdminPanel = () => {
 
               {/* Hero Section Settings */}
               <div className="bg-white rounded-lg p-6 shadow-sm border mb-6">
-                <h3 className="font-medium text-gray-800 mb-4 text-base">Hero Section</h3>
-                <div className="grid md:grid-cols-2 gap-4">
-                  <div className="md:col-span-2">
-                    <Label>Hero Background Video</Label>
-                    <div className="mt-1">
-                      {siteSettings.hero_video_url && (
-                        <div className="mb-3 flex items-center gap-3">
-                          <video src={resolveImageUrl(siteSettings.hero_video_url)} className="w-40 h-24 object-cover rounded border" muted />
-                          <button onClick={() => setSiteSettings({...siteSettings, hero_video_url: ''})} className="text-red-500 text-xs hover:underline">Remove</button>
-                        </div>
-                      )}
-                      <input
-                        type="file"
-                        accept="video/mp4,video/webm,video/mov"
-                        data-testid="hero-video-upload"
-                        onChange={async (e) => {
-                          const file = e.target.files[0];
-                          if (!file) return;
-                          const formData = new FormData();
-                          formData.append('file', file);
-                          try {
-                            toast({ title: 'Uploading video...', description: 'This may take a moment' });
-                            const res = await axios.post(`${API}/upload/video`, formData, { headers: { 'Content-Type': 'multipart/form-data' } });
-                            setSiteSettings({...siteSettings, hero_video_url: res.data.url});
-                            toast({ title: 'Video uploaded!' });
-                          } catch (err) {
-                            toast({ title: 'Upload failed', description: err.message, variant: 'destructive' });
-                          }
-                        }}
-                        className="text-sm text-gray-600 file:mr-3 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:bg-[#D4AF37] file:text-white hover:file:bg-[#b8962e] cursor-pointer"
-                      />
+                <h3 className="font-medium text-gray-800 mb-2 text-base">Hero Section</h3>
+                <p className="text-xs text-gray-400 mb-5">This is the big banner at the top of your homepage with your title and video.</p>
+
+                {/* VIDEO UPLOAD */}
+                <div className="mb-6 p-4 bg-blue-50 rounded-lg border border-blue-100">
+                  <p className="text-sm font-semibold text-blue-800 mb-2">Background Video</p>
+                  <p className="text-xs text-blue-600 mb-3">Upload a video that plays behind your title text.</p>
+                  {siteSettings.hero_video_url && (
+                    <div className="mb-3 flex items-center gap-3">
+                      <video src={resolveImageUrl(siteSettings.hero_video_url)} className="w-40 h-24 object-cover rounded border" muted />
+                      <button onClick={() => setSiteSettings({...siteSettings, hero_video_url: ''})} className="text-red-500 text-xs hover:underline">Remove Video</button>
+                    </div>
+                  )}
+                  <input
+                    type="file"
+                    accept="video/mp4,video/webm,video/mov"
+                    data-testid="hero-video-upload"
+                    onChange={async (e) => {
+                      const file = e.target.files[0];
+                      if (!file) return;
+                      const formData = new FormData();
+                      formData.append('file', file);
+                      try {
+                        toast({ title: 'Uploading video...', description: 'This may take a moment' });
+                        const res = await axios.post(`${API}/upload/video`, formData, { headers: { 'Content-Type': 'multipart/form-data' } });
+                        setSiteSettings({...siteSettings, hero_video_url: res.data.url});
+                        toast({ title: 'Video uploaded!' });
+                      } catch (err) {
+                        toast({ title: 'Upload failed', description: err.message, variant: 'destructive' });
+                      }
+                    }}
+                    className="text-sm text-gray-600 file:mr-3 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:bg-[#D4AF37] file:text-white hover:file:bg-[#b8962e] cursor-pointer"
+                  />
+                </div>
+
+                {/* TITLE TEXT */}
+                <div className="mb-6 p-4 bg-amber-50 rounded-lg border border-amber-100">
+                  <p className="text-sm font-semibold text-amber-800 mb-3">Main Title (big text)</p>
+
+                  <div className="mb-4">
+                    <p className="text-xs text-gray-500 mb-1">What should the big title say?</p>
+                    <Textarea data-testid="hero-title-input" value={siteSettings.hero_title || ''} onChange={e => setSiteSettings({...siteSettings, hero_title: e.target.value})} rows={2} placeholder="Divine Iris&#10;Healing" className="text-base" />
+                    <p className="text-xs text-gray-400 mt-1">Press Enter to put text on a new line.</p>
+                  </div>
+
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
+                    {/* Title Color */}
+                    <div>
+                      <p className="text-xs text-gray-500 mb-1">Title Color</p>
+                      <div className="flex gap-2 items-center">
+                        <input type="color" data-testid="hero-title-color" value={siteSettings.hero_title_color || '#ffffff'} onChange={e => setSiteSettings({...siteSettings, hero_title_color: e.target.value})} className="w-10 h-10 rounded cursor-pointer border" />
+                        <Input value={siteSettings.hero_title_color || '#ffffff'} onChange={e => setSiteSettings({...siteSettings, hero_title_color: e.target.value})} className="text-xs" />
+                      </div>
+                    </div>
+
+                    {/* Title Size */}
+                    <div>
+                      <p className="text-xs text-gray-500 mb-1">Title Size</p>
+                      <select data-testid="hero-title-size" value={siteSettings.hero_title_size || '70px'} onChange={e => setSiteSettings({...siteSettings, hero_title_size: e.target.value})} className="w-full border rounded-md px-3 py-2 text-sm">
+                        <option value="40px">Small</option>
+                        <option value="50px">Medium</option>
+                        <option value="60px">Large</option>
+                        <option value="70px">Very Large</option>
+                        <option value="85px">Extra Large</option>
+                        <option value="100px">Huge</option>
+                      </select>
+                    </div>
+
+                    {/* Bold Toggle */}
+                    <div>
+                      <p className="text-xs text-gray-500 mb-1">Make Bold?</p>
+                      <button
+                        data-testid="hero-title-bold-toggle"
+                        onClick={() => setSiteSettings({...siteSettings, hero_title_bold: !siteSettings.hero_title_bold})}
+                        className={`w-full py-2 rounded-md text-sm font-bold border-2 transition-all ${
+                          siteSettings.hero_title_bold
+                            ? 'bg-gray-900 text-white border-gray-900'
+                            : 'bg-white text-gray-400 border-gray-200 hover:border-gray-400'
+                        }`}
+                      >
+                        B {siteSettings.hero_title_bold ? '(ON)' : '(OFF)'}
+                      </button>
+                    </div>
+
+                    {/* Alignment */}
+                    <div>
+                      <p className="text-xs text-gray-500 mb-1">Position</p>
+                      <div className="flex gap-1">
+                        {[
+                          { val: 'left', label: 'Left', icon: '|===' },
+                          { val: 'center', label: 'Center', icon: '=||=' },
+                          { val: 'right', label: 'Right', icon: '===|' },
+                        ].map(a => (
+                          <button
+                            key={a.val}
+                            data-testid={`hero-align-${a.val}`}
+                            onClick={() => setSiteSettings({...siteSettings, hero_title_align: a.val})}
+                            className={`flex-1 py-2 rounded text-xs font-mono border-2 transition-all ${
+                              (siteSettings.hero_title_align || 'left') === a.val
+                                ? 'bg-[#D4AF37] text-white border-[#D4AF37]'
+                                : 'bg-white text-gray-400 border-gray-200 hover:border-gray-400'
+                            }`}
+                            title={a.label}
+                          >
+                            {a.icon}
+                          </button>
+                        ))}
+                      </div>
                     </div>
                   </div>
-                  <div>
-                    <Label>Hero Title</Label>
-                    <Textarea value={siteSettings.hero_title || ''} onChange={e => setSiteSettings({...siteSettings, hero_title: e.target.value})} rows={2} placeholder="Divine Iris\nHealing" />
+                </div>
+
+                {/* SUBTITLE TEXT */}
+                <div className="mb-6 p-4 bg-green-50 rounded-lg border border-green-100">
+                  <p className="text-sm font-semibold text-green-800 mb-3">Subtitle (small text below title)</p>
+
+                  <div className="mb-4">
+                    <p className="text-xs text-gray-500 mb-1">What should the small text say?</p>
+                    <Input data-testid="hero-subtitle-input" value={siteSettings.hero_subtitle || ''} onChange={e => setSiteSettings({...siteSettings, hero_subtitle: e.target.value})} placeholder="ETERNAL HAPPINESS" />
                   </div>
-                  <div>
-                    <Label>Hero Subtitle</Label>
-                    <Input value={siteSettings.hero_subtitle || ''} onChange={e => setSiteSettings({...siteSettings, hero_subtitle: e.target.value})} placeholder="ETERNAL HAPPINESS" />
-                  </div>
-                  <div>
-                    <Label>Hero Subtitle Color</Label>
-                    <div className="flex gap-2 items-center">
-                      <input type="color" value={siteSettings.hero_subtitle_color || '#ffffff'} onChange={e => setSiteSettings({...siteSettings, hero_subtitle_color: e.target.value})} className="w-10 h-10 rounded cursor-pointer border" />
-                      <Input value={siteSettings.hero_subtitle_color || '#ffffff'} onChange={e => setSiteSettings({...siteSettings, hero_subtitle_color: e.target.value})} />
+
+                  <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                    {/* Subtitle Color */}
+                    <div>
+                      <p className="text-xs text-gray-500 mb-1">Subtitle Color</p>
+                      <div className="flex gap-2 items-center">
+                        <input type="color" data-testid="hero-subtitle-color" value={siteSettings.hero_subtitle_color || '#ffffff'} onChange={e => setSiteSettings({...siteSettings, hero_subtitle_color: e.target.value})} className="w-10 h-10 rounded cursor-pointer border" />
+                        <Input value={siteSettings.hero_subtitle_color || '#ffffff'} onChange={e => setSiteSettings({...siteSettings, hero_subtitle_color: e.target.value})} className="text-xs" />
+                      </div>
                     </div>
+
+                    {/* Subtitle Size */}
+                    <div>
+                      <p className="text-xs text-gray-500 mb-1">Subtitle Size</p>
+                      <select data-testid="hero-subtitle-size" value={siteSettings.hero_subtitle_size || '14px'} onChange={e => setSiteSettings({...siteSettings, hero_subtitle_size: e.target.value})} className="w-full border rounded-md px-3 py-2 text-sm">
+                        <option value="10px">Tiny</option>
+                        <option value="12px">Small</option>
+                        <option value="14px">Normal</option>
+                        <option value="16px">Medium</option>
+                        <option value="18px">Large</option>
+                        <option value="22px">Very Large</option>
+                      </select>
+                    </div>
+
+                    {/* Subtitle Bold */}
+                    <div>
+                      <p className="text-xs text-gray-500 mb-1">Make Bold?</p>
+                      <button
+                        data-testid="hero-subtitle-bold-toggle"
+                        onClick={() => setSiteSettings({...siteSettings, hero_subtitle_bold: !siteSettings.hero_subtitle_bold})}
+                        className={`w-full py-2 rounded-md text-sm font-bold border-2 transition-all ${
+                          siteSettings.hero_subtitle_bold
+                            ? 'bg-gray-900 text-white border-gray-900'
+                            : 'bg-white text-gray-400 border-gray-200 hover:border-gray-400'
+                        }`}
+                      >
+                        B {siteSettings.hero_subtitle_bold ? '(ON)' : '(OFF)'}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                {/* LINES */}
+                <div className="p-4 bg-gray-50 rounded-lg border border-gray-200">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-semibold text-gray-700">Show Lines Above & Below Subtitle?</p>
+                      <p className="text-xs text-gray-400">The thin horizontal lines that appear around "ETERNAL HAPPINESS"</p>
+                    </div>
+                    <Switch
+                      data-testid="hero-lines-toggle"
+                      checked={siteSettings.hero_show_lines !== false}
+                      onCheckedChange={v => setSiteSettings({...siteSettings, hero_show_lines: v})}
+                    />
+                  </div>
+                </div>
+
+                {/* LIVE PREVIEW */}
+                <div className="mt-6 p-6 rounded-lg border-2 border-dashed border-gray-300" style={{ background: '#1a1a2e' }}>
+                  <p className="text-xs text-gray-400 mb-3 text-center">LIVE PREVIEW (how it will look)</p>
+                  <div className={`flex flex-col ${
+                    (siteSettings.hero_title_align || 'left') === 'center' ? 'items-center text-center' :
+                    (siteSettings.hero_title_align || 'left') === 'right' ? 'items-end text-right' : 'items-start text-left'
+                  }`}>
+                    <p style={{
+                      color: siteSettings.hero_title_color || '#ffffff',
+                      fontWeight: siteSettings.hero_title_bold ? 700 : 400,
+                      fontSize: `calc(${siteSettings.hero_title_size || '70px'} * 0.4)`,
+                      fontFamily: "'Cinzel', serif",
+                      lineHeight: 1.2,
+                      whiteSpace: 'pre-line',
+                    }}>
+                      {siteSettings.hero_title || 'Divine Iris\nHealing'}
+                    </p>
+                    {siteSettings.hero_show_lines !== false && <div className="w-20 h-px bg-white/50 my-1.5"></div>}
+                    <p style={{
+                      color: siteSettings.hero_subtitle_color || '#ffffff',
+                      fontWeight: siteSettings.hero_subtitle_bold ? 700 : 300,
+                      fontSize: `calc(${siteSettings.hero_subtitle_size || '14px'} * 0.9)`,
+                      letterSpacing: '0.3em',
+                    }}>
+                      {siteSettings.hero_subtitle || 'ETERNAL HAPPINESS'}
+                    </p>
+                    {siteSettings.hero_show_lines !== false && <div className="w-20 h-px bg-white/50 mt-1.5"></div>}
                   </div>
                 </div>
               </div>

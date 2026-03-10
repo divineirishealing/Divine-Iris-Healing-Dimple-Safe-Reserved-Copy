@@ -145,6 +145,13 @@ class SiteSettings(BaseModel):
     hero_title: str = "Divine Iris\nHealing"
     hero_subtitle: str = "ETERNAL HAPPINESS"
     hero_subtitle_color: str = "#ffffff"
+    hero_title_color: str = "#ffffff"
+    hero_title_align: str = "left"
+    hero_title_bold: bool = False
+    hero_title_size: str = "70px"
+    hero_subtitle_bold: bool = False
+    hero_subtitle_size: str = "14px"
+    hero_show_lines: bool = True
     # Logo settings
     logo_url: str = ""
     logo_width: int = 96
@@ -163,6 +170,13 @@ class SiteSettingsUpdate(BaseModel):
     hero_title: Optional[str] = None
     hero_subtitle: Optional[str] = None
     hero_subtitle_color: Optional[str] = None
+    hero_title_color: Optional[str] = None
+    hero_title_align: Optional[str] = None
+    hero_title_bold: Optional[bool] = None
+    hero_title_size: Optional[str] = None
+    hero_subtitle_bold: Optional[bool] = None
+    hero_subtitle_size: Optional[str] = None
+    hero_show_lines: Optional[bool] = None
     logo_url: Optional[str] = None
     logo_width: Optional[int] = None
     sections: Optional[Dict] = None

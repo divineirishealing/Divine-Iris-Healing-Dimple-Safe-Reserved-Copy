@@ -30,7 +30,17 @@ const HeroSection = () => {
   const heroTitle = settings?.hero_title || 'Divine Iris\nHealing';
   const heroSubtitle = settings?.hero_subtitle || 'ETERNAL HAPPINESS';
   const subtitleColor = settings?.hero_subtitle_color || '#ffffff';
+  const titleColor = settings?.hero_title_color || '#ffffff';
+  const titleAlign = settings?.hero_title_align || 'left';
+  const titleBold = settings?.hero_title_bold || false;
+  const titleSize = settings?.hero_title_size || '70px';
+  const subtitleBold = settings?.hero_subtitle_bold || false;
+  const subtitleSize = settings?.hero_subtitle_size || '14px';
+  const showLines = settings?.hero_show_lines !== false;
   const sectionStyle = settings?.sections?.hero || {};
+
+  const alignClass = titleAlign === 'center' ? 'items-center text-center' : titleAlign === 'right' ? 'items-end text-right' : 'items-start text-left';
+  const lineAlign = titleAlign === 'center' ? 'mx-auto' : titleAlign === 'right' ? 'ml-auto' : '';
 
   return (
     <section
@@ -67,15 +77,15 @@ const HeroSection = () => {
       )}
 
       {/* Content */}
-      <div className="relative z-10 px-4" style={{ textAlign: 'left' }}>
+      <div className={`relative z-10 px-4 flex flex-col ${alignClass}`}>
         <h1
           data-testid="hero-title"
-          className="text-white text-5xl sm:text-6xl md:text-7xl mb-6 tracking-wider animate-fade-in leading-tight whitespace-pre-line"
+          className="text-white mb-6 tracking-wider animate-fade-in leading-tight whitespace-pre-line"
           style={{
-            fontWeight: sectionStyle.font_weight || 400,
+            fontWeight: titleBold ? 700 : (sectionStyle.font_weight || 400),
             fontFamily: sectionStyle.font_family ? `'${sectionStyle.font_family}', Georgia, serif` : "'Cinzel', 'Playfair Display', Georgia, serif",
-            fontSize: sectionStyle.font_size || undefined,
-            color: sectionStyle.font_color || '#ffffff',
+            fontSize: titleSize,
+            color: titleColor,
             fontStyle: sectionStyle.font_style || 'normal',
           }}
         >
@@ -83,18 +93,27 @@ const HeroSection = () => {
         </h1>
 
         {/* Line above subtitle */}
-        <div className="w-32 md:w-44 h-px bg-white/50 mb-3 animate-fade-in" style={{ animationDelay: '0.2s' }}></div>
+        {showLines && (
+          <div className={`w-32 md:w-44 h-px bg-white/50 mb-3 animate-fade-in ${lineAlign}`} style={{ animationDelay: '0.2s' }}></div>
+        )}
 
         <p
           data-testid="hero-subtitle"
-          className="text-sm md:text-base tracking-[0.3em] font-light animate-fade-in"
-          style={{ color: subtitleColor, animationDelay: '0.3s' }}
+          className="tracking-[0.3em] animate-fade-in"
+          style={{
+            color: subtitleColor,
+            animationDelay: '0.3s',
+            fontWeight: subtitleBold ? 700 : 300,
+            fontSize: subtitleSize,
+          }}
         >
           {heroSubtitle}
         </p>
 
         {/* Line below subtitle */}
-        <div className="w-32 md:w-44 h-px bg-white/50 mt-3 animate-fade-in" style={{ animationDelay: '0.4s' }}></div>
+        {showLines && (
+          <div className={`w-32 md:w-44 h-px bg-white/50 mt-3 animate-fade-in ${lineAlign}`} style={{ animationDelay: '0.4s' }}></div>
+        )}
       </div>
     </section>
   );
