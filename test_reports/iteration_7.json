@@ -1,0 +1,71 @@
+{
+  "summary": "Iteration 7 - Tested new 3-step enrollment flow (Participants → Verify → Pay) with per-participant attendance mode. All 17 backend tests passed. Frontend UI fully functional with booker section, participant forms with country/attendance_mode/notify fields, add/remove participant buttons, OTP verification, and payment summary with attendance mode badges.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_enrollment_v2.py",
+    "/app/test_reports/pytest/pytest_enrollment_v2.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "3-step enrollment flow properly implemented: Participants → Verify → Pay",
+    "Per-participant attendance_mode (online/offline) correctly persisted and displayed",
+    "Booker section has name, email, country fields - all working",
+    "Participant form includes: name, relationship, age, gender, country, attendance mode buttons, notify toggle with conditional email/phone",
+    "Add/remove participant buttons work correctly - can't remove if only 1 participant",
+    "Pricing correctly multiplies by participant_count (verified: 729 × 3 = 2187)",
+    "Payment summary shows each participant with Zoom/Remote badge and per-person pricing",
+    "Mock OTP displayed on screen for testing (data-testid='mock-otp-display')"
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_enrollment_v2.py"
+  ],
+  "success_rate": {
+    "backend": "100% (17/17 tests passed)",
+    "frontend": "100% (all 3 steps, participant forms, attendance mode, OTP flow working)"
+  },
+  "seed_data_creation": "Used existing program ID 1 (Atomic Weight Release Program) - AED 729 base price",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Enrollment flow is now 3 steps (previously 4). Attendance mode is per-participant, not global. Test file: /app/backend/tests/test_enrollment_v2.py. Phone OTP is MOCKED - mock_otp returned in API response and displayed on frontend. VPN always detected in preview environment, so pricing defaults to AED. Key data-testids: booker-name, booker-email, booker-country, p-name-{i}, p-relation-{i}, p-age-{i}, p-gender-{i}, p-country-{i}, p-mode-online-{i}, p-mode-offline-{i}, p-notify-toggle-{i}, p-email-{i}, p-phone-{i}, add-participant-btn, remove-participant-{i}, step1-next, enroll-phone, send-otp-btn, enroll-otp, verify-otp-btn, mock-otp-display, pay-now-btn",
+  "mocked_features": {
+    "phone_otp": "MOCKED - OTP generated server-side, returned in API response (mock_otp field), displayed on frontend for testing"
+  },
+  "features_tested": {
+    "step_1_participants": {
+      "booker_section": "PASS - name, email, country fields render correctly",
+      "participant_form_fields": "PASS - name, relationship, age, gender, country, attendance mode (online/offline buttons), notify toggle, conditional email/phone",
+      "add_participant": "PASS - adds new participant form",
+      "remove_participant": "PASS - removes participant, hidden when only 1",
+      "attendance_mode_per_participant": "PASS - each participant can select online (Zoom) or offline (Remote Healing) independently",
+      "notify_toggle": "PASS - shows email + phone fields when checked",
+      "submit_to_api": "PASS - POST /api/enrollment/start accepts all per-participant data"
+    },
+    "step_2_verify": {
+      "phone_otp_send": "PASS - Send OTP button works, mock OTP returned and displayed",
+      "phone_otp_verify": "PASS - correct OTP verifies, advances to Step 3",
+      "mock_otp_display": "PASS - displayed on screen for testing"
+    },
+    "step_3_pay": {
+      "participant_list": "PASS - shows each participant with name and attendance mode badge",
+      "attendance_badges": "PASS - Zoom badge for online, Remote badge for offline",
+      "per_person_pricing": "PASS - shows price per person",
+      "total_calculation": "PASS - correctly multiplies by participant_count",
+      "pay_button": "PASS - shows total amount, Stripe checkout ready"
+    },
+    "backend_api": {
+      "POST /api/enrollment/start": "PASS - accepts booker_name, booker_email, booker_country, participants[] with country, attendance_mode, notify, email, phone",
+      "POST /api/enrollment/{id}/send-otp": "PASS - returns mock_otp in response",
+      "POST /api/enrollment/{id}/verify-otp": "PASS - verifies OTP, updates status",
+      "GET /api/enrollment/{id}/pricing": "PASS - returns participant_count, calculates total correctly",
+      "GET /api/enrollment/{id}": "PASS - returns all enrollment data including participants with attendance_mode"
+    }
+  }
+}

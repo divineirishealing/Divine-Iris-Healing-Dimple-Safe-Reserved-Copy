@@ -3,13 +3,13 @@ import { useParams, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import Header from '../components/Header';
 import Footer from '../components/Footer';
-import { resolveImageUrl } from '../lib/imageUtils';
 import { useToast } from '../hooks/use-toast';
 import { Input } from '../components/ui/input';
 import { Button } from '../components/ui/button';
 import {
   User, Monitor, Wifi, Mail, Phone, CreditCard, Lock, Plus, Trash2,
-  ChevronRight, ChevronLeft, Check, ShieldAlert, ShieldCheck, AlertTriangle, Loader2
+  ChevronRight, ChevronLeft, Check, ShieldAlert, ShieldCheck, AlertTriangle,
+  Loader2, Bell, BellOff, Globe
 } from 'lucide-react';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
@@ -44,7 +44,10 @@ const COUNTRIES = [
 const GENDERS = ["Female", "Male", "Non-Binary", "Prefer not to say"];
 const RELATIONSHIPS = ["Myself", "Mother", "Father", "Sister", "Brother", "Spouse", "Husband", "Wife", "Friend", "Colleague", "Other"];
 
-const emptyParticipant = () => ({ name: '', relationship: '', age: '', gender: '' });
+const emptyParticipant = () => ({
+  name: '', relationship: '', age: '', gender: '',
+  country: 'AE', attendance_mode: 'online', notify: false, email: '', phone: ''
+});
 
 const StepIndicator = ({ current, steps }) => (
   <div className="flex items-center justify-center mb-8" data-testid="step-indicator">
@@ -68,42 +71,109 @@ const StepIndicator = ({ current, steps }) => (
   </div>
 );
 
-const ParticipantForm = ({ index, data, onChange, onRemove, canRemove }) => (
-  <div className="border rounded-xl p-4 mb-3 bg-gray-50 relative" data-testid={`participant-${index}`}>
-    <div className="flex items-center justify-between mb-3">
-      <span className="text-xs font-semibold text-[#D4AF37]">Participant {index + 1}</span>
-      {canRemove && (
-        <button onClick={onRemove} className="text-red-400 hover:text-red-600 transition-colors" data-testid={`remove-participant-${index}`}>
-          <Trash2 size={16} />
-        </button>
-      )}
-    </div>
-    <div className="grid grid-cols-2 gap-3">
-      <div className="col-span-2">
+const ParticipantForm = ({ index, data, onChange, onRemove, canRemove }) => {
+  const update = (field, value) => onChange({ ...data, [field]: value });
+  const countryPhone = COUNTRIES.find(c => c.code === data.country)?.phone || '+971';
+
+  return (
+    <div className="border rounded-xl p-4 mb-3 bg-gray-50 relative" data-testid={`participant-${index}`}>
+      <div className="flex items-center justify-between mb-3">
+        <span className="text-xs font-semibold text-[#D4AF37]">Participant {index + 1}</span>
+        {canRemove && (
+          <button onClick={onRemove} className="text-red-400 hover:text-red-600 transition-colors" data-testid={`remove-participant-${index}`}>
+            <Trash2 size={16} />
+          </button>
+        )}
+      </div>
+
+      {/* Row 1: Name */}
+      <div className="mb-3">
         <label className="text-[10px] text-gray-500 mb-0.5 block">Full Name *</label>
-        <Input data-testid={`p-name-${index}`} value={data.name} onChange={e => onChange({ ...data, name: e.target.value })} placeholder="Full name" className="text-sm" />
+        <Input data-testid={`p-name-${index}`} value={data.name} onChange={e => update('name', e.target.value)} placeholder="Full name" className="text-sm" />
       </div>
-      <div>
-        <label className="text-[10px] text-gray-500 mb-0.5 block">Relationship to You *</label>
-        <select data-testid={`p-relation-${index}`} value={data.relationship} onChange={e => onChange({ ...data, relationship: e.target.value })} className="w-full border rounded-md px-2 py-2 text-sm bg-white">
-          <option value="">Select...</option>
-          {RELATIONSHIPS.map(r => <option key={r} value={r}>{r}</option>)}
-        </select>
+
+      {/* Row 2: Relationship + Age */}
+      <div className="grid grid-cols-2 gap-3 mb-3">
+        <div>
+          <label className="text-[10px] text-gray-500 mb-0.5 block">Relationship *</label>
+          <select data-testid={`p-relation-${index}`} value={data.relationship} onChange={e => update('relationship', e.target.value)} className="w-full border rounded-md px-2 py-2 text-sm bg-white">
+            <option value="">Select...</option>
+            {RELATIONSHIPS.map(r => <option key={r} value={r}>{r}</option>)}
+          </select>
+        </div>
+        <div>
+          <label className="text-[10px] text-gray-500 mb-0.5 block">Age *</label>
+          <Input data-testid={`p-age-${index}`} type="number" min="5" max="120" value={data.age} onChange={e => update('age', e.target.value)} placeholder="Age" className="text-sm" />
+        </div>
       </div>
-      <div>
-        <label className="text-[10px] text-gray-500 mb-0.5 block">Age *</label>
-        <Input data-testid={`p-age-${index}`} type="number" min="5" max="120" value={data.age} onChange={e => onChange({ ...data, age: e.target.value })} placeholder="Age" className="text-sm" />
+
+      {/* Row 3: Gender + Country */}
+      <div className="grid grid-cols-2 gap-3 mb-3">
+        <div>
+          <label className="text-[10px] text-gray-500 mb-0.5 block">Gender *</label>
+          <select data-testid={`p-gender-${index}`} value={data.gender} onChange={e => update('gender', e.target.value)} className="w-full border rounded-md px-2 py-2 text-sm bg-white">
+            <option value="">Select...</option>
+            {GENDERS.map(g => <option key={g} value={g}>{g}</option>)}
+          </select>
+        </div>
+        <div>
+          <label className="text-[10px] text-gray-500 mb-0.5 block">Country *</label>
+          <select data-testid={`p-country-${index}`} value={data.country} onChange={e => update('country', e.target.value)} className="w-full border rounded-md px-2 py-2 text-sm bg-white">
+            {COUNTRIES.map(c => <option key={c.code} value={c.code}>{c.name}</option>)}
+          </select>
+        </div>
       </div>
-      <div className="col-span-2">
-        <label className="text-[10px] text-gray-500 mb-0.5 block">Gender *</label>
-        <select data-testid={`p-gender-${index}`} value={data.gender} onChange={e => onChange({ ...data, gender: e.target.value })} className="w-full border rounded-md px-2 py-2 text-sm bg-white">
-          <option value="">Select...</option>
-          {GENDERS.map(g => <option key={g} value={g}>{g}</option>)}
-        </select>
+
+      {/* Row 4: Attendance Mode */}
+      <div className="mb-3">
+        <label className="text-[10px] text-gray-500 mb-1 block">Session Mode *</label>
+        <div className="grid grid-cols-2 gap-2">
+          <button data-testid={`p-mode-online-${index}`} type="button" onClick={() => update('attendance_mode', 'online')}
+            className={`flex items-center gap-2 px-3 py-2 rounded-lg border text-xs transition-all ${
+              data.attendance_mode === 'online'
+                ? 'border-[#D4AF37] bg-[#D4AF37]/5 text-[#D4AF37] font-semibold'
+                : 'border-gray-200 text-gray-500 hover:border-gray-300'
+            }`}>
+            <Monitor size={14} /> Online (Zoom)
+          </button>
+          <button data-testid={`p-mode-offline-${index}`} type="button" onClick={() => update('attendance_mode', 'offline')}
+            className={`flex items-center gap-2 px-3 py-2 rounded-lg border text-xs transition-all ${
+              data.attendance_mode === 'offline'
+                ? 'border-[#D4AF37] bg-[#D4AF37]/5 text-[#D4AF37] font-semibold'
+                : 'border-gray-200 text-gray-500 hover:border-gray-300'
+            }`}>
+            <Wifi size={14} /> Remote Healing
+          </button>
+        </div>
+      </div>
+
+      {/* Row 5: Notification Toggle */}
+      <div className="border-t pt-3">
+        <label className="flex items-center gap-2 cursor-pointer group" data-testid={`p-notify-toggle-${index}`}>
+          <input type="checkbox" checked={data.notify} onChange={e => update('notify', e.target.checked)}
+            className="w-4 h-4 rounded border-gray-300 text-[#D4AF37] focus:ring-[#D4AF37]" />
+          <span className="text-xs text-gray-600 group-hover:text-gray-800 flex items-center gap-1">
+            {data.notify ? <Bell size={12} className="text-[#D4AF37]" /> : <BellOff size={12} className="text-gray-400" />}
+            Send session info to this participant
+          </span>
+        </label>
+
+        {data.notify && (
+          <div className="grid grid-cols-2 gap-3 mt-3">
+            <div>
+              <label className="text-[10px] text-gray-500 mb-0.5 block">Email</label>
+              <Input data-testid={`p-email-${index}`} type="email" value={data.email} onChange={e => update('email', e.target.value)} placeholder="Email address" className="text-sm" />
+            </div>
+            <div>
+              <label className="text-[10px] text-gray-500 mb-0.5 block">Phone ({countryPhone})</label>
+              <Input data-testid={`p-phone-${index}`} type="tel" value={data.phone} onChange={e => update('phone', e.target.value.replace(/\D/g, ''))} placeholder="Phone number" className="text-sm" />
+            </div>
+          </div>
+        )}
       </div>
     </div>
-  </div>
-);
+  );
+};
 
 function EnrollmentPage() {
   const { type, id } = useParams();
@@ -117,17 +187,13 @@ function EnrollmentPage() {
   const [vpnDetected, setVpnDetected] = useState(false);
   const [pricing, setPricing] = useState(null);
 
-  // Step 1
+  // Step 1: Participants
   const [bookerName, setBookerName] = useState('');
   const [bookerEmail, setBookerEmail] = useState('');
-  const [country, setCountry] = useState('AE');
+  const [bookerCountry, setBookerCountry] = useState('AE');
   const [participants, setParticipants] = useState([emptyParticipant()]);
 
-  // Step 2
-  const [attendance, setAttendance] = useState('');
-  const [showOfflineModal, setShowOfflineModal] = useState(false);
-
-  // Step 3
+  // Step 2: Verify
   const [phone, setPhone] = useState('');
   const [countryCode, setCountryCode] = useState('+971');
   const [otpSent, setOtpSent] = useState(false);
@@ -135,7 +201,7 @@ function EnrollmentPage() {
   const [phoneVerified, setPhoneVerified] = useState(false);
   const [mockOtp, setMockOtp] = useState('');
 
-  // Step 4
+  // Step 3: Pay
   const [processing, setProcessing] = useState(false);
 
   useEffect(() => {
@@ -144,9 +210,9 @@ function EnrollmentPage() {
   }, [id, type, navigate]);
 
   useEffect(() => {
-    const c = COUNTRIES.find(c => c.code === country);
+    const c = COUNTRIES.find(c => c.code === bookerCountry);
     if (c) setCountryCode(c.phone);
-  }, [country]);
+  }, [bookerCountry]);
 
   const updateParticipant = (index, data) => {
     const updated = [...participants];
@@ -161,17 +227,20 @@ function EnrollmentPage() {
     setParticipants(participants.filter((_, i) => i !== index));
   };
 
-  // ─── Step 1 ───
-  const submitProfile = async () => {
+  // Step 1: Submit participants
+  const submitParticipants = async () => {
     if (!bookerName.trim()) return toast({ title: 'Enter your name', variant: 'destructive' });
     if (!bookerEmail.trim()) return toast({ title: 'Enter your email', variant: 'destructive' });
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(bookerEmail)) return toast({ title: 'Enter a valid email', variant: 'destructive' });
 
     for (let i = 0; i < participants.length; i++) {
       const p = participants[i];
       if (!p.name.trim()) return toast({ title: `Participant ${i + 1}: Enter name`, variant: 'destructive' });
       if (!p.relationship) return toast({ title: `Participant ${i + 1}: Select relationship`, variant: 'destructive' });
-      if (!p.age || p.age < 5) return toast({ title: `Participant ${i + 1}: Enter valid age`, variant: 'destructive' });
+      if (!p.age || p.age < 5) return toast({ title: `Participant ${i + 1}: Enter valid age (5+)`, variant: 'destructive' });
       if (!p.gender) return toast({ title: `Participant ${i + 1}: Select gender`, variant: 'destructive' });
+      if (p.notify && p.email && !emailRegex.test(p.email)) return toast({ title: `Participant ${i + 1}: Invalid email`, variant: 'destructive' });
     }
 
     setLoading(true);
@@ -179,8 +248,18 @@ function EnrollmentPage() {
       const res = await axios.post(`${API}/enrollment/start`, {
         booker_name: bookerName,
         booker_email: bookerEmail,
-        country,
-        participants: participants.map(p => ({ ...p, age: parseInt(p.age) })),
+        booker_country: bookerCountry,
+        participants: participants.map(p => ({
+          name: p.name,
+          relationship: p.relationship,
+          age: parseInt(p.age),
+          gender: p.gender,
+          country: p.country,
+          attendance_mode: p.attendance_mode,
+          notify: p.notify,
+          email: p.notify ? p.email : null,
+          phone: p.notify ? p.phone : null,
+        })),
       });
       setEnrollmentId(res.data.enrollment_id);
       setVpnDetected(res.data.vpn_detected);
@@ -193,23 +272,7 @@ function EnrollmentPage() {
     } finally { setLoading(false); }
   };
 
-  // ─── Step 2 ───
-  const submitAttendance = async () => {
-    if (!attendance) return toast({ title: 'Select a mode', variant: 'destructive' });
-    setLoading(true);
-    try {
-      const res = await axios.put(`${API}/enrollment/${enrollmentId}/attendance`, { mode: attendance });
-      if (attendance === 'offline' && res.data.offline_info) {
-        setShowOfflineModal(true);
-      } else {
-        setStep(2);
-      }
-    } catch (err) {
-      toast({ title: 'Error', description: err.response?.data?.detail || 'Failed', variant: 'destructive' });
-    } finally { setLoading(false); }
-  };
-
-  // ─── Step 3 ───
+  // Step 2: Phone verification
   const sendOtp = async () => {
     if (!phone.trim() || phone.length < 7) return toast({ title: 'Enter valid phone number', variant: 'destructive' });
     setLoading(true);
@@ -232,13 +295,13 @@ function EnrollmentPage() {
       toast({ title: 'Phone verified!' });
       const pRes = await axios.get(`${API}/enrollment/${enrollmentId}/pricing?item_type=${type}&item_id=${id}`);
       setPricing(pRes.data);
-      setStep(3);
+      setStep(2);
     } catch (err) {
       toast({ title: 'Failed', description: err.response?.data?.detail || 'Wrong OTP', variant: 'destructive' });
     } finally { setLoading(false); }
   };
 
-  // ─── Step 4 ───
+  // Step 3: Checkout
   const handleCheckout = async () => {
     setProcessing(true);
     try {
@@ -265,7 +328,7 @@ function EnrollmentPage() {
             <h1 data-testid="enrollment-title" className="text-2xl md:text-3xl text-gray-900">{item.title}</h1>
           </div>
 
-          <StepIndicator current={step} steps={['Participants', 'Mode', 'Verify', 'Pay']} />
+          <StepIndicator current={step} steps={['Participants', 'Verify', 'Pay']} />
 
           <div className="bg-white rounded-2xl shadow-lg p-6 md:p-8">
 
@@ -279,9 +342,9 @@ function EnrollmentPage() {
               </div>
             )}
 
-            {/* ═══ STEP 1: PARTICIPANTS ═══ */}
+            {/* STEP 1: PARTICIPANTS */}
             {step === 0 && (
-              <div data-testid="step-profile">
+              <div data-testid="step-participants">
                 <div className="flex items-center gap-3 mb-5">
                   <div className="w-9 h-9 bg-[#D4AF37]/10 rounded-full flex items-center justify-center"><User size={18} className="text-[#D4AF37]" /></div>
                   <div>
@@ -291,7 +354,7 @@ function EnrollmentPage() {
                 </div>
 
                 {/* Booker info */}
-                <div className="border rounded-xl p-4 mb-4 bg-white">
+                <div className="border rounded-xl p-4 mb-4 bg-white" data-testid="booker-section">
                   <span className="text-xs font-semibold text-gray-700 block mb-3">Your Details (Booker)</span>
                   <div className="grid grid-cols-2 gap-3">
                     <div>
@@ -304,7 +367,7 @@ function EnrollmentPage() {
                     </div>
                     <div className="col-span-2">
                       <label className="text-[10px] text-gray-500 mb-0.5 block">Your Country *</label>
-                      <select data-testid="booker-country" value={country} onChange={e => setCountry(e.target.value)} className="w-full border rounded-md px-2 py-2 text-sm bg-white">
+                      <select data-testid="booker-country" value={bookerCountry} onChange={e => setBookerCountry(e.target.value)} className="w-full border rounded-md px-2 py-2 text-sm bg-white">
                         {COUNTRIES.map(c => <option key={c.code} value={c.code}>{c.name}</option>)}
                       </select>
                     </div>
@@ -328,80 +391,28 @@ function EnrollmentPage() {
                   </button>
                 </div>
 
-                <Button data-testid="step1-next" onClick={submitProfile} disabled={loading} className="w-full bg-[#D4AF37] hover:bg-[#b8962e] text-white py-3 rounded-full">
+                <Button data-testid="step1-next" onClick={submitParticipants} disabled={loading} className="w-full bg-[#D4AF37] hover:bg-[#b8962e] text-white py-3 rounded-full">
                   {loading ? <Loader2 className="animate-spin" size={18} /> : <><span>Continue with {participants.length} participant{participants.length > 1 ? 's' : ''}</span> <ChevronRight size={18} className="ml-1" /></>}
                 </Button>
               </div>
             )}
 
-            {/* ═══ STEP 2: ATTENDANCE MODE ═══ */}
+            {/* STEP 2: PHONE VERIFICATION */}
             {step === 1 && (
-              <div data-testid="step-attendance">
-                <div className="flex items-center gap-3 mb-5">
-                  <div className="w-9 h-9 bg-[#D4AF37]/10 rounded-full flex items-center justify-center"><Monitor size={18} className="text-[#D4AF37]" /></div>
-                  <div>
-                    <h2 className="text-base font-semibold text-gray-900">Session Mode</h2>
-                    <p className="text-xs text-gray-500">How would participants like to attend?</p>
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-4 mb-6">
-                  <button data-testid="mode-online" onClick={() => setAttendance('online')}
-                    className={`p-5 rounded-xl border-2 transition-all text-center ${attendance === 'online' ? 'border-[#D4AF37] bg-[#D4AF37]/5 shadow-lg' : 'border-gray-200 hover:border-gray-300'}`}>
-                    <Monitor size={28} className={`mx-auto mb-2 ${attendance === 'online' ? 'text-[#D4AF37]' : 'text-gray-400'}`} />
-                    <p className="font-semibold text-gray-900 text-sm">Online (Zoom)</p>
-                    <p className="text-[10px] text-gray-500 mt-1">Join a live Zoom session from anywhere</p>
-                  </button>
-                  <button data-testid="mode-offline" onClick={() => setAttendance('offline')}
-                    className={`p-5 rounded-xl border-2 transition-all text-center ${attendance === 'offline' ? 'border-[#D4AF37] bg-[#D4AF37]/5 shadow-lg' : 'border-gray-200 hover:border-gray-300'}`}>
-                    <Wifi size={28} className={`mx-auto mb-2 ${attendance === 'offline' ? 'text-[#D4AF37]' : 'text-gray-400'}`} />
-                    <p className="font-semibold text-gray-900 text-sm">Remote Healing</p>
-                    <p className="text-[10px] text-gray-500 mt-1">No call needed — the healer works remotely</p>
-                  </button>
-                </div>
-
-                <div className="flex gap-3">
-                  <Button variant="outline" onClick={() => setStep(0)} className="rounded-full"><ChevronLeft size={18} /> Back</Button>
-                  <Button data-testid="step2-next" onClick={submitAttendance} disabled={loading || !attendance} className="flex-1 bg-[#D4AF37] hover:bg-[#b8962e] text-white rounded-full">
-                    {loading ? <Loader2 className="animate-spin" size={18} /> : <><span>Continue</span> <ChevronRight size={18} /></>}
-                  </Button>
-                </div>
-
-                {showOfflineModal && (
-                  <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-                    <div className="bg-white rounded-2xl p-8 max-w-md w-full shadow-2xl" data-testid="offline-modal">
-                      <Wifi size={36} className="mx-auto text-[#D4AF37] mb-4" />
-                      <h3 className="text-lg font-semibold text-gray-900 text-center mb-4">Remote Healing Session</h3>
-                      <div className="bg-gray-50 rounded-lg p-4 mb-6 space-y-2 text-sm text-gray-700">
-                        <p>This is a <strong>remote healing session</strong>. You do not need to join any call.</p>
-                        <p>The healer will work on the participant's energy remotely during the scheduled time.</p>
-                        <p className="text-gray-500 text-xs mt-2">Please ensure the participant is in a calm, comfortable space during the session time.</p>
-                      </div>
-                      <Button data-testid="offline-modal-confirm" onClick={() => { setShowOfflineModal(false); setStep(2); }} className="w-full bg-[#D4AF37] hover:bg-[#b8962e] text-white rounded-full">
-                        I Understand, Continue
-                      </Button>
-                    </div>
-                  </div>
-                )}
-              </div>
-            )}
-
-            {/* ═══ STEP 3: PHONE VERIFICATION ═══ */}
-            {step === 2 && (
               <div data-testid="step-verify">
                 <div className="flex items-center gap-3 mb-5">
                   <div className="w-9 h-9 bg-[#D4AF37]/10 rounded-full flex items-center justify-center"><Phone size={18} className="text-[#D4AF37]" /></div>
                   <div>
                     <h2 className="text-base font-semibold text-gray-900">Verify Your Phone</h2>
-                    <p className="text-xs text-gray-500">We'll send a one-time code to confirm</p>
+                    <p className="text-xs text-gray-500">We'll send a one-time code to confirm your identity</p>
                   </div>
                 </div>
 
                 <div className="p-4 rounded-xl border bg-gray-50 mb-5">
-                  <div className="flex items-center gap-2 mb-3">
+                  <div className="flex items-center gap-2">
                     <Mail size={14} className="text-green-500" />
                     <span className="text-sm text-gray-600">Email: <strong>{bookerEmail}</strong></span>
-                    <span className="text-[10px] bg-green-100 text-green-700 px-2 py-0.5 rounded-full">Verified</span>
+                    <span className="text-[10px] bg-green-100 text-green-700 px-2 py-0.5 rounded-full">Confirmed</span>
                   </div>
                 </div>
 
@@ -415,7 +426,7 @@ function EnrollmentPage() {
                   {!phoneVerified && (
                     <>
                       <div className="flex gap-2 mb-3">
-                        <select value={countryCode} onChange={e => setCountryCode(e.target.value)} className="border rounded-md px-2 py-2 text-sm w-24 bg-white">
+                        <select data-testid="phone-country-code" value={countryCode} onChange={e => setCountryCode(e.target.value)} className="border rounded-md px-2 py-2 text-sm w-24 bg-white">
                           {COUNTRIES.map(c => <option key={c.code} value={c.phone}>{c.phone}</option>)}
                         </select>
                         <Input data-testid="enroll-phone" type="tel" value={phone} onChange={e => setPhone(e.target.value.replace(/\D/g, ''))} placeholder="Phone number" disabled={otpSent} className="flex-1" />
@@ -446,13 +457,13 @@ function EnrollmentPage() {
                 </div>
 
                 <div className="flex gap-3 mt-5">
-                  <Button variant="outline" onClick={() => setStep(1)} className="rounded-full"><ChevronLeft size={18} /> Back</Button>
+                  <Button variant="outline" onClick={() => setStep(0)} className="rounded-full"><ChevronLeft size={18} /> Back</Button>
                 </div>
               </div>
             )}
 
-            {/* ═══ STEP 4: PAYMENT ═══ */}
-            {step === 3 && pricing && (
+            {/* STEP 3: PAYMENT */}
+            {step === 2 && pricing && (
               <div data-testid="step-billing">
                 <div className="flex items-center gap-3 mb-5">
                   <div className="w-9 h-9 bg-[#D4AF37]/10 rounded-full flex items-center justify-center"><CreditCard size={18} className="text-[#D4AF37]" /></div>
@@ -480,12 +491,20 @@ function EnrollmentPage() {
                   <h3 className="font-semibold text-gray-900 mb-1 text-sm">{pricing.item.title}</h3>
                   <p className="text-xs text-gray-500 mb-3 line-clamp-2">{pricing.item.description}</p>
 
-                  {/* Participants */}
                   <div className="border-t pt-3 mb-3">
                     <p className="text-xs font-semibold text-gray-700 mb-2">Participants ({pricing.pricing.participant_count})</p>
                     {participants.map((p, i) => (
-                      <div key={i} className="flex justify-between text-xs text-gray-600 py-1">
-                        <span>{p.name} ({p.relationship})</span>
+                      <div key={i} className="flex justify-between items-center text-xs text-gray-600 py-1.5 border-b border-gray-100 last:border-0">
+                        <div>
+                          <span className="font-medium">{p.name}</span>
+                          <span className="text-gray-400 ml-1">({p.relationship})</span>
+                          <span className={`ml-2 inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded ${
+                            p.attendance_mode === 'online' ? 'bg-blue-50 text-blue-600' : 'bg-purple-50 text-purple-600'
+                          }`}>
+                            {p.attendance_mode === 'online' ? <Monitor size={9} /> : <Wifi size={9} />}
+                            {p.attendance_mode === 'online' ? 'Zoom' : 'Remote'}
+                          </span>
+                        </div>
                         <span>{pricing.pricing.symbol}{pricing.pricing.final_per_person}</span>
                       </div>
                     ))}
@@ -507,11 +526,10 @@ function EnrollmentPage() {
                   <p><strong>Booked by:</strong> {bookerName}</p>
                   <p><strong>Email:</strong> {bookerEmail}</p>
                   <p><strong>Phone:</strong> {countryCode}{phone}</p>
-                  <p><strong>Mode:</strong> {attendance === 'online' ? 'Online (Zoom)' : 'Remote Healing'}</p>
                 </div>
 
                 <div className="flex gap-3">
-                  <Button variant="outline" onClick={() => setStep(2)} className="rounded-full"><ChevronLeft size={18} /></Button>
+                  <Button variant="outline" onClick={() => setStep(1)} className="rounded-full"><ChevronLeft size={18} /></Button>
                   <Button data-testid="pay-now-btn" onClick={handleCheckout} disabled={processing} className="flex-1 bg-[#D4AF37] hover:bg-[#b8962e] text-white py-3 rounded-full">
                     {processing ? <><Loader2 className="animate-spin mr-2" size={16} /> Redirecting...</> : <><Lock size={14} className="mr-2" /> Pay {pricing.pricing.symbol}{pricing.pricing.total}</>}
                   </Button>

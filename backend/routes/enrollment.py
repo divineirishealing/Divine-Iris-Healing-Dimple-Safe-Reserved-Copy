@@ -52,17 +52,18 @@ class ParticipantData(BaseModel):
     relationship: str  # Myself, Mother, Father, Sister, Brother, Spouse, Friend, Husband, Wife, Colleague, Other
     age: int
     gender: str
+    country: str = "AE"
+    attendance_mode: str = "online"  # "online" or "offline"
+    notify: bool = False
+    email: Optional[str] = None
+    phone: Optional[str] = None
 
 
 class ProfileData(BaseModel):
     booker_name: str
     booker_email: str
+    booker_country: str = "AE"
     participants: list[ParticipantData]
-    country: str
-
-
-class AttendanceData(BaseModel):
-    mode: str  # "online" or "offline"
 
 
 class EmailValidation(BaseModel):
@@ -139,7 +140,7 @@ def get_ppp_price(base_aed_price: float, currency: str) -> float:
 
 @router.post("/start")
 async def start_enrollment(profile: ProfileData, request: Request):
-    """Step 1: Create enrollment with booker info + participants + IP detection"""
+    """Step 1: Create enrollment with booker info + participants (each with country, attendance, notify prefs) + IP detection"""
     ip_info = await detect_ip_info(request)
 
     if not profile.participants or len(profile.participants) == 0:
@@ -156,17 +157,24 @@ async def start_enrollment(profile: ProfileData, request: Request):
     if domain in disposable_domains:
         raise HTTPException(status_code=400, detail="Disposable email addresses are not allowed.")
 
+    # Validate per-participant data
+    for i, p in enumerate(profile.participants):
+        if p.attendance_mode not in ["online", "offline"]:
+            raise HTTPException(status_code=400, detail=f"Participant {i+1}: attendance mode must be 'online' or 'offline'")
+        if p.notify:
+            if p.email and not validate_email_format(p.email.strip()):
+                raise HTTPException(status_code=400, detail=f"Participant {i+1}: invalid email format")
+
     enrollment = {
         "id": str(uuid.uuid4()),
         "status": "profile_complete",
         "step": 1,
         "booker_name": profile.booker_name,
         "booker_email": email,
-        "country": profile.country,
+        "booker_country": profile.booker_country,
         "participants": [p.dict() for p in profile.participants],
         "participant_count": len(profile.participants),
         "ip_info": ip_info,
-        "attendance": None,
         "phone": None,
         "phone_verified": False,
         "vpn_blocked": ip_info["is_vpn"] or ip_info["is_proxy"] or ip_info["is_hosting"],
@@ -182,43 +190,7 @@ async def start_enrollment(profile: ProfileData, request: Request):
         "participant_count": len(profile.participants),
         "ip_country": ip_info["country"],
         "vpn_detected": enrollment["vpn_blocked"],
-        "message": f"Profile saved for {len(profile.participants)} participant(s). Proceed to attendance mode.",
-    }
-
-
-@router.put("/{enrollment_id}/attendance")
-async def set_attendance(enrollment_id: str, data: AttendanceData):
-    """Step 2: Set attendance mode"""
-    enrollment = await db.enrollments.find_one({"id": enrollment_id})
-    if not enrollment:
-        raise HTTPException(status_code=404, detail="Enrollment not found")
-
-    if data.mode not in ["online", "offline"]:
-        raise HTTPException(status_code=400, detail="Mode must be 'online' or 'offline'")
-
-    offline_info = None
-    if data.mode == "offline":
-        offline_info = {
-            "note": "This is a remote healing session. You do not need to join any call. The healer will work on the participant's energy remotely.",
-            "instruction": "Please ensure the participant is in a calm, comfortable space during the scheduled session time.",
-        }
-
-    await db.enrollments.update_one(
-        {"id": enrollment_id},
-        {"$set": {
-            "attendance": data.mode,
-            "step": 2,
-            "status": "attendance_complete",
-            "updated_at": datetime.now(timezone.utc).isoformat(),
-        }}
-    )
-
-    return {
-        "enrollment_id": enrollment_id,
-        "step": 2,
-        "mode": data.mode,
-        "offline_info": offline_info,
-        "message": "Attendance mode set. Proceed to contact verification.",
+        "message": f"Profile saved for {len(profile.participants)} participant(s). Proceed to verification.",
     }
 
 
@@ -340,7 +312,7 @@ async def get_enrollment_pricing(enrollment_id: str, item_type: str, item_id: st
         raise HTTPException(status_code=404, detail="Item not found")
 
     ip_country = enrollment.get("ip_info", {}).get("country", "AE")
-    claimed_country = enrollment.get("country", "")
+    claimed_country = enrollment.get("booker_country", enrollment.get("country", ""))
     vpn_blocked = enrollment.get("vpn_blocked", False)
     phone = enrollment.get("phone") or ""
     participant_count = enrollment.get("participant_count", 1)
@@ -483,6 +455,7 @@ async def enrollment_checkout(enrollment_id: str, data: EnrollmentSubmit, reques
             "name": enrollment.get("booker_name", ""),
             "participant_count": str(enrollment.get("participant_count", 1)),
             "currency": currency,
+            "booker_country": enrollment.get("booker_country", ""),
         }
     )
 
@@ -566,7 +539,7 @@ async def validate_card_bin(enrollment_id: str, data: BINCheckRequest):
     except Exception:
         pass  # BIN API failed, rely on local list
 
-    claimed_country = enrollment.get("profile", {}).get("country", "")
+    claimed_country = enrollment.get("booker_country", enrollment.get("country", ""))
     
     # If claiming India but card is not Indian → flag
     if claimed_country == "IN" and not is_indian_card:
