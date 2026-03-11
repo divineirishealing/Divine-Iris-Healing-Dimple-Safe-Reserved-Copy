@@ -1,84 +1,84 @@
 # Divine Iris Healing - Product Requirements Document
 
 ## Original Problem Statement
-Build a pixel-perfect clone of https://divineirishealing.com/ with admin panel, Stripe payments, and a robust multi-step enrollment system with anti-fraud India-gating.
+Build a pixel-perfect clone of https://divineirishealing.com/ with a comprehensive, child-friendly admin panel to manage all website content and styling, plus a robust enrollment and payment system with anti-fraud India-gating.
 
 ## Architecture
 - **Frontend**: React + TailwindCSS + shadcn/ui
-- **Backend**: FastAPI + Motor (async MongoDB) + emergentintegrations (Stripe)
+- **Backend**: FastAPI + Pydantic + Motor (async MongoDB)
 - **Database**: MongoDB
-- **Payments**: Stripe (test mode) via emergentintegrations library
+- **Payments**: Stripe (test mode) via emergentintegrations
+- **Email**: Resend (configured, pending domain verification)
 
 ## What's Been Implemented
 
-### Multi-Person Enrollment System v2 (COMPLETED - Feb 2026)
-- [x] **3-Step Flow**: Participants → Verify → Pay (reduced from 4 steps)
-- [x] **Per-Participant Fields**: name, relationship, age, gender, country, attendance_mode (online/offline), notify toggle, optional email/phone
-- [x] **Booker Section**: Name, email, country — verified separately
-- [x] **Attendance Mode Per Person**: Each participant independently selects Online (Zoom) or Remote Healing (offline)
-- [x] **Notification Preferences**: Toggle per participant — if enabled, collects their email and phone for session info
-- [x] **Dynamic Participant Management**: Add/remove participant forms dynamically
-- [x] **Payment Summary**: Shows each participant with attendance mode badge (Zoom/Remote) and per-person pricing
-- [x] **Total Pricing**: Correctly multiplies per-person price × participant count
+### Comprehensive Admin Panel (COMPLETED - Mar 2026)
+- [x] **11 Admin Tabs** — modular, each section fully editable:
+  1. **Hero Banner** — Video upload, title (font/size/color/bold/italic/alignment), subtitle, decorative lines toggle, live preview
+  2. **About** — Site logo (upload + size slider), healer photo, name, title, 2 bio paragraphs, button text/link
+  3. **Programs** — Full CRUD, visibility toggle, reorder, pricing (AED/USD/INR), offers, upcoming toggle
+  4. **Sessions** — Full CRUD, visibility, reorder, multi-currency pricing
+  5. **Testimonials** — Full CRUD, graphic/video types, visibility toggle
+  6. **Stats** — Full CRUD (add/edit/delete numbers like "28000+ Clients")
+  7. **Newsletter** — Heading, description, button text, footer text with live preview
+  8. **Header & Footer** — Social media URLs (Facebook, Instagram, YouTube, LinkedIn), footer brand name, tagline, email, phone, copyright with preview
+  9. **Enrollments** — View all enrollments with participants, toggle to Payments view, search
+  10. **Subscribers** — Email list with dates
+  11. **Global Styles** — Heading/body font selectors, color pickers, text sizes, per-section style overrides
+- [x] **Dynamic Content** — Header, Footer, About, Newsletter sections consume settings from API (no more hardcoded values)
 
-### Anti-Fraud India-Gating (COMPLETED - Mar 10, 2026)
-- [x] **VPN/Proxy Detection**: ip-api.com detects VPN, Tor, proxy, hosting IPs
-- [x] **Strict India Validation**: ALL must pass for INR pricing:
-  - IP must be Indian (no VPN/proxy)
-  - Booker country must be India
-  - Phone must be +91 prefix
-- [x] **BIN Validation**: Card BIN checked against Indian bank prefixes + binlist.net API
-- [x] **PPP Tiers**: Fixed AED base, INR multiplier (0.14x)
-- [x] **If ANY check fails → AED base price** with detailed fraud warning
+### Multi-Person Enrollment v2 (COMPLETED - Mar 2026)
+- [x] 3-step flow: Participants → Verify → Pay
+- [x] Per-participant: country, attendance mode (Online Zoom / Remote Healing), notification toggle (email + phone)
+- [x] Booker verification: email format + phone OTP
+- [x] Price multiplied by participant count
 
-### Phone OTP Verification (COMPLETED - MOCKED)
-- [x] 6-digit OTP generated server-side
-- [x] Mock OTP displayed on frontend for testing
-- [x] OTP expiry (5 min), max attempts (5)
+### Email Notifications (COMPLETED - Mar 2026)
+- [x] Resend integration configured (API key set)
+- [x] Booker confirmation email — branded HTML with participants, amounts, modes
+- [x] Participant notification email — for those who opted in
+- [x] Triggered automatically post-payment via background task
+- [x] **Pending:** Domain verification in Resend for custom sender email
 
-### Stats Section (COMPLETED - Mar 10, 2026)
-- [x] Exact replica of original: black background, gold particles.js canvas animation
-- [x] FontAwesome icons (users, calendar, infinity, award)
-- [x] Cinzel serif font with golden glow text-shadow
+### Anti-Fraud India-Gating (COMPLETED)
+- [x] VPN/proxy detection, IP validation, phone prefix check, BIN validation
+- [x] INR pricing only if ALL checks pass, else AED (with USD fallback if AED=0)
 
-### Hero Section (COMPLETED - Mar 10, 2026)
-- [x] Video background, no black screen, no overlay
-- [x] Admin controls: title font/size/color/bold/italic/alignment, subtitle same
-- [x] Logo upload + width slider in admin
-
-### Previous Completions
-- [x] Pixel-perfect site clone (all pages)
-- [x] Services page with interactive sidebar
-- [x] Stripe payment gateway (multi-currency)
-- [x] Advanced admin panel (visibility, reorder, CRUD)
-- [x] Testimonials (video + graphic tabs)
-- [x] Upcoming programs with countdown timers
-- [x] Newsletter section (white background)
-- [x] Section alignment fixes
-
-### Admin Credentials
-- URL: /admin | Username: admin | Password: divineadmin2024
+### Pixel-Perfect Site Clone (COMPLETED)
+- [x] Hero section with video background, custom particle canvas animation (Stats)
+- [x] All pages: Home, About, Services, Programs, Sessions, Media, Contact
+- [x] Admin credentials: `/admin` | admin / divineadmin2024
 
 ## Key API Endpoints
-- `POST /api/enrollment/start` — Create enrollment with booker info + participants (per-person country, attendance_mode, notify, email, phone)
-- `POST /api/enrollment/{id}/send-otp` — Send phone OTP (MOCK)
-- `POST /api/enrollment/{id}/verify-otp` — Verify OTP
-- `GET /api/enrollment/{id}/pricing` — Get pricing with security checks
-- `POST /api/enrollment/{id}/validate-bin` — Card BIN validation
-- `POST /api/enrollment/{id}/checkout` — Create Stripe session
+- `GET/PUT /api/settings` — All site settings (hero, about, newsletter, footer, social, styles)
+- `GET/POST/PUT/DELETE /api/programs` — Programs CRUD
+- `GET/POST/PUT/DELETE /api/sessions` — Sessions CRUD
+- `GET/POST/PUT/DELETE /api/testimonials` — Testimonials CRUD
+- `GET/POST/PUT/DELETE /api/stats` — Stats CRUD
+- `GET /api/enrollment/admin/list` — Admin: all enrollments
+- `GET /api/payments/transactions` — Admin: all payments
+- `POST /api/enrollment/start` — Start enrollment with per-participant data
+- `POST /api/enrollment/{id}/send-otp` — Mock OTP
+- `POST /api/enrollment/{id}/checkout` — Stripe checkout
 
 ## Prioritized Backlog
 
 ### P0 - High Priority
-- [ ] Replace mock phone OTP with Firebase Phone Auth
-- [ ] Per-element granular styling admin panel (all sections)
+- [ ] Verify Resend domain for live email sending
+- [ ] Replace mock phone OTP with real provider (Twilio/Firebase)
 
 ### P1 - Medium Priority
-- [ ] Admin Enrollments tab to view all registrations
-- [ ] Admin Transactions tab to view all payments
-- [ ] Re-upload graphic testimonial images to local storage
-
-### P2 - Low Priority
 - [ ] Mobile responsiveness audit
 - [ ] SEO meta tags
-- [ ] Refactor AdminPanel.jsx into smaller components
+- [ ] Admin: bulk export enrollments (CSV)
+
+### P2 - Low Priority
+- [ ] Re-upload graphic testimonial images to local storage
+- [ ] Admin: analytics dashboard (enrollment trends, revenue)
+
+## 3rd Party Integrations
+- **Stripe** — Payments (test mode, via emergentintegrations)
+- **Resend** — Email notifications (configured, domain pending)
+- **ipinfo.io / ip-api.com** — VPN/proxy detection
+- **binlist.net** — Card BIN validation
+- **FontAwesome** — Icons (CDN)
