@@ -17,6 +17,16 @@ Build a pixel-perfect clone of https://divineirishealing.com/ with comprehensive
 - [x] **Duration tier pricing** flows correctly through enrollment → OTP → Stripe checkout
 - [x] **Multi-currency support** — Stripe receives correct amount in detected currency (USD/AED/INR)
 
+### Post-Payment Links & Participant Insights (COMPLETED - Mar 11, 2026)
+- [x] **Program Links in Admin Panel** — WhatsApp Group, Zoom Meeting, Custom Link fields with toggle switches in program form
+- [x] **Links on Payment Success Page** — Beautiful card-based link buttons (WhatsApp green, Zoom blue, custom gold) shown after payment
+- [x] **Links in Confirmation Email** — Same links rendered as styled buttons in the enrollment receipt email
+- [x] **"First time joining Divine Iris Healing" checkbox** — Per-participant, in both Enrollment and Cart pages
+- [x] **"How did you hear about us?" dropdown** — 8 referral sources (Instagram, Facebook, YouTube, Google Search, Friend/Family, WhatsApp, Returning Client, Other)
+- [x] **Enhanced Payment Success Page** — Full receipt with participants list, amounts, booker info, and program links
+- [x] **Enhanced Confirmation Email** — Includes participant table with first-time status, program links as CTA buttons
+- [x] **Backend support** — ParticipantData model includes is_first_time & referral_source; payment status returns program_links
+
 ### WhatsApp Number Collection (COMPLETED - Mar 11, 2026)
 - [x] **WhatsApp field** in participant notification section (both Enrollment + Cart pages)
 - [x] **Green WhatsApp icon** with "WhatsApp No." placeholder
