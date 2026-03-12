@@ -63,7 +63,7 @@ const StepBar = ({ current, steps }) => (
   </div>
 );
 
-const ParticipantRow = ({ index, data, onChange, onRemove, canRemove }) => {
+const ParticipantRow = ({ index, data, onChange, onRemove, canRemove, showReferral = true }) => {
   const update = (field, value) => onChange({ ...data, [field]: value });
   return (
     <div className="border rounded-lg p-3 mb-2 bg-gray-50" data-testid={`participant-${index}`}>
@@ -113,12 +113,16 @@ const ParticipantRow = ({ index, data, onChange, onRemove, canRemove }) => {
           <option value="">Select (optional)</option>{REFERRAL_SOURCES.map(r => <option key={r} value={r}>{r}</option>)}
         </select>
       </div>
-      <label className="flex items-center gap-1.5 cursor-pointer mb-1.5" data-testid={`p-referred-toggle-${index}`}>
-        <input type="checkbox" checked={data.has_referral || false} onChange={e => update('has_referral', e.target.checked)} className="w-3.5 h-3.5 rounded border-gray-300 text-[#D4AF37]" />
-        <span className="text-[10px] text-gray-600">Referred by a Divine Iris member</span>
-      </label>
-      {data.has_referral && (
-        <Input data-testid={`p-referred-name-${index}`} type="text" value={data.referred_by_name || ''} onChange={e => update('referred_by_name', e.target.value)} placeholder="Referrer's name" className="text-xs h-8 mb-2" />
+      {showReferral && (
+        <>
+          <label className="flex items-center gap-1.5 cursor-pointer mb-1.5" data-testid={`p-referred-toggle-${index}`}>
+            <input type="checkbox" checked={data.has_referral || false} onChange={e => update('has_referral', e.target.checked)} className="w-3.5 h-3.5 rounded border-gray-300 text-[#D4AF37]" />
+            <span className="text-[10px] text-gray-600">Referred by a Divine Iris member</span>
+          </label>
+          {data.has_referral && (
+            <Input data-testid={`p-referred-name-${index}`} type="text" value={data.referred_by_name || ''} onChange={e => update('referred_by_name', e.target.value)} placeholder="Referrer's name" className="text-xs h-8 mb-2" />
+          )}
+        </>
       )}
       <label className="flex items-center gap-1.5 cursor-pointer" data-testid={`p-notify-${index}`}>
         <input type="checkbox" checked={data.notify} onChange={e => update('notify', e.target.checked)} className="w-3.5 h-3.5 rounded border-gray-300 text-[#D4AF37]" />
@@ -181,10 +185,12 @@ function EnrollmentPage() {
   const [phoneVerified, setPhoneVerified] = useState(false);
   const [mockOtp, setMockOtp] = useState('');
   const [processing, setProcessing] = useState(false);
+  const [discountSettings, setDiscountSettings] = useState({ enable_referral: true });
 
   useEffect(() => {
     const ep = type === 'program' ? 'programs' : 'sessions';
     axios.get(`${API}/${ep}/${id}`).then(r => setItem(r.data)).catch(() => navigate('/'));
+    axios.get(`${API}/discounts/settings`).then(r => setDiscountSettings(r.data)).catch(() => {});
   }, [id, type, navigate]);
 
   useEffect(() => {
@@ -338,7 +344,7 @@ function EnrollmentPage() {
                     <h2 className="text-sm font-semibold text-gray-900 mb-3 flex items-center gap-2"><User size={16} className="text-[#D4AF37]" /> Who is participating?</h2>
                     {participants.map((p, i) => (
                       <ParticipantRow key={i} index={i} data={p} onChange={d => { const u = [...participants]; u[i] = d; setParticipants(u); }}
-                        onRemove={() => setParticipants(participants.filter((_, j) => j !== i))} canRemove={participants.length > 1} />
+                        onRemove={() => setParticipants(participants.filter((_, j) => j !== i))} canRemove={participants.length > 1} showReferral={discountSettings.enable_referral} />
                     ))}
                     <button data-testid="add-participant-btn" onClick={() => setParticipants([...participants, emptyParticipant()])}
                       className="w-full border-2 border-dashed border-[#D4AF37]/40 rounded-lg py-2.5 flex items-center justify-center gap-1 text-xs text-[#D4AF37] hover:bg-[#D4AF37]/5 transition-colors mb-4">

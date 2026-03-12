@@ -11,7 +11,7 @@ import { resolveImageUrl } from '../../lib/imageUtils';
 import {
   Settings, Package, Calendar, MessageSquare, BarChart3, Mail,
   Trash2, Edit, Plus, X, Eye, EyeOff, Save, ArrowUp, ArrowDown,
-  Globe, Layout, Image, Users, Palette, Gift, Monitor, Wifi
+  Globe, Layout, Image, Users, Palette, Gift, Monitor, Wifi, Tag
 } from 'lucide-react';
 
 import HeroSettingsTab from './tabs/HeroSettingsTab';
@@ -22,6 +22,7 @@ import EnrollmentsTab from './tabs/EnrollmentsTab';
 import GlobalStylesTab from './tabs/GlobalStylesTab';
 import PromotionsTab from './tabs/PromotionsTab';
 import ExchangeRatesTab from './tabs/ExchangeRatesTab';
+import DiscountsTab from './tabs/DiscountsTab';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
@@ -165,6 +166,7 @@ const AdminPanel = () => {
     { key: 'header_footer', label: 'Header & Footer', icon: Globe },
     { key: 'enrollments', label: 'Enrollments', icon: Users },
     { key: 'promotions', label: 'Promotions', icon: Gift },
+    { key: 'discounts', label: 'Discounts & Loyalty', icon: Tag },
     { key: 'exchange_rates', label: 'Exchange Rates', icon: Globe },
     { key: 'subscribers', label: 'Subscribers', icon: Mail, count: subscribers.length },
     { key: 'styles', label: 'Global Styles', icon: Palette },
@@ -244,6 +246,7 @@ const AdminPanel = () => {
 
           {activeTab === 'enrollments' && <EnrollmentsTab />}
           {activeTab === 'promotions' && <PromotionsTab programs={programs} />}
+          {activeTab === 'discounts' && <DiscountsTab />}
           {activeTab === 'exchange_rates' && <ExchangeRatesTab />}
 
           {/* ===== PROGRAMS TAB ===== */}

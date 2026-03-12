@@ -1,0 +1,72 @@
+{
+  "summary": "Iteration 16 - Global Discounts & Loyalty Settings: All features tested and working. Backend APIs (GET /api/discounts/settings, POST /api/discounts/calculate, GET /api/discounts/check-loyalty/{email}, PUT /api/settings) all functional. Admin Panel Discounts & Loyalty tab fully operational with all 4 toggles working (Referral, Group, Combo, Loyalty). EnrollmentPage correctly hides/shows referral field based on enable_referral setting. 13 backend tests passed 100%. Phone OTP is MOCKED.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iteration16_discounts_loyalty.py",
+    "/app/test_reports/pytest/pytest_iteration16.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "discounts.py: GET /settings returns all 8 discount fields with proper defaults",
+    "discounts.py: POST /calculate correctly applies group discount first, then combo on remaining amount",
+    "discounts.py: check-loyalty/{email} queries enrollments collection for existing UID",
+    "site_settings.py: PUT /api/settings accepts all discount fields via SiteSettingsUpdate model",
+    "models.py: SiteSettings model includes enable_referral, enable_group_discount, group_discount_rules, enable_combo_discount, combo_discount_pct, combo_min_programs, enable_loyalty, loyalty_discount_pct",
+    "DiscountsTab.jsx: All 4 sections with toggles, inputs, and Add Rule functionality",
+    "DiscountsTab.jsx: Active Discounts Preview section shows status of all features",
+    "EnrollmentPage.jsx: fetchDiscountSettings on mount, passes showReferral={discountSettings.enable_referral} to ParticipantRow",
+    "CartPage.jsx: Same pattern - fetches discountSettings, passes showReferral to CartItemCard"
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_iteration16_discounts_loyalty.py"
+  ],
+  "success_rate": {
+    "backend": "100% (13/13 tests passed)",
+    "frontend": "100% (all features verified)"
+  },
+  "test_credentials": {
+    "admin_url": "/admin",
+    "admin_username": "admin",
+    "admin_password": "divineadmin2024"
+  },
+  "seed_data_creation": "No new seed data created. Used existing programs and settings.",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "All iteration 16 discount features verified: 1) GET /api/discounts/settings returns all 8 discount settings, 2) POST /api/discounts/calculate correctly calculates group (10% for 3+), combo (5% for 2+ programs), loyalty (8% for returning clients with UID), 3) PUT /api/settings saves all discount fields, 4) Admin Panel Discounts & Loyalty tab shows all 4 features with toggles and inputs, 5) EnrollmentPage hides/shows referral checkbox based on enable_referral setting, 6) CartPage same conditional logic. Current settings: referral=ON, group=ON(3+→10%), combo=ON(2+→5%), loyalty=ON(8%). Phone OTP is MOCKED.",
+  "mocked_features": {
+    "phone_otp": "MOCKED - OTP generated server-side, returned in API response field 'mock_otp' for testing"
+  },
+  "features_tested": {
+    "backend_discount_settings_api": {
+      "GET /api/discounts/settings": "PASS - Returns all 8 fields with defaults",
+      "POST /api/discounts/calculate": "PASS - Correctly calculates group, combo, loyalty discounts",
+      "GET /api/discounts/check-loyalty/{email}": "PASS - Returns is_returning=false for new users",
+      "PUT /api/settings": "PASS - Saves all discount fields"
+    },
+    "admin_panel_discounts_tab": {
+      "discounts_tab_visible": "PASS - Tab labeled 'Discounts & Loyalty' in sidebar",
+      "referral_section": "PASS - Toggle + info text when ON",
+      "group_discount_section": "PASS - Toggle + Add Rule button + rule inputs",
+      "combo_discount_section": "PASS - Toggle + min_programs + discount_pct inputs",
+      "loyalty_section": "PASS - Toggle + discount_pct input",
+      "save_button": "PASS - Saves settings with toast confirmation",
+      "active_discounts_preview": "PASS - Shows status of all 4 features"
+    },
+    "enrollment_page_referral_toggle": {
+      "referral_hidden_when_off": "PASS - 'Referred by' checkbox not shown when enable_referral=false",
+      "referral_shown_when_on": "PASS - 'Referred by a Divine Iris member' checkbox visible when enable_referral=true",
+      "referrer_name_input": "PASS - Input appears when checkbox is checked"
+    },
+    "cart_page_referral_toggle": {
+      "conditional_rendering": "PASS - Code verified to pass showReferral={discountSettings.enable_referral} to CartItemCard"
+    }
+  }
+}

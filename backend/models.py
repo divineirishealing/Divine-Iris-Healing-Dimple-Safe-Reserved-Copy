@@ -255,6 +255,15 @@ class SiteSettings(BaseModel):
     social_linkedin: str = "https://linkedin.com"
     # Per-section styles
     sections: Optional[Dict] = {}
+    # Discount & Loyalty Settings (global for all flagship programs)
+    enable_referral: bool = True
+    enable_group_discount: bool = False
+    group_discount_rules: List[Dict] = []  # [{"min_participants": 3, "discount_pct": 10}, ...]
+    enable_combo_discount: bool = False
+    combo_discount_pct: float = 0  # % off when 2+ programs in cart
+    combo_min_programs: int = 2
+    enable_loyalty: bool = False
+    loyalty_discount_pct: float = 0  # % off for returning clients (have existing UID)
 
 class SiteSettingsUpdate(BaseModel):
     heading_font: Optional[str] = None
@@ -303,6 +312,14 @@ class SiteSettingsUpdate(BaseModel):
     social_youtube: Optional[str] = None
     social_linkedin: Optional[str] = None
     sections: Optional[Dict] = None
+    enable_referral: Optional[bool] = None
+    enable_group_discount: Optional[bool] = None
+    group_discount_rules: Optional[List[Dict]] = None
+    enable_combo_discount: Optional[bool] = None
+    combo_discount_pct: Optional[float] = None
+    combo_min_programs: Optional[int] = None
+    enable_loyalty: Optional[bool] = None
+    loyalty_discount_pct: Optional[float] = None
 
 class PaymentTransaction(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))

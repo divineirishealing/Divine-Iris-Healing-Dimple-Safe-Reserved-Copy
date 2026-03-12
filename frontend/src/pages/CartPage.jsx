@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import axios from 'axios';
 import Header from '../components/Header';
 import Footer from '../components/Footer';
 import { useCart } from '../context/CartContext';
@@ -11,6 +12,9 @@ import { resolveImageUrl } from '../lib/imageUtils';
 import {
   ShoppingCart, Trash2, Plus, User, Monitor, Wifi, ChevronRight, ChevronDown, ChevronUp
 } from 'lucide-react';
+
+const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
+const API = `${BACKEND_URL}/api`;
 
 const COUNTRIES = [
   { code: "IN", name: "India" }, { code: "AE", name: "UAE" }, { code: "US", name: "United States" },
@@ -51,7 +55,7 @@ const emptyParticipant = (mode = 'online') => ({
   is_first_time: false, referral_source: '',
 });
 
-const CartItemCard = ({ item, onRemove, onUpdateParticipants, symbol, getItemPrice, getItemOfferPrice }) => {
+const CartItemCard = ({ item, onRemove, onUpdateParticipants, symbol, getItemPrice, getItemOfferPrice, showReferral }) => {
   const [expanded, setExpanded] = useState(true);
   const tier = item.durationTiers?.[item.tierIndex];
   const price = getItemPrice(item);
@@ -191,12 +195,16 @@ const CartItemCard = ({ item, onRemove, onUpdateParticipants, symbol, getItemPri
                     {REFERRAL_SOURCES.map(r => <option key={r} value={r}>{r}</option>)}
                   </select>
                 </div>
-                <label className="flex items-center gap-1.5 cursor-pointer mb-1.5" data-testid={`cp-referred-toggle-${item.id}-${idx}`}>
-                  <input type="checkbox" checked={p.has_referral || false} onChange={e => updateParticipant(idx, 'has_referral', e.target.checked)} className="w-3.5 h-3.5 rounded border-gray-300 text-[#D4AF37]" />
-                  <span className="text-[10px] text-gray-600">Referred by a Divine Iris member</span>
-                </label>
-                {p.has_referral && (
-                  <Input value={p.referred_by_name || ''} onChange={e => updateParticipant(idx, 'referred_by_name', e.target.value)} placeholder="Referrer's name" className="text-xs h-7 mb-1.5" />
+                {showReferral && (
+                  <>
+                    <label className="flex items-center gap-1.5 cursor-pointer mb-1.5" data-testid={`cp-referred-toggle-${item.id}-${idx}`}>
+                      <input type="checkbox" checked={p.has_referral || false} onChange={e => updateParticipant(idx, 'has_referral', e.target.checked)} className="w-3.5 h-3.5 rounded border-gray-300 text-[#D4AF37]" />
+                      <span className="text-[10px] text-gray-600">Referred by a Divine Iris member</span>
+                    </label>
+                    {p.has_referral && (
+                      <Input value={p.referred_by_name || ''} onChange={e => updateParticipant(idx, 'referred_by_name', e.target.value)} placeholder="Referrer's name" className="text-xs h-7 mb-1.5" />
+                    )}
+                  </>
                 )}
                 <label className="flex items-center gap-1.5 cursor-pointer mb-1">
                   <input type="checkbox" checked={p.notify} onChange={e => updateParticipant(idx, 'notify', e.target.checked)} className="w-3.5 h-3.5 rounded border-gray-300 text-[#D4AF37]" />
@@ -242,6 +250,11 @@ function CartPage() {
   const { items, removeItem, updateItemParticipants, clearCart } = useCart();
   const { getPrice, getOfferPrice, symbol } = useCurrency();
   const { toast } = useToast();
+  const [discountSettings, setDiscountSettings] = useState({ enable_referral: true });
+
+  useEffect(() => {
+    axios.get(`${API}/discounts/settings`).then(r => setDiscountSettings(r.data)).catch(() => {});
+  }, []);
 
   const getItemPrice = (item) => {
     const tiers = item.durationTiers || [];
@@ -313,7 +326,8 @@ function CartPage() {
             <CartItemCard key={item.id} item={item}
               onRemove={() => removeItem(item.id)}
               onUpdateParticipants={(p) => updateItemParticipants(item.id, p)}
-              symbol={symbol} getItemPrice={getItemPrice} getItemOfferPrice={getItemOfferPrice} />
+              symbol={symbol} getItemPrice={getItemPrice} getItemOfferPrice={getItemOfferPrice}
+              showReferral={discountSettings.enable_referral} />
           ))}
 
           {/* Summary & Checkout */}
