@@ -135,6 +135,15 @@ Build a pixel-perfect clone of https://divineirishealing.com/ with comprehensive
 - [x] No golden border on custom sections — clean white background
 - [x] Admin can add custom sections with full content control (title, subtitle, image, body text, all font styles)
 
+### Unified Program Page Template (Feb 2026)
+- [x] Single "Program Page Template" in admin Page Headers tab controls all program detail pages
+- [x] Template styles: Hero Title, Hero Subtitle, Section Titles, Section Subtitles, Body Text, CTA/Pricing Text
+- [x] Hero Background color and Gold Line / Accent color pickers
+- [x] All flagship program detail pages read from settings.page_heroes.program_template
+- [x] Per-program content (title, description, sections) still comes from each program's own data
+- [x] Old per-program hero keys deprecated (no longer consumed by frontend)
+- [x] 9/9 backend tests passing, 100% frontend verification
+
 ## Backlog
 ### P1
 - [ ] Global Site Search
