@@ -17,6 +17,15 @@ Build a pixel-perfect clone of https://divineirishealing.com/ with comprehensive
 - [x] **Duration tier pricing** flows correctly through enrollment → OTP → Stripe checkout
 - [x] **Multi-currency support** — Stripe receives correct amount in detected currency (USD/AED/INR)
 
+### Discounts & Loyalty System (COMPLETED - Mar 12, 2026)
+- [x] **Admin "Discounts & Loyalty" tab** — Clean UI with 4 toggle-based sections + active preview
+- [x] **Referral Program toggle** — Show/hide "Referred by" field during enrollment globally for all flagship programs
+- [x] **Group Discount** — Auto-discount based on participant count (configurable rules, e.g., 3+ → 10% off)
+- [x] **Combo Discount** — Auto-discount when 2+ programs in cart (configurable % and min programs)
+- [x] **Loyalty Program** — Auto-discount for returning clients with existing UID (configurable %)
+- [x] **Backend API** — GET /api/discounts/settings, POST /api/discounts/calculate, GET /api/discounts/check-loyalty/{email}
+- [x] **Conditional referral** — Enrollment and Cart pages conditionally show referral section based on admin toggle
+
 ### UID System, Referral, Cart Discount Fix, 32 Countries (COMPLETED - Mar 12, 2026)
 - [x] **UID System** — Auto-generated `DIH-{PROGRAM}-{INITIALS}-{SEQ}` format (e.g., DIH-AWRP-JD-0001) using MongoDB counter. Generated on payment confirmation, shown on success page and email
 - [x] **Cart Discount Bug Fixed** — CartContext now stores offer prices; CartPage/CartCheckoutPage show strikethrough for discounted items
