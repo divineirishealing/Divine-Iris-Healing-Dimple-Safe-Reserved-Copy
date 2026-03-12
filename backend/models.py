@@ -155,13 +155,19 @@ class Session(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     title: str
     description: str
-    image: str
+    image: str = ""
     price_usd: float = 0.0
     price_inr: float = 0.0
     price_eur: float = 0.0
     price_gbp: float = 0.0
     price_aed: float = 0.0
     duration: str = "60-90 minutes"
+    session_mode: str = "online"  # online / offline / both
+    available_dates: List[str] = []  # list of ISO date strings
+    time_slots: List[str] = []  # e.g. ["10:00 AM", "2:00 PM", "5:00 PM"]
+    testimonial_text: str = ""  # 2-5 line testimonial snippet
+    title_style: Optional[Dict] = None
+    description_style: Optional[Dict] = None
     visible: bool = True
     order: int = 0
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
@@ -169,13 +175,19 @@ class Session(BaseModel):
 class SessionCreate(BaseModel):
     title: str
     description: str
-    image: str
+    image: Optional[str] = ""
     price_usd: float = 0.0
     price_inr: float = 0.0
     price_eur: float = 0.0
     price_gbp: float = 0.0
     price_aed: float = 0.0
     duration: Optional[str] = "60-90 minutes"
+    session_mode: Optional[str] = "online"
+    available_dates: Optional[List[str]] = []
+    time_slots: Optional[List[str]] = []
+    testimonial_text: Optional[str] = ""
+    title_style: Optional[Dict] = None
+    description_style: Optional[Dict] = None
     visible: Optional[bool] = True
     order: Optional[int] = 0
 
