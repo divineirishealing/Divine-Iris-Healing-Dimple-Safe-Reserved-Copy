@@ -6,9 +6,15 @@ import Header from '../components/Header';
 import Footer from '../components/Footer';
 import FloatingButtons from '../components/FloatingButtons';
 import { useCurrency } from '../context/CurrencyContext';
+import { HEADING } from '../lib/designTokens';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
+
+const applyStyle = (styleObj, defaults = {}) => {
+  if (!styleObj || Object.keys(styleObj).length === 0) return defaults;
+  return { ...defaults, ...(styleObj.font_family && { fontFamily: styleObj.font_family }), ...(styleObj.font_size && { fontSize: styleObj.font_size }), ...(styleObj.font_color && { color: styleObj.font_color }), ...(styleObj.font_weight && { fontWeight: styleObj.font_weight }), ...(styleObj.font_style && { fontStyle: styleObj.font_style }) };
+};
 
 const IRIS_IMAGE = 'https://divineirishealing.com/assets/images/personal_sessions/1772606496_19c12e333a98b4e53349.png';
 
@@ -17,9 +23,11 @@ function ServicesPage() {
   const { getPrice, formatPrice } = useCurrency();
   const [sessions, setSessions] = useState([]);
   const [selectedSession, setSelectedSession] = useState(null);
+  const [settings, setSettings] = useState(null);
 
   useEffect(() => {
     loadSessions();
+    axios.get(`${API}/settings`).then(r => setSettings(r.data)).catch(() => {});
   }, []);
 
   const loadSessions = async () => {
@@ -31,14 +39,24 @@ function ServicesPage() {
     }
   };
 
+  const hero = settings?.page_heroes?.services || {};
+
   return (
     <div className="min-h-screen bg-white">
       <Header />
 
-      {/* Thin gold divider line under header */}
-      <div className="pt-16">
-        <div className="h-[3px] bg-[#D4AF37] w-12 mx-auto"></div>
-      </div>
+      {/* Hero Section */}
+      <section data-testid="services-hero" className="relative pt-20 pb-12 overflow-hidden" style={{ background: 'linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%)' }}>
+        <div className="absolute inset-0 opacity-15" style={{ backgroundImage: 'radial-gradient(ellipse at 30% 50%, rgba(212,175,55,0.2) 0%, transparent 60%)' }} />
+        <div className="relative z-10 text-center px-6">
+          <h1 className="mb-2" style={applyStyle(hero.title_style, { ...HEADING, color: '#fff', fontSize: 'clamp(1.8rem, 4vw, 2.5rem)', fontVariant: 'small-caps', letterSpacing: '0.08em' })}>
+            {hero.title_text || 'Our Services'}
+          </h1>
+          <p className="text-sm max-w-lg mx-auto" style={applyStyle(hero.subtitle_style, { color: 'rgba(255,255,255,0.6)', fontFamily: "'Lato', sans-serif", fontSize: '14px' })}>
+            {hero.subtitle_text || 'Claim your personal space'}
+          </p>
+        </div>
+      </section>
 
       {/* Main two-column layout */}
       <div className="max-w-[1100px] mx-auto px-4 py-10">

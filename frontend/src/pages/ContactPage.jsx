@@ -14,10 +14,16 @@ import { HEADING, SUBTITLE, BODY, GOLD, CONTAINER } from '../lib/designTokens';
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
 
+const applyStyle = (styleObj, defaults = {}) => {
+  if (!styleObj || Object.keys(styleObj).length === 0) return defaults;
+  return { ...defaults, ...(styleObj.font_family && { fontFamily: styleObj.font_family }), ...(styleObj.font_size && { fontSize: styleObj.font_size }), ...(styleObj.font_color && { color: styleObj.font_color }), ...(styleObj.font_weight && { fontWeight: styleObj.font_weight }), ...(styleObj.font_style && { fontStyle: styleObj.font_style }) };
+};
+
 function ContactPage() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const { toast } = useToast();
+  const [settings, setSettings] = useState(null);
 
   const programId = searchParams.get('program') || '';
   const programTitle = searchParams.get('title') || '';
@@ -28,6 +34,10 @@ function ContactPage() {
     name: '', email: '', phone: '', message: ''
   });
   const [submitting, setSubmitting] = useState(false);
+
+  useEffect(() => {
+    axios.get(`${API}/settings`).then(r => setSettings(r.data)).catch(() => {});
+  }, []);
 
   useEffect(() => {
     if (isQuote && programTitle) {
@@ -58,6 +68,8 @@ function ContactPage() {
     } finally { setSubmitting(false); }
   };
 
+  const hero = settings?.page_heroes?.contact || {};
+
   return (
     <>
       <Header />
@@ -65,13 +77,13 @@ function ContactPage() {
         <div className={`${CONTAINER} py-12`}>
           <div className="max-w-3xl mx-auto">
             <div className="text-center mb-12">
-              <h1 className="mb-4" style={{ ...HEADING, fontSize: 'clamp(1.5rem, 3vw, 2.2rem)' }}>
-                {isQuote ? 'Request a Quote' : 'Express Your Interest'}
+              <h1 className="mb-4" style={applyStyle(hero.title_style, { ...HEADING, fontSize: 'clamp(1.5rem, 3vw, 2.2rem)' })}>
+                {hero.title_text || (isQuote ? 'Request a Quote' : 'Express Your Interest')}
               </h1>
-              <p style={{ ...SUBTITLE, fontSize: '0.9rem' }}>
-                {isQuote
+              <p style={applyStyle(hero.subtitle_style, { ...SUBTITLE, fontSize: '0.9rem' })}>
+                {hero.subtitle_text || (isQuote
                   ? `Get custom pricing for ${programTitle || 'this program'}`
-                  : 'Ready to begin your healing journey? Let us know how we can help.'}
+                  : 'Ready to begin your healing journey? Let us know how we can help.')}
               </p>
             </div>
 

@@ -9,16 +9,24 @@ import { Card, CardContent } from '../components/ui/card';
 import { Badge } from '../components/ui/badge';
 import { Button } from '../components/ui/button';
 import { resolveImageUrl } from '../lib/imageUtils';
+import { HEADING } from '../lib/designTokens';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
 
+const applyStyle = (styleObj, defaults = {}) => {
+  if (!styleObj || Object.keys(styleObj).length === 0) return defaults;
+  return { ...defaults, ...(styleObj.font_family && { fontFamily: styleObj.font_family }), ...(styleObj.font_size && { fontSize: styleObj.font_size }), ...(styleObj.font_color && { color: styleObj.font_color }), ...(styleObj.font_weight && { fontWeight: styleObj.font_weight }), ...(styleObj.font_style && { fontStyle: styleObj.font_style }) };
+};
+
 function AllProgramsPage() {
   const navigate = useNavigate();
   const [programs, setPrograms] = useState(mockPrograms);
+  const [settings, setSettings] = useState(null);
 
   useEffect(() => {
     loadPrograms();
+    axios.get(`${API}/settings`).then(r => setSettings(r.data)).catch(() => {});
   }, []);
 
   const loadPrograms = async () => {
@@ -32,17 +40,19 @@ function AllProgramsPage() {
     }
   };
 
+  const hero = settings?.page_heroes?.programs || {};
+
   return (
     <>
       <Header />
       <div className="min-h-screen bg-white pt-20">
         <div className="container mx-auto px-4 py-12">
           <div className="text-center mb-12">
-            <h1 className="text-4xl md:text-5xl font-serif text-gray-900 mb-4">
-              All Programs
+            <h1 style={applyStyle(hero.title_style, { ...HEADING, fontSize: 'clamp(1.8rem, 4vw, 2.5rem)' })}>
+              {hero.title_text || 'All Programs'}
             </h1>
-            <p className="text-lg text-gray-600 max-w-2xl mx-auto">
-              Explore our comprehensive healing programs designed to transform your life at every level
+            <p className="max-w-2xl mx-auto mt-3" style={applyStyle(hero.subtitle_style, { color: '#6b7280', fontFamily: "'Lato', sans-serif", fontSize: '1rem' })}>
+              {hero.subtitle_text || 'Explore our comprehensive healing programs designed to transform your life at every level'}
             </p>
           </div>
 
