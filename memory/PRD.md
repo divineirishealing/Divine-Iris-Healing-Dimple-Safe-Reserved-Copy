@@ -9,59 +9,50 @@ Build a pixel-perfect clone of https://divineirishealing.com/ with comprehensive
 - **Database**: MongoDB
 - **Payments**: Stripe (TEST MODE) via emergentintegrations
 - **Email**: Resend (configured, pending domain verification)
+- **Fonts**: Cinzel (headings), Cormorant Garamond (body/sections), Lato (labels), via Google Fonts
 
 ## What's Been Implemented
 
-### Dynamic Program Detail Page + Admin Content Sections (COMPLETED - Mar 12, 2026)
-- [x] **Content Sections model** — Each program can have multiple content sections with title, subtitle, body, image, enable/disable toggle, and order
-- [x] **Font styling per section** — Title, subtitle, and body each support font color, size, bold, italic, font family via admin
-- [x] **ProgramDetailPage redesign** — Dynamically renders enabled content sections with alternating backgrounds; falls back to description if no sections configured
-- [x] **Admin Content Section Editor** — In Programs tab, edit program form now includes "Page Content Sections" with add/reorder/remove/toggle/font-styling controls
+### About Page + Navigation Fix (COMPLETED - Mar 12, 2026)
+- [x] `/about` page with hero, logo, Meet the Healer bio, Philosophy, Impact, Mission & Vision sections
+- [x] "Read Full Bio" button on homepage links to `/about`
+- [x] ABOUT link in header/footer menu navigates to `/about`
 
-### Footer & Navigation Updates (COMPLETED - Mar 12, 2026)
-- [x] **Gold icons** for email (Mail) and phone (Phone) in footer contact section
-- [x] **Program links** in footer correctly navigate to `/program/:id` pages
-- [x] **Terms & Conditions** link → `/terms` page
-- [x] **Privacy Policy** link → `/privacy` page
-- [x] **10 social media platforms** with admin toggle on/off: Facebook, Instagram, YouTube, LinkedIn, Spotify, Pinterest, TikTok, Twitter/X, Apple Music, SoundCloud
+### Program Detail Page Redesign (COMPLETED - Mar 12, 2026)
+- [x] Hero with Cinzel small-caps title and gold category label
+- [x] Dynamic content sections: journey, who_for, experience, cta, custom types
+- [x] Fallback default sections when no custom sections configured (The Journey, Who it is for, Your Experience)
+- [x] CTA section with "When you are seeking" and Enroll Now / Express Interest buttons
+- [x] Duration tier cards for flagship programs
+- [x] Testimonials carousel
+- [x] Admin content section editor with add/reorder/remove/toggle/font-styling
 
-### Admin Panel Enhancements (COMPLETED - Mar 12, 2026)
-- [x] **Header & Footer tab** split into 4 sub-tabs: Social Media, Footer Content, Terms & Privacy, Sender Emails
-- [x] **Terms & Conditions editor** — Textarea in admin, content displays on /terms page
-- [x] **Privacy Policy editor** — Textarea in admin, content displays on /privacy page
-- [x] **Sender Email Configuration** — Add/remove sender emails per purpose (receipts, subscriptions, etc.)
-- [x] **Stats font styling** — Icon field (FontAwesome), value style, label style with color/size/bold/italic/font controls
+### Font & Style Unification (COMPLETED - Mar 12, 2026)
+- [x] Cinzel for all major headings (hero, programs, about)
+- [x] Cormorant Garamond for section headings and body text
+- [x] Lato for labels (MEET THE HEALER, categories)
+- [x] Updated: ProgramsSection, TestimonialsSection, SessionsSection, SponsorSection, NewsletterSection headings
 
-### Per-Program Mode Toggles (COMPLETED - Mar 12, 2026)
-- [x] 3 mode toggles per program: Online, Offline, In Person
-- [x] Admin Panel: 3 styled checkboxes with descriptions
-- [x] Homepage/Enrollment/Cart: Only enabled modes appear
+### Social Media + Legal Pages + Email Config (COMPLETED - Mar 12, 2026)
+- [x] 10 social media platforms with toggle on/off (Facebook, Instagram, YouTube, LinkedIn, Spotify, Pinterest, TikTok, Twitter/X, Apple Music, SoundCloud)
+- [x] Terms & Conditions page `/terms` with admin editor
+- [x] Privacy Policy page `/privacy` with admin editor
+- [x] Configurable sender emails per purpose
+- [x] Gold icons for email and phone in footer
+- [x] Footer program links navigate to `/program/:id`
 
-### Discounts & Loyalty System (COMPLETED - Mar 12, 2026)
-- [x] Group, Combo, and Loyalty discounts with admin toggles
-- [x] Dynamic recalculation in cart
+### Stats Font Styling (COMPLETED - Mar 12, 2026)
+- [x] Icon field (FontAwesome), value style, label style with color/size/bold/italic/font controls
 
-### UID System (COMPLETED - Mar 12, 2026)
-- [x] Auto-generated participant UIDs on payment confirmation
-
-### Multi-Program Cart System (COMPLETED - Mar 11, 2026)
-- [x] Add to Cart, Cart Page, Cart Checkout with multi-program/multi-participant support
-
-### Previous Features (All COMPLETED)
-- Geo-Currency Auto-Detection
-- Exchange Rates admin tab
-- Duration tier selectors
-- Multi-Person Enrollment with anti-fraud India-gating
-- Promotions & Coupons system
-- 14-tab Admin Panel
-- Stripe payment integration (TEST MODE)
-- Resend email integration
-- Post-payment links (WhatsApp, Zoom, Custom)
-- First-time attendee tracking
-- Referral source tracking
+### Per-Program Mode Toggles (COMPLETED)
+### Discounts & Loyalty System (COMPLETED)
+### UID System (COMPLETED)
+### Multi-Program Cart System (COMPLETED)
+### All Previous Features (COMPLETED)
 
 ## Key Pages
 - `/` — Homepage
+- `/about` — About / Bio page
 - `/program/:id` — Dynamic program detail (content sections)
 - `/enroll/program/:id?tier=X` — Split-screen enrollment
 - `/cart` — Multi-program cart
@@ -76,28 +67,26 @@ Build a pixel-perfect clone of https://divineirishealing.com/ with comprehensive
 ### P0 - High Priority
 - [ ] Testimonials System (text-based, program-specific, searchable, merge into Transformations)
 - [ ] Global Site Search (keyword search across all content)
-- [ ] User login/registration system
-- [ ] Annual Subscriber dashboard
 
 ### P1 - Medium Priority
-- [ ] Verify Resend domain for live email
+- [ ] User login & subscriber dashboard
 - [ ] Replace mock phone OTP with real provider
 - [ ] Mobile responsiveness audit
-- [ ] PPP enforcement (billing country + VPN + phone cross-check)
+- [ ] Verify Resend domain for live email
 
 ### P2 - Low Priority
+- [ ] Advanced Anti-Fraud for Geo-Pricing
 - [ ] SEO meta tags
 - [ ] Admin analytics dashboard
 - [ ] Bulk export enrollments (CSV)
 - [ ] Quote request management in admin
-- [ ] WhatsApp Business API integration
 
 ## Admin Credentials
 - URL: /admin | Username: admin | Password: divineadmin2024
 
 ## Test Data
 - 6 programs: All flagship with 3 tiers (1 Month/3 Months/Annual)
-- Annual tier: price=0 → "Contact for Pricing"
+- Annual tier: price=0 -> "Contact for Pricing"
 - Promo codes: EARLY50 (fixed), NY2026 (15% off)
 - Phone OTP: MOCKED
 - Stripe: TEST MODE
