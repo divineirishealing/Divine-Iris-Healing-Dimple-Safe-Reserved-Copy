@@ -146,6 +146,70 @@ class CheckStatusRequest(BaseModel):
     session_id: str
 
 
+
+class CreateSponsorCheckoutRequest(BaseModel):
+    name: str
+    email: str
+    amount: float
+    currency: str = "inr"
+    message: str = ""
+    anonymous: bool = False
+    origin_url: str
+
+
+@router.post("/sponsor-checkout")
+async def create_sponsor_checkout(req: CreateSponsorCheckoutRequest, http_request: Request):
+    if req.amount <= 0:
+        raise HTTPException(status_code=400, detail="Amount must be greater than 0")
+
+    currency = req.currency.lower()
+    origin = req.origin_url.rstrip('/')
+    success_url = f"{origin}/payment/success?session_id={{CHECKOUT_SESSION_ID}}"
+    cancel_url = f"{origin}/#sponsor"
+
+    host_url = str(http_request.base_url).rstrip('/')
+    webhook_url = f"{host_url}/api/webhook/stripe"
+    stripe_checkout = StripeCheckout(api_key=STRIPE_API_KEY, webhook_url=webhook_url)
+
+    checkout_request = CheckoutSessionRequest(
+        amount=float(req.amount),
+        currency=currency,
+        success_url=success_url,
+        cancel_url=cancel_url,
+        metadata={
+            "item_type": "sponsor",
+            "donor_name": req.name if not req.anonymous else "Anonymous",
+            "donor_email": req.email,
+            "message": req.message,
+            "anonymous": str(req.anonymous),
+            "currency": currency,
+        }
+    )
+
+    session: CheckoutSessionResponse = await stripe_checkout.create_checkout_session(checkout_request)
+
+    transaction = {
+        "id": str(uuid.uuid4()),
+        "stripe_session_id": session.session_id,
+        "item_type": "sponsor",
+        "item_id": "sponsor",
+        "item_title": "Shine a Light Contribution",
+        "amount": float(req.amount),
+        "currency": currency,
+        "payment_status": "pending",
+        "donor_name": req.name,
+        "donor_email": req.email,
+        "message": req.message,
+        "anonymous": req.anonymous,
+        "created_at": datetime.now(timezone.utc),
+        "updated_at": datetime.now(timezone.utc),
+    }
+    await db.payment_transactions.insert_one(transaction)
+
+    return {"url": session.url, "session_id": session.session_id}
+
+
+
 @router.post("/create-checkout")
 async def create_checkout(req: CreateCheckoutRequest, http_request: Request):
     # Fetch item from DB to get the price (NEVER from frontend)
