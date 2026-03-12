@@ -108,6 +108,12 @@ Build a pixel-perfect clone of https://divineirishealing.com/ with comprehensive
 | Privacy | `/privacy` |
 | Admin | `/admin` |
 
+### Homepage UI/UX Refinements (Mar 12, 2026)
+- [x] Reduced vertical spacing between all homepage sections (py-20 → py-12)
+- [x] Enhanced Custom Sections: image upload, body text with markdown, body font controls
+- [x] No golden border on custom sections — clean white background
+- [x] Admin can add custom sections with full content control (title, subtitle, image, body text, all font styles)
+
 ## Backlog
 ### P1
 - [ ] Global Site Search
