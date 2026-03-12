@@ -12,101 +12,72 @@ Build a pixel-perfect clone of https://divineirishealing.com/ with comprehensive
 
 ## What's Been Implemented
 
-### Stripe Payment Fix (COMPLETED - Mar 11, 2026)
-- [x] **"Invalid price" bug fixed** — checkout now passes tier_index + client_currency to server-side pricing
-- [x] **Duration tier pricing** flows correctly through enrollment → OTP → Stripe checkout
-- [x] **Multi-currency support** — Stripe receives correct amount in detected currency (USD/AED/INR)
+### Dynamic Program Detail Page + Admin Content Sections (COMPLETED - Mar 12, 2026)
+- [x] **Content Sections model** — Each program can have multiple content sections with title, subtitle, body, image, enable/disable toggle, and order
+- [x] **Font styling per section** — Title, subtitle, and body each support font color, size, bold, italic, font family via admin
+- [x] **ProgramDetailPage redesign** — Dynamically renders enabled content sections with alternating backgrounds; falls back to description if no sections configured
+- [x] **Admin Content Section Editor** — In Programs tab, edit program form now includes "Page Content Sections" with add/reorder/remove/toggle/font-styling controls
+
+### Footer & Navigation Updates (COMPLETED - Mar 12, 2026)
+- [x] **Gold icons** for email (Mail) and phone (Phone) in footer contact section
+- [x] **Program links** in footer correctly navigate to `/program/:id` pages
+- [x] **Terms & Conditions** link → `/terms` page
+- [x] **Privacy Policy** link → `/privacy` page
+- [x] **10 social media platforms** with admin toggle on/off: Facebook, Instagram, YouTube, LinkedIn, Spotify, Pinterest, TikTok, Twitter/X, Apple Music, SoundCloud
+
+### Admin Panel Enhancements (COMPLETED - Mar 12, 2026)
+- [x] **Header & Footer tab** split into 4 sub-tabs: Social Media, Footer Content, Terms & Privacy, Sender Emails
+- [x] **Terms & Conditions editor** — Textarea in admin, content displays on /terms page
+- [x] **Privacy Policy editor** — Textarea in admin, content displays on /privacy page
+- [x] **Sender Email Configuration** — Add/remove sender emails per purpose (receipts, subscriptions, etc.)
+- [x] **Stats font styling** — Icon field (FontAwesome), value style, label style with color/size/bold/italic/font controls
 
 ### Per-Program Mode Toggles (COMPLETED - Mar 12, 2026)
-- [x] **3 mode toggles per program**: Online (via Zoom), Offline (Remote, no in-person), In Person (default OFF, future)
-- [x] **Admin Panel**: 3 styled checkboxes with descriptions replace old mode dropdown; badges in program list
-- [x] **Homepage**: Cards show only enabled mode badges (blue=Online, purple=Offline, green=In Person). Disclaimer when In Person is OFF
-- [x] **Enrollment Page**: Only enabled modes appear as attendance options with descriptions (e.g., "via Zoom", "Remote, no in-person")
-- [x] **Cart Page**: Same conditional mode buttons from CartContext data
-- [x] **Backend**: enable_online, enable_offline, enable_in_person fields on Program model
-
-### Discounts Frontend Display Fix (COMPLETED - Mar 12, 2026)
-- [x] **Cart Page** — Shows Combo Discount (green line) when 2+ programs, Group Discount when 3+ participants
-- [x] **Cart Checkout Page** — Full discount breakdown (group, combo, loyalty, promo) in order summary with reduced total
-- [x] **Enrollment Page** — Group Discount and Loyalty Discount lines in price summary sidebar
-- [x] **Dynamic recalculation** — Discounts update in real-time as participants/programs change
+- [x] 3 mode toggles per program: Online, Offline, In Person
+- [x] Admin Panel: 3 styled checkboxes with descriptions
+- [x] Homepage/Enrollment/Cart: Only enabled modes appear
 
 ### Discounts & Loyalty System (COMPLETED - Mar 12, 2026)
-- [x] **Admin "Discounts & Loyalty" tab** — Clean UI with 4 toggle-based sections + active preview
-- [x] **Referral Program toggle** — Show/hide "Referred by" field during enrollment globally for all flagship programs
-- [x] **Group Discount** — Auto-discount based on participant count (configurable rules, e.g., 3+ → 10% off)
-- [x] **Combo Discount** — Auto-discount when 2+ programs in cart (configurable % and min programs)
-- [x] **Loyalty Program** — Auto-discount for returning clients with existing UID (configurable %)
-- [x] **Backend API** — GET /api/discounts/settings, POST /api/discounts/calculate, GET /api/discounts/check-loyalty/{email}
-- [x] **Conditional referral** — Enrollment and Cart pages conditionally show referral section based on admin toggle
+- [x] Group, Combo, and Loyalty discounts with admin toggles
+- [x] Dynamic recalculation in cart
 
-### UID System, Referral, Cart Discount Fix, 32 Countries (COMPLETED - Mar 12, 2026)
-- [x] **UID System** — Auto-generated `DIH-{PROGRAM}-{INITIALS}-{SEQ}` format (e.g., DIH-AWRP-JD-0001) using MongoDB counter. Generated on payment confirmation, shown on success page and email
-- [x] **Cart Discount Bug Fixed** — CartContext now stores offer prices; CartPage/CartCheckoutPage show strikethrough for discounted items
-- [x] **32 Country Codes** — Added 15 more countries (Nepal, Kuwait, Oman, Bahrain, Philippines, Indonesia, Thailand, Kenya, Nigeria, Egypt, Turkey, Italy, Spain, Netherlands, New Zealand)
-- [x] **Referral Toggle** — "Referred by a Divine Iris member" checkbox + referrer name field on enrollment and cart pages
-- [x] **Backend Offer Price Fix** — Stripe checkout now uses offer_price_{currency} when > 0 for all currencies including AED
-
-### Bug Fixes — Mar 12, 2026
-- [x] **Image Upload Fixed** — Rewrote ImageUploader with proper drag-and-drop support (onDrop, onDragOver handlers) and click-to-upload via hidden file input ref
-- [x] **Phone/WhatsApp Country Codes** — Added mandatory country code dropdown (+91, +971, +1, etc.) before phone and WhatsApp fields in both Enrollment and Cart pages, with 10-digit limit
-- [x] **Strike-off Prices Fixed** — Added `offer_price_aed` to backend model, fixed admin "Offer AED" column (was saving to wrong field), fixed CurrencyContext to return AED offers for non-flagship programs
-
-### Post-Payment Links & Participant Insights (COMPLETED - Mar 11, 2026)
-- [x] **Program Links in Admin Panel** — WhatsApp Group, Zoom Meeting, Custom Link fields with toggle switches in program form
-- [x] **Links on Payment Success Page** — Beautiful card-based link buttons (WhatsApp green, Zoom blue, custom gold) shown after payment
-- [x] **Links in Confirmation Email** — Same links rendered as styled buttons in the enrollment receipt email
-- [x] **"First time joining Divine Iris Healing" checkbox** — Per-participant, in both Enrollment and Cart pages
-- [x] **"How did you hear about us?" dropdown** — 8 referral sources (Instagram, Facebook, YouTube, Google Search, Friend/Family, WhatsApp, Returning Client, Other)
-- [x] **Enhanced Payment Success Page** — Full receipt with participants list, amounts, booker info, and program links
-- [x] **Enhanced Confirmation Email** — Includes participant table with first-time status, program links as CTA buttons
-- [x] **Backend support** — ParticipantData model includes is_first_time & referral_source; payment status returns program_links
-
-### WhatsApp Number Collection (COMPLETED - Mar 11, 2026)
-- [x] **WhatsApp field** in participant notification section (both Enrollment + Cart pages)
-- [x] **Green WhatsApp icon** with "WhatsApp No." placeholder
-- [x] **Stored in DB** alongside email and phone for manual group adding
+### UID System (COMPLETED - Mar 12, 2026)
+- [x] Auto-generated participant UIDs on payment confirmation
 
 ### Multi-Program Cart System (COMPLETED - Mar 11, 2026)
-- [x] "Add to Cart" button on all homepage cards
-- [x] Cart icon with badge in header
-- [x] Cart Page (/cart) with multi-program, multi-participant management
-- [x] Cart Checkout (/cart/checkout) with split layout
-- [x] Promo code at checkout
-- [x] Cart persistence in localStorage
-
-### Split-Screen Enrollment (COMPLETED - Mar 11, 2026)
-- [x] Left panel (fixed): Program image, title, tier, price breakdown
-- [x] Right panel (scrollable): 4-step form
-- [x] Mobile: Stacks vertically
+- [x] Add to Cart, Cart Page, Cart Checkout with multi-program/multi-participant support
 
 ### Previous Features (All COMPLETED)
-- Geo-Currency Auto-Detection (IP → single currency)
-- Exchange Rates admin tab (38+ currencies)
-- Duration tier selectors on all program cards
-- "Contact for Pricing" → Request Quote form
-- Excel-like pricing table in admin
+- Geo-Currency Auto-Detection
+- Exchange Rates admin tab
+- Duration tier selectors
 - Multi-Person Enrollment with anti-fraud India-gating
 - Promotions & Coupons system
-- 13-tab Admin Panel
+- 14-tab Admin Panel
 - Stripe payment integration (TEST MODE)
 - Resend email integration
+- Post-payment links (WhatsApp, Zoom, Custom)
+- First-time attendee tracking
+- Referral source tracking
 
 ## Key Pages
 - `/` — Homepage
-- `/program/:id` — Program detail
+- `/program/:id` — Dynamic program detail (content sections)
 - `/enroll/program/:id?tier=X` — Split-screen enrollment
 - `/cart` — Multi-program cart
 - `/cart/checkout` — Cart checkout
 - `/contact?program=X&title=Y&tier=Z` — Request Quote
+- `/terms` — Terms & Conditions
+- `/privacy` — Privacy Policy
 - `/admin` — Admin panel
 
 ## Prioritized Backlog
 
 ### P0 - High Priority
+- [ ] Testimonials System (text-based, program-specific, searchable, merge into Transformations)
+- [ ] Global Site Search (keyword search across all content)
 - [ ] User login/registration system
 - [ ] Annual Subscriber dashboard
-- [ ] Annual Subscriber special discount tier
 
 ### P1 - Medium Priority
 - [ ] Verify Resend domain for live email
@@ -119,7 +90,7 @@ Build a pixel-perfect clone of https://divineirishealing.com/ with comprehensive
 - [ ] Admin analytics dashboard
 - [ ] Bulk export enrollments (CSV)
 - [ ] Quote request management in admin
-- [ ] WhatsApp Business API integration for automated group invites
+- [ ] WhatsApp Business API integration
 
 ## Admin Credentials
 - URL: /admin | Username: admin | Password: divineadmin2024
