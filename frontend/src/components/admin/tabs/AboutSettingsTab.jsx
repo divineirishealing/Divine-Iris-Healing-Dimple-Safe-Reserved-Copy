@@ -97,6 +97,7 @@ const AboutSettingsTab = ({ settings, onChange }) => {
           <div>
             <Label className="text-[10px] text-gray-500">Small Label Above Name</Label>
             <Input value={s.about_subtitle || ''} onChange={e => set('about_subtitle', e.target.value)} placeholder="Meet the Healer" className="text-xs" />
+            <FontControls label="Label" style={s.about_subtitle_style || {}} onStyleChange={v => set('about_subtitle_style', v)} />
           </div>
           <div>
             <Label className="text-[10px] text-gray-500">Your Name</Label>

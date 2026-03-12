@@ -35,7 +35,15 @@ const RichText = ({ children, style, className = '' }) => (
 export default function AboutPage() {
   const [settings, setSettings] = useState(null);
   useEffect(() => {
-    window.scrollTo(0, 0);
+    // If hash is #bio, scroll to bio section after load
+    if (window.location.hash === '#bio') {
+      setTimeout(() => {
+        const el = document.getElementById('bio');
+        if (el) el.scrollIntoView({ behavior: 'smooth' });
+      }, 300);
+    } else {
+      window.scrollTo(0, 0);
+    }
     axios.get(`${API}/settings`).then(r => setSettings(r.data)).catch(() => {});
   }, []);
 
@@ -50,14 +58,14 @@ export default function AboutPage() {
       {/* Hero */}
       <section data-testid="about-hero" className="min-h-[45vh] flex flex-col items-center justify-center text-center px-6 pt-20"
         style={{ background: 'linear-gradient(180deg, #1a1a1a 0%, #2d2d2d 50%, #1a1a1a 100%)' }}>
-        <h1 className="text-white mb-3" style={applyStyle(s.about_name_style, { ...HEADING, color: '#fff', fontSize: 'clamp(2rem, 5vw, 3rem)', fontVariant: 'small-caps', letterSpacing: '0.08em' })}>
+        <h1 className="text-white mb-1" style={{ ...HEADING, color: '#fff', fontSize: 'clamp(2rem, 5vw, 3rem)', fontVariant: 'small-caps', letterSpacing: '0.08em' }}>
           {s.about_name || 'Dimple Ranawat'}
         </h1>
-        <p style={applyStyle(s.about_title_style, { ...SUBTITLE, color: '#999' })}>{s.about_title || 'Founder, Divine Iris – Soulful Healing Studio'}</p>
+        <p style={{ ...SUBTITLE, color: '#ccc', fontFamily: "'Lato', sans-serif" }}>{s.about_title || 'Founder, Divine Iris – Soulful Healing Studio'}</p>
       </section>
 
       {/* Logo + Bio */}
-      <section className={SECTION_PY}>
+      <section id="bio" className={SECTION_PY}>
         <div className={CONTAINER}>
           {logoUrl && (
             <div className="flex justify-center mb-12">
@@ -74,7 +82,7 @@ export default function AboutPage() {
               )}
             </div>
             <div className="md:col-span-7">
-              <p className="mb-3" style={LABEL}>{s.about_subtitle || 'MEET THE HEALER'}</p>
+              <p className="mb-3" style={applyStyle(s.about_subtitle_style, LABEL)}>{s.about_subtitle || 'MEET THE HEALER'}</p>
               <h2 data-testid="about-name" className="mb-0" style={applyStyle(s.about_name_style, { ...HEADING, fontSize: '2rem' })}>{s.about_name || 'Dimple Ranawat'}</h2>
               <p className="mb-6 mt-1" style={applyStyle(s.about_title_style, { ...SUBTITLE, color: GOLD, fontSize: '0.9rem' })}>{s.about_title || 'Founder, Divine Iris – Soulful Healing Studio'}</p>
               <RichText className="mb-6" style={applyStyle(s.about_bio_style, BODY)}>{s.about_bio || 'Dimple Ranawat is an internationally recognised healer, accountability coach, and life transformation mentor whose work is reshaping how the world understands healing, growth, and well-being.'}</RichText>

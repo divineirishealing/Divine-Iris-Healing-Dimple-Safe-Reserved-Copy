@@ -283,6 +283,7 @@ class SiteSettings(BaseModel):
     about_mission_vision_subtitle: str = "Where healing meets awareness, and transformation begins from within."
     # About page font styles
     about_name_style: Optional[Dict] = None
+    about_subtitle_style: Optional[Dict] = None
     about_title_style: Optional[Dict] = None
     about_bio_style: Optional[Dict] = None
     about_philosophy_style: Optional[Dict] = None
@@ -380,6 +381,7 @@ class SiteSettingsUpdate(BaseModel):
     about_vision: Optional[str] = None
     about_mission_vision_subtitle: Optional[str] = None
     about_name_style: Optional[Dict] = None
+    about_subtitle_style: Optional[Dict] = None
     about_title_style: Optional[Dict] = None
     about_bio_style: Optional[Dict] = None
     about_philosophy_style: Optional[Dict] = None

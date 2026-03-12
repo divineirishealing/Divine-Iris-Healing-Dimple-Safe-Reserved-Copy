@@ -52,7 +52,7 @@ const AboutSection = () => {
           </div>
 
           <div className="md:col-span-7 order-1 md:order-2">
-            <p className="mb-3" style={LABEL}>{s.about_subtitle || 'Meet the Healer'}</p>
+            <p className="mb-3" style={applyStyle(s.about_subtitle_style, LABEL)}>{s.about_subtitle || 'Meet the Healer'}</p>
             <h2 data-testid="about-heading" className="mb-0" style={applyStyle(s.about_name_style, { ...HEADING, fontSize: '2rem' })}>{s.about_name || 'Dimple Ranawat'}</h2>
             <h3 className="mb-6 mt-1" style={applyStyle(s.about_title_style, { ...SUBTITLE, color: GOLD, fontSize: '0.9rem' })}>{s.about_title || 'Founder, Divine Iris – Soulful Healing Studio'}</h3>
 
@@ -66,7 +66,7 @@ const AboutSection = () => {
               )}
             </div>
 
-            <a href="/about" data-testid="read-full-bio-btn"
+            <a href="/about#bio" data-testid="read-full-bio-btn"
               className="inline-block mt-8 border px-8 py-3 text-[10px] transition-all duration-300 tracking-[0.2em] uppercase hover:text-white"
               style={{ borderColor: GOLD, color: GOLD }}
               onMouseEnter={e => { e.target.style.background = GOLD; e.target.style.color = '#fff'; }}
