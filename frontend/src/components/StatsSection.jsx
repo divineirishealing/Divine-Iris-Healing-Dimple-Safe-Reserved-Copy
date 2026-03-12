@@ -124,10 +124,13 @@ const StatsSection = () => {
         <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'flex-start', gap: '80px' }}>
           {stats.map((stat, index) => {
             const icons = ['fa-users', 'fa-calendar-alt', 'fa-infinity', 'fa-award'];
+            const iconClass = stat.icon || icons[index] || 'fa-star';
+            const valueStyle = stat.value_style || {};
+            const labelStyle = stat.label_style || {};
             return (
               <div key={index} style={{ textAlign: 'center' }} data-testid={`stat-${index}`}>
                 <i
-                  className={`fas ${icons[index] || 'fa-star'}`}
+                  className={`fas ${iconClass}`}
                   style={{
                     color: '#d4a843',
                     fontSize: '1.4rem',
@@ -138,10 +141,11 @@ const StatsSection = () => {
                 />
                 <span
                   style={{
-                    color: '#d4a843',
-                    fontFamily: "'Cinzel', serif",
-                    fontSize: '2.8rem',
-                    fontWeight: 400,
+                    color: valueStyle.font_color || '#d4a843',
+                    fontFamily: valueStyle.font_family || "'Cinzel', serif",
+                    fontSize: valueStyle.font_size || '2.8rem',
+                    fontWeight: valueStyle.font_weight || 400,
+                    fontStyle: valueStyle.font_style || 'normal',
                     display: 'block',
                     lineHeight: 1.1,
                     marginBottom: '8px',
@@ -152,12 +156,13 @@ const StatsSection = () => {
                 </span>
                 <span
                   style={{
-                    color: '#ffffff',
-                    fontFamily: "'Cinzel', serif",
-                    fontSize: '0.65rem',
+                    color: labelStyle.font_color || '#ffffff',
+                    fontFamily: labelStyle.font_family || "'Cinzel', serif",
+                    fontSize: labelStyle.font_size || '0.65rem',
                     letterSpacing: '0.25em',
                     textTransform: 'uppercase',
-                    fontWeight: 300,
+                    fontWeight: labelStyle.font_weight || 300,
+                    fontStyle: labelStyle.font_style || 'normal',
                   }}
                 >
                   {stat.label}

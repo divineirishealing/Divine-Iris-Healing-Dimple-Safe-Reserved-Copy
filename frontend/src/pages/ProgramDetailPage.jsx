@@ -11,25 +11,31 @@ import { useCurrency } from '../context/CurrencyContext';
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
 
+const applyStyle = (styleObj, defaults = {}) => {
+  if (!styleObj) return defaults;
+  return {
+    ...defaults,
+    ...(styleObj.font_family && { fontFamily: styleObj.font_family }),
+    ...(styleObj.font_size && { fontSize: styleObj.font_size }),
+    ...(styleObj.font_color && { color: styleObj.font_color }),
+    ...(styleObj.font_weight && { fontWeight: styleObj.font_weight }),
+    ...(styleObj.font_style && { fontStyle: styleObj.font_style }),
+    ...(styleObj.text_align && { textAlign: styleObj.text_align }),
+  };
+};
+
 function ProgramDetailPage() {
   const { id } = useParams();
   const navigate = useNavigate();
   const { getPrice, getOfferPrice, symbol } = useCurrency();
   const [program, setProgram] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [testimonials, setTestimonials] = useState([]);
   const [currentTestimonial, setCurrentTestimonial] = useState(0);
-
-  const testimonialImages = [
-    'https://divineirishealing.com/assets/images/testimonials/1770288231_121a7ff8d43c21a47ee2.jpeg',
-    'https://divineirishealing.com/assets/images/testimonials/1770288262_5df1ff82fddb95f146db.jpeg',
-    'https://divineirishealing.com/assets/images/testimonials/1770288598_757da7a271614cb10822.jpeg',
-    'https://divineirishealing.com/assets/images/testimonials/1770289072_ab4f5c6689469efb1b7f.jpeg',
-    'https://divineirishealing.com/assets/images/testimonials/1770289093_21c29f8d6a2dc5b1c8a9.jpeg',
-    'https://divineirishealing.com/assets/images/testimonials/1770289131_cf06997582aa897db7fc.jpeg',
-  ];
 
   useEffect(() => {
     loadProgram();
+    loadTestimonials();
   }, [id]);
 
   const loadProgram = async () => {
@@ -43,15 +49,27 @@ function ProgramDetailPage() {
     }
   };
 
-  const nextTestimonial = () => setCurrentTestimonial((p) => (p + 1) % testimonialImages.length);
-  const prevTestimonial = () => setCurrentTestimonial((p) => (p - 1 + testimonialImages.length) % testimonialImages.length);
+  const loadTestimonials = async () => {
+    try {
+      const res = await axios.get(`${API}/testimonials`);
+      const all = res.data.filter(t => t.visible !== false);
+      setTestimonials(all);
+    } catch (e) {}
+  };
 
-  if (loading) return <div className="min-h-screen flex items-center justify-center bg-gray-900"><div className="text-lg text-white">Loading...</div></div>;
+  const enabledSections = (program?.content_sections || [])
+    .filter(s => s.is_enabled)
+    .sort((a, b) => (a.order || 0) - (b.order || 0));
+
+  const nextTestimonial = () => setCurrentTestimonial((p) => (p + 1) % Math.max(testimonials.length, 1));
+  const prevTestimonial = () => setCurrentTestimonial((p) => (p - 1 + testimonials.length) % Math.max(testimonials.length, 1));
+
+  if (loading) return <div className="min-h-screen flex items-center justify-center bg-gray-900"><div className="text-sm text-white">Loading...</div></div>;
   if (!program) return (
     <div className="min-h-screen flex items-center justify-center bg-gray-900">
       <div className="text-center">
-        <h2 className="text-2xl text-white mb-4">Program Not Found</h2>
-        <button onClick={() => navigate('/')} className="bg-[#D4AF37] hover:bg-[#b8962e] text-white px-6 py-3 rounded-full text-sm">Back to Home</button>
+        <h2 className="text-xl text-white mb-4">Program Not Found</h2>
+        <button onClick={() => navigate('/')} className="bg-[#D4AF37] hover:bg-[#b8962e] text-white px-6 py-3 rounded-full text-xs">Back to Home</button>
       </div>
     </div>
   );
@@ -60,113 +78,136 @@ function ProgramDetailPage() {
     <div className="min-h-screen bg-gray-900">
       <Header />
 
-      {/* Hero */}
+      {/* Hero Section */}
       <section
         data-testid="program-hero"
-        className="min-h-[55vh] flex flex-col items-center justify-center text-center px-4 pt-24 pb-16"
+        className="min-h-[50vh] flex flex-col items-center justify-center text-center px-4 pt-24 pb-14"
         style={{ background: 'linear-gradient(135deg, #1a1a2e 0%, #16213e 25%, #0f3460 50%, #1a1a2e 75%, #0d1b2a 100%)' }}
       >
-        <p className="text-[#D4AF37] text-xs tracking-[0.3em] uppercase mb-6">FLAGSHIP PROGRAM</p>
-        <h1 data-testid="program-title" className="text-white text-3xl md:text-5xl mb-8 max-w-4xl leading-tight">{program.title}</h1>
-        <div className="h-0.5 w-20 bg-[#D4AF37] mx-auto"></div>
+        <p className="text-[#D4AF37] text-[10px] tracking-[0.35em] uppercase mb-5">{program.category || 'FLAGSHIP PROGRAM'}</p>
+        <h1 data-testid="program-title" className="text-white text-2xl md:text-4xl mb-6 max-w-4xl leading-tight font-light">{program.title}</h1>
+        <div className="h-0.5 w-16 bg-[#D4AF37] mx-auto"></div>
       </section>
 
-      {/* Content */}
-      <section className="bg-white py-16">
-        <div className="container mx-auto px-4 max-w-4xl">
-          {/* Program image */}
-          {program.image && (
-            <div className="mb-12 rounded-lg overflow-hidden shadow-xl">
-              <img
-                src={resolveImageUrl(program.image)}
-                alt={program.title}
-                className="w-full h-72 object-cover"
-                onError={(e) => { e.target.style.display = 'none'; }}
-              />
+      {/* Dynamic Content Sections */}
+      {enabledSections.length > 0 ? (
+        enabledSections.map((section, idx) => {
+          const isEven = idx % 2 === 0;
+          const bgClass = isEven ? 'bg-white' : 'bg-gray-50';
+          const hasImage = section.image_url && section.image_url.trim();
+
+          return (
+            <section key={section.id || idx} data-testid={`content-section-${idx}`} className={`${bgClass} py-14`}>
+              <div className="container mx-auto px-4 max-w-4xl">
+                {section.title && (
+                  <h2
+                    className="text-xl text-center mb-3 text-gray-900 font-light"
+                    style={applyStyle(section.title_style)}
+                  >
+                    {section.title}
+                  </h2>
+                )}
+                {section.subtitle && (
+                  <p
+                    className="text-[#D4AF37] italic text-center mb-6 text-xs"
+                    style={applyStyle(section.subtitle_style)}
+                  >
+                    {section.subtitle}
+                  </p>
+                )}
+                {section.title && <div className="h-0.5 w-10 bg-[#D4AF37] mx-auto mb-8"></div>}
+
+                {hasImage ? (
+                  <div className="grid md:grid-cols-2 gap-10 items-center">
+                    <div className={idx % 2 === 0 ? 'order-1' : 'order-1 md:order-2'}>
+                      <img
+                        src={resolveImageUrl(section.image_url)}
+                        alt={section.title}
+                        className="w-full rounded-lg shadow-lg"
+                        onError={(e) => { e.target.style.display = 'none'; }}
+                      />
+                    </div>
+                    <div className={idx % 2 === 0 ? 'order-2' : 'order-2 md:order-1'}>
+                      <p
+                        className="text-gray-600 leading-relaxed text-sm whitespace-pre-wrap"
+                        style={applyStyle(section.body_style)}
+                      >
+                        {section.body}
+                      </p>
+                    </div>
+                  </div>
+                ) : (
+                  section.body && (
+                    <p
+                      className="text-gray-600 leading-relaxed text-sm text-justify whitespace-pre-wrap"
+                      style={applyStyle(section.body_style)}
+                    >
+                      {section.body}
+                    </p>
+                  )
+                )}
+              </div>
+            </section>
+          );
+        })
+      ) : (
+        <>
+          {/* Fallback: Show program description if no sections configured */}
+          <section className="bg-white py-14">
+            <div className="container mx-auto px-4 max-w-4xl">
+              {program.image && (
+                <div className="mb-10 rounded-lg overflow-hidden shadow-xl">
+                  <img src={resolveImageUrl(program.image)} alt={program.title} className="w-full h-64 object-cover" onError={(e) => { e.target.style.display = 'none'; }} />
+                </div>
+              )}
+              <h2 className="text-xl text-center mb-4 text-gray-900 font-light">The Journey</h2>
+              <div className="h-0.5 w-10 bg-[#D4AF37] mx-auto mb-6"></div>
+              <p className="text-gray-600 leading-relaxed text-sm text-justify">{program.description}</p>
             </div>
-          )}
-
-          <div className="mb-16">
-            <h2 className="text-2xl text-center mb-6 text-gray-900">The Journey</h2>
-            <div className="h-0.5 w-12 bg-[#D4AF37] mx-auto mb-8"></div>
-            <p className="text-gray-600 leading-relaxed text-base text-justify">{program.description}</p>
-          </div>
-
-          <div className="mb-16 bg-gray-50 p-8 rounded-lg">
-            <h2 className="text-xl mb-4 text-gray-900">Who it is for</h2>
-            <p className="text-[#D4AF37] italic mb-4 text-sm">A Sacred Invitation for those who resonate</p>
-            <ul className="space-y-2 text-gray-600 text-sm">
-              <li>- You feel chronically tired, heavy, or emotionally burdened despite effort and awareness</li>
-              <li>- You experience recurring health issues with no clear explanation</li>
-              <li>- Your life keeps repeating similar emotional, relational, or professional patterns</li>
-            </ul>
-          </div>
-        </div>
-      </section>
-
-      {/* Your Experience */}
-      <section className="bg-black py-20">
-        <div className="container mx-auto px-4">
-          <h2 className="text-2xl text-center mb-12 text-[#D4AF37]">Your Experience</h2>
-          <div className="max-w-5xl mx-auto grid md:grid-cols-2 gap-12 items-center">
-            <img
-              src="https://divineirishealing.com/assets/images/dimple_ranawat.png"
-              alt="Healer"
-              className="w-full rounded-lg shadow-2xl"
-              onError={(e) => {
-                e.target.src = 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=500&h=600&fit=crop&crop=faces';
-              }}
-            />
-            <div className="text-white space-y-4 text-sm leading-relaxed">
-              <p>You begin to experience an internal lightness that feels unfamiliar yet deeply natural. The body softens, breathing deepens, and emotional reactions lose their intensity.</p>
-              <p>Patterns that once felt automatic start dissolving without conscious effort. Healing no longer feels like work — it becomes a by-product of inner safety and release.</p>
-              <p className="italic text-[#D4AF37]">Many people describe this phase as finally living a happy life in the true sense, not because life is perfect, but because it is no longer heavy.</p>
-            </div>
-          </div>
-        </div>
-      </section>
+          </section>
+        </>
+      )}
 
       {/* CTA with Duration Tiers */}
-      <section className="bg-white py-16">
+      <section className="bg-white py-14 border-t border-gray-100">
         <div className="container mx-auto px-4 max-w-4xl text-center">
-          <p className="text-[#D4AF37] text-xs tracking-[0.2em] mb-4">WHEN YOU ARE SEEKING</p>
-          <p className="text-gray-600 text-sm mb-8">When you are done fixing, forcing, or proving — and you are ready to live with ease, clarity, and emotional freedom — this program becomes the foundation for that shift.</p>
+          <p className="text-[#D4AF37] text-[10px] tracking-[0.25em] mb-3 uppercase">When You Are Seeking</p>
+          <p className="text-gray-500 text-xs mb-8 max-w-2xl mx-auto">When you are ready to experience deep inner transformation and lasting change, this program becomes the foundation for that shift.</p>
 
-          {/* Duration Tiers */}
           {program.is_flagship && program.duration_tiers && program.duration_tiers.length > 0 && (
-            <div data-testid="duration-tiers" className="max-w-3xl mx-auto mb-10">
-              <p className="text-xs text-gray-500 mb-4 tracking-wider uppercase">Choose Your Duration</p>
-              <div className={`grid gap-4 ${program.duration_tiers.length === 3 ? 'sm:grid-cols-3' : program.duration_tiers.length === 2 ? 'sm:grid-cols-2' : 'max-w-xs mx-auto'}`}>
+            <div data-testid="duration-tiers" className="max-w-3xl mx-auto mb-8">
+              <p className="text-[10px] text-gray-400 mb-3 tracking-wider uppercase">Choose Your Duration</p>
+              <div className={`grid gap-3 ${program.duration_tiers.length === 3 ? 'sm:grid-cols-3' : program.duration_tiers.length === 2 ? 'sm:grid-cols-2' : 'max-w-xs mx-auto'}`}>
                 {program.duration_tiers.map((tier, idx) => {
-                  const isAnnual = tier.label.toLowerCase().includes('annual') || tier.label.toLowerCase().includes('year') || tier.duration_unit === 'year';
+                  const isAnnual = tier.label?.toLowerCase().includes('annual') || tier.label?.toLowerCase().includes('year') || tier.duration_unit === 'year';
                   const tierPrice = getPrice(program, idx);
                   const tierOffer = getOfferPrice(program, idx);
                   const showContact = isAnnual && tierPrice === 0;
                   return (
                     <div key={idx} data-testid={`tier-${idx}`}
-                      className="border-2 border-gray-200 hover:border-[#D4AF37] rounded-xl p-5 transition-all duration-300 cursor-pointer group hover:shadow-lg"
+                      className="border border-gray-200 hover:border-[#D4AF37] rounded-lg p-4 transition-all duration-300 cursor-pointer group hover:shadow-md"
                       onClick={() => showContact ? navigate(`/contact?program=${program.id}&title=${encodeURIComponent(program.title)}&tier=${tier.label}`) : navigate(`/enroll/program/${program.id}?tier=${idx}`)}>
-                      <p className="text-lg font-semibold text-gray-900 group-hover:text-[#D4AF37] transition-colors">{tier.label}</p>
+                      <p className="text-sm font-medium text-gray-900 group-hover:text-[#D4AF37] transition-colors">{tier.label}</p>
                       {showContact ? (
-                        <div className="mt-3">
-                          <p className="text-gray-500 text-xs mb-3">Custom pricing for extended programs</p>
-                          <span className="inline-block bg-gray-900 group-hover:bg-[#D4AF37] text-white text-xs py-2 px-6 rounded-full transition-colors">Contact Us</span>
+                        <div className="mt-2">
+                          <p className="text-gray-400 text-[10px] mb-2">Custom pricing</p>
+                          <span className="inline-block bg-gray-900 group-hover:bg-[#D4AF37] text-white text-[10px] py-1.5 px-5 rounded-full transition-colors">Contact Us</span>
                         </div>
                       ) : (
                         <div className="mt-2">
-                          <div className="mb-3">
+                          <div className="mb-2">
                             {tierOffer > 0 ? (
                               <>
-                                <p className="text-lg font-bold text-[#D4AF37]">{symbol} {tierOffer.toLocaleString()}</p>
-                                <p className="text-xs text-gray-400 line-through">{symbol} {tierPrice.toLocaleString()}</p>
+                                <p className="text-sm font-semibold text-[#D4AF37]">{symbol} {tierOffer.toLocaleString()}</p>
+                                <p className="text-[10px] text-gray-400 line-through">{symbol} {tierPrice.toLocaleString()}</p>
                               </>
                             ) : tierPrice > 0 ? (
-                              <p className="text-lg font-bold text-gray-900">{symbol} {tierPrice.toLocaleString()}</p>
+                              <p className="text-sm font-semibold text-gray-900">{symbol} {tierPrice.toLocaleString()}</p>
                             ) : (
-                              <p className="text-sm text-gray-500 italic">Contact for pricing</p>
+                              <p className="text-xs text-gray-400 italic">Contact for pricing</p>
                             )}
                           </div>
-                          <span className="inline-block bg-gray-900 group-hover:bg-[#D4AF37] text-white text-xs py-2 px-6 rounded-full transition-colors">Select</span>
+                          <span className="inline-block bg-gray-900 group-hover:bg-[#D4AF37] text-white text-[10px] py-1.5 px-5 rounded-full transition-colors">Select</span>
                         </div>
                       )}
                     </div>
@@ -176,26 +217,19 @@ function ProgramDetailPage() {
             </div>
           )}
 
-          {/* Mode + dates - minimal */}
-          <div className="flex justify-center gap-4 mb-6 text-xs text-gray-400">
-            {program.session_mode && <span>{program.session_mode === 'online' ? 'Online (Zoom)' : 'Remote Healing (Distance)'}</span>}
-            {program.start_date && <span>Starts: {program.start_date}</span>}
-            {program.end_date && <span>Ends: {program.end_date}</span>}
-          </div>
-
-          <div className="flex flex-col sm:flex-row gap-4 justify-center">
+          <div className="flex flex-col sm:flex-row gap-3 justify-center">
             {program.enrollment_open !== false ? (
               <button data-testid="pay-now-btn" onClick={() => navigate(`/enroll/program/${program.id}`)}
-                className="bg-[#D4AF37] hover:bg-[#b8962e] text-white px-8 py-3 rounded-full text-sm tracking-wider">
+                className="bg-[#D4AF37] hover:bg-[#b8962e] text-white px-7 py-2.5 rounded-full text-xs tracking-wider transition-colors">
                 Enroll Now
               </button>
             ) : (
               <button data-testid="express-interest-btn" onClick={() => navigate('/contact')}
-                className="bg-[#D4AF37] hover:bg-[#b8962e] text-white px-8 py-3 rounded-full text-sm tracking-wider">
+                className="bg-[#D4AF37] hover:bg-[#b8962e] text-white px-7 py-2.5 rounded-full text-xs tracking-wider transition-colors">
                 Express Your Interest
               </button>
             )}
-            <button onClick={() => navigate('/contact')} className="bg-gray-900 hover:bg-gray-800 text-white px-8 py-3 rounded-full text-sm tracking-wider">
+            <button onClick={() => navigate('/contact')} className="bg-gray-900 hover:bg-gray-800 text-white px-7 py-2.5 rounded-full text-xs tracking-wider transition-colors">
               Contact Us
             </button>
           </div>
@@ -203,28 +237,35 @@ function ProgramDetailPage() {
       </section>
 
       {/* Testimonials Carousel */}
-      <section className="bg-gray-50 py-16">
-        <div className="container mx-auto px-4">
-          <h2 className="text-2xl text-center mb-10 text-gray-900">Testimonials</h2>
-          <div className="max-w-5xl mx-auto relative flex items-center justify-center gap-4">
-            <button onClick={prevTestimonial} className="p-2 rounded-full bg-white shadow-md hover:bg-gray-50"><ChevronLeft size={20} /></button>
-            <div className="flex gap-3 overflow-hidden">
-              {[0, 1, 2, 3, 4].map((offset) => {
-                const idx = (currentTestimonial + offset) % testimonialImages.length;
-                return (
-                  <img
-                    key={offset}
-                    src={testimonialImages[idx]}
-                    alt={`Testimonial ${idx + 1}`}
-                    className="w-40 h-40 object-cover rounded-lg shadow-lg flex-shrink-0"
-                  />
-                );
-              })}
+      {testimonials.length > 0 && (
+        <section className="bg-gray-50 py-14">
+          <div className="container mx-auto px-4">
+            <h2 className="text-xl text-center mb-8 text-gray-900 font-light">Testimonials</h2>
+            <div className="max-w-5xl mx-auto relative flex items-center justify-center gap-3">
+              <button onClick={prevTestimonial} className="p-1.5 rounded-full bg-white shadow hover:bg-gray-50 flex-shrink-0"><ChevronLeft size={18} /></button>
+              <div className="flex gap-2 overflow-hidden">
+                {[0, 1, 2, 3, 4].map((offset) => {
+                  if (testimonials.length === 0) return null;
+                  const idx = (currentTestimonial + offset) % testimonials.length;
+                  const t = testimonials[idx];
+                  if (!t) return null;
+                  const imgSrc = t.type === 'graphic' ? resolveImageUrl(t.image) : (t.thumbnail || `https://img.youtube.com/vi/${t.videoId}/hqdefault.jpg`);
+                  return (
+                    <img
+                      key={offset}
+                      src={imgSrc}
+                      alt={t.name || `Testimonial ${idx + 1}`}
+                      className="w-36 h-36 object-cover rounded-lg shadow flex-shrink-0"
+                      onError={(e) => { e.target.style.display = 'none'; }}
+                    />
+                  );
+                })}
+              </div>
+              <button onClick={nextTestimonial} className="p-1.5 rounded-full bg-white shadow hover:bg-gray-50 flex-shrink-0"><ChevronRight size={18} /></button>
             </div>
-            <button onClick={nextTestimonial} className="p-2 rounded-full bg-white shadow-md hover:bg-gray-50"><ChevronRight size={20} /></button>
           </div>
-        </div>
-      </section>
+        </section>
+      )}
 
       <Footer />
       <FloatingButtons />

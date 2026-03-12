@@ -16,6 +16,8 @@ import TransformationsPage from './pages/TransformationsPage';
 import EnrollmentPage from './pages/EnrollmentPage';
 import CartPage from './pages/CartPage';
 import CartCheckoutPage from './pages/CartCheckoutPage';
+import TermsPage from './pages/TermsPage';
+import PrivacyPage from './pages/PrivacyPage';
 import { Toaster } from './components/ui/toaster';
 import { SiteSettingsProvider } from './context/SiteSettingsContext';
 import { CurrencyProvider } from './context/CurrencyContext';
@@ -45,6 +47,8 @@ function App() {
                 <Route path="/payment/success" element={<PaymentSuccessPage />} />
                 <Route path="/payment/cancel" element={<PaymentCancelPage />} />
                 <Route path="/contact" element={<ContactPage />} />
+                <Route path="/terms" element={<TermsPage />} />
+                <Route path="/privacy" element={<PrivacyPage />} />
               </Routes>
             </BrowserRouter>
             <Toaster />

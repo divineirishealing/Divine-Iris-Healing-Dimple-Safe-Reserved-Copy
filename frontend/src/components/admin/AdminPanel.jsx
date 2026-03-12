@@ -44,10 +44,10 @@ const AdminPanel = () => {
   const [showStatForm, setShowStatForm] = useState(false);
   const [editingId, setEditingId] = useState(null);
 
-  const [programForm, setProgramForm] = useState({ title: '', category: '', description: '', image: '', price_usd: 0, price_inr: 0, price_eur: 0, price_gbp: 0, price_aed: 0, visible: true, order: 0, program_type: 'online', session_mode: 'online', enable_online: true, enable_offline: true, enable_in_person: false, offer_price_aed: 0, offer_price_usd: 0, offer_price_inr: 0, offer_text: '', is_upcoming: false, is_flagship: false, start_date: '', end_date: '', deadline_date: '', enrollment_open: true, duration_tiers: [], whatsapp_group_link: '', zoom_link: '', custom_link: '', custom_link_label: '', show_whatsapp_link: true, show_zoom_link: true, show_custom_link: true });
+  const [programForm, setProgramForm] = useState({ title: '', category: '', description: '', image: '', price_usd: 0, price_inr: 0, price_eur: 0, price_gbp: 0, price_aed: 0, visible: true, order: 0, program_type: 'online', session_mode: 'online', enable_online: true, enable_offline: true, enable_in_person: false, offer_price_aed: 0, offer_price_usd: 0, offer_price_inr: 0, offer_text: '', is_upcoming: false, is_flagship: false, start_date: '', end_date: '', deadline_date: '', enrollment_open: true, duration_tiers: [], whatsapp_group_link: '', zoom_link: '', custom_link: '', custom_link_label: '', show_whatsapp_link: true, show_zoom_link: true, show_custom_link: true, content_sections: [] });
   const [sessionForm, setSessionForm] = useState({ title: '', description: '', image: '', price_usd: 0, price_inr: 0, price_eur: 0, price_gbp: 0, price_aed: 0, visible: true, order: 0 });
   const [testimonialForm, setTestimonialForm] = useState({ type: 'graphic', name: '', text: '', image: '', videoId: '', program_id: '', visible: true });
-  const [statForm, setStatForm] = useState({ value: '', label: '', order: 0 });
+  const [statForm, setStatForm] = useState({ value: '', label: '', order: 0, icon: '', value_style: null, label_style: null });
 
   const loadAll = useCallback(async () => {
     try {
@@ -80,13 +80,13 @@ const AdminPanel = () => {
   };
   const editProgram = (p) => {
     setEditingId(p.id);
-    setProgramForm({ title: p.title, category: p.category || '', description: p.description, image: p.image, price_usd: p.price_usd || 0, price_inr: p.price_inr || 0, price_eur: p.price_eur || 0, price_gbp: p.price_gbp || 0, price_aed: p.price_aed || 0, visible: p.visible !== false, order: p.order || 0, program_type: p.program_type || 'online', session_mode: p.session_mode || 'online', enable_online: p.enable_online !== false, enable_offline: p.enable_offline !== false, enable_in_person: p.enable_in_person || false, offer_price_aed: p.offer_price_aed || 0, offer_price_usd: p.offer_price_usd || 0, offer_price_inr: p.offer_price_inr || 0, offer_text: p.offer_text || '', is_upcoming: p.is_upcoming || false, is_flagship: p.is_flagship || false, start_date: p.start_date || '', end_date: p.end_date || '', deadline_date: p.deadline_date || '', enrollment_open: p.enrollment_open !== false, duration_tiers: p.duration_tiers || [], whatsapp_group_link: p.whatsapp_group_link || '', zoom_link: p.zoom_link || '', custom_link: p.custom_link || '', custom_link_label: p.custom_link_label || '', show_whatsapp_link: p.show_whatsapp_link !== false, show_zoom_link: p.show_zoom_link !== false, show_custom_link: p.show_custom_link !== false });
+    setProgramForm({ title: p.title, category: p.category || '', description: p.description, image: p.image, price_usd: p.price_usd || 0, price_inr: p.price_inr || 0, price_eur: p.price_eur || 0, price_gbp: p.price_gbp || 0, price_aed: p.price_aed || 0, visible: p.visible !== false, order: p.order || 0, program_type: p.program_type || 'online', session_mode: p.session_mode || 'online', enable_online: p.enable_online !== false, enable_offline: p.enable_offline !== false, enable_in_person: p.enable_in_person || false, offer_price_aed: p.offer_price_aed || 0, offer_price_usd: p.offer_price_usd || 0, offer_price_inr: p.offer_price_inr || 0, offer_text: p.offer_text || '', is_upcoming: p.is_upcoming || false, is_flagship: p.is_flagship || false, start_date: p.start_date || '', end_date: p.end_date || '', deadline_date: p.deadline_date || '', enrollment_open: p.enrollment_open !== false, duration_tiers: p.duration_tiers || [], whatsapp_group_link: p.whatsapp_group_link || '', zoom_link: p.zoom_link || '', custom_link: p.custom_link || '', custom_link_label: p.custom_link_label || '', show_whatsapp_link: p.show_whatsapp_link !== false, show_zoom_link: p.show_zoom_link !== false, show_custom_link: p.show_custom_link !== false, content_sections: p.content_sections || [] });
     setShowProgramForm(true);
   };
   const deleteProgram = async (id) => { if (!window.confirm('Delete this program?')) return; await axios.delete(`${API}/programs/${id}`); toast({ title: 'Program deleted' }); loadAll(); };
   const toggleProgramVisibility = async (p) => { await axios.patch(`${API}/programs/${p.id}/visibility`, { visible: !p.visible }); loadAll(); };
   const moveProgramOrder = async (idx, dir) => { const items = [...programs]; const sw = idx + dir; if (sw < 0 || sw >= items.length) return; [items[idx], items[sw]] = [items[sw], items[idx]]; await axios.patch(`${API}/programs/reorder`, { order: items.map(i => i.id) }); loadAll(); };
-  const resetProgramForm = () => { setShowProgramForm(false); setEditingId(null); setProgramForm({ title: '', category: '', description: '', image: '', price_usd: 0, price_inr: 0, price_eur: 0, price_gbp: 0, price_aed: 0, visible: true, order: 0, program_type: 'online', session_mode: 'online', enable_online: true, enable_offline: true, enable_in_person: false, offer_price_aed: 0, offer_price_usd: 0, offer_price_inr: 0, offer_text: '', is_upcoming: false, is_flagship: false, start_date: '', end_date: '', deadline_date: '', enrollment_open: true, duration_tiers: [], whatsapp_group_link: '', zoom_link: '', custom_link: '', custom_link_label: '', show_whatsapp_link: true, show_zoom_link: true, show_custom_link: true }); };
+  const resetProgramForm = () => { setShowProgramForm(false); setEditingId(null); setProgramForm({ title: '', category: '', description: '', image: '', price_usd: 0, price_inr: 0, price_eur: 0, price_gbp: 0, price_aed: 0, visible: true, order: 0, program_type: 'online', session_mode: 'online', enable_online: true, enable_offline: true, enable_in_person: false, offer_price_aed: 0, offer_price_usd: 0, offer_price_inr: 0, offer_text: '', is_upcoming: false, is_flagship: false, start_date: '', end_date: '', deadline_date: '', enrollment_open: true, duration_tiers: [], whatsapp_group_link: '', zoom_link: '', custom_link: '', custom_link_label: '', show_whatsapp_link: true, show_zoom_link: true, show_custom_link: true, content_sections: [] }); };
 
   // ===== SESSIONS =====
   const saveSession = async () => {
@@ -128,10 +128,10 @@ const AdminPanel = () => {
     try {
       if (editingId) { await axios.put(`${API}/stats/${editingId}`, statForm); toast({ title: 'Stat updated!' }); }
       else { await axios.post(`${API}/stats`, statForm); toast({ title: 'Stat created!' }); }
-      setShowStatForm(false); setEditingId(null); setStatForm({ value: '', label: '', order: 0 }); loadAll();
+      setShowStatForm(false); setEditingId(null); setStatForm({ value: '', label: '', order: 0, icon: '', value_style: null, label_style: null }); loadAll();
     } catch (error) { toast({ title: 'Error', description: error.message, variant: 'destructive' }); }
   };
-  const editStat = (st) => { setEditingId(st.id); setStatForm({ value: st.value, label: st.label, order: st.order || 0 }); setShowStatForm(true); };
+  const editStat = (st) => { setEditingId(st.id); setStatForm({ value: st.value, label: st.label, order: st.order || 0, icon: st.icon || '', value_style: st.value_style || null, label_style: st.label_style || null }); setShowStatForm(true); };
   const deleteStat = async (id) => { if (!window.confirm('Delete?')) return; await axios.delete(`${API}/stats/${id}`); toast({ title: 'Deleted' }); loadAll(); };
 
   // ===== SITE SETTINGS =====
@@ -382,6 +382,149 @@ const AdminPanel = () => {
                       <p className="text-[10px] text-gray-400 mt-1">Green columns = offer/discounted price. Set to 0 if no offer.</p>
                     </div>
                   </div>
+
+                  {/* Content Sections Editor */}
+                  <div className="mt-5 border-t pt-5">
+                    <div className="flex items-center justify-between mb-3">
+                      <div>
+                        <p className="text-sm font-semibold text-gray-700">Page Content Sections</p>
+                        <p className="text-xs text-gray-400">Add sections like "The Journey", "Who it is for", etc. These appear on the program detail page.</p>
+                      </div>
+                      <Button size="sm" variant="outline" onClick={() => {
+                        const newSection = { id: Date.now().toString(), section_type: 'custom', title: '', subtitle: '', body: '', image_url: '', is_enabled: true, order: programForm.content_sections.length, title_style: {}, subtitle_style: {}, body_style: {} };
+                        setProgramForm({...programForm, content_sections: [...programForm.content_sections, newSection]});
+                      }} data-testid="add-section-btn">
+                        <Plus size={14} className="mr-1" /> Add Section
+                      </Button>
+                    </div>
+
+                    {programForm.content_sections.length === 0 && (
+                      <p className="text-xs text-gray-400 text-center py-4 border border-dashed rounded">No content sections yet. Click "Add Section" to create page content blocks.</p>
+                    )}
+
+                    <div className="space-y-3">
+                      {programForm.content_sections.map((section, sIdx) => (
+                        <div key={section.id || sIdx} className={`border rounded-lg p-4 ${section.is_enabled ? 'bg-white' : 'bg-gray-50 opacity-70'}`} data-testid={`section-editor-${sIdx}`}>
+                          <div className="flex items-center justify-between mb-3">
+                            <div className="flex items-center gap-2">
+                              <span className="text-[10px] font-medium text-gray-400">#{sIdx + 1}</span>
+                              <Switch
+                                checked={section.is_enabled}
+                                onCheckedChange={v => {
+                                  const sections = [...programForm.content_sections];
+                                  sections[sIdx] = {...sections[sIdx], is_enabled: v};
+                                  setProgramForm({...programForm, content_sections: sections});
+                                }}
+                              />
+                              <span className="text-[10px] text-gray-500">{section.is_enabled ? 'Visible' : 'Hidden'}</span>
+                            </div>
+                            <div className="flex items-center gap-1">
+                              <button disabled={sIdx === 0} onClick={() => {
+                                const sections = [...programForm.content_sections];
+                                [sections[sIdx], sections[sIdx-1]] = [sections[sIdx-1], sections[sIdx]];
+                                sections.forEach((s, i) => s.order = i);
+                                setProgramForm({...programForm, content_sections: sections});
+                              }} className="p-0.5 hover:bg-gray-100 rounded disabled:opacity-30"><ArrowUp size={12} /></button>
+                              <button disabled={sIdx === programForm.content_sections.length - 1} onClick={() => {
+                                const sections = [...programForm.content_sections];
+                                [sections[sIdx], sections[sIdx+1]] = [sections[sIdx+1], sections[sIdx]];
+                                sections.forEach((s, i) => s.order = i);
+                                setProgramForm({...programForm, content_sections: sections});
+                              }} className="p-0.5 hover:bg-gray-100 rounded disabled:opacity-30"><ArrowDown size={12} /></button>
+                              <button onClick={() => {
+                                setProgramForm({...programForm, content_sections: programForm.content_sections.filter((_, i) => i !== sIdx)});
+                              }} className="p-0.5 hover:bg-gray-100 rounded text-red-400 hover:text-red-600"><Trash2 size={12} /></button>
+                            </div>
+                          </div>
+
+                          <div className="grid md:grid-cols-2 gap-3">
+                            <div>
+                              <Label className="text-[10px]">Section Title</Label>
+                              <Input value={section.title} onChange={e => {
+                                const sections = [...programForm.content_sections];
+                                sections[sIdx] = {...sections[sIdx], title: e.target.value};
+                                setProgramForm({...programForm, content_sections: sections});
+                              }} placeholder="e.g., The Journey" className="text-xs" />
+                            </div>
+                            <div>
+                              <Label className="text-[10px]">Subtitle</Label>
+                              <Input value={section.subtitle} onChange={e => {
+                                const sections = [...programForm.content_sections];
+                                sections[sIdx] = {...sections[sIdx], subtitle: e.target.value};
+                                setProgramForm({...programForm, content_sections: sections});
+                              }} placeholder="e.g., A Sacred Invitation" className="text-xs" />
+                            </div>
+                            <div className="md:col-span-2">
+                              <Label className="text-[10px]">Body Content</Label>
+                              <Textarea value={section.body} onChange={e => {
+                                const sections = [...programForm.content_sections];
+                                sections[sIdx] = {...sections[sIdx], body: e.target.value};
+                                setProgramForm({...programForm, content_sections: sections});
+                              }} rows={4} placeholder="Section content..." className="text-xs" />
+                            </div>
+                            <div className="md:col-span-2">
+                              <Label className="text-[10px]">Section Image URL (optional)</Label>
+                              <ImageUploader value={section.image_url || ''} onChange={url => {
+                                const sections = [...programForm.content_sections];
+                                sections[sIdx] = {...sections[sIdx], image_url: url};
+                                setProgramForm({...programForm, content_sections: sections});
+                              }} />
+                            </div>
+                          </div>
+
+                          {/* Font Styling Controls */}
+                          <details className="mt-3">
+                            <summary className="text-[10px] text-gray-500 cursor-pointer hover:text-gray-700">Font Styling Options</summary>
+                            <div className="mt-2 grid grid-cols-3 gap-2">
+                              {['title', 'subtitle', 'body'].map(field => {
+                                const styleKey = `${field}_style`;
+                                const style = section[styleKey] || {};
+                                const updateStyle = (prop, val) => {
+                                  const sections = [...programForm.content_sections];
+                                  sections[sIdx] = {...sections[sIdx], [styleKey]: {...style, [prop]: val}};
+                                  setProgramForm({...programForm, content_sections: sections});
+                                };
+                                return (
+                                  <div key={field} className="border rounded p-2">
+                                    <p className="text-[9px] font-medium text-gray-500 mb-1 capitalize">{field}</p>
+                                    <div className="space-y-1">
+                                      <div className="flex gap-1">
+                                        <input type="color" value={style.font_color || '#000000'} onChange={e => updateStyle('font_color', e.target.value)} className="w-6 h-5 rounded cursor-pointer" title="Color" />
+                                        <select value={style.font_size || ''} onChange={e => updateStyle('font_size', e.target.value)} className="text-[9px] border rounded px-1 flex-1">
+                                          <option value="">Size</option>
+                                          <option value="10px">10px</option>
+                                          <option value="12px">12px</option>
+                                          <option value="14px">14px</option>
+                                          <option value="16px">16px</option>
+                                          <option value="18px">18px</option>
+                                          <option value="20px">20px</option>
+                                          <option value="24px">24px</option>
+                                          <option value="28px">28px</option>
+                                          <option value="32px">32px</option>
+                                        </select>
+                                      </div>
+                                      <div className="flex gap-1">
+                                        <button onClick={() => updateStyle('font_weight', style.font_weight === 'bold' ? '400' : 'bold')} className={`text-[9px] px-1.5 py-0.5 rounded border ${style.font_weight === 'bold' ? 'bg-gray-800 text-white' : 'bg-white'}`}><b>B</b></button>
+                                        <button onClick={() => updateStyle('font_style', style.font_style === 'italic' ? 'normal' : 'italic')} className={`text-[9px] px-1.5 py-0.5 rounded border ${style.font_style === 'italic' ? 'bg-gray-800 text-white' : 'bg-white'}`}><i>I</i></button>
+                                        <select value={style.font_family || ''} onChange={e => updateStyle('font_family', e.target.value)} className="text-[9px] border rounded px-1 flex-1">
+                                          <option value="">Font</option>
+                                          <option value="'Cinzel', serif">Cinzel</option>
+                                          <option value="'Playfair Display', serif">Playfair</option>
+                                          <option value="'Lato', sans-serif">Lato</option>
+                                          <option value="'Montserrat', sans-serif">Montserrat</option>
+                                          <option value="'Cormorant Garamond', serif">Cormorant</option>
+                                        </select>
+                                      </div>
+                                    </div>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          </details>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
                   <div className="mt-4 flex gap-2">
                     <Button data-testid="save-program-btn" onClick={saveProgram} className="bg-[#D4AF37] hover:bg-[#b8962e]"><Save size={14} className="mr-1" /> Save</Button>
                     <Button variant="outline" onClick={resetProgramForm}>Cancel</Button>
@@ -543,7 +686,47 @@ const AdminPanel = () => {
                   <div className="grid md:grid-cols-2 gap-4">
                     <div><Label>Value (e.g., "28000+")</Label><Input value={statForm.value} onChange={e => setStatForm({...statForm, value: e.target.value})} placeholder="28000+" /></div>
                     <div><Label>Label (e.g., "Happy Clients")</Label><Input value={statForm.label} onChange={e => setStatForm({...statForm, label: e.target.value})} placeholder="Happy Clients" /></div>
+                    <div>
+                      <Label>Icon (FontAwesome class)</Label>
+                      <Input value={statForm.icon || ''} onChange={e => setStatForm({...statForm, icon: e.target.value})} placeholder="e.g., fa-users, fa-calendar-alt" />
+                      <p className="text-[9px] text-gray-400 mt-0.5">Use FontAwesome icon names like fa-users, fa-infinity, fa-award</p>
+                    </div>
                   </div>
+                  {/* Font Styling for Stats */}
+                  <details className="mt-3">
+                    <summary className="text-[10px] text-gray-500 cursor-pointer hover:text-gray-700">Font Styling</summary>
+                    <div className="mt-2 grid grid-cols-2 gap-3">
+                      {[{key: 'value_style', label: 'Value'}, {key: 'label_style', label: 'Label'}].map(({key, label}) => {
+                        const style = statForm[key] || {};
+                        const updateStyle = (prop, val) => setStatForm({...statForm, [key]: {...style, [prop]: val}});
+                        return (
+                          <div key={key} className="border rounded p-2">
+                            <p className="text-[9px] font-medium text-gray-500 mb-1">{label} Style</p>
+                            <div className="space-y-1">
+                              <div className="flex gap-1">
+                                <input type="color" value={style.font_color || (key === 'value_style' ? '#d4a843' : '#ffffff')} onChange={e => updateStyle('font_color', e.target.value)} className="w-6 h-5 rounded cursor-pointer" />
+                                <select value={style.font_size || ''} onChange={e => updateStyle('font_size', e.target.value)} className="text-[9px] border rounded px-1 flex-1">
+                                  <option value="">Size</option>
+                                  {['14px','16px','18px','20px','24px','28px','32px','36px','42px','48px'].map(s => <option key={s} value={s}>{s}</option>)}
+                                </select>
+                              </div>
+                              <div className="flex gap-1">
+                                <button onClick={() => updateStyle('font_weight', style.font_weight === 'bold' ? '400' : 'bold')} className={`text-[9px] px-1.5 py-0.5 rounded border ${style.font_weight === 'bold' ? 'bg-gray-800 text-white' : 'bg-white'}`}><b>B</b></button>
+                                <button onClick={() => updateStyle('font_style', style.font_style === 'italic' ? 'normal' : 'italic')} className={`text-[9px] px-1.5 py-0.5 rounded border ${style.font_style === 'italic' ? 'bg-gray-800 text-white' : 'bg-white'}`}><i>I</i></button>
+                                <select value={style.font_family || ''} onChange={e => updateStyle('font_family', e.target.value)} className="text-[9px] border rounded px-1 flex-1">
+                                  <option value="">Font</option>
+                                  <option value="'Cinzel', serif">Cinzel</option>
+                                  <option value="'Playfair Display', serif">Playfair</option>
+                                  <option value="'Lato', sans-serif">Lato</option>
+                                  <option value="'Montserrat', sans-serif">Montserrat</option>
+                                </select>
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </details>
                   <div className="mt-4 flex gap-2">
                     <Button onClick={saveStat} className="bg-[#D4AF37] hover:bg-[#b8962e]"><Save size={14} className="mr-1" /> Save</Button>
                     <Button variant="outline" onClick={() => { setShowStatForm(false); setEditingId(null); }}>Cancel</Button>

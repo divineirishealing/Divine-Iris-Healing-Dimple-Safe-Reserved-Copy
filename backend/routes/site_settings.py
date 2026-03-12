@@ -26,7 +26,15 @@ async def get_settings():
 
 @router.put("")
 async def update_settings(settings: SiteSettingsUpdate):
-    update_data = {k: v for k, v in settings.dict().items() if v is not None}
+    raw = settings.dict()
+    # Allow empty strings and empty lists (only skip None)
+    update_data = {k: v for k, v in raw.items() if v is not None}
+    # Also include fields explicitly set to empty string or empty list
+    for field in ['terms_content', 'privacy_content']:
+        if raw.get(field) is not None or (field in raw and raw[field] == ''):
+            update_data[field] = raw[field] if raw[field] is not None else ''
+    if raw.get('sender_emails') is not None:
+        update_data['sender_emails'] = raw['sender_emails']
     existing = await db.site_settings.find_one({"id": "site_settings"})
     if not existing:
         full_settings = {**DEFAULT_SETTINGS, **update_data}

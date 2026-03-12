@@ -3,6 +3,27 @@ from typing import Optional, List, Dict
 from datetime import datetime, timezone
 import uuid
 
+class FontStyle(BaseModel):
+    font_family: Optional[str] = None
+    font_size: Optional[str] = None
+    font_color: Optional[str] = None
+    font_weight: Optional[str] = None  # 300, 400, 500, 600, 700, bold
+    font_style: Optional[str] = None  # normal, italic
+    text_align: Optional[str] = None  # left, center, right
+
+class ContentSection(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    section_type: str = "custom"  # hero_subtitle, journey, who_for, experience, cta, custom
+    title: str = ""
+    subtitle: str = ""
+    body: str = ""
+    image_url: str = ""
+    is_enabled: bool = True
+    order: int = 0
+    title_style: Optional[Dict] = None  # FontStyle dict
+    subtitle_style: Optional[Dict] = None
+    body_style: Optional[Dict] = None
+
 class DurationTier(BaseModel):
     label: str = ""  # e.g., "1 Month", "3 Months", "1 Year"
     duration_value: int = 1
@@ -50,6 +71,7 @@ class Program(BaseModel):
     show_whatsapp_link: bool = True
     show_zoom_link: bool = True
     show_custom_link: bool = True
+    content_sections: List[Dict] = []  # List of ContentSection dicts
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 class ProgramCreate(BaseModel):
@@ -89,6 +111,7 @@ class ProgramCreate(BaseModel):
     show_whatsapp_link: Optional[bool] = True
     show_zoom_link: Optional[bool] = True
     show_custom_link: Optional[bool] = True
+    content_sections: Optional[List[Dict]] = []
 
 
 class Promotion(BaseModel):
@@ -183,11 +206,17 @@ class Stat(BaseModel):
     value: str
     label: str
     order: int = 0
+    icon: str = ""  # FontAwesome icon class
+    value_style: Optional[Dict] = None  # FontStyle dict
+    label_style: Optional[Dict] = None  # FontStyle dict
 
 class StatCreate(BaseModel):
     value: str
     label: str
     order: Optional[int] = 0
+    icon: Optional[str] = ""
+    value_style: Optional[Dict] = None
+    label_style: Optional[Dict] = None
 
 class Newsletter(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
@@ -259,6 +288,28 @@ class SiteSettings(BaseModel):
     social_instagram: str = "https://instagram.com"
     social_youtube: str = "https://youtube.com"
     social_linkedin: str = "https://linkedin.com"
+    social_spotify: str = ""
+    social_pinterest: str = ""
+    social_tiktok: str = ""
+    social_twitter: str = ""
+    social_apple_music: str = ""
+    social_soundcloud: str = ""
+    # Social toggles (on/off per icon)
+    show_facebook: bool = True
+    show_instagram: bool = True
+    show_youtube: bool = True
+    show_linkedin: bool = True
+    show_spotify: bool = False
+    show_pinterest: bool = False
+    show_tiktok: bool = False
+    show_twitter: bool = False
+    show_apple_music: bool = False
+    show_soundcloud: bool = False
+    # Legal pages
+    terms_content: str = ""
+    privacy_content: str = ""
+    # Sender email configuration
+    sender_emails: List[Dict] = []  # [{purpose: "receipt", email: "...", label: "Payment Receipts"}, ...]
     # Per-section styles
     sections: Optional[Dict] = {}
     # Discount & Loyalty Settings (global for all flagship programs)
@@ -317,6 +368,25 @@ class SiteSettingsUpdate(BaseModel):
     social_instagram: Optional[str] = None
     social_youtube: Optional[str] = None
     social_linkedin: Optional[str] = None
+    social_spotify: Optional[str] = None
+    social_pinterest: Optional[str] = None
+    social_tiktok: Optional[str] = None
+    social_twitter: Optional[str] = None
+    social_apple_music: Optional[str] = None
+    social_soundcloud: Optional[str] = None
+    show_facebook: Optional[bool] = None
+    show_instagram: Optional[bool] = None
+    show_youtube: Optional[bool] = None
+    show_linkedin: Optional[bool] = None
+    show_spotify: Optional[bool] = None
+    show_pinterest: Optional[bool] = None
+    show_tiktok: Optional[bool] = None
+    show_twitter: Optional[bool] = None
+    show_apple_music: Optional[bool] = None
+    show_soundcloud: Optional[bool] = None
+    terms_content: Optional[str] = None
+    privacy_content: Optional[str] = None
+    sender_emails: Optional[List[Dict]] = None
     sections: Optional[Dict] = None
     enable_referral: Optional[bool] = None
     enable_group_discount: Optional[bool] = None
