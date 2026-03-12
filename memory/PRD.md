@@ -57,6 +57,17 @@ Build a pixel-perfect clone of https://divineirishealing.com/ with comprehensive
 - [x] Testimonials lightbox — graphic testimonials zoom on click (image Dialog)
 - [x] Video testimonials still open YouTube embed modal
 
+### Centralized Page Headers + New Pages (Mar 12, 2026)
+- [x] Page Headers admin tab: edit hero title/subtitle + font styles for ALL pages in rows
+- [x] Pages covered: Homepage, About, Transformations, Media, Blog, + all programs
+- [x] "Apply Homepage Style to All" button for uniform font styling
+- [x] Media page visibility toggle (on/off in admin)
+- [x] Blog page created with hero + visibility toggle (off by default)
+- [x] "Meet the Healer" label font now editable in admin
+- [x] "Read Full Bio" scrolls to bio section on /about
+- [x] About page hero: Cinzel name + white Lato subtitle from centralized settings
+- [x] All page heroes read from centralized page_heroes settings
+
 ### Bug Fixes & Enhancements (Mar 12, 2026)
 - [x] About page image constrained to max-height 450px (was too big)
 - [x] Full font controls (family, size, color, bold, italic) on About admin tab for: Name, Title, Bio, Philosophy, Impact, Mission, Vision
