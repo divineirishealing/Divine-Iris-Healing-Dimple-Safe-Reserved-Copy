@@ -302,6 +302,9 @@ class SiteSettings(BaseModel):
     page_heroes: Optional[Dict] = None
     media_page_visible: bool = False
     blog_page_visible: bool = False
+    # Sponsor section content & styles
+    sponsor_home: Optional[Dict] = None
+    sponsor_page: Optional[Dict] = None
     newsletter_description: str = "Sign up to receive updates on upcoming workshops, new courses and more information"
     newsletter_button_text: str = "Subscribe"
     newsletter_footer_text: str = "By subscribing, you agree to our Privacy Policy and Terms of Use."
@@ -408,6 +411,8 @@ class SiteSettingsUpdate(BaseModel):
     page_heroes: Optional[Dict] = None
     media_page_visible: Optional[bool] = None
     blog_page_visible: Optional[bool] = None
+    sponsor_home: Optional[Dict] = None
+    sponsor_page: Optional[Dict] = None
     newsletter_description: Optional[str] = None
     newsletter_button_text: Optional[str] = None
     newsletter_footer_text: Optional[str] = None

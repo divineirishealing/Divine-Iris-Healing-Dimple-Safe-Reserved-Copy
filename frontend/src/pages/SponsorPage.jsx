@@ -11,9 +11,9 @@ import { HEADING, SUBTITLE, BODY, GOLD, CONTAINER, SECTION_PY } from '../lib/des
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
 
-const applyHeroStyle = (styleObj, defaults = {}) => {
+const applyStyle = (styleObj, defaults = {}) => {
   if (!styleObj || Object.keys(styleObj).length === 0) return defaults;
-  return { ...defaults, ...(styleObj.font_family && { fontFamily: styleObj.font_family }), ...(styleObj.font_size && { fontSize: styleObj.font_size }), ...(styleObj.font_color && { color: styleObj.font_color }), ...(styleObj.font_weight && { fontWeight: styleObj.font_weight }), ...(styleObj.font_style && { fontStyle: styleObj.font_style }) };
+  return { ...defaults, ...(styleObj.font_family && { fontFamily: styleObj.font_family }), ...(styleObj.font_size && { fontSize: styleObj.font_size }), ...(styleObj.font_color && { color: styleObj.font_color }), ...(styleObj.font_weight && { fontWeight: styleObj.font_weight }), ...(styleObj.font_style && { fontStyle: styleObj.font_style }), ...(styleObj.text_align && { textAlign: styleObj.text_align }) };
 };
 
 const CURRENCY_BADGES = { inr: 'INR', usd: 'USD', aed: 'AED', eur: 'EUR', gbp: 'GBP' };
@@ -28,7 +28,7 @@ export default function SponsorPage() {
   const [anonymous, setAnonymous] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const { currency, symbol } = useCurrency();
+  const { currency } = useCurrency();
 
   useEffect(() => {
     window.scrollTo(0, 0);
@@ -36,6 +36,7 @@ export default function SponsorPage() {
   }, []);
 
   const hero = settings?.page_heroes?.sponsor || {};
+  const p = settings?.sponsor_page || {};
   const badge = CURRENCY_BADGES[currency] || currency.toUpperCase();
 
   const handleVerify = () => {
@@ -70,10 +71,10 @@ export default function SponsorPage() {
       {/* Hero */}
       <section data-testid="sponsor-hero" className="min-h-[45vh] flex flex-col items-center justify-center text-center px-6 pt-20"
         style={{ background: 'linear-gradient(180deg, #1a1a1a 0%, #2d2d2d 50%, #1a1a1a 100%)' }}>
-        <h1 className="mb-2" style={applyHeroStyle(hero.title_style, { ...HEADING, color: '#fff', fontSize: 'clamp(2rem, 5vw, 3rem)', fontVariant: 'small-caps', letterSpacing: '0.08em' })}>
+        <h1 className="mb-2" style={applyStyle(hero.title_style, { ...HEADING, color: '#fff', fontSize: 'clamp(2rem, 5vw, 3rem)', fontVariant: 'small-caps', letterSpacing: '0.08em' })}>
           {hero.title_text || 'Shine a Light in a Life'}
         </h1>
-        <p style={applyHeroStyle(hero.subtitle_style, { ...SUBTITLE, color: '#ccc', fontFamily: "'Lato', sans-serif" })}>
+        <p style={applyStyle(hero.subtitle_style, { ...SUBTITLE, color: '#ccc', fontFamily: "'Lato', sans-serif" })}>
           {hero.subtitle_text || 'Healing flows when we support each other.'}
         </p>
       </section>
@@ -84,21 +85,21 @@ export default function SponsorPage() {
           <div className="grid md:grid-cols-2 gap-0 max-w-5xl mx-auto">
             {/* Left - Why Sponsor */}
             <div className="bg-gray-50 p-10 md:p-14 flex flex-col justify-center">
-              <h2 className="mb-2" style={{ ...HEADING, fontSize: '1.6rem' }}>Why Sponsor?</h2>
+              <h2 className="mb-2" style={applyStyle(p.why_title_style, { ...HEADING, fontSize: '1.6rem' })}>{p.why_title || 'Why Sponsor?'}</h2>
               <div className="w-10 h-0.5 mb-8" style={{ background: GOLD }} />
-              <div className="space-y-5 mb-8" style={{ ...BODY, lineHeight: '1.8' }}>
-                <p>Be the Sponsor allows anyone to contribute towards someone else's healing — anonymously or openly.</p>
-                <p dangerouslySetInnerHTML={{ __html: renderMarkdown('It is not charity, it is *conscious support.*') }} />
-                <p>When one heals, the collective heals.</p>
+              <div className="space-y-5 mb-8" style={applyStyle(p.why_body_style, { ...BODY, lineHeight: '1.8' })}>
+                <p dangerouslySetInnerHTML={{ __html: renderMarkdown(p.why_body_1 || 'Be the Sponsor allows anyone to contribute towards someone else\'s healing — anonymously or openly.') }} />
+                <p dangerouslySetInnerHTML={{ __html: renderMarkdown(p.why_body_2 || 'It is not charity, it is *conscious support.*') }} />
+                <p dangerouslySetInnerHTML={{ __html: renderMarkdown(p.why_body_3 || 'When one heals, the collective heals.') }} />
               </div>
-              <p className="italic mt-auto" style={{ color: GOLD, fontFamily: "'Lato', sans-serif", fontSize: '0.95rem' }}>
-                "Because healing should never wait for money."
+              <p className="italic mt-auto" style={applyStyle(p.quote_style, { color: GOLD, fontFamily: "'Lato', sans-serif", fontSize: '0.95rem' })}>
+                "{p.quote || 'Because healing should never wait for money.'}"
               </p>
             </div>
 
             {/* Right - Contribution Form */}
             <div className="border border-[#e8d9a0] p-8 md:p-10" data-testid="contribution-form">
-              <h3 className="mb-1 text-center" style={{ ...HEADING, fontSize: '1.1rem', letterSpacing: '0.1em' }}>MAKE A CONTRIBUTION</h3>
+              <h3 className="mb-1 text-center" style={applyStyle(p.form_title_style, { ...HEADING, fontSize: '1.1rem', letterSpacing: '0.1em' })}>{p.form_title || 'MAKE A CONTRIBUTION'}</h3>
               <div className="w-10 h-0.5 mx-auto mb-6" style={{ background: GOLD }} />
 
               {error && <p className="text-red-500 text-xs mb-3 text-center" data-testid="sponsor-error">{error}</p>}
@@ -146,7 +147,7 @@ export default function SponsorPage() {
                 <button data-testid="sponsor-submit-btn" onClick={handleSubmit} disabled={loading}
                   className="w-full py-3.5 text-xs font-semibold tracking-[0.15em] uppercase transition-all duration-300 text-white disabled:opacity-50"
                   style={{ background: loading ? '#999' : GOLD }}>
-                  {loading ? 'Processing...' : 'Proceed to Payment'}
+                  {loading ? 'Processing...' : (p.submit_text || 'Proceed to Payment')}
                 </button>
 
                 <p className="text-center text-[10px] text-gray-400 flex items-center justify-center gap-1">

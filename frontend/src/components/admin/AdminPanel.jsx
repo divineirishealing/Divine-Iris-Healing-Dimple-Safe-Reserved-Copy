@@ -17,6 +17,7 @@ import {
 import HeroSettingsTab from './tabs/HeroSettingsTab';
 import AboutSettingsTab from './tabs/AboutSettingsTab';
 import PageHeadersTab from './tabs/PageHeadersTab';
+import SponsorSettingsTab from './tabs/SponsorSettingsTab';
 import NewsletterSettingsTab from './tabs/NewsletterSettingsTab';
 import HeaderFooterTab from './tabs/HeaderFooterTab';
 import EnrollmentsTab from './tabs/EnrollmentsTab';
@@ -160,6 +161,7 @@ const AdminPanel = () => {
     { key: 'hero', label: 'Hero Banner', icon: Image },
     { key: 'page_headers', label: 'Page Headers', icon: Monitor },
     { key: 'about', label: 'About', icon: Layout },
+    { key: 'sponsor', label: 'Sponsor', icon: Gift },
     { key: 'programs', label: 'Programs', icon: Package, count: programs.length },
     { key: 'sessions', label: 'Sessions', icon: Calendar, count: sessions.length },
     { key: 'testimonials', label: 'Testimonials', icon: MessageSquare, count: testimonials.length },
@@ -174,7 +176,7 @@ const AdminPanel = () => {
     { key: 'styles', label: 'Global Styles', icon: Palette },
   ];
 
-  const settingsTabKeys = ['hero', 'page_headers', 'about', 'newsletter', 'header_footer', 'styles'];
+  const settingsTabKeys = ['hero', 'page_headers', 'about', 'sponsor', 'newsletter', 'header_footer', 'styles'];
   const needsSave = settingsTabKeys.includes(activeTab);
 
   return (
@@ -229,6 +231,13 @@ const AdminPanel = () => {
             <div>
               <AboutSettingsTab settings={siteSettings} onChange={setSiteSettings} />
               <Button onClick={saveSiteSettings} className="bg-[#D4AF37] hover:bg-[#b8962e] mt-5"><Save size={14} className="mr-1" /> Save Changes</Button>
+            </div>
+          )}
+
+          {activeTab === 'sponsor' && siteSettings && (
+            <div>
+              <SponsorSettingsTab settings={siteSettings} onChange={setSiteSettings} />
+              <Button data-testid="save-sponsor-btn" onClick={saveSiteSettings} className="bg-[#D4AF37] hover:bg-[#b8962e] mt-5"><Save size={14} className="mr-1" /> Save Changes</Button>
             </div>
           )}
 
