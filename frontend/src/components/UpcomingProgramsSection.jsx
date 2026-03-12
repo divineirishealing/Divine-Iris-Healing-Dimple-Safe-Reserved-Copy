@@ -96,14 +96,22 @@ const UpcomingCard = ({ program }) => {
         <img src={resolveImageUrl(program.image)} alt={program.title}
           className={`w-full h-full object-cover transition-transform duration-500 ${!expired ? 'group-hover:scale-105' : 'grayscale-[30%]'}`}
           onError={(e) => { e.target.src = 'https://images.unsplash.com/photo-1545389336-cf090694435e?w=600&h=400&fit=crop'; }} />
-        <div className="absolute top-3 left-3">
-          <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium shadow-md ${
-            program.session_mode === 'remote' ? 'bg-purple-500 text-white' : 'bg-blue-500 text-white'
-          }`}>
-            {program.session_mode === 'online' ? <><Monitor size={14} /> Online (Zoom)</> :
-             program.session_mode === 'remote' ? <><Wifi size={14} /> Remote Healing (Distance)</> :
-             <><Monitor size={14} /> Online + Remote Healing</>}
-          </span>
+        <div className="absolute top-3 left-3 flex flex-col gap-1">
+          {program.enable_online !== false && (
+            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-medium shadow-sm bg-blue-500 text-white">
+              <Monitor size={12} /> Online (Zoom)
+            </span>
+          )}
+          {program.enable_offline !== false && (
+            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-medium shadow-sm bg-purple-500 text-white">
+              <Wifi size={12} /> Offline (Remote)
+            </span>
+          )}
+          {program.enable_in_person && (
+            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-medium shadow-sm bg-emerald-500 text-white">
+              <Monitor size={12} /> In Person
+            </span>
+          )}
         </div>
         {!expired && program.offer_text && (
           <div className="absolute top-3 right-3">
@@ -234,7 +242,9 @@ const UpcomingProgramsSection = () => {
         <div className="text-center mb-14">
           <p className="text-[#D4AF37] text-xs tracking-[0.25em] uppercase mb-3">Upcoming</p>
           <h2 className="text-3xl md:text-4xl text-gray-900">Upcoming Programs</h2>
-          <p className="text-xs text-gray-400 mt-3">We do not offer in-person sessions. All sessions are conducted online via Zoom or through remote / distance healing.</p>
+          {!programs.some(p => p.enable_in_person) && (
+            <p className="text-xs text-gray-400 mt-3">All sessions are conducted online via Zoom or through remote distance healing — no in-person sessions at this time.</p>
+          )}
         </div>
         <div className="max-w-6xl mx-auto grid md:grid-cols-2 lg:grid-cols-3 gap-8">
           {programs.map(program => <UpcomingCard key={program.id} program={program} />)}

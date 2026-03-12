@@ -1,0 +1,79 @@
+{
+  "summary": "Iteration 18 - Mode Toggles Testing Complete. All features working correctly: Backend API returns enable_online, enable_offline, enable_in_person fields with correct defaults. Admin Panel shows 3 mode checkboxes with descriptions in program form and mode badges in program list. Homepage shows conditional badges (Online/Offline/In Person) and disclaimer when no programs have in_person enabled. Enrollment and Cart pages show only enabled mode buttons.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iteration18_mode_toggles.py",
+    "/app/test_reports/pytest/pytest_iteration18.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "models.py: Program model has enable_online=True, enable_offline=True, enable_in_person=False defaults - correct",
+    "AdminPanel.jsx: 3 checkboxes with data-testid (toggle-mode-online, toggle-mode-offline, toggle-mode-in-person) and descriptions",
+    "AdminPanel.jsx: Program list shows mode badges using conditional rendering based on enable_* fields",
+    "ProgramsSection.jsx: Badges use bg-blue-500 (Online), bg-purple-500 (Offline), bg-emerald-500 (In Person) with correct conditional logic",
+    "ProgramsSection.jsx: Disclaimer shows when !programs.some(p => p.enable_in_person)",
+    "UpcomingProgramsSection.jsx: Same badge logic and disclaimer",
+    "EnrollmentPage.jsx: ParticipantRow receives enabledModes prop, shows only enabled mode buttons with descriptions",
+    "EnrollmentPage.jsx: Shows italic disclaimer when !showInPerson",
+    "CartPage.jsx: CartItemCard respects item.enable_online, item.enable_offline, item.enable_in_person from CartContext",
+    "CartContext.js: Stores enable_online, enable_offline, enable_in_person when adding items to cart"
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_iteration18_mode_toggles.py"
+  ],
+  "success_rate": {
+    "backend": "100% (10/10 tests passed)",
+    "frontend": "100% (all mode toggle features verified)"
+  },
+  "test_credentials": {
+    "admin_url": "/admin",
+    "admin_username": "admin",
+    "admin_password": "divineadmin2024"
+  },
+  "seed_data_creation": "No new seed data created.",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Mode toggles feature complete. All programs have enable_online=true, enable_offline=true, enable_in_person=false by default. Admin can modify these per program. Frontend shows badges conditionally. Disclaimer shows when no program has enable_in_person=true. CartContext correctly stores mode toggles when adding items.",
+  "mocked_features": {
+    "phone_otp": "MOCKED - OTP generated server-side, returned in API response field 'mock_otp' for testing"
+  },
+  "features_tested": {
+    "backend_api": {
+      "GET /api/programs": "PASS - Returns enable_online, enable_offline, enable_in_person for all programs",
+      "GET /api/programs/{id}": "PASS - Returns mode fields for single program",
+      "POST /api/programs": "PASS - Creates program with correct default mode values (online=true, offline=true, in_person=false)",
+      "PUT /api/programs/{id}": "PASS - Updates mode toggles correctly and persists to database"
+    },
+    "admin_panel": {
+      "program_form_mode_checkboxes": "PASS - 3 checkboxes visible with descriptions (Online='Live session via Zoom', Offline='Remote healing, no in-person', In Person='Future use')",
+      "program_form_default_values": "PASS - Online and Offline checked by default, In Person unchecked",
+      "program_list_mode_badges": "PASS - Shows blue 'Online', purple 'Offline', gray 'In Person' badges based on enabled modes",
+      "edit_program_mode_loading": "PASS - Mode checkboxes correctly populated when editing existing program"
+    },
+    "homepage_badges": {
+      "programs_section_badges": "PASS - Program cards show 'Online (Zoom)' blue badge, 'Offline (Remote)' purple badge",
+      "upcoming_section_badges": "PASS - Upcoming cards show same conditional badges",
+      "disclaimer_when_no_in_person": "PASS - Shows 'All sessions are conducted online via Zoom or through remote distance healing — no in-person sessions at this time.' when no programs have enable_in_person=true"
+    },
+    "enrollment_page": {
+      "conditional_mode_buttons": "PASS - Shows only enabled modes (Online/Offline buttons shown, In Person hidden when disabled)",
+      "mode_button_descriptions": "PASS - Online='via Zoom', Offline='Remote, no in-person'",
+      "no_in_person_note": "PASS - Shows italic note 'All sessions are online via Zoom or remote distance healing — no in-person sessions at this time.'"
+    },
+    "cart_page": {
+      "mode_buttons_from_context": "PASS - Cart items show only enabled mode buttons based on item.enable_online/offline/in_person from CartContext",
+      "no_in_person_when_disabled": "PASS - In Person button not shown when item.enable_in_person=false"
+    },
+    "cart_context": {
+      "stores_mode_toggles": "PASS - When adding item to cart, stores enable_online, enable_offline, enable_in_person from program data"
+    }
+  }
+}

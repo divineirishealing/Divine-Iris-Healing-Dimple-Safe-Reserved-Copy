@@ -46,6 +46,10 @@ export const CartProvider = ({ children }) => {
       price_aed: program.price_aed || 0,
       price_inr: program.price_inr || 0,
       price_usd: program.price_usd || 0,
+      // Mode toggles
+      enable_online: program.enable_online !== false,
+      enable_offline: program.enable_offline !== false,
+      enable_in_person: program.enable_in_person || false,
       participants: [{
         name: '', relationship: 'Myself', age: '', gender: '',
         country: 'AE', attendance_mode: program.session_mode === 'remote' ? 'offline' : 'online',

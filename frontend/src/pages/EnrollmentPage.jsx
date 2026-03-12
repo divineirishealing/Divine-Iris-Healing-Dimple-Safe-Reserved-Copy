@@ -63,8 +63,11 @@ const StepBar = ({ current, steps }) => (
   </div>
 );
 
-const ParticipantRow = ({ index, data, onChange, onRemove, canRemove, showReferral = true }) => {
+const ParticipantRow = ({ index, data, onChange, onRemove, canRemove, showReferral = true, enabledModes = {} }) => {
   const update = (field, value) => onChange({ ...data, [field]: value });
+  const showOnline = enabledModes.enable_online !== false;
+  const showOffline = enabledModes.enable_offline !== false;
+  const showInPerson = enabledModes.enable_in_person === true;
   return (
     <div className="border rounded-lg p-3 mb-2 bg-gray-50" data-testid={`participant-${index}`}>
       <div className="flex items-center justify-between mb-2">
@@ -91,18 +94,35 @@ const ParticipantRow = ({ index, data, onChange, onRemove, canRemove, showReferr
             {COUNTRIES.map(c => <option key={c.code} value={c.code}>{c.name}</option>)}
           </select></div>
       </div>
-      <div className="flex gap-1 mb-2">
-        <button type="button" onClick={() => update('attendance_mode', 'online')}
-          className={`flex-1 flex items-center justify-center gap-1 py-1.5 rounded border text-[10px] transition-all ${
-            data.attendance_mode === 'online' ? 'bg-[#D4AF37]/10 border-[#D4AF37] text-[#D4AF37]' : 'bg-white border-gray-200 text-gray-500'}`}>
-          <Monitor size={10} /> Online
-        </button>
-        <button type="button" onClick={() => update('attendance_mode', 'offline')}
-          className={`flex-1 flex items-center justify-center gap-1 py-1.5 rounded border text-[10px] transition-all ${
-            data.attendance_mode === 'offline' ? 'bg-[#D4AF37]/10 border-[#D4AF37] text-[#D4AF37]' : 'bg-white border-gray-200 text-gray-500'}`}>
-          <Wifi size={10} /> Remote
-        </button>
+      <div className="flex gap-1 mb-1">
+        {showOnline && (
+          <button type="button" onClick={() => update('attendance_mode', 'online')}
+            className={`flex-1 flex flex-col items-center justify-center gap-0.5 py-1.5 rounded border text-[10px] transition-all ${
+              data.attendance_mode === 'online' ? 'bg-blue-50 border-blue-400 text-blue-600' : 'bg-white border-gray-200 text-gray-500'}`}>
+            <span className="flex items-center gap-1"><Monitor size={10} /> Online</span>
+            <span className="text-[8px] opacity-70">via Zoom</span>
+          </button>
+        )}
+        {showOffline && (
+          <button type="button" onClick={() => update('attendance_mode', 'offline')}
+            className={`flex-1 flex flex-col items-center justify-center gap-0.5 py-1.5 rounded border text-[10px] transition-all ${
+              data.attendance_mode === 'offline' ? 'bg-purple-50 border-purple-400 text-purple-600' : 'bg-white border-gray-200 text-gray-500'}`}>
+            <span className="flex items-center gap-1"><Wifi size={10} /> Offline</span>
+            <span className="text-[8px] opacity-70">Remote, no in-person</span>
+          </button>
+        )}
+        {showInPerson && (
+          <button type="button" onClick={() => update('attendance_mode', 'in_person')}
+            className={`flex-1 flex flex-col items-center justify-center gap-0.5 py-1.5 rounded border text-[10px] transition-all ${
+              data.attendance_mode === 'in_person' ? 'bg-emerald-50 border-emerald-400 text-emerald-600' : 'bg-white border-gray-200 text-gray-500'}`}>
+            <span className="flex items-center gap-1"><Monitor size={10} /> In Person</span>
+            <span className="text-[8px] opacity-70">Visit location</span>
+          </button>
+        )}
       </div>
+      {!showInPerson && (
+        <p className="text-[8px] text-gray-400 mb-1 italic">All sessions are online via Zoom or remote distance healing — no in-person sessions at this time.</p>
+      )}
       <label className="flex items-center gap-1.5 cursor-pointer mb-1.5" data-testid={`p-first-time-${index}`}>
         <input type="checkbox" checked={data.is_first_time} onChange={e => update('is_first_time', e.target.checked)} className="w-3.5 h-3.5 rounded border-gray-300 text-[#D4AF37]" />
         <span className="text-[10px] text-gray-600">First time joining Divine Iris Healing</span>
@@ -373,7 +393,8 @@ function EnrollmentPage() {
                     <h2 className="text-sm font-semibold text-gray-900 mb-3 flex items-center gap-2"><User size={16} className="text-[#D4AF37]" /> Who is participating?</h2>
                     {participants.map((p, i) => (
                       <ParticipantRow key={i} index={i} data={p} onChange={d => { const u = [...participants]; u[i] = d; setParticipants(u); }}
-                        onRemove={() => setParticipants(participants.filter((_, j) => j !== i))} canRemove={participants.length > 1} showReferral={discountSettings.enable_referral} />
+                        onRemove={() => setParticipants(participants.filter((_, j) => j !== i))} canRemove={participants.length > 1} showReferral={discountSettings.enable_referral}
+                        enabledModes={{ enable_online: item?.enable_online, enable_offline: item?.enable_offline, enable_in_person: item?.enable_in_person }} />
                     ))}
                     <button data-testid="add-participant-btn" onClick={() => setParticipants([...participants, emptyParticipant()])}
                       className="w-full border-2 border-dashed border-[#D4AF37]/40 rounded-lg py-2.5 flex items-center justify-center gap-1 text-xs text-[#D4AF37] hover:bg-[#D4AF37]/5 transition-colors mb-4">

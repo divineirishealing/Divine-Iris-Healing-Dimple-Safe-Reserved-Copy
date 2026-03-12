@@ -167,18 +167,30 @@ const CartItemCard = ({ item, onRemove, onUpdateParticipants, symbol, getItemPri
                 <div>
                   <label className="text-[9px] text-gray-500 block">Mode</label>
                   <div className="flex gap-1">
-                    <button type="button" onClick={() => updateParticipant(idx, 'attendance_mode', 'online')}
-                      className={`flex-1 flex items-center justify-center gap-1 py-1.5 rounded border text-[10px] transition-all ${
-                        p.attendance_mode === 'online' ? 'bg-[#D4AF37]/10 border-[#D4AF37] text-[#D4AF37]' : 'bg-white border-gray-200 text-gray-500'
-                      }`}>
-                      <Monitor size={10} /> Zoom
-                    </button>
-                    <button type="button" onClick={() => updateParticipant(idx, 'attendance_mode', 'offline')}
-                      className={`flex-1 flex items-center justify-center gap-1 py-1.5 rounded border text-[10px] transition-all ${
-                        p.attendance_mode === 'offline' ? 'bg-[#D4AF37]/10 border-[#D4AF37] text-[#D4AF37]' : 'bg-white border-gray-200 text-gray-500'
-                      }`}>
-                      <Wifi size={10} /> Remote
-                    </button>
+                    {item.enable_online !== false && (
+                      <button type="button" onClick={() => updateParticipant(idx, 'attendance_mode', 'online')}
+                        className={`flex-1 flex flex-col items-center gap-0.5 py-1 rounded border text-[10px] transition-all ${
+                          p.attendance_mode === 'online' ? 'bg-blue-50 border-blue-400 text-blue-600' : 'bg-white border-gray-200 text-gray-500'}`}>
+                        <span className="flex items-center gap-0.5"><Monitor size={10} /> Online</span>
+                        <span className="text-[8px] opacity-70">via Zoom</span>
+                      </button>
+                    )}
+                    {item.enable_offline !== false && (
+                      <button type="button" onClick={() => updateParticipant(idx, 'attendance_mode', 'offline')}
+                        className={`flex-1 flex flex-col items-center gap-0.5 py-1 rounded border text-[10px] transition-all ${
+                          p.attendance_mode === 'offline' ? 'bg-purple-50 border-purple-400 text-purple-600' : 'bg-white border-gray-200 text-gray-500'}`}>
+                        <span className="flex items-center gap-0.5"><Wifi size={10} /> Offline</span>
+                        <span className="text-[8px] opacity-70">Remote</span>
+                      </button>
+                    )}
+                    {item.enable_in_person && (
+                      <button type="button" onClick={() => updateParticipant(idx, 'attendance_mode', 'in_person')}
+                        className={`flex-1 flex flex-col items-center gap-0.5 py-1 rounded border text-[10px] transition-all ${
+                          p.attendance_mode === 'in_person' ? 'bg-emerald-50 border-emerald-400 text-emerald-600' : 'bg-white border-gray-200 text-gray-500'}`}>
+                        <span className="flex items-center gap-0.5"><Monitor size={10} /> In Person</span>
+                        <span className="text-[8px] opacity-70">Visit</span>
+                      </button>
+                    )}
                   </div>
                 </div>
               </div>

@@ -44,7 +44,7 @@ const AdminPanel = () => {
   const [showStatForm, setShowStatForm] = useState(false);
   const [editingId, setEditingId] = useState(null);
 
-  const [programForm, setProgramForm] = useState({ title: '', category: '', description: '', image: '', price_usd: 0, price_inr: 0, price_eur: 0, price_gbp: 0, price_aed: 0, visible: true, order: 0, program_type: 'online', session_mode: 'online', offer_price_aed: 0, offer_price_usd: 0, offer_price_inr: 0, offer_text: '', is_upcoming: false, is_flagship: false, start_date: '', end_date: '', deadline_date: '', enrollment_open: true, duration_tiers: [], whatsapp_group_link: '', zoom_link: '', custom_link: '', custom_link_label: '', show_whatsapp_link: true, show_zoom_link: true, show_custom_link: true });
+  const [programForm, setProgramForm] = useState({ title: '', category: '', description: '', image: '', price_usd: 0, price_inr: 0, price_eur: 0, price_gbp: 0, price_aed: 0, visible: true, order: 0, program_type: 'online', session_mode: 'online', enable_online: true, enable_offline: true, enable_in_person: false, offer_price_aed: 0, offer_price_usd: 0, offer_price_inr: 0, offer_text: '', is_upcoming: false, is_flagship: false, start_date: '', end_date: '', deadline_date: '', enrollment_open: true, duration_tiers: [], whatsapp_group_link: '', zoom_link: '', custom_link: '', custom_link_label: '', show_whatsapp_link: true, show_zoom_link: true, show_custom_link: true });
   const [sessionForm, setSessionForm] = useState({ title: '', description: '', image: '', price_usd: 0, price_inr: 0, price_eur: 0, price_gbp: 0, price_aed: 0, visible: true, order: 0 });
   const [testimonialForm, setTestimonialForm] = useState({ type: 'graphic', name: '', text: '', image: '', videoId: '', program_id: '', visible: true });
   const [statForm, setStatForm] = useState({ value: '', label: '', order: 0 });
@@ -80,13 +80,13 @@ const AdminPanel = () => {
   };
   const editProgram = (p) => {
     setEditingId(p.id);
-    setProgramForm({ title: p.title, category: p.category || '', description: p.description, image: p.image, price_usd: p.price_usd || 0, price_inr: p.price_inr || 0, price_eur: p.price_eur || 0, price_gbp: p.price_gbp || 0, price_aed: p.price_aed || 0, visible: p.visible !== false, order: p.order || 0, program_type: p.program_type || 'online', session_mode: p.session_mode || 'online', offer_price_aed: p.offer_price_aed || 0, offer_price_usd: p.offer_price_usd || 0, offer_price_inr: p.offer_price_inr || 0, offer_text: p.offer_text || '', is_upcoming: p.is_upcoming || false, is_flagship: p.is_flagship || false, start_date: p.start_date || '', end_date: p.end_date || '', deadline_date: p.deadline_date || '', enrollment_open: p.enrollment_open !== false, duration_tiers: p.duration_tiers || [], whatsapp_group_link: p.whatsapp_group_link || '', zoom_link: p.zoom_link || '', custom_link: p.custom_link || '', custom_link_label: p.custom_link_label || '', show_whatsapp_link: p.show_whatsapp_link !== false, show_zoom_link: p.show_zoom_link !== false, show_custom_link: p.show_custom_link !== false });
+    setProgramForm({ title: p.title, category: p.category || '', description: p.description, image: p.image, price_usd: p.price_usd || 0, price_inr: p.price_inr || 0, price_eur: p.price_eur || 0, price_gbp: p.price_gbp || 0, price_aed: p.price_aed || 0, visible: p.visible !== false, order: p.order || 0, program_type: p.program_type || 'online', session_mode: p.session_mode || 'online', enable_online: p.enable_online !== false, enable_offline: p.enable_offline !== false, enable_in_person: p.enable_in_person || false, offer_price_aed: p.offer_price_aed || 0, offer_price_usd: p.offer_price_usd || 0, offer_price_inr: p.offer_price_inr || 0, offer_text: p.offer_text || '', is_upcoming: p.is_upcoming || false, is_flagship: p.is_flagship || false, start_date: p.start_date || '', end_date: p.end_date || '', deadline_date: p.deadline_date || '', enrollment_open: p.enrollment_open !== false, duration_tiers: p.duration_tiers || [], whatsapp_group_link: p.whatsapp_group_link || '', zoom_link: p.zoom_link || '', custom_link: p.custom_link || '', custom_link_label: p.custom_link_label || '', show_whatsapp_link: p.show_whatsapp_link !== false, show_zoom_link: p.show_zoom_link !== false, show_custom_link: p.show_custom_link !== false });
     setShowProgramForm(true);
   };
   const deleteProgram = async (id) => { if (!window.confirm('Delete this program?')) return; await axios.delete(`${API}/programs/${id}`); toast({ title: 'Program deleted' }); loadAll(); };
   const toggleProgramVisibility = async (p) => { await axios.patch(`${API}/programs/${p.id}/visibility`, { visible: !p.visible }); loadAll(); };
   const moveProgramOrder = async (idx, dir) => { const items = [...programs]; const sw = idx + dir; if (sw < 0 || sw >= items.length) return; [items[idx], items[sw]] = [items[sw], items[idx]]; await axios.patch(`${API}/programs/reorder`, { order: items.map(i => i.id) }); loadAll(); };
-  const resetProgramForm = () => { setShowProgramForm(false); setEditingId(null); setProgramForm({ title: '', category: '', description: '', image: '', price_usd: 0, price_inr: 0, price_eur: 0, price_gbp: 0, price_aed: 0, visible: true, order: 0, program_type: 'online', session_mode: 'online', offer_price_aed: 0, offer_price_usd: 0, offer_price_inr: 0, offer_text: '', is_upcoming: false, is_flagship: false, start_date: '', end_date: '', deadline_date: '', enrollment_open: true, duration_tiers: [], whatsapp_group_link: '', zoom_link: '', custom_link: '', custom_link_label: '', show_whatsapp_link: true, show_zoom_link: true, show_custom_link: true }); };
+  const resetProgramForm = () => { setShowProgramForm(false); setEditingId(null); setProgramForm({ title: '', category: '', description: '', image: '', price_usd: 0, price_inr: 0, price_eur: 0, price_gbp: 0, price_aed: 0, visible: true, order: 0, program_type: 'online', session_mode: 'online', enable_online: true, enable_offline: true, enable_in_person: false, offer_price_aed: 0, offer_price_usd: 0, offer_price_inr: 0, offer_text: '', is_upcoming: false, is_flagship: false, start_date: '', end_date: '', deadline_date: '', enrollment_open: true, duration_tiers: [], whatsapp_group_link: '', zoom_link: '', custom_link: '', custom_link_label: '', show_whatsapp_link: true, show_zoom_link: true, show_custom_link: true }); };
 
   // ===== SESSIONS =====
   const saveSession = async () => {
@@ -269,12 +269,23 @@ const AdminPanel = () => {
                     <div className="md:col-span-2"><Label>Description</Label><Textarea value={programForm.description} onChange={e => setProgramForm({...programForm, description: e.target.value})} rows={4} /></div>
                     <div className="md:col-span-2"><Label>Image</Label><ImageUploader value={programForm.image} onChange={url => setProgramForm({...programForm, image: url})} /></div>
 
-                    {/* Mode (merged session_mode + program_type) */}
-                    <div>
-                      <Label>Mode</Label>
-                      <select value={programForm.session_mode} onChange={e => setProgramForm({...programForm, session_mode: e.target.value, program_type: e.target.value})} className="w-full border rounded-md px-3 py-2 text-sm">
-                        <option value="online">Online</option><option value="remote">Remote Healing (Distance)</option>
-                      </select>
+                    {/* Session Modes */}
+                    <div className="md:col-span-2">
+                      <Label className="mb-2 block">Session Modes</Label>
+                      <div className="flex flex-wrap gap-4">
+                        <label className="flex items-center gap-2 bg-blue-50 border border-blue-200 rounded-lg px-3 py-2 cursor-pointer" data-testid="toggle-mode-online">
+                          <input type="checkbox" checked={programForm.enable_online} onChange={e => setProgramForm({...programForm, enable_online: e.target.checked})} className="w-4 h-4 rounded text-blue-600" />
+                          <div><p className="text-xs font-medium text-blue-700">Online</p><p className="text-[9px] text-blue-500">Live session via Zoom</p></div>
+                        </label>
+                        <label className="flex items-center gap-2 bg-purple-50 border border-purple-200 rounded-lg px-3 py-2 cursor-pointer" data-testid="toggle-mode-offline">
+                          <input type="checkbox" checked={programForm.enable_offline} onChange={e => setProgramForm({...programForm, enable_offline: e.target.checked})} className="w-4 h-4 rounded text-purple-600" />
+                          <div><p className="text-xs font-medium text-purple-700">Offline</p><p className="text-[9px] text-purple-500">Remote healing, no in-person</p></div>
+                        </label>
+                        <label className="flex items-center gap-2 bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 cursor-pointer" data-testid="toggle-mode-in-person">
+                          <input type="checkbox" checked={programForm.enable_in_person} onChange={e => setProgramForm({...programForm, enable_in_person: e.target.checked})} className="w-4 h-4 rounded text-gray-600" />
+                          <div><p className="text-xs font-medium text-gray-700">In Person</p><p className="text-[9px] text-gray-400">Future use</p></div>
+                        </label>
+                      </div>
                     </div>
                     <div><Label>Duration</Label><Input value={programForm.duration||''} onChange={e => setProgramForm({...programForm, duration: e.target.value})} placeholder="e.g., 90 days" /></div>
 
@@ -392,8 +403,10 @@ const AdminPanel = () => {
                         <p className="text-xs text-gray-500">{p.category}</p>
                         {p.is_flagship && <span className="text-[10px] bg-[#D4AF37]/10 text-[#D4AF37] px-2 py-0.5 rounded font-medium">Flagship</span>}
                         {p.is_upcoming && <span className="text-[10px] bg-amber-100 text-amber-700 px-2 py-0.5 rounded">Upcoming</span>}
-                        <span className={`text-[10px] px-1.5 py-0.5 rounded ${p.session_mode === 'online' ? 'bg-blue-50 text-blue-600' : 'bg-purple-50 text-purple-600'}`}>
-                          {p.session_mode === 'online' ? 'Online' : 'Remote'}
+                        <span className="text-[10px] space-x-1">
+                          {p.enable_online !== false && <span className="px-1.5 py-0.5 rounded bg-blue-50 text-blue-600">Online</span>}
+                          {p.enable_offline !== false && <span className="px-1.5 py-0.5 rounded bg-purple-50 text-purple-600">Offline</span>}
+                          {p.enable_in_person && <span className="px-1.5 py-0.5 rounded bg-gray-100 text-gray-600">In Person</span>}
                         </span>
                         {p.duration_tiers && p.duration_tiers.length > 0 && <span className="text-[10px] text-gray-400">{p.duration_tiers.length} tier{p.duration_tiers.length>1?'s':''}</span>}
                       </div>

@@ -29,6 +29,9 @@ class Program(BaseModel):
     order: int = 0
     program_type: str = "online"  # online / offline / hybrid
     session_mode: str = "online"  # online / remote / both
+    enable_online: bool = True
+    enable_offline: bool = True
+    enable_in_person: bool = False
     offer_price_aed: float = 0.0
     offer_price_usd: float = 0.0
     offer_price_inr: float = 0.0
@@ -65,6 +68,9 @@ class ProgramCreate(BaseModel):
     order: Optional[int] = 0
     program_type: Optional[str] = "online"
     session_mode: Optional[str] = "online"
+    enable_online: Optional[bool] = True
+    enable_offline: Optional[bool] = True
+    enable_in_person: Optional[bool] = False
     offer_price_aed: Optional[float] = 0.0
     offer_price_usd: Optional[float] = 0.0
     offer_price_inr: Optional[float] = 0.0
