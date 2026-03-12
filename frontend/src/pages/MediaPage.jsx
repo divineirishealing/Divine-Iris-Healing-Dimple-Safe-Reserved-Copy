@@ -1,151 +1,118 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
-import { Menu, X, Mail, Phone, Facebook, Instagram, Youtube, Linkedin, Play } from 'lucide-react';
+import { Play } from 'lucide-react';
 import { Dialog, DialogContent } from '../components/ui/dialog';
+import Header from '../components/Header';
+import Footer from '../components/Footer';
+import FloatingButtons from '../components/FloatingButtons';
+import { resolveImageUrl } from '../lib/imageUtils';
+import { HEADING, SUBTITLE, CONTAINER, SECTION_PY } from '../lib/designTokens';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
 
+const applyHeroStyle = (styleObj, defaults = {}) => {
+  if (!styleObj || Object.keys(styleObj).length === 0) return defaults;
+  return {
+    ...defaults,
+    ...(styleObj.font_family && { fontFamily: styleObj.font_family }),
+    ...(styleObj.font_size && { fontSize: styleObj.font_size }),
+    ...(styleObj.font_color && { color: styleObj.font_color }),
+    ...(styleObj.font_weight && { fontWeight: styleObj.font_weight }),
+    ...(styleObj.font_style && { fontStyle: styleObj.font_style }),
+  };
+};
+
 function MediaPage() {
-  const navigate = useNavigate();
-  const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [settings, setSettings] = useState(null);
   const [testimonials, setTestimonials] = useState([]);
   const [selectedVideo, setSelectedVideo] = useState(null);
+  const [selectedImage, setSelectedImage] = useState(null);
 
   useEffect(() => {
-    loadTestimonials();
+    window.scrollTo(0, 0);
+    axios.get(`${API}/settings`).then(r => setSettings(r.data)).catch(() => {});
+    axios.get(`${API}/testimonials`).then(r => setTestimonials(r.data)).catch(() => {});
   }, []);
 
-  const loadTestimonials = async () => {
-    try {
-      const response = await axios.get(`${API}/testimonials`);
-      setTestimonials(response.data);
-    } catch (error) {
-      console.error('Error loading testimonials:', error);
-    }
-  };
+  const hero = settings?.page_heroes?.media || {};
+  const videoTestimonials = testimonials.filter(t => t.type === 'video');
+  const graphicTestimonials = testimonials.filter(t => t.type === 'graphic');
 
   return (
     <div className="min-h-screen bg-white">
-      {/* Header */}
-      <header className="fixed top-0 left-0 right-0 z-50 bg-black/90">
-        <div className="container mx-auto px-4 py-4 flex justify-between items-center">
-          <button
-            onClick={() => setIsMenuOpen(!isMenuOpen)}
-            className="flex items-center gap-2 text-white hover:text-yellow-500"
-          >
-            {isMenuOpen ? <X size={24} /> : <Menu size={24} />}
-            <span className="text-sm font-medium">MENU</span>
-          </button>
-          <div className="flex gap-4">
-            <a href="https://facebook.com" className="text-white hover:text-yellow-500"><Facebook size={20} /></a>
-            <a href="https://instagram.com" className="text-white hover:text-yellow-500"><Instagram size={20} /></a>
-            <a href="https://youtube.com" className="text-white hover:text-yellow-500"><Youtube size={20} /></a>
-            <a href="https://linkedin.com" className="text-white hover:text-yellow-500"><Linkedin size={20} /></a>
-          </div>
-        </div>
-      </header>
+      <Header />
 
-      {/* Golden Menu Overlay */}
-      {isMenuOpen && (
-        <div className="fixed inset-0 z-40 bg-gradient-to-br from-yellow-700 via-yellow-600 to-yellow-800 flex items-center justify-center">
-          <nav className="text-center space-y-8">
-            <a href="/" onClick={() => setIsMenuOpen(false)} className="block text-white text-3xl font-light tracking-widest hover:text-yellow-200">HOME</a>
-            <a href="/#about" onClick={() => setIsMenuOpen(false)} className="block text-white text-3xl font-light tracking-widest hover:text-yellow-200">ABOUT</a>
-            <a href="/services" onClick={() => setIsMenuOpen(false)} className="block text-white text-3xl font-light tracking-widest hover:text-yellow-200">SERVICES</a>
-            <a href="/sessions" onClick={() => setIsMenuOpen(false)} className="block text-white text-3xl font-light tracking-widest hover:text-yellow-200">UPCOMING SESSIONS</a>
-            <a href="/media" onClick={() => setIsMenuOpen(false)} className="block text-white text-3xl font-light tracking-widest hover:text-yellow-200">MEDIA</a>
-            <a href="/programs" onClick={() => setIsMenuOpen(false)} className="block text-white text-3xl font-light tracking-widest hover:text-yellow-200">PROGRAMS</a>
-            <a href="/contact" onClick={() => setIsMenuOpen(false)} className="block text-white text-3xl font-light tracking-widest hover:text-yellow-200">CONTACT</a>
-          </nav>
-        </div>
-      )}
-
-      {/* Hero Section */}
-      <section className="min-h-[50vh] bg-gradient-to-br from-gray-900 via-black to-gray-900 flex items-center justify-center">
-        <h1 className="text-6xl md:text-8xl font-serif text-yellow-600 tracking-wider">MEDIA</h1>
+      <section data-testid="media-hero" className="min-h-[45vh] flex flex-col items-center justify-center text-center px-6 pt-20"
+        style={{ background: 'linear-gradient(180deg, #1a1a1a 0%, #2d2d2d 50%, #1a1a1a 100%)' }}>
+        <h1 className="mb-2" style={applyHeroStyle(hero.title_style, { ...HEADING, color: '#fff', fontSize: 'clamp(2rem, 5vw, 3rem)', fontVariant: 'small-caps', letterSpacing: '0.08em' })}>
+          {hero.title_text || 'MEDIA'}
+        </h1>
+        <p style={applyHeroStyle(hero.subtitle_style, { ...SUBTITLE, color: '#ccc', fontFamily: "'Lato', sans-serif" })}>
+          {hero.subtitle_text || ''}
+        </p>
       </section>
 
-      {/* Testimonials Grid */}
-      <section className="py-16 bg-gray-50">
-        <div className="container mx-auto px-4">
-          <div className="max-w-7xl mx-auto">
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-              {testimonials.map((testimonial) => (
-                <div
-                  key={testimonial.id}
-                  className="relative group cursor-pointer overflow-hidden rounded-lg shadow-lg hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-2"
-                  onClick={() => setSelectedVideo(testimonial.videoId)}
-                >
-                  <img
-                    src={testimonial.thumbnail}
-                    alt={`Testimonial ${testimonial.id}`}
-                    className="w-full h-80 object-cover transition-transform duration-500 group-hover:scale-110"
-                  />
-                  <div className="absolute inset-0 bg-black/40 group-hover:bg-black/60 transition-all duration-300 flex items-center justify-center">
-                    <div className="w-20 h-20 bg-yellow-600 rounded-full flex items-center justify-center transform group-hover:scale-110 transition-transform duration-300 shadow-xl">
-                      <Play size={32} className="text-white ml-1" fill="white" />
+      {/* Video Testimonials */}
+      {videoTestimonials.length > 0 && (
+        <section className={SECTION_PY}>
+          <div className={CONTAINER}>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 max-w-6xl mx-auto">
+              {videoTestimonials.map(t => (
+                <div key={t.id} className="relative group cursor-pointer overflow-hidden rounded-lg shadow hover:shadow-xl transition-all"
+                  onClick={() => setSelectedVideo(t.videoId)} data-testid={`media-video-${t.id}`}>
+                  <img src={`https://img.youtube.com/vi/${t.videoId}/hqdefault.jpg`} alt={t.name || ''} className="w-full h-56 object-cover transition-transform duration-300 group-hover:scale-105" />
+                  <div className="absolute inset-0 bg-black/30 group-hover:bg-black/50 transition-all flex items-center justify-center">
+                    <div className="w-14 h-14 bg-[#D4AF37] rounded-full flex items-center justify-center shadow-lg">
+                      <Play size={24} className="text-white ml-0.5" fill="white" />
                     </div>
-                  </div>
-                </div>
-              ))}
-
-              {/* Additional placeholder testimonials if needed */}
-              {testimonials.length < 6 && [1, 2, 3, 4, 5, 6].slice(0, 6 - testimonials.length).map((i) => (
-                <div
-                  key={`placeholder-${i}`}
-                  className="relative group cursor-pointer overflow-hidden rounded-lg shadow-lg hover:shadow-2xl transition-all duration-300"
-                >
-                  <img
-                    src={`https://images.unsplash.com/photo-${1500000000000 + i}?w=600&h=800&fit=crop`}
-                    alt={`Transformation ${i}`}
-                    className="w-full h-80 object-cover"
-                  />
-                  <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent p-6">
-                    <p className="text-white text-sm">Transformation Story {i}</p>
                   </div>
                 </div>
               ))}
             </div>
           </div>
-        </div>
-      </section>
+        </section>
+      )}
+
+      {/* Graphic Testimonials */}
+      {graphicTestimonials.length > 0 && (
+        <section className={`${SECTION_PY} bg-gray-50`}>
+          <div className={CONTAINER}>
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 max-w-6xl mx-auto">
+              {graphicTestimonials.map(t => {
+                const src = t.image ? resolveImageUrl(t.image) : '';
+                return (
+                  <div key={t.id} className="cursor-pointer overflow-hidden rounded-lg shadow hover:shadow-lg transition-all"
+                    onClick={() => setSelectedImage(src)} data-testid={`media-graphic-${t.id}`}>
+                    <img src={src} alt={t.name || ''} className="w-full h-48 object-cover hover:scale-105 transition-transform duration-300" />
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </section>
+      )}
 
       {/* Video Modal */}
       <Dialog open={!!selectedVideo} onOpenChange={() => setSelectedVideo(null)}>
-        <DialogContent className="max-w-4xl p-0 overflow-hidden">
+        <DialogContent className="max-w-4xl p-0 overflow-hidden bg-black">
           {selectedVideo && (
             <div className="relative" style={{ paddingBottom: '56.25%' }}>
-              <iframe
-                className="absolute inset-0 w-full h-full"
-                src={`https://www.youtube.com/embed/${selectedVideo}?autoplay=1`}
-                title="YouTube video player"
-                frameBorder="0"
-                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                allowFullScreen
-              ></iframe>
+              <iframe className="absolute inset-0 w-full h-full" src={`https://www.youtube.com/embed/${selectedVideo}?autoplay=1`} title="Video" frameBorder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowFullScreen />
             </div>
           )}
         </DialogContent>
       </Dialog>
 
-      {/* Footer */}
-      <footer className="bg-gray-900 text-white py-12">
-        <div className="container mx-auto px-4 text-center">
-          <p className="text-gray-500 text-sm">© 2026 Divine Iris Healing. All Rights Reserved.</p>
-        </div>
-      </footer>
+      {/* Image Lightbox */}
+      <Dialog open={!!selectedImage} onOpenChange={() => setSelectedImage(null)}>
+        <DialogContent className="max-w-4xl p-1 bg-white">
+          {selectedImage && <img src={selectedImage} alt="Testimonial" className="w-full h-auto max-h-[85vh] object-contain rounded" />}
+        </DialogContent>
+      </Dialog>
 
-      {/* Floating Buttons */}
-      <div className="fixed right-6 bottom-6 flex flex-col gap-3 z-40">
-        <a href="mailto:support@divineirishealing.com" className="w-14 h-14 bg-yellow-600 hover:bg-yellow-700 rounded-full flex items-center justify-center shadow-lg">
-          <Mail size={24} className="text-white" />
-        </a>
-        <a href="https://wa.me/971553325778" className="w-14 h-14 bg-green-500 hover:bg-green-600 rounded-full flex items-center justify-center shadow-lg">
-          <Phone size={24} className="text-white" />
-        </a>
-      </div>
+      <Footer />
+      <FloatingButtons />
     </div>
   );
 }

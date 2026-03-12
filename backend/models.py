@@ -292,6 +292,10 @@ class SiteSettings(BaseModel):
     about_vision_style: Optional[Dict] = None
     # Newsletter section
     newsletter_heading: str = "Join Our Community"
+    # Page heroes - centralized hero styles for all pages
+    page_heroes: Optional[Dict] = None
+    media_page_visible: bool = False
+    blog_page_visible: bool = False
     newsletter_description: str = "Sign up to receive updates on upcoming workshops, new courses and more information"
     newsletter_button_text: str = "Subscribe"
     newsletter_footer_text: str = "By subscribing, you agree to our Privacy Policy and Terms of Use."
@@ -389,6 +393,9 @@ class SiteSettingsUpdate(BaseModel):
     about_mission_style: Optional[Dict] = None
     about_vision_style: Optional[Dict] = None
     newsletter_heading: Optional[str] = None
+    page_heroes: Optional[Dict] = None
+    media_page_visible: Optional[bool] = None
+    blog_page_visible: Optional[bool] = None
     newsletter_description: Optional[str] = None
     newsletter_button_text: Optional[str] = None
     newsletter_footer_text: Optional[str] = None

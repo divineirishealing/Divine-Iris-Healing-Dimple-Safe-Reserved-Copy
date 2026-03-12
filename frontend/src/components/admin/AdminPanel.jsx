@@ -16,6 +16,7 @@ import {
 
 import HeroSettingsTab from './tabs/HeroSettingsTab';
 import AboutSettingsTab from './tabs/AboutSettingsTab';
+import PageHeadersTab from './tabs/PageHeadersTab';
 import NewsletterSettingsTab from './tabs/NewsletterSettingsTab';
 import HeaderFooterTab from './tabs/HeaderFooterTab';
 import EnrollmentsTab from './tabs/EnrollmentsTab';
@@ -157,6 +158,7 @@ const AdminPanel = () => {
 
   const tabs = [
     { key: 'hero', label: 'Hero Banner', icon: Image },
+    { key: 'page_headers', label: 'Page Headers', icon: Monitor },
     { key: 'about', label: 'About', icon: Layout },
     { key: 'programs', label: 'Programs', icon: Package, count: programs.length },
     { key: 'sessions', label: 'Sessions', icon: Calendar, count: sessions.length },
@@ -172,7 +174,7 @@ const AdminPanel = () => {
     { key: 'styles', label: 'Global Styles', icon: Palette },
   ];
 
-  const settingsTabKeys = ['hero', 'about', 'newsletter', 'header_footer', 'styles'];
+  const settingsTabKeys = ['hero', 'page_headers', 'about', 'newsletter', 'header_footer', 'styles'];
   const needsSave = settingsTabKeys.includes(activeTab);
 
   return (
@@ -213,6 +215,13 @@ const AdminPanel = () => {
             <div>
               <HeroSettingsTab settings={siteSettings} onChange={setSiteSettings} onVideoUpload={handleVideoUpload} />
               <Button data-testid="save-settings-btn" onClick={saveSiteSettings} className="bg-[#D4AF37] hover:bg-[#b8962e] mt-5"><Save size={14} className="mr-1" /> Save Changes</Button>
+            </div>
+          )}
+
+          {activeTab === 'page_headers' && siteSettings && (
+            <div>
+              <PageHeadersTab settings={siteSettings} programs={programs} onChange={setSiteSettings} />
+              <Button data-testid="save-page-headers-btn" onClick={saveSiteSettings} className="bg-[#D4AF37] hover:bg-[#b8962e] mt-5"><Save size={14} className="mr-1" /> Save Changes</Button>
             </div>
           )}
 

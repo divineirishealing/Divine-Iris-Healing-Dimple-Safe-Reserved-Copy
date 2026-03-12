@@ -43,6 +43,11 @@ const HeroSection = () => {
   const showLines = settings?.hero_show_lines !== false;
   const sectionStyle = settings?.sections?.hero || {};
 
+  // Support page_heroes overrides
+  const homeHero = settings?.page_heroes?.home || {};
+  const finalTitleStyle = homeHero.title_style || {};
+  const finalSubtitleStyle = homeHero.subtitle_style || {};
+
   const alignClass = titleAlign === 'center' ? 'items-center text-center' : titleAlign === 'right' ? 'items-end text-right' : 'items-start text-left';
   const lineAlign = titleAlign === 'center' ? 'mx-auto' : titleAlign === 'right' ? 'ml-auto' : '';
 
@@ -86,11 +91,11 @@ const HeroSection = () => {
           data-testid="hero-title"
           className="text-white mb-6 tracking-wider animate-fade-in leading-tight whitespace-pre-line"
           style={{
-            fontWeight: titleBold ? 700 : 400,
-            fontFamily: `'${titleFont}', Georgia, serif`,
-            fontSize: titleSize,
-            color: titleColor,
-            fontStyle: titleItalic ? 'italic' : 'normal',
+            fontWeight: finalTitleStyle.font_weight || (titleBold ? 700 : 400),
+            fontFamily: finalTitleStyle.font_family || `'${titleFont}', Georgia, serif`,
+            fontSize: finalTitleStyle.font_size || titleSize,
+            color: finalTitleStyle.font_color || titleColor,
+            fontStyle: finalTitleStyle.font_style || (titleItalic ? 'italic' : 'normal'),
           }}
         >
           {heroTitle}
@@ -105,12 +110,12 @@ const HeroSection = () => {
           data-testid="hero-subtitle"
           className="tracking-[0.3em] animate-fade-in"
           style={{
-            color: subtitleColor,
+            color: finalSubtitleStyle.font_color || subtitleColor,
             animationDelay: '0.3s',
-            fontWeight: subtitleBold ? 700 : 300,
-            fontSize: subtitleSize,
-            fontFamily: `'${subtitleFont}', sans-serif`,
-            fontStyle: subtitleItalic ? 'italic' : 'normal',
+            fontWeight: finalSubtitleStyle.font_weight || (subtitleBold ? 700 : 300),
+            fontSize: finalSubtitleStyle.font_size || subtitleSize,
+            fontFamily: finalSubtitleStyle.font_family || `'${subtitleFont}', sans-serif`,
+            fontStyle: finalSubtitleStyle.font_style || (subtitleItalic ? 'italic' : 'normal'),
           }}
         >
           {heroSubtitle}

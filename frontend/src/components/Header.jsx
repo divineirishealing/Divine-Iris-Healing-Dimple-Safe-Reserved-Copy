@@ -117,7 +117,15 @@ const Header = () => {
             ))}
           </div>
           <nav className="text-center space-y-5">
-            {[{label:'HOME',path:'/'},{label:'ABOUT',path:'/about'},{label:'SERVICES',path:'/services'},{label:'UPCOMING SESSIONS',path:'/sessions'},{label:'MEDIA',path:'/media'},{label:'TRANSFORMATIONS',path:'/transformations'}].map(item => (
+            {[
+              {label:'HOME',path:'/'},
+              {label:'ABOUT',path:'/about'},
+              {label:'SERVICES',path:'/services'},
+              {label:'UPCOMING SESSIONS',path:'/sessions'},
+              {label:'MEDIA',path:'/media'},
+              {label:'TRANSFORMATIONS',path:'/transformations'},
+              ...(settings?.blog_page_visible ? [{label:'BLOG',path:'/blog'}] : []),
+            ].map(item => (
               <button key={item.label} onClick={() => handleNavClick(item.path)} className="block w-full text-white text-xl md:text-2xl font-light tracking-[0.15em] hover:text-yellow-200 transition-colors">{item.label}</button>
             ))}
             <div>

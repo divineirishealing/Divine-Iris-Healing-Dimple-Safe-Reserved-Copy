@@ -13,11 +13,16 @@ const API = `${BACKEND_URL}/api`;
 
 function TransformationsPage() {
   const [testimonials, setTestimonials] = useState([]);
+  const [settings, setSettings] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [activeTab, setActiveTab] = useState('all');
   const [selectedVideo, setSelectedVideo] = useState(null);
   const [selectedImage, setSelectedImage] = useState(null);
   const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    axios.get(`${API}/settings`).then(r => setSettings(r.data)).catch(() => {});
+  }, []);
 
   useEffect(() => {
     loadTestimonials();
@@ -41,6 +46,13 @@ function TransformationsPage() {
   const graphicTestimonials = testimonials.filter(t => t.type === 'graphic');
   const videoTestimonials = testimonials.filter(t => t.type === 'video');
 
+  const hero = settings?.page_heroes?.transformations || {};
+
+  const applyHeroStyle = (styleObj, defaults = {}) => {
+    if (!styleObj || Object.keys(styleObj).length === 0) return defaults;
+    return { ...defaults, ...(styleObj.font_family && { fontFamily: styleObj.font_family }), ...(styleObj.font_size && { fontSize: styleObj.font_size }), ...(styleObj.font_color && { color: styleObj.font_color }), ...(styleObj.font_weight && { fontWeight: styleObj.font_weight }), ...(styleObj.font_style && { fontStyle: styleObj.font_style }) };
+  };
+
   return (
     <div className="min-h-screen bg-white">
       <Header />
@@ -51,11 +63,11 @@ function TransformationsPage() {
         className="min-h-[45vh] flex flex-col items-center justify-center text-center px-6 pt-24"
         style={{ background: 'linear-gradient(180deg, #1a1a1a 0%, #2d2d2d 50%, #1a1a1a 100%)' }}
       >
-        <h1 className="mb-6" style={{ ...HEADING, color: GOLD, fontSize: 'clamp(2rem, 5vw, 3rem)', fontVariant: 'small-caps', letterSpacing: '0.1em' }}>
-          TRANSFORMATIONS
+        <h1 className="mb-2" style={applyHeroStyle(hero.title_style, { ...HEADING, color: GOLD, fontSize: 'clamp(2rem, 5vw, 3rem)', fontVariant: 'small-caps', letterSpacing: '0.1em' })}>
+          {hero.title_text || 'TRANSFORMATIONS'}
         </h1>
-        <p className="text-gray-400 text-sm tracking-[0.2em]">
-          Stories of Healing, Growth & Awakening
+        <p style={applyHeroStyle(hero.subtitle_style, { ...SUBTITLE, color: '#999', fontFamily: "'Lato', sans-serif", fontSize: '0.8rem', letterSpacing: '0.2em' })}>
+          {hero.subtitle_text || 'Stories of Healing, Growth & Awakening'}
         </p>
       </section>
 

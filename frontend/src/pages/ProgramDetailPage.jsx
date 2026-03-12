@@ -206,6 +206,14 @@ function ProgramDetailPage() {
     );
   };
 
+  const heroKey = `program_${program.id}`;
+  const hero = settings?.page_heroes?.[heroKey] || {};
+
+  const applyHeroStyle = (styleObj, defaults = {}) => {
+    if (!styleObj || Object.keys(styleObj).length === 0) return defaults;
+    return { ...defaults, ...(styleObj.font_family && { fontFamily: styleObj.font_family }), ...(styleObj.font_size && { fontSize: styleObj.font_size }), ...(styleObj.font_color && { color: styleObj.font_color }), ...(styleObj.font_weight && { fontWeight: styleObj.font_weight }), ...(styleObj.font_style && { fontStyle: styleObj.font_style }) };
+  };
+
   return (
     <div className="min-h-screen">
       <Header />
@@ -213,9 +221,9 @@ function ProgramDetailPage() {
       {/* HERO */}
       <section data-testid="program-hero" className="min-h-[50vh] flex flex-col items-center justify-center text-center px-6 pt-20"
         style={{ background: 'linear-gradient(180deg, #1a1a1a 0%, #2d2d2d 50%, #1a1a1a 100%)' }}>
-        <p className="mb-5" style={{ ...LABEL, color: GOLD }}>{program.category || 'FLAGSHIP PROGRAM'}</p>
-        <h1 data-testid="program-title" className="text-white mb-6 max-w-4xl" style={{ ...HEADING, color: '#fff', fontSize: 'clamp(1.8rem, 4vw, 3rem)', fontVariant: 'small-caps', letterSpacing: '0.05em', lineHeight: 1.3 }}>
-          {program.title}
+        <p className="mb-5" style={{ ...LABEL, color: GOLD }}>{hero.subtitle_text || program.category || 'FLAGSHIP PROGRAM'}</p>
+        <h1 data-testid="program-title" className="text-white mb-6 max-w-4xl" style={applyHeroStyle(hero.title_style, { ...HEADING, color: '#fff', fontSize: 'clamp(1.8rem, 4vw, 3rem)', fontVariant: 'small-caps', letterSpacing: '0.05em', lineHeight: 1.3 })}>
+          {hero.title_text || program.title}
         </h1>
         <div className="w-14 h-0.5" style={{ background: GOLD }} />
       </section>
