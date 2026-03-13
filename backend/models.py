@@ -422,6 +422,10 @@ class SiteSettings(BaseModel):
     # India payment options (alternative links for Indian users)
     india_payment_links: List[Dict] = []  # [{type: "exly"|"gpay"|"bank", label: "...", url: "...", details: "...", enabled: true}]
     receipt_template: Dict = {}  # {bg_color, accent_color, text_color, heading_font, body_font, thank_you_title/message/sign, show_logo, show_duration, show_timing}
+    # Global pricing style
+    pricing_font: str = "Cinzel, Georgia, serif"
+    pricing_color: str = "#D4AF37"
+    pricing_weight: str = "700"
 
 class SiteSettingsUpdate(BaseModel):
     heading_font: Optional[str] = None
@@ -531,6 +535,9 @@ class SiteSettingsUpdate(BaseModel):
     payment_disclaimer: Optional[str] = None
     india_payment_links: Optional[List[Dict]] = None
     receipt_template: Optional[Dict] = None
+    pricing_font: Optional[str] = None
+    pricing_color: Optional[str] = None
+    pricing_weight: Optional[str] = None
 
 class PaymentTransaction(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
