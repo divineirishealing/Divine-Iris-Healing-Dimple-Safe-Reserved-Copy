@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import axios from 'axios';
 import { useToast } from '../../hooks/use-toast';
 import { useSiteSettings } from '../../context/SiteSettingsContext';
@@ -35,6 +35,7 @@ const AdminPanel = () => {
   const { toast } = useToast();
   const { refreshSettings } = useSiteSettings();
   const [activeTab, setActiveTab] = useState('hero');
+  const excelInputRef = useRef(null);
 
   const [programs, setPrograms] = useState([]);
   const [sessions, setSessions] = useState([]);
@@ -549,10 +550,11 @@ const AdminPanel = () => {
                 <h2 className="text-xl font-semibold text-gray-900">Sessions ({sessions.length})</h2>
                 <div className="flex gap-2">
                   <Button variant="outline" data-testid="upload-excel-btn" className="text-xs gap-1.5"
-                    onClick={() => { document.getElementById('excel-upload-input').click(); }}>
+                    type="button"
+                    onClick={(e) => { e.preventDefault(); e.stopPropagation(); excelInputRef.current?.click(); }}>
                     <Upload size={14} /> Upload Excel
                   </Button>
-                  <input id="excel-upload-input" type="file" accept=".xlsx,.xls,.xlss,.csv" className="hidden" onChange={async (e) => {
+                  <input ref={excelInputRef} type="file" accept=".xlsx,.xls,.xlss,.csv" style={{display:'none'}} onChange={async (e) => {
                     const f = e.target.files?.[0];
                     if (!f) return;
                     toast({ title: `Uploading ${f.name}...` });
