@@ -13,6 +13,7 @@ const FONT_OPTIONS = [
   { value: "'Playfair Display', serif", label: 'Playfair' },
   { value: "'Lato', sans-serif", label: 'Lato' },
   { value: "'Montserrat', sans-serif", label: 'Montserrat' },
+  { value: "'Titillium Web', sans-serif", label: 'Titillium Web' },
 ];
 const SIZE_OPTIONS = ['10px','12px','14px','16px','18px','20px','24px','28px','32px','36px','42px','48px'];
 
@@ -299,50 +300,171 @@ const PageHeadersTab = ({ settings, programs = [], onChange }) => {
         </Button>
       </div>
 
-      {/* ===== PERSONAL SESSIONS — SHARED STYLES ===== */}
+      {/* ===== PERSONAL SESSIONS — COMPLETE STYLE CONTROL ===== */}
       <div className="mt-6 mb-2 flex items-center gap-2">
-        <p className="text-[10px] font-semibold text-gray-500">PERSONAL SESSIONS — SHARED STYLES</p>
+        <p className="text-[10px] font-semibold text-gray-500">PERSONAL SESSIONS — STYLE CONTROL</p>
         <span className="text-[8px] bg-indigo-100 text-indigo-600 px-2 py-0.5 rounded-full font-medium">Applies to all session pages</span>
       </div>
       <div className="bg-gradient-to-br from-indigo-50/50 to-white rounded-xl border border-indigo-100 p-4" data-testid="session-template-section">
-        <p className="text-[9px] text-gray-500 mb-3">Font & color changes here apply to <strong>every</strong> personal session card and detail page.</p>
         {(() => {
           const sessionTpl = heroes['session_template'] || {};
           const updateSessionTpl = (field, value) => updateHero('session_template', field, value);
-          const SESSION_STYLE_KEYS = [
-            { key: 'title_style', label: 'Session Title' },
-            { key: 'description_style', label: 'Description' },
-            { key: 'duration_style', label: 'Duration / Type' },
-            { key: 'price_style', label: 'Price' },
-            { key: 'testimonial_style', label: 'Testimonial Text' },
-            { key: 'question_label_style', label: 'Question Form Labels' },
-          ];
+
           return (
-            <div>
-              <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-                {SESSION_STYLE_KEYS.map(({ key, label }) => (
-                  <div key={key} className="bg-white rounded-lg border border-gray-100 p-2.5">
-                    <Label className="text-[9px] text-gray-500 font-semibold block mb-1">{label}</Label>
-                    <StyleCell style={sessionTpl[key] || {}} onStyleChange={v => updateSessionTpl(key, v)} />
+            <div className="space-y-5">
+              {/* ── HERO SECTION ── */}
+              <div className="bg-gradient-to-r from-purple-900 to-indigo-900 rounded-xl p-4 text-white relative overflow-hidden">
+                <div className="absolute top-2 right-3 text-[8px] bg-white/20 px-2 py-0.5 rounded-full">Preview: Top banner of every session page</div>
+                <p className="text-[10px] font-bold uppercase tracking-wider text-purple-200 mb-3">Hero Section</p>
+
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                  <div className="bg-white/10 rounded-lg p-2.5 backdrop-blur-sm">
+                    <Label className="text-[9px] text-purple-200 font-semibold block mb-1">Hero Title Font</Label>
+                    <StyleCell style={sessionTpl.hero_title_style || sessionTpl.title_style || {}} onStyleChange={v => updateSessionTpl('hero_title_style', v)} />
                   </div>
-                ))}
-              </div>
-              <div className="mt-3 grid grid-cols-2 gap-3">
-                <div className="bg-white rounded-lg border border-gray-100 p-2.5">
-                  <Label className="text-[9px] text-gray-500 font-semibold block mb-1">Homepage Section — Purple Intensity</Label>
-                  <select value={sessionTpl.homepage_purple || 'medium'} onChange={e => updateSessionTpl('homepage_purple', e.target.value)} className="text-[10px] border rounded px-2 py-1 w-full">
-                    <option value="light">Light</option>
-                    <option value="medium">Medium</option>
-                    <option value="strong">Strong</option>
-                  </select>
+                  <div className="bg-white/10 rounded-lg p-2.5 backdrop-blur-sm">
+                    <Label className="text-[9px] text-purple-200 font-semibold block mb-1">Price Text</Label>
+                    <StyleCell style={sessionTpl.hero_price_style || {}} onStyleChange={v => updateSessionTpl('hero_price_style', v)} />
+                  </div>
+                  <div className="bg-white/10 rounded-lg p-2.5 backdrop-blur-sm">
+                    <Label className="text-[9px] text-purple-200 font-semibold block mb-1">Badge Style</Label>
+                    <div className="flex gap-1 items-center flex-wrap">
+                      <Label className="text-[8px] text-purple-300">BG</Label>
+                      <input type="color" value={sessionTpl.badge_bg || '#ffffff'} onChange={e => updateSessionTpl('badge_bg', e.target.value)} className="w-5 h-5 rounded cursor-pointer border-0" />
+                      <Label className="text-[8px] text-purple-300">Text</Label>
+                      <input type="color" value={sessionTpl.badge_text || '#ffffff'} onChange={e => updateSessionTpl('badge_text', e.target.value)} className="w-5 h-5 rounded cursor-pointer border-0" />
+                    </div>
+                  </div>
                 </div>
-                <div className="bg-white rounded-lg border border-gray-100 p-2.5">
-                  <Label className="text-[9px] text-gray-500 font-semibold block mb-1">Session Page — Purple Intensity</Label>
-                  <select value={sessionTpl.page_purple || 'medium'} onChange={e => updateSessionTpl('page_purple', e.target.value)} className="text-[10px] border rounded px-2 py-1 w-full">
-                    <option value="light">Light</option>
-                    <option value="medium">Medium</option>
-                    <option value="strong">Strong</option>
-                  </select>
+
+                <div className="mt-3 grid grid-cols-2 md:grid-cols-4 gap-3">
+                  <div className="bg-white/10 rounded-lg p-2.5 backdrop-blur-sm">
+                    <Label className="text-[9px] text-purple-200 font-semibold block mb-1">Hero BG Color</Label>
+                    <input type="color" value={sessionTpl.hero_bg || '#2a1252'} onChange={e => updateSessionTpl('hero_bg', e.target.value)} className="w-8 h-6 rounded cursor-pointer border border-white/20" />
+                  </div>
+                  <div className="bg-white/10 rounded-lg p-2.5 backdrop-blur-sm">
+                    <Label className="text-[9px] text-purple-200 font-semibold block mb-1">Purple Intensity</Label>
+                    <select value={sessionTpl.page_purple || 'medium'} onChange={e => updateSessionTpl('page_purple', e.target.value)} className="text-[10px] border rounded px-2 py-1 w-full text-gray-800">
+                      <option value="light">Light</option>
+                      <option value="medium">Medium</option>
+                      <option value="strong">Strong</option>
+                    </select>
+                  </div>
+                  <div className="bg-white/10 rounded-lg p-2.5 backdrop-blur-sm">
+                    <Label className="text-[9px] text-purple-200 font-semibold block mb-1">Accent / Line Color</Label>
+                    <input type="color" value={sessionTpl.accent_color || '#D4AF37'} onChange={e => updateSessionTpl('accent_color', e.target.value)} className="w-8 h-6 rounded cursor-pointer border border-white/20" />
+                  </div>
+                  <div className="bg-white/10 rounded-lg p-2.5 backdrop-blur-sm">
+                    <Label className="text-[9px] text-purple-200 font-semibold block mb-1">Star Color</Label>
+                    <input type="color" value={sessionTpl.star_color || '#D4AF37'} onChange={e => updateSessionTpl('star_color', e.target.value)} className="w-8 h-6 rounded cursor-pointer border border-white/20" />
+                  </div>
+                </div>
+              </div>
+
+              {/* ── BODY CONTENT ── */}
+              <div className="bg-white rounded-xl border border-gray-200 p-4 relative">
+                <div className="absolute top-2 right-3 text-[8px] bg-gray-100 text-gray-500 px-2 py-0.5 rounded-full">Preview: Content below hero on session page</div>
+                <p className="text-[10px] font-bold uppercase tracking-wider text-gray-500 mb-3">Body Content</p>
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                  <div className="bg-gray-50 rounded-lg border border-gray-100 p-2.5">
+                    <Label className="text-[9px] text-gray-500 font-semibold block mb-1">Section Title ("About...")</Label>
+                    <StyleCell style={sessionTpl.title_style || {}} onStyleChange={v => updateSessionTpl('title_style', v)} />
+                  </div>
+                  <div className="bg-gray-50 rounded-lg border border-gray-100 p-2.5">
+                    <Label className="text-[9px] text-gray-500 font-semibold block mb-1">Description Text</Label>
+                    <StyleCell style={sessionTpl.description_style || {}} onStyleChange={v => updateSessionTpl('description_style', v)} />
+                  </div>
+                  <div className="bg-gray-50 rounded-lg border border-gray-100 p-2.5">
+                    <Label className="text-[9px] text-gray-500 font-semibold block mb-1">Testimonial Text</Label>
+                    <StyleCell style={sessionTpl.testimonial_style || {}} onStyleChange={v => updateSessionTpl('testimonial_style', v)} />
+                  </div>
+                </div>
+              </div>
+
+              {/* ── BUTTONS & CALENDAR ── */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="bg-gray-50 rounded-xl border border-gray-200 p-4 relative">
+                  <div className="absolute top-2 right-3 text-[8px] bg-gray-100 text-gray-500 px-2 py-0.5 rounded-full">Preview: "Book Now" & "View Details" buttons</div>
+                  <p className="text-[10px] font-bold uppercase tracking-wider text-gray-500 mb-3">Buttons</p>
+                  <div className="space-y-2">
+                    <div>
+                      <Label className="text-[9px] text-gray-500">Primary Button Color</Label>
+                      <div className="flex gap-2 items-center mt-1">
+                        <input type="color" value={sessionTpl.button_bg || '#D4AF37'} onChange={e => updateSessionTpl('button_bg', e.target.value)} className="w-8 h-6 rounded cursor-pointer border" />
+                        <span className="text-[9px] text-gray-400">{sessionTpl.button_bg || '#D4AF37'}</span>
+                      </div>
+                    </div>
+                    <div>
+                      <Label className="text-[9px] text-gray-500">Button Text Color</Label>
+                      <div className="flex gap-2 items-center mt-1">
+                        <input type="color" value={sessionTpl.button_text || '#1a1a1a'} onChange={e => updateSessionTpl('button_text', e.target.value)} className="w-8 h-6 rounded cursor-pointer border" />
+                        <span className="text-[9px] text-gray-400">{sessionTpl.button_text || '#1a1a1a'}</span>
+                      </div>
+                    </div>
+                    <div>
+                      <Label className="text-[9px] text-gray-500">Quick Presets</Label>
+                      <div className="flex gap-1.5 mt-1">
+                        {[
+                          { label: 'Gold', bg: '#D4AF37', text: '#1a1a1a' },
+                          { label: 'Coal Black', bg: '#1a1a1a', text: '#D4AF37' },
+                          { label: 'Purple', bg: '#7c3aed', text: '#ffffff' },
+                          { label: 'Deep Iris', bg: '#4c1d95', text: '#D4AF37' },
+                        ].map(preset => (
+                          <button key={preset.label} type="button"
+                            onClick={() => { updateSessionTpl('button_bg', preset.bg); updateSessionTpl('button_text', preset.text); }}
+                            className="text-[8px] px-2 py-1 rounded-full border border-gray-200 hover:border-gray-400 transition-colors"
+                            style={{ background: preset.bg, color: preset.text }}>
+                            {preset.label}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="bg-gray-50 rounded-xl border border-gray-200 p-4 relative">
+                  <div className="absolute top-2 right-3 text-[8px] bg-gray-100 text-gray-500 px-2 py-0.5 rounded-full">Preview: Booking calendar on session pages</div>
+                  <p className="text-[10px] font-bold uppercase tracking-wider text-gray-500 mb-3">Calendar & Booking</p>
+                  <div className="space-y-2">
+                    <div>
+                      <Label className="text-[9px] text-gray-500">Calendar Accent Color</Label>
+                      <div className="flex gap-2 items-center mt-1">
+                        <input type="color" value={sessionTpl.calendar_accent || '#D4AF37'} onChange={e => updateSessionTpl('calendar_accent', e.target.value)} className="w-8 h-6 rounded cursor-pointer border" />
+                        <span className="text-[9px] text-gray-400">Selected date & highlights</span>
+                      </div>
+                    </div>
+                    <div>
+                      <Label className="text-[9px] text-gray-500">Calendar BG Color</Label>
+                      <div className="flex gap-2 items-center mt-1">
+                        <input type="color" value={sessionTpl.calendar_bg || '#2a1252'} onChange={e => updateSessionTpl('calendar_bg', e.target.value)} className="w-8 h-6 rounded cursor-pointer border" />
+                        <span className="text-[9px] text-gray-400">Booking sidebar background</span>
+                      </div>
+                    </div>
+                    <div>
+                      <Label className="text-[9px] text-gray-500">Homepage Purple Intensity</Label>
+                      <select value={sessionTpl.homepage_purple || 'medium'} onChange={e => updateSessionTpl('homepage_purple', e.target.value)} className="text-[10px] border rounded px-2 py-1 w-full mt-1">
+                        <option value="light">Light — Subtle lavender</option>
+                        <option value="medium">Medium — Balanced iris</option>
+                        <option value="strong">Strong — Deep violet</option>
+                      </select>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* ── HOMEPAGE LIST ── */}
+              <div className="bg-purple-50/50 rounded-xl border border-purple-100 p-4 relative">
+                <div className="absolute top-2 right-3 text-[8px] bg-purple-100 text-purple-600 px-2 py-0.5 rounded-full">Preview: Session names list on homepage</div>
+                <p className="text-[10px] font-bold uppercase tracking-wider text-gray-500 mb-3">Homepage Session List</p>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="bg-white rounded-lg border border-gray-100 p-2.5">
+                    <Label className="text-[9px] text-gray-500 font-semibold block mb-1">Session Name Font</Label>
+                    <StyleCell style={sessionTpl.title_style || {}} onStyleChange={v => updateSessionTpl('title_style', v)} />
+                  </div>
+                  <div className="bg-white rounded-lg border border-gray-100 p-2.5">
+                    <Label className="text-[9px] text-gray-500 font-semibold block mb-1">Price Style</Label>
+                    <StyleCell style={sessionTpl.price_style || {}} onStyleChange={v => updateSessionTpl('price_style', v)} />
+                  </div>
                 </div>
               </div>
             </div>

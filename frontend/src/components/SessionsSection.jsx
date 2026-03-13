@@ -104,6 +104,8 @@ const SessionsSection = ({ sectionConfig }) => {
   const sessionTpl = settings?.page_heroes?.session_template || {};
   const purpleIntensity = sessionTpl.homepage_purple || 'medium';
   const purpleGradient = PURPLE_GRADIENTS[purpleIntensity] || PURPLE_GRADIENTS.medium;
+  const buttonBg = sessionTpl.button_bg || '#D4AF37';
+  const buttonText = sessionTpl.button_text || '#1a1a1a';
 
   // Visibility helpers — defaults match admin panel
   const HOMEPAGE_LIST_DEFAULTS = { session_name: true, session_type: false, duration: false };
@@ -307,8 +309,8 @@ const SessionsSection = ({ sectionConfig }) => {
                   );
                   if (key === 'book_button') return (
                     <button key="book" onClick={() => navigate(`/session/${selectedSession.id}`)} data-testid="book-session-btn"
-                      className="w-full py-3.5 rounded-full text-[11px] tracking-[0.2em] uppercase font-medium transition-all duration-300 shadow-lg hover:shadow-xl hover:scale-[1.02] text-white"
-                      style={{ background: 'linear-gradient(135deg, #7c3aed, #a855f7)' }}>
+                      className="w-full py-3.5 rounded-full text-[11px] tracking-[0.2em] uppercase font-medium transition-all duration-300 shadow-lg hover:shadow-xl hover:scale-[1.02]"
+                      style={{ background: `linear-gradient(135deg, ${buttonBg}, ${buttonBg}dd)`, color: buttonText }}>
                       View Details & Book
                     </button>
                   );

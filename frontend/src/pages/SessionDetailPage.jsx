@@ -228,36 +228,46 @@ function SessionDetailPage() {
     return items.filter(i => i.visible !== false).sort((a, b) => (a.order ?? 0) - (b.order ?? 0)).map(i => i.key);
   };
 
+  // Admin-controlled colors
+  const accentColor = sessionTpl.accent_color || '#D4AF37';
+  const starColor = sessionTpl.star_color || '#D4AF37';
+  const buttonBg = sessionTpl.button_bg || '#D4AF37';
+  const buttonText = sessionTpl.button_text || '#1a1a1a';
+  const badgeBg = sessionTpl.badge_bg || '#ffffff';
+  const badgeTextColor = sessionTpl.badge_text || '#ffffff';
+  const calendarAccent = sessionTpl.calendar_accent || '#D4AF37';
+  const calendarBg = sessionTpl.calendar_bg || heroGradient;
+
   // Hero elements map
   const heroElements = {
     back_button: (
-      <button key="back" onClick={() => navigate(-1)} className="flex items-center gap-2 text-white/40 hover:text-white text-xs mb-8 transition-colors" data-testid="back-btn">
+      <button key="back" onClick={() => navigate(-1)} className="flex items-center gap-2 text-white/60 hover:text-white text-xs mb-8 transition-colors" data-testid="back-btn">
         <ArrowLeft size={16} /> Back
       </button>
     ),
     session_type_badge: (
-      <span key="type" className={`text-[10px] px-3 py-1 rounded-full font-medium flex items-center gap-1 ${
-        session.session_mode === 'offline' ? 'bg-teal-400/15 text-teal-200 border border-teal-400/20' :
-        session.session_mode === 'both' ? 'bg-purple-300/15 text-purple-200 border border-purple-300/20' :
-        'bg-blue-400/15 text-blue-200 border border-blue-400/20'
-      }`}>
+      <span key="type" className="text-[10px] px-3 py-1.5 rounded-full font-semibold flex items-center gap-1.5 border"
+        style={{ backgroundColor: `${badgeBg}25`, color: badgeTextColor, borderColor: `${badgeTextColor}40` }}>
         {session.session_mode === 'offline' ? <MapPin size={12} /> : <Wifi size={12} />}
         {modeLabel(session.session_mode)}
       </span>
     ),
     duration_badge: session.duration ? (
-      <span key="dur" className="text-[10px] px-3 py-1 rounded-full bg-white/8 text-white/50 flex items-center gap-1 border border-white/10">
+      <span key="dur" className="text-[10px] px-3 py-1.5 rounded-full font-semibold flex items-center gap-1.5 border"
+        style={{ backgroundColor: `${badgeBg}25`, color: badgeTextColor, borderColor: `${badgeTextColor}40` }}>
         <Clock size={10} /> {session.duration}
       </span>
     ) : null,
     title: (
       <h1 key="title" className="mb-3" data-testid="session-detail-title"
-        style={applyStyle(hero.title_style || sessionTpl.title_style, { ...HEADING, color: '#fff', fontSize: 'clamp(1.8rem, 4vw, 2.5rem)', fontVariant: 'small-caps', letterSpacing: '0.08em' })}>
+        style={applyStyle(sessionTpl.hero_title_style || sessionTpl.title_style, { ...HEADING, color: '#fff', fontSize: 'clamp(1.8rem, 4vw, 2.5rem)', fontVariant: 'small-caps', letterSpacing: '0.08em' })}>
         {session.title}
       </h1>
     ),
-    gold_line: <div key="line" className="w-16 h-0.5 mb-4" style={{ background: 'linear-gradient(90deg, #D4AF37, transparent)' }} />,
-    price: formatPrice(getPrice(session)) ? <span key="price" className="text-xl font-bold text-[#D4AF37]">{formatPrice(getPrice(session))}</span> : null,
+    gold_line: <div key="line" className="w-16 h-0.5 mb-4" style={{ background: `linear-gradient(90deg, ${accentColor}, transparent)` }} />,
+    price: formatPrice(getPrice(session)) ? (
+      <span key="price" className="text-xl font-bold" style={applyStyle(sessionTpl.hero_price_style, { color: accentColor })}>{formatPrice(getPrice(session))}</span>
+    ) : null,
   };
 
   const heroOrder = getOrder('detail_hero') || ['back_button','session_type_badge','duration_badge','title','gold_line','price'];
@@ -346,22 +356,24 @@ function SessionDetailPage() {
   const bodyRightElements = {
     booking_sidebar: (
       <div key="booking" className="rounded-2xl overflow-hidden relative" data-testid="booking-section"
-        style={{ background: heroGradient }}>
+        style={{ background: typeof calendarBg === 'string' && calendarBg.startsWith('linear') ? calendarBg : `linear-gradient(180deg, ${calendarBg} 0%, ${calendarBg}ee 100%)` }}>
         <svg className="absolute bottom-0 left-0 w-full" viewBox="0 0 400 50" preserveAspectRatio="none" style={{ height: '40px', opacity: 0.12 }}>
-          <path d="M0,25 C100,50 200,0 300,25 C350,37 380,15 400,25 L400,50 L0,50 Z" fill="#D4AF37">
+          <path d="M0,25 C100,50 200,0 300,25 C350,37 380,15 400,25 L400,50 L0,50 Z" fill={calendarAccent}>
             <animate attributeName="d" dur="8s" repeatCount="indefinite" values="M0,25 C100,50 200,0 300,25 C350,37 380,15 400,25 L400,50 L0,50 Z;M0,30 C100,10 200,40 300,20 C350,10 380,35 400,30 L400,50 L0,50 Z;M0,25 C100,50 200,0 300,25 C350,37 380,15 400,25 L400,50 L0,50 Z" />
           </path>
         </svg>
-        <StarField count={15} color="#D4AF37" />
+        <StarField count={15} color={calendarAccent} />
         <div className="relative z-10 p-5">
-          <p className="text-[10px] text-[#D4AF37] font-medium uppercase tracking-widest mb-4">Book Your Session</p>
+          <p className="text-[10px] font-medium uppercase tracking-widest mb-4" style={{ color: calendarAccent }}>Book Your Session</p>
           <BookingCalendar calendar={calendar} selectedDate={selectedDate} onSelectDate={setSelectedDate} />
           {timeSlots.length > 0 && (
             <div className="mt-4">
               <p className="text-[10px] text-white/50 font-medium mb-2 uppercase tracking-wider">Available Times</p>
               <div className="flex flex-wrap gap-2">
                 {timeSlots.map((slot, i) => (
-                  <span key={i} className="px-3 py-1.5 rounded-full text-[10px] bg-white/10 text-white/70 border border-white/15 hover:bg-[#D4AF37]/20 hover:text-[#D4AF37] hover:border-[#D4AF37]/30 cursor-pointer transition-all" data-testid={`detail-time-slot-${i}`}>
+                  <span key={i} className="px-3 py-1.5 rounded-full text-[10px] bg-white/10 text-white/70 border border-white/15 cursor-pointer transition-all"
+                    style={{ '--hover-bg': `${calendarAccent}33`, '--hover-color': calendarAccent }}
+                    data-testid={`detail-time-slot-${i}`}>
                     {slot}
                   </span>
                 ))}
@@ -369,8 +381,8 @@ function SessionDetailPage() {
             </div>
           )}
           <button onClick={() => navigate(`/enroll/session/${session.id}`)} data-testid="book-now-btn"
-            className="w-full mt-5 py-3.5 rounded-full text-sm tracking-widest uppercase font-medium transition-all duration-300 shadow-lg hover:shadow-[#D4AF37]/20 hover:scale-[1.02]"
-            style={{ background: 'linear-gradient(135deg, #D4AF37, #b8962e)', color: '#1a1a1a' }}>
+            className="w-full mt-5 py-3.5 rounded-full text-sm tracking-widest uppercase font-medium transition-all duration-300 shadow-lg hover:scale-[1.02]"
+            style={{ background: `linear-gradient(135deg, ${buttonBg}, ${buttonBg}dd)`, color: buttonText }}>
             Book Now
           </button>
         </div>
@@ -400,7 +412,7 @@ function SessionDetailPage() {
         <div className="relative pt-20 pb-20 overflow-hidden" data-testid="session-hero"
           style={{ background: heroGradient }}>
           {/* Golden star particles */}
-          <StarField count={heroStarCount} color="#D4AF37" />
+          <StarField count={heroStarCount} color={starColor} />
           {/* Glossy iris overlay */}
           <div className="absolute inset-0 pointer-events-none" style={{
             background: 'radial-gradient(ellipse 80% 50% at 50% 0%, rgba(139, 92, 246, 0.3), transparent 60%), radial-gradient(ellipse 60% 40% at 80% 80%, rgba(212, 175, 55, 0.08), transparent 50%)',
