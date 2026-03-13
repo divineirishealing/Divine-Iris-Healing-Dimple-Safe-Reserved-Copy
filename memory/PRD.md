@@ -155,6 +155,18 @@ Build a pixel-perfect clone of https://divineirishealing.com/ with comprehensive
 - [x] Homepage: "Know More" button added to all flagship program cards (gold outline, below Enroll/Cart)
 - [x] 9/9 backend tests passing, 100% frontend verification
 
+### Session Extras & Redesign (Mar 2026)
+- [x] Unified Calendar Manager: single calendar for all sessions with block/open rules, quick actions (Block 1/2/3 weeks, Open weekdays +1/2 months)
+- [x] Time slots managed globally (10:00 AM, 2:00 PM, 5:00 PM default)
+- [x] Calendar rules: min advance days, max future months, block weekends
+- [x] Session Testimonials: CRUD API, admin management, Excel drag-drop upload, client photo support
+- [x] Session Questions: visitors submit questions from session pages, admin replies from panel + email
+- [x] Question form with "7 working days" response note
+- [x] Session Detail Page redesign: iris purple glossy hero with golden star particles, purple gradient booking section with animated golden waves
+- [x] Personal Sessions — Shared Styles in Page Headers tab (6 font controls)
+- [x] Excel upload for sessions (drag & drop)
+- [x] 17/17 backend tests passing, 100% frontend verification
+
 ## Backlog
 ### P1
 - [ ] Global Site Search
