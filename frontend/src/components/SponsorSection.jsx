@@ -20,38 +20,50 @@ const applyStyle = (styleObj, defaults = {}) => {
   };
 };
 
-const SponsorSection = ({ sectionConfig }) => {
+const SponsorSection = ({ sectionConfig, inline }) => {
   const [settings, setSettings] = useState(null);
   useEffect(() => { axios.get(`${API}/settings`).then(r => setSettings(r.data)).catch(() => {}); }, []);
 
   const h = settings?.sponsor_home || {};
   const imgUrl = h.image ? resolveImageUrl(h.image) : '';
 
+  const content = (
+    <div style={h.align ? { textAlign: h.align } : {}}>
+      <h2 className={inline ? "mb-4 leading-tight" : "mb-6 leading-tight"} style={applyStyle(sectionConfig?.title_style || h.title_style, { ...HEADING, fontSize: inline ? 'clamp(1.2rem, 2.5vw, 1.6rem)' : 'clamp(1.5rem, 3vw, 2rem)' })}>
+        {sectionConfig?.title || h.title || 'Shine a Light in a Life'}
+      </h2>
+      {imgUrl && (
+        <div className={`rounded-lg overflow-hidden shadow-xl mb-5 ${inline ? 'max-w-full' : 'max-w-md'}`}>
+          <img src={imgUrl} alt="Be The Sponsor" className="w-full h-auto object-cover"
+            onError={(e) => { e.target.src = 'https://images.unsplash.com/photo-1469571486292-0ba58a3f068b?w=600&h=400&fit=crop'; }} />
+        </div>
+      )}
+      <p className={`${inline ? 'mb-3' : 'mb-4'} leading-relaxed`} style={applyStyle(sectionConfig?.subtitle_style || h.subtitle_style, { ...BODY, fontSize: inline ? '0.85rem' : undefined })}>
+        {sectionConfig?.subtitle || h.subtitle || 'Healing flows when we support each other.'}
+      </p>
+      <div className={`${inline ? 'mb-4' : 'mb-6'} leading-relaxed text-sm space-y-1`} style={applyStyle(h.body_style, BODY)}>
+        <p dangerouslySetInnerHTML={{ __html: renderMarkdown(h.body_1 || 'Be the Sponsor allows anyone to contribute towards someone else\'s healing — anonymously or intentionally.') }} />
+        <p dangerouslySetInnerHTML={{ __html: renderMarkdown(h.body_2 || 'It is not charity, it is *conscious support.*') }} />
+        <p dangerouslySetInnerHTML={{ __html: renderMarkdown(h.body_3 || 'When one heals, the collective heals.') }} />
+      </div>
+      <p className="font-medium mb-6 text-sm" style={applyStyle(h.quote_style, { color: '#333', fontStyle: 'italic' })}>
+        {h.quote || 'Because healing should never wait for circumstances'}
+      </p>
+      <a href="/sponsor" data-testid="become-sponsor-btn"
+        className="inline-block text-white px-8 py-3 rounded-full text-sm transition-all duration-300 shadow-lg hover:shadow-xl tracking-wider"
+        style={{ background: GOLD }}>
+        {h.button_text || 'Become a Sponsor'}
+      </a>
+    </div>
+  );
+
+  if (inline) return <div data-testid="sponsor-section">{content}</div>;
+
   return (
     <section id="sponsor" data-testid="sponsor-section" className="py-12 bg-gradient-to-br from-gray-50 to-gray-100">
       <div className={CONTAINER}>
         <div className="grid md:grid-cols-2 gap-12 items-center max-w-7xl mx-auto">
-          <div style={h.align ? { textAlign: h.align } : {}}>
-            <h2 className="mb-6 leading-tight" style={applyStyle(sectionConfig?.title_style || h.title_style, { ...HEADING, fontSize: 'clamp(1.5rem, 3vw, 2rem)' })}>
-              {sectionConfig?.title || h.title || 'Shine a Light in a Life'}
-            </h2>
-            <p className="mb-4 leading-relaxed" style={applyStyle(sectionConfig?.subtitle_style || h.subtitle_style, BODY)}>
-              {sectionConfig?.subtitle || h.subtitle || 'Healing flows when we support each other.'}
-            </p>
-            <div className="mb-6 leading-relaxed text-sm space-y-1" style={applyStyle(h.body_style, BODY)}>
-              <p dangerouslySetInnerHTML={{ __html: renderMarkdown(h.body_1 || 'Be the Sponsor allows anyone to contribute towards someone else\'s healing — anonymously or intentionally.') }} />
-              <p dangerouslySetInnerHTML={{ __html: renderMarkdown(h.body_2 || 'It is not charity, it is *conscious support.*') }} />
-              <p dangerouslySetInnerHTML={{ __html: renderMarkdown(h.body_3 || 'When one heals, the collective heals.') }} />
-            </div>
-            <p className="font-medium mb-8 text-sm" style={applyStyle(h.quote_style, { color: '#333', fontStyle: 'italic' })}>
-              {h.quote || 'Because healing should never wait for circumstances'}
-            </p>
-            <a href="/sponsor" data-testid="become-sponsor-btn"
-              className="inline-block text-white px-8 py-3 rounded-full text-sm transition-all duration-300 shadow-lg hover:shadow-xl tracking-wider"
-              style={{ background: GOLD }}>
-              {h.button_text || 'Become a Sponsor'}
-            </a>
-          </div>
+          {content}
           <div className="order-first md:order-last flex justify-center">
             <div className="rounded-lg overflow-hidden shadow-xl max-w-md w-full">
               <img src={imgUrl || 'https://divineirishealing.com/assets/images/sponsor-placeholder.jpg'} alt="Be The Sponsor" className="w-full h-auto object-cover"

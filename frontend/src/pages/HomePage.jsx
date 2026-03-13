@@ -44,6 +44,8 @@ const DEFAULT_ORDER = [
   { id: 'newsletter', component: 'NewsletterSection', visible: true },
 ];
 
+const PAIRED_IDS = new Set(['upcoming', 'sponsor']);
+
 function HomePage() {
   const [sections, setSections] = useState(DEFAULT_ORDER);
 
@@ -63,14 +65,47 @@ function HomePage() {
     });
   }, []);
 
+  const visible = sections.filter(s => s.visible !== false);
+  const upcomingSec = visible.find(s => s.id === 'upcoming');
+  const sponsorSec = visible.find(s => s.id === 'sponsor');
+  const canPair = upcomingSec && sponsorSec;
+
+  const renderSections = () => {
+    const result = [];
+    let pairedInserted = false;
+
+    for (const sec of visible) {
+      if (canPair && PAIRED_IDS.has(sec.id)) {
+        if (!pairedInserted) {
+          pairedInserted = true;
+          result.push(
+            <section key="upcoming-sponsor-row" data-testid="upcoming-sponsor-row" className="py-12 bg-white">
+              <div className="container mx-auto px-6 md:px-8 lg:px-12">
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-10 items-start">
+                  <div className="min-w-0">
+                    <UpcomingProgramsSection sectionConfig={upcomingSec} inline />
+                  </div>
+                  <div className="min-w-0">
+                    <SponsorSection sectionConfig={sponsorSec} inline />
+                  </div>
+                </div>
+              </div>
+            </section>
+          );
+        }
+        continue;
+      }
+      const Component = COMPONENT_MAP[sec.component];
+      if (!Component) continue;
+      result.push(<Component key={sec.id} sectionConfig={sec} />);
+    }
+    return result;
+  };
+
   return (
     <>
       <Header />
-      {sections.filter(s => s.visible !== false).map(sec => {
-        const Component = COMPONENT_MAP[sec.component];
-        if (!Component) return null;
-        return <Component key={sec.id} sectionConfig={sec} />;
-      })}
+      {renderSections()}
       <Footer />
       <FloatingButtons />
     </>
