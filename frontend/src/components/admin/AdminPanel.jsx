@@ -554,15 +554,17 @@ const AdminPanel = () => {
                     <input type="file" accept=".xlsx,.xls" className="hidden" onChange={async (e) => {
                       const f = e.target.files?.[0];
                       if (!f) return;
+                      toast({ title: `Uploading ${f.name}...` });
                       const formData = new FormData();
                       formData.append('file', f);
                       try {
-                        const res = await axios.post(`${API}/sessions/upload-excel`, formData, { headers: { 'Content-Type': 'multipart/form-data' } });
+                        const res = await axios.post(`${BACKEND_URL}/api/sessions/upload-excel`, formData, { headers: { 'Content-Type': 'multipart/form-data' }, timeout: 30000 });
                         toast({ title: res.data.message });
-                        const sess = await axios.get(`${API}/sessions`);
+                        const sess = await axios.get(`${BACKEND_URL}/api/sessions`);
                         setSessions(sess.data);
                       } catch (err) {
-                        toast({ title: err.response?.data?.detail || 'Upload failed', variant: 'destructive' });
+                        console.error('Upload error:', err);
+                        toast({ title: err.response?.data?.detail || 'Upload failed. Check file format.', variant: 'destructive' });
                       }
                       e.target.value = '';
                     }} />
