@@ -225,6 +225,16 @@ Build a pixel-perfect clone of https://divineirishealing.com/ with comprehensive
 - [x] Added editable "Question Form Intro Text" field
 - [x] Added editable "Choose Your Healing Journey" placeholder title + font + subtitle + font to Homepage Session List
 
+### Special Offers System + Footer/Header Fixes (Mar 13, 2026)
+- [x] Per-session offers: offer_price_aed/usd/inr, offer_text badge, offer_expiry in session form
+- [x] Global offer system: badge text, colors, expiry, quick presets (Limited Time Offer, Early Bird, etc.)
+- [x] Strike-off pricing on homepage and detail page (original crossed out, offer highlighted)
+- [x] Offer badges with pulse animation, auto-removed when expiry passes
+- [x] Footer/Header menu sorted by length (shortest→longest), capitalized each word
+- [x] Footer programs sorted by title length, SERVICES → #sessions, MEDIA → /media
+- [x] Editable booking footer note text
+- [x] 18/18 frontend tests passing, 100% verification
+
 ## Backlog
 ### P1
 - [ ] Global Site Search
