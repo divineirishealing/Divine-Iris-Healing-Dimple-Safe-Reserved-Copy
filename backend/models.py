@@ -73,6 +73,8 @@ class Program(BaseModel):
     show_whatsapp_link: bool = True
     show_zoom_link: bool = True
     show_custom_link: bool = True
+    timing: str = ""  # e.g. "7:00 PM - 8:30 PM"
+    time_zone: str = ""  # e.g. "GST Dubai", "IST", "EST"
     content_sections: List[Dict] = []  # List of ContentSection dicts
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
@@ -113,6 +115,8 @@ class ProgramCreate(BaseModel):
     show_whatsapp_link: Optional[bool] = True
     show_zoom_link: Optional[bool] = True
     show_custom_link: Optional[bool] = True
+    timing: Optional[str] = ""
+    time_zone: Optional[str] = ""
     content_sections: Optional[List[Dict]] = []
 
 
