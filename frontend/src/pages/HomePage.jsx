@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import axios from 'axios';
 import Header from '../components/Header';
 import HeroSection from '../components/HeroSection';
+import LogoSection from '../components/LogoSection';
 import AboutSection from '../components/AboutSection';
 import UpcomingProgramsSection from '../components/UpcomingProgramsSection';
 import SponsorSection from '../components/SponsorSection';
@@ -18,6 +19,7 @@ const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 
 const COMPONENT_MAP = {
   HeroSection,
+  LogoSection,
   AboutSection,
   UpcomingProgramsSection,
   SponsorSection,
@@ -31,6 +33,7 @@ const COMPONENT_MAP = {
 
 const DEFAULT_ORDER = [
   { id: 'hero', component: 'HeroSection', visible: true },
+  { id: 'logo', component: 'LogoSection', visible: true },
   { id: 'about', component: 'AboutSection', visible: true },
   { id: 'upcoming', component: 'UpcomingProgramsSection', visible: true },
   { id: 'sponsor', component: 'SponsorSection', visible: true },

@@ -36,12 +36,6 @@ const AboutSection = ({ sectionConfig }) => {
   return (
     <section id="about" data-testid="about-section" className="py-12 bg-white">
       <div className={CONTAINER}>
-        {logoUrl && (
-          <div className="flex items-center justify-center mb-12">
-            <img src={logoUrl} alt="Logo" data-testid="site-logo" style={{ width: `${logoWidth}px`, height: 'auto' }} className="object-contain" onError={(e) => { e.target.style.display = 'none'; }} />
-          </div>
-        )}
-
         <div className="grid md:grid-cols-12 gap-12 items-start max-w-5xl mx-auto">
           <div className="md:col-span-5 order-2 md:order-1">
             {aboutImage && (
