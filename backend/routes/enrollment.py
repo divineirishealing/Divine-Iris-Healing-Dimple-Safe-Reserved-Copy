@@ -500,12 +500,12 @@ async def enrollment_checkout(enrollment_id: str, data: EnrollmentSubmit, reques
             "item_type": data.item_type,
             "item_id": data.item_id,
             "item_title": item.get("title", ""),
-            "email": enrollment.get("booker_email", ""),
-            "phone": enrollment.get("phone", ""),
-            "name": enrollment.get("booker_name", ""),
+            "email": enrollment.get("booker_email", "") or "",
+            "phone": enrollment.get("phone", "") or "",
+            "name": enrollment.get("booker_name", "") or "",
             "participant_count": str(enrollment.get("participant_count", 1)),
             "currency": currency,
-            "booker_country": enrollment.get("booker_country", ""),
+            "booker_country": enrollment.get("booker_country", "") or "",
         }
     )
 
