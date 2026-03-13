@@ -204,6 +204,12 @@ Build a pixel-perfect clone of https://divineirishealing.com/ with comprehensive
 - [x] Session detail page, homepage buttons, calendar all consume admin color settings
 - [x] 28/28 frontend tests passing, 100% verification
 
+### Body Content Font Controls & Editable Info Cards (Mar 13, 2026)
+- [x] Added 3 new font controls to Body Content: "What Clients Say" Heading, Info Card Heading, Info Card Bullet Text
+- [x] Made info cards fully editable from admin: Card 1 & Card 2 titles + bullet points (one per line)
+- [x] Session detail page dynamically renders card titles and bullets from admin settings
+- [x] 12/12 frontend tests passing, 100% verification
+
 ## Backlog
 ### P1
 - [ ] Global Site Search
