@@ -210,6 +210,21 @@ Build a pixel-perfect clone of https://divineirishealing.com/ with comprehensive
 - [x] Session detail page dynamically renders card titles and bullets from admin settings
 - [x] 12/12 frontend tests passing, 100% verification
 
+### Add to Cart for Personal Sessions (Mar 13, 2026)
+- [x] Added `addSessionItem` to CartContext — stores session with selected date/time slot
+- [x] Homepage sessions: "Add to Cart" outlined button below "View Details & Book", selectable time slots
+- [x] Session detail page: "Add to Cart" outlined button below "Book Now", selectable time slots  
+- [x] Cart page: session items show "Personal Session" badge + duration + date + time
+- [x] Toast notifications for add/duplicate, cart icon count updates
+- [x] Admin-controlled button colors applied to both cart buttons
+- [x] 15/15 frontend tests passing, 100% verification
+
+### Missing Admin Text Controls (Mar 13, 2026)
+- [x] Added "Book Your Session" heading font control to Calendar & Booking section
+- [x] Added "Ask a Question" heading font control + Question Form Labels to Body Content
+- [x] Added editable "Question Form Intro Text" field
+- [x] Added editable "Choose Your Healing Journey" placeholder title + font + subtitle + font to Homepage Session List
+
 ## Backlog
 ### P1
 - [ ] Global Site Search
