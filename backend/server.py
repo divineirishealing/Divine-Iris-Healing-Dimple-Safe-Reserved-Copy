@@ -76,6 +76,28 @@ app.include_router(enrollment.router)
 app.include_router(promotions.router)
 app.include_router(discounts.router)
 
+@api_router.get("/admin/api-keys")
+async def get_api_keys():
+    """Return list of configured API keys for admin display"""
+    keys = []
+    stripe_key = os.environ.get("STRIPE_API_KEY", "")
+    if stripe_key:
+        keys.append({"name": "stripe", "label": "Stripe", "service": "Payments", "description": "Payment processing for enrollments and donations", "value": stripe_key, "active": bool(stripe_key)})
+    resend_key = os.environ.get("RESEND_API_KEY", "")
+    if resend_key:
+        keys.append({"name": "resend", "label": "Resend", "service": "Email (backup)", "description": "Backup transactional email service", "value": resend_key, "active": bool(resend_key)})
+    smtp_user = os.environ.get("SMTP_USER", "")
+    smtp_pass = os.environ.get("SMTP_PASS", "")
+    if smtp_user:
+        keys.append({"name": "smtp", "label": "Google Workspace SMTP", "service": "Email", "description": f"Primary email via {smtp_user}", "value": smtp_pass, "active": bool(smtp_pass)})
+    sender = os.environ.get("SENDER_EMAIL", "")
+    if sender:
+        keys.append({"name": "sender_email", "label": "Sender Email", "service": "Email Config", "description": "Default sender address for OTP and notifications", "value": sender, "active": True})
+    receipt = os.environ.get("RECEIPT_EMAIL", "")
+    if receipt:
+        keys.append({"name": "receipt_email", "label": "Receipt Email", "service": "Email Config", "description": "Sender address for payment receipts", "value": receipt, "active": True})
+    return keys
+
 # Include the main router in the app
 app.include_router(api_router)
 

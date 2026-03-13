@@ -29,6 +29,7 @@ import GlobalStylesTab from './tabs/GlobalStylesTab';
 import PromotionsTab from './tabs/PromotionsTab';
 import ExchangeRatesTab from './tabs/ExchangeRatesTab';
 import DiscountsTab from './tabs/DiscountsTab';
+import ApiKeysTab from './tabs/ApiKeysTab';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
@@ -184,6 +185,7 @@ const AdminPanel = () => {
     { key: 'exchange_rates', label: 'Exchange Rates', icon: Globe },
     { key: 'subscribers', label: 'Subscribers', icon: Mail, count: subscribers.length },
     { key: 'styles', label: 'Global Styles', icon: Palette },
+    { key: 'api_keys', label: 'API Keys', icon: Settings },
   ];
 
   const settingsTabKeys = ['hero', 'homepage_sections', 'page_headers', 'about', 'sponsor', 'newsletter', 'header_footer', 'styles'];
@@ -283,6 +285,7 @@ const AdminPanel = () => {
           {activeTab === 'promotions' && <PromotionsTab programs={programs} />}
           {activeTab === 'discounts' && <DiscountsTab />}
           {activeTab === 'exchange_rates' && <ExchangeRatesTab />}
+          {activeTab === 'api_keys' && <ApiKeysTab />}
 
           {/* ===== PROGRAMS TAB ===== */}
           {activeTab === 'programs' && (
