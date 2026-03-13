@@ -67,8 +67,6 @@ function ProgramDetailPage() {
   const nextT = () => setCurrentTestimonial(p => (p + 1) % Math.max(testimonials.length, 1));
   const prevT = () => setCurrentTestimonial(p => (p - 1 + testimonials.length) % Math.max(testimonials.length, 1));
 
-  const aboutImage = settings?.about_image ? resolveImageUrl(settings.about_image) : '';
-
   if (loading) return <div className="min-h-screen flex items-center justify-center bg-[#1a1a1a]"><p className="text-gray-400 text-xs" style={BODY}>Loading...</p></div>;
   if (!program) return (
     <div className="min-h-screen flex items-center justify-center bg-[#1a1a1a]">
@@ -161,7 +159,8 @@ function ProgramDetailPage() {
     }
 
     if (sType === 'experience') {
-      const sectionImg = section.image_url ? resolveImageUrl(section.image_url) : aboutImage;
+      const globalExpImg = template.experience_image ? resolveImageUrl(template.experience_image) : '';
+      const sectionImg = section.image_url ? resolveImageUrl(section.image_url) : globalExpImg;
       return (
         <section key={section.id || idx} data-testid={`section-${idx}`} className={SECTION_PY} style={{ background: '#1a1a1a' }}>
           <div className={CONTAINER}><div className={WIDE}>
@@ -261,10 +260,6 @@ function ProgramDetailPage() {
         <div className={CONTAINER}>
           <div className="max-w-3xl mx-auto text-center">
             <div className="w-14 h-0.5 mx-auto mb-6" style={{ background: heroAccent }} />
-            <p className="mb-6" style={applyStyle(template.cta_style, LABEL)}>When you are seeking</p>
-            <p className="mb-10 leading-relaxed" style={applyStyle(template.body_style, { ...BODY, fontSize: '1rem', color: '#666' })}>
-              When you are ready to experience deep inner transformation and lasting change, this program becomes the foundation for that shift.
-            </p>
 
             {program.is_flagship && program.duration_tiers?.length > 0 && (
               <div data-testid="duration-tiers" className="max-w-3xl mx-auto mb-10">

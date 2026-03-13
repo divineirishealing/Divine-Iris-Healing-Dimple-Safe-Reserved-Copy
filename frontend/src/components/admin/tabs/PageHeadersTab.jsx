@@ -4,6 +4,8 @@ import { Label } from '../../ui/label';
 import { Button } from '../../ui/button';
 import { Switch } from '../../ui/switch';
 import { Copy, Plus, Trash2, ArrowUp, ArrowDown } from 'lucide-react';
+import ImageUploader from '../ImageUploader';
+import { resolveImageUrl } from '../../../lib/imageUtils';
 
 const FONT_OPTIONS = [
   { value: '', label: 'Default' },
@@ -198,6 +200,20 @@ const PageHeadersTab = ({ settings, programs = [], onChange }) => {
                 <StyleCell style={template[key] || {}} onStyleChange={v => updateTemplate(key, v)} />
               </div>
             ))}
+          </div>
+          <div className="mt-3">
+            <Label className="text-[9px] text-gray-500 font-semibold block mb-1">Photo (shown on all program pages in the dark section)</Label>
+            <div className="flex items-start gap-3">
+              <div className="flex-1 max-w-xs">
+                <ImageUploader value={template.experience_image || ''} onChange={url => updateTemplate('experience_image', url)} />
+              </div>
+              {template.experience_image && (
+                <div className="flex-shrink-0">
+                  <img src={resolveImageUrl(template.experience_image)} alt="Experience" className="w-20 h-20 rounded border border-gray-600 object-cover" />
+                  <button type="button" onClick={() => updateTemplate('experience_image', '')} className="text-[9px] text-red-400 mt-1 hover:underline">Remove</button>
+                </div>
+              )}
+            </div>
           </div>
         </div>
 
