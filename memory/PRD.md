@@ -167,11 +167,24 @@ Build a pixel-perfect clone of https://divineirishealing.com/ with comprehensive
 - [x] Excel upload for sessions (drag & drop)
 - [x] 17/17 backend tests passing, 100% frontend verification
 
+### Personal Sessions Design Tweaks (Mar 13, 2026)
+- [x] Admin controls: Purple intensity dropdowns (light/medium/strong) for homepage and session detail page
+- [x] Homepage sessions section: background gradient driven by `session_template.homepage_purple` setting
+- [x] Homepage sessions section: gold dust particle dots removed
+- [x] Homepage sessions section: session titles use shared `session_template.title_style`
+- [x] Session detail page hero: gradient driven by `session_template.page_purple` setting
+- [x] Session detail page hero: star count dynamic (50/80/100 for light/medium/strong)
+- [x] Session detail page body: changed from dark theme to white background with dark text
+- [x] Session detail page: info cards, testimonials, question form all use light purple theme
+- [x] Session detail page: booking sidebar retains dark purple gradient
+- [x] 15/15 frontend tests passing, 100% verification
+
 ## Backlog
 ### P1
 - [ ] Global Site Search
 - [ ] Testimonial keyword search
 - [ ] Video testimonial support (YouTube embed management)
+- [ ] Reply to Questions (admin panel UI)
 
 ### P2
 - [ ] User login & subscriber dashboard
@@ -180,6 +193,7 @@ Build a pixel-perfect clone of https://divineirishealing.com/ with comprehensive
 
 ### P3
 - [ ] Anti-fraud geo-pricing, SEO, Admin analytics, Bulk export
+- [ ] PageHeadersTab.jsx refactoring (split into smaller components)
 
 ## Admin: admin / divineadmin2024
 ## Test: 6 programs, EARLY50/NY2026 promos, OTP MOCKED, Stripe TEST
