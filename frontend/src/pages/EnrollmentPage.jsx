@@ -92,9 +92,8 @@ const ParticipantRow = ({ index, data, onChange, onRemove, canRemove, showReferr
         <div><label className="text-[9px] text-gray-500">Country</label>
           <select value={data.country} onChange={e => {
             const code = e.target.value;
-            update('country', code);
             const c = COUNTRIES.find(c => c.code === code);
-            if (c) { update('phone_code', c.phone); update('wa_code', c.phone); }
+            onChange({ ...data, country: code, phone_code: c ? c.phone : data.phone_code, wa_code: c ? c.phone : data.wa_code });
           }} className="w-full border rounded-md px-2 py-1.5 text-xs bg-white h-8">
             {COUNTRIES.map(c => <option key={c.code} value={c.code}>{c.name}</option>)}
           </select></div>
@@ -159,14 +158,14 @@ const ParticipantRow = ({ index, data, onChange, onRemove, canRemove, showReferr
         <div className="grid grid-cols-3 gap-2 mt-2">
           <Input data-testid={`p-email-${index}`} type="email" value={data.email} onChange={e => update('email', e.target.value)} placeholder="Email" className="text-xs h-8" />
           <div className="flex gap-0.5">
-            <select value={data.phone_code || '+971'} onChange={e => update('phone_code', e.target.value)}
+            <select value={data.phone_code || '+971'} onChange={e => onChange({ ...data, phone_code: e.target.value, wa_code: e.target.value })}
               className="border rounded-md px-0.5 py-1 text-[10px] w-[60px] bg-white h-8 flex-shrink-0" data-testid={`p-phone-code-${index}`}>
               {COUNTRIES.map(c => <option key={c.code} value={c.phone}>{c.phone}</option>)}
             </select>
             <Input data-testid={`p-phone-${index}`} type="tel" value={data.phone} onChange={e => {
               const val = e.target.value.replace(/\D/g, '').slice(0, 10);
-              update('phone', val);
-              if (!data.whatsapp || data.whatsapp === data.phone) update('whatsapp', val);
+              const shouldSync = !data.whatsapp || data.whatsapp === data.phone;
+              onChange({ ...data, phone: val, ...(shouldSync ? { whatsapp: val } : {}) });
             }} placeholder="Phone (10 digits)" maxLength={10} className="text-xs h-8" />
           </div>
           <div className="flex gap-0.5">
