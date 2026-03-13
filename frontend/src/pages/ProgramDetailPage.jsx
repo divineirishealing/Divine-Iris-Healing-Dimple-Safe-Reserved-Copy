@@ -165,10 +165,11 @@ function ProgramDetailPage() {
       return (
         <section key={section.id || idx} data-testid={`section-${idx}`} className={SECTION_PY} style={{ background: '#1a1a1a' }}>
           <div className={CONTAINER}><div className={WIDE}>
-            <h2 className="text-center mb-4" style={applyStyle(section.title_style || template.section_title_style, { ...HEADING, color: heroAccent, fontStyle: 'italic', fontSize: '1.6rem' })}>
+            <h2 className="text-center mb-4" style={applyStyle(template.exp_title_style, { ...HEADING, color: heroAccent, fontStyle: 'italic', fontSize: '1.6rem' })}>
               {section.title || 'Your Experience'}
             </h2>
             <div className="w-12 h-0.5 mx-auto mb-12" style={{ background: heroAccent }} />
+            {section.subtitle && <p className="text-center mb-8" style={applyStyle(template.exp_subtitle_style, { ...SUBTITLE, color: '#ccc' })}>{section.subtitle}</p>}
             <div className="grid md:grid-cols-12 gap-12 items-center">
               <div className="md:col-span-5 overflow-hidden rounded-md">
                 {sectionImg && <img src={sectionImg} alt="Experience" className="w-full" style={{ objectFit: section.image_fit || 'contain', objectPosition: section.image_position || 'center top', maxHeight: '520px' }} onError={(e) => { e.target.style.display = 'none'; }} />}
@@ -176,7 +177,7 @@ function ProgramDetailPage() {
               <div className="md:col-span-7">
                 {section.body && (
                   <div className="border-l-2 pl-6" style={{ borderColor: heroAccent }}>
-                    <BodyText style={section.body_style} className="italic" >{section.body}</BodyText>
+                    <p className="whitespace-pre-wrap italic" style={applyStyle(template.exp_body_style, { ...BODY, color: '#ddd' })} dangerouslySetInnerHTML={{ __html: renderMarkdown(section.body || '') }} />
                   </div>
                 )}
               </div>

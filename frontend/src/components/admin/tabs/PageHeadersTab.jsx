@@ -57,6 +57,12 @@ const TEMPLATE_STYLE_KEYS = [
   { key: 'cta_style', label: 'CTA / Pricing Text' },
 ];
 
+const DARK_SECTION_STYLE_KEYS = [
+  { key: 'exp_title_style', label: 'Title (Dark BG)' },
+  { key: 'exp_subtitle_style', label: 'Subtitle (Dark BG)' },
+  { key: 'exp_body_style', label: 'Body (Dark BG)' },
+];
+
 const SECTION_TYPE_OPTIONS = [
   { value: 'journey', label: 'The Journey', defaultTitle: 'The Journey' },
   { value: 'who_for', label: 'Who It Is For?', defaultTitle: 'Who It Is For?' },
@@ -180,6 +186,19 @@ const PageHeadersTab = ({ settings, programs = [], onChange }) => {
               <StyleCell style={template[key] || {}} onStyleChange={v => updateTemplate(key, v)} />
             </div>
           ))}
+        </div>
+
+        {/* Dark BG Section (Your Experience) styles */}
+        <div className="mt-3 mb-3">
+          <p className="text-[9px] font-semibold text-gray-500 mb-2">YOUR EXPERIENCE — DARK BACKGROUND SECTION</p>
+          <div className="grid grid-cols-3 gap-3">
+            {DARK_SECTION_STYLE_KEYS.map(({ key, label }) => (
+              <div key={key} className="bg-gray-800 rounded-lg border border-gray-600 p-2.5">
+                <Label className="text-[9px] text-yellow-400 font-semibold block mb-1">{label}</Label>
+                <StyleCell style={template[key] || {}} onStyleChange={v => updateTemplate(key, v)} />
+              </div>
+            ))}
+          </div>
         </div>
 
         <div className="mt-3 flex items-center gap-3">
