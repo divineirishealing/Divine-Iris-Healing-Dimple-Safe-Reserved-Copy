@@ -1,0 +1,246 @@
+import React, { useState, useEffect } from 'react';
+import axios from 'axios';
+import { FileText, Save, Loader2, Eye, Palette } from 'lucide-react';
+import { Button } from '../../ui/button';
+import { Input } from '../../ui/input';
+import { useToast } from '../../../hooks/use-toast';
+
+const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
+
+const FONT_OPTIONS = [
+  "Georgia, 'Times New Roman', serif",
+  "Cinzel, Georgia, serif",
+  "'Lato', Arial, sans-serif",
+  "'Playfair Display', Georgia, serif",
+  "'Cormorant Garamond', Georgia, serif",
+  "'Titillium Web', sans-serif",
+];
+
+const FONT_LABELS = {
+  "Georgia, 'Times New Roman', serif": "Georgia (Classic)",
+  "Cinzel, Georgia, serif": "Cinzel (Elegant)",
+  "'Lato', Arial, sans-serif": "Lato (Modern)",
+  "'Playfair Display', Georgia, serif": "Playfair Display (Luxury)",
+  "'Cormorant Garamond', Georgia, serif": "Cormorant Garamond (Refined)",
+  "'Titillium Web', sans-serif": "Titillium Web",
+};
+
+const COLOR_PRESETS = [
+  { label: 'Classic Gold', bg: '#1a1a1a', accent: '#D4AF37', text: '#333333' },
+  { label: 'Royal Purple', bg: '#1a1028', accent: '#9B6DFF', text: '#2d2d2d' },
+  { label: 'Rose Gold', bg: '#1a1216', accent: '#B76E79', text: '#333333' },
+  { label: 'Emerald', bg: '#0a1a14', accent: '#2D8C6F', text: '#2d2d2d' },
+  { label: 'Midnight Blue', bg: '#0d1117', accent: '#4A90D9', text: '#333333' },
+];
+
+const ReceiptTemplateTab = () => {
+  const { toast } = useToast();
+  const [tpl, setTpl] = useState({
+    bg_color: '#1a1a1a',
+    accent_color: '#D4AF37',
+    text_color: '#333333',
+    heading_font: "Georgia, 'Times New Roman', serif",
+    body_font: "Georgia, 'Times New Roman', serif",
+    thank_you_title: 'Thank You',
+    thank_you_message: 'We are truly grateful for your trust in Divine Iris Healing. Your healing journey has now begun, and we are honoured to walk this path with you. May this experience bring you deep peace, clarity, and transformation.',
+    thank_you_sign: 'With love and light',
+    show_logo: true,
+    show_duration: true,
+    show_timing: true,
+  });
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [previewing, setPreviewing] = useState(false);
+
+  useEffect(() => {
+    axios.get(`${API}/settings`).then(r => {
+      const t = r.data.receipt_template;
+      if (t) setTpl(prev => ({ ...prev, ...t }));
+    }).catch(() => {}).finally(() => setLoading(false));
+  }, []);
+
+  const update = (field, value) => setTpl(prev => ({ ...prev, [field]: value }));
+
+  const save = async () => {
+    setSaving(true);
+    try {
+      await axios.put(`${API}/settings`, { receipt_template: tpl });
+      toast({ title: 'Receipt template saved!' });
+    } catch (err) {
+      toast({ title: 'Failed to save', variant: 'destructive' });
+    } finally { setSaving(false); }
+  };
+
+  const sendPreview = async () => {
+    setPreviewing(true);
+    try {
+      await axios.post(`${API}/receipt/preview`);
+      toast({ title: 'Preview email sent to admin!' });
+    } catch (err) {
+      toast({ title: 'Failed to send preview', variant: 'destructive' });
+    } finally { setPreviewing(false); }
+  };
+
+  const applyPreset = (preset) => {
+    setTpl(prev => ({ ...prev, bg_color: preset.bg, accent_color: preset.accent, text_color: preset.text }));
+  };
+
+  if (loading) return <div className="text-center py-12 text-gray-400 text-sm">Loading...</div>;
+
+  return (
+    <div data-testid="receipt-template-tab">
+      <div className="flex items-center gap-2 mb-1">
+        <FileText size={18} className="text-[#D4AF37]" />
+        <h2 className="text-lg font-semibold text-gray-900">Receipt Email Template</h2>
+      </div>
+      <p className="text-xs text-gray-500 mb-6">Customize the payment receipt email sent after successful payment.</p>
+
+      {/* Color Presets */}
+      <div className="mb-5">
+        <label className="text-xs font-semibold text-gray-700 block mb-2">Color Presets</label>
+        <div className="flex gap-2 flex-wrap">
+          {COLOR_PRESETS.map(p => (
+            <button key={p.label} onClick={() => applyPreset(p)} data-testid={`preset-${p.label.replace(/\s/g, '-').toLowerCase()}`}
+              className="flex items-center gap-2 border rounded-lg px-3 py-2 hover:shadow-sm transition-all text-xs"
+              style={{ borderColor: p.accent + '44' }}>
+              <div className="flex gap-0.5">
+                <span className="w-3 h-3 rounded-full" style={{ background: p.bg }} />
+                <span className="w-3 h-3 rounded-full" style={{ background: p.accent }} />
+                <span className="w-3 h-3 rounded-full" style={{ background: p.text }} />
+              </div>
+              {p.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Custom Colors */}
+      <div className="mb-5">
+        <label className="text-xs font-semibold text-gray-700 block mb-2">Custom Colors</label>
+        <div className="grid grid-cols-3 gap-3">
+          <div>
+            <label className="text-[9px] text-gray-500 block mb-1">Header / Footer Background</label>
+            <div className="flex items-center gap-2">
+              <input type="color" value={tpl.bg_color} onChange={e => update('bg_color', e.target.value)} className="w-8 h-8 rounded cursor-pointer border-0" />
+              <Input value={tpl.bg_color} onChange={e => update('bg_color', e.target.value)} className="text-xs h-8 font-mono flex-1" />
+            </div>
+          </div>
+          <div>
+            <label className="text-[9px] text-gray-500 block mb-1">Accent Color</label>
+            <div className="flex items-center gap-2">
+              <input type="color" value={tpl.accent_color} onChange={e => update('accent_color', e.target.value)} className="w-8 h-8 rounded cursor-pointer border-0" />
+              <Input value={tpl.accent_color} onChange={e => update('accent_color', e.target.value)} className="text-xs h-8 font-mono flex-1" />
+            </div>
+          </div>
+          <div>
+            <label className="text-[9px] text-gray-500 block mb-1">Text Color</label>
+            <div className="flex items-center gap-2">
+              <input type="color" value={tpl.text_color} onChange={e => update('text_color', e.target.value)} className="w-8 h-8 rounded cursor-pointer border-0" />
+              <Input value={tpl.text_color} onChange={e => update('text_color', e.target.value)} className="text-xs h-8 font-mono flex-1" />
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Fonts */}
+      <div className="mb-5">
+        <label className="text-xs font-semibold text-gray-700 block mb-2">Fonts</label>
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <label className="text-[9px] text-gray-500 block mb-1">Heading Font</label>
+            <select value={tpl.heading_font} onChange={e => update('heading_font', e.target.value)} className="w-full border rounded-md px-2 py-1.5 text-xs bg-white h-8">
+              {FONT_OPTIONS.map(f => <option key={f} value={f}>{FONT_LABELS[f] || f}</option>)}
+            </select>
+            <p className="text-[10px] mt-1 text-gray-500" style={{ fontFamily: tpl.heading_font }}>Preview Heading Text</p>
+          </div>
+          <div>
+            <label className="text-[9px] text-gray-500 block mb-1">Body Font</label>
+            <select value={tpl.body_font} onChange={e => update('body_font', e.target.value)} className="w-full border rounded-md px-2 py-1.5 text-xs bg-white h-8">
+              {FONT_OPTIONS.map(f => <option key={f} value={f}>{FONT_LABELS[f] || f}</option>)}
+            </select>
+            <p className="text-[10px] mt-1 text-gray-500" style={{ fontFamily: tpl.body_font }}>Preview body text</p>
+          </div>
+        </div>
+      </div>
+
+      {/* Toggles */}
+      <div className="mb-5">
+        <label className="text-xs font-semibold text-gray-700 block mb-2">Display Options</label>
+        <div className="space-y-2">
+          {[
+            { key: 'show_logo', label: 'Show logo in receipt header' },
+            { key: 'show_duration', label: 'Show duration in program details' },
+            { key: 'show_timing', label: 'Show timing & timezone in program details' },
+          ].map(item => (
+            <label key={item.key} className="flex items-center gap-2 cursor-pointer">
+              <input type="checkbox" checked={tpl[item.key] !== false} onChange={e => update(item.key, e.target.checked)}
+                className="rounded border-gray-300 text-[#D4AF37] focus:ring-[#D4AF37]" />
+              <span className="text-xs text-gray-600">{item.label}</span>
+            </label>
+          ))}
+        </div>
+      </div>
+
+      {/* Thank You Section */}
+      <div className="mb-5">
+        <label className="text-xs font-semibold text-gray-700 block mb-2">Thank You Message</label>
+        <div className="space-y-2">
+          <div>
+            <label className="text-[9px] text-gray-500 block mb-0.5">Title</label>
+            <Input value={tpl.thank_you_title} onChange={e => update('thank_you_title', e.target.value)} placeholder="Thank You" className="text-xs h-8" />
+          </div>
+          <div>
+            <label className="text-[9px] text-gray-500 block mb-0.5">Message</label>
+            <textarea value={tpl.thank_you_message} onChange={e => update('thank_you_message', e.target.value)}
+              rows={3} className="w-full border rounded-lg px-3 py-2 text-xs text-gray-700 resize-none focus:ring-1 focus:ring-[#D4AF37]" />
+          </div>
+          <div>
+            <label className="text-[9px] text-gray-500 block mb-0.5">Sign-off</label>
+            <Input value={tpl.thank_you_sign} onChange={e => update('thank_you_sign', e.target.value)} placeholder="With love and light" className="text-xs h-8" />
+          </div>
+        </div>
+      </div>
+
+      {/* Mini Preview */}
+      <div className="mb-5 border rounded-lg overflow-hidden">
+        <div className="text-[9px] text-gray-500 px-3 py-1.5 bg-gray-50 border-b flex items-center gap-1"><Palette size={10} /> Live Color Preview</div>
+        <div style={{ background: '#f4f2ed', padding: '12px' }}>
+          <div style={{ maxWidth: '300px', margin: '0 auto', background: '#fff', borderRadius: '0', border: '1px solid #e8e0c8', fontSize: '10px' }}>
+            <div style={{ background: tpl.bg_color, padding: '14px 12px', textAlign: 'center', borderBottom: `2px solid ${tpl.accent_color}` }}>
+              <p style={{ color: tpl.accent_color, margin: 0, fontSize: '11px', letterSpacing: '2px', fontFamily: tpl.heading_font }}>DIVINE IRIS HEALING</p>
+              <p style={{ color: '#888', margin: '4px 0 0', fontSize: '8px', letterSpacing: '1px' }}>PAYMENT RECEIPT</p>
+            </div>
+            <div style={{ padding: '12px', textAlign: 'center' }}>
+              <p style={{ color: tpl.accent_color, fontSize: '16px', margin: 0, fontFamily: tpl.heading_font }}>&#10003;</p>
+              <p style={{ color: tpl.text_color, fontSize: '10px', margin: '4px 0', fontFamily: tpl.heading_font }}>Enrollment Confirmed</p>
+              <div style={{ background: `${tpl.accent_color}11`, padding: '8px', borderRadius: '6px', margin: '8px 0' }}>
+                <p style={{ color: tpl.accent_color, fontSize: '9px', fontWeight: 600, margin: 0 }}>Program Title</p>
+                <p style={{ color: tpl.accent_color, fontSize: '14px', fontWeight: 700, margin: '4px 0 0', fontFamily: tpl.heading_font }}>AED 300</p>
+              </div>
+              <div style={{ background: `linear-gradient(135deg, #faf8f0, #fff8e7)`, padding: '8px', borderRadius: '6px', border: '1px solid #e8dcc4' }}>
+                <p style={{ color: tpl.accent_color, fontSize: '9px', margin: 0, fontFamily: tpl.heading_font }}>{tpl.thank_you_title}</p>
+                <p style={{ color: '#666', fontSize: '7px', margin: '2px 0 0', fontFamily: tpl.body_font }}>{tpl.thank_you_sign}</p>
+              </div>
+            </div>
+            <div style={{ background: tpl.bg_color, padding: '8px', textAlign: 'center', borderTop: `2px solid ${tpl.accent_color}` }}>
+              <p style={{ color: tpl.accent_color, fontSize: '8px', margin: 0, letterSpacing: '1px' }}>DIVINE IRIS HEALING</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div className="flex gap-2">
+        <Button onClick={save} disabled={saving} className="flex-1 bg-[#D4AF37] hover:bg-[#b8962e] text-white" data-testid="save-receipt-tpl-btn">
+          {saving ? <Loader2 size={14} className="animate-spin mr-2" /> : <Save size={14} className="mr-2" />}
+          Save Template
+        </Button>
+        <Button variant="outline" onClick={sendPreview} disabled={previewing} data-testid="preview-receipt-btn">
+          {previewing ? <Loader2 size={14} className="animate-spin mr-1" /> : <Eye size={14} className="mr-1" />}
+          Send Preview
+        </Button>
+      </div>
+    </div>
+  );
+};
+
+export default ReceiptTemplateTab;

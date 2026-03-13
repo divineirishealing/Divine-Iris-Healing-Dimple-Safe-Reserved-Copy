@@ -114,19 +114,37 @@ async def send_enrollment_emails(session_id: str):
 
     # 1. Send booker confirmation (from receipt email)
     if booker_email:
-        # Get program description and start date
+        # Get program/session details
         program_description = ""
         program_start_date = ""
+        program_duration = ""
+        program_end_date = ""
+        program_timing = ""
+        program_timezone = ""
         if item_id and item_type == "program":
             program = await db.programs.find_one({"id": item_id}, {"_id": 0})
             if program:
                 program_description = program.get("description", "")
                 program_start_date = program.get("start_date", "")
+                program_duration = program.get("duration", "")
+                program_end_date = program.get("end_date", "")
+                program_timing = program.get("timing", "") or ""
+                program_timezone = program.get("time_zone", "") or ""
         elif item_id and item_type == "session":
             session = await db.sessions.find_one({"id": item_id}, {"_id": 0})
             if session:
                 program_description = session.get("description", "")
-                program_start_date = session.get("date", "")
+                program_duration = session.get("duration", "")
+                program_timing = session.get("timing", "") or ""
+                program_timezone = session.get("time_zone", "") or ""
+
+        # Get receipt template and logo
+        from routes.emails import get_receipt_template
+        receipt_tpl, logo_path = await get_receipt_template()
+        logo_url = ""
+        if logo_path:
+            host = os.environ.get('HOST_URL', '')
+            logo_url = f"{host}{logo_path}" if logo_path.startswith("/api") else logo_path
 
         html = enrollment_confirmation_email(
             booker_name=booker_name,
@@ -140,8 +158,13 @@ async def send_enrollment_emails(session_id: str):
             program_links=program_links,
             program_description=program_description,
             program_start_date=program_start_date,
+            program_duration=program_duration,
+            program_end_date=program_end_date,
+            program_timing=program_timing,
+            program_timezone=program_timezone,
+            logo_url=logo_url,
+            receipt_template=receipt_tpl,
         )
-        # Use receipt email as sender
         from key_manager import get_key
         receipt_sender = await get_key("receipt_email") or os.environ.get("RECEIPT_EMAIL", "receipt@divineirishealing.com")
         await send_email(booker_email, f"Payment Receipt — {item_title} — Divine Iris Healing", html, from_email=receipt_sender)

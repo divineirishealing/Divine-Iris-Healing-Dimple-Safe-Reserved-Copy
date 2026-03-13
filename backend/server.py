@@ -92,6 +92,44 @@ async def update_api_keys(data: dict):
     await save_all_keys(to_save)
     return {"message": "API keys updated successfully", "updated": list(to_save.keys())}
 
+@api_router.post("/receipt/preview")
+async def send_receipt_preview():
+    """Send a preview receipt email to admin"""
+    from routes.emails import enrollment_confirmation_email, send_email, get_receipt_template
+    from key_manager import get_key
+    receipt_tpl, logo_path = await get_receipt_template()
+    host = os.environ.get('HOST_URL', '')
+    logo_url = f"{host}{logo_path}" if logo_path and logo_path.startswith("/api") else (logo_path or "")
+
+    html = enrollment_confirmation_email(
+        booker_name="Preview Customer",
+        item_title="Sample Healing Program",
+        participants=[
+            {"name": "Jane Doe", "relationship": "Myself", "attendance_mode": "online", "is_first_time": True, "uid": "SHP-JAN-001", "phone": "+919876543210", "phone_code": "+91", "whatsapp": "9876543210", "wa_code": "+91"},
+            {"name": "John Doe", "relationship": "Spouse", "attendance_mode": "online", "is_first_time": False, "uid": "SHP-JOH-002", "referred_by_name": "Dr. Sharma"},
+        ],
+        total="3,600",
+        currency_symbol="INR ",
+        attendance_modes=["online", "online"],
+        booker_email="preview@example.com",
+        phone="+919876543210",
+        program_links={"whatsapp_group_link": "https://chat.whatsapp.com/preview", "zoom_link": "https://zoom.us/j/preview"},
+        program_description="A transformational journey of deep healing across all layers of being — physical, emotional, mental, and spiritual.",
+        program_start_date="March 27th, 2026",
+        program_duration="90 days",
+        program_end_date="June 25th, 2026",
+        program_timing="7:00 PM - 8:30 PM",
+        program_timezone="GST (Dubai)",
+        logo_url=logo_url,
+        receipt_template=receipt_tpl,
+    )
+    receipt_sender = await get_key("receipt_email") or os.environ.get("RECEIPT_EMAIL", "receipt@divineirishealing.com")
+    admin_email = await get_key("smtp_user") or os.environ.get("SMTP_USER", "")
+    if admin_email:
+        await send_email(admin_email, "Receipt Preview — Divine Iris Healing", html, from_email=receipt_sender)
+    return {"sent": True}
+
+
 # Include the main router in the app
 app.include_router(api_router)
 

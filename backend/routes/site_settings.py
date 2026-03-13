@@ -52,6 +52,8 @@ async def update_settings(settings: SiteSettingsUpdate):
         update_data['footer_menu_items'] = raw['footer_menu_items']
     if raw.get('india_payment_links') is not None:
         update_data['india_payment_links'] = raw['india_payment_links']
+    if raw.get('receipt_template') is not None:
+        update_data['receipt_template'] = raw['receipt_template']
     existing = await db.site_settings.find_one({"id": "site_settings"})
     if not existing:
         full_settings = {**DEFAULT_SETTINGS, **update_data}
