@@ -12,6 +12,7 @@ function resolveUrl(url) {
 
 const HeroSection = ({ sectionConfig }) => {
   const [settings, setSettings] = useState(null);
+  const [ready, setReady] = useState(false);
 
   useEffect(() => {
     loadSettings();
@@ -21,8 +22,11 @@ const HeroSection = ({ sectionConfig }) => {
     try {
       const response = await axios.get(`${API}/settings`);
       setSettings(response.data);
+      // Small delay to ensure fonts are applied before reveal
+      setTimeout(() => setReady(true), 50);
     } catch (error) {
       console.error('Error loading settings:', error);
+      setReady(true); // Show fallback on error
     }
   };
 
@@ -55,13 +59,13 @@ const HeroSection = ({ sectionConfig }) => {
     <section
       id="home"
       data-testid="hero-section"
-      className="relative min-h-screen flex items-center justify-center overflow-hidden"
+      className="relative min-h-screen flex items-center justify-center overflow-hidden transition-colors duration-500"
       style={{
-        background: sectionStyle.bg_color || 'linear-gradient(135deg, #1a1a2e 0%, #16213e 25%, #0f3460 50%, #1a1a2e 75%, #0d1b2a 100%)',
+        background: ready ? (sectionStyle.bg_color || 'linear-gradient(135deg, #1a1a2e 0%, #16213e 25%, #0f3460 50%, #1a1a2e 75%, #0d1b2a 100%)') : '#1a1a2e',
       }}
     >
       {/* Video Background */}
-      {videoUrl && (
+      {videoUrl && ready && (
         <video
           autoPlay
           loop
@@ -75,7 +79,7 @@ const HeroSection = ({ sectionConfig }) => {
       )}
 
       {/* Subtle gold radial for non-video */}
-      {!videoUrl && (
+      {!videoUrl && ready && (
         <div
           className="absolute inset-0 opacity-20"
           style={{
@@ -86,7 +90,7 @@ const HeroSection = ({ sectionConfig }) => {
       )}
 
       {/* Content */}
-      <div className={`relative z-10 px-4 flex flex-col ${alignClass}`}>
+      <div className={`relative z-10 px-4 flex flex-col ${alignClass} transition-opacity duration-700 ${ready ? 'opacity-100' : 'opacity-0'}`}>
         <h1
           data-testid="hero-title"
           className="text-white mb-6 tracking-wider animate-fade-in leading-tight whitespace-pre-line"

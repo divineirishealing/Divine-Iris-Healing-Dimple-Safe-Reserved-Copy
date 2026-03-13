@@ -1,10 +1,55 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-import { Monitor, Wifi, Mail, Phone, User, Calendar, Search } from 'lucide-react';
+import { Monitor, Wifi, Mail, Phone, User, Calendar, Search, Download } from 'lucide-react';
 import { Input } from '../../ui/input';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
+
+const downloadCSV = (data, filename, type) => {
+  let csv = '';
+  if (type === 'enrollments') {
+    csv = 'Booker Name,Booker Email,Phone,Program,Status,Date,Participant Name,Participant Relationship,Participant Age,Attendance Mode,Participant Email\n';
+    data.forEach(e => {
+      const base = [
+        `"${(e.booker_name || '').replace(/"/g, '""')}"`,
+        `"${e.booker_email || ''}"`,
+        `"${e.phone || ''}"`,
+        `"${(e.program_title || e.item_title || '').replace(/"/g, '""')}"`,
+        `"${e.status || 'pending'}"`,
+        `"${e.created_at ? new Date(e.created_at).toLocaleDateString() : ''}"`,
+      ];
+      if (e.participants && e.participants.length > 0) {
+        e.participants.forEach(p => {
+          csv += [...base, `"${(p.name || '').replace(/"/g, '""')}"`, `"${p.relationship || ''}"`, `"${p.age || ''}"`, `"${p.attendance_mode || ''}"`, `"${p.email || ''}"`].join(',') + '\n';
+        });
+      } else {
+        csv += [...base, '', '', '', '', ''].join(',') + '\n';
+      }
+    });
+  } else {
+    csv = 'Program,Customer Email,Customer Name,Amount,Currency,Status,Stripe Intent,Date\n';
+    data.forEach(t => {
+      csv += [
+        `"${(t.item_title || '').replace(/"/g, '""')}"`,
+        `"${t.customer_email || ''}"`,
+        `"${(t.customer_name || '').replace(/"/g, '""')}"`,
+        t.amount || 0,
+        `"${(t.currency || '').toUpperCase()}"`,
+        `"${t.payment_status || 'pending'}"`,
+        `"${t.stripe_payment_intent || ''}"`,
+        `"${t.created_at ? new Date(t.created_at).toLocaleDateString() : ''}"`,
+      ].join(',') + '\n';
+    });
+  }
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `${filename}_${new Date().toISOString().slice(0, 10)}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
+};
 
 const EnrollmentsTab = () => {
   const [enrollments, setEnrollments] = useState([]);
@@ -43,7 +88,7 @@ const EnrollmentsTab = () => {
       <h2 className="text-xl font-semibold text-gray-900 mb-1">Enrollments & Payments</h2>
       <p className="text-xs text-gray-400 mb-4">View all enrollments and payment transactions.</p>
 
-      <div className="flex gap-2 mb-4">
+      <div className="flex items-center gap-2 mb-4 flex-wrap">
         <button onClick={() => setView('enrollments')}
           className={`px-4 py-2 rounded-full text-xs font-medium transition-all ${view === 'enrollments' ? 'bg-[#D4AF37] text-white' : 'bg-gray-100 text-gray-600'}`}>
           Enrollments ({enrollments.length})
@@ -52,6 +97,20 @@ const EnrollmentsTab = () => {
           className={`px-4 py-2 rounded-full text-xs font-medium transition-all ${view === 'transactions' ? 'bg-[#D4AF37] text-white' : 'bg-gray-100 text-gray-600'}`}>
           Payments ({transactions.length})
         </button>
+        <div className="ml-auto flex gap-2">
+          {view === 'enrollments' && enrollments.length > 0 && (
+            <button data-testid="download-enrollments-csv" onClick={() => downloadCSV(enrollments, 'enrollments', 'enrollments')}
+              className="flex items-center gap-1.5 px-3 py-2 rounded-full text-xs font-medium bg-green-50 text-green-700 border border-green-200 hover:bg-green-100 transition-all">
+              <Download size={13} /> Download CSV
+            </button>
+          )}
+          {view === 'transactions' && transactions.length > 0 && (
+            <button data-testid="download-transactions-csv" onClick={() => downloadCSV(transactions, 'payments', 'transactions')}
+              className="flex items-center gap-1.5 px-3 py-2 rounded-full text-xs font-medium bg-green-50 text-green-700 border border-green-200 hover:bg-green-100 transition-all">
+              <Download size={13} /> Download CSV
+            </button>
+          )}
+        </div>
       </div>
 
       <div className="relative mb-4">
