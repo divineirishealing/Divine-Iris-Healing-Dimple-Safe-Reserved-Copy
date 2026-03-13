@@ -56,7 +56,8 @@ const TEMPLATE_STYLE_KEYS = [
   { key: 'section_title_style', label: 'Section Titles' },
   { key: 'section_subtitle_style', label: 'Section Subtitles' },
   { key: 'body_style', label: 'Body / Description Text' },
-  { key: 'cta_style', label: 'CTA / Pricing Text' },
+  { key: 'cta_style', label: 'CTA / Button Text' },
+  { key: 'pricing_style', label: 'Pricing Font' },
   { key: 'testimonial_title_style', label: 'Testimonials Title' },
 ];
 
