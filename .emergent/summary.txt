@@ -1,40 +1,55 @@
 <analysis>**original_problem_statement:**
-The user wants to build a pixel-perfect clone of their existing website, . The scope has evolved to include a comprehensive admin panel for content management, a secure multi-program cart, and a Stripe-powered donation system.
-
-The most recent requests focus on giving the user granular control over all content and styling from the admin panel. The latest major request is to unify the design and structure of all Flagship Program detail pages, so that a single template in the admin panel controls the style (fonts, colors, etc.) for all of them simultaneously, rather than having to configure each program's page header individually.
+The user wants to build a pixel-perfect clone of their existing website, . The project has evolved to include a comprehensive admin panel for granular content and style management, a multi-program cart, and a Stripe-powered donation system. The project's current focus is on refining the Personal Sessions and Programs features based on user feedback, enhancing the enrollment and payment flow with advanced geo-pricing logic, and improving post-payment communication with a customizable receipt system.
 
 **User's preferred language**: English
 
 **what currently exists?**
-- A full-stack application (React + FastAPI + MongoDB) that visually clones and extends the original site.
-- A comprehensive admin panel where the user can manage homepage section order/visibility, page headers, sponsor content, and more.
-- A fully dynamic homepage that renders sections based on the admin configuration.
-- A redesigned Personal Sessions section with a warm, cozy theme (white background, iris purple/gold accents), a two-column layout showing session details with a calendar on selection, and extensive admin controls for content, styling, and booking availability (min 7-day advance, no weekends).
-- A global visibility toggle for the entire Personal Sessions feature (hides it from the homepage, navigation, and prevents direct URL access).
-- Logic on program pages to show an Express Your Interest button for programs where enrollment is closed.
-- All page hero sections (titles, subtitles, fonts, colors) across the entire site are now correctly and centrally controlled from the Page Headers tab in the admin panel.
+A full-stack application (React + FastAPI + MongoDB) with a comprehensive admin panel. Key features include:
+- **Email OTP System:** User enrollment is secured via an email OTP system integrated with the user's Google Workspace account (using an app password). This replaced a previous Resend implementation.
+- **Editable API Keys Admin:** A dedicated admin tab allows the user to securely view, edit, and save API keys (for Stripe, SMTP, etc.) directly into the database, removing the need for  file modifications.
+- **Advanced Geo-Pricing & Currency Logic:** The enrollment process features robust geo-pricing. It cross-validates the user's selected country with their phone number for special Indian pricing and displays currency dynamically (INR, AED, USD) based on user selection and IP location.
+- **India-Specific Payment Flow:** The enrollment page displays a disclaimer and admin-configurable payment links (Exly, GPay, Bank Transfer) as alternatives to Stripe for Indian users, including a note about potential surcharges.
+- **Enhanced Enrollment Form:** The multi-step enrollment form features dynamic UI updates, including auto-populating phone country codes based on country selection and auto-copying the participant's phone number to their WhatsApp field.
+- **Luxury Receipt Template:** A highly customizable, luxury-style HTML email receipt template has been implemented. An admin panel allows control over fonts, colors, a thank-you message, and toggles for showing logo, duration, and timing.
+- **Program & Session Management:** Extensive admin controls for creating and managing programs and personal sessions, including styling, content, special offers, and visibility.
+- **Global Style Controls:** A Global Styles admin tab includes a control for a universal pricing font that applies to all program pages.
+- **Homepage Customization:** The homepage content, including a newly fixed stats section, can be managed from the admin panel.
 
 **Last working item**:
-- **Last item agent was working:** The agent was planning the implementation for a new user request: to create a single, unified Program Template in the admin panel. This template would control the styles (hero, section titles, body text, fonts, colors) for all program detail pages at once, ensuring they are all replicas of each other and can be updated from one place.
-- **Status:** NOT STARTED
+- **Last item agent was working:** The user reported that the  and  for a program are not showing on the program's detail page header, even though the feature was implemented. The agent was in the process of debugging this by checking if the data for the Quad Layer Healing program exists in the database.
+- **Status:** IN PROGRESS
 - **Agent Testing Done:** N
-- **Which testing method agent to use?** Both. The backend testing agent will be needed to verify the new data model for the program template. The frontend testing agent will be needed to ensure that all program detail pages correctly fetch and apply the styles from the new single template, and that the admin panel UI for managing this template works as expected.
+- **Which testing method agent to use?** Manual testing. First, use  to inspect the program data from the  endpoint. Then, use the screenshot tool to verify the frontend rendering on .
 - **User Testing Done:** N
 
 **All Pending/In progress Issue list**:
-- **Issue 1: (P0)** Implement the unified Program Detail Page Template.
+- **Issue 1: Program  and  are not displaying on the detail page header.** (P0)
+- **Issue 2: Program timing on Upcoming Programs cards is not localized.** (P1)
 
 **Issues Detail:**
-- **Issue 1: Implement the unified Program Detail Page Template**
-    - **Attempted fixes:** None. This is a new request. The agent has formed a plan to replace individual program hero settings with a single template controller.
+- **Issue 1: Program  and  are not displaying on the detail page header.**
+    - **Attempted fixes:** The UI to display this information was added to . The agent's last action was initiating a  command to fetch the program's data to verify if the  and  fields are populated in the database.
     - **Next debug checklist:**
-        1.  ****: Modify the  model. Remove the dictionary of individual  hero settings from . Add a new Pydantic model, , which will contain style objects for , , , , etc. Add this  field to .
-        2.  ****: Remove the UI that dynamically generates inputs for , , etc. Add a new, static section titled Program Page Template with dedicated  for each element defined in the new backend model (hero title, subtitle, section titles, body text).
-        3.  ****: Modify the component to no longer construct a dynamic  like . Instead, it should read the styles directly from . Apply these template styles to the hero title, subtitle, and other elements on the page as required.
-    - **Why fix this issue and what will be achieved with the fix?** This will fulfill the user's request for centralized control over all program detail pages. It will ensure brand consistency across all program offerings and dramatically simplify the process of updating their design, as a change in one place (the admin template) will propagate to all program pages.
+        1.  Analyze the result of the  command from the last step (Chat 571) to check the data for the Quad Layer Healing program.
+        2.  If the  and  fields are null or missing, the program data needs to be updated. The admin panel should be checked to see if these fields can be edited.
+        3.  If the data exists, debug the rendering logic in  to identify why it's not being displayed.
+    - **Why fix this issue and what will be achieved with the fix?** To ensure essential program details are clearly visible to users on the program page, as requested.
+    - **Status:** IN PROGRESS
+    - **Is recurring issue?** N
+    - **Should Test frontend/backend/both after fix?** Frontend
+    - **Blocked on other issue:** None
+
+- **Issue 2: Program timing on Upcoming Programs cards is not localized.**
+    - **Attempted fixes:** The agent successfully added the display of timing and timezone (e.g., 7:00 PM - 8:30 PM GST Dubai) to the cards. However, the user's request to also show the time converted to the user's local timezone has not been implemented yet.
+    - **Next debug checklist:**
+        1.  In , use a library like  or the browser's native  API.
+        2.  For each program, parse the stored time and .
+        3.  Convert this time to the user's local timezone.
+        4.  Update the UI to display both the localized time and the original time, for clarity (e.g., 7:00 PM Your Time / 9:00 PM GST).
+    - **Why fix this issue and what will be achieved with the fix?** This will prevent confusion for international users by showing them program start times in their local context.
     - **Status:** NOT STARTED
     - **Is recurring issue?** N
-    - **Should Test frontend/backend/both after fix?** Both
+    - **Should Test frontend/backend/both after fix?** Frontend
     - **Blocked on other issue:** None
 
 **In progress Task List**:
@@ -42,26 +57,29 @@ The most recent requests focus on giving the user granular control over all cont
 
 **Upcoming and Future Tasks**
 - **Upcoming Tasks:**
-    - **P1: Global & Testimonial Search:** Implement a global site search functionality. Implement a keyword-based search for testimonials.
+    - **P1: Global & Testimonial Search:** Implement a global site search functionality and a keyword-based search for testimonials.
     - **P2: Video Testimonials:** Add support for embedding and managing video testimonials.
+    - **P3: Reply to Questions:** Build the UI in the admin panel to allow the user to reply to submitted questions from the Personal Sessions feature.
 - **Future Tasks:**
-    - **P3: User Login & Subscriber Dashboard:** Implement a user authentication system and a dedicated dashboard for annual subscribers to track sessions and payments.
-    - **P4: Advanced Anti-Fraud for Geo-Pricing:** Enhance the geo-pricing mechanism with stricter validation to prevent VPN abuse.
+    - **P4: User Login & Subscriber Dashboard:** Implement a full user authentication system and a dedicated dashboard for subscribers.
 
 **Completed work in this session**
-- **Homepage UI Refinements:** Reduced vertical spacing between all homepage sections and implemented full content/style control for Custom Sections.
-- **Personal Sessions Redesign (V1 - Purple Gradient):** Overhauled the sessions section with a new two-column layout, calendar, and testimonial snippets, all on a vibrant purple gradient background.
-- **Personal Sessions Redesign (V2 - Warm & Cozy):** Changed the sessions section theme to a white background with iris purple and gold dust accents based on user feedback.
-- **Advanced Admin Controls for Sessions:** Added full font controls and a sophisticated calendar management UI in the admin panel for personal sessions, including rules for advance booking and disabling weekends.
-- **Global Visibility for Sessions:** Implemented a toggle in the admin panel to show/hide the entire personal sessions feature across the site (homepage, navigation, direct URLs).
-- **Express Interest Logic:** Implemented functionality for programs with closed enrollment to show an Express Your Interest button.
-- **Critical Bug Fix (Header Fonts):** Resolved a site-wide bug where a global CSS rule was overriding font settings from the admin panel.
-- **Critical Bug Fix (Stale Admin Data):** Fixed a major bug where changes saved in the admin panel were not reflecting on the site without a hard refresh by ensuring the global settings context is updated after every save.
-- **Site-Wide Header Unification:** Audited and fixed every page on the site (including Services, Contact, All Programs, Program Details, and Session pages) to ensure their hero sections are correctly controlled by the Page Headers admin tab.
+- **Email OTP Migration:** Successfully migrated the email OTP system from Resend to the user's Google Workspace SMTP, including updating all backend services to use the new method.
+- **Editable API Keys Admin:** Implemented a new API Keys admin tab where API credentials can be edited and are stored securely in MongoDB, with a  service on the backend for dynamic retrieval.
+- **Geo-Pricing and Payment Flow:**
+    - Fixed bugs related to Indian pricing and offer price application.
+    - Implemented a robust geo-pricing system with phone number cross-validation and dynamic currency display (INR/AED/USD).
+    - Added an admin section to manage India-specific payment links (Exly, GPay, Bank Transfer) and a payment disclaimer, which are displayed on the enrollment page for Indian users.
+- **Enrollment Form UX:** Greatly improved the enrollment form with dynamic country code selection, auto-copying of phone to WhatsApp field, and a currency display that updates in real-time with country selection.
+- **Luxury Email Receipt:** Created a new, customizable HTML receipt template and a corresponding Receipt Template admin tab with controls for fonts, colors, content toggles, and a Send Preview function.
+- **Program Page Fixes:**
+    - Ensured the Know More button appears for all programs, not just flagship ones.
+    - Fixed an issue where pricing (both tiered and regular) was not displaying correctly for certain programs.
+    - Added a global, site-wide control for the pricing font in the Global Styles admin tab.
+- **Homepage Stats Section:** Resolved a bug where the stats section was not visible on the homepage.
 
 **Earlier issues found/mentioned but not fixed**
-- **Issue 1: Global Search:** User requested a global search option for the website. Not yet implemented.
-- **Issue 2: Testimonial Search & Video Support:** User requested keyword search for testimonials and mentioned that some are in video format. Not yet implemented.
+- None that haven't been captured in the pending/upcoming tasks.
 
 **Known issue recurrence from previous fork**
 - N/A
@@ -70,74 +88,85 @@ The most recent requests focus on giving the user granular control over all cont
 
 
 **Key Technical Concepts**
-- **Centralized State Management:** The  is critical. A bug was fixed by ensuring this context is refreshed via  after admin panel saves, making UI changes appear instantly site-wide.
-- **Conditional Rendering:** Used extensively for showing/hiding UI elements based on admin settings (e.g., , program ).
-- **CSS Specificity:** A bug was caused by a global CSS rule in  overriding more specific inline styles. The fix was to remove the overly broad rule, reinforcing the principle that admin-defined inline styles should have the highest priority.
-- **Component-Level State:** The Sessions section uses  to manage the currently selected session and display its details without a page reload, creating an interactive panel.
+- **Dynamic API Key Management:** Shifted from static  variables to a database-driven approach for API keys using a  service, allowing for in-app editing by the admin.
+- **SMTP Integration:** Replaced a third-party email service (Resend) with direct SMTP integration using the user's Google Workspace account for sending transactional emails.
+- **Conditional Geo-Pricing:** Implemented complex backend logic in  that uses a combination of IP-based geolocation and user-provided form data (country, phone number) to determine the correct currency and pricing.
+- **Dynamic Frontend Reactivity:** The  makes heavy use of React state and effects to create a highly responsive user experience where pricing, currency, and form fields update instantly based on user input.
+- **Centralized Styling:** Expanded the use of global and template-based styling, creating a new Global Styles admin tab for site-wide settings like the pricing font.
 
 **key DB schema**
-- **site_settings:**
-    - : Global toggle for the sessions feature.
-    - : Controls hero sections for all pages. The  keys are about to be refactored into a single template object.
-- **sessions:**
-    - : Short testimonial for the session.
-    - : Online, Offline, or Both.
-    - : List of 'YYYY-MM-DD' strings for booking.
-    -  is no longer used.
+- **api_keys** (New Collection): Stores service names and their encrypted API keys.
+- **site_settings**:
+    - Heavily expanded to include ,  (array of objects),  (object with styles and content), and .
+- **programs**:
+    - Added optional  (string) and  (string) fields.
+- **enrollments**:
+    - The  field is now optional but crucial for Indian pricing validation.
 
 **changes in tech stack**
-- No new technologies were added.
+- Removed dependency on the  Python package.
+- Implicitly relies on Python's built-in  and  modules for the new email functionality.
 
 **All files of reference**
-- **Files to Modify (for next task):**
-    - 
-    - 
-    - 
-- **Key Reference Files:**
-    - 
+- 
+- 
+- 
+- 
+- 
+- 
+- 
+- 
+- 
+- 
+- 
+- 
 
 **Areas that need refactoring**:
-- The way program detail page styles are managed is about to be refactored into a single template system as per the user's latest request.
+-  has become very large and complex due to the numerous dynamic features. It could be broken down into smaller, more manageable sub-components for each step of the enrollment process (e.g., , , ).
 
 **key api endpoints**
-- : The primary endpoint for persisting all changes made in the admin panel.
+- : Updates all API keys in the database.
+- : Retrieves all API keys for the admin panel.
+- : Updates the phone number for an in-progress enrollment.
+- : Sends a test receipt email.
+- : Returns all site settings, now including payment disclaimer, India links, and global styles.
+- : Updates site settings, expanded to handle new receipt template, payment, and global style settings.
 
 **Critical Info for New Agent**
-- **Your immediate and only priority is to implement the Program Template feature.** The user wants to stop managing styles for each program page individually.
-- You will need to architect a new solution:
-    1.  Create a single  object in the backend  model.
-    2.  Update the admin UI in  to remove the individual program entries and add a single, comprehensive form to edit this new template.
-    3.  Refactor  to fetch its styles from this single  object, ignoring its own ID.
+- The user is highly engaged and provides detailed, often visual, feedback. Be prepared for iterative UI/UX refinement.
+- The payment and enrollment flow is now quite complex, involving IP location, user-selected country, and phone number validation. When debugging this area, check the logic in  and the state management in .
+- All API keys are now managed from the admin panel, not  files. The  service is the single source of truth for keys used in backend services.
 
 **documents and test reports created in this job**
 -  (Continuously updated)
-- Test reports up to 
+- 
+- 
 
 **Last 10 User Messages and any pending HUMAN messages**
-1.  **User:** The program page header fonts aren't updating from the admin panel.
-2.  **Agent:** Fixes a subtitle bug on  (hardcoded styles and wrong order).
-3.  **User:** The subtitle should be below the title, like on the Sponsor page.
-4.  **Agent:** Fixes the order of elements.
-5.  **User:** All pages must follow the rules set in the Page Headers admin tab.
-6.  **Agent:** Audits all pages, finds and fixes  and  which had hardcoded heroes.
-7.  **User:** (NEW MAJOR REQUEST) I want all flagship program pages to be replicas. When I change a style, font, or section on one, it should apply to all of them. Give me one admin panel to control this.
-8.  **Agent:** Acknowledges the request and starts investigating.
-9.  **User:** [awaiting plan/implementation]
+1. **User (Chat 546):** Asked for a single, common pricing font setting across all programs instead of per-template. (COMPLETED)
+2. **Agent (Chat 547-568):** Implemented the global pricing font control.
+3. **User (Chat 569):** Requested that  and  should be shown on the program page header.
+4. **Agent (Chat 570-571):** Acknowledged the request and began investigating, suspecting the data was not set for the specific program. (IN PROGRESS)
+5. **User (Chat 526):** Asked how to change the font of the pricing on the program page. (COMPLETED)
+6. **User (Chat 511):** Stated they had not added tiers to the Quad Layer program, correcting the agent's assumption. (COMPLETED)
+7. **Agent (Chat 512-525):** Removed the test tier data and added a fallback to show regular pricing if no tiers are configured.
+8. **User (Chat 470):** Provided feedback on multiple items: upcoming programs should show localized time, Quad Layer program not showing pricing, and Know More button was missing. (Partially addressed, localization pending)
+9. **User (Chat 466):** Requested a test receipt. (COMPLETED)
+10. **User (Chat 401):** Provided detailed requirements for the receipt template (logo, duration, timing, timezone, luxury look, admin controls) and for program display (duration/timing toggle). (COMPLETED)
 
 **Project Health Check:**
-- **Broken:** Nothing is currently broken. The application is stable. The next task is a major feature request/refactor, not a bug fix.
-- **Mocked:** Phone OTP verification.
+- **Broken:** The program detail page is not displaying  and  as expected.
+- **Mocked:** None.
 
 **3rd Party Integrations**
-- **Stripe:** For payments (sponsorships).
-- **Resend:** For transactional emails.
-- **ipinfo.io:** For server-side geolocation.
-- **forex-python:** For currency exchange rate calculations.
-- **react-dropzone:** For file uploads in the admin panel.
+- **Stripe:** For payments. Key is managed via the admin panel.
+- **Google Workspace SMTP:** For all transactional emails (OTP, receipts). Credentials (email and app password) are managed via the admin panel.
+- **ipinfo.io:** For geolocation to determine initial currency.
+- **forex-python:** For currency conversion.
 
 **Testing status**
-- **Testing agent used after significant changes:** YES, used after every major feature and bug fix in this session, with all tests passing.
-- **Troubleshoot agent used after agent stuck in loop:** NO
+- **Testing agent used after significant changes:** YES. The agent was used after implementing the editable API keys feature and the geo-pricing/payment settings flow.
+- **Troubleshoot agent used after agent stuck in loop:** NO.
 - **Test files created:** None.
 - **Known regressions:** None.
 
@@ -147,4 +176,4 @@ The most recent requests focus on giving the user granular control over all cont
 - **Password:** 
 
 **What agent forgot to execute**
-- The agent successfully completed all user requests and bug fixes presented in this session. The current task is a new, large feature request that the agent has planned but has not yet started implementing.</analysis>
+- The user's request to convert program times to the user's local timezone () on the upcoming program cards (from Chat 470) has not been implemented. It has been added to the pending issue list.</analysis>
