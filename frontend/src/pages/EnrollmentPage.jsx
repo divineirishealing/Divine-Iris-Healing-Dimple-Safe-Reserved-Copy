@@ -205,11 +205,19 @@ function EnrollmentPage() {
   const [emailVerified, setEmailVerified] = useState(false);
   const [processing, setProcessing] = useState(false);
   const [discountSettings, setDiscountSettings] = useState({ enable_referral: true });
+  const [paymentSettings, setPaymentSettings] = useState({ disclaimer: '', india_links: [] });
 
   useEffect(() => {
     const ep = type === 'program' ? 'programs' : 'sessions';
     axios.get(`${API}/${ep}/${id}`).then(r => setItem(r.data)).catch(() => navigate('/'));
     axios.get(`${API}/discounts/settings`).then(r => setDiscountSettings(r.data)).catch(() => {});
+    axios.get(`${API}/settings`).then(r => {
+      const s = r.data;
+      setPaymentSettings({
+        disclaimer: s.payment_disclaimer || '',
+        india_links: (s.india_payment_links || []).filter(l => l.enabled),
+      });
+    }).catch(() => {});
   }, [id, type, navigate]);
 
   useEffect(() => {
@@ -278,13 +286,19 @@ function EnrollmentPage() {
     if (!bookerEmail.trim() || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(bookerEmail)) return toast({ title: 'Enter valid email', variant: 'destructive' });
     setLoading(true);
     try {
+      const bookerPhone = phone ? `${countryCode}${phone}` : null;
       const enrollRes = await axios.post(`${API}/enrollment/start`, {
         booker_name: bookerName, booker_email: bookerEmail, booker_country: bookerCountry,
         participants: participants.map(p => ({ name: p.name, relationship: p.relationship, age: parseInt(p.age), gender: p.gender, country: p.country, attendance_mode: p.attendance_mode, notify: p.notify, email: p.notify ? p.email : null, phone: p.notify && p.phone ? `${p.phone_code || '+971'}${p.phone}` : null, whatsapp: p.whatsapp ? `${p.wa_code || '+971'}${p.whatsapp}` : null, is_first_time: p.is_first_time || false, referral_source: p.referral_source || '', referred_by_name: p.has_referral ? (p.referred_by_name || '') : '' })),
       });
-      setEnrollmentId(enrollRes.data.enrollment_id);
+      const eid = enrollRes.data.enrollment_id;
+      setEnrollmentId(eid);
       setVpnDetected(enrollRes.data.vpn_detected);
-      await axios.post(`${API}/enrollment/${enrollRes.data.enrollment_id}/send-otp`, { email: bookerEmail });
+      // Save booker phone to enrollment for pricing cross-validation
+      if (bookerPhone) {
+        await axios.patch(`${API}/enrollment/${eid}/update-phone`, { phone: bookerPhone }).catch(() => {});
+      }
+      await axios.post(`${API}/enrollment/${eid}/send-otp`, { email: bookerEmail });
       setOtpSent(true);
       toast({ title: 'Verification code sent to your email!' });
     } catch (err) { toast({ title: 'Error', description: err.response?.data?.detail || 'Failed', variant: 'destructive' }); }
@@ -450,15 +464,25 @@ function EnrollmentPage() {
                     </div>
                     <div className="grid grid-cols-2 gap-3 mb-3">
                       <div><label className="text-[9px] text-gray-500">Country *</label>
-                        <select data-testid="booker-country" value={bookerCountry} onChange={e => setBookerCountry(e.target.value)} className="w-full border rounded-md px-2 py-2 text-sm bg-white">
+                        <select data-testid="booker-country" value={bookerCountry} onChange={e => {
+                          setBookerCountry(e.target.value);
+                          const c = COUNTRIES.find(c => c.code === e.target.value);
+                          if (c) setCountryCode(c.phone);
+                        }} className="w-full border rounded-md px-2 py-2 text-sm bg-white">
                           {COUNTRIES.map(c => <option key={c.code} value={c.code}>{c.name}</option>)}</select></div>
-                      <div><label className="text-[9px] text-gray-500">Phone (optional)</label>
+                      <div><label className="text-[9px] text-gray-500">Phone</label>
                         <div className="flex gap-1">
                           <select value={countryCode} onChange={e => setCountryCode(e.target.value)} className="border rounded-md px-1 py-2 text-xs w-20 bg-white">
                             {COUNTRIES.map(c => <option key={c.code} value={c.phone}>{c.phone}</option>)}</select>
-                          <Input data-testid="enroll-phone" type="tel" value={phone} onChange={e => setPhone(e.target.value.replace(/\D/g, ''))} placeholder="Phone" className="text-sm flex-1" />
+                          <Input data-testid="enroll-phone" type="tel" value={phone} onChange={e => setPhone(e.target.value.replace(/\D/g, ''))} placeholder="Phone number" className="text-sm flex-1" />
                         </div></div>
                     </div>
+
+                    {paymentSettings.disclaimer && (
+                      <div className="bg-amber-50/60 border border-amber-100 rounded-lg p-3 mb-3" data-testid="payment-disclaimer">
+                        <p className="text-[10px] text-amber-800 italic leading-relaxed">{paymentSettings.disclaimer}</p>
+                      </div>
+                    )}
 
                     {!otpSent && !emailVerified && (
                       <Button data-testid="send-otp-btn" onClick={submitAndSendOtp} disabled={loading} className="w-full bg-[#D4AF37] hover:bg-[#b8962e] text-white py-3 rounded-full mb-3">
@@ -486,9 +510,34 @@ function EnrollmentPage() {
                     <h2 className="text-sm font-semibold text-gray-900 mb-3 flex items-center gap-2"><ShieldCheck size={16} className="text-green-600" /> Confirm & Pay</h2>
                     <div className="bg-gray-50 rounded-lg p-4 mb-3 text-xs text-gray-600 space-y-1">
                       <p><strong>Booked by:</strong> {bookerName}</p>
-                      <p><strong>Email:</strong> {bookerEmail}</p>
-                      <p><strong>Phone:</strong> {countryCode}{phone} <span className="text-green-600">Verified</span></p>
+                      <p><strong>Email:</strong> {bookerEmail} <span className="text-green-600">Verified</span></p>
+                      {phone && <p><strong>Phone:</strong> {countryCode}{phone}</p>}
                     </div>
+
+                    {/* India payment options */}
+                    {bookerCountry === 'IN' && paymentSettings.india_links.length > 0 && (
+                      <div className="mb-4" data-testid="india-payment-options">
+                        <p className="text-xs font-medium text-gray-700 mb-2">Choose your payment method:</p>
+                        <div className="space-y-2 mb-3">
+                          {paymentSettings.india_links.map((link, i) => (
+                            <a key={i} href={link.url} target="_blank" rel="noopener noreferrer"
+                              className="flex items-center justify-between w-full border rounded-lg p-3 hover:border-[#D4AF37] hover:bg-[#D4AF37]/5 transition-all group"
+                              data-testid={`india-pay-${link.type}`}>
+                              <div>
+                                <span className="text-sm font-medium text-gray-900 group-hover:text-[#D4AF37]">{link.label}</span>
+                                {link.details && <p className="text-[10px] text-gray-500 mt-0.5">{link.details}</p>}
+                              </div>
+                              <ChevronRight size={16} className="text-gray-400 group-hover:text-[#D4AF37]" />
+                            </a>
+                          ))}
+                        </div>
+                        <div className="relative my-3">
+                          <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-gray-200" /></div>
+                          <div className="relative flex justify-center"><span className="bg-white px-3 text-[10px] text-gray-400">OR PAY WITH CARD</span></div>
+                        </div>
+                      </div>
+                    )}
+
                     <div className="flex gap-3">
                       <Button variant="outline" onClick={() => setStep(2)} className="rounded-full"><ChevronLeft size={16} /></Button>
                       <Button data-testid="pay-now-btn" onClick={handleCheckout} disabled={processing || total <= 0}
@@ -496,6 +545,12 @@ function EnrollmentPage() {
                         {processing ? <><Loader2 className="animate-spin mr-2" size={16} /> Redirecting...</> : <><Lock size={14} className="mr-2" /> Pay {symbol} {total.toLocaleString()}</>}
                       </Button>
                     </div>
+
+                    {paymentSettings.disclaimer && (
+                      <div className="mt-3 bg-amber-50/60 border border-amber-100 rounded-lg p-3" data-testid="payment-disclaimer-pay">
+                        <p className="text-[10px] text-amber-800 italic leading-relaxed">{paymentSettings.disclaimer}</p>
+                      </div>
+                    )}
                     <p className="text-[10px] text-gray-400 mt-3 text-center flex items-center justify-center gap-1"><Lock size={10} /> Secure payment via Stripe</p>
                   </div>
                 )}

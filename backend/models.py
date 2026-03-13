@@ -407,6 +407,10 @@ class SiteSettings(BaseModel):
     combo_min_programs: int = 2
     enable_loyalty: bool = False
     loyalty_discount_pct: float = 0  # % off for returning clients (have existing UID)
+    # Payment disclaimer text
+    payment_disclaimer: str = "We love aligning our work with the natural solar cycle of where you are. If the pricing you see isn't in your local currency, please reach out\u2014we'd be happy to provide the adjusted rates tailored to your home country."
+    # India payment options (alternative links for Indian users)
+    india_payment_links: List[Dict] = []  # [{type: "exly"|"gpay"|"bank", label: "...", url: "...", details: "...", enabled: true}]
 
 class SiteSettingsUpdate(BaseModel):
     heading_font: Optional[str] = None
@@ -513,6 +517,8 @@ class SiteSettingsUpdate(BaseModel):
     combo_min_programs: Optional[int] = None
     enable_loyalty: Optional[bool] = None
     loyalty_discount_pct: Optional[float] = None
+    payment_disclaimer: Optional[str] = None
+    india_payment_links: Optional[List[Dict]] = None
 
 class PaymentTransaction(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))

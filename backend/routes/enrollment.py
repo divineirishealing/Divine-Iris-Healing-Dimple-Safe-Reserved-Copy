@@ -83,6 +83,9 @@ class EmailOTPVerify(BaseModel):
     email: str
     otp: str
 
+class PhoneUpdate(BaseModel):
+    phone: str
+
 
 class EnrollmentSubmit(BaseModel):
     enrollment_id: str
@@ -251,6 +254,20 @@ async def send_email_otp(enrollment_id: str, data: EmailOTPRequest):
     }
 
 
+@router.patch("/{enrollment_id}/update-phone")
+async def update_enrollment_phone(enrollment_id: str, data: PhoneUpdate):
+    """Update phone on enrollment for pricing cross-validation"""
+    enrollment = await db.enrollments.find_one({"id": enrollment_id})
+    if not enrollment:
+        raise HTTPException(status_code=404, detail="Enrollment not found")
+    await db.enrollments.update_one(
+        {"id": enrollment_id},
+        {"$set": {"phone": data.phone, "updated_at": datetime.now(timezone.utc).isoformat()}}
+    )
+    return {"updated": True}
+
+
+
 @router.post("/{enrollment_id}/verify-otp")
 async def verify_email_otp(enrollment_id: str, data: EmailOTPVerify):
     """Verify email OTP"""
@@ -322,23 +339,40 @@ async def get_enrollment_pricing(enrollment_id: str, item_type: str, item_id: st
     participant_count = enrollment.get("participant_count", 1)
 
     # ─── STRICT INDIA VALIDATION ───
-    # Phone check removed since we switched to email OTP verification
+    # Cross-validate: IP + claimed country + phone must all indicate India
+    phone_is_indian = phone.startswith("+91") if phone else True  # No phone = pass (email OTP)
+    # But if phone IS provided and NOT Indian → foreigner in India
+    phone_contradicts_india = bool(phone) and not phone.startswith("+91")
+
     checks = {
         "ip_is_india": ip_country == "IN",
         "claimed_india": claimed_country == "IN",
         "no_vpn": not vpn_blocked,
+        "phone_consistent": not phone_contradicts_india,
     }
     all_india_checks_pass = all(checks.values())
+
+    # ─── REGIONAL CURRENCY MAPPING ───
+    USD_COUNTRIES = {"US", "GB", "AU", "NZ", "CA", "SG", "DE", "FR", "IT", "ES", "NL", "JP", "KE", "NG", "ZA", "PH", "ID", "TH", "TR", "EG"}
+    AED_COUNTRIES = {"AE", "SA", "QA", "KW", "OM", "BH"}
 
     # Determine currency
     if all_india_checks_pass:
         allowed_currency = "inr"
         fraud_warning = None
     else:
-        # Use client-detected currency or fall back to AED
-        allowed_currency = client_currency or "aed"
+        # Determine regional currency
+        effective_country = ip_country if not vpn_blocked else claimed_country
+        if effective_country in AED_COUNTRIES:
+            allowed_currency = "aed"
+        elif effective_country in USD_COUNTRIES or effective_country not in {"IN"}:
+            allowed_currency = client_currency or "usd"
+        else:
+            allowed_currency = client_currency or "aed"
+
         if allowed_currency == "inr":
             allowed_currency = "aed"  # Block INR for non-India
+
         reasons = []
         if not checks["no_vpn"]:
             reasons.append("VPN/Proxy detected")
@@ -346,6 +380,8 @@ async def get_enrollment_pricing(enrollment_id: str, item_type: str, item_id: st
             reasons.append(f"IP location is {ip_country}, not India")
         if not checks["claimed_india"]:
             reasons.append("Country not set to India")
+        if phone_contradicts_india:
+            reasons.append("Phone number is not Indian")
         fraud_warning = f"Using {allowed_currency.upper()} pricing." if reasons else None
 
     # ─── GET PRICE FROM TIER OR ITEM ───
