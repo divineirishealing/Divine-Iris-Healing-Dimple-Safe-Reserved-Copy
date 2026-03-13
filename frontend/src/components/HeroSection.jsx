@@ -47,8 +47,8 @@ const HeroSection = ({ sectionConfig }) => {
   }, [settings]);
 
   const videoUrl = settings?.hero_video_url ? resolveUrl(settings.hero_video_url) : '';
-  const heroTitle = settings?.hero_title || 'Divine Iris\nHealing';
-  const heroSubtitle = settings?.hero_subtitle || 'ETERNAL HAPPINESS';
+  const heroTitle = settings?.hero_title || '';
+  const heroSubtitle = settings?.hero_subtitle || '';
   const subtitleColor = settings?.hero_subtitle_color || '#ffffff';
   const titleColor = settings?.hero_title_color || '#ffffff';
   const titleAlign = settings?.hero_title_align || 'left';
@@ -114,8 +114,8 @@ const HeroSection = ({ sectionConfig }) => {
         />
       )}
 
-      {/* Content — only rendered after settings load */}
-      {settings && (
+      {/* Content — only rendered after settings load and when there's content */}
+      {settings && (heroTitle || heroSubtitle) && (
         <div className={`relative z-10 px-4 flex flex-col ${alignClass}`}>
           {/* Title — slides up + fades in at phase 2 */}
           <h1
