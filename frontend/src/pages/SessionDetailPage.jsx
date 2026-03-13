@@ -468,7 +468,7 @@ function SessionDetailPage() {
             <div className="lg:col-span-2 space-y-5">
               {orderedRightKeys.map(key => bodyRightElements[key])}
               <p className="text-[10px] text-gray-400 text-center leading-relaxed px-4">
-                Sessions conducted online via Zoom or in-person by appointment. Each session is customized to your unique healing needs.
+                {sessionTpl.footer_note || 'Sessions conducted online via Zoom or in-person by appointment. Each session is customized to your unique healing needs.'}
               </p>
             </div>
           </div>

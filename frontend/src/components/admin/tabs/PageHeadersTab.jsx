@@ -423,6 +423,12 @@ const PageHeadersTab = ({ settings, programs = [], onChange }) => {
                       className="w-full text-[10px] border rounded px-2 py-1.5 resize-none" rows={4} placeholder="One bullet per line" />
                   </div>
                 </div>
+
+                {/* Footer Note */}
+                <div className="mt-3 bg-gray-50 rounded-lg border border-gray-100 p-2.5">
+                  <Label className="text-[9px] text-gray-500 font-semibold block mb-1">Booking Footer Note (below calendar)</Label>
+                  <Input value={sessionTpl.footer_note || 'Sessions conducted online via Zoom or in-person by appointment. Each session is customized to your unique healing needs.'} onChange={e => updateSessionTpl('footer_note', e.target.value)} className="text-[10px] h-7" placeholder="Sessions conducted online via Zoom..." />
+                </div>
               </div>
 
               {/* ── BUTTONS & CALENDAR ── */}
