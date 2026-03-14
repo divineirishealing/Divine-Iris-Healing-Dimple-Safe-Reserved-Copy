@@ -355,7 +355,25 @@ function EnrollmentPage() {
     setLoading(true);
     try {
       await axios.post(`${API}/enrollment/${enrollmentId}/verify-otp`, { email: bookerEmail, otp });
-      setEmailVerified(true); toast({ title: 'Email verified!' }); setStep(3);
+      setEmailVerified(true); toast({ title: 'Email verified!' });
+      // If total is $0, auto-complete registration (skip payment step)
+      if (total <= 0) {
+        setProcessing(true);
+        try {
+          const res = await axios.post(`${API}/enrollment/${enrollmentId}/checkout`, {
+            enrollment_id: enrollmentId, item_type: type, item_id: id, currency,
+            origin_url: window.location.origin, promo_code: promoResult?.code || null,
+            tier_index: selectedTier,
+          });
+          toast({ title: 'Registration complete!' });
+          navigate(`/payment/success?session_id=${res.data.session_id}`);
+          return;
+        } catch (err) {
+          toast({ title: 'Error completing registration', variant: 'destructive' });
+          setProcessing(false);
+        }
+      }
+      setStep(3);
     } catch (err) { toast({ title: err.response?.data?.detail || 'Wrong code', variant: 'destructive' }); }
     finally { setLoading(false); }
   };
@@ -436,7 +454,7 @@ function EnrollmentPage() {
                     )}
                     <div className="flex justify-between font-bold text-lg border-t pt-2 mt-2">
                       <span className="text-gray-900">Total</span>
-                      <span className="text-[#D4AF37]">{symbol} {total.toLocaleString()}</span>
+                      <span className="text-[#D4AF37]">{total <= 0 ? 'FREE' : `${symbol} ${total.toLocaleString()}`}</span>
                     </div>
                   </div>
                 </div>
@@ -561,6 +579,30 @@ function EnrollmentPage() {
                 {/* Step 3: Pay */}
                 {step === 3 && (
                   <div data-testid="step-payment">
+                    {total <= 0 ? (
+                      /* Free enrollment — simplified confirmation */
+                      <>
+                        <h2 className="text-sm font-semibold text-gray-900 mb-3 flex items-center gap-2"><ShieldCheck size={16} className="text-green-600" /> Confirm Registration</h2>
+                        <div className="bg-green-50 border border-green-200 rounded-lg p-4 mb-4">
+                          <p className="text-sm font-semibold text-green-700 mb-1">No payment required</p>
+                          <p className="text-xs text-green-600">This enrollment is free. Click below to complete your registration.</p>
+                        </div>
+                        <div className="bg-gray-50 rounded-lg p-4 mb-3 text-xs text-gray-600 space-y-1">
+                          <p><strong>Booked by:</strong> {bookerName}</p>
+                          <p><strong>Email:</strong> {bookerEmail} <span className="text-green-600">Verified</span></p>
+                          {phone && <p><strong>Phone:</strong> {countryCode}{phone}</p>}
+                        </div>
+                        <div className="flex gap-3">
+                          <Button variant="outline" onClick={() => setStep(2)} className="rounded-full"><ChevronLeft size={16} /></Button>
+                          <Button data-testid="pay-now-btn" onClick={handleCheckout} disabled={processing}
+                            className="flex-1 bg-[#D4AF37] hover:bg-[#b8962e] text-white py-3 rounded-full">
+                            {processing ? <><Loader2 className="animate-spin mr-2" size={16} /> Completing...</> : <><Check size={14} className="mr-2" /> Complete Registration</>}
+                          </Button>
+                        </div>
+                      </>
+                    ) : (
+                      /* Paid enrollment — full payment UI */
+                      <>
                     <h2 className="text-sm font-semibold text-gray-900 mb-3 flex items-center gap-2"><ShieldCheck size={16} className="text-green-600" /> Confirm & Pay</h2>
                     <div className="bg-gray-50 rounded-lg p-4 mb-3 text-xs text-gray-600 space-y-1">
                       <p><strong>Booked by:</strong> {bookerName}</p>
@@ -621,6 +663,8 @@ function EnrollmentPage() {
                       </div>
                     )}
                     <p className="text-[10px] text-gray-400 mt-3 text-center flex items-center justify-center gap-1"><Lock size={10} /> Secure payment via Stripe</p>
+                      </>
+                    )}
                   </div>
                 )}
               </div>

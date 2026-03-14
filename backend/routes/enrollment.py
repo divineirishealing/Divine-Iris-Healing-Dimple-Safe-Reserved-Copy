@@ -475,8 +475,38 @@ async def enrollment_checkout(enrollment_id: str, data: EnrollmentSubmit, reques
     pricing_resp = await get_enrollment_pricing(enrollment_id, data.item_type, data.item_id, tier_index=data.tier_index, client_currency=data.currency)
     total = pricing_resp["pricing"]["total"]
     currency = pricing_resp["pricing"]["currency"]
+    participant_count = enrollment.get("participant_count", 1)
 
-    if total <= 0:
+    # Apply promo code discount (server-side validation)
+    promo_discount = 0
+    if data.promo_code:
+        try:
+            promo = await db.promotions.find_one({"code": data.promo_code.strip().upper(), "active": True}, {"_id": 0})
+            if promo:
+                discount_type = promo.get("discount_type", "percentage")
+                if discount_type == "percentage":
+                    pct = promo.get("discount_percentage", 0)
+                    promo_discount = round(total * pct / 100, 2)
+                else:
+                    promo_discount = float(promo.get(f"discount_{currency}", promo.get("discount_aed", 0)))
+        except Exception as e:
+            logger.warning(f"Promo code error: {e}")
+
+    # Apply auto-discounts (group, loyalty, etc.)
+    auto_discount = 0
+    try:
+        from routes.discounts import calculate_discounts as _calc_discounts
+        disc_result = await _calc_discounts({
+            "num_programs": 1, "num_participants": participant_count,
+            "subtotal": total, "email": enrollment.get("booker_email", ""), "currency": currency,
+        })
+        auto_discount = float(disc_result.get("total_discount", 0))
+    except Exception as e:
+        logger.warning(f"Auto discount calc error: {e}")
+
+    final_total = max(0, total - promo_discount - auto_discount)
+
+    if final_total <= 0:
         # Free enrollment — skip Stripe, complete directly
         fake_session_id = f"free_{uuid.uuid4().hex[:12]}"
         
@@ -577,7 +607,7 @@ async def enrollment_checkout(enrollment_id: str, data: EnrollmentSubmit, reques
     )
 
     checkout_request = CheckoutSessionRequest(
-        amount=float(total),
+        amount=float(final_total),
         currency=currency,
         success_url=success_url,
         cancel_url=cancel_url,
@@ -605,7 +635,7 @@ async def enrollment_checkout(enrollment_id: str, data: EnrollmentSubmit, reques
         "item_type": data.item_type,
         "item_id": data.item_id,
         "item_title": item.get("title", ""),
-        "amount": float(total),
+        "amount": float(final_total),
         "currency": currency,
         "payment_status": "pending",
         "booker_name": enrollment.get("booker_name"),
