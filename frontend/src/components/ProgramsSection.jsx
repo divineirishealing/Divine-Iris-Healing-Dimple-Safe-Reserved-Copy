@@ -225,7 +225,7 @@ const ProgramsSection = ({ sectionConfig }) => {
 
   useEffect(() => {
     axios.get(`${API}/programs?visible_only=true`).then(r => {
-      if (r.data?.length > 0) setPrograms(r.data);
+      if (r.data?.length > 0) setPrograms(r.data.filter(p => !p.is_upcoming));
     }).catch(() => {});
     axios.get(`${API}/settings`).then(r => {
       setHero(r.data?.page_heroes?.programs || {});

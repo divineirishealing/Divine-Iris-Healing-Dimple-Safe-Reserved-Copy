@@ -22,6 +22,16 @@ Build a pixel-perfect clone of https://divineirishealing.com/ with comprehensive
 
 ## Implemented Features
 
+### Card & Pricing Hub Refinements v3 (Mar 14, 2026) - COMPLETED
+- [x] Pricing Hub: Removed Add Program/Session buttons (create in Programs/Sessions tab)
+- [x] Pricing Hub: Single flat list (no Upcoming/Flagship segregation)
+- [x] Pricing Hub: Each tier has Start/End date fields for tier-specific scheduling
+- [x] Programs section: Clean cards — image + title + description + "Know More" only (no dates, countdown, pricing)
+- [x] Programs section: Filters out is_upcoming=true programs (no duplication with Upcoming section)
+- [x] Upcoming cards: Tier-aware dates — selecting a tier updates start/end dates on the card
+- [x] Backend: DurationTier model has start_date and end_date fields
+- [x] All tests passing: 100% backend, 100% frontend (iteration 50, bug fixed)
+
 ### Admin Efficiency: Pricing Hub & Programs Hub v2 (Mar 14, 2026) - COMPLETED
 - [x] Pricing Hub: Inline program/session naming (type name → Add, not auto "New Program")
 - [x] Pricing Hub: Expanded duration dropdown: 1-30 days, 1-4 weeks, 1-12 months, Annual (47 options)
