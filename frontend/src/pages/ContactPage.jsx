@@ -65,7 +65,7 @@ function ContactPage() {
   const [waCode, setWaCode] = useState('+971');
   const [formData, setFormData] = useState({
     name: '', email: '', phone: '', whatsapp: '',
-    program_interest: '', session_interest: '', message: ''
+    question_about: '', question_detail: '', message: ''
   });
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
@@ -86,7 +86,7 @@ function ContactPage() {
   useEffect(() => {
     if (programTitle) {
       setFormData(prev => ({
-        ...prev, program_interest: programTitle,
+        ...prev, question_about: 'flagship_program', question_detail: programTitle,
         message: `I am interested in the ${tierLabel || 'Annual'} plan for ${programTitle}. Please share the pricing details.`
       }));
     }
@@ -115,9 +115,9 @@ function ContactPage() {
       await axios.post(`${API}/enrollment/quote-request`, {
         name: formData.name, email: formData.email,
         phone: `${phoneCode}${formData.phone}`,
-        program_title: formData.program_interest || programTitle,
+        program_title: formData.question_detail || programTitle,
         tier_label: tierLabel,
-        message: `${formData.program_interest ? `[Program: ${formData.program_interest}] ` : ''}${formData.session_interest ? `[Session: ${formData.session_interest}] ` : ''}${formData.whatsapp ? `[WhatsApp: ${waCode}${formData.whatsapp}] ` : ''}${formData.message}`,
+        message: `[${formData.question_about === 'flagship_program' ? 'Program' : formData.question_about === 'personal_session' ? 'Session' : 'Other'}${formData.question_detail ? `: ${formData.question_detail}` : ''}] ${formData.whatsapp ? `[WhatsApp: ${waCode}${formData.whatsapp}] ` : ''}${formData.message}`,
       });
       setSubmitted(true);
     } catch {
@@ -185,7 +185,7 @@ function ContactPage() {
                 <p className="text-sm text-gray-600 leading-relaxed" style={FONT_LATO}>
                   Your message has been received. We will respond within 7–10 days.
                 </p>
-                <button data-testid="contact-send-another" onClick={() => { setSubmitted(false); setFormData({ name: '', email: '', phone: '', whatsapp: '', program_interest: '', session_interest: '', message: '' }); }}
+                <button data-testid="contact-send-another" onClick={() => { setSubmitted(false); setFormData({ name: '', email: '', phone: '', whatsapp: '', question_about: '', question_detail: '', message: '' }); }}
                   className="mt-8 px-8 py-3 text-xs font-semibold tracking-[0.15em] uppercase text-white transition-all duration-300"
                   style={{ background: '#1a1a1a', ...FONT_LATO }}>
                   Send Another Message
@@ -235,21 +235,31 @@ function ContactPage() {
                     </div>
                   </div>
 
-                  {/* Row 3: Program + Session dropdowns */}
-                  <div className="grid md:grid-cols-2 gap-4">
-                    <select data-testid="contact-program-interest" value={formData.program_interest}
-                      onChange={e => setFormData({ ...formData, program_interest: e.target.value })}
+                  {/* Row 3: Have a question about (cascading) */}
+                  <select data-testid="contact-question-about" value={formData.question_about}
+                    onChange={e => setFormData({ ...formData, question_about: e.target.value, question_detail: '' })}
+                    className={`${INPUT_CLASS} bg-white`} style={FONT_LATO}>
+                    <option value="">HAVE A QUESTION ABOUT? (OPTIONAL)</option>
+                    <option value="flagship_program">Flagship Program</option>
+                    <option value="personal_session">Personal Session</option>
+                    <option value="other">Other</option>
+                  </select>
+                  {formData.question_about === 'flagship_program' && programs.length > 0 && (
+                    <select data-testid="contact-question-detail" value={formData.question_detail}
+                      onChange={e => setFormData({ ...formData, question_detail: e.target.value })}
                       className={`${INPUT_CLASS} bg-white`} style={FONT_LATO}>
-                      <option value="">INTERESTED IN PROGRAM? (OPTIONAL)</option>
+                      <option value="">SELECT PROGRAM</option>
                       {programs.map(p => <option key={p.id} value={p.title}>{p.title}</option>)}
                     </select>
-                    <select data-testid="contact-session-interest" value={formData.session_interest}
-                      onChange={e => setFormData({ ...formData, session_interest: e.target.value })}
+                  )}
+                  {formData.question_about === 'personal_session' && sessions.length > 0 && (
+                    <select data-testid="contact-question-detail" value={formData.question_detail}
+                      onChange={e => setFormData({ ...formData, question_detail: e.target.value })}
                       className={`${INPUT_CLASS} bg-white`} style={FONT_LATO}>
-                      <option value="">INTERESTED IN SESSION? (OPTIONAL)</option>
+                      <option value="">SELECT SESSION</option>
                       {sessions.map(s => <option key={s.id} value={s.title}>{s.title}</option>)}
                     </select>
-                  </div>
+                  )}
 
                   {/* Message */}
                   <textarea data-testid="contact-message" value={formData.message}

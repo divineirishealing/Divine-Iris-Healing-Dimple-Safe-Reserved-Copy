@@ -43,7 +43,7 @@ const socialIcons = {
 const FONT_LATO = { fontFamily: "'Lato', sans-serif" };
 
 const ContactFormDialog = ({ open, onClose, programs, sessions }) => {
-  const [formData, setFormData] = useState({ name: '', email: '', phone: '', program_interest: '', session_interest: '', message: '' });
+  const [formData, setFormData] = useState({ name: '', email: '', phone: '', question_about: '', question_detail: '', message: '' });
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
 
@@ -54,8 +54,8 @@ const ContactFormDialog = ({ open, onClose, programs, sessions }) => {
     try {
       await axios.post(`${API}/enrollment/quote-request`, {
         name: formData.name, email: formData.email, phone: formData.phone,
-        program_title: formData.program_interest,
-        message: `${formData.program_interest ? `[Program: ${formData.program_interest}] ` : ''}${formData.session_interest ? `[Session: ${formData.session_interest}] ` : ''}${formData.message}`,
+        program_title: formData.question_detail,
+        message: `[${formData.question_about === 'flagship_program' ? 'Program' : formData.question_about === 'personal_session' ? 'Session' : 'Other'}${formData.question_detail ? `: ${formData.question_detail}` : ''}] ${formData.message}`,
       });
       setSubmitted(true);
     } catch {
@@ -63,7 +63,7 @@ const ContactFormDialog = ({ open, onClose, programs, sessions }) => {
     } finally { setSubmitting(false); }
   };
 
-  const handleClose = () => { setSubmitted(false); setFormData({ name: '', email: '', phone: '', program_interest: '', session_interest: '', message: '' }); onClose(); };
+  const handleClose = () => { setSubmitted(false); setFormData({ name: '', email: '', phone: '', question_about: '', question_detail: '', message: '' }); onClose(); };
 
   const INPUT_CLS = "w-full border border-gray-300 bg-white px-4 py-2.5 text-sm placeholder:text-gray-400 placeholder:uppercase placeholder:tracking-wider placeholder:text-[10px] focus:outline-none focus:border-[#D4AF37] transition-colors";
 
@@ -95,20 +95,30 @@ const ContactFormDialog = ({ open, onClose, programs, sessions }) => {
               <input data-testid="footer-contact-phone" type="tel" value={formData.phone}
                 onChange={e => setFormData({ ...formData, phone: e.target.value })}
                 placeholder="PHONE NUMBER (OPTIONAL)" className={INPUT_CLS} style={FONT_LATO} />
-              <div className="grid grid-cols-2 gap-3">
-                <select data-testid="footer-contact-program" value={formData.program_interest}
-                  onChange={e => setFormData({ ...formData, program_interest: e.target.value })}
+              <select data-testid="footer-contact-question-about" value={formData.question_about}
+                onChange={e => setFormData({ ...formData, question_about: e.target.value, question_detail: '' })}
+                className={`${INPUT_CLS} bg-white`} style={FONT_LATO}>
+                <option value="">HAVE A QUESTION ABOUT? (OPTIONAL)</option>
+                <option value="flagship_program">Flagship Program</option>
+                <option value="personal_session">Personal Session</option>
+                <option value="other">Other</option>
+              </select>
+              {formData.question_about === 'flagship_program' && programs.length > 0 && (
+                <select data-testid="footer-contact-question-detail" value={formData.question_detail}
+                  onChange={e => setFormData({ ...formData, question_detail: e.target.value })}
                   className={`${INPUT_CLS} bg-white`} style={FONT_LATO}>
-                  <option value="">PROGRAM? (OPTIONAL)</option>
+                  <option value="">SELECT PROGRAM</option>
                   {programs.map(p => <option key={p.id} value={p.title}>{p.title}</option>)}
                 </select>
-                <select data-testid="footer-contact-session" value={formData.session_interest}
-                  onChange={e => setFormData({ ...formData, session_interest: e.target.value })}
+              )}
+              {formData.question_about === 'personal_session' && sessions.length > 0 && (
+                <select data-testid="footer-contact-question-detail" value={formData.question_detail}
+                  onChange={e => setFormData({ ...formData, question_detail: e.target.value })}
                   className={`${INPUT_CLS} bg-white`} style={FONT_LATO}>
-                  <option value="">SESSION? (OPTIONAL)</option>
+                  <option value="">SELECT SESSION</option>
                   {sessions.map(s => <option key={s.id} value={s.title}>{s.title}</option>)}
                 </select>
-              </div>
+              )}
               <textarea data-testid="footer-contact-message" required value={formData.message}
                 onChange={e => setFormData({ ...formData, message: e.target.value })}
                 placeholder="HOW CAN WE ASSIST YOU?" rows={3}
