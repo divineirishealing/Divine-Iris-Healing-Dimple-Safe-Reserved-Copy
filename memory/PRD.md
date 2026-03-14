@@ -22,6 +22,16 @@ Build a pixel-perfect clone of https://divineirishealing.com/ with comprehensive
 
 ## Implemented Features
 
+### Program Card Image Overlay Redesign (Mar 14, 2026) - COMPLETED
+- [x] Dates/times moved to TOP-RIGHT of image (stacked: start, end, timing IST, local TZ)
+- [x] Gold duration badge (e.g., "21 Days") positioned below dates at top-right
+- [x] Mode badges (Online/Offline) remain at top-left
+- [x] Countdown timer remains at bottom-left
+- [x] NEW: Exclusive Offer badge in RED at bottom-right (pulsing, beside countdown)
+- [x] Admin toggle ON/OFF + editable text per program (default: "Limited Time Offer")
+- [x] Consistent layout applied to both Upcoming and Flagship program cards
+- [x] All 10/10 frontend + backend tests passing (iteration 45)
+
 ### Program Card Layout Consistency (Mar 14, 2026) - COMPLETED
 - [x] Upcoming Programs: Gold duration badge (e.g., "21 Days") added above dates on image overlay
 - [x] Flagship Programs: Full layout replicated from Upcoming — countdown timer, dates, duration, timing + timezone, mode badges, early bird banner, pricing with cart/enroll buttons
