@@ -239,6 +239,7 @@ function EnrollmentPage() {
       setPaymentSettings({
         disclaimer: s.payment_disclaimer || '',
         india_links: (s.india_payment_links || []).filter(l => l.enabled),
+        india_alt_discount: s.india_alt_discount_percent || 9,
       });
     }).catch(() => {});
   }, [id, type, navigate]);
@@ -624,28 +625,33 @@ function EnrollmentPage() {
                           <p className="text-[9px] text-gray-400 italic">Contact your bank to enable international payments if not already active.</p>
                         </div>
 
-                        {paymentSettings.india_links.length > 0 && (
-                          <>
-                            <div className="relative my-3">
-                              <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-gray-200" /></div>
-                              <div className="relative flex justify-center"><span className="bg-white px-3 text-[10px] text-gray-400 uppercase">Or choose an alternative</span></div>
+                        <div className="relative my-3">
+                          <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-gray-200" /></div>
+                          <div className="relative flex justify-center"><span className="bg-white px-3 text-[10px] text-gray-400 uppercase">Or pay via GPay / UPI</span></div>
+                        </div>
+                        <button
+                          onClick={() => {
+                            const params = new URLSearchParams({
+                              program: item?.title || '',
+                              price: String(subtotal || 0),
+                              promo_discount: String(discount || 0),
+                              auto_discount: String(totalAutoDiscount || 0),
+                            });
+                            navigate(`/india-payment/${enrollmentId}?${params.toString()}`);
+                          }}
+                          className="flex items-center justify-between w-full border rounded-lg p-4 hover:border-green-500 hover:bg-green-50/50 transition-all group"
+                          data-testid="india-gpay-option">
+                          <div className="flex items-center gap-3">
+                            <div className="w-8 h-8 bg-green-100 rounded-lg flex items-center justify-center">
+                              <span className="text-green-600 text-xs font-bold">UPI</span>
                             </div>
-                            <p className="text-[10px] text-red-500 font-medium mb-2">Note: Alternative payment methods may incur an additional 10-15% processing charge.</p>
-                            <div className="space-y-2 mb-3">
-                              {paymentSettings.india_links.map((link, i) => (
-                                <a key={i} href={link.url} target="_blank" rel="noopener noreferrer"
-                                  className="flex items-center justify-between w-full border rounded-lg p-3 hover:border-[#D4AF37] hover:bg-[#D4AF37]/5 transition-all group"
-                                  data-testid={`india-pay-${link.type}`}>
-                                  <div>
-                                    <span className="text-sm font-medium text-gray-900 group-hover:text-[#D4AF37]">{link.label}</span>
-                                    {link.details && <p className="text-[10px] text-gray-500 mt-0.5">{link.details}</p>}
-                                  </div>
-                                  <ChevronRight size={16} className="text-gray-400 group-hover:text-[#D4AF37]" />
-                                </a>
-                              ))}
+                            <div>
+                              <span className="text-sm font-medium text-gray-900 group-hover:text-green-600">Pay with GPay / UPI</span>
+                              <p className="text-[10px] text-green-600 font-medium">Save {paymentSettings.india_alt_discount || 9}% on base price</p>
                             </div>
-                          </>
-                        )}
+                          </div>
+                          <ChevronRight size={16} className="text-gray-400 group-hover:text-green-600" />
+                        </button>
                       </div>
                     )}
 

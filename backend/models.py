@@ -425,6 +425,12 @@ class SiteSettings(BaseModel):
     payment_disclaimer: str = "We love aligning our work with the natural solar cycle of where you are. If the pricing you see isn't in your local currency, please reach out\u2014we'd be happy to provide the adjusted rates tailored to your home country."
     # India payment options (alternative links for Indian users)
     india_payment_links: List[Dict] = []  # [{type: "exly"|"gpay"|"bank", label: "...", url: "...", details: "...", enabled: true}]
+    # India alternative payment settings
+    india_alt_discount_percent: float = 9  # % discount for choosing alt payment
+    india_gst_percent: float = 18  # GST %
+    india_upi_id: str = ""  # UPI ID for GPay/PhonePe
+    india_exly_link: str = ""  # Exly payment link
+    india_bank_details: Dict = {}  # {account_name, account_number, ifsc, bank_name, branch}
     receipt_template: Dict = {}  # {bg_color, accent_color, text_color, heading_font, body_font, thank_you_title/message/sign, show_logo, show_duration, show_timing}
     # Global pricing style
     pricing_font: str = "Cinzel, Georgia, serif"
@@ -540,6 +546,11 @@ class SiteSettingsUpdate(BaseModel):
     loyalty_discount_pct: Optional[float] = None
     payment_disclaimer: Optional[str] = None
     india_payment_links: Optional[List[Dict]] = None
+    india_alt_discount_percent: Optional[float] = None
+    india_gst_percent: Optional[float] = None
+    india_upi_id: Optional[str] = None
+    india_exly_link: Optional[str] = None
+    india_bank_details: Optional[Dict] = None
     receipt_template: Optional[Dict] = None
     pricing_font: Optional[str] = None
     pricing_color: Optional[str] = None

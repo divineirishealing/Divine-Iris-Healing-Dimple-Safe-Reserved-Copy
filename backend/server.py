@@ -10,7 +10,7 @@ from pathlib import Path
 import mimetypes
 
 # Import routes
-from routes import programs, sessions, testimonials, stats, newsletter, upload, payments, webhook, currency, site_settings, enrollment, promotions, discounts, session_extras
+from routes import programs, sessions, testimonials, stats, newsletter, upload, payments, webhook, currency, site_settings, enrollment, promotions, discounts, session_extras, india_payments
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
@@ -60,6 +60,15 @@ async def serve_image(filename: str):
         }
     )
 
+@app.get("/api/uploads/payment_proofs/{filename}")
+async def serve_payment_proof(filename: str):
+    file_path = UPLOAD_DIR / "payment_proofs" / filename
+    if not file_path.exists():
+        from fastapi import HTTPException
+        raise HTTPException(status_code=404, detail="File not found")
+    mime_type, _ = mimetypes.guess_type(str(file_path))
+    return FileResponse(path=str(file_path), media_type=mime_type or "image/png", headers={"Cache-Control": "public, max-age=3600", "Access-Control-Allow-Origin": "*"})
+
 # Include all route modules (image route MUST be before upload router)
 app.include_router(programs.router)
 app.include_router(sessions.router)
@@ -75,6 +84,7 @@ app.include_router(site_settings.router)
 app.include_router(enrollment.router)
 app.include_router(promotions.router)
 app.include_router(discounts.router)
+app.include_router(india_payments.router)
 
 @api_router.get("/admin/api-keys")
 async def get_api_keys():

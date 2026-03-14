@@ -31,6 +31,7 @@ import ExchangeRatesTab from './tabs/ExchangeRatesTab';
 import DiscountsTab from './tabs/DiscountsTab';
 import ApiKeysTab from './tabs/ApiKeysTab';
 import PaymentSettingsTab from './tabs/PaymentSettingsTab';
+import IndiaPaymentsTab from './tabs/IndiaPaymentsTab';
 import ReceiptTemplateTab from './tabs/ReceiptTemplateTab';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
@@ -188,6 +189,7 @@ const AdminPanel = () => {
     { key: 'subscribers', label: 'Subscribers', icon: Mail, count: subscribers.length },
     { key: 'styles', label: 'Global Styles', icon: Palette },
     { key: 'payment_settings', label: 'Payments', icon: Tag },
+    { key: 'india_payments', label: 'India Proofs', icon: Tag },
     { key: 'receipt_template', label: 'Receipt Template', icon: FileText },
     { key: 'api_keys', label: 'API Keys', icon: Settings },
   ];
@@ -291,6 +293,7 @@ const AdminPanel = () => {
           {activeTab === 'exchange_rates' && <ExchangeRatesTab />}
           {activeTab === 'api_keys' && <ApiKeysTab />}
           {activeTab === 'payment_settings' && <PaymentSettingsTab />}
+          {activeTab === 'india_payments' && <IndiaPaymentsTab />}
           {activeTab === 'receipt_template' && <ReceiptTemplateTab />}
 
           {/* ===== PROGRAMS TAB ===== */}

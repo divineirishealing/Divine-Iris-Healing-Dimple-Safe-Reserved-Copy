@@ -1,52 +1,38 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-import { CreditCard, Plus, Trash2, Save, Loader2, GripVertical, ExternalLink } from 'lucide-react';
+import { CreditCard, Save, Loader2, QrCode, Percent } from 'lucide-react';
 import { Button } from '../../ui/button';
 import { Input } from '../../ui/input';
 import { useToast } from '../../../hooks/use-toast';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
-const LINK_TYPES = [
-  { value: 'exly', label: 'Exly' },
-  { value: 'gpay', label: 'Google Pay' },
-  { value: 'bank', label: 'Bank Transfer' },
-  { value: 'upi', label: 'UPI' },
-  { value: 'custom', label: 'Custom Link' },
-];
-
 const PaymentSettingsTab = () => {
   const { toast } = useToast();
   const [disclaimer, setDisclaimer] = useState('');
-  const [indiaLinks, setIndiaLinks] = useState([]);
+  const [upiId, setUpiId] = useState('');
+  const [altDiscountPct, setAltDiscountPct] = useState(9);
+  const [gstPct, setGstPct] = useState(18);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     axios.get(`${API}/settings`).then(r => {
       setDisclaimer(r.data.payment_disclaimer || '');
-      setIndiaLinks(r.data.india_payment_links || []);
+      setUpiId(r.data.india_upi_id || '');
+      setAltDiscountPct(r.data.india_alt_discount_percent ?? 9);
+      setGstPct(r.data.india_gst_percent ?? 18);
     }).catch(() => {}).finally(() => setLoading(false));
   }, []);
-
-  const addLink = () => {
-    setIndiaLinks([...indiaLinks, { type: 'exly', label: '', url: '', details: '', enabled: true }]);
-  };
-
-  const updateLink = (i, field, value) => {
-    const updated = [...indiaLinks];
-    updated[i] = { ...updated[i], [field]: value };
-    setIndiaLinks(updated);
-  };
-
-  const removeLink = (i) => setIndiaLinks(indiaLinks.filter((_, idx) => idx !== i));
 
   const save = async () => {
     setSaving(true);
     try {
       await axios.put(`${API}/settings`, {
         payment_disclaimer: disclaimer,
-        india_payment_links: indiaLinks,
+        india_upi_id: upiId,
+        india_alt_discount_percent: parseFloat(altDiscountPct) || 9,
+        india_gst_percent: parseFloat(gstPct) || 18,
       });
       toast({ title: 'Payment settings saved!' });
     } catch (err) {
@@ -62,7 +48,7 @@ const PaymentSettingsTab = () => {
         <CreditCard size={18} className="text-[#D4AF37]" />
         <h2 className="text-lg font-semibold text-gray-900">Payment Settings</h2>
       </div>
-      <p className="text-xs text-gray-500 mb-6">Manage payment disclaimer and India-specific payment options.</p>
+      <p className="text-xs text-gray-500 mb-6">Manage payment disclaimer and India GPay/UPI payment options.</p>
 
       {/* Disclaimer */}
       <div className="mb-6">
@@ -78,79 +64,69 @@ const PaymentSettingsTab = () => {
         />
       </div>
 
-      {/* India Payment Links */}
-      <div className="mb-6">
-        <div className="flex items-center justify-between mb-2">
-          <div>
-            <label className="text-xs font-semibold text-gray-700">India Payment Options</label>
-            <p className="text-[10px] text-gray-400">Alternative payment links shown to Indian users (Exly, GPay, Bank Transfer, etc.)</p>
-          </div>
-          <Button variant="outline" size="sm" onClick={addLink} data-testid="add-india-link-btn">
-            <Plus size={12} className="mr-1" /> Add Link
-          </Button>
+      {/* GPay / UPI Settings */}
+      <div className="mb-6 bg-green-50/50 border border-green-200 rounded-lg p-5">
+        <div className="flex items-center gap-2 mb-4">
+          <QrCode size={16} className="text-green-600" />
+          <h3 className="text-sm font-semibold text-gray-900">GPay / UPI Payment</h3>
         </div>
 
-        {indiaLinks.length === 0 && (
-          <div className="text-center py-8 bg-gray-50 rounded-lg border border-dashed text-xs text-gray-400">
-            No India payment links configured. Indian users will only see Stripe card payment.
-          </div>
-        )}
+        <div className="mb-3">
+          <label className="text-xs font-semibold text-gray-700 block mb-1">UPI ID</label>
+          <p className="text-[10px] text-gray-400 mb-1.5">QR code will be auto-generated from this UPI ID.</p>
+          <Input
+            data-testid="india-upi-id-input"
+            value={upiId}
+            onChange={e => setUpiId(e.target.value)}
+            placeholder="e.g., yourname@okhdfcbank"
+            className="text-xs h-9 font-mono"
+          />
+        </div>
+      </div>
 
-        <div className="space-y-3">
-          {indiaLinks.map((link, i) => (
-            <div key={i} className="bg-white border rounded-lg p-4" data-testid={`india-link-${i}`}>
-              <div className="flex items-start gap-3">
-                <GripVertical size={14} className="text-gray-300 mt-2 flex-shrink-0" />
-                <div className="flex-1 space-y-2">
-                  <div className="grid grid-cols-3 gap-2">
-                    <div>
-                      <label className="text-[9px] text-gray-500 block mb-0.5">Type</label>
-                      <select value={link.type} onChange={e => updateLink(i, 'type', e.target.value)}
-                        className="w-full border rounded px-2 py-1.5 text-xs bg-white">
-                        {LINK_TYPES.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
-                      </select>
-                    </div>
-                    <div>
-                      <label className="text-[9px] text-gray-500 block mb-0.5">Label (shown to user)</label>
-                      <Input value={link.label} onChange={e => updateLink(i, 'label', e.target.value)}
-                        placeholder="Pay with Exly" className="text-xs h-8" />
-                    </div>
-                    <div className="flex items-end gap-1">
-                      <div className="flex-1">
-                        <label className="text-[9px] text-gray-500 block mb-0.5">Enabled</label>
-                        <label className="flex items-center gap-1.5 cursor-pointer">
-                          <input type="checkbox" checked={link.enabled} onChange={e => updateLink(i, 'enabled', e.target.checked)}
-                            className="rounded border-gray-300 text-[#D4AF37] focus:ring-[#D4AF37]" />
-                          <span className="text-[10px] text-gray-500">{link.enabled ? 'Active' : 'Hidden'}</span>
-                        </label>
-                      </div>
-                      <button onClick={() => removeLink(i)} className="p-1.5 rounded hover:bg-red-50 text-gray-400 hover:text-red-500">
-                        <Trash2 size={13} />
-                      </button>
-                    </div>
-                  </div>
-                  <div>
-                    <label className="text-[9px] text-gray-500 block mb-0.5">URL / Payment Link</label>
-                    <div className="flex gap-1">
-                      <Input value={link.url} onChange={e => updateLink(i, 'url', e.target.value)}
-                        placeholder="https://..." className="text-xs h-8 flex-1 font-mono" />
-                      {link.url && (
-                        <a href={link.url} target="_blank" rel="noopener noreferrer"
-                          className="p-1.5 rounded hover:bg-gray-100 text-gray-400 hover:text-blue-500 flex-shrink-0">
-                          <ExternalLink size={13} />
-                        </a>
-                      )}
-                    </div>
-                  </div>
-                  <div>
-                    <label className="text-[9px] text-gray-500 block mb-0.5">Description / Benefits (optional)</label>
-                    <Input value={link.details || ''} onChange={e => updateLink(i, 'details', e.target.value)}
-                      placeholder="e.g., No international fees, instant confirmation" className="text-xs h-8" />
-                  </div>
-                </div>
-              </div>
-            </div>
-          ))}
+      {/* India Pricing Adjustments */}
+      <div className="mb-6 bg-blue-50/50 border border-blue-200 rounded-lg p-5">
+        <div className="flex items-center gap-2 mb-4">
+          <Percent size={16} className="text-blue-600" />
+          <h3 className="text-sm font-semibold text-gray-900">India Alt. Payment Pricing</h3>
+        </div>
+        <p className="text-[10px] text-gray-400 mb-3">When Indian users choose GPay/UPI, the receipt shows a reduced base price + GST.</p>
+
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <label className="text-xs font-semibold text-gray-700 block mb-1">Alt. Payment Discount (%)</label>
+            <p className="text-[10px] text-gray-400 mb-1.5">Discount on base price for UPI payment</p>
+            <Input
+              data-testid="india-alt-discount-input"
+              type="number"
+              value={altDiscountPct}
+              onChange={e => setAltDiscountPct(e.target.value)}
+              className="text-xs h-9"
+              min={0}
+              max={100}
+            />
+          </div>
+          <div>
+            <label className="text-xs font-semibold text-gray-700 block mb-1">GST (%)</label>
+            <p className="text-[10px] text-gray-400 mb-1.5">Added on top of discounted base price</p>
+            <Input
+              data-testid="india-gst-input"
+              type="number"
+              value={gstPct}
+              onChange={e => setGstPct(e.target.value)}
+              className="text-xs h-9"
+              min={0}
+              max={100}
+            />
+          </div>
+        </div>
+
+        {/* Preview */}
+        <div className="mt-3 bg-white rounded-lg p-3 border text-xs">
+          <p className="text-gray-500 mb-1">Receipt Preview (example INR 10,000 base):</p>
+          <p className="text-gray-700">Base after {altDiscountPct}% discount: <strong>INR {(10000 * (1 - (parseFloat(altDiscountPct) || 9) / 100)).toLocaleString()}</strong></p>
+          <p className="text-gray-700">GST ({gstPct}%): <strong>INR {Math.round(10000 * (1 - (parseFloat(altDiscountPct) || 9) / 100) * (parseFloat(gstPct) || 18) / 100).toLocaleString()}</strong></p>
+          <p className="text-[#D4AF37] font-bold">Total: INR {Math.round(10000 * (1 - (parseFloat(altDiscountPct) || 9) / 100) * (1 + (parseFloat(gstPct) || 18) / 100)).toLocaleString()}</p>
         </div>
       </div>
 
