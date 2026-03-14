@@ -71,6 +71,8 @@ class Program(BaseModel):
     end_date: str = ""
     deadline_date: str = ""
     enrollment_open: bool = True
+    enrollment_status: str = "open"  # "open", "closed", "coming_soon"
+    is_group_program: bool = False
     duration_tiers: List[Dict] = []  # list of DurationTier dicts
     whatsapp_group_link: str = ""
     zoom_link: str = ""
@@ -122,6 +124,8 @@ class ProgramCreate(BaseModel):
     end_date: Optional[str] = ""
     deadline_date: Optional[str] = ""
     enrollment_open: Optional[bool] = True
+    enrollment_status: Optional[str] = "open"
+    is_group_program: Optional[bool] = False
     duration_tiers: Optional[List[Dict]] = []
     whatsapp_group_link: Optional[str] = ""
     zoom_link: Optional[str] = ""
