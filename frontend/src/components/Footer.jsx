@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { Facebook, Instagram, Youtube, Linkedin, Mail, Phone, X, Send, Loader2 } from 'lucide-react';
-import { Dialog, DialogContent } from './ui/dialog';
+import { Dialog, DialogContent, DialogTitle } from './ui/dialog';
 import { BODY, GOLD, CONTAINER } from '../lib/designTokens';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
@@ -82,7 +82,7 @@ const ContactFormDialog = ({ open, onClose, programs, sessions }) => {
     <Dialog open={open} onOpenChange={handleClose}>
       <DialogContent className="max-w-lg p-0 overflow-hidden bg-white" data-testid="footer-contact-dialog">
         <div className="p-8">
-          <h2 className="text-center mb-1" style={{ fontFamily: "'Cinzel', serif", fontWeight: 700, fontSize: '1.4rem', color: '#1a1a1a' }}>Express Your Interest</h2>
+          <DialogTitle className="text-center mb-1" style={{ fontFamily: "'Cinzel', serif", fontWeight: 700, fontSize: '1.4rem', color: '#1a1a1a' }}>Express Your Interest</DialogTitle>
           <p className="text-center text-gray-500 text-sm mb-6" style={FONT_LATO}>Ready to begin your healing journey? Let us know how we can help.</p>
 
           {submitted ? (
