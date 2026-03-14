@@ -89,8 +89,10 @@ const PricingHubTab = () => {
   };
 
   const Cell = ({ value, onChange, className = '' }) => (
-    <Input type="number" min="0" step="0.01" value={value || 0} onChange={e => onChange(parseFloat(e.target.value) || 0)}
-      className={`h-7 text-[11px] w-full text-center px-1 ${className}`} />
+    <input type="text" inputMode="decimal" value={value || 0}
+      onChange={e => { const v = e.target.value; onChange(v === '' ? 0 : parseFloat(v) || 0); }}
+      onFocus={e => { if (e.target.value === '0') e.target.select(); }}
+      className={`h-7 text-[11px] w-full text-center px-1 border rounded-md focus:outline-none focus:ring-1 focus:ring-[#D4AF37] ${className}`} />
   );
 
   const toggleExpand = (id) => setExpandedPrograms(e => ({ ...e, [id]: !e[id] }));
@@ -109,7 +111,7 @@ const PricingHubTab = () => {
 
       {/* ===== ALL PROGRAMS ===== */}
       <div className="mb-8">
-        <h3 className="text-sm font-semibold text-gray-700 mb-3 flex items-center gap-1.5"><Tag size={14} /> Flagship Programs</h3>
+        <h3 className="text-sm font-semibold text-gray-700 mb-3 flex items-center gap-1.5"><Tag size={14} /> Programs</h3>
         <div className="overflow-x-auto border rounded-lg">
           <table className="w-full text-[11px]" data-testid="pricing-programs-table">
             <thead>
