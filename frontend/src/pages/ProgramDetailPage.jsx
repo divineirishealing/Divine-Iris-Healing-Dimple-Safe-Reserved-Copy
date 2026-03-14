@@ -354,37 +354,41 @@ function ProgramDetailPage() {
 
             {program.show_tiers_on_card !== false && program.duration_tiers?.length > 0 && (
               <div data-testid="duration-tiers" className="max-w-3xl mx-auto mb-10">
-                <div className={`grid gap-4 ${program.duration_tiers.length === 3 ? 'sm:grid-cols-3' : program.duration_tiers.length === 2 ? 'sm:grid-cols-2' : 'max-w-xs mx-auto'}`}>
-                  {program.duration_tiers.map((tier, tIdx) => {
-                    const isAnnual = tier.label?.toLowerCase().includes('annual') || tier.label?.toLowerCase().includes('year') || tier.duration_unit === 'year';
-                    const tierPrice = getPrice(program, tIdx);
-                    const tierOffer = getOfferPrice(program, tIdx);
-                    const showContact = isAnnual && tierPrice === 0;
-                    return (
-                      <div key={tIdx} data-testid={`tier-${tIdx}`}
-                        className="border border-gray-200 hover:border-[#D4AF37] rounded-lg p-5 transition-all duration-300 cursor-pointer group hover:shadow-md"
-                        style={{ '--hover-accent': heroAccent }}
-                        onClick={() => showContact ? navigate(`/contact?program=${program.id}&title=${encodeURIComponent(program.title)}&tier=${tier.label}`) : navigate(`/enroll/program/${program.id}?tier=${tIdx}`)}>
-                        <p className="text-sm font-medium text-gray-900 transition-colors mb-2" style={{ fontFamily: "'Lato', sans-serif" }}>{tier.label}</p>
-                        {program.show_pricing_on_card !== false ? (
-                          showContact ? (
-                            <div><p className="text-gray-400 text-[10px] mb-3">Custom pricing</p>
+                {program.show_pricing_on_card !== false ? (
+                  <div className={`grid gap-4 ${program.duration_tiers.length === 3 ? 'sm:grid-cols-3' : program.duration_tiers.length === 2 ? 'sm:grid-cols-2' : 'max-w-xs mx-auto'}`}>
+                    {program.duration_tiers.map((tier, tIdx) => {
+                      const isAnnual = tier.label?.toLowerCase().includes('annual') || tier.label?.toLowerCase().includes('year') || tier.duration_unit === 'year';
+                      const tierPrice = getPrice(program, tIdx);
+                      const tierOffer = getOfferPrice(program, tIdx);
+                      const showContact = isAnnual && tierPrice === 0;
+                      return (
+                        <div key={tIdx} data-testid={`tier-${tIdx}`}
+                          className="border border-gray-200 hover:border-[#D4AF37] rounded-lg p-5 transition-all duration-300 cursor-pointer group hover:shadow-md"
+                          onClick={() => showContact ? navigate(`/contact?program=${program.id}&title=${encodeURIComponent(program.title)}&tier=${tier.label}`) : navigate(`/enroll/program/${program.id}?tier=${tIdx}`)}>
+                          <p className="text-sm font-medium text-gray-900 transition-colors mb-2" style={{ fontFamily: "'Lato', sans-serif" }}>{tier.label}</p>
+                          {showContact ? (
+                            <div><p className="text-gray-400 text-[10px] mb-3">Contact for customised pricing</p>
                               <span className="inline-block text-white text-[10px] py-2 px-6 tracking-[0.15em] uppercase" style={{ background: heroAccent }}>Contact Us</span></div>
                           ) : (
                             <div><div className="mb-3">
-                              {tierOffer > 0 ? (<><p className="text-base font-semibold" style={{ ...globalPricingStyle, fontSize: '1rem' }}>{symbol} {tierOffer.toLocaleString()}</p><p className="text-[10px] text-gray-400 line-through">{symbol} {tierPrice.toLocaleString()}</p></>) : tierPrice > 0 ? (<p className="text-base font-semibold" style={{ ...globalPricingStyle, fontSize: '1rem' }}>{symbol} {tierPrice.toLocaleString()}</p>) : (<p className="text-xs text-gray-400 italic">Contact for pricing</p>)}
-                            </div><span className="inline-block bg-gray-900 text-white text-[10px] py-2 px-6 tracking-[0.15em] uppercase transition-colors">Enroll</span></div>
-                          )
-                        ) : (
-                          <span className="inline-block text-white text-[10px] py-2 px-6 tracking-[0.15em] uppercase cursor-pointer" style={{ background: heroAccent }}
-                            onClick={(e) => { e.stopPropagation(); navigate(`/contact?program=${program.id}&title=${encodeURIComponent(program.title)}&tier=${tier.label}`); }}>
-                            Express Your Interest
-                          </span>
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
+                              {tierOffer > 0 ? (<><p className="text-base font-semibold" style={{ ...globalPricingStyle, fontSize: '1rem' }}>{symbol} {tierOffer.toLocaleString()}</p><p className="text-[10px] text-gray-400 line-through">{symbol} {tierPrice.toLocaleString()}</p></>) : tierPrice > 0 ? (<p className="text-base font-semibold" style={{ ...globalPricingStyle, fontSize: '1rem' }}>{symbol} {tierPrice.toLocaleString()}</p>) : (<p className="text-xs text-gray-400 italic">Contact for customised pricing</p>)}
+                            </div><span className="inline-block bg-gray-900 text-white text-[10px] py-2 px-6 tracking-[0.15em] uppercase transition-colors">Select</span></div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  /* Pricing invisible — show tier names + single Express Your Interest */
+                  <div className="text-center">
+                    <div className="flex gap-3 justify-center mb-6">
+                      {program.duration_tiers.map((tier, tIdx) => (
+                        <span key={tIdx} className="px-4 py-2 border border-gray-200 rounded-full text-sm text-gray-600">{tier.label}</span>
+                      ))}
+                    </div>
+                    <ExpressInterestInline programId={program.id} programTitle={program.title} accent={heroAccent} />
+                  </div>
+                )}
               </div>
             )}
 

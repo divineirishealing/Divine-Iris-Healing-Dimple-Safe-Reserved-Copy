@@ -43,12 +43,20 @@ const ProgramRow = ({ p, update, updateTier }) => {
 
         {/* Upcoming */}
         <td className="px-2 py-2 text-center">
-          <Switch checked={isUpcoming} onCheckedChange={v => update('is_upcoming', v)} data-testid={`hub-upcoming-toggle-${p.id}`} />
+          <Switch checked={isUpcoming} onCheckedChange={v => {
+            update('is_upcoming', v);
+            // Auto-close if both flags off
+            if (!v && !p.is_flagship) { update('enrollment_status', 'closed'); update('enrollment_open', false); }
+          }} data-testid={`hub-upcoming-toggle-${p.id}`} />
         </td>
 
         {/* Flagship */}
         <td className="px-2 py-2 text-center">
-          <Switch checked={p.is_flagship || false} onCheckedChange={v => update('is_flagship', v)} data-testid={`hub-flagship-toggle-${p.id}`} />
+          <Switch checked={p.is_flagship || false} onCheckedChange={v => {
+            update('is_flagship', v);
+            // Auto-close if both flags off
+            if (!v && !isUpcoming) { update('enrollment_status', 'closed'); update('enrollment_open', false); }
+          }} data-testid={`hub-flagship-toggle-${p.id}`} />
         </td>
 
         {/* Replicate to Flagship — only when Upcoming is ON */}
@@ -128,8 +136,17 @@ const ProgramRow = ({ p, update, updateTier }) => {
             <div className="ml-8 text-[11px] font-semibold text-[#D4AF37]">{t.label || `Tier ${ti + 1}`}</div>
           </td>
           <td colSpan={5}></td>
-          <td className="px-1 py-1"><Input type="date" value={t.start_date || ''} onChange={e => updateTier(ti, 'start_date', e.target.value)} className="h-7 text-[10px] px-1" /></td>
-          <td className="px-1 py-1"><Input type="date" value={t.end_date || ''} onChange={e => updateTier(ti, 'end_date', e.target.value)} className="h-7 text-[10px] px-1" /></td>
+          <td className="px-1 py-1">
+            <Input type="date" value={t.start_date || ''} onChange={e => {
+              const val = e.target.value;
+              updateTier(ti, 'start_date', val);
+              // Auto-sync start date to all tiers
+              tiers.forEach((_, j) => { if (j !== ti) updateTier(j, 'start_date', val); });
+            }} className="h-7 text-[10px] px-1" />
+          </td>
+          <td className="px-1 py-1">
+            <Input type="date" value={t.end_date || ''} min={t.start_date || ''} onChange={e => updateTier(ti, 'end_date', e.target.value)} className="h-7 text-[10px] px-1" />
+          </td>
           <td colSpan={7}></td>
         </tr>
       ))}
