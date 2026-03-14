@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { Menu, X, Facebook, Instagram, Youtube, Linkedin, ChevronDown, ShoppingCart } from 'lucide-react';
 import { useCart } from '../context/CartContext';
@@ -28,14 +28,24 @@ const Header = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { itemCount } = useCart();
-  const [isMenuOpen, setIsMenuOpen] = useState(false);
-  const [isProgramsOpen, setIsProgramsOpen] = useState(false);
+  const [mobileOpen, setMobileOpen] = useState(false);
+  const [programsOpen, setProgramsOpen] = useState(false);
   const [settings, setSettings] = useState(null);
   const [programs, setPrograms] = useState([]);
+  const dropdownRef = useRef(null);
 
   useEffect(() => {
     axios.get(`${API}/settings`).then(r => setSettings(r.data)).catch(() => {});
     axios.get(`${API}/programs`).then(r => setPrograms(r.data.filter(p => p.visible !== false))).catch(() => {});
+  }, []);
+
+  // Close dropdown on outside click
+  useEffect(() => {
+    const handleClick = (e) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target)) setProgramsOpen(false);
+    };
+    document.addEventListener('mousedown', handleClick);
+    return () => document.removeEventListener('mousedown', handleClick);
   }, []);
 
   const activeSocials = settings ? [
@@ -45,30 +55,23 @@ const Header = () => {
     { key: 'linkedin', url: settings.social_linkedin, show: settings.show_linkedin !== false },
     { key: 'spotify', url: settings.social_spotify, show: settings.show_spotify === true },
     { key: 'pinterest', url: settings.social_pinterest, show: settings.show_pinterest === true },
-  ].filter(s => s.show && s.url) : [
-    { key: 'facebook', url: 'https://facebook.com', show: true },
-    { key: 'instagram', url: 'https://instagram.com', show: true },
-    { key: 'youtube', url: 'https://youtube.com', show: true },
-    { key: 'linkedin', url: 'https://linkedin.com', show: true },
+  ].filter(s => s.show && s.url) : [];
+
+  const flagshipPrograms = programs.filter(p => p.is_flagship);
+  const upcomingPrograms = programs.filter(p => p.is_upcoming);
+
+  const navItems = [
+    { label: 'Home', path: '/' },
+    { label: 'About', path: '/about' },
+    { label: 'Contact', path: '/contact' },
+    { label: 'Services', path: '/sessions' },
+    { label: 'Transformations', path: '/transformations' },
+    { label: 'Upcoming Sessions', path: '/#upcoming' },
   ];
 
-  const DEFAULT_NAV = [
-    {label:'Home',path:'/'},
-    {label:'About',path:'/about'},
-    {label:'Media',path:'/media'},
-    {label:'Services',path:'/#sessions'},
-    ...(settings?.sessions_page_visible !== false ? [{label:'Upcoming Sessions',path:'/sessions'}] : []),
-    {label:'Transformations',path:'/transformations'},
-    ...(settings?.blog_page_visible ? [{label:'Blog',path:'/blog'}] : []),
-  ];
-  const headerNavItems = (settings?.footer_menu_items?.length
-    ? settings.footer_menu_items.filter(i => i.visible !== false).map(i => ({ label: i.label, path: i.href }))
-    : DEFAULT_NAV
-  ).sort((a, b) => a.label.length - b.label.length);
-
-  const handleNavClick = (path) => {
-    setIsMenuOpen(false);
-    setIsProgramsOpen(false);
+  const handleNav = (path) => {
+    setMobileOpen(false);
+    setProgramsOpen(false);
     if (path.startsWith('/#')) {
       if (location.pathname === '/') {
         const el = document.getElementById(path.replace('/#', ''));
@@ -77,74 +80,132 @@ const Header = () => {
     } else { navigate(path); }
   };
 
-  const SocialIcon = ({ sKey, size = 18, className = '' }) => {
+  const SocialIcon = ({ sKey, size = 16 }) => {
     const Icon = socialIcons[sKey];
     if (!Icon) return null;
-    return <Icon size={size} className={className} />;
+    return <Icon size={size} />;
   };
 
   return (
     <>
-      <header data-testid="site-header" className="fixed top-0 left-0 right-0 z-50 bg-black/60 backdrop-blur-sm">
-        <div className="container mx-auto px-6 py-4 flex items-center justify-between">
-          <button data-testid="menu-toggle-btn" onClick={() => setIsMenuOpen(!isMenuOpen)} className="flex items-center gap-2 text-white hover:text-[#D4AF37] transition-colors">
-            {isMenuOpen ? <X size={20} /> : <Menu size={20} />}
-            <span className="text-[10px] font-medium tracking-[0.2em]">MENU</span>
-          </button>
-          <div className="flex items-center gap-4">
-            <button data-testid="cart-icon-btn" onClick={() => navigate('/cart')} className="relative text-white/80 hover:text-[#D4AF37] transition-colors">
-              <ShoppingCart size={18} />
-              {itemCount > 0 && (
-                <span data-testid="cart-count-badge" className="absolute -top-2 -right-2 bg-[#D4AF37] text-white text-[8px] font-bold w-4 h-4 flex items-center justify-center rounded-full">
-                  {itemCount}
-                </span>
-              )}
-            </button>
-            <div className="hidden md:flex items-center gap-4">
-              {activeSocials.map(s => (
-                <a key={s.key} href={s.url} target="_blank" rel="noopener noreferrer" className="text-white/80 hover:text-[#D4AF37] transition-colors">
-                  <SocialIcon sKey={s.key} size={16} />
-                </a>
-              ))}
+      <header data-testid="site-header" className="fixed top-0 left-0 right-0 z-50 bg-black/70 backdrop-blur-md">
+        <div className="container mx-auto px-4 lg:px-8">
+          <div className="flex items-center justify-between h-14">
+            {/* Left: Nav links (desktop) / Hamburger (mobile) */}
+            <div className="flex items-center gap-1">
+              {/* Mobile hamburger */}
+              <button data-testid="menu-toggle-btn" onClick={() => setMobileOpen(!mobileOpen)}
+                className="lg:hidden text-white hover:text-[#D4AF37] transition-colors p-1">
+                {mobileOpen ? <X size={20} /> : <Menu size={20} />}
+              </button>
+
+              {/* Desktop nav */}
+              <nav className="hidden lg:flex items-center gap-1">
+                {navItems.map(item => (
+                  <button key={item.label} onClick={() => handleNav(item.path)} data-testid={`nav-${item.label.toLowerCase().replace(/\s+/g, '-')}`}
+                    className="text-white/80 hover:text-[#D4AF37] text-[11px] tracking-[0.12em] uppercase font-medium px-3 py-2 transition-colors whitespace-nowrap">
+                    {item.label}
+                  </button>
+                ))}
+
+                {/* Programs dropdown */}
+                <div ref={dropdownRef} className="relative">
+                  <button onClick={() => setProgramsOpen(!programsOpen)} data-testid="nav-programs-dropdown"
+                    className="text-white/80 hover:text-[#D4AF37] text-[11px] tracking-[0.12em] uppercase font-medium px-3 py-2 transition-colors inline-flex items-center gap-1 whitespace-nowrap">
+                    Programs <ChevronDown size={12} className={`transition-transform duration-200 ${programsOpen ? 'rotate-180' : ''}`} />
+                  </button>
+                  {programsOpen && (
+                    <div className="absolute top-full left-0 mt-1 min-w-[220px] bg-black/90 backdrop-blur-md rounded-lg shadow-2xl border border-white/10 py-2 z-50">
+                      {flagshipPrograms.length > 0 && (
+                        <>
+                          <p className="px-4 py-1 text-[9px] text-[#D4AF37] uppercase tracking-widest font-semibold">Flagship</p>
+                          {flagshipPrograms.map(p => (
+                            <button key={p.id} onClick={() => handleNav(`/program/${p.id}`)}
+                              className="block w-full text-left px-4 py-2 text-white/70 text-xs hover:text-[#D4AF37] hover:bg-white/5 transition-colors">
+                              {p.title}
+                            </button>
+                          ))}
+                        </>
+                      )}
+                      {upcomingPrograms.length > 0 && (
+                        <>
+                          <p className="px-4 py-1 mt-1 text-[9px] text-[#D4AF37] uppercase tracking-widest font-semibold">Upcoming</p>
+                          {upcomingPrograms.map(p => (
+                            <button key={p.id} onClick={() => handleNav(`/program/${p.id}`)}
+                              className="block w-full text-left px-4 py-2 text-white/70 text-xs hover:text-[#D4AF37] hover:bg-white/5 transition-colors">
+                              {p.title}
+                            </button>
+                          ))}
+                        </>
+                      )}
+                      {programs.filter(p => !p.is_flagship && !p.is_upcoming).length > 0 && (
+                        <>
+                          <p className="px-4 py-1 mt-1 text-[9px] text-[#D4AF37] uppercase tracking-widest font-semibold">All Programs</p>
+                          {programs.filter(p => !p.is_flagship && !p.is_upcoming).map(p => (
+                            <button key={p.id} onClick={() => handleNav(`/program/${p.id}`)}
+                              className="block w-full text-left px-4 py-2 text-white/70 text-xs hover:text-[#D4AF37] hover:bg-white/5 transition-colors">
+                              {p.title}
+                            </button>
+                          ))}
+                        </>
+                      )}
+                    </div>
+                  )}
+                </div>
+              </nav>
+            </div>
+
+            {/* Right: Cart + Social icons */}
+            <div className="flex items-center gap-4">
+              <button data-testid="cart-icon-btn" onClick={() => navigate('/cart')} className="relative text-white/80 hover:text-[#D4AF37] transition-colors">
+                <ShoppingCart size={18} />
+                {itemCount > 0 && (
+                  <span data-testid="cart-count-badge" className="absolute -top-2 -right-2 bg-[#D4AF37] text-white text-[8px] font-bold w-4 h-4 flex items-center justify-center rounded-full">
+                    {itemCount}
+                  </span>
+                )}
+              </button>
+              <div className="hidden md:flex items-center gap-3">
+                {activeSocials.map(s => (
+                  <a key={s.key} href={s.url} target="_blank" rel="noopener noreferrer" className="text-white/60 hover:text-[#D4AF37] transition-colors">
+                    <SocialIcon sKey={s.key} />
+                  </a>
+                ))}
+              </div>
             </div>
           </div>
         </div>
       </header>
 
-      {isMenuOpen && (
-        <div data-testid="menu-overlay" className="fixed inset-0 z-[60] flex items-center justify-center"
-          style={{ background: 'linear-gradient(135deg, #8B6914 0%, #D4AF37 30%, #C5A028 50%, #8B6914 100%)' }}>
-          <button data-testid="menu-close-btn" onClick={() => setIsMenuOpen(false)} className="absolute top-6 left-6 flex items-center gap-2 text-white hover:text-yellow-200 transition-colors">
-            <X size={20} /><span className="text-[10px] font-medium tracking-[0.2em]">CLOSE</span>
+      {/* Mobile menu — simple slide-down, no gold overlay */}
+      {mobileOpen && (
+        <div data-testid="mobile-menu" className="fixed inset-0 z-[60] bg-black/95 backdrop-blur-md pt-16 overflow-y-auto">
+          <button data-testid="menu-close-btn" onClick={() => setMobileOpen(false)} className="absolute top-4 right-4 text-white hover:text-[#D4AF37] transition-colors">
+            <X size={24} />
           </button>
-          <div className="absolute top-6 right-6 flex items-center gap-4">
-            <button data-testid="cart-icon-menu" onClick={() => { setIsMenuOpen(false); navigate('/cart'); }} className="relative text-white/80 hover:text-white transition-colors">
-              <ShoppingCart size={18} />
-              {itemCount > 0 && (
-                <span className="absolute -top-2 -right-2 bg-white text-[#D4AF37] text-[8px] font-bold w-4 h-4 flex items-center justify-center rounded-full">{itemCount}</span>
-              )}
-            </button>
-            {activeSocials.map(s => (
-              <a key={s.key} href={s.url} target="_blank" rel="noopener noreferrer" className="text-white/80 hover:text-white transition-colors">
-                <SocialIcon sKey={s.key} size={16} />
-              </a>
-            ))}
-          </div>
-          <nav className="text-center space-y-5">
-            {headerNavItems.map(item => (
-              <button key={item.label} onClick={() => handleNavClick(item.path)} className="block w-full text-white text-xl md:text-2xl font-light tracking-[0.15em] hover:text-yellow-200 transition-colors">{item.label}</button>
-            ))}
-            <div>
-              <button onClick={() => setIsProgramsOpen(!isProgramsOpen)} className="text-white text-xl md:text-2xl font-light tracking-[0.15em] hover:text-yellow-200 transition-colors inline-flex items-center gap-2">
-                Programs <ChevronDown size={18} className={`transition-transform ${isProgramsOpen ? 'rotate-180' : ''}`} />
+          <nav className="flex flex-col items-center gap-4 pt-8">
+            {navItems.map(item => (
+              <button key={item.label} onClick={() => handleNav(item.path)}
+                className="text-white/80 hover:text-[#D4AF37] text-sm tracking-[0.15em] uppercase font-light transition-colors">
+                {item.label}
               </button>
-              {isProgramsOpen && (
-                <div className="mt-2 space-y-1.5">
-                  {programs.map(p => (
-                    <button key={p.id} onClick={() => handleNavClick(`/program/${p.id}`)} className="block w-full text-white/80 text-xs tracking-wider hover:text-white transition-colors">{p.title}</button>
-                  ))}
-                </div>
-              )}
+            ))}
+            <button onClick={() => setProgramsOpen(!programsOpen)}
+              className="text-white/80 hover:text-[#D4AF37] text-sm tracking-[0.15em] uppercase font-light transition-colors inline-flex items-center gap-2">
+              Programs <ChevronDown size={14} className={`transition-transform ${programsOpen ? 'rotate-180' : ''}`} />
+            </button>
+            {programsOpen && programs.map(p => (
+              <button key={p.id} onClick={() => handleNav(`/program/${p.id}`)}
+                className="text-white/50 hover:text-[#D4AF37] text-xs tracking-wider transition-colors pl-4">
+                {p.title}
+              </button>
+            ))}
+            <div className="flex items-center gap-4 mt-6 pt-6 border-t border-white/10">
+              {activeSocials.map(s => (
+                <a key={s.key} href={s.url} target="_blank" rel="noopener noreferrer" className="text-white/50 hover:text-[#D4AF37] transition-colors">
+                  <SocialIcon sKey={s.key} size={18} />
+                </a>
+              ))}
             </div>
           </nav>
         </div>
