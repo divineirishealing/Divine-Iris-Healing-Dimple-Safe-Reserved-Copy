@@ -241,7 +241,7 @@ const UpcomingCard = ({ program }) => {
                   className="flex-1 bg-[#1a1a1a] hover:bg-[#333] text-white py-2.5 rounded-full text-xs tracking-wider transition-all duration-300 uppercase font-medium">
                   Know More
                 </button>
-                {!expired && price > 0 ? (
+                {!expired && price > 0 && program.enrollment_open !== false ? (
                   <>
                     <button onClick={handleAddToCart} data-testid={`upcoming-add-cart-${program.id}`}
                       disabled={inCart || justAdded}
@@ -256,6 +256,12 @@ const UpcomingCard = ({ program }) => {
                       Enroll Now
                     </button>
                   </>
+                ) : !expired && program.enrollment_open === false ? (
+                  <button onClick={() => navigate(`/contact?program=${program.id}&title=${encodeURIComponent(program.title)}`)}
+                    data-testid={`upcoming-interest-${program.id}`}
+                    className="flex-1 bg-[#D4AF37] hover:bg-[#b8962e] text-white py-2.5 rounded-full text-xs tracking-wider transition-all duration-300 uppercase font-medium">
+                    Express Your Interest
+                  </button>
                 ) : expired ? (
                   <button disabled data-testid={`upcoming-enroll-disabled-${program.id}`}
                     className="flex-1 bg-gray-300 text-gray-500 py-2.5 rounded-full text-xs tracking-wider uppercase font-medium cursor-not-allowed">
