@@ -3,28 +3,43 @@ import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { resolveImageUrl } from '../lib/imageUtils';
 import { useCurrency } from '../context/CurrencyContext';
+import { useCart } from '../context/CartContext';
 import { useToast } from '../hooks/use-toast';
+import { ShoppingCart, Check } from 'lucide-react';
 import { HEADING, BODY, CONTAINER, applySectionStyle } from '../lib/designTokens';
 import { UpcomingCard } from './UpcomingProgramsSection';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
-/* ── Simple card for non-replicated flagship programs ── */
+/* ── Flagship card (non-replicated) — purple Know More + optional tiers/pricing ── */
 const SimpleFlagshipCard = ({ program }) => {
   const navigate = useNavigate();
+  const { getPrice, getOfferPrice, symbol } = useCurrency();
+  const { addItem, items } = useCart();
   const { toast } = useToast();
-  const [notifyEmail, setNotifyEmail] = useState('');
-  const [notifySubmitted, setNotifySubmitted] = useState(false);
+  const [selectedTier, setSelectedTier] = useState(0);
+  const [justAdded, setJustAdded] = useState(false);
 
+  const tiers = program.duration_tiers || [];
+  const showTiers = tiers.length > 0 && program.show_tiers_on_card !== false;
+  const showPricing = program.show_pricing_on_card !== false;
+  const tier = showTiers ? tiers[selectedTier] : null;
+  const isAnnual = tier && (tier.label.toLowerCase().includes('annual') || tier.label.toLowerCase().includes('year'));
+  const price = getPrice(program, showTiers ? selectedTier : null);
+  const offerPrice = getOfferPrice(program, showTiers ? selectedTier : null);
+  const showContact = isAnnual && price === 0;
+  const inCart = items.some(i => i.programId === program.id && i.tierIndex === selectedTier);
   const enrollStatus = program.enrollment_status || (program.enrollment_open !== false ? 'open' : 'closed');
 
-  const handleExpressInterest = async () => {
-    if (!notifyEmail) return;
-    try {
-      await axios.post(`${API}/notify-me`, { email: notifyEmail, program_id: program.id, program_title: program.title });
-      setNotifySubmitted(true);
-      toast({ title: 'Subscribed!', description: "We'll notify you when enrollment opens." });
-    } catch { toast({ title: 'Error', variant: 'destructive' }); }
+  const handleAddToCart = () => {
+    const added = addItem(program, selectedTier);
+    if (added) {
+      setJustAdded(true);
+      toast({ title: `${program.title} added to cart`, description: `${tier?.label || 'Standard'} plan` });
+      setTimeout(() => setJustAdded(false), 2000);
+    } else {
+      toast({ title: 'Already in cart', variant: 'destructive' });
+    }
   };
 
   return (
@@ -55,37 +70,66 @@ const SimpleFlagshipCard = ({ program }) => {
           onClick={() => navigate(`/program/${program.id}`)}>{program.title}</h3>
         <p className="text-gray-500 text-xs leading-relaxed mb-3 line-clamp-2 flex-1" style={{ ...BODY, fontSize: '0.8rem' }}>{program.description}</p>
 
-        {/* Coming Soon — Express Your Interest */}
-        {enrollStatus === 'coming_soon' && (
+        {/* Tier Selector */}
+        {showTiers && (
+          <div data-testid={`flagship-tier-selector-${program.id}`} className="mb-3">
+            <div className="flex gap-1">
+              {tiers.map((t, i) => (
+                <button key={i} data-testid={`flagship-tier-btn-${program.id}-${i}`}
+                  onClick={() => setSelectedTier(i)}
+                  className={`flex-1 text-[10px] py-1.5 rounded-full border transition-all ${
+                    selectedTier === i ? 'bg-[#D4AF37] text-white border-[#D4AF37]' : 'bg-white text-gray-500 border-gray-200 hover:border-[#D4AF37]'
+                  }`}>
+                  {t.label}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Pricing */}
+        {showPricing && enrollStatus === 'open' && (
           <div className="mb-2">
-            {!notifySubmitted ? (
-              <div data-testid={`express-interest-form-${program.id}`}>
-                <p className="text-xs text-blue-600 font-medium mb-1.5">Get notified when enrollment opens</p>
-                <div className="flex gap-1.5">
-                  <input type="email" value={notifyEmail} onChange={e => setNotifyEmail(e.target.value)}
-                    placeholder="Your email" className="flex-1 border border-gray-200 rounded-full px-3 py-1.5 text-[11px] focus:outline-none focus:border-blue-400" />
-                  <button onClick={handleExpressInterest} data-testid={`express-interest-btn-${program.id}`}
-                    className="bg-purple-600 hover:bg-purple-700 text-white px-3 py-1.5 rounded-full text-[10px] tracking-wider uppercase font-medium transition-colors">
-                    Express Interest
-                  </button>
-                </div>
-              </div>
+            {showContact ? (
+              <p className="text-gray-500 text-[10px]">Custom pricing — contact us</p>
             ) : (
-              <p className="text-xs text-green-600 font-medium py-1" data-testid={`express-interest-success-${program.id}`}>
-                You'll be notified when enrollment opens!
-              </p>
+              <div className="flex items-baseline gap-2">
+                {offerPrice > 0 ? (
+                  <>
+                    <span className="text-lg font-bold text-[#D4AF37]">{symbol} {offerPrice.toLocaleString()}</span>
+                    <span className="text-xs text-gray-400 line-through">{symbol} {price.toLocaleString()}</span>
+                  </>
+                ) : price > 0 ? (
+                  <span className="text-lg font-bold text-gray-900">{symbol} {price.toLocaleString()}</span>
+                ) : (
+                  <span className="text-lg font-bold text-green-600">FREE</span>
+                )}
+              </div>
             )}
           </div>
         )}
 
         {/* Buttons */}
         <div className="border-t pt-3 mt-auto">
-          {enrollStatus === 'coming_soon' ? (
-            <button onClick={() => navigate(`/program/${program.id}`)}
-              data-testid={`know-more-btn-${program.id}`}
-              className="w-full bg-purple-600 hover:bg-purple-700 text-white py-2.5 rounded-full text-[10px] tracking-wider transition-all duration-300 uppercase font-medium">
-              Know More
-            </button>
+          {enrollStatus === 'open' && showPricing && price > 0 && !showContact ? (
+            <div className="flex gap-1.5">
+              <button onClick={() => navigate(`/program/${program.id}`)}
+                data-testid={`know-more-btn-${program.id}`}
+                className="flex-1 bg-purple-600 hover:bg-purple-700 text-white py-2.5 rounded-full text-[10px] tracking-wider transition-all duration-300 uppercase font-medium">
+                Know More
+              </button>
+              <button onClick={handleAddToCart} data-testid={`flagship-add-cart-${program.id}`}
+                disabled={inCart || justAdded}
+                className={`flex items-center justify-center px-2.5 py-2 rounded-full text-[10px] transition-all font-medium border ${
+                  inCart || justAdded ? 'bg-green-50 text-green-600 border-green-200' : 'bg-white text-gray-700 border-gray-200 hover:border-[#D4AF37] hover:text-[#D4AF37]'
+                }`}>
+                {inCart || justAdded ? <Check size={11} /> : <ShoppingCart size={11} />}
+              </button>
+              <button onClick={() => navigate(`/enroll/program/${program.id}?tier=${selectedTier}`)} data-testid={`flagship-enroll-${program.id}`}
+                className="flex-1 bg-[#D4AF37] hover:bg-[#b8962e] text-white py-2 rounded-full text-[10px] tracking-wider transition-all duration-300 uppercase font-medium">
+                Enroll Now
+              </button>
+            </div>
           ) : (
             <button onClick={() => navigate(`/program/${program.id}`)}
               data-testid={`know-more-btn-${program.id}`}
@@ -134,13 +178,6 @@ const ProgramsSection = ({ sectionConfig }) => {
               : <SimpleFlagshipCard key={p.id} program={p} />
           )}
         </div>
-        {programs.length > 6 && (
-          <div className="text-center mt-12">
-            <button onClick={() => navigate('/programs')} className="bg-[#D4AF37] hover:bg-[#b8962e] text-white px-8 py-3 rounded-full text-sm transition-all duration-300 shadow-lg tracking-wider">
-              View All Programs
-            </button>
-          </div>
-        )}
       </div>
     </section>
   );

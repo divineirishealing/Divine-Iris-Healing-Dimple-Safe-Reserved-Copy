@@ -369,27 +369,10 @@ const UpcomingCard = ({ program }) => {
             </div>
           </>
         ) : enrollStatus === 'coming_soon' ? (
-          /* Coming Soon — Express Your Interest */
+          /* Coming Soon — just Know More */
           <div className="border-t pt-3 mt-auto">
-            {!notifySubmitted ? (
-              <div data-testid={`express-interest-form-${program.id}`}>
-                <p className="text-xs text-blue-600 font-medium mb-2">Get notified when enrollment opens</p>
-                <div className="flex gap-1.5">
-                  <input type="email" value={notifyEmail} onChange={e => setNotifyEmail(e.target.value)}
-                    placeholder="Your email" className="flex-1 border border-gray-200 rounded-full px-3 py-1.5 text-[11px] focus:outline-none focus:border-blue-400" />
-                  <button onClick={handleNotifyMe} data-testid={`express-interest-btn-${program.id}`}
-                    className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-1.5 rounded-full text-[10px] tracking-wider uppercase font-medium transition-colors">
-                    Express Interest
-                  </button>
-                </div>
-              </div>
-            ) : (
-              <p className="text-xs text-green-600 font-medium text-center py-2" data-testid={`express-interest-success-${program.id}`}>
-                You'll be notified when enrollment opens!
-              </p>
-            )}
             <button onClick={() => navigate(`/program/${program.id}`)} data-testid={`upcoming-know-more-${program.id}`}
-              className="w-full mt-2 bg-[#1a1a1a] hover:bg-[#333] text-white py-2 rounded-full text-[10px] tracking-wider transition-all duration-300 uppercase font-medium">
+              className="w-full bg-[#1a1a1a] hover:bg-[#333] text-white py-2 rounded-full text-[10px] tracking-wider transition-all duration-300 uppercase font-medium">
               Know More
             </button>
           </div>
