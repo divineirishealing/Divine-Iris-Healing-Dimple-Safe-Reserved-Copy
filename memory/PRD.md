@@ -22,6 +22,15 @@ Build a pixel-perfect clone of https://divineirishealing.com/ with comprehensive
 
 ## Implemented Features
 
+### Admin Efficiency: Pricing Hub & Upcoming Hub (Mar 14, 2026) - COMPLETED
+- [x] Pricing Hub: Excel-style grid for ALL programs + sessions with AED/INR/USD base & offer prices
+- [x] Duration tier sub-rows (1 Month, 3 Month, Annual) with editable tier pricing
+- [x] Upcoming Hub: Excel-style grid for all card settings (Upcoming/Flagship/Enrollment toggles, closure text, dates, timing, timezone, exclusive offer, mode badges)
+- [x] Closure text dropdown (Registration Closed, Seats Full, Enrollment Closed, Sold Out) when enrollment OFF
+- [x] Single "Save All" button per tab for batch saves
+- [x] Big prominent closure badge + faded/dimmed look on BOTH card types when enrollment is OFF
+- [x] All 12/12 backend + 100% frontend tests passing (iteration 47)
+
 ### Program Card Closure Logic Redesign (Mar 14, 2026) - COMPLETED
 - [x] Flagship cards: NEVER show "Registration Closed" overlay — always clean, full color, no dimming
 - [x] Upcoming cards: Closure is now ONLY admin-controlled via `enrollment_open` toggle (no auto-expire)
