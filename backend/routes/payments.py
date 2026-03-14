@@ -17,7 +17,7 @@ from utils.uid_generator import generate_uid
 import stripe as stripe_lib
 
 async def create_checkout_no_adaptive(stripe_checkout: StripeCheckout, request: CheckoutSessionRequest) -> CheckoutSessionResponse:
-    """Create a Stripe checkout session with Adaptive Pricing DISABLED (no 'Choose a currency' popup)."""
+    """Create a Stripe checkout session with Adaptive Pricing DISABLED."""
     stripe_lib.api_key = stripe_checkout.api_key
     product_name = request.metadata.get("item_title", "Payment") if request.metadata else "Payment"
     line_items = [{
@@ -36,8 +36,8 @@ async def create_checkout_no_adaptive(stripe_checkout: StripeCheckout, request: 
         "metadata": request.metadata or {},
         "adaptive_pricing": {"enabled": False},
     }
-    if request.payment_method_types:
-        session_params["payment_method_types"] = request.payment_method_types
+    if request.payment_methods:
+        session_params["payment_method_types"] = request.payment_methods
     session = stripe_lib.checkout.Session.create(**session_params)
     return CheckoutSessionResponse(session_id=session.id, url=session.url)
 
