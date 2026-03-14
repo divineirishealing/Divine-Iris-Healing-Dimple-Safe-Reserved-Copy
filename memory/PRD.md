@@ -76,6 +76,14 @@ Build a pixel-perfect clone of https://divineirishealing.com/ with comprehensive
 - [x] Image upload system
 - [x] Global pricing font control
 
+### Program Card Date/Time on Image + GMT Conversion (Mar 14, 2026) - COMPLETED
+- [x] Moved dates and timing from card body onto the program card image
+- [x] Date/time positioned at bottom-right of image, alongside countdown timer at bottom-left
+- [x] Timing auto-converts from program's timezone to GMT
+- [x] Local timezone equivalent shown in blue (auto-detected from viewer's browser)
+- [x] Supports all major timezone abbreviations (IST, GST, EST, PST, BST, AEST, etc.)
+- [x] Clean layout on both desktop and mobile
+
 ## Pending / Upcoming Tasks
 
 ### P1: Global & Testimonial Search
