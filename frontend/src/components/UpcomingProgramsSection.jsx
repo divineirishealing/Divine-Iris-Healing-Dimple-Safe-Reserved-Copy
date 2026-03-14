@@ -5,7 +5,7 @@ import { resolveImageUrl } from '../lib/imageUtils';
 import { useCurrency } from '../context/CurrencyContext';
 import { useCart } from '../context/CartContext';
 import { useToast } from '../hooks/use-toast';
-import { Monitor, Calendar, Clock, AlertTriangle, Wifi, ShoppingCart, Check } from 'lucide-react';
+import { Monitor, Calendar, Clock, AlertTriangle, Wifi, ShoppingCart, Check, Bell } from 'lucide-react';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
@@ -210,6 +210,27 @@ const UpcomingCard = ({ program }) => {
             </div>
           </div>
         )}
+
+        {/* Early Bird Countdown */}
+        {!expired && program.enrollment_open !== false && offerPrice > 0 && deadline && (() => {
+          const now = new Date();
+          const dl = new Date(deadline);
+          if (dl <= now) return null;
+          const diff = dl - now;
+          const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+          const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+          const mins = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+          return (
+            <div data-testid={`early-bird-countdown-${program.id}`}
+              className="flex items-center gap-2 bg-red-50 border border-red-100 rounded-lg px-3 py-2 mb-3 animate-pulse">
+              <Bell size={14} className="text-red-500 flex-shrink-0" />
+              <div className="text-xs">
+                <span className="font-bold text-red-600">{program.offer_text || 'Early Bird'}</span>
+                <span className="text-red-500 ml-1.5">ends in {days}d {hours}h {mins}m</span>
+              </div>
+            </div>
+          );
+        })()}
 
         {/* Pricing */}
         <div className="border-t pt-4 mt-auto">
