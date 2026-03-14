@@ -92,12 +92,10 @@ Build a pixel-perfect clone of https://divineirishealing.com/ with comprehensive
 - [x] Receipt shows proper discount breakdown: base - promo - auto - 9% alt discount + 18% GST
 - [x] All settings configurable from admin "Payments" tab (Exly link, bank details, discount %, GST %)
 
-### Stripe Always Charges AED — No Currency Conversion (Mar 14, 2026) - COMPLETED
-- [x] Stripe checkout always sends AED (Dubai Stripe account native currency) — eliminates conversion popup
-- [x] Display currency preserved: India sees INR, UAE sees AED, others see USD — on our site and receipts
-- [x] AED conversion applied proportionally with same discount ratios
-- [x] Sponsor/donation checkout also always charges AED
-- [x] Transaction records store both display currency (for receipts) and stripe_amount/stripe_currency (for reconciliation)
+### Stripe: Disabled Adaptive Pricing (Mar 14, 2026) - COMPLETED
+- [x] Disabled "Choose a currency" popup on Stripe checkout by setting `adaptive_pricing: {enabled: false}`
+- [x] Original currency behavior preserved: INR for India, AED for UAE, USD for others
+- [x] Applied to all checkout flows: enrollment, regular payment, and sponsor/donation
 
 ## Pending / Upcoming Tasks
 
