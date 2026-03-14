@@ -22,6 +22,17 @@ Build a pixel-perfect clone of https://divineirishealing.com/ with comprehensive
 
 ## Implemented Features
 
+### Hub Sync + Replicate + Express Your Interest (Mar 14, 2026) - COMPLETED
+- [x] Programs Hub: Controls scheduling, enrollment, visibility only. Description says "Use Pricing Hub for prices"
+- [x] Programs Hub: "Replicate to Flagship" toggle — when Upcoming is ON, copy exact same card to Flagship section
+- [x] Pricing Hub: Now has "Pricing" and "Tiers" toggle columns (moved from Programs Hub). Controls homepage + program page
+- [x] "Notify Me" renamed to "Express Your Interest" everywhere (cards + program detail page)
+- [x] Express Your Interest: Collects email via /api/notify-me — user gets notified when enrollment opens
+- [x] Program detail page: "Express Your Interest" button with inline email form when pricing/enrollment off
+- [x] Coming Soon cards show badge + Express Your Interest email form
+- [x] Backend: replicate_to_flagship field added to Program model
+- [x] All tests passing: 100% backend (13/13), 100% frontend (iteration 54)
+
 ### Programs Hub v3 + Detail Page Pricing Control + Sponsor Link (Mar 14, 2026) - COMPLETED
 - [x] Programs Hub: Single merged table, non-tiered programs first, tiered below
 - [x] Programs Hub: Group toggle removed; Pricing & Tiers toggle columns added
