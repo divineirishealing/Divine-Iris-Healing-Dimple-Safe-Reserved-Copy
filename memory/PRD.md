@@ -24,12 +24,16 @@ Build a pixel-perfect clone of https://divineirishealing.com/ with comprehensive
 
 ### Admin Efficiency: Pricing Hub & Upcoming Hub (Mar 14, 2026) - COMPLETED
 - [x] Pricing Hub: Excel-style grid for ALL programs + sessions with AED/INR/USD base & offer prices
-- [x] Duration tier sub-rows (1 Month, 3 Month, Annual) with editable tier pricing
-- [x] Upcoming Hub: Excel-style grid for all card settings (Upcoming/Flagship/Enrollment toggles, closure text, dates, timing, timezone, exclusive offer, mode badges)
-- [x] Closure text dropdown (Registration Closed, Seats Full, Enrollment Closed, Sold Out) when enrollment OFF
-- [x] Single "Save All" button per tab for batch saves
+- [x] Duration tier sub-rows with full offer pricing per tier (AED/INR/USD + Offer + Badge)
+- [x] Custom duration presets: 2 Days, 3 Days, 5 Days, 7 Days, 10 Days, 14 Days, 21 Days, 1 Month, 3 Months, 6 Months, Annual
+- [x] Add/Remove tiers, Add Program, Add Session buttons
+- [x] No more confusing base 0/0/0 row — tier programs show tier rows directly
+- [x] Sessions now have offer pricing (offer_price_aed/inr/usd + offer_text)
+- [x] show_pricing_on_card and show_tiers_on_card toggles per program
+- [x] Renamed "Flagship Programs" to "Programs" on homepage
+- [x] Upcoming Hub: Excel-style grid for all card settings
 - [x] Big prominent closure badge + faded/dimmed look on BOTH card types when enrollment is OFF
-- [x] All 12/12 backend + 100% frontend tests passing (iteration 47)
+- [x] All 12/12 backend + 100% frontend tests passing (iteration 48)
 
 ### Program Card Closure Logic Redesign (Mar 14, 2026) - COMPLETED
 - [x] Flagship cards: NEVER show "Registration Closed" overlay — always clean, full color, no dimming
