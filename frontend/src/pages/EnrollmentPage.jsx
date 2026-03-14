@@ -242,6 +242,7 @@ function EnrollmentPage() {
         india_alt_discount: s.india_alt_discount_percent || 9,
         india_exly_link: s.india_exly_link || '',
         india_bank_details: s.india_bank_details || {},
+        india_enabled: s.india_payment_enabled || false,
       });
     }).catch(() => {});
   }, [id, type, navigate]);
@@ -613,8 +614,8 @@ function EnrollmentPage() {
                       {phone && <p><strong>Phone:</strong> {countryCode}{phone}</p>}
                     </div>
 
-                    {/* India payment options — only show if Exly or Bank is configured */}
-                    {bookerCountry === 'IN' && (paymentSettings.india_exly_link || paymentSettings.india_bank_details?.account_number) && (
+                    {/* India payment options — only show if enabled in admin */}
+                    {bookerCountry === 'IN' && paymentSettings.india_enabled && (
                       <div className="mb-4" data-testid="india-payment-options">
                         {/* Stripe card option first with guidance */}
                         <div className="border-2 border-[#D4AF37] rounded-lg p-4 mb-3 bg-[#D4AF37]/5">

@@ -10,6 +10,7 @@ const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 const PaymentSettingsTab = () => {
   const { toast } = useToast();
   const [disclaimer, setDisclaimer] = useState('');
+  const [indiaEnabled, setIndiaEnabled] = useState(false);
   const [exlyLink, setExlyLink] = useState('');
   const [altDiscountPct, setAltDiscountPct] = useState(9);
   const [gstPct, setGstPct] = useState(18);
@@ -22,6 +23,7 @@ const PaymentSettingsTab = () => {
   useEffect(() => {
     axios.get(`${API}/settings`).then(r => {
       setDisclaimer(r.data.payment_disclaimer || '');
+      setIndiaEnabled(r.data.india_payment_enabled || false);
       setExlyLink(r.data.india_exly_link || '');
       setAltDiscountPct(r.data.india_alt_discount_percent ?? 9);
       setGstPct(r.data.india_gst_percent ?? 18);
@@ -40,6 +42,7 @@ const PaymentSettingsTab = () => {
     try {
       await axios.put(`${API}/settings`, {
         payment_disclaimer: disclaimer,
+        india_payment_enabled: indiaEnabled,
         india_exly_link: exlyLink,
         india_alt_discount_percent: parseFloat(altDiscountPct) || 9,
         india_gst_percent: parseFloat(gstPct) || 18,
@@ -73,6 +76,19 @@ const PaymentSettingsTab = () => {
           className="w-full border rounded-lg px-3 py-2 text-xs text-gray-700 resize-none focus:ring-1 focus:ring-[#D4AF37] focus:border-[#D4AF37]"
           placeholder="We love aligning our work with the natural solar cycle..."
         />
+      </div>
+
+      {/* India Payment Master Toggle */}
+      <div className="mb-6 bg-gray-50 border rounded-lg p-5 flex items-center justify-between">
+        <div>
+          <h3 className="text-sm font-semibold text-gray-900">India Payment Options</h3>
+          <p className="text-[10px] text-gray-400">Show Exly & Bank Transfer options on enrollment page for Indian users</p>
+        </div>
+        <label className="relative inline-flex items-center cursor-pointer" data-testid="india-payment-toggle">
+          <input type="checkbox" checked={indiaEnabled} onChange={e => setIndiaEnabled(e.target.checked)} className="sr-only peer" />
+          <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-green-500"></div>
+          <span className="ml-2 text-xs font-medium text-gray-700">{indiaEnabled ? 'Enabled' : 'Disabled'}</span>
+        </label>
       </div>
 
       {/* Exly Payment Gateway */}

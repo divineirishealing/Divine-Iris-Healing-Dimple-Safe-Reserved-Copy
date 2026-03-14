@@ -424,9 +424,10 @@ class SiteSettings(BaseModel):
     # Payment disclaimer text
     payment_disclaimer: str = "We love aligning our work with the natural solar cycle of where you are. If the pricing you see isn't in your local currency, please reach out\u2014we'd be happy to provide the adjusted rates tailored to your home country."
     # India payment options (alternative links for Indian users)
+    india_alt_discount_percent: float = 9  # % discount for choosing alt payment
     india_payment_links: List[Dict] = []  # [{type: "exly"|"gpay"|"bank", label: "...", url: "...", details: "...", enabled: true}]
     # India alternative payment settings
-    india_alt_discount_percent: float = 9  # % discount for choosing alt payment
+    india_payment_enabled: bool = False
     india_gst_percent: float = 18  # GST %
     india_upi_id: str = ""  # UPI ID for GPay/PhonePe
     india_exly_link: str = ""  # Exly payment link
@@ -547,6 +548,7 @@ class SiteSettingsUpdate(BaseModel):
     payment_disclaimer: Optional[str] = None
     india_payment_links: Optional[List[Dict]] = None
     india_alt_discount_percent: Optional[float] = None
+    india_payment_enabled: Optional[bool] = None
     india_gst_percent: Optional[float] = None
     india_upi_id: Optional[str] = None
     india_exly_link: Optional[str] = None
