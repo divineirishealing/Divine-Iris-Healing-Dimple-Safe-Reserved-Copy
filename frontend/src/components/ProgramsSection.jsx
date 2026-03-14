@@ -170,10 +170,10 @@ const ProgramCard = ({ program }) => {
 
   return (
     <div data-testid={`program-card-${program.id}`}
-      className={`group bg-white rounded-xl overflow-hidden shadow-lg transition-all duration-300 border border-gray-100 flex flex-col ${expired || program.enrollment_open === false ? 'opacity-75' : 'hover:shadow-2xl'}`}>
+      className="group bg-white rounded-xl overflow-hidden shadow-lg transition-all duration-300 border border-gray-100 flex flex-col hover:shadow-2xl">
       <div className="relative h-48 overflow-hidden cursor-pointer" onClick={() => navigate(`/program/${program.id}`)}>
         <img src={resolveImageUrl(program.image)} alt={program.title}
-          className={`w-full h-full object-cover transition-transform duration-500 ${!(expired || program.enrollment_open === false) ? 'group-hover:scale-105' : 'grayscale-[30%]'}`}
+          className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
           onError={(e) => { e.target.src = 'https://images.unsplash.com/photo-1545389336-cf090694435e?w=600&h=400&fit=crop'; }} />
         {/* Top-left: Mode badges */}
         <div className="absolute top-3 left-3 flex flex-col gap-1">
@@ -221,20 +221,15 @@ const ProgramCard = ({ program }) => {
             )}
           </div>
         )}
-        {(expired || program.enrollment_open === false) && (
-          <div className="absolute inset-0 bg-black/20 flex items-center justify-center">
-            <span className="bg-gray-900/80 text-white text-[10px] font-bold px-3 py-1.5 rounded-full tracking-wider uppercase">Registration Closed</span>
-          </div>
-        )}
         {/* Bottom overlay: countdown left, exclusive offer right */}
         <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 via-black/30 to-transparent p-2.5 pt-6">
           <div className="flex items-end justify-between gap-2">
             <div className="flex-shrink-0">
-              {!expired && program.enrollment_open !== false && deadline && (
+              {program.enrollment_open !== false && deadline && (
                 <CountdownTimer deadline={deadline} />
               )}
             </div>
-            {program.exclusive_offer_enabled && program.exclusive_offer_text && !expired && program.enrollment_open !== false && (
+            {program.exclusive_offer_enabled && program.exclusive_offer_text && program.enrollment_open !== false && (
               <span data-testid={`exclusive-offer-${program.id}`} className="bg-red-600 text-white text-[10px] font-bold px-2.5 py-1 rounded-full shadow-lg tracking-wide uppercase animate-pulse">
                 {program.exclusive_offer_text}
               </span>
@@ -264,7 +259,7 @@ const ProgramCard = ({ program }) => {
         )}
 
         {/* Early Bird Countdown */}
-        {!expired && program.enrollment_open !== false && offerPrice > 0 && deadline && (() => {
+        {program.enrollment_open !== false && offerPrice > 0 && deadline && (() => {
           const now = new Date();
           const dl = new Date(deadline);
           if (dl <= now) return null;
@@ -294,13 +289,6 @@ const ProgramCard = ({ program }) => {
                 Contact for Pricing
               </button>
             </div>
-          ) : program.enrollment_open === false ? (
-            <div className="flex gap-1.5">
-              <button onClick={() => navigate(`/program/${program.id}`)} data-testid={`know-more-btn-${program.id}`}
-                className="w-full bg-gradient-to-r from-purple-600 to-purple-500 hover:from-purple-700 hover:to-purple-600 text-white text-xs py-2.5 rounded-full transition-all tracking-wider uppercase font-medium shadow-sm">
-                Know More
-              </button>
-            </div>
           ) : (
             <>
               <div className="flex items-baseline gap-2 mb-2">
@@ -321,7 +309,7 @@ const ProgramCard = ({ program }) => {
                   className="flex-1 bg-[#1a1a1a] hover:bg-[#333] text-white py-2 rounded-full text-[10px] tracking-wider transition-all duration-300 uppercase font-medium">
                   Know More
                 </button>
-                {!expired && program.enrollment_open !== false ? (
+                {program.enrollment_open !== false ? (
                   <>
                     {price > 0 && (
                       <button onClick={handleAddToCart} data-testid={`add-to-cart-${program.id}`}
@@ -338,11 +326,6 @@ const ProgramCard = ({ program }) => {
                       {price > 0 ? 'Enroll Now' : 'Register Free'}
                     </button>
                   </>
-                ) : (expired || program.enrollment_open === false) ? (
-                  <button disabled data-testid={`enroll-disabled-${program.id}`}
-                    className="flex-1 bg-gray-300 text-gray-500 py-2 rounded-full text-[10px] tracking-wider uppercase font-medium cursor-not-allowed">
-                    Closed
-                  </button>
                 ) : null}
               </div>
             </>

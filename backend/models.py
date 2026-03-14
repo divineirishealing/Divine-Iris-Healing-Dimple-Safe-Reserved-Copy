@@ -81,6 +81,7 @@ class Program(BaseModel):
     show_duration_on_card: bool = True
     exclusive_offer_enabled: bool = False
     exclusive_offer_text: str = "Limited Time Offer"
+    closure_text: str = "Registration Closed"
     content_sections: List[Dict] = []  # List of ContentSection dicts
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
@@ -129,6 +130,7 @@ class ProgramCreate(BaseModel):
     show_duration_on_card: Optional[bool] = True
     exclusive_offer_enabled: Optional[bool] = False
     exclusive_offer_text: Optional[str] = "Limited Time Offer"
+    closure_text: Optional[str] = "Registration Closed"
     content_sections: Optional[List[Dict]] = []
 
 

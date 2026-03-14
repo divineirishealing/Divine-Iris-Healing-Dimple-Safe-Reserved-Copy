@@ -1,0 +1,89 @@
+{
+  "summary": "Iteration 46 - Program Card Closure Logic Redesign COMPLETE. Verified: (1) Flagship cards NEVER show closure overlays regardless of enrollment_open status - all 6 cards show full color with no dimming/grayscale. (2) Upcoming cards closure is now ONLY admin-controlled via enrollment_open toggle. (3) Admin panel shows orange-bordered dropdown with 4 closure text options when Enrollment Open is toggled OFF. (4) closure_text field persists correctly and displays on frontend.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/test_reports/iteration_46.json"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [],
+  "updated_files": [],
+  "success_rate": {
+    "backend": "100% (API verification passed - closure_text field exists and persists)",
+    "frontend": "100% (All 10 tests passed)"
+  },
+  "test_credentials": {
+    "admin_url": "/admin",
+    "admin_username": "admin",
+    "admin_password": "divineadmin2024"
+  },
+  "seed_data_creation": "Temporarily set Quad Layer Healing enrollment_open=false with closure_text='Sold Out' for testing, then restored to enrollment_open=true",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Program card closure logic has been redesigned. Flagship cards (ProgramsSection.jsx) NEVER show closure overlays - the expired logic is not used for overlays. Upcoming cards (UpcomingProgramsSection.jsx) show closure overlay ONLY when enrollment_open=false (admin-controlled). Admin panel has orange-bordered closure_text dropdown with 4 options when enrollment is toggled OFF.",
+  "features_tested": {
+    "flagship_programs_no_closure_overlay": {
+      "status": "PASS",
+      "cards_tested": 6,
+      "verified": [
+        "Card 1 (AWRP): No opacity, no grayscale, no closure overlay",
+        "Card 2 (AMRP): No opacity, no grayscale, no closure overlay",
+        "Card 3 (SoulSync): No opacity, no grayscale, no closure overlay",
+        "Card 4 (Money Magic): No opacity, no grayscale, no closure overlay",
+        "Card 5 (Quad Layer): No opacity, no grayscale, no closure overlay",
+        "Card 6 (Divinity): No opacity, no grayscale, no closure overlay"
+      ],
+      "buttons_verified": "Know More button visible on all cards, Enroll/Cart only on enrollment_open=true cards"
+    },
+    "upcoming_programs_admin_controlled_closure": {
+      "status": "PASS",
+      "verified": [
+        "enrollment_open=true: Full color card, countdown timer, Enroll Now button",
+        "enrollment_open=false: Card has opacity-75, image has grayscale-30%, closure overlay visible",
+        "Closure overlay shows admin-chosen closure_text (e.g., 'Sold Out')",
+        "Disabled button shows closure_text (e.g., 'Sold Out')"
+      ]
+    },
+    "admin_closure_text_dropdown": {
+      "status": "PASS",
+      "verified": [
+        "Orange-bordered section appears when Enrollment Open toggled OFF",
+        "Dropdown label: 'Closure Badge Text (shown on card)'",
+        "Options: 'Registration Closed', 'Seats Full', 'Enrollment Closed', 'Sold Out'",
+        "Selected value persists when saved",
+        "closure_text field stored in database"
+      ]
+    },
+    "closure_text_persistence": {
+      "status": "PASS",
+      "test_flow": [
+        "1. Admin toggled Enrollment OFF on Quad Layer Healing",
+        "2. Selected 'Sold Out' from dropdown",
+        "3. Saved program",
+        "4. Frontend Upcoming card showed 'SOLD OUT' overlay",
+        "5. Frontend disabled button showed 'SOLD OUT'",
+        "6. Reset program to enrollment_open=true"
+      ]
+    }
+  },
+  "model_fields_verified": {
+    "Program": {
+      "closure_text": "str, default='Registration Closed' (line 84 in models.py)"
+    },
+    "ProgramCreate": {
+      "closure_text": "Optional[str], default='Registration Closed' (line 133 in models.py)"
+    }
+  },
+  "code_review_notes": {
+    "ProgramsSection.jsx": "Flagship cards - NO closure overlay logic implemented. The 'expired' variable exists (line 141-145) but is NOT used for any overlay/dimming. Card always renders with full color.",
+    "UpcomingProgramsSection.jsx": "Upcoming cards - Closure overlay at line 236-240 only shows when enrollment_open===false. Uses program.closure_text or falls back to 'Registration Closed'.",
+    "AdminPanel.jsx": "Orange-bordered closure dropdown at lines 376-384. Shows when !programForm.enrollment_open with 4 options."
+  }
+}
