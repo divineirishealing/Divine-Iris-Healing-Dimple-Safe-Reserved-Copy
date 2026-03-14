@@ -22,6 +22,13 @@ Build a pixel-perfect clone of https://divineirishealing.com/ with comprehensive
 
 ## Implemented Features
 
+### P0 Enrollment Toggle Verification & Bug Fix (Mar 14, 2026) - COMPLETED
+- [x] Verified: Upcoming card enrollment ON shows all details (dates, countdown, pricing, tier selector, badges)
+- [x] Verified: Upcoming card enrollment OFF shows only closure badge + title + Know More + disabled button
+- [x] Fixed: Programs section now filters out is_upcoming=true programs (was showing Quad Layer Healing in both sections)
+- [x] Admin Programs Hub enrollment toggle + closure text dropdown verified working
+- [x] All tests passing: 100% backend (9/9), 95% frontend (iteration 51)
+
 ### Card & Pricing Hub Refinements v3 (Mar 14, 2026) - COMPLETED
 - [x] Pricing Hub: Removed Add Program/Session buttons (create in Programs/Sessions tab)
 - [x] Pricing Hub: Single flat list (no Upcoming/Flagship segregation)
