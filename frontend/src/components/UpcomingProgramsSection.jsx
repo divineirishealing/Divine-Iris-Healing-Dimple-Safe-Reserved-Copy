@@ -39,10 +39,10 @@ const parseTimeStr = (str) => {
 
 // Convert timing from source timezone to viewer's local time
 const convertTimingToLocal = (timing, timeZone) => {
-  if (!timing || !timeZone) return { local: '', localTz: '' };
+  if (!timing || !timeZone) return { local: '', localTz: '', srcTz: timeZone || '' };
 
   const tzKey = Object.keys(TZ_OFFSETS).find(k => timeZone.toUpperCase().includes(k.toUpperCase()));
-  if (!tzKey && tzKey !== 0) return { local: '', localTz: '' };
+  if (!tzKey && tzKey !== 0) return { local: '', localTz: '', srcTz: timeZone || '' };
   const srcOffset = TZ_OFFSETS[tzKey];
 
   const parts = timing.split(/\s*[-–—to]+\s*/i);
@@ -62,12 +62,16 @@ const convertTimingToLocal = (timing, timeZone) => {
   const localOffset = -(new Date().getTimezoneOffset()) / 60;
   const localTzAbbr = new Date().toLocaleTimeString('en-US', { timeZoneName: 'short' }).split(' ').pop();
 
+  // Check if viewer is in the same timezone as source
+  const isSameTz = Math.abs(localOffset - srcOffset) < 0.1;
+
   const localTimes = parts.map(p => convertToOffset(parseTimeStr(p.trim()), srcOffset, localOffset));
   const localStr = localTimes.filter(Boolean).map(t => formatTime(t.hours, t.minutes)).join(' - ');
 
   return {
-    local: localStr,
-    localTz: localTzAbbr || '',
+    local: isSameTz ? '' : localStr,
+    localTz: isSameTz ? '' : (localTzAbbr || ''),
+    srcTz: timeZone || '',
   };
 };
 
@@ -208,13 +212,25 @@ const UpcomingCard = ({ program }) => {
                 <CountdownTimer deadline={deadline} />
               )}
             </div>
-            {/* Date & Local Time right */}
-            {(program.start_date || timingConverted.local) && (
+            {/* Date & Local Time right — 3 rows: start date, end date, time */}
+            {(program.start_date || program.timing) && (
               <div data-testid={`card-image-datetime-${program.id}`} className="flex flex-col items-end gap-1">
-                {(program.start_date || program.end_date) && (
+                {program.start_date && (
                   <span className="bg-black/50 backdrop-blur-sm text-white text-[11px] font-bold px-2.5 py-1 rounded flex items-center gap-1.5">
                     <Calendar size={11} className="flex-shrink-0" />
-                    {fmtDate(program.start_date)}{program.end_date ? ` — ${fmtDate(program.end_date)}` : ''}
+                    Starts: {fmtDate(program.start_date)}
+                  </span>
+                )}
+                {program.end_date && (
+                  <span className="bg-black/50 backdrop-blur-sm text-white text-[11px] font-bold px-2.5 py-1 rounded flex items-center gap-1.5">
+                    <Calendar size={11} className="flex-shrink-0" />
+                    Ends: {fmtDate(program.end_date)}
+                  </span>
+                )}
+                {program.timing && (
+                  <span className="bg-black/50 backdrop-blur-sm text-white text-[11px] font-bold px-2.5 py-1 rounded flex items-center gap-1.5">
+                    <Clock size={11} className="flex-shrink-0" />
+                    {program.timing} {timingConverted.srcTz}
                   </span>
                 )}
                 {timingConverted.local && (
