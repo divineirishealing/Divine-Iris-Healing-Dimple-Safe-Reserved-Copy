@@ -1,0 +1,97 @@
+{
+  "summary": "Iteration 54: Tested Programs Hub 'Replicate' column behavior, Pricing Hub with Pricing/Tiers toggle columns, Homepage flagship replicate_to_flagship functionality, Express Your Interest (renamed from Notify Me), and Sponsor A Life navigation. All 13 backend tests passed. Frontend UI verified all features working correctly.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iteration54_replicate_express_interest.py",
+    "/app/test_reports/pytest/pytest_iteration54.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [],
+  "updated_files": [
+    "/app/backend/tests/test_iteration54_replicate_express_interest.py"
+  ],
+  "success_rate": {
+    "backend": "100% (13/13 tests passed)",
+    "frontend": "100% - All features verified"
+  },
+  "test_credentials": {
+    "admin_url": "/admin",
+    "admin_username": "admin",
+    "admin_password": "divineadmin2024"
+  },
+  "seed_data_creation": "Test notify-me subscriber created via API and UI",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Iteration 54 verified all requested features: (1) Programs Hub shows 'Replicate' column (with Copy icon, purple text) - shows toggle ONLY when Upcoming is ON, shows '—' when OFF. Program 5 (Quad Layer) has is_upcoming=true and shows Replicate toggle (which is ON). Programs with is_upcoming=false (e.g., AMRP, SoulSync, etc.) show '—' instead of toggle. (2) Programs Hub has NO Pricing/Tiers columns (moved to Pricing Hub). Description says 'Use Pricing Hub for prices & tier visibility'. (3) Pricing Hub has 'Pricing' and 'Tiers' toggle columns. Price inputs use type='text' with inputMode='decimal' (no number spinners). (4) Homepage Flagship: Program 5 with replicate_to_flagship=true uses UpcomingCard style, others use SimpleFlagshipCard with purple 'Know More' button (bg-purple-600). (5) 'Notify Me' renamed to 'Express Your Interest' everywhere. (6) Program detail page shows 'Express Your Interest' button when enrollment not open (program 5 with enrollment_status='closed'). Clicking reveals email form that submits to /api/notify-me. Success message: 'You'll be notified when enrollment opens!'. (7) Sponsor A Life nav link correctly navigates to /sponsor page.",
+  "features_tested": {
+    "programs_hub_replicate_column": {
+      "status": "PASS",
+      "verified": [
+        "Replicate column visible with Copy icon and purple text",
+        "Replicate toggle shows ONLY when Upcoming is ON (e.g., program 5)",
+        "Replicate shows dash '—' when Upcoming is OFF (e.g., programs 2,3,4,6)",
+        "No Pricing/Tiers columns in Programs Hub",
+        "Description mentions 'Use Pricing Hub for prices'"
+      ]
+    },
+    "pricing_hub_pricing_tiers_columns": {
+      "status": "PASS",
+      "verified": [
+        "Pricing column with toggle switch present",
+        "Tiers column with toggle switch present",
+        "Price inputs are plain text (type='text', inputMode='decimal')",
+        "No number spinners on price inputs",
+        "Description: 'Prices shown here apply to both homepage cards and program detail pages'"
+      ]
+    },
+    "homepage_flagship_replicate_behavior": {
+      "status": "PASS",
+      "verified": [
+        "Program 5 (replicate_to_flagship=true, is_upcoming=true) shows as UpcomingCard",
+        "Program 1 (replicate_to_flagship=false, is_upcoming=true) shows as SimpleFlagshipCard",
+        "Programs 2,3,4,6 (is_upcoming=false) show as SimpleFlagshipCard",
+        "SimpleFlagshipCard has purple 'Know More' button (bg-purple-600)"
+      ]
+    },
+    "express_your_interest_renamed": {
+      "status": "PASS",
+      "verified": [
+        "'Notify Me' text NOT found on any page",
+        "'Express Your Interest' text found on program detail page CTA",
+        "Button reveals email form on click",
+        "Form submits to /api/notify-me",
+        "Success message: 'You'll be notified when enrollment opens!'"
+      ]
+    },
+    "sponsor_a_life_nav": {
+      "status": "PASS",
+      "verified": [
+        "Sponsor A Life link visible in header nav",
+        "Clicking navigates to /sponsor page correctly",
+        "Sponsor page shows 'Shine a Light in a Life' title"
+      ]
+    },
+    "notify_me_api": {
+      "status": "PASS",
+      "verified": [
+        "POST /api/notify-me creates subscription",
+        "GET /api/notify-me returns subscribers list",
+        "API handles both valid and edge case emails"
+      ]
+    }
+  },
+  "programs_data_summary": {
+    "total_flagship": 6,
+    "upcoming_flagships": ["AWRP (id=1, replicate=false)", "Quad Layer (id=5, replicate=true)"],
+    "replicate_true_programs": ["Quad Layer Healing (id=5)"],
+    "coming_soon_programs": ["Trauma Clearing (not flagship, not upcoming)"]
+  }
+}

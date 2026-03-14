@@ -4,7 +4,7 @@ import { useToast } from '../../../hooks/use-toast';
 import { Button } from '../../ui/button';
 import { Input } from '../../ui/input';
 import { Switch } from '../../ui/switch';
-import { Save, Calendar, ChevronDown, ChevronUp } from 'lucide-react';
+import { Save, Calendar, ChevronDown, ChevronUp, Copy } from 'lucide-react';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
@@ -21,11 +21,12 @@ const ProgramRow = ({ p, update, updateTier }) => {
   const [open, setOpen] = useState(false);
   const status = p.enrollment_status || (p.enrollment_open !== false ? 'open' : 'closed');
   const tiers = p.duration_tiers || [];
+  const isUpcoming = p.is_upcoming || false;
 
   return (
     <>
       <tr className="border-b hover:bg-gray-50" data-testid={`hub-program-${p.id}`}>
-        {/* Name + expand */}
+        {/* Name */}
         <td className="px-3 py-2 sticky left-0 bg-white z-10 border-r">
           <div className="flex items-center gap-2">
             {tiers.length > 0 && (
@@ -40,14 +41,23 @@ const ProgramRow = ({ p, update, updateTier }) => {
           </div>
         </td>
 
-        {/* Upcoming toggle */}
+        {/* Upcoming */}
         <td className="px-2 py-2 text-center">
-          <Switch checked={p.is_upcoming || false} onCheckedChange={v => update('is_upcoming', v)} data-testid={`hub-upcoming-toggle-${p.id}`} />
+          <Switch checked={isUpcoming} onCheckedChange={v => update('is_upcoming', v)} data-testid={`hub-upcoming-toggle-${p.id}`} />
         </td>
 
-        {/* Flagship toggle */}
+        {/* Flagship */}
         <td className="px-2 py-2 text-center">
           <Switch checked={p.is_flagship || false} onCheckedChange={v => update('is_flagship', v)} data-testid={`hub-flagship-toggle-${p.id}`} />
+        </td>
+
+        {/* Replicate to Flagship — only when Upcoming is ON */}
+        <td className="px-2 py-2 text-center">
+          {isUpcoming ? (
+            <div className="flex items-center justify-center gap-1">
+              <Switch checked={p.replicate_to_flagship || false} onCheckedChange={v => update('replicate_to_flagship', v)} data-testid={`hub-replicate-toggle-${p.id}`} />
+            </div>
+          ) : <span className="text-[10px] text-gray-300">—</span>}
         </td>
 
         {/* Status */}
@@ -70,20 +80,10 @@ const ProgramRow = ({ p, update, updateTier }) => {
           ) : <span className="text-xs text-gray-300 px-2">—</span>}
         </td>
 
-        {/* Show Pricing */}
-        <td className="px-2 py-2 text-center">
-          <Switch checked={p.show_pricing_on_card !== false} onCheckedChange={v => update('show_pricing_on_card', v)} />
-        </td>
-
-        {/* Show Tiers */}
-        <td className="px-2 py-2 text-center">
-          <Switch checked={p.show_tiers_on_card !== false} onCheckedChange={v => update('show_tiers_on_card', v)} />
-        </td>
-
-        {/* Start Date */}
+        {/* Start */}
         <td className="px-1 py-2"><Input type="date" value={p.start_date || ''} onChange={e => update('start_date', e.target.value)} className="h-8 text-xs px-2" /></td>
 
-        {/* End Date */}
+        {/* End */}
         <td className="px-1 py-2"><Input type="date" value={p.end_date || ''} onChange={e => update('end_date', e.target.value)} className="h-8 text-xs px-2" /></td>
 
         {/* Deadline */}
@@ -99,7 +99,7 @@ const ProgramRow = ({ p, update, updateTier }) => {
           </select>
         </td>
 
-        {/* Exclusive Offer */}
+        {/* Offer */}
         <td className="px-2 py-2 text-center">
           <Switch checked={p.exclusive_offer_enabled || false} onCheckedChange={v => update('exclusive_offer_enabled', v)} />
         </td>
@@ -127,7 +127,7 @@ const ProgramRow = ({ p, update, updateTier }) => {
           <td className="px-3 py-1.5 sticky left-0 bg-amber-50/40 z-10 border-r">
             <div className="ml-8 text-[11px] font-semibold text-[#D4AF37]">{t.label || `Tier ${ti + 1}`}</div>
           </td>
-          <td colSpan={6}></td>
+          <td colSpan={5}></td>
           <td className="px-1 py-1"><Input type="date" value={t.start_date || ''} onChange={e => updateTier(ti, 'start_date', e.target.value)} className="h-7 text-[10px] px-1" /></td>
           <td className="px-1 py-1"><Input type="date" value={t.end_date || ''} onChange={e => updateTier(ti, 'end_date', e.target.value)} className="h-7 text-[10px] px-1" /></td>
           <td colSpan={7}></td>
@@ -189,7 +189,7 @@ const UpcomingHubTab = () => {
             <Calendar size={18} className="text-[#D4AF37]" /> Programs Hub
           </h2>
           <p className="text-xs text-gray-500 mt-1">
-            Toggle where each program appears. Pricing & Tiers toggles control visibility on homepage AND program page.
+            Controls Upcoming section, scheduling, enrollment & visibility. Use <strong>Pricing Hub</strong> for prices & tier visibility on homepage/program page.
           </p>
         </div>
         <Button onClick={saveAll} disabled={saving} className="bg-[#D4AF37] hover:bg-[#b8962e]" data-testid="hub-save-btn">
@@ -204,10 +204,11 @@ const UpcomingHubTab = () => {
               <th className="text-left px-3 py-3 font-bold text-gray-700 min-w-[200px] sticky left-0 bg-gray-100 z-10 border-r">Program</th>
               <th className="px-2 py-3 font-bold text-blue-600 w-16">Upcoming</th>
               <th className="px-2 py-3 font-bold text-[#D4AF37] w-16">Flagship</th>
+              <th className="px-2 py-3 font-bold text-purple-600 w-16" title="When Upcoming is ON, replicate same card to Flagship section">
+                <div className="flex items-center justify-center gap-0.5"><Copy size={10} /> Replicate</div>
+              </th>
               <th className="px-1 py-3 font-bold text-gray-600 min-w-[100px]">Status</th>
               <th className="px-1 py-3 font-bold text-red-500 min-w-[110px]">Closure</th>
-              <th className="px-2 py-3 font-bold text-purple-600 w-16">Pricing</th>
-              <th className="px-2 py-3 font-bold text-purple-600 w-14">Tiers</th>
               <th className="px-1 py-3 font-bold text-gray-600 min-w-[120px]">Start</th>
               <th className="px-1 py-3 font-bold text-gray-600 min-w-[120px]">End</th>
               <th className="px-1 py-3 font-bold text-gray-600 min-w-[120px]">Deadline</th>

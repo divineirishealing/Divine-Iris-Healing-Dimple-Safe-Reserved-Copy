@@ -118,8 +118,8 @@ const PricingHubTab = () => {
               <tr className="bg-gray-100 border-b">
                 <th className="text-left px-2 py-2 font-semibold text-gray-700 min-w-[180px] sticky left-0 bg-gray-100 z-10">Name</th>
                 <th className="px-1 py-2 font-semibold text-gray-600 w-12">Show</th>
-                <th className="px-1 py-2 font-semibold text-gray-600 w-12">Price</th>
-                <th className="px-1 py-2 font-semibold text-gray-600 w-12">Tiers</th>
+                <th className="px-1 py-2 font-semibold text-purple-600 w-12" title="Show pricing on homepage & program page">Pricing</th>
+                <th className="px-1 py-2 font-semibold text-purple-600 w-12" title="Show tier selector on homepage & program page">Tiers</th>
                 <th className="px-1 py-2 font-semibold text-blue-700 min-w-[70px]">AED</th>
                 <th className="px-1 py-2 font-semibold text-green-700 min-w-[70px]">INR</th>
                 <th className="px-1 py-2 font-semibold text-purple-700 min-w-[70px]">USD</th>

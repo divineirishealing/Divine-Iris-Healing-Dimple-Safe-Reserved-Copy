@@ -14,6 +14,45 @@ import { HEADING, SUBTITLE, BODY, GOLD, LABEL, CONTAINER, NARROW, WIDE, SECTION_
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
 
+const ExpressInterestInline = ({ programId, programTitle, accent }) => {
+  const [email, setEmail] = useState('');
+  const [submitted, setSubmitted] = useState(false);
+  const [showForm, setShowForm] = useState(false);
+
+  const handleSubmit = async () => {
+    if (!email) return;
+    try {
+      await axios.post(`${API}/notify-me`, { email, program_id: programId, program_title: programTitle });
+      setSubmitted(true);
+    } catch {}
+  };
+
+  if (submitted) return <p className="text-green-600 text-sm font-medium" data-testid="express-interest-success">You'll be notified when enrollment opens!</p>;
+
+  if (!showForm) {
+    return (
+      <button data-testid="express-interest-btn" onClick={() => setShowForm(true)}
+        className="text-white px-10 py-3 text-xs tracking-[0.2em] uppercase transition-colors hover:opacity-90" style={{ background: accent }}>
+        Express Your Interest
+      </button>
+    );
+  }
+
+  return (
+    <div className="flex flex-col items-center gap-3 w-full max-w-md" data-testid="express-interest-form">
+      <p className="text-sm text-gray-600">Enter your email to get notified when enrollment opens</p>
+      <div className="flex gap-2 w-full">
+        <input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="Your email"
+          className="flex-1 border border-gray-300 rounded-full px-4 py-2.5 text-sm focus:outline-none focus:border-blue-400" />
+        <button onClick={handleSubmit} data-testid="express-interest-submit"
+          className="text-white px-6 py-2.5 text-xs tracking-[0.15em] uppercase transition-colors hover:opacity-90 rounded-full" style={{ background: accent }}>
+          Submit
+        </button>
+      </div>
+    </div>
+  );
+};
+
 const applyStyle = (styleObj, defaults = {}) => {
   if (!styleObj || Object.keys(styleObj).length === 0) return defaults;
   return {
@@ -337,7 +376,10 @@ function ProgramDetailPage() {
                             </div><span className="inline-block bg-gray-900 text-white text-[10px] py-2 px-6 tracking-[0.15em] uppercase transition-colors">Enroll</span></div>
                           )
                         ) : (
-                          <span className="inline-block text-white text-[10px] py-2 px-6 tracking-[0.15em] uppercase" style={{ background: heroAccent }}>Express Your Interest</span>
+                          <span className="inline-block text-white text-[10px] py-2 px-6 tracking-[0.15em] uppercase cursor-pointer" style={{ background: heroAccent }}
+                            onClick={(e) => { e.stopPropagation(); navigate(`/contact?program=${program.id}&title=${encodeURIComponent(program.title)}&tier=${tier.label}`); }}>
+                            Express Your Interest
+                          </span>
                         )}
                       </div>
                     );
@@ -370,13 +412,12 @@ function ProgramDetailPage() {
               </div>
             )}
 
-            <div className="flex flex-col sm:flex-row gap-4 justify-center">
-              {program.show_pricing_on_card !== false && program.enrollment_open !== false ? (
+            <div className="flex flex-col items-center gap-4 justify-center">
+              {program.show_pricing_on_card !== false && (program.enrollment_status || (program.enrollment_open !== false ? 'open' : 'closed')) === 'open' ? (
                 <button data-testid="enroll-btn" onClick={() => navigate(`/enroll/program/${program.id}`)}
                   className="text-white px-10 py-3 text-xs tracking-[0.2em] uppercase transition-colors hover:opacity-90" style={{ background: heroAccent }}>Enroll Now</button>
               ) : (
-                <button data-testid="express-interest-btn" onClick={() => navigate(`/contact?program=${program.id}&title=${encodeURIComponent(program.title)}`)}
-                  className="text-white px-10 py-3 text-xs tracking-[0.2em] uppercase transition-colors hover:opacity-90" style={{ background: heroAccent }}>Express Your Interest</button>
+                <ExpressInterestInline programId={program.id} programTitle={program.title} accent={heroAccent} />
               )}
             </div>
           </div>

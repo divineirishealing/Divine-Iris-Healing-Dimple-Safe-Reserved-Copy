@@ -73,6 +73,7 @@ class Program(BaseModel):
     enrollment_open: bool = True
     enrollment_status: str = "open"  # "open", "closed", "coming_soon"
     is_group_program: bool = False
+    replicate_to_flagship: bool = False
     duration_tiers: List[Dict] = []  # list of DurationTier dicts
     whatsapp_group_link: str = ""
     zoom_link: str = ""
@@ -126,6 +127,7 @@ class ProgramCreate(BaseModel):
     enrollment_open: Optional[bool] = True
     enrollment_status: Optional[str] = "open"
     is_group_program: Optional[bool] = False
+    replicate_to_flagship: Optional[bool] = False
     duration_tiers: Optional[List[Dict]] = []
     whatsapp_group_link: Optional[str] = ""
     zoom_link: Optional[str] = ""
