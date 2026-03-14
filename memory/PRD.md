@@ -84,14 +84,13 @@ Build a pixel-perfect clone of https://divineirishealing.com/ with comprehensive
 - [x] Supports all major timezone abbreviations (IST, GST, EST, PST, BST, AEST, etc.)
 - [x] Clean layout on both desktop and mobile
 
-### India GPay/UPI Payment with Proof Submission (Mar 14, 2026) - COMPLETED
-- [x] India Payment Page (`/india-payment/:enrollmentId`) — GPay/UPI with auto-generated QR code
-- [x] Receipt shows: base price - promo discount - auto discount - 9% alt payment discount + 18% GST
-- [x] Payment proof form: screenshot, payer name, date, bank, txn ID, program, amount, city, state
-- [x] Admin panel: UPI ID, discount %, GST % all configurable from Payment Settings tab
-- [x] Admin "India Proofs" tab: view, approve, reject payment proofs
-- [x] On approval: creates transaction, generates participant UIDs, sends confirmation emails
-- [x] Enrollment page links to India payment page for Indian users
+### India Payment: Exly Gateway + Bank Transfer (Mar 14, 2026) - COMPLETED
+- [x] Replaced GPay/UPI with Exly payment gateway (handles GPay, debit/credit cards automatically)
+- [x] Added Bank Transfer option with admin-configurable bank details (account name, number, IFSC, bank, branch)
+- [x] Bank Transfer has proof submission form: screenshot, name, date, bank, txn ID, amount, city, state
+- [x] Admin "India Proofs" tab for viewing/approving/rejecting bank transfer proofs
+- [x] Receipt shows proper discount breakdown: base - promo - auto - 9% alt discount + 18% GST
+- [x] All settings configurable from admin "Payments" tab (Exly link, bank details, discount %, GST %)
 
 ## Pending / Upcoming Tasks
 

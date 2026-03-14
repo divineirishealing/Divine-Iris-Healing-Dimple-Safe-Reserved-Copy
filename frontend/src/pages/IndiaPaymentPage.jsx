@@ -7,8 +7,8 @@ import { useToast } from '../hooks/use-toast';
 import { Input } from '../components/ui/input';
 import { Button } from '../components/ui/button';
 import {
-  IndianRupee, QrCode, Upload, Calendar,
-  MapPin, User, FileText, ChevronLeft, Loader2, Check,
+  IndianRupee, Building2, ExternalLink, Upload,
+  User, FileText, CreditCard, ChevronLeft, Loader2, Check,
   AlertCircle, Clock
 } from 'lucide-react';
 
@@ -29,8 +29,9 @@ const IndiaPaymentPage = () => {
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
+  const [activeMethod, setActiveMethod] = useState('exly');
 
-  // Proof form state
+  // Proof form state (for bank transfer only)
   const [screenshot, setScreenshot] = useState(null);
   const [screenshotPreview, setScreenshotPreview] = useState('');
   const [payerName, setPayerName] = useState('');
@@ -40,24 +41,24 @@ const IndiaPaymentPage = () => {
   const [amount, setAmount] = useState('');
   const [city, setCity] = useState('');
   const [state, setState] = useState('');
-  const [paymentMethod, setPaymentMethod] = useState('');
 
   useEffect(() => {
     axios.get(`${API}/settings`).then(r => {
       setSettings(r.data);
+      // Default to exly if available, else bank
+      if (!r.data.india_exly_link && r.data.india_bank_details?.account_number) {
+        setActiveMethod('bank');
+      }
     }).catch(() => {}).finally(() => setLoading(false));
   }, []);
 
-  // Calculate adjusted pricing
   const pricing = useMemo(() => {
     const altDiscount = settings.india_alt_discount_percent || 9;
     const gstPct = settings.india_gst_percent || 18;
-
     const effectiveBase = Math.max(0, basePrice - promoDiscount - autoDiscount);
     const discountedBase = effectiveBase * (1 - altDiscount / 100);
     const gstAmount = discountedBase * gstPct / 100;
     const total = discountedBase + gstAmount;
-
     return {
       originalBase: basePrice,
       promoDiscount,
@@ -80,12 +81,11 @@ const IndiaPaymentPage = () => {
     }
   };
 
-  const handleSubmit = async () => {
+  const handleSubmitProof = async () => {
     if (!screenshot) return toast({ title: 'Please upload payment screenshot', variant: 'destructive' });
     if (!payerName || !paymentDate || !bankName || !transactionId || !amount || !city || !state) {
       return toast({ title: 'Please fill all required fields', variant: 'destructive' });
     }
-
     setSubmitting(true);
     try {
       const formData = new FormData();
@@ -98,9 +98,8 @@ const IndiaPaymentPage = () => {
       formData.append('amount', amount);
       formData.append('city', city);
       formData.append('state', state);
-      formData.append('payment_method', paymentMethod);
+      formData.append('payment_method', 'bank_transfer');
       formData.append('screenshot', screenshot);
-
       await axios.post(`${API}/india-payments/submit-proof`, formData, {
         headers: { 'Content-Type': 'multipart/form-data' },
       });
@@ -108,9 +107,7 @@ const IndiaPaymentPage = () => {
       toast({ title: 'Payment proof submitted!' });
     } catch (err) {
       toast({ title: err.response?.data?.detail || 'Failed to submit', variant: 'destructive' });
-    } finally {
-      setSubmitting(false);
-    }
+    } finally { setSubmitting(false); }
   };
 
   if (loading) return (
@@ -130,7 +127,7 @@ const IndiaPaymentPage = () => {
           <h2 className="text-xl font-bold text-gray-900 mb-2">Payment Proof Submitted</h2>
           <p className="text-sm text-gray-500 mb-6">
             Your payment proof has been submitted for verification.
-            You will receive a confirmation email once approved by the admin.
+            You will receive a confirmation email once approved.
           </p>
           <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 mb-6 text-left">
             <p className="text-xs text-amber-800 flex items-center gap-1.5 mb-1"><Clock size={12} /> Estimated verification time: 24-48 hours</p>
@@ -145,7 +142,10 @@ const IndiaPaymentPage = () => {
     </>
   );
 
-  const upiId = settings.india_upi_id || '';
+  const exlyLink = settings.india_exly_link || '';
+  const bankDetails = settings.india_bank_details || {};
+  const hasExly = !!exlyLink;
+  const hasBank = !!bankDetails.account_number;
 
   return (
     <>
@@ -162,136 +162,178 @@ const IndiaPaymentPage = () => {
               <div className="bg-white rounded-xl shadow-sm border p-6">
                 <h1 className="text-lg font-bold text-gray-900 mb-1 flex items-center gap-2">
                   <IndianRupee size={20} className="text-[#D4AF37]" />
-                  Pay via GPay / UPI
+                  India Payment Options
                 </h1>
-                <p className="text-xs text-gray-500 mb-5">Complete the payment using UPI, then submit your proof below.</p>
+                <p className="text-xs text-gray-500 mb-5">Choose a payment method to complete your enrollment.</p>
 
-                {/* UPI / GPay */}
-                {upiId ? (
-                  <div className="border rounded-lg p-4 mb-3" data-testid="upi-payment">
-                    <div className="flex items-start gap-3">
-                      <div className="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center flex-shrink-0">
-                        <QrCode size={18} className="text-green-600" />
-                      </div>
-                      <div className="flex-1">
-                        <p className="text-sm font-semibold text-gray-900 mb-1">GPay / UPI</p>
-                        <div className="bg-gray-50 border rounded-lg p-3 mb-2">
-                          <p className="text-[10px] text-gray-500 mb-0.5">UPI ID</p>
-                          <p className="text-sm font-mono font-bold text-gray-900 select-all">{upiId}</p>
-                        </div>
-                        {/* QR Code */}
-                        <div className="flex justify-center">
-                          <img
-                            src={`https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=upi://pay?pa=${encodeURIComponent(upiId)}&pn=DivineIrisHealing&am=${pricing.total}&cu=INR`}
-                            alt="UPI QR Code"
-                            className="rounded-lg border"
-                            width={180}
-                            height={180}
-                            data-testid="upi-qr-code"
-                          />
-                        </div>
-                        <p className="text-[10px] text-gray-400 text-center mt-2">Scan with any UPI app (GPay, PhonePe, Paytm)</p>
-                      </div>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="text-center py-8 bg-gray-50 rounded-lg border border-dashed">
-                    <AlertCircle size={24} className="text-gray-300 mx-auto mb-2" />
-                    <p className="text-xs text-gray-400">UPI payment not configured yet. Please contact us.</p>
+                {/* Method Tabs */}
+                {hasExly && hasBank && (
+                  <div className="flex gap-2 mb-5">
+                    <button onClick={() => setActiveMethod('exly')}
+                      className={`flex-1 py-2.5 rounded-lg text-xs font-semibold transition-all border ${activeMethod === 'exly' ? 'bg-purple-50 border-purple-300 text-purple-700' : 'bg-gray-50 border-gray-200 text-gray-500 hover:bg-gray-100'}`}
+                      data-testid="tab-exly">
+                      <CreditCard size={14} className="inline mr-1.5" /> Pay via Exly
+                    </button>
+                    <button onClick={() => setActiveMethod('bank')}
+                      className={`flex-1 py-2.5 rounded-lg text-xs font-semibold transition-all border ${activeMethod === 'bank' ? 'bg-blue-50 border-blue-300 text-blue-700' : 'bg-gray-50 border-gray-200 text-gray-500 hover:bg-gray-100'}`}
+                      data-testid="tab-bank">
+                      <Building2 size={14} className="inline mr-1.5" /> Bank Transfer
+                    </button>
                   </div>
                 )}
-              </div>
 
-              {/* Proof Submission Form */}
-              <div className="bg-white rounded-xl shadow-sm border p-6" data-testid="proof-form">
-                <h2 className="text-sm font-bold text-gray-900 mb-1 flex items-center gap-2">
-                  <Upload size={16} className="text-[#D4AF37]" />
-                  Submit Payment Proof
-                </h2>
-                <p className="text-[10px] text-gray-500 mb-4">After completing payment, fill in the details below and upload a screenshot.</p>
-
-                <div className="space-y-3">
-                  {/* Screenshot Upload */}
-                  <div>
-                    <label className="text-[10px] font-semibold text-gray-700 block mb-1">Payment Screenshot *</label>
-                    <div className="border-2 border-dashed rounded-lg p-4 text-center hover:border-[#D4AF37] transition-colors cursor-pointer"
-                      onClick={() => document.getElementById('proof-screenshot').click()}>
-                      {screenshotPreview ? (
-                        <img src={screenshotPreview} alt="Screenshot" className="max-h-40 mx-auto rounded" />
-                      ) : (
-                        <>
-                          <Upload size={20} className="text-gray-300 mx-auto mb-1" />
-                          <p className="text-xs text-gray-400">Click to upload screenshot</p>
-                        </>
-                      )}
-                    </div>
-                    <input type="file" id="proof-screenshot" accept="image/*" className="hidden" onChange={handleScreenshot} data-testid="proof-screenshot-input" />
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <label className="text-[10px] font-semibold text-gray-700 block mb-1">Your Name *</label>
-                      <Input value={payerName} onChange={e => setPayerName(e.target.value)} placeholder="Full name" className="text-xs h-9" data-testid="proof-payer-name" />
-                    </div>
-                    <div>
-                      <label className="text-[10px] font-semibold text-gray-700 block mb-1">Payment Date *</label>
-                      <Input type="date" value={paymentDate} onChange={e => setPaymentDate(e.target.value)} className="text-xs h-9" data-testid="proof-payment-date" />
+                {/* Exly Payment */}
+                {(activeMethod === 'exly' && hasExly) && (
+                  <div data-testid="exly-payment">
+                    <div className="border-2 border-purple-200 rounded-xl p-6 bg-purple-50/30 text-center">
+                      <div className="w-14 h-14 bg-purple-100 rounded-xl flex items-center justify-center mx-auto mb-3">
+                        <CreditCard size={24} className="text-purple-600" />
+                      </div>
+                      <h3 className="text-sm font-bold text-gray-900 mb-1">Pay Securely via Exly</h3>
+                      <p className="text-[10px] text-gray-500 mb-4">Exly supports GPay, Debit Cards, Credit Cards & more. Your payment is processed securely.</p>
+                      <p className="text-lg font-bold text-[#D4AF37] mb-4">INR {pricing.total.toLocaleString()}</p>
+                      <a href={exlyLink.startsWith('http') ? exlyLink : `https://${exlyLink}`}
+                        target="_blank" rel="noopener noreferrer"
+                        className="inline-flex items-center gap-2 bg-purple-600 hover:bg-purple-700 text-white text-sm font-semibold px-8 py-3 rounded-full transition-colors"
+                        data-testid="exly-pay-btn">
+                        Pay INR {pricing.total.toLocaleString()} on Exly <ExternalLink size={14} />
+                      </a>
+                      <p className="text-[9px] text-gray-400 mt-3">You'll be redirected to Exly's secure payment page</p>
                     </div>
                   </div>
+                )}
 
-                  <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <label className="text-[10px] font-semibold text-gray-700 block mb-1">Bank / App Name *</label>
-                      <Input value={bankName} onChange={e => setBankName(e.target.value)} placeholder="e.g., HDFC, GPay, PhonePe" className="text-xs h-9" data-testid="proof-bank-name" />
+                {/* Bank Transfer */}
+                {(activeMethod === 'bank' && hasBank) && (
+                  <div data-testid="bank-payment">
+                    {/* Bank Details */}
+                    <div className="border rounded-xl p-5 mb-4">
+                      <div className="flex items-center gap-2 mb-3">
+                        <Building2 size={16} className="text-blue-600" />
+                        <h3 className="text-sm font-semibold text-gray-900">Bank Transfer (NEFT / IMPS / RTGS)</h3>
+                      </div>
+                      <p className="text-[10px] text-gray-500 mb-3">Transfer <strong className="text-[#D4AF37]">INR {pricing.total.toLocaleString()}</strong> to the following account:</p>
+                      <div className="bg-gray-50 border rounded-lg p-4 space-y-2">
+                        {bankDetails.account_name && (
+                          <div className="flex justify-between text-xs">
+                            <span className="text-gray-500">Account Name</span>
+                            <span className="font-semibold text-gray-900 select-all">{bankDetails.account_name}</span>
+                          </div>
+                        )}
+                        <div className="flex justify-between text-xs">
+                          <span className="text-gray-500">Account Number</span>
+                          <span className="font-mono font-semibold text-gray-900 select-all">{bankDetails.account_number}</span>
+                        </div>
+                        {bankDetails.ifsc && (
+                          <div className="flex justify-between text-xs">
+                            <span className="text-gray-500">IFSC Code</span>
+                            <span className="font-mono font-semibold text-gray-900 select-all">{bankDetails.ifsc}</span>
+                          </div>
+                        )}
+                        {bankDetails.bank_name && (
+                          <div className="flex justify-between text-xs">
+                            <span className="text-gray-500">Bank</span>
+                            <span className="font-semibold text-gray-900">{bankDetails.bank_name}</span>
+                          </div>
+                        )}
+                        {bankDetails.branch && (
+                          <div className="flex justify-between text-xs">
+                            <span className="text-gray-500">Branch</span>
+                            <span className="font-semibold text-gray-900">{bankDetails.branch}</span>
+                          </div>
+                        )}
+                      </div>
                     </div>
-                    <div>
-                      <label className="text-[10px] font-semibold text-gray-700 block mb-1">Transaction ID *</label>
-                      <Input value={transactionId} onChange={e => setTransactionId(e.target.value)} placeholder="UTR / Reference No." className="text-xs h-9" data-testid="proof-txn-id" />
+
+                    {/* Proof Submission Form */}
+                    <div className="border rounded-xl p-5" data-testid="proof-form">
+                      <h3 className="text-sm font-bold text-gray-900 mb-1 flex items-center gap-2">
+                        <Upload size={14} className="text-[#D4AF37]" />
+                        Submit Payment Proof
+                      </h3>
+                      <p className="text-[10px] text-gray-500 mb-4">After completing bank transfer, fill in the details and upload a screenshot.</p>
+
+                      <div className="space-y-3">
+                        <div>
+                          <label className="text-[10px] font-semibold text-gray-700 block mb-1">Payment Screenshot *</label>
+                          <div className="border-2 border-dashed rounded-lg p-4 text-center hover:border-[#D4AF37] transition-colors cursor-pointer"
+                            onClick={() => document.getElementById('proof-screenshot').click()}>
+                            {screenshotPreview ? (
+                              <img src={screenshotPreview} alt="Screenshot" className="max-h-32 mx-auto rounded" />
+                            ) : (
+                              <>
+                                <Upload size={20} className="text-gray-300 mx-auto mb-1" />
+                                <p className="text-xs text-gray-400">Click to upload screenshot</p>
+                              </>
+                            )}
+                          </div>
+                          <input type="file" id="proof-screenshot" accept="image/*" className="hidden" onChange={handleScreenshot} data-testid="proof-screenshot-input" />
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-3">
+                          <div>
+                            <label className="text-[10px] font-semibold text-gray-700 block mb-1">Your Name *</label>
+                            <Input value={payerName} onChange={e => setPayerName(e.target.value)} placeholder="Full name" className="text-xs h-9" data-testid="proof-payer-name" />
+                          </div>
+                          <div>
+                            <label className="text-[10px] font-semibold text-gray-700 block mb-1">Payment Date *</label>
+                            <Input type="date" value={paymentDate} onChange={e => setPaymentDate(e.target.value)} className="text-xs h-9" data-testid="proof-payment-date" />
+                          </div>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-3">
+                          <div>
+                            <label className="text-[10px] font-semibold text-gray-700 block mb-1">Bank / App *</label>
+                            <Input value={bankName} onChange={e => setBankName(e.target.value)} placeholder="e.g., HDFC, SBI" className="text-xs h-9" data-testid="proof-bank-name" />
+                          </div>
+                          <div>
+                            <label className="text-[10px] font-semibold text-gray-700 block mb-1">Transaction ID *</label>
+                            <Input value={transactionId} onChange={e => setTransactionId(e.target.value)} placeholder="UTR / Reference No." className="text-xs h-9" data-testid="proof-txn-id" />
+                          </div>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-3">
+                          <div>
+                            <label className="text-[10px] font-semibold text-gray-700 block mb-1">Program</label>
+                            <Input value={programTitle} readOnly className="text-xs h-9 bg-gray-50" />
+                          </div>
+                          <div>
+                            <label className="text-[10px] font-semibold text-gray-700 block mb-1">Amount Paid (INR) *</label>
+                            <Input value={amount} onChange={e => setAmount(e.target.value)} placeholder={`${pricing.total}`} className="text-xs h-9" data-testid="proof-amount" />
+                          </div>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-3">
+                          <div>
+                            <label className="text-[10px] font-semibold text-gray-700 block mb-1">City *</label>
+                            <Input value={city} onChange={e => setCity(e.target.value)} placeholder="Your city" className="text-xs h-9" data-testid="proof-city" />
+                          </div>
+                          <div>
+                            <label className="text-[10px] font-semibold text-gray-700 block mb-1">State *</label>
+                            <Input value={state} onChange={e => setState(e.target.value)} placeholder="Your state" className="text-xs h-9" data-testid="proof-state" />
+                          </div>
+                        </div>
+
+                        <Button onClick={handleSubmitProof} disabled={submitting}
+                          className="w-full bg-[#D4AF37] hover:bg-[#b8962e] text-white py-3 rounded-full mt-2"
+                          data-testid="submit-proof-btn">
+                          {submitting ? <><Loader2 size={14} className="animate-spin mr-2" /> Submitting...</> : <><Check size={14} className="mr-2" /> Submit Payment Proof</>}
+                        </Button>
+                      </div>
                     </div>
                   </div>
+                )}
 
-                  <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <label className="text-[10px] font-semibold text-gray-700 block mb-1">Program *</label>
-                      <Input value={programTitle} readOnly className="text-xs h-9 bg-gray-50" />
-                    </div>
-                    <div>
-                      <label className="text-[10px] font-semibold text-gray-700 block mb-1">Amount Paid (INR) *</label>
-                      <Input value={amount} onChange={e => setAmount(e.target.value)} placeholder={`${pricing.total}`} className="text-xs h-9" data-testid="proof-amount" />
-                    </div>
+                {!hasExly && !hasBank && (
+                  <div className="text-center py-8 bg-gray-50 rounded-lg border border-dashed">
+                    <AlertCircle size={24} className="text-gray-300 mx-auto mb-2" />
+                    <p className="text-xs text-gray-400">No India payment methods configured. Please contact us.</p>
                   </div>
+                )}
 
-                  <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <label className="text-[10px] font-semibold text-gray-700 block mb-1">City *</label>
-                      <Input value={city} onChange={e => setCity(e.target.value)} placeholder="Your city" className="text-xs h-9" data-testid="proof-city" />
-                    </div>
-                    <div>
-                      <label className="text-[10px] font-semibold text-gray-700 block mb-1">State *</label>
-                      <Input value={state} onChange={e => setState(e.target.value)} placeholder="Your state" className="text-xs h-9" data-testid="proof-state" />
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className="text-[10px] font-semibold text-gray-700 block mb-1">Payment Method</label>
-                    <select value={paymentMethod} onChange={e => setPaymentMethod(e.target.value)}
-                      className="w-full border rounded-lg px-3 py-2 text-xs bg-white h-9" data-testid="proof-payment-method">
-                      <option value="">Select method</option>
-                      <option value="exly">Exly</option>
-                      <option value="gpay">Google Pay (UPI)</option>
-                      <option value="phonepe">PhonePe</option>
-                      <option value="paytm">Paytm</option>
-                      <option value="bank_transfer">Bank Transfer (NEFT/IMPS)</option>
-                      <option value="other">Other</option>
-                    </select>
-                  </div>
-
-                  <Button onClick={handleSubmit} disabled={submitting}
-                    className="w-full bg-[#D4AF37] hover:bg-[#b8962e] text-white py-3 rounded-full mt-2"
-                    data-testid="submit-proof-btn">
-                    {submitting ? <><Loader2 size={14} className="animate-spin mr-2" /> Submitting...</> : <><Check size={14} className="mr-2" /> Submit Payment Proof</>}
-                  </Button>
-                </div>
+                {/* Show only Exly if no bank, or only bank if no Exly */}
+                {hasExly && !hasBank && activeMethod !== 'exly' && setActiveMethod('exly')}
+                {!hasExly && hasBank && activeMethod !== 'bank' && setActiveMethod('bank')}
               </div>
             </div>
 

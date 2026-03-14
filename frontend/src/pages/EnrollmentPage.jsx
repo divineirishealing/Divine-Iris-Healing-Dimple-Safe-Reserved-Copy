@@ -619,7 +619,7 @@ function EnrollmentPage() {
                           <div className="flex items-center gap-2 mb-2">
                             <CreditCard size={16} className="text-[#D4AF37]" />
                             <span className="text-sm font-semibold text-gray-900">Pay with Card (Stripe)</span>
-                            <span className="text-[9px] bg-green-100 text-green-700 px-2 py-0.5 rounded-full font-medium">Recommended</span>
+                            <span className="text-[9px] bg-green-100 text-green-700 px-2 py-0.5 rounded-full font-medium">International</span>
                           </div>
                           <p className="text-[10px] text-gray-600 mb-2">Secure international payment. Your card must be <strong>enabled for international transactions</strong>.</p>
                           <p className="text-[9px] text-gray-400 italic">Contact your bank to enable international payments if not already active.</p>
@@ -627,7 +627,7 @@ function EnrollmentPage() {
 
                         <div className="relative my-3">
                           <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-gray-200" /></div>
-                          <div className="relative flex justify-center"><span className="bg-white px-3 text-[10px] text-gray-400 uppercase">Or pay via GPay / UPI</span></div>
+                          <div className="relative flex justify-center"><span className="bg-white px-3 text-[10px] text-gray-400 uppercase">Or pay via India options</span></div>
                         </div>
                         <button
                           onClick={() => {
@@ -639,18 +639,18 @@ function EnrollmentPage() {
                             });
                             navigate(`/india-payment/${enrollmentId}?${params.toString()}`);
                           }}
-                          className="flex items-center justify-between w-full border rounded-lg p-4 hover:border-green-500 hover:bg-green-50/50 transition-all group"
-                          data-testid="india-gpay-option">
+                          className="flex items-center justify-between w-full border rounded-lg p-4 hover:border-purple-400 hover:bg-purple-50/50 transition-all group"
+                          data-testid="india-alt-payment-option">
                           <div className="flex items-center gap-3">
-                            <div className="w-8 h-8 bg-green-100 rounded-lg flex items-center justify-center">
-                              <span className="text-green-600 text-xs font-bold">UPI</span>
+                            <div className="w-8 h-8 bg-purple-100 rounded-lg flex items-center justify-center">
+                              <CreditCard size={14} className="text-purple-600" />
                             </div>
                             <div>
-                              <span className="text-sm font-medium text-gray-900 group-hover:text-green-600">Pay with GPay / UPI</span>
-                              <p className="text-[10px] text-green-600 font-medium">Save {paymentSettings.india_alt_discount || 9}% on base price</p>
+                              <span className="text-sm font-medium text-gray-900 group-hover:text-purple-600">Exly / Bank Transfer</span>
+                              <p className="text-[10px] text-green-600 font-medium">Save {paymentSettings.india_alt_discount || 9}% — GPay, Cards, NEFT supported</p>
                             </div>
                           </div>
-                          <ChevronRight size={16} className="text-gray-400 group-hover:text-green-600" />
+                          <ChevronRight size={16} className="text-gray-400 group-hover:text-purple-600" />
                         </button>
                       </div>
                     )}
