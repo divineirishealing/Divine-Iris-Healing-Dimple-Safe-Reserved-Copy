@@ -118,7 +118,7 @@ const UpcomingCard = ({ program }) => {
             <span className="bg-gradient-to-r from-red-600 to-red-500 text-white text-xs font-bold px-3 py-1.5 rounded-full shadow-lg animate-pulse">{program.offer_text}</span>
           </div>
         )}
-        {expired && (
+        {(expired || program.enrollment_open === false) && (
           <div className="absolute inset-0 bg-black/20 flex items-center justify-center">
             <span className="bg-gray-900/80 text-white text-xs font-bold px-4 py-2 rounded-full tracking-wider uppercase">Registration Closed</span>
           </div>
@@ -256,13 +256,7 @@ const UpcomingCard = ({ program }) => {
                       Enroll Now
                     </button>
                   </>
-                ) : !expired && program.enrollment_open === false ? (
-                  <button onClick={() => navigate(`/contact?program=${program.id}&title=${encodeURIComponent(program.title)}`)}
-                    data-testid={`upcoming-interest-${program.id}`}
-                    className="flex-1 bg-[#D4AF37] hover:bg-[#b8962e] text-white py-2.5 rounded-full text-xs tracking-wider transition-all duration-300 uppercase font-medium">
-                    Express Your Interest
-                  </button>
-                ) : expired ? (
+                ) : (expired || program.enrollment_open === false) ? (
                   <button disabled data-testid={`upcoming-enroll-disabled-${program.id}`}
                     className="flex-1 bg-gray-300 text-gray-500 py-2.5 rounded-full text-xs tracking-wider uppercase font-medium cursor-not-allowed">
                     Closed
