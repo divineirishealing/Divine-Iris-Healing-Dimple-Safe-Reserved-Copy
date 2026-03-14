@@ -55,7 +55,7 @@ function PaymentSuccessPage() {
                   <CheckCircle size={40} className="text-green-600" />
                 </div>
                 <h1 data-testid="payment-success-title" className="text-3xl text-gray-900 mb-2" style={{ fontFamily: 'Playfair Display, serif' }}>
-                  Payment Successful
+                  {paymentInfo?.amount === 0 ? 'Registration Complete' : 'Payment Successful'}
                 </h1>
                 <p className="text-gray-500 text-sm">Thank you for your enrollment{paymentInfo?.booker_name ? `, ${paymentInfo.booker_name}` : ''}!</p>
               </div>
@@ -123,9 +123,9 @@ function PaymentSuccessPage() {
 
                   {/* Total */}
                   <div className="flex justify-between items-center">
-                    <span className="text-sm text-gray-500">Total Paid</span>
+                    <span className="text-sm text-gray-500">{paymentInfo?.amount === 0 ? 'Amount' : 'Total Paid'}</span>
                     <span className="text-2xl font-bold text-[#D4AF37]" data-testid="receipt-total">
-                      {symbol}{paymentInfo?.amount?.toLocaleString()}
+                      {paymentInfo?.amount === 0 ? 'FREE' : `${symbol}${paymentInfo?.amount?.toLocaleString()}`}
                     </span>
                   </div>
                 </div>

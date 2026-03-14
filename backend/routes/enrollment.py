@@ -477,7 +477,55 @@ async def enrollment_checkout(enrollment_id: str, data: EnrollmentSubmit, reques
     currency = pricing_resp["pricing"]["currency"]
 
     if total <= 0:
-        raise HTTPException(status_code=400, detail="Invalid price")
+        # Free enrollment — skip Stripe, complete directly
+        fake_session_id = f"free_{uuid.uuid4().hex[:12]}"
+        
+        collection = "programs" if data.item_type == "program" else "sessions"
+        item = await db[collection].find_one({"id": data.item_id})
+
+        transaction = {
+            "id": str(uuid.uuid4()),
+            "enrollment_id": enrollment_id,
+            "stripe_session_id": fake_session_id,
+            "item_type": data.item_type,
+            "item_id": data.item_id,
+            "item_title": item.get("title", "") if item else "",
+            "amount": 0,
+            "currency": currency,
+            "payment_status": "paid",
+            "booker_name": enrollment.get("booker_name"),
+            "booker_email": enrollment.get("booker_email"),
+            "phone": enrollment.get("phone"),
+            "participants": enrollment.get("participants"),
+            "participant_count": enrollment.get("participant_count", 1),
+            "attendance": enrollment.get("attendance"),
+            "is_free": True,
+            "created_at": datetime.now(timezone.utc),
+            "updated_at": datetime.now(timezone.utc),
+        }
+        await db.payment_transactions.insert_one(transaction)
+
+        await db.enrollments.update_one(
+            {"id": enrollment_id},
+            {"$set": {
+                "step": 5,
+                "status": "completed",
+                "stripe_session_id": fake_session_id,
+                "is_free": True,
+                "updated_at": datetime.now(timezone.utc).isoformat(),
+            }}
+        )
+
+        # Generate UIDs for participants
+        from routes.payments import generate_participant_uids, send_enrollment_emails
+        await generate_participant_uids(fake_session_id)
+
+        # Send confirmation emails in background
+        import asyncio
+        asyncio.create_task(send_enrollment_emails(fake_session_id))
+
+        logger.info(f"[FREE ENROLLMENT] enrollment_id={enrollment_id}, item={data.item_id}")
+        return {"url": f"__FREE_SUCCESS__", "session_id": fake_session_id}
 
     # BIN validation placeholder - in production, this would check card BIN vs location
     # For now, we log the mismatch for monitoring

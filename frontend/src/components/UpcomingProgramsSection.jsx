@@ -309,7 +309,7 @@ const UpcomingCard = ({ program }) => {
                 ) : price > 0 ? (
                   <span className="text-xl font-bold text-gray-900">{symbol} {price.toLocaleString()}</span>
                 ) : (
-                  <span className="text-xs text-gray-500 italic">Contact for pricing</span>
+                  <span className="text-xl font-bold text-green-600">FREE</span>
                 )}
               </div>
               <div className="flex gap-1.5">
@@ -318,19 +318,21 @@ const UpcomingCard = ({ program }) => {
                   className="flex-1 bg-[#1a1a1a] hover:bg-[#333] text-white py-2 rounded-full text-[10px] tracking-wider transition-all duration-300 uppercase font-medium">
                   Know More
                 </button>
-                {!expired && price > 0 && program.enrollment_open !== false ? (
+                {!expired && program.enrollment_open !== false ? (
                   <>
-                    <button onClick={handleAddToCart} data-testid={`upcoming-add-cart-${program.id}`}
-                      disabled={inCart || justAdded}
-                      className={`flex items-center justify-center px-2.5 py-2 rounded-full text-[10px] transition-all font-medium border ${
-                        inCart || justAdded ? 'bg-green-50 text-green-600 border-green-200' : 'bg-white text-gray-700 border-gray-200 hover:border-[#D4AF37] hover:text-[#D4AF37]'
-                      }`}>
-                      {inCart || justAdded ? <Check size={11} /> : <ShoppingCart size={11} />}
-                    </button>
+                    {price > 0 && (
+                      <button onClick={handleAddToCart} data-testid={`upcoming-add-cart-${program.id}`}
+                        disabled={inCart || justAdded}
+                        className={`flex items-center justify-center px-2.5 py-2 rounded-full text-[10px] transition-all font-medium border ${
+                          inCart || justAdded ? 'bg-green-50 text-green-600 border-green-200' : 'bg-white text-gray-700 border-gray-200 hover:border-[#D4AF37] hover:text-[#D4AF37]'
+                        }`}>
+                        {inCart || justAdded ? <Check size={11} /> : <ShoppingCart size={11} />}
+                      </button>
+                    )}
                     <button onClick={() => navigate(`/enroll/program/${program.id}?tier=${selectedTier}`)}
                       data-testid={`upcoming-enroll-${program.id}`}
                       className="flex-1 bg-[#D4AF37] hover:bg-[#b8962e] text-white py-2 rounded-full text-[10px] tracking-wider transition-all duration-300 uppercase font-medium">
-                      Enroll Now
+                      {price > 0 ? 'Enroll Now' : 'Register Free'}
                     </button>
                   </>
                 ) : (expired || program.enrollment_open === false) ? (
