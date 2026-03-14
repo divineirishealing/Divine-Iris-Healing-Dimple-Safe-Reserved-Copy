@@ -9,7 +9,7 @@ import Header from '../components/Header';
 import Footer from '../components/Footer';
 import FloatingButtons from '../components/FloatingButtons';
 import { Loader2, Send } from 'lucide-react';
-import { HEADING, SUBTITLE, BODY, GOLD, CONTAINER } from '../lib/designTokens';
+import { HEADING, SUBTITLE, BODY, GOLD, LABEL, CONTAINER } from '../lib/designTokens';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
@@ -24,6 +24,8 @@ function ContactPage() {
   const [searchParams] = useSearchParams();
   const { toast } = useToast();
   const [settings, setSettings] = useState(null);
+  const [programs, setPrograms] = useState([]);
+  const [sessions, setSessions] = useState([]);
 
   const programId = searchParams.get('program') || '';
   const programTitle = searchParams.get('title') || '';
@@ -31,22 +33,39 @@ function ContactPage() {
   const isQuote = !!programId;
 
   const [formData, setFormData] = useState({
-    name: '', email: '', phone: '', message: ''
+    name: '', email: '', phone: '', inquiry_type: '', inquiry_detail: '', message: ''
   });
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
     axios.get(`${API}/settings`).then(r => setSettings(r.data)).catch(() => {});
+    axios.get(`${API}/programs`).then(r => setPrograms(r.data.filter(p => p.visible !== false))).catch(() => {});
+    axios.get(`${API}/sessions`).then(r => setSessions(r.data.filter(s => s.title && s.visible !== false))).catch(() => {});
   }, []);
 
   useEffect(() => {
     if (isQuote && programTitle) {
       setFormData(prev => ({
         ...prev,
+        inquiry_type: 'program',
+        inquiry_detail: programTitle,
         message: `I am interested in the ${tierLabel || 'Annual'} plan for ${programTitle}. Please share the pricing details.`
       }));
     }
   }, [isQuote, programTitle, tierLabel]);
+
+  const inquiryOptions = [
+    { value: '', label: 'Select inquiry type' },
+    { value: 'program', label: 'About a Program' },
+    { value: 'session', label: 'About a Personal Session' },
+    { value: 'other', label: 'Other' },
+  ];
+
+  const detailOptions = formData.inquiry_type === 'program'
+    ? programs.map(p => ({ value: p.title, label: p.title }))
+    : formData.inquiry_type === 'session'
+      ? sessions.map(s => ({ value: s.title, label: s.title }))
+      : [];
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -57,14 +76,15 @@ function ContactPage() {
     try {
       await axios.post(`${API}/enrollment/quote-request`, {
         name: formData.name, email: formData.email, phone: formData.phone,
-        program_id: programId, program_title: programTitle, tier_label: tierLabel,
-        message: formData.message,
+        program_id: programId, program_title: formData.inquiry_detail || programTitle,
+        tier_label: tierLabel,
+        message: `[${formData.inquiry_type || 'General'}${formData.inquiry_detail ? ` - ${formData.inquiry_detail}` : ''}] ${formData.message}`,
       });
       toast({ title: "Request submitted!", description: "We'll get back to you within 24 hours." });
-      setFormData({ name: '', email: '', phone: '', message: '' });
+      setFormData({ name: '', email: '', phone: '', inquiry_type: '', inquiry_detail: '', message: '' });
     } catch {
       toast({ title: "Submitted!", description: "We'll get back to you soon." });
-      setFormData({ name: '', email: '', phone: '', message: '' });
+      setFormData({ name: '', email: '', phone: '', inquiry_type: '', inquiry_detail: '', message: '' });
     } finally { setSubmitting(false); }
   };
 
@@ -73,20 +93,23 @@ function ContactPage() {
   return (
     <>
       <Header />
-      <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 pt-20">
+      <div className="min-h-screen bg-white">
+        {/* Hero - matching program page style */}
+        <section className="min-h-[50vh] flex flex-col items-center justify-center text-center px-6 pt-20"
+          style={{ background: 'linear-gradient(180deg, #1a1a1a 0%, #1a1a1add 50%, #1a1a1a 100%)' }}>
+          <h1 data-testid="contact-hero-title" className="mb-4 max-w-4xl" style={applyStyle(hero.title_style, { ...HEADING, color: GOLD, fontSize: 'clamp(1.8rem, 4vw, 3rem)', fontVariant: 'small-caps', letterSpacing: '0.05em', lineHeight: 1.3 })}>
+            {hero.title_text || (isQuote ? 'Request a Quote' : 'Express Your Interest')}
+          </h1>
+          <p className="mb-6" style={applyStyle(hero.subtitle_style, { ...LABEL, color: '#fff' })}>
+            {hero.subtitle_text || (isQuote
+              ? `Get custom pricing for ${programTitle || 'this program'}`
+              : 'Ready to begin your healing journey? Let us know how we can help.')}
+          </p>
+          <div className="w-14 h-0.5" style={{ background: GOLD }} />
+        </section>
+
         <div className={`${CONTAINER} py-12`}>
           <div className="max-w-3xl mx-auto">
-            <div className="text-center mb-12">
-              <h1 className="mb-4" style={applyStyle(hero.title_style, { ...HEADING, fontSize: 'clamp(1.5rem, 3vw, 2.2rem)' })}>
-                {hero.title_text || (isQuote ? 'Request a Quote' : 'Express Your Interest')}
-              </h1>
-              <p style={applyStyle(hero.subtitle_style, { ...SUBTITLE, fontSize: '0.9rem' })}>
-                {hero.subtitle_text || (isQuote
-                  ? `Get custom pricing for ${programTitle || 'this program'}`
-                  : 'Ready to begin your healing journey? Let us know how we can help.')}
-              </p>
-            </div>
-
             {isQuote && programTitle && (
               <div className="bg-[#D4AF37]/5 border border-[#D4AF37]/20 rounded-xl p-4 mb-6 text-center">
                 <p className="text-sm text-gray-700"><strong>Program:</strong> {programTitle}</p>
@@ -111,6 +134,27 @@ function ContactPage() {
                   <Input data-testid="contact-phone" type="tel" value={formData.phone}
                     onChange={(e) => setFormData({ ...formData, phone: e.target.value })} placeholder="Enter your phone number" className="w-full" />
                 </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Inquiry About</label>
+                  <select data-testid="contact-inquiry-type" value={formData.inquiry_type}
+                    onChange={e => setFormData({ ...formData, inquiry_type: e.target.value, inquiry_detail: '' })}
+                    className="w-full border border-gray-200 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:border-[#D4AF37] transition-colors bg-white">
+                    {inquiryOptions.map(opt => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
+                  </select>
+                </div>
+                {(formData.inquiry_type === 'program' || formData.inquiry_type === 'session') && detailOptions.length > 0 && (
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      {formData.inquiry_type === 'program' ? 'Select Program' : 'Select Session'}
+                    </label>
+                    <select data-testid="contact-inquiry-detail" value={formData.inquiry_detail}
+                      onChange={e => setFormData({ ...formData, inquiry_detail: e.target.value })}
+                      className="w-full border border-gray-200 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:border-[#D4AF37] transition-colors bg-white">
+                      <option value="">Select...</option>
+                      {detailOptions.map(opt => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
+                    </select>
+                  </div>
+                )}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">Message *</label>
                   <Textarea data-testid="contact-message" required value={formData.message}

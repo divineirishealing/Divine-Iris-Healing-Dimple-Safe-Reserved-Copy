@@ -56,14 +56,15 @@ export default function AboutPage() {
       <Header />
 
       {/* Hero */}
-      <section data-testid="about-hero" className="min-h-[45vh] flex flex-col items-center justify-center text-center px-6 pt-20"
-        style={{ background: 'linear-gradient(180deg, #1a1a1a 0%, #2d2d2d 50%, #1a1a1a 100%)' }}>
-        <h1 className="text-white mb-1" style={applyStyle((s.page_heroes?.about || {}).title_style, { ...HEADING, color: '#fff', fontSize: 'clamp(2rem, 5vw, 3rem)', fontVariant: 'small-caps', letterSpacing: '0.08em' })}>
+      <section data-testid="about-hero" className="min-h-[50vh] flex flex-col items-center justify-center text-center px-6 pt-20"
+        style={{ background: 'linear-gradient(180deg, #1a1a1a 0%, #1a1a1add 50%, #1a1a1a 100%)' }}>
+        <h1 className="text-white mb-4 max-w-4xl" style={applyStyle((s.page_heroes?.about || {}).title_style, { ...HEADING, color: '#fff', fontSize: 'clamp(1.8rem, 4vw, 3rem)', fontVariant: 'small-caps', letterSpacing: '0.05em', lineHeight: 1.3 })}>
           {(s.page_heroes?.about || {}).title_text || s.about_name || 'Dimple Ranawat'}
         </h1>
-        <p style={applyStyle((s.page_heroes?.about || {}).subtitle_style, { ...SUBTITLE, color: '#ccc', fontFamily: "'Lato', sans-serif" })}>
+        <p className="mb-6" style={applyStyle((s.page_heroes?.about || {}).subtitle_style, { ...LABEL, color: GOLD })}>
           {(s.page_heroes?.about || {}).subtitle_text || s.about_title || 'Founder, Divine Iris – Soulful Healing Studio'}
         </p>
+        <div className="w-14 h-0.5" style={{ background: GOLD }} />
       </section>
 
       {/* Logo + Bio */}

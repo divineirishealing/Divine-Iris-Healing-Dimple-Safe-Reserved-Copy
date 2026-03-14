@@ -6,7 +6,7 @@ import Footer from '../components/Footer';
 import FloatingButtons from '../components/FloatingButtons';
 import { useCurrency } from '../context/CurrencyContext';
 import { renderMarkdown } from '../lib/renderMarkdown';
-import { HEADING, SUBTITLE, BODY, GOLD, CONTAINER, SECTION_PY } from '../lib/designTokens';
+import { HEADING, SUBTITLE, BODY, GOLD, LABEL, CONTAINER, SECTION_PY } from '../lib/designTokens';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
@@ -69,14 +69,15 @@ export default function SponsorPage() {
       <Header />
 
       {/* Hero */}
-      <section data-testid="sponsor-hero" className="min-h-[45vh] flex flex-col items-center justify-center text-center px-6 pt-20"
-        style={{ background: 'linear-gradient(180deg, #1a1a1a 0%, #2d2d2d 50%, #1a1a1a 100%)' }}>
-        <h1 className="mb-2" style={applyStyle(hero.title_style, { ...HEADING, color: '#fff', fontSize: 'clamp(2rem, 5vw, 3rem)', fontVariant: 'small-caps', letterSpacing: '0.08em' })}>
+      <section data-testid="sponsor-hero" className="min-h-[50vh] flex flex-col items-center justify-center text-center px-6 pt-20"
+        style={{ background: 'linear-gradient(180deg, #1a1a1a 0%, #1a1a1add 50%, #1a1a1a 100%)' }}>
+        <h1 className="text-white mb-4 max-w-4xl" style={applyStyle(hero.title_style, { ...HEADING, color: '#fff', fontSize: 'clamp(1.8rem, 4vw, 3rem)', fontVariant: 'small-caps', letterSpacing: '0.05em', lineHeight: 1.3 })}>
           {hero.title_text || 'Shine a Light in a Life'}
         </h1>
-        <p style={applyStyle(hero.subtitle_style, { ...SUBTITLE, color: '#ccc', fontFamily: "'Lato', sans-serif" })}>
-          {hero.subtitle_text || 'Healing flows when we support each other.'}
+        <p className="mb-6" style={applyStyle(hero.subtitle_style, { ...LABEL, color: GOLD })}>
+          {hero.subtitle_text || 'Conscious Support for Collective Healing'}
         </p>
+        <div className="w-14 h-0.5" style={{ background: GOLD }} />
       </section>
 
       {/* Two Column: Why Sponsor + Form */}

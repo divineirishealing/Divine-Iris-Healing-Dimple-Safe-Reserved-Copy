@@ -6,7 +6,7 @@ import Header from '../components/Header';
 import Footer from '../components/Footer';
 import FloatingButtons from '../components/FloatingButtons';
 import { resolveImageUrl } from '../lib/imageUtils';
-import { HEADING, SUBTITLE, CONTAINER, SECTION_PY } from '../lib/designTokens';
+import { HEADING, SUBTITLE, LABEL, GOLD, CONTAINER, SECTION_PY } from '../lib/designTokens';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
@@ -43,14 +43,15 @@ function MediaPage() {
     <div className="min-h-screen bg-white">
       <Header />
 
-      <section data-testid="media-hero" className="min-h-[45vh] flex flex-col items-center justify-center text-center px-6 pt-20"
-        style={{ background: 'linear-gradient(180deg, #1a1a1a 0%, #2d2d2d 50%, #1a1a1a 100%)' }}>
-        <h1 className="mb-2" style={applyHeroStyle(hero.title_style, { ...HEADING, color: '#fff', fontSize: 'clamp(2rem, 5vw, 3rem)', fontVariant: 'small-caps', letterSpacing: '0.08em' })}>
-          {hero.title_text || 'MEDIA'}
+      <section data-testid="media-hero" className="min-h-[50vh] flex flex-col items-center justify-center text-center px-6 pt-20"
+        style={{ background: 'linear-gradient(180deg, #1a1a1a 0%, #1a1a1add 50%, #1a1a1a 100%)' }}>
+        <h1 className="mb-4 max-w-4xl" style={applyHeroStyle(hero.title_style, { ...HEADING, color: GOLD, fontSize: 'clamp(1.8rem, 4vw, 3rem)', fontVariant: 'small-caps', letterSpacing: '0.05em', lineHeight: 1.3 })}>
+          {hero.title_text || 'Media'}
         </h1>
-        <p style={applyHeroStyle(hero.subtitle_style, { ...SUBTITLE, color: '#ccc', fontFamily: "'Lato', sans-serif" })}>
+        <p className="mb-6" style={applyHeroStyle(hero.subtitle_style, { ...LABEL, color: '#fff' })}>
           {hero.subtitle_text || ''}
         </p>
+        <div className="w-14 h-0.5" style={{ background: GOLD }} />
       </section>
 
       {/* Video Testimonials */}

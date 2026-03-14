@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
-import { Facebook, Instagram, Youtube, Linkedin, Mail, Phone, Music, Pin } from 'lucide-react';
+import { Facebook, Instagram, Youtube, Linkedin, Mail, Phone, X, Send, Loader2 } from 'lucide-react';
+import { Dialog, DialogContent } from './ui/dialog';
 import { BODY, GOLD, CONTAINER } from '../lib/designTokens';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
@@ -20,7 +21,7 @@ const TikTokIcon = ({ size = 18 }) => (
 );
 
 const AppleMusicIcon = ({ size = 18 }) => (
-  <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor"><path d="M23.994 6.124a9.23 9.23 0 00-.24-2.19c-.317-1.31-1.062-2.31-2.18-3.043A5.022 5.022 0 0019.7.283C18.96.106 18.197.035 17.424.024c-.105 0-.21-.013-.318-.024H6.9c-.106.013-.21.024-.317.024A12.19 12.19 0 003.64.283 5.022 5.022 0 001.77.89C.652 1.622-.093 2.622-.41 3.934a9.23 9.23 0 00-.24 2.19c0 .105-.013.21-.024.318v11.028c.013.105.024.21.024.318.05.775.17 1.542.39 2.19.56 1.64 1.72 2.76 3.36 3.27.63.2 1.29.3 1.95.33.41.03.82.04 1.23.04h10.48c.41 0 .82-.01 1.23-.04a7.17 7.17 0 001.95-.33c1.64-.51 2.8-1.63 3.36-3.27.22-.648.34-1.415.39-2.19 0-.105.013-.21.024-.318V6.442c-.013-.105-.024-.21-.024-.318zM17.73 12c0 .67-.04 1.34-.12 2s-.22 1.29-.43 1.88a4.73 4.73 0 01-2.77 2.77c-.59.21-1.21.35-1.88.43a14.6 14.6 0 01-2 .12 14.6 14.6 0 01-2-.12 6.3 6.3 0 01-1.88-.43 4.73 4.73 0 01-2.77-2.77c-.21-.59-.35-1.21-.43-1.88a14.6 14.6 0 01-.12-2 14.6 14.6 0 01.12-2c.08-.66.22-1.29.43-1.88a4.73 4.73 0 012.77-2.77c.59-.21 1.21-.35 1.88-.43a14.6 14.6 0 012-.12 14.6 14.6 0 012 .12c.66.08 1.29.22 1.88.43a4.73 4.73 0 012.77 2.77c.21.59.35 1.21.43 1.88.08.66.12 1.33.12 2zM12 7.12c-.2 0-.39.08-.54.21l-4.5 3.67a.75.75 0 00-.29.59v5.16c0 .41.34.75.75.75h1.5c.41 0 .75-.34.75-.75v-3h3v3c0 .41.34.75.75.75h1.5c.41 0 .75-.34.75-.75v-5.16a.75.75 0 00-.29-.59l-4.5-3.67a.75.75 0 00-.48-.21z"/></svg>
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor"><path d="M23.994 6.124a9.23 9.23 0 00-.24-2.19c-.317-1.31-1.062-2.31-2.18-3.043A5.022 5.022 0 0019.7.283C18.96.106 18.197.035 17.424.024c-.105 0-.21-.013-.318-.024H6.9c-.106.013-.21.024-.317.024A12.19 12.19 0 003.64.283 5.022 5.022 0 001.77.89C.652 1.622-.093 2.622-.41 3.934a9.23 9.23 0 00-.24 2.19c0 .105-.013.21-.024.318v11.028c.013.105.024.21.024.318.05.775.17 1.542.39 2.19.56 1.64 1.72 2.76 3.36 3.27.63.2 1.29.3 1.95.33.41.03.82.04 1.23.04h10.48c.41 0 .82-.01 1.23-.04a7.17 7.17 0 001.95-.33c1.64-.51 2.8-1.63 3.36-3.27.22-.648.34-1.415.39-2.19 0-.105.013-.21.024-.318V6.442c-.013-.105-.024-.21-.024-.318zM17.73 12c0 .67-.04 1.34-.12 2s-.22 1.29-.43 1.88a4.73 4.73 0 01-2.77 2.77c-.59.21-1.21.35-1.88.43a14.6 14.6 0 01-2 .12 14.6 14.6 0 01-2-.12 6.3 6.3 0 01-1.88-.43 4.73 4.73 0 01-2.77-2.77c-.21-.59-.35-1.21-.43-1.88a14.6 14.6 0 01-.12-2 14.6 14.6 0 01.12-2c.08-.66.22-1.29.43-1.88a4.73 4.73 0 012.77-2.77c.59-.21 1.21-.35 1.88-.43a14.6 14.6 0 012-.12 14.6 14.6 0 012 .12c.66.08 1.29.22 1.88.43a4.73 4.73 0 012.77 2.77c.21.59.35 1.21.43 1.88.08.66.12 1.33.12 2z"/></svg>
 );
 
 const SoundCloudIcon = ({ size = 18 }) => (
@@ -39,13 +40,133 @@ const socialIcons = {
   soundcloud: { icon: SoundCloudIcon, color: 'text-gray-400 hover:text-[#D4AF37]' },
 };
 
+const FONT_LATO = { fontFamily: "'Lato', sans-serif" };
+
+const ContactFormDialog = ({ open, onClose, programs, sessions }) => {
+  const [formData, setFormData] = useState({ name: '', email: '', phone: '', inquiry_type: '', inquiry_detail: '', message: '' });
+  const [submitting, setSubmitting] = useState(false);
+  const [submitted, setSubmitted] = useState(false);
+
+  const inquiryOptions = [
+    { value: '', label: 'Select inquiry type' },
+    { value: 'program', label: 'About a Program' },
+    { value: 'session', label: 'About a Personal Session' },
+    { value: 'other', label: 'Other' },
+  ];
+
+  const detailOptions = formData.inquiry_type === 'program'
+    ? programs.map(p => ({ value: p.title, label: p.title }))
+    : formData.inquiry_type === 'session'
+      ? sessions.map(s => ({ value: s.title, label: s.title }))
+      : [];
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    if (!formData.name.trim() || !formData.email.trim() || !formData.message.trim()) return;
+    setSubmitting(true);
+    try {
+      await axios.post(`${API}/enrollment/quote-request`, {
+        name: formData.name, email: formData.email, phone: formData.phone,
+        program_title: formData.inquiry_detail || formData.inquiry_type,
+        message: `[${formData.inquiry_type || 'General'}${formData.inquiry_detail ? ` - ${formData.inquiry_detail}` : ''}] ${formData.message}`,
+      });
+      setSubmitted(true);
+    } catch {
+      setSubmitted(true);
+    } finally { setSubmitting(false); }
+  };
+
+  const handleClose = () => { setSubmitted(false); setFormData({ name: '', email: '', phone: '', inquiry_type: '', inquiry_detail: '', message: '' }); onClose(); };
+
+  return (
+    <Dialog open={open} onOpenChange={handleClose}>
+      <DialogContent className="max-w-lg p-0 overflow-hidden bg-white" data-testid="footer-contact-dialog">
+        <div className="p-8">
+          <h2 className="text-center mb-1" style={{ fontFamily: "'Cinzel', serif", fontWeight: 700, fontSize: '1.4rem', color: '#1a1a1a' }}>Express Your Interest</h2>
+          <p className="text-center text-gray-500 text-sm mb-6" style={FONT_LATO}>Ready to begin your healing journey? Let us know how we can help.</p>
+
+          {submitted ? (
+            <div className="text-center py-8" data-testid="contact-form-success">
+              <div className="w-12 h-12 rounded-full bg-green-100 flex items-center justify-center mx-auto mb-4">
+                <Send size={20} className="text-green-600" />
+              </div>
+              <p className="text-lg font-medium text-gray-900 mb-2" style={FONT_LATO}>Thank you!</p>
+              <p className="text-sm text-gray-500" style={FONT_LATO}>We'll get back to you within 24 hours.</p>
+            </div>
+          ) : (
+            <form onSubmit={handleSubmit} className="space-y-4">
+              <div>
+                <label className="block text-xs font-medium text-gray-600 mb-1.5 tracking-wide" style={FONT_LATO}>Full Name *</label>
+                <input data-testid="footer-contact-name" type="text" required value={formData.name}
+                  onChange={e => setFormData({ ...formData, name: e.target.value })}
+                  placeholder="Enter your full name"
+                  className="w-full border border-gray-200 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:border-[#D4AF37] transition-colors" style={FONT_LATO} />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-600 mb-1.5 tracking-wide" style={FONT_LATO}>Email Address *</label>
+                <input data-testid="footer-contact-email" type="email" required value={formData.email}
+                  onChange={e => setFormData({ ...formData, email: e.target.value })}
+                  placeholder="Enter your email"
+                  className="w-full border border-gray-200 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:border-[#D4AF37] transition-colors" style={FONT_LATO} />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-600 mb-1.5 tracking-wide" style={FONT_LATO}>Phone Number</label>
+                <input data-testid="footer-contact-phone" type="tel" value={formData.phone}
+                  onChange={e => setFormData({ ...formData, phone: e.target.value })}
+                  placeholder="Enter your phone number"
+                  className="w-full border border-gray-200 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:border-[#D4AF37] transition-colors" style={FONT_LATO} />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-600 mb-1.5 tracking-wide" style={FONT_LATO}>Inquiry About</label>
+                <select data-testid="footer-contact-inquiry-type" value={formData.inquiry_type}
+                  onChange={e => setFormData({ ...formData, inquiry_type: e.target.value, inquiry_detail: '' })}
+                  className="w-full border border-gray-200 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:border-[#D4AF37] transition-colors bg-white" style={FONT_LATO}>
+                  {inquiryOptions.map(opt => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
+                </select>
+              </div>
+              {(formData.inquiry_type === 'program' || formData.inquiry_type === 'session') && detailOptions.length > 0 && (
+                <div>
+                  <label className="block text-xs font-medium text-gray-600 mb-1.5 tracking-wide" style={FONT_LATO}>
+                    {formData.inquiry_type === 'program' ? 'Select Program' : 'Select Session'}
+                  </label>
+                  <select data-testid="footer-contact-inquiry-detail" value={formData.inquiry_detail}
+                    onChange={e => setFormData({ ...formData, inquiry_detail: e.target.value })}
+                    className="w-full border border-gray-200 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:border-[#D4AF37] transition-colors bg-white" style={FONT_LATO}>
+                    <option value="">Select...</option>
+                    {detailOptions.map(opt => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
+                  </select>
+                </div>
+              )}
+              <div>
+                <label className="block text-xs font-medium text-gray-600 mb-1.5 tracking-wide" style={FONT_LATO}>Message *</label>
+                <textarea data-testid="footer-contact-message" required value={formData.message}
+                  onChange={e => setFormData({ ...formData, message: e.target.value })}
+                  placeholder="Tell us about what you're looking for..."
+                  rows={4} className="w-full border border-gray-200 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:border-[#D4AF37] transition-colors resize-y" style={FONT_LATO} />
+              </div>
+              <button data-testid="footer-contact-submit" type="submit" disabled={submitting}
+                className="w-full py-3 text-xs font-semibold tracking-[0.15em] uppercase text-white transition-all duration-300 rounded-lg disabled:opacity-50"
+                style={{ background: submitting ? '#999' : GOLD, ...FONT_LATO }}>
+                {submitting ? <Loader2 className="animate-spin mx-auto" size={18} /> : 'Submit Inquiry'}
+              </button>
+            </form>
+          )}
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+};
+
 const Footer = () => {
   const navigate = useNavigate();
   const [programs, setPrograms] = useState([]);
+  const [sessions, setSessions] = useState([]);
   const [settings, setSettings] = useState(null);
+  const [contactOpen, setContactOpen] = useState(false);
 
   useEffect(() => {
-    axios.get(`${API}/programs`).then(r => setPrograms(r.data.filter(p => p.visible !== false).slice(0, 6))).catch(() => {});
+    axios.get(`${API}/programs`).then(r => setPrograms(r.data.filter(p => p.visible !== false))).catch(() => {});
+    axios.get(`${API}/sessions`).then(r => setSessions(r.data.filter(s => s.title && s.visible !== false))).catch(() => {});
     axios.get(`${API}/settings`).then(r => setSettings(r.data)).catch(() => {});
   }, []);
 
@@ -55,14 +176,14 @@ const Footer = () => {
     { label: 'Home', href: '/', visible: true },
     { label: 'About', href: '/about', visible: true },
     { label: 'Media', href: '/media', visible: true },
-    { label: 'Contact', href: '/#contact', visible: true },
     { label: 'Services', href: '/#sessions', visible: true },
     { label: 'Transformations', href: '/transformations', visible: true },
     { label: 'Upcoming Sessions', href: '/sessions', visible: true },
   ];
-  const footerMenuItems = (s.footer_menu_items?.length ? s.footer_menu_items : DEFAULT_MENU)
-    .filter(item => item.visible !== false)
-    .sort((a, b) => a.label.length - b.label.length);
+  const footerMenuItems = (s.footer_menu_items?.length
+    ? s.footer_menu_items.filter(item => item.label?.toLowerCase() !== 'contact')
+    : DEFAULT_MENU
+  ).filter(item => item.visible !== false);
 
   const handleMenuClick = (href) => {
     if (href.startsWith('/#')) {
@@ -86,88 +207,95 @@ const Footer = () => {
   ].filter(l => l.show && l.url);
 
   return (
-    <footer id="contact" data-testid="site-footer" className="text-white py-14" style={{ background: '#1a1a1a' }}>
-      <div className={CONTAINER}>
-        <div className="grid md:grid-cols-4 gap-10 mb-10">
-          {/* Brand */}
-          <div>
-            <h3 className="text-base mb-3 font-light">{s.footer_brand_name || 'Divine Iris Healing'}</h3>
-            <p className="text-gray-400 text-[11px] leading-relaxed mb-5">{s.footer_tagline || 'Delve into the deeper realm of your soul with Divine Iris – Soulful Healing Studio'}</p>
-            <div className="flex flex-wrap gap-3">
-              {socialLinks.map(link => {
-                const cfg = socialIcons[link.key];
-                if (!cfg) return null;
-                const IconComp = cfg.icon;
-                return (
-                  <a key={link.key} href={link.url} target="_blank" rel="noopener noreferrer" className="text-gray-400 hover:text-[#D4AF37] transition-colors" data-testid={`footer-social-${link.key}`}>
-                    <IconComp size={16} />
+    <>
+      <footer id="contact" data-testid="site-footer" className="text-white py-14" style={{ background: '#1a1a1a', ...FONT_LATO }}>
+        <div className={CONTAINER}>
+          <div className="grid md:grid-cols-4 gap-10 mb-10">
+            {/* Brand */}
+            <div>
+              <h3 className="text-base mb-3 font-light" style={FONT_LATO}>{s.footer_brand_name || 'Divine Iris Healing'}</h3>
+              <p className="text-gray-400 text-[11px] leading-relaxed mb-5" style={FONT_LATO}>{s.footer_tagline || 'Delve into the deeper realm of your soul with Divine Iris – Soulful Healing Studio'}</p>
+              <div className="flex flex-wrap gap-3">
+                {socialLinks.map(link => {
+                  const cfg = socialIcons[link.key];
+                  if (!cfg) return null;
+                  const IconComp = cfg.icon;
+                  return (
+                    <a key={link.key} href={link.url} target="_blank" rel="noopener noreferrer" className="text-gray-400 hover:text-[#D4AF37] transition-colors" data-testid={`footer-social-${link.key}`}>
+                      <IconComp size={16} />
+                    </a>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Menu */}
+            <div>
+              <h4 className="text-xs font-medium mb-3 tracking-wider text-gray-300" style={FONT_LATO}>MENU</h4>
+              <ul className="space-y-1.5 text-gray-400 text-[11px]" style={FONT_LATO}>
+                {footerMenuItems.map(item => (
+                  <li key={item.label}>
+                    <button onClick={() => handleMenuClick(item.href)}
+                      className="hover:text-[#D4AF37] transition-colors text-left">{item.label}</button>
+                  </li>
+                ))}
+                <li>
+                  <button data-testid="footer-contact-btn" onClick={() => setContactOpen(true)}
+                    className="hover:text-[#D4AF37] transition-colors text-left">Contact</button>
+                </li>
+              </ul>
+            </div>
+
+            {/* Programs */}
+            <div>
+              <h4 className="text-xs font-medium mb-3 tracking-wider text-gray-300" style={FONT_LATO}>PROGRAMS</h4>
+              <ul className="space-y-1.5 text-gray-400 text-[11px]" style={FONT_LATO}>
+                {[...programs].slice(0, 6).sort((a, b) => a.title.length - b.title.length).map(p => (
+                  <li key={p.id}>
+                    <button data-testid={`footer-program-${p.id}`} onClick={() => navigate(`/program/${p.id}`)}
+                      className="hover:text-[#D4AF37] transition-colors text-left">{p.title}</button>
+                  </li>
+                ))}
+              </ul>
+            </div>
+
+            {/* Contact */}
+            <div>
+              <h4 className="text-xs font-medium mb-3 tracking-wider text-gray-300" style={FONT_LATO}>CONTACT US</h4>
+              <ul className="space-y-2.5 text-gray-400 text-[11px]" style={FONT_LATO}>
+                <li>
+                  <a href={`mailto:${s.footer_email || 'support@divineirishealing.com'}`} className="hover:text-[#D4AF37] transition-colors flex items-center gap-2" data-testid="footer-email">
+                    <Mail size={14} className="text-[#D4AF37] flex-shrink-0" />
+                    {s.footer_email || 'support@divineirishealing.com'}
                   </a>
-                );
-              })}
+                </li>
+                <li>
+                  <a href={`tel:${s.footer_phone || '+971553325778'}`} className="hover:text-[#D4AF37] transition-colors flex items-center gap-2" data-testid="footer-phone">
+                    <Phone size={14} className="text-[#D4AF37] flex-shrink-0" />
+                    {s.footer_phone || '+971553325778'}
+                  </a>
+                </li>
+              </ul>
+              {/* Golden divider line */}
+              <div className="w-full h-px my-4" style={{ background: GOLD, opacity: 0.4 }} />
+              <ul className="space-y-1.5 text-gray-400 text-[11px]" style={FONT_LATO}>
+                <li>
+                  <button onClick={() => navigate('/terms')} className="hover:text-[#D4AF37] transition-colors" data-testid="footer-terms-link">Terms & Conditions</button>
+                </li>
+                <li>
+                  <button onClick={() => navigate('/privacy')} className="hover:text-[#D4AF37] transition-colors" data-testid="footer-privacy-link">Privacy Policy</button>
+                </li>
+              </ul>
             </div>
           </div>
-
-          {/* Menu */}
-          <div>
-            <h4 className="text-xs font-medium mb-3 tracking-wider text-gray-300">MENU</h4>
-            <ul className="space-y-1.5 text-gray-400 text-[11px]">
-              {footerMenuItems.map(item => (
-                <li key={item.label}>
-                  <button onClick={() => handleMenuClick(item.href)}
-                    className="hover:text-[#D4AF37] transition-colors text-left">{item.label}</button>
-                </li>
-              ))}
-            </ul>
-          </div>
-
-          {/* Programs */}
-          <div>
-            <h4 className="text-xs font-medium mb-3 tracking-wider text-gray-300">PROGRAMS</h4>
-            <ul className="space-y-1.5 text-gray-400 text-[11px]">
-              {[...programs].sort((a, b) => a.title.length - b.title.length).map(p => (
-                <li key={p.id}>
-                  <button
-                    data-testid={`footer-program-${p.id}`}
-                    onClick={() => navigate(`/program/${p.id}`)}
-                    className="hover:text-[#D4AF37] transition-colors text-left"
-                  >
-                    {p.title}
-                  </button>
-                </li>
-              ))}
-            </ul>
-          </div>
-
-          {/* Contact */}
-          <div>
-            <h4 className="text-xs font-medium mb-3 tracking-wider text-gray-300">CONTACT US</h4>
-            <ul className="space-y-2.5 text-gray-400 text-[11px]">
-              <li>
-                <a href={`mailto:${s.footer_email || 'support@divineirishealing.com'}`} className="hover:text-[#D4AF37] transition-colors flex items-center gap-2" data-testid="footer-email">
-                  <Mail size={14} className="text-[#D4AF37] flex-shrink-0" />
-                  {s.footer_email || 'support@divineirishealing.com'}
-                </a>
-              </li>
-              <li>
-                <a href={`tel:${s.footer_phone || '+971553325778'}`} className="hover:text-[#D4AF37] transition-colors flex items-center gap-2" data-testid="footer-phone">
-                  <Phone size={14} className="text-[#D4AF37] flex-shrink-0" />
-                  {s.footer_phone || '+971553325778'}
-                </a>
-              </li>
-              <li className="pt-2">
-                <button onClick={() => navigate('/terms')} className="hover:text-[#D4AF37] transition-colors" data-testid="footer-terms-link">Terms & Conditions</button>
-              </li>
-              <li>
-                <button onClick={() => navigate('/privacy')} className="hover:text-[#D4AF37] transition-colors" data-testid="footer-privacy-link">Privacy Policy</button>
-              </li>
-            </ul>
+          <div className="border-t border-gray-800 pt-6 text-center">
+            <p className="text-gray-500 text-[10px]" style={FONT_LATO}>&copy; {s.footer_copyright || '2026 Divine Iris Healing. All Rights Reserved.'}</p>
           </div>
         </div>
-        <div className="border-t border-gray-800 pt-6 text-center">
-          <p className="text-gray-500 text-[10px]">&copy; {s.footer_copyright || '2026 Divine Iris Healing. All Rights Reserved.'}</p>
-        </div>
-      </div>
-    </footer>
+      </footer>
+
+      <ContactFormDialog open={contactOpen} onClose={() => setContactOpen(false)} programs={programs} sessions={sessions} />
+    </>
   );
 };
 

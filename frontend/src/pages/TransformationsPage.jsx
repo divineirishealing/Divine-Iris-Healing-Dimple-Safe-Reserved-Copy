@@ -60,15 +60,16 @@ function TransformationsPage() {
       {/* Hero */}
       <section
         data-testid="transformations-hero"
-        className="min-h-[45vh] flex flex-col items-center justify-center text-center px-6 pt-24"
-        style={{ background: 'linear-gradient(180deg, #1a1a1a 0%, #2d2d2d 50%, #1a1a1a 100%)' }}
+        className="min-h-[50vh] flex flex-col items-center justify-center text-center px-6 pt-24"
+        style={{ background: 'linear-gradient(180deg, #1a1a1a 0%, #1a1a1add 50%, #1a1a1a 100%)' }}
       >
-        <h1 className="mb-2" style={applyHeroStyle(hero.title_style, { ...HEADING, color: GOLD, fontSize: 'clamp(2rem, 5vw, 3rem)', fontVariant: 'small-caps', letterSpacing: '0.1em' })}>
-          {hero.title_text || 'TRANSFORMATIONS'}
+        <h1 className="text-white mb-4 max-w-4xl" style={applyHeroStyle(hero.title_style, { ...HEADING, color: '#fff', fontSize: 'clamp(1.8rem, 4vw, 3rem)', fontVariant: 'small-caps', letterSpacing: '0.05em', lineHeight: 1.3 })}>
+          {hero.title_text || 'Transformations'}
         </h1>
-        <p style={applyHeroStyle(hero.subtitle_style, { ...SUBTITLE, color: '#999', fontFamily: "'Lato', sans-serif", fontSize: '0.8rem', letterSpacing: '0.2em' })}>
+        <p className="mb-6" style={applyHeroStyle(hero.subtitle_style, { ...LABEL, color: GOLD })}>
           {hero.subtitle_text || 'Stories of Healing, Growth & Awakening'}
         </p>
+        <div className="w-14 h-0.5" style={{ background: GOLD }} />
       </section>
 
       {/* Search + Filter Bar */}
