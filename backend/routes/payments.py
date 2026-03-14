@@ -19,10 +19,11 @@ import stripe as stripe_lib
 async def create_checkout_no_adaptive(stripe_checkout: StripeCheckout, request: CheckoutSessionRequest) -> CheckoutSessionResponse:
     """Create a Stripe checkout session with Adaptive Pricing DISABLED (no 'Choose a currency' popup)."""
     stripe_lib.api_key = stripe_checkout.api_key
+    product_name = request.metadata.get("item_title", "Payment") if request.metadata else "Payment"
     line_items = [{
         "price_data": {
             "currency": request.currency,
-            "product_data": {"name": request.product_name or "Payment"},
+            "product_data": {"name": product_name or "Payment"},
             "unit_amount": int(round(request.amount * 100)),
         },
         "quantity": 1,
