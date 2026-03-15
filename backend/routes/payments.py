@@ -442,6 +442,10 @@ async def check_payment_status(session_id: str, http_request: Request, backgroun
             booker_name = enrollment.get("booker_name", "")
             booker_email = enrollment.get("booker_email", "")
 
+    # Fetch community whatsapp from settings
+    settings = await db.site_settings.find_one({"type": "site_settings"}, {"_id": 0})
+    community_whatsapp = settings.get("community_whatsapp_link", "") if settings else ""
+
     # If already marked as paid, return immediately (prevent double processing)
     if tx.get("payment_status") == "paid":
         return {
@@ -451,6 +455,7 @@ async def check_payment_status(session_id: str, http_request: Request, backgroun
             "currency": tx.get("currency", "usd"),
             "item_title": tx.get("item_title", ""),
             "program_links": program_links,
+            "community_whatsapp": community_whatsapp,
             "participants": participants,
             "booker_name": booker_name,
             "booker_email": booker_email,
@@ -493,6 +498,7 @@ async def check_payment_status(session_id: str, http_request: Request, backgroun
             "currency": status.currency,
             "item_title": tx.get("item_title", ""),
             "program_links": program_links,
+            "community_whatsapp": community_whatsapp,
             "participants": participants,
             "booker_name": booker_name,
             "booker_email": booker_email,
@@ -505,6 +511,7 @@ async def check_payment_status(session_id: str, http_request: Request, backgroun
             "currency": tx.get("currency", "usd"),
             "item_title": tx.get("item_title", ""),
             "program_links": program_links,
+            "community_whatsapp": community_whatsapp,
             "participants": participants,
             "booker_name": booker_name,
             "booker_email": booker_email,

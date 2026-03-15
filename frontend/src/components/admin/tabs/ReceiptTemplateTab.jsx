@@ -324,6 +324,15 @@ const ReceiptTemplateTab = () => {
       {/* Attachments Section */}
       <AttachmentsSection attachments={tpl.attachments || []} onChange={list => update('attachments', list)} />
 
+      {/* Links Note */}
+      <div className="mb-5 p-4 border rounded-lg bg-green-50/50">
+        <label className="text-xs font-semibold text-gray-700 block mb-2">Links Note (shown below WhatsApp/Zoom links in receipt email)</label>
+        <textarea value={tpl.links_note || ''} onChange={e => update('links_note', e.target.value)}
+          rows={3} placeholder="e.g., Please join the WhatsApp group immediately after enrollment to receive all updates..."
+          className="w-full border rounded-lg px-3 py-2 text-xs text-gray-700 resize-none focus:ring-1 focus:ring-[#25D366]"
+          data-testid="links-note-textarea" />
+      </div>
+
       {/* Mini Preview */}
       <div className="mb-5 border rounded-lg overflow-hidden">
         <div className="text-[9px] text-gray-500 px-3 py-1.5 bg-gray-50 border-b flex items-center gap-1"><Palette size={10} /> Live Color Preview</div>

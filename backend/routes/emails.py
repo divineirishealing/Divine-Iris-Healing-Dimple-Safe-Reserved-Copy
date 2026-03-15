@@ -112,17 +112,8 @@ def enrollment_confirmation_email(booker_name, item_title, participants, total, 
         logo_html = f'<img src="{logo_url}" alt="Divine Iris Healing" style="max-height:48px;margin-bottom:12px;display:block;margin-left:auto;margin-right:auto" />'
 
 
-    # Community WhatsApp HTML
+    # Community WhatsApp HTML — merged into links section below
     community_whatsapp_html = ""
-    if community_whatsapp:
-        community_whatsapp_html = f"""
-        <div style="padding:0 36px 20px">
-          <div style="background:#dcf8c6;border-radius:14px;padding:24px;text-align:center">
-            <p style="color:#075e54;font-size:16px;font-weight:600;margin:0 0 8px;font-family:{heading_font}">Join WhatsApp Community Group</p>
-            <p style="color:#555;font-size:12px;margin:0 0 14px;font-family:{body_font}">Connect with fellow seekers and stay updated</p>
-            <a href="{community_whatsapp}" style="display:inline-block;background:#25D366;color:#fff;padding:12px 28px;border-radius:10px;text-decoration:none;font-size:14px;font-weight:600;font-family:{body_font}">Join WhatsApp Community</a>
-          </div>
-        </div>"""
 
     # Social links HTML
     social_html_block = _build_social_html(socials, accent_color, body_font)
@@ -179,7 +170,7 @@ def enrollment_confirmation_email(booker_name, item_title, participants, total, 
         mode_label = "Online (Zoom)" if mode == "online" else "Remote Healing (Distance)"
         mode_color = "#2563eb" if mode == "online" else "#0d9488"
         uid = p.get("uid", "")
-        uid_html = f'<div style="font-size:10px;color:{accent_color};font-weight:600;margin-top:2px">UID: {uid}</div>' if uid else ""
+        uid_html = f'<div style="font-size:10px;color:{accent_color};font-weight:600;margin-top:2px">Receipt ID: {uid}</div>' if uid else ""
         referred = p.get("referred_by_name", "")
         ref_html = f'<div style="font-size:9px;color:#999;margin-top:1px">Referred by: {referred}</div>' if referred else ""
         p_phone_code = p.get("phone_code", "")
@@ -195,7 +186,7 @@ def enrollment_confirmation_email(booker_name, item_title, participants, total, 
             contact_parts.append(f"WA: {full_wa}")
         contact_html = f'<div style="font-size:9px;color:#888;margin-top:1px">{" | ".join(contact_parts)}</div>' if contact_parts else ""
         first_time = "First Time Joiner" if p.get("is_first_time") else "Soul Tribe"
-        ft_color = accent_color if p.get("is_first_time") else "#888"
+        ft_color = accent_color if p.get("is_first_time") else "#7c3aed"
 
         participant_rows += f"""
         <tr>
@@ -205,33 +196,38 @@ def enrollment_confirmation_email(booker_name, item_title, participants, total, 
             {uid_html}{ref_html}{contact_html}
           </td>
           <td style="padding:12px 14px;border-bottom:1px solid #e5ece8;vertical-align:top;text-align:center">
-            <span style="background:{mode_color};color:#fff;padding:4px 12px;border-radius:20px;font-size:10px;font-weight:600;letter-spacing:0.5px">{mode_label}</span>
+            <span style="background:{mode_color};color:#fff;padding:4px 12px;border-radius:20px;font-size:10px;font-weight:600;letter-spacing:0.5px;white-space:nowrap;display:inline-block">{mode_label}</span>
           </td>
           <td style="padding:12px 14px;border-bottom:1px solid #e5ece8;vertical-align:top;text-align:center">
             <span style="font-size:11px;color:{ft_color};font-weight:600">{first_time}</span>
           </td>
         </tr>"""
 
-    # Links section
+    # Links section — combines program links + community link + editable note
+    links_note = tpl.get("links_note", "")
     links_html = ""
-    if program_links:
+    if program_links or community_whatsapp:
         link_items = ""
-        if program_links.get("whatsapp_group_link"):
+        if program_links and program_links.get("whatsapp_group_link"):
             link_items += f'''<a href="{program_links["whatsapp_group_link"]}" style="display:inline-block;background:#25D366;color:#fff;padding:14px 28px;border-radius:10px;text-decoration:none;font-size:14px;margin:6px;font-weight:600;font-family:{body_font}">WhatsApp Workshop Group</a>'''
-        if program_links.get("whatsapp_group_link_2"):
-            link_items += f'''<a href="{program_links["whatsapp_group_link_2"]}" style="display:inline-block;background:#128C7E;color:#fff;padding:14px 28px;border-radius:10px;text-decoration:none;font-size:14px;margin:6px;font-weight:600;font-family:{body_font}">WhatsApp Community Group</a>'''
-        if program_links.get("zoom_link"):
+        if community_whatsapp:
+            link_items += f'''<a href="{community_whatsapp}" style="display:inline-block;background:#128C7E;color:#fff;padding:14px 28px;border-radius:10px;text-decoration:none;font-size:14px;margin:6px;font-weight:600;font-family:{body_font}">WhatsApp Community Group</a>'''
+        if program_links and program_links.get("whatsapp_group_link_2"):
+            link_items += f'''<a href="{program_links["whatsapp_group_link_2"]}" style="display:inline-block;background:#075e54;color:#fff;padding:14px 28px;border-radius:10px;text-decoration:none;font-size:14px;margin:6px;font-weight:600;font-family:{body_font}">WhatsApp Group 2</a>'''
+        if program_links and program_links.get("zoom_link"):
             link_items += f'''<a href="{program_links["zoom_link"]}" style="display:inline-block;background:#2D8CFF;color:#fff;padding:14px 28px;border-radius:10px;text-decoration:none;font-size:14px;margin:6px;font-weight:600;font-family:{body_font}">Join Zoom Meeting</a>'''
-        if program_links.get("custom_link"):
+        if program_links and program_links.get("custom_link"):
             label = program_links.get("custom_link_label", "View Link")
             link_items += f'''<a href="{program_links["custom_link"]}" style="display:inline-block;background:{accent_color};color:#fff;padding:14px 28px;border-radius:10px;text-decoration:none;font-size:14px;margin:6px;font-weight:600;font-family:{body_font}">{label}</a>'''
+        links_note_html = f'<p style="color:#555;font-size:12px;margin:16px 0 0;line-height:1.7;font-family:{body_font};white-space:pre-line">{links_note}</p>' if links_note else ""
         if link_items:
             links_html = f"""
             <div style="padding:0 36px 28px">
-              <div style="background:linear-gradient(135deg, #f0f7ff, #e8f0ff);border:1px solid #c8d8ef;border-radius:14px;padding:28px;text-align:center">
-                <p style="color:{text_color};font-size:16px;margin:0 0 6px;font-weight:600;font-family:{heading_font}">Your Session Links</p>
+              <div style="background:linear-gradient(135deg, #dcf8c6, #e8f5e9);border:1px solid #b2dfb2;border-radius:14px;padding:28px;text-align:center">
+                <p style="color:#075e54;font-size:16px;margin:0 0 6px;font-weight:600;font-family:{heading_font}">Your Session Links</p>
                 <p style="color:#888;font-size:12px;margin:0 0 20px;font-family:{body_font}">Save these links for your upcoming sessions</p>
                 {link_items}
+                {links_note_html}
               </div>
             </div>"""
 
@@ -241,8 +237,6 @@ def enrollment_confirmation_email(booker_name, item_title, participants, total, 
         details_items += f'<tr><td style="padding:6px 0;color:#999;font-size:12px;width:100px;vertical-align:top">Starts</td><td style="padding:6px 0;color:{text_color};font-size:13px;font-weight:500">{program_start_date}</td></tr>'
     if program_end_date:
         details_items += f'<tr><td style="padding:6px 0;color:#999;font-size:12px;vertical-align:top">Ends</td><td style="padding:6px 0;color:{text_color};font-size:13px;font-weight:500">{program_end_date}</td></tr>'
-    if program_duration:
-        details_items += f'<tr><td style="padding:6px 0;color:#999;font-size:12px;vertical-align:top">Duration</td><td style="padding:6px 0;color:{text_color};font-size:13px;font-weight:500">{program_duration}</td></tr>'
     if program_timing:
         tz = f" ({program_timezone})" if program_timezone else ""
         details_items += f'<tr><td style="padding:6px 0;color:#999;font-size:12px;vertical-align:top">Timing</td><td style="padding:6px 0;color:{text_color};font-size:13px;font-weight:500">{program_timing}{tz}</td></tr>'
@@ -347,8 +341,6 @@ def enrollment_confirmation_email(booker_name, item_title, participants, total, 
         </div>
 
         {assistance_html}
-
-        {community_whatsapp_html}
 
         <!-- Subscribe to Future Workshops -->
         <div style="padding:0 36px 20px">
