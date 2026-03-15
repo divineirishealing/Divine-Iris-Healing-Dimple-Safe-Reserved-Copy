@@ -64,7 +64,7 @@ const AdminPanel = () => {
 
   const [programForm, setProgramForm] = useState({ title: '', category: '', description: '', image: '', price_usd: 0, price_inr: 0, price_eur: 0, price_gbp: 0, price_aed: 0, visible: true, order: 0, program_type: 'online', session_mode: 'online', enable_online: true, enable_offline: true, enable_in_person: false, offer_price_aed: 0, offer_price_usd: 0, offer_price_inr: 0, offer_text: '', is_upcoming: false, is_flagship: false, is_group_program: false, replicate_to_flagship: false, start_date: '', end_date: '', deadline_date: '', enrollment_open: true, enrollment_status: 'open', duration_tiers: [], whatsapp_group_link: '', zoom_link: '', custom_link: '', custom_link_label: '', show_whatsapp_link: true, show_zoom_link: true, show_custom_link: true, show_whatsapp_link_2: false, whatsapp_group_link_2: '', content_sections: [], timing: '', time_zone: '', show_duration_on_page: false, show_start_date_on_page: false, show_timing_on_page: false, show_duration_on_card: true, exclusive_offer_enabled: false, exclusive_offer_text: 'Limited Time Offer', closure_text: 'Registration Closed', show_pricing_on_card: true, show_tiers_on_card: true });
   const [sessionForm, setSessionForm] = useState({ title: '', description: '', price_usd: 0, price_inr: 0, price_eur: 0, price_gbp: 0, price_aed: 0, offer_price_aed: 0, offer_price_usd: 0, offer_price_inr: 0, offer_text: '', offer_expiry: '', duration: '60-90 minutes', session_mode: 'online', available_dates: [], time_slots: [], testimonial_text: '', title_style: null, description_style: null, visible: true, order: 0 });
-  const [testimonialForm, setTestimonialForm] = useState({ type: 'graphic', name: '', text: '', image: '', videoId: '', program_id: '', visible: true });
+  const [testimonialForm, setTestimonialForm] = useState({ type: 'graphic', name: '', text: '', image: '', videoId: '', program_id: '', program_tags: [], session_tags: [], category: '', role: '', visible: true });
   const [statForm, setStatForm] = useState({ value: '', label: '', order: 0, icon: '', value_style: null, label_style: null });
 
   const loadAll = useCallback(async () => {
@@ -135,12 +135,12 @@ const AdminPanel = () => {
   };
   const editTestimonial = (t) => {
     setEditingId(t.id);
-    setTestimonialForm({ type: t.type, name: t.name || '', text: t.text || '', image: t.image || '', videoId: t.videoId || '', program_id: t.program_id || '', visible: t.visible !== false });
+    setTestimonialForm({ type: t.type, name: t.name || '', text: t.text || '', image: t.image || '', videoId: t.videoId || '', program_id: t.program_id || '', program_tags: t.program_tags || [], session_tags: t.session_tags || [], category: t.category || '', role: t.role || '', visible: t.visible !== false });
     setShowTestimonialForm(true);
   };
   const deleteTestimonial = async (id) => { if (!window.confirm('Delete?')) return; await axios.delete(`${API}/testimonials/${id}`); toast({ title: 'Deleted' }); loadAll(); };
   const toggleTestimonialVisibility = async (t) => { await axios.patch(`${API}/testimonials/${t.id}/visibility`, { visible: !t.visible }); loadAll(); };
-  const resetTestimonialForm = () => { setShowTestimonialForm(false); setEditingId(null); setTestimonialForm({ type: 'graphic', name: '', text: '', image: '', videoId: '', program_id: '', visible: true }); };
+  const resetTestimonialForm = () => { setShowTestimonialForm(false); setEditingId(null); setTestimonialForm({ type: 'graphic', name: '', text: '', image: '', videoId: '', program_id: '', program_tags: [], session_tags: [], category: '', role: '', visible: true }); };
 
   // ===== STATS =====
   const saveStat = async () => {
@@ -940,13 +940,40 @@ const AdminPanel = () => {
                     <div>
                       <Label>Type</Label>
                       <select data-testid="testimonial-type-select" value={testimonialForm.type} onChange={e => setTestimonialForm({...testimonialForm, type: e.target.value})} className="w-full border rounded-md px-3 py-2 text-sm">
-                        <option value="graphic">Graphic (Image)</option><option value="video">Video (YouTube)</option>
+                        <option value="graphic">Graphic (Image)</option><option value="video">Video (YouTube)</option><option value="template">Template (Text Story)</option>
                       </select>
                     </div>
                     <div><Label>Name</Label><Input value={testimonialForm.name} onChange={e => setTestimonialForm({...testimonialForm, name: e.target.value})} /></div>
-                    <div className="md:col-span-2"><Label>Text</Label><Textarea data-testid="testimonial-text-input" value={testimonialForm.text} onChange={e => setTestimonialForm({...testimonialForm, text: e.target.value})} rows={3} /></div>
+                    <div className="md:col-span-2"><Label>Text / Quote</Label><Textarea data-testid="testimonial-text-input" value={testimonialForm.text} onChange={e => setTestimonialForm({...testimonialForm, text: e.target.value})} rows={3} placeholder={testimonialForm.type === 'template' ? 'Write the testimonial quote here...' : 'Optional search text'} /></div>
+                    {testimonialForm.type === 'template' && <div><Label>Role / Location</Label><Input value={testimonialForm.role} onChange={e => setTestimonialForm({...testimonialForm, role: e.target.value})} placeholder="e.g., Energy Healing Client, Mumbai" /></div>}
+                    {testimonialForm.type === 'template' && <div><Label>Author Photo</Label><ImageUploader value={testimonialForm.image} onChange={url => setTestimonialForm({...testimonialForm, image: url})} /></div>}
                     {testimonialForm.type==='graphic' && <div className="md:col-span-2"><Label>Image</Label><ImageUploader value={testimonialForm.image} onChange={url => setTestimonialForm({...testimonialForm, image: url})} /></div>}
                     {testimonialForm.type==='video' && <div className="md:col-span-2"><Label>YouTube Video ID</Label><Input value={testimonialForm.videoId} onChange={e => setTestimonialForm({...testimonialForm, videoId: e.target.value})} placeholder="e.g., FVgxpMEMnoc" /></div>}
+                    <div><Label>Category</Label><Input value={testimonialForm.category} onChange={e => setTestimonialForm({...testimonialForm, category: e.target.value})} placeholder="e.g., healing, weight-loss, transformation" /></div>
+                    <div>
+                      <Label>Tag to Programs</Label>
+                      <div className="flex flex-wrap gap-1.5 mt-1 p-2 border rounded-md max-h-28 overflow-y-auto">
+                        {programs.map(p => (
+                          <button key={p.id} type="button"
+                            onClick={() => { const tags = testimonialForm.program_tags || []; setTestimonialForm({...testimonialForm, program_tags: tags.includes(p.id) ? tags.filter(t => t !== p.id) : [...tags, p.id]}); }}
+                            className={`text-[10px] px-2 py-0.5 rounded-full border transition-colors ${(testimonialForm.program_tags || []).includes(p.id) ? 'bg-purple-100 border-purple-300 text-purple-700' : 'bg-gray-50 border-gray-200 text-gray-500 hover:bg-gray-100'}`}>
+                            {p.title}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                    <div>
+                      <Label>Tag to Sessions</Label>
+                      <div className="flex flex-wrap gap-1.5 mt-1 p-2 border rounded-md max-h-28 overflow-y-auto">
+                        {sessions.map(s => (
+                          <button key={s.id} type="button"
+                            onClick={() => { const tags = testimonialForm.session_tags || []; setTestimonialForm({...testimonialForm, session_tags: tags.includes(s.id) ? tags.filter(t => t !== s.id) : [...tags, s.id]}); }}
+                            className={`text-[10px] px-2 py-0.5 rounded-full border transition-colors ${(testimonialForm.session_tags || []).includes(s.id) ? 'bg-amber-100 border-amber-300 text-amber-700' : 'bg-gray-50 border-gray-200 text-gray-500 hover:bg-gray-100'}`}>
+                            {s.title}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
                     <div className="flex items-center gap-2"><Switch checked={testimonialForm.visible} onCheckedChange={v => setTestimonialForm({...testimonialForm, visible: v})} /><Label>Visible</Label></div>
                   </div>
                   <div className="mt-4 flex gap-2">
@@ -960,8 +987,18 @@ const AdminPanel = () => {
                   <div key={t.id} className={`bg-white rounded-lg shadow-sm border overflow-hidden ${!t.visible ? 'opacity-50' : ''}`}>
                     {t.type==='graphic' && t.image && <img src={resolveImageUrl(t.image)} alt={t.name} className="w-full h-32 object-cover" />}
                     {t.type==='video' && <img src={t.thumbnail||`https://img.youtube.com/vi/${t.videoId}/hqdefault.jpg`} alt={t.name} className="w-full h-32 object-cover" />}
+                    {t.type==='template' && (
+                      <div className="h-32 flex items-center justify-center px-4" style={{ background: 'linear-gradient(160deg, #faf8ff, #f5f0ff)' }}>
+                        <p className="text-xs italic text-gray-500 line-clamp-4 text-center">"{t.text?.substring(0, 100)}..."</p>
+                      </div>
+                    )}
                     <div className="p-3">
-                      <span className={`inline-block px-2 py-0.5 rounded text-xs ${t.type==='graphic'?'bg-blue-100 text-blue-700':'bg-red-100 text-red-700'}`}>{t.type}</span>
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <span className={`inline-block px-2 py-0.5 rounded text-xs ${t.type==='graphic'?'bg-blue-100 text-blue-700':t.type==='video'?'bg-red-100 text-red-700':'bg-purple-100 text-purple-700'}`}>{t.type}</span>
+                        {t.category && <span className="text-[9px] px-1.5 py-0.5 rounded bg-gray-100 text-gray-500">{t.category}</span>}
+                        {(t.program_tags?.length > 0) && <span className="text-[9px] px-1.5 py-0.5 rounded bg-purple-50 text-purple-500">{t.program_tags.length} prog</span>}
+                        {(t.session_tags?.length > 0) && <span className="text-[9px] px-1.5 py-0.5 rounded bg-amber-50 text-amber-500">{t.session_tags.length} sess</span>}
+                      </div>
                       {t.name && <p className="text-sm font-medium mt-1">{t.name}</p>}
                       <div className="flex items-center gap-2 mt-2">
                         <button onClick={() => toggleTestimonialVisibility(t)} className="p-1 rounded hover:bg-gray-100">{t.visible ? <Eye size={14} className="text-green-600" /> : <EyeOff size={14} className="text-gray-400" />}</button>

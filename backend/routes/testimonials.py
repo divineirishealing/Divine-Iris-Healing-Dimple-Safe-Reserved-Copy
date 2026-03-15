@@ -19,6 +19,8 @@ db = client[os.environ['DB_NAME']]
 async def get_testimonials(
     type: Optional[str] = None,
     program_id: Optional[str] = None,
+    session_id: Optional[str] = None,
+    category: Optional[str] = None,
     search: Optional[str] = None,
     visible_only: Optional[bool] = None
 ):
@@ -26,16 +28,34 @@ async def get_testimonials(
     if type:
         query["type"] = type
     if program_id:
-        query["program_id"] = program_id
+        query["$or"] = [
+            {"program_id": program_id},
+            {"program_tags": program_id}
+        ]
+    if session_id:
+        query["session_tags"] = session_id
+    if category:
+        query["category"] = category
     if visible_only:
         query["visible"] = True
     if search:
-        query["$or"] = [
+        search_filter = [
             {"text": {"$regex": re.escape(search), "$options": "i"}},
-            {"name": {"$regex": re.escape(search), "$options": "i"}}
+            {"name": {"$regex": re.escape(search), "$options": "i"}},
+            {"category": {"$regex": re.escape(search), "$options": "i"}},
+            {"role": {"$regex": re.escape(search), "$options": "i"}}
         ]
+        if "$or" in query:
+            query["$and"] = [{"$or": query.pop("$or")}, {"$or": search_filter}]
+        else:
+            query["$or"] = search_filter
     testimonials = await db.testimonials.find(query).sort("order", 1).to_list(500)
     return [Testimonial(**t) for t in testimonials]
+
+@router.get("/categories")
+async def get_categories():
+    categories = await db.testimonials.distinct("category", {"category": {"$ne": ""}})
+    return sorted([c for c in categories if c])
 
 @router.get("/{testimonial_id}", response_model=Testimonial)
 async def get_testimonial(testimonial_id: str):
@@ -50,7 +70,7 @@ async def create_testimonial(testimonial: TestimonialCreate):
     if data.get("type") == "video" and data.get("videoId") and not data.get("thumbnail"):
         data["thumbnail"] = f"https://img.youtube.com/vi/{data['videoId']}/maxresdefault.jpg"
     count = await db.testimonials.count_documents({})
-    data.pop("order", None)  # Remove order from input to use count
+    data.pop("order", None)
     testimonial_obj = Testimonial(**data, order=count)
     await db.testimonials.insert_one(testimonial_obj.dict())
     return testimonial_obj
@@ -63,6 +83,10 @@ async def update_testimonial(testimonial_id: str, testimonial: TestimonialCreate
     update_data = {k: v for k, v in testimonial.dict().items() if v is not None}
     if update_data.get("type") == "video" and update_data.get("videoId") and not update_data.get("thumbnail"):
         update_data["thumbnail"] = f"https://img.youtube.com/vi/{update_data['videoId']}/maxresdefault.jpg"
+    # Always update list fields even if empty
+    for field in ['program_tags', 'session_tags']:
+        if field in testimonial.dict():
+            update_data[field] = testimonial.dict()[field] or []
     await db.testimonials.update_one({"id": testimonial_id}, {"$set": update_data})
     updated = await db.testimonials.find_one({"id": testimonial_id})
     return Testimonial(**updated)

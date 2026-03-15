@@ -270,13 +270,17 @@ class SessionQuestionCreate(BaseModel):
 
 class Testimonial(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
-    type: str = "graphic"  # "graphic" or "video"
+    type: str = "graphic"  # "graphic", "video", or "template"
     name: str = ""
-    text: str = ""  # searchable text content
-    image: str = ""  # graphic image URL
+    text: str = ""  # searchable text content / quote for template type
+    image: str = ""  # graphic image URL or author photo for template type
     videoId: str = ""  # YouTube video ID
     thumbnail: str = ""
-    program_id: str = ""  # associated program (optional)
+    program_id: str = ""  # legacy single program (optional)
+    program_tags: List[str] = []  # multiple program IDs
+    session_tags: List[str] = []  # multiple session IDs
+    category: str = ""  # e.g. "healing", "transformation", "weight-loss"
+    role: str = ""  # author role/location for template type
     visible: bool = True
     order: int = 0
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
@@ -289,6 +293,10 @@ class TestimonialCreate(BaseModel):
     videoId: Optional[str] = ""
     thumbnail: Optional[str] = ""
     program_id: Optional[str] = ""
+    program_tags: Optional[List[str]] = []
+    session_tags: Optional[List[str]] = []
+    category: Optional[str] = ""
+    role: Optional[str] = ""
     visible: Optional[bool] = True
     order: Optional[int] = 0
 

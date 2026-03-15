@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { Menu, X, Facebook, Instagram, Youtube, Linkedin, ChevronDown, ShoppingCart, Clock, Sparkles } from 'lucide-react';
+import { Menu, X, Facebook, Instagram, Youtube, Linkedin, ChevronDown, ShoppingCart, Clock, Sparkles, Search } from 'lucide-react';
 import { useCart } from '../context/CartContext';
+import GlobalSearch from './GlobalSearch';
 import axios from 'axios';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
@@ -55,6 +56,7 @@ const Header = () => {
   const { itemCount } = useCart();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [programsOpen, setProgramsOpen] = useState(false);
+  const [searchOpen, setSearchOpen] = useState(false);
   const [settings, setSettings] = useState(null);
   const [programs, setPrograms] = useState([]);
   const dropdownRef = useRef(null);
@@ -231,6 +233,9 @@ const Header = () => {
               <nav className="hidden lg:flex items-center gap-1">
                 {rightNav.map(item => <NavButton key={item.label} item={item} />)}
               </nav>
+              <button data-testid="search-icon-btn" onClick={() => setSearchOpen(true)} className="text-white/80 hover:text-[#D4AF37] transition-colors ml-1">
+                <Search size={17} />
+              </button>
               <button data-testid="cart-icon-btn" onClick={() => navigate('/cart')} className="relative text-white/80 hover:text-[#D4AF37] transition-colors ml-2">
                 <ShoppingCart size={18} />
                 {itemCount > 0 && (
@@ -302,6 +307,11 @@ const Header = () => {
                 ))}
               </>
             )}
+            {/* Mobile Search */}
+            <button onClick={() => { setMobileOpen(false); setSearchOpen(true); }}
+              className="text-white/80 hover:text-[#D4AF37] text-sm tracking-[0.15em] uppercase font-light transition-colors inline-flex items-center gap-2 mt-2">
+              <Search size={14} /> Search
+            </button>
             <div className="flex items-center gap-4 mt-6 pt-6 border-t border-white/10">
               {activeSocials.map(s => (
                 <a key={s.key} href={s.url} target="_blank" rel="noopener noreferrer" className="text-white/50 hover:text-[#D4AF37] transition-colors">
@@ -312,6 +322,8 @@ const Header = () => {
           </nav>
         </div>
       )}
+
+      <GlobalSearch isOpen={searchOpen} onClose={() => setSearchOpen(false)} />
     </>
   );
 };

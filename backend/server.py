@@ -10,7 +10,7 @@ from pathlib import Path
 import mimetypes
 
 # Import routes
-from routes import programs, sessions, testimonials, stats, newsletter, upload, payments, webhook, currency, site_settings, enrollment, promotions, discounts, session_extras, india_payments, notify_me, inbox, clients, text_testimonials
+from routes import programs, sessions, testimonials, stats, newsletter, upload, payments, webhook, currency, site_settings, enrollment, promotions, discounts, session_extras, india_payments, notify_me, inbox, clients, text_testimonials, search
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
@@ -89,6 +89,7 @@ app.include_router(notify_me.router)
 app.include_router(inbox.router)
 app.include_router(clients.router)
 app.include_router(text_testimonials.router)
+app.include_router(search.router)
 
 @api_router.get("/admin/api-keys")
 async def get_api_keys():

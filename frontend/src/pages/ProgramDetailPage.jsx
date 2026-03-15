@@ -94,11 +94,11 @@ function ProgramDetailPage() {
       const [progRes, settingsRes, testRes] = await Promise.all([
         axios.get(`${API}/programs/${id}`),
         axios.get(`${API}/settings`),
-        axios.get(`${API}/testimonials`),
+        axios.get(`${API}/testimonials?program_id=${id}&visible_only=true`),
       ]);
       setProgram(progRes.data);
       setSettings(settingsRes.data);
-      setTestimonials(testRes.data.filter(t => t.visible !== false));
+      setTestimonials(testRes.data || []);
     } catch (e) { console.error(e); }
     setLoading(false);
   };
