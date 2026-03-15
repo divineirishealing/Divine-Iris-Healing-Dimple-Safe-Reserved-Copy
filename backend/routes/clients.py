@@ -369,41 +369,62 @@ async def delete_client(client_id: str):
 # ========== DOWNLOAD ==========
 
 @router.get("/export/csv")
-async def export_clients_csv():
-    import csv
+async def export_clients_excel():
     import io
+    from openpyxl import Workbook
+    from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
     from fastapi.responses import StreamingResponse
 
     clients_list = await db.clients.find({}, {"_id": 0}).sort("label", 1).to_list(5000)
 
-    output = io.StringIO()
-    writer = csv.writer(output)
-    writer.writerow([
-        "Label", "Name", "Email", "Phone", "Sources",
-        "Programs Enrolled", "Total Conversions",
-        "First Contact", "Last Updated", "Notes"
-    ])
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "Client Garden"
 
-    for cl in clients_list:
+    headers = ["Label", "Name", "Email", "Phone", "Sources", "Programs Enrolled", "Total Conversions", "First Contact", "Last Updated", "Notes"]
+    header_font = Font(bold=True, color="FFFFFF", size=11)
+    header_fill = PatternFill(start_color="1A1A1A", end_color="1A1A1A", fill_type="solid")
+    thin_border = Border(bottom=Side(style="thin", color="E8E0C8"))
+
+    label_fills = {
+        "Dew": PatternFill(start_color="E0F2FE", end_color="E0F2FE", fill_type="solid"),
+        "Seed": PatternFill(start_color="ECFCCB", end_color="ECFCCB", fill_type="solid"),
+        "Root": PatternFill(start_color="FEF3C7", end_color="FEF3C7", fill_type="solid"),
+        "Bloom": PatternFill(start_color="FCE7F3", end_color="FCE7F3", fill_type="solid"),
+        "Iris": PatternFill(start_color="F3E8FF", end_color="F3E8FF", fill_type="solid"),
+        "Purple Bees": PatternFill(start_color="EDE9FE", end_color="EDE9FE", fill_type="solid"),
+        "Iris Bees": PatternFill(start_color="FEF9C3", end_color="FEF9C3", fill_type="solid"),
+    }
+
+    for col, h in enumerate(headers, 1):
+        cell = ws.cell(row=1, column=col, value=h)
+        cell.font = header_font
+        cell.fill = header_fill
+        cell.alignment = Alignment(horizontal="center")
+
+    for idx, cl in enumerate(clients_list, 2):
         programs = ", ".join(set(c.get("program_title", "") for c in cl.get("conversions", []) if c.get("program_title")))
         sources = ", ".join(set(cl.get("sources", [])))
-        writer.writerow([
-            cl.get("label", ""),
-            cl.get("name", ""),
-            cl.get("email", ""),
-            cl.get("phone", ""),
-            sources,
-            programs,
-            len(cl.get("conversions", [])),
-            cl.get("created_at", ""),
-            cl.get("updated_at", ""),
-            cl.get("notes", ""),
-        ])
+        label = cl.get("label", "Dew")
+        row_data = [label, cl.get("name", ""), cl.get("email", ""), cl.get("phone", ""), sources, programs, len(cl.get("conversions", [])), cl.get("created_at", ""), cl.get("updated_at", ""), cl.get("notes", "")]
 
+        fill = label_fills.get(label, PatternFill())
+        for col, val in enumerate(row_data, 1):
+            cell = ws.cell(row=idx, column=col, value=str(val) if val else "")
+            cell.fill = fill
+            cell.border = thin_border
+
+    col_widths = [12, 20, 30, 18, 25, 40, 16, 22, 22, 30]
+    for i, w in enumerate(col_widths):
+        ws.column_dimensions[ws.cell(row=1, column=i + 1).column_letter].width = w
+
+    output = io.BytesIO()
+    wb.save(output)
     output.seek(0)
     timestamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M")
+
     return StreamingResponse(
-        iter([output.getvalue()]),
-        media_type="text/csv",
-        headers={"Content-Disposition": f"attachment; filename=divine_iris_clients_{timestamp}.csv"}
+        output,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": f"attachment; filename=divine_iris_clients_{timestamp}.xlsx"}
     )

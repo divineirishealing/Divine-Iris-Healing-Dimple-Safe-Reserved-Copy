@@ -296,62 +296,77 @@ async def get_inbox_counts():
 
 @router.get("/download")
 async def download_all_client_data():
-    import csv
     import io
+    from openpyxl import Workbook
+    from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
     from fastapi.responses import StreamingResponse
 
     contacts = await db.quote_requests.find({}, {"_id": 0}).sort("created_at", -1).to_list(1000)
     interests = await db.notify_me.find({}, {"_id": 0}).sort("created_at", -1).to_list(1000)
     questions = await db.session_questions.find({}, {"_id": 0}).sort("created_at", -1).to_list(1000)
 
-    output = io.StringIO()
-    writer = csv.writer(output)
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "All Inquiries"
 
-    # Header row
-    writer.writerow([
-        "Type", "Status", "Name", "Email", "Phone",
-        "Program/Session", "Message/Question", "Reply",
-        "Submitted Date", "Replied Date", "Remarks"
-    ])
+    headers = ["Type", "Status", "Name", "Email", "Phone", "Program/Session", "Message/Question", "Reply", "Submitted Date", "Replied Date", "Remarks"]
+    header_font = Font(bold=True, color="FFFFFF", size=11)
+    header_fill = PatternFill(start_color="1A1A1A", end_color="1A1A1A", fill_type="solid")
+    thin_border = Border(bottom=Side(style="thin", color="E8E0C8"))
 
-    # Contact submissions
+    for col, h in enumerate(headers, 1):
+        cell = ws.cell(row=1, column=col, value=h)
+        cell.font = header_font
+        cell.fill = header_fill
+        cell.alignment = Alignment(horizontal="center")
+
+    row = 2
+    type_fills = {
+        "Contact Form": PatternFill(start_color="EBF5FB", end_color="EBF5FB", fill_type="solid"),
+        "Express Interest": PatternFill(start_color="FEF9E7", end_color="FEF9E7", fill_type="solid"),
+        "Question": PatternFill(start_color="F5EEF8", end_color="F5EEF8", fill_type="solid"),
+    }
+
     for c in contacts:
-        status = c.get("status", "new")
+        status = c.get("status", "new").upper()
         remarks = f"Inquiry: {c.get('question_about', '')} > {c.get('specific_selection', '')}" if c.get("question_about") else ""
-        writer.writerow([
-            "Contact Form", status.upper(), c.get("name", ""), c.get("email", ""),
-            c.get("phone", ""), c.get("specific_selection", ""),
-            c.get("message", ""), c.get("reply", ""),
-            c.get("created_at", ""), c.get("replied_at", ""), remarks
-        ])
+        data = ["Contact Form", status, c.get("name", ""), c.get("email", ""), c.get("phone", ""), c.get("specific_selection", ""), c.get("message", ""), c.get("reply", ""), c.get("created_at", ""), c.get("replied_at", ""), remarks]
+        for col, val in enumerate(data, 1):
+            cell = ws.cell(row=row, column=col, value=str(val) if val else "")
+            cell.fill = type_fills["Contact Form"]
+            cell.border = thin_border
+        row += 1
 
-    # Express your interest
     for i in interests:
-        status = i.get("status", "new")
-        writer.writerow([
-            "Express Interest", status.upper(), i.get("name", ""), i.get("email", ""),
-            "", i.get("program_title", ""),
-            "", "",
-            i.get("created_at", ""), "", f"Program ID: {i.get('program_id', '')}"
-        ])
+        status = i.get("status", "new").upper()
+        data = ["Express Interest", status, i.get("name", ""), i.get("email", ""), "", i.get("program_title", ""), "", "", i.get("created_at", ""), "", f"Program ID: {i.get('program_id', '')}"]
+        for col, val in enumerate(data, 1):
+            cell = ws.cell(row=row, column=col, value=str(val) if val else "")
+            cell.fill = type_fills["Express Interest"]
+            cell.border = thin_border
+        row += 1
 
-    # Questions
     for q in questions:
         status = "REPLIED" if q.get("replied") else "NEW"
-        writer.writerow([
-            "Question", status, q.get("name", ""), q.get("email", ""),
-            "", q.get("session_title", ""),
-            q.get("question", ""), q.get("reply", ""),
-            q.get("created_at", ""), q.get("replied_at", ""),
-            f"Session: {q.get('session_title', '')}"
-        ])
+        data = ["Question", status, q.get("name", ""), q.get("email", ""), "", q.get("session_title", ""), q.get("question", ""), q.get("reply", ""), q.get("created_at", ""), q.get("replied_at", ""), f"Session: {q.get('session_title', '')}"]
+        for col, val in enumerate(data, 1):
+            cell = ws.cell(row=row, column=col, value=str(val) if val else "")
+            cell.fill = type_fills["Question"]
+            cell.border = thin_border
+        row += 1
 
+    for col in range(1, len(headers) + 1):
+        ws.column_dimensions[ws.cell(row=1, column=col).column_letter].width = max(15, len(headers[col - 1]) + 4)
+    ws.column_dimensions["G"].width = 40
+    ws.column_dimensions["H"].width = 40
+
+    output = io.BytesIO()
+    wb.save(output)
     output.seek(0)
     timestamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M")
-    filename = f"divine_iris_client_data_{timestamp}.csv"
 
     return StreamingResponse(
-        iter([output.getvalue()]),
-        media_type="text/csv",
-        headers={"Content-Disposition": f"attachment; filename={filename}"}
+        output,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": f"attachment; filename=divine_iris_inquiries_{timestamp}.xlsx"}
     )

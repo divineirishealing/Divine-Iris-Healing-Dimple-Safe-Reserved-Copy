@@ -96,7 +96,7 @@ const ClientsTab = () => {
             <RefreshCw size={12} className={syncing ? 'animate-spin' : ''} /> {syncing ? 'Syncing...' : 'Sync All Data'}
           </Button>
           <Button data-testid="clients-download" onClick={() => window.open(`${API}/clients/export/csv`, '_blank')} variant="outline" className="text-[10px] h-8 gap-1.5 border-[#D4AF37] text-[#D4AF37] hover:bg-[#D4AF37]/10">
-            <Download size={12} /> Export CSV
+            <Download size={12} /> Export Excel
           </Button>
         </div>
       </div>
