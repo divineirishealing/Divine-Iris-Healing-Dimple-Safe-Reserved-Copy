@@ -127,12 +127,15 @@ def enrollment_confirmation_email(booker_name, item_title, participants, total, 
     # Social links HTML
     social_html_block = _build_social_html(socials, accent_color, body_font)
 
-    # Zoom note HTML
-    zoom_note_html = f"""
+    # Zoom note HTML - editable from receipt template
+    important_note = tpl.get("important_note", "Zoom link will be provided 30 mins prior to session in WhatsApp Group. Hence, please join the group to stay updated with instructions and updates.")
+    zoom_note_html = ""
+    if important_note:
+        zoom_note_html = f"""
         <div style="padding:0 36px 20px">
           <div style="background:#eef6f3;border:1px solid #c8e0d5;border-radius:12px;padding:18px 22px;text-align:center">
             <p style="color:{text_color};font-size:14px;font-weight:600;margin:0 0 8px;font-family:{heading_font}">Important Note</p>
-            <p style="color:#555;font-size:13px;margin:0;line-height:1.7;font-family:{body_font}">Zoom link will be provided 30 mins prior to session in WhatsApp Group. Hence, please join the group to stay updated with instructions and updates.</p>
+            <p style="color:#555;font-size:13px;margin:0;line-height:1.7;font-family:{body_font}">{important_note}</p>
           </div>
         </div>"""
 

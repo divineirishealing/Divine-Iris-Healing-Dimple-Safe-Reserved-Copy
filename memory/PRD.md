@@ -42,9 +42,10 @@ All pages with dark hero sections use:
 - [x] Changed "STATUS" column header → "MEMBER STATUS"
 - [x] Changed "First session" / "Returning" → "First Time Joiner" / "Soul Tribe"
 - [x] Replaced warm golden/yellow email backgrounds with calming sage-green palette throughout receipt and notification templates
-- [x] Added "Important Note" section: Zoom link provided 30 mins prior in WhatsApp Group, join group for updates
+- [x] Added "Important Note" section — editable from Receipt Template admin tab (default: Zoom link info)
 - [x] Added "Need Assistance?" section with WhatsApp button (+971553325778) and Contact Form link
 - [x] Tier-aware duration: stores tier_index in transactions, uses tier label (e.g., "1 Month") as duration in emails
+- [x] Added WhatsApp + Zoom + Custom link fields to Programs Hub (expandable per-program row with toggles)
 - [x] Updated both enrollment_confirmation_email and participant_notification_email color schemes
 
 ### Client Garden CRM (Mar 15, 2026) - COMPLETED

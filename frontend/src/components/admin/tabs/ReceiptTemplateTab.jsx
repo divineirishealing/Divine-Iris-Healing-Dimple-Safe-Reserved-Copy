@@ -47,6 +47,7 @@ const ReceiptTemplateTab = () => {
     show_logo: true,
     show_duration: true,
     show_timing: true,
+    important_note: 'Zoom link will be provided 30 mins prior to session in WhatsApp Group. Hence, please join the group to stay updated with instructions and updates.',
   });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -197,6 +198,20 @@ const ReceiptTemplateTab = () => {
           <div>
             <label className="text-[9px] text-gray-500 block mb-0.5">Sign-off</label>
             <Input value={tpl.thank_you_sign} onChange={e => update('thank_you_sign', e.target.value)} placeholder="With love and light" className="text-xs h-8" />
+          </div>
+        </div>
+      </div>
+
+      {/* Important Note Section */}
+      <div className="mb-5">
+        <label className="text-xs font-semibold text-gray-700 block mb-2">Important Note (shown in receipt email)</label>
+        <div className="space-y-2">
+          <div>
+            <label className="text-[9px] text-gray-500 block mb-0.5">Note Text (leave empty to hide)</label>
+            <textarea value={tpl.important_note || ''} onChange={e => update('important_note', e.target.value)}
+              rows={3} placeholder="Zoom link will be provided 30 mins prior to session..."
+              className="w-full border rounded-lg px-3 py-2 text-xs text-gray-700 resize-none focus:ring-1 focus:ring-[#D4AF37]"
+              data-testid="important-note-textarea" />
           </div>
         </div>
       </div>

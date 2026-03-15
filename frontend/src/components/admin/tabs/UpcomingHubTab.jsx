@@ -4,7 +4,7 @@ import { useToast } from '../../../hooks/use-toast';
 import { Button } from '../../ui/button';
 import { Input } from '../../ui/input';
 import { Switch } from '../../ui/switch';
-import { Save, Calendar, ChevronDown, ChevronUp, Copy } from 'lucide-react';
+import { Save, Calendar, ChevronDown, ChevronUp, Copy, MessageCircle, Video, Link as LinkIcon } from 'lucide-react';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
@@ -22,6 +22,7 @@ const ProgramRow = ({ p, update, updateTier }) => {
   const status = p.enrollment_status || (p.enrollment_open !== false ? 'open' : 'closed');
   const tiers = p.duration_tiers || [];
   const isUpcoming = p.is_upcoming || false;
+  const hasLinks = p.whatsapp_group_link || p.zoom_link || p.whatsapp_group_link_2 || p.custom_link;
 
   return (
     <>
@@ -29,14 +30,15 @@ const ProgramRow = ({ p, update, updateTier }) => {
         {/* Name */}
         <td className="px-3 py-2 sticky left-0 bg-white z-10 border-r">
           <div className="flex items-center gap-2">
-            {tiers.length > 0 && (
-              <button onClick={() => setOpen(!open)} className="text-gray-400 hover:text-gray-600">
-                {open ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
-              </button>
-            )}
+            <button onClick={() => setOpen(!open)} className="text-gray-400 hover:text-gray-600">
+              {open ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+            </button>
             <div>
               <div className="font-semibold text-gray-900 text-xs truncate max-w-[180px]" title={p.title}>{p.title}</div>
-              {tiers.length > 0 && <div className="text-[9px] text-gray-400">{tiers.length} tiers</div>}
+              <div className="flex gap-1.5 mt-0.5">
+                {tiers.length > 0 && <span className="text-[9px] text-gray-400">{tiers.length} tiers</span>}
+                {hasLinks && <span className="text-[9px] text-green-500 flex items-center gap-0.5"><LinkIcon size={8} />links</span>}
+              </div>
             </div>
           </div>
         </td>
@@ -129,27 +131,67 @@ const ProgramRow = ({ p, update, updateTier }) => {
         <td className="px-2 py-2 text-center"><Switch checked={p.enable_in_person || false} onCheckedChange={v => update('enable_in_person', v)} /></td>
       </tr>
 
-      {/* Tier rows */}
-      {open && tiers.map((t, ti) => (
-        <tr key={`${p.id}-t${ti}`} className="border-b bg-amber-50/40" data-testid={`hub-tier-${p.id}-${ti}`}>
-          <td className="px-3 py-1.5 sticky left-0 bg-amber-50/40 z-10 border-r">
-            <div className="ml-8 text-[11px] font-semibold text-[#D4AF37]">{t.label || `Tier ${ti + 1}`}</div>
-          </td>
-          <td colSpan={5}></td>
-          <td className="px-1 py-1">
-            <Input type="date" value={t.start_date || ''} onChange={e => {
-              const val = e.target.value;
-              updateTier(ti, 'start_date', val);
-              // Auto-sync start date to all tiers
-              tiers.forEach((_, j) => { if (j !== ti) updateTier(j, 'start_date', val); });
-            }} className="h-7 text-[10px] px-1" />
-          </td>
-          <td className="px-1 py-1">
-            <Input type="date" value={t.end_date || ''} min={t.start_date || ''} onChange={e => updateTier(ti, 'end_date', e.target.value)} className="h-7 text-[10px] px-1" />
-          </td>
-          <td colSpan={7}></td>
-        </tr>
-      ))}
+      {/* Expanded section: Links + Tiers */}
+      {open && (
+        <>
+          {/* Links Section */}
+          <tr className="border-b bg-blue-50/30" data-testid={`hub-links-${p.id}`}>
+            <td className="px-3 py-2 sticky left-0 bg-blue-50/30 z-10 border-r" colSpan={1}>
+              <div className="ml-6 text-[10px] font-bold text-blue-600 uppercase tracking-wider flex items-center gap-1"><LinkIcon size={10} /> Session Links</div>
+            </td>
+            <td colSpan={15} className="px-3 py-2">
+              <div className="grid grid-cols-2 gap-3">
+                <div className="flex items-center gap-2">
+                  <Switch checked={p.show_whatsapp_link || false} onCheckedChange={v => update('show_whatsapp_link', v)} data-testid={`hub-wa-toggle-${p.id}`} />
+                  <MessageCircle size={12} className="text-green-600 shrink-0" />
+                  <Input value={p.whatsapp_group_link || ''} onChange={e => update('whatsapp_group_link', e.target.value)}
+                    placeholder="WhatsApp Group Link" className="h-7 text-[10px] px-2 flex-1" data-testid={`hub-wa-link-${p.id}`} />
+                </div>
+                <div className="flex items-center gap-2">
+                  <Switch checked={p.show_zoom_link || false} onCheckedChange={v => update('show_zoom_link', v)} data-testid={`hub-zoom-toggle-${p.id}`} />
+                  <Video size={12} className="text-blue-500 shrink-0" />
+                  <Input value={p.zoom_link || ''} onChange={e => update('zoom_link', e.target.value)}
+                    placeholder="Zoom Meeting Link" className="h-7 text-[10px] px-2 flex-1" data-testid={`hub-zoom-link-${p.id}`} />
+                </div>
+                <div className="flex items-center gap-2">
+                  <Switch checked={p.show_whatsapp_link_2 || false} onCheckedChange={v => update('show_whatsapp_link_2', v)} data-testid={`hub-wa2-toggle-${p.id}`} />
+                  <MessageCircle size={12} className="text-teal-600 shrink-0" />
+                  <Input value={p.whatsapp_group_link_2 || ''} onChange={e => update('whatsapp_group_link_2', e.target.value)}
+                    placeholder="Community Group Link" className="h-7 text-[10px] px-2 flex-1" data-testid={`hub-wa2-link-${p.id}`} />
+                </div>
+                <div className="flex items-center gap-2">
+                  <Switch checked={p.show_custom_link || false} onCheckedChange={v => update('show_custom_link', v)} data-testid={`hub-custom-toggle-${p.id}`} />
+                  <LinkIcon size={12} className="text-amber-600 shrink-0" />
+                  <Input value={p.custom_link || ''} onChange={e => update('custom_link', e.target.value)}
+                    placeholder="Custom Link" className="h-7 text-[10px] px-2 flex-1" data-testid={`hub-custom-link-${p.id}`} />
+                </div>
+              </div>
+            </td>
+          </tr>
+
+          {/* Tier rows */}
+          {tiers.map((t, ti) => (
+            <tr key={`${p.id}-t${ti}`} className="border-b bg-amber-50/40" data-testid={`hub-tier-${p.id}-${ti}`}>
+              <td className="px-3 py-1.5 sticky left-0 bg-amber-50/40 z-10 border-r">
+                <div className="ml-8 text-[11px] font-semibold text-[#D4AF37]">{t.label || `Tier ${ti + 1}`}</div>
+              </td>
+              <td colSpan={5}></td>
+              <td className="px-1 py-1">
+                <Input type="date" value={t.start_date || ''} onChange={e => {
+                  const val = e.target.value;
+                  updateTier(ti, 'start_date', val);
+                  // Auto-sync start date to all tiers
+                  tiers.forEach((_, j) => { if (j !== ti) updateTier(j, 'start_date', val); });
+                }} className="h-7 text-[10px] px-1" />
+              </td>
+              <td className="px-1 py-1">
+                <Input type="date" value={t.end_date || ''} min={t.start_date || ''} onChange={e => updateTier(ti, 'end_date', e.target.value)} className="h-7 text-[10px] px-1" />
+              </td>
+              <td colSpan={7}></td>
+            </tr>
+          ))}
+        </>
+      )}
     </>
   );
 };
