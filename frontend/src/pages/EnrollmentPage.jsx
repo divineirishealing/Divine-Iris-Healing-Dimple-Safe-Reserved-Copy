@@ -178,7 +178,7 @@ const ParticipantRow = ({ index, data, onChange, onRemove, canRemove, showReferr
       {data.attendance_mode === 'online' ? (
         <div className="flex items-center gap-1.5 mb-0.5">
           <Bell size={10} className="text-[#D4AF37]" />
-          <span className="text-[10px] text-[#D4AF37] font-medium">Notifications enabled for online participants</span>
+          <span className="text-[10px] text-[#D4AF37] font-medium">Notification will be sent to Participant</span>
         </div>
       ) : (
         <label className="flex items-center gap-1.5 cursor-pointer" data-testid={`p-notify-${index}`}>
@@ -350,6 +350,14 @@ function EnrollmentPage() {
       if (!p.relationship) return toast({ title: `Participant ${i + 1}: Select relationship`, variant: 'destructive' });
       if (!p.age || parseInt(p.age) < 5) return toast({ title: `Participant ${i + 1}: Enter valid age`, variant: 'destructive' });
       if (!p.gender) return toast({ title: `Participant ${i + 1}: Select gender`, variant: 'destructive' });
+      if (p.notify || p.attendance_mode === 'online') {
+        if (!p.email || !p.email.trim() || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(p.email))
+          return toast({ title: `Participant ${i + 1}: Enter a valid email for notification`, variant: 'destructive' });
+        if (!p.phone || !p.phone.trim())
+          return toast({ title: `Participant ${i + 1}: Enter phone number for notification`, variant: 'destructive' });
+      }
+      if (p.has_referral && (!p.referred_by_name || !p.referred_by_name.trim()))
+        return toast({ title: `Participant ${i + 1}: Enter referrer's name`, variant: 'destructive' });
     }
     setStep(1);
   };
