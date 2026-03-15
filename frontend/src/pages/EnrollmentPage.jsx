@@ -786,7 +786,7 @@ function EnrollmentPage() {
 
                         <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 mb-3" data-testid="india-pricing-note">
                           <p className="text-[10px] text-amber-800 leading-relaxed">
-                            <strong>Please note:</strong> Indian payment methods (UPI, GPay, bank transfer) may attract additional charges of up to 18% GST + platform fees, which could increase the total price by 10-15%. Stripe (card) pricing above is all-inclusive.
+                            <strong>Please note:</strong> Indian payment methods (UPI, GPay, bank transfer) may result in the total price being 12-15% higher due to additional processing and platform charges.
                           </p>
                         </div>
                         <button
@@ -807,7 +807,7 @@ function EnrollmentPage() {
                             </div>
                             <div>
                               <span className="text-sm font-medium text-gray-900 group-hover:text-purple-600">Exly / Bank Transfer</span>
-                              <p className="text-[10px] text-green-600 font-medium">Save {paymentSettings.india_alt_discount || 9}% — GPay, Cards, NEFT supported</p>
+                              <p className="text-[10px] text-gray-500">GPay, Cards, NEFT supported</p>
                             </div>
                           </div>
                           <ChevronRight size={16} className="text-gray-400 group-hover:text-purple-600" />
