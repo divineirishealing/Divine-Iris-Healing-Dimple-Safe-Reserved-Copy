@@ -14,6 +14,18 @@ const FONT_OPTIONS = [
   { value: "'Lato', sans-serif", label: 'Lato' },
   { value: "'Montserrat', sans-serif", label: 'Montserrat' },
   { value: "'Titillium Web', sans-serif", label: 'Titillium Web' },
+  { value: "'Cormorant Garamond', serif", label: 'Cormorant' },
+  { value: "'Poppins', sans-serif", label: 'Poppins' },
+  { value: "'Raleway', sans-serif", label: 'Raleway' },
+  { value: "'Great Vibes', cursive", label: 'Great Vibes' },
+  { value: "'Dancing Script', cursive", label: 'Dancing Script' },
+  { value: "'Pacifico', cursive", label: 'Pacifico' },
+  { value: "'Sacramento', cursive", label: 'Sacramento' },
+  { value: "'Alex Brush', cursive", label: 'Alex Brush' },
+  { value: "'Kaushan Script', cursive", label: 'Kaushan Script' },
+  { value: "'Satisfy', cursive", label: 'Satisfy' },
+  { value: "'Allura', cursive", label: 'Allura' },
+  { value: "'Caveat', cursive", label: 'Caveat' },
 ];
 const SIZE_OPTIONS = ['10px','12px','14px','16px','18px','20px','24px','28px','32px','36px','42px','48px'];
 

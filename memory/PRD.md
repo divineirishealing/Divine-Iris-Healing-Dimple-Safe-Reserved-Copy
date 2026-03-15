@@ -38,6 +38,17 @@ All pages with dark hero sections use:
 - [x] Both Inbox and Client Garden exports switched to .xlsx Excel format with styled headers and color-coded rows
 - [x] All 15/15 tests passing (iteration 60)
 
+### Hero Section Typography Overhaul (Feb 2026) - COMPLETED
+- [x] 25+ fonts across 3 categories: Elegant/Serif, Modern/Sans, Handwriting/Script
+- [x] Handwriting fonts: Great Vibes, Dancing Script, Pacifico, Sacramento, Alex Brush, Kaushan Script, Satisfy, Allura, Caveat
+- [x] Titillium Web added to ALL font controls across entire admin panel
+- [x] Glossy/shiny color effects: Gold Shimmer, Purple Glow, Gold-Purple Mix, Silver Chrome, Rose Gold, Rainbow (CSS gradient text)
+- [x] Size options expanded from 3 to 8 levels (XS to 4XL)
+- [x] Layout controls: Horizontal Align, Vertical Position, Title-Subtitle Gap, H/V Offset
+- [x] Letter Spacing, Text Shadow (none/subtle/medium/strong/gold glow), Bold/Italic toggles
+- [x] Live preview in admin for both title and subtitle
+- [x] Decorative lines toggle
+
 ### Manual/Cash Payment Option (Feb 2026) - COMPLETED
 - [x] 3 payment options for India users: Stripe (International), Exly/Bank Transfer, Submit Manual Payment
 - [x] Manual mode navigates to /india-payment/:id?mode=manual — hides Exly tab, shows proof form directly

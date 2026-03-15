@@ -686,7 +686,7 @@ const AdminPanel = () => {
                         <span className="text-[8px] text-gray-400 mr-1">Style:</span>
                         <input type="color" value={(sessionForm.title_style||{}).font_color || '#000000'} onChange={e => setSessionForm({...sessionForm, title_style: {...(sessionForm.title_style||{}), font_color: e.target.value}})} className="w-5 h-5 rounded cursor-pointer border-0" />
                         <select value={(sessionForm.title_style||{}).font_family || ''} onChange={e => setSessionForm({...sessionForm, title_style: {...(sessionForm.title_style||{}), font_family: e.target.value}})} className="text-[8px] border rounded px-1 py-0.5 w-16">
-                          <option value="">Default</option><option value="'Cinzel', serif">Cinzel</option><option value="'Playfair Display', serif">Playfair</option><option value="'Lato', sans-serif">Lato</option><option value="'Montserrat', sans-serif">Montserrat</option>
+                          <option value="">Default</option><option value="'Cinzel', serif">Cinzel</option><option value="'Playfair Display', serif">Playfair</option><option value="'Lato', sans-serif">Lato</option><option value="'Montserrat', sans-serif">Montserrat</option><option value="'Titillium Web', sans-serif">Titillium Web</option><option value="'Great Vibes', cursive">Great Vibes</option><option value="'Dancing Script', cursive">Dancing Script</option><option value="'Pacifico', cursive">Pacifico</option><option value="'Poppins', sans-serif">Poppins</option><option value="'Raleway', sans-serif">Raleway</option><option value="'Sacramento', cursive">Sacramento</option><option value="'Caveat', cursive">Caveat</option>
                         </select>
                         <select value={(sessionForm.title_style||{}).font_size || ''} onChange={e => setSessionForm({...sessionForm, title_style: {...(sessionForm.title_style||{}), font_size: e.target.value}})} className="text-[8px] border rounded px-1 py-0.5 w-12">
                           <option value="">Size</option>{['14px','16px','18px','20px','24px','28px','32px'].map(s => <option key={s} value={s}>{s}</option>)}
@@ -704,7 +704,7 @@ const AdminPanel = () => {
                         <span className="text-[8px] text-gray-400 mr-1">Style:</span>
                         <input type="color" value={(sessionForm.description_style||{}).font_color || '#555555'} onChange={e => setSessionForm({...sessionForm, description_style: {...(sessionForm.description_style||{}), font_color: e.target.value}})} className="w-5 h-5 rounded cursor-pointer border-0" />
                         <select value={(sessionForm.description_style||{}).font_family || ''} onChange={e => setSessionForm({...sessionForm, description_style: {...(sessionForm.description_style||{}), font_family: e.target.value}})} className="text-[8px] border rounded px-1 py-0.5 w-16">
-                          <option value="">Default</option><option value="'Cinzel', serif">Cinzel</option><option value="'Playfair Display', serif">Playfair</option><option value="'Lato', sans-serif">Lato</option><option value="'Montserrat', sans-serif">Montserrat</option>
+                          <option value="">Default</option><option value="'Cinzel', serif">Cinzel</option><option value="'Playfair Display', serif">Playfair</option><option value="'Lato', sans-serif">Lato</option><option value="'Montserrat', sans-serif">Montserrat</option><option value="'Titillium Web', sans-serif">Titillium Web</option><option value="'Great Vibes', cursive">Great Vibes</option><option value="'Dancing Script', cursive">Dancing Script</option><option value="'Pacifico', cursive">Pacifico</option><option value="'Poppins', sans-serif">Poppins</option><option value="'Raleway', sans-serif">Raleway</option><option value="'Sacramento', cursive">Sacramento</option><option value="'Caveat', cursive">Caveat</option>
                         </select>
                         <select value={(sessionForm.description_style||{}).font_size || ''} onChange={e => setSessionForm({...sessionForm, description_style: {...(sessionForm.description_style||{}), font_size: e.target.value}})} className="text-[8px] border rounded px-1 py-0.5 w-12">
                           <option value="">Size</option>{['12px','14px','16px','18px','20px','24px'].map(s => <option key={s} value={s}>{s}</option>)}
@@ -1025,6 +1025,10 @@ const AdminPanel = () => {
                                   <option value="'Playfair Display', serif">Playfair</option>
                                   <option value="'Lato', sans-serif">Lato</option>
                                   <option value="'Montserrat', sans-serif">Montserrat</option>
+                                  <option value="'Titillium Web', sans-serif">Titillium Web</option>
+                                  <option value="'Great Vibes', cursive">Great Vibes</option>
+                                  <option value="'Dancing Script', cursive">Dancing Script</option>
+                                  <option value="'Poppins', sans-serif">Poppins</option>
                                 </select>
                               </div>
                             </div>

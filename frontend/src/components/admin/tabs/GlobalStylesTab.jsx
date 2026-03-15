@@ -6,7 +6,8 @@ const FONT_OPTIONS = [
   'Playfair Display', 'Lato', 'Cinzel', 'Caveat', 'Montserrat',
   'Poppins', 'Raleway', 'Cormorant Garamond', 'Italiana', 'Josefin Sans',
   'Great Vibes', 'Dancing Script', 'Merriweather', 'Libre Baskerville',
-  'Roboto Slab', 'Open Sans', 'Source Sans Pro', 'Nunito'
+  'Roboto Slab', 'Open Sans', 'Source Sans Pro', 'Nunito', 'Titillium Web',
+  'Pacifico', 'Sacramento', 'Alex Brush', 'Kaushan Script', 'Satisfy', 'Allura',
 ];
 
 const SIZE_OPTIONS = [

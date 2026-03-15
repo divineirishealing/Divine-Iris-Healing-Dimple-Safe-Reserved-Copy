@@ -14,6 +14,15 @@ const FONT_OPTIONS = [
   "'Playfair Display', Georgia, serif",
   "'Cormorant Garamond', Georgia, serif",
   "'Titillium Web', sans-serif",
+  "'Great Vibes', cursive",
+  "'Dancing Script', cursive",
+  "'Pacifico', cursive",
+  "'Sacramento', cursive",
+  "'Alex Brush', cursive",
+  "'Kaushan Script', cursive",
+  "'Poppins', sans-serif",
+  "'Raleway', sans-serif",
+  "'Caveat', cursive",
 ];
 
 const FONT_LABELS = {
@@ -23,6 +32,15 @@ const FONT_LABELS = {
   "'Playfair Display', Georgia, serif": "Playfair Display (Luxury)",
   "'Cormorant Garamond', Georgia, serif": "Cormorant Garamond (Refined)",
   "'Titillium Web', sans-serif": "Titillium Web",
+  "'Great Vibes', cursive": "Great Vibes (Script)",
+  "'Dancing Script', cursive": "Dancing Script",
+  "'Pacifico', cursive": "Pacifico",
+  "'Sacramento', cursive": "Sacramento",
+  "'Alex Brush', cursive": "Alex Brush",
+  "'Kaushan Script', cursive": "Kaushan Script",
+  "'Poppins', sans-serif": "Poppins (Modern)",
+  "'Raleway', sans-serif": "Raleway",
+  "'Caveat', cursive": "Caveat (Handwritten)",
 };
 
 const COLOR_PRESETS = [
