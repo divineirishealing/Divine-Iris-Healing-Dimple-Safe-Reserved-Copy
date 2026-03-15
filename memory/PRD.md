@@ -275,4 +275,5 @@ All pages with dark hero sections use:
 - [x] Fixed NameError: 'footer_email' not defined in enrollment_confirmation_email — emails now send correctly for free enrollments
 - [x] Fixed back button on payment step (step 3→2): verified email badge + "Continue to Payment" button shown when email already verified
 - [x] Auto-prefill booker name/email/phone/country from first participant when moving to billing step
+- [x] Receipt ID pattern changed from REC-XXXXXXXX to DIH-YYYY-NNNN (e.g., DIH-2026-0001) — sequential per year
 - [x] All 13/13 tests passed (iteration_65)

@@ -175,8 +175,20 @@ async def start_enrollment(profile: ProfileData, request: Request):
             if p.email and not validate_email_format(p.email.strip()):
                 raise HTTPException(status_code=400, detail=f"Participant {i+1}: invalid email format")
 
-    # Generate receipt ID for this enrollment
-    receipt_id = f"REC-{str(uuid.uuid4())[:8].upper()}"
+    # Generate receipt ID: DIH-YYYY-NNNN (sequential per year)
+    year = datetime.now(timezone.utc).year
+    last = await db.enrollments.find_one(
+        {"id": {"$regex": f"^DIH-{year}-"}},
+        sort=[("id", -1)],
+        projection={"id": 1, "_id": 0}
+    )
+    seq = 1
+    if last:
+        try:
+            seq = int(last["id"].split("-")[-1]) + 1
+        except (ValueError, IndexError):
+            seq = 1
+    receipt_id = f"DIH-{year}-{seq:04d}"
 
     enrollment = {
         "id": receipt_id,
