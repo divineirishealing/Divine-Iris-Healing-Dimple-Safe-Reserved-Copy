@@ -49,33 +49,51 @@ export default function AboutPage() {
 
   const s = settings || {};
   const aboutImage = s.about_image ? resolveUrl(s.about_image) : '';
-  const logoUrl = s.logo_url ? resolveUrl(s.logo_url) : '';
 
   return (
     <div className="min-h-screen bg-white">
       <Header />
 
       {/* Hero */}
-      <section data-testid="about-hero" className="min-h-[50vh] flex flex-col items-center justify-center text-center px-6 pt-20"
-        style={{ background: 'linear-gradient(180deg, #1a1a1a 0%, #1a1a1add 50%, #1a1a1a 100%)' }}>
-        <h1 className="text-white mb-4 max-w-4xl" style={applyStyle((s.page_heroes?.about || {}).title_style, { ...HEADING, color: '#fff', fontSize: 'clamp(1.8rem, 4vw, 3rem)', fontVariant: 'small-caps', letterSpacing: '0.05em', lineHeight: 1.3 })}>
-          {(s.page_heroes?.about || {}).title_text || s.about_name || 'Dimple Ranawat'}
-        </h1>
-        <p className="mb-6" style={applyStyle((s.page_heroes?.about || {}).subtitle_style, { ...LABEL, color: GOLD })}>
-          {(s.page_heroes?.about || {}).subtitle_text || s.about_title || 'Founder, Divine Iris – Soulful Healing Studio'}
-        </p>
-        <div className="w-14 h-0.5" style={{ background: GOLD }} />
-      </section>
+      {(() => {
+        const hero = s.page_heroes?.about || {};
+        const titleAlign = hero.title_alignment || 'center';
+        const subtitleAlign = hero.subtitle_alignment || 'center';
+        const heroLogoUrl = hero.logo_url ? resolveUrl(hero.logo_url) : '';
+        const dividerW = hero.divider_width || '56';
+        const dividerColor = hero.divider_color || GOLD;
+        const dividerThickness = hero.divider_thickness || '2';
+        const alignClass = { left: 'items-start text-left', center: 'items-center text-center', right: 'items-end text-right' };
+        return (
+          <section data-testid="about-hero" className="min-h-[50vh] flex flex-col items-center justify-center px-6 pt-20"
+            style={{ background: 'linear-gradient(180deg, #1a1a1a 0%, #1a1a1add 50%, #1a1a1a 100%)' }}>
+            <div className={`flex flex-col w-full max-w-4xl ${alignClass[titleAlign]}`}>
+              {hero.logo_visible !== false && heroLogoUrl && (
+                <img src={heroLogoUrl} alt="Logo" className="mb-6 object-contain" style={{ height: `${hero.logo_size || 96}px` }} onError={e => { e.target.style.display = 'none'; }} data-testid="about-hero-logo" />
+              )}
+              {hero.title_visible !== false && (
+                <h1 className="text-white mb-4" style={applyStyle(hero.title_style, { ...HEADING, color: '#fff', fontSize: 'clamp(1.8rem, 4vw, 3rem)', fontVariant: 'small-caps', letterSpacing: '0.05em', lineHeight: 1.3, textAlign: titleAlign })}>
+                  {hero.title_text || s.about_name || 'Dimple Ranawat'}
+                </h1>
+              )}
+            </div>
+            <div className={`flex flex-col w-full max-w-4xl ${alignClass[subtitleAlign]}`}>
+              {hero.subtitle_visible !== false && (
+                <p className="mb-6" style={applyStyle(hero.subtitle_style, { ...LABEL, color: GOLD, textAlign: subtitleAlign })}>
+                  {hero.subtitle_text || s.about_title || 'Founder, Divine Iris – Soulful Healing Studio'}
+                </p>
+              )}
+              {hero.divider_visible !== false && (
+                <div style={{ width: dividerW === 'full' ? '100%' : `${dividerW}px`, height: `${dividerThickness}px`, background: dividerColor }} />
+              )}
+            </div>
+          </section>
+        );
+      })()}
 
-      {/* Logo + Bio */}
+      {/* Bio */}
       <section id="bio" className={SECTION_PY}>
         <div className={CONTAINER}>
-          {logoUrl && (
-            <div className="flex justify-center mb-12">
-              <img src={logoUrl} alt="Logo" className="h-24 object-contain" onError={(e) => { e.target.style.display = 'none'; }} />
-            </div>
-          )}
-
           <div className="grid md:grid-cols-12 gap-12 items-start max-w-5xl mx-auto">
             <div className="md:col-span-5">
               {aboutImage && (

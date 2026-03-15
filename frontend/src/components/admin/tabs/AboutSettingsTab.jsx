@@ -2,6 +2,8 @@ import React from 'react';
 import { Input } from '../../ui/input';
 import { Textarea } from '../../ui/textarea';
 import { Label } from '../../ui/label';
+import { Switch } from '../../ui/switch';
+import { AlignLeft, AlignCenter, AlignRight } from 'lucide-react';
 import ImageUploader from '../ImageUploader';
 import { resolveImageUrl } from '../../../lib/imageUtils';
 
@@ -30,19 +32,125 @@ const FontControls = ({ label, style = {}, onStyleChange }) => {
   );
 };
 
+const AlignmentPicker = ({ value = 'center', onChange }) => (
+  <div className="flex gap-0.5">
+    {[{ val: 'left', Icon: AlignLeft }, { val: 'center', Icon: AlignCenter }, { val: 'right', Icon: AlignRight }].map(({ val, Icon }) => (
+      <button key={val} type="button" onClick={() => onChange(val)}
+        className={`p-1 rounded border ${value === val ? 'bg-gray-800 text-white border-gray-800' : 'bg-white text-gray-500 border-gray-200 hover:border-gray-400'}`}>
+        <Icon size={12} />
+      </button>
+    ))}
+  </div>
+);
+
 const AboutSettingsTab = ({ settings, onChange }) => {
   const s = settings;
   const set = (key, val) => onChange({ ...s, [key]: val });
+  const hero = s.page_heroes?.about || {};
+  const updateHero = (field, val) => {
+    const updated = { ...(s.page_heroes || {}), about: { ...hero, [field]: val } };
+    onChange({ ...s, page_heroes: updated });
+  };
 
   return (
     <div data-testid="about-settings-tab">
       <h2 className="text-lg font-semibold text-gray-900 mb-1">About Section</h2>
       <p className="text-[10px] text-gray-400 mb-5">The "Meet the Healer" section + full About page content. Use **bold** and *italic* in text fields.</p>
 
-      {/* Logo */}
+      {/* ===== HERO SECTION CONTROLS ===== */}
+      <div className="bg-gradient-to-br from-gray-900 to-gray-800 rounded-xl p-5 shadow-sm border border-gray-700 mb-4" data-testid="about-hero-controls">
+        <p className="text-sm font-semibold text-white mb-1">Hero Section (About Page)</p>
+        <p className="text-[10px] text-gray-400 mb-4">Controls for the dark hero banner at the top of the About page. Toggle visibility and alignment for each element.</p>
+
+        {/* Hero Logo */}
+        <div className="bg-white/10 rounded-lg p-3 mb-3 backdrop-blur-sm">
+          <div className="flex items-center justify-between mb-2">
+            <p className="text-[10px] font-semibold text-white">Logo Image</p>
+            <div className="flex items-center gap-2">
+              <Label className="text-[9px] text-gray-400">Visible</Label>
+              <Switch data-testid="about-hero-logo-toggle" checked={hero.logo_visible !== false} onCheckedChange={v => updateHero('logo_visible', v)} />
+            </div>
+          </div>
+          {hero.logo_url && (
+            <div className="mb-2 flex items-center gap-3 bg-black/20 p-2 rounded">
+              <img src={resolveImageUrl(hero.logo_url)} alt="Hero Logo" className="h-12 object-contain" />
+              <button onClick={() => updateHero('logo_url', '')} className="text-red-400 text-[10px] hover:underline">Remove</button>
+            </div>
+          )}
+          <ImageUploader value={hero.logo_url || ''} onChange={url => updateHero('logo_url', url)} />
+          <div className="mt-2">
+            <Label className="text-[9px] text-gray-400">Logo Size: {hero.logo_size || 96}px</Label>
+            <input type="range" min="40" max="300" value={hero.logo_size || 96} onChange={e => updateHero('logo_size', parseInt(e.target.value))} className="w-full mt-1" />
+          </div>
+        </div>
+
+        {/* Hero Title */}
+        <div className="bg-white/10 rounded-lg p-3 mb-3 backdrop-blur-sm">
+          <div className="flex items-center justify-between mb-2">
+            <p className="text-[10px] font-semibold text-white">Title</p>
+            <div className="flex items-center gap-3">
+              <AlignmentPicker value={hero.title_alignment || 'center'} onChange={v => updateHero('title_alignment', v)} />
+              <div className="flex items-center gap-2">
+                <Label className="text-[9px] text-gray-400">Visible</Label>
+                <Switch data-testid="about-hero-title-toggle" checked={hero.title_visible !== false} onCheckedChange={v => updateHero('title_visible', v)} />
+              </div>
+            </div>
+          </div>
+          <Input data-testid="about-hero-title-input" value={hero.title_text ?? s.about_name ?? ''} onChange={e => updateHero('title_text', e.target.value)} placeholder="Dimple Ranawat" className="text-xs bg-white/90 mb-1" />
+          <FontControls label="Title" style={hero.title_style || {}} onStyleChange={v => updateHero('title_style', v)} />
+        </div>
+
+        {/* Hero Subtitle */}
+        <div className="bg-white/10 rounded-lg p-3 mb-3 backdrop-blur-sm">
+          <div className="flex items-center justify-between mb-2">
+            <p className="text-[10px] font-semibold text-white">Subtitle</p>
+            <div className="flex items-center gap-3">
+              <AlignmentPicker value={hero.subtitle_alignment || 'center'} onChange={v => updateHero('subtitle_alignment', v)} />
+              <div className="flex items-center gap-2">
+                <Label className="text-[9px] text-gray-400">Visible</Label>
+                <Switch data-testid="about-hero-subtitle-toggle" checked={hero.subtitle_visible !== false} onCheckedChange={v => updateHero('subtitle_visible', v)} />
+              </div>
+            </div>
+          </div>
+          <Input data-testid="about-hero-subtitle-input" value={hero.subtitle_text ?? s.about_title ?? ''} onChange={e => updateHero('subtitle_text', e.target.value)} placeholder="Founder, Divine Iris – Soulful Healing Studio" className="text-xs bg-white/90 mb-1" />
+          <FontControls label="Subtitle" style={hero.subtitle_style || {}} onStyleChange={v => updateHero('subtitle_style', v)} />
+        </div>
+
+        {/* Hero Divider */}
+        <div className="bg-white/10 rounded-lg p-3 backdrop-blur-sm">
+          <div className="flex items-center justify-between mb-2">
+            <p className="text-[10px] font-semibold text-white">Divider Line</p>
+            <div className="flex items-center gap-2">
+              <Label className="text-[9px] text-gray-400">Visible</Label>
+              <Switch data-testid="about-hero-divider-toggle" checked={hero.divider_visible !== false} onCheckedChange={v => updateHero('divider_visible', v)} />
+            </div>
+          </div>
+          <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2">
+              <Label className="text-[9px] text-gray-400">Color</Label>
+              <input type="color" value={hero.divider_color || '#D4AF37'} onChange={e => updateHero('divider_color', e.target.value)} className="w-6 h-5 rounded cursor-pointer border-0" data-testid="about-hero-divider-color" />
+              <span className="text-[8px] text-gray-500">{hero.divider_color || '#D4AF37'}</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <Label className="text-[9px] text-gray-400">Width</Label>
+              <select value={hero.divider_width || '56'} onChange={e => updateHero('divider_width', e.target.value)} className="text-[9px] border rounded px-1 py-0.5 bg-white/90">
+                {['28','42','56','72','96','128','full'].map(w => <option key={w} value={w}>{w === 'full' ? 'Full width' : `${w}px`}</option>)}
+              </select>
+            </div>
+            <div className="flex items-center gap-2">
+              <Label className="text-[9px] text-gray-400">Thickness</Label>
+              <select value={hero.divider_thickness || '2'} onChange={e => updateHero('divider_thickness', e.target.value)} className="text-[9px] border rounded px-1 py-0.5 bg-white/90">
+                {['1','2','3','4'].map(t => <option key={t} value={t}>{t}px</option>)}
+              </select>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Site Logo */}
       <div className="bg-white rounded-lg p-5 shadow-sm border mb-4">
         <p className="text-xs font-semibold text-gray-800 mb-1">Site Logo</p>
-        <p className="text-[10px] text-gray-400 mb-3">Appears above the about section and on the About page.</p>
+        <p className="text-[10px] text-gray-400 mb-3">Appears above the about section on the homepage.</p>
         {s.logo_url && (
           <div className="mb-3 flex items-center gap-3 bg-gray-50 p-3 rounded">
             <img src={resolveImageUrl(s.logo_url)} alt="Logo" className="h-16 object-contain" />

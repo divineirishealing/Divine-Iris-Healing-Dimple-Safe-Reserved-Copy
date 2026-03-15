@@ -16,6 +16,23 @@ const DURATION_PRESETS = [
   'Annual'
 ];
 
+const Cell = ({ value, onChange, className = '' }) => {
+  const [localVal, setLocalVal] = React.useState(String(value ?? 0));
+  const [focused, setFocused] = React.useState(false);
+
+  React.useEffect(() => {
+    if (!focused) setLocalVal(String(value ?? 0));
+  }, [value, focused]);
+
+  return (
+    <input type="text" inputMode="decimal" value={localVal}
+      onChange={e => setLocalVal(e.target.value)}
+      onFocus={e => { setFocused(true); if (e.target.value === '0') e.target.select(); }}
+      onBlur={() => { setFocused(false); const num = localVal === '' ? 0 : parseFloat(localVal) || 0; onChange(num); }}
+      className={`h-7 text-[11px] w-full text-center px-1 border rounded-md focus:outline-none focus:ring-1 focus:ring-[#D4AF37] ${className}`} />
+  );
+};
+
 const PricingHubTab = () => {
   const { toast } = useToast();
   const [programs, setPrograms] = useState([]);
@@ -87,13 +104,6 @@ const PricingHubTab = () => {
     } catch (e) { toast({ title: 'Error saving', description: e.message, variant: 'destructive' }); }
     setSaving(false);
   };
-
-  const Cell = ({ value, onChange, className = '' }) => (
-    <input type="text" inputMode="decimal" value={value || 0}
-      onChange={e => { const v = e.target.value; onChange(v === '' ? 0 : parseFloat(v) || 0); }}
-      onFocus={e => { if (e.target.value === '0') e.target.select(); }}
-      className={`h-7 text-[11px] w-full text-center px-1 border rounded-md focus:outline-none focus:ring-1 focus:ring-[#D4AF37] ${className}`} />
-  );
 
   const toggleExpand = (id) => setExpandedPrograms(e => ({ ...e, [id]: !e[id] }));
 
