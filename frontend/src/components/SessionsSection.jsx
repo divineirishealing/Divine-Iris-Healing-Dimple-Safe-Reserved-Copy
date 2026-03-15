@@ -184,7 +184,6 @@ const SessionsSection = ({ sectionConfig }) => {
 
       {/* Subtle gold shimmer line */}
       <div className="absolute top-0 left-0 right-0 h-[1px] opacity-20" style={{ background: 'linear-gradient(90deg, transparent 10%, #D4AF37 50%, transparent 90%)' }} />
-      <div className="absolute bottom-0 left-0 right-0 h-[1px] opacity-15" style={{ background: 'linear-gradient(90deg, transparent 10%, #D4AF37 50%, transparent 90%)' }} />
 
       <div className={`${CONTAINER} relative z-10`}>
         {/* Section Title */}
