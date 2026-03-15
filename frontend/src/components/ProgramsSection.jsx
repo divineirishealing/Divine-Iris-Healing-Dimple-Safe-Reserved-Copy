@@ -166,7 +166,7 @@ const ProgramsSection = ({ sectionConfig }) => {
   const subtitleStyle = Object.keys(hero.subtitle_style || {}).length > 0 ? hero.subtitle_style : sectionConfig?.subtitle_style;
 
   return (
-    <section id="programs" data-testid="programs-section" className="py-12 bg-white">
+    <section id="programs" data-testid="programs-section" className="py-12" style={{ background: 'linear-gradient(180deg, #ffffff 0%, #ffffff 50%, #f8f5ff 75%, #f3edff 100%)' }}>
       <div className={CONTAINER}>
         <h2 className="text-center mb-4" style={applySectionStyle(titleStyle, { ...HEADING, fontSize: 'clamp(1.5rem, 3vw, 2rem)' })}>{title}</h2>
         {subtitle && <p className="text-center text-xs text-gray-400 mb-16" style={applySectionStyle(subtitleStyle, {})}>{subtitle}</p>}
