@@ -97,8 +97,8 @@ def enrollment_confirmation_email(booker_name, item_title, participants, total, 
     bg_color = tpl.get("bg_color", "#1a1a1a")
     accent_color = tpl.get("accent_color", "#D4AF37")
     text_color = tpl.get("text_color", "#333333")
-    heading_font = tpl.get("heading_font", "Georgia, 'Times New Roman', serif")
-    body_font = tpl.get("body_font", "Georgia, 'Times New Roman', serif")
+    heading_font = tpl.get("heading_font", "'Lato', Arial, Helvetica, sans-serif")
+    body_font = tpl.get("body_font", "'Lato', Arial, Helvetica, sans-serif")
     thank_you_title = tpl.get("thank_you_title", "Thank You")
     thank_you_message = tpl.get("thank_you_message", "We are truly grateful for your trust in Divine Iris Healing. Your healing journey has now begun, and we are honoured to walk this path with you. May this experience bring you deep peace, clarity, and transformation.")
     thank_you_sign = tpl.get("thank_you_sign", "With love and light")
@@ -155,6 +155,8 @@ def enrollment_confirmation_email(booker_name, item_title, participants, total, 
         link_items = ""
         if program_links.get("whatsapp_group_link"):
             link_items += f'''<a href="{program_links["whatsapp_group_link"]}" style="display:inline-block;background:#25D366;color:#fff;padding:14px 28px;border-radius:10px;text-decoration:none;font-size:14px;margin:6px;font-weight:600;font-family:{body_font}">Join WhatsApp Group</a>'''
+        if program_links.get("whatsapp_group_link_2"):
+            link_items += f'''<a href="{program_links["whatsapp_group_link_2"]}" style="display:inline-block;background:#128C7E;color:#fff;padding:14px 28px;border-radius:10px;text-decoration:none;font-size:14px;margin:6px;font-weight:600;font-family:{body_font}">Join WhatsApp Group 2</a>'''
         if program_links.get("zoom_link"):
             link_items += f'''<a href="{program_links["zoom_link"]}" style="display:inline-block;background:#2D8CFF;color:#fff;padding:14px 28px;border-radius:10px;text-decoration:none;font-size:14px;margin:6px;font-weight:600;font-family:{body_font}">Join Zoom Meeting</a>'''
         if program_links.get("custom_link"):

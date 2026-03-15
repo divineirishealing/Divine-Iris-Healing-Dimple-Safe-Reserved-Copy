@@ -176,7 +176,7 @@ async def start_enrollment(profile: ProfileData, request: Request):
                 raise HTTPException(status_code=400, detail=f"Participant {i+1}: invalid email format")
 
     enrollment = {
-        "id": str(uuid.uuid4()),
+        "id": f"DID-{str(uuid.uuid4())[:8].upper()}",
         "status": "profile_complete",
         "step": 1,
         "booker_name": profile.booker_name,

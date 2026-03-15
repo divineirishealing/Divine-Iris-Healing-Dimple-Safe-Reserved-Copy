@@ -132,6 +132,8 @@ async def send_enrollment_emails(session_id: str):
         if program:
             if program.get("show_whatsapp_link") and program.get("whatsapp_group_link"):
                 program_links["whatsapp_group_link"] = program["whatsapp_group_link"]
+            if program.get("show_whatsapp_link_2") and program.get("whatsapp_group_link_2"):
+                program_links["whatsapp_group_link_2"] = program["whatsapp_group_link_2"]
             if program.get("show_zoom_link") and program.get("zoom_link"):
                 program_links["zoom_link"] = program["zoom_link"]
             if program.get("show_custom_link") and program.get("custom_link"):
@@ -169,7 +171,7 @@ async def send_enrollment_emails(session_id: str):
         receipt_tpl, logo_path = await get_receipt_template()
         logo_url = ""
         if logo_path:
-            host = os.environ.get('HOST_URL', '')
+            host = os.environ.get('BACKEND_URL', '') or os.environ.get('HOST_URL', '')
             logo_url = f"{host}{logo_path}" if logo_path.startswith("/api") else logo_path
 
         html = enrollment_confirmation_email(
@@ -383,6 +385,8 @@ async def check_payment_status(session_id: str, http_request: Request, backgroun
         if program:
             if program.get("show_whatsapp_link") and program.get("whatsapp_group_link"):
                 program_links["whatsapp_group_link"] = program["whatsapp_group_link"]
+            if program.get("show_whatsapp_link_2") and program.get("whatsapp_group_link_2"):
+                program_links["whatsapp_group_link_2"] = program["whatsapp_group_link_2"]
             if program.get("show_zoom_link") and program.get("zoom_link"):
                 program_links["zoom_link"] = program["zoom_link"]
             if program.get("show_custom_link") and program.get("custom_link"):
