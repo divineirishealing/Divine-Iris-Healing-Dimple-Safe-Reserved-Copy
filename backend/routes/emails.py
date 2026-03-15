@@ -132,14 +132,14 @@ def enrollment_confirmation_email(booker_name, item_title, participants, total, 
 
     # Assistance HTML
     wa_number = footer_phone.replace("+", "").replace(" ", "") if footer_phone else "971553325778"
-    contact_url = f"{site_url}/#contact" if site_url else "https://divineirishealing.com/#contact"
+    support_email = footer_email or "support@divineirishealing.com"
     assistance_html = f"""
         <div style="padding:0 36px 20px">
           <div style="background:#f5f7f9;border:1px solid #dce3e8;border-radius:12px;padding:20px 24px;text-align:center">
             <p style="color:{text_color};font-size:15px;font-weight:600;margin:0 0 8px;font-family:{heading_font}">Need Assistance?</p>
             <p style="color:#666;font-size:13px;margin:0 0 14px;line-height:1.6;font-family:{body_font}">For any assistance, reach out to us</p>
             <a href="https://wa.me/{wa_number}" style="display:inline-block;background:#25D366;color:#fff;padding:10px 22px;border-radius:8px;text-decoration:none;font-size:13px;font-weight:600;margin:4px;font-family:{body_font}">WhatsApp Us</a>
-            <a href="{contact_url}" style="display:inline-block;background:{accent_color};color:#fff;padding:10px 22px;border-radius:8px;text-decoration:none;font-size:13px;font-weight:600;margin:4px;font-family:{body_font}">Contact Form</a>
+            <a href="mailto:{support_email}?subject=Help%20with%20Enrollment" style="display:inline-block;background:{accent_color};color:#fff;padding:10px 22px;border-radius:8px;text-decoration:none;font-size:13px;font-weight:600;margin:4px;font-family:{body_font}">Email Us</a>
           </div>
         </div>"""
 
