@@ -94,6 +94,12 @@ const Header = () => {
   const offer = settings?.exclusive_offer || {};
   const offerEnabled = offer.enabled && offer.text;
   const hasCountdown = offerEnabled && offer.end_date;
+  const offerMenuItems = offer.menu_items || ['upcoming sessions', 'services'];
+
+  const shouldShowOffer = (label) => {
+    if (!offerEnabled) return false;
+    return offerMenuItems.some(m => label.toLowerCase().includes(m.toLowerCase()));
+  };
 
   const handleNav = (path) => {
     setMobileOpen(false);
@@ -115,12 +121,25 @@ const Header = () => {
   const flagshipPrograms = programs.filter(p => p.is_flagship);
   const upcomingPrograms = programs.filter(p => p.is_upcoming);
 
-  const NavButton = ({ item }) => (
-    <button onClick={() => handleNav(item.href || item.path)} data-testid={`nav-${item.label.toLowerCase().replace(/\s+/g, '-')}`}
-      className="text-white/80 hover:text-[#D4AF37] text-[11px] tracking-[0.12em] uppercase font-medium px-3 py-2 transition-colors whitespace-nowrap">
-      {item.label}
-    </button>
-  );
+  const NavButton = ({ item }) => {
+    const hasOffer = shouldShowOffer(item.label);
+    return (
+      <div className="relative group flex items-center">
+        <button onClick={() => handleNav(item.href || item.path)} data-testid={`nav-${item.label.toLowerCase().replace(/\s+/g, '-')}`}
+          className="text-white/80 hover:text-[#D4AF37] text-[11px] tracking-[0.12em] uppercase font-medium px-3 py-2 transition-colors whitespace-nowrap">
+          {item.label}
+        </button>
+        {hasOffer && (
+          <span data-testid={`offer-hover-${item.label.toLowerCase().replace(/\s+/g, '-')}`}
+            className="opacity-0 group-hover:opacity-100 transition-all duration-300 -ml-1 inline-flex items-center gap-1 bg-gradient-to-r from-[#D4AF37] to-[#f0d060] text-[#1a1a1a] text-[8px] font-bold tracking-wider px-2 py-0.5 rounded-full shadow-lg shadow-[#D4AF37]/20 pointer-events-none"
+            style={{ fontFamily: "'Lato', sans-serif" }}>
+            <Sparkles size={8} />
+            <span className="uppercase">{offer.text}</span>
+          </span>
+        )}
+      </div>
+    );
+  };
 
   return (
     <>
