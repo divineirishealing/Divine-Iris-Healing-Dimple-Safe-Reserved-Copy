@@ -768,13 +768,19 @@ function EnrollmentPage() {
                             <span className="text-[9px] bg-green-100 text-green-700 px-2 py-0.5 rounded-full font-medium">International</span>
                           </div>
                           <p className="text-[10px] text-gray-600 mb-2">Secure international payment. Your card must be <strong>enabled for international transactions</strong>.</p>
-                          <p className="text-[9px] text-amber-600 font-medium mb-1">Note: International card/Stripe payments may incur 10-15% additional charges (currency conversion + bank fees) for Indian cards/UPI.</p>
+                          <p className="text-[9px] text-green-600 font-medium mb-1">Price shown is all-inclusive (VAT + platform charges included).</p>
                           <p className="text-[9px] text-gray-400 italic">Contact your bank to enable international payments if not already active.</p>
                         </div>
 
                         <div className="relative my-3">
                           <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-gray-200" /></div>
                           <div className="relative flex justify-center"><span className="bg-white px-3 text-[10px] text-gray-400 uppercase">Or pay via India options</span></div>
+                        </div>
+
+                        <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 mb-3" data-testid="india-pricing-note">
+                          <p className="text-[10px] text-amber-800 leading-relaxed">
+                            <strong>Please note:</strong> Indian payment methods (UPI, GPay, bank transfer) may attract additional charges of up to 18% GST + platform fees, which could increase the total price by 10-15%. Stripe (card) pricing above is all-inclusive.
+                          </p>
                         </div>
                         <button
                           onClick={() => {
