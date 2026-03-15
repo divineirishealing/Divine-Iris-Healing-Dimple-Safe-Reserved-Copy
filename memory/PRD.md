@@ -29,6 +29,14 @@ All pages with dark hero sections use:
 
 ## Implemented Features
 
+### Footer Links & Exclusive Offer Feature (Mar 15, 2026) - COMPLETED
+- [x] Footer links: Home → /#home (hero section), Upcoming Sessions → /#upcoming, Services → /sessions
+- [x] Header: Exclusive offer red pulsing dot badge on configurable menu items
+- [x] Header: Hover tooltip shows offer text + countdown timer ("Avail before: Xd Xh left")
+- [x] Admin: "Exclusive Offer" tab in Header & Footer section with toggle, text, end date, menu items, and live preview
+- [x] Backend: `exclusive_offer` field added to SiteSettings model
+- [x] Countdown auto-updates every minute and hides after expiry
+
 ### Contact Page Redesign (Mar 14, 2026) - COMPLETED
 - [x] Hero: "Get in Touch" with gold subtitle and gold divider
 - [x] Three info blocks: Email Us, WhatsApp, Follow Us (white cards, gold top border, gold icons, social circles)

@@ -154,12 +154,12 @@ const Footer = () => {
   const s = settings || {};
 
   const DEFAULT_MENU = [
-    { label: 'Home', href: '/', visible: true },
+    { label: 'Home', href: '/#home', visible: true },
     { label: 'About', href: '/about', visible: true },
     { label: 'Media', href: '/media', visible: true },
-    { label: 'Services', href: '/#sessions', visible: true },
+    { label: 'Services', href: '/sessions', visible: true },
     { label: 'Transformations', href: '/transformations', visible: true },
-    { label: 'Upcoming Sessions', href: '/sessions', visible: true },
+    { label: 'Upcoming Sessions', href: '/#upcoming', visible: true },
   ];
   const footerMenuItems = (s.footer_menu_items?.length
     ? s.footer_menu_items.filter(item => item.label?.toLowerCase() !== 'contact')

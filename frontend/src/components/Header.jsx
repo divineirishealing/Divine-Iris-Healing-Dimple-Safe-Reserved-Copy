@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { Menu, X, Facebook, Instagram, Youtube, Linkedin, ChevronDown, ShoppingCart } from 'lucide-react';
+import { Menu, X, Facebook, Instagram, Youtube, Linkedin, ChevronDown, ShoppingCart, Clock, Sparkles } from 'lucide-react';
 import { useCart } from '../context/CartContext';
 import axios from 'axios';
 
@@ -24,6 +24,25 @@ const socialIcons = {
   pinterest: PinterestIcon,
 };
 
+const OfferCountdown = ({ endDate }) => {
+  const [timeLeft, setTimeLeft] = useState('');
+  useEffect(() => {
+    if (!endDate) return;
+    const update = () => {
+      const diff = new Date(endDate).getTime() - Date.now();
+      if (diff <= 0) { setTimeLeft('Expired'); return; }
+      const d = Math.floor(diff / 86400000);
+      const h = Math.floor((diff % 86400000) / 3600000);
+      const m = Math.floor((diff % 3600000) / 60000);
+      setTimeLeft(d > 0 ? `${d}d ${h}h left` : h > 0 ? `${h}h ${m}m left` : `${m}m left`);
+    };
+    update();
+    const interval = setInterval(update, 60000);
+    return () => clearInterval(interval);
+  }, [endDate]);
+  return <span>Avail before: {timeLeft}</span>;
+};
+
 const Header = () => {
   const navigate = useNavigate();
   const location = useLocation();
@@ -39,7 +58,6 @@ const Header = () => {
     axios.get(`${API}/programs`).then(r => setPrograms(r.data.filter(p => p.visible !== false))).catch(() => {});
   }, []);
 
-  // Close dropdown on outside click
   useEffect(() => {
     const handleClick = (e) => {
       if (dropdownRef.current && !dropdownRef.current.contains(e.target)) setProgramsOpen(false);
@@ -72,6 +90,16 @@ const Header = () => {
   const rightNav = headerNav.filter(i => i.position === 'right');
   const showProgramsDropdown = settings?.header_show_programs_dropdown !== false;
 
+  // Exclusive offer config
+  const offer = settings?.exclusive_offer || {};
+  const offerEnabled = offer.enabled && offer.text && offer.end_date;
+  const offerMenuItems = offer.menu_items || ['upcoming sessions', 'services'];
+
+  const shouldShowOffer = (label) => {
+    if (!offerEnabled) return false;
+    return offerMenuItems.some(m => label.toLowerCase().includes(m.toLowerCase()));
+  };
+
   const handleNav = (path) => {
     setMobileOpen(false);
     setProgramsOpen(false);
@@ -92,29 +120,53 @@ const Header = () => {
   const flagshipPrograms = programs.filter(p => p.is_flagship);
   const upcomingPrograms = programs.filter(p => p.is_upcoming);
 
+  const NavButton = ({ item }) => {
+    const [showOffer, setShowOffer] = useState(false);
+    const hasOffer = shouldShowOffer(item.label);
+    return (
+      <button onClick={() => handleNav(item.href || item.path)} data-testid={`nav-${item.label.toLowerCase().replace(/\s+/g, '-')}`}
+        className="text-white/80 hover:text-[#D4AF37] text-[11px] tracking-[0.12em] uppercase font-medium px-3 py-2 transition-colors whitespace-nowrap relative"
+        onMouseEnter={() => hasOffer && setShowOffer(true)} onMouseLeave={() => setShowOffer(false)}>
+        {item.label}
+        {hasOffer && (
+          <>
+            <span data-testid="offer-dot" className="absolute -top-0.5 -right-0.5 w-2 h-2 bg-red-500 rounded-full animate-pulse" />
+            {showOffer && (
+              <div data-testid="offer-tooltip" className="absolute top-full left-1/2 -translate-x-1/2 mt-2 z-[100] whitespace-nowrap">
+                <div className="bg-gradient-to-r from-red-600 to-red-700 text-white text-[10px] px-3 py-2 rounded-lg shadow-xl border border-red-500/30"
+                  style={{ fontFamily: "'Lato', sans-serif" }}>
+                  <div className="flex items-center gap-1.5 font-semibold">
+                    <Sparkles size={10} />
+                    <span>{offer.text}</span>
+                  </div>
+                  <div className="flex items-center gap-1 mt-1 text-red-200">
+                    <Clock size={9} />
+                    <OfferCountdown endDate={offer.end_date} />
+                  </div>
+                </div>
+                <div className="absolute -top-1 left-1/2 -translate-x-1/2 w-2 h-2 bg-red-600 rotate-45" />
+              </div>
+            )}
+          </>
+        )}
+      </button>
+    );
+  };
+
   return (
     <>
       <header data-testid="site-header" className="fixed top-0 left-0 right-0 z-50 bg-black/70 backdrop-blur-md">
         <div className="container mx-auto px-4 lg:px-8">
           <div className="flex items-center justify-between h-14">
-            {/* Left: Nav links (desktop) / Hamburger (mobile) */}
             <div className="flex items-center gap-1">
-              {/* Mobile hamburger */}
               <button data-testid="menu-toggle-btn" onClick={() => setMobileOpen(!mobileOpen)}
                 className="lg:hidden text-white hover:text-[#D4AF37] transition-colors p-1">
                 {mobileOpen ? <X size={20} /> : <Menu size={20} />}
               </button>
 
-              {/* Desktop left nav */}
               <nav className="hidden lg:flex items-center gap-1">
-                {leftNav.map(item => (
-                  <button key={item.label} onClick={() => handleNav(item.href || item.path)} data-testid={`nav-${item.label.toLowerCase().replace(/\s+/g, '-')}`}
-                    className="text-white/80 hover:text-[#D4AF37] text-[11px] tracking-[0.12em] uppercase font-medium px-3 py-2 transition-colors whitespace-nowrap">
-                    {item.label}
-                  </button>
-                ))}
+                {leftNav.map(item => <NavButton key={item.label} item={item} />)}
 
-                {/* Programs dropdown */}
                 {showProgramsDropdown && (
                   <div ref={dropdownRef} className="relative">
                     <button onClick={() => setProgramsOpen(!programsOpen)} data-testid="nav-programs-dropdown"
@@ -163,16 +215,9 @@ const Header = () => {
               </nav>
             </div>
 
-            {/* Right: Right nav items + Cart + Social icons */}
             <div className="flex items-center gap-1">
-              {/* Desktop right nav */}
               <nav className="hidden lg:flex items-center gap-1">
-                {rightNav.map(item => (
-                  <button key={item.label} onClick={() => handleNav(item.href || item.path)} data-testid={`nav-${item.label.toLowerCase().replace(/\s+/g, '-')}`}
-                    className="text-white/80 hover:text-[#D4AF37] text-[11px] tracking-[0.12em] uppercase font-medium px-3 py-2 transition-colors whitespace-nowrap">
-                    {item.label}
-                  </button>
-                ))}
+                {rightNav.map(item => <NavButton key={item.label} item={item} />)}
               </nav>
               <button data-testid="cart-icon-btn" onClick={() => navigate('/cart')} className="relative text-white/80 hover:text-[#D4AF37] transition-colors ml-2">
                 <ShoppingCart size={18} />
@@ -194,7 +239,7 @@ const Header = () => {
         </div>
       </header>
 
-      {/* Mobile menu — simple slide-down, no gold overlay */}
+      {/* Mobile menu */}
       {mobileOpen && (
         <div data-testid="mobile-menu" className="fixed inset-0 z-[60] bg-black/95 backdrop-blur-md pt-16 overflow-y-auto">
           <button data-testid="menu-close-btn" onClick={() => setMobileOpen(false)} className="absolute top-4 right-4 text-white hover:text-[#D4AF37] transition-colors">
@@ -202,10 +247,17 @@ const Header = () => {
           </button>
           <nav className="flex flex-col items-center gap-4 pt-8">
             {headerNav.map(item => (
-              <button key={item.label} onClick={() => handleNav(item.href || item.path)}
-                className="text-white/80 hover:text-[#D4AF37] text-sm tracking-[0.15em] uppercase font-light transition-colors">
-                {item.label}
-              </button>
+              <div key={item.label} className="relative">
+                <button onClick={() => handleNav(item.href || item.path)}
+                  className="text-white/80 hover:text-[#D4AF37] text-sm tracking-[0.15em] uppercase font-light transition-colors">
+                  {item.label}
+                </button>
+                {shouldShowOffer(item.label) && (
+                  <span className="ml-2 inline-flex items-center gap-1 bg-red-600 text-white text-[8px] px-2 py-0.5 rounded-full font-semibold">
+                    <Sparkles size={8} /> Offer
+                  </span>
+                )}
+              </div>
             ))}
             {showProgramsDropdown && (
               <>

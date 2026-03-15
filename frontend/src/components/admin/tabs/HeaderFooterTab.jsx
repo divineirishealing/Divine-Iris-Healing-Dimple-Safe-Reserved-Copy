@@ -39,6 +39,7 @@ const HeaderFooterTab = ({ settings, onChange }) => {
 
   const sections = [
     { key: 'header_nav', label: 'Header Navigation' },
+    { key: 'exclusive_offer', label: 'Exclusive Offer' },
     { key: 'social', label: 'Social Media' },
     { key: 'footer_nav', label: 'Footer Navigation' },
     { key: 'footer', label: 'Footer Content' },
@@ -142,6 +143,65 @@ const HeaderFooterTab = ({ settings, onChange }) => {
                 <Switch checked={s.header_show_programs_dropdown !== false} onCheckedChange={v => set('header_show_programs_dropdown', v)} />
                 <Label className="text-[10px] text-gray-600">Show Flagship Programs dropdown in header</Label>
               </div>
+            </div>
+          </div>
+        );
+      })()}
+
+
+      {/* Exclusive Offer */}
+      {activeSection === 'exclusive_offer' && (() => {
+        const offer = s.exclusive_offer || {};
+        const setOffer = (key, val) => set('exclusive_offer', { ...offer, [key]: val });
+        const menuItems = offer.menu_items || ['Upcoming Sessions', 'Services'];
+        return (
+          <div className="space-y-4">
+            <div className="bg-white rounded-lg p-5 shadow-sm border" data-testid="exclusive-offer-panel">
+              <p className="text-xs font-semibold text-gray-800 mb-1">Exclusive Offer Banner</p>
+              <p className="text-[10px] text-gray-400 mb-4">Show a special offer badge on selected menu items with a countdown timer.</p>
+
+              <div className="flex items-center gap-3 mb-5">
+                <Switch checked={offer.enabled || false} onCheckedChange={v => setOffer('enabled', v)} data-testid="offer-enabled-toggle" />
+                <Label className="text-xs">Show Exclusive Offer</Label>
+              </div>
+
+              <div className="space-y-4">
+                <div>
+                  <Label className="text-[10px] text-gray-500 mb-1 block">Offer Text (shown on hover)</Label>
+                  <Input data-testid="offer-text-input" value={offer.text || ''} onChange={e => setOffer('text', e.target.value)} placeholder="e.g. 20% Off — Limited Time!" className="text-sm" />
+                </div>
+
+                <div>
+                  <Label className="text-[10px] text-gray-500 mb-1 block">Offer End Date & Time</Label>
+                  <Input data-testid="offer-end-date-input" type="datetime-local" value={offer.end_date || ''} onChange={e => setOffer('end_date', e.target.value)} className="text-sm" />
+                </div>
+
+                <div>
+                  <Label className="text-[10px] text-gray-500 mb-1 block">Show on Menu Items (comma-separated)</Label>
+                  <Input data-testid="offer-menu-items-input" value={menuItems.join(', ')} onChange={e => setOffer('menu_items', e.target.value.split(',').map(v => v.trim()).filter(Boolean))} placeholder="Upcoming Sessions, Services" className="text-sm" />
+                  <p className="text-[9px] text-gray-400 mt-1">Enter menu labels where the offer dot should appear. E.g. "Upcoming Sessions, Services"</p>
+                </div>
+              </div>
+
+              {offer.enabled && offer.text && (
+                <div className="mt-5 p-3 bg-gray-50 rounded-lg border">
+                  <p className="text-[10px] text-gray-500 mb-2 font-medium">Preview</p>
+                  <div className="flex items-center gap-3 bg-black/80 rounded px-4 py-2 text-white">
+                    <span className="text-[11px] tracking-wider uppercase relative">
+                      Upcoming Sessions
+                      <span className="absolute -top-1 -right-3 w-2 h-2 bg-red-500 rounded-full animate-pulse" />
+                    </span>
+                    <span className="text-[11px] tracking-wider uppercase relative ml-4">
+                      Services
+                      <span className="absolute -top-1 -right-3 w-2 h-2 bg-red-500 rounded-full animate-pulse" />
+                    </span>
+                  </div>
+                  <div className="mt-2 bg-gradient-to-r from-red-600 to-red-700 text-white text-[10px] px-3 py-2 rounded-lg inline-block">
+                    <span className="font-semibold">{offer.text}</span>
+                    {offer.end_date && <span className="ml-2 text-red-200">Avail before: countdown</span>}
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         );
