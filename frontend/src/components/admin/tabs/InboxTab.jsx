@@ -5,7 +5,7 @@ import { Button } from '../../ui/button';
 import { Textarea } from '../../ui/textarea';
 import { Switch } from '../../ui/switch';
 import { Label } from '../../ui/label';
-import { Mail, MessageSquare, Heart, Send, Trash2, ChevronDown, ChevronUp, Clock, Search, Users, Link2 } from 'lucide-react';
+import { Mail, MessageSquare, Heart, Send, Trash2, ChevronDown, ChevronUp, Clock, Search, Users, Link2, Download } from 'lucide-react';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
@@ -96,6 +96,10 @@ const InboxTab = () => {
     return items;
   };
 
+  const handleDownloadAll = () => {
+    window.open(`${API}/inbox/download`, '_blank');
+  };
+
   const sections = [
     { key: 'contacts', label: 'Contact Form', icon: Mail, count: counts.contacts_new || 0, total: counts.contacts_total || 0 },
     { key: 'interests', label: 'Express Interest', icon: Heart, count: 0, total: counts.interests_total || 0 },
@@ -113,13 +117,18 @@ const InboxTab = () => {
           </h2>
           <p className="text-xs text-gray-500 mt-1">View and reply to all form submissions. Replies are sent via email with optional attachments.</p>
         </div>
-        <div className="flex items-center gap-2 bg-gray-100 rounded-lg p-0.5">
+        <div className="flex items-center gap-2">
+          <Button data-testid="inbox-download-all" onClick={handleDownloadAll} variant="outline" className="text-[10px] h-8 gap-1.5 border-[#D4AF37] text-[#D4AF37] hover:bg-[#D4AF37]/10">
+            <Download size={12} /> Download All Data
+          </Button>
+          <div className="flex items-center gap-2 bg-gray-100 rounded-lg p-0.5">
           {['all', 'new', 'replied'].map(f => (
             <button key={f} data-testid={`inbox-filter-${f}`} onClick={() => setFilter(f)}
               className={`px-3 py-1 text-[10px] rounded-md font-medium transition-colors ${filter === f ? 'bg-white shadow-sm text-gray-900' : 'text-gray-500 hover:text-gray-700'}`}>
               {f === 'all' ? 'All' : f === 'new' ? 'New' : 'Replied'}
             </button>
           ))}
+          </div>
         </div>
       </div>
 

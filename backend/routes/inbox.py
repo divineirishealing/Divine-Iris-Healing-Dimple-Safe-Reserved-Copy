@@ -138,13 +138,13 @@ async def reply_to_item(collection: str, item_id: str, data: ReplyRequest):
                     price_text = f"From AED {p['price_aed']}"
                 cards += f"""
                 <div style="background:#faf8f0;border:1px solid #e8dcc4;border-radius:12px;padding:20px;margin-bottom:12px">
-                  <h3 style="color:#D4AF37;font-size:16px;margin:0 0 6px;font-family:Georgia,serif">{p.get('title','')}</h3>
-                  <p style="color:#666;font-size:13px;margin:0 0 8px;line-height:1.5">{(p.get('description','') or '')[:150]}{'...' if len(p.get('description','') or '') > 150 else ''}</p>
-                  {f'<p style="color:#D4AF37;font-size:14px;font-weight:600;margin:0">{price_text}</p>' if price_text else ''}
+                  <h3 style="color:#D4AF37;font-size:16px;margin:0 0 6px;font-family:'Lato',Arial,sans-serif">{p.get('title','')}</h3>
+                  <p style="color:#666;font-size:13px;margin:0 0 8px;line-height:1.5;font-family:'Lato',Arial,sans-serif">{(p.get('description','') or '')[:150]}{'...' if len(p.get('description','') or '') > 150 else ''}</p>
+                  {f'<p style="color:#D4AF37;font-size:14px;font-weight:600;margin:0;font-family:Lato,Arial,sans-serif">{price_text}</p>' if price_text else ''}
                 </div>"""
             program_cards_html = f"""
             <div style="padding:20px 0">
-              <h3 style="color:#1a1a1a;font-size:16px;margin:0 0 12px;font-family:Georgia,serif">Programs You Might Love</h3>
+              <h3 style="color:#1a1a1a;font-size:16px;margin:0 0 12px;font-family:'Lato',Arial,sans-serif">Programs You Might Love</h3>
               {cards}
             </div>"""
 
@@ -195,31 +195,41 @@ async def reply_to_item(collection: str, item_id: str, data: ReplyRequest):
     elif collection == "questions":
         original_context = f'<p style="color:#999;font-size:12px;margin:16px 0 0;padding-top:12px;border-top:1px solid #eee"><em>Your question: {item.get("question", "")[:200]}</em></p>'
 
+    # Build logo URL for email
+    BACKEND_URL = os.environ.get("BACKEND_URL", "")
+    logo_url = settings.get("logo_url", "")
+    if logo_url and logo_url.startswith("/api/"):
+        logo_url = f"{BACKEND_URL}{logo_url}" if BACKEND_URL else ""
+    logo_html = f'<img src="{logo_url}" alt="Divine Iris Healing" style="height:48px;margin-bottom:12px;object-fit:contain" /><br/>' if logo_url else ""
+
     html = f"""
     <!DOCTYPE html>
     <html>
-    <head><meta charset="utf-8"></head>
-    <body style="margin:0;padding:0;font-family:Georgia,'Times New Roman',serif;background:#f4f2ed">
+    <head><meta charset="utf-8">
+    <link href="https://fonts.googleapis.com/css2?family=Lato:wght@300;400;600;700&display=swap" rel="stylesheet">
+    </head>
+    <body style="margin:0;padding:0;font-family:'Lato',Arial,Helvetica,sans-serif;background:#f4f2ed">
       <div style="max-width:600px;margin:0 auto;background:#ffffff;border:1px solid #e8e0c8">
         <div style="background:#1a1a1a;padding:28px 24px;text-align:center;border-bottom:3px solid #D4AF37">
-          <h1 style="color:#D4AF37;margin:0;font-size:22px;font-weight:400;letter-spacing:3px">DIVINE IRIS HEALING</h1>
+          {logo_html}
+          <h1 style="color:#D4AF37;margin:0;font-size:20px;font-weight:300;letter-spacing:4px;font-family:'Lato',Arial,sans-serif">DIVINE IRIS HEALING</h1>
         </div>
         <div style="padding:32px 28px">
-          <p style="color:#333;font-size:15px;margin:0 0 4px">Dear {recipient_name},</p>
-          <div style="color:#333;font-size:14px;line-height:1.7;margin:16px 0">{reply_body}</div>
+          <p style="color:#333;font-size:15px;margin:0 0 4px;font-family:'Lato',Arial,sans-serif">Dear {recipient_name},</p>
+          <div style="color:#444;font-size:14px;line-height:1.8;margin:16px 0;font-family:'Lato',Arial,sans-serif">{reply_body}</div>
           {original_context}
           {program_cards_html}
           {whatsapp_html}
           {workshop_html}
         </div>
         <div style="padding:0 28px 24px">
-          <p style="color:#D4AF37;font-size:14px;margin:0;font-style:italic">With love and light,</p>
-          <p style="color:#333;font-size:14px;margin:4px 0 0;font-weight:600">Divine Iris Healing</p>
+          <p style="color:#D4AF37;font-size:14px;margin:0;font-style:italic;font-family:'Lato',Arial,sans-serif">With love and light,</p>
+          <p style="color:#333;font-size:14px;margin:4px 0 0;font-weight:600;font-family:'Lato',Arial,sans-serif">Divine Iris Healing</p>
         </div>
         {social_html}
         <div style="background:#1a1a1a;padding:20px;text-align:center;border-top:3px solid #D4AF37">
-          <p style="color:#D4AF37;font-size:11px;margin:0;letter-spacing:2px">DIVINE IRIS HEALING</p>
-          <p style="color:#666;font-size:10px;margin:4px 0 0">Delve into the deeper realm of your soul</p>
+          <p style="color:#D4AF37;font-size:11px;margin:0;letter-spacing:2px;font-family:'Lato',Arial,sans-serif">DIVINE IRIS HEALING</p>
+          <p style="color:#666;font-size:10px;margin:4px 0 0;font-family:'Lato',Arial,sans-serif">Delve into the deeper realm of your soul</p>
         </div>
       </div>
     </body>
@@ -280,3 +290,68 @@ async def get_inbox_counts():
         "questions_total": questions_total,
         "total_new": contacts_new + questions_new,
     }
+
+
+# ========== DOWNLOAD ALL CLIENT DATA ==========
+
+@router.get("/download")
+async def download_all_client_data():
+    import csv
+    import io
+    from fastapi.responses import StreamingResponse
+
+    contacts = await db.quote_requests.find({}, {"_id": 0}).sort("created_at", -1).to_list(1000)
+    interests = await db.notify_me.find({}, {"_id": 0}).sort("created_at", -1).to_list(1000)
+    questions = await db.session_questions.find({}, {"_id": 0}).sort("created_at", -1).to_list(1000)
+
+    output = io.StringIO()
+    writer = csv.writer(output)
+
+    # Header row
+    writer.writerow([
+        "Type", "Status", "Name", "Email", "Phone",
+        "Program/Session", "Message/Question", "Reply",
+        "Submitted Date", "Replied Date", "Remarks"
+    ])
+
+    # Contact submissions
+    for c in contacts:
+        status = c.get("status", "new")
+        remarks = f"Inquiry: {c.get('question_about', '')} > {c.get('specific_selection', '')}" if c.get("question_about") else ""
+        writer.writerow([
+            "Contact Form", status.upper(), c.get("name", ""), c.get("email", ""),
+            c.get("phone", ""), c.get("specific_selection", ""),
+            c.get("message", ""), c.get("reply", ""),
+            c.get("created_at", ""), c.get("replied_at", ""), remarks
+        ])
+
+    # Express your interest
+    for i in interests:
+        status = i.get("status", "new")
+        writer.writerow([
+            "Express Interest", status.upper(), i.get("name", ""), i.get("email", ""),
+            "", i.get("program_title", ""),
+            "", "",
+            i.get("created_at", ""), "", f"Program ID: {i.get('program_id', '')}"
+        ])
+
+    # Questions
+    for q in questions:
+        status = "REPLIED" if q.get("replied") else "NEW"
+        writer.writerow([
+            "Question", status, q.get("name", ""), q.get("email", ""),
+            "", q.get("session_title", ""),
+            q.get("question", ""), q.get("reply", ""),
+            q.get("created_at", ""), q.get("replied_at", ""),
+            f"Session: {q.get('session_title', '')}"
+        ])
+
+    output.seek(0)
+    timestamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M")
+    filename = f"divine_iris_client_data_{timestamp}.csv"
+
+    return StreamingResponse(
+        iter([output.getvalue()]),
+        media_type="text/csv",
+        headers={"Content-Disposition": f"attachment; filename={filename}"}
+    )
