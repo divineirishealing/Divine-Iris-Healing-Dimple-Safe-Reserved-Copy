@@ -29,6 +29,22 @@ All pages with dark hero sections use:
 
 ## Implemented Features
 
+### Admin Inbox — Contact, Interest & Questions Management (Mar 15, 2026) - COMPLETED
+- [x] Backend: `/api/inbox/contacts`, `/api/inbox/interests`, `/api/inbox/questions` GET endpoints
+- [x] Backend: Status update (read/replied), delete, and unified reply endpoint with rich email
+- [x] Reply emails include: custom message, optional upcoming program cards, WhatsApp community link, workshop subscription, auto social links
+- [x] Workshop subscription toggle auto-adds recipient to newsletter subscribers
+- [x] Frontend: Inbox tab in admin with 3 section tabs (Contact Form, Express Interest, Questions) + counts
+- [x] Expandable items with detail view, message history, and reply composer
+- [x] 4 toggle options: Attach Programs, WhatsApp Community, Future Workshops, Social Links
+- [x] Filters (All/New/Replied) and search by name/email/message
+- [x] All 28/28 tests passing (iteration 58)
+
+### Logo Moved to Header (Mar 15, 2026) - COMPLETED
+- [x] Site logo moved to top-left corner of header navigation, visible and clickable (navigates home)
+- [x] LogoSection removed from homepage
+- [x] Logo also shows in mobile menu
+
 ### About Page Hero Admin Controls + Pricing Hub Fix (Mar 15, 2026) - COMPLETED
 - [x] Hero section controls in About admin tab: logo image (upload/visibility/size), title (text/alignment/visibility/font), subtitle (text/alignment/visibility/font), divider line (visibility/color/width/thickness)
 - [x] Removed static logo from About page bio section
@@ -120,14 +136,10 @@ All pages with dark hero sections use:
 
 ## Pending / Upcoming Tasks
 
-### P0: Admin View/Reply to Questions
-- UI in admin panel to reply to submitted questions from Personal Sessions
-- Backend APIs already in place
+### P0: User Verification for Programs Hub & Pricing Hub
+- Major refactor from previous session pending user review
 
-### P1: User Verification for Programs Hub & Pricing Hub
-- Major refactor of Programs Hub and Pricing Hub from previous session pending user review
-
-### P2: Global & Testimonial Search
+### P1: Global & Testimonial Search
 - Global site search functionality
 - Keyword-based testimonial search
 
