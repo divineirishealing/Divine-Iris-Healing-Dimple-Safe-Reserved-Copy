@@ -11,7 +11,7 @@ import requests
 import os
 import uuid
 
-BASE_URL = os.environ.get('REACT_APP_BACKEND_URL', 'https://iris-staging-build.preview.emergentagent.com').rstrip('/')
+BASE_URL = os.environ.get('REACT_APP_BACKEND_URL', 'https://divine-checkout-flow.preview.emergentagent.com').rstrip('/')
 
 # All 8 key definitions from key_manager.py
 EXPECTED_KEYS = [

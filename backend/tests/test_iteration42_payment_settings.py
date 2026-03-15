@@ -13,7 +13,7 @@ import os
 
 BASE_URL = os.environ.get('REACT_APP_BACKEND_URL', '').rstrip('/')
 if not BASE_URL:
-    BASE_URL = "https://iris-staging-build.preview.emergentagent.com"
+    BASE_URL = "https://divine-checkout-flow.preview.emergentagent.com"
 
 
 # =================== SETTINGS TESTS ===================
