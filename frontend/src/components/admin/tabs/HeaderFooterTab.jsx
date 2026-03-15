@@ -172,7 +172,7 @@ const HeaderFooterTab = ({ settings, onChange }) => {
                 </div>
 
                 <div>
-                  <Label className="text-[10px] text-gray-500 mb-1 block">Offer End Date & Time</Label>
+                  <Label className="text-[10px] text-gray-500 mb-1 block">Offer End Date & Time (Optional — adds countdown)</Label>
                   <Input data-testid="offer-end-date-input" type="datetime-local" value={offer.end_date || ''} onChange={e => setOffer('end_date', e.target.value)} className="text-sm" />
                 </div>
 

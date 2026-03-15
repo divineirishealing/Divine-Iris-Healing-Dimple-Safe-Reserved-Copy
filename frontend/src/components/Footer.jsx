@@ -168,10 +168,20 @@ const Footer = () => {
 
   const handleMenuClick = (href) => {
     if (href.startsWith('/#')) {
-      navigate('/');
-      setTimeout(() => document.getElementById(href.replace('/#',''))?.scrollIntoView({ behavior:'smooth' }), 300);
+      const sectionId = href.replace('/#', '');
+      if (window.location.pathname === '/') {
+        const el = document.getElementById(sectionId);
+        if (el) { const y = el.getBoundingClientRect().top + window.scrollY - 60; window.scrollTo({ top: y, behavior: 'smooth' }); }
+      } else {
+        navigate('/');
+        setTimeout(() => {
+          const el = document.getElementById(sectionId);
+          if (el) { const y = el.getBoundingClientRect().top + window.scrollY - 60; window.scrollTo({ top: y, behavior: 'smooth' }); }
+        }, 500);
+      }
     } else {
       navigate(href);
+      window.scrollTo(0, 0);
     }
   };
 
@@ -233,7 +243,7 @@ const Footer = () => {
               <ul className="space-y-1.5 text-gray-400 text-[11px]" style={FONT_LATO}>
                 {[...programs].slice(0, 6).sort((a, b) => a.title.length - b.title.length).map(p => (
                   <li key={p.id}>
-                    <button data-testid={`footer-program-${p.id}`} onClick={() => navigate(`/program/${p.id}`)}
+                    <button data-testid={`footer-program-${p.id}`} onClick={() => { navigate(`/program/${p.id}`); window.scrollTo(0, 0); }}
                       className="hover:text-[#D4AF37] transition-colors text-left">{p.title}</button>
                   </li>
                 ))}

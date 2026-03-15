@@ -92,7 +92,7 @@ const Header = () => {
 
   // Exclusive offer config
   const offer = settings?.exclusive_offer || {};
-  const offerEnabled = offer.enabled && offer.text && offer.end_date;
+  const offerEnabled = offer.enabled && offer.text;
   const offerMenuItems = offer.menu_items || ['upcoming sessions', 'services'];
 
   const shouldShowOffer = (label) => {
@@ -106,9 +106,9 @@ const Header = () => {
     if (path.startsWith('/#')) {
       if (location.pathname === '/') {
         const el = document.getElementById(path.replace('/#', ''));
-        if (el) el.scrollIntoView({ behavior: 'smooth' });
+        if (el) { const y = el.getBoundingClientRect().top + window.scrollY - 60; window.scrollTo({ top: y, behavior: 'smooth' }); }
       } else { navigate(path); }
-    } else { navigate(path); }
+    } else { navigate(path); window.scrollTo(0, 0); }
   };
 
   const SocialIcon = ({ sKey, size = 16 }) => {
@@ -121,35 +121,30 @@ const Header = () => {
   const upcomingPrograms = programs.filter(p => p.is_upcoming);
 
   const NavButton = ({ item }) => {
-    const [showOffer, setShowOffer] = useState(false);
     const hasOffer = shouldShowOffer(item.label);
     return (
-      <button onClick={() => handleNav(item.href || item.path)} data-testid={`nav-${item.label.toLowerCase().replace(/\s+/g, '-')}`}
-        className="text-white/80 hover:text-[#D4AF37] text-[11px] tracking-[0.12em] uppercase font-medium px-3 py-2 transition-colors whitespace-nowrap relative"
-        onMouseEnter={() => hasOffer && setShowOffer(true)} onMouseLeave={() => setShowOffer(false)}>
-        {item.label}
+      <div className="relative flex items-center">
+        <button onClick={() => handleNav(item.href || item.path)} data-testid={`nav-${item.label.toLowerCase().replace(/\s+/g, '-')}`}
+          className="text-white/80 hover:text-[#D4AF37] text-[11px] tracking-[0.12em] uppercase font-medium px-3 py-2 transition-colors whitespace-nowrap">
+          {item.label}
+        </button>
         {hasOffer && (
-          <>
-            <span data-testid="offer-dot" className="absolute -top-0.5 -right-0.5 w-2 h-2 bg-red-500 rounded-full animate-pulse" />
-            {showOffer && (
-              <div data-testid="offer-tooltip" className="absolute top-full left-1/2 -translate-x-1/2 mt-2 z-[100] whitespace-nowrap">
-                <div className="bg-gradient-to-r from-red-600 to-red-700 text-white text-[10px] px-3 py-2 rounded-lg shadow-xl border border-red-500/30"
-                  style={{ fontFamily: "'Lato', sans-serif" }}>
-                  <div className="flex items-center gap-1.5 font-semibold">
-                    <Sparkles size={10} />
-                    <span>{offer.text}</span>
-                  </div>
-                  <div className="flex items-center gap-1 mt-1 text-red-200">
-                    <Clock size={9} />
-                    <OfferCountdown endDate={offer.end_date} />
-                  </div>
-                </div>
-                <div className="absolute -top-1 left-1/2 -translate-x-1/2 w-2 h-2 bg-red-600 rotate-45" />
-              </div>
+          <span data-testid="offer-badge" onClick={() => handleNav(item.href || item.path)}
+            className="relative -ml-1 cursor-pointer group">
+            <span className="inline-flex items-center gap-1 bg-gradient-to-r from-[#D4AF37] to-[#f0d060] text-[#1a1a1a] text-[8px] font-bold tracking-wider px-2 py-0.5 rounded-full shadow-lg shadow-[#D4AF37]/30 animate-pulse"
+              style={{ fontFamily: "'Lato', sans-serif", animationDuration: '2s' }}>
+              <Sparkles size={8} />
+              <span className="uppercase">{offer.text?.length > 12 ? offer.text.slice(0, 12) + '..' : offer.text}</span>
+            </span>
+            {offer.end_date && (
+              <span className="absolute -bottom-4 left-1/2 -translate-x-1/2 opacity-0 group-hover:opacity-100 transition-opacity duration-200 whitespace-nowrap bg-black/90 text-[#D4AF37] text-[8px] px-2 py-0.5 rounded"
+                style={{ fontFamily: "'Lato', sans-serif" }}>
+                <OfferCountdown endDate={offer.end_date} />
+              </span>
             )}
-          </>
+          </span>
         )}
-      </button>
+      </div>
     );
   };
 
@@ -253,8 +248,9 @@ const Header = () => {
                   {item.label}
                 </button>
                 {shouldShowOffer(item.label) && (
-                  <span className="ml-2 inline-flex items-center gap-1 bg-red-600 text-white text-[8px] px-2 py-0.5 rounded-full font-semibold">
-                    <Sparkles size={8} /> Offer
+                  <span className="ml-2 inline-flex items-center gap-1 bg-gradient-to-r from-[#D4AF37] to-[#f0d060] text-[#1a1a1a] text-[8px] font-bold px-2 py-0.5 rounded-full animate-pulse"
+                    style={{ animationDuration: '2s' }}>
+                    <Sparkles size={8} /> {offer.text}
                   </span>
                 )}
               </div>
