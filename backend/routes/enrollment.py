@@ -175,11 +175,10 @@ async def start_enrollment(profile: ProfileData, request: Request):
             if p.email and not validate_email_format(p.email.strip()):
                 raise HTTPException(status_code=400, detail=f"Participant {i+1}: invalid email format")
 
-    # Generate receipt ID: DIH{YYMMDD}{YEARLY_SEQ:03d}{RAND:02d}
-    # e.g. DIH26031500147 — sequence is yearly, random suffix prevents guessing
+    # Generate receipt ID: DIH-{RAND:3d}-{YEARLY_SEQ:03d}
+    # e.g. DIH-472-001 — random 3-digit mystery code + yearly sequence
     import random
     now = datetime.now(timezone.utc)
-    year_prefix = f"DIH{now.strftime('%y')}"
     counter = await db.counters.find_one_and_update(
         {"_id": f"receipt_{now.strftime('%Y')}"},
         {"$inc": {"seq": 1}},
@@ -188,8 +187,8 @@ async def start_enrollment(profile: ProfileData, request: Request):
         projection={"_id": 0, "seq": 1}
     )
     seq = counter["seq"]
-    rand = random.randint(10, 99)
-    receipt_id = f"{year_prefix}{now.strftime('%m')}{now.strftime('%d')}{seq:03d}{rand}"
+    rand = random.randint(100, 999)
+    receipt_id = f"DIH-{rand}-{seq:03d}"
 
     enrollment = {
         "id": receipt_id,
