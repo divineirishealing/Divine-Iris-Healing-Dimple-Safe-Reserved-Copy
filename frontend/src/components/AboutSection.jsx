@@ -29,8 +29,6 @@ const AboutSection = ({ sectionConfig }) => {
   useEffect(() => { axios.get(`${API}/settings`).then(r => setSettings(r.data)).catch(() => {}); }, []);
 
   const s = settings || {};
-  const logoUrl = s.logo_url ? resolveUrl(s.logo_url) : '';
-  const logoWidth = s.logo_width || 96;
   const aboutImage = s.about_image ? resolveUrl(s.about_image) : '';
 
   return (

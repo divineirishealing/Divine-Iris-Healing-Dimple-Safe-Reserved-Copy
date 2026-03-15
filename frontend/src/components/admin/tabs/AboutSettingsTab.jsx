@@ -150,7 +150,7 @@ const AboutSettingsTab = ({ settings, onChange }) => {
       {/* Site Logo */}
       <div className="bg-white rounded-lg p-5 shadow-sm border mb-4">
         <p className="text-xs font-semibold text-gray-800 mb-1">Site Logo</p>
-        <p className="text-[10px] text-gray-400 mb-3">Appears above the about section on the homepage.</p>
+        <p className="text-[10px] text-gray-400 mb-3">Appears in the top-left corner of the header navigation. Clickable — navigates to home.</p>
         {s.logo_url && (
           <div className="mb-3 flex items-center gap-3 bg-gray-50 p-3 rounded">
             <img src={resolveImageUrl(s.logo_url)} alt="Logo" className="h-16 object-contain" />
