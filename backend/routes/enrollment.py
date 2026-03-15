@@ -354,9 +354,8 @@ async def get_enrollment_pricing(enrollment_id: str, item_type: str, item_id: st
     participant_count = enrollment.get("participant_count", 1)
 
     # ─── STRICT INDIA VALIDATION ───
-    # Cross-validate: IP + claimed country + phone must all indicate India
-    phone_is_indian = phone.startswith("+91") if phone else True  # No phone = pass (email OTP)
-    # But if phone IS provided and NOT Indian → foreigner in India
+    # ALL signals must indicate India for INR pricing. Any single non-India signal → USD
+    phone_is_indian = phone.startswith("+91") if phone else True
     phone_contradicts_india = bool(phone) and not phone.startswith("+91")
 
     checks = {
@@ -368,25 +367,19 @@ async def get_enrollment_pricing(enrollment_id: str, item_type: str, item_id: st
     all_india_checks_pass = all(checks.values())
 
     # ─── REGIONAL CURRENCY MAPPING ───
-    USD_COUNTRIES = {"US", "GB", "AU", "NZ", "CA", "SG", "DE", "FR", "IT", "ES", "NL", "JP", "KE", "NG", "ZA", "PH", "ID", "TH", "TR", "EG"}
     AED_COUNTRIES = {"AE", "SA", "QA", "KW", "OM", "BH"}
 
-    # Determine currency
+    # Determine currency — INR only if ALL India checks pass, otherwise USD (AED only for Gulf)
     if all_india_checks_pass:
         allowed_currency = "inr"
         fraud_warning = None
     else:
-        # Determine regional currency
+        # If any India check fails, never allow INR
         effective_country = ip_country if not vpn_blocked else claimed_country
-        if effective_country in AED_COUNTRIES:
+        if effective_country in AED_COUNTRIES and claimed_country in AED_COUNTRIES:
             allowed_currency = "aed"
-        elif effective_country in USD_COUNTRIES or effective_country not in {"IN"}:
-            allowed_currency = client_currency or "usd"
         else:
-            allowed_currency = client_currency or "aed"
-
-        if allowed_currency == "inr":
-            allowed_currency = "aed"  # Block INR for non-India
+            allowed_currency = "usd"
 
         reasons = []
         if not checks["no_vpn"]:
