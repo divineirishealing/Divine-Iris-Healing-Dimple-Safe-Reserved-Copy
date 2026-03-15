@@ -12,7 +12,7 @@ import { resolveImageUrl } from '../../lib/imageUtils';
 import {
   Settings, Package, Calendar, MessageSquare, BarChart3, Mail, Inbox,
   Trash2, Edit, Plus, X, Eye, EyeOff, Save, ArrowUp, ArrowDown,
-  Globe, Layout, Image, Users, Palette, Gift, Monitor, Wifi, Tag, ChevronLeft, ChevronRight, Upload, FileText, DollarSign
+  Globe, Layout, Image, Users, Palette, Gift, Monitor, Wifi, Tag, ChevronLeft, ChevronRight, Upload, FileText, DollarSign, Quote
 } from 'lucide-react';
 
 import HeroSettingsTab from './tabs/HeroSettingsTab';
@@ -37,6 +37,7 @@ import PricingHubTab from './tabs/PricingHubTab';
 import UpcomingHubTab from './tabs/UpcomingHubTab';
 import InboxTab from './tabs/InboxTab';
 import ClientsTab from './tabs/ClientsTab';
+import TextTestimonialsTab from './tabs/TextTestimonialsTab';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
@@ -185,6 +186,7 @@ const AdminPanel = () => {
     { key: 'upcoming_hub', label: 'Upcoming Hub', icon: Calendar },
     { key: 'sessions', label: 'Sessions', icon: Calendar, count: sessions.length },
     { key: 'testimonials', label: 'Testimonials', icon: MessageSquare, count: testimonials.length },
+    { key: 'text_testimonials', label: 'Text Quotes', icon: Quote },
     { key: 'stats', label: 'Stats', icon: BarChart3, count: stats.length },
     { key: 'newsletter', label: 'Newsletter', icon: Mail },
     { key: 'header_footer', label: 'Header & Footer', icon: Globe },
@@ -972,6 +974,9 @@ const AdminPanel = () => {
               </div>
             </div>
           )}
+
+          {/* ===== TEXT QUOTES TAB ===== */}
+          {activeTab === 'text_testimonials' && <TextTestimonialsTab />}
 
           {/* ===== STATS TAB ===== */}
           {activeTab === 'stats' && (

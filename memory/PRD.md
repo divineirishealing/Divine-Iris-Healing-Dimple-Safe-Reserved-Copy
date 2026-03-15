@@ -38,6 +38,14 @@ All pages with dark hero sections use:
 - [x] Both Inbox and Client Garden exports switched to .xlsx Excel format with styled headers and color-coded rows
 - [x] All 15/15 tests passing (iteration 60)
 
+### Text Testimonials Rotating Strip (Feb 2026) - COMPLETED
+- [x] Auto-rotating text testimonial quotes displayed above Upcoming Programs on homepage
+- [x] Elegant design: Cormorant Garamond italic font, gold accents, fade transition every 5s
+- [x] Clickable dot indicators for manual navigation
+- [x] Backend CRUD API at /api/text-testimonials with fields: quote, author, role, visible, order
+- [x] Admin "Text Quotes" tab for full management (add, edit, toggle visibility, delete, reorder)
+- [x] Auto-merges new homepage sections into existing saved section order
+
 ### Hero Section Typography Overhaul (Feb 2026) - COMPLETED
 - [x] 25+ fonts across 3 categories: Elegant/Serif, Modern/Sans, Handwriting/Script
 - [x] Handwriting fonts: Great Vibes, Dancing Script, Pacifico, Sacramento, Alex Brush, Kaushan Script, Satisfy, Allura, Caveat

@@ -9,6 +9,7 @@ import ProgramsSection from '../components/ProgramsSection';
 import SessionsSection from '../components/SessionsSection';
 import StatsSection from '../components/StatsSection';
 import TestimonialsSection from '../components/TestimonialsSection';
+import TextTestimonialsStrip from '../components/TextTestimonialsStrip';
 import NewsletterSection from '../components/NewsletterSection';
 import CustomSection from '../components/CustomSection';
 import Footer from '../components/Footer';
@@ -25,6 +26,7 @@ const COMPONENT_MAP = {
   SessionsSection,
   StatsSection,
   TestimonialsSection,
+  TextTestimonialsStrip,
   NewsletterSection,
   custom: CustomSection,
 };
@@ -32,6 +34,7 @@ const COMPONENT_MAP = {
 const DEFAULT_ORDER = [
   { id: 'hero', component: 'HeroSection', visible: true },
   { id: 'about', component: 'AboutSection', visible: true },
+  { id: 'text_testimonials', component: 'TextTestimonialsStrip', visible: true },
   { id: 'upcoming', component: 'UpcomingProgramsSection', visible: true },
   { id: 'sponsor', component: 'SponsorSection', visible: true },
   { id: 'programs', component: 'ProgramsSection', visible: true },
@@ -47,7 +50,18 @@ function HomePage() {
   useEffect(() => {
     axios.get(`${BACKEND_URL}/api/settings`).then(r => {
       if (r.data.homepage_sections && r.data.homepage_sections.length > 0) {
-        setSections(r.data.homepage_sections);
+        const saved = r.data.homepage_sections;
+        const savedIds = new Set(saved.map(s => s.id));
+        const merged = [...saved];
+        DEFAULT_ORDER.forEach(def => {
+          if (!savedIds.has(def.id)) {
+            const defIdx = DEFAULT_ORDER.findIndex(d => d.id === def.id);
+            const nextDef = DEFAULT_ORDER.slice(defIdx + 1).find(d => savedIds.has(d.id));
+            const insertIdx = nextDef ? merged.findIndex(s => s.id === nextDef.id) : merged.length;
+            merged.splice(insertIdx, 0, def);
+          }
+        });
+        setSections(merged);
       }
     }).catch(() => {});
 
