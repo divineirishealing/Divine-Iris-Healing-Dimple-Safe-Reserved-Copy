@@ -152,6 +152,26 @@ def enrollment_confirmation_email(booker_name, item_title, participants, total, 
           </div>
         </div>"""
 
+    # Attachments HTML
+    attachments = tpl.get("attachments", [])
+    attachments_html = ""
+    if attachments:
+        att_items = ""
+        for att in attachments:
+            icon = "&#128196;" if att.get("type") == "document" else "&#127909;"
+            att_url = att.get("url", "")
+            if att_url.startswith("/api/"):
+                base = site_url or "https://divineirishealing.com"
+                att_url = f"{base}{att_url}"
+            att_items += f'<a href="{att_url}" style="display:inline-block;background:{accent_color}15;border:1px solid {accent_color}33;color:{text_color};padding:10px 20px;border-radius:8px;text-decoration:none;font-size:12px;font-weight:600;margin:4px;font-family:{body_font}">{icon} {att.get("name", "Attachment")}</a>'
+        attachments_html = f"""
+        <div style="padding:0 36px 20px">
+          <div style="text-align:center">
+            <p style="color:{text_color};font-size:14px;font-weight:600;margin:0 0 10px;font-family:{heading_font}">Resources & Documents</p>
+            {att_items}
+          </div>
+        </div>"""
+
     # Participant rows
     participant_rows = ""
     for p in participants:
@@ -302,6 +322,9 @@ def enrollment_confirmation_email(booker_name, item_title, participants, total, 
 
         <!-- Zoom Note -->
         {zoom_note_html}
+
+        <!-- Attachments -->
+        {attachments_html}
 
         <!-- Booker Info -->
         <div style="padding:0 36px 24px">

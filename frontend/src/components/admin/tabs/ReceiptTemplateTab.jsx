@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
-import { FileText, Save, Loader2, Eye, Palette } from 'lucide-react';
+import { FileText, Save, Loader2, Eye, Palette, Upload, X, File, Link as LinkIcon } from 'lucide-react';
 import { Button } from '../../ui/button';
 import { Input } from '../../ui/input';
 import { useToast } from '../../../hooks/use-toast';
@@ -32,6 +32,93 @@ const COLOR_PRESETS = [
   { label: 'Emerald', bg: '#0a1a14', accent: '#2D8C6F', text: '#2d2d2d' },
   { label: 'Midnight Blue', bg: '#0d1117', accent: '#4A90D9', text: '#333333' },
 ];
+
+const AttachmentsSection = ({ attachments, onChange }) => {
+  const fileRef = useRef(null);
+  const [uploading, setUploading] = useState(false);
+  const [linkName, setLinkName] = useState('');
+  const [linkUrl, setLinkUrl] = useState('');
+
+  const uploadFile = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploading(true);
+    try {
+      const fd = new FormData();
+      fd.append('file', file);
+      const res = await axios.post(`${API}/upload/document`, fd);
+      onChange([...attachments, { name: file.name.replace(/\.[^.]+$/, ''), url: res.data.url, type: 'document' }]);
+    } catch (err) {
+      console.error('Upload failed', err);
+    }
+    setUploading(false);
+    if (fileRef.current) fileRef.current.value = '';
+  };
+
+  const addLink = () => {
+    if (!linkUrl.trim()) return;
+    onChange([...attachments, { name: linkName || 'Video Link', url: linkUrl.trim(), type: 'link' }]);
+    setLinkName('');
+    setLinkUrl('');
+  };
+
+  const remove = (idx) => onChange(attachments.filter((_, i) => i !== idx));
+
+  const updateName = (idx, name) => {
+    const copy = [...attachments];
+    copy[idx] = { ...copy[idx], name };
+    onChange(copy);
+  };
+
+  return (
+    <div className="mb-5" data-testid="attachments-section">
+      <label className="text-xs font-semibold text-gray-700 block mb-2">Attachments & Resources (included in receipt email)</label>
+      <p className="text-[9px] text-gray-400 mb-3">Upload documents or add video/external links. These appear as download buttons in the receipt.</p>
+
+      <div className="space-y-2 mb-3">
+        {/* Upload Document */}
+        <div className="flex items-center gap-2">
+          <input ref={fileRef} type="file" accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.jpg,.png,.mp4"
+            onChange={uploadFile} className="hidden" data-testid="attachment-file-input" />
+          <Button variant="outline" size="sm" onClick={() => fileRef.current?.click()} disabled={uploading}
+            className="text-xs h-8" data-testid="upload-doc-btn">
+            {uploading ? <Loader2 size={12} className="animate-spin mr-1" /> : <Upload size={12} className="mr-1" />}
+            Upload Document
+          </Button>
+        </div>
+
+        {/* Add External Link */}
+        <div className="flex items-center gap-2">
+          <Input value={linkName} onChange={e => setLinkName(e.target.value)} placeholder="Name (e.g. Welcome Video)"
+            className="h-8 text-xs w-40" data-testid="link-name-input" />
+          <Input value={linkUrl} onChange={e => setLinkUrl(e.target.value)} placeholder="https://youtube.com/..."
+            className="h-8 text-xs flex-1" data-testid="link-url-input" />
+          <Button variant="outline" size="sm" onClick={addLink} className="text-xs h-8 shrink-0" data-testid="add-link-btn">
+            <LinkIcon size={12} className="mr-1" /> Add Link
+          </Button>
+        </div>
+      </div>
+
+      {/* Current Attachments */}
+      {attachments.length > 0 && (
+        <div className="border rounded-lg divide-y">
+          {attachments.map((att, i) => (
+            <div key={i} className="flex items-center gap-2 px-3 py-2" data-testid={`attachment-${i}`}>
+              {att.type === 'document' ? <File size={14} className="text-blue-500 shrink-0" /> : <LinkIcon size={14} className="text-purple-500 shrink-0" />}
+              <Input value={att.name} onChange={e => updateName(i, e.target.value)}
+                className="h-7 text-[11px] px-2 flex-1 max-w-[200px] font-medium" data-testid={`attachment-name-${i}`} />
+              <span className="text-[9px] text-gray-400 truncate flex-1 max-w-[200px]">{att.url}</span>
+              <span className="text-[8px] uppercase font-bold text-gray-300">{att.type}</span>
+              <button onClick={() => remove(i)} className="text-red-400 hover:text-red-600 p-0.5" data-testid={`remove-attachment-${i}`}>
+                <X size={14} />
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+};
 
 const ReceiptTemplateTab = () => {
   const { toast } = useToast();
@@ -215,6 +302,9 @@ const ReceiptTemplateTab = () => {
           </div>
         </div>
       </div>
+
+      {/* Attachments Section */}
+      <AttachmentsSection attachments={tpl.attachments || []} onChange={list => update('attachments', list)} />
 
       {/* Mini Preview */}
       <div className="mb-5 border rounded-lg overflow-hidden">

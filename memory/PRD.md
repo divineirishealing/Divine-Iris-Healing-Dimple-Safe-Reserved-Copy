@@ -48,7 +48,9 @@ All pages with dark hero sections use:
 - [x] Added WhatsApp + Zoom + Custom link fields to Programs Hub as dedicated "Session Links" section below table
 - [x] WhatsApp Community Group is now GLOBAL (stored in site_settings, shared across all programs/sessions/enquiries)
 - [x] Per-program links: WhatsApp Workshop Group, Zoom Meeting, Custom Link (with toggles)
+- [x] Custom link label is editable (admin can name it anything)
 - [x] Labels: "WhatsApp Workshop Group" and "WhatsApp Community Group"
+- [x] Attachments & Resources in Receipt Template — upload documents (PDF, DOCX, etc.) or add video/external links; rendered as download buttons in receipt email
 - [x] Updated both enrollment_confirmation_email and participant_notification_email color schemes
 
 ### Client Garden CRM (Mar 15, 2026) - COMPLETED

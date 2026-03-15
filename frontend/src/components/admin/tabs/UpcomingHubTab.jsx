@@ -321,7 +321,9 @@ const UpcomingHubTab = () => {
                       data-testid={`custom-toggle-${p.id}`} />
                     <LinkIcon size={12} className="text-amber-600 shrink-0" />
                     <div className="flex-1">
-                      <div className="text-[9px] text-gray-500 mb-0.5">Custom Link</div>
+                      <Input value={p.custom_link_label || ''} onChange={e => up('custom_link_label', e.target.value)}
+                        placeholder="Link Name" className="h-6 text-[9px] px-2 mb-1 border-amber-200 bg-amber-50/50 font-medium"
+                        data-testid={`custom-label-${p.id}`} />
                       <Input value={p.custom_link || ''} onChange={e => up('custom_link', e.target.value)}
                         placeholder="https://..." className="h-7 text-[10px] px-2"
                         data-testid={`custom-link-${p.id}`} />
