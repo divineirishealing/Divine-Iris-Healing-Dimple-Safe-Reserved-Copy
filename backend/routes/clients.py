@@ -106,8 +106,11 @@ async def sync_clients():
             await db.clients.update_one({"id": existing["id"]}, update)
             stats["updated"] += 1
         else:
+            # Generate DID for new clients (first-time joiners)
+            did = f"DID-{str(uuid.uuid4())[:8].upper()}"
             client_doc = {
                 "id": str(uuid.uuid4()),
+                "did": did,
                 "email": email,
                 "phone": phone,
                 "name": name,
@@ -250,9 +253,11 @@ async def sync_clients():
             if update_set:
                 await db.clients.update_one({"id": existing["id"]}, {"$set": update_set})
         else:
+            did = f"DID-{str(uuid.uuid4())[:8].upper()}"
             now = datetime.now(timezone.utc).isoformat()
             client_doc = {
                 "id": str(uuid.uuid4()),
+                "did": did,
                 "email": email,
                 "phone": phone,
                 "name": e.get("booker_name", ""),
@@ -381,7 +386,7 @@ async def export_clients_excel():
     ws = wb.active
     ws.title = "Client Garden"
 
-    headers = ["Label", "Name", "Email", "Phone", "Sources", "Programs Enrolled", "Total Conversions", "First Contact", "Last Updated", "Notes"]
+    headers = ["DID", "Label", "Name", "Email", "Phone", "Sources", "Programs Enrolled", "Total Conversions", "First Contact", "Last Updated", "Notes"]
     header_font = Font(bold=True, color="FFFFFF", size=11)
     header_fill = PatternFill(start_color="1A1A1A", end_color="1A1A1A", fill_type="solid")
     thin_border = Border(bottom=Side(style="thin", color="E8E0C8"))
@@ -406,7 +411,7 @@ async def export_clients_excel():
         programs = ", ".join(set(c.get("program_title", "") for c in cl.get("conversions", []) if c.get("program_title")))
         sources = ", ".join(set(cl.get("sources", [])))
         label = cl.get("label", "Dew")
-        row_data = [label, cl.get("name", ""), cl.get("email", ""), cl.get("phone", ""), sources, programs, len(cl.get("conversions", [])), cl.get("created_at", ""), cl.get("updated_at", ""), cl.get("notes", "")]
+        row_data = [cl.get("did", ""), label, cl.get("name", ""), cl.get("email", ""), cl.get("phone", ""), sources, programs, len(cl.get("conversions", [])), cl.get("created_at", ""), cl.get("updated_at", ""), cl.get("notes", "")]
 
         fill = label_fills.get(label, PatternFill())
         for col, val in enumerate(row_data, 1):
@@ -414,7 +419,7 @@ async def export_clients_excel():
             cell.fill = fill
             cell.border = thin_border
 
-    col_widths = [12, 20, 30, 18, 25, 40, 16, 22, 22, 30]
+    col_widths = [14, 12, 20, 30, 18, 25, 40, 16, 22, 22, 30]
     for i, w in enumerate(col_widths):
         ws.column_dimensions[ws.cell(row=1, column=i + 1).column_letter].width = w
 

@@ -175,8 +175,11 @@ async def start_enrollment(profile: ProfileData, request: Request):
             if p.email and not validate_email_format(p.email.strip()):
                 raise HTTPException(status_code=400, detail=f"Participant {i+1}: invalid email format")
 
+    # Generate receipt ID for this enrollment
+    receipt_id = f"REC-{str(uuid.uuid4())[:8].upper()}"
+
     enrollment = {
-        "id": f"DID-{str(uuid.uuid4())[:8].upper()}",
+        "id": receipt_id,
         "status": "profile_complete",
         "step": 1,
         "booker_name": profile.booker_name,

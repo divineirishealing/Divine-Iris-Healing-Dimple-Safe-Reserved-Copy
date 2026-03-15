@@ -417,11 +417,11 @@ const AdminPanel = () => {
                       <div className="space-y-2">
                         <div className="flex items-center gap-2">
                           <Switch checked={programForm.show_whatsapp_link !== false} onCheckedChange={v => setProgramForm({...programForm, show_whatsapp_link: v})} />
-                          <div className="flex-1"><Input value={programForm.whatsapp_group_link||''} onChange={e => setProgramForm({...programForm, whatsapp_group_link: e.target.value})} placeholder="WhatsApp Group Link 1 (e.g., https://chat.whatsapp.com/...)" /></div>
+                          <div className="flex-1"><Input value={programForm.whatsapp_group_link||''} onChange={e => setProgramForm({...programForm, whatsapp_group_link: e.target.value})} placeholder="WhatsApp Workshop Group Link" /></div>
                         </div>
                         <div className="flex items-center gap-2">
                           <Switch checked={programForm.show_whatsapp_link_2 !== false} onCheckedChange={v => setProgramForm({...programForm, show_whatsapp_link_2: v})} />
-                          <div className="flex-1"><Input value={programForm.whatsapp_group_link_2||''} onChange={e => setProgramForm({...programForm, whatsapp_group_link_2: e.target.value})} placeholder="WhatsApp Group Link 2 (optional)" /></div>
+                          <div className="flex-1"><Input value={programForm.whatsapp_group_link_2||''} onChange={e => setProgramForm({...programForm, whatsapp_group_link_2: e.target.value})} placeholder="WhatsApp Community Group Link" /></div>
                         </div>
                         <div className="flex items-center gap-2">
                           <Switch checked={programForm.show_zoom_link !== false} onCheckedChange={v => setProgramForm({...programForm, show_zoom_link: v})} />

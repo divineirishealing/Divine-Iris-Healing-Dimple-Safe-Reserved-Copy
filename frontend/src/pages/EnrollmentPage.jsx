@@ -63,7 +63,7 @@ const StepBar = ({ current, steps }) => (
   </div>
 );
 
-const ParticipantRow = ({ index, data, onChange, onRemove, canRemove, showReferral = true, enabledModes = {}, isFirstParticipant = false }) => {
+const ParticipantRow = ({ index, data, onChange, onRemove, canRemove, showReferral = true, enabledModes = {} }) => {
   const update = (field, value) => {
     const updated = { ...data, [field]: value };
     // When switching to online, force notify on
@@ -135,27 +135,25 @@ const ParticipantRow = ({ index, data, onChange, onRemove, canRemove, showReferr
         <p className="text-[8px] text-gray-400 mb-1 italic">All sessions are online via Zoom or remote distance healing — no in-person sessions at this time.</p>
       )}
 
-      {/* Divine Iris membership status - only for first participant */}
-      {isFirstParticipant && (
-        <div className="mb-2 mt-2">
-          <label className="text-[9px] text-gray-500 mb-1 block">Are you new to Divine Iris? *</label>
-          <div className="flex gap-2">
-            <button type="button" data-testid={`p-first-time-${index}`} onClick={() => update('is_first_time', true)}
-              className={`flex-1 py-2 rounded-lg border text-[10px] font-medium transition-all ${
-                data.is_first_time === true ? 'bg-[#D4AF37]/10 border-[#D4AF37] text-[#D4AF37]' : 'bg-white border-gray-200 text-gray-500 hover:border-gray-300'}`}>
-              First time joining Divine Iris
-            </button>
-            <button type="button" data-testid={`p-soul-tribe-${index}`} onClick={() => update('is_first_time', false)}
-              className={`flex-1 py-2 rounded-lg border text-[10px] font-medium transition-all ${
-                data.is_first_time === false ? 'bg-purple-50 border-purple-300 text-purple-700' : 'bg-white border-gray-200 text-gray-500 hover:border-gray-300'}`}>
-              I am Divine Iris Soul Tribe
-            </button>
-          </div>
+      {/* Divine Iris membership status */}
+      <div className="mb-2 mt-2">
+        <label className="text-[9px] text-gray-500 mb-1 block">Are you new to Divine Iris? *</label>
+        <div className="flex gap-2">
+          <button type="button" data-testid={`p-first-time-${index}`} onClick={() => update('is_first_time', true)}
+            className={`flex-1 py-2 rounded-lg border text-[10px] font-medium transition-all ${
+              data.is_first_time === true ? 'bg-[#D4AF37]/10 border-[#D4AF37] text-[#D4AF37]' : 'bg-white border-gray-200 text-gray-500 hover:border-gray-300'}`}>
+            First time joining Divine Iris
+          </button>
+          <button type="button" data-testid={`p-soul-tribe-${index}`} onClick={() => update('is_first_time', false)}
+            className={`flex-1 py-2 rounded-lg border text-[10px] font-medium transition-all ${
+              data.is_first_time === false ? 'bg-purple-50 border-purple-300 text-purple-700' : 'bg-white border-gray-200 text-gray-500 hover:border-gray-300'}`}>
+            I am Divine Iris Soul Tribe
+          </button>
         </div>
-      )}
+      </div>
 
-      {/* Referral source - only shown for first-timers on first participant */}
-      {isFirstParticipant && data.is_first_time && (
+      {/* Referral source - only shown for first-timers */}
+      {data.is_first_time && (
         <div className="mb-2">
           <label className="text-[9px] text-gray-500">How did you hear about us?</label>
           <select data-testid={`p-referral-${index}`} value={data.referral_source || ''} onChange={e => update('referral_source', e.target.value)} className="w-full border rounded-md px-2 py-1.5 text-xs bg-white h-8">
@@ -446,7 +444,7 @@ function EnrollmentPage() {
   if (!item) return <div className="min-h-screen flex items-center justify-center"><Loader2 className="animate-spin text-[#D4AF37]" size={32} /></div>;
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gray-50" style={{ fontFamily: "'Lato', 'Helvetica Neue', Arial, sans-serif" }}>
       <Header />
       <div className="pt-24 pb-16">
         <div className="container mx-auto px-4 max-w-5xl">
@@ -521,8 +519,7 @@ function EnrollmentPage() {
                     {participants.map((p, i) => (
                       <ParticipantRow key={i} index={i} data={p} onChange={d => { const u = [...participants]; u[i] = d; setParticipants(u); }}
                         onRemove={() => setParticipants(participants.filter((_, j) => j !== i))} canRemove={participants.length > 1} showReferral={discountSettings.enable_referral}
-                        enabledModes={{ enable_online: item?.enable_online, enable_offline: item?.enable_offline, enable_in_person: item?.enable_in_person }}
-                        isFirstParticipant={i === 0} />
+                        enabledModes={{ enable_online: item?.enable_online, enable_offline: item?.enable_offline, enable_in_person: item?.enable_in_person }} />
                     ))}
                     <button data-testid="add-participant-btn" onClick={() => setParticipants([...participants, emptyParticipant()])}
                       className="w-full border-2 border-dashed border-[#D4AF37]/40 rounded-lg py-2.5 flex items-center justify-center gap-1 text-xs text-[#D4AF37] hover:bg-[#D4AF37]/5 transition-colors mb-4">

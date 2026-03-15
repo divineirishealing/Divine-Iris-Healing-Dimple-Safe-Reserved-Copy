@@ -162,7 +162,7 @@ const ClientsTab = () => {
                     <span className="text-xs font-semibold text-gray-900 truncate">{cl.name || 'Unknown'}</span>
                     <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full ${cfg.badge}`}>{cl.label}</span>
                   </div>
-                  <p className="text-[10px] text-gray-500 truncate">{cl.email}{cl.phone ? ` | ${cl.phone}` : ''}</p>
+                  <p className="text-[10px] text-gray-500 truncate">{cl.did && <span className="font-mono text-[9px] text-purple-600 mr-1.5">{cl.did}</span>}{cl.email}{cl.phone ? ` | ${cl.phone}` : ''}</p>
                 </div>
                 <div className="flex items-center gap-3 flex-shrink-0">
                   {cl.conversions?.length > 0 && (
@@ -207,7 +207,8 @@ const ClientDetail = ({ client: cl, labelConfig: cfg, onUpdate, onDelete, toast 
   return (
     <div className={`border-t ${cfg.bg} px-4 py-4`} data-testid={`client-detail-${cl.id}`}>
       {/* Info Grid */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-4">
+        {cl.did && <InfoField label="Divine Iris ID" value={cl.did} />}
         <InfoField label="Name" value={cl.name} />
         <InfoField label="Email" value={cl.email} />
         <InfoField label="Phone" value={cl.phone} />
