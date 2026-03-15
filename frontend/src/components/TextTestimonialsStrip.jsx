@@ -54,70 +54,75 @@ const TextTestimonialsStrip = ({ sectionConfig }) => {
       id="text-testimonials"
       data-testid="text-testimonials-section"
       className="relative overflow-hidden"
-      style={{ padding: 0, margin: 0 }}
+      style={{
+        background: 'linear-gradient(160deg, #faf8ff 0%, #f8f4ff 25%, #fdf8f3 55%, #fffcf7 100%)',
+        padding: '68px 0 60px',
+      }}
     >
-      {/* ── Full blending background: dark top → white bottom ── */}
-      <div
-        className="absolute inset-0"
-        style={{
-          background: 'linear-gradient(180deg, #0f1a2e 0%, #1a1a2e 8%, #2a2040 18%, #3d2d5a 28%, #f5f0ec 52%, #ffffff 78%, #ffffff 100%)',
-        }}
-      />
-
-      {/* ── Left purple/gold flowing glow ── */}
+      {/* ── Soft purple aurora wisp — left side ── */}
       <div
         className="absolute pointer-events-none"
         style={{
-          top: 0, left: 0, width: '40%', height: '100%',
-          background: 'linear-gradient(180deg, rgba(123,45,142,0.35) 0%, rgba(155,89,182,0.25) 20%, rgba(212,175,55,0.18) 45%, rgba(212,175,55,0.06) 65%, transparent 85%)',
+          top: '10%', left: '-8%',
+          width: '45%', height: '80%',
+          background: 'radial-gradient(ellipse at center, rgba(139,92,246,0.08) 0%, rgba(168,85,247,0.04) 40%, transparent 70%)',
+          filter: 'blur(50px)',
         }}
       />
       <div
         className="absolute pointer-events-none"
         style={{
-          top: '5%', left: '-5%', width: '35%', height: '60%',
-          background: 'radial-gradient(ellipse at center, rgba(123,45,142,0.2) 0%, transparent 70%)',
+          top: '30%', left: '5%',
+          width: '25%', height: '50%',
+          background: 'radial-gradient(ellipse at center, rgba(124,58,237,0.06) 0%, transparent 65%)',
           filter: 'blur(40px)',
         }}
       />
 
-      {/* ── Right gold/purple flowing glow ── */}
+      {/* ── Soft gold aurora wisp — right side ── */}
       <div
         className="absolute pointer-events-none"
         style={{
-          top: 0, right: 0, width: '40%', height: '100%',
-          background: 'linear-gradient(180deg, rgba(212,175,55,0.3) 0%, rgba(212,175,55,0.22) 20%, rgba(155,89,182,0.15) 45%, rgba(155,89,182,0.05) 65%, transparent 85%)',
+          top: '10%', right: '-8%',
+          width: '45%', height: '80%',
+          background: 'radial-gradient(ellipse at center, rgba(212,175,55,0.08) 0%, rgba(212,175,55,0.04) 40%, transparent 70%)',
+          filter: 'blur(50px)',
         }}
       />
       <div
         className="absolute pointer-events-none"
         style={{
-          top: '5%', right: '-5%', width: '35%', height: '60%',
-          background: 'radial-gradient(ellipse at center, rgba(212,175,55,0.18) 0%, transparent 70%)',
+          top: '25%', right: '5%',
+          width: '25%', height: '50%',
+          background: 'radial-gradient(ellipse at center, rgba(212,175,55,0.06) 0%, transparent 65%)',
           filter: 'blur(40px)',
         }}
       />
 
-      {/* ── Central white glow for readability ── */}
+      {/* ── Warm white center glow ── */}
       <div
         className="absolute pointer-events-none"
         style={{
-          top: '25%', left: '50%', transform: 'translateX(-50%)',
-          width: '60%', height: '65%',
-          background: 'radial-gradient(ellipse at center, rgba(255,255,255,0.95) 0%, rgba(255,255,255,0.7) 40%, transparent 75%)',
+          top: '15%', left: '50%', transform: 'translateX(-50%)',
+          width: '55%', height: '70%',
+          background: 'radial-gradient(ellipse at center, rgba(255,255,255,0.85) 0%, rgba(255,252,247,0.5) 45%, transparent 75%)',
         }}
       />
+
+      {/* ── Thin gold accent lines top/bottom for subtle framing ── */}
+      <div className="absolute top-0 left-0 right-0 h-px opacity-15" style={{ background: 'linear-gradient(90deg, transparent 15%, #D4AF37 50%, transparent 85%)' }} />
+      <div className="absolute bottom-0 left-0 right-0 h-px opacity-10" style={{ background: 'linear-gradient(90deg, transparent 15%, #D4AF37 50%, transparent 85%)' }} />
 
       {/* ── Content ── */}
-      <div className="relative z-10" style={{ padding: '80px 0 72px' }}>
+      <div className="relative z-10">
 
-        {/* Top ornament — light on dark */}
-        <div className="flex items-center justify-center gap-3 mb-12">
-          <div className="w-14 h-px" style={{ background: 'linear-gradient(90deg, transparent, rgba(212,175,55,0.5), transparent)' }} />
-          <svg width="8" height="8" viewBox="0 0 10 10" style={{ opacity: 0.45 }}>
+        {/* Top ornament */}
+        <div className="flex items-center justify-center gap-3 mb-10">
+          <div className="w-12 h-px" style={{ background: 'linear-gradient(90deg, transparent, rgba(212,175,55,0.4), transparent)' }} />
+          <svg width="7" height="7" viewBox="0 0 10 10" style={{ opacity: 0.35 }}>
             <path d="M5 0L6.18 3.82L10 5L6.18 6.18L5 10L3.82 6.18L0 5L3.82 3.82Z" fill="#D4AF37"/>
           </svg>
-          <div className="w-14 h-px" style={{ background: 'linear-gradient(90deg, transparent, rgba(212,175,55,0.5), transparent)' }} />
+          <div className="w-12 h-px" style={{ background: 'linear-gradient(90deg, transparent, rgba(212,175,55,0.4), transparent)' }} />
         </div>
 
         <div className={CONTAINER}>
@@ -125,18 +130,18 @@ const TextTestimonialsStrip = ({ sectionConfig }) => {
             className="max-w-3xl mx-auto text-center px-6"
             style={{
               opacity: fade ? 1 : 0,
-              transform: fade ? 'translateY(0) scale(1)' : 'translateY(10px) scale(0.98)',
+              transform: fade ? 'translateY(0)' : 'translateY(8px)',
               transition: 'opacity 0.5s cubic-bezier(0.4,0,0.2,1), transform 0.5s cubic-bezier(0.4,0,0.2,1)',
             }}
           >
-            {/* Elegant open-quote SVG */}
-            <div className="mb-5 flex justify-center" aria-hidden="true">
-              <svg width="32" height="24" viewBox="0 0 36 28" fill="none" style={{ opacity: 0.2 }}>
+            {/* Elegant open-quote */}
+            <div className="mb-4 flex justify-center" aria-hidden="true">
+              <svg width="30" height="22" viewBox="0 0 36 28" fill="none" style={{ opacity: 0.18 }}>
                 <path d="M0 28V16.8C0 11.733 1.267 7.733 3.8 4.8C6.333 1.6 9.867 0 14.4 0V5.6C12.133 6.133 10.267 7.333 8.8 9.2C7.333 11.067 6.6 13.2 6.6 15.6H14.4V28H0ZM21.6 28V16.8C21.6 11.733 22.867 7.733 25.4 4.8C27.933 1.6 31.467 0 36 0V5.6C33.733 6.133 31.867 7.333 30.4 9.2C28.933 11.067 28.2 13.2 28.2 15.6H36V28H21.6Z" fill="#D4AF37"/>
               </svg>
             </div>
 
-            {/* Quote text */}
+            {/* Quote text — admin-controlled styles */}
             <blockquote
               data-testid="text-testimonial-quote"
               style={{
@@ -147,20 +152,20 @@ const TextTestimonialsStrip = ({ sectionConfig }) => {
                 fontWeight: 400,
                 lineHeight: 1.9,
                 letterSpacing: '0.01em',
-                marginBottom: '28px',
+                marginBottom: '24px',
               }}
             >
               {q.quote}
             </blockquote>
 
-            {/* Ornamental divider */}
-            <div className="flex items-center justify-center gap-2 mb-5">
-              <div className="w-7 h-px bg-[#D4AF37]/30" />
-              <div className="w-1.5 h-1.5 rounded-full bg-[#D4AF37]/35" />
-              <div className="w-7 h-px bg-[#D4AF37]/30" />
+            {/* Divider */}
+            <div className="flex items-center justify-center gap-2 mb-4">
+              <div className="w-6 h-px bg-[#D4AF37]/25" />
+              <div className="w-1.5 h-1.5 rounded-full bg-[#D4AF37]/30" />
+              <div className="w-6 h-px bg-[#D4AF37]/25" />
             </div>
 
-            {/* Author */}
+            {/* Author — admin-controlled styles */}
             <p
               data-testid="text-testimonial-author"
               style={{
@@ -192,7 +197,7 @@ const TextTestimonialsStrip = ({ sectionConfig }) => {
 
           {/* Dots */}
           {quotes.length > 1 && (
-            <div className="flex justify-center gap-2 mt-10" data-testid="testimonial-dots">
+            <div className="flex justify-center gap-2 mt-9" data-testid="testimonial-dots">
               {quotes.map((_, i) => (
                 <button
                   key={i}
@@ -201,7 +206,7 @@ const TextTestimonialsStrip = ({ sectionConfig }) => {
                   style={{
                     width: i === active ? '22px' : '6px',
                     height: '6px',
-                    background: i === active ? '#D4AF37' : '#c5bfb5',
+                    background: i === active ? '#D4AF37' : '#d1cbc2',
                   }}
                   aria-label={`Go to testimonial ${i + 1}`}
                 />
@@ -211,12 +216,12 @@ const TextTestimonialsStrip = ({ sectionConfig }) => {
         </div>
 
         {/* Bottom ornament */}
-        <div className="flex items-center justify-center gap-3 mt-12">
-          <div className="w-14 h-px" style={{ background: 'linear-gradient(90deg, transparent, rgba(212,175,55,0.35), transparent)' }} />
-          <svg width="8" height="8" viewBox="0 0 10 10" style={{ opacity: 0.3 }}>
+        <div className="flex items-center justify-center gap-3 mt-10">
+          <div className="w-12 h-px" style={{ background: 'linear-gradient(90deg, transparent, rgba(212,175,55,0.3), transparent)' }} />
+          <svg width="7" height="7" viewBox="0 0 10 10" style={{ opacity: 0.25 }}>
             <path d="M5 0L6.18 3.82L10 5L6.18 6.18L5 10L3.82 6.18L0 5L3.82 3.82Z" fill="#D4AF37"/>
           </svg>
-          <div className="w-14 h-px" style={{ background: 'linear-gradient(90deg, transparent, rgba(212,175,55,0.35), transparent)' }} />
+          <div className="w-12 h-px" style={{ background: 'linear-gradient(90deg, transparent, rgba(212,175,55,0.3), transparent)' }} />
         </div>
       </div>
     </section>
