@@ -274,6 +274,7 @@ class Testimonial(BaseModel):
     name: str = ""
     text: str = ""  # searchable text content / quote for template type
     image: str = ""  # graphic image URL or author photo for template type
+    before_image: str = ""  # optional before photo for before/after
     videoId: str = ""  # YouTube video ID
     thumbnail: str = ""
     program_id: str = ""  # legacy single program (optional)
@@ -281,6 +282,7 @@ class Testimonial(BaseModel):
     session_tags: List[str] = []  # multiple session IDs
     category: str = ""  # e.g. "healing", "transformation", "weight-loss"
     role: str = ""  # author role/location for template type
+    rating: int = 5  # star rating 1-5
     visible: bool = True
     order: int = 0
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
@@ -290,6 +292,7 @@ class TestimonialCreate(BaseModel):
     name: Optional[str] = ""
     text: Optional[str] = ""
     image: Optional[str] = ""
+    before_image: Optional[str] = ""
     videoId: Optional[str] = ""
     thumbnail: Optional[str] = ""
     program_id: Optional[str] = ""
@@ -297,6 +300,7 @@ class TestimonialCreate(BaseModel):
     session_tags: Optional[List[str]] = []
     category: Optional[str] = ""
     role: Optional[str] = ""
+    rating: Optional[int] = 5
     visible: Optional[bool] = True
     order: Optional[int] = 0
 

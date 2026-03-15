@@ -3,7 +3,7 @@ import axios from 'axios';
 import Header from '../components/Header';
 import Footer from '../components/Footer';
 import FloatingButtons from '../components/FloatingButtons';
-import TemplateTestimonialCard from '../components/TemplateTestimonialCard';
+import TemplateTestimonialCard, { TemplateTestimonialFull } from '../components/TemplateTestimonialCard';
 import { Search, Play, X, Filter } from 'lucide-react';
 import { resolveImageUrl } from '../lib/imageUtils';
 import { Dialog, DialogContent } from '../components/ui/dialog';
@@ -310,33 +310,8 @@ function TransformationsPage() {
 
       {/* Template Detail Modal */}
       <Dialog open={!!selectedTemplate} onOpenChange={() => setSelectedTemplate(null)}>
-        <DialogContent className="max-w-lg p-0 overflow-hidden" style={{ background: 'linear-gradient(160deg, #faf8ff, #f5f0ff, #fdf8f3)' }}>
-          {selectedTemplate && (
-            <div className="p-8 text-center">
-              <div className="mb-5 flex justify-center" aria-hidden="true">
-                <svg width="28" height="20" viewBox="0 0 36 28" fill="none" style={{ opacity: 0.2 }}>
-                  <path d="M0 28V16.8C0 11.733 1.267 7.733 3.8 4.8C6.333 1.6 9.867 0 14.4 0V5.6C12.133 6.133 10.267 7.333 8.8 9.2C7.333 11.067 6.6 13.2 6.6 15.6H14.4V28H0ZM21.6 28V16.8C21.6 11.733 22.867 7.733 25.4 4.8C27.933 1.6 31.467 0 36 0V5.6C33.733 6.133 31.867 7.333 30.4 9.2C28.933 11.067 28.2 13.2 28.2 15.6H36V28H21.6Z" fill="#D4AF37"/>
-                </svg>
-              </div>
-              <p style={{ fontFamily: "'Cormorant Garamond', Georgia, serif", fontSize: '1.1rem', color: '#3d2e1e', fontStyle: 'italic', lineHeight: 1.9 }}>
-                "{selectedTemplate.text}"
-              </p>
-              <div className="flex items-center justify-center gap-2 my-5">
-                <div className="w-6 h-px bg-[#D4AF37]/30" />
-                <div className="w-1.5 h-1.5 rounded-full bg-[#D4AF37]/35" />
-                <div className="w-6 h-px bg-[#D4AF37]/30" />
-              </div>
-              <div className="flex items-center justify-center gap-3">
-                {selectedTemplate.image && (
-                  <img src={resolveImageUrl(selectedTemplate.image)} alt={selectedTemplate.name} className="w-12 h-12 rounded-full object-cover" style={{ border: '2px solid rgba(212,175,55,0.25)' }} />
-                )}
-                <div>
-                  <p style={{ fontFamily: "'Lato', sans-serif", fontSize: '0.8rem', fontWeight: 600, color: '#2d2318', letterSpacing: '0.08em' }}>{selectedTemplate.name}</p>
-                  {selectedTemplate.role && <p style={{ fontFamily: "'Lato', sans-serif", fontSize: '0.7rem', color: '#8b7e6f' }}>{selectedTemplate.role}</p>}
-                </div>
-              </div>
-            </div>
-          )}
+        <DialogContent className="max-w-3xl p-0 overflow-hidden rounded-2xl" style={{ border: '1px solid rgba(123,104,238,0.15)' }}>
+          {selectedTemplate && <TemplateTestimonialFull testimonial={selectedTemplate} />}
         </DialogContent>
       </Dialog>
 
