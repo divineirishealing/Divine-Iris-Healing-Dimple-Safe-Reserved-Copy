@@ -145,7 +145,7 @@ const TestimonialsSection = ({ sectionConfig, inline }) => {
   if (inline) return <div data-testid="testimonials-section">{content}</div>;
 
   return (
-    <section id="media" data-testid="testimonials-section" className="py-12 relative" style={{ background: 'linear-gradient(180deg, #f3edff 0%, #f5f0ff 10%, #ffffff 30%, #ffffff 50%, #ffffff 70%, #f5f0ff 90%, #f3edff 100%)' }}>
+    <section id="media" data-testid="testimonials-section" className="py-12 relative">
       <div className={CONTAINER}>{content}</div>
     </section>
   );

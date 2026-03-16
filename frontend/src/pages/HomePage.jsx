@@ -31,6 +31,22 @@ const COMPONENT_MAP = {
   custom: CustomSection,
 };
 
+// Sections that have their own dark/themed backgrounds — no flow gradient needed
+const DARK_SECTIONS = new Set(['HeroSection', 'SessionsSection', 'StatsSection']);
+
+/*
+  Alternating flow logic:
+  - Light sections alternate between WHITE-dominant and LAVENDER-dominant
+  - Each gradient's EDGES use a shared midpoint (#f8f5ff) so boundaries are invisible
+  
+  WHITE section:   #f8f5ff → #ffffff → #ffffff → #f8f5ff
+  LAVENDER section: #f8f5ff → #efe8f8 → #efe8f8 → #f8f5ff
+  
+  Where they meet: both are #f8f5ff = seamless, zero visible divider
+*/
+const GRADIENT_WHITE = 'linear-gradient(180deg, #f8f5ff 0%, #faf8ff 8%, #ffffff 20%, #ffffff 80%, #faf8ff 92%, #f8f5ff 100%)';
+const GRADIENT_LAVENDER = 'linear-gradient(180deg, #f8f5ff 0%, #f3edff 15%, #efe8f8 40%, #efe8f8 60%, #f3edff 85%, #f8f5ff 100%)';
+
 const DEFAULT_ORDER = [
   { id: 'hero', component: 'HeroSection', visible: true },
   { id: 'about', component: 'AboutSection', visible: true },
@@ -74,11 +90,16 @@ function HomePage() {
     });
   }, []);
 
+  const visibleSections = sections.filter(s => s.visible !== false);
+
+  // Count light section index (skip dark sections) for alternating
+  let lightIndex = 0;
+
   return (
     <>
       <Header />
-      <div style={{ position: 'relative' }}>
-        {/* Floating gold dust particles */}
+      <div style={{ position: 'relative', background: '#f8f5ff' }}>
+        {/* Gold dust particles along edges */}
         {[
           { left: '3%', top: '8%', size: 4, delay: '0s' },
           { left: '6%', top: '22%', size: 3, delay: '1.2s' },
@@ -100,10 +121,23 @@ function HomePage() {
             animationDuration: `${3 + (i % 3)}s`,
           }} />
         ))}
-        {sections.filter(s => s.visible !== false).map(sec => {
+        {visibleSections.map((sec) => {
           const Component = COMPONENT_MAP[sec.component];
           if (!Component) return null;
-          return <Component key={sec.id} sectionConfig={sec} />;
+
+          // Dark sections render directly — they have their own backgrounds
+          if (DARK_SECTIONS.has(sec.component)) {
+            return <Component key={sec.id} sectionConfig={sec} />;
+          }
+
+          // Light sections get alternating gradient wrapper
+          const isWhite = lightIndex % 2 === 0;
+          lightIndex++;
+          return (
+            <div key={sec.id} style={{ background: isWhite ? GRADIENT_WHITE : GRADIENT_LAVENDER }}>
+              <Component sectionConfig={sec} />
+            </div>
+          );
         })}
       </div>
       <Footer />
