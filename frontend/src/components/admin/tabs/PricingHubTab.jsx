@@ -128,9 +128,9 @@ const PricingHubTab = () => {
               <tr className="bg-gray-100 border-b">
                 <th className="text-left px-2 py-2 font-semibold text-gray-700 min-w-[180px] sticky left-0 bg-gray-100 z-10">Name</th>
                 <th className="px-1 py-2 font-semibold text-gray-600 w-12">Show</th>
-                <th className="px-1 py-2 font-semibold text-blue-600 w-12" title="Enable Online mode"><Monitor size={12} className="mx-auto" /></th>
-                <th className="px-1 py-2 font-semibold text-teal-600 w-12" title="Enable Offline mode"><Wifi size={12} className="mx-auto" /></th>
-                <th className="px-1 py-2 font-semibold text-orange-600 w-12" title="Enable In-Person mode"><MapPin size={12} className="mx-auto" /></th>
+                <th className="px-1 py-2 font-semibold text-blue-600 w-16" title="Enable Online mode"><div className="flex items-center justify-center gap-0.5"><Monitor size={11} /><span className="text-[9px]">Online</span></div></th>
+                <th className="px-1 py-2 font-semibold text-teal-600 w-16" title="Enable Offline mode"><div className="flex items-center justify-center gap-0.5"><Wifi size={11} /><span className="text-[9px]">Offline</span></div></th>
+                <th className="px-1 py-2 font-semibold text-orange-600 w-16" title="Enable In-Person mode"><div className="flex items-center justify-center gap-0.5"><MapPin size={11} /><span className="text-[9px]">In-Person</span></div></th>
                 <th className="px-1 py-2 font-semibold text-purple-600 w-12" title="Show pricing on homepage & program page">Pricing</th>
                 <th className="px-1 py-2 font-semibold text-purple-600 w-12" title="Show tier selector on homepage & program page">Tiers</th>
                 <th className="px-1 py-2 font-semibold text-blue-700 min-w-[70px]">AED</th>
@@ -270,6 +270,9 @@ const PricingHubTab = () => {
               <tr className="bg-gray-100 border-b">
                 <th className="text-left px-2 py-2 font-semibold text-gray-700 min-w-[180px] sticky left-0 bg-gray-100 z-10">Session</th>
                 <th className="px-1 py-2 font-semibold text-gray-600 w-12">Show</th>
+                <th className="px-1 py-2 font-semibold text-blue-600 w-16" title="Enable Online mode"><div className="flex items-center justify-center gap-0.5"><Monitor size={11} /><span className="text-[9px]">Online</span></div></th>
+                <th className="px-1 py-2 font-semibold text-teal-600 w-16" title="Enable Offline mode"><div className="flex items-center justify-center gap-0.5"><Wifi size={11} /><span className="text-[9px]">Offline</span></div></th>
+                <th className="px-1 py-2 font-semibold text-orange-600 w-16" title="Enable In-Person mode"><div className="flex items-center justify-center gap-0.5"><MapPin size={11} /><span className="text-[9px]">In-Person</span></div></th>
                 <th className="px-1 py-2 font-semibold text-purple-600 w-12" title="Show pricing on session card & page">Pricing</th>
                 <th className="px-1 py-2 font-semibold text-blue-700 min-w-[70px]">AED</th>
                 <th className="px-1 py-2 font-semibold text-green-700 min-w-[70px]">INR</th>
@@ -289,6 +292,9 @@ const PricingHubTab = () => {
                     <div className="truncate max-w-[180px]" title={s.title}>{s.title}</div>
                   </td>
                   <td className="px-1 py-1 text-center"><Switch checked={s.visible !== false} onCheckedChange={v => updateSession(i, 'visible', v)} /></td>
+                  <td className="px-1 py-1 text-center"><Switch checked={s.enable_online !== false} onCheckedChange={v => updateSession(i, 'enable_online', v)} /></td>
+                  <td className="px-1 py-1 text-center"><Switch checked={s.enable_offline !== false} onCheckedChange={v => updateSession(i, 'enable_offline', v)} /></td>
+                  <td className="px-1 py-1 text-center"><Switch checked={s.enable_in_person === true} onCheckedChange={v => updateSession(i, 'enable_in_person', v)} /></td>
                   <td className="px-1 py-1 text-center"><Switch checked={s.show_pricing !== false} onCheckedChange={v => updateSession(i, 'show_pricing', v)} /></td>
                   <td className="px-1 py-1"><Cell value={s.price_aed} onChange={v => updateSession(i, 'price_aed', v)} /></td>
                   <td className="px-1 py-1"><Cell value={s.price_inr} onChange={v => updateSession(i, 'price_inr', v)} /></td>
