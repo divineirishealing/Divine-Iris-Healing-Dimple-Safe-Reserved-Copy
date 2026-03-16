@@ -263,12 +263,7 @@ const UpcomingCard = ({ program }) => {
                 )}
                 {program.timing && (
                   <span className="bg-black/60 backdrop-blur-sm text-white text-[10px] font-bold px-2 py-0.5 rounded flex items-center gap-1">
-                    <Clock size={10} className="flex-shrink-0" /> {program.timing} {timingConverted.srcTz}
-                  </span>
-                )}
-                {timingConverted.local && (
-                  <span className="bg-blue-600/80 backdrop-blur-sm text-white text-[10px] font-bold px-2 py-0.5 rounded flex items-center gap-1">
-                    <Clock size={10} className="flex-shrink-0" /> {timingConverted.local} {timingConverted.localTz}
+                    <Clock size={10} className="flex-shrink-0" /> {timingConverted.local ? `${timingConverted.local} ${timingConverted.localTz}` : `${program.timing} ${timingConverted.srcTz}`}
                   </span>
                 )}
                 {autoDuration && (

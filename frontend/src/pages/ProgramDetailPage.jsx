@@ -325,8 +325,8 @@ function ProgramDetailPage() {
               <div data-testid="program-info-bar" className="flex flex-wrap items-center justify-center gap-x-6 gap-y-2 mb-8 text-gray-500 text-xs">
                 {program.show_duration_on_page && program.duration && <span className="flex items-center gap-1.5"><span className="w-1.5 h-1.5 rounded-full" style={{ background: heroAccent }} /> {program.duration}</span>}
                 {program.show_start_date_on_page && program.start_date && <span className="flex items-center gap-1.5"><span className="w-1.5 h-1.5 rounded-full" style={{ background: heroAccent }} /> Starts: {program.start_date}</span>}
-                {program.show_timing_on_page && program.timing && <span className="flex items-center gap-1.5"><span className="w-1.5 h-1.5 rounded-full" style={{ background: heroAccent }} /> {program.timing}{program.time_zone ? ` ${program.time_zone}` : ''}</span>}
-                {program.show_timing_on_page && program.timing && program.time_zone && (() => {
+                {program.show_timing_on_page && program.timing && (() => {
+                  if (!program.time_zone) return <span className="flex items-center gap-1.5"><span className="w-1.5 h-1.5 rounded-full" style={{ background: heroAccent }} /> {program.timing}</span>;
                   try {
                     const COUNTRY_TZ_MAP = {
                       'IN': { offset: 5.5, abbr: 'IST' }, 'AE': { offset: 4, abbr: 'GST' },
@@ -346,27 +346,28 @@ function ProgramDetailPage() {
                     for (const [key, val] of Object.entries(tzOffsets)) {
                       if (programTz.toUpperCase().includes(key.toUpperCase())) { programOffset = val; break; }
                     }
-                    if (programOffset !== null && Math.abs(viewerOffset - programOffset) >= 0.1) {
-                      const timeMatch = program.timing.match(/(\d{1,2})(?::(\d{2}))?\s*(AM|PM)/i);
-                      if (timeMatch) {
-                        let hours = parseInt(timeMatch[1]);
-                        const minutes = parseInt(timeMatch[2] || '0');
-                        const ampm = timeMatch[3].toUpperCase();
-                        if (ampm === 'PM' && hours !== 12) hours += 12;
-                        if (ampm === 'AM' && hours === 12) hours = 0;
-                        const utcMinutes = (hours * 60 + minutes) - (programOffset * 60);
-                        let localMinutes = utcMinutes + (viewerOffset * 60);
-                        localMinutes = ((localMinutes % 1440) + 1440) % 1440;
-                        const localH = Math.floor(localMinutes / 60);
-                        const localM = localMinutes % 60;
-                        const period = localH >= 12 ? 'PM' : 'AM';
-                        const displayH = localH % 12 || 12;
-                        const localTimeStr = localM > 0 ? `${displayH}:${String(localM).padStart(2, '0')} ${period}` : `${displayH} ${period}`;
-                        return <span className="flex items-center gap-1.5 text-blue-500"><span className="w-1.5 h-1.5 rounded-full bg-blue-400" /> {localTimeStr} Your Time ({viewerTzAbbr})</span>;
-                      }
+                    // Same timezone — show source timing as-is
+                    if (programOffset === null || Math.abs(viewerOffset - programOffset) < 0.1) {
+                      return <span className="flex items-center gap-1.5"><span className="w-1.5 h-1.5 rounded-full" style={{ background: heroAccent }} /> {program.timing} {viewerTzAbbr}</span>;
                     }
-                    return null;
-                  } catch { return null; }
+                    // Different timezone — convert and show only viewer's time
+                    const parts = program.timing.split(/\s*[-–—to]+\s*/i);
+                    const converted = parts.map(p => {
+                      const m = p.trim().match(/(\d{1,2})(?::(\d{2}))?\s*(AM|PM)/i);
+                      if (!m) return null;
+                      let h = parseInt(m[1]); const min = parseInt(m[2] || '0'); const ap = m[3].toUpperCase();
+                      if (ap === 'PM' && h !== 12) h += 12; if (ap === 'AM' && h === 12) h = 0;
+                      let localMin = (h * 60 + min) - (programOffset * 60) + (viewerOffset * 60);
+                      localMin = ((localMin % 1440) + 1440) % 1440;
+                      const lh = Math.floor(localMin / 60); const lm = localMin % 60;
+                      const per = lh >= 12 ? 'PM' : 'AM'; const dh = lh % 12 || 12;
+                      return lm > 0 ? `${dh}:${String(lm).padStart(2, '0')} ${per}` : `${dh} ${per}`;
+                    }).filter(Boolean);
+                    if (converted.length > 0) {
+                      return <span className="flex items-center gap-1.5"><span className="w-1.5 h-1.5 rounded-full" style={{ background: heroAccent }} /> {converted.join(' - ')} {viewerTzAbbr}</span>;
+                    }
+                    return <span className="flex items-center gap-1.5"><span className="w-1.5 h-1.5 rounded-full" style={{ background: heroAccent }} /> {program.timing} {programTz}</span>;
+                  } catch { return <span className="flex items-center gap-1.5"><span className="w-1.5 h-1.5 rounded-full" style={{ background: heroAccent }} /> {program.timing} {program.time_zone}</span>; }
                 })()}
               </div>
             )}
