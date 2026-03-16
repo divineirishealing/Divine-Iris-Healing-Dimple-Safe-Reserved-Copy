@@ -10,7 +10,8 @@ import { Input } from '../components/ui/input';
 import { Button } from '../components/ui/button';
 import { resolveImageUrl } from '../lib/imageUtils';
 import {
-  ShoppingCart, Trash2, Plus, User, Monitor, Wifi, ChevronRight, ChevronDown, ChevronUp
+  ShoppingCart, Trash2, Plus, User, Monitor, Wifi, ChevronRight, ChevronDown, ChevronUp,
+  Bell, BellOff
 } from 'lucide-react';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
@@ -30,9 +31,9 @@ const COUNTRIES = [
   { code: "NL", name: "Netherlands" }, { code: "NZ", name: "New Zealand" },
 ].sort((a, b) => a.name.localeCompare(b.name));
 const GENDERS = ["Female", "Male", "Non-Binary", "Prefer not to say"];
-const RELATIONSHIPS = ["Myself", "Mother", "Father", "Sister", "Brother", "Spouse", "Friend", "Colleague", "Other"];
+const RELATIONSHIPS = ["Myself", "Mother", "Father", "Sister", "Brother", "Son", "Daughter", "Spouse", "Husband", "Wife", "Grandmother", "Grandfather", "Grandson", "Granddaughter", "Friend", "Colleague", "Relative", "Other"];
 
-const REFERRAL_SOURCES = ["Instagram", "Facebook", "YouTube", "Google Search", "Friend / Family", "WhatsApp", "Returning Client", "Other"];
+const REFERRAL_SOURCES = ["Instagram", "Facebook", "YouTube", "LinkedIn", "Spotify", "Google Search", "Friend / Family", "WhatsApp", "Other"];
 
 const COUNTRIES_PHONE = [
   { code: "IN", phone: "+91" }, { code: "AE", phone: "+971" }, { code: "US", phone: "+1" },
@@ -49,10 +50,10 @@ const COUNTRIES_PHONE = [
 ];
 
 const emptyParticipant = (mode = 'online') => ({
-  name: '', relationship: 'Myself', age: '', gender: '', country: 'AE',
-  attendance_mode: mode, notify: false, email: '', phone: '', whatsapp: '',
+  name: '', relationship: '', age: '', gender: '',
+  country: '', attendance_mode: mode, notify: true, email: '', phone: '', whatsapp: '',
   phone_code: '+971', wa_code: '+971',
-  is_first_time: false, referral_source: '',
+  is_first_time: true, referral_source: '',
 });
 
 const CartItemCard = ({ item, onRemove, onUpdateParticipants, symbol, getItemPrice, getItemOfferPrice, showReferral }) => {
@@ -66,7 +67,12 @@ const CartItemCard = ({ item, onRemove, onUpdateParticipants, symbol, getItemPri
 
   const updateParticipant = (idx, field, value) => {
     const updated = [...item.participants];
-    updated[idx] = { ...updated[idx], [field]: value };
+    const prev = updated[idx];
+    updated[idx] = { ...prev, [field]: value };
+    // When switching to online, force notify on
+    if (field === 'attendance_mode' && value === 'online') {
+      updated[idx].notify = true;
+    }
     onUpdateParticipants(updated);
   };
 
@@ -144,124 +150,164 @@ const CartItemCard = ({ item, onRemove, onUpdateParticipants, symbol, getItemPri
                   </button>
                 )}
               </div>
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
-                <div>
-                  <label className="text-[9px] text-gray-500 block">Name *</label>
+              <div className="grid grid-cols-2 gap-2 mb-2">
+                <div><label className="text-[9px] text-gray-500">Name *</label>
                   <Input value={p.name} onChange={e => updateParticipant(idx, 'name', e.target.value)}
-                    placeholder="Full name" className="text-xs h-8" data-testid={`cp-name-${item.id}-${idx}`} />
-                </div>
-                <div>
-                  <label className="text-[9px] text-gray-500 block">Relationship *</label>
+                    placeholder="Full name" className="text-xs h-8" data-testid={`cp-name-${item.id}-${idx}`} /></div>
+                <div><label className="text-[9px] text-gray-500">Relationship *</label>
                   <select value={p.relationship} onChange={e => updateParticipant(idx, 'relationship', e.target.value)}
                     className="w-full border rounded-md px-2 py-1.5 text-xs bg-white h-8">
                     <option value="">Select</option>
                     {RELATIONSHIPS.map(r => <option key={r} value={r}>{r}</option>)}
-                  </select>
-                </div>
-                <div>
-                  <label className="text-[9px] text-gray-500 block">Age *</label>
+                  </select></div>
+              </div>
+              <div className="grid grid-cols-3 gap-2 mb-2">
+                <div><label className="text-[9px] text-gray-500">Age *</label>
                   <Input type="number" min="5" max="120" value={p.age}
                     onChange={e => updateParticipant(idx, 'age', e.target.value)}
-                    placeholder="Age" className="text-xs h-8" />
-                </div>
-                <div>
-                  <label className="text-[9px] text-gray-500 block">Gender *</label>
+                    placeholder="Age" className="text-xs h-8" /></div>
+                <div><label className="text-[9px] text-gray-500">Gender *</label>
                   <select value={p.gender} onChange={e => updateParticipant(idx, 'gender', e.target.value)}
                     className="w-full border rounded-md px-2 py-1.5 text-xs bg-white h-8">
                     <option value="">Select</option>
                     {GENDERS.map(g => <option key={g} value={g}>{g}</option>)}
-                  </select>
-                </div>
-              </div>
-              <div className="grid grid-cols-2 gap-2 mt-2">
-                <div>
-                  <label className="text-[9px] text-gray-500 block">Country</label>
-                  <select value={p.country} onChange={e => updateParticipant(idx, 'country', e.target.value)}
-                    className="w-full border rounded-md px-2 py-1.5 text-xs bg-white h-8">
+                  </select></div>
+                <div><label className="text-[9px] text-gray-500">Country</label>
+                  <select value={p.country} onChange={e => {
+                    const code = e.target.value;
+                    const c = COUNTRIES_PHONE.find(c => c.code === code);
+                    const updated = [...item.participants];
+                    updated[idx] = { ...p, country: code, phone_code: c ? c.phone : p.phone_code, wa_code: c ? c.phone : p.wa_code };
+                    onUpdateParticipants(updated);
+                  }} className="w-full border rounded-md px-2 py-1.5 text-xs bg-white h-8">
+                    <option value="">Select country</option>
                     {COUNTRIES.map(c => <option key={c.code} value={c.code}>{c.name}</option>)}
-                  </select>
-                </div>
-                <div>
-                  <label className="text-[9px] text-gray-500 block">Mode</label>
-                  <div className="flex gap-1">
-                    {item.enable_online !== false && (
-                      <button type="button" onClick={() => updateParticipant(idx, 'attendance_mode', 'online')}
-                        className={`flex-1 flex flex-col items-center gap-0.5 py-1 rounded border text-[10px] transition-all ${
-                          p.attendance_mode === 'online' ? 'bg-blue-50 border-blue-400 text-blue-600' : 'bg-white border-gray-200 text-gray-500'}`}>
-                        <span className="flex items-center gap-0.5"><Monitor size={10} /> Online (Zoom)</span>
-                        <span className="text-[8px] opacity-70">via Zoom</span>
-                      </button>
-                    )}
-                    {item.enable_offline !== false && (
-                      <button type="button" onClick={() => updateParticipant(idx, 'attendance_mode', 'offline')}
-                        className={`flex-1 flex flex-col items-center gap-0.5 py-1 rounded border text-[10px] transition-all ${
-                          p.attendance_mode === 'offline' ? 'bg-teal-50 border-teal-400 text-teal-700' : 'bg-white border-gray-200 text-gray-500'}`}>
-                        <span className="flex items-center gap-0.5"><Wifi size={10} /> Offline</span>
-                        <span className="text-[8px] opacity-70">Remote, Not In-Person</span>
-                      </button>
-                    )}
-                    {item.enable_in_person && (
-                      <button type="button" onClick={() => updateParticipant(idx, 'attendance_mode', 'in_person')}
-                        className={`flex-1 flex flex-col items-center gap-0.5 py-1 rounded border text-[10px] transition-all ${
-                          p.attendance_mode === 'in_person' ? 'bg-teal-50 border-teal-400 text-teal-700' : 'bg-white border-gray-200 text-gray-500'}`}>
-                        <span className="flex items-center gap-0.5"><Wifi size={10} /> Offline</span>
-                        <span className="text-[8px] opacity-70">Remote, Not In-Person</span>
-                      </button>
-                    )}
-                  </div>
+                  </select></div>
+              </div>
+              <div className="flex gap-1 mb-1">
+                {item.enable_online !== false && (
+                  <button type="button" onClick={() => updateParticipant(idx, 'attendance_mode', 'online')}
+                    className={`flex-1 flex flex-col items-center justify-center gap-0.5 py-1.5 rounded border text-[10px] transition-all ${
+                      p.attendance_mode === 'online' ? 'bg-blue-50 border-blue-400 text-blue-600' : 'bg-white border-gray-200 text-gray-500'}`}>
+                    <span className="flex items-center gap-1"><Monitor size={10} /> Online (Zoom)</span>
+                    <span className="text-[8px] opacity-70">via Zoom</span>
+                  </button>
+                )}
+                {item.enable_offline !== false && (
+                  <button type="button" onClick={() => updateParticipant(idx, 'attendance_mode', 'offline')}
+                    className={`flex-1 flex flex-col items-center justify-center gap-0.5 py-1.5 rounded border text-[10px] transition-all ${
+                      p.attendance_mode === 'offline' ? 'bg-teal-50 border-teal-400 text-teal-700' : 'bg-white border-gray-200 text-gray-500'}`}>
+                    <span className="flex items-center gap-1"><Wifi size={10} /> Offline</span>
+                    <span className="text-[8px] opacity-70">Remote, Not In-Person</span>
+                  </button>
+                )}
+                {item.enable_in_person && (
+                  <button type="button" onClick={() => updateParticipant(idx, 'attendance_mode', 'in_person')}
+                    className={`flex-1 flex flex-col items-center justify-center gap-0.5 py-1.5 rounded border text-[10px] transition-all ${
+                      p.attendance_mode === 'in_person' ? 'bg-teal-50 border-teal-400 text-teal-700' : 'bg-white border-gray-200 text-gray-500'}`}>
+                    <span className="flex items-center gap-1"><Wifi size={10} /> Offline</span>
+                    <span className="text-[8px] opacity-70">Remote, Not In-Person</span>
+                  </button>
+                )}
+              </div>
+              {!item.enable_in_person && (
+                <p className="text-[8px] text-gray-400 mb-1 italic">All sessions are online via Zoom or remote distance healing — no in-person sessions at this time.</p>
+              )}
+
+              {/* Divine Iris membership status — two buttons matching EnrollmentPage */}
+              <div className="mb-2 mt-2">
+                <label className="text-[9px] text-gray-500 mb-1 block">Are you new to Divine Iris? *</label>
+                <div className="flex gap-2">
+                  <button type="button" onClick={() => updateParticipant(idx, 'is_first_time', true)}
+                    className={`flex-1 py-2 rounded-lg border text-[10px] font-medium transition-all ${
+                      p.is_first_time === true ? 'bg-[#D4AF37]/10 border-[#D4AF37] text-[#D4AF37]' : 'bg-white border-gray-200 text-gray-500 hover:border-gray-300'}`}>
+                    First time joining Divine Iris
+                  </button>
+                  <button type="button" onClick={() => updateParticipant(idx, 'is_first_time', false)}
+                    className={`flex-1 py-2 rounded-lg border text-[10px] font-medium transition-all ${
+                      p.is_first_time === false ? 'bg-purple-50 border-purple-300 text-purple-700' : 'bg-white border-gray-200 text-gray-500 hover:border-gray-300'}`}>
+                    I am Divine Iris Soul Tribe
+                  </button>
                 </div>
               </div>
-              <div className="mt-2 border-t pt-2">
-                <label className="flex items-center gap-1.5 cursor-pointer mb-1.5" data-testid={`cp-first-time-${item.id}-${idx}`}>
-                  <input type="checkbox" checked={p.is_first_time || false} onChange={e => updateParticipant(idx, 'is_first_time', e.target.checked)} className="w-3.5 h-3.5 rounded border-gray-300 text-[#D4AF37]" />
-                  <span className="text-[10px] text-gray-600">First time joining Divine Iris Healing</span>
-                </label>
-                <div className="mb-1.5">
-                  <label className="text-[9px] text-gray-500 block">How did you hear about us?</label>
-                  <select value={p.referral_source || ''} onChange={e => updateParticipant(idx, 'referral_source', e.target.value)}
-                    className="w-full border rounded-md px-2 py-1.5 text-xs bg-white h-8" data-testid={`cp-referral-${item.id}-${idx}`}>
-                    <option value="">Select (optional)</option>
-                    {REFERRAL_SOURCES.map(r => <option key={r} value={r}>{r}</option>)}
-                  </select>
+
+              {/* Referral source — only shown for first-timers */}
+              {p.is_first_time && (
+                <div className="mb-2 grid grid-cols-2 gap-2">
+                  <div>
+                    <label className="text-[9px] text-gray-500">How did you hear about us?</label>
+                    <select value={p.referral_source || ''} onChange={e => updateParticipant(idx, 'referral_source', e.target.value)}
+                      className="w-full border rounded-md px-2 py-1.5 text-xs bg-white h-8" data-testid={`cp-referral-${item.id}-${idx}`}>
+                      <option value="">Select (optional)</option>{REFERRAL_SOURCES.map(r => <option key={r} value={r}>{r}</option>)}
+                    </select>
+                  </div>
+                  {p.referral_source === 'Friend / Family' && (
+                    <div>
+                      <label className="text-[9px] text-gray-500">Referred by</label>
+                      <Input type="text" value={p.referred_by_name || ''} onChange={e => updateParticipant(idx, 'referred_by_name', e.target.value)} placeholder="Referrer's name" className="text-xs h-8" />
+                    </div>
+                  )}
                 </div>
-                {showReferral && (
-                  <>
-                    <label className="flex items-center gap-1.5 cursor-pointer mb-1.5" data-testid={`cp-referred-toggle-${item.id}-${idx}`}>
-                      <input type="checkbox" checked={p.has_referral || false} onChange={e => updateParticipant(idx, 'has_referral', e.target.checked)} className="w-3.5 h-3.5 rounded border-gray-300 text-[#D4AF37]" />
-                      <span className="text-[10px] text-gray-600">Referred by a Divine Iris member</span>
-                    </label>
-                    {p.has_referral && (
-                      <Input value={p.referred_by_name || ''} onChange={e => updateParticipant(idx, 'referred_by_name', e.target.value)} placeholder="Referrer's name" className="text-xs h-7 mb-1.5" />
-                    )}
-                  </>
-                )}
-                <label className="flex items-center gap-1.5 cursor-pointer mb-1">
+              )}
+
+              {showReferral && (
+                <>
+                  <label className="flex items-center gap-1.5 cursor-pointer mb-1.5" data-testid={`cp-referred-toggle-${item.id}-${idx}`}>
+                    <input type="checkbox" checked={p.has_referral || false} onChange={e => updateParticipant(idx, 'has_referral', e.target.checked)} className="w-3.5 h-3.5 rounded border-gray-300 text-[#D4AF37]" />
+                    <span className="text-[10px] text-gray-600">Referred by a Divine Iris member</span>
+                  </label>
+                  {p.has_referral && (
+                    <Input value={p.referred_by_name || ''} onChange={e => updateParticipant(idx, 'referred_by_name', e.target.value)} placeholder="Referrer's name" className="text-xs h-8 mb-2" />
+                  )}
+                </>
+              )}
+
+              {/* Notify — mandatory for online, optional otherwise (matching EnrollmentPage) */}
+              {p.attendance_mode === 'online' ? (
+                <div className="flex items-center gap-1.5 mb-0.5">
+                  <Bell size={10} className="text-[#D4AF37]" />
+                  <span className="text-[10px] text-[#D4AF37] font-medium">Notification will be sent to Participant</span>
+                </div>
+              ) : (
+                <label className="flex items-center gap-1.5 cursor-pointer" data-testid={`cp-notify-${item.id}-${idx}`}>
                   <input type="checkbox" checked={p.notify} onChange={e => updateParticipant(idx, 'notify', e.target.checked)} className="w-3.5 h-3.5 rounded border-gray-300 text-[#D4AF37]" />
-                  <span className="text-[10px] text-gray-600">Notify this participant</span>
+                  <span className="text-[10px] text-gray-600 flex items-center gap-1">
+                    {p.notify ? <Bell size={10} className="text-[#D4AF37]" /> : <BellOff size={10} className="text-gray-400" />} Notify this participant
+                  </span>
                 </label>
-                {p.notify && (
-                  <div className="grid grid-cols-3 gap-2">
-                    <Input value={p.email || ''} onChange={e => updateParticipant(idx, 'email', e.target.value)} placeholder="Email" className="text-xs h-7" />
-                    <div className="flex gap-0.5">
-                      <select value={p.phone_code || '+971'} onChange={e => updateParticipant(idx, 'phone_code', e.target.value)}
-                        className="border rounded-md px-0.5 py-0.5 text-[10px] w-[52px] bg-white h-7 flex-shrink-0">
-                        {COUNTRIES_PHONE.map(c => <option key={c.code} value={c.phone}>{c.phone}</option>)}
-                      </select>
-                      <Input value={p.phone || ''} onChange={e => updateParticipant(idx, 'phone', e.target.value.replace(/\D/g, '').slice(0, 10))} placeholder="Phone" maxLength={10} className="text-xs h-7" />
-                    </div>
-                    <div className="flex gap-0.5">
-                      <select value={p.wa_code || '+971'} onChange={e => updateParticipant(idx, 'wa_code', e.target.value)}
-                        className="border rounded-md px-0.5 py-0.5 text-[10px] w-[52px] bg-white h-7 flex-shrink-0">
-                        {COUNTRIES_PHONE.map(c => <option key={c.code} value={c.phone}>{c.phone}</option>)}
-                      </select>
-                      <div className="relative flex-1">
-                        <Input value={p.whatsapp || ''} onChange={e => updateParticipant(idx, 'whatsapp', e.target.value.replace(/\D/g, '').slice(0, 10))} placeholder="WhatsApp" maxLength={10} className="text-xs h-7 pl-6" />
-                        <svg className="absolute left-1.5 top-1/2 -translate-y-1/2 w-3 h-3 text-green-500" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z"/><path d="M12 0C5.373 0 0 5.373 0 12c0 2.625.846 5.059 2.284 7.034L.789 23.492a.5.5 0 00.612.638l4.67-1.228A11.947 11.947 0 0012 24c6.627 0 12-5.373 12-12S18.627 0 12 0zm0 22c-2.352 0-4.55-.743-6.357-2.012l-.232-.168-3.227.85.862-3.147-.185-.239A9.96 9.96 0 012 12C2 6.486 6.486 2 12 2s10 4.486 10 10-4.486 10-10 10z"/></svg>
-                      </div>
+              )}
+              {p.notify && (
+                <div className="grid grid-cols-3 gap-2 mt-2">
+                  <Input value={p.email || ''} onChange={e => updateParticipant(idx, 'email', e.target.value)} placeholder="Email" className="text-xs h-8" data-testid={`cp-email-${item.id}-${idx}`} />
+                  <div className="flex gap-0.5">
+                    <select value={p.phone_code || '+971'} onChange={e => {
+                      const updated = [...item.participants];
+                      updated[idx] = { ...p, phone_code: e.target.value, wa_code: e.target.value };
+                      onUpdateParticipants(updated);
+                    }}
+                      className="border rounded-md px-0.5 py-1 text-[10px] w-[60px] bg-white h-8 flex-shrink-0">
+                      {COUNTRIES_PHONE.map(c => <option key={c.code} value={c.phone}>{c.phone}</option>)}
+                    </select>
+                    <Input value={p.phone || ''} onChange={e => {
+                      const val = e.target.value.replace(/\D/g, '').slice(0, 10);
+                      const shouldSync = !p.whatsapp || p.whatsapp === p.phone;
+                      const updated = [...item.participants];
+                      updated[idx] = { ...p, phone: val, ...(shouldSync ? { whatsapp: val } : {}) };
+                      onUpdateParticipants(updated);
+                    }} placeholder="Phone (10 digits)" maxLength={10} className="text-xs h-8" data-testid={`cp-phone-${item.id}-${idx}`} />
+                  </div>
+                  <div className="flex gap-0.5">
+                    <select value={p.wa_code || '+971'} onChange={e => updateParticipant(idx, 'wa_code', e.target.value)}
+                      className="border rounded-md px-0.5 py-1 text-[10px] w-[60px] bg-white h-8 flex-shrink-0">
+                      {COUNTRIES_PHONE.map(c => <option key={c.code} value={c.phone}>{c.phone}</option>)}
+                    </select>
+                    <div className="relative flex-1">
+                      <Input value={p.whatsapp || ''} onChange={e => updateParticipant(idx, 'whatsapp', e.target.value.replace(/\D/g, '').slice(0, 10))} placeholder="WhatsApp (10 digits)" maxLength={10} className="text-xs h-8 pl-7" />
+                      <svg className="absolute left-2 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-green-500" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z"/><path d="M12 0C5.373 0 0 5.373 0 12c0 2.625.846 5.059 2.284 7.034L.789 23.492a.5.5 0 00.612.638l4.67-1.228A11.947 11.947 0 0012 24c6.627 0 12-5.373 12-12S18.627 0 12 0zm0 22c-2.352 0-4.55-.743-6.357-2.012l-.232-.168-3.227.85.862-3.147-.185-.239A9.96 9.96 0 012 12C2 6.486 6.486 2 12 2s10 4.486 10 10-4.486 10-10 10z"/></svg>
                     </div>
                   </div>
-                )}
-              </div>
+                </div>
+              )}
             </div>
           ))}
           <button onClick={addParticipant} data-testid={`cart-add-participant-${item.id}`}
