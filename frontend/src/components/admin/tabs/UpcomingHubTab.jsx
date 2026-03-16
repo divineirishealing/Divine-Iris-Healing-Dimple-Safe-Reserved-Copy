@@ -127,6 +127,15 @@ const ProgramRow = ({ p, update, updateTier }) => {
 
         {/* In-Person */}
         <td className="px-2 py-2 text-center"><Switch checked={p.enable_in_person || false} onCheckedChange={v => update('enable_in_person', v)} /></td>
+
+        {/* Duration */}
+        <td className="px-1 py-2"><Input value={p.duration || ''} onChange={e => update('duration', e.target.value)} placeholder="21 Days" className="h-8 text-xs px-2" /></td>
+
+        {/* Card Display Toggles */}
+        <td className="px-2 py-2 text-center"><Switch checked={p.show_start_date_on_card !== false} onCheckedChange={v => update('show_start_date_on_card', v)} /></td>
+        <td className="px-2 py-2 text-center"><Switch checked={p.show_end_date_on_card !== false} onCheckedChange={v => update('show_end_date_on_card', v)} /></td>
+        <td className="px-2 py-2 text-center"><Switch checked={p.show_timing_on_card !== false} onCheckedChange={v => update('show_timing_on_card', v)} /></td>
+        <td className="px-2 py-2 text-center"><Switch checked={p.show_duration_on_card !== false} onCheckedChange={v => update('show_duration_on_card', v)} /></td>
       </tr>
 
       {/* Tier rows */}
@@ -147,7 +156,7 @@ const ProgramRow = ({ p, update, updateTier }) => {
           <td className="px-1 py-1">
             <Input type="date" value={t.end_date || ''} min={t.start_date || ''} onChange={e => updateTier(ti, 'end_date', e.target.value)} className="h-7 text-[10px] px-1" />
           </td>
-          <td colSpan={7}></td>
+          <td colSpan={12}></td>
         </tr>
       ))}
     </>
@@ -244,6 +253,11 @@ const UpcomingHubTab = () => {
               <th className="px-2 py-3 font-bold text-blue-500 w-14">Online</th>
               <th className="px-2 py-3 font-bold text-teal-600 w-14">Offline</th>
               <th className="px-2 py-3 font-bold text-teal-700 w-14">In-Pers.</th>
+              <th className="px-1 py-3 font-bold text-gray-600 min-w-[80px]">Duration</th>
+              <th className="px-2 py-3 font-bold text-emerald-600 w-14 border-l-2 border-emerald-200" title="Show start date on upcoming card"><div className="text-center leading-tight">Show<br/>Start</div></th>
+              <th className="px-2 py-3 font-bold text-emerald-600 w-14" title="Show end date on upcoming card"><div className="text-center leading-tight">Show<br/>End</div></th>
+              <th className="px-2 py-3 font-bold text-emerald-600 w-14" title="Show timing on upcoming card"><div className="text-center leading-tight">Show<br/>Time</div></th>
+              <th className="px-2 py-3 font-bold text-emerald-600 w-14" title="Show duration on upcoming card"><div className="text-center leading-tight">Show<br/>Dur.</div></th>
             </tr>
           </thead>
           <tbody>

@@ -248,25 +248,25 @@ const UpcomingCard = ({ program }) => {
               {program.enable_offline !== false && <span className="px-2.5 py-1 rounded-full text-[10px] font-semibold shadow-sm bg-teal-600 text-white w-fit">Offline (Remote, Not In-Person)</span>}
               {program.enable_in_person && <span className="px-2.5 py-1 rounded-full text-[10px] font-semibold shadow-sm bg-teal-600 text-white w-fit">In-Person</span>}
             </div>
-            {/* Top-right: Dates (tier-aware), Times, Duration */}
+            {/* Top-right: Dates (tier-aware), Times, Duration — controlled by show_* flags */}
             {(displayStartDate || program.timing || autoDuration) && (
               <div data-testid={`card-image-datetime-${program.id}`} className="absolute top-3 right-3 flex flex-col items-end gap-1">
-                {displayStartDate && (
+                {displayStartDate && program.show_start_date_on_card !== false && (
                   <span className="bg-black/60 backdrop-blur-sm text-white text-[10px] font-bold px-2 py-0.5 rounded flex items-center gap-1">
                     <Calendar size={10} className="flex-shrink-0" /> Starts: {fmtDate(displayStartDate)}
                   </span>
                 )}
-                {displayEndDate && (
+                {displayEndDate && program.show_end_date_on_card !== false && (
                   <span className="bg-black/60 backdrop-blur-sm text-white text-[10px] font-bold px-2 py-0.5 rounded flex items-center gap-1">
                     <Calendar size={10} className="flex-shrink-0" /> Ends: {fmtDate(displayEndDate)}
                   </span>
                 )}
-                {program.timing && (
+                {program.timing && program.show_timing_on_card !== false && (
                   <span className="bg-black/60 backdrop-blur-sm text-white text-[10px] font-bold px-2 py-0.5 rounded flex items-center gap-1">
                     <Clock size={10} className="flex-shrink-0" /> {timingConverted.local ? `${timingConverted.local} ${timingConverted.localTz}` : `${program.timing} ${timingConverted.srcTz}`}
                   </span>
                 )}
-                {autoDuration && (
+                {autoDuration && program.show_duration_on_card !== false && (
                   <span className="bg-[#D4AF37] backdrop-blur-sm text-white text-[11px] font-bold px-2.5 py-1 rounded shadow-sm">{autoDuration}</span>
                 )}
               </div>
