@@ -9,8 +9,8 @@ import { useToast } from '../hooks/use-toast';
 import { Input } from '../components/ui/input';
 import { Button } from '../components/ui/button';
 import {
-  Tag, CreditCard, Phone, Lock, Loader2, Check, ChevronLeft, ChevronRight,
-  ShieldCheck, ShieldAlert, ShoppingCart
+  Tag, CreditCard, Mail, Lock, Loader2, Check, ChevronLeft, ChevronRight,
+  ShieldCheck, ShieldAlert, ShoppingCart, FileText
 } from 'lucide-react';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
@@ -42,7 +42,7 @@ const StepDot = ({ active, done }) => (
 function CartCheckoutPage() {
   const navigate = useNavigate();
   const { items, clearCart } = useCart();
-  const { getPrice, getOfferPrice, symbol, currency, country: detectedCountry } = useCurrency();
+  const { country: detectedCountry } = useCurrency();
   const { toast } = useToast();
 
   const [step, setStep] = useState(0); // 0=Review+Promo, 1=Billing+OTP, 2=Pay
@@ -61,11 +61,40 @@ function CartCheckoutPage() {
   const [countryCode, setCountryCode] = useState('+971');
   const [otpSent, setOtpSent] = useState(false);
   const [otp, setOtp] = useState('');
-  const [phoneVerified, setPhoneVerified] = useState(false);
-  const [mockOtp, setMockOtp] = useState('');
+  const [emailVerified, setEmailVerified] = useState(false);
   const [enrollmentId, setEnrollmentId] = useState(null);
   const [vpnDetected, setVpnDetected] = useState(false);
   const [processing, setProcessing] = useState(false);
+  const [paymentSettings, setPaymentSettings] = useState({ disclaimer: '', disclaimer_enabled: true, india_links: [], india_exly_link: '', india_bank_details: {}, india_enabled: false, manual_form_enabled: true });
+
+  // Multi-factor currency detection (matching EnrollmentPage)
+  const AED_COUNTRIES = new Set(['AE', 'SA', 'QA', 'KW', 'OM', 'BH']);
+  const allParticipantCountries = items.flatMap(i => i.participants.map(p => p.country)).filter(Boolean);
+  const allCountries = [bookerCountry, ...allParticipantCountries].filter(Boolean);
+  const allPhoneCodes = [countryCode, ...items.flatMap(i => i.participants.map(p => p.phone_code))].filter(Boolean);
+  const hasAnyNonIndia = allCountries.some(c => c !== 'IN') || allPhoneCodes.some(c => c && c !== '+91');
+
+  let activeCurrencyInfo;
+  if (allCountries.length === 0) {
+    if (detectedCountry === 'IN') activeCurrencyInfo = { currency: 'inr', symbol: 'INR' };
+    else if (AED_COUNTRIES.has(detectedCountry)) activeCurrencyInfo = { currency: 'aed', symbol: 'AED' };
+    else activeCurrencyInfo = { currency: 'usd', symbol: 'USD' };
+  } else if (hasAnyNonIndia) {
+    const nonIndiaCountry = allCountries.find(c => c !== 'IN') || allCountries[0];
+    if (AED_COUNTRIES.has(nonIndiaCountry)) activeCurrencyInfo = { currency: 'aed', symbol: 'AED' };
+    else if (nonIndiaCountry === 'IN') {
+      const foreignCode = allPhoneCodes.find(c => c !== '+91');
+      const gulfCodes = ['+971', '+966', '+974', '+965', '+968', '+973'];
+      activeCurrencyInfo = gulfCodes.includes(foreignCode) ? { currency: 'aed', symbol: 'AED' } : { currency: 'usd', symbol: 'USD' };
+    } else {
+      if (AED_COUNTRIES.has(nonIndiaCountry)) activeCurrencyInfo = { currency: 'aed', symbol: 'AED' };
+      else activeCurrencyInfo = { currency: 'usd', symbol: 'USD' };
+    }
+  } else {
+    activeCurrencyInfo = { currency: 'inr', symbol: 'INR' };
+  }
+  const currency = activeCurrencyInfo.currency;
+  const symbol = activeCurrencyInfo.symbol;
 
   useEffect(() => {
     if (items.length === 0) navigate('/cart');
@@ -84,14 +113,42 @@ function CartCheckoutPage() {
     if (c) setCountryCode(c.phone);
   }, [bookerCountry]);
 
+  // Fetch payment settings
+  useEffect(() => {
+    axios.get(`${API}/settings`).then(r => {
+      const s = r.data;
+      setPaymentSettings({
+        disclaimer: s.payment_disclaimer || '',
+        disclaimer_enabled: s.payment_disclaimer_enabled !== false,
+        india_links: (s.india_payment_links || []).filter(l => l.enabled),
+        india_alt_discount: s.india_alt_discount_percent || 9,
+        india_exly_link: s.india_exly_link || '',
+        india_bank_details: s.india_bank_details || {},
+        india_enabled: s.india_payment_enabled || false,
+        manual_form_enabled: s.manual_form_enabled !== false,
+      });
+    }).catch(() => {});
+  }, []);
+
+  // Local price getters using active currency
   const getItemPrice = (item) => {
-    const fakeProgram = { is_flagship: item.isFlagship, duration_tiers: item.durationTiers || [], price_aed: item.price_aed, price_inr: item.price_inr, price_usd: item.price_usd };
-    return getPrice(fakeProgram, item.tierIndex);
+    const tiers = item.durationTiers || [];
+    const hasTiers = item.isFlagship && tiers.length > 0;
+    const tier = hasTiers ? tiers[item.tierIndex] : null;
+    const key = `price_${currency}`;
+    if (tier) return tier[key] || 0;
+    return item[key] || 0;
   };
 
   const getItemOfferPrice = (item) => {
-    const fakeProgram = { is_flagship: item.isFlagship, duration_tiers: item.durationTiers || [], offer_price_aed: item.offer_price_aed, offer_price_inr: item.offer_price_inr, offer_price_usd: item.offer_price_usd };
-    return getOfferPrice(fakeProgram, item.tierIndex);
+    const tiers = item.durationTiers || [];
+    const hasTiers = item.isFlagship && tiers.length > 0;
+    const tier = hasTiers ? tiers[item.tierIndex] : null;
+    if (tier) return tier[`offer_${currency}`] || 0;
+    if (currency === 'aed') return item.offer_price_aed || 0;
+    if (currency === 'inr') return item.offer_price_inr || 0;
+    if (currency === 'usd') return item.offer_price_usd || 0;
+    return 0;
   };
 
   const getEffectivePrice = (item) => {
@@ -105,7 +162,6 @@ function CartCheckoutPage() {
 
   const [autoDiscounts, setAutoDiscounts] = useState({ group_discount: 0, combo_discount: 0, loyalty_discount: 0, total_discount: 0 });
 
-  // Fetch auto-discounts whenever subtotal, participants, or email changes
   useEffect(() => {
     if (subtotal <= 0) return;
     const fetchDiscounts = async () => {
@@ -144,20 +200,18 @@ function CartCheckoutPage() {
 
   const submitBookerAndSendOtp = async () => {
     if (!bookerName.trim()) return toast({ title: 'Enter your name', variant: 'destructive' });
-    if (!bookerEmail.trim()) return toast({ title: 'Enter your email', variant: 'destructive' });
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(bookerEmail)) return toast({ title: 'Enter valid email', variant: 'destructive' });
-    if (!phone.trim() || phone.length < 7) return toast({ title: 'Enter valid phone', variant: 'destructive' });
+    if (!bookerEmail.trim() || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(bookerEmail)) return toast({ title: 'Enter valid email', variant: 'destructive' });
 
     setLoading(true);
     try {
-      // Use first cart item's program for enrollment
-      const firstItem = items[0];
+      const bookerPhone = phone ? `${countryCode}${phone}` : null;
       const allParticipants = items.flatMap(item =>
         item.participants.map(p => ({
           name: p.name, relationship: p.relationship, age: parseInt(p.age),
           gender: p.gender, country: p.country, attendance_mode: p.attendance_mode,
-          notify: p.notify, email: p.email || null, phone: p.phone || null,
-          whatsapp: p.whatsapp || null,
+          notify: p.notify, email: p.email || null,
+          phone: p.notify && p.phone ? `${p.phone_code || '+971'}${p.phone}` : null,
+          whatsapp: p.whatsapp ? `${p.wa_code || '+971'}${p.whatsapp}` : null,
           program_id: item.programId, program_title: item.programTitle,
           is_first_time: p.is_first_time || false, referral_source: p.referral_source || '',
           referred_by_name: p.has_referral ? (p.referred_by_name || '') : '',
@@ -168,28 +222,56 @@ function CartCheckoutPage() {
         booker_name: bookerName, booker_email: bookerEmail, booker_country: bookerCountry,
         participants: allParticipants,
       });
-      setEnrollmentId(enrollRes.data.enrollment_id);
+      const eid = enrollRes.data.enrollment_id;
+      setEnrollmentId(eid);
       setVpnDetected(enrollRes.data.vpn_detected);
 
-      const otpRes = await axios.post(`${API}/enrollment/${enrollRes.data.enrollment_id}/send-otp`, { phone, country_code: countryCode });
+      // Save booker phone to enrollment
+      if (bookerPhone) {
+        await axios.patch(`${API}/enrollment/${eid}/update-phone`, { phone: bookerPhone }).catch(() => {});
+      }
+
+      // Send email OTP (matching EnrollmentPage)
+      await axios.post(`${API}/enrollment/${eid}/send-otp`, { email: bookerEmail });
       setOtpSent(true);
-      if (otpRes.data.mock_otp) setMockOtp(otpRes.data.mock_otp);
-      toast({ title: 'OTP Sent!' });
+      toast({ title: 'Verification code sent to your email!' });
     } catch (err) {
       toast({ title: 'Error', description: err.response?.data?.detail || 'Failed', variant: 'destructive' });
     } finally { setLoading(false); }
   };
 
   const verifyOtp = async () => {
-    if (otp.length !== 6) return toast({ title: 'Enter 6-digit OTP', variant: 'destructive' });
+    if (otp.length !== 6) return toast({ title: 'Enter 6-digit code', variant: 'destructive' });
     setLoading(true);
     try {
-      await axios.post(`${API}/enrollment/${enrollmentId}/verify-otp`, { phone, country_code: countryCode, otp });
-      setPhoneVerified(true);
-      toast({ title: 'Phone verified!' });
+      await axios.post(`${API}/enrollment/${enrollmentId}/verify-otp`, { email: bookerEmail, otp });
+      setEmailVerified(true);
+      toast({ title: 'Email verified!' });
+
+      // If total is $0, auto-complete registration
+      if (total <= 0) {
+        setProcessing(true);
+        try {
+          const res = await axios.post(`${API}/enrollment/${enrollmentId}/checkout`, {
+            enrollment_id: enrollmentId, item_type: 'program', item_id: items[0].programId, currency,
+            origin_url: window.location.origin, promo_code: promoResult?.code || null,
+            tier_index: items[0].tierIndex,
+            cart_items: items.map(i => ({ program_id: i.programId, tier_index: i.tierIndex, participants_count: i.participants.length })),
+            browser_timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+            browser_languages: navigator.languages ? [...navigator.languages] : [navigator.language],
+          });
+          clearCart();
+          toast({ title: 'Registration complete!' });
+          navigate(`/payment/success?session_id=${res.data.session_id}`);
+          return;
+        } catch (err) {
+          toast({ title: 'Error completing registration', variant: 'destructive' });
+          setProcessing(false);
+        }
+      }
       setStep(2);
     } catch (err) {
-      toast({ title: 'Wrong OTP', variant: 'destructive' });
+      toast({ title: err.response?.data?.detail || 'Wrong code', variant: 'destructive' });
     } finally { setLoading(false); }
   };
 
@@ -201,9 +283,15 @@ function CartCheckoutPage() {
         origin_url: window.location.origin, promo_code: promoResult?.code || null,
         tier_index: items[0].tierIndex,
         cart_items: items.map(i => ({ program_id: i.programId, tier_index: i.tierIndex, participants_count: i.participants.length })),
+        browser_timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+        browser_languages: navigator.languages ? [...navigator.languages] : [navigator.language],
       });
       clearCart();
-      window.location.href = res.data.url;
+      if (res.data.url === '__FREE_SUCCESS__') {
+        navigate(`/payment/success?session_id=${res.data.session_id}`);
+      } else {
+        window.location.href = res.data.url;
+      }
     } catch (err) {
       toast({ title: 'Payment Error', description: err.response?.data?.detail || 'Try again', variant: 'destructive' });
       setProcessing(false);
@@ -273,7 +361,7 @@ function CartCheckoutPage() {
                     </div>
                   )}
                   <div className="flex justify-between font-bold text-lg border-t pt-2 mt-2">
-                    <span>Total</span><span className="text-[#D4AF37]">{symbol} {total.toLocaleString()}</span>
+                    <span>Total</span><span className="text-[#D4AF37]">{total <= 0 ? 'FREE' : `${symbol} ${total.toLocaleString()}`}</span>
                   </div>
                 </div>
               </div>
@@ -320,7 +408,7 @@ function CartCheckoutPage() {
                   </div>
                 )}
 
-                {/* Step 1: Billing + OTP */}
+                {/* Step 1: Billing + Email OTP */}
                 {step === 1 && (
                   <div data-testid="cart-step-billing">
                     {vpnDetected && (
@@ -346,91 +434,208 @@ function CartCheckoutPage() {
                       <div className="grid grid-cols-2 gap-3">
                         <div>
                           <label className="text-[10px] text-gray-500 block mb-0.5">Country *</label>
-                          <select data-testid="cart-booker-country" value={bookerCountry} onChange={e => setBookerCountry(e.target.value)} className="w-full border rounded-md px-2 py-2 text-sm bg-white">
+                          <select data-testid="cart-booker-country" value={bookerCountry} onChange={e => {
+                            setBookerCountry(e.target.value);
+                            const c = COUNTRIES.find(c => c.code === e.target.value);
+                            if (c) setCountryCode(c.phone);
+                          }} className="w-full border rounded-md px-2 py-2 text-sm bg-white">
+                            <option value="">Select country</option>
                             {COUNTRIES.map(c => <option key={c.code} value={c.code}>{c.name}</option>)}
                           </select>
                         </div>
                         <div>
-                          <label className="text-[10px] text-gray-500 block mb-0.5">Phone *</label>
+                          <label className="text-[10px] text-gray-500 block mb-0.5">Phone</label>
                           <div className="flex gap-1">
-                            <select value={countryCode} onChange={e => setCountryCode(e.target.value)} className="border rounded-md px-1 py-2 text-xs w-20 bg-white">
+                            <select value={countryCode} onChange={e => {
+                              setCountryCode(e.target.value);
+                              const c = COUNTRIES.find(c => c.phone === e.target.value);
+                              if (c) setBookerCountry(c.code);
+                            }} className="border rounded-md px-1 py-2 text-xs w-20 bg-white">
                               {COUNTRIES.map(c => <option key={c.code} value={c.phone}>{c.phone}</option>)}
                             </select>
-                            <Input data-testid="cart-phone" type="tel" value={phone} onChange={e => setPhone(e.target.value.replace(/\D/g, ''))} placeholder="Phone" className="text-sm flex-1" disabled={otpSent} />
+                            <Input data-testid="cart-phone" type="tel" value={phone} onChange={e => setPhone(e.target.value.replace(/\D/g, ''))} placeholder="Phone number" className="text-sm flex-1" />
                           </div>
                         </div>
                       </div>
                     </div>
 
-                    {!otpSent && !phoneVerified && (
+                    {paymentSettings.disclaimer_enabled && paymentSettings.disclaimer && (
+                      <div className="bg-amber-50/60 border border-amber-100 rounded-lg p-3 mt-3" data-testid="cart-payment-disclaimer">
+                        <p className="text-[10px] text-amber-800 italic leading-relaxed">{paymentSettings.disclaimer}</p>
+                      </div>
+                    )}
+
+                    {!otpSent && !emailVerified && (
                       <Button data-testid="cart-send-otp" onClick={submitBookerAndSendOtp} disabled={loading}
                         className="w-full bg-[#D4AF37] hover:bg-[#b8962e] text-white py-3 rounded-full mt-4">
-                        {loading ? <Loader2 className="animate-spin" size={16} /> : <><Phone size={14} className="mr-2" /> Verify & Continue</>}
+                        {loading ? <Loader2 className="animate-spin" size={16} /> : <><Mail size={14} className="mr-2" /> Verify Email & Continue</>}
                       </Button>
                     )}
 
-                    {otpSent && !phoneVerified && (
+                    {otpSent && !emailVerified && (
                       <div className="border rounded-lg p-4 bg-gray-50 mt-4">
-                        <p className="text-xs text-gray-600 mb-2">Enter OTP sent to {countryCode}{phone}</p>
+                        <p className="text-xs text-gray-600 mb-2">Enter the verification code sent to <strong>{bookerEmail}</strong></p>
                         <div className="flex gap-2">
-                          <Input data-testid="cart-otp" value={otp} onChange={e => setOtp(e.target.value.replace(/\D/g, '').slice(0, 6))} placeholder="Enter OTP" maxLength={6}
+                          <Input data-testid="cart-otp" value={otp} onChange={e => setOtp(e.target.value.replace(/\D/g, '').slice(0, 6))} placeholder="000000" maxLength={6}
                             className="flex-1 text-center tracking-[0.5em] font-mono text-lg" />
                           <Button data-testid="cart-verify-otp" onClick={verifyOtp} disabled={loading || otp.length !== 6}
                             className="bg-[#D4AF37] hover:bg-[#b8962e] text-white">
                             {loading ? <Loader2 className="animate-spin" size={14} /> : 'Verify'}
                           </Button>
                         </div>
-                        {mockOtp && (
-                          <p data-testid="cart-mock-otp" className="text-xs text-orange-500 mt-2 bg-orange-50 p-2 rounded text-center">
-                            Test OTP: <strong className="font-mono">{mockOtp}</strong>
-                          </p>
-                        )}
+                        <button onClick={() => { setOtpSent(false); setOtp(''); }} className="text-[10px] text-purple-600 mt-2 hover:underline">Resend code / change email</button>
                       </div>
                     )}
 
-                    <Button variant="outline" onClick={() => setStep(0)} className="mt-3 rounded-full">
-                      <ChevronLeft size={16} /> Back
-                    </Button>
+                    {emailVerified && (
+                      <div className="bg-green-50 border border-green-200 rounded-lg p-3 mt-4 flex items-center gap-2">
+                        <ShieldCheck size={14} className="text-green-600" />
+                        <span className="text-xs text-green-700 font-medium">{bookerEmail} — Verified</span>
+                      </div>
+                    )}
+
+                    <div className="flex gap-3 mt-3">
+                      <Button variant="outline" onClick={() => setStep(0)} className="rounded-full">
+                        <ChevronLeft size={16} /> Back
+                      </Button>
+                      {emailVerified && (
+                        <Button data-testid="cart-step1-continue" onClick={() => setStep(2)} className="flex-1 bg-[#D4AF37] hover:bg-[#b8962e] text-white py-3 rounded-full">
+                          Continue to Payment <ChevronRight size={16} className="ml-1" />
+                        </Button>
+                      )}
+                    </div>
                   </div>
                 )}
 
                 {/* Step 2: Confirm & Pay */}
                 {step === 2 && (
                   <div data-testid="cart-step-pay">
-                    <h2 className="text-base font-semibold text-gray-900 mb-4 flex items-center gap-2">
-                      <ShieldCheck size={16} className="text-green-600" /> Confirm & Pay
-                    </h2>
+                    {total <= 0 ? (
+                      <>
+                        <h2 className="text-base font-semibold text-gray-900 mb-4 flex items-center gap-2">
+                          <ShieldCheck size={16} className="text-green-600" /> Confirm Registration
+                        </h2>
+                        <div className="bg-green-50 border border-green-200 rounded-lg p-4 mb-4">
+                          <p className="text-sm font-semibold text-green-700 mb-1">No payment required</p>
+                          <p className="text-xs text-green-600">This enrollment is free. Click below to complete your registration.</p>
+                        </div>
+                      </>
+                    ) : (
+                      <h2 className="text-base font-semibold text-gray-900 mb-4 flex items-center gap-2">
+                        <ShieldCheck size={16} className="text-green-600" /> Confirm & Pay
+                      </h2>
+                    )}
 
                     <div className="bg-gray-50 rounded-lg p-4 mb-4 text-xs text-gray-600 space-y-1">
                       <p><strong>Booked by:</strong> {bookerName}</p>
-                      <p><strong>Email:</strong> {bookerEmail}</p>
-                      <p><strong>Phone:</strong> {countryCode}{phone} <span className="text-green-600">Verified</span></p>
+                      <p><strong>Email:</strong> {bookerEmail} <span className="text-green-600">Verified</span></p>
+                      {phone && <p><strong>Phone:</strong> {countryCode}{phone}</p>}
                     </div>
 
                     <div className="space-y-2 mb-4">
                       {items.map(item => (
                         <div key={item.id} className="flex justify-between text-xs text-gray-700 py-1 border-b">
                           <span>{item.programTitle} ({item.tierLabel}) x{item.participants.length}</span>
-                          <span className="font-medium">{symbol} {(getItemPrice(item) * item.participants.length).toLocaleString()}</span>
+                          <span className="font-medium">{symbol} {(getEffectivePrice(item) * item.participants.length).toLocaleString()}</span>
                         </div>
                       ))}
                       {discount > 0 && (
                         <div className="flex justify-between text-xs text-green-600"><span>Promo ({promoResult.code})</span><span>-{symbol} {discount.toLocaleString()}</span></div>
                       )}
+                      {totalAutoDiscount > 0 && (
+                        <div className="flex justify-between text-xs text-green-600"><span>Discounts</span><span>-{symbol} {totalAutoDiscount.toLocaleString()}</span></div>
+                      )}
                     </div>
 
                     <div className="flex justify-between font-bold text-lg border-t pt-3 mb-5">
-                      <span>Total</span><span className="text-[#D4AF37]">{symbol} {total.toLocaleString()}</span>
+                      <span>Total</span><span className="text-[#D4AF37]">{total <= 0 ? 'FREE' : `${symbol} ${total.toLocaleString()}`}</span>
                     </div>
+
+                    {/* India payment options — matching EnrollmentPage */}
+                    {bookerCountry === 'IN' && paymentSettings.india_enabled && total > 0 && (
+                      <div className="mb-4" data-testid="cart-india-payment-options">
+                        <div className="border-2 border-[#D4AF37] rounded-lg p-4 mb-3 bg-[#D4AF37]/5">
+                          <div className="flex items-center gap-2 mb-2">
+                            <CreditCard size={16} className="text-[#D4AF37]" />
+                            <span className="text-sm font-semibold text-gray-900">Pay with Card (Stripe)</span>
+                            <span className="text-[9px] bg-green-100 text-green-700 px-2 py-0.5 rounded-full font-medium">International</span>
+                          </div>
+                          <p className="text-[10px] text-gray-600 mb-2">Secure international payment. Your card must be <strong>enabled for international transactions</strong>.</p>
+                          <p className="text-[9px] text-gray-400 italic">Contact your bank to enable international payments if not already active.</p>
+                        </div>
+
+                        <div className="relative my-3">
+                          <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-gray-200" /></div>
+                          <div className="relative flex justify-center"><span className="bg-white px-3 text-[10px] text-gray-400 uppercase">Or pay via India options</span></div>
+                        </div>
+
+                        <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 mb-3" data-testid="cart-india-pricing-note">
+                          <p className="text-[10px] text-amber-800 leading-relaxed">
+                            <strong>Please note:</strong> Indian payment methods (UPI, GPay, bank transfer) may result in the total price being 12-15% higher due to additional processing and platform charges.
+                          </p>
+                        </div>
+                        <button
+                          onClick={() => {
+                            const params = new URLSearchParams({
+                              program: items.map(i => i.programTitle).join(', '),
+                              price: String(subtotal || 0),
+                              promo_discount: String(discount || 0),
+                              auto_discount: String(totalAutoDiscount || 0),
+                            });
+                            navigate(`/india-payment/${enrollmentId}?${params.toString()}`);
+                          }}
+                          className="flex items-center justify-between w-full border rounded-lg p-4 hover:border-purple-400 hover:bg-purple-50/50 transition-all group"
+                          data-testid="cart-india-alt-payment-option">
+                          <div className="flex items-center gap-3">
+                            <div className="w-8 h-8 bg-purple-100 rounded-lg flex items-center justify-center">
+                              <CreditCard size={14} className="text-purple-600" />
+                            </div>
+                            <div>
+                              <span className="text-sm font-medium text-gray-900 group-hover:text-purple-600">Exly / Bank Transfer</span>
+                              <p className="text-[10px] text-gray-500">GPay, Cards, NEFT supported</p>
+                            </div>
+                          </div>
+                          <ChevronRight size={16} className="text-gray-400 group-hover:text-purple-600" />
+                        </button>
+
+                        {paymentSettings.manual_form_enabled && (
+                          <button
+                            onClick={() => navigate(`/manual-payment/${enrollmentId}`)}
+                            className="flex items-center justify-between w-full border rounded-lg p-4 mt-2 hover:border-teal-400 hover:bg-teal-50/50 transition-all group"
+                            data-testid="cart-manual-payment-option">
+                            <div className="flex items-center gap-3">
+                              <div className="w-8 h-8 bg-teal-100 rounded-lg flex items-center justify-center">
+                                <FileText size={14} className="text-teal-600" />
+                              </div>
+                              <div>
+                                <span className="text-sm font-medium text-gray-900 group-hover:text-teal-600">Submit Manual Payment</span>
+                                <p className="text-[10px] text-teal-600 font-medium">Cash deposit, bank transfer — upload proof for approval</p>
+                              </div>
+                            </div>
+                            <ChevronRight size={16} className="text-gray-400 group-hover:text-teal-600" />
+                          </button>
+                        )}
+                      </div>
+                    )}
 
                     <div className="flex gap-3">
                       <Button variant="outline" onClick={() => setStep(1)} className="rounded-full"><ChevronLeft size={16} /></Button>
-                      <Button data-testid="cart-pay-btn" onClick={handleCheckout} disabled={processing || total <= 0}
+                      <Button data-testid="cart-pay-btn" onClick={handleCheckout} disabled={processing || (total > 0 && !enrollmentId)}
                         className="flex-1 bg-[#D4AF37] hover:bg-[#b8962e] text-white py-3 rounded-full">
-                        {processing ? <><Loader2 className="animate-spin mr-2" size={16} /> Redirecting...</> : <><Lock size={14} className="mr-2" /> Pay {symbol} {total.toLocaleString()}</>}
+                        {processing ? <><Loader2 className="animate-spin mr-2" size={16} /> {total <= 0 ? 'Registering...' : 'Redirecting...'}</> : total <= 0 ? <><Check size={14} className="mr-2" /> Complete Registration</> : <><Lock size={14} className="mr-2" /> Pay {symbol} {total.toLocaleString()}</>}
                       </Button>
                     </div>
-                    <p className="text-[10px] text-gray-400 mt-3 text-center flex items-center justify-center gap-1"><Lock size={10} /> Secure payment via Stripe</p>
+
+                    {total > 0 && (
+                      <>
+                        {paymentSettings.disclaimer_enabled && paymentSettings.disclaimer && (
+                          <div className="mt-3 bg-amber-50/60 border border-amber-100 rounded-lg p-3" data-testid="cart-payment-disclaimer-pay">
+                            <p className="text-[10px] text-amber-800 italic leading-relaxed">{paymentSettings.disclaimer}</p>
+                          </div>
+                        )}
+                        <p className="text-[10px] text-gray-400 mt-3 text-center flex items-center justify-center gap-1"><Lock size={10} /> Secure payment via Stripe</p>
+                      </>
+                    )}
                   </div>
                 )}
               </div>
