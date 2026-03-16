@@ -26,21 +26,24 @@ async def submit_payment_proof(
     enrollment_id: str = Form(...),
     payer_name: str = Form(...),
     payment_date: str = Form(...),
-    bank_name: str = Form(...),
+    bank_name: str = Form(""),
     transaction_id: str = Form(...),
-    program_title: str = Form(...),
     amount: str = Form(...),
-    city: str = Form(...),
-    state: str = Form(...),
+    city: str = Form(""),
+    state: str = Form(""),
     payment_method: str = Form(""),
+    program_type: str = Form(""),
+    is_emi: str = Form("false"),
+    emi_total_months: str = Form(""),
+    emi_months_covered: str = Form(""),
     screenshot: UploadFile = File(...),
     notes: str = Form(""),
 ):
     """Submit India alternative payment proof for admin approval."""
-    # Validate enrollment exists
-    enrollment = await db.enrollments.find_one({"id": enrollment_id}, {"_id": 0})
-    if not enrollment:
-        raise HTTPException(status_code=404, detail="Enrollment not found")
+    # Validate enrollment exists (skip for standalone 'MANUAL' submissions)
+    enrollment = {}
+    if enrollment_id != "MANUAL":
+        enrollment = await db.enrollments.find_one({"id": enrollment_id}, {"_id": 0}) or {}
 
     # Save screenshot
     ext = screenshot.filename.split(".")[-1] if "." in screenshot.filename else "png"
@@ -52,17 +55,21 @@ async def submit_payment_proof(
     proof = {
         "id": str(uuid.uuid4()),
         "enrollment_id": enrollment_id,
-        "booker_name": enrollment.get("booker_name", ""),
+        "booker_name": enrollment.get("booker_name", payer_name),
         "booker_email": enrollment.get("booker_email", ""),
         "payer_name": payer_name,
         "payment_date": payment_date,
         "bank_name": bank_name,
         "transaction_id": transaction_id,
-        "program_title": program_title,
+        "program_type": program_type,
+        "program_title": enrollment.get("item_title", program_type),
         "amount": amount,
         "city": city,
         "state": state,
         "payment_method": payment_method,
+        "is_emi": is_emi == "true",
+        "emi_total_months": int(emi_total_months) if emi_total_months else None,
+        "emi_months_covered": int(emi_months_covered) if emi_months_covered else None,
         "notes": notes,
         "screenshot_url": f"/api/uploads/payment_proofs/{filename}",
         "status": "pending",
@@ -74,15 +81,16 @@ async def submit_payment_proof(
 
     await db.india_payment_proofs.insert_one(proof)
 
-    # Update enrollment status
-    await db.enrollments.update_one(
-        {"id": enrollment_id},
-        {"$set": {
-            "status": "india_payment_proof_submitted",
-            "india_payment_proof_id": proof["id"],
-            "updated_at": datetime.now(timezone.utc).isoformat(),
-        }}
-    )
+    # Update enrollment status if linked
+    if enrollment_id != "MANUAL" and enrollment:
+        await db.enrollments.update_one(
+            {"id": enrollment_id},
+            {"$set": {
+                "status": "india_payment_proof_submitted",
+                "india_payment_proof_id": proof["id"],
+                "updated_at": datetime.now(timezone.utc).isoformat(),
+            }}
+        )
 
     logger.info(f"[INDIA PAYMENT PROOF] enrollment={enrollment_id}, txn={transaction_id}, amount={amount}")
     return {"message": "Payment proof submitted successfully. Awaiting admin approval.", "proof_id": proof["id"]}
@@ -170,6 +178,78 @@ async def reject_payment_proof(proof_id: str, reason: str = ""):
     )
 
     enrollment_id = proof.get("enrollment_id")
+
+
+@router.get("/admin/enrollments")
+async def list_enrollments():
+    """Admin: list all enrollments."""
+    enrollments = await db.enrollments.find({}, {"_id": 0}).sort("created_at", -1).to_list(1000)
+    # Also fetch associated transactions
+    for e in enrollments:
+        txn = await db.payment_transactions.find_one(
+            {"enrollment_id": e.get("id")}, {"_id": 0, "amount": 1, "currency": 1, "payment_status": 1}
+        )
+        e["payment"] = txn if txn else None
+    return enrollments
+
+
+@router.get("/admin/enrollments/export")
+async def export_enrollments_excel():
+    """Admin: export all enrollments as Excel file."""
+    import io
+    try:
+        import openpyxl
+    except ImportError:
+        raise HTTPException(status_code=500, detail="openpyxl not installed")
+
+    enrollments = await db.enrollments.find({}, {"_id": 0}).sort("created_at", -1).to_list(5000)
+
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = "Enrollments"
+
+    headers = [
+        "Receipt ID", "Status", "Booker Name", "Booker Email", "Booker Country",
+        "Phone", "Item Type", "Item Title", "Participant Count",
+        "Participants", "Created At", "Updated At"
+    ]
+    ws.append(headers)
+
+    for e in enrollments:
+        participants_str = "; ".join(
+            [f"{p.get('name', '')} ({p.get('email', '')})" for p in e.get("participants", [])]
+        )
+        ws.append([
+            e.get("id", ""),
+            e.get("status", ""),
+            e.get("booker_name", ""),
+            e.get("booker_email", ""),
+            e.get("booker_country", ""),
+            e.get("phone", ""),
+            e.get("item_type", ""),
+            e.get("item_title", ""),
+            e.get("participant_count", 0),
+            participants_str,
+            e.get("created_at", ""),
+            e.get("updated_at", ""),
+        ])
+
+    # Auto-size columns
+    for col in ws.columns:
+        max_len = max(len(str(cell.value or "")) for cell in col)
+        ws.column_dimensions[col[0].column_letter].width = min(max_len + 2, 50)
+
+    output = io.BytesIO()
+    wb.save(output)
+    output.seek(0)
+
+    from fastapi.responses import StreamingResponse
+    return StreamingResponse(
+        output,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": "attachment; filename=enrollments.xlsx"}
+    )
+
     if enrollment_id:
         await db.enrollments.update_one(
             {"id": enrollment_id},
