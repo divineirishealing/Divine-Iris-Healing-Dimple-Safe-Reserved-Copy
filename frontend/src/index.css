@@ -134,3 +134,63 @@ html {
 ::-webkit-scrollbar-thumb:hover {
   background: #b8962e;
 }
+
+
+/* ── Luxury flowing section transitions ── */
+.section-flow {
+  position: relative;
+}
+.section-flow::before {
+  content: '';
+  position: absolute;
+  top: -40px;
+  left: 0;
+  right: 0;
+  height: 80px;
+  z-index: 1;
+  background: inherit;
+  clip-path: ellipse(55% 50% at 50% 50%);
+  pointer-events: none;
+}
+
+/* Gold shimmer wave line */
+.gold-wave-divider {
+  position: absolute;
+  left: 10%;
+  right: 10%;
+  height: 1px;
+  z-index: 5;
+  background: linear-gradient(90deg, transparent 0%, rgba(212,175,55,0.08) 15%, rgba(212,175,55,0.2) 35%, rgba(212,175,55,0.35) 50%, rgba(212,175,55,0.2) 65%, rgba(212,175,55,0.08) 85%, transparent 100%);
+}
+.gold-wave-divider.top { top: 0; }
+.gold-wave-divider.bottom { bottom: 0; }
+
+/* Milky glossy sheen — subtle light reflection */
+.milky-sheen {
+  position: relative;
+}
+.milky-sheen::after {
+  content: '';
+  position: absolute;
+  top: 20%;
+  left: 15%;
+  right: 15%;
+  bottom: 20%;
+  background: radial-gradient(ellipse at 50% 40%, rgba(255,255,255,0.6) 0%, rgba(255,255,255,0.15) 40%, transparent 70%);
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* Gold dust animation */
+@keyframes goldFloat {
+  0%, 100% { opacity: 0.3; transform: translateY(0) scale(1); }
+  50% { opacity: 0.7; transform: translateY(-8px) scale(1.2); }
+}
+.gold-dust-dot {
+  position: absolute;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(212,175,55,0.8) 0%, rgba(212,175,55,0) 70%);
+  pointer-events: none;
+  z-index: 3;
+  animation: goldFloat 4s ease-in-out infinite;
+}

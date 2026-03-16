@@ -172,10 +172,6 @@ const SessionsSection = ({ sectionConfig }) => {
     <section id="sessions" data-testid="sessions-section" className="py-12 relative overflow-hidden"
       style={{ background: purpleGradient }}>
 
-      {/* Top/bottom lavender blends for seamless flow */}
-      <div className="absolute top-0 left-0 right-0 h-16 z-10" style={{ background: 'linear-gradient(180deg, #f3edff 0%, transparent 100%)' }} />
-      <div className="absolute bottom-0 left-0 right-0 h-16 z-10" style={{ background: 'linear-gradient(0deg, #f3edff 0%, transparent 100%)' }} />
-
       {/* Iris flower petal shapes — soft purple */}
       <div className="absolute top-[-60px] right-[-40px] w-[320px] h-[320px] rounded-full opacity-[0.08]"
         style={{ background: 'radial-gradient(ellipse, #7c3aed, transparent 70%)' }} />

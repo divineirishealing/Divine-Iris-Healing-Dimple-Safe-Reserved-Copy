@@ -112,9 +112,6 @@ const StatsSection = ({ sectionConfig }) => {
 
   return (
     <section data-testid="stats-section" style={{ background: '#000', position: 'relative', height: '220px', overflow: 'hidden' }}>
-      {/* Top/bottom lavender blends for seamless flow */}
-      <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: '24px', zIndex: 3, background: 'linear-gradient(180deg, #f3edff 0%, transparent 100%)' }} />
-      <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: '24px', zIndex: 3, background: 'linear-gradient(0deg, #f3edff 0%, transparent 100%)' }} />
       {/* Canvas particles */}
       <ParticleCanvas />
 
