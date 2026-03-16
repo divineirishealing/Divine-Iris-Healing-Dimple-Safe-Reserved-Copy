@@ -465,27 +465,35 @@ const UpcomingProgramsSection = ({ sectionConfig, inline }) => {
           </div>
         </>
       ) : (
-        /* Flat 4-column grid: program cards + sponsor card as direct children for row-height alignment */
-        <div className="grid lg:grid-cols-4 gap-8">
-          {/* Title row */}
-          <div className="lg:col-span-3 text-center">
-            <h2 className="text-3xl md:text-4xl text-gray-900" style={applyTitleStyle(sectionConfig?.title_style, {})}>{sectionConfig?.title || 'Upcoming Programs'}</h2>
-            {(sectionConfig?.subtitle || (!programs.some(p => p.enable_in_person) && !sectionConfig)) && (
-              <p className="text-sm text-gray-900 mt-3" style={sectionConfig?.subtitle_style ? { ...(sectionConfig.subtitle_style.font_color && { color: sectionConfig.subtitle_style.font_color }), ...(sectionConfig.subtitle_style.font_size && { fontSize: sectionConfig.subtitle_style.font_size }), ...(sectionConfig.subtitle_style.font_family && { fontFamily: sectionConfig.subtitle_style.font_family }), ...(sectionConfig.subtitle_style.font_weight && { fontWeight: sectionConfig.subtitle_style.font_weight }) } : {}}>{sectionConfig?.subtitle}</p>
-            )}
-          </div>
-          <div data-testid="sponsor-title-column" className="text-center">
-            <h2 className="text-3xl md:text-4xl text-gray-900" style={applyTitleStyle(sponsorConfig?.title_style, {})}>{sponsorConfig?.title || 'Become a Sponsor'}</h2>
-            {sponsorConfig?.subtitle && (
-              <p className="text-sm text-gray-900 mt-3" style={applyTitleStyle(sponsorConfig?.subtitle_style, {})}>{sponsorConfig.subtitle}</p>
-            )}
-          </div>
-          {/* Cards row: all direct grid children so first row shares height */}
-          {sorted.map(program => <UpcomingCard key={program.id} program={program} />)}
-          <div style={{ gridColumn: '4', gridRow: '2' }} className="h-full">
-            <SponsorCard sponsorData={sponsorData} />
-          </div>
-        </div>
+        /* Adaptive grid: columns = program count + 1 (for sponsor), max 4 */
+        (() => {
+          const totalCols = Math.min(sorted.length + 1, 4);
+          const gridClass = totalCols === 2 ? 'lg:grid-cols-2' : totalCols === 3 ? 'lg:grid-cols-3' : 'lg:grid-cols-4';
+          const titleSpan = totalCols === 2 ? 'lg:col-span-1' : totalCols === 3 ? 'lg:col-span-2' : 'lg:col-span-3';
+          const sponsorCol = totalCols;
+          return (
+            <div className={`grid ${gridClass} gap-8`}>
+              {/* Title row */}
+              <div className={`${titleSpan} text-center`}>
+                <h2 className="text-3xl md:text-4xl text-gray-900" style={applyTitleStyle(sectionConfig?.title_style, {})}>{sectionConfig?.title || 'Upcoming Programs'}</h2>
+                {(sectionConfig?.subtitle || (!programs.some(p => p.enable_in_person) && !sectionConfig)) && (
+                  <p className="text-sm text-gray-900 mt-3" style={sectionConfig?.subtitle_style ? { ...(sectionConfig.subtitle_style.font_color && { color: sectionConfig.subtitle_style.font_color }), ...(sectionConfig.subtitle_style.font_size && { fontSize: sectionConfig.subtitle_style.font_size }), ...(sectionConfig.subtitle_style.font_family && { fontFamily: sectionConfig.subtitle_style.font_family }), ...(sectionConfig.subtitle_style.font_weight && { fontWeight: sectionConfig.subtitle_style.font_weight }) } : {}}>{sectionConfig?.subtitle}</p>
+                )}
+              </div>
+              <div data-testid="sponsor-title-column" className="text-center">
+                <h2 className="text-3xl md:text-4xl text-gray-900" style={applyTitleStyle(sponsorConfig?.title_style, {})}>{sponsorConfig?.title || 'Become a Sponsor'}</h2>
+                {sponsorConfig?.subtitle && (
+                  <p className="text-sm text-gray-900 mt-3" style={applyTitleStyle(sponsorConfig?.subtitle_style, {})}>{sponsorConfig.subtitle}</p>
+                )}
+              </div>
+              {/* Cards row: all direct grid children so first row shares height */}
+              {sorted.map(program => <UpcomingCard key={program.id} program={program} />)}
+              <div style={{ gridColumn: String(sponsorCol), gridRow: '2' }} className="h-full">
+                <SponsorCard sponsorData={sponsorData} />
+              </div>
+            </div>
+          );
+        })()
       )}
     </div>
   );
