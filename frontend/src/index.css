@@ -153,33 +153,9 @@ html {
   pointer-events: none;
 }
 
-/* Gold shimmer wave line */
-.gold-wave-divider {
-  position: absolute;
-  left: 10%;
-  right: 10%;
-  height: 1px;
-  z-index: 5;
-  background: linear-gradient(90deg, transparent 0%, rgba(212,175,55,0.08) 15%, rgba(212,175,55,0.2) 35%, rgba(212,175,55,0.35) 50%, rgba(212,175,55,0.2) 65%, rgba(212,175,55,0.08) 85%, transparent 100%);
-}
-.gold-wave-divider.top { top: 0; }
-.gold-wave-divider.bottom { bottom: 0; }
+/* Gold wave divider — disabled */
 
-/* Milky glossy sheen — subtle light reflection */
-.milky-sheen {
-  position: relative;
-}
-.milky-sheen::after {
-  content: '';
-  position: absolute;
-  top: 20%;
-  left: 15%;
-  right: 15%;
-  bottom: 20%;
-  background: radial-gradient(ellipse at 50% 40%, rgba(255,255,255,0.6) 0%, rgba(255,255,255,0.15) 40%, transparent 70%);
-  pointer-events: none;
-  z-index: 0;
-}
+/* Milky glossy sheen — disabled, pure white center */
 
 /* Gold dust animation */
 @keyframes goldFloat {

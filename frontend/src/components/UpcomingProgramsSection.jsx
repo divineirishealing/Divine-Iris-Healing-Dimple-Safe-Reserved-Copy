@@ -422,9 +422,7 @@ const UpcomingProgramsSection = ({ sectionConfig, inline }) => {
   if (inline) return <div data-testid="upcoming-programs-section">{content}</div>;
 
   return (
-    <section id="upcoming" data-testid="upcoming-programs-section" className="py-12 milky-sheen relative" style={{ background: 'linear-gradient(180deg, #f3edff 0%, #f5f0ff 10%, #fdfcfa 30%, #fffefa 50%, #fdfcfa 70%, #f5f0ff 90%, #f3edff 100%)' }}>
-      <div className="gold-wave-divider top" />
-      <div className="gold-wave-divider bottom" />
+    <section id="upcoming" data-testid="upcoming-programs-section" className="py-12 relative" style={{ background: 'linear-gradient(180deg, #f3edff 0%, #f5f0ff 10%, #ffffff 30%, #ffffff 50%, #ffffff 70%, #f5f0ff 90%, #f3edff 100%)' }}>
       <div className="container mx-auto px-4">
         {content}
       </div>

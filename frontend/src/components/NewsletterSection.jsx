@@ -35,9 +35,7 @@ const NewsletterSection = ({ sectionConfig }) => {
   };
 
   return (
-    <section data-testid="newsletter-section" className="py-12 milky-sheen relative" style={{ background: 'linear-gradient(180deg, #f3edff 0%, #f5f0ff 10%, #fdfcfa 30%, #fffefa 50%, #fdfcfa 70%, #f5f0ff 90%, #f3edff 100%)' }}>
-      <div className="gold-wave-divider top" />
-      <div className="gold-wave-divider bottom" />
+    <section data-testid="newsletter-section" className="py-12 relative" style={{ background: 'linear-gradient(180deg, #f3edff 0%, #f5f0ff 10%, #ffffff 30%, #ffffff 50%, #ffffff 70%, #f5f0ff 90%, #f3edff 100%)' }}>
       <div className={CONTAINER}>
         <div className="max-w-2xl mx-auto text-center">
           <h2 className="mb-6" style={applySectionStyle(sectionConfig?.title_style, { ...HEADING, color: '#8B6914', fontSize: 'clamp(1.5rem, 3vw, 2rem)' })}>
