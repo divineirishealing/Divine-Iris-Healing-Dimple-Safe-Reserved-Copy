@@ -288,14 +288,13 @@ All pages with dark hero sections use:
 
 ### 3D Testimonial Carousel — Image Only (Mar 16, 2026) - COMPLETED
 - [x] Program detail pages now show testimonial images in a clean 3D rotating carousel
-- [x] Cards are image-only — no extra chrome (stars, name footer removed)
-- [x] Center card zooms forward (translateZ: 80px) with prominent shadow
-- [x] Adjacent cards rotate with rotateY(-20deg) and dim (opacity: 0.8, brightness: 0.92)
-- [x] Outer cards rotate more aggressively (rotateY: -35deg) and fade further (opacity: 0.45)
-- [x] Counter "N / Total" replaces excessive dot indicators
-- [x] Backend updated: program pages now include general testimonials (empty program_id) alongside program-specific ones
-- [x] Lightbox opens on center card click, prev/next on side card click
-- [x] Overflow hidden prevents card clipping at container edges
+- [x] 5 cards visible, all same size (300x480px), center rises above (translateY: -20px) and zooms forward (translateZ: 200px)
+- [x] Center overlaps adjacent cards ~60%, adjacent cards rotated 12°, outer cards rotated 25°
+- [x] Stronger shadows (30px/60px), rounded corners (18px), gold dot indicators
+- [x] Dark overlay lightbox (rgba(0,0,0,0.85)) with X close button — matches divineirishealing.com reference
+- [x] Backend updated: program pages include general testimonials (empty program_id) alongside program-specific ones
+- [x] Click center card → full zoom lightbox, click side cards → navigate, click outside → close
+- [x] Verified across multiple programs, navigation, and lightbox functionality
 
 ### Seamless Section Flow v2 — Reorder-Robust (Mar 16, 2026) - COMPLETED
 - [x] Centralized alternating gradient system in HomePage.jsx (replaces per-section hardcoded backgrounds)
