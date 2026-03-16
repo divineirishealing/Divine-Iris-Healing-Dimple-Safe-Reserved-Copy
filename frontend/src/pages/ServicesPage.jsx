@@ -16,7 +16,6 @@ const applyStyle = (styleObj, defaults = {}) => {
   return { ...defaults, ...(styleObj.font_family && { fontFamily: styleObj.font_family }), ...(styleObj.font_size && { fontSize: styleObj.font_size }), ...(styleObj.font_color && { color: styleObj.font_color }), ...(styleObj.font_weight && { fontWeight: styleObj.font_weight }), ...(styleObj.font_style && { fontStyle: styleObj.font_style }) };
 };
 
-const IRIS_IMAGE = 'https://divineirishealing.com/assets/images/personal_sessions/1772606496_19c12e333a98b4e53349.png';
 
 function ServicesPage() {
   const navigate = useNavigate();
@@ -102,15 +101,6 @@ function ServicesPage() {
 
           {/* Right Content Area */}
           <main data-testid="service-detail" className="flex-1">
-
-            {/* Fixed header - "Claim your Personal space" iris image */}
-            <div className="mb-10">
-              <img
-                src={IRIS_IMAGE}
-                alt="Claim your Personal space"
-                className="w-full max-w-[550px] h-auto object-contain"
-              />
-            </div>
 
             {/* Session details - shown below the header image when clicked */}
             {selectedSession && (
