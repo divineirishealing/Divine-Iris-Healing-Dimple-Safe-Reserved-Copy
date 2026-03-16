@@ -109,7 +109,7 @@ function ProgramDetailPage() {
   const [hoveredCard, setHoveredCard] = useState(null);
   useEffect(() => {
     if (imgTestimonialsCount <= 1) return;
-    const timer = setInterval(() => nextT(), 3500);
+    const timer = setInterval(() => nextT(), 5000);
     return () => clearInterval(timer);
   }, [imgTestimonialsCount, currentTestimonial]);
 

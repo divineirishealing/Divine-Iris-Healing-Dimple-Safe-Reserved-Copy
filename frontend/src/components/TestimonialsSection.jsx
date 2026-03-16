@@ -4,6 +4,7 @@ import { Play, ChevronLeft, ChevronRight } from 'lucide-react';
 import { Dialog, DialogContent } from './ui/dialog';
 import { resolveImageUrl } from '../lib/imageUtils';
 import { HEADING, CONTAINER, applySectionStyle } from '../lib/designTokens';
+import TestimonialCarousel5Card from './TestimonialCarousel5Card';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
@@ -75,7 +76,12 @@ const TestimonialsSection = ({ sectionConfig, inline }) => {
         </div>
       )}
 
-      {/* Carousel */}
+      {/* Carousel / 5-Card Layout */}
+      {activeTab === 'graphic' && graphicTestimonials.length > 0 ? (
+        <div style={{ background: 'linear-gradient(180deg, #f5f4f8 0%, #eceaf1 40%, #f5f4f8 100%)', borderRadius: '16px', padding: '24px 0' }}>
+          <TestimonialCarousel5Card testimonials={graphicTestimonials} onClickImage={(src) => setSelectedImage(src)} />
+        </div>
+      ) : (
       <div className="relative">
         {!inline && displayList.length > 3 && (
           <button onClick={() => scroll(-1)} data-testid="testimonial-prev"
@@ -118,6 +124,7 @@ const TestimonialsSection = ({ sectionConfig, inline }) => {
           </button>
         )}
       </div>
+      )}
 
       {/* Video Modal */}
       <Dialog open={!!selectedVideo} onOpenChange={() => setSelectedVideo(null)}>
@@ -134,14 +141,21 @@ const TestimonialsSection = ({ sectionConfig, inline }) => {
         </DialogContent>
       </Dialog>
 
-      {/* Image Lightbox */}
-      <Dialog open={!!selectedImage} onOpenChange={() => setSelectedImage(null)}>
-        <DialogContent data-testid="testimonial-lightbox" className="max-w-4xl p-1 bg-white">
-          {selectedImage && (
-            <img src={selectedImage} alt="Testimonial" className="w-full h-auto max-h-[85vh] object-contain rounded" />
-          )}
-        </DialogContent>
-      </Dialog>
+      {/* Image Lightbox — dark overlay */}
+      {selectedImage && (
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center"
+          onClick={() => setSelectedImage(null)}
+          style={{ background: 'rgba(0,0,0,0.85)' }}>
+          <button onClick={() => setSelectedImage(null)}
+            className="absolute top-6 right-6 w-10 h-10 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center transition-colors z-50">
+            <span className="text-white text-xl font-light">&times;</span>
+          </button>
+          <img src={selectedImage} alt="Testimonial"
+            className="max-w-[90vw] max-h-[90vh] object-contain rounded-2xl"
+            style={{ boxShadow: '0 25px 60px rgba(0,0,0,0.5)' }}
+            onClick={(e) => e.stopPropagation()} />
+        </div>
+      )}
     </>
   );
 

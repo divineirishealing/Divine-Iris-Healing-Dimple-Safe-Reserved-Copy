@@ -4,6 +4,7 @@ import Header from '../components/Header';
 import Footer from '../components/Footer';
 import FloatingButtons from '../components/FloatingButtons';
 import TemplateTestimonialCard, { TemplateTestimonialFull } from '../components/TemplateTestimonialCard';
+import TestimonialCarousel5Card from '../components/TestimonialCarousel5Card';
 import { Search, Play, X, Filter } from 'lucide-react';
 import { resolveImageUrl } from '../lib/imageUtils';
 import { Dialog, DialogContent } from '../components/ui/dialog';
@@ -229,28 +230,16 @@ function TransformationsPage() {
         </section>
       )}
 
-      {/* Graphic Testimonials */}
+      {/* Graphic Testimonials — 5-card carousel */}
       {(activeType === 'all' || activeType === 'graphic') && graphicTestimonials.length > 0 && (
-        <section data-testid="graphic-testimonials" className="py-10">
-          <div className="container mx-auto px-4">
-            <div className="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-              {graphicTestimonials.map(t => (
-                <div
-                  key={t.id}
-                  data-testid={`graphic-card-${t.id}`}
-                  className="bg-white rounded-xl shadow-md hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 overflow-hidden cursor-pointer border border-gray-100"
-                  onClick={() => setSelectedImage(resolveImageUrl(t.image))}
-                >
-                  <img src={resolveImageUrl(t.image)} alt={t.name || 'Testimonial'} className="w-full h-auto object-contain" loading="lazy" />
-                  {t.name && (
-                    <div className="p-3 text-center">
-                      <p className="text-xs font-medium text-gray-700">{t.name}</p>
-                    </div>
-                  )}
-                </div>
-              ))}
-            </div>
-          </div>
+        <section data-testid="graphic-testimonials" className="py-10"
+          style={{ background: 'linear-gradient(180deg, #f5f4f8 0%, #eceaf1 40%, #f5f4f8 100%)' }}>
+          {activeType === 'all' && (
+            <h2 className="text-center mb-8" style={{ ...HEADING, fontSize: 'clamp(1.2rem, 2.5vw, 1.6rem)', color: '#4c1d95', fontStyle: 'italic' }}>
+              Graphic Testimonials
+            </h2>
+          )}
+          <TestimonialCarousel5Card testimonials={graphicTestimonials} onClickImage={(src) => setSelectedImage(src)} />
         </section>
       )}
 
@@ -324,12 +313,21 @@ function TransformationsPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Image Lightbox */}
-      <Dialog open={!!selectedImage} onOpenChange={() => setSelectedImage(null)}>
-        <DialogContent className="max-w-3xl p-2 bg-white">
-          {selectedImage && <img src={selectedImage} alt="Testimonial" className="w-full h-auto rounded-lg" />}
-        </DialogContent>
-      </Dialog>
+      {/* Image Lightbox — dark overlay */}
+      {selectedImage && (
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center"
+          onClick={() => setSelectedImage(null)}
+          style={{ background: 'rgba(0,0,0,0.85)' }}>
+          <button onClick={() => setSelectedImage(null)}
+            className="absolute top-6 right-6 w-10 h-10 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center transition-colors z-50">
+            <span className="text-white text-xl font-light">&times;</span>
+          </button>
+          <img src={selectedImage} alt="Testimonial"
+            className="max-w-[90vw] max-h-[90vh] object-contain rounded-2xl"
+            style={{ boxShadow: '0 25px 60px rgba(0,0,0,0.5)' }}
+            onClick={(e) => e.stopPropagation()} />
+        </div>
+      )}
 
       <Footer />
       <FloatingButtons />

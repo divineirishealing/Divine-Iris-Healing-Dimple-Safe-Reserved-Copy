@@ -286,20 +286,17 @@ All pages with dark hero sections use:
 - [x] Bug fixed by testing agent: GlobalSearch navigation routes corrected (singular /program/:id, /session/:id)
 - [x] 22/22 tests passed (iteration_63)
 
-### 3D Testimonial Carousel — Image Only (Mar 16, 2026) - COMPLETED
-- [x] 5 landscape cards (340×191, 16:9 ratio) across the screen — all fully visible, no edge clipping
-- [x] Full graphic shown with object-contain — no cropping or edge cutting on any card
-- [x] Left cards: only right edges hidden behind adjacent card, left sides (faces) fully visible
-- [x] Right cards: only left edges hidden behind adjacent card, right sides fully visible
-- [x] Center card fully visible — no edges cut, highest z-index
-- [x] 20% overlap between each adjacent pair of cards
-- [x] Auto-play: carousel advances every 3.5 seconds
-- [x] Hover effect: hovered card lifts up 12px + scales 4%
-- [x] Click center card → full zoom lightbox (dark overlay, rgba(0,0,0,0.85))
-- [x] Click side cards → navigate to that card
-- [x] Dot indicators (max 10 with sliding window) with gold active dot
-- [x] Backend updated: program pages include general testimonials (empty program_id) alongside program-specific ones
-- [x] Lavender gradient section background
+### 5-Card Testimonial Carousel Applied Across App (Mar 16, 2026) - COMPLETED
+- [x] Created reusable `TestimonialCarousel5Card` component
+- [x] Applied to Homepage (Transformations tab), Transformations page (Graphic section), and Program pages
+- [x] All 5 landscape cards visible on screen, no edge clipping
+- [x] Full graphic shown (object-contain), no cropping — center fully visible
+- [x] Left cards: only right edges hidden, right cards: only left edges hidden
+- [x] Auto-play every 5 seconds, hover lifts card 12px + scales 4%
+- [x] One-click lightbox on ANY card (dark overlay, 85% opacity)
+- [x] Sliding dot indicators (max 10) with gold active dot
+- [x] Backend: all testimonials visible on Transformations page, tagged ones on specific program pages
+- [x] Dark overlay lightbox replaces old white Dialog on all pages
 
 ### Seamless Section Flow v2 — Reorder-Robust (Mar 16, 2026) - COMPLETED
 - [x] Centralized alternating gradient system in HomePage.jsx (replaces per-section hardcoded backgrounds)
