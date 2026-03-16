@@ -287,14 +287,19 @@ All pages with dark hero sections use:
 - [x] 22/22 tests passed (iteration_63)
 
 ### 3D Testimonial Carousel — Image Only (Mar 16, 2026) - COMPLETED
-- [x] Program detail pages now show testimonial images in a clean 3D rotating carousel
-- [x] 5 cards visible, all same size (300x480px), center rises above (translateY: -20px) and zooms forward (translateZ: 200px)
-- [x] Center overlaps adjacent cards ~60%, adjacent cards rotated 12°, outer cards rotated 25°
-- [x] Stronger shadows (30px/60px), rounded corners (18px), gold dot indicators
-- [x] Dark overlay lightbox (rgba(0,0,0,0.85)) with X close button — matches divineirishealing.com reference
+- [x] 5 landscape cards (340×191, 16:9 ratio) across the screen — all fully visible, no edge clipping
+- [x] Full graphic shown with object-contain — no cropping or edge cutting on any card
+- [x] Left cards: only right edges hidden behind adjacent card, left sides (faces) fully visible
+- [x] Right cards: only left edges hidden behind adjacent card, right sides fully visible
+- [x] Center card fully visible — no edges cut, highest z-index
+- [x] 20% overlap between each adjacent pair of cards
+- [x] Auto-play: carousel advances every 3.5 seconds
+- [x] Hover effect: hovered card lifts up 12px + scales 4%
+- [x] Click center card → full zoom lightbox (dark overlay, rgba(0,0,0,0.85))
+- [x] Click side cards → navigate to that card
+- [x] Dot indicators (max 10 with sliding window) with gold active dot
 - [x] Backend updated: program pages include general testimonials (empty program_id) alongside program-specific ones
-- [x] Click center card → full zoom lightbox, click side cards → navigate, click outside → close
-- [x] Verified across multiple programs, navigation, and lightbox functionality
+- [x] Lavender gradient section background
 
 ### Seamless Section Flow v2 — Reorder-Robust (Mar 16, 2026) - COMPLETED
 - [x] Centralized alternating gradient system in HomePage.jsx (replaces per-section hardcoded backgrounds)

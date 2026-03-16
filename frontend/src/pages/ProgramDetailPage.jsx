@@ -105,6 +105,14 @@ function ProgramDetailPage() {
   const nextT = () => setCurrentTestimonial(p => (p + 1) % Math.max(imgTestimonialsCount, 1));
   const prevT = () => setCurrentTestimonial(p => (p - 1 + imgTestimonialsCount) % Math.max(imgTestimonialsCount, 1));
 
+  // Auto-play carousel
+  const [hoveredCard, setHoveredCard] = useState(null);
+  useEffect(() => {
+    if (imgTestimonialsCount <= 1) return;
+    const timer = setInterval(() => nextT(), 3500);
+    return () => clearInterval(timer);
+  }, [imgTestimonialsCount, currentTestimonial]);
+
   if (loading) return <div className="min-h-screen flex items-center justify-center bg-[#1a1a1a]"><p className="text-gray-400 text-xs" style={BODY}>Loading...</p></div>;
   if (!program) return (
     <div className="min-h-screen flex items-center justify-center bg-[#1a1a1a]">
@@ -431,15 +439,15 @@ function ProgramDetailPage() {
         <section className="py-16" data-testid="testimonials-section"
           style={{ background: 'linear-gradient(180deg, #f5f4f8 0%, #eceaf1 40%, #f5f4f8 100%)' }}>
           <h2 className="text-center mb-10" style={applyStyle(template.testimonial_title_style, { ...HEADING, color: heroAccent, fontStyle: 'italic', fontSize: '1.6rem' })}>Testimonials</h2>
-          {/* 5-card carousel — full graphic, center above, 20% overlap */}
+          {/* 5-card carousel — auto-moving, hover lifts card */}
           {(() => {
             const imgTestimonials = testimonials.filter(t => t.image);
             const total = imgTestimonials.length;
             if (total === 0) return null;
 
-            // Match 16:9 image ratio — full graphic, no cropping
-            const CARD_W = 400;
-            const CARD_H = 225;
+            // Sized to fit all 5 cards on screen without clipping
+            const CARD_W = 340;
+            const CARD_H = 191;
             const OVERLAP = CARD_W * 0.2;
             const STEP = CARD_W - OVERLAP;
 
@@ -448,8 +456,8 @@ function ProgramDetailPage() {
             const dotEnd = Math.min(total, dotStart + MAX_DOTS);
 
             return (
-              <div className="relative mx-auto px-4" style={{ maxWidth: '1600px' }}>
-                <div className="relative flex items-center justify-center" style={{ height: `${CARD_H + 80}px` }}>
+              <div className="relative mx-auto px-6" style={{ maxWidth: '1500px' }}>
+                <div className="relative flex items-center justify-center" style={{ height: `${CARD_H + 60}px` }}>
                   {[-2, -1, 0, 1, 2].map(offset => {
                     if (total === 1 && offset !== 0) return null;
                     if (total < 3 && Math.abs(offset) > 1) return null;
@@ -460,32 +468,37 @@ function ProgramDetailPage() {
                     const imgSrc = resolveImageUrl(t.image);
                     const isCenter = offset === 0;
                     const isAdj = Math.abs(offset) === 1;
+                    const isHovered = hoveredCard === offset;
 
                     return (
                       <div key={`${offset}-${idx}`}
-                        className="absolute cursor-pointer group"
+                        className="absolute cursor-pointer"
                         data-testid={isCenter ? 'carousel-center-card' : `carousel-card-${offset}`}
                         onClick={() => { if (offset !== 0) { offset < 0 ? prevT() : nextT(); } else { setLightboxImg(imgSrc); } }}
+                        onMouseEnter={() => setHoveredCard(offset)}
+                        onMouseLeave={() => setHoveredCard(null)}
                         style={{
                           width: `${CARD_W}px`,
                           height: `${CARD_H}px`,
                           left: '50%',
                           top: '50%',
-                          transform: `translate(-50%, ${isCenter ? '-56%' : '-47%'}) translateX(${offset * STEP}px) scale(${isCenter ? 1.08 : 1})`,
-                          transition: 'all 0.5s cubic-bezier(0.4, 0, 0.2, 1)',
+                          transform: `translate(-50%, -50%) translateX(${offset * STEP}px) translateY(${isHovered ? '-12px' : '0px'}) scale(${isHovered ? 1.04 : 1})`,
+                          transition: 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)',
                           zIndex: isCenter ? 50 : isAdj ? 40 : 30,
                         }}>
-                        <div className="w-full h-full overflow-hidden bg-white transition-transform duration-300 group-hover:scale-[1.04]"
+                        <div className="w-full h-full overflow-hidden bg-white"
                           style={{
                             borderRadius: '14px',
-                            boxShadow: isCenter
-                              ? '0 15px 40px rgba(0,0,0,0.18), 0 5px 15px rgba(0,0,0,0.1)'
-                              : '0 8px 25px rgba(0,0,0,0.08), 0 3px 10px rgba(0,0,0,0.04)',
+                            boxShadow: isHovered
+                              ? '0 20px 50px rgba(0,0,0,0.2), 0 8px 20px rgba(0,0,0,0.12)'
+                              : isCenter
+                                ? '0 12px 35px rgba(0,0,0,0.14), 0 4px 12px rgba(0,0,0,0.08)'
+                                : '0 6px 20px rgba(0,0,0,0.07), 0 2px 8px rgba(0,0,0,0.04)',
                           }}>
                           <img src={imgSrc} alt={t.name || 'Testimonial'}
                             className="w-full h-full"
                             style={{ objectFit: 'contain', objectPosition: 'center' }}
-                            onError={(e) => { e.target.src = 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="400" height="225"><rect fill="%23f3f4f6" width="400" height="225"/></svg>'; }} />
+                            onError={(e) => { e.target.src = 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="340" height="191"><rect fill="%23f3f4f6" width="340" height="191"/></svg>'; }} />
                         </div>
                       </div>
                     );
