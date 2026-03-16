@@ -455,28 +455,42 @@ const UpcomingProgramsSection = ({ sectionConfig, inline }) => {
 
   const content = (
     <div className={inline ? "" : "max-w-7xl mx-auto"}>
-      {/* Title row — 3-column grid matching card grid */}
-      <div className={inline ? "text-center mb-8" : "grid lg:grid-cols-3 gap-8 mb-10"}>
-        <div className={inline ? "" : "lg:col-span-2 text-center"}>
-          <h2 className={inline ? "text-xl md:text-2xl text-gray-900" : "text-3xl md:text-4xl text-gray-900"} style={applyTitleStyle(sectionConfig?.title_style, {})}>{sectionConfig?.title || 'Upcoming Programs'}</h2>
-          {!inline && (sectionConfig?.subtitle || (!programs.some(p => p.enable_in_person) && !sectionConfig)) && (
-            <p className="text-sm text-gray-900 mt-3" style={sectionConfig?.subtitle_style ? { ...(sectionConfig.subtitle_style.font_color && { color: sectionConfig.subtitle_style.font_color }), ...(sectionConfig.subtitle_style.font_size && { fontSize: sectionConfig.subtitle_style.font_size }), ...(sectionConfig.subtitle_style.font_family && { fontFamily: sectionConfig.subtitle_style.font_family }), ...(sectionConfig.subtitle_style.font_weight && { fontWeight: sectionConfig.subtitle_style.font_weight }) } : {}}>{sectionConfig?.subtitle}</p>
-          )}
-        </div>
-        {!inline && (
-          <div data-testid="sponsor-title-column" className="text-center">
-            <h2 className="text-3xl md:text-4xl text-gray-900" style={applyTitleStyle(sponsorConfig?.title_style, {})}>{sponsorConfig?.title || 'Become a Sponsor'}</h2>
-            {sponsorConfig?.subtitle && (
-              <p className="text-sm text-gray-900 mt-3" style={applyTitleStyle(sponsorConfig?.subtitle_style, {})}>{sponsorConfig.subtitle}</p>
-            )}
+      {inline ? (
+        <>
+          <div className="text-center mb-8">
+            <h2 className="text-xl md:text-2xl text-gray-900" style={applyTitleStyle(sectionConfig?.title_style, {})}>{sectionConfig?.title || 'Upcoming Programs'}</h2>
           </div>
-        )}
-      </div>
-      {/* Cards row — unified 3-column grid, all cards same width */}
-      <div className={inline ? "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4" : "grid sm:grid-cols-2 lg:grid-cols-3 gap-8"}>
-        {sorted.map(program => <UpcomingCard key={program.id} program={program} />)}
-        {!inline && <SponsorCard sponsorData={sponsorData} />}
-      </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            {sorted.map(program => <UpcomingCard key={program.id} program={program} />)}
+          </div>
+        </>
+      ) : (
+        /* Two independent columns: Upcoming Programs (left 2/3) + Sponsor (right 1/3) */
+        <div className="grid lg:grid-cols-3 gap-8">
+          {/* LEFT: Upcoming Programs */}
+          <div className="lg:col-span-2">
+            <div className="text-center mb-10">
+              <h2 className="text-3xl md:text-4xl text-gray-900" style={applyTitleStyle(sectionConfig?.title_style, {})}>{sectionConfig?.title || 'Upcoming Programs'}</h2>
+              {(sectionConfig?.subtitle || (!programs.some(p => p.enable_in_person) && !sectionConfig)) && (
+                <p className="text-sm text-gray-900 mt-3" style={sectionConfig?.subtitle_style ? { ...(sectionConfig.subtitle_style.font_color && { color: sectionConfig.subtitle_style.font_color }), ...(sectionConfig.subtitle_style.font_size && { fontSize: sectionConfig.subtitle_style.font_size }), ...(sectionConfig.subtitle_style.font_family && { fontFamily: sectionConfig.subtitle_style.font_family }), ...(sectionConfig.subtitle_style.font_weight && { fontWeight: sectionConfig.subtitle_style.font_weight }) } : {}}>{sectionConfig?.subtitle}</p>
+              )}
+            </div>
+            <div className={`grid gap-6 ${sorted.length === 1 ? 'grid-cols-1 max-w-md mx-auto' : 'sm:grid-cols-2'}`}>
+              {sorted.map(program => <UpcomingCard key={program.id} program={program} />)}
+            </div>
+          </div>
+          {/* RIGHT: Sponsor A Life — always in its own column */}
+          <div className="lg:col-span-1">
+            <div data-testid="sponsor-title-column" className="text-center mb-10">
+              <h2 className="text-3xl md:text-4xl text-gray-900" style={applyTitleStyle(sponsorConfig?.title_style, {})}>{sponsorConfig?.title || 'Become a Sponsor'}</h2>
+              {sponsorConfig?.subtitle && (
+                <p className="text-sm text-gray-900 mt-3" style={applyTitleStyle(sponsorConfig?.subtitle_style, {})}>{sponsorConfig.subtitle}</p>
+              )}
+            </div>
+            <SponsorCard sponsorData={sponsorData} />
+          </div>
+        </div>
+      )}
     </div>
   );
 
