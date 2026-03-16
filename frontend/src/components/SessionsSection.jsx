@@ -176,16 +176,6 @@ const SessionsSection = ({ sectionConfig }) => {
       <div className="absolute top-0 left-0 w-full h-28 z-[1] pointer-events-none"
         style={{ background: 'linear-gradient(180deg, #ffffff 0%, rgba(255,255,255,0.6) 30%, rgba(255,255,255,0) 100%)' }} />
 
-      {/* Iris flower petal shapes — soft purple */}
-      <div className="absolute top-[-60px] right-[-40px] w-[320px] h-[320px] rounded-full opacity-[0.08]"
-        style={{ background: 'radial-gradient(ellipse, #7c3aed, transparent 70%)' }} />
-      <div className="absolute top-[20%] right-[5%] w-[200px] h-[280px] rounded-[50%] opacity-[0.06] rotate-[25deg]"
-        style={{ background: 'radial-gradient(ellipse, #a855f7, transparent 70%)' }} />
-      <div className="absolute bottom-[-50px] left-[-30px] w-[260px] h-[260px] rounded-full opacity-[0.07]"
-        style={{ background: 'radial-gradient(ellipse, #8b5cf6, transparent 70%)' }} />
-      <div className="absolute top-[60%] left-[8%] w-[150px] h-[220px] rounded-[50%] opacity-[0.05] rotate-[-15deg]"
-        style={{ background: 'radial-gradient(ellipse, #c084fc, transparent 70%)' }} />
-
       {/* Subtle gold shimmer line */}
       <div className="absolute top-0 left-0 right-0 h-[1px] opacity-20" style={{ background: 'linear-gradient(90deg, transparent 10%, #D4AF37 50%, transparent 90%)' }} />
 
