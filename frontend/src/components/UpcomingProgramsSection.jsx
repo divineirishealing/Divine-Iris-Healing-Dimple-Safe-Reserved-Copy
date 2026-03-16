@@ -400,7 +400,7 @@ const SponsorCard = ({ sponsorData }) => {
   const imgUrl = h.image ? resolveImageUrl(h.image) : '';
   return (
     <div data-testid="sponsor-card-upcoming"
-      className="group bg-white rounded-xl overflow-hidden shadow-lg transition-all duration-300 border border-gray-100 flex flex-col hover:shadow-2xl">
+      className="group bg-white rounded-xl overflow-hidden shadow-lg transition-all duration-300 border border-gray-100 flex flex-col hover:shadow-2xl h-full">
       <div className="relative h-48 overflow-hidden cursor-pointer" onClick={() => navigate('/sponsor')}>
         <img src={imgUrl || 'https://images.unsplash.com/photo-1469571486292-0ba58a3f068b?w=600&h=400&fit=crop'} alt={h.title || 'Become a Sponsor'} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
           onError={(e) => { e.target.src = 'https://images.unsplash.com/photo-1469571486292-0ba58a3f068b?w=600&h=400&fit=crop'; }} />
@@ -468,7 +468,7 @@ const UpcomingProgramsSection = ({ sectionConfig, inline }) => {
         /* Two equal columns: Upcoming Programs (left) + Sponsor (right) */
         <div className="grid lg:grid-cols-2 gap-10">
           {/* LEFT: Upcoming Programs */}
-          <div>
+          <div className="flex flex-col">
             <div className="text-center mb-10">
               <h2 className="text-3xl md:text-4xl text-gray-900" style={applyTitleStyle(sectionConfig?.title_style, {})}>{sectionConfig?.title || 'Upcoming Programs'}</h2>
               {(sectionConfig?.subtitle || (!programs.some(p => p.enable_in_person) && !sectionConfig)) && (
@@ -480,14 +480,16 @@ const UpcomingProgramsSection = ({ sectionConfig, inline }) => {
             </div>
           </div>
           {/* RIGHT: Sponsor A Life — always in its own column */}
-          <div>
+          <div className="flex flex-col">
             <div data-testid="sponsor-title-column" className="text-center mb-10">
               <h2 className="text-3xl md:text-4xl text-gray-900" style={applyTitleStyle(sponsorConfig?.title_style, {})}>{sponsorConfig?.title || 'Become a Sponsor'}</h2>
               {sponsorConfig?.subtitle && (
                 <p className="text-sm text-gray-900 mt-3" style={applyTitleStyle(sponsorConfig?.subtitle_style, {})}>{sponsorConfig.subtitle}</p>
               )}
             </div>
-            <SponsorCard sponsorData={sponsorData} />
+            <div className="flex-1">
+              <SponsorCard sponsorData={sponsorData} />
+            </div>
           </div>
         </div>
       )}
