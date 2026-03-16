@@ -1,0 +1,401 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Divine Iris Healing - Admin Panel Guide</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Lato:wght@300;400;700&family=Cinzel:wght@400;600&display=swap');
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: 'Lato', sans-serif; color: #1a1a1a; line-height: 1.7; background: #fff; padding: 40px; max-width: 900px; margin: 0 auto; }
+  h1 { font-family: 'Cinzel', serif; font-size: 28px; color: #4c1d95; margin-bottom: 8px; }
+  h2 { font-family: 'Cinzel', serif; font-size: 22px; color: #4c1d95; margin-top: 48px; margin-bottom: 16px; padding-bottom: 8px; border-bottom: 2px solid #f3edff; }
+  h3 { font-size: 14px; color: #D4AF37; text-transform: uppercase; letter-spacing: 2px; margin-top: 24px; margin-bottom: 8px; }
+  p { font-size: 14px; margin-bottom: 12px; }
+  .subtitle { font-size: 14px; color: #666; margin-bottom: 32px; font-style: italic; }
+  .tab-card { background: #faf8ff; border: 1px solid #f0ebff; border-radius: 12px; padding: 24px; margin-bottom: 20px; page-break-inside: avoid; }
+  .tab-title { font-family: 'Cinzel', serif; font-size: 18px; color: #1a1a1a; margin-bottom: 4px; }
+  .tab-purpose { font-size: 13px; color: #4c1d95; font-weight: 700; margin-bottom: 12px; }
+  .section-label { font-size: 12px; color: #D4AF37; font-weight: 700; text-transform: uppercase; letter-spacing: 1.5px; margin-top: 16px; margin-bottom: 6px; }
+  ul { padding-left: 20px; margin-bottom: 12px; }
+  li { font-size: 13px; margin-bottom: 4px; }
+  li strong { color: #333; }
+  .when-to-use { background: #fffbeb; border-left: 3px solid #D4AF37; padding: 10px 14px; border-radius: 0 8px 8px 0; margin: 12px 0; font-size: 13px; }
+  .important-note { background: #fef2f2; border-left: 3px solid #ef4444; padding: 10px 14px; border-radius: 0 8px 8px 0; margin: 12px 0; font-size: 13px; }
+  .tip { background: #f0fdf4; border-left: 3px solid #22c55e; padding: 10px 14px; border-radius: 0 8px 8px 0; margin: 12px 0; font-size: 13px; }
+  table { width: 100%; border-collapse: collapse; margin: 16px 0; font-size: 13px; }
+  th { background: #4c1d95; color: white; padding: 10px 14px; text-align: left; font-size: 12px; text-transform: uppercase; letter-spacing: 1px; }
+  td { padding: 8px 14px; border-bottom: 1px solid #f0ebff; }
+  tr:nth-child(even) { background: #faf8ff; }
+  .print-btn { position: fixed; bottom: 20px; right: 20px; background: #4c1d95; color: white; border: none; padding: 12px 24px; border-radius: 8px; cursor: pointer; font-size: 14px; font-family: 'Lato', sans-serif; box-shadow: 0 4px 12px rgba(76,29,149,0.3); }
+  .print-btn:hover { background: #5b21b6; }
+  @media print { .print-btn { display: none; } body { padding: 20px; } .tab-card { break-inside: avoid; } }
+  hr { border: none; border-top: 1px solid #f0ebff; margin: 32px 0; }
+</style>
+</head>
+<body>
+
+<button class="print-btn" onclick="window.print()">Download / Print PDF</button>
+
+<h1>Divine Iris Healing</h1>
+<p class="subtitle">Complete Admin Panel Guide — Everything you need to know, explained simply</p>
+<hr>
+
+<h2>How to Access</h2>
+<p>Go to <strong>yoursite.com/admin</strong> → Enter your username & password → You're in!</p>
+<p>The left sidebar shows all tabs. Click any tab to manage that part of your website.</p>
+
+<!-- TAB 1 -->
+<h2>All Tabs Explained</h2>
+
+<div class="tab-card">
+  <div class="tab-title">1. Hero Banner</div>
+  <div class="tab-purpose">The big beautiful banner at the very top of your homepage</div>
+
+  <div class="section-label">What you can change</div>
+  <ul>
+    <li><strong>Background Image</strong> — Upload a photo or paste a URL</li>
+    <li><strong>Title Text</strong> — The main heading (e.g., "Divine Iris Healing")</li>
+    <li><strong>Subtitle Text</strong> — The tagline below it (e.g., "ETERNAL HAPPINESS")</li>
+    <li><strong>CTA Button</strong> — The button text and where it links to</li>
+    <li><strong>Overlay</strong> — Darken/lighten the image so text is readable</li>
+  </ul>
+
+  <div class="when-to-use">
+    <strong>When to use:</strong> When you want to change the very first thing visitors see — new photo, new tagline, seasonal update.
+  </div>
+</div>
+
+<!-- TAB 2 -->
+<div class="tab-card">
+  <div class="tab-title">2. Homepage ⭐</div>
+  <div class="tab-purpose">MASTER CONTROL for your entire homepage — titles, fonts, ordering, content</div>
+
+  <div class="section-label">What you can change for each section</div>
+  <ul>
+    <li><strong>Title</strong> — The section heading (e.g., "Upcoming Programs")</li>
+    <li><strong>Subtitle</strong> — Text below the heading (e.g., "CHOOSE YOUR HAPPINESS")</li>
+    <li><strong>Font Controls</strong> — For both title AND subtitle:
+      <ul>
+        <li>Font Family (Lato, Cinzel, Playfair Display, etc.)</li>
+        <li>Font Size (18px, 24px, 36px, etc.)</li>
+        <li>Font Color (click the color swatch to pick any color)</li>
+        <li>Bold on/off</li>
+        <li>Italic on/off</li>
+      </ul>
+    </li>
+    <li><strong>Visibility Toggle</strong> — Show or hide any section</li>
+    <li><strong>Reorder Arrows</strong> — Move sections up or down on the page</li>
+  </ul>
+
+  <div class="section-label">"Edit Section Content" button</div>
+  <p>For <strong>About</strong>, <strong>Sponsor</strong>, and <strong>Newsletter</strong> sections — click this to expand and edit the actual content (images, body text, descriptions) right here. No need to go anywhere else!</p>
+
+  <div class="tip">
+    <strong>Tip:</strong> This is the ONE place for all section titles, subtitles, and their fonts. This is your best friend tab!
+  </div>
+</div>
+
+<!-- TAB 3 -->
+<div class="tab-card">
+  <div class="tab-title">3. Page Headers</div>
+  <div class="tab-purpose">The banner image at the top of sub-pages (/about, /programs, /services, /contact)</div>
+
+  <ul>
+    <li><strong>Background Image</strong> — The banner photo for each sub-page</li>
+    <li><strong>Overlay Color & Opacity</strong> — Darken the image for readability</li>
+    <li><strong>Height</strong> — How tall the banner area is</li>
+  </ul>
+
+  <div class="important-note">
+    <strong>Not the same as Homepage!</strong> Homepage = main page sections. Page Headers = the decorative banner at the top of OTHER pages.
+  </div>
+</div>
+
+<!-- TAB 4 -->
+<div class="tab-card">
+  <div class="tab-title">4. Programs</div>
+  <div class="tab-purpose">Create and manage your healing programs (Quad Layer Healing, AWRP, etc.)</div>
+
+  <ul>
+    <li><strong>Add New Program</strong> — Click "+ Add Program"</li>
+    <li><strong>Title, Description, Image</strong> — What the program is</li>
+    <li><strong>Duration & Dates</strong> — When it runs</li>
+    <li><strong>Pricing</strong> — Set prices in INR, USD, AED for each tier</li>
+    <li><strong>Enrollment Status</strong> — "Open", "Coming Soon", or "Closed"</li>
+    <li><strong>Tiers</strong> — Different levels (Standard, Premium, VIP)</li>
+    <li><strong>Visibility</strong> — Show/hide from website</li>
+  </ul>
+
+  <div class="when-to-use">
+    <strong>When to use:</strong> Launching a new program, changing prices, opening/closing enrollment, or updating program details.
+  </div>
+
+  <div class="tip">
+    <strong>Remember:</strong> Program CARDS get content from here. The section TITLE ("Flagship Programs") and its font are in the Homepage tab.
+  </div>
+</div>
+
+<!-- TAB 5 -->
+<div class="tab-card">
+  <div class="tab-title">5. Pricing Hub</div>
+  <div class="tab-purpose">Quick controls for price visibility and attendance modes across ALL programs & sessions</div>
+
+  <ul>
+    <li><strong>Show/Hide Pricing</strong> — Toggle price visibility for each item</li>
+    <li><strong>Attendance Modes</strong> — Enable/disable Online, Offline, In-Person</li>
+  </ul>
+
+  <div class="when-to-use">
+    <strong>When to use:</strong> Quick way to show/hide prices or switch modes without editing each program individually.
+  </div>
+</div>
+
+<!-- TAB 6 -->
+<div class="tab-card">
+  <div class="tab-title">6. Upcoming Hub</div>
+  <div class="tab-purpose">Controls which programs appear in the "Upcoming Programs" homepage section</div>
+
+  <ul>
+    <li>Select which programs are marked as "upcoming"</li>
+    <li>Control their display order</li>
+  </ul>
+</div>
+
+<!-- TAB 7 -->
+<div class="tab-card">
+  <div class="tab-title">7. Sessions</div>
+  <div class="tab-purpose">Create and manage personal healing sessions (Ancestral Healing, Chakra Healing, etc.)</div>
+
+  <div class="section-label">Session Content</div>
+  <ul>
+    <li><strong>Add New Session</strong> — Click "+ Add Session"</li>
+    <li><strong>Name, Duration, Description</strong> — Session details</li>
+    <li><strong>Pricing</strong> — INR, USD, AED prices</li>
+    <li><strong>Type</strong> — Online, Remote, In-Person</li>
+    <li><strong>Available Dates & Times</strong> — When it can be booked</li>
+    <li><strong>Visibility</strong> — Show/hide from website</li>
+  </ul>
+
+  <div class="section-label">Element Visibility (top of tab)</div>
+  <ul>
+    <li>Toggle which elements appear in session cards on the homepage: Name, Type, Duration, Price, Calendar, Time Slots, Book Button, etc.</li>
+  </ul>
+</div>
+
+<!-- TAB 8 -->
+<div class="tab-card">
+  <div class="tab-title">8. Testimonials</div>
+  <div class="tab-purpose">Manage video/media testimonials in the "Transformations" section</div>
+
+  <ul>
+    <li><strong>Video URL</strong> — YouTube or video embed link</li>
+    <li><strong>Client Name</strong> — Who gave the testimonial</li>
+    <li><strong>Thumbnail</strong> — Preview image</li>
+    <li><strong>Visibility & Order</strong> — Show/hide and reorder</li>
+  </ul>
+</div>
+
+<!-- TAB 9 -->
+<div class="tab-card">
+  <div class="tab-title">9. Text Quotes</div>
+  <div class="tab-purpose">Manage the scrolling text testimonial quotes on the homepage</div>
+
+  <ul>
+    <li><strong>Quote Text</strong> — What the client said</li>
+    <li><strong>Client Name</strong> — Who said it</li>
+    <li><strong>Program/Session</strong> — Which service it's about</li>
+    <li><strong>Visibility & Order</strong> — Show/hide and reorder</li>
+  </ul>
+</div>
+
+<!-- TAB 10 -->
+<div class="tab-card">
+  <div class="tab-title">10. Stats</div>
+  <div class="tab-purpose">The statistics bar showing numbers like "500+ Lives Healed"</div>
+
+  <ul>
+    <li><strong>Number</strong> — The count (e.g., "500+")</li>
+    <li><strong>Label</strong> — What it means (e.g., "Lives Healed")</li>
+    <li><strong>Icon</strong> — Visual icon for the stat</li>
+  </ul>
+
+  <div class="when-to-use">
+    <strong>When to use:</strong> When your numbers grow and you want to update them!
+  </div>
+</div>
+
+<!-- TAB 11 -->
+<div class="tab-card">
+  <div class="tab-title">11. Header & Footer</div>
+  <div class="tab-purpose">Top navigation bar and bottom footer on EVERY page</div>
+
+  <ul>
+    <li><strong>Header:</strong> Logo, navigation menu items, links, order</li>
+    <li><strong>Footer:</strong> Menu links, contact email, social media, copyright text</li>
+  </ul>
+</div>
+
+<!-- TAB 12-14 -->
+<div class="tab-card">
+  <div class="tab-title">12. Enrollments</div>
+  <div class="tab-purpose">View all client enrollments and registrations</div>
+  <ul>
+    <li>Client name, email, phone</li>
+    <li>Program/session enrolled, payment status, date</li>
+    <li>Search, filter, and export as Excel</li>
+  </ul>
+</div>
+
+<div class="tab-card">
+  <div class="tab-title">13. Inbox</div>
+  <div class="tab-purpose">Contact form messages from website visitors</div>
+  <ul>
+    <li>Read messages, see sender details, reply</li>
+  </ul>
+</div>
+
+<div class="tab-card">
+  <div class="tab-title">14. Client Garden</div>
+  <div class="tab-purpose">Your CRM — a database of all clients with labels and notes</div>
+  <ul>
+    <li><strong>Labels</strong> — Tag clients (VIP, New, Returning)</li>
+    <li><strong>Notes</strong> — Add personal notes about each client</li>
+    <li><strong>Search</strong> — Find specific clients</li>
+  </ul>
+</div>
+
+<!-- TAB 15-17 -->
+<div class="tab-card">
+  <div class="tab-title">15. Promotions</div>
+  <div class="tab-purpose">Create promotional banners and announcements</div>
+  <ul>
+    <li>Title, description, active dates, visibility</li>
+  </ul>
+</div>
+
+<div class="tab-card">
+  <div class="tab-title">16. Discounts & Loyalty</div>
+  <div class="tab-purpose">Discount codes and loyalty rewards</div>
+  <ul>
+    <li>Create codes, set amounts (% or fixed), define loyalty rules</li>
+  </ul>
+</div>
+
+<div class="tab-card">
+  <div class="tab-title">17. Exchange Rates</div>
+  <div class="tab-purpose">Currency conversion rates for INR, USD, AED</div>
+  <ul>
+    <li>Update rates when they change significantly</li>
+  </ul>
+</div>
+
+<!-- TAB 18-20 -->
+<div class="tab-card">
+  <div class="tab-title">18. Subscribers</div>
+  <div class="tab-purpose">People who signed up via newsletter</div>
+  <ul>
+    <li>Email addresses, dates, total count</li>
+  </ul>
+</div>
+
+<div class="tab-card">
+  <div class="tab-title">19. Global Styles</div>
+  <div class="tab-purpose">Site-wide design settings for the entire website</div>
+  <ul>
+    <li>Default heading and body fonts</li>
+    <li>Primary, secondary, accent colors</li>
+  </ul>
+  <div class="important-note">
+    <strong>Careful:</strong> Changes here affect EVERY page on your site.
+  </div>
+</div>
+
+<div class="tab-card">
+  <div class="tab-title">20. Payments</div>
+  <div class="tab-purpose">Payment gateway settings</div>
+  <ul>
+    <li>Payment methods, bank account details, checkout instructions</li>
+  </ul>
+</div>
+
+<!-- TAB 21-24 -->
+<div class="tab-card">
+  <div class="tab-title">21. India Proofs</div>
+  <div class="tab-purpose">Verify bank transfer/UPI payment screenshots from Indian clients</div>
+  <ul>
+    <li>View uploaded proofs, approve or reject</li>
+  </ul>
+</div>
+
+<div class="tab-card">
+  <div class="tab-title">22. Fraud Detection</div>
+  <div class="tab-purpose">Security system flagging suspicious enrollments</div>
+  <ul>
+    <li>Review alerts, check severity, manage email blocklist</li>
+  </ul>
+  <div class="when-to-use">
+    <strong>When to use:</strong> Check regularly to review flagged transactions.
+  </div>
+</div>
+
+<div class="tab-card">
+  <div class="tab-title">23. Receipt Template</div>
+  <div class="tab-purpose">Customize the receipt clients receive after payment</div>
+  <ul>
+    <li>Logo, header/footer text, which fields appear</li>
+  </ul>
+</div>
+
+<div class="tab-card">
+  <div class="tab-title">24. API Keys</div>
+  <div class="tab-purpose">Technical settings for third-party integrations</div>
+  <div class="important-note">
+    <strong>Warning:</strong> Only change these if you know what you're doing — wrong values can break payments and emails!
+  </div>
+</div>
+
+<hr>
+
+<h2>Quick Reference Table</h2>
+<table>
+  <tr><th>I want to...</th><th>Go to this tab</th></tr>
+  <tr><td>Change the big homepage banner</td><td><strong>Hero Banner</strong></td></tr>
+  <tr><td>Rearrange homepage sections</td><td><strong>Homepage</strong> (use arrows)</td></tr>
+  <tr><td>Change a section title/subtitle/font</td><td><strong>Homepage</strong> (edit the row)</td></tr>
+  <tr><td>Edit About bio/image</td><td><strong>Homepage</strong> → About → "Edit Section Content"</td></tr>
+  <tr><td>Edit Sponsor text/image</td><td><strong>Homepage</strong> → Sponsor → "Edit Section Content"</td></tr>
+  <tr><td>Edit Newsletter text</td><td><strong>Homepage</strong> → Newsletter → "Edit Section Content"</td></tr>
+  <tr><td>Change banner on /about or /programs page</td><td><strong>Page Headers</strong></td></tr>
+  <tr><td>Add/edit a program</td><td><strong>Programs</strong></td></tr>
+  <tr><td>Add/edit a personal session</td><td><strong>Sessions</strong></td></tr>
+  <tr><td>Show/hide prices quickly</td><td><strong>Pricing Hub</strong></td></tr>
+  <tr><td>Add a video testimonial</td><td><strong>Testimonials</strong></td></tr>
+  <tr><td>Add a text quote</td><td><strong>Text Quotes</strong></td></tr>
+  <tr><td>Update stats numbers</td><td><strong>Stats</strong></td></tr>
+  <tr><td>Change menu/footer links</td><td><strong>Header & Footer</strong></td></tr>
+  <tr><td>Check who enrolled</td><td><strong>Enrollments</strong></td></tr>
+  <tr><td>Read contact messages</td><td><strong>Inbox</strong></td></tr>
+  <tr><td>Manage clients</td><td><strong>Client Garden</strong></td></tr>
+  <tr><td>Create a discount code</td><td><strong>Discounts & Loyalty</strong></td></tr>
+  <tr><td>Check for fraud</td><td><strong>Fraud Detection</strong></td></tr>
+  <tr><td>View newsletter subscribers</td><td><strong>Subscribers</strong></td></tr>
+  <tr><td>Change site-wide fonts</td><td><strong>Global Styles</strong></td></tr>
+  <tr><td>Update bank details</td><td><strong>Payments</strong></td></tr>
+  <tr><td>Verify Indian payments</td><td><strong>India Proofs</strong></td></tr>
+</table>
+
+<hr>
+
+<h2>Golden Rules</h2>
+<div class="tip">
+  <strong>1.</strong> Always click <strong>"Save Changes"</strong> after edits in Hero Banner, Homepage, Page Headers, Header & Footer, or Global Styles<br><br>
+  <strong>2.</strong> The <strong>Homepage tab is your best friend</strong> — most homepage changes happen here<br><br>
+  <strong>3.</strong> Programs and Sessions tabs = <strong>what exists</strong>. Homepage tab = <strong>how it looks</strong> (titles, fonts)<br><br>
+  <strong>4.</strong> Click <strong>"View Site"</strong> (top-right corner) to preview your changes after saving
+</div>
+
+<p style="text-align: center; margin-top: 40px; color: #999; font-size: 12px;">Divine Iris Healing Admin Guide — Made with love</p>
+
+</body>
+</html>
