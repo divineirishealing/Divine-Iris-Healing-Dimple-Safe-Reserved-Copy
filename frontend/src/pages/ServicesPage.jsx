@@ -146,7 +146,7 @@ function ServicesPage() {
 
                 {/* Pricing + Book Now */}
                 <div className="flex flex-wrap items-center gap-4 mb-4">
-                  {formatPrice(getPrice(selectedSession)) ? (
+                  {selectedSession.show_pricing !== false && formatPrice(getPrice(selectedSession)) ? (
                     <span className="text-2xl font-bold text-[#D4AF37]">{formatPrice(getPrice(selectedSession))}</span>
                   ) : (
                     <span className="text-sm text-gray-500 italic">Contact for pricing</span>

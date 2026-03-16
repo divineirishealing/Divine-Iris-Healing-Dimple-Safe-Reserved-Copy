@@ -208,6 +208,10 @@ class Session(BaseModel):
     description_style: Optional[Dict] = None
     visible: bool = True
     order: int = 0
+    show_pricing: bool = True
+    enable_online: bool = True
+    enable_offline: bool = True
+    enable_in_person: bool = False
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 class SessionCreate(BaseModel):
@@ -232,6 +236,10 @@ class SessionCreate(BaseModel):
     description_style: Optional[Dict] = None
     visible: Optional[bool] = True
     order: Optional[int] = 0
+    show_pricing: Optional[bool] = True
+    enable_online: Optional[bool] = True
+    enable_offline: Optional[bool] = True
+    enable_in_person: Optional[bool] = False
 
 class SessionTestimonial(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))

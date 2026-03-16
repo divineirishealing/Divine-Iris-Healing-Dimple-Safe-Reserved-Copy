@@ -282,7 +282,7 @@ function SessionDetailPage() {
       </h1>
     ),
     gold_line: <div key="line" className="w-16 h-0.5 mb-4" style={{ background: `linear-gradient(90deg, ${accentColor}, transparent)` }} />,
-    price: formatPrice(getPrice(session)) ? (
+    price: (session.show_pricing !== false && formatPrice(getPrice(session))) ? (
       <div key="price" className="flex items-center gap-3 flex-wrap">
         {activeOffer && (
           <span className="text-[9px] px-2.5 py-1 rounded-full font-bold animate-pulse"

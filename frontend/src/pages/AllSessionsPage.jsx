@@ -105,7 +105,7 @@ function AllSessionsPage() {
                   )}
 
                   <div className="flex items-center justify-between pt-2 border-t border-gray-50">
-                    {formatPrice(getPrice(session)) ? (
+                    {session.show_pricing !== false && formatPrice(getPrice(session)) ? (
                       <span className="text-sm font-bold text-purple-600">{formatPrice(getPrice(session))}</span>
                     ) : (
                       <span className="text-xs text-gray-400 italic">Contact for pricing</span>
