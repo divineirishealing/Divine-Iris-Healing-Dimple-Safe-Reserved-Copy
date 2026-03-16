@@ -172,6 +172,10 @@ const SessionsSection = ({ sectionConfig }) => {
     <section id="sessions" data-testid="sessions-section" className="py-12 relative overflow-hidden"
       style={{ background: purpleGradient }}>
 
+      {/* Smooth top fade from white into purple gradient */}
+      <div className="absolute top-0 left-0 w-full h-28 z-[1] pointer-events-none"
+        style={{ background: 'linear-gradient(180deg, #ffffff 0%, rgba(255,255,255,0.6) 30%, rgba(255,255,255,0) 100%)' }} />
+
       {/* Iris flower petal shapes — soft purple */}
       <div className="absolute top-[-60px] right-[-40px] w-[320px] h-[320px] rounded-full opacity-[0.08]"
         style={{ background: 'radial-gradient(ellipse, #7c3aed, transparent 70%)' }} />
