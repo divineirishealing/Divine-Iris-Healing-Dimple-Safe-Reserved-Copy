@@ -400,7 +400,7 @@ const SponsorCard = ({ sponsorData }) => {
   const imgUrl = h.image ? resolveImageUrl(h.image) : '';
   return (
     <div data-testid="sponsor-card-upcoming"
-      className="group bg-white rounded-xl overflow-hidden shadow-lg transition-all duration-300 border border-gray-100 flex flex-col hover:shadow-2xl">
+      className="group bg-white rounded-xl overflow-hidden shadow-lg transition-all duration-300 border border-gray-100 flex flex-col hover:shadow-2xl h-full">
       <div className="relative h-48 overflow-hidden cursor-pointer" onClick={() => navigate('/sponsor')}>
         <img src={imgUrl || 'https://images.unsplash.com/photo-1469571486292-0ba58a3f068b?w=600&h=400&fit=crop'} alt={h.title || 'Become a Sponsor'} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
           onError={(e) => { e.target.src = 'https://images.unsplash.com/photo-1469571486292-0ba58a3f068b?w=600&h=400&fit=crop'; }} />
@@ -482,7 +482,7 @@ const UpcomingProgramsSection = ({ sectionConfig, inline }) => {
           </div>
           {/* Cards row: all direct grid children so first row shares height */}
           {sorted.map(program => <UpcomingCard key={program.id} program={program} />)}
-          <div style={{ gridColumn: '4', gridRow: '2' }}>
+          <div style={{ gridColumn: '4', gridRow: '2' }} className="h-full">
             <SponsorCard sponsorData={sponsorData} />
           </div>
         </div>
