@@ -428,36 +428,38 @@ function ProgramDetailPage() {
       </section>
 
       {testimonials.filter(t => t.image).length > 0 && (
-        <section className="py-16 bg-gradient-to-b from-gray-50/60 to-white" data-testid="testimonials-section">
+        <section className="py-16" data-testid="testimonials-section"
+          style={{ background: 'linear-gradient(180deg, #f8f6fb 0%, #f0edf5 60%, #e8e4ef 80%, #fff 100%)' }}>
           <div className={CONTAINER}>
             <h2 className="text-center mb-10" style={applyStyle(template.testimonial_title_style, { ...HEADING, color: heroAccent, fontStyle: 'italic', fontSize: '1.6rem' })}>Testimonials</h2>
-            {/* 3D Carousel — 5 cards, center pops forward */}
+            {/* 3D Carousel — landscape cards, center pops forward */}
             {(() => {
               const imgTestimonials = testimonials.filter(t => t.image);
               const total = imgTestimonials.length;
               if (total === 0) return null;
 
-              const CARD_W = 260;
-              const CARD_H = 380;
+              // Landscape cards — wider than tall
+              const CARD_W = 400;
+              const CARD_H = 300;
 
               const getCardStyle = (offset) => {
                 const abs = Math.abs(offset);
-                // Center: rises up, scales slightly, comes far forward
-                if (abs === 0) return { tx: 0, ty: -15, tz: 180, ry: 0, z: 50, op: 1, sc: 1.06 };
-                // Adjacent: behind center, gentle rotation, more visible
-                if (abs === 1) return { tx: offset * 180, ty: 0, tz: 0, ry: offset * -15, z: 40, op: 0.88, sc: 1 };
-                // Outer: tucked behind, more rotation, faded
-                return { tx: offset * 320, ty: 0, tz: -80, ry: offset * -28, z: 30, op: 0.5, sc: 0.95 };
+                // Center: scales up, rises slightly
+                if (abs === 0) return { tx: 0, ty: -10, tz: 160, ry: 0, z: 50, op: 1, sc: 1.08 };
+                // Adjacent: behind center, rotated, sit slightly lower
+                if (abs === 1) return { tx: offset * 200, ty: 8, tz: -20, ry: offset * -18, z: 40, op: 0.85, sc: 0.92 };
+                // Outer: far behind, edges only, lower
+                return { tx: offset * 370, ty: 15, tz: -100, ry: offset * -30, z: 30, op: 0.55, sc: 0.85 };
               };
 
-              // Sliding window dots: show max 8 dots centered around current
-              const MAX_DOTS = 8;
+              // Sliding window dots: max 10
+              const MAX_DOTS = 10;
               const dotStart = Math.max(0, Math.min(currentTestimonial - Math.floor(MAX_DOTS / 2), total - MAX_DOTS));
               const dotEnd = Math.min(total, dotStart + MAX_DOTS);
 
               return (
-                <div className="relative mx-auto" style={{ perspective: '1200px', maxWidth: '1000px' }}>
-                  <div className="relative flex items-center justify-center" style={{ height: `${CARD_H + 60}px` }}>
+                <div className="relative mx-auto" style={{ perspective: '1200px', maxWidth: '1100px' }}>
+                  <div className="relative flex items-center justify-center" style={{ height: `${CARD_H + 100}px` }}>
                     {[-2, -1, 0, 1, 2].map(offset => {
                       if (total === 1 && offset !== 0) return null;
                       if (total < 3 && Math.abs(offset) > 1) return null;
@@ -489,20 +491,20 @@ function ProgramDetailPage() {
                             style={{
                               borderRadius: '16px',
                               boxShadow: isCenter
-                                ? '0 25px 50px rgba(0,0,0,0.28), 0 8px 20px rgba(0,0,0,0.18)'
-                                : '0 12px 35px rgba(0,0,0,0.12), 0 4px 12px rgba(0,0,0,0.06)',
-                              border: '1px solid rgba(240,240,240,0.5)',
+                                ? '0 20px 50px rgba(0,0,0,0.25), 0 8px 20px rgba(0,0,0,0.15)'
+                                : '0 10px 30px rgba(0,0,0,0.12)',
+                              border: '1px solid rgba(230,230,230,0.4)',
                             }}>
                             <img src={imgSrc} alt={t.name || 'Testimonial'}
-                              className="w-full h-full object-cover"
-                              onError={(e) => { e.target.src = 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="260" height="380"><rect fill="%23f3f4f6" width="260" height="380"/></svg>'; }} />
+                              className="w-full h-full object-cover object-top"
+                              onError={(e) => { e.target.src = 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="400" height="300"><rect fill="%23f3f4f6" width="400" height="300"/></svg>'; }} />
                           </div>
                         </div>
                       );
                     })}
                   </div>
-                  {/* Dot Indicators — sliding window, max 8 visible */}
-                  <div className="flex justify-center items-center gap-2.5 mt-8">
+                  {/* Dot Indicators */}
+                  <div className="flex justify-center items-center gap-2.5 mt-6">
                     {dotStart > 0 && <span className="text-gray-300 text-xs select-none">...</span>}
                     {imgTestimonials.slice(dotStart, dotEnd).map((_, i) => {
                       const realIdx = dotStart + i;
