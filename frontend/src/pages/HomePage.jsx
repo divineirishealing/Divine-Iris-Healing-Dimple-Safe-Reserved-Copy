@@ -78,52 +78,52 @@ function HomePage() {
     <>
       <Header />
       <div className="homepage-flow" style={{
-        background: 'linear-gradient(180deg, #0d1117 0%, #0d1117 5%, #1a1025 8%, #ffffff 15%, #ffffff 30%, #faf8ff 45%, #f8f5ff 55%, #f3edff 65%, #f5f0ff 75%, #faf8ff 85%, #ffffff 95%, #ffffff 100%)',
+        background: '#ffffff',
         position: 'relative',
         overflow: 'hidden',
       }}>
-        {/* Purple side glows — visible & glossy */}
+        {/* Purple side glows — only on left and right edges */}
         <div style={{
-          position: 'fixed', top: 0, left: 0, width: '260px', height: '100vh',
-          background: 'linear-gradient(90deg, rgba(120,60,220,0.12) 0%, rgba(139,92,246,0.07) 30%, rgba(139,92,246,0.02) 60%, transparent 100%)',
+          position: 'fixed', top: 0, left: 0, width: '220px', height: '100vh',
+          background: 'linear-gradient(90deg, rgba(120,60,220,0.10) 0%, rgba(139,92,246,0.05) 40%, transparent 100%)',
           pointerEvents: 'none', zIndex: 1,
         }} />
         <div style={{
-          position: 'fixed', top: 0, right: 0, width: '260px', height: '100vh',
-          background: 'linear-gradient(270deg, rgba(120,60,220,0.12) 0%, rgba(139,92,246,0.07) 30%, rgba(139,92,246,0.02) 60%, transparent 100%)',
+          position: 'fixed', top: 0, right: 0, width: '220px', height: '100vh',
+          background: 'linear-gradient(270deg, rgba(120,60,220,0.10) 0%, rgba(139,92,246,0.05) 40%, transparent 100%)',
           pointerEvents: 'none', zIndex: 1,
         }} />
         {/* Glossy sheen strips on sides */}
         <div style={{
-          position: 'fixed', top: 0, left: 0, width: '100px', height: '100vh',
-          background: 'linear-gradient(180deg, rgba(255,255,255,0.06) 0%, rgba(200,170,255,0.04) 30%, rgba(255,255,255,0.08) 50%, rgba(200,170,255,0.04) 70%, rgba(255,255,255,0.06) 100%)',
+          position: 'fixed', top: 0, left: 0, width: '80px', height: '100vh',
+          background: 'linear-gradient(180deg, rgba(255,255,255,0.1) 0%, rgba(230,210,255,0.06) 30%, rgba(255,255,255,0.12) 50%, rgba(230,210,255,0.06) 70%, rgba(255,255,255,0.1) 100%)',
           pointerEvents: 'none', zIndex: 2,
         }} />
         <div style={{
-          position: 'fixed', top: 0, right: 0, width: '100px', height: '100vh',
-          background: 'linear-gradient(180deg, rgba(255,255,255,0.06) 0%, rgba(200,170,255,0.04) 30%, rgba(255,255,255,0.08) 50%, rgba(200,170,255,0.04) 70%, rgba(255,255,255,0.06) 100%)',
+          position: 'fixed', top: 0, right: 0, width: '80px', height: '100vh',
+          background: 'linear-gradient(180deg, rgba(255,255,255,0.1) 0%, rgba(230,210,255,0.06) 30%, rgba(255,255,255,0.12) 50%, rgba(230,210,255,0.06) 70%, rgba(255,255,255,0.1) 100%)',
           pointerEvents: 'none', zIndex: 2,
         }} />
-        {/* Gold dust particles — scattered across edges */}
-        <div className="gold-dust-overlay" style={{
+        {/* Gold dust particles — visible sparkles along edges */}
+        <div style={{
           position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
           backgroundImage: `
-            radial-gradient(1.5px 1.5px at 3% 12%, rgba(212,175,55,0.45) 0%, transparent 100%),
-            radial-gradient(2px 2px at 7% 28%, rgba(212,175,55,0.35) 0%, transparent 100%),
-            radial-gradient(1px 1px at 2% 45%, rgba(212,175,55,0.4) 0%, transparent 100%),
-            radial-gradient(1.5px 1.5px at 5% 62%, rgba(212,175,55,0.3) 0%, transparent 100%),
-            radial-gradient(1px 1px at 8% 78%, rgba(212,175,55,0.35) 0%, transparent 100%),
-            radial-gradient(2px 2px at 4% 90%, rgba(212,175,55,0.25) 0%, transparent 100%),
-            radial-gradient(1.5px 1.5px at 97% 8%, rgba(212,175,55,0.45) 0%, transparent 100%),
-            radial-gradient(1px 1px at 93% 22%, rgba(212,175,55,0.35) 0%, transparent 100%),
-            radial-gradient(2px 2px at 98% 38%, rgba(212,175,55,0.4) 0%, transparent 100%),
-            radial-gradient(1.5px 1.5px at 95% 55%, rgba(212,175,55,0.3) 0%, transparent 100%),
-            radial-gradient(1px 1px at 92% 72%, rgba(212,175,55,0.35) 0%, transparent 100%),
-            radial-gradient(1.5px 1.5px at 96% 88%, rgba(212,175,55,0.25) 0%, transparent 100%),
-            radial-gradient(1px 1px at 12% 18%, rgba(212,175,55,0.2) 0%, transparent 100%),
-            radial-gradient(1px 1px at 88% 35%, rgba(212,175,55,0.2) 0%, transparent 100%),
-            radial-gradient(1.5px 1.5px at 15% 50%, rgba(212,175,55,0.15) 0%, transparent 100%),
-            radial-gradient(1px 1px at 85% 65%, rgba(212,175,55,0.15) 0%, transparent 100%)
+            radial-gradient(2.5px 2.5px at 2% 10%, rgba(212,175,55,0.6) 0%, transparent 100%),
+            radial-gradient(2px 2px at 6% 25%, rgba(212,175,55,0.5) 0%, transparent 100%),
+            radial-gradient(3px 3px at 3% 42%, rgba(212,175,55,0.55) 0%, transparent 100%),
+            radial-gradient(2px 2px at 7% 58%, rgba(212,175,55,0.45) 0%, transparent 100%),
+            radial-gradient(2.5px 2.5px at 4% 74%, rgba(212,175,55,0.5) 0%, transparent 100%),
+            radial-gradient(2px 2px at 2% 88%, rgba(212,175,55,0.4) 0%, transparent 100%),
+            radial-gradient(2.5px 2.5px at 98% 8%, rgba(212,175,55,0.6) 0%, transparent 100%),
+            radial-gradient(2px 2px at 94% 22%, rgba(212,175,55,0.5) 0%, transparent 100%),
+            radial-gradient(3px 3px at 97% 40%, rgba(212,175,55,0.55) 0%, transparent 100%),
+            radial-gradient(2px 2px at 93% 55%, rgba(212,175,55,0.45) 0%, transparent 100%),
+            radial-gradient(2.5px 2.5px at 96% 72%, rgba(212,175,55,0.5) 0%, transparent 100%),
+            radial-gradient(2px 2px at 98% 86%, rgba(212,175,55,0.4) 0%, transparent 100%),
+            radial-gradient(1.5px 1.5px at 10% 15%, rgba(212,175,55,0.3) 0%, transparent 100%),
+            radial-gradient(1.5px 1.5px at 90% 32%, rgba(212,175,55,0.3) 0%, transparent 100%),
+            radial-gradient(1.5px 1.5px at 12% 65%, rgba(212,175,55,0.25) 0%, transparent 100%),
+            radial-gradient(1.5px 1.5px at 88% 80%, rgba(212,175,55,0.25) 0%, transparent 100%)
           `,
           pointerEvents: 'none', zIndex: 2,
         }} />
