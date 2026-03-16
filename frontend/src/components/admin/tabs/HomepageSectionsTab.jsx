@@ -1,10 +1,13 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Input } from '../../ui/input';
 import { Label } from '../../ui/label';
 import { Button } from '../../ui/button';
 import { Switch } from '../../ui/switch';
-import { Trash2, Plus, GripVertical, ChevronUp, ChevronDown } from 'lucide-react';
+import { Trash2, Plus, GripVertical, ChevronUp, ChevronDown, ChevronRight } from 'lucide-react';
 import ImageUploader from '../ImageUploader';
+import AboutSettingsTab from './AboutSettingsTab';
+import SponsorSettingsTab from './SponsorSettingsTab';
+import NewsletterSettingsTab from './NewsletterSettingsTab';
 
 const FONT_OPTIONS = [
   { value: '', label: 'Default' },
@@ -63,7 +66,10 @@ const DEFAULT_SECTIONS = [
 ];
 const DEFAULTS_BY_ID = Object.fromEntries(DEFAULT_SECTIONS.map(s => [s.id, s]));
 
+const CONTENT_SECTIONS = new Set(['about', 'sponsor', 'newsletter']);
+
 const HomepageSectionsTab = ({ settings, onChange }) => {
+  const [expandedContent, setExpandedContent] = useState(null);
   const sections = (settings.homepage_sections || DEFAULT_SECTIONS).map(s => {
     const def = DEFAULTS_BY_ID[s.id] || {};
     return { visible: true, title_style: {}, subtitle_style: {}, removable: s.component === 'custom', ...def, ...s, title: s.title != null ? s.title : (def.title || ''), subtitle: s.subtitle != null ? s.subtitle : (def.subtitle || '') };
@@ -177,6 +183,27 @@ const HomepageSectionsTab = ({ settings, onChange }) => {
                   <p className="text-[8px] text-gray-400 mt-0.5">Supports **bold** and *italic* markdown</p>
                   <StyleCell style={sec.body_style || {}} onStyleChange={v => updateSection(idx, 'body_style', v)} label="Body Font" />
                 </div>
+              </div>
+            )}
+
+            {/* Inline content editor for About, Sponsor, Newsletter */}
+            {CONTENT_SECTIONS.has(sec.id) && (
+              <div className="mt-2">
+                <button
+                  onClick={() => setExpandedContent(expandedContent === sec.id ? null : sec.id)}
+                  className="flex items-center gap-1 text-[10px] text-[#D4AF37] hover:text-[#b8962e] font-medium"
+                  data-testid={`edit-content-${sec.id}`}
+                >
+                  <ChevronRight size={12} className={`transition-transform ${expandedContent === sec.id ? 'rotate-90' : ''}`} />
+                  {expandedContent === sec.id ? 'Hide' : 'Edit'} Section Content
+                </button>
+                {expandedContent === sec.id && (
+                  <div className="mt-3 pt-3 border-t border-dashed border-gray-200" data-testid={`content-panel-${sec.id}`}>
+                    {sec.id === 'about' && <AboutSettingsTab settings={settings} onChange={onChange} />}
+                    {sec.id === 'sponsor' && <SponsorSettingsTab settings={settings} onChange={onChange} />}
+                    {sec.id === 'newsletter' && <NewsletterSettingsTab settings={settings} onChange={onChange} />}
+                  </div>
+                )}
               </div>
             )}
           </div>

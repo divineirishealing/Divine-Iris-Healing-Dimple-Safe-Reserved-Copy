@@ -180,8 +180,6 @@ const AdminPanel = () => {
     { key: 'hero', label: 'Hero Banner', icon: Image },
     { key: 'homepage_sections', label: 'Homepage', icon: Monitor },
     { key: 'page_headers', label: 'Page Headers', icon: Monitor },
-    { key: 'about', label: 'About', icon: Layout },
-    { key: 'sponsor', label: 'Sponsor', icon: Gift },
     { key: 'programs', label: 'Programs', icon: Package, count: programs.length },
     { key: 'pricing_hub', label: 'Pricing Hub', icon: DollarSign },
     { key: 'upcoming_hub', label: 'Upcoming Hub', icon: Calendar },
@@ -189,7 +187,6 @@ const AdminPanel = () => {
     { key: 'testimonials', label: 'Testimonials', icon: MessageSquare, count: testimonials.length },
     { key: 'text_testimonials', label: 'Text Quotes', icon: Quote },
     { key: 'stats', label: 'Stats', icon: BarChart3, count: stats.length },
-    { key: 'newsletter', label: 'Newsletter', icon: Mail },
     { key: 'header_footer', label: 'Header & Footer', icon: Globe },
     { key: 'enrollments', label: 'Enrollments', icon: Users },
     { key: 'inbox', label: 'Inbox', icon: Inbox },
@@ -206,7 +203,7 @@ const AdminPanel = () => {
     { key: 'api_keys', label: 'API Keys', icon: Settings },
   ];
 
-  const settingsTabKeys = ['hero', 'homepage_sections', 'page_headers', 'about', 'sponsor', 'newsletter', 'header_footer', 'styles'];
+  const settingsTabKeys = ['hero', 'homepage_sections', 'page_headers', 'header_footer', 'styles'];
   const needsSave = settingsTabKeys.includes(activeTab);
 
   return (
@@ -261,27 +258,6 @@ const AdminPanel = () => {
             <div>
               <PageHeadersTab settings={siteSettings} programs={programs} onChange={setSiteSettings} />
               <Button data-testid="save-page-headers-btn" onClick={saveSiteSettings} className="bg-[#D4AF37] hover:bg-[#b8962e] mt-5"><Save size={14} className="mr-1" /> Save Changes</Button>
-            </div>
-          )}
-
-          {activeTab === 'about' && siteSettings && (
-            <div>
-              <AboutSettingsTab settings={siteSettings} onChange={setSiteSettings} />
-              <Button onClick={saveSiteSettings} className="bg-[#D4AF37] hover:bg-[#b8962e] mt-5"><Save size={14} className="mr-1" /> Save Changes</Button>
-            </div>
-          )}
-
-          {activeTab === 'sponsor' && siteSettings && (
-            <div>
-              <SponsorSettingsTab settings={siteSettings} onChange={setSiteSettings} />
-              <Button data-testid="save-sponsor-btn" onClick={saveSiteSettings} className="bg-[#D4AF37] hover:bg-[#b8962e] mt-5"><Save size={14} className="mr-1" /> Save Changes</Button>
-            </div>
-          )}
-
-          {activeTab === 'newsletter' && siteSettings && (
-            <div>
-              <NewsletterSettingsTab settings={siteSettings} onChange={setSiteSettings} />
-              <Button onClick={saveSiteSettings} className="bg-[#D4AF37] hover:bg-[#b8962e] mt-5"><Save size={14} className="mr-1" /> Save Changes</Button>
             </div>
           )}
 
