@@ -227,9 +227,16 @@ function CartCheckoutPage() {
                 </h3>
                 {items.map(item => (
                   <div key={item.id} className="flex items-start gap-3 py-2 border-b last:border-0">
-                    <img src={item.programImage} alt={item.programTitle}
-                      className="w-10 h-10 rounded object-cover flex-shrink-0"
-                      onError={e => { e.target.src = 'https://images.unsplash.com/photo-1545389336-cf090694435e?w=80'; }} />
+                    {item.type === 'session' ? (
+                      <div className="w-10 h-10 rounded flex-shrink-0 flex items-center justify-center"
+                        style={{ background: 'linear-gradient(135deg, #1a1040 0%, #2d1b69 40%, #4c1d95 100%)' }}>
+                        <span className="text-[6px] text-[#D4AF37] font-medium tracking-wider uppercase text-center leading-tight">Session</span>
+                      </div>
+                    ) : (
+                      <img src={item.programImage} alt={item.programTitle}
+                        className="w-10 h-10 rounded object-cover flex-shrink-0"
+                        onError={e => { e.target.src = 'https://images.unsplash.com/photo-1545389336-cf090694435e?w=80'; }} />
+                    )}
                     <div className="flex-1 min-w-0">
                       <p className="text-xs font-medium text-gray-900 truncate">{item.programTitle}</p>
                       <p className="text-[10px] text-gray-500">{item.tierLabel} &middot; {item.participants.length} person{item.participants.length > 1 ? 's' : ''}</p>

@@ -83,9 +83,16 @@ const CartItemCard = ({ item, onRemove, onUpdateParticipants, symbol, getItemPri
     <div data-testid={`cart-item-${item.id}`} className="bg-white rounded-xl border shadow-sm overflow-hidden mb-4">
       {/* Header */}
       <div className="flex items-center gap-4 p-4 bg-gray-50 border-b">
-        <img src={resolveImageUrl(item.programImage)} alt={item.programTitle}
-          className="w-16 h-16 rounded-lg object-cover flex-shrink-0"
-          onError={e => { e.target.src = 'https://images.unsplash.com/photo-1545389336-cf090694435e?w=100&h=100&fit=crop'; }} />
+        {isSession ? (
+          <div className="w-16 h-16 rounded-lg flex-shrink-0 flex items-center justify-center overflow-hidden"
+            style={{ background: 'linear-gradient(135deg, #1a1040 0%, #2d1b69 40%, #4c1d95 100%)' }}>
+            <span className="text-[8px] text-[#D4AF37] font-medium tracking-wider uppercase text-center leading-tight px-1">Personal Session</span>
+          </div>
+        ) : (
+          <img src={resolveImageUrl(item.programImage)} alt={item.programTitle}
+            className="w-16 h-16 rounded-lg object-cover flex-shrink-0"
+            onError={e => { e.target.src = 'https://images.unsplash.com/photo-1545389336-cf090694435e?w=100&h=100&fit=crop'; }} />
+        )}
         <div className="flex-1 min-w-0">
           <h3 className="text-sm font-semibold text-gray-900 truncate">{item.programTitle}</h3>
           <div className="flex items-center gap-2 mt-0.5 flex-wrap">
