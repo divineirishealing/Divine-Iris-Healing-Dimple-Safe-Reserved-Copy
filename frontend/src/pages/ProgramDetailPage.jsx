@@ -429,27 +429,27 @@ function ProgramDetailPage() {
 
       {testimonials.filter(t => t.image).length > 0 && (
         <section className="py-16" data-testid="testimonials-section"
-          style={{ background: 'linear-gradient(180deg, #f8f6fb 0%, #f0edf5 60%, #e8e4ef 80%, #fff 100%)' }}>
+          style={{ background: 'linear-gradient(180deg, #faf9fc 0%, #f0eef4 50%, #e8e5ee 80%, #faf9fc 100%)' }}>
           <div className={CONTAINER}>
             <h2 className="text-center mb-10" style={applyStyle(template.testimonial_title_style, { ...HEADING, color: heroAccent, fontStyle: 'italic', fontSize: '1.6rem' })}>Testimonials</h2>
-            {/* 3D Carousel — landscape cards, center pops forward */}
+            {/* 3D Carousel — portrait cards, center bigger + rises above */}
             {(() => {
               const imgTestimonials = testimonials.filter(t => t.image);
               const total = imgTestimonials.length;
               if (total === 0) return null;
 
-              // Landscape cards — wider than tall
-              const CARD_W = 400;
-              const CARD_H = 300;
+              // Portrait cards — taller than wide (ratio ~1.35:1)
+              const CARD_W = 300;
+              const CARD_H = 410;
 
               const getCardStyle = (offset) => {
                 const abs = Math.abs(offset);
-                // Center: scales up, rises slightly
-                if (abs === 0) return { tx: 0, ty: -10, tz: 160, ry: 0, z: 50, op: 1, sc: 1.08 };
-                // Adjacent: behind center, rotated, sit slightly lower
-                if (abs === 1) return { tx: offset * 200, ty: 8, tz: -20, ry: offset * -18, z: 40, op: 0.85, sc: 0.92 };
-                // Outer: far behind, edges only, lower
-                return { tx: offset * 370, ty: 15, tz: -100, ry: offset * -30, z: 30, op: 0.55, sc: 0.85 };
+                // Center: bigger (scaled up), rises above adjacent
+                if (abs === 0) return { tx: 0, ty: -25, tz: 100, ry: 0, z: 50, op: 1, sc: 1.1 };
+                // Adjacent: behind center, gentle rotation, ~25-30% hidden
+                if (abs === 1) return { tx: offset * 230, ty: 5, tz: -20, ry: offset * -15, z: 40, op: 0.9, sc: 0.95 };
+                // Outer: far behind, mostly hidden at edges
+                return { tx: offset * 410, ty: 10, tz: -80, ry: offset * -25, z: 30, op: 0.6, sc: 0.88 };
               };
 
               // Sliding window dots: max 10
@@ -459,7 +459,7 @@ function ProgramDetailPage() {
 
               return (
                 <div className="relative mx-auto" style={{ perspective: '1200px', maxWidth: '1100px' }}>
-                  <div className="relative flex items-center justify-center" style={{ height: `${CARD_H + 100}px` }}>
+                  <div className="relative flex items-center justify-center" style={{ height: `${CARD_H + 80}px` }}>
                     {[-2, -1, 0, 1, 2].map(offset => {
                       if (total === 1 && offset !== 0) return null;
                       if (total < 3 && Math.abs(offset) > 1) return null;
@@ -489,15 +489,14 @@ function ProgramDetailPage() {
                           }}>
                           <div className="w-full h-full overflow-hidden bg-white"
                             style={{
-                              borderRadius: '16px',
+                              borderRadius: '22px',
                               boxShadow: isCenter
-                                ? '0 20px 50px rgba(0,0,0,0.25), 0 8px 20px rgba(0,0,0,0.15)'
-                                : '0 10px 30px rgba(0,0,0,0.12)',
-                              border: '1px solid rgba(230,230,230,0.4)',
+                                ? '0 20px 50px rgba(0,0,0,0.22), 0 8px 20px rgba(0,0,0,0.12)'
+                                : '0 10px 30px rgba(0,0,0,0.1), 0 4px 12px rgba(0,0,0,0.05)',
                             }}>
                             <img src={imgSrc} alt={t.name || 'Testimonial'}
                               className="w-full h-full object-cover object-top"
-                              onError={(e) => { e.target.src = 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="400" height="300"><rect fill="%23f3f4f6" width="400" height="300"/></svg>'; }} />
+                              onError={(e) => { e.target.src = 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="300" height="410"><rect fill="%23f3f4f6" width="300" height="410"/></svg>'; }} />
                           </div>
                         </div>
                       );
