@@ -29,6 +29,16 @@ All pages with dark hero sections use:
 
 ## Implemented Features
 
+### Advanced Fraud Prevention — Browser Timezone & Language (Feb 2026) - COMPLETED
+- [x] Backend: EnrollmentSubmit model accepts browser_timezone (str) and browser_languages (list) fields
+- [x] Backend: get_enrollment_pricing uses browser_timezone to validate India timezone (Asia/Kolkata, Asia/Calcutta)
+- [x] Backend: 5-factor fraud check: ip_is_india, claimed_india, no_vpn, phone_consistent, timezone_india
+- [x] Backend: browser_timezone and browser_languages stored in enrollment document for audit trail
+- [x] Frontend: handleCheckout sends Intl.DateTimeFormat().resolvedOptions().timeZone and navigator.languages
+- [x] Frontend: Free enrollment path in verifyOtp also sends browser signals
+- [x] Non-Indian timezone (e.g., America/New_York) blocks INR pricing when combined with other checks
+- [x] All 17/17 tests passed (iteration_66)
+
 ### Enrollment Form Enhancements + Excel Export (Mar 15, 2026) - COMPLETED
 - [x] Added 7 new relationships: Son, Daughter, Grandmother, Grandfather, Grandson, Granddaughter, Relative
 - [x] Online mode forces notify mandatory (golden message, no checkbox)
