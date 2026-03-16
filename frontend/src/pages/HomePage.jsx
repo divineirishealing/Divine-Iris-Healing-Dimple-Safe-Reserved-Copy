@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef, useCallback } from 'react';
 import axios from 'axios';
 import Header from '../components/Header';
 import HeroSection from '../components/HeroSection';
@@ -46,6 +46,8 @@ const DEFAULT_ORDER = [
 
 function HomePage() {
   const [sections, setSections] = useState(DEFAULT_ORDER);
+  const wrapperRef = useRef(null);
+  const [bgGradient, setBgGradient] = useState('');
 
   useEffect(() => {
     axios.get(`${BACKEND_URL}/api/settings`).then(r => {
@@ -64,22 +66,50 @@ function HomePage() {
         setSections(merged);
       }
     }).catch(() => {});
-
-    document.querySelectorAll('a[href^="#"]').forEach(anchor => {
-      anchor.addEventListener('click', function (e) {
-        e.preventDefault();
-        const target = document.querySelector(this.getAttribute('href'));
-        if (target) target.scrollIntoView({ behavior: 'smooth', block: 'start' });
-      });
-    });
   }, []);
+
+  // Build one continuous gradient based on actual page height
+  const buildGradient = useCallback(() => {
+    if (!wrapperRef.current) return;
+    const totalH = wrapperRef.current.scrollHeight;
+    if (totalH < 100) return;
+
+    // Create smooth lavender ↔ white waves every ~600px
+    const waveSize = 600;
+    const stops = [];
+    const lavender = '#f3edff';
+    const white = '#ffffff';
+    let pos = 0;
+    let isWhite = false;
+
+    while (pos < totalH) {
+      const pct = ((pos / totalH) * 100).toFixed(1);
+      stops.push(`${isWhite ? white : lavender} ${pct}%`);
+      pos += waveSize / 2;
+      const midPct = ((pos / totalH) * 100).toFixed(1);
+      stops.push(`${isWhite ? lavender : white} ${midPct}%`);
+      pos += waveSize / 2;
+      isWhite = !isWhite;
+    }
+    stops.push(`${isWhite ? white : lavender} 100%`);
+
+    setBgGradient(`linear-gradient(180deg, ${stops.join(', ')})`);
+  }, []);
+
+  useEffect(() => {
+    const timer = setTimeout(buildGradient, 500);
+    window.addEventListener('resize', buildGradient);
+    return () => { clearTimeout(timer); window.removeEventListener('resize', buildGradient); };
+  }, [buildGradient, sections]);
 
   const visibleSections = sections.filter(s => s.visible !== false);
 
   return (
     <>
       <Header />
-      <div style={{ background: '#f3edff' }}>
+      <div ref={wrapperRef} style={{
+        background: bgGradient || 'linear-gradient(180deg, #f3edff 0%, #ffffff 8%, #ffffff 16%, #f3edff 24%, #f3edff 32%, #ffffff 40%, #ffffff 48%, #f3edff 56%, #f3edff 64%, #ffffff 72%, #ffffff 80%, #f3edff 88%, #f3edff 96%, #ffffff 100%)',
+      }}>
         {visibleSections.map((sec) => {
           const Component = COMPONENT_MAP[sec.component];
           if (!Component) return null;
