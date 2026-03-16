@@ -336,24 +336,6 @@ const AdminPanel = () => {
                     <div className="md:col-span-2"><Label>Description</Label><Textarea value={programForm.description} onChange={e => setProgramForm({...programForm, description: e.target.value})} rows={4} /></div>
                     <div className="md:col-span-2"><Label>Image</Label><ImageUploader value={programForm.image} onChange={url => setProgramForm({...programForm, image: url})} /></div>
 
-                    {/* Session Modes */}
-                    <div className="md:col-span-2">
-                      <Label className="mb-2 block">Session Modes</Label>
-                      <div className="flex flex-wrap gap-4">
-                        <label className="flex items-center gap-2 bg-blue-50 border border-blue-200 rounded-lg px-3 py-2 cursor-pointer" data-testid="toggle-mode-online">
-                          <input type="checkbox" checked={programForm.enable_online} onChange={e => setProgramForm({...programForm, enable_online: e.target.checked})} className="w-4 h-4 rounded text-blue-600" />
-                          <div><p className="text-xs font-medium text-blue-700">Online</p><p className="text-[9px] text-blue-500">Live session via Zoom</p></div>
-                        </label>
-                        <label className="flex items-center gap-2 bg-teal-50 border border-teal-200 rounded-lg px-3 py-2 cursor-pointer" data-testid="toggle-mode-offline">
-                          <input type="checkbox" checked={programForm.enable_offline} onChange={e => setProgramForm({...programForm, enable_offline: e.target.checked})} className="w-4 h-4 rounded text-teal-600" />
-                          <div><p className="text-xs font-medium text-teal-700">Offline</p><p className="text-[9px] text-teal-500">Remote, Not In-Person</p></div>
-                        </label>
-                        <label className="flex items-center gap-2 bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 cursor-pointer" data-testid="toggle-mode-in-person">
-                          <input type="checkbox" checked={programForm.enable_in_person} onChange={e => setProgramForm({...programForm, enable_in_person: e.target.checked})} className="w-4 h-4 rounded text-gray-600" />
-                          <div><p className="text-xs font-medium text-gray-700">In Person</p><p className="text-[9px] text-gray-400">Future use</p></div>
-                        </label>
-                      </div>
-                    </div>
                     <div><Label>Duration</Label><Input value={programForm.duration||''} onChange={e => setProgramForm({...programForm, duration: e.target.value})} placeholder="e.g., 90 days" /></div>
                     <div><Label>Session Timing</Label><Input value={programForm.timing||''} onChange={e => setProgramForm({...programForm, timing: e.target.value})} placeholder="e.g., 7:00 PM - 8:30 PM" /></div>
                     <div><Label>Timezone</Label><Input value={programForm.time_zone||''} onChange={e => setProgramForm({...programForm, time_zone: e.target.value})} placeholder="e.g., GST (Dubai) / IST" /></div>

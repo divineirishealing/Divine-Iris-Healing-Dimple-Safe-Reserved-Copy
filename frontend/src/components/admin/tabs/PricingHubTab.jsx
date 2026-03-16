@@ -4,7 +4,7 @@ import { useToast } from '../../../hooks/use-toast';
 import { Button } from '../../ui/button';
 import { Input } from '../../ui/input';
 import { Switch } from '../../ui/switch';
-import { Save, DollarSign, Tag, Plus, Trash2, ChevronDown, ChevronUp } from 'lucide-react';
+import { Save, DollarSign, Tag, Plus, Trash2, ChevronDown, ChevronUp, Monitor, Wifi, MapPin } from 'lucide-react';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
@@ -128,6 +128,9 @@ const PricingHubTab = () => {
               <tr className="bg-gray-100 border-b">
                 <th className="text-left px-2 py-2 font-semibold text-gray-700 min-w-[180px] sticky left-0 bg-gray-100 z-10">Name</th>
                 <th className="px-1 py-2 font-semibold text-gray-600 w-12">Show</th>
+                <th className="px-1 py-2 font-semibold text-blue-600 w-12" title="Enable Online mode"><Monitor size={12} className="mx-auto" /></th>
+                <th className="px-1 py-2 font-semibold text-teal-600 w-12" title="Enable Offline mode"><Wifi size={12} className="mx-auto" /></th>
+                <th className="px-1 py-2 font-semibold text-orange-600 w-12" title="Enable In-Person mode"><MapPin size={12} className="mx-auto" /></th>
                 <th className="px-1 py-2 font-semibold text-purple-600 w-12" title="Show pricing on homepage & program page">Pricing</th>
                 <th className="px-1 py-2 font-semibold text-purple-600 w-12" title="Show tier selector on homepage & program page">Tiers</th>
                 <th className="px-1 py-2 font-semibold text-blue-700 min-w-[70px]">AED</th>
@@ -159,6 +162,9 @@ const PricingHubTab = () => {
                         </div>
                       </td>
                       <td className="px-1 py-1 text-center"><Switch checked={p.visible !== false} onCheckedChange={v => updateProgram(i, 'visible', v)} /></td>
+                      <td className="px-1 py-1 text-center"><Switch checked={p.enable_online !== false} onCheckedChange={v => updateProgram(i, 'enable_online', v)} /></td>
+                      <td className="px-1 py-1 text-center"><Switch checked={p.enable_offline !== false} onCheckedChange={v => updateProgram(i, 'enable_offline', v)} /></td>
+                      <td className="px-1 py-1 text-center"><Switch checked={p.enable_in_person === true} onCheckedChange={v => updateProgram(i, 'enable_in_person', v)} /></td>
                       <td className="px-1 py-1 text-center"><Switch checked={p.show_pricing_on_card !== false} onCheckedChange={v => updateProgram(i, 'show_pricing_on_card', v)} /></td>
                       <td className="px-1 py-1 text-center"><Switch checked={p.show_tiers_on_card !== false} onCheckedChange={v => updateProgram(i, 'show_tiers_on_card', v)} /></td>
                       {!hasTiers ? (
@@ -190,7 +196,7 @@ const PricingHubTab = () => {
                             </select>
                           </div>
                         </td>
-                        <td colSpan={3}></td>
+                        <td colSpan={6}></td>
                         <td className="px-1 py-1"><Cell value={t.price_aed} onChange={v => updateTier(i, ti, 'price_aed', v)} /></td>
                         <td className="px-1 py-1"><Cell value={t.price_inr} onChange={v => updateTier(i, ti, 'price_inr', v)} /></td>
                         <td className="px-1 py-1"><Cell value={t.price_usd} onChange={v => updateTier(i, ti, 'price_usd', v)} /></td>
@@ -264,6 +270,7 @@ const PricingHubTab = () => {
               <tr className="bg-gray-100 border-b">
                 <th className="text-left px-2 py-2 font-semibold text-gray-700 min-w-[180px] sticky left-0 bg-gray-100 z-10">Session</th>
                 <th className="px-1 py-2 font-semibold text-gray-600 w-12">Show</th>
+                <th className="px-1 py-2 font-semibold text-purple-600 w-12" title="Show pricing on session card & page">Pricing</th>
                 <th className="px-1 py-2 font-semibold text-blue-700 min-w-[70px]">AED</th>
                 <th className="px-1 py-2 font-semibold text-green-700 min-w-[70px]">INR</th>
                 <th className="px-1 py-2 font-semibold text-purple-700 min-w-[70px]">USD</th>
@@ -282,6 +289,7 @@ const PricingHubTab = () => {
                     <div className="truncate max-w-[180px]" title={s.title}>{s.title}</div>
                   </td>
                   <td className="px-1 py-1 text-center"><Switch checked={s.visible !== false} onCheckedChange={v => updateSession(i, 'visible', v)} /></td>
+                  <td className="px-1 py-1 text-center"><Switch checked={s.show_pricing !== false} onCheckedChange={v => updateSession(i, 'show_pricing', v)} /></td>
                   <td className="px-1 py-1"><Cell value={s.price_aed} onChange={v => updateSession(i, 'price_aed', v)} /></td>
                   <td className="px-1 py-1"><Cell value={s.price_inr} onChange={v => updateSession(i, 'price_inr', v)} /></td>
                   <td className="px-1 py-1"><Cell value={s.price_usd} onChange={v => updateSession(i, 'price_usd', v)} /></td>

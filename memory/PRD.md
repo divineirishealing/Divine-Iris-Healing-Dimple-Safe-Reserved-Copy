@@ -53,6 +53,12 @@ All pages with dark hero sections use:
 - [x] Admin-configurable fraud alert email (default: support@divineirishealing.com) stored in site_settings
 - [x] Auto email notification to admin on Critical/High severity fraud alerts with full signal details
 
+### Pricing Hub — Attendance Mode Toggles & Session Pricing Toggle (Mar 2026) - COMPLETED
+- [x] Moved Online/Offline/In-Person toggles from program editor to Pricing Hub (single source of truth)
+- [x] Removed Session Modes section from program editor form
+- [x] Added per-session "Show Pricing" toggle in Personal Sessions table
+- [x] Column headers use icons (Monitor, Wifi, MapPin) for compact display
+
 ### Enrollment Form Enhancements + Excel Export (Mar 15, 2026) - COMPLETED
 - [x] Added 7 new relationships: Son, Daughter, Grandmother, Grandfather, Grandson, Granddaughter, Relative
 - [x] Online mode forces notify mandatory (golden message, no checkbox)
