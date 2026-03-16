@@ -56,40 +56,12 @@ const SponsorSection = ({ sectionConfig, inline }) => {
   return (
     <section id="sponsor" data-testid="sponsor-section" className="py-12">
       <div className={CONTAINER}>
-        <div className="max-w-6xl mx-auto flex flex-col md:flex-row gap-8 items-start">
-          {/* Left: Section title + description */}
-          <div className="md:w-1/2 pt-4" style={h.align ? { textAlign: h.align } : {}}>
-            <h2 className="mb-4 leading-tight" style={applyStyle(sectionConfig?.title_style || h.title_style, { ...HEADING, fontSize: 'clamp(1.5rem, 3vw, 2rem)' })}>
-              {sectionConfig?.title || h.title || 'Shine a Light in a Life'}
-            </h2>
-            <p className="mb-4 leading-relaxed" style={applyStyle(sectionConfig?.subtitle_style || h.subtitle_style, BODY)}>
-              {sectionConfig?.subtitle || h.subtitle || 'Healing flows when we support each other.'}
-            </p>
-            <div className="mb-4 leading-relaxed text-sm space-y-1" style={applyStyle(h.body_style, BODY)}>
-              <p dangerouslySetInnerHTML={{ __html: renderMarkdown(h.body_1 || 'Be the Sponsor allows anyone to contribute towards someone else\'s healing — anonymously or intentionally.') }} />
-              <p dangerouslySetInnerHTML={{ __html: renderMarkdown(h.body_2 || 'It is not charity, it is *conscious support.*') }} />
-              <p dangerouslySetInnerHTML={{ __html: renderMarkdown(h.body_3 || 'When one heals, the collective heals.') }} />
-            </div>
-            <p className="font-medium mb-4 text-sm" style={applyStyle(h.quote_style, { color: '#333', fontStyle: 'italic' })}>
-              {h.quote || 'Because healing should never wait for circumstances'}
-            </p>
-          </div>
-          {/* Right: Sponsor Card */}
-          <div className="md:w-1/2 flex justify-center md:justify-end">
-            <div className="bg-white rounded-xl overflow-hidden shadow-lg border border-gray-100 max-w-sm w-full transition-all duration-300 hover:shadow-2xl" data-testid="sponsor-card">
-              <div className="relative">
-                <img src={imgUrl || 'https://images.unsplash.com/photo-1469571486292-0ba58a3f068b?w=600&h=400&fit=crop'} alt="Be The Sponsor" className="w-full h-48 object-cover"
-                  onError={(e) => { e.target.src = 'https://images.unsplash.com/photo-1469571486292-0ba58a3f068b?w=600&h=400&fit=crop'; }} />
-              </div>
-              <div className="p-5 text-center">
-                <h3 className="text-lg font-semibold mb-2" style={{ fontFamily: "'Cinzel', serif", color: '#1a1a1a' }}>Become a Sponsor</h3>
-                <p className="text-xs text-gray-500 mb-4 leading-relaxed">Contribute towards someone's healing journey — with love and intention.</p>
-                <a href="/sponsor" data-testid="become-sponsor-btn"
-                  className="inline-block text-white px-8 py-2.5 rounded-full text-sm transition-all duration-300 shadow-lg hover:shadow-xl tracking-wider"
-                  style={{ background: GOLD }}>
-                  {h.button_text || 'Become a Sponsor'}
-                </a>
-              </div>
+        <div className="grid md:grid-cols-2 gap-12 items-center max-w-7xl mx-auto">
+          {content}
+          <div className="order-first md:order-last flex justify-center">
+            <div className="rounded-lg overflow-hidden shadow-xl max-w-md w-full">
+              <img src={imgUrl || 'https://images.unsplash.com/photo-1469571486292-0ba58a3f068b?w=600&h=400&fit=crop'} alt="Be The Sponsor" className="w-full h-auto object-cover"
+                onError={(e) => { e.target.src = 'https://images.unsplash.com/photo-1469571486292-0ba58a3f068b?w=600&h=400&fit=crop'; }} />
             </div>
           </div>
         </div>

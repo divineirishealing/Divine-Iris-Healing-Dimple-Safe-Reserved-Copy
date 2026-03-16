@@ -5,7 +5,7 @@ import { resolveImageUrl } from '../lib/imageUtils';
 import { useCurrency } from '../context/CurrencyContext';
 import { useCart } from '../context/CartContext';
 import { useToast } from '../hooks/use-toast';
-import { Monitor, Calendar, Clock, AlertTriangle, Wifi, ShoppingCart, Check, Bell } from 'lucide-react';
+import { Monitor, Calendar, Clock, AlertTriangle, Wifi, ShoppingCart, Check, Bell, Heart } from 'lucide-react';
 
 // Map common timezone abbreviations to UTC offset in hours
 const TZ_OFFSETS = {
@@ -394,13 +394,43 @@ const UpcomingCard = ({ program }) => {
   );
 };
 
+const SponsorCard = ({ sponsorData }) => {
+  const navigate = useNavigate();
+  const imgUrl = sponsorData?.image ? resolveImageUrl(sponsorData.image) : '';
+  return (
+    <div data-testid="sponsor-card-upcoming"
+      className="group bg-white rounded-xl overflow-hidden shadow-lg transition-all duration-300 border border-gray-100 flex flex-col hover:shadow-2xl">
+      <div className="relative h-48 overflow-hidden cursor-pointer" onClick={() => navigate('/sponsor')}>
+        <img src={imgUrl || 'https://images.unsplash.com/photo-1469571486292-0ba58a3f068b?w=600&h=400&fit=crop'} alt="Become a Sponsor" className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+          onError={(e) => { e.target.src = 'https://images.unsplash.com/photo-1469571486292-0ba58a3f068b?w=600&h=400&fit=crop'; }} />
+        <div className="absolute top-3 left-3">
+          <span className="px-2.5 py-1 rounded-full text-[10px] font-semibold shadow-sm bg-[#D4AF37] text-white w-fit flex items-center gap-1"><Heart size={10} /> Sponsor</span>
+        </div>
+      </div>
+      <div className="p-4 flex-1 flex flex-col">
+        <p className="text-[#D4AF37] text-[10px] tracking-wider mb-0.5 uppercase">Conscious Support</p>
+        <h3 className="font-semibold text-sm text-gray-900 mb-1.5 cursor-pointer hover:text-[#D4AF37] transition-colors" onClick={() => navigate('/sponsor')}>Become a Sponsor</h3>
+        <p className="text-xs text-gray-500 leading-relaxed mb-3 flex-1">Contribute towards someone's healing journey — anonymously or intentionally. When one heals, the collective heals.</p>
+        <div className="mt-auto pt-2">
+          <button onClick={() => navigate('/sponsor')} data-testid="sponsor-card-cta"
+            className="w-full bg-[#D4AF37] hover:bg-[#b8962e] text-white py-2.5 rounded-full text-[10px] tracking-wider transition-all duration-300 uppercase font-medium">
+            Sponsor a Life
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 const UpcomingProgramsSection = ({ sectionConfig, inline }) => {
   const [programs, setPrograms] = useState([]);
+  const [sponsorData, setSponsorData] = useState(null);
 
   useEffect(() => {
     axios.get(`${API}/programs?visible_only=true&upcoming_only=true`)
       .then(r => setPrograms(r.data))
       .catch(err => console.error('Error loading upcoming programs:', err));
+    axios.get(`${API}/settings`).then(r => setSponsorData(r.data?.sponsor_home)).catch(() => {});
   }, []);
 
   if (programs.length === 0) return null;
@@ -415,6 +445,7 @@ const UpcomingProgramsSection = ({ sectionConfig, inline }) => {
       </div>
       <div className={inline ? "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4" : "max-w-6xl mx-auto grid sm:grid-cols-2 lg:grid-cols-3 gap-8"}>
         {programs.map(program => <UpcomingCard key={program.id} program={program} />)}
+        {!inline && <SponsorCard sponsorData={sponsorData} />}
       </div>
     </>
   );
