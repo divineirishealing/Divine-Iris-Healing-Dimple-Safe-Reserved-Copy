@@ -74,7 +74,7 @@ const getDefaultSections = (program) => [
 function ProgramDetailPage() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { getPrice, getOfferPrice, symbol } = useCurrency();
+  const { getPrice, getOfferPrice, symbol, country: detectedCountry } = useCurrency();
   const [program, setProgram] = useState(null);
   const [loading, setLoading] = useState(true);
   const [settings, setSettings] = useState(null);
@@ -328,29 +328,41 @@ function ProgramDetailPage() {
                 {program.show_timing_on_page && program.timing && <span className="flex items-center gap-1.5"><span className="w-1.5 h-1.5 rounded-full" style={{ background: heroAccent }} /> {program.timing}{program.time_zone ? ` ${program.time_zone}` : ''}</span>}
                 {program.show_timing_on_page && program.timing && program.time_zone && (() => {
                   try {
-                    const tzShort = new Date().toLocaleTimeString('en-US', { timeZoneName: 'short' }).split(' ').pop();
+                    const COUNTRY_TZ_MAP = {
+                      'IN': { offset: 5.5, abbr: 'IST' }, 'AE': { offset: 4, abbr: 'GST' },
+                      'US': { offset: -5, abbr: 'EST' }, 'GB': { offset: 0, abbr: 'GMT' },
+                      'CA': { offset: -5, abbr: 'EST' }, 'AU': { offset: 10, abbr: 'AEST' },
+                      'SG': { offset: 8, abbr: 'SGT' }, 'DE': { offset: 1, abbr: 'CET' },
+                      'SA': { offset: 3, abbr: 'AST' }, 'QA': { offset: 3, abbr: 'AST' },
+                      'PK': { offset: 5, abbr: 'PKT' }, 'JP': { offset: 9, abbr: 'JST' },
+                      'NZ': { offset: 12, abbr: 'NZST' }, 'MY': { offset: 8, abbr: 'MYT' },
+                    };
+                    const countryTz = detectedCountry ? COUNTRY_TZ_MAP[detectedCountry] : null;
+                    const viewerOffset = countryTz ? countryTz.offset : -(new Date().getTimezoneOffset()) / 60;
+                    const viewerTzAbbr = countryTz ? countryTz.abbr : new Date().toLocaleTimeString('en-US', { timeZoneName: 'short' }).split(' ').pop();
                     const programTz = program.time_zone;
-                    if (!programTz.toLowerCase().includes(tzShort.toLowerCase()) && 
-                        !tzShort.toLowerCase().includes(programTz.split(' ')[0]?.toLowerCase())) {
-                      const timeMatch = program.timing.match(/(\d{1,2}):(\d{2})\s*(AM|PM)/i);
+                    const tzOffsets = { 'GST': 4, 'Dubai': 4, 'UAE': 4, 'IST': 5.5, 'India': 5.5, 'EST': -5, 'EDT': -4, 'CST': -6, 'CDT': -5, 'PST': -8, 'PDT': -7, 'GMT': 0, 'UTC': 0, 'BST': 1, 'CET': 1, 'AEST': 10, 'JST': 9, 'SGT': 8, 'AST': 3, 'Arabia': 3, 'PKT': 5 };
+                    let programOffset = null;
+                    for (const [key, val] of Object.entries(tzOffsets)) {
+                      if (programTz.toUpperCase().includes(key.toUpperCase())) { programOffset = val; break; }
+                    }
+                    if (programOffset !== null && Math.abs(viewerOffset - programOffset) >= 0.1) {
+                      const timeMatch = program.timing.match(/(\d{1,2})(?::(\d{2}))?\s*(AM|PM)/i);
                       if (timeMatch) {
                         let hours = parseInt(timeMatch[1]);
-                        const minutes = parseInt(timeMatch[2]);
+                        const minutes = parseInt(timeMatch[2] || '0');
                         const ampm = timeMatch[3].toUpperCase();
                         if (ampm === 'PM' && hours !== 12) hours += 12;
                         if (ampm === 'AM' && hours === 12) hours = 0;
-                        const tzOffsets = { 'GST': 4, 'Dubai': 4, 'UAE': 4, 'IST': 5.5, 'India': 5.5, 'EST': -5, 'EDT': -4, 'CST': -6, 'CDT': -5, 'PST': -8, 'PDT': -7, 'GMT': 0, 'UTC': 0, 'BST': 1, 'CET': 1, 'AEST': 10, 'JST': 9, 'SGT': 8, 'AST': 3, 'Arabia': 3, 'PKT': 5 };
-                        let programOffset = null;
-                        for (const [key, val] of Object.entries(tzOffsets)) {
-                          if (programTz.toUpperCase().includes(key.toUpperCase())) { programOffset = val; break; }
-                        }
-                        if (programOffset !== null) {
-                          const now = new Date();
-                          const utcMinutes = (hours * 60 + minutes) - (programOffset * 60);
-                          const localDate = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, utcMinutes + now.getTimezoneOffset() * -1);
-                          const localTimeStr = localDate.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
-                          return <span className="flex items-center gap-1.5 text-blue-500"><span className="w-1.5 h-1.5 rounded-full bg-blue-400" /> {localTimeStr} Your Time ({tzShort})</span>;
-                        }
+                        const utcMinutes = (hours * 60 + minutes) - (programOffset * 60);
+                        let localMinutes = utcMinutes + (viewerOffset * 60);
+                        localMinutes = ((localMinutes % 1440) + 1440) % 1440;
+                        const localH = Math.floor(localMinutes / 60);
+                        const localM = localMinutes % 60;
+                        const period = localH >= 12 ? 'PM' : 'AM';
+                        const displayH = localH % 12 || 12;
+                        const localTimeStr = localM > 0 ? `${displayH}:${String(localM).padStart(2, '0')} ${period}` : `${displayH} ${period}`;
+                        return <span className="flex items-center gap-1.5 text-blue-500"><span className="w-1.5 h-1.5 rounded-full bg-blue-400" /> {localTimeStr} Your Time ({viewerTzAbbr})</span>;
                       }
                     }
                     return null;

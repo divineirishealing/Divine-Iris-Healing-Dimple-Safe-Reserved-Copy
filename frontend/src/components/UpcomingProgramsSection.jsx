@@ -23,6 +23,26 @@ const TZ_OFFSETS = {
   'NZST': 12, 'NZDT': 13,
 };
 
+// Map country codes to their primary timezone and abbreviation
+const COUNTRY_TZ = {
+  'IN': { offset: 5.5, abbr: 'IST' }, 'AE': { offset: 4, abbr: 'GST' },
+  'US': { offset: -5, abbr: 'EST' }, 'GB': { offset: 0, abbr: 'GMT' },
+  'CA': { offset: -5, abbr: 'EST' }, 'AU': { offset: 10, abbr: 'AEST' },
+  'SG': { offset: 8, abbr: 'SGT' }, 'DE': { offset: 1, abbr: 'CET' },
+  'SA': { offset: 3, abbr: 'AST' }, 'QA': { offset: 3, abbr: 'AST' },
+  'PK': { offset: 5, abbr: 'PKT' }, 'BD': { offset: 6, abbr: 'BST' },
+  'MY': { offset: 8, abbr: 'MYT' }, 'JP': { offset: 9, abbr: 'JST' },
+  'FR': { offset: 1, abbr: 'CET' }, 'LK': { offset: 5.5, abbr: 'IST' },
+  'ZA': { offset: 2, abbr: 'SAST' }, 'NP': { offset: 5.75, abbr: 'NPT' },
+  'KW': { offset: 3, abbr: 'AST' }, 'OM': { offset: 4, abbr: 'GST' },
+  'BH': { offset: 3, abbr: 'AST' }, 'PH': { offset: 8, abbr: 'PHT' },
+  'ID': { offset: 7, abbr: 'WIB' }, 'TH': { offset: 7, abbr: 'ICT' },
+  'KE': { offset: 3, abbr: 'EAT' }, 'NG': { offset: 1, abbr: 'WAT' },
+  'EG': { offset: 2, abbr: 'EET' }, 'TR': { offset: 3, abbr: 'TRT' },
+  'IT': { offset: 1, abbr: 'CET' }, 'ES': { offset: 1, abbr: 'CET' },
+  'NL': { offset: 1, abbr: 'CET' }, 'NZ': { offset: 12, abbr: 'NZST' },
+};
+
 // Parse a time string like "9PM", "9:30 PM", "21:00" into { hours, minutes }
 const parseTimeStr = (str) => {
   if (!str) return null;
@@ -38,7 +58,8 @@ const parseTimeStr = (str) => {
 };
 
 // Convert timing from source timezone to viewer's local time
-const convertTimingToLocal = (timing, timeZone) => {
+// detectedCountry: country code from IP geolocation (e.g. 'AU' for Australia)
+const convertTimingToLocal = (timing, timeZone, detectedCountry) => {
   if (!timing || !timeZone) return { local: '', localTz: '', srcTz: timeZone || '' };
 
   const tzKey = Object.keys(TZ_OFFSETS).find(k => timeZone.toUpperCase().includes(k.toUpperCase()));
@@ -59,8 +80,16 @@ const convertTimingToLocal = (timing, timeZone) => {
     return { hours: Math.floor(totalMin / 60), minutes: totalMin % 60 };
   };
 
-  const localOffset = -(new Date().getTimezoneOffset()) / 60;
-  const localTzAbbr = new Date().toLocaleTimeString('en-US', { timeZoneName: 'short' }).split(' ').pop();
+  // Use detected country timezone if available, otherwise fall back to browser timezone
+  let localOffset, localTzAbbr;
+  const countryTz = detectedCountry ? COUNTRY_TZ[detectedCountry] : null;
+  if (countryTz) {
+    localOffset = countryTz.offset;
+    localTzAbbr = countryTz.abbr;
+  } else {
+    localOffset = -(new Date().getTimezoneOffset()) / 60;
+    localTzAbbr = new Date().toLocaleTimeString('en-US', { timeZoneName: 'short' }).split(' ').pop();
+  }
 
   // Check if viewer is in the same timezone as source
   const isSameTz = Math.abs(localOffset - srcOffset) < 0.1;
@@ -124,7 +153,7 @@ const CountdownTimer = ({ deadline }) => {
 
 const UpcomingCard = ({ program }) => {
   const navigate = useNavigate();
-  const { getPrice, getOfferPrice, symbol } = useCurrency();
+  const { getPrice, getOfferPrice, symbol, country: detectedCountry } = useCurrency();
   const { addItem, items } = useCart();
   const { toast } = useToast();
   const [selectedTier, setSelectedTier] = useState(0);
@@ -183,7 +212,7 @@ const UpcomingCard = ({ program }) => {
   };
 
   // Convert timing to viewer's local time
-  const timingConverted = convertTimingToLocal(program.timing, program.time_zone);
+  const timingConverted = convertTimingToLocal(program.timing, program.time_zone, detectedCountry);
 
   // Use tier-specific dates if available, otherwise fall back to program dates
   const activeTier = hasTiers ? tiers[selectedTier] : null;
