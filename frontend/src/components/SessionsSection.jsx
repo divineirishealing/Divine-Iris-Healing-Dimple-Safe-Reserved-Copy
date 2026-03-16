@@ -196,7 +196,7 @@ const SessionsSection = ({ sectionConfig }) => {
             {sectionConfig?.title || 'Book Personal Session'}
           </h2>
           {sectionConfig?.subtitle && (
-            <p className="text-xs mt-3 max-w-lg mx-auto" style={applySectionStyle(sectionConfig?.subtitle_style, { color: '#8b7ca8' })}>{sectionConfig.subtitle}</p>
+            <p className="text-sm mt-3 max-w-lg mx-auto" style={applySectionStyle(sectionConfig?.subtitle_style, { color: '#1a1a1a' })}>{sectionConfig.subtitle}</p>
           )}
           <div className="h-[2px] w-12 mx-auto mt-4" style={{ background: 'linear-gradient(90deg, transparent, #D4AF37, transparent)' }} />
         </div>

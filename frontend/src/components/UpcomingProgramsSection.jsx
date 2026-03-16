@@ -459,14 +459,14 @@ const UpcomingProgramsSection = ({ sectionConfig, inline }) => {
         <div className={inline ? "" : "lg:col-span-2 text-center"}>
           <h2 className={inline ? "text-xl md:text-2xl text-gray-900" : "text-3xl md:text-4xl text-gray-900"} style={applyTitleStyle(sectionConfig?.title_style, {})}>{sectionConfig?.title || 'Upcoming Programs'}</h2>
           {!inline && (sectionConfig?.subtitle || (!programs.some(p => p.enable_in_person) && !sectionConfig)) && (
-            <p className="text-sm text-gray-500 mt-3" style={sectionConfig?.subtitle_style ? { ...(sectionConfig.subtitle_style.font_color && { color: sectionConfig.subtitle_style.font_color }), ...(sectionConfig.subtitle_style.font_size && { fontSize: sectionConfig.subtitle_style.font_size }), ...(sectionConfig.subtitle_style.font_family && { fontFamily: sectionConfig.subtitle_style.font_family }), ...(sectionConfig.subtitle_style.font_weight && { fontWeight: sectionConfig.subtitle_style.font_weight }) } : {}}>{sectionConfig?.subtitle}</p>
+            <p className="text-sm text-gray-900 mt-3" style={sectionConfig?.subtitle_style ? { ...(sectionConfig.subtitle_style.font_color && { color: sectionConfig.subtitle_style.font_color }), ...(sectionConfig.subtitle_style.font_size && { fontSize: sectionConfig.subtitle_style.font_size }), ...(sectionConfig.subtitle_style.font_family && { fontFamily: sectionConfig.subtitle_style.font_family }), ...(sectionConfig.subtitle_style.font_weight && { fontWeight: sectionConfig.subtitle_style.font_weight }) } : {}}>{sectionConfig?.subtitle}</p>
           )}
         </div>
         {!inline && (
           <div data-testid="sponsor-title-column" className="text-center">
             <h2 className="text-3xl md:text-4xl text-gray-900" style={applyTitleStyle(sponsorConfig?.title_style, {})}>{sponsorConfig?.title || 'Become a Sponsor'}</h2>
             {sponsorConfig?.subtitle && (
-              <p className="text-sm text-gray-500 mt-3" style={applyTitleStyle(sponsorConfig?.subtitle_style, {})}>{sponsorConfig.subtitle}</p>
+              <p className="text-sm text-gray-900 mt-3" style={applyTitleStyle(sponsorConfig?.subtitle_style, {})}>{sponsorConfig.subtitle}</p>
             )}
           </div>
         )}

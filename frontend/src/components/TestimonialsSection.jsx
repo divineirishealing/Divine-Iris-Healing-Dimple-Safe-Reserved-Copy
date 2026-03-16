@@ -58,7 +58,7 @@ const TestimonialsSection = ({ sectionConfig, inline }) => {
         {sectionConfig?.title || 'Testimonials'}
       </h2>
       {sectionConfig?.subtitle && (
-        <p className="text-sm text-gray-500 text-center mb-6" style={sectionConfig?.subtitle_style ? { ...(sectionConfig.subtitle_style.font_color && { color: sectionConfig.subtitle_style.font_color }), ...(sectionConfig.subtitle_style.font_size && { fontSize: sectionConfig.subtitle_style.font_size }), ...(sectionConfig.subtitle_style.font_family && { fontFamily: sectionConfig.subtitle_style.font_family }), ...(sectionConfig.subtitle_style.font_weight && { fontWeight: sectionConfig.subtitle_style.font_weight }) } : {}}>{sectionConfig.subtitle}</p>
+        <p className="text-sm text-gray-900 text-center mb-6" style={sectionConfig?.subtitle_style ? { ...(sectionConfig.subtitle_style.font_color && { color: sectionConfig.subtitle_style.font_color }), ...(sectionConfig.subtitle_style.font_size && { fontSize: sectionConfig.subtitle_style.font_size }), ...(sectionConfig.subtitle_style.font_family && { fontFamily: sectionConfig.subtitle_style.font_family }), ...(sectionConfig.subtitle_style.font_weight && { fontWeight: sectionConfig.subtitle_style.font_weight }) } : {}}>{sectionConfig.subtitle}</p>
       )}
 
       {/* Tab Switcher */}
