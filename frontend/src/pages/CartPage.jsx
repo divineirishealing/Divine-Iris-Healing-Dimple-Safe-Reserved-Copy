@@ -333,6 +333,7 @@ function CartPage() {
   const { toast } = useToast();
   const [discountSettings, setDiscountSettings] = useState({ enable_referral: true });
   const [paymentDisclaimer, setPaymentDisclaimer] = useState('');
+  const [disclaimerStyle, setDisclaimerStyle] = useState({});
 
   // Auto-fill detected country into participants on first load
   useEffect(() => {
@@ -353,6 +354,7 @@ function CartPage() {
     axios.get(`${API}/settings`).then(r => {
       if (r.data.payment_disclaimer_enabled !== false && r.data.payment_disclaimer) {
         setPaymentDisclaimer(r.data.payment_disclaimer);
+        if (r.data.payment_disclaimer_style) setDisclaimerStyle(r.data.payment_disclaimer_style);
       }
     }).catch(() => {});
   }, []);
@@ -480,8 +482,9 @@ function CartPage() {
             <p className="text-[10px] text-gray-400 text-right mb-4">Promo codes & loyalty discounts applied at checkout</p>
 
             {paymentDisclaimer && (
-              <div className="bg-amber-50 border-l-4 border-amber-400 rounded-r-lg p-3 mb-4" data-testid="cart-payment-disclaimer-page">
-                <p className="text-xs text-amber-800 font-medium leading-relaxed">{paymentDisclaimer}</p>
+              <div className="rounded-xl p-4 mb-4 border-2 shadow-sm" data-testid="cart-payment-disclaimer-page"
+                style={{ backgroundColor: disclaimerStyle.bg_color || '#fef2f2', borderColor: disclaimerStyle.border_color || '#f87171' }}>
+                <p style={{ fontSize: disclaimerStyle.font_size || '14px', fontWeight: disclaimerStyle.font_weight || '600', color: disclaimerStyle.font_color || '#991b1b', lineHeight: '1.5' }}>{paymentDisclaimer}</p>
               </div>
             )}
             <Button data-testid="proceed-checkout-btn" onClick={validateAndProceed}

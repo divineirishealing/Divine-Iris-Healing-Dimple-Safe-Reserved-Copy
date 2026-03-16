@@ -65,7 +65,7 @@ function CartCheckoutPage() {
   const [enrollmentId, setEnrollmentId] = useState(null);
   const [vpnDetected, setVpnDetected] = useState(false);
   const [processing, setProcessing] = useState(false);
-  const [paymentSettings, setPaymentSettings] = useState({ disclaimer: '', disclaimer_enabled: true, india_links: [], india_exly_link: '', india_bank_details: {}, india_enabled: false, manual_form_enabled: true });
+  const [paymentSettings, setPaymentSettings] = useState({ disclaimer: '', disclaimer_enabled: true, disclaimer_style: {}, india_links: [], india_exly_link: '', india_bank_details: {}, india_enabled: false, manual_form_enabled: true });
 
   // Currency is LOCKED to IP-detected country — never changes based on participant/billing input
   const AED_COUNTRIES = new Set(['AE', 'SA', 'QA', 'KW', 'OM', 'BH']);
@@ -104,6 +104,7 @@ function CartCheckoutPage() {
       setPaymentSettings({
         disclaimer: s.payment_disclaimer || '',
         disclaimer_enabled: s.payment_disclaimer_enabled !== false,
+        disclaimer_style: s.payment_disclaimer_style || {},
         india_links: (s.india_payment_links || []).filter(l => l.enabled),
         india_alt_discount: s.india_alt_discount_percent || 9,
         india_exly_link: s.india_exly_link || '',
@@ -444,8 +445,9 @@ function CartCheckoutPage() {
                     </div>
 
                     {paymentSettings.disclaimer_enabled && paymentSettings.disclaimer && (
-                      <div className="bg-amber-50/60 border border-amber-100 rounded-lg p-3 mt-3" data-testid="cart-payment-disclaimer">
-                        <p className="text-[10px] text-amber-800 italic leading-relaxed">{paymentSettings.disclaimer}</p>
+                      <div className="rounded-xl p-4 mt-3 border-2 shadow-sm" data-testid="cart-payment-disclaimer"
+                        style={{ backgroundColor: paymentSettings.disclaimer_style?.bg_color || '#fef2f2', borderColor: paymentSettings.disclaimer_style?.border_color || '#f87171' }}>
+                        <p style={{ fontSize: paymentSettings.disclaimer_style?.font_size || '14px', fontWeight: paymentSettings.disclaimer_style?.font_weight || '600', color: paymentSettings.disclaimer_style?.font_color || '#991b1b', lineHeight: '1.5' }}>{paymentSettings.disclaimer}</p>
                       </div>
                     )}
 
@@ -613,8 +615,9 @@ function CartCheckoutPage() {
                     {total > 0 && (
                       <>
                         {paymentSettings.disclaimer_enabled && paymentSettings.disclaimer && (
-                          <div className="mt-3 bg-amber-50/60 border border-amber-100 rounded-lg p-3" data-testid="cart-payment-disclaimer-pay">
-                            <p className="text-[10px] text-amber-800 italic leading-relaxed">{paymentSettings.disclaimer}</p>
+                          <div className="mt-3 rounded-xl p-4 border-2 shadow-sm" data-testid="cart-payment-disclaimer-pay"
+                            style={{ backgroundColor: paymentSettings.disclaimer_style?.bg_color || '#fef2f2', borderColor: paymentSettings.disclaimer_style?.border_color || '#f87171' }}>
+                            <p style={{ fontSize: paymentSettings.disclaimer_style?.font_size || '14px', fontWeight: paymentSettings.disclaimer_style?.font_weight || '600', color: paymentSettings.disclaimer_style?.font_color || '#991b1b', lineHeight: '1.5' }}>{paymentSettings.disclaimer}</p>
                           </div>
                         )}
                         <p className="text-[10px] text-gray-400 mt-3 text-center flex items-center justify-center gap-1"><Lock size={10} /> Secure payment via Stripe</p>

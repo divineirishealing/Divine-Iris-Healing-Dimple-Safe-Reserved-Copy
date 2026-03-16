@@ -11,6 +11,7 @@ const PaymentSettingsTab = () => {
   const { toast } = useToast();
   const [disclaimer, setDisclaimer] = useState('');
   const [disclaimerEnabled, setDisclaimerEnabled] = useState(true);
+  const [disclaimerStyle, setDisclaimerStyle] = useState({ font_size: '14px', font_weight: '600', font_color: '#991b1b', bg_color: '#fef2f2', border_color: '#f87171' });
   const [indiaEnabled, setIndiaEnabled] = useState(false);
   const [manualFormEnabled, setManualFormEnabled] = useState(true);
   const [exlyLink, setExlyLink] = useState('');
@@ -27,6 +28,7 @@ const PaymentSettingsTab = () => {
     axios.get(`${API}/settings`).then(r => {
       setDisclaimer(r.data.payment_disclaimer || '');
       setDisclaimerEnabled(r.data.payment_disclaimer_enabled !== false);
+      if (r.data.payment_disclaimer_style) setDisclaimerStyle(prev => ({ ...prev, ...r.data.payment_disclaimer_style }));
       setIndiaEnabled(r.data.india_payment_enabled || false);
       setManualFormEnabled(r.data.manual_form_enabled !== false);
       setExlyLink(r.data.india_exly_link || '');
@@ -48,6 +50,7 @@ const PaymentSettingsTab = () => {
       await axios.put(`${API}/settings`, {
         payment_disclaimer: disclaimer,
         payment_disclaimer_enabled: disclaimerEnabled,
+        payment_disclaimer_style: disclaimerStyle,
         india_payment_enabled: indiaEnabled,
         manual_form_enabled: manualFormEnabled,
         india_exly_link: exlyLink,
@@ -92,9 +95,51 @@ const PaymentSettingsTab = () => {
             value={disclaimer}
             onChange={e => setDisclaimer(e.target.value)}
             rows={3}
-            className="w-full border rounded-lg px-3 py-2 text-xs text-gray-700 resize-none focus:ring-1 focus:ring-[#D4AF37] focus:border-[#D4AF37]"
+            className="w-full border rounded-lg px-3 py-2 text-xs text-gray-700 resize-none focus:ring-1 focus:ring-[#D4AF37] focus:border-[#D4AF37] mb-3"
             placeholder="We love aligning our work with the natural solar cycle..."
           />
+          <div className="grid grid-cols-5 gap-2 mb-3">
+            <div>
+              <label className="text-[9px] text-gray-500 block mb-0.5">Font Size</label>
+              <select value={disclaimerStyle.font_size} onChange={e => setDisclaimerStyle(s => ({ ...s, font_size: e.target.value }))}
+                className="w-full border rounded px-2 py-1.5 text-xs bg-white">
+                <option value="11px">Small</option>
+                <option value="13px">Medium</option>
+                <option value="14px">Large</option>
+                <option value="16px">X-Large</option>
+              </select>
+            </div>
+            <div>
+              <label className="text-[9px] text-gray-500 block mb-0.5">Weight</label>
+              <select value={disclaimerStyle.font_weight} onChange={e => setDisclaimerStyle(s => ({ ...s, font_weight: e.target.value }))}
+                className="w-full border rounded px-2 py-1.5 text-xs bg-white">
+                <option value="400">Normal</option>
+                <option value="500">Medium</option>
+                <option value="600">Semi-Bold</option>
+                <option value="700">Bold</option>
+              </select>
+            </div>
+            <div>
+              <label className="text-[9px] text-gray-500 block mb-0.5">Text Color</label>
+              <input type="color" value={disclaimerStyle.font_color} onChange={e => setDisclaimerStyle(s => ({ ...s, font_color: e.target.value }))}
+                className="w-full h-8 border rounded cursor-pointer" />
+            </div>
+            <div>
+              <label className="text-[9px] text-gray-500 block mb-0.5">Background</label>
+              <input type="color" value={disclaimerStyle.bg_color} onChange={e => setDisclaimerStyle(s => ({ ...s, bg_color: e.target.value }))}
+                className="w-full h-8 border rounded cursor-pointer" />
+            </div>
+            <div>
+              <label className="text-[9px] text-gray-500 block mb-0.5">Border</label>
+              <input type="color" value={disclaimerStyle.border_color} onChange={e => setDisclaimerStyle(s => ({ ...s, border_color: e.target.value }))}
+                className="w-full h-8 border rounded cursor-pointer" />
+            </div>
+          </div>
+          <div className="rounded-xl p-4 border-2" style={{ backgroundColor: disclaimerStyle.bg_color, borderColor: disclaimerStyle.border_color }}>
+            <p style={{ fontSize: disclaimerStyle.font_size, fontWeight: disclaimerStyle.font_weight, color: disclaimerStyle.font_color, lineHeight: '1.5' }}>
+              {disclaimer || 'Preview text will appear here...'}
+            </p>
+          </div>
         )}
       </div>
 

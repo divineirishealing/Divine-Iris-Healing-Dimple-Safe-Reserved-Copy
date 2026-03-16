@@ -275,7 +275,7 @@ function EnrollmentPage() {
   const [emailVerified, setEmailVerified] = useState(false);
   const [processing, setProcessing] = useState(false);
   const [discountSettings, setDiscountSettings] = useState({ enable_referral: true });
-  const [paymentSettings, setPaymentSettings] = useState({ disclaimer: '', disclaimer_enabled: true, india_links: [], india_exly_link: '', india_bank_details: {}, india_enabled: false, manual_form_enabled: true });
+  const [paymentSettings, setPaymentSettings] = useState({ disclaimer: '', disclaimer_enabled: true, disclaimer_style: {}, india_links: [], india_exly_link: '', india_bank_details: {}, india_enabled: false, manual_form_enabled: true });
   const [sessionTestimonials, setSessionTestimonials] = useState([]);
 
   // Currency is LOCKED to IP-detected country — never changes based on participant/billing input
@@ -301,6 +301,7 @@ function EnrollmentPage() {
       setPaymentSettings({
         disclaimer: s.payment_disclaimer || '',
         disclaimer_enabled: s.payment_disclaimer_enabled !== false,
+        disclaimer_style: s.payment_disclaimer_style || {},
         india_links: (s.india_payment_links || []).filter(l => l.enabled),
         india_alt_discount: s.india_alt_discount_percent || 9,
         india_exly_link: s.india_exly_link || '',
@@ -617,8 +618,17 @@ function EnrollmentPage() {
               <StepBar current={step} steps={['Participants', 'Review', 'Billing', 'Pay']} />
 
               {paymentSettings.disclaimer_enabled && paymentSettings.disclaimer && (
-                <div className="bg-amber-50 border-l-4 border-amber-400 rounded-r-lg p-3 mb-4" data-testid="payment-disclaimer-persistent">
-                  <p className="text-xs text-amber-800 font-medium leading-relaxed">{paymentSettings.disclaimer}</p>
+                <div className="rounded-xl p-4 mb-4 border-2 shadow-sm" data-testid="payment-disclaimer-persistent"
+                  style={{
+                    backgroundColor: paymentSettings.disclaimer_style?.bg_color || '#fef2f2',
+                    borderColor: paymentSettings.disclaimer_style?.border_color || '#f87171',
+                  }}>
+                  <p style={{
+                    fontSize: paymentSettings.disclaimer_style?.font_size || '14px',
+                    fontWeight: paymentSettings.disclaimer_style?.font_weight || '600',
+                    color: paymentSettings.disclaimer_style?.font_color || '#991b1b',
+                    lineHeight: '1.5',
+                  }}>{paymentSettings.disclaimer}</p>
                 </div>
               )}
 
