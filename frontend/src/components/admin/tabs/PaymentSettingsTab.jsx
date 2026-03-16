@@ -104,10 +104,14 @@ const PaymentSettingsTab = () => {
               <label className="text-[9px] text-gray-500 block mb-0.5">Font Size</label>
               <select value={disclaimerStyle.font_size} onChange={e => setDisclaimerStyle(s => ({ ...s, font_size: e.target.value }))}
                 className="w-full border rounded px-2 py-1.5 text-xs bg-white">
-                <option value="11px">Small</option>
-                <option value="13px">Medium</option>
-                <option value="14px">Large</option>
-                <option value="16px">X-Large</option>
+                <option value="9px">9px</option>
+                <option value="10px">10px</option>
+                <option value="11px">11px</option>
+                <option value="12px">12px</option>
+                <option value="13px">13px</option>
+                <option value="14px">14px</option>
+                <option value="16px">16px</option>
+                <option value="18px">18px</option>
               </select>
             </div>
             <div>
