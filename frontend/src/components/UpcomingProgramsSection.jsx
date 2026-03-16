@@ -414,7 +414,7 @@ const SponsorCard = ({ sponsorData }) => {
         <p className="text-xs text-gray-500 leading-relaxed mb-3 flex-1">{h.body_1 || 'Contribute towards someone\'s healing journey — anonymously or intentionally. When one heals, the collective heals.'}</p>
         <div className="mt-auto pt-2">
           <button onClick={() => navigate('/sponsor')} data-testid="sponsor-card-cta"
-            className="w-full bg-[#1a1a1a] hover:bg-[#333] text-[#D4AF37] py-2.5 rounded-full text-[10px] tracking-wider transition-all duration-300 uppercase font-medium">
+            className="w-full bg-purple-600 hover:bg-purple-700 text-[#D4AF37] py-2.5 rounded-full text-[10px] tracking-wider transition-all duration-300 uppercase font-medium">
             {h.button_text || h.title || 'Sponsor a Life'}
           </button>
         </div>
