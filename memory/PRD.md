@@ -29,6 +29,15 @@ All pages with dark hero sections use:
 
 ## Implemented Features
 
+### Unified Testimonial Displays Across Site (Mar 16, 2026) - COMPLETED
+- [x] Homepage Video tab: Replaced old video scroller with 5-card carousel (TestimonialCarousel5Card component)
+- [x] Homepage Transformations tab: Uses same 5-card carousel for graphic testimonials
+- [x] Both tabs support: auto-play (5s), hover lift animation, one-click lightbox/video dialog, dot indicators
+- [x] Transformations page (/transformations): Template testimonials in 3-column grid + mixed graphic/video 3-column grid below
+- [x] Video testimonials have gold play button overlay; clicking opens YouTube dialog
+- [x] Graphic testimonials open dark overlay lightbox on click
+- [x] All 13/13 frontend tests passed (iteration_69)
+
 ### Advanced Fraud Prevention — Browser Timezone & Language (Feb 2026) - COMPLETED
 - [x] Backend: EnrollmentSubmit model accepts browser_timezone (str) and browser_languages (list) fields
 - [x] Backend: get_enrollment_pricing uses browser_timezone to validate India timezone (Asia/Kolkata, Asia/Calcutta)

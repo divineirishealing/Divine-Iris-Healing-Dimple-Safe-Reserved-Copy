@@ -4,7 +4,6 @@ import Header from '../components/Header';
 import Footer from '../components/Footer';
 import FloatingButtons from '../components/FloatingButtons';
 import TemplateTestimonialCard, { TemplateTestimonialFull } from '../components/TemplateTestimonialCard';
-import TestimonialCarousel5Card from '../components/TestimonialCarousel5Card';
 import { Search, Play, X, Filter } from 'lucide-react';
 import { resolveImageUrl } from '../lib/imageUtils';
 import { Dialog, DialogContent } from '../components/ui/dialog';
