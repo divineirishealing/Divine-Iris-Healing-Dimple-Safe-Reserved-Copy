@@ -344,9 +344,8 @@ const ManualPaymentPage = () => {
                       <p className="text-[10px] text-gray-400 uppercase tracking-wider mb-2">Participants ({enrollment.participants.length})</p>
                       {enrollment.participants.map((p, i) => (
                         <div key={i} className="flex items-center gap-2 text-xs text-gray-700 mb-1">
-                          <User size={10} className="text-gray-400" />
+                          <span className="w-4 h-4 rounded-full bg-purple-100 text-purple-700 text-[9px] flex items-center justify-center font-bold">{i + 1}</span>
                           <span>{p.name}</span>
-                          <span className="text-gray-400">({p.attendance_mode})</span>
                         </div>
                       ))}
                     </div>
