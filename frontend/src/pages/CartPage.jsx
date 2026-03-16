@@ -332,6 +332,7 @@ function CartPage() {
   const { getPrice, getOfferPrice, symbol, country: detectedCountry } = useCurrency();
   const { toast } = useToast();
   const [discountSettings, setDiscountSettings] = useState({ enable_referral: true });
+  const [paymentDisclaimer, setPaymentDisclaimer] = useState('');
 
   // Auto-fill detected country into participants on first load
   useEffect(() => {
@@ -349,6 +350,11 @@ function CartPage() {
 
   useEffect(() => {
     axios.get(`${API}/discounts/settings`).then(r => setDiscountSettings(r.data)).catch(() => {});
+    axios.get(`${API}/settings`).then(r => {
+      if (r.data.payment_disclaimer_enabled !== false && r.data.payment_disclaimer) {
+        setPaymentDisclaimer(r.data.payment_disclaimer);
+      }
+    }).catch(() => {});
   }, []);
 
   const getItemPrice = (item) => {
@@ -473,6 +479,11 @@ function CartPage() {
             </div>
             <p className="text-[10px] text-gray-400 text-right mb-4">Promo codes & loyalty discounts applied at checkout</p>
 
+            {paymentDisclaimer && (
+              <div className="bg-amber-50 border-l-4 border-amber-400 rounded-r-lg p-3 mb-4" data-testid="cart-payment-disclaimer-page">
+                <p className="text-xs text-amber-800 font-medium leading-relaxed">{paymentDisclaimer}</p>
+              </div>
+            )}
             <Button data-testid="proceed-checkout-btn" onClick={validateAndProceed}
               className="w-full bg-[#D4AF37] hover:bg-[#b8962e] text-white py-3 rounded-full text-sm">
               Proceed to Checkout <ChevronRight size={16} className="ml-1" />

@@ -630,6 +630,11 @@ function EnrollmentPage() {
                       className="w-full border-2 border-dashed border-[#D4AF37]/40 rounded-lg py-2.5 flex items-center justify-center gap-1 text-xs text-[#D4AF37] hover:bg-[#D4AF37]/5 transition-colors mb-4">
                       <Plus size={14} /> Add Participant
                     </button>
+                    {paymentSettings.disclaimer_enabled && paymentSettings.disclaimer && (
+                      <div className="bg-amber-50 border-l-4 border-amber-400 rounded-r-lg p-3 mb-4" data-testid="payment-disclaimer-step0">
+                        <p className="text-xs text-amber-800 font-medium leading-relaxed">{paymentSettings.disclaimer}</p>
+                      </div>
+                    )}
                     <Button data-testid="step0-next" onClick={goToReview} className="w-full bg-[#D4AF37] hover:bg-[#b8962e] text-white py-3 rounded-full">
                       Review Cart <ChevronRight size={16} className="ml-1" />
                     </Button>
