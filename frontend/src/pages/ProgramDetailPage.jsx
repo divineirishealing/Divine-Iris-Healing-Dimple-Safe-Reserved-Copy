@@ -428,31 +428,36 @@ function ProgramDetailPage() {
       </section>
 
       {testimonials.filter(t => t.image).length > 0 && (
-        <section className="py-20 bg-gradient-to-b from-gray-50/80 to-white" data-testid="testimonials-section">
+        <section className="py-16 bg-gradient-to-b from-gray-50/60 to-white" data-testid="testimonials-section">
           <div className={CONTAINER}>
-            <h2 className="text-center mb-14" style={applyStyle(template.testimonial_title_style, { ...HEADING, color: heroAccent, fontStyle: 'italic', fontSize: '1.6rem' })}>Testimonials</h2>
-            {/* 3D Carousel — 5 cards, center rises + overlaps sides */}
+            <h2 className="text-center mb-10" style={applyStyle(template.testimonial_title_style, { ...HEADING, color: heroAccent, fontStyle: 'italic', fontSize: '1.6rem' })}>Testimonials</h2>
+            {/* 3D Carousel — 5 cards, center pops forward */}
             {(() => {
               const imgTestimonials = testimonials.filter(t => t.image);
               const total = imgTestimonials.length;
               if (total === 0) return null;
 
-              const CARD_W = 300;
-              const CARD_H = 480;
+              const CARD_W = 260;
+              const CARD_H = 380;
 
               const getCardStyle = (offset) => {
                 const abs = Math.abs(offset);
-                // Center: rises up (ty negative), comes far forward
-                if (abs === 0) return { tx: 0, ty: -20, tz: 200, ry: 0, z: 50, op: 1 };
-                // Adjacent: slightly behind, gentle rotation
-                if (abs === 1) return { tx: offset * 130, ty: 0, tz: 0, ry: offset * -12, z: 40, op: 0.95 };
-                // Outer: further behind, more rotation
-                return { tx: offset * 260, ty: 0, tz: -60, ry: offset * -25, z: 30, op: 0.75 };
+                // Center: rises up, scales slightly, comes far forward
+                if (abs === 0) return { tx: 0, ty: -15, tz: 180, ry: 0, z: 50, op: 1, sc: 1.06 };
+                // Adjacent: behind center, gentle rotation, more visible
+                if (abs === 1) return { tx: offset * 180, ty: 0, tz: 0, ry: offset * -15, z: 40, op: 0.88, sc: 1 };
+                // Outer: tucked behind, more rotation, faded
+                return { tx: offset * 320, ty: 0, tz: -80, ry: offset * -28, z: 30, op: 0.5, sc: 0.95 };
               };
 
+              // Sliding window dots: show max 8 dots centered around current
+              const MAX_DOTS = 8;
+              const dotStart = Math.max(0, Math.min(currentTestimonial - Math.floor(MAX_DOTS / 2), total - MAX_DOTS));
+              const dotEnd = Math.min(total, dotStart + MAX_DOTS);
+
               return (
-                <div className="relative mx-auto" style={{ perspective: '1000px', maxWidth: '1100px' }}>
-                  <div className="relative flex items-center justify-center" style={{ height: `${CARD_H + 80}px` }}>
+                <div className="relative mx-auto" style={{ perspective: '1200px', maxWidth: '1000px' }}>
+                  <div className="relative flex items-center justify-center" style={{ height: `${CARD_H + 60}px` }}>
                     {[-2, -1, 0, 1, 2].map(offset => {
                       if (total === 1 && offset !== 0) return null;
                       if (total < 3 && Math.abs(offset) > 1) return null;
@@ -461,7 +466,7 @@ function ProgramDetailPage() {
                       const t = imgTestimonials[idx];
                       if (!t) return null;
                       const imgSrc = resolveImageUrl(t.image);
-                      const { tx, ty, tz, ry, z, op } = getCardStyle(offset);
+                      const { tx, ty, tz, ry, z, op, sc } = getCardStyle(offset);
                       const isCenter = offset === 0;
 
                       return (
@@ -475,38 +480,43 @@ function ProgramDetailPage() {
                             left: '50%',
                             top: '50%',
                             transformStyle: 'preserve-3d',
-                            transform: `translate(-50%, -50%) translateX(${tx}px) translateY(${ty}px) translateZ(${tz}px) rotateY(${ry}deg)`,
+                            transform: `translate(-50%, -50%) translateX(${tx}px) translateY(${ty}px) translateZ(${tz}px) rotateY(${ry}deg) scale(${sc})`,
                             transition: 'all 0.5s cubic-bezier(0.4, 0, 0.2, 1)',
                             zIndex: z,
                             opacity: op,
                           }}>
                           <div className="w-full h-full overflow-hidden bg-white"
                             style={{
-                              borderRadius: '18px',
+                              borderRadius: '16px',
                               boxShadow: isCenter
-                                ? '0 30px 60px rgba(0,0,0,0.3), 0 10px 25px rgba(0,0,0,0.2)'
-                                : '0 15px 40px rgba(0,0,0,0.15), 0 5px 15px rgba(0,0,0,0.08)',
-                              border: '1px solid rgba(240,240,240,0.6)',
+                                ? '0 25px 50px rgba(0,0,0,0.28), 0 8px 20px rgba(0,0,0,0.18)'
+                                : '0 12px 35px rgba(0,0,0,0.12), 0 4px 12px rgba(0,0,0,0.06)',
+                              border: '1px solid rgba(240,240,240,0.5)',
                             }}>
                             <img src={imgSrc} alt={t.name || 'Testimonial'}
                               className="w-full h-full object-cover"
-                              onError={(e) => { e.target.src = 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="300" height="480"><rect fill="%23f3f4f6" width="300" height="480"/></svg>'; }} />
+                              onError={(e) => { e.target.src = 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="260" height="380"><rect fill="%23f3f4f6" width="260" height="380"/></svg>'; }} />
                           </div>
                         </div>
                       );
                     })}
                   </div>
-                  {/* Dot Indicators — larger, more spaced */}
-                  <div className="flex justify-center items-center gap-3 mt-6">
-                    {imgTestimonials.map((_, i) => (
-                      <button key={i} onClick={() => setCurrentTestimonial(i)} data-testid={`carousel-dot-${i}`}
-                        className="rounded-full transition-all duration-300"
-                        style={{
-                          width: i === currentTestimonial ? '16px' : '12px',
-                          height: i === currentTestimonial ? '16px' : '12px',
-                          background: i === currentTestimonial ? heroAccent : '#e5e7eb',
-                        }} />
-                    ))}
+                  {/* Dot Indicators — sliding window, max 8 visible */}
+                  <div className="flex justify-center items-center gap-2.5 mt-8">
+                    {dotStart > 0 && <span className="text-gray-300 text-xs select-none">...</span>}
+                    {imgTestimonials.slice(dotStart, dotEnd).map((_, i) => {
+                      const realIdx = dotStart + i;
+                      return (
+                        <button key={realIdx} onClick={() => setCurrentTestimonial(realIdx)} data-testid={`carousel-dot-${realIdx}`}
+                          className="rounded-full transition-all duration-300"
+                          style={{
+                            width: realIdx === currentTestimonial ? '14px' : '10px',
+                            height: realIdx === currentTestimonial ? '14px' : '10px',
+                            background: realIdx === currentTestimonial ? heroAccent : '#d1d5db',
+                          }} />
+                      );
+                    })}
+                    {dotEnd < total && <span className="text-gray-300 text-xs select-none">...</span>}
                   </div>
                 </div>
               );
