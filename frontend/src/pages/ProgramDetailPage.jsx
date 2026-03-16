@@ -1,11 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import axios from 'axios';
-import { ChevronLeft, ChevronRight } from 'lucide-react';
 import Header from '../components/Header';
 import Footer from '../components/Footer';
 import FloatingButtons from '../components/FloatingButtons';
-import { Dialog, DialogContent } from '../components/ui/dialog';
 import { resolveImageUrl } from '../lib/imageUtils';
 import { renderMarkdown } from '../lib/renderMarkdown';
 import { useCurrency } from '../context/CurrencyContext';
@@ -430,29 +428,31 @@ function ProgramDetailPage() {
       </section>
 
       {testimonials.filter(t => t.image).length > 0 && (
-        <section className="py-16 bg-gradient-to-b from-gray-50 to-white" data-testid="testimonials-section">
+        <section className="py-20 bg-gradient-to-b from-gray-50/80 to-white" data-testid="testimonials-section">
           <div className={CONTAINER}>
-            <h2 className="text-center mb-12" style={applyStyle(template.testimonial_title_style, { ...HEADING, color: heroAccent, fontStyle: 'italic', fontSize: '1.6rem' })}>Testimonials</h2>
-            {/* 3D Carousel — 5 cards, center overlaps sides */}
+            <h2 className="text-center mb-14" style={applyStyle(template.testimonial_title_style, { ...HEADING, color: heroAccent, fontStyle: 'italic', fontSize: '1.6rem' })}>Testimonials</h2>
+            {/* 3D Carousel — 5 cards, center rises + overlaps sides */}
             {(() => {
               const imgTestimonials = testimonials.filter(t => t.image);
               const total = imgTestimonials.length;
               if (total === 0) return null;
 
-              // Card dimensions — all same size
               const CARD_W = 300;
               const CARD_H = 480;
 
               const getCardStyle = (offset) => {
                 const abs = Math.abs(offset);
-                if (abs === 0) return { tx: 0, tz: 200, ry: 0, z: 50, op: 1 };
-                if (abs === 1) return { tx: offset * 120, tz: 0, ry: offset * -12, z: 40, op: 0.95 };
-                return { tx: offset * 250, tz: -60, ry: offset * -25, z: 30, op: 0.75 };
+                // Center: rises up (ty negative), comes far forward
+                if (abs === 0) return { tx: 0, ty: -20, tz: 200, ry: 0, z: 50, op: 1 };
+                // Adjacent: slightly behind, gentle rotation
+                if (abs === 1) return { tx: offset * 130, ty: 0, tz: 0, ry: offset * -12, z: 40, op: 0.95 };
+                // Outer: further behind, more rotation
+                return { tx: offset * 260, ty: 0, tz: -60, ry: offset * -25, z: 30, op: 0.75 };
               };
 
               return (
                 <div className="relative mx-auto" style={{ perspective: '1000px', maxWidth: '1100px' }}>
-                  <div className="relative flex items-center justify-center" style={{ height: `${CARD_H + 60}px` }}>
+                  <div className="relative flex items-center justify-center" style={{ height: `${CARD_H + 80}px` }}>
                     {[-2, -1, 0, 1, 2].map(offset => {
                       if (total === 1 && offset !== 0) return null;
                       if (total < 3 && Math.abs(offset) > 1) return null;
@@ -461,7 +461,7 @@ function ProgramDetailPage() {
                       const t = imgTestimonials[idx];
                       if (!t) return null;
                       const imgSrc = resolveImageUrl(t.image);
-                      const { tx, tz, ry, z, op } = getCardStyle(offset);
+                      const { tx, ty, tz, ry, z, op } = getCardStyle(offset);
                       const isCenter = offset === 0;
 
                       return (
@@ -475,17 +475,18 @@ function ProgramDetailPage() {
                             left: '50%',
                             top: '50%',
                             transformStyle: 'preserve-3d',
-                            transform: `translate(-50%, -50%) translateX(${tx}px) translateZ(${tz}px) rotateY(${ry}deg)`,
+                            transform: `translate(-50%, -50%) translateX(${tx}px) translateY(${ty}px) translateZ(${tz}px) rotateY(${ry}deg)`,
                             transition: 'all 0.5s cubic-bezier(0.4, 0, 0.2, 1)',
                             zIndex: z,
                             opacity: op,
                           }}>
-                          <div className="w-full h-full rounded-lg overflow-hidden bg-white"
+                          <div className="w-full h-full overflow-hidden bg-white"
                             style={{
+                              borderRadius: '18px',
                               boxShadow: isCenter
-                                ? '0 25px 50px rgba(0,0,0,0.25), 0 8px 20px rgba(0,0,0,0.15)'
-                                : '0 10px 30px rgba(0,0,0,0.12)',
-                              border: '1px solid rgba(230,230,230,0.5)',
+                                ? '0 30px 60px rgba(0,0,0,0.3), 0 10px 25px rgba(0,0,0,0.2)'
+                                : '0 15px 40px rgba(0,0,0,0.15), 0 5px 15px rgba(0,0,0,0.08)',
+                              border: '1px solid rgba(240,240,240,0.6)',
                             }}>
                             <img src={imgSrc} alt={t.name || 'Testimonial'}
                               className="w-full h-full object-cover"
@@ -495,15 +496,15 @@ function ProgramDetailPage() {
                       );
                     })}
                   </div>
-                  {/* Dot Indicators */}
-                  <div className="flex justify-center items-center gap-2 mt-4">
+                  {/* Dot Indicators — larger, more spaced */}
+                  <div className="flex justify-center items-center gap-3 mt-6">
                     {imgTestimonials.map((_, i) => (
                       <button key={i} onClick={() => setCurrentTestimonial(i)} data-testid={`carousel-dot-${i}`}
                         className="rounded-full transition-all duration-300"
                         style={{
-                          width: i === currentTestimonial ? '14px' : '10px',
-                          height: i === currentTestimonial ? '14px' : '10px',
-                          background: i === currentTestimonial ? heroAccent : '#d1d5db',
+                          width: i === currentTestimonial ? '16px' : '12px',
+                          height: i === currentTestimonial ? '16px' : '12px',
+                          background: i === currentTestimonial ? heroAccent : '#e5e7eb',
                         }} />
                     ))}
                   </div>
@@ -514,12 +515,22 @@ function ProgramDetailPage() {
         </section>
       )}
 
-      {/* Testimonial Lightbox */}
-      <Dialog open={!!lightboxImg} onOpenChange={() => setLightboxImg(null)}>
-        <DialogContent data-testid="program-testimonial-lightbox" className="max-w-4xl p-1 bg-white">
-          {lightboxImg && <img src={lightboxImg} alt="Testimonial" className="w-full h-auto max-h-[85vh] object-contain rounded" />}
-        </DialogContent>
-      </Dialog>
+      {/* Testimonial Lightbox — dark overlay, full image */}
+      {lightboxImg && (
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center" data-testid="program-testimonial-lightbox"
+          onClick={() => setLightboxImg(null)}
+          style={{ background: 'rgba(0,0,0,0.85)' }}>
+          <button onClick={() => setLightboxImg(null)}
+            className="absolute top-6 right-6 w-10 h-10 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center transition-colors z-50"
+            data-testid="lightbox-close">
+            <span className="text-white text-xl font-light">&times;</span>
+          </button>
+          <img src={lightboxImg} alt="Testimonial"
+            className="max-w-[90vw] max-h-[90vh] object-contain rounded-2xl"
+            style={{ boxShadow: '0 25px 60px rgba(0,0,0,0.5)' }}
+            onClick={(e) => e.stopPropagation()} />
+        </div>
+      )}
 
       <Footer />
       <FloatingButtons />
