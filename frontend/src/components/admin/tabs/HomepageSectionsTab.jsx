@@ -66,7 +66,7 @@ const DEFAULTS_BY_ID = Object.fromEntries(DEFAULT_SECTIONS.map(s => [s.id, s]));
 const HomepageSectionsTab = ({ settings, onChange }) => {
   const sections = (settings.homepage_sections || DEFAULT_SECTIONS).map(s => {
     const def = DEFAULTS_BY_ID[s.id] || {};
-    return { visible: true, title_style: {}, subtitle_style: {}, removable: s.component === 'custom', ...def, ...s, title: s.title || def.title || '', subtitle: s.subtitle || def.subtitle || '' };
+    return { visible: true, title_style: {}, subtitle_style: {}, removable: s.component === 'custom', ...def, ...s, title: s.title != null ? s.title : (def.title || ''), subtitle: s.subtitle != null ? s.subtitle : (def.subtitle || '') };
   });
 
   const update = (newSections) => {
