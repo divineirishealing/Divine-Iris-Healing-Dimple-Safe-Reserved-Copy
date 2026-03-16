@@ -433,38 +433,36 @@ function ProgramDetailPage() {
         <section className="py-16 bg-gradient-to-b from-gray-50 to-white" data-testid="testimonials-section">
           <div className={CONTAINER}>
             <h2 className="text-center mb-12" style={applyStyle(template.testimonial_title_style, { ...HEADING, color: heroAccent, fontStyle: 'italic', fontSize: '1.6rem' })}>Testimonials</h2>
-            {/* 3D Carousel — overlapping cards, center zooms forward */}
+            {/* 3D Carousel — 5 cards, center overlaps sides */}
             {(() => {
               const imgTestimonials = testimonials.filter(t => t.image);
               const total = imgTestimonials.length;
               if (total === 0) return null;
-              const offsets = [-3, -2, -1, 0, 1, 2, 3];
+
+              // Card dimensions — all same size
+              const CARD_W = 300;
+              const CARD_H = 480;
+
+              const getCardStyle = (offset) => {
+                const abs = Math.abs(offset);
+                if (abs === 0) return { tx: 0, tz: 200, ry: 0, z: 50, op: 1 };
+                if (abs === 1) return { tx: offset * 120, tz: 0, ry: offset * -12, z: 40, op: 0.95 };
+                return { tx: offset * 250, tz: -60, ry: offset * -25, z: 30, op: 0.75 };
+              };
+
               return (
-                <div className="relative mx-auto" style={{ perspective: '1200px', maxWidth: '1100px' }}>
-                  <div className="relative flex items-center justify-center" style={{ height: '560px' }}>
-                    {offsets.map(offset => {
+                <div className="relative mx-auto" style={{ perspective: '1000px', maxWidth: '1100px' }}>
+                  <div className="relative flex items-center justify-center" style={{ height: `${CARD_H + 60}px` }}>
+                    {[-2, -1, 0, 1, 2].map(offset => {
                       if (total === 1 && offset !== 0) return null;
                       if (total < 3 && Math.abs(offset) > 1) return null;
-                      if (total < 5 && Math.abs(offset) > 2) return null;
-                      if (total < 7 && Math.abs(offset) > 2) return null;
+                      if (total < 5 && Math.abs(offset) > 1) return null;
                       const idx = ((currentTestimonial + offset) % total + total) % total;
                       const t = imgTestimonials[idx];
                       if (!t) return null;
-                      const isCenter = offset === 0;
-                      const isAdj = Math.abs(offset) === 1;
-                      const isOuter = Math.abs(offset) === 2;
                       const imgSrc = resolveImageUrl(t.image);
-
-                      // Card dimensions — center is largest, all portrait
-                      const cardW = isCenter ? 320 : isAdj ? 280 : isOuter ? 250 : 230;
-                      const cardH = isCenter ? 500 : isAdj ? 460 : isOuter ? 430 : 410;
-
-                      // Position — tight spacing so cards overlap
-                      const tx = isCenter ? 0 : isAdj ? offset * 170 : isOuter ? offset * 310 : offset * 420;
-                      const tz = isCenter ? 120 : isAdj ? 20 : isOuter ? -60 : -120;
-                      const ry = isCenter ? 0 : isAdj ? offset * -12 : isOuter ? offset * -18 : offset * -22;
-                      const z = isCenter ? 50 : isAdj ? 40 : isOuter ? 30 : 20;
-                      const op = isCenter ? 1 : isAdj ? 0.92 : isOuter ? 0.7 : 0.45;
+                      const { tx, tz, ry, z, op } = getCardStyle(offset);
+                      const isCenter = offset === 0;
 
                       return (
                         <div key={`${offset}-${idx}`}
@@ -472,8 +470,8 @@ function ProgramDetailPage() {
                           data-testid={isCenter ? 'carousel-center-card' : `carousel-card-${offset}`}
                           onClick={() => { if (offset < 0) prevT(); else if (offset > 0) nextT(); else setLightboxImg(imgSrc); }}
                           style={{
-                            width: `${cardW}px`,
-                            height: `${cardH}px`,
+                            width: `${CARD_W}px`,
+                            height: `${CARD_H}px`,
                             left: '50%',
                             top: '50%',
                             transformStyle: 'preserve-3d',
@@ -482,23 +480,23 @@ function ProgramDetailPage() {
                             zIndex: z,
                             opacity: op,
                           }}>
-                          <div className="w-full h-full rounded-2xl overflow-hidden"
+                          <div className="w-full h-full rounded-lg overflow-hidden bg-white"
                             style={{
                               boxShadow: isCenter
-                                ? '0 30px 60px rgba(0,0,0,0.3), 0 10px 20px rgba(0,0,0,0.15)'
-                                : isAdj ? '0 15px 40px rgba(0,0,0,0.15)' : '0 8px 25px rgba(0,0,0,0.1)',
-                              border: '1px solid rgba(255,255,255,0.6)',
+                                ? '0 25px 50px rgba(0,0,0,0.25), 0 8px 20px rgba(0,0,0,0.15)'
+                                : '0 10px 30px rgba(0,0,0,0.12)',
+                              border: '1px solid rgba(230,230,230,0.5)',
                             }}>
                             <img src={imgSrc} alt={t.name || 'Testimonial'}
                               className="w-full h-full object-cover"
-                              onError={(e) => { e.target.src = 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="300" height="400"><rect fill="%23f3f4f6" width="300" height="400"/></svg>'; }} />
+                              onError={(e) => { e.target.src = 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="300" height="480"><rect fill="%23f3f4f6" width="300" height="480"/></svg>'; }} />
                           </div>
                         </div>
                       );
                     })}
                   </div>
                   {/* Dot Indicators */}
-                  <div className="flex justify-center items-center gap-2.5 mt-4">
+                  <div className="flex justify-center items-center gap-2 mt-4">
                     {imgTestimonials.map((_, i) => (
                       <button key={i} onClick={() => setCurrentTestimonial(i)} data-testid={`carousel-dot-${i}`}
                         className="rounded-full transition-all duration-300"
@@ -506,7 +504,6 @@ function ProgramDetailPage() {
                           width: i === currentTestimonial ? '14px' : '10px',
                           height: i === currentTestimonial ? '14px' : '10px',
                           background: i === currentTestimonial ? heroAccent : '#d1d5db',
-                          opacity: i === currentTestimonial ? 1 : 0.6,
                         }} />
                     ))}
                   </div>
