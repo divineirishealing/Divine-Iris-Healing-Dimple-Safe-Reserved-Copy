@@ -432,14 +432,16 @@ function ProgramDetailPage() {
           style={{ background: 'linear-gradient(180deg, #f3f1f6 0%, #eae7f0 50%, #e5e2ec 80%, #f3f1f6 100%)' }}>
           <div className={CONTAINER}>
             <h2 className="text-center mb-10" style={applyStyle(template.testimonial_title_style, { ...HEADING, color: heroAccent, fontStyle: 'italic', fontSize: '1.6rem' })}>Testimonials</h2>
-            {/* Simple 3-card carousel — center overlaps, sides tilt gently */}
+            {/* 5-card carousel — center on top, 20% overlap between each pair */}
             {(() => {
               const imgTestimonials = testimonials.filter(t => t.image);
               const total = imgTestimonials.length;
               if (total === 0) return null;
 
-              const CARD_W = 300;
-              const CARD_H = 500;
+              const CARD_W = 250;
+              const CARD_H = 420;
+              const OVERLAP = CARD_W * 0.2; // 20% overlap
+              const STEP = CARD_W - OVERLAP; // distance between card centers
 
               // Sliding window dots: max 10
               const MAX_DOTS = 10;
@@ -447,16 +449,23 @@ function ProgramDetailPage() {
               const dotEnd = Math.min(total, dotStart + MAX_DOTS);
 
               return (
-                <div className="relative mx-auto" style={{ maxWidth: '900px' }}>
-                  <div className="relative flex items-center justify-center" style={{ height: `${CARD_H + 40}px` }}>
-                    {[-1, 0, 1].map(offset => {
+                <div className="relative mx-auto" style={{ maxWidth: '1100px' }}>
+                  <div className="relative flex items-center justify-center" style={{ height: `${CARD_H + 60}px` }}>
+                    {[-2, -1, 0, 1, 2].map(offset => {
                       if (total === 1 && offset !== 0) return null;
-                      if (total < 3 && Math.abs(offset) > 0 && total === 1) return null;
+                      if (total < 3 && Math.abs(offset) > 1) return null;
+                      if (total < 5 && Math.abs(offset) > 1) return null;
                       const idx = ((currentTestimonial + offset) % total + total) % total;
                       const t = imgTestimonials[idx];
                       if (!t) return null;
                       const imgSrc = resolveImageUrl(t.image);
                       const isCenter = offset === 0;
+                      const isAdj = Math.abs(offset) === 1;
+
+                      // Z-index: center=50, adjacent=40, outer=30
+                      const z = isCenter ? 50 : isAdj ? 40 : 30;
+                      // Center rises above others
+                      const ty = isCenter ? -55 : isAdj ? -45 : -45;
 
                       return (
                         <div key={`${offset}-${idx}`}
@@ -468,22 +477,20 @@ function ProgramDetailPage() {
                             height: `${CARD_H}px`,
                             left: '50%',
                             top: '50%',
-                            transform: isCenter
-                              ? `translate(-50%, -54%)`
-                              : `translate(-50%, -46%) translateX(${offset * 190}px) rotate(${offset * 5}deg)`,
+                            transform: `translate(-50%, ${ty}%) translateX(${offset * STEP}px)`,
                             transition: 'all 0.5s cubic-bezier(0.4, 0, 0.2, 1)',
-                            zIndex: isCenter ? 30 : 20,
+                            zIndex: z,
                           }}>
                           <div className="w-full h-full overflow-hidden bg-white"
                             style={{
-                              borderRadius: '28px',
+                              borderRadius: '24px',
                               boxShadow: isCenter
                                 ? '0 15px 40px rgba(0,0,0,0.15), 0 5px 15px rgba(0,0,0,0.08)'
-                                : '0 10px 30px rgba(0,0,0,0.08), 0 4px 10px rgba(0,0,0,0.04)',
+                                : '0 8px 25px rgba(0,0,0,0.08), 0 3px 10px rgba(0,0,0,0.04)',
                             }}>
                             <img src={imgSrc} alt={t.name || 'Testimonial'}
                               className="w-full h-full object-cover object-top"
-                              onError={(e) => { e.target.src = 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="320" height="560"><rect fill="%23f3f4f6" width="320" height="560"/></svg>'; }} />
+                              onError={(e) => { e.target.src = 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="250" height="420"><rect fill="%23f3f4f6" width="250" height="420"/></svg>'; }} />
                           </div>
                         </div>
                       );
