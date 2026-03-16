@@ -429,94 +429,88 @@ function ProgramDetailPage() {
 
       {testimonials.filter(t => t.image).length > 0 && (
         <section className="py-16" data-testid="testimonials-section"
-          style={{ background: 'linear-gradient(180deg, #f3f1f6 0%, #eae7f0 50%, #e5e2ec 80%, #f3f1f6 100%)' }}>
-          <div className={CONTAINER}>
-            <h2 className="text-center mb-10" style={applyStyle(template.testimonial_title_style, { ...HEADING, color: heroAccent, fontStyle: 'italic', fontSize: '1.6rem' })}>Testimonials</h2>
-            {/* 5-card carousel — center on top, 20% overlap between each pair */}
-            {(() => {
-              const imgTestimonials = testimonials.filter(t => t.image);
-              const total = imgTestimonials.length;
-              if (total === 0) return null;
+          style={{ background: 'linear-gradient(180deg, #f5f4f8 0%, #eceaf1 40%, #f5f4f8 100%)' }}>
+          <h2 className="text-center mb-10" style={applyStyle(template.testimonial_title_style, { ...HEADING, color: heroAccent, fontStyle: 'italic', fontSize: '1.6rem' })}>Testimonials</h2>
+          {/* 5-card landscape carousel — flat, 20% overlap, center above */}
+          {(() => {
+            const imgTestimonials = testimonials.filter(t => t.image);
+            const total = imgTestimonials.length;
+            if (total === 0) return null;
 
-              const CARD_W = 250;
-              const CARD_H = 420;
-              const OVERLAP = CARD_W * 0.2; // 20% overlap
-              const STEP = CARD_W - OVERLAP; // distance between card centers
+            // Landscape cards — wider than tall
+            const CARD_W = 340;
+            const CARD_H = 250;
+            const OVERLAP = CARD_W * 0.2;
+            const STEP = CARD_W - OVERLAP;
 
-              // Sliding window dots: max 10
-              const MAX_DOTS = 10;
-              const dotStart = Math.max(0, Math.min(currentTestimonial - Math.floor(MAX_DOTS / 2), total - MAX_DOTS));
-              const dotEnd = Math.min(total, dotStart + MAX_DOTS);
+            // Sliding window dots: max 10
+            const MAX_DOTS = 10;
+            const dotStart = Math.max(0, Math.min(currentTestimonial - Math.floor(MAX_DOTS / 2), total - MAX_DOTS));
+            const dotEnd = Math.min(total, dotStart + MAX_DOTS);
 
-              return (
-                <div className="relative mx-auto" style={{ maxWidth: '1100px' }}>
-                  <div className="relative flex items-center justify-center" style={{ height: `${CARD_H + 60}px` }}>
-                    {[-2, -1, 0, 1, 2].map(offset => {
-                      if (total === 1 && offset !== 0) return null;
-                      if (total < 3 && Math.abs(offset) > 1) return null;
-                      if (total < 5 && Math.abs(offset) > 1) return null;
-                      const idx = ((currentTestimonial + offset) % total + total) % total;
-                      const t = imgTestimonials[idx];
-                      if (!t) return null;
-                      const imgSrc = resolveImageUrl(t.image);
-                      const isCenter = offset === 0;
-                      const isAdj = Math.abs(offset) === 1;
+            return (
+              <div className="relative mx-auto" style={{ maxWidth: '1500px', overflow: 'hidden' }}>
+                <div className="relative flex items-center justify-center" style={{ height: `${CARD_H + 80}px` }}>
+                  {[-2, -1, 0, 1, 2].map(offset => {
+                    if (total === 1 && offset !== 0) return null;
+                    if (total < 3 && Math.abs(offset) > 1) return null;
+                    if (total < 5 && Math.abs(offset) > 1) return null;
+                    const idx = ((currentTestimonial + offset) % total + total) % total;
+                    const t = imgTestimonials[idx];
+                    if (!t) return null;
+                    const imgSrc = resolveImageUrl(t.image);
+                    const isCenter = offset === 0;
+                    const isAdj = Math.abs(offset) === 1;
 
-                      // Z-index: center=50, adjacent=40, outer=30
-                      const z = isCenter ? 50 : isAdj ? 40 : 30;
-                      // Center rises above others
-                      const ty = isCenter ? -55 : isAdj ? -45 : -45;
-
-                      return (
-                        <div key={`${offset}-${idx}`}
-                          className="absolute cursor-pointer"
-                          data-testid={isCenter ? 'carousel-center-card' : `carousel-card-${offset}`}
-                          onClick={() => { if (offset !== 0) { offset < 0 ? prevT() : nextT(); } else { setLightboxImg(imgSrc); } }}
+                    return (
+                      <div key={`${offset}-${idx}`}
+                        className="absolute cursor-pointer"
+                        data-testid={isCenter ? 'carousel-center-card' : `carousel-card-${offset}`}
+                        onClick={() => { if (offset !== 0) { offset < 0 ? prevT() : nextT(); } else { setLightboxImg(imgSrc); } }}
+                        style={{
+                          width: `${CARD_W}px`,
+                          height: `${CARD_H}px`,
+                          left: '50%',
+                          top: '50%',
+                          transform: `translate(-50%, ${isCenter ? '-55%' : '-48%'}) translateX(${offset * STEP}px)`,
+                          transition: 'all 0.5s cubic-bezier(0.4, 0, 0.2, 1)',
+                          zIndex: isCenter ? 50 : isAdj ? 40 : 30,
+                        }}>
+                        <div className="w-full h-full overflow-hidden bg-white"
                           style={{
-                            width: `${CARD_W}px`,
-                            height: `${CARD_H}px`,
-                            left: '50%',
-                            top: '50%',
-                            transform: `translate(-50%, ${ty}%) translateX(${offset * STEP}px)`,
-                            transition: 'all 0.5s cubic-bezier(0.4, 0, 0.2, 1)',
-                            zIndex: z,
+                            borderRadius: '16px',
+                            boxShadow: isCenter
+                              ? '0 12px 35px rgba(0,0,0,0.15), 0 4px 12px rgba(0,0,0,0.08)'
+                              : '0 6px 20px rgba(0,0,0,0.08), 0 2px 8px rgba(0,0,0,0.04)',
                           }}>
-                          <div className="w-full h-full overflow-hidden bg-white"
-                            style={{
-                              borderRadius: '24px',
-                              boxShadow: isCenter
-                                ? '0 15px 40px rgba(0,0,0,0.15), 0 5px 15px rgba(0,0,0,0.08)'
-                                : '0 8px 25px rgba(0,0,0,0.08), 0 3px 10px rgba(0,0,0,0.04)',
-                            }}>
-                            <img src={imgSrc} alt={t.name || 'Testimonial'}
-                              className="w-full h-full object-cover object-top"
-                              onError={(e) => { e.target.src = 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="250" height="420"><rect fill="%23f3f4f6" width="250" height="420"/></svg>'; }} />
-                          </div>
+                          <img src={imgSrc} alt={t.name || 'Testimonial'}
+                            className="w-full h-full object-cover object-top"
+                            onError={(e) => { e.target.src = 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="340" height="250"><rect fill="%23f3f4f6" width="340" height="250"/></svg>'; }} />
                         </div>
-                      );
-                    })}
-                  </div>
-                  {/* Dot Indicators */}
-                  <div className="flex justify-center items-center gap-2.5 mt-6">
-                    {dotStart > 0 && <span className="text-gray-300 text-xs select-none">...</span>}
-                    {imgTestimonials.slice(dotStart, dotEnd).map((_, i) => {
-                      const realIdx = dotStart + i;
-                      return (
-                        <button key={realIdx} onClick={() => setCurrentTestimonial(realIdx)} data-testid={`carousel-dot-${realIdx}`}
-                          className="rounded-full transition-all duration-300"
-                          style={{
-                            width: realIdx === currentTestimonial ? '14px' : '10px',
-                            height: realIdx === currentTestimonial ? '14px' : '10px',
-                            background: realIdx === currentTestimonial ? heroAccent : '#d1d5db',
-                          }} />
-                      );
-                    })}
-                    {dotEnd < total && <span className="text-gray-300 text-xs select-none">...</span>}
-                  </div>
+                      </div>
+                    );
+                  })}
                 </div>
-              );
-            })()}
-          </div>
+                {/* Dot Indicators */}
+                <div className="flex justify-center items-center gap-2.5 mt-4">
+                  {dotStart > 0 && <span className="text-gray-300 text-xs select-none">...</span>}
+                  {imgTestimonials.slice(dotStart, dotEnd).map((_, i) => {
+                    const realIdx = dotStart + i;
+                    return (
+                      <button key={realIdx} onClick={() => setCurrentTestimonial(realIdx)} data-testid={`carousel-dot-${realIdx}`}
+                        className="rounded-full transition-all duration-300"
+                        style={{
+                          width: realIdx === currentTestimonial ? '14px' : '10px',
+                          height: realIdx === currentTestimonial ? '14px' : '10px',
+                          background: realIdx === currentTestimonial ? heroAccent : '#d1d5db',
+                        }} />
+                    );
+                  })}
+                  {dotEnd < total && <span className="text-gray-300 text-xs select-none">...</span>}
+                </div>
+              </div>
+            );
+          })()}
         </section>
       )}
 
