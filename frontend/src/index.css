@@ -134,39 +134,3 @@ html {
 ::-webkit-scrollbar-thumb:hover {
   background: #b8962e;
 }
-
-
-/* ── Luxury flowing section transitions ── */
-.section-flow {
-  position: relative;
-}
-.section-flow::before {
-  content: '';
-  position: absolute;
-  top: -40px;
-  left: 0;
-  right: 0;
-  height: 80px;
-  z-index: 1;
-  background: inherit;
-  clip-path: ellipse(55% 50% at 50% 50%);
-  pointer-events: none;
-}
-
-/* Gold wave divider — disabled */
-
-/* Milky glossy sheen — disabled, pure white center */
-
-/* Gold dust animation */
-@keyframes goldFloat {
-  0%, 100% { opacity: 0.3; transform: translateY(0) scale(1); }
-  50% { opacity: 0.7; transform: translateY(-8px) scale(1.2); }
-}
-.gold-dust-dot {
-  position: absolute;
-  border-radius: 50%;
-  background: radial-gradient(circle, rgba(212,175,55,0.8) 0%, rgba(212,175,55,0) 70%);
-  pointer-events: none;
-  z-index: 3;
-  animation: goldFloat 4s ease-in-out infinite;
-}

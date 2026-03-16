@@ -31,21 +31,6 @@ const COMPONENT_MAP = {
   custom: CustomSection,
 };
 
-const DARK_SECTIONS = new Set(['HeroSection', 'SessionsSection', 'StatsSection']);
-
-/*
-  Two asymmetric gradients that chain together:
-  Type A (lavender→white): starts #f3edff, ends #ffffff
-  Type B (white→lavender): starts #ffffff, ends #f3edff
-  
-  A's end (#ffffff) = B's start (#ffffff) → seamless
-  B's end (#f3edff) = A's start (#f3edff) → seamless
-  
-  This creates the original flowing wave regardless of section order.
-*/
-const GRAD_LAVENDER_TO_WHITE = 'linear-gradient(180deg, #f3edff 0%, #ece4ff 10%, #f5f0ff 25%, #faf8ff 40%, #ffffff 60%, #ffffff 100%)';
-const GRAD_WHITE_TO_LAVENDER = 'linear-gradient(180deg, #ffffff 0%, #ffffff 40%, #faf8ff 60%, #f5f0ff 75%, #ece4ff 90%, #f3edff 100%)';
-
 const DEFAULT_ORDER = [
   { id: 'hero', component: 'HeroSection', visible: true },
   { id: 'about', component: 'AboutSection', visible: true },
@@ -89,33 +74,13 @@ function HomePage() {
     });
   }, []);
 
-  const visibleSections = sections.filter(s => s.visible !== false);
-
-  // Track the flow: starts with lavender (after hero)
-  // Even light sections: lavender→white, Odd light sections: white→lavender
-  let lightCount = 0;
-
   return (
     <>
       <Header />
-      {visibleSections.map((sec) => {
+      {sections.filter(s => s.visible !== false).map(sec => {
         const Component = COMPONENT_MAP[sec.component];
         if (!Component) return null;
-
-        // Dark sections render with their own backgrounds
-        if (DARK_SECTIONS.has(sec.component)) {
-          return <Component key={sec.id} sectionConfig={sec} />;
-        }
-
-        // Light sections get chained gradients
-        const gradient = lightCount % 2 === 0 ? GRAD_LAVENDER_TO_WHITE : GRAD_WHITE_TO_LAVENDER;
-        lightCount++;
-
-        return (
-          <div key={sec.id} style={{ background: gradient }}>
-            <Component sectionConfig={sec} />
-          </div>
-        );
+        return <Component key={sec.id} sectionConfig={sec} />;
       })}
       <Footer />
       <FloatingButtons />

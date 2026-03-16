@@ -422,7 +422,7 @@ const UpcomingProgramsSection = ({ sectionConfig, inline }) => {
   if (inline) return <div data-testid="upcoming-programs-section">{content}</div>;
 
   return (
-    <section id="upcoming" data-testid="upcoming-programs-section" className="py-12">
+    <section id="upcoming" data-testid="upcoming-programs-section" className="py-12" style={{ background: 'linear-gradient(180deg, #ffffff 0%, #ffffff 50%, #f8f5ff 75%, #f3edff 100%)' }}>
       <div className="container mx-auto px-4">
         {content}
       </div>
