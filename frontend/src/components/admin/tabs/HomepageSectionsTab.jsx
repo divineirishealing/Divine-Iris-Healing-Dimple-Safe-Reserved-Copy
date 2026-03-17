@@ -156,6 +156,29 @@ const TrustCardsEditor = ({ section, sectionIdx, updateSection }) => {
           </div>
           <Button variant="outline" size="sm" className="text-[10px] gap-1 h-6" onClick={addCard}><Plus size={10} /> Add Card</Button>
         </div>
+
+        {/* Row 1 Title, Subtitle & Description */}
+        <div className="bg-white rounded-lg p-2.5 border border-gray-200 mb-2">
+          <p className="text-[9px] font-semibold text-gray-500 uppercase tracking-wider mb-1.5">Row Heading (shown above cards)</p>
+          <div className="grid grid-cols-2 gap-2">
+            <div>
+              <Label className="text-[8px] text-gray-400">Row Title</Label>
+              <Input value={section.row1_title || ''} onChange={e => updateSection(sectionIdx, 'row1_title', e.target.value)} className="text-[10px] h-6" placeholder="e.g. Our Impact" data-testid="row1-title" />
+              <StyleCell style={section.row1_title_style || {}} onStyleChange={v => updateSection(sectionIdx, 'row1_title_style', v)} />
+            </div>
+            <div>
+              <Label className="text-[8px] text-gray-400">Row Subtitle</Label>
+              <Input value={section.row1_subtitle || ''} onChange={e => updateSection(sectionIdx, 'row1_subtitle', e.target.value)} className="text-[10px] h-6" placeholder="Optional subtitle" data-testid="row1-subtitle" />
+              <StyleCell style={section.row1_subtitle_style || {}} onStyleChange={v => updateSection(sectionIdx, 'row1_subtitle_style', v)} />
+            </div>
+          </div>
+          <div className="mt-1.5">
+            <Label className="text-[8px] text-gray-400">Row Description</Label>
+            <textarea value={section.row1_description || ''} onChange={e => updateSection(sectionIdx, 'row1_description', e.target.value)} className="w-full text-[10px] border rounded px-2 py-1 min-h-[32px] resize-y focus:outline-none focus:ring-1 focus:ring-gray-300" placeholder="Optional description below title" data-testid="row1-description" />
+            <StyleCell style={section.row1_description_style || {}} onStyleChange={v => updateSection(sectionIdx, 'row1_description_style', v)} />
+          </div>
+        </div>
+
         {cards.map((card, ci) => (
           <div key={ci} className="bg-white rounded-lg p-2.5 border border-gray-200 space-y-1.5 mb-2" data-testid={`trust-card-editor-${ci}`}>
             <div className="flex items-center justify-between">

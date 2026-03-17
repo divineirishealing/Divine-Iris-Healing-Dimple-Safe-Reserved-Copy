@@ -269,6 +269,25 @@ const TrustSection = ({ sectionConfig }) => {
         )}
 
         {/* Row 1: Metrics */}
+        {sectionConfig?.row1_title && (
+          <div className="text-center mb-5">
+            <h3 style={applySectionStyle(sectionConfig?.row1_title_style, {
+              ...HEADING, color: '#1a1a1a', fontSize: 'clamp(1.2rem, 2.5vw, 1.6rem)',
+            })}>{sectionConfig.row1_title}</h3>
+            {sectionConfig?.row1_subtitle && (
+              <p style={applySectionStyle(sectionConfig?.row1_subtitle_style, {
+                fontFamily: "'Lato', sans-serif", fontWeight: 300, color: '#999',
+                fontSize: '0.75rem', letterSpacing: '0.15em', textTransform: 'uppercase',
+              })} className="mt-1">{sectionConfig.row1_subtitle}</p>
+            )}
+            {sectionConfig?.row1_description && (
+              <p style={applySectionStyle(sectionConfig?.row1_description_style, {
+                ...BODY, fontSize: '0.9rem', color: '#666', lineHeight: 1.7,
+              })} className="mt-2 max-w-2xl mx-auto">{sectionConfig.row1_description}</p>
+            )}
+            <div className="w-10 h-0.5 mx-auto mt-2" style={{ background: GOLD }} />
+          </div>
+        )}
         <div className={`grid grid-cols-2 ${cards.length >= 5 ? 'lg:grid-cols-5' : cards.length >= 4 ? 'lg:grid-cols-4' : 'lg:grid-cols-3'} gap-4 max-w-5xl mx-auto`}>
           {cards.map((card, i) => {
             const IconComp = ICON_MAP[card.icon] || TrustIcon;
