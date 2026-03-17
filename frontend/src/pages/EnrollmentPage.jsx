@@ -237,7 +237,7 @@ function EnrollmentPage() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const { toast } = useToast();
-  const { getPrice, getOfferPrice, symbol, baseCurrency, country: detectedCountry } = useCurrency();
+  const { getPrice, getOfferPrice, symbol, baseCurrency, toDisplay, country: detectedCountry } = useCurrency();
   const currency = baseCurrency;
 
   const tierParam = searchParams.get('tier');
@@ -358,8 +358,8 @@ function EnrollmentPage() {
   const tiers = item?.duration_tiers || [];
   const hasTiers = item?.is_flagship && tiers.length > 0 && selectedTier !== null;
   const tierObj = hasTiers ? tiers[selectedTier] : null;
-  const unitPrice = item ? getLocalPrice(item, hasTiers ? selectedTier : null) : 0;
-  const offerUnitPrice = item ? getLocalOfferPrice(item, hasTiers ? selectedTier : null) : 0;
+  const unitPrice = item ? toDisplay(getLocalPrice(item, hasTiers ? selectedTier : null)) : 0;
+  const offerUnitPrice = item ? toDisplay(getLocalOfferPrice(item, hasTiers ? selectedTier : null)) : 0;
   const effectiveUnitPrice = offerUnitPrice > 0 ? offerUnitPrice : unitPrice;
   const pCount = participants.length;
   const subtotalRaw = effectiveUnitPrice * pCount;

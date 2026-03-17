@@ -42,7 +42,7 @@ const StepDot = ({ active, done }) => (
 function CartCheckoutPage() {
   const navigate = useNavigate();
   const { items, clearCart } = useCart();
-  const { country: detectedCountry, symbol, baseCurrency, getPrice, getOfferPrice } = useCurrency();
+  const { country: detectedCountry, symbol, baseCurrency, getPrice, getOfferPrice, toDisplay } = useCurrency();
   const { toast } = useToast();
   const currency = baseCurrency;
 
@@ -106,19 +106,20 @@ function CartCheckoutPage() {
     const hasTiers = item.isFlagship && tiers.length > 0;
     const tier = hasTiers ? tiers[item.tierIndex] : null;
     const key = `price_${currency}`;
-    if (tier) return tier[key] || 0;
-    return item[key] || 0;
+    const base = tier ? (tier[key] || 0) : (item[key] || 0);
+    return toDisplay(base);
   };
 
   const getItemOfferPrice = (item) => {
     const tiers = item.durationTiers || [];
     const hasTiers = item.isFlagship && tiers.length > 0;
     const tier = hasTiers ? tiers[item.tierIndex] : null;
-    if (tier) return tier[`offer_${currency}`] || 0;
-    if (currency === 'aed') return item.offer_price_aed || 0;
-    if (currency === 'inr') return item.offer_price_inr || 0;
-    if (currency === 'usd') return item.offer_price_usd || 0;
-    return 0;
+    let base = 0;
+    if (tier) base = tier[`offer_${currency}`] || 0;
+    else if (currency === 'aed') base = item.offer_price_aed || 0;
+    else if (currency === 'inr') base = item.offer_price_inr || 0;
+    else if (currency === 'usd') base = item.offer_price_usd || 0;
+    return toDisplay(base);
   };
 
   const getEffectivePrice = (item) => {
