@@ -10,6 +10,7 @@ import SessionsSection from '../components/SessionsSection';
 import StatsSection from '../components/StatsSection';
 import TestimonialsSection from '../components/TestimonialsSection';
 import TextTestimonialsStrip from '../components/TextTestimonialsStrip';
+import TrustSection from '../components/TrustSection';
 import NewsletterSection from '../components/NewsletterSection';
 import CustomSection from '../components/CustomSection';
 import Footer from '../components/Footer';
@@ -27,6 +28,7 @@ const COMPONENT_MAP = {
   StatsSection,
   TestimonialsSection,
   TextTestimonialsStrip,
+  TrustSection,
   NewsletterSection,
   custom: CustomSection,
 };
@@ -50,6 +52,7 @@ const DEFAULT_ORDER = [
   { id: 'sessions', component: 'SessionsSection', visible: true },
   { id: 'stats', component: 'StatsSection', visible: true },
   { id: 'testimonials', component: 'TestimonialsSection', visible: true },
+  { id: 'trust', component: 'TrustSection', visible: true },
   { id: 'newsletter', component: 'NewsletterSection', visible: true },
 ];
 

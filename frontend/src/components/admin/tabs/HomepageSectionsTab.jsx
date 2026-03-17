@@ -62,6 +62,7 @@ const DEFAULT_SECTIONS = [
   { id: 'sessions', title: 'Upcoming Sessions', subtitle: '', component: 'SessionsSection', removable: false },
   { id: 'stats', title: '', subtitle: '', component: 'StatsSection', removable: true },
   { id: 'testimonials', title: 'Transformations', subtitle: '', component: 'TestimonialsSection', removable: false },
+  { id: 'trust', title: "Why We're Loved", subtitle: 'Trusted by our community', component: 'TrustSection', removable: false },
   { id: 'newsletter', title: 'Join Our Community', subtitle: '', component: 'NewsletterSection', removable: false },
 ];
 const DEFAULTS_BY_ID = Object.fromEntries(DEFAULT_SECTIONS.map(s => [s.id, s]));
@@ -70,7 +71,19 @@ const CONTENT_SECTIONS = new Set(['about', 'sponsor', 'newsletter']);
 
 const HomepageSectionsTab = ({ settings, onChange }) => {
   const [expandedContent, setExpandedContent] = useState(null);
-  const sections = (settings.homepage_sections || DEFAULT_SECTIONS).map(s => {
+  const saved = settings.homepage_sections || DEFAULT_SECTIONS;
+  const savedIds = new Set(saved.map(s => s.id));
+  // Merge any new defaults that aren't in saved
+  const merged = [...saved];
+  DEFAULT_SECTIONS.forEach(def => {
+    if (!savedIds.has(def.id)) {
+      const defIdx = DEFAULT_SECTIONS.findIndex(d => d.id === def.id);
+      const nextDef = DEFAULT_SECTIONS.slice(defIdx + 1).find(d => savedIds.has(d.id));
+      const insertIdx = nextDef ? merged.findIndex(s => s.id === nextDef.id) : merged.length;
+      merged.splice(insertIdx, 0, def);
+    }
+  });
+  const sections = merged.map(s => {
     const def = DEFAULTS_BY_ID[s.id] || {};
     return { visible: true, title_style: {}, subtitle_style: {}, removable: s.component === 'custom', ...def, ...s, title: s.title != null ? s.title : (def.title || ''), subtitle: s.subtitle != null ? s.subtitle : (def.subtitle || '') };
   });
