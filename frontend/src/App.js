@@ -25,15 +25,28 @@ import IndiaPaymentPage from './pages/IndiaPaymentPage';
 import ManualPaymentPage from './pages/ManualPaymentPage';
 import { Toaster } from './components/ui/toaster';
 import { SiteSettingsProvider } from './context/SiteSettingsContext';
-import { CurrencyProvider } from './context/CurrencyContext';
+import { CurrencyProvider, useCurrency } from './context/CurrencyContext';
 import { CartProvider } from './context/CartContext';
+
+const CurrencyGate = ({ children }) => {
+  const { ready } = useCurrency();
+  if (!ready) return (
+    <div className="min-h-screen flex items-center justify-center" style={{ background: '#0d1117' }}>
+      <div className="flex flex-col items-center gap-3">
+        <div className="w-8 h-8 border-2 border-[#D4AF37] border-t-transparent rounded-full animate-spin" />
+      </div>
+    </div>
+  );
+  return children;
+};
 
 function App() {
   return (
     <div className="App">
       <CurrencyProvider>
-        <CartProvider>
-          <SiteSettingsProvider>
+        <CurrencyGate>
+          <CartProvider>
+            <SiteSettingsProvider>
             <BrowserRouter>
               <Routes>
                 <Route path="/" element={<HomePage />} />
@@ -65,6 +78,7 @@ function App() {
             <Toaster />
           </SiteSettingsProvider>
         </CartProvider>
+        </CurrencyGate>
       </CurrencyProvider>
     </div>
   );

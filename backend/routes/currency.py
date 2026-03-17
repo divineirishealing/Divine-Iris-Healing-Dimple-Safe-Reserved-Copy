@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Request
 from models import CurrencyInfo
-import httpx, logging, os
+import httpx, logging, os, time
 from motor.motor_asyncio import AsyncIOMotorClient
 from dotenv import load_dotenv
 from pathlib import Path
@@ -16,105 +16,217 @@ db = client[os.environ['DB_NAME']]
 
 logger = logging.getLogger(__name__)
 
-# Country code → currency mapping
-# Strict 3-currency rule: India=INR, Gulf=AED, everyone else=USD
-AED_COUNTRIES = {"AE", "SA", "QA", "KW", "OM", "BH"}
-INR_COUNTRIES = {"IN"}
+# ── Region → Base Currency Mapping ──
+INDIA = {"IN"}
+UAE_ONLY = {"AE"}
+GULF_MIDDLE_EAST = {"SA", "QA", "KW", "OM", "BH", "JO", "LB", "IQ"}
+ASIAN = {"SG", "MY", "PH", "TH", "ID", "VN", "KR", "JP", "CN", "HK", "TW", "BD", "LK", "NP", "PK", "MM", "KH", "LA"}
+US_ONLY = {"US"}
+AMERICAS_CONVERT = {"CA", "MX", "BR", "AR", "CL", "CO", "PE"}
+EUROPE = {"GB", "DE", "FR", "IT", "ES", "NL", "BE", "PT", "AT", "CH", "SE", "NO", "DK", "FI", "IE", "PL", "CZ", "HU", "RO", "GR", "HR", "BG", "SK", "SI", "LT", "LV", "EE", "LU", "MT", "CY"}
+OCEANIA = {"AU", "NZ"}
+AFRICA = {"ZA", "NG", "KE", "EG", "MA", "TN", "GH", "ET", "TZ", "UG"}
 
-def get_currency_for_country(country_code):
-    if country_code in INR_COUNTRIES:
-        return "inr"
-    if country_code in AED_COUNTRIES:
-        return "aed"
-    return "usd"
+# Country → local currency code
+COUNTRY_CURRENCY = {
+    "IN": "inr", "AE": "aed", "US": "usd",
+    "SA": "sar", "QA": "qar", "KW": "kwd", "OM": "omr", "BH": "bhd", "JO": "jod", "LB": "lbp", "IQ": "iqd",
+    "SG": "sgd", "MY": "myr", "PH": "php", "TH": "thb", "ID": "idr", "VN": "vnd",
+    "KR": "krw", "JP": "jpy", "CN": "cny", "HK": "hkd", "TW": "twd",
+    "BD": "bdt", "LK": "lkr", "NP": "npr", "PK": "pkr",
+    "CA": "cad", "MX": "mxn", "BR": "brl", "AR": "ars", "CL": "clp", "CO": "cop", "PE": "pen",
+    "GB": "gbp", "CH": "chf", "SE": "sek", "NO": "nok", "DK": "dkk", "PL": "pln", "HU": "huf", "CZ": "czk", "RO": "ron", "HR": "eur", "BG": "bgn",
+    "DE": "eur", "FR": "eur", "IT": "eur", "ES": "eur", "NL": "eur", "BE": "eur", "PT": "eur", "AT": "eur", "FI": "eur", "IE": "eur", "GR": "eur", "SK": "eur", "SI": "eur", "LT": "eur", "LV": "eur", "EE": "eur", "LU": "eur", "MT": "eur", "CY": "eur",
+    "AU": "aud", "NZ": "nzd",
+    "ZA": "zar", "NG": "ngn", "KE": "kes", "EG": "egp",
+}
 
 CURRENCY_SYMBOLS = {
-    "aed": "AED", "inr": "INR", "usd": "USD", "gbp": "GBP", "eur": "EUR",
-    "cad": "CAD", "aud": "AUD", "sgd": "SGD", "jpy": "JPY", "krw": "KRW",
+    "aed": "AED", "inr": "₹", "usd": "$", "gbp": "£", "eur": "€",
+    "cad": "C$", "aud": "A$", "sgd": "S$", "jpy": "¥", "krw": "₩",
     "sar": "SAR", "qar": "QAR", "kwd": "KWD", "omr": "OMR", "bhd": "BHD",
     "pkr": "PKR", "bdt": "BDT", "lkr": "LKR", "npr": "NPR", "myr": "MYR",
     "zar": "ZAR", "ngn": "NGN", "kes": "KES", "egp": "EGP", "php": "PHP",
-    "thb": "THB", "idr": "IDR", "vnd": "VND", "brl": "BRL", "mxn": "MXN",
-    "try": "TRY", "rub": "RUB", "cny": "CNY", "hkd": "HKD", "twd": "TWD",
-    "nzd": "NZD", "chf": "CHF", "sek": "SEK", "nok": "NOK", "dkk": "DKK", "pln": "PLN",
-}
-
-# Default exchange rates (1 AED = X local currency) - admin can override
-DEFAULT_EXCHANGE_RATES = {
-    "gbp": 0.22, "eur": 0.25, "cad": 0.37, "aud": 0.41, "sgd": 0.37,
-    "jpy": 40.8, "krw": 365.0, "sar": 1.02, "qar": 0.99, "kwd": 0.083,
-    "omr": 0.105, "bhd": 0.103, "pkr": 76.0, "bdt": 29.4, "lkr": 87.0,
-    "npr": 36.2, "myr": 1.21, "zar": 5.0, "ngn": 420.0, "kes": 42.0,
-    "egp": 13.4, "php": 15.3, "thb": 9.7, "idr": 4290.0, "vnd": 6800.0,
-    "brl": 1.33, "mxn": 4.62, "try": 8.8, "rub": 24.8, "cny": 1.97,
-    "hkd": 2.13, "twd": 8.7, "nzd": 0.45, "chf": 0.24, "sek": 2.82,
-    "nok": 2.88, "dkk": 1.87, "pln": 1.08,
+    "thb": "THB", "idr": "IDR", "vnd": "VND", "brl": "R$", "mxn": "MX$",
+    "try": "TRY", "cny": "¥", "hkd": "HK$", "twd": "NT$",
+    "nzd": "NZ$", "chf": "CHF", "sek": "SEK", "nok": "NOK", "dkk": "DKK", "pln": "PLN",
+    "czk": "CZK", "huf": "HUF", "ron": "RON", "bgn": "BGN", "ars": "ARS", "clp": "CLP", "cop": "COP", "pen": "PEN",
+    "jod": "JOD", "lbp": "LBP", "iqd": "IQD",
 }
 
 
-async def get_exchange_rates():
-    """Get exchange rates from DB (admin-managed) with defaults fallback"""
+def get_base_currency(country_code, vpn_detected):
+    """Determine base currency (what Stripe charges) based on region + VPN"""
+    if vpn_detected:
+        return "usd"
+    if country_code in INDIA:
+        return "inr"
+    if country_code in UAE_ONLY or country_code in GULF_MIDDLE_EAST or country_code in ASIAN:
+        return "aed"
+    return "usd"
+
+
+def get_display_currency(country_code, vpn_detected):
+    """Determine display currency (what user sees) based on country"""
+    if vpn_detected:
+        return "usd"
+    if country_code in INDIA:
+        return "inr"
+    if country_code in UAE_ONLY:
+        return "aed"
+    if country_code in US_ONLY:
+        return "usd"
+    return COUNTRY_CURRENCY.get(country_code, "usd")
+
+
+# ── Live Exchange Rate Cache ──
+_rate_cache = {"rates": {}, "timestamp": 0}
+CACHE_TTL = 3600  # 1 hour
+
+async def fetch_live_rates():
+    """Fetch live exchange rates, cache for 1 hour"""
+    now = time.time()
+    if _rate_cache["rates"] and (now - _rate_cache["timestamp"]) < CACHE_TTL:
+        return _rate_cache["rates"]
+
+    # Try admin-set rates first
     settings = await db.site_settings.find_one({"id": "site_settings"}, {"_id": 0})
-    if settings and settings.get("exchange_rates"):
-        merged = {**DEFAULT_EXCHANGE_RATES, **settings["exchange_rates"]}
-        return merged
-    return DEFAULT_EXCHANGE_RATES
+    admin_rates = settings.get("exchange_rates", {}) if settings else {}
+
+    # Fetch live rates from free API
+    live_rates = {}
+    try:
+        async with httpx.AsyncClient(timeout=8) as http:
+            # Get USD-based rates
+            resp = await http.get("https://open.er-api.com/v6/latest/USD")
+            if resp.status_code == 200:
+                data = resp.json()
+                if data.get("result") == "success":
+                    usd_rates = data.get("rates", {})
+                    # Convert to our format: { "cad": 1.36, "eur": 0.92, ... }
+                    for code, rate in usd_rates.items():
+                        live_rates[f"usd_to_{code.lower()}"] = rate
+
+            # Get AED-based rates
+            resp2 = await http.get("https://open.er-api.com/v6/latest/AED")
+            if resp2.status_code == 200:
+                data2 = resp2.json()
+                if data2.get("result") == "success":
+                    aed_rates = data2.get("rates", {})
+                    for code, rate in aed_rates.items():
+                        live_rates[f"aed_to_{code.lower()}"] = rate
+    except Exception as e:
+        logger.warning(f"Failed to fetch live rates: {e}")
+
+    # Merge: admin rates override live rates
+    merged = {**live_rates, **admin_rates}
+    _rate_cache["rates"] = merged
+    _rate_cache["timestamp"] = now
+    return merged
 
 
-async def detect_country_from_ip(request: Request) -> str:
-    """Detect country from IP using ip-api.com"""
+def convert_amount(amount, base_currency, display_currency, rates):
+    """Convert amount from base currency to display currency"""
+    if base_currency == display_currency:
+        return amount
+    key = f"{base_currency}_to_{display_currency}"
+    rate = rates.get(key, 0)
+    if rate > 0:
+        return round(amount * rate)
+    return amount
+
+
+# ── IP Detection with VPN check ──
+async def detect_ip_info(request: Request):
+    """Detect country and VPN status from IP"""
     forwarded = request.headers.get("x-forwarded-for", "")
     ip = forwarded.split(",")[0].strip() if forwarded else request.client.host
 
     # Check Cloudflare header first
     cf_country = request.headers.get("CF-IPCountry", "")
-    if cf_country and len(cf_country) == 2:
-        return cf_country.upper()
+
+    country = "US"  # Default to US (safe — USD)
+    vpn_detected = False
 
     try:
         async with httpx.AsyncClient(timeout=5) as http:
-            resp = await http.get(f"http://ip-api.com/json/{ip}?fields=status,countryCode")
+            resp = await http.get(f"http://ip-api.com/json/{ip}?fields=status,countryCode,proxy,hosting")
             if resp.status_code == 200:
                 data = resp.json()
                 if data.get("status") == "success":
-                    return data.get("countryCode", "AE")
+                    country = data.get("countryCode", "US")
+                    vpn_detected = data.get("proxy", False) or data.get("hosting", False)
     except Exception as e:
         logger.warning(f"IP detection failed: {e}")
+        if cf_country and len(cf_country) == 2:
+            country = cf_country.upper()
 
-    return "AE"
+    return country, vpn_detected
 
 
+# ── Endpoints ──
 @router.get("/detect")
 async def detect_currency(request: Request, preview_country: str = None):
-    """Detect user's currency from IP, return currency + exchange rate + country"""
+    """Detect user's currency from IP. Returns locked currency info."""
     if preview_country:
         country = preview_country.upper()
+        vpn_detected = False
     else:
-        country = await detect_country_from_ip(request)
-    currency = get_currency_for_country(country)
-    symbol = CURRENCY_SYMBOLS.get(currency, currency.upper())
-    rates = await get_exchange_rates()
+        country, vpn_detected = await detect_ip_info(request)
 
-    # All 3 currencies are primary (prices set directly in admin)
+    base_currency = get_base_currency(country, vpn_detected)
+    display_currency = get_display_currency(country, vpn_detected)
+    base_symbol = CURRENCY_SYMBOLS.get(base_currency, base_currency.upper())
+    display_symbol = CURRENCY_SYMBOLS.get(display_currency, display_currency.upper())
+
+    rates = await fetch_live_rates()
+    display_rate = 1.0
+    if base_currency != display_currency:
+        key = f"{base_currency}_to_{display_currency}"
+        display_rate = rates.get(key, 1.0)
+
     return {
-        "currency": currency,
-        "symbol": symbol,
+        "currency": base_currency,
+        "symbol": base_symbol,
         "country": country,
-        "rate": 1.0,
-        "is_primary": True,
+        "vpn_detected": vpn_detected,
+        "display_currency": display_currency,
+        "display_symbol": display_symbol,
+        "display_rate": display_rate,
+        "is_primary": base_currency == display_currency,
     }
+
+
+@router.post("/verify")
+async def verify_currency_at_payment(request: Request, data: dict):
+    """Server-side re-verification at payment time.
+    Compares frontend-claimed currency with fresh IP detection."""
+    claimed_currency = data.get("claimed_currency", "usd")
+
+    country, vpn_detected = await detect_ip_info(request)
+    actual_base = get_base_currency(country, vpn_detected)
+
+    # If frontend claimed INR but server says not India → reject
+    if claimed_currency == "inr" and actual_base != "inr":
+        return {"valid": False, "correct_currency": actual_base, "reason": "Currency mismatch — your region does not qualify for INR pricing."}
+
+    # If frontend claimed AED but server says USD → reject
+    if claimed_currency == "aed" and actual_base == "usd":
+        return {"valid": False, "correct_currency": actual_base, "reason": "Currency mismatch — please refresh the page."}
+
+    return {"valid": True, "correct_currency": actual_base}
 
 
 @router.get("/exchange-rates")
 async def get_rates():
-    """Get all exchange rates (admin-managed)"""
-    rates = await get_exchange_rates()
-    return {"base": "aed", "rates": rates}
+    """Get all exchange rates"""
+    rates = await fetch_live_rates()
+    return {"rates": rates}
 
 
 @router.put("/exchange-rates")
 async def update_rates(data: dict):
-    """Admin: Update fixed exchange rates"""
+    """Admin: Update fixed exchange rates (overrides live rates)"""
     rates = data.get("rates", {})
     await db.site_settings.update_one(
         {"id": "site_settings"},
@@ -129,9 +241,9 @@ async def get_supported_currencies():
     return {
         "currencies": [
             {"code": "aed", "symbol": "AED", "name": "UAE Dirham"},
-            {"code": "usd", "symbol": "USD", "name": "US Dollar"},
-            {"code": "inr", "symbol": "INR", "name": "Indian Rupee"},
-            {"code": "eur", "symbol": "EUR", "name": "Euro"},
-            {"code": "gbp", "symbol": "GBP", "name": "British Pound"},
+            {"code": "usd", "symbol": "$", "name": "US Dollar"},
+            {"code": "inr", "symbol": "₹", "name": "Indian Rupee"},
+            {"code": "eur", "symbol": "€", "name": "Euro"},
+            {"code": "gbp", "symbol": "£", "name": "British Pound"},
         ]
     }
