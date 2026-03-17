@@ -12,7 +12,7 @@ import { resolveImageUrl } from '../../lib/imageUtils';
 import {
   Settings, Package, Calendar, MessageSquare, BarChart3, Mail, Inbox,
   Trash2, Edit, Plus, X, Eye, EyeOff, Save, ArrowUp, ArrowDown,
-  Globe, Layout, Image, Users, Palette, Gift, Monitor, Wifi, Tag, ChevronLeft, ChevronRight, Upload, FileText, DollarSign, Quote, Star, ShieldAlert
+  Globe, Layout, Image, Users, Palette, Gift, Monitor, Wifi, Tag, ChevronLeft, ChevronRight, ChevronDown, Upload, FileText, DollarSign, Quote, Star, ShieldAlert
 } from 'lucide-react';
 
 import HeroSettingsTab from './tabs/HeroSettingsTab';
@@ -308,18 +308,29 @@ const AdminPanel = () => {
                   </div>
                   <div className="grid md:grid-cols-2 gap-4">
                     <div className="md:col-span-2">
-                      <p className="text-[10px] font-semibold text-purple-600 bg-purple-50 border border-purple-100 rounded px-3 py-1.5 mb-3">PROGRAM BASICS</p>
+                      <button type="button" onClick={() => setProgramForm(f => ({...f, _basicsOpen: f._basicsOpen === false ? true : f._basicsOpen}))} className="w-full flex items-center gap-2 cursor-pointer group">
+                        {programForm._basicsOpen === false ? <ChevronRight size={14} className="text-purple-400" /> : <ChevronDown size={14} className="text-purple-400" />}
+                        <p className="text-[10px] font-semibold text-purple-600 bg-purple-50 border border-purple-100 rounded px-3 py-1.5 flex-1 text-left">PROGRAM BASICS</p>
+                        {programForm._basicsOpen === false && <span className="text-[9px] text-gray-400">Click to expand</span>}
+                      </button>
                     </div>
+                    {programForm._basicsOpen !== false && <>
                     <div><Label>Title</Label><Input data-testid="program-title-input" value={programForm.title} onChange={e => setProgramForm({...programForm, title: e.target.value})} /></div>
                     <div><Label>Category</Label><Input value={programForm.category} onChange={e => setProgramForm({...programForm, category: e.target.value})} /></div>
                     <div className="md:col-span-2"><Label>Description</Label><Textarea value={programForm.description} onChange={e => setProgramForm({...programForm, description: e.target.value})} rows={4} /></div>
                     <div className="md:col-span-2"><Label>Image</Label><ImageUploader value={programForm.image} onChange={url => setProgramForm({...programForm, image: url})} /></div>
                     <div className="md:col-span-2 text-[10px] text-gray-400 bg-gray-50 rounded px-3 py-2">Dates, timing, pricing, links & visibility are managed from <strong>Upcoming Hub</strong> and <strong>Pricing Hub</strong> tabs.</div>
+                    </>}
                   </div>
 
                   {/* Content Sections Editor — Template-Driven */}
                   <div className="mt-5 border-t pt-5">
-                    <p className="text-[10px] font-semibold text-blue-600 bg-blue-50 border border-blue-100 rounded px-3 py-1.5 mb-3">PART 2 — PROGRAM PAGE CONTENT <span className="font-normal text-blue-400">(structure managed in Page Headers tab — font styles are global)</span></p>
+                    <button type="button" onClick={() => setProgramForm(f => ({...f, _contentOpen: !f._contentOpen}))} className="w-full flex items-center gap-2 cursor-pointer group mb-3">
+                      {programForm._contentOpen ? <ChevronDown size={14} className="text-blue-400" /> : <ChevronRight size={14} className="text-blue-400" />}
+                      <p className="text-[10px] font-semibold text-blue-600 bg-blue-50 border border-blue-100 rounded px-3 py-1.5 flex-1 text-left">PROGRAM PAGE CONTENT <span className="font-normal text-blue-400">(structure managed in Page Headers tab)</span></p>
+                      {!programForm._contentOpen && <span className="text-[9px] text-gray-400">Click to expand</span>}
+                    </button>
+                    {programForm._contentOpen && <>
                     <div className="mb-3">
                       <p className="text-sm font-semibold text-gray-700">Page Content Sections</p>
                       <p className="text-xs text-gray-400">Section structure is shared across all programs (managed in Page Headers tab). Only fill in the text content unique to this program.</p>
@@ -401,6 +412,7 @@ const AdminPanel = () => {
                         </div>
                       );
                     })()}
+                    </>}
                   </div>
                   <div className="mt-4 flex gap-2">
                     <Button data-testid="save-program-btn" onClick={saveProgram} className="bg-[#D4AF37] hover:bg-[#b8962e]"><Save size={14} className="mr-1" /> Save</Button>
