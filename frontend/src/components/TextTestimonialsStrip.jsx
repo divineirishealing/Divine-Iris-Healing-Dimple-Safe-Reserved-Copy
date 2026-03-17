@@ -71,7 +71,22 @@ const GoogleStars = () => (
 const RetentionIcon = () => iconCircle(<svg width="24" height="24" viewBox="0 0 24 24" {...s}><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>);
 const TrustIcon = () => iconCircle(<svg width="24" height="24" viewBox="0 0 24 24" {...s}><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>);
 const DnaIcon = () => iconCircle(<svg width="24" height="24" viewBox="0 0 24 24" {...s}><path d="M2 15c6.667-6 13.333 0 20-6"/><path d="M9 22c1.798-1.998 2.518-3.995 2.807-5.993"/><path d="M15 2c-1.798 1.998-2.518 3.995-2.807 5.993"/><path d="M17 6l-2.5-2.5"/><path d="M7 18l2.5 2.5"/></svg>);
-const BlissIcon = () => iconCircle(<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#b8962e" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" fill="#b8962e22"/><path d="M9 11.5c.5-.5 1-.5 1.5 0"/><path d="M13.5 11.5c.5-.5 1-.5 1.5 0"/><path d="M9.5 14.5s1 1.5 2.5 1.5 2.5-1.5 2.5-1.5"/></svg>);
+const BlissIcon = () => iconCircle(
+  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#b8962e" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round">
+    {/* Seated meditation figure */}
+    <circle cx="12" cy="5" r="2" fill="#b8962e20"/>
+    <path d="M12 7v3"/>
+    <path d="M8 17c0-2.5 1.8-4.5 4-4.5s4 2 4 4.5"/>
+    <path d="M9 12l-2.5-1.5" /><path d="M15 12l2.5-1.5" />
+    {/* Lotus base */}
+    <path d="M6 19c1.5-1.5 3.5-2 6-2s4.5.5 6 2" fill="#b8962e15"/>
+    <path d="M4 21c2-2 5-3 8-3s6 1 8 3"/>
+    {/* Radiating energy */}
+    <line x1="12" y1="1" x2="12" y2="2.5" opacity="0.5"/>
+    <line x1="9" y1="1.8" x2="9.8" y2="3" opacity="0.4"/>
+    <line x1="15" y1="1.8" x2="14.2" y2="3" opacity="0.4"/>
+  </svg>
+);
 const HappinessIcon = () => iconCircle(<svg width="24" height="24" viewBox="0 0 24 24" {...s}><circle cx="12" cy="12" r="10"/><path d="M8 14s1.5 2 4 2 4-2 4-2"/><line x1="9" y1="9" x2="9.01" y2="9"/><line x1="15" y1="9" x2="15.01" y2="9"/></svg>);
 
 const METRIC_ICONS = {
@@ -85,10 +100,27 @@ const METRIC_ICONS = {
 
 /* ── Philosophy Icons ── */
 const HomeIcon = () => iconCircle(<svg width="24" height="24" viewBox="0 0 24 24" {...s}><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>);
-const ScrollIcon = () => iconCircle(<svg width="24" height="24" viewBox="0 0 24 24" {...s}><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>);
+const ScrollIcon = () => iconCircle(
+  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#b8962e" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round">
+    {/* Merkaba - Sacred Geometry Star Tetrahedron */}
+    <polygon points="12,2 21,18 3,18" fill="#b8962e10"/>
+    <polygon points="12,22 3,6 21,6" fill="#b8962e10"/>
+    {/* Inner hexagon for 3D depth */}
+    <polygon points="12,6 17,14.5 12,18 7,14.5 7,9.5 12,6 17,9.5 17,14.5" fill="none"/>
+    <line x1="12" y1="6" x2="12" y2="18" opacity="0.3"/>
+    <line x1="7" y1="9.5" x2="17" y2="14.5" opacity="0.3"/>
+    <line x1="17" y1="9.5" x2="7" y2="14.5" opacity="0.3"/>
+  </svg>
+);
 const AtomIcon = () => iconCircle(<svg width="24" height="24" viewBox="0 0 24 24" {...s}><circle cx="12" cy="12" r="1"/><path d="M20.2 20.2c2.04-2.03.02-7.36-4.5-11.9-4.54-4.52-9.87-6.54-11.9-4.5-2.04 2.03-.02 7.36 4.5 11.9 4.54 4.52 9.87 6.54 11.9 4.5Z"/><path d="M15.7 15.7c4.52-4.54 6.54-9.87 4.5-11.9-2.03-2.04-7.36-.02-11.9 4.5-4.52 4.54-6.54 9.87-4.5 11.9 2.03 2.04 7.36.02 11.9-4.5Z"/></svg>);
 const FeatherIcon = () => iconCircle(<svg width="24" height="24" viewBox="0 0 24 24" {...s}><path d="M20.24 12.24a6 6 0 0 0-8.49-8.49L5 10.5V19h8.5z"/><line x1="16" y1="8" x2="2" y2="22"/><line x1="17.5" y1="15" x2="9" y2="15"/></svg>);
-const ChooseIcon = () => iconCircle(<svg width="24" height="24" viewBox="0 0 24 24" {...s}><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>);
+const ChooseIcon = () => iconCircle(
+  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#b8962e" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round">
+    {/* Twin Hearts - intertwined */}
+    <path d="M14.5 5.5a3 3 0 0 0-4.24 0L9 6.76 7.74 5.5a3 3 0 0 0-4.24 4.24L9 15.24l5.5-5.5a3 3 0 0 0 0-4.24z" fill="#b8962e18"/>
+    <path d="M20.5 8.5a3 3 0 0 0-4.24 0L15 9.76l-1.26-1.26a3 3 0 0 0-4.24 4.24L15 18.24l5.5-5.5a3 3 0 0 0 0-4.24z" fill="#b8962e28"/>
+  </svg>
+);
 const ShieldIcon = () => iconCircle(<svg width="24" height="24" viewBox="0 0 24 24" {...s}><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>);
 const GuruIcon = () => iconCircle(<svg width="24" height="24" viewBox="0 0 24 24" {...s}><circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"/><path d="M2 12h20"/></svg>);
 const InfinityIcon = () => iconCircle(<svg width="24" height="24" viewBox="0 0 24 24" {...s}><path d="M12 12c-2-2.67-4-4-6-4a4 4 0 1 0 0 8c2 0 4-1.33 6-4Zm0 0c2 2.67 4 4 6 4a4 4 0 0 0 0-8c-2 0-4 1.33-6 4Z"/></svg>);
