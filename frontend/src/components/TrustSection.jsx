@@ -304,7 +304,23 @@ const TrustSection = ({ sectionConfig }) => {
         </div>
 
         {/* Row 2: Why Us / Philosophy */}
-        <div className={`grid grid-cols-1 sm:grid-cols-2 ${philoCards.length >= 5 ? 'lg:grid-cols-5' : philoCards.length >= 4 ? 'lg:grid-cols-4' : 'lg:grid-cols-3'} gap-4 max-w-5xl mx-auto mt-6`}>
+        {(sectionConfig?.row2_title || philoCards.length > 0) && (
+          <>
+            {sectionConfig?.row2_title && (
+              <div className="text-center mt-10 mb-5">
+                <h3 style={applySectionStyle(sectionConfig?.row2_title_style, {
+                  ...HEADING, color: '#1a1a1a', fontSize: 'clamp(1.2rem, 2.5vw, 1.6rem)',
+                })}>{sectionConfig.row2_title}</h3>
+                {sectionConfig?.row2_subtitle && (
+                  <p style={applySectionStyle(sectionConfig?.row2_subtitle_style, {
+                    fontFamily: "'Lato', sans-serif", fontWeight: 300, color: '#999',
+                    fontSize: '0.75rem', letterSpacing: '0.15em', textTransform: 'uppercase',
+                  })} className="mt-1">{sectionConfig.row2_subtitle}</p>
+                )}
+                <div className="w-10 h-0.5 mx-auto mt-2" style={{ background: GOLD }} />
+              </div>
+            )}
+            <div className={`grid grid-cols-1 sm:grid-cols-2 ${philoCards.length >= 5 ? 'lg:grid-cols-5' : philoCards.length >= 4 ? 'lg:grid-cols-4' : 'lg:grid-cols-3'} gap-4 max-w-5xl mx-auto ${sectionConfig?.row2_title ? '' : 'mt-6'}`}>
           {philoCards.map((card, i) => {
             const IconComp = ICON_MAP[card.icon] || TrustIcon;
             const tStyle = applySectionStyle(card.title_style, {
@@ -334,6 +350,8 @@ const TrustSection = ({ sectionConfig }) => {
             );
           })}
         </div>
+          </>
+        )}
 
         {/* Row 3: Single Rotating Quote */}
         {quotes.length > 0 && (

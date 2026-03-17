@@ -147,14 +147,17 @@ const TrustCardsEditor = ({ section, sectionIdx, updateSection }) => {
         </div>
       </div>
 
-      {/* Metrics Row */}
-      <div>
-        <div className="flex items-center justify-between mb-2">
-          <p className="text-[10px] font-semibold text-gray-500 uppercase tracking-wider">Metrics Row ({cards.length})</p>
-          <Button variant="outline" size="sm" className="text-[10px] gap-1 h-6" onClick={addCard}><Plus size={10} /> Add</Button>
+      {/* ======== ROW 1: METRICS ======== */}
+      <div className="bg-amber-50 rounded-lg p-3 border border-amber-200">
+        <div className="flex items-center justify-between mb-3">
+          <div>
+            <p className="text-xs font-bold text-amber-800">ROW 1 — Metrics</p>
+            <p className="text-[9px] text-amber-600">Cards with numbers, icons, labels & descriptions</p>
+          </div>
+          <Button variant="outline" size="sm" className="text-[10px] gap-1 h-6" onClick={addCard}><Plus size={10} /> Add Card</Button>
         </div>
         {cards.map((card, ci) => (
-          <div key={ci} className="bg-gray-50 rounded-lg p-2.5 border border-gray-200 space-y-1.5 mb-2" data-testid={`trust-card-editor-${ci}`}>
+          <div key={ci} className="bg-white rounded-lg p-2.5 border border-gray-200 space-y-1.5 mb-2" data-testid={`trust-card-editor-${ci}`}>
             <div className="flex items-center justify-between">
               <span className="text-[10px] font-bold text-gray-600">Metric {ci + 1}</span>
               <div className="flex items-center gap-2">
@@ -181,22 +184,43 @@ const TrustCardsEditor = ({ section, sectionIdx, updateSection }) => {
               </div>
             </div>
             <div>
-              <Label className="text-[8px] text-gray-400">Description</Label>
-              <textarea value={card.description || ''} onChange={e => updateCard(ci, 'description', e.target.value)} className="w-full text-[10px] border rounded px-2 py-1 min-h-[32px] resize-y focus:outline-none focus:ring-1 focus:ring-gray-300" placeholder="Card description" data-testid={`card-desc-${ci}`} />
+              <Label className="text-[8px] text-gray-400">Description / Body</Label>
+              <textarea value={card.description || ''} onChange={e => updateCard(ci, 'description', e.target.value)} className="w-full text-[10px] border rounded px-2 py-1 min-h-[40px] resize-y focus:outline-none focus:ring-1 focus:ring-gray-300" placeholder="Card description text" data-testid={`card-desc-${ci}`} />
               <StyleCell style={card.description_style || {}} onStyleChange={v => updateCard(ci, 'description_style', v)} />
             </div>
           </div>
         ))}
       </div>
 
-      {/* Philosophy / Why Us Row */}
-      <div>
-        <div className="flex items-center justify-between mb-2">
-          <p className="text-[10px] font-semibold text-gray-500 uppercase tracking-wider">Why Us Row ({philoCards.length})</p>
-          <Button variant="outline" size="sm" className="text-[10px] gap-1 h-6" onClick={addPhilo}><Plus size={10} /> Add</Button>
+      {/* ======== ROW 2: WHY US ======== */}
+      <div className="bg-purple-50 rounded-lg p-3 border border-purple-200">
+        <div className="flex items-center justify-between mb-3">
+          <div>
+            <p className="text-xs font-bold text-purple-800">ROW 2 — Why Us</p>
+            <p className="text-[9px] text-purple-600">Philosophy cards with title, icon & description</p>
+          </div>
+          <Button variant="outline" size="sm" className="text-[10px] gap-1 h-6" onClick={addPhilo}><Plus size={10} /> Add Card</Button>
         </div>
+
+        {/* Row 2 Title & Subtitle */}
+        <div className="bg-white rounded-lg p-2.5 border border-gray-200 mb-2">
+          <p className="text-[9px] font-semibold text-gray-500 uppercase tracking-wider mb-1.5">Row Heading (shown above cards)</p>
+          <div className="grid grid-cols-2 gap-2">
+            <div>
+              <Label className="text-[8px] text-gray-400">Row Title</Label>
+              <Input value={section.row2_title || ''} onChange={e => updateSection(sectionIdx, 'row2_title', e.target.value)} className="text-[10px] h-6" placeholder="e.g. Why Choose Us" data-testid="row2-title" />
+              <StyleCell style={section.row2_title_style || {}} onStyleChange={v => updateSection(sectionIdx, 'row2_title_style', v)} />
+            </div>
+            <div>
+              <Label className="text-[8px] text-gray-400">Row Subtitle</Label>
+              <Input value={section.row2_subtitle || ''} onChange={e => updateSection(sectionIdx, 'row2_subtitle', e.target.value)} className="text-[10px] h-6" placeholder="Optional subtitle" data-testid="row2-subtitle" />
+              <StyleCell style={section.row2_subtitle_style || {}} onStyleChange={v => updateSection(sectionIdx, 'row2_subtitle_style', v)} />
+            </div>
+          </div>
+        </div>
+
         {philoCards.map((card, ci) => (
-          <div key={ci} className="bg-gray-50 rounded-lg p-2.5 border border-gray-200 space-y-1.5 mb-2" data-testid={`philo-card-editor-${ci}`}>
+          <div key={ci} className="bg-white rounded-lg p-2.5 border border-gray-200 space-y-1.5 mb-2" data-testid={`philo-card-editor-${ci}`}>
             <div className="flex items-center justify-between">
               <span className="text-[10px] font-bold text-gray-600">Card {ci + 1}</span>
               <div className="flex items-center gap-2">
@@ -212,12 +236,12 @@ const TrustCardsEditor = ({ section, sectionIdx, updateSection }) => {
             </div>
             <div>
               <Label className="text-[8px] text-gray-400">Title</Label>
-              <Input value={card.title || ''} onChange={e => updatePhilo(ci, 'title', e.target.value)} className="text-[10px] h-6" />
+              <Input value={card.title || ''} onChange={e => updatePhilo(ci, 'title', e.target.value)} className="text-[10px] h-6" data-testid={`philo-title-${ci}`} />
               <StyleCell style={card.title_style || {}} onStyleChange={v => updatePhilo(ci, 'title_style', v)} />
             </div>
             <div>
-              <Label className="text-[8px] text-gray-400">Description</Label>
-              <textarea value={card.description || ''} onChange={e => updatePhilo(ci, 'description', e.target.value)} className="w-full text-[10px] border rounded px-2 py-1 min-h-[32px] resize-y focus:outline-none focus:ring-1 focus:ring-gray-300" />
+              <Label className="text-[8px] text-gray-400">Description / Body</Label>
+              <textarea value={card.description || ''} onChange={e => updatePhilo(ci, 'description', e.target.value)} className="w-full text-[10px] border rounded px-2 py-1 min-h-[40px] resize-y focus:outline-none focus:ring-1 focus:ring-gray-300" placeholder="Card description text" data-testid={`philo-desc-${ci}`} />
               <StyleCell style={card.description_style || {}} onStyleChange={v => updatePhilo(ci, 'description_style', v)} />
             </div>
           </div>
