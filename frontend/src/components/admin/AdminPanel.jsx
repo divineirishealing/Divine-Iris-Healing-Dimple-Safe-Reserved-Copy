@@ -300,156 +300,108 @@ const AdminPanel = () => {
                 <Button data-testid="add-program-btn" onClick={() => { resetProgramForm(); setShowProgramForm(true); }} className="bg-[#D4AF37] hover:bg-[#b8962e]"><Plus size={16} className="mr-1" /> Add Program</Button>
               </div>
 
-              {showProgramForm && (
-                <div data-testid="program-form" className="bg-white rounded-lg p-6 mb-6 shadow-sm border">
-                  <div className="flex justify-between items-center mb-4">
-                    <h3 className="font-medium">{editingId ? 'Edit Program' : 'New Program'}</h3>
-                    <button onClick={resetProgramForm}><X size={18} /></button>
-                  </div>
-                  <div className="grid md:grid-cols-2 gap-4">
-                    <div className="md:col-span-2">
-                      <button type="button" onClick={() => setProgramForm(f => ({...f, _basicsOpen: f._basicsOpen === false ? true : f._basicsOpen}))} className="w-full flex items-center gap-2 cursor-pointer group">
-                        {programForm._basicsOpen === false ? <ChevronRight size={14} className="text-purple-400" /> : <ChevronDown size={14} className="text-purple-400" />}
-                        <p className="text-[10px] font-semibold text-purple-600 bg-purple-50 border border-purple-100 rounded px-3 py-1.5 flex-1 text-left">PROGRAM BASICS</p>
-                        {programForm._basicsOpen === false && <span className="text-[9px] text-gray-400">Click to expand</span>}
-                      </button>
-                    </div>
-                    {programForm._basicsOpen !== false && <>
-                    <div><Label>Title</Label><Input data-testid="program-title-input" value={programForm.title} onChange={e => setProgramForm({...programForm, title: e.target.value})} /></div>
-                    <div><Label>Category</Label><Input value={programForm.category} onChange={e => setProgramForm({...programForm, category: e.target.value})} /></div>
-                    <div className="md:col-span-2"><Label>Description</Label><Textarea value={programForm.description} onChange={e => setProgramForm({...programForm, description: e.target.value})} rows={4} /></div>
-                    <div className="md:col-span-2"><Label>Image</Label><ImageUploader value={programForm.image} onChange={url => setProgramForm({...programForm, image: url})} /></div>
-                    <div className="md:col-span-2 text-[10px] text-gray-400 bg-gray-50 rounded px-3 py-2">Dates, timing, pricing, links & visibility are managed from <strong>Upcoming Hub</strong> and <strong>Pricing Hub</strong> tabs.</div>
-                    </>}
-                  </div>
-
-                  {/* Content Sections Editor — Template-Driven */}
-                  <div className="mt-5 border-t pt-5">
-                    <button type="button" onClick={() => setProgramForm(f => ({...f, _contentOpen: !f._contentOpen}))} className="w-full flex items-center gap-2 cursor-pointer group mb-3">
-                      {programForm._contentOpen ? <ChevronDown size={14} className="text-blue-400" /> : <ChevronRight size={14} className="text-blue-400" />}
-                      <p className="text-[10px] font-semibold text-blue-600 bg-blue-50 border border-blue-100 rounded px-3 py-1.5 flex-1 text-left">PROGRAM PAGE CONTENT <span className="font-normal text-blue-400">(structure managed in Page Headers tab)</span></p>
-                      {!programForm._contentOpen && <span className="text-[9px] text-gray-400">Click to expand</span>}
-                    </button>
-                    {programForm._contentOpen && <>
-                    <div className="mb-3">
-                      <p className="text-sm font-semibold text-gray-700">Page Content Sections</p>
-                      <p className="text-xs text-gray-400">Section structure is shared across all programs (managed in Page Headers tab). Only fill in the text content unique to this program.</p>
-                    </div>
-
-                    {(() => {
-                      const secTemplate = siteSettings?.program_section_template || [];
-                      if (secTemplate.length === 0) return (
-                        <p className="text-xs text-gray-400 text-center py-4 border border-dashed rounded">No section template defined yet. Go to <strong>Page Headers</strong> tab to set up the shared section structure.</p>
-                      );
-                      // Map existing content_sections by section_type for lookup
-                      const existing = programForm.content_sections || [];
-                      const findContent = (tplSec) => existing.find(s => s.id === tplSec.id || s.section_type === tplSec.section_type) || {};
-
-                      const updateSectionContent = (tplSec, field, val) => {
-                        const sections = [...(programForm.content_sections || [])];
-                        const matchIdx = sections.findIndex(s => s.id === tplSec.id || s.section_type === tplSec.section_type);
-                        if (matchIdx >= 0) {
-                          sections[matchIdx] = { ...sections[matchIdx], [field]: val };
-                        } else {
-                          sections.push({ id: tplSec.id, section_type: tplSec.section_type, title: tplSec.default_title || '', subtitle: tplSec.default_subtitle || '', body: '', image_url: '', is_enabled: true, order: tplSec.order, [field]: val });
-                        }
-                        setProgramForm({ ...programForm, content_sections: sections });
-                      };
-
-                      return (
-                        <div className="space-y-3">
-                          {secTemplate.filter(t => t.is_enabled !== false).map((tplSec, tIdx) => {
-                            const content = findContent(tplSec);
-                            const typeLabels = { journey: 'The Journey', who_for: 'Who It Is For?', experience: 'Your Experience', why_now: 'Why You Need This Now?', custom: 'Custom' };
-                            const typeLabel = typeLabels[tplSec.section_type] || tplSec.default_title || 'Section';
-                            const isDark = tplSec.section_type === 'experience';
-                            const typeColor = { journey: 'bg-blue-50 border-blue-200', who_for: 'bg-amber-50 border-amber-200', experience: 'bg-gray-800 border-gray-600', why_now: 'bg-green-50 border-green-200', custom: 'bg-white border-gray-200' }[tplSec.section_type] || 'bg-white border-gray-200';
-
-                            return (
-                              <div key={tplSec.id} className="border rounded-lg overflow-hidden" data-testid={`section-editor-${tIdx}`}>
-                                <div className={`px-4 py-2 border-b ${typeColor} flex items-center gap-2`}>
-                                  <span className={`text-[10px] font-bold ${isDark ? 'text-yellow-400' : 'text-gray-700'}`}>#{tIdx + 1} {typeLabel}</span>
-                                  {isDark && <span className="text-[8px] px-1.5 py-0.5 bg-black/30 text-white rounded">Dark Background</span>}
-                                </div>
-                                <div className="p-4 bg-white">
-                                  <div className="grid md:grid-cols-2 gap-3 mb-3">
-                                    <div>
-                                      <Label className="text-[10px]">Title</Label>
-                                      <Input value={content.title ?? tplSec.default_title ?? ''} onChange={e => updateSectionContent(tplSec, 'title', e.target.value)} placeholder={tplSec.default_title || 'Section heading...'} className="text-xs" />
-                                    </div>
-                                    <div>
-                                      <Label className="text-[10px]">Subtitle</Label>
-                                      <Input value={content.subtitle ?? tplSec.default_subtitle ?? ''} onChange={e => updateSectionContent(tplSec, 'subtitle', e.target.value)} placeholder="Optional subtitle..." className="text-xs" />
-                                    </div>
-                                  </div>
-                                  <div className="mb-2">
-                                    <Label className="text-[10px]">Body Content {tplSec.section_type === 'who_for' && '(one item per line)'}</Label>
-                                    <Textarea value={content.body || ''} onChange={e => updateSectionContent(tplSec, 'body', e.target.value)} rows={3} placeholder={tplSec.section_type === 'who_for' ? 'One bullet point per line...' : 'Section content...'} className="text-xs" />
-                                  </div>
-                                  {/* Image ONLY for experience (dark BG) sections */}
-                                  {isDark && (
-                                    <div>
-                                      <Label className="text-[10px]">Image (shown on dark section)</Label>
-                                      <div className="flex gap-3 items-start">
-                                        <div className="flex-1">
-                                          <ImageUploader value={content.image_url || ''} onChange={url => updateSectionContent(tplSec, 'image_url', url)} />
-                                        </div>
-                                        {content.image_url && (
-                                          <div className="flex-shrink-0 space-y-1">
-                                            <img src={resolveImageUrl(content.image_url)} alt="" className="w-20 h-16 rounded border" style={{ objectFit: content.image_fit || 'cover', objectPosition: content.image_position || 'center' }} />
-                                            <select value={content.image_fit || 'contain'} onChange={e => updateSectionContent(tplSec, 'image_fit', e.target.value)} className="w-20 text-[8px] border rounded px-1 py-0.5">
-                                              <option value="cover">Cover</option><option value="contain">Contain</option><option value="fill">Fill</option>
-                                            </select>
-                                          </div>
-                                        )}
-                                      </div>
-                                    </div>
-                                  )}
-                                </div>
-                              </div>
-                            );
-                          })}
-                        </div>
-                      );
-                    })()}
-                    </>}
-                  </div>
-                  <div className="mt-4 flex gap-2">
-                    <Button data-testid="save-program-btn" onClick={saveProgram} className="bg-[#D4AF37] hover:bg-[#b8962e]"><Save size={14} className="mr-1" /> Save</Button>
-                    <Button variant="outline" onClick={resetProgramForm}>Cancel</Button>
-                  </div>
-                </div>
-              )}
-
               <div className="space-y-2">
-                {programs.map((p, idx) => (
-                  <div key={p.id} data-testid={`program-row-${p.id}`} className={`bg-white rounded-lg p-4 flex items-center gap-4 shadow-sm border ${!p.visible ? 'opacity-60' : ''}`}>
-                    <div className="flex flex-col gap-1">
-                      <button onClick={() => moveProgramOrder(idx, -1)} disabled={idx===0} className="p-0.5 hover:bg-gray-100 rounded disabled:opacity-30"><ArrowUp size={14} /></button>
-                      <button onClick={() => moveProgramOrder(idx, 1)} disabled={idx===programs.length-1} className="p-0.5 hover:bg-gray-100 rounded disabled:opacity-30"><ArrowDown size={14} /></button>
-                    </div>
-                    {p.image && <img src={resolveImageUrl(p.image)} alt={p.title} className="w-14 h-14 object-cover rounded" />}
-                    <div className="flex-1 min-w-0">
-                      <p className="font-medium text-sm text-gray-900 truncate">{p.title}</p>
-                      <div className="flex items-center gap-2 mt-0.5 flex-wrap">
-                        <p className="text-xs text-gray-500">{p.category}</p>
-                        {p.is_flagship && <span className="text-[10px] bg-[#D4AF37]/10 text-[#D4AF37] px-2 py-0.5 rounded font-medium">Flagship</span>}
-                        {p.is_upcoming && <span className="text-[10px] bg-amber-100 text-amber-700 px-2 py-0.5 rounded">Upcoming</span>}
-                        <span className="text-[10px] space-x-1">
-                          {p.enable_online !== false && <span className="px-1.5 py-0.5 rounded bg-blue-50 text-blue-600">Online</span>}
-                          {p.enable_offline !== false && <span className="px-1.5 py-0.5 rounded bg-teal-50 text-teal-600">Offline</span>}
-                          {p.enable_in_person && <span className="px-1.5 py-0.5 rounded bg-gray-100 text-gray-600">In Person</span>}
-                        </span>
-                        {p.duration_tiers && p.duration_tiers.length > 0 && <span className="text-[10px] text-gray-400">{p.duration_tiers.length} tier{p.duration_tiers.length>1?'s':''}</span>}
+                {programs.map((p, idx) => {
+                  const isExpanded = editingId === p.id && showProgramForm;
+                  return (
+                  <div key={p.id} data-testid={`program-row-${p.id}`} className={`bg-white rounded-lg shadow-sm border ${!p.visible ? 'opacity-60' : ''} ${isExpanded ? 'ring-2 ring-[#D4AF37]/30' : ''}`}>
+                    <div className={`p-3 flex items-center gap-3 cursor-pointer select-none ${isExpanded ? 'border-b bg-gray-50/50' : 'hover:bg-gray-50/50'}`} onClick={() => { if (isExpanded) { resetProgramForm(); } else { editProgram(p); setShowProgramForm(true); } }}>
+                      <div className="flex flex-col gap-0.5" onClick={e => e.stopPropagation()}>
+                        <button onClick={() => moveProgramOrder(idx, -1)} disabled={idx===0} className="p-0.5 hover:bg-gray-200 rounded disabled:opacity-30"><ArrowUp size={12} /></button>
+                        <button onClick={() => moveProgramOrder(idx, 1)} disabled={idx===programs.length-1} className="p-0.5 hover:bg-gray-200 rounded disabled:opacity-30"><ArrowDown size={12} /></button>
+                      </div>
+                      {isExpanded ? <ChevronDown size={15} className="text-[#D4AF37] flex-shrink-0" /> : <ChevronRight size={15} className="text-gray-300 flex-shrink-0" />}
+                      {p.image && <img src={resolveImageUrl(p.image)} alt={p.title} className="w-12 h-12 object-cover rounded flex-shrink-0" />}
+                      <div className="flex-1 min-w-0">
+                        <p className="font-medium text-sm text-gray-900 truncate">{p.title}</p>
+                        <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+                          <p className="text-xs text-gray-500">{p.category}</p>
+                          {p.is_flagship && <span className="text-[9px] bg-[#D4AF37]/10 text-[#D4AF37] px-1.5 py-0.5 rounded font-medium">Flagship</span>}
+                          {p.is_upcoming && <span className="text-[9px] bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded">Upcoming</span>}
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-1.5" onClick={e => e.stopPropagation()}>
+                        <button onClick={() => toggleProgramVisibility(p)} className="p-1 rounded hover:bg-gray-200">{p.visible ? <Eye size={14} className="text-green-600" /> : <EyeOff size={14} className="text-gray-400" />}</button>
+                        <button onClick={() => deleteProgram(p.id)} className="p-1 rounded hover:bg-gray-200"><Trash2 size={14} className="text-red-400" /></button>
                       </div>
                     </div>
-                    <div className="flex items-center gap-2">
-                      <button onClick={() => toggleProgramVisibility(p)} className="p-1.5 rounded hover:bg-gray-100">{p.visible ? <Eye size={16} className="text-green-600" /> : <EyeOff size={16} className="text-gray-400" />}</button>
-                      <button onClick={() => editProgram(p)} className="p-1.5 rounded hover:bg-gray-100"><Edit size={16} className="text-blue-600" /></button>
-                      <button onClick={() => deleteProgram(p.id)} className="p-1.5 rounded hover:bg-gray-100"><Trash2 size={16} className="text-red-500" /></button>
-                    </div>
+
+                    {isExpanded && (
+                      <div className="p-5">
+                        <div className="grid md:grid-cols-2 gap-4">
+                          <div className="md:col-span-2">
+                            <button type="button" onClick={() => setProgramForm(f => ({...f, _basicsOpen: f._basicsOpen === false ? true : f._basicsOpen}))} className="w-full flex items-center gap-2 cursor-pointer group">
+                              {programForm._basicsOpen === false ? <ChevronRight size={14} className="text-purple-400" /> : <ChevronDown size={14} className="text-purple-400" />}
+                              <p className="text-[10px] font-semibold text-purple-600 bg-purple-50 border border-purple-100 rounded px-3 py-1.5 flex-1 text-left">PROGRAM BASICS</p>
+                            </button>
+                          </div>
+                          {programForm._basicsOpen !== false && <>
+                          <div><Label>Title</Label><Input data-testid="program-title-input" value={programForm.title} onChange={e => setProgramForm({...programForm, title: e.target.value})} /></div>
+                          <div><Label>Category</Label><Input value={programForm.category} onChange={e => setProgramForm({...programForm, category: e.target.value})} /></div>
+                          <div className="md:col-span-2"><Label>Description</Label><Textarea value={programForm.description} onChange={e => setProgramForm({...programForm, description: e.target.value})} rows={4} /></div>
+                          <div className="md:col-span-2"><Label>Image</Label><ImageUploader value={programForm.image} onChange={url => setProgramForm({...programForm, image: url})} /></div>
+                          <div className="md:col-span-2 text-[10px] text-gray-400 bg-gray-50 rounded px-3 py-2">Dates, timing, pricing, links & visibility are managed from <strong>Upcoming Hub</strong> and <strong>Pricing Hub</strong> tabs.</div>
+                          </>}
+                        </div>
+
+                        <div className="mt-5 border-t pt-4">
+                          <button type="button" onClick={() => setProgramForm(f => ({...f, _contentOpen: !f._contentOpen}))} className="w-full flex items-center gap-2 cursor-pointer group mb-3">
+                            {programForm._contentOpen ? <ChevronDown size={14} className="text-blue-400" /> : <ChevronRight size={14} className="text-blue-400" />}
+                            <p className="text-[10px] font-semibold text-blue-600 bg-blue-50 border border-blue-100 rounded px-3 py-1.5 flex-1 text-left">PROGRAM PAGE CONTENT</p>
+                          </button>
+                          {programForm._contentOpen && <>
+                          {(() => {
+                            const secTemplate = siteSettings?.program_section_template || [];
+                            if (secTemplate.length === 0) return <p className="text-xs text-gray-400 text-center py-4 border border-dashed rounded">No section template defined. Go to <strong>Page Headers</strong>.</p>;
+                            const existing = programForm.content_sections || [];
+                            const findContent = (tplSec) => existing.find(s => s.id === tplSec.id || s.section_type === tplSec.section_type) || {};
+                            const updateSectionContent = (tplSec, field, val) => {
+                              const sections = [...(programForm.content_sections || [])];
+                              const matchIdx = sections.findIndex(s => s.id === tplSec.id || s.section_type === tplSec.section_type);
+                              if (matchIdx >= 0) { sections[matchIdx] = { ...sections[matchIdx], [field]: val }; }
+                              else { sections.push({ id: tplSec.id, section_type: tplSec.section_type, title: tplSec.default_title || '', subtitle: tplSec.default_subtitle || '', body: '', image_url: '', is_enabled: true, order: tplSec.order, [field]: val }); }
+                              setProgramForm({ ...programForm, content_sections: sections });
+                            };
+                            return (
+                              <div className="space-y-3">
+                                {secTemplate.filter(t => t.is_enabled !== false).map((tplSec, tIdx) => {
+                                  const content = findContent(tplSec);
+                                  const typeLabels = { journey: 'The Journey', who_for: 'Who It Is For?', experience: 'Your Experience', why_now: 'Why You Need This Now?', custom: 'Custom' };
+                                  const typeLabel = typeLabels[tplSec.section_type] || tplSec.default_title || 'Section';
+                                  const isDark = tplSec.section_type === 'experience';
+                                  const typeColor = { journey: 'bg-blue-50 border-blue-200', who_for: 'bg-amber-50 border-amber-200', experience: 'bg-gray-800 border-gray-600', why_now: 'bg-green-50 border-green-200', custom: 'bg-white border-gray-200' }[tplSec.section_type] || 'bg-white border-gray-200';
+                                  return (
+                                    <div key={tplSec.id} className="border rounded-lg overflow-hidden" data-testid={`section-editor-${tIdx}`}>
+                                      <div className={`px-4 py-2 border-b ${typeColor} flex items-center gap-2`}>
+                                        <span className={`text-[10px] font-bold ${isDark ? 'text-yellow-400' : 'text-gray-700'}`}>#{tIdx + 1} {typeLabel}</span>
+                                        {isDark && <span className="text-[8px] px-1.5 py-0.5 bg-black/30 text-white rounded">Dark Background</span>}
+                                      </div>
+                                      <div className="p-4 bg-white">
+                                        <div className="grid md:grid-cols-2 gap-3 mb-3">
+                                          <div><Label className="text-[10px]">Title</Label><Input value={content.title ?? tplSec.default_title ?? ''} onChange={e => updateSectionContent(tplSec, 'title', e.target.value)} placeholder={tplSec.default_title || 'Section heading...'} className="text-xs" /></div>
+                                          <div><Label className="text-[10px]">Subtitle</Label><Input value={content.subtitle ?? tplSec.default_subtitle ?? ''} onChange={e => updateSectionContent(tplSec, 'subtitle', e.target.value)} placeholder="Optional subtitle..." className="text-xs" /></div>
+                                        </div>
+                                        <div className="mb-2"><Label className="text-[10px]">Body Content{tplSec.section_type === 'who_for' && ' (one item per line)'}</Label><Textarea value={content.body || ''} onChange={e => updateSectionContent(tplSec, 'body', e.target.value)} rows={3} placeholder={tplSec.section_type === 'who_for' ? 'One bullet per line...' : 'Section content...'} className="text-xs" /></div>
+                                        {isDark && (<div><Label className="text-[10px]">Image</Label><div className="flex gap-3 items-start"><div className="flex-1"><ImageUploader value={content.image_url || ''} onChange={url => updateSectionContent(tplSec, 'image_url', url)} /></div>{content.image_url && (<div className="flex-shrink-0 space-y-1"><img src={resolveImageUrl(content.image_url)} alt="" className="w-20 h-16 rounded border" style={{ objectFit: content.image_fit || 'cover', objectPosition: content.image_position || 'center' }} /><select value={content.image_fit || 'contain'} onChange={e => updateSectionContent(tplSec, 'image_fit', e.target.value)} className="w-20 text-[8px] border rounded px-1 py-0.5"><option value="cover">Cover</option><option value="contain">Contain</option><option value="fill">Fill</option></select></div>)}</div></div>)}
+                                      </div>
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            );
+                          })()}
+                          </>}
+                        </div>
+
+                        <div className="mt-4 flex gap-2">
+                          <Button data-testid="save-program-btn" onClick={saveProgram} className="bg-[#D4AF37] hover:bg-[#b8962e]"><Save size={14} className="mr-1" /> Save</Button>
+                          <Button variant="outline" onClick={resetProgramForm}>Collapse</Button>
+                        </div>
+                      </div>
+                    )}
                   </div>
-                ))}
+                  );
+                })}
               </div>
             </div>
           )}
