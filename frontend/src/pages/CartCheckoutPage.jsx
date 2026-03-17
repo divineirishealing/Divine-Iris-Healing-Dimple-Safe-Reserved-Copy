@@ -56,11 +56,11 @@ function CartCheckoutPage() {
   // Billing
   const [bookerName, setBookerName] = useState('');
   const [bookerEmail, setBookerEmail] = useState('');
-  const [bookerCountry, setBookerCountry] = useState(detectedCountry || 'AE');
+  const [bookerCountry, setBookerCountry] = useState('');
   const [bookerCity, setBookerCity] = useState('');
   const [bookerState, setBookerState] = useState('');
   const [phone, setPhone] = useState('');
-  const [countryCode, setCountryCode] = useState('+971');
+  const [countryCode, setCountryCode] = useState('');
   const [otpSent, setOtpSent] = useState(false);
   const [otp, setOtp] = useState('');
   const [emailVerified, setEmailVerified] = useState(false);
@@ -86,17 +86,12 @@ function CartCheckoutPage() {
     if (items.length === 0) navigate('/cart');
   }, [items, navigate]);
 
-  useEffect(() => {
-    if (detectedCountry) {
-      setBookerCountry(detectedCountry);
-      const c = COUNTRIES.find(c => c.code === detectedCountry);
-      if (c) setCountryCode(c.phone);
-    }
-  }, [detectedCountry]);
+  // Country is NOT auto-filled — user must select manually
 
   useEffect(() => {
     const c = COUNTRIES.find(c => c.code === bookerCountry);
     if (c) setCountryCode(c.phone);
+    else setCountryCode('');
   }, [bookerCountry]);
 
   // Fetch payment settings
@@ -426,8 +421,9 @@ function CartCheckoutPage() {
                           <label className="text-[10px] text-gray-500 block mb-0.5">Country *</label>
                           <select data-testid="cart-booker-country" value={bookerCountry} onChange={e => {
                             setBookerCountry(e.target.value);
+                            setBookerCity(''); setBookerState('');
                             const c = COUNTRIES.find(c => c.code === e.target.value);
-                            if (c) setCountryCode(c.phone);
+                            setCountryCode(c ? c.phone : '');
                           }} className="w-full border rounded-md px-2 py-2 text-sm bg-white">
                             <option value="">Select country</option>
                             {COUNTRIES.map(c => <option key={c.code} value={c.code}>{c.name}</option>)}
@@ -436,13 +432,9 @@ function CartCheckoutPage() {
                         <div>
                           <label className="text-[10px] text-gray-500 block mb-0.5">Phone</label>
                           <div className="flex gap-1">
-                            <select value={countryCode} onChange={e => {
-                              setCountryCode(e.target.value);
-                              const c = COUNTRIES.find(c => c.phone === e.target.value);
-                              if (c) setBookerCountry(c.code);
-                            }} className="border rounded-md px-1 py-2 text-xs w-20 bg-white">
-                              {COUNTRIES.map(c => <option key={c.code} value={c.phone}>{c.phone}</option>)}
-                            </select>
+                            <span className="border rounded-md px-2 py-2 text-xs w-20 bg-gray-50 flex items-center justify-center text-gray-600">
+                              {countryCode || '—'}
+                            </span>
                             <Input data-testid="cart-phone" type="tel" value={phone} onChange={e => setPhone(e.target.value.replace(/\D/g, ''))} placeholder="Phone number" className="text-sm flex-1" />
                           </div>
                         </div>

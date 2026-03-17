@@ -51,8 +51,8 @@ const COUNTRIES_PHONE = [
 
 const emptyParticipant = (mode = 'online') => ({
   name: '', relationship: '', age: '', gender: '',
-  country: '', attendance_mode: mode, notify: true, email: '', phone: '', whatsapp: '',
-  phone_code: '+971', wa_code: '+971',
+  country: '', city: '', state: '', attendance_mode: mode, notify: true, email: '', phone: '', whatsapp: '',
+  phone_code: '', wa_code: '',
   is_first_time: true, referral_source: '',
 });
 
@@ -178,17 +178,23 @@ const CartItemCard = ({ item, onRemove, onUpdateParticipants, symbol, getItemPri
                     <option value="">Select</option>
                     {GENDERS.map(g => <option key={g} value={g}>{g}</option>)}
                   </select></div>
-                <div><label className="text-[9px] text-gray-500">Country</label>
+                <div><label className="text-[9px] text-gray-500">Country *</label>
                   <select value={p.country} onChange={e => {
                     const code = e.target.value;
                     const c = COUNTRIES_PHONE.find(c => c.code === code);
                     const updated = [...item.participants];
-                    updated[idx] = { ...p, country: code, phone_code: c ? c.phone : p.phone_code, wa_code: c ? c.phone : p.wa_code };
+                    updated[idx] = { ...p, country: code, city: '', state: '', phone_code: c ? c.phone : '', wa_code: c ? c.phone : '' };
                     onUpdateParticipants(updated);
                   }} className="w-full border rounded-md px-2 py-1.5 text-xs bg-white h-8">
                     <option value="">Select country</option>
                     {COUNTRIES.map(c => <option key={c.code} value={c.code}>{c.name}</option>)}
                   </select></div>
+              </div>
+              <div className="grid grid-cols-2 gap-2 mb-2">
+                <div><label className="text-[9px] text-gray-500">City *</label>
+                  <Input value={p.city || ''} onChange={e => updateParticipant(idx, 'city', e.target.value)} placeholder="City" className="text-xs h-8" /></div>
+                <div><label className="text-[9px] text-gray-500">State *</label>
+                  <Input value={p.state || ''} onChange={e => updateParticipant(idx, 'state', e.target.value)} placeholder="State / Province" className="text-xs h-8" /></div>
               </div>
               <div className="flex gap-1 mb-1">
                 {item.enable_online !== false && (
@@ -286,14 +292,9 @@ const CartItemCard = ({ item, onRemove, onUpdateParticipants, symbol, getItemPri
                 <div className="grid grid-cols-3 gap-2 mt-2">
                   <Input value={p.email || ''} onChange={e => updateParticipant(idx, 'email', e.target.value)} placeholder="Email" className="text-xs h-8" data-testid={`cp-email-${item.id}-${idx}`} />
                   <div className="flex gap-0.5">
-                    <select value={p.phone_code || '+971'} onChange={e => {
-                      const updated = [...item.participants];
-                      updated[idx] = { ...p, phone_code: e.target.value, wa_code: e.target.value };
-                      onUpdateParticipants(updated);
-                    }}
-                      className="border rounded-md px-0.5 py-1 text-[10px] w-[60px] bg-white h-8 flex-shrink-0">
-                      {COUNTRIES_PHONE.map(c => <option key={c.code} value={c.phone}>{c.phone}</option>)}
-                    </select>
+                    <span className="border rounded-md px-1.5 py-1 text-[10px] w-[60px] bg-gray-50 h-8 flex-shrink-0 flex items-center justify-center text-gray-600">
+                      {p.phone_code || '—'}
+                    </span>
                     <Input value={p.phone || ''} onChange={e => {
                       const val = e.target.value.replace(/\D/g, '').slice(0, 10);
                       const shouldSync = !p.whatsapp || p.whatsapp === p.phone;
@@ -303,10 +304,9 @@ const CartItemCard = ({ item, onRemove, onUpdateParticipants, symbol, getItemPri
                     }} placeholder="Phone (10 digits)" maxLength={10} className="text-xs h-8" data-testid={`cp-phone-${item.id}-${idx}`} />
                   </div>
                   <div className="flex gap-0.5">
-                    <select value={p.wa_code || '+971'} onChange={e => updateParticipant(idx, 'wa_code', e.target.value)}
-                      className="border rounded-md px-0.5 py-1 text-[10px] w-[60px] bg-white h-8 flex-shrink-0">
-                      {COUNTRIES_PHONE.map(c => <option key={c.code} value={c.phone}>{c.phone}</option>)}
-                    </select>
+                    <span className="border rounded-md px-1.5 py-1 text-[10px] w-[60px] bg-gray-50 h-8 flex-shrink-0 flex items-center justify-center text-gray-600">
+                      {p.wa_code || '—'}
+                    </span>
                     <div className="relative flex-1">
                       <Input value={p.whatsapp || ''} onChange={e => updateParticipant(idx, 'whatsapp', e.target.value.replace(/\D/g, '').slice(0, 10))} placeholder="WhatsApp (10 digits)" maxLength={10} className="text-xs h-8 pl-7" />
                       <svg className="absolute left-2 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-green-500" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z"/><path d="M12 0C5.373 0 0 5.373 0 12c0 2.625.846 5.059 2.284 7.034L.789 23.492a.5.5 0 00.612.638l4.67-1.228A11.947 11.947 0 0012 24c6.627 0 12-5.373 12-12S18.627 0 12 0zm0 22c-2.352 0-4.55-.743-6.357-2.012l-.232-.168-3.227.85.862-3.147-.185-.239A9.96 9.96 0 012 12C2 6.486 6.486 2 12 2s10 4.486 10 10-4.486 10-10 10z"/></svg>
@@ -335,19 +335,7 @@ function CartPage() {
   const [paymentDisclaimer, setPaymentDisclaimer] = useState('');
   const [disclaimerStyle, setDisclaimerStyle] = useState({});
 
-  // Auto-fill detected country into participants on first load
-  useEffect(() => {
-    if (!detectedCountry) return;
-    const c = COUNTRIES.find(c => c.code === detectedCountry);
-    const phoneCode = c ? c.phone : '+971';
-    items.forEach(item => {
-      const needsUpdate = item.participants.some(p => !p.country);
-      if (needsUpdate) {
-        const updated = item.participants.map(p => p.country ? p : { ...p, country: detectedCountry, phone_code: phoneCode, wa_code: phoneCode });
-        updateItemParticipants(item.id, updated);
-      }
-    });
-  }, [detectedCountry]); // eslint-disable-line react-hooks/exhaustive-deps
+  // Country is NOT auto-filled — user must select manually
 
   useEffect(() => {
     axios.get(`${API}/discounts/settings`).then(r => setDiscountSettings(r.data)).catch(() => {});
