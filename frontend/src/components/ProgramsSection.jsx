@@ -66,8 +66,26 @@ const SimpleFlagshipCard = ({ program }) => {
       {/* Content */}
       <div className="p-4 flex-1 flex flex-col">
         <p className="text-[#D4AF37] text-[10px] tracking-wider mb-0.5 uppercase">{program.category}</p>
-        <h3 className="text-base font-semibold text-gray-900 mb-1.5 leading-tight cursor-pointer" style={{ ...BODY, fontWeight: 600, fontSize: '0.95rem' }}
-          onClick={() => navigate(`/program/${program.id}`)}>{program.title}</h3>
+        <div className="flex items-start gap-2 mb-1.5">
+          <h3 className="text-base font-semibold text-gray-900 leading-tight cursor-pointer" style={{ ...BODY, fontWeight: 600, fontSize: '0.95rem' }}
+            onClick={() => navigate(`/program/${program.id}`)}>{program.title}</h3>
+          {program.highlight_label && (
+            <span data-testid={`highlight-badge-${program.id}`}
+              className={`flex-shrink-0 inline-flex items-center gap-1 text-[8px] font-bold tracking-wider uppercase px-2 py-1 rounded-full whitespace-nowrap ${program.highlight_style === 'glow' ? 'animate-pulse' : ''}`}
+              style={
+                program.highlight_style === 'ribbon'
+                  ? { background: '#1a1a1a', color: '#D4AF37', letterSpacing: '0.08em', borderLeft: '2px solid #D4AF37', borderRadius: '4px' }
+                  : program.highlight_style === 'glow'
+                  ? { background: 'linear-gradient(135deg, #fff8e7, #fff3d0)', color: '#b8860b', border: '1px solid #D4AF3755', letterSpacing: '0.06em', boxShadow: '0 0 10px rgba(212,175,55,0.2)' }
+                  : { background: 'linear-gradient(135deg, #D4AF37, #f5d77a, #D4AF37)', color: '#3d2200', letterSpacing: '0.06em', boxShadow: '0 2px 6px rgba(212,175,55,0.25)' }
+              }>
+              {(program.highlight_style !== 'ribbon') && (
+                <svg width="8" height="8" viewBox="0 0 24 24" fill={program.highlight_style === 'glow' ? 'none' : '#3d2200'} stroke={program.highlight_style === 'glow' ? '#b8860b' : 'none'} strokeWidth="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+              )}
+              {program.highlight_label}
+            </span>
+          )}
+        </div>
         <p className="text-gray-500 text-xs leading-relaxed mb-3 line-clamp-2 flex-1" style={{ ...BODY, fontSize: '0.8rem' }}>{program.description}</p>
 
         {/* Tier Selector */}
