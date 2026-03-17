@@ -123,15 +123,19 @@ const MiracleIcon = () => iconCircle(<svg width="20" height="20" viewBox="0 0 24
 const LotusIcon = () => iconCircle(<svg width="20" height="20" viewBox="0 0 24 24" {...s}><path d="M12 22c-4-3-8-7.5-8-12a8 8 0 0 1 16 0c0 4.5-4 9-8 12z"/><path d="M12 22c2-3 4-7.5 4-12"/><path d="M12 22c-2-3-4-7.5-4-12"/><circle cx="12" cy="10" r="3"/></svg>);
 const QuillIcon = () => iconCircle(
   <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#b8962e" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round">
-    {/* Leaf shape */}
     <path d="M17 3c-3 0-7 2-9 6-1.5 3-2 6.5-1 10" fill="#b8962e08"/>
     <path d="M17 3c-3 0-7 2-9 6-1.5 3-2 6.5-1 10"/>
     <path d="M17 3c0 3-1.5 7-4 10-1.5 1.8-3 3-6 3"/>
-    {/* Quill pen nib */}
     <path d="M7 19l2-4"/>
     <path d="M17 3l-8 12" strokeWidth="1"/>
-    {/* Leaf vein */}
     <path d="M12 8c-1 2-1.5 4-1 6" opacity="0.4"/>
+  </svg>
+);
+const MerkabaIcon = () => iconCircle(
+  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#b8962e" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round">
+    <polygon points="12,3 20,17 4,17" fill="#b8962e08"/>
+    <polygon points="12,21 4,7 20,7" fill="#b8962e08"/>
+    <circle cx="12" cy="12" r="1.5" fill="#b8962e30"/>
   </svg>
 );
 
@@ -139,7 +143,7 @@ const PHILOSOPHY_ICONS = {
   home: HomeIcon, scroll: ScrollIcon, atom: AtomIcon, feather: FeatherIcon,
   shield: ShieldIcon, guru: GuruIcon, infinity: InfinityIcon, miracle: MiracleIcon,
   choose: ChooseIcon, lotus: LotusIcon, bliss: BlissIcon, happiness: HappinessIcon,
-  quill: QuillIcon,
+  quill: QuillIcon, merkaba: MerkabaIcon,
 };
 
 const TextTestimonialsStrip = ({ sectionConfig }) => {
@@ -286,8 +290,8 @@ const TextTestimonialsStrip = ({ sectionConfig }) => {
                 lineHeight: 1.1,
               });
               // Cascade: defaults → global title style → per-card label style
-              // Row 1 uses uppercase Lato (sans-serif, bold, spaced)
-              const titleDefaults = { fontFamily: "'Lato', sans-serif", fontWeight: 700, fontSize: '0.65rem', letterSpacing: '0.15em', textTransform: 'uppercase', color: '#444', lineHeight: 1.3 };
+              // Row 1 uses same Cinzel small-caps as Row 2
+              const titleDefaults = { fontFamily: "'Cinzel', serif", fontWeight: 600, fontSize: '0.72rem', letterSpacing: '0.04em', color: '#2a2118', lineHeight: 1.3, fontVariant: 'small-caps' };
               const globalTitle = applySectionStyle(trustConfig.global_title_style, titleDefaults);
               const lblStyle = applySectionStyle(card.label_style, globalTitle);
 
