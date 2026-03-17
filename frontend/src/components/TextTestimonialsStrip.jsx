@@ -155,6 +155,19 @@ const PHILOSOPHY_ICONS = {
   quill: QuillIcon, merkaba: MerkabaIcon,
 };
 
+/* Bold first letter of each word */
+const BoldFirstLetters = ({ text }) => (
+  <>
+    {text.split(' ').map((word, wi) => (
+      <span key={wi}>
+        {wi > 0 && ' '}
+        {word.length > 0 && <span style={{ fontWeight: 700 }}>{word[0]}</span>}
+        {word.slice(1)}
+      </span>
+    ))}
+  </>
+);
+
 const TextTestimonialsStrip = ({ sectionConfig }) => {
   const [quotes, setQuotes] = useState([]);
   const [active, setActive] = useState(0);
@@ -298,8 +311,8 @@ const TextTestimonialsStrip = ({ sectionConfig }) => {
                 color: GOLD,
                 lineHeight: 1.1,
               });
-              // Both rows use Lato
-              const titleDefaults = { fontFamily: "'Lato', sans-serif", fontWeight: 700, fontSize: '0.72rem', color: '#1a1a1a', lineHeight: 1.3, letterSpacing: '0.04em' };
+              // Both rows use Lato, normal weight with bold first letter per word
+              const titleDefaults = { fontFamily: "'Lato', sans-serif", fontWeight: 400, fontSize: '0.72rem', color: '#1a1a1a', lineHeight: 1.3, letterSpacing: '0.04em' };
               const globalTitle = applySectionStyle(trustConfig.global_title_style, titleDefaults);
               const lblStyle = applySectionStyle(card.label_style, globalTitle);
 
@@ -318,7 +331,7 @@ const TextTestimonialsStrip = ({ sectionConfig }) => {
                     {card.icon === 'google' && <GoogleStars />}
                   </div>
                   {card.value && <p style={valStyle} className="mt-1">{card.value}</p>}
-                  <h3 style={lblStyle} className="card-title mt-2 mb-1 max-w-[180px]">{card.label}</h3>
+                  <h3 style={lblStyle} className="card-title mt-2 mb-1 max-w-[180px]"><BoldFirstLetters text={card.label} /></h3>
                   {desc && (
                     <div className="desc-reveal mt-1">
                       <div><p style={descStyle} className="max-w-[180px] pt-1">{desc}</p></div>
@@ -336,7 +349,7 @@ const TextTestimonialsStrip = ({ sectionConfig }) => {
               const showIcon = card.show_icon !== false;
 
               // Cascade: defaults → global title style → per-card title style
-              const titleDefaults = { fontFamily: "'Lato', sans-serif", fontSize: '0.72rem', fontWeight: 700, color: '#1a1a1a', lineHeight: 1.3, letterSpacing: '0.04em' };
+              const titleDefaults = { fontFamily: "'Lato', sans-serif", fontSize: '0.72rem', fontWeight: 400, color: '#1a1a1a', lineHeight: 1.3, letterSpacing: '0.04em' };
               const globalTitle = applySectionStyle(trustConfig.global_title_style, titleDefaults);
               const tStyle = applySectionStyle(card.title_style, globalTitle);
 
@@ -350,7 +363,7 @@ const TextTestimonialsStrip = ({ sectionConfig }) => {
                   {showIcon && <PhiloIcon />}
                   <h3 style={tStyle} className="card-title mb-1 max-w-[180px]">
                     {(card.title || '').split('\n').map((line, li) => (
-                      <span key={li}>{li > 0 && <br />}{line}</span>
+                      <span key={li}>{li > 0 && <br />}<BoldFirstLetters text={line} /></span>
                     ))}
                   </h3>
                   {desc && (
