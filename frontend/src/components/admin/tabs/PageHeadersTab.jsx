@@ -1,9 +1,9 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Input } from '../../ui/input';
 import { Label } from '../../ui/label';
 import { Button } from '../../ui/button';
 import { Switch } from '../../ui/switch';
-import { Copy, Plus, Trash2, ArrowUp, ArrowDown } from 'lucide-react';
+import { Copy, Plus, Trash2, ArrowUp, ArrowDown, ChevronDown, ChevronRight } from 'lucide-react';
 import ImageUploader from '../ImageUploader';
 import { resolveImageUrl } from '../../../lib/imageUtils';
 
@@ -90,6 +90,25 @@ const SECTION_TYPE_OPTIONS = [
 const PageHeadersTab = ({ settings, programs = [], onChange }) => {
   const heroes = settings.page_heroes || {};
   const getHero = (key) => heroes[key] || {};
+  const [openSections, setOpenSections] = useState({ pages: true, program_styles: false, program_structure: false, sessions: false });
+
+  const toggle = (key) => setOpenSections(prev => ({ ...prev, [key]: !prev[key] }));
+
+  const SectionToggle = ({ sectionKey, label, badge, badgeColor = 'purple', count, children }) => {
+    const isOpen = openSections[sectionKey];
+    return (
+      <div className="mt-6">
+        <button type="button" onClick={() => toggle(sectionKey)} className="w-full flex items-center gap-2 mb-2 group cursor-pointer" data-testid={`toggle-${sectionKey}`}>
+          {isOpen ? <ChevronDown size={14} className="text-gray-400" /> : <ChevronRight size={14} className="text-gray-400" />}
+          <p className="text-[10px] font-semibold text-gray-500 group-hover:text-gray-700 transition-colors">{label}</p>
+          {badge && <span className={`text-[8px] bg-${badgeColor}-100 text-${badgeColor}-600 px-2 py-0.5 rounded-full font-medium`}>{badge}</span>}
+          {count !== undefined && <span className="text-[8px] bg-gray-100 text-gray-500 px-1.5 py-0.5 rounded-full">{count}</span>}
+          {!isOpen && <span className="text-[8px] text-gray-400 ml-auto">Click to expand</span>}
+        </button>
+        {isOpen && children}
+      </div>
+    );
+  };
 
   const updateHero = (key, field, value) => {
     const updated = { ...heroes, [key]: { ...getHero(key), [field]: value } };
@@ -200,16 +219,14 @@ const PageHeadersTab = ({ settings, programs = [], onChange }) => {
         </Button>
       </div>
 
-      <p className="text-[10px] font-semibold text-gray-500 mb-2 mt-4">STATIC PAGES</p>
-      {STATIC_PAGES.map(p => (
-        <PageRow key={p.key} pageKey={p.key} label={p.label} defaultTitle={p.defaultTitle} defaultSubtitle={p.defaultSubtitle} toggleKey={p.toggleKey} />
-      ))}
+      <SectionToggle sectionKey="pages" label="STATIC PAGES" count={STATIC_PAGES.length} badge="Hero titles, subtitles & backgrounds">
+        {STATIC_PAGES.map(p => (
+          <PageRow key={p.key} pageKey={p.key} label={p.label} defaultTitle={p.defaultTitle} defaultSubtitle={p.defaultSubtitle} toggleKey={p.toggleKey} />
+        ))}
+      </SectionToggle>
 
       {/* ===== FLAGSHIP PROGRAM TEMPLATE — FONT STYLES ===== */}
-      <div className="mt-6 mb-2 flex items-center gap-2">
-        <p className="text-[10px] font-semibold text-gray-500">FLAGSHIP PROGRAM PAGES — SHARED STYLES</p>
-        <span className="text-[8px] bg-purple-100 text-purple-600 px-2 py-0.5 rounded-full font-medium">Applies to all program pages</span>
-      </div>
+      <SectionToggle sectionKey="program_styles" label="FLAGSHIP PROGRAM PAGES — SHARED STYLES" badge="Applies to all program pages" badgeColor="purple">
       <div className="bg-gradient-to-br from-purple-50/50 to-white rounded-xl border border-purple-100 p-4" data-testid="program-template-section">
         <p className="text-[9px] text-gray-500 mb-3">Font & color changes here apply to <strong>every</strong> program detail page. Set once, used everywhere.</p>
 
@@ -308,12 +325,10 @@ const PageHeadersTab = ({ settings, programs = [], onChange }) => {
           </div>
         </div>
       </div>
+      </SectionToggle>
 
       {/* ===== PROGRAM PAGE SECTIONS — STRUCTURE ===== */}
-      <div className="mt-6 mb-2 flex items-center gap-2">
-        <p className="text-[10px] font-semibold text-gray-500">PROGRAM PAGE SECTIONS — STRUCTURE</p>
-        <span className="text-[8px] bg-blue-100 text-blue-600 px-2 py-0.5 rounded-full font-medium">Shared across all programs</span>
-      </div>
+      <SectionToggle sectionKey="program_structure" label="PROGRAM PAGE SECTIONS — STRUCTURE" badge="Shared across all programs" badgeColor="blue" count={sectionTemplate.length}>
       <div className="bg-gradient-to-br from-blue-50/50 to-white rounded-xl border border-blue-100 p-4" data-testid="section-template-editor">
         <p className="text-[9px] text-gray-500 mb-3">Define which sections appear on every program page and in what order. Add or remove sections here — it applies to <strong>all</strong> programs. Per-program text is edited in the Programs tab.</p>
 
@@ -348,12 +363,10 @@ const PageHeadersTab = ({ settings, programs = [], onChange }) => {
           <Plus size={12} /> Add Section
         </Button>
       </div>
+      </SectionToggle>
 
       {/* ===== PERSONAL SESSIONS — COMPLETE STYLE CONTROL ===== */}
-      <div className="mt-6 mb-2 flex items-center gap-2">
-        <p className="text-[10px] font-semibold text-gray-500">PERSONAL SESSIONS — STYLE CONTROL</p>
-        <span className="text-[8px] bg-indigo-100 text-indigo-600 px-2 py-0.5 rounded-full font-medium">Applies to all session pages</span>
-      </div>
+      <SectionToggle sectionKey="sessions" label="PERSONAL SESSIONS — STYLE CONTROL" badge="Applies to all session pages" badgeColor="indigo">
       <div className="bg-gradient-to-br from-indigo-50/50 to-white rounded-xl border border-indigo-100 p-4" data-testid="session-template-section">
         {(() => {
           const sessionTpl = heroes['session_template'] || {};
@@ -630,6 +643,7 @@ const PageHeadersTab = ({ settings, programs = [], onChange }) => {
           );
         })()}
       </div>
+      </SectionToggle>
     </div>
   );
 };
