@@ -13,7 +13,7 @@ const API = `${BACKEND_URL}/api`;
 function CheckoutPage() {
   const { type, id } = useParams();
   const navigate = useNavigate();
-  const { currency, setCurrency, currencies, getPrice, formatPrice } = useCurrency();
+  const { currency, symbol, getPrice, formatPrice, baseCurrency } = useCurrency();
   const [item, setItem] = useState(null);
   const [loading, setLoading] = useState(true);
   const [processing, setProcessing] = useState(false);
@@ -102,19 +102,12 @@ function CheckoutPage() {
               <div className="md:w-1/2 p-8 bg-gray-50">
                 <h2 className="text-lg font-semibold text-gray-900 mb-6">Complete Your Purchase</h2>
 
-                {/* Currency Selector */}
+                {/* Currency (locked to region) */}
                 <div className="mb-6">
                   <label className="text-xs text-gray-500 mb-1 block tracking-wider">CURRENCY</label>
-                  <select
-                    data-testid="currency-selector"
-                    value={currency}
-                    onChange={(e) => setCurrency(e.target.value)}
-                    className="w-full border border-gray-200 rounded-lg px-4 py-3 text-sm focus:border-[#D4AF37] focus:ring-1 focus:ring-[#D4AF37] outline-none"
-                  >
-                    {currencies.map(c => (
-                      <option key={c.code} value={c.code}>{c.symbol} - {c.name}</option>
-                    ))}
-                  </select>
+                  <div className="w-full border border-gray-200 rounded-lg px-4 py-3 text-sm bg-gray-50 text-gray-700">
+                    {symbol} ({baseCurrency.toUpperCase()}) — Based on your region
+                  </div>
                 </div>
 
                 {/* Order Summary */}
