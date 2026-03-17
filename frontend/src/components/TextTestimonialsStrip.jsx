@@ -124,6 +124,7 @@ const TextTestimonialsStrip = ({ sectionConfig }) => {
   const [style, setStyle] = useState(null);
   const [trustCards, setTrustCards] = useState(DEFAULT_TRUST_CARDS);
   const [philosophyCards, setPhilosophyCards] = useState(DEFAULT_PHILOSOPHY_CARDS);
+  const [trustConfig, setTrustConfig] = useState({ title: "Why We're Loved", subtitle: 'Trusted by our community', show_title: true, show_subtitle: true });
 
   useEffect(() => {
     Promise.all([
@@ -136,6 +137,15 @@ const TextTestimonialsStrip = ({ sectionConfig }) => {
       const trustSec = homeSections.find(s => s.id === 'trust');
       if (trustSec?.trust_cards?.length) setTrustCards(trustSec.trust_cards);
       if (trustSec?.philosophy_cards?.length) setPhilosophyCards(trustSec.philosophy_cards);
+      if (trustSec) setTrustConfig(prev => ({
+        ...prev,
+        title: trustSec.title ?? prev.title,
+        subtitle: trustSec.subtitle ?? prev.subtitle,
+        show_title: trustSec.show_title !== false,
+        show_subtitle: trustSec.show_subtitle !== false,
+        title_style: trustSec.title_style || {},
+        subtitle_style: trustSec.subtitle_style || {},
+      }));
     }).catch(() => {});
   }, []);
 
@@ -170,6 +180,19 @@ const TextTestimonialsStrip = ({ sectionConfig }) => {
       <div className="absolute pointer-events-none" style={{ top: '5%', left: '50%', transform: 'translateX(-50%)', width: '30%', height: '40%', background: 'radial-gradient(ellipse at center, rgba(212,175,55,0.05) 0%, transparent 65%)', filter: 'blur(30px)' }} />
 
       <div className="relative z-10">
+        {/* Section Title & Subtitle */}
+        {(trustConfig.show_title || trustConfig.show_subtitle) && (
+          <div className="text-center mb-5">
+            {trustConfig.show_subtitle && trustConfig.subtitle && (
+              <p style={applySectionStyle(trustConfig.subtitle_style, { fontFamily: "'Lato', sans-serif", fontWeight: 300, color: '#999', fontSize: '0.7rem', letterSpacing: '0.2em', textTransform: 'uppercase' })} className="mb-1">{trustConfig.subtitle}</p>
+            )}
+            {trustConfig.show_title && trustConfig.title && (
+              <h2 style={applySectionStyle(trustConfig.title_style, { fontFamily: "'Cinzel', serif", fontWeight: 600, color: '#1a1a1a', fontSize: 'clamp(1.2rem, 2.5vw, 1.6rem)' })}>{trustConfig.title}</h2>
+            )}
+            <div className="w-12 h-0.5 mx-auto mt-2" style={{ background: GOLD }} />
+          </div>
+        )}
+
         {/* ── Trust Metrics ── */}
         <div className={CONTAINER}>
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 max-w-5xl mx-auto mb-4" data-testid="trust-strip">
