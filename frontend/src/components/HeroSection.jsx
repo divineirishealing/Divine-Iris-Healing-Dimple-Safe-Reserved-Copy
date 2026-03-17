@@ -55,7 +55,7 @@ const HeroSection = ({ sectionConfig }) => {
     });
   }, [settings]);
 
-  if (!settings) return <section className="min-h-screen bg-[#0d1117]" />;
+  if (!settings) return <section className="min-h-screen" style={{ background: '#0d1117' }} />;
 
   const videoUrl = settings.hero_video_url ? resolveUrl(settings.hero_video_url) : '';
   const heroTitle = settings.hero_title || '';
@@ -89,28 +89,27 @@ const HeroSection = ({ sectionConfig }) => {
       className={`relative min-h-screen flex justify-center overflow-hidden ${vAlignClass}`}
       style={{ background: '#0d1117' }}
     >
-      {/* Background */}
+      {/* Background — dark base while video loads */}
       <div
-        className="absolute inset-0 transition-opacity duration-1000"
+        className="absolute inset-0"
         style={{
-          opacity: phase >= 1 ? 1 : 0,
-          background: sectionStyle.bg_color || 'linear-gradient(135deg, #1a1a2e 0%, #16213e 25%, #0f3460 50%, #1a1a2e 75%, #0d1b2a 100%)',
+          background: sectionStyle.bg_color || '#0d1117',
         }}
       />
 
       {/* Video */}
       {videoUrl && (
         <video ref={videoRef} autoPlay loop muted playsInline
-          className="absolute inset-0 w-full h-full object-cover transition-opacity duration-1000"
-          style={{ zIndex: 0, opacity: phase >= 1 ? 1 : 0 }}>
+          className="absolute inset-0 w-full h-full object-cover"
+          style={{ zIndex: 0 }}>
           <source src={videoUrl} type="video/mp4" />
         </video>
       )}
 
       {/* Radial glow */}
       {!videoUrl && (
-        <div className="absolute inset-0 transition-opacity duration-1000" style={{
-          opacity: phase >= 1 ? 0.2 : 0,
+        <div className="absolute inset-0" style={{
+          opacity: 0.2,
           backgroundImage: 'radial-gradient(ellipse at 20% 50%, rgba(212,175,55,0.15) 0%, transparent 60%), radial-gradient(ellipse at 80% 50%, rgba(212,175,55,0.1) 0%, transparent 60%)',
           zIndex: 1,
         }} />
