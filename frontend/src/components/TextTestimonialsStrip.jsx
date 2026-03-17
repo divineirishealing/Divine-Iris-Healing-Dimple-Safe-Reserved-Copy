@@ -122,13 +122,19 @@ const InfinityIcon = () => iconCircle(<svg width="20" height="20" viewBox="0 0 2
 const MiracleIcon = () => iconCircle(<svg width="20" height="20" viewBox="0 0 24 24" {...s}><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>);
 const LotusIcon = () => iconCircle(<svg width="20" height="20" viewBox="0 0 24 24" {...s}><path d="M12 22c-4-3-8-7.5-8-12a8 8 0 0 1 16 0c0 4.5-4 9-8 12z"/><path d="M12 22c2-3 4-7.5 4-12"/><path d="M12 22c-2-3-4-7.5-4-12"/><circle cx="12" cy="10" r="3"/></svg>);
 const QuillIcon = () => iconCircle(
-  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#b8962e" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M17 3c-3 0-7 2-9 6-1.5 3-2 6.5-1 10" fill="#b8962e08"/>
-    <path d="M17 3c-3 0-7 2-9 6-1.5 3-2 6.5-1 10"/>
-    <path d="M17 3c0 3-1.5 7-4 10-1.5 1.8-3 3-6 3"/>
-    <path d="M7 19l2-4"/>
-    <path d="M17 3l-8 12" strokeWidth="1"/>
-    <path d="M12 8c-1 2-1.5 4-1 6" opacity="0.4"/>
+  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#b8962e" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round">
+    {/* Leaf */}
+    <path d="M6 21c2-5 5-9 9-12 2-1.5 4-2 6-2-1 3-2 5.5-4 8-2.5 3-6 5-11 6z" fill="#b8962e0a"/>
+    <path d="M6 21c2-5 5-9 9-12 2-1.5 4-2 6-2" />
+    <path d="M21 7c-1 3-2 5.5-4 8-2.5 3-6 5-11 6" />
+    {/* Leaf center vein */}
+    <path d="M18 8c-3 3-6 6.5-9 10" opacity="0.35" strokeWidth="1"/>
+    {/* Wooden pen */}
+    <path d="M3 22l1.5-4" strokeWidth="1.8" stroke="#a07830"/>
+    <path d="M4.5 18l8-11" strokeWidth="1.6" stroke="#c4995c"/>
+    <path d="M4.5 18l8-11" strokeWidth="0.8" stroke="#8b6914" strokeDasharray="1 2"/>
+    {/* Pen tip */}
+    <path d="M3 22l2-1" strokeWidth="1.5" stroke="#6b5020"/>
   </svg>
 );
 const MerkabaIcon = () => iconCircle(
