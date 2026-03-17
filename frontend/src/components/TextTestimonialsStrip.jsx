@@ -163,64 +163,66 @@ const TextTestimonialsStrip = ({ sectionConfig }) => {
   const authorColor = style?.author_color || '#555';
 
   return (
-    <section id="text-testimonials" data-testid="text-testimonials-section" className="relative overflow-hidden" style={{ padding: '52px 0 40px' }}>
+    <section id="text-testimonials" data-testid="text-testimonials-section" className="relative overflow-hidden" style={{ padding: '36px 0 28px' }}>
       {/* Soft glows */}
       <div className="absolute pointer-events-none" style={{ top: '0%', left: '-5%', width: '40%', height: '70%', background: 'radial-gradient(ellipse at center, rgba(139,92,246,0.1) 0%, transparent 65%)', filter: 'blur(40px)' }} />
       <div className="absolute pointer-events-none" style={{ top: '0%', right: '-5%', width: '40%', height: '70%', background: 'radial-gradient(ellipse at center, rgba(168,85,247,0.08) 0%, transparent 65%)', filter: 'blur(40px)' }} />
       <div className="absolute pointer-events-none" style={{ top: '5%', left: '50%', transform: 'translateX(-50%)', width: '30%', height: '40%', background: 'radial-gradient(ellipse at center, rgba(212,175,55,0.05) 0%, transparent 65%)', filter: 'blur(30px)' }} />
 
       <div className="relative z-10">
-        {/* ── Trust Metrics (circular icon badges) ── */}
+        {/* ── Trust Metrics ── */}
         <div className={CONTAINER}>
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4 max-w-6xl mx-auto mb-8" data-testid="trust-strip">
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 max-w-5xl mx-auto mb-4" data-testid="trust-strip">
             {trustCards.map((card, i) => {
               const valStyle = applySectionStyle(card.value_style, {
-                fontFamily: "'Cinzel', serif", fontSize: 'clamp(1.2rem, 2vw, 1.6rem)', fontWeight: 700, color: GOLD, lineHeight: 1.1,
+                fontFamily: "'Cinzel', serif", fontSize: '1.3rem', fontWeight: 700, color: GOLD, lineHeight: 1,
               });
               const lblStyle = applySectionStyle(card.label_style, {
-                fontFamily: "'Lato', sans-serif", fontWeight: 600, fontSize: '0.55rem',
-                letterSpacing: '0.14em', textTransform: 'uppercase', color: '#555',
+                fontFamily: "'Lato', sans-serif", fontWeight: 600, fontSize: '0.5rem',
+                letterSpacing: '0.13em', textTransform: 'uppercase', color: '#555',
               });
-              const descStyle = applySectionStyle(card.description_style, {
-                fontFamily: "'Lato', sans-serif", fontSize: '0.65rem', color: '#999', lineHeight: 1.6, fontWeight: 300,
-              });
+              const showIcon = card.show_icon !== false;
               return (
                 <div key={i} className="flex flex-col items-center text-center group" data-testid={`trust-item-${i}`}>
-                  <div className="w-10 h-10 rounded-full flex items-center justify-center mb-2 shadow-sm" style={{ background: `linear-gradient(135deg, ${GOLD}15, ${GOLD}30)`, border: `1px solid ${GOLD}25` }}>
-                    {card.icon === 'google' && <GoogleIcon />}
-                    {card.icon === 'retention' && <UsersIcon />}
-                    {card.icon === 'trust' && <HeartIcon />}
-                    {card.icon === 'dna' && <DnaIcon />}
-                    {card.icon === 'happiness' && <HappinessIcon />}
-                    {card.icon === 'life' && <LifeIcon />}
-                  </div>
+                  {showIcon && (
+                    <div className="w-8 h-8 rounded-full flex items-center justify-center mb-1 shadow-sm" style={{ background: `linear-gradient(135deg, ${GOLD}15, ${GOLD}30)`, border: `1px solid ${GOLD}25` }}>
+                      {card.icon === 'google' && <GoogleIcon />}
+                      {card.icon === 'retention' && <UsersIcon />}
+                      {card.icon === 'trust' && <HeartIcon />}
+                      {card.icon === 'dna' && <DnaIcon />}
+                      {card.icon === 'happiness' && <HappinessIcon />}
+                      {card.icon === 'life' && <LifeIcon />}
+                    </div>
+                  )}
                   {card.icon === 'google' && <MiniStars />}
-                  {card.value && <p style={valStyle} className="mt-1 group-hover:scale-105 transition-transform duration-300">{card.value}</p>}
-                  <p style={lblStyle} className="mt-1.5 mb-1">{card.label}</p>
-                  {card.description && <p style={descStyle} className="max-w-[155px]">{card.description}</p>}
+                  {card.value && <p style={valStyle} className="mt-0.5 group-hover:scale-105 transition-transform duration-300">{card.value}</p>}
+                  <p style={lblStyle} className="mt-1 leading-tight max-w-[130px]">{card.label}</p>
                 </div>
               );
             })}
           </div>
 
-          {/* ── Philosophy / Why Us Cards ── */}
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-5 max-w-6xl mx-auto mb-8" data-testid="philosophy-cards">
+          {/* ── Philosophy / Why Us ── */}
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 max-w-5xl mx-auto mb-4" data-testid="philosophy-cards">
             {philosophyCards.map((card, i) => {
               const PhiloIcon = PHILOSOPHY_ICONS[card.icon] || HeartIcon;
+              const showIcon = card.show_icon !== false;
               const tStyle = applySectionStyle(card.title_style, {
-                fontFamily: "'Cinzel', serif", fontSize: '0.72rem', fontWeight: 600, color: '#2a2118', lineHeight: 1.3, letterSpacing: '0.04em',
+                fontFamily: "'Cinzel', serif", fontSize: '0.62rem', fontWeight: 600, color: '#2a2118', lineHeight: 1.25, letterSpacing: '0.04em',
               });
               const dStyle = applySectionStyle(card.description_style, {
-                fontFamily: "'Cormorant Garamond', Georgia, serif", fontSize: '0.8rem', color: '#888',
-                lineHeight: 1.7, fontWeight: 400, fontStyle: 'italic',
+                fontFamily: "'Cormorant Garamond', Georgia, serif", fontSize: '0.72rem', color: '#888',
+                lineHeight: 1.6, fontWeight: 400, fontStyle: 'italic',
               });
               return (
                 <div key={i} className="flex flex-col items-center text-center group" data-testid={`philosophy-card-${i}`}>
-                  <div className="w-10 h-10 rounded-full flex items-center justify-center mb-2 shadow-sm" style={{ background: `linear-gradient(135deg, ${GOLD}15, ${GOLD}30)`, border: `1px solid ${GOLD}25` }}>
-                    <PhiloIcon />
-                  </div>
-                  <h3 style={tStyle} className="mb-1">{card.title}</h3>
-                  <p style={dStyle}>{card.description}</p>
+                  {showIcon && (
+                    <div className="w-8 h-8 rounded-full flex items-center justify-center mb-1 shadow-sm" style={{ background: `linear-gradient(135deg, ${GOLD}15, ${GOLD}30)`, border: `1px solid ${GOLD}25` }}>
+                      <PhiloIcon />
+                    </div>
+                  )}
+                  <h3 style={tStyle} className="mb-0.5 max-w-[140px] leading-tight">{card.title}</h3>
+                  <p style={dStyle} className="max-w-[160px]">{card.description}</p>
                 </div>
               );
             })}
@@ -229,10 +231,10 @@ const TextTestimonialsStrip = ({ sectionConfig }) => {
 
         {/* ── Single Rotating Testimonial Quote ── */}
         <div className={CONTAINER}>
-          <div className="flex items-center justify-center gap-3 mb-8">
-            <div className="w-12 h-px" style={{ background: 'linear-gradient(90deg, transparent, rgba(212,175,55,0.4), transparent)' }} />
-            <svg width="7" height="7" viewBox="0 0 10 10" style={{ opacity: 0.35 }}><path d="M5 0L6.18 3.82L10 5L6.18 6.18L5 10L3.82 6.18L0 5L3.82 3.82Z" fill="#D4AF37"/></svg>
-            <div className="w-12 h-px" style={{ background: 'linear-gradient(90deg, transparent, rgba(212,175,55,0.4), transparent)' }} />
+          <div className="flex items-center justify-center gap-3 mb-4">
+            <div className="w-10 h-px" style={{ background: 'linear-gradient(90deg, transparent, rgba(212,175,55,0.4), transparent)' }} />
+            <svg width="5" height="5" viewBox="0 0 10 10" style={{ opacity: 0.3 }}><path d="M5 0L6.18 3.82L10 5L6.18 6.18L5 10L3.82 6.18L0 5L3.82 3.82Z" fill="#D4AF37"/></svg>
+            <div className="w-10 h-px" style={{ background: 'linear-gradient(90deg, transparent, rgba(212,175,55,0.4), transparent)' }} />
           </div>
 
           <div
@@ -243,8 +245,8 @@ const TextTestimonialsStrip = ({ sectionConfig }) => {
               transition: 'opacity 0.5s cubic-bezier(0.4,0,0.2,1), transform 0.5s cubic-bezier(0.4,0,0.2,1)',
             }}
           >
-            <div className="mb-4 flex justify-center" aria-hidden="true">
-              <svg width="30" height="22" viewBox="0 0 36 28" fill="none" style={{ opacity: 0.18 }}>
+            <div className="mb-2 flex justify-center" aria-hidden="true">
+              <svg width="22" height="16" viewBox="0 0 36 28" fill="none" style={{ opacity: 0.15 }}>
                 <path d="M0 28V16.8C0 11.733 1.267 7.733 3.8 4.8C6.333 1.6 9.867 0 14.4 0V5.6C12.133 6.133 10.267 7.333 8.8 9.2C7.333 11.067 6.6 13.2 6.6 15.6H14.4V28H0ZM21.6 28V16.8C21.6 11.733 22.867 7.733 25.4 4.8C27.933 1.6 31.467 0 36 0V5.6C33.733 6.133 31.867 7.333 30.4 9.2C28.933 11.067 28.2 13.2 28.2 15.6H36V28H21.6Z" fill="#D4AF37"/>
               </svg>
             </div>
@@ -256,13 +258,13 @@ const TextTestimonialsStrip = ({ sectionConfig }) => {
                 fontSize: `clamp(1rem, 2.5vw, ${quoteSize})`,
                 color: quoteColor,
                 fontStyle: quoteItalic ? 'italic' : 'normal',
-                fontWeight: 400, lineHeight: 1.9, letterSpacing: '0.01em', marginBottom: '24px',
+                fontWeight: 400, lineHeight: 1.7, letterSpacing: '0.01em', marginBottom: '14px',
               }}
             >
               {q.quote}
             </blockquote>
 
-            <div className="flex items-center justify-center gap-2 mb-4">
+            <div className="flex items-center justify-center gap-2 mb-2">
               <div className="w-6 h-px bg-[#D4AF37]/25" />
               <div className="w-1.5 h-1.5 rounded-full bg-[#D4AF37]/30" />
               <div className="w-6 h-px bg-[#D4AF37]/25" />
@@ -275,7 +277,7 @@ const TextTestimonialsStrip = ({ sectionConfig }) => {
           </div>
 
           {quotes.length > 1 && (
-            <div className="flex justify-center gap-2 mt-9" data-testid="testimonial-dots">
+            <div className="flex justify-center gap-2 mt-5" data-testid="testimonial-dots">
               {quotes.map((_, i) => (
                 <button key={i} onClick={() => { setFade(false); setTimeout(() => { setActive(i); setFade(true); }, 500); }}
                   className="rounded-full transition-all duration-500"
@@ -288,7 +290,7 @@ const TextTestimonialsStrip = ({ sectionConfig }) => {
         </div>
 
         {/* Bottom ornament */}
-        <div className="flex items-center justify-center gap-3 mt-8">
+        <div className="flex items-center justify-center gap-3 mt-5">
           <div className="w-12 h-px" style={{ background: 'linear-gradient(90deg, transparent, rgba(212,175,55,0.25), transparent)' }} />
           <svg width="7" height="7" viewBox="0 0 10 10" style={{ opacity: 0.2 }}><path d="M5 0L6.18 3.82L10 5L6.18 6.18L5 10L3.82 6.18L0 5L3.82 3.82Z" fill="#D4AF37"/></svg>
           <div className="w-12 h-px" style={{ background: 'linear-gradient(90deg, transparent, rgba(212,175,55,0.25), transparent)' }} />
