@@ -13,7 +13,7 @@ import re
 import uuid
 import urllib.parse
 
-BASE_URL = os.environ.get('REACT_APP_BACKEND_URL', 'https://iris-healing-clone-1.preview.emergentagent.com').rstrip('/')
+BASE_URL = os.environ.get('REACT_APP_BACKEND_URL', 'https://iris-cms-preview.preview.emergentagent.com').rstrip('/')
 
 # ============================================================
 # FRAUD API ENDPOINTS TESTS

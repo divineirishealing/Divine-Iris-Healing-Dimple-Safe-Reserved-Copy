@@ -6,10 +6,10 @@ Your website now has a complete admin panel where you can manage all content WIT
 ## 🔗 Important Links
 
 ### Main Website
-**URL:** https://iris-healing-clone-1.preview.emergentagent.com
+**URL:** https://iris-cms-preview.preview.emergentagent.com
 
 ### Admin Panel
-**URL:** https://iris-healing-clone-1.preview.emergentagent.com/admin
+**URL:** https://iris-cms-preview.preview.emergentagent.com/admin
 
 ### Login Credentials
 - **Username:** `admin`
@@ -71,7 +71,7 @@ View all email addresses that subscribed to your newsletter
 ## 🎯 How to Use the Admin Panel
 
 ### Step 1: Login
-1. Go to: https://iris-healing-clone-1.preview.emergentagent.com/admin
+1. Go to: https://iris-cms-preview.preview.emergentagent.com/admin
 2. Enter username: `admin`
 3. Enter password: `divineadmin2024`
 4. Click "Login"

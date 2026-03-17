@@ -15,6 +15,7 @@ import {
   Globe, Layout, Image, Users, Palette, Gift, Monitor, Wifi, Tag, ChevronLeft, ChevronRight, ChevronDown, Upload, FileText, DollarSign, Quote, Star, ShieldAlert
 } from 'lucide-react';
 
+import CollapsibleSection from './CollapsibleSection';
 import HeroSettingsTab from './tabs/HeroSettingsTab';
 import AboutSettingsTab from './tabs/AboutSettingsTab';
 import PageHeadersTab from './tabs/PageHeadersTab';
@@ -64,7 +65,7 @@ const AdminPanel = () => {
   const [editingId, setEditingId] = useState(null);
 
   const [programForm, setProgramForm] = useState({ title: '', category: '', description: '', image: '', price_usd: 0, price_inr: 0, price_eur: 0, price_gbp: 0, price_aed: 0, visible: true, order: 0, program_type: 'online', session_mode: 'online', enable_online: true, enable_offline: true, enable_in_person: false, offer_price_aed: 0, offer_price_usd: 0, offer_price_inr: 0, offer_text: '', is_upcoming: false, is_flagship: false, is_group_program: false, replicate_to_flagship: false, start_date: '', end_date: '', deadline_date: '', enrollment_open: true, enrollment_status: 'open', duration_tiers: [], whatsapp_group_link: '', zoom_link: '', custom_link: '', custom_link_label: '', show_whatsapp_link: true, show_zoom_link: true, show_custom_link: true, show_whatsapp_link_2: false, whatsapp_group_link_2: '', content_sections: [], timing: '', time_zone: '', show_duration_on_page: false, show_start_date_on_page: false, show_timing_on_page: false, show_duration_on_card: true, exclusive_offer_enabled: false, exclusive_offer_text: 'Limited Time Offer', closure_text: 'Registration Closed', show_pricing_on_card: true, show_tiers_on_card: true });
-  const [sessionForm, setSessionForm] = useState({ title: '', description: '', price_usd: 0, price_inr: 0, price_eur: 0, price_gbp: 0, price_aed: 0, offer_price_aed: 0, offer_price_usd: 0, offer_price_inr: 0, offer_text: '', offer_expiry: '', duration: '60-90 minutes', session_mode: 'online', available_dates: [], time_slots: [], testimonial_text: '', title_style: null, description_style: null, visible: true, order: 0 });
+  const [sessionForm, setSessionForm] = useState({ title: '', description: '', image: '', price_usd: 0, price_inr: 0, price_eur: 0, price_gbp: 0, price_aed: 0, offer_price_aed: 0, offer_price_usd: 0, offer_price_inr: 0, offer_text: '', offer_expiry: '', duration: '60-90 minutes', session_mode: 'online', available_dates: [], time_slots: [], testimonial_text: '', title_style: null, description_style: null, visible: true, order: 0 });
   const [testimonialForm, setTestimonialForm] = useState({ type: 'graphic', name: '', text: '', image: '', before_image: '', videoId: '', program_id: '', program_tags: [], session_tags: [], category: '', role: '', rating: 5, visible: true });
   const [statForm, setStatForm] = useState({ value: '', label: '', order: 0, icon: '', value_style: null, label_style: null });
 
@@ -118,13 +119,13 @@ const AdminPanel = () => {
   };
   const editSession = (s) => {
     setEditingId(s.id);
-    setSessionForm({ title: s.title, description: s.description, price_usd: s.price_usd || 0, price_inr: s.price_inr || 0, price_eur: s.price_eur || 0, price_gbp: s.price_gbp || 0, price_aed: s.price_aed || 0, offer_price_aed: s.offer_price_aed || 0, offer_price_usd: s.offer_price_usd || 0, offer_price_inr: s.offer_price_inr || 0, offer_text: s.offer_text || '', offer_expiry: s.offer_expiry || '', duration: s.duration || '60-90 minutes', session_mode: s.session_mode || 'online', available_dates: s.available_dates || [], time_slots: s.time_slots || [], testimonial_text: s.testimonial_text || '', title_style: s.title_style || null, description_style: s.description_style || null, visible: s.visible !== false, order: s.order || 0 });
+    setSessionForm({ title: s.title, description: s.description, image: s.image || '', price_usd: s.price_usd || 0, price_inr: s.price_inr || 0, price_eur: s.price_eur || 0, price_gbp: s.price_gbp || 0, price_aed: s.price_aed || 0, offer_price_aed: s.offer_price_aed || 0, offer_price_usd: s.offer_price_usd || 0, offer_price_inr: s.offer_price_inr || 0, offer_text: s.offer_text || '', offer_expiry: s.offer_expiry || '', duration: s.duration || '60-90 minutes', session_mode: s.session_mode || 'online', available_dates: s.available_dates || [], time_slots: s.time_slots || [], testimonial_text: s.testimonial_text || '', title_style: s.title_style || null, description_style: s.description_style || null, visible: s.visible !== false, order: s.order || 0 });
     setShowSessionForm(true);
   };
   const deleteSession = async (id) => { if (!window.confirm('Delete this session?')) return; await axios.delete(`${API}/sessions/${id}`); toast({ title: 'Session deleted' }); loadAll(); };
   const toggleSessionVisibility = async (s) => { await axios.patch(`${API}/sessions/${s.id}/visibility`, { visible: !s.visible }); loadAll(); };
   const moveSessionOrder = async (idx, dir) => { const items = [...sessions]; const sw = idx + dir; if (sw < 0 || sw >= items.length) return; [items[idx], items[sw]] = [items[sw], items[idx]]; await axios.patch(`${API}/sessions/reorder`, { order: items.map(i => i.id) }); loadAll(); };
-  const resetSessionForm = () => { setShowSessionForm(false); setEditingId(null); setSessionForm({ title: '', description: '', price_usd: 0, price_inr: 0, price_eur: 0, price_gbp: 0, price_aed: 0, offer_price_aed: 0, offer_price_usd: 0, offer_price_inr: 0, offer_text: '', offer_expiry: '', duration: '60-90 minutes', session_mode: 'online', available_dates: [], time_slots: [], testimonial_text: '', title_style: null, description_style: null, visible: true, order: 0 }); };
+  const resetSessionForm = () => { setShowSessionForm(false); setEditingId(null); setSessionForm({ title: '', description: '', image: '', price_usd: 0, price_inr: 0, price_eur: 0, price_gbp: 0, price_aed: 0, offer_price_aed: 0, offer_price_usd: 0, offer_price_inr: 0, offer_text: '', offer_expiry: '', duration: '60-90 minutes', session_mode: 'online', available_dates: [], time_slots: [], testimonial_text: '', title_style: null, description_style: null, visible: true, order: 0 }); };
 
   // ===== TESTIMONIALS =====
   const saveTestimonial = async () => {
@@ -410,7 +411,7 @@ const AdminPanel = () => {
           {activeTab === 'sessions' && (
             <div>
               <div className="flex justify-between items-center mb-6">
-                <h2 className="text-xl font-semibold text-gray-900">Sessions ({sessions.length})</h2>
+                <h2 className="text-xl font-semibold text-gray-900">Personal Sessions ({sessions.length})</h2>
                 <div className="flex gap-2">
                   <div
                     data-testid="upload-excel-btn"
@@ -447,265 +448,183 @@ const AdminPanel = () => {
                 </div>
               </div>
 
-              {/* Session Element Visibility & Order Control */}
-              <SessionVisibilityPanel settings={siteSettings} onChange={setSiteSettings} />
-              <Button data-testid="save-visibility-btn" onClick={saveSiteSettings} className="bg-[#D4AF37] hover:bg-[#b8962e] mb-4"><Save size={14} className="mr-1" /> Save Visibility Settings</Button>
+              {/* Unified Calendar */}
+              <CollapsibleSection title="Unified Availability Calendar" defaultOpen={false} badge="Click to toggle dates">
+                <SessionCalendarManager toast={toast} />
+              </CollapsibleSection>
 
-              {/* Unified Calendar Manager */}
-              <SessionCalendarManager toast={toast} />
+              {/* Element Visibility & Order */}
+              <CollapsibleSection title="Element Visibility & Order" defaultOpen={false} badge="Control display elements">
+                <SessionVisibilityPanel settings={siteSettings} onChange={setSiteSettings} />
+                <Button data-testid="save-visibility-btn" onClick={saveSiteSettings} className="bg-[#D4AF37] hover:bg-[#b8962e] mt-3"><Save size={14} className="mr-1" /> Save Visibility Settings</Button>
+              </CollapsibleSection>
 
-              {/* Session Testimonials Manager */}
-              <SessionTestimonialsManager sessions={sessions} toast={toast} />
+              {/* Session Testimonials */}
+              <CollapsibleSection title="Session Testimonials" defaultOpen={false} badge={`${sessions.length} sessions`}>
+                <SessionTestimonialsManager sessions={sessions} toast={toast} />
+              </CollapsibleSection>
 
-              {/* Session Questions Manager */}
-              <SessionQuestionsManager sessions={sessions} toast={toast} />
+              {/* Session Questions */}
+              <CollapsibleSection title="Session Questions" defaultOpen={false}>
+                <SessionQuestionsManager sessions={sessions} toast={toast} />
+              </CollapsibleSection>
 
-              {showSessionForm && (
-                <div data-testid="session-form" className="bg-white rounded-lg p-6 mb-6 shadow-sm border">
-                  <div className="flex justify-between items-center mb-4">
-                    <h3 className="font-medium">{editingId ? 'Edit Session' : 'New Session'}</h3>
-                    <button onClick={resetSessionForm}><X size={18} /></button>
-                  </div>
-                  <div className="grid md:grid-cols-2 gap-4">
-                    {/* Title + Font */}
-                    <div className="md:col-span-2">
-                      <Label>Title</Label>
-                      <Input data-testid="session-title-input" value={sessionForm.title} onChange={e => setSessionForm({...sessionForm, title: e.target.value})} />
-                      <div className="mt-1 flex gap-1 items-center flex-wrap">
-                        <span className="text-[8px] text-gray-400 mr-1">Style:</span>
-                        <input type="color" value={(sessionForm.title_style||{}).font_color || '#000000'} onChange={e => setSessionForm({...sessionForm, title_style: {...(sessionForm.title_style||{}), font_color: e.target.value}})} className="w-5 h-5 rounded cursor-pointer border-0" />
-                        <select value={(sessionForm.title_style||{}).font_family || ''} onChange={e => setSessionForm({...sessionForm, title_style: {...(sessionForm.title_style||{}), font_family: e.target.value}})} className="text-[8px] border rounded px-1 py-0.5 w-16">
-                          <option value="">Default</option><option value="'Cinzel', serif">Cinzel</option><option value="'Playfair Display', serif">Playfair</option><option value="'Lato', sans-serif">Lato</option><option value="'Montserrat', sans-serif">Montserrat</option><option value="'Titillium Web', sans-serif">Titillium Web</option><option value="'Great Vibes', cursive">Great Vibes</option><option value="'Dancing Script', cursive">Dancing Script</option><option value="'Pacifico', cursive">Pacifico</option><option value="'Poppins', sans-serif">Poppins</option><option value="'Raleway', sans-serif">Raleway</option><option value="'Sacramento', cursive">Sacramento</option><option value="'Caveat', cursive">Caveat</option>
-                        </select>
-                        <select value={(sessionForm.title_style||{}).font_size || ''} onChange={e => setSessionForm({...sessionForm, title_style: {...(sessionForm.title_style||{}), font_size: e.target.value}})} className="text-[8px] border rounded px-1 py-0.5 w-12">
-                          <option value="">Size</option>{['14px','16px','18px','20px','24px','28px','32px'].map(s => <option key={s} value={s}>{s}</option>)}
-                        </select>
-                        <button onClick={() => setSessionForm({...sessionForm, title_style: {...(sessionForm.title_style||{}), font_weight: (sessionForm.title_style||{}).font_weight === 'bold' ? '400' : 'bold'}})} className={`text-[8px] px-1.5 py-0.5 rounded border ${(sessionForm.title_style||{}).font_weight === 'bold' ? 'bg-gray-800 text-white' : ''}`}><b>B</b></button>
-                        <button onClick={() => setSessionForm({...sessionForm, title_style: {...(sessionForm.title_style||{}), font_style: (sessionForm.title_style||{}).font_style === 'italic' ? 'normal' : 'italic'}})} className={`text-[8px] px-1.5 py-0.5 rounded border ${(sessionForm.title_style||{}).font_style === 'italic' ? 'bg-gray-800 text-white' : ''}`}><i>I</i></button>
-                      </div>
+              {/* Inline Accordion — Session List */}
+              <div className="space-y-2 mt-4">
+                {/* New Session Inline Form */}
+                {showSessionForm && !editingId && (
+                  <div className="bg-white rounded-lg shadow-sm border ring-2 ring-purple-300/40" data-testid="new-session-form">
+                    <div className="p-3 flex items-center gap-3 border-b bg-purple-50/50">
+                      <ChevronDown size={15} className="text-purple-500 flex-shrink-0" />
+                      <div className="w-1.5 h-6 rounded-full flex-shrink-0 bg-purple-400" />
+                      <p className="font-medium text-sm text-purple-700">New Session</p>
                     </div>
-
-                    {/* Description + Font */}
-                    <div className="md:col-span-2">
-                      <Label>Description</Label>
-                      <Textarea value={sessionForm.description} onChange={e => setSessionForm({...sessionForm, description: e.target.value})} rows={4} placeholder="Describe this session in detail... Use **bold** and *italic*" />
-                      <div className="mt-1 flex gap-1 items-center flex-wrap">
-                        <span className="text-[8px] text-gray-400 mr-1">Style:</span>
-                        <input type="color" value={(sessionForm.description_style||{}).font_color || '#555555'} onChange={e => setSessionForm({...sessionForm, description_style: {...(sessionForm.description_style||{}), font_color: e.target.value}})} className="w-5 h-5 rounded cursor-pointer border-0" />
-                        <select value={(sessionForm.description_style||{}).font_family || ''} onChange={e => setSessionForm({...sessionForm, description_style: {...(sessionForm.description_style||{}), font_family: e.target.value}})} className="text-[8px] border rounded px-1 py-0.5 w-16">
-                          <option value="">Default</option><option value="'Cinzel', serif">Cinzel</option><option value="'Playfair Display', serif">Playfair</option><option value="'Lato', sans-serif">Lato</option><option value="'Montserrat', sans-serif">Montserrat</option><option value="'Titillium Web', sans-serif">Titillium Web</option><option value="'Great Vibes', cursive">Great Vibes</option><option value="'Dancing Script', cursive">Dancing Script</option><option value="'Pacifico', cursive">Pacifico</option><option value="'Poppins', sans-serif">Poppins</option><option value="'Raleway', sans-serif">Raleway</option><option value="'Sacramento', cursive">Sacramento</option><option value="'Caveat', cursive">Caveat</option>
-                        </select>
-                        <select value={(sessionForm.description_style||{}).font_size || ''} onChange={e => setSessionForm({...sessionForm, description_style: {...(sessionForm.description_style||{}), font_size: e.target.value}})} className="text-[8px] border rounded px-1 py-0.5 w-12">
-                          <option value="">Size</option>{['12px','14px','16px','18px','20px','24px'].map(s => <option key={s} value={s}>{s}</option>)}
-                        </select>
-                        <button onClick={() => setSessionForm({...sessionForm, description_style: {...(sessionForm.description_style||{}), font_weight: (sessionForm.description_style||{}).font_weight === 'bold' ? '400' : 'bold'}})} className={`text-[8px] px-1.5 py-0.5 rounded border ${(sessionForm.description_style||{}).font_weight === 'bold' ? 'bg-gray-800 text-white' : ''}`}><b>B</b></button>
-                        <button onClick={() => setSessionForm({...sessionForm, description_style: {...(sessionForm.description_style||{}), font_style: (sessionForm.description_style||{}).font_style === 'italic' ? 'normal' : 'italic'}})} className={`text-[8px] px-1.5 py-0.5 rounded border ${(sessionForm.description_style||{}).font_style === 'italic' ? 'bg-gray-800 text-white' : ''}`}><i>I</i></button>
-                      </div>
-                    </div>
-
-                    {/* Testimonial */}
-                    <div className="md:col-span-2">
-                      <Label>Testimonial Snippet (2-5 lines)</Label>
-                      <Textarea data-testid="session-testimonial-input" value={sessionForm.testimonial_text} onChange={e => setSessionForm({...sessionForm, testimonial_text: e.target.value})} rows={3} placeholder="e.g., 'This session changed my life...' — Client Name" />
-                      <p className="text-[9px] text-gray-400 mt-0.5">Supports **bold** and *italic* markdown</p>
-                    </div>
-
-                    {/* Session Mode */}
-                    <div className="md:col-span-2">
-                      <Label className="mb-2 block">Session Mode</Label>
-                      <div className="flex flex-wrap gap-3">
-                        {['online', 'offline', 'both'].map(mode => (
-                          <label key={mode} className={`flex items-center gap-2 rounded-lg px-4 py-2.5 cursor-pointer border transition-all ${sessionForm.session_mode === mode ? 'bg-purple-50 border-purple-400 ring-1 ring-purple-300' : 'bg-gray-50 border-gray-200 hover:border-gray-300'}`}>
-                            <input type="radio" name="session_mode" checked={sessionForm.session_mode === mode} onChange={() => setSessionForm({...sessionForm, session_mode: mode})} className="w-3.5 h-3.5 text-purple-600" />
-                            <span className="text-xs font-medium capitalize">{mode === 'both' ? 'Online & Remote' : mode === 'offline' ? 'Remote' : mode}</span>
-                          </label>
-                        ))}
-                      </div>
-                    </div>
-
-                    <div><Label>Duration</Label><Input value={sessionForm.duration||''} onChange={e => setSessionForm({...sessionForm, duration: e.target.value})} placeholder="e.g., 60-90 minutes" /></div>
-                    <div><Label>Price AED</Label><Input type="number" value={sessionForm.price_aed||0} onChange={e => setSessionForm({...sessionForm, price_aed: parseFloat(e.target.value)||0})} /></div>
-                    <div><Label>Price USD</Label><Input type="number" value={sessionForm.price_usd} onChange={e => setSessionForm({...sessionForm, price_usd: parseFloat(e.target.value)||0})} /></div>
-                    <div><Label>Price INR</Label><Input type="number" value={sessionForm.price_inr} onChange={e => setSessionForm({...sessionForm, price_inr: parseFloat(e.target.value)||0})} /></div>
-
-                    {/* Offer Prices */}
-                    <div className="md:col-span-2 bg-green-50 rounded-lg p-3 border border-green-200">
-                      <p className="text-[10px] font-semibold text-green-700 mb-2">Special Offer (per session — leave 0 for no offer)</p>
-                      <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
-                        <div><Label className="text-[9px]">Offer AED</Label><Input type="number" value={sessionForm.offer_price_aed||0} onChange={e => setSessionForm({...sessionForm, offer_price_aed: parseFloat(e.target.value)||0})} className="bg-white" /></div>
-                        <div><Label className="text-[9px]">Offer USD</Label><Input type="number" value={sessionForm.offer_price_usd||0} onChange={e => setSessionForm({...sessionForm, offer_price_usd: parseFloat(e.target.value)||0})} className="bg-white" /></div>
-                        <div><Label className="text-[9px]">Offer INR</Label><Input type="number" value={sessionForm.offer_price_inr||0} onChange={e => setSessionForm({...sessionForm, offer_price_inr: parseFloat(e.target.value)||0})} className="bg-white" /></div>
-                        <div><Label className="text-[9px]">Offer Badge</Label><Input value={sessionForm.offer_text||''} onChange={e => setSessionForm({...sessionForm, offer_text: e.target.value})} placeholder="e.g., 20% OFF" className="bg-white" /></div>
-                      </div>
-                      <div className="mt-2">
-                        <Label className="text-[9px]">Offer Expiry Date (auto-removes badge after this date)</Label>
-                        <Input type="date" value={sessionForm.offer_expiry||''} onChange={e => setSessionForm({...sessionForm, offer_expiry: e.target.value})} className="bg-white w-48" />
-                      </div>
-                    </div>
-
-                    {/* Time Slots */}
-                    <div className="md:col-span-2">
-                      <Label className="mb-1 block">Available Time Slots</Label>
-                      <div className="flex flex-wrap gap-2 mb-2">
-                        {(sessionForm.time_slots || []).map((slot, i) => (
-                          <span key={i} className="bg-purple-50 text-purple-700 px-3 py-1 rounded-full text-xs flex items-center gap-1.5">
-                            {slot}
-                            <button onClick={() => setSessionForm({...sessionForm, time_slots: sessionForm.time_slots.filter((_, idx) => idx !== i)})} className="text-purple-400 hover:text-red-500"><X size={10} /></button>
-                          </span>
-                        ))}
-                      </div>
-                      <div className="flex gap-2">
-                        <Input id="new-time-slot" placeholder="e.g., 10:00 AM" className="flex-1" onKeyDown={e => {
-                          if (e.key === 'Enter' && e.target.value.trim()) {
-                            setSessionForm({...sessionForm, time_slots: [...(sessionForm.time_slots || []), e.target.value.trim()]});
-                            e.target.value = '';
-                          }
-                        }} />
-                        <Button type="button" variant="outline" size="sm" onClick={() => {
-                          const input = document.getElementById('new-time-slot');
-                          if (input?.value.trim()) {
-                            setSessionForm({...sessionForm, time_slots: [...(sessionForm.time_slots || []), input.value.trim()]});
-                            input.value = '';
-                          }
-                        }}>Add</Button>
-                      </div>
-                    </div>
-
-                    {/* Available Dates — Calendar Picker */}
-                    <div className="md:col-span-2 border-t pt-4">
-                      <div className="flex items-center justify-between mb-2">
+                    <div className="p-5" data-testid="session-form">
+                      <div className="grid md:grid-cols-2 gap-4">
+                        <div className="md:col-span-2">
+                          <Label>Title</Label>
+                          <Input data-testid="session-title-input" value={sessionForm.title} onChange={e => setSessionForm({...sessionForm, title: e.target.value})} placeholder="Session title..." />
+                        </div>
+                        <div className="md:col-span-2">
+                          <Label>Description</Label>
+                          <Textarea value={sessionForm.description} onChange={e => setSessionForm({...sessionForm, description: e.target.value})} rows={4} placeholder="Describe this session in detail... Use **bold** and *italic*" />
+                        </div>
+                        <div className="md:col-span-2">
+                          <Label>Session Image</Label>
+                          <ImageUploader value={sessionForm.image || ''} onChange={url => setSessionForm({...sessionForm, image: url})} />
+                        </div>
                         <div>
-                          <Label className="block">Available Dates</Label>
-                          <p className="text-[9px] text-gray-400">Min 7 days in advance. Sat & Sun auto-off. Click dates to toggle.</p>
+                          <Label className="mb-2 block">Session Mode</Label>
+                          <div className="flex flex-wrap gap-2">
+                            {['online', 'offline', 'both'].map(mode => (
+                              <label key={mode} className={`flex items-center gap-1.5 rounded-lg px-3 py-2 cursor-pointer border transition-all text-xs ${sessionForm.session_mode === mode ? 'bg-purple-50 border-purple-400 ring-1 ring-purple-300' : 'bg-gray-50 border-gray-200 hover:border-gray-300'}`}>
+                                <input type="radio" name="new_session_mode" checked={sessionForm.session_mode === mode} onChange={() => setSessionForm({...sessionForm, session_mode: mode})} className="w-3 h-3 text-purple-600" />
+                                <span className="font-medium capitalize">{mode === 'both' ? 'Online & Remote' : mode === 'offline' ? 'Remote' : mode}</span>
+                              </label>
+                            ))}
+                          </div>
                         </div>
-                        <div className="flex gap-2">
-                          <Button type="button" variant="outline" size="sm" className="text-[10px]" data-testid="fill-30-days-btn" onClick={() => {
-                            const dates = [...(sessionForm.available_dates || [])];
-                            const existing = new Set(dates);
-                            const today = new Date(); today.setHours(0,0,0,0);
-                            for (let i = 7; i <= 37; i++) {
-                              const d = new Date(today); d.setDate(d.getDate() + i);
-                              const dow = d.getDay();
-                              if (dow === 0 || dow === 6) continue;
-                              const ds = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
-                              if (!existing.has(ds)) dates.push(ds);
-                            }
-                            setSessionForm({...sessionForm, available_dates: dates});
-                          }}>Fill 30 Days (Mon-Fri)</Button>
-                          <Button type="button" variant="outline" size="sm" className="text-[10px]" onClick={() => {
-                            const dates = [...(sessionForm.available_dates || [])];
-                            const existing = new Set(dates);
-                            const today = new Date(); today.setHours(0,0,0,0);
-                            for (let i = 7; i <= 67; i++) {
-                              const d = new Date(today); d.setDate(d.getDate() + i);
-                              const dow = d.getDay();
-                              if (dow === 0 || dow === 6) continue;
-                              const ds = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
-                              if (!existing.has(ds)) dates.push(ds);
-                            }
-                            setSessionForm({...sessionForm, available_dates: dates});
-                          }}>Fill 60 Days</Button>
-                          <Button type="button" variant="ghost" size="sm" className="text-[10px] text-red-500" onClick={() => setSessionForm({...sessionForm, available_dates: []})}>Clear All</Button>
+                        <div>
+                          <Label>Duration</Label>
+                          <Input value={sessionForm.duration||''} onChange={e => setSessionForm({...sessionForm, duration: e.target.value})} placeholder="e.g., 60-90 minutes" />
                         </div>
                       </div>
-                      {/* Mini calendar for toggling dates */}
-                      {(() => {
-                        const calMonth = sessionForm._calMonth || new Date(new Date().getFullYear(), new Date().getMonth());
-                        const cy = calMonth.getFullYear(); const cm = calMonth.getMonth();
-                        const fd = new Date(cy, cm, 1).getDay();
-                        const dim = new Date(cy, cm + 1, 0).getDate();
-                        const mn = calMonth.toLocaleString('default', { month: 'long', year: 'numeric' });
-                        const dateSet = new Set(sessionForm.available_dates || []);
-                        const calDays = [];
-                        for (let i = 0; i < fd; i++) calDays.push(null);
-                        for (let d = 1; d <= dim; d++) calDays.push(d);
-                        const today = new Date(); today.setHours(0,0,0,0);
-                        const minDate = new Date(today); minDate.setDate(minDate.getDate() + 7);
+                      <div className="mt-4 flex gap-2">
+                        <Button data-testid="save-session-btn" onClick={saveSession} className="bg-[#D4AF37] hover:bg-[#b8962e]"><Save size={14} className="mr-1" /> Create</Button>
+                        <Button variant="outline" onClick={resetSessionForm}>Cancel</Button>
+                      </div>
+                    </div>
+                  </div>
+                )}
+                {sessions.map((s, idx) => {
+                  const isExpanded = editingId === s.id && showSessionForm;
+                  return (
+                  <div key={s.id} data-testid={`session-row-${s.id}`} className={`bg-white rounded-lg shadow-sm border ${!s.visible ? 'opacity-60' : ''} ${isExpanded ? 'ring-2 ring-purple-300/40' : ''}`}>
+                    <div className={`p-3 flex items-center gap-3 cursor-pointer select-none ${isExpanded ? 'border-b bg-gray-50/50' : 'hover:bg-gray-50/50'}`} onClick={() => { if (isExpanded) { resetSessionForm(); } else { editSession(s); } }}>
+                      <div className="flex flex-col gap-0.5" onClick={e => e.stopPropagation()}>
+                        <button onClick={() => moveSessionOrder(idx, -1)} disabled={idx===0} className="p-0.5 hover:bg-gray-200 rounded disabled:opacity-30"><ArrowUp size={12} /></button>
+                        <button onClick={() => moveSessionOrder(idx, 1)} disabled={idx===sessions.length-1} className="p-0.5 hover:bg-gray-200 rounded disabled:opacity-30"><ArrowDown size={12} /></button>
+                      </div>
+                      {isExpanded ? <ChevronDown size={15} className="text-purple-500 flex-shrink-0" /> : <ChevronRight size={15} className="text-gray-300 flex-shrink-0" />}
+                      <div className="w-1.5 h-10 rounded-full flex-shrink-0" style={{ background: 'linear-gradient(to bottom, #7c3aed, #a855f7)' }} />
+                      <div className="flex-1 min-w-0">
+                        <p className="font-medium text-sm text-gray-900 truncate">{s.title}</p>
+                        <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+                          <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${s.session_mode === 'offline' ? 'bg-teal-50 text-teal-600' : s.session_mode === 'both' ? 'bg-purple-50 text-purple-600' : 'bg-blue-50 text-blue-600'}`}>{s.session_mode === 'both' ? 'Online & Remote' : s.session_mode === 'offline' ? 'Remote' : (s.session_mode || 'online')}</span>
+                          {s.duration && <span className="text-[10px] text-gray-400">{s.duration}</span>}
+                          {s.testimonial_text && <span className="text-[10px] text-amber-500">Has testimonial</span>}
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-1.5" onClick={e => e.stopPropagation()}>
+                        <button onClick={() => toggleSessionVisibility(s)} className="p-1 rounded hover:bg-gray-200">{s.visible ? <Eye size={14} className="text-green-600" /> : <EyeOff size={14} className="text-gray-400" />}</button>
+                        <button onClick={() => deleteSession(s.id)} className="p-1 rounded hover:bg-gray-200"><Trash2 size={14} className="text-red-400" /></button>
+                      </div>
+                    </div>
 
-                        const toggleDate = (day) => {
-                          const ds = `${cy}-${String(cm+1).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
-                          const dates = [...(sessionForm.available_dates || [])];
-                          const idx = dates.indexOf(ds);
-                          if (idx >= 0) dates.splice(idx, 1); else dates.push(ds);
-                          setSessionForm({...sessionForm, available_dates: dates});
-                        };
-
-                        return (
-                          <div className="bg-gray-50 rounded-lg p-3 border" data-testid="admin-date-calendar">
-                            <div className="flex items-center justify-between mb-2">
-                              <button type="button" onClick={() => setSessionForm({...sessionForm, _calMonth: new Date(cy, cm - 1)})} className="p-1 rounded hover:bg-gray-200 text-gray-500"><ChevronLeft size={14} /></button>
-                              <span className="text-xs font-semibold text-gray-700">{mn}</span>
-                              <button type="button" onClick={() => setSessionForm({...sessionForm, _calMonth: new Date(cy, cm + 1)})} className="p-1 rounded hover:bg-gray-200 text-gray-500"><ChevronRight size={14} /></button>
-                            </div>
-                            <div className="grid grid-cols-7 gap-0.5 text-center mb-1">
-                              {['Su','Mo','Tu','We','Th','Fr','Sa'].map(d => (
-                                <div key={d} className={`text-[9px] font-medium py-0.5 ${d === 'Su' || d === 'Sa' ? 'text-red-300' : 'text-gray-400'}`}>{d}</div>
-                              ))}
-                            </div>
-                            <div className="grid grid-cols-7 gap-0.5">
-                              {calDays.map((day, i) => {
-                                if (!day) return <div key={i} />;
-                                const date = new Date(cy, cm, day);
-                                const isWeekend = date.getDay() === 0 || date.getDay() === 6;
-                                const tooSoon = date < minDate;
-                                const ds = `${cy}-${String(cm+1).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
-                                const isOn = dateSet.has(ds);
-                                const disabled = isWeekend || tooSoon;
-                                return (
-                                  <button key={i} type="button" disabled={disabled}
-                                    onClick={() => toggleDate(day)}
-                                    className={`h-7 w-full rounded text-[10px] transition-all ${
-                                      disabled ? (isWeekend ? 'text-red-200 bg-red-50/50 cursor-not-allowed' : 'text-gray-200 cursor-not-allowed') :
-                                      isOn ? 'bg-purple-500 text-white font-bold' : 'text-gray-600 hover:bg-purple-50'
-                                    }`}
-                                  >{day}</button>
-                                );
-                              })}
-                            </div>
-                            <div className="flex items-center gap-3 mt-2 text-[9px] text-gray-400">
-                              <span className="flex items-center gap-1"><span className="w-3 h-3 rounded bg-purple-500" /> Available</span>
-                              <span className="flex items-center gap-1"><span className="w-3 h-3 rounded bg-red-50 border border-red-200" /> Weekend (off)</span>
-                              <span>Selected: {(sessionForm.available_dates||[]).length} dates</span>
+                    {isExpanded && (
+                      <div className="p-5" data-testid="session-form">
+                        <div className="grid md:grid-cols-2 gap-4">
+                          {/* Title + Font Style */}
+                          <div className="md:col-span-2">
+                            <Label>Title</Label>
+                            <Input data-testid="session-title-input" value={sessionForm.title} onChange={e => setSessionForm({...sessionForm, title: e.target.value})} />
+                            <div className="mt-1 flex gap-1 items-center flex-wrap">
+                              <span className="text-[8px] text-gray-400 mr-1">Style:</span>
+                              <input type="color" value={(sessionForm.title_style||{}).font_color || '#000000'} onChange={e => setSessionForm({...sessionForm, title_style: {...(sessionForm.title_style||{}), font_color: e.target.value}})} className="w-5 h-5 rounded cursor-pointer border-0" />
+                              <select value={(sessionForm.title_style||{}).font_family || ''} onChange={e => setSessionForm({...sessionForm, title_style: {...(sessionForm.title_style||{}), font_family: e.target.value}})} className="text-[8px] border rounded px-1 py-0.5 w-16">
+                                <option value="">Default</option><option value="'Cinzel', serif">Cinzel</option><option value="'Playfair Display', serif">Playfair</option><option value="'Lato', sans-serif">Lato</option><option value="'Montserrat', sans-serif">Montserrat</option><option value="'Poppins', sans-serif">Poppins</option><option value="'Raleway', sans-serif">Raleway</option><option value="'Great Vibes', cursive">Great Vibes</option><option value="'Dancing Script', cursive">Dancing Script</option>
+                              </select>
+                              <select value={(sessionForm.title_style||{}).font_size || ''} onChange={e => setSessionForm({...sessionForm, title_style: {...(sessionForm.title_style||{}), font_size: e.target.value}})} className="text-[8px] border rounded px-1 py-0.5 w-12">
+                                <option value="">Size</option>{['14px','16px','18px','20px','24px','28px','32px'].map(sz => <option key={sz} value={sz}>{sz}</option>)}
+                              </select>
+                              <button onClick={() => setSessionForm({...sessionForm, title_style: {...(sessionForm.title_style||{}), font_weight: (sessionForm.title_style||{}).font_weight === 'bold' ? '400' : 'bold'}})} className={`text-[8px] px-1.5 py-0.5 rounded border ${(sessionForm.title_style||{}).font_weight === 'bold' ? 'bg-gray-800 text-white' : ''}`}><b>B</b></button>
+                              <button onClick={() => setSessionForm({...sessionForm, title_style: {...(sessionForm.title_style||{}), font_style: (sessionForm.title_style||{}).font_style === 'italic' ? 'normal' : 'italic'}})} className={`text-[8px] px-1.5 py-0.5 rounded border ${(sessionForm.title_style||{}).font_style === 'italic' ? 'bg-gray-800 text-white' : ''}`}><i>I</i></button>
                             </div>
                           </div>
-                        );
-                      })()}
-                    </div>
 
-                    <div className="flex items-center gap-2"><Switch checked={sessionForm.visible} onCheckedChange={v => setSessionForm({...sessionForm, visible: v})} /><Label>Visible on Site</Label></div>
-                  </div>
-                  <div className="mt-4 flex gap-2">
-                    <Button data-testid="save-session-btn" onClick={saveSession} className="bg-[#D4AF37] hover:bg-[#b8962e]"><Save size={14} className="mr-1" /> Save</Button>
-                    <Button variant="outline" onClick={resetSessionForm}>Cancel</Button>
-                  </div>
-                </div>
-              )}
+                          {/* Description + Font Style */}
+                          <div className="md:col-span-2">
+                            <Label>Description</Label>
+                            <Textarea value={sessionForm.description} onChange={e => setSessionForm({...sessionForm, description: e.target.value})} rows={4} placeholder="Describe this session in detail... Use **bold** and *italic*" />
+                            <div className="mt-1 flex gap-1 items-center flex-wrap">
+                              <span className="text-[8px] text-gray-400 mr-1">Style:</span>
+                              <input type="color" value={(sessionForm.description_style||{}).font_color || '#555555'} onChange={e => setSessionForm({...sessionForm, description_style: {...(sessionForm.description_style||{}), font_color: e.target.value}})} className="w-5 h-5 rounded cursor-pointer border-0" />
+                              <select value={(sessionForm.description_style||{}).font_family || ''} onChange={e => setSessionForm({...sessionForm, description_style: {...(sessionForm.description_style||{}), font_family: e.target.value}})} className="text-[8px] border rounded px-1 py-0.5 w-16">
+                                <option value="">Default</option><option value="'Cinzel', serif">Cinzel</option><option value="'Playfair Display', serif">Playfair</option><option value="'Lato', sans-serif">Lato</option><option value="'Montserrat', sans-serif">Montserrat</option><option value="'Poppins', sans-serif">Poppins</option><option value="'Raleway', sans-serif">Raleway</option><option value="'Great Vibes', cursive">Great Vibes</option><option value="'Dancing Script', cursive">Dancing Script</option>
+                              </select>
+                              <select value={(sessionForm.description_style||{}).font_size || ''} onChange={e => setSessionForm({...sessionForm, description_style: {...(sessionForm.description_style||{}), font_size: e.target.value}})} className="text-[8px] border rounded px-1 py-0.5 w-12">
+                                <option value="">Size</option>{['12px','14px','16px','18px','20px','24px'].map(sz => <option key={sz} value={sz}>{sz}</option>)}
+                              </select>
+                              <button onClick={() => setSessionForm({...sessionForm, description_style: {...(sessionForm.description_style||{}), font_weight: (sessionForm.description_style||{}).font_weight === 'bold' ? '400' : 'bold'}})} className={`text-[8px] px-1.5 py-0.5 rounded border ${(sessionForm.description_style||{}).font_weight === 'bold' ? 'bg-gray-800 text-white' : ''}`}><b>B</b></button>
+                              <button onClick={() => setSessionForm({...sessionForm, description_style: {...(sessionForm.description_style||{}), font_style: (sessionForm.description_style||{}).font_style === 'italic' ? 'normal' : 'italic'}})} className={`text-[8px] px-1.5 py-0.5 rounded border ${(sessionForm.description_style||{}).font_style === 'italic' ? 'bg-gray-800 text-white' : ''}`}><i>I</i></button>
+                            </div>
+                          </div>
 
-              <div className="space-y-2">
-                {sessions.map((s, idx) => (
-                  <div key={s.id} data-testid={`session-row-${s.id}`} className={`bg-white rounded-lg p-4 flex items-center gap-4 shadow-sm border ${!s.visible ? 'opacity-60' : ''}`}>
-                    <div className="flex flex-col gap-1">
-                      <button onClick={() => moveSessionOrder(idx, -1)} disabled={idx===0} className="p-0.5 hover:bg-gray-100 rounded disabled:opacity-30"><ArrowUp size={14} /></button>
-                      <button onClick={() => moveSessionOrder(idx, 1)} disabled={idx===sessions.length-1} className="p-0.5 hover:bg-gray-100 rounded disabled:opacity-30"><ArrowDown size={14} /></button>
-                    </div>
-                    <div className="w-2 h-10 rounded-full" style={{ background: 'linear-gradient(to bottom, #7c3aed, #a855f7)' }} />
-                    <div className="flex-1 min-w-0">
-                      <p className="font-medium text-sm text-gray-900 truncate">{s.title}</p>
-                      <div className="flex items-center gap-2 mt-0.5 flex-wrap">
-                        <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${s.session_mode === 'offline' ? 'bg-teal-50 text-teal-600' : s.session_mode === 'both' ? 'bg-purple-50 text-purple-600' : 'bg-blue-50 text-blue-600'}`}>{s.session_mode === 'both' ? 'Online & Remote' : s.session_mode === 'offline' ? 'Remote' : (s.session_mode || 'online')}</span>
-                        {s.duration && <span className="text-[10px] text-gray-400">{s.duration}</span>}
-                        {s.testimonial_text && <span className="text-[10px] text-amber-500">Has testimonial</span>}
-                        {(s.available_dates||[]).length > 0 && <span className="text-[10px] text-purple-500">{s.available_dates.length} dates</span>}
-                        {(s.time_slots||[]).length > 0 && <span className="text-[10px] text-gray-400">{s.time_slots.length} slots</span>}
+                          {/* Image */}
+                          <div className="md:col-span-2">
+                            <Label>Session Image</Label>
+                            <ImageUploader value={sessionForm.image || ''} onChange={url => setSessionForm({...sessionForm, image: url})} />
+                          </div>
+
+                          {/* Testimonial */}
+                          <div className="md:col-span-2">
+                            <Label>Testimonial Snippet (2-5 lines)</Label>
+                            <Textarea data-testid="session-testimonial-input" value={sessionForm.testimonial_text} onChange={e => setSessionForm({...sessionForm, testimonial_text: e.target.value})} rows={3} placeholder="e.g., 'This session changed my life...' — Client Name" />
+                            <p className="text-[9px] text-gray-400 mt-0.5">Supports **bold** and *italic* markdown</p>
+                          </div>
+
+                          {/* Session Mode + Duration */}
+                          <div>
+                            <Label className="mb-2 block">Session Mode</Label>
+                            <div className="flex flex-wrap gap-2">
+                              {['online', 'offline', 'both'].map(mode => (
+                                <label key={mode} className={`flex items-center gap-1.5 rounded-lg px-3 py-2 cursor-pointer border transition-all text-xs ${sessionForm.session_mode === mode ? 'bg-purple-50 border-purple-400 ring-1 ring-purple-300' : 'bg-gray-50 border-gray-200 hover:border-gray-300'}`}>
+                                  <input type="radio" name="session_mode_inline" checked={sessionForm.session_mode === mode} onChange={() => setSessionForm({...sessionForm, session_mode: mode})} className="w-3 h-3 text-purple-600" />
+                                  <span className="font-medium capitalize">{mode === 'both' ? 'Online & Remote' : mode === 'offline' ? 'Remote' : mode}</span>
+                                </label>
+                              ))}
+                            </div>
+                          </div>
+                          <div>
+                            <Label>Duration</Label>
+                            <Input value={sessionForm.duration||''} onChange={e => setSessionForm({...sessionForm, duration: e.target.value})} placeholder="e.g., 60-90 minutes" />
+                          </div>
+
+                          {/* Info note */}
+                          <div className="md:col-span-2 text-[10px] text-gray-400 bg-gray-50 rounded px-3 py-2">
+                            Pricing, dates, time slots & availability are managed from the <strong>Pricing Hub</strong> and the <strong>Unified Availability Calendar</strong> above.
+                          </div>
+                        </div>
+
+                        <div className="mt-4 flex gap-2">
+                          <Button data-testid="save-session-btn" onClick={saveSession} className="bg-[#D4AF37] hover:bg-[#b8962e]"><Save size={14} className="mr-1" /> Save</Button>
+                          <Button variant="outline" onClick={resetSessionForm}>Collapse</Button>
+                        </div>
                       </div>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <button onClick={() => toggleSessionVisibility(s)} className="p-1.5 rounded hover:bg-gray-100">{s.visible ? <Eye size={16} className="text-green-600" /> : <EyeOff size={16} className="text-gray-400" />}</button>
-                      <button onClick={() => editSession(s)} className="p-1.5 rounded hover:bg-gray-100"><Edit size={16} className="text-blue-600" /></button>
-                      <button onClick={() => deleteSession(s.id)} className="p-1.5 rounded hover:bg-gray-100"><Trash2 size={16} className="text-red-500" /></button>
-                    </div>
+                    )}
                   </div>
-                ))}
+                  );
+                })}
               </div>
             </div>
           )}
