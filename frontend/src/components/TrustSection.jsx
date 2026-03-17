@@ -281,8 +281,9 @@ const TrustSection = ({ sectionConfig }) => {
               letterSpacing: '0.15em', textTransform: 'uppercase', color: '#444',
             });
             const descStyle = applySectionStyle(card.description_style, {
-              ...BODY, fontSize: '0.75rem', color: '#777', lineHeight: 1.6,
+              ...BODY, fontSize: '0.85rem', color: '#555', lineHeight: 1.7,
             });
+            const desc = card.description || DEFAULT_CARDS[i]?.description || '';
 
             return (
               <div
@@ -304,7 +305,7 @@ const TrustSection = ({ sectionConfig }) => {
                 )}
                 {card.icon === 'google' && <GoogleStars />}
                 <p className="mt-2 mb-1" style={lblStyle}>{card.label}</p>
-                {card.description && <p style={descStyle}>{card.description}</p>}
+                <p style={descStyle} data-testid={`trust-desc-${i}`}>{desc}</p>
               </div>
             );
           })}
