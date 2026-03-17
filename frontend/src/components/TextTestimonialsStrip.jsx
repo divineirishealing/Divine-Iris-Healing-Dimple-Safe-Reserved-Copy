@@ -21,13 +21,13 @@ const DEFAULT_PHILOSOPHY_CARDS = [
   { icon: 'choose', title: 'Choose Us, Choose You', description: 'Choosing Divine Iris means choosing your happiness, your transformation, your life. The moment you say yes to yourself, everything begins to shift.', title_style: {}, description_style: {} },
 ];
 
-/* ── Icon wrapper: large beige/gold oval ── */
-const iconCircle = (children) => (
+/* ── Icon wrapper: beige/gold circle ── */
+const iconCircle = (children, size = 42) => (
   <div
-    className="flex items-center justify-center mx-auto mb-3"
+    className="flex items-center justify-center mx-auto mb-2"
     style={{
-      width: 52,
-      height: 52,
+      width: size,
+      height: size,
       borderRadius: '50%',
       background: `linear-gradient(145deg, #f5ecd7 0%, #ece3cc 100%)`,
       boxShadow: '0 1px 4px rgba(180,160,120,0.12)',
@@ -42,16 +42,16 @@ const s = { fill: 'none', stroke: '#b8962e', strokeWidth: 1.5, strokeLinecap: 'r
 /* ── Metric Icons ── */
 const GoogleIcon = () => (
   <div
-    className="flex items-center justify-center mx-auto mb-3"
+    className="flex items-center justify-center mx-auto mb-2"
     style={{
-      width: 52,
-      height: 52,
+      width: 42,
+      height: 42,
       borderRadius: '50%',
       background: '#fff',
       boxShadow: '0 2px 8px rgba(0,0,0,0.08)',
     }}
   >
-    <svg width="26" height="26" viewBox="0 0 24 24">
+    <svg width="22" height="22" viewBox="0 0 24 24">
       <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 01-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z" fill="#4285F4"/>
       <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
       <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/>
@@ -60,34 +60,31 @@ const GoogleIcon = () => (
   </div>
 );
 const GoogleStars = () => (
-  <div className="flex gap-0.5 justify-center mt-1 mb-1" data-testid="google-stars">
+  <div className="flex gap-0.5 justify-center mb-0.5" data-testid="google-stars">
     {[...Array(5)].map((_, i) => (
-      <svg key={i} width="14" height="14" viewBox="0 0 24 24" fill={GOLD} stroke="none">
+      <svg key={i} width="12" height="12" viewBox="0 0 24 24" fill={GOLD} stroke="none">
         <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
       </svg>
     ))}
   </div>
 );
-const RetentionIcon = () => iconCircle(<svg width="24" height="24" viewBox="0 0 24 24" {...s}><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>);
-const TrustIcon = () => iconCircle(<svg width="24" height="24" viewBox="0 0 24 24" {...s}><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>);
-const DnaIcon = () => iconCircle(<svg width="24" height="24" viewBox="0 0 24 24" {...s}><path d="M2 15c6.667-6 13.333 0 20-6"/><path d="M9 22c1.798-1.998 2.518-3.995 2.807-5.993"/><path d="M15 2c-1.798 1.998-2.518 3.995-2.807 5.993"/><path d="M17 6l-2.5-2.5"/><path d="M7 18l2.5 2.5"/></svg>);
+const RetentionIcon = () => iconCircle(<svg width="20" height="20" viewBox="0 0 24 24" {...s}><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>);
+const TrustIcon = () => iconCircle(<svg width="20" height="20" viewBox="0 0 24 24" {...s}><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>);
+const DnaIcon = () => iconCircle(<svg width="20" height="20" viewBox="0 0 24 24" {...s}><path d="M2 15c6.667-6 13.333 0 20-6"/><path d="M9 22c1.798-1.998 2.518-3.995 2.807-5.993"/><path d="M15 2c-1.798 1.998-2.518 3.995-2.807 5.993"/><path d="M17 6l-2.5-2.5"/><path d="M7 18l2.5 2.5"/></svg>);
 const BlissIcon = () => iconCircle(
-  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#b8962e" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round">
-    {/* Seated meditation figure */}
+  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#b8962e" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round">
     <circle cx="12" cy="5" r="2" fill="#b8962e20"/>
     <path d="M12 7v3"/>
     <path d="M8 17c0-2.5 1.8-4.5 4-4.5s4 2 4 4.5"/>
     <path d="M9 12l-2.5-1.5" /><path d="M15 12l2.5-1.5" />
-    {/* Lotus base */}
     <path d="M6 19c1.5-1.5 3.5-2 6-2s4.5.5 6 2" fill="#b8962e15"/>
     <path d="M4 21c2-2 5-3 8-3s6 1 8 3"/>
-    {/* Radiating energy */}
     <line x1="12" y1="1" x2="12" y2="2.5" opacity="0.5"/>
     <line x1="9" y1="1.8" x2="9.8" y2="3" opacity="0.4"/>
     <line x1="15" y1="1.8" x2="14.2" y2="3" opacity="0.4"/>
   </svg>
 );
-const HappinessIcon = () => iconCircle(<svg width="24" height="24" viewBox="0 0 24 24" {...s}><circle cx="12" cy="12" r="10"/><path d="M8 14s1.5 2 4 2 4-2 4-2"/><line x1="9" y1="9" x2="9.01" y2="9"/><line x1="15" y1="9" x2="15.01" y2="9"/></svg>);
+const HappinessIcon = () => iconCircle(<svg width="20" height="20" viewBox="0 0 24 24" {...s}><circle cx="12" cy="12" r="10"/><path d="M8 14s1.5 2 4 2 4-2 4-2"/><line x1="9" y1="9" x2="9.01" y2="9"/><line x1="15" y1="9" x2="15.01" y2="9"/></svg>);
 
 const METRIC_ICONS = {
   google: null, // Google has its own special rendering
@@ -99,33 +96,30 @@ const METRIC_ICONS = {
 };
 
 /* ── Philosophy Icons ── */
-const HomeIcon = () => iconCircle(<svg width="24" height="24" viewBox="0 0 24 24" {...s}><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>);
+const HomeIcon = () => iconCircle(<svg width="20" height="20" viewBox="0 0 24 24" {...s}><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>);
 const ScrollIcon = () => iconCircle(
-  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#b8962e" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round">
-    {/* Merkaba - Sacred Geometry Star Tetrahedron */}
-    <polygon points="12,2 21,18 3,18" fill="#b8962e10"/>
-    <polygon points="12,22 3,6 21,6" fill="#b8962e10"/>
-    {/* Inner hexagon for 3D depth */}
-    <polygon points="12,6 17,14.5 12,18 7,14.5 7,9.5 12,6 17,9.5 17,14.5" fill="none"/>
-    <line x1="12" y1="6" x2="12" y2="18" opacity="0.3"/>
-    <line x1="7" y1="9.5" x2="17" y2="14.5" opacity="0.3"/>
-    <line x1="17" y1="9.5" x2="7" y2="14.5" opacity="0.3"/>
+  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#b8962e" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round">
+    {/* Quill pen writing on leaf */}
+    <path d="M20 2C14 4 10 10 8 16l-3 4 4-1c4-2 8-6 12-10" fill="#b8962e12"/>
+    <path d="M8 16c-1-2 0-5 2-7"/>
+    <path d="M15 5c1 1 1 3 0 5"/>
+    <line x1="5" y1="20" x2="3" y2="22"/>
+    <path d="M12 18c2 0 4-1 5-3" opacity="0.5"/>
   </svg>
 );
-const AtomIcon = () => iconCircle(<svg width="24" height="24" viewBox="0 0 24 24" {...s}><circle cx="12" cy="12" r="1"/><path d="M20.2 20.2c2.04-2.03.02-7.36-4.5-11.9-4.54-4.52-9.87-6.54-11.9-4.5-2.04 2.03-.02 7.36 4.5 11.9 4.54 4.52 9.87 6.54 11.9 4.5Z"/><path d="M15.7 15.7c4.52-4.54 6.54-9.87 4.5-11.9-2.03-2.04-7.36-.02-11.9 4.5-4.52 4.54-6.54 9.87-4.5 11.9 2.03 2.04 7.36.02 11.9-4.5Z"/></svg>);
-const FeatherIcon = () => iconCircle(<svg width="24" height="24" viewBox="0 0 24 24" {...s}><path d="M20.24 12.24a6 6 0 0 0-8.49-8.49L5 10.5V19h8.5z"/><line x1="16" y1="8" x2="2" y2="22"/><line x1="17.5" y1="15" x2="9" y2="15"/></svg>);
+const AtomIcon = () => iconCircle(<svg width="20" height="20" viewBox="0 0 24 24" {...s}><circle cx="12" cy="12" r="1"/><path d="M20.2 20.2c2.04-2.03.02-7.36-4.5-11.9-4.54-4.52-9.87-6.54-11.9-4.5-2.04 2.03-.02 7.36 4.5 11.9 4.54 4.52 9.87 6.54 11.9 4.5Z"/><path d="M15.7 15.7c4.52-4.54 6.54-9.87 4.5-11.9-2.03-2.04-7.36-.02-11.9 4.5-4.52 4.54-6.54 9.87-4.5 11.9 2.03 2.04 7.36.02 11.9-4.5Z"/></svg>);
+const FeatherIcon = () => iconCircle(<svg width="20" height="20" viewBox="0 0 24 24" {...s}><path d="M20.24 12.24a6 6 0 0 0-8.49-8.49L5 10.5V19h8.5z"/><line x1="16" y1="8" x2="2" y2="22"/><line x1="17.5" y1="15" x2="9" y2="15"/></svg>);
 const ChooseIcon = () => iconCircle(
-  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#b8962e" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round">
-    {/* Twin Hearts - intertwined */}
+  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#b8962e" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round">
     <path d="M14.5 5.5a3 3 0 0 0-4.24 0L9 6.76 7.74 5.5a3 3 0 0 0-4.24 4.24L9 15.24l5.5-5.5a3 3 0 0 0 0-4.24z" fill="#b8962e18"/>
     <path d="M20.5 8.5a3 3 0 0 0-4.24 0L15 9.76l-1.26-1.26a3 3 0 0 0-4.24 4.24L15 18.24l5.5-5.5a3 3 0 0 0 0-4.24z" fill="#b8962e28"/>
   </svg>
 );
-const ShieldIcon = () => iconCircle(<svg width="24" height="24" viewBox="0 0 24 24" {...s}><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>);
-const GuruIcon = () => iconCircle(<svg width="24" height="24" viewBox="0 0 24 24" {...s}><circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"/><path d="M2 12h20"/></svg>);
-const InfinityIcon = () => iconCircle(<svg width="24" height="24" viewBox="0 0 24 24" {...s}><path d="M12 12c-2-2.67-4-4-6-4a4 4 0 1 0 0 8c2 0 4-1.33 6-4Zm0 0c2 2.67 4 4 6 4a4 4 0 0 0 0-8c-2 0-4 1.33-6 4Z"/></svg>);
-const MiracleIcon = () => iconCircle(<svg width="24" height="24" viewBox="0 0 24 24" {...s}><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>);
-const LotusIcon = () => iconCircle(<svg width="24" height="24" viewBox="0 0 24 24" {...s}><path d="M12 22c-4-3-8-7.5-8-12a8 8 0 0 1 16 0c0 4.5-4 9-8 12z"/><path d="M12 22c2-3 4-7.5 4-12"/><path d="M12 22c-2-3-4-7.5-4-12"/><circle cx="12" cy="10" r="3"/></svg>);
+const ShieldIcon = () => iconCircle(<svg width="20" height="20" viewBox="0 0 24 24" {...s}><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>);
+const GuruIcon = () => iconCircle(<svg width="20" height="20" viewBox="0 0 24 24" {...s}><circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"/><path d="M2 12h20"/></svg>);
+const InfinityIcon = () => iconCircle(<svg width="20" height="20" viewBox="0 0 24 24" {...s}><path d="M12 12c-2-2.67-4-4-6-4a4 4 0 1 0 0 8c2 0 4-1.33 6-4Zm0 0c2 2.67 4 4 6 4a4 4 0 0 0 0-8c-2 0-4 1.33-6 4Z"/></svg>);
+const MiracleIcon = () => iconCircle(<svg width="20" height="20" viewBox="0 0 24 24" {...s}><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>);
+const LotusIcon = () => iconCircle(<svg width="20" height="20" viewBox="0 0 24 24" {...s}><path d="M12 22c-4-3-8-7.5-8-12a8 8 0 0 1 16 0c0 4.5-4 9-8 12z"/><path d="M12 22c2-3 4-7.5 4-12"/><path d="M12 22c-2-3-4-7.5-4-12"/><circle cx="12" cy="10" r="3"/></svg>);
 
 const PHILOSOPHY_ICONS = {
   home: HomeIcon, scroll: ScrollIcon, atom: AtomIcon, feather: FeatherIcon,
@@ -249,8 +243,11 @@ const TextTestimonialsStrip = ({ sectionConfig }) => {
               const IconComp = METRIC_ICONS[card.icon];
               return (
                 <div key={i} className="flex flex-col items-center text-center" data-testid={`trust-item-${i}`}>
-                  {showIcon && (card.icon === 'google' ? <GoogleIcon /> : IconComp ? <IconComp /> : <TrustIcon />)}
-                  {card.icon === 'google' && <GoogleStars />}
+                  {/* Fixed-height icon area so all values align */}
+                  <div style={{ height: 58 }} className="flex flex-col items-center justify-end">
+                    {showIcon && (card.icon === 'google' ? <GoogleIcon /> : IconComp ? <IconComp /> : <TrustIcon />)}
+                    {card.icon === 'google' && <GoogleStars />}
+                  </div>
                   {card.value && <p style={valStyle} className="mt-1">{card.value}</p>}
                   <p style={lblStyle} className="mt-2 leading-tight max-w-[140px]">{card.label}</p>
                 </div>
