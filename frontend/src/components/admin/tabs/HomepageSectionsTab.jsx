@@ -69,6 +69,14 @@ const DEFAULTS_BY_ID = Object.fromEntries(DEFAULT_SECTIONS.map(s => [s.id, s]));
 
 import { DEFAULT_CARDS } from '../../TrustSection';
 
+const DEFAULT_PHILO = [
+  { icon: 'home', title: 'A Soulful Home Like No Other', description: 'For those countless souls who came here lost, hopeless, helpless, suffering \u2014 Divine Iris became the home they never knew they were searching for.', show_icon: true, title_style: {}, description_style: {} },
+  { icon: 'scroll', title: 'Ancient Wisdom, Living Legacy', description: 'Our unique method of healing is deeply rooted in ancient wisdom gained over thousands of lifetimes \u2014 literally seen, re-lived and re-experienced by our healer and inculcated under the guidance of the Gurus to make people free of suffering.', show_icon: true, title_style: {}, description_style: {} },
+  { icon: 'atom', title: 'Healing at the Deepest Level', description: 'Our healings are designed to heal at the atomic, subatomic and DNA level \u2014 connecting you with your own highest intelligence and unravelling your limitless potential.', show_icon: true, title_style: {}, description_style: {} },
+  { icon: 'feather', title: 'Effortless Transformation', description: 'We make transformations effortless and painless for our people. No affirmations, no homework, no meditation, no reading, no writing \u2014 just pure, deep healing.', show_icon: true, title_style: {}, description_style: {} },
+  { icon: 'choose', title: 'Choose Us, Choose You', description: 'Choosing Divine Iris means choosing your happiness, your transformation, your life. The moment you say yes to yourself, everything begins to shift.', show_icon: true, title_style: {}, description_style: {} },
+];
+
 const CONTENT_SECTIONS = new Set(['about', 'sponsor', 'newsletter', 'trust']);
 
 const ICON_OPTIONS = [
@@ -92,7 +100,7 @@ const ICON_OPTIONS = [
 
 const TrustCardsEditor = ({ section, sectionIdx, updateSection }) => {
   const cards = (section.trust_cards && section.trust_cards.length > 0) ? section.trust_cards : DEFAULT_CARDS;
-  const philoCards = (section.philosophy_cards && section.philosophy_cards.length > 0) ? section.philosophy_cards : [];
+  const philoCards = (section.philosophy_cards && section.philosophy_cards.length > 0) ? section.philosophy_cards : DEFAULT_PHILO;
 
   const updateCard = (cardIdx, field, value) => {
     const updated = [...cards];
@@ -171,6 +179,11 @@ const TrustCardsEditor = ({ section, sectionIdx, updateSection }) => {
                 <Input value={card.label || ''} onChange={e => updateCard(ci, 'label', e.target.value)} className="text-[10px] h-6" data-testid={`card-label-${ci}`} />
                 <StyleCell style={card.label_style || {}} onStyleChange={v => updateCard(ci, 'label_style', v)} />
               </div>
+            </div>
+            <div>
+              <Label className="text-[8px] text-gray-400">Description</Label>
+              <textarea value={card.description || ''} onChange={e => updateCard(ci, 'description', e.target.value)} className="w-full text-[10px] border rounded px-2 py-1 min-h-[32px] resize-y focus:outline-none focus:ring-1 focus:ring-gray-300" placeholder="Card description" data-testid={`card-desc-${ci}`} />
+              <StyleCell style={card.description_style || {}} onStyleChange={v => updateCard(ci, 'description_style', v)} />
             </div>
           </div>
         ))}

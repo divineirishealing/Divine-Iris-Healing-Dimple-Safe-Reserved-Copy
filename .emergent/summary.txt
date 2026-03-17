@@ -12,49 +12,40 @@ The user wants to build a pixel-perfect clone of their existing website, . This 
 **User's preferred language**: English
 
 **what currently exists?**
-A full-stack application (React + FastAPI + MongoDB). A significant amount of work has been done to improve the admin panel's user experience and add new features.
--   **Data Export Fixed:** The admin enrollment Excel export is now functional, producing a clean, database-ready file with a wide format (one participant per set of columns) and no  values.
--   **Admin Guide:** A comprehensive, downloadable HTML guide for the entire admin panel has been created and is accessible via a link in the admin header.
--   **Hero Image Management:** The admin can now upload and manage hero background images for all static pages, program detail pages, and the personal sessions page via the Page Headers tab.
--   **Admin UI Overhaul:** Long, complex admin pages (, , , , ) have been refactored with collapsible sections to make them more organized and scannable.
--   **Streamlined Program Management:** The Programs tab has been converted into an inline accordion, allowing the admin to edit programs directly within the list without navigating to a separate form. The edit form itself has been simplified to remove redundant fields.
+A full-stack application (React + FastAPI + MongoDB). The admin panel and homepage have seen significant recent development.
+- The Personal Sessions admin page has been successfully refactored into an intuitive inline accordion, simplifying session management. This was completed and verified.
+- A new, highly customizable Trust Section has been implemented on the homepage. This section consists of a Metrics row (e.g., Google Rating, Client Retention) and a Why Us row (philosophy points), followed by a single rotating testimonial.
+- An extensive inline editor was built in the admin panel, allowing the user to manage every aspect of the new Trust Section's cards, including text, icons, fonts, and colors.
 
 **Last working item**:
--   **Last item agent was working:** The agent was beginning a complete refactor of the Personal Sessions admin page based on a multi-part user request.
-    -   **Task:**
-        1.  Rename the page title to Personal Sessions.
-        2.  Simplify the session edit form to remove fields managed elsewhere (pricing, dates).
-        3.  Remove the individual calendar from each session's edit form.
-        4.  Create a single, unified calendar at the top of the page for blocking/unblocking dates for all sessions.
-        5.  Convert the page into an inline accordion UI, similar to the Programs page.
+-   **Last item agent was working:** The agent was performing final adjustments on the newly created Trust Section based on user feedback. The user identified two final issues that need to be fixed.
 -   **Status:** IN PROGRESS
 -   **Agent Testing Done:** N
--   **Which testing method agent to use?** Frontend testing agent. After implementation, the agent should verify the new UI, including the unified calendar's click-to-block functionality and the inline accordion for editing sessions.
+-   **Which testing method agent to use?** Frontend testing agent. After fixing the issues, the agent must verify that the admin editor loads correctly and that the homepage displays all content as requested.
 -   **User Testing Done:** N
 
 **All Pending/In progress Issue list**:
--   **Issue 1: Refactor the Personal Sessions Admin Page (P0)**: This is the . The user wants to overhaul the page for better usability.
+-   **Issue 1: Fix Trust Section Admin Editor and Frontend Display (P0)**: This is the .
 
 **Issues Detail:**
--   **Issue 1: Refactor the Personal Sessions Admin Page (P0)**
-    -   **Attempted fixes:** The agent has analyzed the existing code in  and formulated a plan. No code has been written yet.
+-   **Issue 1: Fix Trust Section Admin Editor and Frontend Display (P0)**
+    -   **Attempted fixes:** The agent has diagnosed the two problems but has not implemented the code changes yet.
+        1.  **Problem 1:** The Why Us philosophy cards are not loading in the admin editor, making them un-editable. The agent concluded this is because the editor component isn't falling back to default data when the database record is empty.
+        2.  **Problem 2:** The description text for the Metrics cards (the top row) is not being displayed on the homepage. The agent concluded the rendering logic for the description was likely removed during a previous design iteration.
     -   **Next debug checklist:**
-        1.  Resume work in .
-        2.  Create a new state management system for the unified calendar to handle blocked/available dates. Use a flexible calendar component (e.g., the existing  calendar) and add click handlers to toggle date statuses.
-        3.  Refactor the main component to remove the separate edit form and list.
-        4.  Implement an inline accordion pattern, where clicking a session row expands it to show a simplified edit form (Title, Description, etc.).
-        5.  Modify the backend API if necessary to save/load the unified calendar's blocked dates.
-        6.  Ensure the page title is updated to Personal Sessions.
-    -   **Why fix this issue and what will be achieved with the fix?** This will significantly improve the user's workflow for managing personal sessions, making it faster and more intuitive by centralizing date management and streamlining the editing process.
+        1.  **Fix Admin Editor:** In , find the  component. Update the mapping for  to ensure it uses  as a fallback if the saved content () is not present.
+        2.  **Fix Frontend Display:** In , locate the rendering loop for the  (Metrics row). Re-add the JSX to display the  text.
+        3.  **Final Polish:** In , ensure all spacing is compact and the entire section (two rows + quote) is visible together as requested by the user.
+    -   **Why fix this issue and what will be achieved with the fix?** This will complete the multi-step implementation of the Trust Section, making it fully editable and displayed exactly as the user specified after numerous design iterations.
     -   **Status:** IN PROGRESS
     -   **Is recurring issue?** N
     -   **Should Test frontend/backend/both after fix?** Frontend
     -   **Blocked on other issue:** No.
 
 **In progress Task List**:
--   **Task 1: Refactor the Personal Sessions Admin Page (P0)**
-    -   **Where to resume:** The agent was about to modify  to implement the new design. The next step is to replace the existing JSX for the list and form with the new unified calendar and accordion structure.
-    -   **What will be achieved with this?** A more intuitive and efficient UI for managing personal sessions, consolidating calendar controls and using an inline editing pattern.
+-   **Task 1: Complete Trust Section Implementation (P0)**
+    -   **Where to resume:** Apply the fixes outlined in Issue 1 to  and .
+    -   **What will be achieved with this?** A fully functional, visually polished, and admin-editable Trust Section on the homepage.
     -   **Status:** IN PROGRESS
     -   **Should Test frontend/backend/both after fix?** Frontend
     -   **Blocked on something:** No.
@@ -69,16 +60,15 @@ A full-stack application (React + FastAPI + MongoDB). A significant amount of wo
     -   SEO: Explain SEO concepts to the user and implement on-page SEO best practices.
 
 **Completed work in this session**
--   **Enrollment Data Export Fixed:** Resolved issues with the Excel export () by correctly handling  values and restructuring the data into a wide format.
--   **Admin Guide Created:** Generated a comprehensive HTML guide for the admin panel, made it downloadable, and added a link to it in the admin header.
--   **Hero Image Uploader Implemented:** Added image upload functionality to the Page Headers admin tab for all static pages, program templates, and session pages. Updated frontend pages to render these images.
--   **Admin Panel UI Overhaul:** Implemented collapsible sections on multiple long admin pages (, , , , ) to improve scannability and organization.
--   **Program Management Refactored:** Simplified the program edit form and converted the Programs admin page into an inline accordion for a more streamlined editing experience.
+- **Personal Sessions Admin Page Refactor (DONE):** Transformed the page into a streamlined inline accordion for managing sessions, removing redundant fields and centralizing controls. Verified with testing agent.
+- **Homepage Trust Section Implementation (IN PROGRESS):**
+    - Iteratively designed and built a new homepage section with two rows of iconic cards (Metrics and Why Us) and a rotating testimonial.
+    - Created a comprehensive inline admin editor with granular controls for all card content, including text, icons, fonts, colors, and visibility toggles for each element.
 
 **Earlier issues found/mentioned but not fixed**
--   **Issue 1: Duplicated Function**
-    -   **Debug checklist:** The function  is duplicated in  and .
-    -   **Why to solve this issue and what will be achieved with this?** Consolidating this into a shared utility would reduce code duplication and improve maintainability. This is a low-priority refactoring task.
+-   **Issue 1: Duplicated Function **
+    -   **Debug checklist:** The function is present in both  and . It should be moved to a shared utilities file to reduce code duplication.
+    -   **Why to solve this issue and what will be achieved with this?** Improves code maintainability. This is a low-priority technical debt item.
     -   **Should Test frontend/backend/both after fix:** Backend
     -   **Is recurring issue?** Y
 
@@ -89,53 +79,53 @@ A full-stack application (React + FastAPI + MongoDB). A significant amount of wo
 
 
 **Key Technical Concepts**
--   **Data Transformation for Export ():** Pivoting nested MongoDB documents into a flat, wide row and robustly handling  values.
--   **Static File Serving in FastAPI:** Using  to serve static HTML content from a new endpoint.
--   **React UI Patterns (Refactoring):** Evolving from a separate edit form to an inline accordion pattern for improved UX. Using shared components () to apply a consistent UI pattern across multiple pages.
--   **Complex State Management:** Managing the state for multiple collapsible sections and accordion items within a single component.
+-   **Complex Inline Admin Editors:** Building highly dynamic and granular editing interfaces directly within an admin tab, with controls for text content, fonts, colors, visibility, and icons.
+-   **Iterative Frontend Prototyping:** Rapidly implementing and modifying a component () through more than ten distinct design variations based on real-time user feedback.
+-   **Component-Based State Management:** Managing complex state for nested, editable content structures (arrays of card objects, each with its own style properties) within React components.
+-   **Fallback Data Handling:** Ensuring UI components (both frontend and admin) are robust by providing default data when saved database content is not yet available.
 
 **key DB schema**
--   No changes to the database schema were made in this session.
+-   **homepage_sections collection:** The schema for documents in this collection has implicitly evolved. Documents with  now contain a  object with  and  arrays. Each object in these arrays stores properties like , , , , and nested style objects for fonts and colors.
 
 **All files of reference**
--    (current focus)
--    (reference for inline accordion)
--    (reusable component)
--   
--    (for fixed export logic)
--    (for new guide endpoint)
--    (new guide file)
+-    (current focus: admin editor fix)
+-    (current focus: frontend display fix)
+-    (consumer of the  component)
+-    (for tracking completed and upcoming work)
 
 **Areas that need refactoring**:
 -   The function  is duplicated in  and  and should be centralized.
 
 **key api endpoints**
--   : (Fixed) Endpoint to download a formatted Excel sheet of all enrollments.
--   : (New) Endpoint that serves the static  file.
--   : Used to save hero image URLs and other settings.
+-   : The primary endpoint used to persist all the configuration and content for the new Trust Section.
 
 **Critical Info for New Agent**
--   Your immediate task is to resume the refactor of the Personal Sessions admin page located at .
--   The goal is to transform the page into an inline accordion with a single, unified calendar at the top for managing availability across all sessions. Refer to the Programs page () for a working example of the inline accordion pattern.
--   The user has a strong preference for clean, uncluttered, and efficient UIs. The collapsible sections and inline accordion patterns have been very well received, so continue to apply these principles.
+-   Your immediate task is to fix the Trust Section by addressing the two issues from the user's last message: making the Why Us row editable and re-enabling the description text on the Metrics row.
+-   The user is highly visual and prefers to see changes before approving them. The workflow should be: implement the fix, take a screenshot of the admin panel editor, take a screenshot of the updated homepage section, and then present both to the user for confirmation.
+-   The code for the frontend display is in .
+-   The code for the admin editor is in .
 
 **documents and test reports created in this job**
 -   
+-   
+-   
 
 **Last 10 User Messages and any pending HUMAN messages**
-10.  (Completed: Made program basics and content sections collapsible).
-9.   (Clarified and then completed: user wanted collapsible sections inside the edit form).
-8.   (Agent confirmed yes).
-7.   (User confirming no changes needed to the program creation flow).
-6.   (Completed: This was the key request that led to the inline accordion refactor for the Programs page).
-5.   **(CURRENT IN-PROGRESS TASK)**.
-4.   (Completed: Simplified the program edit form).
-3.   (Completed: Applied collapsible sections to multiple admin pages).
-2.   (Completed: Made the hero image uploader section collapsible).
-1.   (Completed: This initiated the collapsible sections feature).
+10.  - **Completed.**
+9.   - **Partially completed, then reverted.** Agent made rows 5-wide.
+8.   - **Completed.** User disliked 5 rotating quotes.
+7.   - **Completed.** Agent added a 6th metric, then realized user only wanted 5.
+6.   - **Completed.** Agent fixed a bug where stale DB data prevented 5 metrics from showing.
+5.   - **Completed.** Agent tightened the whole section's layout and added admin visibility controls.
+4.   - **Completed.** Agent added logic to display the section's title/subtitle.
+3.   - **Pending.** This is the current task. The Why Us editor is broken, and the Metrics row description is hidden.
+2.  (No further messages)
+1.  (No further messages)
 
 **Project Health Check:**
--   **Broken:** None.
+-   **Broken:**
+    -   The admin editor for the Why Us cards in the Trust Section is non-functional (does not load existing data).
+    -   The frontend display for the Metrics cards is incomplete (missing the description text).
 -   **Mocked:** None.
 
 **3rd Party Integrations**
@@ -146,10 +136,12 @@ A full-stack application (React + FastAPI + MongoDB). A significant amount of wo
 -   lucide-react (Icons)
 
 **Testing status**
--   **Testing agent used after significant changes:** NO (Agent self-tested extensively with screenshots after each major change).
+-   **Testing agent used after significant changes:** YES. It was used to verify the Personal Sessions refactor and an earlier iteration of the Trust Section.
 -   **Troubleshoot agent used after agent stuck in loop:** NO
 -   **Test files created:** None.
--   **Known regressions:** None.
+-   **Known regressions:**
+    -   The admin editor for the Why Us cards has regressed and no longer loads data.
+    -   The description text for the Metrics cards has regressed and is no longer displayed.
 
 **Credentials to test flow:**
 -   **Admin Panel URL:** 
@@ -157,4 +149,4 @@ A full-stack application (React + FastAPI + MongoDB). A significant amount of wo
 -   **Password:** 
 
 **What agent forgot to execute**
--   The agent has successfully executed all high-priority user requests in this session. The low-priority refactoring task of consolidating the  function remains pending, which is an acceptable deferral.</analysis>
+- The agent has not yet implemented the fixes for the two issues the user reported in their last message: making the Why Us section editable and displaying the description for the Metrics section.</analysis>

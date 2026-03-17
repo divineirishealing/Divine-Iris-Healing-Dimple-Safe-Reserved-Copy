@@ -5,7 +5,7 @@ import pytest
 import requests
 import os
 
-BASE_URL = os.environ.get('REACT_APP_BACKEND_URL', 'https://iris-cms-preview.preview.emergentagent.com')
+BASE_URL = os.environ.get('REACT_APP_BACKEND_URL', 'https://wellness-crm-deploy.preview.emergentagent.com')
 
 class TestGlobalSearch:
     """Test global search API endpoint"""

@@ -26,7 +26,7 @@
     "admin_url": "/admin",
     "admin_username": "admin",
     "admin_password": "divineadmin2024",
-    "frontend_url": "https://iris-cms-preview.preview.emergentagent.com"
+    "frontend_url": "https://wellness-crm-deploy.preview.emergentagent.com"
   },
   "seed_data_creation": "Temporarily set SoulSync enrollment_open=false with closure_text='Seats Full' for testing closure overlay, then restored to enrollment_open=true",
   "retest_needed": false,
