@@ -90,7 +90,7 @@ const BookingCalendar = ({ calendar = {}, selectedDate, onSelectDate }) => {
           const disabled = !day || past || weekend || !available;
           return (
             <button key={i} disabled={disabled}
-              onClick={() => { if (day && available && !weekend && !past) onSelectDate(`${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`); }}
+              onClick={() => { if (day && available && !weekend && !past) { const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`; onSelectDate(selectedDate === dateStr ? null : dateStr); } }}
               className={`h-9 w-full rounded-lg text-xs transition-all ${
                 !day ? '' :
                 weekend ? 'text-red-300/30 cursor-not-allowed' :

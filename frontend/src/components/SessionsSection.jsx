@@ -73,7 +73,7 @@ const MiniCalendar = ({ availableDates = [], onSelectDate, selectedDate }) => {
           return (
             <button key={i} disabled={disabled}
               onClick={() => {
-                if (day && available && !weekend && !past) onSelectDate(`${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`);
+                if (day && available && !weekend && !past) { const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`; onSelectDate(selectedDate === dateStr ? null : dateStr); };
               }}
               className={`h-8 w-full rounded-md text-[11px] transition-all ${
                 !day ? '' :
