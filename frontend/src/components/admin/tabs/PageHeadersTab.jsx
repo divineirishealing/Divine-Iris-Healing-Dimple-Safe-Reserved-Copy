@@ -124,8 +124,12 @@ const PageHeadersTab = ({ settings, programs = [], onChange }) => {
     onChange({ ...settings, page_heroes: updated });
   };
 
+  const [expandedImages, setExpandedImages] = useState({});
+  const toggleImage = (key) => setExpandedImages(prev => ({ ...prev, [key]: !prev[key] }));
+
   const PageRow = ({ pageKey, label, defaultTitle, defaultSubtitle, toggleKey }) => {
     const hero = getHero(pageKey);
+    const imgOpen = expandedImages[pageKey] || !!hero.hero_image;
     return (
       <div className="bg-white rounded-lg border p-3 mb-2" data-testid={`hero-row-${pageKey}`}>
         <div className="flex items-center gap-2 mb-2">
@@ -149,24 +153,30 @@ const PageHeadersTab = ({ settings, programs = [], onChange }) => {
             <StyleCell style={hero.subtitle_style || {}} onStyleChange={v => updateHero(pageKey, 'subtitle_style', v)} />
           </div>
         </div>
-        <div className="mt-2 flex items-start gap-3">
-          <div className="flex-1">
-            <Label className="text-[9px] text-gray-400">Hero Background Image</Label>
-            <ImageUploader value={hero.hero_image || ''} onChange={url => updateHero(pageKey, 'hero_image', url)} />
-          </div>
-          {hero.hero_image && (
-            <div className="flex-shrink-0">
-              <img src={resolveImageUrl(hero.hero_image)} alt="Hero BG" className="w-24 h-14 rounded border object-cover" />
-              <button type="button" onClick={() => updateHero(pageKey, 'hero_image', '')} className="text-[9px] text-red-400 mt-1 hover:underline">Remove</button>
+        <button type="button" onClick={() => toggleImage(pageKey)} className="mt-2 flex items-center gap-1 text-[9px] text-gray-400 hover:text-gray-600 transition-colors">
+          {imgOpen ? <ChevronDown size={11} /> : <ChevronRight size={11} />}
+          <span>Background Image</span>
+          {hero.hero_image && <span className="w-1.5 h-1.5 rounded-full bg-green-500" />}
+        </button>
+        {imgOpen && (
+          <div className="mt-1.5 flex items-start gap-3">
+            <div className="flex-1">
+              <ImageUploader value={hero.hero_image || ''} onChange={url => updateHero(pageKey, 'hero_image', url)} />
             </div>
-          )}
-          <div className="flex-shrink-0">
-            <Label className="text-[9px] text-gray-400">Overlay</Label>
-            <select value={hero.overlay_opacity ?? '60'} onChange={e => updateHero(pageKey, 'overlay_opacity', e.target.value)} className="text-[9px] border rounded px-1 py-0.5 w-16 block mt-0.5">
-              {['0','20','30','40','50','60','70','80','90'].map(v => <option key={v} value={v}>{v}%</option>)}
-            </select>
+            {hero.hero_image && (
+              <div className="flex-shrink-0">
+                <img src={resolveImageUrl(hero.hero_image)} alt="Hero BG" className="w-24 h-14 rounded border object-cover" />
+                <button type="button" onClick={() => updateHero(pageKey, 'hero_image', '')} className="text-[9px] text-red-400 mt-1 hover:underline">Remove</button>
+              </div>
+            )}
+            <div className="flex-shrink-0">
+              <Label className="text-[9px] text-gray-400">Overlay</Label>
+              <select value={hero.overlay_opacity ?? '60'} onChange={e => updateHero(pageKey, 'overlay_opacity', e.target.value)} className="text-[9px] border rounded px-1 py-0.5 w-16 block mt-0.5">
+                {['0','20','30','40','50','60','70','80','90'].map(v => <option key={v} value={v}>{v}%</option>)}
+              </select>
+            </div>
           </div>
-        </div>
+        )}
       </div>
     );
   };
