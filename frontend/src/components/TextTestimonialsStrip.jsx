@@ -31,6 +31,18 @@ const GoogleIcon = () => (
   </svg>
 );
 
+const HeartIcon = () => (
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={GOLD} strokeWidth="1.5"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" /></svg>
+);
+
+const UsersIcon = () => (
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={GOLD} strokeWidth="1.5"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /><path d="M23 21v-2a4 4 0 0 0-3-3.87" /><path d="M16 3.13a4 4 0 0 1 0 7.75" /></svg>
+);
+
+const DnaIcon = () => (
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={GOLD} strokeWidth="1.5"><path d="M2 15c6.667-6 13.333 0 20-6" /><path d="M9 22c1.798-1.998 2.518-3.995 2.807-5.993" /><path d="M15 2c-1.798 1.998-2.518 3.995-2.807 5.993" /><path d="M17 6l-2.5-2.5" /><path d="M7 18l2.5 2.5" /></svg>
+);
+
 const TextTestimonialsStrip = ({ sectionConfig }) => {
   const [quotes, setQuotes] = useState([]);
   const [active, setActive] = useState(0);
@@ -82,9 +94,9 @@ const TextTestimonialsStrip = ({ sectionConfig }) => {
       <div className="absolute pointer-events-none" style={{ top: '5%', left: '50%', transform: 'translateX(-50%)', width: '30%', height: '40%', background: 'radial-gradient(ellipse at center, rgba(212,175,55,0.05) 0%, transparent 65%)', filter: 'blur(30px)' }} />
 
       <div className="relative z-10">
-        {/* ── Trust Cards (full, single row) ── */}
+        {/* ── Trust Cards (icon style, no blocks) ── */}
         <div className={CONTAINER}>
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 max-w-5xl mx-auto mb-10" data-testid="trust-strip">
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-6 max-w-5xl mx-auto mb-10" data-testid="trust-strip">
             {trustCards.map((card, i) => {
               const valStyle = applySectionStyle(card.value_style, {
                 fontFamily: "'Cinzel', serif", fontSize: 'clamp(1.6rem, 3vw, 2.2rem)', fontWeight: 700, color: GOLD, lineHeight: 1.1,
@@ -97,13 +109,22 @@ const TextTestimonialsStrip = ({ sectionConfig }) => {
                 fontFamily: "'Lato', sans-serif", fontSize: '0.75rem', color: '#999', lineHeight: 1.6, fontWeight: 300,
               });
               return (
-                <div key={i} className="text-center px-3 py-5 rounded-xl border border-gray-100/80 hover:shadow-md transition-all duration-500 group" data-testid={`trust-item-${i}`} style={{ background: 'linear-gradient(180deg, #ffffff 0%, #fdfcff 100%)' }}>
-                  <div className="flex items-center justify-center gap-1.5 mb-1">
-                    {card.icon === 'google' && <GoogleIcon />}
-                    {card.icon === 'google' && <MiniStars />}
-                  </div>
+                <div key={i} className="text-center group" data-testid={`trust-item-${i}`}>
+                  {card.icon === 'google' && (
+                    <div className="flex items-center justify-center gap-1.5 mb-1">
+                      <GoogleIcon />
+                      <MiniStars />
+                    </div>
+                  )}
+                  {card.icon !== 'google' && (
+                    <div className="flex justify-center mb-1">
+                      {card.icon === 'retention' && <UsersIcon />}
+                      {card.icon === 'trust' && <HeartIcon />}
+                      {card.icon === 'dna' && <DnaIcon />}
+                    </div>
+                  )}
                   {card.value && <p style={valStyle} className="group-hover:scale-105 transition-transform duration-300">{card.value}</p>}
-                  <p style={lblStyle} className="mt-1.5 mb-1.5">{card.label}</p>
+                  <p style={lblStyle} className="mt-1.5 mb-1">{card.label}</p>
                   {card.description && <p style={descStyle}>{card.description}</p>}
                 </div>
               );
