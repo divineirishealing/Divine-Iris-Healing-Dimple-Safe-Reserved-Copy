@@ -93,13 +93,14 @@ const HeroSection = ({ sectionConfig }) => {
       id="home"
       data-testid="hero-section"
       className={`relative min-h-screen flex justify-center overflow-hidden ${vAlignClass}`}
-      style={{ background: '#0d1117' }}
+      style={{ background: `#0d1117 url('/hero-poster.jpeg') center/cover no-repeat` }}
     >
       {/* Video — always present, plays immediately */}
       <video
         ref={videoRef}
         autoPlay loop muted playsInline
         preload="auto"
+        poster="/hero-poster.jpeg"
         onLoadedData={() => setVideoLoaded(true)}
         className="absolute inset-0 w-full h-full object-cover"
         style={{ zIndex: 0 }}
