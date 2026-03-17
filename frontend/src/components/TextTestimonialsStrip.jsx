@@ -319,7 +319,7 @@ const TextTestimonialsStrip = ({ sectionConfig }) => {
                     {card.icon === 'google' && <GoogleStars />}
                   </div>
                   {card.value && <p style={valStyle} className="mt-1">{card.value}</p>}
-                  <p style={lblStyle} className="card-title mt-2 leading-tight max-w-[150px]">{card.label}</p>
+                  <h3 style={lblStyle} className="card-title mt-2 mb-1 max-w-[180px]">{card.label}</h3>
                   {desc && (
                     <div className="desc-reveal mt-1">
                       <div><p style={descStyle} className="max-w-[180px] pt-1">{desc}</p></div>
