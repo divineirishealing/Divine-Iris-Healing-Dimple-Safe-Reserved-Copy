@@ -123,16 +123,19 @@ const MiracleIcon = () => iconCircle(<svg width="20" height="20" viewBox="0 0 24
 const LotusIcon = () => iconCircle(<svg width="20" height="20" viewBox="0 0 24 24" {...s}><path d="M12 22c-4-3-8-7.5-8-12a8 8 0 0 1 16 0c0 4.5-4 9-8 12z"/><path d="M12 22c2-3 4-7.5 4-12"/><path d="M12 22c-2-3-4-7.5-4-12"/><circle cx="12" cy="10" r="3"/></svg>);
 const QuillIcon = () => iconCircle(
   <svg width="20" height="20" viewBox="0 0 24 24" fill="none" strokeLinecap="round" strokeLinejoin="round">
-    {/* Feather quill body - curved */}
-    <path d="M20 2c-4 1-7 4-9 8-1.5 3-2.5 6-2 9" stroke="#b8962e" strokeWidth="1.3" fill="#b8962e08"/>
-    <path d="M20 2c-1 4-3 7-6 10-2 2-4 3.5-7 4" stroke="#b8962e" strokeWidth="1.3"/>
-    {/* Feather barbs */}
-    <path d="M16 5c-1.5 1-2.5 2.5-3 4" stroke="#b8962e" strokeWidth="0.8" opacity="0.4"/>
-    <path d="M14 8c-1.5 1.5-2.5 3-3 5" stroke="#b8962e" strokeWidth="0.8" opacity="0.35"/>
-    <path d="M12 11c-1 1.5-2 3-2.5 5" stroke="#b8962e" strokeWidth="0.8" opacity="0.3"/>
-    {/* Ink trail */}
-    <path d="M7 16c-1 1-2 2.5-2.5 4" stroke="#b8962e" strokeWidth="1.5"/>
-    <circle cx="4" cy="21" r="0.8" fill="#b8962e"/>
+    {/* Clear pen shape - diagonal */}
+    <path d="M18 3L7 14" stroke="#b8962e" strokeWidth="2.2"/>
+    {/* Pen nib / pointed tip */}
+    <path d="M7 14L4.5 20.5" stroke="#b8962e" strokeWidth="1.8"/>
+    <path d="M7 14L5.5 15.5L4.5 20.5L7.5 17L7 14z" fill="#b8962e" stroke="#b8962e" strokeWidth="0.5"/>
+    {/* Pen top */}
+    <path d="M18 3l1.5-0.5L20 4L18 3z" fill="#b8962e" opacity="0.6"/>
+    {/* Writing flourish from pen tip */}
+    <path d="M4.5 20.5c-1.5-0.5-2-2 0-3" stroke="#b8962e" strokeWidth="1" fill="none" opacity="0.55"/>
+    <path d="M4.5 17.5c-2-0.5-2-2.5 0.5-3" stroke="#b8962e" strokeWidth="0.8" fill="none" opacity="0.4"/>
+    {/* Sparkle stars */}
+    <circle cx="2.5" cy="13" r="0.7" fill="#b8962e" opacity="0.5"/>
+    <path d="M6 11.5l0.5-1 0.5 1-1-0.5 1 0.5" stroke="#b8962e" strokeWidth="0.5" fill="#b8962e" opacity="0.4"/>
   </svg>
 );
 const MerkabaIcon = () => iconCircle(
