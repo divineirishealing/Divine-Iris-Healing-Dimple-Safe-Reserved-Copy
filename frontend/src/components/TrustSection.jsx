@@ -30,6 +30,13 @@ const DEFAULT_CARDS = [
     description: 'DNA level transformation. Our people are living miracles.',
     value_style: {}, label_style: {}, description_style: {},
   },
+  {
+    icon: 'happiness',
+    value: '1000+',
+    label: 'Lives Transformed',
+    description: 'Thousands of souls have found their way back to joy, health and purpose through Divine Iris.',
+    value_style: {}, label_style: {}, description_style: {},
+  },
 ];
 
 const AnimatedValue = ({ value, inView }) => {
