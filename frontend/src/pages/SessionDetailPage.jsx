@@ -421,8 +421,19 @@ function SessionDetailPage() {
             </div>
           )}
           <div className="space-y-2 mt-5">
-            <button onClick={() => navigate(`/enroll/session/${session.id}`)} data-testid="book-now-btn"
-              className="w-full py-3.5 rounded-full text-sm tracking-widest uppercase font-medium transition-all duration-300 shadow-lg hover:scale-[1.02]"
+            {(!selectedDate || (timeSlots.length > 0 && !selectedTimeSlot)) && (
+              <p className="text-[10px] text-white/60 text-center mb-1 italic">
+                {!selectedDate ? 'Please select a date to proceed' : 'Please select a time slot to proceed'}
+              </p>
+            )}
+            <button onClick={() => navigate(`/enroll/session/${session.id}${selectedDate ? `?date=${selectedDate}` : ''}${selectedTimeSlot ? `&slot=${encodeURIComponent(selectedTimeSlot)}` : ''}`)}
+              data-testid="book-now-btn"
+              disabled={!selectedDate || (timeSlots.length > 0 && !selectedTimeSlot)}
+              className={`w-full py-3.5 rounded-full text-sm tracking-widest uppercase font-medium transition-all duration-300 shadow-lg ${
+                !selectedDate || (timeSlots.length > 0 && !selectedTimeSlot)
+                  ? 'opacity-40 cursor-not-allowed'
+                  : 'hover:scale-[1.02]'
+              }`}
               style={{ background: `linear-gradient(135deg, ${buttonBg}, ${buttonBg}dd)`, color: buttonText }}>
               Book Now
             </button>
@@ -432,7 +443,12 @@ function SessionDetailPage() {
                 else toast({ title: 'Already in cart', variant: 'destructive' });
               }}
               data-testid="add-session-cart-detail-btn"
-              className="w-full py-3 rounded-full text-[11px] tracking-[0.15em] uppercase font-medium transition-all duration-300 border-2 flex items-center justify-center gap-2 hover:scale-[1.02]"
+              disabled={!selectedDate || (timeSlots.length > 0 && !selectedTimeSlot)}
+              className={`w-full py-3 rounded-full text-[11px] tracking-[0.15em] uppercase font-medium transition-all duration-300 border-2 flex items-center justify-center gap-2 ${
+                !selectedDate || (timeSlots.length > 0 && !selectedTimeSlot)
+                  ? 'opacity-40 cursor-not-allowed'
+                  : 'hover:scale-[1.02]'
+              }`}
               style={{ borderColor: `${buttonBg}80`, color: buttonBg, background: 'transparent' }}>
               <ShoppingCart size={14} /> Add to Cart
             </button>

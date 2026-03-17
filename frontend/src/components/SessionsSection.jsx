@@ -352,8 +352,16 @@ const SessionsSection = ({ sectionConfig }) => {
                       </div>
                     </div>
                   );
-                  if (key === 'book_button') return (
+                  if (key === 'book_button') {
+                    const hasSlots = selectedSession.time_slots?.length > 0;
+                    const canBook = selectedDate && (!hasSlots || selectedTimeSlot);
+                    return (
                     <div key="book-actions" className="space-y-2">
+                      {!canBook && (
+                        <p className="text-[10px] text-gray-400 text-center italic">
+                          {!selectedDate ? 'Select a date to proceed' : 'Select a time slot to proceed'}
+                        </p>
+                      )}
                       <button onClick={() => navigate(`/session/${selectedSession.id}`)} data-testid="book-session-btn"
                         className="w-full py-3.5 rounded-full text-[11px] tracking-[0.2em] uppercase font-medium transition-all duration-300 shadow-lg hover:shadow-xl hover:scale-[1.02]"
                         style={{ background: `linear-gradient(135deg, ${buttonBg}, ${buttonBg}dd)`, color: buttonText }}>
@@ -365,12 +373,15 @@ const SessionsSection = ({ sectionConfig }) => {
                           else toast({ title: 'Already in cart', variant: 'destructive' });
                         }}
                         data-testid="add-session-cart-btn"
-                        className="w-full py-3 rounded-full text-[11px] tracking-[0.15em] uppercase font-medium transition-all duration-300 border-2 flex items-center justify-center gap-2 hover:scale-[1.02]"
+                        disabled={!canBook}
+                        className={`w-full py-3 rounded-full text-[11px] tracking-[0.15em] uppercase font-medium transition-all duration-300 border-2 flex items-center justify-center gap-2 ${
+                          !canBook ? 'opacity-40 cursor-not-allowed' : 'hover:scale-[1.02]'
+                        }`}
                         style={{ borderColor: buttonBg, color: buttonBg, background: 'transparent' }}>
                         <ShoppingCart size={14} /> Add to Cart
                       </button>
                     </div>
-                  );
+                  );}
                   return null;
                 })}
               </div>
