@@ -14,17 +14,17 @@ const DEFAULT_TRUST_CARDS = [
 ];
 
 const DEFAULT_PHILOSOPHY_CARDS = [
-  { icon: 'home', title: 'A Soulful Home Like No Other', description: 'For those countless souls who came here lost, hopeless, helpless, suffering \u2014 Divine Iris became the home they never knew they were searching for.', title_style: {}, description_style: {} },
-  { icon: 'scroll', title: 'Ancient Wisdom, Living Legacy', description: 'Our unique method of healing is deeply rooted in ancient wisdom gained over thousands of lifetimes \u2014 literally seen, re-lived and re-experienced by our healer and inculcated under the guidance of the Gurus to make people free of suffering.', title_style: {}, description_style: {} },
-  { icon: 'atom', title: 'Healing at the Deepest Level', description: 'Our healings are designed to heal at the atomic, subatomic and DNA level \u2014 connecting you with your own highest intelligence and unravelling your limitless potential.', title_style: {}, description_style: {} },
-  { icon: 'feather', title: 'Effortless Transformation', description: 'We make transformations effortless and painless for our people. No affirmations, no homework, no meditation, no reading, no writing \u2014 just pure, deep healing.', title_style: {}, description_style: {} },
-  { icon: 'choose', title: 'Choose Us, Choose You', description: 'Choosing Divine Iris means choosing your happiness, your transformation, your life. The moment you say yes to yourself, everything begins to shift.', title_style: {}, description_style: {} },
+  { icon: 'home', title: 'A Soulful Home\nLike No Other', description: 'For those countless souls who came here lost, hopeless, helpless, suffering \u2014 Divine Iris became the home they never knew they were searching for.', title_style: {}, description_style: {} },
+  { icon: 'quill', title: 'Ancient Wisdom,\nLiving Legacy', description: 'Our unique method of healing is deeply rooted in ancient wisdom gained over thousands of lifetimes \u2014 literally seen, re-lived and re-experienced by our healer and inculcated under the guidance of the Gurus to make people free of suffering.', title_style: {}, description_style: {} },
+  { icon: 'atom', title: 'Healing at the\nDeepest Level', description: 'Our healings are designed to heal at the atomic, subatomic and DNA level \u2014 connecting you with your own highest intelligence and unravelling your limitless potential.', title_style: {}, description_style: {} },
+  { icon: 'feather', title: 'Effortless\nTransformation', description: 'We make transformations effortless and painless for our people. No affirmations, no homework, no meditation, no reading, no writing \u2014 just pure, deep healing.', title_style: {}, description_style: {} },
+  { icon: 'choose', title: 'Choose Us,\nChoose You', description: 'Choosing Divine Iris means choosing your happiness, your transformation, your life. The moment you say yes to yourself, everything begins to shift.', title_style: {}, description_style: {} },
 ];
 
 /* ── Icon wrapper: beige/gold circle ── */
 const iconCircle = (children, size = 42) => (
   <div
-    className="flex items-center justify-center mx-auto mb-2"
+    className="icon-wrap flex items-center justify-center mx-auto mb-2"
     style={{
       width: size,
       height: size,
@@ -42,7 +42,7 @@ const s = { fill: 'none', stroke: '#b8962e', strokeWidth: 1.5, strokeLinecap: 'r
 /* ── Metric Icons ── */
 const GoogleIcon = () => (
   <div
-    className="flex items-center justify-center mx-auto mb-2"
+    className="icon-wrap flex items-center justify-center mx-auto mb-2"
     style={{
       width: 42,
       height: 42,
@@ -121,11 +121,25 @@ const GuruIcon = () => iconCircle(<svg width="20" height="20" viewBox="0 0 24 24
 const InfinityIcon = () => iconCircle(<svg width="20" height="20" viewBox="0 0 24 24" {...s}><path d="M12 12c-2-2.67-4-4-6-4a4 4 0 1 0 0 8c2 0 4-1.33 6-4Zm0 0c2 2.67 4 4 6 4a4 4 0 0 0 0-8c-2 0-4 1.33-6 4Z"/></svg>);
 const MiracleIcon = () => iconCircle(<svg width="20" height="20" viewBox="0 0 24 24" {...s}><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>);
 const LotusIcon = () => iconCircle(<svg width="20" height="20" viewBox="0 0 24 24" {...s}><path d="M12 22c-4-3-8-7.5-8-12a8 8 0 0 1 16 0c0 4.5-4 9-8 12z"/><path d="M12 22c2-3 4-7.5 4-12"/><path d="M12 22c-2-3-4-7.5-4-12"/><circle cx="12" cy="10" r="3"/></svg>);
+const QuillIcon = () => iconCircle(
+  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#b8962e" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round">
+    {/* Leaf shape */}
+    <path d="M17 3c-3 0-7 2-9 6-1.5 3-2 6.5-1 10" fill="#b8962e08"/>
+    <path d="M17 3c-3 0-7 2-9 6-1.5 3-2 6.5-1 10"/>
+    <path d="M17 3c0 3-1.5 7-4 10-1.5 1.8-3 3-6 3"/>
+    {/* Quill pen nib */}
+    <path d="M7 19l2-4"/>
+    <path d="M17 3l-8 12" strokeWidth="1"/>
+    {/* Leaf vein */}
+    <path d="M12 8c-1 2-1.5 4-1 6" opacity="0.4"/>
+  </svg>
+);
 
 const PHILOSOPHY_ICONS = {
   home: HomeIcon, scroll: ScrollIcon, atom: AtomIcon, feather: FeatherIcon,
   shield: ShieldIcon, guru: GuruIcon, infinity: InfinityIcon, miracle: MiracleIcon,
   choose: ChooseIcon, lotus: LotusIcon, bliss: BlissIcon, happiness: HappinessIcon,
+  quill: QuillIcon,
 };
 
 const TextTestimonialsStrip = ({ sectionConfig }) => {
@@ -188,19 +202,40 @@ const TextTestimonialsStrip = ({ sectionConfig }) => {
     <section id="text-testimonials" data-testid="trust-section" className="relative overflow-hidden" style={{ padding: '48px 0 40px' }}>
       {/* Hover animation styles */}
       <style>{`
-        .trust-card { transition: transform 0.4s cubic-bezier(0.4,0,0.2,1); }
-        .trust-card:hover { transform: scale(1.08); }
+        .trust-card {
+          transition: transform 0.5s cubic-bezier(0.22,1,0.36,1), box-shadow 0.5s ease;
+          border-radius: 16px;
+          padding: 12px 8px;
+        }
+        .trust-card:hover {
+          transform: scale(1.06) translateY(-4px);
+          box-shadow: 0 8px 30px rgba(212,175,55,0.08), 0 2px 8px rgba(0,0,0,0.04);
+          background: linear-gradient(180deg, rgba(255,255,255,0.6) 0%, rgba(245,236,215,0.15) 100%);
+        }
+        .trust-card .icon-wrap {
+          transition: transform 0.5s cubic-bezier(0.22,1,0.36,1), box-shadow 0.4s ease;
+        }
+        .trust-card:hover .icon-wrap {
+          transform: scale(1.12);
+          box-shadow: 0 4px 16px rgba(212,175,55,0.18);
+        }
         .trust-card .desc-reveal {
           display: grid;
           grid-template-rows: 0fr;
           opacity: 0;
-          transition: grid-template-rows 0.45s cubic-bezier(0.4,0,0.2,1), opacity 0.4s ease;
+          transition: grid-template-rows 0.5s cubic-bezier(0.22,1,0.36,1), opacity 0.45s ease 0.05s;
         }
         .trust-card:hover .desc-reveal {
           grid-template-rows: 1fr;
           opacity: 1;
         }
         .trust-card .desc-reveal > div { overflow: hidden; }
+        .trust-card .card-title {
+          transition: color 0.3s ease, letter-spacing 0.4s ease;
+        }
+        .trust-card:hover .card-title {
+          color: #8b6914;
+        }
       `}</style>
       <div className="relative z-10">
         {/* ── Section Header ── */}
@@ -271,7 +306,7 @@ const TextTestimonialsStrip = ({ sectionConfig }) => {
                     {card.icon === 'google' && <GoogleStars />}
                   </div>
                   {card.value && <p style={valStyle} className="mt-1">{card.value}</p>}
-                  <p style={lblStyle} className="mt-2 leading-tight max-w-[150px]">{card.label}</p>
+                  <p style={lblStyle} className="card-title mt-2 leading-tight max-w-[150px]">{card.label}</p>
                   {desc && (
                     <div className="desc-reveal mt-1">
                       <div><p style={descStyle} className="max-w-[180px] pt-1">{desc}</p></div>
@@ -301,7 +336,11 @@ const TextTestimonialsStrip = ({ sectionConfig }) => {
               return (
                 <div key={i} className="trust-card flex flex-col items-center text-center cursor-pointer" data-testid={`philosophy-card-${i}`}>
                   {showIcon && <PhiloIcon />}
-                  <h3 style={tStyle} className="mb-1 max-w-[180px]">{card.title}</h3>
+                  <h3 style={tStyle} className="card-title mb-1 max-w-[180px]">
+                    {(card.title || '').split('\n').map((line, li) => (
+                      <span key={li}>{li > 0 && <br />}{line}</span>
+                    ))}
+                  </h3>
                   {desc && (
                     <div className="desc-reveal">
                       <div><p style={dStyle} className="max-w-[190px] pt-1">{desc}</p></div>
