@@ -251,7 +251,8 @@ const TextTestimonialsStrip = ({ sectionConfig }) => {
                 lineHeight: 1.1,
               });
               // Cascade: defaults → global title style → per-card label style
-              const titleDefaults = { fontFamily: "'Cinzel', serif", fontWeight: 600, fontSize: '0.72rem', letterSpacing: '0.04em', color: '#2a2118', lineHeight: 1.3, fontVariant: 'small-caps' };
+              // Row 1 uses uppercase Lato (sans-serif, bold, spaced)
+              const titleDefaults = { fontFamily: "'Lato', sans-serif", fontWeight: 700, fontSize: '0.65rem', letterSpacing: '0.15em', textTransform: 'uppercase', color: '#444', lineHeight: 1.3 };
               const globalTitle = applySectionStyle(trustConfig.global_title_style, titleDefaults);
               const lblStyle = applySectionStyle(card.label_style, globalTitle);
 
