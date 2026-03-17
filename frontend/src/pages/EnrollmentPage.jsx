@@ -43,7 +43,7 @@ const REFERRAL_SOURCES = ["Instagram", "Facebook", "YouTube", "LinkedIn", "Spoti
 
 const emptyParticipant = () => ({
   name: '', relationship: '', age: '', gender: '',
-  country: '', attendance_mode: 'online', notify: true, email: '', phone: '', whatsapp: '',
+  country: '', city: '', state: '', attendance_mode: 'online', notify: true, email: '', phone: '', whatsapp: '',
   phone_code: '+971', wa_code: '+971',
   is_first_time: true, referral_source: '',
 });
@@ -97,7 +97,7 @@ const ParticipantRow = ({ index, data, onChange, onRemove, canRemove, showReferr
           <select data-testid={`p-gender-${index}`} value={data.gender} onChange={e => update('gender', e.target.value)} className="w-full border rounded-md px-2 py-1.5 text-xs bg-white h-8">
             <option value="">Select</option>{GENDERS.map(g => <option key={g} value={g}>{g}</option>)}
           </select></div>
-        <div><label className="text-[9px] text-gray-500">Country</label>
+        <div><label className="text-[9px] text-gray-500">Country *</label>
           <select value={data.country} onChange={e => {
             const code = e.target.value;
             const c = COUNTRIES.find(c => c.code === code);
@@ -106,6 +106,12 @@ const ParticipantRow = ({ index, data, onChange, onRemove, canRemove, showReferr
             <option value="">Select country</option>
             {COUNTRIES.map(c => <option key={c.code} value={c.code}>{c.name}</option>)}
           </select></div>
+      </div>
+      <div className="grid grid-cols-2 gap-2 mb-2">
+        <div><label className="text-[9px] text-gray-500">City *</label>
+          <Input data-testid={`p-city-${index}`} value={data.city || ''} onChange={e => update('city', e.target.value)} placeholder="City" className="text-xs h-8" /></div>
+        <div><label className="text-[9px] text-gray-500">State *</label>
+          <Input data-testid={`p-state-${index}`} value={data.state || ''} onChange={e => update('state', e.target.value)} placeholder="State / Province" className="text-xs h-8" /></div>
       </div>
       <div className="flex gap-1 mb-1">
         {showOnline && (
@@ -337,7 +343,7 @@ function EnrollmentPage() {
       if (e.participants && e.participants.length > 0) {
         setParticipants(e.participants.map(p => ({
           name: p.name || '', relationship: p.relationship || '', age: String(p.age || ''), gender: p.gender || '',
-          country: p.country || 'AE', attendance_mode: p.attendance_mode || 'online',
+          country: p.country || 'AE', city: p.city || '', state: p.state || '', attendance_mode: p.attendance_mode || 'online',
           notify: p.notify !== false, email: p.email || '', phone: p.phone ? p.phone.replace(/^\+\d+/, '') : '',
           whatsapp: p.whatsapp ? p.whatsapp.replace(/^\+\d+/, '') : '',
           phone_code: '+971', wa_code: '+971',
@@ -421,6 +427,9 @@ function EnrollmentPage() {
       if (!p.relationship) return toast({ title: `Participant ${i + 1}: Select relationship`, variant: 'destructive' });
       if (!p.age || parseInt(p.age) < 5) return toast({ title: `Participant ${i + 1}: Enter valid age`, variant: 'destructive' });
       if (!p.gender) return toast({ title: `Participant ${i + 1}: Select gender`, variant: 'destructive' });
+      if (!p.country) return toast({ title: `Participant ${i + 1}: Select country`, variant: 'destructive' });
+      if (!p.city || !p.city.trim()) return toast({ title: `Participant ${i + 1}: Enter city`, variant: 'destructive' });
+      if (!p.state || !p.state.trim()) return toast({ title: `Participant ${i + 1}: Enter state`, variant: 'destructive' });
       if (p.notify || p.attendance_mode === 'online') {
         if (!p.email || !p.email.trim() || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(p.email))
           return toast({ title: `Participant ${i + 1}: Enter a valid email for notification`, variant: 'destructive' });
@@ -451,7 +460,7 @@ function EnrollmentPage() {
       const bookerPhone = phone ? `${countryCode}${phone}` : null;
       const enrollRes = await axios.post(`${API}/enrollment/start`, {
         booker_name: bookerName, booker_email: bookerEmail, booker_country: bookerCountry,
-        participants: participants.map(p => ({ name: p.name, relationship: p.relationship, age: parseInt(p.age), gender: p.gender, country: p.country, attendance_mode: p.attendance_mode, notify: p.notify, email: p.notify ? p.email : null, phone: p.notify && p.phone ? `${p.phone_code || '+971'}${p.phone}` : null, whatsapp: p.whatsapp ? `${p.wa_code || '+971'}${p.whatsapp}` : null, is_first_time: p.is_first_time || false, referral_source: p.referral_source || '', referred_by_name: p.has_referral ? (p.referred_by_name || '') : '' })),
+        participants: participants.map(p => ({ name: p.name, relationship: p.relationship, age: parseInt(p.age), gender: p.gender, country: p.country, city: p.city, state: p.state, attendance_mode: p.attendance_mode, notify: p.notify, email: p.notify ? p.email : null, phone: p.notify && p.phone ? `${p.phone_code || '+971'}${p.phone}` : null, whatsapp: p.whatsapp ? `${p.wa_code || '+971'}${p.whatsapp}` : null, is_first_time: p.is_first_time || false, referral_source: p.referral_source || '', referred_by_name: p.has_referral ? (p.referred_by_name || '') : '' })),
       });
       const eid = enrollRes.data.enrollment_id;
       setEnrollmentId(eid);

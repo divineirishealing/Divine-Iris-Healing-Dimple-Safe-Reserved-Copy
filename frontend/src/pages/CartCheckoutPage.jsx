@@ -57,6 +57,8 @@ function CartCheckoutPage() {
   const [bookerName, setBookerName] = useState('');
   const [bookerEmail, setBookerEmail] = useState('');
   const [bookerCountry, setBookerCountry] = useState(detectedCountry || 'AE');
+  const [bookerCity, setBookerCity] = useState('');
+  const [bookerState, setBookerState] = useState('');
   const [phone, setPhone] = useState('');
   const [countryCode, setCountryCode] = useState('+971');
   const [otpSent, setOtpSent] = useState(false);
@@ -186,6 +188,8 @@ function CartCheckoutPage() {
   const submitBookerAndSendOtp = async () => {
     if (!bookerName.trim()) return toast({ title: 'Enter your name', variant: 'destructive' });
     if (!bookerEmail.trim() || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(bookerEmail)) return toast({ title: 'Enter valid email', variant: 'destructive' });
+    if (!bookerCity.trim()) return toast({ title: 'Enter your city', variant: 'destructive' });
+    if (!bookerState.trim()) return toast({ title: 'Enter your state', variant: 'destructive' });
 
     setLoading(true);
     try {
@@ -205,6 +209,7 @@ function CartCheckoutPage() {
 
       const enrollRes = await axios.post(`${API}/enrollment/start`, {
         booker_name: bookerName, booker_email: bookerEmail, booker_country: bookerCountry,
+        booker_city: bookerCity, booker_state: bookerState,
         participants: allParticipants,
       });
       const eid = enrollRes.data.enrollment_id;
@@ -440,6 +445,16 @@ function CartCheckoutPage() {
                             </select>
                             <Input data-testid="cart-phone" type="tel" value={phone} onChange={e => setPhone(e.target.value.replace(/\D/g, ''))} placeholder="Phone number" className="text-sm flex-1" />
                           </div>
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-2 gap-3 mt-3">
+                        <div>
+                          <label className="text-[10px] text-gray-500 block mb-0.5">City *</label>
+                          <Input data-testid="cart-booker-city" value={bookerCity} onChange={e => setBookerCity(e.target.value)} placeholder="City" className="text-sm" />
+                        </div>
+                        <div>
+                          <label className="text-[10px] text-gray-500 block mb-0.5">State *</label>
+                          <Input data-testid="cart-booker-state" value={bookerState} onChange={e => setBookerState(e.target.value)} placeholder="State / Province" className="text-sm" />
                         </div>
                       </div>
                     </div>
