@@ -157,6 +157,13 @@ const TrustCardsEditor = ({ section, sectionIdx, updateSection }) => {
         </div>
       </div>
 
+      {/* Google Review Link */}
+      <div className="bg-white rounded-lg p-2.5 border border-gray-200">
+        <Label className="text-[9px] font-semibold text-gray-600">Google Review Page Link</Label>
+        <Input value={section.google_review_link || ''} onChange={e => updateSection(sectionIdx, 'google_review_link', e.target.value)} placeholder="https://g.page/r/your-business/review" className="text-[10px] h-7 mt-1" data-testid="google-review-link" />
+        <p className="text-[8px] text-gray-400 mt-0.5">Clicking the Google 5.0 star rating will open this link</p>
+      </div>
+
       {/* Section Title/Subtitle Visibility */}
       <div className="bg-blue-50 rounded-lg p-2.5 border border-blue-200">
         <p className="text-[10px] font-semibold text-blue-600 uppercase tracking-wider mb-2">Section Display</p>

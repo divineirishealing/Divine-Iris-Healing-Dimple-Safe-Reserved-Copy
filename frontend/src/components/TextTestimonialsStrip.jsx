@@ -198,6 +198,7 @@ const TextTestimonialsStrip = ({ sectionConfig }) => {
         subtitle_style: trustSec.subtitle_style || {},
         global_title_style: trustSec.global_title_style || {},
         global_description_style: trustSec.global_description_style || {},
+        google_review_link: trustSec.google_review_link || '',
       }));
     }).catch(() => {});
   }, []);
@@ -325,7 +326,9 @@ const TextTestimonialsStrip = ({ sectionConfig }) => {
               const IconComp = METRIC_ICONS[card.icon];
               const desc = card.description || '';
               return (
-                <div key={i} className="trust-card flex flex-col items-center text-center cursor-pointer" data-testid={`trust-item-${i}`}>
+                <div key={i} className="trust-card flex flex-col items-center text-center cursor-pointer" data-testid={`trust-item-${i}`}
+                  onClick={() => { if (card.icon === 'google' && trustConfig.google_review_link) window.open(trustConfig.google_review_link, '_blank'); }}
+                >
                   <div style={{ height: 56 }} className="flex flex-col items-center justify-end">
                     {showIcon && (card.icon === 'google' ? <GoogleIcon /> : IconComp ? <IconComp /> : <TrustIcon />)}
                     {card.icon === 'google' && <GoogleStars />}
