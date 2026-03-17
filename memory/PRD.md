@@ -29,6 +29,18 @@ All pages with dark hero sections use:
 
 ## Implemented Features
 
+### Personal Sessions Admin Page Refactor (Mar 17, 2026) - COMPLETED
+- [x] Renamed page title to "Personal Sessions"
+- [x] Converted session list from flat list to inline accordion (click row to expand/edit inline)
+- [x] Simplified edit form: Title (with font style), Description (with font style), Image, Testimonial, Session Mode, Duration
+- [x] Removed per-session pricing fields (managed in Pricing Hub)
+- [x] Removed per-session calendar (managed by unified calendar)
+- [x] Removed per-session time slots (managed by unified calendar)
+- [x] Wrapped Calendar, Visibility, Testimonials, Questions managers in CollapsibleSection components (collapsed by default)
+- [x] Added "Add Session" inline form for creating new sessions at top of list
+- [x] Added info note directing admin to Pricing Hub and Unified Calendar for pricing/dates
+- [x] All 38/38 frontend tests passed (iteration_70)
+
 ### Excel Export Restructure & Admin Guide (Mar 17, 2026) - COMPLETED
 ### Hero Background Image Upload for All Pages (Mar 17, 2026) - COMPLETED
 - [x] Added image upload to every static page hero (Services, Contact, About, Programs, Sponsor, Transformations, Blog, Media, Sessions)
