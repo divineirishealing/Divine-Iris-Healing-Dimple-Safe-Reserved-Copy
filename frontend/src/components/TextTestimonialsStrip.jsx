@@ -150,31 +150,56 @@ const TextTestimonialsStrip = ({ sectionConfig }) => {
             })}
           </div>
 
-          {/* ── Philosophy / USP Cards ── */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-x-10 gap-y-8 max-w-4xl mx-auto mb-10" data-testid="philosophy-cards">
-            {philosophyCards.map((card, i) => {
-              const tStyle = applySectionStyle(card.title_style, {
-                fontFamily: "'Cinzel', serif", fontSize: '1rem', fontWeight: 600, color: '#2a2118', lineHeight: 1.3,
-              });
-              const dStyle = applySectionStyle(card.description_style, {
-                fontFamily: "'Cormorant Garamond', Georgia, serif", fontSize: '0.9rem', color: '#777',
-                lineHeight: 1.85, fontWeight: 400, fontStyle: 'italic',
-              });
-              return (
-                <div key={i} className="text-center group" data-testid={`philosophy-card-${i}`}>
-                  {/* Gold diamond ornament */}
-                  <div className="flex items-center justify-center gap-2 mb-3">
-                    <div className="w-6 h-px" style={{ background: `linear-gradient(90deg, transparent, ${GOLD}40)` }} />
-                    <svg width="6" height="6" viewBox="0 0 10 10" style={{ opacity: 0.35 }}>
-                      <path d="M5 0L6.18 3.82L10 5L6.18 6.18L5 10L3.82 6.18L0 5L3.82 3.82Z" fill={GOLD}/>
-                    </svg>
-                    <div className="w-6 h-px" style={{ background: `linear-gradient(90deg, ${GOLD}40, transparent)` }} />
+          {/* ── Philosophy / USP Cards — Option C: 5 Petals (lotus) ── */}
+          <div className="max-w-5xl mx-auto mb-8" data-testid="philosophy-cards">
+            {/* Row 1: 2 cards */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-3xl mx-auto mb-6">
+              {philosophyCards.slice(0, 2).map((card, i) => {
+                const tStyle = applySectionStyle(card.title_style, {
+                  fontFamily: "'Cinzel', serif", fontSize: '0.88rem', fontWeight: 600, color: '#2a2118', lineHeight: 1.3, letterSpacing: '0.04em',
+                });
+                const dStyle = applySectionStyle(card.description_style, {
+                  fontFamily: "'Cormorant Garamond', Georgia, serif", fontSize: '0.88rem', color: '#888',
+                  lineHeight: 1.8, fontWeight: 400, fontStyle: 'italic',
+                });
+                return (
+                  <div key={i} className="text-center" data-testid={`philosophy-card-${i}`}>
+                    <div className="w-6 h-px mx-auto mb-3" style={{ background: `linear-gradient(90deg, transparent, ${GOLD}45, transparent)` }} />
+                    <h3 style={tStyle} className="mb-1.5">{card.title}</h3>
+                    <p style={dStyle}>{card.description}</p>
                   </div>
-                  <h3 style={tStyle} className="mb-2">{card.title}</h3>
-                  <p style={dStyle}>{card.description}</p>
-                </div>
-              );
-            })}
+                );
+              })}
+            </div>
+            {/* Center: Hero card (larger, the essence) */}
+            <div className="text-center max-w-xl mx-auto mb-6" data-testid="philosophy-card-essence">
+              <div className="flex items-center justify-center gap-2 mb-3">
+                <div className="w-12 h-px" style={{ background: `linear-gradient(90deg, transparent, ${GOLD}40)` }} />
+                <svg width="7" height="7" viewBox="0 0 10 10" style={{ opacity: 0.35 }}><path d="M5 0L6.18 3.82L10 5L6.18 6.18L5 10L3.82 6.18L0 5L3.82 3.82Z" fill={GOLD}/></svg>
+                <div className="w-12 h-px" style={{ background: `linear-gradient(90deg, ${GOLD}40, transparent)` }} />
+              </div>
+              <h3 style={{ fontFamily: "'Cinzel', serif", fontSize: '1.1rem', fontWeight: 700, color: GOLD, lineHeight: 1.3, letterSpacing: '0.06em' }} className="mb-2">The Divine Iris Essence</h3>
+              <p style={{ fontFamily: "'Cormorant Garamond', Georgia, serif", fontSize: '1rem', color: '#777', lineHeight: 1.9, fontStyle: 'italic' }}>Where ancient wisdom meets the deepest science of healing. Every soul that walks through our doors is held, honoured, and transformed.</p>
+            </div>
+            {/* Row 3: 2 cards */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-3xl mx-auto">
+              {philosophyCards.slice(2, 4).map((card, i) => {
+                const tStyle = applySectionStyle(card.title_style, {
+                  fontFamily: "'Cinzel', serif", fontSize: '0.88rem', fontWeight: 600, color: '#2a2118', lineHeight: 1.3, letterSpacing: '0.04em',
+                });
+                const dStyle = applySectionStyle(card.description_style, {
+                  fontFamily: "'Cormorant Garamond', Georgia, serif", fontSize: '0.88rem', color: '#888',
+                  lineHeight: 1.8, fontWeight: 400, fontStyle: 'italic',
+                });
+                return (
+                  <div key={i} className="text-center" data-testid={`philosophy-card-${i + 2}`}>
+                    <div className="w-6 h-px mx-auto mb-3" style={{ background: `linear-gradient(90deg, transparent, ${GOLD}45, transparent)` }} />
+                    <h3 style={tStyle} className="mb-1.5">{card.title}</h3>
+                    <p style={dStyle}>{card.description}</p>
+                  </div>
+                );
+              })}
+            </div>
           </div>
         </div>
 
