@@ -82,20 +82,24 @@ const TextTestimonialsStrip = ({ sectionConfig }) => {
       <div className="absolute pointer-events-none" style={{ top: '5%', left: '50%', transform: 'translateX(-50%)', width: '30%', height: '40%', background: 'radial-gradient(ellipse at center, rgba(212,175,55,0.05) 0%, transparent 65%)', filter: 'blur(30px)' }} />
 
       <div className="relative z-10">
-        {/* ── Trust Strip (one line) ── */}
-        <div className="flex items-center justify-center gap-4 sm:gap-6 lg:gap-8 flex-wrap mb-8" data-testid="trust-strip">
+        {/* ── Trust Elements (inline, organic) ── */}
+        <div className="flex items-center justify-center gap-3 sm:gap-5 lg:gap-7 flex-wrap mb-6" data-testid="trust-strip">
           {trustCards.map((card, i) => {
             const valStyle = applySectionStyle(card.value_style, {
-              fontFamily: "'Cinzel', serif", fontSize: '0.95rem', fontWeight: 700, color: GOLD, lineHeight: 1,
+              fontFamily: "'Cinzel', serif", fontSize: '0.85rem', fontWeight: 600, color: GOLD, lineHeight: 1,
             });
             const lblStyle = applySectionStyle(card.label_style, {
-              fontFamily: "'Lato', sans-serif", fontWeight: 500, fontSize: '0.55rem',
-              letterSpacing: '0.14em', textTransform: 'uppercase', color: '#888',
+              fontFamily: "'Lato', sans-serif", fontWeight: 400, fontSize: '0.6rem',
+              letterSpacing: '0.12em', textTransform: 'uppercase', color: '#aaa',
             });
             return (
               <React.Fragment key={i}>
-                {i > 0 && <div className="hidden sm:block w-px h-6" style={{ background: `${GOLD}30` }} />}
-                <div className="flex items-center gap-2" data-testid={`trust-item-${i}`}>
+                {i > 0 && (
+                  <svg width="5" height="5" viewBox="0 0 10 10" className="hidden sm:block flex-shrink-0" style={{ opacity: 0.2 }}>
+                    <path d="M5 0L6.18 3.82L10 5L6.18 6.18L5 10L3.82 6.18L0 5L3.82 3.82Z" fill="#D4AF37"/>
+                  </svg>
+                )}
+                <div className="flex items-center gap-1.5" data-testid={`trust-item-${i}`}>
                   {card.icon === 'google' && <GoogleIcon />}
                   {card.value && <span style={valStyle}>{card.value}</span>}
                   {card.icon === 'google' && <MiniStars />}
