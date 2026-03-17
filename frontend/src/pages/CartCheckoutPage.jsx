@@ -42,8 +42,9 @@ const StepDot = ({ active, done }) => (
 function CartCheckoutPage() {
   const navigate = useNavigate();
   const { items, clearCart } = useCart();
-  const { country: detectedCountry } = useCurrency();
+  const { country: detectedCountry, symbol, baseCurrency, getPrice, getOfferPrice } = useCurrency();
   const { toast } = useToast();
+  const currency = baseCurrency;
 
   const [step, setStep] = useState(0); // 0=Review+Promo, 1=Billing+OTP, 2=Pay
   const [loading, setLoading] = useState(false);
@@ -68,19 +69,6 @@ function CartCheckoutPage() {
   const [vpnDetected, setVpnDetected] = useState(false);
   const [processing, setProcessing] = useState(false);
   const [paymentSettings, setPaymentSettings] = useState({ disclaimer: '', disclaimer_enabled: true, disclaimer_style: {}, india_links: [], india_exly_link: '', india_bank_details: {}, india_enabled: false, manual_form_enabled: true });
-
-  // Currency is LOCKED to IP-detected country — never changes based on participant/billing input
-  const AED_COUNTRIES = new Set(['AE', 'SA', 'QA', 'KW', 'OM', 'BH']);
-  let activeCurrencyInfo;
-  if (detectedCountry === 'IN') {
-    activeCurrencyInfo = { currency: 'inr', symbol: 'INR' };
-  } else if (AED_COUNTRIES.has(detectedCountry)) {
-    activeCurrencyInfo = { currency: 'aed', symbol: 'AED' };
-  } else {
-    activeCurrencyInfo = { currency: 'usd', symbol: 'USD' };
-  }
-  const currency = activeCurrencyInfo.currency;
-  const symbol = activeCurrencyInfo.symbol;
 
   useEffect(() => {
     if (items.length === 0) navigate('/cart');

@@ -237,7 +237,8 @@ function EnrollmentPage() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const { toast } = useToast();
-  const { getPrice, getOfferPrice, country: detectedCountry } = useCurrency();
+  const { getPrice, getOfferPrice, symbol, baseCurrency, country: detectedCountry } = useCurrency();
+  const currency = baseCurrency;
 
   const tierParam = searchParams.get('tier');
   const selectedTier = tierParam !== null ? parseInt(tierParam) : null;
@@ -266,20 +267,6 @@ function EnrollmentPage() {
   const [discountSettings, setDiscountSettings] = useState({ enable_referral: true });
   const [paymentSettings, setPaymentSettings] = useState({ disclaimer: '', disclaimer_enabled: true, disclaimer_style: {}, india_links: [], india_exly_link: '', india_bank_details: {}, india_enabled: false, manual_form_enabled: true });
   const [sessionTestimonials, setSessionTestimonials] = useState([]);
-
-  // Currency is LOCKED to IP-detected country — never changes based on participant/billing input
-  // This prevents confusing currency switches during the enrollment flow
-  const AED_COUNTRIES = new Set(['AE', 'SA', 'QA', 'KW', 'OM', 'BH']);
-  let activeCurrencyInfo;
-  if (detectedCountry === 'IN') {
-    activeCurrencyInfo = { currency: 'inr', symbol: 'INR' };
-  } else if (AED_COUNTRIES.has(detectedCountry)) {
-    activeCurrencyInfo = { currency: 'aed', symbol: 'AED' };
-  } else {
-    activeCurrencyInfo = { currency: 'usd', symbol: 'USD' };
-  }
-  const currency = activeCurrencyInfo.currency;
-  const symbol = activeCurrencyInfo.symbol;
 
   useEffect(() => {
     const ep = type === 'program' ? 'programs' : 'sessions';

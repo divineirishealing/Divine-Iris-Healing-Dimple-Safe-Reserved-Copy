@@ -329,7 +329,7 @@ const CartItemCard = ({ item, onRemove, onUpdateParticipants, symbol, getItemPri
 function CartPage() {
   const navigate = useNavigate();
   const { items, removeItem, updateItemParticipants, clearCart } = useCart();
-  const { getPrice, getOfferPrice, symbol, country: detectedCountry } = useCurrency();
+  const { getPrice, getOfferPrice, symbol, baseCurrency, country: detectedCountry } = useCurrency();
   const { toast } = useToast();
   const [discountSettings, setDiscountSettings] = useState({ enable_referral: true });
   const [paymentDisclaimer, setPaymentDisclaimer] = useState('');
@@ -387,7 +387,7 @@ function CartPage() {
       try {
         const res = await axios.post(`${API}/discounts/calculate`, {
           num_programs: numPrograms, num_participants: totalParticipants,
-          subtotal: totalAmount, email: '', currency: 'aed',
+          subtotal: totalAmount, email: '', currency: baseCurrency,
         });
         setAutoDiscounts(res.data);
       } catch { setAutoDiscounts({ group_discount: 0, combo_discount: 0, loyalty_discount: 0, total_discount: 0 }); }
