@@ -29,6 +29,18 @@ All pages with dark hero sections use:
 
 ## Implemented Features
 
+### Excel Export Restructure & Admin Guide (Mar 17, 2026) - COMPLETED
+- [x] Restructured /api/india-payments/admin/enrollments/export to wide format (one row per enrollment)
+- [x] Dynamic participant columns: Participant 1 Name, Participant 1 Age... up to max participants (currently 4)
+- [x] Robust clean() helper eliminates all None/null values — zero "None" strings in output
+- [x] 243 enrollments export verified with 100% pass rate (9/9 backend + all frontend tests)
+- [x] Created comprehensive Admin Panel Guide (24 modules) at /api/admin/guide
+- [x] Guide is print-friendly with "Save as PDF" button, cover page, table of contents, and detailed feature docs
+- [x] Added "Admin Guide" link in the admin panel header bar
+- [x] Duration already confirmed present in receipt emails (program_duration field flows from DB → payments.py → emails.py)
+- [x] Admin enrollments tab already shows clean participant names (no email in participant column)
+
+
 ### Unified Testimonial Displays Across Site (Mar 16, 2026) - COMPLETED
 - [x] Homepage Video tab: Replaced old video scroller with 5-card carousel (TestimonialCarousel5Card component)
 - [x] Homepage Transformations tab: Uses same 5-card carousel for graphic testimonials

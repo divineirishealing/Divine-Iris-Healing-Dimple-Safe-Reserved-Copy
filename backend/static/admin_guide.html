@@ -1,0 +1,975 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Divine Iris Healing — Admin Panel Guide</title>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&family=Lato:wght@300;400;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --gold: #D4AF37;
+    --dark: #1a1a1a;
+    --text: #333;
+    --muted: #666;
+    --light-bg: #f9f9f7;
+    --section-bg: #faf8f0;
+    --border: #e5e0d5;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: 'Lato', 'Segoe UI', sans-serif;
+    color: var(--text);
+    background: #fff;
+    line-height: 1.7;
+    font-size: 15px;
+  }
+  @media print {
+    body { font-size: 12px; line-height: 1.5; }
+    .no-print { display: none !important; }
+    .page-break { page-break-before: always; }
+    .cover { min-height: 100vh; }
+    section { page-break-inside: avoid; }
+    .tab-section { page-break-inside: avoid; }
+  }
+
+  /* Cover Page */
+  .cover {
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    background: var(--dark);
+    color: #fff;
+    text-align: center;
+    padding: 60px 40px;
+  }
+  .cover h1 {
+    font-family: 'Cinzel', serif;
+    font-size: 42px;
+    font-weight: 600;
+    letter-spacing: 6px;
+    color: var(--gold);
+    margin-bottom: 20px;
+  }
+  .cover .divider {
+    width: 100px;
+    height: 2px;
+    background: var(--gold);
+    margin: 20px auto;
+  }
+  .cover h2 {
+    font-family: 'Cinzel', serif;
+    font-size: 22px;
+    font-weight: 400;
+    letter-spacing: 4px;
+    color: #ccc;
+    margin-bottom: 10px;
+  }
+  .cover .subtitle {
+    font-size: 14px;
+    color: #888;
+    margin-top: 30px;
+    letter-spacing: 1px;
+  }
+  .cover .version {
+    font-size: 12px;
+    color: #555;
+    margin-top: 40px;
+    border-top: 1px solid #333;
+    padding-top: 20px;
+  }
+
+  /* Print button */
+  .print-bar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    background: var(--dark);
+    padding: 12px 30px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    z-index: 1000;
+    box-shadow: 0 2px 12px rgba(0,0,0,0.3);
+  }
+  .print-bar span {
+    color: var(--gold);
+    font-family: 'Cinzel', serif;
+    font-size: 14px;
+    letter-spacing: 3px;
+  }
+  .print-btn {
+    background: var(--gold);
+    color: #fff;
+    border: none;
+    padding: 10px 28px;
+    border-radius: 6px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    letter-spacing: 1px;
+    transition: all 0.2s;
+  }
+  .print-btn:hover { background: #b8962e; transform: translateY(-1px); }
+
+  /* Content wrapper */
+  .content {
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 80px 40px 60px;
+  }
+
+  /* Table of Contents */
+  .toc {
+    background: var(--section-bg);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 36px 40px;
+    margin: 40px 0;
+  }
+  .toc h2 {
+    font-family: 'Cinzel', serif;
+    color: var(--gold);
+    font-size: 22px;
+    margin-bottom: 20px;
+    letter-spacing: 2px;
+  }
+  .toc-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 6px 30px;
+  }
+  .toc a {
+    color: var(--text);
+    text-decoration: none;
+    font-size: 14px;
+    padding: 6px 0;
+    border-bottom: 1px solid transparent;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    transition: all 0.15s;
+  }
+  .toc a:hover { color: var(--gold); border-bottom-color: var(--gold); }
+  .toc-num {
+    display: inline-block;
+    width: 24px;
+    height: 24px;
+    background: var(--gold);
+    color: #fff;
+    border-radius: 50%;
+    text-align: center;
+    line-height: 24px;
+    font-size: 11px;
+    font-weight: 700;
+    flex-shrink: 0;
+  }
+
+  /* Section headers */
+  .tab-section {
+    margin: 50px 0;
+    padding-bottom: 30px;
+    border-bottom: 1px solid #eee;
+  }
+  .tab-section:last-child { border-bottom: none; }
+  .section-header {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    margin-bottom: 16px;
+  }
+  .section-num {
+    width: 36px;
+    height: 36px;
+    background: var(--gold);
+    color: #fff;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 15px;
+    font-weight: 700;
+    flex-shrink: 0;
+  }
+  .section-header h3 {
+    font-family: 'Cinzel', serif;
+    font-size: 20px;
+    color: var(--dark);
+    letter-spacing: 1px;
+  }
+  .section-nav {
+    font-size: 12px;
+    color: #999;
+    margin-bottom: 16px;
+    letter-spacing: 0.5px;
+  }
+  .section-desc {
+    font-size: 15px;
+    color: var(--muted);
+    margin-bottom: 16px;
+    line-height: 1.8;
+  }
+
+  /* Feature lists */
+  .features {
+    list-style: none;
+    padding: 0;
+  }
+  .features li {
+    padding: 8px 0 8px 28px;
+    position: relative;
+    font-size: 14px;
+    line-height: 1.7;
+  }
+  .features li::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 15px;
+    width: 8px;
+    height: 8px;
+    background: var(--gold);
+    border-radius: 50%;
+  }
+
+  /* Highlight boxes */
+  .tip-box {
+    background: #f0fdf4;
+    border: 1px solid #bbf7d0;
+    border-left: 4px solid #22c55e;
+    border-radius: 8px;
+    padding: 14px 18px;
+    margin: 14px 0;
+    font-size: 13px;
+  }
+  .tip-box strong { color: #166534; }
+
+  .warn-box {
+    background: #fffbeb;
+    border: 1px solid #fde68a;
+    border-left: 4px solid #f59e0b;
+    border-radius: 8px;
+    padding: 14px 18px;
+    margin: 14px 0;
+    font-size: 13px;
+  }
+  .warn-box strong { color: #92400e; }
+
+  .info-box {
+    background: #eff6ff;
+    border: 1px solid #bfdbfe;
+    border-left: 4px solid #3b82f6;
+    border-radius: 8px;
+    padding: 14px 18px;
+    margin: 14px 0;
+    font-size: 13px;
+  }
+  .info-box strong { color: #1e40af; }
+
+  /* Sub-sections */
+  h4 {
+    font-size: 15px;
+    color: var(--dark);
+    margin: 20px 0 8px;
+    font-weight: 700;
+  }
+
+  /* Key-value table */
+  .kv-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 12px 0;
+    font-size: 13px;
+  }
+  .kv-table th {
+    background: var(--dark);
+    color: var(--gold);
+    padding: 10px 14px;
+    text-align: left;
+    font-size: 11px;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+  }
+  .kv-table td {
+    padding: 10px 14px;
+    border-bottom: 1px solid #eee;
+  }
+  .kv-table tr:nth-child(even) td { background: #fafafa; }
+
+  code {
+    background: #f3f0e8;
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-size: 13px;
+    color: #8b5cf6;
+  }
+
+  /* Footer */
+  .guide-footer {
+    text-align: center;
+    padding: 40px 0;
+    color: #999;
+    font-size: 12px;
+    border-top: 2px solid var(--gold);
+    margin-top: 40px;
+  }
+  .guide-footer .gold { color: var(--gold); font-family: 'Cinzel', serif; letter-spacing: 3px; }
+</style>
+</head>
+<body>
+
+<!-- Print Bar -->
+<div class="print-bar no-print">
+  <span>DIVINE IRIS HEALING</span>
+  <button class="print-btn" onclick="window.print()">Save as PDF / Print</button>
+</div>
+
+<!-- Cover Page -->
+<div class="cover">
+  <h1>DIVINE IRIS HEALING</h1>
+  <div class="divider"></div>
+  <h2>ADMIN PANEL GUIDE</h2>
+  <p class="subtitle">Complete Reference for Managing Your Healing Practice</p>
+  <p class="version">
+    Version 2.0 &nbsp;|&nbsp; Last Updated: March 2026<br>
+    24 Admin Modules &nbsp;|&nbsp; Full CRM & Content Management
+  </p>
+</div>
+
+<!-- Content -->
+<div class="content">
+
+  <!-- Login Info -->
+  <div class="info-box" style="margin: 30px 0;">
+    <strong>Admin Access:</strong> Navigate to <code>/admin</code> on your website. Log in with your admin credentials. The panel is accessible only to authenticated administrators.
+  </div>
+
+  <!-- TABLE OF CONTENTS -->
+  <div class="toc">
+    <h2>Table of Contents</h2>
+    <div class="toc-grid">
+      <a href="#s1"><span class="toc-num">1</span> Hero Banner</a>
+      <a href="#s2"><span class="toc-num">2</span> Homepage Sections</a>
+      <a href="#s3"><span class="toc-num">3</span> Page Headers</a>
+      <a href="#s4"><span class="toc-num">4</span> Programs</a>
+      <a href="#s5"><span class="toc-num">5</span> Pricing Hub</a>
+      <a href="#s6"><span class="toc-num">6</span> Upcoming Hub</a>
+      <a href="#s7"><span class="toc-num">7</span> Sessions</a>
+      <a href="#s8"><span class="toc-num">8</span> Testimonials</a>
+      <a href="#s9"><span class="toc-num">9</span> Text Quotes</a>
+      <a href="#s10"><span class="toc-num">10</span> Stats</a>
+      <a href="#s11"><span class="toc-num">11</span> Header & Footer</a>
+      <a href="#s12"><span class="toc-num">12</span> Enrollments</a>
+      <a href="#s13"><span class="toc-num">13</span> Inbox</a>
+      <a href="#s14"><span class="toc-num">14</span> Client Garden (CRM)</a>
+      <a href="#s15"><span class="toc-num">15</span> Promotions</a>
+      <a href="#s16"><span class="toc-num">16</span> Discounts & Loyalty</a>
+      <a href="#s17"><span class="toc-num">17</span> Exchange Rates</a>
+      <a href="#s18"><span class="toc-num">18</span> Subscribers</a>
+      <a href="#s19"><span class="toc-num">19</span> Global Styles</a>
+      <a href="#s20"><span class="toc-num">20</span> Payments</a>
+      <a href="#s21"><span class="toc-num">21</span> India Proofs</a>
+      <a href="#s22"><span class="toc-num">22</span> Fraud Detection</a>
+      <a href="#s23"><span class="toc-num">23</span> Receipt Template</a>
+      <a href="#s24"><span class="toc-num">24</span> API Keys</a>
+    </div>
+  </div>
+
+  <!-- ============================================ -->
+  <!-- 1. HERO BANNER -->
+  <!-- ============================================ -->
+  <div class="tab-section" id="s1">
+    <div class="section-header">
+      <div class="section-num">1</div>
+      <h3>Hero Banner</h3>
+    </div>
+    <div class="section-nav">Sidebar: <strong>Hero Banner</strong></div>
+    <p class="section-desc">Control the full-screen hero section that visitors see first when they land on your website. This is the most impactful visual on the site.</p>
+    <ul class="features">
+      <li><strong>Hero Title & Subtitle</strong> — Edit the main heading and tagline displayed over the hero</li>
+      <li><strong>Background Video</strong> — Upload a background video (.mp4) that auto-plays behind the hero text. Use the video upload button to replace it</li>
+      <li><strong>Call-to-Action Buttons</strong> — Configure up to 2 CTA buttons with custom labels and links (e.g., "Book a Session", "View Programs")</li>
+      <li><strong>Overlay Settings</strong> — Adjust the dark overlay opacity so text remains readable over light/dark videos</li>
+    </ul>
+    <div class="tip-box">
+      <strong>Tip:</strong> Keep the hero video under 15MB for fast loading. Compress it before uploading. The title should be 3-6 words for maximum impact.
+    </div>
+  </div>
+
+  <!-- 2. HOMEPAGE SECTIONS -->
+  <div class="tab-section" id="s2">
+    <div class="section-header">
+      <div class="section-num">2</div>
+      <h3>Homepage Sections</h3>
+    </div>
+    <div class="section-nav">Sidebar: <strong>Homepage</strong></div>
+    <p class="section-desc">Control the order, visibility, and content of all sections displayed on the homepage below the hero banner.</p>
+    <ul class="features">
+      <li><strong>Section Ordering</strong> — Drag or use arrow buttons to reorder homepage sections (About, Programs, Sessions, Testimonials, Stats, Sponsor)</li>
+      <li><strong>Section Visibility</strong> — Toggle individual sections on/off without deleting them</li>
+      <li><strong>About Section</strong> — Edit the "About" text, image, and layout for the homepage</li>
+      <li><strong>Sponsor Section</strong> — Configure the "Sponsor a Life" card with its own title, description, image, and link</li>
+    </ul>
+    <div class="tip-box">
+      <strong>Tip:</strong> The homepage layout is dynamic — the "Upcoming Programs" section automatically adjusts columns (2, 3, or 4) based on how many programs are marked as upcoming. The Sponsor card always stays in its own column.
+    </div>
+  </div>
+
+  <!-- 3. PAGE HEADERS -->
+  <div class="tab-section" id="s3">
+    <div class="section-header">
+      <div class="section-num">3</div>
+      <h3>Page Headers</h3>
+    </div>
+    <div class="section-nav">Sidebar: <strong>Page Headers</strong></div>
+    <p class="section-desc">Customize the hero banners and header images shown at the top of each internal page (Programs page, Sessions page, Transformations page, etc.).</p>
+    <ul class="features">
+      <li><strong>Per-Page Headers</strong> — Set a unique background image, title, and subtitle for each page's header banner</li>
+      <li><strong>Program Section Template</strong> — Define the shared section structure (Journey, Who It's For, Experience, Why Now, Custom) that all individual program pages follow. The <em>content</em> of these sections is per-program, but the <em>structure and order</em> is global</li>
+      <li><strong>Section Font Styles</strong> — Set global font families, sizes, and colors for section headings and body text</li>
+    </ul>
+    <div class="info-box">
+      <strong>How Program Sections Work:</strong> You define the section template here (e.g., "The Journey", "Who It's For?"). Then in each individual program's edit form, you fill in the content for that program. This ensures a consistent layout across all program pages.
+    </div>
+  </div>
+
+  <!-- 4. PROGRAMS -->
+  <div class="tab-section page-break" id="s4">
+    <div class="section-header">
+      <div class="section-num">4</div>
+      <h3>Programs</h3>
+    </div>
+    <div class="section-nav">Sidebar: <strong>Programs</strong></div>
+    <p class="section-desc">The heart of your business — create, edit, and manage all healing programs. Each program has extensive configuration options.</p>
+
+    <h4>Basic Information</h4>
+    <ul class="features">
+      <li><strong>Title, Category, Description</strong> — The core identity of the program</li>
+      <li><strong>Image</strong> — Upload a program banner image displayed on cards and the program page</li>
+      <li><strong>Duration</strong> — e.g., "90 days", "21 Days". Shown on upcoming cards (if toggled on) and in receipt emails</li>
+      <li><strong>Session Timing & Timezone</strong> — e.g., "9PM - 10PM", "GST (Dubai)". Automatically converted to the user's local timezone on the site and in emails</li>
+    </ul>
+
+    <h4>Visibility & Enrollment</h4>
+    <ul class="features">
+      <li><strong>Visible on Site</strong> — Toggle to show/hide the program entirely</li>
+      <li><strong>Show in Upcoming</strong> — Mark the program to appear in the "Upcoming Programs" section on the homepage</li>
+      <li><strong>Flagship Program</strong> — Enables duration tiers (e.g., 1 Month, 3 Months, Annual) with separate pricing per tier</li>
+      <li><strong>Group Program</strong> — Tags the program as a group/workshop</li>
+      <li><strong>Enrollment Status</strong> — Set to <em>Open</em>, <em>Closed</em>, or <em>Coming Soon</em>. Closed programs show a configurable badge (e.g., "Seats Full", "Registration Closed")</li>
+    </ul>
+
+    <h4>Card Display Controls</h4>
+    <ul class="features">
+      <li><strong>Show Duration on Card</strong> — Toggle whether the duration badge appears on the upcoming program card</li>
+      <li><strong>Show Pricing on Card</strong> — Toggle price display on cards</li>
+      <li><strong>Show Tiers on Card</strong> — Toggle tier labels on flagship program cards</li>
+      <li><strong>Show on Program Page Header</strong> — Independently toggle Duration, Start Date, and Timing for the program's detail page</li>
+      <li><strong>Exclusive Offer Badge</strong> — Add a red badge like "Limited Time Offer" or "Early Bird Special" that overlays the card</li>
+    </ul>
+
+    <h4>Pricing</h4>
+    <table class="kv-table">
+      <tr><th>Field</th><th>Description</th></tr>
+      <tr><td>AED / INR / USD</td><td>Base price in each currency. INR is shown only to verified Indian users</td></tr>
+      <tr><td>Offer AED / INR / USD</td><td>Discounted price. If set above 0, this becomes the charged price and the base price shows as strikethrough</td></tr>
+      <tr><td>Duration Tiers (Flagship only)</td><td>Add rows for each duration (1 Month, 3 Months, Annual). Each tier has its own pricing in all 3 currencies</td></tr>
+    </table>
+
+    <h4>Program Links (shown in emails & success page)</h4>
+    <ul class="features">
+      <li><strong>WhatsApp Workshop Group</strong> — Toggle + URL. Sent in confirmation email with a green button</li>
+      <li><strong>WhatsApp Community Group</strong> — A second WhatsApp link for a broader community group</li>
+      <li><strong>Zoom Link</strong> — Sent in emails as a blue "Join Zoom" button</li>
+      <li><strong>Custom Link</strong> — Any other link with a custom label</li>
+    </ul>
+
+    <h4>Program Page Content</h4>
+    <ul class="features">
+      <li><strong>Content Sections</strong> — Each program page is composed of sections defined in the Page Headers template. Here, you fill in the Title, Subtitle, Body Content, and Image for each section specific to this program</li>
+    </ul>
+
+    <div class="warn-box">
+      <strong>Important:</strong> After editing any program, always click the "Save" button inside the form. Reordering and visibility toggles save automatically.
+    </div>
+  </div>
+
+  <!-- 5. PRICING HUB -->
+  <div class="tab-section" id="s5">
+    <div class="section-header">
+      <div class="section-num">5</div>
+      <h3>Pricing Hub</h3>
+    </div>
+    <div class="section-nav">Sidebar: <strong>Pricing Hub</strong></div>
+    <p class="section-desc">A spreadsheet-style view to quickly compare and update pricing across all programs and their tiers at once.</p>
+    <ul class="features">
+      <li><strong>Bulk Price Editing</strong> — Edit AED, INR, USD base prices and offer prices for all programs in one table</li>
+      <li><strong>Tier Pricing</strong> — Expand flagship programs to see and edit individual tier prices inline</li>
+      <li><strong>Session Mode Toggles</strong> — Quickly enable/disable Online, Offline, and In-Person modes per program</li>
+      <li><strong>Quick Save</strong> — A single "Save All" button commits all pricing changes at once</li>
+    </ul>
+    <div class="tip-box">
+      <strong>Tip:</strong> Use this hub for quick price updates during seasonal promotions rather than editing each program individually.
+    </div>
+  </div>
+
+  <!-- 6. UPCOMING HUB -->
+  <div class="tab-section" id="s6">
+    <div class="section-header">
+      <div class="section-num">6</div>
+      <h3>Upcoming Hub</h3>
+    </div>
+    <div class="section-nav">Sidebar: <strong>Upcoming Hub</strong></div>
+    <p class="section-desc">A centralized dashboard to manage all programs that appear in the "Upcoming Programs" section on the homepage.</p>
+    <ul class="features">
+      <li><strong>Toggle "Upcoming"</strong> — Quickly mark or unmark programs as upcoming</li>
+      <li><strong>Enrollment Status</strong> — Set Open / Closed / Coming Soon for each program</li>
+      <li><strong>Start & End Dates</strong> — Edit dates inline for each program</li>
+      <li><strong>Duration & Timing</strong> — Update the duration text (e.g., "90 days") and session timing (e.g., "9PM - 10PM")</li>
+      <li><strong>Timezone</strong> — Set the timezone for display (e.g., "GST Dubai", "IST")</li>
+      <li><strong>Card Display Controls</strong> — Toggle whether date, time, and duration show on the program cards from this hub</li>
+      <li><strong>Links</strong> — Quick-edit WhatsApp, Zoom, and custom links per program</li>
+    </ul>
+    <div class="info-box">
+      <strong>Quick Tip:</strong> This is the go-to page before launching a new batch of programs. Set dates, times, and toggle "Upcoming" on — all in one place.
+    </div>
+  </div>
+
+  <!-- 7. SESSIONS -->
+  <div class="tab-section page-break" id="s7">
+    <div class="section-header">
+      <div class="section-num">7</div>
+      <h3>Sessions</h3>
+    </div>
+    <div class="section-nav">Sidebar: <strong>Sessions</strong></div>
+    <p class="section-desc">Manage individual healing sessions (1-on-1 or group sessions). Sessions have their own calendar, testimonials, and Q&A management.</p>
+    <ul class="features">
+      <li><strong>Session Title & Description</strong> — With full font styling (color, font family, size, bold/italic)</li>
+      <li><strong>Pricing</strong> — AED / INR / USD with offer prices, just like programs</li>
+      <li><strong>Duration</strong> — e.g., "60-90 minutes"</li>
+      <li><strong>Session Mode</strong> — Online, Offline, or Both</li>
+      <li><strong>Testimonial Snippet</strong> — A short testimonial that appears on the session card. Supports **bold** and *italic* markdown</li>
+      <li><strong>Visibility & Ordering</strong> — Toggle visibility and reorder sessions with arrow buttons</li>
+    </ul>
+
+    <h4>Excel Batch Upload</h4>
+    <ul class="features">
+      <li><strong>Drag & Drop Excel</strong> — Upload an Excel file (.xlsx) to create or update sessions in bulk. The file should follow the expected column format (Title, Description, Price, etc.)</li>
+    </ul>
+
+    <h4>Sub-Managers</h4>
+    <ul class="features">
+      <li><strong>Session Visibility Panel</strong> — Control which elements (availability calendar, testimonials, Q&A) are shown on session detail pages and in what order</li>
+      <li><strong>Session Calendar Manager</strong> — Manage available dates and time slots for bookings across sessions</li>
+      <li><strong>Session Testimonials Manager</strong> — Tag and manage client testimonials that appear on specific session pages</li>
+      <li><strong>Session Questions Manager</strong> — Create FAQ/Q&A sections for session pages</li>
+    </ul>
+  </div>
+
+  <!-- 8. TESTIMONIALS -->
+  <div class="tab-section" id="s8">
+    <div class="section-header">
+      <div class="section-num">8</div>
+      <h3>Testimonials</h3>
+    </div>
+    <div class="section-nav">Sidebar: <strong>Testimonials</strong></div>
+    <p class="section-desc">Manage all visual testimonials — graphic images, before/after comparisons, and video testimonials.</p>
+    <ul class="features">
+      <li><strong>Types</strong> — Graphic (image), Video (YouTube embed), Before & After</li>
+      <li><strong>Program & Session Tags</strong> — Tag testimonials to specific programs or sessions so they appear only on those pages</li>
+      <li><strong>Rating</strong> — Set a star rating (1-5) for each testimonial</li>
+      <li><strong>Visibility</strong> — Toggle visibility per testimonial</li>
+    </ul>
+    <div class="tip-box">
+      <strong>Homepage Display:</strong> The homepage shows a 5-card carousel of video testimonials on the Video tab, and a rotating set on the Graphic tab. The Transformations page shows all visible testimonials in a 3-column grid.
+    </div>
+  </div>
+
+  <!-- 9. TEXT QUOTES -->
+  <div class="tab-section" id="s9">
+    <div class="section-header">
+      <div class="section-num">9</div>
+      <h3>Text Quotes</h3>
+    </div>
+    <div class="section-nav">Sidebar: <strong>Text Quotes</strong></div>
+    <p class="section-desc">Manage text-based testimonial quotes that appear on the site. These are shorter, text-only quotes perfect for social proof sections.</p>
+    <ul class="features">
+      <li><strong>Quote Text</strong> — The testimonial content</li>
+      <li><strong>Client Name & Role</strong> — Attribution for the quote</li>
+      <li><strong>Visibility & Ordering</strong> — Control which quotes appear and in what order</li>
+    </ul>
+  </div>
+
+  <!-- 10. STATS -->
+  <div class="tab-section" id="s10">
+    <div class="section-header">
+      <div class="section-num">10</div>
+      <h3>Stats</h3>
+    </div>
+    <div class="section-nav">Sidebar: <strong>Stats</strong></div>
+    <p class="section-desc">Manage the achievement counters displayed on the homepage (e.g., "5000+ Healings", "150+ Programs").</p>
+    <ul class="features">
+      <li><strong>Value & Label</strong> — e.g., Value: "5000+", Label: "Healings Delivered"</li>
+      <li><strong>Icon</strong> — Optional icon name for visual flair</li>
+      <li><strong>Font Styling</strong> — Custom font color, family, size for both the value and label independently</li>
+      <li><strong>Ordering</strong> — Control display order</li>
+    </ul>
+  </div>
+
+  <!-- 11. HEADER & FOOTER -->
+  <div class="tab-section page-break" id="s11">
+    <div class="section-header">
+      <div class="section-num">11</div>
+      <h3>Header & Footer</h3>
+    </div>
+    <div class="section-nav">Sidebar: <strong>Header & Footer</strong></div>
+    <p class="section-desc">Configure the site-wide navigation header and footer that appear on every page.</p>
+    <ul class="features">
+      <li><strong>Logo</strong> — Upload or change the site logo</li>
+      <li><strong>Navigation Links</strong> — Configure menu items, labels, and URLs</li>
+      <li><strong>Footer Content</strong> — Edit footer text, copyright, and contact information</li>
+      <li><strong>Social Media Links</strong> — Add/edit links to Facebook, Instagram, YouTube, LinkedIn with toggle visibility per platform</li>
+      <li><strong>Footer Phone & Email</strong> — Contact details shown in the footer and used in email templates</li>
+      <li><strong>Community WhatsApp Link</strong> — A global WhatsApp community link included in confirmation emails</li>
+    </ul>
+  </div>
+
+  <!-- 12. ENROLLMENTS -->
+  <div class="tab-section" id="s12">
+    <div class="section-header">
+      <div class="section-num">12</div>
+      <h3>Enrollments</h3>
+    </div>
+    <div class="section-nav">Sidebar: <strong>Enrollments</strong></div>
+    <p class="section-desc">View and manage all client enrollments. Search, filter, and export enrollment data.</p>
+    <ul class="features">
+      <li><strong>Enrollment Table</strong> — Displays Receipt ID, Booker name & email, Program name, Participant count & names, Status, and Date</li>
+      <li><strong>Search</strong> — Search by name, email, or receipt ID</li>
+      <li><strong>Status Filters</strong> — Filter by All, Completed, Pending, or Proof Submitted</li>
+      <li><strong>Download Excel</strong> — Export all enrollment data to a formatted .xlsx file</li>
+    </ul>
+
+    <h4>Excel Export Format (Database-Ready)</h4>
+    <p style="font-size:14px; color:#666; margin-bottom: 10px;">The exported Excel file uses a <strong>wide format</strong> — one row per enrollment, with participant data spread across numbered columns:</p>
+    <table class="kv-table">
+      <tr><th>Column Group</th><th>Fields</th></tr>
+      <tr><td>Base Info</td><td>Receipt ID, Status, Program, Program Type, Booker Name, Booker Email, Booker Country, Booker Phone, Participant Count, Enrollment Date</td></tr>
+      <tr><td>Participant 1</td><td>Name, Relationship, Age, Gender, Country, Attendance Mode, Is First Time, Referral Source, Referred By, Email, Phone, WhatsApp, UID</td></tr>
+      <tr><td>Participant 2</td><td>(Same 13 fields as Participant 1)</td></tr>
+      <tr><td>Participant 3, 4...</td><td>(Columns extend dynamically based on max participants)</td></tr>
+    </table>
+    <div class="info-box">
+      <strong>No "None" Values:</strong> All empty fields are exported as blank cells, never the text "None". The file is ready for direct database import or batch processing.
+    </div>
+  </div>
+
+  <!-- 13. INBOX -->
+  <div class="tab-section" id="s13">
+    <div class="section-header">
+      <div class="section-num">13</div>
+      <h3>Inbox</h3>
+    </div>
+    <div class="section-nav">Sidebar: <strong>Inbox</strong></div>
+    <p class="section-desc">A centralized inbox for all contact form submissions, quote requests, and client inquiries.</p>
+    <ul class="features">
+      <li><strong>Message List</strong> — All incoming messages sorted by date, with read/unread status</li>
+      <li><strong>Status Management</strong> — Mark messages as New, Read, or Replied</li>
+      <li><strong>Reply</strong> — Send replies directly from the admin panel</li>
+      <li><strong>Delete</strong> — Remove messages permanently</li>
+      <li><strong>Search & Filter</strong> — Find messages by sender name, email, or content</li>
+      <li><strong>Export</strong> — Download all inbox messages as an Excel file</li>
+    </ul>
+  </div>
+
+  <!-- 14. CLIENT GARDEN -->
+  <div class="tab-section page-break" id="s14">
+    <div class="section-header">
+      <div class="section-num">14</div>
+      <h3>Client Garden (CRM)</h3>
+    </div>
+    <div class="section-nav">Sidebar: <strong>Client Garden</strong></div>
+    <p class="section-desc">Your CRM system — a living garden metaphor for tracking client journeys. Every client is categorized by their relationship stage.</p>
+
+    <h4>Client Labels (Growth Stages)</h4>
+    <table class="kv-table">
+      <tr><th>Label</th><th>Meaning</th></tr>
+      <tr><td style="color:#0369a1; font-weight:600">Dew</td><td>Inquired or expressed interest (potential lead)</td></tr>
+      <tr><td style="color:#4d7c0f; font-weight:600">Seed</td><td>Joined a workshop or single session</td></tr>
+      <tr><td style="color:#b45309; font-weight:600">Root</td><td>Converted to a flagship program</td></tr>
+      <tr><td style="color:#be185d; font-weight:600">Bloom</td><td>Multiple programs or repeat client</td></tr>
+      <tr><td style="color:#7c3aed; font-weight:600">Iris</td><td>Annual Program Subscriber</td></tr>
+      <tr><td style="color:#6d28d9; font-weight:600">Purple Bees</td><td>Soulful referral partner</td></tr>
+      <tr><td style="color:#a16207; font-weight:600">Iris Bees</td><td>Brand Ambassador</td></tr>
+    </table>
+
+    <ul class="features">
+      <li><strong>Auto-Population</strong> — Clients are automatically added when they complete an enrollment</li>
+      <li><strong>Label Management</strong> — Change a client's label as they progress through their healing journey</li>
+      <li><strong>Notes</strong> — Add admin notes to any client record</li>
+      <li><strong>Filter by Label</strong> — Quick filters to view clients at each stage</li>
+      <li><strong>Search</strong> — Find clients by name, email, or phone</li>
+      <li><strong>Export</strong> — Download the full client list as Excel</li>
+    </ul>
+  </div>
+
+  <!-- 15. PROMOTIONS -->
+  <div class="tab-section" id="s15">
+    <div class="section-header">
+      <div class="section-num">15</div>
+      <h3>Promotions</h3>
+    </div>
+    <div class="section-nav">Sidebar: <strong>Promotions</strong></div>
+    <p class="section-desc">Create and manage promotional discount codes that clients can apply during checkout.</p>
+    <ul class="features">
+      <li><strong>Promo Code</strong> — Create codes like "HEAL20", "WELCOME10"</li>
+      <li><strong>Discount Type</strong> — Percentage off or fixed amount</li>
+      <li><strong>Discount Percentage / Amount</strong> — e.g., 20% off or AED 50 off</li>
+      <li><strong>Program-Specific</strong> — Optionally restrict a promo code to specific programs</li>
+      <li><strong>Active/Inactive Toggle</strong> — Enable or disable codes without deleting them</li>
+    </ul>
+  </div>
+
+  <!-- 16. DISCOUNTS & LOYALTY -->
+  <div class="tab-section" id="s16">
+    <div class="section-header">
+      <div class="section-num">16</div>
+      <h3>Discounts & Loyalty</h3>
+    </div>
+    <div class="section-nav">Sidebar: <strong>Discounts & Loyalty</strong></div>
+    <p class="section-desc">Configure automatic discounts that apply based on client behaviour — no promo code needed.</p>
+    <ul class="features">
+      <li><strong>Group Discount</strong> — Automatic discount when enrolling multiple participants (e.g., 5% off for 2+ people)</li>
+      <li><strong>Loyalty Discount</strong> — Returning clients get an automatic discount based on their enrollment history</li>
+      <li><strong>Multi-Program Discount</strong> — Discount when purchasing multiple programs in one cart</li>
+      <li><strong>Configurable Thresholds</strong> — Set minimum participant counts, enrollment history, etc. for each discount type</li>
+    </ul>
+  </div>
+
+  <!-- 17. EXCHANGE RATES -->
+  <div class="tab-section" id="s17">
+    <div class="section-header">
+      <div class="section-num">17</div>
+      <h3>Exchange Rates</h3>
+    </div>
+    <div class="section-nav">Sidebar: <strong>Exchange Rates</strong></div>
+    <p class="section-desc">View and override currency exchange rates used for pricing display.</p>
+    <ul class="features">
+      <li><strong>Current Rates</strong> — View live exchange rates (AED, INR, USD, EUR, GBP)</li>
+      <li><strong>Manual Override</strong> — Set custom exchange rates if you want to fix pricing regardless of market fluctuation</li>
+    </ul>
+    <div class="warn-box">
+      <strong>Note:</strong> Actual pricing is set per-program in the program editor. Exchange rates here are used for display conversion purposes on the frontend.
+    </div>
+  </div>
+
+  <!-- 18. SUBSCRIBERS -->
+  <div class="tab-section" id="s18">
+    <div class="section-header">
+      <div class="section-num">18</div>
+      <h3>Subscribers</h3>
+    </div>
+    <div class="section-nav">Sidebar: <strong>Subscribers</strong></div>
+    <p class="section-desc">Manage your newsletter subscriber list — everyone who opted in via the website's newsletter form.</p>
+    <ul class="features">
+      <li><strong>Subscriber List</strong> — View all subscribers with their email, name, and subscription date</li>
+      <li><strong>Export</strong> — Download the subscriber list for use in email marketing tools</li>
+    </ul>
+  </div>
+
+  <!-- 19. GLOBAL STYLES -->
+  <div class="tab-section page-break" id="s19">
+    <div class="section-header">
+      <div class="section-num">19</div>
+      <h3>Global Styles</h3>
+    </div>
+    <div class="section-nav">Sidebar: <strong>Global Styles</strong></div>
+    <p class="section-desc">Fine-tune the visual appearance of your website globally — colors, fonts, and spacing that apply across all pages.</p>
+    <ul class="features">
+      <li><strong>Primary Accent Color</strong> — The gold accent (#D4AF37) used throughout the site</li>
+      <li><strong>Font Families</strong> — Choose heading and body fonts from a curated list (Cinzel, Lato, Playfair Display, etc.)</li>
+      <li><strong>Background Colors</strong> — Customize section backgrounds</li>
+      <li><strong>Button Styles</strong> — Adjust button corner radius, padding, and hover effects</li>
+    </ul>
+    <div class="warn-box">
+      <strong>Remember:</strong> After making changes in Global Styles, click "Save Changes" at the bottom. Changes are applied instantly across the site.
+    </div>
+  </div>
+
+  <!-- 20. PAYMENTS -->
+  <div class="tab-section" id="s20">
+    <div class="section-header">
+      <div class="section-num">20</div>
+      <h3>Payments</h3>
+    </div>
+    <div class="section-nav">Sidebar: <strong>Payments</strong></div>
+    <p class="section-desc">Configure payment processing, disclaimers, and India-specific alternative payment methods.</p>
+    <ul class="features">
+      <li><strong>Payment Disclaimer</strong> — Set the payment disclaimer text that appears on every page of the enrollment process. This is highlighted prominently and cannot be ignored by clients</li>
+      <li><strong>Disclaimer Styling</strong> — Full control over font size (Extra Small to Extra Large), font weight, text color, background color, and border color</li>
+      <li><strong>India Alternative Payments</strong> — Enable/disable the India manual payment option (UPI, bank transfer) with adjustable discount percentage</li>
+      <li><strong>GST & Platform Fee</strong> — Configure GST percentage and platform processing fee for India payments</li>
+      <li><strong>Exly Booking Link</strong> — Set an external booking link for Indian clients</li>
+      <li><strong>Bank Account Details</strong> — Add multiple bank accounts (name, IFSC, branch) shown to clients making manual transfers</li>
+    </ul>
+    <div class="info-box">
+      <strong>Disclaimer Persistence:</strong> The payment disclaimer appears on every step of both the Enroll Now and Add to Cart flows — it stays visible from the participant form through the final checkout page.
+    </div>
+  </div>
+
+  <!-- 21. INDIA PROOFS -->
+  <div class="tab-section" id="s21">
+    <div class="section-header">
+      <div class="section-num">21</div>
+      <h3>India Proofs</h3>
+    </div>
+    <div class="section-nav">Sidebar: <strong>India Proofs</strong></div>
+    <p class="section-desc">Review and manage manual payment proofs submitted by Indian clients who paid via UPI, bank transfer, or other methods outside Stripe.</p>
+    <ul class="features">
+      <li><strong>Proof List</strong> — View all submitted payment proofs with payer name, amount, bank, transaction ID, and screenshot</li>
+      <li><strong>Status Filter</strong> — Filter by Pending, Approved, or Rejected</li>
+      <li><strong>View Screenshot</strong> — Click to view the uploaded payment screenshot</li>
+      <li><strong>Approve</strong> — Approving a proof completes the enrollment, generates participant UIDs, and sends confirmation emails automatically</li>
+      <li><strong>Reject</strong> — Reject with an optional reason. The enrollment stays incomplete</li>
+    </ul>
+    <div class="warn-box">
+      <strong>Important:</strong> Always verify the transaction ID and amount against your bank statement before approving. Once approved, the enrollment is marked complete and emails are sent immediately.
+    </div>
+  </div>
+
+  <!-- 22. FRAUD DETECTION -->
+  <div class="tab-section" id="s22">
+    <div class="section-header">
+      <div class="section-num">22</div>
+      <h3>Fraud Detection</h3>
+    </div>
+    <div class="section-nav">Sidebar: <strong>Fraud Detection</strong></div>
+    <p class="section-desc">An automated fraud monitoring system that flags suspicious enrollments based on multiple signals.</p>
+    <ul class="features">
+      <li><strong>Alert List</strong> — View flagged enrollments with severity levels: Critical, High, Medium, Low</li>
+      <li><strong>Detection Signals</strong> — VPN/proxy detection, IP-country mismatch, phone number inconsistency, timezone mismatch, BIN (card) country mismatch</li>
+      <li><strong>Review Actions</strong> — Mark alerts as Reviewed, Confirmed Fraud, or Legitimate</li>
+      <li><strong>Email Blocklist</strong> — Add email addresses to a fraud blocklist to prevent them from getting INR pricing</li>
+      <li><strong>Search & Filter</strong> — Filter by severity and status</li>
+    </ul>
+    <div class="info-box">
+      <strong>How It Works:</strong> When a user claims to be in India (for INR pricing), the system cross-checks their IP address, browser timezone, phone number, and card BIN. If any signals don't match, a fraud alert is created and the user is automatically switched to AED/USD pricing.
+    </div>
+  </div>
+
+  <!-- 23. RECEIPT TEMPLATE -->
+  <div class="tab-section page-break" id="s23">
+    <div class="section-header">
+      <div class="section-num">23</div>
+      <h3>Receipt Template</h3>
+    </div>
+    <div class="section-nav">Sidebar: <strong>Receipt Template</strong></div>
+    <p class="section-desc">Customize the email receipt that clients receive after a successful payment. This is a beautifully designed email with your branding.</p>
+    <ul class="features">
+      <li><strong>Colors</strong> — Set the header background color, accent color, and text color</li>
+      <li><strong>Fonts</strong> — Choose heading and body fonts from a curated list</li>
+      <li><strong>Logo</strong> — Toggle and upload a logo that appears at the top of the receipt email</li>
+      <li><strong>Thank You Message</strong> — Customize the title, message body, and sign-off (e.g., "With love and light")</li>
+      <li><strong>Important Note</strong> — A configurable note (e.g., "Zoom link will be provided 30 mins prior to session in WhatsApp Group")</li>
+      <li><strong>Links Note</strong> — Additional instructions text shown below the WhatsApp/Zoom links</li>
+      <li><strong>Attachments</strong> — Upload documents or videos that are linked in the receipt email (e.g., preparation guides, welcome PDFs)</li>
+      <li><strong>Live Preview</strong> — See a real-time preview of the receipt email as you edit</li>
+    </ul>
+
+    <h4>What's Included in the Receipt Email</h4>
+    <table class="kv-table">
+      <tr><th>Section</th><th>Content</th></tr>
+      <tr><td>Header</td><td>Logo + "DIVINE IRIS HEALING" + "Payment Receipt"</td></tr>
+      <tr><td>Confirmation</td><td>Green checkmark + "Enrollment Confirmed" + booker name</td></tr>
+      <tr><td>Program Card</td><td>Program title, participant table (name, mode, status), total paid</td></tr>
+      <tr><td>Program Details</td><td>Start date, end date, timing (converted to user's timezone), <strong>duration</strong></td></tr>
+      <tr><td>Session Links</td><td>WhatsApp, Zoom, Custom links (if configured)</td></tr>
+      <tr><td>Important Note</td><td>Configurable note about Zoom/WhatsApp</td></tr>
+      <tr><td>Booker Info</td><td>Name, email, phone</td></tr>
+      <tr><td>Thank You</td><td>Customizable message and sign-off</td></tr>
+      <tr><td>Assistance</td><td>WhatsApp and Email support buttons</td></tr>
+      <tr><td>Social Links</td><td>Facebook, Instagram, YouTube, LinkedIn (if enabled)</td></tr>
+    </table>
+  </div>
+
+  <!-- 24. API KEYS -->
+  <div class="tab-section" id="s24">
+    <div class="section-header">
+      <div class="section-num">24</div>
+      <h3>API Keys</h3>
+    </div>
+    <div class="section-nav">Sidebar: <strong>API Keys</strong></div>
+    <p class="section-desc">Securely manage all third-party API keys and credentials used by the system.</p>
+    <ul class="features">
+      <li><strong>Stripe Keys</strong> — Your Stripe publishable and secret keys for payment processing</li>
+      <li><strong>SMTP Credentials</strong> — Email server host, port, username, and password for sending transactional emails</li>
+      <li><strong>Sender Email</strong> — The "From" address for outgoing emails (e.g., noreply@divineirishealing.com)</li>
+      <li><strong>Receipt Email</strong> — The "From" address specifically for payment receipts</li>
+    </ul>
+    <div class="warn-box">
+      <strong>Security:</strong> API keys are stored securely in the database and are never exposed in the frontend. Only change these if you're rotating credentials or migrating to new accounts.
+    </div>
+  </div>
+
+  <!-- ============================================ -->
+  <!-- QUICK REFERENCE -->
+  <!-- ============================================ -->
+  <div class="tab-section page-break" id="qref">
+    <div class="section-header">
+      <div class="section-num" style="background:#333">Q</div>
+      <h3>Quick Reference</h3>
+    </div>
+
+    <h4>Enrollment Flow (What Happens When a Client Enrolls)</h4>
+    <table class="kv-table">
+      <tr><th>Step</th><th>What Happens</th></tr>
+      <tr><td>1. Participant Form</td><td>Client fills in booker info + participant details (name, age, gender, country, attendance mode)</td></tr>
+      <tr><td>2. Email Verification</td><td>Client receives a 6-digit OTP via email and verifies it</td></tr>
+      <tr><td>3. Payment</td><td>Client sees pricing (auto-detected currency based on IP) and proceeds to Stripe checkout or India manual payment</td></tr>
+      <tr><td>4. Confirmation</td><td>On successful payment: UIDs generated, confirmation email sent to booker, notification emails to opted-in participants</td></tr>
+      <tr><td>5. CRM Update</td><td>Client added to Client Garden automatically</td></tr>
+    </table>
+
+    <h4>Currency & Pricing Logic</h4>
+    <ul class="features">
+      <li><strong>INR</strong> — Only shown to users verified as being in India (IP + phone + timezone + no VPN all must match)</li>
+      <li><strong>AED</strong> — Default for Gulf countries (UAE, Saudi, Qatar, Kuwait, Oman, Bahrain)</li>
+      <li><strong>USD</strong> — Default for all other countries</li>
+      <li><strong>Currency Lock</strong> — Once a session starts, the currency is locked and won't change even if the user enters a different country in forms</li>
+    </ul>
+
+    <h4>Timezone Handling</h4>
+    <ul class="features">
+      <li>Program timings are stored in the timezone you set (e.g., "9PM - 10PM GST")</li>
+      <li>On the website, timings are automatically converted to the visitor's local timezone based on their IP address</li>
+      <li>In receipt emails, timings are converted to the booker's IP-detected timezone</li>
+      <li>Participant notification emails convert timing to each participant's country timezone</li>
+    </ul>
+
+    <h4>Common Admin Workflows</h4>
+    <table class="kv-table">
+      <tr><th>Task</th><th>Where to Go</th></tr>
+      <tr><td>Launch a new program</td><td>Programs tab (create) → Upcoming Hub (set dates & toggle upcoming) → Pricing Hub (verify pricing)</td></tr>
+      <tr><td>Change program pricing</td><td>Pricing Hub for quick edits, or Programs tab for full edit</td></tr>
+      <tr><td>Check a client's enrollment</td><td>Enrollments tab → search by name or receipt ID</td></tr>
+      <tr><td>Export enrollment data</td><td>Enrollments tab → "Download Excel" button</td></tr>
+      <tr><td>Approve India payment</td><td>India Proofs tab → view screenshot → Approve</td></tr>
+      <tr><td>Update email receipt look</td><td>Receipt Template tab → edit colors, fonts, message → Preview</td></tr>
+      <tr><td>Run a promotion</td><td>Promotions tab → create a promo code</td></tr>
+      <tr><td>Check for fraud</td><td>Fraud Detection tab → review flagged enrollments</td></tr>
+      <tr><td>Update the homepage</td><td>Hero Banner + Homepage Sections tabs</td></tr>
+    </table>
+  </div>
+
+  <!-- Footer -->
+  <div class="guide-footer">
+    <p class="gold">DIVINE IRIS HEALING</p>
+    <p style="margin-top:8px">Admin Panel Guide v2.0 — March 2026</p>
+    <p>Delve into the deeper realm of your soul</p>
+  </div>
+
+</div>
+
+</body>
+</html>

@@ -210,7 +210,10 @@ const AdminPanel = () => {
     <div data-testid="admin-panel" className="min-h-screen bg-gray-50">
       <div className="bg-gray-900 text-white py-4 px-6 flex justify-between items-center">
         <h1 className="text-lg font-semibold tracking-wider">Divine Iris Admin</h1>
-        <a href="/" className="text-xs text-gray-400 hover:text-[#D4AF37] transition-colors">View Site</a>
+        <div className="flex items-center gap-4">
+          <a href={`${API}/admin/guide`} target="_blank" rel="noopener noreferrer" data-testid="admin-guide-link" className="flex items-center gap-1.5 text-xs text-gray-400 hover:text-[#D4AF37] transition-colors"><FileText size={13} /> Admin Guide</a>
+          <a href="/" className="text-xs text-gray-400 hover:text-[#D4AF37] transition-colors">View Site</a>
+        </div>
       </div>
 
       <div className="flex">

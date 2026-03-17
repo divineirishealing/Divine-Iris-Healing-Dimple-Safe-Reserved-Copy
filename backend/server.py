@@ -60,6 +60,14 @@ async def serve_image(filename: str):
         }
     )
 
+@app.get("/api/admin/guide")
+async def serve_admin_guide():
+    guide_path = ROOT_DIR / "static" / "admin_guide.html"
+    if not guide_path.exists():
+        from fastapi import HTTPException
+        raise HTTPException(status_code=404, detail="Guide not found")
+    return FileResponse(path=str(guide_path), media_type="text/html")
+
 @app.get("/api/uploads/payment_proofs/{filename}")
 async def serve_payment_proof(filename: str):
     file_path = UPLOAD_DIR / "payment_proofs" / filename
