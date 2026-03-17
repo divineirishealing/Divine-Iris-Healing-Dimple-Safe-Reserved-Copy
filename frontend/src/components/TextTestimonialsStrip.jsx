@@ -10,6 +10,7 @@ const DEFAULT_TRUST_CARDS = [
   { icon: 'retention', value: '85%', label: 'Stay With Us', description: 'Those who walk through our doors become lifelong members of the Divine Iris family.', value_style: {}, label_style: {}, description_style: {} },
   { icon: 'trust', value: '100%', label: 'Deeply Trusted', description: 'Built on authenticity, love and real results. Our tribe speaks louder than any ad ever could.', value_style: {}, label_style: {}, description_style: {} },
   { icon: 'dna', value: '100%', label: 'Love & Healing Driven', description: 'DNA level transformation. Our people are living miracles.', value_style: {}, label_style: {}, description_style: {} },
+  { icon: 'happiness', value: '100%', label: 'Happiness & Self Love', description: 'Claimed by our participants. True joy and self love \u2014 restored and reclaimed.', value_style: {}, label_style: {}, description_style: {} },
 ];
 
 const DEFAULT_PHILOSOPHY_CARDS = [
@@ -38,6 +39,12 @@ const DEFAULT_PHILOSOPHY_CARDS = [
     title_style: {}, description_style: {},
   },
   {
+    icon: 'choose',
+    title: 'Choose Us, Choose You',
+    description: 'Choosing Divine Iris means choosing your happiness, your transformation, your life. The moment you say yes to yourself, everything begins to shift.',
+    title_style: {}, description_style: {},
+  },
+  {
     icon: 'shield',
     title: 'Safe Sacred Space',
     description: 'A sanctuary where every soul is held without judgement. Your pain, your past, your fears \u2014 all honoured and transmuted in complete trust and safety.',
@@ -59,6 +66,12 @@ const DEFAULT_PHILOSOPHY_CARDS = [
     icon: 'miracle',
     title: 'Living Miracles, Not Promises',
     description: 'We don\u2019t make claims. Our people are the proof. From chronic illnesses to deep emotional wounds \u2014 miracles happen here every single day.',
+    title_style: {}, description_style: {},
+  },
+  {
+    icon: 'lotus',
+    title: 'Your Soul Knows the Way',
+    description: 'We don\u2019t tell you what to do. We simply reconnect you to your own inner wisdom, your highest self \u2014 and let your soul lead the way home.',
     title_style: {}, description_style: {},
   },
 ];
@@ -119,8 +132,17 @@ const InfinityIcon = () => (
 const MiracleIcon = () => (
   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={GOLD} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" /></svg>
 );
+const ChooseIcon = () => (
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={GOLD} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" /><polyline points="22 4 12 14.01 9 11.01" /></svg>
+);
+const LotusIcon = () => (
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={GOLD} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M12 22c-4-3-8-7.5-8-12a8 8 0 0 1 16 0c0 4.5-4 9-8 12z" /><path d="M12 22c2-3 4-7.5 4-12" /><path d="M12 22c-2-3-4-7.5-4-12" /><circle cx="12" cy="10" r="3" /></svg>
+);
+const HappinessIcon = () => (
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={GOLD} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><path d="M8 14s1.5 2 4 2 4-2 4-2" /><line x1="9" y1="9" x2="9.01" y2="9" /><line x1="15" y1="9" x2="15.01" y2="9" /></svg>
+);
 
-const PHILOSOPHY_ICONS = { home: HomeIcon, scroll: ScrollIcon, atom: AtomIcon, feather: FeatherIcon, shield: ShieldIcon, guru: GuruIcon, infinity: InfinityIcon, miracle: MiracleIcon };
+const PHILOSOPHY_ICONS = { home: HomeIcon, scroll: ScrollIcon, atom: AtomIcon, feather: FeatherIcon, shield: ShieldIcon, guru: GuruIcon, infinity: InfinityIcon, miracle: MiracleIcon, choose: ChooseIcon, lotus: LotusIcon };
 
 const TextTestimonialsStrip = ({ sectionConfig }) => {
   const [quotes, setQuotes] = useState([]);
@@ -177,17 +199,17 @@ const TextTestimonialsStrip = ({ sectionConfig }) => {
       <div className="relative z-10">
         {/* ── Trust Metrics (circular icon badges) ── */}
         <div className={CONTAINER}>
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-6 max-w-5xl mx-auto mb-8" data-testid="trust-strip">
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-5 max-w-6xl mx-auto mb-8" data-testid="trust-strip">
             {trustCards.map((card, i) => {
               const valStyle = applySectionStyle(card.value_style, {
-                fontFamily: "'Cinzel', serif", fontSize: 'clamp(1.5rem, 3vw, 2rem)', fontWeight: 700, color: GOLD, lineHeight: 1.1,
+                fontFamily: "'Cinzel', serif", fontSize: 'clamp(1.3rem, 2.5vw, 1.8rem)', fontWeight: 700, color: GOLD, lineHeight: 1.1,
               });
               const lblStyle = applySectionStyle(card.label_style, {
-                fontFamily: "'Lato', sans-serif", fontWeight: 600, fontSize: '0.65rem',
+                fontFamily: "'Lato', sans-serif", fontWeight: 600, fontSize: '0.6rem',
                 letterSpacing: '0.15em', textTransform: 'uppercase', color: '#555',
               });
               const descStyle = applySectionStyle(card.description_style, {
-                fontFamily: "'Lato', sans-serif", fontSize: '0.75rem', color: '#999', lineHeight: 1.6, fontWeight: 300,
+                fontFamily: "'Lato', sans-serif", fontSize: '0.7rem', color: '#999', lineHeight: 1.6, fontWeight: 300,
               });
               return (
                 <div key={i} className="flex flex-col items-center text-center group" data-testid={`trust-item-${i}`}>
@@ -196,33 +218,34 @@ const TextTestimonialsStrip = ({ sectionConfig }) => {
                     {card.icon === 'retention' && <UsersIcon />}
                     {card.icon === 'trust' && <HeartIcon />}
                     {card.icon === 'dna' && <DnaIcon />}
+                    {card.icon === 'happiness' && <HappinessIcon />}
                   </div>
                   {card.icon === 'google' && <MiniStars />}
                   {card.value && <p style={valStyle} className="mt-1 group-hover:scale-105 transition-transform duration-300">{card.value}</p>}
                   <p style={lblStyle} className="mt-1.5 mb-1">{card.label}</p>
-                  {card.description && <p style={descStyle} className="max-w-[190px]">{card.description}</p>}
+                  {card.description && <p style={descStyle} className="max-w-[170px]">{card.description}</p>}
                 </div>
               );
             })}
           </div>
 
           {/* ── Philosophy / Why Us Cards ── */}
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-6 max-w-5xl mx-auto mb-8" data-testid="philosophy-cards">
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-5 max-w-6xl mx-auto mb-8" data-testid="philosophy-cards">
             {philosophyCards.map((card, i) => {
               const PhiloIcon = PHILOSOPHY_ICONS[card.icon] || HeartIcon;
               const tStyle = applySectionStyle(card.title_style, {
-                fontFamily: "'Cinzel', serif", fontSize: '0.8rem', fontWeight: 600, color: '#2a2118', lineHeight: 1.3, letterSpacing: '0.04em',
+                fontFamily: "'Cinzel', serif", fontSize: '0.72rem', fontWeight: 600, color: '#2a2118', lineHeight: 1.3, letterSpacing: '0.04em',
               });
               const dStyle = applySectionStyle(card.description_style, {
-                fontFamily: "'Cormorant Garamond', Georgia, serif", fontSize: '0.85rem', color: '#888',
-                lineHeight: 1.75, fontWeight: 400, fontStyle: 'italic',
+                fontFamily: "'Cormorant Garamond', Georgia, serif", fontSize: '0.8rem', color: '#888',
+                lineHeight: 1.7, fontWeight: 400, fontStyle: 'italic',
               });
               return (
                 <div key={i} className="flex flex-col items-center text-center group" data-testid={`philosophy-card-${i}`}>
                   <div className="w-10 h-10 rounded-full flex items-center justify-center mb-2 shadow-sm" style={{ background: `linear-gradient(135deg, ${GOLD}15, ${GOLD}30)`, border: `1px solid ${GOLD}25` }}>
                     <PhiloIcon />
                   </div>
-                  <h3 style={tStyle} className="mb-1.5">{card.title}</h3>
+                  <h3 style={tStyle} className="mb-1">{card.title}</h3>
                   <p style={dStyle}>{card.description}</p>
                 </div>
               );
