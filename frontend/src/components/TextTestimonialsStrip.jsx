@@ -6,10 +6,33 @@ import { applySectionStyle } from '../lib/designTokens';
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
 const DEFAULT_TRUST_CARDS = [
-  { icon: 'google', value: '5.0', label: 'Google Rating', description: '', value_style: {}, label_style: {}, description_style: {} },
-  { icon: 'retention', value: '85%', label: 'Stay With Us', description: '', value_style: {}, label_style: {}, description_style: {} },
-  { icon: 'trust', value: '100%', label: 'Deeply Trusted', description: '', value_style: {}, label_style: {}, description_style: {} },
-  { icon: 'dna', value: '100%', label: 'Love & Healing Driven', description: '', value_style: {}, label_style: {}, description_style: {} },
+  { icon: 'google', value: '5.0', label: 'Google Rating', description: 'Rated 5 stars by our community. Every review is a story of transformation.', value_style: {}, label_style: {}, description_style: {} },
+  { icon: 'retention', value: '85%', label: 'Stay With Us', description: 'Those who walk through our doors become lifelong members of the Divine Iris family.', value_style: {}, label_style: {}, description_style: {} },
+  { icon: 'trust', value: '100%', label: 'Deeply Trusted', description: 'Built on authenticity, love and real results. Our tribe speaks louder than any ad ever could.', value_style: {}, label_style: {}, description_style: {} },
+  { icon: 'dna', value: '100%', label: 'Love & Healing Driven', description: 'DNA level transformation. Our people are living miracles.', value_style: {}, label_style: {}, description_style: {} },
+];
+
+const DEFAULT_PHILOSOPHY_CARDS = [
+  {
+    title: 'A Soulful Home Like No Other',
+    description: 'For those countless souls who came here lost, hopeless, helpless, suffering \u2014 Divine Iris became the home they never knew they were searching for.',
+    title_style: {}, description_style: {},
+  },
+  {
+    title: 'Ancient Wisdom, Living Legacy',
+    description: 'Our unique method of healing is deeply rooted in ancient wisdom gained over thousands of lifetimes \u2014 literally seen, re-lived and re-experienced by our healer and inculcated under the guidance of the Gurus to make people free of suffering.',
+    title_style: {}, description_style: {},
+  },
+  {
+    title: 'Healing at the Deepest Level',
+    description: 'Our healings are designed to heal at the atomic, subatomic and DNA level \u2014 connecting you with your own highest intelligence and unravelling your limitless potential.',
+    title_style: {}, description_style: {},
+  },
+  {
+    title: 'Effortless Transformation',
+    description: 'We make transformations effortless and painless for our people. No affirmations, no homework, no meditation, no reading, no writing \u2014 just pure, deep healing.',
+    title_style: {}, description_style: {},
+  },
 ];
 
 const MiniStars = () => (
@@ -49,6 +72,7 @@ const TextTestimonialsStrip = ({ sectionConfig }) => {
   const [fade, setFade] = useState(true);
   const [style, setStyle] = useState(null);
   const [trustCards, setTrustCards] = useState(DEFAULT_TRUST_CARDS);
+  const [philosophyCards, setPhilosophyCards] = useState(DEFAULT_PHILOSOPHY_CARDS);
 
   useEffect(() => {
     Promise.all([
@@ -60,6 +84,7 @@ const TextTestimonialsStrip = ({ sectionConfig }) => {
       const homeSections = settingsRes.data?.homepage_sections || [];
       const trustSec = homeSections.find(s => s.id === 'trust');
       if (trustSec?.trust_cards?.length) setTrustCards(trustSec.trust_cards);
+      if (trustSec?.philosophy_cards?.length) setPhilosophyCards(trustSec.philosophy_cards);
     }).catch(() => {});
   }, []);
 
@@ -94,9 +119,9 @@ const TextTestimonialsStrip = ({ sectionConfig }) => {
       <div className="absolute pointer-events-none" style={{ top: '5%', left: '50%', transform: 'translateX(-50%)', width: '30%', height: '40%', background: 'radial-gradient(ellipse at center, rgba(212,175,55,0.05) 0%, transparent 65%)', filter: 'blur(30px)' }} />
 
       <div className="relative z-10">
-        {/* ── Trust Elements (circular icon badges) ── */}
+        {/* ── Trust Metrics (circular icon badges) ── */}
         <div className={CONTAINER}>
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-6 max-w-5xl mx-auto mb-10" data-testid="trust-strip">
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-6 max-w-5xl mx-auto mb-8" data-testid="trust-strip">
             {trustCards.map((card, i) => {
               const valStyle = applySectionStyle(card.value_style, {
                 fontFamily: "'Cinzel', serif", fontSize: 'clamp(1.5rem, 3vw, 2rem)', fontWeight: 700, color: GOLD, lineHeight: 1.1,
@@ -110,7 +135,6 @@ const TextTestimonialsStrip = ({ sectionConfig }) => {
               });
               return (
                 <div key={i} className="flex flex-col items-center text-center group" data-testid={`trust-item-${i}`}>
-                  {/* Small circular icon */}
                   <div className="w-10 h-10 rounded-full flex items-center justify-center mb-2 shadow-sm" style={{ background: `linear-gradient(135deg, ${GOLD}15, ${GOLD}30)`, border: `1px solid ${GOLD}25` }}>
                     {card.icon === 'google' && <GoogleIcon />}
                     {card.icon === 'retention' && <UsersIcon />}
@@ -121,6 +145,33 @@ const TextTestimonialsStrip = ({ sectionConfig }) => {
                   {card.value && <p style={valStyle} className="mt-1 group-hover:scale-105 transition-transform duration-300">{card.value}</p>}
                   <p style={lblStyle} className="mt-1.5 mb-1">{card.label}</p>
                   {card.description && <p style={descStyle} className="max-w-[190px]">{card.description}</p>}
+                </div>
+              );
+            })}
+          </div>
+
+          {/* ── Philosophy / USP Cards ── */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-x-10 gap-y-8 max-w-4xl mx-auto mb-10" data-testid="philosophy-cards">
+            {philosophyCards.map((card, i) => {
+              const tStyle = applySectionStyle(card.title_style, {
+                fontFamily: "'Cinzel', serif", fontSize: '1rem', fontWeight: 600, color: '#2a2118', lineHeight: 1.3,
+              });
+              const dStyle = applySectionStyle(card.description_style, {
+                fontFamily: "'Cormorant Garamond', Georgia, serif", fontSize: '0.9rem', color: '#777',
+                lineHeight: 1.85, fontWeight: 400, fontStyle: 'italic',
+              });
+              return (
+                <div key={i} className="text-center group" data-testid={`philosophy-card-${i}`}>
+                  {/* Gold diamond ornament */}
+                  <div className="flex items-center justify-center gap-2 mb-3">
+                    <div className="w-6 h-px" style={{ background: `linear-gradient(90deg, transparent, ${GOLD}40)` }} />
+                    <svg width="6" height="6" viewBox="0 0 10 10" style={{ opacity: 0.35 }}>
+                      <path d="M5 0L6.18 3.82L10 5L6.18 6.18L5 10L3.82 6.18L0 5L3.82 3.82Z" fill={GOLD}/>
+                    </svg>
+                    <div className="w-6 h-px" style={{ background: `linear-gradient(90deg, ${GOLD}40, transparent)` }} />
+                  </div>
+                  <h3 style={tStyle} className="mb-2">{card.title}</h3>
+                  <p style={dStyle}>{card.description}</p>
                 </div>
               );
             })}
