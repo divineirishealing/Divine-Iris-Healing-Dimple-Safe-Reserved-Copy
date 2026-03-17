@@ -156,6 +156,8 @@ const TextTestimonialsStrip = ({ sectionConfig }) => {
         show_subtitle: trustSec.show_subtitle !== false,
         title_style: trustSec.title_style || {},
         subtitle_style: trustSec.subtitle_style || {},
+        global_title_style: trustSec.global_title_style || {},
+        global_description_style: trustSec.global_description_style || {},
       }));
     }).catch(() => {});
   }, []);
@@ -248,23 +250,16 @@ const TextTestimonialsStrip = ({ sectionConfig }) => {
                 color: GOLD,
                 lineHeight: 1.1,
               });
-              const lblStyle = applySectionStyle(card.label_style, {
-                fontFamily: "'Cinzel', serif",
-                fontWeight: 600,
-                fontSize: '0.72rem',
-                letterSpacing: '0.04em',
-                color: '#2a2118',
-                lineHeight: 1.3,
-                fontVariant: 'small-caps',
-              });
-              const descStyle = {
-                fontFamily: "'Cormorant Garamond', Georgia, serif",
-                fontSize: '0.78rem',
-                color: '#888',
-                lineHeight: 1.6,
-                fontWeight: 400,
-                fontStyle: 'italic',
-              };
+              // Cascade: defaults → global title style → per-card label style
+              const titleDefaults = { fontFamily: "'Cinzel', serif", fontWeight: 600, fontSize: '0.72rem', letterSpacing: '0.04em', color: '#2a2118', lineHeight: 1.3, fontVariant: 'small-caps' };
+              const globalTitle = applySectionStyle(trustConfig.global_title_style, titleDefaults);
+              const lblStyle = applySectionStyle(card.label_style, globalTitle);
+
+              // Cascade: defaults → global desc style → per-card desc style
+              const descDefaults = { fontFamily: "'Cormorant Garamond', Georgia, serif", fontSize: '0.78rem', color: '#888', lineHeight: 1.6, fontWeight: 400, fontStyle: 'italic' };
+              const globalDesc = applySectionStyle(trustConfig.global_description_style, descDefaults);
+              const descStyle = applySectionStyle(card.description_style, globalDesc);
+
               const showIcon = card.show_icon !== false;
               const IconComp = METRIC_ICONS[card.icon];
               const desc = card.description || '';
@@ -291,23 +286,16 @@ const TextTestimonialsStrip = ({ sectionConfig }) => {
             {philosophyCards.map((card, i) => {
               const PhiloIcon = PHILOSOPHY_ICONS[card.icon] || TrustIcon;
               const showIcon = card.show_icon !== false;
-              const tStyle = applySectionStyle(card.title_style, {
-                fontFamily: "'Cinzel', serif",
-                fontSize: '0.72rem',
-                fontWeight: 600,
-                color: '#2a2118',
-                lineHeight: 1.3,
-                letterSpacing: '0.04em',
-                fontVariant: 'small-caps',
-              });
-              const dStyle = applySectionStyle(card.description_style, {
-                fontFamily: "'Cormorant Garamond', Georgia, serif",
-                fontSize: '0.78rem',
-                color: '#888',
-                lineHeight: 1.6,
-                fontWeight: 400,
-                fontStyle: 'italic',
-              });
+
+              // Cascade: defaults → global title style → per-card title style
+              const titleDefaults = { fontFamily: "'Cinzel', serif", fontSize: '0.72rem', fontWeight: 600, color: '#2a2118', lineHeight: 1.3, letterSpacing: '0.04em', fontVariant: 'small-caps' };
+              const globalTitle = applySectionStyle(trustConfig.global_title_style, titleDefaults);
+              const tStyle = applySectionStyle(card.title_style, globalTitle);
+
+              // Cascade: defaults → global desc style → per-card desc style
+              const descDefaults = { fontFamily: "'Cormorant Garamond', Georgia, serif", fontSize: '0.78rem', color: '#888', lineHeight: 1.6, fontWeight: 400, fontStyle: 'italic' };
+              const globalDesc = applySectionStyle(trustConfig.global_description_style, descDefaults);
+              const dStyle = applySectionStyle(card.description_style, globalDesc);
               const desc = card.description || '';
               return (
                 <div key={i} className="trust-card flex flex-col items-center text-center cursor-pointer" data-testid={`philosophy-card-${i}`}>

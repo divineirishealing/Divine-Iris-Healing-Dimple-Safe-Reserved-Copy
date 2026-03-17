@@ -135,6 +135,28 @@ const TrustCardsEditor = ({ section, sectionIdx, updateSection }) => {
 
   return (
     <div className="space-y-4" data-testid="trust-cards-editor">
+      {/* ======== GLOBAL FONT CONTROLS ======== */}
+      <div className="bg-green-50 rounded-lg p-3 border border-green-200">
+        <p className="text-xs font-bold text-green-800 mb-1">Global Font Controls</p>
+        <p className="text-[9px] text-green-600 mb-2">Apply font style to ALL titles/labels and descriptions across both rows at once</p>
+        <div className="grid grid-cols-2 gap-3">
+          <div className="bg-white rounded-lg p-2 border border-gray-200">
+            <Label className="text-[9px] font-semibold text-gray-600">All Titles &amp; Labels</Label>
+            <StyleCell
+              style={section.global_title_style || {}}
+              onStyleChange={v => updateSection(sectionIdx, 'global_title_style', v)}
+            />
+          </div>
+          <div className="bg-white rounded-lg p-2 border border-gray-200">
+            <Label className="text-[9px] font-semibold text-gray-600">All Descriptions</Label>
+            <StyleCell
+              style={section.global_description_style || {}}
+              onStyleChange={v => updateSection(sectionIdx, 'global_description_style', v)}
+            />
+          </div>
+        </div>
+      </div>
+
       {/* Section Title/Subtitle Visibility */}
       <div className="bg-blue-50 rounded-lg p-2.5 border border-blue-200">
         <p className="text-[10px] font-semibold text-blue-600 uppercase tracking-wider mb-2">Section Display</p>
