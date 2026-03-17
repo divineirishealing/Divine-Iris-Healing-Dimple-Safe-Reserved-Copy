@@ -60,8 +60,7 @@ const SponsorSection = ({ sectionConfig, inline }) => {
           {content}
           <div className="order-first md:order-last flex justify-center">
             <div className="rounded-lg overflow-hidden shadow-xl max-w-md w-full">
-              <img src={imgUrl || 'https://images.unsplash.com/photo-1469571486292-0ba58a3f068b?w=600&h=400&fit=crop'} alt="Be The Sponsor" className="w-full h-auto object-cover"
-                onError={(e) => { e.target.src = 'https://images.unsplash.com/photo-1469571486292-0ba58a3f068b?w=600&h=400&fit=crop'; }} />
+              {imgUrl && <img src={imgUrl} alt="Be The Sponsor" className="w-full h-auto object-cover" />}
             </div>
           </div>
         </div>

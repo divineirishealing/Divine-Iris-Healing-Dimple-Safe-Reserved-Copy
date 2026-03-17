@@ -444,8 +444,13 @@ const SponsorCard = ({ sponsorData }) => {
     <div data-testid="sponsor-card-upcoming"
       className="group bg-white rounded-xl overflow-hidden shadow-lg transition-all duration-300 border border-gray-100 flex flex-col hover:shadow-2xl h-full">
       <div className="relative h-48 overflow-hidden cursor-pointer" onClick={() => navigate('/sponsor')}>
-        <img src={imgUrl || 'https://images.unsplash.com/photo-1469571486292-0ba58a3f068b?w=600&h=400&fit=crop'} alt={h.title || 'Become a Sponsor'} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
-          onError={(e) => { e.target.src = 'https://images.unsplash.com/photo-1469571486292-0ba58a3f068b?w=600&h=400&fit=crop'; }} />
+        {imgUrl ? (
+          <img src={imgUrl} alt={h.title || 'Become a Sponsor'} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" />
+        ) : (
+          <div className="w-full h-full bg-purple-50 flex items-center justify-center">
+            <Heart size={40} className="text-purple-300" />
+          </div>
+        )}
         <div className="absolute top-3 left-3">
           <span className="px-2.5 py-1 rounded-full text-[10px] font-semibold shadow-sm bg-[#D4AF37] text-white w-fit flex items-center gap-1"><Heart size={10} /> Sponsor</span>
         </div>
