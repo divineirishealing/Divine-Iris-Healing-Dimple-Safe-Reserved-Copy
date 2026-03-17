@@ -269,11 +269,13 @@ const TrustSection = ({ sectionConfig }) => {
         )}
 
         {/* Row 1: Metrics */}
-        {sectionConfig?.row1_title && (
+        {(sectionConfig?.row1_title || sectionConfig?.row1_subtitle || sectionConfig?.row1_description) && (
           <div className="text-center mb-5">
-            <h3 style={applySectionStyle(sectionConfig?.row1_title_style, {
-              ...HEADING, color: '#1a1a1a', fontSize: 'clamp(1.2rem, 2.5vw, 1.6rem)',
-            })}>{sectionConfig.row1_title}</h3>
+            {sectionConfig?.row1_title && (
+              <h3 style={applySectionStyle(sectionConfig?.row1_title_style, {
+                ...HEADING, color: '#1a1a1a', fontSize: 'clamp(1.2rem, 2.5vw, 1.6rem)',
+              })}>{sectionConfig.row1_title}</h3>
+            )}
             {sectionConfig?.row1_subtitle && (
               <p style={applySectionStyle(sectionConfig?.row1_subtitle_style, {
                 fontFamily: "'Lato', sans-serif", fontWeight: 300, color: '#999',
