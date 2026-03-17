@@ -41,7 +41,18 @@ function getTextStyle(effect, solidColor) {
 const HeroSection = ({ sectionConfig }) => {
   const [settings, setSettings] = useState(null);
   const [phase, setPhase] = useState(0);
+  const [videoLoaded, setVideoLoaded] = useState(false);
   const videoRef = useRef(null);
+  const preloadRef = useRef(null);
+
+  // Start preloading video immediately
+  useEffect(() => {
+    const vid = document.createElement('video');
+    vid.src = `${BACKEND_URL}/api/image/1bc4c05e-5765-49ab-bf99-1a5e0ad38b13.mp4`;
+    vid.preload = 'auto';
+    vid.muted = true;
+    preloadRef.current = vid;
+  }, []);
 
   useEffect(() => {
     axios.get(`${API}/settings`).then(r => setSettings(r.data)).catch(() => {});
@@ -55,32 +66,27 @@ const HeroSection = ({ sectionConfig }) => {
     });
   }, [settings]);
 
-  if (!settings) return <section className="min-h-screen" style={{ background: '#0d1117' }} />;
+  const videoUrl = settings?.hero_video_url ? resolveUrl(settings.hero_video_url) : `${BACKEND_URL}/api/image/1bc4c05e-5765-49ab-bf99-1a5e0ad38b13.mp4`;
 
-  const videoUrl = settings.hero_video_url ? resolveUrl(settings.hero_video_url) : '';
-  const heroTitle = settings.hero_title || '';
-  const heroSubtitle = settings.hero_subtitle || '';
-  const titleFont = settings.hero_title_font || 'Cinzel';
-  const subtitleFont = settings.hero_subtitle_font || 'Lato';
-  const titleAlign = settings.hero_title_align || 'left';
-  const verticalAlign = settings.hero_vertical_align || 'center';
-  const titleGap = settings.hero_title_gap || '24px';
-  const hOffset = settings.hero_h_offset || '0';
-  const vOffset = settings.hero_v_offset || '0';
-  const showLines = settings.hero_show_lines !== false;
-  const sectionStyle = settings.sections?.hero || {};
-
-  // Override support
-  const homeHero = settings.page_heroes?.home || {};
+  const heroTitle = settings?.hero_title || '';
+  const heroSubtitle = settings?.hero_subtitle || '';
+  const titleFont = settings?.hero_title_font || 'Cinzel';
+  const subtitleFont = settings?.hero_subtitle_font || 'Lato';
+  const titleAlign = settings?.hero_title_align || 'left';
+  const verticalAlign = settings?.hero_vertical_align || 'center';
+  const titleGap = settings?.hero_title_gap || '24px';
+  const hOffset = settings?.hero_h_offset || '0';
+  const vOffset = settings?.hero_v_offset || '0';
+  const showLines = settings?.hero_show_lines !== false;
+  const sectionStyle = settings?.sections?.hero || {};
+  const homeHero = settings?.page_heroes?.home || {};
   const finalTitleStyle = homeHero.title_style || {};
   const finalSubtitleStyle = homeHero.subtitle_style || {};
-
   const alignClass = titleAlign === 'center' ? 'items-center text-center' : titleAlign === 'right' ? 'items-end text-right' : 'items-start text-left';
   const lineAlign = titleAlign === 'center' ? 'mx-auto' : titleAlign === 'right' ? 'ml-auto' : '';
   const vAlignClass = verticalAlign === 'top' ? 'items-start pt-32' : verticalAlign === 'bottom' ? 'items-end pb-32' : 'items-center';
-
-  const titleShadow = SHADOW_MAP[settings.hero_title_shadow] || 'none';
-  const subtitleShadow = SHADOW_MAP[settings.hero_subtitle_shadow] || 'none';
+  const titleShadow = SHADOW_MAP[settings?.hero_title_shadow] || 'none';
+  const subtitleShadow = SHADOW_MAP[settings?.hero_subtitle_shadow] || 'none';
 
   return (
     <section
@@ -89,41 +95,24 @@ const HeroSection = ({ sectionConfig }) => {
       className={`relative min-h-screen flex justify-center overflow-hidden ${vAlignClass}`}
       style={{ background: '#0d1117' }}
     >
-      {/* Background — dark base while video loads */}
-      <div
-        className="absolute inset-0"
-        style={{
-          background: sectionStyle.bg_color || '#0d1117',
-        }}
-      />
+      {/* Video — always present, plays immediately */}
+      <video
+        ref={videoRef}
+        autoPlay loop muted playsInline
+        preload="auto"
+        onLoadedData={() => setVideoLoaded(true)}
+        className="absolute inset-0 w-full h-full object-cover"
+        style={{ zIndex: 0 }}
+      >
+        <source src={videoUrl} type="video/mp4" />
+      </video>
 
-      {/* Video */}
-      {videoUrl && (
-        <video ref={videoRef} autoPlay loop muted playsInline
-          className="absolute inset-0 w-full h-full object-cover"
-          style={{ zIndex: 0 }}>
-          <source src={videoUrl} type="video/mp4" />
-        </video>
-      )}
-
-      {/* Radial glow */}
-      {!videoUrl && (
-        <div className="absolute inset-0" style={{
-          opacity: 0.2,
-          backgroundImage: 'radial-gradient(ellipse at 20% 50%, rgba(212,175,55,0.15) 0%, transparent 60%), radial-gradient(ellipse at 80% 50%, rgba(212,175,55,0.1) 0%, transparent 60%)',
-          zIndex: 1,
-        }} />
-      )}
-
-      {/* Content */}
-      {(heroTitle || heroSubtitle) && (
+      {/* Content — only renders after settings load */}
+      {settings && (heroTitle || heroSubtitle) && (
         <div
           className={`relative z-10 px-4 flex flex-col ${alignClass}`}
-          style={{
-            transform: `translate(${hOffset}, ${vOffset})`,
-          }}
+          style={{ transform: `translate(${hOffset}, ${vOffset})` }}
         >
-          {/* Title */}
           <h1
             data-testid="hero-title"
             className="whitespace-pre-line leading-tight"
@@ -143,17 +132,12 @@ const HeroSection = ({ sectionConfig }) => {
           >
             {heroTitle}
           </h1>
-
-          {/* Line above subtitle */}
           {showLines && (
             <div className={`h-px bg-white/50 mb-3 ${lineAlign}`} style={{
-              width: phase >= 3 ? '11rem' : '0',
-              opacity: phase >= 3 ? 1 : 0,
+              width: phase >= 3 ? '11rem' : '0', opacity: phase >= 3 ? 1 : 0,
               transition: 'width 0.6s ease-out, opacity 0.4s ease-out',
             }} />
           )}
-
-          {/* Subtitle */}
           <p
             data-testid="hero-subtitle"
             style={{
@@ -171,12 +155,9 @@ const HeroSection = ({ sectionConfig }) => {
           >
             {heroSubtitle}
           </p>
-
-          {/* Line below subtitle */}
           {showLines && (
             <div className={`h-px bg-white/50 mt-3 ${lineAlign}`} style={{
-              width: phase >= 5 ? '11rem' : '0',
-              opacity: phase >= 5 ? 1 : 0,
+              width: phase >= 5 ? '11rem' : '0', opacity: phase >= 5 ? 1 : 0,
               transition: 'width 0.6s ease-out, opacity 0.4s ease-out',
             }} />
           )}
