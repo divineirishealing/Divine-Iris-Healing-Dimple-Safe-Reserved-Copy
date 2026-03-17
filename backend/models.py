@@ -94,6 +94,8 @@ class Program(BaseModel):
     exclusive_offer_text: str = "Limited Time Offer"
     closure_text: str = "Registration Closed"
     content_sections: List[Dict] = []  # List of ContentSection dicts
+    highlight_label: str = ""  # e.g. "Highly Recommended", "Most Awaited"
+    highlight_style: str = "gradient"  # "gradient", "ribbon", "glow"
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 class ProgramCreate(BaseModel):
@@ -148,6 +150,8 @@ class ProgramCreate(BaseModel):
     exclusive_offer_text: Optional[str] = "Limited Time Offer"
     closure_text: Optional[str] = "Registration Closed"
     content_sections: Optional[List[Dict]] = []
+    highlight_label: Optional[str] = ""
+    highlight_style: Optional[str] = "gradient"
 
 
 class Promotion(BaseModel):

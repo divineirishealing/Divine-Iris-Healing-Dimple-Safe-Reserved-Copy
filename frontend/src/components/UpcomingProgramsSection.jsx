@@ -301,6 +301,31 @@ const UpcomingCard = ({ program }) => {
       </div>
 
       <div className="p-4 flex-1 flex flex-col">
+        {/* Highlight Badge */}
+        {program.highlight_label && (
+          <div className="mb-2 -mt-1" data-testid={`highlight-badge-${program.id}`}>
+            {(program.highlight_style === 'gradient' || !program.highlight_style) && (
+              <span className="inline-flex items-center gap-1.5 text-[10px] font-bold tracking-wider uppercase px-3 py-1.5 rounded-full"
+                style={{ background: 'linear-gradient(135deg, #D4AF37 0%, #f5d77a 50%, #D4AF37 100%)', color: '#3d2200', letterSpacing: '0.08em', boxShadow: '0 2px 8px rgba(212,175,55,0.3)' }}>
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="#3d2200" stroke="none"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+                {program.highlight_label}
+              </span>
+            )}
+            {program.highlight_style === 'ribbon' && (
+              <span className="inline-flex items-center gap-1.5 text-[10px] font-bold tracking-wider uppercase px-3 py-1.5 rounded"
+                style={{ background: '#1a1a1a', color: '#D4AF37', letterSpacing: '0.1em', borderLeft: '3px solid #D4AF37' }}>
+                {program.highlight_label}
+              </span>
+            )}
+            {program.highlight_style === 'glow' && (
+              <span className="inline-flex items-center gap-1.5 text-[10px] font-bold tracking-wider uppercase px-3 py-1.5 rounded-full animate-pulse"
+                style={{ background: 'linear-gradient(135deg, #fff8e7 0%, #fff3d0 100%)', color: '#b8860b', border: '1px solid #D4AF3755', letterSpacing: '0.08em', boxShadow: '0 0 12px rgba(212,175,55,0.25)' }}>
+                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#b8860b" strokeWidth="2"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+                {program.highlight_label}
+              </span>
+            )}
+          </div>
+        )}
         <p className="text-[#D4AF37] text-[10px] tracking-wider mb-0.5 uppercase">{program.category}</p>
         <h3 className="text-base font-semibold text-gray-900 mb-1.5 leading-tight">{program.title}</h3>
         <p className="text-gray-500 text-xs leading-relaxed mb-3 line-clamp-2 flex-1">{program.description}</p>
