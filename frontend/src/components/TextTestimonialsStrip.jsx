@@ -6,11 +6,11 @@ import { applySectionStyle } from '../lib/designTokens';
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
 const DEFAULT_TRUST_CARDS = [
-  { icon: 'google', value: '5.0', label: 'Google Rating', value_style: {}, label_style: {} },
-  { icon: 'retention', value: '97%', label: 'Stay With Us', value_style: {}, label_style: {} },
-  { icon: 'trust', value: '100%', label: 'Deeply Trusted', value_style: {}, label_style: {} },
-  { icon: 'dna', value: '100%', label: 'Love & Healing Driven', value_style: {}, label_style: {} },
-  { icon: 'bliss', value: '100%', label: 'Bliss Embodied', value_style: {}, label_style: {} },
+  { icon: 'google', value: '5.0', label: 'Google Rating', description: 'Rated 5 stars by our community. Every review is a story of transformation.', value_style: {}, label_style: {} },
+  { icon: 'retention', value: '97%', label: 'Stay With Us', description: 'Those who walk through our doors become lifelong members of the Divine Iris family.', value_style: {}, label_style: {} },
+  { icon: 'trust', value: '100%', label: 'Deeply Trusted', description: 'Built on authenticity, love and real results. Our tribe speaks louder than any ad ever could.', value_style: {}, label_style: {} },
+  { icon: 'dna', value: '100%', label: 'Love & Healing Driven', description: 'DNA level transformation. Our people are living miracles.', value_style: {}, label_style: {} },
+  { icon: 'bliss', value: '100%', label: 'Bliss Embodied', description: 'True joy, self love and vibrant health \u2014 restored and reclaimed.', value_style: {}, label_style: {} },
 ];
 
 const DEFAULT_PHILOSOPHY_CARDS = [
@@ -99,12 +99,13 @@ const METRIC_ICONS = {
 const HomeIcon = () => iconCircle(<svg width="20" height="20" viewBox="0 0 24 24" {...s}><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>);
 const ScrollIcon = () => iconCircle(
   <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#b8962e" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round">
-    {/* Quill pen writing on leaf */}
-    <path d="M20 2C14 4 10 10 8 16l-3 4 4-1c4-2 8-6 12-10" fill="#b8962e12"/>
-    <path d="M8 16c-1-2 0-5 2-7"/>
-    <path d="M15 5c1 1 1 3 0 5"/>
-    <line x1="5" y1="20" x2="3" y2="22"/>
-    <path d="M12 18c2 0 4-1 5-3" opacity="0.5"/>
+    {/* Sacred Eye of Wisdom / Third Eye */}
+    <path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7S1 12 1 12z"/>
+    <circle cx="12" cy="12" r="3" fill="#b8962e18"/>
+    <circle cx="12" cy="12" r="1" fill="#b8962e"/>
+    <line x1="12" y1="2" x2="12" y2="4" opacity="0.4"/>
+    <line x1="8.5" y1="3" x2="9.5" y2="4.8" opacity="0.3"/>
+    <line x1="15.5" y1="3" x2="14.5" y2="4.8" opacity="0.3"/>
   </svg>
 );
 const AtomIcon = () => iconCircle(<svg width="20" height="20" viewBox="0 0 24 24" {...s}><circle cx="12" cy="12" r="1"/><path d="M20.2 20.2c2.04-2.03.02-7.36-4.5-11.9-4.54-4.52-9.87-6.54-11.9-4.5-2.04 2.03-.02 7.36 4.5 11.9 4.54 4.52 9.87 6.54 11.9 4.5Z"/><path d="M15.7 15.7c4.52-4.54 6.54-9.87 4.5-11.9-2.03-2.04-7.36-.02-11.9 4.5-4.52 4.54-6.54 9.87-4.5 11.9 2.03 2.04 7.36.02 11.9-4.5Z"/></svg>);
@@ -183,6 +184,22 @@ const TextTestimonialsStrip = ({ sectionConfig }) => {
 
   return (
     <section id="text-testimonials" data-testid="trust-section" className="relative overflow-hidden" style={{ padding: '48px 0 40px' }}>
+      {/* Hover animation styles */}
+      <style>{`
+        .trust-card { transition: transform 0.4s cubic-bezier(0.4,0,0.2,1); }
+        .trust-card:hover { transform: scale(1.08); }
+        .trust-card .desc-reveal {
+          display: grid;
+          grid-template-rows: 0fr;
+          opacity: 0;
+          transition: grid-template-rows 0.45s cubic-bezier(0.4,0,0.2,1), opacity 0.4s ease;
+        }
+        .trust-card:hover .desc-reveal {
+          grid-template-rows: 1fr;
+          opacity: 1;
+        }
+        .trust-card .desc-reveal > div { overflow: hidden; }
+      `}</style>
       <div className="relative z-10">
         {/* ── Section Header ── */}
         {(trustConfig.show_title || trustConfig.show_subtitle) && (
@@ -232,24 +249,38 @@ const TextTestimonialsStrip = ({ sectionConfig }) => {
                 lineHeight: 1.1,
               });
               const lblStyle = applySectionStyle(card.label_style, {
-                fontFamily: "'Lato', sans-serif",
-                fontWeight: 700,
-                fontSize: '0.65rem',
-                letterSpacing: '0.15em',
-                textTransform: 'uppercase',
-                color: '#444',
+                fontFamily: "'Cinzel', serif",
+                fontWeight: 600,
+                fontSize: '0.72rem',
+                letterSpacing: '0.04em',
+                color: '#2a2118',
+                lineHeight: 1.3,
+                fontVariant: 'small-caps',
               });
+              const descStyle = {
+                fontFamily: "'Cormorant Garamond', Georgia, serif",
+                fontSize: '0.78rem',
+                color: '#888',
+                lineHeight: 1.6,
+                fontWeight: 400,
+                fontStyle: 'italic',
+              };
               const showIcon = card.show_icon !== false;
               const IconComp = METRIC_ICONS[card.icon];
+              const desc = card.description || '';
               return (
-                <div key={i} className="flex flex-col items-center text-center" data-testid={`trust-item-${i}`}>
-                  {/* Fixed-height icon area so all values align */}
-                  <div style={{ height: 58 }} className="flex flex-col items-center justify-end">
+                <div key={i} className="trust-card flex flex-col items-center text-center cursor-pointer" data-testid={`trust-item-${i}`}>
+                  <div style={{ height: 56 }} className="flex flex-col items-center justify-end">
                     {showIcon && (card.icon === 'google' ? <GoogleIcon /> : IconComp ? <IconComp /> : <TrustIcon />)}
                     {card.icon === 'google' && <GoogleStars />}
                   </div>
                   {card.value && <p style={valStyle} className="mt-1">{card.value}</p>}
-                  <p style={lblStyle} className="mt-2 leading-tight max-w-[140px]">{card.label}</p>
+                  <p style={lblStyle} className="mt-2 leading-tight max-w-[150px]">{card.label}</p>
+                  {desc && (
+                    <div className="desc-reveal mt-1">
+                      <div><p style={descStyle} className="max-w-[180px] pt-1">{desc}</p></div>
+                    </div>
+                  )}
                 </div>
               );
             })}
@@ -262,26 +293,31 @@ const TextTestimonialsStrip = ({ sectionConfig }) => {
               const showIcon = card.show_icon !== false;
               const tStyle = applySectionStyle(card.title_style, {
                 fontFamily: "'Cinzel', serif",
-                fontSize: '0.78rem',
+                fontSize: '0.72rem',
                 fontWeight: 600,
                 color: '#2a2118',
-                lineHeight: 1.35,
-                letterSpacing: '0.03em',
+                lineHeight: 1.3,
+                letterSpacing: '0.04em',
                 fontVariant: 'small-caps',
               });
               const dStyle = applySectionStyle(card.description_style, {
                 fontFamily: "'Cormorant Garamond', Georgia, serif",
-                fontSize: '0.82rem',
+                fontSize: '0.78rem',
                 color: '#888',
-                lineHeight: 1.65,
+                lineHeight: 1.6,
                 fontWeight: 400,
                 fontStyle: 'italic',
               });
+              const desc = card.description || '';
               return (
-                <div key={i} className="flex flex-col items-center text-center" data-testid={`philosophy-card-${i}`}>
+                <div key={i} className="trust-card flex flex-col items-center text-center cursor-pointer" data-testid={`philosophy-card-${i}`}>
                   {showIcon && <PhiloIcon />}
-                  <h3 style={tStyle} className="mb-2 max-w-[180px]">{card.title}</h3>
-                  {card.description && <p style={dStyle} className="max-w-[190px]">{card.description}</p>}
+                  <h3 style={tStyle} className="mb-1 max-w-[180px]">{card.title}</h3>
+                  {desc && (
+                    <div className="desc-reveal">
+                      <div><p style={dStyle} className="max-w-[190px] pt-1">{desc}</p></div>
+                    </div>
+                  )}
                 </div>
               );
             })}
