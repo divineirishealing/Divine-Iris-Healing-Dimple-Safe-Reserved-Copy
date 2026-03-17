@@ -96,6 +96,9 @@ const ICON_OPTIONS = [
   { value: 'miracle', label: 'Star / Miracle' },
   { value: 'choose', label: 'Checkmark' },
   { value: 'lotus', label: 'Lotus' },
+  { value: 'bliss', label: 'Bliss / Self-Hug' },
+  { value: 'quill', label: 'Quill / Leaf Pen' },
+  { value: 'twohearts', label: 'Two Hearts' },
 ];
 
 const TrustCardsEditor = ({ section, sectionIdx, updateSection }) => {
@@ -135,7 +138,7 @@ const TrustCardsEditor = ({ section, sectionIdx, updateSection }) => {
       {/* Section Title/Subtitle Visibility */}
       <div className="bg-blue-50 rounded-lg p-2.5 border border-blue-200">
         <p className="text-[10px] font-semibold text-blue-600 uppercase tracking-wider mb-2">Section Display</p>
-        <div className="flex gap-4">
+        <div className="flex flex-wrap gap-4">
           <label className="flex items-center gap-1.5 text-[10px]">
             <input type="checkbox" checked={section.show_title !== false} onChange={e => updateSection(sectionIdx, 'show_title', e.target.checked)} className="w-3 h-3" />
             Show Title
@@ -143,6 +146,14 @@ const TrustCardsEditor = ({ section, sectionIdx, updateSection }) => {
           <label className="flex items-center gap-1.5 text-[10px]">
             <input type="checkbox" checked={section.show_subtitle !== false} onChange={e => updateSection(sectionIdx, 'show_subtitle', e.target.checked)} className="w-3 h-3" />
             Show Subtitle
+          </label>
+          <label className="flex items-center gap-1.5 text-[10px]">
+            <input type="checkbox" checked={section.show_row1_descriptions !== false} onChange={e => updateSection(sectionIdx, 'show_row1_descriptions', e.target.checked)} className="w-3 h-3" data-testid="toggle-row1-desc" />
+            Row 1 Hover Descriptions
+          </label>
+          <label className="flex items-center gap-1.5 text-[10px]">
+            <input type="checkbox" checked={section.show_row2_descriptions !== false} onChange={e => updateSection(sectionIdx, 'show_row2_descriptions', e.target.checked)} className="w-3 h-3" data-testid="toggle-row2-desc" />
+            Row 2 Hover Descriptions
           </label>
         </div>
       </div>

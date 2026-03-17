@@ -2,47 +2,16 @@ import React, { useState, useEffect, useRef } from 'react';
 import { HEADING, BODY, GOLD, CONTAINER, applySectionStyle } from '../lib/designTokens';
 
 const DEFAULT_CARDS = [
-  {
-    icon: 'google',
-    value: '5.0',
-    label: 'Google Rating',
-    description: 'Rated 5 stars by our community. Every review is a story of transformation.',
-    value_style: {}, label_style: {}, description_style: {},
-  },
-  {
-    icon: 'retention',
-    value: '85%',
-    label: 'Stay With Us',
-    description: 'Those who walk through our doors become lifelong members of the Divine Iris family.',
-    value_style: {}, label_style: {}, description_style: {},
-  },
-  {
-    icon: 'trust',
-    value: '100%',
-    label: 'Deeply Trusted',
-    description: 'Built on authenticity, love and real results. Our tribe speaks louder than any ad ever could.',
-    value_style: {}, label_style: {}, description_style: {},
-  },
-  {
-    icon: 'dna',
-    value: '100%',
-    label: 'Love & Healing Driven',
-    description: 'DNA level transformation. Our people are living miracles.',
-    value_style: {}, label_style: {}, description_style: {},
-  },
-  {
-    icon: 'happiness',
-    value: '1000+',
-    label: 'Lives Transformed',
-    description: 'Thousands of souls have found their way back to joy, health and purpose through Divine Iris.',
-    value_style: {}, label_style: {}, description_style: {},
-  },
+  { icon: 'google', value: '5.0', label: 'Google Rating', description: 'Rated 5 stars by our community. Every review is a story of transformation.', value_style: {}, label_style: {}, description_style: {} },
+  { icon: 'retention', value: '85%', label: 'Stay With Us', description: 'Those who walk through our doors become lifelong members of the Divine Iris family.', value_style: {}, label_style: {}, description_style: {} },
+  { icon: 'trust', value: '100%', label: 'Deeply Trusted', description: 'Built on authenticity, love and real results. Our tribe speaks louder than any ad ever could.', value_style: {}, label_style: {}, description_style: {} },
+  { icon: 'dna', value: '100%', label: 'Love & Healing Driven', description: 'DNA level transformation. Our people are living miracles.', value_style: {}, label_style: {}, description_style: {} },
+  { icon: 'bliss', value: '1000+', label: 'Lives Transformed', description: 'Thousands of souls have found their way back to joy, health and purpose through Divine Iris.', value_style: {}, label_style: {}, description_style: {} },
 ];
 
 const AnimatedValue = ({ value, inView }) => {
   const [display, setDisplay] = useState('0');
   const isNumber = /^[\d.]+/.test(value);
-
   useEffect(() => {
     if (!inView || !isNumber) { setDisplay(value); return; }
     const numVal = parseFloat(value);
@@ -57,7 +26,6 @@ const AnimatedValue = ({ value, inView }) => {
     };
     requestAnimationFrame(tick);
   }, [inView, value, isNumber]);
-
   const suffix = value.replace(/[\d.]/g, '');
   return <>{isNumber ? display : value}{suffix}</>;
 };
@@ -72,6 +40,14 @@ const GoogleStars = () => (
   </div>
 );
 
+/* ── Icon Components ── */
+const iconWrap = (children) => (
+  <div className="w-11 h-11 rounded-full flex items-center justify-center mx-auto mb-2" style={{ background: `linear-gradient(135deg, ${GOLD}22, ${GOLD}44)` }}>
+    {children}
+  </div>
+);
+const s = { fill: 'none', stroke: GOLD, strokeWidth: 1.5, strokeLinecap: 'round', strokeLinejoin: 'round' };
+
 const GoogleIcon = () => (
   <div className="w-11 h-11 rounded-full bg-white shadow-md flex items-center justify-center mx-auto mb-2">
     <svg width="22" height="22" viewBox="0 0 24 24">
@@ -82,125 +58,52 @@ const GoogleIcon = () => (
     </svg>
   </div>
 );
+const RetentionIcon = () => iconWrap(<svg width="22" height="22" viewBox="0 0 24 24" {...s}><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>);
+const TrustIcon = () => iconWrap(<svg width="22" height="22" viewBox="0 0 24 24" {...s}><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>);
+const DnaIcon = () => iconWrap(<svg width="22" height="22" viewBox="0 0 24 24" {...s}><path d="M2 15c6.667-6 13.333 0 20-6"/><path d="M9 22c1.798-1.998 2.518-3.995 2.807-5.993"/><path d="M15 2c-1.798 1.998-2.518 3.995-2.807 5.993"/><path d="M17 6l-2.5-2.5"/><path d="M14 8l-1-1"/><path d="M7 18l2.5 2.5"/><path d="M3.5 14.5l.5.5"/><path d="M20 9l.5.5"/></svg>);
+const HomeIcon = () => iconWrap(<svg width="22" height="22" viewBox="0 0 24 24" {...s}><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>);
+const AtomIcon = () => iconWrap(<svg width="22" height="22" viewBox="0 0 24 24" {...s}><circle cx="12" cy="12" r="1"/><path d="M20.2 20.2c2.04-2.04.02-7.36-4.5-11.9-4.54-4.52-9.86-6.54-11.9-4.5-2.04 2.04-.02 7.36 4.5 11.9 4.54 4.52 9.86 6.54 11.9 4.5Z"/><path d="M15.7 15.7c4.52-4.54 6.54-9.86 4.5-11.9-2.04-2.04-7.36-.02-11.9 4.5-4.52 4.54-6.54 9.86-4.5 11.9 2.04 2.04 7.36.02 11.9-4.5Z"/></svg>);
+const FeatherIcon = () => iconWrap(<svg width="22" height="22" viewBox="0 0 24 24" {...s}><path d="M20.24 12.24a6 6 0 0 0-8.49-8.49L5 10.5V19h8.5z"/><line x1="16" y1="8" x2="2" y2="22"/><line x1="17.5" y1="15" x2="9" y2="15"/></svg>);
+const ShieldIcon = () => iconWrap(<svg width="22" height="22" viewBox="0 0 24 24" {...s}><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>);
+const GlobeIcon = () => iconWrap(<svg width="22" height="22" viewBox="0 0 24 24" {...s}><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>);
+const InfinityIcon = () => iconWrap(<svg width="22" height="22" viewBox="0 0 24 24" {...s}><path d="M18.178 8c5.096 0 5.096 8 0 8-5.095 0-7.133-8-12.739-8-4.585 0-4.585 8 0 8 5.606 0 7.644-8 12.74-8z"/></svg>);
+const MiracleIcon = () => iconWrap(<svg width="22" height="22" viewBox="0 0 24 24" fill={GOLD} stroke="none"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>);
+const LotusIcon = () => iconWrap(<svg width="22" height="22" viewBox="0 0 24 24" {...s}><path d="M12 20c-4-4-8-6-8-10a4 4 0 0 1 8 0"/><path d="M12 20c4-4 8-6 8-10a4 4 0 0 0-8 0"/><path d="M12 20c-2-2-4-4-4-8a4 4 0 0 1 4-4"/><path d="M12 20c2-2 4-4 4-8a4 4 0 0 0-4-4"/></svg>);
+const HappinessIcon = () => iconWrap(<svg width="22" height="22" viewBox="0 0 24 24" {...s}><circle cx="12" cy="12" r="10"/><path d="M8 14s1.5 2 4 2 4-2 4-2"/><line x1="9" y1="9" x2="9.01" y2="9"/><line x1="15" y1="9" x2="15.01" y2="9"/></svg>);
+const LifeIcon = () => iconWrap(<svg width="22" height="22" viewBox="0 0 24 24" {...s}><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>);
+const ChooseIcon = () => iconWrap(<svg width="22" height="22" viewBox="0 0 24 24" {...s}><polyline points="20 6 9 17 4 12"/></svg>);
+const ScrollIcon = () => iconWrap(<svg width="22" height="22" viewBox="0 0 24 24" {...s}><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>);
 
-const RetentionIcon = () => (
-  <div className="w-11 h-11 rounded-full flex items-center justify-center mx-auto mb-2" style={{ background: `linear-gradient(135deg, ${GOLD}22, ${GOLD}44)` }}>
-    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke={GOLD} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /><path d="M23 21v-2a4 4 0 0 0-3-3.87" /><path d="M16 3.13a4 4 0 0 1 0 7.75" />
-    </svg>
-  </div>
+/* ── NEW ICONS ── */
+// Bliss: Heart with smile & self-hug arms
+const BlissIcon = () => iconWrap(
+  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke={GOLD} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" fill={`${GOLD}33`}/>
+    <path d="M9 11.5c.5-.5 1-.5 1.5 0" />
+    <path d="M13.5 11.5c.5-.5 1-.5 1.5 0" />
+    <path d="M9.5 14.5s1 1.5 2.5 1.5 2.5-1.5 2.5-1.5" />
+    <path d="M7 9c-1.5 1-2 3-1.5 4.5" opacity="0.5" />
+    <path d="M17 9c1.5 1 2 3 1.5 4.5" opacity="0.5" />
+  </svg>
 );
 
-const TrustIcon = () => (
-  <div className="w-11 h-11 rounded-full flex items-center justify-center mx-auto mb-2" style={{ background: `linear-gradient(135deg, ${GOLD}22, ${GOLD}44)` }}>
-    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke={GOLD} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
-    </svg>
-  </div>
+// Quill: Pen writing on a leaf
+const QuillIcon = () => iconWrap(
+  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke={GOLD} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M20 2C14 4 10 10 8 16l-3 4 4-1c4-2 8-6 12-10" fill={`${GOLD}22`}/>
+    <path d="M8 16c-1-2 0-5 2-7" />
+    <path d="M15 5c1 1 1 3 0 5" />
+    <line x1="5" y1="20" x2="3" y2="22" />
+    <path d="M12 18c2 0 4-1 5-3" opacity="0.5" />
+  </svg>
 );
 
-const DnaIcon = () => (
-  <div className="w-11 h-11 rounded-full flex items-center justify-center mx-auto mb-2" style={{ background: `linear-gradient(135deg, ${GOLD}22, ${GOLD}44)` }}>
-    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke={GOLD} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M2 15c6.667-6 13.333 0 20-6" /><path d="M9 22c1.798-1.998 2.518-3.995 2.807-5.993" /><path d="M15 2c-1.798 1.998-2.518 3.995-2.807 5.993" /><path d="M17 6l-2.5-2.5" /><path d="M14 8l-1-1" /><path d="M7 18l2.5 2.5" /><path d="M3.5 14.5l.5.5" /><path d="M20 9l.5.5" /><path d="M6.5 12.5l1 1" /><path d="M16.5 10l1 1" /><path d="M10 16l1.5 1.5" />
-    </svg>
-  </div>
-);
-
-const HomeIcon = () => (
-  <div className="w-11 h-11 rounded-full flex items-center justify-center mx-auto mb-2" style={{ background: `linear-gradient(135deg, ${GOLD}22, ${GOLD}44)` }}>
-    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke={GOLD} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" /><polyline points="9 22 9 12 15 12 15 22" />
-    </svg>
-  </div>
-);
-
-const ScrollIcon = () => (
-  <div className="w-11 h-11 rounded-full flex items-center justify-center mx-auto mb-2" style={{ background: `linear-gradient(135deg, ${GOLD}22, ${GOLD}44)` }}>
-    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke={GOLD} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" /><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z" />
-    </svg>
-  </div>
-);
-
-const AtomIcon = () => (
-  <div className="w-11 h-11 rounded-full flex items-center justify-center mx-auto mb-2" style={{ background: `linear-gradient(135deg, ${GOLD}22, ${GOLD}44)` }}>
-    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke={GOLD} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-      <circle cx="12" cy="12" r="1" /><path d="M20.2 20.2c2.04-2.04.02-7.36-4.5-11.9-4.54-4.52-9.86-6.54-11.9-4.5-2.04 2.04-.02 7.36 4.5 11.9 4.54 4.52 9.86 6.54 11.9 4.5Z" /><path d="M15.7 15.7c4.52-4.54 6.54-9.86 4.5-11.9-2.04-2.04-7.36-.02-11.9 4.5-4.52 4.54-6.54 9.86-4.5 11.9 2.04 2.04 7.36.02 11.9-4.5Z" />
-    </svg>
-  </div>
-);
-
-const FeatherIcon = () => (
-  <div className="w-11 h-11 rounded-full flex items-center justify-center mx-auto mb-2" style={{ background: `linear-gradient(135deg, ${GOLD}22, ${GOLD}44)` }}>
-    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke={GOLD} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M20.24 12.24a6 6 0 0 0-8.49-8.49L5 10.5V19h8.5z" /><line x1="16" y1="8" x2="2" y2="22" /><line x1="17.5" y1="15" x2="9" y2="15" />
-    </svg>
-  </div>
-);
-
-const ChooseIcon = () => (
-  <div className="w-11 h-11 rounded-full flex items-center justify-center mx-auto mb-2" style={{ background: `linear-gradient(135deg, ${GOLD}22, ${GOLD}44)` }}>
-    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke={GOLD} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-      <polyline points="20 6 9 17 4 12" />
-    </svg>
-  </div>
-);
-
-const ShieldIcon = () => (
-  <div className="w-11 h-11 rounded-full flex items-center justify-center mx-auto mb-2" style={{ background: `linear-gradient(135deg, ${GOLD}22, ${GOLD}44)` }}>
-    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke={GOLD} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
-    </svg>
-  </div>
-);
-
-const GlobeIcon = () => (
-  <div className="w-11 h-11 rounded-full flex items-center justify-center mx-auto mb-2" style={{ background: `linear-gradient(135deg, ${GOLD}22, ${GOLD}44)` }}>
-    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke={GOLD} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-      <circle cx="12" cy="12" r="10" /><line x1="2" y1="12" x2="22" y2="12" /><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" />
-    </svg>
-  </div>
-);
-
-const InfinityIcon = () => (
-  <div className="w-11 h-11 rounded-full flex items-center justify-center mx-auto mb-2" style={{ background: `linear-gradient(135deg, ${GOLD}22, ${GOLD}44)` }}>
-    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke={GOLD} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M18.178 8c5.096 0 5.096 8 0 8-5.095 0-7.133-8-12.739-8-4.585 0-4.585 8 0 8 5.606 0 7.644-8 12.74-8z" />
-    </svg>
-  </div>
-);
-
-const MiracleIcon = () => (
-  <div className="w-11 h-11 rounded-full flex items-center justify-center mx-auto mb-2" style={{ background: `linear-gradient(135deg, ${GOLD}22, ${GOLD}44)` }}>
-    <svg width="22" height="22" viewBox="0 0 24 24" fill={GOLD} stroke="none">
-      <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
-    </svg>
-  </div>
-);
-
-const LotusIcon = () => (
-  <div className="w-11 h-11 rounded-full flex items-center justify-center mx-auto mb-2" style={{ background: `linear-gradient(135deg, ${GOLD}22, ${GOLD}44)` }}>
-    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke={GOLD} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M12 20c-4-4-8-6-8-10a4 4 0 0 1 8 0" /><path d="M12 20c4-4 8-6 8-10a4 4 0 0 0-8 0" /><path d="M12 20c-2-2-4-4-4-8a4 4 0 0 1 4-4" /><path d="M12 20c2-2 4-4 4-8a4 4 0 0 0-4-4" />
-    </svg>
-  </div>
-);
-
-const HappinessIcon = () => (
-  <div className="w-11 h-11 rounded-full flex items-center justify-center mx-auto mb-2" style={{ background: `linear-gradient(135deg, ${GOLD}22, ${GOLD}44)` }}>
-    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke={GOLD} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-      <circle cx="12" cy="12" r="10" /><path d="M8 14s1.5 2 4 2 4-2 4-2" /><line x1="9" y1="9" x2="9.01" y2="9" /><line x1="15" y1="9" x2="15.01" y2="9" />
-    </svg>
-  </div>
-);
-
-const LifeIcon = () => (
-  <div className="w-11 h-11 rounded-full flex items-center justify-center mx-auto mb-2" style={{ background: `linear-gradient(135deg, ${GOLD}22, ${GOLD}44)` }}>
-    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke={GOLD} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M22 12h-4l-3 9L9 3l-3 9H2" />
-    </svg>
-  </div>
+// TwoHearts: Two overlapping hearts
+const TwoHeartsIcon = () => iconWrap(
+  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke={GOLD} strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M15.5 4.5a3.5 3.5 0 0 0-5 0L9 6l-1.5-1.5a3.5 3.5 0 0 0-5 5L9 16l6.5-6.5a3.5 3.5 0 0 0 0-5z" fill={`${GOLD}22`}/>
+    <path d="M21 8.5a3.5 3.5 0 0 0-5 0L14.5 10 13 8.5a3.5 3.5 0 0 0-5 5l6.5 6.5 6.5-6.5a3.5 3.5 0 0 0 0-5z" fill={`${GOLD}33`}/>
+  </svg>
 );
 
 const ICON_MAP = {
@@ -208,15 +111,62 @@ const ICON_MAP = {
   home: HomeIcon, scroll: ScrollIcon, atom: AtomIcon, feather: FeatherIcon,
   choose: ChooseIcon, shield: ShieldIcon, guru: GlobeIcon, infinity: InfinityIcon,
   miracle: MiracleIcon, lotus: LotusIcon, happiness: HappinessIcon, life: LifeIcon,
+  bliss: BlissIcon, quill: QuillIcon, twohearts: TwoHeartsIcon,
 };
 
 const DEFAULT_PHILO = [
   { icon: 'home', title: 'A Soulful Home Like No Other', description: 'For those countless souls who came here lost, hopeless, helpless, suffering \u2014 Divine Iris became the home they never knew they were searching for.', show_icon: true, title_style: {}, description_style: {} },
-  { icon: 'scroll', title: 'Ancient Wisdom, Living Legacy', description: 'Our unique method of healing is deeply rooted in ancient wisdom gained over thousands of lifetimes \u2014 literally seen, re-lived and re-experienced by our healer.', show_icon: true, title_style: {}, description_style: {} },
+  { icon: 'quill', title: 'Ancient Wisdom, Living Legacy', description: 'Our unique method of healing is deeply rooted in ancient wisdom gained over thousands of lifetimes \u2014 literally seen, re-lived and re-experienced by our healer.', show_icon: true, title_style: {}, description_style: {} },
   { icon: 'atom', title: 'Healing at the Deepest Level', description: 'Our healings are designed to heal at the atomic, subatomic and DNA level \u2014 connecting you with your own highest intelligence.', show_icon: true, title_style: {}, description_style: {} },
   { icon: 'feather', title: 'Effortless Transformation', description: 'We make transformations effortless and painless. No affirmations, no homework, no meditation \u2014 just pure, deep healing.', show_icon: true, title_style: {}, description_style: {} },
-  { icon: 'choose', title: 'Choose Us, Choose You', description: 'Choosing Divine Iris means choosing your happiness, your transformation, your life.', show_icon: true, title_style: {}, description_style: {} },
+  { icon: 'twohearts', title: 'Choose Us, Choose You', description: 'Choosing Divine Iris means choosing your happiness, your transformation, your life.', show_icon: true, title_style: {}, description_style: {} },
 ];
+
+/* ── Hover Card wrapper (description reveals on hover) ── */
+const HoverCard = ({ children, desc, descStyle, testId, inView, delay, bg }) => {
+  const [hovered, setHovered] = useState(false);
+  return (
+    <div
+      data-testid={testId}
+      className="text-center rounded-2xl border border-gray-100 transition-all duration-500 cursor-default relative overflow-hidden"
+      style={{
+        background: bg || 'linear-gradient(180deg, #ffffff 0%, #faf8ff 100%)',
+        opacity: inView ? 1 : 0,
+        transform: inView ? 'translateY(0)' : 'translateY(24px)',
+        transition: `opacity 0.6s ease ${delay}s, transform 0.6s ease ${delay}s, box-shadow 0.4s ease, border-color 0.3s ease`,
+        boxShadow: hovered ? `0 8px 32px ${GOLD}22, 0 0 0 1px ${GOLD}44` : '0 1px 3px rgba(0,0,0,0.04)',
+        borderColor: hovered ? `${GOLD}66` : undefined,
+      }}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+    >
+      <div className="px-4 py-5">
+        {children}
+      </div>
+      {/* Description reveal overlay */}
+      <div
+        className="overflow-hidden transition-all duration-500 ease-in-out"
+        style={{
+          maxHeight: hovered ? '200px' : '0',
+          opacity: hovered ? 1 : 0,
+        }}
+      >
+        <div className="px-4 pb-4 pt-1">
+          <div className="w-8 h-px mx-auto mb-2" style={{ background: `${GOLD}66` }} />
+          <p style={descStyle} data-testid={`${testId}-desc`}>{desc}</p>
+        </div>
+      </div>
+      {/* Subtle glow effect on hover */}
+      <div
+        className="absolute inset-0 pointer-events-none rounded-2xl transition-opacity duration-500"
+        style={{
+          background: `radial-gradient(circle at 50% 0%, ${GOLD}11 0%, transparent 70%)`,
+          opacity: hovered ? 1 : 0,
+        }}
+      />
+    </div>
+  );
+};
 
 const TrustSection = ({ sectionConfig }) => {
   const [inView, setInView] = useState(false);
@@ -224,6 +174,8 @@ const TrustSection = ({ sectionConfig }) => {
   const ref = useRef(null);
   const cards = (sectionConfig?.trust_cards && sectionConfig.trust_cards.length > 0) ? sectionConfig.trust_cards : DEFAULT_CARDS;
   const philoCards = (sectionConfig?.philosophy_cards && sectionConfig.philosophy_cards.length > 0) ? sectionConfig.philosophy_cards : DEFAULT_PHILO;
+  const showRow1Desc = sectionConfig?.show_row1_descriptions !== false;
+  const showRow2Desc = sectionConfig?.show_row2_descriptions !== false;
 
   const titleStyle = applySectionStyle(sectionConfig?.title_style, {
     ...HEADING, color: '#1a1a1a', fontSize: 'clamp(1.4rem, 3vw, 2rem)',
@@ -241,7 +193,6 @@ const TrustSection = ({ sectionConfig }) => {
     return () => obs.disconnect();
   }, []);
 
-  // Rotating quote
   const quotes = sectionConfig?.quotes || [
     { text: 'Divine Iris didn\u2019t just heal my body \u2014 it healed my soul. I found a family I never knew I was missing.', author: 'A Grateful Soul' },
     { text: 'The transformation was beyond what I could have ever imagined. Life has never been the same since.', author: 'A Blessed Heart' },
@@ -268,28 +219,17 @@ const TrustSection = ({ sectionConfig }) => {
           </div>
         )}
 
-        {/* Row 1: Metrics */}
+        {/* Row 1 Heading */}
         {(sectionConfig?.row1_title || sectionConfig?.row1_subtitle || sectionConfig?.row1_description) && (
           <div className="text-center mb-5">
-            {sectionConfig?.row1_title && (
-              <h3 style={applySectionStyle(sectionConfig?.row1_title_style, {
-                ...HEADING, color: '#1a1a1a', fontSize: 'clamp(1.2rem, 2.5vw, 1.6rem)',
-              })}>{sectionConfig.row1_title}</h3>
-            )}
-            {sectionConfig?.row1_subtitle && (
-              <p style={applySectionStyle(sectionConfig?.row1_subtitle_style, {
-                fontFamily: "'Lato', sans-serif", fontWeight: 300, color: '#999',
-                fontSize: '0.75rem', letterSpacing: '0.15em', textTransform: 'uppercase',
-              })} className="mt-1">{sectionConfig.row1_subtitle}</p>
-            )}
-            {sectionConfig?.row1_description && (
-              <p style={applySectionStyle(sectionConfig?.row1_description_style, {
-                ...BODY, fontSize: '0.9rem', color: '#666', lineHeight: 1.7,
-              })} className="mt-2 max-w-2xl mx-auto">{sectionConfig.row1_description}</p>
-            )}
+            {sectionConfig?.row1_title && <h3 style={applySectionStyle(sectionConfig?.row1_title_style, { ...HEADING, color: '#1a1a1a', fontSize: 'clamp(1.2rem, 2.5vw, 1.6rem)' })}>{sectionConfig.row1_title}</h3>}
+            {sectionConfig?.row1_subtitle && <p style={applySectionStyle(sectionConfig?.row1_subtitle_style, { fontFamily: "'Lato', sans-serif", fontWeight: 300, color: '#999', fontSize: '0.75rem', letterSpacing: '0.15em', textTransform: 'uppercase' })} className="mt-1">{sectionConfig.row1_subtitle}</p>}
+            {sectionConfig?.row1_description && <p style={applySectionStyle(sectionConfig?.row1_description_style, { ...BODY, fontSize: '0.9rem', color: '#666', lineHeight: 1.7 })} className="mt-2 max-w-2xl mx-auto">{sectionConfig.row1_description}</p>}
             <div className="w-10 h-0.5 mx-auto mt-2" style={{ background: GOLD }} />
           </div>
         )}
+
+        {/* Row 1: Metrics */}
         <div className={`grid grid-cols-2 ${cards.length >= 5 ? 'lg:grid-cols-5' : cards.length >= 4 ? 'lg:grid-cols-4' : 'lg:grid-cols-3'} gap-4 max-w-5xl mx-auto`}>
           {cards.map((card, i) => {
             const IconComp = ICON_MAP[card.icon] || TrustIcon;
@@ -302,83 +242,69 @@ const TrustSection = ({ sectionConfig }) => {
               letterSpacing: '0.15em', textTransform: 'uppercase', color: '#444',
             });
             const descStyle = applySectionStyle(card.description_style, {
-              ...BODY, fontSize: '0.85rem', color: '#555', lineHeight: 1.7,
+              ...BODY, fontSize: '0.8rem', color: '#555', lineHeight: 1.6,
             });
             const desc = card.description || DEFAULT_CARDS[i]?.description || '';
 
             return (
-              <div
+              <HoverCard
                 key={i}
-                data-testid={`trust-card-${i}`}
-                className="text-center px-4 py-5 rounded-2xl border border-gray-100 hover:border-gray-200 transition-all duration-500 hover:shadow-lg group"
-                style={{
-                  background: 'linear-gradient(180deg, #ffffff 0%, #faf8ff 100%)',
-                  opacity: inView ? 1 : 0,
-                  transform: inView ? 'translateY(0)' : 'translateY(24px)',
-                  transition: `opacity 0.6s ease ${i * 0.12}s, transform 0.6s ease ${i * 0.12}s`,
-                }}
+                testId={`trust-card-${i}`}
+                desc={showRow1Desc ? desc : ''}
+                descStyle={descStyle}
+                inView={inView}
+                delay={i * 0.12}
               >
                 {card.show_icon !== false && <IconComp />}
                 {card.value && (
-                  <p className="mt-1 group-hover:scale-105 transition-transform duration-300" style={valStyle}>
+                  <p className="mt-1 transition-transform duration-300" style={valStyle}>
                     <AnimatedValue value={card.value} inView={inView} />
                   </p>
                 )}
                 {card.icon === 'google' && <GoogleStars />}
-                <p className="mt-2 mb-1" style={lblStyle}>{card.label}</p>
-                <p style={descStyle} data-testid={`trust-desc-${i}`}>{desc}</p>
-              </div>
+                <p className="mt-2 mb-0" style={lblStyle}>{card.label}</p>
+              </HoverCard>
             );
           })}
         </div>
 
         {/* Row 2: Why Us / Philosophy */}
-        {(sectionConfig?.row2_title || philoCards.length > 0) && (
+        {(sectionConfig?.row2_title || sectionConfig?.row2_subtitle || philoCards.length > 0) && (
           <>
-            {sectionConfig?.row2_title && (
+            {(sectionConfig?.row2_title || sectionConfig?.row2_subtitle) && (
               <div className="text-center mt-10 mb-5">
-                <h3 style={applySectionStyle(sectionConfig?.row2_title_style, {
-                  ...HEADING, color: '#1a1a1a', fontSize: 'clamp(1.2rem, 2.5vw, 1.6rem)',
-                })}>{sectionConfig.row2_title}</h3>
-                {sectionConfig?.row2_subtitle && (
-                  <p style={applySectionStyle(sectionConfig?.row2_subtitle_style, {
-                    fontFamily: "'Lato', sans-serif", fontWeight: 300, color: '#999',
-                    fontSize: '0.75rem', letterSpacing: '0.15em', textTransform: 'uppercase',
-                  })} className="mt-1">{sectionConfig.row2_subtitle}</p>
-                )}
+                {sectionConfig?.row2_title && <h3 style={applySectionStyle(sectionConfig?.row2_title_style, { ...HEADING, color: '#1a1a1a', fontSize: 'clamp(1.2rem, 2.5vw, 1.6rem)' })}>{sectionConfig.row2_title}</h3>}
+                {sectionConfig?.row2_subtitle && <p style={applySectionStyle(sectionConfig?.row2_subtitle_style, { fontFamily: "'Lato', sans-serif", fontWeight: 300, color: '#999', fontSize: '0.75rem', letterSpacing: '0.15em', textTransform: 'uppercase' })} className="mt-1">{sectionConfig.row2_subtitle}</p>}
                 <div className="w-10 h-0.5 mx-auto mt-2" style={{ background: GOLD }} />
               </div>
             )}
-            <div className={`grid grid-cols-1 sm:grid-cols-2 ${philoCards.length >= 5 ? 'lg:grid-cols-5' : philoCards.length >= 4 ? 'lg:grid-cols-4' : 'lg:grid-cols-3'} gap-4 max-w-5xl mx-auto ${sectionConfig?.row2_title ? '' : 'mt-6'}`}>
-          {philoCards.map((card, i) => {
-            const IconComp = ICON_MAP[card.icon] || TrustIcon;
-            const tStyle = applySectionStyle(card.title_style, {
-              fontFamily: "'Lato', sans-serif", fontWeight: 600, fontSize: '0.8rem',
-              color: '#333', lineHeight: 1.3,
-            });
-            const dStyle = applySectionStyle(card.description_style, {
-              ...BODY, fontSize: '0.72rem', color: '#777', lineHeight: 1.6,
-            });
+            <div className={`grid grid-cols-1 sm:grid-cols-2 ${philoCards.length >= 5 ? 'lg:grid-cols-5' : philoCards.length >= 4 ? 'lg:grid-cols-4' : 'lg:grid-cols-3'} gap-4 max-w-5xl mx-auto ${(sectionConfig?.row2_title || sectionConfig?.row2_subtitle) ? '' : 'mt-6'}`}>
+              {philoCards.map((card, i) => {
+                const IconComp = ICON_MAP[card.icon] || TrustIcon;
+                const tStyle = applySectionStyle(card.title_style, {
+                  fontFamily: "'Lato', sans-serif", fontWeight: 600, fontSize: '0.8rem',
+                  color: '#333', lineHeight: 1.3,
+                });
+                const dStyle = applySectionStyle(card.description_style, {
+                  ...BODY, fontSize: '0.78rem', color: '#555', lineHeight: 1.6,
+                });
+                const desc = card.description || DEFAULT_PHILO[i]?.description || '';
 
-            return (
-              <div
-                key={i}
-                data-testid={`philo-card-${i}`}
-                className="text-center px-4 py-5 rounded-2xl border border-gray-100 hover:border-gray-200 transition-all duration-500 hover:shadow-lg"
-                style={{
-                  background: 'linear-gradient(180deg, #ffffff 0%, #faf8ff 100%)',
-                  opacity: inView ? 1 : 0,
-                  transform: inView ? 'translateY(0)' : 'translateY(20px)',
-                  transition: `opacity 0.6s ease ${(i + cards.length) * 0.1}s, transform 0.6s ease ${(i + cards.length) * 0.1}s`,
-                }}
-              >
-                {card.show_icon !== false && <IconComp />}
-                <p className="mt-1 mb-1" style={tStyle}>{card.title}</p>
-                {card.description && <p style={dStyle}>{card.description}</p>}
-              </div>
-            );
-          })}
-        </div>
+                return (
+                  <HoverCard
+                    key={i}
+                    testId={`philo-card-${i}`}
+                    desc={showRow2Desc ? desc : ''}
+                    descStyle={dStyle}
+                    inView={inView}
+                    delay={(i + cards.length) * 0.1}
+                  >
+                    {card.show_icon !== false && <IconComp />}
+                    <p className="mt-1 mb-0" style={tStyle}>{card.title}</p>
+                  </HoverCard>
+                );
+              })}
+            </div>
           </>
         )}
 
@@ -396,25 +322,15 @@ const TrustSection = ({ sectionConfig }) => {
                     <path d="M3 21c3 0 7-1 7-8V5c0-1.25-.756-2.017-2-2H4c-1.25 0-2 .75-2 1.972V11c0 1.25.75 2 2 2 1 0 1 0 1 1v1c0 1-1 2-2 2s-1 .008-1 1.031V20c0 1 0 1 1 1z" />
                     <path d="M15 21c3 0 7-1 7-8V5c0-1.25-.757-2.017-2-2h-4c-1.25 0-2 .75-2 1.972V11c0 1.25.75 2 2 2h.75c0 2.25.25 4-2.75 4v3c0 1 0 1 1 1z" />
                   </svg>
-                  <p style={{ fontFamily: "'Lato', sans-serif", fontStyle: 'italic', fontSize: '0.85rem', color: '#666', lineHeight: 1.7 }}>
-                    {q.text}
-                  </p>
-                  <p style={{ fontFamily: "'Lato', sans-serif", fontWeight: 600, fontSize: '0.7rem', color: GOLD, letterSpacing: '0.1em', textTransform: 'uppercase', marginTop: '8px' }}>
-                    — {q.author}
-                  </p>
+                  <p style={{ fontFamily: "'Lato', sans-serif", fontStyle: 'italic', fontSize: '0.85rem', color: '#666', lineHeight: 1.7 }}>{q.text}</p>
+                  <p style={{ fontFamily: "'Lato', sans-serif", fontWeight: 600, fontSize: '0.7rem', color: GOLD, letterSpacing: '0.1em', textTransform: 'uppercase', marginTop: '8px' }}>— {q.author}</p>
                 </div>
               ))}
             </div>
             {quotes.length > 1 && (
               <div className="flex justify-center gap-1.5 mt-4">
                 {quotes.map((_, i) => (
-                  <button
-                    key={i}
-                    onClick={() => setQuoteIdx(i)}
-                    className="w-1.5 h-1.5 rounded-full transition-all duration-300"
-                    style={{ background: i === quoteIdx ? GOLD : '#ddd' }}
-                    data-testid={`quote-dot-${i}`}
-                  />
+                  <button key={i} onClick={() => setQuoteIdx(i)} className="w-1.5 h-1.5 rounded-full transition-all duration-300" style={{ background: i === quoteIdx ? GOLD : '#ddd' }} data-testid={`quote-dot-${i}`} />
                 ))}
               </div>
             )}
