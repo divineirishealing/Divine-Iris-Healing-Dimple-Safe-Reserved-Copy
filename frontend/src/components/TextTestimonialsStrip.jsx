@@ -82,32 +82,33 @@ const TextTestimonialsStrip = ({ sectionConfig }) => {
       <div className="absolute pointer-events-none" style={{ top: '5%', left: '50%', transform: 'translateX(-50%)', width: '30%', height: '40%', background: 'radial-gradient(ellipse at center, rgba(212,175,55,0.05) 0%, transparent 65%)', filter: 'blur(30px)' }} />
 
       <div className="relative z-10">
-        {/* ── Trust Elements (inline, organic) ── */}
-        <div className="flex items-center justify-center gap-3 sm:gap-5 lg:gap-7 flex-wrap mb-6" data-testid="trust-strip">
-          {trustCards.map((card, i) => {
-            const valStyle = applySectionStyle(card.value_style, {
-              fontFamily: "'Cinzel', serif", fontSize: '0.85rem', fontWeight: 600, color: GOLD, lineHeight: 1,
-            });
-            const lblStyle = applySectionStyle(card.label_style, {
-              fontFamily: "'Lato', sans-serif", fontWeight: 400, fontSize: '0.6rem',
-              letterSpacing: '0.12em', textTransform: 'uppercase', color: '#aaa',
-            });
-            return (
-              <React.Fragment key={i}>
-                {i > 0 && (
-                  <svg width="5" height="5" viewBox="0 0 10 10" className="hidden sm:block flex-shrink-0" style={{ opacity: 0.2 }}>
-                    <path d="M5 0L6.18 3.82L10 5L6.18 6.18L5 10L3.82 6.18L0 5L3.82 3.82Z" fill="#D4AF37"/>
-                  </svg>
-                )}
-                <div className="flex items-center gap-1.5" data-testid={`trust-item-${i}`}>
-                  {card.icon === 'google' && <GoogleIcon />}
-                  {card.value && <span style={valStyle}>{card.value}</span>}
-                  {card.icon === 'google' && <MiniStars />}
-                  <span style={lblStyle}>{card.label}</span>
+        {/* ── Trust Cards (full, single row) ── */}
+        <div className={CONTAINER}>
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 max-w-5xl mx-auto mb-10" data-testid="trust-strip">
+            {trustCards.map((card, i) => {
+              const valStyle = applySectionStyle(card.value_style, {
+                fontFamily: "'Cinzel', serif", fontSize: 'clamp(1.6rem, 3vw, 2.2rem)', fontWeight: 700, color: GOLD, lineHeight: 1.1,
+              });
+              const lblStyle = applySectionStyle(card.label_style, {
+                fontFamily: "'Lato', sans-serif", fontWeight: 600, fontSize: '0.65rem',
+                letterSpacing: '0.15em', textTransform: 'uppercase', color: '#555',
+              });
+              const descStyle = applySectionStyle(card.description_style, {
+                fontFamily: "'Lato', sans-serif", fontSize: '0.75rem', color: '#999', lineHeight: 1.6, fontWeight: 300,
+              });
+              return (
+                <div key={i} className="text-center px-3 py-5 rounded-xl border border-gray-100/80 hover:shadow-md transition-all duration-500 group" data-testid={`trust-item-${i}`} style={{ background: 'linear-gradient(180deg, #ffffff 0%, #fdfcff 100%)' }}>
+                  <div className="flex items-center justify-center gap-1.5 mb-1">
+                    {card.icon === 'google' && <GoogleIcon />}
+                    {card.icon === 'google' && <MiniStars />}
+                  </div>
+                  {card.value && <p style={valStyle} className="group-hover:scale-105 transition-transform duration-300">{card.value}</p>}
+                  <p style={lblStyle} className="mt-1.5 mb-1.5">{card.label}</p>
+                  {card.description && <p style={descStyle}>{card.description}</p>}
                 </div>
-              </React.Fragment>
-            );
-          })}
+              );
+            })}
+          </div>
         </div>
 
         {/* Top ornament */}
