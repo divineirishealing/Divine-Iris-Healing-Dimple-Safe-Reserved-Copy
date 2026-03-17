@@ -518,34 +518,30 @@ const UpcomingProgramsSection = ({ sectionConfig, inline }) => {
           const gridClass = totalCols === 2 ? 'lg:grid-cols-2' : totalCols === 3 ? 'lg:grid-cols-3' : 'lg:grid-cols-4';
           const titleSpan = totalCols === 2 ? 'lg:col-span-1' : totalCols === 3 ? 'lg:col-span-2' : 'lg:col-span-3';
           return (
-            <>
-              {/* Titles */}
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
-                <div className="text-center">
-                  <h2 className="text-2xl sm:text-3xl md:text-4xl text-gray-900" style={applyTitleStyle(sectionConfig?.title_style, {})}>{sectionConfig?.title || 'Upcoming Programs'}</h2>
-                  {(sectionConfig?.subtitle || (!programs.some(p => p.enable_in_person) && !sectionConfig)) && (
-                    <p className="text-sm text-gray-900 mt-3" style={sectionConfig?.subtitle_style ? { ...(sectionConfig.subtitle_style.font_color && { color: sectionConfig.subtitle_style.font_color }), ...(sectionConfig.subtitle_style.font_size && { fontSize: sectionConfig.subtitle_style.font_size }), ...(sectionConfig.subtitle_style.font_family && { fontFamily: sectionConfig.subtitle_style.font_family }), ...(sectionConfig.subtitle_style.font_weight && { fontWeight: sectionConfig.subtitle_style.font_weight }) } : {}}>{sectionConfig?.subtitle}</p>
-                  )}
-                </div>
-                <div data-testid="sponsor-title-column" className="text-center hidden lg:block">
-                  <h2 className="text-3xl md:text-4xl text-gray-900" style={applyTitleStyle(sponsorConfig?.title_style, {})}>{sponsorConfig?.title || 'Become a Sponsor'}</h2>
-                  {sponsorConfig?.subtitle && (
-                    <p className="text-sm text-gray-900 mt-3" style={applyTitleStyle(sponsorConfig?.subtitle_style, {})}>{sponsorConfig.subtitle}</p>
-                  )}
-                </div>
+            <div className={`grid grid-cols-1 ${gridClass} gap-6`}>
+              {/* Title row */}
+              <div className={`${titleSpan} text-center`}>
+                <h2 className="text-3xl md:text-4xl text-gray-900" style={applyTitleStyle(sectionConfig?.title_style, {})}>{sectionConfig?.title || 'Upcoming Programs'}</h2>
+                {(sectionConfig?.subtitle || (!programs.some(p => p.enable_in_person) && !sectionConfig)) && (
+                  <p className="text-sm text-gray-900 mt-3" style={sectionConfig?.subtitle_style ? { ...(sectionConfig.subtitle_style.font_color && { color: sectionConfig.subtitle_style.font_color }), ...(sectionConfig.subtitle_style.font_size && { fontSize: sectionConfig.subtitle_style.font_size }), ...(sectionConfig.subtitle_style.font_family && { fontFamily: sectionConfig.subtitle_style.font_family }), ...(sectionConfig.subtitle_style.font_weight && { fontWeight: sectionConfig.subtitle_style.font_weight }) } : {}}>{sectionConfig?.subtitle}</p>
+                )}
               </div>
-              {/* Cards — stack on mobile, multi-column on desktop */}
-              <div className={`grid grid-cols-1 sm:grid-cols-2 ${gridClass} gap-6`}>
-                {sorted.map(program => <UpcomingCard key={program.id} program={program} />)}
-                <div className="h-full">
-                  {/* Sponsor title for mobile (hidden on lg) */}
-                  <div className="text-center mb-4 lg:hidden">
-                    <h2 className="text-2xl sm:text-3xl text-gray-900" style={applyTitleStyle(sponsorConfig?.title_style, {})}>{sponsorConfig?.title || 'Become a Sponsor'}</h2>
-                  </div>
-                  <SponsorCard sponsorData={sponsorData} />
-                </div>
+              <div data-testid="sponsor-title-column" className="text-center hidden lg:block">
+                <h2 className="text-3xl md:text-4xl text-gray-900" style={applyTitleStyle(sponsorConfig?.title_style, {})}>{sponsorConfig?.title || 'Become a Sponsor'}</h2>
+                {sponsorConfig?.subtitle && (
+                  <p className="text-sm text-gray-900 mt-3" style={applyTitleStyle(sponsorConfig?.subtitle_style, {})}>{sponsorConfig.subtitle}</p>
+                )}
               </div>
-            </>
+              {/* Cards */}
+              {sorted.map(program => <UpcomingCard key={program.id} program={program} />)}
+              <div className="h-full">
+                {/* Sponsor title for mobile only */}
+                <div className="text-center mb-4 lg:hidden">
+                  <h2 className="text-2xl sm:text-3xl text-gray-900" style={applyTitleStyle(sponsorConfig?.title_style, {})}>{sponsorConfig?.title || 'Become a Sponsor'}</h2>
+                </div>
+                <SponsorCard sponsorData={sponsorData} />
+              </div>
+            </div>
           );
         })()
       )}
