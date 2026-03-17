@@ -529,6 +529,14 @@ async def create_sponsor_checkout(req: CreateSponsorCheckoutRequest, http_reques
     if req.amount <= 0:
         raise HTTPException(status_code=400, detail="Amount must be greater than 0")
 
+    # ── Currency verification ──
+    from routes.currency import detect_ip_info, get_base_currency
+    ip_country, vpn_detected = await detect_ip_info(http_request)
+    server_currency = get_base_currency(ip_country, vpn_detected)
+    claimed_currency = (req.currency or "usd").lower()
+    if claimed_currency == "inr" and server_currency != "inr":
+        raise HTTPException(status_code=403, detail="Currency mismatch — your region does not qualify for INR pricing. Please refresh the page.")
+
     currency = req.currency.lower()
     origin = req.origin_url.rstrip('/')
     success_url = f"{origin}/payment/success?session_id={{CHECKOUT_SESSION_ID}}"
@@ -579,6 +587,16 @@ async def create_sponsor_checkout(req: CreateSponsorCheckoutRequest, http_reques
 
 @router.post("/create-checkout")
 async def create_checkout(req: CreateCheckoutRequest, http_request: Request):
+    # ── Currency verification: re-check IP before payment ──
+    from routes.currency import detect_ip_info, get_base_currency
+    ip_country, vpn_detected = await detect_ip_info(http_request)
+    server_currency = get_base_currency(ip_country, vpn_detected)
+    claimed_currency = (req.currency or "usd").lower()
+    if claimed_currency == "inr" and server_currency != "inr":
+        raise HTTPException(status_code=403, detail="Currency mismatch — your region does not qualify for INR pricing. Please refresh the page.")
+    if claimed_currency == "aed" and server_currency == "usd":
+        raise HTTPException(status_code=403, detail="Currency mismatch — please refresh the page.")
+
     # Fetch item from DB to get the price (NEVER from frontend)
     if req.item_type == "program":
         item = await db.programs.find_one({"id": req.item_id})
