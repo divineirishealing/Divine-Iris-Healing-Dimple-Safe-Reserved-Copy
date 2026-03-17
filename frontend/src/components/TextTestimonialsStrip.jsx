@@ -123,16 +123,16 @@ const MiracleIcon = () => iconCircle(<svg width="20" height="20" viewBox="0 0 24
 const LotusIcon = () => iconCircle(<svg width="20" height="20" viewBox="0 0 24 24" {...s}><path d="M12 22c-4-3-8-7.5-8-12a8 8 0 0 1 16 0c0 4.5-4 9-8 12z"/><path d="M12 22c2-3 4-7.5 4-12"/><path d="M12 22c-2-3-4-7.5-4-12"/><circle cx="12" cy="10" r="3"/></svg>);
 const QuillIcon = () => iconCircle(
   <svg width="20" height="20" viewBox="0 0 24 24" fill="none" strokeLinecap="round" strokeLinejoin="round">
-    {/* Pen body */}
-    <line x1="4" y1="20" x2="18" y2="6" stroke="#c4995c" strokeWidth="2.5"/>
-    {/* Pen wood grain */}
-    <line x1="4" y1="20" x2="18" y2="6" stroke="#a07830" strokeWidth="1" strokeDasharray="2 3" opacity="0.5"/>
-    {/* Metal tip */}
-    <line x1="3" y1="21" x2="6" y2="18" stroke="#8b8b8b" strokeWidth="2"/>
-    <circle cx="3" cy="21" r="0.5" fill="#666"/>
-    {/* Eraser/top */}
-    <line x1="17" y1="7" x2="19.5" y2="4.5" stroke="#d4a574" strokeWidth="3" opacity="0.8"/>
-    <line x1="19" y1="5" x2="20" y2="4" stroke="#b8962e" strokeWidth="2"/>
+    {/* Feather quill body - curved */}
+    <path d="M20 2c-4 1-7 4-9 8-1.5 3-2.5 6-2 9" stroke="#b8962e" strokeWidth="1.3" fill="#b8962e08"/>
+    <path d="M20 2c-1 4-3 7-6 10-2 2-4 3.5-7 4" stroke="#b8962e" strokeWidth="1.3"/>
+    {/* Feather barbs */}
+    <path d="M16 5c-1.5 1-2.5 2.5-3 4" stroke="#b8962e" strokeWidth="0.8" opacity="0.4"/>
+    <path d="M14 8c-1.5 1.5-2.5 3-3 5" stroke="#b8962e" strokeWidth="0.8" opacity="0.35"/>
+    <path d="M12 11c-1 1.5-2 3-2.5 5" stroke="#b8962e" strokeWidth="0.8" opacity="0.3"/>
+    {/* Ink trail */}
+    <path d="M7 16c-1 1-2 2.5-2.5 4" stroke="#b8962e" strokeWidth="1.5"/>
+    <circle cx="4" cy="21" r="0.8" fill="#b8962e"/>
   </svg>
 );
 const MerkabaIcon = () => iconCircle(
