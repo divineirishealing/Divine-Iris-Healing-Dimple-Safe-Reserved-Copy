@@ -14,23 +14,51 @@ const DEFAULT_TRUST_CARDS = [
 
 const DEFAULT_PHILOSOPHY_CARDS = [
   {
+    icon: 'home',
     title: 'A Soulful Home Like No Other',
     description: 'For those countless souls who came here lost, hopeless, helpless, suffering \u2014 Divine Iris became the home they never knew they were searching for.',
     title_style: {}, description_style: {},
   },
   {
+    icon: 'scroll',
     title: 'Ancient Wisdom, Living Legacy',
     description: 'Our unique method of healing is deeply rooted in ancient wisdom gained over thousands of lifetimes \u2014 literally seen, re-lived and re-experienced by our healer and inculcated under the guidance of the Gurus to make people free of suffering.',
     title_style: {}, description_style: {},
   },
   {
+    icon: 'atom',
     title: 'Healing at the Deepest Level',
     description: 'Our healings are designed to heal at the atomic, subatomic and DNA level \u2014 connecting you with your own highest intelligence and unravelling your limitless potential.',
     title_style: {}, description_style: {},
   },
   {
+    icon: 'feather',
     title: 'Effortless Transformation',
     description: 'We make transformations effortless and painless for our people. No affirmations, no homework, no meditation, no reading, no writing \u2014 just pure, deep healing.',
+    title_style: {}, description_style: {},
+  },
+  {
+    icon: 'shield',
+    title: 'Safe Sacred Space',
+    description: 'A sanctuary where every soul is held without judgement. Your pain, your past, your fears \u2014 all honoured and transmuted in complete trust and safety.',
+    title_style: {}, description_style: {},
+  },
+  {
+    icon: 'guru',
+    title: 'Guided by the Divine',
+    description: 'Every healing is channelled under the grace of the highest Gurus and divine beings \u2014 ensuring each soul receives exactly what they need, when they need it.',
+    title_style: {}, description_style: {},
+  },
+  {
+    icon: 'infinity',
+    title: 'Lasting, Permanent Results',
+    description: 'Our healings don\u2019t wear off. We go to the root \u2014 the origin of your suffering across lifetimes \u2014 and dissolve it permanently so you never carry it again.',
+    title_style: {}, description_style: {},
+  },
+  {
+    icon: 'miracle',
+    title: 'Living Miracles, Not Promises',
+    description: 'We don\u2019t make claims. Our people are the proof. From chronic illnesses to deep emotional wounds \u2014 miracles happen here every single day.',
     title_style: {}, description_style: {},
   },
 ];
@@ -65,6 +93,34 @@ const UsersIcon = () => (
 const DnaIcon = () => (
   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={GOLD} strokeWidth="1.5"><path d="M2 15c6.667-6 13.333 0 20-6" /><path d="M9 22c1.798-1.998 2.518-3.995 2.807-5.993" /><path d="M15 2c-1.798 1.998-2.518 3.995-2.807 5.993" /><path d="M17 6l-2.5-2.5" /><path d="M7 18l2.5 2.5" /></svg>
 );
+
+/* Philosophy card icons */
+const HomeIcon = () => (
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={GOLD} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" /><polyline points="9 22 9 12 15 12 15 22" /></svg>
+);
+const ScrollIcon = () => (
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={GOLD} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" /><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z" /></svg>
+);
+const AtomIcon = () => (
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={GOLD} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="1" /><path d="M20.2 20.2c2.04-2.03.02-7.36-4.5-11.9-4.54-4.52-9.87-6.54-11.9-4.5-2.04 2.03-.02 7.36 4.5 11.9 4.54 4.52 9.87 6.54 11.9 4.5Z" /><path d="M15.7 15.7c4.52-4.54 6.54-9.87 4.5-11.9-2.03-2.04-7.36-.02-11.9 4.5-4.52 4.54-6.54 9.87-4.5 11.9 2.03 2.04 7.36.02 11.9-4.5Z" /></svg>
+);
+const FeatherIcon = () => (
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={GOLD} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M20.24 12.24a6 6 0 0 0-8.49-8.49L5 10.5V19h8.5z" /><line x1="16" y1="8" x2="2" y2="22" /><line x1="17.5" y1="15" x2="9" y2="15" /></svg>
+);
+const ShieldIcon = () => (
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={GOLD} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" /></svg>
+);
+const GuruIcon = () => (
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={GOLD} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20" /><path d="M2 12h20" /></svg>
+);
+const InfinityIcon = () => (
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={GOLD} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M12 12c-2-2.67-4-4-6-4a4 4 0 1 0 0 8c2 0 4-1.33 6-4Zm0 0c2 2.67 4 4 6 4a4 4 0 0 0 0-8c-2 0-4 1.33-6 4Z" /></svg>
+);
+const MiracleIcon = () => (
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={GOLD} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" /></svg>
+);
+
+const PHILOSOPHY_ICONS = { home: HomeIcon, scroll: ScrollIcon, atom: AtomIcon, feather: FeatherIcon, shield: ShieldIcon, guru: GuruIcon, infinity: InfinityIcon, miracle: MiracleIcon };
 
 const TextTestimonialsStrip = ({ sectionConfig }) => {
   const [quotes, setQuotes] = useState([]);
@@ -150,9 +206,10 @@ const TextTestimonialsStrip = ({ sectionConfig }) => {
             })}
           </div>
 
-          {/* ── Philosophy / USP Cards — Same row as metrics ── */}
+          {/* ── Philosophy / Why Us Cards ── */}
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-6 max-w-5xl mx-auto mb-8" data-testid="philosophy-cards">
             {philosophyCards.map((card, i) => {
+              const PhiloIcon = PHILOSOPHY_ICONS[card.icon] || HeartIcon;
               const tStyle = applySectionStyle(card.title_style, {
                 fontFamily: "'Cinzel', serif", fontSize: '0.8rem', fontWeight: 600, color: '#2a2118', lineHeight: 1.3, letterSpacing: '0.04em',
               });
@@ -161,8 +218,10 @@ const TextTestimonialsStrip = ({ sectionConfig }) => {
                 lineHeight: 1.75, fontWeight: 400, fontStyle: 'italic',
               });
               return (
-                <div key={i} className="text-center" data-testid={`philosophy-card-${i}`}>
-                  <div className="w-6 h-px mx-auto mb-3" style={{ background: `linear-gradient(90deg, transparent, ${GOLD}45, transparent)` }} />
+                <div key={i} className="flex flex-col items-center text-center group" data-testid={`philosophy-card-${i}`}>
+                  <div className="w-10 h-10 rounded-full flex items-center justify-center mb-2 shadow-sm" style={{ background: `linear-gradient(135deg, ${GOLD}15, ${GOLD}30)`, border: `1px solid ${GOLD}25` }}>
+                    <PhiloIcon />
+                  </div>
                   <h3 style={tStyle} className="mb-1.5">{card.title}</h3>
                   <p style={dStyle}>{card.description}</p>
                 </div>
