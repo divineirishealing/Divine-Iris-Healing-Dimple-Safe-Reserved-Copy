@@ -119,6 +119,20 @@ const ProgramRow = ({ p, update, updateTier }) => {
           ) : <span className="text-xs text-gray-300 px-2">—</span>}
         </td>
 
+        {/* Highlight Label */}
+        <td className="px-1 py-2">
+          <Input value={p.highlight_label || ''} onChange={e => update('highlight_label', e.target.value)} placeholder="e.g. Highly Recommended" className="h-8 text-xs px-2 border-amber-200 bg-amber-50/50" />
+        </td>
+
+        {/* Highlight Style */}
+        <td className="px-1 py-2">
+          <select value={p.highlight_style || 'gradient'} onChange={e => update('highlight_style', e.target.value)} className="w-full border rounded px-1 py-1.5 text-xs bg-white border-amber-200">
+            <option value="gradient">Gold</option>
+            <option value="ribbon">Dark</option>
+            <option value="glow">Glow</option>
+          </select>
+        </td>
+
         {/* Online */}
         <td className="px-2 py-2 text-center"><Switch checked={p.enable_online !== false} onCheckedChange={v => update('enable_online', v)} /></td>
 
@@ -250,6 +264,8 @@ const UpcomingHubTab = () => {
               <th className="px-1 py-3 font-bold text-gray-600 min-w-[70px]">TZ</th>
               <th className="px-2 py-3 font-bold text-red-600 w-14">Offer</th>
               <th className="px-1 py-3 font-bold text-red-500 min-w-[100px]">Offer Text</th>
+              <th className="px-1 py-3 font-bold text-amber-600 min-w-[120px]">Highlight Label</th>
+              <th className="px-1 py-3 font-bold text-amber-600 min-w-[70px]">Style</th>
               <th className="px-2 py-3 font-bold text-blue-500 w-14">Online</th>
               <th className="px-2 py-3 font-bold text-teal-600 w-14">Offline</th>
               <th className="px-2 py-3 font-bold text-teal-700 w-14">In-Pers.</th>
