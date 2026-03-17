@@ -52,7 +52,6 @@ const DEFAULT_ORDER = [
   { id: 'sessions', component: 'SessionsSection', visible: true },
   { id: 'stats', component: 'StatsSection', visible: true },
   { id: 'testimonials', component: 'TestimonialsSection', visible: true },
-  { id: 'trust', component: 'TrustSection', visible: false },
   { id: 'newsletter', component: 'NewsletterSection', visible: true },
 ];
 
