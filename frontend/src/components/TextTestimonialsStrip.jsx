@@ -10,7 +10,7 @@ const DEFAULT_TRUST_CARDS = [
   { icon: 'retention', value: '85%', label: 'Stay With Us', description: 'Those who walk through our doors become lifelong members of the Divine Iris family.', value_style: {}, label_style: {}, description_style: {} },
   { icon: 'trust', value: '100%', label: 'Deeply Trusted', description: 'Built on authenticity, love and real results. Our tribe speaks louder than any ad ever could.', value_style: {}, label_style: {}, description_style: {} },
   { icon: 'dna', value: '100%', label: 'Love & Healing Driven', description: 'DNA level transformation. Our people are living miracles.', value_style: {}, label_style: {}, description_style: {} },
-  { icon: 'happiness', value: '100%', label: 'Happiness & Self Love', description: 'Claimed by our participants. True joy and self love \u2014 restored and reclaimed.', value_style: {}, label_style: {}, description_style: {} },
+  { icon: 'happiness', value: '100%', label: 'Happiness, Self Love, Ease, Better Life & Health', description: 'Claimed by our participants. True joy, self love and vibrant health \u2014 restored and reclaimed.', value_style: {}, label_style: {}, description_style: {} },
 ];
 
 const DEFAULT_PHILOSOPHY_CARDS = [
@@ -111,6 +111,9 @@ const LotusIcon = () => (
 const HappinessIcon = () => (
   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={GOLD} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><path d="M8 14s1.5 2 4 2 4-2 4-2" /><line x1="9" y1="9" x2="9.01" y2="9" /><line x1="15" y1="9" x2="15.01" y2="9" /></svg>
 );
+const LifeIcon = () => (
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={GOLD} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M12 22c5.523 0 10-4.477 10-10S17.523 2 12 2 2 6.477 2 12s4.477 10 10 10z" /><path d="M8 12l3 3 5-5" /></svg>
+);
 
 const PHILOSOPHY_ICONS = { home: HomeIcon, scroll: ScrollIcon, atom: AtomIcon, feather: FeatherIcon, shield: ShieldIcon, guru: GuruIcon, infinity: InfinityIcon, miracle: MiracleIcon, choose: ChooseIcon, lotus: LotusIcon };
 
@@ -169,17 +172,17 @@ const TextTestimonialsStrip = ({ sectionConfig }) => {
       <div className="relative z-10">
         {/* ── Trust Metrics (circular icon badges) ── */}
         <div className={CONTAINER}>
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-5 max-w-6xl mx-auto mb-8" data-testid="trust-strip">
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4 max-w-6xl mx-auto mb-8" data-testid="trust-strip">
             {trustCards.map((card, i) => {
               const valStyle = applySectionStyle(card.value_style, {
-                fontFamily: "'Cinzel', serif", fontSize: 'clamp(1.3rem, 2.5vw, 1.8rem)', fontWeight: 700, color: GOLD, lineHeight: 1.1,
+                fontFamily: "'Cinzel', serif", fontSize: 'clamp(1.2rem, 2vw, 1.6rem)', fontWeight: 700, color: GOLD, lineHeight: 1.1,
               });
               const lblStyle = applySectionStyle(card.label_style, {
-                fontFamily: "'Lato', sans-serif", fontWeight: 600, fontSize: '0.6rem',
-                letterSpacing: '0.15em', textTransform: 'uppercase', color: '#555',
+                fontFamily: "'Lato', sans-serif", fontWeight: 600, fontSize: '0.55rem',
+                letterSpacing: '0.14em', textTransform: 'uppercase', color: '#555',
               });
               const descStyle = applySectionStyle(card.description_style, {
-                fontFamily: "'Lato', sans-serif", fontSize: '0.7rem', color: '#999', lineHeight: 1.6, fontWeight: 300,
+                fontFamily: "'Lato', sans-serif", fontSize: '0.65rem', color: '#999', lineHeight: 1.6, fontWeight: 300,
               });
               return (
                 <div key={i} className="flex flex-col items-center text-center group" data-testid={`trust-item-${i}`}>
@@ -189,11 +192,12 @@ const TextTestimonialsStrip = ({ sectionConfig }) => {
                     {card.icon === 'trust' && <HeartIcon />}
                     {card.icon === 'dna' && <DnaIcon />}
                     {card.icon === 'happiness' && <HappinessIcon />}
+                    {card.icon === 'life' && <LifeIcon />}
                   </div>
                   {card.icon === 'google' && <MiniStars />}
                   {card.value && <p style={valStyle} className="mt-1 group-hover:scale-105 transition-transform duration-300">{card.value}</p>}
                   <p style={lblStyle} className="mt-1.5 mb-1">{card.label}</p>
-                  {card.description && <p style={descStyle} className="max-w-[170px]">{card.description}</p>}
+                  {card.description && <p style={descStyle} className="max-w-[155px]">{card.description}</p>}
                 </div>
               );
             })}
