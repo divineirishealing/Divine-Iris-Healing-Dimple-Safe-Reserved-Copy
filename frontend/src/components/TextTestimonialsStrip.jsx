@@ -44,36 +44,6 @@ const DEFAULT_PHILOSOPHY_CARDS = [
     description: 'Choosing Divine Iris means choosing your happiness, your transformation, your life. The moment you say yes to yourself, everything begins to shift.',
     title_style: {}, description_style: {},
   },
-  {
-    icon: 'shield',
-    title: 'Safe Sacred Space',
-    description: 'A sanctuary where every soul is held without judgement. Your pain, your past, your fears \u2014 all honoured and transmuted in complete trust and safety.',
-    title_style: {}, description_style: {},
-  },
-  {
-    icon: 'guru',
-    title: 'Guided by the Divine',
-    description: 'Every healing is channelled under the grace of the highest Gurus and divine beings \u2014 ensuring each soul receives exactly what they need, when they need it.',
-    title_style: {}, description_style: {},
-  },
-  {
-    icon: 'infinity',
-    title: 'Lasting, Permanent Results',
-    description: 'Our healings don\u2019t wear off. We go to the root \u2014 the origin of your suffering across lifetimes \u2014 and dissolve it permanently so you never carry it again.',
-    title_style: {}, description_style: {},
-  },
-  {
-    icon: 'miracle',
-    title: 'Living Miracles, Not Promises',
-    description: 'We don\u2019t make claims. Our people are the proof. From chronic illnesses to deep emotional wounds \u2014 miracles happen here every single day.',
-    title_style: {}, description_style: {},
-  },
-  {
-    icon: 'lotus',
-    title: 'Your Soul Knows the Way',
-    description: 'We don\u2019t tell you what to do. We simply reconnect you to your own inner wisdom, your highest self \u2014 and let your soul lead the way home.',
-    title_style: {}, description_style: {},
-  },
 ];
 
 const MiniStars = () => (
@@ -253,61 +223,64 @@ const TextTestimonialsStrip = ({ sectionConfig }) => {
           </div>
         </div>
 
-        {/* Top ornament */}
-        <div className="flex items-center justify-center gap-3 mb-8">
-          <div className="w-12 h-px" style={{ background: 'linear-gradient(90deg, transparent, rgba(212,175,55,0.4), transparent)' }} />
-          <svg width="7" height="7" viewBox="0 0 10 10" style={{ opacity: 0.35 }}><path d="M5 0L6.18 3.82L10 5L6.18 6.18L5 10L3.82 6.18L0 5L3.82 3.82Z" fill="#D4AF37"/></svg>
-          <div className="w-12 h-px" style={{ background: 'linear-gradient(90deg, transparent, rgba(212,175,55,0.4), transparent)' }} />
-        </div>
-
+        {/* ── Row 3: 5 Rotating Testimonial Quotes ── */}
         <div className={CONTAINER}>
-          <div
-            className="max-w-3xl mx-auto text-center px-6"
-            style={{
-              opacity: fade ? 1 : 0,
-              transform: fade ? 'translateY(0)' : 'translateY(8px)',
-              transition: 'opacity 0.5s cubic-bezier(0.4,0,0.2,1), transform 0.5s cubic-bezier(0.4,0,0.2,1)',
-            }}
-          >
-            {/* Quote mark */}
-            <div className="mb-4 flex justify-center" aria-hidden="true">
-              <svg width="30" height="22" viewBox="0 0 36 28" fill="none" style={{ opacity: 0.18 }}>
-                <path d="M0 28V16.8C0 11.733 1.267 7.733 3.8 4.8C6.333 1.6 9.867 0 14.4 0V5.6C12.133 6.133 10.267 7.333 8.8 9.2C7.333 11.067 6.6 13.2 6.6 15.6H14.4V28H0ZM21.6 28V16.8C21.6 11.733 22.867 7.733 25.4 4.8C27.933 1.6 31.467 0 36 0V5.6C33.733 6.133 31.867 7.333 30.4 9.2C28.933 11.067 28.2 13.2 28.2 15.6H36V28H21.6Z" fill="#D4AF37"/>
-              </svg>
-            </div>
-
-            <blockquote
-              data-testid="text-testimonial-quote"
-              style={{
-                fontFamily: `'${quoteFont}', Georgia, serif`,
-                fontSize: `clamp(1rem, 2.5vw, ${quoteSize})`,
-                color: quoteColor,
-                fontStyle: quoteItalic ? 'italic' : 'normal',
-                fontWeight: 400, lineHeight: 1.9, letterSpacing: '0.01em', marginBottom: '24px',
-              }}
-            >
-              {q.quote}
-            </blockquote>
-
-            <div className="flex items-center justify-center gap-2 mb-4">
-              <div className="w-6 h-px bg-[#D4AF37]/25" />
-              <div className="w-1.5 h-1.5 rounded-full bg-[#D4AF37]/30" />
-              <div className="w-6 h-px bg-[#D4AF37]/25" />
-            </div>
-
-            <p data-testid="text-testimonial-author" style={{ fontFamily: `'${authorFont}', sans-serif`, fontSize: authorSize, color: authorColor, fontWeight: 600, letterSpacing: '0.15em', textTransform: 'uppercase' }}>
-              {q.author}
-            </p>
-            {q.role && <p style={{ fontFamily: `'${authorFont}', sans-serif`, fontSize: '0.7rem', color: authorColor, opacity: 0.6, marginTop: '4px', letterSpacing: '0.05em' }}>{q.role}</p>}
+          <div className="flex items-center justify-center gap-3 mb-6">
+            <div className="w-12 h-px" style={{ background: 'linear-gradient(90deg, transparent, rgba(212,175,55,0.4), transparent)' }} />
+            <svg width="7" height="7" viewBox="0 0 10 10" style={{ opacity: 0.35 }}><path d="M5 0L6.18 3.82L10 5L6.18 6.18L5 10L3.82 6.18L0 5L3.82 3.82Z" fill="#D4AF37"/></svg>
+            <div className="w-12 h-px" style={{ background: 'linear-gradient(90deg, transparent, rgba(212,175,55,0.4), transparent)' }} />
           </div>
 
-          {quotes.length > 1 && (
-            <div className="flex justify-center gap-2 mt-9" data-testid="testimonial-dots">
-              {quotes.map((_, i) => (
-                <button key={i} onClick={() => { setFade(false); setTimeout(() => { setActive(i); setFade(true); }, 500); }}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-5 max-w-6xl mx-auto" data-testid="quotes-row">
+            {[0, 1, 2, 3, 4].map(slot => {
+              const qIdx = (active + slot) % Math.max(quotes.length, 1);
+              const slotQ = quotes[qIdx];
+              if (!slotQ) return <div key={slot} />;
+              return (
+                <div
+                  key={slot}
+                  className="text-center flex flex-col items-center"
+                  data-testid={`quote-slot-${slot}`}
+                  style={{
+                    opacity: fade ? 1 : 0,
+                    transform: fade ? 'translateY(0)' : 'translateY(6px)',
+                    transition: `opacity 0.5s ease ${slot * 0.08}s, transform 0.5s ease ${slot * 0.08}s`,
+                  }}
+                >
+                  <svg width="16" height="12" viewBox="0 0 36 28" fill="none" className="mb-2" style={{ opacity: 0.15 }}>
+                    <path d="M0 28V16.8C0 11.733 1.267 7.733 3.8 4.8C6.333 1.6 9.867 0 14.4 0V5.6C12.133 6.133 10.267 7.333 8.8 9.2C7.333 11.067 6.6 13.2 6.6 15.6H14.4V28H0ZM21.6 28V16.8C21.6 11.733 22.867 7.733 25.4 4.8C27.933 1.6 31.467 0 36 0V5.6C33.733 6.133 31.867 7.333 30.4 9.2C28.933 11.067 28.2 13.2 28.2 15.6H36V28H21.6Z" fill="#D4AF37"/>
+                  </svg>
+                  <p
+                    style={{
+                      fontFamily: `'${quoteFont}', Georgia, serif`,
+                      fontSize: '0.8rem',
+                      color: quoteColor,
+                      fontStyle: quoteItalic ? 'italic' : 'normal',
+                      fontWeight: 400, lineHeight: 1.7, letterSpacing: '0.01em',
+                    }}
+                    className="mb-2 line-clamp-4"
+                  >
+                    {slotQ.quote}
+                  </p>
+                  <div className="flex items-center gap-1.5 mt-auto">
+                    <div className="w-4 h-px" style={{ background: `${GOLD}30` }} />
+                    <p style={{ fontFamily: `'${authorFont}', sans-serif`, fontSize: '0.55rem', color: authorColor, fontWeight: 600, letterSpacing: '0.12em', textTransform: 'uppercase' }}>
+                      {slotQ.author}
+                    </p>
+                    <div className="w-4 h-px" style={{ background: `${GOLD}30` }} />
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          {quotes.length > 5 && (
+            <div className="flex justify-center gap-2 mt-6" data-testid="testimonial-dots">
+              {Array.from({ length: Math.ceil(quotes.length / 5) }).map((_, i) => (
+                <button key={i} onClick={() => { setFade(false); setTimeout(() => { setActive(i * 5); setFade(true); }, 500); }}
                   className="rounded-full transition-all duration-500"
-                  style={{ width: i === active ? '22px' : '6px', height: '6px', background: i === active ? '#D4AF37' : '#d1cbc2' }}
-                  aria-label={`Go to testimonial ${i + 1}`}
+                  style={{ width: Math.floor(active / 5) === i ? '22px' : '6px', height: '6px', background: Math.floor(active / 5) === i ? '#D4AF37' : '#d1cbc2' }}
+                  aria-label={`Page ${i + 1}`}
                 />
               ))}
             </div>
@@ -315,7 +288,7 @@ const TextTestimonialsStrip = ({ sectionConfig }) => {
         </div>
 
         {/* Bottom ornament */}
-        <div className="flex items-center justify-center gap-3 mt-10">
+        <div className="flex items-center justify-center gap-3 mt-8">
           <div className="w-12 h-px" style={{ background: 'linear-gradient(90deg, transparent, rgba(212,175,55,0.25), transparent)' }} />
           <svg width="7" height="7" viewBox="0 0 10 10" style={{ opacity: 0.2 }}><path d="M5 0L6.18 3.82L10 5L6.18 6.18L5 10L3.82 6.18L0 5L3.82 3.82Z" fill="#D4AF37"/></svg>
           <div className="w-12 h-px" style={{ background: 'linear-gradient(90deg, transparent, rgba(212,175,55,0.25), transparent)' }} />
