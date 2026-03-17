@@ -4,6 +4,7 @@ import { FileText, Save, Loader2, Eye, Palette, Upload, X, File, Link as LinkIco
 import { Button } from '../../ui/button';
 import { Input } from '../../ui/input';
 import { useToast } from '../../../hooks/use-toast';
+import CollapsibleSection from '../CollapsibleSection';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
@@ -202,6 +203,7 @@ const ReceiptTemplateTab = () => {
       <p className="text-xs text-gray-500 mb-6">Customize the payment receipt email sent after successful payment.</p>
 
       {/* Color Presets */}
+      <CollapsibleSection title="Color Presets" subtitle="Quick theme selection" defaultOpen={true}>
       <div className="mb-5">
         <label className="text-xs font-semibold text-gray-700 block mb-2">Color Presets</label>
         <div className="flex gap-2 flex-wrap">
@@ -219,8 +221,10 @@ const ReceiptTemplateTab = () => {
           ))}
         </div>
       </div>
+      </CollapsibleSection>
 
       {/* Custom Colors */}
+      <CollapsibleSection title="Custom Colors" subtitle="Header, accent & text">
       <div className="mb-5">
         <label className="text-xs font-semibold text-gray-700 block mb-2">Custom Colors</label>
         <div className="grid grid-cols-3 gap-3">
@@ -247,8 +251,10 @@ const ReceiptTemplateTab = () => {
           </div>
         </div>
       </div>
+      </CollapsibleSection>
 
       {/* Fonts */}
+      <CollapsibleSection title="Fonts" subtitle="Heading & body fonts">
       <div className="mb-5">
         <label className="text-xs font-semibold text-gray-700 block mb-2">Fonts</label>
         <div className="grid grid-cols-2 gap-3">
@@ -268,8 +274,10 @@ const ReceiptTemplateTab = () => {
           </div>
         </div>
       </div>
+      </CollapsibleSection>
 
       {/* Toggles */}
+      <CollapsibleSection title="Display Options" subtitle="Logo, duration, timing toggles">
       <div className="mb-5">
         <label className="text-xs font-semibold text-gray-700 block mb-2">Display Options</label>
         <div className="space-y-2">
@@ -286,8 +294,10 @@ const ReceiptTemplateTab = () => {
           ))}
         </div>
       </div>
+      </CollapsibleSection>
 
       {/* Thank You Section */}
+      <CollapsibleSection title="Thank You Message" subtitle="Title, message & sign-off">
       <div className="mb-5">
         <label className="text-xs font-semibold text-gray-700 block mb-2">Thank You Message</label>
         <div className="space-y-2">
@@ -306,8 +316,10 @@ const ReceiptTemplateTab = () => {
           </div>
         </div>
       </div>
+      </CollapsibleSection>
 
       {/* Important Note Section */}
+      <CollapsibleSection title="Important Note" subtitle="Shown in receipt email">
       <div className="mb-5">
         <label className="text-xs font-semibold text-gray-700 block mb-2">Important Note (shown in receipt email)</label>
         <div className="space-y-2">
@@ -320,11 +332,15 @@ const ReceiptTemplateTab = () => {
           </div>
         </div>
       </div>
+      </CollapsibleSection>
 
       {/* Attachments Section */}
+      <CollapsibleSection title="Attachments" subtitle="Docs & links in receipt">
       <AttachmentsSection attachments={tpl.attachments || []} onChange={list => update('attachments', list)} />
+      </CollapsibleSection>
 
       {/* Links Note */}
+      <CollapsibleSection title="Links Note" subtitle="Below WhatsApp/Zoom links">
       <div className="mb-5 p-4 border rounded-lg bg-green-50/50">
         <label className="text-xs font-semibold text-gray-700 block mb-2">Links Note (shown below WhatsApp/Zoom links in receipt email)</label>
         <textarea value={tpl.links_note || ''} onChange={e => update('links_note', e.target.value)}
@@ -332,8 +348,10 @@ const ReceiptTemplateTab = () => {
           className="w-full border rounded-lg px-3 py-2 text-xs text-gray-700 resize-none focus:ring-1 focus:ring-[#25D366]"
           data-testid="links-note-textarea" />
       </div>
+      </CollapsibleSection>
 
       {/* Mini Preview */}
+      <CollapsibleSection title="Live Color Preview" subtitle="See how receipt looks" defaultOpen={true}>
       <div className="mb-5 border rounded-lg overflow-hidden">
         <div className="text-[9px] text-gray-500 px-3 py-1.5 bg-gray-50 border-b flex items-center gap-1"><Palette size={10} /> Live Color Preview</div>
         <div style={{ background: '#f4f2ed', padding: '12px' }}>
@@ -360,6 +378,7 @@ const ReceiptTemplateTab = () => {
           </div>
         </div>
       </div>
+      </CollapsibleSection>
 
       <div className="flex gap-2">
         <Button onClick={save} disabled={saving} className="flex-1 bg-[#D4AF37] hover:bg-[#b8962e] text-white" data-testid="save-receipt-tpl-btn">

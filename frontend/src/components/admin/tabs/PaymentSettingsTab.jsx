@@ -4,6 +4,7 @@ import { CreditCard, Save, Loader2, Percent, ExternalLink, Building2 } from 'luc
 import { Button } from '../../ui/button';
 import { Input } from '../../ui/input';
 import { useToast } from '../../../hooks/use-toast';
+import CollapsibleSection from '../CollapsibleSection';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
@@ -77,6 +78,7 @@ const PaymentSettingsTab = () => {
       <p className="text-xs text-gray-500 mb-6">Manage payment disclaimer, Exly gateway, and bank transfer details for India.</p>
 
       {/* Disclaimer */}
+      <CollapsibleSection title="Payment Disclaimer" subtitle="Shown on enrollment pages" defaultOpen={true}>
       <div className="mb-6 bg-gray-50 border rounded-lg p-5">
         <div className="flex items-center justify-between mb-3">
           <div>
@@ -148,8 +150,10 @@ const PaymentSettingsTab = () => {
           </>
         )}
       </div>
+      </CollapsibleSection>
 
       {/* India Payment Master Toggle */}
+      <CollapsibleSection title="India Payment Options" subtitle={indiaEnabled ? 'Enabled' : 'Disabled'}>
       <div className="mb-6 bg-gray-50 border rounded-lg p-5 flex items-center justify-between">
         <div>
           <h3 className="text-sm font-semibold text-gray-900">India Payment Options</h3>
@@ -300,6 +304,7 @@ const PaymentSettingsTab = () => {
           <p className="text-[#D4AF37] font-bold">Total: INR {Math.round(10000 * (1 - (parseFloat(altDiscountPct) || 9) / 100) * (1 + (parseFloat(gstPct) || 18) / 100 + (parseFloat(platformPct) || 3) / 100)).toLocaleString()}</p>
         </div>
       </div>
+      </CollapsibleSection>
 
       <Button onClick={save} disabled={saving} className="w-full bg-[#D4AF37] hover:bg-[#b8962e] text-white" data-testid="save-payment-settings-btn">
         {saving ? <Loader2 size={14} className="animate-spin mr-2" /> : <Save size={14} className="mr-2" />}

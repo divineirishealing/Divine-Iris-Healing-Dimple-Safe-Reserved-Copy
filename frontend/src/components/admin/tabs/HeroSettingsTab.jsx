@@ -5,6 +5,7 @@ import { Label } from '../../ui/label';
 import { Switch } from '../../ui/switch';
 import { Upload, X, Film, Sparkles } from 'lucide-react';
 import { resolveImageUrl } from '../../../lib/imageUtils';
+import CollapsibleSection from '../CollapsibleSection';
 import axios from 'axios';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
@@ -108,6 +109,7 @@ const HeroSettingsTab = ({ settings, onChange, onVideoUpload }) => {
       <p className="text-xs text-gray-400 mb-6">The big banner at the top of your homepage with your title and video.</p>
 
       {/* ── TITLE ── */}
+      <CollapsibleSection title="Main Title" subtitle={s.hero_title?.split('\n')[0] || 'Hero heading text'} defaultOpen={true}>
       <div className="bg-white rounded-lg p-5 shadow-sm border mb-5">
         <p className="text-sm font-semibold text-gray-800 mb-1">Main Title</p>
         <p className="text-xs text-gray-400 mb-3">The big text visitors see first. Leave empty to hide. Press Enter for a new line.</p>
@@ -194,8 +196,10 @@ const HeroSettingsTab = ({ settings, onChange, onVideoUpload }) => {
           </p>
         </div>
       </div>
+      </CollapsibleSection>
 
       {/* ── SUBTITLE ── */}
+      <CollapsibleSection title="Subtitle" subtitle={s.hero_subtitle || 'Below the title'}>
       <div className="bg-white rounded-lg p-5 shadow-sm border mb-5">
         <p className="text-sm font-semibold text-gray-800 mb-1">Subtitle</p>
         <p className="text-xs text-gray-400 mb-3">Smaller text below the main title. Leave empty to hide.</p>
@@ -281,8 +285,10 @@ const HeroSettingsTab = ({ settings, onChange, onVideoUpload }) => {
           </p>
         </div>
       </div>
+      </CollapsibleSection>
 
       {/* ── LAYOUT & POSITIONING ── */}
+      <CollapsibleSection title="Layout & Positioning" subtitle="Alignment, gaps, offsets">
       <div className="bg-white rounded-lg p-5 shadow-sm border mb-5">
         <p className="text-sm font-semibold text-gray-800 mb-1">Layout & Positioning</p>
         <p className="text-xs text-gray-400 mb-4">Control where the text appears on the hero and how close the lines are.</p>
@@ -355,8 +361,10 @@ const HeroSettingsTab = ({ settings, onChange, onVideoUpload }) => {
           </div>
         </div>
       </div>
+      </CollapsibleSection>
 
       {/* ── DECORATIVE LINES ── */}
+      <CollapsibleSection title="Decorative Lines" subtitle="Above & below subtitle">
       <div className="bg-white rounded-lg p-5 shadow-sm border mb-5">
         <div className="flex items-center justify-between">
           <div>
@@ -366,8 +374,10 @@ const HeroSettingsTab = ({ settings, onChange, onVideoUpload }) => {
           <Switch checked={s.hero_show_lines !== false} onCheckedChange={v => set('hero_show_lines', v)} />
         </div>
       </div>
+      </CollapsibleSection>
 
       {/* ── HERO BACKGROUND ── */}
+      <CollapsibleSection title="Hero Background" subtitle="Video or image behind hero" defaultOpen={true}>
       <div className="bg-white rounded-lg p-5 shadow-sm border">
         <div className="flex items-center justify-between mb-3">
           <div>
@@ -414,6 +424,7 @@ const HeroSettingsTab = ({ settings, onChange, onVideoUpload }) => {
         <input ref={fileInputRef} type="file" accept="video/mp4,video/webm,video/mov" className="hidden"
           onChange={(e) => handleVideoDrop(e.target.files)} />
       </div>
+      </CollapsibleSection>
     </div>
   );
 };

@@ -6,6 +6,7 @@ import { Switch } from '../../ui/switch';
 import { AlignLeft, AlignCenter, AlignRight } from 'lucide-react';
 import ImageUploader from '../ImageUploader';
 import { resolveImageUrl } from '../../../lib/imageUtils';
+import CollapsibleSection from '../CollapsibleSection';
 
 const FontControls = ({ label, style = {}, onStyleChange }) => {
   const update = (prop, val) => onStyleChange({ ...style, [prop]: val });
@@ -58,6 +59,7 @@ const AboutSettingsTab = ({ settings, onChange }) => {
       <p className="text-[10px] text-gray-400 mb-5">The "Meet the Healer" section + full About page content. Use **bold** and *italic* in text fields.</p>
 
       {/* ===== HERO SECTION CONTROLS ===== */}
+      <CollapsibleSection title="Hero Section (About Page)" subtitle="Banner, logo, alignment" defaultOpen={true}>
       <div className="bg-gradient-to-br from-gray-900 to-gray-800 rounded-xl p-5 shadow-sm border border-gray-700 mb-4" data-testid="about-hero-controls">
         <p className="text-sm font-semibold text-white mb-1">Hero Section (About Page)</p>
         <p className="text-[10px] text-gray-400 mb-4">Controls for the dark hero banner at the top of the About page. Toggle visibility and alignment for each element.</p>
@@ -146,10 +148,11 @@ const AboutSettingsTab = ({ settings, onChange }) => {
           </div>
         </div>
       </div>
+      </CollapsibleSection>
 
       {/* Site Logo */}
+      <CollapsibleSection title="Site Logo" subtitle="Header navigation logo">
       <div className="bg-white rounded-lg p-5 shadow-sm border mb-4">
-        <p className="text-xs font-semibold text-gray-800 mb-1">Site Logo</p>
         <p className="text-[10px] text-gray-400 mb-3">Appears in the top-left corner of the header navigation. Clickable — navigates to home.</p>
         {s.logo_url && (
           <div className="mb-3 flex items-center gap-3 bg-gray-50 p-3 rounded">
@@ -164,10 +167,11 @@ const AboutSettingsTab = ({ settings, onChange }) => {
           <div className="flex justify-between text-[9px] text-gray-400"><span>Small (40px)</span><span>Large (300px)</span></div>
         </div>
       </div>
+      </CollapsibleSection>
 
       {/* About Photo */}
+      <CollapsibleSection title="Your Photo" subtitle="Homepage & About page image">
       <div className="bg-white rounded-lg p-5 shadow-sm border mb-4">
-        <p className="text-xs font-semibold text-gray-800 mb-1">Your Photo</p>
         <p className="text-[10px] text-gray-400 mb-3">Your image on the homepage About section AND the full /about page.</p>
         {s.about_image && (
           <div className="mb-3 flex gap-4 items-start">
@@ -196,10 +200,11 @@ const AboutSettingsTab = ({ settings, onChange }) => {
         )}
         <ImageUploader value={s.about_image || ''} onChange={url => set('about_image', url)} />
       </div>
+      </CollapsibleSection>
 
       {/* Text Content */}
+      <CollapsibleSection title="Bio Content" subtitle="Name, title, bio paragraphs">
       <div className="bg-white rounded-lg p-5 shadow-sm border mb-4">
-        <p className="text-xs font-semibold text-gray-800 mb-1">Bio Content</p>
         <p className="text-[10px] text-gray-400 mb-3">Shown on homepage and /about page. Wrap words in **double stars** for <strong>bold</strong> and *single stars* for <em>italic</em>.</p>
         <div className="space-y-3">
           <div>
@@ -264,10 +269,11 @@ const AboutSettingsTab = ({ settings, onChange }) => {
           </div>
         </div>
       </div>
+      </CollapsibleSection>
 
       {/* About Page - Mission & Vision */}
+      <CollapsibleSection title="Mission & Vision" subtitle="Dark section on /about page">
       <div className="bg-white rounded-lg p-5 shadow-sm border mb-4">
-        <p className="text-xs font-semibold text-gray-800 mb-1">About Page - Mission & Vision</p>
         <p className="text-[10px] text-gray-400 mb-3">The dark section on /about page.</p>
         <div className="space-y-3">
           <div>
@@ -299,6 +305,7 @@ const AboutSettingsTab = ({ settings, onChange }) => {
           </div>
         </div>
       </div>
+      </CollapsibleSection>
     </div>
   );
 };
