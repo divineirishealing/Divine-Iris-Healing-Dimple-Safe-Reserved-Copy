@@ -123,19 +123,21 @@ const MiracleIcon = () => iconCircle(<svg width="20" height="20" viewBox="0 0 24
 const LotusIcon = () => iconCircle(<svg width="20" height="20" viewBox="0 0 24 24" {...s}><path d="M12 22c-4-3-8-7.5-8-12a8 8 0 0 1 16 0c0 4.5-4 9-8 12z"/><path d="M12 22c2-3 4-7.5 4-12"/><path d="M12 22c-2-3-4-7.5-4-12"/><circle cx="12" cy="10" r="3"/></svg>);
 const QuillIcon = () => iconCircle(
   <svg width="20" height="20" viewBox="0 0 24 24" fill="none" strokeLinecap="round" strokeLinejoin="round">
-    {/* Clear pen shape - diagonal */}
-    <path d="M18 3L7 14" stroke="#b8962e" strokeWidth="2.2"/>
-    {/* Pen nib / pointed tip */}
-    <path d="M7 14L4.5 20.5" stroke="#b8962e" strokeWidth="1.8"/>
-    <path d="M7 14L5.5 15.5L4.5 20.5L7.5 17L7 14z" fill="#b8962e" stroke="#b8962e" strokeWidth="0.5"/>
-    {/* Pen top */}
-    <path d="M18 3l1.5-0.5L20 4L18 3z" fill="#b8962e" opacity="0.6"/>
-    {/* Writing flourish from pen tip */}
-    <path d="M4.5 20.5c-1.5-0.5-2-2 0-3" stroke="#b8962e" strokeWidth="1" fill="none" opacity="0.55"/>
-    <path d="M4.5 17.5c-2-0.5-2-2.5 0.5-3" stroke="#b8962e" strokeWidth="0.8" fill="none" opacity="0.4"/>
-    {/* Sparkle stars */}
-    <circle cx="2.5" cy="13" r="0.7" fill="#b8962e" opacity="0.5"/>
-    <path d="M6 11.5l0.5-1 0.5 1-1-0.5 1 0.5" stroke="#b8962e" strokeWidth="0.5" fill="#b8962e" opacity="0.4"/>
+    {/* Feather quill - central shaft */}
+    <path d="M4 22L19 3" stroke="#b8962e" strokeWidth="1.2"/>
+    {/* Feather plume - left barbs */}
+    <path d="M19 3c-3 1-5 3-6.5 5.5" stroke="#b8962e" strokeWidth="0.9" opacity="0.7"/>
+    <path d="M18 4.5c-3 1.5-5 4-6 7" stroke="#b8962e" strokeWidth="0.9" opacity="0.6"/>
+    <path d="M16.5 6c-2.5 2-4.5 5-5 8" stroke="#b8962e" strokeWidth="0.9" opacity="0.5"/>
+    {/* Feather plume - right barbs */}
+    <path d="M19 3c0 3-0.5 5.5-1.5 8" stroke="#b8962e" strokeWidth="0.9" opacity="0.7"/>
+    <path d="M19.5 4c1 2.5 0.5 5.5-0.5 8" stroke="#b8962e" strokeWidth="0.9" opacity="0.6"/>
+    <path d="M20 5.5c1 2 1 5-0.5 7.5" stroke="#b8962e" strokeWidth="0.9" opacity="0.5"/>
+    {/* Feather body fill */}
+    <path d="M19 3c-3 1-5.5 4.5-6 9l6-1c1-3 1-5.5 0-8z" fill="#b8962e15"/>
+    {/* Nib */}
+    <path d="M5.5 20L4 22l1.5-0.5" stroke="#b8962e" strokeWidth="1.5" fill="#b8962e"/>
+    <path d="M4 22l0.5 1" stroke="#b8962e" strokeWidth="0.8" opacity="0.5"/>
   </svg>
 );
 const MerkabaIcon = () => iconCircle(
