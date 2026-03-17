@@ -67,7 +67,73 @@ const DEFAULT_SECTIONS = [
 ];
 const DEFAULTS_BY_ID = Object.fromEntries(DEFAULT_SECTIONS.map(s => [s.id, s]));
 
-const CONTENT_SECTIONS = new Set(['about', 'sponsor', 'newsletter']);
+import { DEFAULT_CARDS } from '../../TrustSection';
+
+const CONTENT_SECTIONS = new Set(['about', 'sponsor', 'newsletter', 'trust']);
+
+const ICON_OPTIONS = [
+  { value: 'google', label: 'Google' },
+  { value: 'retention', label: 'Community' },
+  { value: 'trust', label: 'Heart' },
+  { value: 'dna', label: 'DNA / Transform' },
+];
+
+const TrustCardsEditor = ({ section, sectionIdx, updateSection }) => {
+  const cards = (section.trust_cards && section.trust_cards.length > 0) ? section.trust_cards : DEFAULT_CARDS;
+
+  const updateCard = (cardIdx, field, value) => {
+    const updated = [...cards];
+    updated[cardIdx] = { ...updated[cardIdx], [field]: value };
+    updateSection(sectionIdx, 'trust_cards', updated);
+  };
+
+  const addCard = () => {
+    updateSection(sectionIdx, 'trust_cards', [...cards, { icon: 'trust', value: '', label: 'New Card', description: 'Description here', value_style: {}, label_style: {}, description_style: {} }]);
+  };
+
+  const removeCard = (cardIdx) => {
+    updateSection(sectionIdx, 'trust_cards', cards.filter((_, i) => i !== cardIdx));
+  };
+
+  return (
+    <div className="space-y-3" data-testid="trust-cards-editor">
+      <div className="flex items-center justify-between">
+        <p className="text-[10px] font-semibold text-gray-500 uppercase tracking-wider">Trust Cards ({cards.length})</p>
+        <Button variant="outline" size="sm" className="text-[10px] gap-1 h-6" onClick={addCard} data-testid="add-trust-card-btn"><Plus size={10} /> Add Card</Button>
+      </div>
+      {cards.map((card, ci) => (
+        <div key={ci} className="bg-gray-50 rounded-lg p-3 border border-gray-200 space-y-2" data-testid={`trust-card-editor-${ci}`}>
+          <div className="flex items-center justify-between">
+            <span className="text-[10px] font-bold text-gray-600">Card {ci + 1}</span>
+            <div className="flex items-center gap-2">
+              <select value={card.icon || 'trust'} onChange={e => updateCard(ci, 'icon', e.target.value)} className="text-[9px] border rounded px-1 py-0.5" data-testid={`card-icon-${ci}`}>
+                {ICON_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+              </select>
+              {cards.length > 1 && <button onClick={() => removeCard(ci)} className="p-0.5 text-red-400 hover:text-red-600"><Trash2 size={11} /></button>}
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            <div>
+              <Label className="text-[8px] text-gray-400">Value (e.g., 5.0, 85%, 100%)</Label>
+              <Input value={card.value || ''} onChange={e => updateCard(ci, 'value', e.target.value)} className="text-[10px] h-6" placeholder="100%" data-testid={`card-value-${ci}`} />
+              <StyleCell style={card.value_style || {}} onStyleChange={v => updateCard(ci, 'value_style', v)} />
+            </div>
+            <div>
+              <Label className="text-[8px] text-gray-400">Label</Label>
+              <Input value={card.label || ''} onChange={e => updateCard(ci, 'label', e.target.value)} className="text-[10px] h-6" placeholder="Google Rating" data-testid={`card-label-${ci}`} />
+              <StyleCell style={card.label_style || {}} onStyleChange={v => updateCard(ci, 'label_style', v)} />
+            </div>
+          </div>
+          <div>
+            <Label className="text-[8px] text-gray-400">Description (1-2 lines)</Label>
+            <textarea value={card.description || ''} onChange={e => updateCard(ci, 'description', e.target.value)} className="w-full text-[10px] border rounded px-2 py-1 min-h-[40px] resize-y focus:outline-none focus:ring-1 focus:ring-gray-300" placeholder="Short description..." data-testid={`card-desc-${ci}`} />
+            <StyleCell style={card.description_style || {}} onStyleChange={v => updateCard(ci, 'description_style', v)} />
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+};
 
 const HomepageSectionsTab = ({ settings, onChange }) => {
   const [expandedContent, setExpandedContent] = useState(null);
@@ -215,6 +281,7 @@ const HomepageSectionsTab = ({ settings, onChange }) => {
                     {sec.id === 'about' && <AboutSettingsTab settings={settings} onChange={onChange} />}
                     {sec.id === 'sponsor' && <SponsorSettingsTab settings={settings} onChange={onChange} />}
                     {sec.id === 'newsletter' && <NewsletterSettingsTab settings={settings} onChange={onChange} />}
+                    {sec.id === 'trust' && <TrustCardsEditor section={sec} sectionIdx={idx} updateSection={updateSection} />}
                   </div>
                 )}
               </div>
