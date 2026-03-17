@@ -130,6 +130,24 @@ const PageHeadersTab = ({ settings, programs = [], onChange }) => {
             <StyleCell style={hero.subtitle_style || {}} onStyleChange={v => updateHero(pageKey, 'subtitle_style', v)} />
           </div>
         </div>
+        <div className="mt-2 flex items-start gap-3">
+          <div className="flex-1">
+            <Label className="text-[9px] text-gray-400">Hero Background Image</Label>
+            <ImageUploader value={hero.hero_image || ''} onChange={url => updateHero(pageKey, 'hero_image', url)} />
+          </div>
+          {hero.hero_image && (
+            <div className="flex-shrink-0">
+              <img src={resolveImageUrl(hero.hero_image)} alt="Hero BG" className="w-24 h-14 rounded border object-cover" />
+              <button type="button" onClick={() => updateHero(pageKey, 'hero_image', '')} className="text-[9px] text-red-400 mt-1 hover:underline">Remove</button>
+            </div>
+          )}
+          <div className="flex-shrink-0">
+            <Label className="text-[9px] text-gray-400">Overlay</Label>
+            <select value={hero.overlay_opacity ?? '60'} onChange={e => updateHero(pageKey, 'overlay_opacity', e.target.value)} className="text-[9px] border rounded px-1 py-0.5 w-16 block mt-0.5">
+              {['0','20','30','40','50','60','70','80','90'].map(v => <option key={v} value={v}>{v}%</option>)}
+            </select>
+          </div>
+        </div>
       </div>
     );
   };
@@ -239,6 +257,24 @@ const PageHeadersTab = ({ settings, programs = [], onChange }) => {
           <div className="flex items-center gap-2">
             <Label className="text-[9px] text-gray-500">Gold Line Color</Label>
             <input type="color" value={template.accent_color || '#D4AF37'} onChange={e => updateTemplate('accent_color', e.target.value)} className="w-6 h-6 rounded cursor-pointer border" />
+          </div>
+        </div>
+        <div className="mt-3 flex items-start gap-3">
+          <div className="flex-1">
+            <Label className="text-[9px] text-gray-500 font-semibold">Hero Background Image (all program pages)</Label>
+            <ImageUploader value={template.hero_image || ''} onChange={url => updateTemplate('hero_image', url)} />
+          </div>
+          {template.hero_image && (
+            <div className="flex-shrink-0">
+              <img src={resolveImageUrl(template.hero_image)} alt="Program Hero" className="w-24 h-14 rounded border object-cover" />
+              <button type="button" onClick={() => updateTemplate('hero_image', '')} className="text-[9px] text-red-400 mt-1 hover:underline">Remove</button>
+            </div>
+          )}
+          <div className="flex-shrink-0">
+            <Label className="text-[9px] text-gray-500">Overlay</Label>
+            <select value={template.overlay_opacity ?? '70'} onChange={e => updateTemplate('overlay_opacity', e.target.value)} className="text-[9px] border rounded px-1 py-0.5 w-16 block mt-0.5">
+              {['0','20','30','40','50','60','70','80','90'].map(v => <option key={v} value={v}>{v}%</option>)}
+            </select>
           </div>
         </div>
 
@@ -354,6 +390,16 @@ const PageHeadersTab = ({ settings, programs = [], onChange }) => {
                   <div className="bg-white/10 rounded-lg p-2.5 backdrop-blur-sm">
                     <Label className="text-[9px] text-purple-200 font-semibold block mb-1">Hero BG Color</Label>
                     <input type="color" value={sessionTpl.hero_bg || '#2a1252'} onChange={e => updateSessionTpl('hero_bg', e.target.value)} className="w-8 h-6 rounded cursor-pointer border border-white/20" />
+                  </div>
+                  <div className="bg-white/10 rounded-lg p-2.5 backdrop-blur-sm">
+                    <Label className="text-[9px] text-purple-200 font-semibold block mb-1">Hero Background Image</Label>
+                    <ImageUploader value={sessionTpl.hero_image || ''} onChange={url => updateSessionTpl('hero_image', url)} />
+                    {sessionTpl.hero_image && (
+                      <div className="mt-1 flex items-center gap-2">
+                        <img src={resolveImageUrl(sessionTpl.hero_image)} alt="Sessions Hero" className="w-16 h-10 rounded border border-white/20 object-cover" />
+                        <button type="button" onClick={() => updateSessionTpl('hero_image', '')} className="text-[9px] text-red-300 hover:underline">Remove</button>
+                      </div>
+                    )}
                   </div>
                   <div className="bg-white/10 rounded-lg p-2.5 backdrop-blur-sm">
                     <Label className="text-[9px] text-purple-200 font-semibold block mb-1">Purple Intensity</Label>

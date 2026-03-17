@@ -3,6 +3,7 @@ import { useSearchParams } from 'react-router-dom';
 import axios from 'axios';
 import { useToast } from '../hooks/use-toast';
 import Header from '../components/Header';
+import { resolveImageUrl } from '../lib/imageUtils';
 import Footer from '../components/Footer';
 import FloatingButtons from '../components/FloatingButtons';
 import { Mail, Phone, Share2, Loader2 } from 'lucide-react';
@@ -130,15 +131,17 @@ function ContactPage() {
       <Header />
       <div className="min-h-screen" style={{ background: '#f8f5f0' }}>
         {/* Hero */}
-        <section data-testid="contact-hero" className="min-h-[50vh] flex flex-col items-center justify-center text-center px-6 pt-20"
-          style={{ background: 'linear-gradient(180deg, #1a1a1a 0%, #1a1a1add 50%, #1a1a1a 100%)' }}>
-          <h1 data-testid="contact-hero-title" className="text-white mb-4 max-w-4xl" style={applyStyle(hero.title_style, { ...HEADING, color: '#fff', fontSize: 'clamp(1.8rem, 4vw, 3rem)', fontVariant: 'small-caps', letterSpacing: '0.05em', lineHeight: 1.3 })}>
+        <section data-testid="contact-hero" className="relative min-h-[50vh] flex flex-col items-center justify-center text-center px-6 pt-20"
+          style={{ background: hero.hero_image ? 'transparent' : 'linear-gradient(180deg, #1a1a1a 0%, #1a1a1add 50%, #1a1a1a 100%)' }}>
+          {hero.hero_image && <div className="absolute inset-0" style={{ backgroundImage: `url(${resolveImageUrl(hero.hero_image)})`, backgroundSize: 'cover', backgroundPosition: 'center' }} />}
+          {hero.hero_image && <div className="absolute inset-0" style={{ background: '#000', opacity: (hero.overlay_opacity || 60) / 100 }} />}
+          <h1 data-testid="contact-hero-title" className="relative z-10 text-white mb-4 max-w-4xl" style={applyStyle(hero.title_style, { ...HEADING, color: '#fff', fontSize: 'clamp(1.8rem, 4vw, 3rem)', fontVariant: 'small-caps', letterSpacing: '0.05em', lineHeight: 1.3 })}>
             {hero.title_text || 'Get in Touch'}
           </h1>
-          <p className="mb-6" style={applyStyle(hero.subtitle_style, { ...LABEL, color: GOLD })}>
+          <p className="relative z-10 mb-6" style={applyStyle(hero.subtitle_style, { ...LABEL, color: GOLD })}>
             {hero.subtitle_text || "Ready to begin your healing journey? Let us know how we can help."}
           </p>
-          <div className="w-14 h-0.5" style={{ background: GOLD }} />
+          <div className="relative z-10 w-14 h-0.5" style={{ background: GOLD }} />
         </section>
 
         {/* Three Info Blocks */}

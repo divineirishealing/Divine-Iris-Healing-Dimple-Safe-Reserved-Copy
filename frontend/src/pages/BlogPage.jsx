@@ -3,6 +3,7 @@ import axios from 'axios';
 import Header from '../components/Header';
 import Footer from '../components/Footer';
 import FloatingButtons from '../components/FloatingButtons';
+import { resolveImageUrl } from '../lib/imageUtils';
 import { HEADING, SUBTITLE, CONTAINER, SECTION_PY } from '../lib/designTokens';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
@@ -33,12 +34,14 @@ export default function BlogPage() {
     <div className="min-h-screen bg-white">
       <Header />
 
-      <section data-testid="blog-hero" className="min-h-[45vh] flex flex-col items-center justify-center text-center px-6 pt-20"
-        style={{ background: 'linear-gradient(180deg, #1a1a1a 0%, #2d2d2d 50%, #1a1a1a 100%)' }}>
-        <h1 className="mb-2" style={applyHeroStyle(hero.title_style, { ...HEADING, color: '#fff', fontSize: 'clamp(2rem, 5vw, 3rem)', fontVariant: 'small-caps', letterSpacing: '0.08em' })}>
+      <section data-testid="blog-hero" className="relative min-h-[45vh] flex flex-col items-center justify-center text-center px-6 pt-20"
+        style={{ background: hero.hero_image ? 'transparent' : 'linear-gradient(180deg, #1a1a1a 0%, #2d2d2d 50%, #1a1a1a 100%)' }}>
+        {hero.hero_image && <div className="absolute inset-0" style={{ backgroundImage: `url(${resolveImageUrl(hero.hero_image)})`, backgroundSize: 'cover', backgroundPosition: 'center' }} />}
+        {hero.hero_image && <div className="absolute inset-0" style={{ background: '#000', opacity: (hero.overlay_opacity || 60) / 100 }} />}
+        <h1 className="relative z-10 mb-2" style={applyHeroStyle(hero.title_style, { ...HEADING, color: '#fff', fontSize: 'clamp(2rem, 5vw, 3rem)', fontVariant: 'small-caps', letterSpacing: '0.08em' })}>
           {hero.title_text || 'BLOG'}
         </h1>
-        <p style={applyHeroStyle(hero.subtitle_style, { ...SUBTITLE, color: '#ccc', fontFamily: "'Lato', sans-serif" })}>
+        <p className="relative z-10" style={applyHeroStyle(hero.subtitle_style, { ...SUBTITLE, color: '#ccc', fontFamily: "'Lato', sans-serif" })}>
           {hero.subtitle_text || 'Insights, stories and updates'}
         </p>
       </section>

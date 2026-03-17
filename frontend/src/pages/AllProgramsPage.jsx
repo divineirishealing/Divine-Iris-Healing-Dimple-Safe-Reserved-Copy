@@ -47,11 +47,13 @@ function AllProgramsPage() {
       <Header />
       <div className="min-h-screen bg-white pt-20">
         <div className="container mx-auto px-4 py-12">
-          <div className="text-center mb-12">
-            <h1 style={applyStyle(hero.title_style, { ...HEADING, fontSize: 'clamp(1.8rem, 4vw, 2.5rem)' })}>
+          <div className="relative text-center mb-12 py-12 -mt-12 -mx-4 px-4 overflow-hidden" style={{ background: hero.hero_image ? 'transparent' : undefined }}>
+            {hero.hero_image && <div className="absolute inset-0" style={{ backgroundImage: `url(${resolveImageUrl(hero.hero_image)})`, backgroundSize: 'cover', backgroundPosition: 'center' }} />}
+            {hero.hero_image && <div className="absolute inset-0" style={{ background: '#000', opacity: (hero.overlay_opacity || 60) / 100 }} />}
+            <h1 className="relative z-10" style={applyStyle(hero.title_style, { ...HEADING, fontSize: 'clamp(1.8rem, 4vw, 2.5rem)', ...(hero.hero_image ? { color: '#fff' } : {}) })}>
               {hero.title_text || 'All Programs'}
             </h1>
-            <p className="max-w-2xl mx-auto mt-3" style={applyStyle(hero.subtitle_style, { color: '#6b7280', fontFamily: "'Lato', sans-serif", fontSize: '1rem' })}>
+            <p className="relative z-10 max-w-2xl mx-auto mt-3" style={applyStyle(hero.subtitle_style, { color: hero.hero_image ? 'rgba(255,255,255,0.8)' : '#6b7280', fontFamily: "'Lato', sans-serif", fontSize: '1rem' })}>
               {hero.subtitle_text || 'Explore our comprehensive healing programs designed to transform your life at every level'}
             </p>
           </div>

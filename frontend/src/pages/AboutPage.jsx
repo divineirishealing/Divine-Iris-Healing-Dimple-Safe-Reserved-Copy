@@ -65,9 +65,11 @@ export default function AboutPage() {
         const dividerThickness = hero.divider_thickness || '2';
         const alignClass = { left: 'items-start text-left', center: 'items-center text-center', right: 'items-end text-right' };
         return (
-          <section data-testid="about-hero" className="min-h-[50vh] flex flex-col items-center justify-center px-6 pt-20"
-            style={{ background: 'linear-gradient(180deg, #1a1a1a 0%, #1a1a1add 50%, #1a1a1a 100%)' }}>
-            <div className={`flex flex-col w-full max-w-4xl ${alignClass[titleAlign]}`}>
+          <section data-testid="about-hero" className="relative min-h-[50vh] flex flex-col items-center justify-center px-6 pt-20"
+            style={{ background: hero.hero_image ? 'transparent' : 'linear-gradient(180deg, #1a1a1a 0%, #1a1a1add 50%, #1a1a1a 100%)' }}>
+            {hero.hero_image && <div className="absolute inset-0" style={{ backgroundImage: `url(${resolveUrl(hero.hero_image)})`, backgroundSize: 'cover', backgroundPosition: 'center' }} />}
+            {hero.hero_image && <div className="absolute inset-0" style={{ background: '#000', opacity: (hero.overlay_opacity || 60) / 100 }} />}
+            <div className={`relative z-10 flex flex-col w-full max-w-4xl ${alignClass[titleAlign]}`}>
               {hero.logo_visible !== false && heroLogoUrl && (
                 <img src={heroLogoUrl} alt="Logo" className="mb-6 object-contain" style={{ height: `${hero.logo_size || 96}px` }} onError={e => { e.target.style.display = 'none'; }} data-testid="about-hero-logo" />
               )}
@@ -77,7 +79,7 @@ export default function AboutPage() {
                 </h1>
               )}
             </div>
-            <div className={`flex flex-col w-full max-w-4xl ${alignClass[subtitleAlign]}`}>
+            <div className={`relative z-10 flex flex-col w-full max-w-4xl ${alignClass[subtitleAlign]}`}>
               {hero.subtitle_visible !== false && (
                 <p className="mb-6" style={applyStyle(hero.subtitle_style, { ...LABEL, color: GOLD, textAlign: subtitleAlign })}>
                   {hero.subtitle_text || s.about_title || 'Founder, Divine Iris – Soulful Healing Studio'}

@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { ChevronRight } from 'lucide-react';
 import Header from '../components/Header';
+import { resolveImageUrl } from '../lib/imageUtils';
 import Footer from '../components/Footer';
 import FloatingButtons from '../components/FloatingButtons';
 import { useCurrency } from '../context/CurrencyContext';
@@ -45,8 +46,10 @@ function ServicesPage() {
       <Header />
 
       {/* Hero Section */}
-      <section data-testid="services-hero" className="relative pt-20 pb-12 overflow-hidden" style={{ background: 'linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%)' }}>
-        <div className="absolute inset-0 opacity-15" style={{ backgroundImage: 'radial-gradient(ellipse at 30% 50%, rgba(212,175,55,0.2) 0%, transparent 60%)' }} />
+      <section data-testid="services-hero" className="relative pt-20 pb-12 overflow-hidden" style={{ background: hero.hero_image ? 'transparent' : 'linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%)' }}>
+        {hero.hero_image && <div className="absolute inset-0" style={{ backgroundImage: `url(${resolveImageUrl(hero.hero_image)})`, backgroundSize: 'cover', backgroundPosition: 'center' }} />}
+        {hero.hero_image && <div className="absolute inset-0" style={{ background: '#000', opacity: (hero.overlay_opacity || 60) / 100 }} />}
+        {!hero.hero_image && <div className="absolute inset-0 opacity-15" style={{ backgroundImage: 'radial-gradient(ellipse at 30% 50%, rgba(212,175,55,0.2) 0%, transparent 60%)' }} />}
         <div className="relative z-10 text-center px-6">
           <h1 className="mb-2" style={applyStyle(hero.title_style, { ...HEADING, color: '#fff', fontSize: 'clamp(1.8rem, 4vw, 2.5rem)', fontVariant: 'small-caps', letterSpacing: '0.08em' })}>
             {hero.title_text || 'Our Services'}

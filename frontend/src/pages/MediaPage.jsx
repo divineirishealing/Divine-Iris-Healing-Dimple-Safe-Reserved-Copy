@@ -43,15 +43,17 @@ function MediaPage() {
     <div className="min-h-screen bg-white">
       <Header />
 
-      <section data-testid="media-hero" className="min-h-[50vh] flex flex-col items-center justify-center text-center px-6 pt-20"
-        style={{ background: 'linear-gradient(180deg, #1a1a1a 0%, #1a1a1add 50%, #1a1a1a 100%)' }}>
-        <h1 className="mb-4 max-w-4xl" style={applyHeroStyle(hero.title_style, { ...HEADING, color: GOLD, fontSize: 'clamp(1.8rem, 4vw, 3rem)', fontVariant: 'small-caps', letterSpacing: '0.05em', lineHeight: 1.3 })}>
+      <section data-testid="media-hero" className="relative min-h-[50vh] flex flex-col items-center justify-center text-center px-6 pt-20"
+        style={{ background: hero.hero_image ? 'transparent' : 'linear-gradient(180deg, #1a1a1a 0%, #1a1a1add 50%, #1a1a1a 100%)' }}>
+        {hero.hero_image && <div className="absolute inset-0" style={{ backgroundImage: `url(${resolveImageUrl(hero.hero_image)})`, backgroundSize: 'cover', backgroundPosition: 'center' }} />}
+        {hero.hero_image && <div className="absolute inset-0" style={{ background: '#000', opacity: (hero.overlay_opacity || 60) / 100 }} />}
+        <h1 className="relative z-10 mb-4 max-w-4xl" style={applyHeroStyle(hero.title_style, { ...HEADING, color: GOLD, fontSize: 'clamp(1.8rem, 4vw, 3rem)', fontVariant: 'small-caps', letterSpacing: '0.05em', lineHeight: 1.3 })}>
           {hero.title_text || 'Media'}
         </h1>
-        <p className="mb-6" style={applyHeroStyle(hero.subtitle_style, { ...LABEL, color: '#fff' })}>
+        <p className="relative z-10 mb-6" style={applyHeroStyle(hero.subtitle_style, { ...LABEL, color: '#fff' })}>
           {hero.subtitle_text || ''}
         </p>
-        <div className="w-14 h-0.5" style={{ background: GOLD }} />
+        <div className="relative z-10 w-14 h-0.5" style={{ background: GOLD }} />
       </section>
 
       {/* Video Testimonials */}

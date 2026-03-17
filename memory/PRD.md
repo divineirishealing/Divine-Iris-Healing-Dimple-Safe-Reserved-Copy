@@ -30,6 +30,15 @@ All pages with dark hero sections use:
 ## Implemented Features
 
 ### Excel Export Restructure & Admin Guide (Mar 17, 2026) - COMPLETED
+### Hero Background Image Upload for All Pages (Mar 17, 2026) - COMPLETED
+- [x] Added image upload to every static page hero (Services, Contact, About, Programs, Sponsor, Transformations, Blog, Media, Sessions)
+- [x] Added image upload for Flagship Program template hero (applies to all program detail pages)
+- [x] Added image upload for Personal Sessions template hero (applies to all session pages)
+- [x] Each hero has configurable dark overlay opacity (0-90%) so text stays readable
+- [x] Updated 11 frontend pages to support hero background images: ServicesPage, ContactPage, AboutPage, SponsorPage, BlogPage, MediaPage, TransformationsPage, AllProgramsPage, AllSessionsPage, ProgramDetailPage (via template)
+- [x] Fallback: when no image is set, the original gradient backgrounds remain
+
+
 - [x] Restructured /api/india-payments/admin/enrollments/export to wide format (one row per enrollment)
 - [x] Dynamic participant columns: Participant 1 Name, Participant 1 Age... up to max participants (currently 4)
 - [x] Robust clean() helper eliminates all None/null values — zero "None" strings in output

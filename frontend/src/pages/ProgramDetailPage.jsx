@@ -303,13 +303,15 @@ function ProgramDetailPage() {
       <Header />
 
       {/* HERO */}
-      <section data-testid="program-hero" className="min-h-[50vh] flex flex-col items-center justify-center text-center px-6 pt-20"
-        style={{ background: `linear-gradient(180deg, ${heroBg} 0%, ${heroBg}dd 50%, ${heroBg} 100%)` }}>
-        <h1 data-testid="program-title" className="text-white mb-4 max-w-4xl" style={applyStyle(template.title_style, { ...HEADING, color: '#fff', fontSize: 'clamp(1.8rem, 4vw, 3rem)', fontVariant: 'small-caps', letterSpacing: '0.05em', lineHeight: 1.3 })}>
+      <section data-testid="program-hero" className="relative min-h-[50vh] flex flex-col items-center justify-center text-center px-6 pt-20"
+        style={{ background: template.hero_image ? 'transparent' : `linear-gradient(180deg, ${heroBg} 0%, ${heroBg}dd 50%, ${heroBg} 100%)` }}>
+        {template.hero_image && <div className="absolute inset-0" style={{ backgroundImage: `url(${resolveImageUrl(template.hero_image)})`, backgroundSize: 'cover', backgroundPosition: 'center' }} />}
+        {template.hero_image && <div className="absolute inset-0" style={{ background: '#000', opacity: (template.overlay_opacity || 70) / 100 }} />}
+        <h1 data-testid="program-title" className="relative z-10 text-white mb-4 max-w-4xl" style={applyStyle(template.title_style, { ...HEADING, color: '#fff', fontSize: 'clamp(1.8rem, 4vw, 3rem)', fontVariant: 'small-caps', letterSpacing: '0.05em', lineHeight: 1.3 })}>
           {program.title}
         </h1>
-        <p className="mb-6" style={applyStyle(template.subtitle_style, { ...LABEL, color: heroAccent })}>{program.category || 'FLAGSHIP PROGRAM'}</p>
-        {template.hero_line_visible !== false && <div className="w-14 h-0.5" style={{ background: heroAccent, marginTop: `${template.hero_line_gap || '10'}px` }} />}
+        <p className="relative z-10 mb-6" style={applyStyle(template.subtitle_style, { ...LABEL, color: heroAccent })}>{program.category || 'FLAGSHIP PROGRAM'}</p>
+        {template.hero_line_visible !== false && <div className="relative z-10 w-14 h-0.5" style={{ background: heroAccent, marginTop: `${template.hero_line_gap || '10'}px` }} />}
       </section>
 
       {sections.map((section, idx) => renderSection(section, idx))}

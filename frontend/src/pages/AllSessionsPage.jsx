@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { Wifi, MapPin, Clock, Quote, ArrowRight } from 'lucide-react';
 import Header from '../components/Header';
+import { resolveImageUrl } from '../lib/imageUtils';
 import Footer from '../components/Footer';
 import FloatingButtons from '../components/FloatingButtons';
 import { useCurrency } from '../context/CurrencyContext';
@@ -51,8 +52,10 @@ function AllSessionsPage() {
       <div className="min-h-screen">
         {/* Hero */}
         <div className="relative pt-20 pb-14 overflow-hidden"
-          style={{ background: 'linear-gradient(135deg, #1e1033 0%, #2d1b69 25%, #4c1d95 50%, #6d28d9 75%, #7c3aed 100%)' }}>
-          <div className="absolute top-0 right-0 w-96 h-96 rounded-full opacity-10" style={{ background: 'radial-gradient(circle, #a78bfa, transparent 70%)' }} />
+          style={{ background: hero.hero_image ? 'transparent' : 'linear-gradient(135deg, #1e1033 0%, #2d1b69 25%, #4c1d95 50%, #6d28d9 75%, #7c3aed 100%)' }}>
+          {hero.hero_image && <div className="absolute inset-0" style={{ backgroundImage: `url(${resolveImageUrl(hero.hero_image)})`, backgroundSize: 'cover', backgroundPosition: 'center' }} />}
+          {hero.hero_image && <div className="absolute inset-0" style={{ background: '#000', opacity: (hero.overlay_opacity || 60) / 100 }} />}
+          {!hero.hero_image && <div className="absolute top-0 right-0 w-96 h-96 rounded-full opacity-10" style={{ background: 'radial-gradient(circle, #a78bfa, transparent 70%)' }} />}
           <div className="container mx-auto px-6 md:px-8 lg:px-12 relative z-10 text-center">
             <h1 className="mb-3" style={applyStyle(hero.title_style, { ...HEADING, color: '#fff', fontSize: 'clamp(1.8rem, 4vw, 2.5rem)', fontVariant: 'small-caps', letterSpacing: '0.08em' })}>
               {hero.title_text || 'Personal Healing Sessions'}
