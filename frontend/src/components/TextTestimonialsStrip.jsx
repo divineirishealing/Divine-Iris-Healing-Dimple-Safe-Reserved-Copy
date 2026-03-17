@@ -299,8 +299,8 @@ const TextTestimonialsStrip = ({ sectionConfig }) => {
                 lineHeight: 1.1,
               });
               // Cascade: defaults → global title style → per-card label style
-              // Row 1 uses same Cinzel small-caps as Row 2
-              const titleDefaults = { fontFamily: "'Cinzel', serif", fontWeight: 600, fontSize: '0.72rem', letterSpacing: '0.04em', color: '#2a2118', lineHeight: 1.3, fontVariant: 'small-caps' };
+              // Both rows use handwritten script font
+              const titleDefaults = { fontFamily: "'Kaushan Script', cursive", fontWeight: 400, fontSize: '0.85rem', color: '#1a1a1a', lineHeight: 1.4, letterSpacing: '0.01em' };
               const globalTitle = applySectionStyle(trustConfig.global_title_style, titleDefaults);
               const lblStyle = applySectionStyle(card.label_style, globalTitle);
 
@@ -337,7 +337,7 @@ const TextTestimonialsStrip = ({ sectionConfig }) => {
               const showIcon = card.show_icon !== false;
 
               // Cascade: defaults → global title style → per-card title style
-              const titleDefaults = { fontFamily: "'Cinzel', serif", fontSize: '0.72rem', fontWeight: 600, color: '#2a2118', lineHeight: 1.3, letterSpacing: '0.04em', fontVariant: 'small-caps' };
+              const titleDefaults = { fontFamily: "'Kaushan Script', cursive", fontSize: '0.85rem', fontWeight: 400, color: '#1a1a1a', lineHeight: 1.4, letterSpacing: '0.01em' };
               const globalTitle = applySectionStyle(trustConfig.global_title_style, titleDefaults);
               const tStyle = applySectionStyle(card.title_style, globalTitle);
 
