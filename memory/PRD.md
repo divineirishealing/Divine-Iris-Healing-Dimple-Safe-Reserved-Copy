@@ -41,6 +41,14 @@ All pages with dark hero sections use:
 - [x] Added info note directing admin to Pricing Hub and Unified Calendar for pricing/dates
 - [x] All 38/38 frontend tests passed (iteration_70)
 
+### "Why We're Loved" Trust Section (Mar 17, 2026) - COMPLETED
+- [x] Created TrustSection.jsx with 3 elegant cards: Google 5.0 Rating (with stars), 85% Retention, Deeply Trusted
+- [x] Animated number counters with IntersectionObserver entrance animations
+- [x] Integrated into homepage section system (orderable, toggleable from admin)
+- [x] Admin can edit title/subtitle and toggle visibility from Homepage Sections tab
+- [x] Auto-merges new default sections into existing saved homepage_sections
+- [x] All 17/17 frontend tests passed (iteration_71)
+
 ### Excel Export Restructure & Admin Guide (Mar 17, 2026) - COMPLETED
 ### Hero Background Image Upload for All Pages (Mar 17, 2026) - COMPLETED
 - [x] Added image upload to every static page hero (Services, Contact, About, Programs, Sponsor, Transformations, Blog, Media, Sessions)
