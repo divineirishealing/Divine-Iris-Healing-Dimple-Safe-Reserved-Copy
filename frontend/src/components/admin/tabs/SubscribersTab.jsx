@@ -265,7 +265,7 @@ const PackageEditor = ({ pkg, onSave, saving, onDelete, onNewVersion }) => {
 /* ═══ SUBSCRIBER FORM ═══ */
 const blankForm = () => ({
   name: '', email: '', package_id: '', annual_program: '', start_date: '', end_date: '',
-  total_fee: 0, currency: 'INR', payment_mode: 'No EMI', num_emis: 0,
+  total_fee: 0, currency: 'INR', payment_mode: 'No EMI', num_emis: 0, emi_day: 30,
   emis: [], programs: [], bi_annual_download: 0, quarterly_releases: 0,
   payment_methods: ['stripe', 'manual'],
   late_fee_per_day: 0, channelization_fee: 0, show_late_fees: false,
@@ -390,16 +390,24 @@ const SubscriberForm = ({ initial, onSave, onCancel, saving, packages }) => {
   const handleEmiCountChange = (count) => {
     const n = Math.min(12, Math.max(0, parseInt(count) || 0));
     set('num_emis', n);
-    // Auto-generate: amount = total_fee / n, dates = same day each month from start_date
     const perEmi = n > 0 ? Math.round(f.total_fee / n) : 0;
+    const emiDay = f.emi_day || 30;
     const newEmis = [];
     for (let i = 1; i <= n; i++) {
       const existing = (f.emis || []).find(e => e.number === i);
-      if (existing && existing.amount > 0) {
-        newEmis.push(existing); // keep existing if already has data
+      if (existing && existing.status === 'paid') {
+        newEmis.push(existing);
       } else {
-        const dueDate = f.start_date ? addMonths(f.start_date, i - 1) : '';
-        newEmis.push({ number: i, date: '', amount: perEmi, remaining: 0, due_date: dueDate, status: 'due' });
+        let dueDate = '';
+        if (f.start_date) {
+          const d = new Date(f.start_date);
+          d.setMonth(d.getMonth() + (i - 1));
+          const yr = d.getFullYear(), mo = String(d.getMonth() + 1).padStart(2, '0');
+          const daysInMo = new Date(yr, d.getMonth() + 1, 0).getDate();
+          const actualDay = Math.min(emiDay, daysInMo);
+          dueDate = `${yr}-${mo}-${String(actualDay).padStart(2, '0')}`;
+        }
+        newEmis.push({ number: i, date: '', amount: existing?.amount || perEmi, remaining: 0, due_date: dueDate, status: 'due' });
       }
     }
     set('emis', newEmis);
@@ -475,6 +483,26 @@ const SubscriberForm = ({ initial, onSave, onCancel, saving, packages }) => {
           <select value={f.payment_mode} onChange={e => set('payment_mode', e.target.value)} className="w-full border rounded-md px-2 py-2 text-sm">{MODE_OPTIONS.map(m => <option key={m} value={m}>{m}</option>)}</select>
         </div>
         <div><Label className="text-xs">Number of EMIs</Label><Input type="text" inputMode="numeric" value={f.num_emis} onChange={e => handleEmiCountChange(e.target.value)} /></div>
+        <div>
+          <Label className="text-xs">EMI Day (of month)</Label>
+          <Input type="text" inputMode="numeric" value={f.emi_day || ''} placeholder="e.g. 27"
+            onChange={e => {
+              const day = Math.min(30, Math.max(1, parseInt(e.target.value) || 0));
+              set('emi_day', day || '');
+              if (day && f.start_date && f.num_emis > 0) {
+                const base = f.start_date.slice(0, 8); // YYYY-MM-
+                set('emis', (f.emis || []).map((em, i) => {
+                  if (em.status === 'paid') return em;
+                  const d = new Date(f.start_date);
+                  d.setMonth(d.getMonth() + i);
+                  const yr = d.getFullYear(), mo = String(d.getMonth() + 1).padStart(2, '0');
+                  const daysInMo = new Date(yr, d.getMonth() + 1, 0).getDate();
+                  const actualDay = Math.min(day, daysInMo);
+                  return { ...em, due_date: `${yr}-${mo}-${String(actualDay).padStart(2, '0')}` };
+                }));
+              }
+            }} />
+        </div>
         <div><Label className="text-xs">Bi-Annual DL</Label><Input type="text" inputMode="numeric" value={f.bi_annual_download} onChange={e => set('bi_annual_download', parseInt(e.target.value) || 0)} /></div>
         <div>
           <Label className="text-xs">Payment Methods</Label>
@@ -899,6 +927,7 @@ const SubscribersTab = () => {
     start_date: editTarget.subscription?.start_date || '', end_date: editTarget.subscription?.end_date || '',
     total_fee: editTarget.subscription?.total_fee || 0, currency: editTarget.subscription?.currency || 'INR',
     payment_mode: editTarget.subscription?.payment_mode || 'No EMI', num_emis: editTarget.subscription?.num_emis || 0,
+    emi_day: editTarget.subscription?.emi_day || 30,
     emis: editTarget.subscription?.emis || [], programs: editTarget.subscription?.programs || [],
     bi_annual_download: editTarget.subscription?.bi_annual_download || 0, quarterly_releases: editTarget.subscription?.quarterly_releases || 0,
     payment_methods: editTarget.subscription?.payment_methods || ['stripe', 'manual'],

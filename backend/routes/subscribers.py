@@ -572,6 +572,7 @@ class SubscriberCreate(BaseModel):
     currency: str = "INR"
     payment_mode: str = "No EMI"
     num_emis: int = 0
+    emi_day: int = 30  # day of month for EMI due dates
     emis: List[EMIInput] = []
     sessions: Optional[SessionsInput] = None
     programs: List[str] = []
@@ -604,6 +605,7 @@ async def create_subscriber(data: SubscriberCreate):
         "currency": data.currency,
         "payment_mode": data.payment_mode,
         "num_emis": data.num_emis,
+        "emi_day": data.emi_day,
         "emis": [e.dict() for e in data.emis],
         "sessions": sess,
         "programs": data.programs,
@@ -674,6 +676,7 @@ async def update_subscriber(client_id: str, data: SubscriberCreate):
         "currency": data.currency,
         "payment_mode": data.payment_mode,
         "num_emis": data.num_emis,
+        "emi_day": data.emi_day,
         "emis": [e.dict() for e in data.emis],
         "sessions": sess,
         "programs": data.programs,
