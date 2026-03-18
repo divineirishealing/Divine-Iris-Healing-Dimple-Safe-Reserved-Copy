@@ -450,7 +450,7 @@ const SubscriberForm = ({ initial, onSave, onCancel, saving, packages }) => {
 
       {/* Row 2 */}
       <div className="grid grid-cols-2 md:grid-cols-6 gap-3">
-        <div><Label className="text-xs">Total Fee</Label><Input type="number" value={f.total_fee} onChange={e => handleTotalFeeChange(e.target.value)} /></div>
+        <div><Label className="text-xs">Total Fee</Label><Input type="text" inputMode="decimal" value={f.total_fee} onChange={e => handleTotalFeeChange(e.target.value)} /></div>
         <div>
           <Label className="text-xs">Currency</Label>
           <select value={f.currency} onChange={e => handleCurrencyChange(e.target.value)} className="w-full border rounded-md px-2 py-2 text-sm">{CURRENCIES.map(c => <option key={c} value={c}>{c}</option>)}</select>
@@ -459,8 +459,8 @@ const SubscriberForm = ({ initial, onSave, onCancel, saving, packages }) => {
           <Label className="text-xs">Payment Mode</Label>
           <select value={f.payment_mode} onChange={e => set('payment_mode', e.target.value)} className="w-full border rounded-md px-2 py-2 text-sm">{MODE_OPTIONS.map(m => <option key={m} value={m}>{m}</option>)}</select>
         </div>
-        <div><Label className="text-xs">Number of EMIs</Label><Input type="number" min={0} max={12} value={f.num_emis} onChange={e => handleEmiCountChange(e.target.value)} /></div>
-        <div><Label className="text-xs">Bi-Annual DL</Label><Input type="number" value={f.bi_annual_download} onChange={e => set('bi_annual_download', parseInt(e.target.value) || 0)} /></div>
+        <div><Label className="text-xs">Number of EMIs</Label><Input type="text" inputMode="numeric" value={f.num_emis} onChange={e => handleEmiCountChange(e.target.value)} /></div>
+        <div><Label className="text-xs">Bi-Annual DL</Label><Input type="text" inputMode="numeric" value={f.bi_annual_download} onChange={e => set('bi_annual_download', parseInt(e.target.value) || 0)} /></div>
         <div>
           <Label className="text-xs">Payment Methods</Label>
           <div className="flex gap-2 mt-1">
@@ -481,9 +481,9 @@ const SubscriberForm = ({ initial, onSave, onCancel, saving, packages }) => {
 
       {/* Row 3: Fees & Controls */}
       <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
-        <div><Label className="text-xs">Quarterly Rel</Label><Input type="number" value={f.quarterly_releases} onChange={e => set('quarterly_releases', parseInt(e.target.value) || 0)} /></div>
-        <div><Label className="text-xs">Late Fee/Day (INR)</Label><Input type="number" value={f.late_fee_per_day || 0} onChange={e => set('late_fee_per_day', parseFloat(e.target.value) || 0)} /></div>
-        <div><Label className="text-xs">Channelization Fee</Label><Input type="number" value={f.channelization_fee || 0} onChange={e => set('channelization_fee', parseFloat(e.target.value) || 0)} /></div>
+        <div><Label className="text-xs">Quarterly Rel</Label><Input type="text" inputMode="numeric" value={f.quarterly_releases} onChange={e => set('quarterly_releases', parseInt(e.target.value) || 0)} /></div>
+        <div><Label className="text-xs">Late Fee/Day (INR)</Label><Input type="text" inputMode="decimal" value={f.late_fee_per_day || 0} onChange={e => set('late_fee_per_day', parseFloat(e.target.value) || 0)} /></div>
+        <div><Label className="text-xs">Channelization Fee</Label><Input type="text" inputMode="decimal" value={f.channelization_fee || 0} onChange={e => set('channelization_fee', parseFloat(e.target.value) || 0)} /></div>
         <div className="flex items-end">
           <label className="flex items-center gap-2 text-xs text-gray-600 cursor-pointer pb-2">
             <input type="checkbox" className="w-3.5 h-3.5 accent-[#5D3FD3]" checked={f.show_late_fees || false} onChange={e => set('show_late_fees', e.target.checked)} />
@@ -508,8 +508,8 @@ const SubscriberForm = ({ initial, onSave, onCancel, saving, packages }) => {
                   <tr key={emi.number} className="border-t">
                     <td className="px-2 py-1 font-medium">{emi.number}</td>
                     <td className="px-2 py-1"><Input type="date" value={emi.due_date} onChange={e => updateEmi(idx, 'due_date', e.target.value)} className="h-7 text-xs" /></td>
-                    <td className="px-2 py-1"><Input type="number" value={emi.amount} onChange={e => updateEmi(idx, 'amount', e.target.value)} className="h-7 text-xs text-right w-24 ml-auto" /></td>
-                    <td className="px-2 py-1"><Input type="number" value={emi.remaining} onChange={e => updateEmi(idx, 'remaining', e.target.value)} className="h-7 text-xs text-right w-24 ml-auto" /></td>
+                    <td className="px-2 py-1"><Input type="text" inputMode="decimal" value={emi.amount} onChange={e => updateEmi(idx, 'amount', e.target.value)} className="h-7 text-xs text-right w-24 ml-auto" /></td>
+                    <td className="px-2 py-1"><Input type="text" inputMode="decimal" value={emi.remaining} onChange={e => updateEmi(idx, 'remaining', e.target.value)} className="h-7 text-xs text-right w-24 ml-auto" /></td>
                     <td className="px-2 py-1 text-center">
                       <select value={emi.status} onChange={e => updateEmi(idx, 'status', e.target.value)} className="text-[10px] border rounded px-1 py-0.5">
                         <option value="pending">pending</option><option value="due">due</option><option value="paid">paid</option><option value="partial">partial</option>
@@ -531,7 +531,7 @@ const SubscriberForm = ({ initial, onSave, onCancel, saving, packages }) => {
             ['Carry Fwd', 'carry_forward'], ['Current', 'current'], ['Total', 'total'],
             ['Availed', 'availed'], ['Yet to Avail', 'yet_to_avail'], ['Due', 'due']
           ].map(([label, key]) => (
-            <div key={key}><Label className="text-[10px]">{label}</Label><Input type="number" value={f.sessions[key]} onChange={e => setSess(key, parseInt(e.target.value) || 0)} className="h-8 text-xs" /></div>
+            <div key={key}><Label className="text-[10px]">{label}</Label><Input type="text" inputMode="numeric" value={f.sessions[key]} onChange={e => setSess(key, parseInt(e.target.value) || 0)} className="h-8 text-xs" /></div>
           ))}
         </div>
         <div className="mt-2 flex gap-2 items-end">

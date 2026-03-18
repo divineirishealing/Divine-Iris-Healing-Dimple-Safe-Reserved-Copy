@@ -656,6 +656,7 @@ async def update_subscriber(client_id: str, data: SubscriberCreate):
 
     subscription = {
         "package_id": data.package_id,
+        "display_currency": data.display_currency,
         "annual_program": data.annual_program,
         "start_date": data.start_date,
         "end_date": data.end_date,
@@ -668,6 +669,10 @@ async def update_subscriber(client_id: str, data: SubscriberCreate):
         "programs": data.programs,
         "bi_annual_download": data.bi_annual_download,
         "quarterly_releases": data.quarterly_releases,
+        "show_late_fees": data.show_late_fees,
+        "late_fee_per_day": data.late_fee_per_day,
+        "channelization_fee": data.channelization_fee,
+        "payment_methods": data.payment_methods,
         "updated_at": datetime.now(timezone.utc).isoformat()
     }
 
