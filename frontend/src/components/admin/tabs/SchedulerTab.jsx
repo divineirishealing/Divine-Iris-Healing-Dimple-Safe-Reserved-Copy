@@ -77,7 +77,7 @@ const SchedulerTab = () => {
           const spillDate = new Date(y, m + 1, spillDays);
           endDate = spillDate.toISOString().split('T')[0];
         }
-        sched.push({ month: i + 1, date: `${y}-${mo}-03`, end_date: endDate, time: '', completed: false });
+        sched.push({ month: i + 1, date: `${y}-${mo}-03`, end_date: endDate, time: '10PM IST', note: 'Weekends: Offline', completed: false });
       } else if (prog.duration_unit === 'months') {
         sched.push({ month: i + 1, date: '', end_date: '', time: '', completed: false });
       } else {
@@ -147,6 +147,7 @@ const SchedulerTab = () => {
                       <th className="px-2 py-2 text-left">Start Date</th>
                       {isMonths && <th className="px-2 py-2 text-left">End Date</th>}
                       <th className="px-2 py-2 text-left">Time</th>
+                      <th className="px-2 py-2 text-left">Note</th>
                       <th className="px-2 py-2 text-center w-16">Done</th>
                       <th className="px-2 py-2 text-center w-16">Status</th>
                     </tr>
@@ -176,6 +177,14 @@ const SchedulerTab = () => {
                           <td className="px-2 py-2">
                             <Input value={slot.time || ''} onChange={e => updateSlot(pi, si, 'time', e.target.value)}
                               placeholder="e.g. 7PM IST" className="h-7 text-xs w-28" />
+                          </td>
+                          <td className="px-2 py-2">
+                            {slot.note ? (
+                              <span className="text-[9px] px-2 py-0.5 bg-amber-50 text-amber-700 rounded font-medium">{slot.note}</span>
+                            ) : (
+                              <Input value={slot.note || ''} onChange={e => updateSlot(pi, si, 'note', e.target.value)}
+                                placeholder="Note" className="h-7 text-xs w-28" />
+                            )}
                           </td>
                           <td className="px-2 py-2 text-center">
                             <input type="checkbox" checked={slot.completed || false}
