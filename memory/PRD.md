@@ -1,65 +1,49 @@
 # Divine Iris Healing - Product Requirements Document
 
 ## Original Problem Statement
-Build a pixel-perfect clone of https://divineirishealing.com/ with comprehensive admin panel, evolving into a Multi-Tiered Student Growth Platform with RBAC, advanced analytics, and interactive tools.
+Build a pixel-perfect clone of https://divineirishealing.com/ with comprehensive admin panel, evolving into a Multi-Tiered Student Growth Platform.
 
 ## Architecture
 - **Frontend**: React + TailwindCSS + shadcn/ui
 - **Backend**: FastAPI + Pydantic + Motor (async MongoDB)
 - **Database**: MongoDB
-- **Payments**: Stripe (TEST MODE)
-- **Email**: Google Workspace SMTP
-- **Auth**: Emergent-managed Google OAuth (student login)
+- **Payments**: Stripe (TEST MODE), **Auth**: Emergent Google OAuth
 
 ## Implemented Features
 
-### Global Annual Pricing Config (Mar 18, 2026) - COMPLETED
-- [x] Editable package structure: name, duration (months), pricing per currency (INR/USD/AED/EUR/GBP)
-- [x] Included programs with duration units (months/sessions): AWRP 12mo, MMM 6mo, Bi-Annual Downloads 2 sess, Quarterly Meetups 4 sess
-- [x] Default session counts (current, carry forward) configurable
-- [x] Auto-fill subscriber form: program name, total fee, programs, sessions, bi-annual/quarterly from config
-- [x] Start date → End date auto-calculation (+12 months)
-- [x] Currency change → Fee auto-update from config pricing
-- [x] Edit form preserves existing data (no override)
-- [x] All 10/10 backend + 100% frontend tests passed (iteration_77)
+### Global Annual Pricing Structure (Mar 18, 2026) - COMPLETED
+- [x] Pulls monthly prices from existing programs in Pricing Hub via fuzzy matching
+- [x] Editable programs table: name, duration, unit (months/sessions), Source Tier (1 Month/3 Months/Annual), Discount %
+- [x] Calculate Pricing button: shows breakdown (monthly × duration - discount per program)
+- [x] Subtotals, overall discount %, and final Annual Package Price per currency
+- [x] "Apply to Package Price" button auto-fills final pricing fields
+- [x] Manual price override always available
+- [x] All 18/18 backend + 100% frontend tests passed (iteration_78)
 
 ### Annual Subscriber CRUD & Management (Mar 18, 2026) - COMPLETED
-- [x] Create/Edit/Delete subscriber with full form
-- [x] Quick actions: Mark EMI Paid, +1 Session Availed
-- [x] Excel upload/download, template, export
-- [x] EMI tracking (up to 12), session tracking, multi-program packages
+- [x] Create/Edit/Delete subscriber with full form, Quick actions (Mark EMI Paid, +1 Session)
+- [x] Auto-fill from config: start date → end date (+12mo), fee, programs, sessions
+- [x] Excel upload/download/export, EMI tracking (up to 12), session tracking
 - [x] Student Financials page with EMI schedule, session ring, programs list
-- [x] All 16/16 backend + 100% frontend tests (iteration_76)
 
 ### Student Dashboard - "Modern Spiritual" (Mar 18, 2026) - COMPLETED
-- [x] Iris flower layout, glassmorphism, purple atmosphere, Soul Compass
-- [x] Video upload in Sanctuary Settings
-- [x] All 8/8 backend + 100% frontend tests (iteration_74)
+- [x] Iris flower layout, glassmorphism, purple atmosphere, Soul Compass, video upload
 
-### Google OAuth Authentication (Mar 18, 2026) - COMPLETED
-### Previous Features (Mar 16-17, 2026) - COMPLETED
+### Google OAuth + Previous Features - COMPLETED
 
 ## Key API Endpoints
-- `GET/PUT /api/admin/subscribers/pricing-config` - Global annual package config
-- `POST /api/admin/subscribers/create` - Create subscriber
-- `PUT /api/admin/subscribers/update/{id}` - Update subscriber
-- `POST /api/admin/subscribers/emi-payment` - Record EMI payment
-- `POST /api/admin/subscribers/session-update` - Update sessions
-- `POST /api/admin/subscribers/upload` - Upload Excel
-- `GET /api/admin/subscribers/download-template` / `export` / `list`
-- `GET /api/student/home` - Student home data
+- `GET /api/admin/subscribers/calculate-pricing` - Calculate from program prices
+- `GET/PUT /api/admin/subscribers/pricing-config` - Global package config
+- `POST /api/admin/subscribers/create` | `PUT .../update/{id}` | `DELETE .../delete/{id}`
+- `POST /api/admin/subscribers/emi-payment` | `POST .../session-update`
+- `POST /api/admin/subscribers/upload` | `GET .../download-template` | `GET .../export`
+- `GET /api/student/home` - Student dashboard data
 
 ## Upcoming Tasks
 - **P0:** Build remaining dashboard sub-pages (Growth Roadmap, Mini Diary, Monthly Reports)
 - **P1:** RBAC Middleware (backend route protection by tier)
-- **P2:** Admin command center for student tier management
 
 ## Future/Backlog
-- Razorpay for Indian payments
-- Advanced analytics, Calendar sync, WhatsApp automation, SEO
+- Razorpay, Advanced analytics, Calendar sync, WhatsApp automation, SEO
 
-## Admin Credentials
-- URL: /admin, Username: admin, Password: divineadmin2024
-
-## Student Dashboard Access
-- URL: /login → /dashboard, Auth: Google OAuth (Client Garden whitelist)
+## Admin: /admin (admin / divineadmin2024) | Student: /login → /dashboard (Google OAuth)
