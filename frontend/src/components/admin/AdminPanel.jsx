@@ -45,6 +45,7 @@ import ProfileApprovals from './tabs/ProfileApprovals';
 import TextTestimonialsTab from './tabs/TextTestimonialsTab';
 import FraudAlertsTab from './tabs/FraudAlertsTab';
 import SubscribersTab from './tabs/SubscribersTab';
+import SchedulerTab from './tabs/SchedulerTab';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
@@ -217,6 +218,7 @@ const AdminPanel = () => {
     { key: 'exchange_rates', label: 'Exchange Rates', icon: Globe },
     { key: 'subscribers', label: 'Subscribers', icon: Mail, count: subscribers.length },
     { key: 'annual_subscribers', label: 'Annual Subscribers', icon: Star },
+    { key: 'scheduler', label: 'Scheduler', icon: Calendar },
     { key: 'styles', label: 'Global Styles', icon: Palette },
     { key: 'payment_settings', label: 'Payments', icon: Tag },
     { key: 'india_payments', label: 'India Proofs', icon: Tag },
@@ -335,6 +337,7 @@ const AdminPanel = () => {
           {activeTab === 'pricing_hub' && <PricingHubTab />}
           {activeTab === 'upcoming_hub' && <UpcomingHubTab />}
           {activeTab === 'annual_subscribers' && <SubscribersTab />}
+          {activeTab === 'scheduler' && <SchedulerTab />}
 
           {/* ===== PROGRAMS TAB ===== */}
           {activeTab === 'programs' && (
