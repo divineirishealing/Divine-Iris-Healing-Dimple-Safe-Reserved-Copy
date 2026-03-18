@@ -11,7 +11,7 @@ import { useSiteSettings } from '../../context/SiteSettingsContext';
 const Sidebar = () => {
   const { user, logout } = useAuth();
   const { settings } = useSiteSettings();
-  const theme = settings.dashboard_settings || { title: "Sanctuary" };
+  const theme = settings?.dashboard_settings || { title: "Sanctuary" };
   
   const tier = user?.tier || 1;
 
