@@ -4,7 +4,7 @@ import { useToast } from '../../../hooks/use-toast';
 import { Button } from '../../ui/button';
 import { Input } from '../../ui/input';
 import { Label } from '../../ui/label';
-import { Save, Loader2, CheckCircle, Plus, X, Calendar } from 'lucide-react';
+import { Save, Loader2, CheckCircle, Plus, X, Calendar, ChevronDown, ChevronRight } from 'lucide-react';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
@@ -13,6 +13,7 @@ const SchedulerTab = () => {
   const [programs, setPrograms] = useState([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [collapsed, setCollapsed] = useState({});
 
   const fetchData = useCallback(async () => {
     try {
@@ -121,24 +122,31 @@ const SchedulerTab = () => {
 
         return (
           <div key={pi} className="bg-white rounded-xl border shadow-sm overflow-hidden" data-testid={`sched-prog-${prog.name}`}>
-            {/* Program Header */}
-            <div className="px-4 py-3 bg-gradient-to-r from-[#5D3FD3]/5 to-[#D4AF37]/5 border-b flex items-center justify-between">
+            {/* Program Header - Collapsible */}
+            <div
+              className="px-4 py-3 bg-gradient-to-r from-[#5D3FD3]/5 to-[#D4AF37]/5 border-b flex items-center justify-between cursor-pointer select-none"
+              onClick={() => setCollapsed(prev => ({ ...prev, [pi]: !prev[pi] }))}
+              data-testid={`sched-toggle-${prog.name}`}
+            >
               <div className="flex items-center gap-3">
+                {collapsed[pi] ? <ChevronRight size={16} className="text-gray-400" /> : <ChevronDown size={16} className="text-gray-400" />}
                 <Calendar size={16} className="text-[#5D3FD3]" />
                 <div>
                   <h3 className="font-bold text-gray-900 text-sm">{prog.name}</h3>
                   <p className="text-[10px] text-gray-500">{prog.duration_value} {prog.duration_unit} · {completedCount}/{schedule.length} completed</p>
                 </div>
               </div>
-              {schedule.length === 0 && (
-                <Button size="sm" variant="outline" onClick={() => generateSlots(pi)} className="h-7 text-xs">
-                  <Plus size={12} className="mr-1" /> Generate {prog.duration_value} Slots
-                </Button>
-              )}
+              <div className="flex items-center gap-2">
+                {schedule.length === 0 && (
+                  <Button size="sm" variant="outline" onClick={(e) => { e.stopPropagation(); generateSlots(pi); }} className="h-7 text-xs">
+                    <Plus size={12} className="mr-1" /> Generate {prog.duration_value} Slots
+                  </Button>
+                )}
+              </div>
             </div>
 
-            {/* Schedule Grid */}
-            {schedule.length > 0 && (
+            {/* Schedule Grid - Collapsible */}
+            {!collapsed[pi] && schedule.length > 0 && (
               <div className="overflow-x-auto">
                 <table className="w-full text-[11px]">
                   <thead>
@@ -208,7 +216,7 @@ const SchedulerTab = () => {
               </div>
             )}
 
-            {schedule.length === 0 && (
+            {!collapsed[pi] && schedule.length === 0 && (
               <div className="p-6 text-center text-sm text-gray-400 italic">
                 Click "Generate Slots" to create the schedule
               </div>

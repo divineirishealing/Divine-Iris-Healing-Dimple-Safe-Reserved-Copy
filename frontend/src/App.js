@@ -29,6 +29,8 @@ import DashboardLayout from './layouts/DashboardLayout';
 import AuthCallback from './components/auth/AuthCallback';
 import ProfilePage from './components/dashboard/ProfilePage';
 import FinancialsPage from './components/dashboard/FinancialsPage';
+import CalendarPage from './components/dashboard/CalendarPage';
+import ProgressPage from './components/dashboard/ProgressPage';
 import { Toaster } from './components/ui/toaster';
 import { SiteSettingsProvider } from './context/SiteSettingsContext';
 import { CurrencyProvider, useCurrency } from './context/CurrencyContext';
@@ -90,9 +92,10 @@ const AppContent = () => {
         <Route index element={<StudentDashboard />} />
         <Route path="profile" element={<ProfilePage />} />
         <Route path="financials" element={<FinancialsPage />} />
+        <Route path="sessions" element={<CalendarPage />} />
+        <Route path="progress" element={<ProgressPage />} />
         
         <Route path="roadmap" element={<div className="p-8 font-serif text-[#5D3FD3]">Growth Roadmap Coming Soon</div>} />
-        <Route path="sessions" element={<div className="p-8 font-serif text-[#5D3FD3]">Upcoming Sessions Coming Soon</div>} />
         <Route path="community" element={<div className="p-8 font-serif text-[#5D3FD3]">Experience Sharing Coming Soon</div>} />
         <Route path="archive" element={<div className="p-8 font-serif text-[#5D3FD3]">Workshop Archive Coming Soon</div>} />
         <Route path="diary" element={<div className="p-8 font-serif text-[#5D3FD3]">Mini Diary Coming Soon</div>} />

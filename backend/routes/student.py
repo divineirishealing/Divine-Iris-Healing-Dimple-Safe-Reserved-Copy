@@ -222,3 +222,165 @@ async def choose_session_mode(data: ModeChoice, user: dict = Depends(get_current
         {"$set": {"subscription": sub}}
     )
     return {"message": f"Mode set to {data.mode}"}
+
+
+# ═══════════════════════════════════════════
+# DAILY PROGRESS TRACKING
+# ═══════════════════════════════════════════
+
+class DailyProgressCreate(BaseModel):
+    date: str  # YYYY-MM-DD
+    program_name: str
+    notes: str = ""
+    rating: int = 3  # 1-5
+    completed: bool = True
+    is_extraordinary: bool = False
+    extraordinary_note: str = ""
+
+@router.post("/daily-progress")
+async def save_daily_progress(data: DailyProgressCreate, user: dict = Depends(get_current_user)):
+    """Save or update a daily progress entry."""
+    client_id = user.get("client_id")
+    if not client_id:
+        raise HTTPException(status_code=400, detail="User not linked to client record")
+
+    entry = {
+        "client_id": client_id,
+        "date": data.date,
+        "program_name": data.program_name,
+        "notes": data.notes,
+        "rating": max(1, min(5, data.rating)),
+        "completed": data.completed,
+        "is_extraordinary": data.is_extraordinary,
+        "extraordinary_note": data.extraordinary_note,
+        "updated_at": datetime.now(timezone.utc).isoformat()
+    }
+
+    # Upsert: one entry per client+date+program
+    await db.daily_progress.update_one(
+        {"client_id": client_id, "date": data.date, "program_name": data.program_name},
+        {"$set": entry, "$setOnInsert": {"id": str(__import__('uuid').uuid4()), "created_at": datetime.now(timezone.utc).isoformat()}},
+        upsert=True
+    )
+    return {"message": "Progress saved"}
+
+@router.get("/daily-progress")
+async def get_daily_progress(month: str = "", user: dict = Depends(get_current_user)):
+    """Get daily progress entries. Optional: filter by month (YYYY-MM)."""
+    client_id = user.get("client_id")
+    query = {"client_id": client_id}
+    if month:
+        query["date"] = {"$regex": f"^{month}"}
+    entries = await db.daily_progress.find(query, {"_id": 0}).sort("date", -1).to_list(366)
+    return entries
+
+@router.get("/extraordinary-moments")
+async def get_extraordinary_moments(user: dict = Depends(get_current_user)):
+    """Get all extraordinary moments for a student."""
+    client_id = user.get("client_id")
+    entries = await db.daily_progress.find(
+        {"client_id": client_id, "is_extraordinary": True},
+        {"_id": 0}
+    ).sort("date", -1).to_list(100)
+    return entries
+
+
+# ═══════════════════════════════════════════
+# STUDENT-INITIATED PAUSE
+# ═══════════════════════════════════════════
+
+class PauseRequest(BaseModel):
+    program_name: str
+    pause_start: str  # YYYY-MM-DD
+    pause_end: str    # YYYY-MM-DD
+    reason: str = ""
+
+@router.post("/pause-program")
+async def pause_program(data: PauseRequest, user: dict = Depends(get_current_user)):
+    """Student requests to pause a program (if admin has enabled it)."""
+    client_id = user.get("client_id")
+    client_doc = await db.clients.find_one({"id": client_id})
+    if not client_doc:
+        raise HTTPException(status_code=404, detail="Client not found")
+
+    sub = client_doc.get("subscription", {})
+    programs = sub.get("programs_detail", [])
+
+    for prog in programs:
+        if prog["name"] == data.program_name:
+            if not prog.get("allow_pause", False):
+                raise HTTPException(status_code=403, detail="Pause not enabled for this program")
+            prog["status"] = "paused"
+            prog["pause_start"] = data.pause_start
+            prog["pause_end"] = data.pause_end
+            prog["pause_reason"] = data.reason
+            prog["pause_requested_at"] = datetime.now(timezone.utc).isoformat()
+            break
+    else:
+        raise HTTPException(status_code=404, detail="Program not found")
+
+    sub["programs_detail"] = programs
+    await db.clients.update_one(
+        {"id": client_id},
+        {"$set": {"subscription": sub}}
+    )
+    return {"message": f"{data.program_name} paused until {data.pause_end}"}
+
+@router.post("/resume-program")
+async def resume_program(data: ModeChoice, user: dict = Depends(get_current_user)):
+    """Student resumes a paused program."""
+    client_id = user.get("client_id")
+    client_doc = await db.clients.find_one({"id": client_id})
+    if not client_doc:
+        raise HTTPException(status_code=404, detail="Client not found")
+
+    sub = client_doc.get("subscription", {})
+    programs = sub.get("programs_detail", [])
+
+    for prog in programs:
+        if prog["name"] == data.program_name:
+            prog["status"] = "active"
+            prog.pop("pause_start", None)
+            prog.pop("pause_end", None)
+            prog.pop("pause_reason", None)
+            break
+    else:
+        raise HTTPException(status_code=404, detail="Program not found")
+
+    sub["programs_detail"] = programs
+    await db.clients.update_one(
+        {"id": client_id},
+        {"$set": {"subscription": sub}}
+    )
+    return {"message": f"{data.program_name} resumed"}
+
+class ResumeRequest(BaseModel):
+    program_name: str
+
+@router.post("/resume-program-simple")
+async def resume_program_simple(data: ResumeRequest, user: dict = Depends(get_current_user)):
+    """Student resumes a paused program (simple)."""
+    client_id = user.get("client_id")
+    client_doc = await db.clients.find_one({"id": client_id})
+    if not client_doc:
+        raise HTTPException(status_code=404, detail="Client not found")
+
+    sub = client_doc.get("subscription", {})
+    programs = sub.get("programs_detail", [])
+
+    for prog in programs:
+        if prog["name"] == data.program_name:
+            prog["status"] = "active"
+            prog.pop("pause_start", None)
+            prog.pop("pause_end", None)
+            prog.pop("pause_reason", None)
+            break
+    else:
+        raise HTTPException(status_code=404, detail="Program not found")
+
+    sub["programs_detail"] = programs
+    await db.clients.update_one(
+        {"id": client_id},
+        {"$set": {"subscription": sub}}
+    )
+    return {"message": f"{data.program_name} resumed"}

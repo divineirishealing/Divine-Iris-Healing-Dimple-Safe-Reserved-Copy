@@ -614,6 +614,10 @@ class ProgramDetail(BaseModel):
     status: str = "active"  # active | paused
     mode: str = "online"  # online | offline
     visible: bool = True
+    allow_pause: bool = False  # admin toggle: allow student to pause this program
+    pause_start: str = ""
+    pause_end: str = ""
+    pause_reason: str = ""
     schedule: List[Dict] = []  # [{month/session, date, end_date, time, mode_choice, completed}]
 
 class SubscriberCreate(BaseModel):

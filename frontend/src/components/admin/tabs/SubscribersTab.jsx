@@ -616,6 +616,10 @@ const SubscriberForm = ({ initial, onSave, onCancel, saving, packages }) => {
                       className={`text-[9px] px-2 py-1 rounded font-bold ${prog.status === 'paused' ? 'bg-amber-200 text-amber-800' : 'bg-gray-100 text-gray-500 hover:bg-amber-100'}`}>
                       {prog.status === 'paused' ? 'Resume' : 'Pause'}
                     </button>
+                    <label className="flex items-center gap-1 text-[9px] text-gray-500" title="Allow student to self-pause">
+                      <input type="checkbox" className="w-3 h-3 accent-amber-500" checked={prog.allow_pause || false} onChange={e => updatePD('allow_pause', e.target.checked)} />
+                      <span className="text-amber-600">Pausable</span>
+                    </label>
                     <label className="flex items-center gap-1 text-[9px] text-gray-500">
                       <input type="checkbox" className="w-3 h-3" checked={prog.visible !== false} onChange={e => updatePD('visible', e.target.checked)} />
                       Vis
