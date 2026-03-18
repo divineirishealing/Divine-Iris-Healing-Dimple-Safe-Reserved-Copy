@@ -13,34 +13,40 @@ Build a pixel-perfect clone of https://divineirishealing.com/ with comprehensive
 
 ## Implemented Features
 
+### Global Annual Pricing Config (Mar 18, 2026) - COMPLETED
+- [x] Editable package structure: name, duration (months), pricing per currency (INR/USD/AED/EUR/GBP)
+- [x] Included programs with duration units (months/sessions): AWRP 12mo, MMM 6mo, Bi-Annual Downloads 2 sess, Quarterly Meetups 4 sess
+- [x] Default session counts (current, carry forward) configurable
+- [x] Auto-fill subscriber form: program name, total fee, programs, sessions, bi-annual/quarterly from config
+- [x] Start date → End date auto-calculation (+12 months)
+- [x] Currency change → Fee auto-update from config pricing
+- [x] Edit form preserves existing data (no override)
+- [x] All 10/10 backend + 100% frontend tests passed (iteration_77)
+
 ### Annual Subscriber CRUD & Management (Mar 18, 2026) - COMPLETED
-- [x] **Create subscriber** form: name, email, program, dates, fee, currency, payment mode, EMIs (up to 12 with schedule), sessions, programs, bi-annual/quarterly
-- [x] **Edit subscriber** via pre-filled form from row edit button
-- [x] **Quick actions**: Mark EMI as Paid (green checkmark), +1 Session Availed button
-- [x] **Excel upload/download**: bulk import, template download, data export
-- [x] **EMI tracking**: date, amount, remaining, due date, status per EMI
-- [x] **Session tracking**: carry forward, current, total, availed, yet to avail, due, scheduled dates
-- [x] **Student Financials page**: top stats, payment progress, EMI table, session ring, programs list
-- [x] All 16/16 backend + 100% frontend tests passed (iteration_76)
+- [x] Create/Edit/Delete subscriber with full form
+- [x] Quick actions: Mark EMI Paid, +1 Session Availed
+- [x] Excel upload/download, template, export
+- [x] EMI tracking (up to 12), session tracking, multi-program packages
+- [x] Student Financials page with EMI schedule, session ring, programs list
+- [x] All 16/16 backend + 100% frontend tests (iteration_76)
 
 ### Student Dashboard - "Modern Spiritual" (Mar 18, 2026) - COMPLETED
-- [x] Iris flower layout, glassmorphism cards, purple atmosphere
-- [x] Soul Compass progress ring, tier-based sidebar
+- [x] Iris flower layout, glassmorphism, purple atmosphere, Soul Compass
 - [x] Video upload in Sanctuary Settings
+- [x] All 8/8 backend + 100% frontend tests (iteration_74)
 
 ### Google OAuth Authentication (Mar 18, 2026) - COMPLETED
 ### Previous Features (Mar 16-17, 2026) - COMPLETED
 
 ## Key API Endpoints
-- `POST /api/admin/subscribers/create` - Create subscriber manually
+- `GET/PUT /api/admin/subscribers/pricing-config` - Global annual package config
+- `POST /api/admin/subscribers/create` - Create subscriber
 - `PUT /api/admin/subscribers/update/{id}` - Update subscriber
-- `DELETE /api/admin/subscribers/delete/{id}` - Remove subscription
 - `POST /api/admin/subscribers/emi-payment` - Record EMI payment
-- `POST /api/admin/subscribers/session-update` - Update session count
+- `POST /api/admin/subscribers/session-update` - Update sessions
 - `POST /api/admin/subscribers/upload` - Upload Excel
-- `GET /api/admin/subscribers/download-template` - Download blank template
-- `GET /api/admin/subscribers/export` - Export all subscribers
-- `GET /api/admin/subscribers/list` - List subscribers
+- `GET /api/admin/subscribers/download-template` / `export` / `list`
 - `GET /api/student/home` - Student home data
 
 ## Upcoming Tasks
@@ -50,17 +56,10 @@ Build a pixel-perfect clone of https://divineirishealing.com/ with comprehensive
 
 ## Future/Backlog
 - Razorpay for Indian payments
-- Advanced analytics (Past vs Present charts)
-- Interactive tools (Calendar sync, Report submission)
-- WhatsApp automation, SEO
-
-## Technical Debt
-- Deduplicate `create_checkout_no_adaptive` function
-- TrustSection.jsx cleanup
+- Advanced analytics, Calendar sync, WhatsApp automation, SEO
 
 ## Admin Credentials
 - URL: /admin, Username: admin, Password: divineadmin2024
 
 ## Student Dashboard Access
-- URL: /login → /dashboard
-- Auth: Google OAuth (must be in Client Garden)
+- URL: /login → /dashboard, Auth: Google OAuth (Client Garden whitelist)
