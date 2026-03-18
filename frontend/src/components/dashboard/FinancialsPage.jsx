@@ -359,13 +359,12 @@ const FinancialsPage = () => {
                           </span>
                         </td>
                         {data?.show_late_fees && (
-                          <td className="py-3 px-2 text-right font-mono text-[10px] text-red-600">
-                            {lateFee > 0 ? `${fin.currency} ${lateFee.toLocaleString()}` : '-'}
-                            {daysLate > 0 && <span className="block text-[8px] text-red-400">{daysLate}d late</span>}
+                          <td className="py-3 px-2 text-right font-mono text-[10px] text-red-600 whitespace-nowrap">
+                            {lateFee > 0 ? `${fin.currency} ${lateFee.toLocaleString()} (${daysLate}d)` : '-'}
                           </td>
                         )}
                         {data?.show_late_fees && (
-                          <td className="py-3 px-2 text-right font-mono text-[10px] text-red-600">
+                          <td className="py-3 px-2 text-right font-mono text-[10px] text-red-600 whitespace-nowrap">
                             {channelFee > 0 ? `${fin.currency} ${channelFee.toLocaleString()}` : '-'}
                           </td>
                         )}

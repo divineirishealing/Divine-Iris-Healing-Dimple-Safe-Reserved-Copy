@@ -709,8 +709,8 @@ const SubscriberRow = ({ s, onRefresh, onEdit }) => {
                               {statusLabel}
                             </span>
                           </td>
-                          <td className="px-2 py-1.5 text-right font-mono text-[8px] text-red-600">{lateFee > 0 ? lateFee.toLocaleString() : '-'}{daysLate > 0 && <span className="block text-red-400">{daysLate}d</span>}</td>
-                          <td className="px-2 py-1.5 text-right font-mono text-[8px] text-red-600">{channelFee > 0 ? channelFee.toLocaleString() : '-'}</td>
+                          <td className="px-2 py-1.5 text-right font-mono text-[8px] text-red-600 whitespace-nowrap">{lateFee > 0 ? `${lateFee.toLocaleString()} (${daysLate}d)` : '-'}</td>
+                          <td className="px-2 py-1.5 text-right font-mono text-[8px] text-red-600 whitespace-nowrap">{channelFee > 0 ? channelFee.toLocaleString() : '-'}</td>
                           <td className="px-2 py-1.5 text-center text-[8px] text-gray-400">{e.payment_method?.toUpperCase() || '-'}</td>
                           <td className="px-2 py-1.5 text-left text-[8px] text-gray-400 truncate max-w-[80px]">{e.paid_by ? `By ${e.paid_by}` : e.transaction_id ? `TXN: ${e.transaction_id}` : '-'}</td>
                           <td className="px-2 py-1.5 text-center">
