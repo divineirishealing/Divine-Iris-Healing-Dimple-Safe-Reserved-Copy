@@ -495,6 +495,7 @@ class SiteSettings(BaseModel):
     pricing_color: str = "#D4AF37"
     pricing_weight: str = "700"
     exclusive_offer: Optional[Dict] = None
+    dashboard_settings: Dict = {}  # {title, colors: {primary, secondary}, fonts}
     community_whatsapp_link: str = ""
     text_testimonials_style: Optional[Dict] = None
     fraud_alert_email: str = "support@divineirishealing.com"
@@ -626,6 +627,7 @@ class SiteSettingsUpdate(BaseModel):
     text_testimonials_style: Optional[Dict] = None
     fraud_alert_email: Optional[str] = None
 
+    dashboard_settings: Optional[Dict] = None  # {title, colors: {primary, secondary}, fonts}
 class PaymentTransaction(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     session_id: str

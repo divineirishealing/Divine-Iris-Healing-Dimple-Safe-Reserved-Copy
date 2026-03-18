@@ -23,6 +23,7 @@ import SponsorSettingsTab from './tabs/SponsorSettingsTab';
 import HomepageSectionsTab from './tabs/HomepageSectionsTab';
 import NewsletterSettingsTab from './tabs/NewsletterSettingsTab';
 import HeaderFooterTab from './tabs/HeaderFooterTab';
+import DashboardSettingsTab from './tabs/DashboardSettingsTab';
 import EnrollmentsTab from './tabs/EnrollmentsTab';
 import { SessionCalendarManager, SessionTestimonialsManager, SessionQuestionsManager } from './tabs/SessionManagerTabs';
 import SessionVisibilityPanel from './tabs/SessionVisibilityPanel';
@@ -189,6 +190,7 @@ const AdminPanel = () => {
     { key: 'text_testimonials', label: 'Text Quotes', icon: Quote },
     { key: 'stats', label: 'Stats', icon: BarChart3, count: stats.length },
     { key: 'header_footer', label: 'Header & Footer', icon: Globe },
+    { key: 'dashboard_settings', label: 'Dashboard', icon: Layout },
     { key: 'enrollments', label: 'Enrollments', icon: Users },
     { key: 'inbox', label: 'Inbox', icon: Inbox },
     { key: 'clients', label: 'Client Garden', icon: Users },
@@ -204,7 +206,7 @@ const AdminPanel = () => {
     { key: 'api_keys', label: 'API Keys', icon: Settings },
   ];
 
-  const settingsTabKeys = ['hero', 'homepage_sections', 'page_headers', 'header_footer', 'styles'];
+  const settingsTabKeys = ['hero', 'homepage_sections', 'page_headers', 'header_footer', 'styles', 'dashboard_settings'];
   const needsSave = settingsTabKeys.includes(activeTab);
 
   return (
@@ -269,6 +271,13 @@ const AdminPanel = () => {
             <div>
               <HeaderFooterTab settings={siteSettings} onChange={setSiteSettings} />
               <Button onClick={saveSiteSettings} className="bg-[#D4AF37] hover:bg-[#b8962e] mt-5"><Save size={14} className="mr-1" /> Save Changes</Button>
+          {activeTab === 'dashboard_settings' && siteSettings && (
+            <div>
+              <DashboardSettingsTab settings={siteSettings} onChange={setSiteSettings} />
+              <Button onClick={saveSiteSettings} className="bg-[#D4AF37] hover:bg-[#b8962e] mt-5"><Save size={14} className="mr-1" /> Save Changes</Button>
+            </div>
+          )}
+
             </div>
           )}
 

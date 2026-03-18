@@ -1,5 +1,5 @@
 import React from 'react';
-import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, useLocation } from 'react-router-dom';
 import HomePage from './pages/HomePage';
 import AdminPage from './pages/AdminPage';
 import ProgramDetailPage from './pages/ProgramDetailPage';
@@ -23,10 +23,15 @@ import BlogPage from './pages/BlogPage';
 import SponsorPage from './pages/SponsorPage';
 import IndiaPaymentPage from './pages/IndiaPaymentPage';
 import ManualPaymentPage from './pages/ManualPaymentPage';
+import LoginPage from './pages/LoginPage';
+import StudentDashboard from './pages/StudentDashboard';
+import DashboardLayout from './layouts/DashboardLayout';
+import AuthCallback from './components/auth/AuthCallback';
 import { Toaster } from './components/ui/toaster';
 import { SiteSettingsProvider } from './context/SiteSettingsContext';
 import { CurrencyProvider, useCurrency } from './context/CurrencyContext';
 import { CartProvider } from './context/CartContext';
+import { AuthProvider } from './context/AuthContext';
 
 const CurrencyGate = ({ children }) => {
   const { ready } = useCurrency();
@@ -40,6 +45,60 @@ const CurrencyGate = ({ children }) => {
   return children;
 };
 
+const AppContent = () => {
+  const location = useLocation();
+
+  // Handle OAuth callback (implicit flow via hash fragment)
+  if (location.hash && location.hash.includes('session_id=')) {
+    return <AuthCallback />;
+  }
+
+  return (
+    <Routes>
+      <Route path="/" element={<HomePage />} />
+      <Route path="/admin" element={<AdminPage />} />
+      <Route path="/programs" element={<AllProgramsPage />} />
+      <Route path="/program/:id" element={<ProgramDetailPage />} />
+      <Route path="/services" element={<ServicesPage />} />
+      <Route path="/sessions" element={<AllSessionsPage />} />
+      <Route path="/session/:id" element={<SessionDetailPage />} />
+      <Route path="/media" element={<MediaPage />} />
+      <Route path="/transformations" element={<TransformationsPage />} />
+      <Route path="/checkout/:type/:id" element={<CheckoutPage />} />
+      <Route path="/enroll/:type/:id" element={<EnrollmentPage />} />
+      <Route path="/cart" element={<CartPage />} />
+      <Route path="/cart/checkout" element={<CartCheckoutPage />} />
+      <Route path="/payment/success" element={<PaymentSuccessPage />} />
+      <Route path="/payment/cancel" element={<PaymentCancelPage />} />
+      <Route path="/india-payment/:enrollmentId" element={<IndiaPaymentPage />} />
+      <Route path="/manual-payment/:enrollmentId" element={<ManualPaymentPage />} />
+      <Route path="/manual-payment" element={<ManualPaymentPage />} />
+      <Route path="/contact" element={<ContactPage />} />
+      <Route path="/terms" element={<TermsPage />} />
+      <Route path="/privacy" element={<PrivacyPage />} />
+      <Route path="/about" element={<AboutPage />} />
+      <Route path="/blog" element={<BlogPage />} />
+      <Route path="/sponsor" element={<SponsorPage />} />
+      
+      {/* Auth Routes */}
+      <Route path="/login" element={<LoginPage />} />
+      
+      {/* Dashboard Routes */}
+      <Route path="/dashboard" element={<DashboardLayout />}>
+        <Route index element={<StudentDashboard />} />
+        <Route path="roadmap" element={<div className="p-8 font-serif text-[#5D3FD3]">Growth Roadmap Coming Soon</div>} />
+        <Route path="sessions" element={<div className="p-8 font-serif text-[#5D3FD3]">Upcoming Sessions Coming Soon</div>} />
+        <Route path="community" element={<div className="p-8 font-serif text-[#5D3FD3]">Experience Sharing Coming Soon</div>} />
+        <Route path="archive" element={<div className="p-8 font-serif text-[#5D3FD3]">Workshop Archive Coming Soon</div>} />
+        <Route path="diary" element={<div className="p-8 font-serif text-[#5D3FD3]">Mini Diary Coming Soon</div>} />
+        <Route path="reports" element={<div className="p-8 font-serif text-[#5D3FD3]">Monthly Reports Coming Soon</div>} />
+        <Route path="tracker" element={<div className="p-8 font-serif text-[#5D3FD3]">Interactive Tracker Coming Soon</div>} />
+        <Route path="vault" element={<div className="p-8 font-serif text-[#5D3FD3]">Resource Vault Coming Soon</div>} />
+      </Route>
+    </Routes>
+  );
+};
+
 function App() {
   return (
     <div className="App">
@@ -48,36 +107,13 @@ function App() {
           <CartProvider>
             <SiteSettingsProvider>
             <BrowserRouter>
-              <Routes>
-                <Route path="/" element={<HomePage />} />
-                <Route path="/admin" element={<AdminPage />} />
-                <Route path="/programs" element={<AllProgramsPage />} />
-                <Route path="/program/:id" element={<ProgramDetailPage />} />
-                <Route path="/services" element={<ServicesPage />} />
-                <Route path="/sessions" element={<AllSessionsPage />} />
-                <Route path="/session/:id" element={<SessionDetailPage />} />
-                <Route path="/media" element={<MediaPage />} />
-                <Route path="/transformations" element={<TransformationsPage />} />
-                <Route path="/checkout/:type/:id" element={<CheckoutPage />} />
-                <Route path="/enroll/:type/:id" element={<EnrollmentPage />} />
-                <Route path="/cart" element={<CartPage />} />
-                <Route path="/cart/checkout" element={<CartCheckoutPage />} />
-                <Route path="/payment/success" element={<PaymentSuccessPage />} />
-                <Route path="/payment/cancel" element={<PaymentCancelPage />} />
-                <Route path="/india-payment/:enrollmentId" element={<IndiaPaymentPage />} />
-                <Route path="/manual-payment/:enrollmentId" element={<ManualPaymentPage />} />
-                <Route path="/manual-payment" element={<ManualPaymentPage />} />
-                <Route path="/contact" element={<ContactPage />} />
-                <Route path="/terms" element={<TermsPage />} />
-                <Route path="/privacy" element={<PrivacyPage />} />
-                <Route path="/about" element={<AboutPage />} />
-                <Route path="/blog" element={<BlogPage />} />
-                <Route path="/sponsor" element={<SponsorPage />} />
-              </Routes>
+              <AuthProvider>
+                <AppContent />
+              </AuthProvider>
             </BrowserRouter>
             <Toaster />
-          </SiteSettingsProvider>
-        </CartProvider>
+            </SiteSettingsProvider>
+          </CartProvider>
         </CurrencyGate>
       </CurrencyProvider>
     </div>
