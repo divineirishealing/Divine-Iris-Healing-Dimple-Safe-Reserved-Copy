@@ -552,11 +552,19 @@ class SessionsInput(BaseModel):
     due: int = 0
     scheduled_dates: List[str] = []
 
+class ProgramDetail(BaseModel):
+    name: str
+    duration_value: int = 0
+    duration_unit: str = "months"
+    start_date: str = ""
+    end_date: str = ""
+    status: str = "active"  # active | paused
+
 class SubscriberCreate(BaseModel):
     name: str
     email: str = ""
-    package_id: str = ""  # tag to a specific package
-    display_currency: str = "INR"  # currency subscriber sees/pays in
+    package_id: str = ""
+    display_currency: str = "INR"
     annual_program: str = ""
     start_date: str = ""
     end_date: str = ""
@@ -567,6 +575,7 @@ class SubscriberCreate(BaseModel):
     emis: List[EMIInput] = []
     sessions: Optional[SessionsInput] = None
     programs: List[str] = []
+    programs_detail: List[ProgramDetail] = []
     bi_annual_download: int = 0
     quarterly_releases: int = 0
     show_late_fees: bool = False
@@ -598,6 +607,7 @@ async def create_subscriber(data: SubscriberCreate):
         "emis": [e.dict() for e in data.emis],
         "sessions": sess,
         "programs": data.programs,
+        "programs_detail": [p.dict() for p in data.programs_detail],
         "bi_annual_download": data.bi_annual_download,
         "quarterly_releases": data.quarterly_releases,
         "show_late_fees": data.show_late_fees,
@@ -667,6 +677,7 @@ async def update_subscriber(client_id: str, data: SubscriberCreate):
         "emis": [e.dict() for e in data.emis],
         "sessions": sess,
         "programs": data.programs,
+        "programs_detail": [p.dict() for p in data.programs_detail],
         "bi_annual_download": data.bi_annual_download,
         "quarterly_releases": data.quarterly_releases,
         "show_late_fees": data.show_late_fees,

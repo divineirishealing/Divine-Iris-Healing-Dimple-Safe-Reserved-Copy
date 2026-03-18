@@ -87,8 +87,27 @@ async def get_student_home(user: dict = Depends(get_current_user)):
         "quarterly_releases": sub.get("quarterly_releases", 0),
     }
 
-    # 5. Programs in their kitty
-    programs_list = sub.get("programs", [])
+    # 5. Programs in their kitty — rich objects with duration, dates, status
+    raw_programs = sub.get("programs_detail", [])
+    if not raw_programs:
+        # Fallback: build from package config included_programs + simple names
+        pkg_id = sub.get("package_id", "")
+        pkg_config = await db.annual_packages.find_one({"package_id": pkg_id}, {"_id": 0}) if pkg_id else None
+        simple_names = sub.get("programs", [])
+        if pkg_config:
+            for inc in pkg_config.get("included_programs", []):
+                raw_programs.append({
+                    "name": inc["name"],
+                    "duration_value": inc.get("duration_value", 0),
+                    "duration_unit": inc.get("duration_unit", "months"),
+                    "start_date": sub.get("start_date", ""),
+                    "end_date": sub.get("end_date", ""),
+                    "status": "active"
+                })
+        else:
+            for name in simple_names:
+                raw_programs.append({"name": name, "duration_value": 0, "duration_unit": "", "start_date": "", "end_date": "", "status": "active"})
+    programs_list = raw_programs
     
     # 6. Journey Logs (Last 3)
     logs = await db.journey_logs.find(

@@ -471,15 +471,27 @@ const FinancialsPage = () => {
           </CardHeader>
           <CardContent>
             <div className="grid sm:grid-cols-2 gap-3">
-              {programs.map((p, i) => (
-                <div key={i} className="flex items-center gap-3 bg-gray-50 rounded-xl p-3 border hover:border-[#D4AF37] transition-colors" data-testid={`program-card-${i}`}>
-                  <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[#5D3FD3]/20 to-[#D4AF37]/20 flex items-center justify-center shrink-0"><Package size={16} className="text-[#5D3FD3]" /></div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-semibold text-gray-900 truncate">{p}</p>
-                    <p className="text-[10px] text-gray-400">Part of annual package</p>
+              {programs.map((p, i) => {
+                const prog = typeof p === 'string' ? { name: p } : p;
+                const isPaused = prog.status === 'paused';
+                return (
+                  <div key={i} className={`flex items-center gap-3 rounded-xl p-3 border transition-colors ${isPaused ? 'bg-amber-50/50 border-amber-200' : 'bg-gray-50 hover:border-[#D4AF37]'}`} data-testid={`program-card-${i}`}>
+                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${isPaused ? 'bg-amber-100' : 'bg-gradient-to-br from-[#5D3FD3]/20 to-[#D4AF37]/20'}`}>
+                      <Package size={16} className={isPaused ? 'text-amber-600' : 'text-[#5D3FD3]'} />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <p className="text-sm font-semibold text-gray-900 truncate">{prog.name}</p>
+                        {isPaused && <span className="text-[8px] px-1.5 py-0.5 bg-amber-200 text-amber-800 rounded font-bold">PAUSED</span>}
+                      </div>
+                      <p className="text-[10px] text-gray-500">
+                        {prog.duration_value ? `${prog.duration_value} ${prog.duration_unit}` : ''}
+                        {prog.start_date && prog.end_date ? ` · ${prog.start_date} → ${prog.end_date}` : ''}
+                      </p>
+                    </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </CardContent>
         </Card>
