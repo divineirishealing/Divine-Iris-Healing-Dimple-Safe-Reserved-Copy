@@ -601,8 +601,9 @@ const SubscriberForm = ({ initial, onSave, onCancel, saving, packages }) => {
                 set('programs', pd.map(p => p.name));
               };
               return (
-                <div key={i} className={`border rounded-lg p-3 ${prog.status === 'paused' ? 'bg-amber-50 border-amber-200' : 'bg-white'}`}>
-                  <div className="flex items-center gap-2 mb-2">
+                <div key={i} className={`border rounded-lg ${prog.status === 'paused' ? 'bg-amber-50 border-amber-200' : 'bg-white'}`}>
+                  {/* Program Header */}
+                  <div className="flex items-center gap-2 p-3 border-b">
                     <Input value={prog.name} onChange={e => updatePD('name', e.target.value)} className="h-7 text-xs font-semibold flex-1" />
                     <Input type="text" inputMode="numeric" value={prog.duration_value} onChange={e => updatePD('duration_value', parseInt(e.target.value) || 0)} className="h-7 text-xs w-12 text-center" />
                     <select value={prog.duration_unit} onChange={e => updatePD('duration_unit', e.target.value)} className="h-7 text-[10px] border rounded px-1">
@@ -617,9 +618,68 @@ const SubscriberForm = ({ initial, onSave, onCancel, saving, packages }) => {
                     </button>
                     <label className="flex items-center gap-1 text-[9px] text-gray-500">
                       <input type="checkbox" className="w-3 h-3" checked={prog.visible !== false} onChange={e => updatePD('visible', e.target.checked)} />
-                      Visible
+                      Vis
                     </label>
                     <button onClick={() => { const pd = (f.programs_detail || []).filter((_, j) => j !== i); set('programs_detail', pd); set('programs', pd.map(p => p.name)); }} className="text-gray-300 hover:text-red-500"><X size={12} /></button>
+                  </div>
+
+                  {/* Schedule Editor */}
+                  <div className="p-2">
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="text-[8px] uppercase tracking-wider text-gray-400 font-semibold">Schedule ({(prog.schedule || []).length}/{prog.duration_value})</span>
+                      {(prog.schedule || []).length < prog.duration_value && (
+                        <button onClick={() => {
+                          const sched = [...(prog.schedule || [])];
+                          const num = sched.length + 1;
+                          sched.push(prog.duration_unit === 'months'
+                            ? { month: num, date: '', end_date: '', mode_choice: '', completed: false }
+                            : { session: num, date: '', time: '', mode_choice: '', completed: false });
+                          updatePD('schedule', sched);
+                        }} className="text-[8px] text-[#5D3FD3] hover:underline font-medium">+ Add {prog.duration_unit === 'months' ? 'Month' : 'Session'}</button>
+                      )}
+                    </div>
+                    {(prog.schedule || []).length > 0 && (
+                      <div className="space-y-1">
+                        {(prog.schedule || []).map((sess, si) => {
+                          const updateSched = (field, val) => {
+                            const sched = [...(prog.schedule || [])];
+                            sched[si] = { ...sched[si], [field]: val };
+                            updatePD('schedule', sched);
+                          };
+                          const label = prog.duration_unit === 'months' ? `M${si+1}` : `S${si+1}`;
+                          return (
+                            <div key={si} className={`flex items-center gap-1.5 text-[9px] ${sess.completed ? 'bg-green-50 rounded px-1 py-0.5' : ''}`}>
+                              <span className={`w-5 text-center font-bold ${sess.completed ? 'text-green-600' : 'text-gray-400'}`}>{label}</span>
+                              <Input type="date" value={sess.date || ''} onChange={e => updateSched('date', e.target.value)} className="h-6 text-[9px] w-28" />
+                              {prog.duration_unit === 'months' && (
+                                <Input type="date" value={sess.end_date || ''} onChange={e => updateSched('end_date', e.target.value)} className="h-6 text-[9px] w-28" placeholder="End" />
+                              )}
+                              {prog.duration_unit !== 'months' && (
+                                <Input value={sess.time || ''} onChange={e => updateSched('time', e.target.value)} className="h-6 text-[9px] w-20" placeholder="Time" />
+                              )}
+                              <label className="flex items-center gap-0.5 text-[8px] text-gray-400">
+                                <input type="checkbox" className="w-2.5 h-2.5" checked={sess.completed || false} onChange={e => updateSched('completed', e.target.checked)} />
+                                Done
+                              </label>
+                              {sess.mode_choice && <span className={`px-1 py-0.5 rounded text-[7px] font-bold ${sess.mode_choice === 'online' ? 'bg-blue-100 text-blue-600' : 'bg-green-100 text-green-600'}`}>{sess.mode_choice}</span>}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                    {(prog.schedule || []).length === 0 && (
+                      <button onClick={() => {
+                        const sched = [];
+                        for (let s = 1; s <= prog.duration_value; s++) {
+                          sched.push(prog.duration_unit === 'months'
+                            ? { month: s, date: '', end_date: '', mode_choice: '', completed: false }
+                            : { session: s, date: '', time: '', mode_choice: '', completed: false });
+                        }
+                        updatePD('schedule', sched);
+                      }} className="text-[9px] text-[#5D3FD3] hover:underline font-medium py-1">
+                        Generate {prog.duration_value} {prog.duration_unit === 'months' ? 'month' : 'session'} slots
+                      </button>
+                    )}
                   </div>
                 </div>
               );
