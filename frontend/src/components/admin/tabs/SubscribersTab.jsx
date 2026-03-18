@@ -82,13 +82,18 @@ const PricingConfigEditor = ({ config, onSave, saving }) => {
         </div>
       </div>
 
-      {/* Basic Info */}
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+      {/* Basic Info + Validity */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         <div><Label className="text-xs">Package Name</Label><Input value={c.package_name} onChange={e => set('package_name', e.target.value)} className="h-8 text-sm" data-testid="config-package-name" /></div>
         <div><Label className="text-xs">Duration (months)</Label><Input type="number" value={c.duration_months} onChange={e => set('duration_months', parseInt(e.target.value) || 12)} className="h-8 text-sm" /></div>
+        <div><Label className="text-xs">Valid From</Label><Input type="date" value={c.valid_from || ''} onChange={e => set('valid_from', e.target.value)} className="h-8 text-sm" data-testid="config-valid-from" /></div>
+        <div><Label className="text-xs">Valid To</Label><Input type="date" value={c.valid_to || ''} onChange={e => set('valid_to', e.target.value)} className="h-8 text-sm" data-testid="config-valid-to" /></div>
+      </div>
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         <div><Label className="text-xs">Default Sessions</Label><Input type="number" value={c.default_sessions_current} onChange={e => set('default_sessions_current', parseInt(e.target.value) || 0)} className="h-8 text-sm" /></div>
         <div><Label className="text-xs">Carry Forward</Label><Input type="number" value={c.default_sessions_carry_forward} onChange={e => set('default_sessions_carry_forward', parseInt(e.target.value) || 0)} className="h-8 text-sm" /></div>
         <div><Label className="text-xs">Overall Discount %</Label><Input type="number" value={c.overall_discount_pct || 0} onChange={e => set('overall_discount_pct', parseFloat(e.target.value) || 0)} className="h-8 text-sm" /></div>
+        <div><Label className="text-xs">Notes</Label><Input value={c.notes || ''} onChange={e => set('notes', e.target.value)} placeholder="Internal notes..." className="h-8 text-sm" /></div>
       </div>
 
       {/* Included Programs Table */}
@@ -206,18 +211,25 @@ const PricingConfigEditor = ({ config, onSave, saving }) => {
         </div>
       )}
 
-      {/* Manual Price Override */}
-      <div>
-        <Label className="text-[10px] uppercase tracking-wider text-gray-500 font-semibold">Final Package Pricing (used for subscriber form)</Label>
-        <div className="flex gap-3 mt-1">
+      {/* Independent Annual Pricing */}
+      <div className="bg-white rounded-lg border-2 border-[#5D3FD3]/20 p-4">
+        <div className="flex items-center justify-between mb-2">
+          <Label className="text-xs font-bold uppercase tracking-wider text-[#5D3FD3]">Annual Package Pricing</Label>
+          {c.valid_from && c.valid_to && (
+            <span className="text-[10px] px-2 py-0.5 rounded-full bg-purple-50 text-[#5D3FD3] font-medium">
+              Valid: {c.valid_from} to {c.valid_to}
+            </span>
+          )}
+        </div>
+        <div className="flex gap-3">
           {CURRENCIES.map(cur => (
             <div key={cur} className="flex-1">
               <Label className="text-[10px] text-gray-400">{cur}</Label>
-              <Input type="number" value={c.pricing?.[cur] || 0} onChange={e => setPrice(cur, e.target.value)} className="h-7 text-xs" data-testid={`config-price-${cur}`} />
+              <Input type="number" value={c.pricing?.[cur] || 0} onChange={e => setPrice(cur, e.target.value)} className="h-8 text-sm font-mono font-bold" data-testid={`config-price-${cur}`} />
             </div>
           ))}
         </div>
-        <p className="text-[9px] text-gray-400 mt-1">Click "Calculate Pricing" → "Apply to Package Price" to auto-fill from programs, or enter manually.</p>
+        <p className="text-[9px] text-gray-400 mt-1.5">This is the independent annual package price. Use "Calculate Pricing" to derive from monthly rates, or set directly.</p>
       </div>
     </div>
   );

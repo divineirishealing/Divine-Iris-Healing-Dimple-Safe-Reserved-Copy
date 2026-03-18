@@ -81,6 +81,8 @@ class IncludedProgram(BaseModel):
 
 class AnnualPricingConfig(BaseModel):
     package_name: str = "Annual Healing Package"
+    valid_from: str = ""
+    valid_to: str = ""
     duration_months: int = 12
     pricing: Dict[str, float] = {"INR": 50000, "USD": 600, "AED": 2200, "EUR": 550, "GBP": 470}
     included_programs: List[IncludedProgram] = []
@@ -92,6 +94,8 @@ class AnnualPricingConfig(BaseModel):
 DEFAULT_PRICING_CONFIG = {
     "id": "annual_pricing_config",
     "package_name": "Annual Healing Package",
+    "valid_from": "2026-04-01",
+    "valid_to": "2027-03-31",
     "duration_months": 12,
     "pricing": {"INR": 50000, "USD": 600, "AED": 2200, "EUR": 550, "GBP": 470},
     "included_programs": [
