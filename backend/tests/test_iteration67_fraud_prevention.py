@@ -13,7 +13,7 @@ import re
 import uuid
 import urllib.parse
 
-BASE_URL = os.environ.get('REACT_APP_BACKEND_URL', 'https://iris-admin-dev.preview.emergentagent.com').rstrip('/')
+BASE_URL = os.environ.get('REACT_APP_BACKEND_URL', 'https://dashboard-hub-128.preview.emergentagent.com').rstrip('/')
 
 # ============================================================
 # FRAUD API ENDPOINTS TESTS
