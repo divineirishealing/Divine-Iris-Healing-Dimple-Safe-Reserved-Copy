@@ -27,6 +27,8 @@ import LoginPage from './pages/LoginPage';
 import StudentDashboard from './pages/StudentDashboard';
 import DashboardLayout from './layouts/DashboardLayout';
 import AuthCallback from './components/auth/AuthCallback';
+import ProfilePage from './components/dashboard/ProfilePage';
+import FinancialsPage from './components/dashboard/FinancialsPage';
 import { Toaster } from './components/ui/toaster';
 import { SiteSettingsProvider } from './context/SiteSettingsContext';
 import { CurrencyProvider, useCurrency } from './context/CurrencyContext';
@@ -86,6 +88,9 @@ const AppContent = () => {
       {/* Dashboard Routes */}
       <Route path="/dashboard" element={<DashboardLayout />}>
         <Route index element={<StudentDashboard />} />
+        <Route path="profile" element={<ProfilePage />} />
+        <Route path="financials" element={<FinancialsPage />} />
+        
         <Route path="roadmap" element={<div className="p-8 font-serif text-[#5D3FD3]">Growth Roadmap Coming Soon</div>} />
         <Route path="sessions" element={<div className="p-8 font-serif text-[#5D3FD3]">Upcoming Sessions Coming Soon</div>} />
         <Route path="community" element={<div className="p-8 font-serif text-[#5D3FD3]">Experience Sharing Coming Soon</div>} />

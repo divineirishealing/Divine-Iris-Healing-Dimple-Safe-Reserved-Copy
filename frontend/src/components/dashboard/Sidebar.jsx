@@ -3,7 +3,7 @@ import { NavLink } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { 
   Home, BookOpen, MessageCircle, FileText, Calendar, PenTool,
-  Lock, LogOut, Activity, Archive
+  Lock, LogOut, Activity, Archive, CreditCard, User
 } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { useSiteSettings } from '../../context/SiteSettingsContext';
@@ -48,6 +48,10 @@ const Sidebar = () => {
         <NavItem to="/dashboard" icon={Home} label="Overview" minTier={1} />
         <NavItem to="/dashboard/roadmap" icon={BookOpen} label="Growth Roadmap" minTier={1} />
         <NavItem to="/dashboard/sessions" icon={Calendar} label="Upcoming Sessions" minTier={1} />
+
+        <div className="text-[10px] text-gray-400 font-semibold uppercase px-4 mb-2 mt-6">My Space</div>
+        <NavItem to="/dashboard/profile" icon={User} label="My Profile" minTier={1} />
+        <NavItem to="/dashboard/financials" icon={CreditCard} label="Financials & EMI" minTier={1} />
 
         <div className="text-[10px] text-gray-400 font-semibold uppercase px-4 mb-2 mt-6">Community</div>
         <NavItem to="/dashboard/community" icon={MessageCircle} label="Experience Sharing" minTier={2} />

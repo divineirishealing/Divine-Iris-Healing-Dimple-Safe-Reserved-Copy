@@ -39,6 +39,8 @@ import PricingHubTab from './tabs/PricingHubTab';
 import UpcomingHubTab from './tabs/UpcomingHubTab';
 import InboxTab from './tabs/InboxTab';
 import ClientsTab from './tabs/ClientsTab';
+import BulkClientUpload from './tabs/BulkClientUpload';
+import ProfileApprovals from './tabs/ProfileApprovals';
 import TextTestimonialsTab from './tabs/TextTestimonialsTab';
 import FraudAlertsTab from './tabs/FraudAlertsTab';
 
@@ -290,7 +292,15 @@ const AdminPanel = () => {
 
           {activeTab === 'enrollments' && <EnrollmentsTab />}
           {activeTab === 'inbox' && <InboxTab />}
-          {activeTab === 'clients' && <ClientsTab />}
+          {activeTab === 'clients' && (
+            <div>
+              <BulkClientUpload />
+              <div className="my-8 border-t" />
+              <ProfileApprovals />
+              <div className="my-8 border-t" />
+              <ClientsTab />
+            </div>
+          )}
           {activeTab === 'promotions' && <PromotionsTab programs={programs} />}
           {activeTab === 'discounts' && <DiscountsTab />}
           {activeTab === 'exchange_rates' && <ExchangeRatesTab />}
