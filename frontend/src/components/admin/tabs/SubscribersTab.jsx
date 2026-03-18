@@ -645,42 +645,39 @@ const SubscriberRow = ({ s, onRefresh, onEdit }) => {
                       <th className="px-2 py-1.5 text-left">#</th>
                       <th className="px-2 py-1.5 text-left">Due Date</th>
                       <th className="px-2 py-1.5 text-right">Amount</th>
-                      <th className="px-2 py-1.5 text-right">Remaining</th>
                       <th className="px-2 py-1.5 text-center">Status</th>
-                      <th className="px-2 py-1.5 text-center">Method</th>
+                      <th className="px-2 py-1.5 text-center">Payment Mode</th>
+                      <th className="px-2 py-1.5 text-left">Remarks</th>
                       <th className="px-2 py-1.5 w-8">Action</th>
                     </tr></thead>
-                    <tbody>{(() => {
-                      let adminRunning = sub.total_fee || 0;
-                      return emis.map(e => {
-                        if (e.status === 'paid') adminRunning -= (e.amount || 0);
-                        return (
-                          <tr key={e.number} className={`border-b border-gray-50 ${e.status === 'paid' ? 'bg-green-50/30' : ''}`}>
-                            <td className="px-2 py-1.5 font-medium">{e.number}</td>
-                            <td className="px-2 py-1.5 text-gray-600">{e.due_date || '-'}</td>
-                            <td className="px-2 py-1.5 text-right font-mono">{(e.amount || 0).toLocaleString()}</td>
-                            <td className="px-2 py-1.5 text-right font-mono">{Math.max(0, adminRunning).toLocaleString()}</td>
-                            <td className="px-2 py-1.5 text-center">
-                              <span className={`px-1.5 py-0.5 rounded text-[8px] font-bold ${e.status === 'paid' ? 'bg-green-100 text-green-700' : e.status === 'submitted' ? 'bg-blue-100 text-blue-700' : e.status === 'due' ? 'bg-red-100 text-red-700' : 'bg-gray-100 text-gray-500'}`}>
-                                {e.status === 'paid' && '✓ '}{e.status}
-                              </span>
-                            </td>
-                            <td className="px-2 py-1.5 text-center text-[8px] text-gray-400">{e.payment_method?.toUpperCase() || '-'}</td>
-                            <td className="px-2 py-1.5 text-center">
-                              {e.status === 'paid' ? (
-                                <span className="text-[8px] text-green-600">✓</span>
-                              ) : (
-                                <button onClick={() => markEmiPaid(e.number)} disabled={markingEmi === e.number}
-                                  className="text-green-600 hover:text-green-800 disabled:opacity-50" title="Mark Paid"
-                                  data-testid={`mark-emi-paid-${e.number}`}>
-                                  {markingEmi === e.number ? <Loader2 size={10} className="animate-spin" /> : <CheckCircle size={10} />}
-                                </button>
-                              )}
-                            </td>
-                          </tr>
-                        );
-                      });
-                    })()}</tbody>
+                    <tbody>{emis.map(e => {
+                      const statusLabel = e.status === 'pending' ? 'due' : e.status;
+                      return (
+                        <tr key={e.number} className={`border-b border-gray-50 ${e.status === 'paid' ? 'bg-green-50/30' : ''}`}>
+                          <td className="px-2 py-1.5 font-medium">{e.number}</td>
+                          <td className="px-2 py-1.5 text-gray-600">{e.due_date || '-'}</td>
+                          <td className="px-2 py-1.5 text-right font-mono">{(e.amount || 0).toLocaleString()}</td>
+                          <td className="px-2 py-1.5 text-center">
+                            <span className={`px-1.5 py-0.5 rounded text-[8px] font-bold ${e.status === 'paid' ? 'bg-green-100 text-green-700' : e.status === 'submitted' ? 'bg-blue-100 text-blue-700' : 'bg-red-100 text-red-700'}`}>
+                              {e.status === 'paid' && '✓ '}{e.status === 'submitted' ? 'submitted' : statusLabel}
+                            </span>
+                          </td>
+                          <td className="px-2 py-1.5 text-center text-[8px] text-gray-400">{e.payment_method?.toUpperCase() || '-'}</td>
+                          <td className="px-2 py-1.5 text-left text-[8px] text-gray-400 truncate max-w-[80px]">{e.paid_by ? `By ${e.paid_by}` : e.transaction_id ? `TXN: ${e.transaction_id}` : '-'}</td>
+                          <td className="px-2 py-1.5 text-center">
+                            {e.status === 'paid' ? (
+                              <span className="text-[8px] text-green-600">✓</span>
+                            ) : (
+                              <button onClick={() => markEmiPaid(e.number)} disabled={markingEmi === e.number}
+                                className="text-green-600 hover:text-green-800 disabled:opacity-50" title="Mark Paid"
+                                data-testid={`mark-emi-paid-${e.number}`}>
+                                {markingEmi === e.number ? <Loader2 size={10} className="animate-spin" /> : <CheckCircle size={10} />}
+                              </button>
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })}</tbody>
                   </table>
                 )}
               </div>
