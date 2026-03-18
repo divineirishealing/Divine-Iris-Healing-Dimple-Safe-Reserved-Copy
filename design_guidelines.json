@@ -1,138 +1,183 @@
 {
-  "identity": {
-    "name": "E1",
-    "role": "The Anti-AI Designer",
-    "principles": [
-      "Fusion over Imitation: Mix spiritual symbolism with high-end luxury aesthetics.",
-      "Emotion First: Every interaction should feel like a deep breath.",
-      "Content is King: The text is the guide; the design is the temple.",
-      "Contrast: Deep shadows vs. divine light (Gold/Purple)."
-    ]
-  },
-  "project_context": {
-    "name": "Divine Iris Healing",
-    "type": "Holistic Healing Website",
-    "target_audience": "Spiritual seekers, wellness enthusiasts, luxury wellness clients.",
-    "emotional_tone": "Soulful, Comforting, Subliminal, Elevating, Mystical yet Grounded."
-  },
-  "theme": {
-    "mode": "dark",
-    "strategy": "The Mystic Luxury",
-    "base_background": "#1A1A1A",
-    "surface_background": "#242424"
+  "brand_identity": {
+    "name": "Divine Iris Student Growth Platform",
+    "philosophy": "Zen Growth - Harmonizing academic rigor with spiritual and mental well-being.",
+    "emotional_tone": "Serene, Focused, Insightful, Empowering",
+    "archetype": "The Sage & The Magician (Wisdom + Transformation)"
   },
   "typography": {
     "headings": {
-      "font_family": "Cinzel, serif",
-      "weights": ["400", "700"],
-      "usage": "All H1-H3 headings. Use uppercase with wide letter-spacing (tracking-widest) for a cinematic feel.",
-      "fallback": "Playfair Display"
+      "font_family": "Playfair Display, serif",
+      "usage": "Use for all major section headers, hero titles, and inspirational quotes.",
+      "weights": "Bold (700) or Italic for emphasis.",
+      "letter_spacing": "tracking-tight"
     },
     "body": {
       "font_family": "Lato, sans-serif",
-      "weights": ["300", "400", "700"],
-      "usage": "Paragraphs, UI elements, buttons. Keep it light (300) for elegance.",
-      "fallback": "sans-serif"
+      "usage": "Use for all UI text, dashboard metrics, and long-form content.",
+      "weights": "Regular (400) for text, Bold (700) for labels."
     },
-    "import_instruction": "Add this to index.css: @import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@400;500;600;700&family=Lato:wght@300;400;700&display=swap');"
+    "data": {
+      "font_family": "JetBrains Mono, monospace",
+      "usage": "Use for numeric data in charts and tables for precision.",
+      "weights": "Medium (500)"
+    }
   },
   "colors": {
-    "palette": {
-      "primary": {
-        "gold": "#D4AF37",
-        "gold_light": "#F4C430",
-        "gold_dark": "#B8860B"
-      },
-      "secondary": {
-        "iris": "#5D3FD3",
-        "iris_light": "#9D4EDD",
-        "iris_dark": "#240046"
-      },
-      "neutrals": {
-        "background": "#1A1A1A",
-        "surface": "#242424",
-        "text_primary": "#F5F5F5",
-        "text_secondary": "#A3A3A3"
-      }
+    "light_theme": {
+      "background": "#F9F9F7",
+      "foreground": "#1A1A1A",
+      "primary": "#6366f1",
+      "secondary": "#84A98C",
+      "accent": "#F59E0B",
+      "muted": "#E5E7EB",
+      "card": "#FFFFFF",
+      "border": "#E2E8F0"
     },
-    "gradients": {
-      "iris_gloss": "linear-gradient(135deg, #240046 0%, #5D3FD3 50%, #9D4EDD 100%)",
-      "gold_wave": "linear-gradient(90deg, #B8860B, #D4AF37, #F4C430, #D4AF37, #B8860B)",
-      "mystic_overlay": "radial-gradient(circle at center, rgba(93, 63, 211, 0.2) 0%, rgba(26, 26, 26, 0) 70%)"
+    "dark_theme": {
+      "background": "#0F0F13",
+      "foreground": "#F3F4F6",
+      "primary": "#818CF8",
+      "secondary": "#52796F",
+      "accent": "#FBBF24",
+      "muted": "#1F2937",
+      "card": "#18181B",
+      "border": "#27272A"
+    },
+    "semantic": {
+      "success": "#10B981",
+      "warning": "#F59E0B",
+      "error": "#EF4444",
+      "info": "#3B82F6",
+      "iris_gradient": "linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)",
+      "zen_gradient": "linear-gradient(135deg, #84A98C 0%, #52796F 100%)"
     }
   },
-  "visual_enhancers": {
-    "golden_sprinkles": {
-      "description": "Small, glowing gold particles that float upwards or shimmer.",
-      "implementation": "CSS animation keyframes (opacity/transform) on absolute positioned divs.",
-      "color": "#D4AF37"
-    },
-    "glossy_waves": {
-      "description": "A smooth, undulating wave effect at the bottom of headers or sections.",
-      "implementation": "SVG separator with animateTransform or CSS background-position animation on a gradient."
-    },
-    "glassmorphism": {
-      "style": "backdrop-filter: blur(12px); background: rgba(255, 255, 255, 0.03); border: 1px solid rgba(212, 175, 55, 0.1);"
-    }
-  },
-  "layout_strategies": {
-    "personal_sessions_page": {
-      "hero": {
-        "height": "min-h-[70vh]",
-        "alignment": "center",
-        "background": "Deep purple gradient (#240046) with 'mystic_overlay' and 'golden_sprinkles'.",
-        "content": "Large Cinzel H1, gold text, subtitle in Lato light."
-      },
-      "session_list": {
-        "grid": "grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8",
-        "card_style": "Glassmorphic cards. Hover state: slight lift, gold border glow."
-      },
-      "booking_section": {
-        "background": "The 'Glue' section. Full-width container with 'gold_wave' animated gradient background.",
-        "text_color": "#1A1A1A (Dark charcoal for contrast against gold)",
-        "vibe": "Subliminal, magnetic."
+  "spacing_layout": {
+    "scale": "Tailwind standard (p-4, p-6, p-8, p-12)",
+    "container_padding": "px-6 md:px-12 lg:px-24",
+    "grid_system": {
+      "dashboard": "Bento Grid: grid-cols-1 md:grid-cols-4 lg:grid-cols-12 gap-6",
+      "card_ratios": {
+        "hero": "col-span-full lg:col-span-8 row-span-2",
+        "stat": "col-span-1 md:col-span-2 lg:col-span-3",
+        "list": "col-span-full md:col-span-2 lg:col-span-4 row-span-2"
       }
-    },
-    "homepage_sessions_section": {
-      "flow": "Must transition smoothly from the previous section (no hard lines). Use a gradient fade mask or curved SVG divider.",
-      "layout": "Horizontal scroll or asymmetric grid to showcase top sessions."
     }
   },
   "components": {
-    "GoldenWaveBackground": {
-      "path": "src/components/ui/GoldenWaveBackground.jsx",
-      "instructions": "Create a component that renders a div with the animated gold gradient. Use CSS keyframes to move background-position."
+    "glass_card": {
+      "style": "bg-white/60 dark:bg-black/40 backdrop-blur-xl border border-white/20 dark:border-white/10 shadow-sm rounded-2xl",
+      "hover": "hover:shadow-md hover:scale-[1.01] transition-all duration-300"
     },
-    "SessionCard": {
-      "path": "src/components/ui/SessionCard.jsx",
-      "instructions": "A card component for individual sessions. Props: title, duration, price, image, description. Use Shadcn Card but heavily customized with glassmorphism."
+    "zen_button": {
+      "primary": "bg-gradient-to-r from-indigo-500 to-purple-600 text-white rounded-full px-8 py-3 font-medium shadow-lg hover:shadow-indigo-500/30 transition-all hover:-translate-y-0.5",
+      "secondary": "bg-white dark:bg-zinc-800 text-indigo-600 dark:text-indigo-400 border border-indigo-100 dark:border-zinc-700 rounded-full px-6 py-2 hover:bg-indigo-50 dark:hover:bg-zinc-700 transition-colors"
     },
-    "StarField": {
-      "path": "src/components/ui/StarField.jsx",
-      "instructions": "A subtle particle effect component. Generates 20-50 small divs with random positions and animation delays to simulate floating dust/stars."
+    "input_fields": {
+      "style": "bg-white/50 dark:bg-zinc-900/50 border-gray-200 dark:border-zinc-700 rounded-lg px-4 py-3 focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all outline-none"
+    },
+    "radar_chart": {
+      "library": "Recharts",
+      "config": {
+        "stroke": "#6366f1",
+        "fill": "#6366f1",
+        "fillOpacity": 0.2,
+        "gridStroke": "#cbd5e1"
+      }
     }
   },
-  "image_urls": {
-    "hero_bg": "https://images.unsplash.com/photo-1618074454348-b4c508a10862?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjAzNzl8MHwxfHNlYXJjaHwzfHxwdXJwbGUlMjBpcmlzJTIwZmxvd2VyJTIwbWFjcm8lMjBnb2xkJTIwZHVzdCUyMHNwaXJpdHVhbCUyMGhlYWxpbmd8ZW58MHx8fHwxNzczMzczNzAxfDA&ixlib=rb-4.1.0&q=85",
-    "session_1": "https://images.unsplash.com/photo-1716836040893-0b21086276a6?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjAzNzl8MHwxfHNlYXJjaHwxfHxwdXJwbGUlMjBpcmlzJTIwZmxvd2VyJTIwbWFjcm8lMjBnb2xkJTIwZHVzdCUyMHNwaXJpdHVhbCUyMGhlYWxpbmd8ZW58MHx8fHwxNzczMzczNzAxfDA&ixlib=rb-4.1.0&q=85",
-    "session_2": "https://images.unsplash.com/photo-1647366451076-1bb5b68c9185?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjAzNzl8MHwxfHNlYXJjaHwyfHxwdXJwbGUlMjBpcmlzJTIwZmxvd2VyJTIwbWFjcm8lMjBnb2xkJTIwZHVzdCUyMHNwaXJpdHVhbCUyMGhlYWxpbmd8ZW58MHx8fHwxNzczMzczNzAxfDA&ixlib=rb-4.1.0&q=85",
-    "session_3": "https://images.unsplash.com/photo-1746284427771-408a9fc30d1c?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjAzNzl8MHwxfHNlYXJjaHw0fHxwdXJwbGUlMjBpcmlzJTIwZmxvd2VyJTIwbWFjcm8lMjBnb2xkJTIwZHVzdCUyMHNwaXJpdHVhbCUyMGhlYWxpbmd8ZW58MHx8fHwxNzczMzczNzAxfDA&ixlib=rb-4.1.0&q=85",
-    "placeholder": "https://images.unsplash.com/photo-1618074454348-b4c508a10862?crop=entropy&cs=srgb&fm=jpg&q=85"
+  "visual_enhancers": {
+    "gradients": "Use subtle mesh gradients in backgrounds for 'Divine' feel.",
+    "shadows": "Soft, diffuse shadows (shadow-lg) for floating elements.",
+    "borders": "1px solid borders with low opacity (10-20%) for structure.",
+    "radius": "rounded-2xl for cards, rounded-full for buttons."
   },
-  "universal_guidelines": [
-    "Do not use generic gradients. Always layer them.",
-    "Use 'Cinzel' for all headings. If it looks too thin, use font-weight 600.",
-    "Buttons should be 'Pill' shaped or 'Ghost' style with a gold underline.",
-    "Avoid standard shadows; use 'glows' (colored drop-shadows) instead.",
-    "Ensure high contrast for accessibility, even in dark mode.",
-    "All interactive elements MUST include data-testid attributes."
-  ],
+  "media": {
+    "image_urls": {
+      "hero_student": "https://images.unsplash.com/photo-1769000065838-6a76272588f9",
+      "mindfulness_bg": "https://images.unsplash.com/photo-1762876244984-f9d493cf4aa1",
+      "growth_abstract": "https://images.unsplash.com/photo-1631758819189-00a5b0a4cc32",
+      "reading_calm": "https://images.unsplash.com/photo-1763890498949-efd5d4acb8ac"
+    },
+    "icons": "Lucide React (Feather icons) - clean, thin strokes."
+  },
+  "user_flow": {
+    "signup_to_dashboard": [
+      {
+        "step": "Landing",
+        "action": "User arrives, sees 'Divine Iris' value prop.",
+        "component": "Hero Section with Glass Cards"
+      },
+      {
+        "step": "Signup",
+        "action": "User enters email/password.",
+        "component": "Centered Glass Form"
+      },
+      {
+        "step": "Onboarding",
+        "action": "User selects 'Path' (Student, Teacher) and sets initial goals.",
+        "component": "Multi-step Wizard"
+      },
+      {
+        "step": "Dashboard",
+        "action": "User lands on 'Sanctuary' (Dashboard).",
+        "component": "Bento Grid with Radar Chart, Daily Wisdom, Task List"
+      }
+    ]
+  },
+  "database_schema_proposal": {
+    "users": {
+      "id": "UUID",
+      "name": "String",
+      "email": "String",
+      "role": "Enum(Student, Teacher, Parent)",
+      "goals": "JSONB"
+    },
+    "diary_entries": {
+      "id": "UUID",
+      "user_id": "FK(users)",
+      "content": "Text",
+      "mood_score": "Integer (1-10)",
+      "tags": "Array[String]",
+      "created_at": "Timestamp"
+    },
+    "growth_reports": {
+      "id": "UUID",
+      "user_id": "FK(users)",
+      "metrics": "JSONB (Knowledge, Spirit, Body, Social)",
+      "period_start": "Date",
+      "period_end": "Date"
+    }
+  },
   "instructions_to_main_agent": [
-    "1. Update index.css to import Cinzel font.",
-    "2. Update tailwind.config.js to include the custom colors (gold, iris) and font families.",
-    "3. Create the 'StarField' and 'GoldenWaveBackground' components first.",
-    "4. Implement the 'SessionDetail' page with the specified layout.",
-    "5. Ensure the 'Booking' section has the 'gold_wave' animation as requested.",
-    "6. Use the provided image URLs for the session cards and hero background."
+    "Install 'recharts' for the Radar Chart.",
+    "Install 'lucide-react' for icons.",
+    "Use 'framer-motion' for subtle page transitions (fade-in, slide-up).",
+    "Ensure all text inside Glass Cards has sufficient contrast (use gray-800/900).",
+    "Do NOT use pure black (#000000). Use Zinc-900 or Indigo-950.",
+    "Implement the 'Bento Grid' strictly for the Dashboard layout.",
+    "Add 'data-testid' to all interactive elements."
+  ],
+  "UNIVERSAL_GUIDELINES_FOR_MAIN_AGENT": [
+    "Dark colors look good when used independently without gradients. DO NOT use dark colors as gradients",
+    "Don't make generic centered layouts, simplistic gradients, and uniform styling.",
+    "Create depth through layered design elements with z-index hierarchy",
+    "Use glass-morphism effects with backdrop filters (12-24px blur)",
+    "You MUST NOT apply universal transition. Eg: transition: all. This results in breaking transforms. Always add transitions for specific interactive elements like button, input excluding transforms",
+    "You MUST NOT center align the app container, ie do not add .App { text-align: center; } in the css file. This disrupts the human natural reading flow of text",
+    "Always use modern button styles like pill-shaped, or sharp button with interaction animations & color relevant to the app style",
+    "NEVER: use AI assistant Emoji characters like 🤖🧠💭💡🔮🎯📚🎭🎬🎪🎉🎊🎁🎀🎂🍰🎈🎨🎰💰💵💳🏦💎🪙💸🤑📊📈📉💹🔢🏆🥇 etc for icons.",
+    "Every interaction needs micro-animations - hover states, transitions, parallax effects, and entrance animations. Static = dead.",
+    "Use 2-3x more spacing than feels comfortable. Cramped designs look cheap.",
+    "Subtle grain textures, noise overlays, custom cursors, selection states, and loading animations: separates good from extraordinary.",
+    "Main agent relies on these image URLs. Missing categories (especially sponsor logos) = main agent will use placeholder text which is FORBIDDEN",
+    "Prioritize using pre-existing components from src/components/ui when applicable",
+    "Create new components that match the style and conventions of existing components when needed",
+    "Examine existing components to understand the project's component patterns before creating new ones",
+    "Components MUST use named exports (export const ComponentName = ...)",
+    "Pages MUST use default exports (export default function PageName() {...})",
+    "Use 'sonner' for toasts",
+    "Sonner component are located in /app/src/components/ui/sonner.tsx"
   ]
 }

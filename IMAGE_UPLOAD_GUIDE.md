@@ -9,7 +9,7 @@ You can now upload images directly from your computer instead of using URLs!
 ## 📸 How to Upload Images
 
 ### Step 1: Login to Admin Panel
-Go to: https://client-garden.preview.emergentagent.com/admin
+Go to: https://iris-admin-dev.preview.emergentagent.com/admin
 - Username: `admin`
 - Password: `divineadmin2024`
 

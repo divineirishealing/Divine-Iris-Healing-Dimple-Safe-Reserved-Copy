@@ -5,50 +5,39 @@ The user wants to build a pixel-perfect clone of their existing website, . This 
 1.  **Homepage Layout:** The Upcoming Programs and Sponsor a Life sections must be symmetrical and responsive, with the sponsor card staying in its own column.
 2.  **Enrollment Flow Parity:** The Add to Cart flow must be identical to the Enroll Now flow in terms of forms, payment options, and disclaimers.
 3.  **Timezone Accuracy:** Program timings must be displayed in the user's local timezone, and this converted time must also appear on email receipts.
-4.  **Currency Stability:** The currency for a transaction should be locked based on the user's IP-detected country at the start of the session.
-5.  **Admin Controls:** The admin must have granular control over what information is displayed on program cards and be able to style the payment disclaimer. The admin panel UI should be clean, scannable, and avoid redundancy.
-6.  **Data Export:** The admin must be able to download an Excel sheet of enrollments that is database-ready (no  values, one participant per set of columns).
+4.  **Currency Stability & Security:** The currency for a transaction should be locked based on the user's IP-detected country at the start of the session, with no flickering or mid-session changes. The system must be robust against VPN usage and frontend manipulation.
+5.  **Admin Controls:** The admin must have granular control over homepage content, including program highlight badges, section fonts, and navigation links.
+6.  **Session Booking:** Users must not be able to book a session without selecting a date and time slot.
 
 **User's preferred language**: English
 
 **what currently exists?**
-A full-stack application (React + FastAPI + MongoDB). The admin panel and homepage have seen significant recent development.
-- The Personal Sessions admin page has been successfully refactored into an intuitive inline accordion, simplifying session management. This was completed and verified.
-- A new, highly customizable Trust Section has been implemented on the homepage. This section consists of a Metrics row (e.g., Google Rating, Client Retention) and a Why Us row (philosophy points), followed by a single rotating testimonial.
-- An extensive inline editor was built in the admin panel, allowing the user to manage every aspect of the new Trust Section's cards, including text, icons, fonts, and colors.
+A full-stack application (React + FastAPI + MongoDB). The application features a highly customized Trust Section with admin-controlled icons, fonts, and hover effects. A sophisticated, secure currency system is in place, which detects the user's IP to show local prices (e.g., EUR for Netherlands, CAD for Canada) converted from a base currency (USD/AED/INR), while forcing USD for VPN users. All payment flows are protected by a server-side verification step to prevent currency manipulation. Program cards can display admin-editable highlight badges (e.g., Most Awaited). The hero section has been optimized with a poster image to prevent a flash while the video loads. Enrollment forms have been standardized to include mandatory city/state fields and have country-locked phone codes. Session booking is now gated, requiring date/time selection before payment is possible.
 
 **Last working item**:
--   **Last item agent was working:** The agent was performing final adjustments on the newly created Trust Section based on user feedback. The user identified two final issues that need to be fixed.
--   **Status:** IN PROGRESS
--   **Agent Testing Done:** N
--   **Which testing method agent to use?** Frontend testing agent. After fixing the issues, the agent must verify that the admin editor loads correctly and that the homepage displays all content as requested.
+-   **Last item agent was working:** The agent implemented a fix to allow users to deselect a chosen date in the session booking calendar by clicking it a second time.
+-   **Status:** USER VERIFICATION PENDING
+-   **Agent Testing Done:** Y
+-   **Which testing method agent to use?** Frontend testing agent. The test should navigate to a session detail page, click a date to select it, click the same date again, and verify that it becomes deselected and the Book Now button becomes disabled.
 -   **User Testing Done:** N
 
 **All Pending/In progress Issue list**:
--   **Issue 1: Fix Trust Section Admin Editor and Frontend Display (P0)**: This is the .
+-   **Issue 1: Verify Date Deselection in Session Booking (P0)**: This is the .
 
 **Issues Detail:**
--   **Issue 1: Fix Trust Section Admin Editor and Frontend Display (P0)**
-    -   **Attempted fixes:** The agent has diagnosed the two problems but has not implemented the code changes yet.
-        1.  **Problem 1:** The Why Us philosophy cards are not loading in the admin editor, making them un-editable. The agent concluded this is because the editor component isn't falling back to default data when the database record is empty.
-        2.  **Problem 2:** The description text for the Metrics cards (the top row) is not being displayed on the homepage. The agent concluded the rendering logic for the description was likely removed during a previous design iteration.
+-   **Issue 1: Verify Date Deselection in Session Booking (P0)**
+    -   **Attempted fixes:** The agent modified the  handler in the  component in  and . The handler now checks if the newly selected date is the same as the currently selected date; if so, it sets the date to , effectively toggling it off.
     -   **Next debug checklist:**
-        1.  **Fix Admin Editor:** In , find the  component. Update the mapping for  to ensure it uses  as a fallback if the saved content () is not present.
-        2.  **Fix Frontend Display:** In , locate the rendering loop for the  (Metrics row). Re-add the JSX to display the  text.
-        3.  **Final Polish:** In , ensure all spacing is compact and the entire section (two rows + quote) is visible together as requested by the user.
-    -   **Why fix this issue and what will be achieved with the fix?** This will complete the multi-step implementation of the Trust Section, making it fully editable and displayed exactly as the user specified after numerous design iterations.
-    -   **Status:** IN PROGRESS
+        1.  Ask the user to test the session booking calendar on any session page.
+        2.  Confirm they can click a date to select it, and click it again to deselect it.
+    -   **Why fix this issue and what will be achieved with the fix?** This improves the user experience by allowing users to easily correct a mistaken date selection without needing to refresh the page.
+    -   **Status:** USER VERIFICATION PENDING
     -   **Is recurring issue?** N
     -   **Should Test frontend/backend/both after fix?** Frontend
     -   **Blocked on other issue:** No.
 
 **In progress Task List**:
--   **Task 1: Complete Trust Section Implementation (P0)**
-    -   **Where to resume:** Apply the fixes outlined in Issue 1 to  and .
-    -   **What will be achieved with this?** A fully functional, visually polished, and admin-editable Trust Section on the homepage.
-    -   **Status:** IN PROGRESS
-    -   **Should Test frontend/backend/both after fix?** Frontend
-    -   **Blocked on something:** No.
+-   None.
 
 **Upcoming and Future Tasks**
 -   **Upcoming Tasks:**
@@ -60,10 +49,14 @@ A full-stack application (React + FastAPI + MongoDB). The admin panel and homepa
     -   SEO: Explain SEO concepts to the user and implement on-page SEO best practices.
 
 **Completed work in this session**
-- **Personal Sessions Admin Page Refactor (DONE):** Transformed the page into a streamlined inline accordion for managing sessions, removing redundant fields and centralizing controls. Verified with testing agent.
-- **Homepage Trust Section Implementation (IN PROGRESS):**
-    - Iteratively designed and built a new homepage section with two rows of iconic cards (Metrics and Why Us) and a rotating testimonial.
-    - Created a comprehensive inline admin editor with granular controls for all card content, including text, icons, fonts, colors, and visibility toggles for each element.
+-   **Trust Section UI/UX Overhaul:** Fixed a duplication bug, iterated through numerous user-requested icon and font styles, implemented and refined a rich hover effect, and added global font controls in the admin panel.
+-   **Advanced Currency & Payment Security System:** Implemented a robust IP-based currency system with local currency display, VPN detection, and server-side payment verification to prevent manipulation. Fixed all currency inconsistencies across every payment pathway.
+-   **Hero Section Loading Fix:** Eliminated a blue flash on page load by adding a poster image that displays instantly while the background video loads.
+-   **Program Highlight Badges:** Created three distinct, admin-editable badge styles for programs and positioned them next to the program title.
+-   **Enrollment Form Standardization:** Added mandatory City and State fields to all enrollment forms and locked phone country codes to the selected country.
+-   **Session Booking Flow Gating:** Disabled Book Now and Add to Cart buttons for personal sessions until both a date and time slot are selected.
+-   **Mobile Responsiveness:** Fixed the layout of the Upcoming Programs and Sponsor a Life sections to stack correctly on mobile.
+-   **Bug Fixes:** Resolved a flashing image issue in the sponsor section and corrected various layout misalignments.
 
 **Earlier issues found/mentioned but not fixed**
 -   **Issue 1: Duplicated Function **
@@ -73,75 +66,78 @@ A full-stack application (React + FastAPI + MongoDB). The admin panel and homepa
     -   **Is recurring issue?** Y
 
 **Known issue recurrence from previous fork**
--   None.
+-   **Issue recurrence in previous fork**: The Trust Section duplication bug was definitively resolved. Aggressive browser caching remains a potential point of friction, requiring users to be reminded to hard-refresh.
+-   **Recurrence count**: Low (The major recurring issue was fixed).
+-   **Status**: RESOLVED (for duplication), IN PROGRESS (for user-side caching awareness).
 
 **Code Architecture**
 
 
 **Key Technical Concepts**
--   **Complex Inline Admin Editors:** Building highly dynamic and granular editing interfaces directly within an admin tab, with controls for text content, fonts, colors, visibility, and icons.
--   **Iterative Frontend Prototyping:** Rapidly implementing and modifying a component () through more than ten distinct design variations based on real-time user feedback.
--   **Component-Based State Management:** Managing complex state for nested, editable content structures (arrays of card objects, each with its own style properties) within React components.
--   **Fallback Data Handling:** Ensuring UI components (both frontend and admin) are robust by providing default data when saved database content is not yet available.
+-   **Centralized State Management:** Refactoring multiple components to use a single  as the source of truth for all pricing and currency display, eliminating bugs and inconsistencies.
+-   **Payment Security:** Implementing a multi-layered security approach for currency handling, including IP detection, VPN blocking, and server-side verification before payment processing.
+-   **UI/UX Gating:** Conditionally disabling UI elements (e.g., Book Now button) based on application state (date/time selection) to guide user flow and prevent errors.
+-   **Component Lifecycle & Async Optimization:** Fixing visual loading artifacts (flashes) by correctly managing component state and pre-loading assets like poster images.
+-   **Rapid UI Iteration:** Demonstrating the ability to quickly implement, test, and pivot on highly specific visual feedback from the user regarding fonts, icons, layouts, and animations.
 
 **key DB schema**
--   **homepage_sections collection:** The schema for documents in this collection has implicitly evolved. Documents with  now contain a  object with  and  arrays. Each object in these arrays stores properties like , , , , and nested style objects for fonts and colors.
+-   **homepage_sections:** The document for  contains , , , and  with icon names (, , ) and titles with  for line breaks.
+-   **programs:** Documents can now contain  and  fields to control the display of promotional badges.
 
 **All files of reference**
--    (current focus: admin editor fix)
--    (current focus: frontend display fix)
--    (consumer of the  component)
--    (for tracking completed and upcoming work)
+-    (Core of the currency system)
+-    (Core of the Trust Section)
+-   ,  (Main enrollment forms)
+-    (Session booking logic)
+-    (Currency API endpoints)
+-   ,  (Payment security logic)
 
 **Areas that need refactoring**:
--   The function  is duplicated in  and  and should be centralized.
+-   The duplicated  function in the backend should be consolidated into a shared utility file.
+-    appears to be an old, unused page with legacy currency logic. It should be investigated and potentially removed to avoid confusion.
 
 **key api endpoints**
--   : The primary endpoint used to persist all the configuration and content for the new Trust Section.
+-   **GET **: Detects user's currency settings based on IP. Returns a JSON object with base currency, display currency, exchange rate, symbol, and VPN status.
+-   **POST **: A security endpoint called before any payment. It re-checks the user's IP and rejects the transaction with a 403 error if the currency claimed by the frontend does not match the server-side detected region, preventing manipulation.
 
 **Critical Info for New Agent**
--   Your immediate task is to fix the Trust Section by addressing the two issues from the user's last message: making the Why Us row editable and re-enabling the description text on the Metrics row.
--   The user is highly visual and prefers to see changes before approving them. The workflow should be: implement the fix, take a screenshot of the admin panel editor, take a screenshot of the updated homepage section, and then present both to the user for confirmation.
--   The code for the frontend display is in .
--   The code for the admin editor is in .
+-   **Currency System is the Single Source of Truth:** All pricing display MUST go through the  hook. All payment submissions MUST be guarded by the  backend call. Do not introduce any new, separate currency logic.
+-   **Admin Panel is Powerful:** Before hardcoding content, check the admin panel. Many elements like header navigation, trust section content, icons, and program badges are editable there.
+-   **User Cache is a Factor:** If the user reports not seeing a change, your first instruction should be to ask for a hard refresh (Ctrl+Shift+R) or an incognito window test.
+-   **Trust Section is a Hotspot:** This component has been the subject of extensive, specific, and frequent user feedback. Be prepared for more detailed change requests related to its appearance and behavior.
 
 **documents and test reports created in this job**
 -   
 -   
--   
 
 **Last 10 User Messages and any pending HUMAN messages**
-10.  - **Completed.**
-9.   - **Partially completed, then reverted.** Agent made rows 5-wide.
-8.   - **Completed.** User disliked 5 rotating quotes.
-7.   - **Completed.** Agent added a 6th metric, then realized user only wanted 5.
-6.   - **Completed.** Agent fixed a bug where stale DB data prevented 5 metrics from showing.
-5.   - **Completed.** Agent tightened the whole section's layout and added admin visibility controls.
-4.   - **Completed.** Agent added logic to display the section's title/subtitle.
-3.   - **Pending.** This is the current task. The Why Us editor is broken, and the Metrics row description is hidden.
-2.  (No further messages)
-1.  (No further messages)
+10.  - **In Progress.** User reported they can't un-click a selected date on the session calendar. Agent has implemented a fix.
+9.   - **Done.** Agent disabled booking buttons until a date and time are selected.
+8.   - **Done.** Agent fixed the title alignment for the Upcoming Programs section.
+7.   - **Done.** User noticed a price discrepancy on the enrollment page. Agent fixed it to show the correct converted local price.
+6.   - **Done.** User asked for confirmation that the currency fix applies everywhere. Agent verified and fixed remaining pages.
+5.   - **Done.** User corrected the agent's example table. Agent confirmed the system uses the correct admin-set prices.
+4.   - **Done.** Agent provided a table showing what currency and prices users from 10 different cities would see.
+3.   - **Done.** User reported a major currency inconsistency bug. Agent found and fixed duplicate currency logic on several pages.
+2.   - **Done.** User questioned a security claim. Agent corrected the explanation and detailed the server-side verification that would be built.
+1.   - **Done.** User raised critical issues about currency flickering and VPN exploits, leading to the full currency system overhaul.
 
 **Project Health Check:**
--   **Broken:**
-    -   The admin editor for the Why Us cards in the Trust Section is non-functional (does not load existing data).
-    -   The frontend display for the Metrics cards is incomplete (missing the description text).
+-   **Broken:** None.
 -   **Mocked:** None.
 
 **3rd Party Integrations**
--   Stripe (Payments)
--   Google Workspace (SMTP for emails)
--   ipinfo.io (Geolocation for currency/fraud detection)
--   openpyxl (for Excel export)
--   lucide-react (Icons)
+-   **Stripe:** Payments.
+-   **ipinfo.io:** Geolocation and VPN detection for the currency system.
+-   **exchangerate-api.com:** Live currency exchange rates (implemented via a backend proxy).
+-   **openpyxl:** Excel export (existing).
+-   **lucide-react:** Icons.
 
 **Testing status**
--   **Testing agent used after significant changes:** YES. It was used to verify the Personal Sessions refactor and an earlier iteration of the Trust Section.
+-   **Testing agent used after significant changes:** YES, after the initial Trust Section fix.
 -   **Troubleshoot agent used after agent stuck in loop:** NO
 -   **Test files created:** None.
--   **Known regressions:**
-    -   The admin editor for the Why Us cards has regressed and no longer loads data.
-    -   The description text for the Metrics cards has regressed and is no longer displayed.
+-   **Known regressions:** Several UI regressions occurred during development (e.g., font styles reverting, title alignment breaking) but were all identified and fixed within the session.
 
 **Credentials to test flow:**
 -   **Admin Panel URL:** 
@@ -149,4 +145,4 @@ A full-stack application (React + FastAPI + MongoDB). The admin panel and homepa
 -   **Password:** 
 
 **What agent forgot to execute**
-- The agent has not yet implemented the fixes for the two issues the user reported in their last message: making the Why Us section editable and displaying the description for the Metrics section.</analysis>
+-   Nothing critical was forgotten. The agent systematically addressed a wide range of user requests, from major architectural changes like the currency system to minor pixel-level UI tweaks.</analysis>

@@ -9,7 +9,7 @@ import pytest
 import requests
 import os
 
-BASE_URL = os.environ.get('REACT_APP_BACKEND_URL', 'https://client-garden.preview.emergentagent.com').rstrip('/')
+BASE_URL = os.environ.get('REACT_APP_BACKEND_URL', 'https://iris-admin-dev.preview.emergentagent.com').rstrip('/')
 
 class TestProgramsCRUD:
     """Test Programs API for closure_text and enrollment_open fields"""
