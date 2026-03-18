@@ -365,10 +365,10 @@ const SubscriberForm = ({ initial, onSave, onCancel, saving, packages }) => {
     if (val) {
       const months = selectedPkg?.duration_months || 12;
       set('end_date', addMonths(val, months));
-      // Regenerate EMI due dates using emi_day
+      // Regenerate EMI due dates: EMI #1 starts 1 month before batch start
       if (f.num_emis > 0) {
         const day = f.emi_day || 30;
-        set('emis', (f.emis || []).map((e, i) => e.status === 'paid' ? e : { ...e, due_date: getEmiDueDate(val, i, day) }));
+        set('emis', (f.emis || []).map((e, i) => e.status === 'paid' ? e : { ...e, due_date: getEmiDueDate(val, i - 1, day) }));
       }
     }
   };
@@ -405,7 +405,7 @@ const SubscriberForm = ({ initial, onSave, onCancel, saving, packages }) => {
       if (existing && existing.status === 'paid') {
         newEmis.push(existing);
       } else {
-        const dueDate = getEmiDueDate(f.start_date, i - 1, emiDay);
+        const dueDate = getEmiDueDate(f.start_date, i - 2, emiDay); // EMI #1 = 1 month before start
         newEmis.push({ number: i, date: '', amount: perEmi, remaining: 0, due_date: dueDate, status: 'due' });
       }
     }
@@ -491,7 +491,7 @@ const SubscriberForm = ({ initial, onSave, onCancel, saving, packages }) => {
               if (day && f.start_date && f.num_emis > 0) {
                 set('emis', (f.emis || []).map((em, i) => {
                   if (em.status === 'paid') return em;
-                  return { ...em, due_date: getEmiDueDate(f.start_date, i, day) };
+                  return { ...em, due_date: getEmiDueDate(f.start_date, i - 1, day) };
                 }));
               }
             }} />
@@ -798,7 +798,7 @@ const SubscriberRow = ({ s, onRefresh, onEdit }) => {
                 )}
               </div>
 
-              {/* Right column: Sessions + Programs */}
+              {/* Right column: Sessions + Programs with Controls */}
               <div className="space-y-3">
                 <div className="bg-white rounded-lg border p-3">
                   <h4 className="text-[10px] font-bold uppercase tracking-wider text-gray-500 mb-2 flex items-center gap-1"><Calendar size={10} /> Sessions</h4>
@@ -811,12 +811,29 @@ const SubscriberRow = ({ s, onRefresh, onEdit }) => {
                     <Plus size={8} className="mr-1" /> +1 Session Availed
                   </Button>
                 </div>
-                {sub.programs?.length > 0 && (
-                  <div className="bg-white rounded-lg border p-3">
-                    <h4 className="text-[10px] font-bold uppercase tracking-wider text-gray-500 mb-2">Programs</h4>
-                    <div className="flex flex-wrap gap-1">{sub.programs.map((p, i) => <span key={i} className="px-2 py-0.5 bg-purple-50 text-purple-700 rounded-full text-[9px] font-medium">{p}</span>)}</div>
+
+                {/* Programs with inline controls */}
+                <div className="bg-white rounded-lg border p-3">
+                  <h4 className="text-[10px] font-bold uppercase tracking-wider text-gray-500 mb-2">Programs</h4>
+                  <div className="space-y-2">
+                    {(sub.programs_detail?.length > 0 ? sub.programs_detail : (sub.programs || []).map(p => ({ name: p }))).map((prog, i) => {
+                      const p = typeof prog === 'string' ? { name: prog } : prog;
+                      return (
+                        <div key={i} className={`p-2 rounded-lg border text-[9px] ${p.status === 'paused' ? 'bg-amber-50 border-amber-200' : 'bg-gray-50'}`}>
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <span className="font-bold text-gray-800 text-[10px]">{p.name}</span>
+                            {p.duration_value > 0 && <span className="text-gray-400">{p.duration_value} {p.duration_unit}</span>}
+                            {p.mode && <span className={`px-1 py-0.5 rounded text-[7px] font-bold ${p.mode === 'online' ? 'bg-blue-100 text-blue-700' : 'bg-green-100 text-green-700'}`}>{p.mode}</span>}
+                            {p.status === 'paused' && <span className="px-1 py-0.5 bg-amber-200 text-amber-800 rounded text-[7px] font-bold">PAUSED</span>}
+                            {p.visible === false && <span className="px-1 py-0.5 bg-gray-200 text-gray-500 rounded text-[7px] font-bold">HIDDEN</span>}
+                          </div>
+                          {p.start_date && <span className="text-gray-400">{p.start_date} → {p.end_date}</span>}
+                        </div>
+                      );
+                    })}
                   </div>
-                )}
+                </div>
+
                 {sess.scheduled_dates?.length > 0 && (
                   <div className="bg-white rounded-lg border p-3">
                     <h4 className="text-[10px] font-bold uppercase tracking-wider text-gray-500 mb-2">Scheduled</h4>
