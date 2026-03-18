@@ -1,0 +1,138 @@
+{
+  "summary": "Iteration 80: Complete testing of per-program pricing feature with price_per_unit and offer_price. source_tier successfully removed. Currency switcher, auto-calculated Total and Discount columns, Package Total row all working. Backend: 20/20 tests passed (100%). Frontend: All features verified.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_details": {
+    "backend_tests": {
+      "total": 20,
+      "passed": 20,
+      "failed": 0,
+      "tests": [
+        {"test": "test_get_pricing_config_returns_programs_with_price_per_unit", "status": "PASSED"},
+        {"test": "test_get_pricing_config_returns_programs_with_offer_price", "status": "PASSED"},
+        {"test": "test_price_per_unit_has_currency_keys", "status": "PASSED"},
+        {"test": "test_awrp_has_expected_pricing_structure", "status": "PASSED"},
+        {"test": "test_mmm_has_expected_pricing_structure", "status": "PASSED"},
+        {"test": "test_session_programs_have_no_pricing", "status": "PASSED"},
+        {"test": "test_put_pricing_config_saves_per_program_pricing", "status": "PASSED"},
+        {"test": "test_calculate_pricing_returns_all_four_programs", "status": "PASSED"},
+        {"test": "test_calculate_pricing_has_total_price_per_currency", "status": "PASSED"},
+        {"test": "test_calculate_pricing_has_offer_price_per_currency", "status": "PASSED"},
+        {"test": "test_calculate_pricing_has_discount_pct_per_currency", "status": "PASSED"},
+        {"test": "test_total_price_equals_per_unit_times_duration", "status": "PASSED"},
+        {"test": "test_discount_pct_calculation", "status": "PASSED"},
+        {"test": "test_calculate_pricing_has_total_sums", "status": "PASSED"},
+        {"test": "test_calculate_pricing_has_offer_sums", "status": "PASSED"},
+        {"test": "test_calculate_pricing_has_overall_discount_pct", "status": "PASSED"},
+        {"test": "test_list_subscribers_still_works", "status": "PASSED"},
+        {"test": "test_download_template_still_works", "status": "PASSED"},
+        {"test": "test_export_still_works", "status": "PASSED"},
+        {"test": "test_student_home_accessible", "status": "PASSED"}
+      ]
+    },
+    "frontend_tests": {
+      "currency_switcher": {
+        "status": "PASSED",
+        "details": [
+          "5/5 currency pills present: INR, USD, AED, EUR, GBP",
+          "Currency pills styled as small rounded buttons in row above table",
+          "Clicking USD switches all column headers to show (USD)",
+          "Clicking INR switches all column headers to show (INR)",
+          "Selected currency pill highlighted with purple background"
+        ]
+      },
+      "table_columns": {
+        "status": "PASSED",
+        "details": [
+          "Column headers: PROGRAM | DUR. | UNIT | PER UNIT (CUR) | TOTAL (CUR) | OFFER (CUR) | DISC %",
+          "source_tier column correctly REMOVED",
+          "Unit column shows 'mo' for months, 'ses' for sessions",
+          "Per Unit column shows editable input field",
+          "Total column shows auto-calculated value (per_unit × duration)",
+          "Offer column shows editable input field",
+          "Disc % column shows auto-calculated percentage with green color when > 0"
+        ]
+      },
+      "pricing_data": {
+        "status": "PASSED",
+        "details": [
+          "AWRP (12 months): INR 90,000/unit → 1,080,000 total | 540,000 offer | 50%",
+          "Money Magic Multiplier (6 months): INR 20,000/unit → 120,000 total | 60,000 offer | 50%",
+          "Bi-Annual Downloads (2 sessions): 0 per unit | 0 total | 0 offer | -",
+          "Quarterly Meetups (4 sessions): 0 per unit | 0 total | 0 offer | -"
+        ]
+      },
+      "package_total_row": {
+        "status": "PASSED",
+        "details": [
+          "Package Total row exists at bottom of table",
+          "Shows currency in label: 'Package Total (INR)' or 'Package Total (USD)'",
+          "INR view: Total=1,200,000 | Offer=600,000 | Disc=50%",
+          "USD view: Total=23,550 | Offer=11,775 | Disc=50%",
+          "Total is sum of all program totals",
+          "Offer is sum of all program offers",
+          "Disc % is overall discount percentage"
+        ]
+      },
+      "auto_calculations": {
+        "status": "PASSED",
+        "details": [
+          "Total = price_per_unit × duration_value (auto-calculated)",
+          "Discount % = (total - offer) / total × 100 (auto-calculated)",
+          "Package Total sums all program totals",
+          "Package Offer sums all program offers",
+          "Overall discount calculated from package totals"
+        ]
+      },
+      "subscriber_form_autofill": {
+        "status": "PASSED",
+        "details": [
+          "Auto-filled from package config indicator present (green checkmark)",
+          "Annual Program auto-filled: 'Annual Healing Package'",
+          "Total Fee auto-filled: 50000 (INR)",
+          "Bi-Annual DL: 2, Quarterly Rel: 4 (from config)",
+          "Sessions Current: 12, Total: 12 (from config)",
+          "Programs in Package: AWRP, Money Magic Multiplier, Bi-Annual Downloads, Quarterly Meetups"
+        ]
+      },
+      "regression_tests": {
+        "status": "PASSED",
+        "details": [
+          "Admin Programs tab accessible",
+          "Admin Sessions tab accessible",
+          "Admin Enrollments tab accessible",
+          "Student home API returns data (200 OK)"
+        ]
+      }
+    }
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iteration80_pricing.py",
+    "/app/test_reports/pytest/pytest_iteration80.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [],
+  "updated_files": [
+    "/app/backend/tests/test_iteration80_pricing.py"
+  ],
+  "success_rate": {
+    "backend": "100% (20/20 tests passed)",
+    "frontend": "100% (all features verified)"
+  },
+  "test_credentials": {
+    "admin_credentials": "username: admin, password: divineadmin2024",
+    "student_session_token": "test-session-22fbe1e5",
+    "api_base_url": "https://dashboard-hub-128.preview.emergentagent.com"
+  },
+  "seed_data_creation": "None - used existing pricing config. Updated via PUT to set: AWRP (90000 INR/unit, 540000 offer), MMM (20000 INR/unit, 60000 offer)",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Iteration 80 tested the per-program pricing feature. Key changes: 1) source_tier removed from programs table. 2) Added price_per_unit and offer_price dicts per program per currency. 3) Total column auto-calculates (per_unit × duration). 4) Discount % auto-calculates ((total-offer)/total×100). 5) Currency switcher (INR/USD/AED/EUR/GBP) changes displayed currency in table headers. 6) Package Total row at bottom sums all programs. Current pricing: AWRP (12m, 90000 INR/unit, 540000 offer, 50% disc), MMM (6m, 20000 INR/unit, 60000 offer, 50% disc), Bi-Annual Downloads (2 sessions, no pricing), Quarterly Meetups (4 sessions, no pricing). Package Total: 1,200,000 INR total, 600,000 INR offer, 50% overall discount."
+}
