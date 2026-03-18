@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { useAuth } from '../../context/AuthContext';
-import { useSiteSettings } from '../../context/SiteSettingsContext';
+import { useAuth } from '../context/AuthContext';
+import { useSiteSettings } from '../context/SiteSettingsContext';
 import { Clock, BookOpen, Star, Calendar, ArrowRight, User, CreditCard, Sparkles, Heart } from 'lucide-react';
 import { cn } from '../lib/utils';
 import axios from 'axios';

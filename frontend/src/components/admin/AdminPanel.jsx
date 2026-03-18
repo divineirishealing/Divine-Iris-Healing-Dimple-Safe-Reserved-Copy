@@ -181,7 +181,6 @@ const AdminPanel = () => {
     } catch (err) { toast({ title: 'Upload failed', variant: 'destructive' }); }
   };
 
-    { key: 'sanctuary_settings', label: 'Sanctuary (Dashboard)', icon: Image },
   const tabs = [
     { key: 'hero', label: 'Hero Banner', icon: Image },
     { key: 'homepage_sections', label: 'Homepage', icon: Monitor },
@@ -196,6 +195,7 @@ const AdminPanel = () => {
     { key: 'header_footer', label: 'Header & Footer', icon: Globe },
     { key: 'dashboard_settings', label: 'Dashboard', icon: Layout },
     { key: 'enrollments', label: 'Enrollments', icon: Users },
+    { key: 'sanctuary_settings', label: 'Sanctuary (Dashboard)', icon: Image },
     { key: 'inbox', label: 'Inbox', icon: Inbox },
     { key: 'clients', label: 'Client Garden', icon: Users },
     { key: 'promotions', label: 'Promotions', icon: Gift },
