@@ -129,7 +129,7 @@
   "test_credentials": {
     "admin_credentials": "username: admin, password: divineadmin2024",
     "student_session_token": "test-session-22fbe1e5",
-    "api_base_url": "https://dashboard-hub-128.preview.emergentagent.com"
+    "api_base_url": "https://iris-dashboard-app.preview.emergentagent.com"
   },
   "seed_data_creation": "None - used existing pricing config. Updated via PUT to set: AWRP (90000 INR/unit, 540000 offer), MMM (20000 INR/unit, 60000 offer)",
   "retest_needed": false,

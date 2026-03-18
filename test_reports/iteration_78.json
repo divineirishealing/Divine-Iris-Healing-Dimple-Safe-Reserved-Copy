@@ -143,7 +143,7 @@
   "test_credentials": {
     "admin_credentials": "username: admin, password: divineadmin2024",
     "student_session_token": "test-session-22fbe1e5",
-    "api_base_url": "https://dashboard-hub-128.preview.emergentagent.com"
+    "api_base_url": "https://iris-dashboard-app.preview.emergentagent.com"
   },
   "seed_data_creation": "Test config changes are restored to defaults after each test. Config restored to: package_name='Annual Healing Package', overall_discount_pct=0, all program discount_pct=0, source_tier='1 Month'",
   "retest_needed": false,

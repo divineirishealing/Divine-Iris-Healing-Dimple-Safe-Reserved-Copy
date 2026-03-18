@@ -123,7 +123,7 @@
   "test_credentials": {
     "admin_credentials": "username: admin, password: divineadmin2024",
     "student_session_token": "test-session-22fbe1e5",
-    "api_base_url": "https://dashboard-hub-128.preview.emergentagent.com"
+    "api_base_url": "https://iris-dashboard-app.preview.emergentagent.com"
   },
   "seed_data_creation": "None - used existing data",
   "retest_needed": false,

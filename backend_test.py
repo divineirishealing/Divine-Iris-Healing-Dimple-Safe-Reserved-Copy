@@ -12,7 +12,7 @@ import uuid
 from datetime import datetime, timezone
 
 # Backend URL from frontend .env
-BACKEND_URL = "https://dashboard-hub-128.preview.emergentagent.com/api"
+BACKEND_URL = "https://iris-dashboard-app.preview.emergentagent.com/api"
 
 async def test_bulk_client_upload():
     """Test the POST /api/admin/clients/upload-bulk endpoint"""

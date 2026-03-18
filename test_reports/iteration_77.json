@@ -118,7 +118,7 @@
   "test_credentials": {
     "admin_credentials": "username: admin, password: divineadmin2024",
     "student_session_token": "test-session-22fbe1e5",
-    "api_base_url": "https://dashboard-hub-128.preview.emergentagent.com"
+    "api_base_url": "https://iris-dashboard-app.preview.emergentagent.com"
   },
   "seed_data_creation": "Test config changes (TEST_Updated package name, pricing changes, program additions) are restored to original values after each test",
   "retest_needed": false,

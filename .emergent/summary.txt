@@ -1,148 +1,145 @@
 <analysis>**original_problem_statement:**
-The user wants to build a pixel-perfect clone of their existing website, . This has evolved into a full-stack application with a comprehensive admin panel for granular content management, a multi-program cart, and an advanced email notification system. The project focuses on building out a CRM-like Client Garden, refining the user enrollment experience, and enhancing UI components to exactly match the user's reference designs and improve usability.
+The user initially requested a pixel-perfect clone of their website, . This evolved into building a full-stack application with a comprehensive admin panel for content management. The project's current, primary focus is a Multi-Tiered Student Growth Platform, a sophisticated student dashboard with Role-Based Access Control (RBAC), advanced analytics, interactive tools, and a dedicated admin command center.
 
 **PRODUCT REQUIREMENTS:**
-1.  **Homepage Layout:** The Upcoming Programs and Sponsor a Life sections must be symmetrical and responsive, with the sponsor card staying in its own column.
-2.  **Enrollment Flow Parity:** The Add to Cart flow must be identical to the Enroll Now flow in terms of forms, payment options, and disclaimers.
-3.  **Timezone Accuracy:** Program timings must be displayed in the user's local timezone, and this converted time must also appear on email receipts.
-4.  **Currency Stability & Security:** The currency for a transaction should be locked based on the user's IP-detected country at the start of the session, with no flickering or mid-session changes. The system must be robust against VPN usage and frontend manipulation.
-5.  **Admin Controls:** The admin must have granular control over homepage content, including program highlight badges, section fonts, and navigation links.
-6.  **Session Booking:** Users must not be able to book a session without selecting a date and time slot.
+1.  **Student Growth Platform:**
+    *   **Student Dashboard:** A central hub for students with a Modern Spiritual aesthetic. It must display profile info, payment status (EMIs), and detailed program schedules.
+    *   **Interactive Tools:** Students need a calendar view of their schedule, a way to track daily progress, mark extraordinary moments, and choose their attendance mode (Online/Offline) for each session.
+    *   **Program Pause:** Students should be able to pause their programs for a specified duration, a feature that the admin can enable/disable on a per-subscriber basis.
+2.  **Admin Command Center:**
+    *   **Subscriber Management:** A powerful interface to manage all annual subscribers, including their financial status, EMI schedules, and program details. This includes importing/exporting data via Excel.
+    *   **Global Pricing & Scheduling:** Admins need to define versioned Annual Packages with independent pricing structures and validity dates. A global scheduler is required to set program dates (e.g., AWRP Month 1) for all subscribers at once.
+    *   **Payment Approvals:** A queue for approving manual payments (bank transfers, UPI, etc.) submitted by students.
+3.  **Upcoming Program Enrollment:** The student dashboard should display upcoming programs from the main website, with special pricing for annual subscribers, allowing them to sign up directly.
+4.  **Family & Referral System:** Students should be able to sign up family members and refer friends from their dashboard.
 
 **User's preferred language**: English
 
 **what currently exists?**
-A full-stack application (React + FastAPI + MongoDB). The application features a highly customized Trust Section with admin-controlled icons, fonts, and hover effects. A sophisticated, secure currency system is in place, which detects the user's IP to show local prices (e.g., EUR for Netherlands, CAD for Canada) converted from a base currency (USD/AED/INR), while forcing USD for VPN users. All payment flows are protected by a server-side verification step to prevent currency manipulation. Program cards can display admin-editable highlight badges (e.g., Most Awaited). The hero section has been optimized with a poster image to prevent a flash while the video loads. Enrollment forms have been standardized to include mandatory city/state fields and have country-locked phone codes. Session booking is now gated, requiring date/time selection before payment is possible.
+A full-stack application (React + FastAPI + MongoDB) featuring a public website and a highly advanced admin panel. The Student Growth Platform has been substantially built out.
+
+*   **Admin Panel:** Includes a Scheduler tab for setting global program dates and an Annual Subscribers tab. This tab is the main command center, featuring:
+    *   A multi-package pricing system where the admin can create and manage different versioned pricing packages (e.g., Standard, VIP).
+    *   A detailed subscriber list where each subscriber can be expanded to an admin mirror view that shows exactly what the student sees on their financial dashboard, complete with inline controls for the admin.
+    *   A comprehensive Edit Full Details form for subscribers, allowing management of every aspect of their subscription, including per-program controls (Pause, Online/Offline, Visibility).
+    *   A manual payment approval queue and a management interface for bank account details.
+
+*   **Student Dashboard ():**
+    *   Displays a detailed EMI schedule with columns for Status (paid/due/overdue), Payment Mode, Remarks, and auto-calculated Late Fees. A Pay Now button opens a modal with payment options (Stripe/Exly/Manual).
+    *   Features a My Programs section where students see their enrolled programs, each with a detailed schedule of sessions/months. Students can toggle their attendance mode (Online/Offline) for each scheduled item.
 
 **Last working item**:
--   **Last item agent was working:** The agent implemented a fix to allow users to deselect a chosen date in the session booking calendar by clicking it a second time.
--   **Status:** USER VERIFICATION PENDING
--   **Agent Testing Done:** Y
--   **Which testing method agent to use?** Frontend testing agent. The test should navigate to a session detail page, click a date to select it, click the same date again, and verify that it becomes deselected and the Book Now button becomes disabled.
--   **User Testing Done:** N
+- **Last item agent was working:** The agent completed a major feature set, culminating in the **Admin Program Scheduler**, which allows the admin to set program dates globally. The user's final requests were for a student-facing calendar view, daily progress tracking, a student-initiated pause feature, and a collapsible scheduler. The agent acknowledged this as the next major phase (Phase B) and prepared the session for a fork to ensure a clean context for this large build.
+- **Status:** NONE (Checkpoint reached before starting a new major feature phase).
+- **Agent Testing Done:** Y
+- **Which testing method agent to use?** both. The next features (calendar, progress tracking, pause feature) require significant frontend UI work and backend logic to support them.
+- **User Testing Done:** N
 
 **All Pending/In progress Issue list**:
--   **Issue 1: Verify Date Deselection in Session Booking (P0)**: This is the .
+-   **Issue 1: End Date Browser Display Bug (P2)**: An ongoing minor issue where the user's browser sometimes displays an incorrect subscription end date (e.g.,  instead of ).
+-   **Issue 2: Old Subscriber Data Requires Manual Refresh (P2)**: Subscribers created before the latest EMI logic have incorrect data. The admin must manually use the Regenerate All EMIs button in the edit form to fix them.
+-   **Issue 3: Duplicated Backend Function  (P3)**: A low-priority technical debt item carried over from a previous fork.
 
 **Issues Detail:**
--   **Issue 1: Verify Date Deselection in Session Booking (P0)**
-    -   **Attempted fixes:** The agent modified the  handler in the  component in  and . The handler now checks if the newly selected date is the same as the currently selected date; if so, it sets the date to , effectively toggling it off.
+-   **Issue 1: End Date Browser Display Bug (P2)**
+    -   **Attempted fixes:** The agent confirmed the  function logic is correct and restarted the frontend server. The issue is suspected to be browser-side caching.
     -   **Next debug checklist:**
-        1.  Ask the user to test the session booking calendar on any session page.
-        2.  Confirm they can click a date to select it, and click it again to deselect it.
-    -   **Why fix this issue and what will be achieved with the fix?** This improves the user experience by allowing users to easily correct a mistaken date selection without needing to refresh the page.
-    -   **Status:** USER VERIFICATION PENDING
+        1.  Instruct the user to perform a hard refresh (Ctrl+Shift+R or Cmd+Shift+R).
+        2.  If it persists, add a  in the  component to verify the  value being rendered.
+    -   **Why fix this issue and what will be achieved with the fix?** To prevent admin confusion during subscriber setup.
+    -   **Status:** NOT STARTED
+    -   **Is recurring issue?** Y
+    -   **Should Test frontend/backend/both after fix?** Frontend.
+    -   **Blocked on other issue:** No.
+-   **Issue 2: Old Subscriber Data Requires Manual Refresh (P2)**
+    -   **Attempted fixes:** A Regenerate All EMIs button was added to the subscriber edit form as a manual workaround.
+    -   **Next debug checklist:** The current solution is manual. A future improvement could be a one-time migration script to fix all historical data in the database.
+    -   **Why fix this issue and what will be achieved with the fix?** To ensure data consistency for all subscribers without requiring admin effort for each old record.
+    -   **Status:** RESOLVED (with manual workaround)
     -   **Is recurring issue?** N
-    -   **Should Test frontend/backend/both after fix?** Frontend
+    -   **Should Test frontend/backend/both after fix?** Backend (if a migration script is implemented).
+    -   **Blocked on other issue:** No.
+-   **Issue 3: Duplicated Backend Function (P3)**
+    -   **Attempted fixes:** None. Carried over from a previous session.
+    -   **Next debug checklist:** Refactor the  function into a shared utility file (e.g., ) and update the calling routes.
+    -   **Why fix this issue and what will be achieved with the fix?** To improve code maintainability and adhere to the DRY principle.
+    -   **Status:** NOT STARTED
+    -   **Is recurring issue?** Y
+    -   **Should Test frontend/backend/both after fix?** Backend.
     -   **Blocked on other issue:** No.
 
 **In progress Task List**:
--   None.
+-   None. The previous session reached a logical checkpoint.
 
 **Upcoming and Future Tasks**
--   **Upcoming Tasks:**
-    -   **P0:** Manual Client Management & Excel Upload: Implement functionality for the user to manually edit client labels and bulk-upload clients via Excel.
-    -   **P1:** Annual Subscriber Dashboard (Planning): Propose a design and feature set for a new admin dashboard for Iris (Annual Program Subscriber) clients.
+-   **Upcoming Tasks (Phase B):**
+    -   **P0:** Create a collapsible scheduler in the admin panel.
+    -   **P0:** Build a **Calendar View** on the student dashboard for their program schedule.
+    -   **P0:** Implement **Daily Progress Tracking** for students.
+    -   **P0:** Allow students to mark **Extraordinary Moments** during sessions.
+    -   **P0:** Implement the **Student-Initiated Pause Feature**, allowing students to pause programs for a set duration, with an admin toggle to enable/disable this capability per subscriber.
+    -   **P1:** Add an **Admin Preview Dashboard** feature, allowing the admin to view the dashboard as a specific student.
+    -   **P1:** Wire **Stripe & Exly EMI Payments** to be fully automated, including status updates and email receipts.
+    -   **P1:** Display **Upcoming Programs** from the main website on the student dashboard with special subscriber pricing.
 -   **Future Tasks:**
-    -   WhatsApp Automation: Auto-send a WhatsApp message with the group invite link after successful payment.
-    -   User Login & Subscriber Dashboard: Implement a full user authentication system.
-    -   SEO: Explain SEO concepts to the user and implement on-page SEO best practices.
+    *   Build a **Family Member Signup** and **Referral System**.
+    *   Complete the remaining student dashboard sub-pages (Growth Roadmap, Mini Diary).
+    *   Implement backend RBAC middleware.
+    *   Integrate Razorpay and WhatsApp automation.
 
 **Completed work in this session**
--   **Trust Section UI/UX Overhaul:** Fixed a duplication bug, iterated through numerous user-requested icon and font styles, implemented and refined a rich hover effect, and added global font controls in the admin panel.
--   **Advanced Currency & Payment Security System:** Implemented a robust IP-based currency system with local currency display, VPN detection, and server-side payment verification to prevent manipulation. Fixed all currency inconsistencies across every payment pathway.
--   **Hero Section Loading Fix:** Eliminated a blue flash on page load by adding a poster image that displays instantly while the background video loads.
--   **Program Highlight Badges:** Created three distinct, admin-editable badge styles for programs and positioned them next to the program title.
--   **Enrollment Form Standardization:** Added mandatory City and State fields to all enrollment forms and locked phone country codes to the selected country.
--   **Session Booking Flow Gating:** Disabled Book Now and Add to Cart buttons for personal sessions until both a date and time slot are selected.
--   **Mobile Responsiveness:** Fixed the layout of the Upcoming Programs and Sponsor a Life sections to stack correctly on mobile.
--   **Bug Fixes:** Resolved a flashing image issue in the sponsor section and corrected various layout misalignments.
-
-**Earlier issues found/mentioned but not fixed**
--   **Issue 1: Duplicated Function **
-    -   **Debug checklist:** The function is present in both  and . It should be moved to a shared utilities file to reduce code duplication.
-    -   **Why to solve this issue and what will be achieved with this?** Improves code maintainability. This is a low-priority technical debt item.
-    -   **Should Test frontend/backend/both after fix:** Backend
-    -   **Is recurring issue?** Y
-
-**Known issue recurrence from previous fork**
--   **Issue recurrence in previous fork**: The Trust Section duplication bug was definitively resolved. Aggressive browser caching remains a potential point of friction, requiring users to be reminded to hard-refresh.
--   **Recurrence count**: Low (The major recurring issue was fixed).
--   **Status**: RESOLVED (for duplication), IN PROGRESS (for user-side caching awareness).
+-   **Student Dashboard UI/UX Redesign:** Implemented the Modern Spiritual iris-flower layout.
+-   **Advanced Subscriber Management System:**
+    -   **Multi-Package Pricing:** Created a system for versioned, independent annual pricing packages with custom fees, discounts, and validity dates.
+    -   **Admin CRUD:** Built a full suite of tools for subscriber and package management.
+    -   **Admin Mirror View:** The admin can now see a subscriber's financial dashboard directly in the admin panel.
+-   **Comprehensive EMI System:**
+    -   Developed a robust EMI tracking system with auto-generation, late fees, channelization fees, and a manual payment approval workflow.
+-   **Global Program Scheduler:** Created a dedicated admin tab for setting program schedules globally, which syncs to all student dashboards.
+-   **Student Program Interaction:** Students can now view their detailed program schedule and choose their attendance mode (Online/Offline) for each session.
 
 **Code Architecture**
 
 
 **Key Technical Concepts**
--   **Centralized State Management:** Refactoring multiple components to use a single  as the source of truth for all pricing and currency display, eliminating bugs and inconsistencies.
--   **Payment Security:** Implementing a multi-layered security approach for currency handling, including IP detection, VPN blocking, and server-side verification before payment processing.
--   **UI/UX Gating:** Conditionally disabling UI elements (e.g., Book Now button) based on application state (date/time selection) to guide user flow and prevent errors.
--   **Component Lifecycle & Async Optimization:** Fixing visual loading artifacts (flashes) by correctly managing component state and pre-loading assets like poster images.
--   **Rapid UI Iteration:** Demonstrating the ability to quickly implement, test, and pivot on highly specific visual feedback from the user regarding fonts, icons, layouts, and animations.
+-   **Decoupled Data Models:** Pricing packages () and global schedules () are stored independently from per-subscriber data ( collection), allowing for versioning and preventing historical data corruption.
+-   **Complex Frontend State Management:** The admin UI () manages a large and complex state for multiple packages, subscribers, and forms, performing numerous real-time calculations.
+-   **Global vs. Per-Subscriber Logic:** The architecture successfully distinguishes between global settings (program dates) and per-subscriber choices (attendance mode, pause status), syncing them appropriately.
 
 **key DB schema**
--   **homepage_sections:** The document for  contains , , , and  with icon names (, , ) and titles with  for line breaks.
--   **programs:** Documents can now contain  and  fields to control the display of promotional badges.
+-   **annual_pricing_config**: A collection storing multiple pricing package documents.
+-   **program_schedules**: A collection storing the global schedule for each program (e.g., ).
+-   **clients**: The main collection where each document has a  object containing all subscriber-specific data, including , , and .
+-   **emi_payments**: A new collection for tracking manual payment submissions and their approval status.
 
 **All files of reference**
--    (Core of the currency system)
--    (Core of the Trust Section)
--   ,  (Main enrollment forms)
--    (Session booking logic)
--    (Currency API endpoints)
--   ,  (Payment security logic)
+-   : The core backend logic for all pricing, subscriber, and scheduling features.
+-   : The main admin component for subscriber and package management. It is very large and complex.
+-   : The global program scheduler UI.
+-   : The student-facing dashboard for financials and program interaction.
+-   : The detailed product requirements document.
 
 **Areas that need refactoring**:
--   The duplicated  function in the backend should be consolidated into a shared utility file.
--    appears to be an old, unused page with legacy currency logic. It should be investigated and potentially removed to avoid confusion.
+-   ****: This file is now over 1200 lines and is responsible for too many distinct features (package editor, subscriber list, subscriber form, admin mirror view). It is a high priority for refactoring into smaller, dedicated components to improve maintainability.
 
 **key api endpoints**
--   **GET **: Detects user's currency settings based on IP. Returns a JSON object with base currency, display currency, exchange rate, symbol, and VPN status.
--   **POST **: A security endpoint called before any payment. It re-checks the user's IP and rejects the transaction with a 403 error if the currency claimed by the frontend does not match the server-side detected region, preventing manipulation.
+-   : Lists all pricing packages.
+-   : Saves/updates a pricing package.
+-   : Gets the global program schedule.
+-   : Saves the global program schedule.
+-   : Student updates their online/offline choice for a session.
+-   : Student submits a manual payment for approval.
 
 **Critical Info for New Agent**
--   **Currency System is the Single Source of Truth:** All pricing display MUST go through the  hook. All payment submissions MUST be guarded by the  backend call. Do not introduce any new, separate currency logic.
--   **Admin Panel is Powerful:** Before hardcoding content, check the admin panel. Many elements like header navigation, trust section content, icons, and program badges are editable there.
--   **User Cache is a Factor:** If the user reports not seeing a change, your first instruction should be to ask for a hard refresh (Ctrl+Shift+R) or an incognito window test.
--   **Trust Section is a Hotspot:** This component has been the subject of extensive, specific, and frequent user feedback. Be prepared for more detailed change requests related to its appearance and behavior.
+-   You are starting **Phase B**, which focuses on enhancing the student dashboard with a **calendar view, progress tracking, and a student-initiated pause feature**. The user has also requested a collapsible admin scheduler.
+-   **Refactor  if possible.** This component has become unmanageably large. Breaking it down will make future development much safer and easier.
+-   The user has repeatedly mentioned not being able to see the student dashboard. Implementing an **Admin Preview as Student** feature should be a high-priority task to build trust and aid in testing.
+-   Be aware of the known issues: the intermittent end-date display bug and the need for admins to manually regenerate EMIs for old subscriber records.
 
 **documents and test reports created in this job**
--   
--   
+-    (heavily updated and is the source of truth for all requirements).
+-   Numerous test reports from  onwards, which can be reviewed for details on feature testing.
 
 **Last 10 User Messages and any pending HUMAN messages**
-10.  - **In Progress.** User reported they can't un-click a selected date on the session calendar. Agent has implemented a fix.
-9.   - **Done.** Agent disabled booking buttons until a date and time are selected.
-8.   - **Done.** Agent fixed the title alignment for the Upcoming Programs section.
-7.   - **Done.** User noticed a price discrepancy on the enrollment page. Agent fixed it to show the correct converted local price.
-6.   - **Done.** User asked for confirmation that the currency fix applies everywhere. Agent verified and fixed remaining pages.
-5.   - **Done.** User corrected the agent's example table. Agent confirmed the system uses the correct admin-set prices.
-4.   - **Done.** Agent provided a table showing what currency and prices users from 10 different cities would see.
-3.   - **Done.** User reported a major currency inconsistency bug. Agent found and fixed duplicate currency logic on several pages.
-2.   - **Done.** User questioned a security claim. Agent corrected the explanation and detailed the server-side verification that would be built.
-1.   - **Done.** User raised critical issues about currency flickering and VPN exploits, leading to the full currency system overhaul.
-
-**Project Health Check:**
--   **Broken:** None.
--   **Mocked:** None.
-
-**3rd Party Integrations**
--   **Stripe:** Payments.
--   **ipinfo.io:** Geolocation and VPN detection for the currency system.
--   **exchangerate-api.com:** Live currency exchange rates (implemented via a backend proxy).
--   **openpyxl:** Excel export (existing).
--   **lucide-react:** Icons.
-
-**Testing status**
--   **Testing agent used after significant changes:** YES, after the initial Trust Section fix.
--   **Troubleshoot agent used after agent stuck in loop:** NO
--   **Test files created:** None.
--   **Known regressions:** Several UI regressions occurred during development (e.g., font styles reverting, title alignment breaking) but were all identified and fixed within the session.
-
-**Credentials to test flow:**
--   **Admin Panel URL:** 
--   **Username:** 
--   **Password:** 
-
-**What agent forgot to execute**
--   Nothing critical was forgotten. The agent systematically addressed a wide range of user requests, from major architectural changes like the currency system to minor pixel-level UI tweaks.</analysis>
+-   **10. yes**: Final confirmation to proceed with a new fork for Phase B.
+-   **9. yes, also have seperate option to show pause button with start date end date on user dahsboard and admin has a choice to show or not**: **(PENDING)** Confirms and refines the student-initiated pause feature requirement</analysis>
