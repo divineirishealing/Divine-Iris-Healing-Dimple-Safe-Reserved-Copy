@@ -275,20 +275,20 @@ const AdminPanel = () => {
             <div>
               <HeaderFooterTab settings={siteSettings} onChange={setSiteSettings} />
               <Button onClick={saveSiteSettings} className="bg-[#D4AF37] hover:bg-[#b8962e] mt-5"><Save size={14} className="mr-1" /> Save Changes</Button>
-          {activeTab === 'dashboard_settings' && siteSettings && (
-            <div>
-          {activeTab === 'sanctuary_settings' && siteSettings && (
-            <div>
-              <SanctuarySettingsTab settings={siteSettings} onChange={setSiteSettings} />
-              <Button onClick={saveSiteSettings} className="bg-[#D4AF37] hover:bg-[#b8962e] mt-5"><Save size={14} className="mr-1" /> Save Changes</Button>
             </div>
           )}
 
+          {activeTab === 'dashboard_settings' && siteSettings && (
+            <div>
               <DashboardSettingsTab settings={siteSettings} onChange={setSiteSettings} />
               <Button onClick={saveSiteSettings} className="bg-[#D4AF37] hover:bg-[#b8962e] mt-5"><Save size={14} className="mr-1" /> Save Changes</Button>
             </div>
           )}
 
+          {activeTab === 'sanctuary_settings' && siteSettings && (
+            <div>
+              <SanctuarySettingsTab settings={siteSettings} onChange={setSiteSettings} />
+              <Button onClick={saveSiteSettings} className="bg-[#D4AF37] hover:bg-[#b8962e] mt-5"><Save size={14} className="mr-1" /> Save Changes</Button>
             </div>
           )}
 
