@@ -407,7 +407,7 @@ const SubscriberForm = ({ initial, onSave, onCancel, saving, packages }) => {
           const actualDay = Math.min(emiDay, daysInMo);
           dueDate = `${yr}-${mo}-${String(actualDay).padStart(2, '0')}`;
         }
-        newEmis.push({ number: i, date: '', amount: existing?.amount || perEmi, remaining: 0, due_date: dueDate, status: 'due' });
+        newEmis.push({ number: i, date: '', amount: perEmi, remaining: 0, due_date: dueDate, status: 'due' });
       }
     }
     set('emis', newEmis);
