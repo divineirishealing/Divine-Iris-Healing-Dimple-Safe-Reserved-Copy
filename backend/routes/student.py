@@ -30,7 +30,7 @@ class ProfileUpdate(BaseModel):
 
 @router.get("/home")
 async def get_student_home(user: dict = Depends(get_current_user)):
-    """Fetch personalized home data: Schedule, Package, Financials."""
+    """Fetch personalized home data: Schedule, Package, Financials, Programs."""
     client_id = user.get("client_id")
     client = await db.clients.find_one({"id": client_id}, {"_id": 0}) or {}
 
@@ -40,29 +40,62 @@ async def get_student_home(user: dict = Depends(get_current_user)):
         {"_id": 0}
     ).to_list(10)
     
-    # 2. Financials
+    # 2. Subscription data (from Excel upload)
+    sub = client.get("subscription", {})
+    sess = sub.get("sessions", {})
+    emis = sub.get("emis", [])
+
+    # 3. Financials - derived from subscription
+    paid_emis = sum(1 for e in emis if e.get("status") == "paid")
+    total_emis = len(emis)
+    total_paid = sum(e.get("amount", 0) for e in emis if e.get("status") == "paid")
+    total_fee = sub.get("total_fee", 0)
+    remaining = total_fee - total_paid
+
     financials = {
-        "status": client.get("payment_status", "N/A"),
-        "emi_plan": client.get("emi_plan_name", ""),
-        "next_due": "No pending dues", 
-        "history": [] 
+        "status": client.get("payment_status") or ("Paid" if remaining <= 0 and total_fee > 0 else ("EMI" if total_emis > 0 else "N/A")),
+        "total_fee": total_fee,
+        "currency": sub.get("currency", "INR"),
+        "total_paid": total_paid,
+        "remaining": remaining,
+        "payment_mode": sub.get("payment_mode", ""),
+        "emi_plan": f"{paid_emis}/{total_emis} EMIs Paid" if total_emis > 0 else "",
+        "emis": emis,
+        "next_due": "No pending dues",
     }
+
+    # Find next due EMI
+    for emi in emis:
+        if emi.get("status") in ("due", "pending") and emi.get("due_date"):
+            financials["next_due"] = emi["due_date"]
+            break
     
-    # 3. Package & Schedule (Personalized)
-    # Fetch manual package data from client record
-    package = client.get("active_package", {
-        "program_name": "No Active Package",
-        "total_sessions": 0,
-        "used_sessions": 0,
-        "next_session_date": None
-    })
+    # 4. Package & Sessions
+    package = {
+        "program_name": sub.get("annual_program") or client.get("active_package", {}).get("program_name", "No Active Package"),
+        "total_sessions": sess.get("total", 0),
+        "used_sessions": sess.get("availed", 0),
+        "yet_to_avail": sess.get("yet_to_avail", 0),
+        "carry_forward": sess.get("carry_forward", 0),
+        "current": sess.get("current", 0),
+        "due": sess.get("due", 0),
+        "scheduled_dates": sess.get("scheduled_dates", []),
+        "next_session_date": sess.get("scheduled_dates", [None])[0] if sess.get("scheduled_dates") else client.get("active_package", {}).get("next_session_date"),
+        "start_date": sub.get("start_date", ""),
+        "end_date": sub.get("end_date", ""),
+        "bi_annual_download": sub.get("bi_annual_download", 0),
+        "quarterly_releases": sub.get("quarterly_releases", 0),
+    }
+
+    # 5. Programs in their kitty
+    programs_list = sub.get("programs", [])
     
-    # 4. Journey Logs (Last 3)
+    # 6. Journey Logs (Last 3)
     logs = await db.journey_logs.find(
         {"client_id": client_id}, {"_id": 0}
     ).sort("date", -1).to_list(3)
 
-    # 5. Profile Status
+    # 7. Profile Status
     profile_status = "complete" if user.get("profile_approved") else "pending"
     if not user.get("profile_approved") and not user.get("pending_profile_update"):
         profile_status = "incomplete"
@@ -71,6 +104,7 @@ async def get_student_home(user: dict = Depends(get_current_user)):
         "upcoming_programs": upcoming,
         "financials": financials,
         "package": package,
+        "programs": programs_list,
         "journey_logs": logs,
         "profile_status": profile_status,
         "user_details": {

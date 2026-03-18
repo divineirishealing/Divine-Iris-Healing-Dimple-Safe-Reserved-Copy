@@ -44,6 +44,7 @@ import BulkClientUpload from './tabs/BulkClientUpload';
 import ProfileApprovals from './tabs/ProfileApprovals';
 import TextTestimonialsTab from './tabs/TextTestimonialsTab';
 import FraudAlertsTab from './tabs/FraudAlertsTab';
+import SubscribersTab from './tabs/SubscribersTab';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
@@ -215,6 +216,7 @@ const AdminPanel = () => {
     { key: 'discounts', label: 'Discounts & Loyalty', icon: Tag },
     { key: 'exchange_rates', label: 'Exchange Rates', icon: Globe },
     { key: 'subscribers', label: 'Subscribers', icon: Mail, count: subscribers.length },
+    { key: 'annual_subscribers', label: 'Annual Subscribers', icon: Star },
     { key: 'styles', label: 'Global Styles', icon: Palette },
     { key: 'payment_settings', label: 'Payments', icon: Tag },
     { key: 'india_payments', label: 'India Proofs', icon: Tag },
@@ -332,6 +334,7 @@ const AdminPanel = () => {
           {activeTab === 'receipt_template' && <ReceiptTemplateTab />}
           {activeTab === 'pricing_hub' && <PricingHubTab />}
           {activeTab === 'upcoming_hub' && <UpcomingHubTab />}
+          {activeTab === 'annual_subscribers' && <SubscribersTab />}
 
           {/* ===== PROGRAMS TAB ===== */}
           {activeTab === 'programs' && (

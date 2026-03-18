@@ -13,6 +13,7 @@ import mimetypes
 from routes import programs, sessions, testimonials, stats, newsletter, upload, payments, webhook, currency, site_settings, enrollment, promotions, discounts, session_extras, india_payments, notify_me, inbox, clients, text_testimonials, search, fraud
 from routes import admin_clients, student
 from routes import auth
+from routes import subscribers
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
@@ -104,6 +105,7 @@ app.include_router(fraud.router)
 app.include_router(admin_clients.router)
 app.include_router(student.router)
 app.include_router(auth.router)
+app.include_router(subscribers.router)
 
 @api_router.get("/admin/api-keys")
 async def get_api_keys():
