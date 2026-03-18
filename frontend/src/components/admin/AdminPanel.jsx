@@ -193,9 +193,7 @@ const AdminPanel = () => {
     { key: 'text_testimonials', label: 'Text Quotes', icon: Quote },
     { key: 'stats', label: 'Stats', icon: BarChart3, count: stats.length },
     { key: 'header_footer', label: 'Header & Footer', icon: Globe },
-    { key: 'dashboard_settings', label: 'Dashboard', icon: Layout },
     { key: 'enrollments', label: 'Enrollments', icon: Users },
-    { key: 'sanctuary_settings', label: 'Sanctuary (Dashboard)', icon: Image },
     { key: 'inbox', label: 'Inbox', icon: Inbox },
     { key: 'clients', label: 'Client Garden', icon: Users },
     { key: 'promotions', label: 'Promotions', icon: Gift },
@@ -208,6 +206,8 @@ const AdminPanel = () => {
     { key: 'fraud_alerts', label: 'Fraud Detection', icon: ShieldAlert },
     { key: 'receipt_template', label: 'Receipt Template', icon: FileText },
     { key: 'api_keys', label: 'API Keys', icon: Settings },
+    { key: 'dashboard_settings', label: 'Dashboard Config', icon: Layout },
+    { key: 'sanctuary_settings', label: 'Sanctuary Design', icon: Image },
   ];
 
   const settingsTabKeys = ['hero', 'homepage_sections', 'page_headers', 'header_footer', 'styles', 'dashboard_settings', 'sanctuary_settings'];
