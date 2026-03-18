@@ -100,13 +100,20 @@ async def get_student_home(user: dict = Depends(get_current_user)):
     if not user.get("profile_approved") and not user.get("pending_profile_update"):
         profile_status = "incomplete"
 
+    # 8. Payment methods & bank details
+    payment_methods = sub.get("payment_methods", ["stripe", "manual"])
+    banks = await db.bank_accounts.find({"is_active": True}, {"_id": 0}).to_list(10)
+
     return {
+        "client_id": client_id,
         "upcoming_programs": upcoming,
         "financials": financials,
         "package": package,
         "programs": programs_list,
         "journey_logs": logs,
         "profile_status": profile_status,
+        "payment_methods": payment_methods,
+        "bank_accounts": banks,
         "user_details": {
             "full_name": user.get("full_name") or user.get("name"),
             "city": user.get("city"),

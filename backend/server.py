@@ -14,6 +14,7 @@ from routes import programs, sessions, testimonials, stats, newsletter, upload, 
 from routes import admin_clients, student
 from routes import auth
 from routes import subscribers
+from routes import emi_payments
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
@@ -106,6 +107,7 @@ app.include_router(admin_clients.router)
 app.include_router(student.router)
 app.include_router(auth.router)
 app.include_router(subscribers.router)
+app.include_router(emi_payments.router)
 
 @api_router.get("/admin/api-keys")
 async def get_api_keys():
