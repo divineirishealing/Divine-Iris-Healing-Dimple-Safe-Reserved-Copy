@@ -654,15 +654,22 @@ const SubscribersTab = () => {
   const [savingPkg, setSavingPkg] = useState(false);
   const [configOpen, setConfigOpen] = useState(false);
   const [newPkgName, setNewPkgName] = useState('');
-
+  const [subView, setSubView] = useState('subscribers'); // subscribers | approvals | banks
+  const [pendingPayments, setPendingPayments] = useState([]);
+  const [bankAccounts, setBankAccounts] = useState([]);
+  const [bankForm, setBankForm] = useState(null);
   const fetchData = useCallback(async () => {
     try {
-      const [sRes, pRes] = await Promise.all([
+      const [sRes, pRes, payRes, bankRes] = await Promise.all([
         axios.get(`${API}/admin/subscribers/list`),
-        axios.get(`${API}/admin/subscribers/packages`)
+        axios.get(`${API}/admin/subscribers/packages`),
+        axios.get(`${API}/payment-mgmt/pending`),
+        axios.get(`${API}/payment-mgmt/bank-accounts`)
       ]);
       setSubscribers(sRes.data || []);
       setPackages(pRes.data || []);
+      setPendingPayments(payRes.data || []);
+      setBankAccounts(bankRes.data || []);
     } catch (e) { console.error(e); }
     finally { setLoading(false); }
   }, []);
@@ -756,90 +763,214 @@ const SubscribersTab = () => {
     sessions: editTarget.subscription?.sessions || { carry_forward: 0, current: 0, total: 0, availed: 0, yet_to_avail: 0, due: 0, scheduled_dates: [] }
   } : null;
 
+  // Payment approval handlers
+  const handleApprove = async (id) => {
+    try {
+      await axios.post(`${API}/payment-mgmt/approve/${id}`);
+      toast({ title: 'Payment approved' });
+      fetchData();
+    } catch (err) { toast({ title: 'Error', variant: 'destructive' }); }
+  };
+  const handleReject = async (id) => {
+    try {
+      await axios.post(`${API}/payment-mgmt/reject/${id}`);
+      toast({ title: 'Payment rejected' });
+      fetchData();
+    } catch (err) { toast({ title: 'Error', variant: 'destructive' }); }
+  };
+
+  // Bank account handlers
+  const handleSaveBank = async (bank) => {
+    try {
+      if (bank._existing) {
+        await axios.put(`${API}/payment-mgmt/bank-accounts/${bank.bank_code}`, bank);
+        toast({ title: 'Bank account updated' });
+      } else {
+        await axios.post(`${API}/payment-mgmt/bank-accounts`, bank);
+        toast({ title: 'Bank account added' });
+      }
+      setBankForm(null);
+      fetchData();
+    } catch (err) { toast({ title: err.response?.data?.detail || 'Error', variant: 'destructive' }); }
+  };
+  const handleDeleteBank = async (code) => {
+    try {
+      await axios.delete(`${API}/payment-mgmt/bank-accounts/${code}`);
+      toast({ title: 'Deleted' });
+      fetchData();
+    } catch (err) { toast({ title: 'Error', variant: 'destructive' }); }
+  };
+
   return (
     <div className="space-y-5">
+      {/* Header + Sub Navigation */}
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-xl font-semibold text-gray-900">Annual Subscribers</h2>
-          <p className="text-sm text-gray-500 mt-0.5">Manage subscriber packages, EMIs, sessions & programs</p>
+          <div className="flex gap-1 mt-2">
+            {[
+              { key: 'subscribers', label: 'Subscribers', count: subscribers.length },
+              { key: 'approvals', label: 'Payment Approvals', count: pendingPayments.length },
+              { key: 'banks', label: 'Bank Accounts', count: bankAccounts.length },
+            ].map(tab => (
+              <button key={tab.key} onClick={() => setSubView(tab.key)}
+                className={`px-3 py-1.5 text-xs rounded-lg font-medium transition-colors ${subView === tab.key ? 'bg-[#5D3FD3] text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}
+                data-testid={`tab-${tab.key}`}>
+                {tab.label} {tab.count > 0 && <span className={`ml-1 px-1.5 py-0.5 rounded-full text-[9px] ${subView === tab.key ? 'bg-white/20' : tab.key === 'approvals' && tab.count > 0 ? 'bg-red-100 text-red-700' : 'bg-gray-200'}`}>{tab.count}</span>}
+              </button>
+            ))}
+          </div>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" size="sm" onClick={() => setConfigOpen(!configOpen)} data-testid="toggle-config-btn">
-            <Settings size={14} className="mr-1" /> {configOpen ? 'Hide' : 'Package'} Config
-          </Button>
-          <Button variant="outline" size="sm" onClick={() => window.open(`${API}/admin/subscribers/download-template`, '_blank')} data-testid="download-template-btn">
-            <FileText size={14} className="mr-1" /> Template
-          </Button>
-          <Button variant="outline" size="sm" onClick={() => window.open(`${API}/admin/subscribers/export`, '_blank')} data-testid="export-subscribers-btn">
-            <Download size={14} className="mr-1" /> Export
-          </Button>
-          <Button size="sm" className="bg-[#5D3FD3] hover:bg-[#4c32b3]" onClick={() => { setEditTarget(null); setShowForm(true); }} data-testid="add-subscriber-btn">
-            <Plus size={14} className="mr-1" /> Add Subscriber
-          </Button>
+          {subView === 'subscribers' && (<>
+            <Button variant="outline" size="sm" onClick={() => setConfigOpen(!configOpen)} data-testid="toggle-config-btn">
+              <Settings size={14} className="mr-1" /> {configOpen ? 'Hide' : 'Pkg'} Config
+            </Button>
+            <Button variant="outline" size="sm" onClick={() => window.open(`${API}/admin/subscribers/download-template`, '_blank')}><FileText size={14} className="mr-1" /> Template</Button>
+            <Button variant="outline" size="sm" onClick={() => window.open(`${API}/admin/subscribers/export`, '_blank')}><Download size={14} className="mr-1" /> Export</Button>
+            <Button size="sm" className="bg-[#5D3FD3] hover:bg-[#4c32b3]" onClick={() => { setEditTarget(null); setShowForm(true); }}><Plus size={14} className="mr-1" /> Add</Button>
+          </>)}
+          {subView === 'banks' && (
+            <Button size="sm" className="bg-[#5D3FD3] hover:bg-[#4c32b3]" onClick={() => setBankForm({ bank_code: '', bank_name: '', account_name: '', account_number: '', ifsc_code: '', branch: '', upi_id: '', is_active: true })} data-testid="add-bank-btn">
+              <Plus size={14} className="mr-1" /> Add Account
+            </Button>
+          )}
         </div>
       </div>
 
-      {/* Multi-Package Config */}
-      {configOpen && (
-        <div className="space-y-3">
-          {packages.map(pkg => (
-            <PackageEditor key={pkg.package_id} pkg={pkg} onSave={handleSavePkg} saving={savingPkg} onDelete={packages.length > 1 ? handleDeletePkg : null} onNewVersion={handleNewVersion} />
-          ))}
-          <div className="flex gap-2 items-end">
-            <Input value={newPkgName} onChange={e => setNewPkgName(e.target.value)} placeholder="New package name..." className="h-8 text-sm w-64"
-              onKeyDown={e => e.key === 'Enter' && handleCreatePkg()} />
-            <Button size="sm" variant="outline" onClick={handleCreatePkg} disabled={!newPkgName.trim()} data-testid="create-new-pkg-btn">
-              <Plus size={14} className="mr-1" /> New Package
+      {/* ═══ SUBSCRIBERS VIEW ═══ */}
+      {subView === 'subscribers' && (<>
+        {configOpen && (
+          <div className="space-y-3">
+            {packages.map(pkg => (
+              <PackageEditor key={pkg.package_id} pkg={pkg} onSave={handleSavePkg} saving={savingPkg} onDelete={packages.length > 1 ? handleDeletePkg : null} onNewVersion={handleNewVersion} />
+            ))}
+            <div className="flex gap-2 items-end">
+              <Input value={newPkgName} onChange={e => setNewPkgName(e.target.value)} placeholder="New package name..." className="h-8 text-sm w-64" onKeyDown={e => e.key === 'Enter' && handleCreatePkg()} />
+              <Button size="sm" variant="outline" onClick={handleCreatePkg} disabled={!newPkgName.trim()}><Plus size={14} className="mr-1" /> New Package</Button>
+            </div>
+          </div>
+        )}
+        {showForm && <SubscriberForm initial={formInitial} onSave={handleSave} onCancel={() => { setShowForm(false); setEditTarget(null); }} saving={saving} packages={packages} />}
+        <div className="bg-white p-4 rounded-lg border shadow-sm">
+          <h3 className="font-semibold text-gray-900 text-sm mb-2">Upload from Excel</h3>
+          <div className="flex gap-3 items-end">
+            <div className="flex-1"><input type="file" accept=".csv,.xlsx,.xls" onChange={e => setFile(e.target.files?.[0])} className="block w-full text-sm text-gray-500 file:mr-4 file:py-1.5 file:px-3 file:rounded-full file:border-0 file:text-xs file:font-semibold file:bg-purple-50 file:text-purple-700 hover:file:bg-purple-100" /></div>
+            <Button size="sm" onClick={handleUpload} disabled={uploading || !file} className="bg-[#D4AF37] hover:bg-[#b8962e]">
+              {uploading ? <Loader2 size={14} className="animate-spin mr-1" /> : <Upload size={14} className="mr-1" />} Upload
             </Button>
           </div>
+          {uploadStats && <div className="mt-2 p-2 bg-green-50 rounded border border-green-200 text-xs">Created: {uploadStats.created}, Updated: {uploadStats.updated}</div>}
+        </div>
+        <div className="bg-white rounded-lg border shadow-sm overflow-hidden">
+          <div className="px-4 py-3 border-b"><h3 className="font-semibold text-gray-900 text-sm flex items-center gap-2"><Users size={16} /> Subscribers ({subscribers.length})</h3></div>
+          {loading ? <div className="p-8 text-center"><Loader2 className="animate-spin mx-auto text-gray-400" /></div>
+          : subscribers.length === 0 ? <div className="p-8 text-center text-sm text-gray-400 italic">No subscribers yet.</div>
+          : (
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-[800px]">
+                <thead><tr className="bg-gray-50 text-[10px] font-bold uppercase tracking-wider text-gray-400 border-b">
+                  <th className="px-3 py-2 text-left sticky left-0 bg-gray-50 z-10 border-r">Name</th>
+                  <th className="px-3 py-2 text-left">Email</th><th className="px-3 py-2 text-left">Program</th>
+                  <th className="px-3 py-2 text-center">Start</th><th className="px-3 py-2 text-right">Fee</th>
+                  <th className="px-3 py-2 text-center">Mode</th><th className="px-3 py-2 text-center">EMIs</th>
+                  <th className="px-3 py-2 text-center">Sessions</th><th className="px-3 py-2 text-center w-12"></th>
+                </tr></thead>
+                <tbody>{subscribers.map(s => <SubscriberRow key={s.id} s={s} onRefresh={fetchData} onEdit={handleEdit} />)}</tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      </>)}
+
+      {/* ═══ PAYMENT APPROVALS VIEW ═══ */}
+      {subView === 'approvals' && (
+        <div className="space-y-3">
+          {pendingPayments.length === 0 ? (
+            <div className="bg-white border rounded-lg p-8 text-center text-sm text-gray-400 italic">No pending payment approvals.</div>
+          ) : pendingPayments.map(p => (
+            <div key={p.id} className="bg-white border rounded-lg p-4 shadow-sm" data-testid={`approval-${p.id}`}>
+              <div className="flex items-start gap-4">
+                <div className="flex-1">
+                  <div className="flex items-center gap-2 mb-1">
+                    <span className="font-semibold text-gray-900 text-sm">{p.client_name}</span>
+                    <span className="text-[10px] text-gray-400">{p.client_email}</span>
+                    <span className="text-[10px] px-2 py-0.5 bg-amber-50 text-amber-700 rounded-full font-bold">EMI #{p.emi_number}</span>
+                  </div>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mt-2 text-xs">
+                    <div><span className="text-gray-400">Method:</span> <strong className="text-gray-700 uppercase">{p.payment_method}</strong></div>
+                    <div><span className="text-gray-400">Amount:</span> <strong className="text-gray-700 font-mono">{p.amount?.toLocaleString()}</strong></div>
+                    <div><span className="text-gray-400">Transaction ID:</span> <strong className="text-gray-700 font-mono">{p.transaction_id || '-'}</strong></div>
+                    <div><span className="text-gray-400">Date:</span> <strong className="text-gray-700">{p.submitted_at?.slice(0, 10)}</strong></div>
+                    {p.paid_by_name && <div><span className="text-gray-400">Paid by:</span> <strong className="text-gray-700">{p.paid_by_name}</strong></div>}
+                    {p.bank_code && <div><span className="text-gray-400">Bank:</span> <strong className="text-gray-700">{p.bank_code}</strong></div>}
+                  </div>
+                  {p.receipt_url && (
+                    <a href={`${process.env.REACT_APP_BACKEND_URL}${p.receipt_url}`} target="_blank" rel="noreferrer"
+                      className="inline-flex items-center gap-1 mt-2 text-[10px] text-[#5D3FD3] hover:underline">
+                      <FileText size={10} /> View Receipt
+                    </a>
+                  )}
+                  {p.notes && <p className="text-[10px] text-gray-400 mt-1 italic">"{p.notes}"</p>}
+                </div>
+                <div className="flex flex-col gap-2 shrink-0">
+                  <Button size="sm" className="bg-green-600 hover:bg-green-700 h-8 text-xs" onClick={() => handleApprove(p.id)} data-testid={`approve-${p.id}`}>
+                    <CheckCircle size={12} className="mr-1" /> Approve
+                  </Button>
+                  <Button size="sm" variant="outline" className="text-red-600 border-red-200 hover:bg-red-50 h-8 text-xs" onClick={() => handleReject(p.id)} data-testid={`reject-${p.id}`}>
+                    <X size={12} className="mr-1" /> Reject
+                  </Button>
+                </div>
+              </div>
+            </div>
+          ))}
         </div>
       )}
 
-      {/* Create / Edit Form */}
-      {showForm && (
-        <SubscriberForm initial={formInitial} onSave={handleSave} onCancel={() => { setShowForm(false); setEditTarget(null); }} saving={saving} packages={packages} />
+      {/* ═══ BANK ACCOUNTS VIEW ═══ */}
+      {subView === 'banks' && (
+        <div className="space-y-3">
+          {bankForm && (
+            <div className="bg-white border rounded-lg p-4 shadow-sm space-y-3" data-testid="bank-form">
+              <h3 className="font-semibold text-gray-900 text-sm">{bankForm._existing ? 'Edit' : 'Add'} Bank Account</h3>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                <div><Label className="text-xs">Bank Code *</Label><Input value={bankForm.bank_code} onChange={e => setBankForm({...bankForm, bank_code: e.target.value})} placeholder="HDFC-001" disabled={bankForm._existing} /></div>
+                <div><Label className="text-xs">Bank Name</Label><Input value={bankForm.bank_name} onChange={e => setBankForm({...bankForm, bank_name: e.target.value})} placeholder="HDFC Bank" /></div>
+                <div><Label className="text-xs">Account Name</Label><Input value={bankForm.account_name} onChange={e => setBankForm({...bankForm, account_name: e.target.value})} /></div>
+                <div><Label className="text-xs">Account Number</Label><Input value={bankForm.account_number} onChange={e => setBankForm({...bankForm, account_number: e.target.value})} /></div>
+                <div><Label className="text-xs">IFSC Code</Label><Input value={bankForm.ifsc_code} onChange={e => setBankForm({...bankForm, ifsc_code: e.target.value})} /></div>
+                <div><Label className="text-xs">Branch</Label><Input value={bankForm.branch} onChange={e => setBankForm({...bankForm, branch: e.target.value})} /></div>
+                <div><Label className="text-xs">UPI ID</Label><Input value={bankForm.upi_id} onChange={e => setBankForm({...bankForm, upi_id: e.target.value})} placeholder="name@bank" /></div>
+                <div className="flex items-end gap-2">
+                  <Button size="sm" onClick={() => handleSaveBank(bankForm)} className="bg-[#5D3FD3] hover:bg-[#4c32b3]" data-testid="save-bank-btn"><Save size={12} className="mr-1" /> Save</Button>
+                  <Button size="sm" variant="outline" onClick={() => setBankForm(null)}><X size={12} className="mr-1" /> Cancel</Button>
+                </div>
+              </div>
+            </div>
+          )}
+          {bankAccounts.length === 0 && !bankForm ? (
+            <div className="bg-white border rounded-lg p-8 text-center text-sm text-gray-400 italic">No bank accounts. Add one to enable manual payments.</div>
+          ) : bankAccounts.map(b => (
+            <div key={b.bank_code} className="bg-white border rounded-lg p-4 shadow-sm flex items-center gap-4" data-testid={`bank-${b.bank_code}`}>
+              <div className="w-10 h-10 rounded-xl bg-blue-50 flex items-center justify-center shrink-0">
+                <CreditCard size={16} className="text-blue-600" />
+              </div>
+              <div className="flex-1 grid grid-cols-2 md:grid-cols-4 gap-2 text-xs">
+                <div><span className="text-gray-400">Code:</span> <strong className="font-mono">{b.bank_code}</strong></div>
+                <div><span className="text-gray-400">Bank:</span> <strong>{b.bank_name}</strong></div>
+                <div><span className="text-gray-400">A/C:</span> <strong className="font-mono">{b.account_number}</strong></div>
+                <div><span className="text-gray-400">IFSC:</span> <strong className="font-mono">{b.ifsc_code}</strong></div>
+                {b.upi_id && <div><span className="text-gray-400">UPI:</span> <strong>{b.upi_id}</strong></div>}
+                <div><span className="text-gray-400">Name:</span> <strong>{b.account_name}</strong></div>
+              </div>
+              <div className="flex gap-1 shrink-0">
+                <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => setBankForm({...b, _existing: true})}><Edit2 size={10} /></Button>
+                <Button size="sm" variant="outline" className="h-7 text-xs text-red-500 border-red-200" onClick={() => handleDeleteBank(b.bank_code)}><Trash2 size={10} /></Button>
+              </div>
+            </div>
+          ))}
+        </div>
       )}
-
-      {/* Upload */}
-      <div className="bg-white p-4 rounded-lg border shadow-sm">
-        <h3 className="font-semibold text-gray-900 text-sm mb-2">Upload from Excel</h3>
-        <div className="flex gap-3 items-end">
-          <div className="flex-1">
-            <input type="file" accept=".csv,.xlsx,.xls" onChange={e => setFile(e.target.files?.[0])}
-              className="block w-full text-sm text-gray-500 file:mr-4 file:py-1.5 file:px-3 file:rounded-full file:border-0 file:text-xs file:font-semibold file:bg-purple-50 file:text-purple-700 hover:file:bg-purple-100"
-              data-testid="subscriber-file-input" />
-          </div>
-          <Button size="sm" onClick={handleUpload} disabled={uploading || !file} className="bg-[#D4AF37] hover:bg-[#b8962e]" data-testid="subscriber-upload-btn">
-            {uploading ? <Loader2 size={14} className="animate-spin mr-1" /> : <Upload size={14} className="mr-1" />} Upload
-          </Button>
-        </div>
-        {uploadStats && (
-          <div className="mt-2 p-2 bg-green-50 rounded border border-green-200 text-xs">Created: {uploadStats.created}, Updated: {uploadStats.updated}{uploadStats.errors?.length > 0 && <span className="text-red-600 ml-2">Errors: {uploadStats.errors.length}</span>}</div>
-        )}
-      </div>
-
-      {/* Table */}
-      <div className="bg-white rounded-lg border shadow-sm overflow-hidden">
-        <div className="px-4 py-3 border-b">
-          <h3 className="font-semibold text-gray-900 text-sm flex items-center gap-2"><Users size={16} /> Subscribers ({subscribers.length})</h3>
-        </div>
-        {loading ? <div className="p-8 text-center"><Loader2 className="animate-spin mx-auto text-gray-400" /></div>
-        : subscribers.length === 0 ? <div className="p-8 text-center text-sm text-gray-400 italic">No subscribers yet. Add one or upload Excel.</div>
-        : (
-          <div className="overflow-x-auto">
-            <table className="w-full min-w-[800px]">
-              <thead><tr className="bg-gray-50 text-[10px] font-bold uppercase tracking-wider text-gray-400 border-b">
-                <th className="px-3 py-2 text-left sticky left-0 bg-gray-50 z-10 border-r">Name</th>
-                <th className="px-3 py-2 text-left">Email</th><th className="px-3 py-2 text-left">Program</th>
-                <th className="px-3 py-2 text-center">Start</th><th className="px-3 py-2 text-right">Fee</th>
-                <th className="px-3 py-2 text-center">Mode</th><th className="px-3 py-2 text-center">EMIs</th>
-                <th className="px-3 py-2 text-center">Sessions</th><th className="px-3 py-2 text-center w-12"></th>
-              </tr></thead>
-              <tbody>{subscribers.map(s => <SubscriberRow key={s.id} s={s} onRefresh={fetchData} onEdit={handleEdit} />)}</tbody>
-            </table>
-          </div>
-        )}
-      </div>
     </div>
   );
 };
