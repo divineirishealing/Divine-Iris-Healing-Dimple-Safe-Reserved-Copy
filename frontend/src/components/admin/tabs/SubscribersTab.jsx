@@ -268,6 +268,7 @@ const blankForm = () => ({
   total_fee: 0, currency: 'INR', payment_mode: 'No EMI', num_emis: 0,
   emis: [], programs: [], bi_annual_download: 0, quarterly_releases: 0,
   payment_methods: ['stripe', 'manual'],
+  late_fee_per_day: 0, channelization_fee: 0, show_late_fees: false,
   sessions: { carry_forward: 0, current: 0, total: 0, availed: 0, yet_to_avail: 0, due: 0, scheduled_dates: [] }
 });
 
@@ -354,6 +355,10 @@ const SubscriberForm = ({ initial, onSave, onCancel, saving, packages }) => {
     if (val) {
       const months = selectedPkg?.duration_months || 12;
       set('end_date', addMonths(val, months));
+      // Regenerate EMI due dates from new start date (same day each month)
+      if (f.num_emis > 0) {
+        set('emis', (f.emis || []).map((e, i) => e.status === 'paid' ? e : { ...e, due_date: addMonths(val, i) }));
+      }
     }
   };
 
@@ -370,7 +375,29 @@ const SubscriberForm = ({ initial, onSave, onCancel, saving, packages }) => {
   const handleEmiCountChange = (count) => {
     const n = Math.min(12, Math.max(0, parseInt(count) || 0));
     set('num_emis', n);
-    set('emis', buildEmis(n, f.emis));
+    // Auto-generate: amount = total_fee / n, dates = same day each month from start_date
+    const perEmi = n > 0 ? Math.round(f.total_fee / n) : 0;
+    const newEmis = [];
+    for (let i = 1; i <= n; i++) {
+      const existing = (f.emis || []).find(e => e.number === i);
+      if (existing && existing.amount > 0) {
+        newEmis.push(existing); // keep existing if already has data
+      } else {
+        const dueDate = f.start_date ? addMonths(f.start_date, i - 1) : '';
+        newEmis.push({ number: i, date: '', amount: perEmi, remaining: 0, due_date: dueDate, status: 'due' });
+      }
+    }
+    set('emis', newEmis);
+  };
+
+  // Regenerate EMI amounts when total_fee changes
+  const handleTotalFeeChange = (val) => {
+    const fee = parseFloat(val) || 0;
+    set('total_fee', fee);
+    if (f.num_emis > 0) {
+      const perEmi = Math.round(fee / f.num_emis);
+      set('emis', (f.emis || []).map(e => e.status === 'paid' ? e : { ...e, amount: perEmi }));
+    }
   };
 
   const updateEmi = (idx, field, val) => {
@@ -423,7 +450,7 @@ const SubscriberForm = ({ initial, onSave, onCancel, saving, packages }) => {
 
       {/* Row 2 */}
       <div className="grid grid-cols-2 md:grid-cols-6 gap-3">
-        <div><Label className="text-xs">Total Fee</Label><Input type="number" value={f.total_fee} onChange={e => set('total_fee', parseFloat(e.target.value) || 0)} /></div>
+        <div><Label className="text-xs">Total Fee</Label><Input type="number" value={f.total_fee} onChange={e => handleTotalFeeChange(e.target.value)} /></div>
         <div>
           <Label className="text-xs">Currency</Label>
           <select value={f.currency} onChange={e => handleCurrencyChange(e.target.value)} className="w-full border rounded-md px-2 py-2 text-sm">{CURRENCIES.map(c => <option key={c} value={c}>{c}</option>)}</select>
@@ -449,6 +476,19 @@ const SubscriberForm = ({ initial, onSave, onCancel, saving, packages }) => {
               </label>
             ))}
           </div>
+        </div>
+      </div>
+
+      {/* Row 3: Fees & Controls */}
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+        <div><Label className="text-xs">Quarterly Rel</Label><Input type="number" value={f.quarterly_releases} onChange={e => set('quarterly_releases', parseInt(e.target.value) || 0)} /></div>
+        <div><Label className="text-xs">Late Fee/Day (INR)</Label><Input type="number" value={f.late_fee_per_day || 0} onChange={e => set('late_fee_per_day', parseFloat(e.target.value) || 0)} /></div>
+        <div><Label className="text-xs">Channelization Fee</Label><Input type="number" value={f.channelization_fee || 0} onChange={e => set('channelization_fee', parseFloat(e.target.value) || 0)} /></div>
+        <div className="flex items-end">
+          <label className="flex items-center gap-2 text-xs text-gray-600 cursor-pointer pb-2">
+            <input type="checkbox" className="w-3.5 h-3.5 accent-[#5D3FD3]" checked={f.show_late_fees || false} onChange={e => set('show_late_fees', e.target.checked)} />
+            Show Late Fees to Student
+          </label>
         </div>
       </div>
 
@@ -847,6 +887,9 @@ const SubscribersTab = () => {
     emis: editTarget.subscription?.emis || [], programs: editTarget.subscription?.programs || [],
     bi_annual_download: editTarget.subscription?.bi_annual_download || 0, quarterly_releases: editTarget.subscription?.quarterly_releases || 0,
     payment_methods: editTarget.subscription?.payment_methods || ['stripe', 'manual'],
+    late_fee_per_day: editTarget.subscription?.late_fee_per_day || 0,
+    channelization_fee: editTarget.subscription?.channelization_fee || 0,
+    show_late_fees: editTarget.subscription?.show_late_fees || false,
     sessions: editTarget.subscription?.sessions || { carry_forward: 0, current: 0, total: 0, availed: 0, yet_to_avail: 0, due: 0, scheduled_dates: [] }
   } : null;
 
