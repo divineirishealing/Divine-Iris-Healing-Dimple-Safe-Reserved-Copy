@@ -559,6 +559,8 @@ class ProgramDetail(BaseModel):
     start_date: str = ""
     end_date: str = ""
     status: str = "active"  # active | paused
+    mode: str = "online"  # online | offline
+    visible: bool = True  # admin toggle: show/hide on student dashboard
 
 class SubscriberCreate(BaseModel):
     name: str

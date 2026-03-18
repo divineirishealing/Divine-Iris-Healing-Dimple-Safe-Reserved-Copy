@@ -438,16 +438,6 @@ const FinancialsPage = () => {
               </div>
             </div>
           )}
-          <div className="grid grid-cols-2 gap-3 mb-4">
-            <div className="bg-purple-50 rounded-lg p-3 text-center">
-              <p className="text-[9px] uppercase tracking-wider text-purple-400 font-semibold">Bi-Annual Download</p>
-              <p className="text-lg font-bold text-purple-700">{pkg.bi_annual_download || 0}</p>
-            </div>
-            <div className="bg-amber-50 rounded-lg p-3 text-center">
-              <p className="text-[9px] uppercase tracking-wider text-amber-400 font-semibold">Quarterly Releases</p>
-              <p className="text-lg font-bold text-amber-700">{pkg.quarterly_releases || 0}</p>
-            </div>
-          </div>
           {pkg.scheduled_dates?.length > 0 && (
             <div>
               <h4 className="text-xs font-semibold text-gray-700 mb-2">Upcoming Sessions</h4>
@@ -474,8 +464,10 @@ const FinancialsPage = () => {
               {programs.map((p, i) => {
                 const prog = typeof p === 'string' ? { name: p } : p;
                 const isPaused = prog.status === 'paused';
+                const isHidden = prog.visible === false;
+                if (isHidden) return null;
                 return (
-                  <div key={i} className={`flex items-center gap-3 rounded-xl p-3 border transition-colors ${isPaused ? 'bg-amber-50/50 border-amber-200' : 'bg-gray-50 hover:border-[#D4AF37]'}`} data-testid={`program-card-${i}`}>
+                  <div key={i} className={`flex items-center gap-3 rounded-xl p-4 border transition-colors ${isPaused ? 'bg-amber-50/50 border-amber-200 opacity-60' : 'bg-gray-50 hover:border-[#D4AF37]'}`} data-testid={`program-card-${i}`}>
                     <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${isPaused ? 'bg-amber-100' : 'bg-gradient-to-br from-[#5D3FD3]/20 to-[#D4AF37]/20'}`}>
                       <Package size={16} className={isPaused ? 'text-amber-600' : 'text-[#5D3FD3]'} />
                     </div>
@@ -483,6 +475,7 @@ const FinancialsPage = () => {
                       <div className="flex items-center gap-2">
                         <p className="text-sm font-semibold text-gray-900 truncate">{prog.name}</p>
                         {isPaused && <span className="text-[8px] px-1.5 py-0.5 bg-amber-200 text-amber-800 rounded font-bold">PAUSED</span>}
+                        {prog.mode && <span className={`text-[8px] px-1.5 py-0.5 rounded font-bold ${prog.mode === 'online' ? 'bg-blue-100 text-blue-700' : 'bg-green-100 text-green-700'}`}>{prog.mode.toUpperCase()}</span>}
                       </div>
                       <p className="text-[10px] text-gray-500">
                         {prog.duration_value ? `${prog.duration_value} ${prog.duration_unit}` : ''}

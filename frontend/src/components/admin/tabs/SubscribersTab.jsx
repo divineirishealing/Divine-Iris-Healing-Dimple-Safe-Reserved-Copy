@@ -498,7 +498,6 @@ const SubscriberForm = ({ initial, onSave, onCancel, saving, packages }) => {
               }
             }} />
         </div>
-        <div><Label className="text-xs">Bi-Annual DL</Label><Input type="text" inputMode="numeric" value={f.bi_annual_download} onChange={e => set('bi_annual_download', parseInt(e.target.value) || 0)} /></div>
         <div>
           <Label className="text-xs">Payment Methods</Label>
           <div className="flex gap-2 mt-1">
@@ -518,8 +517,7 @@ const SubscriberForm = ({ initial, onSave, onCancel, saving, packages }) => {
       </div>
 
       {/* Row 3: Fees & Controls */}
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
-        <div><Label className="text-xs">Quarterly Rel</Label><Input type="text" inputMode="numeric" value={f.quarterly_releases} onChange={e => set('quarterly_releases', parseInt(e.target.value) || 0)} /></div>
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         <div><Label className="text-xs">Late Fee/Day (INR)</Label><Input type="text" inputMode="decimal" value={f.late_fee_per_day || 0} onChange={e => set('late_fee_per_day', parseFloat(e.target.value) || 0)} /></div>
         <div><Label className="text-xs">Channelization Fee</Label><Input type="text" inputMode="decimal" value={f.channelization_fee || 0} onChange={e => set('channelization_fee', parseFloat(e.target.value) || 0)} /></div>
         <div className="flex items-end">
@@ -587,22 +585,58 @@ const SubscriberForm = ({ initial, onSave, onCancel, saving, packages }) => {
         )}
       </div>
 
-      {/* Programs */}
+      {/* Programs with Admin Controls */}
       <div>
         <Label className="text-xs font-semibold uppercase tracking-wider text-gray-500">Programs in Package</Label>
-        <div className="flex gap-2 items-end mt-1">
-          <div className="flex-1"><Input value={programInput} onChange={e => setProgramInput(e.target.value)} placeholder="Program name" className="h-8 text-xs" onKeyDown={e => e.key === 'Enter' && (e.preventDefault(), addProgram())} /></div>
-          <Button size="sm" variant="outline" onClick={addProgram} className="h-8"><Plus size={12} /></Button>
-        </div>
-        {f.programs.length > 0 && (
-          <div className="flex flex-wrap gap-1 mt-1">
-            {f.programs.map((p, i) => (
-              <span key={i} className="px-2 py-0.5 bg-purple-50 text-purple-700 rounded-full text-[10px] flex items-center gap-1">
-                {p} <button onClick={() => set('programs', f.programs.filter((_, j) => j !== i))}><X size={8} /></button>
-              </span>
-            ))}
+        {(f.programs_detail || []).length > 0 && (
+          <div className="mt-2 space-y-2">
+            {(f.programs_detail || []).map((prog, i) => {
+              const updatePD = (field, val) => {
+                const pd = [...(f.programs_detail || [])];
+                pd[i] = { ...pd[i], [field]: val };
+                set('programs_detail', pd);
+                set('programs', pd.map(p => p.name));
+              };
+              return (
+                <div key={i} className={`border rounded-lg p-3 ${prog.status === 'paused' ? 'bg-amber-50 border-amber-200' : 'bg-white'}`}>
+                  <div className="flex items-center gap-2 mb-2">
+                    <Input value={prog.name} onChange={e => updatePD('name', e.target.value)} className="h-7 text-xs font-semibold flex-1" />
+                    <Input type="text" inputMode="numeric" value={prog.duration_value} onChange={e => updatePD('duration_value', parseInt(e.target.value) || 0)} className="h-7 text-xs w-12 text-center" />
+                    <select value={prog.duration_unit} onChange={e => updatePD('duration_unit', e.target.value)} className="h-7 text-[10px] border rounded px-1">
+                      <option value="months">months</option><option value="sessions">sessions</option>
+                    </select>
+                    <select value={prog.mode || 'online'} onChange={e => updatePD('mode', e.target.value)} className={`h-7 text-[10px] border rounded px-1 font-bold ${prog.mode === 'offline' ? 'text-green-700 bg-green-50' : 'text-blue-700 bg-blue-50'}`}>
+                      <option value="online">Online</option><option value="offline">Offline</option>
+                    </select>
+                    <button onClick={() => updatePD('status', prog.status === 'paused' ? 'active' : 'paused')}
+                      className={`text-[9px] px-2 py-1 rounded font-bold ${prog.status === 'paused' ? 'bg-amber-200 text-amber-800' : 'bg-gray-100 text-gray-500 hover:bg-amber-100'}`}>
+                      {prog.status === 'paused' ? 'Resume' : 'Pause'}
+                    </button>
+                    <label className="flex items-center gap-1 text-[9px] text-gray-500">
+                      <input type="checkbox" className="w-3 h-3" checked={prog.visible !== false} onChange={e => updatePD('visible', e.target.checked)} />
+                      Visible
+                    </label>
+                    <button onClick={() => { const pd = (f.programs_detail || []).filter((_, j) => j !== i); set('programs_detail', pd); set('programs', pd.map(p => p.name)); }} className="text-gray-300 hover:text-red-500"><X size={12} /></button>
+                  </div>
+                  <div className="flex gap-2">
+                    <div className="flex-1"><Label className="text-[9px]">Start</Label><Input type="date" value={prog.start_date || ''} onChange={e => updatePD('start_date', e.target.value)} className="h-6 text-[10px]" /></div>
+                    <div className="flex-1"><Label className="text-[9px]">End</Label><Input type="date" value={prog.end_date || ''} onChange={e => updatePD('end_date', e.target.value)} className="h-6 text-[10px]" /></div>
+                  </div>
+                </div>
+              );
+            })}
           </div>
         )}
+        <div className="flex gap-2 items-end mt-2">
+          <div className="flex-1"><Input value={programInput} onChange={e => setProgramInput(e.target.value)} placeholder="Add program..." className="h-8 text-xs" onKeyDown={e => e.key === 'Enter' && (e.preventDefault(), addProgram())} /></div>
+          <Button size="sm" variant="outline" onClick={() => {
+            if (!programInput.trim()) return;
+            const newPD = { name: programInput.trim(), duration_value: 12, duration_unit: 'months', start_date: f.start_date, end_date: f.end_date, status: 'active', mode: 'online', visible: true };
+            set('programs_detail', [...(f.programs_detail || []), newPD]);
+            set('programs', [...(f.programs || []), programInput.trim()]);
+            setProgramInput('');
+          }} className="h-8"><Plus size={12} /></Button>
+        </div>
       </div>
 
       <div className="flex gap-2 pt-2 border-t">
@@ -924,6 +958,7 @@ const SubscribersTab = () => {
     payment_mode: editTarget.subscription?.payment_mode || 'No EMI', num_emis: editTarget.subscription?.num_emis || 0,
     emi_day: editTarget.subscription?.emi_day || 30,
     emis: editTarget.subscription?.emis || [], programs: editTarget.subscription?.programs || [],
+    programs_detail: editTarget.subscription?.programs_detail || [],
     bi_annual_download: editTarget.subscription?.bi_annual_download || 0, quarterly_releases: editTarget.subscription?.quarterly_releases || 0,
     payment_methods: editTarget.subscription?.payment_methods || ['stripe', 'manual'],
     late_fee_per_day: editTarget.subscription?.late_fee_per_day || 0,
