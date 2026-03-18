@@ -321,7 +321,6 @@ const FinancialsPage = () => {
                   <tr className="text-[10px] uppercase tracking-wider text-gray-400 border-b">
                     <th className="text-left py-2 px-2">#</th>
                     <th className="text-left py-2 px-2">Due Date</th>
-                    <th className="text-left py-2 px-2">Paid Date</th>
                     <th className="text-right py-2 px-2">Amount</th>
                     <th className="text-right py-2 px-2">Remaining</th>
                     <th className="text-center py-2 px-2">Status</th>
@@ -330,40 +329,54 @@ const FinancialsPage = () => {
                   </tr>
                 </thead>
                 <tbody>
-                  {(showAllEmis ? emis : emis.slice(0, 4)).map(emi => (
-                    <tr key={emi.number} className={`border-b border-gray-50 hover:bg-gray-50 ${emi.status === 'paid' ? 'bg-green-50/30' : ''}`} data-testid={`emi-row-${emi.number}`}>
-                      <td className="py-3 px-2 font-medium text-gray-700">{emi.number}</td>
-                      <td className="py-3 px-2 text-gray-600">{emi.due_date || '-'}</td>
-                      <td className="py-3 px-2 text-gray-500 text-xs">{emi.date || '-'}</td>
-                      <td className="py-3 px-2 text-right font-mono text-gray-700">{fin.currency} {emi.amount?.toLocaleString()}</td>
-                      <td className="py-3 px-2 text-right font-mono text-gray-500">{fin.currency} {Math.max(0, emi.remaining || 0).toLocaleString()}</td>
-                      <td className="py-3 px-2 text-center">
-                        <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold ${
-                          emi.status === 'paid' ? 'bg-green-50 text-green-700' :
-                          emi.status === 'due' ? 'bg-red-50 text-red-700' :
-                          emi.status === 'partial' ? 'bg-amber-50 text-amber-700' :
-                          'bg-gray-50 text-gray-500'
-                        }`}>
-                          {emi.status === 'paid' && <CheckCircle size={10} />}
-                          {emi.status === 'due' && <AlertCircle size={10} />}
-                          {emi.status === 'pending' && <Clock size={10} />}
-                          {emi.status}
-                        </span>
-                        {emi.paid_by && <span className="block text-[8px] text-gray-400 mt-0.5">by {emi.paid_by}</span>}
-                      </td>
-                      <td className="py-3 px-2 text-center text-[10px] text-gray-400">
-                        {emi.payment_method ? emi.payment_method.toUpperCase() : '-'}
-                      </td>
-                      <td className="py-3 px-2 text-center">
-                        {emi.status !== 'paid' && (
-                          <Button size="sm" onClick={() => setPayingEmi(emi)}
-                            className="h-7 text-[10px] bg-[#5D3FD3] hover:bg-[#4c32b3]" data-testid={`pay-now-${emi.number}`}>
-                            Pay Now
-                          </Button>
-                        )}
-                      </td>
-                    </tr>
-                  ))}
+                  {(() => {
+                    let runningRemaining = totalFee;
+                    return (showAllEmis ? emis : emis.slice(0, 4)).map(emi => {
+                      if (emi.status === 'paid') runningRemaining -= (emi.amount || 0);
+                      const isSubmitted = emi.status === 'submitted';
+                      return (
+                        <tr key={emi.number} className={`border-b border-gray-50 hover:bg-gray-50 ${emi.status === 'paid' ? 'bg-green-50/30' : ''}`} data-testid={`emi-row-${emi.number}`}>
+                          <td className="py-3 px-2 font-medium text-gray-700">{emi.number}</td>
+                          <td className="py-3 px-2 text-gray-600">{emi.due_date || '-'}</td>
+                          <td className="py-3 px-2 text-right font-mono text-gray-700">{fin.currency} {(emi.amount || 0).toLocaleString()}</td>
+                          <td className="py-3 px-2 text-right font-mono text-gray-500">{fin.currency} {Math.max(0, runningRemaining).toLocaleString()}</td>
+                          <td className="py-3 px-2 text-center">
+                            <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold ${
+                              emi.status === 'paid' ? 'bg-green-50 text-green-700' :
+                              isSubmitted ? 'bg-blue-50 text-blue-700' :
+                              emi.status === 'due' ? 'bg-red-50 text-red-700' :
+                              'bg-gray-50 text-gray-500'
+                            }`}>
+                              {emi.status === 'paid' && <CheckCircle size={10} />}
+                              {isSubmitted && <Clock size={10} />}
+                              {emi.status === 'due' && <AlertCircle size={10} />}
+                              {emi.status === 'pending' && <Clock size={10} />}
+                              {isSubmitted ? 'submitted' : emi.status}
+                            </span>
+                          </td>
+                          <td className="py-3 px-2 text-center text-[10px] text-gray-500">
+                            {emi.payment_method ? emi.payment_method.toUpperCase() : '-'}
+                          </td>
+                          <td className="py-3 px-2 text-center">
+                            {emi.status === 'paid' && emi.receipt_url ? (
+                              <a href={`${API}${emi.receipt_url}`} target="_blank" rel="noreferrer" className="text-[10px] text-[#5D3FD3] hover:underline flex items-center justify-center gap-1">
+                                <FileText size={10} /> Receipt
+                              </a>
+                            ) : emi.status === 'paid' ? (
+                              <span className="text-[10px] text-green-600 flex items-center justify-center gap-1"><CheckCircle size={10} /> Paid</span>
+                            ) : isSubmitted ? (
+                              <span className="text-[10px] text-blue-500">Awaiting Approval</span>
+                            ) : (
+                              <Button size="sm" onClick={() => setPayingEmi(emi)}
+                                className="h-7 text-[10px] bg-[#5D3FD3] hover:bg-[#4c32b3]" data-testid={`pay-now-${emi.number}`}>
+                                Pay Now
+                              </Button>
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    });
+                  })()}
                 </tbody>
               </table>
             </div>

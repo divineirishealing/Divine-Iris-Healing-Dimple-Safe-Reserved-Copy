@@ -569,9 +569,10 @@ class SubscriberCreate(BaseModel):
     programs: List[str] = []
     bi_annual_download: int = 0
     quarterly_releases: int = 0
-    show_late_fees: bool = False  # per-subscriber toggle
+    show_late_fees: bool = False
     late_fee_per_day: float = 0
     channelization_fee: float = 0
+    payment_methods: List[str] = ["stripe", "manual"]
 
 @router.post("/create")
 async def create_subscriber(data: SubscriberCreate):
@@ -602,6 +603,7 @@ async def create_subscriber(data: SubscriberCreate):
         "show_late_fees": data.show_late_fees,
         "late_fee_per_day": data.late_fee_per_day,
         "channelization_fee": data.channelization_fee,
+        "payment_methods": data.payment_methods,
         "updated_at": datetime.now(timezone.utc).isoformat()
     }
 

@@ -267,6 +267,7 @@ const blankForm = () => ({
   name: '', email: '', package_id: '', annual_program: '', start_date: '', end_date: '',
   total_fee: 0, currency: 'INR', payment_mode: 'No EMI', num_emis: 0,
   emis: [], programs: [], bi_annual_download: 0, quarterly_releases: 0,
+  payment_methods: ['stripe', 'manual'],
   sessions: { carry_forward: 0, current: 0, total: 0, availed: 0, yet_to_avail: 0, due: 0, scheduled_dates: [] }
 });
 
@@ -433,7 +434,22 @@ const SubscriberForm = ({ initial, onSave, onCancel, saving, packages }) => {
         </div>
         <div><Label className="text-xs">Number of EMIs</Label><Input type="number" min={0} max={12} value={f.num_emis} onChange={e => handleEmiCountChange(e.target.value)} /></div>
         <div><Label className="text-xs">Bi-Annual DL</Label><Input type="number" value={f.bi_annual_download} onChange={e => set('bi_annual_download', parseInt(e.target.value) || 0)} /></div>
-        <div><Label className="text-xs">Quarterly Rel</Label><Input type="number" value={f.quarterly_releases} onChange={e => set('quarterly_releases', parseInt(e.target.value) || 0)} /></div>
+        <div>
+          <Label className="text-xs">Payment Methods</Label>
+          <div className="flex gap-2 mt-1">
+            {[['stripe', 'Stripe'], ['exly', 'Exly'], ['manual', 'Manual']].map(([key, label]) => (
+              <label key={key} className="flex items-center gap-1 text-[10px] text-gray-600 cursor-pointer">
+                <input type="checkbox" className="w-3 h-3 accent-[#5D3FD3]"
+                  checked={(f.payment_methods || []).includes(key)}
+                  onChange={e => {
+                    const cur = f.payment_methods || [];
+                    set('payment_methods', e.target.checked ? [...cur, key] : cur.filter(m => m !== key));
+                  }} />
+                {label}
+              </label>
+            ))}
+          </div>
+        </div>
       </div>
 
       {/* EMI Schedule */}
@@ -628,37 +644,43 @@ const SubscriberRow = ({ s, onRefresh, onEdit }) => {
                     <thead><tr className="text-[8px] text-gray-400 uppercase border-b">
                       <th className="px-2 py-1.5 text-left">#</th>
                       <th className="px-2 py-1.5 text-left">Due Date</th>
-                      <th className="px-2 py-1.5 text-left">Paid Date</th>
                       <th className="px-2 py-1.5 text-right">Amount</th>
                       <th className="px-2 py-1.5 text-right">Remaining</th>
                       <th className="px-2 py-1.5 text-center">Status</th>
                       <th className="px-2 py-1.5 text-center">Method</th>
-                      <th className="px-2 py-1.5 w-8"></th>
+                      <th className="px-2 py-1.5 w-8">Action</th>
                     </tr></thead>
-                    <tbody>{emis.map(e => (
-                      <tr key={e.number} className={`border-b border-gray-50 ${e.status === 'paid' ? 'bg-green-50/30' : ''}`}>
-                        <td className="px-2 py-1.5 font-medium">{e.number}</td>
-                        <td className="px-2 py-1.5 text-gray-600">{e.due_date || '-'}</td>
-                        <td className="px-2 py-1.5 text-gray-500">{e.date || '-'}</td>
-                        <td className="px-2 py-1.5 text-right font-mono">{(e.amount || 0).toLocaleString()}</td>
-                        <td className="px-2 py-1.5 text-right font-mono">{Math.max(0, e.remaining || 0).toLocaleString()}</td>
-                        <td className="px-2 py-1.5 text-center">
-                          <span className={`px-1.5 py-0.5 rounded text-[8px] font-bold ${e.status === 'paid' ? 'bg-green-100 text-green-700' : e.status === 'due' ? 'bg-red-100 text-red-700' : 'bg-gray-100 text-gray-500'}`}>
-                            {e.status === 'paid' && '✓ '}{e.status}
-                          </span>
-                        </td>
-                        <td className="px-2 py-1.5 text-center text-[8px] text-gray-400">{e.payment_method?.toUpperCase() || '-'}</td>
-                        <td className="px-2 py-1.5 text-center">
-                          {e.status !== 'paid' && (
-                            <button onClick={() => markEmiPaid(e.number)} disabled={markingEmi === e.number}
-                              className="text-green-600 hover:text-green-800 disabled:opacity-50" title="Mark Paid"
-                              data-testid={`mark-emi-paid-${e.number}`}>
-                              {markingEmi === e.number ? <Loader2 size={10} className="animate-spin" /> : <CheckCircle size={10} />}
-                            </button>
-                          )}
-                        </td>
-                      </tr>
-                    ))}</tbody>
+                    <tbody>{(() => {
+                      let adminRunning = sub.total_fee || 0;
+                      return emis.map(e => {
+                        if (e.status === 'paid') adminRunning -= (e.amount || 0);
+                        return (
+                          <tr key={e.number} className={`border-b border-gray-50 ${e.status === 'paid' ? 'bg-green-50/30' : ''}`}>
+                            <td className="px-2 py-1.5 font-medium">{e.number}</td>
+                            <td className="px-2 py-1.5 text-gray-600">{e.due_date || '-'}</td>
+                            <td className="px-2 py-1.5 text-right font-mono">{(e.amount || 0).toLocaleString()}</td>
+                            <td className="px-2 py-1.5 text-right font-mono">{Math.max(0, adminRunning).toLocaleString()}</td>
+                            <td className="px-2 py-1.5 text-center">
+                              <span className={`px-1.5 py-0.5 rounded text-[8px] font-bold ${e.status === 'paid' ? 'bg-green-100 text-green-700' : e.status === 'submitted' ? 'bg-blue-100 text-blue-700' : e.status === 'due' ? 'bg-red-100 text-red-700' : 'bg-gray-100 text-gray-500'}`}>
+                                {e.status === 'paid' && '✓ '}{e.status}
+                              </span>
+                            </td>
+                            <td className="px-2 py-1.5 text-center text-[8px] text-gray-400">{e.payment_method?.toUpperCase() || '-'}</td>
+                            <td className="px-2 py-1.5 text-center">
+                              {e.status === 'paid' ? (
+                                <span className="text-[8px] text-green-600">✓</span>
+                              ) : (
+                                <button onClick={() => markEmiPaid(e.number)} disabled={markingEmi === e.number}
+                                  className="text-green-600 hover:text-green-800 disabled:opacity-50" title="Mark Paid"
+                                  data-testid={`mark-emi-paid-${e.number}`}>
+                                  {markingEmi === e.number ? <Loader2 size={10} className="animate-spin" /> : <CheckCircle size={10} />}
+                                </button>
+                              )}
+                            </td>
+                          </tr>
+                        );
+                      });
+                    })()}</tbody>
                   </table>
                 )}
               </div>
@@ -821,6 +843,7 @@ const SubscribersTab = () => {
     payment_mode: editTarget.subscription?.payment_mode || 'No EMI', num_emis: editTarget.subscription?.num_emis || 0,
     emis: editTarget.subscription?.emis || [], programs: editTarget.subscription?.programs || [],
     bi_annual_download: editTarget.subscription?.bi_annual_download || 0, quarterly_releases: editTarget.subscription?.quarterly_releases || 0,
+    payment_methods: editTarget.subscription?.payment_methods || ['stripe', 'manual'],
     sessions: editTarget.subscription?.sessions || { carry_forward: 0, current: 0, total: 0, availed: 0, yet_to_avail: 0, due: 0, scheduled_dates: [] }
   } : null;
 
