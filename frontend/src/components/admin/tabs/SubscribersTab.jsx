@@ -529,7 +529,12 @@ const SubscriberForm = ({ initial, onSave, onCancel, saving, packages }) => {
       {/* EMI Schedule */}
       {f.num_emis > 0 && (
         <div>
-          <Label className="text-xs font-semibold uppercase tracking-wider text-gray-500">EMI Schedule ({f.num_emis})</Label>
+          <div className="flex items-center justify-between">
+            <Label className="text-xs font-semibold uppercase tracking-wider text-gray-500">EMI Schedule ({f.num_emis})</Label>
+            <button onClick={() => handleEmiCountChange(f.num_emis)} className="text-[9px] text-[#5D3FD3] hover:underline font-medium">
+              Regenerate All EMIs
+            </button>
+          </div>
           <div className="mt-1 border rounded-lg overflow-hidden">
             <table className="w-full text-xs">
               <thead><tr className="bg-gray-50 text-gray-400">
@@ -616,10 +621,6 @@ const SubscriberForm = ({ initial, onSave, onCancel, saving, packages }) => {
                     </label>
                     <button onClick={() => { const pd = (f.programs_detail || []).filter((_, j) => j !== i); set('programs_detail', pd); set('programs', pd.map(p => p.name)); }} className="text-gray-300 hover:text-red-500"><X size={12} /></button>
                   </div>
-                  <div className="flex gap-2">
-                    <div className="flex-1"><Label className="text-[9px]">Start</Label><Input type="date" value={prog.start_date || ''} onChange={e => updatePD('start_date', e.target.value)} className="h-6 text-[10px]" /></div>
-                    <div className="flex-1"><Label className="text-[9px]">End</Label><Input type="date" value={prog.end_date || ''} onChange={e => updatePD('end_date', e.target.value)} className="h-6 text-[10px]" /></div>
-                  </div>
                 </div>
               );
             })}
@@ -629,7 +630,7 @@ const SubscriberForm = ({ initial, onSave, onCancel, saving, packages }) => {
           <div className="flex-1"><Input value={programInput} onChange={e => setProgramInput(e.target.value)} placeholder="Add program..." className="h-8 text-xs" onKeyDown={e => e.key === 'Enter' && (e.preventDefault(), addProgram())} /></div>
           <Button size="sm" variant="outline" onClick={() => {
             if (!programInput.trim()) return;
-            const newPD = { name: programInput.trim(), duration_value: 12, duration_unit: 'months', start_date: f.start_date, end_date: f.end_date, status: 'active', mode: 'online', visible: true };
+            const newPD = { name: programInput.trim(), duration_value: 12, duration_unit: 'months', status: 'active', mode: 'online', visible: true };
             set('programs_detail', [...(f.programs_detail || []), newPD]);
             set('programs', [...(f.programs || []), programInput.trim()]);
             setProgramInput('');
@@ -827,7 +828,6 @@ const SubscriberRow = ({ s, onRefresh, onEdit }) => {
                             {p.status === 'paused' && <span className="px-1 py-0.5 bg-amber-200 text-amber-800 rounded text-[7px] font-bold">PAUSED</span>}
                             {p.visible === false && <span className="px-1 py-0.5 bg-gray-200 text-gray-500 rounded text-[7px] font-bold">HIDDEN</span>}
                           </div>
-                          {p.start_date && <div className="text-gray-400 mt-0.5">{p.start_date} → {p.end_date}</div>}
                         </div>
                       );
                     })}
@@ -978,7 +978,6 @@ const SubscribersTab = () => {
       ? editTarget.subscription.programs_detail 
       : (editTarget.subscription?.programs || []).map(name => ({
           name, duration_value: 12, duration_unit: 'months',
-          start_date: editTarget.subscription?.start_date || '', end_date: editTarget.subscription?.end_date || '',
           status: 'active', mode: 'online', visible: true
         })),
     bi_annual_download: editTarget.subscription?.bi_annual_download || 0, quarterly_releases: editTarget.subscription?.quarterly_releases || 0,

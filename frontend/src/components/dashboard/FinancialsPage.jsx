@@ -479,7 +479,6 @@ const FinancialsPage = () => {
                       </div>
                       <p className="text-[10px] text-gray-500">
                         {prog.duration_value ? `${prog.duration_value} ${prog.duration_unit}` : ''}
-                        {prog.start_date && prog.end_date ? ` · ${prog.start_date} → ${prog.end_date}` : ''}
                       </p>
                     </div>
                   </div>
