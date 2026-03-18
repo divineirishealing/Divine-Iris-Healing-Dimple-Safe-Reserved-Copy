@@ -11,39 +11,36 @@ Build a pixel-perfect clone of https://divineirishealing.com/ with comprehensive
 
 ## Implemented Features
 
-### Global Annual Pricing Structure (Mar 18, 2026) - COMPLETED
-- [x] Pulls monthly prices from existing programs in Pricing Hub via fuzzy matching
-- [x] Editable programs table: name, duration, unit (months/sessions), Source Tier (1 Month/3 Months/Annual), Discount %
-- [x] Calculate Pricing button: shows breakdown (monthly × duration - discount per program)
-- [x] Subtotals, overall discount %, and final Annual Package Price per currency
-- [x] "Apply to Package Price" button auto-fills final pricing fields
-- [x] Manual price override always available
-- [x] All 18/18 backend + 100% frontend tests passed (iteration_78)
+### Independent Annual Pricing Structure (Mar 18, 2026) - COMPLETED
+- [x] Standalone pricing with validity dates (valid_from / valid_to)
+- [x] Package name, duration, per-currency pricing (INR/USD/AED/EUR/GBP)
+- [x] Included programs table: name, duration, unit, source tier, discount %
+- [x] Calculate Pricing pulls from monthly program rates + applies discounts
+- [x] Overall discount %, Notes field
+- [x] "Apply to Package Price" auto-fills from calculation
+- [x] Validity badge displayed in pricing section
+- [x] All 16/16 backend + 100% frontend tests (iteration_79)
 
 ### Annual Subscriber CRUD & Management (Mar 18, 2026) - COMPLETED
-- [x] Create/Edit/Delete subscriber with full form, Quick actions (Mark EMI Paid, +1 Session)
-- [x] Auto-fill from config: start date → end date (+12mo), fee, programs, sessions
-- [x] Excel upload/download/export, EMI tracking (up to 12), session tracking
-- [x] Student Financials page with EMI schedule, session ring, programs list
+- [x] Create/Edit/Delete, Quick actions, Excel upload/download
+- [x] Auto-fill from config (dates, fee, programs, sessions)
+- [x] EMI tracking (up to 12), Session tracking, Student Financials page
 
-### Student Dashboard - "Modern Spiritual" (Mar 18, 2026) - COMPLETED
-- [x] Iris flower layout, glassmorphism, purple atmosphere, Soul Compass, video upload
+### Student Dashboard (Mar 18, 2026) - COMPLETED
+- [x] Iris flower layout, glassmorphism, Soul Compass, video upload
 
 ### Google OAuth + Previous Features - COMPLETED
 
 ## Key API Endpoints
-- `GET /api/admin/subscribers/calculate-pricing` - Calculate from program prices
-- `GET/PUT /api/admin/subscribers/pricing-config` - Global package config
-- `POST /api/admin/subscribers/create` | `PUT .../update/{id}` | `DELETE .../delete/{id}`
-- `POST /api/admin/subscribers/emi-payment` | `POST .../session-update`
-- `POST /api/admin/subscribers/upload` | `GET .../download-template` | `GET .../export`
+- `GET/PUT /api/admin/subscribers/pricing-config` - Independent annual pricing
+- `GET /api/admin/subscribers/calculate-pricing` - Derive from program monthly rates
+- `POST /api/admin/subscribers/create` | `PUT update/{id}` | `DELETE delete/{id}`
+- `POST /api/admin/subscribers/emi-payment` | `session-update`
+- `POST upload` | `GET download-template` | `GET export` | `GET list`
 - `GET /api/student/home` - Student dashboard data
 
 ## Upcoming Tasks
-- **P0:** Build remaining dashboard sub-pages (Growth Roadmap, Mini Diary, Monthly Reports)
-- **P1:** RBAC Middleware (backend route protection by tier)
+- **P0:** Dashboard sub-pages (Growth Roadmap, Mini Diary, Monthly Reports)
+- **P1:** RBAC Middleware
 
-## Future/Backlog
-- Razorpay, Advanced analytics, Calendar sync, WhatsApp automation, SEO
-
-## Admin: /admin (admin / divineadmin2024) | Student: /login → /dashboard (Google OAuth)
+## Admin: /admin (admin / divineadmin2024) | Student: /login → /dashboard
