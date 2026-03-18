@@ -365,9 +365,10 @@ const SubscriberForm = ({ initial, onSave, onCancel, saving, packages }) => {
     if (val) {
       const months = selectedPkg?.duration_months || 12;
       set('end_date', addMonths(val, months));
-      // Regenerate EMI due dates from new start date (same day each month)
+      // Regenerate EMI due dates using emi_day
       if (f.num_emis > 0) {
-        set('emis', (f.emis || []).map((e, i) => e.status === 'paid' ? e : { ...e, due_date: addMonths(val, i) }));
+        const day = f.emi_day || 30;
+        set('emis', (f.emis || []).map((e, i) => e.status === 'paid' ? e : { ...e, due_date: getEmiDueDate(val, i, day) }));
       }
     }
   };
@@ -382,6 +383,17 @@ const SubscriberForm = ({ initial, onSave, onCancel, saving, packages }) => {
     }
   };
 
+  // Generate EMI due date for a given month offset from start_date using emi_day
+  const getEmiDueDate = (startDate, monthOffset, day) => {
+    if (!startDate || !day) return '';
+    const d = new Date(startDate);
+    d.setMonth(d.getMonth() + monthOffset);
+    const yr = d.getFullYear(), mo = d.getMonth();
+    const daysInMo = new Date(yr, mo + 1, 0).getDate();
+    const actualDay = Math.min(day, daysInMo);
+    return `${yr}-${String(mo + 1).padStart(2, '0')}-${String(actualDay).padStart(2, '0')}`;
+  };
+
   const handleEmiCountChange = (count) => {
     const n = Math.min(12, Math.max(0, parseInt(count) || 0));
     set('num_emis', n);
@@ -393,15 +405,7 @@ const SubscriberForm = ({ initial, onSave, onCancel, saving, packages }) => {
       if (existing && existing.status === 'paid') {
         newEmis.push(existing);
       } else {
-        let dueDate = '';
-        if (f.start_date) {
-          const d = new Date(f.start_date);
-          d.setMonth(d.getMonth() + (i - 1));
-          const yr = d.getFullYear(), mo = String(d.getMonth() + 1).padStart(2, '0');
-          const daysInMo = new Date(yr, d.getMonth() + 1, 0).getDate();
-          const actualDay = Math.min(emiDay, daysInMo);
-          dueDate = `${yr}-${mo}-${String(actualDay).padStart(2, '0')}`;
-        }
+        const dueDate = getEmiDueDate(f.start_date, i - 1, emiDay);
         newEmis.push({ number: i, date: '', amount: perEmi, remaining: 0, due_date: dueDate, status: 'due' });
       }
     }
@@ -482,18 +486,12 @@ const SubscriberForm = ({ initial, onSave, onCancel, saving, packages }) => {
           <Label className="text-xs">EMI Day (of month)</Label>
           <Input type="text" inputMode="numeric" value={f.emi_day || ''} placeholder="e.g. 27"
             onChange={e => {
-              const day = Math.min(30, Math.max(1, parseInt(e.target.value) || 0));
+              const day = Math.min(31, Math.max(1, parseInt(e.target.value) || 0));
               set('emi_day', day || '');
               if (day && f.start_date && f.num_emis > 0) {
-                const base = f.start_date.slice(0, 8); // YYYY-MM-
                 set('emis', (f.emis || []).map((em, i) => {
                   if (em.status === 'paid') return em;
-                  const d = new Date(f.start_date);
-                  d.setMonth(d.getMonth() + i);
-                  const yr = d.getFullYear(), mo = String(d.getMonth() + 1).padStart(2, '0');
-                  const daysInMo = new Date(yr, d.getMonth() + 1, 0).getDate();
-                  const actualDay = Math.min(day, daysInMo);
-                  return { ...em, due_date: `${yr}-${mo}-${String(actualDay).padStart(2, '0')}` };
+                  return { ...em, due_date: getEmiDueDate(f.start_date, i, day) };
                 }));
               }
             }} />
@@ -564,7 +562,7 @@ const SubscriberForm = ({ initial, onSave, onCancel, saving, packages }) => {
         <Label className="text-xs font-semibold uppercase tracking-wider text-gray-500">Sessions</Label>
         <div className="grid grid-cols-3 md:grid-cols-6 gap-2 mt-1">
           {[
-            ['Carry Fwd', 'carry_forward'], ['Current', 'current'], ['Total', 'total'],
+            ['Current', 'current'], ['Total', 'total'],
             ['Availed', 'availed'], ['Yet to Avail', 'yet_to_avail'], ['Due', 'due']
           ].map(([label, key]) => (
             <div key={key}><Label className="text-[10px]">{label}</Label><Input type="text" inputMode="numeric" value={f.sessions[key]} onChange={e => setSess(key, parseInt(e.target.value) || 0)} className="h-8 text-xs" /></div>
