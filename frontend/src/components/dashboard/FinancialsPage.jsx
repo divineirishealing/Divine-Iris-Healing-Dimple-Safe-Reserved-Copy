@@ -453,34 +453,102 @@ const FinancialsPage = () => {
         </CardContent>
       </Card>
 
-      {/* Programs */}
+      {/* Programs in Package — Interactive */}
       {programs.length > 0 && (
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-base flex items-center gap-2"><Package size={16} className="text-[#D4AF37]" /> Programs in Your Package</CardTitle>
+            <CardTitle className="text-base flex items-center gap-2"><Package size={16} className="text-[#D4AF37]" /> My Programs</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="grid sm:grid-cols-2 gap-3">
+            <div className="space-y-4">
               {programs.map((p, i) => {
                 const prog = typeof p === 'string' ? { name: p } : p;
                 const isPaused = prog.status === 'paused';
                 const isHidden = prog.visible === false;
                 if (isHidden) return null;
+                const schedule = prog.schedule || [];
+                const completedCount = schedule.filter(s => s.completed).length;
+                const totalCount = prog.duration_value || schedule.length || 0;
+                const progressPctProg = totalCount > 0 ? Math.round((completedCount / totalCount) * 100) : 0;
+
                 return (
-                  <div key={i} className={`flex items-center gap-3 rounded-xl p-4 border transition-colors ${isPaused ? 'bg-amber-50/50 border-amber-200 opacity-60' : 'bg-gray-50 hover:border-[#D4AF37]'}`} data-testid={`program-card-${i}`}>
-                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${isPaused ? 'bg-amber-100' : 'bg-gradient-to-br from-[#5D3FD3]/20 to-[#D4AF37]/20'}`}>
-                      <Package size={16} className={isPaused ? 'text-amber-600' : 'text-[#5D3FD3]'} />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2">
-                        <p className="text-sm font-semibold text-gray-900 truncate">{prog.name}</p>
-                        {isPaused && <span className="text-[8px] px-1.5 py-0.5 bg-amber-200 text-amber-800 rounded font-bold">PAUSED</span>}
-                        {prog.mode && <span className={`text-[8px] px-1.5 py-0.5 rounded font-bold ${prog.mode === 'online' ? 'bg-blue-100 text-blue-700' : 'bg-green-100 text-green-700'}`}>{prog.mode.toUpperCase()}</span>}
+                  <div key={i} className={`rounded-xl border overflow-hidden ${isPaused ? 'border-amber-200 bg-amber-50/30' : 'border-gray-200'}`} data-testid={`program-card-${i}`}>
+                    {/* Program Header */}
+                    <div className={`px-4 py-3 flex items-center justify-between ${isPaused ? 'bg-amber-50' : 'bg-gray-50'}`}>
+                      <div className="flex items-center gap-3">
+                        <div className={`w-9 h-9 rounded-xl flex items-center justify-center ${isPaused ? 'bg-amber-100' : 'bg-gradient-to-br from-[#5D3FD3]/20 to-[#D4AF37]/20'}`}>
+                          <Package size={14} className={isPaused ? 'text-amber-600' : 'text-[#5D3FD3]'} />
+                        </div>
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <p className="text-sm font-bold text-gray-900">{prog.name}</p>
+                            {isPaused && <span className="text-[8px] px-1.5 py-0.5 bg-amber-200 text-amber-800 rounded font-bold">PAUSED</span>}
+                          </div>
+                          <p className="text-[10px] text-gray-500">
+                            {prog.duration_value} {prog.duration_unit} {completedCount > 0 && `· ${completedCount}/${totalCount} completed`}
+                          </p>
+                        </div>
                       </div>
-                      <p className="text-[10px] text-gray-500">
-                        {prog.duration_value ? `${prog.duration_value} ${prog.duration_unit}` : ''}
-                      </p>
+                      {totalCount > 0 && (
+                        <div className="text-right">
+                          <span className="text-xs font-bold text-[#5D3FD3]">{progressPctProg}%</span>
+                          <div className="w-16 h-1.5 rounded-full bg-gray-200 mt-0.5">
+                            <div className="h-full rounded-full bg-[#5D3FD3]" style={{ width: `${progressPctProg}%` }} />
+                          </div>
+                        </div>
+                      )}
                     </div>
+
+                    {/* Schedule / Sessions */}
+                    {schedule.length > 0 && (
+                      <div className="px-4 py-2 space-y-1.5">
+                        {schedule.map((sess, si) => {
+                          const label = prog.duration_unit === 'months' ? `Month ${si + 1}` : `Session ${si + 1}`;
+                          const hasDate = !!sess.date;
+                          return (
+                            <div key={si} className={`flex items-center gap-3 py-1.5 px-3 rounded-lg text-xs ${sess.completed ? 'bg-green-50' : hasDate ? 'bg-white border' : 'bg-gray-50'}`}>
+                              <span className={`w-5 h-5 rounded-full flex items-center justify-center text-[9px] font-bold ${sess.completed ? 'bg-green-500 text-white' : hasDate ? 'bg-[#5D3FD3] text-white' : 'bg-gray-200 text-gray-400'}`}>
+                                {sess.completed ? <CheckCircle size={10} /> : si + 1}
+                              </span>
+                              <span className="font-medium text-gray-700 w-16">{label}</span>
+                              {hasDate ? (
+                                <>
+                                  <span className="text-gray-600">{sess.date}{sess.time ? ` · ${sess.time}` : ''}</span>
+                                  {sess.end_date && <span className="text-gray-400">→ {sess.end_date}</span>}
+                                </>
+                              ) : (
+                                <span className="text-gray-400 italic">Date to be announced</span>
+                              )}
+                              {/* Online/Offline Choice */}
+                              <div className="ml-auto flex gap-1">
+                                {['online', 'offline'].map(m => (
+                                  <button key={m}
+                                    onClick={() => {
+                                      axios.post(`${API}/api/student/choose-mode`, { program_name: prog.name, session_index: si, mode: m }, { withCredentials: true })
+                                        .then(() => { fetchData(); toast({ title: `${label}: ${m}` }); })
+                                        .catch(() => {});
+                                    }}
+                                    className={`px-2 py-0.5 rounded text-[8px] font-bold transition-colors ${
+                                      (sess.mode_choice || prog.mode) === m
+                                        ? (m === 'online' ? 'bg-blue-500 text-white' : 'bg-green-500 text-white')
+                                        : 'bg-gray-100 text-gray-400 hover:bg-gray-200'
+                                    }`}>
+                                    {m === 'online' ? 'Online' : 'Offline'}
+                                  </button>
+                                ))}
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+
+                    {/* No schedule yet */}
+                    {schedule.length === 0 && !isPaused && (
+                      <div className="px-4 py-3 text-[10px] text-gray-400 italic">
+                        Schedule will be announced soon
+                      </div>
+                    )}
                   </div>
                 );
               })}

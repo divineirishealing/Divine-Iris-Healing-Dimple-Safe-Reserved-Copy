@@ -560,7 +560,8 @@ class ProgramDetail(BaseModel):
     end_date: str = ""
     status: str = "active"  # active | paused
     mode: str = "online"  # online | offline
-    visible: bool = True  # admin toggle: show/hide on student dashboard
+    visible: bool = True
+    schedule: List[Dict] = []  # [{month/session, date, end_date, time, mode_choice, completed}]
 
 class SubscriberCreate(BaseModel):
     name: str

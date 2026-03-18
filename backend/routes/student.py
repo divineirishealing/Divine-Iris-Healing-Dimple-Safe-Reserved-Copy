@@ -185,3 +185,40 @@ async def get_journey_logs(user: dict = Depends(get_current_user)):
         {"client_id": client_id}, {"_id": 0}
     ).sort("date", -1).to_list(100)
     return logs
+
+
+class ModeChoice(BaseModel):
+    program_name: str
+    session_index: int
+    mode: str  # "online" | "offline"
+
+@router.post("/choose-mode")
+async def choose_session_mode(data: ModeChoice, user: dict = Depends(get_current_user)):
+    """Student chooses online/offline for a scheduled session."""
+    client_id = user.get("client_id")
+    client_doc = await db.clients.find_one({"id": client_id})
+    if not client_doc:
+        raise HTTPException(status_code=404, detail="Client not found")
+
+    sub = client_doc.get("subscription", {})
+    programs = sub.get("programs_detail", [])
+
+    updated = False
+    for prog in programs:
+        if prog["name"] == data.program_name:
+            schedule = prog.get("schedule", [])
+            if data.session_index < len(schedule):
+                schedule[data.session_index]["mode_choice"] = data.mode
+                prog["schedule"] = schedule
+                updated = True
+            break
+
+    if not updated:
+        raise HTTPException(status_code=404, detail="Program or session not found")
+
+    sub["programs_detail"] = programs
+    await db.clients.update_one(
+        {"id": client_id},
+        {"$set": {"subscription": sub}}
+    )
+    return {"message": f"Mode set to {data.mode}"}
