@@ -16,8 +16,12 @@ const MODE_OPTIONS = ['EMI', 'No EMI', 'Full Paid'];
 const DURATION_UNITS = ['months', 'sessions'];
 
 /* ═══ PRICING CONFIG EDITOR ═══ */
+const TIER_OPTIONS = ['1 Month', '3 Months', 'Annual'];
+
 const PricingConfigEditor = ({ config, onSave, saving }) => {
   const [c, setC] = useState(config);
+  const [calcData, setCalcData] = useState(null);
+  const [calcLoading, setCalcLoading] = useState(false);
   const [progName, setProgName] = useState('');
   const [progVal, setProgVal] = useState(12);
   const [progUnit, setProgUnit] = useState('months');
@@ -27,13 +31,39 @@ const PricingConfigEditor = ({ config, onSave, saving }) => {
   const set = (k, v) => setC(prev => ({ ...prev, [k]: v }));
   const setPrice = (cur, v) => setC(prev => ({ ...prev, pricing: { ...prev.pricing, [cur]: parseFloat(v) || 0 } }));
 
+  const updateProgram = (idx, field, val) => {
+    const progs = [...(c.included_programs || [])];
+    progs[idx] = { ...progs[idx], [field]: field === 'duration_value' || field === 'discount_pct' ? parseFloat(val) || 0 : val };
+    set('included_programs', progs);
+  };
+
   const addProgram = () => {
     if (!progName.trim()) return;
-    const newP = { name: progName.trim(), duration_value: parseInt(progVal) || 1, duration_unit: progUnit };
-    set('included_programs', [...(c.included_programs || []), newP]);
+    set('included_programs', [...(c.included_programs || []), {
+      name: progName.trim(), program_id: '', duration_value: parseInt(progVal) || 1,
+      duration_unit: progUnit, source_tier: '1 Month', discount_pct: 0
+    }]);
     setProgName('');
   };
+
   const removeProgram = (idx) => set('included_programs', c.included_programs.filter((_, i) => i !== idx));
+
+  const recalculate = async () => {
+    setCalcLoading(true);
+    try {
+      // Save first, then calculate
+      await onSave(c);
+      const res = await axios.get(`${API}/admin/subscribers/calculate-pricing`);
+      setCalcData(res.data);
+    } catch (e) { console.error(e); }
+    finally { setCalcLoading(false); }
+  };
+
+  // Apply calculated prices to manual pricing
+  const applyCalculated = () => {
+    if (!calcData?.final_totals) return;
+    setC(prev => ({ ...prev, pricing: { ...prev.pricing, ...calcData.final_totals } }));
+  };
 
   return (
     <div className="bg-gradient-to-r from-purple-50 to-amber-50 border border-purple-200 rounded-xl p-5 space-y-4" data-testid="pricing-config-editor">
@@ -42,21 +72,143 @@ const PricingConfigEditor = ({ config, onSave, saving }) => {
           <Settings size={16} className="text-[#5D3FD3]" />
           <h3 className="font-semibold text-gray-900">Global Annual Package Structure</h3>
         </div>
-        <Button size="sm" onClick={() => onSave(c)} disabled={saving} className="bg-[#5D3FD3] hover:bg-[#4c32b3]" data-testid="save-pricing-config-btn">
-          {saving ? <Loader2 size={12} className="animate-spin mr-1" /> : <Save size={12} className="mr-1" />} Save Config
-        </Button>
+        <div className="flex gap-2">
+          <Button size="sm" variant="outline" onClick={recalculate} disabled={calcLoading} data-testid="recalculate-btn">
+            {calcLoading ? <Loader2 size={12} className="animate-spin mr-1" /> : <CreditCard size={12} className="mr-1" />} Calculate Pricing
+          </Button>
+          <Button size="sm" onClick={() => onSave(c)} disabled={saving} className="bg-[#5D3FD3] hover:bg-[#4c32b3]" data-testid="save-pricing-config-btn">
+            {saving ? <Loader2 size={12} className="animate-spin mr-1" /> : <Save size={12} className="mr-1" />} Save Config
+          </Button>
+        </div>
       </div>
 
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+      {/* Basic Info */}
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
         <div><Label className="text-xs">Package Name</Label><Input value={c.package_name} onChange={e => set('package_name', e.target.value)} className="h-8 text-sm" data-testid="config-package-name" /></div>
         <div><Label className="text-xs">Duration (months)</Label><Input type="number" value={c.duration_months} onChange={e => set('duration_months', parseInt(e.target.value) || 12)} className="h-8 text-sm" /></div>
         <div><Label className="text-xs">Default Sessions</Label><Input type="number" value={c.default_sessions_current} onChange={e => set('default_sessions_current', parseInt(e.target.value) || 0)} className="h-8 text-sm" /></div>
         <div><Label className="text-xs">Carry Forward</Label><Input type="number" value={c.default_sessions_carry_forward} onChange={e => set('default_sessions_carry_forward', parseInt(e.target.value) || 0)} className="h-8 text-sm" /></div>
+        <div><Label className="text-xs">Overall Discount %</Label><Input type="number" value={c.overall_discount_pct || 0} onChange={e => set('overall_discount_pct', parseFloat(e.target.value) || 0)} className="h-8 text-sm" /></div>
       </div>
 
-      {/* Pricing per currency */}
+      {/* Included Programs Table */}
       <div>
-        <Label className="text-[10px] uppercase tracking-wider text-gray-500 font-semibold">Pricing by Currency</Label>
+        <Label className="text-[10px] uppercase tracking-wider text-gray-500 font-semibold">Included Programs (pulled from Pricing Hub)</Label>
+        <div className="mt-2 bg-white rounded-lg border overflow-hidden">
+          <table className="w-full text-xs">
+            <thead><tr className="bg-gray-50 text-[10px] text-gray-400 uppercase">
+              <th className="px-3 py-2 text-left">Program</th>
+              <th className="px-2 py-2 text-center w-20">Duration</th>
+              <th className="px-2 py-2 text-center w-20">Unit</th>
+              <th className="px-2 py-2 text-center w-24">Source Tier</th>
+              <th className="px-2 py-2 text-center w-20">Discount %</th>
+              <th className="px-2 py-2 text-center w-8"></th>
+            </tr></thead>
+            <tbody>
+              {(c.included_programs || []).map((p, i) => (
+                <tr key={i} className="border-t hover:bg-gray-50">
+                  <td className="px-3 py-1.5">
+                    <Input value={p.name} onChange={e => updateProgram(i, 'name', e.target.value)} className="h-7 text-xs" />
+                  </td>
+                  <td className="px-2 py-1.5">
+                    <Input type="number" value={p.duration_value} onChange={e => updateProgram(i, 'duration_value', e.target.value)} className="h-7 text-xs text-center" />
+                  </td>
+                  <td className="px-2 py-1.5">
+                    <select value={p.duration_unit} onChange={e => updateProgram(i, 'duration_unit', e.target.value)} className="h-7 text-xs border rounded px-1 w-full">
+                      {DURATION_UNITS.map(u => <option key={u} value={u}>{u}</option>)}
+                    </select>
+                  </td>
+                  <td className="px-2 py-1.5">
+                    {p.duration_unit === 'months' ? (
+                      <select value={p.source_tier || '1 Month'} onChange={e => updateProgram(i, 'source_tier', e.target.value)} className="h-7 text-xs border rounded px-1 w-full">
+                        {TIER_OPTIONS.map(t => <option key={t} value={t}>{t}</option>)}
+                      </select>
+                    ) : <span className="text-gray-300 text-center block">-</span>}
+                  </td>
+                  <td className="px-2 py-1.5">
+                    {p.duration_unit === 'months' ? (
+                      <Input type="number" value={p.discount_pct || 0} onChange={e => updateProgram(i, 'discount_pct', e.target.value)} className="h-7 text-xs text-center" />
+                    ) : <span className="text-gray-300 text-center block">-</span>}
+                  </td>
+                  <td className="px-1 py-1.5">
+                    <button onClick={() => removeProgram(i)} className="text-gray-300 hover:text-red-500"><X size={12} /></button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          <div className="px-3 py-2 border-t bg-gray-50 flex gap-2 items-end">
+            <Input value={progName} onChange={e => setProgName(e.target.value)} placeholder="Add program..." className="h-7 text-xs flex-1" onKeyDown={e => e.key === 'Enter' && (e.preventDefault(), addProgram())} />
+            <Input type="number" value={progVal} onChange={e => setProgVal(e.target.value)} className="h-7 text-xs w-16" />
+            <select value={progUnit} onChange={e => setProgUnit(e.target.value)} className="h-7 text-xs border rounded px-1">{DURATION_UNITS.map(u => <option key={u} value={u}>{u}</option>)}</select>
+            <Button size="sm" variant="outline" onClick={addProgram} className="h-7 px-2"><Plus size={10} /></Button>
+          </div>
+        </div>
+      </div>
+
+      {/* Calculated Pricing Breakdown */}
+      {calcData && (
+        <div className="bg-white rounded-lg border p-4 space-y-3" data-testid="pricing-breakdown">
+          <div className="flex items-center justify-between">
+            <h4 className="text-xs font-bold uppercase tracking-wider text-gray-500">Calculated Pricing Breakdown</h4>
+            <Button size="sm" variant="outline" onClick={applyCalculated} className="h-7 text-[10px]" data-testid="apply-calculated-btn">
+              Apply to Package Price
+            </Button>
+          </div>
+          <table className="w-full text-[11px]">
+            <thead><tr className="text-gray-400 border-b text-[9px] uppercase">
+              <th className="text-left py-1.5">Program</th>
+              <th className="text-center py-1.5">Duration</th>
+              <th className="text-center py-1.5">Source</th>
+              <th className="text-right py-1.5">Monthly INR</th>
+              <th className="text-right py-1.5">Disc %</th>
+              <th className="text-right py-1.5 font-bold">Total INR</th>
+              <th className="text-right py-1.5">Total USD</th>
+              <th className="text-right py-1.5">Total AED</th>
+            </tr></thead>
+            <tbody>
+              {calcData.breakdown.map((b, i) => (
+                <tr key={i} className="border-b border-gray-50">
+                  <td className="py-1.5 font-medium text-gray-800">{b.name}</td>
+                  <td className="py-1.5 text-center text-gray-500">{b.duration_value} {b.duration_unit}</td>
+                  <td className="py-1.5 text-center text-gray-400">{b.matched_program ? b.source_tier : '-'}</td>
+                  <td className="py-1.5 text-right font-mono">{b.monthly_prices?.INR?.toLocaleString() || '-'}</td>
+                  <td className="py-1.5 text-right">{b.discount_pct ? `${b.discount_pct}%` : '-'}</td>
+                  <td className="py-1.5 text-right font-mono font-bold">{b.calculated_prices?.INR?.toLocaleString() || '0'}</td>
+                  <td className="py-1.5 text-right font-mono">{b.calculated_prices?.USD?.toLocaleString() || '0'}</td>
+                  <td className="py-1.5 text-right font-mono">{b.calculated_prices?.AED?.toLocaleString() || '0'}</td>
+                </tr>
+              ))}
+            </tbody>
+            <tfoot>
+              <tr className="border-t-2 border-gray-200 font-bold">
+                <td className="py-2" colSpan={5}>Subtotal</td>
+                <td className="py-2 text-right font-mono">{calcData.subtotals?.INR?.toLocaleString()}</td>
+                <td className="py-2 text-right font-mono">{calcData.subtotals?.USD?.toLocaleString()}</td>
+                <td className="py-2 text-right font-mono">{calcData.subtotals?.AED?.toLocaleString()}</td>
+              </tr>
+              {calcData.overall_discount_pct > 0 && (
+                <tr className="text-red-600">
+                  <td className="py-1" colSpan={5}>Overall Discount ({calcData.overall_discount_pct}%)</td>
+                  <td className="py-1 text-right font-mono">-{((calcData.subtotals?.INR || 0) * calcData.overall_discount_pct / 100).toLocaleString()}</td>
+                  <td className="py-1 text-right font-mono">-{((calcData.subtotals?.USD || 0) * calcData.overall_discount_pct / 100).toLocaleString()}</td>
+                  <td className="py-1 text-right font-mono">-{((calcData.subtotals?.AED || 0) * calcData.overall_discount_pct / 100).toLocaleString()}</td>
+                </tr>
+              )}
+              <tr className="border-t bg-purple-50 text-[#5D3FD3] font-bold">
+                <td className="py-2" colSpan={5}>Annual Package Price</td>
+                <td className="py-2 text-right font-mono">{calcData.final_totals?.INR?.toLocaleString()}</td>
+                <td className="py-2 text-right font-mono">{calcData.final_totals?.USD?.toLocaleString()}</td>
+                <td className="py-2 text-right font-mono">{calcData.final_totals?.AED?.toLocaleString()}</td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+      )}
+
+      {/* Manual Price Override */}
+      <div>
+        <Label className="text-[10px] uppercase tracking-wider text-gray-500 font-semibold">Final Package Pricing (used for subscriber form)</Label>
         <div className="flex gap-3 mt-1">
           {CURRENCIES.map(cur => (
             <div key={cur} className="flex-1">
@@ -65,27 +217,7 @@ const PricingConfigEditor = ({ config, onSave, saving }) => {
             </div>
           ))}
         </div>
-      </div>
-
-      {/* Included Programs */}
-      <div>
-        <Label className="text-[10px] uppercase tracking-wider text-gray-500 font-semibold">Included Programs</Label>
-        <div className="flex flex-wrap gap-2 mt-1 mb-2">
-          {(c.included_programs || []).map((p, i) => (
-            <span key={i} className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white border rounded-lg text-xs shadow-sm" data-testid={`included-program-${i}`}>
-              <Package size={10} className="text-[#5D3FD3]" />
-              <strong>{p.name}</strong>
-              <span className="text-gray-400">({p.duration_value} {p.duration_unit})</span>
-              <button onClick={() => removeProgram(i)} className="text-gray-300 hover:text-red-500 ml-1"><X size={10} /></button>
-            </span>
-          ))}
-        </div>
-        <div className="flex gap-2 items-end">
-          <div className="flex-1"><Input value={progName} onChange={e => setProgName(e.target.value)} placeholder="Program name" className="h-7 text-xs" onKeyDown={e => e.key === 'Enter' && (e.preventDefault(), addProgram())} /></div>
-          <Input type="number" value={progVal} onChange={e => setProgVal(e.target.value)} className="h-7 text-xs w-16" />
-          <select value={progUnit} onChange={e => setProgUnit(e.target.value)} className="h-7 text-xs border rounded px-1">{DURATION_UNITS.map(u => <option key={u} value={u}>{u}</option>)}</select>
-          <Button size="sm" variant="outline" onClick={addProgram} className="h-7 px-2"><Plus size={10} /></Button>
-        </div>
+        <p className="text-[9px] text-gray-400 mt-1">Click "Calculate Pricing" → "Apply to Package Price" to auto-fill from programs, or enter manually.</p>
       </div>
     </div>
   );

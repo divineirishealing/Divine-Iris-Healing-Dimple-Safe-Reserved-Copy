@@ -1,0 +1,152 @@
+{
+  "summary": "Iteration 78: Complete testing of enhanced Annual Pricing Config with Calculate-Pricing endpoint. All 18 backend tests pass (100%), all frontend features verified working.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_details": {
+    "backend_tests": {
+      "total": 18,
+      "passed": 18,
+      "failed": 0,
+      "tests": [
+        {"test": "test_calculate_pricing_returns_breakdown", "status": "PASSED", "description": "GET /api/admin/subscribers/calculate-pricing returns breakdown, subtotals, overall_discount_pct, final_totals"},
+        {"test": "test_breakdown_contains_program_details", "status": "PASSED", "description": "Each breakdown item has name, duration_value, duration_unit, source_tier, discount_pct, monthly_prices, calculated_prices, matched_program"},
+        {"test": "test_awrp_fuzzy_matches_and_pulls_correct_prices", "status": "PASSED", "description": "AWRP fuzzy matches to 'Atomic Weight Release Program (AWRP)', pulls 1 Month tier prices (INR 90000.01, USD 1800, AED 4500)"},
+        {"test": "test_mmm_fuzzy_matches_and_pulls_correct_prices", "status": "PASSED", "description": "Money Magic Multiplier matches and pulls correct prices (INR 20000, USD 325, AED 1200)"},
+        {"test": "test_sessions_type_programs_have_zero_prices", "status": "PASSED", "description": "Bi-Annual Downloads and Quarterly Meetups (sessions type) have zero monetary values"},
+        {"test": "test_calculated_prices_use_duration_multiplier", "status": "PASSED", "description": "Calculated prices = monthly_price * duration_value (AWRP: 12 * 90000.01 = 1,080,000.12)"},
+        {"test": "test_subtotals_sum_all_calculated_prices", "status": "PASSED", "description": "Subtotals correctly sum all program calculated_prices"},
+        {"test": "test_final_totals_with_no_overall_discount", "status": "PASSED", "description": "With 0% discount, final_totals equals subtotals"},
+        {"test": "test_update_overall_discount_pct", "status": "PASSED", "description": "PUT /api/admin/subscribers/pricing-config accepts and persists overall_discount_pct"},
+        {"test": "test_update_program_source_tier", "status": "PASSED", "description": "PUT pricing config accepts source_tier field in included_programs"},
+        {"test": "test_update_program_discount_pct", "status": "PASSED", "description": "PUT pricing config accepts discount_pct field in included_programs"},
+        {"test": "test_discount_applied_in_calculate_pricing", "status": "PASSED", "description": "Per-program discount_pct is applied: calculated = monthly * duration * (1 - discount/100)"},
+        {"test": "test_overall_discount_applied_in_final_totals", "status": "PASSED", "description": "Overall discount is applied: final_totals = subtotals * (1 - overall_discount/100)"},
+        {"test": "test_list_subscribers_still_works", "status": "PASSED", "description": "GET /api/admin/subscribers/list returns array (regression)"},
+        {"test": "test_create_and_delete_subscriber", "status": "PASSED", "description": "Full CRUD cycle works (regression)"},
+        {"test": "test_download_template_still_works", "status": "PASSED", "description": "Template download returns Excel (regression)"},
+        {"test": "test_export_still_works", "status": "PASSED", "description": "Export returns Excel (regression)"},
+        {"test": "test_student_home_endpoint_exists", "status": "PASSED", "description": "Student home endpoint accessible"}
+      ]
+    },
+    "frontend_tests": {
+      "programs_as_editable_table": {
+        "status": "PASSED",
+        "details": [
+          "Programs table shows columns: Program name, Duration, Unit, Source Tier, Discount %",
+          "AWRP row: name input, 12 months, Source Tier dropdown (1 Month), Discount % input (0)",
+          "Money Magic Multiplier row: name input, 6 months, Source Tier dropdown (1 Month), Discount % input (0)",
+          "Bi-Annual Downloads row: name input, 2 sessions, '-' for Source Tier, '-' for Discount",
+          "Quarterly Meetups row: name input, 4 sessions, '-' for Source Tier, '-' for Discount",
+          "Add program row with input field, duration value, unit dropdown, + button"
+        ]
+      },
+      "calculate_pricing_button": {
+        "status": "PASSED",
+        "details": [
+          "'Calculate Pricing' button visible in Package Config section",
+          "Clicking saves config and returns breakdown via GET /api/admin/subscribers/calculate-pricing",
+          "Breakdown table appears with Program, Duration, Source, Monthly INR, Disc %, Total INR/USD/AED columns"
+        ]
+      },
+      "breakdown_table": {
+        "status": "PASSED",
+        "details": [
+          "AWRP: 12 months, 1 Month source, 90,000.01 monthly INR, 1,080,000.12 total INR, 21,600 USD, 54,000 AED",
+          "Money Magic Multiplier: 6 months, 1 Month source, 20,000 monthly INR, 120,000 total INR, 1,950 USD, 7,200 AED",
+          "Bi-Annual Downloads: 2 sessions, '-' source, 0 monthly, 0 totals",
+          "Quarterly Meetups: 4 sessions, '-' source, 0 monthly, 0 totals",
+          "Subtotal row: 1,200,000.12 INR, 23,550 USD, 61,200 AED",
+          "Annual Package Price row in purple: 1,200,000.12 INR, 23,550 USD, 61,200 AED"
+        ]
+      },
+      "overall_discount_row": {
+        "status": "PASSED",
+        "details": [
+          "When overall_discount_pct > 0, 'Overall Discount (X%)' row appears in red",
+          "Tested with 20%: shows -240,000.024 INR, -4,710 USD, -12,240 AED",
+          "Final 'Annual Package Price' row shows discounted totals: 960,000.1 INR, 18,840 USD, 48,960 AED"
+        ]
+      },
+      "apply_to_package_price_button": {
+        "status": "PASSED",
+        "details": [
+          "'Apply to Package Price' button visible in breakdown section",
+          "Clicking copies final_totals to Final Package Pricing fields",
+          "Tested: INR changed from 50000 to 1200000.12, USD from 600 to 23550, AED from 2200 to 61200"
+        ]
+      },
+      "source_tier_dropdown": {
+        "status": "PASSED",
+        "details": [
+          "Source Tier dropdown shows for 'months' type programs only",
+          "Options: '1 Month', '3 Months', 'Annual'",
+          "Shows '-' text for 'sessions' type programs (Bi-Annual Downloads, Quarterly Meetups)"
+        ]
+      },
+      "discount_pct_input": {
+        "status": "PASSED",
+        "details": [
+          "Discount % input shows for 'months' type programs only",
+          "Number input accepts percentage value",
+          "Shows '-' text for 'sessions' type programs"
+        ]
+      },
+      "final_package_pricing_section": {
+        "status": "PASSED",
+        "details": [
+          "Final Package Pricing section at bottom shows INR/USD/AED/EUR/GBP input fields",
+          "Values can be edited manually",
+          "Helper text: 'Click Calculate Pricing → Apply to Package Price to auto-fill from programs'"
+        ]
+      },
+      "subscriber_crud_regression": {
+        "status": "PASSED",
+        "details": [
+          "Subscribers table loads with Priya Sharma",
+          "Expanding subscriber row shows EMI Schedule and Sessions & Programs sections",
+          "EMI Schedule: 6 EMIs with #1, #2 paid, #3 due, #4-6 pending",
+          "Sessions: Carry Fwd 2, Current 12, Due 1",
+          "Programs tags visible: Quad Layer Healing, AWRP, SoulSync NeuroHarmonics, Trauma Clearing"
+        ]
+      },
+      "student_financials_regression": {
+        "status": "PASSED",
+        "details": [
+          "Student home API (/api/student/home) accessible with test session token",
+          "Returns financials with EMI data from subscriber",
+          "Returns package with session info from subscriber",
+          "Returns programs list from subscriber"
+        ]
+      }
+    }
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iteration78_calculate_pricing.py",
+    "/app/test_reports/pytest/pytest_iteration78.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [],
+  "updated_files": [
+    "/app/backend/tests/test_iteration78_calculate_pricing.py"
+  ],
+  "success_rate": {
+    "backend": "100% (18/18 tests passed)",
+    "frontend": "100% (all features verified)"
+  },
+  "test_credentials": {
+    "admin_credentials": "username: admin, password: divineadmin2024",
+    "student_session_token": "test-session-22fbe1e5",
+    "api_base_url": "https://dashboard-hub-128.preview.emergentagent.com"
+  },
+  "seed_data_creation": "Test config changes are restored to defaults after each test. Config restored to: package_name='Annual Healing Package', overall_discount_pct=0, all program discount_pct=0, source_tier='1 Month'",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Iteration 78 tested the enhanced pricing config with calculate-pricing endpoint. Key features verified: 1) GET /api/admin/subscribers/calculate-pricing pulls prices from programs collection via fuzzy matching (AWRP matches 'Atomic Weight Release Program (AWRP)', MMM matches 'Money Magic Multiplier'). 2) Per-program source_tier and discount_pct fields work correctly. 3) Overall discount applies to final_totals. 4) UI shows programs as editable table with Source Tier dropdown and Discount % input only for 'months' type programs. 5) 'Apply to Package Price' button copies calculated final_totals to manual pricing fields. 6) All subscriber CRUD and student financials still work (regression passed)."
+}

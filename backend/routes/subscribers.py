@@ -73,14 +73,18 @@ def safe_date(val):
 
 class IncludedProgram(BaseModel):
     name: str
+    program_id: str = ""  # links to programs collection
     duration_value: int = 12
     duration_unit: str = "months"  # months | sessions
+    source_tier: str = "1 Month"  # which tier to pull price from
+    discount_pct: float = 0  # discount percentage
 
 class AnnualPricingConfig(BaseModel):
     package_name: str = "Annual Healing Package"
     duration_months: int = 12
     pricing: Dict[str, float] = {"INR": 50000, "USD": 600, "AED": 2200, "EUR": 550, "GBP": 470}
     included_programs: List[IncludedProgram] = []
+    overall_discount_pct: float = 0
     default_sessions_current: int = 12
     default_sessions_carry_forward: int = 0
     notes: str = ""
@@ -91,11 +95,12 @@ DEFAULT_PRICING_CONFIG = {
     "duration_months": 12,
     "pricing": {"INR": 50000, "USD": 600, "AED": 2200, "EUR": 550, "GBP": 470},
     "included_programs": [
-        {"name": "AWRP", "duration_value": 12, "duration_unit": "months"},
-        {"name": "Money Magic Multiplier", "duration_value": 6, "duration_unit": "months"},
-        {"name": "Bi-Annual Downloads", "duration_value": 2, "duration_unit": "sessions"},
-        {"name": "Quarterly Meetups", "duration_value": 4, "duration_unit": "sessions"},
+        {"name": "AWRP", "program_id": "", "duration_value": 12, "duration_unit": "months", "source_tier": "1 Month", "discount_pct": 0},
+        {"name": "Money Magic Multiplier", "program_id": "", "duration_value": 6, "duration_unit": "months", "source_tier": "1 Month", "discount_pct": 0},
+        {"name": "Bi-Annual Downloads", "program_id": "", "duration_value": 2, "duration_unit": "sessions", "source_tier": "", "discount_pct": 0},
+        {"name": "Quarterly Meetups", "program_id": "", "duration_value": 4, "duration_unit": "sessions", "source_tier": "", "discount_pct": 0},
     ],
+    "overall_discount_pct": 0,
     "default_sessions_current": 12,
     "default_sessions_carry_forward": 0,
     "notes": ""
@@ -121,6 +126,91 @@ async def update_pricing_config(data: AnnualPricingConfig):
         upsert=True
     )
     return {"message": "Pricing config updated"}
+
+@router.get("/calculate-pricing")
+async def calculate_annual_pricing():
+    """Pull monthly prices from programs, apply duration & discounts, return calculated annual pricing."""
+    config = await db.annual_pricing_config.find_one({"id": "annual_pricing_config"}, {"_id": 0})
+    if not config:
+        config = DEFAULT_PRICING_CONFIG
+
+    programs = await db.programs.find({}, {"_id": 0}).to_list(100)
+    prog_map = {}
+    for p in programs:
+        prog_map[p.get("id", "")] = p
+        # Also index by partial title match
+        prog_map[p.get("title", "").lower()] = p
+
+    currencies = ["INR", "USD", "AED", "EUR", "GBP"]
+    breakdown = []
+    totals = {c: 0 for c in currencies}
+
+    for inc in config.get("included_programs", []):
+        # Find matching program
+        prog = None
+        if inc.get("program_id"):
+            prog = prog_map.get(inc["program_id"])
+        if not prog:
+            # fuzzy match by name
+            name_lower = inc["name"].lower()
+            for key, p in prog_map.items():
+                if isinstance(key, str) and (name_lower in key or key in name_lower):
+                    prog = p
+                    break
+
+        item = {
+            "name": inc["name"],
+            "program_id": inc.get("program_id", ""),
+            "duration_value": inc["duration_value"],
+            "duration_unit": inc["duration_unit"],
+            "source_tier": inc.get("source_tier", "1 Month"),
+            "discount_pct": inc.get("discount_pct", 0),
+            "monthly_prices": {},
+            "calculated_prices": {},
+            "matched_program": prog.get("title", "") if prog else ""
+        }
+
+        if prog and inc["duration_unit"] == "months":
+            source = inc.get("source_tier", "1 Month")
+            tiers = prog.get("duration_tiers", [])
+            tier = next((t for t in tiers if t.get("label", "").lower() == source.lower()), None)
+
+            for cur in currencies:
+                cur_lower = cur.lower()
+                monthly = 0
+                if tier:
+                    monthly = tier.get(f"price_{cur_lower}", 0) or tier.get(f"offer_{cur_lower}", 0) or 0
+                elif prog.get(f"price_{cur_lower}"):
+                    monthly = prog.get(f"price_{cur_lower}", 0)
+
+                item["monthly_prices"][cur] = monthly
+                base = monthly * inc["duration_value"]
+                disc = base * (inc.get("discount_pct", 0) / 100)
+                final = base - disc
+                item["calculated_prices"][cur] = round(final, 2)
+                totals[cur] += final
+        else:
+            # sessions-based items (no monetary value, just info)
+            for cur in currencies:
+                item["monthly_prices"][cur] = 0
+                item["calculated_prices"][cur] = 0
+
+        breakdown.append(item)
+
+    # Apply overall discount
+    overall_disc = config.get("overall_discount_pct", 0)
+    final_totals = {}
+    for cur in currencies:
+        disc = totals[cur] * (overall_disc / 100)
+        final_totals[cur] = round(totals[cur] - disc, 2)
+
+    return {
+        "breakdown": breakdown,
+        "subtotals": {c: round(v, 2) for c, v in totals.items()},
+        "overall_discount_pct": overall_disc,
+        "final_totals": final_totals,
+        "manual_pricing": config.get("pricing", {})
+    }
 
 
 
