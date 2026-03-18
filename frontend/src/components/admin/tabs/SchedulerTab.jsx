@@ -57,10 +57,32 @@ const SchedulerTab = () => {
   const generateSlots = (progIdx) => {
     const prog = programs[progIdx];
     const sched = [];
+    const now = new Date();
+    const startYear = now.getFullYear();
+    const startMonth = now.getMonth(); // current month
+
     for (let i = 0; i < prog.duration_value; i++) {
-      sched.push(prog.duration_unit === 'months'
-        ? { month: i + 1, date: '', end_date: '', time: '', completed: false }
-        : { session: i + 1, date: '', time: '', completed: false });
+      if (prog.name === 'AWRP') {
+        // Fixed: 3rd to 30th of every month
+        const m = (startMonth + i) % 12;
+        const y = startYear + Math.floor((startMonth + i) / 12);
+        const mo = String(m + 1).padStart(2, '0');
+        const daysInMo = new Date(y, m + 1, 0).getDate();
+        // 30th or spill: Feb 28d → Mar 2, Feb 29d → Mar 1
+        let endDate;
+        if (daysInMo >= 30) {
+          endDate = `${y}-${mo}-30`;
+        } else {
+          const spillDays = 30 - daysInMo;
+          const spillDate = new Date(y, m + 1, spillDays);
+          endDate = spillDate.toISOString().split('T')[0];
+        }
+        sched.push({ month: i + 1, date: `${y}-${mo}-03`, end_date: endDate, time: '', completed: false });
+      } else if (prog.duration_unit === 'months') {
+        sched.push({ month: i + 1, date: '', end_date: '', time: '', completed: false });
+      } else {
+        sched.push({ session: i + 1, date: '', time: '', completed: false });
+      }
     }
     const updated = [...programs];
     updated[progIdx] = { ...updated[progIdx], schedule: sched };
