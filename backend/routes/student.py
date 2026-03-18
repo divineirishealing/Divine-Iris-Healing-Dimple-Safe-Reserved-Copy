@@ -114,6 +114,9 @@ async def get_student_home(user: dict = Depends(get_current_user)):
         "profile_status": profile_status,
         "payment_methods": payment_methods,
         "bank_accounts": banks,
+        "late_fee_per_day": sub.get("late_fee_per_day", 0),
+        "channelization_fee": sub.get("channelization_fee", 0),
+        "show_late_fees": sub.get("show_late_fees", False),
         "user_details": {
             "full_name": user.get("full_name") or user.get("name"),
             "city": user.get("city"),

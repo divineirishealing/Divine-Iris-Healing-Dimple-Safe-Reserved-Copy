@@ -323,6 +323,8 @@ const FinancialsPage = () => {
                     <th className="text-left py-2 px-2">Due Date</th>
                     <th className="text-right py-2 px-2">Amount</th>
                     <th className="text-center py-2 px-2">Status</th>
+                    {data?.show_late_fees && <th className="text-right py-2 px-2 text-red-400">Late Fee</th>}
+                    {data?.show_late_fees && <th className="text-right py-2 px-2 text-red-400">Ch. Fee</th>}
                     <th className="text-center py-2 px-2">Payment Mode</th>
                     <th className="text-left py-2 px-2">Remarks</th>
                     <th className="text-center py-2 px-2">Action</th>
@@ -331,41 +333,59 @@ const FinancialsPage = () => {
                 <tbody>
                   {(showAllEmis ? emis : emis.slice(0, 4)).map(emi => {
                     const isSubmitted = emi.status === 'submitted';
-                    const statusLabel = emi.status === 'pending' ? 'due' : emi.status;
+                    const isPaid = emi.status === 'paid';
+                    const isOverdue = !isPaid && !isSubmitted && emi.due_date && new Date(emi.due_date) < new Date();
+                    const daysLate = isOverdue ? Math.max(0, Math.floor((Date.now() - new Date(emi.due_date).getTime()) / 86400000)) : 0;
+                    const lateFee = daysLate * (data?.late_fee_per_day || 0);
+                    const channelFee = isOverdue && daysLate > 0 ? (data?.channelization_fee || 0) : 0;
+                    const statusLabel = isPaid ? 'paid' : isSubmitted ? 'submitted' : isOverdue ? 'overdue' : 'due';
                     return (
-                      <tr key={emi.number} className={`border-b border-gray-50 hover:bg-gray-50 ${emi.status === 'paid' ? 'bg-green-50/30' : ''}`} data-testid={`emi-row-${emi.number}`}>
+                      <tr key={emi.number} className={`border-b border-gray-50 hover:bg-gray-50 ${isPaid ? 'bg-green-50/30' : isOverdue ? 'bg-red-50/20' : ''}`} data-testid={`emi-row-${emi.number}`}>
                         <td className="py-3 px-2 font-medium text-gray-700">{emi.number}</td>
                         <td className="py-3 px-2 text-gray-600">{emi.due_date || '-'}</td>
                         <td className="py-3 px-2 text-right font-mono text-gray-700">{fin.currency} {(emi.amount || 0).toLocaleString()}</td>
                         <td className="py-3 px-2 text-center">
                           <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold ${
-                            emi.status === 'paid' ? 'bg-green-50 text-green-700' :
+                            isPaid ? 'bg-green-50 text-green-700' :
                             isSubmitted ? 'bg-blue-50 text-blue-700' :
-                            'bg-red-50 text-red-700'
+                            isOverdue ? 'bg-red-100 text-red-700' :
+                            'bg-amber-50 text-amber-700'
                           }`}>
-                            {emi.status === 'paid' && <CheckCircle size={10} />}
+                            {isPaid && <CheckCircle size={10} />}
                             {isSubmitted && <Clock size={10} />}
-                            {(emi.status === 'due' || emi.status === 'pending') && <AlertCircle size={10} />}
-                            {isSubmitted ? 'submitted' : statusLabel}
+                            {isOverdue && <AlertCircle size={10} />}
+                            {!isPaid && !isSubmitted && !isOverdue && <Clock size={10} />}
+                            {statusLabel}
                           </span>
                         </td>
+                        {data?.show_late_fees && (
+                          <td className="py-3 px-2 text-right font-mono text-[10px] text-red-600">
+                            {lateFee > 0 ? `${fin.currency} ${lateFee.toLocaleString()}` : '-'}
+                            {daysLate > 0 && <span className="block text-[8px] text-red-400">{daysLate}d late</span>}
+                          </td>
+                        )}
+                        {data?.show_late_fees && (
+                          <td className="py-3 px-2 text-right font-mono text-[10px] text-red-600">
+                            {channelFee > 0 ? `${fin.currency} ${channelFee.toLocaleString()}` : '-'}
+                          </td>
+                        )}
                         <td className="py-3 px-2 text-center text-[10px] text-gray-500">
                           {emi.payment_method ? emi.payment_method.toUpperCase() : '-'}
                         </td>
                         <td className="py-3 px-2 text-left text-[10px] text-gray-400 max-w-[120px] truncate">
-                          {emi.paid_by ? `Paid by ${emi.paid_by}` : emi.remarks || emi.transaction_id ? `TXN: ${emi.transaction_id}` : '-'}
+                          {emi.paid_by ? `Paid by ${emi.paid_by}` : emi.transaction_id ? `TXN: ${emi.transaction_id}` : emi.remarks || '-'}
                         </td>
                         <td className="py-3 px-2 text-center">
-                          {emi.status === 'paid' && emi.receipt_url ? (
+                          {isPaid && emi.receipt_url ? (
                             <a href={`${API}${emi.receipt_url}`} target="_blank" rel="noreferrer" className="text-[10px] text-[#5D3FD3] hover:underline flex items-center justify-center gap-1">
                               <FileText size={10} /> Receipt
                             </a>
-                          ) : emi.status === 'paid' ? (
+                          ) : isPaid ? (
                             <span className="text-[10px] text-green-600 flex items-center justify-center gap-1"><CheckCircle size={10} /> Paid</span>
                           ) : isSubmitted ? (
                             <span className="text-[10px] text-blue-500">Awaiting Approval</span>
                           ) : (
-                            <Button size="sm" onClick={() => setPayingEmi(emi)}
+                            <Button size="sm" onClick={() => setPayingEmi({...emi, lateFee, channelFee})}
                               className="h-7 text-[10px] bg-[#5D3FD3] hover:bg-[#4c32b3]" data-testid={`pay-now-${emi.number}`}>
                               Pay Now
                             </Button>
