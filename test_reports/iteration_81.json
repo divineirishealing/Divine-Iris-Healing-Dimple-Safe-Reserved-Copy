@@ -1,0 +1,132 @@
+{
+  "summary": "Iteration 81: Complete frontend verification of 3-currency inline table with taxes. All features working correctly: NumInput uses type='text' inputMode='decimal' (no spinners), only 3 currencies (INR/USD/AED), inline pricing table with tax rows, auto-calculations, validity badge, compact config row.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_details": {
+    "frontend_tests": {
+      "num_input_no_spinners": {
+        "status": "PASSED",
+        "details": [
+          "32 inputs use type='text' inputMode='decimal' in pricing editor",
+          "0 inputs use type='number' (no browser spinners)",
+          "NumInput component correctly avoids spinner arrows"
+        ]
+      },
+      "currencies_limited_to_3": {
+        "status": "PASSED",
+        "details": [
+          "Currency dropdown shows only: INR, USD, AED",
+          "EUR and GBP removed as expected",
+          "CURRENCIES constant set to ['INR', 'USD', 'AED']"
+        ]
+      },
+      "inline_3_currency_table": {
+        "status": "PASSED",
+        "details": [
+          "Row 1 header: Program | Dur | Unit | INR (India · GST 18%) | USD | AED (Dubai · VAT 5%)",
+          "Row 2 sub-headers: Per Unit | Total | Offer | Disc for each currency",
+          "USD section correctly omits Total column (only Per Unit, Offer, Disc)",
+          "INR and AED sections have all 4 columns"
+        ]
+      },
+      "auto_calculations": {
+        "status": "PASSED",
+        "details": [
+          "Total = per_unit × duration (auto-calculated)",
+          "Discount % = (total - offer) / total × 100 (auto-calculated)",
+          "AWRP: INR 90,000/unit × 12mo = 1,080,000 total, 540,000 offer, 50% disc",
+          "Money Magic Multiplier: INR 20,000/unit × 6mo = 120,000 total, 60,000 offer, 50% disc"
+        ]
+      },
+      "subtotal_row": {
+        "status": "PASSED",
+        "details": [
+          "INR: Total=1,200,000, Offer=600,000, Disc=50%",
+          "USD: Offer=11,775",
+          "AED: Total=61,200, Offer=30,600"
+        ]
+      },
+      "tax_row": {
+        "status": "PASSED",
+        "details": [
+          "INR: GST 18% = 108,000 (600,000 × 0.18)",
+          "USD: Shows '—' (no tax)",
+          "AED: VAT 5% = 1,530 (30,600 × 0.05)"
+        ]
+      },
+      "annual_package_price_row": {
+        "status": "PASSED",
+        "details": [
+          "INR: 708,000 (offer 600,000 + GST 108,000)",
+          "USD: 11,775 (just offer, no tax)",
+          "AED: 32,130 (offer 30,600 + VAT 1,530)"
+        ]
+      },
+      "config_row_compact": {
+        "status": "PASSED",
+        "details": [
+          "Single row with: Package Name, Duration, Valid From, Valid To, Sessions, Carry Fwd, Notes",
+          "All fields visible on one line",
+          "Grid layout: 7 columns on desktop"
+        ]
+      },
+      "validity_badge": {
+        "status": "PASSED",
+        "details": [
+          "Badge shows '2026-04-01 → 2027-03-31' next to header",
+          "Purple background with small text",
+          "Correctly displays valid_from → valid_to format"
+        ]
+      },
+      "save_button": {
+        "status": "PASSED",
+        "details": [
+          "Save button visible with purple background",
+          "Located in top-right of pricing config editor"
+        ]
+      },
+      "subscriber_form_autofill": {
+        "status": "PASSED",
+        "details": [
+          "Shows 'Auto-filled from package config' indicator",
+          "Programs auto-populated: AWRP, Money Magic Multiplier, Bi-Annual Downloads, Quarterly Meetups",
+          "Sessions pre-filled from config",
+          "Currency dropdown shows only INR/USD/AED"
+        ]
+      },
+      "regression_student_dashboard": {
+        "status": "PASSED",
+        "details": [
+          "Student home API returns 200 OK",
+          "All data fields present in response"
+        ]
+      }
+    }
+  },
+  "test_report_links": [
+    "/app/test_reports/iteration_81.json"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [],
+  "updated_files": [],
+  "success_rate": {
+    "backend": "N/A (frontend-only testing)",
+    "frontend": "100% (all 12 features verified)"
+  },
+  "test_credentials": {
+    "admin_credentials": "username: admin, password: divineadmin2024",
+    "student_session_token": "test-session-22fbe1e5",
+    "api_base_url": "https://dashboard-hub-128.preview.emergentagent.com"
+  },
+  "seed_data_creation": "None - used existing data",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Iteration 81 verified the 3-currency inline table redesign. Key features: 1) NumInput uses type='text' inputMode='decimal' (no spinners). 2) Only 3 currencies: INR, USD, AED (EUR/GBP removed). 3) Programs table shows all currencies inline with Per Unit/Total/Offer/Disc columns. 4) USD omits Total column. 5) Tax row: GST 18% for INR, dash for USD, VAT 5% for AED. 6) Annual Package Price = Subtotal Offer + Tax. 7) Config section compact on one row. 8) Validity badge next to header. Current pricing: AWRP (12mo, INR 90000/unit, 540000 offer), MMM (6mo, INR 20000/unit, 60000 offer). Subtotal INR: 1,200,000 total, 600,000 offer. Tax: INR GST=108,000, AED VAT=1,530. Final: INR 708,000, USD 11,775, AED 32,130."
+}

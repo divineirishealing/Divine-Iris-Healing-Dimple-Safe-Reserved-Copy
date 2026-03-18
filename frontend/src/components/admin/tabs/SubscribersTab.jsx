@@ -11,24 +11,33 @@ import {
 } from 'lucide-react';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
-const CURRENCIES = ['INR', 'USD', 'AED', 'EUR', 'GBP'];
+const CURRENCIES = ['INR', 'USD', 'AED'];
 const MODE_OPTIONS = ['EMI', 'No EMI', 'Full Paid'];
 const DURATION_UNITS = ['months', 'sessions'];
 
 /* ═══ PRICING CONFIG EDITOR ═══ */
+const SHOW_CURRENCIES = ['INR', 'USD', 'AED'];
+const TAX_RATES = { INR: { label: 'GST 18%', rate: 0.18 }, AED: { label: 'VAT 5%', rate: 0.05 } };
+
+const NumInput = ({ value, onChange, className = '', bold = false }) => (
+  <input type="text" inputMode="decimal" value={value}
+    onChange={e => onChange(e.target.value)}
+    onFocus={e => { if (e.target.value === '0') e.target.select(); }}
+    className={`h-7 text-xs w-full px-1 border rounded-md text-right outline-none focus:ring-1 focus:ring-[#D4AF37] font-mono ${bold ? 'font-bold' : ''} ${className}`}
+  />
+);
+
 const PricingConfigEditor = ({ config, onSave, saving }) => {
   const [c, setC] = useState(config);
-  const [calcData, setCalcData] = useState(null);
-  const [calcLoading, setCalcLoading] = useState(false);
   const [progName, setProgName] = useState('');
   const [progVal, setProgVal] = useState(12);
   const [progUnit, setProgUnit] = useState('months');
-  const [viewCur, setViewCur] = useState('INR');
 
   useEffect(() => { setC(config); }, [config]);
 
   const set = (k, v) => setC(prev => ({ ...prev, [k]: v }));
   const setPrice = (cur, v) => setC(prev => ({ ...prev, pricing: { ...prev.pricing, [cur]: parseFloat(v) || 0 } }));
+  const setTax = (cur, v) => setC(prev => ({ ...prev, taxes: { ...(prev.taxes || {}), [cur]: parseFloat(v) || 0 } }));
 
   const updateProgram = (idx, field, val) => {
     const progs = [...(c.included_programs || [])];
@@ -41,7 +50,6 @@ const PricingConfigEditor = ({ config, onSave, saving }) => {
     progs[idx] = { ...progs[idx], [priceField]: { ...existing, [cur]: parseFloat(val) || 0 } };
     set('included_programs', progs);
   };
-
   const addProgram = () => {
     if (!progName.trim()) return;
     set('included_programs', [...(c.included_programs || []), {
@@ -52,169 +60,156 @@ const PricingConfigEditor = ({ config, onSave, saving }) => {
   };
   const removeProgram = (idx) => set('included_programs', c.included_programs.filter((_, i) => i !== idx));
 
-  const recalculate = async () => {
-    setCalcLoading(true);
-    try {
-      await onSave(c);
-      const res = await axios.get(`${API}/admin/subscribers/calculate-pricing`);
-      setCalcData(res.data);
-    } catch (e) { console.error(e); }
-    finally { setCalcLoading(false); }
+  const getTotal = (p, cur) => (p.price_per_unit?.[cur] || 0) * (p.duration_value || 0);
+  const getDisc = (p, cur) => {
+    const t = getTotal(p, cur), o = p.offer_price?.[cur] || 0;
+    return t > 0 && o > 0 ? Math.round(((t - o) / t) * 100) : 0;
   };
-
-  const applyOfferSums = () => {
-    if (!calcData?.offer_sums) return;
-    setC(prev => ({ ...prev, pricing: { ...prev.pricing, ...calcData.offer_sums } }));
+  const sumTotal = (cur) => (c.included_programs || []).reduce((s, p) => s + getTotal(p, cur), 0);
+  const sumOffer = (cur) => (c.included_programs || []).reduce((s, p) => s + (p.offer_price?.[cur] || 0), 0);
+  const getTaxAmount = (cur) => {
+    const rate = (c.taxes?.[cur] ?? TAX_RATES[cur]?.rate ?? 0);
+    return sumOffer(cur) * rate;
   };
-
-  // Auto-calc helpers for display
-  const getTotal = (p) => (p.price_per_unit?.[viewCur] || 0) * (p.duration_value || 0);
-  const getDisc = (p) => {
-    const total = getTotal(p);
-    const offer = p.offer_price?.[viewCur] || 0;
-    return total > 0 && offer > 0 ? Math.round(((total - offer) / total) * 100) : 0;
-  };
+  const getWithTax = (cur) => sumOffer(cur) + getTaxAmount(cur);
 
   return (
-    <div className="bg-gradient-to-r from-purple-50 to-amber-50 border border-purple-200 rounded-xl p-5 space-y-4" data-testid="pricing-config-editor">
+    <div className="bg-gradient-to-r from-purple-50 to-amber-50 border border-purple-200 rounded-xl p-4 space-y-3" data-testid="pricing-config-editor">
+      {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <Settings size={16} className="text-[#5D3FD3]" />
-          <h3 className="font-semibold text-gray-900">Global Annual Package Structure</h3>
-        </div>
-        <div className="flex gap-2">
-          <Button size="sm" variant="outline" onClick={recalculate} disabled={calcLoading} data-testid="recalculate-btn">
-            {calcLoading ? <Loader2 size={12} className="animate-spin mr-1" /> : <CreditCard size={12} className="mr-1" />} Calculate
-          </Button>
-          <Button size="sm" onClick={() => onSave(c)} disabled={saving} className="bg-[#5D3FD3] hover:bg-[#4c32b3]" data-testid="save-pricing-config-btn">
-            {saving ? <Loader2 size={12} className="animate-spin mr-1" /> : <Save size={12} className="mr-1" />} Save
-          </Button>
-        </div>
-      </div>
-
-      {/* Basic Info + Validity */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        <div><Label className="text-xs">Package Name</Label><Input value={c.package_name} onChange={e => set('package_name', e.target.value)} className="h-8 text-sm" data-testid="config-package-name" /></div>
-        <div><Label className="text-xs">Duration (months)</Label><Input type="number" value={c.duration_months} onChange={e => set('duration_months', parseInt(e.target.value) || 12)} className="h-8 text-sm" /></div>
-        <div><Label className="text-xs">Valid From</Label><Input type="date" value={c.valid_from || ''} onChange={e => set('valid_from', e.target.value)} className="h-8 text-sm" data-testid="config-valid-from" /></div>
-        <div><Label className="text-xs">Valid To</Label><Input type="date" value={c.valid_to || ''} onChange={e => set('valid_to', e.target.value)} className="h-8 text-sm" data-testid="config-valid-to" /></div>
-      </div>
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        <div><Label className="text-xs">Default Sessions</Label><Input type="number" value={c.default_sessions_current} onChange={e => set('default_sessions_current', parseInt(e.target.value) || 0)} className="h-8 text-sm" /></div>
-        <div><Label className="text-xs">Carry Forward</Label><Input type="number" value={c.default_sessions_carry_forward} onChange={e => set('default_sessions_carry_forward', parseInt(e.target.value) || 0)} className="h-8 text-sm" /></div>
-        <div><Label className="text-xs">Notes</Label><Input value={c.notes || ''} onChange={e => set('notes', e.target.value)} placeholder="Internal notes..." className="h-8 text-sm" /></div>
-        <div />
-      </div>
-
-      {/* Included Programs with Per-Unit / Total / Offer / Discount */}
-      <div>
-        <div className="flex items-center justify-between mb-1">
-          <Label className="text-[10px] uppercase tracking-wider text-gray-500 font-semibold">Included Programs & Pricing</Label>
-          <div className="flex items-center gap-1">
-            <span className="text-[9px] text-gray-400">Currency:</span>
-            {CURRENCIES.map(cur => (
-              <button key={cur} onClick={() => setViewCur(cur)}
-                className={`text-[9px] px-2 py-0.5 rounded-full font-bold transition-colors ${viewCur === cur ? 'bg-[#5D3FD3] text-white' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'}`}>
-                {cur}
-              </button>
-            ))}
-          </div>
-        </div>
-        <div className="bg-white rounded-lg border overflow-hidden">
-          <table className="w-full text-xs">
-            <thead><tr className="bg-gray-50 text-[10px] text-gray-400 uppercase">
-              <th className="px-3 py-2 text-left">Program</th>
-              <th className="px-2 py-2 text-center w-14">Dur.</th>
-              <th className="px-2 py-2 text-center w-16">Unit</th>
-              <th className="px-2 py-2 text-right w-24">Per Unit ({viewCur})</th>
-              <th className="px-2 py-2 text-right w-28 bg-gray-100">Total ({viewCur})</th>
-              <th className="px-2 py-2 text-right w-24">Offer ({viewCur})</th>
-              <th className="px-2 py-2 text-center w-16 bg-green-50">Disc %</th>
-              <th className="px-1 py-2 w-6"></th>
-            </tr></thead>
-            <tbody>
-              {(c.included_programs || []).map((p, i) => {
-                const total = getTotal(p);
-                const disc = getDisc(p);
-                return (
-                  <tr key={i} className="border-t hover:bg-gray-50">
-                    <td className="px-3 py-1.5"><Input value={p.name} onChange={e => updateProgram(i, 'name', e.target.value)} className="h-7 text-xs" /></td>
-                    <td className="px-2 py-1.5"><Input type="number" value={p.duration_value} onChange={e => updateProgram(i, 'duration_value', e.target.value)} className="h-7 text-xs text-center" /></td>
-                    <td className="px-2 py-1.5">
-                      <select value={p.duration_unit} onChange={e => updateProgram(i, 'duration_unit', e.target.value)} className="h-7 text-xs border rounded px-1 w-full">
-                        {DURATION_UNITS.map(u => <option key={u} value={u}>{u}</option>)}
-                      </select>
-                    </td>
-                    <td className="px-2 py-1.5">
-                      <Input type="number" value={p.price_per_unit?.[viewCur] || 0}
-                        onChange={e => updateProgPrice(i, 'price_per_unit', viewCur, e.target.value)}
-                        className="h-7 text-xs text-right font-mono" />
-                    </td>
-                    <td className="px-2 py-1.5 bg-gray-50">
-                      <span className="block text-right font-mono font-bold text-gray-700 text-xs">{total.toLocaleString()}</span>
-                    </td>
-                    <td className="px-2 py-1.5">
-                      <Input type="number" value={p.offer_price?.[viewCur] || 0}
-                        onChange={e => updateProgPrice(i, 'offer_price', viewCur, e.target.value)}
-                        className="h-7 text-xs text-right font-mono text-[#5D3FD3] font-bold" />
-                    </td>
-                    <td className="px-2 py-1.5 bg-green-50 text-center">
-                      <span className={`text-xs font-bold ${disc > 0 ? 'text-green-600' : 'text-gray-300'}`}>
-                        {disc > 0 ? `${disc}%` : '-'}
-                      </span>
-                    </td>
-                    <td className="px-1 py-1.5">
-                      <button onClick={() => removeProgram(i)} className="text-gray-300 hover:text-red-500"><X size={12} /></button>
-                    </td>
-                  </tr>
-                );
-              })}
-              {/* Totals row */}
-              {(c.included_programs || []).length > 0 && (() => {
-                const sumTotal = (c.included_programs || []).reduce((s, p) => s + getTotal(p), 0);
-                const sumOffer = (c.included_programs || []).reduce((s, p) => s + (p.offer_price?.[viewCur] || 0), 0);
-                const overallDisc = sumTotal > 0 && sumOffer > 0 ? Math.round(((sumTotal - sumOffer) / sumTotal) * 100) : 0;
-                return (
-                  <tr className="border-t-2 border-gray-200 bg-purple-50/50 font-bold text-xs">
-                    <td className="px-3 py-2 text-[#5D3FD3]" colSpan={3}>Package Total ({viewCur})</td>
-                    <td className="px-2 py-2 text-right"></td>
-                    <td className="px-2 py-2 text-right font-mono bg-gray-100">{sumTotal.toLocaleString()}</td>
-                    <td className="px-2 py-2 text-right font-mono text-[#5D3FD3]">{sumOffer.toLocaleString()}</td>
-                    <td className="px-2 py-2 text-center bg-green-50"><span className={`${overallDisc > 0 ? 'text-green-600' : 'text-gray-300'}`}>{overallDisc > 0 ? `${overallDisc}%` : '-'}</span></td>
-                    <td></td>
-                  </tr>
-                );
-              })()}
-            </tbody>
-          </table>
-          <div className="px-3 py-2 border-t bg-gray-50 flex gap-2 items-end">
-            <Input value={progName} onChange={e => setProgName(e.target.value)} placeholder="Add program..." className="h-7 text-xs flex-1" onKeyDown={e => e.key === 'Enter' && (e.preventDefault(), addProgram())} />
-            <Input type="number" value={progVal} onChange={e => setProgVal(e.target.value)} className="h-7 text-xs w-16" />
-            <select value={progUnit} onChange={e => setProgUnit(e.target.value)} className="h-7 text-xs border rounded px-1">{DURATION_UNITS.map(u => <option key={u} value={u}>{u}</option>)}</select>
-            <Button size="sm" variant="outline" onClick={addProgram} className="h-7 px-2"><Plus size={10} /></Button>
-          </div>
-        </div>
-      </div>
-
-      {/* Independent Annual Pricing */}
-      <div className="bg-white rounded-lg border-2 border-[#5D3FD3]/20 p-4">
-        <div className="flex items-center justify-between mb-2">
-          <Label className="text-xs font-bold uppercase tracking-wider text-[#5D3FD3]">Annual Package Pricing</Label>
+          <Settings size={14} className="text-[#5D3FD3]" />
+          <h3 className="font-semibold text-gray-900 text-sm">Annual Package Structure</h3>
           {c.valid_from && c.valid_to && (
-            <span className="text-[10px] px-2 py-0.5 rounded-full bg-purple-50 text-[#5D3FD3] font-medium">
-              Valid: {c.valid_from} to {c.valid_to}
+            <span className="text-[9px] px-2 py-0.5 rounded-full bg-purple-100 text-[#5D3FD3] font-medium ml-2">
+              {c.valid_from} → {c.valid_to}
             </span>
           )}
         </div>
-        <div className="flex gap-3">
-          {CURRENCIES.map(cur => (
-            <div key={cur} className="flex-1">
-              <Label className="text-[10px] text-gray-400">{cur}</Label>
-              <Input type="number" value={c.pricing?.[cur] || 0} onChange={e => setPrice(cur, e.target.value)} className="h-8 text-sm font-mono font-bold" data-testid={`config-price-${cur}`} />
-            </div>
-          ))}
+        <Button size="sm" onClick={() => onSave(c)} disabled={saving} className="bg-[#5D3FD3] hover:bg-[#4c32b3] h-7 text-xs" data-testid="save-pricing-config-btn">
+          {saving ? <Loader2 size={12} className="animate-spin mr-1" /> : <Save size={12} className="mr-1" />} Save
+        </Button>
+      </div>
+
+      {/* Config Row */}
+      <div className="grid grid-cols-3 md:grid-cols-7 gap-2">
+        <div><Label className="text-[10px]">Package Name</Label><Input value={c.package_name} onChange={e => set('package_name', e.target.value)} className="h-7 text-xs" data-testid="config-package-name" /></div>
+        <div><Label className="text-[10px]">Duration</Label><NumInput value={c.duration_months} onChange={v => set('duration_months', parseInt(v) || 12)} /></div>
+        <div><Label className="text-[10px]">Valid From</Label><Input type="date" value={c.valid_from || ''} onChange={e => set('valid_from', e.target.value)} className="h-7 text-xs" /></div>
+        <div><Label className="text-[10px]">Valid To</Label><Input type="date" value={c.valid_to || ''} onChange={e => set('valid_to', e.target.value)} className="h-7 text-xs" /></div>
+        <div><Label className="text-[10px]">Sessions</Label><NumInput value={c.default_sessions_current} onChange={v => set('default_sessions_current', parseInt(v) || 0)} /></div>
+        <div><Label className="text-[10px]">Carry Fwd</Label><NumInput value={c.default_sessions_carry_forward} onChange={v => set('default_sessions_carry_forward', parseInt(v) || 0)} /></div>
+        <div><Label className="text-[10px]">Notes</Label><Input value={c.notes || ''} onChange={e => set('notes', e.target.value)} placeholder="..." className="h-7 text-xs" /></div>
+      </div>
+
+      {/* Programs Table — All 3 Currencies Inline */}
+      <div className="bg-white rounded-lg border overflow-x-auto">
+        <table className="w-full text-[11px] min-w-[900px]">
+          <thead>
+            <tr className="bg-gray-50 text-[9px] text-gray-400 uppercase border-b">
+              <th className="px-2 py-1.5 text-left" rowSpan={2}>Program</th>
+              <th className="px-1 py-1.5 text-center w-10" rowSpan={2}>Dur</th>
+              <th className="px-1 py-1.5 text-center w-12" rowSpan={2}>Unit</th>
+              <th className="px-1 py-1 text-center border-l bg-blue-50" colSpan={4}>INR (India · GST 18%)</th>
+              <th className="px-1 py-1 text-center border-l" colSpan={3}>USD</th>
+              <th className="px-1 py-1 text-center border-l bg-amber-50" colSpan={4}>AED (Dubai · VAT 5%)</th>
+              <th className="px-1 py-1.5 w-5" rowSpan={2}></th>
+            </tr>
+            <tr className="bg-gray-50 text-[8px] text-gray-400 uppercase border-b">
+              <th className="px-1 py-1 text-right border-l bg-blue-50">Per Unit</th>
+              <th className="px-1 py-1 text-right bg-blue-50/50">Total</th>
+              <th className="px-1 py-1 text-right bg-blue-50">Offer</th>
+              <th className="px-1 py-1 text-center bg-green-50">Disc</th>
+              <th className="px-1 py-1 text-right border-l">Per Unit</th>
+              <th className="px-1 py-1 text-right">Offer</th>
+              <th className="px-1 py-1 text-center bg-green-50">Disc</th>
+              <th className="px-1 py-1 text-right border-l bg-amber-50">Per Unit</th>
+              <th className="px-1 py-1 text-right bg-amber-50/50">Total</th>
+              <th className="px-1 py-1 text-right bg-amber-50">Offer</th>
+              <th className="px-1 py-1 text-center bg-green-50">Disc</th>
+            </tr>
+          </thead>
+          <tbody>
+            {(c.included_programs || []).map((p, i) => (
+              <tr key={i} className="border-t hover:bg-gray-50/50">
+                <td className="px-2 py-1"><Input value={p.name} onChange={e => updateProgram(i, 'name', e.target.value)} className="h-6 text-[11px] border-0 bg-transparent px-0 focus:ring-0" /></td>
+                <td className="px-1 py-1"><NumInput value={p.duration_value} onChange={v => updateProgram(i, 'duration_value', v)} className="text-center" /></td>
+                <td className="px-1 py-1">
+                  <select value={p.duration_unit} onChange={e => updateProgram(i, 'duration_unit', e.target.value)} className="h-6 text-[10px] border rounded px-0.5 w-full bg-transparent">
+                    {DURATION_UNITS.map(u => <option key={u} value={u}>{u === 'months' ? 'mo' : 'sess'}</option>)}
+                  </select>
+                </td>
+                {/* INR */}
+                <td className="px-1 py-1 border-l bg-blue-50/30"><NumInput value={p.price_per_unit?.INR || 0} onChange={v => updateProgPrice(i, 'price_per_unit', 'INR', v)} /></td>
+                <td className="px-1 py-1 bg-gray-50 text-right font-mono text-[10px] font-bold text-gray-600">{getTotal(p, 'INR').toLocaleString()}</td>
+                <td className="px-1 py-1 bg-blue-50/30"><NumInput value={p.offer_price?.INR || 0} onChange={v => updateProgPrice(i, 'offer_price', 'INR', v)} bold className="text-[#5D3FD3]" /></td>
+                <td className="px-1 py-1 bg-green-50/50 text-center"><span className={`text-[10px] font-bold ${getDisc(p,'INR') > 0 ? 'text-green-600' : 'text-gray-300'}`}>{getDisc(p,'INR') > 0 ? `${getDisc(p,'INR')}%` : '-'}</span></td>
+                {/* USD */}
+                <td className="px-1 py-1 border-l"><NumInput value={p.price_per_unit?.USD || 0} onChange={v => updateProgPrice(i, 'price_per_unit', 'USD', v)} /></td>
+                <td className="px-1 py-1"><NumInput value={p.offer_price?.USD || 0} onChange={v => updateProgPrice(i, 'offer_price', 'USD', v)} bold className="text-[#5D3FD3]" /></td>
+                <td className="px-1 py-1 bg-green-50/50 text-center"><span className={`text-[10px] font-bold ${getDisc(p,'USD') > 0 ? 'text-green-600' : 'text-gray-300'}`}>{getDisc(p,'USD') > 0 ? `${getDisc(p,'USD')}%` : '-'}</span></td>
+                {/* AED */}
+                <td className="px-1 py-1 border-l bg-amber-50/30"><NumInput value={p.price_per_unit?.AED || 0} onChange={v => updateProgPrice(i, 'price_per_unit', 'AED', v)} /></td>
+                <td className="px-1 py-1 bg-gray-50 text-right font-mono text-[10px] font-bold text-gray-600">{getTotal(p, 'AED').toLocaleString()}</td>
+                <td className="px-1 py-1 bg-amber-50/30"><NumInput value={p.offer_price?.AED || 0} onChange={v => updateProgPrice(i, 'offer_price', 'AED', v)} bold className="text-[#5D3FD3]" /></td>
+                <td className="px-1 py-1 bg-green-50/50 text-center"><span className={`text-[10px] font-bold ${getDisc(p,'AED') > 0 ? 'text-green-600' : 'text-gray-300'}`}>{getDisc(p,'AED') > 0 ? `${getDisc(p,'AED')}%` : '-'}</span></td>
+                <td className="px-0.5 py-1"><button onClick={() => removeProgram(i)} className="text-gray-300 hover:text-red-500"><X size={10} /></button></td>
+              </tr>
+            ))}
+            {/* Subtotal */}
+            {(c.included_programs || []).length > 0 && (
+              <>
+                <tr className="border-t-2 border-gray-200 bg-gray-50 font-bold text-[10px]">
+                  <td className="px-2 py-1.5" colSpan={3}>Subtotal</td>
+                  <td className="px-1 py-1.5 border-l bg-blue-50/30"></td>
+                  <td className="px-1 py-1.5 bg-gray-100 text-right font-mono">{sumTotal('INR').toLocaleString()}</td>
+                  <td className="px-1 py-1.5 bg-blue-50/30 text-right font-mono text-[#5D3FD3]">{sumOffer('INR').toLocaleString()}</td>
+                  <td className="px-1 py-1.5 bg-green-50/50 text-center">{(() => { const t=sumTotal('INR'),o=sumOffer('INR'); return t>0&&o>0 ? <span className="text-green-600">{Math.round((t-o)/t*100)}%</span> : '-'; })()}</td>
+                  <td className="px-1 py-1.5 border-l"></td>
+                  <td className="px-1 py-1.5 text-right font-mono text-[#5D3FD3]">{sumOffer('USD').toLocaleString()}</td>
+                  <td className="px-1 py-1.5 bg-green-50/50"></td>
+                  <td className="px-1 py-1.5 border-l bg-amber-50/30"></td>
+                  <td className="px-1 py-1.5 bg-gray-100 text-right font-mono">{sumTotal('AED').toLocaleString()}</td>
+                  <td className="px-1 py-1.5 bg-amber-50/30 text-right font-mono text-[#5D3FD3]">{sumOffer('AED').toLocaleString()}</td>
+                  <td className="px-1 py-1.5 bg-green-50/50"></td>
+                  <td></td>
+                </tr>
+                {/* Tax Row */}
+                <tr className="text-[10px] text-gray-500 bg-orange-50/30">
+                  <td className="px-2 py-1" colSpan={3}>Tax</td>
+                  <td className="px-1 py-1 border-l text-right text-[9px] text-gray-400" colSpan={2}>GST 18%</td>
+                  <td className="px-1 py-1 text-right font-mono">{getTaxAmount('INR').toLocaleString()}</td>
+                  <td className="px-1 py-1"></td>
+                  <td className="px-1 py-1 border-l text-center text-gray-300" colSpan={3}>—</td>
+                  <td className="px-1 py-1 border-l text-right text-[9px] text-gray-400" colSpan={2}>VAT 5%</td>
+                  <td className="px-1 py-1 text-right font-mono">{getTaxAmount('AED').toLocaleString()}</td>
+                  <td className="px-1 py-1"></td>
+                  <td></td>
+                </tr>
+                {/* Final Total */}
+                <tr className="bg-[#5D3FD3]/10 font-bold text-[11px] text-[#5D3FD3]">
+                  <td className="px-2 py-2" colSpan={3}>Annual Package Price</td>
+                  <td className="px-1 py-2 border-l" colSpan={2}></td>
+                  <td className="px-1 py-2 text-right font-mono">{getWithTax('INR').toLocaleString()}</td>
+                  <td className="px-1 py-2"></td>
+                  <td className="px-1 py-2 border-l"></td>
+                  <td className="px-1 py-2 text-right font-mono">{sumOffer('USD').toLocaleString()}</td>
+                  <td className="px-1 py-2"></td>
+                  <td className="px-1 py-2 border-l" colSpan={2}></td>
+                  <td className="px-1 py-2 text-right font-mono">{getWithTax('AED').toLocaleString()}</td>
+                  <td className="px-1 py-2"></td>
+                  <td></td>
+                </tr>
+              </>
+            )}
+          </tbody>
+        </table>
+        <div className="px-2 py-1.5 border-t bg-gray-50 flex gap-2 items-end">
+          <Input value={progName} onChange={e => setProgName(e.target.value)} placeholder="Add program..." className="h-6 text-[10px] flex-1" onKeyDown={e => e.key === 'Enter' && (e.preventDefault(), addProgram())} />
+          <NumInput value={progVal} onChange={v => setProgVal(v)} className="w-12" />
+          <select value={progUnit} onChange={e => setProgUnit(e.target.value)} className="h-7 text-[10px] border rounded px-0.5">{DURATION_UNITS.map(u => <option key={u} value={u}>{u === 'months' ? 'mo' : 'sess'}</option>)}</select>
+          <Button size="sm" variant="outline" onClick={addProgram} className="h-6 px-2"><Plus size={10} /></Button>
         </div>
-        <p className="text-[9px] text-gray-400 mt-1.5">Set final annual package pricing directly. Offer totals from the table above are for reference.</p>
       </div>
     </div>
   );
