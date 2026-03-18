@@ -319,6 +319,153 @@ async def list_subscribers():
     return clients
 
 
+# ─── CREATE / UPDATE SUBSCRIBER (manual) ───
+
+class EMIInput(BaseModel):
+    number: int
+    date: str = ""
+    amount: float = 0
+    remaining: float = 0
+    due_date: str = ""
+    status: str = "pending"
+
+class SessionsInput(BaseModel):
+    carry_forward: int = 0
+    current: int = 0
+    total: int = 0
+    availed: int = 0
+    yet_to_avail: int = 0
+    due: int = 0
+    scheduled_dates: List[str] = []
+
+class SubscriberCreate(BaseModel):
+    name: str
+    email: str = ""
+    annual_program: str = ""
+    start_date: str = ""
+    end_date: str = ""
+    total_fee: float = 0
+    currency: str = "INR"
+    payment_mode: str = "No EMI"
+    num_emis: int = 0
+    emis: List[EMIInput] = []
+    sessions: Optional[SessionsInput] = None
+    programs: List[str] = []
+    bi_annual_download: int = 0
+    quarterly_releases: int = 0
+
+@router.post("/create")
+async def create_subscriber(data: SubscriberCreate):
+    """Manually create a new subscriber from the admin panel."""
+    sess = data.sessions.dict() if data.sessions else {
+        "carry_forward": 0, "current": 0, "total": 0,
+        "availed": 0, "yet_to_avail": 0, "due": 0, "scheduled_dates": []
+    }
+    if sess["total"] == 0 and (sess["carry_forward"] or sess["current"]):
+        sess["total"] = sess["carry_forward"] + sess["current"]
+    sess["yet_to_avail"] = sess["total"] - sess["availed"]
+
+    subscription = {
+        "annual_program": data.annual_program,
+        "start_date": data.start_date,
+        "end_date": data.end_date,
+        "total_fee": data.total_fee,
+        "currency": data.currency,
+        "payment_mode": data.payment_mode,
+        "num_emis": data.num_emis,
+        "emis": [e.dict() for e in data.emis],
+        "sessions": sess,
+        "programs": data.programs,
+        "bi_annual_download": data.bi_annual_download,
+        "quarterly_releases": data.quarterly_releases,
+        "updated_at": datetime.now(timezone.utc).isoformat()
+    }
+
+    # Check if client exists
+    existing = None
+    if data.email:
+        existing = await db.clients.find_one({"email": data.email.lower()})
+    if not existing and data.name:
+        existing = await db.clients.find_one({"name": {"$regex": f"^{data.name}$", "$options": "i"}})
+
+    if existing:
+        await db.clients.update_one(
+            {"_id": existing["_id"]},
+            {"$set": {"subscription": subscription, "name": data.name or existing.get("name"), "updated_at": datetime.now(timezone.utc).isoformat()}}
+        )
+        return {"message": "Subscriber updated", "id": existing["id"]}
+    else:
+        client_id = str(uuid.uuid4())
+        new_client = {
+            "id": client_id,
+            "did": f"DID-{str(uuid.uuid4())[:8].upper()}",
+            "email": data.email.lower() if data.email else "",
+            "name": data.name,
+            "phone": "",
+            "label": "Iris",
+            "label_manual": "Iris",
+            "sources": ["Admin Manual"],
+            "conversions": [],
+            "timeline": [{"type": "Admin Manual", "detail": f"Annual: {data.annual_program}", "date": datetime.now(timezone.utc).isoformat()}],
+            "subscription": subscription,
+            "notes": "",
+            "created_at": datetime.now(timezone.utc).isoformat(),
+            "updated_at": datetime.now(timezone.utc).isoformat()
+        }
+        await db.clients.insert_one(new_client)
+        return {"message": "Subscriber created", "id": client_id}
+
+
+@router.put("/update/{client_id}")
+async def update_subscriber(client_id: str, data: SubscriberCreate):
+    """Update an existing subscriber's full subscription data."""
+    client_doc = await db.clients.find_one({"id": client_id})
+    if not client_doc:
+        raise HTTPException(status_code=404, detail="Client not found")
+
+    sess = data.sessions.dict() if data.sessions else client_doc.get("subscription", {}).get("sessions", {})
+    if sess.get("total", 0) == 0 and (sess.get("carry_forward", 0) or sess.get("current", 0)):
+        sess["total"] = sess.get("carry_forward", 0) + sess.get("current", 0)
+    sess["yet_to_avail"] = sess.get("total", 0) - sess.get("availed", 0)
+
+    subscription = {
+        "annual_program": data.annual_program,
+        "start_date": data.start_date,
+        "end_date": data.end_date,
+        "total_fee": data.total_fee,
+        "currency": data.currency,
+        "payment_mode": data.payment_mode,
+        "num_emis": data.num_emis,
+        "emis": [e.dict() for e in data.emis],
+        "sessions": sess,
+        "programs": data.programs,
+        "bi_annual_download": data.bi_annual_download,
+        "quarterly_releases": data.quarterly_releases,
+        "updated_at": datetime.now(timezone.utc).isoformat()
+    }
+
+    update_fields = {"subscription": subscription, "updated_at": datetime.now(timezone.utc).isoformat()}
+    if data.name:
+        update_fields["name"] = data.name
+    if data.email:
+        update_fields["email"] = data.email.lower()
+
+    await db.clients.update_one({"id": client_id}, {"$set": update_fields})
+    return {"message": "Subscriber updated"}
+
+
+@router.delete("/delete/{client_id}")
+async def delete_subscriber_subscription(client_id: str):
+    """Remove subscription data from a client (does not delete the client)."""
+    result = await db.clients.update_one(
+        {"id": client_id},
+        {"$unset": {"subscription": ""}}
+    )
+    if result.modified_count == 0:
+        raise HTTPException(status_code=404, detail="Client not found or no subscription")
+    return {"message": "Subscription removed"}
+
+
 # ─── UPDATE EMI STATUS (when payment received) ───
 
 class EMIPaymentUpdate(BaseModel):
