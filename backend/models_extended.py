@@ -24,9 +24,26 @@ class EmiPlan(BaseModel):
     installments: List[Dict] = []  # [{date, amount, status, proof_url}]
     active: bool = True
 
-# We will patch this into the existing Client model by extending the schema dynamically in routes if needed
-# but better to have it defined. Since Client is a dict in current code (not strict Pydantic everywhere in routes), 
-# we can just add fields. But for validation let's define:
+class ClientPackage(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    program_name: str  # e.g. "Annual Mentorship"
+    total_sessions: int = 0
+    used_sessions: int = 0
+    start_date: str = ""
+    end_date: str = ""
+    next_session_date: Optional[str] = None
+    status: str = "Active"
+
+class JourneyLog(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    client_id: str
+    date: str
+    title: str  # e.g. "Month 1: Awakening" or "Session 3"
+    category: str = "General"  # Health, Wealth, Relationship, etc.
+    experience: str
+    learning: str
+    rating: int = 0  # 1-10
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 class BulkClientUploadItem(BaseModel):
     name: str
