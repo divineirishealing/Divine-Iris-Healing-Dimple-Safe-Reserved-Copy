@@ -68,7 +68,7 @@ def safe_date(val):
 
 
 # ═══════════════════════════════════════════
-# GLOBAL ANNUAL PRICING CONFIG
+# MULTI-PACKAGE ANNUAL PRICING
 # ═══════════════════════════════════════════
 
 class IncludedProgram(BaseModel):
@@ -76,121 +76,131 @@ class IncludedProgram(BaseModel):
     program_id: str = ""
     duration_value: int = 12
     duration_unit: str = "months"  # months | sessions
-    price_per_unit: Dict[str, float] = {}  # {INR: 90000, USD: 1800, ...} per month/session
-    offer_price: Dict[str, float] = {}     # {INR: 50000, USD: 600, ...} total offer for this program
-    # total_price & discount_pct are auto-calculated: total = per_unit × duration, disc = (total-offer)/total*100
+    price_per_unit: Dict[str, float] = {}    # {INR: 90000, ...} original price per unit
+    offer_per_unit: Dict[str, float] = {}    # {INR: 75000, ...} offer price per unit
+    # Auto-calc: total = price_per_unit × duration, offer_total = offer_per_unit × duration, disc = (total-offer)/total×100
 
-class AnnualPricingConfig(BaseModel):
-    package_name: str = "Annual Healing Package"
+class AnnualPackage(BaseModel):
+    package_id: str = ""
+    package_name: str = "Standard Annual"
     valid_from: str = ""
     valid_to: str = ""
     duration_months: int = 12
-    pricing: Dict[str, float] = {"INR": 50000, "USD": 600, "AED": 2200, "EUR": 550, "GBP": 470}
     included_programs: List[IncludedProgram] = []
-    overall_discount_pct: float = 0
+    additional_discount_pct: float = 0  # extra % off the offer subtotal
     default_sessions_current: int = 12
     default_sessions_carry_forward: int = 0
     notes: str = ""
+    is_active: bool = True
 
-DEFAULT_PRICING_CONFIG = {
-    "id": "annual_pricing_config",
-    "package_name": "Annual Healing Package",
-    "valid_from": "2026-04-01",
-    "valid_to": "2027-03-31",
-    "duration_months": 12,
-    "pricing": {"INR": 50000, "USD": 600, "AED": 2200, "EUR": 550, "GBP": 470},
-    "included_programs": [
-        {"name": "AWRP", "program_id": "", "duration_value": 12, "duration_unit": "months",
-         "price_per_unit": {"INR": 90000, "USD": 1800, "AED": 4500}, "offer_price": {"INR": 0, "USD": 0, "AED": 0}},
-        {"name": "Money Magic Multiplier", "program_id": "", "duration_value": 6, "duration_unit": "months",
-         "price_per_unit": {"INR": 20000, "USD": 325, "AED": 1200}, "offer_price": {"INR": 0, "USD": 0, "AED": 0}},
-        {"name": "Bi-Annual Downloads", "program_id": "", "duration_value": 2, "duration_unit": "sessions",
-         "price_per_unit": {}, "offer_price": {}},
-        {"name": "Quarterly Meetups", "program_id": "", "duration_value": 4, "duration_unit": "sessions",
-         "price_per_unit": {}, "offer_price": {}},
-    ],
-    "overall_discount_pct": 0,
-    "default_sessions_current": 12,
-    "default_sessions_carry_forward": 0,
-    "notes": ""
-}
+# --- CRUD for packages ---
 
-@router.get("/pricing-config")
-async def get_pricing_config():
-    doc = await db.annual_pricing_config.find_one({"id": "annual_pricing_config"}, {"_id": 0})
+@router.get("/packages")
+async def list_packages():
+    """List all annual packages."""
+    packages = await db.annual_packages.find({}, {"_id": 0}).to_list(100)
+    if not packages:
+        # Seed a default package
+        default = AnnualPackage(
+            package_id="PKG-STANDARD",
+            package_name="Standard Annual",
+            valid_from="2026-04-01",
+            valid_to="2027-03-31",
+            included_programs=[
+                IncludedProgram(name="AWRP", duration_value=12, duration_unit="months",
+                    price_per_unit={"INR": 90000, "USD": 1800, "AED": 4500},
+                    offer_per_unit={"INR": 45000, "USD": 900, "AED": 2250}),
+                IncludedProgram(name="Money Magic Multiplier", duration_value=6, duration_unit="months",
+                    price_per_unit={"INR": 20000, "USD": 325, "AED": 1200},
+                    offer_per_unit={"INR": 10000, "USD": 163, "AED": 600}),
+                IncludedProgram(name="Bi-Annual Downloads", duration_value=2, duration_unit="sessions"),
+                IncludedProgram(name="Quarterly Meetups", duration_value=4, duration_unit="sessions"),
+            ]
+        ).dict()
+        default["created_at"] = datetime.now(timezone.utc).isoformat()
+        await db.annual_packages.insert_one(default)
+        del default["_id"]
+        packages = [default]
+    return packages
+
+@router.post("/packages")
+async def create_package(data: AnnualPackage):
+    """Create a new annual package variant."""
+    pkg = data.dict()
+    if not pkg["package_id"]:
+        pkg["package_id"] = f"PKG-{str(uuid.uuid4())[:6].upper()}"
+    pkg["included_programs"] = [p.dict() for p in data.included_programs]
+    pkg["created_at"] = datetime.now(timezone.utc).isoformat()
+    pkg["updated_at"] = datetime.now(timezone.utc).isoformat()
+    # Check uniqueness
+    existing = await db.annual_packages.find_one({"package_id": pkg["package_id"]})
+    if existing:
+        raise HTTPException(status_code=400, detail=f"Package ID '{pkg['package_id']}' already exists")
+    await db.annual_packages.insert_one(pkg)
+    return {"message": "Package created", "package_id": pkg["package_id"]}
+
+@router.put("/packages/{package_id}")
+async def update_package(package_id: str, data: AnnualPackage):
+    """Update an existing package."""
+    pkg = data.dict()
+    pkg["package_id"] = package_id
+    pkg["included_programs"] = [p.dict() for p in data.included_programs]
+    pkg["updated_at"] = datetime.now(timezone.utc).isoformat()
+    result = await db.annual_packages.update_one(
+        {"package_id": package_id},
+        {"$set": pkg}
+    )
+    if result.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Package not found")
+    return {"message": "Package updated"}
+
+@router.delete("/packages/{package_id}")
+async def delete_package(package_id: str):
+    result = await db.annual_packages.delete_one({"package_id": package_id})
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Package not found")
+    return {"message": "Package deleted"}
+
+@router.get("/packages/{package_id}")
+async def get_package(package_id: str):
+    doc = await db.annual_packages.find_one({"package_id": package_id}, {"_id": 0})
     if not doc:
-        await db.annual_pricing_config.insert_one(DEFAULT_PRICING_CONFIG)
-        return DEFAULT_PRICING_CONFIG
+        raise HTTPException(status_code=404, detail="Package not found")
     return doc
 
+# --- Backward compat: pricing-config returns the first active package ---
+@router.get("/pricing-config")
+async def get_pricing_config():
+    pkg = await db.annual_packages.find_one({"is_active": True}, {"_id": 0})
+    if not pkg:
+        pkgs = await db.annual_packages.find({}, {"_id": 0}).to_list(1)
+        pkg = pkgs[0] if pkgs else None
+    if not pkg:
+        # trigger default seed
+        pkgs = await list_packages()
+        pkg = pkgs[0] if pkgs else {}
+    return pkg
+
 @router.put("/pricing-config")
-async def update_pricing_config(data: AnnualPricingConfig):
+async def update_pricing_config(data: AnnualPackage):
+    """Backward compat: update the first active package."""
+    pkg_id = data.package_id
+    if not pkg_id:
+        existing = await db.annual_packages.find_one({"is_active": True}, {"_id": 0})
+        if existing:
+            pkg_id = existing["package_id"]
+        else:
+            pkg_id = "PKG-STANDARD"
     update = data.dict()
-    update["id"] = "annual_pricing_config"
+    update["package_id"] = pkg_id
     update["included_programs"] = [p.dict() for p in data.included_programs]
     update["updated_at"] = datetime.now(timezone.utc).isoformat()
-    await db.annual_pricing_config.update_one(
-        {"id": "annual_pricing_config"},
+    await db.annual_packages.update_one(
+        {"package_id": pkg_id},
         {"$set": update},
         upsert=True
     )
-    return {"message": "Pricing config updated"}
-
-@router.get("/calculate-pricing")
-async def calculate_annual_pricing():
-    """Calculate pricing from per-unit prices × duration, compare with offer, auto-calculate discount."""
-    config = await db.annual_pricing_config.find_one({"id": "annual_pricing_config"}, {"_id": 0})
-    if not config:
-        config = DEFAULT_PRICING_CONFIG
-
-    currencies = ["INR", "USD", "AED", "EUR", "GBP"]
-    breakdown = []
-    total_sums = {c: 0 for c in currencies}
-    offer_sums = {c: 0 for c in currencies}
-
-    for inc in config.get("included_programs", []):
-        ppu = inc.get("price_per_unit", {})
-        offer = inc.get("offer_price", {})
-        dur = inc.get("duration_value", 0)
-
-        item = {
-            "name": inc["name"],
-            "duration_value": dur,
-            "duration_unit": inc["duration_unit"],
-            "price_per_unit": {},
-            "total_price": {},
-            "offer_price": {},
-            "discount_pct": {},
-        }
-
-        for cur in currencies:
-            unit_price = ppu.get(cur, 0) or 0
-            total = unit_price * dur
-            off = offer.get(cur, 0) or 0
-            disc_pct = round(((total - off) / total) * 100, 1) if total > 0 and off > 0 else 0
-
-            item["price_per_unit"][cur] = unit_price
-            item["total_price"][cur] = round(total, 2)
-            item["offer_price"][cur] = off
-            item["discount_pct"][cur] = disc_pct
-
-            total_sums[cur] += total
-            offer_sums[cur] += off
-
-        breakdown.append(item)
-
-    # Overall discount per currency
-    overall_disc = {}
-    for cur in currencies:
-        overall_disc[cur] = round(((total_sums[cur] - offer_sums[cur]) / total_sums[cur]) * 100, 1) if total_sums[cur] > 0 and offer_sums[cur] > 0 else 0
-
-    return {
-        "breakdown": breakdown,
-        "total_sums": {c: round(v, 2) for c, v in total_sums.items()},
-        "offer_sums": {c: round(v, 2) for c, v in offer_sums.items()},
-        "overall_discount_pct": overall_disc,
-        "manual_pricing": config.get("pricing", {})
-    }
+    return {"message": "Package updated"}
 
 
 
@@ -468,6 +478,7 @@ class SessionsInput(BaseModel):
 class SubscriberCreate(BaseModel):
     name: str
     email: str = ""
+    package_id: str = ""  # tag to a specific package
     annual_program: str = ""
     start_date: str = ""
     end_date: str = ""
@@ -493,6 +504,7 @@ async def create_subscriber(data: SubscriberCreate):
     sess["yet_to_avail"] = sess["total"] - sess["availed"]
 
     subscription = {
+        "package_id": data.package_id,
         "annual_program": data.annual_program,
         "start_date": data.start_date,
         "end_date": data.end_date,
@@ -556,6 +568,7 @@ async def update_subscriber(client_id: str, data: SubscriberCreate):
     sess["yet_to_avail"] = sess.get("total", 0) - sess.get("availed", 0)
 
     subscription = {
+        "package_id": data.package_id,
         "annual_program": data.annual_program,
         "start_date": data.start_date,
         "end_date": data.end_date,

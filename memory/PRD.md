@@ -1,20 +1,19 @@
-# Divine Iris Healing - Product Requirements Document
+# Divine Iris Healing - PRD
 
 ## Architecture
 React + TailwindCSS + shadcn/ui | FastAPI + Motor MongoDB | Stripe | Emergent Google OAuth
 
 ## Implemented Features
 
-### Annual Pricing - Inline 3-Currency Table with Taxes (Mar 18, 2026) - COMPLETED
-- [x] All 3 currencies (INR, USD, AED) shown inline — no currency switcher
-- [x] Per program: Per Unit → Total (auto) → Offer → Discount % (auto) per currency
-- [x] Tax row: GST 18% (India/INR), VAT 5% (Dubai/AED), none for USD
-- [x] Annual Package Price = Offer + Tax per currency
-- [x] No number spinners (text inputs with inputMode=decimal)
-- [x] Compact config: Package Name, Duration, Valid From/To, Sessions, Notes — one row
-- [x] Validity badge, Save button
-- [x] 100% frontend tests passed (iteration_81)
+### Multi-Package Pricing System (Mar 18, 2026) - COMPLETED
+- [x] Multiple package variants (PKG-STANDARD, PKG-VIP, etc.) with unique IDs
+- [x] Per-program: /Unit, Offer/Unit (NEW), Total (auto), Offer Total (auto), Disc % (auto)
+- [x] Additional package-level discount %
+- [x] Taxes: GST 18% (INR), VAT 5% (AED)
+- [x] Subscriber form: Package selector dropdown to tag subscribers to packages
+- [x] Auto-fill from selected package (pricing, programs, sessions)
+- [x] Create/Delete packages from admin UI
 
-### Annual Subscriber CRUD, Student Dashboard, Google OAuth — COMPLETED
+### Previous: Subscriber CRUD, Student Dashboard, Google OAuth — COMPLETED
 
 ## Admin: /admin (admin / divineadmin2024) | Student: /login → /dashboard
