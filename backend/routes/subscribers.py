@@ -281,6 +281,59 @@ async def update_pricing_config(data: AnnualPackage):
 
 
 
+
+# ─── GLOBAL PROGRAM SCHEDULE (common for all subscribers) ───
+
+@router.get("/program-schedule")
+async def get_program_schedule():
+    """Get the global program schedule."""
+    doc = await db.program_schedule.find_one({"id": "global"}, {"_id": 0})
+    if not doc:
+        return []
+    return doc.get("programs", [])
+
+@router.put("/program-schedule")
+async def update_program_schedule(programs: List[Dict]):
+    """Save global program schedule and sync to all subscribers."""
+    await db.program_schedule.update_one(
+        {"id": "global"},
+        {"$set": {"id": "global", "programs": programs, "updated_at": datetime.now(timezone.utc).isoformat()}},
+        upsert=True
+    )
+
+    # Sync to all subscribers: update their programs_detail schedule
+    subscribers = await db.clients.find(
+        {"subscription": {"$exists": True}},
+        {"_id": 0, "id": 1, "subscription": 1}
+    ).to_list(5000)
+
+    for sub_doc in subscribers:
+        subscription = sub_doc.get("subscription", {})
+        pd = subscription.get("programs_detail", [])
+        updated = False
+        for global_prog in programs:
+            for local_prog in pd:
+                if local_prog["name"] == global_prog["name"]:
+                    # Merge: keep student's mode_choice, update dates from global
+                    old_sched = {(s.get("month") or s.get("session", 0)): s for s in local_prog.get("schedule", [])}
+                    new_sched = []
+                    for gs in global_prog.get("schedule", []):
+                        key = gs.get("month") or gs.get("session", 0)
+                        old = old_sched.get(key, {})
+                        merged = {**gs, "mode_choice": old.get("mode_choice", "")}
+                        new_sched.append(merged)
+                    local_prog["schedule"] = new_sched
+                    updated = True
+        if updated:
+            subscription["programs_detail"] = pd
+            await db.clients.update_one(
+                {"id": sub_doc["id"]},
+                {"$set": {"subscription": subscription}}
+            )
+
+    return {"message": f"Schedule saved & synced to {len(subscribers)} subscribers"}
+
+
 # ─── UPLOAD ───
 
 @router.post("/upload")

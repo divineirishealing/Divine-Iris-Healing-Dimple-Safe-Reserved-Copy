@@ -3,112 +3,78 @@ import axios from 'axios';
 import { useToast } from '../../../hooks/use-toast';
 import { Button } from '../../ui/button';
 import { Input } from '../../ui/input';
-import { Save, Loader2, CheckCircle, Calendar } from 'lucide-react';
+import { Label } from '../../ui/label';
+import { Save, Loader2, CheckCircle, Plus, X, Calendar } from 'lucide-react';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
-const PROGRAMS = ['AWRP', 'Money Magic Multiplier', 'Quarterly Meetups', 'Bi-Annual Downloads'];
-
 const SchedulerTab = () => {
   const { toast } = useToast();
-  const [subscribers, setSubscribers] = useState([]);
+  const [programs, setPrograms] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(null);
-  const [activeProgram, setActiveProgram] = useState('AWRP');
-  const [changes, setChanges] = useState({});
+  const [saving, setSaving] = useState(false);
 
   const fetchData = useCallback(async () => {
     try {
-      const res = await axios.get(`${API}/admin/subscribers/list`);
-      setSubscribers(res.data || []);
-    } catch (e) { console.error(e); }
+      const res = await axios.get(`${API}/admin/subscribers/program-schedule`);
+      const data = res.data || [];
+      if (data.length > 0) {
+        setPrograms(data);
+      } else {
+        // Seed from package config
+        try {
+          const pkgRes = await axios.get(`${API}/admin/subscribers/packages`);
+          const pkg = (pkgRes.data || [])[0];
+          if (pkg?.included_programs?.length > 0) {
+            setPrograms(pkg.included_programs.map(p => ({
+              name: p.name, duration_value: p.duration_value, duration_unit: p.duration_unit, schedule: []
+            })));
+          }
+        } catch (e2) {}
+      }
+    } catch (e) {
+      // Seed defaults if endpoint doesn't exist yet
+      setPrograms([
+        { name: 'AWRP', duration_value: 12, duration_unit: 'months', schedule: [] },
+        { name: 'Money Magic Multiplier', duration_value: 6, duration_unit: 'months', schedule: [] },
+        { name: 'Quarterly Meetups', duration_value: 4, duration_unit: 'sessions', schedule: [] },
+        { name: 'Bi-Annual Downloads', duration_value: 2, duration_unit: 'sessions', schedule: [] },
+      ]);
+    }
     finally { setLoading(false); }
   }, []);
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
-  const getProgramDetail = (sub, progName) => {
-    const pd = sub.subscription?.programs_detail || [];
-    return pd.find(p => p.name === progName) || null;
+  const updateSlot = (progIdx, slotIdx, field, value) => {
+    const updated = [...programs];
+    const sched = [...(updated[progIdx].schedule || [])];
+    sched[slotIdx] = { ...sched[slotIdx], [field]: field === 'completed' ? value : value };
+    updated[progIdx] = { ...updated[progIdx], schedule: sched };
+    setPrograms(updated);
   };
 
-  const getSchedule = (sub, progName) => {
-    const pd = getProgramDetail(sub, progName);
-    return pd?.schedule || [];
-  };
-
-  const getMaxSlots = (progName) => {
-    let max = 0;
-    for (const sub of subscribers) {
-      const pd = getProgramDetail(sub, progName);
-      if (pd) max = Math.max(max, pd.duration_value || 0);
+  const generateSlots = (progIdx) => {
+    const prog = programs[progIdx];
+    const sched = [];
+    for (let i = 0; i < prog.duration_value; i++) {
+      sched.push(prog.duration_unit === 'months'
+        ? { month: i + 1, date: '', end_date: '', time: '', completed: false }
+        : { session: i + 1, date: '', time: '', completed: false });
     }
-    return max || (progName === 'AWRP' ? 12 : progName === 'Money Magic Multiplier' ? 6 : progName === 'Quarterly Meetups' ? 4 : 2);
-  };
-
-  const updateCell = (subId, slotIndex, field, value) => {
-    const key = `${subId}_${slotIndex}_${field}`;
-    setChanges(prev => ({ ...prev, [key]: { subId, slotIndex, field, value } }));
-  };
-
-  const getCellValue = (sub, slotIndex, field) => {
-    const key = `${sub.id}_${slotIndex}_${field}`;
-    if (changes[key]) return changes[key].value;
-    const schedule = getSchedule(sub, activeProgram);
-    return schedule[slotIndex]?.[field] || '';
+    const updated = [...programs];
+    updated[progIdx] = { ...updated[progIdx], schedule: sched };
+    setPrograms(updated);
   };
 
   const saveAll = async () => {
-    setSaving('all');
-    const grouped = {};
-    for (const ch of Object.values(changes)) {
-      if (!grouped[ch.subId]) grouped[ch.subId] = {};
-      if (!grouped[ch.subId][ch.slotIndex]) grouped[ch.subId][ch.slotIndex] = {};
-      grouped[ch.subId][ch.slotIndex][ch.field] = ch.value;
-    }
-
-    for (const [subId, slots] of Object.entries(grouped)) {
-      try {
-        const sub = subscribers.find(s => s.id === subId);
-        if (!sub) continue;
-        const subscription = { ...sub.subscription };
-        const pd = [...(subscription.programs_detail || [])];
-        const progIdx = pd.findIndex(p => p.name === activeProgram);
-        if (progIdx === -1) continue;
-
-        const schedule = [...(pd[progIdx].schedule || [])];
-        for (const [si, fields] of Object.entries(slots)) {
-          const idx = parseInt(si);
-          while (schedule.length <= idx) {
-            schedule.push(pd[progIdx].duration_unit === 'months'
-              ? { month: schedule.length + 1, date: '', end_date: '', mode_choice: '', completed: false }
-              : { session: schedule.length + 1, date: '', time: '', mode_choice: '', completed: false });
-          }
-          schedule[idx] = { ...schedule[idx], ...fields };
-        }
-        pd[progIdx] = { ...pd[progIdx], schedule };
-        subscription.programs_detail = pd;
-
-        await axios.put(`${API}/admin/subscribers/update/${subId}`, {
-          ...subscription,
-          name: sub.name,
-          email: sub.email,
-          programs: subscription.programs || [],
-          programs_detail: pd,
-          emis: subscription.emis || [],
-          sessions: subscription.sessions || {},
-        });
-      } catch (e) { console.error(e); }
-    }
-
-    setChanges({});
-    toast({ title: 'Schedule saved' });
-    fetchData();
-    setSaving(null);
+    setSaving(true);
+    try {
+      await axios.put(`${API}/admin/subscribers/program-schedule`, programs);
+      toast({ title: 'Program schedule saved & synced to all subscribers' });
+    } catch (e) { toast({ title: 'Error saving', variant: 'destructive' }); }
+    finally { setSaving(false); }
   };
-
-  const maxSlots = getMaxSlots(activeProgram);
-  const isMonths = activeProgram === 'AWRP' || activeProgram === 'Money Magic Multiplier';
 
   if (loading) return <div className="p-8 text-center"><Loader2 className="animate-spin mx-auto text-gray-400" /></div>;
 
@@ -117,109 +83,108 @@ const SchedulerTab = () => {
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-xl font-semibold text-gray-900">Program Scheduler</h2>
-          <p className="text-sm text-gray-500">Set dates for all subscribers in one view</p>
+          <p className="text-sm text-gray-500">Set dates once — applies to all subscribers</p>
         </div>
-        <Button onClick={saveAll} disabled={saving || Object.keys(changes).length === 0} className="bg-[#5D3FD3] hover:bg-[#4c32b3]" data-testid="save-schedule-btn">
+        <Button onClick={saveAll} disabled={saving} className="bg-[#5D3FD3] hover:bg-[#4c32b3]" data-testid="save-schedule-btn">
           {saving ? <Loader2 size={14} className="animate-spin mr-1" /> : <Save size={14} className="mr-1" />}
-          Save All Changes {Object.keys(changes).length > 0 && `(${Object.keys(changes).length})`}
+          Save & Sync to All
         </Button>
       </div>
 
-      {/* Program Tabs */}
-      <div className="flex gap-1">
-        {PROGRAMS.map(prog => (
-          <button key={prog} onClick={() => { setActiveProgram(prog); setChanges({}); }}
-            className={`px-3 py-1.5 text-xs rounded-lg font-medium transition-colors ${activeProgram === prog ? 'bg-[#5D3FD3] text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}
-            data-testid={`prog-tab-${prog}`}>
-            {prog}
-          </button>
-        ))}
-      </div>
+      {/* One table per program */}
+      {programs.map((prog, pi) => {
+        const isMonths = prog.duration_unit === 'months';
+        const schedule = prog.schedule || [];
+        const completedCount = schedule.filter(s => s.completed).length;
 
-      {/* Spreadsheet Grid */}
-      <div className="bg-white rounded-lg border shadow-sm overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full text-[10px]" style={{ minWidth: `${200 + maxSlots * (isMonths ? 200 : 140)}px` }}>
-            <thead>
-              <tr className="bg-gray-50 border-b">
-                <th className="px-3 py-2 text-left text-[9px] font-bold uppercase text-gray-500 sticky left-0 bg-gray-50 z-10 border-r w-40">Subscriber</th>
-                {Array.from({ length: maxSlots }, (_, i) => (
-                  <th key={i} className="px-1 py-2 text-center border-l" colSpan={isMonths ? 2 : 2}>
-                    <span className="text-[9px] font-bold text-gray-500">{isMonths ? `Month ${i + 1}` : `Session ${i + 1}`}</span>
-                  </th>
-                ))}
-              </tr>
-              <tr className="bg-gray-50 border-b text-[8px] text-gray-400 uppercase">
-                <th className="px-3 py-1 sticky left-0 bg-gray-50 z-10 border-r"></th>
-                {Array.from({ length: maxSlots }, (_, i) => (
-                  <React.Fragment key={i}>
-                    <th className="px-1 py-1 text-center border-l">{isMonths ? 'Start' : 'Date'}</th>
-                    <th className="px-1 py-1 text-center">{isMonths ? 'End' : 'Time'}</th>
-                  </React.Fragment>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {subscribers.map(sub => {
-                const schedule = getSchedule(sub, activeProgram);
-                const pd = getProgramDetail(sub, activeProgram);
-                if (!pd) return null;
-                return (
-                  <tr key={sub.id} className="border-b hover:bg-gray-50/50" data-testid={`sched-row-${sub.id}`}>
-                    <td className="px-3 py-2 sticky left-0 bg-white z-10 border-r">
-                      <div className="font-bold text-gray-900 text-[10px] truncate w-36">{sub.name}</div>
-                      <div className="text-[8px] text-gray-400 truncate">{sub.email}</div>
-                    </td>
-                    {Array.from({ length: maxSlots }, (_, si) => {
-                      const sess = schedule[si] || {};
-                      const isCompleted = getCellValue(sub, si, 'completed') === true || sess.completed;
+        return (
+          <div key={pi} className="bg-white rounded-xl border shadow-sm overflow-hidden" data-testid={`sched-prog-${prog.name}`}>
+            {/* Program Header */}
+            <div className="px-4 py-3 bg-gradient-to-r from-[#5D3FD3]/5 to-[#D4AF37]/5 border-b flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <Calendar size={16} className="text-[#5D3FD3]" />
+                <div>
+                  <h3 className="font-bold text-gray-900 text-sm">{prog.name}</h3>
+                  <p className="text-[10px] text-gray-500">{prog.duration_value} {prog.duration_unit} · {completedCount}/{schedule.length} completed</p>
+                </div>
+              </div>
+              {schedule.length === 0 && (
+                <Button size="sm" variant="outline" onClick={() => generateSlots(pi)} className="h-7 text-xs">
+                  <Plus size={12} className="mr-1" /> Generate {prog.duration_value} Slots
+                </Button>
+              )}
+            </div>
+
+            {/* Schedule Grid */}
+            {schedule.length > 0 && (
+              <div className="overflow-x-auto">
+                <table className="w-full text-[11px]">
+                  <thead>
+                    <tr className="bg-gray-50 text-[9px] text-gray-400 uppercase border-b">
+                      <th className="px-3 py-2 text-left w-16">#</th>
+                      <th className="px-2 py-2 text-left">Start Date</th>
+                      {isMonths && <th className="px-2 py-2 text-left">End Date</th>}
+                      <th className="px-2 py-2 text-left">Time</th>
+                      <th className="px-2 py-2 text-center w-16">Done</th>
+                      <th className="px-2 py-2 text-center w-16">Status</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {schedule.map((slot, si) => {
+                      const label = isMonths ? `Month ${si + 1}` : `Session ${si + 1}`;
+                      const hasDate = !!slot.date;
                       return (
-                        <React.Fragment key={si}>
-                          <td className={`px-0.5 py-1 border-l ${isCompleted ? 'bg-green-50' : ''}`}>
-                            <div className="relative">
-                              <input type="date"
-                                value={getCellValue(sub, si, 'date')}
-                                onChange={e => updateCell(sub.id, si, 'date', e.target.value)}
-                                className={`w-full h-6 text-[9px] border rounded px-1 outline-none focus:ring-1 focus:ring-[#D4AF37] ${isCompleted ? 'bg-green-50' : 'bg-white'} ${changes[`${sub.id}_${si}_date`] ? 'border-[#D4AF37] bg-[#D4AF37]/5' : 'border-gray-200'}`}
-                              />
-                              {isCompleted && <CheckCircle size={8} className="absolute right-1 top-1.5 text-green-500" />}
-                            </div>
+                        <tr key={si} className={`border-b border-gray-50 ${slot.completed ? 'bg-green-50/50' : ''}`}>
+                          <td className="px-3 py-2">
+                            <span className={`inline-flex items-center justify-center w-7 h-7 rounded-lg text-[10px] font-bold ${slot.completed ? 'bg-green-500 text-white' : hasDate ? 'bg-[#5D3FD3] text-white' : 'bg-gray-100 text-gray-400'}`}>
+                              {slot.completed ? <CheckCircle size={12} /> : si + 1}
+                            </span>
+                            <span className="ml-2 text-gray-600 font-medium">{label}</span>
                           </td>
-                          <td className={`px-0.5 py-1 ${isCompleted ? 'bg-green-50' : ''}`}>
-                            {isMonths ? (
-                              <input type="date"
-                                value={getCellValue(sub, si, 'end_date')}
-                                onChange={e => updateCell(sub.id, si, 'end_date', e.target.value)}
-                                className={`w-full h-6 text-[9px] border rounded px-1 outline-none focus:ring-1 focus:ring-[#D4AF37] ${changes[`${sub.id}_${si}_end_date`] ? 'border-[#D4AF37] bg-[#D4AF37]/5' : 'border-gray-200'}`}
-                              />
-                            ) : (
-                              <input type="text"
-                                value={getCellValue(sub, si, 'time')}
-                                onChange={e => updateCell(sub.id, si, 'time', e.target.value)}
-                                placeholder="Time"
-                                className={`w-full h-6 text-[9px] border rounded px-1 outline-none focus:ring-1 focus:ring-[#D4AF37] ${changes[`${sub.id}_${si}_time`] ? 'border-[#D4AF37] bg-[#D4AF37]/5' : 'border-gray-200'}`}
-                              />
-                            )}
+                          <td className="px-2 py-2">
+                            <Input type="date" value={slot.date || ''} onChange={e => updateSlot(pi, si, 'date', e.target.value)}
+                              className="h-7 text-xs w-36" />
                           </td>
-                        </React.Fragment>
+                          {isMonths && (
+                            <td className="px-2 py-2">
+                              <Input type="date" value={slot.end_date || ''} onChange={e => updateSlot(pi, si, 'end_date', e.target.value)}
+                                className="h-7 text-xs w-36" />
+                            </td>
+                          )}
+                          <td className="px-2 py-2">
+                            <Input value={slot.time || ''} onChange={e => updateSlot(pi, si, 'time', e.target.value)}
+                              placeholder="e.g. 7PM IST" className="h-7 text-xs w-28" />
+                          </td>
+                          <td className="px-2 py-2 text-center">
+                            <input type="checkbox" checked={slot.completed || false}
+                              onChange={e => updateSlot(pi, si, 'completed', e.target.checked)}
+                              className="w-4 h-4 accent-green-500 cursor-pointer" />
+                          </td>
+                          <td className="px-2 py-2 text-center">
+                            <span className={`px-2 py-0.5 rounded-full text-[9px] font-bold ${
+                              slot.completed ? 'bg-green-100 text-green-700' :
+                              hasDate ? 'bg-blue-100 text-blue-700' :
+                              'bg-gray-100 text-gray-400'
+                            }`}>
+                              {slot.completed ? 'Done' : hasDate ? 'Scheduled' : 'TBD'}
+                            </span>
+                          </td>
+                        </tr>
                       );
                     })}
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
-        {Object.keys(changes).length > 0 && (
-          <div className="px-4 py-2 bg-[#D4AF37]/10 border-t flex items-center justify-between">
-            <span className="text-[10px] text-[#D4AF37] font-semibold">{Object.keys(changes).length} unsaved changes</span>
-            <div className="flex gap-2">
-              <Button size="sm" variant="outline" onClick={() => setChanges({})} className="h-6 text-[9px]">Discard</Button>
-              <Button size="sm" onClick={saveAll} className="h-6 text-[9px] bg-[#D4AF37] hover:bg-[#b8962e]">Save All</Button>
-            </div>
+                  </tbody>
+                </table>
+              </div>
+            )}
+
+            {schedule.length === 0 && (
+              <div className="p-6 text-center text-sm text-gray-400 italic">
+                Click "Generate Slots" to create the schedule
+              </div>
+            )}
           </div>
-        )}
-      </div>
+        );
+      })}
     </div>
   );
 };
