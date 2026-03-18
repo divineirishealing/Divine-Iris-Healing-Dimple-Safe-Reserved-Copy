@@ -192,6 +192,8 @@ class PromotionCreate(BaseModel):
 class Session(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     title: str
+    title: str = ""
+    description: str = ""
     description: str
     image: str = ""
     price_usd: float = 0.0
@@ -219,8 +221,8 @@ class Session(BaseModel):
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 class SessionCreate(BaseModel):
-    title: str
-    description: str
+    title: str = ""
+    description: str = ""
     image: Optional[str] = ""
     price_usd: float = 0.0
     price_inr: float = 0.0
