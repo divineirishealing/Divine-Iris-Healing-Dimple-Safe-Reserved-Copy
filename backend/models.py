@@ -498,6 +498,7 @@ class SiteSettings(BaseModel):
     dashboard_settings: Dict = {}  # {title, colors: {primary, secondary}, fonts}
     community_whatsapp_link: str = ""
     text_testimonials_style: Optional[Dict] = None
+    sanctuary_settings: Dict = {}  # {hero_bg, hero_overlay, greeting_title, greeting_subtitle}
     fraud_alert_email: str = "support@divineirishealing.com"
 
 class SiteSettingsUpdate(BaseModel):

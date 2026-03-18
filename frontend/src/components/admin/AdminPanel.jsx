@@ -24,6 +24,7 @@ import HomepageSectionsTab from './tabs/HomepageSectionsTab';
 import NewsletterSettingsTab from './tabs/NewsletterSettingsTab';
 import HeaderFooterTab from './tabs/HeaderFooterTab';
 import DashboardSettingsTab from './tabs/DashboardSettingsTab';
+import SanctuarySettingsTab from './tabs/SanctuarySettingsTab';
 import EnrollmentsTab from './tabs/EnrollmentsTab';
 import { SessionCalendarManager, SessionTestimonialsManager, SessionQuestionsManager } from './tabs/SessionManagerTabs';
 import SessionVisibilityPanel from './tabs/SessionVisibilityPanel';
@@ -180,6 +181,7 @@ const AdminPanel = () => {
     } catch (err) { toast({ title: 'Upload failed', variant: 'destructive' }); }
   };
 
+    { key: 'sanctuary_settings', label: 'Sanctuary (Dashboard)', icon: Image },
   const tabs = [
     { key: 'hero', label: 'Hero Banner', icon: Image },
     { key: 'homepage_sections', label: 'Homepage', icon: Monitor },
@@ -208,7 +210,7 @@ const AdminPanel = () => {
     { key: 'api_keys', label: 'API Keys', icon: Settings },
   ];
 
-  const settingsTabKeys = ['hero', 'homepage_sections', 'page_headers', 'header_footer', 'styles', 'dashboard_settings'];
+  const settingsTabKeys = ['hero', 'homepage_sections', 'page_headers', 'header_footer', 'styles', 'dashboard_settings', 'sanctuary_settings'];
   const needsSave = settingsTabKeys.includes(activeTab);
 
   return (
@@ -275,6 +277,13 @@ const AdminPanel = () => {
               <Button onClick={saveSiteSettings} className="bg-[#D4AF37] hover:bg-[#b8962e] mt-5"><Save size={14} className="mr-1" /> Save Changes</Button>
           {activeTab === 'dashboard_settings' && siteSettings && (
             <div>
+          {activeTab === 'sanctuary_settings' && siteSettings && (
+            <div>
+              <SanctuarySettingsTab settings={siteSettings} onChange={setSiteSettings} />
+              <Button onClick={saveSiteSettings} className="bg-[#D4AF37] hover:bg-[#b8962e] mt-5"><Save size={14} className="mr-1" /> Save Changes</Button>
+            </div>
+          )}
+
               <DashboardSettingsTab settings={siteSettings} onChange={setSiteSettings} />
               <Button onClick={saveSiteSettings} className="bg-[#D4AF37] hover:bg-[#b8962e] mt-5"><Save size={14} className="mr-1" /> Save Changes</Button>
             </div>

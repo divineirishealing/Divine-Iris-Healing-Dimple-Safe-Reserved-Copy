@@ -1,166 +1,233 @@
 import React, { useState, useEffect } from 'react';
-import { useAuth } from '../context/AuthContext';
-import { Clock, BookOpen, Star, Calendar, ArrowRight } from 'lucide-react';
+import { useAuth } from '../../context/AuthContext';
+import { useSiteSettings } from '../../context/SiteSettingsContext';
+import { Clock, BookOpen, Star, Calendar, ArrowRight, User, CreditCard, Sparkles, Heart } from 'lucide-react';
 import { cn } from '../lib/utils';
 import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
+import { ResponsiveContainer, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar, Legend } from 'recharts';
 
 const API = process.env.REACT_APP_BACKEND_URL;
 
-const StatCard = ({ title, value, icon: Icon, color, subtext }) => (
-  <div className="bg-white/70 backdrop-blur-md border border-white/50 rounded-2xl p-6 shadow-sm hover:shadow-md transition-all group">
-    <div className="flex items-start justify-between mb-4">
-      <div className={cn("w-10 h-10 rounded-xl flex items-center justify-center", color)}>
-        <Icon size={20} className="text-white" />
-      </div>
-      <span className="text-[10px] uppercase font-bold text-gray-400 tracking-wider">Metric</span>
-    </div>
-    <h3 className="text-2xl font-serif font-bold text-gray-800 mb-1">{value}</h3>
-    <p className="text-xs text-gray-500 font-medium">{title}</p>
-    {subtext && <p className="text-[10px] text-green-600 mt-2 font-semibold bg-green-50 inline-block px-2 py-1 rounded-md">{subtext}</p>}
+// Placeholder data for Radar Chart (Progress)
+const progressData = [
+  { subject: 'Health', A: 80, fullMark: 100 },
+  { subject: 'Wealth', A: 65, fullMark: 100 },
+  { subject: 'Relations', A: 90, fullMark: 100 },
+  { subject: 'Emotional', A: 70, fullMark: 100 },
+  { subject: 'Mental', A: 85, fullMark: 100 },
+  { subject: 'Spiritual', A: 95, fullMark: 100 },
+];
+
+const GlassCard = ({ children, className, onClick }) => (
+  <div 
+    onClick={onClick}
+    className={cn(
+      "bg-white/60 backdrop-blur-xl border border-white/40 shadow-lg rounded-3xl p-6 transition-all duration-300 hover:bg-white/70 hover:shadow-xl hover:scale-[1.02] cursor-pointer group relative overflow-hidden",
+      className
+    )}
+  >
+    <div className="absolute inset-0 bg-gradient-to-br from-white/40 to-transparent pointer-events-none" />
+    <div className="relative z-10">{children}</div>
   </div>
 );
 
 const StudentDashboard = () => {
   const { user } = useAuth();
+  const { settings } = useSiteSettings();
   const navigate = useNavigate();
   const [homeData, setHomeData] = useState(null);
   
+  const sanctuary = settings?.sanctuary_settings || {
+    greeting_title: "Divine Iris Healing",
+    greeting_subtitle: "Home for Your Soul"
+  };
+
   useEffect(() => {
     axios.get(`${API}/api/student/home`, { withCredentials: true })
       .then(res => setHomeData(res.data))
       .catch(err => console.error(err));
   }, []);
 
-  const firstName = user?.name?.split(' ')[0] || 'Soul';
-  const upcoming = homeData?.upcoming_programs || [];
-  const profileStatus = homeData?.profile_status || 'incomplete';
+  const upcoming = homeData?.upcoming_programs?.[0]; // Get first upcoming
 
   return (
-    <div className="space-y-8 pb-12">
-      {/* Welcome Hero */}
-      <div className="relative overflow-hidden rounded-3xl bg-gradient-to-r from-[#5D3FD3] to-[#84A98C] p-8 md:p-12 text-white shadow-xl">
-        <div className="relative z-10 max-w-2xl">
-          <h1 className="text-3xl md:text-4xl font-serif font-bold mb-4">
-            Welcome back, {firstName}.
+    <div className="min-h-screen bg-[#FDFBF7] pb-20 overflow-x-hidden">
+      
+      {/* --- LAYER 1: ATMOSPHERE & HERO --- */}
+      <div className="relative w-full h-[500px] flex items-center justify-center text-center text-white overflow-hidden">
+        {/* Background Image */}
+        <div className="absolute inset-0 z-0">
+          {sanctuary.hero_bg ? (
+            <img src={sanctuary.hero_bg} className="w-full h-full object-cover" alt="Atmosphere" />
+          ) : (
+            <div className="w-full h-full bg-gradient-to-b from-[#5D3FD3] to-[#8673E0]" />
+          )}
+        </div>
+
+        {/* Overlay (Butterflies/Swirls) */}
+        {sanctuary.hero_overlay && (
+          <div className="absolute inset-0 z-10 animate-pulse-slow">
+            <img src={sanctuary.hero_overlay} className="w-full h-full object-cover opacity-80" alt="Spirit" />
+          </div>
+        )}
+
+        {/* Gradient Fade at bottom */}
+        <div className="absolute bottom-0 left-0 right-0 h-32 bg-gradient-to-t from-[#FDFBF7] to-transparent z-20" />
+
+        {/* Greeting Text */}
+        <div className="relative z-30 transform translate-y-10">
+          <h1 className="text-4xl md:text-6xl font-serif font-bold text-shadow-lg mb-2 drop-shadow-md">
+            {sanctuary.greeting_title}
           </h1>
-          <p className="text-white/90 text-lg font-light leading-relaxed">
-            "The journey of a thousand miles begins with a single step. Today is a beautiful day to grow."
+          <p className="text-xl font-light tracking-widest uppercase opacity-90 drop-shadow-sm">
+            {sanctuary.greeting_subtitle}
           </p>
-          <div className="mt-8 flex gap-4">
-            <button className="px-6 py-3 bg-white text-[#5D3FD3] rounded-xl font-semibold hover:bg-gray-50 transition-colors shadow-lg">
-              Resume Journey
-            </button>
-            {profileStatus === 'incomplete' && (
-              <button onClick={() => navigate('/dashboard/profile')} className="px-6 py-3 bg-amber-400 text-amber-900 rounded-xl font-bold hover:bg-amber-300 transition-colors shadow-lg animate-pulse">
-                Complete Profile
-              </button>
-            )}
-          </div>
+          <p className="mt-4 text-sm font-medium bg-white/20 backdrop-blur-md inline-block px-4 py-1 rounded-full border border-white/30">
+            Welcome, {user?.name}
+          </p>
         </div>
+      </div>
+
+      {/* --- LAYER 2: THE IRIS FLOWER LAYOUT --- */}
+      <div className="relative z-40 max-w-7xl mx-auto px-4 -mt-32">
         
-        {/* Decorative Elements */}
-        <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full -mr-16 -mt-16 blur-3xl animate-pulse" />
-        <div className="absolute bottom-0 left-20 w-48 h-48 bg-white/10 rounded-full blur-2xl" />
-      </div>
+        {/* Desktop Radial Layout (The Flower) */}
+        <div className="hidden lg:grid grid-cols-3 gap-8 items-center">
+          
+          {/* Left Petals */}
+          <div className="space-y-8 flex flex-col items-end">
+            {/* Petal 1: Upcoming Program */}
+            <GlassCard className="w-80 h-48 flex flex-col justify-between border-l-4 border-l-[#D4AF37]" onClick={() => navigate('/programs')}>
+              <div>
+                <div className="flex items-center gap-2 mb-2 text-[#D4AF37]">
+                  <Calendar size={18} />
+                  <span className="text-xs font-bold uppercase tracking-wider">The Path</span>
+                </div>
+                <h3 className="text-lg font-serif font-bold text-gray-800 line-clamp-2">
+                  {upcoming?.title || "No Upcoming Journey"}
+                </h3>
+                <p className="text-xs text-gray-500 mt-1">{upcoming?.timing || "Stay tuned"}</p>
+              </div>
+              <div className="flex items-center justify-between mt-2">
+                <span className="text-[10px] bg-purple-100 text-purple-700 px-2 py-1 rounded-full">Next Session</span>
+                <ArrowRight size={16} className="text-[#5D3FD3]" />
+              </div>
+            </GlassCard>
 
-      {/* Profile Alert */}
-      {profileStatus === 'pending' && (
-        <div className="bg-blue-50 border-l-4 border-blue-500 p-4 rounded-r-lg">
-          <p className="text-sm text-blue-700">Your profile update is pending admin approval. You will be notified once approved.</p>
-        </div>
-      )}
-
-      {/* Stats Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <StatCard title="Sessions Attended" value="12" icon={Calendar} color="bg-blue-500" subtext="+2 this month" />
-        <StatCard title="Minutes Meditated" value="480" icon={Clock} color="bg-[#84A98C]" subtext="Top 10% of students" />
-        <StatCard title="Journal Entries" value="24" icon={BookOpen} color="bg-[#D4AF37]" subtext="Consistent writer" />
-        <StatCard title="Current Streak" value="5 Days" icon={Star} color="bg-orange-500" subtext="Keep it up!" />
-      </div>
-
-      {/* Content Area */}
-      <div className="grid lg:grid-cols-3 gap-8">
-        {/* Left: Upcoming */}
-        <div className="lg:col-span-2 space-y-6">
-          <div className="flex items-center justify-between">
-            <h2 className="text-xl font-serif font-bold text-gray-800">Upcoming Programs</h2>
-            <button className="text-sm text-[#5D3FD3] font-medium hover:underline">View All</button>
+            {/* Petal 2: Financials */}
+            <GlassCard className="w-80 h-48 flex flex-col justify-between border-l-4 border-l-green-400" onClick={() => navigate('/dashboard/financials')}>
+              <div>
+                <div className="flex items-center gap-2 mb-2 text-green-600">
+                  <CreditCard size={18} />
+                  <span className="text-xs font-bold uppercase tracking-wider">Sacred Exchange</span>
+                </div>
+                <h3 className="text-lg font-serif font-bold text-gray-800">
+                  Status: {homeData?.financials?.status || 'Active'}
+                </h3>
+                <p className="text-xs text-gray-500 mt-1">{homeData?.financials?.emi_plan || 'Standard Plan'}</p>
+              </div>
+              <p className="text-[10px] text-gray-400">View Ledger & History</p>
+            </GlassCard>
           </div>
 
-          <div className="grid gap-4">
-            {upcoming.length > 0 ? upcoming.map(prog => (
-              <div key={prog.id} className="bg-white border border-gray-100 rounded-2xl p-0 overflow-hidden shadow-sm flex flex-col md:flex-row hover:shadow-md transition-shadow">
-                <div className="w-full md:w-48 bg-gray-200 h-48 md:h-auto relative shrink-0">
-                  <img src={prog.image || "https://images.unsplash.com/photo-1518531933037-91b2f5f229cc?auto=format&fit=crop&q=80"} alt={prog.title} className="w-full h-full object-cover" />
-                </div>
-                <div className="p-6 flex-1 flex flex-col justify-center">
-                  <div className="flex gap-2 mb-2">
-                    <span className="bg-[#5D3FD3] text-white text-[10px] font-bold px-2 py-1 rounded uppercase tracking-wide">Upcoming</span>
-                    <span className="bg-green-100 text-green-700 text-[10px] font-bold px-2 py-1 rounded uppercase tracking-wide">{prog.program_type}</span>
-                  </div>
-                  <h3 className="text-lg font-bold text-gray-800 mb-2">{prog.title}</h3>
-                  <div className="flex items-center gap-4 text-xs text-gray-500 mb-6">
-                    <span className="flex items-center gap-1"><Calendar size={14} /> {prog.start_date || 'TBA'}</span>
-                    <span className="flex items-center gap-1"><Clock size={14} /> {prog.timing || 'TBA'}</span>
-                  </div>
-                  <div className="flex items-center justify-between mt-auto">
-                    <span className="font-bold text-[#D4AF37]">
-                      {user?.tier >= 3 ? "Special Member Price" : "Join Now"}
-                    </span>
-                    <button className="flex items-center gap-2 text-sm font-semibold text-[#5D3FD3] hover:text-[#4c32b3]">
-                      View Details <ArrowRight size={16} />
-                    </button>
-                  </div>
-                </div>
-              </div>
-            )) : (
-              <div className="text-center py-12 bg-white rounded-2xl border border-dashed">
-                <p className="text-gray-400 text-sm">No upcoming programs scheduled.</p>
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* Right: Sidebar Widgets */}
-        <div className="space-y-6">
-          {/* Payment Status Widget */}
-          <div className="bg-white border border-gray-100 rounded-2xl p-6 shadow-sm">
-            <h3 className="font-serif font-bold text-gray-800 mb-4">Payment Status</h3>
-            <div className="space-y-3">
-              <div className="flex justify-between items-center text-sm">
-                <span className="text-gray-500">Plan</span>
-                <span className="font-medium">{homeData?.financials?.emi_plan || 'Standard'}</span>
-              </div>
-              <div className="flex justify-between items-center text-sm">
-                <span className="text-gray-500">Status</span>
-                <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${homeData?.financials?.status === 'Paid' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
-                  {homeData?.financials?.status || 'N/A'}
-                </span>
-              </div>
-              <div className="pt-3 border-t">
-                <button onClick={() => navigate('/dashboard/financials')} className="w-full py-2 bg-gray-50 text-gray-600 text-xs font-bold rounded-lg hover:bg-gray-100 transition-colors">
-                  View Financials
-                </button>
+          {/* Center Heart: Progress Radar */}
+          <div className="relative w-96 h-96">
+            {/* Glow Effect */}
+            <div className="absolute inset-0 bg-[#5D3FD3] blur-[100px] opacity-20 rounded-full" />
+            
+            <div className="relative z-10 w-full h-full bg-white/40 backdrop-blur-md border border-white/60 rounded-full shadow-2xl flex items-center justify-center p-4">
+              <div className="w-full h-full">
+                <h3 className="text-center text-[#5D3FD3] font-serif font-bold mb-[-20px] relative z-20">Soul Compass</h3>
+                <ResponsiveContainer width="100%" height="100%">
+                  <RadarChart cx="50%" cy="50%" outerRadius="70%" data={progressData}>
+                    <PolarGrid stroke="#e5e7eb" />
+                    <PolarAngleAxis dataKey="subject" tick={{ fill: '#6b7280', fontSize: 10 }} />
+                    <PolarRadiusAxis angle={30} domain={[0, 100]} tick={false} axisLine={false} />
+                    <Radar name="You" dataKey="A" stroke="#8884d8" fill="#8884d8" fillOpacity={0.6} />
+                  </RadarChart>
+                </ResponsiveContainer>
               </div>
             </div>
           </div>
 
-          <div className="bg-[#FFFBEB] border border-[#FCD34D] rounded-2xl p-6 relative overflow-hidden">
-            <div className="relative z-10">
-              <h3 className="font-bold text-[#92400E] mb-2 flex items-center gap-2">
-                <Star size={16} fill="currentColor" /> Premium Insight
-              </h3>
-              <p className="text-xs text-[#92400E]/80 leading-relaxed mb-4">
-                Unlock the "Advanced Chakra Alignment" module by upgrading to the Annual Plan.
-              </p>
-              <button className="w-full py-2 bg-white text-[#92400E] text-xs font-bold rounded-lg shadow-sm hover:shadow uppercase tracking-wide">
-                Upgrade to Iris Tier
-              </button>
-            </div>
-            <div className="absolute top-0 right-0 w-32 h-32 bg-[#FCD34D]/20 rounded-full -mr-10 -mt-10 blur-xl" />
+          {/* Right Petals */}
+          <div className="space-y-8 flex flex-col items-start">
+            {/* Petal 3: Bee Dust (Referral) */}
+            <GlassCard className="w-80 h-48 flex flex-col justify-between border-r-4 border-r-amber-400" onClick={() => {}}>
+              <div>
+                <div className="flex items-center gap-2 mb-2 text-amber-500">
+                  <Sparkles size={18} />
+                  <span className="text-xs font-bold uppercase tracking-wider">Bee Dust</span>
+                </div>
+                <h3 className="text-2xl font-serif font-bold text-gray-800">0 Points</h3>
+                <p className="text-xs text-gray-500 mt-1">Spread the light to earn rewards.</p>
+              </div>
+              <button className="text-[10px] text-[#5D3FD3] font-bold uppercase tracking-wide hover:underline text-left">Copy Referral Link</button>
+            </GlassCard>
+
+            {/* Petal 4: Galaxy of Magic */}
+            <GlassCard className="w-80 h-48 flex flex-col justify-between border-r-4 border-r-pink-400" onClick={() => navigate('/transformations')}>
+              <div>
+                <div className="flex items-center gap-2 mb-2 text-pink-500">
+                  <Heart size={18} />
+                  <span className="text-xs font-bold uppercase tracking-wider">Galaxy of Magic</span>
+                </div>
+                <h3 className="text-lg font-serif font-bold text-gray-800">Wall of Fame</h3>
+                <p className="text-xs text-gray-500 mt-1">Witness the transformations.</p>
+              </div>
+              <div className="flex -space-x-2">
+                {[1,2,3].map(i => (
+                  <div key={i} className="w-6 h-6 rounded-full bg-gray-200 border border-white" />
+                ))}
+              </div>
+            </GlassCard>
           </div>
         </div>
+
+        {/* Mobile Layout (Stacked Cards) */}
+        <div className="lg:hidden space-y-4">
+          <GlassCard className="flex items-center gap-4" onClick={() => navigate('/dashboard/profile')}>
+            <div className="w-12 h-12 rounded-full bg-[#5D3FD3] flex items-center justify-center text-white">
+              <User size={20} />
+            </div>
+            <div>
+              <h3 className="font-bold text-gray-800">My Profile</h3>
+              <p className="text-xs text-gray-500">View Details</p>
+            </div>
+          </GlassCard>
+
+          <GlassCard className="bg-purple-50/50 border-purple-100" onClick={() => navigate('/programs')}>
+            <h3 className="font-serif font-bold text-[#5D3FD3] mb-1">Upcoming Journey</h3>
+            <p className="text-sm text-gray-700">{upcoming?.title || "No Upcoming Journey"}</p>
+            <div className="mt-2 flex items-center gap-2 text-xs text-gray-500">
+              <Calendar size={14} /> {upcoming?.start_date || "TBA"}
+            </div>
+          </GlassCard>
+
+          <GlassCard onClick={() => navigate('/dashboard/financials')}>
+            <div className="flex justify-between items-center">
+              <div>
+                <h3 className="font-bold text-gray-800">Sacred Exchange</h3>
+                <p className="text-xs text-green-600 font-medium">{homeData?.financials?.status || 'Active'}</p>
+              </div>
+              <CreditCard size={20} className="text-gray-400" />
+            </div>
+          </GlassCard>
+
+          {/* Mobile Radar */}
+          <div className="h-64 bg-white rounded-2xl shadow-sm border p-2">
+            <ResponsiveContainer width="100%" height="100%">
+              <RadarChart cx="50%" cy="50%" outerRadius="70%" data={progressData}>
+                <PolarGrid />
+                <PolarAngleAxis dataKey="subject" tick={{ fontSize: 10 }} />
+                <PolarRadiusAxis angle={30} domain={[0, 100]} tick={false} axisLine={false} />
+                <Radar name="You" dataKey="A" stroke="#8884d8" fill="#8884d8" fillOpacity={0.6} />
+              </RadarChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+
       </div>
     </div>
   );
