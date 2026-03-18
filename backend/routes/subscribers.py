@@ -83,15 +83,22 @@ class IncludedProgram(BaseModel):
 class AnnualPackage(BaseModel):
     package_id: str = ""
     package_name: str = "Standard Annual"
+    version: int = 1
     valid_from: str = ""
     valid_to: str = ""
     duration_months: int = 12
     included_programs: List[IncludedProgram] = []
-    additional_discount_pct: float = 0  # extra % off the offer subtotal
+    additional_discount_pct: float = 0
+    offer_total: Dict[str, float] = {}  # {INR: 500000, ...} final package offer price (override)
     default_sessions_current: int = 12
-    default_sessions_carry_forward: int = 0
+    late_fee_per_day: float = 0  # fixed daily late fee (INR)
+    channelization_fee: float = 0  # one-time fee when payment is late
+    show_late_fees: bool = False  # toggle: show/hide late fees by default
+    default_currency: str = "INR"  # default currency for subscribers
     notes: str = ""
-    is_active: bool = True
+    is_locked: bool = False  # safety lock — prevents accidental edits
+    is_active: bool = True  # can still tag subscribers when locked+active
+    is_retired: bool = False  # retired = no new subscribers
 
 # --- CRUD for packages ---
 
@@ -167,6 +174,76 @@ async def get_package(package_id: str):
     if not doc:
         raise HTTPException(status_code=404, detail="Package not found")
     return doc
+
+@router.get("/packages/{package_id}/stats")
+async def get_package_stats(package_id: str):
+    """Auto-populated stats from subscribers tagged to this package."""
+    subs = await db.clients.find(
+        {"subscription.package_id": package_id},
+        {"_id": 0, "subscription": 1}
+    ).to_list(5000)
+
+    total_people = len(subs)
+    total_received = 0
+    total_due = 0
+    emi_count = 0
+    emi_received = 0
+    emi_due = 0
+
+    for s in subs:
+        sub = s.get("subscription", {})
+        emis = sub.get("emis", [])
+        for emi in emis:
+            if emi.get("status") == "paid":
+                emi_received += emi.get("amount", 0)
+                total_received += emi.get("amount", 0)
+            elif emi.get("status") in ("due", "pending", "partial"):
+                emi_due += emi.get("amount", 0)
+                total_due += emi.get("amount", 0)
+        if sub.get("payment_mode") == "EMI":
+            emi_count += 1
+        # If no EMIs but has total_fee, count as full payment
+        if not emis and sub.get("total_fee", 0) > 0:
+            total_due += sub.get("total_fee", 0)
+
+    return {
+        "total_people": total_people,
+        "total_received": round(total_received, 2),
+        "total_due": round(total_due, 2),
+        "emi_count": emi_count,
+        "emi_received": round(emi_received, 2),
+        "emi_due": round(emi_due, 2)
+    }
+
+@router.post("/packages/{package_id}/new-version")
+async def create_new_version(package_id: str):
+    """Clone package as new version, lock the old one."""
+    old = await db.annual_packages.find_one({"package_id": package_id}, {"_id": 0})
+    if not old:
+        raise HTTPException(status_code=404, detail="Package not found")
+
+    # Lock the old version
+    await db.annual_packages.update_one(
+        {"package_id": package_id},
+        {"$set": {"is_locked": True}}
+    )
+
+    # Create new version
+    old_version = old.get("version", 1)
+    base_id = package_id.rsplit("-v", 1)[0] if "-v" in package_id else package_id
+    new_id = f"{base_id}-v{old_version + 1}"
+
+    new_pkg = {**old}
+    new_pkg.pop("_id", None)
+    new_pkg["package_id"] = new_id
+    new_pkg["version"] = old_version + 1
+    new_pkg["is_locked"] = False
+    new_pkg["created_at"] = datetime.now(timezone.utc).isoformat()
+    new_pkg["updated_at"] = datetime.now(timezone.utc).isoformat()
+    new_pkg["notes"] = f"New version from {package_id}"
+
+    await db.annual_packages.insert_one(new_pkg)
+    return {"message": f"New version created", "new_package_id": new_id, "old_locked": package_id}
 
 # --- Backward compat: pricing-config returns the first active package ---
 @router.get("/pricing-config")
@@ -479,6 +556,7 @@ class SubscriberCreate(BaseModel):
     name: str
     email: str = ""
     package_id: str = ""  # tag to a specific package
+    display_currency: str = "INR"  # currency subscriber sees/pays in
     annual_program: str = ""
     start_date: str = ""
     end_date: str = ""
@@ -491,6 +569,9 @@ class SubscriberCreate(BaseModel):
     programs: List[str] = []
     bi_annual_download: int = 0
     quarterly_releases: int = 0
+    show_late_fees: bool = False  # per-subscriber toggle
+    late_fee_per_day: float = 0
+    channelization_fee: float = 0
 
 @router.post("/create")
 async def create_subscriber(data: SubscriberCreate):
@@ -505,6 +586,7 @@ async def create_subscriber(data: SubscriberCreate):
 
     subscription = {
         "package_id": data.package_id,
+        "display_currency": data.display_currency,
         "annual_program": data.annual_program,
         "start_date": data.start_date,
         "end_date": data.end_date,
@@ -517,6 +599,9 @@ async def create_subscriber(data: SubscriberCreate):
         "programs": data.programs,
         "bi_annual_download": data.bi_annual_download,
         "quarterly_releases": data.quarterly_releases,
+        "show_late_fees": data.show_late_fees,
+        "late_fee_per_day": data.late_fee_per_day,
+        "channelization_fee": data.channelization_fee,
         "updated_at": datetime.now(timezone.utc).isoformat()
     }
 

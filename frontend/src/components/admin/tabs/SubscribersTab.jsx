@@ -26,199 +26,237 @@ const NumInput = ({ value, onChange, className = '', bold = false }) => (
   />
 );
 
-const PackageEditor = ({ pkg, onSave, saving, onDelete }) => {
+const PackageEditor = ({ pkg, onSave, saving, onDelete, onNewVersion }) => {
   const [c, setC] = useState(pkg);
   const [progName, setProgName] = useState('');
   const [progVal, setProgVal] = useState(12);
   const [progUnit, setProgUnit] = useState('months');
+  const [showIntl, setShowIntl] = useState(false);
+  const [stats, setStats] = useState(null);
 
   useEffect(() => { setC(pkg); }, [pkg]);
+  useEffect(() => {
+    if (pkg.package_id) {
+      axios.get(`${API}/admin/subscribers/packages/${pkg.package_id}/stats`).then(r => setStats(r.data)).catch(() => {});
+    }
+  }, [pkg.package_id]);
 
-  const set = (k, v) => setC(prev => ({ ...prev, [k]: v }));
-  const updateProgram = (idx, field, val) => {
+  const locked = c.is_locked;
+  const set = (k, v) => { if (!locked) setC(prev => ({ ...prev, [k]: v })); };
+  const updateProg = (idx, field, val) => {
+    if (locked) return;
     const progs = [...(c.included_programs || [])];
-    progs[idx] = { ...progs[idx], [field]: field === 'duration_value' || field === 'additional_discount_pct' ? parseFloat(val) || 0 : val };
+    progs[idx] = { ...progs[idx], [field]: field === 'duration_value' ? parseInt(val) || 0 : val };
     set('included_programs', progs);
   };
   const updateProgPrice = (idx, priceField, cur, val) => {
+    if (locked) return;
     const progs = [...(c.included_programs || [])];
     const existing = progs[idx][priceField] || {};
     progs[idx] = { ...progs[idx], [priceField]: { ...existing, [cur]: parseFloat(val) || 0 } };
     set('included_programs', progs);
   };
-  const addProgram = () => {
-    if (!progName.trim()) return;
-    set('included_programs', [...(c.included_programs || []), {
-      name: progName.trim(), program_id: '', duration_value: parseInt(progVal) || 1,
-      duration_unit: progUnit, price_per_unit: {}, offer_per_unit: {}
-    }]);
+  const addProg = () => {
+    if (locked || !progName.trim()) return;
+    set('included_programs', [...(c.included_programs || []), { name: progName.trim(), program_id: '', duration_value: parseInt(progVal) || 1, duration_unit: progUnit, price_per_unit: {}, offer_per_unit: {} }]);
     setProgName('');
   };
-  const removeProgram = (idx) => set('included_programs', c.included_programs.filter((_, i) => i !== idx));
+  const removeProg = (idx) => { if (!locked) set('included_programs', c.included_programs.filter((_, i) => i !== idx)); };
+  const toggleLock = () => setC(prev => ({ ...prev, is_locked: !prev.is_locked }));
 
-  // Calc helpers
+  // Calculations
   const getTotal = (p, cur) => (p.price_per_unit?.[cur] || 0) * (p.duration_value || 0);
   const getOfferTotal = (p, cur) => (p.offer_per_unit?.[cur] || 0) * (p.duration_value || 0);
-  const getDisc = (p, cur) => {
-    const t = getTotal(p, cur), o = getOfferTotal(p, cur);
-    return t > 0 && o > 0 ? Math.round(((t - o) / t) * 100) : 0;
-  };
+  const getDisc = (p, cur) => { const t = getTotal(p, cur), o = getOfferTotal(p, cur); return t > 0 && o > 0 ? Math.round(((t - o) / t) * 100) : 0; };
   const sumTotal = (cur) => (c.included_programs || []).reduce((s, p) => s + getTotal(p, cur), 0);
   const sumOffer = (cur) => (c.included_programs || []).reduce((s, p) => s + getOfferTotal(p, cur), 0);
   const addlDisc = c.additional_discount_pct || 0;
   const afterDisc = (cur) => { const o = sumOffer(cur); return o - (o * addlDisc / 100); };
   const getTax = (cur) => afterDisc(cur) * (TAX_RATES[cur]?.rate || 0);
   const getFinal = (cur) => afterDisc(cur) + getTax(cur);
+  // Use offer_total override if set, otherwise calculated
+  const displayFinal = (cur) => (c.offer_total?.[cur] > 0 ? c.offer_total[cur] : getFinal(cur));
+  const setOfferTotal = (cur, v) => setC(prev => ({ ...prev, offer_total: { ...(prev.offer_total || {}), [cur]: parseFloat(v) || 0 } }));
 
   return (
-    <div className="bg-white border rounded-xl shadow-sm overflow-hidden" data-testid={`package-${c.package_id}`}>
+    <div className={`border rounded-xl shadow-sm overflow-hidden ${locked ? 'ring-2 ring-amber-300' : ''}`} data-testid={`package-${c.package_id}`}>
       {/* Header */}
-      <div className="bg-gradient-to-r from-purple-50 to-amber-50 px-4 py-2 flex items-center justify-between border-b">
-        <div className="flex items-center gap-2">
-          <span className="text-[10px] font-mono bg-[#5D3FD3] text-white px-2 py-0.5 rounded" data-testid={`pkg-id-${c.package_id}`}>{c.package_id}</span>
-          <Input value={c.package_name} onChange={e => set('package_name', e.target.value)} className="h-7 text-sm font-semibold border-0 bg-transparent w-48 px-1" />
-          {c.valid_from && c.valid_to && <span className="text-[9px] text-gray-400">{c.valid_from} → {c.valid_to}</span>}
+      <div className={`px-4 py-2 flex items-center justify-between border-b ${locked ? 'bg-amber-50' : 'bg-gradient-to-r from-purple-50 to-amber-50'}`}>
+        <div className="flex items-center gap-2 flex-1 min-w-0">
+          <span className="text-[9px] font-mono bg-[#5D3FD3] text-white px-2 py-0.5 rounded shrink-0">{c.package_id}</span>
+          {locked ? (
+            <span className="text-sm font-semibold text-gray-700 truncate">{c.package_name}</span>
+          ) : (
+            <Input value={c.package_name} onChange={e => set('package_name', e.target.value)} className="h-7 text-sm font-semibold border-0 bg-transparent w-40 px-1" />
+          )}
+          {c.version > 1 && <span className="text-[8px] bg-gray-200 px-1.5 py-0.5 rounded">v{c.version}</span>}
+          {c.valid_from && <span className="text-[8px] text-gray-400 shrink-0">{c.valid_from} → {c.valid_to}</span>}
+          {locked && <span className="text-[8px] bg-amber-200 text-amber-800 px-1.5 py-0.5 rounded font-bold">LOCKED</span>}
         </div>
-        <div className="flex gap-1.5">
-          {onDelete && <Button size="sm" variant="outline" onClick={() => onDelete(c.package_id)} className="h-7 text-xs text-red-500 border-red-200 hover:bg-red-50"><Trash2 size={10} className="mr-1" />Del</Button>}
-          <Button size="sm" onClick={() => onSave(c)} disabled={saving} className="bg-[#5D3FD3] hover:bg-[#4c32b3] h-7 text-xs" data-testid={`save-pkg-${c.package_id}`}>
-            {saving ? <Loader2 size={10} className="animate-spin mr-1" /> : <Save size={10} className="mr-1" />} Save
+        <div className="flex gap-1 shrink-0">
+          <Button size="sm" variant="outline" onClick={toggleLock} className={`h-6 text-[9px] px-2 ${locked ? 'border-amber-300 text-amber-700' : ''}`} data-testid={`lock-pkg-${c.package_id}`}>
+            {locked ? 'Unlock' : 'Lock'}
+          </Button>
+          {onNewVersion && <Button size="sm" variant="outline" onClick={() => onNewVersion(c.package_id)} className="h-6 text-[9px] px-2">New Ver</Button>}
+          {onDelete && <Button size="sm" variant="outline" onClick={() => onDelete(c.package_id)} className="h-6 text-[9px] px-2 text-red-500 border-red-200"><Trash2 size={9} /></Button>}
+          <Button size="sm" onClick={() => onSave(c)} disabled={saving} className="bg-[#5D3FD3] hover:bg-[#4c32b3] h-6 text-[9px] px-2" data-testid={`save-pkg-${c.package_id}`}>
+            <Save size={9} className="mr-1" /> Save
           </Button>
         </div>
       </div>
 
-      {/* Config row */}
-      <div className="px-3 py-2 grid grid-cols-3 md:grid-cols-7 gap-2 bg-gray-50/50 border-b text-[10px]">
-        <div><Label className="text-[9px]">Duration</Label><NumInput value={c.duration_months} onChange={v => set('duration_months', parseInt(v) || 12)} /></div>
-        <div><Label className="text-[9px]">Valid From</Label><Input type="date" value={c.valid_from || ''} onChange={e => set('valid_from', e.target.value)} className="h-7 text-xs" /></div>
-        <div><Label className="text-[9px]">Valid To</Label><Input type="date" value={c.valid_to || ''} onChange={e => set('valid_to', e.target.value)} className="h-7 text-xs" /></div>
-        <div><Label className="text-[9px]">Sessions</Label><NumInput value={c.default_sessions_current} onChange={v => set('default_sessions_current', parseInt(v) || 0)} /></div>
-        <div><Label className="text-[9px]">Carry Fwd</Label><NumInput value={c.default_sessions_carry_forward} onChange={v => set('default_sessions_carry_forward', parseInt(v) || 0)} /></div>
-        <div><Label className="text-[9px]">Pkg Disc %</Label><NumInput value={c.additional_discount_pct || 0} onChange={v => set('additional_discount_pct', parseFloat(v) || 0)} /></div>
-        <div><Label className="text-[9px]">Notes</Label><Input value={c.notes || ''} onChange={e => set('notes', e.target.value)} placeholder="..." className="h-7 text-xs" /></div>
+      {/* Stats Row */}
+      {stats && (
+        <div className="px-4 py-1.5 bg-gray-50 border-b flex gap-4 text-[9px]">
+          <span className="text-gray-500">People: <strong className="text-gray-800">{stats.total_people}</strong></span>
+          <span className="text-green-600">Received: <strong>{stats.total_received.toLocaleString()}</strong></span>
+          <span className="text-red-600">Due: <strong>{stats.total_due.toLocaleString()}</strong></span>
+          <span className="text-blue-600">On EMI: <strong>{stats.emi_count}</strong></span>
+          <span className="text-green-600">EMI Rcvd: <strong>{stats.emi_received.toLocaleString()}</strong></span>
+          <span className="text-red-600">EMI Due: <strong>{stats.emi_due.toLocaleString()}</strong></span>
+        </div>
+      )}
+
+      {/* Config Row */}
+      <div className="px-3 py-1.5 grid grid-cols-3 md:grid-cols-8 gap-2 bg-gray-50/50 border-b text-[9px]">
+        <div><Label className="text-[8px]">Duration</Label><NumInput value={c.duration_months} onChange={v => set('duration_months', parseInt(v) || 12)} /></div>
+        <div><Label className="text-[8px]">Valid From</Label><Input type="date" value={c.valid_from || ''} onChange={e => set('valid_from', e.target.value)} className="h-7 text-xs" disabled={locked} /></div>
+        <div><Label className="text-[8px]">Valid To</Label><Input type="date" value={c.valid_to || ''} onChange={e => set('valid_to', e.target.value)} className="h-7 text-xs" disabled={locked} /></div>
+        <div><Label className="text-[8px]">Sessions</Label><NumInput value={c.default_sessions_current} onChange={v => set('default_sessions_current', parseInt(v) || 0)} /></div>
+        <div><Label className="text-[8px]">Pkg Disc %</Label><NumInput value={c.additional_discount_pct || 0} onChange={v => set('additional_discount_pct', parseFloat(v) || 0)} /></div>
+        <div><Label className="text-[8px]">Late Fee/Day</Label><NumInput value={c.late_fee_per_day || 0} onChange={v => set('late_fee_per_day', parseFloat(v) || 0)} /></div>
+        <div><Label className="text-[8px]">Channel Fee</Label><NumInput value={c.channelization_fee || 0} onChange={v => set('channelization_fee', parseFloat(v) || 0)} /></div>
+        <div className="flex items-end gap-2">
+          <label className="flex items-center gap-1 text-[8px] text-gray-500 cursor-pointer">
+            <input type="checkbox" checked={showIntl} onChange={e => setShowIntl(e.target.checked)} className="w-3 h-3" />USD/AED
+          </label>
+        </div>
       </div>
 
-      {/* Programs Table */}
+      {/* Programs Table — INR default, toggle for USD/AED */}
       <div className="overflow-x-auto">
-        <table className="w-full text-[11px] min-w-[1000px]">
+        <table className="w-full text-[10px]">
           <thead>
-            <tr className="bg-gray-50 text-[9px] text-gray-400 uppercase border-b">
-              <th className="px-2 py-1 text-left" rowSpan={2}>Program</th>
-              <th className="px-1 py-1 text-center w-8" rowSpan={2}>Dur</th>
-              <th className="px-1 py-1 text-center w-10" rowSpan={2}>Unit</th>
-              <th className="px-1 py-0.5 text-center border-l bg-blue-50" colSpan={5}>INR (GST 18%)</th>
-              <th className="px-1 py-0.5 text-center border-l" colSpan={4}>USD</th>
-              <th className="px-1 py-0.5 text-center border-l bg-amber-50" colSpan={5}>AED (VAT 5%)</th>
-              <th className="w-4" rowSpan={2}></th>
-            </tr>
             <tr className="bg-gray-50 text-[8px] text-gray-400 uppercase border-b">
-              <th className="px-1 py-0.5 text-right border-l bg-blue-50/50">/Unit</th>
-              <th className="px-1 py-0.5 text-right bg-blue-50/30">Offer/U</th>
-              <th className="px-1 py-0.5 text-right bg-gray-100">Total</th>
-              <th className="px-1 py-0.5 text-right bg-blue-50/30">Offer</th>
-              <th className="px-1 py-0.5 text-center bg-green-50">%</th>
-              <th className="px-1 py-0.5 text-right border-l">/Unit</th>
-              <th className="px-1 py-0.5 text-right">Offer/U</th>
-              <th className="px-1 py-0.5 text-right">Offer</th>
-              <th className="px-1 py-0.5 text-center bg-green-50">%</th>
-              <th className="px-1 py-0.5 text-right border-l bg-amber-50/50">/Unit</th>
-              <th className="px-1 py-0.5 text-right bg-amber-50/30">Offer/U</th>
-              <th className="px-1 py-0.5 text-right bg-gray-100">Total</th>
-              <th className="px-1 py-0.5 text-right bg-amber-50/30">Offer</th>
-              <th className="px-1 py-0.5 text-center bg-green-50">%</th>
+              <th className="px-2 py-1 text-left">Program</th>
+              <th className="px-1 py-1 text-center w-8">Dur</th>
+              <th className="px-1 py-1 text-center w-9">Unit</th>
+              <th className="px-1 py-1 text-right border-l bg-blue-50/50">/Unit</th>
+              <th className="px-1 py-1 text-right bg-blue-50/30">Offer/U</th>
+              <th className="px-1 py-1 text-right bg-gray-100">Total</th>
+              <th className="px-1 py-1 text-right bg-blue-50/30">Offer</th>
+              <th className="px-1 py-1 text-center bg-green-50">%</th>
+              {showIntl && (<>
+                <th className="px-1 py-1 text-right border-l">USD/U</th>
+                <th className="px-1 py-1 text-right">USD Off/U</th>
+                <th className="px-1 py-1 text-right border-l bg-amber-50/50">AED/U</th>
+                <th className="px-1 py-1 text-right bg-amber-50/30">AED Off/U</th>
+              </>)}
+              <th className="w-4"></th>
             </tr>
           </thead>
           <tbody>
             {(c.included_programs || []).map((p, i) => (
               <tr key={i} className="border-t hover:bg-gray-50/50">
-                <td className="px-2 py-0.5"><Input value={p.name} onChange={e => updateProgram(i, 'name', e.target.value)} className="h-6 text-[10px] border-0 bg-transparent px-0 focus:ring-0" /></td>
-                <td className="px-1 py-0.5"><NumInput value={p.duration_value} onChange={v => updateProgram(i, 'duration_value', v)} className="text-center" /></td>
+                <td className="px-2 py-0.5"><Input value={p.name} onChange={e => updateProg(i, 'name', e.target.value)} className="h-6 text-[10px] border-0 bg-transparent px-0" disabled={locked} /></td>
+                <td className="px-1 py-0.5"><NumInput value={p.duration_value} onChange={v => updateProg(i, 'duration_value', v)} className="text-center" /></td>
                 <td className="px-1 py-0.5">
-                  <select value={p.duration_unit} onChange={e => updateProgram(i, 'duration_unit', e.target.value)} className="h-6 text-[9px] border rounded px-0 w-full bg-transparent">
+                  <select value={p.duration_unit} onChange={e => updateProg(i, 'duration_unit', e.target.value)} className="h-6 text-[9px] border rounded px-0 w-full bg-transparent" disabled={locked}>
                     {DURATION_UNITS.map(u => <option key={u} value={u}>{u === 'months' ? 'mo' : 'ss'}</option>)}
                   </select>
                 </td>
-                {/* INR */}
                 <td className="px-1 py-0.5 border-l bg-blue-50/20"><NumInput value={p.price_per_unit?.INR || 0} onChange={v => updateProgPrice(i, 'price_per_unit', 'INR', v)} /></td>
                 <td className="px-1 py-0.5 bg-blue-50/10"><NumInput value={p.offer_per_unit?.INR || 0} onChange={v => updateProgPrice(i, 'offer_per_unit', 'INR', v)} bold className="text-[#5D3FD3]" /></td>
                 <td className="px-1 py-0.5 bg-gray-50 text-right font-mono text-[9px] text-gray-500">{getTotal(p,'INR').toLocaleString()}</td>
                 <td className="px-1 py-0.5 bg-blue-50/10 text-right font-mono text-[9px] font-bold text-[#5D3FD3]">{getOfferTotal(p,'INR').toLocaleString()}</td>
                 <td className="px-1 py-0.5 bg-green-50/50 text-center"><span className={`text-[9px] font-bold ${getDisc(p,'INR')>0?'text-green-600':'text-gray-300'}`}>{getDisc(p,'INR')>0?`${getDisc(p,'INR')}%`:'-'}</span></td>
-                {/* USD */}
-                <td className="px-1 py-0.5 border-l"><NumInput value={p.price_per_unit?.USD || 0} onChange={v => updateProgPrice(i, 'price_per_unit', 'USD', v)} /></td>
-                <td className="px-1 py-0.5"><NumInput value={p.offer_per_unit?.USD || 0} onChange={v => updateProgPrice(i, 'offer_per_unit', 'USD', v)} bold className="text-[#5D3FD3]" /></td>
-                <td className="px-1 py-0.5 text-right font-mono text-[9px] font-bold text-[#5D3FD3]">{getOfferTotal(p,'USD').toLocaleString()}</td>
-                <td className="px-1 py-0.5 bg-green-50/50 text-center"><span className={`text-[9px] font-bold ${getDisc(p,'USD')>0?'text-green-600':'text-gray-300'}`}>{getDisc(p,'USD')>0?`${getDisc(p,'USD')}%`:'-'}</span></td>
-                {/* AED */}
-                <td className="px-1 py-0.5 border-l bg-amber-50/20"><NumInput value={p.price_per_unit?.AED || 0} onChange={v => updateProgPrice(i, 'price_per_unit', 'AED', v)} /></td>
-                <td className="px-1 py-0.5 bg-amber-50/10"><NumInput value={p.offer_per_unit?.AED || 0} onChange={v => updateProgPrice(i, 'offer_per_unit', 'AED', v)} bold className="text-[#5D3FD3]" /></td>
-                <td className="px-1 py-0.5 bg-gray-50 text-right font-mono text-[9px] text-gray-500">{getTotal(p,'AED').toLocaleString()}</td>
-                <td className="px-1 py-0.5 bg-amber-50/10 text-right font-mono text-[9px] font-bold text-[#5D3FD3]">{getOfferTotal(p,'AED').toLocaleString()}</td>
-                <td className="px-1 py-0.5 bg-green-50/50 text-center"><span className={`text-[9px] font-bold ${getDisc(p,'AED')>0?'text-green-600':'text-gray-300'}`}>{getDisc(p,'AED')>0?`${getDisc(p,'AED')}%`:'-'}</span></td>
-                <td className="px-0.5"><button onClick={() => removeProgram(i)} className="text-gray-300 hover:text-red-500"><X size={9} /></button></td>
+                {showIntl && (<>
+                  <td className="px-1 py-0.5 border-l"><NumInput value={p.price_per_unit?.USD||0} onChange={v=>updateProgPrice(i,'price_per_unit','USD',v)} /></td>
+                  <td className="px-1 py-0.5"><NumInput value={p.offer_per_unit?.USD||0} onChange={v=>updateProgPrice(i,'offer_per_unit','USD',v)} bold className="text-[#5D3FD3]" /></td>
+                  <td className="px-1 py-0.5 border-l bg-amber-50/20"><NumInput value={p.price_per_unit?.AED||0} onChange={v=>updateProgPrice(i,'price_per_unit','AED',v)} /></td>
+                  <td className="px-1 py-0.5 bg-amber-50/10"><NumInput value={p.offer_per_unit?.AED||0} onChange={v=>updateProgPrice(i,'offer_per_unit','AED',v)} bold className="text-[#5D3FD3]" /></td>
+                </>)}
+                <td className="px-0.5"><button onClick={() => removeProg(i)} className="text-gray-300 hover:text-red-500" disabled={locked}><X size={9} /></button></td>
               </tr>
             ))}
             {/* Footer rows */}
             {(c.included_programs || []).length > 0 && (<>
               <tr className="border-t-2 border-gray-200 bg-gray-50 font-bold text-[9px]">
                 <td className="px-2 py-1" colSpan={3}>Subtotal</td>
-                <td className="px-1 py-1 border-l" colSpan={2}></td>
+                <td className="px-1 py-1 border-l"></td>
+                <td className="px-1 py-1"></td>
                 <td className="px-1 py-1 bg-gray-100 text-right font-mono">{sumTotal('INR').toLocaleString()}</td>
                 <td className="px-1 py-1 text-right font-mono text-[#5D3FD3]">{sumOffer('INR').toLocaleString()}</td>
                 <td className="px-1 py-1 bg-green-50/50 text-center">{(() => { const t=sumTotal('INR'),o=sumOffer('INR'); return t>0&&o>0?<span className="text-green-600">{Math.round((t-o)/t*100)}%</span>:'-'; })()}</td>
-                <td className="px-1 py-1 border-l" colSpan={2}></td>
-                <td className="px-1 py-1 text-right font-mono text-[#5D3FD3]">{sumOffer('USD').toLocaleString()}</td>
-                <td className="px-1 py-1"></td>
-                <td className="px-1 py-1 border-l" colSpan={2}></td>
-                <td className="px-1 py-1 bg-gray-100 text-right font-mono">{sumTotal('AED').toLocaleString()}</td>
-                <td className="px-1 py-1 text-right font-mono text-[#5D3FD3]">{sumOffer('AED').toLocaleString()}</td>
-                <td className="px-1 py-1"></td><td></td>
+                {showIntl && (<>
+                  <td className="px-1 py-1 border-l"></td>
+                  <td className="px-1 py-1 text-right font-mono text-[#5D3FD3]">{sumOffer('USD').toLocaleString()}</td>
+                  <td className="px-1 py-1 border-l"></td>
+                  <td className="px-1 py-1 text-right font-mono text-[#5D3FD3]">{sumOffer('AED').toLocaleString()}</td>
+                </>)}
+                <td></td>
               </tr>
               {addlDisc > 0 && (
                 <tr className="text-[9px] text-red-600 bg-red-50/30">
-                  <td className="px-2 py-0.5" colSpan={3}>Pkg Discount ({addlDisc}%)</td>
+                  <td className="px-2 py-0.5" colSpan={3}>Pkg Disc ({addlDisc}%)</td>
                   <td className="px-1 py-0.5 border-l" colSpan={3}></td>
                   <td className="px-1 py-0.5 text-right font-mono">-{(sumOffer('INR')*addlDisc/100).toLocaleString()}</td>
                   <td className="px-1 py-0.5"></td>
-                  <td className="px-1 py-0.5 border-l" colSpan={2}></td>
-                  <td className="px-1 py-0.5 text-right font-mono">-{(sumOffer('USD')*addlDisc/100).toLocaleString()}</td>
-                  <td className="px-1 py-0.5"></td>
-                  <td className="px-1 py-0.5 border-l" colSpan={3}></td>
-                  <td className="px-1 py-0.5 text-right font-mono">-{(sumOffer('AED')*addlDisc/100).toLocaleString()}</td>
-                  <td className="px-1 py-0.5"></td><td></td>
+                  {showIntl && <td className="px-1 py-0.5" colSpan={4}></td>}
+                  <td></td>
                 </tr>
               )}
               <tr className="text-[9px] text-gray-500 bg-orange-50/30">
                 <td className="px-2 py-0.5" colSpan={3}>Tax</td>
-                <td className="px-1 py-0.5 border-l text-right text-gray-400" colSpan={3}>GST 18%</td>
+                <td className="px-1 py-0.5 border-l text-right text-gray-400" colSpan={2}>GST 18%</td>
+                <td className="px-1 py-0.5"></td>
                 <td className="px-1 py-0.5 text-right font-mono">{getTax('INR').toLocaleString()}</td>
                 <td className="px-1 py-0.5"></td>
-                <td className="px-1 py-0.5 border-l text-center text-gray-300" colSpan={4}>—</td>
-                <td className="px-1 py-0.5 border-l text-right text-gray-400" colSpan={3}>VAT 5%</td>
-                <td className="px-1 py-0.5 text-right font-mono">{getTax('AED').toLocaleString()}</td>
-                <td className="px-1 py-0.5"></td><td></td>
+                {showIntl && (<>
+                  <td className="px-1 py-0.5 border-l text-center text-gray-300" colSpan={2}>—</td>
+                  <td className="px-1 py-0.5 border-l text-right text-gray-400">VAT 5%</td>
+                  <td className="px-1 py-0.5 text-right font-mono">{getTax('AED').toLocaleString()}</td>
+                </>)}
+                <td></td>
               </tr>
               <tr className="bg-[#5D3FD3]/10 font-bold text-[10px] text-[#5D3FD3]">
                 <td className="px-2 py-1.5" colSpan={3}>Annual Price</td>
                 <td className="px-1 py-1.5 border-l" colSpan={3}></td>
                 <td className="px-1 py-1.5 text-right font-mono">{getFinal('INR').toLocaleString()}</td>
                 <td className="px-1 py-1.5"></td>
-                <td className="px-1 py-1.5 border-l" colSpan={2}></td>
-                <td className="px-1 py-1.5 text-right font-mono">{afterDisc('USD').toLocaleString()}</td>
-                <td className="px-1 py-1.5"></td>
+                {showIntl && (<>
+                  <td className="px-1 py-1.5 border-l"></td>
+                  <td className="px-1 py-1.5 text-right font-mono">{afterDisc('USD').toLocaleString()}</td>
+                  <td className="px-1 py-1.5 border-l"></td>
+                  <td className="px-1 py-1.5 text-right font-mono">{getFinal('AED').toLocaleString()}</td>
+                </>)}
+                <td></td>
+              </tr>
+              {/* Package Offer Total (override) */}
+              <tr className="border-t-2 border-[#D4AF37] bg-[#D4AF37]/5 text-[10px]">
+                <td className="px-2 py-1.5 font-bold text-[#D4AF37]" colSpan={3}>Package Offer Price</td>
                 <td className="px-1 py-1.5 border-l" colSpan={3}></td>
-                <td className="px-1 py-1.5 text-right font-mono">{getFinal('AED').toLocaleString()}</td>
-                <td className="px-1 py-1.5"></td><td></td>
+                <td className="px-1 py-1"><NumInput value={c.offer_total?.INR || 0} onChange={v => setOfferTotal('INR', v)} bold className="text-[#D4AF37] bg-[#D4AF37]/10 border-[#D4AF37]/30" /></td>
+                <td className="px-1 py-1.5"></td>
+                {showIntl && (<>
+                  <td className="px-1 py-1 border-l"></td>
+                  <td className="px-1 py-1"><NumInput value={c.offer_total?.USD || 0} onChange={v => setOfferTotal('USD', v)} bold className="text-[#D4AF37]" /></td>
+                  <td className="px-1 py-1 border-l"></td>
+                  <td className="px-1 py-1"><NumInput value={c.offer_total?.AED || 0} onChange={v => setOfferTotal('AED', v)} bold className="text-[#D4AF37]" /></td>
+                </>)}
+                <td></td>
               </tr>
             </>)}
           </tbody>
         </table>
-        <div className="px-2 py-1 border-t bg-gray-50 flex gap-2 items-end">
-          <Input value={progName} onChange={e => setProgName(e.target.value)} placeholder="Add program..." className="h-6 text-[10px] flex-1" onKeyDown={e => e.key === 'Enter' && (e.preventDefault(), addProgram())} />
-          <NumInput value={progVal} onChange={v => setProgVal(v)} className="w-10" />
-          <select value={progUnit} onChange={e => setProgUnit(e.target.value)} className="h-7 text-[9px] border rounded px-0.5">{DURATION_UNITS.map(u => <option key={u} value={u}>{u === 'months' ? 'mo' : 'ss'}</option>)}</select>
-          <Button size="sm" variant="outline" onClick={addProgram} className="h-6 px-1.5"><Plus size={9} /></Button>
-        </div>
+        {!locked && (
+          <div className="px-2 py-1 border-t bg-gray-50 flex gap-2 items-end">
+            <Input value={progName} onChange={e => setProgName(e.target.value)} placeholder="Add program..." className="h-6 text-[9px] flex-1" onKeyDown={e => e.key === 'Enter' && (e.preventDefault(), addProg())} />
+            <NumInput value={progVal} onChange={v => setProgVal(v)} className="w-10" />
+            <select value={progUnit} onChange={e => setProgUnit(e.target.value)} className="h-7 text-[8px] border rounded px-0.5">{DURATION_UNITS.map(u => <option key={u} value={u}>{u === 'months' ? 'mo' : 'ss'}</option>)}</select>
+            <Button size="sm" variant="outline" onClick={addProg} className="h-6 px-1.5"><Plus size={9} /></Button>
+          </div>
+        )}
       </div>
     </div>
   );
@@ -654,6 +692,14 @@ const SubscribersTab = () => {
     } catch (err) { toast({ title: 'Error', variant: 'destructive' }); }
   };
 
+  const handleNewVersion = async (pkgId) => {
+    try {
+      const res = await axios.post(`${API}/admin/subscribers/packages/${pkgId}/new-version`);
+      toast({ title: `New version created: ${res.data.new_package_id}` });
+      fetchData();
+    } catch (err) { toast({ title: 'Error creating version', variant: 'destructive' }); }
+  };
+
   const handleCreatePkg = async () => {
     if (!newPkgName.trim()) return;
     try {
@@ -737,7 +783,7 @@ const SubscribersTab = () => {
       {configOpen && (
         <div className="space-y-3">
           {packages.map(pkg => (
-            <PackageEditor key={pkg.package_id} pkg={pkg} onSave={handleSavePkg} saving={savingPkg} onDelete={packages.length > 1 ? handleDeletePkg : null} />
+            <PackageEditor key={pkg.package_id} pkg={pkg} onSave={handleSavePkg} saving={savingPkg} onDelete={packages.length > 1 ? handleDeletePkg : null} onNewVersion={handleNewVersion} />
           ))}
           <div className="flex gap-2 items-end">
             <Input value={newPkgName} onChange={e => setNewPkgName(e.target.value)} placeholder="New package name..." className="h-8 text-sm w-64"
