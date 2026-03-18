@@ -816,22 +816,23 @@ const SubscriberRow = ({ s, onRefresh, onEdit }) => {
                 <div className="bg-white rounded-lg border p-3">
                   <h4 className="text-[10px] font-bold uppercase tracking-wider text-gray-500 mb-2">Programs</h4>
                   <div className="space-y-2">
-                    {(sub.programs_detail?.length > 0 ? sub.programs_detail : (sub.programs || []).map(p => ({ name: p }))).map((prog, i) => {
+                    {(sub.programs_detail?.length > 0 ? sub.programs_detail : (sub.programs || []).map(p => ({ name: p, duration_value: 0, duration_unit: '', status: 'active', mode: 'online', visible: true }))).map((prog, i) => {
                       const p = typeof prog === 'string' ? { name: prog } : prog;
                       return (
                         <div key={i} className={`p-2 rounded-lg border text-[9px] ${p.status === 'paused' ? 'bg-amber-50 border-amber-200' : 'bg-gray-50'}`}>
                           <div className="flex items-center gap-1.5 flex-wrap">
-                            <span className="font-bold text-gray-800 text-[10px]">{p.name}</span>
+                            <span className="font-bold text-gray-800 text-[10px] flex-1">{p.name}</span>
                             {p.duration_value > 0 && <span className="text-gray-400">{p.duration_value} {p.duration_unit}</span>}
                             {p.mode && <span className={`px-1 py-0.5 rounded text-[7px] font-bold ${p.mode === 'online' ? 'bg-blue-100 text-blue-700' : 'bg-green-100 text-green-700'}`}>{p.mode}</span>}
                             {p.status === 'paused' && <span className="px-1 py-0.5 bg-amber-200 text-amber-800 rounded text-[7px] font-bold">PAUSED</span>}
                             {p.visible === false && <span className="px-1 py-0.5 bg-gray-200 text-gray-500 rounded text-[7px] font-bold">HIDDEN</span>}
                           </div>
-                          {p.start_date && <span className="text-gray-400">{p.start_date} → {p.end_date}</span>}
+                          {p.start_date && <div className="text-gray-400 mt-0.5">{p.start_date} → {p.end_date}</div>}
                         </div>
                       );
                     })}
                   </div>
+                  <p className="text-[8px] text-gray-400 mt-2 italic">Click "Edit Full Details" for Pause, Online/Offline & Visibility controls</p>
                 </div>
 
                 {sess.scheduled_dates?.length > 0 && (
@@ -973,7 +974,13 @@ const SubscribersTab = () => {
     payment_mode: editTarget.subscription?.payment_mode || 'No EMI', num_emis: editTarget.subscription?.num_emis || 0,
     emi_day: editTarget.subscription?.emi_day || 30,
     emis: editTarget.subscription?.emis || [], programs: editTarget.subscription?.programs || [],
-    programs_detail: editTarget.subscription?.programs_detail || [],
+    programs_detail: (editTarget.subscription?.programs_detail?.length > 0) 
+      ? editTarget.subscription.programs_detail 
+      : (editTarget.subscription?.programs || []).map(name => ({
+          name, duration_value: 12, duration_unit: 'months',
+          start_date: editTarget.subscription?.start_date || '', end_date: editTarget.subscription?.end_date || '',
+          status: 'active', mode: 'online', visible: true
+        })),
     bi_annual_download: editTarget.subscription?.bi_annual_download || 0, quarterly_releases: editTarget.subscription?.quarterly_releases || 0,
     payment_methods: editTarget.subscription?.payment_methods || ['stripe', 'manual'],
     late_fee_per_day: editTarget.subscription?.late_fee_per_day || 0,
