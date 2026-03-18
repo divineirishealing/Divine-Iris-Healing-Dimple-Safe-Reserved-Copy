@@ -1,25 +1,52 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useSiteSettings } from '../context/SiteSettingsContext';
-import { Clock, BookOpen, Star, Calendar, ArrowRight, User, CreditCard, Sparkles, Heart, FileText, CheckCircle } from 'lucide-react';
+import { 
+  Calendar, User, CreditCard, Heart, BookOpen, 
+  ArrowRight, Sparkles, ChevronRight, Star
+} from 'lucide-react';
 import { cn } from '../lib/utils';
 import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
-import { ResponsiveContainer, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar } from 'recharts';
 
 const API = process.env.REACT_APP_BACKEND_URL;
 
-const GlassCard = ({ children, className, onClick }) => (
-  <div 
+/* ─── Petal Card ─── */
+const PetalCard = ({ children, className, onClick, delay = 0, testId }) => (
+  <div
+    data-testid={testId}
     onClick={onClick}
+    style={{ animationDelay: `${delay}ms` }}
     className={cn(
-      "bg-white/60 backdrop-blur-xl border border-white/40 shadow-lg rounded-3xl p-6 transition-all duration-300 hover:bg-white/70 hover:shadow-xl hover:scale-[1.02] cursor-pointer group relative overflow-hidden",
+      "group relative cursor-pointer overflow-hidden rounded-[28px]",
+      "bg-white/[0.08] backdrop-blur-[20px] border border-white/[0.15]",
+      "shadow-[0_8px_32px_rgba(93,63,211,0.15)]",
+      "transition-all duration-500 ease-out",
+      "hover:bg-white/[0.14] hover:border-white/[0.25] hover:shadow-[0_12px_48px_rgba(93,63,211,0.25)]",
+      "hover:-translate-y-1",
+      "animate-[petalIn_0.7s_ease-out_both]",
       className
     )}
   >
-    <div className="absolute inset-0 bg-gradient-to-br from-white/40 to-transparent pointer-events-none" />
-    <div className="relative z-10">{children}</div>
+    {/* Inner glow */}
+    <div className="absolute inset-0 bg-gradient-to-br from-white/[0.08] via-transparent to-transparent pointer-events-none" />
+    {/* Hover shimmer */}
+    <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-700 bg-gradient-to-r from-transparent via-white/[0.04] to-transparent pointer-events-none" />
+    <div className="relative z-10 h-full">{children}</div>
   </div>
+);
+
+/* ─── Animated Orb ─── */
+const FloatingOrb = ({ size, top, left, delay, color = 'rgba(212,175,55,0.08)' }) => (
+  <div
+    className="absolute rounded-full pointer-events-none animate-[float_8s_ease-in-out_infinite]"
+    style={{
+      width: size, height: size, top, left,
+      background: `radial-gradient(circle, ${color} 0%, transparent 70%)`,
+      animationDelay: `${delay}s`,
+      filter: 'blur(1px)'
+    }}
+  />
 );
 
 const StudentDashboard = () => {
@@ -27,199 +54,348 @@ const StudentDashboard = () => {
   const { settings } = useSiteSettings();
   const navigate = useNavigate();
   const [homeData, setHomeData] = useState(null);
-  
-  const sanctuary = settings?.sanctuary_settings || {
-    greeting_title: "Divine Iris Healing",
-    greeting_subtitle: "Home for Your Soul"
+
+  const raw = settings?.sanctuary_settings || {};
+  const sanctuary = {
+    greeting_title: raw.greeting_title || "Divine Iris Healing",
+    greeting_subtitle: raw.greeting_subtitle || "Home for Your Soul",
+    hero_bg: raw.hero_bg || "",
+    hero_video: raw.hero_video || "",
+    hero_overlay: raw.hero_overlay || "",
   };
 
   useEffect(() => {
     axios.get(`${API}/api/student/home`, { withCredentials: true })
       .then(res => setHomeData(res.data))
-      .catch(err => console.error(err));
+      .catch(() => {});
   }, []);
 
-  const upcoming = homeData?.upcoming_programs?.[0]; 
-  const packageData = homeData?.package || {};
-  const nextSession = packageData.next_session_date;
-  const progressPercent = packageData.total_sessions ? Math.round((packageData.used_sessions / packageData.total_sessions) * 100) : 0;
-
-  // Placeholder progress data until real logs populate
-  const progressData = [
-    { subject: 'Health', A: 80, fullMark: 100 },
-    { subject: 'Wealth', A: 65, fullMark: 100 },
-    { subject: 'Relations', A: 90, fullMark: 100 },
-    { subject: 'Emotional', A: 70, fullMark: 100 },
-    { subject: 'Mental', A: 85, fullMark: 100 },
-    { subject: 'Spiritual', A: 95, fullMark: 100 },
-  ];
+  const upcoming = homeData?.upcoming_programs?.[0];
+  const pkg = homeData?.package || {};
+  const progressPct = pkg.total_sessions ? Math.round((pkg.used_sessions / pkg.total_sessions) * 100) : 0;
+  const tierLabel = { 1: 'Seeker', 2: 'Initiate', 3: 'Explorer', 4: 'Iris' }[user?.tier] || 'Seeker';
 
   return (
-    <div className="min-h-screen bg-[#FDFBF7] overflow-x-hidden">
-      
-      {/* --- LAYER 1: ATMOSPHERE --- */}
+    <div className="absolute inset-0 overflow-y-auto overflow-x-hidden" data-testid="student-dashboard">
+
+      {/* ═══ ATMOSPHERE ═══ */}
       <div className="fixed inset-0 z-0">
         {sanctuary.hero_bg ? (
-          <img src={sanctuary.hero_bg} className="w-full h-full object-cover" alt="Atmosphere" />
+          <img src={sanctuary.hero_bg} className="w-full h-full object-cover" alt="" />
+        ) : sanctuary.hero_video ? (
+          <video src={sanctuary.hero_video} autoPlay muted loop playsInline className="w-full h-full object-cover" />
         ) : (
-          <div className="w-full h-full bg-gradient-to-b from-[#5D3FD3] to-[#8673E0]" />
+          <div className="w-full h-full bg-gradient-to-br from-[#2D1B69] via-[#5D3FD3] to-[#7C5CE7]" />
         )}
+        {/* Dark vignette overlay */}
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,transparent_30%,rgba(20,10,50,0.55)_100%)]" />
+        {/* Subtle noise texture */}
+        <div className="absolute inset-0 opacity-[0.03]" style={{ backgroundImage: 'url("data:image/svg+xml,%3Csvg viewBox=\'0 0 256 256\' xmlns=\'http://www.w3.org/2000/svg\'%3E%3Cfilter id=\'noise\'%3E%3CfeTurbulence type=\'fractalNoise\' baseFrequency=\'0.9\' numOctaves=\'4\' stitchTiles=\'stitch\'/%3E%3C/filter%3E%3Crect width=\'100%25\' height=\'100%25\' filter=\'url(%23noise)\'/%3E%3C/svg%3E")' }} />
+        
         {sanctuary.hero_overlay && (
-          <div className="absolute inset-0 z-10 animate-pulse-slow pointer-events-none">
-            <img src={sanctuary.hero_overlay} className="w-full h-full object-cover opacity-80" alt="Spirit" />
+          <div className="absolute inset-0 z-10 animate-[drift_20s_linear_infinite] pointer-events-none opacity-60">
+            <img src={sanctuary.hero_overlay} className="w-full h-full object-cover" alt="" />
           </div>
         )}
-        <div className="absolute inset-0 bg-black/10 z-20 pointer-events-none" />
       </div>
 
-      {/* --- LAYER 2: CONTENT --- */}
-      <div className="relative z-30 w-full min-h-screen flex flex-col items-center justify-center p-4 pt-24 md:pt-32">
-        
-        {/* Greeting Text */}
-        <div className="text-center text-white mb-12 transform transition-all duration-700 animate-in fade-in slide-in-from-bottom-8">
-          <h1 className="text-4xl md:text-6xl font-serif font-bold text-shadow-lg mb-2 drop-shadow-md">
+      {/* Floating orbs */}
+      <FloatingOrb size="300px" top="-50px" left="-80px" delay={0} />
+      <FloatingOrb size="200px" top="60%" left="85%" delay={3} color="rgba(132,169,140,0.06)" />
+      <FloatingOrb size="150px" top="30%" left="50%" delay={5} />
+      <FloatingOrb size="100px" top="80%" left="15%" delay={2} color="rgba(212,175,55,0.05)" />
+
+      {/* ═══ CONTENT ═══ */}
+      <div className="relative z-20 min-h-full flex flex-col items-center justify-center px-4 py-8 md:py-12">
+
+        {/* ─── GREETING ─── */}
+        <div className="text-center mb-10 md:mb-14 animate-[fadeSlideUp_0.8s_ease-out_both]" data-testid="dashboard-greeting">
+          <div className="inline-flex items-center gap-2 px-4 py-1.5 mb-4 rounded-full bg-white/[0.08] backdrop-blur-md border border-white/[0.12] text-white/80">
+            <Sparkles size={12} className="text-[#D4AF37]" />
+            <span className="text-[11px] font-semibold tracking-[0.2em] uppercase">
+              {tierLabel} Path
+            </span>
+          </div>
+          <h1 className="text-3xl sm:text-4xl md:text-5xl font-serif font-bold text-white tracking-tight leading-tight drop-shadow-[0_2px_20px_rgba(93,63,211,0.3)]">
             {sanctuary.greeting_title}
           </h1>
-          <p className="text-xl font-light tracking-widest uppercase opacity-90 drop-shadow-sm">
+          <p className="mt-2 text-sm md:text-base text-white/60 tracking-[0.25em] uppercase font-light">
             {sanctuary.greeting_subtitle}
           </p>
-          <p className="mt-4 text-sm font-medium bg-white/20 backdrop-blur-md inline-block px-4 py-1 rounded-full border border-white/30">
-            Welcome, {user?.name}
-          </p>
+          {user?.name && (
+            <p className="mt-4 text-sm text-white/50 font-medium">
+              Welcome back, <span className="text-[#D4AF37]">{user.name.split(' ')[0]}</span>
+            </p>
+          )}
         </div>
 
-        {/* --- THE IRIS FLOWER LAYOUT --- */}
-        <div className="max-w-7xl mx-auto w-full">
-          
-          <div className="hidden lg:grid grid-cols-3 gap-8 items-center">
-            
-            {/* Left Petals */}
-            <div className="space-y-8 flex flex-col items-end animate-in slide-in-from-left-12 duration-700 delay-100">
-              
-              {/* Petal 1: The Path (Schedule) */}
-              <GlassCard className="w-80 h-48 flex flex-col justify-between border-l-4 border-l-[#D4AF37]" onClick={() => navigate('/programs')}>
-                <div>
-                  <div className="flex items-center gap-2 mb-2 text-[#D4AF37]">
-                    <Calendar size={18} />
-                    <span className="text-xs font-bold uppercase tracking-wider">My Schedule</span>
+        {/* ─── IRIS FLOWER: 5 PETALS ─── */}
+        {/* Desktop: Cross / Flower pattern */}
+        <div className="w-full max-w-5xl mx-auto hidden lg:block">
+          {/* Top row: 1 card centered */}
+          <div className="flex justify-center mb-6">
+            <PetalCard
+              testId="petal-schedule"
+              className="w-[380px] p-6"
+              delay={100}
+              onClick={() => navigate('/dashboard/sessions')}
+            >
+              <div className="flex items-start justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-2xl bg-[#D4AF37]/20 flex items-center justify-center">
+                    <Calendar size={18} className="text-[#D4AF37]" />
                   </div>
-                  {nextSession ? (
-                    <>
-                      <h3 className="text-lg font-serif font-bold text-gray-800">Next: {nextSession}</h3>
-                      <p className="text-xs text-gray-500 mt-1">{packageData.program_name || 'Personal Session'}</p>
-                    </>
-                  ) : (
-                    <>
-                      <h3 className="text-lg font-serif font-bold text-gray-800 line-clamp-2">
-                        {upcoming?.title || "No Upcoming Journey"}
-                      </h3>
-                      <p className="text-xs text-gray-500 mt-1">{upcoming?.timing || "Stay tuned"}</p>
-                    </>
-                  )}
-                </div>
-                <div className="flex items-center justify-between mt-2">
-                  <span className="text-[10px] bg-purple-100 text-purple-700 px-2 py-1 rounded-full">View Full Schedule</span>
-                  <ArrowRight size={16} className="text-[#5D3FD3]" />
-                </div>
-              </GlassCard>
-
-              {/* Petal 2: Sacred Exchange (Package & Financials) */}
-              <GlassCard className="w-80 h-48 flex flex-col justify-between border-l-4 border-l-green-400" onClick={() => navigate('/dashboard/financials')}>
-                <div>
-                  <div className="flex items-center gap-2 mb-2 text-green-600">
-                    <CreditCard size={18} />
-                    <span className="text-xs font-bold uppercase tracking-wider">Package Status</span>
+                  <div>
+                    <h3 className="text-[11px] font-bold uppercase tracking-[0.15em] text-white/50">My Schedule</h3>
+                    <p className="text-lg font-serif font-bold text-white mt-0.5 leading-snug">
+                      {upcoming?.title || 'No Upcoming Journey'}
+                    </p>
                   </div>
-                  <h3 className="text-sm font-bold text-gray-800 mb-1">
-                    {packageData.program_name || "No Active Package"}
-                  </h3>
-                  {packageData.total_sessions > 0 && (
-                    <div className="space-y-1">
-                      <div className="flex justify-between text-[10px] text-gray-500">
-                        <span>{packageData.used_sessions} Used</span>
-                        <span>{packageData.total_sessions - packageData.used_sessions} Remaining</span>
-                      </div>
-                      <div className="h-1.5 w-full bg-gray-100 rounded-full overflow-hidden">
-                        <div className="h-full bg-green-500" style={{ width: `${progressPercent}%` }} />
-                      </div>
-                    </div>
-                  )}
-                  <p className="text-xs text-gray-500 mt-2">Payment: {homeData?.financials?.status || 'N/A'}</p>
                 </div>
-                <p className="text-[10px] text-gray-400">Manage Payments</p>
-              </GlassCard>
-            </div>
+                <ChevronRight size={16} className="text-white/30 group-hover:text-[#D4AF37] transition-colors mt-1" />
+              </div>
+              {upcoming && (
+                <div className="mt-4 flex gap-2">
+                  <span className="text-[10px] px-2.5 py-1 rounded-full bg-white/10 text-white/70">{upcoming.timing || 'TBD'}</span>
+                  <span className="text-[10px] px-2.5 py-1 rounded-full bg-[#D4AF37]/20 text-[#D4AF37]">
+                    {upcoming.enrollment_status === 'open' ? 'Open' : 'Coming Soon'}
+                  </span>
+                </div>
+              )}
+              {!upcoming && (
+                <p className="mt-3 text-xs text-white/30 italic">Your next adventure awaits...</p>
+              )}
+            </PetalCard>
+          </div>
 
-            {/* Center Heart: Progress Radar */}
-            <div className="relative w-96 h-96 animate-in zoom-in duration-700 delay-200">
-              <div className="absolute inset-0 bg-[#5D3FD3] blur-[100px] opacity-20 rounded-full" />
-              <div className="relative z-10 w-full h-full bg-white/40 backdrop-blur-md border border-white/60 rounded-full shadow-2xl flex items-center justify-center p-4 transition-transform hover:scale-105 duration-500 cursor-pointer" onClick={() => navigate('/dashboard/reports')}>
-                <div className="w-full h-full">
-                  <h3 className="text-center text-[#5D3FD3] font-serif font-bold mb-[-20px] relative z-20">Soul Compass</h3>
-                  <ResponsiveContainer width="100%" height="100%">
-                    <RadarChart cx="50%" cy="50%" outerRadius="70%" data={progressData}>
-                      <PolarGrid stroke="#e5e7eb" />
-                      <PolarAngleAxis dataKey="subject" tick={{ fill: '#4b5563', fontSize: 10, fontWeight: 'bold' }} />
-                      <PolarRadiusAxis angle={30} domain={[0, 100]} tick={false} axisLine={false} />
-                      <Radar name="You" dataKey="A" stroke="#8884d8" fill="#8884d8" fillOpacity={0.6} />
-                    </RadarChart>
-                  </ResponsiveContainer>
+          {/* Middle row: 3 cards */}
+          <div className="grid grid-cols-3 gap-6 mb-6">
+            {/* LEFT: Profile */}
+            <PetalCard
+              testId="petal-profile"
+              className="p-6"
+              delay={200}
+              onClick={() => navigate('/dashboard/profile')}
+            >
+              <div className="flex items-center gap-3 mb-4">
+                <div className="w-12 h-12 rounded-full bg-gradient-to-br from-[#5D3FD3] to-[#84A98C] p-[2px]">
+                  <div className="w-full h-full rounded-full bg-[#2D1B69] flex items-center justify-center overflow-hidden">
+                    {user?.picture ? (
+                      <img src={user.picture} alt="" className="w-full h-full object-cover" />
+                    ) : (
+                      <User size={18} className="text-white/70" />
+                    )}
+                  </div>
+                </div>
+                <div>
+                  <h3 className="text-[11px] font-bold uppercase tracking-[0.15em] text-white/50">Profile</h3>
+                  <p className="text-base font-serif font-bold text-white">{user?.name || 'Student'}</p>
                 </div>
               </div>
-            </div>
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] text-white/40">Tier</span>
+                  <span className="text-[10px] px-2 py-0.5 rounded-full bg-[#5D3FD3]/30 text-[#C4B5FD] font-semibold">{tierLabel}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] text-white/40">Status</span>
+                  <span className="text-[10px] px-2 py-0.5 rounded-full bg-[#84A98C]/20 text-[#84A98C] font-semibold">
+                    {homeData?.profile_status === 'complete' ? 'Verified' : 'Setup Needed'}
+                  </span>
+                </div>
+              </div>
+              <div className="mt-4 flex items-center text-[10px] text-white/40 group-hover:text-[#D4AF37] transition-colors">
+                <span>Complete Profile</span>
+                <ArrowRight size={12} className="ml-1" />
+              </div>
+            </PetalCard>
 
-            {/* Right Petals */}
-            <div className="space-y-8 flex flex-col items-start animate-in slide-in-from-right-12 duration-700 delay-100">
-              {/* Petal 3: Reflection (Log) */}
-              <GlassCard className="w-80 h-48 flex flex-col justify-between border-r-4 border-r-blue-400" onClick={() => navigate('/dashboard/diary')}>
+            {/* CENTER: Soul Compass (Progress) */}
+            <PetalCard
+              testId="petal-progress"
+              className="p-6 flex flex-col items-center justify-center"
+              delay={300}
+              onClick={() => navigate('/dashboard/reports')}
+            >
+              <h3 className="text-[11px] font-bold uppercase tracking-[0.15em] text-white/50 mb-3">Soul Compass</h3>
+              <div className="relative w-40 h-40">
+                {/* Outer ring */}
+                <svg className="w-full h-full -rotate-90" viewBox="0 0 120 120">
+                  <circle cx="60" cy="60" r="52" fill="none" stroke="rgba(255,255,255,0.06)" strokeWidth="6" />
+                  <circle cx="60" cy="60" r="52" fill="none" stroke="url(#progressGrad)" strokeWidth="6"
+                    strokeLinecap="round" strokeDasharray={`${progressPct * 3.27} 327`}
+                    className="transition-all duration-1000 ease-out"
+                  />
+                  <defs>
+                    <linearGradient id="progressGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+                      <stop offset="0%" stopColor="#D4AF37" />
+                      <stop offset="100%" stopColor="#84A98C" />
+                    </linearGradient>
+                  </defs>
+                </svg>
+                {/* Center text */}
+                <div className="absolute inset-0 flex flex-col items-center justify-center">
+                  <span className="text-3xl font-serif font-bold text-white">{progressPct || 0}%</span>
+                  <span className="text-[9px] text-white/40 uppercase tracking-wider mt-0.5">Journey</span>
+                </div>
+              </div>
+              {pkg.total_sessions > 0 && (
+                <p className="mt-3 text-[10px] text-white/40 text-center">
+                  {pkg.used_sessions}/{pkg.total_sessions} sessions completed
+                </p>
+              )}
+              {!pkg.total_sessions && (
+                <p className="mt-3 text-[10px] text-white/30 italic text-center">Begin your transformation</p>
+              )}
+            </PetalCard>
+
+            {/* RIGHT: Payment Status */}
+            <PetalCard
+              testId="petal-financials"
+              className="p-6"
+              delay={400}
+              onClick={() => navigate('/dashboard/financials')}
+            >
+              <div className="flex items-center gap-3 mb-4">
+                <div className="w-10 h-10 rounded-2xl bg-[#84A98C]/20 flex items-center justify-center">
+                  <CreditCard size={18} className="text-[#84A98C]" />
+                </div>
                 <div>
-                  <div className="flex items-center gap-2 mb-2 text-blue-500">
-                    <BookOpen size={18} />
-                    <span className="text-xs font-bold uppercase tracking-wider">Reflection</span>
-                  </div>
-                  <h3 className="text-lg font-serif font-bold text-gray-800">Your Journey Log</h3>
-                  <p className="text-xs text-gray-500 mt-1">
-                    {homeData?.journey_logs?.length > 0 
-                      ? `Last Entry: ${new Date(homeData.journey_logs[0].date).toLocaleDateString()}` 
-                      : "Start your first entry today."}
+                  <h3 className="text-[11px] font-bold uppercase tracking-[0.15em] text-white/50">Sacred Exchange</h3>
+                  <p className="text-base font-serif font-bold text-white">
+                    {pkg.program_name || 'Package Status'}
                   </p>
                 </div>
-                <button className="text-[10px] text-[#5D3FD3] font-bold uppercase tracking-wide hover:underline text-left">Open Diary</button>
-              </GlassCard>
-
-              {/* Petal 4: Galaxy of Magic */}
-              <GlassCard className="w-80 h-48 flex flex-col justify-between border-r-4 border-r-pink-400" onClick={() => navigate('/transformations')}>
-                <div>
-                  <div className="flex items-center gap-2 mb-2 text-pink-500">
-                    <Heart size={18} />
-                    <span className="text-xs font-bold uppercase tracking-wider">Galaxy of Magic</span>
+              </div>
+              {pkg.total_sessions > 0 && (
+                <div className="space-y-2">
+                  <div className="flex justify-between text-[10px] text-white/40">
+                    <span>{pkg.used_sessions} Used</span>
+                    <span>{pkg.total_sessions - pkg.used_sessions} Left</span>
                   </div>
-                  <h3 className="text-lg font-serif font-bold text-gray-800">Wall of Fame</h3>
-                  <p className="text-xs text-gray-500 mt-1">Witness the transformations.</p>
+                  <div className="h-1.5 rounded-full bg-white/[0.06] overflow-hidden">
+                    <div
+                      className="h-full rounded-full bg-gradient-to-r from-[#84A98C] to-[#D4AF37] transition-all duration-1000"
+                      style={{ width: `${progressPct}%` }}
+                    />
+                  </div>
                 </div>
+              )}
+              <div className="mt-4 flex items-center justify-between">
+                <span className="text-[10px] px-2.5 py-1 rounded-full bg-white/10 text-white/60">
+                  {homeData?.financials?.status || 'N/A'}
+                </span>
+                <ArrowRight size={14} className="text-white/30 group-hover:text-[#84A98C] transition-colors" />
+              </div>
+            </PetalCard>
+          </div>
+
+          {/* Bottom row: 2 cards centered */}
+          <div className="flex justify-center gap-6">
+            {/* Reflection / Diary */}
+            <PetalCard
+              testId="petal-diary"
+              className="w-[380px] p-6"
+              delay={500}
+              onClick={() => navigate('/dashboard/diary')}
+            >
+              <div className="flex items-start justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-2xl bg-blue-400/20 flex items-center justify-center">
+                    <BookOpen size={18} className="text-blue-300" />
+                  </div>
+                  <div>
+                    <h3 className="text-[11px] font-bold uppercase tracking-[0.15em] text-white/50">Reflection</h3>
+                    <p className="text-base font-serif font-bold text-white">Journey Diary</p>
+                  </div>
+                </div>
+                <ChevronRight size={16} className="text-white/30 group-hover:text-blue-300 transition-colors mt-1" />
+              </div>
+              <p className="mt-3 text-xs text-white/40">
+                {homeData?.journey_logs?.length > 0
+                  ? `Last entry: ${new Date(homeData.journey_logs[0].date).toLocaleDateString()}`
+                  : 'Start capturing your inner transformation...'}
+              </p>
+            </PetalCard>
+
+            {/* Galaxy of Magic */}
+            <PetalCard
+              testId="petal-galaxy"
+              className="w-[380px] p-6"
+              delay={600}
+              onClick={() => navigate('/transformations')}
+            >
+              <div className="flex items-start justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-2xl bg-pink-400/20 flex items-center justify-center">
+                    <Heart size={18} className="text-pink-300" />
+                  </div>
+                  <div>
+                    <h3 className="text-[11px] font-bold uppercase tracking-[0.15em] text-white/50">Galaxy of Magic</h3>
+                    <p className="text-base font-serif font-bold text-white">Wall of Fame</p>
+                  </div>
+                </div>
+                <ChevronRight size={16} className="text-white/30 group-hover:text-pink-300 transition-colors mt-1" />
+              </div>
+              <div className="mt-3 flex items-center gap-2">
                 <div className="flex -space-x-2">
-                  {[1,2,3].map(i => (
-                    <div key={i} className="w-6 h-6 rounded-full bg-gray-200 border border-white" />
+                  {[0,1,2].map(i => (
+                    <div key={i} className="w-7 h-7 rounded-full bg-gradient-to-br from-purple-400/30 to-pink-400/30 border-2 border-[#2D1B69] flex items-center justify-center">
+                      <Star size={10} className="text-[#D4AF37]/60" />
+                    </div>
                   ))}
                 </div>
-              </GlassCard>
-            </div>
-          </div>
-
-          {/* Mobile Layout */}
-          <div className="lg:hidden space-y-4 animate-in slide-in-from-bottom-12 duration-700">
-            {/* Mobile items stacked */}
-            <GlassCard onClick={() => navigate('/dashboard/profile')}>
-              <div className="flex items-center gap-4">
-                <div className="w-12 h-12 rounded-full bg-[#5D3FD3] flex items-center justify-center text-white"><User size={20} /></div>
-                <div><h3 className="font-bold text-gray-800">My Profile</h3><p className="text-xs text-gray-500">View Details</p></div>
+                <span className="text-[10px] text-white/40">Witness the transformations</span>
               </div>
-            </GlassCard>
-            {/* ... other mobile cards ... */}
+            </PetalCard>
           </div>
-
         </div>
+
+        {/* ─── MOBILE LAYOUT ─── */}
+        <div className="lg:hidden w-full max-w-md mx-auto space-y-4">
+          {[
+            { testId: 'petal-schedule-m', icon: Calendar, color: '#D4AF37', title: 'My Schedule', sub: upcoming?.title || 'No Upcoming Journey', to: '/dashboard/sessions', delay: 100 },
+            { testId: 'petal-profile-m', icon: User, color: '#C4B5FD', title: 'My Profile', sub: user?.name || 'Complete your profile', to: '/dashboard/profile', delay: 200 },
+            { testId: 'petal-financials-m', icon: CreditCard, color: '#84A98C', title: 'Sacred Exchange', sub: homeData?.financials?.status || 'View financial status', to: '/dashboard/financials', delay: 300 },
+            { testId: 'petal-diary-m', icon: BookOpen, color: '#93C5FD', title: 'Reflection', sub: 'Journey Diary', to: '/dashboard/diary', delay: 400 },
+            { testId: 'petal-galaxy-m', icon: Heart, color: '#F9A8D4', title: 'Galaxy of Magic', sub: 'Wall of Fame', to: '/transformations', delay: 500 },
+          ].map(item => (
+            <PetalCard key={item.testId} testId={item.testId} className="p-5" delay={item.delay} onClick={() => navigate(item.to)}>
+              <div className="flex items-center gap-4">
+                <div className="w-11 h-11 rounded-2xl flex items-center justify-center shrink-0" style={{ background: `${item.color}20` }}>
+                  <item.icon size={18} style={{ color: item.color }} />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <h3 className="text-[11px] font-bold uppercase tracking-[0.12em] text-white/50">{item.title}</h3>
+                  <p className="text-sm font-serif font-bold text-white truncate">{item.sub}</p>
+                </div>
+                <ChevronRight size={16} className="text-white/20 shrink-0" />
+              </div>
+            </PetalCard>
+          ))}
+        </div>
+
       </div>
+
+      {/* ═══ CSS KEYFRAMES ═══ */}
+      <style>{`
+        @keyframes petalIn {
+          from { opacity: 0; transform: translateY(24px) scale(0.96); }
+          to   { opacity: 1; transform: translateY(0) scale(1); }
+        }
+        @keyframes fadeSlideUp {
+          from { opacity: 0; transform: translateY(20px); }
+          to   { opacity: 1; transform: translateY(0); }
+        }
+        @keyframes float {
+          0%, 100% { transform: translateY(0) scale(1); }
+          50%      { transform: translateY(-20px) scale(1.05); }
+        }
+        @keyframes drift {
+          from { transform: translateX(0); }
+          to   { transform: translateX(-10%); }
+        }
+      `}</style>
     </div>
   );
 };

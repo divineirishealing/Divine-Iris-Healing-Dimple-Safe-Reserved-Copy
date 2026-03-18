@@ -8,11 +8,12 @@ import {
 import { cn } from '../../lib/utils';
 import { useSiteSettings } from '../../context/SiteSettingsContext';
 
-const Sidebar = () => {
+const Sidebar = ({ onNavigate }) => {
   const { user, logout } = useAuth();
   const { settings } = useSiteSettings();
   const location = useLocation();
-  const theme = settings?.dashboard_settings || { title: "Sanctuary" };
+  const rawTheme = settings?.dashboard_settings || {};
+  const theme = { title: rawTheme.title || "Sanctuary", ...rawTheme };
   
   const isSanctuary = location.pathname === '/dashboard' || location.pathname === '/dashboard/';
   const tier = user?.tier || 1;
@@ -24,14 +25,15 @@ const Sidebar = () => {
         to={isLocked ? '#' : to}
         className={({ isActive }) => cn(
           "flex items-center gap-3 px-4 py-3 text-sm font-medium rounded-xl transition-all mb-1 group relative",
-          // Conditional styling based on Sanctuary mode
           isSanctuary 
             ? (isActive && !isLocked ? "bg-white/20 text-white backdrop-blur-md" : "text-white/70 hover:bg-white/10 hover:text-white")
             : (isActive && !isLocked ? "bg-[#F3E8FF] text-[#5D3FD3]" : "text-gray-600 hover:bg-gray-50"),
-          
           isLocked && "opacity-50 cursor-not-allowed hover:bg-transparent"
         )}
-        onClick={e => isLocked && e.preventDefault()}
+        onClick={e => {
+          if (isLocked) { e.preventDefault(); return; }
+          onNavigate?.();
+        }}
       >
         <Icon size={18} className={isSanctuary ? "text-white" : (isLocked ? "text-gray-400" : "text-[#5D3FD3]")} />
         <span className={isLocked ? (isSanctuary ? "text-white/50" : "text-gray-400") : ""}>{label}</span>
@@ -42,8 +44,8 @@ const Sidebar = () => {
 
   return (
     <aside className={cn(
-      "w-64 h-full border-r hidden md:flex flex-col relative z-20 shrink-0 transition-colors duration-300",
-      isSanctuary ? "bg-transparent border-white/10 text-white" : "bg-white border-gray-100"
+      "w-64 h-full border-r flex flex-col relative z-20 shrink-0 transition-colors duration-300",
+      isSanctuary ? "bg-[#1a1040]/60 backdrop-blur-xl border-white/[0.06] text-white" : "bg-white border-gray-100"
     )}>
       <div className={cn("p-6 border-b", isSanctuary ? "border-white/10" : "border-gray-50")}>
         <h1 className={cn("text-xl font-serif font-bold tracking-tight", isSanctuary ? "text-white" : "text-[#5D3FD3]")}>{theme.title}</h1>
