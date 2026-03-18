@@ -67,6 +67,63 @@ def safe_date(val):
     return s
 
 
+# ═══════════════════════════════════════════
+# GLOBAL ANNUAL PRICING CONFIG
+# ═══════════════════════════════════════════
+
+class IncludedProgram(BaseModel):
+    name: str
+    duration_value: int = 12
+    duration_unit: str = "months"  # months | sessions
+
+class AnnualPricingConfig(BaseModel):
+    package_name: str = "Annual Healing Package"
+    duration_months: int = 12
+    pricing: Dict[str, float] = {"INR": 50000, "USD": 600, "AED": 2200, "EUR": 550, "GBP": 470}
+    included_programs: List[IncludedProgram] = []
+    default_sessions_current: int = 12
+    default_sessions_carry_forward: int = 0
+    notes: str = ""
+
+DEFAULT_PRICING_CONFIG = {
+    "id": "annual_pricing_config",
+    "package_name": "Annual Healing Package",
+    "duration_months": 12,
+    "pricing": {"INR": 50000, "USD": 600, "AED": 2200, "EUR": 550, "GBP": 470},
+    "included_programs": [
+        {"name": "AWRP", "duration_value": 12, "duration_unit": "months"},
+        {"name": "Money Magic Multiplier", "duration_value": 6, "duration_unit": "months"},
+        {"name": "Bi-Annual Downloads", "duration_value": 2, "duration_unit": "sessions"},
+        {"name": "Quarterly Meetups", "duration_value": 4, "duration_unit": "sessions"},
+    ],
+    "default_sessions_current": 12,
+    "default_sessions_carry_forward": 0,
+    "notes": ""
+}
+
+@router.get("/pricing-config")
+async def get_pricing_config():
+    doc = await db.annual_pricing_config.find_one({"id": "annual_pricing_config"}, {"_id": 0})
+    if not doc:
+        await db.annual_pricing_config.insert_one(DEFAULT_PRICING_CONFIG)
+        return DEFAULT_PRICING_CONFIG
+    return doc
+
+@router.put("/pricing-config")
+async def update_pricing_config(data: AnnualPricingConfig):
+    update = data.dict()
+    update["id"] = "annual_pricing_config"
+    update["included_programs"] = [p.dict() for p in data.included_programs]
+    update["updated_at"] = datetime.now(timezone.utc).isoformat()
+    await db.annual_pricing_config.update_one(
+        {"id": "annual_pricing_config"},
+        {"$set": update},
+        upsert=True
+    )
+    return {"message": "Pricing config updated"}
+
+
+
 # ─── UPLOAD ───
 
 @router.post("/upload")
