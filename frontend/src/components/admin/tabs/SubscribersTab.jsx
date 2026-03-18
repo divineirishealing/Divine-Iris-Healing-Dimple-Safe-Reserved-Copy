@@ -531,6 +531,11 @@ const SubscriberRow = ({ s, onRefresh, onEdit }) => {
   const sess = sub.sessions || {};
   const emis = sub.emis || [];
   const paidEmis = emis.filter(e => e.status === 'paid').length;
+  const totalPaid = emis.filter(e => e.status === 'paid').reduce((s, e) => s + (e.amount || 0), 0);
+  const totalDue = (sub.total_fee || 0) - totalPaid;
+  const paidPct = sub.total_fee > 0 ? Math.round((totalPaid / sub.total_fee) * 100) : 0;
+  const emiPlanLabel = emis.length > 0 ? `${emis.length} Month EMI` : sub.payment_mode || 'N/A';
+  const nextDue = emis.find(e => e.status !== 'paid');
 
   const markEmiPaid = async (emiNum) => {
     setMarkingEmi(emiNum);
@@ -569,7 +574,7 @@ const SubscriberRow = ({ s, onRefresh, onEdit }) => {
         <td className="px-3 py-2 text-center text-gray-500">{sub.start_date}</td>
         <td className="px-3 py-2 text-right font-mono">{sub.currency} {sub.total_fee?.toLocaleString()}</td>
         <td className="px-3 py-2 text-center">
-          <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${sub.payment_mode === 'EMI' ? 'bg-blue-50 text-blue-700' : 'bg-green-50 text-green-700'}`}>{sub.payment_mode || 'N/A'}</span>
+          <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${sub.payment_mode === 'EMI' ? 'bg-blue-50 text-blue-700' : 'bg-green-50 text-green-700'}`}>{emiPlanLabel}</span>
         </td>
         <td className="px-3 py-2 text-center">{paidEmis}/{emis.length}</td>
         <td className="px-3 py-2 text-center">{sess.availed || 0}/{sess.total || 0}</td>
@@ -577,30 +582,78 @@ const SubscriberRow = ({ s, onRefresh, onEdit }) => {
           <button onClick={() => onEdit(s)} className="text-[#5D3FD3] hover:text-[#4c32b3]" data-testid={`edit-btn-${s.id}`}><Edit2 size={12} /></button>
         </td>
       </tr>
+      {/* ═══ ADMIN MIRROR VIEW (same as student sees + edit) ═══ */}
       {open && (
         <tr>
-          <td colSpan={9} className="bg-gray-50 px-6 py-4 border-b">
-            <div className="grid md:grid-cols-2 gap-6">
-              <div>
-                <h4 className="text-xs font-bold uppercase tracking-wider text-gray-500 mb-2 flex items-center gap-1"><CreditCard size={12} /> EMI Schedule</h4>
-                {emis.length === 0 ? <p className="text-xs text-gray-400 italic">No EMI data</p> : (
-                  <table className="w-full text-[11px]">
-                    <thead><tr className="text-gray-400 border-b">
-                      <th className="text-left py-1">#</th><th className="text-left py-1">Due</th><th className="text-right py-1">Amt</th><th className="text-right py-1">Rem</th><th className="text-center py-1">Status</th><th className="py-1 w-6"></th>
+          <td colSpan={9} className="bg-[#FDFBF7] px-4 py-4 border-b">
+            {/* Top Stats — same as student */}
+            <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-4">
+              {[
+                { label: 'Total Fee', value: `${sub.currency || 'INR'} ${(sub.total_fee || 0).toLocaleString()}`, color: 'text-gray-900' },
+                { label: 'Paid', value: `${sub.currency || 'INR'} ${totalPaid.toLocaleString()}`, color: 'text-green-600' },
+                { label: 'Remaining', value: `${sub.currency || 'INR'} ${totalDue.toLocaleString()}`, color: totalDue > 0 ? 'text-red-600' : 'text-green-600' },
+                { label: 'Next Due', value: nextDue?.due_date || 'All Paid', color: 'text-amber-600' },
+                { label: 'Plan', value: emiPlanLabel, color: 'text-[#5D3FD3]' },
+              ].map((stat, i) => (
+                <div key={i} className="bg-white rounded-lg border p-2.5 text-center">
+                  <p className="text-[8px] uppercase tracking-wider text-gray-400 font-semibold">{stat.label}</p>
+                  <p className={`text-sm font-bold ${stat.color}`}>{stat.value}</p>
+                </div>
+              ))}
+            </div>
+
+            {/* Payment Progress */}
+            {sub.total_fee > 0 && (
+              <div className="bg-white rounded-lg border p-3 mb-4">
+                <div className="flex justify-between text-[10px] text-gray-500 mb-1">
+                  <span>Payment Progress</span><span>{paidPct}%</span>
+                </div>
+                <div className="h-2 rounded-full bg-gray-100 overflow-hidden">
+                  <div className="h-full rounded-full bg-gradient-to-r from-[#5D3FD3] to-[#84A98C]" style={{ width: `${paidPct}%` }} />
+                </div>
+                <div className="flex justify-between text-[9px] text-gray-400 mt-1">
+                  <span>{sub.payment_mode}</span><span>{paidEmis}/{emis.length} EMIs Paid</span>
+                </div>
+              </div>
+            )}
+
+            <div className="grid md:grid-cols-3 gap-4">
+              {/* EMI Schedule — admin editable */}
+              <div className="md:col-span-2 bg-white rounded-lg border overflow-hidden">
+                <div className="px-3 py-2 border-b bg-gray-50">
+                  <h4 className="text-[10px] font-bold uppercase tracking-wider text-gray-500 flex items-center gap-1"><CreditCard size={10} /> EMI Schedule ({emis.length})</h4>
+                </div>
+                {emis.length === 0 ? <p className="p-3 text-xs text-gray-400 italic">No EMI data</p> : (
+                  <table className="w-full text-[10px]">
+                    <thead><tr className="text-[8px] text-gray-400 uppercase border-b">
+                      <th className="px-2 py-1.5 text-left">#</th>
+                      <th className="px-2 py-1.5 text-left">Due Date</th>
+                      <th className="px-2 py-1.5 text-left">Paid Date</th>
+                      <th className="px-2 py-1.5 text-right">Amount</th>
+                      <th className="px-2 py-1.5 text-right">Remaining</th>
+                      <th className="px-2 py-1.5 text-center">Status</th>
+                      <th className="px-2 py-1.5 text-center">Method</th>
+                      <th className="px-2 py-1.5 w-8"></th>
                     </tr></thead>
                     <tbody>{emis.map(e => (
-                      <tr key={e.number} className="border-b border-gray-100">
-                        <td className="py-1 font-medium">{e.number}</td>
-                        <td className="py-1">{e.due_date || '-'}</td>
-                        <td className="py-1 text-right font-mono">{e.amount?.toLocaleString()}</td>
-                        <td className="py-1 text-right font-mono">{e.remaining?.toLocaleString()}</td>
-                        <td className="py-1 text-center">
-                          <span className={`px-1.5 py-0.5 rounded text-[9px] font-bold ${e.status === 'paid' ? 'bg-green-100 text-green-700' : e.status === 'due' ? 'bg-red-100 text-red-700' : e.status === 'partial' ? 'bg-amber-100 text-amber-700' : 'bg-gray-100 text-gray-500'}`}>{e.status}</span>
+                      <tr key={e.number} className={`border-b border-gray-50 ${e.status === 'paid' ? 'bg-green-50/30' : ''}`}>
+                        <td className="px-2 py-1.5 font-medium">{e.number}</td>
+                        <td className="px-2 py-1.5 text-gray-600">{e.due_date || '-'}</td>
+                        <td className="px-2 py-1.5 text-gray-500">{e.date || '-'}</td>
+                        <td className="px-2 py-1.5 text-right font-mono">{(e.amount || 0).toLocaleString()}</td>
+                        <td className="px-2 py-1.5 text-right font-mono">{Math.max(0, e.remaining || 0).toLocaleString()}</td>
+                        <td className="px-2 py-1.5 text-center">
+                          <span className={`px-1.5 py-0.5 rounded text-[8px] font-bold ${e.status === 'paid' ? 'bg-green-100 text-green-700' : e.status === 'due' ? 'bg-red-100 text-red-700' : 'bg-gray-100 text-gray-500'}`}>
+                            {e.status === 'paid' && '✓ '}{e.status}
+                          </span>
                         </td>
-                        <td className="py-1 text-center">
+                        <td className="px-2 py-1.5 text-center text-[8px] text-gray-400">{e.payment_method?.toUpperCase() || '-'}</td>
+                        <td className="px-2 py-1.5 text-center">
                           {e.status !== 'paid' && (
-                            <button onClick={() => markEmiPaid(e.number)} disabled={markingEmi === e.number} className="text-green-600 hover:text-green-800 disabled:opacity-50" data-testid={`mark-emi-paid-${e.number}`}>
-                              {markingEmi === e.number ? <Loader2 size={12} className="animate-spin" /> : <CheckCircle size={12} />}
+                            <button onClick={() => markEmiPaid(e.number)} disabled={markingEmi === e.number}
+                              className="text-green-600 hover:text-green-800 disabled:opacity-50" title="Mark Paid"
+                              data-testid={`mark-emi-paid-${e.number}`}>
+                              {markingEmi === e.number ? <Loader2 size={10} className="animate-spin" /> : <CheckCircle size={10} />}
                             </button>
                           )}
                         </td>
@@ -609,27 +662,35 @@ const SubscriberRow = ({ s, onRefresh, onEdit }) => {
                   </table>
                 )}
               </div>
-              <div>
-                <h4 className="text-xs font-bold uppercase tracking-wider text-gray-500 mb-2 flex items-center gap-1"><Calendar size={12} /> Sessions & Programs</h4>
-                <div className="grid grid-cols-3 gap-2 text-[11px] mb-3">
-                  <div className="bg-white p-2 rounded border text-center"><div className="text-gray-400">Carry Fwd</div><div className="font-bold">{sess.carry_forward || 0}</div></div>
-                  <div className="bg-white p-2 rounded border text-center"><div className="text-gray-400">Current</div><div className="font-bold">{sess.current || 0}</div></div>
-                  <div className="bg-white p-2 rounded border text-center"><div className="text-gray-400">Due</div><div className="font-bold text-red-600">{sess.due || 0}</div></div>
+
+              {/* Right column: Sessions + Programs */}
+              <div className="space-y-3">
+                <div className="bg-white rounded-lg border p-3">
+                  <h4 className="text-[10px] font-bold uppercase tracking-wider text-gray-500 mb-2 flex items-center gap-1"><Calendar size={10} /> Sessions</h4>
+                  <div className="grid grid-cols-3 gap-2 text-[10px] mb-2">
+                    <div className="bg-gray-50 p-1.5 rounded text-center"><div className="text-gray-400">Total</div><div className="font-bold">{sess.total || 0}</div></div>
+                    <div className="bg-gray-50 p-1.5 rounded text-center"><div className="text-gray-400">Availed</div><div className="font-bold">{sess.availed || 0}</div></div>
+                    <div className="bg-gray-50 p-1.5 rounded text-center"><div className="text-gray-400">Due</div><div className="font-bold text-red-600">{sess.due || 0}</div></div>
+                  </div>
+                  <Button size="sm" variant="outline" onClick={incrementSession} className="w-full text-[9px] h-6">
+                    <Plus size={8} className="mr-1" /> +1 Session Availed
+                  </Button>
                 </div>
-                <Button size="sm" variant="outline" onClick={incrementSession} className="mb-3 text-[10px] h-7" data-testid={`increment-session-${s.id}`}>
-                  <Plus size={10} className="mr-1" /> Mark +1 Session Availed
-                </Button>
                 {sub.programs?.length > 0 && (
-                  <div className="mb-2">
-                    <span className="text-[10px] text-gray-400 uppercase">Programs:</span>
-                    <div className="flex flex-wrap gap-1 mt-1">{sub.programs.map((p, i) => <span key={i} className="px-2 py-0.5 bg-purple-50 text-purple-700 rounded-full text-[10px] font-medium">{p}</span>)}</div>
+                  <div className="bg-white rounded-lg border p-3">
+                    <h4 className="text-[10px] font-bold uppercase tracking-wider text-gray-500 mb-2">Programs</h4>
+                    <div className="flex flex-wrap gap-1">{sub.programs.map((p, i) => <span key={i} className="px-2 py-0.5 bg-purple-50 text-purple-700 rounded-full text-[9px] font-medium">{p}</span>)}</div>
                   </div>
                 )}
                 {sess.scheduled_dates?.length > 0 && (
-                  <div><span className="text-[10px] text-gray-400 uppercase">Scheduled:</span>
-                    <div className="flex flex-wrap gap-1 mt-1">{sess.scheduled_dates.map((d, i) => <span key={i} className="px-2 py-0.5 bg-amber-50 text-amber-700 rounded-full text-[10px]">{d}</span>)}</div>
+                  <div className="bg-white rounded-lg border p-3">
+                    <h4 className="text-[10px] font-bold uppercase tracking-wider text-gray-500 mb-2">Scheduled</h4>
+                    <div className="flex flex-wrap gap-1">{sess.scheduled_dates.map((d, i) => <span key={i} className="px-2 py-0.5 bg-amber-50 text-amber-700 rounded-full text-[9px]">{d}</span>)}</div>
                   </div>
                 )}
+                <button onClick={() => onEdit(s)} className="w-full text-[10px] text-[#5D3FD3] hover:underline font-medium py-1">
+                  <Edit2 size={10} className="inline mr-1" /> Edit Full Details
+                </button>
               </div>
             </div>
           </td>

@@ -305,9 +305,14 @@ const FinancialsPage = () => {
       {emis.length > 0 && (
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-base flex items-center gap-2">
-              <CreditCard size={16} className="text-[#5D3FD3]" /> EMI Schedule
-            </CardTitle>
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-base flex items-center gap-2">
+                <CreditCard size={16} className="text-[#5D3FD3]" /> EMI Schedule
+              </CardTitle>
+              <span className="text-[10px] px-2.5 py-1 rounded-full bg-[#5D3FD3]/10 text-[#5D3FD3] font-bold">
+                {emis.length} Month EMI Plan
+              </span>
+            </div>
           </CardHeader>
           <CardContent>
             <div className="overflow-x-auto">
@@ -316,19 +321,22 @@ const FinancialsPage = () => {
                   <tr className="text-[10px] uppercase tracking-wider text-gray-400 border-b">
                     <th className="text-left py-2 px-2">#</th>
                     <th className="text-left py-2 px-2">Due Date</th>
+                    <th className="text-left py-2 px-2">Paid Date</th>
                     <th className="text-right py-2 px-2">Amount</th>
                     <th className="text-right py-2 px-2">Remaining</th>
                     <th className="text-center py-2 px-2">Status</th>
+                    <th className="text-center py-2 px-2">Method</th>
                     <th className="text-center py-2 px-2">Action</th>
                   </tr>
                 </thead>
                 <tbody>
                   {(showAllEmis ? emis : emis.slice(0, 4)).map(emi => (
-                    <tr key={emi.number} className="border-b border-gray-50 hover:bg-gray-50" data-testid={`emi-row-${emi.number}`}>
+                    <tr key={emi.number} className={`border-b border-gray-50 hover:bg-gray-50 ${emi.status === 'paid' ? 'bg-green-50/30' : ''}`} data-testid={`emi-row-${emi.number}`}>
                       <td className="py-3 px-2 font-medium text-gray-700">{emi.number}</td>
                       <td className="py-3 px-2 text-gray-600">{emi.due_date || '-'}</td>
+                      <td className="py-3 px-2 text-gray-500 text-xs">{emi.date || '-'}</td>
                       <td className="py-3 px-2 text-right font-mono text-gray-700">{fin.currency} {emi.amount?.toLocaleString()}</td>
-                      <td className="py-3 px-2 text-right font-mono text-gray-500">{fin.currency} {emi.remaining?.toLocaleString()}</td>
+                      <td className="py-3 px-2 text-right font-mono text-gray-500">{fin.currency} {Math.max(0, emi.remaining || 0).toLocaleString()}</td>
                       <td className="py-3 px-2 text-center">
                         <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold ${
                           emi.status === 'paid' ? 'bg-green-50 text-green-700' :
@@ -341,7 +349,10 @@ const FinancialsPage = () => {
                           {emi.status === 'pending' && <Clock size={10} />}
                           {emi.status}
                         </span>
-                        {emi.payment_method && <span className="block text-[8px] text-gray-400 mt-0.5">{emi.payment_method.toUpperCase()}{emi.paid_by ? ` by ${emi.paid_by}` : ''}</span>}
+                        {emi.paid_by && <span className="block text-[8px] text-gray-400 mt-0.5">by {emi.paid_by}</span>}
+                      </td>
+                      <td className="py-3 px-2 text-center text-[10px] text-gray-400">
+                        {emi.payment_method ? emi.payment_method.toUpperCase() : '-'}
                       </td>
                       <td className="py-3 px-2 text-center">
                         {emi.status !== 'paid' && (
