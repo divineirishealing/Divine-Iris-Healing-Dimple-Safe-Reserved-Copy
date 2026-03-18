@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-import { Card, CardHeader, CardTitle, CardContent } from '../../ui/card';
-import { Button } from '../../ui/button';
+import { Card, CardHeader, CardTitle, CardContent } from '../ui/card';
+import { Button } from '../ui/button';
 import { CreditCard, CheckCircle, Clock, AlertCircle } from 'lucide-react';
 
 const API = process.env.REACT_APP_BACKEND_URL;
