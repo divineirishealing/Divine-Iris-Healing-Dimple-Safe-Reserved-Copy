@@ -1,94 +1,43 @@
-# Divine Iris Healing - PRD
+# Divine Iris Healing - PRD (Updated Mar 18, 2026)
 
-## Architecture
-React + TailwindCSS + shadcn/ui | FastAPI + Motor MongoDB | Stripe | Emergent Google OAuth
+## What's Built This Session
 
-## What's Been Built (Mar 18, 2026)
+### Core Platform
+- Student Dashboard: Iris flower layout, glassmorphism, Soul Compass, Google OAuth
+- Multi-Package Pricing: Versioning, lock/unlock, per-program pricing (Unit/Offer), taxes (GST/VAT)
+- Full EMI System: Auto-generate amounts/dates, EMI Day field, late fees, channelization fee
+- Payment Flow: 3 methods (Stripe/Exly/Manual), bank accounts CRUD, admin approval for manual
+- Admin Mirror View: See exactly what student sees + edit controls
 
-### Student Dashboard - "Modern Spiritual" 
-- Iris flower layout, glassmorphism, purple atmosphere, Soul Compass progress ring
-- Google OAuth login (Client Garden whitelist only)
-- Video upload in Sanctuary Settings
+### Program Management
+- Global Program Scheduler (Scheduler tab): Set dates once → syncs to all subscribers
+- AWRP: Fixed 3rd→30th every month, 10PM IST, Weekends: Offline
+- Per-program controls: Pause/Resume, Online/Offline, Visible toggle
+- Student dashboard: Sees scheduled dates + picks Online/Offline per month/session
+- Schedule editor in subscriber edit form
 
-### Annual Subscriber Management (MAJOR)
-- **Multi-Package System**: Multiple pricing packages (PKG-STANDARD, PKG-VIP etc.) with versioning, lock/unlock
-- **Per-Program Pricing**: Price/Unit, Offer/Unit, auto-calculated Total, Offer, Discount % per currency (INR/USD/AED)
-- **Taxes**: GST 18% (India), VAT 5% (Dubai) auto-calculated
-- **Subscriber CRUD**: Create/Edit/Delete with full form, Excel upload/download/export
-- **EMI System**: Up to 12 EMIs, auto-generated amounts (Total ÷ count), EMI Day field (set once, all dates auto-populate)
-- **EMI #1 offset**: Starts 1 month before batch start date
-- **Payment Flow**: 3 methods per subscriber (Stripe/Exly/Manual toggle)
-- **Manual Payment**: Student submits with bank details, receipt upload → Admin approves
-- **Bank Accounts**: CRUD with unique codes, shown on student payment form
-- **Late Fees**: Per-day late fee + channelization fee, auto-calculated on overdue EMIs
-- **Show Late Fees toggle**: Per subscriber visibility control
-- **Admin Mirror View**: Exact same view as student with edit controls
-- **Package Config**: Included programs table with offer/unit pricing, package discount %, validity dates
-- **Package Versioning**: Create new version → locks old one
+### NEXT TO BUILD
+- **Collapsible scheduler** in admin (each program section collapses)
+- **Calendar view** on student dashboard showing all scheduled sessions
+- **Daily progress tracking** — student marks each day's progress
+- **Mark for offline sessions** — student opts into offline for specific sessions
+- **Extraordinary moments** — student can mark special days/moments during sessions
 
-### Student Financials Page
-- Top stats: Total Fee, Paid, Remaining, Next Due
-- Payment Progress bar
-- EMI Schedule: Due Date, Amount, Status (paid/due/overdue/submitted), Late Fee, Ch. Fee, Payment Mode, Remarks, Action (Pay Now / Paid / Receipt)
-- EMI Plan label badge (6/12 Month EMI Plan)
-- Pay Now modal: Stripe / Exly / Manual with bank details display
-- Session Tracking: Current, Yet to Avail, Due
-- Programs: Name + duration (months/sessions) + Online badge + Pause/Hidden badges
-
-### Admin Controls for Programs (per subscriber)
-- Edit form: Name, Duration, Unit (months/sessions), Online/Offline dropdown, Pause/Resume button, Visible checkbox, Delete
-- Expanded row: Read-only view with badges
-- "Regenerate All EMIs" button
-
-## NEXT TO BUILD (Phase A - Program Scheduling + Dashboard Redesign)
-
-### What Students Need:
-1. **My Programs** — each program shows: name, total months/sessions, completed vs remaining, online/offline choice per month/session
-2. **Scheduled Sessions** — when admin sets dates, they appear on student dashboard automatically  
-3. **Student chooses Online/Offline** for each scheduled month/session
-4. **Upcoming Programs** (from website) with **special annual subscriber pricing**
-5. **Sign up from dashboard** for upcoming programs
-6. **Family Members** — add spouse/kids
-7. **Referral System** — share link, track referrals
-8. Beautiful, engaging, warm dashboard experience
-
-### What Admin Needs:
-1. Schedule dates/times for MMM, Quarterly Release, Bi-Annual Download sessions
-2. When scheduled → auto-appears on student dashboard
-3. See student's online/offline choices
-4. Preview what student sees
-
-### Data Model for Program Scheduling:
-```
-programs_detail: [
-  { name: "AWRP", duration_value: 12, duration_unit: "months", mode: "online",
-    schedule: [
-      { month: 1, date: "2026-02-03", end_date: "2026-03-02", mode_choice: "online" },
-      { month: 2, date: "2026-03-03", end_date: "2026-03-30", mode_choice: "" },  // student picks
-      ...
-    ]
-  },
-  { name: "Quarterly Release", duration_value: 4, duration_unit: "sessions",
-    schedule: [
-      { session: 1, date: "2026-04-15", time: "7PM IST", mode_choice: "online" },
-      { session: 2, date: "", time: "", mode_choice: "" },  // date TBD
-      ...
-    ]
-  }
-]
-```
+### Phase B (upcoming)
+- Upcoming programs with subscriber-only pricing
+- Sign up from dashboard
+- Family members + Referral system
+- Beautiful dashboard home redesign
 
 ## Key Files
-- `backend/routes/subscribers.py` — Package CRUD, subscriber CRUD, EMI management
-- `backend/routes/emi_payments.py` — Bank accounts, payment submissions, approvals
-- `backend/routes/student.py` — Student home API
-- `backend/routes/auth.py` — Google OAuth
-- `frontend/src/components/admin/tabs/SubscribersTab.jsx` — Main admin UI (packages, subscribers, approvals, banks)
-- `frontend/src/components/dashboard/FinancialsPage.jsx` — Student financials + Pay Now
-- `frontend/src/pages/StudentDashboard.jsx` — Dashboard home (iris flower layout)
-- `frontend/src/layouts/DashboardLayout.jsx` — Dashboard wrapper
-- `frontend/src/components/dashboard/Sidebar.jsx` — Navigation
+- `frontend/src/components/admin/tabs/SchedulerTab.jsx`
+- `frontend/src/components/admin/tabs/SubscribersTab.jsx`
+- `frontend/src/components/dashboard/FinancialsPage.jsx`
+- `frontend/src/pages/StudentDashboard.jsx`
+- `backend/routes/subscribers.py`
+- `backend/routes/emi_payments.py`
+- `backend/routes/student.py`
 
 ## Admin: /admin (admin / divineadmin2024)
-## Student: /login → /dashboard (Google OAuth, Client Garden whitelist)
-## Test User: Priya Sharma (test@divineiris.com, session: test-session-22fbe1e5)
+## Student: /login → /dashboard
+## Test: Priya Sharma (test@divineiris.com, session: test-session-22fbe1e5)
