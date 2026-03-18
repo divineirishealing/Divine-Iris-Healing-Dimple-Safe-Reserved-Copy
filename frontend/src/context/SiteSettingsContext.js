@@ -4,12 +4,13 @@ import axios from 'axios';
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
 
-const SiteSettingsContext = createContext(null);
+// Initialize with an empty object to avoid null access errors
+const SiteSettingsContext = createContext({ settings: {}, refreshSettings: () => {} });
 
 export const useSiteSettings = () => useContext(SiteSettingsContext);
 
 export const SiteSettingsProvider = ({ children }) => {
-  const [settings, setSettings] = useState(null);
+  const [settings, setSettings] = useState({}); // Default to empty object
 
   useEffect(() => {
     loadSettings();
@@ -18,7 +19,7 @@ export const SiteSettingsProvider = ({ children }) => {
   const loadSettings = async () => {
     try {
       const response = await axios.get(`${API}/settings`);
-      setSettings(response.data);
+      setSettings(response.data || {}); // Ensure we don't set null
       applySettings(response.data);
     } catch (error) {
       console.error('Error loading site settings:', error);
