@@ -423,6 +423,15 @@ function CartPage() {
         if (!p.relationship) return toast({ title: `${item.programTitle}: Participant ${i + 1} needs relationship`, variant: 'destructive' });
         if (!p.age || parseInt(p.age) < 5) return toast({ title: `${item.programTitle}: Participant ${i + 1} needs valid age (5+)`, variant: 'destructive' });
         if (!p.gender) return toast({ title: `${item.programTitle}: Participant ${i + 1} needs gender`, variant: 'destructive' });
+        if (!p.country) return toast({ title: `${item.programTitle}: Participant ${i + 1} needs country`, variant: 'destructive' });
+        if (!p.city || !p.city.trim()) return toast({ title: `${item.programTitle}: Participant ${i + 1} needs city`, variant: 'destructive' });
+        if (!p.state || !p.state.trim()) return toast({ title: `${item.programTitle}: Participant ${i + 1} needs state`, variant: 'destructive' });
+        if (p.notify || p.attendance_mode === 'online') {
+          if (!p.email || !p.email.trim() || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(p.email))
+            return toast({ title: `${item.programTitle}: Participant ${i + 1} needs a valid email`, variant: 'destructive' });
+          if (!p.phone || !p.phone.trim())
+            return toast({ title: `${item.programTitle}: Participant ${i + 1} needs a phone number`, variant: 'destructive' });
+        }
       }
     }
     navigate('/cart/checkout');
