@@ -8,7 +8,7 @@ import { Input } from '../components/ui/input';
 import { Button } from '../components/ui/button';
 import {
   Building2, Upload, FileText, Check,
-  Loader2, Calendar, Clock, AlertCircle
+  Loader2, Calendar, Clock, AlertCircle, ChevronLeft
 } from 'lucide-react';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
@@ -183,6 +183,9 @@ const ManualPaymentPage = () => {
       <Header />
       <div className="min-h-screen bg-gray-50 pt-28 pb-16 px-4" data-testid="manual-payment-page">
         <div className="max-w-4xl mx-auto">
+          <button onClick={() => navigate(-1)} className="flex items-center gap-1 text-sm text-gray-500 hover:text-gray-700 mb-4" data-testid="manual-back-btn">
+            <ChevronLeft size={16} /> Back to payment options
+          </button>
           <div className="grid lg:grid-cols-5 gap-6">
 
             {/* Left: Form */}
