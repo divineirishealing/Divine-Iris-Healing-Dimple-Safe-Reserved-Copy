@@ -51,7 +51,7 @@ export const CartProvider = ({ children }) => {
       participants: [{
         name: '', relationship: 'Myself', age: '', gender: '',
         country: '', attendance_mode: program.session_mode === 'remote' ? 'offline' : 'online',
-        notify: false, email: '', phone: '',
+        notify: program.session_mode !== 'remote', email: '', phone: '',
       }],
     };
     setItems(prev => [...prev, newItem]);
@@ -89,7 +89,7 @@ export const CartProvider = ({ children }) => {
       participants: [{
         name: '', relationship: 'Myself', age: '', gender: '',
         country: '', attendance_mode: session.session_mode === 'offline' ? 'offline' : 'online',
-        notify: false, email: '', phone: '',
+        notify: session.session_mode !== 'offline', email: '', phone: '',
       }],
     };
     setItems(prev => [...prev, newItem]);

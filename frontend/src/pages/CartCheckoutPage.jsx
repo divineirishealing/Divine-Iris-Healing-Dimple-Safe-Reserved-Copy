@@ -271,10 +271,11 @@ function CartCheckoutPage() {
       if (total <= 0) {
         setProcessing(true);
         try {
+          const firstItem = items[0];
           const res = await axios.post(`${API}/enrollment/${enrollmentId}/checkout`, {
-            enrollment_id: enrollmentId, item_type: 'program', item_id: items[0].programId, currency,
+            enrollment_id: enrollmentId, item_type: firstItem.type === 'session' ? 'session' : 'program', item_id: firstItem.programId, currency,
             origin_url: window.location.origin, promo_code: promoResult?.code || null,
-            tier_index: items[0].tierIndex,
+            tier_index: firstItem.tierIndex,
             cart_items: items.map(i => ({ program_id: i.programId, tier_index: i.tierIndex, participants_count: i.participants.length })),
             browser_timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
             browser_languages: navigator.languages ? [...navigator.languages] : [navigator.language],
@@ -297,10 +298,11 @@ function CartCheckoutPage() {
   const handleCheckout = async () => {
     setProcessing(true);
     try {
+      const firstItem = items[0];
       const res = await axios.post(`${API}/enrollment/${enrollmentId}/checkout`, {
-        enrollment_id: enrollmentId, item_type: 'program', item_id: items[0].programId, currency,
+        enrollment_id: enrollmentId, item_type: firstItem.type === 'session' ? 'session' : 'program', item_id: firstItem.programId, currency,
         origin_url: window.location.origin, promo_code: promoResult?.code || null,
-        tier_index: items[0].tierIndex,
+        tier_index: firstItem.tierIndex,
         cart_items: items.map(i => ({ program_id: i.programId, tier_index: i.tierIndex, participants_count: i.participants.length })),
         browser_timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
         browser_languages: navigator.languages ? [...navigator.languages] : [navigator.language],
@@ -436,6 +438,9 @@ function CartCheckoutPage() {
                       className="w-full bg-[#D4AF37] hover:bg-[#b8962e] text-white py-3 rounded-full mt-2">
                       Continue to Billing <ChevronRight size={16} className="ml-1" />
                     </Button>
+                    <button onClick={() => navigate('/cart')} className="w-full text-center mt-2 text-xs text-gray-500 hover:text-[#5D3FD3] transition-colors flex items-center justify-center gap-1">
+                      <ChevronLeft size={12} /> Back to Cart
+                    </button>
                   </div>
                 )}
 
