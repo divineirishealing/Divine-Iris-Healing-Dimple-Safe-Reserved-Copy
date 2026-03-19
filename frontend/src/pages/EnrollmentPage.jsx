@@ -355,34 +355,29 @@ function EnrollmentPage() {
     axios.get(`${API}/enrollment/${resumeId}`).then(r => {
       const e = r.data;
       setEnrollmentId(resumeId);
-      setBookerName(e.booker_name || '');
-      setBookerEmail(e.booker_email || '');
-      setBookerCountry(e.booker_country || 'AE');
-      if (e.phone) {
-        const phoneStr = e.phone || '';
-        const matchedCountry = COUNTRIES.find(c => phoneStr.startsWith(c.phone));
-        if (matchedCountry) {
-          setCountryCode(matchedCountry.phone);
-          setPhone(phoneStr.slice(matchedCountry.phone.length));
-        } else {
-          setPhone(phoneStr);
-        }
-      }
       if (e.participants && e.participants.length > 0) {
-        setParticipants(e.participants.map(p => ({
-          name: p.name || '', relationship: p.relationship || '', age: String(p.age || ''), gender: p.gender || '',
-          country: p.country || 'AE', city: p.city || '', state: p.state || '', attendance_mode: p.attendance_mode || 'online',
-          notify: p.notify !== false, email: p.email || '', phone: p.phone ? p.phone.replace(/^\+\d+/, '') : '',
-          whatsapp: p.whatsapp ? p.whatsapp.replace(/^\+\d+/, '') : '',
-          phone_code: '+971', wa_code: '+971',
-          is_first_time: p.is_first_time !== false, referral_source: p.referral_source || '',
-          has_referral: !!p.referred_by_name, referred_by_name: p.referred_by_name || '',
-        })));
+        setParticipants(e.participants.map(p => {
+          const phoneStr = p.phone || '';
+          const waStr = p.whatsapp || '';
+          const matchedCountry = COUNTRIES.find(c => phoneStr.startsWith(c.phone));
+          const pCode = matchedCountry ? matchedCountry.phone : '';
+          const rawPhone = matchedCountry ? phoneStr.slice(matchedCountry.phone.length) : phoneStr;
+          const rawWa = matchedCountry ? waStr.slice(matchedCountry.phone.length) : waStr;
+          return {
+            name: p.name || '', relationship: p.relationship || '', age: String(p.age || ''), gender: p.gender || '',
+            country: p.country || '', city: p.city || '', state: p.state || '', attendance_mode: p.attendance_mode || 'online',
+            notify: p.notify !== false, email: p.email || '', phone: rawPhone,
+            whatsapp: rawWa,
+            phone_code: pCode, wa_code: pCode,
+            is_first_time: p.is_first_time !== false, referral_source: p.referral_source || '',
+            has_referral: !!p.referred_by_name, referred_by_name: p.referred_by_name || '',
+          };
+        }));
       }
       setEmailVerified(true);
       setOtpSent(true);
       setStep(1);
-      toast({ title: "Payment not completed", description: "You came back without completing payment. Your information is saved — you can continue when ready.", variant: "default" });
+      toast({ title: "Welcome back", description: "Your information is saved — continue to payment.", variant: "default" });
     }).catch(() => {});
   }, [resumeId]);
 
