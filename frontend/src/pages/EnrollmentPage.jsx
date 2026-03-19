@@ -630,15 +630,6 @@ function EnrollmentPage() {
                     <span className="inline-block bg-[#D4AF37]/10 text-[#D4AF37] text-xs px-3 py-1 rounded-full font-medium mb-3">{tierObj.label}</span>
                   )}
                   <p className="text-gray-500 text-xs leading-relaxed mb-4 line-clamp-3">{item.description}</p>
-                  {item.start_date && (
-                    <div className="flex items-center gap-2 text-gray-500 text-xs mb-1"><Calendar size={12} /> Starts: {item.start_date}</div>
-                  )}
-                  {item.end_date && (
-                    <div className="flex items-center gap-2 text-gray-500 text-xs mb-1"><Calendar size={12} /> Ends: {item.end_date}</div>
-                  )}
-                  {item.timing && (
-                    <div className="flex items-center gap-2 text-gray-500 text-xs mb-1"><Clock size={12} /> {item.timing} {item.time_zone || ''}</div>
-                  )}
 
                   {/* Early bird / offer countdown */}
                   {offerUnitPrice > 0 && (item.deadline_date || item.start_date) && (() => {

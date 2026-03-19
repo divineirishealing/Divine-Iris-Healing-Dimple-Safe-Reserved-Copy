@@ -263,11 +263,6 @@ function CartCheckoutPage() {
               </div>
 
               {/* Urgency Testimonial Strip - outside card, compact 2-liner */}
-              {urgencyQuotes.length > 0 && (
-                <div className="mt-3">
-                  <CartUrgencyStrip quotes={urgencyQuotes} />
-                </div>
-              )}
             </div>
 
             {/* Right: Payment */}
