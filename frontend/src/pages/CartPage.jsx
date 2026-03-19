@@ -11,7 +11,7 @@ import { Button } from '../components/ui/button';
 import { resolveImageUrl } from '../lib/imageUtils';
 import {
   ShoppingCart, Trash2, Plus, User, Monitor, Wifi, ChevronRight, ChevronDown, ChevronUp,
-  Bell, BellOff
+  Bell, BellOff, Copy
 } from 'lucide-react';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
@@ -56,7 +56,7 @@ const emptyParticipant = (mode = 'online') => ({
   is_first_time: true, referral_source: '',
 });
 
-const CartItemCard = ({ item, onRemove, onUpdateParticipants, symbol, getItemPrice, getItemOfferPrice, showReferral, detectedCountry }) => {
+const CartItemCard = ({ item, onRemove, onUpdateParticipants, symbol, getItemPrice, getItemOfferPrice, showReferral, detectedCountry, copySource }) => {
   const [expanded, setExpanded] = useState(true);
   const tier = item.durationTiers?.[item.tierIndex];
   const price = getItemPrice(item);
@@ -141,6 +141,25 @@ const CartItemCard = ({ item, onRemove, onUpdateParticipants, symbol, getItemPri
         </span>
         {expanded ? <ChevronUp size={14} className="text-gray-400" /> : <ChevronDown size={14} className="text-gray-400" />}
       </button>
+
+      {/* Copy from first program */}
+      {copySource && expanded && (
+        <div className="px-4 pb-2">
+          <button
+            type="button"
+            data-testid={`copy-details-${item.id}`}
+            onClick={() => {
+              const source = copySource.participants || [];
+              if (source.length === 0) return;
+              const copied = source.map(p => ({ ...p }));
+              onUpdateParticipants(copied);
+            }}
+            className="w-full text-[10px] py-2 rounded-lg border-2 border-dashed border-[#5D3FD3]/30 text-[#5D3FD3] font-semibold hover:bg-[#5D3FD3]/5 transition-colors flex items-center justify-center gap-1.5"
+          >
+            <Copy size={12} /> Same details as {copySource.programTitle}
+          </button>
+        </div>
+      )}
 
       {/* Participants */}
       {expanded && (
@@ -439,12 +458,13 @@ function CartPage() {
           </div>
 
           {/* Cart items */}
-          {items.map(item => (
+          {items.map((item, itemIdx) => (
             <CartItemCard key={item.id} item={item}
               onRemove={() => removeItem(item.id)}
               onUpdateParticipants={(p) => updateItemParticipants(item.id, p)}
               symbol={symbol} getItemPrice={getItemPrice} getItemOfferPrice={getItemOfferPrice}
-              showReferral={discountSettings.enable_referral} detectedCountry={detectedCountry} />
+              showReferral={discountSettings.enable_referral} detectedCountry={detectedCountry}
+              copySource={itemIdx > 0 ? items[0] : null} />
           ))}
 
           {/* Summary & Checkout */}
@@ -472,7 +492,14 @@ function CartPage() {
             {paymentDisclaimer && (
               <div className="rounded-xl p-4 mb-4 border-2 shadow-sm" data-testid="cart-payment-disclaimer-page"
                 style={{ backgroundColor: disclaimerStyle.bg_color || '#fef2f2', borderColor: disclaimerStyle.border_color || '#f87171' }}>
-                <p style={{ fontSize: disclaimerStyle.font_size || '14px', fontWeight: disclaimerStyle.font_weight || '600', color: disclaimerStyle.font_color || '#991b1b', lineHeight: '1.5' }}>{paymentDisclaimer}</p>
+                <p style={{ fontSize: disclaimerStyle.font_size || '14px', fontWeight: disclaimerStyle.font_weight || '600', color: disclaimerStyle.font_color || '#991b1b', lineHeight: '1.5' }}>
+                  {paymentDisclaimer.split(/(\*\*[^*]+\*\*)/).map((part, i) => {
+                    if (part.startsWith('**') && part.endsWith('**')) {
+                      return <strong key={i} style={{ fontWeight: 800 }}>{part.slice(2, -2)}</strong>;
+                    }
+                    return part;
+                  })}
+                </p>
               </div>
             )}
             <Button data-testid="proceed-checkout-btn" onClick={validateAndProceed}

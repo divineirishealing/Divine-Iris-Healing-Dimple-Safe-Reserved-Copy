@@ -759,13 +759,7 @@ function EnrollmentPage() {
                     {participants.map((p, i) => (
                       <ParticipantRow key={i} index={i} data={p} onChange={d => { const u = [...participants]; u[i] = d; setParticipants(u); }}
                         onRemove={() => setParticipants(participants.filter((_, j) => j !== i))} canRemove={participants.length > 1} showReferral={discountSettings.enable_referral}
-                        enabledModes={{ enable_online: item?.enable_online, enable_offline: item?.enable_offline, enable_in_person: item?.enable_in_person }}
-                        onCopyFromFirst={i > 0 ? () => {
-                          const first = participants[0];
-                          const updated = [...participants];
-                          updated[i] = { ...first, name: '', relationship: '' };
-                          setParticipants(updated);
-                        } : undefined} />
+                        enabledModes={{ enable_online: item?.enable_online, enable_offline: item?.enable_offline, enable_in_person: item?.enable_in_person }} />
                     ))}
                     <button data-testid="add-participant-btn" onClick={() => setParticipants([...participants, emptyParticipant()])}
                       className="w-full border-2 border-dashed border-[#D4AF37]/40 rounded-lg py-2.5 flex items-center justify-center gap-1 text-xs text-[#D4AF37] hover:bg-[#D4AF37]/5 transition-colors mb-4">
