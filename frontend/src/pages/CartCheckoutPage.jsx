@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import axios from 'axios';
 import Header from '../components/Header';
 import Footer from '../components/Footer';
@@ -69,21 +69,12 @@ function CartCheckoutPage() {
   const { country: detectedCountry, symbol, baseCurrency, getPrice, getOfferPrice, toDisplay } = useCurrency();
   const { toast } = useToast();
   const currency = baseCurrency;
+  const [searchParams] = useSearchParams();
 
-  const [step, setStep] = useState(0); // 0=Promo+OTP, 1=Pay
-  const [loading, setLoading] = useState(false);
-
-  // Promo
-  const [promoCode, setPromoCode] = useState('');
+  // Enrollment ID and promo come from cart page via URL
+  const [enrollmentId, setEnrollmentId] = useState(searchParams.get('eid') || null);
+  const [promoCode] = useState(searchParams.get('promo') || '');
   const [promoResult, setPromoResult] = useState(null);
-  const [promoLoading, setPromoLoading] = useState(false);
-
-  // OTP & Enrollment
-  const [otpSent, setOtpSent] = useState(false);
-  const [otp, setOtp] = useState('');
-  const [emailVerified, setEmailVerified] = useState(false);
-  const [enrollmentId, setEnrollmentId] = useState(null);
-  const [vpnDetected, setVpnDetected] = useState(false);
   const [processing, setProcessing] = useState(false);
   const [paymentSettings, setPaymentSettings] = useState({ disclaimer: '', disclaimer_enabled: true, disclaimer_style: {}, india_links: [], india_exly_link: '', india_bank_details: {}, india_enabled: false, manual_form_enabled: true });
   const [urgencyQuotes, setUrgencyQuotes] = useState([]);
@@ -100,7 +91,16 @@ function CartCheckoutPage() {
 
   useEffect(() => {
     if (items.length === 0) navigate('/cart');
-  }, [items, navigate]);
+    if (!enrollmentId) navigate('/cart');
+  }, [items, navigate, enrollmentId]);
+
+  // Validate promo on mount if provided
+  useEffect(() => {
+    if (promoCode && items.length > 0) {
+      axios.post(`${API}/promotions/validate`, { code: promoCode, program_id: items[0]?.programId, currency })
+        .then(r => setPromoResult(r.data)).catch(() => {});
+    }
+  }, [promoCode, currency]);
 
   // Fetch payment settings
   useEffect(() => {
@@ -176,95 +176,6 @@ function CartCheckoutPage() {
   })();
   const totalAutoDiscount = autoDiscounts.total_discount || 0;
   const total = Math.max(0, subtotal - discount - totalAutoDiscount);
-
-  const validatePromo = async () => {
-    if (!promoCode.trim()) return;
-    setPromoLoading(true);
-    try {
-      const res = await axios.post(`${API}/promotions/validate`, { code: promoCode.trim(), currency });
-      setPromoResult(res.data);
-      toast({ title: res.data.message });
-    } catch (err) {
-      setPromoResult(null);
-      toast({ title: 'Invalid Code', description: err.response?.data?.detail || 'Not valid', variant: 'destructive' });
-    } finally { setPromoLoading(false); }
-  };
-
-  const submitBookerAndSendOtp = async () => {
-    if (!bookerEmail.trim() || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(bookerEmail)) return toast({ title: 'Participant email is required for verification', variant: 'destructive' });
-
-    setLoading(true);
-    try {
-      const bookerPhone = phone ? `${countryCode}${phone}` : null;
-      const allParticipants = items.flatMap(item =>
-        item.participants.map(p => ({
-          name: p.name, relationship: p.relationship, age: parseInt(p.age),
-          gender: p.gender, country: p.country, attendance_mode: p.attendance_mode,
-          notify: p.notify, email: p.email || null,
-          phone: p.notify && p.phone ? `${p.phone_code || ''}${p.phone}` : null,
-          whatsapp: p.whatsapp ? `${p.wa_code || ''}${p.whatsapp}` : null,
-          program_id: item.programId, program_title: item.programTitle,
-          is_first_time: p.is_first_time || false, referral_source: p.referral_source || '',
-          referred_by_name: p.has_referral ? (p.referred_by_name || '') : '',
-        }))
-      );
-
-      const enrollRes = await axios.post(`${API}/enrollment/start`, {
-        booker_name: bookerName, booker_email: bookerEmail, booker_country: bookerCountry,
-        booker_city: bookerCity, booker_state: bookerState,
-        participants: allParticipants,
-      });
-      const eid = enrollRes.data.enrollment_id;
-      setEnrollmentId(eid);
-      setVpnDetected(enrollRes.data.vpn_detected);
-
-      if (bookerPhone) {
-        await axios.patch(`${API}/enrollment/${eid}/update-phone`, { phone: bookerPhone }).catch(() => {});
-      }
-
-      await axios.post(`${API}/enrollment/${eid}/send-otp`, { email: bookerEmail });
-      setOtpSent(true);
-      toast({ title: 'Verification code sent to your email!' });
-    } catch (err) {
-      toast({ title: 'Error', description: err.response?.data?.detail || 'Failed', variant: 'destructive' });
-    } finally { setLoading(false); }
-  };
-
-  const verifyOtp = async () => {
-    if (otp.length !== 6) return toast({ title: 'Enter 6-digit code', variant: 'destructive' });
-    setLoading(true);
-    try {
-      await axios.post(`${API}/enrollment/${enrollmentId}/verify-otp`, { email: bookerEmail, otp });
-      setEmailVerified(true);
-      toast({ title: 'Email verified!' });
-
-      // If total is $0, auto-complete registration
-      if (total <= 0) {
-        setProcessing(true);
-        try {
-          const firstItem = items[0];
-          const res = await axios.post(`${API}/enrollment/${enrollmentId}/checkout`, {
-            enrollment_id: enrollmentId, item_type: firstItem.type === 'session' ? 'session' : 'program', item_id: firstItem.programId, currency,
-            origin_url: window.location.origin, promo_code: promoResult?.code || null,
-            tier_index: firstItem.tierIndex,
-            cart_items: items.map(i => ({ program_id: i.programId, tier_index: i.tierIndex, participants_count: i.participants.length })),
-            browser_timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
-            browser_languages: navigator.languages ? [...navigator.languages] : [navigator.language],
-          });
-          clearCart();
-          toast({ title: 'Registration complete!' });
-          navigate(`/payment/success?session_id=${res.data.session_id}`);
-          return;
-        } catch (err) {
-          toast({ title: 'Error completing registration', variant: 'destructive' });
-          setProcessing(false);
-        }
-      }
-      setStep(1);
-    } catch (err) {
-      toast({ title: err.response?.data?.detail || 'Wrong code', variant: 'destructive' });
-    } finally { setLoading(false); }
-  };
 
   const handleCheckout = async () => {
     setProcessing(true);
@@ -371,116 +282,10 @@ function CartCheckoutPage() {
               </div>
             </div>
 
-            {/* Right: Checkout Steps */}
+            {/* Right: Payment */}
             <div className="lg:w-3/5">
-              {/* Step dots */}
-              <div className="flex items-center gap-3 mb-6 justify-center">
-                <StepDot active={step === 0} done={step > 0} /><div className={`w-12 h-0.5 ${step > 0 ? 'bg-green-500' : 'bg-gray-200'}`} />
-                <StepDot active={step === 1} done={false} />
-              </div>
-
               <div className="bg-white rounded-xl border shadow-sm p-6">
-                {/* Step 0: Promo + Email Verification */}
-                {step === 0 && (
-                  <div data-testid="cart-step-review">
-                    <h2 className="text-base font-semibold text-gray-900 mb-4 flex items-center gap-2">
-                      <Tag size={16} className="text-[#D4AF37]" /> Have a Promo Code?
-                    </h2>
-                    <div className="flex gap-2 mb-3">
-                      <Input data-testid="cart-promo-input" value={promoCode} onChange={e => setPromoCode(e.target.value.toUpperCase())}
-                        placeholder="Enter promo code" className="text-sm flex-1" disabled={!!promoResult} />
-                      {promoResult ? (
-                        <Button size="sm" variant="outline" onClick={() => { setPromoResult(null); setPromoCode(''); }} className="text-xs">Remove</Button>
-                      ) : (
-                        <Button size="sm" onClick={validatePromo} disabled={promoLoading || !promoCode.trim()}
-                          className="bg-[#D4AF37] hover:bg-[#b8962e] text-white text-xs">
-                          {promoLoading ? <Loader2 className="animate-spin" size={14} /> : 'Apply'}
-                        </Button>
-                      )}
-                    </div>
-                    {promoResult && (
-                      <div className="bg-green-50 border border-green-200 rounded-lg p-2 flex items-center gap-2 mb-4">
-                        <Check size={14} className="text-green-600" />
-                        <span className="text-xs text-green-700">{promoResult.message} — Saving {symbol} {discount.toLocaleString()}</span>
-                      </div>
-                    )}
-
-                    {/* Disclaimer */}
-                    {paymentSettings.disclaimer_enabled && paymentSettings.disclaimer && (
-                      <div className="rounded-xl p-4 mt-3 mb-3 border-2 shadow-sm" data-testid="cart-payment-disclaimer"
-                        style={{ backgroundColor: paymentSettings.disclaimer_style?.bg_color || '#fef2f2', borderColor: paymentSettings.disclaimer_style?.border_color || '#f87171' }}>
-                        <p style={{ fontSize: paymentSettings.disclaimer_style?.font_size || '14px', fontWeight: paymentSettings.disclaimer_style?.font_weight || '600', color: paymentSettings.disclaimer_style?.font_color || '#991b1b', lineHeight: '1.5' }}>
-                          {paymentSettings.disclaimer.split(/(\*\*[^*]+\*\*)/).map((part, i) => {
-                            if (part.startsWith('**') && part.endsWith('**')) {
-                              return <strong key={i} style={{ fontWeight: 800 }}>{part.slice(2, -2)}</strong>;
-                            }
-                            return part;
-                          })}
-                        </p>
-                      </div>
-                    )}
-
-                    {/* Email Verification */}
-                    <div className="border-t pt-4 mt-4">
-                      <h3 className="text-sm font-semibold text-gray-900 mb-1 flex items-center gap-2">
-                        <Mail size={14} className="text-[#D4AF37]" /> Verify Your Email
-                      </h3>
-                      <p className="text-[10px] text-gray-500 mb-3">
-                        We'll send a code to <strong>{bookerEmail || 'your email'}</strong> to confirm your enrollment.
-                      </p>
-
-                      {vpnDetected && (
-                        <div className="bg-red-50 border border-red-200 rounded-lg p-3 mb-3 flex items-start gap-2">
-                          <ShieldAlert size={16} className="text-red-500 mt-0.5" />
-                          <div><p className="text-red-800 text-xs font-semibold">VPN Detected</p><p className="text-red-600 text-[10px]">Regional pricing may not apply.</p></div>
-                        </div>
-                      )}
-
-                      {!otpSent && !emailVerified && (
-                        <Button data-testid="cart-send-otp" onClick={submitBookerAndSendOtp} disabled={loading}
-                          className="w-full bg-[#D4AF37] hover:bg-[#b8962e] text-white py-3 rounded-full">
-                          {loading ? <Loader2 className="animate-spin" size={16} /> : <><Mail size={14} className="mr-2" /> Send Verification Code</>}
-                        </Button>
-                      )}
-
-                      {otpSent && !emailVerified && (
-                        <div className="border rounded-lg p-4 bg-gray-50">
-                          <p className="text-xs text-gray-600 mb-2">Enter the verification code sent to <strong>{bookerEmail}</strong></p>
-                          <div className="flex gap-2">
-                            <Input data-testid="cart-otp" value={otp} onChange={e => setOtp(e.target.value.replace(/\D/g, '').slice(0, 6))} placeholder="000000" maxLength={6}
-                              className="flex-1 text-center tracking-[0.5em] font-mono text-lg" />
-                            <Button data-testid="cart-verify-otp" onClick={verifyOtp} disabled={loading || otp.length !== 6}
-                              className="bg-[#D4AF37] hover:bg-[#b8962e] text-white">
-                              {loading ? <Loader2 className="animate-spin" size={14} /> : 'Verify'}
-                            </Button>
-                          </div>
-                          <button onClick={() => { setOtpSent(false); setOtp(''); }} className="text-[10px] text-purple-600 mt-2 hover:underline">Resend code / change email</button>
-                        </div>
-                      )}
-
-                      {emailVerified && (
-                        <div className="bg-green-50 border border-green-200 rounded-lg p-3 flex items-center gap-2">
-                          <ShieldCheck size={14} className="text-green-600" />
-                          <span className="text-xs text-green-700 font-medium">{bookerEmail} — Verified</span>
-                        </div>
-                      )}
-                    </div>
-
-                    {emailVerified && (
-                      <Button data-testid="cart-step0-next" onClick={() => setStep(1)}
-                        className="w-full bg-[#D4AF37] hover:bg-[#b8962e] text-white py-3 rounded-full mt-4">
-                        Continue to Payment <ChevronRight size={16} className="ml-1" />
-                      </Button>
-                    )}
-
-                    <button onClick={() => navigate('/cart')} className="w-full text-center mt-3 text-xs text-gray-500 hover:text-[#5D3FD3] transition-colors flex items-center justify-center gap-1">
-                      <ChevronLeft size={12} /> Back to Cart
-                    </button>
-                  </div>
-                )}
-
-                {/* Step 1: Confirm & Pay */}
-                {step === 1 && (
+                {/* Confirm & Pay — only step */}
                   <div data-testid="cart-step-pay">
                     {total <= 0 ? (
                       <>
@@ -617,7 +422,6 @@ function CartCheckoutPage() {
                       </>
                     )}
                   </div>
-                )}
               </div>
             </div>
           </div>

@@ -299,7 +299,7 @@ function EnrollmentPage() {
 
   // Country is NOT auto-filled — user must select manually
 
-  const [step, setStep] = useState(0);
+  const [step, setStep] = useState(0); // 0=Participants+Promo+OTP, 1=Pay
   const [loading, setLoading] = useState(false);
   const [item, setItem] = useState(null);
   const [enrollmentId, setEnrollmentId] = useState(null);
@@ -308,11 +308,6 @@ function EnrollmentPage() {
   const [promoCode, setPromoCode] = useState('');
   const [promoResult, setPromoResult] = useState(null);
   const [promoLoading, setPromoLoading] = useState(false);
-  const [bookerName, setBookerName] = useState('');
-  const [bookerEmail, setBookerEmail] = useState('');
-  const [bookerCountry, setBookerCountry] = useState('');
-  const [phone, setPhone] = useState('');
-  const [countryCode, setCountryCode] = useState('+971');
   const [otpSent, setOtpSent] = useState(false);
   const [otp, setOtp] = useState('');
   const [emailVerified, setEmailVerified] = useState(false);
@@ -321,6 +316,14 @@ function EnrollmentPage() {
   const [paymentSettings, setPaymentSettings] = useState({ disclaimer: '', disclaimer_enabled: true, disclaimer_style: {}, india_links: [], india_exly_link: '', india_bank_details: {}, india_enabled: false, manual_form_enabled: true });
   const [sessionTestimonials, setSessionTestimonials] = useState([]);
   const [urgencyQuotes, setUrgencyQuotes] = useState([]);
+
+  // Auto-derive booker from first participant
+  const firstP = participants[0] || {};
+  const bookerName = firstP.name || '';
+  const bookerEmail = firstP.email || '';
+  const bookerCountry = firstP.country || '';
+  const phone = firstP.phone || '';
+  const countryCode = firstP.phone_code || '';
 
   useEffect(() => {
     const ep = type === 'program' ? 'programs' : 'sessions';
@@ -378,15 +381,10 @@ function EnrollmentPage() {
       }
       setEmailVerified(true);
       setOtpSent(true);
-      setStep(3);
+      setStep(1);
       toast({ title: "Payment not completed", description: "You came back without completing payment. Your information is saved — you can continue when ready.", variant: "default" });
     }).catch(() => {});
   }, [resumeId]);
-
-  useEffect(() => {
-  // Booker country not auto-filled
-  }, [detectedCountry]);
-  useEffect(() => { const c = COUNTRIES.find(c => c.code === bookerCountry); if (c) setCountryCode(c.phone); }, [bookerCountry]);
 
   // Local price getters that respect bookerCountry selection
   const getLocalPrice = (item, tierIndex = null) => {
@@ -445,28 +443,6 @@ function EnrollmentPage() {
   const totalAutoDiscount = autoDiscounts.total_discount || 0;
   const total = Math.max(0, subtotal - discount - totalAutoDiscount);
 
-  const goToReview = () => {
-    for (let i = 0; i < participants.length; i++) {
-      const p = participants[i];
-      if (!p.name.trim()) return toast({ title: `Participant ${i + 1}: Enter name`, variant: 'destructive' });
-      if (!p.relationship) return toast({ title: `Participant ${i + 1}: Select relationship`, variant: 'destructive' });
-      if (!p.age || parseInt(p.age) < 5) return toast({ title: `Participant ${i + 1}: Enter valid age`, variant: 'destructive' });
-      if (!p.gender) return toast({ title: `Participant ${i + 1}: Select gender`, variant: 'destructive' });
-      if (!p.country) return toast({ title: `Participant ${i + 1}: Select country`, variant: 'destructive' });
-      if (!p.city || !p.city.trim()) return toast({ title: `Participant ${i + 1}: Enter city`, variant: 'destructive' });
-      if (!p.state || !p.state.trim()) return toast({ title: `Participant ${i + 1}: Enter state`, variant: 'destructive' });
-      if (p.notify || p.attendance_mode === 'online') {
-        if (!p.email || !p.email.trim() || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(p.email))
-          return toast({ title: `Participant ${i + 1}: Enter a valid email for notification`, variant: 'destructive' });
-        if (!p.phone || !p.phone.trim())
-          return toast({ title: `Participant ${i + 1}: Enter phone number for notification`, variant: 'destructive' });
-      }
-      if (p.has_referral && (!p.referred_by_name || !p.referred_by_name.trim()))
-        return toast({ title: `Participant ${i + 1}: Enter referrer's name`, variant: 'destructive' });
-    }
-    setStep(1);
-  };
-
   const validatePromo = async () => {
     if (!promoCode.trim()) return;
     setPromoLoading(true);
@@ -478,19 +454,35 @@ function EnrollmentPage() {
   };
 
   const submitAndSendOtp = async () => {
-    if (!bookerName.trim()) return toast({ title: 'Enter name', variant: 'destructive' });
-    if (!bookerEmail.trim() || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(bookerEmail)) return toast({ title: 'Enter valid email', variant: 'destructive' });
+    // Validate participants first
+    for (let i = 0; i < participants.length; i++) {
+      const p = participants[i];
+      if (!p.name.trim()) return toast({ title: `Participant ${i + 1}: Enter name`, variant: 'destructive' });
+      if (!p.relationship) return toast({ title: `Participant ${i + 1}: Select relationship`, variant: 'destructive' });
+      if (!p.age || parseInt(p.age) < 5) return toast({ title: `Participant ${i + 1}: Enter valid age`, variant: 'destructive' });
+      if (!p.gender) return toast({ title: `Participant ${i + 1}: Select gender`, variant: 'destructive' });
+      if (!p.country) return toast({ title: `Participant ${i + 1}: Select country`, variant: 'destructive' });
+      if (!p.city || !p.city.trim()) return toast({ title: `Participant ${i + 1}: Enter city`, variant: 'destructive' });
+      if (!p.state || !p.state.trim()) return toast({ title: `Participant ${i + 1}: Enter state`, variant: 'destructive' });
+      if (p.notify || p.attendance_mode === 'online') {
+        if (!p.email || !p.email.trim() || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(p.email))
+          return toast({ title: `Participant ${i + 1}: Enter a valid email`, variant: 'destructive' });
+        if (!p.phone || !p.phone.trim())
+          return toast({ title: `Participant ${i + 1}: Enter phone number`, variant: 'destructive' });
+      }
+    }
+    if (!bookerEmail) return toast({ title: 'Participant email is required for verification', variant: 'destructive' });
+
     setLoading(true);
     try {
       const bookerPhone = phone ? `${countryCode}${phone}` : null;
       const enrollRes = await axios.post(`${API}/enrollment/start`, {
         booker_name: bookerName, booker_email: bookerEmail, booker_country: bookerCountry,
-        participants: participants.map(p => ({ name: p.name, relationship: p.relationship, age: parseInt(p.age), gender: p.gender, country: p.country, city: p.city, state: p.state, attendance_mode: p.attendance_mode, notify: p.notify, email: p.notify ? p.email : null, phone: p.notify && p.phone ? `${p.phone_code || '+971'}${p.phone}` : null, whatsapp: p.whatsapp ? `${p.wa_code || '+971'}${p.whatsapp}` : null, is_first_time: p.is_first_time || false, referral_source: p.referral_source || '', referred_by_name: p.has_referral ? (p.referred_by_name || '') : '' })),
+        participants: participants.map(p => ({ name: p.name, relationship: p.relationship, age: parseInt(p.age), gender: p.gender, country: p.country, city: p.city, state: p.state, attendance_mode: p.attendance_mode, notify: p.notify, email: p.notify ? p.email : null, phone: p.notify && p.phone ? `${p.phone_code || ''}${p.phone}` : null, whatsapp: p.whatsapp ? `${p.wa_code || ''}${p.whatsapp}` : null, is_first_time: p.is_first_time || false, referral_source: p.referral_source || '', referred_by_name: p.has_referral ? (p.referred_by_name || '') : '' })),
       });
       const eid = enrollRes.data.enrollment_id;
       setEnrollmentId(eid);
       setVpnDetected(enrollRes.data.vpn_detected);
-      // Save booker phone to enrollment for pricing cross-validation
       if (bookerPhone) {
         await axios.patch(`${API}/enrollment/${eid}/update-phone`, { phone: bookerPhone }).catch(() => {});
       }
@@ -526,7 +518,7 @@ function EnrollmentPage() {
           setProcessing(false);
         }
       }
-      setStep(3);
+      setStep(1);
     } catch (err) { toast({ title: err.response?.data?.detail || 'Wrong code', variant: 'destructive' }); }
     finally { setLoading(false); }
   };
@@ -727,7 +719,7 @@ function EnrollmentPage() {
 
             {/* RIGHT: Registration Form (scrollable) */}
             <div className="lg:w-3/5">
-              <StepBar current={step} steps={['Participants', 'Review', 'Billing', 'Pay']} />
+              <StepBar current={step} steps={['Details & Verify', 'Pay']} />
 
               {paymentSettings.disclaimer_enabled && paymentSettings.disclaimer && (
                 <div className="rounded-xl p-4 mb-4 border-2 shadow-sm" data-testid="payment-disclaimer-persistent"
@@ -752,7 +744,7 @@ function EnrollmentPage() {
               )}
 
               <div className="bg-white rounded-xl border shadow-sm p-5 md:p-6">
-                {/* Step 0: Participants */}
+                {/* Step 0: Participants + Promo + OTP */}
                 {step === 0 && (
                   <div data-testid="step-participants">
                     <h2 className="text-sm font-semibold text-gray-900 mb-3 flex items-center gap-2"><User size={16} className="text-[#D4AF37]" /> Who is participating?</h2>
@@ -765,26 +757,10 @@ function EnrollmentPage() {
                       className="w-full border-2 border-dashed border-[#D4AF37]/40 rounded-lg py-2.5 flex items-center justify-center gap-1 text-xs text-[#D4AF37] hover:bg-[#D4AF37]/5 transition-colors mb-4">
                       <Plus size={14} /> Add Participant
                     </button>
-                    <Button data-testid="step0-next" onClick={goToReview} className="w-full bg-[#D4AF37] hover:bg-[#b8962e] text-white py-3 rounded-full">
-                      Review Cart <ChevronRight size={16} className="ml-1" />
-                    </Button>
-                  </div>
-                )}
 
-                {/* Step 1: Review + Promo */}
-                {step === 1 && (
-                  <div data-testid="step-review">
-                    <h2 className="text-sm font-semibold text-gray-900 mb-3 flex items-center gap-2"><Tag size={16} className="text-[#D4AF37]" /> Review & Promo</h2>
-                    <div className="bg-gray-50 rounded-lg p-4 mb-3 border">
-                      {participants.map((p, i) => (
-                        <div key={i} className="flex justify-between text-xs text-gray-600 py-1.5 border-b last:border-0">
-                          <span>{p.name} <span className="text-gray-400">({p.relationship})</span></span>
-                          <span>{symbol} {effectiveUnitPrice.toLocaleString()}</span>
-                        </div>
-                      ))}
-                    </div>
-                    <div className="mb-4">
-                      <label className="text-xs font-medium text-gray-700 mb-1 block">Promo Code</label>
+                    {/* Promo Code */}
+                    <div className="border-t pt-4 mt-2 mb-4">
+                      <label className="text-xs font-medium text-gray-700 mb-1 block flex items-center gap-1.5"><Tag size={12} className="text-[#D4AF37]" /> Promo Code</label>
                       <div className="flex gap-2">
                         <Input data-testid="promo-code-input" value={promoCode} onChange={e => setPromoCode(e.target.value.toUpperCase())} placeholder="Enter code" className="text-sm flex-1" disabled={!!promoResult} />
                         {promoResult ? <Button size="sm" variant="outline" onClick={() => { setPromoResult(null); setPromoCode(''); }}>Remove</Button>
@@ -794,95 +770,58 @@ function EnrollmentPage() {
                       </div>
                       {promoResult && <div className="mt-2 bg-green-50 border border-green-200 rounded p-2 flex items-center gap-1"><Check size={12} className="text-green-600" /><span className="text-xs text-green-700">Saving {symbol} {discount.toLocaleString()}</span></div>}
                     </div>
-                    <div className="flex gap-3">
-                      <Button variant="outline" onClick={() => setStep(0)} className="rounded-full"><ChevronLeft size={16} /> Back</Button>
-                      <Button data-testid="step1-next" onClick={() => {
-                        // Prefill booker info from first participant if empty
-                        const first = participants[0];
-                        if (first) {
-                          if (!bookerName && first.name) setBookerName(first.name);
-                          if (!bookerEmail && first.email) setBookerEmail(first.email);
-                          if (!phone && first.phone) setPhone(first.phone);
-                          if (first.country) {
-                            setBookerCountry(first.country);
-                            const c = COUNTRIES.find(c => c.code === first.country);
-                            if (c) setCountryCode(c.phone);
-                          }
-                        }
-                        setStep(2);
-                      }} className="flex-1 bg-[#D4AF37] hover:bg-[#b8962e] text-white py-3 rounded-full">Billing <ChevronRight size={16} className="ml-1" /></Button>
-                    </div>
-                  </div>
-                )}
 
-                {/* Step 2: Billing + OTP */}
-                {step === 2 && (
-                  <div data-testid="step-billing">
-                    {vpnDetected && (
-                      <div className="bg-red-50 border border-red-200 rounded-lg p-3 mb-4 flex items-start gap-2">
-                        <ShieldAlert size={14} className="text-red-500 mt-0.5" /><p className="text-xs text-red-700">VPN detected. Regional pricing may not apply.</p>
-                      </div>
-                    )}
-                    <h2 className="text-sm font-semibold text-gray-900 mb-3 flex items-center gap-2"><CreditCard size={16} className="text-[#D4AF37]" /> Billing Details</h2>
-                    <div className="grid grid-cols-2 gap-3 mb-3">
-                      <div><label className="text-[9px] text-gray-500">Name *</label>
-                        <Input data-testid="booker-name" name="billing-name" autoComplete="name" value={bookerName} onChange={e => setBookerName(e.target.value)} placeholder="Your name" className="text-sm" /></div>
-                      <div><label className="text-[9px] text-gray-500">Email *</label>
-                        <Input data-testid="booker-email" type="email" name="billing-email" autoComplete="email" value={bookerEmail} onChange={e => setBookerEmail(e.target.value)} placeholder="email@example.com" className="text-sm" /></div>
-                    </div>
-                    <div className="grid grid-cols-2 gap-3 mb-3">
-                      <div><label className="text-[9px] text-gray-500">Country *</label>
-                        <select data-testid="booker-country" value={bookerCountry} onChange={e => {
-                          setBookerCountry(e.target.value);
-                          const c = COUNTRIES.find(c => c.code === e.target.value);
-                          setCountryCode(c ? c.phone : '');
-                        }} className="w-full border rounded-md px-2 py-2 text-sm bg-white">
-                          <option value="">Select country</option>
-                          {COUNTRIES.map(c => <option key={c.code} value={c.code}>{c.name}</option>)}</select></div>
-                      <div><label className="text-[9px] text-gray-500">Phone</label>
-                        <div className="flex gap-1">
-                          <span className="border rounded-md px-2 py-2 text-xs w-20 bg-gray-50 flex items-center justify-center text-gray-600">
-                            {countryCode || '—'}
-                          </span>
-                          <Input data-testid="enroll-phone" type="tel" value={phone} onChange={e => setPhone(e.target.value.replace(/\D/g, ''))} placeholder="Phone number" className="text-sm flex-1" />
-                        </div></div>
-                    </div>
+                    {/* Email Verification */}
+                    <div className="border-t pt-4">
+                      <h3 className="text-sm font-semibold text-gray-900 mb-1 flex items-center gap-2">
+                        <Mail size={14} className="text-[#D4AF37]" /> Verify Your Email
+                      </h3>
+                      <p className="text-[10px] text-gray-500 mb-3">
+                        We'll send a code to <strong>{bookerEmail || 'your email'}</strong> to confirm your enrollment.
+                      </p>
 
-                    {!otpSent && !emailVerified && (
-                      <Button data-testid="send-otp-btn" onClick={submitAndSendOtp} disabled={loading} className="w-full bg-[#D4AF37] hover:bg-[#b8962e] text-white py-3 rounded-full mb-3">
-                        {loading ? <Loader2 className="animate-spin" size={16} /> : <><Mail size={14} className="mr-2" /> Verify Email & Continue</>}
-                      </Button>
-                    )}
-                    {otpSent && !emailVerified && (
-                      <div className="border rounded-lg p-4 bg-gray-50 mb-3">
-                        <p className="text-xs text-gray-600 mb-2">Enter the verification code sent to <strong>{bookerEmail}</strong></p>
-                        <div className="flex gap-2">
-                          <Input data-testid="enroll-otp" value={otp} onChange={e => setOtp(e.target.value.replace(/\D/g, '').slice(0, 6))} placeholder="000000" maxLength={6} className="flex-1 text-center tracking-[0.5em] font-mono text-lg" />
-                          <Button data-testid="verify-otp-btn" onClick={verifyOtp} disabled={loading || otp.length !== 6} className="bg-[#D4AF37] hover:bg-[#b8962e] text-white">
-                            {loading ? <Loader2 className="animate-spin" size={14} /> : 'Verify'}</Button>
+                      {vpnDetected && (
+                        <div className="bg-red-50 border border-red-200 rounded-lg p-3 mb-3 flex items-start gap-2">
+                          <ShieldAlert size={14} className="text-red-500 mt-0.5" /><p className="text-xs text-red-700">VPN detected. Regional pricing may not apply.</p>
                         </div>
-                        <button onClick={() => { setOtpSent(false); setOtp(''); }} className="text-[10px] text-purple-600 mt-2 hover:underline">Resend code / change email</button>
-                      </div>
-                    )}
-                    {emailVerified && (
-                      <div className="bg-green-50 border border-green-200 rounded-lg p-3 mb-3 flex items-center gap-2">
-                        <ShieldCheck size={14} className="text-green-600" />
-                        <span className="text-xs text-green-700 font-medium">{bookerEmail} — Verified</span>
-                      </div>
-                    )}
-                    <div className="flex gap-3">
-                      <Button variant="outline" onClick={() => setStep(1)} className="rounded-full"><ChevronLeft size={16} /> Back</Button>
-                      {emailVerified && (
-                        <Button data-testid="step2-continue" onClick={() => setStep(3)} className="flex-1 bg-[#D4AF37] hover:bg-[#b8962e] text-white py-3 rounded-full">
-                          Continue to Payment <ChevronRight size={16} className="ml-1" />
+                      )}
+
+                      {!otpSent && !emailVerified && (
+                        <Button data-testid="send-otp-btn" onClick={submitAndSendOtp} disabled={loading} className="w-full bg-[#D4AF37] hover:bg-[#b8962e] text-white py-3 rounded-full">
+                          {loading ? <Loader2 className="animate-spin" size={16} /> : <><Mail size={14} className="mr-2" /> Send Verification Code</>}
                         </Button>
+                      )}
+
+                      {otpSent && !emailVerified && (
+                        <div className="border rounded-lg p-4 bg-gray-50">
+                          <p className="text-xs text-gray-600 mb-2">Enter the verification code sent to <strong>{bookerEmail}</strong></p>
+                          <div className="flex gap-2">
+                            <Input data-testid="enroll-otp" value={otp} onChange={e => setOtp(e.target.value.replace(/\D/g, '').slice(0, 6))} placeholder="000000" maxLength={6} className="flex-1 text-center tracking-[0.5em] font-mono text-lg" />
+                            <Button data-testid="verify-otp-btn" onClick={verifyOtp} disabled={loading || otp.length !== 6} className="bg-[#D4AF37] hover:bg-[#b8962e] text-white">
+                              {loading ? <Loader2 className="animate-spin" size={14} /> : 'Verify'}</Button>
+                          </div>
+                          <button onClick={() => { setOtpSent(false); setOtp(''); }} className="text-[10px] text-purple-600 mt-2 hover:underline">Resend code / change email</button>
+                        </div>
+                      )}
+
+                      {emailVerified && (
+                        <>
+                          <div className="bg-green-50 border border-green-200 rounded-lg p-3 flex items-center gap-2">
+                            <ShieldCheck size={14} className="text-green-600" />
+                            <span className="text-xs text-green-700 font-medium">{bookerEmail} — Verified</span>
+                          </div>
+                          <Button data-testid="step0-next" onClick={() => setStep(1)}
+                            className="w-full bg-[#D4AF37] hover:bg-[#b8962e] text-white py-3 rounded-full mt-3">
+                            Continue to Payment <ChevronRight size={16} className="ml-1" />
+                          </Button>
+                        </>
                       )}
                     </div>
                   </div>
                 )}
 
-                {/* Step 3: Pay */}
-                {step === 3 && (
+                {/* Step 1: Pay */}
+                {step === 1 && (
                   <div data-testid="step-payment">
                     {total <= 0 ? (
                       /* Free enrollment — simplified confirmation */
@@ -898,7 +837,7 @@ function EnrollmentPage() {
                           {phone && <p><strong>Phone:</strong> {countryCode}{phone}</p>}
                         </div>
                         <div className="flex gap-3">
-                          <Button variant="outline" onClick={() => setStep(2)} className="rounded-full"><ChevronLeft size={16} /></Button>
+                          <Button variant="outline" onClick={() => setStep(0)} className="rounded-full"><ChevronLeft size={16} /></Button>
                           <Button data-testid="pay-now-btn" onClick={handleCheckout} disabled={processing}
                             className="flex-1 bg-[#D4AF37] hover:bg-[#b8962e] text-white py-3 rounded-full">
                             {processing ? <><Loader2 className="animate-spin mr-2" size={16} /> Completing...</> : <><Check size={14} className="mr-2" /> Complete Registration</>}
