@@ -430,18 +430,16 @@ function CartPage() {
     for (const item of items) {
       for (let i = 0; i < item.participants.length; i++) {
         const p = item.participants[i];
-        if (!p.name.trim()) return toast({ title: `${item.programTitle}: Participant ${i + 1} needs a name`, variant: 'destructive' });
-        if (!p.relationship) return toast({ title: `${item.programTitle}: Participant ${i + 1} needs relationship`, variant: 'destructive' });
-        if (!p.age || parseInt(p.age) < 5) return toast({ title: `${item.programTitle}: Participant ${i + 1} needs valid age (5+)`, variant: 'destructive' });
-        if (!p.gender) return toast({ title: `${item.programTitle}: Participant ${i + 1} needs gender`, variant: 'destructive' });
-        if (!p.country) return toast({ title: `${item.programTitle}: Participant ${i + 1} needs country`, variant: 'destructive' });
-        if (!p.city || !p.city.trim()) return toast({ title: `${item.programTitle}: Participant ${i + 1} needs city`, variant: 'destructive' });
-        if (!p.state || !p.state.trim()) return toast({ title: `${item.programTitle}: Participant ${i + 1} needs state`, variant: 'destructive' });
+        if (!p.name.trim()) { toast({ title: `${item.programTitle}: Participant ${i + 1} needs a name`, variant: 'destructive' }); return false; }
+        if (!p.relationship) { toast({ title: `${item.programTitle}: Participant ${i + 1} needs relationship`, variant: 'destructive' }); return false; }
+        if (!p.age || parseInt(p.age) < 5) { toast({ title: `${item.programTitle}: Participant ${i + 1} needs valid age (5+)`, variant: 'destructive' }); return false; }
+        if (!p.gender) { toast({ title: `${item.programTitle}: Participant ${i + 1} needs gender`, variant: 'destructive' }); return false; }
+        if (!p.country) { toast({ title: `${item.programTitle}: Participant ${i + 1} needs country`, variant: 'destructive' }); return false; }
+        if (!p.city || !p.city.trim()) { toast({ title: `${item.programTitle}: Participant ${i + 1} needs city`, variant: 'destructive' }); return false; }
+        if (!p.state || !p.state.trim()) { toast({ title: `${item.programTitle}: Participant ${i + 1} needs state`, variant: 'destructive' }); return false; }
         if (p.notify || p.attendance_mode === 'online') {
-          if (!p.email || !p.email.trim() || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(p.email))
-            return toast({ title: `${item.programTitle}: Participant ${i + 1} needs a valid email`, variant: 'destructive' });
-          if (!p.phone || !p.phone.trim())
-            return toast({ title: `${item.programTitle}: Participant ${i + 1} needs a phone number`, variant: 'destructive' });
+          if (!p.email || !p.email.trim() || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(p.email)) { toast({ title: `${item.programTitle}: Participant ${i + 1} needs a valid email`, variant: 'destructive' }); return false; }
+          if (!p.phone || !p.phone.trim()) { toast({ title: `${item.programTitle}: Participant ${i + 1} needs a phone number`, variant: 'destructive' }); return false; }
         }
       }
     }
