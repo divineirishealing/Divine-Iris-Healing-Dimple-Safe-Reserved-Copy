@@ -16,25 +16,6 @@ import {
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
 
-const COUNTRIES = [
-  { code: "IN", name: "India", phone: "+91" }, { code: "AE", name: "UAE", phone: "+971" },
-  { code: "US", name: "United States", phone: "+1" }, { code: "GB", name: "United Kingdom", phone: "+44" },
-  { code: "CA", name: "Canada", phone: "+1" }, { code: "AU", name: "Australia", phone: "+61" },
-  { code: "SG", name: "Singapore", phone: "+65" }, { code: "DE", name: "Germany", phone: "+49" },
-  { code: "SA", name: "Saudi Arabia", phone: "+966" }, { code: "QA", name: "Qatar", phone: "+974" },
-  { code: "PK", name: "Pakistan", phone: "+92" }, { code: "BD", name: "Bangladesh", phone: "+880" },
-  { code: "MY", name: "Malaysia", phone: "+60" }, { code: "JP", name: "Japan", phone: "+81" },
-  { code: "FR", name: "France", phone: "+33" }, { code: "LK", name: "Sri Lanka", phone: "+94" },
-  { code: "ZA", name: "South Africa", phone: "+27" }, { code: "NP", name: "Nepal", phone: "+977" },
-  { code: "KW", name: "Kuwait", phone: "+965" }, { code: "OM", name: "Oman", phone: "+968" },
-  { code: "BH", name: "Bahrain", phone: "+973" }, { code: "PH", name: "Philippines", phone: "+63" },
-  { code: "ID", name: "Indonesia", phone: "+62" }, { code: "TH", name: "Thailand", phone: "+66" },
-  { code: "KE", name: "Kenya", phone: "+254" }, { code: "NG", name: "Nigeria", phone: "+234" },
-  { code: "EG", name: "Egypt", phone: "+20" }, { code: "TR", name: "Turkey", phone: "+90" },
-  { code: "IT", name: "Italy", phone: "+39" }, { code: "ES", name: "Spain", phone: "+34" },
-  { code: "NL", name: "Netherlands", phone: "+31" }, { code: "NZ", name: "New Zealand", phone: "+64" },
-].sort((a, b) => a.name.localeCompare(b.name));
-
 const StepDot = ({ active, done }) => (
   <div className={`w-3 h-3 rounded-full transition-all ${done ? 'bg-green-500' : active ? 'bg-[#D4AF37] scale-110' : 'bg-gray-200'}`} />
 );
@@ -89,7 +70,7 @@ function CartCheckoutPage() {
   const { toast } = useToast();
   const currency = baseCurrency;
 
-  const [step, setStep] = useState(0); // 0=Review+Promo, 1=Billing+OTP, 2=Pay
+  const [step, setStep] = useState(0); // 0=Promo+OTP, 1=Pay
   const [loading, setLoading] = useState(false);
 
   // Promo
@@ -97,14 +78,7 @@ function CartCheckoutPage() {
   const [promoResult, setPromoResult] = useState(null);
   const [promoLoading, setPromoLoading] = useState(false);
 
-  // Billing
-  const [bookerName, setBookerName] = useState('');
-  const [bookerEmail, setBookerEmail] = useState('');
-  const [bookerCountry, setBookerCountry] = useState('');
-  const [bookerCity, setBookerCity] = useState('');
-  const [bookerState, setBookerState] = useState('');
-  const [phone, setPhone] = useState('');
-  const [countryCode, setCountryCode] = useState('');
+  // OTP & Enrollment
   const [otpSent, setOtpSent] = useState(false);
   const [otp, setOtp] = useState('');
   const [emailVerified, setEmailVerified] = useState(false);
@@ -114,17 +88,19 @@ function CartCheckoutPage() {
   const [paymentSettings, setPaymentSettings] = useState({ disclaimer: '', disclaimer_enabled: true, disclaimer_style: {}, india_links: [], india_exly_link: '', india_bank_details: {}, india_enabled: false, manual_form_enabled: true });
   const [urgencyQuotes, setUrgencyQuotes] = useState([]);
 
+  // Auto-derive booker from first participant
+  const firstP = items[0]?.participants?.[0] || {};
+  const bookerName = firstP.name || '';
+  const bookerEmail = firstP.email || '';
+  const bookerCountry = firstP.country || '';
+  const bookerCity = firstP.city || '';
+  const bookerState = firstP.state || '';
+  const phone = firstP.phone || '';
+  const countryCode = firstP.phone_code || '';
+
   useEffect(() => {
     if (items.length === 0) navigate('/cart');
   }, [items, navigate]);
-
-  // Country is NOT auto-filled — user must select manually
-
-  useEffect(() => {
-    const c = COUNTRIES.find(c => c.code === bookerCountry);
-    if (c) setCountryCode(c.phone);
-    else setCountryCode('');
-  }, [bookerCountry]);
 
   // Fetch payment settings
   useEffect(() => {
@@ -215,10 +191,7 @@ function CartCheckoutPage() {
   };
 
   const submitBookerAndSendOtp = async () => {
-    if (!bookerName.trim()) return toast({ title: 'Enter your name', variant: 'destructive' });
-    if (!bookerEmail.trim() || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(bookerEmail)) return toast({ title: 'Enter valid email', variant: 'destructive' });
-    if (!bookerCity.trim()) return toast({ title: 'Enter your city', variant: 'destructive' });
-    if (!bookerState.trim()) return toast({ title: 'Enter your state', variant: 'destructive' });
+    if (!bookerEmail.trim() || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(bookerEmail)) return toast({ title: 'Participant email is required for verification', variant: 'destructive' });
 
     setLoading(true);
     try {
@@ -228,8 +201,8 @@ function CartCheckoutPage() {
           name: p.name, relationship: p.relationship, age: parseInt(p.age),
           gender: p.gender, country: p.country, attendance_mode: p.attendance_mode,
           notify: p.notify, email: p.email || null,
-          phone: p.notify && p.phone ? `${p.phone_code || '+971'}${p.phone}` : null,
-          whatsapp: p.whatsapp ? `${p.wa_code || '+971'}${p.whatsapp}` : null,
+          phone: p.notify && p.phone ? `${p.phone_code || ''}${p.phone}` : null,
+          whatsapp: p.whatsapp ? `${p.wa_code || ''}${p.whatsapp}` : null,
           program_id: item.programId, program_title: item.programTitle,
           is_first_time: p.is_first_time || false, referral_source: p.referral_source || '',
           referred_by_name: p.has_referral ? (p.referred_by_name || '') : '',
@@ -245,12 +218,10 @@ function CartCheckoutPage() {
       setEnrollmentId(eid);
       setVpnDetected(enrollRes.data.vpn_detected);
 
-      // Save booker phone to enrollment
       if (bookerPhone) {
         await axios.patch(`${API}/enrollment/${eid}/update-phone`, { phone: bookerPhone }).catch(() => {});
       }
 
-      // Send email OTP (matching EnrollmentPage)
       await axios.post(`${API}/enrollment/${eid}/send-otp`, { email: bookerEmail });
       setOtpSent(true);
       toast({ title: 'Verification code sent to your email!' });
@@ -289,7 +260,7 @@ function CartCheckoutPage() {
           setProcessing(false);
         }
       }
-      setStep(2);
+      setStep(1);
     } catch (err) {
       toast({ title: err.response?.data?.detail || 'Wrong code', variant: 'destructive' });
     } finally { setLoading(false); }
@@ -405,12 +376,11 @@ function CartCheckoutPage() {
               {/* Step dots */}
               <div className="flex items-center gap-3 mb-6 justify-center">
                 <StepDot active={step === 0} done={step > 0} /><div className={`w-12 h-0.5 ${step > 0 ? 'bg-green-500' : 'bg-gray-200'}`} />
-                <StepDot active={step === 1} done={step > 1} /><div className={`w-12 h-0.5 ${step > 1 ? 'bg-green-500' : 'bg-gray-200'}`} />
-                <StepDot active={step === 2} done={false} />
+                <StepDot active={step === 1} done={false} />
               </div>
 
               <div className="bg-white rounded-xl border shadow-sm p-6">
-                {/* Step 0: Review + Promo */}
+                {/* Step 0: Promo + Email Verification */}
                 {step === 0 && (
                   <div data-testid="cart-step-review">
                     <h2 className="text-base font-semibold text-gray-900 mb-4 flex items-center gap-2">
@@ -434,76 +404,10 @@ function CartCheckoutPage() {
                         <span className="text-xs text-green-700">{promoResult.message} — Saving {symbol} {discount.toLocaleString()}</span>
                       </div>
                     )}
-                    <Button data-testid="cart-step0-next" onClick={() => setStep(1)}
-                      className="w-full bg-[#D4AF37] hover:bg-[#b8962e] text-white py-3 rounded-full mt-2">
-                      Continue to Billing <ChevronRight size={16} className="ml-1" />
-                    </Button>
-                    <button onClick={() => navigate('/cart')} className="w-full text-center mt-2 text-xs text-gray-500 hover:text-[#5D3FD3] transition-colors flex items-center justify-center gap-1">
-                      <ChevronLeft size={12} /> Back to Cart
-                    </button>
-                  </div>
-                )}
 
-                {/* Step 1: Billing + Email OTP */}
-                {step === 1 && (
-                  <div data-testid="cart-step-billing">
-                    {vpnDetected && (
-                      <div className="bg-red-50 border border-red-200 rounded-lg p-3 mb-4 flex items-start gap-2">
-                        <ShieldAlert size={16} className="text-red-500 mt-0.5" />
-                        <div><p className="text-red-800 text-xs font-semibold">VPN Detected</p><p className="text-red-600 text-[10px]">Regional pricing may not apply.</p></div>
-                      </div>
-                    )}
-                    <h2 className="text-base font-semibold text-gray-900 mb-4 flex items-center gap-2">
-                      <CreditCard size={16} className="text-[#D4AF37]" /> Billing Details
-                    </h2>
-                    <div className="space-y-3">
-                      <div className="grid grid-cols-2 gap-3">
-                        <div>
-                          <label className="text-[10px] text-gray-500 block mb-0.5">Full Name *</label>
-                          <Input data-testid="cart-booker-name" value={bookerName} onChange={e => setBookerName(e.target.value)} placeholder="Your name" className="text-sm" />
-                        </div>
-                        <div>
-                          <label className="text-[10px] text-gray-500 block mb-0.5">Email *</label>
-                          <Input data-testid="cart-booker-email" type="email" value={bookerEmail} onChange={e => setBookerEmail(e.target.value)} placeholder="email@example.com" className="text-sm" />
-                        </div>
-                      </div>
-                      <div className="grid grid-cols-2 gap-3">
-                        <div>
-                          <label className="text-[10px] text-gray-500 block mb-0.5">Country *</label>
-                          <select data-testid="cart-booker-country" value={bookerCountry} onChange={e => {
-                            setBookerCountry(e.target.value);
-                            setBookerCity(''); setBookerState('');
-                            const c = COUNTRIES.find(c => c.code === e.target.value);
-                            setCountryCode(c ? c.phone : '');
-                          }} className="w-full border rounded-md px-2 py-2 text-sm bg-white">
-                            <option value="">Select country</option>
-                            {COUNTRIES.map(c => <option key={c.code} value={c.code}>{c.name}</option>)}
-                          </select>
-                        </div>
-                        <div>
-                          <label className="text-[10px] text-gray-500 block mb-0.5">Phone</label>
-                          <div className="flex gap-1">
-                            <span className="border rounded-md px-2 py-2 text-xs w-20 bg-gray-50 flex items-center justify-center text-gray-600">
-                              {countryCode || '—'}
-                            </span>
-                            <Input data-testid="cart-phone" type="tel" value={phone} onChange={e => setPhone(e.target.value.replace(/\D/g, ''))} placeholder="Phone number" className="text-sm flex-1" />
-                          </div>
-                        </div>
-                      </div>
-                      <div className="grid grid-cols-2 gap-3 mt-3">
-                        <div>
-                          <label className="text-[10px] text-gray-500 block mb-0.5">City *</label>
-                          <Input data-testid="cart-booker-city" value={bookerCity} onChange={e => setBookerCity(e.target.value)} placeholder="City" className="text-sm" />
-                        </div>
-                        <div>
-                          <label className="text-[10px] text-gray-500 block mb-0.5">State *</label>
-                          <Input data-testid="cart-booker-state" value={bookerState} onChange={e => setBookerState(e.target.value)} placeholder="State / Province" className="text-sm" />
-                        </div>
-                      </div>
-                    </div>
-
+                    {/* Disclaimer */}
                     {paymentSettings.disclaimer_enabled && paymentSettings.disclaimer && (
-                      <div className="rounded-xl p-4 mt-3 border-2 shadow-sm" data-testid="cart-payment-disclaimer"
+                      <div className="rounded-xl p-4 mt-3 mb-3 border-2 shadow-sm" data-testid="cart-payment-disclaimer"
                         style={{ backgroundColor: paymentSettings.disclaimer_style?.bg_color || '#fef2f2', borderColor: paymentSettings.disclaimer_style?.border_color || '#f87171' }}>
                         <p style={{ fontSize: paymentSettings.disclaimer_style?.font_size || '14px', fontWeight: paymentSettings.disclaimer_style?.font_weight || '600', color: paymentSettings.disclaimer_style?.font_color || '#991b1b', lineHeight: '1.5' }}>
                           {paymentSettings.disclaimer.split(/(\*\*[^*]+\*\*)/).map((part, i) => {
@@ -516,50 +420,67 @@ function CartCheckoutPage() {
                       </div>
                     )}
 
-                    {!otpSent && !emailVerified && (
-                      <Button data-testid="cart-send-otp" onClick={submitBookerAndSendOtp} disabled={loading}
-                        className="w-full bg-[#D4AF37] hover:bg-[#b8962e] text-white py-3 rounded-full mt-4">
-                        {loading ? <Loader2 className="animate-spin" size={16} /> : <><Mail size={14} className="mr-2" /> Verify Email & Continue</>}
-                      </Button>
-                    )}
+                    {/* Email Verification */}
+                    <div className="border-t pt-4 mt-4">
+                      <h3 className="text-sm font-semibold text-gray-900 mb-1 flex items-center gap-2">
+                        <Mail size={14} className="text-[#D4AF37]" /> Verify Your Email
+                      </h3>
+                      <p className="text-[10px] text-gray-500 mb-3">
+                        We'll send a code to <strong>{bookerEmail || 'your email'}</strong> to confirm your enrollment.
+                      </p>
 
-                    {otpSent && !emailVerified && (
-                      <div className="border rounded-lg p-4 bg-gray-50 mt-4">
-                        <p className="text-xs text-gray-600 mb-2">Enter the verification code sent to <strong>{bookerEmail}</strong></p>
-                        <div className="flex gap-2">
-                          <Input data-testid="cart-otp" value={otp} onChange={e => setOtp(e.target.value.replace(/\D/g, '').slice(0, 6))} placeholder="000000" maxLength={6}
-                            className="flex-1 text-center tracking-[0.5em] font-mono text-lg" />
-                          <Button data-testid="cart-verify-otp" onClick={verifyOtp} disabled={loading || otp.length !== 6}
-                            className="bg-[#D4AF37] hover:bg-[#b8962e] text-white">
-                            {loading ? <Loader2 className="animate-spin" size={14} /> : 'Verify'}
-                          </Button>
+                      {vpnDetected && (
+                        <div className="bg-red-50 border border-red-200 rounded-lg p-3 mb-3 flex items-start gap-2">
+                          <ShieldAlert size={16} className="text-red-500 mt-0.5" />
+                          <div><p className="text-red-800 text-xs font-semibold">VPN Detected</p><p className="text-red-600 text-[10px]">Regional pricing may not apply.</p></div>
                         </div>
-                        <button onClick={() => { setOtpSent(false); setOtp(''); }} className="text-[10px] text-purple-600 mt-2 hover:underline">Resend code / change email</button>
-                      </div>
-                    )}
+                      )}
 
-                    {emailVerified && (
-                      <div className="bg-green-50 border border-green-200 rounded-lg p-3 mt-4 flex items-center gap-2">
-                        <ShieldCheck size={14} className="text-green-600" />
-                        <span className="text-xs text-green-700 font-medium">{bookerEmail} — Verified</span>
-                      </div>
-                    )}
-
-                    <div className="flex gap-3 mt-3">
-                      <Button variant="outline" onClick={() => setStep(0)} className="rounded-full">
-                        <ChevronLeft size={16} /> Back
-                      </Button>
-                      {emailVerified && (
-                        <Button data-testid="cart-step1-continue" onClick={() => setStep(2)} className="flex-1 bg-[#D4AF37] hover:bg-[#b8962e] text-white py-3 rounded-full">
-                          Continue to Payment <ChevronRight size={16} className="ml-1" />
+                      {!otpSent && !emailVerified && (
+                        <Button data-testid="cart-send-otp" onClick={submitBookerAndSendOtp} disabled={loading}
+                          className="w-full bg-[#D4AF37] hover:bg-[#b8962e] text-white py-3 rounded-full">
+                          {loading ? <Loader2 className="animate-spin" size={16} /> : <><Mail size={14} className="mr-2" /> Send Verification Code</>}
                         </Button>
                       )}
+
+                      {otpSent && !emailVerified && (
+                        <div className="border rounded-lg p-4 bg-gray-50">
+                          <p className="text-xs text-gray-600 mb-2">Enter the verification code sent to <strong>{bookerEmail}</strong></p>
+                          <div className="flex gap-2">
+                            <Input data-testid="cart-otp" value={otp} onChange={e => setOtp(e.target.value.replace(/\D/g, '').slice(0, 6))} placeholder="000000" maxLength={6}
+                              className="flex-1 text-center tracking-[0.5em] font-mono text-lg" />
+                            <Button data-testid="cart-verify-otp" onClick={verifyOtp} disabled={loading || otp.length !== 6}
+                              className="bg-[#D4AF37] hover:bg-[#b8962e] text-white">
+                              {loading ? <Loader2 className="animate-spin" size={14} /> : 'Verify'}
+                            </Button>
+                          </div>
+                          <button onClick={() => { setOtpSent(false); setOtp(''); }} className="text-[10px] text-purple-600 mt-2 hover:underline">Resend code / change email</button>
+                        </div>
+                      )}
+
+                      {emailVerified && (
+                        <div className="bg-green-50 border border-green-200 rounded-lg p-3 flex items-center gap-2">
+                          <ShieldCheck size={14} className="text-green-600" />
+                          <span className="text-xs text-green-700 font-medium">{bookerEmail} — Verified</span>
+                        </div>
+                      )}
                     </div>
+
+                    {emailVerified && (
+                      <Button data-testid="cart-step0-next" onClick={() => setStep(1)}
+                        className="w-full bg-[#D4AF37] hover:bg-[#b8962e] text-white py-3 rounded-full mt-4">
+                        Continue to Payment <ChevronRight size={16} className="ml-1" />
+                      </Button>
+                    )}
+
+                    <button onClick={() => navigate('/cart')} className="w-full text-center mt-3 text-xs text-gray-500 hover:text-[#5D3FD3] transition-colors flex items-center justify-center gap-1">
+                      <ChevronLeft size={12} /> Back to Cart
+                    </button>
                   </div>
                 )}
 
-                {/* Step 2: Confirm & Pay */}
-                {step === 2 && (
+                {/* Step 1: Confirm & Pay */}
+                {step === 1 && (
                   <div data-testid="cart-step-pay">
                     {total <= 0 ? (
                       <>
@@ -670,7 +591,7 @@ function CartCheckoutPage() {
                     )}
 
                     <div className="flex gap-3">
-                      <Button variant="outline" onClick={() => setStep(1)} className="rounded-full"><ChevronLeft size={16} /></Button>
+                      <Button variant="outline" onClick={() => setStep(0)} className="rounded-full"><ChevronLeft size={16} /></Button>
                       <Button data-testid="cart-pay-btn" onClick={handleCheckout} disabled={processing || (total > 0 && !enrollmentId)}
                         className="flex-1 bg-[#D4AF37] hover:bg-[#b8962e] text-white py-3 rounded-full">
                         {processing ? <><Loader2 className="animate-spin mr-2" size={16} /> {total <= 0 ? 'Registering...' : 'Redirecting...'}</> : total <= 0 ? <><Check size={14} className="mr-2" /> Complete Registration</> : <><Lock size={14} className="mr-2" /> Pay {symbol} {total.toLocaleString()}</>}
