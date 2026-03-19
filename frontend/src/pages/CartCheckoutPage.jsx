@@ -336,6 +336,7 @@ function CartCheckoutPage() {
                         </div>
                         <button
                           onClick={() => {
+                            window.history.replaceState(null, '', `/cart/checkout?eid=${enrollmentId}&promo=${promoCode || ''}`);
                             const params = new URLSearchParams({
                               program: items.map(i => i.programTitle).join(', '),
                               price: String(subtotal || 0),
@@ -360,7 +361,10 @@ function CartCheckoutPage() {
 
                         {paymentSettings.manual_form_enabled && (
                           <button
-                            onClick={() => navigate(`/manual-payment/${enrollmentId}`)}
+                            onClick={() => {
+                              window.history.replaceState(null, '', `/cart/checkout?eid=${enrollmentId}&promo=${promoCode || ''}`);
+                              navigate(`/manual-payment/${enrollmentId}`);
+                            }}
                             className="flex items-center justify-between w-full border rounded-lg p-4 mt-2 hover:border-teal-400 hover:bg-teal-50/50 transition-all group"
                             data-testid="cart-manual-payment-option">
                             <div className="flex items-center gap-3">

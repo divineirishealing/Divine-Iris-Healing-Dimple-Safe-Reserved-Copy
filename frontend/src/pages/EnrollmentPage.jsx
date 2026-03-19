@@ -871,6 +871,8 @@ function EnrollmentPage() {
                         </div>
                         <button
                           onClick={() => {
+                            // Preserve resume URL so back button restores state
+                            window.history.replaceState(null, '', `/enroll/${type}/${id}?tier=${selectedTier || 0}&resume=${enrollmentId}`);
                             const params = new URLSearchParams({
                               program: item?.title || '',
                               price: String(subtotal || 0),
@@ -896,6 +898,7 @@ function EnrollmentPage() {
                         {paymentSettings.manual_form_enabled && (
                         <button
                           onClick={() => {
+                            window.history.replaceState(null, '', `/enroll/${type}/${id}?tier=${selectedTier || 0}&resume=${enrollmentId}`);
                             navigate(`/manual-payment/${enrollmentId}`);
                           }}
                           className="flex items-center justify-between w-full border rounded-lg p-4 mt-2 hover:border-teal-400 hover:bg-teal-50/50 transition-all group"
