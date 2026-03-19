@@ -163,14 +163,17 @@ const ProgramRow = ({ p, update, updateTier }) => {
             <Input type="date" value={t.start_date || ''} onChange={e => {
               const val = e.target.value;
               updateTier(ti, 'start_date', val);
-              // Auto-sync start date to all tiers
               tiers.forEach((_, j) => { if (j !== ti) updateTier(j, 'start_date', val); });
             }} className="h-7 text-[10px] px-1" />
           </td>
           <td className="px-1 py-1">
             <Input type="date" value={t.end_date || ''} min={t.start_date || ''} onChange={e => updateTier(ti, 'end_date', e.target.value)} className="h-7 text-[10px] px-1" />
           </td>
-          <td colSpan={12}></td>
+          <td colSpan={10}></td>
+          <td className="px-1 py-1">
+            <Input value={t.duration || ''} onChange={e => updateTier(ti, 'duration', e.target.value)} placeholder="e.g. 90 Days" className="h-7 text-[10px] px-1" />
+          </td>
+          <td colSpan={4}></td>
         </tr>
       ))}
     </>
