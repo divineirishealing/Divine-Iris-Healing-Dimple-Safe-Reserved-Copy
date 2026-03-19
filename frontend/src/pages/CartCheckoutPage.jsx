@@ -59,7 +59,7 @@ const CartUrgencyStrip = ({ quotes }) => {
 function CartCheckoutPage() {
   const navigate = useNavigate();
   const { items, clearCart } = useCart();
-  const { country: detectedCountry, symbol, baseCurrency, getPrice, getOfferPrice, toDisplay } = useCurrency();
+  const { country: detectedCountry, symbol, baseCurrency, baseSymbol, displayCurrency, displaySymbol, isPrimary, getPrice, getOfferPrice, toDisplay } = useCurrency();
   const { toast } = useToast();
   const currency = baseCurrency;
   const [searchParams] = useSearchParams();
@@ -406,6 +406,9 @@ function CartCheckoutPage() {
                           </div>
                         )}
                         <p className="text-[10px] text-gray-400 mt-3 text-center flex items-center justify-center gap-1"><Lock size={10} /> Secure payment via Stripe</p>
+                        {!isPrimary && (
+                          <p className="text-[9px] text-amber-600 mt-1 text-center">Prices shown in {displaySymbol} ({displayCurrency.toUpperCase()}). Payment will be charged in {baseSymbol} ({baseCurrency.toUpperCase()}) at current exchange rate.</p>
+                        )}
                       </>
                     )}
                   </div>

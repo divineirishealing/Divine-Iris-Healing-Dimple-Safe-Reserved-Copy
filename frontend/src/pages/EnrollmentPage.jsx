@@ -290,7 +290,7 @@ function EnrollmentPage() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const { toast } = useToast();
-  const { getPrice, getOfferPrice, symbol, baseCurrency, toDisplay, country: detectedCountry } = useCurrency();
+  const { getPrice, getOfferPrice, symbol, baseCurrency, baseSymbol, displayCurrency, displaySymbol, isPrimary, toDisplay, country: detectedCountry } = useCurrency();
   const currency = baseCurrency;
 
   const tierParam = searchParams.get('tier');
@@ -914,7 +914,7 @@ function EnrollmentPage() {
                     )}
 
                     <div className="flex gap-3">
-                      <Button variant="outline" onClick={() => setStep(2)} className="rounded-full"><ChevronLeft size={16} /></Button>
+                      <Button variant="outline" onClick={() => setStep(0)} className="rounded-full"><ChevronLeft size={16} /></Button>
                       <Button data-testid="pay-now-btn" onClick={handleCheckout} disabled={processing}
                         className="flex-1 bg-[#D4AF37] hover:bg-[#b8962e] text-white py-3 rounded-full">
                         {processing ? <><Loader2 className="animate-spin mr-2" size={16} /> {total <= 0 ? 'Registering...' : 'Redirecting...'}</> : total <= 0 ? <><Check size={14} className="mr-2" /> Complete Registration</> : <><Lock size={14} className="mr-2" /> Pay {symbol} {total.toLocaleString()}</>}
@@ -922,6 +922,9 @@ function EnrollmentPage() {
                     </div>
 
                     <p className="text-[10px] text-gray-400 mt-3 text-center flex items-center justify-center gap-1"><Lock size={10} /> Secure payment via Stripe</p>
+                    {!isPrimary && (
+                      <p className="text-[9px] text-amber-600 mt-1 text-center">Prices shown in {displaySymbol} ({displayCurrency.toUpperCase()}). Payment will be charged in {baseSymbol} ({baseCurrency.toUpperCase()}) at current exchange rate.</p>
+                    )}
                       </>
                     )}
                   </div>
