@@ -50,7 +50,7 @@ export const CartProvider = ({ children }) => {
       enable_in_person: program.enable_in_person || false,
       participants: [{
         name: '', relationship: 'Myself', age: '', gender: '',
-        country: 'AE', attendance_mode: program.session_mode === 'remote' ? 'offline' : 'online',
+        country: '', attendance_mode: program.session_mode === 'remote' ? 'offline' : 'online',
         notify: false, email: '', phone: '',
       }],
     };
@@ -88,7 +88,7 @@ export const CartProvider = ({ children }) => {
       enable_in_person: session.session_mode === 'offline' || session.session_mode === 'both',
       participants: [{
         name: '', relationship: 'Myself', age: '', gender: '',
-        country: 'AE', attendance_mode: session.session_mode === 'offline' ? 'offline' : 'online',
+        country: '', attendance_mode: session.session_mode === 'offline' ? 'offline' : 'online',
         notify: false, email: '', phone: '',
       }],
     };
