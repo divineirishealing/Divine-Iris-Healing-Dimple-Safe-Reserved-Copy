@@ -767,12 +767,6 @@ function EnrollmentPage() {
                         We'll send a code to <strong>{bookerEmail || 'your email'}</strong> to confirm your enrollment.
                       </p>
 
-                      {vpnDetected && (
-                        <div className="bg-red-50 border border-red-200 rounded-lg p-3 mb-3 flex items-start gap-2">
-                          <ShieldAlert size={14} className="text-red-500 mt-0.5" /><p className="text-xs text-red-700">VPN detected. Regional pricing may not apply.</p>
-                        </div>
-                      )}
-
                       {!otpSent && !emailVerified && (
                         <Button data-testid="send-otp-btn" onClick={submitAndSendOtp} disabled={loading} className="w-full bg-[#D4AF37] hover:bg-[#b8962e] text-white py-3 rounded-full">
                           {loading ? <Loader2 className="animate-spin" size={16} /> : <><Mail size={14} className="mr-2" /> Send Verification Code</>}

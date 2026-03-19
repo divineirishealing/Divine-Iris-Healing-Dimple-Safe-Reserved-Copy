@@ -1,6 +1,9 @@
 from fastapi import APIRouter, Request
 from models import CurrencyInfo
-import httpx, logging, os, time
+import httpx
+import logging
+import os
+import time
 from motor.motor_asyncio import AsyncIOMotorClient
 from dotenv import load_dotenv
 from pathlib import Path
@@ -56,22 +59,34 @@ CURRENCY_SYMBOLS = {
 
 
 def get_base_currency(country_code, vpn_detected):
-    """Determine base currency (what Stripe charges) based on region + VPN"""
-    if vpn_detected:
-        return "usd"
+    """Determine base currency (what Stripe charges) based on region.
+    
+    VPN policy:
+    - India: STRICT — VPN from India = NOT INR (protect Indian pricing)
+    - Everyone else: VPN ignored, use detected country's currency silently
+    """
     if country_code in INDIA:
+        if vpn_detected:
+            return "usd"  # Strict: VPN in India = not a resident, no INR
         return "inr"
+    # For all other countries, ignore VPN — use detected country's base currency
     if country_code in UAE_ONLY or country_code in GULF_MIDDLE_EAST or country_code in ASIAN:
         return "aed"
     return "usd"
 
 
 def get_display_currency(country_code, vpn_detected):
-    """Determine display currency (what user sees) based on country"""
-    if vpn_detected:
-        return "usd"
+    """Determine display currency (what user sees) based on country.
+    
+    VPN policy:
+    - India: STRICT — VPN = USD (no INR for non-residents)
+    - Everyone else: VPN ignored, show local currency silently
+    """
     if country_code in INDIA:
+        if vpn_detected:
+            return "usd"  # Strict: no INR pricing
         return "inr"
+    # For all others, always show local currency regardless of VPN
     if country_code in UAE_ONLY:
         return "aed"
     if country_code in US_ONLY:
