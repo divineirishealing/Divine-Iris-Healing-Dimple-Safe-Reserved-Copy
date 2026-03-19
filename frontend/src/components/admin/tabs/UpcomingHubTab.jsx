@@ -216,11 +216,17 @@ const UpcomingHubTab = () => {
   const saveAll = async () => {
     setSaving(true);
     try {
-      await Promise.all([
-        ...programs.map(p => axios.put(`${API}/programs/${p.id}`, p)),
+      const validPrograms = programs.filter(p => p.id && p.title);
+      const results = await Promise.allSettled([
+        ...validPrograms.map(p => axios.put(`${API}/programs/${p.id}`, p)),
         axios.put(`${API}/settings`, { community_whatsapp_link: communityLink, enrollment_urgency_quotes: urgencyQuotes }),
       ]);
-      toast({ title: 'Saved!' });
+      const failed = results.filter(r => r.status === 'rejected');
+      if (failed.length > 0) {
+        toast({ title: `Saved with ${failed.length} error(s)`, variant: 'destructive' });
+      } else {
+        toast({ title: 'Saved!' });
+      }
     } catch (e) { toast({ title: 'Error', description: e.message, variant: 'destructive' }); }
     setSaving(false);
   };

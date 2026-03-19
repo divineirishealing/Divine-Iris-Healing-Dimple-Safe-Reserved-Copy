@@ -96,11 +96,18 @@ const PricingHubTab = () => {
   const saveAll = async () => {
     setSaving(true);
     try {
-      await Promise.all([
-        ...programs.map(p => axios.put(`${API}/programs/${p.id}`, p)),
-        ...sessions.map(s => axios.put(`${API}/sessions/${s.id}`, s))
+      const validPrograms = programs.filter(p => p.id && p.title);
+      const validSessions = sessions.filter(s => s.id && s.title);
+      const results = await Promise.allSettled([
+        ...validPrograms.map(p => axios.put(`${API}/programs/${p.id}`, p)),
+        ...validSessions.map(s => axios.put(`${API}/sessions/${s.id}`, s))
       ]);
-      toast({ title: 'All pricing saved!' });
+      const failed = results.filter(r => r.status === 'rejected');
+      if (failed.length > 0) {
+        toast({ title: `Saved with ${failed.length} error(s)`, description: 'Some items could not be saved', variant: 'destructive' });
+      } else {
+        toast({ title: 'All pricing saved!' });
+      }
     } catch (e) { toast({ title: 'Error saving', description: e.message, variant: 'destructive' }); }
     setSaving(false);
   };
