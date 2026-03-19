@@ -92,6 +92,8 @@ class EnrollmentSubmit(BaseModel):
     item_type: str
     item_id: str
     currency: str
+    display_currency: Optional[str] = None
+    display_rate: Optional[float] = None
     origin_url: Optional[str] = None
     promo_code: Optional[str] = None
     tier_index: Optional[int] = None
@@ -663,9 +665,22 @@ async def enrollment_checkout(enrollment_id: str, data: EnrollmentSubmit, reques
         webhook_url=f"{host_url}/api/webhook/stripe"
     )
 
+    # Determine Stripe charge currency — use display_currency if provided
+    # Stripe supports 135+ currencies, so we charge in user's local currency
+    # Stripe settles to merchant's default (AED) automatically
+    stripe_currency = currency  # default: base currency
+    stripe_amount = float(final_total)
+    if data.display_currency and data.display_currency != currency:
+        from routes.currency import fetch_live_rates, convert_amount
+        rates = await fetch_live_rates()
+        converted = convert_amount(float(final_total), currency, data.display_currency, rates)
+        if converted and converted > 0:
+            stripe_currency = data.display_currency
+            stripe_amount = float(converted)
+
     checkout_request = CheckoutSessionRequest(
-        amount=float(final_total),
-        currency=currency,
+        amount=stripe_amount,
+        currency=stripe_currency,
         success_url=success_url,
         cancel_url=cancel_url,
         metadata={
@@ -695,6 +710,8 @@ async def enrollment_checkout(enrollment_id: str, data: EnrollmentSubmit, reques
         "item_title": item.get("title", ""),
         "amount": float(final_total),
         "currency": currency,
+        "stripe_currency": stripe_currency,
+        "stripe_amount": stripe_amount,
         "payment_status": "pending",
         "booker_name": enrollment.get("booker_name"),
         "booker_email": enrollment.get("booker_email"),

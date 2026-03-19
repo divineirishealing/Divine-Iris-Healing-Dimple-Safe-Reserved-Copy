@@ -523,6 +523,7 @@ function EnrollmentPage() {
     try {
       const res = await axios.post(`${API}/enrollment/${enrollmentId}/checkout`, {
         enrollment_id: enrollmentId, item_type: type, item_id: id, currency,
+        display_currency: displayCurrency, display_rate: isPrimary ? 1 : undefined,
         origin_url: window.location.origin, promo_code: promoResult?.code || null,
         tier_index: selectedTier,
         browser_timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
@@ -922,9 +923,6 @@ function EnrollmentPage() {
                     </div>
 
                     <p className="text-[10px] text-gray-400 mt-3 text-center flex items-center justify-center gap-1"><Lock size={10} /> Secure payment via Stripe</p>
-                    {!isPrimary && (
-                      <p className="text-[9px] text-amber-600 mt-1 text-center">Prices shown in {displaySymbol} ({displayCurrency.toUpperCase()}). Payment will be charged in {baseSymbol} ({baseCurrency.toUpperCase()}) at current exchange rate.</p>
-                    )}
                       </>
                     )}
                   </div>

@@ -176,6 +176,7 @@ function CartCheckoutPage() {
       const firstItem = items[0];
       const res = await axios.post(`${API}/enrollment/${enrollmentId}/checkout`, {
         enrollment_id: enrollmentId, item_type: firstItem.type === 'session' ? 'session' : 'program', item_id: firstItem.programId, currency,
+        display_currency: displayCurrency, display_rate: isPrimary ? 1 : undefined,
         origin_url: window.location.origin, promo_code: promoResult?.code || null,
         tier_index: firstItem.tierIndex,
         cart_items: items.map(i => ({ program_id: i.programId, tier_index: i.tierIndex, participants_count: i.participants.length })),
@@ -406,9 +407,6 @@ function CartCheckoutPage() {
                           </div>
                         )}
                         <p className="text-[10px] text-gray-400 mt-3 text-center flex items-center justify-center gap-1"><Lock size={10} /> Secure payment via Stripe</p>
-                        {!isPrimary && (
-                          <p className="text-[9px] text-amber-600 mt-1 text-center">Prices shown in {displaySymbol} ({displayCurrency.toUpperCase()}). Payment will be charged in {baseSymbol} ({baseCurrency.toUpperCase()}) at current exchange rate.</p>
-                        )}
                       </>
                     )}
                   </div>
