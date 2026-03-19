@@ -11,7 +11,7 @@ import { Button } from '../components/ui/button';
 import {
   User, Monitor, Wifi, Mail, Phone, CreditCard, Lock, Plus, Trash2,
   ChevronRight, ChevronLeft, Check, ShieldAlert, ShieldCheck,
-  Loader2, Bell, BellOff, Tag, Calendar, FileText, Quote
+  Loader2, Bell, BellOff, Tag, Calendar, FileText, Quote, Clock
 } from 'lucide-react';
 import StarField from '../components/ui/StarField';
 
@@ -64,7 +64,7 @@ const StepBar = ({ current, steps }) => (
   </div>
 );
 
-const ParticipantRow = ({ index, data, onChange, onRemove, canRemove, showReferral = true, enabledModes = {} }) => {
+const ParticipantRow = ({ index, data, onChange, onRemove, canRemove, showReferral = true, enabledModes = {}, onCopyFromFirst }) => {
   const update = (field, value) => {
     const updated = { ...data, [field]: value };
     // When switching to online, force notify on
@@ -80,7 +80,15 @@ const ParticipantRow = ({ index, data, onChange, onRemove, canRemove, showReferr
     <div className="border rounded-lg p-3 mb-2 bg-gray-50" data-testid={`participant-${index}`}>
       <div className="flex items-center justify-between mb-2">
         <span className="text-[10px] font-semibold text-[#D4AF37]">Participant {index + 1}</span>
-        {canRemove && <button onClick={onRemove} className="text-red-400 hover:text-red-600"><Trash2 size={14} /></button>}
+        <div className="flex items-center gap-2">
+          {onCopyFromFirst && (
+            <button type="button" onClick={onCopyFromFirst} data-testid={`copy-from-p1-${index}`}
+              className="text-[9px] px-2 py-1 rounded-md bg-[#5D3FD3]/10 text-[#5D3FD3] hover:bg-[#5D3FD3]/20 font-medium transition-colors">
+              Same as Participant 1
+            </button>
+          )}
+          {canRemove && <button onClick={onRemove} className="text-red-400 hover:text-red-600"><Trash2 size={14} /></button>}
+        </div>
       </div>
       <div className="grid grid-cols-2 gap-2 mb-2">
         <div><label className="text-[9px] text-gray-500">Name *</label>
@@ -569,17 +577,63 @@ function EnrollmentPage() {
                   <div className="relative h-48 overflow-hidden">
                     <img src={resolveImageUrl(item.image)} alt={item.title} className="w-full h-full object-cover"
                       onError={e => { e.target.src = 'https://images.unsplash.com/photo-1545389336-cf090694435e?w=600&h=300&fit=crop'; }} />
-                    {item.session_mode && (
-                      <span className={`absolute top-3 left-3 text-[10px] px-2.5 py-1 rounded-full font-medium ${
-                        item.session_mode === 'online' ? 'bg-blue-500/90 text-white' : 'bg-purple-500/90 text-white'}`}>
-                        {item.session_mode === 'online' ? 'Online' : 'Remote'}
-                      </span>
+                    {/* Mode badges - top left */}
+                    <div className="absolute top-3 left-3 flex flex-col gap-1">
+                      {item.enable_online !== false && <span className="px-2.5 py-1 rounded-full text-[10px] font-semibold shadow-sm bg-blue-500 text-white w-fit">Online (Zoom)</span>}
+                      {item.enable_offline !== false && <span className="px-2.5 py-1 rounded-full text-[10px] font-semibold shadow-sm bg-teal-600 text-white w-fit">Offline (Remote)</span>}
+                      {item.enable_in_person && <span className="px-2.5 py-1 rounded-full text-[10px] font-semibold shadow-sm bg-teal-600 text-white w-fit">In-Person</span>}
+                    </div>
+                    {/* Dates & timing - top right */}
+                    <div className="absolute top-3 right-3 flex flex-col items-end gap-1">
+                      {item.start_date && item.show_start_date_on_card !== false && (
+                        <span className="bg-black/60 backdrop-blur-sm text-white text-[10px] font-bold px-2 py-0.5 rounded flex items-center gap-1">
+                          <Calendar size={10} /> Starts: {item.start_date}
+                        </span>
+                      )}
+                      {item.end_date && item.show_end_date_on_card !== false && (
+                        <span className="bg-black/60 backdrop-blur-sm text-white text-[10px] font-bold px-2 py-0.5 rounded flex items-center gap-1">
+                          <Calendar size={10} /> Ends: {item.end_date}
+                        </span>
+                      )}
+                      {item.timing && item.show_timing_on_card !== false && (
+                        <span className="bg-black/60 backdrop-blur-sm text-white text-[10px] font-bold px-2 py-0.5 rounded flex items-center gap-1">
+                          <Clock size={10} /> {item.timing} {item.time_zone || ''}
+                        </span>
+                      )}
+                      {item.duration && item.show_duration_on_card !== false && (
+                        <span className="bg-[#D4AF37] text-white text-[11px] font-bold px-2.5 py-1 rounded shadow-sm">{item.duration}</span>
+                      )}
+                    </div>
+                    {/* Exclusive offer badge - bottom */}
+                    {item.exclusive_offer_enabled && item.exclusive_offer_text && (
+                      <div className="absolute bottom-3 left-3">
+                        <span className="bg-red-600 text-white text-[10px] font-bold px-2.5 py-1 rounded-full shadow-lg tracking-wide uppercase animate-pulse">
+                          {item.exclusive_offer_text}
+                        </span>
+                      </div>
                     )}
                   </div>
                 )}
                 <div className="p-5">
                   {type !== 'session' && <p className="text-[#D4AF37] text-[10px] tracking-wider uppercase mb-1">{item.category}</p>}
-                  {type !== 'session' && <h2 data-testid="enrollment-title" className="text-lg font-semibold text-gray-900 mb-2">{item.title}</h2>}
+                  {type !== 'session' && (
+                    <div className="flex items-start gap-2 mb-2">
+                      <h2 data-testid="enrollment-title" className="text-lg font-semibold text-gray-900">{item.title}</h2>
+                      {item.highlight_label && (
+                        <span className="flex-shrink-0 inline-flex items-center gap-1 text-[8px] font-bold tracking-wider uppercase px-2 py-1 rounded-full whitespace-nowrap"
+                          style={
+                            item.highlight_style === 'ribbon'
+                              ? { background: '#1a1a1a', color: '#D4AF37', borderLeft: '2px solid #D4AF37', borderRadius: '4px' }
+                              : item.highlight_style === 'glow'
+                              ? { background: 'linear-gradient(135deg, #fff8e7, #fff3d0)', color: '#b8860b', border: '1px solid rgba(212,175,55,0.33)', boxShadow: '0 0 10px rgba(212,175,55,0.2)' }
+                              : { background: 'linear-gradient(135deg, #D4AF37, #f5d77a, #D4AF37)', color: '#3d2200', boxShadow: '0 2px 6px rgba(212,175,55,0.25)' }
+                          }>
+                          <svg width="8" height="8" viewBox="0 0 24 24" fill={item.highlight_style === 'glow' ? 'none' : '#3d2200'} stroke={item.highlight_style === 'glow' ? '#b8860b' : 'none'} strokeWidth="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+                          {item.highlight_label}
+                        </span>
+                      )}
+                    </div>
+                  )}
                   {tierObj && (
                     <span className="inline-block bg-[#D4AF37]/10 text-[#D4AF37] text-xs px-3 py-1 rounded-full font-medium mb-3">{tierObj.label}</span>
                   )}
@@ -587,6 +641,31 @@ function EnrollmentPage() {
                   {item.start_date && (
                     <div className="flex items-center gap-2 text-gray-500 text-xs mb-1"><Calendar size={12} /> Starts: {item.start_date}</div>
                   )}
+                  {item.end_date && (
+                    <div className="flex items-center gap-2 text-gray-500 text-xs mb-1"><Calendar size={12} /> Ends: {item.end_date}</div>
+                  )}
+                  {item.timing && (
+                    <div className="flex items-center gap-2 text-gray-500 text-xs mb-1"><Clock size={12} /> {item.timing} {item.time_zone || ''}</div>
+                  )}
+
+                  {/* Early bird / offer countdown */}
+                  {offerUnitPrice > 0 && (item.deadline_date || item.start_date) && (() => {
+                    const dl = new Date(item.deadline_date || item.start_date);
+                    if (isNaN(dl.getTime()) || dl <= new Date()) return null;
+                    const diff = dl - Date.now();
+                    const days = Math.floor(diff / 86400000);
+                    const hours = Math.floor((diff % 86400000) / 3600000);
+                    const mins = Math.floor((diff % 3600000) / 60000);
+                    return (
+                      <div className="flex items-center gap-2 bg-red-50 border border-red-100 rounded-lg px-3 py-2 mt-3 animate-pulse" data-testid="enroll-early-bird">
+                        <Bell size={14} className="text-red-500 flex-shrink-0" />
+                        <div className="text-xs">
+                          <span className="font-bold text-red-600">{item.offer_text || 'Early Bird'}</span>
+                          <span className="text-red-500 ml-1.5">ends in {days}d {hours}h {mins}m</span>
+                        </div>
+                      </div>
+                    );
+                  })()}
 
                   {/* Price summary */}
                   <div className="border-t pt-4 mt-4 space-y-1.5">
@@ -636,14 +715,14 @@ function EnrollmentPage() {
                     </div>
                   </div>
                 )}
-              </div>
 
-              {/* Urgency Testimonial Strip - below program details */}
-              {urgencyQuotes.length > 0 && (
-                <div className="mt-3">
-                  <UrgencyStrip quotes={urgencyQuotes} />
-                </div>
-              )}
+                {/* Urgency Testimonial Strip - inside sticky card */}
+                {urgencyQuotes.length > 0 && (
+                  <div className="px-5 pb-5">
+                    <UrgencyStrip quotes={urgencyQuotes} />
+                  </div>
+                )}
+              </div>
             </div>
 
             {/* RIGHT: Registration Form (scrollable) */}
@@ -680,7 +759,13 @@ function EnrollmentPage() {
                     {participants.map((p, i) => (
                       <ParticipantRow key={i} index={i} data={p} onChange={d => { const u = [...participants]; u[i] = d; setParticipants(u); }}
                         onRemove={() => setParticipants(participants.filter((_, j) => j !== i))} canRemove={participants.length > 1} showReferral={discountSettings.enable_referral}
-                        enabledModes={{ enable_online: item?.enable_online, enable_offline: item?.enable_offline, enable_in_person: item?.enable_in_person }} />
+                        enabledModes={{ enable_online: item?.enable_online, enable_offline: item?.enable_offline, enable_in_person: item?.enable_in_person }}
+                        onCopyFromFirst={i > 0 ? () => {
+                          const first = participants[0];
+                          const updated = [...participants];
+                          updated[i] = { ...first, name: '', relationship: '' };
+                          setParticipants(updated);
+                        } : undefined} />
                     ))}
                     <button data-testid="add-participant-btn" onClick={() => setParticipants([...participants, emptyParticipant()])}
                       className="w-full border-2 border-dashed border-[#D4AF37]/40 rounded-lg py-2.5 flex items-center justify-center gap-1 text-xs text-[#D4AF37] hover:bg-[#D4AF37]/5 transition-colors mb-4">
