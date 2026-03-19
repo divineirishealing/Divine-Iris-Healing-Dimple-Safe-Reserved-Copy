@@ -59,17 +59,21 @@ const CartUrgencyStrip = ({ quotes }) => {
   const q = quotes[index];
 
   return (
-    <div className="overflow-hidden rounded-xl bg-gradient-to-r from-[#f8f3e8] via-[#fdf6e3] to-[#f8f3e8] border border-[#D4AF37]/20 px-4 py-3" data-testid="cart-urgency-strip">
+    <div className="overflow-hidden rounded-2xl border-2 border-[#D4AF37]/40 px-5 py-4 relative" data-testid="cart-urgency-strip"
+      style={{ background: 'linear-gradient(135deg, #2D1B69 0%, #4c1d95 40%, #5D3FD3 100%)' }}>
+      <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-transparent via-[#D4AF37] to-transparent" />
       <div
-        className="flex items-center gap-3 transition-all duration-400 ease-in-out"
+        className="flex items-center gap-4 transition-all duration-400 ease-in-out"
         style={{ opacity: visible ? 1 : 0, transform: visible ? 'translateY(0)' : 'translateY(8px)' }}
       >
-        <Quote size={14} className="text-[#D4AF37] flex-shrink-0" />
-        <p className="text-xs text-gray-700 italic flex-1 leading-relaxed">
+        <div className="w-8 h-8 rounded-full bg-[#D4AF37]/20 border border-[#D4AF37]/40 flex items-center justify-center shrink-0">
+          <Quote size={14} className="text-[#D4AF37]" />
+        </div>
+        <p className="text-sm text-white/90 italic flex-1 leading-relaxed font-medium">
           "{q.text || q}"
         </p>
         {(q.name || q.author) && (
-          <span className="text-[10px] text-[#D4AF37] font-semibold whitespace-nowrap">
+          <span className="text-xs text-[#D4AF37] font-bold whitespace-nowrap">
             — {q.name || q.author}
           </span>
         )}
