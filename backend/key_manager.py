@@ -20,9 +20,9 @@ KEY_DEFINITIONS = [
     {"name": "sender_email", "env": "SENDER_EMAIL", "label": "Sender Email", "service": "Email Config", "description": "Default sender address for OTP and notifications"},
     {"name": "receipt_email", "env": "RECEIPT_EMAIL", "label": "Receipt Email", "service": "Email Config", "description": "Sender address for payment receipts"},
     {"name": "resend_api_key", "env": "RESEND_API_KEY", "label": "Resend API Key", "service": "Email (backup)", "description": "Backup email service API key"},
-]
     {"name": "razorpay_key_id", "env": "RAZORPAY_KEY_ID", "label": "Razorpay Key ID", "service": "Payments (India)", "description": "Key ID for Razorpay integration"},
     {"name": "razorpay_key_secret", "env": "RAZORPAY_KEY_SECRET", "label": "Razorpay Key Secret", "service": "Payments (India)", "description": "Key Secret for Razorpay integration"},
+]
 
 
 async def get_key(name: str) -> str:
