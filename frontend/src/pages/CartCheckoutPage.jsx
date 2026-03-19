@@ -10,7 +10,7 @@ import { Input } from '../components/ui/input';
 import { Button } from '../components/ui/button';
 import {
   Tag, CreditCard, Mail, Lock, Loader2, Check, ChevronLeft, ChevronRight,
-  ShieldCheck, ShieldAlert, ShoppingCart, FileText
+  ShieldCheck, ShieldAlert, ShoppingCart, FileText, Quote
 } from 'lucide-react';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
@@ -38,6 +38,45 @@ const COUNTRIES = [
 const StepDot = ({ active, done }) => (
   <div className={`w-3 h-3 rounded-full transition-all ${done ? 'bg-green-500' : active ? 'bg-[#D4AF37] scale-110' : 'bg-gray-200'}`} />
 );
+
+const CartUrgencyStrip = ({ quotes }) => {
+  const [index, setIndex] = useState(0);
+  const [visible, setVisible] = useState(true);
+
+  useEffect(() => {
+    if (quotes.length <= 1) return;
+    const cycle = setInterval(() => {
+      setVisible(false);
+      setTimeout(() => {
+        setIndex(prev => (prev + 1) % quotes.length);
+        setVisible(true);
+      }, 500);
+    }, 4000);
+    return () => clearInterval(cycle);
+  }, [quotes]);
+
+  if (!quotes.length) return null;
+  const q = quotes[index];
+
+  return (
+    <div className="overflow-hidden rounded-xl bg-gradient-to-r from-[#f8f3e8] via-[#fdf6e3] to-[#f8f3e8] border border-[#D4AF37]/20 px-4 py-3" data-testid="cart-urgency-strip">
+      <div
+        className="flex items-center gap-3 transition-all duration-400 ease-in-out"
+        style={{ opacity: visible ? 1 : 0, transform: visible ? 'translateY(0)' : 'translateY(8px)' }}
+      >
+        <Quote size={14} className="text-[#D4AF37] flex-shrink-0" />
+        <p className="text-xs text-gray-700 italic flex-1 leading-relaxed">
+          "{q.text || q}"
+        </p>
+        {(q.name || q.author) && (
+          <span className="text-[10px] text-[#D4AF37] font-semibold whitespace-nowrap">
+            — {q.name || q.author}
+          </span>
+        )}
+      </div>
+    </div>
+  );
+};
 
 function CartCheckoutPage() {
   const navigate = useNavigate();
@@ -69,6 +108,7 @@ function CartCheckoutPage() {
   const [vpnDetected, setVpnDetected] = useState(false);
   const [processing, setProcessing] = useState(false);
   const [paymentSettings, setPaymentSettings] = useState({ disclaimer: '', disclaimer_enabled: true, disclaimer_style: {}, india_links: [], india_exly_link: '', india_bank_details: {}, india_enabled: false, manual_form_enabled: true });
+  const [urgencyQuotes, setUrgencyQuotes] = useState([]);
 
   useEffect(() => {
     if (items.length === 0) navigate('/cart');
@@ -97,6 +137,7 @@ function CartCheckoutPage() {
         india_enabled: s.india_payment_enabled || false,
         manual_form_enabled: s.manual_form_enabled !== false,
       });
+      setUrgencyQuotes(s.enrollment_urgency_quotes || []);
     }).catch(() => {});
   }, []);
 
@@ -339,6 +380,13 @@ function CartCheckoutPage() {
                   </div>
                 </div>
               </div>
+
+              {/* Urgency Testimonial Strip */}
+              {urgencyQuotes.length > 0 && (
+                <div className="mt-3">
+                  <CartUrgencyStrip quotes={urgencyQuotes} />
+                </div>
+              )}
             </div>
 
             {/* Right: Checkout Steps */}
@@ -443,7 +491,14 @@ function CartCheckoutPage() {
                     {paymentSettings.disclaimer_enabled && paymentSettings.disclaimer && (
                       <div className="rounded-xl p-4 mt-3 border-2 shadow-sm" data-testid="cart-payment-disclaimer"
                         style={{ backgroundColor: paymentSettings.disclaimer_style?.bg_color || '#fef2f2', borderColor: paymentSettings.disclaimer_style?.border_color || '#f87171' }}>
-                        <p style={{ fontSize: paymentSettings.disclaimer_style?.font_size || '14px', fontWeight: paymentSettings.disclaimer_style?.font_weight || '600', color: paymentSettings.disclaimer_style?.font_color || '#991b1b', lineHeight: '1.5' }}>{paymentSettings.disclaimer}</p>
+                        <p style={{ fontSize: paymentSettings.disclaimer_style?.font_size || '14px', fontWeight: paymentSettings.disclaimer_style?.font_weight || '600', color: paymentSettings.disclaimer_style?.font_color || '#991b1b', lineHeight: '1.5' }}>
+                          {paymentSettings.disclaimer.split(/(\*\*[^*]+\*\*)/).map((part, i) => {
+                            if (part.startsWith('**') && part.endsWith('**')) {
+                              return <strong key={i} style={{ fontWeight: 800 }}>{part.slice(2, -2)}</strong>;
+                            }
+                            return part;
+                          })}
+                        </p>
                       </div>
                     )}
 
@@ -613,7 +668,14 @@ function CartCheckoutPage() {
                         {paymentSettings.disclaimer_enabled && paymentSettings.disclaimer && (
                           <div className="mt-3 rounded-xl p-4 border-2 shadow-sm" data-testid="cart-payment-disclaimer-pay"
                             style={{ backgroundColor: paymentSettings.disclaimer_style?.bg_color || '#fef2f2', borderColor: paymentSettings.disclaimer_style?.border_color || '#f87171' }}>
-                            <p style={{ fontSize: paymentSettings.disclaimer_style?.font_size || '14px', fontWeight: paymentSettings.disclaimer_style?.font_weight || '600', color: paymentSettings.disclaimer_style?.font_color || '#991b1b', lineHeight: '1.5' }}>{paymentSettings.disclaimer}</p>
+                            <p style={{ fontSize: paymentSettings.disclaimer_style?.font_size || '14px', fontWeight: paymentSettings.disclaimer_style?.font_weight || '600', color: paymentSettings.disclaimer_style?.font_color || '#991b1b', lineHeight: '1.5' }}>
+                              {paymentSettings.disclaimer.split(/(\*\*[^*]+\*\*)/).map((part, i) => {
+                                if (part.startsWith('**') && part.endsWith('**')) {
+                                  return <strong key={i} style={{ fontWeight: 800 }}>{part.slice(2, -2)}</strong>;
+                                }
+                                return part;
+                              })}
+                            </p>
                           </div>
                         )}
                         <p className="text-[10px] text-gray-400 mt-3 text-center flex items-center justify-center gap-1"><Lock size={10} /> Secure payment via Stripe</p>

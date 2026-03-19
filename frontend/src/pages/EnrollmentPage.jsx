@@ -632,14 +632,18 @@ function EnrollmentPage() {
                   </div>
                 )}
               </div>
+
+              {/* Urgency Testimonial Strip - below program details */}
+              {urgencyQuotes.length > 0 && (
+                <div className="mt-3">
+                  <UrgencyStrip quotes={urgencyQuotes} />
+                </div>
+              )}
             </div>
 
             {/* RIGHT: Registration Form (scrollable) */}
             <div className="lg:w-3/5">
               <StepBar current={step} steps={['Participants', 'Review', 'Billing', 'Pay']} />
-
-              {/* Urgency Testimonial Strip */}
-              {urgencyQuotes.length > 0 && <UrgencyStrip quotes={urgencyQuotes} />}
 
               {paymentSettings.disclaimer_enabled && paymentSettings.disclaimer && (
                 <div className="rounded-xl p-4 mb-4 border-2 shadow-sm" data-testid="payment-disclaimer-persistent"
@@ -652,7 +656,14 @@ function EnrollmentPage() {
                     fontWeight: paymentSettings.disclaimer_style?.font_weight || '600',
                     color: paymentSettings.disclaimer_style?.font_color || '#991b1b',
                     lineHeight: '1.5',
-                  }}>{paymentSettings.disclaimer}</p>
+                  }}>
+                    {paymentSettings.disclaimer.split(/(\*\*[^*]+\*\*)/).map((part, i) => {
+                      if (part.startsWith('**') && part.endsWith('**')) {
+                        return <strong key={i} style={{ fontWeight: 800 }}>{part.slice(2, -2)}</strong>;
+                      }
+                      return part;
+                    })}
+                  </p>
                 </div>
               )}
 
