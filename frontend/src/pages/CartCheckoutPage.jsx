@@ -40,23 +40,16 @@ const CartUrgencyStrip = ({ quotes }) => {
   const q = quotes[index];
 
   return (
-    <div className="overflow-hidden rounded-2xl border-2 border-[#D4AF37]/40 px-5 py-4 relative" data-testid="cart-urgency-strip"
+    <div className="overflow-hidden rounded-xl border border-[#D4AF37]/30 px-4 py-2.5 relative" data-testid="cart-urgency-strip"
       style={{ background: 'linear-gradient(135deg, #2D1B69 0%, #4c1d95 40%, #5D3FD3 100%)' }}>
-      <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-transparent via-[#D4AF37] to-transparent" />
       <div
-        className="flex items-center gap-4 transition-all duration-400 ease-in-out"
-        style={{ opacity: visible ? 1 : 0, transform: visible ? 'translateY(0)' : 'translateY(8px)' }}
+        className="flex items-center gap-3 transition-all duration-400 ease-in-out"
+        style={{ opacity: visible ? 1 : 0, transform: visible ? 'translateY(0)' : 'translateY(6px)' }}
       >
-        <div className="w-8 h-8 rounded-full bg-[#D4AF37]/20 border border-[#D4AF37]/40 flex items-center justify-center shrink-0">
-          <Quote size={14} className="text-[#D4AF37]" />
-        </div>
-        <p className="text-sm text-white/90 italic flex-1 leading-relaxed font-medium">
-          "{q.text || q}"
-        </p>
+        <Quote size={12} className="text-[#D4AF37] flex-shrink-0" />
+        <p className="text-xs text-white/90 italic flex-1 leading-snug">"{q.text || q}"</p>
         {(q.name || q.author) && (
-          <span className="text-xs text-[#D4AF37] font-bold whitespace-nowrap">
-            — {q.name || q.author}
-          </span>
+          <span className="text-[10px] text-[#D4AF37] font-bold whitespace-nowrap">— {q.name || q.author}</span>
         )}
       </div>
     </div>
@@ -267,19 +260,14 @@ function CartCheckoutPage() {
                     <span>Total</span><span className="text-[#D4AF37]">{total <= 0 ? 'FREE' : `${symbol} ${total.toLocaleString()}`}</span>
                   </div>
                 </div>
-
-                {/* Urgency Testimonial Strip - inside sticky card */}
-                {urgencyQuotes.length > 0 && (
-                  <div className="mt-3">
-                    <CartUrgencyStrip quotes={urgencyQuotes} />
-                  </div>
-                )}
-
-                {/* Back to Cart */}
-                <button onClick={() => navigate('/cart')} className="mt-3 text-xs text-[#5D3FD3] hover:underline flex items-center gap-1" data-testid="back-to-cart">
-                  <ChevronLeft size={12} /> Back to Cart
-                </button>
               </div>
+
+              {/* Urgency Testimonial Strip - outside card, compact 2-liner */}
+              {urgencyQuotes.length > 0 && (
+                <div className="mt-3">
+                  <CartUrgencyStrip quotes={urgencyQuotes} />
+                </div>
+              )}
             </div>
 
             {/* Right: Payment */}
@@ -396,7 +384,7 @@ function CartCheckoutPage() {
                     )}
 
                     <div className="flex gap-3">
-                      <Button variant="outline" onClick={() => setStep(0)} className="rounded-full"><ChevronLeft size={16} /></Button>
+                      <Button variant="outline" onClick={() => navigate('/cart')} className="rounded-full"><ChevronLeft size={16} /></Button>
                       <Button data-testid="cart-pay-btn" onClick={handleCheckout} disabled={processing || (total > 0 && !enrollmentId)}
                         className="flex-1 bg-[#D4AF37] hover:bg-[#b8962e] text-white py-3 rounded-full">
                         {processing ? <><Loader2 className="animate-spin mr-2" size={16} /> {total <= 0 ? 'Registering...' : 'Redirecting...'}</> : total <= 0 ? <><Check size={14} className="mr-2" /> Complete Registration</> : <><Lock size={14} className="mr-2" /> Pay {symbol} {total.toLocaleString()}</>}
