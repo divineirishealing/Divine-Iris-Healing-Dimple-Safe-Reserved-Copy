@@ -383,14 +383,19 @@ function CartCheckoutPage() {
                     <span>Total</span><span className="text-[#D4AF37]">{total <= 0 ? 'FREE' : `${symbol} ${total.toLocaleString()}`}</span>
                   </div>
                 </div>
-              </div>
 
-              {/* Urgency Testimonial Strip */}
-              {urgencyQuotes.length > 0 && (
-                <div className="mt-3">
-                  <CartUrgencyStrip quotes={urgencyQuotes} />
-                </div>
-              )}
+                {/* Urgency Testimonial Strip - inside sticky card */}
+                {urgencyQuotes.length > 0 && (
+                  <div className="mt-3">
+                    <CartUrgencyStrip quotes={urgencyQuotes} />
+                  </div>
+                )}
+
+                {/* Back to Cart */}
+                <button onClick={() => navigate('/cart')} className="mt-3 text-xs text-[#5D3FD3] hover:underline flex items-center gap-1" data-testid="back-to-cart">
+                  <ChevronLeft size={12} /> Back to Cart
+                </button>
+              </div>
             </div>
 
             {/* Right: Checkout Steps */}
