@@ -60,6 +60,8 @@ async def update_settings(settings: SiteSettingsUpdate):
         update_data['community_whatsapp_link'] = raw['community_whatsapp_link']
     if raw.get('payment_disclaimer_style') is not None:
         update_data['payment_disclaimer_style'] = raw['payment_disclaimer_style']
+    if raw.get('enrollment_urgency_quotes') is not None:
+        update_data['enrollment_urgency_quotes'] = raw['enrollment_urgency_quotes']
     existing = await db.site_settings.find_one({"id": "site_settings"})
     if not existing:
         full_settings = {**DEFAULT_SETTINGS, **update_data}

@@ -1,4 +1,4 @@
-# Divine Iris Healing - PRD (Updated Mar 18, 2026)
+# Divine Iris Healing - PRD (Updated Mar 19, 2026)
 
 ## What's Built
 
@@ -18,12 +18,16 @@
 - **Collapsible Scheduler**: Each program section in admin Scheduler tab is collapsible/expandable
 
 ### Phase B Features (Built Mar 18, 2026)
-- **Calendar View** (`/dashboard/sessions`): Full monthly calendar with color-coded program sessions (purple=AWRP, amber=MMM, green=QM, blue=BAD), day detail panel, month overview stats
-- **Daily Progress Tracking** (`/dashboard/progress`): Students mark daily progress with 5-star rating, notes, calendar grid showing completed/missed days, streak counter
-- **Extraordinary Moments**: Students mark special days with is_extraordinary flag, amber-highlighted on calendar, dedicated timeline section
-- **Student-Initiated Pause**: Students can pause programs (if admin enables via "Pausable" toggle), with start/end date picker and reason. Resume button appears for paused programs
-- **Admin Allow Pause Toggle**: "Pausable" checkbox per program in subscriber edit form (SubscribersTab)
-- **Sidebar Updated**: Added "My Calendar" and "Daily Progress" navigation items
+- **Calendar View** (`/dashboard/sessions`): Full monthly calendar with color-coded program sessions
+- **Daily Progress Tracking** (`/dashboard/progress`): Star ratings, notes, streak counter
+- **Extraordinary Moments**: Amber-highlighted special days with dedicated timeline
+- **Student-Initiated Pause**: Pause/resume with start/end dates, admin toggle per program
+- **Admin Allow Pause Toggle**: "Pausable" checkbox per program in subscriber edit form
+
+### Homepage & Enrollment Enhancements (Built Mar 19, 2026)
+- **FOMO Rotating Subtitle**: Upcoming Programs section subtitle cycles through admin-editable messages with fade-in/fade-out animation (e.g., "SEATS ARE FILLING FAST", "LIMITED SPOTS REMAINING")
+- **Enrollment Urgency Testimonials**: Rotating one-liner testimonial strip on enrollment page. Admin-editable quotes that create urgency & social proof (e.g., "Joining this program was my best decision" — Anita R.)
+- Both managed in admin: FOMO subtitles via Homepage Sections → Upcoming, Urgency quotes via Upcoming Hub
 
 ### NEXT TO BUILD
 - **Admin Preview as Student** — Admin views dashboard as specific student
@@ -38,34 +42,34 @@
 - Refactor SubscribersTab.jsx (1270+ lines → smaller components)
 
 ## Key Files
+- `frontend/src/components/UpcomingProgramsSection.jsx` (FOMO subtitle rotator)
+- `frontend/src/pages/EnrollmentPage.jsx` (urgency testimonial strip)
+- `frontend/src/components/admin/tabs/HomepageSectionsTab.jsx` (FOMO editor)
+- `frontend/src/components/admin/tabs/UpcomingHubTab.jsx` (urgency quotes editor)
 - `frontend/src/components/admin/tabs/SchedulerTab.jsx` (collapsible)
-- `frontend/src/components/admin/tabs/SubscribersTab.jsx` (allow_pause toggle)
-- `frontend/src/components/dashboard/CalendarPage.jsx` (NEW)
-- `frontend/src/components/dashboard/ProgressPage.jsx` (NEW)
-- `frontend/src/components/dashboard/FinancialsPage.jsx` (pause/resume buttons)
-- `frontend/src/components/dashboard/Sidebar.jsx` (updated nav)
-- `frontend/src/pages/StudentDashboard.jsx`
+- `frontend/src/components/dashboard/CalendarPage.jsx`
+- `frontend/src/components/dashboard/ProgressPage.jsx`
+- `frontend/src/components/dashboard/FinancialsPage.jsx`
 - `backend/routes/student.py` (daily-progress, pause/resume endpoints)
 - `backend/routes/subscribers.py` (ProgramDetail with allow_pause)
-- `backend/routes/emi_payments.py`
+- `backend/models.py` (enrollment_urgency_quotes in SiteSettings)
 
 ## Key API Endpoints
+- `GET /api/settings` — Returns all site settings (includes enrollment_urgency_quotes, homepage_sections with fomo_subtitles)
+- `PUT /api/settings` — Updates site settings
 - `GET /api/student/home` — Student dashboard data
 - `POST /api/student/daily-progress` — Save daily progress
 - `GET /api/student/daily-progress?month=YYYY-MM` — Get progress entries
 - `GET /api/student/extraordinary-moments` — Get extraordinary moments
 - `POST /api/student/pause-program` — Student pauses a program
 - `POST /api/student/resume-program-simple` — Student resumes a program
-- `POST /api/student/choose-mode` — Online/Offline mode choice
-- `GET /api/admin/subscribers/program-schedule` — Global schedule
-- `PUT /api/admin/subscribers/program-schedule` — Save & sync schedule
 
 ## DB Collections
-- `clients` — Main subscriber data (subscription.programs_detail has allow_pause, pause_start, pause_end)
-- `daily_progress` — Daily progress entries (client_id, date, program_name, rating, is_extraordinary)
+- `site_settings` — Stores enrollment_urgency_quotes and homepage_sections with fomo_subtitles
+- `clients` — Main subscriber data
+- `daily_progress` — Daily progress entries
 - `annual_packages` — Pricing packages
 - `program_schedule` — Global program schedule
-- `emi_payments` — Manual payment submissions
 
 ## Known Issues
 - P2: End date browser display bug (suspected browser caching)

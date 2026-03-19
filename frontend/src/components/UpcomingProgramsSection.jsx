@@ -107,6 +107,40 @@ const convertTimingToLocal = (timing, timeZone, detectedCountry) => {
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
 
+/* ─── FOMO Subtitle Rotator ─── */
+const FomoSubtitle = ({ messages, style }) => {
+  const [index, setIndex] = useState(0);
+  const [visible, setVisible] = useState(true);
+
+  useEffect(() => {
+    if (!messages || messages.length <= 1) return;
+    const cycle = setInterval(() => {
+      setVisible(false);
+      setTimeout(() => {
+        setIndex(prev => (prev + 1) % messages.length);
+        setVisible(true);
+      }, 600);
+    }, 3500);
+    return () => clearInterval(cycle);
+  }, [messages]);
+
+  if (!messages || messages.length === 0) return null;
+
+  return (
+    <p
+      data-testid="fomo-subtitle"
+      className="text-sm text-gray-900 mt-3 transition-all duration-500 ease-in-out"
+      style={{
+        ...style,
+        opacity: visible ? 1 : 0,
+        transform: visible ? 'translateY(0)' : 'translateY(6px)',
+      }}
+    >
+      {messages[index]}
+    </p>
+  );
+};
+
 const CountdownTimer = ({ deadline }) => {
   const [timeLeft, setTimeLeft] = useState(getTimeLeft(deadline));
 
@@ -522,9 +556,22 @@ const UpcomingProgramsSection = ({ sectionConfig, inline }) => {
               {/* Title row */}
               <div className={`${titleSpan} text-center`}>
                 <h2 className="text-3xl md:text-4xl text-gray-900" style={applyTitleStyle(sectionConfig?.title_style, {})}>{sectionConfig?.title || 'Upcoming Programs'}</h2>
-                {(sectionConfig?.subtitle || (!programs.some(p => p.enable_in_person) && !sectionConfig)) && (
-                  <p className="text-sm text-gray-900 mt-3" style={sectionConfig?.subtitle_style ? { ...(sectionConfig.subtitle_style.font_color && { color: sectionConfig.subtitle_style.font_color }), ...(sectionConfig.subtitle_style.font_size && { fontSize: sectionConfig.subtitle_style.font_size }), ...(sectionConfig.subtitle_style.font_family && { fontFamily: sectionConfig.subtitle_style.font_family }), ...(sectionConfig.subtitle_style.font_weight && { fontWeight: sectionConfig.subtitle_style.font_weight }) } : {}}>{sectionConfig?.subtitle}</p>
-                )}
+                {(() => {
+                  const fomoMessages = sectionConfig?.fomo_subtitles?.length > 0
+                    ? sectionConfig.fomo_subtitles
+                    : sectionConfig?.subtitle
+                      ? [sectionConfig.subtitle]
+                      : null;
+                  const subtitleStyle = sectionConfig?.subtitle_style ? {
+                    ...(sectionConfig.subtitle_style.font_color && { color: sectionConfig.subtitle_style.font_color }),
+                    ...(sectionConfig.subtitle_style.font_size && { fontSize: sectionConfig.subtitle_style.font_size }),
+                    ...(sectionConfig.subtitle_style.font_family && { fontFamily: sectionConfig.subtitle_style.font_family }),
+                    ...(sectionConfig.subtitle_style.font_weight && { fontWeight: sectionConfig.subtitle_style.font_weight }),
+                  } : {};
+                  return fomoMessages ? (
+                    <FomoSubtitle messages={fomoMessages} style={subtitleStyle} />
+                  ) : null;
+                })()}
               </div>
               <div data-testid="sponsor-title-column" className="text-center hidden lg:block">
                 <h2 className="text-3xl md:text-4xl text-gray-900" style={applyTitleStyle(sponsorConfig?.title_style, {})}>{sponsorConfig?.title || 'Become a Sponsor'}</h2>

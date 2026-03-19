@@ -4,7 +4,7 @@ import { useToast } from '../../../hooks/use-toast';
 import { Button } from '../../ui/button';
 import { Input } from '../../ui/input';
 import { Switch } from '../../ui/switch';
-import { Save, Calendar, ChevronDown, ChevronUp, Copy, MessageCircle, Video, Link as LinkIcon, Globe } from 'lucide-react';
+import { Save, Calendar, ChevronDown, ChevronUp, Copy, MessageCircle, Video, Link as LinkIcon, Globe, Plus, Trash2, Quote } from 'lucide-react';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
@@ -182,6 +182,7 @@ const UpcomingHubTab = () => {
   const [programs, setPrograms] = useState([]);
   const [saving, setSaving] = useState(false);
   const [communityLink, setCommunityLink] = useState('');
+  const [urgencyQuotes, setUrgencyQuotes] = useState([]);
 
   const fetchData = useCallback(async () => {
     const [progRes, settingsRes] = await Promise.all([
@@ -190,6 +191,7 @@ const UpcomingHubTab = () => {
     ]);
     setPrograms(progRes.data || []);
     setCommunityLink(settingsRes.data?.community_whatsapp_link || '');
+    setUrgencyQuotes(settingsRes.data?.enrollment_urgency_quotes || []);
   }, []);
 
   useEffect(() => { fetchData(); }, [fetchData]);
@@ -213,7 +215,7 @@ const UpcomingHubTab = () => {
     try {
       await Promise.all([
         ...programs.map(p => axios.put(`${API}/programs/${p.id}`, p)),
-        axios.put(`${API}/settings`, { community_whatsapp_link: communityLink }),
+        axios.put(`${API}/settings`, { community_whatsapp_link: communityLink, enrollment_urgency_quotes: urgencyQuotes }),
       ]);
       toast({ title: 'Saved!' });
     } catch (e) { toast({ title: 'Error', description: e.message, variant: 'destructive' }); }
@@ -363,6 +365,49 @@ const UpcomingHubTab = () => {
               </div>
             );
           })}
+        </div>
+      </div>
+
+      {/* Enrollment Urgency Quotes */}
+      <div className="mt-8 border rounded-lg shadow-sm" data-testid="urgency-quotes-section">
+        <div className="bg-amber-50 px-4 py-3 border-b rounded-t-lg">
+          <h3 className="text-sm font-bold text-amber-800 flex items-center gap-2">
+            <Quote size={15} className="text-[#D4AF37]" /> Enrollment Urgency Testimonials
+          </h3>
+          <p className="text-[10px] text-amber-600 mt-0.5">Rotating one-liner testimonials on the enrollment page. Creates urgency & social proof.</p>
+        </div>
+        <div className="p-4 space-y-2">
+          {urgencyQuotes.map((q, i) => (
+            <div key={i} className="flex items-center gap-2" data-testid={`urgency-quote-${i}`}>
+              <span className="text-[9px] text-gray-400 w-4 shrink-0">{i + 1}</span>
+              <Input
+                value={typeof q === 'string' ? q : q.text || ''}
+                onChange={e => {
+                  const updated = [...urgencyQuotes];
+                  updated[i] = typeof q === 'string' ? e.target.value : { ...q, text: e.target.value };
+                  setUrgencyQuotes(updated);
+                }}
+                placeholder='"Joining this program was the best decision of my life"'
+                className="h-7 text-[10px] flex-1 italic"
+              />
+              <Input
+                value={typeof q === 'string' ? '' : q.name || ''}
+                onChange={e => {
+                  const updated = [...urgencyQuotes];
+                  updated[i] = typeof q === 'string' ? { text: q, name: e.target.value } : { ...q, name: e.target.value };
+                  setUrgencyQuotes(updated);
+                }}
+                placeholder="Name (optional)"
+                className="h-7 text-[10px] w-32"
+              />
+              <button onClick={() => setUrgencyQuotes(urgencyQuotes.filter((_, j) => j !== i))}
+                className="text-red-400 hover:text-red-600 p-1"><Trash2 size={12} /></button>
+            </div>
+          ))}
+          <button onClick={() => setUrgencyQuotes([...urgencyQuotes, { text: '', name: '' }])}
+            className="text-xs text-[#D4AF37] hover:underline font-medium flex items-center gap-1" data-testid="add-urgency-quote">
+            <Plus size={12} /> Add testimonial
+          </button>
         </div>
       </div>
 

@@ -232,6 +232,46 @@ const ParticipantRow = ({ index, data, onChange, onRemove, canRemove, showReferr
   );
 };
 
+/* ─── URGENCY TESTIMONIAL STRIP ─── */
+const UrgencyStrip = ({ quotes }) => {
+  const [index, setIndex] = useState(0);
+  const [visible, setVisible] = useState(true);
+
+  useEffect(() => {
+    if (quotes.length <= 1) return;
+    const cycle = setInterval(() => {
+      setVisible(false);
+      setTimeout(() => {
+        setIndex(prev => (prev + 1) % quotes.length);
+        setVisible(true);
+      }, 500);
+    }, 4000);
+    return () => clearInterval(cycle);
+  }, [quotes]);
+
+  if (!quotes.length) return null;
+  const q = quotes[index];
+
+  return (
+    <div className="mb-4 overflow-hidden rounded-xl bg-gradient-to-r from-[#f8f3e8] via-[#fdf6e3] to-[#f8f3e8] border border-[#D4AF37]/20 px-4 py-3" data-testid="urgency-strip">
+      <div
+        className="flex items-center gap-3 transition-all duration-400 ease-in-out"
+        style={{ opacity: visible ? 1 : 0, transform: visible ? 'translateY(0)' : 'translateY(8px)' }}
+      >
+        <Quote size={14} className="text-[#D4AF37] flex-shrink-0" />
+        <p className="text-xs text-gray-700 italic flex-1 leading-relaxed">
+          "{q.text || q}"
+        </p>
+        {(q.name || q.author) && (
+          <span className="text-[10px] text-[#D4AF37] font-semibold whitespace-nowrap">
+            — {q.name || q.author}
+          </span>
+        )}
+      </div>
+    </div>
+  );
+};
+
 function EnrollmentPage() {
   const { type, id } = useParams();
   const [searchParams] = useSearchParams();
@@ -267,6 +307,7 @@ function EnrollmentPage() {
   const [discountSettings, setDiscountSettings] = useState({ enable_referral: true });
   const [paymentSettings, setPaymentSettings] = useState({ disclaimer: '', disclaimer_enabled: true, disclaimer_style: {}, india_links: [], india_exly_link: '', india_bank_details: {}, india_enabled: false, manual_form_enabled: true });
   const [sessionTestimonials, setSessionTestimonials] = useState([]);
+  const [urgencyQuotes, setUrgencyQuotes] = useState([]);
 
   useEffect(() => {
     const ep = type === 'program' ? 'programs' : 'sessions';
@@ -285,6 +326,7 @@ function EnrollmentPage() {
         india_enabled: s.india_payment_enabled || false,
         manual_form_enabled: s.manual_form_enabled !== false,
       });
+      setUrgencyQuotes(s.enrollment_urgency_quotes || []);
     }).catch(() => {});
     if (type === 'session') {
       axios.get(`${API}/session-extras/testimonials?session_id=${id}`).then(r => setSessionTestimonials(r.data || [])).catch(() => {});
@@ -595,6 +637,9 @@ function EnrollmentPage() {
             {/* RIGHT: Registration Form (scrollable) */}
             <div className="lg:w-3/5">
               <StepBar current={step} steps={['Participants', 'Review', 'Billing', 'Pay']} />
+
+              {/* Urgency Testimonial Strip */}
+              {urgencyQuotes.length > 0 && <UrgencyStrip quotes={urgencyQuotes} />}
 
               {paymentSettings.disclaimer_enabled && paymentSettings.disclaimer && (
                 <div className="rounded-xl p-4 mb-4 border-2 shadow-sm" data-testid="payment-disclaimer-persistent"

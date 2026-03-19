@@ -418,6 +418,31 @@ const HomepageSectionsTab = ({ settings, onChange }) => {
             </div>
             )}
 
+            {/* FOMO Rotating Subtitles — for Upcoming Programs section */}
+            {sec.id === 'upcoming' && (
+              <div className="mt-2 bg-amber-50 rounded-lg p-2.5 border border-amber-200" data-testid="fomo-subtitles-editor">
+                <div className="flex items-center justify-between mb-1.5">
+                  <p className="text-[9px] font-bold text-amber-700 uppercase tracking-wider">Rotating FOMO Subtitles</p>
+                  <button onClick={() => updateSection(idx, 'fomo_subtitles', [...(sec.fomo_subtitles || []), ''])}
+                    className="text-[9px] text-amber-600 hover:underline font-medium">+ Add</button>
+                </div>
+                <p className="text-[8px] text-amber-500 mb-2">These cycle with fade-in/fade-out below the title. Leave empty to use static subtitle.</p>
+                {(sec.fomo_subtitles || []).map((msg, mi) => (
+                  <div key={mi} className="flex items-center gap-1 mb-1">
+                    <Input value={msg} onChange={e => {
+                      const updated = [...(sec.fomo_subtitles || [])];
+                      updated[mi] = e.target.value;
+                      updateSection(idx, 'fomo_subtitles', updated);
+                    }} className="text-[10px] h-6 flex-1" placeholder="e.g. Only a few spots remaining..." />
+                    <button onClick={() => {
+                      const updated = (sec.fomo_subtitles || []).filter((_, i) => i !== mi);
+                      updateSection(idx, 'fomo_subtitles', updated);
+                    }} className="text-red-400 hover:text-red-600 p-0.5"><Trash2 size={10} /></button>
+                  </div>
+                ))}
+              </div>
+            )}
+
             {/* Custom section extra controls: image, body, body style */}
             {isCustom(sec) && (
               <div className="mt-3 pt-3 border-t border-dashed border-gray-200 space-y-3" data-testid={`custom-controls-${sec.id}`}>
