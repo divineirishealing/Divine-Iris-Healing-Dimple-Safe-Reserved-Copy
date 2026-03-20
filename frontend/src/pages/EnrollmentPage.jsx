@@ -5,13 +5,14 @@ import Header from '../components/Header';
 import Footer from '../components/Footer';
 import { useToast } from '../hooks/use-toast';
 import { useCurrency } from '../context/CurrencyContext';
+import { useCart } from '../context/CartContext';
 import { resolveImageUrl } from '../lib/imageUtils';
 import { Input } from '../components/ui/input';
 import { Button } from '../components/ui/button';
 import {
   User, Monitor, Wifi, Mail, Phone, CreditCard, Lock, Plus, Trash2,
   ChevronRight, ChevronLeft, Check, ShieldAlert, ShieldCheck,
-  Loader2, Bell, BellOff, Tag, Calendar, FileText, Quote, Clock
+  Loader2, Bell, BellOff, Tag, Calendar, FileText, Quote, Clock, Gift
 } from 'lucide-react';
 import StarField from '../components/ui/StarField';
 
@@ -316,6 +317,7 @@ function EnrollmentPage() {
   const [paymentSettings, setPaymentSettings] = useState({ disclaimer: '', disclaimer_enabled: true, disclaimer_style: {}, india_links: [], india_exly_link: '', india_bank_details: {}, india_enabled: false, manual_form_enabled: true });
   const [sessionTestimonials, setSessionTestimonials] = useState([]);
   const [urgencyQuotes, setUrgencyQuotes] = useState([]);
+  const [crossSellRules, setCrossSellRules] = useState([]);
 
   // Auto-derive booker from first participant
   const firstP = participants[0] || {};
@@ -328,7 +330,12 @@ function EnrollmentPage() {
   useEffect(() => {
     const ep = type === 'program' ? 'programs' : 'sessions';
     axios.get(`${API}/${ep}/${id}`).then(r => setItem(r.data)).catch(() => navigate('/'));
-    axios.get(`${API}/discounts/settings`).then(r => setDiscountSettings(r.data)).catch(() => {});
+    axios.get(`${API}/discounts/settings`).then(r => {
+      setDiscountSettings(r.data);
+      if (r.data?.enable_cross_sell && r.data?.cross_sell_rules?.length > 0) {
+        setCrossSellRules(r.data.cross_sell_rules.filter(r => r.enabled !== false));
+      }
+    }).catch(() => {});
     axios.get(`${API}/settings`).then(r => {
       const s = r.data;
       setPaymentSettings({
@@ -415,8 +422,29 @@ function EnrollmentPage() {
   const unitPrice = item ? toDisplay(getLocalPrice(item, hasTiers ? selectedTier : null)) : 0;
   const offerUnitPrice = item ? toDisplay(getLocalOfferPrice(item, hasTiers ? selectedTier : null)) : 0;
   const effectiveUnitPrice = offerUnitPrice > 0 ? offerUnitPrice : unitPrice;
+
+  // Cross-sell: check if "buy" program is in cart → this program gets discount
+  const { items: cartItems } = useCart();
+  const crossSellDiscount = (() => {
+    if (!crossSellRules.length || effectiveUnitPrice <= 0) return null;
+    for (const rule of crossSellRules) {
+      const targets = rule.targets || (rule.get_program_id ? [{ program_id: rule.get_program_id, discount_value: rule.discount_value, discount_type: rule.discount_type }] : []);
+      const matchTarget = targets.find(t => String(t.program_id) === String(id));
+      if (!matchTarget) continue;
+      const buyInCart = cartItems.some(i => String(i.programId) === String(rule.buy_program_id));
+      if (buyInCart) {
+        const disc = matchTarget.discount_type === 'percentage'
+          ? Math.round(effectiveUnitPrice * (matchTarget.discount_value || 0) / 100)
+          : (matchTarget.discount_value || 0);
+        return { amount: disc, label: rule.label, value: matchTarget.discount_value, type: matchTarget.discount_type };
+      }
+    }
+    return null;
+  })();
+  const finalUnitPrice = crossSellDiscount ? Math.max(0, effectiveUnitPrice - crossSellDiscount.amount) : effectiveUnitPrice;
+
   const pCount = participants.length;
-  const subtotalRaw = effectiveUnitPrice * pCount;
+  const subtotalRaw = finalUnitPrice * pCount;
 
   const [autoDiscounts, setAutoDiscounts] = useState({ group_discount: 0, combo_discount: 0, loyalty_discount: 0, total_discount: 0 });
 
@@ -656,8 +684,22 @@ function EnrollmentPage() {
                   <div className="border-t pt-4 mt-4 space-y-1.5">
                     <div className="flex justify-between text-xs text-gray-600">
                       <span>Per person</span>
-                      <span>{offerUnitPrice > 0 ? <><span className="text-[#D4AF37] font-bold">{symbol} {offerUnitPrice.toLocaleString()}</span> <span className="line-through text-gray-400">{symbol} {unitPrice.toLocaleString()}</span></> : <span className="font-bold">{symbol} {unitPrice.toLocaleString()}</span>}</span>
+                      <span>
+                        {crossSellDiscount ? (
+                          <><span className="text-green-600 font-bold">{symbol} {finalUnitPrice.toLocaleString()}</span> <span className="line-through text-gray-400">{symbol} {effectiveUnitPrice.toLocaleString()}</span></>
+                        ) : offerUnitPrice > 0 ? (
+                          <><span className="text-[#D4AF37] font-bold">{symbol} {offerUnitPrice.toLocaleString()}</span> <span className="line-through text-gray-400">{symbol} {unitPrice.toLocaleString()}</span></>
+                        ) : (
+                          <span className="font-bold">{symbol} {unitPrice.toLocaleString()}</span>
+                        )}
+                      </span>
                     </div>
+                    {crossSellDiscount && (
+                      <div className="flex justify-between text-xs text-green-600">
+                        <span className="flex items-center gap-1"><Gift size={10} /> {crossSellDiscount.label || 'Cross-sell'}</span>
+                        <span>-{crossSellDiscount.value}{crossSellDiscount.type === 'percentage' ? '%' : ` ${symbol}`}</span>
+                      </div>
+                    )}
                     <div className="flex justify-between text-xs text-gray-600">
                       <span>Participants</span><span>{pCount}</span>
                     </div>
