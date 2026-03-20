@@ -44,13 +44,13 @@ const DashboardLayout = () => {
       {bgVideo && (
         <video autoPlay loop muted playsInline
           className="fixed inset-0 w-full h-full object-cover z-0"
-          style={{ opacity: 0.35 }}
+          style={{ opacity: 0.85 }}
           data-testid="dashboard-bg-video"
         >
           <source src={bgVideo.startsWith('/') ? `${process.env.REACT_APP_BACKEND_URL}${bgVideo}` : bgVideo} type="video/mp4" />
         </video>
       )}
-      {bgVideo && <div className="fixed inset-0 z-0" style={{ background: 'rgba(26,11,46,0.55)' }} />}
+      {bgVideo && <div className="fixed inset-0 z-0" style={{ background: 'rgba(26,11,46,0.25)' }} />}
 
       {/* Constellation fallback when no video */}
       {!bgVideo && (

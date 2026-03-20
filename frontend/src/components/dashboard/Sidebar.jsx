@@ -46,7 +46,7 @@ const Sidebar = ({ onNavigate }) => {
   return (
     <aside className={cn(
       "w-64 h-full border-r flex flex-col relative z-20 shrink-0 transition-colors duration-300",
-      isSanctuary ? "bg-[#1a1040]/60 backdrop-blur-xl border-white/[0.06] text-white" : "bg-white border-gray-100"
+      "bg-white/80 backdrop-blur-xl border-white/20"
     )}>
       <div className={cn("p-6 border-b", isSanctuary ? "border-white/10" : "border-gray-50")}>
         <h1 className={cn("text-xl font-serif font-bold tracking-tight", isSanctuary ? "text-white" : "text-[#5D3FD3]")}>{theme.title}</h1>

@@ -12,7 +12,7 @@ const Header = () => {
   return (
     <header className={cn(
       "h-20 flex items-center justify-between px-8 sticky top-0 z-10 transition-colors duration-300",
-      isSanctuary ? "bg-transparent border-b border-white/10" : "bg-white/80 backdrop-blur-md border-b border-gray-100"
+      isSanctuary ? "bg-transparent border-b border-white/10" : "bg-white/60 backdrop-blur-xl border-b border-white/20"
     )}>
       <div className="flex items-center gap-4 flex-1">
         <div className="relative w-full max-w-md hidden md:block">
