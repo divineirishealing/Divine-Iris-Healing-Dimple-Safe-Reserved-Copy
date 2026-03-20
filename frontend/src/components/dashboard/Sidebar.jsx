@@ -4,7 +4,7 @@ import { useAuth } from '../../context/AuthContext';
 import { 
   Home, BookOpen, MessageCircle, FileText, Calendar, PenTool,
   Lock, LogOut, Activity, Archive, CreditCard, User, TrendingUp,
-  Sparkles, Heart, Users
+  Sparkles, Heart, Users, Sprout
 } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { useSiteSettings } from '../../context/SiteSettingsContext';
@@ -57,7 +57,8 @@ const Sidebar = ({ onNavigate }) => {
 
       <nav className="flex-1 overflow-y-auto p-4 space-y-1">
         <div className={cn("text-[10px] font-semibold uppercase px-4 mb-2 mt-2", isSanctuary ? "text-white/50" : "text-gray-400")}>Journey</div>
-        <NavItem to="/dashboard" icon={Home} label="Soul Garden" minTier={1} />
+        <NavItem to="/dashboard" icon={Home} label="Overview" minTier={1} />
+        <NavItem to="/dashboard/garden" icon={Sprout} label="Soul Garden" minTier={1} />
         <NavItem to="/dashboard/sessions" icon={Calendar} label="My Calendar" minTier={1} />
         <NavItem to="/dashboard/progress" icon={TrendingUp} label="Daily Progress" minTier={1} />
         <NavItem to="/dashboard/bhaad" icon={Sparkles} label="Bhaad Portal" minTier={1} />

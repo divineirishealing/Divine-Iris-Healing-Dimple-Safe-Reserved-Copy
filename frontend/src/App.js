@@ -92,11 +92,12 @@ const AppContent = () => {
       
       {/* Dashboard Routes */}
       <Route path="/dashboard" element={<DashboardLayout />}>
-        <Route index element={<SoulGardenPage />} />
+        <Route index element={<StudentDashboard />} />
         <Route path="profile" element={<ProfilePage />} />
         <Route path="financials" element={<FinancialsPage />} />
         <Route path="sessions" element={<CalendarPage />} />
         <Route path="progress" element={<ProgressPage />} />
+        <Route path="garden" element={<SoulGardenPage />} />
         <Route path="bhaad" element={<BhaadPortalPage />} />
         <Route path="tribe" element={<SoulTribePage />} />
         
