@@ -1,95 +1,139 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import axios from 'axios';
-import { Camera, Sparkles, Heart, Zap, Star, Flame, Eye } from 'lucide-react';
+import { Camera, Sparkles, Send, ChevronRight, Star, Heart, Zap, RefreshCw } from 'lucide-react';
+import { Button } from '../ui/button';
 import { useToast } from '../../hooks/use-toast';
 import { cn } from '../../lib/utils';
 
 const API = process.env.REACT_APP_BACKEND_URL;
 
-/* ═══ COSMIC ELEMENTS ═══ */
-const CosmicStar = ({ x, y, size = 2, delay = 0, bright }) => (
-  <div className="absolute rounded-full" style={{
-    left: `${x}%`, top: `${y}%`, width: size, height: size,
-    background: bright ? '#FFD54F' : '#fff',
-    boxShadow: bright ? `0 0 ${size * 3}px ${size}px rgba(255,213,79,0.6)` : `0 0 ${size * 2}px ${size * 0.5}px rgba(255,255,255,0.3)`,
-    animation: `twinkle ${2 + Math.random() * 3}s ease-in-out ${delay}s infinite`,
-  }} />
-);
+/* ═══ CHALLENGE → AFFIRMATION ENGINE ═══ */
+const CHALLENGES = [
+  { id: 'anxiety', label: 'Anxiety / Overthinking', emoji: '🌪️' },
+  { id: 'confidence', label: 'Self-Doubt / Low Confidence', emoji: '🪞' },
+  { id: 'relationships', label: 'Relationship Struggles', emoji: '💔' },
+  { id: 'health', label: 'Health / Body Issues', emoji: '🩺' },
+  { id: 'money', label: 'Financial Stress', emoji: '🌊' },
+  { id: 'motivation', label: 'Lack of Motivation', emoji: '🔋' },
+  { id: 'grief', label: 'Grief / Loss', emoji: '🕊️' },
+  { id: 'anger', label: 'Anger / Frustration', emoji: '🌋' },
+  { id: 'purpose', label: 'Finding My Purpose', emoji: '🧭' },
+  { id: 'sleep', label: 'Sleep / Rest Issues', emoji: '🌙' },
+];
 
-const Nebula = ({ x, y, color, size = 120, opacity = 0.15 }) => (
-  <div className="absolute rounded-full pointer-events-none" style={{
-    left: `${x}%`, top: `${y}%`, width: size, height: size,
-    background: `radial-gradient(circle, ${color} 0%, transparent 70%)`,
-    opacity, transform: 'translate(-50%, -50%)',
-    animation: `nebulaPulse ${8 + Math.random() * 4}s ease-in-out infinite`,
-  }} />
-);
-
-const Planet = ({ x, y, emoji, label, size = 'md', glow }) => {
-  const sizes = { sm: 'w-8 h-8 text-lg', md: 'w-12 h-12 text-2xl', lg: 'w-16 h-16 text-3xl' };
-  return (
-    <div className="absolute flex flex-col items-center gap-1 group" style={{ left: `${x}%`, top: `${y}%`, transform: 'translate(-50%, -50%)' }}>
-      <div className={cn(sizes[size], "rounded-full flex items-center justify-center cursor-default")}
-        style={{
-          animation: `float ${6 + Math.random() * 2}s ease-in-out infinite`,
-          filter: glow ? `drop-shadow(0 0 12px ${glow})` : 'none',
-        }}>
-        <span>{emoji}</span>
-      </div>
-      <span className="text-[8px] text-white/50 font-medium opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">{label}</span>
-    </div>
-  );
+const AFFIRMATIONS = {
+  anxiety: [
+    "This too shall pass. You are safe in this moment.",
+    "Your breath is your anchor. Inhale peace, exhale worry.",
+    "You have survived every difficult day so far. You're stronger than you know.",
+    "The universe didn't bring you this far to leave you here.",
+  ],
+  confidence: [
+    "You are enough — exactly as you are right now.",
+    "Your uniqueness is your superpower. Own it.",
+    "Every expert was once a beginner. Keep going.",
+    "The iris flower blooms in its own time. So do you.",
+  ],
+  relationships: [
+    "You deserve love that doesn't make you question your worth.",
+    "Setting boundaries is an act of self-love, not selfishness.",
+    "The right people will love the real you.",
+    "Your heart knows the way. Trust its wisdom.",
+  ],
+  health: [
+    "Your body is healing even when you can't see it.",
+    "Every cell in your body is working for your highest good.",
+    "Listen to your body — it speaks the language of truth.",
+    "Healing is not linear. Be patient with yourself.",
+  ],
+  money: [
+    "Abundance flows to those who believe they deserve it.",
+    "Your worth is not measured by your bank account.",
+    "Every challenge is redirecting you to something better.",
+    "Trust the process. Seeds planted in faith always bloom.",
+  ],
+  motivation: [
+    "Start where you are. Use what you have. Do what you can.",
+    "Even the smallest step forward is progress.",
+    "Your future self is cheering you on right now.",
+    "The fire within you is brighter than the fire around you.",
+  ],
+  grief: [
+    "Grief is love with nowhere to go. Let it flow.",
+    "Those we love never truly leave us. They live on in our hearts.",
+    "It's okay to not be okay. Healing takes its own time.",
+    "The wound is where the light enters you.",
+  ],
+  anger: [
+    "Your anger is valid. What you do with it defines you.",
+    "Behind every anger is a hurt that needs healing.",
+    "Breathe. Respond, don't react. Your peace is precious.",
+    "Forgiveness is a gift you give yourself.",
+  ],
+  purpose: [
+    "You don't need to have it all figured out. Just take the next step.",
+    "Your purpose is unfolding — trust the journey.",
+    "What lights you up inside IS your compass.",
+    "The universe placed a dream in your heart for a reason.",
+  ],
+  sleep: [
+    "Release the day. Tomorrow is a fresh start.",
+    "Your mind deserves rest. Let your thoughts float away like clouds.",
+    "Sleep is healing. Allow yourself this sacred pause.",
+    "In stillness, your soul replenishes. Surrender to rest.",
+  ],
 };
 
-const ShootingStar = ({ delay = 0 }) => (
-  <div className="absolute w-1 h-1 bg-white rounded-full" style={{
-    top: `${10 + Math.random() * 30}%`,
-    left: `${Math.random() * 60}%`,
-    boxShadow: '0 0 4px 2px rgba(255,255,255,0.3)',
-    animation: `shootingStar 3s ease-in ${delay}s infinite`,
-  }} />
+const getAffirmation = (challengeId) => {
+  const pool = AFFIRMATIONS[challengeId] || AFFIRMATIONS.anxiety;
+  return pool[Math.floor(Math.random() * pool.length)];
+};
+
+/* ═══ DNA HELIX (AWRP Center) ═══ */
+const DNAHelix = ({ sessions = 12, completed = 0 }) => (
+  <div className="relative w-32 h-64" data-testid="dna-helix">
+    {Array.from({ length: sessions }).map((_, i) => {
+      const angle = i * 30;
+      const y = i * (240 / sessions);
+      const xLeft = 30 + Math.sin((angle * Math.PI) / 180) * 25;
+      const xRight = 100 - Math.sin((angle * Math.PI) / 180) * 25;
+      const done = i < completed;
+      const current = i === completed;
+      return (
+        <React.Fragment key={i}>
+          {/* Left strand */}
+          <div className="absolute rounded-full transition-all" style={{
+            left: xLeft, top: y, width: done ? 10 : 7, height: done ? 10 : 7,
+            background: done ? '#D4AF37' : current ? '#A78BFA' : 'rgba(255,255,255,0.2)',
+            boxShadow: done ? '0 0 10px rgba(212,175,55,0.5)' : current ? '0 0 8px rgba(167,139,250,0.5)' : 'none',
+            animation: current ? 'pulse 2s ease-in-out infinite' : 'none',
+          }} />
+          {/* Right strand */}
+          <div className="absolute rounded-full transition-all" style={{
+            left: xRight, top: y, width: done ? 10 : 7, height: done ? 10 : 7,
+            background: done ? '#8B5CF6' : current ? '#A78BFA' : 'rgba(255,255,255,0.2)',
+            boxShadow: done ? '0 0 10px rgba(139,92,246,0.5)' : 'none',
+          }} />
+          {/* Connection line */}
+          <svg className="absolute" style={{ top: y + 3, left: Math.min(xLeft, xRight) + 5, width: Math.abs(xRight - xLeft) - 2, height: 4 }}>
+            <line x1="0" y1="2" x2="100%" y2="2" stroke={done ? 'rgba(212,175,55,0.4)' : 'rgba(255,255,255,0.08)'} strokeWidth="1" strokeDasharray={done ? 'none' : '2,3'} />
+          </svg>
+        </React.Fragment>
+      );
+    })}
+  </div>
 );
 
-const Aurora = ({ active }) => (
-  active ? (
-    <div className="absolute bottom-0 left-0 right-0 h-40 pointer-events-none" style={{
-      background: 'linear-gradient(180deg, transparent 0%, rgba(100,255,150,0.05) 30%, rgba(50,200,255,0.08) 60%, rgba(150,100,255,0.06) 100%)',
-      animation: 'auroraWave 8s ease-in-out infinite',
-    }} />
-  ) : null
-);
-
-/* ═══ CONSTELLATION LINE ═══ */
-const ConstellationLine = ({ points, active }) => (
-  <svg className="absolute inset-0 w-full h-full pointer-events-none" style={{ opacity: active ? 0.4 : 0.1 }}>
-    {points.map((p, i) => i < points.length - 1 ? (
-      <line key={i} x1={`${p[0]}%`} y1={`${p[1]}%`} x2={`${points[i + 1][0]}%`} y2={`${points[i + 1][1]}%`}
-        stroke={active ? '#D4AF37' : '#ffffff'} strokeWidth="0.5" strokeDasharray={active ? 'none' : '2,4'} />
-    ) : null)}
-  </svg>
-);
-
-/* ═══ ACTIVITY CARD ═══ */
-const ActivityCard = ({ icon: Icon, emoji, title, sub, color, onClick, done, count }) => (
-  <button onClick={onClick} className={cn(
-    "relative flex flex-col items-center gap-1 p-4 rounded-2xl border transition-all group",
-    done ? "bg-white/10 border-white/20 shadow-inner" : "bg-white/5 border-white/10 hover:bg-white/10 hover:border-white/20 hover:scale-[1.03]",
-  )} data-testid={`cosmic-${title.toLowerCase().replace(/\s/g, '-')}`}>
-    <span className="text-2xl mb-1" style={{ animation: done ? 'none' : 'float 3s ease-in-out infinite' }}>{emoji}</span>
-    <p className="text-[10px] font-bold text-white/90">{title}</p>
-    <p className="text-[8px] text-white/40">{sub}</p>
-    {count > 0 && <span className="absolute -top-1 -right-1 w-5 h-5 rounded-full bg-[#D4AF37] text-[8px] text-white font-bold flex items-center justify-center">{count}</span>}
-    {done && <span className="absolute top-1 right-1 text-[10px]">✓</span>}
-  </button>
-);
-
-/* ═══ MAIN COMPONENT ═══ */
+/* ═══ MAIN ═══ */
 const SoulGardenPage = () => {
   const { toast } = useToast();
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [profilePic, setProfilePic] = useState(null);
   const [progress, setProgress] = useState([]);
+  const [weeklyChallenge, setWeeklyChallenge] = useState(null);
+  const [affirmation, setAffirmation] = useState(null);
+  const [showChallengeSelector, setShowChallengeSelector] = useState(false);
 
   useEffect(() => {
     Promise.all([
@@ -100,75 +144,45 @@ const SoulGardenPage = () => {
       setProfilePic(homeRes.data?.profile_image || null);
       setProgress(progRes.data || []);
     }).catch(() => {}).finally(() => setLoading(false));
+
+    // Load saved challenge
+    const saved = localStorage.getItem('soul_weekly_challenge');
+    if (saved) {
+      const parsed = JSON.parse(saved);
+      const weekAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
+      if (parsed.timestamp > weekAgo) {
+        setWeeklyChallenge(parsed.id);
+        setAffirmation(getAffirmation(parsed.id));
+      }
+    }
   }, []);
 
   const programs = data?.programs || [];
+  const awrp = programs.find(p => p.name?.includes('AWRP'));
+  const awrpCompleted = awrp?.schedule?.filter(s => s.completed).length || 0;
+  const awrpTotal = awrp?.schedule?.length || awrp?.duration_value || 12;
 
-  // Soul metrics — drives the universe
   const soul = useMemo(() => {
     const activeDays = new Set(progress.filter(p => p.completed).map(p => p.date)).size;
     const extraordinary = progress.filter(p => p.is_extraordinary).length;
-    const streak = (() => {
-      let s = 0; const d = new Date();
-      while (true) { const ds = d.toISOString().split('T')[0]; if (progress.some(p => p.date === ds && p.completed)) { s++; d.setDate(d.getDate() - 1); } else break; }
-      return s;
-    })();
+    let streak = 0; const d = new Date();
+    while (true) { const ds = d.toISOString().split('T')[0]; if (progress.some(p => p.date === ds && p.completed)) { streak++; d.setDate(d.getDate() - 1); } else break; }
     const sessions = programs.reduce((s, p) => s + (p.schedule?.filter(x => x.completed).length || 0), 0);
-    const totalSessions = programs.reduce((s, p) => s + (p.schedule?.length || 0), 0);
-
-    // Universe level
-    const points = activeDays * 3 + extraordinary * 8 + streak * 2 + sessions * 5;
-    const levels = [
-      { name: 'Stardust', min: 0, desc: 'The cosmos stirs...' },
-      { name: 'Nebula', min: 10, desc: 'Colors are forming' },
-      { name: 'Star Cluster', min: 30, desc: 'Your stars ignite' },
-      { name: 'Constellation', min: 60, desc: 'Patterns emerge' },
-      { name: 'Galaxy', min: 100, desc: 'Your galaxy spirals' },
-      { name: 'Supernova', min: 200, desc: 'Blinding brilliance' },
-      { name: 'Universe', min: 500, desc: 'Infinite expansion' },
-    ];
-    let level = levels[0];
-    for (let i = levels.length - 1; i >= 0; i--) { if (points >= levels[i].min) { level = levels[i]; break; } }
-    const nextLevel = levels[Math.min(levels.indexOf(level) + 1, levels.length - 1)];
-
-    return { activeDays, extraordinary, streak, sessions, totalSessions, points, level, nextLevel, programs: programs.length };
+    return { activeDays, extraordinary, streak, sessions };
   }, [progress, programs]);
 
-  // Generate stars based on soul points
-  const stars = useMemo(() => Array.from({ length: Math.min(80, 20 + soul.points) }, (_, i) => ({
-    x: Math.random() * 100, y: Math.random() * 100,
-    size: 1 + Math.random() * (soul.points > 50 ? 3 : 2),
-    delay: Math.random() * 5,
-    bright: i < soul.sessions,
-  })), [soul.points, soul.sessions]);
+  const selectChallenge = (id) => {
+    setWeeklyChallenge(id);
+    const aff = getAffirmation(id);
+    setAffirmation(aff);
+    setShowChallengeSelector(false);
+    localStorage.setItem('soul_weekly_challenge', JSON.stringify({ id, timestamp: Date.now() }));
+    toast({ title: '🌟 Challenge set! Your affirmation is ready.' });
+  };
 
-  // Nebulas based on programs
-  const nebulas = useMemo(() => {
-    const colors = ['rgba(147,51,234,0.6)', 'rgba(59,130,246,0.6)', 'rgba(236,72,153,0.6)', 'rgba(16,185,129,0.6)'];
-    return programs.filter(p => p.visible !== false).map((p, i) => ({
-      x: 25 + i * 20, y: 30 + (i % 2) * 20,
-      color: colors[i % colors.length],
-      size: 80 + (p.schedule?.filter(s => s.completed).length || 0) * 10,
-      opacity: 0.08 + (p.schedule?.filter(s => s.completed).length || 0) * 0.02,
-    }));
-  }, [programs]);
-
-  // Planets from programs
-  const planets = useMemo(() => {
-    const emojis = ['🪐', '🌍', '🌙', '☀️', '💫', '🔮'];
-    return programs.filter(p => p.visible !== false).map((p, i) => {
-      const completed = p.schedule?.filter(s => s.completed).length || 0;
-      const total = p.schedule?.length || p.duration_value || 1;
-      const pct = total > 0 ? completed / total : 0;
-      return {
-        x: 20 + i * 18, y: 25 + (i % 3) * 15,
-        emoji: pct === 1 ? '🌟' : emojis[i % emojis.length],
-        label: p.name,
-        size: pct > 0.5 ? 'lg' : pct > 0 ? 'md' : 'sm',
-        glow: pct > 0.5 ? 'rgba(212,175,55,0.4)' : pct > 0 ? 'rgba(147,51,234,0.3)' : null,
-      };
-    });
-  }, [programs]);
+  const refreshAffirmation = () => {
+    if (weeklyChallenge) setAffirmation(getAffirmation(weeklyChallenge));
+  };
 
   const handleProfileUpload = async (e) => {
     const file = e.target.files?.[0]; if (!file) return;
@@ -177,116 +191,175 @@ const SoulGardenPage = () => {
   };
 
   if (loading) return (
-    <div className="flex items-center justify-center py-20" style={{ background: 'radial-gradient(ellipse at center, #0a0a2e 0%, #000 100%)' }}>
+    <div className="flex items-center justify-center py-20" style={{ background: 'radial-gradient(ellipse, #1e1050 0%, #0d0820 100%)' }}>
       <div className="text-5xl" style={{ animation: 'float 2s ease-in-out infinite' }}>✨</div>
     </div>
   );
 
   return (
     <div className="max-w-6xl mx-auto" data-testid="soul-garden-page">
-      {/* ═══ THE UNIVERSE ═══ */}
+      {/* ═══ VIBRANT COSMIC CANVAS ═══ */}
       <div className="relative rounded-3xl overflow-hidden mb-6" style={{
-        height: '500px',
-        background: 'radial-gradient(ellipse at 30% 40%, #0f0a3e 0%, #080620 40%, #020108 100%)',
+        minHeight: '520px',
+        background: 'radial-gradient(ellipse at 30% 30%, #2d1b6e 0%, #1a0f4e 25%, #150d3a 50%, #0d0820 100%)',
       }}>
-        {/* Stars */}
-        {stars.map((s, i) => <CosmicStar key={i} {...s} />)}
+        {/* Vibrant nebula colors */}
+        <div className="absolute inset-0 pointer-events-none">
+          <div className="absolute w-80 h-80 rounded-full opacity-20" style={{ top: '5%', left: '10%', background: 'radial-gradient(circle, #7C3AED, transparent 70%)', animation: 'nebulaPulse 10s ease-in-out infinite' }} />
+          <div className="absolute w-96 h-96 rounded-full opacity-15" style={{ top: '10%', right: '5%', background: 'radial-gradient(circle, #EC4899, transparent 70%)', animation: 'nebulaPulse 12s ease-in-out 2s infinite' }} />
+          <div className="absolute w-72 h-72 rounded-full opacity-20" style={{ bottom: '10%', left: '20%', background: 'radial-gradient(circle, #3B82F6, transparent 70%)', animation: 'nebulaPulse 8s ease-in-out 1s infinite' }} />
+          <div className="absolute w-64 h-64 rounded-full opacity-15" style={{ bottom: '5%', right: '15%', background: 'radial-gradient(circle, #10B981, transparent 70%)' }} />
+        </div>
 
-        {/* Nebulas from programs */}
-        {nebulas.map((n, i) => <Nebula key={i} {...n} />)}
+        {/* Bright stars */}
+        {Array.from({ length: 60 }).map((_, i) => (
+          <div key={i} className="absolute rounded-full" style={{
+            left: `${Math.random() * 100}%`, top: `${Math.random() * 100}%`,
+            width: 1 + Math.random() * 2.5, height: 1 + Math.random() * 2.5,
+            background: i % 5 === 0 ? '#FFD54F' : '#fff',
+            boxShadow: i % 5 === 0 ? '0 0 6px 2px rgba(255,213,79,0.4)' : '0 0 3px rgba(255,255,255,0.3)',
+            animation: `twinkle ${2 + Math.random() * 3}s ease-in-out ${Math.random() * 3}s infinite`,
+          }} />
+        ))}
 
-        {/* Constellation lines connecting completed sessions */}
-        {soul.sessions > 2 && (
-          <ConstellationLine active={soul.streak > 2}
-            points={planets.slice(0, Math.min(4, planets.length)).map(p => [p.x, p.y])} />
-        )}
-
-        {/* Planets */}
-        {planets.map((p, i) => <Planet key={i} {...p} />)}
-
-        {/* Shooting stars for extraordinary moments */}
-        {Array.from({ length: Math.min(3, soul.extraordinary) }).map((_, i) => <ShootingStar key={i} delay={i * 4} />)}
-
-        {/* Aurora for streaks */}
-        <Aurora active={soul.streak >= 3} />
-
-        {/* Central soul orb */}
-        <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-10">
-          <div className="relative">
-            <div className="w-20 h-20 rounded-full flex items-center justify-center" style={{
-              background: `radial-gradient(circle, rgba(212,175,55,0.3) 0%, rgba(93,63,211,0.2) 50%, transparent 70%)`,
-              boxShadow: `0 0 60px 20px rgba(212,175,55,0.15), 0 0 120px 40px rgba(93,63,211,0.1)`,
-              animation: 'soulPulse 4s ease-in-out infinite',
-            }}>
-              <span className="text-3xl" style={{ filter: 'drop-shadow(0 0 8px rgba(212,175,55,0.5))' }}>
-                {soul.level.name === 'Universe' ? '🌌' : soul.level.name === 'Supernova' ? '💥' : soul.level.name === 'Galaxy' ? '🌀' : soul.level.name === 'Constellation' ? '⭐' : '✨'}
-              </span>
-            </div>
-            {/* Orbiting ring */}
-            <div className="absolute inset-0 rounded-full border border-white/10" style={{ animation: 'orbitRing 15s linear infinite', transform: 'rotateX(60deg)' }}>
-              <div className="absolute -top-1 left-1/2 w-2 h-2 rounded-full bg-[#D4AF37]" style={{ boxShadow: '0 0 6px rgba(212,175,55,0.5)' }} />
-            </div>
+        {/* ═══ AWRP DNA HELIX — CENTER OF THE UNIVERSE ═══ */}
+        <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-10 flex flex-col items-center">
+          {/* Glow behind DNA */}
+          <div className="absolute w-48 h-72 rounded-full" style={{
+            background: 'radial-gradient(ellipse, rgba(212,175,55,0.15) 0%, rgba(93,63,211,0.1) 40%, transparent 70%)',
+            animation: 'soulPulse 5s ease-in-out infinite',
+          }} />
+          <DNAHelix sessions={awrpTotal} completed={awrpCompleted} />
+          <div className="mt-2 text-center">
+            <p className="text-[10px] font-bold text-[#D4AF37] tracking-widest uppercase">AWRP</p>
+            <p className="text-[8px] text-white/40">The Soul DNA · {awrpCompleted}/{awrpTotal}</p>
           </div>
         </div>
 
+        {/* Program planets orbiting around AWRP */}
+        {programs.filter(p => p.visible !== false && !p.name?.includes('AWRP')).map((prog, i) => {
+          const angle = (i * 90 + 45) * Math.PI / 180;
+          const radius = 180;
+          const x = 50 + Math.cos(angle) * (radius / 8);
+          const y = 50 + Math.sin(angle) * (radius / 12);
+          const emojis = ['🌍', '🌙', '☀️', '💫', '🔮'];
+          const completed = prog.schedule?.filter(s => s.completed).length || 0;
+          const total = prog.schedule?.length || 1;
+          return (
+            <div key={i} className="absolute flex flex-col items-center gap-0.5 group z-10" style={{
+              left: `${x}%`, top: `${y}%`, transform: 'translate(-50%, -50%)',
+              animation: `float ${5 + i}s ease-in-out infinite`,
+            }}>
+              <span className="text-3xl" style={{ filter: completed > 0 ? 'drop-shadow(0 0 8px rgba(212,175,55,0.4))' : 'none' }}>
+                {emojis[i % emojis.length]}
+              </span>
+              <span className="text-[8px] text-white/60 font-medium opacity-0 group-hover:opacity-100 transition-opacity bg-black/50 rounded px-1.5 py-0.5 whitespace-nowrap">
+                {prog.name} ({completed}/{total})
+              </span>
+            </div>
+          );
+        })}
+
         {/* Avatar */}
-        <div className="absolute bottom-6 left-6 z-20 flex items-end gap-3">
+        <div className="absolute bottom-4 left-4 z-20 flex items-end gap-2">
           <div className="relative">
-            <div className="w-14 h-14 rounded-full border-2 border-[#D4AF37]/50 shadow-xl overflow-hidden" style={{ boxShadow: '0 0 20px rgba(212,175,55,0.3)' }}>
+            <div className="w-12 h-12 rounded-full border-2 border-[#D4AF37]/50 overflow-hidden" style={{ boxShadow: '0 0 15px rgba(212,175,55,0.3)' }}>
               {profilePic ? <img src={profilePic.startsWith('/') ? `${API}${profilePic}` : profilePic} alt="" className="w-full h-full object-cover" />
                 : <div className="w-full h-full bg-gradient-to-br from-[#5D3FD3] to-[#D4AF37] flex items-center justify-center text-lg text-white font-bold">{(data?.name || 'S').charAt(0)}</div>}
             </div>
-            <label className="absolute -bottom-1 -right-1 w-5 h-5 rounded-full bg-[#D4AF37] border border-black flex items-center justify-center cursor-pointer hover:scale-110 transition-transform">
+            <label className="absolute -bottom-1 -right-1 w-5 h-5 rounded-full bg-[#D4AF37] border border-black/50 flex items-center justify-center cursor-pointer hover:scale-110 transition-transform">
               <Camera size={8} className="text-white" /><input type="file" accept="image/*" className="hidden" onChange={handleProfileUpload} />
             </label>
           </div>
-          <div className="bg-black/60 backdrop-blur-md rounded-xl px-3 py-2 border border-white/10 mb-1">
-            <p className="text-sm font-serif font-bold text-white">{data?.name || 'Cosmic Soul'}</p>
-            <p className="text-[9px] text-[#D4AF37]">{soul.level.name} · {soul.level.desc}</p>
+          <div className="bg-black/40 backdrop-blur-md rounded-lg px-2.5 py-1.5 border border-white/10 mb-0.5">
+            <p className="text-xs font-serif font-bold text-white">{data?.name || 'Cosmic Soul'}</p>
           </div>
         </div>
 
-        {/* Soul Level + Stats */}
-        <div className="absolute top-4 left-4 z-20 flex flex-col gap-2">
-          <div className="bg-black/50 backdrop-blur-md rounded-xl px-4 py-2 border border-white/10">
-            <p className="text-[8px] text-white/40 uppercase tracking-widest">Soul Level</p>
-            <p className="text-sm font-bold text-[#D4AF37]">{soul.level.name}</p>
-            <div className="flex items-center gap-1 mt-1">
-              <div className="flex-1 h-1 rounded-full bg-white/10 overflow-hidden">
-                <div className="h-full rounded-full bg-gradient-to-r from-[#5D3FD3] to-[#D4AF37]" style={{ width: `${Math.min(100, (soul.points - soul.level.min) / (soul.nextLevel.min - soul.level.min + 1) * 100)}%` }} />
-              </div>
-              <span className="text-[7px] text-white/30">{soul.points}pts</span>
-            </div>
-          </div>
-        </div>
-
-        <div className="absolute top-4 right-4 z-20 flex gap-2">
+        {/* Stats */}
+        <div className="absolute top-3 right-3 z-20 flex gap-1.5">
           {[
-            { val: soul.activeDays, label: 'Active', emoji: '🌟' },
+            { val: soul.activeDays, label: 'Active', emoji: '⚡' },
             { val: soul.streak, label: 'Streak', emoji: '🔥' },
             { val: soul.extraordinary, label: 'Wow', emoji: '💫' },
             { val: soul.sessions, label: 'Done', emoji: '✅' },
           ].map((s, i) => (
-            <div key={i} className="bg-black/50 backdrop-blur-md rounded-xl px-2.5 py-1.5 border border-white/10 text-center min-w-[48px]">
-              <span className="text-xs">{s.emoji}</span>
-              <p className="text-sm font-bold text-white">{s.val}</p>
-              <p className="text-[6px] text-white/30 uppercase">{s.label}</p>
+            <div key={i} className="bg-white/10 backdrop-blur-md rounded-lg px-2 py-1.5 text-center min-w-[42px] border border-white/10">
+              <span className="text-[10px]">{s.emoji}</span>
+              <p className="text-xs font-bold text-white">{s.val}</p>
+              <p className="text-[6px] text-white/40 uppercase">{s.label}</p>
             </div>
           ))}
         </div>
       </div>
 
-      {/* ═══ COSMIC ACTIVITIES ═══ */}
-      <div className="rounded-2xl p-5 mb-6" style={{ background: 'linear-gradient(135deg, #0f0a3e 0%, #1a1040 100%)' }}>
-        <h2 className="text-base font-serif font-bold text-white/90 mb-4 flex items-center gap-2">
-          <Sparkles size={16} className="text-[#D4AF37]" /> Cosmic Activities
-        </h2>
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-          <ActivityCard emoji="🌊" title="Flow State" sub="Mark today's practice" onClick={() => window.location.href = '/dashboard/progress'} count={soul.activeDays} />
-          <ActivityCard emoji="🔮" title="Bhaad Portal" sub="Release & Transform" onClick={() => window.location.href = '/dashboard/bhaad'} />
-          <ActivityCard emoji="💜" title="Soul Tribe" sub="Share with your tribe" onClick={() => window.location.href = '/dashboard/tribe'} />
-          <ActivityCard emoji="📅" title="My Sessions" sub={`${soul.sessions}/${soul.totalSessions} completed`} onClick={() => window.location.href = '/dashboard/sessions'} />
+      {/* ═══ WEEKLY CHALLENGE & AFFIRMATION ═══ */}
+      <div className="rounded-2xl overflow-hidden mb-6 border" style={{ background: 'linear-gradient(135deg, #faf5ff 0%, #f0e7ff 50%, #ede9fe 100%)' }} data-testid="weekly-challenge">
+        <div className="p-5">
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="text-base font-serif font-bold text-gray-900 flex items-center gap-2">
+              <Zap size={18} className="text-[#5D3FD3]" /> This Week's Focus
+            </h2>
+            {weeklyChallenge && (
+              <button onClick={() => setShowChallengeSelector(true)} className="text-[10px] text-[#5D3FD3] hover:underline">Change</button>
+            )}
+          </div>
+
+          {!weeklyChallenge || showChallengeSelector ? (
+            <>
+              <p className="text-sm text-gray-600 mb-3">What's your biggest challenge right now? Pick one and receive personalized affirmations all week.</p>
+              <div className="grid grid-cols-2 md:grid-cols-5 gap-2">
+                {CHALLENGES.map(c => (
+                  <button key={c.id} onClick={() => selectChallenge(c.id)}
+                    className={cn(
+                      "flex flex-col items-center gap-1 p-3 rounded-xl border-2 transition-all hover:scale-[1.03]",
+                      weeklyChallenge === c.id ? "border-[#5D3FD3] bg-[#5D3FD3]/10" : "border-gray-200 bg-white hover:border-[#5D3FD3]/40"
+                    )} data-testid={`challenge-${c.id}`}>
+                    <span className="text-xl">{c.emoji}</span>
+                    <span className="text-[9px] font-medium text-gray-700 text-center leading-tight">{c.label}</span>
+                  </button>
+                ))}
+              </div>
+            </>
+          ) : (
+            <div className="flex items-start gap-4">
+              <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-[#5D3FD3] to-[#D4AF37] flex items-center justify-center shrink-0 shadow-lg">
+                <span className="text-2xl">{CHALLENGES.find(c => c.id === weeklyChallenge)?.emoji || '✨'}</span>
+              </div>
+              <div className="flex-1">
+                <p className="text-[10px] text-[#5D3FD3] font-bold uppercase tracking-wider mb-1">
+                  {CHALLENGES.find(c => c.id === weeklyChallenge)?.label}
+                </p>
+                <p className="text-lg font-serif text-gray-900 leading-snug italic">"{affirmation}"</p>
+                <div className="flex items-center gap-3 mt-3">
+                  <button onClick={refreshAffirmation} className="flex items-center gap-1 text-[10px] text-[#5D3FD3] hover:underline" data-testid="refresh-affirmation">
+                    <RefreshCw size={10} /> New affirmation
+                  </button>
+                  <span className="text-[8px] text-gray-400">Refreshes daily for deeper impact</span>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
+      </div>
+
+      {/* ═══ QUICK ACTIONS ═══ */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
+        {[
+          { emoji: '🌊', title: 'Flow State', sub: 'Daily practice', href: '/dashboard/progress', color: 'from-blue-500 to-cyan-400' },
+          { emoji: '🔮', title: 'Bhaad Portal', sub: 'Release & Grow', href: '/dashboard/bhaad', color: 'from-purple-600 to-pink-500' },
+          { emoji: '💜', title: 'Soul Tribe', sub: 'Share love', href: '/dashboard/tribe', color: 'from-pink-500 to-rose-400' },
+          { emoji: '📅', title: 'Sessions', sub: `${soul.sessions} completed`, href: '/dashboard/sessions', color: 'from-amber-500 to-orange-400' },
+        ].map((a, i) => (
+          <a key={i} href={a.href} className="group relative rounded-2xl overflow-hidden p-4 text-white hover:scale-[1.03] transition-transform" data-testid={`action-${i}`}>
+            <div className={cn("absolute inset-0 bg-gradient-to-br", a.color)} />
+            <div className="relative z-10">
+              <span className="text-2xl mb-1 block group-hover:scale-110 transition-transform">{a.emoji}</span>
+              <p className="text-xs font-bold">{a.title}</p>
+              <p className="text-[9px] opacity-70">{a.sub}</p>
+            </div>
+          </a>
+        ))}
       </div>
 
       {/* ═══ PROGRAM ORBITS ═══ */}
@@ -296,35 +369,32 @@ const SoulGardenPage = () => {
           const completed = schedule.filter(s => s.completed).length;
           const total = schedule.length || prog.duration_value || 1;
           const pct = Math.round(completed / total * 100);
-          const emojis = ['🪐', '🌍', '🌙', '☀️'];
+          const isAwrp = prog.name?.includes('AWRP');
           return (
-            <div key={i} className="rounded-2xl border overflow-hidden" style={{ background: 'linear-gradient(135deg, #0f0a3e 0%, #150d30 100%)', borderColor: 'rgba(255,255,255,0.08)' }}
-              data-testid={`orbit-${i}`}>
-              <div className="p-4">
+            <div key={i} className={cn("rounded-2xl border overflow-hidden bg-white", isAwrp && "md:col-span-2 ring-2 ring-[#D4AF37]/30")} data-testid={`orbit-${i}`}>
+              <div className={cn("p-4", isAwrp && "bg-gradient-to-r from-[#5D3FD3]/5 to-[#D4AF37]/5")}>
                 <div className="flex items-center justify-between mb-3">
                   <div className="flex items-center gap-2">
-                    <span className="text-2xl" style={{ animation: 'float 4s ease-in-out infinite' }}>{pct === 100 ? '🌟' : emojis[i % 4]}</span>
+                    <span className="text-2xl">{isAwrp ? '🧬' : pct === 100 ? '🌟' : '🪐'}</span>
                     <div>
-                      <p className="text-sm font-bold text-white/90">{prog.name}</p>
-                      <p className="text-[9px] text-white/40">{completed}/{total} sessions · {prog.status || 'active'}</p>
+                      <p className="text-sm font-bold text-gray-900">{prog.name} {isAwrp && <span className="text-[8px] text-[#D4AF37] bg-[#D4AF37]/10 px-1.5 py-0.5 rounded-full ml-1">SOUL DNA</span>}</p>
+                      <p className="text-[9px] text-gray-500">{completed}/{total} sessions · {prog.status || 'active'}</p>
                     </div>
                   </div>
                   <div className="relative w-14 h-14">
                     <svg viewBox="0 0 36 36" className="w-full h-full -rotate-90">
-                      <circle cx="18" cy="18" r="15" fill="none" stroke="rgba(255,255,255,0.08)" strokeWidth="3" />
-                      <circle cx="18" cy="18" r="15" fill="none" stroke="url(#grad)" strokeWidth="3"
+                      <circle cx="18" cy="18" r="15" fill="none" stroke="#f0f0f0" strokeWidth="3" />
+                      <circle cx="18" cy="18" r="15" fill="none" stroke={isAwrp ? '#D4AF37' : '#5D3FD3'} strokeWidth="3"
                         strokeDasharray={`${pct * 0.94} ${94 - pct * 0.94}`} strokeLinecap="round" />
-                      <defs><linearGradient id="grad"><stop offset="0%" stopColor="#5D3FD3" /><stop offset="100%" stopColor="#D4AF37" /></linearGradient></defs>
                     </svg>
-                    <span className="absolute inset-0 flex items-center justify-center text-xs font-bold text-white">{pct}%</span>
+                    <span className="absolute inset-0 flex items-center justify-center text-xs font-bold text-gray-900">{pct}%</span>
                   </div>
                 </div>
-                {/* Mini constellation of sessions */}
                 <div className="flex flex-wrap gap-1">
                   {Array.from({ length: Math.min(total, 30) }).map((_, si) => (
-                    <div key={si} className={cn("w-3 h-3 rounded-full transition-all",
-                      si < completed ? "bg-[#D4AF37] shadow-[0_0_4px_rgba(212,175,55,0.4)]" : si === completed ? "bg-[#5D3FD3] animate-pulse" : "bg-white/10"
-                    )} title={`Session ${si + 1}`} />
+                    <div key={si} className={cn("w-3.5 h-3.5 rounded-full transition-all",
+                      si < completed ? "bg-[#D4AF37] shadow-[0_0_4px_rgba(212,175,55,0.3)]" : si === completed ? "bg-[#5D3FD3] animate-pulse" : "bg-gray-200"
+                    )} />
                   ))}
                 </div>
               </div>
@@ -335,12 +405,10 @@ const SoulGardenPage = () => {
 
       <style>{`
         @keyframes twinkle { 0%, 100% { opacity: 1; } 50% { opacity: 0.2; } }
-        @keyframes float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-6px); } }
-        @keyframes nebulaPulse { 0%, 100% { transform: translate(-50%,-50%) scale(1); opacity: var(--opacity); } 50% { transform: translate(-50%,-50%) scale(1.1); } }
-        @keyframes shootingStar { 0% { transform: translate(0,0) scale(1); opacity: 1; } 100% { transform: translate(200px, 100px) scale(0); opacity: 0; } }
-        @keyframes auroraWave { 0%, 100% { opacity: 0.5; } 50% { opacity: 1; } }
-        @keyframes soulPulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.05); } }
-        @keyframes orbitRing { 0% { transform: rotateX(60deg) rotateZ(0deg); } 100% { transform: rotateX(60deg) rotateZ(360deg); } }
+        @keyframes float { 0%, 100% { transform: translate(-50%,-50%) translateY(0); } 50% { transform: translate(-50%,-50%) translateY(-6px); } }
+        @keyframes nebulaPulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.08); } }
+        @keyframes soulPulse { 0%, 100% { transform: scale(1); opacity: 1; } 50% { transform: scale(1.05); opacity: 0.8; } }
+        @keyframes pulse { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: 0.6; transform: scale(1.3); } }
       `}</style>
     </div>
   );
