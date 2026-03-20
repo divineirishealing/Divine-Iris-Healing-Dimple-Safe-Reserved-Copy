@@ -189,37 +189,40 @@ const COLORS = [
   { bg: 'bg-teal-100', border: 'border-teal-300', text: 'text-teal-800', bar: 'bg-teal-400' },
   { bg: 'bg-red-100', border: 'border-red-300', text: 'text-red-800', bar: 'bg-red-400' },
 ];
-const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+const DAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 const MONTH_NAMES = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 
-const PlanningCalendar = ({ programs }) => {
+const PlanningCalendar = ({ programs, onUpdateProgram }) => {
   const [month, setMonth] = useState(new Date().getMonth());
   const [year, setYear] = useState(new Date().getFullYear());
+  const [collapsed, setCollapsed] = useState(false);
+  const [editMode, setEditMode] = useState(null); // { programIdx, field: 'start_date'|'end_date'|'deadline_date', tierIdx? }
 
   const firstDay = new Date(year, month, 1).getDay();
   const daysInMonth = new Date(year, month + 1, 0).getDate();
   const todayStr = new Date().toISOString().split('T')[0];
 
-  // Build event map from programs + tiers
+  // Build events from programs + tiers
   const events = [];
   programs.forEach((p, pi) => {
     const color = COLORS[pi % COLORS.length];
     const tiers = p.duration_tiers || [];
     if (tiers.length > 0) {
-      tiers.forEach(t => {
-        if (t.start_date) events.push({ name: `${p.title} (${t.label})`, start: t.start_date, end: t.end_date || t.start_date, deadline: '', color });
+      tiers.forEach((t, ti) => {
+        if (t.start_date) events.push({ name: `${p.title} (${t.label})`, start: t.start_date, end: t.end_date || t.start_date, deadline: '', color, progIdx: pi, tierIdx: ti });
       });
     } else if (p.start_date) {
-      events.push({ name: p.title, start: p.start_date, end: p.end_date || p.start_date, deadline: p.deadline_date || '', color });
+      events.push({ name: p.title, start: p.start_date, end: p.end_date || p.start_date, deadline: p.deadline_date || '', color, progIdx: pi, tierIdx: null });
+    }
+    if (p.deadline_date && !tiers.length) {
+      // deadline-only marker
     }
   });
 
-  // Map: "YYYY-MM-DD" -> [{event, type}]
+  // Day map
   const dayMap = {};
   events.forEach(ev => {
-    const s = new Date(ev.start);
-    const e = new Date(ev.end);
-    const d = new Date(s);
+    const s = new Date(ev.start); const e = new Date(ev.end); const d = new Date(s);
     while (d <= e) {
       const key = d.toISOString().split('T')[0];
       if (!dayMap[key]) dayMap[key] = [];
@@ -235,47 +238,128 @@ const PlanningCalendar = ({ programs }) => {
   const prev = () => { if (month === 0) { setMonth(11); setYear(y => y - 1); } else setMonth(m => m - 1); };
   const next = () => { if (month === 11) { setMonth(0); setYear(y => y + 1); } else setMonth(m => m + 1); };
 
+  const handleDayClick = (dateStr) => {
+    if (!editMode) return;
+    const { programIdx, field, tierIdx } = editMode;
+    if (tierIdx !== null && tierIdx !== undefined) {
+      // Update tier date
+      const p = programs[programIdx];
+      const tiers = [...(p.duration_tiers || [])];
+      tiers[tierIdx] = { ...tiers[tierIdx], [field]: dateStr };
+      onUpdateProgram(programIdx, 'duration_tiers', tiers);
+    } else {
+      onUpdateProgram(programIdx, field, dateStr);
+    }
+    setEditMode(null);
+  };
+
+  // Programs with dates for the picker
+  const editablePrograms = programs.map((p, pi) => ({ ...p, _idx: pi, _color: COLORS[pi % COLORS.length] })).filter(p => p.is_upcoming || p.start_date);
+
   return (
     <div className="border rounded-lg shadow-sm bg-white mb-6" data-testid="planning-calendar">
-      <div className="flex items-center justify-between px-4 py-3 border-b bg-gray-50">
-        <div className="flex items-center gap-3">
-          <button onClick={prev} className="p-1 hover:bg-gray-200 rounded"><ChevronLeft size={16} /></button>
-          <h3 className="text-sm font-bold text-gray-900 min-w-[160px] text-center">{MONTH_NAMES[month]} {year}</h3>
-          <button onClick={next} className="p-1 hover:bg-gray-200 rounded"><ChevronRight size={16} /></button>
+      {/* Header — always visible, click to collapse */}
+      <div className="flex items-center justify-between px-4 py-2.5 border-b bg-gray-50 cursor-pointer select-none" onClick={() => setCollapsed(!collapsed)}>
+        <div className="flex items-center gap-2">
+          {collapsed ? <ChevronRight size={14} className="text-gray-400" /> : <ChevronDown size={14} className="text-gray-400" />}
+          <Calendar size={15} className="text-[#D4AF37]" />
+          <h3 className="text-sm font-bold text-gray-900">Planning Calendar</h3>
+          <span className="text-[9px] text-gray-400">{events.length} scheduled</span>
         </div>
-        <div className="flex flex-wrap gap-2">
-          {events.slice(0, 6).map((ev, i) => (
-            <span key={i} className={`text-[8px] px-1.5 py-0.5 rounded font-medium ${ev.color.bg} ${ev.color.text}`}>{ev.name.length > 20 ? ev.name.slice(0, 20) + '..' : ev.name}</span>
-          ))}
-        </div>
+        {!collapsed && (
+          <div className="flex items-center gap-2" onClick={e => e.stopPropagation()}>
+            <button onClick={prev} className="p-1 hover:bg-gray-200 rounded"><ChevronLeft size={14} /></button>
+            <span className="text-xs font-semibold text-gray-700 min-w-[120px] text-center">{MONTH_NAMES[month]} {year}</span>
+            <button onClick={next} className="p-1 hover:bg-gray-200 rounded"><ChevronRight size={14} /></button>
+          </div>
+        )}
       </div>
-      <div className="p-3">
-        <div className="grid grid-cols-7 mb-1">
-          {DAYS.map(d => <div key={d} className="text-center text-[9px] font-bold text-gray-400 uppercase py-1">{d}</div>)}
-        </div>
-        <div className="grid grid-cols-7 gap-px bg-gray-100 rounded overflow-hidden border">
-          {Array.from({ length: firstDay }).map((_, i) => <div key={`e-${i}`} className="bg-gray-50/50 min-h-[60px]" />)}
-          {Array.from({ length: daysInMonth }).map((_, i) => {
-            const day = i + 1;
-            const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
-            const isToday = dateStr === todayStr;
-            const evts = dayMap[dateStr] || [];
-            return (
-              <div key={day} className={`bg-white min-h-[60px] p-1 ${isToday ? 'ring-2 ring-inset ring-[#D4AF37]/40' : ''}`}>
-                <span className={`text-[10px] font-medium ${isToday ? 'bg-[#D4AF37] text-white w-5 h-5 rounded-full inline-flex items-center justify-center' : 'text-gray-600'}`}>{day}</span>
-                <div className="mt-0.5 space-y-px">
-                  {evts.slice(0, 3).map((ev, ei) => (
-                    <div key={ei} className={`text-[7px] px-1 py-px rounded truncate font-medium ${ev.isDeadline ? 'bg-red-500 text-white' : ev.color.bg + ' ' + ev.color.text}`}>
-                      {ev.isDeadline ? 'DEADLINE' : ev.isStart ? ev.name.slice(0, 15) : ''}
+
+      {!collapsed && (
+        <div className="p-3">
+          {/* Edit mode selector */}
+          {editMode && (
+            <div className="bg-blue-50 border border-blue-200 rounded-lg px-3 py-2 mb-3 flex items-center justify-between">
+              <span className="text-xs text-blue-800 font-medium">
+                Click a date to set <strong>{editMode.field.replace('_', ' ')}</strong> for <strong>{programs[editMode.programIdx]?.title}</strong>
+                {editMode.tierIdx !== null && editMode.tierIdx !== undefined && ` (${programs[editMode.programIdx]?.duration_tiers?.[editMode.tierIdx]?.label || 'Tier'})`}
+              </span>
+              <button onClick={() => setEditMode(null)} className="text-xs text-blue-600 hover:underline">Cancel</button>
+            </div>
+          )}
+
+          {/* Program date buttons */}
+          <div className="flex flex-wrap gap-1.5 mb-3">
+            {editablePrograms.map(p => {
+              const tiers = p.duration_tiers || [];
+              return (
+                <div key={p.id} className="flex items-center gap-1">
+                  <span className={`w-2 h-2 rounded-full ${p._color.bar}`} />
+                  <span className="text-[9px] font-medium text-gray-700 mr-0.5">{p.title.length > 12 ? p.title.slice(0, 12) + '..' : p.title}:</span>
+                  {tiers.length > 0 ? tiers.map((t, ti) => (
+                    <div key={ti} className="flex gap-0.5">
+                      <button onClick={() => setEditMode({ programIdx: p._idx, field: 'start_date', tierIdx: ti })}
+                        className={`text-[8px] px-1.5 py-0.5 rounded font-medium border ${editMode?.programIdx === p._idx && editMode?.field === 'start_date' && editMode?.tierIdx === ti ? 'bg-blue-500 text-white border-blue-500' : 'bg-green-50 text-green-700 border-green-200 hover:bg-green-100'}`}>
+                        {t.label}: Start {t.start_date ? t.start_date.slice(5) : '?'}
+                      </button>
+                      <button onClick={() => setEditMode({ programIdx: p._idx, field: 'end_date', tierIdx: ti })}
+                        className={`text-[8px] px-1.5 py-0.5 rounded font-medium border ${editMode?.programIdx === p._idx && editMode?.field === 'end_date' && editMode?.tierIdx === ti ? 'bg-blue-500 text-white border-blue-500' : 'bg-red-50 text-red-700 border-red-200 hover:bg-red-100'}`}>
+                        End {t.end_date ? t.end_date.slice(5) : '?'}
+                      </button>
                     </div>
-                  ))}
-                  {evts.length > 3 && <span className="text-[7px] text-gray-400">+{evts.length - 3}</span>}
+                  )) : (
+                    <>
+                      <button onClick={() => setEditMode({ programIdx: p._idx, field: 'start_date', tierIdx: null })}
+                        className={`text-[8px] px-1.5 py-0.5 rounded font-medium border ${editMode?.programIdx === p._idx && editMode?.field === 'start_date' ? 'bg-blue-500 text-white border-blue-500' : 'bg-green-50 text-green-700 border-green-200 hover:bg-green-100'}`}>
+                        Start {p.start_date ? p.start_date.slice(5) : '?'}
+                      </button>
+                      <button onClick={() => setEditMode({ programIdx: p._idx, field: 'end_date', tierIdx: null })}
+                        className={`text-[8px] px-1.5 py-0.5 rounded font-medium border ${editMode?.programIdx === p._idx && editMode?.field === 'end_date' ? 'bg-blue-500 text-white border-blue-500' : 'bg-red-50 text-red-700 border-red-200 hover:bg-red-100'}`}>
+                        End {p.end_date ? p.end_date.slice(5) : '?'}
+                      </button>
+                      <button onClick={() => setEditMode({ programIdx: p._idx, field: 'deadline_date', tierIdx: null })}
+                        className={`text-[8px] px-1.5 py-0.5 rounded font-medium border ${editMode?.programIdx === p._idx && editMode?.field === 'deadline_date' ? 'bg-blue-500 text-white border-blue-500' : 'bg-amber-50 text-amber-700 border-amber-200 hover:bg-amber-100'}`}>
+                        Deadline {p.deadline_date ? p.deadline_date.slice(5) : '?'}
+                      </button>
+                    </>
+                  )}
+                  <span className="mx-1 text-gray-200">|</span>
                 </div>
-              </div>
-            );
-          })}
+              );
+            })}
+          </div>
+
+          {/* Calendar grid */}
+          <div className="grid grid-cols-7 mb-1">
+            {DAY_NAMES.map(d => <div key={d} className="text-center text-[9px] font-bold text-gray-400 uppercase py-1">{d}</div>)}
+          </div>
+          <div className="grid grid-cols-7 gap-px bg-gray-100 rounded overflow-hidden border">
+            {Array.from({ length: firstDay }).map((_, i) => <div key={`e-${i}`} className="bg-gray-50/50 min-h-[56px]" />)}
+            {Array.from({ length: daysInMonth }).map((_, i) => {
+              const day = i + 1;
+              const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+              const isToday = dateStr === todayStr;
+              const evts = dayMap[dateStr] || [];
+              const isClickable = !!editMode;
+              return (
+                <div key={day}
+                  onClick={() => isClickable && handleDayClick(dateStr)}
+                  className={`bg-white min-h-[56px] p-1 transition-colors ${isToday ? 'ring-2 ring-inset ring-[#D4AF37]/40' : ''} ${isClickable ? 'cursor-pointer hover:bg-blue-50' : ''}`}>
+                  <span className={`text-[10px] font-medium ${isToday ? 'bg-[#D4AF37] text-white w-5 h-5 rounded-full inline-flex items-center justify-center' : 'text-gray-600'}`}>{day}</span>
+                  <div className="mt-0.5 space-y-px">
+                    {evts.slice(0, 3).map((ev, ei) => (
+                      <div key={ei} className={`text-[7px] px-1 py-px rounded truncate font-medium ${ev.isDeadline ? 'bg-red-500 text-white' : ev.color.bg + ' ' + ev.color.text}`}>
+                        {ev.isDeadline ? 'DEADLINE' : ev.isStart ? ev.name.slice(0, 15) : ''}
+                      </div>
+                    ))}
+                    {evts.length > 3 && <span className="text-[7px] text-gray-400">+{evts.length - 3}</span>}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
         </div>
-      </div>
+      )}
     </div>
   );
 };
@@ -357,7 +441,13 @@ const UpcomingHubTab = () => {
       </div>
 
       {/* Planning Calendar */}
-      <PlanningCalendar programs={programs} />
+      <PlanningCalendar programs={programs} onUpdateProgram={(idx, field, value) => {
+        if (field === 'duration_tiers') {
+          setPrograms(prev => { const c = [...prev]; c[idx] = { ...c[idx], duration_tiers: value }; return c; });
+        } else {
+          setPrograms(prev => { const c = [...prev]; c[idx] = { ...c[idx], [field]: value }; return c; });
+        }
+      }} />
 
       <div className="overflow-x-auto border rounded-lg shadow-sm">
         <table className="w-full text-xs" data-testid="programs-hub-table">
