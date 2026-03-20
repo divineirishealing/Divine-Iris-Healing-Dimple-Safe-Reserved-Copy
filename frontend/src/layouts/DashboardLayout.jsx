@@ -30,7 +30,26 @@ const DashboardLayout = () => {
   }
 
   return (
-    <div className="flex h-screen overflow-hidden relative bg-[#FDFBF7]">
+    <div className="flex h-screen overflow-hidden relative" style={{ background: '#1a0b2e' }}>
+      {/* Purple constellation background for all dashboard pages */}
+      <canvas id="dashboard-constellation-bg" className="fixed inset-0 pointer-events-none z-0" style={{ width: '100%', height: '100%' }} />
+      <script dangerouslySetInnerHTML={{ __html: `
+        (function(){
+          var c=document.getElementById('dashboard-constellation-bg');if(!c)return;
+          var ctx=c.getContext('2d'),nodes=[],W,H;
+          function resize(){W=c.offsetWidth;H=c.offsetHeight;c.width=W*2;c.height=H*2;ctx.setTransform(2,0,0,2,0,0);}
+          resize();window.addEventListener('resize',resize);
+          for(var i=0;i<50;i++)nodes.push({x:Math.random()*2000,y:Math.random()*1200,vx:(Math.random()-0.5)*0.25,vy:(Math.random()-0.5)*0.25,r:1+Math.random()*1.5});
+          function draw(){
+            ctx.clearRect(0,0,W,H);
+            nodes.forEach(function(n){n.x+=n.vx;n.y+=n.vy;if(n.x<0||n.x>W)n.vx*=-1;if(n.y<0||n.y>H)n.vy*=-1;});
+            for(var i=0;i<nodes.length;i++)for(var j=i+1;j<nodes.length;j++){var dx=nodes[i].x-nodes[j].x,dy=nodes[i].y-nodes[j].y,d=Math.sqrt(dx*dx+dy*dy);if(d<160){ctx.beginPath();ctx.moveTo(nodes[i].x,nodes[i].y);ctx.lineTo(nodes[j].x,nodes[j].y);ctx.strokeStyle='rgba(212,175,55,'+(0.12*(1-d/160))+')';ctx.lineWidth=0.5;ctx.stroke();}}
+            nodes.forEach(function(n){ctx.beginPath();ctx.arc(n.x,n.y,n.r,0,Math.PI*2);ctx.fillStyle='rgba(212,175,55,0.5)';ctx.fill();});
+            requestAnimationFrame(draw);
+          }
+          draw();
+        })();
+      ` }} />
       {/* Mobile menu button - only on non-sanctuary pages or mobile */}
       <button
         data-testid="mobile-menu-toggle"
