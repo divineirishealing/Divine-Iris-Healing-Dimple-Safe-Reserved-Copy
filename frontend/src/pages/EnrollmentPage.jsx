@@ -295,10 +295,17 @@ function EnrollmentPage() {
   const currency = baseCurrency;
 
   const tierParam = searchParams.get('tier');
-  const selectedTier = tierParam !== null ? parseInt(tierParam) : null;
+  const [selectedTier, setSelectedTier] = useState(tierParam !== null ? parseInt(tierParam) : null);
   const resumeId = searchParams.get('resume');
   const inrToken = searchParams.get('inr_token');
   const [inrOverride, setInrOverride] = useState(false);
+
+  // Default to tier 0 if program has tiers and no tier selected
+  useEffect(() => {
+    if (item?.is_flagship && item?.duration_tiers?.length > 0 && selectedTier === null) {
+      setSelectedTier(0);
+    }
+  }, [item]);
 
   // Country is NOT auto-filled — user must select manually
 
