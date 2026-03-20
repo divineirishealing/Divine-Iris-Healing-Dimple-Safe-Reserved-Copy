@@ -185,7 +185,7 @@ const CountdownTimer = ({ deadline }) => {
   );
 };
 
-const UpcomingCard = ({ program, crossSellRules = [], allPrograms = [] }) => {
+const UpcomingCard = ({ program }) => {
   const navigate = useNavigate();
   const { getPrice, getOfferPrice, symbol, country: detectedCountry } = useCurrency();
   const { addItem, items } = useCart();
@@ -470,33 +470,6 @@ const UpcomingCard = ({ program, crossSellRules = [], allPrograms = [] }) => {
             </button>
           </div>
         )}
-
-        {/* Cross-sell offer */}
-        {crossSellRules.length > 0 && (() => {
-          // Find rules where THIS program is the "buy" trigger
-          const offers = crossSellRules.flatMap(rule => {
-            if (String(rule.buy_program_id) !== String(program.id)) return [];
-            const targets = rule.targets || (rule.get_program_id ? [{ program_id: rule.get_program_id, discount_value: rule.discount_value, discount_type: rule.discount_type }] : []);
-            return targets.map(t => {
-              const targetProg = allPrograms.find(p => String(p.id) === String(t.program_id));
-              if (!targetProg) return null;
-              return { ...t, targetTitle: targetProg.title, ruleLabel: rule.label, ruleCode: rule.code };
-            }).filter(Boolean);
-          });
-          if (offers.length === 0) return null;
-          return (
-            <div className="border-t px-1 pt-2 mt-2" data-testid={`cross-sell-offer-${program.id}`}>
-              {offers.map((o, oi) => (
-                <div key={oi} className="flex items-center gap-1.5 text-[9px] mb-1">
-                  <Gift size={10} className="text-green-500 shrink-0" />
-                  <span className="text-green-700 font-medium">
-                    Add <strong>{o.targetTitle.length > 18 ? o.targetTitle.slice(0, 18) + '..' : o.targetTitle}</strong> → get <strong>{o.discount_value}{o.discount_type === 'percentage' ? '%' : ` ${symbol}`} off</strong>
-                  </span>
-                </div>
-              ))}
-            </div>
-          );
-        })()}
       </div>
     </div>
   );
@@ -585,6 +558,69 @@ const ComboBanner = ({ programs, comboRules }) => {
   );
 };
 
+const CrossSellBanner = ({ rules, programs }) => {
+  const { addItem, items } = useCart();
+  const { toast } = useToast();
+  const { symbol } = useCurrency();
+
+  return (
+    <div className="space-y-3 mt-4" data-testid="cross-sell-banners">
+      {rules.map((rule, ri) => {
+        const buyProg = programs.find(p => String(p.id) === String(rule.buy_program_id));
+        if (!buyProg) return null;
+        const buyTier = rule.buy_tier !== '' && rule.buy_tier !== undefined ? buyProg.duration_tiers?.[rule.buy_tier] : null;
+        const buyLabel = buyTier ? `${buyProg.title} (${buyTier.label})` : buyProg.title;
+        const targets = rule.targets || (rule.get_program_id ? [{ program_id: rule.get_program_id, discount_value: rule.discount_value, discount_type: rule.discount_type }] : []);
+        const validTargets = targets.map(t => {
+          const tp = programs.find(p => String(p.id) === String(t.program_id));
+          if (!tp) return null;
+          const tier = t.tier !== '' && t.tier !== undefined ? tp.duration_tiers?.[t.tier] : null;
+          return { ...t, title: tier ? `${tp.title} (${tier.label})` : tp.title, prog: tp };
+        }).filter(Boolean);
+        if (validTargets.length === 0) return null;
+
+        const handleAdd = () => {
+          let added = 0;
+          [buyProg, ...validTargets.map(t => t.prog)].forEach(p => {
+            if (!items.some(i => i.programId === p.id)) { addItem(p, 0); added++; }
+          });
+          toast({ title: added > 0 ? `${added} program${added > 1 ? 's' : ''} added!` : 'Already in cart' });
+        };
+
+        return (
+          <div key={ri} className="rounded-xl border-2 border-dashed border-green-300/60 bg-gradient-to-r from-green-50 via-white to-emerald-50 p-4" data-testid={`cross-sell-strip-${ri}`}>
+            <div className="flex items-start gap-3">
+              <div className="w-10 h-10 rounded-xl bg-green-100 flex items-center justify-center shrink-0">
+                <Gift size={18} className="text-green-600" />
+              </div>
+              <div className="flex-1">
+                <p className="text-sm font-bold text-gray-900 mb-1">{rule.label || 'Special Offer'}</p>
+                <p className="text-xs text-gray-600 mb-2">
+                  Take <strong>{buyLabel}</strong> and get:
+                </p>
+                <div className="space-y-1 mb-3">
+                  {validTargets.map((t, ti) => (
+                    <div key={ti} className="flex items-center gap-2">
+                      <span className="w-5 h-5 rounded-full bg-green-500 text-white text-[9px] font-bold flex items-center justify-center shrink-0">{ti + 1}</span>
+                      <span className="text-xs text-gray-700">
+                        <strong className="text-green-700">{t.discount_value}{t.discount_type === 'percentage' ? '%' : ` ${symbol}`} off</strong> on <strong>{t.title}</strong>
+                      </span>
+                    </div>
+                  ))}
+                </div>
+                <button onClick={handleAdd} className="inline-flex items-center gap-1.5 px-4 py-2 rounded-full bg-green-600 hover:bg-green-700 text-white text-xs font-semibold tracking-wide transition-colors">
+                  <ShoppingCart size={12} /> Add All to Cart
+                </button>
+                {rule.code && <span className="ml-2 text-[8px] font-mono text-green-500 bg-green-50 px-2 py-0.5 rounded">{rule.code}</span>}
+              </div>
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+};
+
 const UpcomingProgramsSection = ({ sectionConfig, inline }) => {
   const [programs, setPrograms] = useState([]);
   const [sponsorData, setSponsorData] = useState(null);
@@ -643,7 +679,7 @@ const UpcomingProgramsSection = ({ sectionConfig, inline }) => {
             <h2 className="text-xl md:text-2xl text-gray-900" style={applyTitleStyle(sectionConfig?.title_style, {})}>{sectionConfig?.title || 'Upcoming Programs'}</h2>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {sorted.map(program => <UpcomingCard key={program.id} program={program} crossSellRules={crossSellRules} allPrograms={sorted} />)}
+            {sorted.map(program => <UpcomingCard key={program.id} program={program} />)}
           </div>
         </>
       ) : (
@@ -681,7 +717,7 @@ const UpcomingProgramsSection = ({ sectionConfig, inline }) => {
                 )}
               </div>
               {/* Cards */}
-              {sorted.map(program => <UpcomingCard key={program.id} program={program} crossSellRules={crossSellRules} allPrograms={sorted} />)}
+              {sorted.map(program => <UpcomingCard key={program.id} program={program} />)}
 
               {/* Combo Discount Banner — spans full width below cards on mobile, beside sponsor on desktop */}
               {comboDiscount && openPrograms.length >= (comboDiscount.rules[0]?.min_programs || 2) && (
@@ -705,6 +741,13 @@ const UpcomingProgramsSection = ({ sectionConfig, inline }) => {
       {!inline && comboDiscount && openPrograms.length >= (comboDiscount.rules[0]?.min_programs || 2) && (
         <div className="hidden lg:block mt-6">
           <ComboBanner programs={openPrograms} comboRules={comboDiscount.rules} />
+        </div>
+      )}
+
+      {/* Cross-Sell Strips — full width below cards */}
+      {!inline && crossSellRules.length > 0 && (
+        <div className="mt-4">
+          <CrossSellBanner rules={crossSellRules} programs={sorted} />
         </div>
       )}
     </div>
