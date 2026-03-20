@@ -25,6 +25,7 @@ export default function DiscountsTab() {
     combo_rules: [],
     enable_loyalty: false,
     loyalty_discount_pct: 0,
+    enable_cross_sell: false,
     cross_sell_rules: [],
   });
 
@@ -248,11 +249,16 @@ export default function DiscountsTab() {
               <p className="text-[10px] text-gray-500">Buy Program A → Get discount on Program B (% or fixed amount)</p>
             </div>
           </div>
+          <Switch checked={settings.enable_cross_sell || false} onCheckedChange={v => setSettings(prev => ({ ...prev, enable_cross_sell: v }))} data-testid="toggle-cross-sell" />
+        </div>
+        {settings.enable_cross_sell && (
+        <>
+        <div className="flex items-center justify-end mt-2">
           <Button size="sm" variant="outline" onClick={() => setSettings(prev => ({
             ...prev,
             cross_sell_rules: [...(prev.cross_sell_rules || []), {
               buy_program_id: '', get_program_id: '', discount_type: 'percentage', discount_value: 10,
-              code: `XSELL${(prev.cross_sell_rules?.length || 0) + 1}`, label: '', enabled: true,
+              code: `XSELL${(prev.cross_sell_rules?.length || 0) + 1}`, label: '', enabled: true, targets: [],
             }]
           }))} className="text-xs h-7" data-testid="add-cross-sell-rule">
             <Plus size={12} className="mr-1" /> Add Rule
@@ -373,6 +379,8 @@ export default function DiscountsTab() {
             );
           })}
         </div>
+        </>
+        )}
       </div>
     </div>
   );

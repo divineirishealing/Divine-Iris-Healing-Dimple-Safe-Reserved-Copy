@@ -5,7 +5,7 @@ import { resolveImageUrl } from '../lib/imageUtils';
 import { useCurrency } from '../context/CurrencyContext';
 import { useCart } from '../context/CartContext';
 import { useToast } from '../hooks/use-toast';
-import { Monitor, Calendar, Clock, AlertTriangle, Wifi, ShoppingCart, Check, Bell, Heart } from 'lucide-react';
+import { Monitor, Calendar, Clock, AlertTriangle, Wifi, ShoppingCart, Check, Bell, Heart, Gift } from 'lucide-react';
 
 // Map common timezone abbreviations to UTC offset in hours
 const TZ_OFFSETS = {
@@ -185,7 +185,7 @@ const CountdownTimer = ({ deadline }) => {
   );
 };
 
-const UpcomingCard = ({ program }) => {
+const UpcomingCard = ({ program, crossSellRules = [], allPrograms = [] }) => {
   const navigate = useNavigate();
   const { getPrice, getOfferPrice, symbol, country: detectedCountry } = useCurrency();
   const { addItem, items } = useCart();
@@ -470,6 +470,33 @@ const UpcomingCard = ({ program }) => {
             </button>
           </div>
         )}
+
+        {/* Cross-sell offer */}
+        {crossSellRules.length > 0 && (() => {
+          // Find rules where THIS program is the "buy" trigger
+          const offers = crossSellRules.flatMap(rule => {
+            if (String(rule.buy_program_id) !== String(program.id)) return [];
+            const targets = rule.targets || (rule.get_program_id ? [{ program_id: rule.get_program_id, discount_value: rule.discount_value, discount_type: rule.discount_type }] : []);
+            return targets.map(t => {
+              const targetProg = allPrograms.find(p => String(p.id) === String(t.program_id));
+              if (!targetProg) return null;
+              return { ...t, targetTitle: targetProg.title, ruleLabel: rule.label, ruleCode: rule.code };
+            }).filter(Boolean);
+          });
+          if (offers.length === 0) return null;
+          return (
+            <div className="border-t px-1 pt-2 mt-2" data-testid={`cross-sell-offer-${program.id}`}>
+              {offers.map((o, oi) => (
+                <div key={oi} className="flex items-center gap-1.5 text-[9px] mb-1">
+                  <Gift size={10} className="text-green-500 shrink-0" />
+                  <span className="text-green-700 font-medium">
+                    Add <strong>{o.targetTitle.length > 18 ? o.targetTitle.slice(0, 18) + '..' : o.targetTitle}</strong> → get <strong>{o.discount_value}{o.discount_type === 'percentage' ? '%' : ` ${symbol}`} off</strong>
+                  </span>
+                </div>
+              ))}
+            </div>
+          );
+        })()}
       </div>
     </div>
   );
@@ -562,7 +589,8 @@ const UpcomingProgramsSection = ({ sectionConfig, inline }) => {
   const [programs, setPrograms] = useState([]);
   const [sponsorData, setSponsorData] = useState(null);
   const [sponsorConfig, setSponsorConfig] = useState(null);
-  const [comboDiscount, setComboDiscount] = useState(null); // { rules: [...] }
+  const [comboDiscount, setComboDiscount] = useState(null);
+  const [crossSellRules, setCrossSellRules] = useState([]);
 
   useEffect(() => {
     axios.get(`${API}/programs?visible_only=true&upcoming_only=true`)
@@ -581,6 +609,9 @@ const UpcomingProgramsSection = ({ sectionConfig, inline }) => {
             ? [{ min_programs: r.data.combo_min_programs || 2, discount_pct: r.data.combo_discount_pct, code: 'COMBO', label: 'Combo Package' }]
             : [];
         if (rules.length > 0) setComboDiscount({ rules });
+      }
+      if (r.data?.enable_cross_sell && r.data?.cross_sell_rules?.length > 0) {
+        setCrossSellRules(r.data.cross_sell_rules.filter(r => r.enabled !== false));
       }
     }).catch(() => {});
   }, []);
@@ -612,7 +643,7 @@ const UpcomingProgramsSection = ({ sectionConfig, inline }) => {
             <h2 className="text-xl md:text-2xl text-gray-900" style={applyTitleStyle(sectionConfig?.title_style, {})}>{sectionConfig?.title || 'Upcoming Programs'}</h2>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {sorted.map(program => <UpcomingCard key={program.id} program={program} />)}
+            {sorted.map(program => <UpcomingCard key={program.id} program={program} crossSellRules={crossSellRules} allPrograms={sorted} />)}
           </div>
         </>
       ) : (
@@ -650,7 +681,7 @@ const UpcomingProgramsSection = ({ sectionConfig, inline }) => {
                 )}
               </div>
               {/* Cards */}
-              {sorted.map(program => <UpcomingCard key={program.id} program={program} />)}
+              {sorted.map(program => <UpcomingCard key={program.id} program={program} crossSellRules={crossSellRules} allPrograms={sorted} />)}
 
               {/* Combo Discount Banner — spans full width below cards on mobile, beside sponsor on desktop */}
               {comboDiscount && openPrograms.length >= (comboDiscount.rules[0]?.min_programs || 2) && (
