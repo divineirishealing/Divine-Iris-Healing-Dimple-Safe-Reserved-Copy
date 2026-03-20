@@ -582,11 +582,6 @@ function CartPage() {
                 <span>Combo Discount ({numPrograms} programs)</span><span>-{symbol} {autoDiscounts.combo_discount.toLocaleString()}</span>
               </div>
             )}
-            {autoDiscounts.cross_sell_discount > 0 && (
-              <div className="flex justify-between items-center text-xs text-green-600 mb-0.5" data-testid="cart-discount-crosssell">
-                <span className="flex items-center gap-1"><Gift size={10} /> Cross-Sell Discount</span><span>-{symbol} {autoDiscounts.cross_sell_discount.toLocaleString()}</span>
-              </div>
-            )}
             {discount > 0 && (
               <div className="flex justify-between items-center text-xs text-green-600 mb-0.5">
                 <span>Promo ({promoResult?.code})</span><span>-{symbol} {discount.toLocaleString()}</span>
@@ -594,7 +589,7 @@ function CartPage() {
             )}
             <div className="flex justify-between items-center border-t pt-3 mt-3">
               <span className="font-bold text-lg text-gray-900">Total</span>
-              <span className="font-bold text-lg text-[#D4AF37]">{symbol} {Math.max(0, totalAmount - discount - (autoDiscounts.total_discount || 0)).toLocaleString()}</span>
+              <span className="font-bold text-lg text-[#D4AF37]">{symbol} {Math.max(0, totalAmount - discount - ((autoDiscounts.group_discount || 0) + (autoDiscounts.combo_discount || 0) + (autoDiscounts.loyalty_discount || 0))).toLocaleString()}</span>
             </div>
 
             {/* Promo Code */}

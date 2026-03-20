@@ -169,7 +169,7 @@ function CartCheckoutPage() {
     if (promoResult.discount_type === 'percentage') return Math.round(subtotal * promoResult.discount_percentage / 100);
     return promoResult[`discount_${currency}`] || promoResult.discount_aed || 0;
   })();
-  const totalAutoDiscount = autoDiscounts.total_discount || 0;
+  const totalAutoDiscount = (autoDiscounts.group_discount || 0) + (autoDiscounts.combo_discount || 0) + (autoDiscounts.loyalty_discount || 0);
   const total = Math.max(0, subtotal - discount - totalAutoDiscount);
 
   const handleCheckout = async () => {
@@ -247,11 +247,6 @@ function CartCheckoutPage() {
                   {autoDiscounts.combo_discount > 0 && (
                     <div className="flex justify-between text-xs text-green-600" data-testid="discount-combo">
                       <span>Combo Discount ({numPrograms} programs)</span><span>-{symbol} {autoDiscounts.combo_discount.toLocaleString()}</span>
-                    </div>
-                  )}
-                  {autoDiscounts.cross_sell_discount > 0 && (
-                    <div className="flex justify-between text-xs text-green-600" data-testid="discount-crosssell">
-                      <span>Cross-Sell Discount</span><span>-{symbol} {autoDiscounts.cross_sell_discount.toLocaleString()}</span>
                     </div>
                   )}
                   {autoDiscounts.loyalty_discount > 0 && (
