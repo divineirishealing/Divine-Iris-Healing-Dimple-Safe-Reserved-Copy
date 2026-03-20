@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Outlet, useLocation } from 'react-router-dom';
 import Sidebar from '../components/dashboard/Sidebar';
 import Header from '../components/dashboard/Header';
+import { SoulBackground } from '../components/dashboard/SoulBackground';
 import { useAuth } from '../context/AuthContext';
 import { Loader2, Menu, X } from 'lucide-react';
 import { cn } from '../lib/utils';
@@ -14,7 +15,7 @@ const DashboardLayout = () => {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-[#1a1040] flex items-center justify-center">
+      <div className="min-h-screen flex items-center justify-center" style={{ background: 'linear-gradient(135deg, #1a0b2e 0%, #2d1b4e 50%, #1a0b2e 100%)' }}>
         <div className="flex flex-col items-center gap-3">
           <Loader2 className="animate-spin text-[#D4AF37]" size={32} />
           <p className="text-white/50 text-sm font-serif">Entering the Sanctuary...</p>
@@ -29,7 +30,9 @@ const DashboardLayout = () => {
   }
 
   return (
-    <div className={cn("flex h-screen overflow-hidden relative", isSanctuary ? "bg-transparent" : "bg-[#FDFBF7]")}>
+    <div className="flex h-screen overflow-hidden relative" style={{ background: 'linear-gradient(135deg, #f8f5ff 0%, #f3ecff 30%, #efe7ff 60%, #f8f5ff 100%)' }}>
+      {/* Animated glitter background on ALL pages */}
+      <SoulBackground intensity="normal" />
       {/* Mobile menu button - only on non-sanctuary pages or mobile */}
       <button
         data-testid="mobile-menu-toggle"
