@@ -336,6 +336,7 @@ const AdminPanel = () => {
           {activeTab === 'receipt_template' && <ReceiptTemplateTab />}
           {activeTab === 'pricing_hub' && <PricingHubTab />}
           {activeTab === 'upcoming_hub' && <UpcomingHubTab />}
+          {activeTab === 'text_testimonials' && <TextTestimonialsTab />}
           {activeTab === 'annual_subscribers' && <SubscribersTab />}
           {activeTab === 'scheduler' && <SchedulerTab />}
 
