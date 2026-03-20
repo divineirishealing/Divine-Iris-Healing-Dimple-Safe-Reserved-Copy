@@ -32,6 +32,10 @@ import FinancialsPage from './components/dashboard/FinancialsPage';
 import CalendarPage from './components/dashboard/CalendarPage';
 import ProgressPage from './components/dashboard/ProgressPage';
 import SoulGardenPage from './components/dashboard/SoulGardenPage';
+import TreeOfLifePage from './components/dashboard/TreeOfLifePage';
+import OceanPage from './components/dashboard/OceanPage';
+import MandalaPage from './components/dashboard/MandalaPage';
+import HeadspacePage from './components/dashboard/HeadspacePage';
 import BhaadPortalPage from './components/dashboard/BhaadPortalPage';
 import SoulTribePage from './components/dashboard/SoulTribePage';
 import { Toaster } from './components/ui/toaster';
@@ -98,6 +102,10 @@ const AppContent = () => {
         <Route path="sessions" element={<CalendarPage />} />
         <Route path="progress" element={<ProgressPage />} />
         <Route path="garden" element={<SoulGardenPage />} />
+        <Route path="garden/tree" element={<TreeOfLifePage />} />
+        <Route path="garden/ocean" element={<OceanPage />} />
+        <Route path="garden/mandala" element={<MandalaPage />} />
+        <Route path="garden/zen" element={<HeadspacePage />} />
         <Route path="bhaad" element={<BhaadPortalPage />} />
         <Route path="tribe" element={<SoulTribePage />} />
         
