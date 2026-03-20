@@ -4,7 +4,7 @@ import { useToast } from '../../../hooks/use-toast';
 import { Button } from '../../ui/button';
 import { Input } from '../../ui/input';
 import { Switch } from '../../ui/switch';
-import { Save, Calendar, ChevronDown, ChevronUp, Copy, MessageCircle, Video, Link as LinkIcon, Globe, Plus, Trash2, Quote } from 'lucide-react';
+import { Save, Calendar, ChevronDown, ChevronUp, Copy, MessageCircle, Video, Link as LinkIcon, Globe, Plus, Trash2, Quote, ChevronLeft, ChevronRight } from 'lucide-react';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
@@ -180,6 +180,106 @@ const ProgramRow = ({ p, update, updateTier }) => {
   );
 };
 
+const COLORS = [
+  { bg: 'bg-purple-100', border: 'border-purple-300', text: 'text-purple-800', bar: 'bg-purple-400' },
+  { bg: 'bg-amber-100', border: 'border-amber-300', text: 'text-amber-800', bar: 'bg-amber-400' },
+  { bg: 'bg-blue-100', border: 'border-blue-300', text: 'text-blue-800', bar: 'bg-blue-400' },
+  { bg: 'bg-green-100', border: 'border-green-300', text: 'text-green-800', bar: 'bg-green-400' },
+  { bg: 'bg-pink-100', border: 'border-pink-300', text: 'text-pink-800', bar: 'bg-pink-400' },
+  { bg: 'bg-teal-100', border: 'border-teal-300', text: 'text-teal-800', bar: 'bg-teal-400' },
+  { bg: 'bg-red-100', border: 'border-red-300', text: 'text-red-800', bar: 'bg-red-400' },
+];
+const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+const MONTH_NAMES = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+
+const PlanningCalendar = ({ programs }) => {
+  const [month, setMonth] = useState(new Date().getMonth());
+  const [year, setYear] = useState(new Date().getFullYear());
+
+  const firstDay = new Date(year, month, 1).getDay();
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  const todayStr = new Date().toISOString().split('T')[0];
+
+  // Build event map from programs + tiers
+  const events = [];
+  programs.forEach((p, pi) => {
+    const color = COLORS[pi % COLORS.length];
+    const tiers = p.duration_tiers || [];
+    if (tiers.length > 0) {
+      tiers.forEach(t => {
+        if (t.start_date) events.push({ name: `${p.title} (${t.label})`, start: t.start_date, end: t.end_date || t.start_date, deadline: '', color });
+      });
+    } else if (p.start_date) {
+      events.push({ name: p.title, start: p.start_date, end: p.end_date || p.start_date, deadline: p.deadline_date || '', color });
+    }
+  });
+
+  // Map: "YYYY-MM-DD" -> [{event, type}]
+  const dayMap = {};
+  events.forEach(ev => {
+    const s = new Date(ev.start);
+    const e = new Date(ev.end);
+    const d = new Date(s);
+    while (d <= e) {
+      const key = d.toISOString().split('T')[0];
+      if (!dayMap[key]) dayMap[key] = [];
+      dayMap[key].push({ ...ev, isStart: key === ev.start, isEnd: key === ev.end });
+      d.setDate(d.getDate() + 1);
+    }
+    if (ev.deadline) {
+      if (!dayMap[ev.deadline]) dayMap[ev.deadline] = [];
+      dayMap[ev.deadline].push({ ...ev, isDeadline: true });
+    }
+  });
+
+  const prev = () => { if (month === 0) { setMonth(11); setYear(y => y - 1); } else setMonth(m => m - 1); };
+  const next = () => { if (month === 11) { setMonth(0); setYear(y => y + 1); } else setMonth(m => m + 1); };
+
+  return (
+    <div className="border rounded-lg shadow-sm bg-white mb-6" data-testid="planning-calendar">
+      <div className="flex items-center justify-between px-4 py-3 border-b bg-gray-50">
+        <div className="flex items-center gap-3">
+          <button onClick={prev} className="p-1 hover:bg-gray-200 rounded"><ChevronLeft size={16} /></button>
+          <h3 className="text-sm font-bold text-gray-900 min-w-[160px] text-center">{MONTH_NAMES[month]} {year}</h3>
+          <button onClick={next} className="p-1 hover:bg-gray-200 rounded"><ChevronRight size={16} /></button>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          {events.slice(0, 6).map((ev, i) => (
+            <span key={i} className={`text-[8px] px-1.5 py-0.5 rounded font-medium ${ev.color.bg} ${ev.color.text}`}>{ev.name.length > 20 ? ev.name.slice(0, 20) + '..' : ev.name}</span>
+          ))}
+        </div>
+      </div>
+      <div className="p-3">
+        <div className="grid grid-cols-7 mb-1">
+          {DAYS.map(d => <div key={d} className="text-center text-[9px] font-bold text-gray-400 uppercase py-1">{d}</div>)}
+        </div>
+        <div className="grid grid-cols-7 gap-px bg-gray-100 rounded overflow-hidden border">
+          {Array.from({ length: firstDay }).map((_, i) => <div key={`e-${i}`} className="bg-gray-50/50 min-h-[60px]" />)}
+          {Array.from({ length: daysInMonth }).map((_, i) => {
+            const day = i + 1;
+            const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+            const isToday = dateStr === todayStr;
+            const evts = dayMap[dateStr] || [];
+            return (
+              <div key={day} className={`bg-white min-h-[60px] p-1 ${isToday ? 'ring-2 ring-inset ring-[#D4AF37]/40' : ''}`}>
+                <span className={`text-[10px] font-medium ${isToday ? 'bg-[#D4AF37] text-white w-5 h-5 rounded-full inline-flex items-center justify-center' : 'text-gray-600'}`}>{day}</span>
+                <div className="mt-0.5 space-y-px">
+                  {evts.slice(0, 3).map((ev, ei) => (
+                    <div key={ei} className={`text-[7px] px-1 py-px rounded truncate font-medium ${ev.isDeadline ? 'bg-red-500 text-white' : ev.color.bg + ' ' + ev.color.text}`}>
+                      {ev.isDeadline ? 'DEADLINE' : ev.isStart ? ev.name.slice(0, 15) : ''}
+                    </div>
+                  ))}
+                  {evts.length > 3 && <span className="text-[7px] text-gray-400">+{evts.length - 3}</span>}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    </div>
+  );
+};
+
 const UpcomingHubTab = () => {
   const { toast } = useToast();
   const [programs, setPrograms] = useState([]);
@@ -255,6 +355,9 @@ const UpcomingHubTab = () => {
           <Save size={14} className="mr-1" />{saving ? 'Saving...' : 'Save All'}
         </Button>
       </div>
+
+      {/* Planning Calendar */}
+      <PlanningCalendar programs={programs} />
 
       <div className="overflow-x-auto border rounded-lg shadow-sm">
         <table className="w-full text-xs" data-testid="programs-hub-table">
