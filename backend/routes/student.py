@@ -384,3 +384,94 @@ async def resume_program_simple(data: ResumeRequest, user: dict = Depends(get_cu
         {"$set": {"subscription": sub}}
     )
     return {"message": f"{data.program_name} resumed"}
+
+
+
+# ═══════════════════════════════════════════
+# BHAAD PORTAL — Release & Transform
+# ═══════════════════════════════════════════
+
+class BhaadRelease(BaseModel):
+    original: str
+    transformed: str
+    date: str
+
+@router.post("/bhaad-release")
+async def save_bhaad_release(data: BhaadRelease, user: dict = Depends(get_current_user)):
+    client_id = user.get("client_id") or user.get("id")
+    entry = {
+        "id": str(__import__('uuid').uuid4()),
+        "client_id": client_id,
+        "original": data.original,
+        "transformed": data.transformed,
+        "date": data.date,
+        "created_at": datetime.now(timezone.utc).isoformat(),
+    }
+    await db.bhaad_releases.insert_one(entry)
+    return {"message": "Released and transformed"}
+
+@router.get("/bhaad-history")
+async def get_bhaad_history(user: dict = Depends(get_current_user)):
+    client_id = user.get("client_id") or user.get("id")
+    items = await db.bhaad_releases.find({"client_id": client_id}, {"_id": 0}).sort("created_at", -1).to_list(50)
+    return items
+
+
+# ═══════════════════════════════════════════
+# SOUL TRIBE — Community Feed
+# ═══════════════════════════════════════════
+
+class TribePostCreate(BaseModel):
+    content: str
+    image: str = ""
+
+class TribeReact(BaseModel):
+    post_id: str
+    emoji: str
+
+class TribeComment(BaseModel):
+    post_id: str
+    text: str
+
+@router.get("/tribe/posts")
+async def get_tribe_posts(user: dict = Depends(get_current_user)):
+    posts = await db.tribe_posts.find({}, {"_id": 0}).sort("created_at", -1).to_list(50)
+    return posts
+
+@router.post("/tribe/posts")
+async def create_tribe_post(data: TribePostCreate, user: dict = Depends(get_current_user)):
+    post = {
+        "id": str(__import__('uuid').uuid4()),
+        "author_id": user.get("client_id") or user.get("id"),
+        "author_name": user.get("name", "Soul Tribe Member"),
+        "content": data.content,
+        "image": data.image,
+        "reactions": {},
+        "comments": [],
+        "badge": "",
+        "created_at": datetime.now(timezone.utc).isoformat(),
+    }
+    await db.tribe_posts.insert_one(post)
+    post.pop("_id", None)
+    return post
+
+@router.post("/tribe/react")
+async def react_to_post(data: TribeReact, user: dict = Depends(get_current_user)):
+    await db.tribe_posts.update_one(
+        {"id": data.post_id},
+        {"$inc": {f"reactions.{data.emoji}": 1}}
+    )
+    return {"message": "Reacted"}
+
+@router.post("/tribe/comment")
+async def comment_on_post(data: TribeComment, user: dict = Depends(get_current_user)):
+    comment = {
+        "author": user.get("name", "Member"),
+        "text": data.text,
+        "created_at": datetime.now(timezone.utc).isoformat(),
+    }
+    await db.tribe_posts.update_one(
+        {"id": data.post_id},
+        {"$push": {"comments": comment}}
+    )
+    return comment

@@ -31,6 +31,9 @@ import ProfilePage from './components/dashboard/ProfilePage';
 import FinancialsPage from './components/dashboard/FinancialsPage';
 import CalendarPage from './components/dashboard/CalendarPage';
 import ProgressPage from './components/dashboard/ProgressPage';
+import SoulGardenPage from './components/dashboard/SoulGardenPage';
+import BhaadPortalPage from './components/dashboard/BhaadPortalPage';
+import SoulTribePage from './components/dashboard/SoulTribePage';
 import { Toaster } from './components/ui/toaster';
 import { SiteSettingsProvider } from './context/SiteSettingsContext';
 import { CurrencyProvider, useCurrency } from './context/CurrencyContext';
@@ -89,11 +92,13 @@ const AppContent = () => {
       
       {/* Dashboard Routes */}
       <Route path="/dashboard" element={<DashboardLayout />}>
-        <Route index element={<StudentDashboard />} />
+        <Route index element={<SoulGardenPage />} />
         <Route path="profile" element={<ProfilePage />} />
         <Route path="financials" element={<FinancialsPage />} />
         <Route path="sessions" element={<CalendarPage />} />
         <Route path="progress" element={<ProgressPage />} />
+        <Route path="bhaad" element={<BhaadPortalPage />} />
+        <Route path="tribe" element={<SoulTribePage />} />
         
         <Route path="roadmap" element={<div className="p-8 font-serif text-[#5D3FD3]">Growth Roadmap Coming Soon</div>} />
         <Route path="community" element={<div className="p-8 font-serif text-[#5D3FD3]">Experience Sharing Coming Soon</div>} />

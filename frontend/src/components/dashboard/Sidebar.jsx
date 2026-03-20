@@ -3,7 +3,8 @@ import { NavLink, useLocation } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { 
   Home, BookOpen, MessageCircle, FileText, Calendar, PenTool,
-  Lock, LogOut, Activity, Archive, CreditCard, User, TrendingUp
+  Lock, LogOut, Activity, Archive, CreditCard, User, TrendingUp,
+  Sparkles, Heart, Users
 } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { useSiteSettings } from '../../context/SiteSettingsContext';
@@ -56,9 +57,11 @@ const Sidebar = ({ onNavigate }) => {
 
       <nav className="flex-1 overflow-y-auto p-4 space-y-1">
         <div className={cn("text-[10px] font-semibold uppercase px-4 mb-2 mt-2", isSanctuary ? "text-white/50" : "text-gray-400")}>Journey</div>
-        <NavItem to="/dashboard" icon={Home} label="Overview" minTier={1} />
+        <NavItem to="/dashboard" icon={Home} label="Soul Garden" minTier={1} />
         <NavItem to="/dashboard/sessions" icon={Calendar} label="My Calendar" minTier={1} />
         <NavItem to="/dashboard/progress" icon={TrendingUp} label="Daily Progress" minTier={1} />
+        <NavItem to="/dashboard/bhaad" icon={Sparkles} label="Bhaad Portal" minTier={1} />
+        <NavItem to="/dashboard/tribe" icon={Heart} label="Soul Tribe" minTier={1} />
         <NavItem to="/dashboard/roadmap" icon={BookOpen} label="Growth Roadmap" minTier={1} />
 
         <div className={cn("text-[10px] font-semibold uppercase px-4 mb-2 mt-6", isSanctuary ? "text-white/50" : "text-gray-400")}>My Space</div>
