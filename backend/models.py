@@ -96,6 +96,11 @@ class Program(BaseModel):
     content_sections: List[Dict] = []  # List of ContentSection dicts
     highlight_label: str = ""  # e.g. "Highly Recommended", "Most Awaited"
     highlight_style: str = "gradient"  # "gradient", "ribbon", "glow"
+    show_whatsapp_link_2: bool = False
+    whatsapp_group_link_2: str = ""
+    show_start_date_on_card: bool = True
+    show_end_date_on_card: bool = True
+    show_timing_on_card: bool = True
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 class ProgramCreate(BaseModel):
@@ -152,6 +157,11 @@ class ProgramCreate(BaseModel):
     content_sections: Optional[List[Dict]] = []
     highlight_label: Optional[str] = ""
     highlight_style: Optional[str] = "gradient"
+    show_whatsapp_link_2: Optional[bool] = False
+    whatsapp_group_link_2: Optional[str] = ""
+    show_start_date_on_card: Optional[bool] = True
+    show_end_date_on_card: Optional[bool] = True
+    show_timing_on_card: Optional[bool] = True
 
 
 class Promotion(BaseModel):
