@@ -253,7 +253,7 @@ const UpcomingCard = ({ program }) => {
   const displayStartDate = (activeTier?.start_date) || program.start_date;
   const displayEndDate = (activeTier?.end_date) || program.end_date;
 
-  const enrollStatus = program.enrollment_status || (program.enrollment_open !== false ? 'open' : 'closed');
+  const enrollStatus = expired ? 'closed' : (program.enrollment_status || (program.enrollment_open !== false ? 'open' : 'closed'));
   const [notifyEmail, setNotifyEmail] = useState('');
   const [notifySubmitted, setNotifySubmitted] = useState(false);
 

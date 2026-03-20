@@ -9,6 +9,8 @@ from pathlib import Path
 ROOT_DIR = Path(__file__).parent.parent
 load_dotenv(ROOT_DIR / '.env')
 
+from datetime import datetime, timezone
+
 router = APIRouter(prefix="/api/programs", tags=["Programs"])
 
 mongo_url = os.environ['MONGO_URL']
@@ -23,7 +25,24 @@ async def get_programs(visible_only: Optional[bool] = None, upcoming_only: Optio
     if upcoming_only:
         query["is_upcoming"] = True
     programs = await db.programs.find(query).sort("order", 1).to_list(100)
-    return [Program(**program) for program in programs]
+    now = datetime.now(timezone.utc)
+    result = []
+    for p in programs:
+        prog = Program(**p)
+        # Auto-close if deadline passed
+        deadline = p.get("deadline_date") or p.get("start_date") or ""
+        if deadline and prog.enrollment_status == "open":
+            try:
+                dl = datetime.fromisoformat(deadline + "T23:59:59+00:00") if "T" not in deadline else datetime.fromisoformat(deadline)
+                if dl < now:
+                    prog.enrollment_status = "closed"
+                    prog.closure_text = prog.closure_text or "Registration Closed"
+                    # Persist the change
+                    await db.programs.update_one({"id": prog.id}, {"$set": {"enrollment_status": "closed", "enrollment_open": False}})
+            except (ValueError, TypeError):
+                pass
+        result.append(prog)
+    return result
 
 @router.get("/{program_id}", response_model=Program)
 async def get_program(program_id: str):
