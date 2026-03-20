@@ -431,7 +431,11 @@ function EnrollmentPage() {
       const targets = rule.targets || (rule.get_program_id ? [{ program_id: rule.get_program_id, discount_value: rule.discount_value, discount_type: rule.discount_type }] : []);
       const matchTarget = targets.find(t => String(t.program_id) === String(id));
       if (!matchTarget) continue;
-      const buyInCart = cartItems.some(i => String(i.programId) === String(rule.buy_program_id));
+      // Check buy program + tier in cart
+      const buyTier = rule.buy_tier;
+      const buyInCart = (buyTier !== '' && buyTier !== undefined && buyTier !== null)
+        ? cartItems.some(i => String(i.programId) === String(rule.buy_program_id) && String(i.tierIndex) === String(buyTier))
+        : cartItems.some(i => String(i.programId) === String(rule.buy_program_id));
       if (buyInCart) {
         const disc = matchTarget.discount_type === 'percentage'
           ? Math.round(effectiveUnitPrice * (matchTarget.discount_value || 0) / 100)

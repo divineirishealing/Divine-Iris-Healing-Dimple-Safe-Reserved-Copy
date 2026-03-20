@@ -57,7 +57,7 @@ const emptyParticipant = (mode = 'online') => ({
   is_first_time: true, referral_source: '',
 });
 
-const CartItemCard = ({ item, onRemove, onUpdateParticipants, symbol, getItemPrice, getItemOfferPrice, showReferral, detectedCountry, copySource }) => {
+const CartItemCard = ({ item, onRemove, onUpdateParticipants, symbol, getItemPrice, getItemOfferPrice, showReferral, detectedCountry, copySource, crossSellDiscount }) => {
   const [expanded, setExpanded] = useState(true);
   const tier = item.durationTiers?.[item.tierIndex];
   const price = getItemPrice(item);
@@ -119,7 +119,9 @@ const CartItemCard = ({ item, onRemove, onUpdateParticipants, symbol, getItemPri
             ) : (
               <span className="text-[10px] bg-[#D4AF37]/10 text-[#D4AF37] px-2 py-0.5 rounded-full font-medium">{tier?.label || 'Standard'}</span>
             )}
-            {offerPrice > 0 ? (
+            {crossSellDiscount ? (
+              <span className="text-[10px] text-gray-400"><span className="text-green-600 font-bold">{symbol} {Math.max(0, effectivePrice - crossSellDiscount.amount).toLocaleString()}</span> <span className="line-through">{symbol} {effectivePrice.toLocaleString()}</span> / person <span className="text-green-500 text-[8px]">({crossSellDiscount.label})</span></span>
+            ) : offerPrice > 0 ? (
               <span className="text-[10px] text-gray-400"><span className="text-[#D4AF37] font-medium">{symbol} {offerPrice.toLocaleString()}</span> <span className="line-through">{symbol} {price.toLocaleString()}</span> / person</span>
             ) : (
               <span className="text-[10px] text-gray-400">{symbol} {price.toLocaleString()} / person</span>
@@ -127,7 +129,12 @@ const CartItemCard = ({ item, onRemove, onUpdateParticipants, symbol, getItemPri
           </div>
         </div>
         <div className="flex items-center gap-2">
-          <span className="text-sm font-bold text-[#D4AF37]">{symbol} {(effectivePrice * pCount).toLocaleString()}</span>
+          <div className="text-right">
+            <span className="text-sm font-bold text-[#D4AF37]">{symbol} {(crossSellDiscount ? Math.max(0, effectivePrice - crossSellDiscount.amount) * pCount : effectivePrice * pCount).toLocaleString()}</span>
+            {crossSellDiscount && (
+              <p className="text-[8px] text-green-500 flex items-center justify-end gap-0.5"><Gift size={8} /> {crossSellDiscount.value}{crossSellDiscount.type === 'percentage' ? '%' : ''} off</p>
+            )}
+          </div>
           <button onClick={onRemove} data-testid={`cart-remove-${item.id}`} className="text-red-400 hover:text-red-600 transition-colors p-1">
             <Trash2 size={16} />
           </button>
@@ -410,6 +417,15 @@ function CartPage() {
   const numPrograms = items.length;
 
   const [autoDiscounts, setAutoDiscounts] = useState({ group_discount: 0, combo_discount: 0, loyalty_discount: 0, total_discount: 0 });
+  const [crossSellRules, setCrossSellRules] = useState([]);
+
+  useEffect(() => {
+    axios.get(`${API}/discounts/settings`).then(r => {
+      if (r.data?.enable_cross_sell && r.data?.cross_sell_rules?.length > 0) {
+        setCrossSellRules(r.data.cross_sell_rules.filter(r => r.enabled !== false));
+      }
+    }).catch(() => {});
+  }, []);
 
   useEffect(() => {
     if (totalAmount <= 0) return;
@@ -557,14 +573,36 @@ function CartPage() {
           </div>
 
           {/* Cart items */}
-          {items.map((item, itemIdx) => (
-            <CartItemCard key={item.id} item={item}
-              onRemove={() => removeItem(item.id)}
-              onUpdateParticipants={(p) => updateItemParticipants(item.id, p)}
-              symbol={symbol} getItemPrice={getItemPrice} getItemOfferPrice={getItemOfferPrice}
-              showReferral={discountSettings.enable_referral} detectedCountry={detectedCountry}
-              copySource={itemIdx > 0 ? items[0] : null} />
-          ))}
+          {items.map((item, itemIdx) => {
+            // Calculate cross-sell discount for this specific item
+            let itemCrossSell = null;
+            for (const rule of crossSellRules) {
+              const targets = rule.targets || (rule.get_program_id ? [{ program_id: rule.get_program_id, discount_value: rule.discount_value, discount_type: rule.discount_type }] : []);
+              const matchTarget = targets.find(t => String(t.program_id) === String(item.programId));
+              if (!matchTarget) continue;
+              const buyTier = rule.buy_tier;
+              const buyInCart = (buyTier !== '' && buyTier !== undefined && buyTier !== null)
+                ? items.some(i => String(i.programId) === String(rule.buy_program_id) && String(i.tierIndex) === String(buyTier))
+                : items.some(i => String(i.programId) === String(rule.buy_program_id));
+              if (buyInCart) {
+                const effPrice = getEffectivePrice(item);
+                const disc = matchTarget.discount_type === 'percentage'
+                  ? Math.round(effPrice * (matchTarget.discount_value || 0) / 100)
+                  : (matchTarget.discount_value || 0);
+                itemCrossSell = { amount: disc, label: rule.label, value: matchTarget.discount_value, type: matchTarget.discount_type };
+                break;
+              }
+            }
+            return (
+              <CartItemCard key={item.id} item={item}
+                onRemove={() => removeItem(item.id)}
+                onUpdateParticipants={(p) => updateItemParticipants(item.id, p)}
+                symbol={symbol} getItemPrice={getItemPrice} getItemOfferPrice={getItemOfferPrice}
+                showReferral={discountSettings.enable_referral} detectedCountry={detectedCountry}
+                copySource={itemIdx > 0 ? items[0] : null}
+                crossSellDiscount={itemCrossSell} />
+            );
+          })}
 
           {/* Summary, Promo & Verification */}
           <div className="bg-white rounded-xl border shadow-sm p-5 mt-6">
