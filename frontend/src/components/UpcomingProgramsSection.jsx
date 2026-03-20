@@ -228,14 +228,24 @@ const UpcomingCard = ({ program }) => {
     return isNaN(dt.getTime()) ? null : dt;
   };
 
-  // Auto-calculate duration from start_date and end_date (inclusive: both start and end days count)
+  // Use tier-specific dates if available, otherwise fall back to program dates
+  const activeTier = hasTiers ? tiers[selectedTier] : null;
+  const displayStartDate = (activeTier?.start_date) || program.start_date;
+  const displayEndDate = (activeTier?.end_date) || program.end_date;
+
+  // Duration: use tier's explicit duration first, then calculate from tier dates, then program
   const autoDuration = (() => {
-    const s = parseDate(program.start_date);
-    const e = parseDate(program.end_date);
-    if (!s || !e) return program.duration && program.duration !== '90 days' ? program.duration : '';
-    const diffDays = Math.round((e - s) / (1000 * 60 * 60 * 24)) + 1; // inclusive
-    if (diffDays <= 0) return '';
-    return `${diffDays} Days`;
+    // 1. Tier explicit duration
+    if (activeTier?.duration) return activeTier.duration;
+    // 2. Calculate from tier or program dates
+    const s = parseDate(displayStartDate);
+    const e = parseDate(displayEndDate);
+    if (s && e) {
+      const diffDays = Math.round((e - s) / (1000 * 60 * 60 * 24)) + 1;
+      if (diffDays > 0) return `${diffDays} Days`;
+    }
+    // 3. Fallback to program-level duration
+    return program.duration || '';
   })();
 
   // Format date to standard: "27 Mar 2026"
@@ -247,11 +257,6 @@ const UpcomingCard = ({ program }) => {
 
   // Convert timing to viewer's local time
   const timingConverted = convertTimingToLocal(program.timing, program.time_zone, detectedCountry);
-
-  // Use tier-specific dates if available, otherwise fall back to program dates
-  const activeTier = hasTiers ? tiers[selectedTier] : null;
-  const displayStartDate = (activeTier?.start_date) || program.start_date;
-  const displayEndDate = (activeTier?.end_date) || program.end_date;
 
   const enrollStatus = expired ? 'closed' : (program.enrollment_status || (program.enrollment_open !== false ? 'open' : 'closed'));
   const [notifyEmail, setNotifyEmail] = useState('');
