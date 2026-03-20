@@ -605,6 +605,31 @@ function CartPage() {
           })}
 
           {/* Summary, Promo & Verification */}
+          {(() => {
+            // Calculate total cross-sell discount from all items
+            let totalCrossSell = 0;
+            const crossSellDetails = [];
+            for (const item of items) {
+              for (const rule of crossSellRules) {
+                const targets = rule.targets || (rule.get_program_id ? [{ program_id: rule.get_program_id, discount_value: rule.discount_value, discount_type: rule.discount_type }] : []);
+                const matchTarget = targets.find(t => String(t.program_id) === String(item.programId));
+                if (!matchTarget) continue;
+                const buyTier = rule.buy_tier;
+                const buyInCart = (buyTier !== '' && buyTier !== undefined && buyTier !== null)
+                  ? items.some(i => String(i.programId) === String(rule.buy_program_id) && String(i.tierIndex) === String(buyTier))
+                  : items.some(i => String(i.programId) === String(rule.buy_program_id));
+                if (buyInCart) {
+                  const effPrice = getEffectivePrice(item);
+                  const disc = matchTarget.discount_type === 'percentage'
+                    ? Math.round(effPrice * (matchTarget.discount_value || 0) / 100) * item.participants.length
+                    : (matchTarget.discount_value || 0) * item.participants.length;
+                  totalCrossSell += disc;
+                  crossSellDetails.push({ label: rule.label, amount: disc, item: item.programTitle });
+                  break;
+                }
+              }
+            }
+            return (
           <div className="bg-white rounded-xl border shadow-sm p-5 mt-6">
             <div className="flex justify-between items-center mb-1">
               <span className="text-sm text-gray-600">Subtotal ({totalParticipants} participant{totalParticipants > 1 ? 's' : ''})</span>
@@ -620,6 +645,11 @@ function CartPage() {
                 <span>Combo Discount ({numPrograms} programs)</span><span>-{symbol} {autoDiscounts.combo_discount.toLocaleString()}</span>
               </div>
             )}
+            {totalCrossSell > 0 && crossSellDetails.map((d, i) => (
+              <div key={i} className="flex justify-between items-center text-xs text-green-600 mb-0.5" data-testid={`cart-discount-crosssell-${i}`}>
+                <span className="flex items-center gap-1"><Gift size={10} /> {d.label || 'Cross-Sell'} ({d.item})</span><span>-{symbol} {d.amount.toLocaleString()}</span>
+              </div>
+            ))}
             {discount > 0 && (
               <div className="flex justify-between items-center text-xs text-green-600 mb-0.5">
                 <span>Promo ({promoResult?.code})</span><span>-{symbol} {discount.toLocaleString()}</span>
@@ -627,7 +657,7 @@ function CartPage() {
             )}
             <div className="flex justify-between items-center border-t pt-3 mt-3">
               <span className="font-bold text-lg text-gray-900">Total</span>
-              <span className="font-bold text-lg text-[#D4AF37]">{symbol} {Math.max(0, totalAmount - discount - ((autoDiscounts.group_discount || 0) + (autoDiscounts.combo_discount || 0) + (autoDiscounts.loyalty_discount || 0))).toLocaleString()}</span>
+              <span className="font-bold text-lg text-[#D4AF37]">{symbol} {Math.max(0, totalAmount - discount - totalCrossSell - ((autoDiscounts.group_discount || 0) + (autoDiscounts.combo_discount || 0) + (autoDiscounts.loyalty_discount || 0))).toLocaleString()}</span>
             </div>
 
             {/* Promo Code */}
@@ -706,6 +736,8 @@ function CartPage() {
               )}
             </div>
           </div>
+            );
+          })()}
         </div>
       </div>
       <Footer />
