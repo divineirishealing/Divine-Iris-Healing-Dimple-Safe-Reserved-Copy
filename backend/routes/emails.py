@@ -91,7 +91,7 @@ async def get_receipt_template():
     return tpl, logo
 
 
-def enrollment_confirmation_email(booker_name, item_title, participants, total, currency_symbol, attendance_modes, booker_email, phone, program_links=None, program_description="", program_start_date="", program_duration="", program_end_date="", program_timing="", program_timezone="", logo_url="", receipt_template=None, social_links=None, community_whatsapp="", footer_phone="", site_url="", footer_email=""):
+def enrollment_confirmation_email(booker_name, item_title, participants, total, currency_symbol, attendance_modes, booker_email, phone, program_links=None, program_description="", program_start_date="", program_duration="", program_end_date="", program_timing="", program_timezone="", logo_url="", receipt_template=None, social_links=None, community_whatsapp="", footer_phone="", site_url="", footer_email="", currency_code="", invoice_number=""):
     tpl = receipt_template or {}
     socials = social_links or {}
     tpl = receipt_template or {}
@@ -105,6 +105,72 @@ def enrollment_confirmation_email(booker_name, item_title, participants, total, 
     thank_you_message = tpl.get("thank_you_message", "We are truly grateful for your trust in Divine Iris Healing. Your healing journey has now begun, and we are honoured to walk this path with you. May this experience bring you deep peace, clarity, and transformation.")
     thank_you_sign = tpl.get("thank_you_sign", "With love and light")
     show_logo = tpl.get("show_logo", True)
+
+    # GST Section (India payments only)
+    gst_section = ""
+    if currency_code and currency_code.lower() == "inr" and tpl.get("gst_enabled"):
+        try:
+            total_num = float(str(total).replace(',', ''))
+            gst_rate = float(tpl.get("gst_rate", 18))
+            base_amount = round(total_num / (1 + gst_rate / 100), 2)
+            gst_amount = round(total_num - base_amount, 2)
+            gst_type = tpl.get("gst_type", "IGST")
+            sac_code = tpl.get("gst_sac_code", "999319")
+            company = tpl.get("gst_company_name", "")
+            gstin = tpl.get("gst_gstin", "")
+            pan = tpl.get("gst_pan", "")
+            address = tpl.get("gst_address", "")
+            gst_phone = tpl.get("gst_phone", "")
+            terms = tpl.get("gst_terms", "")
+            signatory = tpl.get("gst_signatory", "")
+            inv_num = invoice_number or ""
+
+            tax_rows = ""
+            if gst_type == "IGST":
+                tax_rows = f'<tr><td style="padding:4px 8px;font-size:11px;color:#555">IGST ({gst_rate}%)</td><td style="padding:4px 8px;font-size:11px;text-align:right;color:#555">₹{gst_amount:,.2f}</td></tr>'
+            else:
+                half = round(gst_amount / 2, 2)
+                tax_rows = f'<tr><td style="padding:4px 8px;font-size:11px;color:#555">CGST ({gst_rate/2}%)</td><td style="padding:4px 8px;font-size:11px;text-align:right;color:#555">₹{half:,.2f}</td></tr><tr><td style="padding:4px 8px;font-size:11px;color:#555">SGST ({gst_rate/2}%)</td><td style="padding:4px 8px;font-size:11px;text-align:right;color:#555">₹{half:,.2f}</td></tr>'
+
+            gst_section = f'''
+            <div style="margin-top:20px;border:1px solid #e0e0e0;border-radius:8px;overflow:hidden">
+              <div style="background:#f8f8f8;padding:12px 16px;border-bottom:1px solid #e0e0e0">
+                <div style="display:flex;justify-content:space-between">
+                  <div>
+                    <div style="font-size:13px;font-weight:700;color:#111">{company}</div>
+                    <div style="font-size:10px;color:#666;margin-top:2px">{address}</div>
+                    <div style="font-size:10px;color:#666">GSTIN: <strong>{gstin}</strong></div>
+                    {"<div style='font-size:10px;color:#666'>PAN: " + pan + "</div>" if pan else ""}
+                    {"<div style='font-size:10px;color:#666'>Phone: " + gst_phone + "</div>" if gst_phone else ""}
+                  </div>
+                  <div style="text-align:right">
+                    <div style="font-size:12px;font-weight:700;color:{accent_color}">TAX INVOICE</div>
+                    {"<div style='font-size:10px;color:#666'>Invoice: " + inv_num + "</div>" if inv_num else ""}
+                  </div>
+                </div>
+              </div>
+              <table style="width:100%;border-collapse:collapse">
+                <thead><tr style="background:#f0f0f0">
+                  <th style="padding:6px 8px;font-size:10px;text-align:left;color:#555">Description</th>
+                  <th style="padding:6px 8px;font-size:10px;text-align:right;color:#555">Amount</th>
+                </tr></thead>
+                <tbody>
+                  <tr style="border-bottom:1px solid #eee">
+                    <td style="padding:6px 8px;font-size:11px;color:#333">{item_title}<br/><span style="font-size:9px;color:#999">SAC: {sac_code}</span></td>
+                    <td style="padding:6px 8px;font-size:11px;text-align:right;color:#333">₹{base_amount:,.2f}</td>
+                  </tr>
+                  {tax_rows}
+                  <tr style="border-top:2px solid #333">
+                    <td style="padding:8px;font-size:13px;font-weight:700;color:#111">Total (INR)</td>
+                    <td style="padding:8px;font-size:13px;font-weight:700;text-align:right;color:#111">₹{total_num:,.2f}</td>
+                  </tr>
+                </tbody>
+              </table>
+              {"<div style='padding:8px 16px;font-size:9px;color:#888;border-top:1px solid #eee'>Terms: " + terms + "</div>" if terms else ""}
+              {"<div style='padding:4px 16px 12px;font-size:9px;text-align:right;color:#666'>Authorised Signatory: <strong>" + signatory + "</strong></div>" if signatory else ""}
+            </div>'''
+        except Exception:
+            gst_section = ""
 
     # Logo HTML
     logo_html = ""
@@ -307,6 +373,7 @@ def enrollment_confirmation_email(booker_name, item_title, participants, total, 
               <span style="font-size:12px;color:#999;text-transform:uppercase;letter-spacing:1px">Total Paid</span>
               <div style="font-size:28px;color:{accent_color};font-weight:700;font-family:{heading_font};margin-top:2px">{currency_symbol}{total}</div>
             </div>
+            {gst_section}
           </div>
         </div>
 

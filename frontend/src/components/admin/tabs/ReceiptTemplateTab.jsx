@@ -3,6 +3,8 @@ import axios from 'axios';
 import { FileText, Save, Loader2, Eye, Palette, Upload, X, File, Link as LinkIcon } from 'lucide-react';
 import { Button } from '../../ui/button';
 import { Input } from '../../ui/input';
+import { Switch } from '../../ui/switch';
+import { Label } from '../../ui/label';
 import { useToast } from '../../../hooks/use-toast';
 import CollapsibleSection from '../CollapsibleSection';
 
@@ -154,6 +156,18 @@ const ReceiptTemplateTab = () => {
     show_duration: true,
     show_timing: true,
     important_note: 'Zoom link will be provided 30 mins prior to session in WhatsApp Group. Hence, please join the group to stay updated with instructions and updates.',
+    // GST Settings (India only)
+    gst_enabled: false,
+    gst_company_name: '',
+    gst_gstin: '',
+    gst_pan: '',
+    gst_address: '',
+    gst_phone: '',
+    gst_rate: 18,
+    gst_type: 'IGST',
+    gst_sac_code: '999319',
+    gst_terms: '',
+    gst_signatory: '',
   });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -378,6 +392,133 @@ const ReceiptTemplateTab = () => {
           </div>
         </div>
       </div>
+      </CollapsibleSection>
+
+      {/* GST Invoice Settings — India Only */}
+      <CollapsibleSection title="GST Invoice (India Only)" badge="Tax invoice for Indian payments">
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-semibold text-gray-900">Enable GST on India Receipts</p>
+              <p className="text-[10px] text-gray-500">Shows GST breakdown (IGST 18%) on receipts for Indian payments only</p>
+            </div>
+            <Switch checked={tpl.gst_enabled || false} onCheckedChange={v => update('gst_enabled', v)} data-testid="gst-toggle" />
+          </div>
+
+          {tpl.gst_enabled && (
+            <>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <Label className="text-[10px] text-gray-500">Company / Business Name *</Label>
+                  <Input value={tpl.gst_company_name || ''} onChange={e => update('gst_company_name', e.target.value)}
+                    placeholder="Divine Iris - Soulful Healing Studio" className="h-8 text-xs" data-testid="gst-company" />
+                </div>
+                <div>
+                  <Label className="text-[10px] text-gray-500">GSTIN *</Label>
+                  <Input value={tpl.gst_gstin || ''} onChange={e => update('gst_gstin', e.target.value.toUpperCase())}
+                    placeholder="08AKTPR1478E1ZM" className="h-8 text-xs font-mono" maxLength={15} data-testid="gst-gstin" />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <Label className="text-[10px] text-gray-500">PAN</Label>
+                  <Input value={tpl.gst_pan || ''} onChange={e => update('gst_pan', e.target.value.toUpperCase())}
+                    placeholder="AKTPR1478E" className="h-8 text-xs font-mono" maxLength={10} data-testid="gst-pan" />
+                </div>
+                <div>
+                  <Label className="text-[10px] text-gray-500">Phone</Label>
+                  <Input value={tpl.gst_phone || ''} onChange={e => update('gst_phone', e.target.value)}
+                    placeholder="+91 82774 24778" className="h-8 text-xs" data-testid="gst-phone" />
+                </div>
+              </div>
+              <div>
+                <Label className="text-[10px] text-gray-500">Business Address</Label>
+                <Input value={tpl.gst_address || ''} onChange={e => update('gst_address', e.target.value)}
+                  placeholder="Rajasthan, India" className="h-8 text-xs" data-testid="gst-address" />
+              </div>
+              <div className="grid grid-cols-3 gap-3">
+                <div>
+                  <Label className="text-[10px] text-gray-500">GST Rate %</Label>
+                  <Input type="text" inputMode="decimal" value={tpl.gst_rate || 18} onChange={e => update('gst_rate', parseFloat(e.target.value) || 18)}
+                    className="h-8 text-xs text-center" data-testid="gst-rate" />
+                </div>
+                <div>
+                  <Label className="text-[10px] text-gray-500">GST Type</Label>
+                  <select value={tpl.gst_type || 'IGST'} onChange={e => update('gst_type', e.target.value)}
+                    className="w-full h-8 border rounded px-2 text-xs bg-white" data-testid="gst-type">
+                    <option value="IGST">IGST (Interstate)</option>
+                    <option value="CGST_SGST">CGST + SGST (Same state)</option>
+                  </select>
+                </div>
+                <div>
+                  <Label className="text-[10px] text-gray-500">SAC Code</Label>
+                  <Input value={tpl.gst_sac_code || '999319'} onChange={e => update('gst_sac_code', e.target.value)}
+                    placeholder="999319" className="h-8 text-xs font-mono" data-testid="gst-sac" />
+                </div>
+              </div>
+              <div>
+                <Label className="text-[10px] text-gray-500">Terms & Conditions</Label>
+                <Input value={tpl.gst_terms || ''} onChange={e => update('gst_terms', e.target.value)}
+                  placeholder="Any dispute is subjected to jurisdiction of Ajmer, Rajasthan" className="h-8 text-xs" data-testid="gst-terms" />
+              </div>
+              <div>
+                <Label className="text-[10px] text-gray-500">Authorised Signatory Name</Label>
+                <Input value={tpl.gst_signatory || ''} onChange={e => update('gst_signatory', e.target.value)}
+                  placeholder="Your Name" className="h-8 text-xs" data-testid="gst-signatory" />
+              </div>
+
+              {/* Preview */}
+              <div className="bg-gray-50 rounded-lg border p-4 mt-2" data-testid="gst-preview">
+                <p className="text-[9px] text-gray-400 uppercase tracking-wider mb-2">GST Invoice Preview</p>
+                <div className="bg-white rounded border p-3 text-[10px] space-y-2">
+                  <div className="flex justify-between border-b pb-2">
+                    <div>
+                      <p className="font-bold text-sm">{tpl.gst_company_name || 'Your Business Name'}</p>
+                      <p className="text-gray-500">{tpl.gst_address || 'Address'}</p>
+                      <p className="text-gray-500">GSTIN: <span className="font-mono font-semibold">{tpl.gst_gstin || 'XXXXXXXXXXXXXXX'}</span></p>
+                      {tpl.gst_pan && <p className="text-gray-500">PAN: <span className="font-mono">{tpl.gst_pan}</span></p>}
+                    </div>
+                    <div className="text-right">
+                      <p className="font-bold text-[#D4AF37]">TAX INVOICE</p>
+                      <p className="text-gray-500">Invoice #: A0001</p>
+                      <p className="text-gray-500">Date: {new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}</p>
+                    </div>
+                  </div>
+                  <table className="w-full text-[9px]">
+                    <thead><tr className="border-b bg-gray-50">
+                      <th className="text-left py-1 px-1">Description</th>
+                      <th className="text-center py-1">SAC</th>
+                      <th className="text-center py-1">Qty</th>
+                      <th className="text-right py-1">Rate</th>
+                      <th className="text-right py-1">Amount</th>
+                    </tr></thead>
+                    <tbody><tr className="border-b">
+                      <td className="py-1 px-1">Sample Program</td>
+                      <td className="text-center">{tpl.gst_sac_code || '999319'}</td>
+                      <td className="text-center">1</td>
+                      <td className="text-right">₹10,000</td>
+                      <td className="text-right">₹10,000</td>
+                    </tr></tbody>
+                  </table>
+                  <div className="border-t pt-1 space-y-0.5 text-right">
+                    <p>Subtotal: <strong>₹10,000</strong></p>
+                    {tpl.gst_type === 'IGST' ? (
+                      <p>IGST ({tpl.gst_rate}%): <strong>₹{(10000 * (tpl.gst_rate || 18) / 100).toLocaleString()}</strong></p>
+                    ) : (
+                      <>
+                        <p>CGST ({(tpl.gst_rate || 18) / 2}%): <strong>₹{(10000 * (tpl.gst_rate || 18) / 200).toLocaleString()}</strong></p>
+                        <p>SGST ({(tpl.gst_rate || 18) / 2}%): <strong>₹{(10000 * (tpl.gst_rate || 18) / 200).toLocaleString()}</strong></p>
+                      </>
+                    )}
+                    <p className="text-sm font-bold border-t pt-1">Total: ₹{(10000 + 10000 * (tpl.gst_rate || 18) / 100).toLocaleString()}</p>
+                  </div>
+                  {tpl.gst_terms && <p className="text-[8px] text-gray-400 border-t pt-1 mt-1">Terms: {tpl.gst_terms}</p>}
+                  {tpl.gst_signatory && <p className="text-[8px] text-right text-gray-500 mt-2">Authorised Signatory: <strong>{tpl.gst_signatory}</strong></p>}
+                </div>
+              </div>
+            </>
+          )}
+        </div>
       </CollapsibleSection>
 
       <div className="flex gap-2">

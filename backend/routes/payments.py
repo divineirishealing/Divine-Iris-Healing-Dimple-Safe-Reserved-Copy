@@ -459,6 +459,7 @@ async def send_enrollment_emails(session_id: str):
             footer_phone=settings.get("footer_phone", ""),
             footer_email=settings.get("footer_email", ""),
             site_url="https://divineirishealing.com",
+            currency_code=txn.get("currency", ""),
         )
         from key_manager import get_key
         receipt_sender = await get_key("receipt_email") or os.environ.get("RECEIPT_EMAIL", "receipt@divineirishealing.com")
