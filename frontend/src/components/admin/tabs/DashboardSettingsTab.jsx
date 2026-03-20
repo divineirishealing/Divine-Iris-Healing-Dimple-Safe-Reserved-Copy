@@ -15,13 +15,15 @@ const DashboardSettingsTab = ({ settings, onChange }) => {
   };
 
   const update = (field, value) => {
-    onChange({
-      ...settings,
-      dashboard_settings: {
-        ...dashboard,
-        [field]: value
-      }
-    });
+    if (field === 'dashboard_bg_video') {
+      // Save at top level
+      onChange({ ...settings, dashboard_bg_video: value });
+    } else {
+      onChange({
+        ...settings,
+        dashboard_settings: { ...dashboard, [field]: value }
+      });
+    }
   };
 
   return (
@@ -111,6 +113,33 @@ const DashboardSettingsTab = ({ settings, onChange }) => {
             </div>
           </div>
         </div>
+      </div>
+
+      {/* Background Video Upload */}
+      <div className="mt-6 bg-white rounded-lg border p-5" data-testid="bg-video-section">
+        <h3 className="text-sm font-semibold text-gray-900 mb-1">Dashboard Background Video</h3>
+        <p className="text-[10px] text-gray-500 mb-3">Upload a looping video that plays behind the entire dashboard (sidebar + content). Keep it under 10MB for best performance.</p>
+        <div className="flex items-center gap-3">
+          <input type="file" accept="video/mp4,video/webm" onChange={async (e) => {
+            const file = e.target.files?.[0];
+            if (!file) return;
+            const fd = new FormData();
+            fd.append('file', file);
+            try {
+              const r = await fetch(`${process.env.REACT_APP_BACKEND_URL}/api/upload/document`, { method: 'POST', body: fd });
+              const data = await r.json();
+              update('dashboard_bg_video', data.url);
+            } catch {}
+          }} className="text-xs" data-testid="bg-video-upload" />
+          {(settings.dashboard_bg_video || dashboard.bg_video) && (
+            <button onClick={() => update('dashboard_bg_video', '')} className="text-xs text-red-500 hover:underline">Remove</button>
+          )}
+        </div>
+        {(settings.dashboard_bg_video || dashboard.bg_video) && (
+          <div className="mt-2 bg-gray-50 rounded-lg p-2">
+            <p className="text-[9px] text-green-600 font-medium">Video set: {settings.dashboard_bg_video || dashboard.bg_video}</p>
+          </div>
+        )}
       </div>
     </div>
   );
