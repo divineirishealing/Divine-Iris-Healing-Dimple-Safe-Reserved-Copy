@@ -1,167 +1,91 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import axios from 'axios';
-import { Camera, Lock, Check, ChevronDown, ChevronRight } from 'lucide-react';
+import { Camera, Droplets, Sparkles, Heart, Sun, TreePine, Flower2, Star } from 'lucide-react';
+import { useToast } from '../../hooks/use-toast';
 import { cn } from '../../lib/utils';
 
 const API = process.env.REACT_APP_BACKEND_URL;
 
-const PLANT_STAGES = ['🌰', '🌱', '🌿', '🌷', '🌸', '🌺', '🌻', '🍎', '🌳', '🌟'];
-const getPlant = (progress) => PLANT_STAGES[Math.min(9, Math.floor(progress * 9))];
-
-const Cloud = ({ style }) => (
-  <div className="absolute opacity-30 pointer-events-none" style={{ ...style, animation: `floatCloud ${18 + Math.random() * 12}s linear infinite` }}>
-    <div className="relative">
-      <div className="w-12 h-4 bg-white rounded-full" />
-      <div className="absolute -top-2 left-2 w-8 h-5 bg-white rounded-full" />
+/* ═══ ISOMETRIC TILE ═══ */
+const Tile = ({ x, y, children, onClick, className, glow, style: extraStyle }) => (
+  <div
+    className={cn("absolute cursor-pointer transition-all duration-300 hover:brightness-110", glow && "z-10", className)}
+    onClick={onClick}
+    style={{
+      width: 64, height: 36,
+      left: (x - y) * 32 + 400,
+      top: (x + y) * 18 + 20,
+      transform: 'rotateX(0deg)',
+      ...extraStyle,
+    }}
+  >
+    {/* Diamond shape */}
+    <svg viewBox="0 0 64 36" className="absolute inset-0 w-full h-full">
+      <polygon points="32,0 64,18 32,36 0,18" className={cn("transition-all", glow ? "fill-amber-300/30 stroke-amber-400" : "fill-green-700/40 stroke-green-900/20")} strokeWidth="0.5" />
+    </svg>
+    <div className="absolute inset-0 flex items-center justify-center" style={{ transform: 'translateY(-8px)' }}>
+      {children}
     </div>
   </div>
 );
 
-// Full-width farm block for a single month/session
-const FarmBlock = ({ index, total, label, isActive, isCompleted, isLocked, schedule, daysPerBlock, programName }) => {
-  const [expanded, setExpanded] = useState(isActive);
-  const progress = isCompleted ? 1 : isActive ? 0.3 : 0;
-  const plant = getPlant(progress);
-
-  // For active month, show individual days
-  const days = Array.from({ length: daysPerBlock }, (_, i) => {
-    const dayCompleted = i < (isCompleted ? daysPerBlock : isActive ? Math.floor(daysPerBlock * 0.3) : 0);
-    return { day: i + 1, completed: dayCompleted };
-  });
-
-  if (isLocked) {
-    return (
-      <div className="relative rounded-2xl overflow-hidden border-2 border-gray-200 bg-gray-100" data-testid={`block-locked-${index}`}>
-        <div className="flex items-center justify-between px-5 py-4 opacity-50">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-gray-200 flex items-center justify-center">
-              <Lock size={16} className="text-gray-400" />
-            </div>
-            <div>
-              <p className="text-sm font-bold text-gray-400">{label}</p>
-              <p className="text-[9px] text-gray-400">{daysPerBlock} days · Unlocks when the time comes</p>
-            </div>
-          </div>
-          <span className="text-2xl opacity-30">🌰</span>
-        </div>
-      </div>
-    );
-  }
-
-  if (isCompleted && !expanded) {
-    return (
-      <div className="relative rounded-2xl overflow-hidden border-2 border-green-200 bg-gradient-to-r from-green-50 to-emerald-50 cursor-pointer hover:shadow-md transition-shadow"
-        onClick={() => setExpanded(true)} data-testid={`block-done-${index}`}>
-        <div className="flex items-center justify-between px-5 py-4">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-green-100 flex items-center justify-center">
-              <Check size={16} className="text-green-600" />
-            </div>
-            <div>
-              <p className="text-sm font-bold text-green-800">{label}</p>
-              <p className="text-[9px] text-green-600">Harvested · {daysPerBlock} days completed</p>
-            </div>
-          </div>
-          <div className="flex items-center gap-2">
-            <span className="text-2xl">🌟</span>
-            <ChevronRight size={14} className="text-green-400" />
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  // Active or expanded completed — show full farm
+/* ═══ FARM ELEMENTS ═══ */
+const Tree = ({ size = 'md', type = 'tree', golden }) => {
+  const trees = { tree: '🌳', pine: '🌲', palm: '🌴', cherry: '🌸', fruit: '🍎' };
+  const sizes = { sm: 'text-lg', md: 'text-2xl', lg: 'text-4xl' };
   return (
-    <div className={cn(
-      "relative rounded-2xl overflow-hidden border-2 transition-shadow",
-      isActive ? "border-[#D4AF37] shadow-lg shadow-[#D4AF37]/10" : "border-green-300",
-    )} data-testid={`block-active-${index}`}>
-      {/* Header */}
-      <div className={cn(
-        "flex items-center justify-between px-5 py-3 cursor-pointer",
-        isActive ? "bg-gradient-to-r from-[#D4AF37]/10 to-[#5D3FD3]/5" : "bg-green-50",
-      )} onClick={() => !isActive && setExpanded(false)}>
-        <div className="flex items-center gap-3">
-          <div className={cn("w-10 h-10 rounded-xl flex items-center justify-center",
-            isActive ? "bg-[#D4AF37]/20" : "bg-green-100")}>
-            <span className="text-xl">{isActive ? '🌱' : '🌟'}</span>
-          </div>
-          <div>
-            <div className="flex items-center gap-2">
-              <p className={cn("text-sm font-bold", isActive ? "text-gray-900" : "text-green-800")}>{label}</p>
-              {isActive && <span className="text-[8px] px-2 py-0.5 rounded-full bg-[#D4AF37] text-white font-bold animate-pulse">CURRENT</span>}
-            </div>
-            <p className="text-[9px] text-gray-500">{daysPerBlock} days · {isCompleted ? 'Harvested' : 'Growing...'}</p>
-          </div>
-        </div>
-        <div className="flex items-center gap-2">
-          <span className="text-2xl" style={{ animation: isActive ? 'gentleSway 3s ease-in-out infinite' : 'none' }}>{plant}</span>
-          {!isActive && <ChevronDown size={14} className="text-gray-400" />}
-        </div>
-      </div>
-
-      {/* Farm soil with daily plots */}
-      <div style={{ background: 'linear-gradient(180deg, #E8D5B7 0%, #D4B896 50%, #C4A882 100%)' }}>
-        <div className="p-4">
-          {/* Daily seed grid */}
-          <div className="grid grid-cols-7 gap-1.5">
-            {/* Day headers */}
-            {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map(d => (
-              <div key={d} className="text-center text-[7px] font-bold text-[#5a3f22]/50 uppercase pb-1">{d}</div>
-            ))}
-            {days.map((d, di) => {
-              const isToday = isActive && di === Math.floor(daysPerBlock * 0.3);
-              return (
-                <div key={di} className={cn(
-                  "aspect-square rounded-lg flex flex-col items-center justify-center relative transition-all",
-                  d.completed ? "" : isToday ? "" : "opacity-60",
-                )} style={{
-                  background: d.completed
-                    ? 'linear-gradient(180deg, #4a7c3f 0%, #3d5c2e 50%, #5c3d1e 70%, #4a2f12 100%)'
-                    : isToday
-                    ? 'linear-gradient(180deg, #5a8c4f 0%, #4d6c3e 50%, #6c4d2e 70%, #5a3f22 100%)'
-                    : 'linear-gradient(180deg, #8a7a6a 0%, #7a6a5a 50%, #6c4d2e 70%, #5a3f22 100%)',
-                  boxShadow: isToday ? '0 0 12px rgba(212,175,55,0.5), inset 0 0 8px rgba(212,175,55,0.2)' : 'none',
-                  border: isToday ? '2px solid rgba(212,175,55,0.6)' : '1px solid rgba(0,0,0,0.1)',
-                }}>
-                  <span className="text-sm" style={{
-                    animation: d.completed ? 'gentleSway 3s ease-in-out infinite' : 'none',
-                    animationDelay: `${di * 100}ms`,
-                    filter: d.completed ? 'none' : 'grayscale(0.7)',
-                  }}>
-                    {d.completed ? getPlant(di / daysPerBlock) : isToday ? '🌱' : '🌰'}
-                  </span>
-                  <span className="text-[7px] font-bold text-white/40 mt-0.5">{d.day}</span>
-                  {d.completed && <span className="absolute top-0.5 right-0.5 text-[6px]" style={{ animation: `twinkle 2s ease-in-out infinite ${di * 150}ms` }}>✨</span>}
-                  {isToday && <span className="absolute -top-1 left-1/2 -translate-x-1/2 w-1.5 h-1.5 rounded-full bg-[#D4AF37]" style={{ animation: 'pulse 1.5s ease-in-out infinite', boxShadow: '0 0 6px rgba(212,175,55,0.8)' }} />}
-                </div>
-              );
-            })}
-          </div>
-
-          {/* Progress bar */}
-          <div className="mt-4 flex items-center gap-2">
-            <span className="text-sm">🌰</span>
-            <div className="flex-1 h-2.5 rounded-full bg-[#5a3f22]/20 overflow-hidden">
-              <div className="h-full rounded-full transition-all duration-1000" style={{
-                width: `${progress * 100}%`,
-                background: 'linear-gradient(90deg, #81C784, #4CAF50, #8BC34A, #FFD54F)',
-              }} />
-            </div>
-            <span className="text-sm">🌟</span>
-            <span className="text-[10px] text-[#5a3f22]/60 font-bold">{Math.round(progress * 100)}%</span>
-          </div>
-        </div>
-      </div>
-    </div>
+    <span className={cn(sizes[size], "inline-block drop-shadow-md")}
+      style={{
+        animation: 'gentleSway 4s ease-in-out infinite',
+        filter: golden ? 'drop-shadow(0 0 8px rgba(212,175,55,0.6))' : 'none',
+      }}>
+      {golden ? '🌟' : trees[type] || '🌳'}
+    </span>
   );
 };
 
+const Flower = ({ type = 0 }) => {
+  const flowers = ['🌷', '🌹', '🌺', '🌻', '🌼', '💐', '🪻'];
+  return <span className="text-lg inline-block" style={{ animation: `gentleSway 3s ease-in-out ${type * 0.3}s infinite` }}>{flowers[type % flowers.length]}</span>;
+};
+
+const Animal = ({ type }) => {
+  const animals = { butterfly: '🦋', bird: '🐦', bunny: '🐰', deer: '🦌', bee: '🐝' };
+  return <span className="text-sm inline-block" style={{ animation: `float 5s ease-in-out infinite` }}>{animals[type] || '🦋'}</span>;
+};
+
+/* ═══ ACTIVITY BUTTON ═══ */
+const ActivityBtn = ({ icon: Icon, label, sub, color, onClick, active, disabled }) => (
+  <button
+    onClick={onClick}
+    disabled={disabled}
+    className={cn(
+      "flex items-center gap-2.5 px-4 py-3 rounded-xl border-2 transition-all w-full text-left",
+      active ? "border-[#D4AF37] bg-[#D4AF37]/10 shadow-md shadow-[#D4AF37]/20 scale-[1.02]" :
+      disabled ? "border-gray-200 bg-gray-50 opacity-50 cursor-not-allowed" :
+      "border-gray-200 bg-white hover:border-purple-300 hover:shadow-sm hover:scale-[1.01]"
+    )}
+    data-testid={`activity-${label.toLowerCase().replace(/\s/g, '-')}`}
+  >
+    <div className={cn("w-10 h-10 rounded-xl flex items-center justify-center shrink-0", color)}>
+      <Icon size={18} className="text-white" />
+    </div>
+    <div className="flex-1 min-w-0">
+      <p className="text-xs font-bold text-gray-900">{label}</p>
+      <p className="text-[9px] text-gray-500">{sub}</p>
+    </div>
+    {active && <span className="text-lg">✨</span>}
+  </button>
+);
+
+/* ═══ MAIN COMPONENT ═══ */
 const SoulGardenPage = () => {
+  const { toast } = useToast();
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [profilePic, setProfilePic] = useState(null);
+  const [wateringActive, setWateringActive] = useState(false);
+  const [sparklePos, setSparklePos] = useState([]);
 
   useEffect(() => {
     axios.get(`${API}/api/student/home`, { withCredentials: true })
@@ -170,28 +94,78 @@ const SoulGardenPage = () => {
   }, []);
 
   const programs = data?.programs || [];
+  const emis = data?.emis || [];
 
-  const farms = useMemo(() => {
-    return programs.filter(p => p.visible !== false).map(prog => {
-      const schedule = prog.schedule || [];
-      const totalBlocks = schedule.length || (prog.duration_value || 12);
-      const completed = schedule.filter(s => s.completed).length;
-      const daysPerBlock = prog.name?.includes('AWRP') ? 28 : prog.name?.includes('Quad') ? 21 : prog.name?.includes('Download') ? 30 : prog.name?.includes('Meetup') ? 90 : 30;
-      const isLarge = totalBlocks >= 10;
-      // Current block = first non-completed
-      const currentBlock = completed;
+  const farmStats = useMemo(() => {
+    const totalPaid = emis.filter(e => e.status === 'paid').reduce((s, e) => s + (e.amount || 0), 0);
+    const trees = Math.floor(totalPaid / 1000);
+    const goldenTrees = Math.floor(totalPaid / 50000);
+    const flowers = Math.floor(totalPaid / 500);
+    const totalSessions = programs.reduce((s, p) => s + (p.schedule?.length || 0), 0);
+    const completedSessions = programs.reduce((s, p) => s + (p.schedule?.filter(x => x.completed).length || 0), 0);
+    const harvestReady = completedSessions;
+    return { totalPaid, trees, goldenTrees, flowers, totalSessions, completedSessions, harvestReady };
+  }, [emis, programs]);
 
-      const blocks = Array.from({ length: totalBlocks }, (_, i) => ({
-        index: i,
-        label: prog.duration_unit === 'months' ? `Month ${i + 1}` : `Session ${i + 1}`,
-        isCompleted: i < completed,
-        isActive: i === currentBlock,
-        isLocked: i > currentBlock,
-      }));
+  // Farm grid layout
+  const farmGrid = useMemo(() => {
+    const tiles = [];
+    const gridSize = 8;
 
-      return { name: prog.name, blocks, daysPerBlock, isLarge, completed, totalBlocks };
-    });
-  }, [programs]);
+    for (let x = 0; x < gridSize; x++) {
+      for (let y = 0; y < gridSize; y++) {
+        const idx = x * gridSize + y;
+        let content = null;
+        let type = 'grass';
+
+        // Pond in center
+        if ((x === 3 || x === 4) && (y === 3 || y === 4)) {
+          type = 'water';
+          content = <span className="text-sm opacity-60">💧</span>;
+        }
+        // Trees based on investment
+        else if (idx < farmStats.trees && idx < 20) {
+          type = 'tree';
+          const isGolden = idx < farmStats.goldenTrees;
+          const treeTypes = ['tree', 'pine', 'cherry', 'palm', 'fruit'];
+          content = <Tree type={treeTypes[idx % 5]} golden={isGolden} />;
+        }
+        // Flowers
+        else if (idx >= 20 && idx < 20 + Math.min(farmStats.flowers, 15)) {
+          type = 'flower';
+          content = <Flower type={idx} />;
+        }
+        // Animals
+        else if (idx === 5 && farmStats.trees > 3) content = <Animal type="butterfly" />;
+        else if (idx === 15 && farmStats.trees > 8) content = <Animal type="bird" />;
+        else if (idx === 50 && farmStats.trees > 15) content = <Animal type="bunny" />;
+        // Seeds (unplanted)
+        else if (idx < 40) {
+          content = <span className="text-xs opacity-30">·</span>;
+        }
+
+        tiles.push({ x, y, type, content, idx });
+      }
+    }
+    return tiles;
+  }, [farmStats]);
+
+  const handleWater = useCallback(() => {
+    setWateringActive(true);
+    // Create sparkle particles
+    const sparks = Array.from({ length: 8 }, (_, i) => ({
+      id: Date.now() + i,
+      x: 300 + Math.random() * 300,
+      y: 100 + Math.random() * 200,
+    }));
+    setSparklePos(sparks);
+    toast({ title: '💧 Watered your garden!', description: 'Your plants are glowing with gratitude' });
+    setTimeout(() => { setWateringActive(false); setSparklePos([]); }, 3000);
+  }, [toast]);
+
+  const handleHarvest = useCallback(() => {
+    toast({ title: '🌟 Harvesting fruits of your practice!', description: `${farmStats.harvestReady} sessions ready to harvest` });
+  }, [toast, farmStats.harvestReady]);
 
   const handleProfileUpload = async (e) => {
     const file = e.target.files?.[0];
@@ -206,74 +180,195 @@ const SoulGardenPage = () => {
 
   if (loading) return (
     <div className="flex items-center justify-center py-20">
-      <div className="text-center"><div className="text-5xl mb-3" style={{ animation: 'gentleSway 2s ease-in-out infinite' }}>🌱</div><p className="text-sm text-gray-500 font-serif italic">Your garden is waking up...</p></div>
+      <div className="text-5xl" style={{ animation: 'gentleSway 2s ease-in-out infinite' }}>🌱</div>
     </div>
   );
 
   return (
-    <div className="max-w-4xl mx-auto" data-testid="soul-garden-page">
-      {/* Scenic Header */}
-      <div className="relative rounded-3xl overflow-hidden mb-6" style={{ height: '220px', background: 'linear-gradient(180deg, #87CEEB 0%, #B0E0E6 35%, #98D8C8 55%, #7CB342 72%, #558B2F 88%, #33691E 100%)' }}>
-        <div className="absolute top-5 right-10" style={{ animation: 'pulse 4s ease-in-out infinite' }}>
-          <div className="w-12 h-12 rounded-full bg-[#FFD54F]" style={{ boxShadow: '0 0 30px 10px rgba(255,213,79,0.3)' }} />
+    <div className="max-w-6xl mx-auto" data-testid="soul-garden-page">
+      {/* ═══ ISOMETRIC FARM VIEW ═══ */}
+      <div className="relative rounded-3xl overflow-hidden mb-6" style={{
+        height: '450px',
+        background: 'linear-gradient(180deg, #87CEEB 0%, #B8D8E8 25%, #A8D5A0 50%, #7CB342 70%, #558B2F 100%)',
+      }}>
+        {/* Sky elements */}
+        <div className="absolute top-6 right-16 z-10" style={{ animation: 'pulse 4s ease-in-out infinite' }}>
+          <div className="w-16 h-16 rounded-full bg-[#FFD54F]" style={{ boxShadow: '0 0 50px 20px rgba(255,213,79,0.3)' }} />
         </div>
-        <Cloud style={{ top: '8%', left: '-3%' }} />
-        <Cloud style={{ top: '12%', left: '50%' }} />
-        <div className="absolute text-sm" style={{ top: '25%', left: '30%', animation: 'butterfly 8s ease-in-out infinite' }}>🦋</div>
-        <div className="absolute text-sm" style={{ top: '35%', left: '65%', animation: 'butterfly 9s ease-in-out 2s infinite' }}>🦋</div>
-
-        <div className="absolute bottom-0 left-0 right-0">
-          <svg viewBox="0 0 1200 120" className="w-full"><path d="M0,80 Q300,30 600,70 Q900,110 1200,60 L1200,120 L0,120 Z" fill="#2E7D32" /></svg>
-        </div>
-
-        <div className="absolute bottom-4 left-6 md:left-10 flex items-end gap-3 z-10">
-          <div className="relative">
-            <div className="w-16 h-16 rounded-full border-3 border-white shadow-xl overflow-hidden bg-gradient-to-br from-[#5D3FD3] to-[#D4AF37]">
-              {profilePic ? <img src={profilePic.startsWith('/') ? `${API}${profilePic}` : profilePic} alt="" className="w-full h-full object-cover" />
-                : <div className="w-full h-full flex items-center justify-center text-xl text-white">{(data?.name || 'S').charAt(0)}</div>}
+        {[1, 2, 3].map(i => (
+          <div key={i} className="absolute opacity-30 pointer-events-none" style={{
+            top: `${5 + i * 4}%`, left: `${-5 + i * 30}%`,
+            animation: `floatCloud ${15 + i * 5}s linear infinite`,
+          }}>
+            <div className="w-20 h-6 bg-white rounded-full relative">
+              <div className="absolute -top-3 left-4 w-12 h-8 bg-white rounded-full" />
             </div>
-            <label className="absolute bottom-0 right-0 w-5 h-5 rounded-full bg-[#D4AF37] border-2 border-white flex items-center justify-center cursor-pointer hover:scale-110 transition-transform">
-              <Camera size={8} className="text-white" /><input type="file" accept="image/*" className="hidden" onChange={handleProfileUpload} />
+          </div>
+        ))}
+
+        {/* Watering sparkle particles */}
+        {sparklePos.map(s => (
+          <div key={s.id} className="absolute text-xl z-30 pointer-events-none" style={{
+            left: s.x, top: s.y,
+            animation: 'sparkleRise 2s ease-out forwards',
+          }}>💧</div>
+        ))}
+
+        {/* Isometric farm grid */}
+        <div className="absolute inset-0" style={{ perspective: '800px' }}>
+          <div className="relative w-full h-full">
+            {farmGrid.map((tile, i) => (
+              <Tile key={i} x={tile.x} y={tile.y}
+                glow={wateringActive && tile.type !== 'water'}
+                className={tile.type === 'water' ? 'opacity-70' : ''}>
+                {tile.content}
+              </Tile>
+            ))}
+          </div>
+        </div>
+
+        {/* Avatar on farm */}
+        <div className="absolute bottom-8 left-8 z-20 flex items-end gap-3">
+          <div className="relative">
+            <div className="w-16 h-16 rounded-full border-4 border-white shadow-2xl overflow-hidden bg-gradient-to-br from-[#5D3FD3] to-[#D4AF37]" style={{ filter: 'drop-shadow(0 4px 12px rgba(0,0,0,0.3))' }}>
+              {profilePic ? <img src={profilePic.startsWith('/') ? `${API}${profilePic}` : profilePic} alt="" className="w-full h-full object-cover" />
+                : <div className="w-full h-full flex items-center justify-center text-xl text-white font-bold">{(data?.name || 'S').charAt(0)}</div>}
+            </div>
+            <label className="absolute -bottom-1 -right-1 w-6 h-6 rounded-full bg-[#D4AF37] border-2 border-white flex items-center justify-center cursor-pointer hover:scale-110 transition-transform shadow-lg">
+              <Camera size={10} className="text-white" /><input type="file" accept="image/*" className="hidden" onChange={handleProfileUpload} />
             </label>
           </div>
-          <div className="mb-1 bg-white/80 backdrop-blur-sm rounded-lg px-3 py-1 shadow-sm">
-            <p className="text-sm font-serif font-bold text-gray-800">{data?.name || 'Soul Gardener'}'s Farm</p>
-            <p className="text-[8px] text-[#5D3FD3] italic">Every seed knows when to bloom</p>
+          <div className="bg-white/90 backdrop-blur-md rounded-xl px-3 py-2 shadow-lg mb-1">
+            <p className="text-sm font-serif font-bold text-gray-900">{data?.name || 'Soul Gardener'}</p>
+            <p className="text-[8px] text-[#5D3FD3]">Level {Math.min(10, Math.floor(farmStats.trees / 3) + 1)} Gardener</p>
+          </div>
+        </div>
+
+        {/* Farm stats overlay */}
+        <div className="absolute top-4 left-4 z-20 flex gap-2">
+          {[
+            { emoji: '🌳', val: farmStats.trees, label: 'Trees' },
+            { emoji: '🌸', val: farmStats.flowers, label: 'Flowers' },
+            { emoji: '🌟', val: farmStats.goldenTrees, label: 'Golden' },
+          ].map((s, i) => (
+            <div key={i} className="bg-black/40 backdrop-blur-md rounded-xl px-3 py-1.5 border border-white/10 text-center">
+              <span className="text-sm">{s.emoji}</span>
+              <p className="text-xs font-bold text-white">{s.val}</p>
+              <p className="text-[7px] text-white/50">{s.label}</p>
+            </div>
+          ))}
+        </div>
+
+        {/* Investment ticker */}
+        <div className="absolute top-4 right-4 z-20 bg-black/40 backdrop-blur-md rounded-xl px-4 py-2 border border-[#D4AF37]/30">
+          <p className="text-[8px] text-[#D4AF37]/70 uppercase tracking-wider">Seeds Planted</p>
+          <p className="text-lg font-bold text-[#D4AF37]">{farmStats.trees > 0 ? `${farmStats.trees} trees` : 'Plant your first seed!'}</p>
+          <p className="text-[8px] text-white/40">Every ₹1,000 = 1 tree</p>
+        </div>
+      </div>
+
+      {/* ═══ ACTIVITIES PANEL ═══ */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+        <div className="md:col-span-2">
+          <h2 className="text-lg font-serif font-bold text-gray-900 mb-3 flex items-center gap-2">
+            <Sun size={18} className="text-[#D4AF37]" /> Daily Activities
+          </h2>
+          <div className="grid grid-cols-2 gap-3">
+            <ActivityBtn icon={Droplets} label="Water Plants" sub="Mark today's attendance" color="bg-blue-500"
+              onClick={handleWater} active={wateringActive} />
+            <ActivityBtn icon={Star} label="Harvest" sub={`${farmStats.harvestReady} sessions ready`} color="bg-amber-500"
+              onClick={handleHarvest} active={false} />
+            <ActivityBtn icon={Sparkles} label="Bhaad Portal" sub="Release & Transform" color="bg-purple-600"
+              onClick={() => window.location.href = '/dashboard/bhaad'} />
+            <ActivityBtn icon={Heart} label="Share Love" sub="Post in Soul Tribe" color="bg-pink-500"
+              onClick={() => window.location.href = '/dashboard/tribe'} />
+            <ActivityBtn icon={Flower2} label="Plant Seeds" sub="Enroll in new program" color="bg-green-600"
+              onClick={() => window.location.href = '/#upcoming'} />
+            <ActivityBtn icon={TreePine} label="Family Garden" sub="Grow together" color="bg-teal-600"
+              onClick={() => toast({ title: '🌳 Family Garden coming soon!' })} disabled />
+          </div>
+        </div>
+
+        {/* Program Zones */}
+        <div>
+          <h2 className="text-lg font-serif font-bold text-gray-900 mb-3 flex items-center gap-2">
+            <TreePine size={18} className="text-green-600" /> My Farm Zones
+          </h2>
+          <div className="space-y-2">
+            {programs.filter(p => p.visible !== false).map((prog, i) => {
+              const schedule = prog.schedule || [];
+              const completed = schedule.filter(s => s.completed).length;
+              const total = schedule.length || prog.duration_value || 1;
+              const pct = Math.round(completed / total * 100);
+              return (
+                <div key={i} className="bg-white rounded-xl border p-3 hover:shadow-sm transition-shadow" data-testid={`zone-${i}`}>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <div className="flex items-center gap-2">
+                      <span className="text-lg">{pct === 100 ? '🌟' : pct > 50 ? '🌳' : pct > 0 ? '🌱' : '🌰'}</span>
+                      <div>
+                        <p className="text-xs font-bold text-gray-900">{prog.name}</p>
+                        <p className="text-[9px] text-gray-500">{completed}/{total} sessions</p>
+                      </div>
+                    </div>
+                    <span className={cn("text-sm font-bold", pct > 50 ? "text-green-600" : "text-gray-400")}>{pct}%</span>
+                  </div>
+                  <div className="h-1.5 rounded-full bg-gray-100 overflow-hidden">
+                    <div className="h-full rounded-full transition-all duration-700" style={{
+                      width: `${pct}%`,
+                      background: pct === 100 ? 'linear-gradient(90deg, #FFD54F, #FFA000)' : 'linear-gradient(90deg, #81C784, #4CAF50)',
+                    }} />
+                  </div>
+                </div>
+              );
+            })}
+            {programs.length === 0 && (
+              <div className="bg-gray-50 rounded-xl border border-dashed p-6 text-center">
+                <p className="text-2xl mb-1">🌰</p>
+                <p className="text-xs text-gray-500">No programs yet — plant your first seed!</p>
+              </div>
+            )}
           </div>
         </div>
       </div>
 
-      {/* Farm sections per program */}
-      {farms.map((farm, fi) => (
-        <div key={fi} className="mb-8" data-testid={`farm-section-${fi}`}>
-          <div className="flex items-center gap-2 mb-3 px-1">
-            <span className="text-xl">{farm.isLarge ? '🌾' : '🌻'}</span>
-            <h2 className="text-lg font-serif font-bold text-gray-800">{farm.name}</h2>
-            <span className="text-xs text-gray-400 ml-auto">{farm.completed}/{farm.totalBlocks} harvested</span>
-          </div>
-
-          <div className="space-y-2">
-            {farm.blocks.map((block, bi) => (
-              <FarmBlock key={bi} {...block} daysPerBlock={farm.daysPerBlock} programName={farm.name} total={farm.totalBlocks} schedule={[]} />
-            ))}
-          </div>
+      {/* ═══ GROWTH TIMELINE ═══ */}
+      <div className="bg-white rounded-2xl border p-5 mb-6">
+        <h2 className="text-base font-serif font-bold text-gray-900 mb-4">Your Growth Journey</h2>
+        <div className="flex items-center gap-1 overflow-x-auto pb-2">
+          {[
+            { at: 0, emoji: '🌰', label: 'First Seed', desc: 'Your journey begins' },
+            { at: 1000, emoji: '🌱', label: '₹1K', desc: '1 tree planted' },
+            { at: 5000, emoji: '🌿', label: '₹5K', desc: 'A garden emerges' },
+            { at: 10000, emoji: '🌳', label: '₹10K', desc: 'Your forest grows' },
+            { at: 25000, emoji: '🌸', label: '₹25K', desc: 'Cherry blossoms bloom' },
+            { at: 50000, emoji: '🌟', label: '₹50K', desc: 'First golden tree!' },
+            { at: 100000, emoji: '🏆', label: '₹1 Lakh', desc: 'Full orchard' },
+            { at: 500000, emoji: '👑', label: '₹5 Lakh', desc: 'Master Gardener' },
+          ].map((milestone, i) => {
+            const reached = farmStats.totalPaid >= milestone.at;
+            return (
+              <div key={i} className="flex items-center shrink-0">
+                <div className={cn(
+                  "flex flex-col items-center px-3 py-2 rounded-xl transition-all min-w-[70px]",
+                  reached ? "bg-[#D4AF37]/10 border border-[#D4AF37]/30" : "bg-gray-50 border border-gray-100 opacity-50"
+                )}>
+                  <span className={cn("text-xl", !reached && "grayscale")}>{milestone.emoji}</span>
+                  <p className={cn("text-[9px] font-bold mt-0.5", reached ? "text-[#D4AF37]" : "text-gray-400")}>{milestone.label}</p>
+                  <p className="text-[7px] text-gray-400 text-center">{milestone.desc}</p>
+                </div>
+                {i < 7 && <div className={cn("w-4 h-0.5 shrink-0", reached ? "bg-[#D4AF37]" : "bg-gray-200")} />}
+              </div>
+            );
+          })}
         </div>
-      ))}
-
-      {farms.length === 0 && (
-        <div className="bg-gradient-to-br from-[#E8D5B7] to-[#D4B896] rounded-2xl border-2 border-dashed border-[#D4AF37]/40 p-12 text-center">
-          <div className="text-6xl mb-4" style={{ animation: 'gentleSway 3s ease-in-out infinite' }}>🌱</div>
-          <p className="text-lg font-serif text-[#5D3FD3]">Your farm awaits its first seed</p>
-          <p className="text-xs text-gray-500 mt-1">Enroll in a program to start planting</p>
-        </div>
-      )}
+      </div>
 
       <style>{`
         @keyframes gentleSway { 0%, 100% { transform: rotate(-2deg); } 50% { transform: rotate(2deg); } }
-        @keyframes twinkle { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
-        @keyframes floatCloud { 0% { transform: translateX(-80px); } 100% { transform: translateX(calc(100vw + 80px)); } }
-        @keyframes butterfly { 0%, 100% { transform: translate(0,0); } 25% { transform: translate(30px,-15px); } 50% { transform: translate(60px,5px); } 75% { transform: translate(30px,-10px); } }
+        @keyframes float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-8px); } }
+        @keyframes floatCloud { 0% { transform: translateX(-100px); } 100% { transform: translateX(calc(100vw + 100px)); } }
         @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.7; } }
+        @keyframes sparkleRise { 0% { opacity: 1; transform: translateY(0) scale(1); } 100% { opacity: 0; transform: translateY(-60px) scale(0.5); } }
       `}</style>
     </div>
   );
