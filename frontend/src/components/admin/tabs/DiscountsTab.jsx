@@ -309,44 +309,116 @@ export default function DiscountsTab() {
         </div>
       </div>
 
-      {/* Preview */}
-      <div className="bg-gray-900 rounded-lg p-5 text-white">
-        <p className="text-xs font-semibold text-[#D4AF37] mb-3 tracking-wider">ACTIVE DISCOUNTS PREVIEW</p>
-        <div className="space-y-2 text-xs">
-          <div className="flex items-center gap-2">
-            <span className={`w-2 h-2 rounded-full ${settings.enable_referral ? 'bg-green-400' : 'bg-gray-600'}`} />
-            <span className={settings.enable_referral ? 'text-gray-200' : 'text-gray-500'}>Referral: {settings.enable_referral ? 'ON' : 'OFF'}</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <span className={`w-2 h-2 rounded-full ${settings.enable_group_discount ? 'bg-green-400' : 'bg-gray-600'}`} />
-            <span className={settings.enable_group_discount ? 'text-gray-200' : 'text-gray-500'}>
-              Group: {settings.enable_group_discount ? `ON — ${settings.group_discount_rules.length} rule(s)` : 'OFF'}
-            </span>
-          </div>
-          <div className="flex items-center gap-2">
-            <span className={`w-2 h-2 rounded-full ${settings.enable_combo_discount ? 'bg-green-400' : 'bg-gray-600'}`} />
-            <span className={settings.enable_combo_discount ? 'text-gray-200' : 'text-gray-500'}>
-              Combo: {settings.enable_combo_discount ? (
-                settings.combo_rules?.length > 0
-                  ? `ON — ${settings.combo_rules.map(r => `${r.min_programs}+ prog = ${r.discount_pct}% [${r.code}]`).join(', ')}`
-                  : `ON — ${settings.combo_discount_pct}% off for ${settings.combo_min_programs}+ programs`
-              ) : 'OFF'}
-            </span>
-          </div>
-          <div className="flex items-center gap-2">
-            <span className={`w-2 h-2 rounded-full ${settings.enable_loyalty ? 'bg-green-400' : 'bg-gray-600'}`} />
-            <span className={settings.enable_loyalty ? 'text-gray-200' : 'text-gray-500'}>
-              Loyalty: {settings.enable_loyalty ? `ON — ${settings.loyalty_discount_pct}% off for returning clients` : 'OFF'}
-            </span>
-          </div>
-          <div className="flex items-center gap-2">
-            <span className={`w-2 h-2 rounded-full ${(settings.cross_sell_rules || []).length > 0 ? 'bg-green-400' : 'bg-gray-600'}`} />
-            <span className={(settings.cross_sell_rules || []).length > 0 ? 'text-gray-200' : 'text-gray-500'}>
-              Cross-Sell: {(settings.cross_sell_rules || []).filter(r => r.enabled !== false).length} active rule(s)
-              {(settings.cross_sell_rules || []).filter(r => r.enabled !== false).map((r, i) => (
-                <span key={i} className="ml-1 text-[9px] font-mono bg-gray-700 px-1 rounded">[{r.code}]</span>
-              ))}
-            </span>
+      {/* Live Profit Impact Calculator */}
+      <div className="bg-gray-900 rounded-lg p-5 text-white" data-testid="profit-calculator">
+        <p className="text-xs font-semibold text-[#D4AF37] mb-1 tracking-wider">LIVE PROFIT IMPACT</p>
+        <p className="text-[9px] text-gray-500 mb-4">See how discounts affect your revenue per enrollment (AED)</p>
+
+        {/* Per-program breakdown */}
+        <div className="space-y-3 mb-4">
+          {programs.filter(p => p.title && (p.is_upcoming || p.is_flagship)).map(p => {
+            const tiers = p.duration_tiers || [];
+            const rows = tiers.length > 0
+              ? tiers.filter(t => t.price_aed > 0).map(t => ({ label: `${p.title} (${t.label})`, price: t.price_aed, offer: t.offer_price_aed || 0 }))
+              : p.price_aed > 0 ? [{ label: p.title, price: p.price_aed, offer: p.offer_price_aed || 0 }] : [];
+            if (rows.length === 0) return null;
+
+            return rows.map((row, ri) => {
+              const base = row.offer > 0 ? row.offer : row.price;
+              // Combo: best matching rule
+              const comboRules = settings.combo_rules || [];
+              const bestCombo = comboRules.length > 0 ? comboRules.sort((a, b) => b.min_programs - a.min_programs)[0] : null;
+              const comboPct = settings.enable_combo_discount && bestCombo ? bestCombo.discount_pct : 0;
+              const comboAmt = Math.round(base * comboPct / 100);
+              // Group: best matching rule
+              const groupRules = settings.group_discount_rules || [];
+              const bestGroup = groupRules.length > 0 ? groupRules.sort((a, b) => b.min_participants - a.min_participants)[0] : null;
+              const groupPct = settings.enable_group_discount && bestGroup ? bestGroup.discount_pct : 0;
+              const groupAmt = Math.round(base * groupPct / 100);
+              // Loyalty
+              const loyaltyPct = settings.enable_loyalty ? (settings.loyalty_discount_pct || 0) : 0;
+              const loyaltyAmt = Math.round(base * loyaltyPct / 100);
+              // Cross-sell
+              let crossAmt = 0;
+              (settings.cross_sell_rules || []).filter(r => r.enabled !== false).forEach(r => {
+                if (String(r.get_program_id) === String(p.id) && r.discount_type === 'percentage') {
+                  crossAmt += Math.round(base * (r.discount_value || 0) / 100);
+                } else if (String(r.get_program_id) === String(p.id) && r.discount_type === 'fixed') {
+                  crossAmt += r.discount_value || 0;
+                }
+              });
+
+              const maxDiscount = comboAmt + groupAmt + loyaltyAmt + crossAmt;
+              const minRevenue = Math.max(0, base - maxDiscount);
+              const discountPct = base > 0 ? Math.round((maxDiscount / base) * 100) : 0;
+
+              return (
+                <div key={`${p.id}-${ri}`} className="bg-gray-800 rounded-lg p-3">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-xs font-semibold text-gray-200 truncate max-w-[200px]">{row.label}</span>
+                    <div className="flex items-center gap-2">
+                      {row.offer > 0 && <span className="text-[9px] text-gray-500 line-through">AED {row.price.toLocaleString()}</span>}
+                      <span className="text-sm font-bold text-[#D4AF37]">AED {base.toLocaleString()}</span>
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-5 gap-2 text-[9px]">
+                    {comboPct > 0 && (
+                      <div className="bg-amber-900/30 rounded px-2 py-1">
+                        <span className="text-amber-400 block">Combo {comboPct}%</span>
+                        <span className="text-white font-mono">-{comboAmt}</span>
+                      </div>
+                    )}
+                    {groupPct > 0 && (
+                      <div className="bg-blue-900/30 rounded px-2 py-1">
+                        <span className="text-blue-400 block">Group {groupPct}%</span>
+                        <span className="text-white font-mono">-{groupAmt}</span>
+                      </div>
+                    )}
+                    {loyaltyPct > 0 && (
+                      <div className="bg-rose-900/30 rounded px-2 py-1">
+                        <span className="text-rose-400 block">Loyalty {loyaltyPct}%</span>
+                        <span className="text-white font-mono">-{loyaltyAmt}</span>
+                      </div>
+                    )}
+                    {crossAmt > 0 && (
+                      <div className="bg-green-900/30 rounded px-2 py-1">
+                        <span className="text-green-400 block">Cross-Sell</span>
+                        <span className="text-white font-mono">-{crossAmt}</span>
+                      </div>
+                    )}
+                    <div className={`rounded px-2 py-1 ${discountPct > 25 ? 'bg-red-900/40' : 'bg-gray-700'}`}>
+                      <span className="text-gray-400 block">You Get</span>
+                      <span className={`font-bold font-mono ${discountPct > 25 ? 'text-red-400' : 'text-green-400'}`}>AED {minRevenue.toLocaleString()}</span>
+                    </div>
+                  </div>
+                  {discountPct > 0 && (
+                    <div className="mt-1.5 h-1.5 rounded-full bg-gray-700 overflow-hidden">
+                      <div className={`h-full rounded-full ${discountPct > 25 ? 'bg-red-500' : discountPct > 15 ? 'bg-amber-500' : 'bg-green-500'}`}
+                        style={{ width: `${100 - discountPct}%` }} />
+                    </div>
+                  )}
+                </div>
+              );
+            });
+          })}
+        </div>
+
+        {/* Active rules summary */}
+        <div className="border-t border-gray-700 pt-3">
+          <p className="text-[9px] text-gray-500 mb-2 uppercase tracking-wider">Active Rules</p>
+          <div className="flex flex-wrap gap-2">
+            {settings.enable_combo_discount && <span className="text-[9px] bg-amber-900/40 text-amber-400 px-2 py-0.5 rounded">Combo ON</span>}
+            {settings.enable_group_discount && <span className="text-[9px] bg-blue-900/40 text-blue-400 px-2 py-0.5 rounded">Group ON</span>}
+            {settings.enable_loyalty && <span className="text-[9px] bg-rose-900/40 text-rose-400 px-2 py-0.5 rounded">Loyalty {settings.loyalty_discount_pct}%</span>}
+            {(settings.cross_sell_rules || []).filter(r => r.enabled !== false).map((r, i) => (
+              <span key={i} className="text-[9px] bg-green-900/40 text-green-400 px-2 py-0.5 rounded font-mono">{r.code}</span>
+            ))}
+            {(settings.combo_rules || []).map((r, i) => (
+              <span key={i} className="text-[9px] bg-amber-900/40 text-amber-400 px-2 py-0.5 rounded font-mono">{r.code}: {r.discount_pct}%</span>
+            ))}
+            {!settings.enable_combo_discount && !settings.enable_group_discount && !settings.enable_loyalty && !(settings.cross_sell_rules || []).length && (
+              <span className="text-[9px] text-gray-600">No active discounts</span>
+            )}
           </div>
         </div>
       </div>
