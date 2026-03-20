@@ -396,7 +396,7 @@ function EnrollmentPage() {
     const tiers = item.duration_tiers || [];
     const hasTiers = item.is_flagship && tiers.length > 0;
     const tier = hasTiers && tierIndex !== null ? tiers[tierIndex] : null;
-    if (tier) return tier[`offer_${currency}`] || 0;
+    if (tier) return tier[`offer_price_${currency}`] || tier[`offer_${currency}`] || 0;
     if (currency === 'aed') return item.offer_price_aed || 0;
     if (currency === 'inr') return item.offer_price_inr || 0;
     if (currency === 'usd') return item.offer_price_usd || 0;
@@ -406,6 +406,12 @@ function EnrollmentPage() {
   const tiers = item?.duration_tiers || [];
   const hasTiers = item?.is_flagship && tiers.length > 0 && selectedTier !== null;
   const tierObj = hasTiers ? tiers[selectedTier] : null;
+
+  // Tier-aware display values for the left card
+  const displayStartDate = tierObj?.start_date || item?.start_date || '';
+  const displayEndDate = tierObj?.end_date || item?.end_date || '';
+  const displayDuration = tierObj?.duration || item?.duration || '';
+
   const unitPrice = item ? toDisplay(getLocalPrice(item, hasTiers ? selectedTier : null)) : 0;
   const offerUnitPrice = item ? toDisplay(getLocalOfferPrice(item, hasTiers ? selectedTier : null)) : 0;
   const effectiveUnitPrice = offerUnitPrice > 0 ? offerUnitPrice : unitPrice;
@@ -573,14 +579,14 @@ function EnrollmentPage() {
                     </div>
                     {/* Dates & timing - top right */}
                     <div className="absolute top-3 right-3 flex flex-col items-end gap-1">
-                      {item.start_date && item.show_start_date_on_card !== false && (
+                      {displayStartDate && item.show_start_date_on_card !== false && (
                         <span className="bg-black/60 backdrop-blur-sm text-white text-[10px] font-bold px-2 py-0.5 rounded flex items-center gap-1">
-                          <Calendar size={10} /> Starts: {item.start_date}
+                          <Calendar size={10} /> Starts: {displayStartDate}
                         </span>
                       )}
-                      {item.end_date && item.show_end_date_on_card !== false && (
+                      {displayEndDate && item.show_end_date_on_card !== false && (
                         <span className="bg-black/60 backdrop-blur-sm text-white text-[10px] font-bold px-2 py-0.5 rounded flex items-center gap-1">
-                          <Calendar size={10} /> Ends: {item.end_date}
+                          <Calendar size={10} /> Ends: {displayEndDate}
                         </span>
                       )}
                       {item.timing && item.show_timing_on_card !== false && (
@@ -588,8 +594,8 @@ function EnrollmentPage() {
                           <Clock size={10} /> {item.timing} {item.time_zone || ''}
                         </span>
                       )}
-                      {item.duration && item.show_duration_on_card !== false && (
-                        <span className="bg-[#D4AF37] text-white text-[11px] font-bold px-2.5 py-1 rounded shadow-sm">{item.duration}</span>
+                      {displayDuration && item.show_duration_on_card !== false && (
+                        <span className="bg-[#D4AF37] text-white text-[11px] font-bold px-2.5 py-1 rounded shadow-sm">{displayDuration}</span>
                       )}
                     </div>
                     {/* Exclusive offer badge - bottom */}

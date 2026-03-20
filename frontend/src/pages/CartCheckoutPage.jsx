@@ -129,7 +129,7 @@ function CartCheckoutPage() {
     const hasTiers = item.isFlagship && tiers.length > 0;
     const tier = hasTiers ? tiers[item.tierIndex] : null;
     let base = 0;
-    if (tier) base = tier[`offer_${currency}`] || 0;
+    if (tier) base = tier[`offer_price_${currency}`] || tier[`offer_${currency}`] || 0;
     else if (currency === 'aed') base = item.offer_price_aed || 0;
     else if (currency === 'inr') base = item.offer_price_inr || 0;
     else if (currency === 'usd') base = item.offer_price_usd || 0;
