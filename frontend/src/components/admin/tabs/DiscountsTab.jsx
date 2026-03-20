@@ -273,25 +273,47 @@ export default function DiscountsTab() {
                 <div className="flex items-center gap-2 flex-wrap">
                   <Switch checked={rule.enabled !== false} onCheckedChange={v => updateRule('enabled', v)} />
                   <span className="text-xs text-gray-600 whitespace-nowrap">Buy</span>
-                  <select value={rule.buy_program_id || ''} onChange={e => updateRule('buy_program_id', e.target.value)}
-                    className="border rounded px-2 py-1 text-xs bg-white h-7 min-w-[140px]">
+                  <select value={rule.buy_program_id || ''} onChange={e => { updateRule('buy_program_id', e.target.value); updateRule('buy_tier', ''); }}
+                    className="border rounded px-2 py-1 text-xs bg-white h-7 min-w-[120px]">
                     <option value="">Select program</option>
                     {programs.filter(p => p.title).map(p => <option key={p.id} value={p.id}>{p.title}</option>)}
                   </select>
+                  {(() => {
+                    const buyProg = programs.find(p => String(p.id) === String(rule.buy_program_id));
+                    const buyTiers = buyProg?.duration_tiers || [];
+                    return buyTiers.length > 0 ? (
+                      <select value={rule.buy_tier ?? ''} onChange={e => updateRule('buy_tier', e.target.value)}
+                        className="border rounded px-1 py-1 text-[10px] bg-amber-50 h-7 min-w-[80px]">
+                        <option value="">Any tier</option>
+                        {buyTiers.map((t, ti) => <option key={ti} value={ti}>{t.label}</option>)}
+                      </select>
+                    ) : null;
+                  })()}
                   <span className="text-xs text-gray-600">→ Get</span>
                   <Input type="number" value={rule.discount_value || 0} onChange={e => updateRule('discount_value', parseFloat(e.target.value) || 0)}
-                    className="w-16 h-7 text-xs text-center" min={0} />
+                    className="w-14 h-7 text-xs text-center" min={0} />
                   <select value={rule.discount_type || 'percentage'} onChange={e => updateRule('discount_type', e.target.value)}
                     className="border rounded px-1 py-1 text-xs bg-white h-7">
                     <option value="percentage">%</option>
                     <option value="fixed">Fixed</option>
                   </select>
                   <span className="text-xs text-gray-600">off</span>
-                  <select value={rule.get_program_id || ''} onChange={e => updateRule('get_program_id', e.target.value)}
-                    className="border rounded px-2 py-1 text-xs bg-white h-7 min-w-[140px]">
+                  <select value={rule.get_program_id || ''} onChange={e => { updateRule('get_program_id', e.target.value); updateRule('get_tier', ''); }}
+                    className="border rounded px-2 py-1 text-xs bg-white h-7 min-w-[120px]">
                     <option value="">Select program</option>
                     {programs.filter(p => p.title).map(p => <option key={p.id} value={p.id}>{p.title}</option>)}
                   </select>
+                  {(() => {
+                    const getProg = programs.find(p => String(p.id) === String(rule.get_program_id));
+                    const getTiers = getProg?.duration_tiers || [];
+                    return getTiers.length > 0 ? (
+                      <select value={rule.get_tier ?? ''} onChange={e => updateRule('get_tier', e.target.value)}
+                        className="border rounded px-1 py-1 text-[10px] bg-green-50 h-7 min-w-[80px]">
+                        <option value="">Any tier</option>
+                        {getTiers.map((t, ti) => <option key={ti} value={ti}>{t.label}</option>)}
+                      </select>
+                    ) : null;
+                  })()}
                 </div>
                 <div className="flex items-center gap-2 mt-1.5">
                   <span className="text-[9px] text-gray-400">Code:</span>
@@ -299,7 +321,19 @@ export default function DiscountsTab() {
                     className="w-24 h-6 text-[10px] font-mono" placeholder="XSELL1" />
                   <span className="text-[9px] text-gray-400">Label:</span>
                   <Input value={rule.label || ''} onChange={e => updateRule('label', e.target.value)}
-                    className="w-40 h-6 text-[10px]" placeholder="e.g. AWRP + QLH Special" />
+                    className="w-40 h-6 text-[10px]" placeholder="e.g. AWRP 1M + 3M Bundle" />
+                  {/* Live preview */}
+                  {rule.buy_program_id && rule.get_program_id && rule.discount_value > 0 && (() => {
+                    const bp = programs.find(p => String(p.id) === String(rule.buy_program_id));
+                    const gp = programs.find(p => String(p.id) === String(rule.get_program_id));
+                    const bLabel = bp ? (rule.buy_tier !== '' && rule.buy_tier !== undefined ? `${bp.title} (${bp.duration_tiers?.[rule.buy_tier]?.label || ''})` : bp.title) : '?';
+                    const gLabel = gp ? (rule.get_tier !== '' && rule.get_tier !== undefined ? `${gp.title} (${gp.duration_tiers?.[rule.get_tier]?.label || ''})` : gp.title) : '?';
+                    return (
+                      <span className="text-[8px] text-green-600 bg-green-50 px-2 py-0.5 rounded ml-2">
+                        Buy {bLabel} → {rule.discount_value}{rule.discount_type === 'percentage' ? '%' : ' AED'} off {gLabel}
+                      </span>
+                    );
+                  })()}
                   <button onClick={() => setSettings(prev => ({ ...prev, cross_sell_rules: (prev.cross_sell_rules || []).filter((_, j) => j !== i) }))}
                     className="text-red-400 hover:text-red-600 ml-auto"><Trash2 size={14} /></button>
                 </div>
