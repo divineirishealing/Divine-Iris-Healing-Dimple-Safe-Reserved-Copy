@@ -170,9 +170,14 @@ async def calculate_discounts(data: dict):
                         if get_tier and get_tier != "None" and get_tier != "":
                             tiers = target_prog.get("duration_tiers", [])
                             ti = int(get_tier) if get_tier.isdigit() else 0
-                            target_price = tiers[ti].get(f"price_{currency}", 0) if ti < len(tiers) else 0
+                            if ti < len(tiers):
+                                # Use offer price if available, else original
+                                target_price = tiers[ti].get(f"offer_price_{currency}", 0) or tiers[ti].get(f"price_{currency}", 0)
+                            else:
+                                target_price = 0
                         else:
-                            target_price = target_prog.get(f"price_{currency}", 0)
+                            # Use offer price if available, else original
+                            target_price = target_prog.get(f"offer_price_{currency}", 0) or target_prog.get(f"price_{currency}", 0)
                         amt = round(target_price * disc_val / 100)
                         cross_sell_discount += amt
                         cross_sell_details.append({"rule": rule.get("label", ""), "code": rule.get("code", ""), "amount": amt})
