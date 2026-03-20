@@ -559,8 +559,6 @@ const ComboBanner = ({ programs, comboRules }) => {
 };
 
 const CrossSellBanner = ({ rules, programs }) => {
-  const { addItem, items } = useCart();
-  const { toast } = useToast();
   const { symbol } = useCurrency();
 
   return (
@@ -575,44 +573,24 @@ const CrossSellBanner = ({ rules, programs }) => {
           const tp = programs.find(p => String(p.id) === String(t.program_id));
           if (!tp) return null;
           const tier = t.tier !== '' && t.tier !== undefined ? tp.duration_tiers?.[t.tier] : null;
-          return { ...t, title: tier ? `${tp.title} (${tier.label})` : tp.title, prog: tp };
+          return { ...t, title: tier ? `${tp.title} (${tier.label})` : tp.title };
         }).filter(Boolean);
         if (validTargets.length === 0) return null;
 
-        const handleAdd = () => {
-          let added = 0;
-          [buyProg, ...validTargets.map(t => t.prog)].forEach(p => {
-            if (!items.some(i => i.programId === p.id)) { addItem(p, 0); added++; }
-          });
-          toast({ title: added > 0 ? `${added} program${added > 1 ? 's' : ''} added!` : 'Already in cart' });
-        };
-
         return (
-          <div key={ri} className="rounded-xl border-2 border-dashed border-green-300/60 bg-gradient-to-r from-green-50 via-white to-emerald-50 p-4" data-testid={`cross-sell-strip-${ri}`}>
-            <div className="flex items-start gap-3">
-              <div className="w-10 h-10 rounded-xl bg-green-100 flex items-center justify-center shrink-0">
-                <Gift size={18} className="text-green-600" />
-              </div>
-              <div className="flex-1">
-                <p className="text-sm font-bold text-gray-900 mb-1">{rule.label || 'Special Offer'}</p>
-                <p className="text-xs text-gray-600 mb-2">
-                  Take <strong>{buyLabel}</strong> and get:
-                </p>
-                <div className="space-y-1 mb-3">
-                  {validTargets.map((t, ti) => (
-                    <div key={ti} className="flex items-center gap-2">
-                      <span className="w-5 h-5 rounded-full bg-green-500 text-white text-[9px] font-bold flex items-center justify-center shrink-0">{ti + 1}</span>
-                      <span className="text-xs text-gray-700">
-                        <strong className="text-green-700">{t.discount_value}{t.discount_type === 'percentage' ? '%' : ` ${symbol}`} off</strong> on <strong>{t.title}</strong>
-                      </span>
-                    </div>
-                  ))}
-                </div>
-                <button onClick={handleAdd} className="inline-flex items-center gap-1.5 px-4 py-2 rounded-full bg-green-600 hover:bg-green-700 text-white text-xs font-semibold tracking-wide transition-colors">
-                  <ShoppingCart size={12} /> Add All to Cart
-                </button>
-                {rule.code && <span className="ml-2 text-[8px] font-mono text-green-500 bg-green-50 px-2 py-0.5 rounded">{rule.code}</span>}
-              </div>
+          <div key={ri} className="rounded-xl border border-[#D4AF37]/30 bg-gradient-to-r from-[#fdf6e3] via-[#fffbf0] to-[#fdf6e3] px-5 py-3" data-testid={`cross-sell-strip-${ri}`}>
+            <div className="flex items-center gap-3">
+              <Gift size={16} className="text-[#D4AF37] shrink-0" />
+              <p className="text-xs text-gray-800">
+                <strong className="text-gray-900">{rule.label || 'Special Offer'}:</strong>{' '}
+                Enroll in <strong>{buyLabel}</strong> and get{' '}
+                {validTargets.map((t, ti) => (
+                  <span key={ti}>
+                    {ti > 0 && ' + '}
+                    <strong className="text-[#D4AF37]">{t.discount_value}{t.discount_type === 'percentage' ? '%' : ` ${symbol}`} off</strong> on <strong>{t.title}</strong>
+                  </span>
+                ))}
+              </p>
             </div>
           </div>
         );
