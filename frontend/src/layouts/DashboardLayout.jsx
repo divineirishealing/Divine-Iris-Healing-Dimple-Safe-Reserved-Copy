@@ -30,9 +30,7 @@ const DashboardLayout = () => {
   }
 
   return (
-    <div className="flex h-screen overflow-hidden relative" style={{ background: 'linear-gradient(135deg, #f8f5ff 0%, #f3ecff 30%, #efe7ff 60%, #f8f5ff 100%)' }}>
-      {/* Animated glitter background on ALL pages */}
-      <SoulBackground intensity="normal" />
+    <div className="flex h-screen overflow-hidden relative bg-[#FDFBF7]">
       {/* Mobile menu button - only on non-sanctuary pages or mobile */}
       <button
         data-testid="mobile-menu-toggle"
