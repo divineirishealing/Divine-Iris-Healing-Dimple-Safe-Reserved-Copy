@@ -291,7 +291,7 @@ function EnrollmentPage() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const { toast } = useToast();
-  const { getPrice, getOfferPrice, symbol, baseCurrency, baseSymbol, displayCurrency, displaySymbol, isPrimary, toDisplay, country: detectedCountry } = useCurrency();
+  const { getPrice, getOfferPrice, symbol: rawSymbol, baseCurrency, baseSymbol, displayCurrency, displaySymbol, isPrimary, toDisplay, country: detectedCountry } = useCurrency();
   const currency = baseCurrency;
 
   const tierParam = searchParams.get('tier');
@@ -300,18 +300,18 @@ function EnrollmentPage() {
   const inrToken = searchParams.get('inr_token');
   const [inrOverride, setInrOverride] = useState(false);
 
+  // Country is NOT auto-filled — user must select manually
+
+  const [step, setStep] = useState(0); // 0=Participants+Promo+OTP, 1=Pay
+  const [loading, setLoading] = useState(false);
+  const [item, setItem] = useState(null);
+
   // Default to tier 0 if program has tiers and no tier selected
   useEffect(() => {
     if (item?.is_flagship && item?.duration_tiers?.length > 0 && selectedTier === null) {
       setSelectedTier(0);
     }
   }, [item]);
-
-  // Country is NOT auto-filled — user must select manually
-
-  const [step, setStep] = useState(0); // 0=Participants+Promo+OTP, 1=Pay
-  const [loading, setLoading] = useState(false);
-  const [item, setItem] = useState(null);
   const [enrollmentId, setEnrollmentId] = useState(null);
   const [vpnDetected, setVpnDetected] = useState(false);
   const [participants, setParticipants] = useState([emptyParticipant()]);
@@ -405,13 +405,16 @@ function EnrollmentPage() {
       .catch(() => {});
   }, [inrToken]);
 
-  // Local price getters that respect bookerCountry selection
+  // Local price getters — use INR when inrOverride active
+  const priceCurrency = inrOverride ? 'inr' : currency;
+  const priceSymbol = inrOverride ? '₹' : rawSymbol;
+  const symbol = priceSymbol; // Use INR symbol when override active
   const getLocalPrice = (item, tierIndex = null) => {
     if (!item) return 0;
     const tiers = item.duration_tiers || [];
     const hasTiers = item.is_flagship && tiers.length > 0;
     const tier = hasTiers && tierIndex !== null ? tiers[tierIndex] : null;
-    const key = `price_${currency}`;
+    const key = `price_${priceCurrency}`;
     if (tier) return tier[key] || 0;
     return item[key] || 0;
   };
@@ -420,10 +423,10 @@ function EnrollmentPage() {
     const tiers = item.duration_tiers || [];
     const hasTiers = item.is_flagship && tiers.length > 0;
     const tier = hasTiers && tierIndex !== null ? tiers[tierIndex] : null;
-    if (tier) return tier[`offer_price_${currency}`] || tier[`offer_${currency}`] || 0;
-    if (currency === 'aed') return item.offer_price_aed || 0;
-    if (currency === 'inr') return item.offer_price_inr || 0;
-    if (currency === 'usd') return item.offer_price_usd || 0;
+    if (tier) return tier[`offer_price_${priceCurrency}`] || tier[`offer_${priceCurrency}`] || 0;
+    if (priceCurrency === 'aed') return item.offer_price_aed || 0;
+    if (priceCurrency === 'inr') return item.offer_price_inr || 0;
+    if (priceCurrency === 'usd') return item.offer_price_usd || 0;
     return 0;
   };
 
@@ -436,8 +439,12 @@ function EnrollmentPage() {
   const displayEndDate = tierObj?.end_date || item?.end_date || '';
   const displayDuration = tierObj?.duration || item?.duration || '';
 
-  const unitPrice = item ? toDisplay(getLocalPrice(item, hasTiers ? selectedTier : null)) : 0;
-  const offerUnitPrice = item ? toDisplay(getLocalOfferPrice(item, hasTiers ? selectedTier : null)) : 0;
+  // Price getters — use INR directly when inrOverride is active
+  const effectiveCurrency = inrOverride ? 'inr' : currency;
+  const effectiveSymbol = inrOverride ? '₹' : symbol;
+
+  const unitPrice = item ? (inrOverride ? getLocalPrice(item, hasTiers ? selectedTier : null) : toDisplay(getLocalPrice(item, hasTiers ? selectedTier : null))) : 0;
+  const offerUnitPrice = item ? (inrOverride ? getLocalOfferPrice(item, hasTiers ? selectedTier : null) : toDisplay(getLocalOfferPrice(item, hasTiers ? selectedTier : null))) : 0;
   const effectiveUnitPrice = offerUnitPrice > 0 ? offerUnitPrice : unitPrice;
 
   // Cross-sell: check if "buy" program is in cart → this program gets discount
@@ -592,8 +599,8 @@ function EnrollmentPage() {
     setProcessing(true);
     try {
       const res = await axios.post(`${API}/enrollment/${enrollmentId}/checkout`, {
-        enrollment_id: enrollmentId, item_type: type, item_id: id, currency,
-        display_currency: displayCurrency, display_rate: isPrimary ? 1 : undefined,
+        enrollment_id: enrollmentId, item_type: type, item_id: id, currency: priceCurrency,
+        display_currency: priceCurrency, display_rate: isPrimary ? 1 : undefined,
         origin_url: window.location.origin, promo_code: promoResult?.code || null,
         tier_index: selectedTier,
         browser_timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
