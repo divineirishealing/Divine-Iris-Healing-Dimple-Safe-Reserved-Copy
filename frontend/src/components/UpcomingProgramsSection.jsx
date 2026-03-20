@@ -185,7 +185,7 @@ const CountdownTimer = ({ deadline }) => {
   );
 };
 
-const UpcomingCard = ({ program, crossSellRules = [] }) => {
+const UpcomingCard = ({ program }) => {
   const navigate = useNavigate();
   const { getPrice, getOfferPrice, symbol, country: detectedCountry } = useCurrency();
   const { addItem, items } = useCart();
@@ -199,27 +199,6 @@ const UpcomingCard = ({ program, crossSellRules = [] }) => {
   const isAnnual = tier && (tier.label.toLowerCase().includes('annual') || tier.label.toLowerCase().includes('year') || tier.duration_unit === 'year');
   const price = getPrice(program, hasTiers ? selectedTier : null);
   const offerPrice = getOfferPrice(program, hasTiers ? selectedTier : null);
-  const effectivePrice = offerPrice > 0 ? offerPrice : price;
-
-  // Cross-sell: check if any "buy" program is in cart → this card gets extra discount
-  const crossSellDiscount = (() => {
-    if (!crossSellRules.length || effectivePrice <= 0) return null;
-    for (const rule of crossSellRules) {
-      const targets = rule.targets || (rule.get_program_id ? [{ program_id: rule.get_program_id, discount_value: rule.discount_value, discount_type: rule.discount_type }] : []);
-      const matchTarget = targets.find(t => String(t.program_id) === String(program.id));
-      if (!matchTarget) continue;
-      // Check if buy program is in cart
-      const buyInCart = items.some(i => String(i.programId) === String(rule.buy_program_id));
-      if (buyInCart) {
-        const disc = matchTarget.discount_type === 'percentage'
-          ? Math.round(effectivePrice * (matchTarget.discount_value || 0) / 100)
-          : (matchTarget.discount_value || 0);
-        return { amount: disc, label: rule.label, value: matchTarget.discount_value, type: matchTarget.discount_type };
-      }
-    }
-    return null;
-  })();
-  const crossSellPrice = crossSellDiscount ? Math.max(0, effectivePrice - crossSellDiscount.amount) : null;
 
   const showContact = isAnnual && price === 0;
   const inCart = items.some(i => i.programId === program.id && i.tierIndex === selectedTier);
@@ -436,13 +415,8 @@ const UpcomingCard = ({ program, crossSellRules = [] }) => {
                 </div>
               ) : (
                 <>
-                  <div className="flex items-baseline gap-2 mb-1">
-                    {crossSellPrice !== null ? (
-                      <>
-                        <span className="text-xl font-bold text-green-600">{symbol} {crossSellPrice.toLocaleString()}</span>
-                        <span className="text-xs text-gray-400 line-through">{symbol} {effectivePrice.toLocaleString()}</span>
-                      </>
-                    ) : offerPrice > 0 ? (
+                  <div className="flex items-baseline gap-2 mb-2">
+                    {offerPrice > 0 ? (
                       <>
                         <span className="text-xl font-bold text-[#D4AF37]">{symbol} {offerPrice.toLocaleString()}</span>
                         <span className="text-xs text-gray-400 line-through">{symbol} {price.toLocaleString()}</span>
@@ -453,11 +427,6 @@ const UpcomingCard = ({ program, crossSellRules = [] }) => {
                       <span className="text-xl font-bold text-green-600">FREE</span>
                     )}
                   </div>
-                  {crossSellPrice !== null && (
-                    <p className="text-[9px] text-green-600 font-medium mb-2 flex items-center gap-1">
-                      <Gift size={10} /> {crossSellDiscount.label || 'Cross-sell'}: {crossSellDiscount.value}{crossSellDiscount.type === 'percentage' ? '%' : ` ${symbol}`} off applied
-                    </p>
-                  )}
                   <div className="flex gap-1.5">
                     <button onClick={() => navigate(`/program/${program.id}`)} data-testid={`upcoming-know-more-${program.id}`}
                       className="flex-1 bg-[#1a1a1a] hover:bg-[#333] text-white py-2 rounded-full text-[10px] tracking-wider transition-all duration-300 uppercase font-medium">
@@ -683,7 +652,7 @@ const UpcomingProgramsSection = ({ sectionConfig, inline }) => {
             <h2 className="text-xl md:text-2xl text-gray-900" style={applyTitleStyle(sectionConfig?.title_style, {})}>{sectionConfig?.title || 'Upcoming Programs'}</h2>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {sorted.map(program => <UpcomingCard key={program.id} program={program} crossSellRules={crossSellRules} />)}
+            {sorted.map(program => <UpcomingCard key={program.id} program={program} />)}
           </div>
         </>
       ) : (
@@ -721,7 +690,7 @@ const UpcomingProgramsSection = ({ sectionConfig, inline }) => {
                 )}
               </div>
               {/* Cards */}
-              {sorted.map(program => <UpcomingCard key={program.id} program={program} crossSellRules={crossSellRules} />)}
+              {sorted.map(program => <UpcomingCard key={program.id} program={program} />)}
 
               {/* Combo Discount Banner — spans full width below cards on mobile, beside sponsor on desktop */}
               {comboDiscount && openPrograms.length >= (comboDiscount.rules[0]?.min_programs || 2) && (
