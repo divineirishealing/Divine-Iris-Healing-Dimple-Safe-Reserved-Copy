@@ -509,28 +509,20 @@ const SponsorCard = ({ sponsorData }) => {
   );
 };
 
-const ComboBanner = ({ programs, discount }) => {
-  const navigate = useNavigate();
-  const { symbol, getPrice, getOfferPrice } = useCurrency();
+const ComboBanner = ({ programs, comboRules }) => {
   const { addItem, items } = useCart();
   const { toast } = useToast();
 
   const names = programs.map(p => p.title.length > 25 ? p.title.slice(0, 25) + '...' : p.title);
+  // Sort rules ascending by min_programs
+  const rules = [...comboRules].sort((a, b) => a.min_programs - b.min_programs);
 
   const handleAddAll = () => {
     let added = 0;
     programs.forEach(p => {
-      const exists = items.some(i => i.programId === p.id);
-      if (!exists) {
-        addItem(p, 0);
-        added++;
-      }
+      if (!items.some(i => i.programId === p.id)) { addItem(p, 0); added++; }
     });
-    if (added > 0) {
-      toast({ title: `${added} program${added > 1 ? 's' : ''} added to cart!`, description: `Combo discount of ${discount.pct}% will apply at checkout` });
-    } else {
-      toast({ title: 'Already in cart' });
-    }
+    toast({ title: added > 0 ? `${added} program${added > 1 ? 's' : ''} added to cart!` : 'Already in cart' });
   };
 
   return (
@@ -540,15 +532,25 @@ const ComboBanner = ({ programs, discount }) => {
           <ShoppingCart size={18} className="text-[#D4AF37]" />
         </div>
         <div className="flex-1">
-          <p className="text-sm font-bold text-gray-900 mb-0.5">
-            Combo Package — Save {discount.pct}%
+          <p className="text-sm font-bold text-gray-900 mb-1">
+            {rules[0]?.label || 'Combo Package'} — Save up to {rules[rules.length - 1]?.discount_pct || rules[0]?.discount_pct}%
           </p>
-          <p className="text-xs text-gray-600 mb-2">
-            Enroll in <strong>{names.join(' + ')}</strong> together and get <span className="text-[#D4AF37] font-bold">{discount.pct}% off</span> your total.
+          <div className="space-y-1 mb-2">
+            {rules.map((r, i) => (
+              <div key={i} className="flex items-center gap-2 text-xs">
+                <span className="w-5 h-5 rounded-full bg-[#D4AF37]/20 text-[#D4AF37] font-bold text-[10px] flex items-center justify-center">{r.min_programs}</span>
+                <span className="text-gray-600">{r.min_programs} programs together →</span>
+                <span className="text-[#D4AF37] font-bold">{r.discount_pct}% off</span>
+                <span className="text-[8px] font-mono bg-gray-100 px-1.5 py-0.5 rounded text-gray-500">{r.code}</span>
+              </div>
+            ))}
+          </div>
+          <p className="text-[10px] text-gray-500 mb-2">
+            Available: <strong>{names.join(' + ')}</strong>
           </p>
           <button onClick={handleAddAll} data-testid="combo-add-all"
             className="inline-flex items-center gap-1.5 px-4 py-2 rounded-full bg-[#D4AF37] hover:bg-[#b8962e] text-white text-xs font-semibold tracking-wide transition-colors">
-            <ShoppingCart size={12} /> Add Both to Cart
+            <ShoppingCart size={12} /> Add All to Cart
           </button>
         </div>
       </div>
@@ -560,7 +562,7 @@ const UpcomingProgramsSection = ({ sectionConfig, inline }) => {
   const [programs, setPrograms] = useState([]);
   const [sponsorData, setSponsorData] = useState(null);
   const [sponsorConfig, setSponsorConfig] = useState(null);
-  const [comboDiscount, setComboDiscount] = useState(null); // { enabled, pct, min }
+  const [comboDiscount, setComboDiscount] = useState(null); // { rules: [...] }
 
   useEffect(() => {
     axios.get(`${API}/programs?visible_only=true&upcoming_only=true`)
@@ -572,8 +574,13 @@ const UpcomingProgramsSection = ({ sectionConfig, inline }) => {
       if (sc) setSponsorConfig(sc);
     }).catch(() => {});
     axios.get(`${API}/discounts/settings`).then(r => {
-      if (r.data?.enable_combo_discount && r.data?.combo_discount_pct > 0) {
-        setComboDiscount({ pct: r.data.combo_discount_pct, min: r.data.combo_min_programs || 2 });
+      if (r.data?.enable_combo_discount) {
+        const rules = r.data.combo_rules?.length > 0
+          ? r.data.combo_rules
+          : r.data.combo_discount_pct > 0
+            ? [{ min_programs: r.data.combo_min_programs || 2, discount_pct: r.data.combo_discount_pct, code: 'COMBO', label: 'Combo Package' }]
+            : [];
+        if (rules.length > 0) setComboDiscount({ rules });
       }
     }).catch(() => {});
   }, []);
@@ -646,9 +653,9 @@ const UpcomingProgramsSection = ({ sectionConfig, inline }) => {
               {sorted.map(program => <UpcomingCard key={program.id} program={program} />)}
 
               {/* Combo Discount Banner — spans full width below cards on mobile, beside sponsor on desktop */}
-              {comboDiscount && openPrograms.length >= comboDiscount.min && (
+              {comboDiscount && openPrograms.length >= (comboDiscount.rules[0]?.min_programs || 2) && (
                 <div className="lg:hidden col-span-full" data-testid="combo-banner-mobile">
-                  <ComboBanner programs={openPrograms} discount={comboDiscount} />
+                  <ComboBanner programs={openPrograms} comboRules={comboDiscount.rules} />
                 </div>
               )}
               <div className="h-full">
@@ -664,9 +671,9 @@ const UpcomingProgramsSection = ({ sectionConfig, inline }) => {
       )}
 
       {/* Combo Banner — desktop full width below grid */}
-      {!inline && comboDiscount && openPrograms.length >= comboDiscount.min && (
+      {!inline && comboDiscount && openPrograms.length >= (comboDiscount.rules[0]?.min_programs || 2) && (
         <div className="hidden lg:block mt-6">
-          <ComboBanner programs={openPrograms} discount={comboDiscount} />
+          <ComboBanner programs={openPrograms} comboRules={comboDiscount.rules} />
         </div>
       )}
     </div>

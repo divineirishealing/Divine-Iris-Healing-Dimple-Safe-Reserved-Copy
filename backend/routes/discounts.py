@@ -36,6 +36,7 @@ async def get_discount_settings():
         "enable_combo_discount": settings.get("enable_combo_discount", False),
         "combo_discount_pct": settings.get("combo_discount_pct", 0),
         "combo_min_programs": settings.get("combo_min_programs", 2),
+        "combo_rules": settings.get("combo_rules", []),
         "enable_loyalty": settings.get("enable_loyalty", False),
         "loyalty_discount_pct": settings.get("loyalty_discount_pct", 0),
     }
@@ -88,11 +89,27 @@ async def calculate_discounts(data: dict):
                 remaining -= group_discount
                 break
 
-    # 2. Combo discount (2+ programs in cart)
-    if settings.get("enable_combo_discount") and num_programs >= settings.get("combo_min_programs", 2):
-        pct = settings.get("combo_discount_pct", 0)
-        combo_discount = round(remaining * pct / 100)
-        remaining -= combo_discount
+    # 2. Combo discount (tiered rules for 2+, 3+ programs)
+    combo_code = ""
+    if settings.get("enable_combo_discount"):
+        combo_rules = settings.get("combo_rules", [])
+        if combo_rules:
+            # Sort by min_programs descending to find best match
+            rules_sorted = sorted(combo_rules, key=lambda r: r.get("min_programs", 0), reverse=True)
+            for rule in rules_sorted:
+                if num_programs >= rule.get("min_programs", 999):
+                    pct = rule.get("discount_pct", 0)
+                    combo_discount = round(remaining * pct / 100)
+                    combo_code = rule.get("code", f"COMBO{rule.get('min_programs', 0)}")
+                    remaining -= combo_discount
+                    break
+        else:
+            # Fallback to simple combo_discount_pct
+            if num_programs >= settings.get("combo_min_programs", 2):
+                pct = settings.get("combo_discount_pct", 0)
+                combo_discount = round(remaining * pct / 100)
+                combo_code = "COMBO"
+                remaining -= combo_discount
 
     # 3. Loyalty discount (returning clients)
     if settings.get("enable_loyalty") and email:
@@ -109,6 +126,48 @@ async def calculate_discounts(data: dict):
     return {
         "group_discount": group_discount,
         "combo_discount": combo_discount,
+        "combo_code": combo_code,
         "loyalty_discount": loyalty_discount,
         "total_discount": total_discount,
+    }
+
+
+
+@router.get("/usage-report")
+async def get_discount_usage_report():
+    """Get discount usage stats from enrollments."""
+    pipeline = [
+        {"$match": {"status": {"$in": ["completed", "paid", "checkout_started"]}}},
+        {"$project": {
+            "_id": 0,
+            "id": 1,
+            "booker_name": 1,
+            "booker_email": 1,
+            "item_title": 1,
+            "participant_count": 1,
+            "promo_code": 1,
+            "combo_code": 1,
+            "discounts_applied": 1,
+            "created_at": 1,
+            "status": 1,
+        }}
+    ]
+    enrollments = await db.enrollments.aggregate(pipeline).to_list(500)
+    
+    # Count promo & combo usage
+    promo_counts = {}
+    combo_counts = {}
+    for e in enrollments:
+        pc = e.get("promo_code", "")
+        cc = e.get("combo_code", "") or e.get("discounts_applied", {}).get("combo_code", "")
+        if pc:
+            promo_counts[pc] = promo_counts.get(pc, 0) + 1
+        if cc:
+            combo_counts[cc] = combo_counts.get(cc, 0) + 1
+    
+    return {
+        "promo_usage": promo_counts,
+        "combo_usage": combo_counts,
+        "total_enrollments_with_discounts": sum(1 for e in enrollments if e.get("promo_code") or e.get("combo_code") or e.get("discounts_applied")),
+        "recent": enrollments[:20],
     }

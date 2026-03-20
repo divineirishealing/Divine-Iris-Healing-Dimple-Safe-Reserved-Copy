@@ -21,6 +21,7 @@ export default function DiscountsTab() {
     enable_combo_discount: false,
     combo_discount_pct: 0,
     combo_min_programs: 2,
+    combo_rules: [],
     enable_loyalty: false,
     loyalty_discount_pct: 0,
   });
@@ -141,7 +142,7 @@ export default function DiscountsTab() {
         )}
       </div>
 
-      {/* Combo Discount */}
+      {/* Combo Discount — Tiered Rules */}
       <div className="bg-white rounded-lg border p-5" data-testid="combo-discount-section">
         <div className="flex items-center justify-between mb-2">
           <div className="flex items-center gap-3">
@@ -150,20 +151,57 @@ export default function DiscountsTab() {
             </div>
             <div>
               <p className="text-sm font-semibold text-gray-900">Combo Discount</p>
-              <p className="text-[10px] text-gray-500">Discount when multiple programs are in the cart</p>
+              <p className="text-[10px] text-gray-500">Tiered discounts when multiple programs are in the cart. Each rule gets a tracking code.</p>
             </div>
           </div>
           <Switch checked={settings.enable_combo_discount} onCheckedChange={v => setSettings(prev => ({ ...prev, enable_combo_discount: v }))} data-testid="toggle-combo-discount" />
         </div>
         {settings.enable_combo_discount && (
-          <div className="mt-3 flex items-center gap-3 bg-gray-50 rounded-lg px-3 py-2">
-            <span className="text-xs text-gray-500 whitespace-nowrap">When cart has</span>
-            <Input type="number" value={settings.combo_min_programs} onChange={e => setSettings(prev => ({ ...prev, combo_min_programs: parseInt(e.target.value) || 2 }))}
-              className="w-14 h-7 text-xs text-center" min={2} />
-            <span className="text-xs text-gray-500 whitespace-nowrap">or more programs → apply</span>
-            <Input type="number" value={settings.combo_discount_pct} onChange={e => setSettings(prev => ({ ...prev, combo_discount_pct: parseFloat(e.target.value) || 0 }))}
-              className="w-16 h-7 text-xs text-center" min={0} max={50} />
-            <span className="text-xs text-gray-500">% off</span>
+          <div className="mt-3 space-y-2">
+            <div className="flex items-center justify-between">
+              <Label className="text-xs text-gray-500">Combo tiers (e.g. 2 programs = 10%, 3 programs = 15%)</Label>
+              <Button size="sm" variant="outline" onClick={() => setSettings(prev => ({
+                ...prev,
+                combo_rules: [...(prev.combo_rules || []), { min_programs: 2, discount_pct: 10, code: `COMBO${(prev.combo_rules?.length || 0) + 2}`, label: '' }]
+              }))} className="text-xs h-7" data-testid="add-combo-rule">
+                <Plus size={12} className="mr-1" /> Add Rule
+              </Button>
+            </div>
+            {(!settings.combo_rules || settings.combo_rules.length === 0) && (
+              <p className="text-[10px] text-gray-400 italic">No combo rules yet. Add a rule like "2+ programs = 10% off (code: COMBO2)".</p>
+            )}
+            {(settings.combo_rules || []).map((rule, i) => (
+              <div key={i} className="flex items-center gap-2 bg-amber-50 rounded-lg px-3 py-2 border border-amber-200" data-testid={`combo-rule-${i}`}>
+                <span className="text-xs text-gray-500 whitespace-nowrap">If</span>
+                <Input type="number" value={rule.min_programs} onChange={e => {
+                  const rules = [...(settings.combo_rules || [])];
+                  rules[i] = { ...rules[i], min_programs: parseInt(e.target.value) || 2 };
+                  setSettings(prev => ({ ...prev, combo_rules: rules }));
+                }} className="w-12 h-7 text-xs text-center" min={2} />
+                <span className="text-xs text-gray-500 whitespace-nowrap">+ programs →</span>
+                <Input type="number" value={rule.discount_pct} onChange={e => {
+                  const rules = [...(settings.combo_rules || [])];
+                  rules[i] = { ...rules[i], discount_pct: parseFloat(e.target.value) || 0 };
+                  setSettings(prev => ({ ...prev, combo_rules: rules }));
+                }} className="w-14 h-7 text-xs text-center" min={0} max={50} />
+                <span className="text-xs text-gray-500">%</span>
+                <span className="text-[9px] text-gray-400 mx-1">code:</span>
+                <Input value={rule.code || ''} onChange={e => {
+                  const rules = [...(settings.combo_rules || [])];
+                  rules[i] = { ...rules[i], code: e.target.value.toUpperCase() };
+                  setSettings(prev => ({ ...prev, combo_rules: rules }));
+                }} className="w-24 h-7 text-xs font-mono bg-white" placeholder="COMBO2" />
+                <span className="text-[9px] text-gray-400 mx-1">label:</span>
+                <Input value={rule.label || ''} onChange={e => {
+                  const rules = [...(settings.combo_rules || [])];
+                  rules[i] = { ...rules[i], label: e.target.value };
+                  setSettings(prev => ({ ...prev, combo_rules: rules }));
+                }} className="w-32 h-7 text-xs" placeholder="Combo Package" />
+                <button onClick={() => {
+                  setSettings(prev => ({ ...prev, combo_rules: (prev.combo_rules || []).filter((_, j) => j !== i) }));
+                }} className="text-red-400 hover:text-red-600 ml-auto"><Trash2 size={14} /></button>
+              </div>
+            ))}
           </div>
         )}
       </div>
@@ -209,7 +247,11 @@ export default function DiscountsTab() {
           <div className="flex items-center gap-2">
             <span className={`w-2 h-2 rounded-full ${settings.enable_combo_discount ? 'bg-green-400' : 'bg-gray-600'}`} />
             <span className={settings.enable_combo_discount ? 'text-gray-200' : 'text-gray-500'}>
-              Combo: {settings.enable_combo_discount ? `ON — ${settings.combo_discount_pct}% off for ${settings.combo_min_programs}+ programs` : 'OFF'}
+              Combo: {settings.enable_combo_discount ? (
+                settings.combo_rules?.length > 0
+                  ? `ON — ${settings.combo_rules.map(r => `${r.min_programs}+ prog = ${r.discount_pct}% [${r.code}]`).join(', ')}`
+                  : `ON — ${settings.combo_discount_pct}% off for ${settings.combo_min_programs}+ programs`
+              ) : 'OFF'}
             </span>
           </div>
           <div className="flex items-center gap-2">
