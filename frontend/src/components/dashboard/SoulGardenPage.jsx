@@ -1,80 +1,85 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import axios from 'axios';
-import { Camera, Droplets, Sparkles, Heart, Sun, TreePine, Flower2, Star } from 'lucide-react';
+import { Camera, Sparkles, Heart, Zap, Star, Flame, Eye } from 'lucide-react';
 import { useToast } from '../../hooks/use-toast';
 import { cn } from '../../lib/utils';
 
 const API = process.env.REACT_APP_BACKEND_URL;
 
-/* ═══ ISOMETRIC TILE ═══ */
-const Tile = ({ x, y, children, onClick, className, glow, style: extraStyle }) => (
-  <div
-    className={cn("absolute cursor-pointer transition-all duration-300 hover:brightness-110", glow && "z-10", className)}
-    onClick={onClick}
-    style={{
-      width: 64, height: 36,
-      left: (x - y) * 32 + 400,
-      top: (x + y) * 18 + 20,
-      transform: 'rotateX(0deg)',
-      ...extraStyle,
-    }}
-  >
-    {/* Diamond shape */}
-    <svg viewBox="0 0 64 36" className="absolute inset-0 w-full h-full">
-      <polygon points="32,0 64,18 32,36 0,18" className={cn("transition-all", glow ? "fill-amber-300/30 stroke-amber-400" : "fill-green-700/40 stroke-green-900/20")} strokeWidth="0.5" />
-    </svg>
-    <div className="absolute inset-0 flex items-center justify-center" style={{ transform: 'translateY(-8px)' }}>
-      {children}
-    </div>
-  </div>
+/* ═══ COSMIC ELEMENTS ═══ */
+const CosmicStar = ({ x, y, size = 2, delay = 0, bright }) => (
+  <div className="absolute rounded-full" style={{
+    left: `${x}%`, top: `${y}%`, width: size, height: size,
+    background: bright ? '#FFD54F' : '#fff',
+    boxShadow: bright ? `0 0 ${size * 3}px ${size}px rgba(255,213,79,0.6)` : `0 0 ${size * 2}px ${size * 0.5}px rgba(255,255,255,0.3)`,
+    animation: `twinkle ${2 + Math.random() * 3}s ease-in-out ${delay}s infinite`,
+  }} />
 );
 
-/* ═══ FARM ELEMENTS ═══ */
-const Tree = ({ size = 'md', type = 'tree', golden }) => {
-  const trees = { tree: '🌳', pine: '🌲', palm: '🌴', cherry: '🌸', fruit: '🍎' };
-  const sizes = { sm: 'text-lg', md: 'text-2xl', lg: 'text-4xl' };
+const Nebula = ({ x, y, color, size = 120, opacity = 0.15 }) => (
+  <div className="absolute rounded-full pointer-events-none" style={{
+    left: `${x}%`, top: `${y}%`, width: size, height: size,
+    background: `radial-gradient(circle, ${color} 0%, transparent 70%)`,
+    opacity, transform: 'translate(-50%, -50%)',
+    animation: `nebulaPulse ${8 + Math.random() * 4}s ease-in-out infinite`,
+  }} />
+);
+
+const Planet = ({ x, y, emoji, label, size = 'md', glow }) => {
+  const sizes = { sm: 'w-8 h-8 text-lg', md: 'w-12 h-12 text-2xl', lg: 'w-16 h-16 text-3xl' };
   return (
-    <span className={cn(sizes[size], "inline-block drop-shadow-md")}
-      style={{
-        animation: 'gentleSway 4s ease-in-out infinite',
-        filter: golden ? 'drop-shadow(0 0 8px rgba(212,175,55,0.6))' : 'none',
-      }}>
-      {golden ? '🌟' : trees[type] || '🌳'}
-    </span>
+    <div className="absolute flex flex-col items-center gap-1 group" style={{ left: `${x}%`, top: `${y}%`, transform: 'translate(-50%, -50%)' }}>
+      <div className={cn(sizes[size], "rounded-full flex items-center justify-center cursor-default")}
+        style={{
+          animation: `float ${6 + Math.random() * 2}s ease-in-out infinite`,
+          filter: glow ? `drop-shadow(0 0 12px ${glow})` : 'none',
+        }}>
+        <span>{emoji}</span>
+      </div>
+      <span className="text-[8px] text-white/50 font-medium opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">{label}</span>
+    </div>
   );
 };
 
-const Flower = ({ type = 0 }) => {
-  const flowers = ['🌷', '🌹', '🌺', '🌻', '🌼', '💐', '🪻'];
-  return <span className="text-lg inline-block" style={{ animation: `gentleSway 3s ease-in-out ${type * 0.3}s infinite` }}>{flowers[type % flowers.length]}</span>;
-};
+const ShootingStar = ({ delay = 0 }) => (
+  <div className="absolute w-1 h-1 bg-white rounded-full" style={{
+    top: `${10 + Math.random() * 30}%`,
+    left: `${Math.random() * 60}%`,
+    boxShadow: '0 0 4px 2px rgba(255,255,255,0.3)',
+    animation: `shootingStar 3s ease-in ${delay}s infinite`,
+  }} />
+);
 
-const Animal = ({ type }) => {
-  const animals = { butterfly: '🦋', bird: '🐦', bunny: '🐰', deer: '🦌', bee: '🐝' };
-  return <span className="text-sm inline-block" style={{ animation: `float 5s ease-in-out infinite` }}>{animals[type] || '🦋'}</span>;
-};
+const Aurora = ({ active }) => (
+  active ? (
+    <div className="absolute bottom-0 left-0 right-0 h-40 pointer-events-none" style={{
+      background: 'linear-gradient(180deg, transparent 0%, rgba(100,255,150,0.05) 30%, rgba(50,200,255,0.08) 60%, rgba(150,100,255,0.06) 100%)',
+      animation: 'auroraWave 8s ease-in-out infinite',
+    }} />
+  ) : null
+);
 
-/* ═══ ACTIVITY BUTTON ═══ */
-const ActivityBtn = ({ icon: Icon, label, sub, color, onClick, active, disabled }) => (
-  <button
-    onClick={onClick}
-    disabled={disabled}
-    className={cn(
-      "flex items-center gap-2.5 px-4 py-3 rounded-xl border-2 transition-all w-full text-left",
-      active ? "border-[#D4AF37] bg-[#D4AF37]/10 shadow-md shadow-[#D4AF37]/20 scale-[1.02]" :
-      disabled ? "border-gray-200 bg-gray-50 opacity-50 cursor-not-allowed" :
-      "border-gray-200 bg-white hover:border-purple-300 hover:shadow-sm hover:scale-[1.01]"
-    )}
-    data-testid={`activity-${label.toLowerCase().replace(/\s/g, '-')}`}
-  >
-    <div className={cn("w-10 h-10 rounded-xl flex items-center justify-center shrink-0", color)}>
-      <Icon size={18} className="text-white" />
-    </div>
-    <div className="flex-1 min-w-0">
-      <p className="text-xs font-bold text-gray-900">{label}</p>
-      <p className="text-[9px] text-gray-500">{sub}</p>
-    </div>
-    {active && <span className="text-lg">✨</span>}
+/* ═══ CONSTELLATION LINE ═══ */
+const ConstellationLine = ({ points, active }) => (
+  <svg className="absolute inset-0 w-full h-full pointer-events-none" style={{ opacity: active ? 0.4 : 0.1 }}>
+    {points.map((p, i) => i < points.length - 1 ? (
+      <line key={i} x1={`${p[0]}%`} y1={`${p[1]}%`} x2={`${points[i + 1][0]}%`} y2={`${points[i + 1][1]}%`}
+        stroke={active ? '#D4AF37' : '#ffffff'} strokeWidth="0.5" strokeDasharray={active ? 'none' : '2,4'} />
+    ) : null)}
+  </svg>
+);
+
+/* ═══ ACTIVITY CARD ═══ */
+const ActivityCard = ({ icon: Icon, emoji, title, sub, color, onClick, done, count }) => (
+  <button onClick={onClick} className={cn(
+    "relative flex flex-col items-center gap-1 p-4 rounded-2xl border transition-all group",
+    done ? "bg-white/10 border-white/20 shadow-inner" : "bg-white/5 border-white/10 hover:bg-white/10 hover:border-white/20 hover:scale-[1.03]",
+  )} data-testid={`cosmic-${title.toLowerCase().replace(/\s/g, '-')}`}>
+    <span className="text-2xl mb-1" style={{ animation: done ? 'none' : 'float 3s ease-in-out infinite' }}>{emoji}</span>
+    <p className="text-[10px] font-bold text-white/90">{title}</p>
+    <p className="text-[8px] text-white/40">{sub}</p>
+    {count > 0 && <span className="absolute -top-1 -right-1 w-5 h-5 rounded-full bg-[#D4AF37] text-[8px] text-white font-bold flex items-center justify-center">{count}</span>}
+    {done && <span className="absolute top-1 right-1 text-[10px]">✓</span>}
   </button>
 );
 
@@ -84,291 +89,258 @@ const SoulGardenPage = () => {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [profilePic, setProfilePic] = useState(null);
-  const [wateringActive, setWateringActive] = useState(false);
-  const [sparklePos, setSparklePos] = useState([]);
+  const [progress, setProgress] = useState([]);
 
   useEffect(() => {
-    axios.get(`${API}/api/student/home`, { withCredentials: true })
-      .then(r => { setData(r.data); setProfilePic(r.data?.profile_image || null); })
-      .catch(() => {}).finally(() => setLoading(false));
+    Promise.all([
+      axios.get(`${API}/api/student/home`, { withCredentials: true }),
+      axios.get(`${API}/api/student/daily-progress?month=${new Date().toISOString().slice(0, 7)}`, { withCredentials: true }),
+    ]).then(([homeRes, progRes]) => {
+      setData(homeRes.data);
+      setProfilePic(homeRes.data?.profile_image || null);
+      setProgress(progRes.data || []);
+    }).catch(() => {}).finally(() => setLoading(false));
   }, []);
 
   const programs = data?.programs || [];
-  const emis = data?.emis || [];
 
-  const farmStats = useMemo(() => {
-    const totalPaid = emis.filter(e => e.status === 'paid').reduce((s, e) => s + (e.amount || 0), 0);
-    const trees = Math.floor(totalPaid / 1000);
-    const goldenTrees = Math.floor(totalPaid / 50000);
-    const flowers = Math.floor(totalPaid / 500);
+  // Soul metrics — drives the universe
+  const soul = useMemo(() => {
+    const activeDays = new Set(progress.filter(p => p.completed).map(p => p.date)).size;
+    const extraordinary = progress.filter(p => p.is_extraordinary).length;
+    const streak = (() => {
+      let s = 0; const d = new Date();
+      while (true) { const ds = d.toISOString().split('T')[0]; if (progress.some(p => p.date === ds && p.completed)) { s++; d.setDate(d.getDate() - 1); } else break; }
+      return s;
+    })();
+    const sessions = programs.reduce((s, p) => s + (p.schedule?.filter(x => x.completed).length || 0), 0);
     const totalSessions = programs.reduce((s, p) => s + (p.schedule?.length || 0), 0);
-    const completedSessions = programs.reduce((s, p) => s + (p.schedule?.filter(x => x.completed).length || 0), 0);
-    const harvestReady = completedSessions;
-    return { totalPaid, trees, goldenTrees, flowers, totalSessions, completedSessions, harvestReady };
-  }, [emis, programs]);
 
-  // Farm grid layout
-  const farmGrid = useMemo(() => {
-    const tiles = [];
-    const gridSize = 8;
+    // Universe level
+    const points = activeDays * 3 + extraordinary * 8 + streak * 2 + sessions * 5;
+    const levels = [
+      { name: 'Stardust', min: 0, desc: 'The cosmos stirs...' },
+      { name: 'Nebula', min: 10, desc: 'Colors are forming' },
+      { name: 'Star Cluster', min: 30, desc: 'Your stars ignite' },
+      { name: 'Constellation', min: 60, desc: 'Patterns emerge' },
+      { name: 'Galaxy', min: 100, desc: 'Your galaxy spirals' },
+      { name: 'Supernova', min: 200, desc: 'Blinding brilliance' },
+      { name: 'Universe', min: 500, desc: 'Infinite expansion' },
+    ];
+    let level = levels[0];
+    for (let i = levels.length - 1; i >= 0; i--) { if (points >= levels[i].min) { level = levels[i]; break; } }
+    const nextLevel = levels[Math.min(levels.indexOf(level) + 1, levels.length - 1)];
 
-    for (let x = 0; x < gridSize; x++) {
-      for (let y = 0; y < gridSize; y++) {
-        const idx = x * gridSize + y;
-        let content = null;
-        let type = 'grass';
+    return { activeDays, extraordinary, streak, sessions, totalSessions, points, level, nextLevel, programs: programs.length };
+  }, [progress, programs]);
 
-        // Pond in center
-        if ((x === 3 || x === 4) && (y === 3 || y === 4)) {
-          type = 'water';
-          content = <span className="text-sm opacity-60">💧</span>;
-        }
-        // Trees based on investment
-        else if (idx < farmStats.trees && idx < 20) {
-          type = 'tree';
-          const isGolden = idx < farmStats.goldenTrees;
-          const treeTypes = ['tree', 'pine', 'cherry', 'palm', 'fruit'];
-          content = <Tree type={treeTypes[idx % 5]} golden={isGolden} />;
-        }
-        // Flowers
-        else if (idx >= 20 && idx < 20 + Math.min(farmStats.flowers, 15)) {
-          type = 'flower';
-          content = <Flower type={idx} />;
-        }
-        // Animals
-        else if (idx === 5 && farmStats.trees > 3) content = <Animal type="butterfly" />;
-        else if (idx === 15 && farmStats.trees > 8) content = <Animal type="bird" />;
-        else if (idx === 50 && farmStats.trees > 15) content = <Animal type="bunny" />;
-        // Seeds (unplanted)
-        else if (idx < 40) {
-          content = <span className="text-xs opacity-30">·</span>;
-        }
+  // Generate stars based on soul points
+  const stars = useMemo(() => Array.from({ length: Math.min(80, 20 + soul.points) }, (_, i) => ({
+    x: Math.random() * 100, y: Math.random() * 100,
+    size: 1 + Math.random() * (soul.points > 50 ? 3 : 2),
+    delay: Math.random() * 5,
+    bright: i < soul.sessions,
+  })), [soul.points, soul.sessions]);
 
-        tiles.push({ x, y, type, content, idx });
-      }
-    }
-    return tiles;
-  }, [farmStats]);
-
-  const handleWater = useCallback(() => {
-    setWateringActive(true);
-    // Create sparkle particles
-    const sparks = Array.from({ length: 8 }, (_, i) => ({
-      id: Date.now() + i,
-      x: 300 + Math.random() * 300,
-      y: 100 + Math.random() * 200,
+  // Nebulas based on programs
+  const nebulas = useMemo(() => {
+    const colors = ['rgba(147,51,234,0.6)', 'rgba(59,130,246,0.6)', 'rgba(236,72,153,0.6)', 'rgba(16,185,129,0.6)'];
+    return programs.filter(p => p.visible !== false).map((p, i) => ({
+      x: 25 + i * 20, y: 30 + (i % 2) * 20,
+      color: colors[i % colors.length],
+      size: 80 + (p.schedule?.filter(s => s.completed).length || 0) * 10,
+      opacity: 0.08 + (p.schedule?.filter(s => s.completed).length || 0) * 0.02,
     }));
-    setSparklePos(sparks);
-    toast({ title: '💧 Watered your garden!', description: 'Your plants are glowing with gratitude' });
-    setTimeout(() => { setWateringActive(false); setSparklePos([]); }, 3000);
-  }, [toast]);
+  }, [programs]);
 
-  const handleHarvest = useCallback(() => {
-    toast({ title: '🌟 Harvesting fruits of your practice!', description: `${farmStats.harvestReady} sessions ready to harvest` });
-  }, [toast, farmStats.harvestReady]);
+  // Planets from programs
+  const planets = useMemo(() => {
+    const emojis = ['🪐', '🌍', '🌙', '☀️', '💫', '🔮'];
+    return programs.filter(p => p.visible !== false).map((p, i) => {
+      const completed = p.schedule?.filter(s => s.completed).length || 0;
+      const total = p.schedule?.length || p.duration_value || 1;
+      const pct = total > 0 ? completed / total : 0;
+      return {
+        x: 20 + i * 18, y: 25 + (i % 3) * 15,
+        emoji: pct === 1 ? '🌟' : emojis[i % emojis.length],
+        label: p.name,
+        size: pct > 0.5 ? 'lg' : pct > 0 ? 'md' : 'sm',
+        glow: pct > 0.5 ? 'rgba(212,175,55,0.4)' : pct > 0 ? 'rgba(147,51,234,0.3)' : null,
+      };
+    });
+  }, [programs]);
 
   const handleProfileUpload = async (e) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    const fd = new FormData();
-    fd.append('file', file);
-    try {
-      const r = await axios.post(`${API}/api/upload/image`, fd, { withCredentials: true });
-      setProfilePic(r.data.url);
-    } catch {}
+    const file = e.target.files?.[0]; if (!file) return;
+    const fd = new FormData(); fd.append('file', file);
+    try { const r = await axios.post(`${API}/api/upload/image`, fd, { withCredentials: true }); setProfilePic(r.data.url); } catch {}
   };
 
   if (loading) return (
-    <div className="flex items-center justify-center py-20">
-      <div className="text-5xl" style={{ animation: 'gentleSway 2s ease-in-out infinite' }}>🌱</div>
+    <div className="flex items-center justify-center py-20" style={{ background: 'radial-gradient(ellipse at center, #0a0a2e 0%, #000 100%)' }}>
+      <div className="text-5xl" style={{ animation: 'float 2s ease-in-out infinite' }}>✨</div>
     </div>
   );
 
   return (
     <div className="max-w-6xl mx-auto" data-testid="soul-garden-page">
-      {/* ═══ ISOMETRIC FARM VIEW ═══ */}
+      {/* ═══ THE UNIVERSE ═══ */}
       <div className="relative rounded-3xl overflow-hidden mb-6" style={{
-        height: '450px',
-        background: 'linear-gradient(180deg, #87CEEB 0%, #B8D8E8 25%, #A8D5A0 50%, #7CB342 70%, #558B2F 100%)',
+        height: '500px',
+        background: 'radial-gradient(ellipse at 30% 40%, #0f0a3e 0%, #080620 40%, #020108 100%)',
       }}>
-        {/* Sky elements */}
-        <div className="absolute top-6 right-16 z-10" style={{ animation: 'pulse 4s ease-in-out infinite' }}>
-          <div className="w-16 h-16 rounded-full bg-[#FFD54F]" style={{ boxShadow: '0 0 50px 20px rgba(255,213,79,0.3)' }} />
-        </div>
-        {[1, 2, 3].map(i => (
-          <div key={i} className="absolute opacity-30 pointer-events-none" style={{
-            top: `${5 + i * 4}%`, left: `${-5 + i * 30}%`,
-            animation: `floatCloud ${15 + i * 5}s linear infinite`,
-          }}>
-            <div className="w-20 h-6 bg-white rounded-full relative">
-              <div className="absolute -top-3 left-4 w-12 h-8 bg-white rounded-full" />
-            </div>
-          </div>
-        ))}
+        {/* Stars */}
+        {stars.map((s, i) => <CosmicStar key={i} {...s} />)}
 
-        {/* Watering sparkle particles */}
-        {sparklePos.map(s => (
-          <div key={s.id} className="absolute text-xl z-30 pointer-events-none" style={{
-            left: s.x, top: s.y,
-            animation: 'sparkleRise 2s ease-out forwards',
-          }}>💧</div>
-        ))}
+        {/* Nebulas from programs */}
+        {nebulas.map((n, i) => <Nebula key={i} {...n} />)}
 
-        {/* Isometric farm grid */}
-        <div className="absolute inset-0" style={{ perspective: '800px' }}>
-          <div className="relative w-full h-full">
-            {farmGrid.map((tile, i) => (
-              <Tile key={i} x={tile.x} y={tile.y}
-                glow={wateringActive && tile.type !== 'water'}
-                className={tile.type === 'water' ? 'opacity-70' : ''}>
-                {tile.content}
-              </Tile>
-            ))}
-          </div>
-        </div>
+        {/* Constellation lines connecting completed sessions */}
+        {soul.sessions > 2 && (
+          <ConstellationLine active={soul.streak > 2}
+            points={planets.slice(0, Math.min(4, planets.length)).map(p => [p.x, p.y])} />
+        )}
 
-        {/* Avatar on farm */}
-        <div className="absolute bottom-8 left-8 z-20 flex items-end gap-3">
+        {/* Planets */}
+        {planets.map((p, i) => <Planet key={i} {...p} />)}
+
+        {/* Shooting stars for extraordinary moments */}
+        {Array.from({ length: Math.min(3, soul.extraordinary) }).map((_, i) => <ShootingStar key={i} delay={i * 4} />)}
+
+        {/* Aurora for streaks */}
+        <Aurora active={soul.streak >= 3} />
+
+        {/* Central soul orb */}
+        <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-10">
           <div className="relative">
-            <div className="w-16 h-16 rounded-full border-4 border-white shadow-2xl overflow-hidden bg-gradient-to-br from-[#5D3FD3] to-[#D4AF37]" style={{ filter: 'drop-shadow(0 4px 12px rgba(0,0,0,0.3))' }}>
-              {profilePic ? <img src={profilePic.startsWith('/') ? `${API}${profilePic}` : profilePic} alt="" className="w-full h-full object-cover" />
-                : <div className="w-full h-full flex items-center justify-center text-xl text-white font-bold">{(data?.name || 'S').charAt(0)}</div>}
+            <div className="w-20 h-20 rounded-full flex items-center justify-center" style={{
+              background: `radial-gradient(circle, rgba(212,175,55,0.3) 0%, rgba(93,63,211,0.2) 50%, transparent 70%)`,
+              boxShadow: `0 0 60px 20px rgba(212,175,55,0.15), 0 0 120px 40px rgba(93,63,211,0.1)`,
+              animation: 'soulPulse 4s ease-in-out infinite',
+            }}>
+              <span className="text-3xl" style={{ filter: 'drop-shadow(0 0 8px rgba(212,175,55,0.5))' }}>
+                {soul.level.name === 'Universe' ? '🌌' : soul.level.name === 'Supernova' ? '💥' : soul.level.name === 'Galaxy' ? '🌀' : soul.level.name === 'Constellation' ? '⭐' : '✨'}
+              </span>
             </div>
-            <label className="absolute -bottom-1 -right-1 w-6 h-6 rounded-full bg-[#D4AF37] border-2 border-white flex items-center justify-center cursor-pointer hover:scale-110 transition-transform shadow-lg">
-              <Camera size={10} className="text-white" /><input type="file" accept="image/*" className="hidden" onChange={handleProfileUpload} />
+            {/* Orbiting ring */}
+            <div className="absolute inset-0 rounded-full border border-white/10" style={{ animation: 'orbitRing 15s linear infinite', transform: 'rotateX(60deg)' }}>
+              <div className="absolute -top-1 left-1/2 w-2 h-2 rounded-full bg-[#D4AF37]" style={{ boxShadow: '0 0 6px rgba(212,175,55,0.5)' }} />
+            </div>
+          </div>
+        </div>
+
+        {/* Avatar */}
+        <div className="absolute bottom-6 left-6 z-20 flex items-end gap-3">
+          <div className="relative">
+            <div className="w-14 h-14 rounded-full border-2 border-[#D4AF37]/50 shadow-xl overflow-hidden" style={{ boxShadow: '0 0 20px rgba(212,175,55,0.3)' }}>
+              {profilePic ? <img src={profilePic.startsWith('/') ? `${API}${profilePic}` : profilePic} alt="" className="w-full h-full object-cover" />
+                : <div className="w-full h-full bg-gradient-to-br from-[#5D3FD3] to-[#D4AF37] flex items-center justify-center text-lg text-white font-bold">{(data?.name || 'S').charAt(0)}</div>}
+            </div>
+            <label className="absolute -bottom-1 -right-1 w-5 h-5 rounded-full bg-[#D4AF37] border border-black flex items-center justify-center cursor-pointer hover:scale-110 transition-transform">
+              <Camera size={8} className="text-white" /><input type="file" accept="image/*" className="hidden" onChange={handleProfileUpload} />
             </label>
           </div>
-          <div className="bg-white/90 backdrop-blur-md rounded-xl px-3 py-2 shadow-lg mb-1">
-            <p className="text-sm font-serif font-bold text-gray-900">{data?.name || 'Soul Gardener'}</p>
-            <p className="text-[8px] text-[#5D3FD3]">Level {Math.min(10, Math.floor(farmStats.trees / 3) + 1)} Gardener</p>
+          <div className="bg-black/60 backdrop-blur-md rounded-xl px-3 py-2 border border-white/10 mb-1">
+            <p className="text-sm font-serif font-bold text-white">{data?.name || 'Cosmic Soul'}</p>
+            <p className="text-[9px] text-[#D4AF37]">{soul.level.name} · {soul.level.desc}</p>
           </div>
         </div>
 
-        {/* Farm stats overlay */}
-        <div className="absolute top-4 left-4 z-20 flex gap-2">
+        {/* Soul Level + Stats */}
+        <div className="absolute top-4 left-4 z-20 flex flex-col gap-2">
+          <div className="bg-black/50 backdrop-blur-md rounded-xl px-4 py-2 border border-white/10">
+            <p className="text-[8px] text-white/40 uppercase tracking-widest">Soul Level</p>
+            <p className="text-sm font-bold text-[#D4AF37]">{soul.level.name}</p>
+            <div className="flex items-center gap-1 mt-1">
+              <div className="flex-1 h-1 rounded-full bg-white/10 overflow-hidden">
+                <div className="h-full rounded-full bg-gradient-to-r from-[#5D3FD3] to-[#D4AF37]" style={{ width: `${Math.min(100, (soul.points - soul.level.min) / (soul.nextLevel.min - soul.level.min + 1) * 100)}%` }} />
+              </div>
+              <span className="text-[7px] text-white/30">{soul.points}pts</span>
+            </div>
+          </div>
+        </div>
+
+        <div className="absolute top-4 right-4 z-20 flex gap-2">
           {[
-            { emoji: '🌳', val: farmStats.trees, label: 'Trees' },
-            { emoji: '🌸', val: farmStats.flowers, label: 'Flowers' },
-            { emoji: '🌟', val: farmStats.goldenTrees, label: 'Golden' },
+            { val: soul.activeDays, label: 'Active', emoji: '🌟' },
+            { val: soul.streak, label: 'Streak', emoji: '🔥' },
+            { val: soul.extraordinary, label: 'Wow', emoji: '💫' },
+            { val: soul.sessions, label: 'Done', emoji: '✅' },
           ].map((s, i) => (
-            <div key={i} className="bg-black/40 backdrop-blur-md rounded-xl px-3 py-1.5 border border-white/10 text-center">
-              <span className="text-sm">{s.emoji}</span>
-              <p className="text-xs font-bold text-white">{s.val}</p>
-              <p className="text-[7px] text-white/50">{s.label}</p>
+            <div key={i} className="bg-black/50 backdrop-blur-md rounded-xl px-2.5 py-1.5 border border-white/10 text-center min-w-[48px]">
+              <span className="text-xs">{s.emoji}</span>
+              <p className="text-sm font-bold text-white">{s.val}</p>
+              <p className="text-[6px] text-white/30 uppercase">{s.label}</p>
             </div>
           ))}
         </div>
+      </div>
 
-        {/* Investment ticker */}
-        <div className="absolute top-4 right-4 z-20 bg-black/40 backdrop-blur-md rounded-xl px-4 py-2 border border-[#D4AF37]/30">
-          <p className="text-[8px] text-[#D4AF37]/70 uppercase tracking-wider">Seeds Planted</p>
-          <p className="text-lg font-bold text-[#D4AF37]">{farmStats.trees > 0 ? `${farmStats.trees} trees` : 'Plant your first seed!'}</p>
-          <p className="text-[8px] text-white/40">Every ₹1,000 = 1 tree</p>
+      {/* ═══ COSMIC ACTIVITIES ═══ */}
+      <div className="rounded-2xl p-5 mb-6" style={{ background: 'linear-gradient(135deg, #0f0a3e 0%, #1a1040 100%)' }}>
+        <h2 className="text-base font-serif font-bold text-white/90 mb-4 flex items-center gap-2">
+          <Sparkles size={16} className="text-[#D4AF37]" /> Cosmic Activities
+        </h2>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          <ActivityCard emoji="🌊" title="Flow State" sub="Mark today's practice" onClick={() => window.location.href = '/dashboard/progress'} count={soul.activeDays} />
+          <ActivityCard emoji="🔮" title="Bhaad Portal" sub="Release & Transform" onClick={() => window.location.href = '/dashboard/bhaad'} />
+          <ActivityCard emoji="💜" title="Soul Tribe" sub="Share with your tribe" onClick={() => window.location.href = '/dashboard/tribe'} />
+          <ActivityCard emoji="📅" title="My Sessions" sub={`${soul.sessions}/${soul.totalSessions} completed`} onClick={() => window.location.href = '/dashboard/sessions'} />
         </div>
       </div>
 
-      {/* ═══ ACTIVITIES PANEL ═══ */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-        <div className="md:col-span-2">
-          <h2 className="text-lg font-serif font-bold text-gray-900 mb-3 flex items-center gap-2">
-            <Sun size={18} className="text-[#D4AF37]" /> Daily Activities
-          </h2>
-          <div className="grid grid-cols-2 gap-3">
-            <ActivityBtn icon={Droplets} label="Water Plants" sub="Mark today's attendance" color="bg-blue-500"
-              onClick={handleWater} active={wateringActive} />
-            <ActivityBtn icon={Star} label="Harvest" sub={`${farmStats.harvestReady} sessions ready`} color="bg-amber-500"
-              onClick={handleHarvest} active={false} />
-            <ActivityBtn icon={Sparkles} label="Bhaad Portal" sub="Release & Transform" color="bg-purple-600"
-              onClick={() => window.location.href = '/dashboard/bhaad'} />
-            <ActivityBtn icon={Heart} label="Share Love" sub="Post in Soul Tribe" color="bg-pink-500"
-              onClick={() => window.location.href = '/dashboard/tribe'} />
-            <ActivityBtn icon={Flower2} label="Plant Seeds" sub="Enroll in new program" color="bg-green-600"
-              onClick={() => window.location.href = '/#upcoming'} />
-            <ActivityBtn icon={TreePine} label="Family Garden" sub="Grow together" color="bg-teal-600"
-              onClick={() => toast({ title: '🌳 Family Garden coming soon!' })} disabled />
-          </div>
-        </div>
-
-        {/* Program Zones */}
-        <div>
-          <h2 className="text-lg font-serif font-bold text-gray-900 mb-3 flex items-center gap-2">
-            <TreePine size={18} className="text-green-600" /> My Farm Zones
-          </h2>
-          <div className="space-y-2">
-            {programs.filter(p => p.visible !== false).map((prog, i) => {
-              const schedule = prog.schedule || [];
-              const completed = schedule.filter(s => s.completed).length;
-              const total = schedule.length || prog.duration_value || 1;
-              const pct = Math.round(completed / total * 100);
-              return (
-                <div key={i} className="bg-white rounded-xl border p-3 hover:shadow-sm transition-shadow" data-testid={`zone-${i}`}>
-                  <div className="flex items-center justify-between mb-1.5">
-                    <div className="flex items-center gap-2">
-                      <span className="text-lg">{pct === 100 ? '🌟' : pct > 50 ? '🌳' : pct > 0 ? '🌱' : '🌰'}</span>
-                      <div>
-                        <p className="text-xs font-bold text-gray-900">{prog.name}</p>
-                        <p className="text-[9px] text-gray-500">{completed}/{total} sessions</p>
-                      </div>
+      {/* ═══ PROGRAM ORBITS ═══ */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+        {programs.filter(p => p.visible !== false).map((prog, i) => {
+          const schedule = prog.schedule || [];
+          const completed = schedule.filter(s => s.completed).length;
+          const total = schedule.length || prog.duration_value || 1;
+          const pct = Math.round(completed / total * 100);
+          const emojis = ['🪐', '🌍', '🌙', '☀️'];
+          return (
+            <div key={i} className="rounded-2xl border overflow-hidden" style={{ background: 'linear-gradient(135deg, #0f0a3e 0%, #150d30 100%)', borderColor: 'rgba(255,255,255,0.08)' }}
+              data-testid={`orbit-${i}`}>
+              <div className="p-4">
+                <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center gap-2">
+                    <span className="text-2xl" style={{ animation: 'float 4s ease-in-out infinite' }}>{pct === 100 ? '🌟' : emojis[i % 4]}</span>
+                    <div>
+                      <p className="text-sm font-bold text-white/90">{prog.name}</p>
+                      <p className="text-[9px] text-white/40">{completed}/{total} sessions · {prog.status || 'active'}</p>
                     </div>
-                    <span className={cn("text-sm font-bold", pct > 50 ? "text-green-600" : "text-gray-400")}>{pct}%</span>
                   </div>
-                  <div className="h-1.5 rounded-full bg-gray-100 overflow-hidden">
-                    <div className="h-full rounded-full transition-all duration-700" style={{
-                      width: `${pct}%`,
-                      background: pct === 100 ? 'linear-gradient(90deg, #FFD54F, #FFA000)' : 'linear-gradient(90deg, #81C784, #4CAF50)',
-                    }} />
+                  <div className="relative w-14 h-14">
+                    <svg viewBox="0 0 36 36" className="w-full h-full -rotate-90">
+                      <circle cx="18" cy="18" r="15" fill="none" stroke="rgba(255,255,255,0.08)" strokeWidth="3" />
+                      <circle cx="18" cy="18" r="15" fill="none" stroke="url(#grad)" strokeWidth="3"
+                        strokeDasharray={`${pct * 0.94} ${94 - pct * 0.94}`} strokeLinecap="round" />
+                      <defs><linearGradient id="grad"><stop offset="0%" stopColor="#5D3FD3" /><stop offset="100%" stopColor="#D4AF37" /></linearGradient></defs>
+                    </svg>
+                    <span className="absolute inset-0 flex items-center justify-center text-xs font-bold text-white">{pct}%</span>
                   </div>
                 </div>
-              );
-            })}
-            {programs.length === 0 && (
-              <div className="bg-gray-50 rounded-xl border border-dashed p-6 text-center">
-                <p className="text-2xl mb-1">🌰</p>
-                <p className="text-xs text-gray-500">No programs yet — plant your first seed!</p>
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
-
-      {/* ═══ GROWTH TIMELINE ═══ */}
-      <div className="bg-white rounded-2xl border p-5 mb-6">
-        <h2 className="text-base font-serif font-bold text-gray-900 mb-4">Your Growth Journey</h2>
-        <div className="flex items-center gap-1 overflow-x-auto pb-2">
-          {[
-            { at: 0, emoji: '🌰', label: 'First Seed', desc: 'Your journey begins' },
-            { at: 1000, emoji: '🌱', label: '₹1K', desc: '1 tree planted' },
-            { at: 5000, emoji: '🌿', label: '₹5K', desc: 'A garden emerges' },
-            { at: 10000, emoji: '🌳', label: '₹10K', desc: 'Your forest grows' },
-            { at: 25000, emoji: '🌸', label: '₹25K', desc: 'Cherry blossoms bloom' },
-            { at: 50000, emoji: '🌟', label: '₹50K', desc: 'First golden tree!' },
-            { at: 100000, emoji: '🏆', label: '₹1 Lakh', desc: 'Full orchard' },
-            { at: 500000, emoji: '👑', label: '₹5 Lakh', desc: 'Master Gardener' },
-          ].map((milestone, i) => {
-            const reached = farmStats.totalPaid >= milestone.at;
-            return (
-              <div key={i} className="flex items-center shrink-0">
-                <div className={cn(
-                  "flex flex-col items-center px-3 py-2 rounded-xl transition-all min-w-[70px]",
-                  reached ? "bg-[#D4AF37]/10 border border-[#D4AF37]/30" : "bg-gray-50 border border-gray-100 opacity-50"
-                )}>
-                  <span className={cn("text-xl", !reached && "grayscale")}>{milestone.emoji}</span>
-                  <p className={cn("text-[9px] font-bold mt-0.5", reached ? "text-[#D4AF37]" : "text-gray-400")}>{milestone.label}</p>
-                  <p className="text-[7px] text-gray-400 text-center">{milestone.desc}</p>
+                {/* Mini constellation of sessions */}
+                <div className="flex flex-wrap gap-1">
+                  {Array.from({ length: Math.min(total, 30) }).map((_, si) => (
+                    <div key={si} className={cn("w-3 h-3 rounded-full transition-all",
+                      si < completed ? "bg-[#D4AF37] shadow-[0_0_4px_rgba(212,175,55,0.4)]" : si === completed ? "bg-[#5D3FD3] animate-pulse" : "bg-white/10"
+                    )} title={`Session ${si + 1}`} />
+                  ))}
                 </div>
-                {i < 7 && <div className={cn("w-4 h-0.5 shrink-0", reached ? "bg-[#D4AF37]" : "bg-gray-200")} />}
               </div>
-            );
-          })}
-        </div>
+            </div>
+          );
+        })}
       </div>
 
       <style>{`
-        @keyframes gentleSway { 0%, 100% { transform: rotate(-2deg); } 50% { transform: rotate(2deg); } }
-        @keyframes float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-8px); } }
-        @keyframes floatCloud { 0% { transform: translateX(-100px); } 100% { transform: translateX(calc(100vw + 100px)); } }
-        @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.7; } }
-        @keyframes sparkleRise { 0% { opacity: 1; transform: translateY(0) scale(1); } 100% { opacity: 0; transform: translateY(-60px) scale(0.5); } }
+        @keyframes twinkle { 0%, 100% { opacity: 1; } 50% { opacity: 0.2; } }
+        @keyframes float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-6px); } }
+        @keyframes nebulaPulse { 0%, 100% { transform: translate(-50%,-50%) scale(1); opacity: var(--opacity); } 50% { transform: translate(-50%,-50%) scale(1.1); } }
+        @keyframes shootingStar { 0% { transform: translate(0,0) scale(1); opacity: 1; } 100% { transform: translate(200px, 100px) scale(0); opacity: 0; } }
+        @keyframes auroraWave { 0%, 100% { opacity: 0.5; } 50% { opacity: 1; } }
+        @keyframes soulPulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.05); } }
+        @keyframes orbitRing { 0% { transform: rotateX(60deg) rotateZ(0deg); } 100% { transform: rotateX(60deg) rotateZ(360deg); } }
       `}</style>
     </div>
   );
