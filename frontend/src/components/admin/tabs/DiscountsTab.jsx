@@ -303,52 +303,59 @@ export default function DiscountsTab() {
                 {/* Target programs — multiple */}
                 <div className="ml-8 space-y-1.5">
                   <p className="text-[9px] text-gray-400 uppercase tracking-wider">Get discount on:</p>
-                  {(rule.targets || (rule.get_program_id ? [{ program_id: rule.get_program_id, tier: rule.get_tier, discount_value: rule.discount_value, discount_type: rule.discount_type }] : [])).map((target, ti) => {
-                    const updateTarget = (field, value) => {
-                      const targets = [...(rule.targets || (rule.get_program_id ? [{ program_id: rule.get_program_id, tier: rule.get_tier, discount_value: rule.discount_value, discount_type: rule.discount_type }] : []))];
-                      targets[ti] = { ...targets[ti], [field]: value };
-                      updateRule('targets', targets);
-                      // Clear legacy fields
-                      if (rule.get_program_id) { updateRule('get_program_id', ''); updateRule('get_tier', ''); }
-                    };
-                    const tProg = programs.find(p => String(p.id) === String(target.program_id));
-                    const tTiers = tProg?.duration_tiers || [];
-                    return (
-                      <div key={ti} className="flex items-center gap-1.5 bg-white rounded px-2 py-1.5 border border-green-200">
-                        <select value={target.program_id || ''} onChange={e => updateTarget('program_id', e.target.value)}
-                          className="border rounded px-1 py-1 text-[10px] bg-white h-6 min-w-[130px]">
-                          <option value="">Select program</option>
-                          {programs.filter(p => p.title).map(p => <option key={p.id} value={p.id}>{p.title}</option>)}
-                        </select>
-                        {tTiers.length > 0 && (
-                          <select value={target.tier ?? ''} onChange={e => updateTarget('tier', e.target.value)}
-                            className="border rounded px-1 py-1 text-[9px] bg-green-50 h-6 min-w-[70px]">
-                            <option value="">Any</option>
-                            {tTiers.map((t, tti) => <option key={tti} value={tti}>{t.label}</option>)}
+                  {(() => {
+                    // Migrate legacy single-target to targets array
+                    const targets = rule.targets || (rule.get_program_id ? [{ program_id: rule.get_program_id, tier: rule.get_tier, discount_value: rule.discount_value, discount_type: rule.discount_type }] : []);
+                    return targets.map((target, ti) => {
+                      const updateTarget = (field, value) => {
+                        const updated = [...targets];
+                        updated[ti] = { ...updated[ti], [field]: value };
+                        // Single batched update — set targets and clear legacy in one call
+                        const rules = [...(settings.cross_sell_rules || [])];
+                        rules[i] = { ...rules[i], targets: updated, get_program_id: '', get_tier: '' };
+                        setSettings(prev => ({ ...prev, cross_sell_rules: rules }));
+                      };
+                      const tProg = programs.find(p => String(p.id) === String(target.program_id));
+                      const tTiers = tProg?.duration_tiers || [];
+                      return (
+                        <div key={ti} className="flex items-center gap-1.5 bg-white rounded px-2 py-1.5 border border-green-200">
+                          <select value={target.program_id || ''} onChange={e => updateTarget('program_id', e.target.value)}
+                            className="border rounded px-1 py-1 text-[10px] bg-white h-6 min-w-[130px]">
+                            <option value="">Select program</option>
+                            {programs.filter(p => p.title).map(p => <option key={p.id} value={p.id}>{p.title}</option>)}
                           </select>
-                        )}
-                        <span className="text-[9px] text-gray-500">→</span>
-                        <Input type="number" value={target.discount_value || 0} onChange={e => updateTarget('discount_value', parseFloat(e.target.value) || 0)}
-                          className="w-12 h-6 text-[10px] text-center" min={0} />
-                        <select value={target.discount_type || 'percentage'} onChange={e => updateTarget('discount_type', e.target.value)}
-                          className="border rounded px-0.5 py-0.5 text-[9px] bg-white h-6">
-                          <option value="percentage">%</option>
-                          <option value="fixed">Amt</option>
-                        </select>
-                        <span className="text-[9px] text-gray-500">off</span>
-                        <button onClick={() => {
-                          const targets = [...(rule.targets || [])];
-                          targets.splice(ti, 1);
-                          updateRule('targets', targets);
-                        }} className="text-red-300 hover:text-red-500"><Trash2 size={11} /></button>
-                      </div>
-                    );
-                  })}
+                          {tTiers.length > 0 && (
+                            <select value={target.tier ?? ''} onChange={e => updateTarget('tier', e.target.value)}
+                              className="border rounded px-1 py-1 text-[9px] bg-green-50 h-6 min-w-[70px]">
+                              <option value="">Any</option>
+                              {tTiers.map((t, tti) => <option key={tti} value={tti}>{t.label}</option>)}
+                            </select>
+                          )}
+                          <span className="text-[9px] text-gray-500">→</span>
+                          <Input type="number" value={target.discount_value || 0} onChange={e => updateTarget('discount_value', parseFloat(e.target.value) || 0)}
+                            className="w-12 h-6 text-[10px] text-center" min={0} />
+                          <select value={target.discount_type || 'percentage'} onChange={e => updateTarget('discount_type', e.target.value)}
+                            className="border rounded px-0.5 py-0.5 text-[9px] bg-white h-6">
+                            <option value="percentage">%</option>
+                            <option value="fixed">Amt</option>
+                          </select>
+                          <span className="text-[9px] text-gray-500">off</span>
+                          <button onClick={() => {
+                            const updated = targets.filter((_, j) => j !== ti);
+                            const rules = [...(settings.cross_sell_rules || [])];
+                            rules[i] = { ...rules[i], targets: updated };
+                            setSettings(prev => ({ ...prev, cross_sell_rules: rules }));
+                          }} className="text-red-300 hover:text-red-500"><Trash2 size={11} /></button>
+                        </div>
+                      );
+                    });
+                  })()}
                   <button onClick={() => {
                     const targets = [...(rule.targets || (rule.get_program_id ? [{ program_id: rule.get_program_id, tier: rule.get_tier, discount_value: rule.discount_value, discount_type: rule.discount_type }] : []))];
                     targets.push({ program_id: '', tier: '', discount_value: 10, discount_type: 'percentage' });
-                    updateRule('targets', targets);
-                    if (rule.get_program_id) { updateRule('get_program_id', ''); updateRule('get_tier', ''); }
+                    const rules = [...(settings.cross_sell_rules || [])];
+                    rules[i] = { ...rules[i], targets, get_program_id: '', get_tier: '' };
+                    setSettings(prev => ({ ...prev, cross_sell_rules: rules }));
                   }} className="text-[9px] text-green-600 hover:underline font-medium flex items-center gap-1">
                     <Plus size={10} /> Add another program
                   </button>
