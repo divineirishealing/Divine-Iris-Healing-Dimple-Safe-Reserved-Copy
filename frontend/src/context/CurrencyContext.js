@@ -86,8 +86,9 @@ export const CurrencyProvider = ({ children }) => {
     const hasTiers = item.is_flagship && tiers.length > 0;
     const tier = hasTiers && tierIndex !== null ? tiers[tierIndex] : null;
     if (tier) {
-      const key = `offer_${baseCurrency}`;
-      return toDisplay(tier[key] || 0);
+      // Pricing Hub saves as offer_price_aed/inr/usd
+      const val = tier[`offer_price_${baseCurrency}`] || tier[`offer_${baseCurrency}`] || 0;
+      return toDisplay(val);
     }
     let base = 0;
     if (baseCurrency === 'aed') base = item.offer_price_aed || 0;
@@ -111,7 +112,7 @@ export const CurrencyProvider = ({ children }) => {
     const tiers = item.duration_tiers || [];
     const hasTiers = item.is_flagship && tiers.length > 0;
     const tier = hasTiers && tierIndex !== null ? tiers[tierIndex] : null;
-    if (tier) return tier[`offer_${baseCurrency}`] || 0;
+    if (tier) return tier[`offer_price_${baseCurrency}`] || tier[`offer_${baseCurrency}`] || 0;
     if (baseCurrency === 'aed') return item.offer_price_aed || 0;
     if (baseCurrency === 'inr') return item.offer_price_inr || 0;
     if (baseCurrency === 'usd') return item.offer_price_usd || 0;
