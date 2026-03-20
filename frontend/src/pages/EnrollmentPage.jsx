@@ -902,7 +902,7 @@ function EnrollmentPage() {
                     </div>
 
                     {/* India payment options — only show if enabled in admin */}
-                    {bookerCountry === 'IN' && paymentSettings.india_enabled && (
+                    {detectedCountry === 'IN' && paymentSettings.india_enabled && (
                       <div className="mb-4" data-testid="india-payment-options">
                         {/* Stripe card option first with guidance */}
                         <div className="border-2 border-[#D4AF37] rounded-lg p-4 mb-3 bg-[#D4AF37]/5">

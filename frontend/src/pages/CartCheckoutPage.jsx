@@ -315,7 +315,7 @@ function CartCheckoutPage() {
                     </div>
 
                     {/* India payment options — matching EnrollmentPage */}
-                    {bookerCountry === 'IN' && paymentSettings.india_enabled && total > 0 && (
+                    {detectedCountry === 'IN' && paymentSettings.india_enabled && total > 0 && (
                       <div className="mb-4" data-testid="cart-india-payment-options">
                         <div className="border-2 border-[#D4AF37] rounded-lg p-4 mb-3 bg-[#D4AF37]/5">
                           <div className="flex items-center gap-2 mb-2">
