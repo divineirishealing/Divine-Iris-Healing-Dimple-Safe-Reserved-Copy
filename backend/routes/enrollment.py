@@ -505,10 +505,20 @@ async def enrollment_checkout(enrollment_id: str, data: EnrollmentSubmit, reques
     ip_country, vpn_detected = await detect_ip_info(request)
     server_currency = get_base_currency(ip_country, vpn_detected)
     claimed_currency = (data.currency or "usd").lower()
+    
+    # Strict India protection: block non-India from INR
     if claimed_currency == "inr" and server_currency != "inr":
         raise HTTPException(status_code=403, detail="Currency mismatch — your region does not qualify for INR pricing. Please refresh the page.")
     if claimed_currency == "aed" and server_currency == "usd":
         raise HTTPException(status_code=403, detail="Currency mismatch — please refresh the page.")
+    
+    # Force correct currency: if IP says India but browser sent USD (stale cache), override to INR
+    if server_currency == "inr" and claimed_currency != "inr":
+        data.currency = "inr"
+        data.display_currency = "inr"
+    elif server_currency == "aed" and claimed_currency == "usd":
+        data.currency = "aed"
+        data.display_currency = "aed"
 
     # Get pricing (server-side, not from client)
     # Store browser signals for fraud detection audit trail
