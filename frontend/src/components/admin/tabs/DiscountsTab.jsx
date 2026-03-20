@@ -264,9 +264,11 @@ export default function DiscountsTab() {
         <div className="mt-3 space-y-2">
           {(settings.cross_sell_rules || []).map((rule, i) => {
             const updateRule = (field, value) => {
-              const rules = [...(settings.cross_sell_rules || [])];
-              rules[i] = { ...rules[i], [field]: value };
-              setSettings(prev => ({ ...prev, cross_sell_rules: rules }));
+              setSettings(prev => {
+                const rules = [...(prev.cross_sell_rules || [])];
+                rules[i] = { ...rules[i], [field]: value };
+                return { ...prev, cross_sell_rules: rules };
+              });
             };
             return (
               <div key={i} className={`rounded-lg px-3 py-2.5 border ${rule.enabled !== false ? 'bg-green-50 border-green-200' : 'bg-gray-50 border-gray-200 opacity-60'}`} data-testid={`cross-sell-rule-${i}`}>
@@ -308,12 +310,14 @@ export default function DiscountsTab() {
                     const targets = rule.targets || (rule.get_program_id ? [{ program_id: rule.get_program_id, tier: rule.get_tier, discount_value: rule.discount_value, discount_type: rule.discount_type }] : []);
                     return targets.map((target, ti) => {
                       const updateTarget = (field, value) => {
-                        const updated = [...targets];
-                        updated[ti] = { ...updated[ti], [field]: value };
-                        // Single batched update — set targets and clear legacy in one call
-                        const rules = [...(settings.cross_sell_rules || [])];
-                        rules[i] = { ...rules[i], targets: updated, get_program_id: '', get_tier: '' };
-                        setSettings(prev => ({ ...prev, cross_sell_rules: rules }));
+                        setSettings(prev => {
+                          const rules = [...(prev.cross_sell_rules || [])];
+                          const curRule = rules[i] || {};
+                          const curTargets = [...(curRule.targets || targets)];
+                          curTargets[ti] = { ...curTargets[ti], [field]: value };
+                          rules[i] = { ...curRule, targets: curTargets, get_program_id: '', get_tier: '' };
+                          return { ...prev, cross_sell_rules: rules };
+                        });
                       };
                       const tProg = programs.find(p => String(p.id) === String(target.program_id));
                       const tTiers = tProg?.duration_tiers || [];
@@ -341,21 +345,26 @@ export default function DiscountsTab() {
                           </select>
                           <span className="text-[9px] text-gray-500">off</span>
                           <button onClick={() => {
-                            const updated = targets.filter((_, j) => j !== ti);
-                            const rules = [...(settings.cross_sell_rules || [])];
-                            rules[i] = { ...rules[i], targets: updated };
-                            setSettings(prev => ({ ...prev, cross_sell_rules: rules }));
+                            setSettings(prev => {
+                              const rules = [...(prev.cross_sell_rules || [])];
+                              const curTargets = [...(rules[i]?.targets || targets)].filter((_, j) => j !== ti);
+                              rules[i] = { ...rules[i], targets: curTargets };
+                              return { ...prev, cross_sell_rules: rules };
+                            });
                           }} className="text-red-300 hover:text-red-500"><Trash2 size={11} /></button>
                         </div>
                       );
                     });
                   })()}
                   <button onClick={() => {
-                    const targets = [...(rule.targets || (rule.get_program_id ? [{ program_id: rule.get_program_id, tier: rule.get_tier, discount_value: rule.discount_value, discount_type: rule.discount_type }] : []))];
-                    targets.push({ program_id: '', tier: '', discount_value: 10, discount_type: 'percentage' });
-                    const rules = [...(settings.cross_sell_rules || [])];
-                    rules[i] = { ...rules[i], targets, get_program_id: '', get_tier: '' };
-                    setSettings(prev => ({ ...prev, cross_sell_rules: rules }));
+                    setSettings(prev => {
+                      const rules = [...(prev.cross_sell_rules || [])];
+                      const curRule = rules[i] || {};
+                      const curTargets = [...(curRule.targets || (curRule.get_program_id ? [{ program_id: curRule.get_program_id, tier: curRule.get_tier, discount_value: curRule.discount_value, discount_type: curRule.discount_type }] : []))];
+                      curTargets.push({ program_id: '', tier: '', discount_value: 10, discount_type: 'percentage' });
+                      rules[i] = { ...curRule, targets: curTargets, get_program_id: '', get_tier: '' };
+                      return { ...prev, cross_sell_rules: rules };
+                    });
                   }} className="text-[9px] text-green-600 hover:underline font-medium flex items-center gap-1">
                     <Plus size={10} /> Add another program
                   </button>
