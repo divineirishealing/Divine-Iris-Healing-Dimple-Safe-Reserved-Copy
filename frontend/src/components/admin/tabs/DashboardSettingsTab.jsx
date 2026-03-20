@@ -126,10 +126,18 @@ const DashboardSettingsTab = ({ settings, onChange }) => {
             const fd = new FormData();
             fd.append('file', file);
             try {
-              const r = await fetch(`${process.env.REACT_APP_BACKEND_URL}/api/upload/document`, { method: 'POST', body: fd });
+              const r = await fetch(`${process.env.REACT_APP_BACKEND_URL}/api/upload/video`, { method: 'POST', body: fd });
               const data = await r.json();
-              update('dashboard_bg_video', data.url);
-            } catch {}
+              if (data.url) {
+                // Save directly to settings
+                await fetch(`${process.env.REACT_APP_BACKEND_URL}/api/settings`, {
+                  method: 'PUT', headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ dashboard_bg_video: data.url }),
+                });
+                update('dashboard_bg_video', data.url);
+                alert('Video uploaded and saved! Refresh dashboard to see it.');
+              }
+            } catch (err) { alert('Upload failed: ' + err.message); }
           }} className="text-xs" data-testid="bg-video-upload" />
           {(settings.dashboard_bg_video || dashboard.bg_video) && (
             <button onClick={() => update('dashboard_bg_video', '')} className="text-xs text-red-500 hover:underline">Remove</button>

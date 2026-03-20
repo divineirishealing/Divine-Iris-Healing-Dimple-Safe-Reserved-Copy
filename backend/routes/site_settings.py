@@ -62,6 +62,14 @@ async def update_settings(settings: SiteSettingsUpdate):
         update_data['payment_disclaimer_style'] = raw['payment_disclaimer_style']
     if raw.get('enrollment_urgency_quotes') is not None:
         update_data['enrollment_urgency_quotes'] = raw['enrollment_urgency_quotes']
+    if raw.get('dashboard_bg_video') is not None:
+        update_data['dashboard_bg_video'] = raw['dashboard_bg_video']
+    if raw.get('combo_rules') is not None:
+        update_data['combo_rules'] = raw['combo_rules']
+    if raw.get('cross_sell_rules') is not None:
+        update_data['cross_sell_rules'] = raw['cross_sell_rules']
+    if raw.get('inr_whitelist_emails') is not None:
+        update_data['inr_whitelist_emails'] = raw['inr_whitelist_emails']
     existing = await db.site_settings.find_one({"id": "site_settings"})
     if not existing:
         full_settings = {**DEFAULT_SETTINGS, **update_data}
