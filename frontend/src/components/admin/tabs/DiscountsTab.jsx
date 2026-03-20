@@ -135,10 +135,10 @@ export default function DiscountsTab() {
             {settings.group_discount_rules.map((rule, i) => (
               <div key={i} className="flex items-center gap-2 bg-gray-50 rounded-lg px-3 py-2" data-testid={`group-rule-${i}`}>
                 <span className="text-xs text-gray-500 whitespace-nowrap">If</span>
-                <Input type="number" value={rule.min_participants} onChange={e => updateGroupRule(i, 'min_participants', e.target.value)}
+                <Input type="text" inputMode="decimal" value={rule.min_participants} onChange={e => updateGroupRule(i, 'min_participants', e.target.value)}
                   className="w-16 h-7 text-xs text-center" min={2} />
                 <span className="text-xs text-gray-500 whitespace-nowrap">or more participants →</span>
-                <Input type="number" value={rule.discount_pct} onChange={e => updateGroupRule(i, 'discount_pct', e.target.value)}
+                <Input type="text" inputMode="decimal" value={rule.discount_pct} onChange={e => updateGroupRule(i, 'discount_pct', e.target.value)}
                   className="w-16 h-7 text-xs text-center" min={0} max={50} />
                 <span className="text-xs text-gray-500">% off</span>
                 <button onClick={() => removeGroupRule(i)} className="text-red-400 hover:text-red-600 ml-auto"><Trash2 size={14} /></button>
@@ -179,13 +179,13 @@ export default function DiscountsTab() {
             {(settings.combo_rules || []).map((rule, i) => (
               <div key={i} className="flex items-center gap-2 bg-amber-50 rounded-lg px-3 py-2 border border-amber-200" data-testid={`combo-rule-${i}`}>
                 <span className="text-xs text-gray-500 whitespace-nowrap">If</span>
-                <Input type="number" value={rule.min_programs} onChange={e => {
+                <Input type="text" inputMode="decimal" value={rule.min_programs} onChange={e => {
                   const rules = [...(settings.combo_rules || [])];
                   rules[i] = { ...rules[i], min_programs: parseInt(e.target.value) || 2 };
                   setSettings(prev => ({ ...prev, combo_rules: rules }));
                 }} className="w-12 h-7 text-xs text-center" min={2} />
                 <span className="text-xs text-gray-500 whitespace-nowrap">+ programs →</span>
-                <Input type="number" value={rule.discount_pct} onChange={e => {
+                <Input type="text" inputMode="decimal" value={rule.discount_pct} onChange={e => {
                   const rules = [...(settings.combo_rules || [])];
                   rules[i] = { ...rules[i], discount_pct: parseFloat(e.target.value) || 0 };
                   setSettings(prev => ({ ...prev, combo_rules: rules }));
@@ -229,7 +229,7 @@ export default function DiscountsTab() {
         {settings.enable_loyalty && (
           <div className="mt-3 flex items-center gap-3 bg-gray-50 rounded-lg px-3 py-2">
             <span className="text-xs text-gray-500 whitespace-nowrap">Returning clients get</span>
-            <Input type="number" value={settings.loyalty_discount_pct} onChange={e => setSettings(prev => ({ ...prev, loyalty_discount_pct: parseFloat(e.target.value) || 0 }))}
+            <Input type="text" inputMode="decimal" value={settings.loyalty_discount_pct} onChange={e => setSettings(prev => ({ ...prev, loyalty_discount_pct: parseFloat(e.target.value) || 0 }))}
               className="w-16 h-7 text-xs text-center" min={0} max={50} />
             <span className="text-xs text-gray-500">% off their next enrollment</span>
           </div>
@@ -336,7 +336,7 @@ export default function DiscountsTab() {
                             </select>
                           )}
                           <span className="text-[9px] text-gray-500">→</span>
-                          <Input type="number" value={target.discount_value || 0} onChange={e => updateTarget('discount_value', parseFloat(e.target.value) || 0)}
+                          <Input type="text" inputMode="decimal" value={target.discount_value || 0} onChange={e => updateTarget('discount_value', parseFloat(e.target.value) || 0)}
                             className="w-12 h-6 text-[10px] text-center" min={0} />
                           <select value={target.discount_type || 'percentage'} onChange={e => updateTarget('discount_type', e.target.value)}
                             className="border rounded px-0.5 py-0.5 text-[9px] bg-white h-6">
