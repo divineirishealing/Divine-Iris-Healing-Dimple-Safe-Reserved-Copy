@@ -11,7 +11,7 @@ import { Button } from '../components/ui/button';
 import { resolveImageUrl } from '../lib/imageUtils';
 import {
   ShoppingCart, Trash2, Plus, User, Monitor, Wifi, ChevronRight, ChevronDown, ChevronUp,
-  Bell, BellOff, Copy, Tag, Mail, Loader2, Check, Lock
+  Bell, BellOff, Copy, Tag, Mail, Loader2, Check, Lock, Gift
 } from 'lucide-react';
 import { ShieldCheck, ShieldAlert } from 'lucide-react';
 
@@ -418,6 +418,8 @@ function CartPage() {
         const res = await axios.post(`${API}/discounts/calculate`, {
           num_programs: numPrograms, num_participants: totalParticipants,
           subtotal: totalAmount, email: '', currency: baseCurrency,
+          program_ids: items.map(i => i.programId),
+          cart_items: items.map(i => ({ program_id: i.programId, tier_index: i.tierIndex })),
         });
         setAutoDiscounts(res.data);
       } catch { setAutoDiscounts({ group_discount: 0, combo_discount: 0, loyalty_discount: 0, total_discount: 0 }); }
@@ -578,6 +580,11 @@ function CartPage() {
             {autoDiscounts.combo_discount > 0 && (
               <div className="flex justify-between items-center text-xs text-green-600 mb-0.5" data-testid="cart-discount-combo">
                 <span>Combo Discount ({numPrograms} programs)</span><span>-{symbol} {autoDiscounts.combo_discount.toLocaleString()}</span>
+              </div>
+            )}
+            {autoDiscounts.cross_sell_discount > 0 && (
+              <div className="flex justify-between items-center text-xs text-green-600 mb-0.5" data-testid="cart-discount-crosssell">
+                <span className="flex items-center gap-1"><Gift size={10} /> Cross-Sell Discount</span><span>-{symbol} {autoDiscounts.cross_sell_discount.toLocaleString()}</span>
               </div>
             )}
             {discount > 0 && (

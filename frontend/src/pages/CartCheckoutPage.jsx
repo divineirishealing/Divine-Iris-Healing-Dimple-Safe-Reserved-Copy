@@ -154,6 +154,8 @@ function CartCheckoutPage() {
         const res = await axios.post(`${API}/discounts/calculate`, {
           num_programs: numPrograms, num_participants: totalParticipants,
           subtotal, email: bookerEmail, currency,
+          program_ids: items.map(i => i.programId),
+          cart_items: items.map(i => ({ program_id: i.programId, tier_index: i.tierIndex })),
         });
         setAutoDiscounts(res.data);
       } catch { setAutoDiscounts({ group_discount: 0, combo_discount: 0, loyalty_discount: 0, total_discount: 0 }); }
@@ -245,6 +247,11 @@ function CartCheckoutPage() {
                   {autoDiscounts.combo_discount > 0 && (
                     <div className="flex justify-between text-xs text-green-600" data-testid="discount-combo">
                       <span>Combo Discount ({numPrograms} programs)</span><span>-{symbol} {autoDiscounts.combo_discount.toLocaleString()}</span>
+                    </div>
+                  )}
+                  {autoDiscounts.cross_sell_discount > 0 && (
+                    <div className="flex justify-between text-xs text-green-600" data-testid="discount-crosssell">
+                      <span>Cross-Sell Discount</span><span>-{symbol} {autoDiscounts.cross_sell_discount.toLocaleString()}</span>
                     </div>
                   )}
                   {autoDiscounts.loyalty_discount > 0 && (

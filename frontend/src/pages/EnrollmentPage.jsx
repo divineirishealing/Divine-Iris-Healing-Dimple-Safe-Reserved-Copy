@@ -453,8 +453,10 @@ function EnrollmentPage() {
     const fetchDiscounts = async () => {
       try {
         const res = await axios.post(`${API}/discounts/calculate`, {
-          num_programs: 1, num_participants: pCount,
+          num_programs: 1 + cartItems.length, num_participants: pCount,
           subtotal: subtotalRaw, email: bookerEmail, currency,
+          program_ids: [id, ...cartItems.map(i => i.programId)],
+          cart_items: [{ program_id: id, tier_index: selectedTier }, ...cartItems.map(i => ({ program_id: i.programId, tier_index: i.tierIndex }))],
         });
         setAutoDiscounts(res.data);
       } catch { setAutoDiscounts({ group_discount: 0, combo_discount: 0, loyalty_discount: 0, total_discount: 0 }); }
@@ -711,6 +713,17 @@ function EnrollmentPage() {
                     {autoDiscounts.group_discount > 0 && (
                       <div className="flex justify-between text-xs text-green-600" data-testid="enroll-discount-group">
                         <span>Group Discount ({pCount} people)</span><span>-{symbol} {autoDiscounts.group_discount.toLocaleString()}</span>
+                      </div>
+                    )}
+                    {(autoDiscounts.cross_sell_discount > 0 || (crossSellDiscount && crossSellDiscount.amount > 0)) && (
+                      <div className="flex justify-between text-xs text-green-600" data-testid="enroll-discount-crosssell">
+                        <span className="flex items-center gap-1"><Gift size={10} /> {crossSellDiscount?.label || 'Cross-Sell'}</span>
+                        <span>-{symbol} {(autoDiscounts.cross_sell_discount || crossSellDiscount?.amount || 0).toLocaleString()}</span>
+                      </div>
+                    )}
+                    {autoDiscounts.combo_discount > 0 && (
+                      <div className="flex justify-between text-xs text-green-600" data-testid="enroll-discount-combo">
+                        <span>Combo Discount</span><span>-{symbol} {autoDiscounts.combo_discount.toLocaleString()}</span>
                       </div>
                     )}
                     {autoDiscounts.loyalty_discount > 0 && (
