@@ -561,40 +561,34 @@ const ComboBanner = ({ programs, comboRules }) => {
 const CrossSellBanner = ({ rules, programs }) => {
   const { symbol } = useCurrency();
 
-  return (
-    <div className="space-y-3 mt-4" data-testid="cross-sell-banners">
-      {rules.map((rule, ri) => {
-        const buyProg = programs.find(p => String(p.id) === String(rule.buy_program_id));
-        if (!buyProg) return null;
-        const buyTier = rule.buy_tier !== '' && rule.buy_tier !== undefined ? buyProg.duration_tiers?.[rule.buy_tier] : null;
-        const buyLabel = buyTier ? `${buyProg.title} (${buyTier.label})` : buyProg.title;
-        const targets = rule.targets || (rule.get_program_id ? [{ program_id: rule.get_program_id, discount_value: rule.discount_value, discount_type: rule.discount_type }] : []);
-        const validTargets = targets.map(t => {
-          const tp = programs.find(p => String(p.id) === String(t.program_id));
-          if (!tp) return null;
-          const tier = t.tier !== '' && t.tier !== undefined ? tp.duration_tiers?.[t.tier] : null;
-          return { ...t, title: tier ? `${tp.title} (${tier.label})` : tp.title };
-        }).filter(Boolean);
-        if (validTargets.length === 0) return null;
+  const allOffers = rules.flatMap(rule => {
+    const buyProg = programs.find(p => String(p.id) === String(rule.buy_program_id));
+    if (!buyProg) return [];
+    const buyTier = rule.buy_tier !== '' && rule.buy_tier !== undefined ? buyProg.duration_tiers?.[rule.buy_tier] : null;
+    const buyLabel = buyTier ? `${buyProg.title} (${buyTier.label})` : buyProg.title;
+    const targets = rule.targets || (rule.get_program_id ? [{ program_id: rule.get_program_id, discount_value: rule.discount_value, discount_type: rule.discount_type }] : []);
+    return targets.map(t => {
+      const tp = programs.find(p => String(p.id) === String(t.program_id));
+      if (!tp) return null;
+      const tier = t.tier !== '' && t.tier !== undefined ? tp.duration_tiers?.[t.tier] : null;
+      return { buyLabel, targetTitle: tier ? `${tp.title} (${tier.label})` : tp.title, value: t.discount_value, type: t.discount_type, label: rule.label };
+    }).filter(Boolean);
+  });
 
-        return (
-          <div key={ri} className="rounded-xl border border-[#D4AF37]/30 bg-gradient-to-r from-[#fdf6e3] via-[#fffbf0] to-[#fdf6e3] px-5 py-3" data-testid={`cross-sell-strip-${ri}`}>
-            <div className="flex items-center gap-3">
-              <Gift size={16} className="text-[#D4AF37] shrink-0" />
-              <p className="text-xs text-gray-800">
-                <strong className="text-gray-900">{rule.label || 'Special Offer'}:</strong>{' '}
-                Enroll in <strong>{buyLabel}</strong> and get{' '}
-                {validTargets.map((t, ti) => (
-                  <span key={ti}>
-                    {ti > 0 && ' + '}
-                    <strong className="text-[#D4AF37]">{t.discount_value}{t.discount_type === 'percentage' ? '%' : ` ${symbol}`} off</strong> on <strong>{t.title}</strong>
-                  </span>
-                ))}
-              </p>
-            </div>
-          </div>
-        );
-      })}
+  if (allOffers.length === 0) return null;
+
+  return (
+    <div className="rounded-xl border border-[#D4AF37]/30 bg-gradient-to-r from-[#fdf6e3] via-[#fffbf0] to-[#fdf6e3] px-5 py-3 mt-4" data-testid="cross-sell-banners">
+      <div className="flex items-start gap-3">
+        <Gift size={16} className="text-[#D4AF37] shrink-0 mt-0.5" />
+        <div className="space-y-1">
+          {allOffers.map((o, i) => (
+            <p key={i} className="text-xs text-gray-800">
+              Enroll in <strong>{o.buyLabel}</strong> and get <strong className="text-[#D4AF37]">{o.value}{o.type === 'percentage' ? '%' : ` ${symbol}`} off</strong> on <strong>{o.targetTitle}</strong>
+            </p>
+          ))}
+        </div>
+      </div>
     </div>
   );
 };
