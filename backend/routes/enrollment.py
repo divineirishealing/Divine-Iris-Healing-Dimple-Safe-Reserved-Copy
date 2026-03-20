@@ -506,17 +506,39 @@ async def enrollment_checkout(enrollment_id: str, data: EnrollmentSubmit, reques
     server_currency = get_base_currency(ip_country, vpn_detected)
     claimed_currency = (data.currency or "usd").lower()
     
-    # Strict India protection: block non-India from INR
-    if claimed_currency == "inr" and server_currency != "inr":
+    # ── INR Override: Check 3 methods for NRI/whitelisted students ──
+    inr_override = False
+    booker_email = enrollment.get("booker_email", "").lower().strip()
+    
+    # Method 1: Email whitelist
+    settings = await db.site_settings.find_one({"id": "site_settings"}, {"_id": 0, "inr_whitelist_emails": 1})
+    whitelist = [e.lower().strip() for e in (settings or {}).get("inr_whitelist_emails", [])]
+    if booker_email in whitelist:
+        inr_override = True
+    
+    # Method 2: Invite token (stored in enrollment)
+    if enrollment.get("inr_invite_token"):
+        token_doc = await db.inr_invite_tokens.find_one({"token": enrollment["inr_invite_token"], "active": True})
+        if token_doc:
+            inr_override = True
+    
+    # Method 3: INR promo code (stored in enrollment)
+    if enrollment.get("inr_promo_applied"):
+        inr_override = True
+    
+    # Apply INR override or strict protection
+    if inr_override and claimed_currency == "inr":
+        pass  # Allow INR even from abroad
+    elif claimed_currency == "inr" and server_currency != "inr":
         raise HTTPException(status_code=403, detail="Currency mismatch — your region does not qualify for INR pricing. Please refresh the page.")
-    if claimed_currency == "aed" and server_currency == "usd":
+    if claimed_currency == "aed" and server_currency == "usd" and not inr_override:
         raise HTTPException(status_code=403, detail="Currency mismatch — please refresh the page.")
     
     # Force correct currency: if IP says India but browser sent USD (stale cache), override to INR
     if server_currency == "inr" and claimed_currency != "inr":
         data.currency = "inr"
         data.display_currency = "inr"
-    elif server_currency == "aed" and claimed_currency == "usd":
+    elif server_currency == "aed" and claimed_currency == "usd" and not inr_override:
         data.currency = "aed"
         data.display_currency = "aed"
 
@@ -883,3 +905,61 @@ async def get_enrollment(enrollment_id: str):
     if not enrollment:
         raise HTTPException(status_code=404, detail="Enrollment not found")
     return enrollment
+
+
+# ═══════════════════════════════════════
+# INR PRICING OVERRIDES (NRI Students)
+# ═══════════════════════════════════════
+
+@router.post("/inr-override/generate-token")
+async def generate_inr_invite_token(data: dict):
+    """Admin generates an invite token for INR pricing access."""
+    label = data.get("label", "")
+    token = f"INR-{uuid.uuid4().hex[:8].upper()}"
+    await db.inr_invite_tokens.insert_one({
+        "token": token, "label": label, "active": True,
+        "used_count": 0, "max_uses": data.get("max_uses", 10),
+        "created_at": datetime.now(timezone.utc).isoformat(),
+    })
+    return {"token": token}
+
+@router.get("/inr-override/tokens")
+async def list_inr_tokens():
+    tokens = await db.inr_invite_tokens.find({}, {"_id": 0}).sort("created_at", -1).to_list(50)
+    return tokens
+
+@router.delete("/inr-override/tokens/{token}")
+async def delete_inr_token(token: str):
+    await db.inr_invite_tokens.delete_one({"token": token})
+    return {"message": "Deleted"}
+
+@router.post("/inr-override/validate-token")
+async def validate_inr_token(data: dict):
+    """Frontend calls this to check if an invite token is valid."""
+    token = data.get("token", "").strip()
+    doc = await db.inr_invite_tokens.find_one({"token": token, "active": True})
+    if not doc:
+        raise HTTPException(status_code=404, detail="Invalid or expired token")
+    if doc.get("max_uses", 10) > 0 and doc.get("used_count", 0) >= doc.get("max_uses", 10):
+        raise HTTPException(status_code=410, detail="Token has been fully used")
+    return {"valid": True, "label": doc.get("label", "")}
+
+@router.post("/inr-override/apply-to-enrollment")
+async def apply_inr_override(data: dict):
+    """Apply INR override to an enrollment via token, promo, or whitelist."""
+    enrollment_id = data.get("enrollment_id")
+    method = data.get("method")  # "token", "promo", "whitelist"
+    value = data.get("value", "")
+    
+    if method == "token":
+        doc = await db.inr_invite_tokens.find_one({"token": value, "active": True})
+        if not doc:
+            raise HTTPException(status_code=404, detail="Invalid token")
+        await db.enrollments.update_one({"id": enrollment_id}, {"$set": {"inr_invite_token": value}})
+        await db.inr_invite_tokens.update_one({"token": value}, {"$inc": {"used_count": 1}})
+    elif method == "promo":
+        await db.enrollments.update_one({"id": enrollment_id}, {"$set": {"inr_promo_applied": True}})
+    elif method == "whitelist":
+        await db.enrollments.update_one({"id": enrollment_id}, {"$set": {"inr_whitelist_match": True}})
+    
+    return {"message": "INR override applied"}

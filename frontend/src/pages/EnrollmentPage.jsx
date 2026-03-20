@@ -297,6 +297,8 @@ function EnrollmentPage() {
   const tierParam = searchParams.get('tier');
   const selectedTier = tierParam !== null ? parseInt(tierParam) : null;
   const resumeId = searchParams.get('resume');
+  const inrToken = searchParams.get('inr_token');
+  const [inrOverride, setInrOverride] = useState(false);
 
   // Country is NOT auto-filled — user must select manually
 
@@ -387,6 +389,14 @@ function EnrollmentPage() {
       toast({ title: "Welcome back", description: "Your information is saved — continue to payment.", variant: "default" });
     }).catch(() => {});
   }, [resumeId]);
+
+  // Validate INR invite token
+  useEffect(() => {
+    if (!inrToken) return;
+    axios.post(`${API}/enrollment/inr-override/validate-token`, { token: inrToken })
+      .then(() => { setInrOverride(true); toast({ title: 'INR pricing activated!' }); })
+      .catch(() => {});
+  }, [inrToken]);
 
   // Local price getters that respect bookerCountry selection
   const getLocalPrice = (item, tierIndex = null) => {
@@ -524,6 +534,18 @@ function EnrollmentPage() {
       }
       await axios.post(`${API}/enrollment/${eid}/send-otp`, { email: bookerEmail });
       setOtpSent(true);
+      // Apply INR override if token present
+      if (inrToken) {
+        await axios.post(`${API}/enrollment/inr-override/apply-to-enrollment`, { enrollment_id: eid, method: 'token', value: inrToken }).catch(() => {});
+      }
+      // Check whitelist match
+      try {
+        const settingsRes = await axios.get(`${API}/settings`);
+        const wl = (settingsRes.data?.inr_whitelist_emails || []).map(e => e.toLowerCase().trim());
+        if (wl.includes(bookerEmail.toLowerCase().trim())) {
+          await axios.post(`${API}/enrollment/inr-override/apply-to-enrollment`, { enrollment_id: eid, method: 'whitelist', value: bookerEmail }).catch(() => {});
+        }
+      } catch {}
       toast({ title: 'Verification code sent to your email!' });
     } catch (err) { toast({ title: 'Error', description: err.response?.data?.detail || 'Failed', variant: 'destructive' }); }
     finally { setLoading(false); }
