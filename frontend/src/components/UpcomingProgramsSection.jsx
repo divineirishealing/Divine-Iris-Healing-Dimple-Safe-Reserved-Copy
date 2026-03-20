@@ -5,7 +5,7 @@ import { resolveImageUrl } from '../lib/imageUtils';
 import { useCurrency } from '../context/CurrencyContext';
 import { useCart } from '../context/CartContext';
 import { useToast } from '../hooks/use-toast';
-import { Monitor, Calendar, Clock, AlertTriangle, Wifi, ShoppingCart, Check, Bell, Heart, Gift } from 'lucide-react';
+import { Monitor, Calendar, Clock, AlertTriangle, Wifi, ShoppingCart, Check, Bell, Heart, Gift, Users } from 'lucide-react';
 
 // Map common timezone abbreviations to UTC offset in hours
 const TZ_OFFSETS = {
@@ -600,6 +600,7 @@ const UpcomingProgramsSection = ({ sectionConfig, inline }) => {
   const [sponsorConfig, setSponsorConfig] = useState(null);
   const [comboDiscount, setComboDiscount] = useState(null);
   const [crossSellRules, setCrossSellRules] = useState([]);
+  const [groupDiscount, setGroupDiscount] = useState(null);
 
   useEffect(() => {
     axios.get(`${API}/programs?visible_only=true&upcoming_only=true`)
@@ -621,6 +622,9 @@ const UpcomingProgramsSection = ({ sectionConfig, inline }) => {
       }
       if (r.data?.enable_cross_sell && r.data?.cross_sell_rules?.length > 0) {
         setCrossSellRules(r.data.cross_sell_rules.filter(r => r.enabled !== false));
+      }
+      if (r.data?.enable_group_discount && r.data?.group_discount_rules?.length > 0) {
+        setGroupDiscount(r.data.group_discount_rules);
       }
     }).catch(() => {});
   }, []);
@@ -721,6 +725,30 @@ const UpcomingProgramsSection = ({ sectionConfig, inline }) => {
       {!inline && crossSellRules.length > 0 && (
         <div className="mt-4">
           <CrossSellBanner rules={crossSellRules} programs={sorted} />
+        </div>
+      )}
+
+      {/* Group Discount Banner */}
+      {!inline && groupDiscount && groupDiscount.length > 0 && (
+        <div className="rounded-xl border border-blue-200/50 bg-gradient-to-r from-blue-50 via-white to-blue-50 px-5 py-3 mt-4" data-testid="group-discount-banner">
+          <div className="flex items-start gap-3">
+            <Users size={16} className="text-blue-500 shrink-0 mt-0.5" />
+            <div className="space-y-1">
+              {groupDiscount.map((rule, i) => {
+                const progIds = rule.program_ids || [];
+                const progNames = progIds.length > 0
+                  ? progIds.map(pid => sorted.find(p => String(p.id) === String(pid))?.title).filter(Boolean)
+                  : [];
+                return (
+                  <p key={i} className="text-xs text-gray-800">
+                    Enroll <strong className="text-blue-600">{rule.min_participants}+ participants</strong>
+                    {progNames.length > 0 ? <> in <strong>{progNames.map(n => n.length > 25 ? n.slice(0, 25) + '..' : n).join(', ')}</strong></> : ''}
+                    {' '}and get <strong className="text-blue-600">{rule.discount_pct}% off</strong>
+                  </p>
+                );
+              })}
+            </div>
+          </div>
         </div>
       )}
     </div>
