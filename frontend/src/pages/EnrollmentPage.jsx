@@ -471,7 +471,8 @@ function EnrollmentPage() {
     return promoResult[`discount_${currency}`] || promoResult.discount_aed || 0;
   })();
   const subtotal = subtotalRaw;
-  const totalAutoDiscount = autoDiscounts.total_discount || 0;
+  // Exclude cross_sell from auto discounts — it's already applied per-program via finalUnitPrice
+  const totalAutoDiscount = (autoDiscounts.group_discount || 0) + (autoDiscounts.combo_discount || 0) + (autoDiscounts.loyalty_discount || 0);
   const total = Math.max(0, subtotal - discount - totalAutoDiscount);
 
   const validatePromo = async () => {
@@ -715,10 +716,10 @@ function EnrollmentPage() {
                         <span>Group Discount ({pCount} people)</span><span>-{symbol} {autoDiscounts.group_discount.toLocaleString()}</span>
                       </div>
                     )}
-                    {(autoDiscounts.cross_sell_discount > 0 || (crossSellDiscount && crossSellDiscount.amount > 0)) && (
+                    {(crossSellDiscount && crossSellDiscount.amount > 0) && (
                       <div className="flex justify-between text-xs text-green-600" data-testid="enroll-discount-crosssell">
-                        <span className="flex items-center gap-1"><Gift size={10} /> {crossSellDiscount?.label || 'Cross-Sell'}</span>
-                        <span>-{symbol} {(autoDiscounts.cross_sell_discount || crossSellDiscount?.amount || 0).toLocaleString()}</span>
+                        <span className="flex items-center gap-1"><Gift size={10} /> {crossSellDiscount.label || 'Cross-Sell'}</span>
+                        <span>-{symbol} {crossSellDiscount.amount.toLocaleString()}</span>
                       </div>
                     )}
                     {autoDiscounts.combo_discount > 0 && (
