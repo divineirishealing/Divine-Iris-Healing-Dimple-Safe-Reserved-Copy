@@ -134,15 +134,35 @@ export default function DiscountsTab() {
               <p className="text-[10px] text-gray-400 italic">No rules yet. Add a rule like "3+ participants = 10% off".</p>
             )}
             {settings.group_discount_rules.map((rule, i) => (
-              <div key={i} className="flex items-center gap-2 bg-gray-50 rounded-lg px-3 py-2" data-testid={`group-rule-${i}`}>
-                <span className="text-xs text-gray-500 whitespace-nowrap">If</span>
-                <Input type="text" inputMode="decimal" value={rule.min_participants} onChange={e => updateGroupRule(i, 'min_participants', e.target.value)}
-                  className="w-16 h-7 text-xs text-center" min={2} />
-                <span className="text-xs text-gray-500 whitespace-nowrap">or more participants →</span>
-                <Input type="text" inputMode="decimal" value={rule.discount_pct} onChange={e => updateGroupRule(i, 'discount_pct', e.target.value)}
-                  className="w-16 h-7 text-xs text-center" min={0} max={50} />
-                <span className="text-xs text-gray-500">% off</span>
-                <button onClick={() => removeGroupRule(i)} className="text-red-400 hover:text-red-600 ml-auto"><Trash2 size={14} /></button>
+              <div key={i} className="bg-gray-50 rounded-lg px-3 py-2" data-testid={`group-rule-${i}`}>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-gray-500 whitespace-nowrap">If</span>
+                  <Input type="text" inputMode="decimal" value={rule.min_participants} onChange={e => updateGroupRule(i, 'min_participants', e.target.value)}
+                    className="w-16 h-7 text-xs text-center" min={2} />
+                  <span className="text-xs text-gray-500 whitespace-nowrap">or more participants →</span>
+                  <Input type="text" inputMode="decimal" value={rule.discount_pct} onChange={e => updateGroupRule(i, 'discount_pct', e.target.value)}
+                    className="w-16 h-7 text-xs text-center" min={0} max={50} />
+                  <span className="text-xs text-gray-500">% off</span>
+                  <button onClick={() => removeGroupRule(i)} className="text-red-400 hover:text-red-600 ml-auto"><Trash2 size={14} /></button>
+                </div>
+                <div className="flex flex-wrap gap-1.5 items-center mt-1.5">
+                  <span className="text-[9px] text-gray-400">Programs:</span>
+                  {programs.filter(p => p.title).map(p => {
+                    const selected = (rule.program_ids || []).includes(String(p.id));
+                    return (
+                      <button key={p.id} onClick={() => {
+                        const rules = [...settings.group_discount_rules];
+                        const ids = rules[i].program_ids || [];
+                        rules[i] = { ...rules[i], program_ids: selected ? ids.filter(x => x !== String(p.id)) : [...ids, String(p.id)] };
+                        setSettings(prev => ({ ...prev, group_discount_rules: rules }));
+                      }}
+                        className={`text-[9px] px-2 py-0.5 rounded-full font-medium border transition-colors ${selected ? 'bg-blue-200 border-blue-400 text-blue-800' : 'bg-white border-gray-200 text-gray-500 hover:border-blue-300'}`}>
+                        {p.title.length > 20 ? p.title.slice(0, 20) + '..' : p.title}
+                      </button>
+                    );
+                  })}
+                  {!(rule.program_ids || []).length && <span className="text-[8px] text-gray-400 italic">All programs (click to select specific ones)</span>}
+                </div>
               </div>
             ))}
           </div>
@@ -178,7 +198,7 @@ export default function DiscountsTab() {
               <p className="text-[10px] text-gray-400 italic">No combo rules yet. Add a rule like "2+ programs = 10% off (code: COMBO2)".</p>
             )}
             {(settings.combo_rules || []).map((rule, i) => (
-              <div key={i} className="flex items-center gap-2 bg-amber-50 rounded-lg px-3 py-2 border border-amber-200" data-testid={`combo-rule-${i}`}>
+              <div key={i} className="flex items-center gap-2 bg-amber-50 rounded-lg px-3 py-2 border border-amber-200 flex-wrap" data-testid={`combo-rule-${i}`}>
                 <span className="text-xs text-gray-500 whitespace-nowrap">If</span>
                 <Input type="text" inputMode="decimal" value={rule.min_programs} onChange={e => {
                   const rules = [...(settings.combo_rules || [])];
@@ -207,6 +227,25 @@ export default function DiscountsTab() {
                 <button onClick={() => {
                   setSettings(prev => ({ ...prev, combo_rules: (prev.combo_rules || []).filter((_, j) => j !== i) }));
                 }} className="text-red-400 hover:text-red-600 ml-auto"><Trash2 size={14} /></button>
+                {/* Program selection */}
+                <div className="w-full mt-1.5 flex flex-wrap gap-1.5 items-center">
+                  <span className="text-[9px] text-gray-400">Programs:</span>
+                  {programs.filter(p => p.title).map(p => {
+                    const selected = (rule.program_ids || []).includes(String(p.id));
+                    return (
+                      <button key={p.id} onClick={() => {
+                        const rules = [...(settings.combo_rules || [])];
+                        const ids = rules[i].program_ids || [];
+                        rules[i] = { ...rules[i], program_ids: selected ? ids.filter(x => x !== String(p.id)) : [...ids, String(p.id)] };
+                        setSettings(prev => ({ ...prev, combo_rules: rules }));
+                      }}
+                        className={`text-[9px] px-2 py-0.5 rounded-full font-medium border transition-colors ${selected ? 'bg-amber-200 border-amber-400 text-amber-800' : 'bg-white border-gray-200 text-gray-500 hover:border-amber-300'}`}>
+                        {p.title.length > 20 ? p.title.slice(0, 20) + '..' : p.title}
+                      </button>
+                    );
+                  })}
+                  {!(rule.program_ids || []).length && <span className="text-[8px] text-gray-400 italic">All programs (click to select specific ones)</span>}
+                </div>
               </div>
             ))}
           </div>
