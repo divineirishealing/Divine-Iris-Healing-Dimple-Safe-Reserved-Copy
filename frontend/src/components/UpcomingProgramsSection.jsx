@@ -509,10 +509,58 @@ const SponsorCard = ({ sponsorData }) => {
   );
 };
 
+const ComboBanner = ({ programs, discount }) => {
+  const navigate = useNavigate();
+  const { symbol, getPrice, getOfferPrice } = useCurrency();
+  const { addItem, items } = useCart();
+  const { toast } = useToast();
+
+  const names = programs.map(p => p.title.length > 25 ? p.title.slice(0, 25) + '...' : p.title);
+
+  const handleAddAll = () => {
+    let added = 0;
+    programs.forEach(p => {
+      const exists = items.some(i => i.programId === p.id);
+      if (!exists) {
+        addItem(p, 0);
+        added++;
+      }
+    });
+    if (added > 0) {
+      toast({ title: `${added} program${added > 1 ? 's' : ''} added to cart!`, description: `Combo discount of ${discount.pct}% will apply at checkout` });
+    } else {
+      toast({ title: 'Already in cart' });
+    }
+  };
+
+  return (
+    <div className="rounded-xl border-2 border-dashed border-[#D4AF37]/50 bg-gradient-to-r from-[#fdf6e3] via-white to-[#f3e8ff] p-4 mt-4" data-testid="combo-banner">
+      <div className="flex items-start gap-3">
+        <div className="w-10 h-10 rounded-xl bg-[#D4AF37]/10 flex items-center justify-center shrink-0">
+          <ShoppingCart size={18} className="text-[#D4AF37]" />
+        </div>
+        <div className="flex-1">
+          <p className="text-sm font-bold text-gray-900 mb-0.5">
+            Combo Package — Save {discount.pct}%
+          </p>
+          <p className="text-xs text-gray-600 mb-2">
+            Enroll in <strong>{names.join(' + ')}</strong> together and get <span className="text-[#D4AF37] font-bold">{discount.pct}% off</span> your total.
+          </p>
+          <button onClick={handleAddAll} data-testid="combo-add-all"
+            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-full bg-[#D4AF37] hover:bg-[#b8962e] text-white text-xs font-semibold tracking-wide transition-colors">
+            <ShoppingCart size={12} /> Add Both to Cart
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 const UpcomingProgramsSection = ({ sectionConfig, inline }) => {
   const [programs, setPrograms] = useState([]);
   const [sponsorData, setSponsorData] = useState(null);
   const [sponsorConfig, setSponsorConfig] = useState(null);
+  const [comboDiscount, setComboDiscount] = useState(null); // { enabled, pct, min }
 
   useEffect(() => {
     axios.get(`${API}/programs?visible_only=true&upcoming_only=true`)
@@ -523,6 +571,11 @@ const UpcomingProgramsSection = ({ sectionConfig, inline }) => {
       const sc = (r.data?.homepage_sections || []).find(s => s.id === 'sponsor');
       if (sc) setSponsorConfig(sc);
     }).catch(() => {});
+    axios.get(`${API}/discounts/settings`).then(r => {
+      if (r.data?.enable_combo_discount && r.data?.combo_discount_pct > 0) {
+        setComboDiscount({ pct: r.data.combo_discount_pct, min: r.data.combo_min_programs || 2 });
+      }
+    }).catch(() => {});
   }, []);
 
   if (programs.length === 0) return null;
@@ -532,6 +585,11 @@ const UpcomingProgramsSection = ({ sectionConfig, inline }) => {
     const sa = statusOrder[a.enrollment_status || (a.enrollment_open !== false ? 'open' : 'closed')] ?? 1;
     const sb = statusOrder[b.enrollment_status || (b.enrollment_open !== false ? 'open' : 'closed')] ?? 1;
     return sa - sb;
+  });
+
+  const openPrograms = sorted.filter(p => {
+    const s = p.enrollment_status || (p.enrollment_open !== false ? 'open' : 'closed');
+    return s === 'open';
   });
 
   const applyTitleStyle = (styleObj, defaults) => {
@@ -586,6 +644,13 @@ const UpcomingProgramsSection = ({ sectionConfig, inline }) => {
               </div>
               {/* Cards */}
               {sorted.map(program => <UpcomingCard key={program.id} program={program} />)}
+
+              {/* Combo Discount Banner — spans full width below cards on mobile, beside sponsor on desktop */}
+              {comboDiscount && openPrograms.length >= comboDiscount.min && (
+                <div className="lg:hidden col-span-full" data-testid="combo-banner-mobile">
+                  <ComboBanner programs={openPrograms} discount={comboDiscount} />
+                </div>
+              )}
               <div className="h-full">
                 {/* Sponsor title for mobile only */}
                 <div className="text-center mb-4 lg:hidden">
@@ -596,6 +661,13 @@ const UpcomingProgramsSection = ({ sectionConfig, inline }) => {
             </div>
           );
         })()
+      )}
+
+      {/* Combo Banner — desktop full width below grid */}
+      {!inline && comboDiscount && openPrograms.length >= comboDiscount.min && (
+        <div className="hidden lg:block mt-6">
+          <ComboBanner programs={openPrograms} discount={comboDiscount} />
+        </div>
       )}
     </div>
   );
