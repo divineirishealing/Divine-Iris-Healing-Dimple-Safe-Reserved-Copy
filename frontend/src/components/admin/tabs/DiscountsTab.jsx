@@ -5,7 +5,7 @@ import { Input } from '../../../components/ui/input';
 import { Switch } from '../../../components/ui/switch';
 import { Label } from '../../../components/ui/label';
 import { useToast } from '../../../hooks/use-toast';
-import { Plus, Trash2, Users, ShoppingCart, Heart, UserPlus, Save } from 'lucide-react';
+import { Plus, Trash2, Users, ShoppingCart, Heart, UserPlus, Save, Gift } from 'lucide-react';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
@@ -14,6 +14,7 @@ export default function DiscountsTab() {
   const { toast } = useToast();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [programs, setPrograms] = useState([]);
   const [settings, setSettings] = useState({
     enable_referral: true,
     enable_group_discount: false,
@@ -24,14 +25,19 @@ export default function DiscountsTab() {
     combo_rules: [],
     enable_loyalty: false,
     loyalty_discount_pct: 0,
+    cross_sell_rules: [],
   });
 
   useEffect(() => { loadSettings(); }, []);
 
   const loadSettings = async () => {
     try {
-      const res = await axios.get(`${API}/discounts/settings`);
-      setSettings(res.data);
+      const [dRes, pRes] = await Promise.all([
+        axios.get(`${API}/discounts/settings`),
+        axios.get(`${API}/programs`),
+      ]);
+      setSettings(dRes.data);
+      setPrograms(pRes.data || []);
     } catch (e) { console.error(e); }
     finally { setLoading(false); }
   };
@@ -230,6 +236,79 @@ export default function DiscountsTab() {
         )}
       </div>
 
+      {/* Cross-Sell Program Discounts */}
+      <div className="bg-white rounded-lg border p-5" data-testid="cross-sell-section">
+        <div className="flex items-center justify-between mb-2">
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 bg-green-100 rounded-lg flex items-center justify-center">
+              <Gift size={18} className="text-green-600" />
+            </div>
+            <div>
+              <p className="text-sm font-semibold text-gray-900">Program Cross-Sell Discounts</p>
+              <p className="text-[10px] text-gray-500">Buy Program A → Get discount on Program B (% or fixed amount)</p>
+            </div>
+          </div>
+          <Button size="sm" variant="outline" onClick={() => setSettings(prev => ({
+            ...prev,
+            cross_sell_rules: [...(prev.cross_sell_rules || []), {
+              buy_program_id: '', get_program_id: '', discount_type: 'percentage', discount_value: 10,
+              code: `XSELL${(prev.cross_sell_rules?.length || 0) + 1}`, label: '', enabled: true,
+            }]
+          }))} className="text-xs h-7" data-testid="add-cross-sell-rule">
+            <Plus size={12} className="mr-1" /> Add Rule
+          </Button>
+        </div>
+        {(!settings.cross_sell_rules || settings.cross_sell_rules.length === 0) && (
+          <p className="text-[10px] text-gray-400 italic mt-2">No cross-sell rules. Add one like "Buy AWRP → Get 15% off Quad Layer Healing".</p>
+        )}
+        <div className="mt-3 space-y-2">
+          {(settings.cross_sell_rules || []).map((rule, i) => {
+            const updateRule = (field, value) => {
+              const rules = [...(settings.cross_sell_rules || [])];
+              rules[i] = { ...rules[i], [field]: value };
+              setSettings(prev => ({ ...prev, cross_sell_rules: rules }));
+            };
+            return (
+              <div key={i} className={`rounded-lg px-3 py-2.5 border ${rule.enabled !== false ? 'bg-green-50 border-green-200' : 'bg-gray-50 border-gray-200 opacity-60'}`} data-testid={`cross-sell-rule-${i}`}>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <Switch checked={rule.enabled !== false} onCheckedChange={v => updateRule('enabled', v)} />
+                  <span className="text-xs text-gray-600 whitespace-nowrap">Buy</span>
+                  <select value={rule.buy_program_id || ''} onChange={e => updateRule('buy_program_id', e.target.value)}
+                    className="border rounded px-2 py-1 text-xs bg-white h-7 min-w-[140px]">
+                    <option value="">Select program</option>
+                    {programs.filter(p => p.title).map(p => <option key={p.id} value={p.id}>{p.title}</option>)}
+                  </select>
+                  <span className="text-xs text-gray-600">→ Get</span>
+                  <Input type="number" value={rule.discount_value || 0} onChange={e => updateRule('discount_value', parseFloat(e.target.value) || 0)}
+                    className="w-16 h-7 text-xs text-center" min={0} />
+                  <select value={rule.discount_type || 'percentage'} onChange={e => updateRule('discount_type', e.target.value)}
+                    className="border rounded px-1 py-1 text-xs bg-white h-7">
+                    <option value="percentage">%</option>
+                    <option value="fixed">Fixed</option>
+                  </select>
+                  <span className="text-xs text-gray-600">off</span>
+                  <select value={rule.get_program_id || ''} onChange={e => updateRule('get_program_id', e.target.value)}
+                    className="border rounded px-2 py-1 text-xs bg-white h-7 min-w-[140px]">
+                    <option value="">Select program</option>
+                    {programs.filter(p => p.title).map(p => <option key={p.id} value={p.id}>{p.title}</option>)}
+                  </select>
+                </div>
+                <div className="flex items-center gap-2 mt-1.5">
+                  <span className="text-[9px] text-gray-400">Code:</span>
+                  <Input value={rule.code || ''} onChange={e => updateRule('code', e.target.value.toUpperCase())}
+                    className="w-24 h-6 text-[10px] font-mono" placeholder="XSELL1" />
+                  <span className="text-[9px] text-gray-400">Label:</span>
+                  <Input value={rule.label || ''} onChange={e => updateRule('label', e.target.value)}
+                    className="w-40 h-6 text-[10px]" placeholder="e.g. AWRP + QLH Special" />
+                  <button onClick={() => setSettings(prev => ({ ...prev, cross_sell_rules: (prev.cross_sell_rules || []).filter((_, j) => j !== i) }))}
+                    className="text-red-400 hover:text-red-600 ml-auto"><Trash2 size={14} /></button>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
       {/* Preview */}
       <div className="bg-gray-900 rounded-lg p-5 text-white">
         <p className="text-xs font-semibold text-[#D4AF37] mb-3 tracking-wider">ACTIVE DISCOUNTS PREVIEW</p>
@@ -258,6 +337,15 @@ export default function DiscountsTab() {
             <span className={`w-2 h-2 rounded-full ${settings.enable_loyalty ? 'bg-green-400' : 'bg-gray-600'}`} />
             <span className={settings.enable_loyalty ? 'text-gray-200' : 'text-gray-500'}>
               Loyalty: {settings.enable_loyalty ? `ON — ${settings.loyalty_discount_pct}% off for returning clients` : 'OFF'}
+            </span>
+          </div>
+          <div className="flex items-center gap-2">
+            <span className={`w-2 h-2 rounded-full ${(settings.cross_sell_rules || []).length > 0 ? 'bg-green-400' : 'bg-gray-600'}`} />
+            <span className={(settings.cross_sell_rules || []).length > 0 ? 'text-gray-200' : 'text-gray-500'}>
+              Cross-Sell: {(settings.cross_sell_rules || []).filter(r => r.enabled !== false).length} active rule(s)
+              {(settings.cross_sell_rules || []).filter(r => r.enabled !== false).map((r, i) => (
+                <span key={i} className="ml-1 text-[9px] font-mono bg-gray-700 px-1 rounded">[{r.code}]</span>
+              ))}
             </span>
           </div>
         </div>

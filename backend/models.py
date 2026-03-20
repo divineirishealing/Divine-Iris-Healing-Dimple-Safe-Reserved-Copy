@@ -503,6 +503,8 @@ class SiteSettings(BaseModel):
     sanctuary_settings: Dict = {}  # {hero_bg, hero_overlay, greeting_title, greeting_subtitle}
     fraud_alert_email: str = "support@divineirishealing.com"
     enrollment_urgency_quotes: list = []  # [{text, name}]
+    combo_rules: list = []  # [{min_programs, discount_pct, code, label}]
+    cross_sell_rules: list = []  # [{buy_program_id, get_program_id, discount_type, discount_value, code, label, enabled}]
 
 class SiteSettingsUpdate(BaseModel):
     heading_font: Optional[str] = None
@@ -631,6 +633,8 @@ class SiteSettingsUpdate(BaseModel):
     text_testimonials_style: Optional[Dict] = None
     fraud_alert_email: Optional[str] = None
     enrollment_urgency_quotes: Optional[list] = None
+    combo_rules: Optional[list] = None
+    cross_sell_rules: Optional[list] = None
 
     dashboard_settings: Optional[Dict] = None  # {title, colors: {primary, secondary}, fonts}
 class PaymentTransaction(BaseModel):

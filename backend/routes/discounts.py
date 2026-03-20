@@ -39,6 +39,7 @@ async def get_discount_settings():
         "combo_rules": settings.get("combo_rules", []),
         "enable_loyalty": settings.get("enable_loyalty", False),
         "loyalty_discount_pct": settings.get("loyalty_discount_pct", 0),
+        "cross_sell_rules": settings.get("cross_sell_rules", []),
     }
 
 
@@ -72,6 +73,7 @@ async def calculate_discounts(data: dict):
     num_participants = data.get("num_participants", 1)
     num_programs = data.get("num_programs", 1)
     email = data.get("email", "")
+    program_ids = data.get("program_ids", [])  # list of program IDs in cart
     remaining = subtotal
 
     group_discount = 0
@@ -121,13 +123,42 @@ async def calculate_discounts(data: dict):
             pct = settings.get("loyalty_discount_pct", 0)
             loyalty_discount = round(remaining * pct / 100)
 
-    total_discount = group_discount + combo_discount + loyalty_discount
+    # 4. Cross-sell discount (program-specific: buy A → get X off B)
+    cross_sell_discount = 0
+    cross_sell_details = []
+    if program_ids and len(program_ids) >= 2:
+        cross_sell_rules = settings.get("cross_sell_rules", [])
+        pid_set = set(str(p) for p in program_ids)
+        for rule in cross_sell_rules:
+            if not rule.get("enabled", True):
+                continue
+            buy_id = str(rule.get("buy_program_id", ""))
+            get_id = str(rule.get("get_program_id", ""))
+            if buy_id in pid_set and get_id in pid_set:
+                disc_type = rule.get("discount_type", "percentage")
+                if disc_type == "percentage":
+                    # Need the target program's price to calculate
+                    target_prog = await db.programs.find_one({"id": get_id}, {"_id": 0})
+                    if target_prog:
+                        currency = data.get("currency", "usd")
+                        target_price = target_prog.get(f"price_{currency}", 0)
+                        amt = round(target_price * rule.get("discount_value", 0) / 100)
+                        cross_sell_discount += amt
+                        cross_sell_details.append({"rule": rule.get("label", ""), "code": rule.get("code", ""), "amount": amt})
+                else:
+                    amt = rule.get("discount_value", 0)
+                    cross_sell_discount += amt
+                    cross_sell_details.append({"rule": rule.get("label", ""), "code": rule.get("code", ""), "amount": amt})
+
+    total_discount = group_discount + combo_discount + loyalty_discount + cross_sell_discount
 
     return {
         "group_discount": group_discount,
         "combo_discount": combo_discount,
         "combo_code": combo_code,
         "loyalty_discount": loyalty_discount,
+        "cross_sell_discount": cross_sell_discount,
+        "cross_sell_details": cross_sell_details,
         "total_discount": total_discount,
     }
 
