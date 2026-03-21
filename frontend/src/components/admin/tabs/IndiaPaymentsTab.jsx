@@ -8,7 +8,7 @@ import { useToast } from '../../../hooks/use-toast';
 
 const API = `${process.env.REACT_APP_BACKEND_URL || ''}/api`;
 const BACKEND = process.env.REACT_APP_BACKEND_URL || '';
-const SITE_URL = BACKEND ? BACKEND.replace('/api', '').replace('api/', '') : (window.location.origin || '');
+const SITE_URL = (BACKEND || window.location.origin || '').replace('/api', '').replace('api/', '');
 
 const IndiaPaymentsTab = () => {
   const { toast } = useToast();

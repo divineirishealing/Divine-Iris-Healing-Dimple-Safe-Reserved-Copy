@@ -1,0 +1,17 @@
+services:
+  - type: web
+    name: divine-iris-backend
+    runtime: python
+    region: singapore
+    rootDir: backend
+    buildCommand: pip install -r requirements-render.txt
+    startCommand: uvicorn server:app --host 0.0.0.0 --port $PORT
+    envVars:
+      - key: MONGO_URL
+        sync: false        # Set this in Render dashboard — your MongoDB Atlas connection string
+      - key: DB_NAME
+        value: divineIris  # Change if you used a different DB name in Atlas
+      - key: HOST_URL
+        sync: false        # Set to your Render backend URL e.g. https://divine-iris-backend.onrender.com
+      - key: PYTHON_VERSION
+        value: 3.11.0
