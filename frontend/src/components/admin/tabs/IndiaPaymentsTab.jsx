@@ -6,9 +6,9 @@ import { Input } from '../../ui/input';
 import { Switch } from '../../ui/switch';
 import { useToast } from '../../../hooks/use-toast';
 
-const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
-const BACKEND = process.env.REACT_APP_BACKEND_URL;
-const SITE_URL = BACKEND.replace('/api', '').replace('api/', '');
+const API = `${process.env.REACT_APP_BACKEND_URL || ''}/api`;
+const BACKEND = process.env.REACT_APP_BACKEND_URL || '';
+const SITE_URL = BACKEND ? BACKEND.replace('/api', '').replace('api/', '') : (window.location.origin || '');
 
 const IndiaPaymentsTab = () => {
   const { toast } = useToast();
@@ -160,8 +160,134 @@ const IndiaPaymentsTab = () => {
         </div>
       )}
 
+      {/* ════ INDIA PAYMENT GATEWAY CONFIG ════ */}
+      <IndiaPaymentGatewayConfig />
+
       {/* ════ INR PRICING FOR NRI STUDENTS ════ */}
       <InrOverrideSection />
+    </div>
+  );
+};
+
+/* ─── India Payment Gateway Config ─── */
+const IndiaPaymentGatewayConfig = () => {
+  const { toast } = useToast();
+  const [config, setConfig] = useState({
+    gateway_type: 'exly_link', // exly_link | razorpay | payu | custom
+    exly_link: '',
+    api_key: '',
+    api_secret: '',
+    merchant_id: '',
+    webhook_url: '',
+    enabled: false,
+    notes: '',
+  });
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    axios.get(`${API}/settings`).then(r => {
+      if (r.data?.india_payment_gateway) setConfig(prev => ({ ...prev, ...r.data.india_payment_gateway }));
+    }).catch(() => {});
+  }, []);
+
+  const save = async () => {
+    setSaving(true);
+    try {
+      await axios.put(`${API}/settings`, { india_payment_gateway: config });
+      toast({ title: 'Payment gateway config saved!' });
+    } catch { toast({ title: 'Error saving', variant: 'destructive' }); }
+    finally { setSaving(false); }
+  };
+
+  return (
+    <div className="mt-8 border-t pt-6">
+      <h2 className="text-lg font-semibold text-gray-900 mb-1 flex items-center gap-2">
+        <IndianRupee size={18} className="text-green-600" /> India Payment Gateway
+      </h2>
+      <p className="text-xs text-gray-500 mb-4">Configure your India payment gateway. Just paste the details here — no coding needed.</p>
+
+      <div className="bg-white rounded-lg border p-4 space-y-4">
+        {/* Enable */}
+        <div className="flex items-center justify-between">
+          <div>
+            <p className="text-sm font-medium text-gray-900">Enable India Payment Gateway</p>
+            <p className="text-[10px] text-gray-500">When enabled, Indian users will see this payment option</p>
+          </div>
+          <Switch checked={config.enabled} onCheckedChange={v => setConfig(prev => ({ ...prev, enabled: v }))} data-testid="india-gateway-toggle" />
+        </div>
+
+        {/* Gateway Type */}
+        <div>
+          <label className="text-xs font-medium text-gray-700 block mb-1">Gateway Type</label>
+          <select value={config.gateway_type} onChange={e => setConfig(prev => ({ ...prev, gateway_type: e.target.value }))}
+            className="w-full h-9 border rounded-lg px-3 text-sm bg-white" data-testid="gateway-type">
+            <option value="exly_link">Exly (URL Link)</option>
+            <option value="razorpay">Razorpay (API)</option>
+            <option value="payu">PayU (API)</option>
+            <option value="custom">Custom Gateway</option>
+          </select>
+        </div>
+
+        {/* Exly Link */}
+        {config.gateway_type === 'exly_link' && (
+          <div>
+            <label className="text-xs font-medium text-gray-700 block mb-1">Exly Payment Link</label>
+            <Input value={config.exly_link} onChange={e => setConfig(prev => ({ ...prev, exly_link: e.target.value }))}
+              placeholder="https://www.exly.in/yourlink" className="h-9 text-sm" data-testid="exly-link-input" />
+            <p className="text-[9px] text-gray-400 mt-1">Paste your Exly payment page URL. Users will be redirected here to pay.</p>
+          </div>
+        )}
+
+        {/* API-based gateways */}
+        {(config.gateway_type === 'razorpay' || config.gateway_type === 'payu' || config.gateway_type === 'custom') && (
+          <>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="text-xs font-medium text-gray-700 block mb-1">API Key / Key ID</label>
+                <Input value={config.api_key} onChange={e => setConfig(prev => ({ ...prev, api_key: e.target.value }))}
+                  placeholder="rzp_live_xxxxx or your API key" className="h-9 text-sm font-mono" data-testid="api-key-input" />
+              </div>
+              <div>
+                <label className="text-xs font-medium text-gray-700 block mb-1">API Secret</label>
+                <Input type="password" value={config.api_secret} onChange={e => setConfig(prev => ({ ...prev, api_secret: e.target.value }))}
+                  placeholder="Secret key" className="h-9 text-sm font-mono" data-testid="api-secret-input" />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="text-xs font-medium text-gray-700 block mb-1">Merchant ID (optional)</label>
+                <Input value={config.merchant_id} onChange={e => setConfig(prev => ({ ...prev, merchant_id: e.target.value }))}
+                  placeholder="Merchant ID" className="h-9 text-sm" />
+              </div>
+              <div>
+                <label className="text-xs font-medium text-gray-700 block mb-1">Webhook URL (auto-generated)</label>
+                <Input value={`${SITE_URL}/api/webhook/india-payment`} readOnly className="h-9 text-sm bg-gray-50 font-mono text-[10px]" />
+              </div>
+            </div>
+          </>
+        )}
+
+        {/* Notes */}
+        <div>
+          <label className="text-xs font-medium text-gray-700 block mb-1">Your Notes (for yourself)</label>
+          <Input value={config.notes} onChange={e => setConfig(prev => ({ ...prev, notes: e.target.value }))}
+            placeholder="e.g., Using Exly until Razorpay is approved" className="h-9 text-sm" />
+        </div>
+
+        {/* Save */}
+        <button onClick={save} disabled={saving}
+          className="w-full bg-green-600 hover:bg-green-700 text-white rounded-lg py-2.5 text-sm font-medium transition-colors flex items-center justify-center gap-2" data-testid="save-gateway">
+          {saving ? <span className="animate-spin">...</span> : <Check size={14} />}
+          {saving ? 'Saving...' : 'Save Gateway Config'}
+        </button>
+
+        {/* Status */}
+        <div className={`rounded-lg p-3 text-xs ${config.enabled ? 'bg-green-50 text-green-700 border border-green-200' : 'bg-gray-50 text-gray-500 border border-gray-200'}`}>
+          <strong>Status:</strong> {config.enabled ? 'Active' : 'Inactive'} · 
+          Gateway: {config.gateway_type === 'exly_link' ? 'Exly Link' : config.gateway_type === 'razorpay' ? 'Razorpay' : config.gateway_type === 'payu' ? 'PayU' : 'Custom'}
+          {config.gateway_type === 'exly_link' && config.exly_link && ` · ${config.exly_link.substring(0, 30)}...`}
+        </div>
+      </div>
     </div>
   );
 };
