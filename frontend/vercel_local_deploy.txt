@@ -1,0 +1,26 @@
+npm install -g vercel
+
+# 2. Go to the frontend folder
+cd Divine-Iris-Healing-Dimple-Safe-Reserved-Copy/frontend
+
+# 3. Login to Vercel
+vercel login
+
+# 4. Deploy (first time — follow the prompts)
+vercel
+
+
+
+When prompted:
+Set up and deploy? → Y
+Which scope? → your account
+Link to existing project? → N
+Project name? → divine-iris-frontend (or anything)
+In which directory is your code located? → ./ (you're already in frontend/)
+Want to override settings? → N (vercel.json handles it)
+
+
+From then on:
+
+After every git push
+vercel --prod
