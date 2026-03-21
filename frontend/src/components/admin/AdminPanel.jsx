@@ -220,7 +220,7 @@ const AdminPanel = () => {
     { key: 'annual_subscribers', label: 'Annual Subscribers', icon: Star },
     { key: 'scheduler', label: 'Scheduler', icon: Calendar },
     { key: 'styles', label: 'Global Styles', icon: Palette },
-    { key: 'payment_settings', label: 'Payments', icon: Tag },
+    { key: 'payment_settings', label: 'Indian Payment', icon: Tag },
     { key: 'india_payments', label: 'India Proofs', icon: Tag },
     { key: 'fraud_alerts', label: 'Fraud Detection', icon: ShieldAlert },
     { key: 'receipt_template', label: 'Receipt Template', icon: FileText },

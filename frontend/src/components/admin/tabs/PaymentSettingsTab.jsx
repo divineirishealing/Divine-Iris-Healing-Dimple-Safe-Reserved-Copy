@@ -1,12 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-import { CreditCard, Save, Loader2, Percent, ExternalLink, Building2 } from 'lucide-react';
+import { CreditCard, Save, Loader2, Percent, ExternalLink, Building2, IndianRupee, Check, X, Plus, Trash2, Key, Mail, Copy } from 'lucide-react';
 import { Button } from '../../ui/button';
 import { Input } from '../../ui/input';
+import { Switch } from '../../ui/switch';
 import { useToast } from '../../../hooks/use-toast';
 import CollapsibleSection from '../CollapsibleSection';
 
-const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
+const API = `${process.env.REACT_APP_BACKEND_URL || ''}/api`;
+const SITE_URL = (process.env.REACT_APP_BACKEND_URL || window.location.origin || '').replace('/api', '').replace('api/', '');
 
 const PaymentSettingsTab = () => {
   const { toast } = useToast();
@@ -306,10 +308,156 @@ const PaymentSettingsTab = () => {
       </div>
       </CollapsibleSection>
 
+      {/* ════ INDIA PAYMENT GATEWAY ════ */}
+      <CollapsibleSection title="India Payment Gateway" badge="Exly / Razorpay / PayU">
+        <IndiaGatewayConfig />
+      </CollapsibleSection>
+
+      {/* ════ INR FOR NRI STUDENTS ════ */}
+      <CollapsibleSection title="INR Pricing for NRI Students" badge="Whitelist, Tokens, Promo">
+        <InrOverrideConfig />
+      </CollapsibleSection>
+
       <Button onClick={save} disabled={saving} className="w-full bg-[#D4AF37] hover:bg-[#b8962e] text-white" data-testid="save-payment-settings-btn">
         {saving ? <Loader2 size={14} className="animate-spin mr-2" /> : <Save size={14} className="mr-2" />}
         Save Payment Settings
       </Button>
+    </div>
+  );
+};
+
+/* ─── India Gateway Config ─── */
+const IndiaGatewayConfig = () => {
+  const { toast } = useToast();
+  const [config, setConfig] = useState({ gateway_type: 'exly_link', exly_link: '', api_key: '', api_secret: '', merchant_id: '', enabled: false, notes: '' });
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    axios.get(`${API}/settings`).then(r => {
+      if (r.data?.india_payment_gateway) setConfig(prev => ({ ...prev, ...r.data.india_payment_gateway }));
+    }).catch(() => {});
+  }, []);
+
+  const saveGateway = async () => {
+    setSaving(true);
+    try { await axios.put(`${API}/settings`, { india_payment_gateway: config }); toast({ title: 'Gateway saved!' }); }
+    catch { toast({ title: 'Error', variant: 'destructive' }); }
+    finally { setSaving(false); }
+  };
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <div><p className="text-sm font-medium">Enable Gateway</p><p className="text-[10px] text-gray-500">Indian users will see this payment option</p></div>
+        <Switch checked={config.enabled} onCheckedChange={v => setConfig(prev => ({ ...prev, enabled: v }))} />
+      </div>
+      <div>
+        <label className="text-xs font-medium text-gray-700 block mb-1">Gateway Type</label>
+        <select value={config.gateway_type} onChange={e => setConfig(prev => ({ ...prev, gateway_type: e.target.value }))} className="w-full h-9 border rounded-lg px-3 text-sm bg-white">
+          <option value="exly_link">Exly (URL Link)</option>
+          <option value="razorpay">Razorpay (API)</option>
+          <option value="payu">PayU (API)</option>
+          <option value="custom">Custom</option>
+        </select>
+      </div>
+      {config.gateway_type === 'exly_link' && (
+        <div>
+          <label className="text-xs font-medium text-gray-700 block mb-1">Exly Payment Link</label>
+          <Input value={config.exly_link} onChange={e => setConfig(prev => ({ ...prev, exly_link: e.target.value }))} placeholder="https://www.exly.in/yourlink" className="h-9 text-sm" />
+          <p className="text-[9px] text-gray-400 mt-1">Users will be redirected here to pay.</p>
+        </div>
+      )}
+      {config.gateway_type !== 'exly_link' && (
+        <div className="grid grid-cols-2 gap-3">
+          <div><label className="text-xs font-medium text-gray-700 block mb-1">API Key</label>
+            <Input value={config.api_key} onChange={e => setConfig(prev => ({ ...prev, api_key: e.target.value }))} placeholder="Key ID" className="h-9 text-sm font-mono" /></div>
+          <div><label className="text-xs font-medium text-gray-700 block mb-1">API Secret</label>
+            <Input type="password" value={config.api_secret} onChange={e => setConfig(prev => ({ ...prev, api_secret: e.target.value }))} placeholder="Secret" className="h-9 text-sm font-mono" /></div>
+        </div>
+      )}
+      <div><label className="text-xs font-medium text-gray-700 block mb-1">Notes</label>
+        <Input value={config.notes} onChange={e => setConfig(prev => ({ ...prev, notes: e.target.value }))} placeholder="Your notes" className="h-9 text-sm" /></div>
+      <button onClick={saveGateway} disabled={saving} className="w-full bg-green-600 hover:bg-green-700 text-white rounded-lg py-2 text-sm font-medium flex items-center justify-center gap-2">
+        <Check size={14} /> {saving ? 'Saving...' : 'Save Gateway'}
+      </button>
+    </div>
+  );
+};
+
+/* ─── INR Override for NRI ─── */
+const InrOverrideConfig = () => {
+  const { toast } = useToast();
+  const [whitelist, setWhitelist] = useState([]);
+  const [tokens, setTokens] = useState([]);
+  const [newEmail, setNewEmail] = useState('');
+  const [newLabel, setNewLabel] = useState('');
+  const [newMaxUses, setNewMaxUses] = useState(10);
+
+  useEffect(() => {
+    axios.get(`${API}/settings`).then(r => setWhitelist(r.data?.inr_whitelist_emails || [])).catch(() => {});
+    axios.get(`${API}/enrollment/inr-override/tokens`).then(r => setTokens(r.data || [])).catch(() => {});
+  }, []);
+
+  const saveWhitelist = async (list) => {
+    setWhitelist(list);
+    await axios.put(`${API}/settings`, { inr_whitelist_emails: list });
+    toast({ title: 'Whitelist saved' });
+  };
+
+  const generateToken = async () => {
+    try {
+      const r = await axios.post(`${API}/enrollment/inr-override/generate-token`, { label: newLabel, max_uses: newMaxUses });
+      setTokens(prev => [{ token: r.data.token, label: newLabel, max_uses: newMaxUses, used_count: 0, active: true }, ...prev]);
+      setNewLabel(''); toast({ title: `Token: ${r.data.token}` });
+    } catch { toast({ title: 'Error', variant: 'destructive' }); }
+  };
+
+  const copyLink = (token) => {
+    navigator.clipboard.writeText(`${SITE_URL}/enroll/program/1?inr_token=${token}`);
+    toast({ title: 'Link copied!' });
+  };
+
+  return (
+    <div className="space-y-5">
+      <p className="text-xs text-gray-500">3 ways to give INR pricing to Indian students living abroad</p>
+
+      {/* Whitelist */}
+      <div>
+        <p className="text-sm font-medium mb-1 flex items-center gap-1"><Mail size={14} className="text-blue-500" /> Email Whitelist</p>
+        <div className="flex gap-2 mb-2">
+          <Input value={newEmail} onChange={e => setNewEmail(e.target.value.toLowerCase())} placeholder="student@email.com" className="h-8 text-xs flex-1" />
+          <Button size="sm" onClick={() => { if (newEmail.includes('@')) { saveWhitelist([...whitelist, newEmail.trim()]); setNewEmail(''); } }} className="h-8 bg-blue-500 text-white text-xs"><Plus size={12} /></Button>
+        </div>
+        <div className="flex flex-wrap gap-1">{whitelist.map((e, i) => (
+          <span key={i} className="inline-flex items-center gap-1 bg-blue-50 text-blue-700 text-[10px] px-2 py-0.5 rounded-full border border-blue-200">
+            {e} <button onClick={() => saveWhitelist(whitelist.filter((_, j) => j !== i))} className="text-blue-400 hover:text-red-500"><X size={8} /></button>
+          </span>
+        ))}</div>
+      </div>
+
+      {/* Tokens */}
+      <div>
+        <p className="text-sm font-medium mb-1 flex items-center gap-1"><Key size={14} className="text-amber-500" /> Invite Tokens</p>
+        <div className="flex gap-2 mb-2">
+          <Input value={newLabel} onChange={e => setNewLabel(e.target.value)} placeholder="Label" className="h-8 text-xs flex-1" />
+          <Input type="text" inputMode="decimal" value={newMaxUses} onChange={e => setNewMaxUses(parseInt(e.target.value) || 10)} className="h-8 text-xs w-16 text-center" />
+          <Button size="sm" onClick={generateToken} className="h-8 bg-amber-500 text-white text-xs"><Plus size={12} /></Button>
+        </div>
+        <div className="space-y-1.5">{tokens.map(t => (
+          <div key={t.token} className="flex items-center gap-2 bg-amber-50 rounded-lg px-3 py-1.5 border border-amber-200 text-xs">
+            <span className="font-mono font-bold text-amber-800">{t.token}</span>
+            <span className="text-gray-500">{t.label || '-'}</span>
+            <span className="text-gray-400">Used: {t.used_count || 0}/{t.max_uses || 10}</span>
+            <button onClick={() => copyLink(t.token)} className="ml-auto text-amber-600 hover:underline flex items-center gap-0.5"><Copy size={10} /> Link</button>
+            <button onClick={async () => { await axios.delete(`${API}/enrollment/inr-override/tokens/${t.token}`); setTokens(prev => prev.filter(x => x.token !== t.token)); }} className="text-red-400"><Trash2 size={12} /></button>
+          </div>
+        ))}</div>
+      </div>
+
+      {/* Promo note */}
+      <div className="bg-gray-50 rounded-lg p-3 text-[10px] text-gray-500">
+        <strong>Method 3:</strong> Create an INR promo code in <strong>Promotions</strong> tab. When applied, it forces INR pricing.
+      </div>
     </div>
   );
 };

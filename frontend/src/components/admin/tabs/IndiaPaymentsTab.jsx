@@ -159,15 +159,11 @@ const IndiaPaymentsTab = () => {
           </div>
         </div>
       )}
-
-      {/* ════ INDIA PAYMENT GATEWAY CONFIG ════ */}
-      <IndiaPaymentGatewayConfig />
-
-      {/* ════ INR PRICING FOR NRI STUDENTS ════ */}
-      <InrOverrideSection />
     </div>
   );
 };
+
+export default IndiaPaymentsTab;
 
 /* ─── India Payment Gateway Config ─── */
 const IndiaPaymentGatewayConfig = () => {
