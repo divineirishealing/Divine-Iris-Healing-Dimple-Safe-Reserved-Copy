@@ -1,5 +1,4 @@
 # Production requirements for Render deployment
-# AI/ML packages (google-genai, openai, litellm, grpc) removed — not used in any route
 # Dev tools (black, flake8, mypy, pytest etc.) removed
 
 aiohappyeyeballs==2.6.1
@@ -38,7 +37,8 @@ multidict==6.7.1
 oauthlib==3.3.1
 openpyxl==3.1.5
 packaging==26.0
-pandas==3.0.1
+numpy==1.26.4
+pandas==2.2.3
 passlib==1.7.4
 pillow==12.1.1
 propcache==0.4.1

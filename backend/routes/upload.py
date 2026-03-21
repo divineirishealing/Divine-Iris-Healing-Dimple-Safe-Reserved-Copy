@@ -5,7 +5,7 @@ import uuid
 
 router = APIRouter(prefix="/api/upload", tags=["Upload"])
 
-UPLOAD_DIR = Path("/app/backend/uploads")
+UPLOAD_DIR = Path(__file__).parent.parent / "uploads"
 UPLOAD_DIR.mkdir(exist_ok=True)
 
 IMAGE_EXTENSIONS = {'.jpg', '.jpeg', '.png', '.gif', '.webp'}

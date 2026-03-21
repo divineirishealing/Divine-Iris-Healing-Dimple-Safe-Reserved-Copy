@@ -44,8 +44,11 @@ HOST_URL=http://localhost:8001
 ### 3. Install dependencies
 
 ```bash
-pip install -r requirements-render.txt
+pip install -r requirements-local.txt
 ```
+
+> **Note:** `requirements-local.txt` adjusts a few package versions for WSL2/Ubuntu compatibility.
+> Render uses `requirements-render.txt` which has the exact production versions.
 
 ### 4. Run the server
 
