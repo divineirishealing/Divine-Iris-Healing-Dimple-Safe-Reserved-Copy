@@ -515,6 +515,7 @@ class SiteSettings(BaseModel):
     enrollment_urgency_quotes: list = []  # [{text, name}]
     combo_rules: list = []  # [{min_programs, discount_pct, code, label}]
     cross_sell_rules: list = []
+    special_offers: list = []  # [{id, label, discount_pct, emails:[], phones:[], program_ids:[], code, enabled}]
     inr_whitelist_emails: list = []
     dashboard_bg_video: str = ""
     india_payment_gateway: dict = {}  # {gateway_type, exly_link, api_key, api_secret, enabled, notes}  # Emails that get INR pricing from abroad  # [{buy_program_id, get_program_id, discount_type, discount_value, code, label, enabled}]
@@ -648,6 +649,7 @@ class SiteSettingsUpdate(BaseModel):
     enrollment_urgency_quotes: Optional[list] = None
     combo_rules: Optional[list] = None
     cross_sell_rules: Optional[list] = None
+    special_offers: Optional[list] = None
     inr_whitelist_emails: Optional[list] = None
     dashboard_bg_video: Optional[str] = None
     india_payment_gateway: Optional[dict] = None

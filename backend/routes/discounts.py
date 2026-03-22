@@ -41,6 +41,7 @@ async def get_discount_settings():
         "loyalty_discount_pct": settings.get("loyalty_discount_pct", 0),
         "cross_sell_rules": settings.get("cross_sell_rules", []),
         "enable_cross_sell": settings.get("enable_cross_sell", False),
+        "special_offers": settings.get("special_offers", []),
     }
 
 

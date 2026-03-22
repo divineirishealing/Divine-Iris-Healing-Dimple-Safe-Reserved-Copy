@@ -5,7 +5,7 @@ import { Input } from '../../../components/ui/input';
 import { Switch } from '../../../components/ui/switch';
 import { Label } from '../../../components/ui/label';
 import { useToast } from '../../../hooks/use-toast';
-import { Plus, Trash2, Users, ShoppingCart, Heart, UserPlus, Save, Gift } from 'lucide-react';
+import { Plus, Trash2, Users, ShoppingCart, Heart, UserPlus, Save, Gift, Star, Upload } from 'lucide-react';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
@@ -27,6 +27,7 @@ export default function DiscountsTab() {
     loyalty_discount_pct: 0,
     enable_cross_sell: false,
     cross_sell_rules: [],
+    special_offers: [],
   });
 
   useEffect(() => { loadSettings(); }, []);
@@ -424,6 +425,180 @@ export default function DiscountsTab() {
         </>
         )}
       </div>
+
+      {/* ════ SPECIAL OFFERS — Target by Email/Phone ════ */}
+      <div className="bg-white rounded-lg border p-5" data-testid="special-offers-section">
+        <div className="flex items-center justify-between mb-2">
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 bg-purple-100 rounded-lg flex items-center justify-center">
+              <Star size={18} className="text-purple-600" />
+            </div>
+            <div>
+              <p className="text-sm font-semibold text-gray-900">Special / VIP Offers</p>
+              <p className="text-[10px] text-gray-500">Target specific people by email or phone. Upload Excel or add manually.</p>
+            </div>
+          </div>
+          <Button size="sm" variant="outline" onClick={() => setSettings(prev => ({
+            ...prev,
+            special_offers: [...(prev.special_offers || []), {
+              id: Date.now().toString(), label: '', discount_pct: 10, discount_type: 'percentage', discount_amount: 0,
+              emails: [], phones: [], enabled: true, code: `VIP${(prev.special_offers?.length || 0) + 1}`, program_ids: [],
+            }]
+          }))} className="text-xs h-7" data-testid="add-special-offer">
+            <Plus size={12} className="mr-1" /> Add Offer
+          </Button>
+        </div>
+
+        {(!settings.special_offers || settings.special_offers.length === 0) && (
+          <p className="text-[10px] text-gray-400 italic mt-2">No special offers yet. Create one to give exclusive discounts to specific people.</p>
+        )}
+
+        <div className="mt-3 space-y-3">
+          {(settings.special_offers || []).map((offer, i) => (
+            <SpecialOfferCard key={offer.id || i} offer={offer} index={i} programs={programs}
+              onUpdate={(field, value) => {
+                setSettings(prev => {
+                  const offers = [...(prev.special_offers || [])];
+                  offers[i] = { ...offers[i], [field]: value };
+                  return { ...prev, special_offers: offers };
+                });
+              }}
+              onDelete={() => setSettings(prev => ({ ...prev, special_offers: (prev.special_offers || []).filter((_, j) => j !== i) }))} />
+          ))}
+        </div>
+      </div>
     </div>
   );
 }
+
+/* ─── Special Offer Card ─── */
+const SpecialOfferCard = ({ offer, index, programs, onUpdate, onDelete }) => {
+  const [newEmail, setNewEmail] = useState('');
+  const [newPhone, setNewPhone] = useState('');
+  const fileRef = React.useRef(null);
+
+  const addEmail = () => {
+    if (!newEmail.trim() || !newEmail.includes('@')) return;
+    onUpdate('emails', [...(offer.emails || []), newEmail.trim().toLowerCase()]);
+    setNewEmail('');
+  };
+
+  const addPhone = () => {
+    if (!newPhone.trim()) return;
+    onUpdate('phones', [...(offer.phones || []), newPhone.trim()]);
+    setNewPhone('');
+  };
+
+  const handleExcel = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    try {
+      const text = await file.text();
+      const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
+      const emails = [];
+      const phones = [];
+      lines.forEach(line => {
+        const parts = line.split(/[,\t;]+/).map(p => p.trim().replace(/"/g, ''));
+        parts.forEach(p => {
+          if (p.includes('@')) emails.push(p.toLowerCase());
+          else if (p.match(/^\+?\d[\d\s-]{6,}/)) phones.push(p.replace(/[\s-]/g, ''));
+        });
+      });
+      if (emails.length > 0) onUpdate('emails', [...new Set([...(offer.emails || []), ...emails])]);
+      if (phones.length > 0) onUpdate('phones', [...new Set([...(offer.phones || []), ...phones])]);
+      alert(`Imported ${emails.length} emails + ${phones.length} phone numbers`);
+    } catch { alert('Error reading file'); }
+    e.target.value = '';
+  };
+
+  return (
+    <div className={`rounded-lg border p-4 ${offer.enabled ? 'bg-purple-50 border-purple-200' : 'bg-gray-50 border-gray-200 opacity-60'}`} data-testid={`special-offer-${index}`}>
+      {/* Header */}
+      <div className="flex items-center gap-2 flex-wrap mb-3">
+        <Switch checked={offer.enabled !== false} onCheckedChange={v => onUpdate('enabled', v)} />
+        <Input value={offer.label || ''} onChange={e => onUpdate('label', e.target.value)}
+          placeholder="Offer name (e.g. Family Discount)" className="h-7 text-xs flex-1 min-w-[140px]" />
+        <Input value={offer.code || ''} onChange={e => onUpdate('code', e.target.value.toUpperCase())}
+          placeholder="Code" className="h-7 text-xs w-20 font-mono" />
+        <Input type="text" inputMode="decimal" value={offer.discount_type === 'fixed' ? (offer.discount_amount || 0) : (offer.discount_pct || 0)}
+          onChange={e => {
+            const val = parseFloat(e.target.value) || 0;
+            offer.discount_type === 'fixed' ? onUpdate('discount_amount', val) : onUpdate('discount_pct', val);
+          }} className="h-7 text-xs w-16 text-center" />
+        <select value={offer.discount_type || 'percentage'} onChange={e => onUpdate('discount_type', e.target.value)}
+          className="border rounded px-1 py-1 text-xs bg-white h-7">
+          <option value="percentage">%</option>
+          <option value="fixed">Fixed Amt</option>
+        </select>
+        <span className="text-xs text-gray-500">off</span>
+        <button onClick={onDelete} className="text-red-400 hover:text-red-600 ml-auto"><Trash2 size={14} /></button>
+      </div>
+
+      {/* Programs */}
+      <div className="flex flex-wrap gap-1 items-center mb-3">
+        <span className="text-[9px] text-gray-400">Programs:</span>
+        {programs.filter(p => p.title).map(p => {
+          const selected = (offer.program_ids || []).includes(String(p.id));
+          return (
+            <button key={p.id} onClick={() => {
+              const ids = offer.program_ids || [];
+              onUpdate('program_ids', selected ? ids.filter(x => x !== String(p.id)) : [...ids, String(p.id)]);
+            }} className={`text-[9px] px-2 py-0.5 rounded-full font-medium border transition-colors ${selected ? 'bg-purple-200 border-purple-400 text-purple-800' : 'bg-white border-gray-200 text-gray-500 hover:border-purple-300'}`}>
+              {p.title.length > 18 ? p.title.slice(0, 18) + '..' : p.title}
+            </button>
+          );
+        })}
+        {!(offer.program_ids || []).length && <span className="text-[8px] text-gray-400 italic">All programs</span>}
+      </div>
+
+      {/* Emails */}
+      <div className="mb-3">
+        <p className="text-[9px] font-bold text-gray-600 mb-1">Emails ({(offer.emails || []).length})</p>
+        <div className="flex gap-1 mb-1">
+          <Input value={newEmail} onChange={e => setNewEmail(e.target.value)} onKeyDown={e => e.key === 'Enter' && addEmail()}
+            placeholder="email@example.com" className="h-6 text-[10px] flex-1" />
+          <button onClick={addEmail} className="text-[9px] px-2 py-0.5 bg-purple-100 text-purple-700 rounded hover:bg-purple-200"><Plus size={10} /></button>
+        </div>
+        <div className="flex flex-wrap gap-1 max-h-16 overflow-y-auto">
+          {(offer.emails || []).map((email, ei) => (
+            <span key={ei} className="inline-flex items-center gap-0.5 bg-white text-[8px] text-purple-700 px-1.5 py-0.5 rounded border border-purple-200">
+              {email} <button onClick={() => onUpdate('emails', (offer.emails || []).filter((_, j) => j !== ei))} className="text-purple-300 hover:text-red-500">&times;</button>
+            </span>
+          ))}
+        </div>
+      </div>
+
+      {/* Phones */}
+      <div className="mb-3">
+        <p className="text-[9px] font-bold text-gray-600 mb-1">Phone Numbers ({(offer.phones || []).length})</p>
+        <div className="flex gap-1 mb-1">
+          <Input value={newPhone} onChange={e => setNewPhone(e.target.value)} onKeyDown={e => e.key === 'Enter' && addPhone()}
+            placeholder="+91 98765 43210" className="h-6 text-[10px] flex-1" />
+          <button onClick={addPhone} className="text-[9px] px-2 py-0.5 bg-purple-100 text-purple-700 rounded hover:bg-purple-200"><Plus size={10} /></button>
+        </div>
+        <div className="flex flex-wrap gap-1 max-h-16 overflow-y-auto">
+          {(offer.phones || []).map((phone, pi) => (
+            <span key={pi} className="inline-flex items-center gap-0.5 bg-white text-[8px] text-gray-700 px-1.5 py-0.5 rounded border border-gray-200">
+              {phone} <button onClick={() => onUpdate('phones', (offer.phones || []).filter((_, j) => j !== pi))} className="text-gray-300 hover:text-red-500">&times;</button>
+            </span>
+          ))}
+        </div>
+      </div>
+
+      {/* Excel Upload */}
+      <div className="flex items-center gap-2">
+        <button onClick={() => fileRef.current?.click()}
+          className="text-[9px] px-3 py-1.5 bg-white border border-purple-300 text-purple-700 rounded-lg hover:bg-purple-50 font-medium flex items-center gap-1">
+          <Upload size={10} /> Upload Excel/CSV
+        </button>
+        <input ref={fileRef} type="file" accept=".csv,.xlsx,.xls,.txt" className="hidden" onChange={handleExcel} />
+        <span className="text-[8px] text-gray-400">CSV with emails and/or phone numbers</span>
+      </div>
+
+      {/* Summary */}
+      <div className="mt-2 text-[8px] text-gray-400">
+        {(offer.emails || []).length + (offer.phones || []).length} people tagged · {offer.discount_type === 'fixed' ? `${offer.discount_amount} off` : `${offer.discount_pct}% off`} · Code: {offer.code || '-'}
+      </div>
+    </div>
+  );
+};

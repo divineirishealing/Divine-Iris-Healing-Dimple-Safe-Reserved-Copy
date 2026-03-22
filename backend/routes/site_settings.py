@@ -70,6 +70,8 @@ async def update_settings(settings: SiteSettingsUpdate):
         update_data['combo_rules'] = raw['combo_rules']
     if raw.get('cross_sell_rules') is not None:
         update_data['cross_sell_rules'] = raw['cross_sell_rules']
+    if raw.get('special_offers') is not None:
+        update_data['special_offers'] = raw['special_offers']
     if raw.get('inr_whitelist_emails') is not None:
         update_data['inr_whitelist_emails'] = raw['inr_whitelist_emails']
     existing = await db.site_settings.find_one({"id": "site_settings"})
