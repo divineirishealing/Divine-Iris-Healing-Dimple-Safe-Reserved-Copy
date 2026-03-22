@@ -57,13 +57,24 @@ const Header = () => {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [programsOpen, setProgramsOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
-  const [settings, setSettings] = useState(null);
-  const [programs, setPrograms] = useState([]);
+  const [settings, setSettings] = useState(() => {
+    try { return JSON.parse(localStorage.getItem('header_settings')) || null; } catch { return null; }
+  });
+  const [programs, setPrograms] = useState(() => {
+    try { return JSON.parse(localStorage.getItem('header_programs')) || []; } catch { return []; }
+  });
   const dropdownRef = useRef(null);
 
   useEffect(() => {
-    axios.get(`${API}/settings`).then(r => setSettings(r.data)).catch(() => {});
-    axios.get(`${API}/programs`).then(r => setPrograms(r.data.filter(p => p.visible !== false))).catch(() => {});
+    axios.get(`${API}/settings`).then(r => {
+      setSettings(r.data);
+      localStorage.setItem('header_settings', JSON.stringify(r.data));
+    }).catch(() => {});
+    axios.get(`${API}/programs`).then(r => {
+      const visible = r.data.filter(p => p.visible !== false);
+      setPrograms(visible);
+      localStorage.setItem('header_programs', JSON.stringify(visible));
+    }).catch(() => {});
   }, []);
 
   useEffect(() => {
