@@ -188,14 +188,15 @@ async def reject_payment_proof(proof_id: str, reason: str = ""):
 
 @router.get("/admin/enrollments")
 async def list_enrollments():
-    """Admin: list all enrollments."""
+    """Admin: list all enrollments with payment details."""
     enrollments = await db.enrollments.find({}, {"_id": 0}).sort("created_at", -1).to_list(1000)
-    # Also fetch associated transactions
     for e in enrollments:
         txn = await db.payment_transactions.find_one(
-            {"enrollment_id": e.get("id")}, {"_id": 0, "amount": 1, "currency": 1, "payment_status": 1}
+            {"enrollment_id": e.get("id")}, {"_id": 0, "amount": 1, "currency": 1, "payment_status": 1, "stripe_session_id": 1, "invoice_number": 1, "stripe_currency": 1, "stripe_amount": 1}
         )
         e["payment"] = txn if txn else None
+        if txn and txn.get("invoice_number"):
+            e["invoice_number"] = txn["invoice_number"]
     return enrollments
 
 
