@@ -732,9 +732,16 @@ async def enrollment_checkout(enrollment_id: str, data: EnrollmentSubmit, reques
     from routes.payments import create_checkout_no_adaptive
     session = await create_checkout_no_adaptive(stripe_checkout, checkout_request)
 
+    # Generate invoice number: YYYY-MM-001
+    now = datetime.now(timezone.utc)
+    month_prefix = now.strftime("%Y-%m")
+    count = await db.payment_transactions.count_documents({"invoice_number": {"$regex": f"^{month_prefix}"}})
+    invoice_number = f"{month_prefix}-{str(count + 1).zfill(3)}"
+
     # Save transaction
     transaction = {
         "id": str(uuid.uuid4()),
+        "invoice_number": invoice_number,
         "enrollment_id": enrollment_id,
         "stripe_session_id": session.session_id,
         "item_type": data.item_type,

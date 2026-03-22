@@ -473,20 +473,22 @@ export default function DiscountsTab() {
 
 /* ─── Special Offer Card ─── */
 const SpecialOfferCard = ({ offer, index, programs, onUpdate, onDelete }) => {
-  const [newEmail, setNewEmail] = useState('');
-  const [newPhone, setNewPhone] = useState('');
   const fileRef = React.useRef(null);
 
-  const addEmail = () => {
-    if (!newEmail.trim() || !newEmail.includes('@')) return;
-    onUpdate('emails', [...(offer.emails || []), newEmail.trim().toLowerCase()]);
-    setNewEmail('');
+  const people = offer.people || [];
+
+  const addPerson = () => {
+    onUpdate('people', [...people, { name: '', email: '', phone: '' }]);
   };
 
-  const addPhone = () => {
-    if (!newPhone.trim()) return;
-    onUpdate('phones', [...(offer.phones || []), newPhone.trim()]);
-    setNewPhone('');
+  const updatePerson = (pi, field, value) => {
+    const updated = [...people];
+    updated[pi] = { ...updated[pi], [field]: value };
+    onUpdate('people', updated);
+  };
+
+  const removePerson = (pi) => {
+    onUpdate('people', people.filter((_, j) => j !== pi));
   };
 
   const handleExcel = async (e) => {
@@ -495,18 +497,20 @@ const SpecialOfferCard = ({ offer, index, programs, onUpdate, onDelete }) => {
     try {
       const text = await file.text();
       const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
-      const emails = [];
-      const phones = [];
-      lines.forEach(line => {
+      const imported = [];
+      lines.forEach((line, li) => {
+        if (li === 0 && (line.toLowerCase().includes('name') || line.toLowerCase().includes('email'))) return; // skip header
         const parts = line.split(/[,\t;]+/).map(p => p.trim().replace(/"/g, ''));
+        const person = { name: '', email: '', phone: '' };
         parts.forEach(p => {
-          if (p.includes('@')) emails.push(p.toLowerCase());
-          else if (p.match(/^\+?\d[\d\s-]{6,}/)) phones.push(p.replace(/[\s-]/g, ''));
+          if (p.includes('@')) person.email = p.toLowerCase();
+          else if (p.match(/^\+?\d[\d\s-]{6,}/)) person.phone = p.replace(/[\s-]/g, '');
+          else if (!person.name && p.length > 1) person.name = p;
         });
+        if (person.email || person.phone) imported.push(person);
       });
-      if (emails.length > 0) onUpdate('emails', [...new Set([...(offer.emails || []), ...emails])]);
-      if (phones.length > 0) onUpdate('phones', [...new Set([...(offer.phones || []), ...phones])]);
-      alert(`Imported ${emails.length} emails + ${phones.length} phone numbers`);
+      onUpdate('people', [...people, ...imported]);
+      alert(`Imported ${imported.length} people`);
     } catch { alert('Error reading file'); }
     e.target.value = '';
   };
@@ -528,7 +532,7 @@ const SpecialOfferCard = ({ offer, index, programs, onUpdate, onDelete }) => {
         <select value={offer.discount_type || 'percentage'} onChange={e => onUpdate('discount_type', e.target.value)}
           className="border rounded px-1 py-1 text-xs bg-white h-7">
           <option value="percentage">%</option>
-          <option value="fixed">Fixed Amt</option>
+          <option value="fixed">Fixed</option>
         </select>
         <span className="text-xs text-gray-500">off</span>
         <button onClick={onDelete} className="text-red-400 hover:text-red-600 ml-auto"><Trash2 size={14} /></button>
@@ -551,53 +555,52 @@ const SpecialOfferCard = ({ offer, index, programs, onUpdate, onDelete }) => {
         {!(offer.program_ids || []).length && <span className="text-[8px] text-gray-400 italic">All programs</span>}
       </div>
 
-      {/* Emails */}
-      <div className="mb-3">
-        <p className="text-[9px] font-bold text-gray-600 mb-1">Emails ({(offer.emails || []).length})</p>
-        <div className="flex gap-1 mb-1">
-          <Input value={newEmail} onChange={e => setNewEmail(e.target.value)} onKeyDown={e => e.key === 'Enter' && addEmail()}
-            placeholder="email@example.com" className="h-6 text-[10px] flex-1" />
-          <button onClick={addEmail} className="text-[9px] px-2 py-0.5 bg-purple-100 text-purple-700 rounded hover:bg-purple-200"><Plus size={10} /></button>
+      {/* People — Excel-style table */}
+      <div className="border rounded-lg overflow-hidden bg-white">
+        <table className="w-full text-[10px]">
+          <thead>
+            <tr className="bg-gray-50 border-b">
+              <th className="text-left px-2 py-1.5 font-semibold text-gray-600 w-8">#</th>
+              <th className="text-left px-2 py-1.5 font-semibold text-gray-600">Name</th>
+              <th className="text-left px-2 py-1.5 font-semibold text-gray-600">Email</th>
+              <th className="text-left px-2 py-1.5 font-semibold text-gray-600">Phone</th>
+              <th className="w-8"></th>
+            </tr>
+          </thead>
+          <tbody>
+            {people.map((p, pi) => (
+              <tr key={pi} className="border-b hover:bg-purple-50/30">
+                <td className="px-2 py-1 text-gray-400">{pi + 1}</td>
+                <td className="px-1 py-0.5">
+                  <input value={p.name || ''} onChange={e => updatePerson(pi, 'name', e.target.value)}
+                    placeholder="Name" className="w-full h-6 px-1.5 text-[10px] border-0 bg-transparent outline-none focus:bg-purple-50 rounded" />
+                </td>
+                <td className="px-1 py-0.5">
+                  <input value={p.email || ''} onChange={e => updatePerson(pi, 'email', e.target.value.toLowerCase())}
+                    placeholder="email@example.com" className="w-full h-6 px-1.5 text-[10px] border-0 bg-transparent outline-none focus:bg-purple-50 rounded" />
+                </td>
+                <td className="px-1 py-0.5">
+                  <input value={p.phone || ''} onChange={e => updatePerson(pi, 'phone', e.target.value)}
+                    placeholder="+91 98765 43210" className="w-full h-6 px-1.5 text-[10px] border-0 bg-transparent outline-none focus:bg-purple-50 rounded" />
+                </td>
+                <td className="px-1"><button onClick={() => removePerson(pi)} className="text-red-300 hover:text-red-500"><Trash2 size={10} /></button></td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+        <div className="flex items-center justify-between px-2 py-1.5 bg-gray-50 border-t">
+          <button onClick={addPerson} className="text-[9px] text-purple-600 hover:underline font-medium flex items-center gap-1">
+            <Plus size={10} /> Add Row
+          </button>
+          <div className="flex items-center gap-2">
+            <button onClick={() => fileRef.current?.click()}
+              className="text-[9px] px-2 py-1 bg-white border border-purple-300 text-purple-700 rounded hover:bg-purple-50 flex items-center gap-1">
+              <Upload size={9} /> Upload CSV
+            </button>
+            <input ref={fileRef} type="file" accept=".csv,.xlsx,.xls,.txt" className="hidden" onChange={handleExcel} />
+            <span className="text-[8px] text-gray-400">{people.length} people</span>
+          </div>
         </div>
-        <div className="flex flex-wrap gap-1 max-h-16 overflow-y-auto">
-          {(offer.emails || []).map((email, ei) => (
-            <span key={ei} className="inline-flex items-center gap-0.5 bg-white text-[8px] text-purple-700 px-1.5 py-0.5 rounded border border-purple-200">
-              {email} <button onClick={() => onUpdate('emails', (offer.emails || []).filter((_, j) => j !== ei))} className="text-purple-300 hover:text-red-500">&times;</button>
-            </span>
-          ))}
-        </div>
-      </div>
-
-      {/* Phones */}
-      <div className="mb-3">
-        <p className="text-[9px] font-bold text-gray-600 mb-1">Phone Numbers ({(offer.phones || []).length})</p>
-        <div className="flex gap-1 mb-1">
-          <Input value={newPhone} onChange={e => setNewPhone(e.target.value)} onKeyDown={e => e.key === 'Enter' && addPhone()}
-            placeholder="+91 98765 43210" className="h-6 text-[10px] flex-1" />
-          <button onClick={addPhone} className="text-[9px] px-2 py-0.5 bg-purple-100 text-purple-700 rounded hover:bg-purple-200"><Plus size={10} /></button>
-        </div>
-        <div className="flex flex-wrap gap-1 max-h-16 overflow-y-auto">
-          {(offer.phones || []).map((phone, pi) => (
-            <span key={pi} className="inline-flex items-center gap-0.5 bg-white text-[8px] text-gray-700 px-1.5 py-0.5 rounded border border-gray-200">
-              {phone} <button onClick={() => onUpdate('phones', (offer.phones || []).filter((_, j) => j !== pi))} className="text-gray-300 hover:text-red-500">&times;</button>
-            </span>
-          ))}
-        </div>
-      </div>
-
-      {/* Excel Upload */}
-      <div className="flex items-center gap-2">
-        <button onClick={() => fileRef.current?.click()}
-          className="text-[9px] px-3 py-1.5 bg-white border border-purple-300 text-purple-700 rounded-lg hover:bg-purple-50 font-medium flex items-center gap-1">
-          <Upload size={10} /> Upload Excel/CSV
-        </button>
-        <input ref={fileRef} type="file" accept=".csv,.xlsx,.xls,.txt" className="hidden" onChange={handleExcel} />
-        <span className="text-[8px] text-gray-400">CSV with emails and/or phone numbers</span>
-      </div>
-
-      {/* Summary */}
-      <div className="mt-2 text-[8px] text-gray-400">
-        {(offer.emails || []).length + (offer.phones || []).length} people tagged · {offer.discount_type === 'fixed' ? `${offer.discount_amount} off` : `${offer.discount_pct}% off`} · Code: {offer.code || '-'}
       </div>
     </div>
   );
