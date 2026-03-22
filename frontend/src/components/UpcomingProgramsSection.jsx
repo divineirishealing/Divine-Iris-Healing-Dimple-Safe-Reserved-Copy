@@ -741,6 +741,7 @@ const UpcomingProgramsSection = ({ sectionConfig, inline }) => {
                   : [];
                 return (
                   <p key={i} className="text-xs text-gray-800">
+                    {rule.label && <strong className="text-blue-700">{rule.label}: </strong>}
                     Enroll <strong className="text-blue-600">{rule.min_participants}+ participants</strong>
                     {progNames.length > 0 ? <> in <strong>{progNames.map(n => n.length > 25 ? n.slice(0, 25) + '..' : n).join(', ')}</strong></> : ''}
                     {' '}and get <strong className="text-blue-600">{rule.discount_pct}% off</strong>

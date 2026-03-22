@@ -62,7 +62,7 @@ export default function DiscountsTab() {
 
   const updateGroupRule = (idx, field, value) => {
     const rules = [...settings.group_discount_rules];
-    rules[idx] = { ...rules[idx], [field]: parseFloat(value) || 0 };
+    rules[idx] = { ...rules[idx], [field]: field === 'label' || field === 'code' ? value : (parseFloat(value) || 0) };
     setSettings(prev => ({ ...prev, group_discount_rules: rules }));
   };
 
@@ -143,6 +143,9 @@ export default function DiscountsTab() {
                   <Input type="text" inputMode="decimal" value={rule.discount_pct} onChange={e => updateGroupRule(i, 'discount_pct', e.target.value)}
                     className="w-16 h-7 text-xs text-center" min={0} max={50} />
                   <span className="text-xs text-gray-500">% off</span>
+                  <span className="text-[9px] text-gray-400 ml-1">label:</span>
+                  <Input value={rule.label || ''} onChange={e => updateGroupRule(i, 'label', e.target.value)}
+                    className="w-32 h-7 text-xs" placeholder="e.g. Family Offer" />
                   <button onClick={() => removeGroupRule(i)} className="text-red-400 hover:text-red-600 ml-auto"><Trash2 size={14} /></button>
                 </div>
                 <div className="flex flex-wrap gap-1.5 items-center mt-1.5">
