@@ -24,19 +24,20 @@ if (config.enableHealthCheck) {
 
 let webpackConfig = {
   eslint: {
-    configure: {
-      extends: ["plugin:react-hooks/recommended"],
-      rules: {
-        "react-hooks/rules-of-hooks": "error",
-        "react-hooks/exhaustive-deps": "warn",
-      },
-    },
+    enable: false,
   },
   webpack: {
     alias: {
       '@': path.resolve(__dirname, 'src'),
     },
     configure: (webpackConfig) => {
+      // Remove ForkTsCheckerWebpackPlugin — not needed for JSX project, causes ajv version conflicts
+      // Remove ESLintWebpackPlugin — project has ESLint v9 but CRA uses v8 API, causes conflicts
+      webpackConfig.plugins = webpackConfig.plugins.filter(
+        plugin =>
+          plugin.constructor.name !== 'ForkTsCheckerWebpackPlugin' &&
+          plugin.constructor.name !== 'ESLintWebpackPlugin'
+      );
 
       // Add ignored patterns to reduce watched directories
         webpackConfig.watchOptions = {
