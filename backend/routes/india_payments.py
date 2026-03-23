@@ -138,6 +138,34 @@ async def approve_payment_proof(proof_id: str):
     )
 
     enrollment_id = proof.get("enrollment_id")
+    
+    # If no real enrollment exists (manual submissions), create one
+    if not enrollment_id or enrollment_id == "MANUAL":
+        enrollment_id = f"DIH-{int(datetime.now(timezone.utc).timestamp()) % 100000}-{uuid.uuid4().hex[:3]}"
+        new_enrollment = {
+            "id": enrollment_id,
+            "booker_name": proof.get("payer_name", ""),
+            "booker_email": proof.get("booker_email", ""),
+            "booker_country": "IN",
+            "phone": proof.get("phone", ""),
+            "item_type": "program",
+            "item_id": proof.get("item_id", ""),
+            "item_title": proof.get("program_title", ""),
+            "participant_count": proof.get("participant_count", 1),
+            "participants": proof.get("participants", [{"name": proof.get("payer_name", ""), "email": proof.get("booker_email", "")}]),
+            "status": "completed",
+            "step": 5,
+            "payment_method": "manual_proof",
+            "bank_name": proof.get("bank_name", ""),
+            "is_india_alt": True,
+            "paid_at": datetime.now(timezone.utc).isoformat(),
+            "created_at": proof.get("created_at", datetime.now(timezone.utc).isoformat()),
+            "updated_at": datetime.now(timezone.utc).isoformat(),
+        }
+        await db.enrollments.insert_one(new_enrollment)
+        # Update proof with real enrollment_id
+        await db.india_payment_proofs.update_one({"id": proof_id}, {"$set": {"enrollment_id": enrollment_id}})
+
     if enrollment_id:
         # Create a completed transaction
         fake_session_id = f"india_{uuid.uuid4().hex[:12]}"
