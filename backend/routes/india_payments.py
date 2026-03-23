@@ -255,11 +255,27 @@ async def export_enrollments_excel():
             max_participants = count
     max_participants = max(max_participants, 1)
 
+    # Fetch payment data for each enrollment
+    for e in enrollments:
+        txn = await db.payment_transactions.find_one(
+            {"enrollment_id": e.get("id")}, {"_id": 0}
+        )
+        if txn:
+            e["invoice_number"] = txn.get("invoice_number", "")
+            e["payment_amount"] = txn.get("amount", 0)
+            e["payment_currency"] = txn.get("currency", "")
+            e["payment_status_txn"] = txn.get("payment_status", "")
+            e["payment_method"] = txn.get("payment_method", "") or e.get("payment_method", "")
+            e["bank_name"] = txn.get("bank_name", "") or e.get("bank_name", "")
+            e["stripe_session_id"] = txn.get("stripe_session_id", "")
+
     # Build headers: base columns + per-participant columns
     base_headers = [
-        "Receipt ID", "Status", "Program", "Program Type",
+        "Invoice #", "Receipt ID", "Status", "Program", "Program Type",
         "Booker Name", "Booker Email", "Booker Country", "Booker Phone",
-        "Participant Count", "Enrollment Date",
+        "Participant Count", "Payment Amount", "Payment Currency", "Payment Method",
+        "Bank Account", "Payment Status", "Admin Notes", "Promo Code",
+        "VPN Detected", "Enrollment Date",
     ]
 
     participant_fields = [
@@ -310,6 +326,7 @@ async def export_enrollments_excel():
 
         # Base row data
         row = [
+            clean(e.get("invoice_number")),
             clean(e.get("id")),
             clean(e.get("status")),
             clean(e.get("item_title")),
@@ -319,6 +336,14 @@ async def export_enrollments_excel():
             clean(e.get("booker_country")),
             clean(e.get("phone")),
             str(e.get("participant_count", 0) or 0),
+            str(e.get("payment_amount", 0) or 0),
+            clean(e.get("payment_currency")),
+            clean(e.get("payment_method")),
+            clean(e.get("bank_name")),
+            clean(e.get("payment_status_txn") or e.get("status")),
+            clean(e.get("admin_notes")),
+            clean(e.get("promo_code")),
+            "Yes" if e.get("vpn_detected") else "No",
             created_at,
         ]
 
