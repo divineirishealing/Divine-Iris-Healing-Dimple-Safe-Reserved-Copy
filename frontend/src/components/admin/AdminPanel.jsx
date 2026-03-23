@@ -12,7 +12,7 @@ import { resolveImageUrl } from '../../lib/imageUtils';
 import {
   Settings, Package, Calendar, MessageSquare, BarChart3, Mail, Inbox,
   Trash2, Edit, Plus, X, Eye, EyeOff, Save, ArrowUp, ArrowDown,
-  Globe, Layout, Image, Users, Palette, Gift, Monitor, Wifi, Tag, ChevronLeft, ChevronRight, ChevronDown, Upload, FileText, DollarSign, Quote, Star, ShieldAlert
+  Globe, Layout, Image, Users, Palette, Gift, Monitor, Wifi, Tag, ChevronLeft, ChevronRight, ChevronDown, Upload, FileText, DollarSign, Quote, Star, ShieldAlert, CreditCard
 } from 'lucide-react';
 
 import CollapsibleSection from './CollapsibleSection';
@@ -201,64 +201,139 @@ const AdminPanel = () => {
     } catch (err) { toast({ title: 'Upload failed', variant: 'destructive' }); }
   };
 
-  const tabs = [
-    { key: 'hero', label: 'Hero Banner', icon: Image },
-    { key: 'homepage_sections', label: 'Homepage', icon: Monitor },
-    { key: 'page_headers', label: 'Page Headers', icon: Monitor },
-    { key: 'programs', label: 'Programs', icon: Package, count: programs.length },
-    { key: 'pricing_hub', label: 'Pricing Hub', icon: DollarSign },
-    { key: 'upcoming_hub', label: 'Upcoming Hub', icon: Calendar },
-    { key: 'sessions', label: 'Sessions', icon: Calendar, count: sessions.length },
-    { key: 'testimonials', label: 'Testimonials', icon: MessageSquare, count: testimonials.length },
-    { key: 'text_testimonials', label: 'Text Quotes', icon: Quote },
-    { key: 'stats', label: 'Stats', icon: BarChart3, count: stats.length },
-    { key: 'header_footer', label: 'Header & Footer', icon: Globe },
-    { key: 'enrollments', label: 'Enrollments', icon: Users },
-    { key: 'inbox', label: 'Inbox', icon: Inbox },
-    { key: 'clients', label: 'Client Garden', icon: Users },
-    { key: 'promotions', label: 'Promotions', icon: Gift },
-    { key: 'discounts', label: 'Discounts & Loyalty', icon: Tag },
-    { key: 'exchange_rates', label: 'Exchange Rates', icon: Globe },
-    { key: 'subscribers', label: 'Subscribers', icon: Mail, count: subscribers.length },
-    { key: 'annual_subscribers', label: 'Annual Subscribers', icon: Star },
-    { key: 'scheduler', label: 'Scheduler', icon: Calendar },
-    { key: 'styles', label: 'Global Styles', icon: Palette },
-    { key: 'payment_settings', label: 'Indian Payment', icon: Tag },
-    { key: 'india_payments', label: 'India Proofs', icon: Tag },
-    { key: 'fraud_alerts', label: 'Fraud Detection', icon: ShieldAlert },
-    { key: 'receipt_template', label: 'Receipt Template', icon: FileText },
-    { key: 'api_keys', label: 'API Keys', icon: Settings },
-    { key: 'dashboard_settings', label: 'Dashboard Config', icon: Layout },
-    { key: 'sanctuary_settings', label: 'Sanctuary Design', icon: Image },
+  const TAB_GROUPS = [
+    { label: 'Website', icon: Monitor, tabs: [
+      { key: 'hero', label: 'Hero Banner', icon: Image },
+      { key: 'homepage_sections', label: 'Homepage', icon: Monitor },
+      { key: 'page_headers', label: 'Page Headers', icon: Monitor },
+      { key: 'stats', label: 'Stats', icon: BarChart3 },
+      { key: 'header_footer', label: 'Header & Footer', icon: Globe },
+      { key: 'styles', label: 'Global Styles', icon: Palette },
+      { key: 'testimonials', label: 'Testimonials', icon: MessageSquare },
+      { key: 'text_testimonials', label: 'Text Quotes', icon: Quote },
+    ]},
+    { label: 'Programs & Offers', icon: Package, tabs: [
+      { key: 'programs', label: 'Programs', icon: Package },
+      { key: 'pricing_hub', label: 'Pricing Hub', icon: DollarSign },
+      { key: 'upcoming_hub', label: 'Upcoming Hub', icon: Calendar },
+      { key: 'sessions', label: 'Sessions', icon: Calendar },
+      { key: 'promotions', label: 'Promotions', icon: Gift },
+      { key: 'discounts', label: 'Discounts & Loyalty', icon: Tag },
+      { key: 'exchange_rates', label: 'Exchange Rates', icon: Globe },
+    ]},
+    { label: 'Transactions', icon: CreditCard, tabs: [
+      { key: 'enrollments', label: 'Enrollments', icon: Users },
+      { key: 'payment_settings', label: 'Indian Payment', icon: Tag },
+      { key: 'india_payments', label: 'India Proofs', icon: Tag },
+      { key: 'api_keys', label: 'API Keys', icon: Settings },
+      { key: 'receipt_template', label: 'Receipt Template', icon: FileText },
+      { key: 'fraud_alerts', label: 'Fraud Detection', icon: ShieldAlert },
+    ]},
+    { label: 'Inbox', icon: Inbox, tabs: [
+      { key: 'inbox', label: 'Inbox', icon: Inbox },
+    ]},
+    { label: 'Clients', icon: Users, tabs: [
+      { key: 'clients', label: 'Client Garden', icon: Users },
+      { key: 'subscribers', label: 'Subscribers', icon: Mail },
+      { key: 'annual_subscribers', label: 'Annual Subscribers', icon: Star },
+      { key: 'scheduler', label: 'Scheduler', icon: Calendar },
+    ]},
+    { label: 'Dashboard', icon: Layout, tabs: [
+      { key: 'dashboard_settings', label: 'Dashboard Config', icon: Layout },
+      { key: 'sanctuary_settings', label: 'Sanctuary Design', icon: Image },
+    ]},
   ];
+
+  // Track which groups are expanded
+  const [expandedGroups, setExpandedGroups] = useState(() => {
+    // Auto-expand the group that contains the active tab
+    const saved = localStorage.getItem('admin_expanded_groups');
+    if (saved) return JSON.parse(saved);
+    return TAB_GROUPS.reduce((acc, g, i) => {
+      if (g.tabs.some(t => t.key === activeTab)) acc[i] = true;
+      return acc;
+    }, {});
+  });
+
+  const toggleGroup = (idx) => {
+    const next = { ...expandedGroups, [idx]: !expandedGroups[idx] };
+    setExpandedGroups(next);
+    localStorage.setItem('admin_expanded_groups', JSON.stringify(next));
+  };
+
+  // Sidebar collapsed state
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+
+  // Flat list for mobile
+  const allTabs = TAB_GROUPS.flatMap(g => g.tabs);
 
   return (
     <div data-testid="admin-panel" className="min-h-screen bg-gray-50">
-      <div className="bg-gray-900 text-white py-4 px-6 flex justify-between items-center">
-        <h1 className="text-lg font-semibold tracking-wider">Divine Iris Admin</h1>
+      <div className="bg-gray-900 text-white py-3 px-4 flex justify-between items-center">
+        <div className="flex items-center gap-3">
+          <button onClick={() => setSidebarCollapsed(!sidebarCollapsed)} className="text-gray-400 hover:text-white transition-colors hidden md:block">
+            {sidebarCollapsed ? <ChevronRight size={16} /> : <ChevronLeft size={16} />}
+          </button>
+          <h1 className="text-sm font-semibold tracking-wider">Divine Iris Admin</h1>
+        </div>
         <div className="flex items-center gap-4">
-          <a href={`${API}/admin/guide`} target="_blank" rel="noopener noreferrer" data-testid="admin-guide-link" className="flex items-center gap-1.5 text-xs text-gray-400 hover:text-[#D4AF37] transition-colors"><FileText size={13} /> Admin Guide</a>
-          <a href="/" className="text-xs text-gray-400 hover:text-[#D4AF37] transition-colors">View Site</a>
+          <a href={`${API}/admin/guide`} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1.5 text-xs text-gray-400 hover:text-[#D4AF37]"><FileText size={13} /> Guide</a>
+          <a href="/" className="text-xs text-gray-400 hover:text-[#D4AF37]">View Site</a>
         </div>
       </div>
 
       <div className="flex">
-        <aside className="w-52 bg-white border-r min-h-[calc(100vh-56px)] p-3 hidden md:block">
-          {tabs.map(tab => (
-            <button key={tab.key} data-testid={`admin-tab-${tab.key}`} onClick={() => switchTab(tab.key)}
-              className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs mb-0.5 transition-all ${
-                activeTab === tab.key ? 'bg-[#D4AF37] text-white' : 'text-gray-600 hover:bg-gray-50'
-              }`}>
-              <tab.icon size={14} />
-              <span>{tab.label}</span>
-              {tab.count !== undefined && <span className="ml-auto text-[10px] opacity-70">{tab.count}</span>}
-            </button>
-          ))}
+        {/* COLLAPSIBLE GROUPED SIDEBAR */}
+        <aside className={`${sidebarCollapsed ? 'w-12' : 'w-56'} bg-white border-r min-h-[calc(100vh-48px)] hidden md:block transition-all duration-200 overflow-y-auto`}>
+          {sidebarCollapsed ? (
+            /* Collapsed — icons only */
+            <div className="p-1.5 space-y-1">
+              {TAB_GROUPS.map((group, gi) => (
+                <button key={gi} onClick={() => { setSidebarCollapsed(false); toggleGroup(gi); }}
+                  title={group.label}
+                  className="w-full flex items-center justify-center py-2 rounded-lg text-gray-500 hover:text-[#D4AF37] hover:bg-gray-50 transition-colors">
+                  <group.icon size={16} />
+                </button>
+              ))}
+            </div>
+          ) : (
+            /* Expanded — grouped tabs */
+            <div className="p-2">
+              {TAB_GROUPS.map((group, gi) => {
+                const isOpen = expandedGroups[gi];
+                const hasActive = group.tabs.some(t => t.key === activeTab);
+                return (
+                  <div key={gi} className="mb-1">
+                    <button onClick={() => toggleGroup(gi)}
+                      className={`w-full flex items-center gap-2 px-2.5 py-2 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-colors ${hasActive ? 'text-[#D4AF37] bg-[#D4AF37]/5' : 'text-gray-400 hover:text-gray-600 hover:bg-gray-50'}`}>
+                      <group.icon size={12} />
+                      <span className="flex-1 text-left">{group.label}</span>
+                      <ChevronDown size={10} className={`transition-transform ${isOpen ? 'rotate-180' : ''}`} />
+                    </button>
+                    {isOpen && (
+                      <div className="ml-2 mt-0.5 space-y-0.5">
+                        {group.tabs.map(tab => (
+                          <button key={tab.key} data-testid={`admin-tab-${tab.key}`} onClick={() => switchTab(tab.key)}
+                            className={`w-full flex items-center gap-2 px-3 py-1.5 rounded-lg text-[11px] transition-all ${
+                              activeTab === tab.key ? 'bg-[#D4AF37] text-white font-medium' : 'text-gray-600 hover:bg-gray-50'
+                            }`}>
+                            <tab.icon size={12} />
+                            <span>{tab.label}</span>
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
         </aside>
 
+        {/* Mobile tabs */}
         <div className="md:hidden w-full overflow-x-auto border-b bg-white">
           <div className="flex">
-            {tabs.map(tab => (
+            {allTabs.map(tab => (
               <button key={tab.key} onClick={() => switchTab(tab.key)}
                 className={`px-3 py-3 text-[10px] whitespace-nowrap ${activeTab === tab.key ? 'border-b-2 border-[#D4AF37] text-[#D4AF37]' : 'text-gray-500'}`}>
                 {tab.label}
