@@ -66,6 +66,10 @@ async def update_settings(settings: SiteSettingsUpdate):
         update_data['dashboard_bg_video'] = raw['dashboard_bg_video']
     if raw.get('india_payment_gateway') is not None:
         update_data['india_payment_gateway'] = raw['india_payment_gateway']
+    if raw.get('india_bank_accounts') is not None:
+        update_data['india_bank_accounts'] = raw['india_bank_accounts']
+    if raw.get('india_bank_details') is not None:
+        update_data['india_bank_details'] = raw['india_bank_details']
     if raw.get('combo_rules') is not None:
         update_data['combo_rules'] = raw['combo_rules']
     if raw.get('cross_sell_rules') is not None:
