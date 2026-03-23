@@ -139,6 +139,26 @@ async def approve_payment_proof(proof_id: str):
 
     enrollment_id = proof.get("enrollment_id")
     
+    # Try to match program by title to get item_id and links
+    program_title = proof.get("program_title", "")
+    matched_program = None
+    if program_title:
+        matched_program = await db.programs.find_one(
+            {"title": {"$regex": program_title, "$options": "i"}}, {"_id": 0}
+        )
+        if not matched_program:
+            # Try partial match
+            matched_program = await db.programs.find_one(
+                {"title": {"$regex": program_title.split("(")[0].strip(), "$options": "i"}}, {"_id": 0}
+            )
+    if not matched_program:
+        matched_program = await db.sessions.find_one(
+            {"title": {"$regex": program_title, "$options": "i"}}, {"_id": 0}
+        )
+    
+    item_id = proof.get("item_id") or (matched_program.get("id") if matched_program else "")
+    item_type = "session" if (matched_program and "session_mode" in matched_program and "category" not in matched_program) else "program"
+
     # If no real enrollment exists (manual submissions), create one
     if not enrollment_id or enrollment_id == "MANUAL":
         enrollment_id = f"DIH-{int(datetime.now(timezone.utc).timestamp()) % 100000}-{uuid.uuid4().hex[:3]}"
@@ -148,9 +168,9 @@ async def approve_payment_proof(proof_id: str):
             "booker_email": proof.get("booker_email", ""),
             "booker_country": "IN",
             "phone": proof.get("phone", ""),
-            "item_type": "program",
-            "item_id": proof.get("item_id", ""),
-            "item_title": proof.get("program_title", ""),
+            "item_type": item_type,
+            "item_id": item_id,
+            "item_title": program_title,
             "participant_count": proof.get("participant_count", 1),
             "participants": proof.get("participants", [{"name": proof.get("payer_name", ""), "email": proof.get("booker_email", "")}]),
             "status": "completed",
@@ -173,9 +193,9 @@ async def approve_payment_proof(proof_id: str):
             "id": str(uuid.uuid4()),
             "enrollment_id": enrollment_id,
             "stripe_session_id": fake_session_id,
-            "item_type": "program",
-            "item_id": proof.get("item_id", ""),
-            "item_title": proof.get("program_title", ""),
+            "item_type": item_type,
+            "item_id": item_id,
+            "item_title": program_title,
             "amount": float(proof.get("amount", 0)),
             "currency": "inr",
             "payment_status": "paid",
