@@ -488,10 +488,15 @@ function EnrollmentPage() {
   const vipDiscount = vipOffer ? (
     vipOffer.discount_type === 'fixed' ? (vipOffer.discount_amount || 0) : Math.round(finalUnitPrice * (vipOffer.discount_pct || 0) / 100)
   ) : 0;
-  const afterVipPrice = Math.max(0, finalUnitPrice - vipDiscount);
+
+  // NO STACKING: best single discount wins
+  // Priority: VIP > CrossSell > Promo (auto-discounts handled at checkout)
+  const bestDiscount = vipDiscount > 0 ? { type: 'vip', amount: vipDiscount } :
+    crossSellDiscount?.amount > 0 ? { type: 'crosssell', amount: crossSellDiscount.amount } : { type: 'none', amount: 0 };
+  const afterDiscountPrice = Math.max(0, finalUnitPrice - bestDiscount.amount);
 
   const pCount = participants.length;
-  const subtotalRaw = afterVipPrice * pCount;
+  const subtotalRaw = afterDiscountPrice * pCount;
 
   const [autoDiscounts, setAutoDiscounts] = useState({ group_discount: 0, combo_discount: 0, loyalty_discount: 0, total_discount: 0 });
 
@@ -775,13 +780,13 @@ function EnrollmentPage() {
                         <span>Group Discount ({pCount} people)</span><span>-{symbol} {autoDiscounts.group_discount.toLocaleString()}</span>
                       </div>
                     )}
-                    {(crossSellDiscount && crossSellDiscount.amount > 0) && (
+                    {bestDiscount.type === 'crosssell' && (
                       <div className="flex justify-between text-xs text-green-600" data-testid="enroll-discount-crosssell">
                         <span className="flex items-center gap-1"><Gift size={10} /> {crossSellDiscount.label || 'Cross-Sell'}</span>
                         <span>-{symbol} {crossSellDiscount.amount.toLocaleString()}</span>
                       </div>
                     )}
-                    {vipDiscount > 0 && (
+                    {bestDiscount.type === 'vip' && (
                       <div className="flex justify-between text-xs text-purple-600" data-testid="enroll-discount-vip">
                         <span className="flex items-center gap-1"><Star size={10} /> {vipOffer?.label || 'VIP Offer'}</span>
                         <span>-{symbol} {vipDiscount.toLocaleString()}</span>

@@ -64,7 +64,10 @@ const CartItemCard = ({ item, onRemove, onUpdateParticipants, symbol, getItemPri
   const offerPrice = getItemOfferPrice(item);
   const effectivePrice = offerPrice > 0 ? offerPrice : price;
   const vipDisc = vipOffer ? (vipOffer.discount_type === 'fixed' ? (vipOffer.discount_amount || 0) : Math.round(effectivePrice * (vipOffer.discount_pct || 0) / 100)) : 0;
-  const afterVipPrice = crossSellDiscount ? Math.max(0, effectivePrice - crossSellDiscount.amount - vipDisc) : Math.max(0, effectivePrice - vipDisc);
+  // NO STACKING: best single discount per item
+  const bestItemDisc = vipDisc > 0 ? { type: 'vip', amount: vipDisc, label: vipOffer?.label } :
+    crossSellDiscount ? { type: 'crosssell', amount: crossSellDiscount.amount, label: crossSellDiscount.label } : { type: 'none', amount: 0 };
+  const afterVipPrice = Math.max(0, effectivePrice - bestItemDisc.amount);
   const pCount = item.participants.length;
   const isSession = item.type === 'session';
 
@@ -121,10 +124,9 @@ const CartItemCard = ({ item, onRemove, onUpdateParticipants, symbol, getItemPri
             ) : (
               <span className="text-[10px] bg-[#D4AF37]/10 text-[#D4AF37] px-2 py-0.5 rounded-full font-medium">{tier?.label || 'Standard'}</span>
             )}
-            {crossSellDiscount || vipDisc > 0 ? (
-              <span className="text-[10px] text-gray-400"><span className="text-green-600 font-bold">{symbol} {afterVipPrice.toLocaleString()}</span> <span className="line-through">{symbol} {effectivePrice.toLocaleString()}</span> / person
-                {crossSellDiscount && <span className="text-green-500 text-[8px]"> ({crossSellDiscount.label})</span>}
-                {vipDisc > 0 && <span className="text-purple-500 text-[8px]"> ({vipOffer.label})</span>}
+            {bestItemDisc.amount > 0 ? (
+              <span className="text-[10px] text-gray-400"><span className={`font-bold ${bestItemDisc.type === 'vip' ? 'text-purple-600' : 'text-green-600'}`}>{symbol} {afterVipPrice.toLocaleString()}</span> <span className="line-through">{symbol} {effectivePrice.toLocaleString()}</span> / person
+                <span className={`text-[8px] ${bestItemDisc.type === 'vip' ? 'text-purple-500' : 'text-green-500'}`}> ({bestItemDisc.label})</span>
               </span>
             ) : offerPrice > 0 ? (
               <span className="text-[10px] text-gray-400"><span className="text-[#D4AF37] font-medium">{symbol} {offerPrice.toLocaleString()}</span> <span className="line-through">{symbol} {price.toLocaleString()}</span> / person</span>
@@ -136,11 +138,10 @@ const CartItemCard = ({ item, onRemove, onUpdateParticipants, symbol, getItemPri
         <div className="flex items-center gap-2">
           <div className="text-right">
             <span className="text-sm font-bold text-[#D4AF37]">{symbol} {(afterVipPrice * pCount).toLocaleString()}</span>
-            {crossSellDiscount && (
-              <p className="text-[8px] text-green-500 flex items-center justify-end gap-0.5"><Gift size={8} /> {crossSellDiscount.value}{crossSellDiscount.type === 'percentage' ? '%' : ''} off</p>
-            )}
-            {vipDisc > 0 && (
-              <p className="text-[8px] text-purple-500 flex items-center justify-end gap-0.5">VIP -{symbol}{vipDisc}</p>
+            {bestItemDisc.amount > 0 && (
+              <p className={`text-[8px] flex items-center justify-end gap-0.5 ${bestItemDisc.type === 'vip' ? 'text-purple-500' : 'text-green-500'}`}>
+                {bestItemDisc.type === 'vip' ? <Star size={8} /> : <Gift size={8} />} -{symbol}{bestItemDisc.amount}
+              </p>
             )}
           </div>
           <button onClick={onRemove} data-testid={`cart-remove-${item.id}`} className="text-red-400 hover:text-red-600 transition-colors p-1">

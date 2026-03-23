@@ -634,6 +634,22 @@ async def enrollment_checkout(enrollment_id: str, data: EnrollmentSubmit, reques
 
     final_total = max(0, total - promo_discount - auto_discount - vip_discount)
 
+    # NO STACKING: Only the single best discount applies
+    # Priority: VIP > Promo > auto (combo/group/loyalty/cross-sell)
+    best_discount = 0
+    best_source = ""
+    if vip_discount > 0:
+        best_discount = vip_discount
+        best_source = f"vip:{vip_offer_name}"
+    elif promo_discount > 0:
+        best_discount = promo_discount
+        best_source = f"promo:{data.promo_code}"
+    elif auto_discount > 0:
+        best_discount = auto_discount
+        best_source = "auto"
+
+    final_total = max(0, total - best_discount)
+
     # Store VIP discount in enrollment
     if vip_discount > 0:
         await db.enrollments.update_one({"id": enrollment_id}, {"$set": {
