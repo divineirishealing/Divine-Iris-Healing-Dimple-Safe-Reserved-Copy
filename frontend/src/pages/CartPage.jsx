@@ -441,9 +441,10 @@ function CartPage() {
   useEffect(() => {
     const firstP = items[0]?.participants?.[0];
     if (!firstP?.email && !firstP?.phone) return;
+    const phone = firstP.phone_code ? `${firstP.phone_code}${firstP.phone}` : (firstP.phone || '');
     items.forEach(item => {
       axios.post(`${API}/enrollment/check-vip-offer`, {
-        email: firstP.email || '', phone: firstP.phone || '', program_id: item.programId,
+        email: firstP.email || '', phone, program_id: item.programId,
       }).then(r => {
         if (r.data?.matched) setVipOffers(prev => ({ ...prev, [item.programId]: r.data }));
         else setVipOffers(prev => { const n = { ...prev }; delete n[item.programId]; return n; });

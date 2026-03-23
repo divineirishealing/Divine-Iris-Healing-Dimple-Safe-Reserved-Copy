@@ -475,7 +475,9 @@ function EnrollmentPage() {
   const [vipOffer, setVipOffer] = useState(null);
   useEffect(() => {
     const email = participants[0]?.email || '';
-    const phone = participants[0]?.phone || '';
+    const phoneCode = participants[0]?.phone_code || '';
+    const phoneRaw = participants[0]?.phone || '';
+    const phone = phoneCode ? `${phoneCode}${phoneRaw}` : phoneRaw;
     if (!email && !phone) { setVipOffer(null); return; }
     const timer = setTimeout(() => {
       axios.post(`${API}/enrollment/check-vip-offer`, { email, phone, program_id: id })
@@ -483,7 +485,7 @@ function EnrollmentPage() {
         .catch(() => setVipOffer(null));
     }, 500);
     return () => clearTimeout(timer);
-  }, [participants[0]?.email, participants[0]?.phone, id]);
+  }, [participants[0]?.email, participants[0]?.phone, participants[0]?.phone_code, id]);
 
   const vipDiscount = vipOffer ? (
     vipOffer.discount_type === 'fixed' ? (vipOffer.discount_amount || 0) : Math.round(finalUnitPrice * (vipOffer.discount_pct || 0) / 100)
