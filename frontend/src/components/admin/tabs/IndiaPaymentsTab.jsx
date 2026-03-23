@@ -190,13 +190,20 @@ const IndiaPaymentsTab = () => {
                         ['Amount', `INR ${proof.amount}`],
                         ['Transaction ID', proof.transaction_id],
                         ['Paid FROM', proof.payment_method || '-'],
-                        ['Paid TO (Divine Iris)', proof.bank_name || '-'],
                         ['Payment Date', proof.payment_date],
                         ['Enrollment ID', proof.enrollment_id],
                         ['Admin Notes', proof.admin_notes],
                       ].map(([l, v]) => v && (
                         <div key={l} className="text-[10px]"><span className="text-gray-400">{l}:</span> <span className="text-gray-800 font-medium">{v}</span></div>
                       ))}
+                      {/* Paid TO — show full account details */}
+                      <div className="text-[10px]">
+                        <span className="text-gray-400">Paid TO (Divine Iris):</span>
+                        <div className="mt-1 bg-blue-50 border border-blue-100 rounded-lg p-2">
+                          <p className="font-bold text-blue-800">{proof.bank_name || '-'}</p>
+                          <PaidToAccountDetails bankLabel={proof.bank_name} />
+                        </div>
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -245,6 +252,32 @@ const IndiaPaymentsTab = () => {
 
       {/* ════ BANK ACCOUNTS ════ */}
       <BankAccountsEditor />
+    </div>
+  );
+};
+
+/* ─── Show full bank account details by label ─── */
+const PaidToAccountDetails = ({ bankLabel }) => {
+  const [account, setAccount] = useState(null);
+
+  useEffect(() => {
+    if (!bankLabel) return;
+    axios.get(`${API}/settings`).then(r => {
+      const accounts = r.data?.india_bank_accounts || [];
+      const match = accounts.find(a => (a.label || a.bank_name || '') === bankLabel);
+      if (match) setAccount(match);
+    }).catch(() => {});
+  }, [bankLabel]);
+
+  if (!account) return null;
+
+  return (
+    <div className="text-[9px] text-blue-700 space-y-0.5 mt-1">
+      {account.account_name && <p>Account: <strong>{account.account_name}</strong></p>}
+      {account.account_number && <p>A/C No: <strong className="font-mono">{account.account_number}</strong></p>}
+      {account.ifsc && <p>IFSC: <strong className="font-mono">{account.ifsc}</strong></p>}
+      {account.bank_name && <p>Bank: {account.bank_name}</p>}
+      {account.branch && <p>Branch: {account.branch}</p>}
     </div>
   );
 };
