@@ -18,6 +18,7 @@ const IndiaPaymentsTab = () => {
   const [viewImage, setViewImage] = useState(null);
   const [filter, setFilter] = useState('pending');
   const [editingProof, setEditingProof] = useState(null);
+  const [expandedProof, setExpandedProof] = useState(null);
 
   const fetchProofs = async () => {
     try {
@@ -96,10 +97,10 @@ const IndiaPaymentsTab = () => {
       ) : (
         <div className="space-y-3">
           {filtered.map(proof => (
-            <div key={proof.id} className="bg-white border rounded-lg p-4" data-testid={`proof-${proof.id}`}>
-              <div className="flex items-start gap-4">
-                {/* Screenshot thumbnail */}
-                <div className="w-16 h-16 bg-gray-100 rounded-lg overflow-hidden flex-shrink-0 cursor-pointer border"
+            <div key={proof.id} className="bg-white border rounded-lg overflow-hidden" data-testid={`proof-${proof.id}`}>
+              <div className="flex items-start gap-4 p-4">
+                {/* Screenshot thumbnail — click to expand full */}
+                <div className="w-16 h-16 bg-gray-100 rounded-lg overflow-hidden flex-shrink-0 cursor-pointer border hover:ring-2 hover:ring-[#D4AF37]"
                   onClick={() => setViewImage(`${BACKEND}${proof.screenshot_url}`)}>
                   <img src={`${BACKEND}${proof.screenshot_url}`} alt="proof"
                     className="w-full h-full object-cover hover:opacity-80 transition-opacity" />
@@ -112,45 +113,94 @@ const IndiaPaymentsTab = () => {
                       proof.status === 'pending' ? 'bg-amber-100 text-amber-700' :
                       proof.status === 'approved' ? 'bg-green-100 text-green-700' :
                       'bg-red-100 text-red-700'
-                    }`}>
-                      {proof.status}
-                    </span>
+                    }`}>{proof.status}</span>
                   </div>
-
                   <div className="grid grid-cols-2 sm:grid-cols-4 gap-x-4 gap-y-1 text-[10px] text-gray-500">
                     <span><strong>Program:</strong> {proof.program_title}</span>
                     <span><strong>Amount:</strong> INR {proof.amount}</span>
                     <span><strong>Txn ID:</strong> <span className="font-mono">{proof.transaction_id}</span></span>
                     <span><strong>Bank:</strong> {proof.bank_name}</span>
-                    <span><strong>Date:</strong> {proof.payment_date}</span>
-                    <span><strong>City:</strong> {proof.city}, {proof.state}</span>
-                    <span><strong>Email:</strong> {proof.booker_email}</span>
-                    <span><strong>Method:</strong> {proof.payment_method || '-'}</span>
                   </div>
-
                   <p className="text-[9px] text-gray-400 mt-1 flex items-center gap-1">
-                    <Clock size={9} /> Submitted: {new Date(proof.created_at).toLocaleString()}
+                    <Clock size={9} /> {new Date(proof.created_at).toLocaleString()}
                   </p>
                 </div>
 
                 {/* Actions */}
-                {proof.status === 'pending' && (
-                  <div className="flex gap-1.5 flex-shrink-0">
-                    <Button size="sm" variant="outline" onClick={() => setEditingProof({ ...proof })}
-                      className="text-[10px] px-3 h-8 border-blue-200 text-blue-600 hover:bg-blue-50" data-testid={`edit-${proof.id}`}>
-                      <PenLine size={12} className="mr-1" /> Edit
-                    </Button>
-                    <Button size="sm" onClick={() => handleApprove(proof.id)} disabled={actionLoading === proof.id}
-                      className="bg-green-600 hover:bg-green-700 text-white text-[10px] px-3 h-8" data-testid={`approve-${proof.id}`}>
-                      {actionLoading === proof.id ? <Loader2 size={12} className="animate-spin" /> : <><Check size={12} className="mr-1" /> Approve</>}
-                    </Button>
-                    <Button size="sm" variant="outline" onClick={() => handleReject(proof.id)} disabled={actionLoading === proof.id}
-                      className="text-red-600 border-red-200 hover:bg-red-50 text-[10px] px-3 h-8" data-testid={`reject-${proof.id}`}>
-                      <X size={12} className="mr-1" /> Reject
-                    </Button>
-                  </div>
-                )}
+                <div className="flex gap-1.5 flex-shrink-0 flex-wrap">
+                  {/* View Details button */}
+                  <Button size="sm" variant="outline" onClick={() => setExpandedProof(expandedProof === proof.id ? null : proof.id)}
+                    className="text-[10px] px-3 h-8 border-gray-200 text-gray-600 hover:bg-gray-50" data-testid={`view-${proof.id}`}>
+                    <Eye size={12} className="mr-1" /> View
+                  </Button>
+                  {proof.status === 'pending' && (
+                    <>
+                      <Button size="sm" variant="outline" onClick={() => setEditingProof({ ...proof })}
+                        className="text-[10px] px-3 h-8 border-blue-200 text-blue-600 hover:bg-blue-50" data-testid={`edit-${proof.id}`}>
+                        <PenLine size={12} className="mr-1" /> Edit
+                      </Button>
+                      <Button size="sm" onClick={() => handleApprove(proof.id)} disabled={actionLoading === proof.id}
+                        className="bg-green-600 hover:bg-green-700 text-white text-[10px] px-3 h-8" data-testid={`approve-${proof.id}`}>
+                        {actionLoading === proof.id ? <Loader2 size={12} className="animate-spin" /> : <><Check size={12} className="mr-1" /> Approve</>}
+                      </Button>
+                      <Button size="sm" variant="outline" onClick={() => handleReject(proof.id)} disabled={actionLoading === proof.id}
+                        className="text-red-600 border-red-200 hover:bg-red-50 text-[10px] px-3 h-8" data-testid={`reject-${proof.id}`}>
+                        <X size={12} className="mr-1" /> Reject
+                      </Button>
+                    </>
+                  )}
+                </div>
               </div>
+
+              {/* Expanded Details */}
+              {expandedProof === proof.id && (
+                <div className="border-t bg-gray-50 p-4">
+                  <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                    {/* Full attachment */}
+                    <div className="md:row-span-2">
+                      <p className="text-[9px] font-semibold text-gray-500 uppercase mb-1">Payment Proof</p>
+                      <div className="border rounded-lg overflow-hidden bg-white cursor-pointer hover:ring-2 hover:ring-[#D4AF37]"
+                        onClick={() => setViewImage(`${BACKEND}${proof.screenshot_url}`)}>
+                        <img src={`${BACKEND}${proof.screenshot_url}`} alt="Payment proof" className="w-full max-h-64 object-contain" />
+                      </div>
+                      <button onClick={() => window.open(`${BACKEND}${proof.screenshot_url}`, '_blank')}
+                        className="mt-1 text-[9px] text-blue-600 hover:underline flex items-center gap-1">
+                        <Eye size={9} /> Open full size in new tab
+                      </button>
+                    </div>
+
+                    {/* All details */}
+                    <div className="space-y-2">
+                      <p className="text-[9px] font-semibold text-gray-500 uppercase">Payer Details</p>
+                      {[
+                        ['Name', proof.payer_name],
+                        ['Email', proof.booker_email],
+                        ['Phone', proof.phone],
+                        ['City', proof.city],
+                        ['State', proof.state],
+                      ].map(([l, v]) => v && (
+                        <div key={l} className="text-[10px]"><span className="text-gray-400">{l}:</span> <span className="text-gray-800 font-medium">{v}</span></div>
+                      ))}
+                    </div>
+
+                    <div className="space-y-2">
+                      <p className="text-[9px] font-semibold text-gray-500 uppercase">Payment Details</p>
+                      {[
+                        ['Program', proof.program_title],
+                        ['Amount', `INR ${proof.amount}`],
+                        ['Transaction ID', proof.transaction_id],
+                        ['Bank/Account', proof.bank_name],
+                        ['Payment Date', proof.payment_date],
+                        ['Payment Method', proof.payment_method],
+                        ['Enrollment ID', proof.enrollment_id],
+                        ['Admin Notes', proof.admin_notes],
+                      ].map(([l, v]) => v && (
+                        <div key={l} className="text-[10px]"><span className="text-gray-400">{l}:</span> <span className="text-gray-800 font-medium">{v}</span></div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           ))}
         </div>
@@ -173,11 +223,22 @@ const IndiaPaymentsTab = () => {
         />
       )}
 
-      {/* Image Viewer Modal */}
+      {/* Full Image Viewer Modal */}
       {viewImage && (
-        <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4" onClick={() => setViewImage(null)}>
-          <div className="max-w-3xl max-h-[80vh] overflow-auto bg-white rounded-xl p-2">
-            <img src={viewImage} alt="Payment proof" className="max-w-full rounded" />
+        <div className="fixed inset-0 bg-black/90 z-50 flex items-center justify-center p-4" onClick={() => setViewImage(null)}>
+          <div className="relative max-w-4xl max-h-[90vh] w-full">
+            <button onClick={() => setViewImage(null)} className="absolute -top-10 right-0 text-white/70 hover:text-white text-sm flex items-center gap-1">
+              <X size={16} /> Close
+            </button>
+            <img src={viewImage} alt="Payment proof" className="w-full h-full object-contain rounded-lg" />
+            <div className="flex justify-center gap-3 mt-3">
+              <button onClick={() => window.open(viewImage, '_blank')} className="text-xs text-white/70 hover:text-white bg-white/10 px-4 py-2 rounded-lg flex items-center gap-1">
+                <Eye size={12} /> Open in new tab
+              </button>
+              <a href={viewImage} download className="text-xs text-white/70 hover:text-white bg-white/10 px-4 py-2 rounded-lg flex items-center gap-1">
+                <AlertCircle size={12} /> Download
+              </a>
+            </div>
           </div>
         </div>
       )}
