@@ -219,6 +219,8 @@ const AdminPanel = () => {
       { key: 'sessions', label: 'Sessions', icon: Calendar },
       { key: 'promotions', label: 'Promotions', icon: Gift },
       { key: 'discounts', label: 'Discounts & Loyalty', icon: Tag },
+      { key: 'special_offers', label: 'Special/VIP Offers', icon: Star },
+      { key: 'nri_pricing', label: 'INR Pricing for NRI', icon: Globe },
       { key: 'exchange_rates', label: 'Exchange Rates', icon: Globe },
     ]},
     { label: 'Transactions', icon: CreditCard, tabs: [
@@ -263,8 +265,9 @@ const AdminPanel = () => {
 
   // Sidebar collapsed state
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [showChangePassword, setShowChangePassword] = useState(false);
+  const [newPass, setNewPass] = useState('');
 
-  // Flat list for mobile
   const allTabs = TAB_GROUPS.flatMap(g => g.tabs);
 
   return (
@@ -277,6 +280,7 @@ const AdminPanel = () => {
           <h1 className="text-sm font-semibold tracking-wider">Divine Iris Admin</h1>
         </div>
         <div className="flex items-center gap-4">
+          <button onClick={() => setShowChangePassword(true)} className="text-xs text-gray-400 hover:text-[#D4AF37] flex items-center gap-1"><Settings size={12} /> Change Password</button>
           <a href={`${API}/admin/guide`} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1.5 text-xs text-gray-400 hover:text-[#D4AF37]"><FileText size={13} /> Guide</a>
           <a href="/" className="text-xs text-gray-400 hover:text-[#D4AF37]">View Site</a>
         </div>
@@ -406,6 +410,8 @@ const AdminPanel = () => {
           )}
           {activeTab === 'promotions' && <PromotionsTab programs={programs} />}
           {activeTab === 'discounts' && <DiscountsTab />}
+          {activeTab === 'special_offers' && <DiscountsTab defaultSection="special" />}
+          {activeTab === 'nri_pricing' && <PaymentSettingsTab defaultSection="nri" />}
           {activeTab === 'exchange_rates' && <ExchangeRatesTab />}
           {activeTab === 'api_keys' && <ApiKeysTab />}
           {activeTab === 'payment_settings' && <PaymentSettingsTab />}
@@ -898,6 +904,28 @@ const AdminPanel = () => {
 
         </main>
       </div>
+
+      {/* Change Password Modal */}
+      {showChangePassword && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={() => setShowChangePassword(false)}>
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-sm p-5" onClick={e => e.stopPropagation()}>
+            <h3 className="text-sm font-bold text-gray-900 mb-3">Change Admin Password</h3>
+            <input type="password" value={newPass} onChange={e => setNewPass(e.target.value)}
+              placeholder="New password" className="w-full border rounded-lg px-3 py-2 text-sm mb-3" />
+            <div className="flex gap-2">
+              <button onClick={() => setShowChangePassword(false)} className="flex-1 border rounded-lg py-2 text-xs text-gray-600">Cancel</button>
+              <button onClick={() => {
+                if (newPass.length < 6) { alert('Password must be at least 6 characters'); return; }
+                localStorage.setItem('admin_password_hash', newPass);
+                axios.put(`${API}/settings`, { admin_password: newPass }).catch(() => {});
+                setShowChangePassword(false);
+                setNewPass('');
+                alert('Password changed! Use the new password next time you log in.');
+              }} className="flex-1 bg-[#D4AF37] text-white rounded-lg py-2 text-xs font-medium">Save Password</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
