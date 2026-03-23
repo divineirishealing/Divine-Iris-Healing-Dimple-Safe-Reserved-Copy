@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-import { IndianRupee, Check, X, Eye, Loader2, Clock, AlertCircle, Link2, Copy, Plus, Trash2, Mail, Key, Users } from 'lucide-react';
+import { IndianRupee, Check, X, Eye, Loader2, Clock, AlertCircle, Link2, Copy, Plus, Trash2, Mail, Key, Users, Building2 } from 'lucide-react';
 import { Button } from '../../ui/button';
 import { Input } from '../../ui/input';
 import { Switch } from '../../ui/switch';
@@ -159,6 +159,98 @@ const IndiaPaymentsTab = () => {
           </div>
         </div>
       )}
+
+      {/* ════ BANK ACCOUNTS ════ */}
+      <BankAccountsEditor />
+    </div>
+  );
+};
+
+/* ─── Bank Accounts Editor ─── */
+const BankAccountsEditor = () => {
+  const { toast } = useToast();
+  const [banks, setBanks] = useState([]);
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    axios.get(`${API}/settings`).then(r => {
+      const accounts = r.data?.india_bank_accounts || [];
+      if (accounts.length > 0) {
+        setBanks(accounts);
+      } else if (r.data?.india_bank_details?.account_number) {
+        setBanks([{ label: r.data.india_bank_details.bank_name || 'Primary', ...r.data.india_bank_details }]);
+      }
+    }).catch(() => {});
+  }, []);
+
+  const save = async () => {
+    setSaving(true);
+    try {
+      await axios.put(`${API}/settings`, {
+        india_bank_details: banks[0] || {},
+        india_bank_accounts: banks.filter(b => b.account_number),
+      });
+      toast({ title: 'Bank accounts saved!' });
+    } catch { toast({ title: 'Error', variant: 'destructive' }); }
+    finally { setSaving(false); }
+  };
+
+  const updateBank = (idx, field, val) => {
+    const updated = [...banks];
+    updated[idx] = { ...updated[idx], [field]: val };
+    setBanks(updated);
+  };
+
+  return (
+    <div className="mt-8 border-t pt-6">
+      <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center gap-2">
+          <Building2 size={18} className="text-blue-600" />
+          <h2 className="text-lg font-semibold text-gray-900">Divine Iris Bank Accounts</h2>
+          <span className="text-[9px] bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full font-medium">{banks.length}</span>
+        </div>
+        <button onClick={() => setBanks([...banks, { label: '', account_name: '', account_number: '', ifsc: '', bank_name: '', branch: '' }])}
+          className="text-[10px] px-3 py-1.5 rounded-full bg-blue-100 text-blue-700 hover:bg-blue-200 font-medium flex items-center gap-1">
+          <Plus size={10} /> Add Account
+        </button>
+      </div>
+      <p className="text-xs text-gray-500 mb-4">Add your bank accounts. Users will see a dropdown to select which account they transferred to.</p>
+
+      <div className="space-y-3">
+        {banks.map((bank, idx) => (
+          <div key={idx} className="bg-white border rounded-lg p-4">
+            <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center gap-2">
+                <span className="w-5 h-5 rounded-full bg-blue-100 text-blue-700 text-[9px] flex items-center justify-center font-bold">{idx + 1}</span>
+                <Input value={bank.label || ''} onChange={e => updateBank(idx, 'label', e.target.value)}
+                  placeholder="Label (e.g., HDFC Savings)" className="text-xs h-8 w-56 font-semibold" />
+              </div>
+              {banks.length > 1 && (
+                <button onClick={() => setBanks(banks.filter((_, i) => i !== idx))}
+                  className="text-[10px] text-red-400 hover:text-red-600">Remove</button>
+              )}
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div><label className="text-[9px] text-gray-500 block mb-0.5">Account Name</label>
+                <Input value={bank.account_name || ''} onChange={e => updateBank(idx, 'account_name', e.target.value)} placeholder="Holder name" className="text-xs h-8" /></div>
+              <div><label className="text-[9px] text-gray-500 block mb-0.5">Account Number</label>
+                <Input value={bank.account_number || ''} onChange={e => updateBank(idx, 'account_number', e.target.value)} placeholder="Account number" className="text-xs h-8 font-mono" /></div>
+              <div><label className="text-[9px] text-gray-500 block mb-0.5">IFSC Code</label>
+                <Input value={bank.ifsc || ''} onChange={e => updateBank(idx, 'ifsc', e.target.value)} placeholder="HDFC0001234" className="text-xs h-8 font-mono" /></div>
+              <div><label className="text-[9px] text-gray-500 block mb-0.5">Bank Name</label>
+                <Input value={bank.bank_name || ''} onChange={e => updateBank(idx, 'bank_name', e.target.value)} placeholder="HDFC Bank" className="text-xs h-8" /></div>
+              <div className="col-span-2"><label className="text-[9px] text-gray-500 block mb-0.5">Branch</label>
+                <Input value={bank.branch || ''} onChange={e => updateBank(idx, 'branch', e.target.value)} placeholder="Branch" className="text-xs h-8" /></div>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      <button onClick={save} disabled={saving}
+        className="mt-4 w-full bg-blue-600 hover:bg-blue-700 text-white rounded-lg py-2.5 text-sm font-medium flex items-center justify-center gap-2 transition-colors">
+        {saving ? <Loader2 size={14} className="animate-spin" /> : <Check size={14} />}
+        {saving ? 'Saving...' : 'Save Bank Accounts'}
+      </button>
     </div>
   );
 };
