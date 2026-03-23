@@ -594,11 +594,11 @@ async def enrollment_checkout(enrollment_id: str, data: EnrollmentSubmit, reques
         settings = await db.site_settings.find_one({"id": "site_settings"}, {"_id": 0, "special_offers": 1})
         special_offers = (settings or {}).get("special_offers", [])
         booker_email = (enrollment.get("booker_email") or "").lower().strip()
-        booker_phone = (enrollment.get("phone") or "").replace(" ", "").replace("-", "")
+        booker_phone = (enrollment.get("phone") or "").replace(" ", "").replace("-", "").replace("+", "").lstrip("0")
         # Also check participant emails/phones
         participants = enrollment.get("participants", [])
         all_emails = {booker_email} | {(p.get("email") or "").lower().strip() for p in participants}
-        all_phones = {booker_phone} | {(p.get("phone") or "").replace(" ", "").replace("-", "") for p in participants}
+        all_phones = {booker_phone} | {(p.get("phone") or "").replace(" ", "").replace("-", "").replace("+", "").lstrip("0") for p in participants}
         all_emails.discard("")
         all_phones.discard("")
 
@@ -614,7 +614,7 @@ async def enrollment_checkout(enrollment_id: str, data: EnrollmentSubmit, reques
             matched = False
             for person in offer_people:
                 person_email = (person.get("email") or "").lower().strip()
-                person_phone = (person.get("phone") or "").replace(" ", "").replace("-", "")
+                person_phone = (person.get("phone") or "").replace(" ", "").replace("-", "").replace("+", "").lstrip("0")
                 if person_email and person_email in all_emails:
                     matched = True
                     break
@@ -986,7 +986,7 @@ async def get_enrollment(enrollment_id: str):
 async def check_vip_offer(data: dict):
     """Check if email/phone matches any VIP special offer."""
     email = (data.get("email") or "").lower().strip()
-    phone = (data.get("phone") or "").replace(" ", "").replace("-", "")
+    phone = (data.get("phone") or "").replace(" ", "").replace("-", "").replace("+", "").lstrip("0")
     program_id = str(data.get("program_id", ""))
     
     settings = await db.site_settings.find_one({"id": "site_settings"}, {"_id": 0, "special_offers": 1})
@@ -998,7 +998,7 @@ async def check_vip_offer(data: dict):
             continue
         for person in offer.get("people", []):
             pe = (person.get("email") or "").lower().strip()
-            pp = (person.get("phone") or "").replace(" ", "").replace("-", "")
+            pp = (person.get("phone") or "").replace(" ", "").replace("-", "").replace("+", "").lstrip("0")
             if (pe and pe == email) or (pp and pp == phone):
                 return {
                     "matched": True,
