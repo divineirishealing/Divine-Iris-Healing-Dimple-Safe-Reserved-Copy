@@ -119,7 +119,7 @@ const IndiaPaymentsTab = () => {
                     <span><strong>Program:</strong> {proof.program_title}</span>
                     <span><strong>Amount:</strong> INR {proof.amount}</span>
                     <span><strong>Txn ID:</strong> <span className="font-mono">{proof.transaction_id}</span></span>
-                    <span><strong>Bank:</strong> {proof.bank_name}</span>
+                    <span><strong>Paid to:</strong> {proof.bank_name || '-'}</span>
                   </div>
                   <p className="text-[9px] text-gray-400 mt-1 flex items-center gap-1">
                     <Clock size={9} /> {new Date(proof.created_at).toLocaleString()}
@@ -189,9 +189,9 @@ const IndiaPaymentsTab = () => {
                         ['Program', proof.program_title],
                         ['Amount', `INR ${proof.amount}`],
                         ['Transaction ID', proof.transaction_id],
-                        ['Bank/Account', proof.bank_name],
+                        ['Paid FROM', proof.payment_method || '-'],
+                        ['Paid TO (Divine Iris)', proof.bank_name || '-'],
                         ['Payment Date', proof.payment_date],
-                        ['Payment Method', proof.payment_method],
                         ['Enrollment ID', proof.enrollment_id],
                         ['Admin Notes', proof.admin_notes],
                       ].map(([l, v]) => v && (
