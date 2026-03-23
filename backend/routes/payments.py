@@ -468,8 +468,8 @@ async def _send_receipt_and_notifications(tx):
             footer_phone=settings.get("footer_phone", ""),
             footer_email=settings.get("footer_email", ""),
             site_url="https://divineirishealing.com",
-            currency_code=txn.get("currency", ""),
-            invoice_number=txn.get("invoice_number", ""),
+            currency_code=tx.get("currency", ""),
+            invoice_number=tx.get("invoice_number", ""),
         )
         from key_manager import get_key
         receipt_sender = await get_key("receipt_email") or os.environ.get("RECEIPT_EMAIL", "receipt@divineirishealing.com")
