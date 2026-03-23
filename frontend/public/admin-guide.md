@@ -12,6 +12,32 @@
 
 ---
 
+## Admin Panel Navigation
+
+The admin sidebar is organized into 6 collapsible groups:
+
+### Group 1: WEBSITE
+Hero Banner, Homepage, Page Headers, Stats, Header & Footer, Global Styles, Testimonials, Text Quotes
+
+### Group 2: PROGRAMS & OFFERS
+Programs, Pricing Hub, Upcoming Hub, Sessions, Promotions, Discounts & Loyalty, Special/VIP Offers, INR Pricing for NRI, Exchange Rates
+
+### Group 3: TRANSACTIONS
+Enrollments, Indian Payment, India Proofs, API Keys, Receipt Template, Fraud Detection
+
+### Group 4: INBOX
+Inbox (contact form submissions)
+
+### Group 5: CLIENTS
+Client Garden, Subscribers, Annual Subscribers, Scheduler
+
+### Group 6: DASHBOARD
+Dashboard Config, Sanctuary Design
+
+Click any group header to expand/collapse. The `<` button in the top bar collapses the entire sidebar to icon-only mode.
+
+---
+
 ## Tab-by-Tab Guide
 
 ---
@@ -419,11 +445,182 @@
 
 ## Tips
 
-1. **Always click "Save Changes"** after making edits in Hero Banner, Homepage, Page Headers, Header & Footer, or Global Styles tabs
+1. **Always click "Save Changes"** after making edits
 2. **The Homepage tab is your best friend** — most homepage changes happen here
-3. **Programs and Sessions tabs** are for managing content (what exists). The Homepage tab controls how their sections LOOK (titles, fonts)
-4. **Preview your changes** — Click "View Site" in the top-right corner after saving
+3. **Preview your changes** — Click "View Site" in the top-right corner after saving
 
 ---
 
-*Generated for Divine Iris Healing Admin Panel*
+## New Features Guide
+
+---
+
+### Admin Security
+
+**Change Password:** Click "Change Password" in the top admin bar → enter new password → Save. Use a strong password — the old one is no longer shown on the login page.
+
+---
+
+### FOMO Rotating Subtitles (Homepage → Upcoming section)
+
+The subtitle under "Upcoming Programs" now rotates through multiple messages with fade animation.
+
+**How to edit:** Homepage tab → expand Upcoming section → "Rotating FOMO Subtitles" panel → Add/edit messages like "SEATS ARE FILLING FAST", "YOUR TRANSFORMATION AWAITS"
+
+---
+
+### Enrollment Urgency Testimonials
+
+Rotating one-liner quotes on the enrollment page that create urgency.
+
+**How to edit:** Upcoming Hub → scroll to "Enrollment Urgency Testimonials" → Add testimonials with name (e.g., "Joining was my best decision" — Anita R.)
+
+---
+
+### Combo Discounts (Discounts & Loyalty)
+
+Tiered discounts when multiple programs are in cart.
+
+**How to set up:**
+1. Go to Discounts & Loyalty → Combo Discount → Toggle ON
+2. Add Rule → Set: If 2+ programs → 10% off, code: COMBO2
+3. Add another: If 3+ programs → 15% off, code: COMBO3
+4. Select which programs qualify (click program names)
+5. Save
+
+---
+
+### Cross-Sell Discounts (Discounts & Loyalty)
+
+"Buy Program A → Get discount on Program B" offers.
+
+**How to set up:**
+1. Toggle ON Cross-Sell
+2. Add Rule → Select "Buy" program (e.g., AWRP) + optional tier (1 Month)
+3. Add target program(s) → Set discount % or fixed amount
+4. Each rule gets a tracking code
+5. Shows on homepage as golden info strip
+
+---
+
+### Special/VIP Offers (Programs & Offers)
+
+Target specific people by email/phone with exclusive discounts.
+
+**How to set up:**
+1. Add Offer → Name it (e.g., "Family Discount")
+2. Set discount % or fixed amount
+3. Add people: Type email/phone one by one OR upload CSV
+4. Select which programs this applies to
+5. Enable/disable each offer independently
+
+---
+
+### INR Pricing for NRI Students (Programs & Offers)
+
+3 ways to give INR pricing to Indian students living abroad:
+
+1. **Email Whitelist** — Add student emails → they auto-get INR when they verify email
+2. **Invite Links** — Generate token → share link → student gets INR pricing
+3. **INR Promo Code** — Create in Promotions tab → forces INR pricing
+
+---
+
+### India Payment Gateway (Indian Payment)
+
+Configure your India payment gateway:
+
+1. Toggle Enable → Select type (Exly Link / Razorpay / PayU)
+2. For Exly: Just paste the payment URL
+3. For Razorpay: Paste API Key + Secret
+4. Save
+
+---
+
+### Bank Accounts (India Proofs)
+
+Add multiple Divine Iris bank accounts. Users choose which account they paid to.
+
+**How to add:** India Proofs → scroll to "Bank Accounts" → Add Account → Fill label, account name, number, IFSC, bank, branch → Save
+
+---
+
+### Manual Payment Proofs (India Proofs)
+
+When users submit manual payment proof:
+
+1. New proofs auto-appear (refreshes every 15 seconds)
+2. Click **View** to see full attachment + all details
+3. Click **Edit** to modify details before approving
+4. Click **Approve** → receipt is sent + enrollment is completed
+5. Click **Reject** to decline
+
+---
+
+### Enrollment Tracking (Enrollments)
+
+All enrollments from every source in one place:
+
+- **Payment Mode**: Stripe (blue) / Bank Transfer (green) / Manual Proof (amber) / Exly (purple) / Free
+- **Filter** by status or payment mode
+- **Search** by name, email, phone, invoice number
+- **Click any row** to expand full details
+- **Download Excel** exports everything — nothing is missed
+
+Invoice numbers format: YYYY-MM-001 (e.g., 2026-03-001)
+
+---
+
+### GST Invoice (Receipt Template)
+
+For India payments, receipts include proper GST breakdown:
+
+1. Receipt Template → "GST Invoice (India Only)" → Toggle ON
+2. Fill: Company Name, GSTIN, PAN, Address, GST Rate (18%), Type (IGST)
+3. Preview shows exact invoice format
+4. Only appears on INR receipts — international receipts unchanged
+
+---
+
+### Student Dashboard Features
+
+- **Soul Garden** — Visual growth tracker per program
+- **Bhaad Portal** — Release negativity → transforms into affirmations
+- **Soul Tribe** — Community feed (posts, reactions, comments)
+- **Calendar** — Mark attendance: Online / Offline / Off / No Show
+- **Progress Tracker** — Daily mood + extraordinary moments
+- **Program Pause** — Students can pause programs (if you enable "Pausable" in subscriber settings)
+
+### Dashboard Video Background
+
+Upload a looping video that plays behind the entire dashboard:
+
+Dashboard Config → "Dashboard Background Video" → Upload MP4 → Refresh dashboard
+
+---
+
+### Currency & VPN
+
+- **India**: Only genuine Indian IP (no VPN) gets INR pricing
+- **Everyone else**: VPN ignored — they see local currency
+- **Stripe charges in local currency** (EUR, CAD, AUD, etc.) — settles to your AED account
+- **Override**: Use INR whitelist/tokens for NRI students
+
+---
+
+### Auto-Close Programs
+
+Programs automatically close when their deadline passes. Status changes to "Registration Closed" and Enroll/Add to Cart buttons are disabled.
+
+---
+
+### Planning Calendar (Upcoming Hub)
+
+Visual calendar at the top of Upcoming Hub:
+- Shows all program dates as colored blocks
+- Click a date button (Start/End/Deadline) then click a calendar day to set that date
+- Collapsible — click header to toggle
+
+---
+
+*Updated March 2026 — Divine Iris Healing Admin Panel*
