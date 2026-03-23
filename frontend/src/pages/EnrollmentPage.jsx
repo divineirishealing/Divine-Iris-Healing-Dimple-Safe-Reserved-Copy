@@ -12,7 +12,7 @@ import { Button } from '../components/ui/button';
 import {
   User, Monitor, Wifi, Mail, Phone, CreditCard, Lock, Plus, Trash2,
   ChevronRight, ChevronLeft, Check, ShieldAlert, ShieldCheck,
-  Loader2, Bell, BellOff, Tag, Calendar, FileText, Quote, Clock, Gift
+  Loader2, Bell, BellOff, Tag, Calendar, FileText, Quote, Clock, Gift, Star
 } from 'lucide-react';
 import StarField from '../components/ui/StarField';
 
@@ -471,8 +471,27 @@ function EnrollmentPage() {
   })();
   const finalUnitPrice = crossSellDiscount ? Math.max(0, effectiveUnitPrice - crossSellDiscount.amount) : effectiveUnitPrice;
 
+  // VIP/Special offer check
+  const [vipOffer, setVipOffer] = useState(null);
+  useEffect(() => {
+    const email = participants[0]?.email || '';
+    const phone = participants[0]?.phone || '';
+    if (!email && !phone) { setVipOffer(null); return; }
+    const timer = setTimeout(() => {
+      axios.post(`${API}/enrollment/check-vip-offer`, { email, phone, program_id: id })
+        .then(r => { if (r.data?.matched) setVipOffer(r.data); else setVipOffer(null); })
+        .catch(() => setVipOffer(null));
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [participants[0]?.email, participants[0]?.phone, id]);
+
+  const vipDiscount = vipOffer ? (
+    vipOffer.discount_type === 'fixed' ? (vipOffer.discount_amount || 0) : Math.round(finalUnitPrice * (vipOffer.discount_pct || 0) / 100)
+  ) : 0;
+  const afterVipPrice = Math.max(0, finalUnitPrice - vipDiscount);
+
   const pCount = participants.length;
-  const subtotalRaw = finalUnitPrice * pCount;
+  const subtotalRaw = afterVipPrice * pCount;
 
   const [autoDiscounts, setAutoDiscounts] = useState({ group_discount: 0, combo_discount: 0, loyalty_discount: 0, total_discount: 0 });
 
@@ -760,6 +779,12 @@ function EnrollmentPage() {
                       <div className="flex justify-between text-xs text-green-600" data-testid="enroll-discount-crosssell">
                         <span className="flex items-center gap-1"><Gift size={10} /> {crossSellDiscount.label || 'Cross-Sell'}</span>
                         <span>-{symbol} {crossSellDiscount.amount.toLocaleString()}</span>
+                      </div>
+                    )}
+                    {vipDiscount > 0 && (
+                      <div className="flex justify-between text-xs text-purple-600" data-testid="enroll-discount-vip">
+                        <span className="flex items-center gap-1"><Star size={10} /> {vipOffer?.label || 'VIP Offer'}</span>
+                        <span>-{symbol} {vipDiscount.toLocaleString()}</span>
                       </div>
                     )}
                     {autoDiscounts.combo_discount > 0 && (
