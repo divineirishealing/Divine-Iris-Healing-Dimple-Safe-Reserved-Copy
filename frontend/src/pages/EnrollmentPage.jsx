@@ -752,8 +752,8 @@ function EnrollmentPage() {
                     <div className="flex justify-between text-xs text-gray-600">
                       <span>Per person</span>
                       <span>
-                        {crossSellDiscount ? (
-                          <><span className="text-green-600 font-bold">{symbol} {finalUnitPrice.toLocaleString()}</span> <span className="line-through text-gray-400">{symbol} {effectiveUnitPrice.toLocaleString()}</span></>
+                        {bestDiscount.amount > 0 ? (
+                          <><span className={`font-bold ${bestDiscount.type === 'vip' ? 'text-purple-600' : 'text-green-600'}`}>{symbol} {afterDiscountPrice.toLocaleString()}</span> <span className="line-through text-gray-400">{symbol} {effectiveUnitPrice.toLocaleString()}</span></>
                         ) : offerUnitPrice > 0 ? (
                           <><span className="text-[#D4AF37] font-bold">{symbol} {offerUnitPrice.toLocaleString()}</span> <span className="line-through text-gray-400">{symbol} {unitPrice.toLocaleString()}</span></>
                         ) : (
@@ -761,10 +761,16 @@ function EnrollmentPage() {
                         )}
                       </span>
                     </div>
-                    {crossSellDiscount && (
+                    {bestDiscount.type === 'crosssell' && (
                       <div className="flex justify-between text-xs text-green-600">
                         <span className="flex items-center gap-1"><Gift size={10} /> {crossSellDiscount.label || 'Cross-sell'}</span>
                         <span>-{crossSellDiscount.value}{crossSellDiscount.type === 'percentage' ? '%' : ` ${symbol}`}</span>
+                      </div>
+                    )}
+                    {bestDiscount.type === 'vip' && (
+                      <div className="flex justify-between text-xs text-purple-600">
+                        <span className="flex items-center gap-1"><Star size={10} /> {vipOffer?.label || 'VIP Offer'}</span>
+                        <span>-{symbol} {vipDiscount.toLocaleString()}</span>
                       </div>
                     )}
                     <div className="flex justify-between text-xs text-gray-600">
@@ -780,19 +786,7 @@ function EnrollmentPage() {
                         <span>Group Discount ({pCount} people)</span><span>-{symbol} {autoDiscounts.group_discount.toLocaleString()}</span>
                       </div>
                     )}
-                    {bestDiscount.type === 'crosssell' && (
-                      <div className="flex justify-between text-xs text-green-600" data-testid="enroll-discount-crosssell">
-                        <span className="flex items-center gap-1"><Gift size={10} /> {crossSellDiscount.label || 'Cross-Sell'}</span>
-                        <span>-{symbol} {crossSellDiscount.amount.toLocaleString()}</span>
-                      </div>
-                    )}
-                    {bestDiscount.type === 'vip' && (
-                      <div className="flex justify-between text-xs text-purple-600" data-testid="enroll-discount-vip">
-                        <span className="flex items-center gap-1"><Star size={10} /> {vipOffer?.label || 'VIP Offer'}</span>
-                        <span>-{symbol} {vipDiscount.toLocaleString()}</span>
-                      </div>
-                    )}
-                    {autoDiscounts.combo_discount > 0 && (
+                    {autoDiscounts.combo_discount > 0 && bestDiscount.type === 'none' && (
                       <div className="flex justify-between text-xs text-green-600" data-testid="enroll-discount-combo">
                         <span>Combo Discount</span><span>-{symbol} {autoDiscounts.combo_discount.toLocaleString()}</span>
                       </div>
