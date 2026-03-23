@@ -185,14 +185,18 @@ async def approve_payment_proof(proof_id: str):
             }}
         )
 
-        # Generate UIDs and send emails
+        # Generate UIDs and send receipt email
         try:
-            from routes.payments import generate_participant_uids, send_enrollment_emails
+            from routes.payments import generate_participant_uids, send_enrollment_receipt
             await generate_participant_uids(fake_session_id)
-            import asyncio
-            asyncio.create_task(send_enrollment_emails(fake_session_id))
+            # Send receipt directly (not via create_task to avoid silent failures)
+            txn_clean = {k: v for k, v in transaction.items() if k != '_id'}
+            await send_enrollment_receipt(txn_clean)
+            logger.info(f"Receipt sent for manual proof {proof_id} to {proof.get('booker_email')}")
         except Exception as e:
             logger.warning(f"Error generating UIDs/emails for India payment: {e}")
+            import traceback
+            traceback.print_exc()
 
     return {"message": "Payment proof approved. Enrollment completed.", "status": "approved"}
 
