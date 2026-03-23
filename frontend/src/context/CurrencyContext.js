@@ -10,17 +10,22 @@ export const useCurrency = () => useContext(CurrencyContext);
 
 export const CurrencyProvider = ({ children }) => {
   // Base currency (what Stripe charges): usd, aed, inr
-  const [baseCurrency, setBaseCurrency] = useState('usd');
-  const [baseSymbol, setBaseSymbol] = useState('$');
+  const getCached = () => {
+    try { return JSON.parse(localStorage.getItem('currency_detect')) || null; } catch { return null; }
+  };
+
+  const cached = getCached();
+  const [baseCurrency, setBaseCurrency] = useState(cached?.currency || 'usd');
+  const [baseSymbol, setBaseSymbol] = useState(cached?.symbol || '$');
   // Display currency (what user sees): eur, cad, sar, etc.
-  const [displayCurrency, setDisplayCurrency] = useState('usd');
-  const [displaySymbol, setDisplaySymbol] = useState('$');
-  const [displayRate, setDisplayRate] = useState(1.0);
-  const [isPrimary, setIsPrimary] = useState(true);  // base === display
-  const [country, setCountry] = useState('');
-  const [vpnDetected, setVpnDetected] = useState(false);
-  const [ready, setReady] = useState(false);
-  const locked = useRef(false);
+  const [displayCurrency, setDisplayCurrency] = useState(cached?.display_currency || cached?.currency || 'usd');
+  const [displaySymbol, setDisplaySymbol] = useState(cached?.display_symbol || cached?.symbol || '$');
+  const [displayRate, setDisplayRate] = useState(cached?.display_rate || 1.0);
+  const [isPrimary, setIsPrimary] = useState(cached?.is_primary !== false);
+  const [country, setCountry] = useState(cached?.country || '');
+  const [vpnDetected, setVpnDetected] = useState(cached?.vpn_detected || false);
+  const [ready, setReady] = useState(!!cached);
+  const locked = useRef(!!cached);
 
   // Expose `currency` and `symbol` as DISPLAY values (backwards compatible)
   const currency = baseCurrency;
@@ -28,8 +33,25 @@ export const CurrencyProvider = ({ children }) => {
 
   useEffect(() => {
     if (locked.current) return;
-    detectCurrency();
+    // Timeout fallback: show page after 1.5s even if API hasn't responded
+    const fallback = setTimeout(() => {
+      if (!locked.current) setReady(true);
+    }, 1500);
+    detectCurrency().finally(() => clearTimeout(fallback));
   }, []);
+
+  const applyData = (d) => {
+    setBaseCurrency(d.currency);
+    setBaseSymbol(d.symbol);
+    setCountry(d.country);
+    setVpnDetected(d.vpn_detected || false);
+    setDisplayCurrency(d.display_currency || d.currency);
+    setDisplaySymbol(d.display_symbol || d.symbol);
+    setDisplayRate(d.display_rate || 1.0);
+    setIsPrimary(d.is_primary !== false);
+    locked.current = true;
+    try { localStorage.setItem('currency_detect', JSON.stringify(d)); } catch {}
+  };
 
   const detectCurrency = async () => {
     if (locked.current) return;
@@ -38,23 +60,8 @@ export const CurrencyProvider = ({ children }) => {
       const previewCountry = urlParams.get('preview_country');
       const url = previewCountry ? `${API}/currency/detect?preview_country=${previewCountry}` : `${API}/currency/detect`;
       const response = await axios.get(url);
-      const d = response.data;
-      setBaseCurrency(d.currency);
-      setBaseSymbol(d.symbol);
-      setCountry(d.country);
-      setVpnDetected(d.vpn_detected || false);
-      setDisplayCurrency(d.display_currency || d.currency);
-      setDisplaySymbol(d.display_symbol || d.symbol);
-      setDisplayRate(d.display_rate || 1.0);
-      setIsPrimary(d.is_primary !== false);
-      locked.current = true;
+      applyData(response.data);
     } catch {
-      setBaseCurrency('usd');
-      setBaseSymbol('$');
-      setDisplayCurrency('usd');
-      setDisplaySymbol('$');
-      setDisplayRate(1.0);
-      setIsPrimary(true);
       locked.current = true;
     } finally {
       setReady(true);
