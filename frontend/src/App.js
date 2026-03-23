@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { BrowserRouter, Routes, Route, useLocation } from 'react-router-dom';
 import HomePage from './pages/HomePage';
 import AdminPage from './pages/AdminPage';
@@ -58,6 +58,19 @@ const CurrencyGate = ({ children }) => {
 
 const AppContent = () => {
   const location = useLocation();
+
+  // Set favicon from brand logo
+  useEffect(() => {
+    const API = process.env.REACT_APP_BACKEND_URL || '';
+    fetch(`${API}/api/settings`).then(r => r.json()).then(d => {
+      if (d?.logo_url) {
+        const link = document.querySelector("link[rel*='icon']") || document.createElement('link');
+        link.type = 'image/png'; link.rel = 'icon';
+        link.href = d.logo_url.startsWith('/') ? `${API}${d.logo_url}` : d.logo_url;
+        document.head.appendChild(link);
+      }
+    }).catch(() => {});
+  }, []);
 
   // Handle OAuth callback (implicit flow via hash fragment)
   if (location.hash && location.hash.includes('session_id=')) {

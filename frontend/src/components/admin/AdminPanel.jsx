@@ -53,7 +53,10 @@ const API = `${BACKEND_URL}/api`;
 const AdminPanel = () => {
   const { toast } = useToast();
   const { refreshSettings } = useSiteSettings();
-  const [activeTab, setActiveTab] = useState('hero');
+  const [activeTab, setActiveTab] = useState(() => localStorage.getItem('admin_active_tab') || 'hero');
+
+  // Persist active tab
+  const switchTab = (tab) => { setActiveTab(tab); localStorage.setItem('admin_active_tab', tab); };
   const [excelDragOver, setExcelDragOver] = useState(false);
   const [excelUploading, setExcelUploading] = useState(false);
 
@@ -242,7 +245,7 @@ const AdminPanel = () => {
       <div className="flex">
         <aside className="w-52 bg-white border-r min-h-[calc(100vh-56px)] p-3 hidden md:block">
           {tabs.map(tab => (
-            <button key={tab.key} data-testid={`admin-tab-${tab.key}`} onClick={() => setActiveTab(tab.key)}
+            <button key={tab.key} data-testid={`admin-tab-${tab.key}`} onClick={() => switchTab(tab.key)}
               className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs mb-0.5 transition-all ${
                 activeTab === tab.key ? 'bg-[#D4AF37] text-white' : 'text-gray-600 hover:bg-gray-50'
               }`}>
@@ -256,7 +259,7 @@ const AdminPanel = () => {
         <div className="md:hidden w-full overflow-x-auto border-b bg-white">
           <div className="flex">
             {tabs.map(tab => (
-              <button key={tab.key} onClick={() => setActiveTab(tab.key)}
+              <button key={tab.key} onClick={() => switchTab(tab.key)}
                 className={`px-3 py-3 text-[10px] whitespace-nowrap ${activeTab === tab.key ? 'border-b-2 border-[#D4AF37] text-[#D4AF37]' : 'text-gray-500'}`}>
                 {tab.label}
               </button>

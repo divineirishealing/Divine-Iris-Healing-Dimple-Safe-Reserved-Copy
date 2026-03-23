@@ -30,6 +30,8 @@ const IndiaPaymentsTab = () => {
   };
 
   useEffect(() => { fetchProofs(); }, []);
+  // Auto-refresh every 15 seconds
+  useEffect(() => { const i = setInterval(fetchProofs, 15000); return () => clearInterval(i); }, []);
 
   const handleApprove = async (proofId) => {
     setActionLoading(proofId);
