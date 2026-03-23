@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-import { IndianRupee, Check, X, Eye, Loader2, Clock, AlertCircle, Link2, Copy, Plus, Trash2, Mail, Key, Users, Building2 } from 'lucide-react';
+import { IndianRupee, Check, X, Eye, Loader2, Clock, AlertCircle, Link2, Copy, Plus, Trash2, Mail, Key, Users, Building2, PenLine, Save } from 'lucide-react';
 import { Button } from '../../ui/button';
 import { Input } from '../../ui/input';
 import { Switch } from '../../ui/switch';
@@ -17,6 +17,7 @@ const IndiaPaymentsTab = () => {
   const [actionLoading, setActionLoading] = useState('');
   const [viewImage, setViewImage] = useState(null);
   const [filter, setFilter] = useState('pending');
+  const [editingProof, setEditingProof] = useState(null);
 
   const fetchProofs = async () => {
     try {
@@ -135,6 +136,10 @@ const IndiaPaymentsTab = () => {
                 {/* Actions */}
                 {proof.status === 'pending' && (
                   <div className="flex gap-1.5 flex-shrink-0">
+                    <Button size="sm" variant="outline" onClick={() => setEditingProof({ ...proof })}
+                      className="text-[10px] px-3 h-8 border-blue-200 text-blue-600 hover:bg-blue-50" data-testid={`edit-${proof.id}`}>
+                      <PenLine size={12} className="mr-1" /> Edit
+                    </Button>
                     <Button size="sm" onClick={() => handleApprove(proof.id)} disabled={actionLoading === proof.id}
                       className="bg-green-600 hover:bg-green-700 text-white text-[10px] px-3 h-8" data-testid={`approve-${proof.id}`}>
                       {actionLoading === proof.id ? <Loader2 size={12} className="animate-spin" /> : <><Check size={12} className="mr-1" /> Approve</>}
@@ -148,6 +153,77 @@ const IndiaPaymentsTab = () => {
               </div>
             </div>
           ))}
+        </div>
+      )}
+
+      {/* Edit Proof Modal */}
+      {editingProof && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={() => setEditingProof(null)}>
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden" onClick={e => e.stopPropagation()}>
+            <div className="px-5 py-3 border-b bg-gray-50 flex items-center justify-between">
+              <h3 className="text-sm font-bold text-gray-900 flex items-center gap-2"><PenLine size={14} className="text-blue-600" /> Edit Payment Proof</h3>
+              <button onClick={() => setEditingProof(null)} className="text-gray-400 hover:text-gray-600"><X size={16} /></button>
+            </div>
+            <div className="p-5 space-y-3 max-h-[70vh] overflow-y-auto">
+              <div className="grid grid-cols-2 gap-3">
+                <div><label className="text-[9px] text-gray-500 block mb-0.5">Payer Name</label>
+                  <Input value={editingProof.payer_name || ''} onChange={e => setEditingProof(p => ({ ...p, payer_name: e.target.value }))} className="h-8 text-xs" /></div>
+                <div><label className="text-[9px] text-gray-500 block mb-0.5">Email</label>
+                  <Input value={editingProof.booker_email || ''} onChange={e => setEditingProof(p => ({ ...p, booker_email: e.target.value }))} className="h-8 text-xs" /></div>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div><label className="text-[9px] text-gray-500 block mb-0.5">Amount (INR)</label>
+                  <Input type="text" inputMode="decimal" value={editingProof.amount || ''} onChange={e => setEditingProof(p => ({ ...p, amount: e.target.value }))} className="h-8 text-xs" /></div>
+                <div><label className="text-[9px] text-gray-500 block mb-0.5">Transaction ID</label>
+                  <Input value={editingProof.transaction_id || ''} onChange={e => setEditingProof(p => ({ ...p, transaction_id: e.target.value }))} className="h-8 text-xs font-mono" /></div>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div><label className="text-[9px] text-gray-500 block mb-0.5">Program</label>
+                  <Input value={editingProof.program_title || ''} onChange={e => setEditingProof(p => ({ ...p, program_title: e.target.value }))} className="h-8 text-xs" /></div>
+                <div><label className="text-[9px] text-gray-500 block mb-0.5">Bank Account</label>
+                  <Input value={editingProof.bank_name || ''} onChange={e => setEditingProof(p => ({ ...p, bank_name: e.target.value }))} className="h-8 text-xs" /></div>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div><label className="text-[9px] text-gray-500 block mb-0.5">Payment Date</label>
+                  <Input type="date" value={editingProof.payment_date || ''} onChange={e => setEditingProof(p => ({ ...p, payment_date: e.target.value }))} className="h-8 text-xs" /></div>
+                <div><label className="text-[9px] text-gray-500 block mb-0.5">Payment Method</label>
+                  <select value={editingProof.payment_method || 'bank_transfer'} onChange={e => setEditingProof(p => ({ ...p, payment_method: e.target.value }))}
+                    className="w-full h-8 border rounded-lg px-2 text-xs bg-white">
+                    <option value="bank_transfer">Bank Transfer</option>
+                    <option value="upi">UPI</option>
+                    <option value="neft">NEFT/RTGS</option>
+                    <option value="cash">Cash</option>
+                    <option value="other">Other</option>
+                  </select></div>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div><label className="text-[9px] text-gray-500 block mb-0.5">City</label>
+                  <Input value={editingProof.city || ''} onChange={e => setEditingProof(p => ({ ...p, city: e.target.value }))} className="h-8 text-xs" /></div>
+                <div><label className="text-[9px] text-gray-500 block mb-0.5">State</label>
+                  <Input value={editingProof.state || ''} onChange={e => setEditingProof(p => ({ ...p, state: e.target.value }))} className="h-8 text-xs" /></div>
+              </div>
+              <div><label className="text-[9px] text-gray-500 block mb-0.5">Admin Notes</label>
+                <Input value={editingProof.admin_notes || ''} onChange={e => setEditingProof(p => ({ ...p, admin_notes: e.target.value }))} placeholder="Internal notes..." className="h-8 text-xs" /></div>
+            </div>
+            <div className="px-5 py-3 border-t bg-gray-50 flex gap-2">
+              <Button variant="outline" onClick={() => setEditingProof(null)} className="flex-1 h-9 text-xs">Cancel</Button>
+              <Button onClick={async () => {
+                try {
+                  await axios.put(`${API}/india-payments/admin/proofs/${editingProof.id}`, editingProof);
+                  toast({ title: 'Proof updated!' });
+                  setEditingProof(null);
+                  fetchProofs();
+                } catch { toast({ title: 'Error updating', variant: 'destructive' }); }
+              }} className="flex-1 h-9 text-xs bg-blue-600 hover:bg-blue-700"><Save size={12} className="mr-1" /> Save Changes</Button>
+              <Button onClick={async () => {
+                try {
+                  await axios.put(`${API}/india-payments/admin/proofs/${editingProof.id}`, editingProof);
+                  await handleApprove(editingProof.id);
+                  setEditingProof(null);
+                } catch { toast({ title: 'Error', variant: 'destructive' }); }
+              }} className="flex-1 h-9 text-xs bg-green-600 hover:bg-green-700"><Check size={12} className="mr-1" /> Save & Approve</Button>
+            </div>
+          </div>
         </div>
       )}
 

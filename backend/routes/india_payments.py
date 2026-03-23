@@ -109,6 +109,21 @@ async def list_payment_proofs():
     return proofs
 
 
+@router.put("/admin/proofs/{proof_id}")
+async def update_payment_proof(proof_id: str, data: dict):
+    """Admin: edit a submitted payment proof before approving."""
+    allowed_fields = ['payer_name', 'booker_email', 'amount', 'transaction_id', 'program_title',
+                       'bank_name', 'payment_date', 'payment_method', 'city', 'state', 'admin_notes', 'phone']
+    update = {k: v for k, v in data.items() if k in allowed_fields and v is not None}
+    if 'amount' in update:
+        try: update['amount'] = float(update['amount'])
+        except: pass
+    update['updated_at'] = datetime.now(timezone.utc).isoformat()
+    await db.india_payment_proofs.update_one({"id": proof_id}, {"$set": update})
+    return {"message": "Proof updated"}
+
+
+
 @router.post("/admin/{proof_id}/approve")
 async def approve_payment_proof(proof_id: str):
     """Admin: approve India payment proof and complete enrollment."""
