@@ -131,20 +131,28 @@ async def approve_payment_proof(proof_id: str):
             "enrollment_id": enrollment_id,
             "stripe_session_id": fake_session_id,
             "item_type": "program",
-            "item_id": "",
+            "item_id": proof.get("item_id", ""),
             "item_title": proof.get("program_title", ""),
             "amount": float(proof.get("amount", 0)),
             "currency": "inr",
             "payment_status": "paid",
+            "payment_method": "manual_proof",
+            "bank_name": proof.get("bank_name", ""),
             "booker_name": proof.get("booker_name"),
             "booker_email": proof.get("booker_email"),
+            "phone": proof.get("phone", ""),
             "participants": proof.get("participants", []),
             "participant_count": proof.get("participant_count", 1),
             "is_india_alt": True,
             "india_proof_id": proof_id,
+            "invoice_number": "",
             "created_at": datetime.now(timezone.utc),
             "updated_at": datetime.now(timezone.utc),
         }
+        # Generate invoice number
+        month_prefix = datetime.now(timezone.utc).strftime("%Y-%m")
+        count = await db.payment_transactions.count_documents({"invoice_number": {"$regex": f"^{month_prefix}"}})
+        transaction["invoice_number"] = f"{month_prefix}-{str(count + 1).zfill(3)}"
         await db.payment_transactions.insert_one(transaction)
 
         # Complete enrollment
@@ -153,8 +161,11 @@ async def approve_payment_proof(proof_id: str):
             {"$set": {
                 "step": 5,
                 "status": "completed",
+                "payment_method": "manual_proof",
+                "bank_name": proof.get("bank_name", ""),
                 "stripe_session_id": fake_session_id,
                 "is_india_alt": True,
+                "paid_at": datetime.now(timezone.utc).isoformat(),
                 "updated_at": datetime.now(timezone.utc).isoformat(),
             }}
         )

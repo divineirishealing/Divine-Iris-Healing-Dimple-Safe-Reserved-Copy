@@ -32,13 +32,37 @@ async def stripe_webhook(request: Request):
         webhook_response = await stripe_checkout.handle_webhook(body, signature)
 
         if webhook_response.payment_status == "paid":
-            await db.payment_transactions.update_one(
-                {"stripe_session_id": webhook_response.session_id},
-                {"$set": {
-                    "payment_status": "paid",
-                    "updated_at": datetime.now(timezone.utc),
-                }}
+            session_id = webhook_response.session_id
+
+            # 1. Update payment transaction
+            txn = await db.payment_transactions.find_one_and_update(
+                {"stripe_session_id": session_id},
+                {"$set": {"payment_status": "paid", "updated_at": datetime.now(timezone.utc)}},
+                return_document=True
             )
+
+            if txn:
+                enrollment_id = txn.get("enrollment_id")
+
+                # 2. Update enrollment status to completed
+                if enrollment_id:
+                    await db.enrollments.update_one(
+                        {"id": enrollment_id},
+                        {"$set": {
+                            "status": "completed",
+                            "payment_method": "stripe",
+                            "paid_at": datetime.now(timezone.utc).isoformat(),
+                            "updated_at": datetime.now(timezone.utc).isoformat(),
+                        }}
+                    )
+
+                # 3. Send Divine Iris receipt email
+                try:
+                    from routes.payments import send_enrollment_receipt
+                    txn_data = {k: v for k, v in txn.items() if k != '_id'}
+                    await send_enrollment_receipt(txn_data, db)
+                except Exception as email_err:
+                    print(f"Receipt email error: {email_err}")
 
         return {"status": "ok"}
     except Exception as e:

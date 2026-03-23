@@ -28,11 +28,18 @@ const PAYMENT_MODE_MAP = {
 };
 
 const getPaymentMode = (enrollment) => {
+  // Check explicit payment_method first
+  const method = enrollment.payment_method || enrollment.payment?.payment_method || '';
+  if (method === 'stripe') return 'stripe';
+  if (method === 'manual_proof') return 'manual_proof';
+  if (method === 'india_bank') return 'india_bank';
+  if (method === 'exly') return 'india_exly';
+  if (method === 'razorpay') return 'razorpay';
+  // Fallback detection
   const status = enrollment.status || '';
   if (status.includes('india_payment')) return 'india_bank';
   if (enrollment.payment?.stripe_session_id || enrollment.stripe_session_id) return 'stripe';
-  if (enrollment.exly_payment) return 'india_exly';
-  if (enrollment.manual_proof_url) return 'manual_proof';
+  if (enrollment.is_india_alt) return 'manual_proof';
   if (enrollment.payment?.amount === 0 || enrollment.total === 0) return 'free';
   if (enrollment.payment) return 'stripe';
   return null;
@@ -221,6 +228,7 @@ const EnrollmentsTab = () => {
                             <div><span className="text-gray-400 block">Currency</span>{currency.toUpperCase()}</div>
                             <div><span className="text-gray-400 block">Tier</span>{e.tier_index != null ? `Tier ${e.tier_index + 1}` : '-'}</div>
                             <div><span className="text-gray-400 block">Promo Code</span>{e.promo_code || '-'}</div>
+                            <div><span className="text-gray-400 block">Bank/Account</span>{e.bank_name || e.payment?.bank_name || '-'}</div>
                             <div><span className="text-gray-400 block">VPN Detected</span>{e.vpn_detected ? 'Yes' : 'No'}</div>
                             <div><span className="text-gray-400 block">Stripe Session</span><span className="font-mono truncate block max-w-[150px]">{e.stripe_session_id || '-'}</span></div>
                             <div><span className="text-gray-400 block">Updated</span>{e.updated_at ? new Date(e.updated_at).toLocaleString() : '-'}</div>
