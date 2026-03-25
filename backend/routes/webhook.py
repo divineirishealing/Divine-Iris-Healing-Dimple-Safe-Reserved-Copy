@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Request
-import os
+import os, logging
 from motor.motor_asyncio import AsyncIOMotorClient
 from dotenv import load_dotenv
 from pathlib import Path
@@ -11,6 +11,7 @@ ROOT_DIR = Path(__file__).parent.parent
 load_dotenv(ROOT_DIR / '.env')
 
 router = APIRouter(tags=["Webhook"])
+logger = logging.getLogger("routes.webhook")
 
 mongo_url = os.environ['MONGO_URL']
 client = AsyncIOMotorClient(mongo_url)
@@ -21,6 +22,16 @@ STRIPE_API_KEY = os.environ.get('STRIPE_API_KEY')
 
 @router.post("/api/webhook/stripe")
 async def stripe_webhook(request: Request):
+    """Handle Stripe checkout.session.completed webhook.
+    
+    Flow:
+    1. Verify webhook signature
+    2. Find matching transaction by stripe_session_id
+    3. Update transaction status → 'paid'
+    4. Update enrollment status → 'completed'
+    5. Generate participant UIDs
+    6. Send custom Divine Iris receipt email
+    """
     body = await request.body()
     signature = request.headers.get("Stripe-Signature", "")
 
@@ -33,38 +44,74 @@ async def stripe_webhook(request: Request):
 
         if webhook_response.payment_status == "paid":
             session_id = webhook_response.session_id
+            logger.info(f"Stripe payment confirmed: {session_id}")
 
-            # 1. Update payment transaction
+            # Step 1: Update payment transaction
             txn = await db.payment_transactions.find_one_and_update(
                 {"stripe_session_id": session_id},
-                {"$set": {"payment_status": "paid", "updated_at": datetime.now(timezone.utc)}},
+                {"$set": {
+                    "payment_status": "paid",
+                    "paid_at": datetime.now(timezone.utc).isoformat(),
+                    "updated_at": datetime.now(timezone.utc).isoformat(),
+                }},
                 return_document=True
             )
 
-            if txn:
-                enrollment_id = txn.get("enrollment_id")
+            if not txn:
+                logger.warning(f"No transaction found for session: {session_id}")
+                return {"status": "ok", "note": "no matching transaction"}
 
-                # 2. Update enrollment status to completed
-                if enrollment_id:
-                    await db.enrollments.update_one(
-                        {"id": enrollment_id},
-                        {"$set": {
-                            "status": "completed",
-                            "payment_method": "stripe",
-                            "paid_at": datetime.now(timezone.utc).isoformat(),
-                            "updated_at": datetime.now(timezone.utc).isoformat(),
-                        }}
-                    )
+            enrollment_id = txn.get("enrollment_id")
+            txn_clean = {k: v for k, v in txn.items() if k != '_id'}
+            logger.info(f"Transaction found: {txn_clean.get('id')} for enrollment: {enrollment_id}")
 
-                # 3. Send Divine Iris receipt email
-                try:
-                    from routes.payments import send_enrollment_receipt
-                    txn_data = {k: v for k, v in txn.items() if k != '_id'}
-                    await send_enrollment_receipt(txn_data, db)
-                except Exception as email_err:
-                    print(f"Receipt email error: {email_err}")
+            # Step 2: Update enrollment status
+            if enrollment_id:
+                await db.enrollments.update_one(
+                    {"id": enrollment_id},
+                    {"$set": {
+                        "status": "completed",
+                        "payment_method": "stripe",
+                        "paid_at": datetime.now(timezone.utc).isoformat(),
+                        "updated_at": datetime.now(timezone.utc).isoformat(),
+                    }}
+                )
+                logger.info(f"Enrollment {enrollment_id} → completed")
+
+            # Step 3: Generate participant UIDs
+            try:
+                from routes.payments import generate_participant_uids
+                await generate_participant_uids(session_id)
+                logger.info(f"UIDs generated for {session_id}")
+            except Exception as e:
+                logger.warning(f"UID generation error: {e}")
+
+            # Step 4: Send custom Divine Iris receipt
+            try:
+                from routes.payments import send_enrollment_receipt
+                await send_enrollment_receipt(txn_clean)
+                logger.info(f"Receipt sent for {enrollment_id} to {txn_clean.get('booker_email', 'unknown')}")
+            except Exception as e:
+                logger.error(f"Receipt email error for {enrollment_id}: {e}")
+                import traceback
+                traceback.print_exc()
 
         return {"status": "ok"}
     except Exception as e:
-        print(f"Webhook error: {e}")
+        logger.error(f"Webhook processing error: {e}")
+        import traceback
+        traceback.print_exc()
         return {"status": "error", "message": str(e)}
+
+
+@router.post("/api/webhook/india-payment")
+async def india_payment_webhook(request: Request):
+    """Webhook for future India payment gateway (Razorpay/PayU).
+    Currently a placeholder — will be wired when gateway is configured."""
+    body = await request.json()
+    logger.info(f"India payment webhook received: {body.get('event', 'unknown')}")
+    
+    # Future: Handle razorpay.payment.captured, payu.payment.success etc.
+    # For now, manual approval flow handles India payments
+    
+    return {"status": "ok", "message": "Webhook received"}
