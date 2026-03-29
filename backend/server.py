@@ -166,10 +166,20 @@ async def send_receipt_preview():
 # Include the main router in the app
 app.include_router(api_router)
 
+_default_origins = "https://divine-iris-healing-dimple-safe-res.vercel.app"
+if os.environ.get("ENVIRONMENT", "production").lower() != "production":
+    _default_origins += ",http://localhost:3000,http://localhost:3001,http://127.0.0.1:3000"
+
+ALLOWED_ORIGINS = [
+    origin.strip()
+    for origin in os.environ.get("ALLOWED_ORIGINS", _default_origins).split(",")
+    if origin.strip()
+]
+
 app.add_middleware(
     CORSMiddleware,
     allow_credentials=True,
-    allow_origins=["*"],
+    allow_origins=ALLOWED_ORIGINS,
     allow_methods=["*"],
     allow_headers=["*"],
 )

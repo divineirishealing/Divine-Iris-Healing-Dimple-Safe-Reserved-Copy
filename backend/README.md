@@ -37,7 +37,7 @@ Open `.env` and set at minimum:
 
 ```
 MONGO_URL=mongodb+srv://<user>:<pass>@<cluster>.mongodb.net/?retryWrites=true&w=majority
-DB_NAME=divineIris
+DB_NAME=divineiris
 HOST_URL=http://localhost:8001
 ```
 
