@@ -27,11 +27,16 @@ const AuthCallback = () => {
       return;
     }
 
-    // Exchange session_id for session_token (cookie)
+    // Exchange session_id for session_token (cookie + body token for cross-domain)
     axios.post(`${API}/api/auth/google`, { session_id: sessionId }, { withCredentials: true })
       .then(async (res) => {
+        // Persist token in localStorage so it can be sent as a Bearer header.
+        // This is needed because third-party cookies are blocked in modern browsers
+        // when the frontend and backend are on different domains.
+        if (res.data.session_token) {
+          localStorage.setItem('session_token', res.data.session_token);
+        }
         toast({ title: 'Welcome back!', description: `Logged in as ${res.data.user.name}` });
-        // Refresh global user state
         await checkAuth();
         navigate('/dashboard');
       })

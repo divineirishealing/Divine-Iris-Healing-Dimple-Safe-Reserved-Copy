@@ -156,9 +156,12 @@ async def google_auth_callback(data: AuthSessionStart, response: Response):
         expires=expires_at.timestamp()
     )
 
-    # Return user data (excluding internal fields if needed)
     return {
         "message": "Authenticated",
+        # Also returned in body so the frontend can persist it in localStorage
+        # and send it as "Authorization: Bearer <token>" for cross-domain requests
+        # where third-party cookies are blocked by the browser.
+        "session_token": session_token,
         "user": {
             "id": user["id"],
             "email": user["email"],

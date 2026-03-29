@@ -6,6 +6,13 @@ const AuthContext = createContext();
 
 const API = process.env.REACT_APP_BACKEND_URL || 'http://localhost:8001';
 
+// Returns auth headers using the localStorage token as a fallback for
+// environments where cross-domain cookies are blocked by the browser.
+const authHeaders = () => {
+  const token = localStorage.getItem('session_token');
+  return token ? { Authorization: `Bearer ${token}` } : {};
+};
+
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -15,7 +22,10 @@ export const AuthProvider = ({ children }) => {
   // Check auth status
   const checkAuth = async () => {
     try {
-      const res = await axios.get(`${API}/api/auth/me`, { withCredentials: true });
+      const res = await axios.get(`${API}/api/auth/me`, {
+        withCredentials: true,
+        headers: authHeaders(),
+      });
       setUser(res.data);
     } catch (err) {
       setUser(null);
@@ -42,11 +52,18 @@ export const AuthProvider = ({ children }) => {
 
   const logout = async () => {
     try {
-      await axios.post(`${API}/api/auth/logout`, {}, { withCredentials: true });
+      await axios.post(`${API}/api/auth/logout`, {}, {
+        withCredentials: true,
+        headers: authHeaders(),
+      });
+      localStorage.removeItem('session_token');
       setUser(null);
       navigate('/login');
     } catch (err) {
       console.error("Logout failed", err);
+      localStorage.removeItem('session_token');
+      setUser(null);
+      navigate('/login');
     }
   };
 
