@@ -98,7 +98,7 @@ const Header = () => {
     { label: 'Home', href: '/', position: 'left', visible: true },
     { label: 'About', href: '/about', position: 'left', visible: true },
     { label: 'Contact', href: '/contact', position: 'right', visible: true },
-    { label: 'Services', href: '/sessions', position: 'left', visible: true },
+    { label: 'Personal Services', href: '/sessions', position: 'left', visible: true },
     { label: 'Transformations', href: '/transformations', position: 'left', visible: true },
     { label: 'Upcoming Sessions', href: '/#upcoming', position: 'left', visible: true },
     { label: 'Programs', href: '/#programs', position: 'left', visible: true },

@@ -15,3 +15,18 @@ services:
         sync: false        # Set to your Render backend URL e.g. https://divine-iris-backend.onrender.com
       - key: PYTHON_VERSION
         value: 3.11.0
+
+  - type: web
+    name: divine-iris-frontend
+    runtime: static
+    region: singapore
+    rootDir: frontend
+    buildCommand: yarn install && yarn build
+    staticPublishPath: build
+    envVars:
+      - key: REACT_APP_BACKEND_URL
+        sync: false        # Set this in Render dashboard — your backend URL e.g. https://divine-iris-backend.onrender.com
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
