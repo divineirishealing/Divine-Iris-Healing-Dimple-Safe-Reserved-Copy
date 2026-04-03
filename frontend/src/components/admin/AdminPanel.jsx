@@ -340,6 +340,67 @@ const AdminPanel = () => {
           {activeTab === 'annual_subscribers' && <SubscribersTab />}
           {activeTab === 'scheduler' && <SchedulerTab />}
 
+          {/* ===== SUBSCRIBERS TAB ===== */}
+          {activeTab === 'subscribers' && (
+            <div>
+              <div className="flex justify-between items-center mb-6">
+                <h2 className="text-xl font-semibold text-gray-900">Newsletter Subscribers ({subscribers.length})</h2>
+                <a
+                  href={`${API}/newsletter`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-xs text-gray-500 hover:text-[#D4AF37] underline"
+                >
+                  Export JSON
+                </a>
+              </div>
+              {subscribers.length === 0 ? (
+                <div className="bg-white rounded-lg border p-10 text-center text-gray-400 text-sm">No subscribers yet.</div>
+              ) : (
+                <div className="bg-white rounded-lg shadow-sm border overflow-hidden">
+                  <table className="w-full text-sm">
+                    <thead className="bg-gray-50 border-b">
+                      <tr>
+                        <th className="text-left px-4 py-2.5 text-xs font-medium text-gray-500 uppercase tracking-wider">#</th>
+                        <th className="text-left px-4 py-2.5 text-xs font-medium text-gray-500 uppercase tracking-wider">Email</th>
+                        <th className="text-left px-4 py-2.5 text-xs font-medium text-gray-500 uppercase tracking-wider">Subscribed At</th>
+                        <th className="px-4 py-2.5" />
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y">
+                      {subscribers.map((sub, i) => (
+                        <tr key={sub.id} className="hover:bg-gray-50/50">
+                          <td className="px-4 py-2.5 text-xs text-gray-400">{i + 1}</td>
+                          <td className="px-4 py-2.5 font-medium text-gray-800">{sub.email}</td>
+                          <td className="px-4 py-2.5 text-xs text-gray-500">
+                            {sub.subscribed_at ? new Date(sub.subscribed_at).toLocaleString() : '—'}
+                          </td>
+                          <td className="px-4 py-2.5 text-right">
+                            <button
+                              onClick={async () => {
+                                if (!window.confirm(`Unsubscribe ${sub.email}?`)) return;
+                                try {
+                                  await axios.delete(`${API}/newsletter/${encodeURIComponent(sub.email)}`);
+                                  toast({ title: 'Unsubscribed' });
+                                  loadAll();
+                                } catch (err) {
+                                  toast({ title: 'Error', description: err.message, variant: 'destructive' });
+                                }
+                              }}
+                              className="p-1 rounded hover:bg-gray-200"
+                            >
+                              <Trash2 size={13} className="text-red-400" />
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          )}
+
           {/* ===== PROGRAMS TAB ===== */}
           {activeTab === 'programs' && (
             <div>
