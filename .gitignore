@@ -137,3 +137,6 @@ backend/uploads/
 
 # Local dev notes
 issues.md
+
+# Local plans (not for version control)
+plans/
