@@ -587,7 +587,72 @@ async def enrollment_checkout(enrollment_id: str, data: EnrollmentSubmit, reques
     except Exception as e:
         logger.warning(f"Auto discount calc error: {e}")
 
-    final_total = max(0, total - promo_discount - auto_discount)
+    # Apply Special/VIP Offers — match by email or phone
+    vip_discount = 0
+    vip_offer_name = ""
+    try:
+        settings = await db.site_settings.find_one({"id": "site_settings"}, {"_id": 0, "special_offers": 1})
+        special_offers = (settings or {}).get("special_offers", [])
+        booker_email = (enrollment.get("booker_email") or "").lower().strip()
+        booker_phone = (enrollment.get("phone") or "").replace(" ", "").replace("-", "").replace("+", "").lstrip("0")
+        # Also check participant emails/phones
+        participants = enrollment.get("participants", [])
+        all_emails = {booker_email} | {(p.get("email") or "").lower().strip() for p in participants}
+        all_phones = {booker_phone} | {(p.get("phone") or "").replace(" ", "").replace("-", "").replace("+", "").lstrip("0") for p in participants}
+        all_emails.discard("")
+        all_phones.discard("")
+
+        for offer in special_offers:
+            if not offer.get("enabled", True):
+                continue
+            # Check if this offer applies to this program
+            offer_programs = offer.get("program_ids", [])
+            if offer_programs and data.item_id and str(data.item_id) not in [str(p) for p in offer_programs]:
+                continue
+            # Match by email or phone
+            offer_people = offer.get("people", [])
+            matched = False
+            for person in offer_people:
+                person_email = (person.get("email") or "").lower().strip()
+                person_phone = (person.get("phone") or "").replace(" ", "").replace("-", "").replace("+", "").lstrip("0")
+                if person_email and person_email in all_emails:
+                    matched = True
+                    break
+                if person_phone and person_phone in all_phones:
+                    matched = True
+                    break
+            if matched:
+                if offer.get("discount_type") == "fixed":
+                    vip_discount = float(offer.get("discount_amount", 0))
+                else:
+                    vip_discount = round(total * float(offer.get("discount_pct", 0)) / 100, 2)
+                vip_offer_name = offer.get("label", offer.get("code", "VIP"))
+                logger.info(f"VIP offer '{vip_offer_name}' matched for {booker_email or booker_phone}: -{vip_discount}")
+                break
+    except Exception as e:
+        logger.warning(f"VIP offer check error: {e}")
+
+    # NO STACKING: Only the single best discount applies
+    # Priority: VIP > Promo > auto (combo/group/loyalty/cross-sell)
+    best_discount = 0
+    best_source = ""
+    if vip_discount > 0:
+        best_discount = vip_discount
+        best_source = f"vip:{vip_offer_name}"
+    elif promo_discount > 0:
+        best_discount = promo_discount
+        best_source = f"promo:{data.promo_code}"
+    elif auto_discount > 0:
+        best_discount = auto_discount
+        best_source = "auto"
+
+    final_total = max(0, total - best_discount)
+
+    # Store VIP discount in enrollment
+    if vip_discount > 0:
+        await db.enrollments.update_one({"id": enrollment_id}, {"$set": {
+            "vip_discount": vip_discount, "vip_offer_name": vip_offer_name,
+        }})
 
     # Store item info in enrollment for reference
     collection = "programs" if data.item_type == "program" else "sessions"
@@ -732,9 +797,16 @@ async def enrollment_checkout(enrollment_id: str, data: EnrollmentSubmit, reques
     from routes.payments import create_checkout_no_adaptive
     session = await create_checkout_no_adaptive(stripe_checkout, checkout_request)
 
+    # Generate invoice number: YYYY-MM-001
+    now = datetime.now(timezone.utc)
+    month_prefix = now.strftime("%Y-%m")
+    count = await db.payment_transactions.count_documents({"invoice_number": {"$regex": f"^{month_prefix}"}})
+    invoice_number = f"{month_prefix}-{str(count + 1).zfill(3)}"
+
     # Save transaction
     transaction = {
         "id": str(uuid.uuid4()),
+        "invoice_number": invoice_number,
         "enrollment_id": enrollment_id,
         "stripe_session_id": session.session_id,
         "item_type": data.item_type,
@@ -905,6 +977,37 @@ async def get_enrollment(enrollment_id: str):
     if not enrollment:
         raise HTTPException(status_code=404, detail="Enrollment not found")
     return enrollment
+
+
+
+@router.post("/check-vip-offer")
+async def check_vip_offer(data: dict):
+    """Check if email/phone matches any VIP special offer."""
+    email = (data.get("email") or "").lower().strip()
+    phone = (data.get("phone") or "").replace(" ", "").replace("-", "").replace("+", "").lstrip("0")
+    program_id = str(data.get("program_id", ""))
+    
+    settings = await db.site_settings.find_one({"id": "site_settings"}, {"_id": 0, "special_offers": 1})
+    for offer in (settings or {}).get("special_offers", []):
+        if not offer.get("enabled", True):
+            continue
+        offer_programs = offer.get("program_ids", [])
+        if offer_programs and program_id and program_id not in [str(p) for p in offer_programs]:
+            continue
+        for person in offer.get("people", []):
+            pe = (person.get("email") or "").lower().strip()
+            pp = (person.get("phone") or "").replace(" ", "").replace("-", "").replace("+", "").lstrip("0")
+            if (pe and pe == email) or (pp and pp == phone):
+                return {
+                    "matched": True,
+                    "label": offer.get("label", "Special Offer"),
+                    "code": offer.get("code", ""),
+                    "discount_type": offer.get("discount_type", "percentage"),
+                    "discount_pct": offer.get("discount_pct", 0),
+                    "discount_amount": offer.get("discount_amount", 0),
+                    "person_name": person.get("name", ""),
+                }
+    return {"matched": False}
 
 
 # ═══════════════════════════════════════

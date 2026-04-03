@@ -5,7 +5,7 @@ import { Input } from '../../../components/ui/input';
 import { Switch } from '../../../components/ui/switch';
 import { Label } from '../../../components/ui/label';
 import { useToast } from '../../../hooks/use-toast';
-import { Plus, Trash2, Users, ShoppingCart, Heart, UserPlus, Save, Gift } from 'lucide-react';
+import { Plus, Trash2, Users, ShoppingCart, Heart, UserPlus, Save, Gift, Star, Upload } from 'lucide-react';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
@@ -27,6 +27,7 @@ export default function DiscountsTab() {
     loyalty_discount_pct: 0,
     enable_cross_sell: false,
     cross_sell_rules: [],
+    special_offers: [],
   });
 
   useEffect(() => { loadSettings(); }, []);
@@ -62,7 +63,7 @@ export default function DiscountsTab() {
 
   const updateGroupRule = (idx, field, value) => {
     const rules = [...settings.group_discount_rules];
-    rules[idx] = { ...rules[idx], [field]: parseFloat(value) || 0 };
+    rules[idx] = { ...rules[idx], [field]: field === 'label' || field === 'code' ? value : (parseFloat(value) || 0) };
     setSettings(prev => ({ ...prev, group_discount_rules: rules }));
   };
 
@@ -143,6 +144,9 @@ export default function DiscountsTab() {
                   <Input type="text" inputMode="decimal" value={rule.discount_pct} onChange={e => updateGroupRule(i, 'discount_pct', e.target.value)}
                     className="w-16 h-7 text-xs text-center" min={0} max={50} />
                   <span className="text-xs text-gray-500">% off</span>
+                  <span className="text-[9px] text-gray-400 ml-1">label:</span>
+                  <Input value={rule.label || ''} onChange={e => updateGroupRule(i, 'label', e.target.value)}
+                    className="w-32 h-7 text-xs" placeholder="e.g. Family Offer" />
                   <button onClick={() => removeGroupRule(i)} className="text-red-400 hover:text-red-600 ml-auto"><Trash2 size={14} /></button>
                 </div>
                 <div className="flex flex-wrap gap-1.5 items-center mt-1.5">
@@ -421,6 +425,183 @@ export default function DiscountsTab() {
         </>
         )}
       </div>
+
+      {/* ════ SPECIAL OFFERS — Target by Email/Phone ════ */}
+      <div className="bg-white rounded-lg border p-5" data-testid="special-offers-section">
+        <div className="flex items-center justify-between mb-2">
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 bg-purple-100 rounded-lg flex items-center justify-center">
+              <Star size={18} className="text-purple-600" />
+            </div>
+            <div>
+              <p className="text-sm font-semibold text-gray-900">Special / VIP Offers</p>
+              <p className="text-[10px] text-gray-500">Target specific people by email or phone. Upload Excel or add manually.</p>
+            </div>
+          </div>
+          <Button size="sm" variant="outline" onClick={() => setSettings(prev => ({
+            ...prev,
+            special_offers: [...(prev.special_offers || []), {
+              id: Date.now().toString(), label: '', discount_pct: 10, discount_type: 'percentage', discount_amount: 0,
+              emails: [], phones: [], enabled: true, code: `VIP${(prev.special_offers?.length || 0) + 1}`, program_ids: [],
+            }]
+          }))} className="text-xs h-7" data-testid="add-special-offer">
+            <Plus size={12} className="mr-1" /> Add Offer
+          </Button>
+        </div>
+
+        {(!settings.special_offers || settings.special_offers.length === 0) && (
+          <p className="text-[10px] text-gray-400 italic mt-2">No special offers yet. Create one to give exclusive discounts to specific people.</p>
+        )}
+
+        <div className="mt-3 space-y-3">
+          {(settings.special_offers || []).map((offer, i) => (
+            <SpecialOfferCard key={offer.id || i} offer={offer} index={i} programs={programs}
+              onUpdate={(field, value) => {
+                setSettings(prev => {
+                  const offers = [...(prev.special_offers || [])];
+                  offers[i] = { ...offers[i], [field]: value };
+                  return { ...prev, special_offers: offers };
+                });
+              }}
+              onDelete={() => setSettings(prev => ({ ...prev, special_offers: (prev.special_offers || []).filter((_, j) => j !== i) }))} />
+          ))}
+        </div>
+      </div>
     </div>
   );
 }
+
+/* ─── Special Offer Card ─── */
+const SpecialOfferCard = ({ offer, index, programs, onUpdate, onDelete }) => {
+  const fileRef = React.useRef(null);
+
+  const people = offer.people || [];
+
+  const addPerson = () => {
+    onUpdate('people', [...people, { name: '', email: '', phone: '' }]);
+  };
+
+  const updatePerson = (pi, field, value) => {
+    const updated = [...people];
+    updated[pi] = { ...updated[pi], [field]: value };
+    onUpdate('people', updated);
+  };
+
+  const removePerson = (pi) => {
+    onUpdate('people', people.filter((_, j) => j !== pi));
+  };
+
+  const handleExcel = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    try {
+      const text = await file.text();
+      const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
+      const imported = [];
+      lines.forEach((line, li) => {
+        if (li === 0 && (line.toLowerCase().includes('name') || line.toLowerCase().includes('email'))) return; // skip header
+        const parts = line.split(/[,\t;]+/).map(p => p.trim().replace(/"/g, ''));
+        const person = { name: '', email: '', phone: '' };
+        parts.forEach(p => {
+          if (p.includes('@')) person.email = p.toLowerCase();
+          else if (p.match(/^\+?\d[\d\s-]{6,}/)) person.phone = p.replace(/[\s-]/g, '');
+          else if (!person.name && p.length > 1) person.name = p;
+        });
+        if (person.email || person.phone) imported.push(person);
+      });
+      onUpdate('people', [...people, ...imported]);
+      alert(`Imported ${imported.length} people`);
+    } catch { alert('Error reading file'); }
+    e.target.value = '';
+  };
+
+  return (
+    <div className={`rounded-lg border p-4 ${offer.enabled ? 'bg-purple-50 border-purple-200' : 'bg-gray-50 border-gray-200 opacity-60'}`} data-testid={`special-offer-${index}`}>
+      {/* Header */}
+      <div className="flex items-center gap-2 flex-wrap mb-3">
+        <Switch checked={offer.enabled !== false} onCheckedChange={v => onUpdate('enabled', v)} />
+        <Input value={offer.label || ''} onChange={e => onUpdate('label', e.target.value)}
+          placeholder="Offer name (e.g. Family Discount)" className="h-7 text-xs flex-1 min-w-[140px]" />
+        <Input value={offer.code || ''} onChange={e => onUpdate('code', e.target.value.toUpperCase())}
+          placeholder="Code" className="h-7 text-xs w-20 font-mono" />
+        <Input type="text" inputMode="decimal" value={offer.discount_type === 'fixed' ? (offer.discount_amount || 0) : (offer.discount_pct || 0)}
+          onChange={e => {
+            const val = parseFloat(e.target.value) || 0;
+            offer.discount_type === 'fixed' ? onUpdate('discount_amount', val) : onUpdate('discount_pct', val);
+          }} className="h-7 text-xs w-16 text-center" />
+        <select value={offer.discount_type || 'percentage'} onChange={e => onUpdate('discount_type', e.target.value)}
+          className="border rounded px-1 py-1 text-xs bg-white h-7">
+          <option value="percentage">%</option>
+          <option value="fixed">Fixed</option>
+        </select>
+        <span className="text-xs text-gray-500">off</span>
+        <button onClick={onDelete} className="text-red-400 hover:text-red-600 ml-auto"><Trash2 size={14} /></button>
+      </div>
+
+      {/* Programs */}
+      <div className="flex flex-wrap gap-1 items-center mb-3">
+        <span className="text-[9px] text-gray-400">Programs:</span>
+        {programs.filter(p => p.title).map(p => {
+          const selected = (offer.program_ids || []).includes(String(p.id));
+          return (
+            <button key={p.id} onClick={() => {
+              const ids = offer.program_ids || [];
+              onUpdate('program_ids', selected ? ids.filter(x => x !== String(p.id)) : [...ids, String(p.id)]);
+            }} className={`text-[9px] px-2 py-0.5 rounded-full font-medium border transition-colors ${selected ? 'bg-purple-200 border-purple-400 text-purple-800' : 'bg-white border-gray-200 text-gray-500 hover:border-purple-300'}`}>
+              {p.title.length > 18 ? p.title.slice(0, 18) + '..' : p.title}
+            </button>
+          );
+        })}
+        {!(offer.program_ids || []).length && <span className="text-[8px] text-gray-400 italic">All programs</span>}
+      </div>
+
+      {/* People — Excel-style table */}
+      <div className="border rounded-lg overflow-hidden bg-white">
+        <table className="w-full text-[10px]">
+          <thead>
+            <tr className="bg-gray-50 border-b">
+              <th className="text-left px-2 py-1.5 font-semibold text-gray-600 w-8">#</th>
+              <th className="text-left px-2 py-1.5 font-semibold text-gray-600">Name</th>
+              <th className="text-left px-2 py-1.5 font-semibold text-gray-600">Email</th>
+              <th className="text-left px-2 py-1.5 font-semibold text-gray-600">Phone</th>
+              <th className="w-8"></th>
+            </tr>
+          </thead>
+          <tbody>
+            {people.map((p, pi) => (
+              <tr key={pi} className="border-b hover:bg-purple-50/30">
+                <td className="px-2 py-1 text-gray-400">{pi + 1}</td>
+                <td className="px-1 py-0.5">
+                  <input value={p.name || ''} onChange={e => updatePerson(pi, 'name', e.target.value)}
+                    placeholder="Name" className="w-full h-6 px-1.5 text-[10px] border-0 bg-transparent outline-none focus:bg-purple-50 rounded" />
+                </td>
+                <td className="px-1 py-0.5">
+                  <input value={p.email || ''} onChange={e => updatePerson(pi, 'email', e.target.value.toLowerCase())}
+                    placeholder="email@example.com" className="w-full h-6 px-1.5 text-[10px] border-0 bg-transparent outline-none focus:bg-purple-50 rounded" />
+                </td>
+                <td className="px-1 py-0.5">
+                  <input value={p.phone || ''} onChange={e => updatePerson(pi, 'phone', e.target.value)}
+                    placeholder="+91 98765 43210" className="w-full h-6 px-1.5 text-[10px] border-0 bg-transparent outline-none focus:bg-purple-50 rounded" />
+                </td>
+                <td className="px-1"><button onClick={() => removePerson(pi)} className="text-red-300 hover:text-red-500"><Trash2 size={10} /></button></td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+        <div className="flex items-center justify-between px-2 py-1.5 bg-gray-50 border-t">
+          <button onClick={addPerson} className="text-[9px] text-purple-600 hover:underline font-medium flex items-center gap-1">
+            <Plus size={10} /> Add Row
+          </button>
+          <div className="flex items-center gap-2">
+            <button onClick={() => fileRef.current?.click()}
+              className="text-[9px] px-2 py-1 bg-white border border-purple-300 text-purple-700 rounded hover:bg-purple-50 flex items-center gap-1">
+              <Upload size={9} /> Upload CSV
+            </button>
+            <input ref={fileRef} type="file" accept=".csv,.xlsx,.xls,.txt" className="hidden" onChange={handleExcel} />
+            <span className="text-[8px] text-gray-400">{people.length} people</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};

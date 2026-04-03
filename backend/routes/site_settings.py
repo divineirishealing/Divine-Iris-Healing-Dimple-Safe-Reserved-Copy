@@ -66,10 +66,18 @@ async def update_settings(settings: SiteSettingsUpdate):
         update_data['dashboard_bg_video'] = raw['dashboard_bg_video']
     if raw.get('india_payment_gateway') is not None:
         update_data['india_payment_gateway'] = raw['india_payment_gateway']
+    if raw.get('india_bank_accounts') is not None:
+        update_data['india_bank_accounts'] = raw['india_bank_accounts']
+    if raw.get('india_bank_details') is not None:
+        update_data['india_bank_details'] = raw['india_bank_details']
+    if raw.get('admin_password') is not None:
+        update_data['admin_password'] = raw['admin_password']
     if raw.get('combo_rules') is not None:
         update_data['combo_rules'] = raw['combo_rules']
     if raw.get('cross_sell_rules') is not None:
         update_data['cross_sell_rules'] = raw['cross_sell_rules']
+    if raw.get('special_offers') is not None:
+        update_data['special_offers'] = raw['special_offers']
     if raw.get('inr_whitelist_emails') is not None:
         update_data['inr_whitelist_emails'] = raw['inr_whitelist_emails']
     existing = await db.site_settings.find_one({"id": "site_settings"})

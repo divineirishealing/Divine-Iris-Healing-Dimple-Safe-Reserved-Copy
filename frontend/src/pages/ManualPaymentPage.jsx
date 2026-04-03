@@ -205,18 +205,17 @@ const ManualPaymentPage = () => {
                       <h3 className="text-sm font-semibold text-gray-900">Divine Iris Bank Details</h3>
                     </div>
 
-                    {banks.length > 1 && (
-                      <div className="mb-3">
-                        <label className="text-[10px] font-semibold text-gray-700 block mb-1">Select Bank Account</label>
-                        <select value={selectedBank} onChange={e => setSelectedBank(parseInt(e.target.value))}
-                          className="w-full border rounded-lg text-xs h-9 px-3 text-gray-700 focus:ring-1 focus:ring-[#D4AF37]"
-                          data-testid="manual-bank-select">
-                          {banks.map((b, i) => (
-                            <option key={i} value={i}>{b.label || b.bank_name || `Account ${i + 1}`}</option>
-                          ))}
-                        </select>
-                      </div>
-                    )}
+                    {/* Always show account selector */}
+                    <div className="mb-3">
+                      <label className="text-[10px] font-semibold text-gray-700 block mb-1">Which account did you send money to? *</label>
+                      <select value={selectedBank} onChange={e => setSelectedBank(parseInt(e.target.value))}
+                        className="w-full border rounded-lg text-xs h-9 px-3 text-gray-700 focus:ring-1 focus:ring-[#D4AF37]"
+                        data-testid="manual-bank-select">
+                        {banks.map((b, i) => (
+                          <option key={i} value={i}>{b.label || b.bank_name || b.account_name || `Account ${i + 1}`} {b.bank_name ? `(${b.bank_name})` : ''}</option>
+                        ))}
+                      </select>
+                    </div>
 
                     <div className="bg-gray-50 border rounded-lg p-4 space-y-2">
                       {currentBank.account_name && (

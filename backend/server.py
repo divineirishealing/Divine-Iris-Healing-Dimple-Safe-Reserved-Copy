@@ -15,6 +15,8 @@ from routes import admin_clients, student
 from routes import auth
 from routes import subscribers
 from routes import emi_payments
+from routes import reminders as reminders_module
+import asyncio
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
@@ -71,6 +73,28 @@ async def serve_admin_guide():
         from fastapi import HTTPException
         raise HTTPException(status_code=404, detail="Guide not found")
     return FileResponse(path=str(guide_path), media_type="text/html")
+
+# Abandoned enrollment reminders
+@app.post("/api/admin/send-reminders")
+async def trigger_reminders():
+    """Admin: manually trigger abandoned enrollment reminders."""
+    count = await reminders_module.check_and_send_reminders()
+    return {"message": f"Sent {count} reminders"}
+
+# Background reminder task — runs every 10 minutes
+async def _reminder_loop():
+    while True:
+        await asyncio.sleep(600)  # 10 minutes
+        try:
+            count = await reminders_module.check_and_send_reminders()
+            if count > 0:
+                logging.getLogger("reminders").info(f"Auto-sent {count} abandoned enrollment reminders")
+        except Exception as e:
+            logging.getLogger("reminders").error(f"Reminder loop error: {e}")
+
+@app.on_event("startup")
+async def start_reminder_loop():
+    asyncio.create_task(_reminder_loop())
 
 @app.get("/api/uploads/payment_proofs/{filename}")
 async def serve_payment_proof(filename: str):

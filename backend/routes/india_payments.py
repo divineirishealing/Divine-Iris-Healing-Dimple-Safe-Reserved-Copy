@@ -109,6 +109,21 @@ async def list_payment_proofs():
     return proofs
 
 
+@router.put("/admin/proofs/{proof_id}")
+async def update_payment_proof(proof_id: str, data: dict):
+    """Admin: edit a submitted payment proof before approving."""
+    allowed_fields = ['payer_name', 'booker_email', 'amount', 'transaction_id', 'program_title',
+                       'bank_name', 'payment_date', 'payment_method', 'city', 'state', 'admin_notes', 'phone']
+    update = {k: v for k, v in data.items() if k in allowed_fields and v is not None}
+    if 'amount' in update:
+        try: update['amount'] = float(update['amount'])
+        except: pass
+    update['updated_at'] = datetime.now(timezone.utc).isoformat()
+    await db.india_payment_proofs.update_one({"id": proof_id}, {"$set": update})
+    return {"message": "Proof updated"}
+
+
+
 @router.post("/admin/{proof_id}/approve")
 async def approve_payment_proof(proof_id: str):
     """Admin: approve India payment proof and complete enrollment."""
@@ -123,6 +138,54 @@ async def approve_payment_proof(proof_id: str):
     )
 
     enrollment_id = proof.get("enrollment_id")
+    
+    # Try to match program by title to get item_id and links
+    program_title = proof.get("program_title", "")
+    matched_program = None
+    if program_title:
+        matched_program = await db.programs.find_one(
+            {"title": {"$regex": program_title, "$options": "i"}}, {"_id": 0}
+        )
+        if not matched_program:
+            # Try partial match
+            matched_program = await db.programs.find_one(
+                {"title": {"$regex": program_title.split("(")[0].strip(), "$options": "i"}}, {"_id": 0}
+            )
+    if not matched_program:
+        matched_program = await db.sessions.find_one(
+            {"title": {"$regex": program_title, "$options": "i"}}, {"_id": 0}
+        )
+    
+    item_id = proof.get("item_id") or (matched_program.get("id") if matched_program else "")
+    item_type = "session" if (matched_program and "session_mode" in matched_program and "category" not in matched_program) else "program"
+
+    # If no real enrollment exists (manual submissions), create one
+    if not enrollment_id or enrollment_id == "MANUAL":
+        enrollment_id = f"DIH-{int(datetime.now(timezone.utc).timestamp()) % 100000}-{uuid.uuid4().hex[:3]}"
+        new_enrollment = {
+            "id": enrollment_id,
+            "booker_name": proof.get("payer_name", ""),
+            "booker_email": proof.get("booker_email", ""),
+            "booker_country": "IN",
+            "phone": proof.get("phone", ""),
+            "item_type": item_type,
+            "item_id": item_id,
+            "item_title": program_title,
+            "participant_count": proof.get("participant_count", 1),
+            "participants": proof.get("participants", [{"name": proof.get("payer_name", ""), "email": proof.get("booker_email", "")}]),
+            "status": "completed",
+            "step": 5,
+            "payment_method": "manual_proof",
+            "bank_name": proof.get("bank_name", ""),
+            "is_india_alt": True,
+            "paid_at": datetime.now(timezone.utc).isoformat(),
+            "created_at": proof.get("created_at", datetime.now(timezone.utc).isoformat()),
+            "updated_at": datetime.now(timezone.utc).isoformat(),
+        }
+        await db.enrollments.insert_one(new_enrollment)
+        # Update proof with real enrollment_id
+        await db.india_payment_proofs.update_one({"id": proof_id}, {"$set": {"enrollment_id": enrollment_id}})
+
     if enrollment_id:
         # Create a completed transaction
         fake_session_id = f"india_{uuid.uuid4().hex[:12]}"
@@ -130,21 +193,29 @@ async def approve_payment_proof(proof_id: str):
             "id": str(uuid.uuid4()),
             "enrollment_id": enrollment_id,
             "stripe_session_id": fake_session_id,
-            "item_type": "program",
-            "item_id": "",
-            "item_title": proof.get("program_title", ""),
+            "item_type": item_type,
+            "item_id": item_id,
+            "item_title": program_title,
             "amount": float(proof.get("amount", 0)),
             "currency": "inr",
             "payment_status": "paid",
+            "payment_method": "manual_proof",
+            "bank_name": proof.get("bank_name", ""),
             "booker_name": proof.get("booker_name"),
             "booker_email": proof.get("booker_email"),
+            "phone": proof.get("phone", ""),
             "participants": proof.get("participants", []),
             "participant_count": proof.get("participant_count", 1),
             "is_india_alt": True,
             "india_proof_id": proof_id,
+            "invoice_number": "",
             "created_at": datetime.now(timezone.utc),
             "updated_at": datetime.now(timezone.utc),
         }
+        # Generate invoice number
+        month_prefix = datetime.now(timezone.utc).strftime("%Y-%m")
+        count = await db.payment_transactions.count_documents({"invoice_number": {"$regex": f"^{month_prefix}"}})
+        transaction["invoice_number"] = f"{month_prefix}-{str(count + 1).zfill(3)}"
         await db.payment_transactions.insert_one(transaction)
 
         # Complete enrollment
@@ -153,20 +224,27 @@ async def approve_payment_proof(proof_id: str):
             {"$set": {
                 "step": 5,
                 "status": "completed",
+                "payment_method": "manual_proof",
+                "bank_name": proof.get("bank_name", ""),
                 "stripe_session_id": fake_session_id,
                 "is_india_alt": True,
+                "paid_at": datetime.now(timezone.utc).isoformat(),
                 "updated_at": datetime.now(timezone.utc).isoformat(),
             }}
         )
 
-        # Generate UIDs and send emails
+        # Generate UIDs and send receipt email
         try:
-            from routes.payments import generate_participant_uids, send_enrollment_emails
+            from routes.payments import generate_participant_uids, send_enrollment_receipt
             await generate_participant_uids(fake_session_id)
-            import asyncio
-            asyncio.create_task(send_enrollment_emails(fake_session_id))
+            # Send receipt directly (not via create_task to avoid silent failures)
+            txn_clean = {k: v for k, v in transaction.items() if k != '_id'}
+            await send_enrollment_receipt(txn_clean)
+            logger.info(f"Receipt sent for manual proof {proof_id} to {proof.get('booker_email')}")
         except Exception as e:
             logger.warning(f"Error generating UIDs/emails for India payment: {e}")
+            import traceback
+            traceback.print_exc()
 
     return {"message": "Payment proof approved. Enrollment completed.", "status": "approved"}
 
@@ -188,14 +266,15 @@ async def reject_payment_proof(proof_id: str, reason: str = ""):
 
 @router.get("/admin/enrollments")
 async def list_enrollments():
-    """Admin: list all enrollments."""
+    """Admin: list all enrollments with payment details."""
     enrollments = await db.enrollments.find({}, {"_id": 0}).sort("created_at", -1).to_list(1000)
-    # Also fetch associated transactions
     for e in enrollments:
         txn = await db.payment_transactions.find_one(
-            {"enrollment_id": e.get("id")}, {"_id": 0, "amount": 1, "currency": 1, "payment_status": 1}
+            {"enrollment_id": e.get("id")}, {"_id": 0, "amount": 1, "currency": 1, "payment_status": 1, "stripe_session_id": 1, "invoice_number": 1, "stripe_currency": 1, "stripe_amount": 1}
         )
         e["payment"] = txn if txn else None
+        if txn and txn.get("invoice_number"):
+            e["invoice_number"] = txn["invoice_number"]
     return enrollments
 
 
@@ -228,11 +307,27 @@ async def export_enrollments_excel():
             max_participants = count
     max_participants = max(max_participants, 1)
 
+    # Fetch payment data for each enrollment
+    for e in enrollments:
+        txn = await db.payment_transactions.find_one(
+            {"enrollment_id": e.get("id")}, {"_id": 0}
+        )
+        if txn:
+            e["invoice_number"] = txn.get("invoice_number", "")
+            e["payment_amount"] = txn.get("amount", 0)
+            e["payment_currency"] = txn.get("currency", "")
+            e["payment_status_txn"] = txn.get("payment_status", "")
+            e["payment_method"] = txn.get("payment_method", "") or e.get("payment_method", "")
+            e["bank_name"] = txn.get("bank_name", "") or e.get("bank_name", "")
+            e["stripe_session_id"] = txn.get("stripe_session_id", "")
+
     # Build headers: base columns + per-participant columns
     base_headers = [
-        "Receipt ID", "Status", "Program", "Program Type",
+        "Invoice #", "Receipt ID", "Status", "Program", "Program Type",
         "Booker Name", "Booker Email", "Booker Country", "Booker Phone",
-        "Participant Count", "Enrollment Date",
+        "Participant Count", "Payment Amount", "Payment Currency", "Payment Method",
+        "Bank Account", "Payment Status", "Admin Notes", "Promo Code",
+        "VPN Detected", "Enrollment Date",
     ]
 
     participant_fields = [
@@ -283,6 +378,7 @@ async def export_enrollments_excel():
 
         # Base row data
         row = [
+            clean(e.get("invoice_number")),
             clean(e.get("id")),
             clean(e.get("status")),
             clean(e.get("item_title")),
@@ -292,6 +388,14 @@ async def export_enrollments_excel():
             clean(e.get("booker_country")),
             clean(e.get("phone")),
             str(e.get("participant_count", 0) or 0),
+            str(e.get("payment_amount", 0) or 0),
+            clean(e.get("payment_currency")),
+            clean(e.get("payment_method")),
+            clean(e.get("bank_name")),
+            clean(e.get("payment_status_txn") or e.get("status")),
+            clean(e.get("admin_notes")),
+            clean(e.get("promo_code")),
+            "Yes" if e.get("vpn_detected") else "No",
             created_at,
         ]
 

@@ -154,3 +154,17 @@ async def reject_profile(user_id: str):
         {"$set": {"pending_profile_update": None}} # Just clear it
     )
     return {"message": "Profile update rejected"}
+
+
+
+# Admin login
+@router.post("/login")
+async def admin_login(data: dict):
+    username = data.get("username", "")
+    password = data.get("password", "")
+    # Check stored password in settings, fallback to default
+    settings = await db.site_settings.find_one({"id": "site_settings"}, {"_id": 0, "admin_password": 1})
+    stored = (settings or {}).get("admin_password", "divineadmin2024")
+    if username == "admin" and password == stored:
+        return {"success": True, "token": "admin-session"}
+    raise HTTPException(status_code=401, detail="Invalid credentials")

@@ -337,7 +337,16 @@ async def send_enrollment_emails(session_id: str):
     tx = await db.payment_transactions.find_one({"stripe_session_id": session_id}, {"_id": 0})
     if not tx:
         return
+    await _send_receipt_and_notifications(tx)
 
+
+async def send_enrollment_receipt(txn: dict, database=None):
+    """Called from webhook — sends receipt using transaction data."""
+    await _send_receipt_and_notifications(txn)
+
+
+async def _send_receipt_and_notifications(tx):
+    """Internal: send receipt + notifications from a transaction dict."""
     enrollment_id = tx.get("enrollment_id")
     if not enrollment_id:
         return
@@ -459,7 +468,8 @@ async def send_enrollment_emails(session_id: str):
             footer_phone=settings.get("footer_phone", ""),
             footer_email=settings.get("footer_email", ""),
             site_url="https://divineirishealing.com",
-            currency_code=txn.get("currency", ""),
+            currency_code=tx.get("currency", ""),
+            invoice_number=tx.get("invoice_number", ""),
         )
         from key_manager import get_key
         receipt_sender = await get_key("receipt_email") or os.environ.get("RECEIPT_EMAIL", "receipt@divineirishealing.com")

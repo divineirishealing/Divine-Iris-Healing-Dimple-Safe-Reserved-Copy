@@ -21,9 +21,6 @@ const PaymentSettingsTab = () => {
   const [altDiscountPct, setAltDiscountPct] = useState(9);
   const [gstPct, setGstPct] = useState(18);
   const [platformPct, setPlatformPct] = useState(3);
-  const [bankAccounts, setBankAccounts] = useState([
-    { label: '', account_name: '', account_number: '', ifsc: '', bank_name: '', branch: '' }
-  ]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
@@ -38,12 +35,6 @@ const PaymentSettingsTab = () => {
       setAltDiscountPct(r.data.india_alt_discount_percent ?? 9);
       setGstPct(r.data.india_gst_percent ?? 18);
       setPlatformPct(r.data.india_platform_charge_percent ?? 3);
-      // Support both old single bank and new multi-bank format
-      if (r.data.india_bank_accounts && r.data.india_bank_accounts.length > 0) {
-        setBankAccounts(r.data.india_bank_accounts);
-      } else if (r.data.india_bank_details?.account_number) {
-        setBankAccounts([{ label: r.data.india_bank_details.bank_name || 'Primary', ...r.data.india_bank_details }]);
-      }
     }).catch(() => {}).finally(() => setLoading(false));
   }, []);
 
@@ -60,8 +51,6 @@ const PaymentSettingsTab = () => {
         india_alt_discount_percent: parseFloat(altDiscountPct) || 9,
         india_gst_percent: parseFloat(gstPct) || 18,
         india_platform_charge_percent: parseFloat(platformPct) || 3,
-        india_bank_details: bankAccounts[0] || {},
-        india_bank_accounts: bankAccounts.filter(b => b.account_number),
       });
       toast({ title: 'Payment settings saved!' });
     } catch (err) {
@@ -202,73 +191,6 @@ const PaymentSettingsTab = () => {
       </div>
 
       {/* Divine Iris Bank Details — Multiple Accounts */}
-      <div className="mb-6 bg-blue-50/50 border border-blue-200 rounded-lg p-5">
-        <div className="flex items-center justify-between mb-4">
-          <div className="flex items-center gap-2">
-            <Building2 size={16} className="text-blue-600" />
-            <h3 className="text-sm font-semibold text-gray-900">Divine Iris Bank Details</h3>
-            <span className="text-[9px] bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full font-medium">{bankAccounts.length} account{bankAccounts.length > 1 ? 's' : ''}</span>
-          </div>
-          <button onClick={() => setBankAccounts([...bankAccounts, { label: '', account_name: '', account_number: '', ifsc: '', bank_name: '', branch: '' }])}
-            className="text-[10px] px-3 py-1 rounded-full bg-blue-100 text-blue-700 hover:bg-blue-200 transition-colors font-medium">
-            + Add Bank
-          </button>
-        </div>
-        <p className="text-[10px] text-gray-400 mb-3">Add your bank accounts. Users will see a dropdown to select which bank they transferred to.</p>
-
-        <div className="space-y-4">
-          {bankAccounts.map((bank, idx) => {
-            const updateBank = (field, val) => {
-              const updated = [...bankAccounts];
-              updated[idx] = { ...updated[idx], [field]: val };
-              setBankAccounts(updated);
-            };
-            return (
-              <div key={idx} className="bg-white border rounded-lg p-4 relative">
-                <div className="flex items-center justify-between mb-3">
-                  <div className="flex items-center gap-2">
-                    <span className="w-5 h-5 rounded-full bg-blue-100 text-blue-700 text-[9px] flex items-center justify-center font-bold">{idx + 1}</span>
-                    <Input value={bank.label} onChange={e => updateBank('label', e.target.value)}
-                      placeholder="Label (e.g., HDFC Savings, SBI Current)" className="text-xs h-8 w-56 font-semibold" />
-                  </div>
-                  {bankAccounts.length > 1 && (
-                    <button onClick={() => setBankAccounts(bankAccounts.filter((_, i) => i !== idx))}
-                      className="text-[10px] text-red-400 hover:text-red-600 px-2 py-0.5 rounded hover:bg-red-50">Remove</button>
-                  )}
-                </div>
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="text-[9px] text-gray-500 block mb-0.5">Account Name</label>
-                    <Input value={bank.account_name} onChange={e => updateBank('account_name', e.target.value)}
-                      placeholder="Account holder name" className="text-xs h-8" />
-                  </div>
-                  <div>
-                    <label className="text-[9px] text-gray-500 block mb-0.5">Account Number</label>
-                    <Input value={bank.account_number} onChange={e => updateBank('account_number', e.target.value)}
-                      placeholder="Account number" className="text-xs h-8 font-mono" />
-                  </div>
-                  <div>
-                    <label className="text-[9px] text-gray-500 block mb-0.5">IFSC Code</label>
-                    <Input value={bank.ifsc} onChange={e => updateBank('ifsc', e.target.value)}
-                      placeholder="e.g., HDFC0001234" className="text-xs h-8 font-mono" />
-                  </div>
-                  <div>
-                    <label className="text-[9px] text-gray-500 block mb-0.5">Bank Name</label>
-                    <Input value={bank.bank_name} onChange={e => updateBank('bank_name', e.target.value)}
-                      placeholder="e.g., HDFC Bank" className="text-xs h-8" />
-                  </div>
-                  <div className="col-span-2">
-                    <label className="text-[9px] text-gray-500 block mb-0.5">Branch</label>
-                    <Input value={bank.branch} onChange={e => updateBank('branch', e.target.value)}
-                      placeholder="Branch name" className="text-xs h-8" />
-                  </div>
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      </div>
-
       {/* India Pricing Adjustments */}
       <div className="mb-6 bg-green-50/50 border border-green-200 rounded-lg p-5">
         <div className="flex items-center gap-2 mb-4">

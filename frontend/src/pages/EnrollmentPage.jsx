@@ -12,7 +12,7 @@ import { Button } from '../components/ui/button';
 import {
   User, Monitor, Wifi, Mail, Phone, CreditCard, Lock, Plus, Trash2,
   ChevronRight, ChevronLeft, Check, ShieldAlert, ShieldCheck,
-  Loader2, Bell, BellOff, Tag, Calendar, FileText, Quote, Clock, Gift
+  Loader2, Bell, BellOff, Tag, Calendar, FileText, Quote, Clock, Gift, Star
 } from 'lucide-react';
 import StarField from '../components/ui/StarField';
 
@@ -471,8 +471,34 @@ function EnrollmentPage() {
   })();
   const finalUnitPrice = crossSellDiscount ? Math.max(0, effectiveUnitPrice - crossSellDiscount.amount) : effectiveUnitPrice;
 
+  // VIP/Special offer check
+  const [vipOffer, setVipOffer] = useState(null);
+  useEffect(() => {
+    const email = participants[0]?.email || '';
+    const phoneCode = participants[0]?.phone_code || '';
+    const phoneRaw = participants[0]?.phone || '';
+    const phone = phoneCode ? `${phoneCode}${phoneRaw}` : phoneRaw;
+    if (!email && !phone) { setVipOffer(null); return; }
+    const timer = setTimeout(() => {
+      axios.post(`${API}/enrollment/check-vip-offer`, { email, phone, program_id: id })
+        .then(r => { if (r.data?.matched) setVipOffer(r.data); else setVipOffer(null); })
+        .catch(() => setVipOffer(null));
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [participants[0]?.email, participants[0]?.phone, participants[0]?.phone_code, id]);
+
+  const vipDiscount = vipOffer ? (
+    vipOffer.discount_type === 'fixed' ? (vipOffer.discount_amount || 0) : Math.round(finalUnitPrice * (vipOffer.discount_pct || 0) / 100)
+  ) : 0;
+
+  // NO STACKING: best single discount wins
+  // Priority: VIP > CrossSell > Promo (auto-discounts handled at checkout)
+  const bestDiscount = vipDiscount > 0 ? { type: 'vip', amount: vipDiscount } :
+    crossSellDiscount?.amount > 0 ? { type: 'crosssell', amount: crossSellDiscount.amount } : { type: 'none', amount: 0 };
+  const afterDiscountPrice = Math.max(0, finalUnitPrice - bestDiscount.amount);
+
   const pCount = participants.length;
-  const subtotalRaw = finalUnitPrice * pCount;
+  const subtotalRaw = afterDiscountPrice * pCount;
 
   const [autoDiscounts, setAutoDiscounts] = useState({ group_discount: 0, combo_discount: 0, loyalty_discount: 0, total_discount: 0 });
 
@@ -728,8 +754,8 @@ function EnrollmentPage() {
                     <div className="flex justify-between text-xs text-gray-600">
                       <span>Per person</span>
                       <span>
-                        {crossSellDiscount ? (
-                          <><span className="text-green-600 font-bold">{symbol} {finalUnitPrice.toLocaleString()}</span> <span className="line-through text-gray-400">{symbol} {effectiveUnitPrice.toLocaleString()}</span></>
+                        {bestDiscount.amount > 0 ? (
+                          <><span className={`font-bold ${bestDiscount.type === 'vip' ? 'text-purple-600' : 'text-green-600'}`}>{symbol} {afterDiscountPrice.toLocaleString()}</span> <span className="line-through text-gray-400">{symbol} {effectiveUnitPrice.toLocaleString()}</span></>
                         ) : offerUnitPrice > 0 ? (
                           <><span className="text-[#D4AF37] font-bold">{symbol} {offerUnitPrice.toLocaleString()}</span> <span className="line-through text-gray-400">{symbol} {unitPrice.toLocaleString()}</span></>
                         ) : (
@@ -737,10 +763,16 @@ function EnrollmentPage() {
                         )}
                       </span>
                     </div>
-                    {crossSellDiscount && (
+                    {bestDiscount.type === 'crosssell' && (
                       <div className="flex justify-between text-xs text-green-600">
                         <span className="flex items-center gap-1"><Gift size={10} /> {crossSellDiscount.label || 'Cross-sell'}</span>
                         <span>-{crossSellDiscount.value}{crossSellDiscount.type === 'percentage' ? '%' : ` ${symbol}`}</span>
+                      </div>
+                    )}
+                    {bestDiscount.type === 'vip' && (
+                      <div className="flex justify-between text-xs text-purple-600">
+                        <span className="flex items-center gap-1"><Star size={10} /> {vipOffer?.label || 'VIP Offer'}</span>
+                        <span>-{symbol} {vipDiscount.toLocaleString()}</span>
                       </div>
                     )}
                     <div className="flex justify-between text-xs text-gray-600">
@@ -756,13 +788,7 @@ function EnrollmentPage() {
                         <span>Group Discount ({pCount} people)</span><span>-{symbol} {autoDiscounts.group_discount.toLocaleString()}</span>
                       </div>
                     )}
-                    {(crossSellDiscount && crossSellDiscount.amount > 0) && (
-                      <div className="flex justify-between text-xs text-green-600" data-testid="enroll-discount-crosssell">
-                        <span className="flex items-center gap-1"><Gift size={10} /> {crossSellDiscount.label || 'Cross-Sell'}</span>
-                        <span>-{symbol} {crossSellDiscount.amount.toLocaleString()}</span>
-                      </div>
-                    )}
-                    {autoDiscounts.combo_discount > 0 && (
+                    {autoDiscounts.combo_discount > 0 && bestDiscount.type === 'none' && (
                       <div className="flex justify-between text-xs text-green-600" data-testid="enroll-discount-combo">
                         <span>Combo Discount</span><span>-{symbol} {autoDiscounts.combo_discount.toLocaleString()}</span>
                       </div>
