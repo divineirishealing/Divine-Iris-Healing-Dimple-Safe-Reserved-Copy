@@ -349,6 +349,27 @@ const AdminPanel = () => {
               </div>
 
               <div className="space-y-2">
+                  {/* New Program Inline Form */}
+                {showProgramForm && !editingId && (
+                  <div className="bg-white rounded-lg shadow-sm border ring-2 ring-[#D4AF37]/40" data-testid="new-program-form">
+                    <div className="p-3 flex items-center gap-3 border-b bg-amber-50/50">
+                      <ChevronDown size={15} className="text-[#D4AF37] flex-shrink-0" />
+                      <p className="font-medium text-sm text-amber-700">New Program</p>
+                    </div>
+                    <div className="p-5">
+                      <div className="grid md:grid-cols-2 gap-4">
+                        <div><Label>Title</Label><Input data-testid="program-title-input" value={programForm.title} onChange={e => setProgramForm({...programForm, title: e.target.value})} placeholder="Program title..." /></div>
+                        <div><Label>Category</Label><Input value={programForm.category} onChange={e => setProgramForm({...programForm, category: e.target.value})} placeholder="e.g. Healing, Wellness..." /></div>
+                        <div className="md:col-span-2"><Label>Description</Label><Textarea value={programForm.description} onChange={e => setProgramForm({...programForm, description: e.target.value})} rows={4} placeholder="Program description..." /></div>
+                        <div className="md:col-span-2"><Label>Image</Label><ImageUploader value={programForm.image} onChange={url => setProgramForm({...programForm, image: url})} /></div>
+                      </div>
+                      <div className="mt-4 flex gap-2">
+                        <Button data-testid="save-program-btn" onClick={saveProgram} className="bg-[#D4AF37] hover:bg-[#b8962e]"><Save size={14} className="mr-1" /> Save</Button>
+                        <Button variant="outline" onClick={resetProgramForm}>Cancel</Button>
+                      </div>
+                    </div>
+                  </div>
+                )}
                 {programs.map((p, idx) => {
                   const isExpanded = editingId === p.id && showProgramForm;
                   return (
