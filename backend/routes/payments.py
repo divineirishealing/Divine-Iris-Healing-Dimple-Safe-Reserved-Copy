@@ -722,7 +722,7 @@ async def check_payment_status(session_id: str, http_request: Request, backgroun
             booker_email = enrollment.get("booker_email", "")
 
     # Fetch community whatsapp from settings
-    settings = await db.site_settings.find_one({"type": "site_settings"}, {"_id": 0})
+    settings = await db.site_settings.find_one({"id": "site_settings"}, {"_id": 0})
     community_whatsapp = settings.get("community_whatsapp_link", "") if settings else ""
 
     # If already marked as paid, return immediately (prevent double processing)
@@ -758,8 +758,27 @@ async def check_payment_status(session_id: str, http_request: Request, backgroun
             }}
         )
 
-        # Send confirmation emails when payment is newly confirmed
+        # Complete enrollment and send confirmation when payment is newly confirmed
         if new_status == "paid" and not tx.get("emails_sent"):
+            # Mark enrollment as completed (primary path — webhook is secondary/redundant)
+            if enrollment_id:
+                await db.enrollments.update_one(
+                    {"id": enrollment_id},
+                    {"$set": {
+                        "status": "completed",
+                        "payment_method": "stripe",
+                        "paid_at": datetime.now(timezone.utc).isoformat(),
+                        "updated_at": datetime.now(timezone.utc).isoformat(),
+                    }}
+                )
+                logger.info(f"Enrollment {enrollment_id} → completed (via status poll)")
+
+            # Mark emails_sent immediately to prevent duplicate receipts on page refresh
+            await db.payment_transactions.update_one(
+                {"stripe_session_id": session_id},
+                {"$set": {"emails_sent": True, "paid_at": datetime.now(timezone.utc).isoformat()}}
+            )
+
             # Extract card country from Stripe for fraud detection
             try:
                 stripe_lib.api_key = await _get_stripe_key()
