@@ -1,4 +1,4 @@
-from fastapi import FastAPI, APIRouter
+from fastapi import FastAPI, APIRouter, Request
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 from dotenv import load_dotenv
@@ -6,6 +6,8 @@ from starlette.middleware.cors import CORSMiddleware
 from motor.motor_asyncio import AsyncIOMotorClient
 import os
 import logging
+import time
+from datetime import datetime, timezone
 from pathlib import Path
 import mimetypes
 
@@ -38,6 +40,30 @@ app = FastAPI(title="Divine Iris Healing API")
 
 # Create a router with the /api prefix
 api_router = APIRouter(prefix="/api")
+
+# Paths that are high-volume file serving — excluded from request logging
+_SKIP_LOG_PREFIXES = ("/api/image/", "/api/uploads/", "/static/")
+
+@app.middleware("http")
+async def log_api_requests(request: Request, call_next):
+    if any(request.url.path.startswith(p) for p in _SKIP_LOG_PREFIXES):
+        return await call_next(request)
+    start = time.monotonic()
+    response = await call_next(request)
+    duration_ms = round((time.monotonic() - start) * 1000)
+    try:
+        await db.api_logs.insert_one({
+            "path": request.url.path,
+            "method": request.method,
+            "status_code": response.status_code,
+            "duration_ms": duration_ms,
+            "is_error": response.status_code >= 400,
+            "ip": request.client.host if request.client else None,
+            "timestamp": datetime.now(timezone.utc),
+        })
+    except Exception:
+        pass
+    return response
 
 # Add your routes to the router instead of directly to app
 @api_router.get("/")
@@ -95,6 +121,15 @@ async def _reminder_loop():
 @app.on_event("startup")
 async def start_reminder_loop():
     asyncio.create_task(_reminder_loop())
+
+@app.on_event("startup")
+async def ensure_api_logs_ttl_index():
+    """Create TTL index on api_logs.timestamp for 30-day automatic rollover."""
+    await db.api_logs.create_index(
+        "timestamp",
+        expireAfterSeconds=2592000,
+        background=True,
+    )
 
 @app.get("/api/uploads/payment_proofs/{filename}")
 async def serve_payment_proof(filename: str):

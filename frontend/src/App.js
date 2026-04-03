@@ -43,6 +43,7 @@ import { SiteSettingsProvider } from './context/SiteSettingsContext';
 import { CurrencyProvider, useCurrency } from './context/CurrencyContext';
 import { CartProvider } from './context/CartContext';
 import { AuthProvider } from './context/AuthContext';
+import { Analytics } from '@vercel/analytics/react';
 
 const CurrencyGate = ({ children }) => {
   const { ready } = useCurrency();
@@ -151,6 +152,7 @@ function App() {
           </CartProvider>
         </CurrencyGate>
       </CurrencyProvider>
+      <Analytics />
     </div>
   );
 }
