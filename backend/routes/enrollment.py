@@ -415,16 +415,16 @@ async def get_enrollment_pricing(enrollment_id: str, item_type: str, item_id: st
 
     # ─── GET PRICE FROM TIER OR ITEM ───
     tiers = item.get("duration_tiers", [])
-    has_tier = item.get("is_flagship") and tiers and tier_index is not None and 0 <= tier_index < len(tiers)
+    has_tier = tiers and tier_index is not None and 0 <= tier_index < len(tiers)
 
     if has_tier:
         tier = tiers[tier_index]
         price_aed = float(tier.get("price_aed", 0))
         price_inr = float(tier.get("price_inr", 0))
         price_usd = float(tier.get("price_usd", 0))
-        offer_aed = float(tier.get("offer_aed", 0))
-        offer_inr = float(tier.get("offer_inr", 0))
-        offer_usd = float(tier.get("offer_usd", 0))
+        offer_aed = float(tier.get("offer_price_aed", 0))
+        offer_inr = float(tier.get("offer_price_inr", 0))
+        offer_usd = float(tier.get("offer_price_usd", 0))
     else:
         price_aed = float(item.get("price_aed", 0))
         price_inr = float(item.get("price_inr", 0))
