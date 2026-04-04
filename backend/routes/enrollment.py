@@ -21,7 +21,7 @@ logger = logging.getLogger(__name__)
 # ─── PPP TIERS (fixed, not live conversion) ───
 # Only India gets PPP discount. Everyone else → AED base.
 PPP_TIERS = {
-    "inr": {"multiplier": 0.14, "symbol": "₹", "name": "Indian Rupee"},
+    "inr": {"multiplier": 0.01, "symbol": "₹", "name": "Indian Rupee"},
 }
 
 # Countries that get PPP pricing (strict - ONLY India)
