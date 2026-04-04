@@ -354,64 +354,40 @@ async def get_enrollment_pricing(enrollment_id: str, item_type: str, item_id: st
     ip_country = enrollment.get("ip_info", {}).get("country", "AE")
     claimed_country = enrollment.get("booker_country", enrollment.get("country", ""))
     vpn_blocked = enrollment.get("vpn_blocked", False)
-    phone = enrollment.get("phone") or ""
     participant_count = enrollment.get("participant_count", 1)
 
-    # ─── STRICT INDIA VALIDATION ───
-    # ALL signals must indicate India for INR pricing. Any single non-India signal → USD
-    phone_is_indian = phone.startswith("+91") if phone else True
-    phone_contradicts_india = bool(phone) and not phone.startswith("+91")
-
-    # Timezone check: India is always Asia/Kolkata (UTC+5:30)
-    browser_tz = browser_timezone or ""
-    timezone_is_india = browser_tz in ("Asia/Kolkata", "Asia/Calcutta", "")  # empty = not sent, pass
-
-    # Blocklist check: if email is on fraud blocklist, block INR
+    # ─── BLOCKLIST CHECK ───
     booker_email = enrollment.get("booker_email", "").lower()
     is_blocklisted = False
     if booker_email:
         blocked = await db.fraud_blocklist.find_one({"email": booker_email})
         is_blocklisted = blocked is not None
 
+    # ─── INDIA VALIDATION: IP + VPN only ───
+    # A real India resident has an Indian IP and is not using a VPN.
+    # Phone / timezone / claimed-country are NOT used as gates — they
+    # caused false failures for legitimate Indian students.
+    inr_eligible = ip_country == "IN" and not vpn_blocked and not is_blocklisted
+
     checks = {
         "ip_is_india": ip_country == "IN",
-        "claimed_india": claimed_country == "IN",
         "no_vpn": not vpn_blocked,
-        "phone_consistent": not phone_contradicts_india,
-        "timezone_india": timezone_is_india,
         "not_blocklisted": not is_blocklisted,
     }
-    all_india_checks_pass = all(checks.values())
 
     # ─── REGIONAL CURRENCY MAPPING ───
-    AED_COUNTRIES = {"AE", "SA", "QA", "KW", "OM", "BH"}
-
-    # Determine currency — INR only if ALL India checks pass, otherwise USD (AED only for Gulf)
-    if all_india_checks_pass:
+    # Use the same rules as currency.py so display and charge always match.
+    from routes.currency import get_base_currency as _get_base_currency
+    if inr_eligible:
         allowed_currency = "inr"
         fraud_warning = None
     else:
-        # If any India check fails, never allow INR
-        effective_country = ip_country if not vpn_blocked else claimed_country
-        if effective_country in AED_COUNTRIES and claimed_country in AED_COUNTRIES:
-            allowed_currency = "aed"
-        else:
+        allowed_currency = _get_base_currency(ip_country, vpn_blocked)
+        if is_blocklisted and allowed_currency == "inr":
             allowed_currency = "usd"
+        fraud_warning = "VPN detected — using non-INR pricing." if (ip_country == "IN" and vpn_blocked) else None
 
-        reasons = []
-        if not checks["no_vpn"]:
-            reasons.append("VPN/Proxy detected")
-        if not checks["ip_is_india"]:
-            reasons.append(f"IP location is {ip_country}, not India")
-        if not checks["claimed_india"]:
-            reasons.append("Country not set to India")
-        if phone_contradicts_india:
-            reasons.append("Phone number is not Indian")
-        if not checks["timezone_india"]:
-            reasons.append(f"Browser timezone is {browser_tz}, not India")
-        if is_blocklisted:
-            reasons.append("Email is on fraud blocklist")
-        fraud_warning = f"Using {allowed_currency.upper()} pricing." if reasons else None
+    all_india_checks_pass = inr_eligible  # kept for backward compat in response
 
     # ─── GET PRICE FROM TIER OR ITEM ───
     tiers = item.get("duration_tiers", [])
@@ -484,7 +460,7 @@ async def get_enrollment_pricing(enrollment_id: str, item_type: str, item_id: st
             "ip_country": ip_country,
             "claimed_country": claimed_country,
             "country_mismatch": ip_country != claimed_country,
-            "inr_eligible": all_india_checks_pass,
+            "inr_eligible": inr_eligible,
         },
     }
 
@@ -534,13 +510,15 @@ async def enrollment_checkout(enrollment_id: str, data: EnrollmentSubmit, reques
     if claimed_currency == "aed" and server_currency == "usd" and not inr_override:
         raise HTTPException(status_code=403, detail="Currency mismatch — please refresh the page.")
     
-    # Force correct currency: if IP says India but browser sent USD (stale cache), override to INR
+    # Force correct base currency from server-side IP check (overrides stale frontend cache)
     if server_currency == "inr" and claimed_currency != "inr":
         data.currency = "inr"
         data.display_currency = "inr"
-    elif server_currency == "aed" and claimed_currency == "usd" and not inr_override:
+    elif server_currency == "aed" and claimed_currency not in ("aed", "inr") and not inr_override:
+        # AED-base countries sent USD — correct to AED (keep display_currency as local)
         data.currency = "aed"
-        data.display_currency = "aed"
+        if not data.display_currency or data.display_currency == "usd":
+            data.display_currency = "aed"
 
     # Get pricing (server-side, not from client)
     # Store browser signals for fraud detection audit trail

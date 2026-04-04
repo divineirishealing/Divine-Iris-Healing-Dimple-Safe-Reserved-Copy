@@ -22,13 +22,16 @@ logger = logging.getLogger(__name__)
 # ── Region → Base Currency Mapping ──
 INDIA = {"IN"}
 UAE_ONLY = {"AE"}
-GULF_MIDDLE_EAST = {"SA", "QA", "KW", "OM", "BH", "JO", "LB", "IQ"}
-ASIAN = {"SG", "MY", "PH", "TH", "ID", "VN", "KR", "JP", "CN", "HK", "TW", "BD", "LK", "NP", "PK", "MM", "KH", "LA"}
+GULF_MIDDLE_EAST = {"SA", "QA", "KW", "OM", "BH", "JO", "LB", "IQ", "YE", "SY", "IR"}
+ASIAN = {"SG", "MY", "PH", "TH", "ID", "VN", "KR", "JP", "CN", "HK", "TW", "BD", "LK", "NP", "PK", "MM", "KH", "LA", "MN", "UZ", "KZ", "AZ", "AM", "GE"}
 US_ONLY = {"US"}
 AMERICAS_CONVERT = {"CA", "MX", "BR", "AR", "CL", "CO", "PE"}
-EUROPE = {"GB", "DE", "FR", "IT", "ES", "NL", "BE", "PT", "AT", "CH", "SE", "NO", "DK", "FI", "IE", "PL", "CZ", "HU", "RO", "GR", "HR", "BG", "SK", "SI", "LT", "LV", "EE", "LU", "MT", "CY"}
+# Western Europe → USD base (affluent, USD-familiar)
+WESTERN_EUROPE = {"GB", "DE", "FR", "IT", "ES", "NL", "BE", "PT", "AT", "CH", "SE", "NO", "DK", "FI", "IE", "LU", "MT", "CY"}
+# Eastern Europe → AED base (closer economic alignment)
+EASTERN_EUROPE = {"PL", "CZ", "HU", "RO", "GR", "HR", "BG", "SK", "SI", "LT", "LV", "EE", "UA", "RS", "BA", "MK", "AL", "ME", "MD"}
 OCEANIA = {"AU", "NZ"}
-AFRICA = {"ZA", "NG", "KE", "EG", "MA", "TN", "GH", "ET", "TZ", "UG"}
+AFRICA = {"ZA", "NG", "KE", "EG", "MA", "TN", "GH", "ET", "TZ", "UG", "DZ", "LY", "SD", "SN", "CI", "CM", "AO", "MZ", "ZM", "ZW"}
 
 # Country → local currency code
 COUNTRY_CURRENCY = {
@@ -59,19 +62,28 @@ CURRENCY_SYMBOLS = {
 
 
 def get_base_currency(country_code, vpn_detected):
-    """Determine base currency (what Stripe charges) based on region.
-    
-    VPN policy:
-    - India: STRICT — VPN from India = NOT INR (protect Indian pricing)
-    - Everyone else: VPN ignored, use detected country's currency silently
+    """Determine base currency (what price field to use) based on region.
+
+    Rules:
+    - India: exact INR price. VPN from India = no INR (protect Indian pricing).
+    - UAE: exact AED price.
+    - USA: exact USD price.
+    - Gulf / Middle East / Asia / Africa / Eastern Europe: AED base → convert to local on Stripe.
+    - Western Europe / Americas / Oceania: USD base → convert to local on Stripe.
     """
     if country_code in INDIA:
         if vpn_detected:
-            return "usd"  # Strict: VPN in India = not a resident, no INR
+            return "usd"
         return "inr"
-    # For all other countries, ignore VPN — use detected country's base currency
-    if country_code in UAE_ONLY or country_code in GULF_MIDDLE_EAST or country_code in ASIAN:
+    if country_code in UAE_ONLY:
         return "aed"
+    if country_code in US_ONLY:
+        return "usd"
+    # AED base: Gulf, Middle East, Asia, Africa, Eastern Europe
+    if (country_code in GULF_MIDDLE_EAST or country_code in ASIAN
+            or country_code in AFRICA or country_code in EASTERN_EUROPE):
+        return "aed"
+    # USD base: Western Europe, Americas, Oceania, and anything else
     return "usd"
 
 
