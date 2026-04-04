@@ -178,7 +178,7 @@ async def update_session(session_id: str, session: SessionCreate):
     existing = await db.sessions.find_one({"id": session_id})
     if not existing:
         raise HTTPException(status_code=404, detail="Session not found")
-    update_data = {k: v for k, v in session.dict().items() if v is not None}
+    update_data = session.dict(exclude_unset=True)
     await db.sessions.update_one({"id": session_id}, {"$set": update_data})
     updated = await db.sessions.find_one({"id": session_id})
     return Session(**updated)

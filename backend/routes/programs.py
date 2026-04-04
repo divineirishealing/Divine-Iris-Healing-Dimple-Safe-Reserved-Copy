@@ -65,7 +65,7 @@ async def update_program(program_id: str, program: ProgramCreate):
     existing = await db.programs.find_one({"id": program_id})
     if not existing:
         raise HTTPException(status_code=404, detail="Program not found")
-    update_data = {k: v for k, v in program.dict().items() if v is not None}
+    update_data = program.dict(exclude_unset=True)
     await db.programs.update_one({"id": program_id}, {"$set": update_data})
     updated = await db.programs.find_one({"id": program_id})
     return Program(**updated)
