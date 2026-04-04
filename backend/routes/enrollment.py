@@ -376,7 +376,6 @@ async def get_enrollment_pricing(enrollment_id: str, item_type: str, item_id: st
     }
 
     # ─── REGIONAL CURRENCY MAPPING ───
-    # Use the same rules as currency.py so display and charge always match.
     from routes.currency import get_base_currency as _get_base_currency
     if inr_eligible:
         allowed_currency = "inr"
@@ -386,6 +385,18 @@ async def get_enrollment_pricing(enrollment_id: str, item_type: str, item_id: st
         if is_blocklisted and allowed_currency == "inr":
             allowed_currency = "usd"
         fraud_warning = "VPN detected — using non-INR pricing." if (ip_country == "IN" and vpn_blocked) else None
+
+    # ─── TRUST SERVER-VERIFIED client_currency ───
+    # The checkout endpoint re-checks IP at payment time and sets client_currency
+    # to the verified base currency. This overrides the stale stored enrollment IP
+    # (which defaults to "AE" when IP detection fails at enrollment start).
+    # Block only: blocklisted users cannot claim INR.
+    if client_currency in ("inr", "aed", "usd"):
+        if not (is_blocklisted and client_currency == "inr"):
+            allowed_currency = client_currency
+            if client_currency == "inr":
+                inr_eligible = True
+                fraud_warning = None
 
     all_india_checks_pass = inr_eligible  # kept for backward compat in response
 
@@ -409,9 +420,9 @@ async def get_enrollment_pricing(enrollment_id: str, item_type: str, item_id: st
         offer_inr = float(item.get("offer_price_inr", 0))
         offer_usd = float(item.get("offer_price_usd", 0))
 
-    # Pick price based on allowed currency
+    # Pick price directly from pricing hub — no cross-currency calculation
     if allowed_currency == "inr":
-        price = price_inr if price_inr > 0 else round(price_aed * PPP_TIERS["inr"]["multiplier"], 2)
+        price = price_inr  # exact INR from pricing hub, never converted
         offer_price = offer_inr
         symbol = "₹"
     elif allowed_currency == "usd":
@@ -740,12 +751,13 @@ async def enrollment_checkout(enrollment_id: str, data: EnrollmentSubmit, reques
         webhook_url=f"{host_url}/api/webhook/stripe"
     )
 
-    # Determine Stripe charge currency — use display_currency if provided
-    # Stripe supports 135+ currencies, so we charge in user's local currency
-    # Stripe settles to merchant's default (AED) automatically
-    stripe_currency = currency  # default: base currency
+    # Stripe charge rules:
+    # - INR: ALWAYS charge the exact ₹ price from the pricing hub. Never convert.
+    # - AED (UAE exact) / USD (US exact): charge as-is for those countries.
+    # - AED/USD base for OTHER countries (UK→GBP, SG→SGD, etc.): convert to local currency.
+    stripe_currency = currency
     stripe_amount = float(final_total)
-    if data.display_currency and data.display_currency != currency:
+    if currency != "inr" and data.display_currency and data.display_currency != currency:
         from routes.currency import fetch_live_rates, convert_amount
         rates = await fetch_live_rates()
         converted = convert_amount(float(final_total), currency, data.display_currency, rates)
