@@ -526,10 +526,17 @@ async def enrollment_checkout(enrollment_id: str, data: EnrollmentSubmit, reques
         data.currency = "inr"
         data.display_currency = "inr"
     elif server_currency == "aed" and claimed_currency not in ("aed", "inr") and not inr_override:
-        # AED-base countries sent USD — correct to AED (keep display_currency as local)
         data.currency = "aed"
         if not data.display_currency or data.display_currency == "usd":
             data.display_currency = "aed"
+
+    # Always enforce display_currency server-side from live IP detection.
+    # This ensures the Stripe page always matches what was shown on the homepage,
+    # regardless of whether the frontend passed display_currency correctly.
+    from routes.currency import get_display_currency as _get_display_currency
+    server_display_currency = _get_display_currency(ip_country, vpn_detected)
+    if server_display_currency:
+        data.display_currency = server_display_currency
 
     # Get pricing (server-side, not from client)
     # Store browser signals for fraud detection audit trail
