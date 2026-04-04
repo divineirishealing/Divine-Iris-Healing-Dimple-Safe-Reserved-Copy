@@ -22,16 +22,27 @@ logger = logging.getLogger(__name__)
 # ── Region → Base Currency Mapping ──
 INDIA = {"IN"}
 UAE_ONLY = {"AE"}
-GULF_MIDDLE_EAST = {"SA", "QA", "KW", "OM", "BH", "JO", "LB", "IQ", "YE", "SY", "IR"}
-ASIAN = {"SG", "MY", "PH", "TH", "ID", "VN", "KR", "JP", "CN", "HK", "TW", "BD", "LK", "NP", "PK", "MM", "KH", "LA", "MN", "UZ", "KZ", "AZ", "AM", "GE"}
+GULF_MIDDLE_EAST = {"SA", "QA", "KW", "OM", "BH", "JO", "LB", "IQ", "YE", "SY", "IR", "TR", "IL", "PS"}
+ASIAN = {"SG", "MY", "PH", "TH", "ID", "VN", "KR", "JP", "CN", "HK", "TW", "BD", "LK", "NP", "PK", "MM", "KH", "LA", "MN", "UZ", "KZ", "TJ", "TM", "KG", "AZ", "AM", "GE"}
 US_ONLY = {"US"}
-AMERICAS_CONVERT = {"CA", "MX", "BR", "AR", "CL", "CO", "PE"}
-# Western Europe → USD base (affluent, USD-familiar)
-WESTERN_EUROPE = {"GB", "DE", "FR", "IT", "ES", "NL", "BE", "PT", "AT", "CH", "SE", "NO", "DK", "FI", "IE", "LU", "MT", "CY"}
-# Eastern Europe → AED base (closer economic alignment)
-EASTERN_EUROPE = {"PL", "CZ", "HU", "RO", "GR", "HR", "BG", "SK", "SI", "LT", "LV", "EE", "UA", "RS", "BA", "MK", "AL", "ME", "MD"}
-OCEANIA = {"AU", "NZ"}
-AFRICA = {"ZA", "NG", "KE", "EG", "MA", "TN", "GH", "ET", "TZ", "UG", "DZ", "LY", "SD", "SN", "CI", "CM", "AO", "MZ", "ZM", "ZW"}
+AMERICAS_CONVERT = {"CA", "MX", "BR", "AR", "CL", "CO", "PE", "UY", "PY", "BO", "EC", "VE", "GT", "CR", "PA", "DO", "CU", "JM", "TT"}
+# Western Europe (incl. UK, Nordics, micro-states) → USD base → convert to local currency
+WESTERN_EUROPE = {
+    "GB", "DE", "FR", "IT", "ES", "NL", "BE", "PT", "AT", "CH", "SE", "NO", "DK", "FI",
+    "IE", "LU", "MT", "CY",
+    "IS", "LI", "MC", "AD", "SM", "VA",  # Iceland, Liechtenstein, Monaco, Andorra, San Marino, Vatican
+}
+# Eastern Europe → AED base → convert to local currency
+EASTERN_EUROPE = {
+    "PL", "CZ", "HU", "RO", "GR", "HR", "BG", "SK", "SI", "LT", "LV", "EE",
+    "UA", "RS", "BA", "MK", "AL", "ME", "MD", "BY", "RU", "XK",
+}
+OCEANIA = {"AU", "NZ", "FJ", "PG", "WS", "TO"}
+AFRICA = {
+    "ZA", "NG", "KE", "EG", "MA", "TN", "GH", "ET", "TZ", "UG",
+    "DZ", "LY", "SD", "SN", "CI", "CM", "AO", "MZ", "ZM", "ZW",
+    "RW", "MW", "BW", "NA", "GA", "CG", "CD", "MG", "MU",
+}
 
 # Country → local currency code
 COUNTRY_CURRENCY = {
@@ -41,10 +52,23 @@ COUNTRY_CURRENCY = {
     "KR": "krw", "JP": "jpy", "CN": "cny", "HK": "hkd", "TW": "twd",
     "BD": "bdt", "LK": "lkr", "NP": "npr", "PK": "pkr",
     "CA": "cad", "MX": "mxn", "BR": "brl", "AR": "ars", "CL": "clp", "CO": "cop", "PE": "pen",
-    "GB": "gbp", "CH": "chf", "SE": "sek", "NO": "nok", "DK": "dkk", "PL": "pln", "HU": "huf", "CZ": "czk", "RO": "ron", "HR": "eur", "BG": "bgn",
-    "DE": "eur", "FR": "eur", "IT": "eur", "ES": "eur", "NL": "eur", "BE": "eur", "PT": "eur", "AT": "eur", "FI": "eur", "IE": "eur", "GR": "eur", "SK": "eur", "SI": "eur", "LT": "eur", "LV": "eur", "EE": "eur", "LU": "eur", "MT": "eur", "CY": "eur",
+    # Western Europe
+    "GB": "gbp", "CH": "chf", "SE": "sek", "NO": "nok", "DK": "dkk", "IS": "isk", "LI": "chf",
+    "DE": "eur", "FR": "eur", "IT": "eur", "ES": "eur", "NL": "eur", "BE": "eur", "PT": "eur",
+    "AT": "eur", "FI": "eur", "IE": "eur", "LU": "eur", "MT": "eur", "CY": "eur",
+    "MC": "eur", "AD": "eur", "SM": "eur", "VA": "eur",
+    # Eastern Europe
+    "PL": "pln", "HU": "huf", "CZ": "czk", "RO": "ron", "BG": "bgn",
+    "HR": "eur", "SK": "eur", "SI": "eur", "LT": "eur", "LV": "eur", "EE": "eur", "GR": "eur",
+    "RS": "rsd", "UA": "uah", "BY": "byr", "MD": "mdl", "BA": "bam", "MK": "mkd", "AL": "all", "ME": "eur", "XK": "eur",
+    "RU": "rub",
+    # Middle East / Turkey
+    "TR": "try", "IL": "ils", "PS": "ils",
+    # Oceania
     "AU": "aud", "NZ": "nzd",
-    "ZA": "zar", "NG": "ngn", "KE": "kes", "EG": "egp",
+    # Africa
+    "ZA": "zar", "NG": "ngn", "KE": "kes", "EG": "egp", "MA": "mad", "TN": "tnd",
+    "GH": "ghs", "TZ": "tzs", "UG": "ugx", "RW": "rwf", "MU": "mur", "BW": "bwp", "NA": "nad",
 }
 
 CURRENCY_SYMBOLS = {
@@ -58,6 +82,11 @@ CURRENCY_SYMBOLS = {
     "nzd": "NZ$", "chf": "CHF", "sek": "SEK", "nok": "NOK", "dkk": "DKK", "pln": "PLN",
     "czk": "CZK", "huf": "HUF", "ron": "RON", "bgn": "BGN", "ars": "ARS", "clp": "CLP", "cop": "COP", "pen": "PEN",
     "jod": "JOD", "lbp": "LBP", "iqd": "IQD",
+    "isk": "ISK", "rsd": "RSD", "uah": "UAH", "rub": "RUB", "byr": "BYR", "mdl": "MDL",
+    "bam": "BAM", "mkd": "MKD", "all": "ALL",
+    "try": "₺", "ils": "₪",
+    "mad": "MAD", "tnd": "TND", "ghs": "GHS", "tzs": "TZS", "ugx": "UGX",
+    "rwf": "RWF", "mur": "MUR", "bwp": "BWP", "nad": "NAD",
 }
 
 
