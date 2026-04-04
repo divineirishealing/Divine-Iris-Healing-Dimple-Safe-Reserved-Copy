@@ -1,6 +1,7 @@
 import os
 import logging
 import aiosmtplib
+import httpx
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from dotenv import load_dotenv
@@ -22,32 +23,63 @@ async def _get_smtp_config():
         "password": await get_key("smtp_pass") or os.environ.get('SMTP_PASS', ''),
         "sender": await get_key("sender_email") or os.environ.get('SENDER_EMAIL', 'noreply@divineirishealing.com'),
         "receipt": await get_key("receipt_email") or os.environ.get('RECEIPT_EMAIL', 'receipt@divineirishealing.com'),
+        "resend_key": await get_key("resend_api_key") or os.environ.get('RESEND_API_KEY', ''),
     }
+
+
+async def _send_via_resend(to: str, subject: str, html: str, sender: str, api_key: str) -> bool:
+    """Send email via Resend API. Returns True on success."""
+    try:
+        async with httpx.AsyncClient(timeout=15) as client:
+            resp = await client.post(
+                "https://api.resend.com/emails",
+                headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
+                json={"from": sender, "to": [to], "subject": subject, "html": html},
+            )
+        if resp.status_code in (200, 201):
+            logger.info(f"Email sent to {to} via Resend")
+            return True
+        logger.error(f"Resend rejected email to {to}: {resp.status_code} {resp.text}")
+        return False
+    except Exception as e:
+        logger.error(f"Resend delivery failed for {to}: {e}")
+        return False
 
 
 async def send_email(to: str, subject: str, html: str, from_email: str = None):
     cfg = await _get_smtp_config()
     sender = from_email or cfg["sender"]
-    msg = MIMEMultipart("alternative")
-    msg["From"] = sender
-    msg["To"] = to
-    msg["Subject"] = subject
-    msg.attach(MIMEText(html, "html"))
 
-    try:
-        await aiosmtplib.send(
-            msg,
-            hostname=cfg["host"],
-            port=cfg["port"],
-            start_tls=True,
-            username=cfg["user"],
-            password=cfg["password"],
-        )
-        logger.info(f"Email sent to {to} via SMTP")
-        return {"id": "smtp_ok"}
-    except Exception as e:
-        logger.error(f"Failed to send email to {to}: {e}")
-        return None
+    # Try SMTP when credentials are fully configured
+    if cfg["user"] and cfg["password"]:
+        msg = MIMEMultipart("alternative")
+        msg["From"] = sender
+        msg["To"] = to
+        msg["Subject"] = subject
+        msg.attach(MIMEText(html, "html"))
+        try:
+            await aiosmtplib.send(
+                msg,
+                hostname=cfg["host"],
+                port=cfg["port"],
+                start_tls=True,
+                username=cfg["user"],
+                password=cfg["password"],
+                timeout=15,
+            )
+            logger.info(f"Email sent to {to} via SMTP")
+            return {"id": "smtp_ok"}
+        except Exception as e:
+            logger.warning(f"SMTP failed for {to}: {e} — trying Resend fallback")
+
+    # Resend fallback (or primary when SMTP credentials are absent)
+    if cfg["resend_key"]:
+        ok = await _send_via_resend(to, subject, html, sender, cfg["resend_key"])
+        if ok:
+            return {"id": "resend_ok"}
+
+    logger.error(f"All delivery methods failed for {to}. Configure SMTP password or Resend API key in Admin → API Keys.")
+    return None
 
 
 async def send_otp_email(to: str, otp: str, name: str = ""):
