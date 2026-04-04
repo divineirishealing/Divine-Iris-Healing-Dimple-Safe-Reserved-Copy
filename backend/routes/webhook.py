@@ -86,15 +86,22 @@ async def stripe_webhook(request: Request):
             except Exception as e:
                 logger.warning(f"UID generation error: {e}")
 
-            # Step 4: Send custom Divine Iris receipt
-            try:
-                from routes.payments import send_enrollment_receipt
-                await send_enrollment_receipt(txn_clean)
-                logger.info(f"Receipt sent for {enrollment_id} to {txn_clean.get('booker_email', 'unknown')}")
-            except Exception as e:
-                logger.error(f"Receipt email error for {enrollment_id}: {e}")
-                import traceback
-                traceback.print_exc()
+            # Step 4: Send custom Divine Iris receipt (only if not already sent by status poll)
+            if not txn.get("emails_sent"):
+                try:
+                    from routes.payments import send_enrollment_receipt
+                    await send_enrollment_receipt(txn_clean)
+                    await db.payment_transactions.update_one(
+                        {"stripe_session_id": session_id},
+                        {"$set": {"emails_sent": True, "updated_at": datetime.now(timezone.utc).isoformat()}}
+                    )
+                    logger.info(f"Receipt sent for {enrollment_id} to {txn_clean.get('booker_email', 'unknown')}")
+                except Exception as e:
+                    logger.error(f"Receipt email error for {enrollment_id}: {e}")
+                    import traceback
+                    traceback.print_exc()
+            else:
+                logger.info(f"Skipping receipt for {enrollment_id} — already sent via status poll")
 
         return {"status": "ok"}
     except Exception as e:

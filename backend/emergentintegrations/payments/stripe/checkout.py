@@ -26,6 +26,9 @@ class CheckoutStatusResponse(BaseModel):
     payment_status: str
     session_id: str
     metadata: Optional[Dict[str, Any]] = None
+    status: Optional[str] = None        # Stripe session status: "open" | "complete" | "expired"
+    amount_total: Optional[int] = None  # Amount in cents
+    currency: Optional[str] = None
 
 
 class StripeCheckout:
@@ -51,6 +54,19 @@ class StripeCheckout:
             metadata=request.metadata or {},
         )
         return CheckoutSessionResponse(session_id=session.id, url=session.url)
+
+    async def get_checkout_status(self, session_id: str) -> CheckoutStatusResponse:
+        """Retrieve the current status of a Checkout Session from Stripe."""
+        stripe_lib.api_key = self.api_key
+        session = stripe_lib.checkout.Session.retrieve(session_id)
+        return CheckoutStatusResponse(
+            payment_status=session.payment_status,
+            session_id=session.id,
+            metadata=dict(session.metadata) if session.metadata else None,
+            status=session.status,
+            amount_total=session.amount_total,
+            currency=session.currency,
+        )
 
     async def handle_webhook(self, body: bytes, signature: str) -> CheckoutStatusResponse:
         """

@@ -508,7 +508,7 @@ async def _send_receipt_and_notifications(tx):
 
     # Mark emails as sent
     await db.payment_transactions.update_one(
-        {"stripe_session_id": session_id},
+        {"stripe_session_id": tx.get("stripe_session_id")},
         {"$set": {"emails_sent": True, "updated_at": datetime.now(timezone.utc)}}
     )
 
