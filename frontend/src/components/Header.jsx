@@ -271,7 +271,7 @@ const Header = () => {
       {/* Countdown banner - auto-pulls from nearest upcoming program */}
       {bannerEnabled && (
         <div data-testid="offer-banner" className="fixed left-0 right-0 z-40 flex items-center justify-center gap-3 py-1.5 cursor-pointer"
-          style={{ top: '56px', fontFamily: "'Lato', sans-serif", background: `linear-gradient(to right, ${bannerColor}, ${bannerColor}dd, ${bannerColor})` }}
+          style={{ top: '48px', fontFamily: "'Lato', sans-serif", background: `linear-gradient(to right, ${bannerColor}, ${bannerColor}dd, ${bannerColor})` }}
           onClick={() => handleNav(`/program/${nearestUpcoming.id}`)}>
           <Sparkles size={12} className="text-white/80" />
           <span className="text-[10px] font-bold tracking-[0.15em] uppercase text-white">{nearestUpcoming.title}</span>
