@@ -176,8 +176,8 @@ const Header = () => {
   return (
     <>
       <header data-testid="site-header" className="fixed top-0 left-0 right-0 z-50 bg-black/70 backdrop-blur-md">
-        <div className="w-full px-4 lg:px-6">
-          <div className="flex items-center justify-between h-14">
+        <div className="w-full px-4 lg:px-8">
+          <div className="flex items-center justify-between h-16">
             <div className="flex items-center gap-1">
               <button data-testid="menu-toggle-btn" onClick={() => setMobileOpen(!mobileOpen)}
                 className="lg:hidden text-white hover:text-[#D4AF37] transition-colors p-1">
@@ -185,12 +185,12 @@ const Header = () => {
               </button>
 
               {logoUrl && (
-                <button data-testid="header-logo" onClick={() => handleNav('/')} className="flex-shrink-0 mr-2 hover:opacity-80 transition-opacity">
-                  <img src={logoUrl} alt="Divine Iris Healing" className="h-9 object-contain" style={{ width: logoWidth }} />
+                <button data-testid="header-logo" onClick={() => handleNav('/')} className="flex-shrink-0 mr-3 hover:opacity-80 transition-opacity">
+                  <img src={logoUrl} alt="Divine Iris Healing" className="h-10 w-auto object-contain" style={{ maxWidth: Math.min(logoWidth, 160) }} />
                 </button>
               )}
 
-              <nav className="hidden lg:flex items-center gap-1">
+              <nav className="hidden lg:flex items-center gap-0">
                 {leftNav.map(item => <NavButton key={item.label} item={item} />)}
 
                 {showProgramsDropdown && (
@@ -294,7 +294,7 @@ const Header = () => {
           <nav className="flex flex-col items-center gap-4 pt-8">
             {logoUrl && (
               <button onClick={() => handleNav('/')} className="mb-4 hover:opacity-80 transition-opacity">
-                <img src={logoUrl} alt="Divine Iris Healing" className="h-12 object-contain" style={{ width: logoWidth }} />
+                <img src={logoUrl} alt="Divine Iris Healing" className="h-12 w-auto object-contain" style={{ maxWidth: 160 }} />
               </button>
             )}
             {headerNav.map(item => (
