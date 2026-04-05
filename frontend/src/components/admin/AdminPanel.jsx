@@ -66,6 +66,8 @@ const AdminPanel = () => {
   const [stats, setStats] = useState([]);
   const [subscribers, setSubscribers] = useState([]);
   const [siteSettings, setSiteSettings] = useState(null);
+  const [dataLoading, setDataLoading] = useState(true);
+  const [dataError, setDataError] = useState(false);
 
   const [showProgramForm, setShowProgramForm] = useState(false);
   const [showSessionForm, setShowSessionForm] = useState(false);
@@ -78,17 +80,26 @@ const AdminPanel = () => {
   const [testimonialForm, setTestimonialForm] = useState({ type: 'graphic', name: '', text: '', image: '', before_image: '', videoId: '', program_id: '', program_tags: [], session_tags: [], category: '', role: '', rating: 5, visible: true });
   const [statForm, setStatForm] = useState({ value: '', label: '', order: 0, icon: '', value_style: null, label_style: null });
 
-  const loadAll = useCallback(async () => {
+  const loadAll = useCallback(async (isRetry = false) => {
+    if (!isRetry) setDataLoading(true);
+    setDataError(false);
     try {
-      // Use allSettled to prevent one failure from breaking everything
       const results = await Promise.allSettled([
-        axios.get(`${API}/programs`),
-        axios.get(`${API}/sessions`),
-        axios.get(`${API}/testimonials`),
-        axios.get(`${API}/stats`),
-        axios.get(`${API}/newsletter`),
-        axios.get(`${API}/settings`),
+        axios.get(`${API}/programs`, { timeout: 60000 }),
+        axios.get(`${API}/sessions`, { timeout: 60000 }),
+        axios.get(`${API}/testimonials`, { timeout: 60000 }),
+        axios.get(`${API}/stats`, { timeout: 60000 }),
+        axios.get(`${API}/newsletter`, { timeout: 60000 }),
+        axios.get(`${API}/settings`, { timeout: 60000 }),
       ]);
+
+      const anyFulfilled = results.some(r => r.status === 'fulfilled');
+      if (!anyFulfilled) {
+        // Backend is still waking up — auto retry after 6s
+        setDataError(true);
+        setTimeout(() => loadAll(true), 6000);
+        return;
+      }
 
       if (results[0].status === 'fulfilled') setPrograms(results[0].value.data);
       if (results[1].status === 'fulfilled') setSessions(results[1].value.data);
@@ -97,14 +108,13 @@ const AdminPanel = () => {
       if (results[4].status === 'fulfilled') setSubscribers(results[4].value.data);
       if (results[5].status === 'fulfilled') setSiteSettings(results[5].value.data);
 
-      // Log errors for debugging
-      results.forEach((res, idx) => {
-        if (res.status === 'rejected') {
-          console.error(`Error loading resource ${idx}:`, res.reason);
-        }
-      });
-
-    } catch (error) { console.error('Critical error loading admin data:', error); }
+    } catch (error) {
+      console.error('Critical error loading admin data:', error);
+      setDataError(true);
+      setTimeout(() => loadAll(true), 6000);
+    } finally {
+      setDataLoading(false);
+    }
   }, []);
 
   useEffect(() => { loadAll(); }, [loadAll]);
@@ -285,6 +295,21 @@ const AdminPanel = () => {
           <a href="/" className="text-xs text-gray-400 hover:text-[#D4AF37]">View Site</a>
         </div>
       </div>
+
+      {/* Backend wake-up notice */}
+      {dataError && (
+        <div className="bg-amber-50 border-b border-amber-200 px-4 py-2 flex items-center gap-3">
+          <div className="w-4 h-4 border-2 border-amber-500 border-t-transparent rounded-full animate-spin flex-shrink-0" />
+          <span className="text-xs text-amber-700 font-medium">Backend is waking up (Render free tier sleeps after inactivity) — retrying automatically, please wait 30–60 seconds…</span>
+          <button onClick={() => loadAll()} className="ml-auto text-xs text-amber-600 underline hover:text-amber-800">Retry now</button>
+        </div>
+      )}
+      {dataLoading && !dataError && (
+        <div className="bg-blue-50 border-b border-blue-100 px-4 py-1.5 flex items-center gap-2">
+          <div className="w-3 h-3 border-2 border-blue-400 border-t-transparent rounded-full animate-spin flex-shrink-0" />
+          <span className="text-[11px] text-blue-600">Loading your data…</span>
+        </div>
+      )}
 
       <div className="flex">
         {/* COLLAPSIBLE GROUPED SIDEBAR */}
