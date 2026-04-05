@@ -177,7 +177,13 @@ async def create_session(session: SessionCreate):
 async def update_session(session_id: str, session: SessionCreate):
     existing = await db.sessions.find_one({"id": session_id})
     if not existing:
-        raise HTTPException(status_code=404, detail="Session not found")
+        # Upsert: create the session if it doesn't exist
+        count = await db.sessions.count_documents({})
+        data = session.dict()
+        data["id"] = session_id
+        session_obj = Session(**data, order=data.get("order", count))
+        await db.sessions.insert_one(session_obj.dict())
+        return session_obj
     update_data = session.dict(exclude_unset=True)
     await db.sessions.update_one({"id": session_id}, {"$set": update_data})
     updated = await db.sessions.find_one({"id": session_id})

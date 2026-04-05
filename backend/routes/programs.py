@@ -64,7 +64,13 @@ async def create_program(program: ProgramCreate):
 async def update_program(program_id: str, program: ProgramCreate):
     existing = await db.programs.find_one({"id": program_id})
     if not existing:
-        raise HTTPException(status_code=404, detail="Program not found")
+        # Upsert: create the program if it doesn't exist
+        count = await db.programs.count_documents({})
+        data = program.dict()
+        data["id"] = program_id
+        program_obj = Program(**data, order=data.get("order", count))
+        await db.programs.insert_one(program_obj.dict())
+        return program_obj
     update_data = program.dict(exclude_unset=True)
     await db.programs.update_one({"id": program_id}, {"$set": update_data})
     updated = await db.programs.find_one({"id": program_id})

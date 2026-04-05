@@ -1,5 +1,6 @@
 # Production requirements for Render deployment
 # Dev tools (black, flake8, mypy, pytest etc.) removed
+cloudinary
 
 aiohappyeyeballs==2.6.1
 aiohttp==3.13.3
