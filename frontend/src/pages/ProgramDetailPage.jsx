@@ -443,15 +443,20 @@ function ProgramDetailPage() {
                 const enrollStatus = program.enrollment_status || (program.enrollment_open !== false ? 'open' : 'closed');
                 const pricingHidden = program.show_pricing_on_card === false;
                 const hasTiers = program.duration_tiers?.length > 0;
-                // Avoid duplicate: Express Interest already shown in the hidden-pricing tier block
-                const alreadyShowingInterest = pricingHidden && hasTiers;
+
+                // No pricing shown → always Express Your Interest (notified when enrollment opens)
+                // Avoid duplicate: if tiers block already renders the Express Interest widget, skip here
+                if (pricingHidden) {
+                  return hasTiers ? null : <ExpressInterestInline programId={program.id} programTitle={program.title} accent={heroAccent} />;
+                }
+
+                // Pricing visible → Enroll Now if open, Express Interest if closed
                 if (enrollStatus === 'open') {
                   return (
                     <button data-testid="enroll-btn" onClick={() => navigate(`/enroll/program/${program.id}`)}
                       className="text-white px-10 py-3 text-xs tracking-[0.2em] uppercase transition-colors hover:opacity-90" style={{ background: heroAccent }}>Enroll Now</button>
                   );
                 }
-                if (alreadyShowingInterest) return null;
                 return <ExpressInterestInline programId={program.id} programTitle={program.title} accent={heroAccent} />;
               })()}
             </div>
