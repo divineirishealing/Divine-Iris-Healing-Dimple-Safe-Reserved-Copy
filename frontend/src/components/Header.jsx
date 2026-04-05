@@ -171,6 +171,7 @@ const Header = () => {
   };
 
   const logoUrl = settings?.logo_url ? resolveUrl(settings.logo_url) : '';
+  const logoWidth = settings?.logo_width || 96;
 
   return (
     <>
@@ -185,7 +186,7 @@ const Header = () => {
 
               {logoUrl && (
                 <button data-testid="header-logo" onClick={() => handleNav('/')} className="flex-shrink-0 mr-2 hover:opacity-80 transition-opacity">
-                  <img src={logoUrl} alt="Divine Iris Healing" className="h-9 object-contain" />
+                  <img src={logoUrl} alt="Divine Iris Healing" className="h-9 object-contain" style={{ width: logoWidth }} />
                 </button>
               )}
 
@@ -293,7 +294,7 @@ const Header = () => {
           <nav className="flex flex-col items-center gap-4 pt-8">
             {logoUrl && (
               <button onClick={() => handleNav('/')} className="mb-4 hover:opacity-80 transition-opacity">
-                <img src={logoUrl} alt="Divine Iris Healing" className="h-12 object-contain" />
+                <img src={logoUrl} alt="Divine Iris Healing" className="h-12 object-contain" style={{ width: logoWidth }} />
               </button>
             )}
             {headerNav.map(item => (
