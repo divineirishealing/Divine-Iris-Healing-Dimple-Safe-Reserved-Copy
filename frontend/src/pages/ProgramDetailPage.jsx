@@ -439,12 +439,21 @@ function ProgramDetailPage() {
             )}
 
             <div className="flex flex-col items-center gap-4 justify-center">
-              {program.show_pricing_on_card !== false && (program.enrollment_status || (program.enrollment_open !== false ? 'open' : 'closed')) === 'open' ? (
-                <button data-testid="enroll-btn" onClick={() => navigate(`/enroll/program/${program.id}`)}
-                  className="text-white px-10 py-3 text-xs tracking-[0.2em] uppercase transition-colors hover:opacity-90" style={{ background: heroAccent }}>Enroll Now</button>
-              ) : (
-                <ExpressInterestInline programId={program.id} programTitle={program.title} accent={heroAccent} />
-              )}
+              {(() => {
+                const enrollStatus = program.enrollment_status || (program.enrollment_open !== false ? 'open' : 'closed');
+                const pricingHidden = program.show_pricing_on_card === false;
+                const hasTiers = program.duration_tiers?.length > 0;
+                // Avoid duplicate: Express Interest already shown in the hidden-pricing tier block
+                const alreadyShowingInterest = pricingHidden && hasTiers;
+                if (enrollStatus === 'open') {
+                  return (
+                    <button data-testid="enroll-btn" onClick={() => navigate(`/enroll/program/${program.id}`)}
+                      className="text-white px-10 py-3 text-xs tracking-[0.2em] uppercase transition-colors hover:opacity-90" style={{ background: heroAccent }}>Enroll Now</button>
+                  );
+                }
+                if (alreadyShowingInterest) return null;
+                return <ExpressInterestInline programId={program.id} programTitle={program.title} accent={heroAccent} />;
+              })()}
             </div>
           </div>
         </div>
