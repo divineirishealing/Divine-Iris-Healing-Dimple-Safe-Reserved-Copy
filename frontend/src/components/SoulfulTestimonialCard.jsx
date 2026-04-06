@@ -17,93 +17,92 @@ const Stars = ({ rating = 5 }) => (
 
 /* ── Animated Iris Flower ────────────────────────────────────────────────── */
 /*
-  Real iris anatomy: 3 large "falls" (outer petals, with gold beard)
-  interleaved with 3 narrower "standards" (inner upright petals).
-  Animation: each petal grows outward from the flower centre — anchored
-  at transform-origin top-centre (50% 0%) so scaleY(0→1) = unfurling
-  from the base outward. CSS custom property --r sets each petal's
-  final rotated direction.
+  Green stem grows first, then 3 thin purple petals unfurl outward from the
+  centre and then fold back in. Loops every 2 s so the bloom is always alive.
+  Pollen: gold disc + ring of tiny black dots.
 */
 const IrisBloom = () => (
   <span style={{ display: 'inline-flex', flexShrink: 0 }}>
     <style>{`
-      @keyframes irisUnfurl {
-        0%   { transform: rotate(var(--r,0deg)) scaleY(0.02) scaleX(0.12); opacity: 0; }
-        45%  { opacity: 1; }
-        68%  { transform: rotate(var(--r,0deg)) scaleY(1.08) scaleX(1.05); }
-        100% { transform: rotate(var(--r,0deg)) scaleY(1)    scaleX(1);    opacity: 1; }
+      @keyframes irisLoop {
+        0%,  5%   { transform: rotate(var(--r)) scaleY(0.02) scaleX(0.08); opacity: 0; }
+        30%        { transform: rotate(var(--r)) scaleY(1.07) scaleX(1.04); opacity: 1; }
+        45%        { transform: rotate(var(--r)) scaleY(1)    scaleX(1);    opacity: 1; }
+        72%        { transform: rotate(var(--r)) scaleY(1)    scaleX(1);    opacity: 1; }
+        93%, 100%  { transform: rotate(var(--r)) scaleY(0.02) scaleX(0.08); opacity: 0; }
       }
-      @keyframes irisCorolla {
-        0%   { transform: scale(0); opacity: 0; }
-        65%  { transform: scale(1.2); }
-        100% { transform: scale(1);  opacity: 1; }
+      @keyframes irisPollen {
+        0%, 33%   { transform: scale(0); opacity: 0; }
+        50%        { transform: scale(1.15); opacity: 1; }
+        57%        { transform: scale(1);    opacity: 1; }
+        72%        { opacity: 1; }
+        93%, 100%  { transform: scale(0); opacity: 0; }
       }
-      .ipetal {
+      @keyframes irisStem {
+        0%         { stroke-dashoffset: 28; opacity: 0; }
+        18%        { stroke-dashoffset: 0;  opacity: 1; }
+        82%        { opacity: 1; }
+        100%       { opacity: 0; }
+      }
+      .ipetal3 {
         transform-box: fill-box;
-        transform-origin: 50% 0%;          /* anchor = base of petal = flower centre */
-        animation: irisUnfurl 0.72s cubic-bezier(0.22,1,0.36,1) both;
+        transform-origin: 50% 0%;
+        animation: irisLoop 2s cubic-bezier(0.22,1,0.36,1) infinite both;
       }
-      .icore {
+      .ipollen {
         transform-box: fill-box;
         transform-origin: center;
-        animation: irisCorolla 0.38s ease-out both;
+        animation: irisPollen 2s ease-out infinite both;
+      }
+      .istem3 {
+        stroke-dasharray: 28;
+        animation: irisStem 2s ease-in-out infinite both;
       }
     `}</style>
 
-    <svg viewBox="-22 -23 44 48" width="42" height="46" style={{ overflow: 'visible' }}>
+    <svg viewBox="-20 -24 40 52" width="36" height="44" style={{ overflow: 'visible' }}>
+      {/* ── Stem ── */}
+      <path d="M0,0 C1,8 -1,16 0,26"
+        stroke="#4a7c4e" strokeWidth="2.2" fill="none"
+        strokeLinecap="round" className="istem3" />
 
-      {/*
-        All petals point DOWNWARD (+Y) from origin in their local frame.
-        The --r rotation + transform-origin at top-center ensures each
-        petal unfurls outward from the centre in the correct direction.
-
-        Falls  (wider, with gold beard): 0°, 120°, 240°
-        Standards (narrower, deeper):   60°, 180°, 300°
-      */}
-
-      {/* ── Falls ── */}
-      {[[0, 0.05], [120, 0.20], [240, 0.35]].map(([deg, dl]) => (
-        <g key={`f${deg}`} className="ipetal"
+      {/* ── 3 thin petals ──
+           Petal shape: thin teardrop pointing in local +Y (downward).
+           Rotated so they fan upward/outward from the stem top.
+           180° → straight up | 60° → lower-right | 300° → lower-left  */}
+      {[[180, 0.18], [60, 0.27], [300, 0.36]].map(([deg, dl]) => (
+        <g key={`p${deg}`} className="ipetal3"
           style={{ '--r': `${deg}deg`, animationDelay: `${dl}s` }}>
-          {/* Rounded teardrop fall petal */}
           <path
-            d="M0,0 C-8,3 -10,14 -6,22 C-3,27 3,27 6,22 C10,14 8,3 0,0Z"
-            fill="url(#fallGrad)" opacity="0.92" />
-          {/* Gold beard stripe */}
-          <path
-            d="M0,2 C-0.4,8 -0.4,16 0,20"
-            stroke="#D4AF37" strokeWidth="1.9" fill="none"
-            strokeLinecap="round" opacity="0.95" />
-        </g>
-      ))}
-
-      {/* ── Standards ── */}
-      {[[60, 0.48], [180, 0.58], [300, 0.68]].map(([deg, dl]) => (
-        <g key={`s${deg}`} className="ipetal"
-          style={{ '--r': `${deg}deg`, animationDelay: `${dl}s` }}>
-          {/* Narrower, slightly shorter upright petal */}
-          <path
-            d="M0,0 C-5,2 -6,11 -3,18 C-1,21 1,21 3,18 C6,11 5,2 0,0Z"
-            fill="url(#stdGrad)" opacity="0.95" />
+            d="M0,0 C-2.8,3 -3.5,11 -1.8,18 C-0.9,21 0.9,21 1.8,18 C3.5,11 2.8,3 0,0Z"
+            fill="url(#irisPetalG)" opacity="0.94" />
         </g>
       ))}
 
       {/* ── Gradient defs ── */}
       <defs>
-        <radialGradient id="fallGrad" cx="50%" cy="20%" r="70%">
-          <stop offset="0%"   stopColor="#a78bfa" />
-          <stop offset="100%" stopColor="#7c3aed" />
-        </radialGradient>
-        <radialGradient id="stdGrad" cx="50%" cy="20%" r="70%">
-          <stop offset="0%"   stopColor="#8b5cf6" />
-          <stop offset="100%" stopColor="#5b21b6" />
+        <radialGradient id="irisPetalG" cx="50%" cy="15%" r="75%">
+          <stop offset="0%"   stopColor="#c4b5fd" />
+          <stop offset="100%" stopColor="#6d28d9" />
         </radialGradient>
       </defs>
 
-      {/* ── Centre ── */}
-      <circle cx="0" cy="0" r="5"   fill="#D4AF37" className="icore" style={{ animationDelay: '0.82s' }} />
-      <circle cx="0" cy="0" r="3.2" fill="#fef3c7" className="icore" style={{ animationDelay: '0.90s' }} />
-      <circle cx="0" cy="0" r="1.6" fill="#D4AF37" className="icore" style={{ animationDelay: '0.96s' }} />
+      {/* ── Pollen centre ── */}
+      <circle cx="0" cy="0" r="4.5" fill="#D4AF37" className="ipollen" style={{ animationDelay: '0.86s' }} />
+      <circle cx="0" cy="0" r="2.8" fill="#fef08a" className="ipollen" style={{ animationDelay: '0.92s' }} />
+      {/* 6 black pollen dots in a ring */}
+      {[0, 60, 120, 180, 240, 300].map((a, i) => (
+        <circle
+          key={i}
+          cx={+(Math.cos((a - 90) * Math.PI / 180) * 2.1).toFixed(3)}
+          cy={+(Math.sin((a - 90) * Math.PI / 180) * 2.1).toFixed(3)}
+          r="0.62" fill="#1a0a0a"
+          className="ipollen"
+          style={{ animationDelay: `${0.94 + i * 0.015}s` }}
+        />
+      ))}
+      {/* Tiny amber centre dot */}
+      <circle cx="0" cy="0" r="0.9" fill="#92400e" className="ipollen" style={{ animationDelay: '1.06s' }} />
     </svg>
   </span>
 );
@@ -309,21 +308,11 @@ export const SoulfulWrittenCard = ({ testimonial, onClick }) => {
             <p style={{ fontFamily: "'Lato', sans-serif", fontWeight: 800, fontSize: '0.86rem', color: '#1a1040', letterSpacing: '0.01em' }}>{name}</p>
             {/* Row 2: Role / Location */}
             {role && <p style={{ fontFamily: "'Lato', sans-serif", fontSize: '0.68rem', color: '#8b7a9a', fontStyle: 'italic', marginTop: 2 }}>{role}</p>}
-            {/* Row 3: Program name — gold badge with ✦ */}
+            {/* Row 3: Program name */}
             {program_name && (
-              <span style={{
-                display: 'inline-flex', alignItems: 'center', gap: 4, marginTop: role ? 8 : 6,
-                fontFamily: "'Cormorant Garamond', Georgia, serif",
-                fontSize: '0.72rem', fontWeight: 700, fontStyle: 'italic', letterSpacing: '0.04em',
-                color: '#7c3aed',
-                background: 'linear-gradient(90deg, rgba(139,92,246,0.09), rgba(212,175,55,0.13))',
-                border: '1px solid rgba(212,175,55,0.35)', borderRadius: 20,
-                padding: '3px 10px 3px 7px',
-                boxShadow: '0 1px 5px rgba(212,175,55,0.1)',
-              }}>
-                <span style={{ color: '#D4AF37', fontSize: '0.72rem' }}>✦</span>
+              <p style={{ fontFamily: "'Cormorant Garamond', Georgia, serif", fontSize: '0.73rem', color: '#D4AF37', fontStyle: 'italic', marginTop: role ? 8 : 4, letterSpacing: '0.02em' }}>
                 {program_name}
-              </span>
+              </p>
             )}
           </div>
           {/* Animated iris */}
@@ -435,19 +424,9 @@ const ModalAuthor = ({ name, role, program_name }) => (
     {name && <p style={{ fontFamily: "'Lato', sans-serif", fontWeight: 800, fontSize: '1rem', color: '#1a1040' }}>{name}</p>}
     {role && <p style={{ fontFamily: "'Lato', sans-serif", fontSize: '0.75rem', color: '#8b7a9a', fontStyle: 'italic', marginTop: 4 }}>{role}</p>}
     {program_name && (
-      <div style={{ display: 'flex', justifyContent: 'center', marginTop: role ? 10 : 7 }}>
-        <span style={{
-          display: 'inline-flex', alignItems: 'center', gap: 5,
-          fontFamily: "'Cormorant Garamond', Georgia, serif",
-          fontSize: '0.78rem', fontWeight: 700, fontStyle: 'italic', letterSpacing: '0.04em',
-          color: '#7c3aed',
-          background: 'linear-gradient(90deg, rgba(139,92,246,0.09), rgba(212,175,55,0.13))',
-          border: '1px solid rgba(212,175,55,0.35)', borderRadius: 20,
-          padding: '4px 12px 4px 9px', boxShadow: '0 1px 5px rgba(212,175,55,0.1)',
-        }}>
-          <span style={{ color: '#D4AF37', fontSize: '0.78rem' }}>✦</span>{program_name}
-        </span>
-      </div>
+      <p style={{ fontFamily: "'Cormorant Garamond', Georgia, serif", fontSize: '0.8rem', color: '#D4AF37', fontStyle: 'italic', marginTop: role ? 10 : 7, textAlign: 'center', letterSpacing: '0.02em' }}>
+        {program_name}
+      </p>
     )}
   </div>
 );
