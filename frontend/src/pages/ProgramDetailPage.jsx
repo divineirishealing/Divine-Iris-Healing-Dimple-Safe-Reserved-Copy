@@ -8,7 +8,7 @@ import { resolveImageUrl } from '../lib/imageUtils';
 import { renderMarkdown } from '../lib/renderMarkdown';
 import { useCurrency } from '../context/CurrencyContext';
 import { HEADING, SUBTITLE, BODY, GOLD, LABEL, CONTAINER, NARROW, WIDE, SECTION_PY } from '../lib/designTokens';
-import { SoulfulWrittenCard, SoulfulTestimonialFull } from '../components/SoulfulTestimonialCard';
+import { SoulfulWrittenCard, SoulfulUniformVideoCard, SoulfulTestimonialFull } from '../components/SoulfulTestimonialCard';
 import { Dialog, DialogContent } from '../components/ui/dialog';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
@@ -482,16 +482,18 @@ function ProgramDetailPage() {
         </div>
       </section>
 
-      {testimonials.filter(t => t.type === 'template').length > 0 && (() => {
-        const writtenList = testimonials.filter(t => t.type === 'template');
+      {testimonials.filter(t => t.type === 'template' || (t.type === 'video' && (t.video_url || t.videoId))).length > 0 && (() => {
+        const allCards = testimonials.filter(t =>
+          t.type === 'template' || (t.type === 'video' && (t.video_url || t.videoId))
+        );
         const CARD_W  = 300;
         const CARD_GAP = 20;
-        const times = Math.ceil(10 / writtenList.length);
+        const times = Math.ceil(10 / allCards.length);
         const loopCards = Array.from({ length: times * 2 }, (_, rep) =>
-          writtenList.map((c, i) => ({ ...c, _key: `${rep}-${i}` }))
+          allCards.map((c, i) => ({ ...c, _key: `${rep}-${i}` }))
         ).flat();
-        const trackWidth = writtenList.length * (CARD_W + CARD_GAP);
-        const duration   = Math.max(20, writtenList.length * 5);
+        const trackWidth = allCards.length * (CARD_W + CARD_GAP);
+        const duration   = Math.max(20, allCards.length * 5);
 
         return (
           <section className="py-16" data-testid="testimonials-section"
@@ -526,7 +528,13 @@ function ProgramDetailPage() {
               <div className="prog-marquee-track">
                 {loopCards.map(t => (
                   <div key={t._key} style={{ width: CARD_W, flexShrink: 0 }}>
-                    <SoulfulWrittenCard testimonial={t} onClick={() => setSelectedTemplate(t)} />
+                    {t.type === 'video'
+                      ? <SoulfulUniformVideoCard testimonial={t}
+                          onPlay={(embedUrl, platform) => setSelectedEmbed({ embedUrl, platform })}
+                          onOpen={url => window.open(url, '_blank')}
+                        />
+                      : <SoulfulWrittenCard testimonial={t} onClick={() => setSelectedTemplate(t)} />
+                    }
                   </div>
                 ))}
               </div>
@@ -537,6 +545,22 @@ function ProgramDetailPage() {
               <DialogContent className="max-w-3xl p-0 overflow-hidden rounded-2xl"
                 style={{ border: '1px solid rgba(123,104,238,0.15)' }}>
                 {selectedTemplate && <SoulfulTestimonialFull testimonial={selectedTemplate} />}
+              </DialogContent>
+            </Dialog>
+
+            {/* Video embed modal */}
+            <Dialog open={!!selectedEmbed} onOpenChange={() => setSelectedEmbed(null)}>
+              <DialogContent className="max-w-4xl p-0 overflow-hidden bg-black rounded-2xl">
+                {selectedEmbed && (
+                  <div className="relative"
+                    style={{ paddingBottom: selectedEmbed.platform === 'instagram' ? '120%' : '56.25%' }}>
+                    <iframe className="absolute inset-0 w-full h-full"
+                      src={selectedEmbed.embedUrl} title="Video testimonial" frameBorder="0"
+                      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                      allowFullScreen
+                      sandbox="allow-scripts allow-same-origin allow-popups allow-presentation allow-forms" />
+                  </div>
+                )}
               </DialogContent>
             </Dialog>
           </section>

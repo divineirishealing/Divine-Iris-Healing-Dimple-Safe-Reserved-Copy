@@ -434,6 +434,156 @@ export const SoulfulWrittenCard = ({ testimonial, onClick }) => {
 };
 
 /* ══════════════════════════════════════════════════════════════════════════
+   UNIFORM VIDEO CARD  —  same jewel-tone template as written card
+   ══════════════════════════════════════════════════════════════════════════ */
+export const SoulfulUniformVideoCard = ({ testimonial, onPlay, onOpen }) => {
+  const { name, role, program_name, rating = 5, video_url, videoId, thumbnail, text } = testimonial;
+  const parsed   = parseVideo(video_url) || (videoId ? parseVideo(`https://youtu.be/${videoId}`) : null);
+  const thumbSrc = thumbnail || parsed?.thumbUrl;
+  const canEmbed = parsed?.embedUrl;
+
+  const handleClick = () => {
+    if (canEmbed)          onPlay?.(parsed.embedUrl, parsed.platform);
+    else if (parsed?.openUrl) onOpen?.(parsed.openUrl);
+  };
+
+  // Platform accent colour for placeholder
+  const platformBg = parsed?.platform === 'instagram'
+    ? 'linear-gradient(135deg,#f09433,#e6683c,#dc2743,#cc2366,#bc1888)'
+    : parsed?.platform === 'facebook'
+    ? 'linear-gradient(135deg,#1877F2,#0c5ecc)'
+    : 'linear-gradient(135deg,#1a0a3e,#3b0f9e)';
+
+  return (
+    <div
+      data-testid={`soulful-uvideo-${testimonial.id}`}
+      className="relative group cursor-pointer rounded-3xl overflow-hidden transition-all duration-300 hover:-translate-y-2"
+      style={{
+        background: '#fdfbff',
+        border: '1.5px solid rgba(109,40,217,0.22)',
+        boxShadow: '0 4px 28px rgba(109,40,217,0.10), 0 1px 4px rgba(0,0,0,0.06)',
+      }}
+      onClick={handleClick}
+    >
+      {/* ── Jewel header (same as written card) ── */}
+      <div className="relative px-5 pt-7 overflow-hidden"
+        style={{
+          background: 'linear-gradient(135deg, #1e0654 0%, #3b0f9e 45%, #6d28d9 80%, #9333ea 100%)',
+          paddingBottom: '72px',
+        }}>
+        <div className="absolute inset-0 pointer-events-none"
+          style={{ background: 'radial-gradient(ellipse 80% 60% at 50% 100%, rgba(212,175,55,0.22) 0%, transparent 65%)' }} />
+        {/* Falling dots — reuse same keyframes defined in SoulfulWrittenCard */}
+        {[
+          {t:-2,l:6, s:3,dur:8.0, dx:-6},{t:-2,l:22,s:2,dur:7.2, dx:4},
+          {t:-2,l:38,s:4,dur:9.5, dx:-3},{t:-2,l:55,s:2,dur:7.8, dx:7},
+          {t:-2,l:70,s:3,dur:8.8, dx:-5},{t:-2,l:85,s:2,dur:7.0, dx:3},
+          {t:-2,l:93,s:3,dur:9.2, dx:-4},{t:-2,l:14,s:2,dur:8.4, dx:5},
+          {t:15,l:50,s:3,dur:2.8, dx:0},{t:20,l:4, s:2,dur:2.5, dx:0},
+        ].map((p,i) => (
+          <div key={i} className="absolute rounded-full pointer-events-none"
+            style={{
+              zIndex:1, top:`${p.t}%`, left:`${p.l}%`, width:p.s, height:p.s,
+              background: i%3===0?'rgba(212,175,55,0.95)':i%3===1?'rgba(255,255,255,0.75)':'rgba(196,181,253,0.85)',
+              boxShadow:`0 0 ${p.s*3}px ${i%3===0?'rgba(212,175,55,0.85)':'rgba(196,181,253,0.65)'}`,
+              '--dx':`${p.dx}px`,
+              animationName: p.dx===0?'dotFloat':'dotFall',
+              animationDuration:`${p.dur}s`, animationTimingFunction:'ease-in',
+              animationIterationCount:'infinite', animationDelay:`${(i*0.31)%p.dur}s`,
+            }} />
+        ))}
+        <div className="flex justify-center relative z-10 mb-1"><Stars rating={rating} /></div>
+        <div className="relative z-10 flex items-center justify-center gap-2 mt-2">
+          <div style={{ height:1, width:28, background:'linear-gradient(to right,transparent,rgba(212,175,55,0.6))' }} />
+          <div style={{ width:4, height:4, borderRadius:'50%', background:'#D4AF37', opacity:0.7 }} />
+          <div style={{ height:1, width:28, background:'linear-gradient(to left,transparent,rgba(212,175,55,0.6))' }} />
+        </div>
+      </div>
+
+      {/* ── Video thumbnail straddling header / body ── */}
+      <div className="flex justify-center" style={{ marginTop: -50, position: 'relative', zIndex: 10 }}>
+        <div style={{
+          width: 130, height: 80,
+          borderRadius: 10, overflow: 'hidden',
+          boxShadow: '0 6px 20px rgba(0,0,0,0.30)',
+          position: 'relative',
+        }}>
+          {thumbSrc ? (
+            <img src={thumbSrc} alt={name || 'Video'} className="w-full h-full object-cover" />
+          ) : (
+            <div className="w-full h-full flex items-center justify-center"
+              style={{ background: platformBg }}>
+              <span style={{ fontSize:'1.6rem' }}>
+                {parsed?.platform==='instagram'?'📸':parsed?.platform==='facebook'?'📘':'🎬'}
+              </span>
+            </div>
+          )}
+          {/* Play button overlay */}
+          <div className="absolute inset-0 flex items-center justify-center"
+            style={{ background:'rgba(0,0,0,0.28)' }}>
+            <div style={{
+              width:32, height:32, borderRadius:'50%',
+              background:'rgba(212,175,55,0.92)',
+              display:'flex', alignItems:'center', justifyContent:'center',
+              boxShadow:'0 2px 10px rgba(0,0,0,0.4)',
+            }}>
+              <svg width="12" height="14" viewBox="0 0 12 14" fill="white">
+                <path d="M1 1l10 6-10 6V1z"/>
+              </svg>
+            </div>
+          </div>
+          {/* Platform badge */}
+          {parsed && (
+            <div className="absolute top-1 left-1">
+              <PlatformBadge platform={parsed.platform} />
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* ── Card body ── */}
+      <div className="px-5 pt-3 pb-5">
+        {text && (
+          <p style={{
+            fontFamily:"'Cormorant Garamond',Georgia,serif",
+            fontSize:'0.88rem', lineHeight:1.8, color:'#1e0a4e',
+            fontStyle:'italic', textAlign:'center',
+          }}>
+            "{text.length > 120 ? text.substring(0,120)+'…' : text}"
+          </p>
+        )}
+        {!text && (
+          <p style={{ textAlign:'center', fontSize:'0.78rem', color:'rgba(109,40,217,0.5)', fontStyle:'italic', marginTop:4 }}>
+            Click to watch
+          </p>
+        )}
+
+        <div className="my-4 h-px"
+          style={{ background:'linear-gradient(90deg,transparent,rgba(212,175,55,0.5) 30%,rgba(109,40,217,0.4) 70%,transparent)' }} />
+
+        <div className="flex items-end justify-between gap-2">
+          <div className="flex-1">
+            <p style={{ fontFamily:"'Lato',sans-serif", fontWeight:800, fontSize:'0.9rem', color:'#1a0a4e', letterSpacing:'0.02em' }}>{name}</p>
+            <p style={{ fontFamily:"'Lato',sans-serif", fontSize:'0.68rem', color:'#7c6a9a', fontStyle:'italic', marginTop:2, minHeight:'2.2em', visibility: role?'visible':'hidden' }}>
+              {role||'\u00A0'}
+            </p>
+            {program_name && (
+              <p style={{ fontFamily:"'Cormorant Garamond',Georgia,serif", fontSize:'0.74rem', color:'#b8860b', fontStyle:'italic', marginTop:2, letterSpacing:'0.03em', fontWeight:600 }}>
+                {program_name}
+              </p>
+            )}
+          </div>
+          <IrisBloom />
+        </div>
+      </div>
+
+      <div className="h-0.5 w-full"
+        style={{ background:'linear-gradient(90deg,#6d28d9,#9333ea 40%,#D4AF37 70%,#b8860b)' }} />
+    </div>
+  );
+};
+
+/* ══════════════════════════════════════════════════════════════════════════
    VIDEO TESTIMONIAL CARD
    ══════════════════════════════════════════════════════════════════════════ */
 export const SoulfulVideoCard = ({ testimonial, onPlay, onOpen }) => {
