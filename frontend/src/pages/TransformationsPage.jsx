@@ -217,7 +217,7 @@ function TransformationsPage() {
             <div className="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {videoTestimonials.map(t => (
                 <SoulfulVideoCard key={t.id} testimonial={t}
-                  onPlay={embedUrl => setSelectedEmbed({ embedUrl })}
+                  onPlay={(embedUrl, platform) => setSelectedEmbed({ embedUrl, platform })}
                   onOpen={url => window.open(url, '_blank')}
                 />
               ))}
@@ -274,11 +274,13 @@ function TransformationsPage() {
       <Dialog open={!!selectedEmbed} onOpenChange={() => setSelectedEmbed(null)}>
         <DialogContent className="max-w-4xl p-0 overflow-hidden bg-black rounded-2xl">
           {selectedEmbed && (
-            <div className="relative" style={{ paddingBottom: '56.25%' }}>
+            <div className="relative" style={{ paddingBottom: selectedEmbed.platform === 'instagram' ? '120%' : '56.25%' }}>
               <iframe className="absolute inset-0 w-full h-full"
                 src={selectedEmbed.embedUrl}
                 title="Video testimonial" frameBorder="0"
-                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowFullScreen />
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                allowFullScreen
+                sandbox="allow-scripts allow-same-origin allow-popups allow-presentation allow-forms" />
             </div>
           )}
         </DialogContent>

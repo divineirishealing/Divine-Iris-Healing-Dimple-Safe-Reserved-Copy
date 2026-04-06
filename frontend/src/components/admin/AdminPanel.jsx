@@ -77,7 +77,7 @@ const AdminPanel = () => {
 
   const [programForm, setProgramForm] = useState({ title: '', category: '', description: '', image: '', price_usd: 0, price_inr: 0, price_eur: 0, price_gbp: 0, price_aed: 0, visible: true, order: 0, program_type: 'online', session_mode: 'online', enable_online: true, enable_offline: true, enable_in_person: false, offer_price_aed: 0, offer_price_usd: 0, offer_price_inr: 0, offer_text: '', is_upcoming: false, is_flagship: false, is_group_program: false, replicate_to_flagship: false, start_date: '', end_date: '', deadline_date: '', enrollment_open: true, enrollment_status: 'open', duration_tiers: [], whatsapp_group_link: '', zoom_link: '', custom_link: '', custom_link_label: '', show_whatsapp_link: true, show_zoom_link: true, show_custom_link: true, show_whatsapp_link_2: false, whatsapp_group_link_2: '', content_sections: [], timing: '', time_zone: '', show_duration_on_page: false, show_start_date_on_page: false, show_timing_on_page: false, show_duration_on_card: true, exclusive_offer_enabled: false, exclusive_offer_text: 'Limited Time Offer', closure_text: 'Registration Closed', show_pricing_on_card: true, show_tiers_on_card: true });
   const [sessionForm, setSessionForm] = useState({ title: '', description: '', image: '', price_usd: 0, price_inr: 0, price_eur: 0, price_gbp: 0, price_aed: 0, offer_price_aed: 0, offer_price_usd: 0, offer_price_inr: 0, offer_text: '', offer_expiry: '', duration: '60-90 minutes', session_mode: 'online', available_dates: [], time_slots: [], testimonial_text: '', title_style: null, description_style: null, visible: true, order: 0 });
-  const [testimonialForm, setTestimonialForm] = useState({ type: 'graphic', name: '', text: '', image: '', before_image: '', videoId: '', video_url: '', photos: [], photo_labels: [], photo_mode: 'single', program_id: '', program_name: '', program_tags: [], session_tags: [], category: '', role: '', rating: 5, visible: true });
+  const [testimonialForm, setTestimonialForm] = useState({ type: 'graphic', name: '', text: '', image: '', before_image: '', videoId: '', video_url: '', thumbnail: '', photos: [], photo_labels: [], photo_mode: 'single', program_id: '', program_name: '', program_tags: [], session_tags: [], category: '', role: '', rating: 5, visible: true });
   const [statForm, setStatForm] = useState({ value: '', label: '', order: 0, icon: '', value_style: null, label_style: null });
 
   const loadAll = useCallback(async (isRetry = false) => {
@@ -171,12 +171,12 @@ const AdminPanel = () => {
   };
   const editTestimonial = (t) => {
     setEditingId(t.id);
-    setTestimonialForm({ type: t.type, name: t.name || '', text: t.text || '', image: t.image || '', before_image: t.before_image || '', videoId: t.videoId || '', video_url: t.video_url || '', photos: t.photos || [], photo_labels: t.photo_labels || [], photo_mode: t.photo_mode || 'single', program_id: t.program_id || '', program_name: t.program_name || '', program_tags: t.program_tags || [], session_tags: t.session_tags || [], category: t.category || '', role: t.role || '', rating: t.rating ?? 5, visible: t.visible !== false });
+    setTestimonialForm({ type: t.type, name: t.name || '', text: t.text || '', image: t.image || '', before_image: t.before_image || '', videoId: t.videoId || '', video_url: t.video_url || '', thumbnail: t.thumbnail || '', photos: t.photos || [], photo_labels: t.photo_labels || [], photo_mode: t.photo_mode || 'single', program_id: t.program_id || '', program_name: t.program_name || '', program_tags: t.program_tags || [], session_tags: t.session_tags || [], category: t.category || '', role: t.role || '', rating: t.rating ?? 5, visible: t.visible !== false });
     setShowTestimonialForm(true);
   };
   const deleteTestimonial = async (id) => { if (!window.confirm('Delete?')) return; await axios.delete(`${API}/testimonials/${id}`); toast({ title: 'Deleted' }); loadAll(); };
   const toggleTestimonialVisibility = async (t) => { await axios.patch(`${API}/testimonials/${t.id}/visibility`, { visible: !t.visible }); loadAll(); };
-  const resetTestimonialForm = () => { setShowTestimonialForm(false); setEditingId(null); setTestimonialForm({ type: 'graphic', name: '', text: '', image: '', before_image: '', videoId: '', video_url: '', photos: [], photo_labels: [], photo_mode: 'single', program_id: '', program_name: '', program_tags: [], session_tags: [], category: '', role: '', rating: 5, visible: true }); };
+  const resetTestimonialForm = () => { setShowTestimonialForm(false); setEditingId(null); setTestimonialForm({ type: 'graphic', name: '', text: '', image: '', before_image: '', videoId: '', video_url: '', thumbnail: '', photos: [], photo_labels: [], photo_mode: 'single', program_id: '', program_name: '', program_tags: [], session_tags: [], category: '', role: '', rating: 5, visible: true }); };
 
   // ===== STATS =====
   const saveStat = async () => {
@@ -994,21 +994,31 @@ const AdminPanel = () => {
 
                   {/* ── Video fields ── */}
                   {testimonialForm.type === 'video' && (
-                    <div className="mb-4 space-y-3">
+                    <div className="mb-4 space-y-4">
                       <div>
                         <Label>Video URL</Label>
                         <Input value={testimonialForm.video_url}
                           onChange={e => setTestimonialForm({...testimonialForm, video_url: e.target.value})}
                           placeholder="Paste full YouTube, Instagram Reel or Facebook video URL" />
-                        <p className="text-[10px] text-gray-400 mt-1">
-                          YouTube: <span className="font-mono">https://youtu.be/ABC123</span> · Instagram: <span className="font-mono">https://www.instagram.com/reel/CODE/</span>
-                        </p>
+                        <div className="mt-1.5 space-y-0.5">
+                          <p className="text-[10px] text-gray-400">YouTube: <span className="font-mono text-blue-500">https://youtu.be/ABC123</span> or <span className="font-mono text-blue-500">https://youtube.com/watch?v=...</span></p>
+                          <p className="text-[10px] text-gray-400">Instagram: <span className="font-mono text-pink-500">https://www.instagram.com/reel/CODE/</span> or <span className="font-mono text-pink-500">.../p/CODE/</span></p>
+                          <p className="text-[10px] text-gray-400">Facebook: <span className="font-mono text-blue-600">https://www.facebook.com/watch?v=...</span></p>
+                        </div>
                       </div>
-                      <div>
-                        <Label>Testimonial Quote (optional — shown below video)</Label>
-                        <Textarea value={testimonialForm.text}
-                          onChange={e => setTestimonialForm({...testimonialForm, text: e.target.value})}
-                          rows={2} placeholder="Short quote or description…" />
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <Label>Cover Thumbnail <span className="text-[10px] text-purple-400 font-normal">(recommended for Instagram / Facebook)</span></Label>
+                          <ImageUploader value={testimonialForm.thumbnail || ''}
+                            onChange={url => setTestimonialForm({...testimonialForm, thumbnail: url})} />
+                          <p className="text-[9px] text-gray-400 mt-1">Upload a screenshot or cover image. YouTube auto-generates one.</p>
+                        </div>
+                        <div>
+                          <Label>Testimonial Quote (optional)</Label>
+                          <Textarea value={testimonialForm.text}
+                            onChange={e => setTestimonialForm({...testimonialForm, text: e.target.value})}
+                            rows={4} placeholder="Short quote or description shown below the video card…" />
+                        </div>
                       </div>
                     </div>
                   )}

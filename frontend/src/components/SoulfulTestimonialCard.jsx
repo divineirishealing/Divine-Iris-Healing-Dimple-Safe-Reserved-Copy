@@ -22,19 +22,45 @@ const QuoteGlyph = ({ color = 'rgba(139,92,246,0.12)' }) => (
   </span>
 );
 
-/* ── Parse video URL → { platform, id, embedUrl, thumbUrl } ────────────── */
+/* ── Parse video URL → { platform, id, embedUrl, thumbUrl, openUrl } ────── */
 function parseVideo(url) {
   if (!url) return null;
+
+  // YouTube
   const yt = url.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/)([a-zA-Z0-9_-]{11})/);
   if (yt) return {
     platform: 'youtube',
     id: yt[1],
     embedUrl: `https://www.youtube.com/embed/${yt[1]}?autoplay=1&rel=0`,
     thumbUrl: `https://img.youtube.com/vi/${yt[1]}/maxresdefault.jpg`,
+    openUrl: url,
   };
+
+  // Instagram reel or post — /embed/ path works for public accounts
   const ig = url.match(/instagram\.com\/(reel|p)\/([a-zA-Z0-9_-]+)/);
-  if (ig) return { platform: 'instagram', id: ig[2], embedUrl: null, thumbUrl: null, openUrl: url };
-  if (url.includes('facebook.com')) return { platform: 'facebook', id: null, embedUrl: null, thumbUrl: null, openUrl: url };
+  if (ig) {
+    const type = ig[1]; // "reel" or "p"
+    const code = ig[2];
+    return {
+      platform: 'instagram',
+      id: code,
+      embedUrl: `https://www.instagram.com/${type}/${code}/embed/`,
+      thumbUrl: null,
+      openUrl: url,
+    };
+  }
+
+  // Facebook video
+  if (url.includes('facebook.com')) {
+    return {
+      platform: 'facebook',
+      id: null,
+      embedUrl: `https://www.facebook.com/plugins/video.php?href=${encodeURIComponent(url)}&width=500&show_text=false&autoplay=true`,
+      thumbUrl: null,
+      openUrl: url,
+    };
+  }
+
   return { platform: 'other', id: null, embedUrl: null, thumbUrl: null, openUrl: url };
 }
 
@@ -211,9 +237,8 @@ export const SoulfulVideoCard = ({ testimonial, onPlay, onOpen }) => {
   const canEmbed = parsed?.embedUrl;
 
   const handleClick = () => {
-    if (canEmbed) onPlay?.(parsed.embedUrl);
+    if (canEmbed) onPlay?.(parsed.embedUrl, parsed.platform);
     else if (parsed?.openUrl) onOpen?.(parsed.openUrl);
-    else if (parsed?.openUrl) window.open(parsed.openUrl, '_blank');
   };
 
   return (
@@ -229,17 +254,42 @@ export const SoulfulVideoCard = ({ testimonial, onPlay, onOpen }) => {
           <img src={thumbSrc} alt={name || 'Video testimonial'}
             className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" />
         ) : (
-          <div className="w-full h-full flex items-center justify-center"
-            style={{ background: 'linear-gradient(135deg,#1a0a3e,#2d1a5e)' }}>
-            <span style={{ fontSize: '3rem', opacity: 0.3 }}>◉</span>
+          /* Platform-branded placeholder when no thumbnail */
+          <div className="w-full h-full flex flex-col items-center justify-center gap-3"
+            style={{
+              background: parsed?.platform === 'instagram'
+                ? 'linear-gradient(135deg,#f09433 0%,#e6683c 25%,#dc2743 50%,#cc2366 75%,#bc1888 100%)'
+                : parsed?.platform === 'facebook'
+                ? 'linear-gradient(135deg,#1877F2,#0c5ecc)'
+                : 'linear-gradient(135deg,#1a0a3e,#2d1a5e)',
+            }}>
+            <span style={{ fontSize: '2.8rem', opacity: 0.9 }}>
+              {parsed?.platform === 'instagram' ? '📸' : parsed?.platform === 'facebook' ? '📘' : '🎬'}
+            </span>
+            {name && (
+              <p style={{ fontFamily: "'Lato', sans-serif", fontSize: '0.8rem', color: 'rgba(255,255,255,0.9)', fontWeight: 600, textAlign: 'center', maxWidth: '80%', lineHeight: 1.3 }}>
+                {name}
+              </p>
+            )}
+            <p style={{ fontSize: '0.68rem', color: 'rgba(255,255,255,0.65)', textAlign: 'center' }}>
+              {canEmbed ? 'Click to watch' : 'Click to open'}
+              {parsed?.platform === 'instagram' ? ' on Instagram' : parsed?.platform === 'facebook' ? ' on Facebook' : ''}
+            </p>
           </div>
         )}
-        {/* Dark overlay */}
-        <div className="absolute inset-0 bg-black/25 group-hover:bg-black/40 transition-all duration-300" />
-        {/* Play button */}
+        {/* Dark overlay only when we have a thumbnail */}
+        {thumbSrc && <div className="absolute inset-0 bg-black/25 group-hover:bg-black/40 transition-all duration-300" />}
+        {/* Play / Open button */}
         <div className="absolute inset-0 flex items-center justify-center">
           <div className="w-14 h-14 rounded-full flex items-center justify-center transition-transform duration-300 group-hover:scale-110"
-            style={{ background: canEmbed ? 'linear-gradient(135deg,#D4AF37,#b8962e)' : 'linear-gradient(135deg,rgba(255,255,255,0.2),rgba(255,255,255,0.1))', boxShadow: '0 0 24px rgba(212,175,55,0.4)', backdropFilter: 'blur(4px)', border: '1.5px solid rgba(212,175,55,0.6)' }}>
+            style={{
+              background: thumbSrc
+                ? 'linear-gradient(135deg,#D4AF37,#b8962e)'
+                : 'rgba(255,255,255,0.25)',
+              boxShadow: thumbSrc ? '0 0 24px rgba(212,175,55,0.5)' : '0 0 16px rgba(255,255,255,0.2)',
+              backdropFilter: 'blur(6px)',
+              border: '1.5px solid rgba(255,255,255,0.4)',
+            }}>
             {canEmbed
               ? <Play size={22} className="text-white ml-1" fill="white" />
               : <ExternalLink size={18} className="text-white" />
