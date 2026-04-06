@@ -16,54 +16,69 @@ const Stars = ({ rating = 5 }) => (
 );
 
 /* ── Animated Iris Flower ────────────────────────────────────────────────── */
-/*
-  True furl/unfurl: all petals start pointing UPWARD (closed bud, rotate 180°)
-  then each sweeps to its spread position: top stays, right swings to 60°,
-  left swings to 300°. Simultaneously the petal grows in length (scaleY).
-  Separate @keyframes per petal so the rotation interpolates correctly.
-  4.5 s loop: ~1.7 s open, 0.7 s hold, ~1.7 s close, 0.4 s pause.
-*/
 const IrisBloom = () => (
   <span style={{ display: 'inline-flex', flexShrink: 0 }}>
     <style>{`
-      /* Top petal (180°): stays up, grows out then furls back */
+      /* Top petal — stays pointing up, curls open (scaleX 0→1) then furls back */
       @keyframes irisPetal0 {
-        0%, 100% { transform: rotate(180deg) scaleY(0.05) scaleX(0.3); }
-        40%      { transform: rotate(180deg) scaleY(1.1)  scaleX(1); }
-        50%      { transform: rotate(180deg) scaleY(1)    scaleX(1); }
-        58%      { transform: rotate(180deg) scaleY(1)    scaleX(1); }
-        92%      { transform: rotate(180deg) scaleY(0.05) scaleX(0.3); }
+        0%, 100% { transform: rotate(180deg) scaleY(0.04) scaleX(0.06); }
+        8%        { transform: rotate(180deg) scaleY(0.15) scaleX(0.08); }
+        36%       { transform: rotate(180deg) scaleY(1.12) scaleX(1.08); }
+        46%       { transform: rotate(180deg) scaleY(1)    scaleX(1); }
+        58%       { transform: rotate(180deg) scaleY(1)    scaleX(1); }
+        86%       { transform: rotate(180deg) scaleY(0.04) scaleX(0.06); }
       }
-      /* Right petal: sweeps from bud (180°) → spread (60°) while unfurling */
+      /* Right petal — sweeps from bud→60° while unfurling */
       @keyframes irisPetal1 {
-        0%, 100% { transform: rotate(180deg) scaleY(0.05) scaleX(0.3); }
-        40%      { transform: rotate(60deg)  scaleY(1.1)  scaleX(1); }
-        50%      { transform: rotate(60deg)  scaleY(1)    scaleX(1); }
-        58%      { transform: rotate(60deg)  scaleY(1)    scaleX(1); }
-        92%      { transform: rotate(180deg) scaleY(0.05) scaleX(0.3); }
+        0%, 100% { transform: rotate(180deg) scaleY(0.04) scaleX(0.06); }
+        8%        { transform: rotate(174deg) scaleY(0.15) scaleX(0.08); }
+        36%       { transform: rotate(60deg)  scaleY(1.12) scaleX(1.08); }
+        46%       { transform: rotate(60deg)  scaleY(1)    scaleX(1); }
+        58%       { transform: rotate(60deg)  scaleY(1)    scaleX(1); }
+        86%       { transform: rotate(180deg) scaleY(0.04) scaleX(0.06); }
       }
-      /* Left petal: sweeps from bud (180°) → spread (300°) while unfurling */
+      /* Left petal — sweeps from bud→300° while unfurling */
       @keyframes irisPetal2 {
-        0%, 100% { transform: rotate(180deg) scaleY(0.05) scaleX(0.3); }
-        40%      { transform: rotate(300deg) scaleY(1.1)  scaleX(1); }
-        50%      { transform: rotate(300deg) scaleY(1)    scaleX(1); }
-        58%      { transform: rotate(300deg) scaleY(1)    scaleX(1); }
-        92%      { transform: rotate(180deg) scaleY(0.05) scaleX(0.3); }
+        0%, 100% { transform: rotate(180deg) scaleY(0.04) scaleX(0.06); }
+        8%        { transform: rotate(186deg) scaleY(0.15) scaleX(0.08); }
+        36%       { transform: rotate(300deg) scaleY(1.12) scaleX(1.08); }
+        46%       { transform: rotate(300deg) scaleY(1)    scaleX(1); }
+        58%       { transform: rotate(300deg) scaleY(1)    scaleX(1); }
+        86%       { transform: rotate(180deg) scaleY(0.04) scaleX(0.06); }
       }
-      /* Pollen blooms only while petals are fully open */
+      /* Pollen cluster appears when flower is open */
       @keyframes irisPollenAnim {
-        0%, 46%  { transform: scale(0); opacity: 0; }
-        54%      { transform: scale(1.15); opacity: 1; }
-        58%      { transform: scale(1);    opacity: 1; }
-        78%      { opacity: 1; }
-        90%      { transform: scale(0); opacity: 0; }
-        100%     { transform: scale(0); opacity: 0; }
+        0%, 44%  { transform: scale(0); opacity: 0; }
+        52%      { transform: scale(1.2); opacity: 1; }
+        56%      { transform: scale(1);   opacity: 1; }
+        74%      { opacity: 1; }
+        86%      { transform: scale(0);   opacity: 0; }
+        100%     { transform: scale(0);   opacity: 0; }
       }
-      /* Stem pulses gently */
+      /* 3 pollen drops fall from flower centre while open */
+      @keyframes pollenDrop0 {
+        0%, 53%  { transform: translate(0px, 0px);   opacity: 0; }
+        55%      { transform: translate(0px, 0px);   opacity: 1; }
+        84%      { transform: translate(-2px, 9px);  opacity: 0; }
+        100%     { transform: translate(-2px, 9px);  opacity: 0; }
+      }
+      @keyframes pollenDrop1 {
+        0%, 57%  { transform: translate(0px, 0px);   opacity: 0; }
+        59%      { transform: translate(0px, 0px);   opacity: 0.9; }
+        86%      { transform: translate(2px, 12px);  opacity: 0; }
+        100%     { transform: translate(2px, 12px);  opacity: 0; }
+      }
+      @keyframes pollenDrop2 {
+        0%, 61%  { transform: translate(0px, 0px);   opacity: 0; }
+        63%      { transform: translate(0px, 0px);   opacity: 0.85; }
+        88%      { transform: translate(0px, 8px);   opacity: 0; }
+        100%     { transform: translate(0px, 8px);   opacity: 0; }
+      }
+      /* Stem breathes gently */
       @keyframes irisStemAnim {
-        0%, 100% { opacity: 0.5; }
-        15%      { opacity: 1; }
-        85%      { opacity: 1; }
+        0%, 100% { opacity: 0.45; }
+        14%      { opacity: 1; }
+        84%      { opacity: 1; }
       }
       .ipetal3 {
         transform-box: fill-box;
@@ -83,12 +98,12 @@ const IrisBloom = () => (
         stroke="#4a7c4e" strokeWidth="2.4" fill="none"
         strokeLinecap="round" className="istem3" />
 
-      {/* 3 petals — each with its own named keyframes so rotation interpolates */}
+      {/* 3 petals — each with its own keyframe for correct rotation interpolation */}
       {[0, 1, 2].map(i => (
         <g key={i} className="ipetal3"
-          style={{ animation: `irisPetal${i} 4.5s cubic-bezier(0.45,0,0.2,1) ${i * 0.06}s infinite` }}>
+          style={{ animation: `irisPetal${i} 4.5s cubic-bezier(0.38,0,0.12,1) ${i * 0.07}s infinite` }}>
           <path
-            d="M0,0 C-3.5,4 -4.5,14 -2.2,22 C-1.1,25 1.1,25 2.2,22 C4.5,14 3.5,4 0,0Z"
+            d="M0,0 C-4,5 -5,15 -2.5,23 C-1.2,26.5 1.2,26.5 2.5,23 C5,15 4,5 0,0Z"
             fill="url(#irisPetalG)" opacity="0.95" />
         </g>
       ))}
@@ -102,18 +117,26 @@ const IrisBloom = () => (
       </defs>
 
       {/* Pollen centre */}
-      <circle cx="0" cy="0" r="4.8" fill="#D4AF37" className="ipollen" style={{ animationDelay: '1.7s' }} />
-      <circle cx="0" cy="0" r="3"   fill="#fef08a" className="ipollen" style={{ animationDelay: '1.76s' }} />
+      <circle cx="0" cy="0" r="4.8" fill="#D4AF37" className="ipollen" style={{ animationDelay: '1.65s' }} />
+      <circle cx="0" cy="0" r="3"   fill="#fef08a" className="ipollen" style={{ animationDelay: '1.71s' }} />
       {[0, 60, 120, 180, 240, 300].map((a, i) => (
         <circle key={i}
           cx={+(Math.cos((a - 90) * Math.PI / 180) * 2.2).toFixed(3)}
           cy={+(Math.sin((a - 90) * Math.PI / 180) * 2.2).toFixed(3)}
           r="0.7" fill="#1a0a0a"
           className="ipollen"
-          style={{ animationDelay: `${1.8 + i * 0.02}s` }}
+          style={{ animationDelay: `${1.77 + i * 0.02}s` }}
         />
       ))}
-      <circle cx="0" cy="0" r="1" fill="#92400e" className="ipollen" style={{ animationDelay: '1.92s' }} />
+      <circle cx="0" cy="0" r="1" fill="#92400e" className="ipollen" style={{ animationDelay: '1.89s' }} />
+
+      {/* Pollen drops — 3 dots fall from centre while flower is open */}
+      <circle cx="0" cy="0" r="1.3" fill="#D4AF37"
+        style={{ animation: 'pollenDrop0 4.5s ease-in infinite' }} />
+      <circle cx="0" cy="0" r="1.0" fill="#fbbf24"
+        style={{ animation: 'pollenDrop1 4.5s ease-in infinite' }} />
+      <circle cx="0" cy="0" r="0.85" fill="#D4AF37"
+        style={{ animation: 'pollenDrop2 4.5s ease-in infinite' }} />
     </svg>
   </span>
 );
