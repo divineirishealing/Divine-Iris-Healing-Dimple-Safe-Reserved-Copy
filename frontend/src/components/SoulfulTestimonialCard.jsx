@@ -53,15 +53,15 @@ const IrisBloom = () => (
       .ipetal3 {
         transform-box: fill-box;
         transform-origin: 50% 0%;
-        animation: irisOpen 3s ease-in-out infinite;
+        animation: irisOpen 4.5s ease-in-out infinite;
       }
       .ipollen {
         transform-box: fill-box;
         transform-origin: center;
-        animation: irisPollenAnim 3s ease-in-out infinite;
+        animation: irisPollenAnim 4.5s ease-in-out infinite;
       }
       .istem3 {
-        animation: irisStemAnim 3s ease-in-out infinite;
+        animation: irisStemAnim 4.5s ease-in-out infinite;
       }
     `}</style>
 
