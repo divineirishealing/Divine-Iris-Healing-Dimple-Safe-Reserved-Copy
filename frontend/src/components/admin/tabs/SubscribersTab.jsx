@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import axios from 'axios';
 import { useToast } from '../../../hooks/use-toast';
 import { Button } from '../../ui/button';
@@ -7,7 +7,7 @@ import { Label } from '../../ui/label';
 import {
   Upload, Download, FileText, Loader2, Users, ChevronDown, ChevronUp,
   CreditCard, Calendar, Plus, X, Save, Edit2, Trash2, CheckCircle,
-  Settings, Package
+  Settings, Package, UserPlus,
 } from 'lucide-react';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
@@ -266,7 +266,7 @@ const PackageEditor = ({ pkg, onSave, saving, onDelete, onNewVersion }) => {
 const blankForm = () => ({
   name: '', email: '', package_id: '', annual_program: '', start_date: '', end_date: '',
   total_fee: 0, currency: 'INR', payment_mode: 'No EMI', num_emis: 0, emi_day: 30,
-  emis: [], programs: [], bi_annual_download: 0, quarterly_releases: 0,
+  emis: [], programs: [], programs_detail: [], bi_annual_download: 0, quarterly_releases: 0,
   payment_methods: ['stripe', 'manual'],
   late_fee_per_day: 0, channelization_fee: 0, show_late_fees: false,
   sessions: { carry_forward: 0, current: 0, total: 0, availed: 0, yet_to_avail: 0, due: 0, scheduled_dates: [] }
@@ -918,7 +918,8 @@ const SubscriberRow = ({ s, onRefresh, onEdit }) => {
 };
 
 /* ═══ MAIN TAB ═══ */
-const SubscribersTab = () => {
+/** @param {{ openManualFormOnMount?: boolean }} props — when true (e.g. Dashboard shortcut), open the manual add form on first mount */
+const SubscribersTab = ({ openManualFormOnMount = false }) => {
   const { toast } = useToast();
   const [subscribers, setSubscribers] = useState([]);
   const [packages, setPackages] = useState([]);
@@ -928,6 +929,7 @@ const SubscribersTab = () => {
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [editTarget, setEditTarget] = useState(null);
+  const manualMountOpened = useRef(false);
   const [saving, setSaving] = useState(false);
   const [savingPkg, setSavingPkg] = useState(false);
   const [configOpen, setConfigOpen] = useState(false);
@@ -953,6 +955,15 @@ const SubscribersTab = () => {
   }, []);
 
   useEffect(() => { fetchData(); }, [fetchData]);
+
+  useEffect(() => {
+    if (openManualFormOnMount && !manualMountOpened.current) {
+      manualMountOpened.current = true;
+      setEditTarget(null);
+      setShowForm(true);
+      setSubView('subscribers');
+    }
+  }, [openManualFormOnMount]);
 
   const handleSavePkg = async (pkgData) => {
     setSavingPkg(true);
@@ -1117,7 +1128,9 @@ const SubscribersTab = () => {
             </Button>
             <Button variant="outline" size="sm" onClick={() => window.open(`${API}/admin/subscribers/download-template`, '_blank')}><FileText size={14} className="mr-1" /> Template</Button>
             <Button variant="outline" size="sm" onClick={() => window.open(`${API}/admin/subscribers/export`, '_blank')}><Download size={14} className="mr-1" /> Export</Button>
-            <Button size="sm" className="bg-[#5D3FD3] hover:bg-[#4c32b3]" onClick={() => { setEditTarget(null); setShowForm(true); }}><Plus size={14} className="mr-1" /> Add</Button>
+            <Button size="sm" className="bg-[#5D3FD3] hover:bg-[#4c32b3]" onClick={() => { setEditTarget(null); setShowForm(true); }} data-testid="header-add-manual-subscriber">
+              <UserPlus size={14} className="mr-1" /> Add manually
+            </Button>
           </>)}
           {subView === 'banks' && (
             <Button size="sm" className="bg-[#5D3FD3] hover:bg-[#4c32b3]" onClick={() => setBankForm({ bank_code: '', bank_name: '', account_name: '', account_number: '', ifsc_code: '', branch: '', upi_id: '', is_active: true })} data-testid="add-bank-btn">
@@ -1140,6 +1153,30 @@ const SubscribersTab = () => {
             </div>
           </div>
         )}
+        <div
+          className="rounded-lg border border-purple-200 bg-gradient-to-r from-purple-50 via-white to-amber-50 p-4 shadow-sm flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3"
+          data-testid="manual-subscriber-panel"
+        >
+          <div className="min-w-0">
+            <h3 className="font-semibold text-gray-900 text-sm flex items-center gap-2">
+              <UserPlus size={18} className="text-[#5D3FD3] shrink-0" aria-hidden />
+              Add annual subscriber manually
+            </h3>
+            <p className="text-xs text-gray-600 mt-1 max-w-2xl">
+              Enter name, email, package, dates, fee, EMI plan, and sessions in the form below. If the email or name already exists, their subscription will be updated. You can also use Excel upload for bulk import.
+            </p>
+          </div>
+          <Button
+            type="button"
+            size="sm"
+            className="bg-[#5D3FD3] hover:bg-[#4c32b3] shrink-0"
+            onClick={() => { setEditTarget(null); setShowForm(true); }}
+            data-testid="manual-add-subscriber-open"
+          >
+            <UserPlus size={14} className="mr-1" />
+            {showForm && !editTarget ? 'Form is open' : 'Open manual form'}
+          </Button>
+        </div>
         {showForm && <SubscriberForm initial={formInitial} onSave={handleSave} onCancel={() => { setShowForm(false); setEditTarget(null); }} saving={saving} packages={packages} />}
         <div className="bg-white p-4 rounded-lg border shadow-sm">
           <h3 className="font-semibold text-gray-900 text-sm mb-2">Upload from Excel</h3>

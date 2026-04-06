@@ -12,7 +12,7 @@ import { resolveImageUrl } from '../../lib/imageUtils';
 import {
   Settings, Package, Calendar, MessageSquare, BarChart3, Mail, Inbox,
   Trash2, Edit, Plus, X, Eye, EyeOff, Save, ArrowUp, ArrowDown,
-  Globe, Layout, Image, Users, Palette, Gift, Monitor, Wifi, Tag, ChevronLeft, ChevronRight, ChevronDown, Upload, FileText, DollarSign, Quote, Star, ShieldAlert, CreditCard
+  Globe, Layout, Image, Users, Palette, Gift, Monitor, Wifi, Tag, ChevronLeft, ChevronRight, ChevronDown, Upload, FileText, DollarSign, Quote, Star, ShieldAlert, CreditCard, UserPlus
 } from 'lucide-react';
 
 import CollapsibleSection from './CollapsibleSection';
@@ -253,6 +253,7 @@ const AdminPanel = () => {
     { label: 'Dashboard', icon: Layout, tabs: [
       { key: 'dashboard_settings', label: 'Dashboard Config', icon: Layout },
       { key: 'sanctuary_settings', label: 'Sanctuary Design', icon: Image },
+      { key: 'add_annual_subscriber', label: 'Add annual subscriber', icon: UserPlus },
     ]},
   ];
 
@@ -447,6 +448,7 @@ const AdminPanel = () => {
           {activeTab === 'upcoming_hub' && <UpcomingHubTab />}
           {activeTab === 'text_testimonials' && <TextTestimonialsTab />}
           {activeTab === 'annual_subscribers' && <SubscribersTab />}
+          {activeTab === 'add_annual_subscriber' && <SubscribersTab openManualFormOnMount />}
           {activeTab === 'scheduler' && <SchedulerTab />}
 
           {/* ===== SUBSCRIBERS TAB ===== */}
