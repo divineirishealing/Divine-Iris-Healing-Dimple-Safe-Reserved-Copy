@@ -8,7 +8,7 @@ import { resolveImageUrl } from '../lib/imageUtils';
 import { renderMarkdown } from '../lib/renderMarkdown';
 import { useCurrency } from '../context/CurrencyContext';
 import { HEADING, SUBTITLE, BODY, GOLD, LABEL, CONTAINER, NARROW, WIDE, SECTION_PY } from '../lib/designTokens';
-import { SoulfulWrittenCard, SoulfulVideoCard, SoulfulGraphicCard, SoulfulTestimonialFull } from '../components/SoulfulTestimonialCard';
+import { SoulfulWrittenCard, SoulfulTestimonialFull } from '../components/SoulfulTestimonialCard';
 import { Dialog, DialogContent } from '../components/ui/dialog';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
@@ -482,68 +482,21 @@ function ProgramDetailPage() {
         </div>
       </section>
 
-      {testimonials.length > 0 && (() => {
+      {testimonials.filter(t => t.type === 'template').length > 0 && (() => {
         const writtenList = testimonials.filter(t => t.type === 'template');
-        const videoList   = testimonials.filter(t => t.type === 'video' && (t.video_url || t.videoId));
-        const graphicList = testimonials.filter(t => t.type === 'graphic' && t.image);
         return (
           <section className="py-16" data-testid="testimonials-section"
             style={{ background: 'linear-gradient(180deg, #f5f4f8 0%, #eceaf1 40%, #f5f4f8 100%)' }}>
             <div className="container mx-auto px-4 max-w-7xl">
               <h2 className="text-center mb-10"
                 style={applyStyle(template.testimonial_title_style, { ...HEADING, color: heroAccent, fontStyle: 'italic', fontSize: '1.6rem' })}>
-                Testimonials
+                What People Are Saying
               </h2>
-
-              {/* Written stories */}
-              {writtenList.length > 0 && (
-                <div className="mb-10">
-                  <p className="text-[10px] tracking-[0.25em] uppercase text-center mb-5"
-                    style={{ color: heroAccent, fontFamily: "'Lato', sans-serif", opacity: 0.8 }}>
-                    Healing Stories
-                  </p>
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                    {writtenList.map(t => (
-                      <SoulfulWrittenCard key={t.id} testimonial={t} onClick={() => setSelectedTemplate(t)} />
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* Video testimonials */}
-              {videoList.length > 0 && (
-                <div className="mb-10 rounded-2xl py-8 px-4 md:px-6"
-                  style={{ background: 'linear-gradient(135deg,#0d0618 0%,#1a0a3e 60%,#0f0a1e 100%)' }}>
-                  <p className="text-[10px] tracking-[0.25em] uppercase text-center mb-5"
-                    style={{ color: 'rgba(212,175,55,0.75)', fontFamily: "'Lato', sans-serif" }}>
-                    Watch &amp; Feel
-                  </p>
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                    {videoList.map(t => (
-                      <SoulfulVideoCard key={t.id} testimonial={t}
-                        onPlay={(embedUrl, platform) => setSelectedEmbed({ embedUrl, platform })}
-                        onOpen={url => window.open(url, '_blank')}
-                      />
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* Graphic gallery */}
-              {graphicList.length > 0 && (
-                <div className="mb-4">
-                  <p className="text-[10px] tracking-[0.25em] uppercase text-center mb-5"
-                    style={{ color: heroAccent, fontFamily: "'Lato', sans-serif", opacity: 0.8 }}>
-                    Transformation Gallery
-                  </p>
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                    {graphicList.map(t => (
-                      <SoulfulGraphicCard key={t.id} testimonial={t}
-                        onClick={() => setLightboxImg(resolveImageUrl(t.image))} />
-                    ))}
-                  </div>
-                </div>
-              )}
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {writtenList.map(t => (
+                  <SoulfulWrittenCard key={t.id} testimonial={t} onClick={() => setSelectedTemplate(t)} />
+                ))}
+              </div>
             </div>
 
             {/* Full story modal */}
@@ -554,21 +507,6 @@ function ProgramDetailPage() {
               </DialogContent>
             </Dialog>
 
-            {/* Video embed modal */}
-            <Dialog open={!!selectedEmbed} onOpenChange={() => setSelectedEmbed(null)}>
-              <DialogContent className="max-w-4xl p-0 overflow-hidden bg-black rounded-2xl">
-                {selectedEmbed && (
-                  <div className="relative"
-                    style={{ paddingBottom: selectedEmbed.platform === 'instagram' ? '120%' : '56.25%' }}>
-                    <iframe className="absolute inset-0 w-full h-full"
-                      src={selectedEmbed.embedUrl} title="Video testimonial" frameBorder="0"
-                      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-                      allowFullScreen
-                      sandbox="allow-scripts allow-same-origin allow-popups allow-presentation allow-forms" />
-                  </div>
-                )}
-              </DialogContent>
-            </Dialog>
           </section>
         );
       })()}
