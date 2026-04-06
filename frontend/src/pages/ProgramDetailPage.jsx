@@ -539,7 +539,7 @@ function ProgramDetailPage() {
                           onPlay={(embedUrl, platform) => setSelectedEmbed({ embedUrl, platform })}
                           onOpen={url => window.open(url, '_blank')}
                         />
-                      : <SoulfulWrittenCard testimonial={t} onClick={() => setSelectedTemplate(t)} />
+                      : <SoulfulWrittenCard testimonial={t} uniform onClick={() => setSelectedTemplate(t)} />
                     }
                   </div>
                 ))}

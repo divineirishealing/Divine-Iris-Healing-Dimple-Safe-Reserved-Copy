@@ -270,7 +270,7 @@ const PhotoDisplay = ({ photos, photoLabels, photoMode, size = 'card' }) => {
 /* ══════════════════════════════════════════════════════════════════════════
    WRITTEN TESTIMONIAL CARD  —  jewel-tone redesign
    ══════════════════════════════════════════════════════════════════════════ */
-export const SoulfulWrittenCard = ({ testimonial, onClick }) => {
+export const SoulfulWrittenCard = ({ testimonial, onClick, uniform = false }) => {
   const [expanded, setExpanded] = useState(false);
   const {
     name, text, role, rating = 5,
@@ -291,9 +291,14 @@ export const SoulfulWrittenCard = ({ testimonial, onClick }) => {
 
   const hasPhotos    = effectivePhotos.length > 0;
   const isSingle     = effectiveMode === 'single';
-  const PREVIEW_LEN  = 150;
-  const isLong       = (text || '').length > PREVIEW_LEN;
-  const displayText  = isLong && !expanded ? text.substring(0, PREVIEW_LEN) + '…' : text;
+  // In uniform mode: cap at 120 chars (same as video card), no read more
+  const PREVIEW_LEN  = uniform ? 120 : 150;
+  const isLong       = !uniform && (text || '').length > PREVIEW_LEN;
+  const displayText  = isLong && !expanded
+    ? text.substring(0, PREVIEW_LEN) + '…'
+    : uniform && (text || '').length > PREVIEW_LEN
+    ? text.substring(0, PREVIEW_LEN) + '…'
+    : text;
 
   return (
     <div
@@ -364,7 +369,7 @@ export const SoulfulWrittenCard = ({ testimonial, onClick }) => {
       <div className="relative px-5 pt-7 overflow-visible"
         style={{
           background: 'linear-gradient(135deg, #1e0654 0%, #3b0f9e 45%, #6d28d9 80%, #9333ea 100%)',
-          paddingBottom: hasPhotos && isSingle ? '72px' : '28px',
+          paddingBottom: (uniform || (hasPhotos && isSingle)) ? '72px' : '28px',
         }}>
 
         {/* Deep centre glow */}
@@ -383,12 +388,13 @@ export const SoulfulWrittenCard = ({ testimonial, onClick }) => {
 
       </div>
 
-      {/* ── Single oval photo — sits on the curved scoop ── */}
+      {/* ── Single oval photo — sits on the header ── */}
       {hasPhotos && isSingle && (
-        <div className="flex justify-center" style={{ marginTop: -62, position: 'relative', zIndex: 10 }}>
+        <div className="flex justify-center" style={{ marginTop: uniform ? -50 : -62, position: 'relative', zIndex: 10 }}>
           <div style={{
-            width: 80, height: 112,
-            borderRadius: '42% / 50%',
+            width: uniform ? 130 : 80,
+            height: uniform ? 80 : 112,
+            borderRadius: uniform ? 10 : '42% / 50%',
             overflow: 'hidden',
             boxShadow: '0 6px 20px rgba(0,0,0,0.25)',
           }}>
@@ -414,12 +420,12 @@ export const SoulfulWrittenCard = ({ testimonial, onClick }) => {
         <div style={{ flex: 1 }}>
           <p style={{
             fontFamily: "'Cormorant Garamond', Georgia, serif",
-            fontSize: '0.92rem', lineHeight: 1.85, color: '#1e0a4e',
+            fontSize: uniform ? '0.88rem' : '0.92rem', lineHeight: 1.8, color: '#1e0a4e',
             fontStyle: 'italic', textAlign: 'center',
           }}>
-            {displayText}
+            {uniform ? (displayText ? `"${displayText}"` : '') : displayText}
           </p>
-          {isLong && (
+          {isLong && !uniform && (
             <button
               onClick={(e) => { e.stopPropagation(); setExpanded(!expanded); }}
               className="flex items-center gap-1 mx-auto mt-2 text-[11px] font-semibold tracking-wide transition-colors"
