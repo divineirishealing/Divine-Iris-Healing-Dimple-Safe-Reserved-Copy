@@ -17,92 +17,96 @@ const Stars = ({ rating = 5 }) => (
 
 /* ── Animated Iris Flower ────────────────────────────────────────────────── */
 /*
-  Green stem grows first, then 3 thin purple petals unfurl outward from the
-  centre and then fold back in. Loops every 2 s so the bloom is always alive.
-  Pollen: gold disc + ring of tiny black dots.
+  Looping bloom: stem stays visible, 3 purple petals OPEN then CLOSE
+  in a smooth cycle (3 s total: 1s open, 0.8s hold, 1s close, 0.2s pause).
+  Pollen appears while petals are open, then shrinks back.
 */
 const IrisBloom = () => (
   <span style={{ display: 'inline-flex', flexShrink: 0 }}>
     <style>{`
-      @keyframes irisLoop {
-        0%,  5%   { transform: rotate(var(--r)) scaleY(0.02) scaleX(0.08); opacity: 0; }
-        30%        { transform: rotate(var(--r)) scaleY(1.07) scaleX(1.04); opacity: 1; }
-        45%        { transform: rotate(var(--r)) scaleY(1)    scaleX(1);    opacity: 1; }
-        72%        { transform: rotate(var(--r)) scaleY(1)    scaleX(1);    opacity: 1; }
-        93%, 100%  { transform: rotate(var(--r)) scaleY(0.02) scaleX(0.08); opacity: 0; }
+      /* Petal: closed → open → hold → close → closed */
+      @keyframes irisOpen {
+        0%         { transform: rotate(var(--r)) scaleY(0.01) scaleX(0.05); opacity: 0; }
+        8%         { opacity: 1; }
+        33%        { transform: rotate(var(--r)) scaleY(1.1)  scaleX(1.08); opacity: 1; }
+        42%        { transform: rotate(var(--r)) scaleY(1)    scaleX(1);    opacity: 1; }
+        62%        { transform: rotate(var(--r)) scaleY(1)    scaleX(1);    opacity: 1; }
+        88%        { transform: rotate(var(--r)) scaleY(0.01) scaleX(0.05); opacity: 0; }
+        100%       { transform: rotate(var(--r)) scaleY(0.01) scaleX(0.05); opacity: 0; }
       }
-      @keyframes irisPollen {
-        0%, 33%   { transform: scale(0); opacity: 0; }
-        50%        { transform: scale(1.15); opacity: 1; }
-        57%        { transform: scale(1);    opacity: 1; }
-        72%        { opacity: 1; }
-        93%, 100%  { transform: scale(0); opacity: 0; }
+      /* Pollen: pops in after petals open, shrinks before petals close */
+      @keyframes irisPollenAnim {
+        0%, 38%    { transform: scale(0); opacity: 0; }
+        50%        { transform: scale(1.2); opacity: 1; }
+        57%        { transform: scale(1);   opacity: 1; }
+        62%        { opacity: 1; }
+        84%        { transform: scale(0); opacity: 0; }
+        100%       { transform: scale(0); opacity: 0; }
       }
-      @keyframes irisStem {
-        0%         { stroke-dashoffset: 28; opacity: 0; }
-        18%        { stroke-dashoffset: 0;  opacity: 1; }
-        82%        { opacity: 1; }
-        100%       { opacity: 0; }
+      /* Stem stays visible throughout, gentle pulse */
+      @keyframes irisStemAnim {
+        0%, 5%     { opacity: 0.3; }
+        15%        { opacity: 1; }
+        85%        { opacity: 1; }
+        100%       { opacity: 0.3; }
       }
       .ipetal3 {
         transform-box: fill-box;
         transform-origin: 50% 0%;
-        animation: irisLoop 2s cubic-bezier(0.22,1,0.36,1) infinite both;
+        animation: irisOpen 3s ease-in-out infinite;
       }
       .ipollen {
         transform-box: fill-box;
         transform-origin: center;
-        animation: irisPollen 2s ease-out infinite both;
+        animation: irisPollenAnim 3s ease-in-out infinite;
       }
       .istem3 {
-        stroke-dasharray: 28;
-        animation: irisStem 2s ease-in-out infinite both;
+        animation: irisStemAnim 3s ease-in-out infinite;
       }
     `}</style>
 
-    <svg viewBox="-20 -24 40 52" width="36" height="44" style={{ overflow: 'visible' }}>
-      {/* ── Stem ── */}
-      <path d="M0,0 C1,8 -1,16 0,26"
-        stroke="#4a7c4e" strokeWidth="2.2" fill="none"
+    <svg viewBox="-20 -25 40 54" width="36" height="46" style={{ overflow: 'visible' }}>
+      {/* ── Stem — always visible ── */}
+      <path d="M0,0 C1,8 -1,17 0,27"
+        stroke="#4a7c4e" strokeWidth="2.4" fill="none"
         strokeLinecap="round" className="istem3" />
 
-      {/* ── 3 thin petals ──
-           Petal shape: thin teardrop pointing in local +Y (downward).
-           Rotated so they fan upward/outward from the stem top.
+      {/* ── 3 thin purple petals ──
+           All share the same 3 s duration.
+           Staggered delay (0.06 s apart) so they open one after another.
            180° → straight up | 60° → lower-right | 300° → lower-left  */}
-      {[[180, 0.18], [60, 0.27], [300, 0.36]].map(([deg, dl]) => (
+      {[[180, 0], [60, 0.06], [300, 0.12]].map(([deg, dl]) => (
         <g key={`p${deg}`} className="ipetal3"
           style={{ '--r': `${deg}deg`, animationDelay: `${dl}s` }}>
           <path
-            d="M0,0 C-2.8,3 -3.5,11 -1.8,18 C-0.9,21 0.9,21 1.8,18 C3.5,11 2.8,3 0,0Z"
-            fill="url(#irisPetalG)" opacity="0.94" />
+            d="M0,0 C-3.5,4 -4.5,13 -2.2,21 C-1.1,24 1.1,24 2.2,21 C4.5,13 3.5,4 0,0Z"
+            fill="url(#irisPetalG)" opacity="0.95" />
         </g>
       ))}
 
       {/* ── Gradient defs ── */}
       <defs>
-        <radialGradient id="irisPetalG" cx="50%" cy="15%" r="75%">
-          <stop offset="0%"   stopColor="#c4b5fd" />
-          <stop offset="100%" stopColor="#6d28d9" />
+        <radialGradient id="irisPetalG" cx="50%" cy="10%" r="80%">
+          <stop offset="0%"   stopColor="#ddd6fe" />
+          <stop offset="60%"  stopColor="#8b5cf6" />
+          <stop offset="100%" stopColor="#5b21b6" />
         </radialGradient>
       </defs>
 
       {/* ── Pollen centre ── */}
-      <circle cx="0" cy="0" r="4.5" fill="#D4AF37" className="ipollen" style={{ animationDelay: '0.86s' }} />
-      <circle cx="0" cy="0" r="2.8" fill="#fef08a" className="ipollen" style={{ animationDelay: '0.92s' }} />
-      {/* 6 black pollen dots in a ring */}
+      <circle cx="0" cy="0" r="4.8" fill="#D4AF37" className="ipollen" style={{ animationDelay: '0.9s' }} />
+      <circle cx="0" cy="0" r="3"   fill="#fef08a" className="ipollen" style={{ animationDelay: '0.96s' }} />
       {[0, 60, 120, 180, 240, 300].map((a, i) => (
         <circle
           key={i}
-          cx={+(Math.cos((a - 90) * Math.PI / 180) * 2.1).toFixed(3)}
-          cy={+(Math.sin((a - 90) * Math.PI / 180) * 2.1).toFixed(3)}
-          r="0.62" fill="#1a0a0a"
+          cx={+(Math.cos((a - 90) * Math.PI / 180) * 2.2).toFixed(3)}
+          cy={+(Math.sin((a - 90) * Math.PI / 180) * 2.2).toFixed(3)}
+          r="0.7" fill="#1a0a0a"
           className="ipollen"
-          style={{ animationDelay: `${0.94 + i * 0.015}s` }}
+          style={{ animationDelay: `${1.0 + i * 0.02}s` }}
         />
       ))}
-      {/* Tiny amber centre dot */}
-      <circle cx="0" cy="0" r="0.9" fill="#92400e" className="ipollen" style={{ animationDelay: '1.06s' }} />
+      <circle cx="0" cy="0" r="1" fill="#92400e" className="ipollen" style={{ animationDelay: '1.12s' }} />
     </svg>
   </span>
 );
