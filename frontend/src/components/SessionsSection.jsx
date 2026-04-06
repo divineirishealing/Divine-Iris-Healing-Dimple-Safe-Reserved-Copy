@@ -196,6 +196,12 @@ const SessionsSection = ({ sectionConfig }) => {
           {/* Left — Session List */}
           <aside className="w-full lg:w-[340px] lg:min-w-[340px] flex-shrink-0" data-testid="sessions-list">
             <div className="bg-white/70 backdrop-blur-sm rounded-xl border border-purple-100/50 shadow-sm overflow-hidden relative">
+              <style>{`
+                .sessions-scroll-list::-webkit-scrollbar { width: 8px; }
+                .sessions-scroll-list::-webkit-scrollbar-track { background: #ede9fe; border-radius: 8px; }
+                .sessions-scroll-list::-webkit-scrollbar-thumb { background: linear-gradient(180deg,#8b5cf6,#D4AF37); border-radius: 8px; }
+                .sessions-scroll-list::-webkit-scrollbar-thumb:hover { background: linear-gradient(180deg,#7c3aed,#b8962e); }
+              `}</style>
               <div
                 className="sessions-scroll-list max-h-[520px] overflow-y-auto"
                 style={{ scrollbarWidth: 'auto', scrollbarColor: '#8b5cf6 #ede9fe' }}
