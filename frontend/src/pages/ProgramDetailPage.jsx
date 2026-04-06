@@ -114,7 +114,12 @@ function ProgramDetailPage() {
         seen.add(t.id);
         return true;
       });
-      setTestimonials(merged);
+      // Ensure every card on this page always has program_name to display
+      const enriched = merged.map(t => ({
+        ...t,
+        program_name: t.program_name || prog?.title || '',
+      }));
+      setTestimonials(enriched);
     } catch (e) { console.error(e); }
     setLoading(false);
   };
