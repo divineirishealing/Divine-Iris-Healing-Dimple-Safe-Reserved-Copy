@@ -284,8 +284,59 @@ export const SoulfulWrittenCard = ({ testimonial, onClick }) => {
       }}
       onClick={onClick}
     >
+      {/* ── Sparkle dots — span full card height ── */}
+      <style>{`
+        @keyframes dotFall {
+          0%   { transform: translateY(-12px) translateX(0px) scale(1);   opacity: 0; }
+          10%  { opacity: 0.9; }
+          35%  { opacity: 0.75; }
+          65%  { opacity: 0.18; }
+          90%  { opacity: 0.08; }
+          100% { transform: translateY(560px) translateX(var(--dx,0px)) scale(0.25); opacity: 0; }
+        }
+        @keyframes dotFloat {
+          0%, 100% { transform: translateY(0px)  translateX(0px);  opacity: 0.4; }
+          50%      { transform: translateY(-9px) translateX(5px); opacity: 0.85; }
+        }
+      `}</style>
+      {[
+        {t:-2, l:6,  s:3, dur:3.8, dx:-6,  anim:'dotFall'},
+        {t:-2, l:18, s:2, dur:3.2, dx:4,   anim:'dotFall'},
+        {t:-2, l:32, s:4, dur:4.4, dx:-3,  anim:'dotFall'},
+        {t:-2, l:47, s:2, dur:3.0, dx:7,   anim:'dotFall'},
+        {t:-2, l:59, s:3, dur:4.1, dx:-5,  anim:'dotFall'},
+        {t:-2, l:72, s:2, dur:2.8, dx:3,   anim:'dotFall'},
+        {t:-2, l:83, s:3, dur:4.5, dx:-4,  anim:'dotFall'},
+        {t:-2, l:93, s:2, dur:3.5, dx:5,   anim:'dotFall'},
+        {t:-2, l:12, s:2, dur:4.8, dx:6,   anim:'dotFall'},
+        {t:-2, l:40, s:3, dur:3.6, dx:-7,  anim:'dotFall'},
+        {t:-2, l:65, s:4, dur:3.3, dx:-3,  anim:'dotFall'},
+        {t:-2, l:76, s:2, dur:5.0, dx:4,   anim:'dotFall'},
+        {t:-2, l:25, s:2, dur:3.9, dx:-5,  anim:'dotFall'},
+        {t:-2, l:52, s:3, dur:2.9, dx:6,   anim:'dotFall'},
+        {t:12, l:4,  s:2, dur:2.5, dx:0,   anim:'dotFloat'},
+        {t:30, l:95, s:2, dur:3.2, dx:0,   anim:'dotFloat'},
+        {t:22, l:50, s:3, dur:2.8, dx:0,   anim:'dotFloat'},
+        {t:18, l:30, s:2, dur:3.6, dx:0,   anim:'dotFloat'},
+      ].map((p, i) => (
+        <div key={i} className="absolute rounded-full pointer-events-none"
+          style={{
+            zIndex: 1,
+            top: `${p.t}%`, left: `${p.l}%`,
+            width: p.s, height: p.s,
+            background: i % 3 === 0 ? 'rgba(212,175,55,0.95)' : i % 3 === 1 ? 'rgba(255,255,255,0.75)' : 'rgba(196,181,253,0.85)',
+            boxShadow: `0 0 ${p.s * 3}px ${i % 3 === 0 ? 'rgba(212,175,55,0.85)' : 'rgba(196,181,253,0.65)'}`,
+            '--dx': `${p.dx}px`,
+            animationName: p.anim,
+            animationDuration: `${p.dur}s`,
+            animationTimingFunction: 'ease-in',
+            animationIterationCount: 'infinite',
+            animationDelay: `${(i * 0.31) % p.dur}s`,
+          }} />
+      ))}
+
       {/* ── Jewel header ── */}
-      <div className="relative px-5 pt-7 overflow-hidden"
+      <div className="relative px-5 pt-7 overflow-visible"
         style={{
           background: 'linear-gradient(135deg, #1e0654 0%, #3b0f9e 45%, #6d28d9 80%, #9333ea 100%)',
           paddingBottom: hasPhotos && isSingle ? '72px' : '28px',
@@ -294,52 +345,6 @@ export const SoulfulWrittenCard = ({ testimonial, onClick }) => {
         {/* Deep centre glow */}
         <div className="absolute inset-0 pointer-events-none"
           style={{ background: 'radial-gradient(ellipse 80% 60% at 50% 100%, rgba(212,175,55,0.22) 0%, transparent 65%)' }} />
-
-        {/* Animated falling & drifting sparkle dots */}
-        <style>{`
-          @keyframes dotFall {
-            0%   { transform: translateY(-12px) translateX(0px) scale(1);   opacity: 0; }
-            12%  { opacity: 1; }
-            78%  { opacity: 0.75; }
-            100% { transform: translateY(140px) translateX(var(--dx,0px)) scale(0.3); opacity: 0; }
-          }
-          @keyframes dotFloat {
-            0%, 100% { transform: translateY(0px)  translateX(0px);  opacity: 0.5; }
-            50%      { transform: translateY(-9px) translateX(5px); opacity: 1; }
-          }
-        `}</style>
-        {[
-          {t:-5, l:6,  s:3, dur:3.2, dx:-6,  anim:'dotFall'},
-          {t:-5, l:18, s:2, dur:2.6, dx:4,   anim:'dotFall'},
-          {t:-5, l:32, s:4, dur:3.9, dx:-3,  anim:'dotFall'},
-          {t:-5, l:47, s:2, dur:2.4, dx:7,   anim:'dotFall'},
-          {t:-5, l:59, s:3, dur:3.5, dx:-5,  anim:'dotFall'},
-          {t:-5, l:72, s:2, dur:2.2, dx:3,   anim:'dotFall'},
-          {t:-5, l:83, s:3, dur:3.8, dx:-4,  anim:'dotFall'},
-          {t:-5, l:93, s:2, dur:2.9, dx:5,   anim:'dotFall'},
-          {t:-5, l:12, s:2, dur:4.1, dx:6,   anim:'dotFall'},
-          {t:-5, l:40, s:3, dur:3.0, dx:-7,  anim:'dotFall'},
-          {t:-5, l:65, s:4, dur:2.7, dx:-3,  anim:'dotFall'},
-          {t:-5, l:76, s:2, dur:4.3, dx:4,   anim:'dotFall'},
-          {t:18, l:4,  s:2, dur:2.5, dx:0,   anim:'dotFloat'},
-          {t:35, l:95, s:2, dur:3.2, dx:0,   anim:'dotFloat'},
-          {t:55, l:50, s:3, dur:2.8, dx:0,   anim:'dotFloat'},
-          {t:25, l:30, s:2, dur:3.6, dx:0,   anim:'dotFloat'},
-        ].map((p, i) => (
-          <div key={i} className="absolute rounded-full pointer-events-none"
-            style={{
-              top: `${p.t}%`, left: `${p.l}%`,
-              width: p.s, height: p.s,
-              background: i % 3 === 0 ? 'rgba(212,175,55,0.95)' : i % 3 === 1 ? 'rgba(255,255,255,0.75)' : 'rgba(196,181,253,0.85)',
-              boxShadow: `0 0 ${p.s * 3}px ${i % 3 === 0 ? 'rgba(212,175,55,0.85)' : 'rgba(196,181,253,0.65)'}`,
-              '--dx': `${p.dx}px`,
-              animationName: p.anim,
-              animationDuration: `${p.dur}s`,
-              animationTimingFunction: 'ease-in',
-              animationIterationCount: 'infinite',
-              animationDelay: `${(i * 0.31) % p.dur}s`,
-            }} />
-        ))}
 
         {/* Stars — comfortably in upper part of header */}
         <div className="flex justify-center relative z-10 mb-1"><Stars rating={rating} /></div>
