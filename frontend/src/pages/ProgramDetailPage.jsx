@@ -488,12 +488,21 @@ function ProgramDetailPage() {
       </section>
 
       {testimonials.filter(t => t.type === 'template' || (t.type === 'video' && (t.video_url || t.videoId))).length > 0 && (() => {
-        const allCards = testimonials.filter(t =>
+        const rawCards = testimonials.filter(t =>
           t.type === 'template' || (t.type === 'video' && (t.video_url || t.videoId))
         );
+        // Interleave: video, written, video, written…
+        const videoGroup   = rawCards.filter(c => c.type === 'video');
+        const writtenGroup = rawCards.filter(c => c.type === 'template');
+        const allCards = [];
+        const maxLen = Math.max(videoGroup.length, writtenGroup.length);
+        for (let i = 0; i < maxLen; i++) {
+          if (i < videoGroup.length)   allCards.push(videoGroup[i]);
+          if (i < writtenGroup.length) allCards.push(writtenGroup[i]);
+        }
         const CARD_W  = 300;
         const CARD_GAP = 20;
-        const times = Math.ceil(10 / allCards.length);
+        const times = Math.ceil(10 / Math.max(allCards.length, 1));
         const loopCards = Array.from({ length: times * 2 }, (_, rep) =>
           allCards.map((c, i) => ({ ...c, _key: `${rep}-${i}` }))
         ).flat();
