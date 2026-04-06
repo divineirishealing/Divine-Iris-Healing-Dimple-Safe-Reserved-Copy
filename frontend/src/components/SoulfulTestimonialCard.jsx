@@ -290,28 +290,61 @@ export const SoulfulWrittenCard = ({ testimonial, onClick }) => {
         {/* Radial glow behind photo */}
         <div className="absolute inset-0 pointer-events-none"
           style={{ background: 'radial-gradient(ellipse 70% 80% at 50% 130%, rgba(212,175,55,0.18) 0%, transparent 70%)' }} />
-        {/* Gold sparkle dots */}
-        {[{t:14,l:8},{t:22,l:88},{t:55,l:94},{t:40,l:15},{t:70,l:78}].map((p,i)=>(
-          <div key={i} className="absolute rounded-full"
-            style={{ top:`${p.t}%`, left:`${p.l}%`, width:3+i%2, height:3+i%2,
-              background:'rgba(212,175,55,0.65)', boxShadow:'0 0 5px rgba(212,175,55,0.7)',
-              animation:`float ${2.5+i*0.4}s ease-in-out infinite alternate` }} />
+
+        {/* Animated falling & drifting sparkle dots */}
+        <style>{`
+          @keyframes dotFall {
+            0%   { transform: translateY(-10px) translateX(0px) scale(1);   opacity: 0; }
+            15%  { opacity: 1; }
+            80%  { opacity: 0.8; }
+            100% { transform: translateY(110px) translateX(var(--dx,0px)) scale(0.4); opacity: 0; }
+          }
+          @keyframes dotFloat {
+            0%, 100% { transform: translateY(0)   translateX(0);   opacity: 0.55; }
+            50%      { transform: translateY(-8px) translateX(4px); opacity: 1; }
+          }
+        `}</style>
+        {[
+          {t:-5, l:8,  s:3, dur:3.2, dx:-6,  anim:'dotFall'},
+          {t:-5, l:25, s:2, dur:2.8, dx:4,   anim:'dotFall'},
+          {t:-5, l:45, s:4, dur:3.8, dx:-3,  anim:'dotFall'},
+          {t:-5, l:62, s:2, dur:2.5, dx:7,   anim:'dotFall'},
+          {t:-5, l:78, s:3, dur:3.5, dx:-5,  anim:'dotFall'},
+          {t:-5, l:90, s:2, dur:2.2, dx:3,   anim:'dotFall'},
+          {t:-5, l:15, s:2, dur:4.0, dx:5,   anim:'dotFall'},
+          {t:-5, l:55, s:3, dur:3.0, dx:-4,  anim:'dotFall'},
+          {t:-5, l:35, s:2, dur:4.2, dx:6,   anim:'dotFall'},
+          {t:-5, l:70, s:4, dur:2.9, dx:-8,  anim:'dotFall'},
+          {t:20, l:5,  s:2, dur:2.4, dx:0,   anim:'dotFloat'},
+          {t:50, l:92, s:2, dur:3.1, dx:0,   anim:'dotFloat'},
+          {t:40, l:50, s:3, dur:2.7, dx:0,   anim:'dotFloat'},
+        ].map((p, i) => (
+          <div key={i} className="absolute rounded-full pointer-events-none"
+            style={{
+              top: `${p.t}%`, left: `${p.l}%`,
+              width: p.s, height: p.s,
+              background: i % 3 === 0 ? 'rgba(212,175,55,0.9)' : i % 3 === 1 ? 'rgba(255,255,255,0.7)' : 'rgba(196,181,253,0.8)',
+              boxShadow: `0 0 ${p.s * 2}px ${i % 3 === 0 ? 'rgba(212,175,55,0.8)' : 'rgba(196,181,253,0.6)'}`,
+              '--dx': `${p.dx}px`,
+              animationName: p.anim,
+              animationDuration: `${p.dur}s`,
+              animationTimingFunction: 'ease-in',
+              animationIterationCount: 'infinite',
+              animationDelay: `${(i * 0.37) % p.dur}s`,
+            }} />
         ))}
+
         {/* Stars centred */}
-        <div className="flex justify-center mb-3 relative z-10"><Stars rating={rating} /></div>
-        {/* Large decorative quote */}
-        <div className="relative z-10 text-center" style={{
-          fontFamily: "'Cormorant Garamond', Georgia, serif",
-          fontSize: '5rem', lineHeight: 0.8, color: 'rgba(212,175,55,0.30)',
-          userSelect: 'none', pointerEvents: 'none',
-        }}>"</div>
+        <div className="flex justify-center mb-2 relative z-10"><Stars rating={rating} /></div>
       </div>
 
-      {/* ── Single photo straddling header / body ── */}
+      {/* ── Single photo straddling header / body — oval shape ── */}
       {hasPhotos && isSingle && (
-        <div className="flex justify-center" style={{ marginTop: -46, position: 'relative', zIndex: 10 }}>
+        <div className="flex justify-center" style={{ marginTop: -50, position: 'relative', zIndex: 10 }}>
           <div style={{
-            width: 86, height: 86, borderRadius: '50%', overflow: 'hidden',
+            width: 76, height: 104,
+            borderRadius: '40% / 50%',
+            overflow: 'hidden',
             border: '3px solid #D4AF37',
             boxShadow: '0 0 0 5px rgba(109,40,217,0.25), 0 8px 28px rgba(0,0,0,0.28)',
           }}>
@@ -518,16 +551,18 @@ export const SoulfulTestimonialFull = ({ testimonial }) => {
         style={{ background: 'linear-gradient(135deg, #1e0654 0%, #3b0f9e 45%, #6d28d9 80%, #9333ea 100%)' }}>
         <div className="absolute inset-0 pointer-events-none"
           style={{ background: 'radial-gradient(ellipse 70% 80% at 50% 130%, rgba(212,175,55,0.18) 0%, transparent 70%)' }} />
-        {[{t:12,l:6},{t:20,l:90},{t:65,l:95},{t:50,l:12}].map((p,i)=>(
-          <div key={i} className="absolute rounded-full"
-            style={{ top:`${p.t}%`, left:`${p.l}%`, width:3, height:3,
-              background:'rgba(212,175,55,0.7)', boxShadow:'0 0 5px rgba(212,175,55,0.8)' }} />
+        {[{t:-5,l:10,s:3,dur:3.0,dx:-4},{t:-5,l:30,s:2,dur:2.6,dx:5},{t:-5,l:55,s:3,dur:3.4,dx:-3},
+          {t:-5,l:72,s:2,dur:2.8,dx:6},{t:-5,l:88,s:3,dur:3.6,dx:-5},{t:30,l:4,s:2,dur:2.5,dx:0},{t:45,l:94,s:2,dur:3.2,dx:0}].map((p,i)=>(
+          <div key={i} className="absolute rounded-full pointer-events-none"
+            style={{ top:`${p.t}%`, left:`${p.l}%`, width:p.s, height:p.s,
+              background: i%2===0?'rgba(212,175,55,0.9)':'rgba(196,181,253,0.8)',
+              boxShadow:`0 0 ${p.s*2}px rgba(212,175,55,0.7)`,
+              '--dx':`${p.dx}px`,
+              animationName: p.dx===0?'dotFloat':'dotFall', animationDuration:`${p.dur}s`,
+              animationTimingFunction:'ease-in', animationIterationCount:'infinite',
+              animationDelay:`${(i*0.4)%p.dur}s` }} />
         ))}
         <div className="relative z-10 flex justify-center mb-2"><Stars rating={rating} /></div>
-        <div className="relative z-10 text-center" style={{
-          fontFamily: "'Cormorant Garamond', Georgia, serif",
-          fontSize: '4rem', lineHeight: 0.9, color: 'rgba(212,175,55,0.28)', userSelect: 'none',
-        }}>"</div>
       </div>
 
       <div className="p-8 md:p-10">
