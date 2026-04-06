@@ -35,17 +35,10 @@ const TestimonialsSection = ({ sectionConfig, inline }) => {
   const videoList   = useMemo(() => testimonials.filter(t => t.type === 'video' && (t.video_url || t.videoId)), [testimonials]);
   const graphicList = useMemo(() => testimonials.filter(t => t.type === 'graphic' && t.image), [testimonials]);
 
-  /* Mix all types in one flat list, interleaved for variety */
-  const allCards = useMemo(() => {
-    const mixed = [];
-    const maxLen = Math.max(writtenList.length, videoList.length, graphicList.length);
-    for (let i = 0; i < maxLen; i++) {
-      if (writtenList[i]) mixed.push({ ...writtenList[i], _type: 'written' });
-      if (videoList[i])   mixed.push({ ...videoList[i],   _type: 'video'   });
-      if (graphicList[i]) mixed.push({ ...graphicList[i], _type: 'graphic' });
-    }
-    return mixed;
-  }, [writtenList, videoList, graphicList]);
+  /* Only video testimonials on the home page carousel */
+  const allCards = useMemo(() =>
+    videoList.map(c => ({ ...c, _type: 'video' })),
+  [videoList]);
 
   /* Repeat until we have at least 10 cards (ensures seamless loop) */
   const loopCards = useMemo(() => {
