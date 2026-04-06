@@ -527,7 +527,8 @@ function ProgramDetailPage() {
               }}>
               <div className="prog-marquee-track">
                 {loopCards.map(t => (
-                  <div key={t._key} style={{ width: CARD_W, flexShrink: 0 }}>
+                  /* Fixed height makes written & video cards identical in the carousel */
+                  <div key={t._key} style={{ width: CARD_W, height: 430, flexShrink: 0, overflow: 'hidden', borderRadius: 24 }}>
                     {t.type === 'video'
                       ? <SoulfulUniformVideoCard testimonial={t}
                           onPlay={(embedUrl, platform) => setSelectedEmbed({ embedUrl, platform })}
