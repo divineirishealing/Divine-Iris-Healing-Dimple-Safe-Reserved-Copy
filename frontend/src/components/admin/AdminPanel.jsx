@@ -554,7 +554,6 @@ const AdminPanel = () => {
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 flex-wrap">
                           <p className="font-medium text-sm text-gray-900 truncate">{p.title}</p>
-                          {p.category && <span className="text-xs text-gray-400 flex-shrink-0">· {p.category}</span>}
                           {p.is_flagship && <span className="text-[9px] bg-[#D4AF37]/10 text-[#D4AF37] px-1.5 py-0.5 rounded font-medium flex-shrink-0">Flagship</span>}
                           {p.is_upcoming && <span className="text-[9px] bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded flex-shrink-0">Upcoming</span>}
                         </div>
