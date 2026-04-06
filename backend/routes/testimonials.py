@@ -32,6 +32,7 @@ db = client[os.environ['DB_NAME']]
 async def get_testimonials(
     type: Optional[str] = None,
     program_id: Optional[str] = None,
+    program_name: Optional[str] = None,
     session_id: Optional[str] = None,
     category: Optional[str] = None,
     search: Optional[str] = None,
@@ -45,6 +46,9 @@ async def get_testimonials(
             {"program_id": program_id},
             {"program_tags": program_id},
         ]
+    if program_name and not program_id:
+        # Case-insensitive match on program_name field
+        query["program_name"] = {"$regex": f"^{re.escape(program_name)}$", "$options": "i"}
     if session_id:
         query["session_tags"] = session_id
     if category:

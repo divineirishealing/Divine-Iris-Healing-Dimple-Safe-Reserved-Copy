@@ -901,8 +901,30 @@ const AdminPanel = () => {
                       <Input value={testimonialForm.name} onChange={e => setTestimonialForm({...testimonialForm, name: e.target.value})} placeholder="e.g., Priya S." />
                     </div>
                     <div>
-                      <Label>Program / Session Name</Label>
-                      <Input value={testimonialForm.program_name} onChange={e => setTestimonialForm({...testimonialForm, program_name: e.target.value})} placeholder="e.g., AMRP, Soul Alignment" />
+                      <Label>Program / Session</Label>
+                      <select
+                        value={testimonialForm.program_id || ''}
+                        onChange={e => {
+                          const selected = programs.find(p => p.id === e.target.value);
+                          setTestimonialForm({
+                            ...testimonialForm,
+                            program_id: selected ? selected.id : '',
+                            program_name: selected ? selected.title : '',
+                          });
+                        }}
+                        className="w-full border border-gray-200 rounded-md px-3 py-2 text-sm focus:border-purple-400 outline-none"
+                      >
+                        <option value="">— Select a program (optional) —</option>
+                        {programs.map(p => (
+                          <option key={p.id} value={p.id}>{p.title}</option>
+                        ))}
+                      </select>
+                      {testimonialForm.program_name && !testimonialForm.program_id && (
+                        <p className="text-xs text-gray-400 mt-1">
+                          Currently saved as: <span className="italic text-gray-500">{testimonialForm.program_name}</span>
+                          <span className="text-amber-500 ml-1">(not linked to a program page — select from list to link)</span>
+                        </p>
+                      )}
                     </div>
                   </div>
 

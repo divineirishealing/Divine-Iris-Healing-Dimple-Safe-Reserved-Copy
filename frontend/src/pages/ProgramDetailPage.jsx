@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import Header from '../components/Header';
@@ -8,6 +8,8 @@ import { resolveImageUrl } from '../lib/imageUtils';
 import { renderMarkdown } from '../lib/renderMarkdown';
 import { useCurrency } from '../context/CurrencyContext';
 import { HEADING, SUBTITLE, BODY, GOLD, LABEL, CONTAINER, NARROW, WIDE, SECTION_PY } from '../lib/designTokens';
+import { SoulfulWrittenCard, SoulfulVideoCard, SoulfulGraphicCard, SoulfulTestimonialFull } from '../components/SoulfulTestimonialCard';
+import { Dialog, DialogContent } from '../components/ui/dialog';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
@@ -80,6 +82,8 @@ function ProgramDetailPage() {
   const [settings, setSettings] = useState(null);
   const [testimonials, setTestimonials] = useState([]);
   const [currentTestimonial, setCurrentTestimonial] = useState(0);
+  const [selectedTemplate, setSelectedTemplate] = useState(null);
+  const [selectedEmbed, setSelectedEmbed]       = useState(null);
   const [lightboxImg, setLightboxImg] = useState(null);
 
   useEffect(() => {
@@ -89,14 +93,28 @@ function ProgramDetailPage() {
 
   const loadData = async () => {
     try {
-      const [progRes, settingsRes, testRes] = await Promise.all([
+      const [progRes, settingsRes] = await Promise.all([
         axios.get(`${API}/programs/${id}`),
         axios.get(`${API}/settings`),
-        axios.get(`${API}/testimonials?program_id=${id}&visible_only=true`),
       ]);
       setProgram(progRes.data);
       setSettings(settingsRes.data);
-      setTestimonials(testRes.data || []);
+
+      // Fetch by program_id AND by program_name (title match), then deduplicate
+      const prog = progRes.data;
+      const [byId, byName] = await Promise.all([
+        axios.get(`${API}/testimonials?program_id=${id}&visible_only=true`),
+        prog?.title
+          ? axios.get(`${API}/testimonials?program_name=${encodeURIComponent(prog.title)}&visible_only=true`)
+          : Promise.resolve({ data: [] }),
+      ]);
+      const seen = new Set();
+      const merged = [...(byId.data || []), ...(byName.data || [])].filter(t => {
+        if (seen.has(t.id)) return false;
+        seen.add(t.id);
+        return true;
+      });
+      setTestimonials(merged);
     } catch (e) { console.error(e); }
     setLoading(false);
   };
@@ -464,97 +482,96 @@ function ProgramDetailPage() {
         </div>
       </section>
 
-      {testimonials.filter(t => t.image).length > 0 && (
-        <section className="py-16" data-testid="testimonials-section"
-          style={{ background: 'linear-gradient(180deg, #f5f4f8 0%, #eceaf1 40%, #f5f4f8 100%)' }}>
-          <h2 className="text-center mb-10" style={applyStyle(template.testimonial_title_style, { ...HEADING, color: heroAccent, fontStyle: 'italic', fontSize: '1.6rem' })}>Testimonials</h2>
-          {/* 5-card carousel — auto-moving, hover lifts card */}
-          {(() => {
-            const imgTestimonials = testimonials.filter(t => t.image);
-            const total = imgTestimonials.length;
-            if (total === 0) return null;
+      {testimonials.length > 0 && (() => {
+        const writtenList = testimonials.filter(t => t.type === 'template');
+        const videoList   = testimonials.filter(t => t.type === 'video' && (t.video_url || t.videoId));
+        const graphicList = testimonials.filter(t => t.type === 'graphic' && t.image);
+        return (
+          <section className="py-16" data-testid="testimonials-section"
+            style={{ background: 'linear-gradient(180deg, #f5f4f8 0%, #eceaf1 40%, #f5f4f8 100%)' }}>
+            <div className="container mx-auto px-4 max-w-7xl">
+              <h2 className="text-center mb-10"
+                style={applyStyle(template.testimonial_title_style, { ...HEADING, color: heroAccent, fontStyle: 'italic', fontSize: '1.6rem' })}>
+                Testimonials
+              </h2>
 
-            // Sized to fit all 5 cards on screen without clipping
-            const CARD_W = 340;
-            const CARD_H = 191;
-            const OVERLAP = CARD_W * 0.2;
-            const STEP = CARD_W - OVERLAP;
-
-            const MAX_DOTS = 10;
-            const dotStart = Math.max(0, Math.min(currentTestimonial - Math.floor(MAX_DOTS / 2), total - MAX_DOTS));
-            const dotEnd = Math.min(total, dotStart + MAX_DOTS);
-
-            return (
-              <div className="relative mx-auto px-6" style={{ maxWidth: '1500px' }}>
-                <div className="relative flex items-center justify-center" style={{ height: `${CARD_H + 60}px` }}>
-                  {[-2, -1, 0, 1, 2].map(offset => {
-                    if (total === 1 && offset !== 0) return null;
-                    if (total < 3 && Math.abs(offset) > 1) return null;
-                    if (total < 5 && Math.abs(offset) > 1) return null;
-                    const idx = ((currentTestimonial + offset) % total + total) % total;
-                    const t = imgTestimonials[idx];
-                    if (!t) return null;
-                    const imgSrc = resolveImageUrl(t.image);
-                    const isCenter = offset === 0;
-                    const isAdj = Math.abs(offset) === 1;
-                    const isHovered = hoveredCard === offset;
-
-                    return (
-                      <div key={`${offset}-${idx}`}
-                        className="absolute cursor-pointer"
-                        data-testid={isCenter ? 'carousel-center-card' : `carousel-card-${offset}`}
-                        onClick={() => setLightboxImg(imgSrc)}
-                        onMouseEnter={() => setHoveredCard(offset)}
-                        onMouseLeave={() => setHoveredCard(null)}
-                        style={{
-                          width: `${CARD_W}px`,
-                          height: `${CARD_H}px`,
-                          left: '50%',
-                          top: '50%',
-                          transform: `translate(-50%, -50%) translateX(${offset * STEP}px) translateY(${isHovered ? '-12px' : '0px'}) scale(${isHovered ? 1.04 : 1})`,
-                          transition: 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)',
-                          zIndex: isCenter ? 50 : isAdj ? 40 : 30,
-                        }}>
-                        <div className="w-full h-full overflow-hidden bg-white"
-                          style={{
-                            borderRadius: '14px',
-                            boxShadow: isHovered
-                              ? '0 20px 50px rgba(0,0,0,0.2), 0 8px 20px rgba(0,0,0,0.12)'
-                              : isCenter
-                                ? '0 12px 35px rgba(0,0,0,0.14), 0 4px 12px rgba(0,0,0,0.08)'
-                                : '0 6px 20px rgba(0,0,0,0.07), 0 2px 8px rgba(0,0,0,0.04)',
-                          }}>
-                          <img src={imgSrc} alt={t.name || 'Testimonial'}
-                            className="w-full h-full"
-                            style={{ objectFit: 'contain', objectPosition: 'center' }}
-                            onError={(e) => { e.target.src = 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="340" height="191"><rect fill="%23f3f4f6" width="340" height="191"/></svg>'; }} />
-                        </div>
-                      </div>
-                    );
-                  })}
+              {/* Written stories */}
+              {writtenList.length > 0 && (
+                <div className="mb-10">
+                  <p className="text-[10px] tracking-[0.25em] uppercase text-center mb-5"
+                    style={{ color: heroAccent, fontFamily: "'Lato', sans-serif", opacity: 0.8 }}>
+                    Healing Stories
+                  </p>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    {writtenList.map(t => (
+                      <SoulfulWrittenCard key={t.id} testimonial={t} onClick={() => setSelectedTemplate(t)} />
+                    ))}
+                  </div>
                 </div>
-                {/* Dot Indicators */}
-                <div className="flex justify-center items-center gap-2.5 mt-4">
-                  {dotStart > 0 && <span className="text-gray-300 text-xs select-none">...</span>}
-                  {imgTestimonials.slice(dotStart, dotEnd).map((_, i) => {
-                    const realIdx = dotStart + i;
-                    return (
-                      <button key={realIdx} onClick={() => setCurrentTestimonial(realIdx)} data-testid={`carousel-dot-${realIdx}`}
-                        className="rounded-full transition-all duration-300"
-                        style={{
-                          width: realIdx === currentTestimonial ? '14px' : '10px',
-                          height: realIdx === currentTestimonial ? '14px' : '10px',
-                          background: realIdx === currentTestimonial ? heroAccent : '#d1d5db',
-                        }} />
-                    );
-                  })}
-                  {dotEnd < total && <span className="text-gray-300 text-xs select-none">...</span>}
+              )}
+
+              {/* Video testimonials */}
+              {videoList.length > 0 && (
+                <div className="mb-10 rounded-2xl py-8 px-4 md:px-6"
+                  style={{ background: 'linear-gradient(135deg,#0d0618 0%,#1a0a3e 60%,#0f0a1e 100%)' }}>
+                  <p className="text-[10px] tracking-[0.25em] uppercase text-center mb-5"
+                    style={{ color: 'rgba(212,175,55,0.75)', fontFamily: "'Lato', sans-serif" }}>
+                    Watch &amp; Feel
+                  </p>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    {videoList.map(t => (
+                      <SoulfulVideoCard key={t.id} testimonial={t}
+                        onPlay={(embedUrl, platform) => setSelectedEmbed({ embedUrl, platform })}
+                        onOpen={url => window.open(url, '_blank')}
+                      />
+                    ))}
+                  </div>
                 </div>
-              </div>
-            );
-          })()}
-        </section>
-      )}
+              )}
+
+              {/* Graphic gallery */}
+              {graphicList.length > 0 && (
+                <div className="mb-4">
+                  <p className="text-[10px] tracking-[0.25em] uppercase text-center mb-5"
+                    style={{ color: heroAccent, fontFamily: "'Lato', sans-serif", opacity: 0.8 }}>
+                    Transformation Gallery
+                  </p>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    {graphicList.map(t => (
+                      <SoulfulGraphicCard key={t.id} testimonial={t}
+                        onClick={() => setLightboxImg(resolveImageUrl(t.image))} />
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Full story modal */}
+            <Dialog open={!!selectedTemplate} onOpenChange={() => setSelectedTemplate(null)}>
+              <DialogContent className="max-w-3xl p-0 overflow-hidden rounded-2xl"
+                style={{ border: '1px solid rgba(123,104,238,0.15)' }}>
+                {selectedTemplate && <SoulfulTestimonialFull testimonial={selectedTemplate} />}
+              </DialogContent>
+            </Dialog>
+
+            {/* Video embed modal */}
+            <Dialog open={!!selectedEmbed} onOpenChange={() => setSelectedEmbed(null)}>
+              <DialogContent className="max-w-4xl p-0 overflow-hidden bg-black rounded-2xl">
+                {selectedEmbed && (
+                  <div className="relative"
+                    style={{ paddingBottom: selectedEmbed.platform === 'instagram' ? '120%' : '56.25%' }}>
+                    <iframe className="absolute inset-0 w-full h-full"
+                      src={selectedEmbed.embedUrl} title="Video testimonial" frameBorder="0"
+                      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                      allowFullScreen
+                      sandbox="allow-scripts allow-same-origin allow-popups allow-presentation allow-forms" />
+                  </div>
+                )}
+              </DialogContent>
+            </Dialog>
+          </section>
+        );
+      })()}
 
       {/* Testimonial Lightbox — dark overlay, full image */}
       {lightboxImg && (
