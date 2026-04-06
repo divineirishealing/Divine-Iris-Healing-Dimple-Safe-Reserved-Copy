@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { ChevronRight, ChevronLeft, Clock, Wifi, MapPin, Quote, Calendar as CalendarIcon, ShoppingCart } from 'lucide-react';
@@ -105,6 +105,8 @@ const SessionsSection = ({ sectionConfig }) => {
   const [selectedSession, setSelectedSession] = useState(null);
   const [selectedDate, setSelectedDate] = useState(null);
   const [selectedTimeSlot, setSelectedTimeSlot] = useState(null);
+  const [hasScrolled, setHasScrolled] = useState(false);
+  const sessionsListRef = useRef(null);
 
   const sessionTpl = settings?.page_heroes?.session_template || {};
   const purpleIntensity = sessionTpl.homepage_purple || 'medium';
@@ -195,8 +197,13 @@ const SessionsSection = ({ sectionConfig }) => {
 
           {/* Left — Session List */}
           <aside className="w-full lg:w-[340px] lg:min-w-[340px] flex-shrink-0" data-testid="sessions-list">
-            <div className="bg-white/70 backdrop-blur-sm rounded-xl border border-purple-100/50 shadow-sm overflow-hidden">
-              <div className="max-h-[520px] overflow-y-auto" style={{ scrollbarWidth: 'thin', scrollbarColor: 'rgba(139,92,246,0.15) transparent' }}>
+            <div className="bg-white/70 backdrop-blur-sm rounded-xl border border-purple-100/50 shadow-sm overflow-hidden relative">
+              <div
+                ref={sessionsListRef}
+                onScroll={() => setHasScrolled(true)}
+                className="sessions-scroll-list max-h-[520px] overflow-y-auto"
+                style={{ scrollbarWidth: 'thin', scrollbarColor: '#8b5cf6 #D4AF3740' }}
+              >
                 {sessions.map((session) => (
                   <button
                     key={session.id}
@@ -238,6 +245,33 @@ const SessionsSection = ({ sectionConfig }) => {
                   </button>
                 ))}
               </div>
+
+              {/* Scroll hint — gradient fade + bouncing arrow, hides after first scroll */}
+              {!hasScrolled && sessions.length > 5 && (
+                <div className="pointer-events-none absolute bottom-0 left-0 right-0 flex flex-col items-center pb-2 pt-10"
+                  style={{ background: 'linear-gradient(to top, rgba(245,243,255,0.97) 0%, rgba(245,243,255,0.7) 60%, transparent 100%)' }}>
+                  <div className="flex flex-col items-center gap-0.5 animate-bounce">
+                    <span className="text-[9px] font-semibold tracking-[0.2em] uppercase"
+                      style={{ background: 'linear-gradient(90deg, #8b5cf6, #D4AF37)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
+                      scroll
+                    </span>
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+                      <path d="M6 9l6 6 6-6" stroke="url(#sg)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
+                      <path d="M6 14l6 6 6-6" stroke="url(#sg2)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" opacity="0.4"/>
+                      <defs>
+                        <linearGradient id="sg" x1="6" y1="9" x2="18" y2="15" gradientUnits="userSpaceOnUse">
+                          <stop stopColor="#8b5cf6"/>
+                          <stop offset="1" stopColor="#D4AF37"/>
+                        </linearGradient>
+                        <linearGradient id="sg2" x1="6" y1="14" x2="18" y2="20" gradientUnits="userSpaceOnUse">
+                          <stop stopColor="#8b5cf6"/>
+                          <stop offset="1" stopColor="#D4AF37"/>
+                        </linearGradient>
+                      </defs>
+                    </svg>
+                  </div>
+                </div>
+              )}
             </div>
           </aside>
 
