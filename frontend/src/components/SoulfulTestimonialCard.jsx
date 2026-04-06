@@ -216,71 +216,62 @@ export const SoulfulWrittenCard = ({ testimonial, onClick }) => {
   return (
     <div
       data-testid={`soulful-written-${testimonial.id}`}
-      className="relative group cursor-pointer rounded-2xl overflow-hidden transition-all duration-300 hover:shadow-2xl hover:-translate-y-1 flex flex-col"
-      style={{ background: 'linear-gradient(160deg, #fdfbff 0%, #f5f0ff 50%, #fdf8f0 100%)', border: '1px solid rgba(212,175,55,0.18)', minHeight: 220 }}
+      className="relative group cursor-pointer rounded-2xl overflow-hidden transition-all duration-300 hover:shadow-2xl hover:-translate-y-1"
+      style={{ background: 'linear-gradient(160deg, #fdfbff 0%, #f5f0ff 50%, #fdf8f0 100%)', border: '1px solid rgba(212,175,55,0.18)' }}
       onClick={onClick}
     >
       {/* ── Top shimmer line ── */}
-      <div className="h-[2px] w-full shrink-0" style={{ background: 'linear-gradient(90deg, transparent 0%, #D4AF37 30%, rgba(139,92,246,0.6) 70%, transparent 100%)' }} />
+      <div className="h-[2px] w-full" style={{ background: 'linear-gradient(90deg, transparent 0%, #D4AF37 30%, rgba(139,92,246,0.6) 70%, transparent 100%)' }} />
 
-      {/* ── Main body — photo column + text column ── */}
-      <div className="flex flex-1 min-h-0">
+      <div className="p-5 pb-4">
+        <QuoteGlyph />
 
-        {/* ── Left: full-height photo ── */}
-        {hasSinglePhoto && (
-          <div className="shrink-0 relative overflow-hidden" style={{ width: 96 }}>
-            <img
-              src={resolveImageUrl(effectivePhotos[0])}
-              alt={name || ''}
-              className="absolute inset-0 w-full h-full object-cover"
-            />
-            {/* Subtle right-edge gradient fade into card */}
-            <div className="absolute inset-y-0 right-0 w-6"
-              style={{ background: 'linear-gradient(to right, transparent, rgba(245,240,255,0.85))' }} />
+        {/* ── Stars + Quote + Photo row ── */}
+        <div className="flex gap-4 relative z-10">
+
+          {/* Left: Stars + quote text + read more */}
+          <div className="flex-1 min-w-0 flex flex-col gap-2">
+            <Stars rating={rating} />
+            <p style={{ fontFamily: "'Cormorant Garamond', Georgia, serif", fontSize: '0.9rem', lineHeight: 1.8, color: '#2d2040', fontStyle: 'italic' }}>
+              "{displayText}"
+            </p>
+            {isLong && (
+              <button
+                onClick={e => { e.stopPropagation(); setExpanded(!expanded); }}
+                className="self-start flex items-center gap-1 text-[11px] font-semibold tracking-wide"
+                style={{ color: '#7c3aed' }}
+              >
+                {expanded ? <><ChevronUp size={12} /> Read less</> : <><ChevronDown size={12} /> Read more</>}
+              </button>
+            )}
+          </div>
+
+          {/* Right: single oval photo — slightly taller than before */}
+          {hasSinglePhoto && (
+            <div className="shrink-0 flex flex-col items-center self-start pt-0.5">
+              <div className="overflow-hidden"
+                style={{ width: 72, height: 104, borderRadius: '50%', border: '2.5px solid rgba(139,92,246,0.22)', boxShadow: '0 6px 20px rgba(139,92,246,0.14)' }}>
+                <img src={resolveImageUrl(effectivePhotos[0])} alt={name || ''} className="w-full h-full object-cover" />
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* ── Multi-photo strip (before/after, progressive) ── */}
+        {hasMultiPhoto && (
+          <div className="mt-4 flex justify-center">
+            <PhotoDisplay photos={effectivePhotos} photoLabels={effectivePhotoLabels} photoMode={effectiveMode} size="card" />
           </div>
         )}
 
-        {/* ── Right: quote + footer ── */}
-        <div className="flex-1 min-w-0 flex flex-col p-5 pb-4 relative">
-          <QuoteGlyph />
-
-          {/* Stars */}
-          <div className="relative z-10 mb-2.5">
-            <Stars rating={rating} />
-          </div>
-
-          {/* Quote text */}
-          <p className="relative z-10 flex-1" style={{ fontFamily: "'Cormorant Garamond', Georgia, serif", fontSize: '0.9rem', lineHeight: 1.8, color: '#2d2040', fontStyle: 'italic' }}>
-            "{displayText}"
-          </p>
-
-          {/* Read more / less */}
-          {isLong && (
-            <button
-              onClick={e => { e.stopPropagation(); setExpanded(!expanded); }}
-              className="relative z-10 self-start flex items-center gap-1 mt-2 text-[11px] font-semibold tracking-wide"
-              style={{ color: '#7c3aed' }}
-            >
-              {expanded ? <><ChevronUp size={12} /> Read less</> : <><ChevronDown size={12} /> Read more</>}
-            </button>
-          )}
-
-          {/* ── Multi-photo strip (before/after, progressive) ── */}
-          {hasMultiPhoto && (
-            <div className="mt-3 flex justify-center">
-              <PhotoDisplay photos={effectivePhotos} photoLabels={effectivePhotoLabels} photoMode={effectiveMode} size="card" />
-            </div>
-          )}
-
-          {/* ── Author footer ── */}
-          <div className="mt-4 pt-3 relative z-10" style={{ borderTop: '1px solid rgba(212,175,55,0.15)' }}>
-            <AuthorBlock name={name} role={role} program_name={program_name} />
-          </div>
+        {/* ── Author footer ── */}
+        <div className="mt-4 pt-3 relative z-10" style={{ borderTop: '1px solid rgba(212,175,55,0.15)' }}>
+          <AuthorBlock name={name} role={role} program_name={program_name} />
         </div>
       </div>
 
       {/* ── Bottom shimmer line ── */}
-      <div className="h-[2px] w-full shrink-0" style={{ background: 'linear-gradient(90deg, transparent 0%, rgba(139,92,246,0.4) 30%, #D4AF37 70%, transparent 100%)' }} />
+      <div className="h-[2px] w-full" style={{ background: 'linear-gradient(90deg, transparent 0%, rgba(139,92,246,0.4) 30%, #D4AF37 70%, transparent 100%)' }} />
     </div>
   );
 };
