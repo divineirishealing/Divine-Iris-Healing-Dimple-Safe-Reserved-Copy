@@ -124,14 +124,14 @@ const CardFooter = ({ name, role, program_name }) => (
     <div className="h-px"
       style={{ background: 'linear-gradient(90deg, transparent, rgba(212,175,55,0.5) 30%, rgba(109,40,217,0.4) 70%, transparent)', margin: '12px 0' }} />
     <div className="flex items-end justify-between gap-2">
-      <div className="flex-1">
+      <div className="flex-1 min-w-0">
         <p style={{ fontFamily: "'Lato', sans-serif", fontWeight: 800, fontSize: '0.9rem', color: '#1a0a4e', letterSpacing: '0.02em' }}>
           {name}
         </p>
         <p style={{ fontFamily: "'Lato', sans-serif", fontSize: '0.68rem', color: '#7c6a9a', fontStyle: 'italic', marginTop: 2, minHeight: '2.2em', visibility: role ? 'visible' : 'hidden' }}>
           {role || '\u00A0'}
         </p>
-        <p style={{ fontFamily: "'Cormorant Garamond', Georgia, serif", fontSize: '0.74rem', color: '#b8860b', fontStyle: 'italic', marginTop: 2, letterSpacing: '0.03em', fontWeight: 600, visibility: program_name ? 'visible' : 'hidden', minHeight: '1.2em' }}>
+        <p style={{ fontFamily: "'Cormorant Garamond', Georgia, serif", fontSize: '0.74rem', color: '#b8860b', fontStyle: 'italic', marginTop: 2, letterSpacing: '0.03em', fontWeight: 600, visibility: program_name ? 'visible' : 'hidden', minHeight: '1.2em', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
           {program_name || '\u00A0'}
         </p>
       </div>
