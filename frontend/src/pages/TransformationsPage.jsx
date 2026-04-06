@@ -3,6 +3,7 @@ import axios from 'axios';
 import Header from '../components/Header';
 import Footer from '../components/Footer';
 import FloatingButtons from '../components/FloatingButtons';
+import ConstellationCanvas from '../components/ConstellationCanvas';
 import { SoulfulWrittenCard, SoulfulVideoCard, SoulfulGraphicCard, SoulfulTestimonialFull } from '../components/SoulfulTestimonialCard';
 import { Search, X, Filter, Sparkles } from 'lucide-react';
 import { Dialog, DialogContent } from '../components/ui/dialog';
@@ -88,13 +89,8 @@ function TransformationsPage() {
         {hero.hero_image && <div className="absolute inset-0" style={{ backgroundImage: `url(${resolveImageUrl(hero.hero_image)})`, backgroundSize: 'cover', backgroundPosition: 'center' }} />}
         {hero.hero_image && <div className="absolute inset-0 bg-black" style={{ opacity: (hero.overlay_opacity || 60) / 100 }} />}
 
-        {/* Floating sparkle orbs */}
-        <div className="absolute inset-0 overflow-hidden pointer-events-none">
-          {[...Array(6)].map((_, i) => (
-            <div key={i} className="absolute rounded-full"
-              style={{ width: 4 + i * 2, height: 4 + i * 2, background: i % 2 === 0 ? 'rgba(212,175,55,0.35)' : 'rgba(139,92,246,0.25)', top: `${15 + i * 12}%`, left: `${10 + i * 14}%`, filter: 'blur(1px)', animation: `float ${3 + i * 0.5}s ease-in-out infinite alternate` }} />
-          ))}
-        </div>
+        {/* Moving constellation */}
+        <ConstellationCanvas style={{ zIndex: 1, opacity: 0.85 }} />
 
         <div className="relative z-10 flex flex-col items-center">
           <div className="flex items-center gap-2 mb-3">
