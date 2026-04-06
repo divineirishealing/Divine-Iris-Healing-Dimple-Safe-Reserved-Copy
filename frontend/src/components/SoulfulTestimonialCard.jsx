@@ -246,7 +246,7 @@ const PhotoDisplay = ({ photos, photoLabels, photoMode, size = 'card' }) => {
 };
 
 /* ══════════════════════════════════════════════════════════════════════════
-   WRITTEN TESTIMONIAL CARD
+   WRITTEN TESTIMONIAL CARD  —  jewel-tone redesign
    ══════════════════════════════════════════════════════════════════════════ */
 export const SoulfulWrittenCard = ({ testimonial, onClick }) => {
   const [expanded, setExpanded] = useState(false);
@@ -256,7 +256,6 @@ export const SoulfulWrittenCard = ({ testimonial, onClick }) => {
     image, before_image, program_name,
   } = testimonial;
 
-  // Support legacy image / before_image fields too
   const effectivePhotos = photos.length > 0 ? photos
     : before_image ? [before_image, image].filter(Boolean)
     : image ? [image]
@@ -268,73 +267,116 @@ export const SoulfulWrittenCard = ({ testimonial, onClick }) => {
     : before_image ? 'before_after'
     : 'single';
 
-  const hasPhotos = effectivePhotos.length > 0;
-  const PREVIEW_LEN = 130;
-  const isLong = (text || '').length > PREVIEW_LEN;
-  const displayText = isLong && !expanded ? text.substring(0, PREVIEW_LEN) + '…' : text;
+  const hasPhotos    = effectivePhotos.length > 0;
+  const isSingle     = effectiveMode === 'single';
+  const PREVIEW_LEN  = 150;
+  const isLong       = (text || '').length > PREVIEW_LEN;
+  const displayText  = isLong && !expanded ? text.substring(0, PREVIEW_LEN) + '…' : text;
 
   return (
     <div
       data-testid={`soulful-written-${testimonial.id}`}
-      className="relative group cursor-pointer rounded-2xl overflow-hidden transition-all duration-300 hover:shadow-2xl hover:-translate-y-1"
-      style={{ background: 'linear-gradient(160deg, #fdfbff 0%, #f5f0ff 45%, #fdf8f0 100%)', border: '1px solid rgba(212,175,55,0.15)' }}
+      className="relative group cursor-pointer rounded-3xl overflow-hidden transition-all duration-300 hover:-translate-y-2"
+      style={{
+        background: '#fdfbff',
+        border: '1.5px solid rgba(109,40,217,0.22)',
+        boxShadow: '0 4px 28px rgba(109,40,217,0.10), 0 1px 4px rgba(0,0,0,0.06)',
+      }}
       onClick={onClick}
     >
-      {/* Top gold line */}
-      <div className="h-0.5 w-full" style={{ background: 'linear-gradient(90deg, transparent, #D4AF37 30%, rgba(139,92,246,0.5) 70%, transparent)' }} />
+      {/* ── Jewel header ── */}
+      <div className="relative px-5 pt-5 pb-10 overflow-hidden"
+        style={{ background: 'linear-gradient(135deg, #1e0654 0%, #3b0f9e 45%, #6d28d9 80%, #9333ea 100%)' }}>
+        {/* Radial glow behind photo */}
+        <div className="absolute inset-0 pointer-events-none"
+          style={{ background: 'radial-gradient(ellipse 70% 80% at 50% 130%, rgba(212,175,55,0.18) 0%, transparent 70%)' }} />
+        {/* Gold sparkle dots */}
+        {[{t:14,l:8},{t:22,l:88},{t:55,l:94},{t:40,l:15},{t:70,l:78}].map((p,i)=>(
+          <div key={i} className="absolute rounded-full"
+            style={{ top:`${p.t}%`, left:`${p.l}%`, width:3+i%2, height:3+i%2,
+              background:'rgba(212,175,55,0.65)', boxShadow:'0 0 5px rgba(212,175,55,0.7)',
+              animation:`float ${2.5+i*0.4}s ease-in-out infinite alternate` }} />
+        ))}
+        {/* Stars centred */}
+        <div className="flex justify-center mb-3 relative z-10"><Stars rating={rating} /></div>
+        {/* Large decorative quote */}
+        <div className="relative z-10 text-center" style={{
+          fontFamily: "'Cormorant Garamond', Georgia, serif",
+          fontSize: '5rem', lineHeight: 0.8, color: 'rgba(212,175,55,0.30)',
+          userSelect: 'none', pointerEvents: 'none',
+        }}>"</div>
+      </div>
 
-      <div className="p-5 pb-4">
-        <QuoteGlyph />
-
-        <div className="flex gap-4 relative z-10">
-          {/* Photos */}
-          {hasPhotos && (
-            <div className="shrink-0 pt-1">
-              <PhotoDisplay photos={effectivePhotos} photoLabels={effectivePhotoLabels} photoMode={effectiveMode} size="card" />
-            </div>
-          )}
-
-          {/* Text block */}
-          <div className="flex-1 min-w-0 flex flex-col gap-2">
-            <Stars rating={rating} />
-            <p style={{ fontFamily: "'Cormorant Garamond', Georgia, serif", fontSize: '0.88rem', lineHeight: 1.75, color: '#2d2040', fontStyle: 'italic' }}>
-              "{displayText}"
-            </p>
-            {isLong && (
-              <button
-                onClick={(e) => { e.stopPropagation(); setExpanded(!expanded); }}
-                className="self-start flex items-center gap-1 text-[11px] font-semibold tracking-wide transition-colors"
-                style={{ color: '#7c3aed' }}
-              >
-                {expanded ? <><ChevronUp size={12} /> Read less</> : <><ChevronDown size={12} /> Read more</>}
-              </button>
-            )}
+      {/* ── Single photo straddling header / body ── */}
+      {hasPhotos && isSingle && (
+        <div className="flex justify-center" style={{ marginTop: -46, position: 'relative', zIndex: 10 }}>
+          <div style={{
+            width: 86, height: 86, borderRadius: '50%', overflow: 'hidden',
+            border: '3px solid #D4AF37',
+            boxShadow: '0 0 0 5px rgba(109,40,217,0.25), 0 8px 28px rgba(0,0,0,0.28)',
+          }}>
+            <img src={resolveImageUrl(effectivePhotos[0])} alt={name || ''}
+              className="w-full h-full object-cover" />
           </div>
         </div>
+      )}
+
+      {/* ── Card body ── */}
+      <div className={`px-5 pb-5 ${hasPhotos && isSingle ? 'pt-3' : 'pt-2'}`}>
+
+        {/* Multi-photo for before/after or progressive */}
+        {hasPhotos && !isSingle && (
+          <div className="mb-3 mt-1">
+            <PhotoDisplay photos={effectivePhotos} photoLabels={effectivePhotoLabels}
+              photoMode={effectiveMode} size="card" />
+          </div>
+        )}
+
+        {/* Quote text */}
+        <p style={{
+          fontFamily: "'Cormorant Garamond', Georgia, serif",
+          fontSize: '0.92rem', lineHeight: 1.85, color: '#1e0a4e',
+          fontStyle: 'italic', textAlign: 'center',
+        }}>
+          {displayText}
+        </p>
+
+        {isLong && (
+          <button
+            onClick={(e) => { e.stopPropagation(); setExpanded(!expanded); }}
+            className="flex items-center gap-1 mx-auto mt-2 text-[11px] font-semibold tracking-wide transition-colors"
+            style={{ color: '#7c3aed' }}
+          >
+            {expanded ? <><ChevronUp size={12} /> Read less</> : <><ChevronDown size={12} /> Read more</>}
+          </button>
+        )}
+
+        {/* Gold divider */}
+        <div className="my-4 h-px"
+          style={{ background: 'linear-gradient(90deg, transparent, rgba(212,175,55,0.5) 30%, rgba(109,40,217,0.4) 70%, transparent)' }} />
 
         {/* Footer */}
-        <div className="mt-3 pt-3 flex items-end justify-between gap-2" style={{ borderTop: '1px solid rgba(212,175,55,0.12)' }}>
-          <div>
-            {/* Row 1: Name */}
-            <p style={{ fontFamily: "'Lato', sans-serif", fontWeight: 800, fontSize: '0.86rem', color: '#1a1040', letterSpacing: '0.01em' }}>{name}</p>
-            {/* Row 2: Role / Location — always rendered, hidden when empty so spacing is identical */}
-            <p style={{ fontFamily: "'Lato', sans-serif", fontSize: '0.68rem', color: '#8b7a9a', fontStyle: 'italic', marginTop: 2, minHeight: '2.2em', visibility: role ? 'visible' : 'hidden' }}>
+        <div className="flex items-end justify-between gap-2">
+          <div className="flex-1">
+            <p style={{ fontFamily: "'Lato', sans-serif", fontWeight: 800, fontSize: '0.9rem', color: '#1a0a4e', letterSpacing: '0.02em' }}>
+              {name}
+            </p>
+            <p style={{ fontFamily: "'Lato', sans-serif", fontSize: '0.68rem', color: '#7c6a9a', fontStyle: 'italic', marginTop: 2, minHeight: '2.2em', visibility: role ? 'visible' : 'hidden' }}>
               {role || '\u00A0'}
             </p>
-            {/* Row 3: Program name */}
             {program_name && (
-              <p style={{ fontFamily: "'Cormorant Garamond', Georgia, serif", fontSize: '0.73rem', color: '#D4AF37', fontStyle: 'italic', marginTop: 2, letterSpacing: '0.02em' }}>
+              <p style={{ fontFamily: "'Cormorant Garamond', Georgia, serif", fontSize: '0.74rem', color: '#b8860b', fontStyle: 'italic', marginTop: 2, letterSpacing: '0.03em', fontWeight: 600 }}>
                 {program_name}
               </p>
             )}
           </div>
-          {/* Animated iris */}
           <IrisBloom />
         </div>
       </div>
 
-      {/* Bottom gradient line */}
-      <div className="h-0.5 w-full" style={{ background: 'linear-gradient(90deg, transparent, rgba(139,92,246,0.3) 30%, #D4AF37 70%, transparent)' }} />
+      {/* Bottom vibrant line */}
+      <div className="h-0.5 w-full"
+        style={{ background: 'linear-gradient(90deg, #6d28d9, #9333ea 40%, #D4AF37 70%, #b8860b)' }} />
     </div>
   );
 };
@@ -470,15 +512,28 @@ export const SoulfulTestimonialFull = ({ testimonial }) => {
   const hasPhotos = effectivePhotos.length > 0;
 
   return (
-    <div className="relative overflow-hidden rounded-2xl"
-      style={{ background: 'linear-gradient(160deg, #fdfbff 0%, #f0ebff 35%, #fdf8f0 100%)', minHeight: 350 }}>
-      {/* Top bar */}
-      <div className="h-1 w-full" style={{ background: 'linear-gradient(90deg, #7c3aed, #D4AF37, #7c3aed)' }} />
+    <div className="relative overflow-hidden rounded-2xl" style={{ background: '#fdfbff', minHeight: 350 }}>
+      {/* Jewel header bar */}
+      <div className="relative px-8 pt-7 pb-6 overflow-hidden"
+        style={{ background: 'linear-gradient(135deg, #1e0654 0%, #3b0f9e 45%, #6d28d9 80%, #9333ea 100%)' }}>
+        <div className="absolute inset-0 pointer-events-none"
+          style={{ background: 'radial-gradient(ellipse 70% 80% at 50% 130%, rgba(212,175,55,0.18) 0%, transparent 70%)' }} />
+        {[{t:12,l:6},{t:20,l:90},{t:65,l:95},{t:50,l:12}].map((p,i)=>(
+          <div key={i} className="absolute rounded-full"
+            style={{ top:`${p.t}%`, left:`${p.l}%`, width:3, height:3,
+              background:'rgba(212,175,55,0.7)', boxShadow:'0 0 5px rgba(212,175,55,0.8)' }} />
+        ))}
+        <div className="relative z-10 flex justify-center mb-2"><Stars rating={rating} /></div>
+        <div className="relative z-10 text-center" style={{
+          fontFamily: "'Cormorant Garamond', Georgia, serif",
+          fontSize: '4rem', lineHeight: 0.9, color: 'rgba(212,175,55,0.28)', userSelect: 'none',
+        }}>"</div>
+      </div>
 
       <div className="p-8 md:p-10">
-        <div className={`flex ${hasPhotos ? 'gap-8' : ''}`}>
+        <div className={`flex ${hasPhotos ? 'gap-8 items-start' : ''}`}>
           {hasPhotos && (
-            <div className="shrink-0 flex flex-col items-center" style={{ width: effectiveMode === 'progressive' ? undefined : '35%', maxWidth: 240 }}>
+            <div className="shrink-0 flex flex-col items-center" style={{ width: effectiveMode === 'progressive' ? undefined : '32%', maxWidth: 220 }}>
               <PhotoDisplay photos={effectivePhotos} photoLabels={effectivePhotoLabels} photoMode={effectiveMode} size="full" />
               <div className="mt-5 text-center">
                 <ModalAuthor name={name} role={role} program_name={program_name} />
@@ -487,18 +542,14 @@ export const SoulfulTestimonialFull = ({ testimonial }) => {
           )}
 
           <div className="flex-1 min-w-0 flex flex-col">
-            <div className="flex justify-center mb-5"><Stars rating={rating} /></div>
-            <div className="relative">
-              <QuoteGlyph color="rgba(139,92,246,0.07)" />
-              <div className="rounded-2xl p-5 md:p-7 relative z-10"
-                style={{ background: 'rgba(255,255,255,0.8)', border: '1px solid rgba(139,92,246,0.06)', backdropFilter: 'blur(6px)' }}>
-                <p style={{ fontFamily: "'Cormorant Garamond', Georgia, serif", fontSize: 'clamp(0.95rem, 1.5vw, 1.05rem)', color: '#2d2040', lineHeight: 1.9, fontStyle: 'italic' }}>
-                  "{text}"
-                </p>
-              </div>
+            <div className="relative rounded-2xl p-5 md:p-7"
+              style={{ background: 'rgba(255,255,255,0.9)', border: '1px solid rgba(109,40,217,0.08)', boxShadow: '0 2px 16px rgba(109,40,217,0.06)' }}>
+              <p style={{ fontFamily: "'Cormorant Garamond', Georgia, serif", fontSize: 'clamp(0.98rem, 1.5vw, 1.08rem)', color: '#1e0a4e', lineHeight: 1.95, fontStyle: 'italic' }}>
+                "{text}"
+              </p>
             </div>
             {!hasPhotos && (
-              <div className="mt-6 text-center">
+              <div className="mt-7 text-center">
                 <ModalAuthor name={name} role={role} program_name={program_name} />
               </div>
             )}
@@ -506,7 +557,8 @@ export const SoulfulTestimonialFull = ({ testimonial }) => {
         </div>
       </div>
 
-      <div className="h-0.5 w-full" style={{ background: 'linear-gradient(90deg, transparent, #D4AF37 50%, transparent)' }} />
+      <div className="h-0.5 w-full"
+        style={{ background: 'linear-gradient(90deg, #6d28d9, #9333ea 40%, #D4AF37 70%, #b8860b)' }} />
     </div>
   );
 };
