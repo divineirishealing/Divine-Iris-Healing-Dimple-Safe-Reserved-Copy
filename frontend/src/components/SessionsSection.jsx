@@ -197,14 +197,33 @@ const SessionsSection = ({ sectionConfig }) => {
           <aside className="w-full lg:w-[340px] lg:min-w-[340px] flex-shrink-0" data-testid="sessions-list">
             <div className="bg-white/70 backdrop-blur-sm rounded-xl border border-purple-100/50 shadow-sm overflow-hidden relative">
               <style>{`
-                .sessions-scroll-list::-webkit-scrollbar { width: 8px; }
-                .sessions-scroll-list::-webkit-scrollbar-track { background: #ede9fe; border-radius: 8px; }
-                .sessions-scroll-list::-webkit-scrollbar-thumb { background: linear-gradient(180deg,#8b5cf6,#D4AF37); border-radius: 8px; }
-                .sessions-scroll-list::-webkit-scrollbar-thumb:hover { background: linear-gradient(180deg,#7c3aed,#b8962e); }
+                .sessions-scroll-list {
+                  overflow-y: scroll !important;
+                }
+                .sessions-scroll-list::-webkit-scrollbar {
+                  -webkit-appearance: none;
+                  width: 7px;
+                  background: transparent;
+                }
+                .sessions-scroll-list::-webkit-scrollbar-track {
+                  background: linear-gradient(180deg, #f5f0ff 0%, #fffbeb 100%);
+                  border-radius: 10px;
+                  margin: 6px 0;
+                }
+                .sessions-scroll-list::-webkit-scrollbar-thumb {
+                  background: linear-gradient(180deg, #8b5cf6 0%, #a855f7 40%, #D4AF37 100%);
+                  border-radius: 10px;
+                  border: 1px solid rgba(255,255,255,0.4);
+                  box-shadow: 0 0 6px rgba(139,92,246,0.35);
+                }
+                .sessions-scroll-list::-webkit-scrollbar-thumb:hover {
+                  background: linear-gradient(180deg, #7c3aed 0%, #9333ea 40%, #b8962e 100%);
+                  box-shadow: 0 0 10px rgba(139,92,246,0.5);
+                }
               `}</style>
               <div
-                className="sessions-scroll-list max-h-[520px] overflow-y-auto"
-                style={{ scrollbarWidth: 'auto', scrollbarColor: '#8b5cf6 #ede9fe' }}
+                className="sessions-scroll-list max-h-[520px]"
+                style={{ scrollbarWidth: 'thin', scrollbarColor: '#8b5cf6 #f5f0ff' }}
               >
                 {sessions.map((session) => (
                   <button
