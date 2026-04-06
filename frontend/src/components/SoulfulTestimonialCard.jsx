@@ -15,188 +15,22 @@ const Stars = ({ rating = 5 }) => (
   </div>
 );
 
-/* ── Animated iris: 3 distinct petal shapes, skew + asymmetric scale = curl open/close ── */
-const IRIS_ID = 'irisBloom';
-const IRIS_PETAL_PATHS = [
-  /* Upright standard — wider crown */
-  'M0,0 C-3.4,4.8 -4.2,14.5 -2.6,21.2 C-1.2,24.8 1.2,24.8 2.6,21.2 C4.2,14.5 3.4,4.8 0,0 Z',
-  /* Right fall — narrower, droops outward */
-  'M0,0 C0.8,5.5 2.8,13.5 4.5,18.2 C5.4,20.5 5.1,22 3.4,23 C1.6,24 -0.2,22.5 -1.2,19.5 C-2.2,14 -1.4,6 0,0 Z',
-  /* Left fall — mirror of right */
-  'M0,0 C-0.8,5.5 -2.8,13.5 -4.5,18.2 C-5.4,20.5 -5.1,22 -3.4,23 C-1.6,24 0.2,22.5 1.2,19.5 C2.2,14 1.4,6 0,0 Z',
-];
-const IrisBloom = () => (
-  <span style={{ display: 'inline-flex', flexShrink: 0 }}>
-    <style>{`
-      /* Centre petal: unfurls from tight roll (skew) then eases flat */
-      @keyframes ${IRIS_ID}_petal0 {
-        0%, 100% { transform: rotate(180deg) skewX(0deg) scale(0.04, 0.06); }
-        8%        { transform: rotate(180deg) skewX(16deg) scale(0.09, 0.2); }
-        22%       { transform: rotate(180deg) skewX(9deg) scale(0.32, 0.62); }
-        36%       { transform: rotate(180deg) skewX(-4deg) scale(0.82, 1.05); }
-        48%       { transform: rotate(180deg) skewX(0deg) scale(1.06, 1.12); }
-        58%       { transform: rotate(180deg) skewX(0deg) scale(1, 1.03); }
-        68%       { transform: rotate(180deg) skewX(-2deg) scale(0.94, 0.98); }
-        78%       { transform: rotate(180deg) skewX(11deg) scale(0.38, 0.55); }
-        90%       { transform: rotate(180deg) skewX(5deg) scale(0.08, 0.14); }
-      }
-      /* Right fall: different skew curve + rotation path */
-      @keyframes ${IRIS_ID}_petal1 {
-        0%, 100% { transform: rotate(182deg) skewX(-10deg) scale(0.035, 0.055); }
-        10%       { transform: rotate(178deg) skewX(6deg) scale(0.11, 0.18); }
-        24%       { transform: rotate(138deg) skewX(14deg) scale(0.4, 0.58); }
-        38%       { transform: rotate(78deg) skewX(2deg) scale(0.88, 1.02); }
-        50%       { transform: rotate(56deg) skewX(-3deg) scale(1.02, 1.08); }
-        60%       { transform: rotate(58deg) skewX(0deg) scale(0.96, 1); }
-        72%       { transform: rotate(120deg) skewX(12deg) scale(0.45, 0.62); }
-        85%       { transform: rotate(168deg) skewX(-5deg) scale(0.12, 0.22); }
-      }
-      /* Left fall */
-      @keyframes ${IRIS_ID}_petal2 {
-        0%, 100% { transform: rotate(178deg) skewX(10deg) scale(0.035, 0.055); }
-        10%       { transform: rotate(182deg) skewX(-6deg) scale(0.11, 0.18); }
-        24%       { transform: rotate(222deg) skewX(-14deg) scale(0.4, 0.58); }
-        38%       { transform: rotate(282deg) skewX(-2deg) scale(0.88, 1.02); }
-        50%       { transform: rotate(304deg) skewX(3deg) scale(1.02, 1.08); }
-        60%       { transform: rotate(302deg) skewX(0deg) scale(0.96, 1); }
-        72%       { transform: rotate(240deg) skewX(-12deg) scale(0.45, 0.62); }
-        85%       { transform: rotate(192deg) skewX(5deg) scale(0.12, 0.22); }
-      }
-      @keyframes ${IRIS_ID}_pollen {
-        0%, 43%  { transform: scale(0); opacity: 0; }
-        51%      { transform: scale(1.12); opacity: 1; }
-        56%      { transform: scale(1);    opacity: 1; }
-        71%      { opacity: 1; }
-        83%      { transform: scale(0);    opacity: 0; }
-        100%     { transform: scale(0);    opacity: 0; }
-      }
-      @keyframes ${IRIS_ID}_drop0 {
-        0%, 53%  { transform: translate(0, 0); opacity: 0; }
-        55%      { transform: translate(0, 0); opacity: 1; }
-        82%      { transform: translate(-4px, 17px); opacity: 0; }
-        100%     { transform: translate(-4px, 17px); opacity: 0; }
-      }
-      @keyframes ${IRIS_ID}_drop1 {
-        0%, 57%  { transform: translate(0, 0); opacity: 0; }
-        59%      { transform: translate(0, 0); opacity: 1; }
-        84%      { transform: translate(5px, 20px); opacity: 0; }
-        100%     { transform: translate(5px, 20px); opacity: 0; }
-      }
-      @keyframes ${IRIS_ID}_drop2 {
-        0%, 61%  { transform: translate(0, 0); opacity: 0; }
-        63%      { transform: translate(0, 0); opacity: 1; }
-        86%      { transform: translate(0, 15px); opacity: 0; }
-        100%     { transform: translate(0, 15px); opacity: 0; }
-      }
-      @keyframes ${IRIS_ID}_stem {
-        0%, 100% { opacity: 0.45; }
-        14%      { opacity: 1; }
-        84%      { opacity: 1; }
-      }
-      .${IRIS_ID}_petal {
-        transform-box: fill-box;
-        transform-origin: 50% 0%;
-      }
-      .${IRIS_ID}_pollen {
-        transform-box: fill-box;
-        transform-origin: center;
-        animation: ${IRIS_ID}_pollen 5.5s ease-in-out infinite;
-      }
-      .${IRIS_ID}_stem { animation: ${IRIS_ID}_stem 5.5s ease-in-out infinite; }
-      .${IRIS_ID}_drop {
-        transform-box: fill-box;
-        transform-origin: center center;
-        animation-timing-function: ease-in;
-        animation-duration: 5.5s;
-        animation-iteration-count: infinite;
-      }
-    `}</style>
-
-    <svg viewBox="-20 -25 40 54" width="24" height="30" style={{ overflow: 'visible' }}>
-      <path d="M0,0 C1,8 -1,17 0,27"
-        stroke="#3d6b42" strokeWidth="2" fill="none"
-        strokeLinecap="round" className={`${IRIS_ID}_stem`} />
-
-      {[0, 1, 2].map(i => (
-        <g key={i} className={`${IRIS_ID}_petal`}
-          style={{
-            animation: `${IRIS_ID}_petal${i} 5.5s cubic-bezier(0.42, 0, 0.2, 1) ${i * 0.11}s infinite`,
-          }}>
-          <path d={IRIS_PETAL_PATHS[i]} fill="url(#irisPetalG)" opacity="0.94" />
-        </g>
-      ))}
-
-      <defs>
-        <radialGradient id="irisPetalG" cx="42%" cy="8%" r="85%">
-          <stop offset="0%"   stopColor="#e9d5ff" />
-          <stop offset="35%"  stopColor="#a78bfa" />
-          <stop offset="70%"  stopColor="#7c3aed" />
-          <stop offset="100%" stopColor="#3b0764" />
-        </radialGradient>
-      </defs>
-
-      <circle cx="0" cy="0" r="4.2" fill="#D4AF37" className={`${IRIS_ID}_pollen`} />
-      <circle cx="0" cy="0" r="2.6" fill="#fef08a" className={`${IRIS_ID}_pollen`} style={{ animationDelay: '0.04s' }} />
-      {[0, 60, 120, 180, 240, 300].map((a, i) => (
-        <circle key={i}
-          cx={+(Math.cos((a - 90) * Math.PI / 180) * 1.95).toFixed(3)}
-          cy={+(Math.sin((a - 90) * Math.PI / 180) * 1.95).toFixed(3)}
-          r="0.6" fill="#1a0a0a"
-          className={`${IRIS_ID}_pollen`}
-          style={{ animationDelay: `${0.06 + i * 0.015}s` }}
-        />
-      ))}
-      <circle cx="0" cy="0" r="0.85" fill="#92400e" className={`${IRIS_ID}_pollen`} style={{ animationDelay: '0.16s' }} />
-
-      <g className={`${IRIS_ID}_drop`} style={{ animationName: `${IRIS_ID}_drop0` }}>
-        <circle cx="0" cy="0" r="1.35" fill="#fbbf24" stroke="#b45309" strokeWidth="0.3" />
-      </g>
-      <g className={`${IRIS_ID}_drop`} style={{ animationName: `${IRIS_ID}_drop1` }}>
-        <circle cx="0" cy="0" r="1.15" fill="#D4AF37" />
-      </g>
-      <g className={`${IRIS_ID}_drop`} style={{ animationName: `${IRIS_ID}_drop2` }}>
-        <circle cx="0" cy="0" r="1" fill="#fde047" />
-      </g>
-    </svg>
-  </span>
-);
-
 /* ── Shared card footer (identical layout for written + video) ──────────── */
 const CardFooter = ({ name, role, program_name, centered = false }) => (
   <>
     <div className="h-px"
       style={{ background: 'linear-gradient(90deg, transparent, rgba(212,175,55,0.5) 30%, rgba(109,40,217,0.4) 70%, transparent)', margin: '12px 0' }} />
-    {centered ? (
-      <div className="flex flex-col items-center gap-1.5 w-full">
-        <div className="w-full min-w-0 text-center">
-          <p style={{ fontFamily: "'Lato', sans-serif", fontWeight: 800, fontSize: '0.9rem', color: '#1a0a4e', letterSpacing: '0.02em', textAlign: 'center' }}>
-            {name}
-          </p>
-          <p style={{ fontFamily: "'Lato', sans-serif", fontSize: '0.68rem', color: '#7c6a9a', fontStyle: 'italic', marginTop: 2, minHeight: '2.2em', textAlign: 'center', visibility: role ? 'visible' : 'hidden' }}>
-            {role || '\u00A0'}
-          </p>
-          <p style={{ fontFamily: "'Cormorant Garamond', Georgia, serif", fontSize: '0.74rem', color: '#b8860b', fontStyle: 'italic', marginTop: 2, letterSpacing: '0.03em', fontWeight: 600, textAlign: 'center', visibility: program_name ? 'visible' : 'hidden', minHeight: '1.2em' }}>
-            {program_name || '\u00A0'}
-          </p>
-        </div>
-        <IrisBloom />
-      </div>
-    ) : (
-      <div className="flex items-end justify-between gap-2">
-        <div className="flex-1 min-w-0">
-          <p style={{ fontFamily: "'Lato', sans-serif", fontWeight: 800, fontSize: '0.9rem', color: '#1a0a4e', letterSpacing: '0.02em' }}>
-            {name}
-          </p>
-          <p style={{ fontFamily: "'Lato', sans-serif", fontSize: '0.68rem', color: '#7c6a9a', fontStyle: 'italic', marginTop: 2, minHeight: '2.2em', visibility: role ? 'visible' : 'hidden' }}>
-            {role || '\u00A0'}
-          </p>
-          <p style={{ fontFamily: "'Cormorant Garamond', Georgia, serif", fontSize: '0.74rem', color: '#b8860b', fontStyle: 'italic', marginTop: 2, letterSpacing: '0.03em', fontWeight: 600, visibility: program_name ? 'visible' : 'hidden', minHeight: '1.2em' }}>
-            {program_name || '\u00A0'}
-          </p>
-        </div>
-        <IrisBloom />
-      </div>
-    )}
+    <div className={`w-full min-w-0 ${centered ? 'text-center' : ''}`}>
+      <p style={{ fontFamily: "'Lato', sans-serif", fontWeight: 800, fontSize: '0.9rem', color: '#1a0a4e', letterSpacing: '0.02em', textAlign: centered ? 'center' : undefined }}>
+        {name}
+      </p>
+      <p style={{ fontFamily: "'Lato', sans-serif", fontSize: '0.68rem', color: '#7c6a9a', fontStyle: 'italic', marginTop: 2, minHeight: '2.2em', textAlign: centered ? 'center' : undefined, visibility: role ? 'visible' : 'hidden' }}>
+        {role || '\u00A0'}
+      </p>
+      <p style={{ fontFamily: "'Cormorant Garamond', Georgia, serif", fontSize: '0.74rem', color: '#b8860b', fontStyle: 'italic', marginTop: 2, letterSpacing: '0.03em', fontWeight: 600, textAlign: centered ? 'center' : undefined, visibility: program_name ? 'visible' : 'hidden', minHeight: '1.2em' }}>
+        {program_name || '\u00A0'}
+      </p>
+    </div>
   </>
 );
 
@@ -735,16 +569,12 @@ export const SoulfulVideoCard = ({ testimonial, onPlay, onOpen, footerCentered =
             <p style={{ fontFamily: "'Cormorant Garamond', Georgia, serif", fontSize: '0.7rem', color: '#D4AF37', fontStyle: 'italic', marginTop: 2, textAlign: 'center', visibility: program_name ? 'visible' : 'hidden', minHeight: '1.2em' }}>
               {program_name || '\u00A0'}
             </p>
-            <span style={{ color: 'rgba(212,175,55,0.4)', fontSize: '0.9rem', marginTop: 2 }} aria-hidden>✿</span>
           </div>
         ) : (
-          <div className="flex items-center justify-between gap-2">
-            <div>
-              {name && <p style={{ fontFamily: "'Lato', sans-serif", fontWeight: 700, fontSize: '0.82rem', color: '#f5f0ff' }}>{name}</p>}
-              {program_name && <p style={{ fontFamily: "'Cormorant Garamond', Georgia, serif", fontSize: '0.7rem', color: '#D4AF37', fontStyle: 'italic', marginTop: 2 }}>{program_name}</p>}
-              {role && !program_name && <p style={{ fontSize: '0.68rem', color: 'rgba(212,175,55,0.6)', marginTop: 2 }}>{role}</p>}
-            </div>
-            <span style={{ color: 'rgba(212,175,55,0.4)', fontSize: '0.9rem' }}>✿</span>
+          <div>
+            {name && <p style={{ fontFamily: "'Lato', sans-serif", fontWeight: 700, fontSize: '0.82rem', color: '#f5f0ff' }}>{name}</p>}
+            {program_name && <p style={{ fontFamily: "'Cormorant Garamond', Georgia, serif", fontSize: '0.7rem', color: '#D4AF37', fontStyle: 'italic', marginTop: 2 }}>{program_name}</p>}
+            {role && !program_name && <p style={{ fontSize: '0.68rem', color: 'rgba(212,175,55,0.6)', marginTop: 2 }}>{role}</p>}
           </div>
         )}
       </div>
