@@ -15,6 +15,57 @@ const Stars = ({ rating = 5 }) => (
   </div>
 );
 
+/* ── Animated Iris Flower ────────────────────────────────────────────────── */
+const IrisBloom = () => (
+  <span style={{ display: 'inline-flex', flexShrink: 0 }}>
+    <style>{`
+      @keyframes irisPetal {
+        0%   { opacity: 0; transform: scale(0.04); }
+        65%  { transform: scale(1.1); opacity: 1; }
+        100% { transform: scale(1);   opacity: 1; }
+      }
+      @keyframes irisGlow {
+        0%   { opacity: 0; transform: scale(0); }
+        70%  { transform: scale(1.2); opacity: 1; }
+        100% { transform: scale(1);   opacity: 1; }
+      }
+      @keyframes irisStem {
+        0%   { opacity: 0; stroke-dashoffset: 22; }
+        100% { opacity: 1; stroke-dashoffset: 0; }
+      }
+      .ifall { transform-box: fill-box; transform-origin: center; animation: irisPetal 0.7s cubic-bezier(0.34,1.56,0.64,1) both; }
+      .istd  { transform-box: fill-box; transform-origin: center; animation: irisPetal 0.6s cubic-bezier(0.34,1.56,0.64,1) both; }
+      .icent { transform-box: fill-box; transform-origin: center; animation: irisGlow 0.45s ease-out both; }
+      .istem { animation: irisStem 0.45s ease-out 0s both; stroke-dasharray: 22; }
+    `}</style>
+    <svg viewBox="-22 -24 44 46" width="42" height="44" style={{ overflow: 'visible' }}>
+      {/* Stem */}
+      <path className="istem" d="M0,3 Q1,10 0,20" stroke="#6b9a57" strokeWidth="1.6" fill="none" strokeLinecap="round" />
+
+      {/* 3 Falls — large outer petals (0°, 120°, 240°) with gold beard */}
+      {[0, 120, 240].map((deg, i) => (
+        <g key={`f${i}`} transform={`rotate(${deg})`} className="ifall"
+          style={{ animationDelay: `${0.1 + i * 0.1}s` }}>
+          <path d="M0,0 C-8,2 -10,12 -6,19 C-3,23 3,23 6,19 C10,12 8,2 0,0Z" fill="#8b5cf6" opacity="0.88" />
+          <path d="M0,1.5 C-0.3,7 -0.3,13 0,17" stroke="#D4AF37" strokeWidth="1.6" fill="none" strokeLinecap="round" opacity="0.9" />
+        </g>
+      ))}
+
+      {/* 3 Standards — inner upright petals (60°, 180°, 300°), narrower */}
+      {[60, 180, 300].map((deg, i) => (
+        <g key={`s${i}`} transform={`rotate(${deg})`} className="istd"
+          style={{ animationDelay: `${0.38 + i * 0.09}s` }}>
+          <path d="M0,0 C-5,-1 -6,-11 -3,-18 C-1,-20 1,-20 3,-18 C6,-11 5,-1 0,0Z" fill="#6d28d9" opacity="0.93" />
+        </g>
+      ))}
+
+      {/* Center — gold glow */}
+      <circle cx="0" cy="0" r="4.5" fill="#D4AF37" className="icent" style={{ animationDelay: '0.72s' }} />
+      <circle cx="0" cy="0" r="2.8" fill="#fff9e6" className="icent" style={{ animationDelay: '0.80s' }} />
+    </svg>
+  </span>
+);
+
 /* ── Opening quote glyph ────────────────────────────────────────────────── */
 const QuoteGlyph = ({ color = 'rgba(139,92,246,0.12)' }) => (
   <span aria-hidden style={{ fontFamily: "'Cormorant Garamond', Georgia, serif", fontSize: '5rem', lineHeight: 1, color, position: 'absolute', top: -8, left: 12, pointerEvents: 'none', userSelect: 'none' }}>
@@ -85,8 +136,8 @@ const PhotoDisplay = ({ photos, photoLabels, photoMode, size = 'card' }) => {
   if (!resolved.length) return null;
 
   const isCard = size === 'card';
-  const ovalW = isCard ? 72 : 130;
-  const ovalH = isCard ? 88 : 160;
+  const ovalW = isCard ? 80 : 130;
+  const ovalH = isCard ? 118 : 160;
 
   if (photoMode === 'before_after') {
     return (
@@ -210,14 +261,31 @@ export const SoulfulWrittenCard = ({ testimonial, onClick }) => {
         </div>
 
         {/* Footer */}
-        <div className="mt-4 pt-3 flex items-end justify-between gap-2" style={{ borderTop: '1px solid rgba(212,175,55,0.12)' }}>
+        <div className="mt-3 pt-3 flex items-end justify-between gap-2" style={{ borderTop: '1px solid rgba(212,175,55,0.12)' }}>
           <div>
-            <p style={{ fontFamily: "'Lato', sans-serif", fontWeight: 700, fontSize: '0.85rem', color: '#1a1040' }}>{name}</p>
-            {program_name && <p style={{ fontFamily: "'Cormorant Garamond', Georgia, serif", fontSize: '0.75rem', color: '#D4AF37', fontStyle: 'italic', marginTop: 2 }}>{program_name}</p>}
-            {role && <p style={{ fontFamily: "'Lato', sans-serif", fontSize: '0.68rem', color: '#9ca3af', marginTop: 2 }}>{role}</p>}
+            {/* Row 1: Name */}
+            <p style={{ fontFamily: "'Lato', sans-serif", fontWeight: 800, fontSize: '0.86rem', color: '#1a1040', letterSpacing: '0.01em' }}>{name}</p>
+            {/* Row 2: Role / Location */}
+            {role && <p style={{ fontFamily: "'Lato', sans-serif", fontSize: '0.68rem', color: '#8b7a9a', fontStyle: 'italic', marginTop: 2 }}>{role}</p>}
+            {/* Row 3: Program name — gold badge with ✦ */}
+            {program_name && (
+              <span style={{
+                display: 'inline-flex', alignItems: 'center', gap: 4, marginTop: role ? 8 : 6,
+                fontFamily: "'Cormorant Garamond', Georgia, serif",
+                fontSize: '0.72rem', fontWeight: 700, fontStyle: 'italic', letterSpacing: '0.04em',
+                color: '#7c3aed',
+                background: 'linear-gradient(90deg, rgba(139,92,246,0.09), rgba(212,175,55,0.13))',
+                border: '1px solid rgba(212,175,55,0.35)', borderRadius: 20,
+                padding: '3px 10px 3px 7px',
+                boxShadow: '0 1px 5px rgba(212,175,55,0.1)',
+              }}>
+                <span style={{ color: '#D4AF37', fontSize: '0.72rem' }}>✦</span>
+                {program_name}
+              </span>
+            )}
           </div>
-          {/* Decorative lotus */}
-          <span style={{ fontSize: '1.1rem', opacity: 0.18 }}>✿</span>
+          {/* Animated iris */}
+          <IrisBloom />
         </div>
       </div>
 
