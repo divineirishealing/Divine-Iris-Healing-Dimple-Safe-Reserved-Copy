@@ -114,10 +114,10 @@ function ProgramDetailPage() {
         seen.add(t.id);
         return true;
       });
-      // Ensure every card on this page always has program_name to display
+      // Always use the full program title on this page (not any stored abbreviation)
       const enriched = merged.map(t => ({
         ...t,
-        program_name: t.program_name || prog?.title || '',
+        program_name: prog?.title || t.program_name || '',
       }));
       setTestimonials(enriched);
     } catch (e) { console.error(e); }
