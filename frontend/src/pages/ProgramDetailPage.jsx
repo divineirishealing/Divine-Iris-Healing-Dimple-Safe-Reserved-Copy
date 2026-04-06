@@ -544,11 +544,11 @@ function ProgramDetailPage() {
                   /* Fixed height makes written & video cards identical in the carousel */
                   <div key={t._key} style={{ width: CARD_W, height: 465, flexShrink: 0, overflow: 'hidden', borderRadius: 24 }}>
                     {t.type === 'video'
-                      ? <SoulfulUniformVideoCard testimonial={t}
+                      ? <SoulfulUniformVideoCard testimonial={t} footerCentered
                           onPlay={(embedUrl, platform) => setSelectedEmbed({ embedUrl, platform })}
                           onOpen={url => window.open(url, '_blank')}
                         />
-                      : <SoulfulWrittenCard testimonial={t} uniform onClick={() => setSelectedTemplate(t)} />
+                      : <SoulfulWrittenCard testimonial={t} uniform footerCentered onClick={() => setSelectedTemplate(t)} />
                     }
                   </div>
                 ))}

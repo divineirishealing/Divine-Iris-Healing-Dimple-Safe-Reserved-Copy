@@ -162,24 +162,41 @@ const IrisBloom = () => (
 );
 
 /* ── Shared card footer (identical layout for written + video) ──────────── */
-const CardFooter = ({ name, role, program_name }) => (
+const CardFooter = ({ name, role, program_name, centered = false }) => (
   <>
     <div className="h-px"
       style={{ background: 'linear-gradient(90deg, transparent, rgba(212,175,55,0.5) 30%, rgba(109,40,217,0.4) 70%, transparent)', margin: '12px 0' }} />
-    <div className="flex items-end justify-between gap-2">
-      <div className="flex-1 min-w-0">
-        <p style={{ fontFamily: "'Lato', sans-serif", fontWeight: 800, fontSize: '0.9rem', color: '#1a0a4e', letterSpacing: '0.02em' }}>
-          {name}
-        </p>
-        <p style={{ fontFamily: "'Lato', sans-serif", fontSize: '0.68rem', color: '#7c6a9a', fontStyle: 'italic', marginTop: 2, minHeight: '2.2em', visibility: role ? 'visible' : 'hidden' }}>
-          {role || '\u00A0'}
-        </p>
-        <p style={{ fontFamily: "'Cormorant Garamond', Georgia, serif", fontSize: '0.74rem', color: '#b8860b', fontStyle: 'italic', marginTop: 2, letterSpacing: '0.03em', fontWeight: 600, visibility: program_name ? 'visible' : 'hidden', minHeight: '1.2em' }}>
-          {program_name || '\u00A0'}
-        </p>
+    {centered ? (
+      <div className="flex flex-col items-center gap-1.5 w-full">
+        <div className="w-full min-w-0 text-center">
+          <p style={{ fontFamily: "'Lato', sans-serif", fontWeight: 800, fontSize: '0.9rem', color: '#1a0a4e', letterSpacing: '0.02em', textAlign: 'center' }}>
+            {name}
+          </p>
+          <p style={{ fontFamily: "'Lato', sans-serif", fontSize: '0.68rem', color: '#7c6a9a', fontStyle: 'italic', marginTop: 2, minHeight: '2.2em', textAlign: 'center', visibility: role ? 'visible' : 'hidden' }}>
+            {role || '\u00A0'}
+          </p>
+          <p style={{ fontFamily: "'Cormorant Garamond', Georgia, serif", fontSize: '0.74rem', color: '#b8860b', fontStyle: 'italic', marginTop: 2, letterSpacing: '0.03em', fontWeight: 600, textAlign: 'center', visibility: program_name ? 'visible' : 'hidden', minHeight: '1.2em' }}>
+            {program_name || '\u00A0'}
+          </p>
+        </div>
+        <IrisBloom />
       </div>
-      <IrisBloom />
-    </div>
+    ) : (
+      <div className="flex items-end justify-between gap-2">
+        <div className="flex-1 min-w-0">
+          <p style={{ fontFamily: "'Lato', sans-serif", fontWeight: 800, fontSize: '0.9rem', color: '#1a0a4e', letterSpacing: '0.02em' }}>
+            {name}
+          </p>
+          <p style={{ fontFamily: "'Lato', sans-serif", fontSize: '0.68rem', color: '#7c6a9a', fontStyle: 'italic', marginTop: 2, minHeight: '2.2em', visibility: role ? 'visible' : 'hidden' }}>
+            {role || '\u00A0'}
+          </p>
+          <p style={{ fontFamily: "'Cormorant Garamond', Georgia, serif", fontSize: '0.74rem', color: '#b8860b', fontStyle: 'italic', marginTop: 2, letterSpacing: '0.03em', fontWeight: 600, visibility: program_name ? 'visible' : 'hidden', minHeight: '1.2em' }}>
+            {program_name || '\u00A0'}
+          </p>
+        </div>
+        <IrisBloom />
+      </div>
+    )}
   </>
 );
 
@@ -313,7 +330,7 @@ const PhotoDisplay = ({ photos, photoLabels, photoMode, size = 'card' }) => {
 /* ══════════════════════════════════════════════════════════════════════════
    WRITTEN TESTIMONIAL CARD  —  jewel-tone redesign
    ══════════════════════════════════════════════════════════════════════════ */
-export const SoulfulWrittenCard = ({ testimonial, onClick, uniform = false }) => {
+export const SoulfulWrittenCard = ({ testimonial, onClick, uniform = false, footerCentered = false }) => {
   const [expanded, setExpanded] = useState(false);
   const {
     name, text, role, rating = 5,
@@ -479,7 +496,7 @@ export const SoulfulWrittenCard = ({ testimonial, onClick, uniform = false }) =>
         </div>
 
         {/* Shared footer — identical to video card */}
-        <CardFooter name={name} role={role} program_name={program_name} />
+        <CardFooter name={name} role={role} program_name={program_name} centered={footerCentered} />
       </div>
 
       {/* Bottom vibrant line */}
@@ -492,7 +509,7 @@ export const SoulfulWrittenCard = ({ testimonial, onClick, uniform = false }) =>
 /* ══════════════════════════════════════════════════════════════════════════
    UNIFORM VIDEO CARD  —  same jewel-tone template as written card
    ══════════════════════════════════════════════════════════════════════════ */
-export const SoulfulUniformVideoCard = ({ testimonial, onPlay, onOpen }) => {
+export const SoulfulUniformVideoCard = ({ testimonial, onPlay, onOpen, footerCentered = false }) => {
   const { name, role, program_name, rating = 5, video_url, videoId, thumbnail, text } = testimonial;
   const parsed   = parseVideo(video_url) || (videoId ? parseVideo(`https://youtu.be/${videoId}`) : null);
   const thumbSrc = thumbnail || parsed?.thumbUrl;
@@ -621,7 +638,7 @@ export const SoulfulUniformVideoCard = ({ testimonial, onPlay, onOpen }) => {
         </div>
 
         {/* Shared footer — identical to written card */}
-        <CardFooter name={name} role={role} program_name={program_name} />
+        <CardFooter name={name} role={role} program_name={program_name} centered={footerCentered} />
       </div>
 
       <div className="h-0.5 w-full"
@@ -633,7 +650,7 @@ export const SoulfulUniformVideoCard = ({ testimonial, onPlay, onOpen }) => {
 /* ══════════════════════════════════════════════════════════════════════════
    VIDEO TESTIMONIAL CARD
    ══════════════════════════════════════════════════════════════════════════ */
-export const SoulfulVideoCard = ({ testimonial, onPlay, onOpen }) => {
+export const SoulfulVideoCard = ({ testimonial, onPlay, onOpen, footerCentered = false }) => {
   const { name, role, program_name, video_url, videoId, thumbnail } = testimonial;
   const parsed = parseVideo(video_url) || (videoId ? parseVideo(`https://youtu.be/${videoId}`) : null);
   const thumbSrc = thumbnail || parsed?.thumbUrl;
@@ -709,14 +726,27 @@ export const SoulfulVideoCard = ({ testimonial, onPlay, onOpen }) => {
 
       {/* Info bar */}
       <div className="px-4 py-3" style={{ background: 'linear-gradient(180deg,#0f0a1e,#1a1040)' }}>
-        <div className="flex items-center justify-between gap-2">
-          <div>
-            {name && <p style={{ fontFamily: "'Lato', sans-serif", fontWeight: 700, fontSize: '0.82rem', color: '#f5f0ff' }}>{name}</p>}
-            {program_name && <p style={{ fontFamily: "'Cormorant Garamond', Georgia, serif", fontSize: '0.7rem', color: '#D4AF37', fontStyle: 'italic', marginTop: 2 }}>{program_name}</p>}
-            {role && !program_name && <p style={{ fontSize: '0.68rem', color: 'rgba(212,175,55,0.6)', marginTop: 2 }}>{role}</p>}
+        {footerCentered ? (
+          <div className="flex flex-col items-center text-center gap-0.5">
+            {name && <p style={{ fontFamily: "'Lato', sans-serif", fontWeight: 700, fontSize: '0.82rem', color: '#f5f0ff', textAlign: 'center' }}>{name}</p>}
+            <p style={{ fontFamily: "'Lato', sans-serif", fontSize: '0.68rem', color: 'rgba(212,175,55,0.65)', fontStyle: 'italic', marginTop: 2, minHeight: '2.2em', textAlign: 'center', visibility: role ? 'visible' : 'hidden' }}>
+              {role || '\u00A0'}
+            </p>
+            <p style={{ fontFamily: "'Cormorant Garamond', Georgia, serif", fontSize: '0.7rem', color: '#D4AF37', fontStyle: 'italic', marginTop: 2, textAlign: 'center', visibility: program_name ? 'visible' : 'hidden', minHeight: '1.2em' }}>
+              {program_name || '\u00A0'}
+            </p>
+            <span style={{ color: 'rgba(212,175,55,0.4)', fontSize: '0.9rem', marginTop: 2 }} aria-hidden>✿</span>
           </div>
-          <span style={{ color: 'rgba(212,175,55,0.4)', fontSize: '0.9rem' }}>✿</span>
-        </div>
+        ) : (
+          <div className="flex items-center justify-between gap-2">
+            <div>
+              {name && <p style={{ fontFamily: "'Lato', sans-serif", fontWeight: 700, fontSize: '0.82rem', color: '#f5f0ff' }}>{name}</p>}
+              {program_name && <p style={{ fontFamily: "'Cormorant Garamond', Georgia, serif", fontSize: '0.7rem', color: '#D4AF37', fontStyle: 'italic', marginTop: 2 }}>{program_name}</p>}
+              {role && !program_name && <p style={{ fontSize: '0.68rem', color: 'rgba(212,175,55,0.6)', marginTop: 2 }}>{role}</p>}
+            </div>
+            <span style={{ color: 'rgba(212,175,55,0.4)', fontSize: '0.9rem' }}>✿</span>
+          </div>
+        )}
       </div>
     </div>
   );
@@ -817,7 +847,7 @@ export const SoulfulTestimonialFull = ({ testimonial }) => {
 /* ══════════════════════════════════════════════════════════════════════════
    GRAPHIC (image) CARD — unchanged style, kept for legacy graphic type
    ══════════════════════════════════════════════════════════════════════════ */
-export const SoulfulGraphicCard = ({ testimonial, onClick }) => {
+export const SoulfulGraphicCard = ({ testimonial, onClick, footerCentered = false }) => {
   const { image, name, program_name } = testimonial;
   const src = resolveImageUrl(image);
   return (
@@ -830,9 +860,9 @@ export const SoulfulGraphicCard = ({ testimonial, onClick }) => {
       <img src={src} alt={name || 'Transformation'} className="w-full h-auto block transition-transform duration-500 group-hover:scale-[1.02]" style={{ objectFit: 'contain' }} loading="lazy"
         onError={e => { e.target.src = 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="400" height="225"><rect fill="%23f3f4f6" width="400" height="225"/></svg>'; }} />
       {(name || program_name) && (
-        <div className="px-4 py-3" style={{ borderTop: '1px solid rgba(212,175,55,0.1)' }}>
-          {name && <p style={{ fontFamily: "'Lato', sans-serif", fontWeight: 700, fontSize: '0.78rem', color: '#1a1040' }}>{name}</p>}
-          {program_name && <p style={{ fontFamily: "'Cormorant Garamond', Georgia, serif", fontSize: '0.7rem', color: '#D4AF37', fontStyle: 'italic', marginTop: 2 }}>{program_name}</p>}
+        <div className={`px-4 py-3 ${footerCentered ? 'text-center' : ''}`} style={{ borderTop: '1px solid rgba(212,175,55,0.1)' }}>
+          {name && <p style={{ fontFamily: "'Lato', sans-serif", fontWeight: 700, fontSize: '0.78rem', color: '#1a1040', textAlign: footerCentered ? 'center' : undefined }}>{name}</p>}
+          {program_name && <p style={{ fontFamily: "'Cormorant Garamond', Georgia, serif", fontSize: '0.7rem', color: '#D4AF37', fontStyle: 'italic', marginTop: 2, textAlign: footerCentered ? 'center' : undefined }}>{program_name}</p>}
         </div>
       )}
     </div>

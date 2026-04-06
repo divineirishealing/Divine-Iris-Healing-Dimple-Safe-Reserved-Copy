@@ -189,7 +189,7 @@ function TransformationsPage() {
             )}
             <div className="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {writtenTestimonials.map(t => (
-                <SoulfulWrittenCard key={t.id} testimonial={t} onClick={() => setSelectedTemplate(t)} />
+                <SoulfulWrittenCard key={t.id} testimonial={t} footerCentered onClick={() => setSelectedTemplate(t)} />
               ))}
             </div>
           </div>
@@ -212,7 +212,7 @@ function TransformationsPage() {
             )}
             <div className="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {videoTestimonials.map(t => (
-                <SoulfulVideoCard key={t.id} testimonial={t}
+                <SoulfulVideoCard key={t.id} testimonial={t} footerCentered
                   onPlay={(embedUrl, platform) => setSelectedEmbed({ embedUrl, platform })}
                   onOpen={url => window.open(url, '_blank')}
                 />
@@ -238,7 +238,7 @@ function TransformationsPage() {
             )}
             <div className="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {graphicTestimonials.map(t => (
-                <SoulfulGraphicCard key={t.id} testimonial={t} onClick={() => setSelectedImage(resolveImageUrl(t.image))} />
+                <SoulfulGraphicCard key={t.id} testimonial={t} footerCentered onClick={() => setSelectedImage(resolveImageUrl(t.image))} />
               ))}
             </div>
           </div>
