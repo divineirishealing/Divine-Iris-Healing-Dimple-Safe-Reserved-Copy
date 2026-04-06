@@ -77,7 +77,7 @@ const AdminPanel = () => {
 
   const [programForm, setProgramForm] = useState({ title: '', category: '', description: '', image: '', price_usd: 0, price_inr: 0, price_eur: 0, price_gbp: 0, price_aed: 0, visible: true, order: 0, program_type: 'online', session_mode: 'online', enable_online: true, enable_offline: true, enable_in_person: false, offer_price_aed: 0, offer_price_usd: 0, offer_price_inr: 0, offer_text: '', is_upcoming: false, is_flagship: false, is_group_program: false, replicate_to_flagship: false, start_date: '', end_date: '', deadline_date: '', enrollment_open: true, enrollment_status: 'open', duration_tiers: [], whatsapp_group_link: '', zoom_link: '', custom_link: '', custom_link_label: '', show_whatsapp_link: true, show_zoom_link: true, show_custom_link: true, show_whatsapp_link_2: false, whatsapp_group_link_2: '', content_sections: [], timing: '', time_zone: '', show_duration_on_page: false, show_start_date_on_page: false, show_timing_on_page: false, show_duration_on_card: true, exclusive_offer_enabled: false, exclusive_offer_text: 'Limited Time Offer', closure_text: 'Registration Closed', show_pricing_on_card: true, show_tiers_on_card: true });
   const [sessionForm, setSessionForm] = useState({ title: '', description: '', image: '', price_usd: 0, price_inr: 0, price_eur: 0, price_gbp: 0, price_aed: 0, offer_price_aed: 0, offer_price_usd: 0, offer_price_inr: 0, offer_text: '', offer_expiry: '', duration: '60-90 minutes', session_mode: 'online', available_dates: [], time_slots: [], testimonial_text: '', title_style: null, description_style: null, visible: true, order: 0 });
-  const [testimonialForm, setTestimonialForm] = useState({ type: 'graphic', name: '', text: '', image: '', before_image: '', videoId: '', program_id: '', program_tags: [], session_tags: [], category: '', role: '', rating: 5, visible: true });
+  const [testimonialForm, setTestimonialForm] = useState({ type: 'graphic', name: '', text: '', image: '', before_image: '', videoId: '', video_url: '', photos: [], photo_labels: [], photo_mode: 'single', program_id: '', program_name: '', program_tags: [], session_tags: [], category: '', role: '', rating: 5, visible: true });
   const [statForm, setStatForm] = useState({ value: '', label: '', order: 0, icon: '', value_style: null, label_style: null });
 
   const loadAll = useCallback(async (isRetry = false) => {
@@ -171,12 +171,12 @@ const AdminPanel = () => {
   };
   const editTestimonial = (t) => {
     setEditingId(t.id);
-    setTestimonialForm({ type: t.type, name: t.name || '', text: t.text || '', image: t.image || '', before_image: t.before_image || '', videoId: t.videoId || '', program_id: t.program_id || '', program_tags: t.program_tags || [], session_tags: t.session_tags || [], category: t.category || '', role: t.role || '', rating: t.rating ?? 5, visible: t.visible !== false });
+    setTestimonialForm({ type: t.type, name: t.name || '', text: t.text || '', image: t.image || '', before_image: t.before_image || '', videoId: t.videoId || '', video_url: t.video_url || '', photos: t.photos || [], photo_labels: t.photo_labels || [], photo_mode: t.photo_mode || 'single', program_id: t.program_id || '', program_name: t.program_name || '', program_tags: t.program_tags || [], session_tags: t.session_tags || [], category: t.category || '', role: t.role || '', rating: t.rating ?? 5, visible: t.visible !== false });
     setShowTestimonialForm(true);
   };
   const deleteTestimonial = async (id) => { if (!window.confirm('Delete?')) return; await axios.delete(`${API}/testimonials/${id}`); toast({ title: 'Deleted' }); loadAll(); };
   const toggleTestimonialVisibility = async (t) => { await axios.patch(`${API}/testimonials/${t.id}/visibility`, { visible: !t.visible }); loadAll(); };
-  const resetTestimonialForm = () => { setShowTestimonialForm(false); setEditingId(null); setTestimonialForm({ type: 'graphic', name: '', text: '', image: '', before_image: '', videoId: '', program_id: '', program_tags: [], session_tags: [], category: '', role: '', rating: 5, visible: true }); };
+  const resetTestimonialForm = () => { setShowTestimonialForm(false); setEditingId(null); setTestimonialForm({ type: 'graphic', name: '', text: '', image: '', before_image: '', videoId: '', video_url: '', photos: [], photo_labels: [], photo_mode: 'single', program_id: '', program_name: '', program_tags: [], session_tags: [], category: '', role: '', rating: 5, visible: true }); };
 
   // ===== STATS =====
   const saveStat = async () => {
@@ -875,45 +875,165 @@ const AdminPanel = () => {
                 <Button data-testid="add-testimonial-btn" onClick={() => { resetTestimonialForm(); setShowTestimonialForm(true); }} className="bg-[#D4AF37] hover:bg-[#b8962e]"><Plus size={16} className="mr-1" /> Add Testimonial</Button>
               </div>
               {showTestimonialForm && (
-                <div data-testid="testimonial-form" className="bg-white rounded-lg p-6 mb-6 shadow-sm border">
-                  <div className="flex justify-between items-center mb-4">
-                    <h3 className="font-medium">{editingId ? 'Edit Testimonial' : 'New Testimonial'}</h3>
-                    <button onClick={resetTestimonialForm}><X size={18} /></button>
+                <div data-testid="testimonial-form" className="bg-white rounded-xl p-6 mb-6 shadow-sm border border-purple-100">
+                  <div className="flex justify-between items-center mb-5">
+                    <div>
+                      <h3 className="font-semibold text-gray-900">{editingId ? 'Edit Testimonial' : 'New Testimonial'}</h3>
+                      <p className="text-[10px] text-gray-400 mt-0.5">Fill in the details below and save</p>
+                    </div>
+                    <button onClick={resetTestimonialForm} className="p-1 hover:bg-gray-100 rounded"><X size={18} /></button>
                   </div>
-                  <div className="grid md:grid-cols-2 gap-4">
+
+                  {/* ── Type + Name + Program Name ── */}
+                  <div className="grid md:grid-cols-3 gap-4 mb-4">
                     <div>
                       <Label>Type</Label>
-                      <select data-testid="testimonial-type-select" value={testimonialForm.type} onChange={e => setTestimonialForm({...testimonialForm, type: e.target.value})} className="w-full border rounded-md px-3 py-2 text-sm">
-                        <option value="graphic">Graphic (Image)</option><option value="video">Video (YouTube)</option><option value="template">Template (Text Story)</option>
+                      <select data-testid="testimonial-type-select" value={testimonialForm.type}
+                        onChange={e => setTestimonialForm({...testimonialForm, type: e.target.value})}
+                        className="w-full border rounded-md px-3 py-2 text-sm">
+                        <option value="template">✍ Written Story</option>
+                        <option value="video">▶ Video (YT / IG / FB)</option>
+                        <option value="graphic">🖼 Graphic / Image</option>
                       </select>
                     </div>
-                    <div><Label>Name</Label><Input value={testimonialForm.name} onChange={e => setTestimonialForm({...testimonialForm, name: e.target.value})} /></div>
-                    <div className="md:col-span-2"><Label>Text / Quote {testimonialForm.type === 'template' && <span className="text-[10px] text-purple-400 ml-1">(Wrap text in **double asterisks** for bold)</span>}</Label><Textarea data-testid="testimonial-text-input" value={testimonialForm.text} onChange={e => setTestimonialForm({...testimonialForm, text: e.target.value})} rows={testimonialForm.type === 'template' ? 6 : 3} placeholder={testimonialForm.type === 'template' ? 'Write the testimonial here... Use **text** for bold emphasis' : 'Optional search text'} /></div>
-                    {testimonialForm.type === 'template' && <div><Label>Role / Location</Label><Input value={testimonialForm.role} onChange={e => setTestimonialForm({...testimonialForm, role: e.target.value})} placeholder="e.g., Energy Healing Client, Mumbai" /></div>}
-                    {testimonialForm.type === 'template' && (
+                    <div>
+                      <Label>Client Name</Label>
+                      <Input value={testimonialForm.name} onChange={e => setTestimonialForm({...testimonialForm, name: e.target.value})} placeholder="e.g., Priya S." />
+                    </div>
+                    <div>
+                      <Label>Program / Session Name</Label>
+                      <Input value={testimonialForm.program_name} onChange={e => setTestimonialForm({...testimonialForm, program_name: e.target.value})} placeholder="e.g., AMRP, Soul Alignment" />
+                    </div>
+                  </div>
+
+                  {/* ── Written Story fields ── */}
+                  {testimonialForm.type === 'template' && (
+                    <div className="space-y-4 mb-4">
                       <div>
-                        <Label>Rating (Stars)</Label>
-                        <div className="flex gap-1 mt-1">
-                          {[1,2,3,4,5].map(i => (
-                            <button key={i} type="button" onClick={() => setTestimonialForm({...testimonialForm, rating: i})}>
-                              <Star size={20} fill={i <= (testimonialForm.rating || 5) ? '#7c3aed' : '#e5e7eb'} stroke={i <= (testimonialForm.rating || 5) ? '#7c3aed' : '#d1d5db'} />
+                        <Label>Testimonial Text</Label>
+                        <Textarea data-testid="testimonial-text-input" value={testimonialForm.text}
+                          onChange={e => setTestimonialForm({...testimonialForm, text: e.target.value})}
+                          rows={5} placeholder="Write the client's full testimonial here…" />
+                        <p className="text-[10px] text-gray-400 mt-1">A "Read more" button appears automatically for long testimonials.</p>
+                      </div>
+
+                      {/* Rating + Role */}
+                      <div className="grid md:grid-cols-2 gap-4">
+                        <div>
+                          <Label>Star Rating</Label>
+                          <div className="flex gap-1.5 mt-1">
+                            {[1,2,3,4,5].map(i => (
+                              <button key={i} type="button" onClick={() => setTestimonialForm({...testimonialForm, rating: i})}>
+                                <Star size={22} fill={i <= (testimonialForm.rating || 5) ? '#D4AF37' : 'none'}
+                                  stroke={i <= (testimonialForm.rating || 5) ? '#D4AF37' : '#d1c5a0'} strokeWidth={1.5} />
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                        <div>
+                          <Label>Role / Location (optional)</Label>
+                          <Input value={testimonialForm.role} onChange={e => setTestimonialForm({...testimonialForm, role: e.target.value})} placeholder="e.g., Energy Healing Client, Dubai" />
+                        </div>
+                      </div>
+
+                      {/* Photo Mode */}
+                      <div>
+                        <Label>Photo Type</Label>
+                        <div className="flex gap-2 mt-1">
+                          {[['single','Single Photo'], ['before_after','Before & After'], ['progressive','Progressive Journey']].map(([val, lbl]) => (
+                            <button key={val} type="button"
+                              onClick={() => setTestimonialForm({...testimonialForm, photo_mode: val, photos: [], photo_labels: []})}
+                              className={`px-3 py-1.5 rounded-full text-xs border transition-all ${testimonialForm.photo_mode === val ? 'bg-purple-600 text-white border-purple-600' : 'bg-white text-gray-500 border-gray-200 hover:bg-gray-50'}`}>
+                              {lbl}
                             </button>
                           ))}
                         </div>
                       </div>
-                    )}
-                    {testimonialForm.type === 'template' && <div><Label>Author Photo (After)</Label><ImageUploader value={testimonialForm.image} onChange={url => setTestimonialForm({...testimonialForm, image: url})} /></div>}
-                    {testimonialForm.type === 'template' && <div><Label>Before Photo (optional)</Label><ImageUploader value={testimonialForm.before_image} onChange={url => setTestimonialForm({...testimonialForm, before_image: url})} /></div>}
-                    {testimonialForm.type==='graphic' && <div className="md:col-span-2"><Label>Image</Label><ImageUploader value={testimonialForm.image} onChange={url => setTestimonialForm({...testimonialForm, image: url})} /></div>}
-                    {testimonialForm.type==='video' && <div className="md:col-span-2"><Label>YouTube Video ID</Label><Input value={testimonialForm.videoId} onChange={e => setTestimonialForm({...testimonialForm, videoId: e.target.value})} placeholder="e.g., FVgxpMEMnoc" /></div>}
-                    <div><Label>Category</Label><Input value={testimonialForm.category} onChange={e => setTestimonialForm({...testimonialForm, category: e.target.value})} placeholder="e.g., healing, weight-loss, transformation" /></div>
+
+                      {/* Photo uploaders based on mode */}
+                      {testimonialForm.photo_mode === 'single' && (
+                        <div>
+                          <Label>Photo</Label>
+                          <ImageUploader value={(testimonialForm.photos || [])[0] || ''}
+                            onChange={url => setTestimonialForm({...testimonialForm, photos: [url]})} />
+                        </div>
+                      )}
+                      {testimonialForm.photo_mode === 'before_after' && (
+                        <div className="grid grid-cols-2 gap-4">
+                          <div>
+                            <Label>Before Photo</Label>
+                            <ImageUploader value={(testimonialForm.photos || [])[0] || ''}
+                              onChange={url => { const p = [...(testimonialForm.photos || [])]; p[0] = url; setTestimonialForm({...testimonialForm, photos: p, photo_labels: ['Before', 'After']}); }} />
+                          </div>
+                          <div>
+                            <Label>After Photo</Label>
+                            <ImageUploader value={(testimonialForm.photos || [])[1] || ''}
+                              onChange={url => { const p = [...(testimonialForm.photos || [])]; p[1] = url; setTestimonialForm({...testimonialForm, photos: p, photo_labels: ['Before', 'After']}); }} />
+                          </div>
+                        </div>
+                      )}
+                      {testimonialForm.photo_mode === 'progressive' && (
+                        <div>
+                          <Label>Progressive Photos (up to 5) — upload in order</Label>
+                          <div className="grid grid-cols-3 gap-3 mt-1">
+                            {[0,1,2,3,4].map(i => (
+                              <div key={i} className="space-y-1">
+                                <ImageUploader value={(testimonialForm.photos || [])[i] || ''}
+                                  onChange={url => { const p = [...(testimonialForm.photos || [])]; p[i] = url; setTestimonialForm({...testimonialForm, photos: p}); }} />
+                                <Input
+                                  value={(testimonialForm.photo_labels || [])[i] || ''}
+                                  onChange={e => { const l = [...(testimonialForm.photo_labels || [])]; l[i] = e.target.value; setTestimonialForm({...testimonialForm, photo_labels: l}); }}
+                                  placeholder={`Label ${i + 1}`} className="h-7 text-[10px]" />
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* ── Video fields ── */}
+                  {testimonialForm.type === 'video' && (
+                    <div className="mb-4 space-y-3">
+                      <div>
+                        <Label>Video URL</Label>
+                        <Input value={testimonialForm.video_url}
+                          onChange={e => setTestimonialForm({...testimonialForm, video_url: e.target.value})}
+                          placeholder="Paste full YouTube, Instagram Reel or Facebook video URL" />
+                        <p className="text-[10px] text-gray-400 mt-1">
+                          YouTube: <span className="font-mono">https://youtu.be/ABC123</span> · Instagram: <span className="font-mono">https://www.instagram.com/reel/CODE/</span>
+                        </p>
+                      </div>
+                      <div>
+                        <Label>Testimonial Quote (optional — shown below video)</Label>
+                        <Textarea value={testimonialForm.text}
+                          onChange={e => setTestimonialForm({...testimonialForm, text: e.target.value})}
+                          rows={2} placeholder="Short quote or description…" />
+                      </div>
+                    </div>
+                  )}
+
+                  {/* ── Graphic fields ── */}
+                  {testimonialForm.type === 'graphic' && (
+                    <div className="mb-4">
+                      <Label>Transformation Image</Label>
+                      <ImageUploader value={testimonialForm.image} onChange={url => setTestimonialForm({...testimonialForm, image: url})} />
+                    </div>
+                  )}
+
+                  {/* ── Category + Tags ── */}
+                  <div className="grid md:grid-cols-3 gap-4 mb-4">
+                    <div>
+                      <Label>Category (optional)</Label>
+                      <Input value={testimonialForm.category} onChange={e => setTestimonialForm({...testimonialForm, category: e.target.value})} placeholder="e.g., healing, spine, immunity" />
+                    </div>
                     <div>
                       <Label>Tag to Programs</Label>
-                      <div className="flex flex-wrap gap-1.5 mt-1 p-2 border rounded-md max-h-28 overflow-y-auto">
+                      <div className="flex flex-wrap gap-1 mt-1 p-2 border rounded-md max-h-24 overflow-y-auto">
                         {programs.map(p => (
                           <button key={p.id} type="button"
-                            onClick={() => { const tags = testimonialForm.program_tags || []; setTestimonialForm({...testimonialForm, program_tags: tags.includes(p.id) ? tags.filter(t => t !== p.id) : [...tags, p.id]}); }}
-                            className={`text-[10px] px-2 py-0.5 rounded-full border transition-colors ${(testimonialForm.program_tags || []).includes(p.id) ? 'bg-purple-100 border-purple-300 text-purple-700' : 'bg-gray-50 border-gray-200 text-gray-500 hover:bg-gray-100'}`}>
+                            onClick={() => { const tags = testimonialForm.program_tags || []; setTestimonialForm({...testimonialForm, program_tags: tags.includes(p.id) ? tags.filter(x => x !== p.id) : [...tags, p.id]}); }}
+                            className={`text-[10px] px-2 py-0.5 rounded-full border ${(testimonialForm.program_tags || []).includes(p.id) ? 'bg-purple-100 border-purple-300 text-purple-700' : 'bg-gray-50 border-gray-200 text-gray-500 hover:bg-gray-100'}`}>
                             {p.title}
                           </button>
                         ))}
@@ -921,21 +1041,29 @@ const AdminPanel = () => {
                     </div>
                     <div>
                       <Label>Tag to Sessions</Label>
-                      <div className="flex flex-wrap gap-1.5 mt-1 p-2 border rounded-md max-h-28 overflow-y-auto">
+                      <div className="flex flex-wrap gap-1 mt-1 p-2 border rounded-md max-h-24 overflow-y-auto">
                         {sessions.map(s => (
                           <button key={s.id} type="button"
-                            onClick={() => { const tags = testimonialForm.session_tags || []; setTestimonialForm({...testimonialForm, session_tags: tags.includes(s.id) ? tags.filter(t => t !== s.id) : [...tags, s.id]}); }}
-                            className={`text-[10px] px-2 py-0.5 rounded-full border transition-colors ${(testimonialForm.session_tags || []).includes(s.id) ? 'bg-amber-100 border-amber-300 text-amber-700' : 'bg-gray-50 border-gray-200 text-gray-500 hover:bg-gray-100'}`}>
+                            onClick={() => { const tags = testimonialForm.session_tags || []; setTestimonialForm({...testimonialForm, session_tags: tags.includes(s.id) ? tags.filter(x => x !== s.id) : [...tags, s.id]}); }}
+                            className={`text-[10px] px-2 py-0.5 rounded-full border ${(testimonialForm.session_tags || []).includes(s.id) ? 'bg-amber-100 border-amber-300 text-amber-700' : 'bg-gray-50 border-gray-200 text-gray-500 hover:bg-gray-100'}`}>
                             {s.title}
                           </button>
                         ))}
                       </div>
                     </div>
-                    <div className="flex items-center gap-2"><Switch checked={testimonialForm.visible} onCheckedChange={v => setTestimonialForm({...testimonialForm, visible: v})} /><Label>Visible</Label></div>
                   </div>
-                  <div className="mt-4 flex gap-2">
-                    <Button data-testid="save-testimonial-btn" onClick={saveTestimonial} className="bg-[#D4AF37] hover:bg-[#b8962e]"><Save size={14} className="mr-1" /> Save</Button>
-                    <Button variant="outline" onClick={resetTestimonialForm}>Cancel</Button>
+
+                  <div className="flex items-center justify-between pt-3 border-t">
+                    <div className="flex items-center gap-2">
+                      <Switch checked={testimonialForm.visible} onCheckedChange={v => setTestimonialForm({...testimonialForm, visible: v})} />
+                      <Label className="text-xs">Visible on site</Label>
+                    </div>
+                    <div className="flex gap-2">
+                      <Button data-testid="save-testimonial-btn" onClick={saveTestimonial} className="bg-[#D4AF37] hover:bg-[#b8962e]">
+                        <Save size={14} className="mr-1" /> Save
+                      </Button>
+                      <Button variant="outline" onClick={resetTestimonialForm}>Cancel</Button>
+                    </div>
                   </div>
                 </div>
               )}

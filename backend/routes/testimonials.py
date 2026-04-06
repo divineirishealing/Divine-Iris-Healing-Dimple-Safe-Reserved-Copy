@@ -1,7 +1,7 @@
 from fastapi import APIRouter, HTTPException
 from models import Testimonial, TestimonialCreate
 from typing import List, Optional
-import os, re
+import os, re, urllib.parse
 from motor.motor_asyncio import AsyncIOMotorClient
 from dotenv import load_dotenv
 from pathlib import Path
@@ -10,6 +10,19 @@ ROOT_DIR = Path(__file__).parent.parent
 load_dotenv(ROOT_DIR / '.env')
 
 router = APIRouter(prefix="/api/testimonials", tags=["Testimonials"])
+
+def _derive_video_meta(data: dict) -> dict:
+    """Derive videoId + thumbnail from video_url if not already set."""
+    url = data.get("video_url", "")
+    if url:
+        yt = re.search(r"(?:youtube\.com/watch\?v=|youtu\.be/)([a-zA-Z0-9_-]{11})", url)
+        if yt:
+            data.setdefault("videoId", yt.group(1))
+            if not data.get("thumbnail"):
+                data["thumbnail"] = f"https://img.youtube.com/vi/{yt.group(1)}/maxresdefault.jpg"
+    elif data.get("videoId") and not data.get("thumbnail"):
+        data["thumbnail"] = f"https://img.youtube.com/vi/{data['videoId']}/maxresdefault.jpg"
+    return data
 
 mongo_url = os.environ['MONGO_URL']
 client = AsyncIOMotorClient(mongo_url)
@@ -67,8 +80,7 @@ async def get_testimonial(testimonial_id: str):
 @router.post("", response_model=Testimonial)
 async def create_testimonial(testimonial: TestimonialCreate):
     data = testimonial.dict()
-    if data.get("type") == "video" and data.get("videoId") and not data.get("thumbnail"):
-        data["thumbnail"] = f"https://img.youtube.com/vi/{data['videoId']}/maxresdefault.jpg"
+    data = _derive_video_meta(data)
     count = await db.testimonials.count_documents({})
     data.pop("order", None)
     testimonial_obj = Testimonial(**data, order=count)
@@ -81,10 +93,9 @@ async def update_testimonial(testimonial_id: str, testimonial: TestimonialCreate
     if not existing:
         raise HTTPException(status_code=404, detail="Testimonial not found")
     update_data = {k: v for k, v in testimonial.dict().items() if v is not None}
-    if update_data.get("type") == "video" and update_data.get("videoId") and not update_data.get("thumbnail"):
-        update_data["thumbnail"] = f"https://img.youtube.com/vi/{update_data['videoId']}/maxresdefault.jpg"
+    update_data = _derive_video_meta(update_data)
     # Always update list fields even if empty
-    for field in ['program_tags', 'session_tags']:
+    for field in ['program_tags', 'session_tags', 'photos', 'photo_labels']:
         if field in testimonial.dict():
             update_data[field] = testimonial.dict()[field] or []
     await db.testimonials.update_one({"id": testimonial_id}, {"$set": update_data})
