@@ -369,8 +369,7 @@ export const SoulfulWrittenCard = ({ testimonial, onClick }) => {
             width: 80, height: 112,
             borderRadius: '42% / 50%',
             overflow: 'hidden',
-            border: '3px solid #D4AF37',
-            boxShadow: '0 0 0 5px rgba(109,40,217,0.22), 0 10px 30px rgba(0,0,0,0.30)',
+            boxShadow: '0 6px 20px rgba(0,0,0,0.25)',
           }}>
             <img src={resolveImageUrl(effectivePhotos[0])} alt={name || ''}
               className="w-full h-full object-cover" />
