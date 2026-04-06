@@ -1,4 +1,98 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+
+/* ── Custom always-visible scrollbar ─────────────────────────────────────── */
+const PurpleGoldScrollbar = ({ scrollRef, containerHeight = 520 }) => {
+  const [thumbTop, setThumbTop]       = useState(0);
+  const [thumbHeight, setThumbHeight] = useState(40);
+  const [dragging, setDragging]       = useState(false);
+  const dragStartY  = useRef(0);
+  const dragStartST = useRef(0);
+  const trackRef    = useRef(null);
+
+  const update = useCallback(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    const ratio      = el.clientHeight / el.scrollHeight;
+    const trackH     = el.clientHeight;
+    const thumbH     = Math.max(28, trackH * ratio);
+    const maxScroll  = el.scrollHeight - el.clientHeight;
+    const maxThumb   = trackH - thumbH;
+    const top        = maxScroll > 0 ? (el.scrollTop / maxScroll) * maxThumb : 0;
+    setThumbHeight(thumbH);
+    setThumbTop(top);
+  }, [scrollRef]);
+
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    update();
+    el.addEventListener('scroll', update);
+    const ro = new ResizeObserver(update);
+    ro.observe(el);
+    return () => { el.removeEventListener('scroll', update); ro.disconnect(); };
+  }, [scrollRef, update]);
+
+  const onMouseDown = (e) => {
+    e.preventDefault();
+    setDragging(true);
+    dragStartY.current  = e.clientY;
+    dragStartST.current = scrollRef.current?.scrollTop || 0;
+  };
+
+  useEffect(() => {
+    if (!dragging) return;
+    const onMove = (e) => {
+      const el = scrollRef.current;
+      if (!el) return;
+      const dy        = e.clientY - dragStartY.current;
+      const trackH    = el.clientHeight;
+      const maxThumb  = trackH - thumbHeight;
+      const ratio     = maxThumb > 0 ? dy / maxThumb : 0;
+      const maxScroll = el.scrollHeight - el.clientHeight;
+      el.scrollTop    = Math.max(0, Math.min(maxScroll, dragStartST.current + ratio * maxScroll));
+    };
+    const onUp = () => setDragging(false);
+    window.addEventListener('mousemove', onMove);
+    window.addEventListener('mouseup', onUp);
+    return () => { window.removeEventListener('mousemove', onMove); window.removeEventListener('mouseup', onUp); };
+  }, [dragging, thumbHeight, scrollRef]);
+
+  const onTrackClick = (e) => {
+    if (e.target !== trackRef.current) return;
+    const el = scrollRef.current;
+    if (!el) return;
+    const rect   = trackRef.current.getBoundingClientRect();
+    const clickY = e.clientY - rect.top - thumbHeight / 2;
+    const maxThumb  = el.clientHeight - thumbHeight;
+    const ratio     = maxThumb > 0 ? clickY / maxThumb : 0;
+    el.scrollTop    = Math.max(0, Math.min(el.scrollHeight - el.clientHeight, ratio * (el.scrollHeight - el.clientHeight)));
+  };
+
+  return (
+    <div
+      ref={trackRef}
+      onClick={onTrackClick}
+      style={{
+        position: 'absolute', right: 0, top: 0, bottom: 0, width: 8,
+        background: 'linear-gradient(180deg,#f3e8ff 0%,#fef9e7 100%)',
+        borderRadius: 8, cursor: 'pointer', zIndex: 10,
+      }}
+    >
+      <div
+        onMouseDown={onMouseDown}
+        style={{
+          position: 'absolute', left: 1, right: 1,
+          top: thumbTop, height: thumbHeight,
+          background: 'linear-gradient(180deg,#8b5cf6 0%,#a855f7 50%,#D4AF37 100%)',
+          borderRadius: 8,
+          boxShadow: '0 0 8px rgba(139,92,246,0.5), 0 0 4px rgba(212,175,55,0.3)',
+          cursor: dragging ? 'grabbing' : 'grab',
+          transition: dragging ? 'none' : 'top 0.08s',
+        }}
+      />
+    </div>
+  );
+};
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { ChevronRight, ChevronLeft, Clock, Wifi, MapPin, Quote, Calendar as CalendarIcon, ShoppingCart } from 'lucide-react';
@@ -105,6 +199,7 @@ const SessionsSection = ({ sectionConfig }) => {
   const [selectedSession, setSelectedSession] = useState(null);
   const [selectedDate, setSelectedDate] = useState(null);
   const [selectedTimeSlot, setSelectedTimeSlot] = useState(null);
+  const sessionsListRef = useRef(null);
 
   const sessionTpl = settings?.page_heroes?.session_template || {};
   const purpleIntensity = sessionTpl.homepage_purple || 'medium';
@@ -196,34 +291,12 @@ const SessionsSection = ({ sectionConfig }) => {
           {/* Left — Session List */}
           <aside className="w-full lg:w-[340px] lg:min-w-[340px] flex-shrink-0" data-testid="sessions-list">
             <div className="bg-white/70 backdrop-blur-sm rounded-xl border border-purple-100/50 shadow-sm overflow-hidden relative">
-              <style>{`
-                .sessions-scroll-list {
-                  overflow-y: scroll !important;
-                }
-                .sessions-scroll-list::-webkit-scrollbar {
-                  -webkit-appearance: none;
-                  width: 7px;
-                  background: transparent;
-                }
-                .sessions-scroll-list::-webkit-scrollbar-track {
-                  background: linear-gradient(180deg, #f5f0ff 0%, #fffbeb 100%);
-                  border-radius: 10px;
-                  margin: 6px 0;
-                }
-                .sessions-scroll-list::-webkit-scrollbar-thumb {
-                  background: linear-gradient(180deg, #8b5cf6 0%, #a855f7 40%, #D4AF37 100%);
-                  border-radius: 10px;
-                  border: 1px solid rgba(255,255,255,0.4);
-                  box-shadow: 0 0 6px rgba(139,92,246,0.35);
-                }
-                .sessions-scroll-list::-webkit-scrollbar-thumb:hover {
-                  background: linear-gradient(180deg, #7c3aed 0%, #9333ea 40%, #b8962e 100%);
-                  box-shadow: 0 0 10px rgba(139,92,246,0.5);
-                }
-              `}</style>
+              {/* Custom always-visible purple-gold scrollbar */}
+              <PurpleGoldScrollbar scrollRef={sessionsListRef} />
               <div
-                className="sessions-scroll-list max-h-[520px]"
-                style={{ scrollbarWidth: 'thin', scrollbarColor: '#8b5cf6 #f5f0ff' }}
+                ref={sessionsListRef}
+                className="max-h-[520px] overflow-y-auto"
+                style={{ scrollbarWidth: 'none', paddingRight: 10 }}
               >
                 {sessions.map((session) => (
                   <button
@@ -266,7 +339,6 @@ const SessionsSection = ({ sectionConfig }) => {
                   </button>
                 ))}
               </div>
-
             </div>
           </aside>
 
