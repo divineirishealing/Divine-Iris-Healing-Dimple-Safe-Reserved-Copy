@@ -16,52 +16,94 @@ const Stars = ({ rating = 5 }) => (
 );
 
 /* ── Animated Iris Flower ────────────────────────────────────────────────── */
+/*
+  Real iris anatomy: 3 large "falls" (outer petals, with gold beard)
+  interleaved with 3 narrower "standards" (inner upright petals).
+  Animation: each petal grows outward from the flower centre — anchored
+  at transform-origin top-centre (50% 0%) so scaleY(0→1) = unfurling
+  from the base outward. CSS custom property --r sets each petal's
+  final rotated direction.
+*/
 const IrisBloom = () => (
   <span style={{ display: 'inline-flex', flexShrink: 0 }}>
     <style>{`
-      @keyframes irisPetal {
-        0%   { opacity: 0; transform: scale(0.04); }
-        65%  { transform: scale(1.1); opacity: 1; }
-        100% { transform: scale(1);   opacity: 1; }
+      @keyframes irisUnfurl {
+        0%   { transform: rotate(var(--r,0deg)) scaleY(0.02) scaleX(0.12); opacity: 0; }
+        45%  { opacity: 1; }
+        68%  { transform: rotate(var(--r,0deg)) scaleY(1.08) scaleX(1.05); }
+        100% { transform: rotate(var(--r,0deg)) scaleY(1)    scaleX(1);    opacity: 1; }
       }
-      @keyframes irisGlow {
-        0%   { opacity: 0; transform: scale(0); }
-        70%  { transform: scale(1.2); opacity: 1; }
-        100% { transform: scale(1);   opacity: 1; }
+      @keyframes irisCorolla {
+        0%   { transform: scale(0); opacity: 0; }
+        65%  { transform: scale(1.2); }
+        100% { transform: scale(1);  opacity: 1; }
       }
-      @keyframes irisStem {
-        0%   { opacity: 0; stroke-dashoffset: 22; }
-        100% { opacity: 1; stroke-dashoffset: 0; }
+      .ipetal {
+        transform-box: fill-box;
+        transform-origin: 50% 0%;          /* anchor = base of petal = flower centre */
+        animation: irisUnfurl 0.72s cubic-bezier(0.22,1,0.36,1) both;
       }
-      .ifall { transform-box: fill-box; transform-origin: center; animation: irisPetal 0.7s cubic-bezier(0.34,1.56,0.64,1) both; }
-      .istd  { transform-box: fill-box; transform-origin: center; animation: irisPetal 0.6s cubic-bezier(0.34,1.56,0.64,1) both; }
-      .icent { transform-box: fill-box; transform-origin: center; animation: irisGlow 0.45s ease-out both; }
-      .istem { animation: irisStem 0.45s ease-out 0s both; stroke-dasharray: 22; }
+      .icore {
+        transform-box: fill-box;
+        transform-origin: center;
+        animation: irisCorolla 0.38s ease-out both;
+      }
     `}</style>
-    <svg viewBox="-22 -24 44 46" width="42" height="44" style={{ overflow: 'visible' }}>
-      {/* Stem */}
-      <path className="istem" d="M0,3 Q1,10 0,20" stroke="#6b9a57" strokeWidth="1.6" fill="none" strokeLinecap="round" />
 
-      {/* 3 Falls — large outer petals (0°, 120°, 240°) with gold beard */}
-      {[0, 120, 240].map((deg, i) => (
-        <g key={`f${i}`} transform={`rotate(${deg})`} className="ifall"
-          style={{ animationDelay: `${0.1 + i * 0.1}s` }}>
-          <path d="M0,0 C-8,2 -10,12 -6,19 C-3,23 3,23 6,19 C10,12 8,2 0,0Z" fill="#8b5cf6" opacity="0.88" />
-          <path d="M0,1.5 C-0.3,7 -0.3,13 0,17" stroke="#D4AF37" strokeWidth="1.6" fill="none" strokeLinecap="round" opacity="0.9" />
+    <svg viewBox="-22 -23 44 48" width="42" height="46" style={{ overflow: 'visible' }}>
+
+      {/*
+        All petals point DOWNWARD (+Y) from origin in their local frame.
+        The --r rotation + transform-origin at top-center ensures each
+        petal unfurls outward from the centre in the correct direction.
+
+        Falls  (wider, with gold beard): 0°, 120°, 240°
+        Standards (narrower, deeper):   60°, 180°, 300°
+      */}
+
+      {/* ── Falls ── */}
+      {[[0, 0.05], [120, 0.20], [240, 0.35]].map(([deg, dl]) => (
+        <g key={`f${deg}`} className="ipetal"
+          style={{ '--r': `${deg}deg`, animationDelay: `${dl}s` }}>
+          {/* Rounded teardrop fall petal */}
+          <path
+            d="M0,0 C-8,3 -10,14 -6,22 C-3,27 3,27 6,22 C10,14 8,3 0,0Z"
+            fill="url(#fallGrad)" opacity="0.92" />
+          {/* Gold beard stripe */}
+          <path
+            d="M0,2 C-0.4,8 -0.4,16 0,20"
+            stroke="#D4AF37" strokeWidth="1.9" fill="none"
+            strokeLinecap="round" opacity="0.95" />
         </g>
       ))}
 
-      {/* 3 Standards — inner upright petals (60°, 180°, 300°), narrower */}
-      {[60, 180, 300].map((deg, i) => (
-        <g key={`s${i}`} transform={`rotate(${deg})`} className="istd"
-          style={{ animationDelay: `${0.38 + i * 0.09}s` }}>
-          <path d="M0,0 C-5,-1 -6,-11 -3,-18 C-1,-20 1,-20 3,-18 C6,-11 5,-1 0,0Z" fill="#6d28d9" opacity="0.93" />
+      {/* ── Standards ── */}
+      {[[60, 0.48], [180, 0.58], [300, 0.68]].map(([deg, dl]) => (
+        <g key={`s${deg}`} className="ipetal"
+          style={{ '--r': `${deg}deg`, animationDelay: `${dl}s` }}>
+          {/* Narrower, slightly shorter upright petal */}
+          <path
+            d="M0,0 C-5,2 -6,11 -3,18 C-1,21 1,21 3,18 C6,11 5,2 0,0Z"
+            fill="url(#stdGrad)" opacity="0.95" />
         </g>
       ))}
 
-      {/* Center — gold glow */}
-      <circle cx="0" cy="0" r="4.5" fill="#D4AF37" className="icent" style={{ animationDelay: '0.72s' }} />
-      <circle cx="0" cy="0" r="2.8" fill="#fff9e6" className="icent" style={{ animationDelay: '0.80s' }} />
+      {/* ── Gradient defs ── */}
+      <defs>
+        <radialGradient id="fallGrad" cx="50%" cy="20%" r="70%">
+          <stop offset="0%"   stopColor="#a78bfa" />
+          <stop offset="100%" stopColor="#7c3aed" />
+        </radialGradient>
+        <radialGradient id="stdGrad" cx="50%" cy="20%" r="70%">
+          <stop offset="0%"   stopColor="#8b5cf6" />
+          <stop offset="100%" stopColor="#5b21b6" />
+        </radialGradient>
+      </defs>
+
+      {/* ── Centre ── */}
+      <circle cx="0" cy="0" r="5"   fill="#D4AF37" className="icore" style={{ animationDelay: '0.82s' }} />
+      <circle cx="0" cy="0" r="3.2" fill="#fef3c7" className="icore" style={{ animationDelay: '0.90s' }} />
+      <circle cx="0" cy="0" r="1.6" fill="#D4AF37" className="icore" style={{ animationDelay: '0.96s' }} />
     </svg>
   </span>
 );
@@ -387,6 +429,29 @@ export const SoulfulVideoCard = ({ testimonial, onPlay, onOpen }) => {
   );
 };
 
+/* ── Modal author block — Name → Role → Program badge (matches card) ─────── */
+const ModalAuthor = ({ name, role, program_name }) => (
+  <div>
+    {name && <p style={{ fontFamily: "'Lato', sans-serif", fontWeight: 800, fontSize: '1rem', color: '#1a1040' }}>{name}</p>}
+    {role && <p style={{ fontFamily: "'Lato', sans-serif", fontSize: '0.75rem', color: '#8b7a9a', fontStyle: 'italic', marginTop: 4 }}>{role}</p>}
+    {program_name && (
+      <div style={{ display: 'flex', justifyContent: 'center', marginTop: role ? 10 : 7 }}>
+        <span style={{
+          display: 'inline-flex', alignItems: 'center', gap: 5,
+          fontFamily: "'Cormorant Garamond', Georgia, serif",
+          fontSize: '0.78rem', fontWeight: 700, fontStyle: 'italic', letterSpacing: '0.04em',
+          color: '#7c3aed',
+          background: 'linear-gradient(90deg, rgba(139,92,246,0.09), rgba(212,175,55,0.13))',
+          border: '1px solid rgba(212,175,55,0.35)', borderRadius: 20,
+          padding: '4px 12px 4px 9px', boxShadow: '0 1px 5px rgba(212,175,55,0.1)',
+        }}>
+          <span style={{ color: '#D4AF37', fontSize: '0.78rem' }}>✦</span>{program_name}
+        </span>
+      </div>
+    )}
+  </div>
+);
+
 /* ══════════════════════════════════════════════════════════════════════════
    FULL MODAL VIEW (written testimonial)
    ══════════════════════════════════════════════════════════════════════════ */
@@ -421,9 +486,7 @@ export const SoulfulTestimonialFull = ({ testimonial }) => {
             <div className="shrink-0 flex flex-col items-center" style={{ width: effectiveMode === 'progressive' ? undefined : '35%', maxWidth: 240 }}>
               <PhotoDisplay photos={effectivePhotos} photoLabels={effectivePhotoLabels} photoMode={effectiveMode} size="full" />
               <div className="mt-5 text-center">
-                <p style={{ fontFamily: "'Lato', sans-serif", fontWeight: 700, fontSize: '1rem', color: '#1a1040' }}>{name}</p>
-                {program_name && <p style={{ fontFamily: "'Cormorant Garamond', Georgia, serif", fontSize: '0.8rem', color: '#D4AF37', fontStyle: 'italic', marginTop: 3 }}>{program_name}</p>}
-                {role && <p style={{ fontFamily: "'Lato', sans-serif", fontSize: '0.72rem', color: '#9ca3af', marginTop: 3 }}>{role}</p>}
+                <ModalAuthor name={name} role={role} program_name={program_name} />
               </div>
             </div>
           )}
@@ -441,9 +504,7 @@ export const SoulfulTestimonialFull = ({ testimonial }) => {
             </div>
             {!hasPhotos && (
               <div className="mt-6 text-center">
-                <p style={{ fontFamily: "'Lato', sans-serif", fontWeight: 700, fontSize: '1rem', color: '#1a1040' }}>{name}</p>
-                {program_name && <p style={{ fontFamily: "'Cormorant Garamond', Georgia, serif", fontSize: '0.8rem', color: '#D4AF37', fontStyle: 'italic', marginTop: 3 }}>{program_name}</p>}
-                {role && <p style={{ fontFamily: "'Lato', sans-serif", fontSize: '0.72rem', color: '#9ca3af', marginTop: 3 }}>{role}</p>}
+                <ModalAuthor name={name} role={role} program_name={program_name} />
               </div>
             )}
           </div>
