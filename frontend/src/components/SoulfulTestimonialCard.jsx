@@ -392,8 +392,9 @@ export const SoulfulWrittenCard = ({ testimonial, onClick, uniform = false }) =>
       {hasPhotos && isSingle && (
         <div className="flex justify-center" style={{ marginTop: -50, position: 'relative', zIndex: 10 }}>
           <div style={{
-            width: 80, height: 112,
-            borderRadius: '42% / 50%',
+            width: uniform ? 130 : 80,
+            height: 80,
+            borderRadius: uniform ? '50%' : '42% / 50%',
             overflow: 'hidden',
             boxShadow: '0 6px 20px rgba(0,0,0,0.25)',
           }}>
@@ -404,7 +405,7 @@ export const SoulfulWrittenCard = ({ testimonial, onClick, uniform = false }) =>
       )}
 
       {/* ── Card body — flex:1 so footer always pins to bottom ── */}
-      <div className={`px-5 pb-4 ${hasPhotos && isSingle ? 'pt-3' : 'pt-2'}`}
+      <div className={`px-5 pb-4 ${(uniform || (hasPhotos && isSingle)) ? 'pt-3' : 'pt-2'}`}
         style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
 
         {/* Multi-photo for before/after or progressive */}
