@@ -118,6 +118,30 @@ const IrisBloom = () => (
   </span>
 );
 
+/* ── Shared card footer (identical layout for written + video) ──────────── */
+const CardFooter = ({ name, role, program_name }) => (
+  <>
+    <div className="h-px"
+      style={{ background: 'linear-gradient(90deg, transparent, rgba(212,175,55,0.5) 30%, rgba(109,40,217,0.4) 70%, transparent)', margin: '12px 0' }} />
+    <div className="flex items-end justify-between gap-2">
+      <div className="flex-1">
+        <p style={{ fontFamily: "'Lato', sans-serif", fontWeight: 800, fontSize: '0.9rem', color: '#1a0a4e', letterSpacing: '0.02em' }}>
+          {name}
+        </p>
+        <p style={{ fontFamily: "'Lato', sans-serif", fontSize: '0.68rem', color: '#7c6a9a', fontStyle: 'italic', marginTop: 2, minHeight: '2.2em', visibility: role ? 'visible' : 'hidden' }}>
+          {role || '\u00A0'}
+        </p>
+        {program_name && (
+          <p style={{ fontFamily: "'Cormorant Garamond', Georgia, serif", fontSize: '0.74rem', color: '#b8860b', fontStyle: 'italic', marginTop: 2, letterSpacing: '0.03em', fontWeight: 600 }}>
+            {program_name}
+          </p>
+        )}
+      </div>
+      <IrisBloom />
+    </div>
+  </>
+);
+
 /* ── Opening quote glyph ────────────────────────────────────────────────── */
 const QuoteGlyph = ({ color = 'rgba(139,92,246,0.12)' }) => (
   <span aria-hidden style={{ fontFamily: "'Cormorant Garamond', Georgia, serif", fontSize: '5rem', lineHeight: 1, color, position: 'absolute', top: -8, left: 12, pointerEvents: 'none', userSelect: 'none' }}>
@@ -281,6 +305,9 @@ export const SoulfulWrittenCard = ({ testimonial, onClick }) => {
         background: '#fdfbff',
         border: '1.5px solid rgba(109,40,217,0.22)',
         boxShadow: '0 4px 28px rgba(109,40,217,0.10), 0 1px 4px rgba(0,0,0,0.06)',
+        height: '100%',
+        display: 'flex',
+        flexDirection: 'column',
       }}
       onClick={onClick}
     >
@@ -373,8 +400,9 @@ export const SoulfulWrittenCard = ({ testimonial, onClick }) => {
         </div>
       )}
 
-      {/* ── Card body ── */}
-      <div className={`px-5 pb-5 ${hasPhotos && isSingle ? 'pt-3' : 'pt-2'}`}>
+      {/* ── Card body — flex:1 so footer always pins to bottom ── */}
+      <div className={`px-5 pb-4 ${hasPhotos && isSingle ? 'pt-3' : 'pt-2'}`}
+        style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
 
         {/* Multi-photo for before/after or progressive */}
         {hasPhotos && !isSingle && (
@@ -384,46 +412,28 @@ export const SoulfulWrittenCard = ({ testimonial, onClick }) => {
           </div>
         )}
 
-        {/* Quote text */}
-        <p style={{
-          fontFamily: "'Cormorant Garamond', Georgia, serif",
-          fontSize: '0.92rem', lineHeight: 1.85, color: '#1e0a4e',
-          fontStyle: 'italic', textAlign: 'center',
-        }}>
-          {displayText}
-        </p>
-
-        {isLong && (
-          <button
-            onClick={(e) => { e.stopPropagation(); setExpanded(!expanded); }}
-            className="flex items-center gap-1 mx-auto mt-2 text-[11px] font-semibold tracking-wide transition-colors"
-            style={{ color: '#7c3aed' }}
-          >
-            {expanded ? <><ChevronUp size={12} /> Read less</> : <><ChevronDown size={12} /> Read more</>}
-          </button>
-        )}
-
-        {/* Gold divider */}
-        <div className="my-4 h-px"
-          style={{ background: 'linear-gradient(90deg, transparent, rgba(212,175,55,0.5) 30%, rgba(109,40,217,0.4) 70%, transparent)' }} />
-
-        {/* Footer */}
-        <div className="flex items-end justify-between gap-2">
-          <div className="flex-1">
-            <p style={{ fontFamily: "'Lato', sans-serif", fontWeight: 800, fontSize: '0.9rem', color: '#1a0a4e', letterSpacing: '0.02em' }}>
-              {name}
-            </p>
-            <p style={{ fontFamily: "'Lato', sans-serif", fontSize: '0.68rem', color: '#7c6a9a', fontStyle: 'italic', marginTop: 2, minHeight: '2.2em', visibility: role ? 'visible' : 'hidden' }}>
-              {role || '\u00A0'}
-            </p>
-            {program_name && (
-              <p style={{ fontFamily: "'Cormorant Garamond', Georgia, serif", fontSize: '0.74rem', color: '#b8860b', fontStyle: 'italic', marginTop: 2, letterSpacing: '0.03em', fontWeight: 600 }}>
-                {program_name}
-              </p>
-            )}
-          </div>
-          <IrisBloom />
+        {/* Quote text — grows to fill space */}
+        <div style={{ flex: 1 }}>
+          <p style={{
+            fontFamily: "'Cormorant Garamond', Georgia, serif",
+            fontSize: '0.92rem', lineHeight: 1.85, color: '#1e0a4e',
+            fontStyle: 'italic', textAlign: 'center',
+          }}>
+            {displayText}
+          </p>
+          {isLong && (
+            <button
+              onClick={(e) => { e.stopPropagation(); setExpanded(!expanded); }}
+              className="flex items-center gap-1 mx-auto mt-2 text-[11px] font-semibold tracking-wide transition-colors"
+              style={{ color: '#7c3aed' }}
+            >
+              {expanded ? <><ChevronUp size={12} /> Read less</> : <><ChevronDown size={12} /> Read more</>}
+            </button>
+          )}
         </div>
+
+        {/* Shared footer — identical to video card */}
+        <CardFooter name={name} role={role} program_name={program_name} />
       </div>
 
       {/* Bottom vibrant line */}
@@ -462,6 +472,9 @@ export const SoulfulUniformVideoCard = ({ testimonial, onPlay, onOpen }) => {
         background: '#fdfbff',
         border: '1.5px solid rgba(109,40,217,0.22)',
         boxShadow: '0 4px 28px rgba(109,40,217,0.10), 0 1px 4px rgba(0,0,0,0.06)',
+        height: '100%',
+        display: 'flex',
+        flexDirection: 'column',
       }}
       onClick={handleClick}
     >
@@ -541,40 +554,28 @@ export const SoulfulUniformVideoCard = ({ testimonial, onPlay, onOpen }) => {
         </div>
       </div>
 
-      {/* ── Card body ── */}
-      <div className="px-5 pt-3 pb-5">
-        {text && (
-          <p style={{
-            fontFamily:"'Cormorant Garamond',Georgia,serif",
-            fontSize:'0.88rem', lineHeight:1.8, color:'#1e0a4e',
-            fontStyle:'italic', textAlign:'center',
-          }}>
-            "{text.length > 120 ? text.substring(0,120)+'…' : text}"
-          </p>
-        )}
-        {!text && (
-          <p style={{ textAlign:'center', fontSize:'0.78rem', color:'rgba(109,40,217,0.5)', fontStyle:'italic', marginTop:4 }}>
-            Click to watch
-          </p>
-        )}
-
-        <div className="my-4 h-px"
-          style={{ background:'linear-gradient(90deg,transparent,rgba(212,175,55,0.5) 30%,rgba(109,40,217,0.4) 70%,transparent)' }} />
-
-        <div className="flex items-end justify-between gap-2">
-          <div className="flex-1">
-            <p style={{ fontFamily:"'Lato',sans-serif", fontWeight:800, fontSize:'0.9rem', color:'#1a0a4e', letterSpacing:'0.02em' }}>{name}</p>
-            <p style={{ fontFamily:"'Lato',sans-serif", fontSize:'0.68rem', color:'#7c6a9a', fontStyle:'italic', marginTop:2, minHeight:'2.2em', visibility: role?'visible':'hidden' }}>
-              {role||'\u00A0'}
+      {/* ── Card body — flex:1 so footer pins to bottom ── */}
+      <div className="px-5 pt-3 pb-4"
+        style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
+        <div style={{ flex: 1 }}>
+          {text && (
+            <p style={{
+              fontFamily:"'Cormorant Garamond',Georgia,serif",
+              fontSize:'0.88rem', lineHeight:1.8, color:'#1e0a4e',
+              fontStyle:'italic', textAlign:'center',
+            }}>
+              "{text.length > 120 ? text.substring(0,120)+'…' : text}"
             </p>
-            {program_name && (
-              <p style={{ fontFamily:"'Cormorant Garamond',Georgia,serif", fontSize:'0.74rem', color:'#b8860b', fontStyle:'italic', marginTop:2, letterSpacing:'0.03em', fontWeight:600 }}>
-                {program_name}
-              </p>
-            )}
-          </div>
-          <IrisBloom />
+          )}
+          {!text && (
+            <p style={{ textAlign:'center', fontSize:'0.78rem', color:'rgba(109,40,217,0.5)', fontStyle:'italic', marginTop:4 }}>
+              Click to watch
+            </p>
+          )}
         </div>
+
+        {/* Shared footer — identical to written card */}
+        <CardFooter name={name} role={role} program_name={program_name} />
       </div>
 
       <div className="h-0.5 w-full"
