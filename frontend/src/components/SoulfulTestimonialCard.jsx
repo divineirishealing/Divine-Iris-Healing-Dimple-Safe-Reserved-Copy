@@ -142,6 +142,48 @@ const PhotoDisplay = ({ photos, photoLabels, photoMode, size = 'card' }) => {
   );
 };
 
+/* ── Reusable Author Identity Block ─────────────────────────────────────── */
+const AuthorBlock = ({ name, role, program_name, align = 'left', size = 'card' }) => {
+  const isCenter = align === 'center';
+  const isFull = size === 'full';
+  return (
+    <div style={{ textAlign: isCenter ? 'center' : 'left' }}>
+      {/* Row 1: Name */}
+      {name && (
+        <p style={{ fontFamily: "'Lato', sans-serif", fontWeight: 800, fontSize: isFull ? '1rem' : '0.88rem', color: '#1a1040', letterSpacing: '0.01em' }}>
+          {name}
+        </p>
+      )}
+      {/* Row 2: Role / Location */}
+      {role && (
+        <p style={{ fontFamily: "'Lato', sans-serif", fontSize: isFull ? '0.76rem' : '0.7rem', color: '#8b7a9a', marginTop: 3, fontStyle: 'italic' }}>
+          {role}
+        </p>
+      )}
+      {/* Spacer + Row 3: Program badge */}
+      {program_name && (
+        <div style={{ marginTop: role ? 10 : 8, display: 'flex', justifyContent: isCenter ? 'center' : 'flex-start' }}>
+          <span style={{
+            display: 'inline-flex', alignItems: 'center', gap: 5,
+            fontFamily: "'Cormorant Garamond', Georgia, serif",
+            fontSize: isFull ? '0.78rem' : '0.72rem',
+            fontWeight: 700, fontStyle: 'italic', letterSpacing: '0.04em',
+            color: '#7c3aed',
+            background: 'linear-gradient(90deg, rgba(139,92,246,0.09), rgba(212,175,55,0.13))',
+            border: '1px solid rgba(212,175,55,0.35)',
+            borderRadius: 20,
+            padding: isFull ? '4px 12px 4px 9px' : '3px 10px 3px 7px',
+            boxShadow: '0 1px 6px rgba(212,175,55,0.1)',
+          }}>
+            <span style={{ color: '#D4AF37', fontSize: isFull ? '0.8rem' : '0.72rem' }}>✦</span>
+            {program_name}
+          </span>
+        </div>
+      )}
+    </div>
+  );
+};
+
 /* ══════════════════════════════════════════════════════════════════════════
    WRITTEN TESTIMONIAL CARD
    ══════════════════════════════════════════════════════════════════════════ */
@@ -153,7 +195,7 @@ export const SoulfulWrittenCard = ({ testimonial, onClick }) => {
     image, before_image, program_name,
   } = testimonial;
 
-  // Support legacy image / before_image fields too
+  // Resolve photos (supports legacy image / before_image fields)
   const effectivePhotos = photos.length > 0 ? photos
     : before_image ? [before_image, image].filter(Boolean)
     : image ? [image]
@@ -165,64 +207,80 @@ export const SoulfulWrittenCard = ({ testimonial, onClick }) => {
     : before_image ? 'before_after'
     : 'single';
 
-  const hasPhotos = effectivePhotos.length > 0;
-  const PREVIEW_LEN = 130;
+  const hasSinglePhoto = effectivePhotos.length > 0 && effectiveMode === 'single';
+  const hasMultiPhoto  = effectivePhotos.length > 0 && effectiveMode !== 'single';
+  const PREVIEW_LEN = 150;
   const isLong = (text || '').length > PREVIEW_LEN;
   const displayText = isLong && !expanded ? text.substring(0, PREVIEW_LEN) + '…' : text;
 
   return (
     <div
       data-testid={`soulful-written-${testimonial.id}`}
-      className="relative group cursor-pointer rounded-2xl overflow-hidden transition-all duration-300 hover:shadow-2xl hover:-translate-y-1"
-      style={{ background: 'linear-gradient(160deg, #fdfbff 0%, #f5f0ff 45%, #fdf8f0 100%)', border: '1px solid rgba(212,175,55,0.15)' }}
+      className="relative group cursor-pointer rounded-2xl overflow-hidden transition-all duration-300 hover:shadow-2xl hover:-translate-y-1 flex flex-col"
+      style={{ background: 'linear-gradient(160deg, #fdfbff 0%, #f5f0ff 50%, #fdf8f0 100%)', border: '1px solid rgba(212,175,55,0.18)', minHeight: 220 }}
       onClick={onClick}
     >
-      {/* Top gold line */}
-      <div className="h-0.5 w-full" style={{ background: 'linear-gradient(90deg, transparent, #D4AF37 30%, rgba(139,92,246,0.5) 70%, transparent)' }} />
+      {/* ── Top shimmer line ── */}
+      <div className="h-[2px] w-full shrink-0" style={{ background: 'linear-gradient(90deg, transparent 0%, #D4AF37 30%, rgba(139,92,246,0.6) 70%, transparent 100%)' }} />
 
-      <div className="p-5 pb-4">
-        <QuoteGlyph />
+      {/* ── Main body — photo column + text column ── */}
+      <div className="flex flex-1 min-h-0">
 
-        <div className="flex gap-4 relative z-10">
-          {/* Photos */}
-          {hasPhotos && (
-            <div className="shrink-0 pt-1">
+        {/* ── Left: full-height photo ── */}
+        {hasSinglePhoto && (
+          <div className="shrink-0 relative overflow-hidden" style={{ width: 96 }}>
+            <img
+              src={resolveImageUrl(effectivePhotos[0])}
+              alt={name || ''}
+              className="absolute inset-0 w-full h-full object-cover"
+            />
+            {/* Subtle right-edge gradient fade into card */}
+            <div className="absolute inset-y-0 right-0 w-6"
+              style={{ background: 'linear-gradient(to right, transparent, rgba(245,240,255,0.85))' }} />
+          </div>
+        )}
+
+        {/* ── Right: quote + footer ── */}
+        <div className="flex-1 min-w-0 flex flex-col p-5 pb-4 relative">
+          <QuoteGlyph />
+
+          {/* Stars */}
+          <div className="relative z-10 mb-2.5">
+            <Stars rating={rating} />
+          </div>
+
+          {/* Quote text */}
+          <p className="relative z-10 flex-1" style={{ fontFamily: "'Cormorant Garamond', Georgia, serif", fontSize: '0.9rem', lineHeight: 1.8, color: '#2d2040', fontStyle: 'italic' }}>
+            "{displayText}"
+          </p>
+
+          {/* Read more / less */}
+          {isLong && (
+            <button
+              onClick={e => { e.stopPropagation(); setExpanded(!expanded); }}
+              className="relative z-10 self-start flex items-center gap-1 mt-2 text-[11px] font-semibold tracking-wide"
+              style={{ color: '#7c3aed' }}
+            >
+              {expanded ? <><ChevronUp size={12} /> Read less</> : <><ChevronDown size={12} /> Read more</>}
+            </button>
+          )}
+
+          {/* ── Multi-photo strip (before/after, progressive) ── */}
+          {hasMultiPhoto && (
+            <div className="mt-3 flex justify-center">
               <PhotoDisplay photos={effectivePhotos} photoLabels={effectivePhotoLabels} photoMode={effectiveMode} size="card" />
             </div>
           )}
 
-          {/* Text block */}
-          <div className="flex-1 min-w-0 flex flex-col gap-2">
-            <Stars rating={rating} />
-            <p style={{ fontFamily: "'Cormorant Garamond', Georgia, serif", fontSize: '0.88rem', lineHeight: 1.75, color: '#2d2040', fontStyle: 'italic' }}>
-              "{displayText}"
-            </p>
-            {isLong && (
-              <button
-                onClick={(e) => { e.stopPropagation(); setExpanded(!expanded); }}
-                className="self-start flex items-center gap-1 text-[11px] font-semibold tracking-wide transition-colors"
-                style={{ color: '#7c3aed' }}
-              >
-                {expanded ? <><ChevronUp size={12} /> Read less</> : <><ChevronDown size={12} /> Read more</>}
-              </button>
-            )}
+          {/* ── Author footer ── */}
+          <div className="mt-4 pt-3 relative z-10" style={{ borderTop: '1px solid rgba(212,175,55,0.15)' }}>
+            <AuthorBlock name={name} role={role} program_name={program_name} />
           </div>
-        </div>
-
-        {/* Footer */}
-        <div className="mt-4 pt-3 flex items-end justify-between gap-2" style={{ borderTop: '1px solid rgba(212,175,55,0.12)' }}>
-          <div>
-            <p style={{ fontFamily: "'Lato', sans-serif", fontWeight: 700, fontSize: '0.85rem', color: '#1a1040' }}>{name}</p>
-            {program_name && <p style={{ fontFamily: "'Cormorant Garamond', Georgia, serif", fontSize: '0.75rem', color: '#D4AF37', fontStyle: 'italic', marginTop: 2 }}>{program_name}</p>}
-            {role && <p style={{ fontFamily: "'Lato', sans-serif", fontSize: '0.68rem', color: '#9ca3af', marginTop: 2 }}>{role}</p>}
-          </div>
-          {/* Decorative lotus */}
-          <span style={{ fontSize: '1.1rem', opacity: 0.18 }}>✿</span>
         </div>
       </div>
 
-      {/* Bottom gradient line */}
-      <div className="h-0.5 w-full" style={{ background: 'linear-gradient(90deg, transparent, rgba(139,92,246,0.3) 30%, #D4AF37 70%, transparent)' }} />
+      {/* ── Bottom shimmer line ── */}
+      <div className="h-[2px] w-full shrink-0" style={{ background: 'linear-gradient(90deg, transparent 0%, rgba(139,92,246,0.4) 30%, #D4AF37 70%, transparent 100%)' }} />
     </div>
   );
 };
@@ -306,13 +364,27 @@ export const SoulfulVideoCard = ({ testimonial, onPlay, onOpen }) => {
 
       {/* Info bar */}
       <div className="px-4 py-3" style={{ background: 'linear-gradient(180deg,#0f0a1e,#1a1040)' }}>
-        <div className="flex items-center justify-between gap-2">
+        <div className="flex items-start justify-between gap-2">
           <div>
-            {name && <p style={{ fontFamily: "'Lato', sans-serif", fontWeight: 700, fontSize: '0.82rem', color: '#f5f0ff' }}>{name}</p>}
-            {program_name && <p style={{ fontFamily: "'Cormorant Garamond', Georgia, serif", fontSize: '0.7rem', color: '#D4AF37', fontStyle: 'italic', marginTop: 2 }}>{program_name}</p>}
-            {role && !program_name && <p style={{ fontSize: '0.68rem', color: 'rgba(212,175,55,0.6)', marginTop: 2 }}>{role}</p>}
+            {name && <p style={{ fontFamily: "'Lato', sans-serif", fontWeight: 800, fontSize: '0.84rem', color: '#f5f0ff' }}>{name}</p>}
+            {role && <p style={{ fontFamily: "'Lato', sans-serif", fontSize: '0.68rem', color: 'rgba(212,175,55,0.55)', fontStyle: 'italic', marginTop: 2 }}>{role}</p>}
+            {program_name && (
+              <div style={{ marginTop: role ? 8 : 5 }}>
+                <span style={{
+                  display: 'inline-flex', alignItems: 'center', gap: 4,
+                  fontFamily: "'Cormorant Garamond', Georgia, serif",
+                  fontSize: '0.68rem', fontWeight: 700, fontStyle: 'italic',
+                  color: '#D4AF37',
+                  background: 'rgba(212,175,55,0.12)',
+                  border: '1px solid rgba(212,175,55,0.3)',
+                  borderRadius: 16, padding: '2px 8px 2px 6px',
+                }}>
+                  <span style={{ fontSize: '0.65rem' }}>✦</span>{program_name}
+                </span>
+              </div>
+            )}
           </div>
-          <span style={{ color: 'rgba(212,175,55,0.4)', fontSize: '0.9rem' }}>✿</span>
+          <span style={{ color: 'rgba(212,175,55,0.3)', fontSize: '0.85rem', marginTop: 2 }}>✿</span>
         </div>
       </div>
     </div>
@@ -352,11 +424,7 @@ export const SoulfulTestimonialFull = ({ testimonial }) => {
           {hasPhotos && (
             <div className="shrink-0 flex flex-col items-center" style={{ width: effectiveMode === 'progressive' ? undefined : '35%', maxWidth: 240 }}>
               <PhotoDisplay photos={effectivePhotos} photoLabels={effectivePhotoLabels} photoMode={effectiveMode} size="full" />
-              <div className="mt-5 text-center">
-                <p style={{ fontFamily: "'Lato', sans-serif", fontWeight: 700, fontSize: '1rem', color: '#1a1040' }}>{name}</p>
-                {program_name && <p style={{ fontFamily: "'Cormorant Garamond', Georgia, serif", fontSize: '0.8rem', color: '#D4AF37', fontStyle: 'italic', marginTop: 3 }}>{program_name}</p>}
-                {role && <p style={{ fontFamily: "'Lato', sans-serif", fontSize: '0.72rem', color: '#9ca3af', marginTop: 3 }}>{role}</p>}
-              </div>
+              <AuthorBlock name={name} role={role} program_name={program_name} align="center" size="full" />
             </div>
           )}
 
@@ -372,10 +440,8 @@ export const SoulfulTestimonialFull = ({ testimonial }) => {
               </div>
             </div>
             {!hasPhotos && (
-              <div className="mt-6 text-center">
-                <p style={{ fontFamily: "'Lato', sans-serif", fontWeight: 700, fontSize: '1rem', color: '#1a1040' }}>{name}</p>
-                {program_name && <p style={{ fontFamily: "'Cormorant Garamond', Georgia, serif", fontSize: '0.8rem', color: '#D4AF37', fontStyle: 'italic', marginTop: 3 }}>{program_name}</p>}
-                {role && <p style={{ fontFamily: "'Lato', sans-serif", fontSize: '0.72rem', color: '#9ca3af', marginTop: 3 }}>{role}</p>}
+              <div className="mt-6">
+                <AuthorBlock name={name} role={role} program_name={program_name} align="center" size="full" />
               </div>
             )}
           </div>
