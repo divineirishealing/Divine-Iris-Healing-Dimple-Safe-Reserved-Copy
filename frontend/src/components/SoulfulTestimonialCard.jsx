@@ -285,68 +285,92 @@ export const SoulfulWrittenCard = ({ testimonial, onClick }) => {
       onClick={onClick}
     >
       {/* ── Jewel header ── */}
-      <div className="relative px-5 pt-5 pb-10 overflow-hidden"
-        style={{ background: 'linear-gradient(135deg, #1e0654 0%, #3b0f9e 45%, #6d28d9 80%, #9333ea 100%)' }}>
-        {/* Radial glow behind photo */}
+      <div className="relative px-5 pt-7 overflow-hidden"
+        style={{
+          background: 'linear-gradient(135deg, #1e0654 0%, #3b0f9e 45%, #6d28d9 80%, #9333ea 100%)',
+          paddingBottom: hasPhotos && isSingle ? '72px' : '28px',
+        }}>
+
+        {/* Deep centre glow */}
         <div className="absolute inset-0 pointer-events-none"
-          style={{ background: 'radial-gradient(ellipse 70% 80% at 50% 130%, rgba(212,175,55,0.18) 0%, transparent 70%)' }} />
+          style={{ background: 'radial-gradient(ellipse 80% 60% at 50% 100%, rgba(212,175,55,0.22) 0%, transparent 65%)' }} />
 
         {/* Animated falling & drifting sparkle dots */}
         <style>{`
           @keyframes dotFall {
-            0%   { transform: translateY(-10px) translateX(0px) scale(1);   opacity: 0; }
-            15%  { opacity: 1; }
-            80%  { opacity: 0.8; }
-            100% { transform: translateY(110px) translateX(var(--dx,0px)) scale(0.4); opacity: 0; }
+            0%   { transform: translateY(-12px) translateX(0px) scale(1);   opacity: 0; }
+            12%  { opacity: 1; }
+            78%  { opacity: 0.75; }
+            100% { transform: translateY(140px) translateX(var(--dx,0px)) scale(0.3); opacity: 0; }
           }
           @keyframes dotFloat {
-            0%, 100% { transform: translateY(0)   translateX(0);   opacity: 0.55; }
-            50%      { transform: translateY(-8px) translateX(4px); opacity: 1; }
+            0%, 100% { transform: translateY(0px)  translateX(0px);  opacity: 0.5; }
+            50%      { transform: translateY(-9px) translateX(5px); opacity: 1; }
           }
         `}</style>
         {[
-          {t:-5, l:8,  s:3, dur:3.2, dx:-6,  anim:'dotFall'},
-          {t:-5, l:25, s:2, dur:2.8, dx:4,   anim:'dotFall'},
-          {t:-5, l:45, s:4, dur:3.8, dx:-3,  anim:'dotFall'},
-          {t:-5, l:62, s:2, dur:2.5, dx:7,   anim:'dotFall'},
-          {t:-5, l:78, s:3, dur:3.5, dx:-5,  anim:'dotFall'},
-          {t:-5, l:90, s:2, dur:2.2, dx:3,   anim:'dotFall'},
-          {t:-5, l:15, s:2, dur:4.0, dx:5,   anim:'dotFall'},
-          {t:-5, l:55, s:3, dur:3.0, dx:-4,  anim:'dotFall'},
-          {t:-5, l:35, s:2, dur:4.2, dx:6,   anim:'dotFall'},
-          {t:-5, l:70, s:4, dur:2.9, dx:-8,  anim:'dotFall'},
-          {t:20, l:5,  s:2, dur:2.4, dx:0,   anim:'dotFloat'},
-          {t:50, l:92, s:2, dur:3.1, dx:0,   anim:'dotFloat'},
-          {t:40, l:50, s:3, dur:2.7, dx:0,   anim:'dotFloat'},
+          {t:-5, l:6,  s:3, dur:3.2, dx:-6,  anim:'dotFall'},
+          {t:-5, l:18, s:2, dur:2.6, dx:4,   anim:'dotFall'},
+          {t:-5, l:32, s:4, dur:3.9, dx:-3,  anim:'dotFall'},
+          {t:-5, l:47, s:2, dur:2.4, dx:7,   anim:'dotFall'},
+          {t:-5, l:59, s:3, dur:3.5, dx:-5,  anim:'dotFall'},
+          {t:-5, l:72, s:2, dur:2.2, dx:3,   anim:'dotFall'},
+          {t:-5, l:83, s:3, dur:3.8, dx:-4,  anim:'dotFall'},
+          {t:-5, l:93, s:2, dur:2.9, dx:5,   anim:'dotFall'},
+          {t:-5, l:12, s:2, dur:4.1, dx:6,   anim:'dotFall'},
+          {t:-5, l:40, s:3, dur:3.0, dx:-7,  anim:'dotFall'},
+          {t:-5, l:65, s:4, dur:2.7, dx:-3,  anim:'dotFall'},
+          {t:-5, l:76, s:2, dur:4.3, dx:4,   anim:'dotFall'},
+          {t:18, l:4,  s:2, dur:2.5, dx:0,   anim:'dotFloat'},
+          {t:35, l:95, s:2, dur:3.2, dx:0,   anim:'dotFloat'},
+          {t:55, l:50, s:3, dur:2.8, dx:0,   anim:'dotFloat'},
+          {t:25, l:30, s:2, dur:3.6, dx:0,   anim:'dotFloat'},
         ].map((p, i) => (
           <div key={i} className="absolute rounded-full pointer-events-none"
             style={{
               top: `${p.t}%`, left: `${p.l}%`,
               width: p.s, height: p.s,
-              background: i % 3 === 0 ? 'rgba(212,175,55,0.9)' : i % 3 === 1 ? 'rgba(255,255,255,0.7)' : 'rgba(196,181,253,0.8)',
-              boxShadow: `0 0 ${p.s * 2}px ${i % 3 === 0 ? 'rgba(212,175,55,0.8)' : 'rgba(196,181,253,0.6)'}`,
+              background: i % 3 === 0 ? 'rgba(212,175,55,0.95)' : i % 3 === 1 ? 'rgba(255,255,255,0.75)' : 'rgba(196,181,253,0.85)',
+              boxShadow: `0 0 ${p.s * 3}px ${i % 3 === 0 ? 'rgba(212,175,55,0.85)' : 'rgba(196,181,253,0.65)'}`,
               '--dx': `${p.dx}px`,
               animationName: p.anim,
               animationDuration: `${p.dur}s`,
               animationTimingFunction: 'ease-in',
               animationIterationCount: 'infinite',
-              animationDelay: `${(i * 0.37) % p.dur}s`,
+              animationDelay: `${(i * 0.31) % p.dur}s`,
             }} />
         ))}
 
-        {/* Stars centred */}
-        <div className="flex justify-center mb-2 relative z-10"><Stars rating={rating} /></div>
+        {/* Stars — comfortably in upper part of header */}
+        <div className="flex justify-center relative z-10 mb-1"><Stars rating={rating} /></div>
+
+        {/* Thin gold ornament line under stars */}
+        <div className="relative z-10 flex items-center justify-center gap-2 mt-2">
+          <div style={{ height: 1, width: 28, background: 'linear-gradient(to right, transparent, rgba(212,175,55,0.6))' }} />
+          <div style={{ width: 4, height: 4, borderRadius: '50%', background: '#D4AF37', opacity: 0.7 }} />
+          <div style={{ height: 1, width: 28, background: 'linear-gradient(to left, transparent, rgba(212,175,55,0.6))' }} />
+        </div>
+
+        {/* Curved white scoop at bottom — photo sits in the valley */}
+        {hasPhotos && isSingle && (
+          <div className="absolute bottom-0 left-0 right-0 pointer-events-none"
+            style={{
+              height: 36,
+              background: '#fdfbff',
+              borderRadius: '50% 50% 0 0 / 100% 100% 0 0',
+            }} />
+        )}
       </div>
 
-      {/* ── Single photo straddling header / body — oval shape ── */}
+      {/* ── Single oval photo — sits on the curved scoop ── */}
       {hasPhotos && isSingle && (
-        <div className="flex justify-center" style={{ marginTop: -50, position: 'relative', zIndex: 10 }}>
+        <div className="flex justify-center" style={{ marginTop: -62, position: 'relative', zIndex: 10 }}>
           <div style={{
-            width: 76, height: 104,
-            borderRadius: '40% / 50%',
+            width: 80, height: 112,
+            borderRadius: '42% / 50%',
             overflow: 'hidden',
             border: '3px solid #D4AF37',
-            boxShadow: '0 0 0 5px rgba(109,40,217,0.25), 0 8px 28px rgba(0,0,0,0.28)',
+            boxShadow: '0 0 0 5px rgba(109,40,217,0.22), 0 10px 30px rgba(0,0,0,0.30)',
           }}>
             <img src={resolveImageUrl(effectivePhotos[0])} alt={name || ''}
               className="w-full h-full object-cover" />
