@@ -122,15 +122,17 @@ html {
 
 /* Sessions list — visible purple→gold scrollbar */
 .sessions-scroll-list::-webkit-scrollbar {
-  width: 5px;
+  width: 8px;
 }
 .sessions-scroll-list::-webkit-scrollbar-track {
-  background: linear-gradient(180deg, #ede9fe 0%, #fef9e7 100%);
-  border-radius: 4px;
+  background: #ede9fe;
+  border-radius: 8px;
+  margin: 4px 0;
 }
 .sessions-scroll-list::-webkit-scrollbar-thumb {
   background: linear-gradient(180deg, #8b5cf6 0%, #D4AF37 100%);
-  border-radius: 4px;
+  border-radius: 8px;
+  border: 1px solid #ede9fe;
 }
 .sessions-scroll-list::-webkit-scrollbar-thumb:hover {
   background: linear-gradient(180deg, #7c3aed 0%, #b8962e 100%);

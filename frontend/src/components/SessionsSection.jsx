@@ -198,7 +198,7 @@ const SessionsSection = ({ sectionConfig }) => {
             <div className="bg-white/70 backdrop-blur-sm rounded-xl border border-purple-100/50 shadow-sm overflow-hidden relative">
               <div
                 className="sessions-scroll-list max-h-[520px] overflow-y-auto"
-                style={{ scrollbarWidth: 'thin', scrollbarColor: '#8b5cf6 #D4AF3740' }}
+                style={{ scrollbarWidth: 'auto', scrollbarColor: '#8b5cf6 #ede9fe' }}
               >
                 {sessions.map((session) => (
                   <button
