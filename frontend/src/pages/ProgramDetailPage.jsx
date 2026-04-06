@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import Header from '../components/Header';
@@ -484,6 +484,15 @@ function ProgramDetailPage() {
 
       {testimonials.filter(t => t.type === 'template').length > 0 && (() => {
         const writtenList = testimonials.filter(t => t.type === 'template');
+        const CARD_W  = 300;
+        const CARD_GAP = 20;
+        const times = Math.ceil(10 / writtenList.length);
+        const loopCards = Array.from({ length: times * 2 }, (_, rep) =>
+          writtenList.map((c, i) => ({ ...c, _key: `${rep}-${i}` }))
+        ).flat();
+        const trackWidth = writtenList.length * (CARD_W + CARD_GAP);
+        const duration   = Math.max(20, writtenList.length * 5);
+
         return (
           <section className="py-16" data-testid="testimonials-section"
             style={{ background: 'linear-gradient(180deg, #f5f4f8 0%, #eceaf1 40%, #f5f4f8 100%)' }}>
@@ -492,9 +501,33 @@ function ProgramDetailPage() {
                 style={applyStyle(template.testimonial_title_style, { ...HEADING, color: heroAccent, fontStyle: 'italic', fontSize: '1.6rem' })}>
                 What People Are Saying
               </h2>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {writtenList.map(t => (
-                  <SoulfulWrittenCard key={t.id} testimonial={t} onClick={() => setSelectedTemplate(t)} />
+            </div>
+
+            <style>{`
+              @keyframes progTestimonialMarquee {
+                from { transform: translateX(0); }
+                to   { transform: translateX(-${trackWidth + CARD_GAP}px); }
+              }
+              .prog-marquee-track {
+                display: flex;
+                gap: ${CARD_GAP}px;
+                width: max-content;
+                animation: progTestimonialMarquee ${duration}s linear infinite;
+              }
+              .prog-marquee-wrap:hover .prog-marquee-track {
+                animation-play-state: paused;
+              }
+            `}</style>
+            <div className="prog-marquee-wrap overflow-hidden"
+              style={{
+                maskImage: 'linear-gradient(to right, transparent 0%, black 6%, black 94%, transparent 100%)',
+                WebkitMaskImage: 'linear-gradient(to right, transparent 0%, black 6%, black 94%, transparent 100%)',
+              }}>
+              <div className="prog-marquee-track">
+                {loopCards.map(t => (
+                  <div key={t._key} style={{ width: CARD_W, flexShrink: 0 }}>
+                    <SoulfulWrittenCard testimonial={t} onClick={() => setSelectedTemplate(t)} />
+                  </div>
                 ))}
               </div>
             </div>
@@ -506,7 +539,6 @@ function ProgramDetailPage() {
                 {selectedTemplate && <SoulfulTestimonialFull testimonial={selectedTemplate} />}
               </DialogContent>
             </Dialog>
-
           </section>
         );
       })()}
