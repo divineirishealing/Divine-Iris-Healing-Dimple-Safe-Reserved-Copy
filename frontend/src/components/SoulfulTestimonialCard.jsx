@@ -351,15 +351,6 @@ export const SoulfulWrittenCard = ({ testimonial, onClick }) => {
           <div style={{ height: 1, width: 28, background: 'linear-gradient(to left, transparent, rgba(212,175,55,0.6))' }} />
         </div>
 
-        {/* Curved white scoop at bottom — photo sits in the valley */}
-        {hasPhotos && isSingle && (
-          <div className="absolute bottom-0 left-0 right-0 pointer-events-none"
-            style={{
-              height: 36,
-              background: '#fdfbff',
-              borderRadius: '50% 50% 0 0 / 100% 100% 0 0',
-            }} />
-        )}
       </div>
 
       {/* ── Single oval photo — sits on the curved scoop ── */}
