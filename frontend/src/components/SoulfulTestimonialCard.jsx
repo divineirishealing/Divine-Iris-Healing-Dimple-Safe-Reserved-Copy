@@ -26,44 +26,44 @@ const Stars = ({ rating = 5 }) => (
 const IrisBloom = () => (
   <span style={{ display: 'inline-flex', flexShrink: 0 }}>
     <style>{`
-      /* Top petal (180°): stays pointing up, only grows/shrinks in length */
+      /* Top petal (180°): stays up, grows out then furls back */
       @keyframes irisPetal0 {
-        0%, 100% { transform: rotate(180deg) scaleY(0.12); }
-        38%      { transform: rotate(180deg) scaleY(1.08); }
-        46%      { transform: rotate(180deg) scaleY(1); }
-        60%      { transform: rotate(180deg) scaleY(1); }
-        94%      { transform: rotate(180deg) scaleY(0.12); }
+        0%, 100% { transform: rotate(180deg) scaleY(0.05) scaleX(0.3); }
+        40%      { transform: rotate(180deg) scaleY(1.1)  scaleX(1); }
+        50%      { transform: rotate(180deg) scaleY(1)    scaleX(1); }
+        58%      { transform: rotate(180deg) scaleY(1)    scaleX(1); }
+        92%      { transform: rotate(180deg) scaleY(0.05) scaleX(0.3); }
       }
-      /* Right petal (60°): swings from 180° → 60° while growing */
+      /* Right petal: sweeps from bud (180°) → spread (60°) while unfurling */
       @keyframes irisPetal1 {
-        0%, 100% { transform: rotate(180deg) scaleY(0.12); }
-        38%      { transform: rotate(60deg)  scaleY(1.08); }
-        46%      { transform: rotate(60deg)  scaleY(1); }
-        60%      { transform: rotate(60deg)  scaleY(1); }
-        94%      { transform: rotate(180deg) scaleY(0.12); }
+        0%, 100% { transform: rotate(180deg) scaleY(0.05) scaleX(0.3); }
+        40%      { transform: rotate(60deg)  scaleY(1.1)  scaleX(1); }
+        50%      { transform: rotate(60deg)  scaleY(1)    scaleX(1); }
+        58%      { transform: rotate(60deg)  scaleY(1)    scaleX(1); }
+        92%      { transform: rotate(180deg) scaleY(0.05) scaleX(0.3); }
       }
-      /* Left petal (300°): swings from 180° → 300° while growing */
+      /* Left petal: sweeps from bud (180°) → spread (300°) while unfurling */
       @keyframes irisPetal2 {
-        0%, 100% { transform: rotate(180deg) scaleY(0.12); }
-        38%      { transform: rotate(300deg) scaleY(1.08); }
-        46%      { transform: rotate(300deg) scaleY(1); }
-        60%      { transform: rotate(300deg) scaleY(1); }
-        94%      { transform: rotate(180deg) scaleY(0.12); }
+        0%, 100% { transform: rotate(180deg) scaleY(0.05) scaleX(0.3); }
+        40%      { transform: rotate(300deg) scaleY(1.1)  scaleX(1); }
+        50%      { transform: rotate(300deg) scaleY(1)    scaleX(1); }
+        58%      { transform: rotate(300deg) scaleY(1)    scaleX(1); }
+        92%      { transform: rotate(180deg) scaleY(0.05) scaleX(0.3); }
       }
-      /* Pollen blooms while petals are fully open */
+      /* Pollen blooms only while petals are fully open */
       @keyframes irisPollenAnim {
-        0%, 42%  { transform: scale(0); opacity: 0; }
-        52%      { transform: scale(1.15); opacity: 1; }
+        0%, 46%  { transform: scale(0); opacity: 0; }
+        54%      { transform: scale(1.15); opacity: 1; }
         58%      { transform: scale(1);    opacity: 1; }
-        60%      { opacity: 1; }
-        76%      { transform: scale(0); opacity: 0; }
+        78%      { opacity: 1; }
+        90%      { transform: scale(0); opacity: 0; }
         100%     { transform: scale(0); opacity: 0; }
       }
-      /* Stem always visible, gentle brightness pulse */
+      /* Stem pulses gently */
       @keyframes irisStemAnim {
-        0%, 100% { opacity: 0.55; }
-        20%      { opacity: 1; }
-        80%      { opacity: 1; }
+        0%, 100% { opacity: 0.5; }
+        15%      { opacity: 1; }
+        85%      { opacity: 1; }
       }
       .ipetal3 {
         transform-box: fill-box;
@@ -77,7 +77,7 @@ const IrisBloom = () => (
       .istem3 { animation: irisStemAnim 4.5s ease-in-out infinite; }
     `}</style>
 
-    <svg viewBox="-20 -25 40 54" width="36" height="46" style={{ overflow: 'visible' }}>
+    <svg viewBox="-20 -25 40 54" width="27" height="35" style={{ overflow: 'visible' }}>
       {/* Stem */}
       <path d="M0,0 C1,8 -1,17 0,27"
         stroke="#4a7c4e" strokeWidth="2.4" fill="none"
@@ -317,11 +317,13 @@ export const SoulfulWrittenCard = ({ testimonial, onClick }) => {
           <div>
             {/* Row 1: Name */}
             <p style={{ fontFamily: "'Lato', sans-serif", fontWeight: 800, fontSize: '0.86rem', color: '#1a1040', letterSpacing: '0.01em' }}>{name}</p>
-            {/* Row 2: Role / Location */}
-            {role && <p style={{ fontFamily: "'Lato', sans-serif", fontSize: '0.68rem', color: '#8b7a9a', fontStyle: 'italic', marginTop: 2 }}>{role}</p>}
+            {/* Row 2: Role / Location — always rendered, hidden when empty so spacing is identical */}
+            <p style={{ fontFamily: "'Lato', sans-serif", fontSize: '0.68rem', color: '#8b7a9a', fontStyle: 'italic', marginTop: 2, minHeight: '2.2em', visibility: role ? 'visible' : 'hidden' }}>
+              {role || '\u00A0'}
+            </p>
             {/* Row 3: Program name */}
             {program_name && (
-              <p style={{ fontFamily: "'Cormorant Garamond', Georgia, serif", fontSize: '0.73rem', color: '#D4AF37', fontStyle: 'italic', marginTop: role ? 8 : 4, letterSpacing: '0.02em' }}>
+              <p style={{ fontFamily: "'Cormorant Garamond', Georgia, serif", fontSize: '0.73rem', color: '#D4AF37', fontStyle: 'italic', marginTop: 2, letterSpacing: '0.02em' }}>
                 {program_name}
               </p>
             )}
@@ -433,9 +435,12 @@ export const SoulfulVideoCard = ({ testimonial, onPlay, onOpen }) => {
 const ModalAuthor = ({ name, role, program_name }) => (
   <div>
     {name && <p style={{ fontFamily: "'Lato', sans-serif", fontWeight: 800, fontSize: '1rem', color: '#1a1040' }}>{name}</p>}
-    {role && <p style={{ fontFamily: "'Lato', sans-serif", fontSize: '0.75rem', color: '#8b7a9a', fontStyle: 'italic', marginTop: 4 }}>{role}</p>}
+    {/* Always reserve role row height for consistent layout */}
+    <p style={{ fontFamily: "'Lato', sans-serif", fontSize: '0.75rem', color: '#8b7a9a', fontStyle: 'italic', marginTop: 4, minHeight: '2.4em', visibility: role ? 'visible' : 'hidden' }}>
+      {role || '\u00A0'}
+    </p>
     {program_name && (
-      <p style={{ fontFamily: "'Cormorant Garamond', Georgia, serif", fontSize: '0.8rem', color: '#D4AF37', fontStyle: 'italic', marginTop: role ? 10 : 7, textAlign: 'center', letterSpacing: '0.02em' }}>
+      <p style={{ fontFamily: "'Cormorant Garamond', Georgia, serif", fontSize: '0.8rem', color: '#D4AF37', fontStyle: 'italic', marginTop: 2, textAlign: 'center', letterSpacing: '0.02em' }}>
         {program_name}
       </p>
     )}
