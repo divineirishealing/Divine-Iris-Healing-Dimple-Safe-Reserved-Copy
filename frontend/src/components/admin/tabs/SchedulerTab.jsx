@@ -1,40 +1,79 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import axios from 'axios';
 import { useToast } from '../../../hooks/use-toast';
 import { Button } from '../../ui/button';
 import { Input } from '../../ui/input';
 import { Label } from '../../ui/label';
-import { Save, Loader2, CheckCircle, Plus, X, Calendar, ChevronDown, ChevronRight } from 'lucide-react';
+import { Save, Loader2, CheckCircle, Plus, Calendar, ChevronDown, ChevronRight } from 'lucide-react';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
+
+/** Prefer active, non-retired annual packages; stable order for scheduler seeding. */
+function sortPackagesForScheduler(pkgs) {
+  if (!pkgs?.length) return [];
+  return [...pkgs].sort((a, b) => {
+    const ar = a.is_retired ? 1 : 0;
+    const br = b.is_retired ? 1 : 0;
+    if (ar !== br) return ar - br;
+    const aa = a.is_active === false ? 1 : 0;
+    const ba = b.is_active === false ? 1 : 0;
+    if (aa !== ba) return aa - ba;
+    return (a.package_id || '').localeCompare(b.package_id || '');
+  });
+}
+
+function pickDefaultAnnualPackage(sortedPkgs) {
+  return sortedPkgs[0] || null;
+}
 
 const SchedulerTab = () => {
   const { toast } = useToast();
   const [programs, setPrograms] = useState([]);
+  const [packages, setPackages] = useState([]);
+  const [selectedPackageId, setSelectedPackageId] = useState('');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [collapsed, setCollapsed] = useState({});
 
+  const selectedPackage = useMemo(
+    () => packages.find(p => p.package_id === selectedPackageId) || null,
+    [packages, selectedPackageId]
+  );
+
+  /** Annual package valid_from (YYYY-MM-DD) — used to align generated month slots with the subscriber year. */
+  const cohortAnchorDate = useMemo(() => {
+    const vf = (selectedPackage?.valid_from || '').trim().slice(0, 10);
+    if (/^\d{4}-\d{2}-\d{2}$/.test(vf)) return vf;
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-01`;
+  }, [selectedPackage]);
+
   const fetchData = useCallback(async () => {
+    let sortedPkgs = [];
+    try {
+      const pkgRes = await axios.get(`${API}/admin/subscribers/packages`);
+      sortedPkgs = sortPackagesForScheduler(pkgRes.data || []);
+      setPackages(sortedPkgs);
+      const def = pickDefaultAnnualPackage(sortedPkgs);
+      if (def?.package_id) setSelectedPackageId(def.package_id);
+    } catch (e) {
+      setPackages([]);
+    }
+
     try {
       const res = await axios.get(`${API}/admin/subscribers/program-schedule`);
       const data = res.data || [];
       if (data.length > 0) {
         setPrograms(data);
       } else {
-        // Seed from package config
-        try {
-          const pkgRes = await axios.get(`${API}/admin/subscribers/packages`);
-          const pkg = (pkgRes.data || [])[0];
-          if (pkg?.included_programs?.length > 0) {
-            setPrograms(pkg.included_programs.map(p => ({
-              name: p.name, duration_value: p.duration_value, duration_unit: p.duration_unit, schedule: []
-            })));
-          }
-        } catch (e2) {}
+        const pkg = pickDefaultAnnualPackage(sortedPkgs);
+        if (pkg?.included_programs?.length > 0) {
+          setPrograms(pkg.included_programs.map(p => ({
+            name: p.name, duration_value: p.duration_value, duration_unit: p.duration_unit, schedule: []
+          })));
+        }
       }
     } catch (e) {
-      // Seed defaults if endpoint doesn't exist yet
       setPrograms([
         { name: 'AWRP', duration_value: 12, duration_unit: 'months', schedule: [] },
         { name: 'Money Magic Multiplier', duration_value: 6, duration_unit: 'months', schedule: [] },
@@ -58,9 +97,9 @@ const SchedulerTab = () => {
   const generateSlots = (progIdx) => {
     const prog = programs[progIdx];
     const sched = [];
-    const now = new Date();
-    const startYear = now.getFullYear();
-    const startMonth = now.getMonth(); // current month
+    const anchor = new Date(`${cohortAnchorDate}T12:00:00`);
+    const startYear = anchor.getFullYear();
+    const startMonth = anchor.getMonth();
 
     for (let i = 0; i < prog.duration_value; i++) {
       if (prog.name === 'AWRP') {
@@ -90,11 +129,26 @@ const SchedulerTab = () => {
     setPrograms(updated);
   };
 
+  const loadProgramsFromSelectedPackage = () => {
+    if (!selectedPackage?.included_programs?.length) return;
+    setPrograms(
+      selectedPackage.included_programs.map(p => ({
+        name: p.name,
+        duration_value: p.duration_value,
+        duration_unit: p.duration_unit,
+        schedule: [],
+      }))
+    );
+    setCollapsed({});
+    toast({ title: 'Program rows replaced from annual package', description: 'Generate slots or enter dates, then save.' });
+  };
+
   const saveAll = async () => {
     setSaving(true);
     try {
-      await axios.put(`${API}/admin/subscribers/program-schedule`, programs);
-      toast({ title: 'Program schedule saved & synced to all subscribers' });
+      const res = await axios.put(`${API}/admin/subscribers/program-schedule`, programs);
+      const msg = res.data?.message || 'Program schedule saved';
+      toast({ title: 'Schedule saved', description: msg });
     } catch (e) { toast({ title: 'Error saving', variant: 'destructive' }); }
     finally { setSaving(false); }
   };
@@ -103,14 +157,40 @@ const SchedulerTab = () => {
 
   return (
     <div className="space-y-4" data-testid="scheduler-tab">
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-xl font-semibold text-gray-900">Program Scheduler</h2>
-          <p className="text-sm text-gray-500">Set dates once — applies to all subscribers</p>
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div className="space-y-2 min-w-0">
+          <div>
+            <h2 className="text-xl font-semibold text-gray-900">Program Scheduler</h2>
+            <p className="text-sm text-gray-500">
+              Aligned with annual packages for program rows and slot generation (&quot;valid from&quot; {cohortAnchorDate}). Saving pushes dates into every client that has matching programs in subscription programs_detail; all students still see the global schedule on the dashboard.
+            </p>
+          </div>
+          {packages.length > 0 && (
+            <div className="flex flex-wrap items-end gap-3">
+              <div className="space-y-1">
+                <Label className="text-xs text-gray-600">Annual package</Label>
+                <select
+                  className="h-9 rounded-md border border-gray-200 bg-white px-2 text-sm min-w-[200px]"
+                  value={selectedPackageId}
+                  onChange={(e) => setSelectedPackageId(e.target.value)}
+                  data-testid="scheduler-package-select"
+                >
+                  {packages.map((p) => (
+                    <option key={p.package_id} value={p.package_id}>
+                      {(p.package_name || p.package_id) + (p.is_retired ? ' (retired)' : '')}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <Button type="button" variant="outline" size="sm" className="h-9" onClick={loadProgramsFromSelectedPackage}>
+                Load programs from package
+              </Button>
+            </div>
+          )}
         </div>
-        <Button onClick={saveAll} disabled={saving} className="bg-[#5D3FD3] hover:bg-[#4c32b3]" data-testid="save-schedule-btn">
+        <Button onClick={saveAll} disabled={saving} className="bg-[#5D3FD3] hover:bg-[#4c32b3] shrink-0" data-testid="save-schedule-btn">
           {saving ? <Loader2 size={14} className="animate-spin mr-1" /> : <Save size={14} className="mr-1" />}
-          Save & Sync to All
+          Save &amp; sync to subscribers
         </Button>
       </div>
 

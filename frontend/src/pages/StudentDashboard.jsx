@@ -1,20 +1,72 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useSiteSettings } from '../context/SiteSettingsContext';
 import { 
   Calendar, User, CreditCard, Heart, BookOpen, 
   ArrowRight, Sparkles, ChevronRight, Star
 } from 'lucide-react';
-import { cn } from '../lib/utils';
+import { cn, formatDateDdMmYyyy } from '../lib/utils';
 import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
+import { useToast } from '../hooks/use-toast';
 
 const API = process.env.REACT_APP_BACKEND_URL;
 
-function formatScheduleDate(slot) {
-  if (!slot?.date) return '';
-  const d = new Date(`${slot.date}T12:00:00`);
-  return d.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' });
+/** Dashboard copy: start — end in dd/mm/yyyy (end omitted if missing). */
+function formatSlotDateRange(slot) {
+  const start = formatDateDdMmYyyy(slot?.date);
+  const end = slot?.end_date ? formatDateDdMmYyyy(slot.end_date) : '';
+  if (!start) return '';
+  return end ? `${start} — ${end}` : start;
+}
+
+function ScheduleModeToggle({ slot, onModeSaved }) {
+  const { toast } = useToast();
+  const persistable = slot.session_index != null && slot.program_name && slot.program_name !== '1:1 Session';
+  const active = ((slot.mode_choice || 'online').toLowerCase() === 'offline') ? 'offline' : 'online';
+
+  const save = async (mode) => {
+    if (!persistable) return;
+    try {
+      await axios.post(
+        `${API}/api/student/choose-mode`,
+        { program_name: slot.program_name, session_index: slot.session_index, mode },
+        { withCredentials: true }
+      );
+      onModeSaved({ ...slot, mode_choice: mode });
+    } catch {
+      toast({ title: 'Could not save preference', variant: 'destructive' });
+    }
+  };
+
+  return (
+    <div
+      role="group"
+      aria-label="Online or in person"
+      onClick={(e) => e.stopPropagation()}
+      className={cn(
+        'mt-2 inline-flex rounded-lg bg-white/[0.07] p-0.5 border border-white/[0.12]',
+        !persistable && 'opacity-40 pointer-events-none'
+      )}
+    >
+      {['online', 'offline'].map((m) => (
+        <button
+          key={m}
+          type="button"
+          disabled={!persistable}
+          onClick={() => save(m)}
+          className={cn(
+            'px-2.5 py-1 rounded-md text-[9px] font-bold uppercase tracking-wide transition-colors',
+            active === m
+              ? 'bg-[#D4AF37]/90 text-[#2D1B69] shadow-sm'
+              : 'text-white/55 hover:text-white/80'
+          )}
+        >
+          {m === 'online' ? 'Online' : 'Offline'}
+        </button>
+      ))}
+    </div>
+  );
 }
 
 /* ─── Petal Card ─── */
@@ -61,6 +113,20 @@ const StudentDashboard = () => {
   const navigate = useNavigate();
   const [homeData, setHomeData] = useState(null);
 
+  const patchScheduleSlot = useCallback((updated) => {
+    setHomeData((prev) => {
+      if (!prev?.schedule_preview) return prev;
+      const schedule_preview = prev.schedule_preview.map((s) =>
+        s.program_name === updated.program_name &&
+        s.date === updated.date &&
+        s.session_index === updated.session_index
+          ? { ...s, mode_choice: updated.mode_choice }
+          : s
+      );
+      return { ...prev, schedule_preview };
+    });
+  }, []);
+
   const raw = settings?.sanctuary_settings || {};
   const sanctuary = {
     greeting_title: raw.greeting_title || "Divine Iris Healing",
@@ -88,20 +154,19 @@ const StudentDashboard = () => {
     const up = homeData?.upcoming_programs?.[0];
     if (preview.length > 0) {
       const first = preview[0];
-      const detail = [formatScheduleDate(first), first.time].filter(Boolean).join(' · ');
-      const tags = [];
-      if (first.mode_choice) tags.push(first.mode_choice);
+      const range = formatSlotDateRange(first);
+      const detail = [range, first.time].filter(Boolean).join(' · ');
       return {
         scheduleTitle: first.program_name || 'Scheduled',
         scheduleDetail: detail || 'Date TBD',
-        scheduleTags: tags,
+        scheduleTags: [],
         moreSlots: preview.slice(1, 4),
         mobileScheduleSub: `${first.program_name || 'Session'} — ${detail}`,
       };
     }
     if (pack.scheduled_dates?.length) {
       const ds = pack.scheduled_dates[0];
-      const detail = formatScheduleDate({ date: ds });
+      const detail = formatSlotDateRange({ date: ds, end_date: '' });
       return {
         scheduleTitle: '1:1 session',
         scheduleDetail: detail,
@@ -208,6 +273,9 @@ const StudentDashboard = () => {
                 <ChevronRight size={16} className="text-white/30 group-hover:text-[#D4AF37] transition-colors mt-1" />
               </div>
               <p className="mt-2 text-sm text-white/70">{scheduleDetail}</p>
+              {homeData?.schedule_preview?.[0] && (
+                <ScheduleModeToggle slot={homeData.schedule_preview[0]} onModeSaved={patchScheduleSlot} />
+              )}
               {scheduleTags.length > 0 && (
                 <div className="mt-3 flex flex-wrap gap-2">
                   {scheduleTags.map((t) => (
@@ -216,12 +284,12 @@ const StudentDashboard = () => {
                 </div>
               )}
               {moreSlots.length > 0 && (
-                <ul className="mt-3 space-y-1 text-[10px] text-white/45 border-t border-white/[0.08] pt-3">
+                <ul className="mt-3 space-y-3 text-[10px] text-white/45 border-t border-white/[0.08] pt-3">
                   {moreSlots.map((s) => (
-                    <li key={`${s.program_name}-${s.date}`}>
-                      <span className="text-white/60">{s.program_name}</span>
-                      {' · '}
-                      {[formatScheduleDate(s), s.time].filter(Boolean).join(' · ')}
+                    <li key={`${s.program_name}-${s.date}-${s.session_index ?? ''}`} className="border-b border-white/[0.06] pb-3 last:border-0 last:pb-0">
+                      <div className="text-white/60 font-medium text-[11px]">{s.program_name}</div>
+                      <div className="text-white/50 mt-0.5">{[formatSlotDateRange(s), s.time].filter(Boolean).join(' · ')}</div>
+                      <ScheduleModeToggle slot={s} onModeSaved={patchScheduleSlot} />
                     </li>
                   ))}
                 </ul>
@@ -429,8 +497,43 @@ const StudentDashboard = () => {
 
         {/* ─── MOBILE LAYOUT ─── */}
         <div className="lg:hidden w-full max-w-md mx-auto space-y-4">
+          {(homeData?.schedule_preview || []).length > 0 ? (
+            <PetalCard testId="petal-schedule-m" className="p-5" delay={100} onClick={() => navigate('/dashboard/sessions')}>
+              <div className="flex items-center gap-4 mb-3">
+                <div className="w-11 h-11 rounded-2xl flex items-center justify-center shrink-0" style={{ background: '#D4AF3720' }}>
+                  <Calendar size={18} style={{ color: '#D4AF37' }} />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <h3 className="text-[11px] font-bold uppercase tracking-[0.12em] text-white/50">My Schedule</h3>
+                  <p className="text-xs text-white/45">Tap card for calendar</p>
+                </div>
+                <ChevronRight size={16} className="text-white/20 shrink-0" />
+              </div>
+              <ul className="space-y-3 border-t border-white/[0.08] pt-3">
+                {(homeData.schedule_preview || []).slice(0, 6).map((s) => (
+                  <li key={`${s.program_name}-${s.date}-${s.session_index ?? ''}`} className="text-left">
+                    <p className="text-[11px] font-semibold text-white/80">{s.program_name}</p>
+                    <p className="text-[10px] text-white/50 mt-0.5">{[formatSlotDateRange(s), s.time].filter(Boolean).join(' · ')}</p>
+                    <ScheduleModeToggle slot={s} onModeSaved={patchScheduleSlot} />
+                  </li>
+                ))}
+              </ul>
+            </PetalCard>
+          ) : (
+            <PetalCard testId="petal-schedule-m" className="p-5" delay={100} onClick={() => navigate('/dashboard/sessions')}>
+              <div className="flex items-center gap-4">
+                <div className="w-11 h-11 rounded-2xl flex items-center justify-center shrink-0" style={{ background: '#D4AF3720' }}>
+                  <Calendar size={18} style={{ color: '#D4AF37' }} />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <h3 className="text-[11px] font-bold uppercase tracking-[0.12em] text-white/50">My Schedule</h3>
+                  <p className="text-sm font-serif font-bold text-white truncate">{mobileScheduleSub}</p>
+                </div>
+                <ChevronRight size={16} className="text-white/20 shrink-0" />
+              </div>
+            </PetalCard>
+          )}
           {[
-            { testId: 'petal-schedule-m', icon: Calendar, color: '#D4AF37', title: 'My Schedule', sub: mobileScheduleSub, to: '/dashboard/sessions', delay: 100 },
             { testId: 'petal-profile-m', icon: User, color: '#C4B5FD', title: 'My Profile', sub: user?.name || 'Complete your profile', to: '/dashboard/profile', delay: 200 },
             { testId: 'petal-financials-m', icon: CreditCard, color: '#84A98C', title: 'Sacred Exchange', sub: homeData?.financials?.status || 'View financial status', to: '/dashboard/financials', delay: 300 },
             { testId: 'petal-diary-m', icon: BookOpen, color: '#93C5FD', title: 'Reflection', sub: 'Journey Diary', to: '/dashboard/diary', delay: 400 },

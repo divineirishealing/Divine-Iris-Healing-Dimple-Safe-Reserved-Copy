@@ -48,7 +48,8 @@ def _build_schedule_preview(programs_list: List[dict], limit: int = 8) -> List[d
     rows = []
     for p in programs_list:
         pname = p.get("name") or ""
-        for s in p.get("schedule") or []:
+        schedule = p.get("schedule") or []
+        for session_index, s in enumerate(schedule):
             raw = s.get("date")
             if not raw:
                 continue
@@ -67,10 +68,74 @@ def _build_schedule_preview(programs_list: List[dict], limit: int = 8) -> List[d
                 "end_date": (str(s.get("end_date") or "").strip()[:10] or ""),
                 "time": s.get("time") or "",
                 "note": s.get("note") or "",
-                "mode_choice": s.get("mode_choice") or "",
+                "mode_choice": (s.get("mode_choice") or "").strip().lower(),
+                "session_index": session_index,
             })
     rows.sort(key=lambda x: x["date"])
     return rows[:limit]
+
+
+async def _raw_programs_from_subscription(sub: dict) -> List[dict]:
+    """Same program list construction as /home before global schedule merge."""
+    raw_programs = list(sub.get("programs_detail") or [])
+    if not raw_programs:
+        pkg_id = sub.get("package_id", "")
+        pkg_config = await db.annual_packages.find_one({"package_id": pkg_id}, {"_id": 0}) if pkg_id else None
+        simple_names = sub.get("programs") or []
+        if pkg_config:
+            for inc in pkg_config.get("included_programs", []):
+                raw_programs.append({
+                    "name": inc["name"],
+                    "duration_value": inc.get("duration_value", 0),
+                    "duration_unit": inc.get("duration_unit", "months"),
+                    "start_date": sub.get("start_date", ""),
+                    "end_date": sub.get("end_date", ""),
+                    "status": "active"
+                })
+        else:
+            for name in simple_names:
+                raw_programs.append({
+                    "name": name, "duration_value": 0, "duration_unit": "",
+                    "start_date": "", "end_date": "", "status": "active"
+                })
+    return raw_programs
+
+
+async def _merged_programs_list_for_client(client_doc: dict) -> List[dict]:
+    sub = client_doc.get("subscription", {})
+    programs_list = await _raw_programs_from_subscription(sub)
+    sched_doc = await db.program_schedule.find_one({"id": "global"}, {"_id": 0})
+    global_sched = sched_doc.get("programs", []) if sched_doc else []
+    return _merge_global_schedule_into_programs(programs_list, global_sched)
+
+
+def _overlay_program_metadata(merged_programs: List[dict], old_detail: List[dict]) -> List[dict]:
+    """Keep admin/student fields from stored programs_detail; dates come from merged list."""
+    old_by_name = {p.get("name"): p for p in (old_detail or []) if p.get("name")}
+    out = []
+    for p in merged_programs:
+        old = old_by_name.get(p.get("name"), {})
+        old_sched = old.get("schedule") or []
+        old_sched_map = {
+            (s.get("month") or s.get("session", 0)): s for s in old_sched
+        }
+        new_sched = []
+        for s in p.get("schedule") or []:
+            key = s.get("month") or s.get("session", 0)
+            o = old_sched_map.get(key, {})
+            new_sched.append({**s, "mode_choice": o.get("mode_choice", s.get("mode_choice", ""))})
+        out.append({
+            **p,
+            "schedule": new_sched,
+            "allow_pause": old.get("allow_pause", False),
+            "pause_start": old.get("pause_start", ""),
+            "pause_end": old.get("pause_end", ""),
+            "pause_reason": old.get("pause_reason", ""),
+            "status": old.get("status", p.get("status", "active")),
+            "mode": old.get("mode", p.get("mode", "online")),
+            "visible": old.get("visible", True),
+        })
+    return out
 
 
 class ProfileUpdate(BaseModel):
@@ -143,28 +208,9 @@ async def get_student_home(user: dict = Depends(get_current_user)):
     }
 
     # 5. Programs in their kitty — rich objects with duration, dates, status
-    raw_programs = sub.get("programs_detail", [])
-    if not raw_programs:
-        # Fallback: build from package config included_programs + simple names
-        pkg_id = sub.get("package_id", "")
-        pkg_config = await db.annual_packages.find_one({"package_id": pkg_id}, {"_id": 0}) if pkg_id else None
-        simple_names = sub.get("programs", [])
-        if pkg_config:
-            for inc in pkg_config.get("included_programs", []):
-                raw_programs.append({
-                    "name": inc["name"],
-                    "duration_value": inc.get("duration_value", 0),
-                    "duration_unit": inc.get("duration_unit", "months"),
-                    "start_date": sub.get("start_date", ""),
-                    "end_date": sub.get("end_date", ""),
-                    "status": "active"
-                })
-        else:
-            for name in simple_names:
-                raw_programs.append({"name": name, "duration_value": 0, "duration_unit": "", "start_date": "", "end_date": "", "status": "active"})
-    programs_list = raw_programs
+    programs_list = await _raw_programs_from_subscription(sub)
 
-    # 5b. Global program schedule (admin Scheduler) — always merge so dashboard/calendar see dates
+    # 5b. Global program schedule (admin Scheduler) — merge for every logged-in student
     sched_doc = await db.program_schedule.find_one({"id": "global"}, {"_id": 0})
     global_sched = sched_doc.get("programs", []) if sched_doc else []
     programs_list = _merge_global_schedule_into_programs(programs_list, global_sched)
@@ -189,6 +235,7 @@ async def get_student_home(user: dict = Depends(get_current_user)):
                 "time": "",
                 "note": "",
                 "mode_choice": "",
+                "session_index": None,
             })
         schedule_preview.sort(key=lambda x: x["date"])
 
@@ -283,21 +330,37 @@ class ModeChoice(BaseModel):
 async def choose_session_mode(data: ModeChoice, user: dict = Depends(get_current_user)):
     """Student chooses online/offline for a scheduled session."""
     client_id = user.get("client_id")
+    if not client_id:
+        raise HTTPException(status_code=400, detail="User not linked to client record")
+
+    mode = (data.mode or "").strip().lower()
+    if mode not in ("online", "offline"):
+        raise HTTPException(status_code=400, detail='mode must be "online" or "offline"')
+
     client_doc = await db.clients.find_one({"id": client_id})
     if not client_doc:
         raise HTTPException(status_code=404, detail="Client not found")
 
-    sub = client_doc.get("subscription", {})
-    programs = sub.get("programs_detail", [])
+    sub = dict(client_doc.get("subscription") or {})
+    merged = await _merged_programs_list_for_client(client_doc)
+    old_detail = client_doc.get("subscription", {}).get("programs_detail") or []
+    programs = _overlay_program_metadata(merged, old_detail)
+    merged_names = {p.get("name") for p in programs if p.get("name")}
+    for extra in old_detail:
+        if extra.get("name") and extra.get("name") not in merged_names:
+            programs.append(extra)
 
     updated = False
     for prog in programs:
-        if prog["name"] == data.program_name:
-            schedule = prog.get("schedule", [])
-            if data.session_index < len(schedule):
-                schedule[data.session_index]["mode_choice"] = data.mode
-                prog["schedule"] = schedule
-                updated = True
+        if prog.get("name") == data.program_name:
+            schedule = list(prog.get("schedule") or [])
+            if data.session_index < 0 or data.session_index >= len(schedule):
+                raise HTTPException(status_code=404, detail="Session index out of range")
+            slot = dict(schedule[data.session_index])
+            slot["mode_choice"] = mode
+            schedule[data.session_index] = slot
+            prog["schedule"] = schedule
+            updated = True
             break
 
     if not updated:
@@ -306,9 +369,9 @@ async def choose_session_mode(data: ModeChoice, user: dict = Depends(get_current
     sub["programs_detail"] = programs
     await db.clients.update_one(
         {"id": client_id},
-        {"$set": {"subscription": sub}}
+        {"$set": {"subscription": sub, "updated_at": datetime.now(timezone.utc).isoformat()}}
     )
-    return {"message": f"Mode set to {data.mode}"}
+    return {"message": f"Mode set to {mode}"}
 
 
 # ═══════════════════════════════════════════

@@ -311,14 +311,14 @@ async def get_program_schedule():
 
 @router.put("/program-schedule")
 async def update_program_schedule(programs: List[Dict]):
-    """Save global program schedule and sync to all subscribers."""
+    """Save global program schedule and sync to all clients that have subscription data."""
     await db.program_schedule.update_one(
         {"id": "global"},
         {"$set": {"id": "global", "programs": programs, "updated_at": datetime.now(timezone.utc).isoformat()}},
         upsert=True
     )
 
-    # Sync to all subscribers: update their programs_detail schedule
+    # Sync to all subscribers: update their programs_detail schedule where program names match
     subscribers = await db.clients.find(
         {"subscription": {"$exists": True}},
         {"_id": 0, "id": 1, "subscription": 1}
