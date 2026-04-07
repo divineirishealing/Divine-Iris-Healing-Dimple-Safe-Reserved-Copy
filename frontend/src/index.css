@@ -24,6 +24,14 @@ code {
 
 @layer base {
   :root {
+        /* Defaults until SiteSettings load (Global Styles admin) */
+        --heading-font: 'Cinzel', Georgia, serif;
+        --body-font: 'Lato', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+        --heading-color: #1a1a1a;
+        --body-color: #4a4a4a;
+        --accent-color: #D4AF37;
+        --heading-scale: 1;
+        --body-size: 16px;
         --background: 0 0% 100%;
         --foreground: 0 0% 3.9%;
         --card: 0 0% 100%;

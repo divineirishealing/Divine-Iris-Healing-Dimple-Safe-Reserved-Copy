@@ -30,28 +30,32 @@ export const SiteSettingsProvider = ({ children }) => {
     if (!s) return;
     const root = document.documentElement;
 
+    const headingFont = s.heading_font || 'Playfair Display';
+    const bodyFont = s.body_font || 'Lato';
+
     // Load Google Fonts dynamically
-    const fonts = [s.heading_font, s.body_font].filter(Boolean).join('|').replace(/ /g, '+');
     const existingLink = document.getElementById('dynamic-google-fonts');
     if (existingLink) existingLink.remove();
     const link = document.createElement('link');
     link.id = 'dynamic-google-fonts';
     link.rel = 'stylesheet';
-    link.href = `https://fonts.googleapis.com/css2?family=${encodeURIComponent(s.heading_font)}:wght@300;400;500;600;700&family=${encodeURIComponent(s.body_font)}:wght@300;400;700&display=swap`;
+    link.href = `https://fonts.googleapis.com/css2?family=${encodeURIComponent(headingFont)}:wght@300;400;500;600;700&family=${encodeURIComponent(bodyFont)}:wght@300;400;700&display=swap`;
     document.head.appendChild(link);
 
     // Apply CSS variables
-    root.style.setProperty('--heading-font', `'${s.heading_font}', Georgia, serif`);
-    root.style.setProperty('--body-font', `'${s.body_font}', sans-serif`);
-    root.style.setProperty('--heading-color', s.heading_color);
-    root.style.setProperty('--body-color', s.body_color);
-    root.style.setProperty('--accent-color', s.accent_color);
+    root.style.setProperty('--heading-font', `'${headingFont}', Georgia, serif`);
+    root.style.setProperty('--body-font', `'${bodyFont}', sans-serif`);
+    root.style.setProperty('--heading-color', s.heading_color || '#1a1a1a');
+    root.style.setProperty('--body-color', s.body_color || '#4a4a4a');
+    root.style.setProperty('--accent-color', s.accent_color || '#D4AF37');
 
-    // Apply sizes
+    // Sizes: html font-size drives rem (section tokens, clamp(), Tailwind rem utilities)
     const headingSizeMap = { small: '0.85', default: '1', large: '1.15', 'extra-large': '1.3' };
     const bodySizeMap = { small: '13px', default: '16px', large: '18px', 'extra-large': '20px' };
+    const bodyPx = bodySizeMap[s.body_size] || '16px';
     root.style.setProperty('--heading-scale', headingSizeMap[s.heading_size] || '1');
-    root.style.setProperty('--body-size', bodySizeMap[s.body_size] || '16px');
+    root.style.setProperty('--body-size', bodyPx);
+    root.style.setProperty('font-size', bodyPx);
   };
 
   return (

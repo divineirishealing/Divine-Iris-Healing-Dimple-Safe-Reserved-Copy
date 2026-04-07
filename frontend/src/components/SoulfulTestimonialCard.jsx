@@ -2,6 +2,19 @@ import React, { useState } from 'react';
 import { Star, Play, ChevronDown, ChevronUp, ExternalLink } from 'lucide-react';
 import { resolveImageUrl } from '../lib/imageUtils';
 
+/** Mongo/API may send null; destructuring defaults only apply to undefined. */
+function writtenMediaFrom(testimonial) {
+  if (!testimonial) {
+    return { photos: [], photo_labels: [], photo_mode: 'single', image: '', before_image: '' };
+  }
+  const photos = Array.isArray(testimonial.photos) ? testimonial.photos.filter(Boolean) : [];
+  const photo_labels = Array.isArray(testimonial.photo_labels) ? testimonial.photo_labels : [];
+  const photo_mode = testimonial.photo_mode || 'single';
+  const image = testimonial.image || '';
+  const before_image = testimonial.before_image || '';
+  return { photos, photo_labels, photo_mode, image, before_image };
+}
+
 /* ── Stars ───────────────────────────────────────────────────────────────── */
 const Stars = ({ rating = 5 }) => (
   <div className="flex items-center gap-0.5">
@@ -166,11 +179,8 @@ const PhotoDisplay = ({ photos, photoLabels, photoMode, size = 'card' }) => {
    ══════════════════════════════════════════════════════════════════════════ */
 export const SoulfulWrittenCard = ({ testimonial, onClick, uniform = false, footerCentered = false }) => {
   const [expanded, setExpanded] = useState(false);
-  const {
-    name, text, role, rating = 5,
-    photos = [], photo_labels = [], photo_mode = 'single',
-    image, before_image, program_name,
-  } = testimonial;
+  const { name, text, role, rating = 5, program_name } = testimonial;
+  const { photos, photo_labels, photo_mode, image, before_image } = writtenMediaFrom(testimonial);
 
   const effectivePhotos = photos.length > 0 ? photos
     : before_image ? [before_image, image].filter(Boolean)
@@ -602,11 +612,8 @@ const ModalAuthor = ({ name, role, program_name }) => (
    FULL MODAL VIEW (written testimonial)
    ══════════════════════════════════════════════════════════════════════════ */
 export const SoulfulTestimonialFull = ({ testimonial }) => {
-  const {
-    name, text, role, rating = 5,
-    photos = [], photo_labels = [], photo_mode = 'single',
-    image, before_image, program_name,
-  } = testimonial;
+  const { name, text, role, rating = 5, program_name } = testimonial;
+  const { photos, photo_labels, photo_mode, image, before_image } = writtenMediaFrom(testimonial);
 
   const effectivePhotos = photos.length > 0 ? photos
     : before_image ? [before_image, image].filter(Boolean)

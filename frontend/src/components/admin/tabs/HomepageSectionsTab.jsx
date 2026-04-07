@@ -406,14 +406,24 @@ const HomepageSectionsTab = ({ settings, onChange }) => {
             {!isHero && (
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <Label className="text-[9px] text-gray-400">Title</Label>
-                <Input value={sec.title || ''} onChange={e => updateSection(idx, 'title', e.target.value)} className="text-[10px] h-7" placeholder="Section title" />
+                <Label className="text-[9px] text-gray-400">
+                  {sec.id === 'stats' ? 'Heading (optional)' : 'Title'}
+                </Label>
+                <Input value={sec.title || ''} onChange={e => updateSection(idx, 'title', e.target.value)} className="text-[10px] h-7" placeholder={sec.id === 'stats' ? 'Optional title above figures' : 'Section title'} />
                 <StyleCell style={sec.title_style || {}} onStyleChange={v => updateSection(idx, 'title_style', v)} />
+                {sec.id === 'stats' && (
+                  <p className="text-[8px] text-gray-400 mt-1 leading-snug">This style also controls the <strong className="font-semibold text-gray-600">large numbers</strong> in the stats bar (unless overridden per stat in Stats tab).</p>
+                )}
               </div>
               <div>
-                <Label className="text-[9px] text-gray-400">Subtitle</Label>
-                <Input value={sec.subtitle || ''} onChange={e => updateSection(idx, 'subtitle', e.target.value)} className="text-[10px] h-7" placeholder="Subtitle (optional)" />
+                <Label className="text-[9px] text-gray-400">
+                  {sec.id === 'stats' ? 'Subheading (optional)' : 'Subtitle'}
+                </Label>
+                <Input value={sec.subtitle || ''} onChange={e => updateSection(idx, 'subtitle', e.target.value)} className="text-[10px] h-7" placeholder={sec.id === 'stats' ? 'Optional line under heading' : 'Subtitle (optional)'} />
                 <StyleCell style={sec.subtitle_style || {}} onStyleChange={v => updateSection(idx, 'subtitle_style', v)} />
+                {sec.id === 'stats' && (
+                  <p className="text-[8px] text-gray-400 mt-1 leading-snug">This style controls the <strong className="font-semibold text-gray-600">small captions</strong> under each figure.</p>
+                )}
               </div>
             </div>
             )}

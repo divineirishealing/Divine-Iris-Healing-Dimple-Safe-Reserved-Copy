@@ -118,8 +118,8 @@ const HeroSection = ({ sectionConfig }) => {
             data-testid="hero-title"
             className="whitespace-pre-line leading-tight"
             style={{
-              fontFamily: finalTitleStyle.font_family || `'${titleFont}', Georgia, serif`,
-              fontSize: finalTitleStyle.font_size || settings.hero_title_size || '70px',
+              fontFamily: finalTitleStyle.font_family || `var(--heading-font, "${titleFont}", Georgia, serif)`,
+              fontSize: finalTitleStyle.font_size || `calc(${settings.hero_title_size || '70px'} * var(--heading-scale, 1))`,
               fontWeight: finalTitleStyle.font_weight || (settings.hero_title_bold ? 700 : 400),
               fontStyle: finalTitleStyle.font_style || (settings.hero_title_italic ? 'italic' : 'normal'),
               letterSpacing: settings.hero_title_spacing || 'normal',
@@ -142,8 +142,8 @@ const HeroSection = ({ sectionConfig }) => {
           <p
             data-testid="hero-subtitle"
             style={{
-              fontFamily: finalSubtitleStyle.font_family || `'${subtitleFont}', sans-serif`,
-              fontSize: finalSubtitleStyle.font_size || settings.hero_subtitle_size || '14px',
+              fontFamily: finalSubtitleStyle.font_family || `var(--body-font, "${subtitleFont}", sans-serif)`,
+              fontSize: finalSubtitleStyle.font_size || settings.hero_subtitle_size || '0.875rem',
               fontWeight: finalSubtitleStyle.font_weight || (settings.hero_subtitle_bold ? 700 : 300),
               fontStyle: finalSubtitleStyle.font_style || (settings.hero_subtitle_italic ? 'italic' : 'normal'),
               letterSpacing: settings.hero_subtitle_spacing || '0.3em',

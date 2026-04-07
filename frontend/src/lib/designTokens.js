@@ -1,28 +1,29 @@
 /* =====================================================
    DIVINE IRIS — Global Design Tokens
-   All pages use these consistently.
+   Fonts/colors/sizes follow CSS variables from SiteSettings (Global Styles).
+   Variables are set on document.documentElement in SiteSettingsContext.
    ===================================================== */
 
-/* Cinzel Bold - all section headings */
+/* Section headings — uses admin "Heading font" + "Heading color" + root rem scale */
 export const HEADING = {
-  fontFamily: "'Cinzel', serif",
+  fontFamily: 'var(--heading-font, "Cinzel", Georgia, serif)',
   fontWeight: 700,
-  color: '#1a1a1a',
+  color: 'var(--heading-color, #1a1a1a)',
 };
 
-/* Lato small - subtitles, labels, small caps */
+/* Subtitles — body font + body color (muted via opacity in components when needed) */
 export const SUBTITLE = {
-  fontFamily: "'Lato', sans-serif",
+  fontFamily: 'var(--body-font, "Lato", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif)',
   fontWeight: 300,
-  color: '#999',
+  color: 'var(--body-color, #999999)',
   fontSize: '0.85rem',
 };
 
-/* Lato - body text for programs, sessions, all content */
+/* Body copy — admin "Body font", "Body color", sizes scale with html font-size */
 export const BODY = {
-  fontFamily: "'Lato', sans-serif",
+  fontFamily: 'var(--body-font, "Lato", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif)',
   fontWeight: 400,
-  color: '#555',
+  color: 'var(--body-color, #555555)',
   fontSize: '0.9rem',
   lineHeight: '1.85',
 };
@@ -33,7 +34,7 @@ export const GOLD_DARK = '#b8962e';
 
 /* Label (uppercase tracking) */
 export const LABEL = {
-  fontFamily: "'Lato', sans-serif",
+  fontFamily: 'var(--body-font, "Lato", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif)',
   fontWeight: 600,
   fontSize: '0.6rem',
   letterSpacing: '0.3em',

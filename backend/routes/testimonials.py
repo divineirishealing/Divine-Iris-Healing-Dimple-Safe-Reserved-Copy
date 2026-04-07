@@ -11,6 +11,18 @@ load_dotenv(ROOT_DIR / '.env')
 
 router = APIRouter(prefix="/api/testimonials", tags=["Testimonials"])
 
+def _doc_to_testimonial(raw: dict) -> Testimonial:
+    """Strip Mongo _id and coerce null list/str fields so Pydantic and clients never see null photos."""
+    t = dict(raw)
+    t.pop("_id", None)
+    for key in ("photos", "photo_labels", "program_tags", "session_tags"):
+        if t.get(key) is None:
+            t[key] = []
+    for key in ("image", "before_image", "text", "name", "role", "program_name", "photo_mode"):
+        if t.get(key) is None:
+            t[key] = "" if key != "photo_mode" else "single"
+    return Testimonial(**t)
+
 def _derive_video_meta(data: dict) -> dict:
     """Derive videoId + thumbnail from video_url if not already set."""
     url = data.get("video_url", "")
@@ -67,7 +79,7 @@ async def get_testimonials(
         else:
             query["$or"] = search_filter
     testimonials = await db.testimonials.find(query).sort("order", 1).to_list(500)
-    return [Testimonial(**t) for t in testimonials]
+    return [_doc_to_testimonial(t) for t in testimonials]
 
 @router.get("/categories")
 async def get_categories():
@@ -79,7 +91,7 @@ async def get_testimonial(testimonial_id: str):
     t = await db.testimonials.find_one({"id": testimonial_id})
     if not t:
         raise HTTPException(status_code=404, detail="Testimonial not found")
-    return Testimonial(**t)
+    return _doc_to_testimonial(t)
 
 @router.post("", response_model=Testimonial)
 async def create_testimonial(testimonial: TestimonialCreate):
@@ -104,7 +116,7 @@ async def update_testimonial(testimonial_id: str, testimonial: TestimonialCreate
             update_data[field] = testimonial.dict()[field] or []
     await db.testimonials.update_one({"id": testimonial_id}, {"$set": update_data})
     updated = await db.testimonials.find_one({"id": testimonial_id})
-    return Testimonial(**updated)
+    return _doc_to_testimonial(updated)
 
 @router.patch("/{testimonial_id}/visibility")
 async def toggle_visibility(testimonial_id: str, data: dict):

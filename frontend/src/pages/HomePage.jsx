@@ -1,6 +1,6 @@
-import React, { useEffect, useState } from 'react';
-import axios from 'axios';
+import React, { useEffect, useMemo } from 'react';
 import Header from '../components/Header';
+import { useSiteSettings } from '../context/SiteSettingsContext';
 import HeroSection from '../components/HeroSection';
 import AboutSection from '../components/AboutSection';
 import UpcomingProgramsSection from '../components/UpcomingProgramsSection';
@@ -15,8 +15,6 @@ import NewsletterSection from '../components/NewsletterSection';
 import CustomSection from '../components/CustomSection';
 import Footer from '../components/Footer';
 import FloatingButtons from '../components/FloatingButtons';
-
-const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 
 const COMPONENT_MAP = {
   HeroSection,
@@ -55,27 +53,37 @@ const DEFAULT_ORDER = [
   { id: 'newsletter', component: 'NewsletterSection', visible: true },
 ];
 
-function HomePage() {
-  const [sections, setSections] = useState(DEFAULT_ORDER);
+function mergeHomepageSections(saved) {
+  if (!saved || saved.length === 0) return DEFAULT_ORDER;
+  const savedIds = new Set(saved.map(s => s.id));
+  const merged = [...saved];
+  DEFAULT_ORDER.forEach(def => {
+    if (!savedIds.has(def.id)) {
+      const defIdx = DEFAULT_ORDER.findIndex(d => d.id === def.id);
+      const nextDef = DEFAULT_ORDER.slice(defIdx + 1).find(d => savedIds.has(d.id));
+      const insertIdx = nextDef ? merged.findIndex(s => s.id === nextDef.id) : merged.length;
+      merged.splice(insertIdx, 0, def);
+    }
+  });
+  return merged;
+}
 
+function HomePage() {
+  const { settings, refreshSettings } = useSiteSettings();
+
+  const sections = useMemo(
+    () => mergeHomepageSections(settings?.homepage_sections),
+    [settings?.homepage_sections]
+  );
+
+  // After saving Homepage Sections in Admin, context updates on same navigation; refetch when returning from another tab
   useEffect(() => {
-    axios.get(`${BACKEND_URL}/api/settings`).then(r => {
-      if (r.data.homepage_sections && r.data.homepage_sections.length > 0) {
-        const saved = r.data.homepage_sections;
-        const savedIds = new Set(saved.map(s => s.id));
-        const merged = [...saved];
-        DEFAULT_ORDER.forEach(def => {
-          if (!savedIds.has(def.id)) {
-            const defIdx = DEFAULT_ORDER.findIndex(d => d.id === def.id);
-            const nextDef = DEFAULT_ORDER.slice(defIdx + 1).find(d => savedIds.has(d.id));
-            const insertIdx = nextDef ? merged.findIndex(s => s.id === nextDef.id) : merged.length;
-            merged.splice(insertIdx, 0, def);
-          }
-        });
-        setSections(merged);
-      }
-    }).catch(() => {});
-  }, []);
+    const onVis = () => {
+      if (document.visibilityState === 'visible') refreshSettings();
+    };
+    document.addEventListener('visibilitychange', onVis);
+    return () => document.removeEventListener('visibilitychange', onVis);
+  }, [refreshSettings]);
 
   // Scroll to hash target after sections render (handles /#upcoming etc. from other pages)
   useEffect(() => {

@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Response
 from models import Stat, StatCreate
 from typing import List
 import os
@@ -15,18 +15,25 @@ mongo_url = os.environ['MONGO_URL']
 client = AsyncIOMotorClient(mongo_url)
 db = client[os.environ['DB_NAME']]
 
+def _doc_to_stat(raw: dict) -> Stat:
+    d = dict(raw)
+    d.pop("_id", None)
+    return Stat(**d)
+
 @router.get("", response_model=List[Stat])
-async def get_stats():
+async def get_stats(response: Response):
+    response.headers["Cache-Control"] = "no-store, max-age=0"
     stats = await db.stats.find().sort("order", 1).to_list(100)
-    return [Stat(**stat) for stat in stats]
+    return [_doc_to_stat(s) for s in stats]
 
 @router.put("/{stat_id}", response_model=Stat)
 async def update_stat(stat_id: str, stat: StatCreate):
     existing = await db.stats.find_one({"id": stat_id})
     if not existing:
         raise HTTPException(status_code=404, detail="Stat not found")
-    
-    updated_stat = Stat(**{**existing, **stat.dict()})
+
+    merged = {**existing, **stat.dict()}
+    updated_stat = _doc_to_stat(merged)
     await db.stats.update_one(
         {"id": stat_id},
         {"$set": updated_stat.dict()}

@@ -41,7 +41,7 @@ export default function BlogPage() {
         <h1 className="relative z-10 mb-2" style={applyHeroStyle(hero.title_style, { ...HEADING, color: '#fff', fontSize: 'clamp(2rem, 5vw, 3rem)', fontVariant: 'small-caps', letterSpacing: '0.08em' })}>
           {hero.title_text || 'BLOG'}
         </h1>
-        <p className="relative z-10" style={applyHeroStyle(hero.subtitle_style, { ...SUBTITLE, color: '#ccc', fontFamily: "'Lato', sans-serif" })}>
+        <p className="relative z-10" style={applyHeroStyle(hero.subtitle_style, { ...SUBTITLE, color: '#ccc' })}>
           {hero.subtitle_text || 'Insights, stories and updates'}
         </p>
       </section>
