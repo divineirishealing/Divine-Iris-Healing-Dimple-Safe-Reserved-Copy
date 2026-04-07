@@ -1,12 +1,14 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import axios from 'axios';
 import { Card, CardHeader, CardTitle, CardContent } from '../ui/card';
 import { Button } from '../ui/button';
 import {
   ChevronLeft, ChevronRight, Calendar as CalendarIcon,
-  Clock, MapPin, CheckCircle, Loader2
+  Clock, MapPin, CheckCircle, Loader2, List
 } from 'lucide-react';
-import { cn, formatDateDdMmYyyy, formatDashboardTime } from '../../lib/utils';
+import { cn, formatDateDdMmYyyy, formatDashboardTime, dashboardEmiTable } from '../../lib/utils';
+import { buildDashboardScheduleRows } from '../../lib/dashboardSchedule';
+import { SessionModeToggle } from './SessionModeToggle';
 
 const API = process.env.REACT_APP_BACKEND_URL;
 
@@ -30,14 +32,36 @@ const CalendarPage = () => {
   const [currentYear, setCurrentYear] = useState(new Date().getFullYear());
   const [selectedDate, setSelectedDate] = useState(null);
 
+  const fetchHome = useCallback(() => {
+    axios
+      .get(`${API}/api/student/home`, { withCredentials: true })
+      .then((res) => setData(res.data))
+      .catch(() => {});
+  }, []);
+
   useEffect(() => {
-    axios.get(`${API}/api/student/home`, { withCredentials: true })
-      .then(res => setData(res.data))
+    setLoading(true);
+    axios
+      .get(`${API}/api/student/home`, { withCredentials: true })
+      .then((res) => setData(res.data))
       .catch(() => {})
       .finally(() => setLoading(false));
   }, []);
 
   const programs = data?.programs || [];
+
+  const scheduleRows = useMemo(
+    () => buildDashboardScheduleRows(data?.schedule_preview, data?.programs, { maxFallbackRows: 200 }),
+    [data?.schedule_preview, data?.programs]
+  );
+
+  const programByName = useMemo(() => {
+    const m = {};
+    for (const p of programs) {
+      if (p && typeof p === 'object' && p.name) m[p.name] = p;
+    }
+    return m;
+  }, [programs]);
 
   // Build a map: "YYYY-MM-DD" -> [{ program, session info }]
   const eventMap = useMemo(() => {
@@ -100,24 +124,26 @@ const CalendarPage = () => {
   );
 
   return (
-    <div className="max-w-5xl mx-auto space-y-6" data-testid="calendar-page">
+    <div className="max-w-6xl mx-auto space-y-6" data-testid="calendar-page">
       <div>
-        <h1 className="text-2xl font-serif font-bold text-gray-900">My Calendar</h1>
-        <p className="text-sm text-gray-500">View all your scheduled sessions at a glance</p>
+        <h1 className="text-2xl font-serif font-bold text-gray-900">Schedule &amp; calendar</h1>
+        <p className="text-sm text-gray-500">Your session list and month view in one place</p>
       </div>
 
-      {/* Legend */}
-      <div className="flex flex-wrap gap-3">
-        {programs.filter(p => p.visible !== false).map(p => {
-          const c = getColor(p.name);
-          return (
-            <div key={p.name} className="flex items-center gap-2 text-xs">
-              <span className={cn("w-3 h-3 rounded-full", c.dot)} />
-              <span className="text-gray-600 font-medium">{p.name}</span>
-            </div>
-          );
-        })}
-      </div>
+      <div className="flex flex-col xl:flex-row gap-6 xl:items-start">
+        <div className="flex-1 min-w-0 space-y-6">
+          {/* Legend */}
+          <div className="flex flex-wrap gap-3">
+            {programs.filter((p) => p.visible !== false).map((p) => {
+              const c = getColor(p.name);
+              return (
+                <div key={p.name} className="flex items-center gap-2 text-xs">
+                  <span className={cn('w-3 h-3 rounded-full', c.dot)} />
+                  <span className="text-gray-600 font-medium">{p.name}</span>
+                </div>
+              );
+            })}
+          </div>
 
       {/* Calendar Card */}
       <Card>
@@ -283,6 +309,70 @@ const CalendarPage = () => {
           </div>
         </CardContent>
       </Card>
+        </div>
+
+        {/* Schedule table — same data model as overview / Sacred Exchange */}
+        <Card className="w-full xl:w-[min(100%,440px)] shrink-0 xl:sticky xl:top-[4.5rem]" data-testid="calendar-schedule-card">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base flex items-center gap-2">
+              <List size={16} className="text-[#5D3FD3]" />
+              My schedule
+            </CardTitle>
+            <p className="text-xs text-gray-500 font-normal">Start, end, time, and online / offline</p>
+          </CardHeader>
+          <CardContent className="pt-0">
+            {scheduleRows.length === 0 ? (
+              <p className="text-sm text-gray-500 italic py-4">No sessions in your schedule yet.</p>
+            ) : (
+              <div className={dashboardEmiTable.wrap}>
+                <table className={cn(dashboardEmiTable.table, 'min-w-[320px]')} data-testid="calendar-schedule-table">
+                  <thead>
+                    <tr className={dashboardEmiTable.theadRow}>
+                      <th className={dashboardEmiTable.th}>Program</th>
+                      <th className={cn(dashboardEmiTable.th, 'whitespace-nowrap')}>Start</th>
+                      <th className={cn(dashboardEmiTable.th, 'whitespace-nowrap')}>End</th>
+                      <th className={dashboardEmiTable.th}>Time</th>
+                      <th className={cn(dashboardEmiTable.thRight, 'whitespace-nowrap w-[1%]')}>Online / off</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {scheduleRows.map((s) => {
+                      const persistable =
+                        s.session_index != null && s.program_name && s.program_name !== '1:1 Session';
+                      const prog = programByName[s.program_name];
+                      return (
+                        <tr key={`${s.program_name}-${s.date}-${s.session_index ?? ''}`} className={dashboardEmiTable.tbodyTr}>
+                          <td className={cn(dashboardEmiTable.tdNum, 'max-w-[100px] truncate')} title={s.program_name}>
+                            {s.program_name}
+                          </td>
+                          <td className={dashboardEmiTable.tdDate}>{formatDateDdMmYyyy(s.date) || '—'}</td>
+                          <td className={dashboardEmiTable.tdDate}>{formatDateDdMmYyyy(s.end_date) || '—'}</td>
+                          <td className={cn(dashboardEmiTable.td, 'font-mono tabular-nums text-sm text-gray-700')}>
+                            {formatDashboardTime(s.time)}
+                          </td>
+                          <td className={cn(dashboardEmiTable.td, 'text-right pr-1')}>
+                            {persistable ? (
+                              <SessionModeToggle
+                                programName={s.program_name}
+                                sessionIndex={s.session_index}
+                                modeChoice={s.mode_choice}
+                                programDefaultMode={prog?.mode}
+                                onSuccess={fetchHome}
+                              />
+                            ) : (
+                              <span className="text-[10px] text-gray-400">—</span>
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </div>
     </div>
   );
 };

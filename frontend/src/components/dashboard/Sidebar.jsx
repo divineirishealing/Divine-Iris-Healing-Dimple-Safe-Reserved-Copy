@@ -59,7 +59,7 @@ const Sidebar = ({ onNavigate }) => {
         <div className={cn("text-[10px] font-semibold uppercase px-4 mb-2 mt-2", isSanctuary ? "text-white/50" : "text-gray-400")}>Journey</div>
         <NavItem to="/dashboard" icon={Home} label="Overview" minTier={1} />
         <NavItem to="/dashboard/garden" icon={Sprout} label="Soul Garden" minTier={1} />
-        <NavItem to="/dashboard/sessions" icon={Calendar} label="My Calendar" minTier={1} />
+        <NavItem to="/dashboard/sessions" icon={Calendar} label="Schedule & calendar" minTier={1} />
         <NavItem to="/dashboard/progress" icon={TrendingUp} label="Daily Progress" minTier={1} />
         <NavItem to="/dashboard/bhaad" icon={Sparkles} label="Bhaad Portal" minTier={1} />
         <NavItem to="/dashboard/tribe" icon={Heart} label="Soul Tribe" minTier={1} />

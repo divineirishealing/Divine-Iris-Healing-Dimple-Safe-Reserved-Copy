@@ -8,7 +8,7 @@ import { cn } from '../lib/utils';
 const NAV_ITEMS = [
   { to: '/dashboard', label: 'Overview', icon: Home, exact: true },
   { to: '/dashboard/garden', label: 'Soul Garden', icon: Sprout },
-  { to: '/dashboard/sessions', label: 'Calendar', icon: Calendar },
+  { to: '/dashboard/sessions', label: 'Schedule & calendar', icon: Calendar },
   { to: '/dashboard/progress', label: 'Progress', icon: TrendingUp },
   { to: '/dashboard/bhaad', label: 'Bhaad Portal', icon: Sparkles },
   { to: '/dashboard/tribe', label: 'Soul Tribe', icon: Heart },
