@@ -277,21 +277,4 @@ export function CosmicDashboardBackground({ videoActive = false, variant = 'milk
   );
 }
 
-/** Small route mood line above page content */
-export function CosmicPageMood({ variant }) {
-  const theme = useMemo(() => resolveCosmicTheme(variant), [variant]);
-  return (
-    <div
-      className="mb-4 flex flex-wrap items-center gap-x-2 gap-y-1 text-[10px] uppercase tracking-[0.2em] text-cyan-200/50 px-0.5"
-      data-testid="dashboard-cosmic-mood"
-    >
-      <span className="flex h-1.5 w-1.5 shrink-0 rounded-full bg-gradient-to-br from-cyan-200 to-violet-400 shadow-[0_0_10px_rgba(165,243,252,0.6)]" />
-      <span className="font-semibold text-cyan-100/80">{theme.label}</span>
-      {theme.sub && (
-        <span className="font-normal normal-case tracking-normal text-white/35">· {theme.sub}</span>
-      )}
-    </div>
-  );
-}
-
 export default CosmicDashboardBackground;

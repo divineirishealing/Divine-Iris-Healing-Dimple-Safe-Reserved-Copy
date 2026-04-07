@@ -4,7 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import { NavLink } from 'react-router-dom';
 import { Loader2, Menu, X, Home, Sprout, Calendar, TrendingUp, Sparkles, Heart, BookOpen, User, CreditCard, LogOut } from 'lucide-react';
 import { cn } from '../lib/utils';
-import { CosmicDashboardBackground, CosmicPageMood } from '../components/dashboard/CosmicDashboardBackground';
+import { CosmicDashboardBackground } from '../components/dashboard/CosmicDashboardBackground';
 import { getDashboardCosmicVariant } from '../lib/dashboardCosmicThemes';
 
 const NAV_ITEMS = [
@@ -97,8 +97,7 @@ const DashboardLayout = () => {
           <button onClick={() => setSidebarOpen(!sidebarOpen)} className="w-9 h-9 rounded-lg flex items-center justify-center text-white/70 hover:text-[#D4AF37] hover:bg-white/10 transition-colors" data-testid="sidebar-toggle">
             {sidebarOpen ? <X size={18} /> : <Menu size={18} />}
           </button>
-          <NavLink to="/dashboard" className="flex items-center gap-2 group">
-            <span className="text-[9px] text-cyan-200/50 uppercase tracking-[0.25em] hidden sm:inline">Cosmos</span>
+          <NavLink to="/dashboard" className="flex items-center gap-2">
             <span className="text-sm font-serif font-bold bg-gradient-to-r from-[#E8D5A3] via-[#D4AF37] to-[#A78BFA] bg-clip-text text-transparent drop-shadow-[0_0_20px_rgba(212,175,55,0.35)]">
               Sanctuary
             </span>
@@ -174,7 +173,6 @@ const DashboardLayout = () => {
       {/* ═══ MAIN CONTENT ═══ */}
       <main className="relative z-10 pt-14 min-h-screen">
         <div className="p-4 md:p-8">
-          <CosmicPageMood variant={cosmicVariant} />
           <Outlet />
         </div>
       </main>
