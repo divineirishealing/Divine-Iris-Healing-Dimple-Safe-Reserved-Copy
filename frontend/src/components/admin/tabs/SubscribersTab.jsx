@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import axios from 'axios';
+import { effectiveIrisJourneyLabel } from '../../../lib/irisJourney';
 import { useToast } from '../../../hooks/use-toast';
 import { Button } from '../../ui/button';
 import { Input } from '../../ui/input';
@@ -15,8 +16,51 @@ const CURRENCIES = ['INR', 'USD', 'AED'];
 const MODE_OPTIONS = ['EMI', 'No EMI', 'Full Paid'];
 const DURATION_UNITS = ['months', 'sessions'];
 
-/* ═══ MULTI-PACKAGE PRICING ═══ */
-const TAX_RATES = { INR: { label: 'GST 18%', rate: 0.18 }, AED: { label: 'VAT 5%', rate: 0.05 } };
+/* ═══ PACKAGE PRICING (one standard offer; new row per validity / tax / discount change) ═══ */
+const DEFAULT_TAX_DECIMAL = { INR: 0.18, AED: 0.05, USD: 0 };
+
+export function packageTaxDecimal(pkg, currency) {
+  const cur = currency || 'INR';
+  const tr = pkg?.tax_rates || {};
+  if (tr[cur] != null && tr[cur] !== '') return Number(tr[cur]) || 0;
+  return DEFAULT_TAX_DECIMAL[cur] ?? 0;
+}
+
+/** ISO date YYYY-MM-DD within package valid_from / valid_to (inclusive); empty bounds = open. */
+export function packageValidForStartDate(pkg, startDateStr) {
+  if (!startDateStr || !String(startDateStr).trim()) return true;
+  const d = String(startDateStr).trim().slice(0, 10);
+  const from = (pkg?.valid_from || '').slice(0, 10);
+  const to = (pkg?.valid_to || '').slice(0, 10);
+  if (!from && !to) return true;
+  if (from && d < from) return false;
+  if (to && d > to) return false;
+  return true;
+}
+
+function packageOptionLabel(p) {
+  const window = [p.valid_from, p.valid_to].filter(Boolean).join(' → ');
+  const disc = p.additional_discount_pct ? ` · ${p.additional_discount_pct}% off` : '';
+  const win = window ? ` [${window}]` : '';
+  return `${p.package_id} — ${p.package_name || 'Package'}${win}${disc}`;
+}
+
+/** % off line-offer subtotal; empty = use package catalog discount */
+function effectiveIndividualDiscountPct(form, pkg) {
+  const v = form?.individual_discount_pct;
+  if (v === null || v === undefined || v === '') return pkg?.additional_discount_pct ?? 0;
+  const n = parseFloat(v);
+  return Number.isFinite(n) ? n : (pkg?.additional_discount_pct ?? 0);
+}
+
+/** Tax as decimal; empty = use package tax for currency */
+function effectiveIndividualTaxDecimal(form, pkg, currency) {
+  const v = form?.individual_tax_pct;
+  if (v === null || v === undefined || v === '') return packageTaxDecimal(pkg, currency);
+  const n = parseFloat(v);
+  if (!Number.isFinite(n)) return packageTaxDecimal(pkg, currency);
+  return Math.max(0, Math.min(100, n)) / 100;
+}
 
 const NumInput = ({ value, onChange, className = '', bold = false }) => (
   <input type="text" inputMode="decimal" value={value}
@@ -72,8 +116,14 @@ const PackageEditor = ({ pkg, onSave, saving, onDelete, onNewVersion }) => {
   const sumOffer = (cur) => (c.included_programs || []).reduce((s, p) => s + getOfferTotal(p, cur), 0);
   const addlDisc = c.additional_discount_pct || 0;
   const afterDisc = (cur) => { const o = sumOffer(cur); return o - (o * addlDisc / 100); };
-  const getTax = (cur) => afterDisc(cur) * (TAX_RATES[cur]?.rate || 0);
+  const getTax = (cur) => afterDisc(cur) * packageTaxDecimal(c, cur);
   const getFinal = (cur) => afterDisc(cur) + getTax(cur);
+  const setTaxPct = (cur, pctStr) => {
+    if (locked) return;
+    const pct = parseFloat(pctStr);
+    const dec = Number.isFinite(pct) ? Math.max(0, Math.min(100, pct)) / 100 : DEFAULT_TAX_DECIMAL[cur] ?? 0;
+    setC(prev => ({ ...prev, tax_rates: { ...(prev.tax_rates || {}), [cur]: dec } }));
+  };
   // Use offer_total override if set, otherwise calculated
   const displayFinal = (cur) => (c.offer_total?.[cur] > 0 ? c.offer_total[cur] : getFinal(cur));
   const setOfferTotal = (cur, v) => setC(prev => ({ ...prev, offer_total: { ...(prev.offer_total || {}), [cur]: parseFloat(v) || 0 } }));
@@ -117,20 +167,28 @@ const PackageEditor = ({ pkg, onSave, saving, onDelete, onNewVersion }) => {
         </div>
       )}
 
-      {/* Config Row */}
-      <div className="px-3 py-1.5 grid grid-cols-3 md:grid-cols-8 gap-2 bg-gray-50/50 border-b text-[9px]">
-        <div><Label className="text-[8px]">Duration</Label><NumInput value={c.duration_months} onChange={v => set('duration_months', parseInt(v) || 12)} /></div>
-        <div><Label className="text-[8px]">Valid From</Label><Input type="date" value={c.valid_from || ''} onChange={e => set('valid_from', e.target.value)} className="h-7 text-xs" disabled={locked} /></div>
-        <div><Label className="text-[8px]">Valid To</Label><Input type="date" value={c.valid_to || ''} onChange={e => set('valid_to', e.target.value)} className="h-7 text-xs" disabled={locked} /></div>
+      {/* Config Row — validity + discount define this pricing row for the standard annual offer */}
+      <div className="px-3 py-1.5 grid grid-cols-2 sm:grid-cols-4 md:grid-cols-8 gap-2 bg-gray-50/50 border-b text-[9px]">
+        <div><Label className="text-[8px]">Duration (mo)</Label><NumInput value={c.duration_months} onChange={v => set('duration_months', parseInt(v) || 12)} /></div>
+        <div><Label className="text-[8px]">Valid from</Label><Input type="date" value={c.valid_from || ''} onChange={e => set('valid_from', e.target.value)} className="h-7 text-xs" disabled={locked} title="Subscribers with start date in this window should use this package row" /></div>
+        <div><Label className="text-[8px]">Valid to</Label><Input type="date" value={c.valid_to || ''} onChange={e => set('valid_to', e.target.value)} className="h-7 text-xs" disabled={locked} /></div>
         <div><Label className="text-[8px]">Sessions</Label><NumInput value={c.default_sessions_current} onChange={v => set('default_sessions_current', parseInt(v) || 0)} /></div>
-        <div><Label className="text-[8px]">Pkg Disc %</Label><NumInput value={c.additional_discount_pct || 0} onChange={v => set('additional_discount_pct', parseFloat(v) || 0)} /></div>
-        <div><Label className="text-[8px]">Late Fee/Day</Label><NumInput value={c.late_fee_per_day || 0} onChange={v => set('late_fee_per_day', parseFloat(v) || 0)} /></div>
-        <div><Label className="text-[8px]">Channel Fee</Label><NumInput value={c.channelization_fee || 0} onChange={v => set('channelization_fee', parseFloat(v) || 0)} /></div>
+        <div><Label className="text-[8px]">Pkg discount %</Label><NumInput value={c.additional_discount_pct || 0} onChange={v => set('additional_discount_pct', parseFloat(v) || 0)} title="Extra % off after line offers" /></div>
+        <div><Label className="text-[8px]">Late fee/day</Label><NumInput value={c.late_fee_per_day || 0} onChange={v => set('late_fee_per_day', parseFloat(v) || 0)} /></div>
+        <div><Label className="text-[8px]">Channel fee</Label><NumInput value={c.channelization_fee || 0} onChange={v => set('channelization_fee', parseFloat(v) || 0)} /></div>
         <div className="flex items-end gap-2">
           <label className="flex items-center gap-1 text-[8px] text-gray-500 cursor-pointer">
             <input type="checkbox" checked={showIntl} onChange={e => setShowIntl(e.target.checked)} className="w-3 h-3" />USD/AED
           </label>
         </div>
+      </div>
+      <div className="px-3 py-1.5 grid grid-cols-3 md:grid-cols-6 gap-2 bg-amber-50/20 border-b text-[9px]">
+        <div className="md:col-span-3 text-[8px] text-gray-500 flex items-center">
+          Tax % (applied after pkg discount). Use a new package row + validity when government or policy rates change.
+        </div>
+        <div><Label className="text-[8px]">Tax INR %</Label><NumInput value={Math.round((packageTaxDecimal(c, 'INR') * 100) * 100) / 100} onChange={v => setTaxPct('INR', v)} /></div>
+        <div><Label className="text-[8px]">Tax AED %</Label><NumInput value={Math.round((packageTaxDecimal(c, 'AED') * 100) * 100) / 100} onChange={v => setTaxPct('AED', v)} /></div>
+        <div><Label className="text-[8px]">Tax USD %</Label><NumInput value={Math.round((packageTaxDecimal(c, 'USD') * 100) * 100) / 100} onChange={v => setTaxPct('USD', v)} /></div>
       </div>
 
       {/* Programs Table — INR default, toggle for USD/AED */}
@@ -208,13 +266,13 @@ const PackageEditor = ({ pkg, onSave, saving, onDelete, onNewVersion }) => {
               )}
               <tr className="text-[9px] text-gray-500 bg-orange-50/30">
                 <td className="px-2 py-0.5" colSpan={3}>Tax</td>
-                <td className="px-1 py-0.5 border-l text-right text-gray-400" colSpan={2}>GST 18%</td>
+                <td className="px-1 py-0.5 border-l text-right text-gray-400" colSpan={2}>{Math.round(packageTaxDecimal(c, 'INR') * 100)}% (INR)</td>
                 <td className="px-1 py-0.5"></td>
                 <td className="px-1 py-0.5 text-right font-mono">{getTax('INR').toLocaleString()}</td>
                 <td className="px-1 py-0.5"></td>
                 {showIntl && (<>
-                  <td className="px-1 py-0.5 border-l text-center text-gray-300" colSpan={2}>—</td>
-                  <td className="px-1 py-0.5 border-l text-right text-gray-400">VAT 5%</td>
+                  <td className="px-1 py-0.5 border-l text-center text-gray-300" colSpan={2}>USD {Math.round(packageTaxDecimal(c, 'USD') * 100)}%</td>
+                  <td className="px-1 py-0.5 border-l text-right text-gray-400">AED {Math.round(packageTaxDecimal(c, 'AED') * 100)}%</td>
                   <td className="px-1 py-0.5 text-right font-mono">{getTax('AED').toLocaleString()}</td>
                 </>)}
                 <td></td>
@@ -269,6 +327,10 @@ const blankForm = () => ({
   emis: [], programs: [], programs_detail: [], bi_annual_download: 0, quarterly_releases: 0,
   payment_methods: ['stripe', 'manual'],
   late_fee_per_day: 0, channelization_fee: 0, show_late_fees: false,
+  iris_year: 1,
+  iris_year_mode: 'manual',
+  individual_discount_pct: '',
+  individual_tax_pct: '',
   sessions: { carry_forward: 0, current: 0, total: 0, availed: 0, yet_to_avail: 0, due: 0, scheduled_dates: [] }
 });
 
@@ -298,7 +360,9 @@ const addMonths = (dateStr, months) => {
   return new Date(targetYear, actualMonth + 1, spillDays).toISOString().split('T')[0];
 };
 
-const SubscriberForm = ({ initial, onSave, onCancel, saving, packages }) => {
+const PAY_METHOD_LABELS = { stripe: 'Stripe', manual: 'Manual', exly: 'Exly' };
+
+const SubscriberForm = ({ initial, onSave, onCancel, saving, packages, irisCatalog = [] }) => {
   const [f, setF] = useState(initial || blankForm());
   const [programInput, setProgramInput] = useState('');
   const [schedInput, setSchedInput] = useState('');
@@ -308,6 +372,42 @@ const SubscriberForm = ({ initial, onSave, onCancel, saving, packages }) => {
   const setSess = (key, val) => setF(prev => ({ ...prev, sessions: { ...prev.sessions, [key]: val } }));
 
   const selectedPkg = (packages || []).find(p => p.package_id === f.package_id);
+
+  const packagePricingPreview = React.useMemo(() => {
+    if (!selectedPkg) return null;
+    const cur = f.currency || 'INR';
+    const sumOffer = (selectedPkg.included_programs || []).reduce(
+      (s, p) => s + ((p.offer_per_unit?.[cur] || 0) * (p.duration_value || 0)),
+      0
+    );
+    const addl = effectiveIndividualDiscountPct(f, selectedPkg);
+    const pkgDefaultDisc = selectedPkg.additional_discount_pct || 0;
+    const afterDisc = sumOffer - (sumOffer * addl / 100);
+    const taxRate = effectiveIndividualTaxDecimal(f, selectedPkg, cur);
+    const pkgDefaultTaxDec = packageTaxDecimal(selectedPkg, cur);
+    const tax = afterDisc * taxRate;
+    const calcFinal = afterDisc + tax;
+    const override = selectedPkg.offer_total?.[cur];
+    const useOverride = override != null && parseFloat(override) > 0;
+    const usesCustomDisc = f.individual_discount_pct !== null && f.individual_discount_pct !== undefined && f.individual_discount_pct !== '';
+    const usesCustomTax = f.individual_tax_pct !== null && f.individual_tax_pct !== undefined && f.individual_tax_pct !== '';
+    return {
+      cur,
+      sumOffer,
+      addl,
+      pkgDefaultDisc,
+      afterDisc,
+      tax,
+      taxRate,
+      pkgDefaultTaxPct: Math.round(pkgDefaultTaxDec * 1000) / 10,
+      calcFinal,
+      displayFinal: useOverride ? parseFloat(override) : calcFinal,
+      useOverride,
+      validWindow: [selectedPkg.valid_from, selectedPkg.valid_to].filter(Boolean).join(' → ') || 'Any date',
+      usesCustomDisc,
+      usesCustomTax,
+    };
+  }, [selectedPkg, f.currency, f.individual_discount_pct, f.individual_tax_pct]);
 
   // Auto-fill from selected package
   const applyPackage = (pkg) => {
@@ -322,11 +422,12 @@ const SubscriberForm = ({ initial, onSave, onCancel, saving, packages }) => {
     }, 0);
     const addlDisc = pkg.additional_discount_pct || 0;
     const afterDisc = totalOffer - (totalOffer * addlDisc / 100);
+    const taxAmt = afterDisc * packageTaxDecimal(pkg, f.currency);
 
     setF(prev => ({
       ...prev,
       annual_program: prev.annual_program || pkg.package_name,
-      total_fee: afterDisc || prev.total_fee,
+      total_fee: Math.round((afterDisc + taxAmt) * 100) / 100 || prev.total_fee,
       programs: programs.length > 0 ? programs : prev.programs,
       bi_annual_download: biAnnual ? biAnnual.duration_value : prev.bi_annual_download,
       quarterly_releases: quarterly ? quarterly.duration_value : prev.quarterly_releases,
@@ -378,8 +479,10 @@ const SubscriberForm = ({ initial, onSave, onCancel, saving, packages }) => {
     set('currency', cur);
     if (selectedPkg && !initial) {
       const totalOffer = (selectedPkg.included_programs || []).reduce((s, p) => s + ((p.offer_per_unit?.[cur] || 0) * (p.duration_value || 0)), 0);
-      const disc = selectedPkg.additional_discount_pct || 0;
-      set('total_fee', totalOffer - (totalOffer * disc / 100));
+      const disc = effectiveIndividualDiscountPct(f, selectedPkg);
+      const afterDisc = totalOffer - (totalOffer * disc / 100);
+      const taxAmt = afterDisc * effectiveIndividualTaxDecimal(f, selectedPkg, cur);
+      set('total_fee', Math.round((afterDisc + taxAmt) * 100) / 100);
     }
   };
 
@@ -455,12 +558,14 @@ const SubscriberForm = ({ initial, onSave, onCancel, saving, packages }) => {
 
       {/* Row 1 with Package Selector */}
       <div className="grid grid-cols-2 md:grid-cols-6 gap-3">
-        <div>
-          <Label className="text-xs">Package</Label>
+        <div className="md:col-span-2">
+          <Label className="text-xs">Package (standard annual — pick row by validity &amp; discount)</Label>
           <select value={f.package_id} onChange={e => handlePackageChange(e.target.value)}
             className="w-full border rounded-md px-2 py-2 text-sm" data-testid="form-package-select">
             <option value="">No Package</option>
-            {(packages || []).map(p => <option key={p.package_id} value={p.package_id}>{p.package_id} — {p.package_name}</option>)}
+            {(packages || []).map(p => (
+              <option key={p.package_id} value={p.package_id}>{packageOptionLabel(p)}</option>
+            ))}
           </select>
         </div>
         <div><Label className="text-xs">Name *</Label><Input value={f.name} onChange={e => set('name', e.target.value)} data-testid="form-name" /></div>
@@ -468,6 +573,133 @@ const SubscriberForm = ({ initial, onSave, onCancel, saving, packages }) => {
         <div><Label className="text-xs">Annual Program</Label><Input value={f.annual_program} onChange={e => set('annual_program', e.target.value)} /></div>
         <div><Label className="text-xs">Start Date</Label><Input type="date" value={f.start_date} onChange={e => handleStartDateChange(e.target.value)} data-testid="form-start-date" /></div>
         <div><Label className="text-xs">End Date (auto)</Label><Input type="date" value={f.end_date} onChange={e => set('end_date', e.target.value)} className="bg-gray-50" /></div>
+      </div>
+
+      {selectedPkg && packagePricingPreview && (
+        <div className="rounded-lg border border-amber-200/80 bg-gradient-to-r from-amber-50/90 to-white p-3 space-y-2" data-testid="subscriber-package-summary">
+          <p className="text-[10px] font-semibold text-amber-900 uppercase tracking-wider">Subscription overview</p>
+          {f.start_date && !packageValidForStartDate(selectedPkg, f.start_date) && (
+            <p className="text-[10px] text-amber-900 bg-amber-100 border border-amber-200 rounded-md px-2 py-1.5">
+              Start date is outside this package&apos;s valid window ({packagePricingPreview.validWindow}). Choose a package row that covers the start date, or adjust validity on the package.
+            </p>
+          )}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-2 text-[10px]">
+            <div>
+              <span className="text-gray-400 block">Package</span>
+              <span className="font-medium text-gray-900">{selectedPkg.package_name}{' '}
+                <span className="font-mono text-[9px] text-gray-500">({selectedPkg.package_id})</span></span>
+            </div>
+            <div>
+              <span className="text-gray-400 block">Validity</span>
+              <span className="font-medium text-gray-800">{packagePricingPreview.validWindow}</span>
+            </div>
+            <div>
+              <span className="text-gray-400 block">Discount &amp; tax (this person)</span>
+              <span className="font-medium text-gray-800">
+                {packagePricingPreview.usesCustomDisc ? (
+                  <span className="text-[#5D3FD3]">Custom {packagePricingPreview.addl}% off</span>
+                ) : (
+                  <span>Package {packagePricingPreview.pkgDefaultDisc || 0}% off</span>
+                )}
+                <span className="text-gray-500">
+                  {' '}· {packagePricingPreview.cur} tax {Math.round(packagePricingPreview.taxRate * 1000) / 10}%
+                  {packagePricingPreview.usesCustomTax ? (
+                    <span className="text-[#5D3FD3]"> (custom)</span>
+                  ) : (
+                    <span> (package default)</span>
+                  )}
+                </span>
+              </span>
+            </div>
+            <div>
+              <span className="text-gray-400 block">Catalog annual ({packagePricingPreview.cur})</span>
+              <span className="font-mono font-semibold text-[#5D3FD3]">{packagePricingPreview.displayFinal.toLocaleString()}</span>
+              {packagePricingPreview.useOverride && <span className="block text-[8px] text-amber-700">Uses offer override</span>}
+            </div>
+            <div>
+              <span className="text-gray-400 block">Payment mode</span>
+              <span className="font-medium text-gray-800">{f.payment_mode || '—'}</span>
+            </div>
+            <div>
+              <span className="text-gray-400 block">Payment methods</span>
+              <span className="font-medium text-gray-800">{(f.payment_methods || []).map((m) => PAY_METHOD_LABELS[m] || m).join(', ') || '—'}</span>
+            </div>
+            <div>
+              <span className="text-gray-400 block">Start</span>
+              <span className="font-medium text-gray-800">{f.start_date || '—'}</span>
+            </div>
+            <div>
+              <span className="text-gray-400 block">End</span>
+              <span className="font-medium text-gray-800">{f.end_date || '—'}</span>
+            </div>
+          </div>
+          <p className="text-[9px] text-gray-500">Same standard package for everyone; set <strong>individual discount / tax</strong> below if this agreement differs from the catalog row.</p>
+        </div>
+      )}
+
+      {/* Per-subscriber pricing vs standard package catalog */}
+      <div className="rounded-lg border border-gray-200 bg-gray-50/50 p-3 grid grid-cols-1 md:grid-cols-2 gap-3">
+        <div>
+          <Label className="text-xs">Individual discount %</Label>
+          <Input
+            type="text"
+            inputMode="decimal"
+            placeholder={`Blank = package default${selectedPkg ? ` (${selectedPkg.additional_discount_pct || 0}%)` : ''}`}
+            value={f.individual_discount_pct}
+            onChange={(e) => set('individual_discount_pct', e.target.value)}
+            className="mt-1 text-sm"
+            data-testid="form-individual-discount-pct"
+          />
+          <p className="text-[9px] text-gray-500 mt-1">Extra % off the line-offer subtotal for this subscriber only.</p>
+        </div>
+        <div>
+          <Label className="text-xs">Individual tax %</Label>
+          <Input
+            type="text"
+            inputMode="decimal"
+            placeholder={selectedPkg ? `Blank = package (${Math.round(packageTaxDecimal(selectedPkg, f.currency || 'INR') * 1000) / 10}% for ${f.currency || 'INR'})` : 'Blank = package rate'}
+            value={f.individual_tax_pct}
+            onChange={(e) => set('individual_tax_pct', e.target.value)}
+            className="mt-1 text-sm"
+            data-testid="form-individual-tax-pct"
+          />
+          <p className="text-[9px] text-gray-500 mt-1">For their invoice / region; leave blank to use the package tax % for the selected currency.</p>
+        </div>
+      </div>
+
+      {/* Iris journey year (access tier on the 12-year path) */}
+      <div className="rounded-lg border border-purple-100 bg-purple-50/40 p-3 space-y-2">
+        <p className="text-[10px] font-semibold text-[#5D3FD3] uppercase tracking-wider">Iris journey (yearly tier)</p>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          <div>
+            <Label className="text-xs">Journey year</Label>
+            <select
+              value={f.iris_year || 1}
+              onChange={(e) => set('iris_year', parseInt(e.target.value, 10) || 1)}
+              className="w-full border rounded-md px-2 py-2 text-sm"
+              data-testid="form-iris-year"
+            >
+              {(irisCatalog.length > 0 ? irisCatalog : Array.from({ length: 12 }, (_, i) => ({ year: i + 1, label: `Year ${i + 1}` }))).map((y) => (
+                <option key={y.year} value={y.year}>{y.label || `Year ${y.year}`}</option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <Label className="text-xs">Year assignment</Label>
+            <select
+              value={f.iris_year_mode || 'manual'}
+              onChange={(e) => set('iris_year_mode', e.target.value)}
+              className="w-full border rounded-md px-2 py-2 text-sm"
+              data-testid="form-iris-year-mode"
+            >
+              <option value="manual">Manual — you set the year; change anytime</option>
+              <option value="auto">Automatic — advances each year from Start Date (365-day blocks)</option>
+            </select>
+          </div>
+        </div>
+        <p className="text-[10px] text-gray-500 leading-relaxed">
+          Manual is the default. Switch to Automatic when you want the tier to follow subscription anniversaries (Year 1 = first 365 days from Start Date, up to Year 12).
+        </p>
       </div>
 
       {/* Row 2 */}
@@ -714,7 +946,7 @@ const SubscriberForm = ({ initial, onSave, onCancel, saving, packages }) => {
 };
 
 /* ═══ SUBSCRIBER ROW ═══ */
-const SubscriberRow = ({ s, onRefresh, onEdit }) => {
+const SubscriberRow = ({ s, onRefresh, onEdit, irisCatalog = [], packages = [] }) => {
   const { toast } = useToast();
   const [open, setOpen] = useState(false);
   const [markingEmi, setMarkingEmi] = useState(null);
@@ -727,6 +959,17 @@ const SubscriberRow = ({ s, onRefresh, onEdit }) => {
   const paidPct = sub.total_fee > 0 ? Math.round((totalPaid / sub.total_fee) * 100) : 0;
   const emiPlanLabel = emis.length > 0 ? `${emis.length} Month EMI` : sub.payment_mode || 'N/A';
   const nextDue = emis.find(e => e.status !== 'paid');
+  const journeyLabel = effectiveIrisJourneyLabel(sub, irisCatalog);
+  const journeyMode = (sub.iris_year_mode || 'manual').toLowerCase() === 'auto' ? 'auto' : 'manual';
+  const pkgRow = (packages || []).find((p) => p.package_id === sub.package_id);
+  const pkgTitle = pkgRow?.package_name || sub.package_id || '—';
+  const payMethodsStr = (sub.payment_methods || []).map((m) => PAY_METHOD_LABELS[m] || m).join(', ') || '—';
+  const indDisc = sub.individual_discount_pct;
+  const indTax = sub.individual_tax_pct;
+  const overrideStr = [
+    indDisc != null && indDisc !== '' ? `Disc ${indDisc}%` : null,
+    indTax != null && indTax !== '' ? `Tax ${indTax}%` : null,
+  ].filter(Boolean).join(' · ') || 'Package defaults';
 
   const markEmiPaid = async (emiNum) => {
     setMarkingEmi(emiNum);
@@ -761,12 +1004,27 @@ const SubscriberRow = ({ s, onRefresh, onEdit }) => {
           </button>
         </td>
         <td className="px-3 py-2 text-gray-500 truncate max-w-[140px]">{s.email}</td>
-        <td className="px-3 py-2 font-medium truncate max-w-[160px]">{sub.annual_program}</td>
-        <td className="px-3 py-2 text-center text-gray-500">{sub.start_date}</td>
-        <td className="px-3 py-2 text-right font-mono">{sub.currency} {sub.total_fee?.toLocaleString()}</td>
+        <td className="px-3 py-2 text-left max-w-[130px]">
+          <p className="truncate text-[10px] font-medium text-gray-900" title={pkgTitle}>{pkgTitle}</p>
+          {pkgRow?.valid_from && pkgRow?.valid_to && (
+            <p className="text-[8px] text-gray-400 truncate" title={`${pkgRow.valid_from} → ${pkgRow.valid_to}`}>{pkgRow.valid_from} → {pkgRow.valid_to}</p>
+          )}
+        </td>
+        <td className="px-3 py-2 font-medium truncate max-w-[120px]">{sub.annual_program}</td>
+        <td className="px-3 py-2 text-center text-gray-500 whitespace-nowrap">{sub.start_date}</td>
+        <td className="px-3 py-2 text-center text-gray-500 whitespace-nowrap">{sub.end_date || '—'}</td>
+        <td className="px-3 py-2 text-left max-w-[200px]">
+          <p className="truncate text-[10px] text-gray-800 font-medium" title={journeyLabel}>{journeyLabel}</p>
+          <span className={`text-[8px] px-1.5 py-0.5 rounded font-bold ${journeyMode === 'auto' ? 'bg-violet-100 text-violet-700' : 'bg-gray-100 text-gray-600'}`}>{journeyMode}</span>
+        </td>
+        <td className="px-3 py-2 text-right font-mono">
+          <span>{sub.currency} {sub.total_fee?.toLocaleString()}</span>
+          <p className="text-[8px] text-gray-400 font-normal truncate max-w-[100px] ml-auto" title={overrideStr}>{overrideStr}</p>
+        </td>
         <td className="px-3 py-2 text-center">
           <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${sub.payment_mode === 'EMI' ? 'bg-blue-50 text-blue-700' : 'bg-green-50 text-green-700'}`}>{emiPlanLabel}</span>
         </td>
+        <td className="px-3 py-2 text-center text-[9px] text-gray-600 max-w-[88px] truncate" title={payMethodsStr}>{payMethodsStr}</td>
         <td className="px-3 py-2 text-center">{paidEmis}/{emis.length}</td>
         <td className="px-3 py-2 text-center">{sess.availed || 0}/{sess.total || 0}</td>
         <td className="px-3 py-2 text-center">
@@ -776,15 +1034,19 @@ const SubscriberRow = ({ s, onRefresh, onEdit }) => {
       {/* ═══ ADMIN MIRROR VIEW (same as student sees + edit) ═══ */}
       {open && (
         <tr>
-          <td colSpan={9} className="bg-[#FDFBF7] px-4 py-4 border-b">
+          <td colSpan={13} className="bg-[#FDFBF7] px-4 py-4 border-b">
             {/* Top Stats — same as student */}
-            <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-4">
+            <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-9 gap-3 mb-4">
               {[
+                { label: 'Package', value: pkgTitle, color: 'text-gray-900' },
+                { label: 'Period', value: `${sub.start_date || '—'} → ${sub.end_date || '—'}`, color: 'text-gray-700' },
+                { label: 'Disc/tax', value: overrideStr, color: 'text-gray-600' },
+                { label: 'Pay methods', value: payMethodsStr, color: 'text-gray-600' },
                 { label: 'Total Fee', value: `${sub.currency || 'INR'} ${(sub.total_fee || 0).toLocaleString()}`, color: 'text-gray-900' },
                 { label: 'Paid', value: `${sub.currency || 'INR'} ${totalPaid.toLocaleString()}`, color: 'text-green-600' },
                 { label: 'Remaining', value: `${sub.currency || 'INR'} ${totalDue.toLocaleString()}`, color: totalDue > 0 ? 'text-red-600' : 'text-green-600' },
                 { label: 'Next Due', value: nextDue?.due_date || 'All Paid', color: 'text-amber-600' },
-                { label: 'Plan', value: emiPlanLabel, color: 'text-[#5D3FD3]' },
+                { label: 'Mode', value: emiPlanLabel, color: 'text-[#5D3FD3]' },
               ].map((stat, i) => (
                 <div key={i} className="bg-white rounded-lg border p-2.5 text-center">
                   <p className="text-[8px] uppercase tracking-wider text-gray-400 font-semibold">{stat.label}</p>
@@ -938,18 +1200,21 @@ const SubscribersTab = ({ openManualFormOnMount = false }) => {
   const [pendingPayments, setPendingPayments] = useState([]);
   const [bankAccounts, setBankAccounts] = useState([]);
   const [bankForm, setBankForm] = useState(null);
+  const [irisCatalog, setIrisCatalog] = useState([]);
   const fetchData = useCallback(async () => {
     try {
-      const [sRes, pRes, payRes, bankRes] = await Promise.all([
+      const [sRes, pRes, payRes, bankRes, irisRes] = await Promise.all([
         axios.get(`${API}/admin/subscribers/list`),
         axios.get(`${API}/admin/subscribers/packages`),
         axios.get(`${API}/payment-mgmt/pending`),
-        axios.get(`${API}/payment-mgmt/bank-accounts`)
+        axios.get(`${API}/payment-mgmt/bank-accounts`),
+        axios.get(`${API}/admin/subscribers/iris-journey-catalog`).catch(() => ({ data: { years: [] } })),
       ]);
       setSubscribers(sRes.data || []);
       setPackages(pRes.data || []);
       setPendingPayments(payRes.data || []);
       setBankAccounts(bankRes.data || []);
+      setIrisCatalog(irisRes.data?.years || []);
     } catch (e) { console.error(e); }
     finally { setLoading(false); }
   }, []);
@@ -1026,11 +1291,21 @@ const SubscribersTab = ({ openManualFormOnMount = false }) => {
   const handleSave = async (formData) => {
     setSaving(true);
     try {
+      const toNullPct = (v) => {
+        if (v === '' || v === undefined || v === null) return null;
+        const n = parseFloat(v);
+        return Number.isFinite(n) ? n : null;
+      };
+      const payload = {
+        ...formData,
+        individual_discount_pct: toNullPct(formData.individual_discount_pct),
+        individual_tax_pct: toNullPct(formData.individual_tax_pct),
+      };
       if (editTarget) {
-        await axios.put(`${API}/admin/subscribers/update/${editTarget.id}`, formData);
+        await axios.put(`${API}/admin/subscribers/update/${editTarget.id}`, payload);
         toast({ title: 'Subscriber updated' });
       } else {
-        await axios.post(`${API}/admin/subscribers/create`, formData);
+        await axios.post(`${API}/admin/subscribers/create`, payload);
         toast({ title: 'Subscriber created' });
       }
       setShowForm(false); setEditTarget(null); fetchData();
@@ -1060,6 +1335,14 @@ const SubscribersTab = ({ openManualFormOnMount = false }) => {
     late_fee_per_day: editTarget.subscription?.late_fee_per_day || 0,
     channelization_fee: editTarget.subscription?.channelization_fee || 0,
     show_late_fees: editTarget.subscription?.show_late_fees || false,
+    iris_year: editTarget.subscription?.iris_year ?? 1,
+    iris_year_mode: editTarget.subscription?.iris_year_mode || 'manual',
+    individual_discount_pct: editTarget.subscription?.individual_discount_pct != null && editTarget.subscription?.individual_discount_pct !== ''
+      ? String(editTarget.subscription.individual_discount_pct)
+      : '',
+    individual_tax_pct: editTarget.subscription?.individual_tax_pct != null && editTarget.subscription?.individual_tax_pct !== ''
+      ? String(editTarget.subscription.individual_tax_pct)
+      : '',
     sessions: editTarget.subscription?.sessions || { carry_forward: 0, current: 0, total: 0, availed: 0, yet_to_avail: 0, due: 0, scheduled_dates: [] }
   } : null;
 
@@ -1144,6 +1427,9 @@ const SubscribersTab = ({ openManualFormOnMount = false }) => {
       {subView === 'subscribers' && (<>
         {configOpen && (
           <div className="space-y-3">
+            <p className="text-xs text-gray-600 bg-white border rounded-lg px-3 py-2">
+              <strong className="text-gray-800">Standard package (catalog):</strong> one set of programs and list prices for everyone. Use <strong>Valid from / Valid to</strong> + <strong>New Ver</strong> when list prices or default tax/discount change. Each subscriber can still have their own <strong>individual discount %</strong> and <strong>individual tax %</strong> on their record (admin form / Excel).
+            </p>
             {packages.map(pkg => (
               <PackageEditor key={pkg.package_id} pkg={pkg} onSave={handleSavePkg} saving={savingPkg} onDelete={packages.length > 1 ? handleDeletePkg : null} onNewVersion={handleNewVersion} />
             ))}
@@ -1177,7 +1463,17 @@ const SubscribersTab = ({ openManualFormOnMount = false }) => {
             {showForm && !editTarget ? 'Form is open' : 'Open manual form'}
           </Button>
         </div>
-        {showForm && <SubscriberForm initial={formInitial} onSave={handleSave} onCancel={() => { setShowForm(false); setEditTarget(null); }} saving={saving} packages={packages} />}
+        {showForm && (
+          <SubscriberForm
+            key={editTarget?.id ?? 'new-subscriber'}
+            initial={formInitial}
+            onSave={handleSave}
+            onCancel={() => { setShowForm(false); setEditTarget(null); }}
+            saving={saving}
+            packages={packages}
+            irisCatalog={irisCatalog}
+          />
+        )}
         <div className="bg-white p-4 rounded-lg border shadow-sm">
           <h3 className="font-semibold text-gray-900 text-sm mb-2">Upload from Excel</h3>
           <div className="flex gap-3 items-end">
@@ -1194,15 +1490,23 @@ const SubscribersTab = ({ openManualFormOnMount = false }) => {
           : subscribers.length === 0 ? <div className="p-8 text-center text-sm text-gray-400 italic">No subscribers yet.</div>
           : (
             <div className="overflow-x-auto">
-              <table className="w-full min-w-[800px]">
+              <table className="w-full min-w-[1100px]">
                 <thead><tr className="bg-gray-50 text-[10px] font-bold uppercase tracking-wider text-gray-400 border-b">
                   <th className="px-3 py-2 text-left sticky left-0 bg-gray-50 z-10 border-r">Name</th>
-                  <th className="px-3 py-2 text-left">Email</th><th className="px-3 py-2 text-left">Program</th>
-                  <th className="px-3 py-2 text-center">Start</th><th className="px-3 py-2 text-right">Fee</th>
-                  <th className="px-3 py-2 text-center">Mode</th><th className="px-3 py-2 text-center">EMIs</th>
-                  <th className="px-3 py-2 text-center">Sessions</th><th className="px-3 py-2 text-center w-12"></th>
+                  <th className="px-3 py-2 text-left">Email</th>
+                  <th className="px-3 py-2 text-left">Package</th>
+                  <th className="px-3 py-2 text-left">Program</th>
+                  <th className="px-3 py-2 text-center">Start</th>
+                  <th className="px-3 py-2 text-center">End</th>
+                  <th className="px-3 py-2 text-left">Iris journey</th>
+                  <th className="px-3 py-2 text-right">Fee</th>
+                  <th className="px-3 py-2 text-center">Mode</th>
+                  <th className="px-3 py-2 text-center">Pay</th>
+                  <th className="px-3 py-2 text-center">EMIs</th>
+                  <th className="px-3 py-2 text-center">Sessions</th>
+                  <th className="px-3 py-2 text-center w-12"></th>
                 </tr></thead>
-                <tbody>{subscribers.map(s => <SubscriberRow key={s.id} s={s} onRefresh={fetchData} onEdit={handleEdit} />)}</tbody>
+                <tbody>{subscribers.map(s => <SubscriberRow key={s.id} s={s} onRefresh={fetchData} onEdit={handleEdit} irisCatalog={irisCatalog} packages={packages} />)}</tbody>
               </table>
             </div>
           )}

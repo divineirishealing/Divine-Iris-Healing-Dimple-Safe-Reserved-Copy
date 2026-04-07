@@ -7,14 +7,14 @@ import { Input } from '../../ui/input';
 import { Label } from '../../ui/label';
 import {
   Users, Search, Download, RefreshCw, ChevronDown, ChevronUp,
-  Droplets, Sprout, TreeDeciduous, Flower2, Star, Sparkles, Crown,
-  Clock, Tag, Edit2, Save, X, Trash2
+  Droplets, Sprout, TreeDeciduous, Flower2, Star,   Sparkles, Crown,
+  Clock, Tag, Edit2, Save, X, Trash2, UserPlus
 } from 'lucide-react';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
 const LABEL_CONFIG = {
-  Dew:           { icon: Droplets,       bg: 'bg-sky-50',    border: 'border-sky-200',    text: 'text-sky-700',    badge: 'bg-sky-100 text-sky-700',    desc: 'Inquired or expressed interest' },
+  Dew:           { icon: Droplets,       bg: 'bg-sky-50',    border: 'border-sky-200',    text: 'text-sky-700',    badge: 'bg-sky-100 text-sky-700',    desc: 'Default for new leads — until a program is fully paid' },
   Seed:          { icon: Sprout,         bg: 'bg-lime-50',   border: 'border-lime-200',   text: 'text-lime-700',   badge: 'bg-lime-100 text-lime-700',  desc: 'Joined a workshop' },
   Root:          { icon: TreeDeciduous,  bg: 'bg-amber-50',  border: 'border-amber-200',  text: 'text-amber-700',  badge: 'bg-amber-100 text-amber-700', desc: 'Converted to a flagship program' },
   Bloom:         { icon: Flower2,        bg: 'bg-pink-50',   border: 'border-pink-200',   text: 'text-pink-700',   badge: 'bg-pink-100 text-pink-700',  desc: 'Multiple programs or repeat client' },
@@ -45,6 +45,15 @@ const ClientsTab = () => {
   const [searchText, setSearchText] = useState('');
   const [expandedId, setExpandedId] = useState(null);
   const [syncing, setSyncing] = useState(false);
+  const [showAddClient, setShowAddClient] = useState(false);
+  const [addForm, setAddForm] = useState({
+    name: '',
+    email: '',
+    phone: '',
+    notes: '',
+    label_manual: '',
+  });
+  const [addingClient, setAddingClient] = useState(false);
 
   const fetchData = useCallback(async () => {
     try {
@@ -81,6 +90,45 @@ const ClientsTab = () => {
     } catch { toast({ title: 'Delete failed', variant: 'destructive' }); }
   };
 
+  const handleAddClient = async (e) => {
+    e.preventDefault();
+    const name = addForm.name.trim();
+    const email = addForm.email.trim();
+    const phone = addForm.phone.trim();
+    if (!name) {
+      toast({ title: 'Name is required', variant: 'destructive' });
+      return;
+    }
+    if (!email && !phone) {
+      toast({ title: 'Add an email or phone', variant: 'destructive' });
+      return;
+    }
+    setAddingClient(true);
+    try {
+      const res = await axios.post(`${API}/clients`, {
+        name,
+        email: email || undefined,
+        phone: phone || undefined,
+        notes: addForm.notes.trim() || undefined,
+        label_manual: addForm.label_manual || undefined,
+      });
+      toast({ title: 'Client added', description: name });
+      setAddForm({ name: '', email: '', phone: '', notes: '', label_manual: '' });
+      setShowAddClient(false);
+      await fetchData();
+      if (res.data?.id) setExpandedId(res.data.id);
+    } catch (err) {
+      const msg = err.response?.data?.detail;
+      toast({
+        title: 'Could not add client',
+        description: typeof msg === 'string' ? msg : err.message,
+        variant: 'destructive',
+      });
+    } finally {
+      setAddingClient(false);
+    }
+  };
+
   return (
     <div data-testid="clients-tab">
       {/* Header */}
@@ -89,9 +137,23 @@ const ClientsTab = () => {
           <h2 className="text-lg font-bold text-gray-900 flex items-center gap-2">
             <Users size={18} className="text-[#D4AF37]" /> Client Garden
           </h2>
-          <p className="text-xs text-gray-500 mt-0.5">Your unified client database — track every soul's journey from Dew to Iris.</p>
+          <p className="text-xs text-gray-500 mt-0.5 max-w-xl">
+            Your unified client database — track every soul&apos;s journey from Dew to Iris.
+            <span className="block mt-1 text-[10px] text-gray-400">
+              Auto-label stays <strong className="font-medium text-gray-600">Dew</strong> for first-time contacts and anyone who has not finished a paid checkout yet.
+              After payment completes, the garden stage updates from enrollments. You can always override the label on each client (Label &amp; Notes → Edit).
+            </span>
+          </p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
+          <Button
+            data-testid="clients-add-manual-toggle"
+            onClick={() => setShowAddClient((v) => !v)}
+            variant="outline"
+            className="text-[10px] h-8 gap-1.5 border-[#5D3FD3] text-[#5D3FD3] hover:bg-[#5D3FD3]/10"
+          >
+            <UserPlus size={12} /> {showAddClient ? 'Close form' : 'Add client'}
+          </Button>
           <Button data-testid="clients-sync" onClick={handleSync} disabled={syncing} variant="outline" className="text-[10px] h-8 gap-1.5">
             <RefreshCw size={12} className={syncing ? 'animate-spin' : ''} /> {syncing ? 'Syncing...' : 'Sync All Data'}
           </Button>
@@ -100,6 +162,86 @@ const ClientsTab = () => {
           </Button>
         </div>
       </div>
+
+      {showAddClient && (
+        <form
+          onSubmit={handleAddClient}
+          data-testid="clients-add-manual-form"
+          className="mb-4 rounded-xl border border-[#5D3FD3]/25 bg-gradient-to-r from-purple-50/80 to-white p-4 space-y-3"
+        >
+          <p className="text-xs font-semibold text-gray-800">Add client manually</p>
+          <p className="text-[10px] text-gray-500">Trial-friendly: creates a garden record with source &quot;Manual&quot;. Requires name and at least email or phone.</p>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <Label className="text-[9px] text-gray-500">Name *</Label>
+              <Input
+                data-testid="clients-add-name"
+                value={addForm.name}
+                onChange={(e) => setAddForm((f) => ({ ...f, name: e.target.value }))}
+                className="h-9 text-xs mt-1"
+                placeholder="Full name"
+                autoComplete="name"
+              />
+            </div>
+            <div>
+              <Label className="text-[9px] text-gray-500">Garden label</Label>
+              <select
+                data-testid="clients-add-label"
+                value={addForm.label_manual}
+                onChange={(e) => setAddForm((f) => ({ ...f, label_manual: e.target.value }))}
+                className="w-full h-9 text-xs border rounded-md px-2 mt-1"
+              >
+                <option value="">Auto — Dew until a paid program, then from conversions</option>
+                {ALL_LABELS.map((l) => (
+                  <option key={l} value={l}>{l}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <Label className="text-[9px] text-gray-500">Email</Label>
+              <Input
+                data-testid="clients-add-email"
+                type="email"
+                value={addForm.email}
+                onChange={(e) => setAddForm((f) => ({ ...f, email: e.target.value }))}
+                className="h-9 text-xs mt-1"
+                placeholder="email@example.com"
+                autoComplete="email"
+              />
+            </div>
+            <div>
+              <Label className="text-[9px] text-gray-500">Phone</Label>
+              <Input
+                data-testid="clients-add-phone"
+                value={addForm.phone}
+                onChange={(e) => setAddForm((f) => ({ ...f, phone: e.target.value }))}
+                className="h-9 text-xs mt-1"
+                placeholder="Optional if email set"
+                autoComplete="tel"
+              />
+            </div>
+          </div>
+          <div>
+            <Label className="text-[9px] text-gray-500">Notes</Label>
+            <Textarea
+              data-testid="clients-add-notes"
+              value={addForm.notes}
+              onChange={(e) => setAddForm((f) => ({ ...f, notes: e.target.value }))}
+              rows={2}
+              className="text-xs mt-1"
+              placeholder="Optional internal notes"
+            />
+          </div>
+          <div className="flex gap-2">
+            <Button type="submit" disabled={addingClient} size="sm" className="text-[10px] h-8 bg-[#5D3FD3] hover:bg-[#4c32b3] gap-1" data-testid="clients-add-submit">
+              <UserPlus size={12} /> {addingClient ? 'Saving…' : 'Save client'}
+            </Button>
+            <Button type="button" variant="outline" size="sm" className="text-[10px] h-8" onClick={() => setShowAddClient(false)}>
+              Cancel
+            </Button>
+          </div>
+        </form>
+      )}
 
       {/* Label Stats Cards */}
       <div className="grid grid-cols-7 gap-2 mb-4" data-testid="clients-label-stats">
@@ -142,7 +284,7 @@ const ClientsTab = () => {
         {clients.length === 0 && (
           <div className="text-center py-16 text-gray-400">
             <Users size={32} className="mx-auto mb-2 opacity-30" />
-            <p className="text-sm">No clients found. Click "Sync All Data" to populate.</p>
+            <p className="text-sm">No clients found. Use Add client or Sync All Data to populate.</p>
           </div>
         )}
         {clients.map(cl => {
@@ -237,13 +379,17 @@ const ClientDetail = ({ client: cl, labelConfig: cfg, onUpdate, onDelete, toast 
             </div>
           )}
         </div>
+        <p className="text-[9px] text-gray-500 leading-relaxed mb-2">
+          Without an override, the badge follows paid enrollments only: <span className="font-medium text-gray-600">Dew</span> until checkout completes, then Seed / Root / Bloom / Iris from what they bought.
+          Pick any stage below to lock it yourself; choose Auto to clear your override.
+        </p>
         {editing ? (
           <div className="space-y-2">
             <div>
-              <Label className="text-[9px] text-gray-500">Override Label (leave empty for auto)</Label>
+              <Label className="text-[9px] text-gray-500">Override label</Label>
               <select data-testid="client-label-select" value={labelManual} onChange={e => setLabelManual(e.target.value)}
                 className="w-full text-xs border rounded-lg px-2 py-1.5 mt-1 focus:outline-none focus:ring-1 focus:ring-[#D4AF37]">
-                <option value="">Auto-assign</option>
+                <option value="">Auto (Dew until paid program, then from conversions)</option>
                 {ALL_LABELS.map(l => <option key={l} value={l}>{l} — {LABEL_CONFIG[l]?.desc}</option>)}
               </select>
             </div>

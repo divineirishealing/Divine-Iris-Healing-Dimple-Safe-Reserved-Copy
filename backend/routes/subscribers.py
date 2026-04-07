@@ -19,6 +19,8 @@ from pathlib import Path
 ROOT_DIR = Path(__file__).parent.parent
 load_dotenv(ROOT_DIR / '.env')
 
+from iris_journey import iris_journey_catalog, resolve_iris_journey  # noqa: E402
+
 router = APIRouter(prefix="/api/admin/subscribers", tags=["Subscribers"])
 
 mongo_url = os.environ['MONGO_URL']
@@ -67,6 +69,17 @@ def safe_date(val):
     return s
 
 
+def _excel_cell_present(row, key):
+    v = row.get(key)
+    if v is None:
+        return False
+    if isinstance(v, float) and math.isnan(v):
+        return False
+    if isinstance(v, str) and not str(v).strip():
+        return False
+    return True
+
+
 # ═══════════════════════════════════════════
 # MULTI-PACKAGE ANNUAL PRICING
 # ═══════════════════════════════════════════
@@ -84,11 +97,14 @@ class AnnualPackage(BaseModel):
     package_id: str = ""
     package_name: str = "Standard Annual"
     version: int = 1
+    # Pricing period for this row (e.g. FY / cohort). Empty = no restriction in UI.
     valid_from: str = ""
     valid_to: str = ""
     duration_months: int = 12
     included_programs: List[IncludedProgram] = []
-    additional_discount_pct: float = 0
+    additional_discount_pct: float = 0  # extra % off after line-item offers
+    # Per-currency tax rate as decimal, e.g. 0.18 = 18%. Empty key → client uses defaults.
+    tax_rates: Dict[str, float] = {}
     offer_total: Dict[str, float] = {}  # {INR: 500000, ...} final package offer price (override)
     default_sessions_current: int = 12
     late_fee_per_day: float = 0  # fixed daily late fee (INR)
@@ -113,6 +129,7 @@ async def list_packages():
             package_name="Standard Annual",
             valid_from="2026-04-01",
             valid_to="2027-03-31",
+            tax_rates={"INR": 0.18, "AED": 0.05, "USD": 0},
             included_programs=[
                 IncludedProgram(name="AWRP", duration_value=12, duration_unit="months",
                     price_per_unit={"INR": 90000, "USD": 1800, "AED": 4500},
@@ -375,6 +392,14 @@ async def upload_subscriber_excel(file: UploadFile = File(...)):
                 stats["skipped"] += 1
                 continue
 
+            query = None
+            if email:
+                query = {"email": email}
+            elif name:
+                query = {"name": {"$regex": f"^{name}$", "$options": "i"}}
+            existing = await db.clients.find_one(query) if query else None
+            prev_sub = (existing or {}).get("subscription") or {}
+
             # Build subscription object
             subscription = {
                 "annual_program": safe_str(row.get("annual_program", "")),
@@ -434,16 +459,32 @@ async def upload_subscriber_excel(file: UploadFile = File(...)):
             else:
                 subscription["programs"] = [subscription["annual_program"]] if subscription["annual_program"] else []
 
+            if _excel_cell_present(row, "iris_year"):
+                subscription["iris_year"] = max(1, min(12, safe_int(row.get("iris_year")) or 1))
+            else:
+                subscription["iris_year"] = max(1, min(12, safe_int(prev_sub.get("iris_year")) or 1))
+
+            if _excel_cell_present(row, "iris_year_mode"):
+                _m = safe_str(row.get("iris_year_mode")).lower()
+                subscription["iris_year_mode"] = _m if _m in ("manual", "auto") else "manual"
+            else:
+                subscription["iris_year_mode"] = prev_sub.get("iris_year_mode") or "manual"
+
             subscription["updated_at"] = datetime.now(timezone.utc).isoformat()
 
-            # Find or create client
-            query = None
-            if email:
-                query = {"email": email}
-            elif name:
-                query = {"name": {"$regex": f"^{name}$", "$options": "i"}}
-
-            existing = await db.clients.find_one(query) if query else None
+            subscription["package_id"] = (
+                safe_str(row.get("package_id", ""))
+                if _excel_cell_present(row, "package_id")
+                else prev_sub.get("package_id", "")
+            )
+            if _excel_cell_present(row, "individual_discount_pct"):
+                subscription["individual_discount_pct"] = safe_float(row.get("individual_discount_pct"))
+            else:
+                subscription["individual_discount_pct"] = prev_sub.get("individual_discount_pct")
+            if _excel_cell_present(row, "individual_tax_pct"):
+                subscription["individual_tax_pct"] = safe_float(row.get("individual_tax_pct"))
+            else:
+                subscription["individual_tax_pct"] = prev_sub.get("individual_tax_pct")
 
             if existing:
                 await db.clients.update_one(
@@ -490,8 +531,10 @@ async def upload_subscriber_excel(file: UploadFile = File(...)):
 @router.get("/download-template")
 async def download_template():
     """Download a blank Excel template for subscriber upload."""
-    cols = ["Name", "Email", "Annual Program", "Start Date", "End Date",
-            "Total Fee", "Currency", "Payment Mode", "Number of EMIs"]
+    cols = ["Name", "Email", "Package ID", "Annual Program", "Start Date", "End Date",
+            "Total Fee", "Currency", "Payment Mode", "Number of EMIs",
+            "Individual Discount Pct", "Individual Tax Pct",
+            "Iris Year", "Iris Year Mode"]
     for i in range(1, 13):
         cols.extend([f"EMI_{i}_Date", f"EMI_{i}_Amount", f"EMI_{i}_Remaining", f"EMI_{i}_DueDate"])
     cols.extend(["Bi-Annual Download", "Quarterly Releases",
@@ -501,9 +544,11 @@ async def download_template():
     df = pd.DataFrame(columns=cols)
     # Add one example row
     example = {"Name": "Example Student", "Email": "student@example.com",
-               "Annual Program": "Quad Layer Healing", "Start Date": "2026-03-27",
+               "Package ID": "PKG-STANDARD", "Annual Program": "Quad Layer Healing", "Start Date": "2026-03-27",
                "End Date": "2027-03-26", "Total Fee": 50000, "Currency": "INR",
                "Payment Mode": "EMI", "Number of EMIs": 3,
+               "Individual Discount Pct": "", "Individual Tax Pct": "",
+               "Iris Year": 1, "Iris Year Mode": "manual",
                "EMI_1_Date": "2026-03-27", "EMI_1_Amount": 17000, "EMI_1_Remaining": 33000, "EMI_1_DueDate": "2026-03-27",
                "Sessions Carry Forward": 0, "Sessions Current": 12,
                "Sessions Availed": 0, "Sessions Due": 0,
@@ -536,6 +581,7 @@ async def export_subscribers():
         row = {
             "Name": c.get("name", ""),
             "Email": c.get("email", ""),
+            "Package ID": sub.get("package_id", ""),
             "Annual Program": sub.get("annual_program", ""),
             "Start Date": sub.get("start_date", ""),
             "End Date": sub.get("end_date", ""),
@@ -543,6 +589,8 @@ async def export_subscribers():
             "Currency": sub.get("currency", ""),
             "Payment Mode": sub.get("payment_mode", ""),
             "Number of EMIs": sub.get("num_emis", 0),
+            "Individual Discount Pct": sub.get("individual_discount_pct", ""),
+            "Individual Tax Pct": sub.get("individual_tax_pct", ""),
         }
         # EMIs
         for emi in sub.get("emis", []):
@@ -560,6 +608,9 @@ async def export_subscribers():
         row["Sessions Due"] = sess.get("due", 0)
         row["Scheduled Dates"] = ", ".join(sess.get("scheduled_dates", []))
         row["Programs"] = ", ".join(sub.get("programs", []))
+        row["Iris Year"] = sub.get("iris_year", 1)
+        row["Iris Year Mode"] = sub.get("iris_year_mode", "manual")
+        row["Iris Journey (effective)"] = resolve_iris_journey(sub).get("label", "")
         rows.append(row)
 
     df = pd.DataFrame(rows) if rows else pd.DataFrame()
@@ -584,6 +635,12 @@ async def list_subscribers():
         {"_id": 0, "id": 1, "name": 1, "email": 1, "label": 1, "subscription": 1}
     ).to_list(5000)
     return clients
+
+
+@router.get("/iris-journey-catalog")
+async def get_iris_journey_catalog():
+    """Canonical Year 1–12 labels for admin UI and docs."""
+    return {"years": iris_journey_catalog()}
 
 
 # ─── CREATE / UPDATE SUBSCRIBER (manual) ───
@@ -643,6 +700,25 @@ class SubscriberCreate(BaseModel):
     late_fee_per_day: float = 0
     channelization_fee: float = 0
     payment_methods: List[str] = ["stripe", "manual"]
+    # Optional overrides vs standard package catalog (same programs for everyone; pricing can differ per person)
+    individual_discount_pct: Optional[float] = None  # extra % off line-offer subtotal; None = use package pkg discount
+    individual_tax_pct: Optional[float] = None  # tax % for this subscriber (e.g. 18.0); None = use package tax for currency
+    # Iris annual journey (access tier by year on the path). manual = fixed year; auto = from start_date anniversaries
+    iris_year: int = 1
+    iris_year_mode: str = "manual"  # "manual" | "auto"
+
+
+def _normalize_iris_fields(data: SubscriberCreate) -> Dict[str, object]:
+    mode = (data.iris_year_mode or "manual").strip().lower()
+    if mode not in ("manual", "auto"):
+        mode = "manual"
+    try:
+        y = int(data.iris_year)
+    except (TypeError, ValueError):
+        y = 1
+    y = max(1, min(12, y))
+    return {"iris_year": y, "iris_year_mode": mode}
+
 
 @router.post("/create")
 async def create_subscriber(data: SubscriberCreate):
@@ -676,7 +752,10 @@ async def create_subscriber(data: SubscriberCreate):
         "late_fee_per_day": data.late_fee_per_day,
         "channelization_fee": data.channelization_fee,
         "payment_methods": data.payment_methods,
-        "updated_at": datetime.now(timezone.utc).isoformat()
+        "individual_discount_pct": data.individual_discount_pct,
+        "individual_tax_pct": data.individual_tax_pct,
+        "updated_at": datetime.now(timezone.utc).isoformat(),
+        **_normalize_iris_fields(data),
     }
 
     # Check if client exists
@@ -747,7 +826,10 @@ async def update_subscriber(client_id: str, data: SubscriberCreate):
         "late_fee_per_day": data.late_fee_per_day,
         "channelization_fee": data.channelization_fee,
         "payment_methods": data.payment_methods,
-        "updated_at": datetime.now(timezone.utc).isoformat()
+        "individual_discount_pct": data.individual_discount_pct,
+        "individual_tax_pct": data.individual_tax_pct,
+        "updated_at": datetime.now(timezone.utc).isoformat(),
+        **_normalize_iris_fields(data),
     }
 
     update_fields = {"subscription": subscription, "updated_at": datetime.now(timezone.utc).isoformat()}

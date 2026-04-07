@@ -1,6 +1,6 @@
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
-from typing import Optional, List
+from typing import Optional, List, Dict, Any
 from datetime import datetime, timezone
 import os
 import uuid
@@ -38,10 +38,31 @@ def normalize_phone(phone: str) -> str:
     return (phone or "").strip().replace(" ", "").replace("-", "")
 
 
+def enrollment_counts_as_paid_conversion(enrollment: Dict[str, Any], txs_for_enrollment: List[dict]) -> bool:
+    """
+    A conversion is recorded only after the payment/checkout loop succeeds.
+    Enrollments move to status 'completed' when Stripe (or webhook), free checkout,
+    or India manual proof flow finishes; we also require a paid transaction when one exists.
+    """
+    if (enrollment.get("status") or "").strip().lower() != "completed":
+        return False
+    if txs_for_enrollment:
+        return any(str(t.get("payment_status", "")).strip().lower() == "paid" for t in txs_for_enrollment)
+    # Legacy completed rows with no transaction document — still count if marked paid/free on enrollment
+    return bool(enrollment.get("paid_at")) or bool(enrollment.get("is_free"))
+
+
 async def compute_label(client_doc: dict) -> str:
-    """Auto-compute label based on activity. Manual overrides take precedence."""
-    if client_doc.get("label_manual"):
-        return client_doc["label_manual"]
+    """
+    Auto-label from paid conversions only (see sync). Manual garden label always wins.
+
+    - No manual override and zero paid-program conversions → Dew (leads, first-time,
+      or checkout not finished).
+    - With conversions, stage advances (Seed → Root → Bloom / Iris) from program data.
+    """
+    lm = (client_doc.get("label_manual") or "").strip()
+    if lm:
+        return lm
 
     conversions = client_doc.get("conversions", [])
     if not conversions:
@@ -72,8 +93,8 @@ async def compute_label(client_doc: dict) -> str:
 
 @router.post("/sync")
 async def sync_clients():
-    """Backfill/sync all client data from contacts, interests, questions, enrollments."""
-    stats = {"new_clients": 0, "updated": 0, "total_sources_scanned": 0}
+    """Backfill/sync client data from contacts, interests, questions; enrollments count as conversions only after paid checkout."""
+    stats = {"new_clients": 0, "updated": 0, "total_sources_scanned": 0, "conversions_pruned_clients": 0}
 
     # Helper to upsert a client
     async def upsert_client(email: str, phone: str = "", name: str = "", source: str = "", source_detail: str = "", source_date: str = ""):
@@ -183,10 +204,20 @@ async def sync_clients():
     for ss in all_sessions:
         sessions_cache[ss["id"]] = ss
 
+    paid_conversion_enrollment_ids = {
+        e["id"]
+        for e in enrollments
+        if enrollment_counts_as_paid_conversion(e, tx_by_enrollment.get(e.get("id", ""), []))
+    }
+
     for e in enrollments:
         email = normalize_email(e.get("booker_email", ""))
         phone = normalize_phone(e.get("booker_phone", ""))
         if not email:
+            continue
+
+        enrollment_txs = tx_by_enrollment.get(e.get("id", ""), [])
+        if not enrollment_counts_as_paid_conversion(e, enrollment_txs):
             continue
 
         program_id = e.get("program_id", "") or e.get("selected_program_id", "")
@@ -195,7 +226,6 @@ async def sync_clients():
 
         # Try to get title from transaction data first
         program_title = ""
-        enrollment_txs = tx_by_enrollment.get(e.get("id", ""), [])
         if enrollment_txs:
             program_title = enrollment_txs[0].get("item_title", "")
             if not program_id:
@@ -208,7 +238,7 @@ async def sync_clients():
             program_title = sessions_cache.get(session_id, {}).get("title", "")
 
         is_flagship = program.get("is_flagship", False)
-        status = e.get("status", "")
+        status = e.get("status", "") or "completed"
 
         # Find or create client
         query = [{"email": email}]
@@ -225,12 +255,12 @@ async def sync_clients():
             "item_type": e.get("item_type", ""),
             "tier_label": e.get("tier_label", ""),
             "duration_unit": e.get("duration_unit", ""),
-            "date": e.get("created_at", ""),
+            "date": e.get("paid_at") or e.get("updated_at") or e.get("created_at", ""),
         }
         timeline_entry = {
-            "type": "Enrollment",
-            "detail": f"{program_title} ({status})",
-            "date": e.get("created_at", ""),
+            "type": "Enrollment (paid)",
+            "detail": f"{program_title} — payment complete",
+            "date": e.get("paid_at") or e.get("updated_at") or e.get("created_at", ""),
         }
 
         if existing:
@@ -275,6 +305,25 @@ async def sync_clients():
 
     stats["total_sources_scanned"] += len(enrollments)
 
+    # 4b Remove conversion rows for enrollments that never finished payment
+    all_for_prune = await db.clients.find({}, {"_id": 0, "id": 1, "conversions": 1}).to_list(5000)
+    for cl in all_for_prune:
+        convs = cl.get("conversions") or []
+        if not convs:
+            continue
+
+        filtered = [
+            c
+            for c in convs
+            if (not c.get("enrollment_id")) or (c.get("enrollment_id") in paid_conversion_enrollment_ids)
+        ]
+        if len(filtered) != len(convs):
+            await db.clients.update_one(
+                {"id": cl["id"]},
+                {"$set": {"conversions": filtered, "updated_at": datetime.now(timezone.utc).isoformat()}},
+            )
+            stats["conversions_pruned_clients"] += 1
+
     # 5. Now recompute labels for all clients
     all_clients = await db.clients.find({}, {"_id": 0}).to_list(5000)
     for cl in all_clients:
@@ -302,6 +351,77 @@ async def list_clients(label: Optional[str] = None, search: Optional[str] = None
         ]
     clients_list = await db.clients.find(query, {"_id": 0}).sort("updated_at", -1).to_list(1000)
     return clients_list
+
+
+class ClientManualCreate(BaseModel):
+    """Create a single client from Client Garden (trial / manual entry)."""
+    name: str
+    email: Optional[str] = None
+    phone: Optional[str] = None
+    notes: Optional[str] = None
+    label_manual: Optional[str] = None  # empty = auto Dew
+
+
+@router.post("")
+async def create_client_manual(data: ClientManualCreate):
+    """Manually add a client. Requires name and at least one of email or phone."""
+    name = (data.name or "").strip()
+    if not name:
+        raise HTTPException(status_code=400, detail="Name is required")
+
+    email_n = normalize_email(data.email or "")
+    phone_n = normalize_phone(data.phone or "")
+    if not email_n and not phone_n:
+        raise HTTPException(status_code=400, detail="Provide at least an email or a phone number")
+
+    label_manual = (data.label_manual or "").strip()
+    if label_manual and label_manual not in LABELS:
+        raise HTTPException(status_code=400, detail=f"Invalid label. Use one of: {', '.join(LABELS)}")
+
+    dup_query = []
+    if email_n:
+        dup_query.append({"email": email_n})
+    if phone_n:
+        dup_query.append({"phone": phone_n})
+    existing = await db.clients.find_one({"$or": dup_query})
+    if existing:
+        raise HTTPException(
+            status_code=409,
+            detail="A client with this email or phone already exists",
+        )
+
+    now = datetime.now(timezone.utc).isoformat()
+    did = f"DID-{str(uuid.uuid4())[:8].upper()}"
+    cid = str(uuid.uuid4())
+    initial_label = label_manual if label_manual else "Dew"
+    timeline_entry = {
+        "type": "Manual",
+        "detail": "Added from Client Garden",
+        "date": now,
+    }
+    client_doc = {
+        "id": cid,
+        "did": did,
+        "email": email_n,
+        "phone": phone_n,
+        "name": name,
+        "label": initial_label,
+        "label_manual": label_manual,
+        "sources": ["Manual"],
+        "conversions": [],
+        "timeline": [timeline_entry],
+        "notes": (data.notes or "").strip(),
+        "created_at": now,
+        "updated_at": now,
+    }
+    await db.clients.insert_one(client_doc)
+
+    if not label_manual:
+        new_label = await compute_label(client_doc)
+        if new_label != initial_label:
+            await db.clients.update_one({"id": cid}, {"$set": {"label": new_label, "updated_at": now}})
+
+    return {"message": "Client created", "id": cid}
 
 
 @router.get("/stats")
@@ -340,9 +460,10 @@ async def update_client(client_id: str, data: ClientUpdate):
 
     update_fields = {"updated_at": datetime.now(timezone.utc).isoformat()}
     if data.label_manual is not None:
-        update_fields["label_manual"] = data.label_manual
-        if data.label_manual:
-            update_fields["label"] = data.label_manual
+        lm = (data.label_manual or "").strip()
+        update_fields["label_manual"] = lm
+        if lm:
+            update_fields["label"] = lm
     if data.notes is not None:
         update_fields["notes"] = data.notes
     if data.name is not None:
@@ -352,8 +473,8 @@ async def update_client(client_id: str, data: ClientUpdate):
 
     await db.clients.update_one({"id": client_id}, {"$set": update_fields})
 
-    # Recompute label if manual override removed
-    if data.label_manual == "":
+    # Back to automatic rules (usually Dew until paid conversions) when override cleared
+    if data.label_manual is not None and not (data.label_manual or "").strip():
         updated = await db.clients.find_one({"id": client_id}, {"_id": 0})
         new_label = await compute_label(updated)
         await db.clients.update_one({"id": client_id}, {"$set": {"label": new_label}})

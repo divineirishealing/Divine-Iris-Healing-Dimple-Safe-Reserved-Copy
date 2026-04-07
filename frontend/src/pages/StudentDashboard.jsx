@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useSiteSettings } from '../context/SiteSettingsContext';
 import { 
@@ -10,6 +10,12 @@ import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
 
 const API = process.env.REACT_APP_BACKEND_URL;
+
+function formatScheduleDate(slot) {
+  if (!slot?.date) return '';
+  const d = new Date(`${slot.date}T12:00:00`);
+  return d.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' });
+}
 
 /* ─── Petal Card ─── */
 const PetalCard = ({ children, className, onClick, delay = 0, testId }) => (
@@ -70,10 +76,57 @@ const StudentDashboard = () => {
       .catch(() => {});
   }, []);
 
-  const upcoming = homeData?.upcoming_programs?.[0];
   const pkg = homeData?.package || {};
   const progressPct = pkg.total_sessions ? Math.round((pkg.used_sessions / pkg.total_sessions) * 100) : 0;
   const tierLabel = { 1: 'Seeker', 2: 'Initiate', 3: 'Explorer', 4: 'Iris' }[user?.tier] || 'Seeker';
+  const irisJourney = homeData?.iris_journey;
+  const showIrisYear = Boolean(pkg.start_date && irisJourney);
+
+  const { scheduleTitle, scheduleDetail, scheduleTags, moreSlots, mobileScheduleSub } = useMemo(() => {
+    const preview = homeData?.schedule_preview || [];
+    const pack = homeData?.package || {};
+    const up = homeData?.upcoming_programs?.[0];
+    if (preview.length > 0) {
+      const first = preview[0];
+      const detail = [formatScheduleDate(first), first.time].filter(Boolean).join(' · ');
+      const tags = [];
+      if (first.mode_choice) tags.push(first.mode_choice);
+      return {
+        scheduleTitle: first.program_name || 'Scheduled',
+        scheduleDetail: detail || 'Date TBD',
+        scheduleTags: tags,
+        moreSlots: preview.slice(1, 4),
+        mobileScheduleSub: `${first.program_name || 'Session'} — ${detail}`,
+      };
+    }
+    if (pack.scheduled_dates?.length) {
+      const ds = pack.scheduled_dates[0];
+      const detail = formatScheduleDate({ date: ds });
+      return {
+        scheduleTitle: '1:1 session',
+        scheduleDetail: detail,
+        scheduleTags: [],
+        moreSlots: [],
+        mobileScheduleSub: `1:1 session — ${detail}`,
+      };
+    }
+    if (up?.title) {
+      return {
+        scheduleTitle: up.title,
+        scheduleDetail: up.timing || 'See public programs',
+        scheduleTags: [up.enrollment_status === 'open' ? 'Open' : 'Coming Soon'],
+        moreSlots: [],
+        mobileScheduleSub: `${up.title} — ${up.timing || 'TBD'}`,
+      };
+    }
+    return {
+      scheduleTitle: 'Calendar',
+      scheduleDetail: 'Your program dates will appear here',
+      scheduleTags: [],
+      moreSlots: [],
+      mobileScheduleSub: 'No dates yet — check back soon',
+    };
+  }, [homeData?.schedule_preview, homeData?.package, homeData?.upcoming_programs]);
 
   return (
     <div className="absolute inset-0 overflow-y-auto overflow-x-hidden" data-testid="student-dashboard">
@@ -148,22 +201,33 @@ const StudentDashboard = () => {
                   <div>
                     <h3 className="text-[11px] font-bold uppercase tracking-[0.15em] text-white/50">My Schedule</h3>
                     <p className="text-lg font-serif font-bold text-white mt-0.5 leading-snug">
-                      {upcoming?.title || 'No Upcoming Journey'}
+                      {scheduleTitle}
                     </p>
                   </div>
                 </div>
                 <ChevronRight size={16} className="text-white/30 group-hover:text-[#D4AF37] transition-colors mt-1" />
               </div>
-              {upcoming && (
-                <div className="mt-4 flex gap-2">
-                  <span className="text-[10px] px-2.5 py-1 rounded-full bg-white/10 text-white/70">{upcoming.timing || 'TBD'}</span>
-                  <span className="text-[10px] px-2.5 py-1 rounded-full bg-[#D4AF37]/20 text-[#D4AF37]">
-                    {upcoming.enrollment_status === 'open' ? 'Open' : 'Coming Soon'}
-                  </span>
+              <p className="mt-2 text-sm text-white/70">{scheduleDetail}</p>
+              {scheduleTags.length > 0 && (
+                <div className="mt-3 flex flex-wrap gap-2">
+                  {scheduleTags.map((t) => (
+                    <span key={t} className="text-[10px] px-2.5 py-1 rounded-full bg-[#D4AF37]/20 text-[#D4AF37]">{t}</span>
+                  ))}
                 </div>
               )}
-              {!upcoming && (
-                <p className="mt-3 text-xs text-white/30 italic">Your next adventure awaits...</p>
+              {moreSlots.length > 0 && (
+                <ul className="mt-3 space-y-1 text-[10px] text-white/45 border-t border-white/[0.08] pt-3">
+                  {moreSlots.map((s) => (
+                    <li key={`${s.program_name}-${s.date}`}>
+                      <span className="text-white/60">{s.program_name}</span>
+                      {' · '}
+                      {[formatScheduleDate(s), s.time].filter(Boolean).join(' · ')}
+                    </li>
+                  ))}
+                </ul>
+              )}
+              {homeData?.schedule_preview?.length === 0 && !homeData?.package?.scheduled_dates?.length && !homeData?.upcoming_programs?.[0] && (
+                <p className="mt-3 text-xs text-white/30 italic">Open the calendar when your dates are set.</p>
               )}
             </PetalCard>
           </div>
@@ -203,6 +267,18 @@ const StudentDashboard = () => {
                     {homeData?.profile_status === 'complete' ? 'Verified' : 'Setup Needed'}
                   </span>
                 </div>
+                {showIrisYear && (
+                  <div className="pt-2 mt-2 border-t border-white/[0.08] space-y-0.5">
+                    <p className="text-[9px] text-white/40 uppercase tracking-wider">Annual iris path</p>
+                    <p className="text-[10px] font-semibold text-[#E9D5FF] leading-snug">
+                      Year {irisJourney.year}: {irisJourney.title}
+                    </p>
+                    <p className="text-[9px] text-white/50 leading-snug">{irisJourney.subtitle}</p>
+                    {irisJourney.mode === 'auto' && (
+                      <p className="text-[8px] text-white/35 pt-0.5">Aligned with your subscription dates</p>
+                    )}
+                  </div>
+                )}
               </div>
               <div className="mt-4 flex items-center text-[10px] text-white/40 group-hover:text-[#D4AF37] transition-colors">
                 <span>Complete Profile</span>
@@ -354,7 +430,7 @@ const StudentDashboard = () => {
         {/* ─── MOBILE LAYOUT ─── */}
         <div className="lg:hidden w-full max-w-md mx-auto space-y-4">
           {[
-            { testId: 'petal-schedule-m', icon: Calendar, color: '#D4AF37', title: 'My Schedule', sub: upcoming?.title || 'No Upcoming Journey', to: '/dashboard/sessions', delay: 100 },
+            { testId: 'petal-schedule-m', icon: Calendar, color: '#D4AF37', title: 'My Schedule', sub: mobileScheduleSub, to: '/dashboard/sessions', delay: 100 },
             { testId: 'petal-profile-m', icon: User, color: '#C4B5FD', title: 'My Profile', sub: user?.name || 'Complete your profile', to: '/dashboard/profile', delay: 200 },
             { testId: 'petal-financials-m', icon: CreditCard, color: '#84A98C', title: 'Sacred Exchange', sub: homeData?.financials?.status || 'View financial status', to: '/dashboard/financials', delay: 300 },
             { testId: 'petal-diary-m', icon: BookOpen, color: '#93C5FD', title: 'Reflection', sub: 'Journey Diary', to: '/dashboard/diary', delay: 400 },

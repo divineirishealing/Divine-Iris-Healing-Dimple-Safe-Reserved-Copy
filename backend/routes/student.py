@@ -8,6 +8,7 @@ from dotenv import load_dotenv
 from pathlib import Path
 from .auth import get_current_user
 from models_extended import JourneyLog
+from iris_journey import resolve_iris_journey
 
 ROOT_DIR = Path(__file__).parent.parent
 load_dotenv(ROOT_DIR / '.env')
@@ -17,6 +18,60 @@ router = APIRouter(prefix="/api/student", tags=["Student Dashboard"])
 mongo_url = os.environ['MONGO_URL']
 client = AsyncIOMotorClient(mongo_url)
 db = client[os.environ['DB_NAME']]
+
+def _merge_global_schedule_into_programs(programs_list: List[dict], global_programs: List[dict]) -> List[dict]:
+    """Attach dates from admin program schedule (same merge as subscribers sync)."""
+    if not global_programs or not programs_list:
+        return programs_list
+    merged_out = []
+    for local_prog in programs_list:
+        gp = next((g for g in global_programs if g.get("name") == local_prog.get("name")), None)
+        if not gp:
+            merged_out.append(local_prog)
+            continue
+        old_sched = local_prog.get("schedule") or []
+        old_sched_map = {
+            (s.get("month") or s.get("session", 0)): s for s in old_sched
+        }
+        new_sched = []
+        for gs in gp.get("schedule", []):
+            key = gs.get("month") or gs.get("session", 0)
+            old = old_sched_map.get(key, {})
+            new_sched.append({**gs, "mode_choice": old.get("mode_choice", gs.get("mode_choice", ""))})
+        merged_out.append({**local_prog, "schedule": new_sched})
+    return merged_out
+
+
+def _build_schedule_preview(programs_list: List[dict], limit: int = 8) -> List[dict]:
+    """Next dated slots (not completed), today onward, for dashboard."""
+    today = datetime.now(timezone.utc).date()
+    rows = []
+    for p in programs_list:
+        pname = p.get("name") or ""
+        for s in p.get("schedule") or []:
+            raw = s.get("date")
+            if not raw:
+                continue
+            ds = str(raw).strip()[:10]
+            try:
+                slot_date = datetime.strptime(ds, "%Y-%m-%d").date()
+            except ValueError:
+                continue
+            if s.get("completed"):
+                continue
+            if slot_date < today:
+                continue
+            rows.append({
+                "program_name": pname,
+                "date": ds,
+                "end_date": (str(s.get("end_date") or "").strip()[:10] or ""),
+                "time": s.get("time") or "",
+                "note": s.get("note") or "",
+                "mode_choice": s.get("mode_choice") or "",
+            })
+    rows.sort(key=lambda x: x["date"])
+    return rows[:limit]
+
 
 class ProfileUpdate(BaseModel):
     full_name: Optional[str] = None
@@ -108,7 +163,35 @@ async def get_student_home(user: dict = Depends(get_current_user)):
             for name in simple_names:
                 raw_programs.append({"name": name, "duration_value": 0, "duration_unit": "", "start_date": "", "end_date": "", "status": "active"})
     programs_list = raw_programs
-    
+
+    # 5b. Global program schedule (admin Scheduler) — always merge so dashboard/calendar see dates
+    sched_doc = await db.program_schedule.find_one({"id": "global"}, {"_id": 0})
+    global_sched = sched_doc.get("programs", []) if sched_doc else []
+    programs_list = _merge_global_schedule_into_programs(programs_list, global_sched)
+    schedule_preview = _build_schedule_preview(programs_list)
+
+    # 5c. If no dated slots yet, surface admin-entered 1:1 dates from subscription
+    if not schedule_preview and sess.get("scheduled_dates"):
+        for d in sess.get("scheduled_dates", [])[:8]:
+            if not d:
+                continue
+            ds = str(d).strip()[:10]
+            try:
+                slot_date = datetime.strptime(ds, "%Y-%m-%d").date()
+            except ValueError:
+                continue
+            if slot_date < datetime.now(timezone.utc).date():
+                continue
+            schedule_preview.append({
+                "program_name": "1:1 Session",
+                "date": ds,
+                "end_date": "",
+                "time": "",
+                "note": "",
+                "mode_choice": "",
+            })
+        schedule_preview.sort(key=lambda x: x["date"])
+
     # 6. Journey Logs (Last 3)
     logs = await db.journey_logs.find(
         {"client_id": client_id}, {"_id": 0}
@@ -123,12 +206,15 @@ async def get_student_home(user: dict = Depends(get_current_user)):
     payment_methods = sub.get("payment_methods", ["stripe", "manual"])
     banks = await db.bank_accounts.find({"is_active": True}, {"_id": 0}).to_list(10)
 
+    iris_journey = resolve_iris_journey(sub)
+
     return {
         "client_id": client_id,
         "upcoming_programs": upcoming,
         "financials": financials,
         "package": package,
         "programs": programs_list,
+        "schedule_preview": schedule_preview,
         "journey_logs": logs,
         "profile_status": profile_status,
         "payment_methods": payment_methods,
@@ -136,6 +222,7 @@ async def get_student_home(user: dict = Depends(get_current_user)):
         "late_fee_per_day": sub.get("late_fee_per_day", 0),
         "channelization_fee": sub.get("channelization_fee", 0),
         "show_late_fees": sub.get("show_late_fees", False),
+        "iris_journey": iris_journey,
         "user_details": {
             "full_name": user.get("full_name") or user.get("name"),
             "city": user.get("city"),
