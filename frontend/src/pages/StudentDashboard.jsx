@@ -20,7 +20,35 @@ function formatSlotDateRange(slot) {
   return end ? `${start} — ${end}` : start;
 }
 
-function ScheduleModeToggle({ slot, onModeSaved }) {
+/** When API schedule_preview is empty (e.g. only past dates), still show table from full programs[].schedule */
+function rowsFromPrograms(programs) {
+  const rows = [];
+  for (const p of programs || []) {
+    if (typeof p === 'string' || !p?.name) continue;
+    (p.schedule || []).forEach((s, si) => {
+      const ds = String(s?.date || '').trim().slice(0, 10);
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(ds)) return;
+      rows.push({
+        program_name: p.name,
+        date: ds,
+        end_date: String(s?.end_date || '').trim().slice(0, 10),
+        time: s?.time || '',
+        mode_choice: (s?.mode_choice || '').toLowerCase(),
+        session_index: si,
+      });
+    });
+  }
+  rows.sort((a, b) => a.date.localeCompare(b.date));
+  return rows;
+}
+
+function buildDashboardScheduleRows(schedulePreview, programs) {
+  const prev = schedulePreview || [];
+  if (prev.length > 0) return prev;
+  return rowsFromPrograms(programs).slice(0, 12);
+}
+
+function ScheduleModeToggle({ slot, onModeSaved, compact }) {
   const { toast } = useToast();
   const persistable = slot.session_index != null && slot.program_name && slot.program_name !== '1:1 Session';
   const active = ((slot.mode_choice || 'online').toLowerCase() === 'offline') ? 'offline' : 'online';
@@ -38,6 +66,37 @@ function ScheduleModeToggle({ slot, onModeSaved }) {
       toast({ title: 'Could not save preference', variant: 'destructive' });
     }
   };
+
+  if (compact) {
+    const isOffline = active === 'offline';
+    return (
+      <div className="flex items-center justify-end gap-1" onClick={(e) => e.stopPropagation()}>
+        <span className="text-[7px] font-semibold text-white/50 uppercase tracking-tight text-right leading-tight max-w-[38px]">
+          {isOffline ? 'Offline' : 'Online'}
+        </span>
+        <button
+          type="button"
+          role="switch"
+          aria-checked={isOffline}
+          aria-label={isOffline ? 'Switch to online' : 'Switch to offline'}
+          disabled={!persistable}
+          onClick={() => save(isOffline ? 'online' : 'offline')}
+          className={cn(
+            'relative w-9 h-5 rounded-full transition-colors shrink-0',
+            !persistable && 'opacity-35 pointer-events-none',
+            isOffline ? 'bg-emerald-600' : 'bg-[#D4AF37]/90'
+          )}
+        >
+          <span
+            className={cn(
+              'absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform duration-200',
+              isOffline ? 'translate-x-4' : 'translate-x-0'
+            )}
+          />
+        </button>
+      </div>
+    );
+  }
 
   return (
     <div
@@ -115,15 +174,22 @@ const StudentDashboard = () => {
 
   const patchScheduleSlot = useCallback((updated) => {
     setHomeData((prev) => {
-      if (!prev?.schedule_preview) return prev;
-      const schedule_preview = prev.schedule_preview.map((s) =>
+      if (!prev) return prev;
+      const match = (s) =>
         s.program_name === updated.program_name &&
         s.date === updated.date &&
-        s.session_index === updated.session_index
-          ? { ...s, mode_choice: updated.mode_choice }
-          : s
-      );
-      return { ...prev, schedule_preview };
+        s.session_index === updated.session_index;
+      const schedule_preview = (prev.schedule_preview || []).length
+        ? prev.schedule_preview.map((s) => (match(s) ? { ...s, mode_choice: updated.mode_choice } : s))
+        : prev.schedule_preview;
+      const programs = (prev.programs || []).map((p) => {
+        if (typeof p === 'string' || p.name !== updated.program_name) return p;
+        const sched = (p.schedule || []).map((slot, si) =>
+          si === updated.session_index ? { ...slot, mode_choice: updated.mode_choice } : slot
+        );
+        return { ...p, schedule: sched };
+      });
+      return { ...prev, schedule_preview, programs };
     });
   }, []);
 
@@ -148,19 +214,22 @@ const StudentDashboard = () => {
   const irisJourney = homeData?.iris_journey;
   const showIrisYear = Boolean(pkg.start_date && irisJourney);
 
-  const { scheduleTitle, scheduleDetail, scheduleTags, moreSlots, mobileScheduleSub } = useMemo(() => {
-    const preview = homeData?.schedule_preview || [];
+  const dashboardScheduleRows = useMemo(
+    () => buildDashboardScheduleRows(homeData?.schedule_preview, homeData?.programs),
+    [homeData?.schedule_preview, homeData?.programs]
+  );
+
+  const { scheduleTitle, scheduleDetail, scheduleTags, mobileScheduleSub } = useMemo(() => {
     const pack = homeData?.package || {};
     const up = homeData?.upcoming_programs?.[0];
-    if (preview.length > 0) {
-      const first = preview[0];
+    if (dashboardScheduleRows.length > 0) {
+      const first = dashboardScheduleRows[0];
       const range = formatSlotDateRange(first);
       const detail = [range, first.time].filter(Boolean).join(' · ');
       return {
-        scheduleTitle: first.program_name || 'Scheduled',
-        scheduleDetail: detail || 'Date TBD',
+        scheduleTitle: 'Upcoming sessions',
+        scheduleDetail: '',
         scheduleTags: [],
-        moreSlots: preview.slice(1, 4),
         mobileScheduleSub: `${first.program_name || 'Session'} — ${detail}`,
       };
     }
@@ -171,7 +240,6 @@ const StudentDashboard = () => {
         scheduleTitle: '1:1 session',
         scheduleDetail: detail,
         scheduleTags: [],
-        moreSlots: [],
         mobileScheduleSub: `1:1 session — ${detail}`,
       };
     }
@@ -180,7 +248,6 @@ const StudentDashboard = () => {
         scheduleTitle: up.title,
         scheduleDetail: up.timing || 'See public programs',
         scheduleTags: [up.enrollment_status === 'open' ? 'Open' : 'Coming Soon'],
-        moreSlots: [],
         mobileScheduleSub: `${up.title} — ${up.timing || 'TBD'}`,
       };
     }
@@ -188,10 +255,9 @@ const StudentDashboard = () => {
       scheduleTitle: 'Calendar',
       scheduleDetail: 'Your program dates will appear here',
       scheduleTags: [],
-      moreSlots: [],
       mobileScheduleSub: 'No dates yet — check back soon',
     };
-  }, [homeData?.schedule_preview, homeData?.package, homeData?.upcoming_programs]);
+  }, [dashboardScheduleRows, homeData?.package, homeData?.upcoming_programs]);
 
   return (
     <div className="absolute inset-0 overflow-y-auto overflow-x-hidden" data-testid="student-dashboard">
@@ -254,7 +320,7 @@ const StudentDashboard = () => {
           <div className="flex justify-center mb-6">
             <PetalCard
               testId="petal-schedule"
-              className="w-[380px] p-6"
+              className="w-full max-w-xl p-6"
               delay={100}
               onClick={() => navigate('/dashboard/sessions')}
             >
@@ -272,30 +338,53 @@ const StudentDashboard = () => {
                 </div>
                 <ChevronRight size={16} className="text-white/30 group-hover:text-[#D4AF37] transition-colors mt-1" />
               </div>
-              <p className="mt-2 text-sm text-white/70">{scheduleDetail}</p>
-              {homeData?.schedule_preview?.[0] && (
-                <ScheduleModeToggle slot={homeData.schedule_preview[0]} onModeSaved={patchScheduleSlot} />
-              )}
-              {scheduleTags.length > 0 && (
-                <div className="mt-3 flex flex-wrap gap-2">
-                  {scheduleTags.map((t) => (
-                    <span key={t} className="text-[10px] px-2.5 py-1 rounded-full bg-[#D4AF37]/20 text-[#D4AF37]">{t}</span>
-                  ))}
+              {dashboardScheduleRows.length > 0 ? (
+                <div className="mt-3 border-t border-white/[0.08] pt-3 overflow-x-auto" onClick={(e) => e.stopPropagation()}>
+                  <table className="w-full min-w-[320px] text-left text-[9px] border-collapse" data-testid="dashboard-schedule-table">
+                    <thead>
+                      <tr className="text-[8px] uppercase tracking-wide text-white/40 border-b border-white/10">
+                        <th className="pb-1.5 pr-1 font-semibold">Program</th>
+                        <th className="pb-1.5 px-1 font-semibold whitespace-nowrap">Start date</th>
+                        <th className="pb-1.5 px-1 font-semibold whitespace-nowrap">End date</th>
+                        <th className="pb-1.5 px-1 font-semibold">Time</th>
+                        <th className="pb-1.5 pl-1 font-semibold text-right whitespace-nowrap w-[1%]">Online / off</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {dashboardScheduleRows.slice(0, 6).map((s) => (
+                        <tr key={`${s.program_name}-${s.date}-${s.session_index ?? ''}`} className="border-b border-white/[0.06]">
+                          <td className="py-1.5 pr-1 text-white/75 font-medium max-w-[100px] truncate align-middle" title={s.program_name}>
+                            {s.program_name}
+                          </td>
+                          <td className="py-1.5 px-1 text-white/85 font-mono tabular-nums align-middle whitespace-nowrap">
+                            {formatDateDdMmYyyy(s.date) || '—'}
+                          </td>
+                          <td className="py-1.5 px-1 text-white/85 font-mono tabular-nums align-middle whitespace-nowrap">
+                            {formatDateDdMmYyyy(s.end_date) || '—'}
+                          </td>
+                          <td className="py-1.5 px-1 text-white/60 align-middle">{(s.time && String(s.time).trim()) || '—'}</td>
+                          <td className="py-1.5 pl-1 align-middle">
+                            <ScheduleModeToggle slot={s} onModeSaved={patchScheduleSlot} compact />
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
                 </div>
-              )}
-              {moreSlots.length > 0 && (
-                <ul className="mt-3 space-y-3 text-[10px] text-white/45 border-t border-white/[0.08] pt-3">
-                  {moreSlots.map((s) => (
-                    <li key={`${s.program_name}-${s.date}-${s.session_index ?? ''}`} className="border-b border-white/[0.06] pb-3 last:border-0 last:pb-0">
-                      <div className="text-white/60 font-medium text-[11px]">{s.program_name}</div>
-                      <div className="text-white/50 mt-0.5">{[formatSlotDateRange(s), s.time].filter(Boolean).join(' · ')}</div>
-                      <ScheduleModeToggle slot={s} onModeSaved={patchScheduleSlot} />
-                    </li>
-                  ))}
-                </ul>
-              )}
-              {homeData?.schedule_preview?.length === 0 && !homeData?.package?.scheduled_dates?.length && !homeData?.upcoming_programs?.[0] && (
-                <p className="mt-3 text-xs text-white/30 italic">Open the calendar when your dates are set.</p>
+              ) : (
+                <>
+                  <p className="mt-2 text-sm text-white/70">{scheduleDetail}</p>
+                  {scheduleTags.length > 0 && (
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      {scheduleTags.map((t) => (
+                        <span key={t} className="text-[10px] px-2.5 py-1 rounded-full bg-[#D4AF37]/20 text-[#D4AF37]">{t}</span>
+                      ))}
+                    </div>
+                  )}
+                  {homeData?.schedule_preview?.length === 0 && !homeData?.package?.scheduled_dates?.length && !homeData?.upcoming_programs?.[0] && (
+                    <p className="mt-3 text-xs text-white/30 italic">Open the calendar when your dates are set.</p>
+                  )}
+                </>
               )}
             </PetalCard>
           </div>
@@ -497,7 +586,7 @@ const StudentDashboard = () => {
 
         {/* ─── MOBILE LAYOUT ─── */}
         <div className="lg:hidden w-full max-w-md mx-auto space-y-4">
-          {(homeData?.schedule_preview || []).length > 0 ? (
+          {dashboardScheduleRows.length > 0 ? (
             <PetalCard testId="petal-schedule-m" className="p-5" delay={100} onClick={() => navigate('/dashboard/sessions')}>
               <div className="flex items-center gap-4 mb-3">
                 <div className="w-11 h-11 rounded-2xl flex items-center justify-center shrink-0" style={{ background: '#D4AF3720' }}>
@@ -509,15 +598,30 @@ const StudentDashboard = () => {
                 </div>
                 <ChevronRight size={16} className="text-white/20 shrink-0" />
               </div>
-              <ul className="space-y-3 border-t border-white/[0.08] pt-3">
-                {(homeData.schedule_preview || []).slice(0, 6).map((s) => (
-                  <li key={`${s.program_name}-${s.date}-${s.session_index ?? ''}`} className="text-left">
-                    <p className="text-[11px] font-semibold text-white/80">{s.program_name}</p>
-                    <p className="text-[10px] text-white/50 mt-0.5">{[formatSlotDateRange(s), s.time].filter(Boolean).join(' · ')}</p>
-                    <ScheduleModeToggle slot={s} onModeSaved={patchScheduleSlot} />
-                  </li>
-                ))}
-              </ul>
+              <div className="border-t border-white/[0.08] pt-3 overflow-x-auto -mx-1 px-1" onClick={(e) => e.stopPropagation()}>
+                <table className="w-full min-w-[300px] text-left text-[8px] border-collapse">
+                  <thead>
+                    <tr className="text-[7px] uppercase tracking-wide text-white/40 border-b border-white/10">
+                      <th className="pb-1 pr-0.5 font-semibold">Program</th>
+                      <th className="pb-1 px-0.5 font-semibold whitespace-nowrap">Start</th>
+                      <th className="pb-1 px-0.5 font-semibold whitespace-nowrap">End</th>
+                      <th className="pb-1 px-0.5 font-semibold">Time</th>
+                      <th className="pb-1 pl-0.5 font-semibold text-right w-[1%]">Mode</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {dashboardScheduleRows.slice(0, 6).map((s) => (
+                      <tr key={`${s.program_name}-${s.date}-${s.session_index ?? ''}`} className="border-b border-white/[0.06]">
+                        <td className="py-1 pr-0.5 text-white/75 font-medium max-w-[72px] truncate align-middle" title={s.program_name}>{s.program_name}</td>
+                        <td className="py-1 px-0.5 text-white/80 font-mono align-middle whitespace-nowrap">{formatDateDdMmYyyy(s.date) || '—'}</td>
+                        <td className="py-1 px-0.5 text-white/80 font-mono align-middle whitespace-nowrap">{formatDateDdMmYyyy(s.end_date) || '—'}</td>
+                        <td className="py-1 px-0.5 text-white/55 align-middle">{(s.time && String(s.time).trim()) || '—'}</td>
+                        <td className="py-1 pl-0.5 align-middle"><ScheduleModeToggle slot={s} onModeSaved={patchScheduleSlot} compact /></td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             </PetalCard>
           ) : (
             <PetalCard testId="petal-schedule-m" className="p-5" delay={100} onClick={() => navigate('/dashboard/sessions')}>

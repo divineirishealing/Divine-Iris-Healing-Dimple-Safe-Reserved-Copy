@@ -14,19 +14,6 @@ import { useToast } from '../../hooks/use-toast';
 
 const API = process.env.REACT_APP_BACKEND_URL;
 
-function programDisplayDates(prog, pkg) {
-  const start = formatDateDdMmYyyy(prog.start_date) || formatDateDdMmYyyy(pkg?.start_date);
-  const end = formatDateDdMmYyyy(prog.end_date) || formatDateDdMmYyyy(pkg?.end_date);
-  return { start, end };
-}
-
-function sessionDisplayRange(sess) {
-  const start = formatDateDdMmYyyy(sess?.date);
-  const end = formatDateDdMmYyyy(sess?.end_date);
-  if (!start) return '';
-  return end ? `${start} — ${end}` : start;
-}
-
 /** Per-slot online / offline — single toggle (calls choose-mode). */
 function SessionModeToggle({ programName, sessionIndex, modeChoice, programDefaultMode, onSuccess }) {
   const { toast } = useToast();
@@ -595,7 +582,6 @@ const FinancialsPage = () => {
                 const completedCount = schedule.filter(s => s.completed).length;
                 const totalCount = prog.duration_value || schedule.length || 0;
                 const progressPctProg = totalCount > 0 ? Math.round((completedCount / totalCount) * 100) : 0;
-                const { start: dispStart, end: dispEnd } = programDisplayDates(prog, pkg);
 
                 return (
                   <div key={i} className={`rounded-xl border overflow-hidden ${isPaused ? 'border-amber-200 bg-amber-50/30' : 'border-gray-200'}`} data-testid={`program-card-${i}`}>
@@ -613,16 +599,6 @@ const FinancialsPage = () => {
                           <p className="text-[10px] text-gray-500">
                             {prog.duration_value} {prog.duration_unit} {completedCount > 0 && `· ${completedCount}/${totalCount} completed`}
                           </p>
-                          <div className="mt-2 grid grid-cols-2 gap-x-4 gap-y-1 max-w-sm border border-gray-200/80 rounded-lg bg-white/80 px-3 py-2">
-                            <div>
-                              <p className="text-[9px] uppercase tracking-wide text-gray-400 font-semibold">Start date</p>
-                              <p className="text-[11px] font-mono font-semibold text-gray-900 tabular-nums">{dispStart || '—'}</p>
-                            </div>
-                            <div>
-                              <p className="text-[9px] uppercase tracking-wide text-gray-400 font-semibold">End date</p>
-                              <p className="text-[11px] font-mono font-semibold text-gray-900 tabular-nums">{dispEnd || '—'}</p>
-                            </div>
-                          </div>
                           {isPaused && prog.pause_start && (
                             <p className="text-[9px] text-amber-600 mt-2">
                               Paused: {formatDateDdMmYyyy(prog.pause_start) || '—'} — {formatDateDdMmYyyy(prog.pause_end) || '—'}
@@ -661,43 +637,55 @@ const FinancialsPage = () => {
 
                     {/* Schedule / Sessions */}
                     {schedule.length > 0 && (
-                      <div className="px-4 py-2 space-y-2">
-                        <p className="text-[9px] uppercase tracking-wide text-gray-400 font-semibold px-1">Sessions (dd/mm/yyyy — dd/mm/yyyy)</p>
-                        {schedule.map((sess, si) => {
-                          const label = prog.duration_unit === 'months' ? `Month ${si + 1}` : `Session ${si + 1}`;
-                          const hasDate = !!sess.date;
-                          const range = sessionDisplayRange(sess);
-                          return (
-                            <div
-                              key={si}
-                              className={`flex flex-col sm:flex-row sm:items-center gap-2 py-2 px-3 rounded-lg text-xs ${sess.completed ? 'bg-green-50' : hasDate ? 'bg-white border border-gray-200' : 'bg-gray-50'}`}
-                            >
-                              <div className="flex items-center gap-3 min-w-0 flex-1">
-                                <span className={`w-5 h-5 shrink-0 rounded-full flex items-center justify-center text-[9px] font-bold ${sess.completed ? 'bg-green-500 text-white' : hasDate ? 'bg-[#5D3FD3] text-white' : 'bg-gray-200 text-gray-400'}`}>
-                                  {sess.completed ? <CheckCircle size={10} /> : si + 1}
-                                </span>
-                                <span className="font-medium text-gray-700 w-16 shrink-0">{label}</span>
-                                <div className="min-w-0 flex-1">
-                                  {hasDate ? (
-                                    <p className="font-mono text-[11px] text-gray-800 tabular-nums break-all">
-                                      {range}
-                                      {sess.time ? <span className="text-gray-500 font-sans not-italic"> · {sess.time}</span> : null}
-                                    </p>
-                                  ) : (
-                                    <span className="text-gray-400 italic">Date to be announced</span>
-                                  )}
-                                </div>
-                              </div>
-                              <SessionModeToggle
-                                programName={prog.name}
-                                sessionIndex={si}
-                                modeChoice={sess.mode_choice}
-                                programDefaultMode={prog.mode}
-                                onSuccess={fetchData}
-                              />
-                            </div>
-                          );
-                        })}
+                      <div className="px-2 sm:px-4 py-2 overflow-x-auto">
+                        <table className="w-full min-w-[520px] text-xs border-collapse" data-testid="financials-program-schedule-table">
+                          <thead>
+                            <tr className="border-b border-gray-200 text-[9px] uppercase tracking-wide text-gray-500">
+                              <th className="text-left font-semibold py-2 pl-2 pr-1 w-10">#</th>
+                              <th className="text-left font-semibold py-2 px-1">Start date</th>
+                              <th className="text-left font-semibold py-2 px-1">End date</th>
+                              <th className="text-left font-semibold py-2 px-1">Time</th>
+                              <th className="text-right font-semibold py-2 pr-2 pl-1 w-[1%] whitespace-nowrap">Online / offline</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {schedule.map((sess, si) => {
+                              const label = prog.duration_unit === 'months' ? `M${si + 1}` : `S${si + 1}`;
+                              const hasDate = !!sess.date;
+                              const startDisp = formatDateDdMmYyyy(sess.date) || '—';
+                              const endDisp = formatDateDdMmYyyy(sess.end_date) || '—';
+                              const timeDisp = (sess.time && String(sess.time).trim()) || '—';
+                              return (
+                                <tr
+                                  key={si}
+                                  className={`border-b border-gray-100 ${sess.completed ? 'bg-green-50/80' : hasDate ? '' : 'bg-gray-50/50'}`}
+                                >
+                                  <td className="py-2 pl-2 pr-1 align-middle">
+                                    <span className={`inline-flex w-6 h-6 rounded-full items-center justify-center text-[9px] font-bold ${sess.completed ? 'bg-green-500 text-white' : hasDate ? 'bg-[#5D3FD3] text-white' : 'bg-gray-200 text-gray-500'}`}>
+                                      {sess.completed ? <CheckCircle size={10} /> : label}
+                                    </span>
+                                  </td>
+                                  <td className="py-2 px-1 align-middle font-mono tabular-nums text-[11px] text-gray-900 whitespace-nowrap">
+                                    {hasDate ? startDisp : <span className="text-gray-400 italic font-sans">TBA</span>}
+                                  </td>
+                                  <td className="py-2 px-1 align-middle font-mono tabular-nums text-[11px] text-gray-900 whitespace-nowrap">
+                                    {hasDate ? endDisp : '—'}
+                                  </td>
+                                  <td className="py-2 px-1 align-middle text-[11px] text-gray-700 max-w-[120px]">{timeDisp}</td>
+                                  <td className="py-2 pr-2 pl-1 align-middle text-right">
+                                    <SessionModeToggle
+                                      programName={prog.name}
+                                      sessionIndex={si}
+                                      modeChoice={sess.mode_choice}
+                                      programDefaultMode={prog.mode}
+                                      onSuccess={fetchData}
+                                    />
+                                  </td>
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+                        </table>
                       </div>
                     )}
 
