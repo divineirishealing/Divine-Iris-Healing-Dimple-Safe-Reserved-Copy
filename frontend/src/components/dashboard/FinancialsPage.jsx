@@ -1,9 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { Link } from 'react-router-dom';
 import axios from 'axios';
 import {
   cn,
   formatDateDdMmYyyy,
-  formatDashboardTime,
   formatDashboardStatDate,
   dashboardEmiTable,
 } from '../../lib/utils';
@@ -12,12 +12,11 @@ import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 import { Label } from '../ui/label';
 import {
-  CreditCard, CheckCircle, Clock, AlertCircle, Calendar,
+  CreditCard, CheckCircle, Clock, AlertCircle,
   Package, ArrowRight, ChevronDown, ChevronUp, X, Upload,
   Building2, Smartphone, Wallet, Globe, FileText, Pause, Play
 } from 'lucide-react';
 import { useToast } from '../../hooks/use-toast';
-import { SessionModeToggle } from './SessionModeToggle';
 
 const API = process.env.REACT_APP_BACKEND_URL;
 
@@ -324,14 +323,12 @@ const FinancialsPage = () => {
   );
 
   const fin = data?.financials || {};
-  const pkg = data?.package || {};
   const programs = data?.programs || [];
   const emis = fin.emis || [];
   const totalPaid = fin.total_paid || 0;
   const remaining = fin.remaining || 0;
   const totalFee = fin.total_fee || 0;
   const paidPct = totalFee > 0 ? Math.round((totalPaid / totalFee) * 100) : 0;
-  const sessionPct = pkg.total_sessions > 0 ? Math.round((pkg.used_sessions / pkg.total_sessions) * 100) : 0;
   const methods = data?.payment_methods || ['stripe', 'manual'];
   const banks = data?.bank_accounts || [];
   const clientId = data?.client_id || '';
@@ -339,7 +336,13 @@ const FinancialsPage = () => {
   return (
     <div className="max-w-5xl mx-auto space-y-6" data-testid="financials-page">
       <h1 className="text-2xl font-serif font-bold text-gray-900">Sacred Exchange</h1>
-      <p className="text-sm text-gray-500 -mt-4">Your financial journey & session tracking</p>
+      <p className="text-sm text-gray-500 -mt-4">
+        Payments and EMIs. Session dates, times, online/offline, and availed status are on{' '}
+        <Link to="/dashboard/sessions" className="text-[#5D3FD3] font-semibold hover:underline">
+          Schedule &amp; calendar
+        </Link>
+        .
+      </p>
 
       {/* Top Stats */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
@@ -481,58 +484,18 @@ const FinancialsPage = () => {
         </Card>
       )}
 
-      {/* Session Tracking */}
-      <Card>
-        <CardHeader className="pb-2">
-          <CardTitle className="text-base flex items-center gap-2"><Calendar size={16} className="text-[#84A98C]" /> Session Tracking</CardTitle>
-        </CardHeader>
-        <CardContent>
-          {pkg.total_sessions > 0 && (
-            <div className="flex items-center gap-6 mb-4">
-              <div className="relative w-20 h-20 shrink-0">
-                <svg className="w-full h-full -rotate-90" viewBox="0 0 80 80">
-                  <circle cx="40" cy="40" r="34" fill="none" stroke="#f3f4f6" strokeWidth="6" />
-                  <circle cx="40" cy="40" r="34" fill="none" stroke="#84A98C" strokeWidth="6" strokeLinecap="round" strokeDasharray={`${sessionPct * 2.14} 214`} />
-                </svg>
-                <div className="absolute inset-0 flex flex-col items-center justify-center">
-                  <span className="text-base font-bold text-gray-900">{pkg.used_sessions}</span>
-                  <span className="text-[8px] text-gray-400">of {pkg.total_sessions}</span>
-                </div>
-              </div>
-              <div className="flex-1 grid grid-cols-2 sm:grid-cols-3 gap-3">
-                {[
-                  { label: 'Current', val: pkg.current || 0 },
-                  { label: 'Yet to Avail', val: pkg.yet_to_avail || 0 },
-                  { label: 'Due', val: pkg.due || 0, red: true },
-                ].map((item, i) => (
-                  <div key={i} className="bg-gray-50 rounded-lg p-2.5 text-center">
-                    <p className="text-[9px] uppercase tracking-wider text-gray-400 font-semibold">{item.label}</p>
-                    <p className={`text-lg font-bold ${item.red && item.val > 0 ? 'text-red-600' : 'text-gray-900'}`}>{item.val}</p>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-          {pkg.scheduled_dates?.length > 0 && (
-            <div>
-              <h4 className="text-xs font-semibold text-gray-700 mb-2">Upcoming Sessions</h4>
-              <div className="flex flex-wrap gap-2">
-                {pkg.scheduled_dates.map((d, i) => (
-                  <span key={i} className="px-3 py-1.5 bg-white border rounded-lg text-sm text-gray-700 font-mono tabular-nums flex items-center gap-1.5">
-                    <Calendar size={10} className="text-[#84A98C] shrink-0" /> {formatDateDdMmYyyy(d) || d}
-                  </span>
-                ))}
-              </div>
-            </div>
-          )}
-        </CardContent>
-      </Card>
-
-      {/* Programs in Package — Interactive */}
+      {/* Programs in Package — pause / resume only (schedule lives on Schedule & calendar) */}
       {programs.length > 0 && (
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-base flex items-center gap-2"><Package size={16} className="text-[#D4AF37]" /> My Programs</CardTitle>
+            <p className="text-xs text-gray-500 font-normal mt-1 leading-relaxed">
+              Pause or resume a program here. Dates, times, online/offline, and which sessions are done are on{' '}
+              <Link to="/dashboard/sessions" className="text-[#5D3FD3] font-semibold hover:underline">
+                Schedule &amp; calendar
+              </Link>
+              .
+            </p>
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
@@ -541,14 +504,9 @@ const FinancialsPage = () => {
                 const isPaused = prog.status === 'paused';
                 const isHidden = prog.visible === false;
                 if (isHidden) return null;
-                const schedule = prog.schedule || [];
-                const completedCount = schedule.filter(s => s.completed).length;
-                const totalCount = prog.duration_value || schedule.length || 0;
-                const progressPctProg = totalCount > 0 ? Math.round((completedCount / totalCount) * 100) : 0;
 
                 return (
                   <div key={i} className={`rounded-xl border overflow-hidden ${isPaused ? 'border-amber-200 bg-amber-50/30' : 'border-gray-200'}`} data-testid={`program-card-${i}`}>
-                    {/* Program Header */}
                     <div className={`px-4 py-3 flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 ${isPaused ? 'bg-amber-50' : 'bg-gray-50'}`}>
                       <div className="flex items-start gap-3 min-w-0">
                         <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${isPaused ? 'bg-amber-100' : 'bg-gradient-to-br from-[#5D3FD3]/20 to-[#D4AF37]/20'}`}>
@@ -559,9 +517,11 @@ const FinancialsPage = () => {
                             <p className="text-sm font-bold text-gray-900">{prog.name}</p>
                             {isPaused && <span className="text-[8px] px-1.5 py-0.5 bg-amber-200 text-amber-800 rounded font-bold">PAUSED</span>}
                           </div>
-                          <p className="text-[10px] text-gray-500">
-                            {prog.duration_value} {prog.duration_unit} {completedCount > 0 && `· ${completedCount}/${totalCount} completed`}
-                          </p>
+                          {(prog.duration_value != null || prog.duration_unit) && (
+                            <p className="text-[10px] text-gray-500">
+                              {[prog.duration_value, prog.duration_unit].filter(Boolean).join(' ')}
+                            </p>
+                          )}
                           {isPaused && prog.pause_start && (
                             <p className="text-[9px] text-amber-600 mt-2 font-mono tabular-nums">
                               Paused: {formatDateDdMmYyyy(prog.pause_start) || '—'} — {formatDateDdMmYyyy(prog.pause_end) || '—'}
@@ -570,7 +530,6 @@ const FinancialsPage = () => {
                         </div>
                       </div>
                       <div className="flex items-center gap-2">
-                        {/* Pause/Resume Button */}
                         {prog.allow_pause && !isPaused && (
                           <Button size="sm" variant="outline" onClick={() => setPausingProgram(prog)}
                             className="h-7 text-[10px] border-amber-300 text-amber-700 hover:bg-amber-50" data-testid={`pause-btn-${i}`}>
@@ -587,79 +546,8 @@ const FinancialsPage = () => {
                             <Play size={10} className="mr-1" /> Resume
                           </Button>
                         )}
-                        {totalCount > 0 && (
-                          <div className="text-right">
-                            <span className="text-xs font-bold text-[#5D3FD3]">{progressPctProg}%</span>
-                            <div className="w-16 h-1.5 rounded-full bg-gray-200 mt-0.5">
-                              <div className="h-full rounded-full bg-[#5D3FD3]" style={{ width: `${progressPctProg}%` }} />
-                            </div>
-                          </div>
-                        )}
                       </div>
                     </div>
-
-                    {/* Schedule / Sessions */}
-                    {schedule.length > 0 && (
-                      <div className={cn(dashboardEmiTable.wrap, 'px-2 sm:px-4 py-2')}>
-                        <table className={cn(dashboardEmiTable.table, 'min-w-[520px]')} data-testid="financials-program-schedule-table">
-                          <thead>
-                            <tr className={dashboardEmiTable.theadRow}>
-                              <th className={cn(dashboardEmiTable.th, 'w-10')}>#</th>
-                              <th className={dashboardEmiTable.th}>Start date</th>
-                              <th className={dashboardEmiTable.th}>End date</th>
-                              <th className={dashboardEmiTable.th}>Time</th>
-                              <th className={cn(dashboardEmiTable.thRight, 'whitespace-nowrap w-[1%]')}>Online / offline</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {schedule.map((sess, si) => {
-                              const label = prog.duration_unit === 'months' ? `M${si + 1}` : `S${si + 1}`;
-                              const hasDate = !!sess.date;
-                              const startDisp = formatDateDdMmYyyy(sess.date) || '—';
-                              const endDisp = formatDateDdMmYyyy(sess.end_date) || '—';
-                              const timeDisp = formatDashboardTime(sess.time);
-                              return (
-                                <tr
-                                  key={si}
-                                  className={cn(
-                                    dashboardEmiTable.tbodyTr,
-                                    sess.completed && 'bg-green-50/80',
-                                    !hasDate && 'bg-gray-50/50'
-                                  )}
-                                >
-                                  <td className={cn(dashboardEmiTable.td, 'pl-2')}>
-                                    <span className={`inline-flex w-6 h-6 rounded-full items-center justify-center text-[9px] font-bold ${sess.completed ? 'bg-green-500 text-white' : hasDate ? 'bg-[#5D3FD3] text-white' : 'bg-gray-200 text-gray-500'}`}>
-                                      {sess.completed ? <CheckCircle size={10} /> : label}
-                                    </span>
-                                  </td>
-                                  <td className={dashboardEmiTable.tdDate}>
-                                    {hasDate ? startDisp : <span className="text-gray-400 italic font-sans text-xs">TBA</span>}
-                                  </td>
-                                  <td className={dashboardEmiTable.tdDate}>{hasDate ? endDisp : '—'}</td>
-                                  <td className={cn(dashboardEmiTable.td, 'font-mono tabular-nums text-sm text-gray-700 max-w-[140px]')}>{timeDisp}</td>
-                                  <td className={cn(dashboardEmiTable.td, 'text-right pr-2')}>
-                                    <SessionModeToggle
-                                      programName={prog.name}
-                                      sessionIndex={si}
-                                      modeChoice={sess.mode_choice}
-                                      programDefaultMode={prog.mode}
-                                      onSuccess={fetchData}
-                                    />
-                                  </td>
-                                </tr>
-                              );
-                            })}
-                          </tbody>
-                        </table>
-                      </div>
-                    )}
-
-                    {/* No schedule yet */}
-                    {schedule.length === 0 && !isPaused && (
-                      <div className="px-4 py-3 text-[10px] text-gray-400 italic">
-                        Schedule will be announced soon
-                      </div>
-                    )}
                   </div>
                 );
               })}
