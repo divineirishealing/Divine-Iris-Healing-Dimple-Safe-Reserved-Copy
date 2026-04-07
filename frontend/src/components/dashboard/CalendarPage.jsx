@@ -1,29 +1,131 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import axios from 'axios';
-import { Card, CardHeader, CardTitle, CardContent } from '../ui/card';
+import { Card, CardContent } from '../ui/card';
 import { Button } from '../ui/button';
 import {
-  ChevronLeft, ChevronRight, Calendar as CalendarIcon,
-  Clock, MapPin, CheckCircle, Loader2, List
+  ChevronLeft,
+  ChevronRight,
+  Calendar as CalendarIcon,
+  Clock,
+  MapPin,
+  CheckCircle,
+  Loader2,
+  Sparkles,
+  Layers,
 } from 'lucide-react';
-import { cn, formatDateDdMmYyyy, formatDashboardTime, dashboardEmiTable } from '../../lib/utils';
-import { buildDashboardScheduleRows } from '../../lib/dashboardSchedule';
+import { cn, formatDateDdMmYyyy, formatDashboardTime } from '../../lib/utils';
+import { previewRowsNotInPrograms } from '../../lib/dashboardSchedule';
 import { SessionModeToggle } from './SessionModeToggle';
 
 const API = process.env.REACT_APP_BACKEND_URL;
 
-const PROGRAM_COLORS = {
-  'AWRP': { bg: 'bg-purple-100', text: 'text-purple-700', dot: 'bg-purple-500', border: 'border-purple-200' },
-  'Money Magic Multiplier': { bg: 'bg-amber-100', text: 'text-amber-700', dot: 'bg-amber-500', border: 'border-amber-200' },
-  'Bi-Annual Downloads': { bg: 'bg-blue-100', text: 'text-blue-700', dot: 'bg-blue-500', border: 'border-blue-200' },
-  'Quarterly Meetups': { bg: 'bg-green-100', text: 'text-green-700', dot: 'bg-green-500', border: 'border-green-200' },
+/** Rich themes — all class strings literal for Tailwind. */
+const FALLBACK_THEMES = [
+  {
+    dot: 'bg-violet-500',
+    miniDot: 'bg-violet-400',
+    bar: 'from-violet-600 to-fuchsia-600',
+    cardRing: 'ring-violet-200/50',
+    border: 'border-violet-200/70',
+    headerTint: 'from-violet-50 via-white to-fuchsia-50/30',
+    rowHover: 'hover:bg-violet-50/50',
+    rowActive: 'bg-violet-50/80 ring-1 ring-inset ring-violet-200/60',
+    label: 'text-violet-700',
+    muted: 'text-violet-600/70',
+  },
+  {
+    dot: 'bg-amber-500',
+    miniDot: 'bg-amber-400',
+    bar: 'from-amber-600 to-orange-500',
+    cardRing: 'ring-amber-200/50',
+    border: 'border-amber-200/70',
+    headerTint: 'from-amber-50 via-white to-orange-50/30',
+    rowHover: 'hover:bg-amber-50/50',
+    rowActive: 'bg-amber-50/80 ring-1 ring-inset ring-amber-200/60',
+    label: 'text-amber-800',
+    muted: 'text-amber-700/70',
+  },
+  {
+    dot: 'bg-sky-500',
+    miniDot: 'bg-sky-400',
+    bar: 'from-sky-600 to-cyan-500',
+    cardRing: 'ring-sky-200/50',
+    border: 'border-sky-200/70',
+    headerTint: 'from-sky-50 via-white to-cyan-50/30',
+    rowHover: 'hover:bg-sky-50/50',
+    rowActive: 'bg-sky-50/80 ring-1 ring-inset ring-sky-200/60',
+    label: 'text-sky-800',
+    muted: 'text-sky-700/70',
+  },
+  {
+    dot: 'bg-emerald-500',
+    miniDot: 'bg-emerald-400',
+    bar: 'from-emerald-600 to-teal-500',
+    cardRing: 'ring-emerald-200/50',
+    border: 'border-emerald-200/70',
+    headerTint: 'from-emerald-50 via-white to-teal-50/30',
+    rowHover: 'hover:bg-emerald-50/50',
+    rowActive: 'bg-emerald-50/80 ring-1 ring-inset ring-emerald-200/60',
+    label: 'text-emerald-800',
+    muted: 'text-emerald-700/70',
+  },
+  {
+    dot: 'bg-rose-500',
+    miniDot: 'bg-rose-400',
+    bar: 'from-rose-600 to-pink-500',
+    cardRing: 'ring-rose-200/50',
+    border: 'border-rose-200/70',
+    headerTint: 'from-rose-50 via-white to-pink-50/30',
+    rowHover: 'hover:bg-rose-50/50',
+    rowActive: 'bg-rose-50/80 ring-1 ring-inset ring-rose-200/60',
+    label: 'text-rose-800',
+    muted: 'text-rose-700/70',
+  },
+  {
+    dot: 'bg-indigo-500',
+    miniDot: 'bg-indigo-400',
+    bar: 'from-indigo-600 to-violet-500',
+    cardRing: 'ring-indigo-200/50',
+    border: 'border-indigo-200/70',
+    headerTint: 'from-indigo-50 via-white to-violet-50/30',
+    rowHover: 'hover:bg-indigo-50/50',
+    rowActive: 'bg-indigo-50/80 ring-1 ring-inset ring-indigo-200/60',
+    label: 'text-indigo-800',
+    muted: 'text-indigo-700/70',
+  },
+];
+
+const NAMED_THEMES = {
+  AWRP: FALLBACK_THEMES[0],
+  'Money Magic Multiplier': FALLBACK_THEMES[1],
+  'Bi-Annual Downloads': FALLBACK_THEMES[2],
+  'Quarterly Meetups': FALLBACK_THEMES[3],
 };
-const DEFAULT_COLOR = { bg: 'bg-gray-100', text: 'text-gray-700', dot: 'bg-gray-500', border: 'border-gray-200' };
 
-const getColor = (name) => PROGRAM_COLORS[name] || DEFAULT_COLOR;
+function hashString(s) {
+  let h = 0;
+  for (let i = 0; i < s.length; i++) h = (Math.imul(31, h) + s.charCodeAt(i)) | 0;
+  return Math.abs(h);
+}
 
-const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
-const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+function getProgramTheme(name) {
+  if (NAMED_THEMES[name]) return NAMED_THEMES[name];
+  return FALLBACK_THEMES[hashString(name || '') % FALLBACK_THEMES.length];
+}
+
+const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+const DAYS = ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'];
+
+function sessionLabel(durationUnit, idx) {
+  return durationUnit === 'months' ? `M${idx + 1}` : `S${idx + 1}`;
+}
+
+function dateInSessionRange(selectedIso, startIso, endIso) {
+  if (!selectedIso || !startIso) return false;
+  const s = String(startIso).slice(0, 10);
+  const e = (endIso && String(endIso).slice(0, 10)) || s;
+  return selectedIso >= s && selectedIso <= e;
+}
 
 const CalendarPage = () => {
   const [data, setData] = useState(null);
@@ -50,11 +152,6 @@ const CalendarPage = () => {
 
   const programs = data?.programs || [];
 
-  const scheduleRows = useMemo(
-    () => buildDashboardScheduleRows(data?.schedule_preview, data?.programs, { maxFallbackRows: 200 }),
-    [data?.schedule_preview, data?.programs]
-  );
-
   const programByName = useMemo(() => {
     const m = {};
     for (const p of programs) {
@@ -63,33 +160,33 @@ const CalendarPage = () => {
     return m;
   }, [programs]);
 
-  // Build a map: "YYYY-MM-DD" -> [{ program, session info }]
+  const visiblePrograms = useMemo(
+    () => programs.filter((p) => p && typeof p === 'object' && p.name && p.visible !== false),
+    [programs]
+  );
+
+  const extraPreviewRows = useMemo(
+    () => previewRowsNotInPrograms(data?.schedule_preview, programs),
+    [data?.schedule_preview, programs]
+  );
+
   const eventMap = useMemo(() => {
     const map = {};
-    programs.forEach(prog => {
+    programs.forEach((prog) => {
       if (!prog || prog.visible === false) return;
       const schedule = prog.schedule || [];
       schedule.forEach((sess, idx) => {
         if (!sess.date) return;
         const startDate = new Date(sess.date);
         const endDate = sess.end_date ? new Date(sess.end_date) : startDate;
-        // Create entries for each day in the range
         const current = new Date(startDate);
         while (current <= endDate) {
           const key = current.toISOString().split('T')[0];
           if (!map[key]) map[key] = [];
-          const isStart = key === sess.date;
-          const isEnd = key === sess.end_date;
+          const isStart = key === String(sess.date).slice(0, 10);
           map[key].push({
             program: prog.name,
-            sessionIndex: idx,
-            label: prog.duration_unit === 'months' ? `Month ${idx + 1}` : `Session ${idx + 1}`,
-            time: sess.time || '',
-            note: sess.note || '',
-            completed: sess.completed || false,
-            mode: sess.mode_choice || prog.mode || '',
             isStart,
-            isEnd,
             isRange: !!sess.end_date && sess.date !== sess.end_date,
           });
           current.setDate(current.getDate() + 1);
@@ -99,279 +196,441 @@ const CalendarPage = () => {
     return map;
   }, [programs]);
 
-  // Calendar grid helpers
   const firstDay = new Date(currentYear, currentMonth, 1).getDay();
   const daysInMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
   const today = new Date();
   const todayStr = today.toISOString().split('T')[0];
 
   const prevMonth = () => {
-    if (currentMonth === 0) { setCurrentMonth(11); setCurrentYear(y => y - 1); }
-    else setCurrentMonth(m => m - 1);
+    if (currentMonth === 0) {
+      setCurrentMonth(11);
+      setCurrentYear((y) => y - 1);
+    } else setCurrentMonth((m) => m - 1);
   };
   const nextMonth = () => {
-    if (currentMonth === 11) { setCurrentMonth(0); setCurrentYear(y => y + 1); }
-    else setCurrentMonth(m => m + 1);
+    if (currentMonth === 11) {
+      setCurrentMonth(0);
+      setCurrentYear((y) => y + 1);
+    } else setCurrentMonth((m) => m + 1);
   };
-  const goToday = () => { setCurrentMonth(today.getMonth()); setCurrentYear(today.getFullYear()); };
+  const goToday = () => {
+    setCurrentMonth(today.getMonth());
+    setCurrentYear(today.getFullYear());
+  };
 
-  const selectedEvents = selectedDate ? (eventMap[selectedDate] || []) : [];
+  const monthStrPrefix = `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}`;
+  const monthStats = useMemo(() => {
+    const monthEvents = Object.entries(eventMap)
+      .filter(([d]) => d.startsWith(monthStrPrefix))
+      .flatMap(([, evs]) => evs);
+    const uniqueDays = new Set(Object.keys(eventMap).filter((d) => d.startsWith(monthStrPrefix)));
+    const uniqueProgs = new Set(monthEvents.map((e) => e.program));
+    const sessionStarts = monthEvents.filter((e) => e.isStart || !e.isRange).length;
+    return {
+      days: uniqueDays.size,
+      programs: uniqueProgs.size,
+      sessions: sessionStarts,
+    };
+  }, [eventMap, monthStrPrefix]);
 
-  if (loading) return (
-    <div className="flex items-center justify-center py-20">
-      <Loader2 className="animate-spin text-[#5D3FD3]" size={24} />
-    </div>
-  );
+  const selectedEvents = selectedDate ? eventMap[selectedDate] || [] : [];
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-20">
+        <Loader2 className="animate-spin text-[#5D3FD3]" size={24} />
+      </div>
+    );
+  }
 
   return (
-    <div className="max-w-6xl mx-auto space-y-6" data-testid="calendar-page">
-      <div>
-        <h1 className="text-2xl font-serif font-bold text-gray-900">Schedule &amp; calendar</h1>
-        <p className="text-sm text-gray-500">Your session list and month view in one place</p>
+    <div className="max-w-7xl mx-auto pb-10" data-testid="calendar-page">
+      {/* Hero */}
+      <div className="relative overflow-hidden rounded-2xl border border-[#5D3FD3]/15 bg-gradient-to-br from-[#5D3FD3]/[0.07] via-white to-[#D4AF37]/[0.06] px-5 py-6 sm:px-8 sm:py-8 mb-8 shadow-sm">
+        <div className="absolute -right-16 -top-16 h-48 w-48 rounded-full bg-[#5D3FD3]/10 blur-3xl pointer-events-none" />
+        <div className="absolute -left-10 bottom-0 h-32 w-32 rounded-full bg-[#D4AF37]/10 blur-2xl pointer-events-none" />
+        <div className="relative flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4">
+          <div>
+            <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-[#5D3FD3]/70 mb-2 flex items-center gap-2">
+              <Sparkles size={12} className="text-[#D4AF37]" />
+              Sanctuary schedule
+            </p>
+            <h1 className="text-2xl sm:text-3xl font-serif font-bold text-gray-900 tracking-tight">
+              Programs &amp; calendar
+            </h1>
+            <p className="text-sm text-gray-600 mt-2 max-w-xl">
+              Full session list by program — start, end, time, and online or in person. Use the compact calendar to
+              browse months and highlight a day.
+            </p>
+          </div>
+          <div className="flex items-center gap-2 text-xs text-gray-500 shrink-0">
+            <Layers size={14} className="text-[#5D3FD3]" />
+            <span>{visiblePrograms.length} program{visiblePrograms.length !== 1 ? 's' : ''} visible</span>
+          </div>
+        </div>
       </div>
 
-      <div className="flex flex-col xl:flex-row gap-6 xl:items-start">
-        <div className="flex-1 min-w-0 space-y-6">
-          {/* Legend */}
-          <div className="flex flex-wrap gap-3">
-            {programs.filter((p) => p.visible !== false).map((p) => {
-              const c = getColor(p.name);
-              return (
-                <div key={p.name} className="flex items-center gap-2 text-xs">
-                  <span className={cn('w-3 h-3 rounded-full', c.dot)} />
-                  <span className="text-gray-600 font-medium">{p.name}</span>
-                </div>
-              );
-            })}
-          </div>
-
-      {/* Calendar Card */}
-      <Card>
-        <CardHeader className="pb-2">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <Button variant="ghost" size="sm" onClick={prevMonth} className="h-8 w-8 p-0" data-testid="cal-prev">
-                <ChevronLeft size={16} />
+      <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,268px)_1fr] xl:grid-cols-[minmax(0,288px)_1fr] gap-6 lg:gap-8 items-start">
+        {/* Mini calendar + stats */}
+        <aside className="space-y-4 lg:sticky lg:top-[4.5rem] lg:self-start w-full max-w-md lg:max-w-none mx-auto lg:mx-0">
+          <Card
+            className={cn(
+              'overflow-hidden border-0 shadow-lg shadow-gray-900/5 ring-1 ring-gray-900/5',
+              'bg-white/95 backdrop-blur-sm'
+            )}
+          >
+            <div className="flex items-center justify-between px-3 py-2.5 border-b border-gray-100 bg-gray-50/80">
+              <Button variant="ghost" size="sm" onClick={prevMonth} className="h-8 w-8 p-0 shrink-0" data-testid="cal-prev">
+                <ChevronLeft size={16} className="text-gray-600" />
               </Button>
-              <CardTitle className="text-lg font-serif min-w-[180px] text-center">
+              <span className="text-sm font-semibold text-gray-800 tabular-nums">
                 {MONTHS[currentMonth]} {currentYear}
-              </CardTitle>
-              <Button variant="ghost" size="sm" onClick={nextMonth} className="h-8 w-8 p-0" data-testid="cal-next">
-                <ChevronRight size={16} />
+              </span>
+              <Button variant="ghost" size="sm" onClick={nextMonth} className="h-8 w-8 p-0 shrink-0" data-testid="cal-next">
+                <ChevronRight size={16} className="text-gray-600" />
               </Button>
             </div>
-            <Button variant="outline" size="sm" onClick={goToday} className="h-7 text-xs" data-testid="cal-today">
-              Today
-            </Button>
-          </div>
-        </CardHeader>
-        <CardContent>
-          {/* Day headers */}
-          <div className="grid grid-cols-7 mb-2">
-            {DAYS.map(d => (
-              <div key={d} className="text-center text-[10px] font-semibold uppercase tracking-wider text-gray-400 py-2">
-                {d}
+            <CardContent className="p-2.5 pt-3">
+              <div className="flex justify-end mb-1">
+                <Button variant="outline" size="sm" onClick={goToday} className="h-7 text-[10px] px-2" data-testid="cal-today">
+                  Today
+                </Button>
+              </div>
+              <div className="grid grid-cols-7 gap-0 mb-1">
+                {DAYS.map((d, i) => (
+                  <div
+                    key={i}
+                    className="text-center text-[9px] font-bold uppercase tracking-wide text-gray-400 py-1"
+                  >
+                    {d}
+                  </div>
+                ))}
+              </div>
+              <div className="grid grid-cols-7 gap-px rounded-lg overflow-hidden bg-gray-200/80 border border-gray-200/80">
+                {Array.from({ length: firstDay }).map((_, i) => (
+                  <div key={`e-${i}`} className="bg-gray-50/80 min-h-[34px]" />
+                ))}
+                {Array.from({ length: daysInMonth }).map((_, i) => {
+                  const day = i + 1;
+                  const dateStr = `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+                  const events = eventMap[dateStr] || [];
+                  const isToday = dateStr === todayStr;
+                  const isSelected = dateStr === selectedDate;
+                  const isPast = dateStr < todayStr;
+                  const dots = [...new Set(events.map((e) => e.program))].slice(0, 3);
+
+                  return (
+                    <button
+                      key={day}
+                      type="button"
+                      data-testid={`cal-day-${dateStr}`}
+                      onClick={() => setSelectedDate(dateStr === selectedDate ? null : dateStr)}
+                      className={cn(
+                        'min-h-[34px] p-0.5 bg-white flex flex-col items-center justify-start gap-0.5 transition-colors',
+                        isToday && 'ring-1 ring-inset ring-[#5D3FD3]/35 bg-[#5D3FD3]/[0.06]',
+                        isSelected && 'bg-[#5D3FD3]/12',
+                        isPast && !events.length && 'bg-gray-50/50',
+                        !isSelected && 'hover:bg-gray-50'
+                      )}
+                    >
+                      <span
+                        className={cn(
+                          'text-[10px] font-semibold tabular-nums w-5 h-5 flex items-center justify-center rounded-full',
+                          isToday ? 'bg-[#5D3FD3] text-white' : isPast ? 'text-gray-400' : 'text-gray-700'
+                        )}
+                      >
+                        {day}
+                      </span>
+                      <div className="flex gap-px justify-center flex-wrap max-w-[92%]">
+                        {dots.map((pName) => (
+                          <span
+                            key={pName}
+                            className={cn('w-1.5 h-1.5 rounded-full shrink-0', getProgramTheme(pName).miniDot)}
+                          />
+                        ))}
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Compact stats */}
+          <div className="grid grid-cols-3 gap-2 text-center">
+            {[
+              { label: 'Days', value: monthStats.days, accent: 'text-[#5D3FD3]' },
+              { label: 'Programs', value: monthStats.programs, accent: 'text-[#D4AF37]' },
+              { label: 'Sessions', value: monthStats.sessions, accent: 'text-emerald-600' },
+            ].map((s) => (
+              <div
+                key={s.label}
+                className="rounded-xl border border-gray-100 bg-white/90 py-2.5 px-1 shadow-sm shadow-gray-900/[0.03]"
+              >
+                <p className="text-[8px] uppercase tracking-wider text-gray-400 font-bold">{s.label}</p>
+                <p className={cn('text-lg font-bold tabular-nums', s.accent)}>{s.value}</p>
               </div>
             ))}
           </div>
 
-          {/* Date grid */}
-          <div className="grid grid-cols-7 gap-px bg-gray-100 rounded-xl overflow-hidden border">
-            {/* Empty cells before first day */}
-            {Array.from({ length: firstDay }).map((_, i) => (
-              <div key={`empty-${i}`} className="bg-gray-50/50 min-h-[80px] p-1" />
-            ))}
+          {/* Selected day strip */}
+          {selectedDate && (
+            <div
+              className="rounded-xl border border-gray-200 bg-white p-3 shadow-sm"
+              data-testid="cal-detail-panel"
+            >
+              <div className="flex items-center gap-2 text-sm font-mono tabular-nums text-gray-800 font-semibold mb-2">
+                <CalendarIcon size={14} className="text-[#5D3FD3] shrink-0" />
+                {formatDateDdMmYyyy(selectedDate)}
+              </div>
+              {selectedEvents.length === 0 ? (
+                <p className="text-xs text-gray-400 italic">No sessions this day</p>
+              ) : (
+                <ul className="space-y-1.5">
+                  {selectedEvents.map((ev, idx) => {
+                    const th = getProgramTheme(ev.program);
+                    return (
+                      <li
+                        key={idx}
+                        className={cn(
+                          'flex items-center gap-2 text-[11px] rounded-lg px-2 py-1.5 border',
+                          th.border,
+                          'bg-white/80'
+                        )}
+                      >
+                        <span className={cn('w-2 h-2 rounded-full shrink-0', th.dot)} />
+                        <span className={cn('font-semibold truncate', th.label)}>{ev.program}</span>
+                      </li>
+                    );
+                  })}
+                </ul>
+              )}
+            </div>
+          )}
+        </aside>
 
-            {/* Date cells */}
-            {Array.from({ length: daysInMonth }).map((_, i) => {
-              const day = i + 1;
-              const dateStr = `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
-              const events = eventMap[dateStr] || [];
-              const isToday = dateStr === todayStr;
-              const isSelected = dateStr === selectedDate;
-              const isPast = new Date(dateStr) < new Date(todayStr);
+        {/* Full scheduler */}
+        <main className="min-w-0 space-y-5" data-testid="calendar-schedule-table">
+          <div className="flex items-center justify-between gap-3 flex-wrap">
+            <h2 className="text-lg font-serif font-bold text-gray-900">Full schedule</h2>
+            <p className="text-xs text-gray-500">Colors match each program across the calendar</p>
+          </div>
 
-              // Unique programs on this day
-              const uniqueProgs = [...new Set(events.map(e => e.program))];
+          <div className="space-y-5">
+            {visiblePrograms.map((p) => {
+              const th = getProgramTheme(p.name);
+              const dated = (p.schedule || [])
+                .map((slot, sessionIndex) => ({ slot, sessionIndex }))
+                .filter(({ slot }) => {
+                  const ds = String(slot?.date || '').trim().slice(0, 10);
+                  return /^\d{4}-\d{2}-\d{2}$/.test(ds);
+                })
+                .sort((a, b) => String(a.slot.date).slice(0, 10).localeCompare(String(b.slot.date).slice(0, 10)));
 
               return (
-                <div
-                  key={day}
-                  data-testid={`cal-day-${dateStr}`}
-                  onClick={() => setSelectedDate(dateStr === selectedDate ? null : dateStr)}
+                <section
+                  key={p.name}
                   className={cn(
-                    "min-h-[80px] p-1.5 bg-white cursor-pointer transition-colors relative",
-                    isToday && "ring-2 ring-inset ring-[#5D3FD3]/30",
-                    isSelected && "bg-[#5D3FD3]/5",
-                    isPast && events.length === 0 && "bg-gray-50/30",
-                    "hover:bg-gray-50"
+                    'rounded-2xl overflow-hidden border bg-white shadow-md shadow-gray-900/[0.04] ring-1',
+                    th.cardRing,
+                    th.border
                   )}
+                  data-testid={`calendar-program-${p.name.replace(/\s+/g, '-').toLowerCase()}`}
                 >
-                  <span className={cn(
-                    "text-xs font-medium inline-flex items-center justify-center w-6 h-6 rounded-full",
-                    isToday ? "bg-[#5D3FD3] text-white" : isPast ? "text-gray-400" : "text-gray-700"
-                  )}>
-                    {day}
-                  </span>
-
-                  {/* Event dots */}
-                  <div className="mt-1 space-y-0.5">
-                    {uniqueProgs.slice(0, 3).map(pName => {
-                      const c = getColor(pName);
-                      const ev = events.find(e => e.program === pName);
-                      return (
-                        <div key={pName} className={cn("flex items-center gap-1 px-1 py-0.5 rounded text-[8px] font-medium truncate", c.bg, c.text)}>
-                          {ev?.completed && <CheckCircle size={8} />}
-                          <span className="truncate">{pName.length > 10 ? pName.substring(0, 10) + '..' : pName}</span>
-                        </div>
-                      );
-                    })}
-                    {uniqueProgs.length > 3 && (
-                      <span className="text-[8px] text-gray-400 px-1">+{uniqueProgs.length - 3} more</span>
+                  <div
+                    className={cn(
+                      'relative px-4 py-3 sm:px-5 sm:py-3.5 flex flex-wrap items-center gap-3 justify-between bg-gradient-to-r',
+                      th.headerTint
+                    )}
+                  >
+                    <div className={cn('absolute left-0 top-0 bottom-0 w-1 bg-gradient-to-b', th.bar)} />
+                    <div className="pl-2 min-w-0">
+                      <h3 className={cn('text-base font-bold tracking-tight', th.label)}>{p.name}</h3>
+                      <p className={cn('text-[11px] mt-0.5', th.muted)}>
+                        {p.duration_value} {p.duration_unit}
+                        {dated.length > 0 ? ` · ${dated.length} dated session${dated.length !== 1 ? 's' : ''}` : ''}
+                      </p>
+                    </div>
+                    {p.status === 'paused' && (
+                      <span className="text-[10px] font-bold uppercase tracking-wide px-2 py-1 rounded-full bg-amber-100 text-amber-800 border border-amber-200">
+                        Paused
+                      </span>
                     )}
                   </div>
-                </div>
+
+                  {dated.length === 0 ? (
+                    <div className="px-5 py-8 text-center text-sm text-gray-400 italic border-t border-gray-100/80">
+                      Dates for this program will appear when scheduled
+                    </div>
+                  ) : (
+                    <div className="border-t border-gray-100/90">
+                      <div
+                        className={cn(
+                          'hidden sm:grid gap-3 px-4 py-2 text-[10px] font-bold uppercase tracking-wider text-gray-400 bg-gray-50/95 border-b border-gray-100',
+                          'grid-cols-[52px_1fr_1fr_1fr_minmax(128px,1fr)]'
+                        )}
+                      >
+                        <span>#</span>
+                        <span>Start</span>
+                        <span>End</span>
+                        <span>Time</span>
+                        <span className="text-right pr-1">Online / off</span>
+                      </div>
+
+                      {dated.map(({ slot, sessionIndex }) => {
+                        const startDisp = formatDateDdMmYyyy(slot.date) || '—';
+                        const endDisp = formatDateDdMmYyyy(slot.end_date) || '—';
+                        const timeDisp = formatDashboardTime(slot.time);
+                        const persistable =
+                          p.name !== '1:1 Session' && sessionIndex != null;
+                        const highlighted =
+                          selectedDate &&
+                          dateInSessionRange(selectedDate, slot.date, slot.end_date);
+                        const lbl = sessionLabel(p.duration_unit, sessionIndex);
+
+                        return (
+                          <div
+                            key={`${p.name}-${sessionIndex}-${slot.date}`}
+                            className={cn(
+                              'border-b border-gray-100/80 last:border-0 transition-colors px-3 py-3 sm:px-4 sm:py-0',
+                              th.rowHover,
+                              highlighted && th.rowActive
+                            )}
+                          >
+                            <div className="flex flex-col gap-3 sm:grid sm:grid-cols-[52px_1fr_1fr_1fr_minmax(128px,1fr)] sm:gap-3 sm:items-center sm:py-2.5">
+                              <div className="flex items-center gap-2 sm:block sm:text-center">
+                                <span
+                                  className={cn(
+                                    'inline-flex w-9 h-9 rounded-xl items-center justify-center text-[10px] font-bold shrink-0 mx-auto sm:mx-0',
+                                    slot.completed
+                                      ? 'bg-emerald-500 text-white'
+                                      : 'bg-gray-100 text-gray-600 border border-gray-200/80'
+                                  )}
+                                  title={slot.completed ? 'Completed' : lbl}
+                                >
+                                  {slot.completed ? <CheckCircle size={14} /> : lbl}
+                                </span>
+                                <div className="sm:hidden min-w-0 flex-1">
+                                  <p className={cn('text-xs font-bold', th.label)}>{lbl}</p>
+                                  <p className="text-[10px] text-gray-500 font-mono tabular-nums mt-0.5">
+                                    {startDisp}
+                                    {endDisp !== '—' && endDisp !== startDisp ? ` → ${endDisp}` : ''} · {timeDisp}
+                                  </p>
+                                </div>
+                              </div>
+                              <div>
+                                <span className="text-[9px] uppercase text-gray-400 font-semibold sm:hidden">
+                                  Start
+                                </span>
+                                <div className="font-mono tabular-nums text-sm text-gray-800">{startDisp}</div>
+                              </div>
+                              <div>
+                                <span className="text-[9px] uppercase text-gray-400 font-semibold sm:hidden">End</span>
+                                <div className="font-mono tabular-nums text-sm text-gray-800">{endDisp}</div>
+                              </div>
+                              <div>
+                                <span className="text-[9px] uppercase text-gray-400 font-semibold sm:hidden">
+                                  Time
+                                </span>
+                                <div className="font-mono tabular-nums text-sm text-gray-600 flex items-center gap-1">
+                                  <Clock size={12} className="text-gray-400 shrink-0 opacity-70" />
+                                  {timeDisp}
+                                </div>
+                              </div>
+                              <div className="flex justify-end pt-1 border-t border-gray-100/80 sm:border-0 sm:pt-0">
+                                {persistable ? (
+                                  <SessionModeToggle
+                                    programName={p.name}
+                                    sessionIndex={sessionIndex}
+                                    modeChoice={slot.mode_choice}
+                                    programDefaultMode={p.mode}
+                                    onSuccess={fetchHome}
+                                  />
+                                ) : (
+                                  <span className="text-[10px] text-gray-400">—</span>
+                                )}
+                              </div>
+                            </div>
+                            {slot.note ? (
+                              <div className="text-[11px] text-gray-500 flex items-start gap-1.5 pb-3 sm:pb-2 sm:pl-[52px] sm:-mt-1">
+                                <MapPin size={11} className="shrink-0 opacity-60 mt-0.5" />
+                                {slot.note}
+                              </div>
+                            ) : null}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </section>
               );
             })}
           </div>
-        </CardContent>
-      </Card>
 
-      {/* Selected Date Detail */}
-      {selectedDate && (
-        <Card data-testid="cal-detail-panel">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-base flex items-center gap-2 font-mono tabular-nums">
-              <CalendarIcon size={16} className="text-[#5D3FD3] shrink-0 font-sans" />
-              {formatDateDdMmYyyy(selectedDate)}
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            {selectedEvents.length === 0 ? (
-              <p className="text-sm text-gray-400 italic py-4">No sessions scheduled for this day</p>
-            ) : (
-              <div className="space-y-3">
-                {selectedEvents.map((ev, i) => {
-                  const c = getColor(ev.program);
+          {extraPreviewRows.length > 0 && (
+            <section
+              className="rounded-2xl overflow-hidden border border-gray-200 bg-white shadow-md shadow-gray-900/[0.04] ring-1 ring-gray-200/50"
+              data-testid="calendar-preview-extra"
+            >
+              <div className="px-4 py-3 bg-gradient-to-r from-slate-50 to-gray-50 border-b border-gray-100">
+                <h3 className="text-base font-bold text-gray-800">Also on your calendar</h3>
+                <p className="text-[11px] text-gray-500 mt-0.5">From your overview — not tied to a program schedule row</p>
+              </div>
+              <div className="divide-y divide-gray-100">
+                {extraPreviewRows.map((r, i) => {
+                  const th = getProgramTheme(r.program_name);
+                  const prog = programByName[r.program_name];
+                  const persistable =
+                    r.program_name !== '1:1 Session' && r.session_index != null;
+                  const highlighted =
+                    selectedDate && dateInSessionRange(selectedDate, r.date, r.end_date);
                   return (
-                    <div key={i} className={cn("flex items-start gap-3 p-3 rounded-xl border", c.border, c.bg + '/30')}>
-                      <div className={cn("w-2 h-2 rounded-full mt-1.5 shrink-0", c.dot)} />
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <span className={cn("text-sm font-bold", c.text)}>{ev.program}</span>
-                          <span className="text-[10px] px-2 py-0.5 rounded-full bg-white/80 text-gray-600 font-medium">{ev.label}</span>
-                          {ev.completed && <span className="text-[10px] px-2 py-0.5 rounded-full bg-green-100 text-green-700 font-bold">Completed</span>}
-                          {ev.mode && <span className={cn("text-[10px] px-2 py-0.5 rounded-full font-bold", ev.mode === 'online' ? 'bg-blue-100 text-blue-600' : 'bg-green-100 text-green-600')}>{ev.mode}</span>}
-                        </div>
-                        <div className="flex items-center gap-4 mt-1 text-xs text-gray-500">
-                          {formatDashboardTime(ev.time) !== '—' && (
-                            <span className="flex items-center gap-1 font-mono tabular-nums text-sm"><Clock size={10} className="shrink-0" /> {formatDashboardTime(ev.time)}</span>
-                          )}
-                          {ev.note && <span className="flex items-center gap-1"><MapPin size={10} /> {ev.note}</span>}
-                        </div>
+                    <div
+                      key={`extra-${i}-${r.date}`}
+                      className={cn(
+                        'grid sm:grid-cols-[1fr_auto_auto_auto_auto] gap-2 px-4 py-3 items-center',
+                        th.rowHover,
+                        highlighted && th.rowActive
+                      )}
+                    >
+                      <div className="flex items-center gap-2 min-w-0">
+                        <span className={cn('w-2 h-2 rounded-full shrink-0', th.dot)} />
+                        <span className={cn('font-semibold truncate', th.label)}>{r.program_name}</span>
+                      </div>
+                      <span className="font-mono tabular-nums text-sm text-gray-800">
+                        {formatDateDdMmYyyy(r.date) || '—'}
+                      </span>
+                      <span className="font-mono tabular-nums text-sm text-gray-800">
+                        {formatDateDdMmYyyy(r.end_date) || '—'}
+                      </span>
+                      <span className="font-mono tabular-nums text-sm text-gray-600">{formatDashboardTime(r.time)}</span>
+                      <div className="flex justify-end">
+                        {persistable ? (
+                          <SessionModeToggle
+                            programName={r.program_name}
+                            sessionIndex={r.session_index}
+                            modeChoice={r.mode_choice}
+                            programDefaultMode={prog?.mode}
+                            onSuccess={fetchHome}
+                          />
+                        ) : (
+                          <span className="text-[10px] text-gray-400">—</span>
+                        )}
                       </div>
                     </div>
                   );
                 })}
               </div>
-            )}
-          </CardContent>
-        </Card>
-      )}
+            </section>
+          )}
 
-      {/* Monthly Overview stats */}
-      <Card>
-        <CardHeader className="pb-2">
-          <CardTitle className="text-base">Month Overview</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-            {(() => {
-              const monthStr = `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}`;
-              const monthEvents = Object.entries(eventMap)
-                .filter(([d]) => d.startsWith(monthStr))
-                .flatMap(([, evs]) => evs);
-              const uniqueDays = new Set(Object.keys(eventMap).filter(d => d.startsWith(monthStr)));
-              const completedEvents = monthEvents.filter(e => e.completed);
-              const uniqueProgs = new Set(monthEvents.map(e => e.program));
-              return [
-                { label: 'Active Days', value: uniqueDays.size, color: 'text-[#5D3FD3]' },
-                { label: 'Programs', value: uniqueProgs.size, color: 'text-[#D4AF37]' },
-                { label: 'Sessions', value: monthEvents.filter(e => e.isStart || !e.isRange).length, color: 'text-blue-600' },
-                { label: 'Completed', value: completedEvents.filter(e => e.isStart || !e.isRange).length, color: 'text-green-600' },
-              ];
-            })().map((s, i) => (
-              <div key={i} className="bg-gray-50 rounded-xl p-3 text-center">
-                <p className="text-[9px] uppercase tracking-wider text-gray-400 font-semibold">{s.label}</p>
-                <p className={cn("text-2xl font-bold mt-1", s.color)}>{s.value}</p>
-              </div>
-            ))}
-          </div>
-        </CardContent>
-      </Card>
-        </div>
-
-        {/* Schedule table — same data model as overview / Sacred Exchange */}
-        <Card className="w-full xl:w-[min(100%,440px)] shrink-0 xl:sticky xl:top-[4.5rem]" data-testid="calendar-schedule-card">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-base flex items-center gap-2">
-              <List size={16} className="text-[#5D3FD3]" />
-              My schedule
-            </CardTitle>
-            <p className="text-xs text-gray-500 font-normal">Start, end, time, and online / offline</p>
-          </CardHeader>
-          <CardContent className="pt-0">
-            {scheduleRows.length === 0 ? (
-              <p className="text-sm text-gray-500 italic py-4">No sessions in your schedule yet.</p>
-            ) : (
-              <div className={dashboardEmiTable.wrap}>
-                <table className={cn(dashboardEmiTable.table, 'min-w-[320px]')} data-testid="calendar-schedule-table">
-                  <thead>
-                    <tr className={dashboardEmiTable.theadRow}>
-                      <th className={dashboardEmiTable.th}>Program</th>
-                      <th className={cn(dashboardEmiTable.th, 'whitespace-nowrap')}>Start</th>
-                      <th className={cn(dashboardEmiTable.th, 'whitespace-nowrap')}>End</th>
-                      <th className={dashboardEmiTable.th}>Time</th>
-                      <th className={cn(dashboardEmiTable.thRight, 'whitespace-nowrap w-[1%]')}>Online / off</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {scheduleRows.map((s) => {
-                      const persistable =
-                        s.session_index != null && s.program_name && s.program_name !== '1:1 Session';
-                      const prog = programByName[s.program_name];
-                      return (
-                        <tr key={`${s.program_name}-${s.date}-${s.session_index ?? ''}`} className={dashboardEmiTable.tbodyTr}>
-                          <td className={cn(dashboardEmiTable.tdNum, 'max-w-[100px] truncate')} title={s.program_name}>
-                            {s.program_name}
-                          </td>
-                          <td className={dashboardEmiTable.tdDate}>{formatDateDdMmYyyy(s.date) || '—'}</td>
-                          <td className={dashboardEmiTable.tdDate}>{formatDateDdMmYyyy(s.end_date) || '—'}</td>
-                          <td className={cn(dashboardEmiTable.td, 'font-mono tabular-nums text-sm text-gray-700')}>
-                            {formatDashboardTime(s.time)}
-                          </td>
-                          <td className={cn(dashboardEmiTable.td, 'text-right pr-1')}>
-                            {persistable ? (
-                              <SessionModeToggle
-                                programName={s.program_name}
-                                sessionIndex={s.session_index}
-                                modeChoice={s.mode_choice}
-                                programDefaultMode={prog?.mode}
-                                onSuccess={fetchHome}
-                              />
-                            ) : (
-                              <span className="text-[10px] text-gray-400">—</span>
-                            )}
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </CardContent>
-        </Card>
+          {visiblePrograms.length === 0 && extraPreviewRows.length === 0 && (
+            <div className="rounded-2xl border border-dashed border-gray-200 bg-gray-50/50 py-16 text-center text-gray-500">
+              <CalendarIcon className="mx-auto mb-3 text-gray-300" size={40} />
+              <p className="text-sm">No programs or sessions yet</p>
+            </div>
+          )}
+        </main>
       </div>
     </div>
   );
