@@ -1,6 +1,12 @@
 import React, { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
-import { cn, formatDateDdMmYyyy, formatDashboardTime } from '../../lib/utils';
+import {
+  cn,
+  formatDateDdMmYyyy,
+  formatDashboardTime,
+  formatDashboardStatDate,
+  dashboardEmiTable,
+} from '../../lib/utils';
 import { Card, CardHeader, CardTitle, CardContent } from '../ui/card';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
@@ -134,7 +140,10 @@ const PaymentModal = ({ emi, clientId, banks, methods, currency, onClose, onSucc
         <div className="flex items-center justify-between px-6 py-4 border-b bg-gradient-to-r from-[#5D3FD3]/5 to-[#D4AF37]/5">
           <div>
             <h3 className="font-serif font-bold text-gray-900">Pay EMI #{emi.number}</h3>
-            <p className="text-sm text-gray-500">{currency} {emi.amount?.toLocaleString()} due {emi.due_date || 'N/A'}</p>
+            <p className="text-sm text-gray-500">
+              {currency} {emi.amount?.toLocaleString()} due{' '}
+              <span className="font-mono tabular-nums">{formatDateDdMmYyyy(emi.due_date) || emi.due_date || 'N/A'}</span>
+            </p>
           </div>
           <button onClick={onClose} className="text-gray-400 hover:text-gray-600"><X size={20} /></button>
         </div>
@@ -382,14 +391,14 @@ const FinancialsPage = () => {
       {/* Top Stats */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         {[
-          { label: 'Total Fee', value: `${fin.currency || ''} ${totalFee.toLocaleString()}`, color: 'text-gray-900' },
-          { label: 'Paid', value: `${fin.currency || ''} ${totalPaid.toLocaleString()}`, color: 'text-green-600' },
-          { label: 'Remaining', value: `${fin.currency || ''} ${remaining.toLocaleString()}`, color: remaining > 0 ? 'text-red-600' : 'text-green-600' },
-          { label: 'Next Due', value: fin.next_due || 'None', color: 'text-amber-600' },
+          { label: 'Total Fee', value: `${fin.currency || ''} ${totalFee.toLocaleString()}`, color: 'text-gray-900', mono: false },
+          { label: 'Paid', value: `${fin.currency || ''} ${totalPaid.toLocaleString()}`, color: 'text-green-600', mono: false },
+          { label: 'Remaining', value: `${fin.currency || ''} ${remaining.toLocaleString()}`, color: remaining > 0 ? 'text-red-600' : 'text-green-600', mono: false },
+          { label: 'Next Due', value: formatDashboardStatDate(fin.next_due), color: 'text-amber-600', mono: true },
         ].map((s, i) => (
           <div key={i} className="bg-white rounded-xl border p-4 text-center" data-testid={`stat-${s.label.toLowerCase().replace(' ', '-')}`}>
             <p className="text-[10px] uppercase tracking-wider text-gray-400 font-semibold">{s.label}</p>
-            <p className={`text-lg font-bold mt-1 ${s.color}`}>{s.value}</p>
+            <p className={cn('text-lg font-bold mt-1', s.color, s.mono && 'font-mono tabular-nums text-base')}>{s.value}</p>
           </div>
         ))}
       </div>
@@ -427,19 +436,19 @@ const FinancialsPage = () => {
             </div>
           </CardHeader>
           <CardContent>
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
+            <div className={dashboardEmiTable.wrap}>
+              <table className={dashboardEmiTable.table} data-testid="emi-schedule-table">
                 <thead>
-                  <tr className="text-[10px] uppercase tracking-wider text-gray-400 border-b">
-                    <th className="text-left py-2 px-2">#</th>
-                    <th className="text-left py-2 px-2">Due Date</th>
-                    <th className="text-right py-2 px-2">Amount</th>
-                    <th className="text-center py-2 px-2">Status</th>
-                    {data?.show_late_fees && <th className="text-right py-2 px-2 text-red-400">Late Fee</th>}
-                    {data?.show_late_fees && <th className="text-right py-2 px-2 text-red-400">Ch. Fee</th>}
-                    <th className="text-center py-2 px-2">Payment Mode</th>
-                    <th className="text-left py-2 px-2">Remarks</th>
-                    <th className="text-center py-2 px-2">Action</th>
+                  <tr className={dashboardEmiTable.theadRow}>
+                    <th className={dashboardEmiTable.th}>#</th>
+                    <th className={dashboardEmiTable.th}>Due date</th>
+                    <th className={dashboardEmiTable.thRight}>Amount</th>
+                    <th className={dashboardEmiTable.thCenter}>Status</th>
+                    {data?.show_late_fees && <th className={cn(dashboardEmiTable.thRight, 'text-red-400')}>Late fee</th>}
+                    {data?.show_late_fees && <th className={cn(dashboardEmiTable.thRight, 'text-red-400')}>Ch. fee</th>}
+                    <th className={dashboardEmiTable.thCenter}>Payment mode</th>
+                    <th className={dashboardEmiTable.th}>Remarks</th>
+                    <th className={dashboardEmiTable.thCenter}>Action</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -451,12 +460,13 @@ const FinancialsPage = () => {
                     const lateFee = daysLate * (data?.late_fee_per_day || 0);
                     const channelFee = isOverdue && daysLate > 0 ? (data?.channelization_fee || 0) : 0;
                     const statusLabel = isPaid ? 'paid' : isSubmitted ? 'submitted' : isOverdue ? 'overdue' : 'due';
+                    const dueDisp = formatDateDdMmYyyy(emi.due_date) || '—';
                     return (
-                      <tr key={emi.number} className={`border-b border-gray-50 hover:bg-gray-50 ${isPaid ? 'bg-green-50/30' : isOverdue ? 'bg-red-50/20' : ''}`} data-testid={`emi-row-${emi.number}`}>
-                        <td className="py-3 px-2 font-medium text-gray-700">{emi.number}</td>
-                        <td className="py-3 px-2 text-gray-600">{emi.due_date || '-'}</td>
-                        <td className="py-3 px-2 text-right font-mono text-gray-700">{fin.currency} {(emi.amount || 0).toLocaleString()}</td>
-                        <td className="py-3 px-2 text-center">
+                      <tr key={emi.number} className={cn(dashboardEmiTable.tbodyTr, isPaid && 'bg-green-50/30', isOverdue && 'bg-red-50/20')} data-testid={`emi-row-${emi.number}`}>
+                        <td className={dashboardEmiTable.tdNum}>{emi.number}</td>
+                        <td className={dashboardEmiTable.tdDate}>{dueDisp}</td>
+                        <td className={dashboardEmiTable.tdAmount}>{fin.currency} {(emi.amount || 0).toLocaleString()}</td>
+                        <td className={cn(dashboardEmiTable.td, 'text-center')}>
                           <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold ${
                             isPaid ? 'bg-green-50 text-green-700' :
                             isSubmitted ? 'bg-blue-50 text-blue-700' :
@@ -471,22 +481,22 @@ const FinancialsPage = () => {
                           </span>
                         </td>
                         {data?.show_late_fees && (
-                          <td className="py-3 px-2 text-right font-mono text-[10px] text-red-600 whitespace-nowrap">
-                            {lateFee > 0 ? `${fin.currency} ${lateFee.toLocaleString()} (${daysLate}d)` : '-'}
+                          <td className={cn(dashboardEmiTable.tdAmount, 'text-[10px] text-red-600')}>
+                            {lateFee > 0 ? `${fin.currency} ${lateFee.toLocaleString()} (${daysLate}d)` : '—'}
                           </td>
                         )}
                         {data?.show_late_fees && (
-                          <td className="py-3 px-2 text-right font-mono text-[10px] text-red-600 whitespace-nowrap">
-                            {channelFee > 0 ? `${fin.currency} ${channelFee.toLocaleString()}` : '-'}
+                          <td className={cn(dashboardEmiTable.tdAmount, 'text-[10px] text-red-600')}>
+                            {channelFee > 0 ? `${fin.currency} ${channelFee.toLocaleString()}` : '—'}
                           </td>
                         )}
-                        <td className="py-3 px-2 text-center text-[10px] text-gray-500">
-                          {emi.payment_method ? emi.payment_method.toUpperCase() : '-'}
+                        <td className={dashboardEmiTable.tdSmallCenter}>
+                          {emi.payment_method ? emi.payment_method.toUpperCase() : '—'}
                         </td>
-                        <td className="py-3 px-2 text-left text-[10px] text-gray-400 max-w-[120px] truncate">
-                          {emi.paid_by ? `Paid by ${emi.paid_by}` : emi.transaction_id ? `TXN: ${emi.transaction_id}` : emi.remarks || '-'}
+                        <td className={dashboardEmiTable.tdRemarks}>
+                          {emi.paid_by ? `Paid by ${emi.paid_by}` : emi.transaction_id ? `TXN: ${emi.transaction_id}` : emi.remarks || '—'}
                         </td>
-                        <td className="py-3 px-2 text-center">
+                        <td className={cn(dashboardEmiTable.td, 'text-center')}>
                           {isPaid && emi.receipt_url ? (
                             <a href={`${API}${emi.receipt_url}`} target="_blank" rel="noreferrer" className="text-[10px] text-[#5D3FD3] hover:underline flex items-center justify-center gap-1">
                               <FileText size={10} /> Receipt
@@ -555,8 +565,8 @@ const FinancialsPage = () => {
               <h4 className="text-xs font-semibold text-gray-700 mb-2">Upcoming Sessions</h4>
               <div className="flex flex-wrap gap-2">
                 {pkg.scheduled_dates.map((d, i) => (
-                  <span key={i} className="px-3 py-1.5 bg-white border rounded-lg text-xs text-gray-700 flex items-center gap-1.5">
-                    <Calendar size={10} className="text-[#84A98C]" /> {d}
+                  <span key={i} className="px-3 py-1.5 bg-white border rounded-lg text-sm text-gray-700 font-mono tabular-nums flex items-center gap-1.5">
+                    <Calendar size={10} className="text-[#84A98C] shrink-0" /> {formatDateDdMmYyyy(d) || d}
                   </span>
                 ))}
               </div>
@@ -600,7 +610,7 @@ const FinancialsPage = () => {
                             {prog.duration_value} {prog.duration_unit} {completedCount > 0 && `· ${completedCount}/${totalCount} completed`}
                           </p>
                           {isPaused && prog.pause_start && (
-                            <p className="text-[9px] text-amber-600 mt-2">
+                            <p className="text-[9px] text-amber-600 mt-2 font-mono tabular-nums">
                               Paused: {formatDateDdMmYyyy(prog.pause_start) || '—'} — {formatDateDdMmYyyy(prog.pause_end) || '—'}
                             </p>
                           )}
@@ -637,15 +647,15 @@ const FinancialsPage = () => {
 
                     {/* Schedule / Sessions */}
                     {schedule.length > 0 && (
-                      <div className="px-2 sm:px-4 py-2 overflow-x-auto">
-                        <table className="w-full min-w-[520px] text-xs border-collapse" data-testid="financials-program-schedule-table">
+                      <div className={cn(dashboardEmiTable.wrap, 'px-2 sm:px-4 py-2')}>
+                        <table className={cn(dashboardEmiTable.table, 'min-w-[520px]')} data-testid="financials-program-schedule-table">
                           <thead>
-                            <tr className="border-b border-gray-200 text-[9px] uppercase tracking-wide text-gray-500">
-                              <th className="text-left font-semibold py-2 pl-2 pr-1 w-10">#</th>
-                              <th className="text-left font-semibold py-2 px-1">Start date</th>
-                              <th className="text-left font-semibold py-2 px-1">End date</th>
-                              <th className="text-left font-semibold py-2 px-1">Time</th>
-                              <th className="text-right font-semibold py-2 pr-2 pl-1 w-[1%] whitespace-nowrap">Online / offline</th>
+                            <tr className={dashboardEmiTable.theadRow}>
+                              <th className={cn(dashboardEmiTable.th, 'w-10')}>#</th>
+                              <th className={dashboardEmiTable.th}>Start date</th>
+                              <th className={dashboardEmiTable.th}>End date</th>
+                              <th className={dashboardEmiTable.th}>Time</th>
+                              <th className={cn(dashboardEmiTable.thRight, 'whitespace-nowrap w-[1%]')}>Online / offline</th>
                             </tr>
                           </thead>
                           <tbody>
@@ -658,21 +668,23 @@ const FinancialsPage = () => {
                               return (
                                 <tr
                                   key={si}
-                                  className={`border-b border-gray-100 ${sess.completed ? 'bg-green-50/80' : hasDate ? '' : 'bg-gray-50/50'}`}
+                                  className={cn(
+                                    dashboardEmiTable.tbodyTr,
+                                    sess.completed && 'bg-green-50/80',
+                                    !hasDate && 'bg-gray-50/50'
+                                  )}
                                 >
-                                  <td className="py-2 pl-2 pr-1 align-middle">
+                                  <td className={cn(dashboardEmiTable.td, 'pl-2')}>
                                     <span className={`inline-flex w-6 h-6 rounded-full items-center justify-center text-[9px] font-bold ${sess.completed ? 'bg-green-500 text-white' : hasDate ? 'bg-[#5D3FD3] text-white' : 'bg-gray-200 text-gray-500'}`}>
                                       {sess.completed ? <CheckCircle size={10} /> : label}
                                     </span>
                                   </td>
-                                  <td className="py-2 px-1 align-middle font-mono tabular-nums text-[11px] text-gray-900 whitespace-nowrap">
-                                    {hasDate ? startDisp : <span className="text-gray-400 italic font-sans">TBA</span>}
+                                  <td className={dashboardEmiTable.tdDate}>
+                                    {hasDate ? startDisp : <span className="text-gray-400 italic font-sans text-xs">TBA</span>}
                                   </td>
-                                  <td className="py-2 px-1 align-middle font-mono tabular-nums text-[11px] text-gray-900 whitespace-nowrap">
-                                    {hasDate ? endDisp : '—'}
-                                  </td>
-                                  <td className="py-2 px-1 align-middle text-[11px] text-gray-700 max-w-[120px]">{timeDisp}</td>
-                                  <td className="py-2 pr-2 pl-1 align-middle text-right">
+                                  <td className={dashboardEmiTable.tdDate}>{hasDate ? endDisp : '—'}</td>
+                                  <td className={cn(dashboardEmiTable.td, 'font-mono tabular-nums text-sm text-gray-700 max-w-[140px]')}>{timeDisp}</td>
+                                  <td className={cn(dashboardEmiTable.td, 'text-right pr-2')}>
                                     <SessionModeToggle
                                       programName={prog.name}
                                       sessionIndex={si}

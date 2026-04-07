@@ -29,3 +29,42 @@ export function formatDashboardTime(val) {
   const t = String(val).trim().replace(/\s+/g, " ");
   return t || "—";
 }
+
+/** Stat cards / labels: format ISO dates as dd-mm-yyyy; pass through phrases like "No pending dues". */
+export function formatDashboardStatDate(val) {
+  if (val == null || val === "") return "—";
+  const formatted = formatDateDdMmYyyy(val);
+  return formatted || String(val).trim();
+}
+
+/**
+ * Sacred Exchange EMI Schedule typography — reuse for My Programs tables and other dashboard grids.
+ * Body text-sm; headers uppercase 10px gray-400; dates/amounts font-mono tabular-nums.
+ */
+export const dashboardEmiTable = {
+  wrap: "overflow-x-auto",
+  table: "w-full text-sm border-collapse",
+  theadRow: "text-[10px] uppercase tracking-wider text-gray-400 border-b",
+  th: "text-left py-2 px-2",
+  thRight: "text-right py-2 px-2",
+  thCenter: "text-center py-2 px-2",
+  tbodyTr: "border-b border-gray-50 hover:bg-gray-50",
+  td: "py-3 px-2",
+  tdNum: "py-3 px-2 font-medium text-gray-700",
+  tdDate: "py-3 px-2 font-mono tabular-nums text-sm text-gray-700 whitespace-nowrap",
+  tdAmount: "py-3 px-2 text-right font-mono text-sm text-gray-700",
+  tdSmallCenter: "py-3 px-2 text-center text-[10px] text-gray-500",
+  tdRemarks: "py-3 px-2 text-left text-[10px] text-gray-400 max-w-[120px] truncate",
+};
+
+/** Student home (dark) schedule table — same structure as EMI (10px headers, sm body, mono dates). */
+export const dashboardStudentScheduleTable = {
+  table: "w-full min-w-[320px] text-left text-sm border-collapse",
+  theadRow: "text-[10px] uppercase tracking-wider text-white/40 border-b border-white/10",
+  th: "pb-2 px-1 font-semibold text-left",
+  thRight: "pb-2 px-1 font-semibold text-right whitespace-nowrap",
+  td: "py-2 px-1 align-middle",
+  tdDate: "py-2 px-1 align-middle font-mono tabular-nums text-sm text-white/85 whitespace-nowrap",
+  tdTime: "py-2 px-1 align-middle font-mono tabular-nums text-sm text-white/70",
+  tdProgram: "py-2 px-1 align-middle text-white/80 font-medium text-sm max-w-[100px] truncate",
+};

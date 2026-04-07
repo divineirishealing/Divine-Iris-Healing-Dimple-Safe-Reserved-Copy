@@ -5,7 +5,7 @@ import {
   Calendar, User, CreditCard, Heart, BookOpen, 
   ArrowRight, Sparkles, ChevronRight, Star
 } from 'lucide-react';
-import { cn, formatDateDdMmYyyy, formatDashboardTime } from '../lib/utils';
+import { cn, formatDateDdMmYyyy, formatDashboardTime, dashboardStudentScheduleTable } from '../lib/utils';
 import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
 import { useToast } from '../hooks/use-toast';
@@ -340,30 +340,30 @@ const StudentDashboard = () => {
               </div>
               {dashboardScheduleRows.length > 0 ? (
                 <div className="mt-3 border-t border-white/[0.08] pt-3 overflow-x-auto" onClick={(e) => e.stopPropagation()}>
-                  <table className="w-full min-w-[320px] text-left text-[9px] border-collapse" data-testid="dashboard-schedule-table">
+                  <table className={cn(dashboardStudentScheduleTable.table)} data-testid="dashboard-schedule-table">
                     <thead>
-                      <tr className="text-[8px] uppercase tracking-wide text-white/40 border-b border-white/10">
-                        <th className="pb-1.5 pr-1 font-semibold">Program</th>
-                        <th className="pb-1.5 px-1 font-semibold whitespace-nowrap">Start date</th>
-                        <th className="pb-1.5 px-1 font-semibold whitespace-nowrap">End date</th>
-                        <th className="pb-1.5 px-1 font-semibold">Time</th>
-                        <th className="pb-1.5 pl-1 font-semibold text-right whitespace-nowrap w-[1%]">Online / off</th>
+                      <tr className={dashboardStudentScheduleTable.theadRow}>
+                        <th className={cn(dashboardStudentScheduleTable.th, 'pr-1')}>Program</th>
+                        <th className={cn(dashboardStudentScheduleTable.th, 'whitespace-nowrap')}>Start date</th>
+                        <th className={cn(dashboardStudentScheduleTable.th, 'whitespace-nowrap')}>End date</th>
+                        <th className={dashboardStudentScheduleTable.th}>Time</th>
+                        <th className={cn(dashboardStudentScheduleTable.thRight, 'w-[1%]')}>Online / off</th>
                       </tr>
                     </thead>
                     <tbody>
                       {dashboardScheduleRows.slice(0, 6).map((s) => (
                         <tr key={`${s.program_name}-${s.date}-${s.session_index ?? ''}`} className="border-b border-white/[0.06]">
-                          <td className="py-1.5 pr-1 text-white/75 font-medium max-w-[100px] truncate align-middle" title={s.program_name}>
+                          <td className={cn(dashboardStudentScheduleTable.tdProgram, 'pr-1')} title={s.program_name}>
                             {s.program_name}
                           </td>
-                          <td className="py-1.5 px-1 text-white/85 font-mono tabular-nums align-middle whitespace-nowrap">
+                          <td className={dashboardStudentScheduleTable.tdDate}>
                             {formatDateDdMmYyyy(s.date) || '—'}
                           </td>
-                          <td className="py-1.5 px-1 text-white/85 font-mono tabular-nums align-middle whitespace-nowrap">
+                          <td className={dashboardStudentScheduleTable.tdDate}>
                             {formatDateDdMmYyyy(s.end_date) || '—'}
                           </td>
-                          <td className="py-1.5 px-1 text-white/60 align-middle font-medium">{formatDashboardTime(s.time)}</td>
-                          <td className="py-1.5 pl-1 align-middle">
+                          <td className={dashboardStudentScheduleTable.tdTime}>{formatDashboardTime(s.time)}</td>
+                          <td className={cn(dashboardStudentScheduleTable.td, 'text-right pl-1')}>
                             <ScheduleModeToggle slot={s} onModeSaved={patchScheduleSlot} compact />
                           </td>
                         </tr>
@@ -599,24 +599,24 @@ const StudentDashboard = () => {
                 <ChevronRight size={16} className="text-white/20 shrink-0" />
               </div>
               <div className="border-t border-white/[0.08] pt-3 overflow-x-auto -mx-1 px-1" onClick={(e) => e.stopPropagation()}>
-                <table className="w-full min-w-[300px] text-left text-[8px] border-collapse">
+                <table className={cn(dashboardStudentScheduleTable.table, 'min-w-[300px]')}>
                   <thead>
-                    <tr className="text-[7px] uppercase tracking-wide text-white/40 border-b border-white/10">
-                      <th className="pb-1 pr-0.5 font-semibold">Program</th>
-                      <th className="pb-1 px-0.5 font-semibold whitespace-nowrap">Start</th>
-                      <th className="pb-1 px-0.5 font-semibold whitespace-nowrap">End</th>
-                      <th className="pb-1 px-0.5 font-semibold">Time</th>
-                      <th className="pb-1 pl-0.5 font-semibold text-right w-[1%]">Mode</th>
+                    <tr className={dashboardStudentScheduleTable.theadRow}>
+                      <th className={cn(dashboardStudentScheduleTable.th, 'pr-0.5')}>Program</th>
+                      <th className={cn(dashboardStudentScheduleTable.th, 'px-0.5 whitespace-nowrap')}>Start</th>
+                      <th className={cn(dashboardStudentScheduleTable.th, 'px-0.5 whitespace-nowrap')}>End</th>
+                      <th className={cn(dashboardStudentScheduleTable.th, 'px-0.5')}>Time</th>
+                      <th className={cn(dashboardStudentScheduleTable.thRight, 'pl-0.5 w-[1%]')}>Mode</th>
                     </tr>
                   </thead>
                   <tbody>
                     {dashboardScheduleRows.slice(0, 6).map((s) => (
                       <tr key={`${s.program_name}-${s.date}-${s.session_index ?? ''}`} className="border-b border-white/[0.06]">
-                        <td className="py-1 pr-0.5 text-white/75 font-medium max-w-[72px] truncate align-middle" title={s.program_name}>{s.program_name}</td>
-                        <td className="py-1 px-0.5 text-white/80 font-mono align-middle whitespace-nowrap">{formatDateDdMmYyyy(s.date) || '—'}</td>
-                        <td className="py-1 px-0.5 text-white/80 font-mono align-middle whitespace-nowrap">{formatDateDdMmYyyy(s.end_date) || '—'}</td>
-                        <td className="py-1 px-0.5 text-white/55 align-middle font-medium">{formatDashboardTime(s.time)}</td>
-                        <td className="py-1 pl-0.5 align-middle"><ScheduleModeToggle slot={s} onModeSaved={patchScheduleSlot} compact /></td>
+                        <td className={cn(dashboardStudentScheduleTable.tdProgram, 'max-w-[72px] py-1.5 pr-0.5')} title={s.program_name}>{s.program_name}</td>
+                        <td className={cn(dashboardStudentScheduleTable.tdDate, 'px-0.5 py-1.5')}>{formatDateDdMmYyyy(s.date) || '—'}</td>
+                        <td className={cn(dashboardStudentScheduleTable.tdDate, 'px-0.5 py-1.5')}>{formatDateDdMmYyyy(s.end_date) || '—'}</td>
+                        <td className={cn(dashboardStudentScheduleTable.tdTime, 'px-0.5 py-1.5')}>{formatDashboardTime(s.time)}</td>
+                        <td className={cn(dashboardStudentScheduleTable.td, 'py-1.5 pl-0.5 text-right')}><ScheduleModeToggle slot={s} onModeSaved={patchScheduleSlot} compact /></td>
                       </tr>
                     ))}
                   </tbody>

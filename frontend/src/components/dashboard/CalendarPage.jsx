@@ -215,8 +215,8 @@ const CalendarPage = () => {
       {selectedDate && (
         <Card data-testid="cal-detail-panel">
           <CardHeader className="pb-2">
-            <CardTitle className="text-base flex items-center gap-2">
-              <CalendarIcon size={16} className="text-[#5D3FD3]" />
+            <CardTitle className="text-base flex items-center gap-2 font-mono tabular-nums">
+              <CalendarIcon size={16} className="text-[#5D3FD3] shrink-0 font-sans" />
               {formatDateDdMmYyyy(selectedDate)}
             </CardTitle>
           </CardHeader>
@@ -239,7 +239,7 @@ const CalendarPage = () => {
                         </div>
                         <div className="flex items-center gap-4 mt-1 text-xs text-gray-500">
                           {formatDashboardTime(ev.time) !== '—' && (
-                            <span className="flex items-center gap-1 tabular-nums"><Clock size={10} /> {formatDashboardTime(ev.time)}</span>
+                            <span className="flex items-center gap-1 font-mono tabular-nums text-sm"><Clock size={10} className="shrink-0" /> {formatDashboardTime(ev.time)}</span>
                           )}
                           {ev.note && <span className="flex items-center gap-1"><MapPin size={10} /> {ev.note}</span>}
                         </div>

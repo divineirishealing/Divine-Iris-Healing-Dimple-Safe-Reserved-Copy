@@ -217,7 +217,7 @@ const BhaadPortalPage = () => {
                   </div>
                   <p className="text-sm text-[#D4AF37] font-medium">{h.transformed}</p>
                 </div>
-                <div className="text-[10px] text-gray-400 shrink-0">
+                <div className="text-[10px] text-gray-400 shrink-0 font-mono tabular-nums">
                   {formatDateDdMmYyyy(h.date)}
                 </div>
               </div>

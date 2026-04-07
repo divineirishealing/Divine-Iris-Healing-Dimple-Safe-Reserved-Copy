@@ -175,7 +175,7 @@ const AttendanceCalendar = ({ programName }) => {
 
                 {marking === dateStr && (
                   <div className="absolute z-30 top-full mt-1 left-1/2 -translate-x-1/2 bg-white border rounded-xl p-2 shadow-xl min-w-[130px]" data-testid={`mark-${dateStr}`}>
-                    <p className="text-[8px] text-[#5D3FD3] text-center mb-1.5 font-bold">
+                    <p className="text-[8px] text-[#5D3FD3] text-center mb-1.5 font-bold font-mono tabular-nums">
                       {formatDateDdMmYyyy(dateStr)}
                     </p>
                     {[
