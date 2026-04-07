@@ -13,8 +13,8 @@ import { Input } from '../ui/input';
 import { Label } from '../ui/label';
 import {
   CreditCard, CheckCircle, Clock, AlertCircle,
-  Package, ArrowRight, ChevronDown, ChevronUp, X, Upload,
-  Building2, Smartphone, Wallet, Globe, FileText, Pause, Play
+  ArrowRight, ChevronDown, ChevronUp, X, Upload,
+  Building2, Smartphone, Wallet, Globe, FileText
 } from 'lucide-react';
 import { useToast } from '../../hooks/use-toast';
 
@@ -236,76 +236,12 @@ const PaymentModal = ({ emi, clientId, banks, methods, currency, onClose, onSucc
   );
 };
 
-/* ─── PAUSE MODAL ─── */
-const PauseModal = ({ program, clientId, onClose, onSuccess }) => {
-  const { toast } = useToast();
-  const [pauseStart, setPauseStart] = useState('');
-  const [pauseEnd, setPauseEnd] = useState('');
-  const [reason, setReason] = useState('');
-  const [submitting, setSubmitting] = useState(false);
-
-  const handlePause = async () => {
-    if (!pauseStart || !pauseEnd) { toast({ title: 'Please select start and end dates', variant: 'destructive' }); return; }
-    if (new Date(pauseEnd) <= new Date(pauseStart)) { toast({ title: 'End date must be after start date', variant: 'destructive' }); return; }
-    setSubmitting(true);
-    try {
-      await axios.post(`${API}/api/student/pause-program`, {
-        program_name: program.name,
-        pause_start: pauseStart,
-        pause_end: pauseEnd,
-        reason,
-      }, { withCredentials: true });
-      toast({ title: `${program.name} paused`, description: `Until ${pauseEnd}` });
-      onSuccess();
-      onClose();
-    } catch (err) {
-      toast({ title: err.response?.data?.detail || 'Error pausing program', variant: 'destructive' });
-    } finally { setSubmitting(false); }
-  };
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm" data-testid="pause-modal">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md mx-4">
-        <div className="flex items-center justify-between px-6 py-4 border-b bg-gradient-to-r from-amber-50 to-orange-50">
-          <div>
-            <h3 className="font-serif font-bold text-gray-900">Pause {program.name}</h3>
-            <p className="text-xs text-gray-500">Your program will be paused for the selected period</p>
-          </div>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-600"><X size={20} /></button>
-        </div>
-        <div className="p-6 space-y-4">
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <Label className="text-xs">Pause Start</Label>
-              <Input type="date" value={pauseStart} onChange={e => setPauseStart(e.target.value)} className="h-9" data-testid="pause-start" />
-            </div>
-            <div>
-              <Label className="text-xs">Pause End</Label>
-              <Input type="date" value={pauseEnd} onChange={e => setPauseEnd(e.target.value)} className="h-9" data-testid="pause-end" />
-            </div>
-          </div>
-          <div>
-            <Label className="text-xs">Reason (optional)</Label>
-            <Input value={reason} onChange={e => setReason(e.target.value)} placeholder="Why are you pausing?" className="h-9" data-testid="pause-reason" />
-          </div>
-          <Button onClick={handlePause} disabled={submitting} className="w-full bg-amber-600 hover:bg-amber-700 h-10" data-testid="pause-submit">
-            {submitting ? <Clock size={14} className="animate-spin mr-2" /> : <Pause size={14} className="mr-2" />}
-            Confirm Pause
-          </Button>
-        </div>
-      </div>
-    </div>
-  );
-};
-
 /* ─── FINANCIALS PAGE ─── */
 const FinancialsPage = () => {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [showAllEmis, setShowAllEmis] = useState(false);
   const [payingEmi, setPayingEmi] = useState(null);
-  const [pausingProgram, setPausingProgram] = useState(null);
-  const { toast } = useToast();
 
   const fetchData = () => {
     axios.get(`${API}/api/student/home`, { withCredentials: true })
@@ -323,7 +259,6 @@ const FinancialsPage = () => {
   );
 
   const fin = data?.financials || {};
-  const programs = data?.programs || [];
   const emis = fin.emis || [];
   const totalPaid = fin.total_paid || 0;
   const remaining = fin.remaining || 0;
@@ -484,78 +419,6 @@ const FinancialsPage = () => {
         </Card>
       )}
 
-      {/* Programs in Package — pause / resume only (schedule lives on Schedule & calendar) */}
-      {programs.length > 0 && (
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-base flex items-center gap-2"><Package size={16} className="text-[#D4AF37]" /> My Programs</CardTitle>
-            <p className="text-xs text-gray-500 font-normal mt-1 leading-relaxed">
-              Pause or resume a program here. Dates, times, online/offline, and which sessions are done are on{' '}
-              <Link to="/dashboard/sessions" className="text-[#5D3FD3] font-semibold hover:underline">
-                Schedule &amp; calendar
-              </Link>
-              .
-            </p>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              {programs.map((p, i) => {
-                const prog = typeof p === 'string' ? { name: p } : p;
-                const isPaused = prog.status === 'paused';
-                const isHidden = prog.visible === false;
-                if (isHidden) return null;
-
-                return (
-                  <div key={i} className={`rounded-xl border overflow-hidden ${isPaused ? 'border-amber-200 bg-amber-50/30' : 'border-gray-200'}`} data-testid={`program-card-${i}`}>
-                    <div className={`px-4 py-3 flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 ${isPaused ? 'bg-amber-50' : 'bg-gray-50'}`}>
-                      <div className="flex items-start gap-3 min-w-0">
-                        <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${isPaused ? 'bg-amber-100' : 'bg-gradient-to-br from-[#5D3FD3]/20 to-[#D4AF37]/20'}`}>
-                          <Package size={14} className={isPaused ? 'text-amber-600' : 'text-[#5D3FD3]'} />
-                        </div>
-                        <div className="min-w-0">
-                          <div className="flex items-center gap-2 flex-wrap">
-                            <p className="text-sm font-bold text-gray-900">{prog.name}</p>
-                            {isPaused && <span className="text-[8px] px-1.5 py-0.5 bg-amber-200 text-amber-800 rounded font-bold">PAUSED</span>}
-                          </div>
-                          {(prog.duration_value != null || prog.duration_unit) && (
-                            <p className="text-[10px] text-gray-500">
-                              {[prog.duration_value, prog.duration_unit].filter(Boolean).join(' ')}
-                            </p>
-                          )}
-                          {isPaused && prog.pause_start && (
-                            <p className="text-[9px] text-amber-600 mt-2 font-mono tabular-nums">
-                              Paused: {formatDateDdMmYyyy(prog.pause_start) || '—'} — {formatDateDdMmYyyy(prog.pause_end) || '—'}
-                            </p>
-                          )}
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        {prog.allow_pause && !isPaused && (
-                          <Button size="sm" variant="outline" onClick={() => setPausingProgram(prog)}
-                            className="h-7 text-[10px] border-amber-300 text-amber-700 hover:bg-amber-50" data-testid={`pause-btn-${i}`}>
-                            <Pause size={10} className="mr-1" /> Pause
-                          </Button>
-                        )}
-                        {isPaused && (
-                          <Button size="sm" variant="outline" onClick={() => {
-                            axios.post(`${API}/api/student/resume-program-simple`, { program_name: prog.name }, { withCredentials: true })
-                              .then(() => { fetchData(); toast({ title: `${prog.name} resumed!` }); })
-                              .catch(() => toast({ title: 'Error resuming', variant: 'destructive' }));
-                          }}
-                            className="h-7 text-[10px] border-green-300 text-green-700 hover:bg-green-50" data-testid={`resume-btn-${i}`}>
-                            <Play size={10} className="mr-1" /> Resume
-                          </Button>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
       {/* Payment Modal */}
       {payingEmi && (
         <PaymentModal
@@ -565,16 +428,6 @@ const FinancialsPage = () => {
           methods={methods}
           currency={fin.currency || 'INR'}
           onClose={() => setPayingEmi(null)}
-          onSuccess={fetchData}
-        />
-      )}
-
-      {/* Pause Modal */}
-      {pausingProgram && (
-        <PauseModal
-          program={pausingProgram}
-          clientId={clientId}
-          onClose={() => setPausingProgram(null)}
           onSuccess={fetchData}
         />
       )}
