@@ -152,3 +152,41 @@ html {
 ::-webkit-scrollbar-thumb:hover {
   background: #b8962e;
 }
+
+/* Dashboard cosmic theme — Milky Way, nebulae, slow planetary drift */
+@keyframes cosmic-milky-shift {
+  0%, 100% { transform: rotate(-18deg) translate(0, 0) scale(1); opacity: 0.42; }
+  50% { transform: rotate(-16deg) translate(2%, 1%) scale(1.02); opacity: 0.48; }
+}
+
+@keyframes cosmic-nebula-drift {
+  0%, 100% { transform: translate(-50%, -50%) translate(0, 0); }
+  50% { transform: translate(-50%, -50%) translate(18px, -14px); }
+}
+
+@keyframes cosmic-planet-float {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  33% { transform: translate(-10px, 6px) scale(1.03); }
+  66% { transform: translate(8px, -10px) scale(0.98); }
+}
+
+@keyframes cosmic-planet-float-alt {
+  0%, 100% { transform: translate(0, 0); opacity: 0.8; }
+  50% { transform: translate(14px, -12px); opacity: 1; }
+}
+
+.cosmic-milky-way {
+  animation: cosmic-milky-shift 80s ease-in-out infinite;
+}
+
+.cosmic-nebula-drift {
+  animation: cosmic-nebula-drift 55s ease-in-out infinite;
+}
+
+.cosmic-planet-glow {
+  animation: cosmic-planet-float 28s ease-in-out infinite;
+}
+
+.cosmic-planet-glow-alt {
+  animation: cosmic-planet-float-alt 36s ease-in-out infinite;
+}

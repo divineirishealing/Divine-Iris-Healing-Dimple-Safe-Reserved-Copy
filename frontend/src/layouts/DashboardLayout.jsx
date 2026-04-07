@@ -2,8 +2,9 @@ import React, { useState } from 'react';
 import { Outlet, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { NavLink } from 'react-router-dom';
-import { Loader2, Menu, X, Home, Sprout, Calendar, TrendingUp, Sparkles, Heart, BookOpen, User, CreditCard, LogOut, ChevronDown } from 'lucide-react';
+import { Loader2, Menu, X, Home, Sprout, Calendar, TrendingUp, Sparkles, Heart, BookOpen, User, CreditCard, LogOut } from 'lucide-react';
 import { cn } from '../lib/utils';
+import { CosmicDashboardBackground } from '../components/dashboard/CosmicDashboardBackground';
 
 const NAV_ITEMS = [
   { to: '/dashboard', label: 'Overview', icon: Home, exact: true },
@@ -31,8 +32,20 @@ const DashboardLayout = () => {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center" style={{ background: 'linear-gradient(135deg, #1a0b2e 0%, #2d1b4e 50%, #1a0b2e 100%)' }}>
-        <Loader2 className="animate-spin text-[#D4AF37]" size={32} />
+      <div
+        className="min-h-screen flex items-center justify-center relative overflow-hidden"
+        style={{
+          background: 'linear-gradient(165deg, #030510 0%, #0f0c28 45%, #080c1c 100%)',
+        }}
+      >
+        <div
+          className="absolute inset-0 opacity-40 pointer-events-none"
+          style={{
+            background:
+              'radial-gradient(ellipse 100% 60% at 50% 0%, rgba(180, 160, 255, 0.15) 0%, transparent 55%)',
+          }}
+        />
+        <Loader2 className="animate-spin text-[#D4AF37] relative z-10 drop-shadow-[0_0_12px_rgba(212,175,55,0.5)]" size={32} />
       </div>
     );
   }
@@ -40,34 +53,52 @@ const DashboardLayout = () => {
   if (!user) { window.location.href = '/login'; return null; }
 
   return (
-    <div className="min-h-screen relative" style={{ background: '#1a0b2e' }}>
-      {/* Full-screen video */}
+    <div className="min-h-screen relative bg-[#030510]">
+      <CosmicDashboardBackground videoActive={Boolean(bgVideo)} />
+
+      {/* Full-screen video (stars/canvas stay visible underneath at reduced strength) */}
       {bgVideo && (
-        <video autoPlay loop muted playsInline className="fixed inset-0 w-full h-full object-cover z-0" style={{ opacity: 0.85 }} data-testid="dashboard-bg-video">
+        <video
+          autoPlay
+          loop
+          muted
+          playsInline
+          className="fixed inset-0 w-full h-full object-cover z-[1]"
+          style={{ opacity: 0.72 }}
+          data-testid="dashboard-bg-video"
+        >
           <source src={bgVideo.startsWith('/') ? `${process.env.REACT_APP_BACKEND_URL}${bgVideo}` : bgVideo} type="video/mp4" />
         </video>
       )}
-      {bgVideo && <div className="fixed inset-0 z-0" style={{ background: 'rgba(26,11,46,0.2)' }} />}
-
-      {/* Constellation fallback */}
-      {!bgVideo && (
-        <>
-          <canvas id="dashboard-constellation-bg" className="fixed inset-0 pointer-events-none z-0" style={{ width: '100%', height: '100%' }} />
-          <script dangerouslySetInnerHTML={{ __html: `
-            (function(){var c=document.getElementById('dashboard-constellation-bg');if(!c)return;var ctx=c.getContext('2d'),nodes=[],W,H;function resize(){W=c.offsetWidth;H=c.offsetHeight;c.width=W*2;c.height=H*2;ctx.setTransform(2,0,0,2,0,0);}resize();window.addEventListener('resize',resize);for(var i=0;i<50;i++)nodes.push({x:Math.random()*2000,y:Math.random()*1200,vx:(Math.random()-0.5)*0.25,vy:(Math.random()-0.5)*0.25,r:1+Math.random()*1.5});function draw(){ctx.clearRect(0,0,W,H);nodes.forEach(function(n){n.x+=n.vx;n.y+=n.vy;if(n.x<0||n.x>W)n.vx*=-1;if(n.y<0||n.y>H)n.vy*=-1;});for(var i=0;i<nodes.length;i++)for(var j=i+1;j<nodes.length;j++){var dx=nodes[i].x-nodes[j].x,dy=nodes[i].y-nodes[j].y,d=Math.sqrt(dx*dx+dy*dy);if(d<160){ctx.beginPath();ctx.moveTo(nodes[i].x,nodes[i].y);ctx.lineTo(nodes[j].x,nodes[j].y);ctx.strokeStyle='rgba(212,175,55,'+(0.12*(1-d/160))+')';ctx.lineWidth=0.5;ctx.stroke();}}nodes.forEach(function(n){ctx.beginPath();ctx.arc(n.x,n.y,n.r,0,Math.PI*2);ctx.fillStyle='rgba(212,175,55,0.5)';ctx.fill();});requestAnimationFrame(draw);}draw();})();
-          ` }} />
-        </>
+      {bgVideo && (
+        <div
+          className="fixed inset-0 z-[2] pointer-events-none"
+          style={{
+            background:
+              'linear-gradient(180deg, rgba(3,5,16,0.35) 0%, rgba(10,8,30,0.25) 40%, rgba(3,5,16,0.45) 100%)',
+          }}
+        />
       )}
 
       {/* ═══ TOP HORIZONTAL NAV BAR ═══ */}
-      <nav className="fixed top-0 left-0 right-0 z-30 flex items-center justify-between px-4 md:px-6 h-14" style={{ background: 'rgba(0,0,0,0.3)', backdropFilter: 'blur(16px)', borderBottom: '1px solid rgba(212,175,55,0.15)' }}>
+      <nav
+        className="fixed top-0 left-0 right-0 z-30 flex items-center justify-between px-4 md:px-6 h-14 border-b border-cyan-950/30"
+        style={{
+          background: 'linear-gradient(180deg, rgba(3,5,20,0.82) 0%, rgba(8,10,35,0.55) 100%)',
+          backdropFilter: 'blur(18px)',
+          boxShadow: '0 1px 0 rgba(212,175,55,0.12), 0 12px 40px rgba(0,0,0,0.35)',
+        }}
+      >
         {/* Left: Hamburger + Logo */}
         <div className="flex items-center gap-3">
           <button onClick={() => setSidebarOpen(!sidebarOpen)} className="w-9 h-9 rounded-lg flex items-center justify-center text-white/70 hover:text-[#D4AF37] hover:bg-white/10 transition-colors" data-testid="sidebar-toggle">
             {sidebarOpen ? <X size={18} /> : <Menu size={18} />}
           </button>
-          <NavLink to="/dashboard" className="flex items-center gap-2">
-            <span className="text-sm font-serif font-bold text-[#D4AF37]">Sanctuary</span>
+          <NavLink to="/dashboard" className="flex items-center gap-2 group">
+            <span className="text-[9px] text-cyan-200/50 uppercase tracking-[0.25em] hidden sm:inline">Cosmos</span>
+            <span className="text-sm font-serif font-bold bg-gradient-to-r from-[#E8D5A3] via-[#D4AF37] to-[#A78BFA] bg-clip-text text-transparent drop-shadow-[0_0_20px_rgba(212,175,55,0.35)]">
+              Sanctuary
+            </span>
           </NavLink>
         </div>
 
@@ -77,7 +108,7 @@ const DashboardLayout = () => {
             <NavLink key={item.to} to={item.to} end={item.exact}
               className={({ isActive }) => cn(
                 "flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[11px] font-medium transition-all",
-                isActive ? "bg-[#D4AF37]/20 text-[#D4AF37]" : "text-white/60 hover:text-white hover:bg-white/10"
+                isActive ? "bg-gradient-to-r from-[#D4AF37]/25 to-cyan-500/15 text-[#F5E6A8] shadow-[0_0_20px_rgba(212,175,55,0.15)]" : "text-white/55 hover:text-white hover:bg-white/[0.07]"
               )} data-testid={`nav-${item.label.toLowerCase()}`}>
               <item.icon size={13} />
               <span className="hidden xl:inline">{item.label}</span>
@@ -103,9 +134,14 @@ const DashboardLayout = () => {
       <div className={cn(
         "fixed top-14 left-0 bottom-0 w-64 z-40 transition-transform duration-300",
         sidebarOpen ? "translate-x-0" : "-translate-x-full"
-      )} style={{ background: 'rgba(10,5,30,0.85)', backdropFilter: 'blur(20px)', borderRight: '1px solid rgba(212,175,55,0.1)' }}>
+      )} style={{
+        background: 'linear-gradient(165deg, rgba(8,6,28,0.94) 0%, rgba(4,6,22,0.92) 100%)',
+        backdropFilter: 'blur(22px)',
+        borderRight: '1px solid rgba(100, 200, 255, 0.08)',
+        boxShadow: '8px 0 32px rgba(0,0,0,0.4)',
+      }}>
         <div className="p-4 space-y-1 overflow-y-auto h-full">
-          <p className="text-[8px] uppercase tracking-[0.2em] text-[#D4AF37]/40 px-3 pt-2 pb-1">Journey</p>
+          <p className="text-[8px] uppercase tracking-[0.2em] text-cyan-200/40 px-3 pt-2 pb-1">Journey</p>
           {NAV_ITEMS.map(item => (
             <NavLink key={item.to} to={item.to} end={item.exact}
               onClick={() => setSidebarOpen(false)}
@@ -119,7 +155,7 @@ const DashboardLayout = () => {
           ))}
 
           <div className="border-t border-white/5 my-3" />
-          <p className="text-[8px] uppercase tracking-[0.2em] text-[#D4AF37]/40 px-3 pt-1 pb-1">More</p>
+          <p className="text-[8px] uppercase tracking-[0.2em] text-cyan-200/40 px-3 pt-1 pb-1">More</p>
           <NavLink to="/dashboard/roadmap" onClick={() => setSidebarOpen(false)}
             className={({ isActive }) => cn("flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm transition-all", isActive ? "bg-[#D4AF37]/15 text-[#D4AF37]" : "text-white/60 hover:text-white hover:bg-white/5")}>
             <BookOpen size={16} /><span>Growth Roadmap</span>
