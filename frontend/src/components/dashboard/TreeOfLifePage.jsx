@@ -135,9 +135,17 @@ const TreeOfLifePage = () => {
           </div>
         </div>
 
-        {/* Birds for tribe engagement */}
-        {soul.sessions > 0 && <span className="absolute text-lg" style={{ top: '15%', left: '20%', animation: 'butterfly 10s ease-in-out infinite' }}>🐦</span>}
-        {soul.streak > 2 && <span className="absolute text-lg" style={{ top: '20%', left: '70%', animation: 'butterfly 12s ease-in-out 3s infinite' }}>🦋</span>}
+        {/* Cosmic accents — drifting stars (no butterflies) */}
+        {soul.sessions > 0 && (
+          <span className="absolute text-base opacity-90" style={{ top: '15%', left: '20%', animation: 'starDrift 14s ease-in-out infinite' }}>
+            ✦
+          </span>
+        )}
+        {soul.streak > 2 && (
+          <span className="absolute text-sm opacity-80 text-amber-200" style={{ top: '20%', left: '70%', animation: 'starDrift 18s ease-in-out 4s infinite' }}>
+            ✧
+          </span>
+        )}
 
         {/* Avatar */}
         <div className="absolute bottom-4 left-4 z-10 bg-white/80 backdrop-blur-sm rounded-xl px-3 py-2 shadow-sm">
@@ -158,7 +166,7 @@ const TreeOfLifePage = () => {
       <style>{`
         @keyframes gentleSway { 0%,100% { transform: rotate(-3deg); } 50% { transform: rotate(3deg); } }
         @keyframes floatCloud { 0% { transform: translateX(-80px); } 100% { transform: translateX(calc(100vw + 80px)); } }
-        @keyframes butterfly { 0%,100% { transform: translate(0,0); } 25% { transform: translate(30px,-15px); } 50% { transform: translate(60px,5px); } 75% { transform: translate(30px,-10px); } }
+        @keyframes starDrift { 0%,100% { transform: translate(0,0) scale(1); opacity: 0.85; } 50% { transform: translate(24px,-18px) scale(1.15); opacity: 1; } }
       `}</style>
     </div>
   );

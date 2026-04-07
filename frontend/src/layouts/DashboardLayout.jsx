@@ -4,7 +4,8 @@ import { useAuth } from '../context/AuthContext';
 import { NavLink } from 'react-router-dom';
 import { Loader2, Menu, X, Home, Sprout, Calendar, TrendingUp, Sparkles, Heart, BookOpen, User, CreditCard, LogOut } from 'lucide-react';
 import { cn } from '../lib/utils';
-import { CosmicDashboardBackground } from '../components/dashboard/CosmicDashboardBackground';
+import { CosmicDashboardBackground, CosmicPageMood } from '../components/dashboard/CosmicDashboardBackground';
+import { getDashboardCosmicVariant } from '../lib/dashboardCosmicThemes';
 
 const NAV_ITEMS = [
   { to: '/dashboard', label: 'Overview', icon: Home, exact: true },
@@ -52,9 +53,11 @@ const DashboardLayout = () => {
 
   if (!user) { window.location.href = '/login'; return null; }
 
+  const cosmicVariant = getDashboardCosmicVariant(location.pathname);
+
   return (
     <div className="min-h-screen relative bg-[#030510]">
-      <CosmicDashboardBackground videoActive={Boolean(bgVideo)} />
+      <CosmicDashboardBackground videoActive={Boolean(bgVideo)} variant={cosmicVariant} />
 
       {/* Full-screen video (stars/canvas stay visible underneath at reduced strength) */}
       {bgVideo && (
@@ -171,6 +174,7 @@ const DashboardLayout = () => {
       {/* ═══ MAIN CONTENT ═══ */}
       <main className="relative z-10 pt-14 min-h-screen">
         <div className="p-4 md:p-8">
+          <CosmicPageMood variant={cosmicVariant} />
           <Outlet />
         </div>
       </main>
