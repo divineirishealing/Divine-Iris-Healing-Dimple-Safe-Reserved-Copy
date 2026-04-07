@@ -3,7 +3,7 @@ import axios from 'axios';
 import { Sparkles, RotateCcw, Send, ArrowRight, Zap, Heart } from 'lucide-react';
 import { Button } from '../ui/button';
 import { useToast } from '../../hooks/use-toast';
-import { cn } from '../../lib/utils';
+import { cn, formatDateDdMmYyyy } from '../../lib/utils';
 
 const API = process.env.REACT_APP_BACKEND_URL;
 
@@ -218,7 +218,7 @@ const BhaadPortalPage = () => {
                   <p className="text-sm text-[#D4AF37] font-medium">{h.transformed}</p>
                 </div>
                 <div className="text-[10px] text-gray-400 shrink-0">
-                  {new Date(h.date + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                  {formatDateDdMmYyyy(h.date)}
                 </div>
               </div>
             ))}

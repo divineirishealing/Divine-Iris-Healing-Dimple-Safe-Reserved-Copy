@@ -5,14 +5,14 @@ import {
   Calendar, User, CreditCard, Heart, BookOpen, 
   ArrowRight, Sparkles, ChevronRight, Star
 } from 'lucide-react';
-import { cn, formatDateDdMmYyyy } from '../lib/utils';
+import { cn, formatDateDdMmYyyy, formatDashboardTime } from '../lib/utils';
 import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
 import { useToast } from '../hooks/use-toast';
 
 const API = process.env.REACT_APP_BACKEND_URL;
 
-/** Dashboard copy: start — end in dd/mm/yyyy (end omitted if missing). */
+/** Dashboard copy: start — end in dd-mm-yyyy (end omitted if missing). */
 function formatSlotDateRange(slot) {
   const start = formatDateDdMmYyyy(slot?.date);
   const end = slot?.end_date ? formatDateDdMmYyyy(slot.end_date) : '';
@@ -362,7 +362,7 @@ const StudentDashboard = () => {
                           <td className="py-1.5 px-1 text-white/85 font-mono tabular-nums align-middle whitespace-nowrap">
                             {formatDateDdMmYyyy(s.end_date) || '—'}
                           </td>
-                          <td className="py-1.5 px-1 text-white/60 align-middle">{(s.time && String(s.time).trim()) || '—'}</td>
+                          <td className="py-1.5 px-1 text-white/60 align-middle font-medium">{formatDashboardTime(s.time)}</td>
                           <td className="py-1.5 pl-1 align-middle">
                             <ScheduleModeToggle slot={s} onModeSaved={patchScheduleSlot} compact />
                           </td>
@@ -546,7 +546,7 @@ const StudentDashboard = () => {
               </div>
               <p className="mt-3 text-xs text-white/40">
                 {homeData?.journey_logs?.length > 0
-                  ? `Last entry: ${new Date(homeData.journey_logs[0].date).toLocaleDateString()}`
+                  ? `Last entry: ${formatDateDdMmYyyy(String(homeData.journey_logs[0].date).slice(0, 10)) || '—'}`
                   : 'Start capturing your inner transformation...'}
               </p>
             </PetalCard>
@@ -615,7 +615,7 @@ const StudentDashboard = () => {
                         <td className="py-1 pr-0.5 text-white/75 font-medium max-w-[72px] truncate align-middle" title={s.program_name}>{s.program_name}</td>
                         <td className="py-1 px-0.5 text-white/80 font-mono align-middle whitespace-nowrap">{formatDateDdMmYyyy(s.date) || '—'}</td>
                         <td className="py-1 px-0.5 text-white/80 font-mono align-middle whitespace-nowrap">{formatDateDdMmYyyy(s.end_date) || '—'}</td>
-                        <td className="py-1 px-0.5 text-white/55 align-middle">{(s.time && String(s.time).trim()) || '—'}</td>
+                        <td className="py-1 px-0.5 text-white/55 align-middle font-medium">{formatDashboardTime(s.time)}</td>
                         <td className="py-1 pl-0.5 align-middle"><ScheduleModeToggle slot={s} onModeSaved={patchScheduleSlot} compact /></td>
                       </tr>
                     ))}

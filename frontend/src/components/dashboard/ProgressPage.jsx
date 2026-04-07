@@ -8,7 +8,7 @@ import {
   Loader2, Sparkles, TrendingUp, Flame
 } from 'lucide-react';
 import { useToast } from '../../hooks/use-toast';
-import { cn } from '../../lib/utils';
+import { cn, formatDateDdMmYyyy } from '../../lib/utils';
 
 const API = process.env.REACT_APP_BACKEND_URL;
 
@@ -255,7 +255,7 @@ const ProgressPage = () => {
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md mx-4 overflow-hidden">
             <div className="px-6 py-4 border-b bg-gradient-to-r from-[#5D3FD3]/5 to-[#D4AF37]/5">
               <h3 className="font-serif font-bold text-gray-900">
-                {new Date(selectedDate + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
+                {formatDateDdMmYyyy(selectedDate)}
               </h3>
               <p className="text-xs text-gray-500">Record your daily progress</p>
             </div>
@@ -370,7 +370,7 @@ const ProgressPage = () => {
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
                       <span className="text-xs font-bold text-amber-800">
-                        {new Date(entry.date + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                        {formatDateDdMmYyyy(entry.date)}
                       </span>
                       <span className="text-[10px] px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 font-medium">{entry.program_name}</span>
                     </div>

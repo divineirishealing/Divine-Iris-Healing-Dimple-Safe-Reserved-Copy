@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
-import { cn, formatDateDdMmYyyy } from '../../lib/utils';
+import { cn, formatDateDdMmYyyy, formatDashboardTime } from '../../lib/utils';
 import { Card, CardHeader, CardTitle, CardContent } from '../ui/card';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
@@ -654,7 +654,7 @@ const FinancialsPage = () => {
                               const hasDate = !!sess.date;
                               const startDisp = formatDateDdMmYyyy(sess.date) || '—';
                               const endDisp = formatDateDdMmYyyy(sess.end_date) || '—';
-                              const timeDisp = (sess.time && String(sess.time).trim()) || '—';
+                              const timeDisp = formatDashboardTime(sess.time);
                               return (
                                 <tr
                                   key={si}

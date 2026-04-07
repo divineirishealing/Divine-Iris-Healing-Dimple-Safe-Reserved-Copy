@@ -6,7 +6,7 @@ import {
   ChevronLeft, ChevronRight, Calendar as CalendarIcon,
   Clock, MapPin, CheckCircle, Loader2
 } from 'lucide-react';
-import { cn } from '../../lib/utils';
+import { cn, formatDateDdMmYyyy, formatDashboardTime } from '../../lib/utils';
 
 const API = process.env.REACT_APP_BACKEND_URL;
 
@@ -217,7 +217,7 @@ const CalendarPage = () => {
           <CardHeader className="pb-2">
             <CardTitle className="text-base flex items-center gap-2">
               <CalendarIcon size={16} className="text-[#5D3FD3]" />
-              {new Date(selectedDate + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })}
+              {formatDateDdMmYyyy(selectedDate)}
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -238,7 +238,9 @@ const CalendarPage = () => {
                           {ev.mode && <span className={cn("text-[10px] px-2 py-0.5 rounded-full font-bold", ev.mode === 'online' ? 'bg-blue-100 text-blue-600' : 'bg-green-100 text-green-600')}>{ev.mode}</span>}
                         </div>
                         <div className="flex items-center gap-4 mt-1 text-xs text-gray-500">
-                          {ev.time && <span className="flex items-center gap-1"><Clock size={10} /> {ev.time}</span>}
+                          {formatDashboardTime(ev.time) !== '—' && (
+                            <span className="flex items-center gap-1 tabular-nums"><Clock size={10} /> {formatDashboardTime(ev.time)}</span>
+                          )}
                           {ev.note && <span className="flex items-center gap-1"><MapPin size={10} /> {ev.note}</span>}
                         </div>
                       </div>

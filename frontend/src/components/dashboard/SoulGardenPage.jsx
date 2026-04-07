@@ -3,7 +3,7 @@ import axios from 'axios';
 import { Check, X, Wifi, Monitor, EyeOff, ChevronLeft, ChevronRight, PenLine, Save } from 'lucide-react';
 import { Button } from '../ui/button';
 import { useToast } from '../../hooks/use-toast';
-import { cn } from '../../lib/utils';
+import { cn, formatDateDdMmYyyy } from '../../lib/utils';
 
 const API = process.env.REACT_APP_BACKEND_URL;
 const MONTHS_NAMES = ['January','February','March','April','May','June','July','August','September','October','November','December'];
@@ -176,7 +176,7 @@ const AttendanceCalendar = ({ programName }) => {
                 {marking === dateStr && (
                   <div className="absolute z-30 top-full mt-1 left-1/2 -translate-x-1/2 bg-white border rounded-xl p-2 shadow-xl min-w-[130px]" data-testid={`mark-${dateStr}`}>
                     <p className="text-[8px] text-[#5D3FD3] text-center mb-1.5 font-bold">
-                      {new Date(dateStr + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
+                      {formatDateDdMmYyyy(dateStr)}
                     </p>
                     {[
                       { id: 'online', label: 'Online', icon: Wifi, color: 'text-blue-600 hover:bg-blue-50' },
