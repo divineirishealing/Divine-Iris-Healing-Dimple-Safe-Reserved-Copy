@@ -2,14 +2,18 @@ import React, { useEffect, useRef, useMemo } from 'react';
 import { cn } from '../../lib/utils';
 import { resolveCosmicTheme } from '../../lib/dashboardCosmicThemes';
 
-/** Slower rotation / breath = calmer “temple” sky */
+/** Purple / violet constellation figures (gold kept as rare accent) */
 const CONSTELLATION_PATTERNS = [
-  { phase: 0.2, rot: 0.00012, breathe: 0.0045, anchor: [0.78, 0.11], closed: false, color: [212, 175, 55], rel: [[0, 0], [0.04, -0.02], [0.08, 0.01], [0.12, -0.02], [0.16, 0.03]] },
-  { phase: 1.1, rot: -0.0001, breathe: 0.0055, anchor: [0.11, 0.56], closed: true, color: [160, 210, 255], rel: [[0, 0], [0.06, 0.06], [0.02, 0.12], [0, 0]] },
-  { phase: 2.4, rot: 0.00014, breathe: 0.004, anchor: [0.5, 0.27], closed: false, color: [255, 210, 190], rel: [[0, 0], [0.08, -0.02], [0.16, 0]] },
-  { phase: 0.7, rot: -0.00011, breathe: 0.005, anchor: [0.26, 0.78], closed: false, color: [200, 180, 255], rel: [[0, 0], [0.04, -0.04], [0.08, 0.01], [0.06, 0.06]] },
-  { phase: 3.0, rot: 0.00009, breathe: 0.0045, anchor: [0.87, 0.45], closed: true, color: [120, 200, 220], rel: [[0, 0], [0.04, 0.06], [-0.01, 0.1], [-0.04, 0.04], [0, 0]] },
+  { phase: 0.2, rot: 0.00012, breathe: 0.0045, anchor: [0.78, 0.11], closed: false, color: [196, 170, 255], rel: [[0, 0], [0.04, -0.02], [0.08, 0.01], [0.12, -0.02], [0.16, 0.03]] },
+  { phase: 1.1, rot: -0.0001, breathe: 0.0055, anchor: [0.11, 0.56], closed: true, color: [167, 139, 250], rel: [[0, 0], [0.06, 0.06], [0.02, 0.12], [0, 0]] },
+  { phase: 2.4, rot: 0.00014, breathe: 0.004, anchor: [0.5, 0.27], closed: false, color: [216, 180, 254], rel: [[0, 0], [0.08, -0.02], [0.16, 0]] },
+  { phase: 0.7, rot: -0.00011, breathe: 0.005, anchor: [0.26, 0.78], closed: false, color: [139, 92, 246], rel: [[0, 0], [0.04, -0.04], [0.08, 0.01], [0.06, 0.06]] },
+  { phase: 3.0, rot: 0.00009, breathe: 0.0045, anchor: [0.87, 0.45], closed: true, color: [180, 160, 255], rel: [[0, 0], [0.04, 0.06], [-0.01, 0.1], [-0.04, 0.04], [0, 0]] },
+  { phase: 1.8, rot: 0.00011, breathe: 0.004, anchor: [0.38, 0.62], closed: false, color: [212, 175, 55], rel: [[0, 0], [0.03, 0.05], [0.07, 0.02], [0.1, 0.06]] },
 ];
+
+const MESH_PURPLE_A = [150, 110, 235];
+const MESH_PURPLE_B = [200, 175, 255];
 
 function spawnShooting(w, h) {
   const fromTop = Math.random() > 0.5;
@@ -23,8 +27,40 @@ function spawnShooting(w, h) {
   };
 }
 
+/** Biased toward violet / lavender field stars */
+function randomPurpleStar(warmBoost) {
+  const roll = Math.random();
+  let r;
+  let cr;
+  let cg;
+  let cb;
+  const wb = warmBoost;
+  if (roll < 0.42 - wb * 0.12) {
+    r = 0.32 + Math.random() * 0.75;
+    cr = 210 + Math.random() * 45;
+    cg = 195 + Math.random() * 50;
+    cb = 255;
+  } else if (roll < 0.78 - wb * 0.1) {
+    r = 0.4 + Math.random() * 0.95;
+    cr = 160 + Math.random() * 60;
+    cg = 120 + Math.random() * 80;
+    cb = 245 + Math.random() * 10;
+  } else if (roll < 0.92 + wb * 0.04) {
+    r = 0.35 + Math.random() * 0.7;
+    cr = 230 + Math.random() * 25;
+    cg = 210 + Math.random() * 40;
+    cb = 255;
+  } else {
+    r = 0.38 + Math.random() * 0.55;
+    cr = 255;
+    cg = 220 + Math.random() * 35;
+    cb = 180 + Math.random() * 40;
+  }
+  return { r, cr, cg, cb };
+}
+
 /**
- * Living sky: temple-paced drift, optional parallax, respects prefers-reduced-motion.
+ * Purple sanctuary sky: dense stars, falling constellation dust, violet mesh.
  */
 export function CosmicDashboardBackground({ videoActive = false, variant = 'milky_way', className }) {
   const canvasRef = useRef(null);
@@ -52,7 +88,10 @@ export function CosmicDashboardBackground({ videoActive = false, variant = 'milk
         if (canvasParallaxRef.current) canvasParallaxRef.current.style.transform = 'translate3d(0,0,0)';
       } else {
         nextMeteor = 200 + Math.random() * 280;
-        if (was && logicalW > 0 && logicalH > 0) initStars(logicalW, logicalH);
+        if (was && logicalW > 0 && logicalH > 0) {
+          initStars(logicalW, logicalH);
+          initFallDots(logicalW, logicalH);
+        }
       }
     };
     mq.addEventListener('change', onMotionPref);
@@ -61,23 +100,24 @@ export function CosmicDashboardBackground({ videoActive = false, variant = 'milk
 
     let raf = 0;
     let stars = [];
+    let fallDots = [];
     let edges = [];
     let t = 0;
     let frame = 0;
     let logicalW = 0;
     let logicalH = 0;
     const edgeSet = new Set();
-    const maxD = c.maxD;
+    const maxD = Math.min(c.maxD * 1.08, 128);
     const warmBoost = c.warmStarBoost;
 
-    const STAR_COUNT = (videoActive ? 95 : 200) + (c.starDelta || 0);
+    const STAR_COUNT = (videoActive ? 140 : 300) + Math.floor((c.starDelta || 0) * 1.4);
+    const FALL_DOT_COUNT = videoActive ? 140 : 260;
     const dprCap = 2;
-    const MESH_REBUILD = 52;
+    const MESH_REBUILD = 48;
 
     let meteors = [];
     let nextMeteor = reduceMotion ? 99999 : 220 + Math.random() * 360;
 
-    /** Subtle depth parallax (px) */
     let parallaxX = 0;
     let parallaxY = 0;
     let targetParallaxX = 0;
@@ -102,7 +142,7 @@ export function CosmicDashboardBackground({ videoActive = false, variant = 'milk
           if (d < maxD) near.push({ j, d });
         }
         near.sort((a, b) => a.d - b.d);
-        const take = Math.min(3, near.length);
+        const take = Math.min(4, near.length);
         for (let k = 0; k < take; k++) {
           const j = near[k].j;
           const a = Math.min(i, j);
@@ -116,36 +156,30 @@ export function CosmicDashboardBackground({ videoActive = false, variant = 'milk
       }
     };
 
+    const initFallDots = (w, h) => {
+      fallDots = [];
+      for (let i = 0; i < FALL_DOT_COUNT; i++) {
+        const depth = 0.25 + Math.random() * 0.75;
+        fallDots.push({
+          x: Math.random() * w,
+          y: Math.random() * h,
+          vx: (Math.random() - 0.5) * 0.45 * depth,
+          vy: (0.35 + Math.random() * 1.85) * (0.5 + depth * 0.5),
+          r: 0.28 + Math.random() * 1.15,
+          ph: Math.random() * Math.PI * 2,
+          tw: 0.025 + Math.random() * 0.055,
+          cr: 165 + Math.floor(Math.random() * 90),
+          cg: 130 + Math.floor(Math.random() * 85),
+          cb: 245 + Math.floor(Math.random() * 10),
+          base: 0.18 + Math.random() * 0.45,
+        });
+      }
+    };
+
     const initStars = (w, h) => {
       stars = [];
       for (let i = 0; i < STAR_COUNT; i++) {
-        const roll = Math.random();
-        let r;
-        let cr;
-        let cg;
-        let cb;
-        const wb = warmBoost;
-        if (roll < 0.55 - wb * 0.25) {
-          r = 0.35 + Math.random() * 0.85;
-          cr = 240 + Math.random() * 15;
-          cg = 245 + Math.random() * 10;
-          cb = 255;
-        } else if (roll < 0.82 - wb * 0.15) {
-          r = 0.45 + Math.random() * 1.05;
-          cr = 180 + Math.random() * 40;
-          cg = 200 + Math.random() * 35;
-          cb = 255;
-        } else if (roll < 0.94 + wb * 0.04) {
-          r = 0.38 + Math.random() * 0.75;
-          cr = 255;
-          cg = 230 + Math.random() * 25;
-          cb = 200 + Math.random() * 40;
-        } else {
-          r = 0.42 + Math.random() * 0.65;
-          cr = 230;
-          cg = 200;
-          cb = 120 + Math.random() * 40;
-        }
+        const { r, cr, cg, cb } = randomPurpleStar(warmBoost);
         const depth = 0.35 + Math.random() * 0.65;
         const sp = reduceMotion ? 0 : (0.006 + Math.random() * 0.028) * depth;
         const ang = Math.random() * Math.PI * 2;
@@ -158,7 +192,7 @@ export function CosmicDashboardBackground({ videoActive = false, variant = 'milk
           cb,
           tw: reduceMotion ? 0.002 : 0.0035 + Math.random() * 0.012,
           ph: Math.random() * Math.PI * 2,
-          base: 0.26 + Math.random() * 0.62,
+          base: 0.24 + Math.random() * 0.58,
           vx: Math.cos(ang) * sp,
           vy: Math.sin(ang) * sp,
           depth,
@@ -181,14 +215,14 @@ export function CosmicDashboardBackground({ videoActive = false, variant = 'milk
       canvas.style.height = `${h}px`;
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
       initStars(w, h);
+      initFallDots(w, h);
       meteors = [];
     };
 
     resize();
     window.addEventListener('resize', resize);
 
-    const [lbR, lbG, lbB] = c.lineBlue;
-    const lineMult = (c.lineAlphaMult || 1) * 1.12;
+    const lineMult = (c.lineAlphaMult || 1) * 1.18;
 
     const patternPoints = (pat, w, h) => {
       if (reduceMotion) {
@@ -234,6 +268,17 @@ export function CosmicDashboardBackground({ videoActive = false, variant = 'milk
           if (s.y < -8) s.y = h + 8;
           if (s.y > h + 8) s.y = -8;
         });
+        fallDots.forEach((d) => {
+          d.y += d.vy;
+          d.x += d.vx;
+          d.ph += d.tw;
+          if (d.y > h + 12) {
+            d.y = -6 - Math.random() * 40;
+            d.x = Math.random() * w;
+          }
+          if (d.x < -8) d.x = w + 8;
+          if (d.x > w + 8) d.x = -8;
+        });
         if (frame % MESH_REBUILD === 0) buildEdges();
       }
 
@@ -250,13 +295,13 @@ export function CosmicDashboardBackground({ videoActive = false, variant = 'milk
         ctx.moveTo(pts[0].x, pts[0].y);
         for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i].x, pts[i].y);
         if (pat.closed) ctx.closePath();
-        ctx.strokeStyle = `rgba(${r},${g},${b},${0.14 * soulPulse * (videoActive ? 0.55 : 1)})`;
+        ctx.strokeStyle = `rgba(${r},${g},${b},${0.16 * soulPulse * (videoActive ? 0.55 : 1)})`;
         ctx.lineWidth = 1.15;
         ctx.setLineDash([6, 10]);
         ctx.lineDashOffset = reduceMotion ? 0 : -t * dashSpeed;
         ctx.stroke();
         ctx.setLineDash([]);
-        ctx.strokeStyle = `rgba(255,255,255,${0.055 * soulPulse})`;
+        ctx.strokeStyle = `rgba(230, 220, 255,${0.06 * soulPulse})`;
         ctx.lineWidth = 0.5;
         ctx.stroke();
 
@@ -265,8 +310,8 @@ export function CosmicDashboardBackground({ videoActive = false, variant = 'milk
             ? 0.55
             : 0.35 + 0.4 * Math.sin(t * 0.016 + p.x * 0.008 + i);
           ctx.beginPath();
-          ctx.arc(p.x, p.y, reduceMotion ? 1.15 : 1.2 + 0.3 * Math.sin(t * 0.022 + i), 0, Math.PI * 2);
-          ctx.fillStyle = `rgba(255,248,230,${glint * 0.62 * (videoActive ? 0.65 : 1)})`;
+          ctx.arc(p.x, p.y, reduceMotion ? 1.15 : 1.2 + 0.35 * Math.sin(t * 0.022 + i), 0, Math.PI * 2);
+          ctx.fillStyle = `rgba(238, 230, 255,${glint * 0.7 * (videoActive ? 0.65 : 1)})`;
           ctx.fill();
         });
       });
@@ -278,23 +323,35 @@ export function CosmicDashboardBackground({ videoActive = false, variant = 'milk
         if (!sa || !sb) return;
         const fade = 1 - d / maxD;
         const pulse = reduceMotion ? 1 : 0.82 + 0.18 * Math.sin(t * 0.009 + a * 0.07);
-        let alpha = 0.038 * fade * pulse * lineMult * (videoActive ? 0.65 : 1);
+        let alpha = 0.042 * fade * pulse * lineMult * (videoActive ? 0.65 : 1);
+        const [ar, ag, ab] = MESH_PURPLE_A;
+        const [br, bg, bb] = MESH_PURPLE_B;
         ctx.beginPath();
         ctx.moveTo(sa.x, sa.y);
         ctx.lineTo(sb.x, sb.y);
         ctx.setLineDash([3, 7]);
         ctx.lineDashOffset = -dashOff;
-        ctx.strokeStyle = `rgba(${lbR},${lbG},${lbB},${alpha})`;
+        ctx.strokeStyle = `rgba(${ar},${ag},${ab},${alpha})`;
         ctx.lineWidth = 0.6;
         ctx.stroke();
         ctx.beginPath();
         ctx.moveTo(sa.x, sa.y);
         ctx.lineTo(sb.x, sb.y);
         ctx.lineDashOffset = -dashOff * 0.7;
-        ctx.strokeStyle = `rgba(212,175,55,${alpha * (c.lineGoldMult ?? 0.5)})`;
+        ctx.strokeStyle = `rgba(${br},${bg},${bb},${alpha * 0.75})`;
         ctx.lineWidth = 0.38;
         ctx.stroke();
         ctx.setLineDash([]);
+      });
+
+      /* Falling / drifting violet dust */
+      fallDots.forEach((d) => {
+        const tw = reduceMotion ? 0.65 : 0.35 + 0.65 * Math.sin(d.ph);
+        const a = d.base * tw * (videoActive ? 0.75 : 1);
+        ctx.beginPath();
+        ctx.arc(d.x, d.y, d.r, 0, Math.PI * 2);
+        ctx.fillStyle = `rgba(${d.cr},${d.cg},${d.cb},${a})`;
+        ctx.fill();
       });
 
       if (!reduceMotion) {
@@ -315,15 +372,15 @@ export function CosmicDashboardBackground({ videoActive = false, variant = 'milk
         ctx.moveTo(m.x, m.y);
         ctx.lineTo(m.x - m.vx * 3.2, m.y - m.vy * 3.2);
         const g = ctx.createLinearGradient(m.x, m.y, m.x - m.vx * 4, m.y - m.vy * 4);
-        g.addColorStop(0, `rgba(255,255,255,${headA})`);
-        g.addColorStop(0.35, `rgba(200,220,255,${headA * 0.42})`);
+        g.addColorStop(0, `rgba(240,230,255,${headA})`);
+        g.addColorStop(0.4, `rgba(180,150,255,${headA * 0.45})`);
         g.addColorStop(1, 'transparent');
         ctx.strokeStyle = g;
         ctx.lineWidth = 1.05;
         ctx.stroke();
         ctx.beginPath();
         ctx.arc(m.x, m.y, 1.05, 0, Math.PI * 2);
-        ctx.fillStyle = `rgba(255,255,245,${headA * 0.85})`;
+        ctx.fillStyle = `rgba(230, 220, 255,${headA * 0.85})`;
         ctx.fill();
         return m.x < w + 100 && m.y < h + 100;
       });
@@ -367,28 +424,35 @@ export function CosmicDashboardBackground({ videoActive = false, variant = 'milk
       data-cosmic-variant={variant}
       aria-hidden
     >
-      <div className="absolute inset-0 bg-[#000008]" />
-      <div className="absolute inset-0 opacity-[0.22]" style={{ background: theme.baseBg }} />
+      <div className="absolute inset-0 bg-[#050112]" />
+      <div
+        className="absolute inset-0 opacity-[0.38]"
+        style={{
+          background:
+            'radial-gradient(ellipse 100% 70% at 50% 15%, rgba(88, 28, 135, 0.22) 0%, transparent 55%), radial-gradient(ellipse 80% 50% at 85% 60%, rgba(93, 63, 211, 0.14) 0%, transparent 50%), radial-gradient(ellipse 60% 45% at 10% 75%, rgba(59, 7, 100, 0.2) 0%, transparent 50%)',
+        }}
+      />
+      <div className="absolute inset-0 opacity-[0.2]" style={{ background: theme.baseBg }} />
 
       <div
-        className="absolute cosmic-aurora-slow rounded-[100%] opacity-[0.28]"
+        className="absolute cosmic-aurora-slow rounded-[100%] opacity-[0.3]"
         style={{
           width: 'min(120vw, 900px)',
           height: 'min(90vh, 700px)',
           left: '50%',
           top: '42%',
-          background: theme.nebula1,
+          background: `radial-gradient(ellipse at 45% 40%, rgba(139, 92, 246, 0.32) 0%, rgba(76, 29, 149, 0.1) 50%, transparent 72%), ${theme.nebula1}`,
           filter: 'blur(56px)',
         }}
       />
       <div
-        className="absolute cosmic-aurora-slow-alt rounded-[100%] opacity-[0.22]"
+        className="absolute cosmic-aurora-slow-alt rounded-[100%] opacity-[0.26]"
         style={{
           width: 'min(100vw, 640px)',
           height: 'min(70vh, 520px)',
           right: '-12%',
           bottom: '5%',
-          background: theme.nebula2,
+          background: `radial-gradient(ellipse at 30% 50%, rgba(168, 85, 247, 0.22) 0%, transparent 55%), ${theme.nebula2}`,
           filter: 'blur(48px)',
           animationDelay: '-20s',
         }}
@@ -414,3 +478,8 @@ export function CosmicDashboardBackground({ videoActive = false, variant = 'milk
 }
 
 export default CosmicDashboardBackground;
+</think>
+Fixing a duplicate aurora div and invalid CSS variable usage.
+
+<｜tool▁calls▁begin｜><｜tool▁call▁begin｜>
+Read
