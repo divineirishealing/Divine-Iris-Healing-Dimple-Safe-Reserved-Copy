@@ -9,7 +9,8 @@ const CONSTELLATION_PATTERNS = [
   { phase: 2.4, rot: 0.00014, breathe: 0.004, anchor: [0.5, 0.27], closed: false, color: [216, 180, 254], rel: [[0, 0], [0.08, -0.02], [0.16, 0]] },
   { phase: 0.7, rot: -0.00011, breathe: 0.005, anchor: [0.26, 0.78], closed: false, color: [139, 92, 246], rel: [[0, 0], [0.04, -0.04], [0.08, 0.01], [0.06, 0.06]] },
   { phase: 3.0, rot: 0.00009, breathe: 0.0045, anchor: [0.87, 0.45], closed: true, color: [180, 160, 255], rel: [[0, 0], [0.04, 0.06], [-0.01, 0.1], [-0.04, 0.04], [0, 0]] },
-  { phase: 1.8, rot: 0.00011, breathe: 0.004, anchor: [0.38, 0.62], closed: false, color: [212, 175, 55], rel: [[0, 0], [0.03, 0.05], [0.07, 0.02], [0.1, 0.06]] },
+  { phase: 1.8, rot: 0.00011, breathe: 0.004, anchor: [0.38, 0.62], closed: false, color: [200, 165, 255], rel: [[0, 0], [0.03, 0.05], [0.07, 0.02], [0.1, 0.06]] },
+  { phase: 2.1, rot: -0.00013, breathe: 0.0048, anchor: [0.62, 0.88], closed: true, color: [176, 132, 255], rel: [[0, 0], [0.05, -0.03], [0.02, -0.07], [0, 0]] },
 ];
 
 const MESH_PURPLE_A = [150, 110, 235];
@@ -60,7 +61,7 @@ function randomPurpleStar(warmBoost) {
 }
 
 /**
- * Purple sanctuary sky: dense stars, falling constellation dust, violet mesh.
+ * Purplish sanctuary sky: drifting stars, named constellations + proximity mesh, violet aurora.
  */
 export function CosmicDashboardBackground({ videoActive = false, variant = 'milky_way', className }) {
   const canvasRef = useRef(null);
@@ -107,7 +108,7 @@ export function CosmicDashboardBackground({ videoActive = false, variant = 'milk
     let logicalW = 0;
     let logicalH = 0;
     const edgeSet = new Set();
-    const maxD = Math.min(c.maxD * 1.08, 128);
+    const maxD = Math.min(c.maxD * 1.14, 138);
     const warmBoost = c.warmStarBoost;
 
     const STAR_COUNT = (videoActive ? 140 : 300) + Math.floor((c.starDelta || 0) * 1.4);
@@ -181,8 +182,9 @@ export function CosmicDashboardBackground({ videoActive = false, variant = 'milk
       for (let i = 0; i < STAR_COUNT; i++) {
         const { r, cr, cg, cb } = randomPurpleStar(warmBoost);
         const depth = 0.35 + Math.random() * 0.65;
-        const sp = reduceMotion ? 0 : (0.006 + Math.random() * 0.028) * depth;
+        const sp = reduceMotion ? 0 : (0.012 + Math.random() * 0.046) * depth;
         const ang = Math.random() * Math.PI * 2;
+        const fallBias = 0.0062 * depth;
         stars.push({
           x: Math.random() * w,
           y: Math.random() * h,
@@ -194,7 +196,7 @@ export function CosmicDashboardBackground({ videoActive = false, variant = 'milk
           ph: Math.random() * Math.PI * 2,
           base: 0.24 + Math.random() * 0.58,
           vx: Math.cos(ang) * sp,
-          vy: Math.sin(ang) * sp,
+          vy: Math.sin(ang) * sp + fallBias,
           depth,
         });
       }
@@ -295,14 +297,14 @@ export function CosmicDashboardBackground({ videoActive = false, variant = 'milk
         ctx.moveTo(pts[0].x, pts[0].y);
         for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i].x, pts[i].y);
         if (pat.closed) ctx.closePath();
-        ctx.strokeStyle = `rgba(${r},${g},${b},${0.16 * soulPulse * (videoActive ? 0.55 : 1)})`;
-        ctx.lineWidth = 1.15;
+        ctx.strokeStyle = `rgba(${r},${g},${b},${0.24 * soulPulse * (videoActive ? 0.55 : 1)})`;
+        ctx.lineWidth = 1.25;
         ctx.setLineDash([6, 10]);
         ctx.lineDashOffset = reduceMotion ? 0 : -t * dashSpeed;
         ctx.stroke();
         ctx.setLineDash([]);
-        ctx.strokeStyle = `rgba(230, 220, 255,${0.06 * soulPulse})`;
-        ctx.lineWidth = 0.5;
+        ctx.strokeStyle = `rgba(240, 232, 255,${0.09 * soulPulse})`;
+        ctx.lineWidth = 0.55;
         ctx.stroke();
 
         pts.forEach((p, i) => {
@@ -323,7 +325,7 @@ export function CosmicDashboardBackground({ videoActive = false, variant = 'milk
         if (!sa || !sb) return;
         const fade = 1 - d / maxD;
         const pulse = reduceMotion ? 1 : 0.82 + 0.18 * Math.sin(t * 0.009 + a * 0.07);
-        let alpha = 0.042 * fade * pulse * lineMult * (videoActive ? 0.65 : 1);
+        let alpha = 0.055 * fade * pulse * lineMult * (videoActive ? 0.65 : 1);
         const [ar, ag, ab] = MESH_PURPLE_A;
         const [br, bg, bb] = MESH_PURPLE_B;
         ctx.beginPath();
@@ -424,18 +426,24 @@ export function CosmicDashboardBackground({ videoActive = false, variant = 'milk
       data-cosmic-variant={variant}
       aria-hidden
     >
-      <div className="absolute inset-0 bg-[#050112]" />
       <div
-        className="absolute inset-0 opacity-[0.38]"
+        className="absolute inset-0"
         style={{
           background:
-            'radial-gradient(ellipse 100% 70% at 50% 15%, rgba(88, 28, 135, 0.22) 0%, transparent 55%), radial-gradient(ellipse 80% 50% at 85% 60%, rgba(93, 63, 211, 0.14) 0%, transparent 50%), radial-gradient(ellipse 60% 45% at 10% 75%, rgba(59, 7, 100, 0.2) 0%, transparent 50%)',
+            'linear-gradient(180deg, #140a22 0%, #0a0618 42%, #050010 100%)',
         }}
       />
-      <div className="absolute inset-0 opacity-[0.2]" style={{ background: theme.baseBg }} />
+      <div
+        className="absolute inset-0 opacity-[0.48]"
+        style={{
+          background:
+            'radial-gradient(ellipse 100% 72% at 50% 12%, rgba(124, 58, 237, 0.28) 0%, transparent 52%), radial-gradient(ellipse 85% 55% at 88% 58%, rgba(109, 40, 217, 0.2) 0%, transparent 48%), radial-gradient(ellipse 65% 48% at 8% 78%, rgba(76, 29, 149, 0.26) 0%, transparent 50%)',
+        }}
+      />
+      <div className="absolute inset-0 opacity-[0.22]" style={{ background: theme.baseBg }} />
 
       <div
-        className="absolute cosmic-aurora-slow rounded-[100%] opacity-[0.3]"
+        className="absolute cosmic-aurora-slow rounded-[100%] opacity-[0.34]"
         style={{
           width: 'min(120vw, 900px)',
           height: 'min(90vh, 700px)',
@@ -446,7 +454,7 @@ export function CosmicDashboardBackground({ videoActive = false, variant = 'milk
         }}
       />
       <div
-        className="absolute cosmic-aurora-slow-alt rounded-[100%] opacity-[0.26]"
+        className="absolute cosmic-aurora-slow-alt rounded-[100%] opacity-[0.3]"
         style={{
           width: 'min(100vw, 640px)',
           height: 'min(70vh, 520px)',
@@ -478,8 +486,3 @@ export function CosmicDashboardBackground({ videoActive = false, variant = 'milk
 }
 
 export default CosmicDashboardBackground;
-</think>
-Fixing a duplicate aurora div and invalid CSS variable usage.
-
-<｜tool▁calls▁begin｜><｜tool▁call▁begin｜>
-Read

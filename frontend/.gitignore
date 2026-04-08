@@ -2,6 +2,8 @@
 
 # dependencies
 /node_modules
+# Yarn is the source of truth for this app (Vercel uses yarn.lock).
+package-lock.json
 /.pnp
 .pnp.js
 
