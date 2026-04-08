@@ -56,10 +56,10 @@ const DashboardLayout = () => {
   const cosmicVariant = getDashboardCosmicVariant(location.pathname);
 
   return (
-    <div className="min-h-screen relative bg-[#030510]">
+    <div className="min-h-screen relative bg-transparent">
       <CosmicDashboardBackground videoActive={Boolean(bgVideo)} variant={cosmicVariant} />
 
-      {/* Full-screen video (stars/canvas stay visible underneath at reduced strength) */}
+      {/* Optional admin video — kept subtle so constellations & planets stay the hero */}
       {bgVideo && (
         <video
           autoPlay
@@ -67,7 +67,7 @@ const DashboardLayout = () => {
           muted
           playsInline
           className="fixed inset-0 w-full h-full object-cover z-[1]"
-          style={{ opacity: 0.72 }}
+          style={{ opacity: 0.38 }}
           data-testid="dashboard-bg-video"
         >
           <source src={bgVideo.startsWith('/') ? `${process.env.REACT_APP_BACKEND_URL}${bgVideo}` : bgVideo} type="video/mp4" />
@@ -78,63 +78,36 @@ const DashboardLayout = () => {
           className="fixed inset-0 z-[2] pointer-events-none"
           style={{
             background:
-              'linear-gradient(180deg, rgba(3,5,16,0.35) 0%, rgba(10,8,30,0.25) 40%, rgba(3,5,16,0.45) 100%)',
+              'linear-gradient(180deg, rgba(2,2,10,0.55) 0%, rgba(4,4,18,0.4) 45%, rgba(2,2,8,0.6) 100%)',
           }}
         />
       )}
 
-      {/* ═══ TOP HORIZONTAL NAV BAR ═══ */}
-      <nav
-        className="fixed top-0 left-0 right-0 z-30 flex items-center justify-between px-4 md:px-6 h-14 border-b border-cyan-950/30"
+      {/* Soft vignette: depth without hiding the starfield */}
+      <div
+        className="fixed inset-0 z-[3] pointer-events-none"
         style={{
-          background: 'linear-gradient(180deg, rgba(3,5,20,0.82) 0%, rgba(8,10,35,0.55) 100%)',
-          backdropFilter: 'blur(18px)',
-          boxShadow: '0 1px 0 rgba(212,175,55,0.12), 0 12px 40px rgba(0,0,0,0.35)',
+          boxShadow: 'inset 0 0 min(100vw, 1400px) rgba(0,0,0,0.42), inset 0 -120px 200px rgba(5,3,20,0.35)',
         }}
+        aria-hidden
+      />
+
+      {/* Floating menu — no top bar; home “petal” cards are primary navigation */}
+      <button
+        type="button"
+        onClick={() => setSidebarOpen(!sidebarOpen)}
+        className="fixed top-4 left-4 z-50 w-11 h-11 rounded-2xl flex items-center justify-center text-white/75 hover:text-[#D4AF37] border border-white/[0.12] bg-[rgba(6,8,24,0.55)] backdrop-blur-xl shadow-[0_8px_32px_rgba(0,0,0,0.35)] hover:border-[#D4AF37]/30 transition-all"
+        aria-expanded={sidebarOpen}
+        aria-label={sidebarOpen ? 'Close menu' : 'Open menu'}
+        data-testid="sidebar-toggle"
       >
-        {/* Left: Hamburger + Logo */}
-        <div className="flex items-center gap-3">
-          <button onClick={() => setSidebarOpen(!sidebarOpen)} className="w-9 h-9 rounded-lg flex items-center justify-center text-white/70 hover:text-[#D4AF37] hover:bg-white/10 transition-colors" data-testid="sidebar-toggle">
-            {sidebarOpen ? <X size={18} /> : <Menu size={18} />}
-          </button>
-          <NavLink to="/dashboard" className="flex items-center gap-2">
-            <span className="text-sm font-serif font-bold bg-gradient-to-r from-[#E8D5A3] via-[#D4AF37] to-[#A78BFA] bg-clip-text text-transparent drop-shadow-[0_0_20px_rgba(212,175,55,0.35)]">
-              Sanctuary
-            </span>
-          </NavLink>
-        </div>
-
-        {/* Center: Nav links (desktop) */}
-        <div className="hidden lg:flex items-center gap-1">
-          {NAV_ITEMS.slice(0, 7).map(item => (
-            <NavLink key={item.to} to={item.to} end={item.exact}
-              className={({ isActive }) => cn(
-                "flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[11px] font-medium transition-all",
-                isActive ? "bg-gradient-to-r from-[#D4AF37]/25 to-cyan-500/15 text-[#F5E6A8] shadow-[0_0_20px_rgba(212,175,55,0.15)]" : "text-white/55 hover:text-white hover:bg-white/[0.07]"
-              )} data-testid={`nav-${item.label.toLowerCase()}`}>
-              <item.icon size={13} />
-              <span className="hidden xl:inline">{item.label}</span>
-            </NavLink>
-          ))}
-        </div>
-
-        {/* Right: User */}
-        <div className="flex items-center gap-3">
-          <div className="text-right hidden sm:block">
-            <p className="text-xs font-medium text-white/80">{user?.name}</p>
-            <p className="text-[9px] text-[#D4AF37]/60">TIER {user?.tier || 4}</p>
-          </div>
-          <NavLink to="/dashboard/profile" className="w-8 h-8 rounded-full border border-[#D4AF37]/40 overflow-hidden bg-gradient-to-br from-[#5D3FD3] to-[#D4AF37] flex items-center justify-center">
-            {user?.profile_image ? <img src={user.profile_image} alt="" className="w-full h-full object-cover" /> :
-              <span className="text-xs text-white font-bold">{(user?.name || 'S').charAt(0)}</span>}
-          </NavLink>
-        </div>
-      </nav>
+        {sidebarOpen ? <X size={20} /> : <Menu size={20} />}
+      </button>
 
       {/* ═══ COLLAPSIBLE SIDEBAR (slides from left) ═══ */}
-      {sidebarOpen && <div className="fixed inset-0 z-30 bg-black/40" onClick={() => setSidebarOpen(false)} />}
+      {sidebarOpen && <div className="fixed inset-0 z-40 bg-black/40" onClick={() => setSidebarOpen(false)} />}
       <div className={cn(
-        "fixed top-14 left-0 bottom-0 w-64 z-40 transition-transform duration-300",
+        "fixed top-0 left-0 bottom-0 w-64 z-50 transition-transform duration-300 pt-[env(safe-area-inset-top,0px)]",
         sidebarOpen ? "translate-x-0" : "-translate-x-full"
       )} style={{
         background: 'linear-gradient(165deg, rgba(8,6,28,0.94) 0%, rgba(4,6,22,0.92) 100%)',
@@ -143,6 +116,12 @@ const DashboardLayout = () => {
         boxShadow: '8px 0 32px rgba(0,0,0,0.4)',
       }}>
         <div className="p-4 space-y-1 overflow-y-auto h-full">
+          <NavLink to="/dashboard" end onClick={() => setSidebarOpen(false)} className="block px-3 pt-3 pb-2 mb-1">
+            <span className="text-sm font-serif font-bold bg-gradient-to-r from-[#E8D5A3] via-[#D4AF37] to-[#A78BFA] bg-clip-text text-transparent">
+              Sanctuary
+            </span>
+            <p className="text-[10px] text-white/35 mt-0.5 truncate">{user?.name}</p>
+          </NavLink>
           <p className="text-[8px] uppercase tracking-[0.2em] text-cyan-200/40 px-3 pt-2 pb-1">Journey</p>
           {NAV_ITEMS.map(item => (
             <NavLink key={item.to} to={item.to} end={item.exact}
@@ -171,7 +150,7 @@ const DashboardLayout = () => {
       </div>
 
       {/* ═══ MAIN CONTENT ═══ */}
-      <main className="relative z-10 pt-14 min-h-screen">
+      <main className="relative z-20 min-h-screen">
         <div className="p-4 md:p-8">
           <Outlet />
         </div>

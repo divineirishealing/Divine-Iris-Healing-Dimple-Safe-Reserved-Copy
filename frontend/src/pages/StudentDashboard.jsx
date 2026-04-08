@@ -126,19 +126,6 @@ const PetalCard = ({ children, className, onClick, delay = 0, testId }) => (
   </div>
 );
 
-/* ─── Animated Orb ─── */
-const FloatingOrb = ({ size, top, left, delay, color = 'rgba(212,175,55,0.08)' }) => (
-  <div
-    className="absolute rounded-full pointer-events-none animate-[float_8s_ease-in-out_infinite]"
-    style={{
-      width: size, height: size, top, left,
-      background: `radial-gradient(circle, ${color} 0%, transparent 70%)`,
-      animationDelay: `${delay}s`,
-      filter: 'blur(1px)'
-    }}
-  />
-);
-
 const StudentDashboard = () => {
   const { user } = useAuth();
   const { settings } = useSiteSettings();
@@ -170,9 +157,6 @@ const StudentDashboard = () => {
   const sanctuary = {
     greeting_title: raw.greeting_title || "Divine Iris Healing",
     greeting_subtitle: raw.greeting_subtitle || "Home for Your Soul",
-    hero_bg: raw.hero_bg || "",
-    hero_video: raw.hero_video || "",
-    hero_overlay: raw.hero_overlay || "",
   };
 
   useEffect(() => {
@@ -234,36 +218,10 @@ const StudentDashboard = () => {
 
   return (
     <div className="absolute inset-0 overflow-y-auto overflow-x-hidden" data-testid="student-dashboard">
-
-      {/* ═══ ATMOSPHERE ═══ */}
-      <div className="fixed inset-0 z-0">
-        {sanctuary.hero_bg ? (
-          <img src={sanctuary.hero_bg} className="w-full h-full object-cover" alt="" />
-        ) : sanctuary.hero_video ? (
-          <video src={sanctuary.hero_video} autoPlay muted loop playsInline className="w-full h-full object-cover" />
-        ) : (
-          <div className="w-full h-full bg-gradient-to-br from-[#2D1B69] via-[#5D3FD3] to-[#7C5CE7]" />
-        )}
-        {/* Dark vignette overlay */}
-        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,transparent_30%,rgba(20,10,50,0.55)_100%)]" />
-        {/* Subtle noise texture */}
-        <div className="absolute inset-0 opacity-[0.03]" style={{ backgroundImage: 'url("data:image/svg+xml,%3Csvg viewBox=\'0 0 256 256\' xmlns=\'http://www.w3.org/2000/svg\'%3E%3Cfilter id=\'noise\'%3E%3CfeTurbulence type=\'fractalNoise\' baseFrequency=\'0.9\' numOctaves=\'4\' stitchTiles=\'stitch\'/%3E%3C/filter%3E%3Crect width=\'100%25\' height=\'100%25\' filter=\'url(%23noise)\'/%3E%3C/svg%3E")' }} />
-        
-        {sanctuary.hero_overlay && (
-          <div className="absolute inset-0 z-10 animate-[drift_20s_linear_infinite] pointer-events-none opacity-60">
-            <img src={sanctuary.hero_overlay} className="w-full h-full object-cover" alt="" />
-          </div>
-        )}
-      </div>
-
-      {/* Floating orbs */}
-      <FloatingOrb size="300px" top="-50px" left="-80px" delay={0} />
-      <FloatingOrb size="200px" top="60%" left="85%" delay={3} color="rgba(132,169,140,0.06)" />
-      <FloatingOrb size="150px" top="30%" left="50%" delay={5} />
-      <FloatingOrb size="100px" top="80%" left="15%" delay={2} color="rgba(212,175,55,0.05)" />
+      {/* Deep space + constellations come from DashboardLayout (CosmicDashboardBackground). No full-bleed hero image here so stars stay visible. */}
 
       {/* ═══ CONTENT ═══ */}
-      <div className="relative z-20 min-h-full flex flex-col items-center justify-center px-4 py-8 md:py-12">
+      <div className="relative z-10 min-h-full flex flex-col items-center justify-center px-4 py-8 md:py-12">
 
         {/* ─── GREETING ─── */}
         <div className="text-center mb-10 md:mb-14 animate-[fadeSlideUp_0.8s_ease-out_both]" data-testid="dashboard-greeting">
