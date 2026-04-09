@@ -7,11 +7,18 @@ import ConstellationCanvas from '../components/ConstellationCanvas';
 import { SoulfulWrittenCard, SoulfulVideoCard, SoulfulGraphicCard, SoulfulTestimonialFull } from '../components/SoulfulTestimonialCard';
 import { Search, X, Filter, Sparkles } from 'lucide-react';
 import { Dialog, DialogContent } from '../components/ui/dialog';
-import { HEADING, GOLD, LABEL, CONTAINER } from '../lib/designTokens';
+import { HEADING, GOLD, LABEL } from '../lib/designTokens';
 import { resolveImageUrl } from '../lib/imageUtils';
 import { resolveTransformationsSection } from '../lib/transformationsSectionDefaults';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
+
+const STORIES_KICKER_STYLE_DEFAULT = { fontSize: '11px', letterSpacing: '0.25em', textTransform: 'uppercase', color: '#D4AF37', fontFamily: "'Lato', sans-serif" };
+const STORIES_TITLE_STYLE_DEFAULT = { ...HEADING, fontSize: 'clamp(1.2rem, 2.5vw, 1.6rem)', color: '#4c1d95', fontStyle: 'italic' };
+const VIDEO_KICKER_STYLE_DEFAULT = { fontSize: '11px', letterSpacing: '0.25em', textTransform: 'uppercase', color: 'rgba(212,175,55,0.7)', fontFamily: "'Lato', sans-serif" };
+const VIDEO_TITLE_STYLE_DEFAULT = { ...HEADING, fontSize: 'clamp(1.2rem, 2.5vw, 1.6rem)', color: '#f5f0ff', fontStyle: 'italic' };
+const GALLERY_KICKER_STYLE_DEFAULT = { ...STORIES_KICKER_STYLE_DEFAULT };
+const GALLERY_TITLE_STYLE_DEFAULT = { ...STORIES_TITLE_STYLE_DEFAULT };
 
 function TransformationsPage() {
   const [testimonials, setTestimonials] = useState([]);
@@ -76,6 +83,7 @@ function TransformationsPage() {
       ...(styleObj.font_style && { fontStyle: styleObj.font_style }),
       ...(styleObj.letter_spacing !== undefined && styleObj.letter_spacing !== '' && { letterSpacing: styleObj.letter_spacing }),
       ...(styleObj.text_align && { textAlign: styleObj.text_align }),
+      ...(styleObj.text_transform && { textTransform: styleObj.text_transform }),
     };
   };
 
@@ -200,8 +208,8 @@ function TransformationsPage() {
           <div className="container mx-auto px-4">
             {(activeType === 'all' || activeType === 'template') && (
               <div className="text-center mb-10">
-                <p className="text-[11px] tracking-[0.25em] uppercase mb-2" style={{ color: '#D4AF37', fontFamily: "'Lato', sans-serif" }}>{section.stories_kicker}</p>
-                <h2 style={{ ...HEADING, fontSize: 'clamp(1.2rem, 2.5vw, 1.6rem)', color: '#4c1d95', fontStyle: 'italic' }}>
+                <p className="mb-2" style={applyHeroStyle(hero.stories_kicker_style, STORIES_KICKER_STYLE_DEFAULT)}>{section.stories_kicker}</p>
+                <h2 className="max-w-4xl mx-auto" style={applyHeroStyle(hero.stories_title_style, STORIES_TITLE_STYLE_DEFAULT)}>
                   {section.stories_title}
                 </h2>
                 <div className="w-10 h-px mx-auto mt-3" style={{ background: 'linear-gradient(90deg, transparent, #D4AF37, transparent)' }} />
@@ -223,8 +231,8 @@ function TransformationsPage() {
           <div className="container mx-auto px-4">
             {(activeType === 'all' || activeType === 'video') && (
               <div className="text-center mb-10">
-                <p className="text-[11px] tracking-[0.25em] uppercase mb-2" style={{ color: 'rgba(212,175,55,0.7)', fontFamily: "'Lato', sans-serif" }}>{section.video_kicker}</p>
-                <h2 style={{ ...HEADING, fontSize: 'clamp(1.2rem, 2.5vw, 1.6rem)', color: '#f5f0ff', fontStyle: 'italic' }}>
+                <p className="mb-2" style={applyHeroStyle(hero.video_kicker_style, VIDEO_KICKER_STYLE_DEFAULT)}>{section.video_kicker}</p>
+                <h2 className="max-w-4xl mx-auto" style={applyHeroStyle(hero.video_title_style, VIDEO_TITLE_STYLE_DEFAULT)}>
                   {section.video_title}
                 </h2>
                 <div className="w-10 h-px mx-auto mt-3" style={{ background: 'linear-gradient(90deg, transparent, #D4AF37, transparent)' }} />
@@ -249,8 +257,8 @@ function TransformationsPage() {
           <div className="container mx-auto px-4">
             {(activeType === 'all' || activeType === 'graphic') && (
               <div className="text-center mb-10">
-                <p className="text-[11px] tracking-[0.25em] uppercase mb-2" style={{ color: '#D4AF37', fontFamily: "'Lato', sans-serif" }}>{section.gallery_kicker}</p>
-                <h2 style={{ ...HEADING, fontSize: 'clamp(1.2rem, 2.5vw, 1.6rem)', color: '#4c1d95', fontStyle: 'italic' }}>
+                <p className="mb-2" style={applyHeroStyle(hero.gallery_kicker_style, GALLERY_KICKER_STYLE_DEFAULT)}>{section.gallery_kicker}</p>
+                <h2 className="max-w-4xl mx-auto" style={applyHeroStyle(hero.gallery_title_style, GALLERY_TITLE_STYLE_DEFAULT)}>
                   {section.gallery_title}
                 </h2>
                 <div className="w-10 h-px mx-auto mt-3" style={{ background: 'linear-gradient(90deg, transparent, #D4AF37, transparent)' }} />
