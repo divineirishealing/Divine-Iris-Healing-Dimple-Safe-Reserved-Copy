@@ -232,10 +232,16 @@ const PageHeadersTab = ({ settings, programs = [], onChange }) => {
         {isTransformationsHero && (
           <div className="mb-3 p-3 rounded-lg border border-purple-200 bg-purple-50/80" data-testid="transformations-section-headings">
             <p className="text-[11px] font-semibold text-purple-900 mb-0.5">Transformations page — section titles</p>
-            <p className="text-[10px] text-purple-700/80 mb-3">Body section headings only (not the purple hero). Each row below the text has <strong>Font</strong> (typeface), <strong>Size</strong>, <strong>Color</strong>, and <strong>Style</strong> (bold / italic). Save Page Headers when done.</p>
+            <p className="text-[10px] text-purple-700/80 mb-3">Body section headings only (not the purple hero). Use <strong>Heading visible</strong> per section to show or hide the kicker + title + line on the public page. Font row: typeface, size, color, bold/italic. Save Page Headers when done.</p>
             <div className="space-y-4">
               <div className="rounded-md border border-purple-100 bg-white/90 p-2.5">
-                <p className="text-[10px] font-semibold text-purple-900 mb-2">Stories section</p>
+                <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
+                  <p className="text-[10px] font-semibold text-purple-900">Stories section</p>
+                  <div className="flex items-center gap-1.5">
+                    <Label className="text-[9px] text-gray-600 whitespace-nowrap">Heading visible</Label>
+                    <Switch checked={hero.stories_body_heading_visible !== false} onCheckedChange={v => updateHero(pageKey, 'stories_body_heading_visible', v)} data-testid="stories-body-heading-visible" />
+                  </div>
+                </div>
                 <div className="space-y-3">
                   <div>
                     <Label className="text-[10px] text-gray-700 font-medium">Small label (kicker)</Label>
@@ -250,7 +256,13 @@ const PageHeadersTab = ({ settings, programs = [], onChange }) => {
                 </div>
               </div>
               <div className="rounded-md border border-purple-100 bg-white/90 p-2.5">
-                <p className="text-[10px] font-semibold text-purple-900 mb-2">Videos section</p>
+                <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
+                  <p className="text-[10px] font-semibold text-purple-900">Videos section</p>
+                  <div className="flex items-center gap-1.5">
+                    <Label className="text-[9px] text-gray-600 whitespace-nowrap">Heading visible</Label>
+                    <Switch checked={hero.videos_body_heading_visible !== false} onCheckedChange={v => updateHero(pageKey, 'videos_body_heading_visible', v)} data-testid="videos-body-heading-visible" />
+                  </div>
+                </div>
                 <div className="space-y-3">
                   <div>
                     <Label className="text-[10px] text-gray-700 font-medium">Small label (kicker)</Label>
@@ -265,7 +277,13 @@ const PageHeadersTab = ({ settings, programs = [], onChange }) => {
                 </div>
               </div>
               <div className="rounded-md border border-purple-100 bg-white/90 p-2.5">
-                <p className="text-[10px] font-semibold text-purple-900 mb-2">Gallery section</p>
+                <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
+                  <p className="text-[10px] font-semibold text-purple-900">Gallery section</p>
+                  <div className="flex items-center gap-1.5">
+                    <Label className="text-[9px] text-gray-600 whitespace-nowrap">Heading visible</Label>
+                    <Switch checked={hero.gallery_body_heading_visible !== false} onCheckedChange={v => updateHero(pageKey, 'gallery_body_heading_visible', v)} data-testid="gallery-body-heading-visible" />
+                  </div>
+                </div>
                 <div className="space-y-3">
                   <div>
                     <Label className="text-[10px] text-gray-700 font-medium">Small label (kicker)</Label>

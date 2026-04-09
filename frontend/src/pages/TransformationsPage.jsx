@@ -71,6 +71,9 @@ function TransformationsPage() {
   const hero = settings?.page_heroes?.transformations || {};
   const section = resolveTransformationsSection(hero);
   const galleryVisible = settings?.transformations_gallery_visible !== false;
+  const storiesBodyHeadingVisible = hero.stories_body_heading_visible !== false;
+  const videosBodyHeadingVisible = hero.videos_body_heading_visible !== false;
+  const galleryBodyHeadingVisible = hero.gallery_body_heading_visible !== false;
 
   const applyHeroStyle = (styleObj, defaults = {}) => {
     if (!styleObj || !Object.keys(styleObj).length) return defaults;
@@ -206,7 +209,7 @@ function TransformationsPage() {
         <section data-testid="written-testimonials" className="py-12"
           style={{ background: 'linear-gradient(180deg, #ffffff 0%, #faf7ff 50%, #f5f0ff 100%)' }}>
           <div className="container mx-auto px-4">
-            {(activeType === 'all' || activeType === 'template') && (
+            {(activeType === 'all' || activeType === 'template') && storiesBodyHeadingVisible && (
               <div className="text-center mb-10">
                 <p className="mb-2" style={applyHeroStyle(hero.stories_kicker_style, STORIES_KICKER_STYLE_DEFAULT)}>{section.stories_kicker}</p>
                 <h2 className="max-w-4xl mx-auto" style={applyHeroStyle(hero.stories_title_style, STORIES_TITLE_STYLE_DEFAULT)}>
@@ -229,7 +232,7 @@ function TransformationsPage() {
         <section data-testid="video-testimonials" className="py-12"
           style={{ background: 'linear-gradient(180deg, #0d0618 0%, #1a0a3e 50%, #0f0a1e 100%)' }}>
           <div className="container mx-auto px-4">
-            {(activeType === 'all' || activeType === 'video') && (
+            {(activeType === 'all' || activeType === 'video') && videosBodyHeadingVisible && (
               <div className="text-center mb-10">
                 <p className="mb-2" style={applyHeroStyle(hero.video_kicker_style, VIDEO_KICKER_STYLE_DEFAULT)}>{section.video_kicker}</p>
                 <h2 className="max-w-4xl mx-auto" style={applyHeroStyle(hero.video_title_style, VIDEO_TITLE_STYLE_DEFAULT)}>
@@ -255,7 +258,7 @@ function TransformationsPage() {
         <section data-testid="graphic-testimonials" className="py-12"
           style={{ background: 'linear-gradient(180deg, #faf7ff, #ffffff)' }}>
           <div className="container mx-auto px-4">
-            {(activeType === 'all' || activeType === 'graphic') && (
+            {(activeType === 'all' || activeType === 'graphic') && galleryBodyHeadingVisible && (
               <div className="text-center mb-10">
                 <p className="mb-2" style={applyHeroStyle(hero.gallery_kicker_style, GALLERY_KICKER_STYLE_DEFAULT)}>{section.gallery_kicker}</p>
                 <h2 className="max-w-4xl mx-auto" style={applyHeroStyle(hero.gallery_title_style, GALLERY_TITLE_STYLE_DEFAULT)}>
