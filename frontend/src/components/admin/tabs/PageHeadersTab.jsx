@@ -210,6 +210,9 @@ const PageHeadersTab = ({ settings, programs = [], onChange }) => {
     const hero = getHero(pageKey);
     const imgOpen = expandedImages[pageKey] || !!hero.hero_image;
     const isTransformationsHero = pageKey === 'transformations';
+    const storiesVisLegacy = isTransformationsHero && hero.stories_body_heading_visible === false && hero.stories_kicker_visible === undefined && hero.stories_title_visible === undefined;
+    const videosVisLegacy = isTransformationsHero && hero.videos_body_heading_visible === false && hero.videos_kicker_visible === undefined && hero.videos_title_visible === undefined;
+    const galleryVisLegacy = isTransformationsHero && hero.gallery_body_heading_visible === false && hero.gallery_kicker_visible === undefined && hero.gallery_title_visible === undefined;
     return (
       <div className="bg-white rounded-lg border p-3 mb-2" data-testid={`hero-row-${pageKey}`}>
         <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mb-2">
@@ -232,66 +235,84 @@ const PageHeadersTab = ({ settings, programs = [], onChange }) => {
         {isTransformationsHero && (
           <div className="mb-3 p-3 rounded-lg border border-purple-200 bg-purple-50/80" data-testid="transformations-section-headings">
             <p className="text-[11px] font-semibold text-purple-900 mb-0.5">Transformations page — section titles</p>
-            <p className="text-[10px] text-purple-700/80 mb-3">Body section headings only (not the purple hero). Use <strong>Heading visible</strong> per section to show or hide the kicker + title + line on the public page. Font row: typeface, size, color, bold/italic. Save Page Headers when done.</p>
+            <p className="text-[10px] text-purple-700/80 mb-3">Body section headings only (not the purple hero). Each line has its own <strong>Visible</strong> switch plus font controls. The gold line shows if at least one line is visible. Save Page Headers when done.</p>
             <div className="space-y-4">
               <div className="rounded-md border border-purple-100 bg-white/90 p-2.5">
-                <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
-                  <p className="text-[10px] font-semibold text-purple-900">Stories section</p>
-                  <div className="flex items-center gap-1.5">
-                    <Label className="text-[9px] text-gray-600 whitespace-nowrap">Heading visible</Label>
-                    <Switch checked={hero.stories_body_heading_visible !== false} onCheckedChange={v => updateHero(pageKey, 'stories_body_heading_visible', v)} data-testid="stories-body-heading-visible" />
-                  </div>
-                </div>
+                <p className="text-[10px] font-semibold text-purple-900 mb-2">Stories section</p>
                 <div className="space-y-3">
                   <div>
-                    <Label className="text-[10px] text-gray-700 font-medium">Small label (kicker)</Label>
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <Label className="text-[10px] text-gray-700 font-medium">Small label (kicker)</Label>
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        <Label className="text-[9px] text-gray-600 whitespace-nowrap">Visible</Label>
+                        <Switch checked={storiesVisLegacy ? false : hero.stories_kicker_visible !== false} onCheckedChange={v => updateHero(pageKey, 'stories_kicker_visible', v)} data-testid="stories-kicker-visible" />
+                      </div>
+                    </div>
                     <Input value={hero.stories_kicker ?? ''} placeholder={TRANSFORMATIONS_SECTION_DEFAULTS.stories_kicker} onChange={e => updateHero(pageKey, 'stories_kicker', e.target.value)} className="text-xs h-8 mt-1 bg-white" />
                     <TransformationsSectionFontRow style={hero.stories_kicker_style || {}} onStyleChange={v => updateHero(pageKey, 'stories_kicker_style', v)} />
                   </div>
                   <div>
-                    <Label className="text-[10px] text-gray-700 font-medium">Main title</Label>
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <Label className="text-[10px] text-gray-700 font-medium">Main title</Label>
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        <Label className="text-[9px] text-gray-600 whitespace-nowrap">Visible</Label>
+                        <Switch checked={storiesVisLegacy ? false : hero.stories_title_visible !== false} onCheckedChange={v => updateHero(pageKey, 'stories_title_visible', v)} data-testid="stories-title-visible" />
+                      </div>
+                    </div>
                     <Input value={hero.stories_title ?? ''} placeholder={TRANSFORMATIONS_SECTION_DEFAULTS.stories_title} onChange={e => updateHero(pageKey, 'stories_title', e.target.value)} className="text-xs h-8 mt-1 bg-white" />
                     <TransformationsSectionFontRow style={hero.stories_title_style || {}} onStyleChange={v => updateHero(pageKey, 'stories_title_style', v)} />
                   </div>
                 </div>
               </div>
               <div className="rounded-md border border-purple-100 bg-white/90 p-2.5">
-                <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
-                  <p className="text-[10px] font-semibold text-purple-900">Videos section</p>
-                  <div className="flex items-center gap-1.5">
-                    <Label className="text-[9px] text-gray-600 whitespace-nowrap">Heading visible</Label>
-                    <Switch checked={hero.videos_body_heading_visible !== false} onCheckedChange={v => updateHero(pageKey, 'videos_body_heading_visible', v)} data-testid="videos-body-heading-visible" />
-                  </div>
-                </div>
+                <p className="text-[10px] font-semibold text-purple-900 mb-2">Videos section</p>
                 <div className="space-y-3">
                   <div>
-                    <Label className="text-[10px] text-gray-700 font-medium">Small label (kicker)</Label>
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <Label className="text-[10px] text-gray-700 font-medium">Small label (kicker)</Label>
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        <Label className="text-[9px] text-gray-600 whitespace-nowrap">Visible</Label>
+                        <Switch checked={videosVisLegacy ? false : hero.videos_kicker_visible !== false} onCheckedChange={v => updateHero(pageKey, 'videos_kicker_visible', v)} data-testid="videos-kicker-visible" />
+                      </div>
+                    </div>
                     <Input value={hero.video_kicker ?? ''} placeholder={TRANSFORMATIONS_SECTION_DEFAULTS.video_kicker} onChange={e => updateHero(pageKey, 'video_kicker', e.target.value)} className="text-xs h-8 mt-1 bg-white" />
                     <TransformationsSectionFontRow style={hero.video_kicker_style || {}} onStyleChange={v => updateHero(pageKey, 'video_kicker_style', v)} />
                   </div>
                   <div>
-                    <Label className="text-[10px] text-gray-700 font-medium">Main title</Label>
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <Label className="text-[10px] text-gray-700 font-medium">Main title</Label>
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        <Label className="text-[9px] text-gray-600 whitespace-nowrap">Visible</Label>
+                        <Switch checked={videosVisLegacy ? false : hero.videos_title_visible !== false} onCheckedChange={v => updateHero(pageKey, 'videos_title_visible', v)} data-testid="videos-title-visible" />
+                      </div>
+                    </div>
                     <Input value={hero.video_title ?? ''} placeholder={TRANSFORMATIONS_SECTION_DEFAULTS.video_title} onChange={e => updateHero(pageKey, 'video_title', e.target.value)} className="text-xs h-8 mt-1 bg-white" />
                     <TransformationsSectionFontRow style={hero.video_title_style || {}} onStyleChange={v => updateHero(pageKey, 'video_title_style', v)} />
                   </div>
                 </div>
               </div>
               <div className="rounded-md border border-purple-100 bg-white/90 p-2.5">
-                <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
-                  <p className="text-[10px] font-semibold text-purple-900">Gallery section</p>
-                  <div className="flex items-center gap-1.5">
-                    <Label className="text-[9px] text-gray-600 whitespace-nowrap">Heading visible</Label>
-                    <Switch checked={hero.gallery_body_heading_visible !== false} onCheckedChange={v => updateHero(pageKey, 'gallery_body_heading_visible', v)} data-testid="gallery-body-heading-visible" />
-                  </div>
-                </div>
+                <p className="text-[10px] font-semibold text-purple-900 mb-2">Gallery section</p>
                 <div className="space-y-3">
                   <div>
-                    <Label className="text-[10px] text-gray-700 font-medium">Small label (kicker)</Label>
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <Label className="text-[10px] text-gray-700 font-medium">Small label (kicker)</Label>
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        <Label className="text-[9px] text-gray-600 whitespace-nowrap">Visible</Label>
+                        <Switch checked={galleryVisLegacy ? false : hero.gallery_kicker_visible !== false} onCheckedChange={v => updateHero(pageKey, 'gallery_kicker_visible', v)} data-testid="gallery-kicker-visible" />
+                      </div>
+                    </div>
                     <Input value={hero.gallery_kicker ?? ''} placeholder={TRANSFORMATIONS_SECTION_DEFAULTS.gallery_kicker} onChange={e => updateHero(pageKey, 'gallery_kicker', e.target.value)} className="text-xs h-8 mt-1 bg-white" />
                     <TransformationsSectionFontRow style={hero.gallery_kicker_style || {}} onStyleChange={v => updateHero(pageKey, 'gallery_kicker_style', v)} />
                   </div>
                   <div>
-                    <Label className="text-[10px] text-gray-700 font-medium">Main title</Label>
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <Label className="text-[10px] text-gray-700 font-medium">Main title</Label>
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        <Label className="text-[9px] text-gray-600 whitespace-nowrap">Visible</Label>
+                        <Switch checked={galleryVisLegacy ? false : hero.gallery_title_visible !== false} onCheckedChange={v => updateHero(pageKey, 'gallery_title_visible', v)} data-testid="gallery-title-visible" />
+                      </div>
+                    </div>
                     <Input value={hero.gallery_title ?? ''} placeholder={TRANSFORMATIONS_SECTION_DEFAULTS.gallery_title} onChange={e => updateHero(pageKey, 'gallery_title', e.target.value)} className="text-xs h-8 mt-1 bg-white" />
                     <TransformationsSectionFontRow style={hero.gallery_title_style || {}} onStyleChange={v => updateHero(pageKey, 'gallery_title_style', v)} />
                   </div>

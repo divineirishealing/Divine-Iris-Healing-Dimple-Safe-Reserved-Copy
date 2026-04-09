@@ -71,9 +71,16 @@ function TransformationsPage() {
   const hero = settings?.page_heroes?.transformations || {};
   const section = resolveTransformationsSection(hero);
   const galleryVisible = settings?.transformations_gallery_visible !== false;
-  const storiesBodyHeadingVisible = hero.stories_body_heading_visible !== false;
-  const videosBodyHeadingVisible = hero.videos_body_heading_visible !== false;
-  const galleryBodyHeadingVisible = hero.gallery_body_heading_visible !== false;
+  // Whole-block hide (older setting): only applies if no per-line visibility was saved yet
+  const storiesLegacyHide = hero.stories_body_heading_visible === false && hero.stories_kicker_visible === undefined && hero.stories_title_visible === undefined;
+  const videosLegacyHide = hero.videos_body_heading_visible === false && hero.videos_kicker_visible === undefined && hero.videos_title_visible === undefined;
+  const galleryLegacyHide = hero.gallery_body_heading_visible === false && hero.gallery_kicker_visible === undefined && hero.gallery_title_visible === undefined;
+  const storiesKickerVisible = storiesLegacyHide ? false : hero.stories_kicker_visible !== false;
+  const storiesTitleVisible = storiesLegacyHide ? false : hero.stories_title_visible !== false;
+  const videosKickerVisible = videosLegacyHide ? false : hero.videos_kicker_visible !== false;
+  const videosTitleVisible = videosLegacyHide ? false : hero.videos_title_visible !== false;
+  const galleryKickerVisible = galleryLegacyHide ? false : hero.gallery_kicker_visible !== false;
+  const galleryTitleVisible = galleryLegacyHide ? false : hero.gallery_title_visible !== false;
 
   const applyHeroStyle = (styleObj, defaults = {}) => {
     if (!styleObj || !Object.keys(styleObj).length) return defaults;
@@ -209,12 +216,16 @@ function TransformationsPage() {
         <section data-testid="written-testimonials" className="py-12"
           style={{ background: 'linear-gradient(180deg, #ffffff 0%, #faf7ff 50%, #f5f0ff 100%)' }}>
           <div className="container mx-auto px-4">
-            {(activeType === 'all' || activeType === 'template') && storiesBodyHeadingVisible && (
+            {(activeType === 'all' || activeType === 'template') && (storiesKickerVisible || storiesTitleVisible) && (
               <div className="text-center mb-10">
-                <p className="mb-2" style={applyHeroStyle(hero.stories_kicker_style, STORIES_KICKER_STYLE_DEFAULT)}>{section.stories_kicker}</p>
-                <h2 className="max-w-4xl mx-auto" style={applyHeroStyle(hero.stories_title_style, STORIES_TITLE_STYLE_DEFAULT)}>
-                  {section.stories_title}
-                </h2>
+                {storiesKickerVisible && (
+                  <p className={storiesTitleVisible ? 'mb-2' : 'mb-0'} style={applyHeroStyle(hero.stories_kicker_style, STORIES_KICKER_STYLE_DEFAULT)}>{section.stories_kicker}</p>
+                )}
+                {storiesTitleVisible && (
+                  <h2 className={`max-w-4xl mx-auto ${storiesKickerVisible ? '' : 'mb-0'}`} style={applyHeroStyle(hero.stories_title_style, STORIES_TITLE_STYLE_DEFAULT)}>
+                    {section.stories_title}
+                  </h2>
+                )}
                 <div className="w-10 h-px mx-auto mt-3" style={{ background: 'linear-gradient(90deg, transparent, #D4AF37, transparent)' }} />
               </div>
             )}
@@ -232,12 +243,16 @@ function TransformationsPage() {
         <section data-testid="video-testimonials" className="py-12"
           style={{ background: 'linear-gradient(180deg, #0d0618 0%, #1a0a3e 50%, #0f0a1e 100%)' }}>
           <div className="container mx-auto px-4">
-            {(activeType === 'all' || activeType === 'video') && videosBodyHeadingVisible && (
+            {(activeType === 'all' || activeType === 'video') && (videosKickerVisible || videosTitleVisible) && (
               <div className="text-center mb-10">
-                <p className="mb-2" style={applyHeroStyle(hero.video_kicker_style, VIDEO_KICKER_STYLE_DEFAULT)}>{section.video_kicker}</p>
-                <h2 className="max-w-4xl mx-auto" style={applyHeroStyle(hero.video_title_style, VIDEO_TITLE_STYLE_DEFAULT)}>
-                  {section.video_title}
-                </h2>
+                {videosKickerVisible && (
+                  <p className={videosTitleVisible ? 'mb-2' : 'mb-0'} style={applyHeroStyle(hero.video_kicker_style, VIDEO_KICKER_STYLE_DEFAULT)}>{section.video_kicker}</p>
+                )}
+                {videosTitleVisible && (
+                  <h2 className={`max-w-4xl mx-auto ${videosKickerVisible ? '' : 'mb-0'}`} style={applyHeroStyle(hero.video_title_style, VIDEO_TITLE_STYLE_DEFAULT)}>
+                    {section.video_title}
+                  </h2>
+                )}
                 <div className="w-10 h-px mx-auto mt-3" style={{ background: 'linear-gradient(90deg, transparent, #D4AF37, transparent)' }} />
               </div>
             )}
@@ -258,12 +273,16 @@ function TransformationsPage() {
         <section data-testid="graphic-testimonials" className="py-12"
           style={{ background: 'linear-gradient(180deg, #faf7ff, #ffffff)' }}>
           <div className="container mx-auto px-4">
-            {(activeType === 'all' || activeType === 'graphic') && galleryBodyHeadingVisible && (
+            {(activeType === 'all' || activeType === 'graphic') && (galleryKickerVisible || galleryTitleVisible) && (
               <div className="text-center mb-10">
-                <p className="mb-2" style={applyHeroStyle(hero.gallery_kicker_style, GALLERY_KICKER_STYLE_DEFAULT)}>{section.gallery_kicker}</p>
-                <h2 className="max-w-4xl mx-auto" style={applyHeroStyle(hero.gallery_title_style, GALLERY_TITLE_STYLE_DEFAULT)}>
-                  {section.gallery_title}
-                </h2>
+                {galleryKickerVisible && (
+                  <p className={galleryTitleVisible ? 'mb-2' : 'mb-0'} style={applyHeroStyle(hero.gallery_kicker_style, GALLERY_KICKER_STYLE_DEFAULT)}>{section.gallery_kicker}</p>
+                )}
+                {galleryTitleVisible && (
+                  <h2 className={`max-w-4xl mx-auto ${galleryKickerVisible ? '' : 'mb-0'}`} style={applyHeroStyle(hero.gallery_title_style, GALLERY_TITLE_STYLE_DEFAULT)}>
+                    {section.gallery_title}
+                  </h2>
+                )}
                 <div className="w-10 h-px mx-auto mt-3" style={{ background: 'linear-gradient(90deg, transparent, #D4AF37, transparent)' }} />
               </div>
             )}
