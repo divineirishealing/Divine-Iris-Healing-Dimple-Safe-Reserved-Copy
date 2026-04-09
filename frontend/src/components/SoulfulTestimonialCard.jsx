@@ -111,18 +111,18 @@ const Stars = ({ rating = 5 }) => (
 );
 
 /* ── Shared card footer (identical layout for written + video) ──────────── */
-const CardFooter = ({ name, role, program_name, centered = false }) => (
+const CardFooter = ({ name, role, program_name, centered = false, compact = false }) => (
   <>
     <div className="h-px"
-      style={{ background: 'linear-gradient(90deg, transparent, rgba(212,175,55,0.5) 30%, rgba(109,40,217,0.4) 70%, transparent)', margin: '12px 0' }} />
+      style={{ background: 'linear-gradient(90deg, transparent, rgba(212,175,55,0.5) 30%, rgba(109,40,217,0.4) 70%, transparent)', margin: compact ? '6px 0' : '12px 0' }} />
     <div className={`w-full min-w-0 ${centered ? 'text-center' : ''}`}>
-      <p style={{ fontFamily: "'Lato', sans-serif", fontWeight: 800, fontSize: '0.9rem', color: '#1a0a4e', letterSpacing: '0.02em', textAlign: centered ? 'center' : undefined }}>
+      <p style={{ fontFamily: "'Lato', sans-serif", fontWeight: 800, fontSize: compact ? '0.84rem' : '0.9rem', color: '#1a0a4e', letterSpacing: '0.02em', textAlign: centered ? 'center' : undefined }}>
         {name}
       </p>
-      <p style={{ fontFamily: "'Lato', sans-serif", fontSize: '0.68rem', color: '#7c6a9a', fontStyle: 'italic', marginTop: 2, minHeight: '2.2em', textAlign: centered ? 'center' : undefined, visibility: role ? 'visible' : 'hidden' }}>
+      <p style={{ fontFamily: "'Lato', sans-serif", fontSize: compact ? '0.62rem' : '0.68rem', color: '#7c6a9a', fontStyle: 'italic', marginTop: compact ? 1 : 2, minHeight: compact ? '1.6em' : '2.2em', textAlign: centered ? 'center' : undefined, visibility: role ? 'visible' : 'hidden' }}>
         {role || '\u00A0'}
       </p>
-      <p style={{ fontFamily: "'Cormorant Garamond', Georgia, serif", fontSize: '0.74rem', color: '#b8860b', fontStyle: 'italic', marginTop: 2, letterSpacing: '0.03em', fontWeight: 600, textAlign: centered ? 'center' : undefined, visibility: program_name ? 'visible' : 'hidden', minHeight: '1.2em' }}>
+      <p style={{ fontFamily: "'Cormorant Garamond', Georgia, serif", fontSize: compact ? '0.68rem' : '0.74rem', color: '#b8860b', fontStyle: 'italic', marginTop: compact ? 1 : 2, letterSpacing: '0.03em', fontWeight: 600, textAlign: centered ? 'center' : undefined, visibility: program_name ? 'visible' : 'hidden', minHeight: compact ? '1em' : '1.2em' }}>
         {program_name || '\u00A0'}
       </p>
     </div>
@@ -266,6 +266,8 @@ export const SoulfulWrittenCard = ({
   footerCentered = false,
   /** /transformations: tall purple band + oval ~half on purple (56px of 112px oval) */
   transformationsLayout = false,
+  /** Program page carousel: tighter header/photo, no flex gap between quote and footer */
+  compactProgram = false,
 }) => {
   const [expanded, setExpanded] = useState(false);
   const { name, text, role, rating = 5, program_name } = testimonial;
@@ -284,8 +286,18 @@ export const SoulfulWrittenCard = ({
     transformationsLayout && singlePortraitStraddle
       ? true
       : uniform || singlePortraitStraddle;
-  const headerPaddingBottom = transformationsLayout && singlePortraitStraddle ? '80px' : tallPurpleHeader ? '72px' : '28px';
-  const portraitOverlapPx = transformationsLayout && singlePortraitStraddle ? -56 : -50;
+  const headerPaddingBottom = compactProgram && tallPurpleHeader
+    ? '52px'
+    : transformationsLayout && singlePortraitStraddle
+      ? '80px'
+      : tallPurpleHeader
+        ? '72px'
+        : '28px';
+  const portraitOverlapPx = compactProgram && tallPurpleHeader
+    ? -40
+    : transformationsLayout && singlePortraitStraddle
+      ? -56
+      : -50;
   // In uniform mode: cap at 120 chars (same as video card), no read more
   const PREVIEW_LEN  = uniform ? 120 : 150;
   const isLong       = !uniform && (text || '').length > PREVIEW_LEN;
@@ -303,7 +315,7 @@ export const SoulfulWrittenCard = ({
         background: '#fdfbff',
         border: '1.5px solid rgba(109,40,217,0.22)',
         boxShadow: '0 4px 28px rgba(109,40,217,0.10), 0 1px 4px rgba(0,0,0,0.06)',
-        height: '100%',
+        height: compactProgram ? 'auto' : '100%',
         display: 'flex',
         flexDirection: 'column',
       }}
@@ -361,7 +373,7 @@ export const SoulfulWrittenCard = ({
       ))}
 
       {/* ── Jewel header ── */}
-      <div className="relative px-5 pt-7 overflow-visible"
+      <div className={`relative px-5 overflow-visible ${compactProgram ? 'pt-5' : 'pt-7'}`}
         style={{
           background: 'linear-gradient(135deg, #1e0654 0%, #3b0f9e 45%, #6d28d9 80%, #9333ea 100%)',
           paddingBottom: headerPaddingBottom,
@@ -387,7 +399,8 @@ export const SoulfulWrittenCard = ({
       {hasPhotos && isSingle && (
         <div className="flex justify-center" style={{ marginTop: portraitOverlapPx, position: 'relative', zIndex: 10 }}>
           <div style={{
-            width: 80, height: 112,
+            width: compactProgram ? 70 : 80,
+            height: compactProgram ? 98 : 112,
             borderRadius: '42% / 50%',
             overflow: 'hidden',
             boxShadow: '0 6px 20px rgba(0,0,0,0.25)',
@@ -398,23 +411,29 @@ export const SoulfulWrittenCard = ({
         </div>
       )}
 
-      {/* ── Card body — flex:1 so footer always pins to bottom ── */}
-      <div className={`px-5 pb-4 ${tallPurpleHeader ? 'pt-3' : 'pt-2'}`}
-        style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
+      {/* ── Card body — flex:1 pins footer when stretched; compactProgram keeps content tight ── */}
+      <div className={`px-5 ${compactProgram ? 'pb-3 pt-2' : 'pb-4'} ${!compactProgram && tallPurpleHeader ? 'pt-3' : compactProgram ? '' : !tallPurpleHeader ? 'pt-2' : ''}`}
+        style={{
+          flex: compactProgram ? '0 0 auto' : 1,
+          display: 'flex',
+          flexDirection: 'column',
+        }}>
 
         {/* Multi-photo for before/after or progressive */}
         {hasPhotos && !isSingle && (
-          <div className="mb-3 mt-1">
+          <div className={`${compactProgram ? 'mb-2 mt-0.5' : 'mb-3 mt-1'}`}>
             <PhotoDisplay photos={effectivePhotos} photoLabels={effectivePhotoLabels}
               photoMode={effectiveMode} size="card" />
           </div>
         )}
 
-        {/* Quote text — grows to fill space */}
-        <div style={{ flex: 1 }}>
+        {/* Quote text — flex:1 only when card is height-stretched (avoids dead space on program carousel) */}
+        <div style={{ flex: compactProgram ? '0 0 auto' : 1 }}>
           <p style={{
             fontFamily: "'Cormorant Garamond', Georgia, serif",
-            fontSize: uniform ? '0.88rem' : '0.92rem', lineHeight: 1.8, color: '#1e0a4e',
+            fontSize: uniform ? (compactProgram ? '0.82rem' : '0.88rem') : '0.92rem',
+            lineHeight: compactProgram ? 1.65 : 1.8,
+            color: '#1e0a4e',
             fontStyle: 'italic', textAlign: 'center',
           }}>
             {uniform ? (displayText ? `"${displayText}"` : '') : displayText}
@@ -431,7 +450,7 @@ export const SoulfulWrittenCard = ({
         </div>
 
         {/* Shared footer — identical to video card */}
-        <CardFooter name={name} role={role} program_name={program_name} centered={footerCentered} />
+        <CardFooter name={name} role={role} program_name={program_name} centered={footerCentered} compact={compactProgram} />
       </div>
 
       {/* Bottom vibrant line */}
@@ -444,7 +463,7 @@ export const SoulfulWrittenCard = ({
 /* ══════════════════════════════════════════════════════════════════════════
    UNIFORM VIDEO CARD  —  same jewel-tone template as written card
    ══════════════════════════════════════════════════════════════════════════ */
-export const SoulfulUniformVideoCard = ({ testimonial, onPlay, onOpen, footerCentered = false }) => {
+export const SoulfulUniformVideoCard = ({ testimonial, onPlay, onOpen, footerCentered = false, compactProgram = false }) => {
   const { name, role, program_name, rating = 5, video_url, videoId, thumbnail, text } = testimonial;
   const parsed   = parseVideo(video_url) || (videoId ? parseVideo(`https://youtu.be/${videoId}`) : null);
   const thumbSrc = thumbnail || parsed?.thumbUrl;
@@ -470,17 +489,17 @@ export const SoulfulUniformVideoCard = ({ testimonial, onPlay, onOpen, footerCen
         background: '#fdfbff',
         border: '1.5px solid rgba(109,40,217,0.22)',
         boxShadow: '0 4px 28px rgba(109,40,217,0.10), 0 1px 4px rgba(0,0,0,0.06)',
-        height: '100%',
+        height: compactProgram ? 'auto' : '100%',
         display: 'flex',
         flexDirection: 'column',
       }}
       onClick={handleClick}
     >
       {/* ── Jewel header (same as written card) ── */}
-      <div className="relative px-5 pt-7 overflow-hidden"
+      <div className={`relative px-5 overflow-hidden ${compactProgram ? 'pt-5' : 'pt-7'}`}
         style={{
           background: 'linear-gradient(135deg, #1e0654 0%, #3b0f9e 45%, #6d28d9 80%, #9333ea 100%)',
-          paddingBottom: '72px',
+          paddingBottom: compactProgram ? '52px' : '72px',
         }}>
         <div className="absolute inset-0 pointer-events-none"
           style={{ background: 'radial-gradient(ellipse 80% 60% at 50% 100%, rgba(212,175,55,0.22) 0%, transparent 65%)' }} />
@@ -512,9 +531,10 @@ export const SoulfulUniformVideoCard = ({ testimonial, onPlay, onOpen, footerCen
       </div>
 
       {/* ── Video thumbnail straddling header / body ── */}
-      <div className="flex justify-center" style={{ marginTop: -50, position: 'relative', zIndex: 10 }}>
+      <div className="flex justify-center" style={{ marginTop: compactProgram ? -40 : -50, position: 'relative', zIndex: 10 }}>
         <div style={{
-          width: 130, height: 80,
+          width: compactProgram ? 112 : 130,
+          height: compactProgram ? 69 : 80,
           borderRadius: 10, overflow: 'hidden',
           boxShadow: '0 6px 20px rgba(0,0,0,0.30)',
           position: 'relative',
@@ -552,28 +572,30 @@ export const SoulfulUniformVideoCard = ({ testimonial, onPlay, onOpen, footerCen
         </div>
       </div>
 
-      {/* ── Card body — flex:1 so footer pins to bottom ── */}
-      <div className="px-5 pt-3 pb-4"
-        style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
-        <div style={{ flex: 1 }}>
+      {/* ── Card body — compactProgram avoids flex gap above footer ── */}
+      <div className={compactProgram ? 'px-5 pt-2 pb-3' : 'px-5 pt-3 pb-4'}
+        style={{ flex: compactProgram ? '0 0 auto' : 1, display: 'flex', flexDirection: 'column' }}>
+        <div style={{ flex: compactProgram ? '0 0 auto' : 1 }}>
           {text && (
             <p style={{
               fontFamily:"'Cormorant Garamond',Georgia,serif",
-              fontSize:'0.88rem', lineHeight:1.8, color:'#1e0a4e',
+              fontSize: compactProgram ? '0.82rem' : '0.88rem',
+              lineHeight: compactProgram ? 1.65 : 1.8,
+              color:'#1e0a4e',
               fontStyle:'italic', textAlign:'center',
             }}>
               "{text.length > 120 ? text.substring(0,120)+'…' : text}"
             </p>
           )}
           {!text && (
-            <p style={{ textAlign:'center', fontSize:'0.78rem', color:'rgba(109,40,217,0.5)', fontStyle:'italic', marginTop:4 }}>
+            <p style={{ textAlign:'center', fontSize: compactProgram ? '0.72rem' : '0.78rem', color:'rgba(109,40,217,0.5)', fontStyle:'italic', marginTop: compactProgram ? 2 : 4 }}>
               Click to watch
             </p>
           )}
         </div>
 
         {/* Shared footer — identical to written card */}
-        <CardFooter name={name} role={role} program_name={program_name} centered={footerCentered} />
+        <CardFooter name={name} role={role} program_name={program_name} centered={footerCentered} compact={compactProgram} />
       </div>
 
       <div className="h-0.5 w-full"

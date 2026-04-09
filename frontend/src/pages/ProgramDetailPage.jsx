@@ -510,10 +510,10 @@ function ProgramDetailPage() {
         const duration   = Math.max(20, allCards.length * 5);
 
         return (
-          <section className="py-16" data-testid="testimonials-section"
+          <section className="py-10 md:py-12" data-testid="testimonials-section"
             style={{ background: 'linear-gradient(180deg, #f5f4f8 0%, #eceaf1 40%, #f5f4f8 100%)' }}>
             <div className="container mx-auto px-4 max-w-7xl">
-              <h2 className="text-center mb-10"
+              <h2 className="text-center mb-6 md:mb-8"
                 style={applyStyle(template.testimonial_title_style, { ...HEADING, color: heroAccent, fontStyle: 'italic', fontSize: '1.6rem' })}>
                 What People Are Saying
               </h2>
@@ -539,16 +539,18 @@ function ProgramDetailPage() {
                 maskImage: 'linear-gradient(to right, transparent 0%, black 6%, black 94%, transparent 100%)',
                 WebkitMaskImage: 'linear-gradient(to right, transparent 0%, black 6%, black 94%, transparent 100%)',
               }}>
-              <div className="prog-marquee-track">
+              <div className="prog-marquee-track items-stretch">
                 {loopCards.map(t => (
-                  /* Fixed height makes written & video cards identical in the carousel */
-                  <div key={t._key} style={{ width: CARD_W, height: 465, flexShrink: 0, overflow: 'hidden', borderRadius: 24 }}>
+                  <div
+                    key={t._key}
+                    className="flex items-center justify-center"
+                    style={{ width: CARD_W, flexShrink: 0, alignSelf: 'stretch' }}>
                     {t.type === 'video'
-                      ? <SoulfulUniformVideoCard testimonial={t} footerCentered
+                      ? <SoulfulUniformVideoCard testimonial={t} footerCentered compactProgram
                           onPlay={(embedUrl, platform) => setSelectedEmbed({ embedUrl, platform })}
                           onOpen={url => window.open(url, '_blank')}
                         />
-                      : <SoulfulWrittenCard testimonial={t} uniform footerCentered onClick={() => setSelectedTemplate(t)} />
+                      : <SoulfulWrittenCard testimonial={t} uniform footerCentered compactProgram onClick={() => setSelectedTemplate(t)} />
                     }
                   </div>
                 ))}
