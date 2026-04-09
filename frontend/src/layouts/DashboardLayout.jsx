@@ -36,14 +36,14 @@ const DashboardLayout = () => {
       <div
         className="min-h-screen flex items-center justify-center relative overflow-hidden"
         style={{
-          background: 'linear-gradient(165deg, #030510 0%, #0f0c28 45%, #080c1c 100%)',
+          background: 'linear-gradient(180deg, #0d0618 0%, #1a0a3e 55%, #0f0a1e 100%)',
         }}
       >
         <div
-          className="absolute inset-0 opacity-40 pointer-events-none"
+          className="absolute inset-0 opacity-50 pointer-events-none"
           style={{
             background:
-              'radial-gradient(ellipse 100% 60% at 50% 0%, rgba(180, 160, 255, 0.15) 0%, transparent 55%)',
+              'radial-gradient(ellipse 100% 60% at 50% 0%, rgba(196, 181, 253, 0.22) 0%, transparent 55%)',
           }}
         />
         <Loader2 className="animate-spin text-[#D4AF37] relative z-10 drop-shadow-[0_0_12px_rgba(212,175,55,0.5)]" size={32} />
@@ -87,7 +87,8 @@ const DashboardLayout = () => {
       <div
         className="fixed inset-0 z-[3] pointer-events-none"
         style={{
-          boxShadow: 'inset 0 0 min(100vw, 1400px) rgba(0,0,0,0.42), inset 0 -120px 200px rgba(5,3,20,0.35)',
+          boxShadow:
+            'inset 0 0 min(100vw, 1400px) rgba(26, 10, 62, 0.38), inset 0 -120px 200px rgba(45, 27, 105, 0.22)',
         }}
         aria-hidden
       />

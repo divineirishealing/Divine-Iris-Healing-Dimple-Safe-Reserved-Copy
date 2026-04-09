@@ -438,6 +438,7 @@ class SiteSettings(BaseModel):
     media_page_visible: bool = False
     blog_page_visible: bool = False
     sessions_page_visible: bool = True
+    transformations_gallery_visible: bool = True  # Transformations page: Gallery tab + graphic section
     # Sponsor section content & styles
     sponsor_home: Optional[Dict] = None
     sponsor_page: Optional[Dict] = None
@@ -591,6 +592,7 @@ class SiteSettingsUpdate(BaseModel):
     media_page_visible: Optional[bool] = None
     blog_page_visible: Optional[bool] = None
     sessions_page_visible: Optional[bool] = None
+    transformations_gallery_visible: Optional[bool] = None
     sponsor_home: Optional[Dict] = None
     sponsor_page: Optional[Dict] = None
     homepage_sections: Optional[list] = None

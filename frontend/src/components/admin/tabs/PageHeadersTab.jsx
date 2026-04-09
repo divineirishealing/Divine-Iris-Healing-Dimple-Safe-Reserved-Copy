@@ -6,6 +6,7 @@ import { Switch } from '../../ui/switch';
 import { Copy, Plus, Trash2, ArrowUp, ArrowDown, ChevronDown, ChevronRight } from 'lucide-react';
 import ImageUploader from '../ImageUploader';
 import { resolveImageUrl } from '../../../lib/imageUtils';
+import { TRANSFORMATIONS_SECTION_DEFAULTS } from '../../../lib/transformationsSectionDefaults';
 
 const FONT_OPTIONS = [
   { value: '', label: 'Default' },
@@ -29,15 +30,33 @@ const FONT_OPTIONS = [
 ];
 const SIZE_OPTIONS = ['10px','12px','14px','16px','18px','20px','24px','28px','32px','36px','42px','48px'];
 
-const StyleCell = ({ style = {}, onStyleChange, label }) => {
+const LETTER_SPACING_OPTIONS = [
+  { value: '', label: 'Spacing' },
+  { value: '0', label: 'None' },
+  { value: '0.02em', label: 'Subtle' },
+  { value: '0.05em', label: 'Wide' },
+  { value: '0.08em', label: 'Wider' },
+  { value: '0.12em', label: 'Luxury' },
+  { value: '0.2em', label: 'Spread' },
+  { value: '0.25em', label: 'Max' },
+];
+
+const TEXT_ALIGN_OPTIONS = [
+  { value: '', label: 'Align' },
+  { value: 'left', label: 'Left' },
+  { value: 'center', label: 'Center' },
+  { value: 'right', label: 'Right' },
+];
+
+const StyleCell = ({ style = {}, onStyleChange, label, wideFontSelect = false, heroExtras = false }) => {
   const update = (prop, val) => onStyleChange({ ...style, [prop]: val });
   return (
     <div className="mt-1">
       {label && <span className="text-[8px] text-gray-400 uppercase tracking-wider">{label}</span>}
       <div className="flex gap-1 items-center flex-wrap">
-        <input type="color" value={style.font_color || '#000000'} onChange={e => update('font_color', e.target.value)} className="w-5 h-5 rounded cursor-pointer border-0" />
-        <select value={style.font_family || ''} onChange={e => update('font_family', e.target.value)} className="text-[9px] border rounded px-1 py-0.5 w-16">
-          {FONT_OPTIONS.map(f => <option key={f.value} value={f.value}>{f.label}</option>)}
+        <input type="color" value={style.font_color || '#000000'} onChange={e => update('font_color', e.target.value)} className="w-5 h-5 rounded cursor-pointer border-0 shrink-0" title="Color" />
+        <select value={style.font_family || ''} onChange={e => update('font_family', e.target.value)} className={`text-[9px] border rounded px-1 py-0.5 ${wideFontSelect ? 'min-w-[7.5rem] max-w-[10rem]' : 'w-16'}`}>
+          {FONT_OPTIONS.map(f => <option key={f.value || 'default'} value={f.value}>{f.label}</option>)}
         </select>
         <select value={style.font_size || ''} onChange={e => update('font_size', e.target.value)} className="text-[9px] border rounded px-1 py-0.5 w-12">
           <option value="">Size</option>
@@ -46,17 +65,27 @@ const StyleCell = ({ style = {}, onStyleChange, label }) => {
         <button type="button" onClick={() => update('font_weight', style.font_weight === 'bold' ? '400' : 'bold')} className={`text-[9px] px-1 py-0.5 rounded border ${style.font_weight === 'bold' ? 'bg-gray-800 text-white' : 'bg-white'}`}><b>B</b></button>
         <button type="button" onClick={() => update('font_style', style.font_style === 'italic' ? 'normal' : 'italic')} className={`text-[9px] px-1 py-0.5 rounded border ${style.font_style === 'italic' ? 'bg-gray-800 text-white' : 'bg-white'}`}><i>I</i></button>
       </div>
+      {heroExtras && (
+        <div className="flex gap-1 items-center flex-wrap mt-1">
+          <select value={style.letter_spacing ?? ''} onChange={e => update('letter_spacing', e.target.value)} className="text-[9px] border rounded px-1 py-0.5 min-w-[4.5rem]">
+            {LETTER_SPACING_OPTIONS.map(o => <option key={o.value || 'ls-default'} value={o.value}>{o.label}</option>)}
+          </select>
+          <select value={style.text_align ?? ''} onChange={e => update('text_align', e.target.value)} className="text-[9px] border rounded px-1 py-0.5 w-16">
+            {TEXT_ALIGN_OPTIONS.map(o => <option key={o.value || 'ta-default'} value={o.value}>{o.label}</option>)}
+          </select>
+        </div>
+      )}
     </div>
   );
 };
 
 const STATIC_PAGES = [
+  { key: 'transformations', label: 'Transformations', defaultTitle: 'TRANSFORMATIONS', defaultSubtitle: 'Stories of Healing, Growth & Awakening', alwaysVisible: true, galleryToggleKey: 'transformations_gallery_visible' },
   { key: 'services', label: 'Services', defaultTitle: 'Our Services', defaultSubtitle: 'Claim your personal space', alwaysVisible: true },
   { key: 'contact', label: 'Contact', defaultTitle: 'Express Your Interest', defaultSubtitle: 'Ready to begin your healing journey?', alwaysVisible: true },
   { key: 'about', label: 'About', defaultTitle: 'Dimple Ranawat', defaultSubtitle: 'Founder, Divine Iris – Soulful Healing Studio', alwaysVisible: true },
   { key: 'programs', label: 'All Programs', defaultTitle: 'All Programs', defaultSubtitle: 'Explore our comprehensive healing programs', alwaysVisible: true },
   { key: 'sponsor', label: 'Shine a Light', defaultTitle: 'Shine a Light in a Life', defaultSubtitle: 'Healing flows when we support each other.', alwaysVisible: true },
-  { key: 'transformations', label: 'Transformations', defaultTitle: 'TRANSFORMATIONS', defaultSubtitle: 'Stories of Healing, Growth & Awakening', alwaysVisible: true },
   { key: 'media', label: 'Media', defaultTitle: 'MEDIA', defaultSubtitle: '', toggleKey: 'media_page_visible' },
   { key: 'blog', label: 'Blog', defaultTitle: 'BLOG', defaultSubtitle: 'Insights, stories and updates', toggleKey: 'blog_page_visible' },
   { key: 'sessions', label: 'Personal Sessions', defaultTitle: 'Personal Healing Sessions', defaultSubtitle: 'Individual sessions tailored to your unique healing journey', toggleKey: 'sessions_page_visible' },
@@ -127,30 +156,71 @@ const PageHeadersTab = ({ settings, programs = [], onChange }) => {
   const [expandedImages, setExpandedImages] = useState({});
   const toggleImage = (key) => setExpandedImages(prev => ({ ...prev, [key]: !prev[key] }));
 
-  const PageRow = ({ pageKey, label, defaultTitle, defaultSubtitle, toggleKey }) => {
+  const PageRow = ({ pageKey, label, defaultTitle, defaultSubtitle, toggleKey, galleryToggleKey }) => {
     const hero = getHero(pageKey);
     const imgOpen = expandedImages[pageKey] || !!hero.hero_image;
+    const isTransformationsHero = pageKey === 'transformations';
     return (
       <div className="bg-white rounded-lg border p-3 mb-2" data-testid={`hero-row-${pageKey}`}>
-        <div className="flex items-center gap-2 mb-2">
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mb-2">
           <span className="text-[10px] font-semibold text-gray-700 w-24 flex-shrink-0">{label}</span>
-          {toggleKey && (
-            <div className="flex items-center gap-1 ml-auto">
-              <Label className="text-[9px] text-gray-400">Visible</Label>
-              <Switch checked={settings[toggleKey] || false} onCheckedChange={v => onChange({ ...settings, [toggleKey]: v })} />
-            </div>
-          )}
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 ml-auto">
+            {galleryToggleKey && (
+              <div className="flex items-center gap-1.5" title="Show or hide the Gallery tab and graphic testimonials section on the Transformations page">
+                <Label className="text-[9px] text-gray-500 whitespace-nowrap">Gallery visible</Label>
+                <Switch checked={settings[galleryToggleKey] !== false} onCheckedChange={v => onChange({ ...settings, [galleryToggleKey]: v })} data-testid="transformations-gallery-visible-switch" />
+              </div>
+            )}
+            {toggleKey && (
+              <div className="flex items-center gap-1.5">
+                <Label className="text-[9px] text-gray-400">Page visible</Label>
+                <Switch checked={settings[toggleKey] || false} onCheckedChange={v => onChange({ ...settings, [toggleKey]: v })} />
+              </div>
+            )}
+          </div>
         </div>
+        {isTransformationsHero && (
+          <div className="mb-3 p-3 rounded-lg border border-purple-200 bg-purple-50/80" data-testid="transformations-section-headings">
+            <p className="text-[11px] font-semibold text-purple-900 mb-0.5">Transformations page — section titles</p>
+            <p className="text-[10px] text-purple-700/80 mb-3">These appear above Stories, Videos, and Gallery on the public page (not the purple hero at the top). Scroll down this card for hero title & subtitle.</p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-3 gap-y-2">
+              <div>
+                <Label className="text-[10px] text-gray-700 font-medium">Stories — small label</Label>
+                <Input value={hero.stories_kicker ?? ''} placeholder={TRANSFORMATIONS_SECTION_DEFAULTS.stories_kicker} onChange={e => updateHero(pageKey, 'stories_kicker', e.target.value)} className="text-xs h-8 mt-1 bg-white" />
+              </div>
+              <div>
+                <Label className="text-[10px] text-gray-700 font-medium">Stories — main title</Label>
+                <Input value={hero.stories_title ?? ''} placeholder={TRANSFORMATIONS_SECTION_DEFAULTS.stories_title} onChange={e => updateHero(pageKey, 'stories_title', e.target.value)} className="text-xs h-8 mt-1 bg-white" />
+              </div>
+              <div>
+                <Label className="text-[10px] text-gray-700 font-medium">Videos — small label</Label>
+                <Input value={hero.video_kicker ?? ''} placeholder={TRANSFORMATIONS_SECTION_DEFAULTS.video_kicker} onChange={e => updateHero(pageKey, 'video_kicker', e.target.value)} className="text-xs h-8 mt-1 bg-white" />
+              </div>
+              <div>
+                <Label className="text-[10px] text-gray-700 font-medium">Videos — main title</Label>
+                <Input value={hero.video_title ?? ''} placeholder={TRANSFORMATIONS_SECTION_DEFAULTS.video_title} onChange={e => updateHero(pageKey, 'video_title', e.target.value)} className="text-xs h-8 mt-1 bg-white" />
+              </div>
+              <div>
+                <Label className="text-[10px] text-gray-700 font-medium">Gallery — small label</Label>
+                <Input value={hero.gallery_kicker ?? ''} placeholder={TRANSFORMATIONS_SECTION_DEFAULTS.gallery_kicker} onChange={e => updateHero(pageKey, 'gallery_kicker', e.target.value)} className="text-xs h-8 mt-1 bg-white" />
+              </div>
+              <div>
+                <Label className="text-[10px] text-gray-700 font-medium">Gallery — main title</Label>
+                <Input value={hero.gallery_title ?? ''} placeholder={TRANSFORMATIONS_SECTION_DEFAULTS.gallery_title} onChange={e => updateHero(pageKey, 'gallery_title', e.target.value)} className="text-xs h-8 mt-1 bg-white" />
+              </div>
+            </div>
+          </div>
+        )}
         <div className="grid grid-cols-2 gap-3">
           <div>
             <Label className="text-[9px] text-gray-400">Hero Title</Label>
             <Input value={hero.title_text ?? defaultTitle} onChange={e => updateHero(pageKey, 'title_text', e.target.value)} className="text-[10px] h-7 mb-1" />
-            <StyleCell style={hero.title_style || {}} onStyleChange={v => updateHero(pageKey, 'title_style', v)} />
+            <StyleCell style={hero.title_style || {}} onStyleChange={v => updateHero(pageKey, 'title_style', v)} wideFontSelect={isTransformationsHero} heroExtras={isTransformationsHero} />
           </div>
           <div>
             <Label className="text-[9px] text-gray-400">Hero Subtitle</Label>
             <Input value={hero.subtitle_text ?? defaultSubtitle} onChange={e => updateHero(pageKey, 'subtitle_text', e.target.value)} className="text-[10px] h-7 mb-1" />
-            <StyleCell style={hero.subtitle_style || {}} onStyleChange={v => updateHero(pageKey, 'subtitle_style', v)} />
+            <StyleCell style={hero.subtitle_style || {}} onStyleChange={v => updateHero(pageKey, 'subtitle_style', v)} wideFontSelect={isTransformationsHero} heroExtras={isTransformationsHero} />
           </div>
         </div>
         <button type="button" onClick={() => toggleImage(pageKey)} className="mt-2 flex items-center gap-1 text-[9px] text-gray-400 hover:text-gray-600 transition-colors">
@@ -231,7 +301,7 @@ const PageHeadersTab = ({ settings, programs = [], onChange }) => {
 
       <SectionToggle sectionKey="pages" label="STATIC PAGES" count={STATIC_PAGES.length} badge="Hero titles, subtitles & backgrounds">
         {STATIC_PAGES.map(p => (
-          <PageRow key={p.key} pageKey={p.key} label={p.label} defaultTitle={p.defaultTitle} defaultSubtitle={p.defaultSubtitle} toggleKey={p.toggleKey} />
+          <PageRow key={p.key} pageKey={p.key} label={p.label} defaultTitle={p.defaultTitle} defaultSubtitle={p.defaultSubtitle} toggleKey={p.toggleKey} galleryToggleKey={p.galleryToggleKey} />
         ))}
       </SectionToggle>
 

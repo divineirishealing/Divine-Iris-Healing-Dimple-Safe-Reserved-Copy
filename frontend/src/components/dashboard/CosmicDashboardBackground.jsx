@@ -2,19 +2,19 @@ import React, { useEffect, useRef, useMemo } from 'react';
 import { cn } from '../../lib/utils';
 import { resolveCosmicTheme } from '../../lib/dashboardCosmicThemes';
 
-/** Purple / violet constellation figures (gold kept as rare accent) */
+/** Electric violet constellations — bolder than default, aligned with Transformations hero energy */
 const CONSTELLATION_PATTERNS = [
-  { phase: 0.2, rot: 0.00012, breathe: 0.0045, anchor: [0.78, 0.11], closed: false, color: [196, 170, 255], rel: [[0, 0], [0.04, -0.02], [0.08, 0.01], [0.12, -0.02], [0.16, 0.03]] },
-  { phase: 1.1, rot: -0.0001, breathe: 0.0055, anchor: [0.11, 0.56], closed: true, color: [167, 139, 250], rel: [[0, 0], [0.06, 0.06], [0.02, 0.12], [0, 0]] },
-  { phase: 2.4, rot: 0.00014, breathe: 0.004, anchor: [0.5, 0.27], closed: false, color: [216, 180, 254], rel: [[0, 0], [0.08, -0.02], [0.16, 0]] },
-  { phase: 0.7, rot: -0.00011, breathe: 0.005, anchor: [0.26, 0.78], closed: false, color: [139, 92, 246], rel: [[0, 0], [0.04, -0.04], [0.08, 0.01], [0.06, 0.06]] },
-  { phase: 3.0, rot: 0.00009, breathe: 0.0045, anchor: [0.87, 0.45], closed: true, color: [180, 160, 255], rel: [[0, 0], [0.04, 0.06], [-0.01, 0.1], [-0.04, 0.04], [0, 0]] },
-  { phase: 1.8, rot: 0.00011, breathe: 0.004, anchor: [0.38, 0.62], closed: false, color: [200, 165, 255], rel: [[0, 0], [0.03, 0.05], [0.07, 0.02], [0.1, 0.06]] },
-  { phase: 2.1, rot: -0.00013, breathe: 0.0048, anchor: [0.62, 0.88], closed: true, color: [176, 132, 255], rel: [[0, 0], [0.05, -0.03], [0.02, -0.07], [0, 0]] },
+  { phase: 0.2, rot: 0.00012, breathe: 0.0045, anchor: [0.78, 0.11], closed: false, color: [192, 132, 252], rel: [[0, 0], [0.04, -0.02], [0.08, 0.01], [0.12, -0.02], [0.16, 0.03]] },
+  { phase: 1.1, rot: -0.0001, breathe: 0.0055, anchor: [0.11, 0.56], closed: true, color: [167, 112, 255], rel: [[0, 0], [0.06, 0.06], [0.02, 0.12], [0, 0]] },
+  { phase: 2.4, rot: 0.00014, breathe: 0.004, anchor: [0.5, 0.27], closed: false, color: [233, 213, 255], rel: [[0, 0], [0.08, -0.02], [0.16, 0]] },
+  { phase: 0.7, rot: -0.00011, breathe: 0.005, anchor: [0.26, 0.78], closed: false, color: [147, 51, 234], rel: [[0, 0], [0.04, -0.04], [0.08, 0.01], [0.06, 0.06]] },
+  { phase: 3.0, rot: 0.00009, breathe: 0.0045, anchor: [0.87, 0.45], closed: true, color: [216, 180, 254], rel: [[0, 0], [0.04, 0.06], [-0.01, 0.1], [-0.04, 0.04], [0, 0]] },
+  { phase: 1.8, rot: 0.00011, breathe: 0.004, anchor: [0.38, 0.62], closed: false, color: [236, 72, 153], rel: [[0, 0], [0.03, 0.05], [0.07, 0.02], [0.1, 0.06]] },
+  { phase: 2.1, rot: -0.00013, breathe: 0.0048, anchor: [0.62, 0.88], closed: true, color: [168, 85, 247], rel: [[0, 0], [0.05, -0.03], [0.02, -0.07], [0, 0]] },
 ];
 
-const MESH_PURPLE_A = [150, 110, 235];
-const MESH_PURPLE_B = [200, 175, 255];
+const MESH_PURPLE_A = [168, 85, 247];
+const MESH_PURPLE_B = [233, 213, 255];
 
 function spawnShooting(w, h) {
   const fromTop = Math.random() > 0.5;
@@ -28,7 +28,7 @@ function spawnShooting(w, h) {
   };
 }
 
-/** Biased toward violet / lavender field stars */
+/** Larger “hero-style” stars (Transformations ConstellationCanvas uses ~0.8–3px cores + glow) */
 function randomPurpleStar(warmBoost) {
   const roll = Math.random();
   let r;
@@ -36,26 +36,27 @@ function randomPurpleStar(warmBoost) {
   let cg;
   let cb;
   const wb = warmBoost;
-  if (roll < 0.42 - wb * 0.12) {
-    r = 0.32 + Math.random() * 0.75;
-    cr = 210 + Math.random() * 45;
-    cg = 195 + Math.random() * 50;
+  const big = 1.75;
+  if (roll < 0.38 - wb * 0.1) {
+    r = (0.75 + Math.random() * 1.35) * big;
+    cr = 200 + Math.random() * 55;
+    cg = 160 + Math.random() * 70;
     cb = 255;
-  } else if (roll < 0.78 - wb * 0.1) {
-    r = 0.4 + Math.random() * 0.95;
-    cr = 160 + Math.random() * 60;
-    cg = 120 + Math.random() * 80;
-    cb = 245 + Math.random() * 10;
-  } else if (roll < 0.92 + wb * 0.04) {
-    r = 0.35 + Math.random() * 0.7;
-    cr = 230 + Math.random() * 25;
-    cg = 210 + Math.random() * 40;
+  } else if (roll < 0.72 - wb * 0.08) {
+    r = (0.85 + Math.random() * 1.55) * big;
+    cr = 140 + Math.random() * 80;
+    cg = 70 + Math.random() * 100;
+    cb = 255;
+  } else if (roll < 0.88 + wb * 0.04) {
+    r = (0.7 + Math.random() * 1.2) * big;
+    cr = 244 + Math.random() * 11;
+    cg = 200 + Math.random() * 45;
     cb = 255;
   } else {
-    r = 0.38 + Math.random() * 0.55;
-    cr = 255;
-    cg = 220 + Math.random() * 35;
-    cb = 180 + Math.random() * 40;
+    r = (0.65 + Math.random() * 1.0) * big;
+    cr = 230 + Math.random() * 25;
+    cg = 190 + Math.random() * 50;
+    cb = 255;
   }
   return { r, cr, cg, cb };
 }
@@ -108,11 +109,11 @@ export function CosmicDashboardBackground({ videoActive = false, variant = 'milk
     let logicalW = 0;
     let logicalH = 0;
     const edgeSet = new Set();
-    const maxD = Math.min(c.maxD * 1.14, 138);
+    const maxD = Math.min(c.maxD * 1.22, 152);
     const warmBoost = c.warmStarBoost;
 
-    const STAR_COUNT = (videoActive ? 140 : 300) + Math.floor((c.starDelta || 0) * 1.4);
-    const FALL_DOT_COUNT = videoActive ? 140 : 260;
+    const STAR_COUNT = (videoActive ? 120 : 240) + Math.floor((c.starDelta || 0) * 1.2);
+    const FALL_DOT_COUNT = videoActive ? 110 : 200;
     const dprCap = 2;
     const MESH_REBUILD = 48;
 
@@ -143,7 +144,7 @@ export function CosmicDashboardBackground({ videoActive = false, variant = 'milk
           if (d < maxD) near.push({ j, d });
         }
         near.sort((a, b) => a.d - b.d);
-        const take = Math.min(4, near.length);
+        const take = Math.min(5, near.length);
         for (let k = 0; k < take; k++) {
           const j = near[k].j;
           const a = Math.min(i, j);
@@ -166,13 +167,13 @@ export function CosmicDashboardBackground({ videoActive = false, variant = 'milk
           y: Math.random() * h,
           vx: (Math.random() - 0.5) * 0.45 * depth,
           vy: (0.35 + Math.random() * 1.85) * (0.5 + depth * 0.5),
-          r: 0.28 + Math.random() * 1.15,
+          r: 0.65 + Math.random() * 2.1,
           ph: Math.random() * Math.PI * 2,
           tw: 0.025 + Math.random() * 0.055,
-          cr: 165 + Math.floor(Math.random() * 90),
-          cg: 130 + Math.floor(Math.random() * 85),
-          cb: 245 + Math.floor(Math.random() * 10),
-          base: 0.18 + Math.random() * 0.45,
+          cr: 180 + Math.floor(Math.random() * 75),
+          cg: 100 + Math.floor(Math.random() * 95),
+          cb: 255,
+          base: 0.28 + Math.random() * 0.42,
         });
       }
     };
@@ -194,7 +195,7 @@ export function CosmicDashboardBackground({ videoActive = false, variant = 'milk
           cb,
           tw: reduceMotion ? 0.002 : 0.0035 + Math.random() * 0.012,
           ph: Math.random() * Math.PI * 2,
-          base: 0.24 + Math.random() * 0.58,
+          base: 0.32 + Math.random() * 0.52,
           vx: Math.cos(ang) * sp,
           vy: Math.sin(ang) * sp + fallBias,
           depth,
@@ -224,7 +225,7 @@ export function CosmicDashboardBackground({ videoActive = false, variant = 'milk
     resize();
     window.addEventListener('resize', resize);
 
-    const lineMult = (c.lineAlphaMult || 1) * 1.18;
+    const lineMult = (c.lineAlphaMult || 1) * 1.45;
 
     const patternPoints = (pat, w, h) => {
       if (reduceMotion) {
@@ -297,23 +298,31 @@ export function CosmicDashboardBackground({ videoActive = false, variant = 'milk
         ctx.moveTo(pts[0].x, pts[0].y);
         for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i].x, pts[i].y);
         if (pat.closed) ctx.closePath();
-        ctx.strokeStyle = `rgba(${r},${g},${b},${0.24 * soulPulse * (videoActive ? 0.55 : 1)})`;
-        ctx.lineWidth = 1.25;
-        ctx.setLineDash([6, 10]);
+        ctx.strokeStyle = `rgba(${r},${g},${b},${0.42 * soulPulse * (videoActive ? 0.55 : 1)})`;
+        ctx.lineWidth = 2.1;
+        ctx.setLineDash([8, 12]);
         ctx.lineDashOffset = reduceMotion ? 0 : -t * dashSpeed;
         ctx.stroke();
         ctx.setLineDash([]);
-        ctx.strokeStyle = `rgba(240, 232, 255,${0.09 * soulPulse})`;
-        ctx.lineWidth = 0.55;
+        ctx.strokeStyle = `rgba(250, 245, 255,${0.16 * soulPulse})`;
+        ctx.lineWidth = 0.85;
         ctx.stroke();
 
         pts.forEach((p, i) => {
           const glint = reduceMotion
-            ? 0.55
-            : 0.35 + 0.4 * Math.sin(t * 0.016 + p.x * 0.008 + i);
+            ? 0.65
+            : 0.4 + 0.45 * Math.sin(t * 0.016 + p.x * 0.008 + i);
+          const nodeR = reduceMotion ? 2.4 : 2.2 + 0.65 * Math.sin(t * 0.022 + i);
           ctx.beginPath();
-          ctx.arc(p.x, p.y, reduceMotion ? 1.15 : 1.2 + 0.35 * Math.sin(t * 0.022 + i), 0, Math.PI * 2);
-          ctx.fillStyle = `rgba(238, 230, 255,${glint * 0.7 * (videoActive ? 0.65 : 1)})`;
+          ctx.arc(p.x, p.y, nodeR * 3.2, 0, Math.PI * 2);
+          const hg = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, nodeR * 3.2);
+          hg.addColorStop(0, `rgba(${r},${g},${b},${glint * 0.22 * (videoActive ? 0.65 : 1)})`);
+          hg.addColorStop(1, 'transparent');
+          ctx.fillStyle = hg;
+          ctx.fill();
+          ctx.beginPath();
+          ctx.arc(p.x, p.y, nodeR, 0, Math.PI * 2);
+          ctx.fillStyle = `rgba(255, 252, 255,${glint * 0.88 * (videoActive ? 0.65 : 1)})`;
           ctx.fill();
         });
       });
@@ -325,23 +334,23 @@ export function CosmicDashboardBackground({ videoActive = false, variant = 'milk
         if (!sa || !sb) return;
         const fade = 1 - d / maxD;
         const pulse = reduceMotion ? 1 : 0.82 + 0.18 * Math.sin(t * 0.009 + a * 0.07);
-        let alpha = 0.055 * fade * pulse * lineMult * (videoActive ? 0.65 : 1);
+        let alpha = 0.1 * fade * pulse * lineMult * (videoActive ? 0.65 : 1);
         const [ar, ag, ab] = MESH_PURPLE_A;
         const [br, bg, bb] = MESH_PURPLE_B;
         ctx.beginPath();
         ctx.moveTo(sa.x, sa.y);
         ctx.lineTo(sb.x, sb.y);
-        ctx.setLineDash([3, 7]);
+        ctx.setLineDash([4, 8]);
         ctx.lineDashOffset = -dashOff;
         ctx.strokeStyle = `rgba(${ar},${ag},${ab},${alpha})`;
-        ctx.lineWidth = 0.6;
+        ctx.lineWidth = 1.15;
         ctx.stroke();
         ctx.beginPath();
         ctx.moveTo(sa.x, sa.y);
         ctx.lineTo(sb.x, sb.y);
         ctx.lineDashOffset = -dashOff * 0.7;
-        ctx.strokeStyle = `rgba(${br},${bg},${bb},${alpha * 0.75})`;
-        ctx.lineWidth = 0.38;
+        ctx.strokeStyle = `rgba(${br},${bg},${bb},${alpha * 0.82})`;
+        ctx.lineWidth = 0.62;
         ctx.stroke();
         ctx.setLineDash([]);
       });
@@ -378,10 +387,10 @@ export function CosmicDashboardBackground({ videoActive = false, variant = 'milk
         g.addColorStop(0.4, `rgba(180,150,255,${headA * 0.45})`);
         g.addColorStop(1, 'transparent');
         ctx.strokeStyle = g;
-        ctx.lineWidth = 1.05;
+        ctx.lineWidth = 1.45;
         ctx.stroke();
         ctx.beginPath();
-        ctx.arc(m.x, m.y, 1.05, 0, Math.PI * 2);
+        ctx.arc(m.x, m.y, 1.35, 0, Math.PI * 2);
         ctx.fillStyle = `rgba(230, 220, 255,${headA * 0.85})`;
         ctx.fill();
         return m.x < w + 100 && m.y < h + 100;
@@ -395,15 +404,15 @@ export function CosmicDashboardBackground({ videoActive = false, variant = 'milk
         ctx.arc(s.x, s.y, s.r, 0, Math.PI * 2);
         ctx.fillStyle = `rgba(${s.cr},${s.cg},${s.cb},${alpha})`;
         ctx.fill();
-        if (s.r > 0.82) {
-          ctx.beginPath();
-          ctx.arc(s.x, s.y, s.r * 2.4, 0, Math.PI * 2);
-          const g = ctx.createRadialGradient(s.x, s.y, 0, s.x, s.y, s.r * 2.4);
-          g.addColorStop(0, `rgba(${s.cr},${s.cg},${s.cb},${alpha * 0.32})`);
-          g.addColorStop(1, 'transparent');
-          ctx.fillStyle = g;
-          ctx.fill();
-        }
+        const glowR = s.r * 3.5;
+        ctx.beginPath();
+        ctx.arc(s.x, s.y, glowR, 0, Math.PI * 2);
+        const g = ctx.createRadialGradient(s.x, s.y, 0, s.x, s.y, glowR);
+        g.addColorStop(0, `rgba(${s.cr},${s.cg},${s.cb},${alpha * 0.52})`);
+        g.addColorStop(0.45, `rgba(${s.cr},${s.cg},${s.cb},${alpha * 0.12})`);
+        g.addColorStop(1, 'transparent');
+        ctx.fillStyle = g;
+        ctx.fill();
       });
 
       raf = requestAnimationFrame(draw);
@@ -429,39 +438,39 @@ export function CosmicDashboardBackground({ videoActive = false, variant = 'milk
       <div
         className="absolute inset-0"
         style={{
-          background:
-            'linear-gradient(180deg, #140a22 0%, #0a0618 42%, #050010 100%)',
+          /* Transformations-hero family: lighter mid violet, less muddy than deep plum */
+          background: 'linear-gradient(180deg, #0d0618 0%, #1a0a3e 55%, #0f0a1e 100%)',
         }}
       />
       <div
-        className="absolute inset-0 opacity-[0.48]"
+        className="absolute inset-0 opacity-[0.5]"
         style={{
           background:
-            'radial-gradient(ellipse 100% 72% at 50% 12%, rgba(124, 58, 237, 0.28) 0%, transparent 52%), radial-gradient(ellipse 85% 55% at 88% 58%, rgba(109, 40, 217, 0.2) 0%, transparent 48%), radial-gradient(ellipse 65% 48% at 8% 78%, rgba(76, 29, 149, 0.26) 0%, transparent 50%)',
+            'radial-gradient(ellipse 100% 68% at 50% 8%, rgba(196, 181, 253, 0.38) 0%, rgba(167, 139, 250, 0.1) 42%, transparent 55%), radial-gradient(ellipse 88% 56% at 90% 52%, rgba(139, 92, 246, 0.2) 0%, transparent 48%), radial-gradient(ellipse 65% 48% at 8% 78%, rgba(233, 213, 255, 0.12) 0%, transparent 50%)',
         }}
       />
-      <div className="absolute inset-0 opacity-[0.22]" style={{ background: theme.baseBg }} />
+      <div className="absolute inset-0 opacity-[0.2]" style={{ background: theme.baseBg }} />
 
       <div
-        className="absolute cosmic-aurora-slow rounded-[100%] opacity-[0.34]"
+        className="absolute cosmic-aurora-slow rounded-[100%] opacity-[0.48]"
         style={{
-          width: 'min(120vw, 900px)',
-          height: 'min(90vh, 700px)',
+          width: 'min(125vw, 960px)',
+          height: 'min(92vh, 720px)',
           left: '50%',
-          top: '42%',
-          background: `radial-gradient(ellipse at 45% 40%, rgba(139, 92, 246, 0.32) 0%, rgba(76, 29, 149, 0.1) 50%, transparent 72%), ${theme.nebula1}`,
-          filter: 'blur(56px)',
+          top: '40%',
+          background: `radial-gradient(ellipse at 42% 38%, rgba(233, 213, 255, 0.5) 0%, rgba(167, 139, 250, 0.28) 40%, transparent 72%), ${theme.nebula1}`,
+          filter: 'blur(52px)',
         }}
       />
       <div
-        className="absolute cosmic-aurora-slow-alt rounded-[100%] opacity-[0.3]"
+        className="absolute cosmic-aurora-slow-alt rounded-[100%] opacity-[0.42]"
         style={{
-          width: 'min(100vw, 640px)',
-          height: 'min(70vh, 520px)',
-          right: '-12%',
-          bottom: '5%',
-          background: `radial-gradient(ellipse at 30% 50%, rgba(168, 85, 247, 0.22) 0%, transparent 55%), ${theme.nebula2}`,
-          filter: 'blur(48px)',
+          width: 'min(105vw, 680px)',
+          height: 'min(72vh, 540px)',
+          right: '-14%',
+          bottom: '4%',
+          background: `radial-gradient(ellipse at 30% 48%, rgba(192, 132, 252, 0.32) 0%, rgba(124, 58, 237, 0.15) 45%, transparent 58%), ${theme.nebula2}`,
+          filter: 'blur(44px)',
           animationDelay: '-20s',
         }}
       />

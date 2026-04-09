@@ -2,16 +2,52 @@ import React, { useState } from 'react';
 import { Star, Play, ChevronDown, ChevronUp, ExternalLink } from 'lucide-react';
 import { resolveImageUrl } from '../lib/imageUtils';
 
+/** Coerce API/Mongo quirks: photos as JSON string, single URL string, or null. */
+function coercePhotoUrls(raw) {
+  if (raw == null) return [];
+  if (Array.isArray(raw)) {
+    return raw.map((x) => (typeof x === 'string' ? x.trim() : String(x))).filter(Boolean);
+  }
+  if (typeof raw === 'string') {
+    const s = raw.trim();
+    if (!s) return [];
+    if (s.startsWith('[')) {
+      try {
+        const j = JSON.parse(s);
+        if (Array.isArray(j)) return j.map((x) => String(x).trim()).filter(Boolean);
+      } catch {
+        /* fall through — treat as one URL */
+      }
+    }
+    return [s];
+  }
+  return [];
+}
+
+function coerceLabels(raw) {
+  if (raw == null) return [];
+  if (Array.isArray(raw)) return raw.map((x) => (x == null ? '' : String(x)));
+  if (typeof raw === 'string' && raw.trim().startsWith('[')) {
+    try {
+      const j = JSON.parse(raw);
+      if (Array.isArray(j)) return j.map((x) => (x == null ? '' : String(x)));
+    } catch {
+      /* ignore */
+    }
+  }
+  return [];
+}
+
 /** Mongo/API may send null; destructuring defaults only apply to undefined. */
 function writtenMediaFrom(testimonial) {
   if (!testimonial) {
     return { photos: [], photo_labels: [], photo_mode: 'single', image: '', before_image: '' };
   }
-  const photos = Array.isArray(testimonial.photos) ? testimonial.photos.filter(Boolean) : [];
-  const photo_labels = Array.isArray(testimonial.photo_labels) ? testimonial.photo_labels : [];
+  const photos = coercePhotoUrls(testimonial.photos);
+  const photo_labels = coerceLabels(testimonial.photo_labels);
   const photo_mode = testimonial.photo_mode || 'single';
-  const image = testimonial.image || '';
-  const before_image = testimonial.before_image || '';
+  const image = typeof testimonial.image === 'string' ? testimonial.image.trim() : '';
+  const before_image = typeof testimonial.before_image === 'string' ? testimonial.before_image.trim() : '';
   return { photos, photo_labels, photo_mode, image, before_image };
 }
 
@@ -113,7 +149,7 @@ const PlatformBadge = ({ platform }) => {
 
 /* ── Single/multi photo display ─────────────────────────────────────────── */
 const PhotoDisplay = ({ photos, photoLabels, photoMode, size = 'card' }) => {
-  const resolved = (photos || []).map(resolveImageUrl);
+  const resolved = (photos || []).map(resolveImageUrl).filter(Boolean);
   if (!resolved.length) return null;
 
   const isCard = size === 'card';

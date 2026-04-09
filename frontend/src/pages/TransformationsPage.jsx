@@ -9,6 +9,7 @@ import { Search, X, Filter, Sparkles } from 'lucide-react';
 import { Dialog, DialogContent } from '../components/ui/dialog';
 import { HEADING, GOLD, LABEL, CONTAINER } from '../lib/designTokens';
 import { resolveImageUrl } from '../lib/imageUtils';
+import { resolveTransformationsSection } from '../lib/transformationsSectionDefaults';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
@@ -61,20 +62,39 @@ function TransformationsPage() {
 
   const hasActiveFilters = selectedProgram || selectedSession || searchQuery;
   const hero = settings?.page_heroes?.transformations || {};
+  const section = resolveTransformationsSection(hero);
+  const galleryVisible = settings?.transformations_gallery_visible !== false;
 
   const applyHeroStyle = (styleObj, defaults = {}) => {
     if (!styleObj || !Object.keys(styleObj).length) return defaults;
-    return { ...defaults, ...(styleObj.font_family && { fontFamily: styleObj.font_family }), ...(styleObj.font_size && { fontSize: styleObj.font_size }), ...(styleObj.font_color && { color: styleObj.font_color }), ...(styleObj.font_weight && { fontWeight: styleObj.font_weight }), ...(styleObj.font_style && { fontStyle: styleObj.font_style }) };
+    return {
+      ...defaults,
+      ...(styleObj.font_family && { fontFamily: styleObj.font_family }),
+      ...(styleObj.font_size && { fontSize: styleObj.font_size }),
+      ...(styleObj.font_color && { color: styleObj.font_color }),
+      ...(styleObj.font_weight && { fontWeight: styleObj.font_weight }),
+      ...(styleObj.font_style && { fontStyle: styleObj.font_style }),
+      ...(styleObj.letter_spacing !== undefined && styleObj.letter_spacing !== '' && { letterSpacing: styleObj.letter_spacing }),
+      ...(styleObj.text_align && { textAlign: styleObj.text_align }),
+    };
   };
 
   const clearAllFilters = () => { setSearchQuery(''); setActiveType('all'); setSelectedProgram(''); setSelectedSession(''); };
 
-  const typeTabs = [
-    { key: 'all',      label: 'All' },
-    { key: 'template', label: 'Stories' },
-    { key: 'video',    label: 'Videos' },
-    { key: 'graphic',  label: 'Gallery' },
-  ];
+  const typeTabs = useMemo(() => {
+    const tabs = [
+      { key: 'all', label: 'All' },
+      { key: 'template', label: 'Stories' },
+      { key: 'video', label: 'Videos' },
+      { key: 'graphic', label: 'Gallery' },
+    ];
+    if (!galleryVisible) return tabs.filter(t => t.key !== 'graphic');
+    return tabs;
+  }, [galleryVisible]);
+
+  useEffect(() => {
+    if (!galleryVisible && activeType === 'graphic') setActiveType('all');
+  }, [galleryVisible, activeType]);
 
   return (
     <div className="min-h-screen bg-white">
@@ -178,11 +198,11 @@ function TransformationsPage() {
         <section data-testid="written-testimonials" className="py-12"
           style={{ background: 'linear-gradient(180deg, #ffffff 0%, #faf7ff 50%, #f5f0ff 100%)' }}>
           <div className="container mx-auto px-4">
-            {activeType === 'all' && (
+            {(activeType === 'all' || activeType === 'template') && (
               <div className="text-center mb-10">
-                <p className="text-[11px] tracking-[0.25em] uppercase mb-2" style={{ color: '#D4AF37', fontFamily: "'Lato', sans-serif" }}>Their Words</p>
+                <p className="text-[11px] tracking-[0.25em] uppercase mb-2" style={{ color: '#D4AF37', fontFamily: "'Lato', sans-serif" }}>{section.stories_kicker}</p>
                 <h2 style={{ ...HEADING, fontSize: 'clamp(1.2rem, 2.5vw, 1.6rem)', color: '#4c1d95', fontStyle: 'italic' }}>
-                  Healing Stories
+                  {section.stories_title}
                 </h2>
                 <div className="w-10 h-px mx-auto mt-3" style={{ background: 'linear-gradient(90deg, transparent, #D4AF37, transparent)' }} />
               </div>
@@ -201,11 +221,11 @@ function TransformationsPage() {
         <section data-testid="video-testimonials" className="py-12"
           style={{ background: 'linear-gradient(180deg, #0d0618 0%, #1a0a3e 50%, #0f0a1e 100%)' }}>
           <div className="container mx-auto px-4">
-            {activeType === 'all' && (
+            {(activeType === 'all' || activeType === 'video') && (
               <div className="text-center mb-10">
-                <p className="text-[11px] tracking-[0.25em] uppercase mb-2" style={{ color: 'rgba(212,175,55,0.7)', fontFamily: "'Lato', sans-serif" }}>Watch & Feel</p>
+                <p className="text-[11px] tracking-[0.25em] uppercase mb-2" style={{ color: 'rgba(212,175,55,0.7)', fontFamily: "'Lato', sans-serif" }}>{section.video_kicker}</p>
                 <h2 style={{ ...HEADING, fontSize: 'clamp(1.2rem, 2.5vw, 1.6rem)', color: '#f5f0ff', fontStyle: 'italic' }}>
-                  Video Testimonials
+                  {section.video_title}
                 </h2>
                 <div className="w-10 h-px mx-auto mt-3" style={{ background: 'linear-gradient(90deg, transparent, #D4AF37, transparent)' }} />
               </div>
@@ -223,15 +243,15 @@ function TransformationsPage() {
       )}
 
       {/* ── Graphic Gallery ───────────────────────────────────────────────── */}
-      {(activeType === 'all' || activeType === 'graphic') && graphicTestimonials.length > 0 && (
+      {galleryVisible && (activeType === 'all' || activeType === 'graphic') && graphicTestimonials.length > 0 && (
         <section data-testid="graphic-testimonials" className="py-12"
           style={{ background: 'linear-gradient(180deg, #faf7ff, #ffffff)' }}>
           <div className="container mx-auto px-4">
-            {activeType === 'all' && (
+            {(activeType === 'all' || activeType === 'graphic') && (
               <div className="text-center mb-10">
-                <p className="text-[11px] tracking-[0.25em] uppercase mb-2" style={{ color: '#D4AF37', fontFamily: "'Lato', sans-serif" }}>See the Change</p>
+                <p className="text-[11px] tracking-[0.25em] uppercase mb-2" style={{ color: '#D4AF37', fontFamily: "'Lato', sans-serif" }}>{section.gallery_kicker}</p>
                 <h2 style={{ ...HEADING, fontSize: 'clamp(1.2rem, 2.5vw, 1.6rem)', color: '#4c1d95', fontStyle: 'italic' }}>
-                  Transformation Gallery
+                  {section.gallery_title}
                 </h2>
                 <div className="w-10 h-px mx-auto mt-3" style={{ background: 'linear-gradient(90deg, transparent, #D4AF37, transparent)' }} />
               </div>

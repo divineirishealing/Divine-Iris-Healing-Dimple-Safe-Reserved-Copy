@@ -10,6 +10,8 @@ import { buildDashboardScheduleRows } from '../lib/dashboardSchedule';
 import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
 import { useToast } from '../hooks/use-toast';
+import ConstellationCanvas from '../components/ConstellationCanvas';
+import { HEADING, GOLD, LABEL } from '../lib/designTokens';
 
 const API = process.env.REACT_APP_BACKEND_URL;
 
@@ -109,10 +111,10 @@ const PetalCard = ({ children, className, onClick, delay = 0, testId }) => (
     style={{ animationDelay: `${delay}ms` }}
     className={cn(
       "group relative cursor-pointer overflow-hidden rounded-[28px]",
-      "bg-white/[0.08] backdrop-blur-[20px] border border-white/[0.15]",
-      "shadow-[0_8px_32px_rgba(93,63,211,0.15)]",
+      "bg-white/[0.11] backdrop-blur-[20px] border border-white/[0.2]",
+      "shadow-[0_8px_32px_rgba(139,92,246,0.18)]",
       "transition-all duration-500 ease-out",
-      "hover:bg-white/[0.14] hover:border-white/[0.25] hover:shadow-[0_12px_48px_rgba(93,63,211,0.25)]",
+      "hover:bg-white/[0.16] hover:border-[rgba(196,181,253,0.35)] hover:shadow-[0_12px_48px_rgba(139,92,246,0.22)]",
       "hover:-translate-y-1",
       "animate-[petalIn_0.7s_ease-out_both]",
       className
@@ -218,35 +220,71 @@ const StudentDashboard = () => {
 
   return (
     <div className="absolute inset-0 overflow-y-auto overflow-x-hidden" data-testid="student-dashboard">
-      {/* Deep space + constellations come from DashboardLayout (CosmicDashboardBackground). No full-bleed hero image here so stars stay visible. */}
-
       {/* ═══ CONTENT ═══ */}
-      <div className="relative z-10 min-h-full flex flex-col items-center justify-center px-4 py-8 md:py-12">
+      <div className="relative z-10 min-h-full flex flex-col items-center pb-8 md:pb-12">
 
-        {/* ─── GREETING ─── */}
-        <div className="text-center mb-10 md:mb-14 animate-[fadeSlideUp_0.8s_ease-out_both]" data-testid="dashboard-greeting">
-          <div className="inline-flex items-center gap-2 px-4 py-1.5 mb-4 rounded-full bg-white/[0.08] backdrop-blur-md border border-white/[0.12] text-white/80">
-            <Sparkles size={12} className="text-[#D4AF37]" />
-            <span className="text-[11px] font-semibold tracking-[0.2em] uppercase">
-              {tierLabel} Path
-            </span>
-          </div>
-          <h1 className="text-3xl sm:text-4xl md:text-5xl font-serif font-bold text-white tracking-tight leading-tight drop-shadow-[0_2px_20px_rgba(93,63,211,0.3)]">
-            {sanctuary.greeting_title}
-          </h1>
-          <p className="mt-2 text-sm md:text-base text-white/60 tracking-[0.25em] uppercase font-light">
-            {sanctuary.greeting_subtitle}
-          </p>
-          {user?.name && (
-            <p className="mt-4 text-sm text-white/50 font-medium">
-              Welcome back, <span className="text-[#D4AF37]">{user.name.split(' ')[0]}</span>
+        {/* ─── Hero (Transformations page pattern): purple band + constellation + gold ornaments ─── */}
+        <section
+          data-testid="dashboard-hero"
+          className="relative w-screen max-w-[100vw] left-1/2 -translate-x-1/2 flex flex-col items-center justify-center text-center px-6 pt-16 pb-14 md:pt-20 md:pb-16 min-h-[min(52vh,520px)] mb-8 md:mb-12 overflow-hidden animate-[fadeSlideUp_0.8s_ease-out_both]"
+          style={{
+            /* Same family as Transformations hero — lighter mid (#1a0a3e), vibrant violet wash */
+            background: 'linear-gradient(180deg, #0d0618 0%, #1a0a3e 58%, #0f0a1e 100%)',
+            boxShadow: '0 20px 40px rgba(45, 27, 105, 0.25)',
+          }}
+        >
+          <div
+            className="absolute inset-0 pointer-events-none"
+            style={{
+              background:
+                'radial-gradient(ellipse 95% 60% at 50% 5%, rgba(196, 181, 253, 0.42) 0%, rgba(167, 139, 250, 0.12) 38%, transparent 58%), radial-gradient(ellipse 75% 50% at 85% 75%, rgba(139, 92, 246, 0.22) 0%, transparent 50%), radial-gradient(ellipse 55% 40% at 10% 60%, rgba(233, 213, 255, 0.14) 0%, transparent 48%)',
+            }}
+          />
+          <ConstellationCanvas style={{ zIndex: 1, opacity: 0.92 }} />
+          <div className="relative z-10 flex flex-col items-center max-w-4xl" data-testid="dashboard-greeting">
+            <div className="flex items-center gap-2 mb-3">
+              <div className="h-px w-8" style={{ background: 'rgba(212,175,55,0.45)' }} />
+              <Sparkles size={14} style={{ color: GOLD, opacity: 0.85 }} />
+              <div className="h-px w-8" style={{ background: 'rgba(212,175,55,0.45)' }} />
+            </div>
+            <p
+              className="mb-3 text-[10px] md:text-[11px] uppercase tracking-[0.28em]"
+              style={{ ...LABEL, color: 'rgba(233, 213, 255, 0.85)' }}
+            >
+              {tierLabel} path · sanctuary
             </p>
-          )}
-        </div>
+            <h1
+              className="text-white mb-4 max-w-4xl px-2"
+              style={{
+                ...HEADING,
+                color: '#fff',
+                fontSize: 'clamp(1.75rem, 4.2vw, 2.85rem)',
+                fontVariant: 'small-caps',
+                letterSpacing: '0.06em',
+                lineHeight: 1.28,
+                textShadow: '0 2px 28px rgba(139, 92, 246, 0.35), 0 1px 0 rgba(255,255,255,0.06)',
+              }}
+            >
+              {sanctuary.greeting_title}
+            </h1>
+            <p className="mb-2 max-w-xl px-2" style={{ ...LABEL, color: GOLD, fontSize: 'clamp(0.62rem, 1.8vw, 0.72rem)', letterSpacing: '0.32em' }}>
+              {sanctuary.greeting_subtitle}
+            </p>
+            {user?.name && (
+              <p className="mt-4 text-sm text-white/70 font-medium" style={{ fontFamily: LABEL.fontFamily }}>
+                Welcome back,{' '}
+                <span style={{ color: GOLD }}>{user.name.split(' ')[0]}</span>
+              </p>
+            )}
+            <div className="w-14 h-0.5 mt-6" style={{ background: `linear-gradient(90deg, transparent, ${GOLD}, transparent)` }} />
+          </div>
+        </section>
+
+        <div className="w-full max-w-5xl mx-auto px-4 md:px-0 flex flex-col items-center">
 
         {/* ─── IRIS FLOWER: 5 PETALS ─── */}
         {/* Desktop: Cross / Flower pattern */}
-        <div className="w-full max-w-5xl mx-auto hidden lg:block">
+        <div className="w-full hidden lg:block">
           {/* Top row: 1 card centered */}
           <div className="flex justify-center mb-6">
             <PetalCard
@@ -587,6 +625,8 @@ const StudentDashboard = () => {
               </div>
             </PetalCard>
           ))}
+        </div>
+
         </div>
 
       </div>

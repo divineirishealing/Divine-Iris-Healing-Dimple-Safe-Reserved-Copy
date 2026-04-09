@@ -1,7 +1,7 @@
 from fastapi import APIRouter, HTTPException
 from models import Testimonial, TestimonialCreate
-from typing import List, Optional
-import os, re, urllib.parse
+from typing import List, Optional, Any
+import os, re, json
 from motor.motor_asyncio import AsyncIOMotorClient
 from dotenv import load_dotenv
 from pathlib import Path
@@ -11,12 +11,58 @@ load_dotenv(ROOT_DIR / '.env')
 
 router = APIRouter(prefix="/api/testimonials", tags=["Testimonials"])
 
+
+def _coerce_url_list(val: Any) -> List[str]:
+    """Mongo or imports may store photos as a list, a JSON string, or a single URL string."""
+    if val is None:
+        return []
+    if isinstance(val, list):
+        return [str(x).strip() for x in val if x is not None and str(x).strip()]
+    if isinstance(val, str):
+        s = val.strip()
+        if not s:
+            return []
+        if s.startswith("["):
+            try:
+                j = json.loads(s)
+                if isinstance(j, list):
+                    return [str(x).strip() for x in j if x is not None and str(x).strip()]
+            except json.JSONDecodeError:
+                pass
+        return [s]
+    return []
+
+
+def _coerce_label_list(val: Any) -> List[str]:
+    if val is None:
+        return []
+    if isinstance(val, list):
+        return ["" if x is None else str(x) for x in val]
+    if isinstance(val, str):
+        s = val.strip()
+        if s.startswith("["):
+            try:
+                j = json.loads(s)
+                if isinstance(j, list):
+                    return ["" if x is None else str(x) for x in j]
+            except json.JSONDecodeError:
+                pass
+    return []
+
+
 def _doc_to_testimonial(raw: dict) -> Testimonial:
-    """Strip Mongo _id and coerce null list/str fields so Pydantic and clients never see null photos."""
+    """Strip Mongo _id and coerce null / odd-shaped photo fields so the client always gets arrays + strings."""
     t = dict(raw)
     t.pop("_id", None)
-    for key in ("photos", "photo_labels", "program_tags", "session_tags"):
-        if t.get(key) is None:
+    t["photos"] = _coerce_url_list(t.get("photos"))
+    t["photo_labels"] = _coerce_label_list(t.get("photo_labels"))
+    for key in ("program_tags", "session_tags"):
+        v = t.get(key)
+        if v is None:
+            t[key] = []
+        elif isinstance(v, list):
+            t[key] = [str(x) for x in v if x is not None]
+        else:
             t[key] = []
     for key in ("image", "before_image", "text", "name", "role", "program_name", "photo_mode"):
         if t.get(key) is None:

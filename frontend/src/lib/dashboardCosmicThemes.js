@@ -17,24 +17,24 @@ export const DASHBOARD_COSMIC_THEMES = {
   milky_way: {
     label: 'Milky Way',
     sub: 'Overview nexus',
-    milkyOpacity: '0.44',
+    milkyOpacity: '0.5',
     milkyGradient: `linear-gradient(90deg,
       transparent 0%,
-      rgba(100, 80, 140, 0.07) 15%,
-      rgba(190, 175, 255, 0.14) 38%,
-      rgba(255, 245, 230, 0.1) 50%,
-      rgba(140, 120, 200, 0.11) 62%,
-      rgba(80, 60, 120, 0.06) 82%,
+      rgba(167, 139, 250, 0.1) 18%,
+      rgba(216, 180, 254, 0.18) 40%,
+      rgba(255, 248, 252, 0.08) 50%,
+      rgba(196, 181, 253, 0.14) 60%,
+      rgba(124, 58, 237, 0.08) 82%,
       transparent 100%)`,
     nebula1:
-      'radial-gradient(ellipse at 40% 40%, rgba(120, 80, 180, 0.22) 0%, rgba(40, 20, 80, 0.08) 45%, transparent 70%)',
+      'radial-gradient(ellipse at 40% 40%, rgba(196, 181, 253, 0.35) 0%, rgba(109, 40, 217, 0.12) 48%, transparent 72%)',
     nebula2:
-      'radial-gradient(circle at 30% 50%, rgba(212, 175, 55, 0.12) 0%, rgba(93, 63, 211, 0.1) 40%, transparent 68%)',
+      'radial-gradient(circle at 32% 48%, rgba(212, 175, 55, 0.14) 0%, rgba(167, 139, 250, 0.18) 38%, transparent 68%)',
     baseBg: `
-            radial-gradient(ellipse 120% 80% at 50% -10%, rgba(45, 27, 78, 0.55) 0%, transparent 55%),
-            radial-gradient(ellipse 90% 60% at 100% 30%, rgba(30, 58, 95, 0.35) 0%, transparent 50%),
-            radial-gradient(ellipse 70% 50% at 0% 70%, rgba(60, 30, 90, 0.3) 0%, transparent 45%),
-            linear-gradient(165deg, #030510 0%, #0a0a1a 18%, #0f0c28 42%, #080c1c 68%, #030508 100%)`,
+            radial-gradient(ellipse 120% 80% at 50% -8%, rgba(76, 29, 149, 0.35) 0%, transparent 52%),
+            radial-gradient(ellipse 90% 58% at 100% 28%, rgba(91, 33, 182, 0.22) 0%, transparent 50%),
+            radial-gradient(ellipse 72% 52% at 0% 72%, rgba(139, 92, 246, 0.18) 0%, transparent 46%),
+            linear-gradient(165deg, #0d0618 0%, #140a28 22%, #1a0a3e 48%, #10081f 72%, #0a0514 100%)`,
     planetA: {
       background:
         'radial-gradient(circle at 32% 28%, rgba(200, 180, 255, 0.5), rgba(80, 50, 140, 0.2) 38%, rgba(20, 10, 40, 0.05) 62%, transparent 72%)',
