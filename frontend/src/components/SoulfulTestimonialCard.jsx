@@ -55,6 +55,17 @@ function coerceLabels(raw) {
   return [];
 }
 
+/** API may send a string or { url, secure_url } for legacy image fields. */
+function legacyImageString(v) {
+  if (v == null) return '';
+  if (typeof v === 'string') return v.trim();
+  if (typeof v === 'object') {
+    if (typeof v.url === 'string') return v.url.trim();
+    if (typeof v.secure_url === 'string') return v.secure_url.trim();
+  }
+  return '';
+}
+
 /** Mongo/API may send null; merge legacy image/before_image when photos missing or not coerced. */
 function writtenMediaFrom(testimonial) {
   if (!testimonial) {
@@ -63,8 +74,8 @@ function writtenMediaFrom(testimonial) {
   let photos = coercePhotoUrls(testimonial.photos);
   const photo_labels = coerceLabels(testimonial.photo_labels);
   let photo_mode = String(testimonial.photo_mode || 'single').trim() || 'single';
-  const image = typeof testimonial.image === 'string' ? testimonial.image.trim() : '';
-  const before_image = typeof testimonial.before_image === 'string' ? testimonial.before_image.trim() : '';
+  const image = legacyImageString(testimonial.image);
+  const before_image = legacyImageString(testimonial.before_image);
 
   if (photos.length === 0) {
     if (photo_mode === 'before_after' && before_image && image) {
@@ -318,7 +329,7 @@ export const SoulfulWrittenCard = ({ testimonial, onClick, uniform = false, foot
       ].map((p, i) => (
         <div key={i} className="absolute rounded-full pointer-events-none"
           style={{
-            zIndex: 1,
+            zIndex: 0,
             top: `${p.t}%`, left: `${p.l}%`,
             width: p.s, height: p.s,
             background: i % 3 === 0 ? 'rgba(212,175,55,0.95)' : i % 3 === 1 ? 'rgba(255,255,255,0.75)' : 'rgba(196,181,253,0.85)',
@@ -332,15 +343,16 @@ export const SoulfulWrittenCard = ({ testimonial, onClick, uniform = false, foot
           }} />
       ))}
 
-      {/* ── Jewel header ── */}
-      <div className="relative px-5 pt-7 overflow-visible"
+      {/* ── Jewel header (purple band only — photo sits below in flow so quote never stacks on it) ── */}
+      <div
+        className="relative z-[1] px-5 pt-7 pb-5 overflow-hidden shrink-0"
         style={{
           background: 'linear-gradient(135deg, #1e0654 0%, #3b0f9e 45%, #6d28d9 80%, #9333ea 100%)',
-          paddingBottom: (uniform || (hasPhotos && isSingle)) ? '72px' : '28px',
-        }}>
+        }}
+      >
 
         {/* Deep centre glow */}
-        <div className="absolute inset-0 pointer-events-none"
+        <div className="absolute inset-0 pointer-events-none z-0"
           style={{ background: 'radial-gradient(ellipse 80% 60% at 50% 100%, rgba(212,175,55,0.22) 0%, transparent 65%)' }} />
 
         {/* Stars — comfortably in upper part of header */}
@@ -353,36 +365,44 @@ export const SoulfulWrittenCard = ({ testimonial, onClick, uniform = false, foot
           <div style={{ height: 1, width: 28, background: 'linear-gradient(to left, transparent, rgba(212,175,55,0.6))' }} />
         </div>
 
-        {/* Single photo: absolutely positioned so overflow-hidden + paint layers never clip it */}
-        {hasPhotos && isSingle && (
-          <div
-            className="absolute left-1/2 z-20 flex justify-center"
-            style={{ bottom: 0, transform: 'translate(-50%, 50%)' }}
-          >
-            <div style={{
-              width: 80, height: 112,
-              borderRadius: '42% / 50%',
-              overflow: 'hidden',
-              boxShadow: '0 6px 20px rgba(0,0,0,0.25)',
-              WebkitBackfaceVisibility: 'hidden',
-              backfaceVisibility: 'hidden',
-            }}>
-              <img
-                src={resolveImageUrl(effectivePhotos[0])}
-                alt={name || ''}
-                className="w-full h-full object-cover"
-                style={{ WebkitBackfaceVisibility: 'hidden', backfaceVisibility: 'hidden' }}
-                decoding="async"
-              />
-            </div>
-          </div>
-        )}
-
       </div>
 
+      {/* ── Single portrait: own row in document flow (reserves space — no text overlap) ── */}
+      {hasPhotos && isSingle && (
+        <div
+          className="relative z-[2] flex justify-center px-5 pb-3 -mt-4 shrink-0"
+          style={{ background: '#fdfbff' }}
+        >
+          <div
+            className="overflow-hidden shrink-0"
+            style={{
+              width: 80,
+              height: 112,
+              borderRadius: '42% / 50%',
+              boxShadow: '0 6px 22px rgba(0,0,0,0.22)',
+              border: '2px solid rgba(255,255,255,0.95)',
+              background: 'linear-gradient(180deg, #ede9fe 0%, #f5f3ff 100%)',
+            }}
+          >
+            <img
+              src={resolveImageUrl(effectivePhotos[0])}
+              alt={name || ''}
+              className="w-full h-full object-cover block"
+              width={80}
+              height={112}
+              loading="eager"
+              decoding="async"
+              draggable={false}
+            />
+          </div>
+        </div>
+      )}
+
       {/* ── Card body — flex:1 so footer always pins to bottom ── */}
-      <div className={`px-5 pb-4 ${(uniform || (hasPhotos && isSingle)) ? 'pt-3' : 'pt-2'}`}
-        style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
+      <div
+        className={`px-5 pb-4 min-h-0 ${hasPhotos && isSingle ? 'pt-1' : (uniform ? 'pt-3' : 'pt-2')}`}
+        style={{ flex: 1, display: 'flex', flexDirection: 'column', background: '#fdfbff' }}
+      >
 
         {/* Multi-photo for before/after or progressive */}
         {hasPhotos && !isSingle && (
