@@ -50,6 +50,33 @@ import SchedulerTab from './tabs/SchedulerTab';
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
 
+/** One photo URL from API (string or { url } / { secure_url }). */
+function testimonialPhotoUrl(p) {
+  if (p == null) return '';
+  if (typeof p === 'string') return p.trim();
+  if (typeof p === 'object' && typeof p.url === 'string') return p.url.trim();
+  if (typeof p === 'object' && typeof p.secure_url === 'string') return p.secure_url.trim();
+  return '';
+}
+
+/** Rebuild photos[] for the testimonial form from GET /testimonials (never drop before/after). */
+function photosFromTestimonialApi(t) {
+  if (!t || t.type !== 'template') return [];
+  const raw = t.photos;
+  let out = [];
+  if (Array.isArray(raw)) {
+    out = raw.map(testimonialPhotoUrl).filter(Boolean);
+  }
+  if (out.length > 0) return out;
+  const bi = (t.before_image || '').trim();
+  const im = (t.image || '').trim();
+  const mode = (t.photo_mode || 'single').trim();
+  if (mode === 'before_after' && bi && im) return [bi, im];
+  if (im) return [im];
+  if (bi) return [bi];
+  return [];
+}
+
 const AdminPanel = () => {
   const { toast } = useToast();
   const { refreshSettings } = useSiteSettings();
@@ -162,16 +189,49 @@ const AdminPanel = () => {
   const resetSessionForm = () => { setShowSessionForm(false); setEditingId(null); setSessionForm({ title: '', description: '', image: '', price_usd: 0, price_inr: 0, price_eur: 0, price_gbp: 0, price_aed: 0, offer_price_aed: 0, offer_price_usd: 0, offer_price_inr: 0, offer_text: '', offer_expiry: '', duration: '60-90 minutes', session_mode: 'online', available_dates: [], time_slots: [], testimonial_text: '', title_style: null, description_style: null, visible: true, order: 0 }); };
 
   // ===== TESTIMONIALS =====
+  /** Keep photos + legacy image/before_image in sync so saves never wipe Cloudinary URLs. */
+  const normalizeTestimonialPayload = (form) => {
+    let photos = (Array.isArray(form.photos) ? form.photos : [])
+      .map((p) => testimonialPhotoUrl(p))
+      .filter(Boolean);
+    const photo_labels = Array.isArray(form.photo_labels) ? form.photo_labels.map((x) => (x == null ? '' : String(x))) : [];
+    const mode = form.photo_mode || 'single';
+    const next = { ...form, photos, photo_labels };
+    if (form.type !== 'template') return next;
+
+    if (photos.length === 0) {
+      const bi = (form.before_image || '').trim();
+      const im = (form.image || '').trim();
+      if (mode === 'before_after' && bi && im) photos = [bi, im];
+      else if (im) photos = [im];
+      else if (bi) photos = [bi];
+      next.photos = photos;
+    }
+
+    if (photos.length > 0) {
+      if (mode === 'before_after' && photos.length >= 2) {
+        next.before_image = photos[0];
+        next.image = photos[1];
+      } else {
+        next.image = photos[0];
+        if (mode === 'single') next.before_image = '';
+      }
+    }
+    return next;
+  };
+
   const saveTestimonial = async () => {
     try {
-      if (editingId) { await axios.put(`${API}/testimonials/${editingId}`, testimonialForm); toast({ title: 'Testimonial updated!' }); }
-      else { await axios.post(`${API}/testimonials`, testimonialForm); toast({ title: 'Testimonial created!' }); }
+      const payload = normalizeTestimonialPayload(testimonialForm);
+      if (editingId) { await axios.put(`${API}/testimonials/${editingId}`, payload); toast({ title: 'Testimonial updated!' }); }
+      else { await axios.post(`${API}/testimonials`, payload); toast({ title: 'Testimonial created!' }); }
       resetTestimonialForm(); loadAll();
     } catch (error) { toast({ title: 'Error', description: error.message, variant: 'destructive' }); }
   };
   const editTestimonial = (t) => {
     setEditingId(t.id);
-    setTestimonialForm({ type: t.type, name: t.name || '', text: t.text || '', image: t.image || '', before_image: t.before_image || '', videoId: t.videoId || '', video_url: t.video_url || '', thumbnail: t.thumbnail || '', photos: t.photos || [], photo_labels: t.photo_labels || [], photo_mode: t.photo_mode || 'single', program_id: t.program_id || '', program_name: t.program_name || '', program_tags: t.program_tags || [], session_tags: t.session_tags || [], category: t.category || '', role: t.role || '', rating: t.rating ?? 5, visible: t.visible !== false });
+    const coercedPhotos = photosFromTestimonialApi(t);
+    setTestimonialForm({ type: t.type, name: t.name || '', text: t.text || '', image: t.image || '', before_image: t.before_image || '', videoId: t.videoId || '', video_url: t.video_url || '', thumbnail: t.thumbnail || '', photos: coercedPhotos, photo_labels: Array.isArray(t.photo_labels) ? t.photo_labels : [], photo_mode: t.photo_mode || 'single', program_id: t.program_id || '', program_name: t.program_name || '', program_tags: t.program_tags || [], session_tags: t.session_tags || [], category: t.category || '', role: t.role || '', rating: t.rating ?? 5, visible: t.visible !== false });
     setShowTestimonialForm(true);
   };
   const deleteTestimonial = async (id) => { if (!window.confirm('Delete?')) return; await axios.delete(`${API}/testimonials/${id}`); toast({ title: 'Deleted' }); loadAll(); };
@@ -965,7 +1025,10 @@ const AdminPanel = () => {
                         <div className="flex gap-2 mt-1">
                           {[['single','Single Photo'], ['before_after','Before & After'], ['progressive','Progressive Journey']].map(([val, lbl]) => (
                             <button key={val} type="button"
-                              onClick={() => setTestimonialForm({...testimonialForm, photo_mode: val, photos: [], photo_labels: []})}
+                              onClick={() => {
+                                if (testimonialForm.photo_mode === val) return;
+                                setTestimonialForm({ ...testimonialForm, photo_mode: val, photos: [], photo_labels: [] });
+                              }}
                               className={`px-3 py-1.5 rounded-full text-xs border transition-all ${testimonialForm.photo_mode === val ? 'bg-purple-600 text-white border-purple-600' : 'bg-white text-gray-500 border-gray-200 hover:bg-gray-50'}`}>
                               {lbl}
                             </button>

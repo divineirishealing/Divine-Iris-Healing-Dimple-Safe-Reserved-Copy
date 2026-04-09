@@ -302,8 +302,8 @@ class Testimonial(BaseModel):
     videoId: str = ""  # YouTube video ID (legacy – derived from video_url)
     video_url: str = ""  # full URL: YouTube / Instagram / Facebook
     thumbnail: str = ""
-    photos: List[str] = []  # ordered list of photo URLs (single, before/after, or progressive)
-    photo_labels: List[str] = []  # label for each photo, e.g. ["Before", "After"] or ["Week 1", "Week 4", "Week 12"]
+    photos: List[str] = Field(default_factory=list)  # ordered list of photo URLs (single, before/after, or progressive)
+    photo_labels: List[str] = Field(default_factory=list)  # label for each photo, e.g. ["Before", "After"] or ["Week 1", "Week 4", "Week 12"]
     photo_mode: str = "single"  # "single" | "before_after" | "progressive"
     program_id: str = ""  # legacy single program (optional)
     program_name: str = ""  # display name of the program/session
@@ -325,8 +325,8 @@ class TestimonialCreate(BaseModel):
     videoId: Optional[str] = ""
     video_url: Optional[str] = ""
     thumbnail: Optional[str] = ""
-    photos: Optional[List[str]] = []
-    photo_labels: Optional[List[str]] = []
+    photos: Optional[List[str]] = Field(default_factory=list)
+    photo_labels: Optional[List[str]] = Field(default_factory=list)
     photo_mode: Optional[str] = "single"
     program_id: Optional[str] = ""
     program_name: Optional[str] = ""

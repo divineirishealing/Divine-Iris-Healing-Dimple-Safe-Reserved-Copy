@@ -17,7 +17,32 @@ def _coerce_url_list(val: Any) -> List[str]:
     if val is None:
         return []
     if isinstance(val, list):
-        return [str(x).strip() for x in val if x is not None and str(x).strip()]
+        out: List[str] = []
+        for x in val:
+            if x is None:
+                continue
+            if isinstance(x, str):
+                s = x.strip()
+                if s:
+                    out.append(s)
+            elif isinstance(x, dict):
+                u = str(x.get("url") or x.get("secure_url") or "").strip()
+                if u:
+                    out.append(u)
+            else:
+                s = str(x).strip()
+                if s and (s.startswith("http") or s.startswith("/") or s.startswith("data:")):
+                    out.append(s)
+        return out
+    if isinstance(val, dict):
+        keys = [k for k in val.keys() if str(k).isdigit()]
+        if keys:
+            keys_sorted = sorted(keys, key=lambda k: int(str(k)))
+            return _coerce_url_list([val[k] for k in keys_sorted])
+        u = str(val.get("url") or val.get("secure_url") or "").strip()
+        if u:
+            return [u]
+        return []
     if isinstance(val, str):
         s = val.strip()
         if not s:
@@ -26,7 +51,7 @@ def _coerce_url_list(val: Any) -> List[str]:
             try:
                 j = json.loads(s)
                 if isinstance(j, list):
-                    return [str(x).strip() for x in j if x is not None and str(x).strip()]
+                    return _coerce_url_list(j)
             except json.JSONDecodeError:
                 pass
         return [s]
@@ -50,12 +75,73 @@ def _coerce_label_list(val: Any) -> List[str]:
     return []
 
 
+def _prepare_testimonial_write(data: dict) -> dict:
+    """Normalize photos/labels; sync legacy image/before_image with photos for template (written) testimonials."""
+    t = dict(data)
+    typ = (t.get("type") or "graphic").strip().lower()
+    photos = _coerce_url_list(t.get("photos"))
+    labels = _coerce_label_list(t.get("photo_labels"))
+    img = str(t.get("image") or "").strip()
+    before = str(t.get("before_image") or "").strip()
+    mode = (t.get("photo_mode") or "single").strip()
+
+    if typ == "template":
+        if not photos:
+            if mode == "before_after" and before and img:
+                photos = [before, img]
+            elif img:
+                photos = [img]
+            elif before:
+                photos = [before]
+
+        if photos:
+            if mode == "before_after" and len(photos) >= 2:
+                t["before_image"] = photos[0]
+                t["image"] = photos[1]
+            elif mode == "progressive":
+                t["image"] = photos[0] if photos else ""
+                t["before_image"] = ""
+            else:
+                t["image"] = photos[0]
+                t["before_image"] = ""
+
+        if mode == "before_after" and len(photos) >= 2 and (not labels or all(x == "" for x in labels)):
+            labels = ["Before", "After"]
+
+    t["photos"] = photos
+    t["photo_labels"] = labels
+    return t
+
+
 def _doc_to_testimonial(raw: dict) -> Testimonial:
     """Strip Mongo _id and coerce null / odd-shaped photo fields so the client always gets arrays + strings."""
     t = dict(raw)
     t.pop("_id", None)
     t["photos"] = _coerce_url_list(t.get("photos"))
     t["photo_labels"] = _coerce_label_list(t.get("photo_labels"))
+    typ = (t.get("type") or "").strip().lower()
+    # Template: backfill photos from legacy image fields; sync image/before_image from photos when missing
+    if typ == "template":
+        img = str(t.get("image") or "").strip()
+        before = str(t.get("before_image") or "").strip()
+        mode = (t.get("photo_mode") or "single").strip()
+        if not t["photos"]:
+            if mode == "before_after" and before and img:
+                t["photos"] = [before, img]
+            elif img:
+                t["photos"] = [img]
+            elif before:
+                t["photos"] = [before]
+        elif t["photos"]:
+            if mode == "before_after" and len(t["photos"]) >= 2:
+                if not before:
+                    t["before_image"] = t["photos"][0]
+                if not img:
+                    t["image"] = t["photos"][1]
+            elif mode == "progressive" and not img:
+                t["image"] = t["photos"][0]
+            elif not img:
+                t["image"] = t["photos"][0]
     for key in ("program_tags", "session_tags"):
         v = t.get(key)
         if v is None:
@@ -139,14 +225,24 @@ async def get_testimonial(testimonial_id: str):
         raise HTTPException(status_code=404, detail="Testimonial not found")
     return _doc_to_testimonial(t)
 
+def _testimonial_field_names() -> set:
+    return set(Testimonial.model_fields.keys())
+
+
+def _incoming_dict(t: TestimonialCreate, *, exclude_unset: bool = False) -> dict:
+    """PUT uses exclude_unset so omitted JSON fields do not overwrite Mongo with model defaults."""
+    return t.model_dump(exclude_unset=exclude_unset)
+
+
 @router.post("", response_model=Testimonial)
 async def create_testimonial(testimonial: TestimonialCreate):
-    data = testimonial.dict()
+    data = _incoming_dict(testimonial)
+    data = _prepare_testimonial_write(data)
     data = _derive_video_meta(data)
     count = await db.testimonials.count_documents({})
     data.pop("order", None)
     testimonial_obj = Testimonial(**data, order=count)
-    await db.testimonials.insert_one(testimonial_obj.dict())
+    await db.testimonials.insert_one(testimonial_obj.model_dump())
     return testimonial_obj
 
 @router.put("/{testimonial_id}", response_model=Testimonial)
@@ -154,13 +250,17 @@ async def update_testimonial(testimonial_id: str, testimonial: TestimonialCreate
     existing = await db.testimonials.find_one({"id": testimonial_id})
     if not existing:
         raise HTTPException(status_code=404, detail="Testimonial not found")
-    update_data = {k: v for k, v in testimonial.dict().items() if v is not None}
-    update_data = _derive_video_meta(update_data)
-    # Always update list fields even if empty
-    for field in ['program_tags', 'session_tags', 'photos', 'photo_labels']:
-        if field in testimonial.dict():
-            update_data[field] = testimonial.dict()[field] or []
-    await db.testimonials.update_one({"id": testimonial_id}, {"$set": update_data})
+    merged = {**existing, **_incoming_dict(testimonial, exclude_unset=True)}
+    merged.pop("_id", None)
+    merged["id"] = testimonial_id
+    merged = _prepare_testimonial_write(merged)
+    merged = _derive_video_meta(merged)
+    allowed = _testimonial_field_names()
+    try:
+        testimonial_obj = Testimonial(**{k: merged[k] for k in allowed if k in merged})
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    await db.testimonials.update_one({"id": testimonial_id}, {"$set": testimonial_obj.model_dump()})
     updated = await db.testimonials.find_one({"id": testimonial_id})
     return _doc_to_testimonial(updated)
 

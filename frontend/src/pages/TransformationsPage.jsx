@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import axios from 'axios';
 import Header from '../components/Header';
 import Footer from '../components/Footer';
@@ -34,6 +34,7 @@ function TransformationsPage() {
   const [selectedTemplate, setSelectedTemplate] = useState(null);
   const [selectedImage, setSelectedImage] = useState(null);
   const [loading, setLoading] = useState(true);
+  const testimonialsFetchGen = useRef(0);
 
   useEffect(() => {
     Promise.all([
@@ -47,21 +48,36 @@ function TransformationsPage() {
     }).catch(() => {});
   }, []);
 
-  useEffect(() => { loadTestimonials(); }, [searchQuery, activeType, selectedProgram, selectedSession]);
+  useEffect(() => {
+    const gen = ++testimonialsFetchGen.current;
+    const alive = { current: true };
+    const controller = new AbortController();
+    const params = new URLSearchParams();
+    if (activeType !== 'all') params.append('type', activeType);
+    if (searchQuery.trim()) params.append('search', searchQuery.trim());
+    if (selectedProgram) params.append('program_id', selectedProgram);
+    if (selectedSession) params.append('session_id', selectedSession);
+    params.append('visible_only', 'true');
 
-  const loadTestimonials = async () => {
-    try {
-      const params = new URLSearchParams();
-      if (activeType !== 'all') params.append('type', activeType);
-      if (searchQuery.trim()) params.append('search', searchQuery.trim());
-      if (selectedProgram) params.append('program_id', selectedProgram);
-      if (selectedSession) params.append('session_id', selectedSession);
-      params.append('visible_only', 'true');
-      const res = await axios.get(`${API}/testimonials?${params}`);
-      setTestimonials(res.data);
-    } catch { /* silently ignore */ }
-    finally { setLoading(false); }
-  };
+    (async () => {
+      try {
+        const res = await axios.get(`${API}/testimonials?${params}`, { signal: controller.signal });
+        if (alive.current && gen === testimonialsFetchGen.current) setTestimonials(res.data || []);
+      } catch (e) {
+        if (e?.code === 'ERR_CANCELED' || e?.name === 'CanceledError') return;
+        if (alive.current && gen === testimonialsFetchGen.current) {
+          setTestimonials((prev) => (prev.length ? prev : []));
+        }
+      } finally {
+        if (alive.current && gen === testimonialsFetchGen.current) setLoading(false);
+      }
+    })();
+
+    return () => {
+      alive.current = false;
+      controller.abort();
+    };
+  }, [searchQuery, activeType, selectedProgram, selectedSession]);
 
   const writtenTestimonials = useMemo(() => testimonials.filter(t => t.type === 'template'), [testimonials]);
   const videoTestimonials   = useMemo(() => testimonials.filter(t => t.type === 'video' && (t.video_url || t.videoId)), [testimonials]);
@@ -310,14 +326,14 @@ function TransformationsPage() {
       )}
 
       {/* ── Full Story Modal ──────────────────────────────────────────────── */}
-      <Dialog open={!!selectedTemplate} onOpenChange={() => setSelectedTemplate(null)}>
+      <Dialog open={!!selectedTemplate} onOpenChange={(open) => { if (!open) setSelectedTemplate(null); }}>
         <DialogContent className="max-w-3xl p-0 overflow-hidden rounded-2xl" style={{ border: '1px solid rgba(123,104,238,0.15)' }}>
           {selectedTemplate && <SoulfulTestimonialFull testimonial={selectedTemplate} />}
         </DialogContent>
       </Dialog>
 
       {/* ── Embed Video Modal ─────────────────────────────────────────────── */}
-      <Dialog open={!!selectedEmbed} onOpenChange={() => setSelectedEmbed(null)}>
+      <Dialog open={!!selectedEmbed} onOpenChange={(open) => { if (!open) setSelectedEmbed(null); }}>
         <DialogContent className="max-w-4xl p-0 overflow-hidden bg-black rounded-2xl">
           {selectedEmbed && (
             <div className="relative" style={{ paddingBottom: selectedEmbed.platform === 'instagram' ? '120%' : '56.25%' }}>

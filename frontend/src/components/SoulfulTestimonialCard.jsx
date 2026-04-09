@@ -2,11 +2,28 @@ import React, { useState } from 'react';
 import { Star, Play, ChevronDown, ChevronUp, ExternalLink } from 'lucide-react';
 import { resolveImageUrl } from '../lib/imageUtils';
 
-/** Coerce API/Mongo quirks: photos as JSON string, single URL string, or null. */
+/** Coerce API/Mongo quirks: photos as JSON string, single URL string, {url}, or null. */
 function coercePhotoUrls(raw) {
   if (raw == null) return [];
+  const oneUrl = (x) => {
+    if (x == null) return '';
+    if (typeof x === 'string') return x.trim();
+    if (typeof x === 'object' && typeof x.url === 'string') return x.url.trim();
+    if (typeof x === 'object' && typeof x.secure_url === 'string') return x.secure_url.trim();
+    return String(x).trim();
+  };
   if (Array.isArray(raw)) {
-    return raw.map((x) => (typeof x === 'string' ? x.trim() : String(x))).filter(Boolean);
+    return raw.map(oneUrl).filter(Boolean);
+  }
+  if (typeof raw === 'object' && raw !== null) {
+    const keys = Object.keys(raw).filter((k) => /^\d+$/.test(k)).sort((a, b) => Number(a) - Number(b));
+    if (keys.length) {
+      return keys.map((k) => oneUrl(raw[k])).filter(Boolean);
+    }
+    if (typeof raw.url === 'string' || typeof raw.secure_url === 'string') {
+      const u = oneUrl(raw);
+      return u ? [u] : [];
+    }
   }
   if (typeof raw === 'string') {
     const s = raw.trim();
@@ -14,7 +31,7 @@ function coercePhotoUrls(raw) {
     if (s.startsWith('[')) {
       try {
         const j = JSON.parse(s);
-        if (Array.isArray(j)) return j.map((x) => String(x).trim()).filter(Boolean);
+        if (Array.isArray(j)) return j.map(oneUrl).filter(Boolean);
       } catch {
         /* fall through — treat as one URL */
       }
@@ -38,16 +55,31 @@ function coerceLabels(raw) {
   return [];
 }
 
-/** Mongo/API may send null; destructuring defaults only apply to undefined. */
+/** Mongo/API may send null; merge legacy image/before_image when photos missing or not coerced. */
 function writtenMediaFrom(testimonial) {
   if (!testimonial) {
     return { photos: [], photo_labels: [], photo_mode: 'single', image: '', before_image: '' };
   }
-  const photos = coercePhotoUrls(testimonial.photos);
+  let photos = coercePhotoUrls(testimonial.photos);
   const photo_labels = coerceLabels(testimonial.photo_labels);
-  const photo_mode = testimonial.photo_mode || 'single';
+  let photo_mode = String(testimonial.photo_mode || 'single').trim() || 'single';
   const image = typeof testimonial.image === 'string' ? testimonial.image.trim() : '';
   const before_image = typeof testimonial.before_image === 'string' ? testimonial.before_image.trim() : '';
+
+  if (photos.length === 0) {
+    if (photo_mode === 'before_after' && before_image && image) {
+      photos = [before_image, image];
+    } else if (image) {
+      photos = [image];
+    } else if (before_image) {
+      photos = [before_image];
+    }
+  }
+
+  if (photos.length > 1 && photo_mode === 'single') {
+    photo_mode = 'progressive';
+  }
+
   return { photos, photo_labels, photo_mode, image, before_image };
 }
 
@@ -216,18 +248,13 @@ const PhotoDisplay = ({ photos, photoLabels, photoMode, size = 'card' }) => {
 export const SoulfulWrittenCard = ({ testimonial, onClick, uniform = false, footerCentered = false }) => {
   const [expanded, setExpanded] = useState(false);
   const { name, text, role, rating = 5, program_name } = testimonial;
-  const { photos, photo_labels, photo_mode, image, before_image } = writtenMediaFrom(testimonial);
+  const { photos, photo_labels, photo_mode } = writtenMediaFrom(testimonial);
 
-  const effectivePhotos = photos.length > 0 ? photos
-    : before_image ? [before_image, image].filter(Boolean)
-    : image ? [image]
-    : [];
+  const effectivePhotos = photos;
   const effectivePhotoLabels = photo_labels.length > 0 ? photo_labels
-    : before_image && image ? ['Before', 'After']
+    : (photo_mode === 'before_after' && photos.length >= 2) ? ['Before', 'After']
     : [];
-  const effectiveMode = photos.length > 0 ? photo_mode
-    : before_image ? 'before_after'
-    : 'single';
+  const effectiveMode = photos.length === 0 ? 'single' : photo_mode;
 
   const hasPhotos    = effectivePhotos.length > 0;
   const isSingle     = effectiveMode === 'single';
@@ -243,7 +270,7 @@ export const SoulfulWrittenCard = ({ testimonial, onClick, uniform = false, foot
   return (
     <div
       data-testid={`soulful-written-${testimonial.id}`}
-      className="relative group cursor-pointer rounded-3xl overflow-hidden transition-all duration-300 hover:-translate-y-2"
+      className="relative group cursor-pointer rounded-3xl overflow-hidden transition-shadow duration-300 hover:shadow-[0_14px_36px_rgba(109,40,217,0.16)]"
       style={{
         background: '#fdfbff',
         border: '1.5px solid rgba(109,40,217,0.22)',
@@ -326,22 +353,32 @@ export const SoulfulWrittenCard = ({ testimonial, onClick, uniform = false, foot
           <div style={{ height: 1, width: 28, background: 'linear-gradient(to left, transparent, rgba(212,175,55,0.6))' }} />
         </div>
 
-      </div>
-
-      {/* ── Single oval photo — sits on the header ── */}
-      {hasPhotos && isSingle && (
-        <div className="flex justify-center" style={{ marginTop: -50, position: 'relative', zIndex: 10 }}>
-          <div style={{
-            width: 80, height: 112,
-            borderRadius: '42% / 50%',
-            overflow: 'hidden',
-            boxShadow: '0 6px 20px rgba(0,0,0,0.25)',
-          }}>
-            <img src={resolveImageUrl(effectivePhotos[0])} alt={name || ''}
-              className="w-full h-full object-cover" />
+        {/* Single photo: absolutely positioned so overflow-hidden + paint layers never clip it */}
+        {hasPhotos && isSingle && (
+          <div
+            className="absolute left-1/2 z-20 flex justify-center"
+            style={{ bottom: 0, transform: 'translate(-50%, 50%)' }}
+          >
+            <div style={{
+              width: 80, height: 112,
+              borderRadius: '42% / 50%',
+              overflow: 'hidden',
+              boxShadow: '0 6px 20px rgba(0,0,0,0.25)',
+              WebkitBackfaceVisibility: 'hidden',
+              backfaceVisibility: 'hidden',
+            }}>
+              <img
+                src={resolveImageUrl(effectivePhotos[0])}
+                alt={name || ''}
+                className="w-full h-full object-cover"
+                style={{ WebkitBackfaceVisibility: 'hidden', backfaceVisibility: 'hidden' }}
+                decoding="async"
+              />
+            </div>
           </div>
-        </div>
-      )}
+        )}
+
+      </div>
 
       {/* ── Card body — flex:1 so footer always pins to bottom ── */}
       <div className={`px-5 pb-4 ${(uniform || (hasPhotos && isSingle)) ? 'pt-3' : 'pt-2'}`}
@@ -649,18 +686,13 @@ const ModalAuthor = ({ name, role, program_name }) => (
    ══════════════════════════════════════════════════════════════════════════ */
 export const SoulfulTestimonialFull = ({ testimonial }) => {
   const { name, text, role, rating = 5, program_name } = testimonial;
-  const { photos, photo_labels, photo_mode, image, before_image } = writtenMediaFrom(testimonial);
+  const { photos, photo_labels, photo_mode } = writtenMediaFrom(testimonial);
 
-  const effectivePhotos = photos.length > 0 ? photos
-    : before_image ? [before_image, image].filter(Boolean)
-    : image ? [image]
-    : [];
+  const effectivePhotos = photos;
   const effectivePhotoLabels = photo_labels.length > 0 ? photo_labels
-    : before_image && image ? ['Before', 'After']
+    : (photo_mode === 'before_after' && photos.length >= 2) ? ['Before', 'After']
     : [];
-  const effectiveMode = photos.length > 0 ? photo_mode
-    : before_image ? 'before_after'
-    : 'single';
+  const effectiveMode = photos.length === 0 ? 'single' : photo_mode;
   const hasPhotos = effectivePhotos.length > 0;
 
   return (
