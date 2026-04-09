@@ -1,10 +1,32 @@
-const BACKEND_URL = (process.env.REACT_APP_BACKEND_URL || '').replace(/\/$/, '');
+import { BACKEND_URL as CONFIG_BACKEND_URL } from './config';
+
+/**
+ * Same origin resolution as the rest of the app (env at build time, else window.location.origin).
+ * Must match axios/API base so /api/image/... loads from the real API host, not the static site.
+ */
+function backendOrigin() {
+  return (CONFIG_BACKEND_URL || '').replace(/\/$/, '');
+}
+
+/** True if the value looks like an image URL (excludes mistaken plain text such as a client name). */
+export function isLikelyImageUrl(s) {
+  if (s == null || typeof s !== 'string') return false;
+  const t = s.trim();
+  if (!t) return false;
+  if (/^https?:\/\//i.test(t)) return true;
+  if (t.startsWith('//')) return true;
+  if (t.startsWith('/api/')) return true;
+  if (t.startsWith('data:') || t.startsWith('blob:')) return true;
+  if (/^api\//i.test(t)) return true;
+  if (t.startsWith('/') && t.length > 2) return true;
+  return false;
+}
 
 /**
  * Resolves an image/video URL for <img src> / background.
  * - Accepts a string or { url, secure_url } (Cloudinary-style).
  * - Absolute http(s) / data / blob URLs are returned as-is.
- * - Paths under /api/... get the backend origin when REACT_APP_BACKEND_URL is set.
+ * - Paths under /api/... are prefixed with BACKEND_URL from config (env or current origin).
  * - Tolerates missing leading slash (api/...) from older data.
  */
 function toImageString(url) {
@@ -36,8 +58,9 @@ export function resolveImageUrl(url) {
     u = `/${u}`;
   }
 
-  if (u.startsWith('/api/') && BACKEND_URL) {
-    return `${BACKEND_URL}${u}`;
+  const origin = backendOrigin();
+  if (u.startsWith('/api/') && origin) {
+    return `${origin}${u}`;
   }
 
   return u;

@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Star, Play, ChevronDown, ChevronUp, ExternalLink } from 'lucide-react';
-import { resolveImageUrl } from '../lib/imageUtils';
+import { resolveImageUrl, isLikelyImageUrl } from '../lib/imageUtils';
 
 /** Coerce API/Mongo quirks: photos as JSON string, single URL string, {url}, or null. */
 function coercePhotoUrls(raw) {
@@ -8,9 +8,12 @@ function coercePhotoUrls(raw) {
   const oneUrl = (x) => {
     if (x == null) return '';
     if (typeof x === 'string') return x.trim();
-    if (typeof x === 'object' && typeof x.url === 'string') return x.url.trim();
-    if (typeof x === 'object' && typeof x.secure_url === 'string') return x.secure_url.trim();
-    return String(x).trim();
+    if (typeof x === 'object' && x !== null) {
+      if (typeof x.url === 'string') return x.url.trim();
+      if (typeof x.secure_url === 'string') return x.secure_url.trim();
+      return '';
+    }
+    return '';
   };
   if (Array.isArray(raw)) {
     return raw.map(oneUrl).filter(Boolean);
@@ -71,18 +74,18 @@ function writtenMediaFrom(testimonial) {
   if (!testimonial) {
     return { photos: [], photo_labels: [], photo_mode: 'single', image: '', before_image: '' };
   }
-  let photos = coercePhotoUrls(testimonial.photos);
+  let photos = coercePhotoUrls(testimonial.photos).filter(isLikelyImageUrl);
   const photo_labels = coerceLabels(testimonial.photo_labels);
   let photo_mode = String(testimonial.photo_mode || 'single').trim() || 'single';
   const image = legacyImageString(testimonial.image);
   const before_image = legacyImageString(testimonial.before_image);
 
   if (photos.length === 0) {
-    if (photo_mode === 'before_after' && before_image && image) {
+    if (photo_mode === 'before_after' && before_image && image && isLikelyImageUrl(before_image) && isLikelyImageUrl(image)) {
       photos = [before_image, image];
-    } else if (image) {
+    } else if (image && isLikelyImageUrl(image)) {
       photos = [image];
-    } else if (before_image) {
+    } else if (before_image && isLikelyImageUrl(before_image)) {
       photos = [before_image];
     }
   }
@@ -256,7 +259,14 @@ const PhotoDisplay = ({ photos, photoLabels, photoMode, size = 'card' }) => {
 /* ══════════════════════════════════════════════════════════════════════════
    WRITTEN TESTIMONIAL CARD  —  jewel-tone redesign
    ══════════════════════════════════════════════════════════════════════════ */
-export const SoulfulWrittenCard = ({ testimonial, onClick, uniform = false, footerCentered = false }) => {
+export const SoulfulWrittenCard = ({
+  testimonial,
+  onClick,
+  uniform = false,
+  footerCentered = false,
+  /** /transformations: tall purple band + oval ~half on purple (56px of 112px oval) */
+  transformationsLayout = false,
+}) => {
   const [expanded, setExpanded] = useState(false);
   const { name, text, role, rating = 5, program_name } = testimonial;
   const { photos, photo_labels, photo_mode } = writtenMediaFrom(testimonial);
@@ -269,6 +279,13 @@ export const SoulfulWrittenCard = ({ testimonial, onClick, uniform = false, foot
 
   const hasPhotos    = effectivePhotos.length > 0;
   const isSingle     = effectiveMode === 'single';
+  const singlePortraitStraddle = hasPhotos && isSingle;
+  const tallPurpleHeader =
+    transformationsLayout && singlePortraitStraddle
+      ? true
+      : uniform || singlePortraitStraddle;
+  const headerPaddingBottom = transformationsLayout && singlePortraitStraddle ? '80px' : tallPurpleHeader ? '72px' : '28px';
+  const portraitOverlapPx = transformationsLayout && singlePortraitStraddle ? -56 : -50;
   // In uniform mode: cap at 120 chars (same as video card), no read more
   const PREVIEW_LEN  = uniform ? 120 : 150;
   const isLong       = !uniform && (text || '').length > PREVIEW_LEN;
@@ -281,7 +298,7 @@ export const SoulfulWrittenCard = ({ testimonial, onClick, uniform = false, foot
   return (
     <div
       data-testid={`soulful-written-${testimonial.id}`}
-      className="relative group cursor-pointer rounded-3xl overflow-hidden transition-shadow duration-300 hover:shadow-[0_14px_36px_rgba(109,40,217,0.16)]"
+      className="relative group cursor-pointer rounded-3xl overflow-hidden transition-all duration-300 hover:-translate-y-2"
       style={{
         background: '#fdfbff',
         border: '1.5px solid rgba(109,40,217,0.22)',
@@ -329,7 +346,7 @@ export const SoulfulWrittenCard = ({ testimonial, onClick, uniform = false, foot
       ].map((p, i) => (
         <div key={i} className="absolute rounded-full pointer-events-none"
           style={{
-            zIndex: 0,
+            zIndex: 1,
             top: `${p.t}%`, left: `${p.l}%`,
             width: p.s, height: p.s,
             background: i % 3 === 0 ? 'rgba(212,175,55,0.95)' : i % 3 === 1 ? 'rgba(255,255,255,0.75)' : 'rgba(196,181,253,0.85)',
@@ -343,16 +360,15 @@ export const SoulfulWrittenCard = ({ testimonial, onClick, uniform = false, foot
           }} />
       ))}
 
-      {/* ── Jewel header (purple band only — photo sits below in flow so quote never stacks on it) ── */}
-      <div
-        className="relative z-[1] px-5 pt-7 pb-5 overflow-hidden shrink-0"
+      {/* ── Jewel header ── */}
+      <div className="relative px-5 pt-7 overflow-visible"
         style={{
           background: 'linear-gradient(135deg, #1e0654 0%, #3b0f9e 45%, #6d28d9 80%, #9333ea 100%)',
-        }}
-      >
+          paddingBottom: headerPaddingBottom,
+        }}>
 
         {/* Deep centre glow */}
-        <div className="absolute inset-0 pointer-events-none z-0"
+        <div className="absolute inset-0 pointer-events-none"
           style={{ background: 'radial-gradient(ellipse 80% 60% at 50% 100%, rgba(212,175,55,0.22) 0%, transparent 65%)' }} />
 
         {/* Stars — comfortably in upper part of header */}
@@ -367,42 +383,24 @@ export const SoulfulWrittenCard = ({ testimonial, onClick, uniform = false, foot
 
       </div>
 
-      {/* ── Single portrait: own row in document flow (reserves space — no text overlap) ── */}
+      {/* ── Single oval photo — sits on the header ── */}
       {hasPhotos && isSingle && (
-        <div
-          className="relative z-[2] flex justify-center px-5 pb-3 -mt-4 shrink-0"
-          style={{ background: '#fdfbff' }}
-        >
-          <div
-            className="overflow-hidden shrink-0"
-            style={{
-              width: 80,
-              height: 112,
-              borderRadius: '42% / 50%',
-              boxShadow: '0 6px 22px rgba(0,0,0,0.22)',
-              border: '2px solid rgba(255,255,255,0.95)',
-              background: 'linear-gradient(180deg, #ede9fe 0%, #f5f3ff 100%)',
-            }}
-          >
-            <img
-              src={resolveImageUrl(effectivePhotos[0])}
-              alt={name || ''}
-              className="w-full h-full object-cover block"
-              width={80}
-              height={112}
-              loading="eager"
-              decoding="async"
-              draggable={false}
-            />
+        <div className="flex justify-center" style={{ marginTop: portraitOverlapPx, position: 'relative', zIndex: 10 }}>
+          <div style={{
+            width: 80, height: 112,
+            borderRadius: '42% / 50%',
+            overflow: 'hidden',
+            boxShadow: '0 6px 20px rgba(0,0,0,0.25)',
+          }}>
+            <img src={resolveImageUrl(effectivePhotos[0])} alt={name || ''}
+              className="w-full h-full object-cover" />
           </div>
         </div>
       )}
 
       {/* ── Card body — flex:1 so footer always pins to bottom ── */}
-      <div
-        className={`px-5 pb-4 min-h-0 ${hasPhotos && isSingle ? 'pt-1' : (uniform ? 'pt-3' : 'pt-2')}`}
-        style={{ flex: 1, display: 'flex', flexDirection: 'column', background: '#fdfbff' }}
-      >
+      <div className={`px-5 pb-4 ${tallPurpleHeader ? 'pt-3' : 'pt-2'}`}
+        style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
 
         {/* Multi-photo for before/after or progressive */}
         {hasPhotos && !isSingle && (
