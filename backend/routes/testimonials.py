@@ -1,6 +1,6 @@
 from fastapi import APIRouter, HTTPException
 from models import Testimonial, TestimonialCreate
-from typing import List, Optional, Any
+from typing import List, Optional, Any, Tuple
 import os, re, json
 from motor.motor_asyncio import AsyncIOMotorClient
 from dotenv import load_dotenv
@@ -73,6 +73,47 @@ def _coerce_label_list(val: Any) -> List[str]:
             except json.JSONDecodeError:
                 pass
     return []
+
+
+def _coalesce_existing_template_photos(existing: dict) -> Tuple[List[str], str, str]:
+    """Derive photos + legacy image fields from a stored testimonial doc (same idea as _doc_to_testimonial)."""
+    photos = _coerce_url_list(existing.get("photos"))
+    before = str(existing.get("before_image") or "").strip()
+    img = str(existing.get("image") or "").strip()
+    mode = (existing.get("photo_mode") or "single").strip()
+    if not photos:
+        if mode == "before_after" and before and img:
+            photos = [before, img]
+        elif img:
+            photos = [img]
+        elif before:
+            photos = [before]
+    return photos, img, before
+
+
+def _restore_template_media_if_cleared(merged: dict, existing: dict) -> None:
+    """If a PUT merged empty photos/image while DB still had template media, keep the stored URLs (accidental wipe)."""
+    typ = (merged.get("type") or "").strip().lower()
+    if typ != "template":
+        return
+
+    new_p = _coerce_url_list(merged.get("photos"))
+    n_img = str(merged.get("image") or "").strip()
+    n_before = str(merged.get("before_image") or "").strip()
+    has_new = bool(new_p) or bool(n_img) or bool(n_before)
+
+    old_p, o_img, o_before = _coalesce_existing_template_photos(existing)
+    has_old = bool(old_p) or bool(o_img) or bool(o_before)
+
+    if has_new or not has_old:
+        return
+
+    merged["photos"] = list(old_p)
+    merged["image"] = o_img
+    merged["before_image"] = o_before
+    new_labels = _coerce_label_list(merged.get("photo_labels"))
+    if not any(str(x).strip() for x in new_labels):
+        merged["photo_labels"] = list(_coerce_label_list(existing.get("photo_labels")))
 
 
 def _prepare_testimonial_write(data: dict) -> dict:
@@ -237,6 +278,7 @@ def _incoming_dict(t: TestimonialCreate, *, exclude_unset: bool = False) -> dict
 @router.post("", response_model=Testimonial)
 async def create_testimonial(testimonial: TestimonialCreate):
     data = _incoming_dict(testimonial)
+    data.pop("clear_template_media", None)
     data = _prepare_testimonial_write(data)
     data = _derive_video_meta(data)
     count = await db.testimonials.count_documents({})
@@ -250,9 +292,14 @@ async def update_testimonial(testimonial_id: str, testimonial: TestimonialCreate
     existing = await db.testimonials.find_one({"id": testimonial_id})
     if not existing:
         raise HTTPException(status_code=404, detail="Testimonial not found")
-    merged = {**existing, **_incoming_dict(testimonial, exclude_unset=True)}
+    incoming = _incoming_dict(testimonial, exclude_unset=True)
+    clear_tm = incoming.pop("clear_template_media", None) is True
+    merged = {**existing, **incoming}
     merged.pop("_id", None)
+    merged.pop("clear_template_media", None)
     merged["id"] = testimonial_id
+    if not clear_tm:
+        _restore_template_media_if_cleared(merged, existing)
     merged = _prepare_testimonial_write(merged)
     merged = _derive_video_meta(merged)
     allowed = _testimonial_field_names()

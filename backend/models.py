@@ -337,6 +337,8 @@ class TestimonialCreate(BaseModel):
     rating: Optional[int] = 5
     visible: Optional[bool] = True
     order: Optional[int] = 0
+    # Admin-only: when true on PUT, allow clearing template photos (default restore would keep existing URLs).
+    clear_template_media: Optional[bool] = None
 
 class Stat(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))

@@ -197,6 +197,7 @@ const AdminPanel = () => {
     const photo_labels = Array.isArray(form.photo_labels) ? form.photo_labels.map((x) => (x == null ? '' : String(x))) : [];
     const mode = form.photo_mode || 'single';
     const next = { ...form, photos, photo_labels };
+    if (next.clear_template_media !== true) delete next.clear_template_media;
     if (form.type !== 'template') return next;
 
     if (photos.length === 0) {
@@ -1027,7 +1028,33 @@ const AdminPanel = () => {
                             <button key={val} type="button"
                               onClick={() => {
                                 if (testimonialForm.photo_mode === val) return;
-                                setTestimonialForm({ ...testimonialForm, photo_mode: val, photos: [], photo_labels: [] });
+                                const raw = [...(testimonialForm.photos || [])];
+                                let prevFilled = raw.map(testimonialPhotoUrl).filter(Boolean);
+                                if (prevFilled.length === 0) {
+                                  const bi = (testimonialForm.before_image || '').trim();
+                                  const im = (testimonialForm.image || '').trim();
+                                  const pm = (testimonialForm.photo_mode || 'single').trim();
+                                  if (pm === 'before_after' && bi && im) prevFilled = [bi, im];
+                                  else if (im) prevFilled = [im];
+                                  else if (bi) prevFilled = [bi];
+                                }
+                                let photos = [];
+                                let photo_labels = [];
+                                if (val === 'single') {
+                                  photos = prevFilled[0] ? [prevFilled[0]] : [];
+                                } else if (val === 'before_after') {
+                                  photos = [prevFilled[0] || '', prevFilled[1] || ''];
+                                  photo_labels = ['Before', 'After'];
+                                } else {
+                                  const ol = [...(testimonialForm.photo_labels || [])];
+                                  let slots = [0, 1, 2, 3, 4].map((i) => testimonialPhotoUrl(raw[i]) || '');
+                                  if (slots.every((s) => !s) && prevFilled.length) {
+                                    prevFilled.forEach((u, j) => { if (j < 5) slots[j] = u; });
+                                  }
+                                  photos = slots;
+                                  photo_labels = [0, 1, 2, 3, 4].map((i) => ol[i] || '');
+                                }
+                                setTestimonialForm({ ...testimonialForm, photo_mode: val, photos, photo_labels });
                               }}
                               className={`px-3 py-1.5 rounded-full text-xs border transition-all ${testimonialForm.photo_mode === val ? 'bg-purple-600 text-white border-purple-600' : 'bg-white text-gray-500 border-gray-200 hover:bg-gray-50'}`}>
                               {lbl}
@@ -1041,7 +1068,11 @@ const AdminPanel = () => {
                         <div>
                           <Label>Photo</Label>
                           <ImageUploader value={(testimonialForm.photos || [])[0] || ''}
-                            onChange={url => setTestimonialForm({...testimonialForm, photos: [url]})} />
+                            onChange={url => setTestimonialForm({
+                              ...testimonialForm,
+                              photos: [url],
+                              clear_template_media: !url,
+                            })} />
                         </div>
                       )}
                       {testimonialForm.photo_mode === 'before_after' && (
@@ -1049,12 +1080,12 @@ const AdminPanel = () => {
                           <div>
                             <Label>Before Photo</Label>
                             <ImageUploader value={(testimonialForm.photos || [])[0] || ''}
-                              onChange={url => { const p = [...(testimonialForm.photos || [])]; p[0] = url; setTestimonialForm({...testimonialForm, photos: p, photo_labels: ['Before', 'After']}); }} />
+                              onChange={url => { const p = [...(testimonialForm.photos || [])]; p[0] = url; const filled = p.map(testimonialPhotoUrl).filter(Boolean).length; setTestimonialForm({...testimonialForm, photos: p, photo_labels: ['Before', 'After'], clear_template_media: filled === 0}); }} />
                           </div>
                           <div>
                             <Label>After Photo</Label>
                             <ImageUploader value={(testimonialForm.photos || [])[1] || ''}
-                              onChange={url => { const p = [...(testimonialForm.photos || [])]; p[1] = url; setTestimonialForm({...testimonialForm, photos: p, photo_labels: ['Before', 'After']}); }} />
+                              onChange={url => { const p = [...(testimonialForm.photos || [])]; p[1] = url; const filled = p.map(testimonialPhotoUrl).filter(Boolean).length; setTestimonialForm({...testimonialForm, photos: p, photo_labels: ['Before', 'After'], clear_template_media: filled === 0}); }} />
                           </div>
                         </div>
                       )}
@@ -1065,7 +1096,7 @@ const AdminPanel = () => {
                             {[0,1,2,3,4].map(i => (
                               <div key={i} className="space-y-1">
                                 <ImageUploader value={(testimonialForm.photos || [])[i] || ''}
-                                  onChange={url => { const p = [...(testimonialForm.photos || [])]; p[i] = url; setTestimonialForm({...testimonialForm, photos: p}); }} />
+                                  onChange={url => { const p = [...(testimonialForm.photos || [])]; while (p.length < 5) p.push(''); p[i] = url; const filled = p.map(testimonialPhotoUrl).filter(Boolean).length; setTestimonialForm({...testimonialForm, photos: p, clear_template_media: filled === 0}); }} />
                                 <Input
                                   value={(testimonialForm.photo_labels || [])[i] || ''}
                                   onChange={e => { const l = [...(testimonialForm.photo_labels || [])]; l[i] = e.target.value; setTestimonialForm({...testimonialForm, photo_labels: l}); }}
@@ -1081,6 +1112,13 @@ const AdminPanel = () => {
                   {/* ── Video fields ── */}
                   {testimonialForm.type === 'video' && (
                     <div className="mb-4 space-y-4">
+                      <div>
+                        <Label>Role / Location (optional)</Label>
+                        <Input value={testimonialForm.role}
+                          onChange={e => setTestimonialForm({ ...testimonialForm, role: e.target.value })}
+                          placeholder="e.g., Energy Healing Client, Dubai" />
+                        <p className="text-[10px] text-gray-400 mt-1">Shown under the client name on video cards.</p>
+                      </div>
                       <div>
                         <Label>Video URL</Label>
                         <Input value={testimonialForm.video_url}
