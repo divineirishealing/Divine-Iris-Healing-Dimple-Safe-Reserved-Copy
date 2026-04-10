@@ -32,14 +32,20 @@ export const SiteSettingsProvider = ({ children }) => {
 
     const headingFont = s.heading_font || 'Playfair Display';
     const bodyFont = s.body_font || 'Lato';
+    const heroTitleFont = (s.hero_title_font || '').trim();
+    const heroSubtitleFont = (s.hero_subtitle_font || '').trim();
 
-    // Load Google Fonts dynamically
+    // Load Google Fonts dynamically (include hero banner fonts — they may differ from global typography)
+    const fontNames = [...new Set([headingFont, bodyFont, heroTitleFont, heroSubtitleFont].filter(Boolean))];
+    const familyQs = fontNames
+      .map((name) => `family=${encodeURIComponent(name)}:wght@300;400;500;600;700`)
+      .join('&');
     const existingLink = document.getElementById('dynamic-google-fonts');
     if (existingLink) existingLink.remove();
     const link = document.createElement('link');
     link.id = 'dynamic-google-fonts';
     link.rel = 'stylesheet';
-    link.href = `https://fonts.googleapis.com/css2?family=${encodeURIComponent(headingFont)}:wght@300;400;500;600;700&family=${encodeURIComponent(bodyFont)}:wght@300;400;700&display=swap`;
+    link.href = `https://fonts.googleapis.com/css2?${familyQs}&display=swap`;
     document.head.appendChild(link);
 
     // Apply CSS variables

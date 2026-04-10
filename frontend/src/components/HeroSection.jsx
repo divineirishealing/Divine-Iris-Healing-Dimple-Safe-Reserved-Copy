@@ -1,8 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
-import axios from 'axios';
+import { useSiteSettings } from '../context/SiteSettingsContext';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
-const API = `${BACKEND_URL}/api`;
 
 function resolveUrl(url) {
   if (!url) return '';
@@ -39,7 +38,8 @@ function getTextStyle(effect, solidColor) {
 }
 
 const HeroSection = ({ sectionConfig }) => {
-  const [settings, setSettings] = useState(null);
+  const { settings: ctxSettings } = useSiteSettings();
+  const settings = ctxSettings && Object.keys(ctxSettings).length > 0 ? ctxSettings : null;
   const [phase, setPhase] = useState(0);
   const [videoLoaded, setVideoLoaded] = useState(false);
   const videoRef = useRef(null);
@@ -52,10 +52,6 @@ const HeroSection = ({ sectionConfig }) => {
     vid.preload = 'auto';
     vid.muted = true;
     preloadRef.current = vid;
-  }, []);
-
-  useEffect(() => {
-    axios.get(`${API}/settings`).then(r => setSettings(r.data)).catch(() => {});
   }, []);
 
   useEffect(() => {
@@ -82,6 +78,10 @@ const HeroSection = ({ sectionConfig }) => {
   const homeHero = settings?.page_heroes?.home || {};
   const finalTitleStyle = homeHero.title_style || {};
   const finalSubtitleStyle = homeHero.subtitle_style || {};
+  // Use hero_banner fonts from admin — NOT var(--heading-font): that CSS variable is always set globally
+  // and would override hero_title_font / hero_subtitle_font entirely.
+  const titleFontStack = finalTitleStyle.font_family || `'${titleFont}', Georgia, serif`;
+  const subtitleFontStack = finalSubtitleStyle.font_family || `'${subtitleFont}', sans-serif`;
   const alignClass = titleAlign === 'center' ? 'items-center text-center' : titleAlign === 'right' ? 'items-end text-right' : 'items-start text-left';
   const lineAlign = titleAlign === 'center' ? 'mx-auto' : titleAlign === 'right' ? 'ml-auto' : '';
   const vAlignClass = verticalAlign === 'top' ? 'items-start pt-32' : verticalAlign === 'bottom' ? 'items-end pb-32' : 'items-center';
@@ -118,8 +118,8 @@ const HeroSection = ({ sectionConfig }) => {
             data-testid="hero-title"
             className="whitespace-pre-line leading-tight"
             style={{
-              fontFamily: finalTitleStyle.font_family || `var(--heading-font, "${titleFont}", Georgia, serif)`,
-              fontSize: finalTitleStyle.font_size || `calc(${settings.hero_title_size || '70px'} * var(--heading-scale, 1))`,
+              fontFamily: titleFontStack,
+              fontSize: finalTitleStyle.font_size || `calc(${settings.hero_title_size || '44px'} * var(--heading-scale, 1))`,
               fontWeight: finalTitleStyle.font_weight || (settings.hero_title_bold ? 700 : 400),
               fontStyle: finalTitleStyle.font_style || (settings.hero_title_italic ? 'italic' : 'normal'),
               letterSpacing: settings.hero_title_spacing || 'normal',
@@ -142,7 +142,7 @@ const HeroSection = ({ sectionConfig }) => {
           <p
             data-testid="hero-subtitle"
             style={{
-              fontFamily: finalSubtitleStyle.font_family || `var(--body-font, "${subtitleFont}", sans-serif)`,
+              fontFamily: subtitleFontStack,
               fontSize: finalSubtitleStyle.font_size || settings.hero_subtitle_size || '0.875rem',
               fontWeight: finalSubtitleStyle.font_weight || (settings.hero_subtitle_bold ? 700 : 300),
               fontStyle: finalSubtitleStyle.font_style || (settings.hero_subtitle_italic ? 'italic' : 'normal'),

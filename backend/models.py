@@ -391,7 +391,7 @@ class SiteSettings(BaseModel):
     hero_title_color: str = "#ffffff"
     hero_title_align: str = "left"
     hero_title_bold: bool = False
-    hero_title_size: str = "70px"
+    hero_title_size: str = "44px"  # matches admin "M" (medium)
     hero_title_font: str = "Cinzel"
     hero_title_italic: bool = False
     hero_subtitle_bold: bool = False

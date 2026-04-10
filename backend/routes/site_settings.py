@@ -33,6 +33,10 @@ async def get_settings():
     if not settings.get("program_section_template"):
         settings["program_section_template"] = DEFAULT_SECTION_TEMPLATE
         await db.site_settings.update_one({"id": "site_settings"}, {"$set": {"program_section_template": DEFAULT_SECTION_TEMPLATE}})
+    # Legacy default was 70px (not on size picker); migrate to medium 44px once
+    if settings.get("hero_title_size") == "70px":
+        await db.site_settings.update_one({"id": "site_settings"}, {"$set": {"hero_title_size": "44px"}})
+        settings["hero_title_size"] = "44px"
     return SiteSettings(**settings)
 
 @router.put("")

@@ -126,7 +126,7 @@ const HeroSettingsTab = ({ settings, onChange, onVideoUpload }) => {
             <div className="flex flex-wrap gap-1">
               {SIZE_OPTIONS.map(sz => (
                 <button key={sz.value} onClick={() => set('hero_title_size', sz.value)}
-                  className={`px-2 py-1.5 text-[10px] rounded border transition-all ${(s.hero_title_size || '70px') === sz.value ? 'bg-[#D4AF37] text-white border-[#D4AF37]' : 'bg-white text-gray-500 border-gray-200 hover:border-gray-300'}`}>
+                  className={`px-2 py-1.5 text-[10px] rounded border transition-all ${(s.hero_title_size || '44px') === sz.value ? 'bg-[#D4AF37] text-white border-[#D4AF37]' : 'bg-white text-gray-500 border-gray-200 hover:border-gray-300'}`}>
                   {sz.label}
                 </button>
               ))}
