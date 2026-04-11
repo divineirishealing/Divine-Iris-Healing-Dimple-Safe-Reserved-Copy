@@ -523,6 +523,15 @@ class SiteSettings(BaseModel):
     dashboard_settings: Dict = {}  # {title, colors: {primary, secondary}, fonts}
     community_whatsapp_link: str = ""
     text_testimonials_style: Optional[Dict] = None
+    # SEO & social sharing (Admin → SEO) — no code needed to update titles/descriptions
+    seo_site_url: str = ""  # https://yoursite.com (no trailing slash) — used for canonical & sitemap
+    seo_default_title: str = "Divine Iris Healing"
+    seo_default_description: str = "Transform your life through sacred healing, energy work and spiritual growth with Divine Iris — Soulful Healing Studio."
+    seo_keywords: str = ""  # optional comma-separated
+    seo_og_image_url: str = ""  # default Open Graph / Twitter image (URL or /api/image/…)
+    seo_twitter_handle: str = ""  # without @
+    seo_organization_name: str = "Divine Iris Healing"
+    seo_organization_description: str = ""
     sanctuary_settings: Dict = {}  # {hero_bg, hero_overlay, greeting_title, greeting_subtitle}
     fraud_alert_email: str = "support@divineirishealing.com"
     enrollment_urgency_quotes: list = []  # [{text, name}]
@@ -670,6 +679,14 @@ class SiteSettingsUpdate(BaseModel):
     inr_whitelist_emails: Optional[list] = None
     dashboard_bg_video: Optional[str] = None
     india_payment_gateway: Optional[dict] = None
+    seo_site_url: Optional[str] = None
+    seo_default_title: Optional[str] = None
+    seo_default_description: Optional[str] = None
+    seo_keywords: Optional[str] = None
+    seo_og_image_url: Optional[str] = None
+    seo_twitter_handle: Optional[str] = None
+    seo_organization_name: Optional[str] = None
+    seo_organization_description: Optional[str] = None
 
     dashboard_settings: Optional[Dict] = None  # {title, colors: {primary, secondary}, fonts}
 class PaymentTransaction(BaseModel):

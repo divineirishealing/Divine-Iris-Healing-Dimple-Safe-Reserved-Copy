@@ -39,11 +39,14 @@ import HeadspacePage from './components/dashboard/HeadspacePage';
 import BhaadPortalPage from './components/dashboard/BhaadPortalPage';
 import SoulTribePage from './components/dashboard/SoulTribePage';
 import { Toaster } from './components/ui/toaster';
+import { HelmetProvider } from 'react-helmet-async';
 import { SiteSettingsProvider } from './context/SiteSettingsContext';
+import { SeoPageProvider } from './context/SeoPageContext';
 import { CurrencyProvider, useCurrency } from './context/CurrencyContext';
 import { CartProvider } from './context/CartContext';
 import { AuthProvider } from './context/AuthContext';
 import { Analytics } from '@vercel/analytics/react';
+import SeoHead from './components/SeoHead';
 
 const CurrencyGate = ({ children }) => {
   const { ready } = useCurrency();
@@ -79,7 +82,9 @@ const AppContent = () => {
   }
 
   return (
-    <Routes>
+    <>
+      <SeoHead />
+      <Routes>
       <Route path="/" element={<HomePage />} />
       <Route path="/admin" element={<AdminPage />} />
       <Route path="/programs" element={<AllProgramsPage />} />
@@ -132,28 +137,33 @@ const AppContent = () => {
         <Route path="vault" element={<div className="p-8 font-serif text-[#5D3FD3]">Resource Vault Coming Soon</div>} />
       </Route>
     </Routes>
+    </>
   );
 };
 
 function App() {
   return (
-    <div className="App">
-      <CurrencyProvider>
-        <CurrencyGate>
-          <CartProvider>
-            <SiteSettingsProvider>
-            <BrowserRouter>
-              <AuthProvider>
-                <AppContent />
-              </AuthProvider>
-            </BrowserRouter>
-            <Toaster />
-            </SiteSettingsProvider>
-          </CartProvider>
-        </CurrencyGate>
-      </CurrencyProvider>
-      <Analytics />
-    </div>
+    <HelmetProvider>
+      <div className="App">
+        <CurrencyProvider>
+          <CurrencyGate>
+            <CartProvider>
+              <SiteSettingsProvider>
+                <BrowserRouter>
+                  <SeoPageProvider>
+                    <AuthProvider>
+                      <AppContent />
+                    </AuthProvider>
+                  </SeoPageProvider>
+                </BrowserRouter>
+                <Toaster />
+              </SiteSettingsProvider>
+            </CartProvider>
+          </CurrencyGate>
+        </CurrencyProvider>
+        <Analytics />
+      </div>
+    </HelmetProvider>
   );
 }
 

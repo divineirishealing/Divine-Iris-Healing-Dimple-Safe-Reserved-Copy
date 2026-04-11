@@ -1,0 +1,14 @@
+# Divine Iris Healing — allow search engines to crawl public pages.
+# Submit your XML sitemap in Google Search Console using the URL shown in Admin → Website → SEO.
+
+User-agent: *
+Allow: /
+
+Disallow: /admin
+Disallow: /dashboard
+Disallow: /checkout/
+Disallow: /enroll/
+Disallow: /payment/
+Disallow: /cart/checkout
+Disallow: /india-payment/
+Disallow: /manual-payment

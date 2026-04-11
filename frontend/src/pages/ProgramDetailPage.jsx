@@ -10,6 +10,7 @@ import { useCurrency } from '../context/CurrencyContext';
 import { HEADING, SUBTITLE, BODY, GOLD, LABEL, CONTAINER, NARROW, WIDE, SECTION_PY } from '../lib/designTokens';
 import { SoulfulWrittenCard, SoulfulUniformVideoCard, SoulfulTestimonialFull } from '../components/SoulfulTestimonialCard';
 import { Dialog, DialogContent } from '../components/ui/dialog';
+import { useSeoPage } from '../context/SeoPageContext';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
@@ -73,9 +74,19 @@ const getDefaultSections = (program) => [
   { id: 'why_now', section_type: 'why_now', is_enabled: true, order: 3, title: 'Why You Need This Now?', subtitle: '', body: '', image_url: '' },
 ];
 
+function stripForMeta(htmlOrText) {
+  if (!htmlOrText) return '';
+  return String(htmlOrText)
+    .replace(/<[^>]+>/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .slice(0, 165);
+}
+
 function ProgramDetailPage() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const { setPageSeo, clearPageSeo } = useSeoPage();
   const { getPrice, getOfferPrice, symbol, country: detectedCountry } = useCurrency();
   const [program, setProgram] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -90,6 +101,17 @@ function ProgramDetailPage() {
     window.scrollTo(0, 0);
     loadData();
   }, [id]);
+
+  useEffect(() => {
+    if (!program?.title) return;
+    const desc = stripForMeta(program.description) || stripForMeta(program.category);
+    setPageSeo({
+      title: program.title,
+      description: desc || undefined,
+      ogImage: program.image ? resolveImageUrl(program.image) : undefined,
+    });
+    return () => clearPageSeo();
+  }, [program, setPageSeo, clearPageSeo]);
 
   const loadData = async () => {
     try {

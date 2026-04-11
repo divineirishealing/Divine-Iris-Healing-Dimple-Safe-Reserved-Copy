@@ -10,6 +10,7 @@ import { useCart } from '../context/CartContext';
 import { useToast } from '../hooks/use-toast';
 import { renderMarkdown } from '../lib/renderMarkdown';
 import { useSiteSettings } from '../context/SiteSettingsContext';
+import { useSeoPage } from '../context/SeoPageContext';
 import { HEADING, SUBTITLE } from '../lib/designTokens';
 import { resolveImageUrl } from '../lib/imageUtils';
 import StarField from '../components/ui/StarField';
@@ -164,6 +165,7 @@ function SessionDetailPage() {
   const navigate = useNavigate();
   const { getPrice, formatPrice } = useCurrency();
   const { settings } = useSiteSettings();
+  const { setPageSeo, clearPageSeo } = useSeoPage();
   const [session, setSession] = useState(null);
   const [loading, setLoading] = useState(true);
   const [selectedDate, setSelectedDate] = useState(null);
@@ -193,6 +195,21 @@ function SessionDetailPage() {
   }, [id]);
 
   useEffect(() => { loadData(); }, [loadData]);
+
+  useEffect(() => {
+    if (!session?.title) return;
+    const desc = String(session.description || '')
+      .replace(/<[^>]+>/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim()
+      .slice(0, 165);
+    setPageSeo({
+      title: session.title,
+      description: desc || undefined,
+      ogImage: session.image ? resolveImageUrl(session.image) : undefined,
+    });
+    return () => clearPageSeo();
+  }, [session, setPageSeo, clearPageSeo]);
 
   const modeLabel = (mode) => {
     if (mode === 'offline') return 'Offline (Remote, Not In-Person)';
