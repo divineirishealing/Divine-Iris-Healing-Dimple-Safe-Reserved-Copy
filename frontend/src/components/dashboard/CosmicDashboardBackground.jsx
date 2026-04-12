@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useMemo } from 'react';
 import { cn } from '../../lib/utils';
 import { resolveCosmicTheme } from '../../lib/dashboardCosmicThemes';
+import { SacredConstellationCanvas } from './SacredConstellationCanvas';
 
 /** Electric violet constellations — bolder than default, aligned with Transformations hero energy */
 const CONSTELLATION_PATTERNS = [
@@ -70,6 +71,7 @@ export function CosmicDashboardBackground({ videoActive = false, variant = 'milk
   const theme = useMemo(() => resolveCosmicTheme(variant), [variant]);
 
   useEffect(() => {
+    if (variant === 'sacred_constellation') return;
     const canvas = canvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
@@ -428,6 +430,8 @@ export function CosmicDashboardBackground({ videoActive = false, variant = 'milk
     };
   }, [videoActive, variant]);
 
+  const isSacred = variant === 'sacred_constellation';
+
   return (
     <div
       className={cn('fixed inset-0 z-0 pointer-events-none overflow-hidden', className)}
@@ -435,61 +439,74 @@ export function CosmicDashboardBackground({ videoActive = false, variant = 'milk
       data-cosmic-variant={variant}
       aria-hidden
     >
-      <div
-        className="absolute inset-0"
-        style={{
-          /* Transformations-hero family: lighter mid violet, less muddy than deep plum */
-          background: 'linear-gradient(180deg, #0d0618 0%, #1a0a3e 55%, #0f0a1e 100%)',
-        }}
-      />
-      <div
-        className="absolute inset-0 opacity-[0.5]"
-        style={{
-          background:
-            'radial-gradient(ellipse 100% 68% at 50% 8%, rgba(196, 181, 253, 0.38) 0%, rgba(167, 139, 250, 0.1) 42%, transparent 55%), radial-gradient(ellipse 88% 56% at 90% 52%, rgba(139, 92, 246, 0.2) 0%, transparent 48%), radial-gradient(ellipse 65% 48% at 8% 78%, rgba(233, 213, 255, 0.12) 0%, transparent 50%)',
-        }}
-      />
-      <div className="absolute inset-0 opacity-[0.2]" style={{ background: theme.baseBg }} />
+      {isSacred ? (
+        <>
+          <div className="absolute inset-0" style={{ background: '#0d0120' }} />
+          <div className="absolute inset-0">
+            <SacredConstellationCanvas
+              className="absolute inset-0 w-full h-full"
+              style={{ opacity: videoActive ? 0.82 : 1 }}
+            />
+          </div>
+        </>
+      ) : (
+        <>
+          <div
+            className="absolute inset-0"
+            style={{
+              background: 'linear-gradient(180deg, #0d0618 0%, #1a0a3e 55%, #0f0a1e 100%)',
+            }}
+          />
+          <div
+            className="absolute inset-0 opacity-[0.5]"
+            style={{
+              background:
+                'radial-gradient(ellipse 100% 68% at 50% 8%, rgba(196, 181, 253, 0.38) 0%, rgba(167, 139, 250, 0.1) 42%, transparent 55%), radial-gradient(ellipse 88% 56% at 90% 52%, rgba(139, 92, 246, 0.2) 0%, transparent 48%), radial-gradient(ellipse 65% 48% at 8% 78%, rgba(233, 213, 255, 0.12) 0%, transparent 50%)',
+            }}
+          />
+          <div className="absolute inset-0 opacity-[0.2]" style={{ background: theme.baseBg }} />
 
-      <div
-        className="absolute cosmic-aurora-slow rounded-[100%] opacity-[0.48]"
-        style={{
-          width: 'min(125vw, 960px)',
-          height: 'min(92vh, 720px)',
-          left: '50%',
-          top: '40%',
-          background: `radial-gradient(ellipse at 42% 38%, rgba(233, 213, 255, 0.5) 0%, rgba(167, 139, 250, 0.28) 40%, transparent 72%), ${theme.nebula1}`,
-          filter: 'blur(52px)',
-        }}
-      />
-      <div
-        className="absolute cosmic-aurora-slow-alt rounded-[100%] opacity-[0.42]"
-        style={{
-          width: 'min(105vw, 680px)',
-          height: 'min(72vh, 540px)',
-          right: '-14%',
-          bottom: '4%',
-          background: `radial-gradient(ellipse at 30% 48%, rgba(192, 132, 252, 0.32) 0%, rgba(124, 58, 237, 0.15) 45%, transparent 58%), ${theme.nebula2}`,
-          filter: 'blur(44px)',
-          animationDelay: '-20s',
-        }}
-      />
+          <div
+            className="absolute cosmic-aurora-slow rounded-[100%] opacity-[0.48]"
+            style={{
+              width: 'min(125vw, 960px)',
+              height: 'min(92vh, 720px)',
+              left: '50%',
+              top: '40%',
+              background: `radial-gradient(ellipse at 42% 38%, rgba(233, 213, 255, 0.5) 0%, rgba(167, 139, 250, 0.28) 40%, transparent 72%), ${theme.nebula1}`,
+              filter: 'blur(52px)',
+            }}
+          />
+          <div
+            className="absolute cosmic-aurora-slow-alt rounded-[100%] opacity-[0.42]"
+            style={{
+              width: 'min(105vw, 680px)',
+              height: 'min(72vh, 540px)',
+              right: '-14%',
+              bottom: '4%',
+              background: `radial-gradient(ellipse at 30% 48%, rgba(192, 132, 252, 0.32) 0%, rgba(124, 58, 237, 0.15) 45%, transparent 58%), ${theme.nebula2}`,
+              filter: 'blur(44px)',
+              animationDelay: '-20s',
+            }}
+          />
 
-      <div
-        className="absolute inset-0 opacity-[0.022] mix-blend-overlay"
-        style={{
-          backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E")`,
-        }}
-      />
+          <div
+            className="absolute inset-0 opacity-[0.022] mix-blend-overlay"
+            style={{
+              backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E")`,
+            }}
+          />
 
-      <div ref={canvasParallaxRef} className="absolute inset-0 will-change-transform">
-        <canvas
-          ref={canvasRef}
-          className="absolute inset-0 w-full h-full"
-          style={{ opacity: videoActive ? 0.52 : 1 }}
-          data-testid="dashboard-cosmic-canvas"
-        />
-      </div>
+          <div ref={canvasParallaxRef} className="absolute inset-0 will-change-transform">
+            <canvas
+              ref={canvasRef}
+              className="absolute inset-0 w-full h-full"
+              style={{ opacity: videoActive ? 0.52 : 1 }}
+              data-testid="dashboard-cosmic-canvas"
+            />
+          </div>
+        </>
+      )}
     </div>
   );
 }

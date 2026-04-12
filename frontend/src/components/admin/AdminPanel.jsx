@@ -60,6 +60,16 @@ function testimonialPhotoUrl(p) {
   return '';
 }
 
+/** Legacy image / before_image from API (string or Cloudinary-shaped object). */
+function testimonialLegacyImageField(v) {
+  if (v == null) return '';
+  if (typeof v === 'string') return v.trim();
+  if (typeof v === 'object' && (typeof v.url === 'string' || typeof v.secure_url === 'string')) {
+    return String(v.url || v.secure_url || '').trim();
+  }
+  return '';
+}
+
 /** Rebuild photos[] for the testimonial form from GET /testimonials (never drop before/after). */
 function photosFromTestimonialApi(t) {
   if (!t || t.type !== 'template') return [];
@@ -69,8 +79,8 @@ function photosFromTestimonialApi(t) {
     out = raw.map(testimonialPhotoUrl).filter(Boolean);
   }
   if (out.length > 0) return out;
-  const bi = (t.before_image || '').trim();
-  const im = (t.image || '').trim();
+  const bi = testimonialLegacyImageField(t.before_image);
+  const im = testimonialLegacyImageField(t.image);
   const mode = (t.photo_mode || 'single').trim();
   if (mode === 'before_after' && bi && im) return [bi, im];
   if (im) return [im];
@@ -202,8 +212,8 @@ const AdminPanel = () => {
     if (form.type !== 'template') return next;
 
     if (photos.length === 0) {
-      const bi = (form.before_image || '').trim();
-      const im = (form.image || '').trim();
+      const bi = testimonialLegacyImageField(form.before_image);
+      const im = testimonialLegacyImageField(form.image);
       if (mode === 'before_after' && bi && im) photos = [bi, im];
       else if (im) photos = [im];
       else if (bi) photos = [bi];
@@ -233,7 +243,7 @@ const AdminPanel = () => {
   const editTestimonial = (t) => {
     setEditingId(t.id);
     const coercedPhotos = photosFromTestimonialApi(t);
-    setTestimonialForm({ type: t.type, name: t.name || '', text: t.text || '', image: t.image || '', before_image: t.before_image || '', videoId: t.videoId || '', video_url: t.video_url || '', thumbnail: t.thumbnail || '', photos: coercedPhotos, photo_labels: Array.isArray(t.photo_labels) ? t.photo_labels : [], photo_mode: t.photo_mode || 'single', program_id: t.program_id || '', program_name: t.program_name || '', program_tags: t.program_tags || [], session_tags: t.session_tags || [], category: t.category || '', role: t.role || '', rating: t.rating ?? 5, visible: t.visible !== false });
+    setTestimonialForm({ type: t.type, name: t.name || '', text: t.text || '', image: testimonialLegacyImageField(t.image), before_image: testimonialLegacyImageField(t.before_image), videoId: t.videoId || '', video_url: t.video_url || '', thumbnail: t.thumbnail || '', photos: coercedPhotos, photo_labels: Array.isArray(t.photo_labels) ? t.photo_labels : [], photo_mode: t.photo_mode || 'single', program_id: t.program_id || '', program_name: t.program_name || '', program_tags: t.program_tags || [], session_tags: t.session_tags || [], category: t.category || '', role: t.role || '', rating: t.rating ?? 5, visible: t.visible !== false });
     setShowTestimonialForm(true);
   };
   const deleteTestimonial = async (id) => { if (!window.confirm('Delete?')) return; await axios.delete(`${API}/testimonials/${id}`); toast({ title: 'Deleted' }); loadAll(); };
@@ -1040,8 +1050,8 @@ const AdminPanel = () => {
                                 const raw = [...(testimonialForm.photos || [])];
                                 let prevFilled = raw.map(testimonialPhotoUrl).filter(Boolean);
                                 if (prevFilled.length === 0) {
-                                  const bi = (testimonialForm.before_image || '').trim();
-                                  const im = (testimonialForm.image || '').trim();
+                                  const bi = testimonialLegacyImageField(testimonialForm.before_image);
+                                  const im = testimonialLegacyImageField(testimonialForm.image);
                                   const pm = (testimonialForm.photo_mode || 'single').trim();
                                   if (pm === 'before_after' && bi && im) prevFilled = [bi, im];
                                   else if (im) prevFilled = [im];

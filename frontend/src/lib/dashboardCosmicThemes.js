@@ -305,6 +305,21 @@ export const DASHBOARD_COSMIC_THEMES = {
     canvas: { starDelta: 8, maxD: 115, lineBlue: [140, 220, 230], lineGoldMult: 0.38, warmStarBoost: 0.04 },
   },
 
+  /** Matches divine_iris_constellation.html — canvas draws sky; these layers stay minimal */
+  sacred_constellation: {
+    label: 'Sacred constellation',
+    sub: 'Sanctuary sky',
+    milkyOpacity: '0',
+    milkyGradient: 'transparent',
+    nebula1: 'transparent',
+    nebula2: 'transparent',
+    baseBg: 'transparent',
+    planetA: { background: 'transparent', boxShadow: 'none' },
+    planetB: { background: 'transparent', boxShadow: 'none' },
+    planetC: { background: 'transparent', boxShadow: 'none' },
+    canvas: { ...COSMIC_CANVAS_DEFAULT },
+  },
+
   deep_space: {
     label: 'Deep space',
     sub: 'Journey',
@@ -357,14 +372,8 @@ export function resolveCosmicTheme(variant) {
  */
 export function getDashboardCosmicVariant(pathname) {
   const p = pathname || '';
-  if (p === '/dashboard' || p === '/dashboard/') return 'milky_way';
-  if (p.startsWith('/dashboard/garden')) return 'nebula_garden';
-  if (p.startsWith('/dashboard/sessions')) return 'constellation_grid';
-  if (p.startsWith('/dashboard/progress')) return 'stellar_progress';
-  if (p.startsWith('/dashboard/bhaad')) return 'galactic_core';
-  if (p.startsWith('/dashboard/tribe')) return 'star_cluster';
-  if (p.startsWith('/dashboard/financials')) return 'aurora_finance';
-  if (p.startsWith('/dashboard/profile')) return 'terra_profile';
+  /** One sanctuary sky everywhere under /dashboard (sacred constellation + #0d0120). */
+  if (p.startsWith('/dashboard')) return 'sacred_constellation';
   return 'deep_space';
 }
 

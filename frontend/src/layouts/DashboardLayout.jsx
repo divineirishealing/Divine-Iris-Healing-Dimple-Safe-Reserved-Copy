@@ -5,6 +5,7 @@ import { NavLink } from 'react-router-dom';
 import { Loader2, Menu, X, Home, Sprout, Calendar, TrendingUp, Sparkles, Heart, BookOpen, User, CreditCard, LogOut } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { CosmicDashboardBackground } from '../components/dashboard/CosmicDashboardBackground';
+import { DashboardSacredNav } from '../components/dashboard/DashboardSacredNav';
 import { getDashboardCosmicVariant } from '../lib/dashboardCosmicThemes';
 
 const NAV_ITEMS = [
@@ -54,10 +55,12 @@ const DashboardLayout = () => {
   if (!user) { window.location.href = '/login'; return null; }
 
   const cosmicVariant = getDashboardCosmicVariant(location.pathname);
+  const isSacredHome = location.pathname === '/dashboard' || location.pathname === '/dashboard/';
 
   return (
     <div className="min-h-screen relative bg-transparent">
       <CosmicDashboardBackground videoActive={Boolean(bgVideo)} variant={cosmicVariant} />
+      {isSacredHome && <DashboardSacredNav />}
 
       {/* Optional admin video — kept subtle so constellations & planets stay the hero */}
       {bgVideo && (
@@ -83,12 +86,13 @@ const DashboardLayout = () => {
         />
       )}
 
-      {/* Soft vignette: depth without hiding the starfield */}
+      {/* Soft vignette — lighter on sacred home so HTML-style constellation reads clearly */}
       <div
         className="fixed inset-0 z-[3] pointer-events-none"
         style={{
-          boxShadow:
-            'inset 0 0 min(100vw, 1400px) rgba(26, 10, 62, 0.38), inset 0 -120px 200px rgba(45, 27, 105, 0.22)',
+          boxShadow: isSacredHome
+            ? 'inset 0 0 min(100vw, 1200px) rgba(8, 0, 32, 0.28), inset 0 -80px 140px rgba(4, 0, 24, 0.35)'
+            : 'inset 0 0 min(100vw, 1400px) rgba(26, 10, 62, 0.38), inset 0 -120px 200px rgba(45, 27, 105, 0.22)',
         }}
         aria-hidden
       />
@@ -97,7 +101,10 @@ const DashboardLayout = () => {
       <button
         type="button"
         onClick={() => setSidebarOpen(!sidebarOpen)}
-        className="fixed top-4 left-4 z-50 w-11 h-11 rounded-2xl flex items-center justify-center text-white/75 hover:text-[#D4AF37] border border-white/[0.12] bg-[rgba(6,8,24,0.55)] backdrop-blur-xl shadow-[0_8px_32px_rgba(0,0,0,0.35)] hover:border-[#D4AF37]/30 transition-all"
+        className={cn(
+          'fixed left-4 z-[70] w-11 h-11 rounded-2xl flex items-center justify-center text-white/75 hover:text-[#D4AF37] border border-white/[0.12] bg-[rgba(6,8,24,0.55)] backdrop-blur-xl shadow-[0_8px_32px_rgba(0,0,0,0.35)] hover:border-[#D4AF37]/30 transition-all',
+          isSacredHome ? 'top-[68px]' : 'top-4'
+        )}
         aria-expanded={sidebarOpen}
         aria-label={sidebarOpen ? 'Close menu' : 'Open menu'}
         data-testid="sidebar-toggle"
@@ -151,8 +158,8 @@ const DashboardLayout = () => {
       </div>
 
       {/* ═══ MAIN CONTENT ═══ */}
-      <main className="relative z-20 min-h-screen">
-        <div className="p-4 md:p-8">
+      <main className={cn('relative z-20 min-h-screen', isSacredHome && 'pt-[58px]')}>
+        <div className={cn('p-4 md:p-8', isSacredHome && 'pt-3 md:pt-5')}>
           <Outlet />
         </div>
       </main>

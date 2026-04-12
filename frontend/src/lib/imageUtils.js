@@ -19,6 +19,8 @@ export function isLikelyImageUrl(s) {
   if (t.startsWith('data:') || t.startsWith('blob:')) return true;
   if (/^api\//i.test(t)) return true;
   if (t.startsWith('/') && t.length > 2) return true;
+  // Paths saved without a leading slash or scheme (e.g. assets/... or cdn host + path) still need to render.
+  if (/\.(jpe?g|png|gif|webp|svg|avif|bmp)(\?|#|$)/i.test(t) && /[/\\]/.test(t)) return true;
   return false;
 }
 
