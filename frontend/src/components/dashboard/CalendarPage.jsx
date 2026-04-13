@@ -20,6 +20,16 @@ import { SessionModeToggle } from './SessionModeToggle';
 
 const API = process.env.REACT_APP_BACKEND_URL;
 
+/** How many schedule rows to show before "Show more" (per program). */
+const SCHEDULE_ROWS_PAGE = 3;
+
+function programScheduleSortKey(name) {
+  const n = (name || '').toLowerCase();
+  if (n.includes('awrp')) return 0;
+  if (n.includes('money magic') || /\bmmm\b/i.test(name || '')) return 1;
+  return 100;
+}
+
 /** Rich themes — all class strings literal for Tailwind. */
 const FALLBACK_THEMES = [
   {
@@ -134,6 +144,8 @@ const CalendarPage = () => {
   const [currentYear, setCurrentYear] = useState(new Date().getFullYear());
   const [selectedDate, setSelectedDate] = useState(null);
   const [collapsedPrograms, setCollapsedPrograms] = useState({});
+  /** Per program: how many dated rows to show (default first page = SCHEDULE_ROWS_PAGE). */
+  const [scheduleRowCaps, setScheduleRowCaps] = useState({});
 
   const fetchHome = useCallback(() => {
     axios
@@ -165,6 +177,17 @@ const CalendarPage = () => {
     () => programs.filter((p) => p && typeof p === 'object' && p.name && p.visible !== false),
     [programs]
   );
+
+  const orderedVisiblePrograms = useMemo(() => {
+    const list = [...visiblePrograms];
+    list.sort((a, b) => {
+      const ka = programScheduleSortKey(a.name);
+      const kb = programScheduleSortKey(b.name);
+      if (ka !== kb) return ka - kb;
+      return String(a.name || '').localeCompare(String(b.name || ''));
+    });
+    return list;
+  }, [visiblePrograms]);
 
   const extraPreviewRows = useMemo(
     () => previewRowsNotInPrograms(data?.schedule_preview, programs),
@@ -260,8 +283,8 @@ const CalendarPage = () => {
               Programs &amp; calendar
             </h1>
             <p className="text-sm text-gray-600 mt-2 max-w-xl">
-              Row-wise schedule by program — start, end, time, and online or in person. Tap a program header to collapse
-              or expand. Mini calendar on the right (desktop) to browse months and highlight a day.
+              Row-wise schedule by program (three rows at a time; show more for the rest). AWRP is listed next to Money
+              Magic Multiplier. Tap a program header to hide or show that program. Mini calendar on the right on desktop.
             </p>
           </div>
           <div className="flex items-center gap-2 text-xs text-gray-500 shrink-0">
@@ -276,11 +299,11 @@ const CalendarPage = () => {
         <main className="flex-1 min-w-0 space-y-5 order-1" data-testid="calendar-schedule-table">
           <div className="flex items-center justify-between gap-3 flex-wrap">
             <h2 className="text-lg font-bold text-gray-900">Programs &amp; schedule</h2>
-            <p className="text-xs text-gray-500">Tap a program header to expand or collapse</p>
+            <p className="text-xs text-gray-500">Three session rows per page · show more inside each program</p>
           </div>
 
           <div className="space-y-5">
-            {visiblePrograms.map((p) => {
+            {orderedVisiblePrograms.map((p) => {
               const th = getProgramTheme(p.name);
               const dated = (p.schedule || [])
                 .map((slot, sessionIndex) => ({ slot, sessionIndex }))
@@ -291,6 +314,15 @@ const CalendarPage = () => {
                 .sort((a, b) => String(a.slot.date).slice(0, 10).localeCompare(String(b.slot.date).slice(0, 10)));
 
               const collapsed = collapsedPrograms[p.name] === true;
+              const rowCapRaw = scheduleRowCaps[p.name];
+              const rowCap =
+                rowCapRaw == null
+                  ? Math.min(SCHEDULE_ROWS_PAGE, dated.length)
+                  : Math.min(Math.max(SCHEDULE_ROWS_PAGE, rowCapRaw), dated.length);
+              const datedShown = dated.slice(0, rowCap);
+              const hiddenRowCount = dated.length - datedShown.length;
+              const canShowMore = hiddenRowCount > 0;
+              const canCollapseRows = rowCap > SCHEDULE_ROWS_PAGE && dated.length > SCHEDULE_ROWS_PAGE;
 
               return (
                 <section
@@ -360,7 +392,7 @@ const CalendarPage = () => {
                         <span className="text-right pr-1">Online / off</span>
                       </div>
 
-                      {dated.map(({ slot, sessionIndex }) => {
+                      {datedShown.map(({ slot, sessionIndex }) => {
                         const startDisp = formatDateDdMonYyyy(slot.date) || '—';
                         const endDisp = formatDateDdMonYyyy(slot.end_date) || '—';
                         const timeDisp = formatDashboardTime(slot.time);
@@ -441,6 +473,43 @@ const CalendarPage = () => {
                           </div>
                         );
                       })}
+                      {(canShowMore || canCollapseRows) && (
+                        <div className="flex flex-wrap items-center justify-center gap-2 px-4 py-3 border-t border-gray-100 bg-gray-50/60">
+                          {canShowMore && (
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              className="h-8 text-[11px]"
+                              data-testid={`calendar-show-more-${p.name.replace(/\s+/g, '-').toLowerCase()}`}
+                              onClick={() =>
+                                setScheduleRowCaps((c) => ({
+                                  ...c,
+                                  [p.name]: Math.min(
+                                    (c[p.name] ?? SCHEDULE_ROWS_PAGE) + SCHEDULE_ROWS_PAGE,
+                                    dated.length
+                                  ),
+                                }))
+                              }
+                            >
+                              Show next {Math.min(SCHEDULE_ROWS_PAGE, hiddenRowCount)} ({hiddenRowCount} more)
+                            </Button>
+                          )}
+                          {canCollapseRows && (
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              className="h-8 text-[11px] text-gray-600"
+                              onClick={() =>
+                                setScheduleRowCaps((c) => ({ ...c, [p.name]: SCHEDULE_ROWS_PAGE }))
+                              }
+                            >
+                              Show only first {SCHEDULE_ROWS_PAGE}
+                            </Button>
+                          )}
+                        </div>
+                      )}
                     </div>
                   )}
                 </section>
