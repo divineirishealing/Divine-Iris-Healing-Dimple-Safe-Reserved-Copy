@@ -103,12 +103,6 @@ const NAMED_THEMES = {
   'Quarterly Meetups': FALLBACK_THEMES[3],
 };
 
-/** AWRP + Money Magic Multiplier: show rolling 3-calendar-month schedule columns */
-function isThreeMonthScheduleProgram(name) {
-  const n = (name || '').toLowerCase();
-  return n.includes('awrp') || n.includes('money magic') || /\bmmm\b/i.test(name || '');
-}
-
 function hashString(s) {
   let h = 0;
   for (let i = 0; i < s.length; i++) h = (Math.imul(31, h) + s.charCodeAt(i)) | 0;
@@ -131,34 +125,6 @@ function dateInSessionRange(selectedIso, startIso, endIso) {
   const s = String(startIso).slice(0, 10);
   const e = (endIso && String(endIso).slice(0, 10)) || s;
   return selectedIso >= s && selectedIso <= e;
-}
-
-/** Group dated slots into current month + next 2 months (anchor: today). */
-function buildThreeMonthBuckets(dated, anchor = new Date()) {
-  const y = anchor.getFullYear();
-  const mo = anchor.getMonth();
-  const buckets = [0, 1, 2].map((off) => {
-    const d = new Date(y, mo + off, 1);
-    return {
-      year: d.getFullYear(),
-      month: d.getMonth(),
-      label: d.toLocaleString('default', { month: 'short', year: 'numeric' }),
-      items: [],
-    };
-  });
-  dated.forEach((entry) => {
-    const ds = String(entry.slot?.date || '').trim().slice(0, 10);
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(ds)) return;
-    const dt = new Date(ds);
-    for (let i = 0; i < buckets.length; i++) {
-      const b = buckets[i];
-      if (dt.getFullYear() === b.year && dt.getMonth() === b.month) {
-        b.items.push(entry);
-        return;
-      }
-    }
-  });
-  return buckets;
 }
 
 const CalendarPage = () => {
@@ -294,8 +260,8 @@ const CalendarPage = () => {
               Programs &amp; calendar
             </h1>
             <p className="text-sm text-gray-600 mt-2 max-w-xl">
-              AWRP and Money Magic Multiplier show the next three calendar months in one row. Bi-annual downloads and
-              quarterly meetups use the full list. Collapse any program to focus. Calendar stays on the right on desktop.
+              Row-wise schedule by program — start, end, time, and online or in person. Tap a program header to collapse
+              or expand. Mini calendar on the right (desktop) to browse months and highlight a day.
             </p>
           </div>
           <div className="flex items-center gap-2 text-xs text-gray-500 shrink-0">
@@ -324,8 +290,6 @@ const CalendarPage = () => {
                 })
                 .sort((a, b) => String(a.slot.date).slice(0, 10).localeCompare(String(b.slot.date).slice(0, 10)));
 
-              const useThreeCol = isThreeMonthScheduleProgram(p.name);
-              const monthBuckets = useThreeCol ? buildThreeMonthBuckets(dated, today) : null;
               const collapsed = collapsedPrograms[p.name] === true;
 
               return (
@@ -360,11 +324,9 @@ const CalendarPage = () => {
                         <h3 className={cn('text-base font-bold tracking-tight', th.label)}>{p.name}</h3>
                         <p className={cn('text-[11px] mt-0.5', th.muted)}>
                           {p.duration_value} {p.duration_unit}
-                          {useThreeCol
-                            ? ' · Next 3 months'
-                            : dated.length > 0
-                              ? ` · ${dated.length} dated session${dated.length !== 1 ? 's' : ''}`
-                              : ''}
+                          {dated.length > 0
+                            ? ` · ${dated.length} dated session${dated.length !== 1 ? 's' : ''}`
+                            : ''}
                         </p>
                       </div>
                     </div>
@@ -377,96 +339,13 @@ const CalendarPage = () => {
                     </div>
                   </button>
 
-                  {!collapsed && useThreeCol && monthBuckets && (
-                    <div className="px-3 py-4 sm:px-4 border-t border-gray-100/90">
-                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                        {monthBuckets.map((b) => (
-                          <div
-                            key={`${b.year}-${b.month}`}
-                            className={cn('rounded-xl border overflow-hidden', th.border, 'bg-white/95')}
-                          >
-                            <div
-                              className={cn(
-                                'text-[10px] font-bold uppercase tracking-wider px-2.5 py-2 border-b bg-gradient-to-r',
-                                th.headerTint
-                              )}
-                            >
-                              {b.label}
-                            </div>
-                            <div className="p-2 space-y-2 max-h-[min(360px,50vh)] overflow-y-auto">
-                              {b.items.length === 0 ? (
-                                <p className="text-[10px] text-gray-400 italic px-1 py-2">No sessions</p>
-                              ) : (
-                                b.items.map(({ slot, sessionIndex }) => {
-                                  const startDisp = formatDateDdMonYyyy(slot.date) || '—';
-                                  const timeDisp = formatDashboardTime(slot.time);
-                                  const persistable = p.name !== '1:1 Session' && sessionIndex != null;
-                                  const highlighted =
-                                    selectedDate &&
-                                    dateInSessionRange(selectedDate, slot.date, slot.end_date);
-                                  const lbl = sessionLabel(p.duration_unit, sessionIndex);
-                                  return (
-                                    <div
-                                      key={`${p.name}-${sessionIndex}-${slot.date}`}
-                                      className={cn(
-                                        'rounded-lg border px-2 py-2 text-[11px] space-y-1.5',
-                                        th.border,
-                                        highlighted && th.rowActive
-                                      )}
-                                    >
-                                      <div className="flex items-center justify-between gap-2">
-                                        <span
-                                          className={cn(
-                                            'inline-flex w-7 h-7 rounded-lg items-center justify-center text-[9px] font-bold shrink-0',
-                                            slot.completed
-                                              ? 'bg-emerald-500 text-white'
-                                              : 'bg-gray-100 text-gray-600 border border-gray-200/80'
-                                          )}
-                                          title={slot.completed ? 'Completed' : lbl}
-                                        >
-                                          {slot.completed ? <CheckCircle size={12} /> : lbl}
-                                        </span>
-                                        <div className="min-w-0 text-right font-mono tabular-nums text-[10px] text-gray-700">
-                                          <div>{startDisp}</div>
-                                          <div className="text-gray-500 flex items-center justify-end gap-0.5">
-                                            <Clock size={10} className="opacity-60" />
-                                            {timeDisp}
-                                          </div>
-                                        </div>
-                                      </div>
-                                      {persistable ? (
-                                        <SessionModeToggle
-                                          programName={p.name}
-                                          sessionIndex={sessionIndex}
-                                          modeChoice={slot.mode_choice}
-                                          programDefaultMode={p.mode}
-                                          onSuccess={fetchHome}
-                                        />
-                                      ) : null}
-                                      {slot.note ? (
-                                        <div className="text-[10px] text-gray-500 flex items-start gap-1">
-                                          <MapPin size={10} className="shrink-0 opacity-60 mt-0.5" />
-                                          {slot.note}
-                                        </div>
-                                      ) : null}
-                                    </div>
-                                  );
-                                })
-                              )}
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-
-                  {!collapsed && !useThreeCol && dated.length === 0 && (
+                  {!collapsed && dated.length === 0 && (
                     <div className="px-5 py-8 text-center text-sm text-gray-400 italic border-t border-gray-100/80">
                       Dates for this program will appear when scheduled
                     </div>
                   )}
 
-                  {!collapsed && !useThreeCol && dated.length > 0 && (
+                  {!collapsed && dated.length > 0 && (
                     <div className="border-t border-gray-100/90">
                       <div
                         className={cn(
