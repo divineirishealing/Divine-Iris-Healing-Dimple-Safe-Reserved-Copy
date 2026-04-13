@@ -3,7 +3,7 @@ import axios from 'axios';
 import { Sparkles, RotateCcw, Send, ArrowRight, Zap, Heart } from 'lucide-react';
 import { Button } from '../ui/button';
 import { useToast } from '../../hooks/use-toast';
-import { cn, formatDateDdMmYyyy } from '../../lib/utils';
+import { cn, formatDateDdMonYyyy } from '../../lib/utils';
 
 const API = process.env.REACT_APP_BACKEND_URL;
 
@@ -66,7 +66,7 @@ const VortexAnimation = ({ active, onComplete }) => {
             <div className="w-8 h-8 rounded-full bg-black shadow-[0_0_40px_20px_rgba(0,0,0,0.8)]" />
           </div>
         </div>
-        <p className="text-white text-lg font-serif animate-pulse">Transmuting...</p>
+        <p className="text-white text-lg font-bold animate-pulse">Transmuting...</p>
         <p className="text-purple-300/60 text-xs mt-1">Releasing into the cosmic void</p>
       </div>
       <style>{`
@@ -124,7 +124,7 @@ const BhaadPortalPage = () => {
     <div className="max-w-3xl mx-auto space-y-6" data-testid="bhaad-portal-page">
       {/* Header */}
       <div className="text-center mb-2">
-        <h1 className="text-2xl md:text-3xl font-serif font-bold text-gray-900">The Bhaad Portal</h1>
+        <h1 className="text-2xl md:text-3xl font-bold text-gray-900">The Bhaad Portal</h1>
         <p className="text-sm text-gray-500 mt-1">Release what weighs you down. Watch it transform.</p>
       </div>
 
@@ -138,7 +138,7 @@ const BhaadPortalPage = () => {
               {/* Dark Side — Input */}
               <div className="text-center mb-6">
                 <div className="text-4xl mb-2">🌑</div>
-                <h2 className="text-lg font-serif text-white/90">This Side of the Black Hole</h2>
+                <h2 className="text-lg font-bold text-white/90">This Side of the Black Hole</h2>
                 <p className="text-xs text-white/40 mt-1">Write what you want to release — fears, anger, doubts, limiting beliefs</p>
               </div>
 
@@ -167,7 +167,7 @@ const BhaadPortalPage = () => {
               {/* Light Side — Transformed */}
               <div className="text-center mb-6">
                 <div className="text-4xl mb-2" style={{ filter: 'drop-shadow(0 0 20px rgba(212,175,55,0.5))' }}>🌟</div>
-                <h2 className="text-lg font-serif text-[#D4AF37]">The Other Side</h2>
+                <h2 className="text-lg font-bold text-[#D4AF37]">The Other Side</h2>
                 <p className="text-xs text-[#D4AF37]/50 mt-1">What emerged from your transformation</p>
               </div>
 
@@ -187,7 +187,7 @@ const BhaadPortalPage = () => {
               {/* After */}
               <div className="bg-[#D4AF37]/10 border border-[#D4AF37]/30 rounded-2xl p-4 mb-4" style={{ boxShadow: '0 0 30px rgba(212,175,55,0.1)' }}>
                 <p className="text-[10px] text-[#D4AF37]/60 uppercase tracking-wider mb-1">Transformed Into</p>
-                <p className="text-lg text-[#D4AF37] font-serif font-bold">{transformed}</p>
+                <p className="text-lg text-[#D4AF37] font-bold">{transformed}</p>
               </div>
 
               <div className="flex justify-center gap-3 mt-4">
@@ -203,7 +203,7 @@ const BhaadPortalPage = () => {
       {/* History — Past Transformations */}
       {history.length > 0 && (
         <div className="bg-white rounded-2xl border p-5">
-          <h3 className="text-sm font-serif font-bold text-gray-900 mb-3 flex items-center gap-2">
+          <h3 className="text-sm font-bold text-gray-900 mb-3 flex items-center gap-2">
             <Sparkles size={16} className="text-[#D4AF37]" /> Your Transformation Journey
           </h3>
           <div className="space-y-3">
@@ -217,8 +217,8 @@ const BhaadPortalPage = () => {
                   </div>
                   <p className="text-sm text-[#D4AF37] font-medium">{h.transformed}</p>
                 </div>
-                <div className="text-[10px] text-gray-400 shrink-0 font-mono tabular-nums">
-                  {formatDateDdMmYyyy(h.date)}
+                <div className="text-[10px] text-gray-400 shrink-0 tabular-nums">
+                  {formatDateDdMonYyyy(h.date)}
                 </div>
               </div>
             ))}

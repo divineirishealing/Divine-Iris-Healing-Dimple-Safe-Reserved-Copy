@@ -131,7 +131,7 @@ const OceanPage = () => {
 
         {/* Name & stats */}
         <div className="absolute top-3 left-3 z-10 bg-white/60 backdrop-blur-sm rounded-xl px-3 py-2">
-          <p className="text-xs font-serif font-bold text-gray-800">{data?.name}'s Ocean</p>
+          <p className="text-xs font-bold font-bold text-gray-800">{data?.name}'s Ocean</p>
           <p className="text-[8px] text-blue-600">Depth Level {depth} · {weather} waters</p>
         </div>
         <div className="absolute top-3 right-3 z-10 flex gap-1.5">

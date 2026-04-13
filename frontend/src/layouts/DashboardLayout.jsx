@@ -34,7 +34,7 @@ const DashboardLayout = () => {
   if (loading) {
     return (
       <div
-        className="min-h-screen flex items-center justify-center relative overflow-hidden"
+        className="min-h-screen flex items-center justify-center relative overflow-hidden font-lato"
         style={{
           background: 'linear-gradient(165deg, #1a0a3e 0%, #2d1b69 45%, #4c1d95 100%)',
         }}
@@ -56,7 +56,7 @@ const DashboardLayout = () => {
   const cosmicVariant = getDashboardCosmicVariant(location.pathname);
 
   return (
-    <div className="min-h-screen relative bg-transparent">
+    <div className="min-h-screen relative bg-transparent font-lato antialiased">
       <CosmicDashboardBackground videoActive={Boolean(bgVideo)} variant={cosmicVariant} />
 
       {/* Optional admin video — kept subtle so constellations & planets stay the hero */}
@@ -118,7 +118,7 @@ const DashboardLayout = () => {
       }}>
         <div className="p-4 space-y-1 overflow-y-auto h-full">
           <NavLink to="/dashboard" end onClick={() => setSidebarOpen(false)} className="block px-3 pt-3 pb-2 mb-1">
-            <span className="text-sm font-serif font-bold bg-gradient-to-r from-[#E8D5A3] via-[#D4AF37] to-[#A78BFA] bg-clip-text text-transparent">
+            <span className="text-sm font-bold bg-gradient-to-r from-[#E8D5A3] via-[#D4AF37] to-[#A78BFA] bg-clip-text text-transparent">
               Sanctuary
             </span>
             <p className="text-[10px] text-white/35 mt-0.5 truncate">{user?.name}</p>

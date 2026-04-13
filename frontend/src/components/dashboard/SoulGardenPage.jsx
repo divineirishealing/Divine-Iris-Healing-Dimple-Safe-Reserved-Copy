@@ -3,10 +3,9 @@ import axios from 'axios';
 import { Check, X, Wifi, Monitor, EyeOff, ChevronLeft, ChevronRight, PenLine, Save } from 'lucide-react';
 import { Button } from '../ui/button';
 import { useToast } from '../../hooks/use-toast';
-import { cn, formatDateDdMmYyyy } from '../../lib/utils';
+import { cn, formatDateDdMonYyyy } from '../../lib/utils';
 
 const API = process.env.REACT_APP_BACKEND_URL;
-const MONTHS_NAMES = ['January','February','March','April','May','June','July','August','September','October','November','December'];
 const DAYS = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
 
 /* ═══ MONTH BLOCK — Clickable for victories ═══ */
@@ -59,7 +58,7 @@ const MonthBlock = ({ index, label, isCompleted, isActive, isLocked, mode, victo
       {editing && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm" onClick={() => setEditing(false)}>
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm mx-4 p-5" onClick={e => e.stopPropagation()} data-testid={`victory-modal-${index}`}>
-            <h3 className="text-sm font-serif font-bold text-gray-900 mb-1">Month {index + 1} — Your Victory</h3>
+            <h3 className="text-sm font-bold text-gray-900 mb-1">Month {index + 1} — Your Victory</h3>
             <p className="text-[10px] text-gray-500 mb-3">What was your biggest win or transformation this month?</p>
             <textarea value={text} onChange={e => setText(e.target.value)} placeholder="My biggest victory was..."
               className="w-full h-24 border rounded-xl px-3 py-2 text-sm resize-none focus:ring-2 focus:ring-[#D4AF37]/30 outline-none" />
@@ -112,7 +111,7 @@ const AttendanceCalendar = ({ programName }) => {
       <div className="flex items-center justify-between px-5 py-3 border-b">
         <button onClick={() => { if (month === 0) { setMonth(11); setYear(y => y - 1); } else setMonth(m => m - 1); }}
           className="text-gray-400 hover:text-[#5D3FD3] transition-colors"><ChevronLeft size={18} /></button>
-        <h3 className="text-sm font-serif font-bold text-gray-900">{MONTHS_NAMES[month]} {year}</h3>
+        <h3 className="text-sm font-bold text-gray-900 tabular-nums">{formatDateDdMonYyyy(`${year}-${String(month + 1).padStart(2, '0')}-01`)}</h3>
         <button onClick={() => { if (month === 11) { setMonth(0); setYear(y => y + 1); } else setMonth(m => m + 1); }}
           className="text-gray-400 hover:text-[#5D3FD3] transition-colors"><ChevronRight size={18} /></button>
       </div>
@@ -176,7 +175,7 @@ const AttendanceCalendar = ({ programName }) => {
                 {marking === dateStr && (
                   <div className="absolute z-30 top-full mt-1 left-1/2 -translate-x-1/2 bg-white border rounded-xl p-2 shadow-xl min-w-[130px]" data-testid={`mark-${dateStr}`}>
                     <p className="text-[8px] text-[#5D3FD3] text-center mb-1.5 font-bold font-mono tabular-nums">
-                      {formatDateDdMmYyyy(dateStr)}
+                      {formatDateDdMonYyyy(dateStr)}
                     </p>
                     {[
                       { id: 'online', label: 'Online', icon: Wifi, color: 'text-blue-600 hover:bg-blue-50' },
@@ -239,7 +238,7 @@ const SoulGardenPage = () => {
       <div className="bg-white/95 backdrop-blur-sm rounded-3xl shadow-xl border border-white/50 p-6 md:p-8" data-testid="awrp-card">
         <div className="text-center mb-6">
           <p className="text-[10px] tracking-[0.3em] text-[#5D3FD3]/60 uppercase mb-2">Your Journey</p>
-          <h1 className="text-2xl md:text-3xl font-serif text-[#5D3FD3]">{awrp?.name || 'AWRP'} — 12 Months</h1>
+          <h1 className="text-2xl md:text-3xl font-bold text-[#5D3FD3]">{awrp?.name || 'AWRP'} — 12 Months</h1>
           <div className="w-20 h-px bg-gradient-to-r from-transparent via-[#D4AF37] to-transparent mx-auto mt-3" />
         </div>
 
@@ -278,7 +277,7 @@ const SoulGardenPage = () => {
               <div key={pi} className="bg-white/95 backdrop-blur-sm rounded-2xl shadow-md border border-white/50 p-5">
                 <div className="text-center mb-4">
                   <p className="text-[8px] tracking-[0.2em] text-[#5D3FD3]/40 uppercase mb-1">{total} Sessions</p>
-                  <h3 className="text-sm font-serif text-[#5D3FD3] font-bold">{prog.name}</h3>
+                  <h3 className="text-sm text-[#5D3FD3] font-bold">{prog.name}</h3>
                 </div>
                 <div className={cn("grid gap-2", total <= 6 ? "grid-cols-3 sm:grid-cols-6" : "grid-cols-4 sm:grid-cols-6")}>
                   {Array.from({ length: total }).map((_, i) => {

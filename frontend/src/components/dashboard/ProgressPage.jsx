@@ -8,11 +8,10 @@ import {
   Loader2, Sparkles, TrendingUp, Flame
 } from 'lucide-react';
 import { useToast } from '../../hooks/use-toast';
-import { cn, formatDateDdMmYyyy } from '../../lib/utils';
+import { cn, formatDateDdMonYyyy } from '../../lib/utils';
 
 const API = process.env.REACT_APP_BACKEND_URL;
 
-const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 const DAYS_SHORT = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
 
 const ProgressPage = () => {
@@ -147,7 +146,7 @@ const ProgressPage = () => {
   return (
     <div className="max-w-5xl mx-auto space-y-6" data-testid="progress-page">
       <div>
-        <h1 className="text-2xl font-serif font-bold text-gray-900">Daily Progress</h1>
+        <h1 className="text-2xl font-bold text-gray-900">Daily Progress</h1>
         <p className="text-sm text-gray-500">Track your daily practice & mark extraordinary moments</p>
       </div>
 
@@ -179,8 +178,8 @@ const ProgressPage = () => {
               <Button variant="ghost" size="sm" onClick={prevMonth} className="h-8 w-8 p-0" data-testid="prog-prev">
                 <ChevronLeft size={16} />
               </Button>
-              <CardTitle className="text-lg font-serif min-w-[180px] text-center">
-                {MONTHS[currentMonth]} {currentYear}
+              <CardTitle className="text-lg min-w-[180px] text-center tabular-nums">
+                {formatDateDdMonYyyy(`${currentYear}-${String(currentMonth + 1).padStart(2, '0')}-01`)}
               </CardTitle>
               <Button variant="ghost" size="sm" onClick={nextMonth} className="h-8 w-8 p-0" data-testid="prog-next">
                 <ChevronRight size={16} />
@@ -254,8 +253,8 @@ const ProgressPage = () => {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm" data-testid="progress-modal">
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md mx-4 overflow-hidden">
             <div className="px-6 py-4 border-b bg-gradient-to-r from-[#5D3FD3]/5 to-[#D4AF37]/5">
-              <h3 className="font-mono tabular-nums text-lg font-bold text-gray-900">
-                {formatDateDdMmYyyy(selectedDate)}
+              <h3 className="tabular-nums text-lg font-bold text-gray-900">
+                {formatDateDdMonYyyy(selectedDate)}
               </h3>
               <p className="text-xs text-gray-500">Record your daily progress</p>
             </div>
@@ -370,7 +369,7 @@ const ProgressPage = () => {
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
                       <span className="text-xs font-bold text-amber-800 font-mono tabular-nums">
-                        {formatDateDdMmYyyy(entry.date)}
+                        {formatDateDdMonYyyy(entry.date)}
                       </span>
                       <span className="text-[10px] px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 font-medium">{entry.program_name}</span>
                     </div>

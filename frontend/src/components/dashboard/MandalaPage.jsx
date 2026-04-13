@@ -101,7 +101,7 @@ const MandalaPage = () => {
 
         {/* Name & info */}
         <div className="absolute bottom-4 left-4 bg-white/80 backdrop-blur-sm rounded-xl px-3 py-2 shadow-sm">
-          <p className="text-xs font-serif font-bold text-gray-800">{data?.name}'s Mandala</p>
+          <p className="text-xs font-bold font-bold text-gray-800">{data?.name}'s Mandala</p>
           <p className="text-[8px] text-purple-600">{layers} layers · {totalPetals} petals · Unique to you</p>
         </div>
 

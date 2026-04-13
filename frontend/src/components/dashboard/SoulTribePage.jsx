@@ -201,7 +201,7 @@ const SoulTribePage = () => {
   return (
     <div className="max-w-2xl mx-auto space-y-4" data-testid="soul-tribe-page">
       <div className="text-center mb-2">
-        <h1 className="text-2xl font-serif font-bold text-gray-900">Soul Tribe</h1>
+        <h1 className="text-2xl font-bold text-gray-900">Soul Tribe</h1>
         <p className="text-sm text-gray-500">Share, inspire, and grow together</p>
       </div>
 

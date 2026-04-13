@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import axios from 'axios';
 import {
   cn,
-  formatDateDdMmYyyy,
+  formatDateDdMonYyyy,
   formatDashboardStatDate,
   dashboardEmiTable,
 } from '../../lib/utils';
@@ -91,10 +91,10 @@ const PaymentModal = ({ emi, clientId, banks, methods, currency, onClose, onSucc
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b bg-gradient-to-r from-[#5D3FD3]/5 to-[#D4AF37]/5">
           <div>
-            <h3 className="font-serif font-bold text-gray-900">Pay EMI #{emi.number}</h3>
+            <h3 className="font-bold text-gray-900">Pay EMI #{emi.number}</h3>
             <p className="text-sm text-gray-500">
               {currency} {emi.amount?.toLocaleString()} due{' '}
-              <span className="font-mono tabular-nums">{formatDateDdMmYyyy(emi.due_date) || emi.due_date || 'N/A'}</span>
+              <span className="tabular-nums">{formatDateDdMonYyyy(emi.due_date) || emi.due_date || 'N/A'}</span>
             </p>
           </div>
           <button onClick={onClose} className="text-gray-400 hover:text-gray-600"><X size={20} /></button>
@@ -270,7 +270,7 @@ const FinancialsPage = () => {
 
   return (
     <div className="max-w-5xl mx-auto space-y-6" data-testid="financials-page">
-      <h1 className="text-2xl font-serif font-bold text-gray-900">Sacred Exchange</h1>
+      <h1 className="text-2xl font-bold text-gray-900">Sacred Exchange</h1>
       <p className="text-sm text-gray-500 -mt-4">
         Payments and EMIs. Session dates, times, online/offline, and availed status are on{' '}
         <Link to="/dashboard/sessions" className="text-[#5D3FD3] font-semibold hover:underline">
@@ -285,11 +285,11 @@ const FinancialsPage = () => {
           { label: 'Total Fee', value: `${fin.currency || ''} ${totalFee.toLocaleString()}`, color: 'text-gray-900', mono: false },
           { label: 'Paid', value: `${fin.currency || ''} ${totalPaid.toLocaleString()}`, color: 'text-green-600', mono: false },
           { label: 'Remaining', value: `${fin.currency || ''} ${remaining.toLocaleString()}`, color: remaining > 0 ? 'text-red-600' : 'text-green-600', mono: false },
-          { label: 'Next Due', value: formatDashboardStatDate(fin.next_due), color: 'text-amber-600', mono: true },
+          { label: 'Next Due', value: formatDashboardStatDate(fin.next_due), color: 'text-amber-600', mono: false },
         ].map((s, i) => (
           <div key={i} className="bg-white rounded-xl border p-4 text-center" data-testid={`stat-${s.label.toLowerCase().replace(' ', '-')}`}>
             <p className="text-[10px] uppercase tracking-wider text-gray-400 font-semibold">{s.label}</p>
-            <p className={cn('text-lg font-bold mt-1', s.color, s.mono && 'font-mono tabular-nums text-base')}>{s.value}</p>
+            <p className={cn('text-lg font-bold mt-1', s.color, s.mono && 'tabular-nums text-base')}>{s.value}</p>
           </div>
         ))}
       </div>
@@ -351,7 +351,7 @@ const FinancialsPage = () => {
                     const lateFee = daysLate * (data?.late_fee_per_day || 0);
                     const channelFee = isOverdue && daysLate > 0 ? (data?.channelization_fee || 0) : 0;
                     const statusLabel = isPaid ? 'paid' : isSubmitted ? 'submitted' : isOverdue ? 'overdue' : 'due';
-                    const dueDisp = formatDateDdMmYyyy(emi.due_date) || '—';
+                    const dueDisp = formatDateDdMonYyyy(emi.due_date) || '—';
                     return (
                       <tr key={emi.number} className={cn(dashboardEmiTable.tbodyTr, isPaid && 'bg-green-50/30', isOverdue && 'bg-red-50/20')} data-testid={`emi-row-${emi.number}`}>
                         <td className={dashboardEmiTable.tdNum}>{emi.number}</td>

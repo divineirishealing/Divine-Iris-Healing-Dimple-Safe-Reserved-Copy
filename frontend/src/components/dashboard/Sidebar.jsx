@@ -49,7 +49,7 @@ const Sidebar = ({ onNavigate }) => {
       "bg-white/80 backdrop-blur-xl border-white/20"
     )}>
       <div className={cn("p-6 border-b", isSanctuary ? "border-white/10" : "border-gray-50")}>
-        <h1 className={cn("text-xl font-serif font-bold tracking-tight", isSanctuary ? "text-white" : "text-[#5D3FD3]")}>{theme.title}</h1>
+        <h1 className={cn("text-xl font-bold tracking-tight", isSanctuary ? "text-white" : "text-[#5D3FD3]")}>{theme.title}</h1>
         <div className={cn("mt-1 text-[10px] uppercase tracking-widest font-semibold", isSanctuary ? "text-white/60" : "text-gray-400")}>
           Tier {tier}: {tier === 1 ? 'Seeker' : tier === 2 ? 'Initiate' : tier === 3 ? 'Explorer' : 'Iris'}
         </div>

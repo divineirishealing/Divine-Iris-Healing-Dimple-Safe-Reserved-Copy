@@ -52,7 +52,7 @@ const HeadspacePage = () => {
         <div className="flex items-start gap-4">
           <GreetIcon size={28} className="text-amber-800 mt-1 shrink-0" />
           <div>
-            <h1 className="text-xl md:text-2xl font-serif font-bold text-amber-900">{greeting.text}, {data?.name?.split(' ')[0] || 'beautiful'}!</h1>
+            <h1 className="text-xl md:text-2xl font-bold text-amber-900">{greeting.text}, {data?.name?.split(' ')[0] || 'beautiful'}!</h1>
             <p className="text-sm text-amber-800/70 mt-1">
               {soul.streak > 0 ? `You're on a ${soul.streak}-day streak! Keep the fire burning 🔥` :
                soul.sessions > 0 ? `You've completed ${soul.sessions} sessions. Your soul is expanding ✨` :
@@ -82,7 +82,7 @@ const HeadspacePage = () => {
       <div className="bg-white rounded-2xl border p-5 shadow-sm">
         <div className="flex items-center gap-2 mb-3">
           <Zap size={16} className="text-[#D4AF37]" />
-          <h2 className="text-sm font-serif font-bold text-gray-900">Today's Reflection</h2>
+          <h2 className="text-sm font-bold text-gray-900">Today's Reflection</h2>
         </div>
         <p className="text-base text-gray-700 italic leading-relaxed">
           "{['What made you smile today?', 'What are you grateful for right now?', 'What would your future self thank you for?', 'What small step can you take toward your dream?', 'Who do you want to send love to today?'][new Date().getDay() % 5]}"
@@ -112,7 +112,7 @@ const HeadspacePage = () => {
 
       {/* Programs */}
       <div className="space-y-3">
-        <h2 className="text-sm font-serif font-bold text-gray-900 px-1">Your Programs</h2>
+        <h2 className="text-sm font-bold text-gray-900 px-1">Your Programs</h2>
         {programs.filter(p => p.visible !== false).map((prog, i) => {
           const done = prog.schedule?.filter(s => s.completed).length || 0;
           const total = prog.schedule?.length || prog.duration_value || 1;

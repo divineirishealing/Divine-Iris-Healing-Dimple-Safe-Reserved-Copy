@@ -51,7 +51,7 @@ const ProfilePage = () => {
           </div>
         </div>
         <div>
-          <h1 className="text-2xl font-serif font-bold text-gray-900">{user?.name}</h1>
+          <h1 className="text-2xl font-bold text-gray-900">{user?.name}</h1>
           <p className="text-sm text-[#5D3FD3] font-medium">{user?.email}</p>
           <div className="mt-2 flex gap-2">
             <span className="text-[10px] px-2 py-1 bg-purple-50 text-purple-700 rounded-full uppercase tracking-wider font-bold">Tier {user?.tier}</span>
@@ -62,7 +62,7 @@ const ProfilePage = () => {
 
       <Card>
         <CardHeader>
-          <CardTitle className="font-serif">Detailed Profile</CardTitle>
+          <CardTitle>Detailed Profile</CardTitle>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="grid md:grid-cols-2 gap-6">

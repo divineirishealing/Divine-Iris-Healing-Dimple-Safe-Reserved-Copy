@@ -13,7 +13,7 @@ import {
   Sparkles,
   Layers,
 } from 'lucide-react';
-import { cn, formatDateDdMmYyyy, formatDashboardTime } from '../../lib/utils';
+import { cn, formatDateDdMonYyyy, formatDashboardTime } from '../../lib/utils';
 import { previewRowsNotInPrograms } from '../../lib/dashboardSchedule';
 import { SessionModeToggle } from './SessionModeToggle';
 
@@ -113,7 +113,6 @@ function getProgramTheme(name) {
   return FALLBACK_THEMES[hashString(name || '') % FALLBACK_THEMES.length];
 }
 
-const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 const DAYS = ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'];
 
 function sessionLabel(durationUnit, idx) {
@@ -255,7 +254,7 @@ const CalendarPage = () => {
               <Sparkles size={12} className="text-[#D4AF37]" />
               Sanctuary schedule
             </p>
-            <h1 className="text-2xl sm:text-3xl font-serif font-bold text-gray-900 tracking-tight">
+            <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 tracking-tight">
               Programs &amp; calendar
             </h1>
             <p className="text-sm text-gray-600 mt-2 max-w-xl">
@@ -284,7 +283,7 @@ const CalendarPage = () => {
                 <ChevronLeft size={16} className="text-gray-600" />
               </Button>
               <span className="text-sm font-semibold text-gray-800 tabular-nums">
-                {MONTHS[currentMonth]} {currentYear}
+                {formatDateDdMonYyyy(`${currentYear}-${String(currentMonth + 1).padStart(2, '0')}-01`)}
               </span>
               <Button variant="ghost" size="sm" onClick={nextMonth} className="h-8 w-8 p-0 shrink-0" data-testid="cal-next">
                 <ChevronRight size={16} className="text-gray-600" />
@@ -381,7 +380,7 @@ const CalendarPage = () => {
             >
               <div className="flex items-center gap-2 text-sm font-mono tabular-nums text-gray-800 font-semibold mb-2">
                 <CalendarIcon size={14} className="text-[#5D3FD3] shrink-0" />
-                {formatDateDdMmYyyy(selectedDate)}
+                {formatDateDdMonYyyy(selectedDate)}
               </div>
               {selectedEvents.length === 0 ? (
                 <p className="text-xs text-gray-400 italic">No sessions this day</p>
@@ -412,7 +411,7 @@ const CalendarPage = () => {
         {/* Full scheduler */}
         <main className="min-w-0 space-y-5" data-testid="calendar-schedule-table">
           <div className="flex items-center justify-between gap-3 flex-wrap">
-            <h2 className="text-lg font-serif font-bold text-gray-900">Full schedule</h2>
+            <h2 className="text-lg font-bold text-gray-900">Full schedule</h2>
             <p className="text-xs text-gray-500">Colors match each program across the calendar</p>
           </div>
 
@@ -478,8 +477,8 @@ const CalendarPage = () => {
                       </div>
 
                       {dated.map(({ slot, sessionIndex }) => {
-                        const startDisp = formatDateDdMmYyyy(slot.date) || '—';
-                        const endDisp = formatDateDdMmYyyy(slot.end_date) || '—';
+                        const startDisp = formatDateDdMonYyyy(slot.date) || '—';
+                        const endDisp = formatDateDdMonYyyy(slot.end_date) || '—';
                         const timeDisp = formatDashboardTime(slot.time);
                         const persistable =
                           p.name !== '1:1 Session' && sessionIndex != null;
@@ -598,10 +597,10 @@ const CalendarPage = () => {
                         <span className={cn('font-semibold truncate', th.label)}>{r.program_name}</span>
                       </div>
                       <span className="font-mono tabular-nums text-sm text-gray-800">
-                        {formatDateDdMmYyyy(r.date) || '—'}
+                        {formatDateDdMonYyyy(r.date) || '—'}
                       </span>
                       <span className="font-mono tabular-nums text-sm text-gray-800">
-                        {formatDateDdMmYyyy(r.end_date) || '—'}
+                        {formatDateDdMonYyyy(r.end_date) || '—'}
                       </span>
                       <span className="font-mono tabular-nums text-sm text-gray-600">{formatDashboardTime(r.time)}</span>
                       <div className="flex justify-end">
