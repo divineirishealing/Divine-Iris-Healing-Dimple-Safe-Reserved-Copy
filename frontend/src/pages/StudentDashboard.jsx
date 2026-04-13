@@ -146,7 +146,7 @@ const SanctuaryPetalCard = ({ children, className, onClick, delay = 0, testId, v
       className={cn(
         'group relative cursor-pointer overflow-hidden rounded-2xl border border-slate-200/90 bg-white text-slate-800 shadow-[0_20px_50px_-12px_rgba(30,27,75,0.35)] border-l-[4px] transition-all duration-300 ease-out',
         accent,
-        'hover:-translate-y-1 hover:shadow-[0_28px_64px_-10px_rgba(30,27,75,0.42)]',
+        'hover:-translate-y-0.5 hover:shadow-[0_20px_48px_-8px_rgba(30,27,75,0.38)]',
         'animate-[petalIn_0.7s_ease-out_both]',
         className
       )}
@@ -334,127 +334,124 @@ const StudentDashboard = () => {
           </div>
         </section>
 
-        <div className="w-full max-w-5xl mx-auto px-4 md:px-0 flex flex-col items-center">
+        <div className="w-full max-w-6xl mx-auto px-4 md:px-0 flex flex-col items-center">
 
-        {/* ─── IRIS FLOWER: 5 PETALS ─── */}
-        {/* Desktop: Cross / Flower pattern */}
-        <div className="w-full hidden lg:block">
-          {/* Top row: 1 card centered */}
-          <div className="flex justify-center mb-6">
-            <SanctuaryPetalCard
-              variant="saffron"
-              testId="petal-schedule"
-              className="w-full max-w-xl p-6"
-              delay={100}
-              onClick={() => navigate('/dashboard/sessions')}
-            >
-              <div className="flex items-start justify-between">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-2xl bg-[#D4AF37]/20 flex items-center justify-center">
-                    <Calendar size={18} className="text-[#D4AF37]" />
-                  </div>
-                  <div>
-                    <h3 className="text-[11px] font-bold uppercase tracking-[0.15em] text-slate-500">{scheduleEyebrow}</h3>
-                    <p className="text-lg font-serif font-bold text-slate-900 mt-0.5 leading-snug">
-                      {scheduleHeadline}
-                    </p>
-                  </div>
+        {/* Desktop: ribbon schedule + bento (tall center spans two rows) */}
+        <div className="w-full hidden lg:block space-y-4">
+          <SanctuaryPetalCard
+            variant="saffron"
+            testId="petal-schedule"
+            className="w-full p-4"
+            delay={100}
+            onClick={() => navigate('/dashboard/sessions')}
+          >
+            <div className="flex items-start justify-between gap-2">
+              <div className="flex items-center gap-2.5 min-w-0">
+                <div className="w-9 h-9 rounded-xl bg-[#D4AF37]/20 flex items-center justify-center shrink-0">
+                  <Calendar size={16} className="text-[#D4AF37]" />
                 </div>
-                <ChevronRight size={16} className="text-slate-300 group-hover:text-[#D4AF37] transition-colors mt-1" />
+                <div className="min-w-0">
+                  <h3 className="text-[10px] font-bold uppercase tracking-[0.12em] text-slate-500">{scheduleEyebrow}</h3>
+                  <p className="text-base font-serif font-bold text-slate-900 mt-0.5 leading-tight truncate">
+                    {scheduleHeadline}
+                  </p>
+                </div>
               </div>
-              {dashboardScheduleRows.length > 0 ? (
-                <div className="mt-3 border-t border-slate-100 pt-3 overflow-x-auto" onClick={(e) => e.stopPropagation()}>
-                  <table className={cn(dashboardStudentScheduleTable.table)} data-testid="dashboard-schedule-table">
-                    <thead>
-                      <tr className={dashboardStudentScheduleTable.theadRow}>
-                        <th className={cn(dashboardStudentScheduleTable.th, 'pr-1')}>Program</th>
-                        <th className={cn(dashboardStudentScheduleTable.th, 'whitespace-nowrap')}>Start date</th>
-                        <th className={cn(dashboardStudentScheduleTable.th, 'whitespace-nowrap')}>End date</th>
-                        <th className={dashboardStudentScheduleTable.th}>Time</th>
-                        <th className={cn(dashboardStudentScheduleTable.thRight, 'w-[1%]')}>Online / off</th>
+              <ChevronRight size={15} className="text-slate-300 group-hover:text-[#D4AF37] transition-colors shrink-0 mt-0.5" />
+            </div>
+            {dashboardScheduleRows.length > 0 ? (
+              <div className="mt-2 border-t border-slate-100 pt-2 overflow-x-auto" onClick={(e) => e.stopPropagation()}>
+                <table className={cn(dashboardStudentScheduleTable.table, 'text-xs')} data-testid="dashboard-schedule-table">
+                  <thead>
+                    <tr className={cn(dashboardStudentScheduleTable.theadRow, 'text-[9px]')}>
+                      <th className={cn(dashboardStudentScheduleTable.th, 'pr-1 pb-1')}>Program</th>
+                      <th className={cn(dashboardStudentScheduleTable.th, 'whitespace-nowrap pb-1')}>Start</th>
+                      <th className={cn(dashboardStudentScheduleTable.th, 'whitespace-nowrap pb-1')}>End</th>
+                      <th className={cn(dashboardStudentScheduleTable.th, 'pb-1')}>Time</th>
+                      <th className={cn(dashboardStudentScheduleTable.thRight, 'w-[1%] pb-1')}>Mode</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {dashboardScheduleRows.slice(0, 4).map((s) => (
+                      <tr key={`${s.program_name}-${s.date}-${s.session_index ?? ''}`} className="border-b border-slate-100">
+                        <td className={cn(dashboardStudentScheduleTable.tdProgram, 'pr-1 py-1.5 text-xs max-w-[120px]')} title={s.program_name}>
+                          {s.program_name}
+                        </td>
+                        <td className={cn(dashboardStudentScheduleTable.tdDate, 'py-1.5 text-xs')}>
+                          {formatDateDdMmYyyy(s.date) || '—'}
+                        </td>
+                        <td className={cn(dashboardStudentScheduleTable.tdDate, 'py-1.5 text-xs')}>
+                          {formatDateDdMmYyyy(s.end_date) || '—'}
+                        </td>
+                        <td className={cn(dashboardStudentScheduleTable.tdTime, 'py-1.5 text-xs')}>{formatDashboardTime(s.time)}</td>
+                        <td className={cn(dashboardStudentScheduleTable.td, 'text-right pl-1 py-1.5')}>
+                          <ScheduleModeToggle slot={s} onModeSaved={patchScheduleSlot} compact />
+                        </td>
                       </tr>
-                    </thead>
-                    <tbody>
-                      {dashboardScheduleRows.slice(0, 6).map((s) => (
-                        <tr key={`${s.program_name}-${s.date}-${s.session_index ?? ''}`} className="border-b border-slate-100">
-                          <td className={cn(dashboardStudentScheduleTable.tdProgram, 'pr-1')} title={s.program_name}>
-                            {s.program_name}
-                          </td>
-                          <td className={dashboardStudentScheduleTable.tdDate}>
-                            {formatDateDdMmYyyy(s.date) || '—'}
-                          </td>
-                          <td className={dashboardStudentScheduleTable.tdDate}>
-                            {formatDateDdMmYyyy(s.end_date) || '—'}
-                          </td>
-                          <td className={dashboardStudentScheduleTable.tdTime}>{formatDashboardTime(s.time)}</td>
-                          <td className={cn(dashboardStudentScheduleTable.td, 'text-right pl-1')}>
-                            <ScheduleModeToggle slot={s} onModeSaved={patchScheduleSlot} compact />
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              ) : (
-                <>
-                  <p className="mt-2 text-sm text-slate-600">{scheduleDetail}</p>
-                  {scheduleTags.length > 0 && (
-                    <div className="mt-3 flex flex-wrap gap-2">
-                      {scheduleTags.map((t) => (
-                        <span key={t} className="text-[10px] px-2.5 py-1 rounded-full bg-amber-50 text-amber-800 border border-amber-200/80">{t}</span>
-                      ))}
-                    </div>
-                  )}
-                  {homeData?.schedule_preview?.length === 0 && !homeData?.package?.scheduled_dates?.length && !homeData?.upcoming_programs?.[0] && (
-                    <p className="mt-3 text-xs text-slate-400 italic">Open the calendar when your dates are set.</p>
-                  )}
-                </>
-              )}
-              <div className="mt-4 space-y-2 pt-3 border-t border-slate-100">
-                <p className="text-[8px] uppercase tracking-[0.14em] text-amber-700/80" style={{ fontFamily: "'Cinzel', serif" }}>
-                  {SANCTUARY_REFERENCE.speaksTagAnnouncement}
-                </p>
-                <p className="text-[11px] text-slate-600 leading-relaxed">{SANCTUARY_REFERENCE.scheduleAnnouncement}</p>
-                <p className="text-[8px] uppercase tracking-[0.12em] text-amber-700/70 pt-1" style={{ fontFamily: "'Cinzel', serif" }}>
-                  {SANCTUARY_REFERENCE.speaksTagEvent}
-                </p>
-                <p className="text-[11px] text-slate-500 leading-relaxed">{SANCTUARY_REFERENCE.scheduleEventNote}</p>
+                    ))}
+                  </tbody>
+                </table>
               </div>
-            </SanctuaryPetalCard>
-          </div>
+            ) : (
+              <>
+                <p className="mt-2 text-xs text-slate-600">{scheduleDetail}</p>
+                {scheduleTags.length > 0 && (
+                  <div className="mt-2 flex flex-wrap gap-1.5">
+                    {scheduleTags.map((t) => (
+                      <span key={t} className="text-[9px] px-2 py-0.5 rounded-full bg-amber-50 text-amber-800 border border-amber-200/80">{t}</span>
+                    ))}
+                  </div>
+                )}
+                {homeData?.schedule_preview?.length === 0 && !homeData?.package?.scheduled_dates?.length && !homeData?.upcoming_programs?.[0] && (
+                  <p className="mt-2 text-[11px] text-slate-400 italic">Open the calendar when your dates are set.</p>
+                )}
+              </>
+            )}
+            <div className="mt-2 pt-2 border-t border-slate-100 space-y-1">
+              <p className="text-[9px] text-slate-600 leading-snug line-clamp-2">
+                <span className="uppercase tracking-[0.1em] text-amber-800/90" style={{ fontFamily: "'Cinzel', serif" }}>{SANCTUARY_REFERENCE.speaksTagAnnouncement}</span>
+                {' '}{SANCTUARY_REFERENCE.scheduleAnnouncement}
+              </p>
+              <p className="text-[9px] text-slate-500 leading-snug line-clamp-2">
+                <span className="uppercase tracking-[0.08em] text-amber-800/75" style={{ fontFamily: "'Cinzel', serif" }}>{SANCTUARY_REFERENCE.speaksTagEvent}</span>
+                {' '}{SANCTUARY_REFERENCE.scheduleEventNote}
+              </p>
+            </div>
+          </SanctuaryPetalCard>
 
-          {/* Middle row: 3 cards */}
-          <div className="grid grid-cols-3 gap-6 mb-6">
-            {/* LEFT: Profile */}
+          <div className="grid grid-cols-3 gap-4 items-stretch">
+            {/* Profile — compact strip */}
             <SanctuaryPetalCard
               variant="gold"
               testId="petal-profile"
-              className="p-6"
+              className="p-4 min-h-0"
               delay={200}
               onClick={() => navigate('/dashboard/profile')}
             >
-              <span className="absolute top-5 right-5 text-[11px] text-amber-600/40 z-[2]" style={{ fontFamily: "'Cinzel', serif" }}>{SANCTUARY_REFERENCE.profileGlyph}</span>
-              <p className="text-[8.5px] uppercase tracking-[0.22em] text-amber-800/90 mb-2" style={{ fontFamily: "'Cinzel', serif" }}>{SANCTUARY_REFERENCE.profileEye}</p>
-              <div className="flex flex-col items-center py-4">
+              <span className="absolute top-3 right-3 text-[10px] text-amber-600/40 z-[2]" style={{ fontFamily: "'Cinzel', serif" }}>{SANCTUARY_REFERENCE.profileGlyph}</span>
+              <div className="flex gap-3 items-start">
                 <div
-                  className="w-20 h-20 rounded-full flex items-center justify-center text-3xl font-bold text-white mb-4 overflow-hidden"
+                  className="w-14 h-14 rounded-full flex items-center justify-center text-2xl font-bold text-white shrink-0 overflow-hidden"
                   style={{
                     background: 'linear-gradient(135deg, #22c55e, #16a34a)',
                     border: '2px solid rgba(212,175,55,0.45)',
-                    boxShadow: '0 0 0 6px rgba(212,175,55,0.12), 0 8px 24px rgba(34,197,94,0.25)',
+                    boxShadow: '0 0 0 4px rgba(212,175,55,0.1), 0 4px 16px rgba(34,197,94,0.2)',
                   }}
                 >
                   {user?.picture ? <img src={user.picture} alt="" className="w-full h-full object-cover" /> : (user?.name || 'S').trim().charAt(0).toUpperCase()}
                 </div>
-                <p className="text-center text-xl text-slate-900 mb-1.5" style={{ fontFamily: "'Cormorant Garamond', serif" }}>{user?.name || 'Student'}</p>
-                <p
-                  className="text-center text-[10px] tracking-[0.12em] px-4 py-1 rounded-full text-amber-900 mb-4 bg-amber-50 border border-amber-200/90"
-                  style={{ fontFamily: "'Cinzel', serif" }}
-                >
-                  {profileTierLine}
-                </p>
+                <div className="flex-1 min-w-0 pt-0.5">
+                  <p className="text-[8px] uppercase tracking-[0.18em] text-amber-800/90" style={{ fontFamily: "'Cinzel', serif" }}>{SANCTUARY_REFERENCE.profileEye}</p>
+                  <p className="text-lg text-slate-900 truncate leading-tight" style={{ fontFamily: "'Cormorant Garamond', serif" }}>{user?.name || 'Student'}</p>
+                  <p
+                    className="inline-block mt-1 text-[9px] tracking-[0.1em] px-2 py-0.5 rounded-full text-amber-900 bg-amber-50 border border-amber-200/90"
+                    style={{ fontFamily: "'Cinzel', serif" }}
+                  >
+                    {profileTierLine}
+                  </p>
+                </div>
               </div>
-              <div className="w-full space-y-0 text-[12px]">
+              <div className="w-full mt-2 space-y-0 text-[11px]">
                 {[
                   [SANCTUARY_REFERENCE.rowProgram, pkg.program_name || SANCTUARY_REFERENCE.financialsDefaultProgram],
                   [SANCTUARY_REFERENCE.rowMemberSince, formatMonthYearLong(pkg.start_date)],
@@ -466,9 +463,9 @@ const StudentDashboard = () => {
                   if (row[2] === 'status') {
                     const active = homeData?.profile_status === 'complete';
                     return (
-                      <div key={i} className="flex justify-between py-2 border-b border-slate-100">
-                        <span className="text-slate-500">{row[0]}</span>
-                        <span className={`text-[10px] px-2.5 py-0.5 rounded-full border ${active ? 'bg-emerald-50 text-emerald-800 border-emerald-200' : 'bg-slate-100 text-slate-600 border-slate-200'}`}>
+                      <div key={i} className="flex justify-between items-center py-1 border-b border-slate-100 gap-2">
+                        <span className="text-slate-500 shrink-0">{row[0]}</span>
+                        <span className={`text-[9px] px-2 py-0.5 rounded-full border shrink-0 ${active ? 'bg-emerald-50 text-emerald-800 border-emerald-200' : 'bg-slate-100 text-slate-600 border-slate-200'}`}>
                           {active ? SANCTUARY_REFERENCE.statusActive : 'Setup needed'}
                         </span>
                       </div>
@@ -477,44 +474,44 @@ const StudentDashboard = () => {
                   const v = row[1];
                   const isNext = row[2] === 'next';
                   return (
-                    <div key={i} className="flex justify-between py-2 border-b border-slate-100 last:border-0">
-                      <span className="text-slate-500">{row[0]}</span>
-                      <span className={`text-slate-900 font-medium text-right ${isNext && v === SANCTUARY_REFERENCE.nextSessionTonight ? 'text-amber-700' : ''}`}>{v || '—'}</span>
+                    <div key={i} className="flex justify-between gap-2 py-1 border-b border-slate-100 last:border-0">
+                      <span className="text-slate-500 shrink-0">{row[0]}</span>
+                      <span className={`text-slate-900 font-medium text-right text-[11px] min-w-0 ${isNext && v === SANCTUARY_REFERENCE.nextSessionTonight ? 'text-amber-700' : ''}`}>{v || '—'}</span>
                     </div>
                   );
                 })}
               </div>
-              <div className="h-px my-3 bg-slate-100" />
-              <div className="flex gap-3">
+              <div className="h-px my-2 bg-slate-100" />
+              <div className="flex gap-2">
                 {[
                   [pkg.used_sessions ?? '—', SANCTUARY_REFERENCE.statSessions],
                   [daysActiveSince(pkg.start_date) ?? '—', SANCTUARY_REFERENCE.statDaysActive],
                   ['7', SANCTUARY_REFERENCE.statReleases],
                 ].map(([n, l], i) => (
-                  <div key={i} className="flex-1 text-center py-2.5 rounded-xl bg-slate-50 border border-slate-100">
-                    <div className="text-[22px] font-light text-amber-800" style={{ fontFamily: "'Cormorant Garamond', serif" }}>{n}</div>
-                    <div className="text-[9px] mt-0.5 tracking-[0.06em] text-amber-900/50" style={{ fontFamily: "'Cinzel', serif" }}>{l}</div>
+                  <div key={i} className="flex-1 text-center py-1.5 rounded-lg bg-slate-50 border border-slate-100">
+                    <div className="text-lg font-light text-amber-800 leading-none" style={{ fontFamily: "'Cormorant Garamond', serif" }}>{n}</div>
+                    <div className="text-[8px] mt-0.5 tracking-[0.05em] text-amber-900/45 leading-tight" style={{ fontFamily: "'Cinzel', serif" }}>{l}</div>
                   </div>
                 ))}
               </div>
-              <div className="mt-4 flex items-center text-[10px] text-slate-500 group-hover:text-amber-800 transition-colors">
+              <div className="mt-2 flex items-center text-[9px] text-slate-500 group-hover:text-amber-800 transition-colors">
                 <span>{SANCTUARY_REFERENCE.profileCta}</span>
-                <ArrowRight size={12} className="ml-1" />
+                <ArrowRight size={11} className="ml-0.5" />
               </div>
             </SanctuaryPetalCard>
 
-            {/* CENTER: Soul Compass (Progress) */}
+            {/* Center column — tall anchor (spans 2 rows) */}
             <SanctuaryPetalCard
               variant="violet"
               testId="petal-progress"
-              className="p-6 flex flex-col items-center justify-center"
+              className="p-4 lg:row-span-2 lg:h-full min-h-0 flex flex-col"
               delay={300}
               onClick={() => navigate('/dashboard/reports')}
             >
-              <span className="absolute top-5 right-5 text-[11px] text-violet-400/50 z-[2]">{SANCTUARY_REFERENCE.compassGlyph}</span>
-              <p className="text-[8.5px] uppercase tracking-[0.22em] text-violet-700 mb-1 w-full text-left" style={{ fontFamily: "'Cinzel', serif" }}>{SANCTUARY_REFERENCE.compassEye}</p>
-              <h3 className="text-2xl text-slate-900 mb-3 w-full text-left leading-tight" style={{ fontFamily: "'Cormorant Garamond', serif" }}>{SANCTUARY_REFERENCE.innerJourney}</h3>
-              <div className="relative w-[120px] h-[120px] my-2">
+              <span className="absolute top-3 right-3 text-[10px] text-violet-400/50 z-[2]">{SANCTUARY_REFERENCE.compassGlyph}</span>
+              <p className="text-[8px] uppercase tracking-[0.18em] text-violet-700 mb-0.5 w-full text-left" style={{ fontFamily: "'Cinzel', serif" }}>{SANCTUARY_REFERENCE.compassEye}</p>
+              <h3 className="text-lg text-slate-900 mb-2 w-full text-left leading-tight" style={{ fontFamily: "'Cormorant Garamond', serif" }}>{SANCTUARY_REFERENCE.innerJourney}</h3>
+              <div className="relative w-[88px] h-[88px] mx-auto shrink-0 my-1">
                 <svg className="w-full h-full -rotate-90" viewBox="0 0 120 120">
                   <circle cx="60" cy="60" r="54" fill="none" stroke="rgba(139,92,246,0.07)" strokeWidth="1" />
                   <circle cx="60" cy="60" r="46" fill="none" stroke="rgba(139,92,246,0.06)" strokeWidth="1" />
@@ -538,55 +535,50 @@ const StudentDashboard = () => {
                   </defs>
                 </svg>
                 <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-                  <span className="text-[22px] text-violet-900 leading-none" style={{ fontFamily: "'Cormorant Garamond', serif" }}>{journeyDisplayPct}%</span>
-                  <span className="text-[7px] tracking-[0.15em] text-violet-500 mt-1" style={{ fontFamily: "'Cinzel', serif" }}>{SANCTUARY_REFERENCE.journeyLabel}</span>
+                  <span className="text-lg text-violet-900 leading-none" style={{ fontFamily: "'Cormorant Garamond', serif" }}>{journeyDisplayPct}%</span>
+                  <span className="text-[6px] tracking-[0.12em] text-violet-500 mt-0.5" style={{ fontFamily: "'Cinzel', serif" }}>{SANCTUARY_REFERENCE.journeyLabel}</span>
                 </div>
               </div>
-              <p className="text-[12px] text-center text-slate-600 mb-2 leading-snug">{SANCTUARY_REFERENCE.compassSub}</p>
-              <div className="flex flex-wrap gap-1.5 justify-center">
+              <p className="text-[11px] text-center text-slate-600 leading-snug line-clamp-2 my-1">{SANCTUARY_REFERENCE.compassSub}</p>
+              <div className="flex flex-wrap gap-1 justify-center">
                 {SANCTUARY_REFERENCE.compassChips.map((c) => (
-                  <span key={c} className="text-[10.5px] px-2.5 py-1 rounded-full bg-violet-50 border border-violet-200 text-violet-800">{c}</span>
+                  <span key={c} className="text-[9px] px-2 py-0.5 rounded-full bg-violet-50 border border-violet-200 text-violet-800">{c}</span>
                 ))}
               </div>
-              <div className="h-px w-full my-3 bg-slate-100" />
-              <div className="flex gap-3 w-full">
-                <div className="flex-1 text-center py-2.5 rounded-xl bg-slate-50 border border-slate-100">
-                  <div className="text-lg text-violet-800" style={{ fontFamily: "'Cormorant Garamond', serif" }}>{SANCTUARY_REFERENCE.soulLabel}</div>
-                  <div className="text-[9px] mt-0.5 text-slate-500" style={{ fontFamily: "'Cinzel', serif" }}>{soulAlignPct}% aligned</div>
-                </div>
-                <div className="flex-1 text-center py-2.5 rounded-xl bg-slate-50 border border-slate-100">
-                  <div className="text-lg text-violet-800" style={{ fontFamily: "'Cormorant Garamond', serif" }}>{SANCTUARY_REFERENCE.bodyLabel}</div>
-                  <div className="text-[9px] mt-0.5 text-slate-500" style={{ fontFamily: "'Cinzel', serif" }}>{bodyAlignPct}% aligned</div>
-                </div>
-              </div>
+              <p className="mt-auto pt-2 text-[10px] text-center text-slate-600 border-t border-slate-100">
+                <span className="text-violet-800 font-medium" style={{ fontFamily: "'Cormorant Garamond', serif" }}>{SANCTUARY_REFERENCE.soulLabel}</span>
+                {' '}{soulAlignPct}% ·{' '}
+                <span className="text-violet-800 font-medium" style={{ fontFamily: "'Cormorant Garamond', serif" }}>{SANCTUARY_REFERENCE.bodyLabel}</span>
+                {' '}{bodyAlignPct}%
+              </p>
             </SanctuaryPetalCard>
 
-            {/* RIGHT: Payment Status */}
+            {/* Financials — compact tile */}
             <SanctuaryPetalCard
               variant="ember"
               testId="petal-financials"
-              className="p-6"
+              className="p-4 min-h-0"
               delay={400}
               onClick={() => navigate('/dashboard/financials')}
             >
-              <div className="flex items-center gap-3 mb-4">
-                <div className="w-10 h-10 rounded-2xl bg-[#84A98C]/20 flex items-center justify-center">
-                  <CreditCard size={18} className="text-[#84A98C]" />
+              <div className="flex items-center gap-2.5 mb-2">
+                <div className="w-9 h-9 rounded-xl bg-[#84A98C]/20 flex items-center justify-center shrink-0">
+                  <CreditCard size={16} className="text-[#84A98C]" />
                 </div>
-                <div>
-                  <h3 className="text-[11px] font-bold uppercase tracking-[0.15em] text-slate-500">{SANCTUARY_REFERENCE.financialsEye}</h3>
-                  <p className="text-base font-serif font-bold text-slate-900">
+                <div className="min-w-0">
+                  <h3 className="text-[10px] font-bold uppercase tracking-[0.12em] text-slate-500">{SANCTUARY_REFERENCE.financialsEye}</h3>
+                  <p className="text-sm font-serif font-bold text-slate-900 truncate">
                     {pkg.program_name || SANCTUARY_REFERENCE.financialsDefaultProgram}
                   </p>
                 </div>
               </div>
               {pkg.total_sessions > 0 && (
-                <div className="space-y-2">
-                  <div className="flex justify-between text-[10px] text-slate-500">
+                <div className="space-y-1.5">
+                  <div className="flex justify-between text-[9px] text-slate-500">
                     <span>{pkg.used_sessions} Used</span>
                     <span>{pkg.total_sessions - pkg.used_sessions} Left</span>
                   </div>
-                  <div className="h-1.5 rounded-full bg-slate-100 overflow-hidden">
+                  <div className="h-1 rounded-full bg-slate-100 overflow-hidden">
                     <div
                       className="h-full rounded-full bg-gradient-to-r from-[#84A98C] to-[#D4AF37] transition-all duration-1000"
                       style={{ width: `${progressPct}%` }}
@@ -594,34 +586,31 @@ const StudentDashboard = () => {
                   </div>
                 </div>
               )}
-              <div className="mt-4 flex items-center justify-between">
-                <span className="text-[10px] px-2.5 py-1 rounded-full bg-slate-100 text-slate-700 border border-slate-200">
+              <div className="mt-2 flex items-center justify-between">
+                <span className="text-[9px] px-2 py-0.5 rounded-full bg-slate-100 text-slate-700 border border-slate-200">
                   {homeData?.financials?.status || 'N/A'}
                 </span>
-                <ArrowRight size={14} className="text-slate-300 group-hover:text-[#84A98C] transition-colors" />
+                <ArrowRight size={13} className="text-slate-300 group-hover:text-[#84A98C] transition-colors" />
               </div>
             </SanctuaryPetalCard>
-          </div>
 
-          {/* Bottom row: 2 cards centered */}
-          <div className="flex justify-center gap-6">
-            {/* Reflection / Diary */}
+            {/* Diary — bento lower-left */}
             <SanctuaryPetalCard
               variant="sky"
               testId="petal-diary"
-              className="w-[380px] p-6"
+              className="p-4 min-h-0"
               delay={500}
               onClick={() => navigate('/dashboard/diary')}
             >
-              <span className="absolute top-5 right-5 text-sm opacity-40 z-[2]">{SANCTUARY_REFERENCE.intentionsGlyph}</span>
-              <div className="flex items-start justify-between">
-                <div>
-                  <p className="text-[8.5px] uppercase tracking-[0.22em] text-sky-700 mb-1" style={{ fontFamily: "'Cinzel', serif" }}>{SANCTUARY_REFERENCE.intentionsEye}</p>
-                  <p className="text-xl text-slate-900 font-normal leading-tight" style={{ fontFamily: "'Cormorant Garamond', serif" }}>{SANCTUARY_REFERENCE.intentionsTitle}</p>
+              <span className="absolute top-3 right-3 text-xs opacity-35 z-[2]">{SANCTUARY_REFERENCE.intentionsGlyph}</span>
+              <div className="flex items-start justify-between gap-1">
+                <div className="min-w-0">
+                  <p className="text-[8px] uppercase tracking-[0.18em] text-sky-700 mb-0.5" style={{ fontFamily: "'Cinzel', serif" }}>{SANCTUARY_REFERENCE.intentionsEye}</p>
+                  <p className="text-base text-slate-900 font-normal leading-tight" style={{ fontFamily: "'Cormorant Garamond', serif" }}>{SANCTUARY_REFERENCE.intentionsTitle}</p>
                 </div>
-                <ChevronRight size={16} className="text-slate-300 group-hover:text-sky-600 transition-colors mt-1 shrink-0" />
+                <ChevronRight size={15} className="text-slate-300 group-hover:text-sky-600 transition-colors shrink-0 mt-0.5" />
               </div>
-              <div className="flex gap-1 mt-3 mb-2" role="tablist" onClick={(e) => e.stopPropagation()}>
+              <div className="flex gap-1 mt-2 mb-1.5" role="tablist" onClick={(e) => e.stopPropagation()}>
                 {[
                   ['d', SANCTUARY_REFERENCE.intentTabDaily],
                   ['w', SANCTUARY_REFERENCE.intentTabWeekly],
@@ -634,7 +623,7 @@ const StudentDashboard = () => {
                     aria-selected={intentionsTab === key}
                     onClick={() => setIntentionsTab(key)}
                     className={cn(
-                      'flex-1 py-1.5 rounded-lg text-center text-[8.5px] tracking-[0.1em] border transition-colors',
+                      'flex-1 py-1 rounded-md text-center text-[8px] tracking-[0.08em] border transition-colors',
                       intentionsTab === key
                         ? 'bg-orange-100 text-orange-900 border-orange-300'
                         : 'border-slate-200 text-slate-500 hover:text-slate-800 hover:border-slate-300'
@@ -649,16 +638,16 @@ const StudentDashboard = () => {
                 const tab = INTENTIONS_BY_TAB[intentionsTab] || INTENTIONS_BY_TAB.d;
                 return (
                   <>
-                    <p className="text-[15px] italic text-slate-800 leading-relaxed my-2" style={{ fontFamily: "'Cormorant Garamond', serif" }}>
+                    <p className="text-[13px] italic text-slate-800 leading-snug my-1.5 line-clamp-2" style={{ fontFamily: "'Cormorant Garamond', serif" }}>
                       &ldquo;{tab.quote}&rdquo;
                     </p>
-                    <p className="text-[11px] text-orange-800/70 mb-2">{tab.focus}</p>
-                    <div className="flex gap-1 mt-2">
+                    <p className="text-[10px] text-orange-800/70 mb-1 line-clamp-1">{tab.focus}</p>
+                    <div className="flex gap-0.5 mt-1">
                       {['M', 'T', 'W', 'T', 'F', 'S', 'S'].map((d, i) => (
                         <div
                           key={d + i}
                           className={cn(
-                            'flex-1 h-6 rounded-lg flex items-center justify-center text-[8.5px]',
+                            'flex-1 h-5 rounded-md flex items-center justify-center text-[7px]',
                             i < 3
                               ? 'bg-gradient-to-br from-orange-500 to-orange-400 text-white font-semibold'
                               : 'bg-orange-50 border border-orange-200 text-orange-600/50'
@@ -669,70 +658,70 @@ const StudentDashboard = () => {
                         </div>
                       ))}
                     </div>
-                    <div className="h-1 rounded-[10px] overflow-hidden mt-3 bg-orange-100">
+                    <div className="h-0.5 rounded-full overflow-hidden mt-2 bg-orange-100">
                       <div
-                        className="h-full rounded-[10px] transition-all duration-500"
+                        className="h-full rounded-full transition-all duration-500"
                         style={{
                           width: `${tab.barPct}%`,
                           background: 'linear-gradient(90deg, #f97316, #fbbf24)',
                         }}
                       />
                     </div>
-                    <p className="text-[10.5px] text-slate-500 mt-1">{tab.prog}</p>
+                    <p className="text-[9px] text-slate-500 mt-0.5 line-clamp-1">{tab.prog}</p>
                   </>
                 );
               })()}
-              <p className="mt-3 text-[10px] text-slate-500 border-t border-slate-100 pt-2">
+              <p className="mt-2 text-[9px] text-slate-500 border-t border-slate-100 pt-1.5 line-clamp-1">
                 {homeData?.journey_logs?.length > 0
                   ? `${SANCTUARY_REFERENCE.diaryLastPrefix} ${formatDateDdMmYyyy(String(homeData.journey_logs[0].date).slice(0, 10)) || '—'}`
                   : SANCTUARY_REFERENCE.diaryEmpty}
               </p>
             </SanctuaryPetalCard>
 
-            {/* Galaxy of Magic */}
+            {/* Transformations — bento lower-right */}
             <SanctuaryPetalCard
               variant="rose"
               testId="petal-galaxy"
-              className="w-[380px] p-6"
+              className="p-4 min-h-0"
               delay={600}
               onClick={() => navigate('/transformations')}
             >
-              <span className="absolute top-5 right-5 text-[11px] text-pink-400/60 z-[2]">✦</span>
-              <p className="text-[8.5px] uppercase tracking-[0.22em] text-pink-800/80 mb-2" style={{ fontFamily: "'Cinzel', serif" }}>{SANCTUARY_REFERENCE.speaksEye}</p>
-              <div className="w-11 h-11 rounded-full flex items-center justify-center text-lg mb-3.5 text-white" style={{ background: 'linear-gradient(135deg, #9d174d, #ec4899)', boxShadow: '0 4px 20px rgba(236,72,153,0.35)', fontFamily: "'Cinzel', serif" }}>✦</div>
-              <p className="text-[17px] italic text-slate-800 leading-relaxed mb-2" style={{ fontFamily: "'Cormorant Garamond', serif" }}>
+              <span className="absolute top-3 right-3 text-[10px] text-pink-400/60 z-[2]">✦</span>
+              <p className="text-[8px] uppercase tracking-[0.18em] text-pink-800/80 mb-1" style={{ fontFamily: "'Cinzel', serif" }}>{SANCTUARY_REFERENCE.speaksEye}</p>
+              <div className="w-9 h-9 rounded-full flex items-center justify-center text-sm mb-2 text-white" style={{ background: 'linear-gradient(135deg, #9d174d, #ec4899)', boxShadow: '0 2px 12px rgba(236,72,153,0.35)', fontFamily: "'Cinzel', serif" }}>✦</div>
+              <p className="text-sm italic text-slate-800 leading-snug mb-1 line-clamp-3" style={{ fontFamily: "'Cormorant Garamond', serif" }}>
                 &ldquo;{SANCTUARY_REFERENCE.speaksQuote}&rdquo;
               </p>
-              <p className="text-[10.5px] text-pink-800/60 mb-4">{SANCTUARY_REFERENCE.speaksAttr}</p>
-              <div className="space-y-2.5 mb-3">
-                <div className="p-3.5 rounded-2xl bg-pink-50 border border-pink-100">
-                  <p className="text-[8px] uppercase tracking-[0.14em] text-pink-800/70 mb-1" style={{ fontFamily: "'Cinzel', serif" }}>{SANCTUARY_REFERENCE.speaksTagAnnouncement}</p>
-                  <p className="text-xs text-slate-700 leading-snug">{SANCTUARY_REFERENCE.speaksAnnouncementBody}</p>
+              <p className="text-[9px] text-pink-800/60 mb-2 line-clamp-1">{SANCTUARY_REFERENCE.speaksAttr}</p>
+              <div className="space-y-1.5 mb-2">
+                <div className="p-2 rounded-xl bg-pink-50 border border-pink-100">
+                  <p className="text-[7px] uppercase tracking-[0.1em] text-pink-800/70 mb-0.5" style={{ fontFamily: "'Cinzel', serif" }}>{SANCTUARY_REFERENCE.speaksTagAnnouncement}</p>
+                  <p className="text-[10px] text-slate-700 leading-snug line-clamp-2">{SANCTUARY_REFERENCE.speaksAnnouncementBody}</p>
                 </div>
-                <div className="p-3.5 rounded-2xl bg-pink-50 border border-pink-100">
-                  <p className="text-[8px] uppercase tracking-[0.14em] text-pink-800/70 mb-1" style={{ fontFamily: "'Cinzel', serif" }}>{SANCTUARY_REFERENCE.speaksTagEvent}</p>
-                  <p className="text-xs text-slate-700 leading-snug">{SANCTUARY_REFERENCE.speaksEventBody}</p>
+                <div className="p-2 rounded-xl bg-pink-50 border border-pink-100">
+                  <p className="text-[7px] uppercase tracking-[0.1em] text-pink-800/70 mb-0.5" style={{ fontFamily: "'Cinzel', serif" }}>{SANCTUARY_REFERENCE.speaksTagEvent}</p>
+                  <p className="text-[10px] text-slate-700 leading-snug line-clamp-2">{SANCTUARY_REFERENCE.speaksEventBody}</p>
                 </div>
               </div>
-              <div className="flex items-center gap-2 text-[11px] text-pink-900" style={{ fontFamily: "'DM Sans', sans-serif" }}>
-                <span className="w-2 h-2 rounded-full bg-pink-500 shadow-[0_0_8px_#ec4899] animate-pulse" aria-hidden />
-                {SANCTUARY_REFERENCE.speaksNewPill}
+              <div className="flex items-center gap-1.5 text-[10px] text-pink-900" style={{ fontFamily: "'DM Sans', sans-serif" }}>
+                <span className="w-1.5 h-1.5 rounded-full bg-pink-500 shadow-[0_0_6px_#ec4899] animate-pulse shrink-0" aria-hidden />
+                <span className="line-clamp-1">{SANCTUARY_REFERENCE.speaksNewPill}</span>
               </div>
-              <div className="mt-3 flex items-center justify-end text-[10px] text-slate-500">
-                <span className="mr-1">{SANCTUARY_REFERENCE.transformationsHint}</span>
-                <ChevronRight size={14} className="text-pink-400" />
+              <div className="mt-2 flex items-center justify-end text-[9px] text-slate-500">
+                <span className="mr-1 truncate">{SANCTUARY_REFERENCE.transformationsHint}</span>
+                <ChevronRight size={12} className="text-pink-400 shrink-0" />
               </div>
             </SanctuaryPetalCard>
           </div>
         </div>
 
         {/* ─── MOBILE LAYOUT ─── */}
-        <div className="lg:hidden w-full max-w-md mx-auto space-y-4">
+        <div className="lg:hidden w-full max-w-md mx-auto space-y-3">
           {dashboardScheduleRows.length > 0 ? (
-            <SanctuaryPetalCard variant="saffron" testId="petal-schedule-m" className="p-5" delay={100} onClick={() => navigate('/dashboard/sessions')}>
-              <div className="flex items-center gap-4 mb-3">
-                <div className="w-11 h-11 rounded-2xl flex items-center justify-center shrink-0" style={{ background: '#D4AF3720' }}>
-                  <Calendar size={18} style={{ color: '#D4AF37' }} />
+            <SanctuaryPetalCard variant="saffron" testId="petal-schedule-m" className="p-4" delay={100} onClick={() => navigate('/dashboard/sessions')}>
+              <div className="flex items-center gap-3 mb-2">
+                <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0" style={{ background: '#D4AF3720' }}>
+                  <Calendar size={17} style={{ color: '#D4AF37' }} />
                 </div>
                 <div className="flex-1 min-w-0">
                   <h3 className="text-[11px] font-bold uppercase tracking-[0.12em] text-slate-500">{scheduleEyebrow}</h3>
@@ -740,8 +729,8 @@ const StudentDashboard = () => {
                 </div>
                 <ChevronRight size={16} className="text-slate-300 shrink-0" />
               </div>
-              <div className="border-t border-slate-100 pt-3 overflow-x-auto -mx-1 px-1" onClick={(e) => e.stopPropagation()}>
-                <table className={cn(dashboardStudentScheduleTable.table, 'min-w-[300px]')}>
+              <div className="border-t border-slate-100 pt-2 overflow-x-auto -mx-1 px-1" onClick={(e) => e.stopPropagation()}>
+                <table className={cn(dashboardStudentScheduleTable.table, 'min-w-[300px] text-xs')}>
                   <thead>
                     <tr className={dashboardStudentScheduleTable.theadRow}>
                       <th className={cn(dashboardStudentScheduleTable.th, 'pr-0.5')}>Program</th>
@@ -752,9 +741,9 @@ const StudentDashboard = () => {
                     </tr>
                   </thead>
                   <tbody>
-                    {dashboardScheduleRows.slice(0, 6).map((s) => (
+                    {dashboardScheduleRows.slice(0, 4).map((s) => (
                       <tr key={`${s.program_name}-${s.date}-${s.session_index ?? ''}`} className="border-b border-slate-100">
-                        <td className={cn(dashboardStudentScheduleTable.tdProgram, 'max-w-[72px] py-1.5 pr-0.5')} title={s.program_name}>{s.program_name}</td>
+                        <td className={cn(dashboardStudentScheduleTable.tdProgram, 'max-w-[72px] py-1.5 pr-0.5 text-xs')} title={s.program_name}>{s.program_name}</td>
                         <td className={cn(dashboardStudentScheduleTable.tdDate, 'px-0.5 py-1.5')}>{formatDateDdMmYyyy(s.date) || '—'}</td>
                         <td className={cn(dashboardStudentScheduleTable.tdDate, 'px-0.5 py-1.5')}>{formatDateDdMmYyyy(s.end_date) || '—'}</td>
                         <td className={cn(dashboardStudentScheduleTable.tdTime, 'px-0.5 py-1.5')}>{formatDashboardTime(s.time)}</td>
@@ -766,10 +755,10 @@ const StudentDashboard = () => {
               </div>
             </SanctuaryPetalCard>
           ) : (
-            <SanctuaryPetalCard variant="saffron" testId="petal-schedule-m" className="p-5" delay={100} onClick={() => navigate('/dashboard/sessions')}>
-              <div className="flex items-center gap-4">
-                <div className="w-11 h-11 rounded-2xl flex items-center justify-center shrink-0" style={{ background: '#D4AF3720' }}>
-                  <Calendar size={18} style={{ color: '#D4AF37' }} />
+            <SanctuaryPetalCard variant="saffron" testId="petal-schedule-m" className="p-4" delay={100} onClick={() => navigate('/dashboard/sessions')}>
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0" style={{ background: '#D4AF3720' }}>
+                  <Calendar size={17} style={{ color: '#D4AF37' }} />
                 </div>
                 <div className="flex-1 min-w-0">
                   <h3 className="text-[11px] font-bold uppercase tracking-[0.12em] text-slate-500">{scheduleEyebrow}</h3>
@@ -785,10 +774,10 @@ const StudentDashboard = () => {
             { testId: 'petal-diary-m', icon: BookOpen, color: '#93C5FD', variant: 'sky', title: SANCTUARY_REFERENCE.intentionsEye, sub: SANCTUARY_REFERENCE.intentionsTitle, to: '/dashboard/diary', delay: 400 },
             { testId: 'petal-galaxy-m', icon: Heart, color: '#F9A8D4', variant: 'rose', title: SANCTUARY_REFERENCE.speaksEye, sub: SANCTUARY_REFERENCE.transformationsHint, to: '/transformations', delay: 500 },
           ].map(item => (
-            <SanctuaryPetalCard key={item.testId} variant={item.variant} testId={item.testId} className="p-5" delay={item.delay} onClick={() => navigate(item.to)}>
-              <div className="flex items-center gap-4">
-                <div className="w-11 h-11 rounded-2xl flex items-center justify-center shrink-0" style={{ background: `${item.color}20` }}>
-                  <item.icon size={18} style={{ color: item.color }} />
+            <SanctuaryPetalCard key={item.testId} variant={item.variant} testId={item.testId} className="p-4" delay={item.delay} onClick={() => navigate(item.to)}>
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0" style={{ background: `${item.color}20` }}>
+                  <item.icon size={17} style={{ color: item.color }} />
                 </div>
                 <div className="flex-1 min-w-0">
                   <h3 className="text-[11px] font-bold uppercase tracking-[0.12em] text-slate-500">{item.title}</h3>
