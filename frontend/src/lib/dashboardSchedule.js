@@ -1,3 +1,40 @@
+/**
+ * Totals for dated schedule slots (YYYY-MM-DD) across enrolled programs.
+ * Matches calendar table rules: only slots with a valid date string; optional visibility filter.
+ */
+export function summarizeDatedProgramProgress(programs, options = {}) {
+  const onlyVisible = options.onlyVisible !== false;
+  let sessionsDated = 0;
+  let sessionsAvailed = 0;
+  let programsWithDated = 0;
+  let programsAllAvailed = 0;
+
+  for (const p of programs || []) {
+    if (typeof p === 'string' || !p?.name) continue;
+    if (onlyVisible && p.visible === false) continue;
+    const sched = p.schedule || [];
+    const datedSlots = sched.filter((s) => {
+      const ds = String(s?.date || '').trim().slice(0, 10);
+      return /^\d{4}-\d{2}-\d{2}$/.test(ds);
+    });
+    if (datedSlots.length === 0) continue;
+    programsWithDated += 1;
+    sessionsDated += datedSlots.length;
+    const done = datedSlots.filter((s) => s.completed).length;
+    sessionsAvailed += done;
+    if (done === datedSlots.length) programsAllAvailed += 1;
+  }
+
+  return {
+    sessionsDated,
+    sessionsAvailed,
+    sessionsYetToAvail: sessionsDated - sessionsAvailed,
+    programsWithDated,
+    programsAllAvailed,
+    programsWithSessionsLeft: programsWithDated - programsAllAvailed,
+  };
+}
+
 /** When API schedule_preview is empty (e.g. only past dates), still show rows from full programs[].schedule */
 export function rowsFromPrograms(programs) {
   const rows = [];

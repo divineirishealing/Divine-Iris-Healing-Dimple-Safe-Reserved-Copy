@@ -1,0 +1,10 @@
+# Daily 11:00 AM India Standard Time (IST)
+# Use the full path to your copy of this folder.
+#
+# Option A — cron interprets times in IST (works on many Linux systems):
+CRON_TZ=Asia/Kolkata
+0 11 * * * cd /FULL/PATH/TO/scripts/youtube_comment_replier && . .venv/bin/activate && python reply_comments.py >> cron.log 2>&1
+#
+# Option B — if CRON_TZ is not supported (some macOS), either:
+#   - set the Mac region/timezone to India and keep: 0 11 * * * ...
+#   - or run at 05:30 UTC (= 11:00 IST): 30 5 * * * TZ=UTC cd ... && python reply_comments.py >> cron.log 2>&1

@@ -15,7 +15,7 @@ import {
   Layers,
 } from 'lucide-react';
 import { cn, formatDateDdMonYyyy, formatDashboardTime } from '../../lib/utils';
-import { previewRowsNotInPrograms } from '../../lib/dashboardSchedule';
+import { previewRowsNotInPrograms, summarizeDatedProgramProgress } from '../../lib/dashboardSchedule';
 import { SessionModeToggle } from './SessionModeToggle';
 
 const API = process.env.REACT_APP_BACKEND_URL;
@@ -189,6 +189,11 @@ const CalendarPage = () => {
     return list;
   }, [visiblePrograms]);
 
+  const availedSummary = useMemo(
+    () => summarizeDatedProgramProgress(visiblePrograms, { onlyVisible: false }),
+    [visiblePrograms]
+  );
+
   const extraPreviewRows = useMemo(
     () => previewRowsNotInPrograms(data?.schedule_preview, programs),
     [data?.schedule_preview, programs]
@@ -287,12 +292,52 @@ const CalendarPage = () => {
               Magic Multiplier. Tap a program header to hide or show that program. Mini calendar on the right on desktop.
             </p>
           </div>
-          <div className="flex items-center gap-2 text-xs text-gray-500 shrink-0">
-            <Layers size={14} className="text-[#5D3FD3]" />
-            <span>{visiblePrograms.length} program{visiblePrograms.length !== 1 ? 's' : ''} visible</span>
+          <div className="flex flex-col items-end gap-1 text-xs text-gray-500 shrink-0 text-right">
+            <div className="flex items-center gap-2">
+              <Layers size={14} className="text-[#5D3FD3]" />
+              <span>{visiblePrograms.length} program{visiblePrograms.length !== 1 ? 's' : ''} on your calendar</span>
+            </div>
+            {availedSummary.sessionsDated > 0 && (
+              <div className="text-[10px] leading-snug max-w-[220px]">
+                <span className="font-semibold text-emerald-700">{availedSummary.sessionsAvailed}</span> session
+                {availedSummary.sessionsAvailed !== 1 ? 's' : ''} availed ·{' '}
+                <span className="font-semibold text-amber-800">{availedSummary.sessionsYetToAvail}</span> yet to avail
+              </div>
+            )}
           </div>
         </div>
       </div>
+
+      {availedSummary.sessionsDated > 0 && (
+        <div
+          className="mb-6 rounded-xl border border-[#5D3FD3]/12 bg-white/95 px-4 py-3 shadow-sm shadow-gray-900/[0.03]"
+          data-testid="calendar-availed-summary"
+        >
+          <p className="text-[10px] font-bold uppercase tracking-wider text-gray-500 mb-2">Progress (dated sessions)</p>
+          <div className="flex flex-wrap items-baseline gap-x-6 gap-y-2 text-sm text-gray-800">
+            <div>
+              <span className="text-gray-500 text-xs mr-1">Sessions</span>
+              <strong className="text-emerald-700 tabular-nums">{availedSummary.sessionsAvailed}</strong>
+              <span className="text-gray-600 text-xs"> availed</span>
+              <span className="mx-2 text-gray-300">·</span>
+              <strong className="text-amber-800 tabular-nums">{availedSummary.sessionsYetToAvail}</strong>
+              <span className="text-gray-600 text-xs"> yet to avail</span>
+              <span className="text-gray-400 text-xs ml-1">of {availedSummary.sessionsDated}</span>
+            </div>
+            <div className="hidden sm:block w-px h-4 bg-gray-200 self-center" aria-hidden />
+            <div>
+              <span className="text-gray-500 text-xs mr-1">Programs with dates</span>
+              <strong className="tabular-nums">{availedSummary.programsWithDated}</strong>
+              <span className="text-gray-400 text-xs mx-2">|</span>
+              <strong className="text-emerald-700 tabular-nums">{availedSummary.programsAllAvailed}</strong>
+              <span className="text-gray-600 text-xs"> all sessions done</span>
+              <span className="text-gray-400 text-xs mx-2">|</span>
+              <strong className="text-amber-800 tabular-nums">{availedSummary.programsWithSessionsLeft}</strong>
+              <span className="text-gray-600 text-xs"> with sessions left</span>
+            </div>
+          </div>
+        </div>
+      )}
 
       <div className="flex flex-col lg:flex-row lg:flex-nowrap lg:items-start gap-6 lg:gap-8">
         {/* Programs + schedule (left on desktop, full width row with calendar) */}
@@ -323,6 +368,8 @@ const CalendarPage = () => {
               const hiddenRowCount = dated.length - datedShown.length;
               const canShowMore = hiddenRowCount > 0;
               const canCollapseRows = rowCap > SCHEDULE_ROWS_PAGE && dated.length > SCHEDULE_ROWS_PAGE;
+              const datedAvailed = dated.filter(({ slot }) => slot.completed).length;
+              const datedYetToAvail = dated.length - datedAvailed;
 
               return (
                 <section
@@ -356,9 +403,14 @@ const CalendarPage = () => {
                         <h3 className={cn('text-base font-bold tracking-tight', th.label)}>{p.name}</h3>
                         <p className={cn('text-[11px] mt-0.5', th.muted)}>
                           {p.duration_value} {p.duration_unit}
-                          {dated.length > 0
-                            ? ` · ${dated.length} dated session${dated.length !== 1 ? 's' : ''}`
-                            : ''}
+                          {dated.length > 0 ? (
+                            <>
+                              {' '}
+                              · {dated.length} dated ·{' '}
+                              <span className="text-emerald-700 font-semibold">{datedAvailed}</span> availed ·{' '}
+                              <span className="text-amber-800 font-semibold">{datedYetToAvail}</span> yet to avail
+                            </>
+                          ) : null}
                         </p>
                       </div>
                     </div>

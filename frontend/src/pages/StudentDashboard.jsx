@@ -7,7 +7,7 @@ import {
   Coins,
 } from 'lucide-react';
 import { cn, formatDateDdMonYyyy, formatDashboardTime, dashboardStudentScheduleTable } from '../lib/utils';
-import { buildDashboardScheduleRows } from '../lib/dashboardSchedule';
+import { buildDashboardScheduleRows, summarizeDatedProgramProgress } from '../lib/dashboardSchedule';
 import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
 import { useToast } from '../hooks/use-toast';
@@ -228,6 +228,11 @@ const StudentDashboard = () => {
     [homeData?.schedule_preview, homeData?.programs]
   );
 
+  const sessionProgressSummary = useMemo(
+    () => summarizeDatedProgramProgress(homeData?.programs),
+    [homeData?.programs]
+  );
+
   const nextSessionDisplay = useMemo(() => {
     if (dashboardScheduleRows.length > 0 && isDateTodayYmd(dashboardScheduleRows[0].date)) {
       return SANCTUARY_REFERENCE.nextSessionTonight;
@@ -347,6 +352,18 @@ const StudentDashboard = () => {
               </div>
               <ChevronRight size={15} className="text-slate-300 group-hover:text-[#D4AF37] transition-colors shrink-0 mt-0.5" />
             </div>
+            {sessionProgressSummary.sessionsDated > 0 && (
+              <p
+                className="mt-1.5 text-[10px] leading-snug text-slate-600"
+                data-testid="dashboard-session-progress"
+              >
+                <span className="font-semibold text-emerald-700 tabular-nums">{sessionProgressSummary.sessionsAvailed}</span>
+                {' '}session{sessionProgressSummary.sessionsAvailed !== 1 ? 's' : ''} availed ·{' '}
+                <span className="font-semibold text-amber-800 tabular-nums">{sessionProgressSummary.sessionsYetToAvail}</span>
+                {' '}yet to avail
+                <span className="text-slate-400"> · {sessionProgressSummary.programsAllAvailed}/{sessionProgressSummary.programsWithDated} program{sessionProgressSummary.programsWithDated !== 1 ? 's' : ''} fully done</span>
+              </p>
+            )}
             {dashboardScheduleRows.length > 0 ? (
               <div className="mt-2 border-t border-slate-100 pt-2 overflow-x-auto" onClick={(e) => e.stopPropagation()}>
                 <table className={cn(dashboardStudentScheduleTable.table, 'text-xs')} data-testid="dashboard-schedule-table">
@@ -736,6 +753,15 @@ const StudentDashboard = () => {
                 </div>
                 <ChevronRight size={16} className="text-slate-300 shrink-0" />
               </div>
+              {sessionProgressSummary.sessionsDated > 0 && (
+                <p className="mb-2 text-[10px] leading-snug text-slate-600" data-testid="dashboard-session-progress-m">
+                  <span className="font-semibold text-emerald-700 tabular-nums">{sessionProgressSummary.sessionsAvailed}</span>
+                  {' '}availed ·{' '}
+                  <span className="font-semibold text-amber-800 tabular-nums">{sessionProgressSummary.sessionsYetToAvail}</span>
+                  {' '}yet to avail
+                  <span className="text-slate-400"> · {sessionProgressSummary.sessionsDated} dated</span>
+                </p>
+              )}
               <div className="border-t border-slate-100 pt-2 overflow-x-auto -mx-1 px-1" onClick={(e) => e.stopPropagation()}>
                 <table className={cn(dashboardStudentScheduleTable.table, 'min-w-[300px] text-xs')}>
                   <thead>
@@ -773,6 +799,15 @@ const StudentDashboard = () => {
                 </div>
                 <ChevronRight size={16} className="text-slate-300 shrink-0" />
               </div>
+              {sessionProgressSummary.sessionsDated > 0 && (
+                <p className="mt-2 text-[10px] leading-snug text-slate-600" data-testid="dashboard-session-progress-m-empty">
+                  <span className="font-semibold text-emerald-700 tabular-nums">{sessionProgressSummary.sessionsAvailed}</span>
+                  {' '}availed ·{' '}
+                  <span className="font-semibold text-amber-800 tabular-nums">{sessionProgressSummary.sessionsYetToAvail}</span>
+                  {' '}yet to avail
+                  <span className="text-slate-400"> · {sessionProgressSummary.sessionsDated} dated</span>
+                </p>
+              )}
             </SanctuaryPetalCard>
           )}
           {pts?.enabled && (
