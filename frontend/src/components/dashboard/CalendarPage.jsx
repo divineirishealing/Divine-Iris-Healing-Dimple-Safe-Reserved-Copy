@@ -5,6 +5,7 @@ import { Button } from '../ui/button';
 import {
   ChevronLeft,
   ChevronRight,
+  ChevronDown,
   Calendar as CalendarIcon,
   Clock,
   MapPin,
@@ -102,6 +103,12 @@ const NAMED_THEMES = {
   'Quarterly Meetups': FALLBACK_THEMES[3],
 };
 
+/** AWRP + Money Magic Multiplier: show rolling 3-calendar-month schedule columns */
+function isThreeMonthScheduleProgram(name) {
+  const n = (name || '').toLowerCase();
+  return n.includes('awrp') || n.includes('money magic') || /\bmmm\b/i.test(name || '');
+}
+
 function hashString(s) {
   let h = 0;
   for (let i = 0; i < s.length; i++) h = (Math.imul(31, h) + s.charCodeAt(i)) | 0;
@@ -126,12 +133,41 @@ function dateInSessionRange(selectedIso, startIso, endIso) {
   return selectedIso >= s && selectedIso <= e;
 }
 
+/** Group dated slots into current month + next 2 months (anchor: today). */
+function buildThreeMonthBuckets(dated, anchor = new Date()) {
+  const y = anchor.getFullYear();
+  const mo = anchor.getMonth();
+  const buckets = [0, 1, 2].map((off) => {
+    const d = new Date(y, mo + off, 1);
+    return {
+      year: d.getFullYear(),
+      month: d.getMonth(),
+      label: d.toLocaleString('default', { month: 'short', year: 'numeric' }),
+      items: [],
+    };
+  });
+  dated.forEach((entry) => {
+    const ds = String(entry.slot?.date || '').trim().slice(0, 10);
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(ds)) return;
+    const dt = new Date(ds);
+    for (let i = 0; i < buckets.length; i++) {
+      const b = buckets[i];
+      if (dt.getFullYear() === b.year && dt.getMonth() === b.month) {
+        b.items.push(entry);
+        return;
+      }
+    }
+  });
+  return buckets;
+}
+
 const CalendarPage = () => {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [currentMonth, setCurrentMonth] = useState(new Date().getMonth());
   const [currentYear, setCurrentYear] = useState(new Date().getFullYear());
   const [selectedDate, setSelectedDate] = useState(null);
+  const [collapsedPrograms, setCollapsedPrograms] = useState({});
 
   const fetchHome = useCallback(() => {
     axios
@@ -258,8 +294,8 @@ const CalendarPage = () => {
               Programs &amp; calendar
             </h1>
             <p className="text-sm text-gray-600 mt-2 max-w-xl">
-              Full session list by program — start, end, time, and online or in person. Use the compact calendar to
-              browse months and highlight a day.
+              AWRP and Money Magic Multiplier show the next three calendar months in one row. Bi-annual downloads and
+              quarterly meetups use the full list. Collapse any program to focus. Calendar stays on the right on desktop.
             </p>
           </div>
           <div className="flex items-center gap-2 text-xs text-gray-500 shrink-0">
@@ -269,9 +305,336 @@ const CalendarPage = () => {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,268px)_1fr] xl:grid-cols-[minmax(0,288px)_1fr] gap-6 lg:gap-8 items-start">
-        {/* Mini calendar + stats */}
-        <aside className="space-y-4 lg:sticky lg:top-[4.5rem] lg:self-start w-full max-w-md lg:max-w-none mx-auto lg:mx-0">
+      <div className="flex flex-col lg:flex-row lg:flex-nowrap lg:items-start gap-6 lg:gap-8">
+        {/* Programs + schedule (left on desktop, full width row with calendar) */}
+        <main className="flex-1 min-w-0 space-y-5 order-1" data-testid="calendar-schedule-table">
+          <div className="flex items-center justify-between gap-3 flex-wrap">
+            <h2 className="text-lg font-bold text-gray-900">Programs &amp; schedule</h2>
+            <p className="text-xs text-gray-500">Tap a program header to expand or collapse</p>
+          </div>
+
+          <div className="space-y-5">
+            {visiblePrograms.map((p) => {
+              const th = getProgramTheme(p.name);
+              const dated = (p.schedule || [])
+                .map((slot, sessionIndex) => ({ slot, sessionIndex }))
+                .filter(({ slot }) => {
+                  const ds = String(slot?.date || '').trim().slice(0, 10);
+                  return /^\d{4}-\d{2}-\d{2}$/.test(ds);
+                })
+                .sort((a, b) => String(a.slot.date).slice(0, 10).localeCompare(String(b.slot.date).slice(0, 10)));
+
+              const useThreeCol = isThreeMonthScheduleProgram(p.name);
+              const monthBuckets = useThreeCol ? buildThreeMonthBuckets(dated, today) : null;
+              const collapsed = collapsedPrograms[p.name] === true;
+
+              return (
+                <section
+                  key={p.name}
+                  className={cn(
+                    'rounded-2xl overflow-hidden border bg-white shadow-md shadow-gray-900/[0.04] ring-1',
+                    th.cardRing,
+                    th.border
+                  )}
+                  data-testid={`calendar-program-${p.name.replace(/\s+/g, '-').toLowerCase()}`}
+                >
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setCollapsedPrograms((c) => ({ ...c, [p.name]: !c[p.name] }))
+                    }
+                    className={cn(
+                      'relative w-full text-left px-4 py-3 sm:px-5 sm:py-3.5 flex flex-wrap items-center gap-3 justify-between bg-gradient-to-r',
+                      th.headerTint,
+                      'border-b border-gray-100/80 hover:opacity-95 transition-opacity'
+                    )}
+                  >
+                    <div className={cn('absolute left-0 top-0 bottom-0 w-1 bg-gradient-to-b', th.bar)} />
+                    <div className="pl-2 min-w-0 flex items-center gap-2 flex-1">
+                      <ChevronDown
+                        size={18}
+                        className={cn('shrink-0 text-gray-500 transition-transform', collapsed && '-rotate-90')}
+                        aria-hidden
+                      />
+                      <div className="min-w-0">
+                        <h3 className={cn('text-base font-bold tracking-tight', th.label)}>{p.name}</h3>
+                        <p className={cn('text-[11px] mt-0.5', th.muted)}>
+                          {p.duration_value} {p.duration_unit}
+                          {useThreeCol
+                            ? ' · Next 3 months'
+                            : dated.length > 0
+                              ? ` · ${dated.length} dated session${dated.length !== 1 ? 's' : ''}`
+                              : ''}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2 shrink-0">
+                      {p.status === 'paused' && (
+                        <span className="text-[10px] font-bold uppercase tracking-wide px-2 py-1 rounded-full bg-amber-100 text-amber-800 border border-amber-200">
+                          Paused
+                        </span>
+                      )}
+                    </div>
+                  </button>
+
+                  {!collapsed && useThreeCol && monthBuckets && (
+                    <div className="px-3 py-4 sm:px-4 border-t border-gray-100/90">
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                        {monthBuckets.map((b) => (
+                          <div
+                            key={`${b.year}-${b.month}`}
+                            className={cn('rounded-xl border overflow-hidden', th.border, 'bg-white/95')}
+                          >
+                            <div
+                              className={cn(
+                                'text-[10px] font-bold uppercase tracking-wider px-2.5 py-2 border-b bg-gradient-to-r',
+                                th.headerTint
+                              )}
+                            >
+                              {b.label}
+                            </div>
+                            <div className="p-2 space-y-2 max-h-[min(360px,50vh)] overflow-y-auto">
+                              {b.items.length === 0 ? (
+                                <p className="text-[10px] text-gray-400 italic px-1 py-2">No sessions</p>
+                              ) : (
+                                b.items.map(({ slot, sessionIndex }) => {
+                                  const startDisp = formatDateDdMonYyyy(slot.date) || '—';
+                                  const timeDisp = formatDashboardTime(slot.time);
+                                  const persistable = p.name !== '1:1 Session' && sessionIndex != null;
+                                  const highlighted =
+                                    selectedDate &&
+                                    dateInSessionRange(selectedDate, slot.date, slot.end_date);
+                                  const lbl = sessionLabel(p.duration_unit, sessionIndex);
+                                  return (
+                                    <div
+                                      key={`${p.name}-${sessionIndex}-${slot.date}`}
+                                      className={cn(
+                                        'rounded-lg border px-2 py-2 text-[11px] space-y-1.5',
+                                        th.border,
+                                        highlighted && th.rowActive
+                                      )}
+                                    >
+                                      <div className="flex items-center justify-between gap-2">
+                                        <span
+                                          className={cn(
+                                            'inline-flex w-7 h-7 rounded-lg items-center justify-center text-[9px] font-bold shrink-0',
+                                            slot.completed
+                                              ? 'bg-emerald-500 text-white'
+                                              : 'bg-gray-100 text-gray-600 border border-gray-200/80'
+                                          )}
+                                          title={slot.completed ? 'Completed' : lbl}
+                                        >
+                                          {slot.completed ? <CheckCircle size={12} /> : lbl}
+                                        </span>
+                                        <div className="min-w-0 text-right font-mono tabular-nums text-[10px] text-gray-700">
+                                          <div>{startDisp}</div>
+                                          <div className="text-gray-500 flex items-center justify-end gap-0.5">
+                                            <Clock size={10} className="opacity-60" />
+                                            {timeDisp}
+                                          </div>
+                                        </div>
+                                      </div>
+                                      {persistable ? (
+                                        <SessionModeToggle
+                                          programName={p.name}
+                                          sessionIndex={sessionIndex}
+                                          modeChoice={slot.mode_choice}
+                                          programDefaultMode={p.mode}
+                                          onSuccess={fetchHome}
+                                        />
+                                      ) : null}
+                                      {slot.note ? (
+                                        <div className="text-[10px] text-gray-500 flex items-start gap-1">
+                                          <MapPin size={10} className="shrink-0 opacity-60 mt-0.5" />
+                                          {slot.note}
+                                        </div>
+                                      ) : null}
+                                    </div>
+                                  );
+                                })
+                              )}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {!collapsed && !useThreeCol && dated.length === 0 && (
+                    <div className="px-5 py-8 text-center text-sm text-gray-400 italic border-t border-gray-100/80">
+                      Dates for this program will appear when scheduled
+                    </div>
+                  )}
+
+                  {!collapsed && !useThreeCol && dated.length > 0 && (
+                    <div className="border-t border-gray-100/90">
+                      <div
+                        className={cn(
+                          'hidden sm:grid gap-3 px-4 py-2 text-[10px] font-bold uppercase tracking-wider text-gray-400 bg-gray-50/95 border-b border-gray-100',
+                          'grid-cols-[52px_1fr_1fr_1fr_minmax(128px,1fr)]'
+                        )}
+                      >
+                        <span>#</span>
+                        <span>Start</span>
+                        <span>End</span>
+                        <span>Time</span>
+                        <span className="text-right pr-1">Online / off</span>
+                      </div>
+
+                      {dated.map(({ slot, sessionIndex }) => {
+                        const startDisp = formatDateDdMonYyyy(slot.date) || '—';
+                        const endDisp = formatDateDdMonYyyy(slot.end_date) || '—';
+                        const timeDisp = formatDashboardTime(slot.time);
+                        const persistable = p.name !== '1:1 Session' && sessionIndex != null;
+                        const highlighted =
+                          selectedDate && dateInSessionRange(selectedDate, slot.date, slot.end_date);
+                        const lbl = sessionLabel(p.duration_unit, sessionIndex);
+
+                        return (
+                          <div
+                            key={`${p.name}-${sessionIndex}-${slot.date}`}
+                            className={cn(
+                              'border-b border-gray-100/80 last:border-0 transition-colors px-3 py-3 sm:px-4 sm:py-0',
+                              th.rowHover,
+                              highlighted && th.rowActive
+                            )}
+                          >
+                            <div className="flex flex-col gap-3 sm:grid sm:grid-cols-[52px_1fr_1fr_1fr_minmax(128px,1fr)] sm:gap-3 sm:items-center sm:py-2.5">
+                              <div className="flex items-center gap-2 sm:block sm:text-center">
+                                <span
+                                  className={cn(
+                                    'inline-flex w-9 h-9 rounded-xl items-center justify-center text-[10px] font-bold shrink-0 mx-auto sm:mx-0',
+                                    slot.completed
+                                      ? 'bg-emerald-500 text-white'
+                                      : 'bg-gray-100 text-gray-600 border border-gray-200/80'
+                                  )}
+                                  title={slot.completed ? 'Completed' : lbl}
+                                >
+                                  {slot.completed ? <CheckCircle size={14} /> : lbl}
+                                </span>
+                                <div className="sm:hidden min-w-0 flex-1">
+                                  <p className={cn('text-xs font-bold', th.label)}>{lbl}</p>
+                                  <p className="text-[10px] text-gray-500 font-mono tabular-nums mt-0.5">
+                                    {startDisp}
+                                    {endDisp !== '—' && endDisp !== startDisp ? ` → ${endDisp}` : ''} · {timeDisp}
+                                  </p>
+                                </div>
+                              </div>
+                              <div>
+                                <span className="text-[9px] uppercase text-gray-400 font-semibold sm:hidden">
+                                  Start
+                                </span>
+                                <div className="font-mono tabular-nums text-sm text-gray-800">{startDisp}</div>
+                              </div>
+                              <div>
+                                <span className="text-[9px] uppercase text-gray-400 font-semibold sm:hidden">End</span>
+                                <div className="font-mono tabular-nums text-sm text-gray-800">{endDisp}</div>
+                              </div>
+                              <div>
+                                <span className="text-[9px] uppercase text-gray-400 font-semibold sm:hidden">
+                                  Time
+                                </span>
+                                <div className="font-mono tabular-nums text-sm text-gray-600 flex items-center gap-1">
+                                  <Clock size={12} className="text-gray-400 shrink-0 opacity-70" />
+                                  {timeDisp}
+                                </div>
+                              </div>
+                              <div className="flex justify-end pt-1 border-t border-gray-100/80 sm:border-0 sm:pt-0">
+                                {persistable ? (
+                                  <SessionModeToggle
+                                    programName={p.name}
+                                    sessionIndex={sessionIndex}
+                                    modeChoice={slot.mode_choice}
+                                    programDefaultMode={p.mode}
+                                    onSuccess={fetchHome}
+                                  />
+                                ) : (
+                                  <span className="text-[10px] text-gray-400">—</span>
+                                )}
+                              </div>
+                            </div>
+                            {slot.note ? (
+                              <div className="text-[11px] text-gray-500 flex items-start gap-1.5 pb-3 sm:pb-2 sm:pl-[52px] sm:-mt-1">
+                                <MapPin size={11} className="shrink-0 opacity-60 mt-0.5" />
+                                {slot.note}
+                              </div>
+                            ) : null}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </section>
+              );
+            })}
+          </div>
+
+          {extraPreviewRows.length > 0 && (
+            <section
+              className="rounded-2xl overflow-hidden border border-gray-200 bg-white shadow-md shadow-gray-900/[0.04] ring-1 ring-gray-200/50"
+              data-testid="calendar-preview-extra"
+            >
+              <div className="px-4 py-3 bg-gradient-to-r from-slate-50 to-gray-50 border-b border-gray-100">
+                <h3 className="text-base font-bold text-gray-800">Also on your calendar</h3>
+                <p className="text-[11px] text-gray-500 mt-0.5">From your overview — not tied to a program schedule row</p>
+              </div>
+              <div className="divide-y divide-gray-100">
+                {extraPreviewRows.map((r, i) => {
+                  const th = getProgramTheme(r.program_name);
+                  const prog = programByName[r.program_name];
+                  const persistable = r.program_name !== '1:1 Session' && r.session_index != null;
+                  const highlighted =
+                    selectedDate && dateInSessionRange(selectedDate, r.date, r.end_date);
+                  return (
+                    <div
+                      key={`extra-${i}-${r.date}`}
+                      className={cn(
+                        'grid sm:grid-cols-[1fr_auto_auto_auto_auto] gap-2 px-4 py-3 items-center',
+                        th.rowHover,
+                        highlighted && th.rowActive
+                      )}
+                    >
+                      <div className="flex items-center gap-2 min-w-0">
+                        <span className={cn('w-2 h-2 rounded-full shrink-0', th.dot)} />
+                        <span className={cn('font-semibold truncate', th.label)}>{r.program_name}</span>
+                      </div>
+                      <span className="font-mono tabular-nums text-sm text-gray-800">
+                        {formatDateDdMonYyyy(r.date) || '—'}
+                      </span>
+                      <span className="font-mono tabular-nums text-sm text-gray-800">
+                        {formatDateDdMonYyyy(r.end_date) || '—'}
+                      </span>
+                      <span className="font-mono tabular-nums text-sm text-gray-600">{formatDashboardTime(r.time)}</span>
+                      <div className="flex justify-end">
+                        {persistable ? (
+                          <SessionModeToggle
+                            programName={r.program_name}
+                            sessionIndex={r.session_index}
+                            modeChoice={r.mode_choice}
+                            programDefaultMode={prog?.mode}
+                            onSuccess={fetchHome}
+                          />
+                        ) : (
+                          <span className="text-[10px] text-gray-400">—</span>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </section>
+          )}
+
+          {visiblePrograms.length === 0 && extraPreviewRows.length === 0 && (
+            <div className="rounded-2xl border border-dashed border-gray-200 bg-gray-50/50 py-16 text-center text-gray-500">
+              <CalendarIcon className="mx-auto mb-3 text-gray-300" size={40} />
+              <p className="text-sm">No programs or sessions yet</p>
+            </div>
+          )}
+        </main>
+
+        {/* Mini calendar + stats — right column on desktop, one row with schedule */}
+        <aside className="space-y-4 w-full max-w-md mx-auto lg:mx-0 lg:w-[min(100%,300px)] shrink-0 lg:sticky lg:top-[4.5rem] lg:self-start order-2">
           <Card
             className={cn(
               'overflow-hidden border-0 shadow-lg shadow-gray-900/5 ring-1 ring-gray-900/5',
@@ -407,229 +770,6 @@ const CalendarPage = () => {
             </div>
           )}
         </aside>
-
-        {/* Full scheduler */}
-        <main className="min-w-0 space-y-5" data-testid="calendar-schedule-table">
-          <div className="flex items-center justify-between gap-3 flex-wrap">
-            <h2 className="text-lg font-bold text-gray-900">Full schedule</h2>
-            <p className="text-xs text-gray-500">Colors match each program across the calendar</p>
-          </div>
-
-          <div className="space-y-5">
-            {visiblePrograms.map((p) => {
-              const th = getProgramTheme(p.name);
-              const dated = (p.schedule || [])
-                .map((slot, sessionIndex) => ({ slot, sessionIndex }))
-                .filter(({ slot }) => {
-                  const ds = String(slot?.date || '').trim().slice(0, 10);
-                  return /^\d{4}-\d{2}-\d{2}$/.test(ds);
-                })
-                .sort((a, b) => String(a.slot.date).slice(0, 10).localeCompare(String(b.slot.date).slice(0, 10)));
-
-              return (
-                <section
-                  key={p.name}
-                  className={cn(
-                    'rounded-2xl overflow-hidden border bg-white shadow-md shadow-gray-900/[0.04] ring-1',
-                    th.cardRing,
-                    th.border
-                  )}
-                  data-testid={`calendar-program-${p.name.replace(/\s+/g, '-').toLowerCase()}`}
-                >
-                  <div
-                    className={cn(
-                      'relative px-4 py-3 sm:px-5 sm:py-3.5 flex flex-wrap items-center gap-3 justify-between bg-gradient-to-r',
-                      th.headerTint
-                    )}
-                  >
-                    <div className={cn('absolute left-0 top-0 bottom-0 w-1 bg-gradient-to-b', th.bar)} />
-                    <div className="pl-2 min-w-0">
-                      <h3 className={cn('text-base font-bold tracking-tight', th.label)}>{p.name}</h3>
-                      <p className={cn('text-[11px] mt-0.5', th.muted)}>
-                        {p.duration_value} {p.duration_unit}
-                        {dated.length > 0 ? ` · ${dated.length} dated session${dated.length !== 1 ? 's' : ''}` : ''}
-                      </p>
-                    </div>
-                    {p.status === 'paused' && (
-                      <span className="text-[10px] font-bold uppercase tracking-wide px-2 py-1 rounded-full bg-amber-100 text-amber-800 border border-amber-200">
-                        Paused
-                      </span>
-                    )}
-                  </div>
-
-                  {dated.length === 0 ? (
-                    <div className="px-5 py-8 text-center text-sm text-gray-400 italic border-t border-gray-100/80">
-                      Dates for this program will appear when scheduled
-                    </div>
-                  ) : (
-                    <div className="border-t border-gray-100/90">
-                      <div
-                        className={cn(
-                          'hidden sm:grid gap-3 px-4 py-2 text-[10px] font-bold uppercase tracking-wider text-gray-400 bg-gray-50/95 border-b border-gray-100',
-                          'grid-cols-[52px_1fr_1fr_1fr_minmax(128px,1fr)]'
-                        )}
-                      >
-                        <span>#</span>
-                        <span>Start</span>
-                        <span>End</span>
-                        <span>Time</span>
-                        <span className="text-right pr-1">Online / off</span>
-                      </div>
-
-                      {dated.map(({ slot, sessionIndex }) => {
-                        const startDisp = formatDateDdMonYyyy(slot.date) || '—';
-                        const endDisp = formatDateDdMonYyyy(slot.end_date) || '—';
-                        const timeDisp = formatDashboardTime(slot.time);
-                        const persistable =
-                          p.name !== '1:1 Session' && sessionIndex != null;
-                        const highlighted =
-                          selectedDate &&
-                          dateInSessionRange(selectedDate, slot.date, slot.end_date);
-                        const lbl = sessionLabel(p.duration_unit, sessionIndex);
-
-                        return (
-                          <div
-                            key={`${p.name}-${sessionIndex}-${slot.date}`}
-                            className={cn(
-                              'border-b border-gray-100/80 last:border-0 transition-colors px-3 py-3 sm:px-4 sm:py-0',
-                              th.rowHover,
-                              highlighted && th.rowActive
-                            )}
-                          >
-                            <div className="flex flex-col gap-3 sm:grid sm:grid-cols-[52px_1fr_1fr_1fr_minmax(128px,1fr)] sm:gap-3 sm:items-center sm:py-2.5">
-                              <div className="flex items-center gap-2 sm:block sm:text-center">
-                                <span
-                                  className={cn(
-                                    'inline-flex w-9 h-9 rounded-xl items-center justify-center text-[10px] font-bold shrink-0 mx-auto sm:mx-0',
-                                    slot.completed
-                                      ? 'bg-emerald-500 text-white'
-                                      : 'bg-gray-100 text-gray-600 border border-gray-200/80'
-                                  )}
-                                  title={slot.completed ? 'Completed' : lbl}
-                                >
-                                  {slot.completed ? <CheckCircle size={14} /> : lbl}
-                                </span>
-                                <div className="sm:hidden min-w-0 flex-1">
-                                  <p className={cn('text-xs font-bold', th.label)}>{lbl}</p>
-                                  <p className="text-[10px] text-gray-500 font-mono tabular-nums mt-0.5">
-                                    {startDisp}
-                                    {endDisp !== '—' && endDisp !== startDisp ? ` → ${endDisp}` : ''} · {timeDisp}
-                                  </p>
-                                </div>
-                              </div>
-                              <div>
-                                <span className="text-[9px] uppercase text-gray-400 font-semibold sm:hidden">
-                                  Start
-                                </span>
-                                <div className="font-mono tabular-nums text-sm text-gray-800">{startDisp}</div>
-                              </div>
-                              <div>
-                                <span className="text-[9px] uppercase text-gray-400 font-semibold sm:hidden">End</span>
-                                <div className="font-mono tabular-nums text-sm text-gray-800">{endDisp}</div>
-                              </div>
-                              <div>
-                                <span className="text-[9px] uppercase text-gray-400 font-semibold sm:hidden">
-                                  Time
-                                </span>
-                                <div className="font-mono tabular-nums text-sm text-gray-600 flex items-center gap-1">
-                                  <Clock size={12} className="text-gray-400 shrink-0 opacity-70" />
-                                  {timeDisp}
-                                </div>
-                              </div>
-                              <div className="flex justify-end pt-1 border-t border-gray-100/80 sm:border-0 sm:pt-0">
-                                {persistable ? (
-                                  <SessionModeToggle
-                                    programName={p.name}
-                                    sessionIndex={sessionIndex}
-                                    modeChoice={slot.mode_choice}
-                                    programDefaultMode={p.mode}
-                                    onSuccess={fetchHome}
-                                  />
-                                ) : (
-                                  <span className="text-[10px] text-gray-400">—</span>
-                                )}
-                              </div>
-                            </div>
-                            {slot.note ? (
-                              <div className="text-[11px] text-gray-500 flex items-start gap-1.5 pb-3 sm:pb-2 sm:pl-[52px] sm:-mt-1">
-                                <MapPin size={11} className="shrink-0 opacity-60 mt-0.5" />
-                                {slot.note}
-                              </div>
-                            ) : null}
-                          </div>
-                        );
-                      })}
-                    </div>
-                  )}
-                </section>
-              );
-            })}
-          </div>
-
-          {extraPreviewRows.length > 0 && (
-            <section
-              className="rounded-2xl overflow-hidden border border-gray-200 bg-white shadow-md shadow-gray-900/[0.04] ring-1 ring-gray-200/50"
-              data-testid="calendar-preview-extra"
-            >
-              <div className="px-4 py-3 bg-gradient-to-r from-slate-50 to-gray-50 border-b border-gray-100">
-                <h3 className="text-base font-bold text-gray-800">Also on your calendar</h3>
-                <p className="text-[11px] text-gray-500 mt-0.5">From your overview — not tied to a program schedule row</p>
-              </div>
-              <div className="divide-y divide-gray-100">
-                {extraPreviewRows.map((r, i) => {
-                  const th = getProgramTheme(r.program_name);
-                  const prog = programByName[r.program_name];
-                  const persistable =
-                    r.program_name !== '1:1 Session' && r.session_index != null;
-                  const highlighted =
-                    selectedDate && dateInSessionRange(selectedDate, r.date, r.end_date);
-                  return (
-                    <div
-                      key={`extra-${i}-${r.date}`}
-                      className={cn(
-                        'grid sm:grid-cols-[1fr_auto_auto_auto_auto] gap-2 px-4 py-3 items-center',
-                        th.rowHover,
-                        highlighted && th.rowActive
-                      )}
-                    >
-                      <div className="flex items-center gap-2 min-w-0">
-                        <span className={cn('w-2 h-2 rounded-full shrink-0', th.dot)} />
-                        <span className={cn('font-semibold truncate', th.label)}>{r.program_name}</span>
-                      </div>
-                      <span className="font-mono tabular-nums text-sm text-gray-800">
-                        {formatDateDdMonYyyy(r.date) || '—'}
-                      </span>
-                      <span className="font-mono tabular-nums text-sm text-gray-800">
-                        {formatDateDdMonYyyy(r.end_date) || '—'}
-                      </span>
-                      <span className="font-mono tabular-nums text-sm text-gray-600">{formatDashboardTime(r.time)}</span>
-                      <div className="flex justify-end">
-                        {persistable ? (
-                          <SessionModeToggle
-                            programName={r.program_name}
-                            sessionIndex={r.session_index}
-                            modeChoice={r.mode_choice}
-                            programDefaultMode={prog?.mode}
-                            onSuccess={fetchHome}
-                          />
-                        ) : (
-                          <span className="text-[10px] text-gray-400">—</span>
-                        )}
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </section>
-          )}
-
-          {visiblePrograms.length === 0 && extraPreviewRows.length === 0 && (
-            <div className="rounded-2xl border border-dashed border-gray-200 bg-gray-50/50 py-16 text-center text-gray-500">
-              <CalendarIcon className="mx-auto mb-3 text-gray-300" size={40} />
-              <p className="text-sm">No programs or sessions yet</p>
-            </div>
-          )}
-        </main>
       </div>
     </div>
   );
