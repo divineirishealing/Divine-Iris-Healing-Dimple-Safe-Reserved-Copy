@@ -1,7 +1,6 @@
 import React, { useEffect, useRef, useMemo } from 'react';
 import { cn } from '../../lib/utils';
 import { resolveCosmicTheme } from '../../lib/dashboardCosmicThemes';
-import { SacredConstellationCanvas } from './SacredConstellationCanvas';
 
 /** Electric violet constellations — bolder than default, aligned with Transformations hero energy */
 const CONSTELLATION_PATTERNS = [
@@ -71,7 +70,7 @@ export function CosmicDashboardBackground({ videoActive = false, variant = 'milk
   const theme = useMemo(() => resolveCosmicTheme(variant), [variant]);
 
   useEffect(() => {
-    if (variant === 'sacred_constellation') return;
+    if (variant === 'immersive_purple') return;
     const canvas = canvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
@@ -430,7 +429,7 @@ export function CosmicDashboardBackground({ videoActive = false, variant = 'milk
     };
   }, [videoActive, variant]);
 
-  const isSacred = variant === 'sacred_constellation';
+  const isImmersivePurple = variant === 'immersive_purple';
 
   return (
     <div
@@ -439,15 +438,32 @@ export function CosmicDashboardBackground({ videoActive = false, variant = 'milk
       data-cosmic-variant={variant}
       aria-hidden
     >
-      {isSacred ? (
+      {isImmersivePurple ? (
         <>
-          <div className="absolute inset-0" style={{ background: '#0d0120' }} />
-          <div className="absolute inset-0">
-            <SacredConstellationCanvas
-              className="absolute inset-0 w-full h-full"
-              style={{ opacity: videoActive ? 0.82 : 1 }}
-            />
-          </div>
+          <div
+            className="absolute inset-0"
+            style={{
+              background:
+                'linear-gradient(165deg, #1a0a3e 0%, #2d1b69 22%, #4c1d95 48%, #5b21b6 72%, #312e81 100%)',
+            }}
+          />
+          <div
+            className="absolute inset-0"
+            style={{
+              opacity: 0.95,
+              background: `
+                radial-gradient(ellipse 110% 85% at 50% -15%, rgba(196, 181, 253, 0.55) 0%, transparent 52%),
+                radial-gradient(ellipse 90% 70% at 100% 45%, rgba(167, 139, 250, 0.35) 0%, transparent 48%),
+                radial-gradient(ellipse 80% 60% at 0% 85%, rgba(139, 92, 246, 0.28) 0%, transparent 45%)
+              `,
+            }}
+          />
+          <div
+            className="absolute inset-0 opacity-[0.12]"
+            style={{
+              background: 'radial-gradient(ellipse 70% 50% at 50% 100%, rgba(212, 175, 55, 0.35) 0%, transparent 55%)',
+            }}
+          />
         </>
       ) : (
         <>

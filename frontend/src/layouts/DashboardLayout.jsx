@@ -5,7 +5,6 @@ import { NavLink } from 'react-router-dom';
 import { Loader2, Menu, X, Home, Sprout, Calendar, TrendingUp, Sparkles, Heart, BookOpen, User, CreditCard, LogOut } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { CosmicDashboardBackground } from '../components/dashboard/CosmicDashboardBackground';
-import { DashboardSacredNav } from '../components/dashboard/DashboardSacredNav';
 import { getDashboardCosmicVariant } from '../lib/dashboardCosmicThemes';
 
 const NAV_ITEMS = [
@@ -37,7 +36,7 @@ const DashboardLayout = () => {
       <div
         className="min-h-screen flex items-center justify-center relative overflow-hidden"
         style={{
-          background: 'linear-gradient(180deg, #0d0618 0%, #1a0a3e 55%, #0f0a1e 100%)',
+          background: 'linear-gradient(165deg, #1a0a3e 0%, #2d1b69 45%, #4c1d95 100%)',
         }}
       >
         <div
@@ -55,12 +54,10 @@ const DashboardLayout = () => {
   if (!user) { window.location.href = '/login'; return null; }
 
   const cosmicVariant = getDashboardCosmicVariant(location.pathname);
-  const isSacredHome = location.pathname === '/dashboard' || location.pathname === '/dashboard/';
 
   return (
     <div className="min-h-screen relative bg-transparent">
       <CosmicDashboardBackground videoActive={Boolean(bgVideo)} variant={cosmicVariant} />
-      {isSacredHome && <DashboardSacredNav />}
 
       {/* Optional admin video — kept subtle so constellations & planets stay the hero */}
       {bgVideo && (
@@ -81,30 +78,26 @@ const DashboardLayout = () => {
           className="fixed inset-0 z-[2] pointer-events-none"
           style={{
             background:
-              'linear-gradient(180deg, rgba(2,2,10,0.55) 0%, rgba(4,4,18,0.4) 45%, rgba(2,2,8,0.6) 100%)',
+              'linear-gradient(180deg, rgba(26,10,62,0.5) 0%, rgba(45,27,105,0.35) 45%, rgba(30,10,80,0.55) 100%)',
           }}
         />
       )}
 
-      {/* Soft vignette — lighter on sacred home so HTML-style constellation reads clearly */}
+      {/* Edge depth — keeps purple field feeling infinite */}
       <div
         className="fixed inset-0 z-[3] pointer-events-none"
         style={{
-          boxShadow: isSacredHome
-            ? 'inset 0 0 min(100vw, 1200px) rgba(8, 0, 32, 0.28), inset 0 -80px 140px rgba(4, 0, 24, 0.35)'
-            : 'inset 0 0 min(100vw, 1400px) rgba(26, 10, 62, 0.38), inset 0 -120px 200px rgba(45, 27, 105, 0.22)',
+          boxShadow:
+            'inset 0 0 min(100vw, 1400px) rgba(15, 5, 45, 0.25), inset 0 -100px 180px rgba(30, 10, 80, 0.2)',
         }}
         aria-hidden
       />
 
-      {/* Floating menu — no top bar; home “petal” cards are primary navigation */}
+      {/* Single floating control — no top menu bar (immersive) */}
       <button
         type="button"
         onClick={() => setSidebarOpen(!sidebarOpen)}
-        className={cn(
-          'fixed left-4 z-[70] w-11 h-11 rounded-2xl flex items-center justify-center text-white/75 hover:text-[#D4AF37] border border-white/[0.12] bg-[rgba(6,8,24,0.55)] backdrop-blur-xl shadow-[0_8px_32px_rgba(0,0,0,0.35)] hover:border-[#D4AF37]/30 transition-all',
-          isSacredHome ? 'top-[68px]' : 'top-4'
-        )}
+        className="fixed bottom-6 left-6 z-[70] w-12 h-12 rounded-full flex items-center justify-center text-violet-900 bg-white/90 hover:bg-white border border-white shadow-[0_8px_32px_rgba(30,27,75,0.35)] hover:shadow-[0_12px_40px_rgba(30,27,75,0.45)] transition-all backdrop-blur-sm"
         aria-expanded={sidebarOpen}
         aria-label={sidebarOpen ? 'Close menu' : 'Open menu'}
         data-testid="sidebar-toggle"
@@ -158,8 +151,8 @@ const DashboardLayout = () => {
       </div>
 
       {/* ═══ MAIN CONTENT ═══ */}
-      <main className={cn('relative z-20 min-h-screen', isSacredHome && 'pt-[58px]')}>
-        <div className={cn('p-4 md:p-8', isSacredHome && 'pt-3 md:pt-5')}>
+      <main className="relative z-20 min-h-screen">
+        <div className="p-4 md:p-8 pb-24 md:pb-28">
           <Outlet />
         </div>
       </main>

@@ -305,10 +305,10 @@ export const DASHBOARD_COSMIC_THEMES = {
     canvas: { starDelta: 8, maxD: 115, lineBlue: [140, 220, 230], lineGoldMult: 0.38, warmStarBoost: 0.04 },
   },
 
-  /** Matches divine_iris_constellation.html — canvas draws sky; these layers stay minimal */
-  sacred_constellation: {
-    label: 'Sacred constellation',
-    sub: 'Sanctuary sky',
+  /** Full-screen purple wash — no canvas; white cards sit on top */
+  immersive_purple: {
+    label: 'Immersive sanctuary',
+    sub: 'Violet field',
     milkyOpacity: '0',
     milkyGradient: 'transparent',
     nebula1: 'transparent',
@@ -373,7 +373,7 @@ export function resolveCosmicTheme(variant) {
 export function getDashboardCosmicVariant(pathname) {
   const p = pathname || '';
   /** One sanctuary sky everywhere under /dashboard (sacred constellation + #0d0120). */
-  if (p.startsWith('/dashboard')) return 'sacred_constellation';
+  if (p.startsWith('/dashboard')) return 'immersive_purple';
   return 'deep_space';
 }
 

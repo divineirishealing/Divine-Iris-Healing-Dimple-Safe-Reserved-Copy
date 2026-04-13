@@ -69,7 +69,7 @@ function ScheduleModeToggle({ slot, onModeSaved, compact }) {
     const isOffline = active === 'offline';
     return (
       <div className="flex items-center justify-end gap-1" onClick={(e) => e.stopPropagation()}>
-        <span className="text-[7px] font-semibold text-white/50 uppercase tracking-tight text-right leading-tight max-w-[38px]">
+        <span className="text-[7px] font-semibold text-slate-500 uppercase tracking-tight text-right leading-tight max-w-[38px]">
           {isOffline ? 'Offline' : 'Online'}
         </span>
         <button
@@ -102,7 +102,7 @@ function ScheduleModeToggle({ slot, onModeSaved, compact }) {
       aria-label="Online or in person"
       onClick={(e) => e.stopPropagation()}
       className={cn(
-        'mt-2 inline-flex rounded-lg bg-white/[0.07] p-0.5 border border-white/[0.12]',
+        'mt-2 inline-flex rounded-lg bg-slate-100 p-0.5 border border-slate-200',
         !persistable && 'opacity-40 pointer-events-none'
       )}
     >
@@ -116,7 +116,7 @@ function ScheduleModeToggle({ slot, onModeSaved, compact }) {
             'px-2.5 py-1 rounded-md text-[9px] font-bold uppercase tracking-wide transition-colors',
             active === m
               ? 'bg-[#D4AF37]/90 text-[#2D1B69] shadow-sm'
-              : 'text-white/55 hover:text-white/80'
+              : 'text-slate-500 hover:text-slate-800'
           )}
         >
           {m === 'online' ? 'Online' : 'Offline'}
@@ -126,67 +126,31 @@ function ScheduleModeToggle({ slot, onModeSaved, compact }) {
   );
 }
 
-/** Brighter glass blocks (contrast vs constellation) — palette from divine_iris_constellation.html, elevated opacity */
-const BLOCK_VARIANTS = {
-  saffron: {
-    shell:
-      'border-[#fbbf24]/45 bg-gradient-to-br from-amber-950/90 via-[rgba(62,32,8,0.92)] to-[rgba(42,14,2,0.9)] shadow-[0_8px_44px_rgba(245,158,11,0.32)]',
-    topLine: 'linear-gradient(90deg,transparent,rgba(251,191,36,0.95),transparent)',
-    hover: 'hover:shadow-[0_18px_60px_rgba(245,158,11,0.42)]',
-  },
-  gold: {
-    shell:
-      'border-[#f5c840]/50 bg-gradient-to-br from-[rgba(88,48,12,0.93)] via-[rgba(58,24,4,0.91)] to-[rgba(38,12,0,0.89)] shadow-[0_8px_48px_rgba(245,200,64,0.34)]',
-    topLine: 'linear-gradient(90deg,transparent,rgba(245,200,64,0.92),transparent)',
-    hover: 'hover:shadow-[0_18px_64px_rgba(245,200,64,0.42)]',
-  },
-  violet: {
-    shell:
-      'border-[#a78bfa]/48 bg-gradient-to-br from-[rgba(58,26,120,0.95)] via-[rgba(40,14,95,0.93)] to-[rgba(26,8,72,0.91)] shadow-[0_8px_48px_rgba(139,92,246,0.38)]',
-    topLine: 'linear-gradient(90deg,transparent,rgba(167,139,250,0.92),transparent)',
-    hover: 'hover:shadow-[0_18px_60px_rgba(124,58,237,0.45)]',
-  },
-  rose: {
-    shell:
-      'border-[#f472b6]/48 bg-gradient-to-br from-[rgba(100,18,62,0.95)] via-[rgba(72,10,48,0.93)] to-[rgba(48,6,32,0.9)] shadow-[0_8px_48px_rgba(236,72,153,0.38)]',
-    topLine: 'linear-gradient(90deg,transparent,rgba(249,168,212,0.88),transparent)',
-    hover: 'hover:shadow-[0_18px_60px_rgba(236,72,153,0.42)]',
-  },
-  ember: {
-    shell:
-      'border-[#fb923c]/46 bg-gradient-to-br from-[rgba(100,36,8,0.95)] via-[rgba(68,22,4,0.93)] to-[rgba(44,12,2,0.9)] shadow-[0_8px_44px_rgba(251,146,60,0.32)]',
-    topLine: 'linear-gradient(90deg,transparent,rgba(253,186,116,0.88),transparent)',
-    hover: 'hover:shadow-[0_18px_56px_rgba(249,115,22,0.4)]',
-  },
-  sky: {
-    shell:
-      'border-[#60a5fa]/48 bg-gradient-to-br from-[rgba(28,52,108,0.93)] via-[rgba(16,36,82,0.91)] to-[rgba(10,26,62,0.89)] shadow-[0_8px_44px_rgba(96,165,250,0.32)]',
-    topLine: 'linear-gradient(90deg,transparent,rgba(147,197,253,0.92),transparent)',
-    hover: 'hover:shadow-[0_18px_56px_rgba(59,130,246,0.4)]',
-  },
+/** White cards on purple field — left accent only for subtle variety */
+const VARIANT_ACCENT = {
+  saffron: 'border-l-amber-400',
+  gold: 'border-l-[#d4af37]',
+  violet: 'border-l-violet-600',
+  rose: 'border-l-pink-500',
+  ember: 'border-l-orange-500',
+  sky: 'border-l-sky-500',
 };
 
 const SanctuaryPetalCard = ({ children, className, onClick, delay = 0, testId, variant = 'violet' }) => {
-  const v = BLOCK_VARIANTS[variant] || BLOCK_VARIANTS.violet;
+  const accent = VARIANT_ACCENT[variant] || VARIANT_ACCENT.violet;
   return (
     <div
       data-testid={testId}
       onClick={onClick}
       style={{ animationDelay: `${delay}ms` }}
       className={cn(
-        'group relative cursor-pointer overflow-hidden rounded-[28px] backdrop-blur-[22px] border transition-all duration-300 ease-out',
-        v.shell,
-        v.hover,
-        'hover:-translate-y-[7px] hover:scale-[1.012]',
+        'group relative cursor-pointer overflow-hidden rounded-2xl border border-slate-200/90 bg-white text-slate-800 shadow-[0_20px_50px_-12px_rgba(30,27,75,0.35)] border-l-[4px] transition-all duration-300 ease-out',
+        accent,
+        'hover:-translate-y-1 hover:shadow-[0_28px_64px_-10px_rgba(30,27,75,0.42)]',
         'animate-[petalIn_0.7s_ease-out_both]',
         className
       )}
     >
-      <div
-        className="absolute top-0 left-0 right-0 h-[2px] opacity-90 pointer-events-none z-[1]"
-        style={{ background: v.topLine }}
-      />
-      <div className="absolute inset-0 bg-gradient-to-br from-white/[0.06] via-transparent to-transparent pointer-events-none z-[1]" />
       <div className="relative z-10 h-full">{children}</div>
     </div>
   );
@@ -329,7 +293,7 @@ const StudentDashboard = () => {
       {/* ═══ CONTENT ═══ */}
       <div className="relative z-10 min-h-full flex flex-col items-center pb-8 md:pb-12">
 
-        {/* ─── Welcome (divine_iris_constellation.html) — sits on global sacred constellation canvas ─── */}
+        {/* ─── Welcome — sits on immersive purple field (cards below are white) ─── */}
         <section
           data-testid="dashboard-hero"
           className="relative w-full flex flex-col items-center text-center px-4 pt-6 pb-10 md:pt-8 md:pb-14 mb-2 md:mb-4 animate-[fadeSlideUp_0.8s_ease-out_both]"
@@ -342,12 +306,11 @@ const StudentDashboard = () => {
               {SANCTUARY_REFERENCE.welcomeKicker}
             </p>
             <h1
-              className="text-white mb-2 px-2 leading-none tracking-wide"
+              className="text-white mb-2 px-2 leading-none tracking-wide drop-shadow-[0_2px_24px_rgba(30,10,80,0.35)]"
               style={{
                 fontFamily: "'Cormorant Garamond', serif",
                 fontSize: 'clamp(2rem, 5vw, 2.75rem)',
                 fontWeight: 300,
-                textShadow: '0 0 80px rgba(180,100,255,0.5)',
               }}
             >
               {SANCTUARY_REFERENCE.welcomeLead}{' '}
@@ -391,16 +354,16 @@ const StudentDashboard = () => {
                     <Calendar size={18} className="text-[#D4AF37]" />
                   </div>
                   <div>
-                    <h3 className="text-[11px] font-bold uppercase tracking-[0.15em] text-white/50">{scheduleEyebrow}</h3>
-                    <p className="text-lg font-serif font-bold text-white mt-0.5 leading-snug">
+                    <h3 className="text-[11px] font-bold uppercase tracking-[0.15em] text-slate-500">{scheduleEyebrow}</h3>
+                    <p className="text-lg font-serif font-bold text-slate-900 mt-0.5 leading-snug">
                       {scheduleHeadline}
                     </p>
                   </div>
                 </div>
-                <ChevronRight size={16} className="text-white/30 group-hover:text-[#D4AF37] transition-colors mt-1" />
+                <ChevronRight size={16} className="text-slate-300 group-hover:text-[#D4AF37] transition-colors mt-1" />
               </div>
               {dashboardScheduleRows.length > 0 ? (
-                <div className="mt-3 border-t border-white/[0.08] pt-3 overflow-x-auto" onClick={(e) => e.stopPropagation()}>
+                <div className="mt-3 border-t border-slate-100 pt-3 overflow-x-auto" onClick={(e) => e.stopPropagation()}>
                   <table className={cn(dashboardStudentScheduleTable.table)} data-testid="dashboard-schedule-table">
                     <thead>
                       <tr className={dashboardStudentScheduleTable.theadRow}>
@@ -413,7 +376,7 @@ const StudentDashboard = () => {
                     </thead>
                     <tbody>
                       {dashboardScheduleRows.slice(0, 6).map((s) => (
-                        <tr key={`${s.program_name}-${s.date}-${s.session_index ?? ''}`} className="border-b border-white/[0.06]">
+                        <tr key={`${s.program_name}-${s.date}-${s.session_index ?? ''}`} className="border-b border-slate-100">
                           <td className={cn(dashboardStudentScheduleTable.tdProgram, 'pr-1')} title={s.program_name}>
                             {s.program_name}
                           </td>
@@ -434,28 +397,28 @@ const StudentDashboard = () => {
                 </div>
               ) : (
                 <>
-                  <p className="mt-2 text-sm text-white/70">{scheduleDetail}</p>
+                  <p className="mt-2 text-sm text-slate-600">{scheduleDetail}</p>
                   {scheduleTags.length > 0 && (
                     <div className="mt-3 flex flex-wrap gap-2">
                       {scheduleTags.map((t) => (
-                        <span key={t} className="text-[10px] px-2.5 py-1 rounded-full bg-[#D4AF37]/20 text-[#D4AF37]">{t}</span>
+                        <span key={t} className="text-[10px] px-2.5 py-1 rounded-full bg-amber-50 text-amber-800 border border-amber-200/80">{t}</span>
                       ))}
                     </div>
                   )}
                   {homeData?.schedule_preview?.length === 0 && !homeData?.package?.scheduled_dates?.length && !homeData?.upcoming_programs?.[0] && (
-                    <p className="mt-3 text-xs text-white/30 italic">Open the calendar when your dates are set.</p>
+                    <p className="mt-3 text-xs text-slate-400 italic">Open the calendar when your dates are set.</p>
                   )}
                 </>
               )}
-              <div className="mt-4 space-y-2 pt-3 border-t border-white/[0.08]">
-                <p className="text-[8px] uppercase tracking-[0.14em] text-[#fbbf24]/50" style={{ fontFamily: "'Cinzel', serif" }}>
+              <div className="mt-4 space-y-2 pt-3 border-t border-slate-100">
+                <p className="text-[8px] uppercase tracking-[0.14em] text-amber-700/80" style={{ fontFamily: "'Cinzel', serif" }}>
                   {SANCTUARY_REFERENCE.speaksTagAnnouncement}
                 </p>
-                <p className="text-[11px] text-white/55 leading-relaxed">{SANCTUARY_REFERENCE.scheduleAnnouncement}</p>
-                <p className="text-[8px] uppercase tracking-[0.12em] text-[#fbbf24]/45 pt-1" style={{ fontFamily: "'Cinzel', serif" }}>
+                <p className="text-[11px] text-slate-600 leading-relaxed">{SANCTUARY_REFERENCE.scheduleAnnouncement}</p>
+                <p className="text-[8px] uppercase tracking-[0.12em] text-amber-700/70 pt-1" style={{ fontFamily: "'Cinzel', serif" }}>
                   {SANCTUARY_REFERENCE.speaksTagEvent}
                 </p>
-                <p className="text-[11px] text-white/50 leading-relaxed">{SANCTUARY_REFERENCE.scheduleEventNote}</p>
+                <p className="text-[11px] text-slate-500 leading-relaxed">{SANCTUARY_REFERENCE.scheduleEventNote}</p>
               </div>
             </SanctuaryPetalCard>
           </div>
@@ -470,27 +433,23 @@ const StudentDashboard = () => {
               delay={200}
               onClick={() => navigate('/dashboard/profile')}
             >
-              <span className="absolute top-5 right-5 text-[11px] opacity-35 z-[2]" style={{ color: '#f5c840', fontFamily: "'Cinzel', serif" }}>{SANCTUARY_REFERENCE.profileGlyph}</span>
-              <p className="text-[8.5px] uppercase tracking-[0.22em] text-[#f5c840]/80 mb-2" style={{ fontFamily: "'Cinzel', serif" }}>{SANCTUARY_REFERENCE.profileEye}</p>
+              <span className="absolute top-5 right-5 text-[11px] text-amber-600/40 z-[2]" style={{ fontFamily: "'Cinzel', serif" }}>{SANCTUARY_REFERENCE.profileGlyph}</span>
+              <p className="text-[8.5px] uppercase tracking-[0.22em] text-amber-800/90 mb-2" style={{ fontFamily: "'Cinzel', serif" }}>{SANCTUARY_REFERENCE.profileEye}</p>
               <div className="flex flex-col items-center py-4">
                 <div
                   className="w-20 h-20 rounded-full flex items-center justify-center text-3xl font-bold text-white mb-4 overflow-hidden"
                   style={{
                     background: 'linear-gradient(135deg, #22c55e, #16a34a)',
-                    border: '2px solid rgba(245,200,64,0.4)',
-                    boxShadow: '0 0 0 8px rgba(245,200,64,0.08), 0 8px 32px rgba(34,197,94,0.3)',
+                    border: '2px solid rgba(212,175,55,0.45)',
+                    boxShadow: '0 0 0 6px rgba(212,175,55,0.12), 0 8px 24px rgba(34,197,94,0.25)',
                   }}
                 >
                   {user?.picture ? <img src={user.picture} alt="" className="w-full h-full object-cover" /> : (user?.name || 'S').trim().charAt(0).toUpperCase()}
                 </div>
-                <p className="text-center text-xl text-[#fff8e0] mb-1.5" style={{ fontFamily: "'Cormorant Garamond', serif" }}>{user?.name || 'Student'}</p>
+                <p className="text-center text-xl text-slate-900 mb-1.5" style={{ fontFamily: "'Cormorant Garamond', serif" }}>{user?.name || 'Student'}</p>
                 <p
-                  className="text-center text-[10px] tracking-[0.12em] px-4 py-1 rounded-full text-[#f5c840] mb-4"
-                  style={{
-                    fontFamily: "'Cinzel', serif",
-                    background: 'linear-gradient(135deg, rgba(200,150,20,0.28), rgba(245,200,64,0.18))',
-                    border: '1px solid rgba(245,200,64,0.38)',
-                  }}
+                  className="text-center text-[10px] tracking-[0.12em] px-4 py-1 rounded-full text-amber-900 mb-4 bg-amber-50 border border-amber-200/90"
+                  style={{ fontFamily: "'Cinzel', serif" }}
                 >
                   {profileTierLine}
                 </p>
@@ -507,9 +466,9 @@ const StudentDashboard = () => {
                   if (row[2] === 'status') {
                     const active = homeData?.profile_status === 'complete';
                     return (
-                      <div key={i} className="flex justify-between py-2 border-b border-[rgba(245,200,64,0.08)]">
-                        <span className="text-[rgba(245,200,64,0.45)]">{row[0]}</span>
-                        <span className={`text-[10px] px-2.5 py-0.5 rounded-full border ${active ? 'bg-emerald-500/18 text-[#4ade80] border-emerald-500/30' : 'bg-white/10 text-white/60 border-white/15'}`}>
+                      <div key={i} className="flex justify-between py-2 border-b border-slate-100">
+                        <span className="text-slate-500">{row[0]}</span>
+                        <span className={`text-[10px] px-2.5 py-0.5 rounded-full border ${active ? 'bg-emerald-50 text-emerald-800 border-emerald-200' : 'bg-slate-100 text-slate-600 border-slate-200'}`}>
                           {active ? SANCTUARY_REFERENCE.statusActive : 'Setup needed'}
                         </span>
                       </div>
@@ -518,27 +477,27 @@ const StudentDashboard = () => {
                   const v = row[1];
                   const isNext = row[2] === 'next';
                   return (
-                    <div key={i} className="flex justify-between py-2 border-b border-[rgba(245,200,64,0.08)] last:border-0">
-                      <span className="text-[rgba(245,200,64,0.45)]">{row[0]}</span>
-                      <span className={`text-[#fff8e0] font-medium text-right ${isNext && v === SANCTUARY_REFERENCE.nextSessionTonight ? 'text-[#f5c840]' : ''}`}>{v || '—'}</span>
+                    <div key={i} className="flex justify-between py-2 border-b border-slate-100 last:border-0">
+                      <span className="text-slate-500">{row[0]}</span>
+                      <span className={`text-slate-900 font-medium text-right ${isNext && v === SANCTUARY_REFERENCE.nextSessionTonight ? 'text-amber-700' : ''}`}>{v || '—'}</span>
                     </div>
                   );
                 })}
               </div>
-              <div className="h-px my-3 bg-[rgba(245,200,64,0.1)]" />
+              <div className="h-px my-3 bg-slate-100" />
               <div className="flex gap-3">
                 {[
                   [pkg.used_sessions ?? '—', SANCTUARY_REFERENCE.statSessions],
                   [daysActiveSince(pkg.start_date) ?? '—', SANCTUARY_REFERENCE.statDaysActive],
                   ['7', SANCTUARY_REFERENCE.statReleases],
                 ].map(([n, l], i) => (
-                  <div key={i} className="flex-1 text-center py-2.5 rounded-xl bg-white/[0.06] border border-white/[0.08]">
-                    <div className="text-[22px] font-light text-[#f5c840]" style={{ fontFamily: "'Cormorant Garamond', serif" }}>{n}</div>
-                    <div className="text-[9px] mt-0.5 tracking-[0.06em] text-[rgba(245,200,64,0.42)]" style={{ fontFamily: "'Cinzel', serif" }}>{l}</div>
+                  <div key={i} className="flex-1 text-center py-2.5 rounded-xl bg-slate-50 border border-slate-100">
+                    <div className="text-[22px] font-light text-amber-800" style={{ fontFamily: "'Cormorant Garamond', serif" }}>{n}</div>
+                    <div className="text-[9px] mt-0.5 tracking-[0.06em] text-amber-900/50" style={{ fontFamily: "'Cinzel', serif" }}>{l}</div>
                   </div>
                 ))}
               </div>
-              <div className="mt-4 flex items-center text-[10px] text-[rgba(245,200,64,0.45)] group-hover:text-[#f5c840] transition-colors">
+              <div className="mt-4 flex items-center text-[10px] text-slate-500 group-hover:text-amber-800 transition-colors">
                 <span>{SANCTUARY_REFERENCE.profileCta}</span>
                 <ArrowRight size={12} className="ml-1" />
               </div>
@@ -552,9 +511,9 @@ const StudentDashboard = () => {
               delay={300}
               onClick={() => navigate('/dashboard/reports')}
             >
-              <span className="absolute top-5 right-5 text-[11px] opacity-35 z-[2]" style={{ color: '#a78bfa' }}>{SANCTUARY_REFERENCE.compassGlyph}</span>
-              <p className="text-[8.5px] uppercase tracking-[0.22em] text-[#a78bfa]/90 mb-1 w-full text-left" style={{ fontFamily: "'Cinzel', serif" }}>{SANCTUARY_REFERENCE.compassEye}</p>
-              <h3 className="text-2xl text-[#ede9fe] mb-3 w-full text-left leading-tight" style={{ fontFamily: "'Cormorant Garamond', serif" }}>{SANCTUARY_REFERENCE.innerJourney}</h3>
+              <span className="absolute top-5 right-5 text-[11px] text-violet-400/50 z-[2]">{SANCTUARY_REFERENCE.compassGlyph}</span>
+              <p className="text-[8.5px] uppercase tracking-[0.22em] text-violet-700 mb-1 w-full text-left" style={{ fontFamily: "'Cinzel', serif" }}>{SANCTUARY_REFERENCE.compassEye}</p>
+              <h3 className="text-2xl text-slate-900 mb-3 w-full text-left leading-tight" style={{ fontFamily: "'Cormorant Garamond', serif" }}>{SANCTUARY_REFERENCE.innerJourney}</h3>
               <div className="relative w-[120px] h-[120px] my-2">
                 <svg className="w-full h-full -rotate-90" viewBox="0 0 120 120">
                   <circle cx="60" cy="60" r="54" fill="none" stroke="rgba(139,92,246,0.07)" strokeWidth="1" />
@@ -579,25 +538,25 @@ const StudentDashboard = () => {
                   </defs>
                 </svg>
                 <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-                  <span className="text-[22px] text-[#ede9fe] leading-none" style={{ fontFamily: "'Cormorant Garamond', serif" }}>{journeyDisplayPct}%</span>
-                  <span className="text-[7px] tracking-[0.15em] text-[rgba(167,139,250,0.5)] mt-1" style={{ fontFamily: "'Cinzel', serif" }}>{SANCTUARY_REFERENCE.journeyLabel}</span>
+                  <span className="text-[22px] text-violet-900 leading-none" style={{ fontFamily: "'Cormorant Garamond', serif" }}>{journeyDisplayPct}%</span>
+                  <span className="text-[7px] tracking-[0.15em] text-violet-500 mt-1" style={{ fontFamily: "'Cinzel', serif" }}>{SANCTUARY_REFERENCE.journeyLabel}</span>
                 </div>
               </div>
-              <p className="text-[12px] text-center text-[rgba(196,181,253,0.55)] mb-2 leading-snug">{SANCTUARY_REFERENCE.compassSub}</p>
+              <p className="text-[12px] text-center text-slate-600 mb-2 leading-snug">{SANCTUARY_REFERENCE.compassSub}</p>
               <div className="flex flex-wrap gap-1.5 justify-center">
                 {SANCTUARY_REFERENCE.compassChips.map((c) => (
-                  <span key={c} className="text-[10.5px] px-2.5 py-1 rounded-full bg-[rgba(139,92,246,0.14)] border border-[rgba(139,92,246,0.28)] text-[#c4b5fd]">{c}</span>
+                  <span key={c} className="text-[10.5px] px-2.5 py-1 rounded-full bg-violet-50 border border-violet-200 text-violet-800">{c}</span>
                 ))}
               </div>
-              <div className="h-px w-full my-3 bg-[rgba(139,92,246,0.1)]" />
+              <div className="h-px w-full my-3 bg-slate-100" />
               <div className="flex gap-3 w-full">
-                <div className="flex-1 text-center py-2.5 rounded-xl bg-white/[0.04] border border-white/[0.07]">
-                  <div className="text-lg text-[#a78bfa]" style={{ fontFamily: "'Cormorant Garamond', serif" }}>{SANCTUARY_REFERENCE.soulLabel}</div>
-                  <div className="text-[9px] mt-0.5 text-[rgba(167,139,250,0.45)]" style={{ fontFamily: "'Cinzel', serif" }}>{soulAlignPct}% aligned</div>
+                <div className="flex-1 text-center py-2.5 rounded-xl bg-slate-50 border border-slate-100">
+                  <div className="text-lg text-violet-800" style={{ fontFamily: "'Cormorant Garamond', serif" }}>{SANCTUARY_REFERENCE.soulLabel}</div>
+                  <div className="text-[9px] mt-0.5 text-slate-500" style={{ fontFamily: "'Cinzel', serif" }}>{soulAlignPct}% aligned</div>
                 </div>
-                <div className="flex-1 text-center py-2.5 rounded-xl bg-white/[0.04] border border-white/[0.07]">
-                  <div className="text-lg text-[#a78bfa]" style={{ fontFamily: "'Cormorant Garamond', serif" }}>{SANCTUARY_REFERENCE.bodyLabel}</div>
-                  <div className="text-[9px] mt-0.5 text-[rgba(167,139,250,0.45)]" style={{ fontFamily: "'Cinzel', serif" }}>{bodyAlignPct}% aligned</div>
+                <div className="flex-1 text-center py-2.5 rounded-xl bg-slate-50 border border-slate-100">
+                  <div className="text-lg text-violet-800" style={{ fontFamily: "'Cormorant Garamond', serif" }}>{SANCTUARY_REFERENCE.bodyLabel}</div>
+                  <div className="text-[9px] mt-0.5 text-slate-500" style={{ fontFamily: "'Cinzel', serif" }}>{bodyAlignPct}% aligned</div>
                 </div>
               </div>
             </SanctuaryPetalCard>
@@ -615,19 +574,19 @@ const StudentDashboard = () => {
                   <CreditCard size={18} className="text-[#84A98C]" />
                 </div>
                 <div>
-                  <h3 className="text-[11px] font-bold uppercase tracking-[0.15em] text-white/50">{SANCTUARY_REFERENCE.financialsEye}</h3>
-                  <p className="text-base font-serif font-bold text-white">
+                  <h3 className="text-[11px] font-bold uppercase tracking-[0.15em] text-slate-500">{SANCTUARY_REFERENCE.financialsEye}</h3>
+                  <p className="text-base font-serif font-bold text-slate-900">
                     {pkg.program_name || SANCTUARY_REFERENCE.financialsDefaultProgram}
                   </p>
                 </div>
               </div>
               {pkg.total_sessions > 0 && (
                 <div className="space-y-2">
-                  <div className="flex justify-between text-[10px] text-white/40">
+                  <div className="flex justify-between text-[10px] text-slate-500">
                     <span>{pkg.used_sessions} Used</span>
                     <span>{pkg.total_sessions - pkg.used_sessions} Left</span>
                   </div>
-                  <div className="h-1.5 rounded-full bg-white/[0.06] overflow-hidden">
+                  <div className="h-1.5 rounded-full bg-slate-100 overflow-hidden">
                     <div
                       className="h-full rounded-full bg-gradient-to-r from-[#84A98C] to-[#D4AF37] transition-all duration-1000"
                       style={{ width: `${progressPct}%` }}
@@ -636,10 +595,10 @@ const StudentDashboard = () => {
                 </div>
               )}
               <div className="mt-4 flex items-center justify-between">
-                <span className="text-[10px] px-2.5 py-1 rounded-full bg-white/10 text-white/60">
+                <span className="text-[10px] px-2.5 py-1 rounded-full bg-slate-100 text-slate-700 border border-slate-200">
                   {homeData?.financials?.status || 'N/A'}
                 </span>
-                <ArrowRight size={14} className="text-white/30 group-hover:text-[#84A98C] transition-colors" />
+                <ArrowRight size={14} className="text-slate-300 group-hover:text-[#84A98C] transition-colors" />
               </div>
             </SanctuaryPetalCard>
           </div>
@@ -657,10 +616,10 @@ const StudentDashboard = () => {
               <span className="absolute top-5 right-5 text-sm opacity-40 z-[2]">{SANCTUARY_REFERENCE.intentionsGlyph}</span>
               <div className="flex items-start justify-between">
                 <div>
-                  <p className="text-[8.5px] uppercase tracking-[0.22em] text-sky-200/70 mb-1" style={{ fontFamily: "'Cinzel', serif" }}>{SANCTUARY_REFERENCE.intentionsEye}</p>
-                  <p className="text-xl text-white font-normal leading-tight" style={{ fontFamily: "'Cormorant Garamond', serif" }}>{SANCTUARY_REFERENCE.intentionsTitle}</p>
+                  <p className="text-[8.5px] uppercase tracking-[0.22em] text-sky-700 mb-1" style={{ fontFamily: "'Cinzel', serif" }}>{SANCTUARY_REFERENCE.intentionsEye}</p>
+                  <p className="text-xl text-slate-900 font-normal leading-tight" style={{ fontFamily: "'Cormorant Garamond', serif" }}>{SANCTUARY_REFERENCE.intentionsTitle}</p>
                 </div>
-                <ChevronRight size={16} className="text-white/30 group-hover:text-sky-300 transition-colors mt-1 shrink-0" />
+                <ChevronRight size={16} className="text-slate-300 group-hover:text-sky-600 transition-colors mt-1 shrink-0" />
               </div>
               <div className="flex gap-1 mt-3 mb-2" role="tablist" onClick={(e) => e.stopPropagation()}>
                 {[
@@ -677,8 +636,8 @@ const StudentDashboard = () => {
                     className={cn(
                       'flex-1 py-1.5 rounded-lg text-center text-[8.5px] tracking-[0.1em] border transition-colors',
                       intentionsTab === key
-                        ? 'bg-orange-500/18 text-[#fdba74] border-orange-400/38'
-                        : 'border-orange-400/18 text-orange-200/40 hover:text-orange-200/70'
+                        ? 'bg-orange-100 text-orange-900 border-orange-300'
+                        : 'border-slate-200 text-slate-500 hover:text-slate-800 hover:border-slate-300'
                     )}
                     style={{ fontFamily: "'Cinzel', serif" }}
                   >
@@ -690,10 +649,10 @@ const StudentDashboard = () => {
                 const tab = INTENTIONS_BY_TAB[intentionsTab] || INTENTIONS_BY_TAB.d;
                 return (
                   <>
-                    <p className="text-[15px] italic text-[rgba(255,225,180,0.82)] leading-relaxed my-2" style={{ fontFamily: "'Cormorant Garamond', serif" }}>
+                    <p className="text-[15px] italic text-slate-800 leading-relaxed my-2" style={{ fontFamily: "'Cormorant Garamond', serif" }}>
                       &ldquo;{tab.quote}&rdquo;
                     </p>
-                    <p className="text-[11px] text-[rgba(253,186,116,0.5)] mb-2">{tab.focus}</p>
+                    <p className="text-[11px] text-orange-800/70 mb-2">{tab.focus}</p>
                     <div className="flex gap-1 mt-2">
                       {['M', 'T', 'W', 'T', 'F', 'S', 'S'].map((d, i) => (
                         <div
@@ -702,7 +661,7 @@ const StudentDashboard = () => {
                             'flex-1 h-6 rounded-lg flex items-center justify-center text-[8.5px]',
                             i < 3
                               ? 'bg-gradient-to-br from-orange-500 to-orange-400 text-white font-semibold'
-                              : 'bg-orange-500/10 border border-orange-400/18 text-orange-200/35'
+                              : 'bg-orange-50 border border-orange-200 text-orange-600/50'
                           )}
                           style={{ fontFamily: "'DM Sans', sans-serif" }}
                         >
@@ -710,7 +669,7 @@ const StudentDashboard = () => {
                         </div>
                       ))}
                     </div>
-                    <div className="h-1 rounded-[10px] overflow-hidden mt-3 bg-orange-500/10">
+                    <div className="h-1 rounded-[10px] overflow-hidden mt-3 bg-orange-100">
                       <div
                         className="h-full rounded-[10px] transition-all duration-500"
                         style={{
@@ -719,11 +678,11 @@ const StudentDashboard = () => {
                         }}
                       />
                     </div>
-                    <p className="text-[10.5px] text-orange-200/40 mt-1">{tab.prog}</p>
+                    <p className="text-[10.5px] text-slate-500 mt-1">{tab.prog}</p>
                   </>
                 );
               })()}
-              <p className="mt-3 text-[10px] text-white/35 border-t border-white/[0.08] pt-2">
+              <p className="mt-3 text-[10px] text-slate-500 border-t border-slate-100 pt-2">
                 {homeData?.journey_logs?.length > 0
                   ? `${SANCTUARY_REFERENCE.diaryLastPrefix} ${formatDateDdMmYyyy(String(homeData.journey_logs[0].date).slice(0, 10)) || '—'}`
                   : SANCTUARY_REFERENCE.diaryEmpty}
@@ -738,30 +697,30 @@ const StudentDashboard = () => {
               delay={600}
               onClick={() => navigate('/transformations')}
             >
-              <span className="absolute top-5 right-5 text-[11px] opacity-35 z-[2]" style={{ color: '#f9a8d4' }}>✦</span>
-              <p className="text-[8.5px] uppercase tracking-[0.22em] text-pink-200/70 mb-2" style={{ fontFamily: "'Cinzel', serif" }}>{SANCTUARY_REFERENCE.speaksEye}</p>
-              <div className="w-11 h-11 rounded-full flex items-center justify-center text-lg mb-3.5" style={{ background: 'linear-gradient(135deg, #9d174d, #ec4899)', boxShadow: '0 4px 20px rgba(236,72,153,0.4)', fontFamily: "'Cinzel', serif", color: 'rgba(255,255,255,0.9)' }}>✦</div>
-              <p className="text-[17px] italic text-[rgba(255,230,245,0.82)] leading-relaxed mb-2" style={{ fontFamily: "'Cormorant Garamond', serif" }}>
+              <span className="absolute top-5 right-5 text-[11px] text-pink-400/60 z-[2]">✦</span>
+              <p className="text-[8.5px] uppercase tracking-[0.22em] text-pink-800/80 mb-2" style={{ fontFamily: "'Cinzel', serif" }}>{SANCTUARY_REFERENCE.speaksEye}</p>
+              <div className="w-11 h-11 rounded-full flex items-center justify-center text-lg mb-3.5 text-white" style={{ background: 'linear-gradient(135deg, #9d174d, #ec4899)', boxShadow: '0 4px 20px rgba(236,72,153,0.35)', fontFamily: "'Cinzel', serif" }}>✦</div>
+              <p className="text-[17px] italic text-slate-800 leading-relaxed mb-2" style={{ fontFamily: "'Cormorant Garamond', serif" }}>
                 &ldquo;{SANCTUARY_REFERENCE.speaksQuote}&rdquo;
               </p>
-              <p className="text-[10.5px] text-pink-200/45 mb-4">{SANCTUARY_REFERENCE.speaksAttr}</p>
+              <p className="text-[10.5px] text-pink-800/60 mb-4">{SANCTUARY_REFERENCE.speaksAttr}</p>
               <div className="space-y-2.5 mb-3">
-                <div className="p-3.5 rounded-2xl bg-pink-500/10 border border-pink-400/15">
-                  <p className="text-[8px] uppercase tracking-[0.14em] text-pink-200/45 mb-1" style={{ fontFamily: "'Cinzel', serif" }}>{SANCTUARY_REFERENCE.speaksTagAnnouncement}</p>
-                  <p className="text-xs text-[rgba(255,210,235,0.65)] leading-snug">{SANCTUARY_REFERENCE.speaksAnnouncementBody}</p>
+                <div className="p-3.5 rounded-2xl bg-pink-50 border border-pink-100">
+                  <p className="text-[8px] uppercase tracking-[0.14em] text-pink-800/70 mb-1" style={{ fontFamily: "'Cinzel', serif" }}>{SANCTUARY_REFERENCE.speaksTagAnnouncement}</p>
+                  <p className="text-xs text-slate-700 leading-snug">{SANCTUARY_REFERENCE.speaksAnnouncementBody}</p>
                 </div>
-                <div className="p-3.5 rounded-2xl bg-pink-500/10 border border-pink-400/15">
-                  <p className="text-[8px] uppercase tracking-[0.14em] text-pink-200/45 mb-1" style={{ fontFamily: "'Cinzel', serif" }}>{SANCTUARY_REFERENCE.speaksTagEvent}</p>
-                  <p className="text-xs text-[rgba(255,210,235,0.65)] leading-snug">{SANCTUARY_REFERENCE.speaksEventBody}</p>
+                <div className="p-3.5 rounded-2xl bg-pink-50 border border-pink-100">
+                  <p className="text-[8px] uppercase tracking-[0.14em] text-pink-800/70 mb-1" style={{ fontFamily: "'Cinzel', serif" }}>{SANCTUARY_REFERENCE.speaksTagEvent}</p>
+                  <p className="text-xs text-slate-700 leading-snug">{SANCTUARY_REFERENCE.speaksEventBody}</p>
                 </div>
               </div>
-              <div className="flex items-center gap-2 text-[11px] text-pink-200" style={{ fontFamily: "'DM Sans', sans-serif" }}>
+              <div className="flex items-center gap-2 text-[11px] text-pink-900" style={{ fontFamily: "'DM Sans', sans-serif" }}>
                 <span className="w-2 h-2 rounded-full bg-pink-500 shadow-[0_0_8px_#ec4899] animate-pulse" aria-hidden />
                 {SANCTUARY_REFERENCE.speaksNewPill}
               </div>
-              <div className="mt-3 flex items-center justify-end text-[10px] text-white/35">
+              <div className="mt-3 flex items-center justify-end text-[10px] text-slate-500">
                 <span className="mr-1">{SANCTUARY_REFERENCE.transformationsHint}</span>
-                <ChevronRight size={14} className="text-pink-300/50" />
+                <ChevronRight size={14} className="text-pink-400" />
               </div>
             </SanctuaryPetalCard>
           </div>
@@ -776,12 +735,12 @@ const StudentDashboard = () => {
                   <Calendar size={18} style={{ color: '#D4AF37' }} />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <h3 className="text-[11px] font-bold uppercase tracking-[0.12em] text-white/50">{scheduleEyebrow}</h3>
-                  <p className="text-xs text-white/45">Tap card for calendar</p>
+                  <h3 className="text-[11px] font-bold uppercase tracking-[0.12em] text-slate-500">{scheduleEyebrow}</h3>
+                  <p className="text-xs text-slate-500">Tap card for calendar</p>
                 </div>
-                <ChevronRight size={16} className="text-white/20 shrink-0" />
+                <ChevronRight size={16} className="text-slate-300 shrink-0" />
               </div>
-              <div className="border-t border-white/[0.08] pt-3 overflow-x-auto -mx-1 px-1" onClick={(e) => e.stopPropagation()}>
+              <div className="border-t border-slate-100 pt-3 overflow-x-auto -mx-1 px-1" onClick={(e) => e.stopPropagation()}>
                 <table className={cn(dashboardStudentScheduleTable.table, 'min-w-[300px]')}>
                   <thead>
                     <tr className={dashboardStudentScheduleTable.theadRow}>
@@ -794,7 +753,7 @@ const StudentDashboard = () => {
                   </thead>
                   <tbody>
                     {dashboardScheduleRows.slice(0, 6).map((s) => (
-                      <tr key={`${s.program_name}-${s.date}-${s.session_index ?? ''}`} className="border-b border-white/[0.06]">
+                      <tr key={`${s.program_name}-${s.date}-${s.session_index ?? ''}`} className="border-b border-slate-100">
                         <td className={cn(dashboardStudentScheduleTable.tdProgram, 'max-w-[72px] py-1.5 pr-0.5')} title={s.program_name}>{s.program_name}</td>
                         <td className={cn(dashboardStudentScheduleTable.tdDate, 'px-0.5 py-1.5')}>{formatDateDdMmYyyy(s.date) || '—'}</td>
                         <td className={cn(dashboardStudentScheduleTable.tdDate, 'px-0.5 py-1.5')}>{formatDateDdMmYyyy(s.end_date) || '—'}</td>
@@ -813,10 +772,10 @@ const StudentDashboard = () => {
                   <Calendar size={18} style={{ color: '#D4AF37' }} />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <h3 className="text-[11px] font-bold uppercase tracking-[0.12em] text-white/50">{scheduleEyebrow}</h3>
-                  <p className="text-sm font-serif font-bold text-white truncate">{mobileScheduleSub}</p>
+                  <h3 className="text-[11px] font-bold uppercase tracking-[0.12em] text-slate-500">{scheduleEyebrow}</h3>
+                  <p className="text-sm font-serif font-bold text-slate-900 truncate">{mobileScheduleSub}</p>
                 </div>
-                <ChevronRight size={16} className="text-white/20 shrink-0" />
+                <ChevronRight size={16} className="text-slate-300 shrink-0" />
               </div>
             </SanctuaryPetalCard>
           )}
@@ -832,10 +791,10 @@ const StudentDashboard = () => {
                   <item.icon size={18} style={{ color: item.color }} />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <h3 className="text-[11px] font-bold uppercase tracking-[0.12em] text-white/50">{item.title}</h3>
-                  <p className="text-sm font-serif font-bold text-white truncate">{item.sub}</p>
+                  <h3 className="text-[11px] font-bold uppercase tracking-[0.12em] text-slate-500">{item.title}</h3>
+                  <p className="text-sm font-serif font-bold text-slate-900 truncate">{item.sub}</p>
                 </div>
-                <ChevronRight size={16} className="text-white/20 shrink-0" />
+                <ChevronRight size={16} className="text-slate-300 shrink-0" />
               </div>
             </SanctuaryPetalCard>
           ))}

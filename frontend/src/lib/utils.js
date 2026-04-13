@@ -60,11 +60,11 @@ export const dashboardEmiTable = {
 /** Student home (dark) schedule table — same structure as EMI (10px headers, sm body, mono dates). */
 export const dashboardStudentScheduleTable = {
   table: "w-full min-w-[320px] text-left text-sm border-collapse",
-  theadRow: "text-[10px] uppercase tracking-wider text-white/40 border-b border-white/10",
+  theadRow: "text-[10px] uppercase tracking-wider text-slate-500 border-b border-slate-200",
   th: "pb-2 px-1 font-semibold text-left",
   thRight: "pb-2 px-1 font-semibold text-right whitespace-nowrap",
   td: "py-2 px-1 align-middle",
-  tdDate: "py-2 px-1 align-middle font-mono tabular-nums text-sm text-white/85 whitespace-nowrap",
-  tdTime: "py-2 px-1 align-middle font-mono tabular-nums text-sm text-white/70",
-  tdProgram: "py-2 px-1 align-middle text-white/80 font-medium text-sm max-w-[100px] truncate",
+  tdDate: "py-2 px-1 align-middle font-mono tabular-nums text-sm text-slate-800 whitespace-nowrap",
+  tdTime: "py-2 px-1 align-middle font-mono tabular-nums text-sm text-slate-600",
+  tdProgram: "py-2 px-1 align-middle text-slate-800 font-medium text-sm max-w-[100px] truncate",
 };
