@@ -5,9 +5,22 @@ import logging
 import re
 import uuid
 from datetime import datetime, timedelta, timezone
-from typing import Any, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 logger = logging.getLogger(__name__)
+
+# Default earn activities (admin can override points, enabled, program_ids in site_settings.points_activities)
+DEFAULT_POINTS_ACTIVITIES: List[Dict[str, Any]] = [
+    {"id": "profile_complete", "label": "Profile approved (complete)", "points": 25, "enabled": True, "program_ids": []},
+    {"id": "testimonial_template_written", "label": "Written testimonial (template, public)", "points": 40, "enabled": True, "program_ids": []},
+    {"id": "testimonial_video_public", "label": "Video testimonial (public)", "points": 60, "enabled": True, "program_ids": []},
+    {"id": "transformation_before_after", "label": "Before/after transformation (public)", "points": 80, "enabled": True, "program_ids": []},
+    {"id": "streak_30", "label": "30-day dashboard streak (student claim)", "points": 50, "enabled": True, "program_ids": []},
+    {"id": "review_submitted", "label": "Review submitted (student claim)", "points": 50, "enabled": True, "program_ids": []},
+    {"id": "referral_signup_bonus", "label": "Referrer bonus (new member paid)", "points": 500, "enabled": True, "program_ids": []},
+]
+
+ACTIVITY_LEDGER_PREFIX = "activity_"
 
 
 def normalize_email(email: str) -> str:
@@ -28,7 +41,45 @@ def _default_config() -> dict:
         "points_bonus_streak_30": 50,
         "points_bonus_review": 50,
         "points_bonus_referral": 500,
+        "redeem_excludes_flagship": True,
+        "activities": list(DEFAULT_POINTS_ACTIVITIES),
     }
+
+
+def merge_points_activities(stored: Optional[list]) -> List[Dict[str, Any]]:
+    """Merge DB overrides into defaults; preserve order (defaults first, then unknown ids)."""
+    by_id: Dict[str, Dict[str, Any]] = {}
+    for row in DEFAULT_POINTS_ACTIVITIES:
+        by_id[row["id"]] = {**row, "program_ids": list(row.get("program_ids") or [])}
+    if stored:
+        for row in stored:
+            aid = row.get("id")
+            if not aid:
+                continue
+            aid = str(aid)
+            if aid in by_id:
+                cur = by_id[aid]
+                if row.get("label") is not None:
+                    cur["label"] = str(row.get("label") or "")
+                if row.get("points") is not None:
+                    cur["points"] = int(row.get("points") or 0)
+                if row.get("enabled") is not None:
+                    cur["enabled"] = bool(row.get("enabled"))
+                if row.get("program_ids") is not None:
+                    cur["program_ids"] = [str(x) for x in (row.get("program_ids") or []) if x is not None]
+            else:
+                by_id[aid] = {
+                    "id": aid,
+                    "label": str(row.get("label") or aid),
+                    "points": int(row.get("points") or 0),
+                    "enabled": bool(row.get("enabled", True)),
+                    "program_ids": [str(x) for x in (row.get("program_ids") or []) if x is not None],
+                }
+    ordered_ids = [r["id"] for r in DEFAULT_POINTS_ACTIVITIES]
+    known = set(ordered_ids)
+    out = [by_id[i] for i in ordered_ids if i in by_id]
+    out.extend(by_id[k] for k in by_id if k not in known)
+    return out
 
 
 def load_points_config(raw: Optional[dict]) -> dict:
@@ -43,9 +94,22 @@ def load_points_config(raw: Optional[dict]) -> dict:
     base["points_earn_per_inr_paid"] = float(s.get("points_earn_per_inr_paid", 0.5))
     base["points_earn_per_usd_paid"] = float(s.get("points_earn_per_usd_paid", 0.5))
     base["points_earn_per_aed_paid"] = float(s.get("points_earn_per_aed_paid", 0.5))
-    base["points_bonus_streak_30"] = int(s.get("points_bonus_streak_30", 50))
-    base["points_bonus_review"] = int(s.get("points_bonus_review", 50))
-    base["points_bonus_referral"] = int(s.get("points_bonus_referral", 500))
+    base["redeem_excludes_flagship"] = bool(s.get("points_redeem_excludes_flagship", True))
+    base["activities"] = merge_points_activities(s.get("points_activities"))
+    # Legacy numeric keys — keep in sync with activity rows when present
+    _amap = {a["id"]: a for a in base["activities"]}
+    if "streak_30" in _amap:
+        base["points_bonus_streak_30"] = int(_amap["streak_30"].get("points") or 0)
+    else:
+        base["points_bonus_streak_30"] = int(s.get("points_bonus_streak_30", 50))
+    if "review_submitted" in _amap:
+        base["points_bonus_review"] = int(_amap["review_submitted"].get("points") or 0)
+    else:
+        base["points_bonus_review"] = int(s.get("points_bonus_review", 50))
+    if "referral_signup_bonus" in _amap:
+        base["points_bonus_referral"] = int(_amap["referral_signup_bonus"].get("points") or 0)
+    else:
+        base["points_bonus_referral"] = int(s.get("points_bonus_referral", 500))
     return base
 
 
@@ -265,6 +329,84 @@ async def ledger_has_ref(db, ref_id: str, reason: str) -> bool:
     return doc is not None
 
 
+def activity_program_allowed(activity: dict, program_id: Optional[str]) -> bool:
+    ids = activity.get("program_ids") or []
+    if not ids:
+        return True
+    pid = (program_id or "").strip()
+    if not pid:
+        return False
+    return str(pid) in [str(x) for x in ids]
+
+
+async def flagship_blocks_points_redemption(
+    db,
+    cfg: dict,
+    *,
+    item_type: str = "",
+    item_id: str = "",
+    cart_program_ids: Optional[list] = None,
+) -> Tuple[bool, str]:
+    if not cfg.get("redeem_excludes_flagship", True):
+        return False, ""
+    it = (item_type or "").lower().strip()
+    iid = (item_id or "").strip()
+    if it == "program" and iid:
+        pr = await db.programs.find_one({"id": iid}, {"_id": 0, "is_flagship": 1})
+        if pr and pr.get("is_flagship"):
+            return True, "Points cannot be used toward flagship programs."
+    seen = set()
+    for raw in cart_program_ids or []:
+        pid = str(raw).strip() if raw is not None else ""
+        if not pid or pid in seen:
+            continue
+        seen.add(pid)
+        pr = await db.programs.find_one({"id": pid}, {"_id": 0, "is_flagship": 1})
+        if pr and pr.get("is_flagship"):
+            return True, "Points cannot be used when a flagship program is in your cart."
+    return False, ""
+
+
+async def try_award_activity_points(
+    db,
+    email: str,
+    activity_id: str,
+    ref_unique: str,
+    *,
+    program_id: Optional[str] = None,
+    meta: Optional[dict] = None,
+) -> dict:
+    cfg = await fetch_points_config(db)
+    if not cfg.get("enabled"):
+        return {"awarded": False, "reason": "points_disabled"}
+    act = next((a for a in cfg.get("activities") or [] if a.get("id") == activity_id), None)
+    if not act:
+        return {"awarded": False, "reason": "unknown_activity"}
+    if not act.get("enabled", True):
+        return {"awarded": False, "reason": "activity_disabled"}
+    pts = int(act.get("points") or 0)
+    if pts <= 0:
+        return {"awarded": False, "reason": "zero_points"}
+    if not activity_program_allowed(act, program_id):
+        return {"awarded": False, "reason": "program_not_allowed"}
+    em = normalize_email(email)
+    if not em:
+        return {"awarded": False, "reason": "no_email"}
+    reason = f"{ACTIVITY_LEDGER_PREFIX}{activity_id}"
+    if await ledger_has_ref(db, ref_unique, reason):
+        return {"awarded": False, "reason": "already_awarded"}
+    await grant_points(
+        db,
+        em,
+        pts,
+        reason,
+        ref_id=ref_unique,
+        meta={**(meta or {}), "activity_id": activity_id},
+        cfg=cfg,
+    )
+    return {"awarded": True, "points": pts}
+
+
 async def apply_payment_points_side_effects(
     db,
     *,
@@ -364,7 +506,10 @@ async def maybe_grant_referrer_bonus_for_enrollment(
     cfg = await fetch_points_config(db)
     if not cfg.get("enabled"):
         return
-    bonus = int(cfg.get("points_bonus_referral") or 0)
+    ref_act = next((a for a in cfg.get("activities") or [] if a.get("id") == "referral_signup_bonus"), None)
+    if not ref_act or not ref_act.get("enabled", True):
+        return
+    bonus = int(ref_act.get("points") or 0)
     if bonus <= 0:
         return
     if await ledger_has_ref(db, enrollment_id, REFERRAL_LEDGER_REASON):
@@ -491,12 +636,13 @@ async def claim_one_time_bonus(db, email: str, kind: str, user: dict) -> dict:
     if existing:
         return {"ok": False, "error": "already_claimed"}
 
-    if kind == "streak_30":
-        pts = int(cfg.get("points_bonus_streak_30") or 0)
-    elif kind == "review":
-        pts = int(cfg.get("points_bonus_review") or 0)
-    else:
+    aid = "streak_30" if kind == "streak_30" else "review_submitted" if kind == "review" else ""
+    if not aid:
         return {"ok": False, "error": "unknown_kind"}
+    act = next((a for a in cfg.get("activities") or [] if a.get("id") == aid), None)
+    if not act or not act.get("enabled", True):
+        return {"ok": False, "error": "bonus_not_configured"}
+    pts = int(act.get("points") or 0)
     if pts <= 0:
         return {"ok": False, "error": "bonus_not_configured"}
 

@@ -1,5 +1,6 @@
 from fastapi import APIRouter
 import os
+from routes.points_logic import load_points_config
 from motor.motor_asyncio import AsyncIOMotorClient
 from dotenv import load_dotenv
 from pathlib import Path
@@ -40,7 +41,10 @@ async def get_discount_settings():
             "points_bonus_streak_30": 50,
             "points_bonus_review": 50,
             "points_bonus_referral": 500,
+            "points_redeem_excludes_flagship": True,
+            "points_activities": load_points_config({}).get("activities", []),
         }
+    pts_cfg = load_points_config(settings or {})
     return {
         "enable_referral": settings.get("enable_referral", True),
         "enable_group_discount": settings.get("enable_group_discount", False),
@@ -66,6 +70,8 @@ async def get_discount_settings():
         "points_bonus_streak_30": settings.get("points_bonus_streak_30", 50),
         "points_bonus_review": settings.get("points_bonus_review", 50),
         "points_bonus_referral": settings.get("points_bonus_referral", 500),
+        "points_redeem_excludes_flagship": pts_cfg.get("redeem_excludes_flagship", True),
+        "points_activities": pts_cfg.get("activities", []),
     }
 
 

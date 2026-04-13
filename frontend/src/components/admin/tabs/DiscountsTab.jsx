@@ -37,6 +37,8 @@ export default function DiscountsTab() {
     points_bonus_streak_30: 50,
     points_bonus_review: 50,
     points_bonus_referral: 500,
+    points_redeem_excludes_flagship: true,
+    points_activities: [],
     enable_cross_sell: false,
     cross_sell_rules: [],
     special_offers: [],
@@ -56,10 +58,41 @@ export default function DiscountsTab() {
     finally { setLoading(false); }
   };
 
+  const syncLegacyBonusesFromActivities = (acts) => {
+    const by = Object.fromEntries((acts || []).map((a) => [a.id, a]));
+    return {
+      points_bonus_streak_30: Number(by.streak_30?.points) || 0,
+      points_bonus_review: Number(by.review_submitted?.points) || 0,
+      points_bonus_referral: Number(by.referral_signup_bonus?.points) || 0,
+    };
+  };
+
+  const updateActivityRow = (idx, patch) => {
+    setSettings((prev) => {
+      const acts = [...(prev.points_activities || [])];
+      acts[idx] = { ...acts[idx], ...patch };
+      return { ...prev, points_activities: acts };
+    });
+  };
+
+  const toggleActivityProgram = (idx, programId) => {
+    setSettings((prev) => {
+      const acts = [...(prev.points_activities || [])];
+      const row = { ...acts[idx] };
+      const sid = String(programId);
+      const cur = [...(row.program_ids || [])];
+      const has = cur.includes(sid);
+      row.program_ids = has ? cur.filter((x) => x !== sid) : [...cur, sid];
+      acts[idx] = row;
+      return { ...prev, points_activities: acts };
+    });
+  };
+
   const saveSettings = async () => {
     setSaving(true);
     try {
-      await axios.put(`${API}/settings`, settings);
+      const legacy = syncLegacyBonusesFromActivities(settings.points_activities);
+      await axios.put(`${API}/settings`, { ...settings, ...legacy });
       toast({ title: 'Discount settings saved!' });
     } catch (e) {
       toast({ title: 'Error saving', variant: 'destructive' });
@@ -338,17 +371,70 @@ export default function DiscountsTab() {
               <div><Label className="text-[10px] text-gray-500">Per 1 AED</Label>
                 <Input value={settings.points_earn_per_aed_paid} onChange={e => setSettings(prev => ({ ...prev, points_earn_per_aed_paid: parseFloat(e.target.value) || 0 }))} className="h-8 text-xs" /></div>
             </div>
-            <p className="text-[10px] text-gray-500 font-medium">Bonus grants (student claim or admin)</p>
-            <div className="grid grid-cols-3 gap-2">
-              <div><Label className="text-[10px] text-gray-500">30-day streak</Label>
-                <Input value={settings.points_bonus_streak_30} onChange={e => setSettings(prev => ({ ...prev, points_bonus_streak_30: parseInt(e.target.value, 10) || 0 }))} className="h-8 text-xs" /></div>
-              <div><Label className="text-[10px] text-gray-500">Review</Label>
-                <Input value={settings.points_bonus_review} onChange={e => setSettings(prev => ({ ...prev, points_bonus_review: parseInt(e.target.value, 10) || 0 }))} className="h-8 text-xs" /></div>
-              <div><Label className="text-[10px] text-gray-500">Referral</Label>
-                <Input value={settings.points_bonus_referral} onChange={e => setSettings(prev => ({ ...prev, points_bonus_referral: parseInt(e.target.value, 10) || 0 }))} className="h-8 text-xs" /></div>
+            <div className="flex items-center justify-between rounded-lg border border-amber-100 bg-amber-50/50 px-3 py-2 mt-2">
+              <div>
+                <p className="text-[10px] font-semibold text-gray-800">Block points on flagship checkouts</p>
+                <p className="text-[9px] text-gray-500">When on, students cannot apply wallet points to programs marked flagship (including cart).</p>
+              </div>
+              <Switch
+                checked={settings.points_redeem_excludes_flagship !== false}
+                onCheckedChange={(v) => setSettings((prev) => ({ ...prev, points_redeem_excludes_flagship: v }))}
+                data-testid="toggle-points-flagship-block"
+              />
+            </div>
+            <p className="text-[10px] text-gray-500 font-medium mt-3">Earn activities — points, on/off, which programs count (empty = all)</p>
+            <div className="space-y-2 max-h-[420px] overflow-y-auto pr-1">
+              {(settings.points_activities || []).map((row, idx) => (
+                <div key={row.id || idx} className="rounded-lg border border-gray-200 bg-gray-50/80 p-2.5" data-testid={`points-activity-${row.id}`}>
+                  <div className="flex flex-wrap items-center gap-2 mb-1.5">
+                    <Switch
+                      checked={row.enabled !== false}
+                      onCheckedChange={(v) => updateActivityRow(idx, { enabled: v })}
+                    />
+                    <span className="text-[9px] font-mono text-gray-400">{row.id}</span>
+                    <Input
+                      value={row.label || ''}
+                      onChange={(e) => updateActivityRow(idx, { label: e.target.value })}
+                      className="h-7 text-[10px] flex-1 min-w-[160px]"
+                      placeholder="Label"
+                    />
+                    <div className="flex items-center gap-1">
+                      <Label className="text-[9px] text-gray-500 whitespace-nowrap">Pts</Label>
+                      <Input
+                        type="text"
+                        inputMode="numeric"
+                        value={row.points ?? 0}
+                        onChange={(e) => updateActivityRow(idx, { points: parseInt(e.target.value, 10) || 0 })}
+                        className="h-7 w-14 text-[10px] text-center"
+                      />
+                    </div>
+                  </div>
+                  <div className="flex flex-wrap gap-1 items-center">
+                    <span className="text-[8px] text-gray-400">Programs:</span>
+                    {programs.filter((p) => p.title).map((p) => {
+                      const selected = (row.program_ids || []).includes(String(p.id));
+                      return (
+                        <button
+                          key={p.id}
+                          type="button"
+                          onClick={() => toggleActivityProgram(idx, p.id)}
+                          className={`text-[8px] px-1.5 py-0.5 rounded-full font-medium border transition-colors ${
+                            selected ? 'bg-amber-200 border-amber-500 text-amber-900' : 'bg-white border-gray-200 text-gray-500 hover:border-amber-300'
+                          }`}
+                        >
+                          {p.title.length > 18 ? `${p.title.slice(0, 18)}..` : p.title}
+                        </button>
+                      );
+                    })}
+                    {!(row.program_ids || []).length && (
+                      <span className="text-[8px] text-gray-400 italic">All programs</span>
+                    )}
+                  </div>
+                </div>
+              ))}
             </div>
             <p className="text-[9px] text-amber-800 bg-amber-50 rounded px-2 py-1.5">
-              Grant points from Admin: POST <code className="text-[8px]">/api/admin/points/grant</code> with admin password + client email. Students can claim streak/review bonuses from the dashboard when exposed in UI.
+              Profile points: when you approve a pending profile in Admin → Clients. Testimonial points: set “Points email” on the testimonial; awards when the item is public (written template, video, or before/after). Manual grants: POST <code className="text-[8px]">/api/admin/points/grant</code>.
             </p>
           </div>
         )}

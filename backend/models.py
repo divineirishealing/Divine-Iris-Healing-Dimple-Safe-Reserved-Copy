@@ -315,6 +315,8 @@ class Testimonial(BaseModel):
     visible: bool = True
     order: int = 0
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    # Email of the student to credit points (admin); used when testimonial is public and matches an earn activity
+    points_attribution_email: str = ""
 
 class TestimonialCreate(BaseModel):
     type: str = "graphic"
@@ -337,6 +339,7 @@ class TestimonialCreate(BaseModel):
     rating: Optional[int] = 5
     visible: Optional[bool] = True
     order: Optional[int] = 0
+    points_attribution_email: Optional[str] = ""
     # Admin-only: when true on PUT, allow clearing template photos (default restore would keep existing URLs).
     clear_template_media: Optional[bool] = None
 
@@ -513,6 +516,8 @@ class SiteSettings(BaseModel):
     points_bonus_streak_30: int = 50
     points_bonus_review: int = 50
     points_bonus_referral: int = 500
+    points_redeem_excludes_flagship: bool = True  # When true, points cannot pay down flagship program checkouts
+    points_activities: List[Dict] = Field(default_factory=list)  # Overrides for earn activities (see points_logic.DEFAULT_POINTS_ACTIVITIES)
     # Payment disclaimer text
     payment_disclaimer: str = "We love aligning our work with the natural solar cycle of where you are. If the pricing you see isn't in your local currency, please reach out\u2014we'd be happy to provide the adjusted rates tailored to your home country."
     payment_disclaimer_enabled: bool = True
@@ -677,6 +682,8 @@ class SiteSettingsUpdate(BaseModel):
     points_bonus_streak_30: Optional[int] = None
     points_bonus_review: Optional[int] = None
     points_bonus_referral: Optional[int] = None
+    points_redeem_excludes_flagship: Optional[bool] = None
+    points_activities: Optional[List[Dict]] = None
     payment_disclaimer: Optional[str] = None
     payment_disclaimer_enabled: Optional[bool] = None
     payment_disclaimer_style: Optional[Dict] = None

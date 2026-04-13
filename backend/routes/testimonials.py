@@ -213,6 +213,62 @@ mongo_url = os.environ['MONGO_URL']
 client = AsyncIOMotorClient(mongo_url)
 db = client[os.environ['DB_NAME']]
 
+
+def testimonial_primary_program_id(doc: dict) -> Optional[str]:
+    pid = str(doc.get("program_id") or "").strip()
+    if pid:
+        return pid
+    for t in doc.get("program_tags") or []:
+        s = str(t).strip() if t is not None else ""
+        if s:
+            return s
+    return None
+
+
+def classify_testimonial_points_activity(doc: dict) -> Optional[str]:
+    typ = (doc.get("type") or "").strip().lower()
+    if typ == "video":
+        if (doc.get("video_url") or "").strip() or (doc.get("videoId") or "").strip():
+            return "testimonial_video_public"
+        return None
+    if typ == "template":
+        mode = (doc.get("photo_mode") or "").strip()
+        photos = _coerce_url_list(doc.get("photos"))
+        bi = str(doc.get("before_image") or "").strip()
+        im = str(doc.get("image") or "").strip()
+        before_after = mode == "before_after" or (bi and im) or len(photos) >= 2
+        if before_after:
+            return "transformation_before_after"
+        if (doc.get("text") or "").strip():
+            return "testimonial_template_written"
+    return None
+
+
+async def maybe_award_testimonial_points(doc: dict) -> None:
+    from routes.points_logic import try_award_activity_points, normalize_email
+
+    if not doc.get("visible"):
+        return
+    em = normalize_email(doc.get("points_attribution_email") or "")
+    if not em:
+        return
+    aid = classify_testimonial_points_activity(doc)
+    if not aid:
+        return
+    tid = doc.get("id")
+    if not tid:
+        return
+    pid = testimonial_primary_program_id(doc)
+    await try_award_activity_points(
+        db,
+        em,
+        aid,
+        ref_unique=f"testimonial:{tid}:{aid}",
+        program_id=pid,
+        meta={"testimonial_id": tid},
+    )
+
+
 @router.get("", response_model=List[Testimonial])
 async def get_testimonials(
     type: Optional[str] = None,
@@ -285,6 +341,10 @@ async def create_testimonial(testimonial: TestimonialCreate):
     data.pop("order", None)
     testimonial_obj = Testimonial(**data, order=count)
     await db.testimonials.insert_one(testimonial_obj.model_dump())
+    try:
+        await maybe_award_testimonial_points(testimonial_obj.model_dump())
+    except Exception:
+        pass
     return testimonial_obj
 
 @router.put("/{testimonial_id}", response_model=Testimonial)
@@ -309,6 +369,12 @@ async def update_testimonial(testimonial_id: str, testimonial: TestimonialCreate
         raise HTTPException(status_code=400, detail=str(e))
     await db.testimonials.update_one({"id": testimonial_id}, {"$set": testimonial_obj.model_dump()})
     updated = await db.testimonials.find_one({"id": testimonial_id})
+    try:
+        u = dict(updated or {})
+        u.pop("_id", None)
+        await maybe_award_testimonial_points(u)
+    except Exception:
+        pass
     return _doc_to_testimonial(updated)
 
 @router.patch("/{testimonial_id}/visibility")
@@ -317,6 +383,11 @@ async def toggle_visibility(testimonial_id: str, data: dict):
     if not existing:
         raise HTTPException(status_code=404, detail="Testimonial not found")
     await db.testimonials.update_one({"id": testimonial_id}, {"$set": {"visible": data.get("visible", True)}})
+    doc = await db.testimonials.find_one({"id": testimonial_id}, {"_id": 0})
+    try:
+        await maybe_award_testimonial_points(doc or {})
+    except Exception:
+        pass
     return {"message": "Visibility updated"}
 
 @router.delete("/{testimonial_id}")

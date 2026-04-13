@@ -144,7 +144,24 @@ async def approve_profile(user_id: str):
             {"id": user["client_id"]},
             {"$set": update_data}
         )
-        
+
+    try:
+        from routes.points_logic import try_award_activity_points, normalize_email
+
+        user_after = await db.users.find_one({"id": user_id}, {"_id": 0, "email": 1})
+        merged_email = normalize_email((user_after or {}).get("email") or user.get("email") or "")
+        if merged_email:
+            await try_award_activity_points(
+                db,
+                merged_email,
+                "profile_complete",
+                ref_unique=f"profile_complete:{user_id}",
+                program_id=None,
+                meta={"user_id": user_id},
+            )
+    except Exception:
+        pass
+
     return {"message": "Profile approved"}
 
 @router.post("/reject/{user_id}")

@@ -179,16 +179,24 @@ function CartCheckoutPage() {
       setPointsSummary(null);
       return;
     }
+    const cartProgramIds = items.map((i) => i.programId).filter(Boolean).join(',');
+    const first = items[0];
     axios
       .get(`${API}/enrollment/${enrollmentId}/points-summary`, {
-        params: { basket_subtotal: total, currency },
+        params: {
+          basket_subtotal: total,
+          currency,
+          item_type: first?.type === 'session' ? 'session' : 'program',
+          item_id: first?.programId || '',
+          cart_program_ids: cartProgramIds,
+        },
       })
       .then((r) => {
         setPointsSummary(r.data);
         setPointsToRedeem(0);
       })
       .catch(() => setPointsSummary(null));
-  }, [enrollmentId, total, currency]);
+  }, [enrollmentId, total, currency, items]);
 
   const pointsCashEstimate = (() => {
     if (!pointsSummary?.enabled || !pointsToRedeem || total <= 0) return 0;
@@ -360,6 +368,14 @@ function CartCheckoutPage() {
                       <span className="text-[#D4AF37]">{displayCheckoutTotal <= 0 ? 'FREE' : `${symbol} ${displayCheckoutTotal.toLocaleString()}`}</span>
                     </div>
 
+                    {pointsSummary?.enabled && total > 0 && pointsSummary.redeem_blocked && (
+                      <div className="border border-amber-200 rounded-lg p-3 mb-4 bg-amber-50/60" data-testid="cart-points-flagship-block">
+                        <p className="text-[10px] text-amber-900 flex items-center gap-1.5">
+                          <Gift size={14} className="text-amber-700 shrink-0" />
+                          {pointsSummary.redeem_blocked_reason || 'Points cannot be applied to this checkout.'}
+                        </p>
+                      </div>
+                    )}
                     {pointsSummary?.enabled && total > 0 && (pointsSummary.max_points_usable || 0) > 0 && (
                       <div className="border border-amber-200 rounded-lg p-3 mb-4 bg-amber-50/40" data-testid="cart-points-box">
                         <p className="text-xs font-semibold text-gray-900 mb-0.5 flex items-center gap-1.5">

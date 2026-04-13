@@ -483,6 +483,9 @@ async def enrollment_points_summary(
     enrollment_id: str,
     basket_subtotal: Optional[float] = None,
     currency: Optional[str] = None,
+    item_type: Optional[str] = None,
+    item_id: Optional[str] = None,
+    cart_program_ids: Optional[str] = None,
 ):
     """Booker balance + caps for checkout UI (requires verified enrollment)."""
     enrollment = await db.enrollments.find_one(
@@ -500,6 +503,7 @@ async def enrollment_points_summary(
         compute_points_redemption,
         fiat_per_point,
         normalize_email,
+        flagship_blocks_points_redemption,
     )
 
     cfg = await fetch_points_config(db)
@@ -507,6 +511,10 @@ async def enrollment_points_summary(
     bal = await available_balance(db, em)
     cur = (currency or "aed").lower()
     per = fiat_per_point(cur, cfg)
+    cart_ids = [x.strip() for x in (cart_program_ids or "").split(",") if x.strip()]
+    blocked, block_reason = await flagship_blocks_points_redemption(
+        db, cfg, item_type=item_type or "", item_id=item_id or "", cart_program_ids=cart_ids
+    )
     out = {
         "enabled": cfg["enabled"],
         "balance": bal,
@@ -514,12 +522,18 @@ async def enrollment_points_summary(
         "expiry_months": cfg["expiry_months"],
         "fiat_per_point": per,
         "currency": cur,
+        "redeem_blocked": blocked,
+        "redeem_blocked_reason": block_reason if blocked else "",
     }
     if basket_subtotal is not None and float(basket_subtotal) > 0 and cfg["enabled"]:
         bs = float(basket_subtotal)
-        max_pts, max_cash = compute_points_redemption(bal, bs, cur, bal, cfg)
-        out["max_points_usable"] = max_pts
-        out["max_discount"] = max_cash
+        if blocked:
+            out["max_points_usable"] = 0
+            out["max_discount"] = 0.0
+        else:
+            max_pts, max_cash = compute_points_redemption(bal, bs, cur, bal, cfg)
+            out["max_points_usable"] = max_pts
+            out["max_discount"] = max_cash
     return out
 
 
@@ -701,10 +715,19 @@ async def enrollment_checkout(enrollment_id: str, data: EnrollmentSubmit, reques
             available_balance,
             compute_points_redemption,
             normalize_email,
+            flagship_blocks_points_redemption,
         )
 
         cfg_pts = await fetch_points_config(db)
-        req_pts = int(data.points_to_redeem or 0)
+        cart_prog_ids = [str(ci.get("program_id")) for ci in (data.cart_items or []) if ci.get("program_id")]
+        blocked_flagship, _ = await flagship_blocks_points_redemption(
+            db,
+            cfg_pts,
+            item_type=data.item_type or "",
+            item_id=data.item_id or "",
+            cart_program_ids=cart_prog_ids,
+        )
+        req_pts = 0 if blocked_flagship else int(data.points_to_redeem or 0)
         if cfg_pts["enabled"] and req_pts > 0 and final_total > 0:
             be_pts = normalize_email(enrollment.get("booker_email", ""))
             avail_pts = await available_balance(db, be_pts)

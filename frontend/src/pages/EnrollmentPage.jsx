@@ -546,16 +546,23 @@ function EnrollmentPage() {
       return;
     }
     const cur = priceCurrency;
+    const cartProgramIds = cartItems.map((i) => i.programId).filter(Boolean).join(',');
     axios
       .get(`${API}/enrollment/${enrollmentId}/points-summary`, {
-        params: { basket_subtotal: total, currency: cur },
+        params: {
+          basket_subtotal: total,
+          currency: cur,
+          item_type: type,
+          item_id: id,
+          cart_program_ids: cartProgramIds,
+        },
       })
       .then((r) => {
         setPointsSummary(r.data);
         setPointsToRedeem(0);
       })
       .catch(() => setPointsSummary(null));
-  }, [step, enrollmentId, total, priceCurrency]);
+  }, [step, enrollmentId, total, priceCurrency, type, id, cartItems]);
 
   const pointsCashEstimate = (() => {
     if (!pointsSummary?.enabled || !pointsToRedeem || total <= 0) return 0;
@@ -1026,6 +1033,14 @@ function EnrollmentPage() {
                       {phone && <p><strong>Phone:</strong> {countryCode}{phone}</p>}
                     </div>
 
+                    {pointsSummary?.enabled && total > 0 && pointsSummary.redeem_blocked && (
+                      <div className="border border-amber-200 rounded-lg p-3 mb-3 bg-amber-50/60" data-testid="enroll-points-flagship-block">
+                        <p className="text-[10px] text-amber-900 flex items-center gap-1.5">
+                          <Gift size={14} className="text-amber-700 shrink-0" />
+                          {pointsSummary.redeem_blocked_reason || 'Points cannot be applied to this checkout.'}
+                        </p>
+                      </div>
+                    )}
                     {pointsSummary?.enabled && total > 0 && (pointsSummary.max_points_usable || 0) > 0 && (
                       <div className="border border-amber-200 rounded-lg p-3 mb-3 bg-amber-50/40" data-testid="enroll-points-box">
                         <p className="text-xs font-semibold text-gray-900 mb-0.5 flex items-center gap-1.5">
