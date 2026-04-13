@@ -10,6 +10,28 @@ import { Plus, Trash2, Users, ShoppingCart, Heart, UserPlus, Save, Gift, Star, U
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
 
+const DISCOUNT_PAYLOAD_KEYS = [
+  'enable_referral',
+  'enable_group_discount',
+  'group_discount_rules',
+  'enable_combo_discount',
+  'combo_discount_pct',
+  'combo_min_programs',
+  'combo_rules',
+  'enable_loyalty',
+  'loyalty_discount_pct',
+  'enable_cross_sell',
+  'cross_sell_rules',
+  'special_offers',
+];
+
+function pickDiscountPayload(obj) {
+  return DISCOUNT_PAYLOAD_KEYS.reduce((acc, k) => {
+    if (obj[k] !== undefined) acc[k] = obj[k];
+    return acc;
+  }, {});
+}
+
 export default function DiscountsTab() {
   const { toast } = useToast();
   const [loading, setLoading] = useState(true);
@@ -25,20 +47,6 @@ export default function DiscountsTab() {
     combo_rules: [],
     enable_loyalty: false,
     loyalty_discount_pct: 0,
-    points_enabled: false,
-    points_max_basket_pct: 20,
-    points_expiry_months: 6,
-    points_inr_per_point: 1,
-    points_usd_per_point: 0.01,
-    points_aed_per_point: 0.037,
-    points_earn_per_inr_paid: 0.5,
-    points_earn_per_usd_paid: 0.5,
-    points_earn_per_aed_paid: 0.5,
-    points_bonus_streak_30: 50,
-    points_bonus_review: 50,
-    points_bonus_referral: 500,
-    points_redeem_excludes_flagship: true,
-    points_activities: [],
     enable_cross_sell: false,
     cross_sell_rules: [],
     special_offers: [],
@@ -52,47 +60,16 @@ export default function DiscountsTab() {
         axios.get(`${API}/discounts/settings`),
         axios.get(`${API}/programs`),
       ]);
-      setSettings(dRes.data);
+      setSettings((prev) => ({ ...prev, ...pickDiscountPayload(dRes.data || {}) }));
       setPrograms(pRes.data || []);
     } catch (e) { console.error(e); }
     finally { setLoading(false); }
   };
 
-  const syncLegacyBonusesFromActivities = (acts) => {
-    const by = Object.fromEntries((acts || []).map((a) => [a.id, a]));
-    return {
-      points_bonus_streak_30: Number(by.streak_30?.points) || 0,
-      points_bonus_review: Number(by.review_submitted?.points) || 0,
-      points_bonus_referral: Number(by.referral_signup_bonus?.points) || 0,
-    };
-  };
-
-  const updateActivityRow = (idx, patch) => {
-    setSettings((prev) => {
-      const acts = [...(prev.points_activities || [])];
-      acts[idx] = { ...acts[idx], ...patch };
-      return { ...prev, points_activities: acts };
-    });
-  };
-
-  const toggleActivityProgram = (idx, programId) => {
-    setSettings((prev) => {
-      const acts = [...(prev.points_activities || [])];
-      const row = { ...acts[idx] };
-      const sid = String(programId);
-      const cur = [...(row.program_ids || [])];
-      const has = cur.includes(sid);
-      row.program_ids = has ? cur.filter((x) => x !== sid) : [...cur, sid];
-      acts[idx] = row;
-      return { ...prev, points_activities: acts };
-    });
-  };
-
   const saveSettings = async () => {
     setSaving(true);
     try {
-      const legacy = syncLegacyBonusesFromActivities(settings.points_activities);
-      await axios.put(`${API}/settings`, { ...settings, ...legacy });
+      await axios.put(`${API}/settings`, pickDiscountPayload(settings));
       toast({ title: 'Discount settings saved!' });
     } catch (e) {
       toast({ title: 'Error saving', variant: 'destructive' });
@@ -325,119 +302,9 @@ export default function DiscountsTab() {
         )}
       </div>
 
-      {/* Points wallet (earn & burn) */}
-      <div className="bg-white rounded-lg border p-5" data-testid="points-wallet-section">
-        <div className="flex items-center justify-between mb-2">
-          <div className="flex items-center gap-3">
-            <div className="w-9 h-9 bg-amber-100 rounded-lg flex items-center justify-center">
-              <Star size={18} className="text-amber-600" />
-            </div>
-            <div>
-              <p className="text-sm font-semibold text-gray-900">Points Wallet</p>
-              <p className="text-[10px] text-gray-500">Earn points on paid enrollments; redeem up to a % of the next order. Points expire after the months below.</p>
-            </div>
-          </div>
-          <Switch checked={!!settings.points_enabled} onCheckedChange={v => setSettings(prev => ({ ...prev, points_enabled: v }))} data-testid="toggle-points-wallet" />
-        </div>
-        {settings.points_enabled && (
-          <div className="mt-3 space-y-3 text-xs">
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
-              <div>
-                <Label className="text-[10px] text-gray-500">Max % of basket (points)</Label>
-                <Input type="text" inputMode="decimal" value={settings.points_max_basket_pct}
-                  onChange={e => setSettings(prev => ({ ...prev, points_max_basket_pct: parseFloat(e.target.value) || 0 }))} className="h-8 text-xs" />
-              </div>
-              <div>
-                <Label className="text-[10px] text-gray-500">Expiry (months)</Label>
-                <Input type="text" inputMode="numeric" value={settings.points_expiry_months}
-                  onChange={e => setSettings(prev => ({ ...prev, points_expiry_months: parseInt(e.target.value, 10) || 6 }))} className="h-8 text-xs" />
-              </div>
-            </div>
-            <p className="text-[10px] text-gray-500 font-medium">Cash value per 1 point when redeeming</p>
-            <div className="grid grid-cols-3 gap-2">
-              <div><Label className="text-[10px] text-gray-500">INR</Label>
-                <Input value={settings.points_inr_per_point} onChange={e => setSettings(prev => ({ ...prev, points_inr_per_point: parseFloat(e.target.value) || 0 }))} className="h-8 text-xs" /></div>
-              <div><Label className="text-[10px] text-gray-500">USD</Label>
-                <Input value={settings.points_usd_per_point} onChange={e => setSettings(prev => ({ ...prev, points_usd_per_point: parseFloat(e.target.value) || 0 }))} className="h-8 text-xs" /></div>
-              <div><Label className="text-[10px] text-gray-500">AED</Label>
-                <Input value={settings.points_aed_per_point} onChange={e => setSettings(prev => ({ ...prev, points_aed_per_point: parseFloat(e.target.value) || 0 }))} className="h-8 text-xs" /></div>
-            </div>
-            <p className="text-[10px] text-gray-500 font-medium">Points earned per 1 unit paid (after discounts)</p>
-            <div className="grid grid-cols-3 gap-2">
-              <div><Label className="text-[10px] text-gray-500">Per ₹1</Label>
-                <Input value={settings.points_earn_per_inr_paid} onChange={e => setSettings(prev => ({ ...prev, points_earn_per_inr_paid: parseFloat(e.target.value) || 0 }))} className="h-8 text-xs" /></div>
-              <div><Label className="text-[10px] text-gray-500">Per $1</Label>
-                <Input value={settings.points_earn_per_usd_paid} onChange={e => setSettings(prev => ({ ...prev, points_earn_per_usd_paid: parseFloat(e.target.value) || 0 }))} className="h-8 text-xs" /></div>
-              <div><Label className="text-[10px] text-gray-500">Per 1 AED</Label>
-                <Input value={settings.points_earn_per_aed_paid} onChange={e => setSettings(prev => ({ ...prev, points_earn_per_aed_paid: parseFloat(e.target.value) || 0 }))} className="h-8 text-xs" /></div>
-            </div>
-            <div className="flex items-center justify-between rounded-lg border border-amber-100 bg-amber-50/50 px-3 py-2 mt-2">
-              <div>
-                <p className="text-[10px] font-semibold text-gray-800">Block points on flagship checkouts</p>
-                <p className="text-[9px] text-gray-500">When on, students cannot apply wallet points to programs marked flagship (including cart).</p>
-              </div>
-              <Switch
-                checked={settings.points_redeem_excludes_flagship !== false}
-                onCheckedChange={(v) => setSettings((prev) => ({ ...prev, points_redeem_excludes_flagship: v }))}
-                data-testid="toggle-points-flagship-block"
-              />
-            </div>
-            <p className="text-[10px] text-gray-500 font-medium mt-3">Earn activities — points, on/off, which programs count (empty = all)</p>
-            <div className="space-y-2 max-h-[420px] overflow-y-auto pr-1">
-              {(settings.points_activities || []).map((row, idx) => (
-                <div key={row.id || idx} className="rounded-lg border border-gray-200 bg-gray-50/80 p-2.5" data-testid={`points-activity-${row.id}`}>
-                  <div className="flex flex-wrap items-center gap-2 mb-1.5">
-                    <Switch
-                      checked={row.enabled !== false}
-                      onCheckedChange={(v) => updateActivityRow(idx, { enabled: v })}
-                    />
-                    <span className="text-[9px] font-mono text-gray-400">{row.id}</span>
-                    <Input
-                      value={row.label || ''}
-                      onChange={(e) => updateActivityRow(idx, { label: e.target.value })}
-                      className="h-7 text-[10px] flex-1 min-w-[160px]"
-                      placeholder="Label"
-                    />
-                    <div className="flex items-center gap-1">
-                      <Label className="text-[9px] text-gray-500 whitespace-nowrap">Pts</Label>
-                      <Input
-                        type="text"
-                        inputMode="numeric"
-                        value={row.points ?? 0}
-                        onChange={(e) => updateActivityRow(idx, { points: parseInt(e.target.value, 10) || 0 })}
-                        className="h-7 w-14 text-[10px] text-center"
-                      />
-                    </div>
-                  </div>
-                  <div className="flex flex-wrap gap-1 items-center">
-                    <span className="text-[8px] text-gray-400">Programs:</span>
-                    {programs.filter((p) => p.title).map((p) => {
-                      const selected = (row.program_ids || []).includes(String(p.id));
-                      return (
-                        <button
-                          key={p.id}
-                          type="button"
-                          onClick={() => toggleActivityProgram(idx, p.id)}
-                          className={`text-[8px] px-1.5 py-0.5 rounded-full font-medium border transition-colors ${
-                            selected ? 'bg-amber-200 border-amber-500 text-amber-900' : 'bg-white border-gray-200 text-gray-500 hover:border-amber-300'
-                          }`}
-                        >
-                          {p.title.length > 18 ? `${p.title.slice(0, 18)}..` : p.title}
-                        </button>
-                      );
-                    })}
-                    {!(row.program_ids || []).length && (
-                      <span className="text-[8px] text-gray-400 italic">All programs</span>
-                    )}
-                  </div>
-                </div>
-              ))}
-            </div>
-            <p className="text-[9px] text-amber-800 bg-amber-50 rounded px-2 py-1.5">
-              Profile points: when you approve a pending profile in Admin → Clients. Testimonial points: set “Points email” on the testimonial; awards when the item is public (written template, video, or before/after). Manual grants: POST <code className="text-[8px]">/api/admin/points/grant</code>.
-            </p>
-          </div>
-        )}
+      <div className="bg-amber-50/60 border border-amber-100 rounded-lg px-4 py-3 text-[10px] text-amber-900">
+        <strong>Points wallet</strong> is managed in{' '}
+        <span className="font-semibold">Programs &amp; Offers → Points wallet</span> (redemption rules, earn rates, activities per program).
       </div>
 
       {/* Cross-Sell Program Discounts */}

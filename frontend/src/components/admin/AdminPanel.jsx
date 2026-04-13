@@ -12,7 +12,7 @@ import { resolveImageUrl } from '../../lib/imageUtils';
 import {
   Settings, Package, Calendar, MessageSquare, BarChart3, Mail, Inbox,
   Trash2, Edit, Plus, X, Eye, EyeOff, Save, ArrowUp, ArrowDown,
-  Globe, Layout, Image, Users, Palette, Gift, Monitor, Wifi, Tag, ChevronLeft, ChevronRight, ChevronDown, Upload, FileText, DollarSign, Quote, Star, ShieldAlert, CreditCard, UserPlus, Search
+  Globe, Layout, Image, Users, Palette, Gift, Monitor, Wifi,   Tag, ChevronLeft, ChevronRight, ChevronDown, Upload, FileText, DollarSign, Quote, Star, ShieldAlert, CreditCard, UserPlus, Search, Wallet
 } from 'lucide-react';
 
 import CollapsibleSection from './CollapsibleSection';
@@ -33,6 +33,7 @@ import SeoSettingsTab from './tabs/SeoSettingsTab';
 import PromotionsTab from './tabs/PromotionsTab';
 import ExchangeRatesTab from './tabs/ExchangeRatesTab';
 import DiscountsTab from './tabs/DiscountsTab';
+import PointsWalletTab from './tabs/PointsWalletTab';
 import ApiKeysTab from './tabs/ApiKeysTab';
 import PaymentSettingsTab from './tabs/PaymentSettingsTab';
 import IndiaPaymentsTab from './tabs/IndiaPaymentsTab';
@@ -302,6 +303,7 @@ const AdminPanel = () => {
       { key: 'sessions', label: 'Sessions', icon: Calendar },
       { key: 'promotions', label: 'Promotions', icon: Gift },
       { key: 'discounts', label: 'Discounts & Loyalty', icon: Tag },
+      { key: 'points_wallet', label: 'Points wallet', icon: Wallet },
       { key: 'special_offers', label: 'Special/VIP Offers', icon: Star },
       { key: 'nri_pricing', label: 'INR Pricing for NRI', icon: Globe },
       { key: 'exchange_rates', label: 'Exchange Rates', icon: Globe },
@@ -516,6 +518,7 @@ const AdminPanel = () => {
           )}
           {activeTab === 'promotions' && <PromotionsTab programs={programs} />}
           {activeTab === 'discounts' && <DiscountsTab />}
+          {activeTab === 'points_wallet' && <PointsWalletTab />}
           {activeTab === 'special_offers' && <DiscountsTab defaultSection="special" />}
           {activeTab === 'nri_pricing' && <PaymentSettingsTab defaultSection="nri" />}
           {activeTab === 'exchange_rates' && <ExchangeRatesTab />}
@@ -1211,7 +1214,7 @@ const AdminPanel = () => {
                     <Input
                       value={testimonialForm.points_attribution_email || ''}
                       onChange={(e) => setTestimonialForm({ ...testimonialForm, points_attribution_email: e.target.value.trim() })}
-                      placeholder="Student email — credits points wallet when testimonial is public (see Discounts → activities)"
+                      placeholder="Student email — credits points wallet when testimonial is public (configure under Points wallet)"
                       className="h-8 text-xs"
                       data-testid="testimonial-points-email"
                     />
