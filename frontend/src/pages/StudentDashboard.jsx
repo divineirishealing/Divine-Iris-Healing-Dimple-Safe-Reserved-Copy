@@ -4,6 +4,7 @@ import { useSiteSettings } from '../context/SiteSettingsContext';
 import {
   Calendar, User, CreditCard, Heart, BookOpen,
   ArrowRight, ChevronRight,
+  Coins,
 } from 'lucide-react';
 import { cn, formatDateDdMonYyyy, formatDashboardTime, dashboardStudentScheduleTable } from '../lib/utils';
 import { buildDashboardScheduleRows } from '../lib/dashboardSchedule';
@@ -190,6 +191,7 @@ const StudentDashboard = () => {
       .catch(() => {});
   }, []);
 
+  const pts = homeData?.points;
   const pkg = homeData?.package || {};
   const progressPct = pkg.total_sessions ? Math.round((pkg.used_sessions / pkg.total_sessions) * 100) : 0;
   const tierLabel = { 1: 'Seeker', 2: 'Initiate', 3: 'Explorer', 4: 'Iris Zenith' }[user?.tier] || 'Seeker';
@@ -404,6 +406,28 @@ const StudentDashboard = () => {
               </p>
             </div>
           </SanctuaryPetalCard>
+
+          {pts?.enabled && (
+            <SanctuaryPetalCard variant="gold" className="w-full p-4" testId="petal-points" delay={150} onClick={() => navigate('/dashboard/points')}>
+              <div className="flex items-start justify-between gap-3">
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <div className="w-9 h-9 rounded-xl bg-amber-100 flex items-center justify-center shrink-0">
+                    <Coins size={17} className="text-amber-700" />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-[9px] font-bold uppercase tracking-[0.12em] text-amber-900/70">Divine Iris Points</p>
+                    <p className="text-2xl font-semibold text-slate-900 leading-tight">{pts.balance}</p>
+                    {pts.expiring_within_days_30 > 0 && (
+                      <p className="text-[10px] text-amber-800 mt-0.5">{pts.expiring_within_days_30} pts expiring within 30 days</p>
+                    )}
+                  </div>
+                </div>
+                <p className="text-[10px] text-slate-500 max-w-[200px] text-right leading-snug">
+                  Redeem up to {pts.max_basket_pct}% of your next program. Points expire in {pts.expiry_months} months.
+                </p>
+              </div>
+            </SanctuaryPetalCard>
+          )}
 
           <div className="grid grid-cols-3 gap-4 items-stretch">
             {/* Profile — compact strip */}
@@ -748,6 +772,20 @@ const StudentDashboard = () => {
                   <p className="text-sm font-bold text-slate-900 truncate">{mobileScheduleSub}</p>
                 </div>
                 <ChevronRight size={16} className="text-slate-300 shrink-0" />
+              </div>
+            </SanctuaryPetalCard>
+          )}
+          {pts?.enabled && (
+            <SanctuaryPetalCard variant="gold" testId="petal-points-m" className="p-4" delay={175} onClick={() => navigate('/dashboard/points')}>
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-amber-100 flex items-center justify-center shrink-0">
+                  <Coins size={17} className="text-amber-700" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <h3 className="text-[11px] font-bold uppercase tracking-[0.12em] text-amber-900/70">Divine Iris Points</h3>
+                  <p className="text-lg font-bold text-slate-900">{pts.balance} pts</p>
+                  <p className="text-[9px] text-slate-500 mt-0.5">Up to {pts.max_basket_pct}% off next program · {pts.expiry_months} mo. expiry</p>
+                </div>
               </div>
             </SanctuaryPetalCard>
           )}

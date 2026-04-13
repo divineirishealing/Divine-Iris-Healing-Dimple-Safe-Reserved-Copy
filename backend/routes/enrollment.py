@@ -63,6 +63,7 @@ class ParticipantData(BaseModel):
     is_first_time: bool = False
     referral_source: str = ""
     referred_by_name: str = ""
+    referred_by_email: Optional[str] = None
 
 
 class ProfileData(BaseModel):
@@ -100,6 +101,7 @@ class EnrollmentSubmit(BaseModel):
     cart_items: Optional[list] = None
     browser_timezone: Optional[str] = None
     browser_languages: Optional[list] = None
+    points_to_redeem: Optional[int] = 0
 
 
 # ─── HELPERS ───
@@ -476,6 +478,51 @@ async def get_enrollment_pricing(enrollment_id: str, item_type: str, item_id: st
     }
 
 
+@router.get("/{enrollment_id}/points-summary")
+async def enrollment_points_summary(
+    enrollment_id: str,
+    basket_subtotal: Optional[float] = None,
+    currency: Optional[str] = None,
+):
+    """Booker balance + caps for checkout UI (requires verified enrollment)."""
+    enrollment = await db.enrollments.find_one(
+        {"id": enrollment_id},
+        {"_id": 0, "phone_verified": 1, "booker_email": 1},
+    )
+    if not enrollment:
+        raise HTTPException(status_code=404, detail="Enrollment not found")
+    if not enrollment.get("phone_verified"):
+        raise HTTPException(status_code=403, detail="Phone not verified")
+
+    from routes.points_logic import (
+        fetch_points_config,
+        available_balance,
+        compute_points_redemption,
+        fiat_per_point,
+        normalize_email,
+    )
+
+    cfg = await fetch_points_config(db)
+    em = normalize_email(enrollment.get("booker_email", ""))
+    bal = await available_balance(db, em)
+    cur = (currency or "aed").lower()
+    per = fiat_per_point(cur, cfg)
+    out = {
+        "enabled": cfg["enabled"],
+        "balance": bal,
+        "max_basket_pct": cfg["max_basket_pct"],
+        "expiry_months": cfg["expiry_months"],
+        "fiat_per_point": per,
+        "currency": cur,
+    }
+    if basket_subtotal is not None and float(basket_subtotal) > 0 and cfg["enabled"]:
+        bs = float(basket_subtotal)
+        max_pts, max_cash = compute_points_redemption(bal, bs, cur, bal, cfg)
+        out["max_points_usable"] = max_pts
+        out["max_discount"] = max_cash
+    return out
+
+
 @router.post("/{enrollment_id}/checkout")
 async def enrollment_checkout(enrollment_id: str, data: EnrollmentSubmit, request: Request):
     """Step 4: Create Stripe checkout with verified enrollment data"""
@@ -644,6 +691,30 @@ async def enrollment_checkout(enrollment_id: str, data: EnrollmentSubmit, reques
 
     final_total = max(0, total - best_discount)
 
+    # ── Loyalty points (redeem up to % of basket; burn on payment webhook) ──
+    points_redeemed = 0
+    points_discount = 0.0
+    pre_points_total = float(final_total)
+    try:
+        from routes.points_logic import (
+            fetch_points_config,
+            available_balance,
+            compute_points_redemption,
+            normalize_email,
+        )
+
+        cfg_pts = await fetch_points_config(db)
+        req_pts = int(data.points_to_redeem or 0)
+        if cfg_pts["enabled"] and req_pts > 0 and final_total > 0:
+            be_pts = normalize_email(enrollment.get("booker_email", ""))
+            avail_pts = await available_balance(db, be_pts)
+            points_redeemed, points_discount = compute_points_redemption(
+                req_pts, float(final_total), currency, avail_pts, cfg_pts
+            )
+            final_total = max(0.0, round(float(final_total) - float(points_discount), 2))
+    except Exception as e:
+        logger.warning(f"Points redemption calc error: {e}")
+
     # Store VIP discount in enrollment
     if vip_discount > 0:
         await db.enrollments.update_one({"id": enrollment_id}, {"$set": {
@@ -680,6 +751,9 @@ async def enrollment_checkout(enrollment_id: str, data: EnrollmentSubmit, reques
             "attendance": enrollment.get("attendance"),
             "tier_index": data.tier_index,
             "is_free": True,
+            "pre_points_total": pre_points_total,
+            "points_redeemed": points_redeemed,
+            "points_discount": round(float(points_discount), 2),
             "created_at": datetime.now(timezone.utc),
             "updated_at": datetime.now(timezone.utc),
         }
@@ -821,6 +895,9 @@ async def enrollment_checkout(enrollment_id: str, data: EnrollmentSubmit, reques
         "participant_count": enrollment.get("participant_count", 1),
         "attendance": enrollment.get("attendance"),
         "tier_index": data.tier_index,
+        "pre_points_total": pre_points_total,
+        "points_redeemed": points_redeemed,
+        "points_discount": round(float(points_discount), 2),
         "created_at": datetime.now(timezone.utc),
         "updated_at": datetime.now(timezone.utc),
     }

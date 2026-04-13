@@ -54,7 +54,7 @@ const emptyParticipant = (mode = 'online') => ({
   name: '', relationship: '', age: '', gender: '',
   country: '', city: '', state: '', attendance_mode: mode, notify: true, email: '', phone: '', whatsapp: '',
   phone_code: '', wa_code: '',
-  is_first_time: true, referral_source: '',
+  is_first_time: true, referral_source: '', referred_by_email: '',
 });
 
 const CartItemCard = ({ item, onRemove, onUpdateParticipants, symbol, getItemPrice, getItemOfferPrice, showReferral, detectedCountry, copySource, crossSellDiscount, vipOffer }) => {
@@ -290,10 +290,16 @@ const CartItemCard = ({ item, onRemove, onUpdateParticipants, symbol, getItemPri
                     </select>
                   </div>
                   {p.referral_source === 'Friend / Family' && (
-                    <div>
-                      <label className="text-[9px] text-gray-500">Referred by</label>
-                      <Input type="text" value={p.referred_by_name || ''} onChange={e => updateParticipant(idx, 'referred_by_name', e.target.value)} placeholder="Referrer's name" className="text-xs h-8" />
-                    </div>
+                    <>
+                      <div>
+                        <label className="text-[9px] text-gray-500">Referred by (name)</label>
+                        <Input type="text" value={p.referred_by_name || ''} onChange={e => updateParticipant(idx, 'referred_by_name', e.target.value)} placeholder="Referrer's name" className="text-xs h-8" />
+                      </div>
+                      <div className="col-span-2">
+                        <label className="text-[9px] text-gray-500">Referrer email (optional)</label>
+                        <Input type="email" autoComplete="off" value={p.referred_by_email || ''} onChange={e => updateParticipant(idx, 'referred_by_email', e.target.value)} placeholder="friend@email.com" className="text-xs h-8" />
+                      </div>
+                    </>
                   )}
                 </div>
               )}
@@ -305,7 +311,10 @@ const CartItemCard = ({ item, onRemove, onUpdateParticipants, symbol, getItemPri
                     <span className="text-[10px] text-gray-600">Referred by a Divine Iris member</span>
                   </label>
                   {p.has_referral && (
-                    <Input value={p.referred_by_name || ''} onChange={e => updateParticipant(idx, 'referred_by_name', e.target.value)} placeholder="Referrer's name" className="text-xs h-8 mb-2" />
+                    <div className="space-y-2 mb-2">
+                      <Input value={p.referred_by_name || ''} onChange={e => updateParticipant(idx, 'referred_by_name', e.target.value)} placeholder="Referrer's name" className="text-xs h-8" />
+                      <Input type="email" autoComplete="off" value={p.referred_by_email || ''} onChange={e => updateParticipant(idx, 'referred_by_email', e.target.value)} placeholder="Referrer email (optional)" className="text-xs h-8" />
+                    </div>
                   )}
                 </>
               )}
@@ -523,16 +532,22 @@ function CartPage() {
     try {
       const bookerPhone = phone ? `${countryCode}${phone}` : null;
       const allParticipants = items.flatMap(item =>
-        item.participants.map(p => ({
-          name: p.name, relationship: p.relationship, age: parseInt(p.age),
-          gender: p.gender, country: p.country, attendance_mode: p.attendance_mode,
-          notify: p.notify, email: p.email || null,
-          phone: p.notify && p.phone ? `${p.phone_code || ''}${p.phone}` : null,
-          whatsapp: p.whatsapp ? `${p.wa_code || ''}${p.whatsapp}` : null,
-          program_id: item.programId, program_title: item.programTitle,
-          is_first_time: p.is_first_time || false, referral_source: p.referral_source || '',
-          referred_by_name: p.has_referral ? (p.referred_by_name || '') : '',
-        }))
+        item.participants.map(p => {
+          const refName = p.has_referral ? (p.referred_by_name || '') : (p.referral_source === 'Friend / Family' ? (p.referred_by_name || '') : '');
+          const refEmailRaw = (p.referred_by_email || '').trim().toLowerCase();
+          const refEmail = (p.has_referral || p.referral_source === 'Friend / Family') && refEmailRaw ? refEmailRaw : null;
+          return {
+            name: p.name, relationship: p.relationship, age: parseInt(p.age),
+            gender: p.gender, country: p.country, city: p.city, state: p.state, attendance_mode: p.attendance_mode,
+            notify: p.notify, email: p.email || null,
+            phone: p.notify && p.phone ? `${p.phone_code || ''}${p.phone}` : null,
+            whatsapp: p.whatsapp ? `${p.wa_code || ''}${p.whatsapp}` : null,
+            program_id: item.programId, program_title: item.programTitle,
+            is_first_time: p.is_first_time || false, referral_source: p.referral_source || '',
+            referred_by_name: refName,
+            referred_by_email: refEmail,
+          };
+        })
       );
 
       const enrollRes = await axios.post(`${API}/enrollment/start`, {

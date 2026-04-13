@@ -760,6 +760,14 @@ async def check_payment_status(session_id: str, http_request: Request, backgroun
 
         # Complete enrollment and send confirmation when payment is newly confirmed
         if new_status == "paid" and not tx.get("emails_sent"):
+            try:
+                from routes.points_logic import run_post_payment_loyalty
+
+                tx_clean = {k: v for k, v in tx.items() if k != "_id"}
+                await run_post_payment_loyalty(db, tx_clean)
+            except Exception as e:
+                logger.warning(f"Points status-poll loyalty: {e}")
+
             # Mark enrollment as completed (primary path — webhook is secondary/redundant)
             if enrollment_id:
                 await db.enrollments.update_one(

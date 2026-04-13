@@ -38,6 +38,7 @@ import MandalaPage from './components/dashboard/MandalaPage';
 import HeadspacePage from './components/dashboard/HeadspacePage';
 import BhaadPortalPage from './components/dashboard/BhaadPortalPage';
 import SoulTribePage from './components/dashboard/SoulTribePage';
+import PointsPage from './components/dashboard/PointsPage';
 import { Toaster } from './components/ui/toaster';
 import { HelmetProvider } from 'react-helmet-async';
 import { SiteSettingsProvider } from './context/SiteSettingsContext';
@@ -118,6 +119,7 @@ const AppContent = () => {
         <Route index element={<StudentDashboard />} />
         <Route path="profile" element={<ProfilePage />} />
         <Route path="financials" element={<FinancialsPage />} />
+        <Route path="points" element={<PointsPage />} />
         <Route path="sessions" element={<CalendarPage />} />
         <Route path="progress" element={<ProgressPage />} />
         <Route path="garden" element={<SoulGardenPage />} />

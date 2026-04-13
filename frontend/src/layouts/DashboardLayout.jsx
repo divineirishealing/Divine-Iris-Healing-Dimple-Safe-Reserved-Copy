@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Outlet, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { NavLink } from 'react-router-dom';
-import { Loader2, Menu, X, Home, Sprout, Calendar, TrendingUp, Sparkles, Heart, BookOpen, User, CreditCard, LogOut } from 'lucide-react';
+import { Loader2, Menu, X, Home, Sprout, Calendar, TrendingUp, Sparkles, Heart, BookOpen, User, CreditCard, LogOut, Coins } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { CosmicDashboardBackground } from '../components/dashboard/CosmicDashboardBackground';
 import { getDashboardCosmicVariant } from '../lib/dashboardCosmicThemes';
@@ -15,6 +15,7 @@ const NAV_ITEMS = [
   { to: '/dashboard/bhaad', label: 'Bhaad Portal', icon: Sparkles },
   { to: '/dashboard/tribe', label: 'Soul Tribe', icon: Heart },
   { to: '/dashboard/financials', label: 'Financials', icon: CreditCard },
+  { to: '/dashboard/points', label: 'Points', icon: Coins },
   { to: '/dashboard/profile', label: 'Profile', icon: User },
 ];
 

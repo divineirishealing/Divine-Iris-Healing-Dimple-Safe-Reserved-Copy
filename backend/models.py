@@ -500,6 +500,19 @@ class SiteSettings(BaseModel):
     combo_min_programs: int = 2
     enable_loyalty: bool = False
     loyalty_discount_pct: float = 0  # % off for returning clients (have existing UID)
+    # Points wallet (earn & burn) — separate from % loyalty discount above
+    points_enabled: bool = False
+    points_max_basket_pct: float = 20.0  # max % of order payable with points
+    points_expiry_months: int = 6
+    points_inr_per_point: float = 1.0  # cash value of 1 point when redeeming in INR (100 pts ≈ ₹100)
+    points_usd_per_point: float = 0.01
+    points_aed_per_point: float = 0.037
+    points_earn_per_inr_paid: float = 0.5  # points earned per 1 unit of currency paid (after discounts)
+    points_earn_per_usd_paid: float = 0.5
+    points_earn_per_aed_paid: float = 0.5
+    points_bonus_streak_30: int = 50
+    points_bonus_review: int = 50
+    points_bonus_referral: int = 500
     # Payment disclaimer text
     payment_disclaimer: str = "We love aligning our work with the natural solar cycle of where you are. If the pricing you see isn't in your local currency, please reach out\u2014we'd be happy to provide the adjusted rates tailored to your home country."
     payment_disclaimer_enabled: bool = True
@@ -652,6 +665,18 @@ class SiteSettingsUpdate(BaseModel):
     combo_min_programs: Optional[int] = None
     enable_loyalty: Optional[bool] = None
     loyalty_discount_pct: Optional[float] = None
+    points_enabled: Optional[bool] = None
+    points_max_basket_pct: Optional[float] = None
+    points_expiry_months: Optional[int] = None
+    points_inr_per_point: Optional[float] = None
+    points_usd_per_point: Optional[float] = None
+    points_aed_per_point: Optional[float] = None
+    points_earn_per_inr_paid: Optional[float] = None
+    points_earn_per_usd_paid: Optional[float] = None
+    points_earn_per_aed_paid: Optional[float] = None
+    points_bonus_streak_30: Optional[int] = None
+    points_bonus_review: Optional[int] = None
+    points_bonus_referral: Optional[int] = None
     payment_disclaimer: Optional[str] = None
     payment_disclaimer_enabled: Optional[bool] = None
     payment_disclaimer_style: Optional[Dict] = None

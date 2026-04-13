@@ -28,6 +28,18 @@ async def get_discount_settings():
             "combo_min_programs": 2,
             "enable_loyalty": False,
             "loyalty_discount_pct": 0,
+            "points_enabled": False,
+            "points_max_basket_pct": 20.0,
+            "points_expiry_months": 6,
+            "points_inr_per_point": 1.0,
+            "points_usd_per_point": 0.01,
+            "points_aed_per_point": 0.037,
+            "points_earn_per_inr_paid": 0.5,
+            "points_earn_per_usd_paid": 0.5,
+            "points_earn_per_aed_paid": 0.5,
+            "points_bonus_streak_30": 50,
+            "points_bonus_review": 50,
+            "points_bonus_referral": 500,
         }
     return {
         "enable_referral": settings.get("enable_referral", True),
@@ -42,6 +54,18 @@ async def get_discount_settings():
         "cross_sell_rules": settings.get("cross_sell_rules", []),
         "enable_cross_sell": settings.get("enable_cross_sell", False),
         "special_offers": settings.get("special_offers", []),
+        "points_enabled": settings.get("points_enabled", False),
+        "points_max_basket_pct": settings.get("points_max_basket_pct", 20.0),
+        "points_expiry_months": settings.get("points_expiry_months", 6),
+        "points_inr_per_point": settings.get("points_inr_per_point", 1.0),
+        "points_usd_per_point": settings.get("points_usd_per_point", 0.01),
+        "points_aed_per_point": settings.get("points_aed_per_point", 0.037),
+        "points_earn_per_inr_paid": settings.get("points_earn_per_inr_paid", 0.5),
+        "points_earn_per_usd_paid": settings.get("points_earn_per_usd_paid", 0.5),
+        "points_earn_per_aed_paid": settings.get("points_earn_per_aed_paid", 0.5),
+        "points_bonus_streak_30": settings.get("points_bonus_streak_30", 50),
+        "points_bonus_review": settings.get("points_bonus_review", 50),
+        "points_bonus_referral": settings.get("points_bonus_referral", 500),
     }
 
 

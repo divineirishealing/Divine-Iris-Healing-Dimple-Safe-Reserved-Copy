@@ -25,6 +25,18 @@ export default function DiscountsTab() {
     combo_rules: [],
     enable_loyalty: false,
     loyalty_discount_pct: 0,
+    points_enabled: false,
+    points_max_basket_pct: 20,
+    points_expiry_months: 6,
+    points_inr_per_point: 1,
+    points_usd_per_point: 0.01,
+    points_aed_per_point: 0.037,
+    points_earn_per_inr_paid: 0.5,
+    points_earn_per_usd_paid: 0.5,
+    points_earn_per_aed_paid: 0.5,
+    points_bonus_streak_30: 50,
+    points_bonus_review: 50,
+    points_bonus_referral: 500,
     enable_cross_sell: false,
     cross_sell_rules: [],
     special_offers: [],
@@ -276,6 +288,68 @@ export default function DiscountsTab() {
             <Input type="text" inputMode="decimal" value={settings.loyalty_discount_pct} onChange={e => setSettings(prev => ({ ...prev, loyalty_discount_pct: parseFloat(e.target.value) || 0 }))}
               className="w-16 h-7 text-xs text-center" min={0} max={50} />
             <span className="text-xs text-gray-500">% off their next enrollment</span>
+          </div>
+        )}
+      </div>
+
+      {/* Points wallet (earn & burn) */}
+      <div className="bg-white rounded-lg border p-5" data-testid="points-wallet-section">
+        <div className="flex items-center justify-between mb-2">
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 bg-amber-100 rounded-lg flex items-center justify-center">
+              <Star size={18} className="text-amber-600" />
+            </div>
+            <div>
+              <p className="text-sm font-semibold text-gray-900">Points Wallet</p>
+              <p className="text-[10px] text-gray-500">Earn points on paid enrollments; redeem up to a % of the next order. Points expire after the months below.</p>
+            </div>
+          </div>
+          <Switch checked={!!settings.points_enabled} onCheckedChange={v => setSettings(prev => ({ ...prev, points_enabled: v }))} data-testid="toggle-points-wallet" />
+        </div>
+        {settings.points_enabled && (
+          <div className="mt-3 space-y-3 text-xs">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+              <div>
+                <Label className="text-[10px] text-gray-500">Max % of basket (points)</Label>
+                <Input type="text" inputMode="decimal" value={settings.points_max_basket_pct}
+                  onChange={e => setSettings(prev => ({ ...prev, points_max_basket_pct: parseFloat(e.target.value) || 0 }))} className="h-8 text-xs" />
+              </div>
+              <div>
+                <Label className="text-[10px] text-gray-500">Expiry (months)</Label>
+                <Input type="text" inputMode="numeric" value={settings.points_expiry_months}
+                  onChange={e => setSettings(prev => ({ ...prev, points_expiry_months: parseInt(e.target.value, 10) || 6 }))} className="h-8 text-xs" />
+              </div>
+            </div>
+            <p className="text-[10px] text-gray-500 font-medium">Cash value per 1 point when redeeming</p>
+            <div className="grid grid-cols-3 gap-2">
+              <div><Label className="text-[10px] text-gray-500">INR</Label>
+                <Input value={settings.points_inr_per_point} onChange={e => setSettings(prev => ({ ...prev, points_inr_per_point: parseFloat(e.target.value) || 0 }))} className="h-8 text-xs" /></div>
+              <div><Label className="text-[10px] text-gray-500">USD</Label>
+                <Input value={settings.points_usd_per_point} onChange={e => setSettings(prev => ({ ...prev, points_usd_per_point: parseFloat(e.target.value) || 0 }))} className="h-8 text-xs" /></div>
+              <div><Label className="text-[10px] text-gray-500">AED</Label>
+                <Input value={settings.points_aed_per_point} onChange={e => setSettings(prev => ({ ...prev, points_aed_per_point: parseFloat(e.target.value) || 0 }))} className="h-8 text-xs" /></div>
+            </div>
+            <p className="text-[10px] text-gray-500 font-medium">Points earned per 1 unit paid (after discounts)</p>
+            <div className="grid grid-cols-3 gap-2">
+              <div><Label className="text-[10px] text-gray-500">Per ₹1</Label>
+                <Input value={settings.points_earn_per_inr_paid} onChange={e => setSettings(prev => ({ ...prev, points_earn_per_inr_paid: parseFloat(e.target.value) || 0 }))} className="h-8 text-xs" /></div>
+              <div><Label className="text-[10px] text-gray-500">Per $1</Label>
+                <Input value={settings.points_earn_per_usd_paid} onChange={e => setSettings(prev => ({ ...prev, points_earn_per_usd_paid: parseFloat(e.target.value) || 0 }))} className="h-8 text-xs" /></div>
+              <div><Label className="text-[10px] text-gray-500">Per 1 AED</Label>
+                <Input value={settings.points_earn_per_aed_paid} onChange={e => setSettings(prev => ({ ...prev, points_earn_per_aed_paid: parseFloat(e.target.value) || 0 }))} className="h-8 text-xs" /></div>
+            </div>
+            <p className="text-[10px] text-gray-500 font-medium">Bonus grants (student claim or admin)</p>
+            <div className="grid grid-cols-3 gap-2">
+              <div><Label className="text-[10px] text-gray-500">30-day streak</Label>
+                <Input value={settings.points_bonus_streak_30} onChange={e => setSettings(prev => ({ ...prev, points_bonus_streak_30: parseInt(e.target.value, 10) || 0 }))} className="h-8 text-xs" /></div>
+              <div><Label className="text-[10px] text-gray-500">Review</Label>
+                <Input value={settings.points_bonus_review} onChange={e => setSettings(prev => ({ ...prev, points_bonus_review: parseInt(e.target.value, 10) || 0 }))} className="h-8 text-xs" /></div>
+              <div><Label className="text-[10px] text-gray-500">Referral</Label>
+                <Input value={settings.points_bonus_referral} onChange={e => setSettings(prev => ({ ...prev, points_bonus_referral: parseInt(e.target.value, 10) || 0 }))} className="h-8 text-xs" /></div>
+            </div>
+            <p className="text-[9px] text-amber-800 bg-amber-50 rounded px-2 py-1.5">
+              Grant points from Admin: POST <code className="text-[8px]">/api/admin/points/grant</code> with admin password + client email. Students can claim streak/review bonuses from the dashboard when exposed in UI.
+            </p>
           </div>
         )}
       </div>

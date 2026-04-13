@@ -4,7 +4,7 @@ import { useAuth } from '../../context/AuthContext';
 import { 
   Home, BookOpen, MessageCircle, FileText, Calendar, PenTool,
   Lock, LogOut, Activity, Archive, CreditCard, User, TrendingUp,
-  Sparkles, Heart, Users, Sprout
+  Sparkles, Heart, Users, Sprout, Coins
 } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { useSiteSettings } from '../../context/SiteSettingsContext';
@@ -68,6 +68,7 @@ const Sidebar = ({ onNavigate }) => {
         <div className={cn("text-[10px] font-semibold uppercase px-4 mb-2 mt-6", isSanctuary ? "text-white/50" : "text-gray-400")}>My Space</div>
         <NavItem to="/dashboard/profile" icon={User} label="My Profile" minTier={1} />
         <NavItem to="/dashboard/financials" icon={CreditCard} label="Financials & EMI" minTier={1} />
+        <NavItem to="/dashboard/points" icon={Coins} label="Points" minTier={1} />
 
         <div className={cn("text-[10px] font-semibold uppercase px-4 mb-2 mt-6", isSanctuary ? "text-white/50" : "text-gray-400")}>Community</div>
         <NavItem to="/dashboard/community" icon={MessageCircle} label="Experience Sharing" minTier={2} />

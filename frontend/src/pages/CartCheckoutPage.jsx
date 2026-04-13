@@ -10,7 +10,7 @@ import { Input } from '../components/ui/input';
 import { Button } from '../components/ui/button';
 import {
   Tag, CreditCard, Mail, Lock, Loader2, Check, ChevronLeft, ChevronRight,
-  ShieldCheck, ShieldAlert, ShoppingCart, FileText, Quote
+  ShieldCheck, ShieldAlert, ShoppingCart, FileText, Quote, Gift
 } from 'lucide-react';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
@@ -71,6 +71,8 @@ function CartCheckoutPage() {
   const [processing, setProcessing] = useState(false);
   const [paymentSettings, setPaymentSettings] = useState({ disclaimer: '', disclaimer_enabled: true, disclaimer_style: {}, india_links: [], india_exly_link: '', india_bank_details: {}, india_enabled: false, manual_form_enabled: true });
   const [urgencyQuotes, setUrgencyQuotes] = useState([]);
+  const [pointsSummary, setPointsSummary] = useState(null);
+  const [pointsToRedeem, setPointsToRedeem] = useState(0);
 
   // Auto-derive booker from first participant
   const firstP = items[0]?.participants?.[0] || {};
@@ -172,6 +174,42 @@ function CartCheckoutPage() {
   const totalAutoDiscount = (autoDiscounts.group_discount || 0) + (autoDiscounts.combo_discount || 0) + (autoDiscounts.loyalty_discount || 0);
   const total = Math.max(0, subtotal - discount - totalAutoDiscount);
 
+  useEffect(() => {
+    if (!enrollmentId || total <= 0) {
+      setPointsSummary(null);
+      return;
+    }
+    axios
+      .get(`${API}/enrollment/${enrollmentId}/points-summary`, {
+        params: { basket_subtotal: total, currency },
+      })
+      .then((r) => {
+        setPointsSummary(r.data);
+        setPointsToRedeem(0);
+      })
+      .catch(() => setPointsSummary(null));
+  }, [enrollmentId, total, currency]);
+
+  const pointsCashEstimate = (() => {
+    if (!pointsSummary?.enabled || !pointsToRedeem || total <= 0) return 0;
+    const per = Number(pointsSummary.fiat_per_point) || 0;
+    const pct = Number(pointsSummary.max_basket_pct) || 20;
+    const maxCash = total * (pct / 100);
+    const bal = Number(pointsSummary.balance) || 0;
+    const maxByOrder = per > 0 ? Math.floor(maxCash / per) : 0;
+    const cap = pointsSummary.max_points_usable != null
+      ? Math.min(bal, pointsSummary.max_points_usable)
+      : Math.min(bal, maxByOrder);
+    const pts = Math.min(Math.max(0, parseInt(String(pointsToRedeem), 10) || 0), cap);
+    const cash = Math.min(pts * per, maxCash, total);
+    return Math.round(cash * 100) / 100;
+  })();
+
+  const displayCheckoutTotal =
+    pointsSummary?.enabled && total > 0
+      ? Math.max(0, Math.round((total - pointsCashEstimate) * 100) / 100)
+      : total;
+
   const handleCheckout = async () => {
     setProcessing(true);
     try {
@@ -181,6 +219,7 @@ function CartCheckoutPage() {
         display_currency: displayCurrency, display_rate: isPrimary ? 1 : undefined,
         origin_url: window.location.origin, promo_code: promoResult?.code || null,
         tier_index: firstItem.tierIndex,
+        points_to_redeem: pointsSummary?.enabled ? Math.max(0, parseInt(String(pointsToRedeem), 10) || 0) : 0,
         cart_items: items.map(i => ({ program_id: i.programId, tier_index: i.tierIndex, participants_count: i.participants.length })),
         browser_timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
         browser_languages: navigator.languages ? [...navigator.languages] : [navigator.language],
@@ -259,8 +298,14 @@ function CartCheckoutPage() {
                       <span>Promo ({promoResult.code})</span><span>-{symbol} {discount.toLocaleString()}</span>
                     </div>
                   )}
+                  {pointsSummary?.enabled && total > 0 && pointsCashEstimate > 0 && (
+                    <div className="flex justify-between text-xs text-amber-700" data-testid="cart-points-discount">
+                      <span>Points</span><span>-{symbol} {pointsCashEstimate.toLocaleString()}</span>
+                    </div>
+                  )}
                   <div className="flex justify-between font-bold text-lg border-t pt-2 mt-2">
-                    <span>Total</span><span className="text-[#D4AF37]">{total <= 0 ? 'FREE' : `${symbol} ${total.toLocaleString()}`}</span>
+                    <span>Total</span>
+                    <span className="text-[#D4AF37]">{displayCheckoutTotal <= 0 ? 'FREE' : `${symbol} ${displayCheckoutTotal.toLocaleString()}`}</span>
                   </div>
                 </div>
               </div>
@@ -311,8 +356,32 @@ function CartCheckoutPage() {
                     </div>
 
                     <div className="flex justify-between font-bold text-lg border-t pt-3 mb-5">
-                      <span>Total</span><span className="text-[#D4AF37]">{total <= 0 ? 'FREE' : `${symbol} ${total.toLocaleString()}`}</span>
+                      <span>Total</span>
+                      <span className="text-[#D4AF37]">{displayCheckoutTotal <= 0 ? 'FREE' : `${symbol} ${displayCheckoutTotal.toLocaleString()}`}</span>
                     </div>
+
+                    {pointsSummary?.enabled && total > 0 && (pointsSummary.max_points_usable || 0) > 0 && (
+                      <div className="border border-amber-200 rounded-lg p-3 mb-4 bg-amber-50/40" data-testid="cart-points-box">
+                        <p className="text-xs font-semibold text-gray-900 mb-0.5 flex items-center gap-1.5">
+                          <Gift size={14} className="text-amber-600" /> Use points
+                        </p>
+                        <p className="text-[10px] text-gray-600 mb-2">
+                          Balance <strong>{pointsSummary.balance}</strong> · Up to <strong>{pointsSummary.max_basket_pct}%</strong> of this order
+                        </p>
+                        <input
+                          type="range"
+                          min={0}
+                          max={pointsSummary.max_points_usable || 0}
+                          value={Math.min(pointsToRedeem, pointsSummary.max_points_usable || 0)}
+                          onChange={(e) => setPointsToRedeem(parseInt(e.target.value, 10) || 0)}
+                          className="w-full h-2 accent-amber-600"
+                        />
+                        <div className="flex justify-between text-[10px] text-gray-700 mt-1">
+                          <span>{Math.min(pointsToRedeem, pointsSummary.max_points_usable || 0)} pts</span>
+                          <span className="text-amber-800">-{symbol}{pointsCashEstimate.toLocaleString()}</span>
+                        </div>
+                      </div>
+                    )}
 
                     {/* India payment options — matching EnrollmentPage */}
                     {detectedCountry === 'IN' && paymentSettings.india_enabled && total > 0 && (
@@ -389,7 +458,7 @@ function CartCheckoutPage() {
                       <Button variant="outline" onClick={() => navigate('/cart')} className="rounded-full"><ChevronLeft size={16} /></Button>
                       <Button data-testid="cart-pay-btn" onClick={handleCheckout} disabled={processing || (total > 0 && !enrollmentId)}
                         className="flex-1 bg-[#D4AF37] hover:bg-[#b8962e] text-white py-3 rounded-full">
-                        {processing ? <><Loader2 className="animate-spin mr-2" size={16} /> {total <= 0 ? 'Registering...' : 'Redirecting...'}</> : total <= 0 ? <><Check size={14} className="mr-2" /> Complete Registration</> : <><Lock size={14} className="mr-2" /> Pay {symbol} {total.toLocaleString()}</>}
+                        {processing ? <><Loader2 className="animate-spin mr-2" size={16} /> {displayCheckoutTotal <= 0 ? 'Registering...' : 'Redirecting...'}</> : displayCheckoutTotal <= 0 ? <><Check size={14} className="mr-2" /> Complete Registration</> : <><Lock size={14} className="mr-2" /> Pay {symbol} {displayCheckoutTotal.toLocaleString()}</>}
                       </Button>
                     </div>
 

@@ -46,7 +46,7 @@ const emptyParticipant = () => ({
   name: '', relationship: '', age: '', gender: '',
   country: '', city: '', state: '', attendance_mode: 'online', notify: true, email: '', phone: '', whatsapp: '',
   phone_code: '', wa_code: '',
-  is_first_time: true, referral_source: '',
+  is_first_time: true, referral_source: '', referred_by_email: '',
 });
 
 const StepBar = ({ current, steps }) => (
@@ -179,10 +179,16 @@ const ParticipantRow = ({ index, data, onChange, onRemove, canRemove, showReferr
             </select>
           </div>
           {data.referral_source === 'Friend / Family' && (
-            <div>
-              <label className="text-[9px] text-gray-500">Referred by</label>
-              <Input data-testid={`p-referrer-name-${index}`} type="text" value={data.referred_by_name || ''} onChange={e => update('referred_by_name', e.target.value)} placeholder="Referrer's name" className="text-xs h-8" />
-            </div>
+            <>
+              <div>
+                <label className="text-[9px] text-gray-500">Referred by (name)</label>
+                <Input data-testid={`p-referrer-name-${index}`} type="text" value={data.referred_by_name || ''} onChange={e => update('referred_by_name', e.target.value)} placeholder="Referrer's name" className="text-xs h-8" />
+              </div>
+              <div className="col-span-2">
+                <label className="text-[9px] text-gray-500">Referrer email (optional — for their referral points)</label>
+                <Input type="email" autoComplete="off" value={data.referred_by_email || ''} onChange={e => update('referred_by_email', e.target.value)} placeholder="friend@email.com" className="text-xs h-8" />
+              </div>
+            </>
           )}
         </div>
       )}
@@ -194,7 +200,10 @@ const ParticipantRow = ({ index, data, onChange, onRemove, canRemove, showReferr
             <span className="text-[10px] text-gray-600">Referred by a Divine Iris member</span>
           </label>
           {data.has_referral && (
-            <Input data-testid={`p-referred-name-${index}`} type="text" value={data.referred_by_name || ''} onChange={e => update('referred_by_name', e.target.value)} placeholder="Referrer's name" className="text-xs h-8 mb-2" />
+            <div className="space-y-2 mb-2">
+              <Input data-testid={`p-referred-name-${index}`} type="text" value={data.referred_by_name || ''} onChange={e => update('referred_by_name', e.target.value)} placeholder="Referrer's name" className="text-xs h-8" />
+              <Input type="email" autoComplete="off" value={data.referred_by_email || ''} onChange={e => update('referred_by_email', e.target.value)} placeholder="Referrer email (optional)" className="text-xs h-8" />
+            </div>
           )}
         </>
       )}
@@ -327,6 +336,8 @@ function EnrollmentPage() {
   const [sessionTestimonials, setSessionTestimonials] = useState([]);
   const [urgencyQuotes, setUrgencyQuotes] = useState([]);
   const [crossSellRules, setCrossSellRules] = useState([]);
+  const [pointsSummary, setPointsSummary] = useState(null);
+  const [pointsToRedeem, setPointsToRedeem] = useState(0);
 
   // Auto-derive booker from first participant
   const firstP = participants[0] || {};
@@ -386,7 +397,7 @@ function EnrollmentPage() {
             whatsapp: rawWa,
             phone_code: pCode, wa_code: pCode,
             is_first_time: p.is_first_time !== false, referral_source: p.referral_source || '',
-            has_referral: !!p.referred_by_name, referred_by_name: p.referred_by_name || '',
+            has_referral: !!p.referred_by_name, referred_by_name: p.referred_by_name || '', referred_by_email: p.referred_by_email || '',
           };
         }));
       }
@@ -529,6 +540,43 @@ function EnrollmentPage() {
   const totalAutoDiscount = (autoDiscounts.group_discount || 0) + (autoDiscounts.combo_discount || 0) + (autoDiscounts.loyalty_discount || 0);
   const total = Math.max(0, subtotal - discount - totalAutoDiscount);
 
+  useEffect(() => {
+    if (step !== 1 || !enrollmentId || total <= 0) {
+      if (step !== 1) setPointsSummary(null);
+      return;
+    }
+    const cur = priceCurrency;
+    axios
+      .get(`${API}/enrollment/${enrollmentId}/points-summary`, {
+        params: { basket_subtotal: total, currency: cur },
+      })
+      .then((r) => {
+        setPointsSummary(r.data);
+        setPointsToRedeem(0);
+      })
+      .catch(() => setPointsSummary(null));
+  }, [step, enrollmentId, total, priceCurrency]);
+
+  const pointsCashEstimate = (() => {
+    if (!pointsSummary?.enabled || !pointsToRedeem || total <= 0) return 0;
+    const per = Number(pointsSummary.fiat_per_point) || 0;
+    const pct = Number(pointsSummary.max_basket_pct) || 20;
+    const maxCash = total * (pct / 100);
+    const bal = Number(pointsSummary.balance) || 0;
+    const maxByOrder = per > 0 ? Math.floor(maxCash / per) : 0;
+    const cap = pointsSummary.max_points_usable != null
+      ? Math.min(bal, pointsSummary.max_points_usable)
+      : Math.min(bal, maxByOrder);
+    const pts = Math.min(Math.max(0, parseInt(String(pointsToRedeem), 10) || 0), cap);
+    const cash = Math.min(pts * per, maxCash, total);
+    return Math.round(cash * 100) / 100;
+  })();
+
+  const displayCheckoutTotal =
+    step === 1 && pointsSummary?.enabled && total > 0
+      ? Math.max(0, Math.round((total - pointsCashEstimate) * 100) / 100)
+      : total;
+
   const validatePromo = async () => {
     if (!promoCode.trim()) return;
     setPromoLoading(true);
@@ -564,7 +612,12 @@ function EnrollmentPage() {
       const bookerPhone = phone ? `${countryCode}${phone}` : null;
       const enrollRes = await axios.post(`${API}/enrollment/start`, {
         booker_name: bookerName, booker_email: bookerEmail, booker_country: bookerCountry,
-        participants: participants.map(p => ({ name: p.name, relationship: p.relationship, age: parseInt(p.age), gender: p.gender, country: p.country, city: p.city, state: p.state, attendance_mode: p.attendance_mode, notify: p.notify, email: p.notify ? p.email : null, phone: p.notify && p.phone ? `${p.phone_code || ''}${p.phone}` : null, whatsapp: p.whatsapp ? `${p.wa_code || ''}${p.whatsapp}` : null, is_first_time: p.is_first_time || false, referral_source: p.referral_source || '', referred_by_name: p.has_referral ? (p.referred_by_name || '') : '' })),
+        participants: participants.map(p => {
+          const refName = p.has_referral ? (p.referred_by_name || '') : (p.referral_source === 'Friend / Family' ? (p.referred_by_name || '') : '');
+          const refEmailRaw = (p.referred_by_email || '').trim().toLowerCase();
+          const refEmail = (p.has_referral || p.referral_source === 'Friend / Family') && refEmailRaw ? refEmailRaw : null;
+          return { name: p.name, relationship: p.relationship, age: parseInt(p.age), gender: p.gender, country: p.country, city: p.city, state: p.state, attendance_mode: p.attendance_mode, notify: p.notify, email: p.notify ? p.email : null, phone: p.notify && p.phone ? `${p.phone_code || ''}${p.phone}` : null, whatsapp: p.whatsapp ? `${p.wa_code || ''}${p.whatsapp}` : null, is_first_time: p.is_first_time || false, referral_source: p.referral_source || '', referred_by_name: refName, referred_by_email: refEmail };
+        }),
       });
       const eid = enrollRes.data.enrollment_id;
       setEnrollmentId(eid);
@@ -602,9 +655,10 @@ function EnrollmentPage() {
         setProcessing(true);
         try {
           const res = await axios.post(`${API}/enrollment/${enrollmentId}/checkout`, {
-            enrollment_id: enrollmentId, item_type: type, item_id: id, currency,
+            enrollment_id: enrollmentId, item_type: type, item_id: id, currency: priceCurrency,
             origin_url: window.location.origin, promo_code: promoResult?.code || null,
             tier_index: selectedTier,
+            points_to_redeem: 0,
             browser_timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
             browser_languages: navigator.languages ? [...navigator.languages] : [navigator.language],
           });
@@ -629,6 +683,7 @@ function EnrollmentPage() {
         display_currency: priceCurrency, display_rate: isPrimary ? 1 : undefined,
         origin_url: window.location.origin, promo_code: promoResult?.code || null,
         tier_index: selectedTier,
+        points_to_redeem: pointsSummary?.enabled ? Math.max(0, parseInt(String(pointsToRedeem), 10) || 0) : 0,
         browser_timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
         browser_languages: navigator.languages ? [...navigator.languages] : [navigator.language],
       });
@@ -798,9 +853,17 @@ function EnrollmentPage() {
                         <span>Loyalty Discount</span><span>-{symbol} {autoDiscounts.loyalty_discount.toLocaleString()}</span>
                       </div>
                     )}
+                    {step === 1 && pointsSummary?.enabled && total > 0 && pointsCashEstimate > 0 && (
+                      <div className="flex justify-between text-xs text-amber-700" data-testid="enroll-points-discount">
+                        <span>Points</span>
+                        <span>-{effectiveSymbol} {pointsCashEstimate.toLocaleString()}</span>
+                      </div>
+                    )}
                     <div className="flex justify-between font-bold text-lg border-t pt-2 mt-2">
                       <span className="text-gray-900">Total</span>
-                      <span className="text-[#D4AF37]">{total <= 0 ? 'FREE' : `${symbol} ${total.toLocaleString()}`}</span>
+                      <span className="text-[#D4AF37]">
+                        {displayCheckoutTotal <= 0 ? 'FREE' : `${effectiveSymbol} ${displayCheckoutTotal.toLocaleString()}`}
+                      </span>
                     </div>
                   </div>
                 </div>
@@ -963,6 +1026,29 @@ function EnrollmentPage() {
                       {phone && <p><strong>Phone:</strong> {countryCode}{phone}</p>}
                     </div>
 
+                    {pointsSummary?.enabled && total > 0 && (pointsSummary.max_points_usable || 0) > 0 && (
+                      <div className="border border-amber-200 rounded-lg p-3 mb-3 bg-amber-50/40" data-testid="enroll-points-box">
+                        <p className="text-xs font-semibold text-gray-900 mb-0.5 flex items-center gap-1.5">
+                          <Gift size={14} className="text-amber-600" /> Use points
+                        </p>
+                        <p className="text-[10px] text-gray-600 mb-2">
+                          Balance <strong>{pointsSummary.balance}</strong> · Up to <strong>{pointsSummary.max_basket_pct}%</strong> of this order · Expire in {pointsSummary.expiry_months} mo.
+                        </p>
+                        <input
+                          type="range"
+                          min={0}
+                          max={pointsSummary.max_points_usable || 0}
+                          value={Math.min(pointsToRedeem, pointsSummary.max_points_usable || 0)}
+                          onChange={(e) => setPointsToRedeem(parseInt(e.target.value, 10) || 0)}
+                          className="w-full h-2 accent-amber-600"
+                        />
+                        <div className="flex justify-between text-[10px] text-gray-700 mt-1">
+                          <span>{Math.min(pointsToRedeem, pointsSummary.max_points_usable || 0)} pts</span>
+                          <span className="text-amber-800">-{effectiveSymbol}{pointsCashEstimate.toLocaleString()}</span>
+                        </div>
+                      </div>
+                    )}
+
                     {/* India payment options — only show if enabled in admin */}
                     {detectedCountry === 'IN' && paymentSettings.india_enabled && (
                       <div className="mb-4" data-testid="india-payment-options">
@@ -1040,7 +1126,7 @@ function EnrollmentPage() {
                       <Button variant="outline" onClick={() => setStep(0)} className="rounded-full"><ChevronLeft size={16} /></Button>
                       <Button data-testid="pay-now-btn" onClick={handleCheckout} disabled={processing}
                         className="flex-1 bg-[#D4AF37] hover:bg-[#b8962e] text-white py-3 rounded-full">
-                        {processing ? <><Loader2 className="animate-spin mr-2" size={16} /> {total <= 0 ? 'Registering...' : 'Redirecting...'}</> : total <= 0 ? <><Check size={14} className="mr-2" /> Complete Registration</> : <><Lock size={14} className="mr-2" /> Pay {symbol} {total.toLocaleString()}</>}
+                        {processing ? <><Loader2 className="animate-spin mr-2" size={16} /> {displayCheckoutTotal <= 0 ? 'Registering...' : 'Redirecting...'}</> : displayCheckoutTotal <= 0 ? <><Check size={14} className="mr-2" /> Complete Registration</> : <><Lock size={14} className="mr-2" /> Pay {effectiveSymbol} {displayCheckoutTotal.toLocaleString()}</>}
                       </Button>
                     </div>
 

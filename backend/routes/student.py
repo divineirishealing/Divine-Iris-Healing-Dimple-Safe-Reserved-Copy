@@ -148,6 +148,10 @@ class ProfileUpdate(BaseModel):
     profession: Optional[str] = None
     phone: Optional[str] = None
 
+
+class PointsBonusClaim(BaseModel):
+    kind: str
+
 @router.get("/home")
 async def get_student_home(user: dict = Depends(get_current_user)):
     """Fetch personalized home data: Schedule, Package, Financials, Programs."""
@@ -255,6 +259,10 @@ async def get_student_home(user: dict = Depends(get_current_user)):
 
     iris_journey = resolve_iris_journey(sub)
 
+    from routes.points_logic import points_public_summary
+
+    loyalty_points = await points_public_summary(db, user.get("email") or "")
+
     return {
         "client_id": client_id,
         "upcoming_programs": upcoming,
@@ -270,6 +278,7 @@ async def get_student_home(user: dict = Depends(get_current_user)):
         "channelization_fee": sub.get("channelization_fee", 0),
         "show_late_fees": sub.get("show_late_fees", False),
         "iris_journey": iris_journey,
+        "points": loyalty_points,
         "user_details": {
             "full_name": user.get("full_name") or user.get("name"),
             "city": user.get("city"),
@@ -625,3 +634,20 @@ async def comment_on_post(data: TribeComment, user: dict = Depends(get_current_u
         {"$push": {"comments": comment}}
     )
     return comment
+
+
+@router.get("/points")
+async def student_points_detail(user: dict = Depends(get_current_user)):
+    from routes.points_logic import points_public_summary, recent_ledger
+
+    email = user.get("email") or ""
+    summary = await points_public_summary(db, email)
+    ledger = await recent_ledger(db, email, 40)
+    return {**summary, "ledger": ledger}
+
+
+@router.post("/points/claim-bonus")
+async def student_points_claim_bonus(data: PointsBonusClaim, user: dict = Depends(get_current_user)):
+    from routes.points_logic import claim_one_time_bonus
+
+    return await claim_one_time_bonus(db, user.get("email") or "", data.kind.strip().lower(), user)

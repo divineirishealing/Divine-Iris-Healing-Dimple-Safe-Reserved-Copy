@@ -61,6 +61,14 @@ async def stripe_webhook(request: Request):
                 logger.warning(f"No transaction found for session: {session_id}")
                 return {"status": "ok", "note": "no matching transaction"}
 
+            try:
+                from routes.points_logic import run_post_payment_loyalty
+
+                txn_clean = {k: v for k, v in txn.items() if k != "_id"}
+                await run_post_payment_loyalty(db, txn_clean)
+            except Exception as e:
+                logger.warning(f"Points webhook loyalty: {e}")
+
             enrollment_id = txn.get("enrollment_id")
             txn_clean = {k: v for k, v in txn.items() if k != '_id'}
             logger.info(f"Transaction found: {txn_clean.get('id')} for enrollment: {enrollment_id}")

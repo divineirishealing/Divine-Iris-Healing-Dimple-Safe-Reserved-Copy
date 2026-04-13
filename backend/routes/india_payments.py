@@ -218,6 +218,14 @@ async def approve_payment_proof(proof_id: str):
         transaction["invoice_number"] = f"{month_prefix}-{str(count + 1).zfill(3)}"
         await db.payment_transactions.insert_one(transaction)
 
+        try:
+            from routes.points_logic import run_post_payment_loyalty
+
+            txn_clean = {k: v for k, v in transaction.items() if k != "_id"}
+            await run_post_payment_loyalty(db, txn_clean)
+        except Exception as e:
+            logger.warning(f"India proof loyalty points: {e}")
+
         # Complete enrollment
         await db.enrollments.update_one(
             {"id": enrollment_id},
