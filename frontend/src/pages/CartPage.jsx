@@ -615,7 +615,7 @@ function CartPage() {
               className="text-xs text-red-500 hover:text-red-700 transition-colors">Clear All</button>
           </div>
 
-          <MotivationalSignupFlash quotes={urgencyQuotes} variant="banner" className="mb-6" />
+          <MotivationalSignupFlash quotes={urgencyQuotes} className="mb-6" />
 
           {/* Cart items */}
           {items.map((item, itemIdx) => {

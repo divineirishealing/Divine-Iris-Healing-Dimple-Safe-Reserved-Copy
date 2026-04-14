@@ -6,7 +6,6 @@ import { useCurrency } from '../context/CurrencyContext';
 import { useCart } from '../context/CartContext';
 import { useToast } from '../hooks/use-toast';
 import { Monitor, Calendar, Clock, AlertTriangle, Wifi, ShoppingCart, Check, Bell, Heart, Gift, Users } from 'lucide-react';
-import MotivationalSignupFlash from './MotivationalSignupFlash';
 
 // Map common timezone abbreviations to UTC offset in hours
 const TZ_OFFSETS = {
@@ -362,16 +361,6 @@ const UpcomingCard = ({ program }) => {
             </span>
           )}
         </div>
-        {(enrollStatus === 'open' || enrollStatus === 'coming_soon') && (
-          <MotivationalSignupFlash
-            variant="card"
-            seed={
-              typeof program.id === 'string'
-                ? program.id.split('').reduce((a, c) => a + c.charCodeAt(0), 0)
-                : Number(program.id) || 0
-            }
-          />
-        )}
         <p className="text-gray-500 text-xs leading-relaxed mb-3 line-clamp-2 flex-1">{program.description}</p>
 
         {enrollStatus === 'open' ? (
@@ -612,7 +601,6 @@ const UpcomingProgramsSection = ({ sectionConfig, inline }) => {
   const [comboDiscount, setComboDiscount] = useState(null);
   const [crossSellRules, setCrossSellRules] = useState([]);
   const [groupDiscount, setGroupDiscount] = useState(null);
-
   useEffect(() => {
     axios.get(`${API}/programs?visible_only=true&upcoming_only=true`)
       .then(r => setPrograms(r.data))

@@ -166,7 +166,6 @@ const ProgramsSection = ({ sectionConfig }) => {
   const navigate = useNavigate();
   const [programs, setPrograms] = useState([]);
   const [hero, setHero] = useState({});
-
   useEffect(() => {
     axios.get(`${API}/programs?visible_only=true`).then(r => {
       if (r.data?.length > 0) setPrograms(r.data.filter(p => p.is_flagship && !p.is_group_program));

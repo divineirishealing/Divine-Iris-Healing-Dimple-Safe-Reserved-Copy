@@ -851,7 +851,7 @@ function EnrollmentPage() {
 
                 {/* Rotating motivational testimonials — merged with Admin enrollment_urgency_quotes */}
                 <div className="px-5 pb-5">
-                  <MotivationalSignupFlash quotes={urgencyQuotes} variant="banner" />
+                  <MotivationalSignupFlash quotes={urgencyQuotes} />
                 </div>
               </div>
             </div>

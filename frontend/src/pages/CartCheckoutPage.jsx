@@ -283,7 +283,7 @@ function CartCheckoutPage() {
                 </div>
               </div>
 
-              <MotivationalSignupFlash quotes={urgencyQuotes} variant="banner" className="mt-4" />
+              <MotivationalSignupFlash quotes={urgencyQuotes} className="mt-4" />
             </div>
 
             {/* Right: Payment */}

@@ -1,66 +1,40 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { Quote, Sparkles } from 'lucide-react';
+import { Quote } from 'lucide-react';
 import { mergeSignupMotivationQuotes } from '../lib/signupMotivationQuotes';
 
 /**
- * Rotating testimonial one-liner with soft "flash" (brightness pulse) to keep sign-up motivation visible.
+ * Rotating testimonial one-liner with soft "flash" (brightness pulse).
+ * Used on enrollment + cart/checkout only (not on upcoming program cards).
  * @param {object[]} [quotes] — raw API lines (e.g. enrollment_urgency_quotes); merged with defaults inside.
- * @param {'card'|'banner'} [variant]
- * @param {number} [seed] — offsets starting index / staggers cards
  */
-export default function MotivationalSignupFlash({ quotes: rawQuotes, variant = 'banner', seed = 0, className = '' }) {
+export default function MotivationalSignupFlash({ quotes: rawQuotes, className = '' }) {
   const quotes = useMemo(() => mergeSignupMotivationQuotes(rawQuotes), [rawQuotes]);
 
   const [index, setIndex] = useState(0);
   const [visible, setVisible] = useState(true);
 
   useEffect(() => {
-    const n = quotes.length;
-    if (n === 0) return;
-    setIndex(Math.abs(seed) % n);
-  }, [seed, quotes]);
+    if (quotes.length === 0) return;
+    setIndex((i) => (i >= quotes.length ? 0 : i));
+  }, [quotes.length]);
 
   useEffect(() => {
     if (quotes.length <= 1) return;
-    const cycleMs = variant === 'card' ? 4500 : 4000;
     const id = setInterval(() => {
       setVisible(false);
       setTimeout(() => {
         setIndex((prev) => (prev + 1) % quotes.length);
         setVisible(true);
       }, 420);
-    }, cycleMs);
+    }, 4000);
     return () => clearInterval(id);
-  }, [quotes.length, variant]);
+  }, [quotes.length]);
 
   if (!quotes.length) return null;
 
   const q = quotes[index];
   const text = q.text || '';
   const author = q.name || q.author;
-
-  if (variant === 'card') {
-    return (
-      <div
-        className={`mb-2 rounded-md bg-gradient-to-r from-[#faf6ff] via-white to-[#fffbf0] border border-[#D4AF37]/25 px-2.5 py-1.5 ${className}`}
-        data-testid="motivation-flash-card"
-      >
-        <div className="flex items-start gap-1.5 min-h-[2.25rem]">
-          <Sparkles size={11} className="text-[#D4AF37] shrink-0 mt-0.5 animate-motivation-flash" />
-          <p
-            className={`text-[10px] text-gray-700 italic leading-snug flex-1 transition-all duration-300 ${
-              visible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-0.5'
-            }`}
-          >
-            <span className="not-italic">"</span>
-            {text}
-            <span className="not-italic">"</span>
-            {author ? <span className="text-[9px] text-[#5D3FD3] not-italic font-medium"> — {author}</span> : null}
-          </p>
-        </div>
-      </div>
-    );
-  }
 
   return (
     <div
