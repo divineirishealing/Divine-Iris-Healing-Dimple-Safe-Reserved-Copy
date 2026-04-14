@@ -15,6 +15,7 @@ import {
   Loader2, Bell, BellOff, Tag, Calendar, FileText, Quote, Clock, Gift, Star
 } from 'lucide-react';
 import StarField from '../components/ui/StarField';
+import MotivationalSignupFlash from '../components/MotivationalSignupFlash';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
@@ -246,51 +247,6 @@ const ParticipantRow = ({ index, data, onChange, onRemove, canRemove, showReferr
           </div>
         </div>
       )}
-    </div>
-  );
-};
-
-/* ─── URGENCY TESTIMONIAL STRIP ─── */
-const UrgencyStrip = ({ quotes }) => {
-  const [index, setIndex] = useState(0);
-  const [visible, setVisible] = useState(true);
-
-  useEffect(() => {
-    if (quotes.length <= 1) return;
-    const cycle = setInterval(() => {
-      setVisible(false);
-      setTimeout(() => {
-        setIndex(prev => (prev + 1) % quotes.length);
-        setVisible(true);
-      }, 500);
-    }, 4000);
-    return () => clearInterval(cycle);
-  }, [quotes]);
-
-  if (!quotes.length) return null;
-  const q = quotes[index];
-
-  return (
-    <div className="mb-4 overflow-hidden rounded-2xl border-2 border-[#D4AF37]/40 px-5 py-4 relative" data-testid="urgency-strip"
-      style={{ background: 'linear-gradient(135deg, #2D1B69 0%, #4c1d95 40%, #5D3FD3 100%)' }}>
-      {/* Decorative gold accent line */}
-      <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-transparent via-[#D4AF37] to-transparent" />
-      <div
-        className="flex items-center gap-4 transition-all duration-400 ease-in-out"
-        style={{ opacity: visible ? 1 : 0, transform: visible ? 'translateY(0)' : 'translateY(8px)' }}
-      >
-        <div className="w-8 h-8 rounded-full bg-[#D4AF37]/20 border border-[#D4AF37]/40 flex items-center justify-center shrink-0">
-          <Quote size={14} className="text-[#D4AF37]" />
-        </div>
-        <p className="text-sm text-white/90 italic flex-1 leading-relaxed font-medium">
-          "{q.text || q}"
-        </p>
-        {(q.name || q.author) && (
-          <span className="text-xs text-[#D4AF37] font-bold whitespace-nowrap">
-            — {q.name || q.author}
-          </span>
-        )}
-      </div>
     </div>
   );
 };
@@ -893,12 +849,10 @@ function EnrollmentPage() {
                   </div>
                 )}
 
-                {/* Urgency Testimonial Strip - inside sticky card */}
-                {urgencyQuotes.length > 0 && (
-                  <div className="px-5 pb-5">
-                    <UrgencyStrip quotes={urgencyQuotes} />
-                  </div>
-                )}
+                {/* Rotating motivational testimonials — merged with Admin enrollment_urgency_quotes */}
+                <div className="px-5 pb-5">
+                  <MotivationalSignupFlash quotes={urgencyQuotes} variant="banner" />
+                </div>
               </div>
             </div>
 

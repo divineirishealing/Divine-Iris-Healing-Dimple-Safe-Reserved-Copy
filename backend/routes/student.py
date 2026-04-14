@@ -2,6 +2,7 @@ from fastapi import APIRouter, HTTPException, Request, Depends
 from pydantic import BaseModel
 from typing import Optional, List, Dict
 import os
+import uuid
 from motor.motor_asyncio import AsyncIOMotorClient
 from datetime import datetime, timezone
 from dotenv import load_dotenv
@@ -109,6 +110,28 @@ async def _merged_programs_list_for_client(client_doc: dict) -> List[dict]:
     return _merge_global_schedule_into_programs(programs_list, global_sched)
 
 
+def _sort_upcoming_for_dashboard(programs: List[dict]) -> List[dict]:
+    """Soonest deadline/start first; trim for dashboard."""
+    def sort_key(p):
+        raw = p.get("deadline_date") or p.get("start_date") or ""
+        return str(raw)
+    rows = sorted(programs or [], key=sort_key)
+    return rows[:12]
+
+
+def _is_annual_subscriber(sub: dict, client: dict) -> bool:
+    """Heuristic: annual program name, package, or program detail labels."""
+    if (sub.get("annual_program") or "").strip():
+        return True
+    if sub.get("package_id"):
+        return True
+    for p in sub.get("programs_detail") or []:
+        blob = f"{p.get('label', '')} {p.get('name', '')}".lower()
+        if "annual" in blob or "year" in blob:
+            return True
+    return False
+
+
 def _overlay_program_metadata(merged_programs: List[dict], old_detail: List[dict]) -> List[dict]:
     """Keep admin/student fields from stored programs_detail; dates come from merged list."""
     old_by_name = {p.get("name"): p for p in (old_detail or []) if p.get("name")}
@@ -152,17 +175,67 @@ class ProfileUpdate(BaseModel):
 class PointsBonusClaim(BaseModel):
     kind: str
 
+
+class FamilyMemberIn(BaseModel):
+    id: Optional[str] = None
+    name: str
+    relationship: str = "Other"
+    email: Optional[str] = None
+    phone: Optional[str] = None
+
+
+class FamilyUpdate(BaseModel):
+    members: List[FamilyMemberIn] = []
+
+
+@router.put("/family")
+async def update_immediate_family(data: FamilyUpdate, user: dict = Depends(get_current_user)):
+    """Save immediate family members for dashboard offers / enrollment context (max 12)."""
+    client_id = user.get("client_id")
+    if not client_id:
+        raise HTTPException(status_code=400, detail="User not linked to client record")
+
+    out: List[dict] = []
+    for m in (data.members or [])[:12]:
+        name = (m.name or "").strip()
+        if not name:
+            continue
+        mid = (m.id or "").strip() or str(uuid.uuid4())
+        out.append({
+            "id": mid,
+            "name": name,
+            "relationship": (m.relationship or "Other").strip() or "Other",
+            "email": (m.email or "").strip(),
+            "phone": (m.phone or "").strip(),
+            "updated_at": datetime.now(timezone.utc).isoformat(),
+        })
+
+    await db.clients.update_one(
+        {"id": client_id},
+        {"$set": {
+            "immediate_family": out,
+            "updated_at": datetime.now(timezone.utc).isoformat(),
+        }}
+    )
+    return {"message": "Family list saved", "immediate_family": out}
+
+
 @router.get("/home")
 async def get_student_home(user: dict = Depends(get_current_user)):
     """Fetch personalized home data: Schedule, Package, Financials, Programs."""
     client_id = user.get("client_id")
     client = await db.clients.find_one({"id": client_id}, {"_id": 0}) or {}
 
-    # 1. Upcoming Programs (General)
-    upcoming = await db.programs.find(
-        {"is_upcoming": True, "visible": True}, 
+    # 1. Upcoming Programs (General) — sorted soonest first for dashboard
+    upcoming_raw = await db.programs.find(
+        {"is_upcoming": True, "visible": True},
         {"_id": 0}
-    ).to_list(10)
+    ).to_list(24)
+    upcoming = _sort_upcoming_for_dashboard(upcoming_raw)
+
+    settings_doc = await db.site_settings.find_one({"id": "site_settings"}, {"_id": 0, "dashboard_offer_annual": 1, "dashboard_offer_family": 1}) or {}
+    dashboard_offer_annual = settings_doc.get("dashboard_offer_annual") or {}
+    dashboard_offer_family = settings_doc.get("dashboard_offer_family") or {}
     
     # 2. Subscription data (from Excel upload)
     sub = client.get("subscription", {})
@@ -263,9 +336,18 @@ async def get_student_home(user: dict = Depends(get_current_user)):
 
     loyalty_points = await points_public_summary(db, user.get("email") or "")
 
+    is_annual = _is_annual_subscriber(sub, client)
+    immediate_family = client.get("immediate_family") or []
+
     return {
         "client_id": client_id,
         "upcoming_programs": upcoming,
+        "is_annual_subscriber": is_annual,
+        "dashboard_offers": {
+            "annual": dashboard_offer_annual,
+            "family": dashboard_offer_family,
+        },
+        "immediate_family": immediate_family,
         "financials": financials,
         "package": package,
         "programs": programs_list,

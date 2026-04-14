@@ -2,7 +2,9 @@ import React, { useState } from 'react';
 import { Label } from '../../ui/label';
 import { Input } from '../../ui/input';
 import { Button } from '../../ui/button';
-import { Save, RefreshCw } from 'lucide-react';
+import { Switch } from '../../ui/switch';
+import { Textarea } from '../../ui/textarea';
+import { Save, RefreshCw, Sparkles, Users } from 'lucide-react';
 import { useToast } from '../../../hooks/use-toast';
 
 const DashboardSettingsTab = ({ settings, onChange }) => {
@@ -12,6 +14,36 @@ const DashboardSettingsTab = ({ settings, onChange }) => {
     primaryColor: "#5D3FD3", 
     secondaryColor: "#84A98C",
     fontFamily: "Lato" 
+  };
+
+  const annualOffer = settings.dashboard_offer_annual || {
+    enabled: false,
+    title: '',
+    body: '',
+    promo_code: '',
+    cta_label: 'Browse upcoming programs',
+    cta_path: '/#upcoming',
+  };
+  const familyOffer = settings.dashboard_offer_family || {
+    enabled: false,
+    title: '',
+    body: '',
+    promo_code: '',
+    cta_label: 'Browse upcoming programs',
+    cta_path: '/#upcoming',
+  };
+
+  const setAnnualOffer = (patch) => {
+    onChange({
+      ...settings,
+      dashboard_offer_annual: { ...annualOffer, ...patch },
+    });
+  };
+  const setFamilyOffer = (patch) => {
+    onChange({
+      ...settings,
+      dashboard_offer_family: { ...familyOffer, ...patch },
+    });
   };
 
   const update = (field, value) => {
@@ -148,6 +180,113 @@ const DashboardSettingsTab = ({ settings, onChange }) => {
             <p className="text-[9px] text-green-600 font-medium">Video set: {settings.dashboard_bg_video || dashboard.bg_video}</p>
           </div>
         )}
+      </div>
+
+      {/* Student dashboard: annual vs family offers (Sacred Home) */}
+      <div className="mt-8 bg-white rounded-lg border p-6 space-y-6" data-testid="dashboard-offers-admin">
+        <div>
+          <h3 className="text-sm font-semibold text-gray-900 mb-1">Student dashboard — offers</h3>
+          <p className="text-[11px] text-gray-500 mb-4">
+            Shown on the student Overview (Sacred Home): separate messaging for annual subscribers vs family enrollments.
+            Upcoming programs are listed automatically; these blocks are optional.
+          </p>
+        </div>
+
+        <div className="grid md:grid-cols-2 gap-6">
+          <div className="rounded-lg border border-amber-200/80 bg-amber-50/40 p-4 space-y-3">
+            <div className="flex items-center justify-between gap-2">
+              <div className="flex items-center gap-2">
+                <Sparkles size={16} className="text-amber-700" />
+                <span className="text-sm font-medium text-gray-900">Annual subscriber offer</span>
+              </div>
+              <Switch
+                checked={!!annualOffer.enabled}
+                onCheckedChange={(v) => setAnnualOffer({ enabled: v })}
+                data-testid="dashboard-offer-annual-toggle"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label className="text-xs">Title</Label>
+              <Input
+                value={annualOffer.title || ''}
+                onChange={(e) => setAnnualOffer({ title: e.target.value })}
+                placeholder="e.g. Extra 10% on your next add-on"
+                className="text-sm"
+              />
+              <Label className="text-xs">Body</Label>
+              <Textarea
+                value={annualOffer.body || ''}
+                onChange={(e) => setAnnualOffer({ body: e.target.value })}
+                rows={3}
+                className="text-sm"
+                placeholder="Short message shown on the dashboard…"
+              />
+              <Label className="text-xs">Promo code (optional)</Label>
+              <Input
+                value={annualOffer.promo_code || ''}
+                onChange={(e) => setAnnualOffer({ promo_code: e.target.value })}
+                className="text-sm font-mono"
+              />
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <Label className="text-xs">CTA label</Label>
+                  <Input value={annualOffer.cta_label || ''} onChange={(e) => setAnnualOffer({ cta_label: e.target.value })} className="text-sm" />
+                </div>
+                <div>
+                  <Label className="text-xs">CTA path</Label>
+                  <Input value={annualOffer.cta_path || ''} onChange={(e) => setAnnualOffer({ cta_path: e.target.value })} className="text-sm" placeholder="/#upcoming" />
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="rounded-lg border border-violet-200/80 bg-violet-50/35 p-4 space-y-3">
+            <div className="flex items-center justify-between gap-2">
+              <div className="flex items-center gap-2">
+                <Users size={16} className="text-violet-700" />
+                <span className="text-sm font-medium text-gray-900">Immediate family offer</span>
+              </div>
+              <Switch
+                checked={!!familyOffer.enabled}
+                onCheckedChange={(v) => setFamilyOffer({ enabled: v })}
+                data-testid="dashboard-offer-family-toggle"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label className="text-xs">Title</Label>
+              <Input
+                value={familyOffer.title || ''}
+                onChange={(e) => setFamilyOffer({ title: e.target.value })}
+                placeholder="e.g. Family enrollment benefit"
+                className="text-sm"
+              />
+              <Label className="text-xs">Body</Label>
+              <Textarea
+                value={familyOffer.body || ''}
+                onChange={(e) => setFamilyOffer({ body: e.target.value })}
+                rows={3}
+                className="text-sm"
+                placeholder="Students add family in the dashboard; this text explains their perk…"
+              />
+              <Label className="text-xs">Promo code (optional)</Label>
+              <Input
+                value={familyOffer.promo_code || ''}
+                onChange={(e) => setFamilyOffer({ promo_code: e.target.value })}
+                className="text-sm font-mono"
+              />
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <Label className="text-xs">CTA label</Label>
+                  <Input value={familyOffer.cta_label || ''} onChange={(e) => setFamilyOffer({ cta_label: e.target.value })} className="text-sm" />
+                </div>
+                <div>
+                  <Label className="text-xs">CTA path</Label>
+                  <Input value={familyOffer.cta_path || ''} onChange={(e) => setFamilyOffer({ cta_path: e.target.value })} className="text-sm" placeholder="/#upcoming" />
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   );

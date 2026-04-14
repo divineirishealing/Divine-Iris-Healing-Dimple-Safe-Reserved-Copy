@@ -10,8 +10,9 @@ import { Input } from '../components/ui/input';
 import { Button } from '../components/ui/button';
 import {
   Tag, CreditCard, Mail, Lock, Loader2, Check, ChevronLeft, ChevronRight,
-  ShieldCheck, ShieldAlert, ShoppingCart, FileText, Quote, Gift
+  ShieldCheck, ShieldAlert, ShoppingCart, FileText, Gift
 } from 'lucide-react';
+import MotivationalSignupFlash from '../components/MotivationalSignupFlash';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
@@ -19,42 +20,6 @@ const API = `${BACKEND_URL}/api`;
 const StepDot = ({ active, done }) => (
   <div className={`w-3 h-3 rounded-full transition-all ${done ? 'bg-green-500' : active ? 'bg-[#D4AF37] scale-110' : 'bg-gray-200'}`} />
 );
-
-const CartUrgencyStrip = ({ quotes }) => {
-  const [index, setIndex] = useState(0);
-  const [visible, setVisible] = useState(true);
-
-  useEffect(() => {
-    if (quotes.length <= 1) return;
-    const cycle = setInterval(() => {
-      setVisible(false);
-      setTimeout(() => {
-        setIndex(prev => (prev + 1) % quotes.length);
-        setVisible(true);
-      }, 500);
-    }, 4000);
-    return () => clearInterval(cycle);
-  }, [quotes]);
-
-  if (!quotes.length) return null;
-  const q = quotes[index];
-
-  return (
-    <div className="overflow-hidden rounded-xl border border-[#D4AF37]/30 px-4 py-2.5 relative" data-testid="cart-urgency-strip"
-      style={{ background: 'linear-gradient(135deg, #2D1B69 0%, #4c1d95 40%, #5D3FD3 100%)' }}>
-      <div
-        className="flex items-center gap-3 transition-all duration-400 ease-in-out"
-        style={{ opacity: visible ? 1 : 0, transform: visible ? 'translateY(0)' : 'translateY(6px)' }}
-      >
-        <Quote size={12} className="text-[#D4AF37] flex-shrink-0" />
-        <p className="text-xs text-white/90 italic flex-1 leading-snug">"{q.text || q}"</p>
-        {(q.name || q.author) && (
-          <span className="text-[10px] text-[#D4AF37] font-bold whitespace-nowrap">— {q.name || q.author}</span>
-        )}
-      </div>
-    </div>
-  );
-};
 
 function CartCheckoutPage() {
   const navigate = useNavigate();
@@ -318,7 +283,7 @@ function CartCheckoutPage() {
                 </div>
               </div>
 
-              {/* Urgency Testimonial Strip - outside card, compact 2-liner */}
+              <MotivationalSignupFlash quotes={urgencyQuotes} variant="banner" className="mt-4" />
             </div>
 
             {/* Right: Payment */}

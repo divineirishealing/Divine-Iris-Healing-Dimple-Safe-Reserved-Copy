@@ -73,11 +73,16 @@ module.exports = {
   				to: {
   					height: '0'
   				}
-  			}
+  			},
+  			motivationFlash: {
+  				'0%, 100%': { opacity: '1', filter: 'brightness(1)' },
+  				'50%': { opacity: '0.82', filter: 'brightness(1.12)' },
+  			},
   		},
   		animation: {
   			'accordion-down': 'accordion-down 0.2s ease-out',
-  			'accordion-up': 'accordion-up 0.2s ease-out'
+  			'accordion-up': 'accordion-up 0.2s ease-out',
+  			'motivation-flash': 'motivationFlash 2.4s ease-in-out infinite',
   		}
   	}
   },

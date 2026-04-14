@@ -68,6 +68,10 @@ async def update_settings(settings: SiteSettingsUpdate):
         update_data['enrollment_urgency_quotes'] = raw['enrollment_urgency_quotes']
     if raw.get('dashboard_bg_video') is not None:
         update_data['dashboard_bg_video'] = raw['dashboard_bg_video']
+    if raw.get('dashboard_offer_annual') is not None:
+        update_data['dashboard_offer_annual'] = raw['dashboard_offer_annual']
+    if raw.get('dashboard_offer_family') is not None:
+        update_data['dashboard_offer_family'] = raw['dashboard_offer_family']
     if raw.get('india_payment_gateway') is not None:
         update_data['india_payment_gateway'] = raw['india_payment_gateway']
     if raw.get('india_bank_accounts') is not None:

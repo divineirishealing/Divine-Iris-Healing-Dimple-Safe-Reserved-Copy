@@ -12,6 +12,7 @@ import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
 import { useToast } from '../hooks/use-toast';
 import { SANCTUARY_REFERENCE, INTENTIONS_BY_TAB } from '../lib/dashboardSanctuaryCopy';
+import DashboardUpcomingFamilySection from '../components/dashboard/DashboardUpcomingFamilySection';
 
 const API = process.env.REACT_APP_BACKEND_URL;
 
@@ -206,11 +207,15 @@ const StudentDashboard = () => {
     greeting_subtitle: raw.greeting_subtitle || "Home for Your Soul",
   };
 
-  useEffect(() => {
+  const refreshHome = useCallback(() => {
     axios.get(`${API}/api/student/home`, { withCredentials: true })
       .then(res => setHomeData(res.data))
       .catch(() => {});
   }, []);
+
+  useEffect(() => {
+    refreshHome();
+  }, [refreshHome]);
 
   const pts = homeData?.points;
   const pkg = homeData?.package || {};
@@ -373,6 +378,10 @@ const StudentDashboard = () => {
             </div>
           </div>
         </section>
+
+        {homeData && (
+          <DashboardUpcomingFamilySection homeData={homeData} onRefresh={refreshHome} />
+        )}
 
         <div className="w-full max-w-6xl mx-auto px-4 md:px-0 flex flex-col items-center">
 

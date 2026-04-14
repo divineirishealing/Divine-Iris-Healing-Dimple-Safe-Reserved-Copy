@@ -558,6 +558,9 @@ class SiteSettings(BaseModel):
     special_offers: list = []  # [{id, label, discount_pct, emails:[], phones:[], program_ids:[], code, enabled}]
     inr_whitelist_emails: list = []
     dashboard_bg_video: str = ""
+    # Student Sacred Home: offers shown to annual subscribers vs family (configured in Admin → Dashboard)
+    dashboard_offer_annual: Dict = Field(default_factory=dict)  # {enabled, title, body, promo_code, cta_label, cta_path}
+    dashboard_offer_family: Dict = Field(default_factory=dict)
     india_payment_gateway: dict = {}
     india_bank_accounts: list = []
     india_bank_details: dict = {}  # {gateway_type, exly_link, api_key, api_secret, enabled, notes}  # Emails that get INR pricing from abroad  # [{buy_program_id, get_program_id, discount_type, discount_value, code, label, enabled}]
@@ -721,6 +724,9 @@ class SiteSettingsUpdate(BaseModel):
     seo_organization_description: Optional[str] = None
 
     dashboard_settings: Optional[Dict] = None  # {title, colors: {primary, secondary}, fonts}
+    dashboard_offer_annual: Optional[Dict] = None
+    dashboard_offer_family: Optional[Dict] = None
+
 class PaymentTransaction(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     session_id: str

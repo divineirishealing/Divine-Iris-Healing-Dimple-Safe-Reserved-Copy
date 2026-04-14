@@ -14,6 +14,7 @@ import {
   Bell, BellOff, Copy, Tag, Mail, Loader2, Check, Lock, Gift, Star
 } from 'lucide-react';
 import { ShieldCheck, ShieldAlert } from 'lucide-react';
+import MotivationalSignupFlash from '../components/MotivationalSignupFlash';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
@@ -388,6 +389,7 @@ function CartPage() {
   const [enrollmentId, setEnrollmentId] = useState(null);
   const [vpnDetected, setVpnDetected] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [urgencyQuotes, setUrgencyQuotes] = useState([]);
   const currency = baseCurrency;
 
   // Country is NOT auto-filled — user must select manually
@@ -399,6 +401,7 @@ function CartPage() {
         setPaymentDisclaimer(r.data.payment_disclaimer);
         if (r.data.payment_disclaimer_style) setDisclaimerStyle(r.data.payment_disclaimer_style);
       }
+      setUrgencyQuotes(r.data.enrollment_urgency_quotes || []);
     }).catch(() => {});
   }, []);
 
@@ -611,6 +614,8 @@ function CartPage() {
             <button onClick={() => { clearCart(); toast({ title: 'Cart cleared' }); }} data-testid="clear-cart-btn"
               className="text-xs text-red-500 hover:text-red-700 transition-colors">Clear All</button>
           </div>
+
+          <MotivationalSignupFlash quotes={urgencyQuotes} variant="banner" className="mb-6" />
 
           {/* Cart items */}
           {items.map((item, itemIdx) => {
