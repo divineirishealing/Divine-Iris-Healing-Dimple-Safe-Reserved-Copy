@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import axios from 'axios';
 import Header from '../components/Header';
@@ -260,7 +260,18 @@ function EnrollmentPage() {
   const currency = baseCurrency;
 
   const tierParam = searchParams.get('tier');
-  const [selectedTier, setSelectedTier] = useState(tierParam !== null ? parseInt(tierParam) : null);
+  const initialTier = (() => {
+    if (tierParam === null || tierParam === '') return null;
+    const n = parseInt(tierParam, 10);
+    return Number.isFinite(n) ? n : null;
+  })();
+  const [selectedTier, setSelectedTier] = useState(initialTier);
+  const promoFromUrl = searchParams.get('promo');
+  const promoUrlAppliedRef = useRef(false);
+
+  useEffect(() => {
+    promoUrlAppliedRef.current = false;
+  }, [id, promoFromUrl]);
   const resumeId = searchParams.get('resume');
   const inrToken = searchParams.get('inr_token');
   const [inrOverride, setInrOverride] = useState(false);
@@ -371,6 +382,26 @@ function EnrollmentPage() {
       .then(() => { setInrOverride(true); toast({ title: 'INR pricing activated!' }); })
       .catch(() => {});
   }, [inrToken]);
+
+  // Apply promo from URL once (e.g. dashboard / program detail ?promo=...)
+  useEffect(() => {
+    if (type !== 'program' || !item || !promoFromUrl?.trim() || promoUrlAppliedRef.current) return;
+    const code = promoFromUrl.trim().toUpperCase();
+    promoUrlAppliedRef.current = true;
+    setPromoCode(code);
+    setPromoLoading(true);
+    axios
+      .post(`${API}/promotions/validate`, { code, program_id: id, currency })
+      .then((res) => {
+        setPromoResult(res.data);
+        toast({ title: 'Promo applied', description: res.data?.message || `${code} is active for this enrollment.` });
+      })
+      .catch(() => {
+        promoUrlAppliedRef.current = false;
+        toast({ title: 'Promo could not be applied', description: 'Check the code or remove it and try again.', variant: 'destructive' });
+      })
+      .finally(() => setPromoLoading(false));
+  }, [type, item, id, currency, promoFromUrl, toast]);
 
   // Local price getters — use INR when inrOverride active
   const priceCurrency = inrOverride ? 'inr' : currency;

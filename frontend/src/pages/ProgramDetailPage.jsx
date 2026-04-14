@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import axios from 'axios';
 import Header from '../components/Header';
 import Footer from '../components/Footer';
@@ -86,8 +86,18 @@ function stripForMeta(htmlOrText) {
 function ProgramDetailPage() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const promoFromQuery = (searchParams.get('promo') || '').trim();
   const { setPageSeo, clearPageSeo } = useSeoPage();
   const { getPrice, getOfferPrice, symbol, country: detectedCountry } = useCurrency();
+
+  const enrollProgramQuery = (tierIdx) => {
+    const q = new URLSearchParams();
+    if (tierIdx !== undefined && tierIdx !== null && tierIdx !== '') q.set('tier', String(tierIdx));
+    if (promoFromQuery) q.set('promo', promoFromQuery);
+    const s = q.toString();
+    return s ? `?${s}` : '';
+  };
   const [program, setProgram] = useState(null);
   const [loading, setLoading] = useState(true);
   const [settings, setSettings] = useState(null);
@@ -431,7 +441,7 @@ function ProgramDetailPage() {
                       return (
                         <div key={tIdx} data-testid={`tier-${tIdx}`}
                           className="border border-gray-200 hover:border-[#D4AF37] rounded-lg p-5 transition-all duration-300 cursor-pointer group hover:shadow-md"
-                          onClick={() => showContact ? navigate(`/contact?program=${program.id}&title=${encodeURIComponent(program.title)}&tier=${tier.label}`) : navigate(`/enroll/program/${program.id}?tier=${tIdx}`)}>
+                          onClick={() => showContact ? navigate(`/contact?program=${program.id}&title=${encodeURIComponent(program.title)}&tier=${tier.label}`) : navigate(`/enroll/program/${program.id}${enrollProgramQuery(tIdx)}`)}>
                           <p className="text-sm font-medium text-gray-900 transition-colors mb-2" style={{ fontFamily: "'Lato', sans-serif" }}>{tier.label}</p>
                           {showContact ? (
                             <div><p className="text-gray-400 text-[10px] mb-3">Contact for customised pricing</p>
@@ -498,7 +508,7 @@ function ProgramDetailPage() {
                 // Pricing visible → Enroll Now if open, Express Interest if closed
                 if (enrollStatus === 'open') {
                   return (
-                    <button data-testid="enroll-btn" onClick={() => navigate(`/enroll/program/${program.id}`)}
+                    <button data-testid="enroll-btn" onClick={() => navigate(`/enroll/program/${program.id}${enrollProgramQuery()}`)}
                       className="text-white px-10 py-3 text-xs tracking-[0.2em] uppercase transition-colors hover:opacity-90" style={{ background: heroAccent }}>Enroll Now</button>
                   );
                 }

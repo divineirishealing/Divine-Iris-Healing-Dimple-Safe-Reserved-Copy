@@ -3,12 +3,35 @@ import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { Calendar, Sparkles, Users, Tag, ArrowRight, Loader2, Plus, Trash2 } from 'lucide-react';
 import { useToast } from '../../hooks/use-toast';
+import { useCurrency } from '../../context/CurrencyContext';
 import { resolveImageUrl } from '../../lib/imageUtils';
 import { cn, formatDateDdMonYyyy } from '../../lib/utils';
 
 const API = process.env.REACT_APP_BACKEND_URL;
 
 const RELATIONSHIPS = ['Spouse', 'Child', 'Parent', 'Sibling', 'Other'];
+
+/** Tier index for flagship programs: prefer annual tier for annual subscribers, else first tier. */
+function pickTierIndexForDashboard(program, preferAnnualTier) {
+  const tiers = program?.duration_tiers || [];
+  if (!program?.is_flagship || tiers.length === 0) return null;
+  if (preferAnnualTier) {
+    const idx = tiers.findIndex((t) => {
+      const l = (t.label || '').toLowerCase();
+      return l.includes('annual') || l.includes('year') || t.duration_unit === 'year';
+    });
+    if (idx >= 0) return idx;
+  }
+  return 0;
+}
+
+function buildDashboardProgramHref(p, { tierIdx, promoCode }) {
+  const q = new URLSearchParams();
+  if (tierIdx !== null && tierIdx !== undefined) q.set('tier', String(tierIdx));
+  if (promoCode && String(promoCode).trim()) q.set('promo', String(promoCode).trim());
+  const qs = q.toString();
+  return qs ? `/program/${p.id}?${qs}` : `/program/${p.id}`;
+}
 
 function programStartLabel(p) {
   const d = p.start_date || p.deadline_date;
@@ -20,6 +43,7 @@ function programStartLabel(p) {
 export default function DashboardUpcomingFamilySection({ homeData, onRefresh }) {
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { getPrice, getOfferPrice, symbol } = useCurrency();
   const [saving, setSaving] = useState(false);
 
   const upcoming = homeData?.upcoming_programs || [];
@@ -76,6 +100,13 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh }) 
     }
   };
 
+  const promoForProgramClicks = useMemo(() => {
+    const a = (annualOffer.promo_code || '').trim();
+    const f = (familyOffer.promo_code || '').trim();
+    if (isAnnual) return annualOffer.enabled && a ? a : '';
+    return familyOffer.enabled && f ? f : '';
+  }, [isAnnual, annualOffer, familyOffer]);
+
   const OfferCard = ({ kind, offer, accent }) => {
     if (!offer?.enabled) return null;
     const title = offer.title || (kind === 'annual' ? 'Annual member offer' : 'Family offer');
@@ -83,6 +114,18 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh }) 
     const code = (offer.promo_code || '').trim();
     const cta = offer.cta_label || 'View programs';
     const path = offer.cta_path || '/#upcoming';
+
+    const navigateOfferCta = () => {
+      let dest = path.trim() || '/#upcoming';
+      if (!dest.startsWith('/') && !dest.startsWith('#')) dest = `/${dest}`;
+      if ((dest.startsWith('/program/') || dest.startsWith('/enroll/')) && code) {
+        const [base, hash] = dest.split('#');
+        const u = base.includes('?') ? `${base}&${new URLSearchParams({ promo: code }).toString()}` : `${base}?promo=${encodeURIComponent(code)}`;
+        navigate(hash ? `${u}#${hash}` : u);
+        return;
+      }
+      navigate(dest.startsWith('/') ? dest : `/${dest}`);
+    };
 
     return (
       <div
@@ -116,7 +159,7 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh }) 
             )}
             <button
               type="button"
-              onClick={() => navigate(path.startsWith('/') ? path : `/${path}`)}
+              onClick={navigateOfferCta}
               className="mt-3 inline-flex items-center gap-1 text-[11px] font-semibold text-[#5D3FD3] hover:text-violet-800"
             >
               {cta}
@@ -147,11 +190,17 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh }) 
           <p className="text-sm text-slate-500 italic py-2">No upcoming programs listed yet — check back soon.</p>
         ) : (
           <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3 mb-4">
-            {upcoming.slice(0, 6).map((p) => (
+            {upcoming.slice(0, 6).map((p) => {
+              const tierIdx = pickTierIndexForDashboard(p, isAnnual);
+              const hasTiers = p.is_flagship && (p.duration_tiers || []).length > 0;
+              const list = hasTiers && tierIdx !== null ? getPrice(p, tierIdx) : getPrice(p);
+              const off = hasTiers && tierIdx !== null ? getOfferPrice(p, tierIdx) : getOfferPrice(p);
+              const href = buildDashboardProgramHref(p, { tierIdx, promoCode: promoForProgramClicks });
+              return (
               <button
                 key={p.id}
                 type="button"
-                onClick={() => navigate(`/program/${p.id}`)}
+                onClick={() => navigate(href)}
                 className="text-left rounded-2xl border border-slate-200/90 bg-white/90 overflow-hidden hover:border-[#D4AF37]/40 hover:shadow-md transition-all group"
                 data-testid={`dashboard-upcoming-${p.id}`}
               >
@@ -171,9 +220,25 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh }) 
                   <p className="text-[10px] text-slate-500 mt-1 flex items-center gap-1">
                     <Calendar size={10} /> {programStartLabel(p)}
                   </p>
+                  {(list > 0 || off > 0) && (
+                    <div className="mt-1.5 pt-1.5 border-t border-slate-100">
+                      {off > 0 ? (
+                        <p className="text-[11px] text-slate-800">
+                          <span className="font-semibold text-[#b8860b]">{symbol}{off.toLocaleString()}</span>
+                          {list > 0 && off < list && (
+                            <span className="text-slate-400 line-through ml-1.5 text-[10px]">{symbol}{list.toLocaleString()}</span>
+                          )}
+                          <span className="block text-[9px] text-slate-400 mt-0.5">Offer price</span>
+                        </p>
+                      ) : list > 0 ? (
+                        <p className="text-[11px] text-slate-800 font-medium">{symbol}{list.toLocaleString()}</p>
+                      ) : null}
+                    </div>
+                  )}
                 </div>
               </button>
-            ))}
+            );
+            })}
           </div>
         )}
 
