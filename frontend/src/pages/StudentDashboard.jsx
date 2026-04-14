@@ -130,18 +130,39 @@ const VARIANT_ACCENT = {
   sky: 'border-l-sky-500',
 };
 
-const SanctuaryPetalCard = ({ children, className, onClick, delay = 0, testId, variant = 'violet' }) => {
+/** Top hairline accent for Sacred Home v2 glass cards (matches static mockup). */
+const OVERVIEW_V2_TOP = {
+  saffron: 'before:bg-gradient-to-r before:from-transparent before:via-amber-400/55 before:to-transparent',
+  gold: 'before:bg-gradient-to-r before:from-transparent before:via-[#d4af37]/55 before:to-transparent',
+  violet: 'before:bg-gradient-to-r before:from-transparent before:via-violet-500/45 before:to-transparent',
+  rose: 'before:bg-gradient-to-r before:from-transparent before:via-pink-400/45 before:to-transparent',
+  ember: 'before:bg-gradient-to-r before:from-transparent before:via-orange-400/45 before:to-transparent',
+  sky: 'before:bg-gradient-to-r before:from-transparent before:via-sky-400/45 before:to-transparent',
+};
+
+const SanctuaryPetalCard = ({ children, className, onClick, delay = 0, testId, variant = 'violet', overviewV2 = false }) => {
   const accent = VARIANT_ACCENT[variant] || VARIANT_ACCENT.violet;
+  const topLine = OVERVIEW_V2_TOP[variant] || OVERVIEW_V2_TOP.violet;
   return (
     <div
       data-testid={testId}
       onClick={onClick}
       style={{ animationDelay: `${delay}ms` }}
       className={cn(
-        'group relative cursor-pointer overflow-hidden rounded-2xl border border-slate-200/90 bg-white text-slate-800 shadow-[0_20px_50px_-12px_rgba(30,27,75,0.35)] border-l-[4px] transition-all duration-300 ease-out',
-        accent,
-        'hover:-translate-y-0.5 hover:shadow-[0_20px_48px_-8px_rgba(30,27,75,0.38)]',
+        'group relative cursor-pointer overflow-hidden text-slate-800 transition-all duration-300 ease-out',
         'animate-[petalIn_0.7s_ease-out_both]',
+        overviewV2
+          ? cn(
+              'rounded-[24px] border border-[rgba(160,100,220,0.11)] bg-white/75 backdrop-blur-xl shadow-[0_4px_32px_rgba(120,60,200,0.07)]',
+              'before:pointer-events-none before:absolute before:top-0 before:left-6 before:right-6 before:z-[1] before:h-[1.5px] before:rounded-sm before:content-[""]',
+              topLine,
+              'hover:-translate-y-1 hover:shadow-[0_12px_48px_rgba(120,60,200,0.13)]'
+            )
+          : cn(
+              'rounded-2xl border border-slate-200/90 bg-white shadow-[0_20px_50px_-12px_rgba(30,27,75,0.35)] border-l-[4px]',
+              accent,
+              'hover:-translate-y-0.5 hover:shadow-[0_20px_48px_-8px_rgba(30,27,75,0.38)]'
+            ),
         className
       )}
     >
@@ -294,36 +315,62 @@ const StudentDashboard = () => {
       {/* ═══ CONTENT ═══ */}
       <div className="relative z-10 min-h-full flex flex-col items-center pb-8 md:pb-12">
 
-        {/* ─── Welcome — sits on immersive purple field (cards below are white) ─── */}
+        {/* ─── Sacred Home v2 — frosted hero band (light overview shell) ─── */}
         <section
           data-testid="dashboard-hero"
-          className="relative w-full flex flex-col items-center text-center px-4 pt-6 pb-10 md:pt-8 md:pb-14 mb-2 md:mb-4 animate-[fadeSlideUp_0.8s_ease-out_both]"
+          className="relative z-10 w-full max-w-5xl mx-auto px-4 pt-4 pb-2 md:pt-6 md:pb-4 mb-4 md:mb-6 animate-[fadeSlideUp_0.8s_ease-out_both]"
         >
-          <div className="relative z-10 flex flex-col items-center max-w-3xl" data-testid="dashboard-greeting">
-            <p className="mb-2.5 text-[9.5px] uppercase tracking-[0.3em] text-[rgba(200,150,255,0.42)]">
-              {SANCTUARY_REFERENCE.welcomeKicker}
-            </p>
-            <h1
-              className="text-white mb-2 px-2 leading-none tracking-wide drop-shadow-[0_2px_24px_rgba(30,10,80,0.35)] font-light"
-              style={{
-                fontSize: 'clamp(2rem, 5vw, 2.75rem)',
-              }}
-            >
-              {SANCTUARY_REFERENCE.welcomeLead}{' '}
-              <em
-                className="not-italic inline bg-[length:300%_auto] bg-clip-text text-transparent animate-[nameshift_6s_linear_infinite]"
-                style={{
-                  backgroundImage: 'linear-gradient(90deg, #c084fc, #f9a8d4, #f5c840, #c084fc)',
-                  WebkitBackgroundClip: 'text',
-                  backgroundClip: 'text',
-                }}
-              >
-                {user?.name?.split(' ')[0] || sanctuary.greeting_title}
-              </em>
-            </h1>
-            <p className="text-[13px] font-light text-[rgba(200,160,255,0.45)] tracking-[0.04em] max-w-xl">
-              {welcomeSubtitle}
-            </p>
+          <div
+            className="relative flex flex-col gap-6 md:flex-row md:items-center md:justify-between rounded-[28px] border border-[rgba(160,100,240,0.14)] bg-white/70 backdrop-blur-xl px-6 py-6 md:px-9 md:py-7 shadow-[0_4px_48px_rgba(140,60,220,0.08)] overflow-hidden"
+            data-testid="dashboard-greeting"
+          >
+            <div className="pointer-events-none absolute top-0 left-0 right-0 h-0.5 bg-gradient-to-r from-transparent via-[#c084fc] via-[#f5c840] via-[#f9a8d4] to-transparent" />
+            <div className="relative z-[1] flex-1 min-w-0 text-left">
+              <p className="mb-1.5 font-[family-name:'Cinzel',serif] text-[9px] uppercase tracking-[0.24em] text-[rgba(160,80,220,0.5)]">
+                {SANCTUARY_REFERENCE.welcomeKicker}
+              </p>
+              <h1 className="font-[family-name:'Playfair_Display',serif] font-normal text-[clamp(1.65rem,4vw,2.125rem)] text-[#1a0a3d] leading-tight tracking-wide mb-2">
+                {SANCTUARY_REFERENCE.welcomeLead}{' '}
+                <span
+                  className="italic bg-clip-text text-transparent bg-[length:280%_auto] animate-[nameshift_8s_linear_infinite]"
+                  style={{
+                    backgroundImage: 'linear-gradient(90deg, #9333ea, #c084fc, #f5c840, #9333ea)',
+                  }}
+                >
+                  {user?.name?.split(' ')[0] || sanctuary.greeting_title}
+                </span>
+              </h1>
+              <p className="text-[13px] font-light text-[rgba(60,20,120,0.45)] tracking-[0.03em] max-w-xl leading-snug">
+                {welcomeSubtitle}
+              </p>
+            </div>
+            <div className="relative z-[1] flex flex-wrap items-stretch justify-start md:justify-end gap-3 shrink-0">
+              {[
+                [pkg.used_sessions ?? '—', SANCTUARY_REFERENCE.statSessions],
+                [`${journeyDisplayPct}%`, 'Compass'],
+                [daysActiveSince(pkg.start_date) ?? '—', SANCTUARY_REFERENCE.statDaysActive],
+              ].map(([num, lbl], i) => (
+                <div
+                  key={lbl + i}
+                  className="text-center rounded-[18px] border border-[rgba(160,80,220,0.1)] bg-[rgba(160,80,220,0.05)] px-4 py-3 min-w-[4.5rem]"
+                >
+                  <div className="font-[family-name:'Playfair_Display',serif] text-[1.65rem] leading-none text-[#5b0ecc] tabular-nums">{num}</div>
+                  <div className="mt-1 font-[family-name:'Cinzel',serif] text-[9px] tracking-[0.1em] text-[rgba(80,20,160,0.45)] uppercase">
+                    {lbl}
+                  </div>
+                </div>
+              ))}
+              <div className="self-center rounded-[14px] border border-[rgba(200,150,30,0.22)] bg-gradient-to-br from-[rgba(200,150,30,0.12)] to-[rgba(245,200,64,0.08)] px-4 py-2.5 text-center min-w-[7.5rem] max-w-[11rem]">
+                <div className="font-[family-name:'Cinzel',serif] text-[11px] text-[#8a6800] tracking-[0.08em]">
+                  ✦ {tierLabel}
+                </div>
+                <div className="text-[10px] text-[rgba(140,100,0,0.5)] mt-0.5 leading-snug line-clamp-2">
+                  {irisJourney?.title
+                    ? `${irisJourney.title}${irisJourney.year != null ? ` · Year ${irisJourney.year}` : ''}`
+                    : profileTierLine.replace(/^\s*✦\s*/, '')}
+                </div>
+              </div>
+            </div>
           </div>
         </section>
 
@@ -331,7 +378,7 @@ const StudentDashboard = () => {
 
         {/* Desktop: ribbon schedule + bento (tall center spans two rows) */}
         <div className="w-full hidden lg:block space-y-4">
-          <SanctuaryPetalCard
+          <SanctuaryPetalCard overviewV2
             variant="saffron"
             testId="petal-schedule"
             className="w-full p-4"
@@ -425,7 +472,7 @@ const StudentDashboard = () => {
           </SanctuaryPetalCard>
 
           {pts?.enabled && (
-            <SanctuaryPetalCard variant="gold" className="w-full p-4" testId="petal-points" delay={150} onClick={() => navigate('/dashboard/points')}>
+            <SanctuaryPetalCard overviewV2 variant="gold" className="w-full p-4" testId="petal-points" delay={150} onClick={() => navigate('/dashboard/points')}>
               <div className="flex items-start justify-between gap-3">
                 <div className="flex items-center gap-2.5 min-w-0">
                   <div className="w-9 h-9 rounded-xl bg-amber-100 flex items-center justify-center shrink-0">
@@ -448,7 +495,7 @@ const StudentDashboard = () => {
 
           <div className="grid grid-cols-3 gap-4 items-stretch">
             {/* Profile — compact strip */}
-            <SanctuaryPetalCard
+            <SanctuaryPetalCard overviewV2
               variant="gold"
               testId="petal-profile"
               className="p-4 min-h-0"
@@ -527,7 +574,7 @@ const StudentDashboard = () => {
             </SanctuaryPetalCard>
 
             {/* Center column — tall anchor (spans 2 rows) */}
-            <SanctuaryPetalCard
+            <SanctuaryPetalCard overviewV2
               variant="violet"
               testId="petal-progress"
               className="p-4 lg:row-span-2 lg:h-full min-h-0 flex flex-col"
@@ -580,7 +627,7 @@ const StudentDashboard = () => {
             </SanctuaryPetalCard>
 
             {/* Financials — compact tile */}
-            <SanctuaryPetalCard
+            <SanctuaryPetalCard overviewV2
               variant="ember"
               testId="petal-financials"
               className="p-4 min-h-0"
@@ -621,7 +668,7 @@ const StudentDashboard = () => {
             </SanctuaryPetalCard>
 
             {/* Diary — bento lower-left */}
-            <SanctuaryPetalCard
+            <SanctuaryPetalCard overviewV2
               variant="sky"
               testId="petal-diary"
               className="p-4 min-h-0"
@@ -703,7 +750,7 @@ const StudentDashboard = () => {
             </SanctuaryPetalCard>
 
             {/* Transformations — bento lower-right */}
-            <SanctuaryPetalCard
+            <SanctuaryPetalCard overviewV2
               variant="rose"
               testId="petal-galaxy"
               className="p-4 min-h-0"
@@ -742,7 +789,7 @@ const StudentDashboard = () => {
         {/* ─── MOBILE LAYOUT ─── */}
         <div className="lg:hidden w-full max-w-md mx-auto space-y-3">
           {dashboardScheduleRows.length > 0 ? (
-            <SanctuaryPetalCard variant="saffron" testId="petal-schedule-m" className="p-4" delay={100} onClick={() => navigate('/dashboard/sessions')}>
+            <SanctuaryPetalCard overviewV2 variant="saffron" testId="petal-schedule-m" className="p-4" delay={100} onClick={() => navigate('/dashboard/sessions')}>
               <div className="flex items-center gap-3 mb-2">
                 <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0" style={{ background: '#D4AF3720' }}>
                   <Calendar size={17} style={{ color: '#D4AF37' }} />
@@ -788,7 +835,7 @@ const StudentDashboard = () => {
               </div>
             </SanctuaryPetalCard>
           ) : (
-            <SanctuaryPetalCard variant="saffron" testId="petal-schedule-m" className="p-4" delay={100} onClick={() => navigate('/dashboard/sessions')}>
+            <SanctuaryPetalCard overviewV2 variant="saffron" testId="petal-schedule-m" className="p-4" delay={100} onClick={() => navigate('/dashboard/sessions')}>
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0" style={{ background: '#D4AF3720' }}>
                   <Calendar size={17} style={{ color: '#D4AF37' }} />
@@ -811,7 +858,7 @@ const StudentDashboard = () => {
             </SanctuaryPetalCard>
           )}
           {pts?.enabled && (
-            <SanctuaryPetalCard variant="gold" testId="petal-points-m" className="p-4" delay={175} onClick={() => navigate('/dashboard/points')}>
+            <SanctuaryPetalCard overviewV2 variant="gold" testId="petal-points-m" className="p-4" delay={175} onClick={() => navigate('/dashboard/points')}>
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-xl bg-amber-100 flex items-center justify-center shrink-0">
                   <Coins size={17} className="text-amber-700" />
@@ -830,7 +877,7 @@ const StudentDashboard = () => {
             { testId: 'petal-diary-m', icon: BookOpen, color: '#93C5FD', variant: 'sky', title: SANCTUARY_REFERENCE.intentionsEye, sub: SANCTUARY_REFERENCE.intentionsTitle, to: '/dashboard/diary', delay: 400 },
             { testId: 'petal-galaxy-m', icon: Heart, color: '#F9A8D4', variant: 'rose', title: SANCTUARY_REFERENCE.speaksEye, sub: SANCTUARY_REFERENCE.transformationsHint, to: '/transformations', delay: 500 },
           ].map(item => (
-            <SanctuaryPetalCard key={item.testId} variant={item.variant} testId={item.testId} className="p-4" delay={item.delay} onClick={() => navigate(item.to)}>
+            <SanctuaryPetalCard overviewV2 key={item.testId} variant={item.variant} testId={item.testId} className="p-4" delay={item.delay} onClick={() => navigate(item.to)}>
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0" style={{ background: `${item.color}20` }}>
                   <item.icon size={17} style={{ color: item.color }} />
@@ -845,7 +892,7 @@ const StudentDashboard = () => {
           ))}
         </div>
 
-        <p className="w-full text-center mt-10 md:mt-14 px-4 text-[15px] italic text-[rgba(200,150,255,0.32)]">
+        <p className="w-full text-center mt-10 md:mt-14 px-4 text-base italic text-[rgba(80,30,140,0.35)] tracking-[0.04em] font-[family-name:'Cormorant_Garamond',serif]">
           &ldquo;{SANCTUARY_REFERENCE.footerQuote}&rdquo; &nbsp;{SANCTUARY_REFERENCE.footerAttribution}
         </p>
 

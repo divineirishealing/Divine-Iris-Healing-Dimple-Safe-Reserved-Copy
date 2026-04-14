@@ -55,13 +55,15 @@ const DashboardLayout = () => {
   if (!user) { window.location.href = '/login'; return null; }
 
   const cosmicVariant = getDashboardCosmicVariant(location.pathname);
+  const isSacredHomeOverview =
+    location.pathname === '/dashboard' || location.pathname === '/dashboard/';
 
   return (
     <div className="min-h-screen relative bg-transparent font-lato antialiased">
-      <CosmicDashboardBackground videoActive={Boolean(bgVideo)} variant={cosmicVariant} />
+      <CosmicDashboardBackground videoActive={Boolean(bgVideo) && !isSacredHomeOverview} variant={cosmicVariant} />
 
       {/* Optional admin video — kept subtle so constellations & planets stay the hero */}
-      {bgVideo && (
+      {bgVideo && !isSacredHomeOverview && (
         <video
           autoPlay
           loop
@@ -74,7 +76,7 @@ const DashboardLayout = () => {
           <source src={bgVideo.startsWith('/') ? `${process.env.REACT_APP_BACKEND_URL}${bgVideo}` : bgVideo} type="video/mp4" />
         </video>
       )}
-      {bgVideo && (
+      {bgVideo && !isSacredHomeOverview && (
         <div
           className="fixed inset-0 z-[2] pointer-events-none"
           style={{
@@ -84,15 +86,17 @@ const DashboardLayout = () => {
         />
       )}
 
-      {/* Edge depth — keeps purple field feeling infinite */}
-      <div
-        className="fixed inset-0 z-[3] pointer-events-none"
-        style={{
-          boxShadow:
-            'inset 0 0 min(100vw, 1400px) rgba(15, 5, 45, 0.25), inset 0 -100px 180px rgba(30, 10, 80, 0.2)',
-        }}
-        aria-hidden
-      />
+      {/* Edge depth — violet routes only; light overview stays open and airy */}
+      {!isSacredHomeOverview && (
+        <div
+          className="fixed inset-0 z-[3] pointer-events-none"
+          style={{
+            boxShadow:
+              'inset 0 0 min(100vw, 1400px) rgba(15, 5, 45, 0.25), inset 0 -100px 180px rgba(30, 10, 80, 0.2)',
+          }}
+          aria-hidden
+        />
+      )}
 
       {/* Single floating control — no top menu bar (immersive) */}
       <button

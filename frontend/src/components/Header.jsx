@@ -175,7 +175,8 @@ const Header = () => {
 
   return (
     <>
-      <header data-testid="site-header" className="fixed top-0 left-0 right-0 z-50 bg-black/70 backdrop-blur-md">
+      <div className="fixed top-0 left-0 right-0 z-50 flex flex-col">
+      <header data-testid="site-header" className="bg-black/70 backdrop-blur-md">
         <div className="w-full px-4 lg:px-8">
           <div className="flex items-center justify-between h-12">
             <div className="flex items-center gap-1">
@@ -268,10 +269,10 @@ const Header = () => {
         </div>
       </header>
 
-      {/* Countdown banner - auto-pulls from nearest upcoming program */}
+      {/* Countdown banner - flush below nav (same fixed stack, no top offset gap) */}
       {bannerEnabled && (
-        <div data-testid="offer-banner" className="fixed left-0 right-0 z-40 flex items-center justify-center gap-3 py-1.5 cursor-pointer"
-          style={{ top: '48px', fontFamily: "'Lato', sans-serif", background: `linear-gradient(to right, ${bannerColor}, ${bannerColor}dd, ${bannerColor})` }}
+        <div data-testid="offer-banner" className="flex w-full items-center justify-center gap-3 py-1.5 cursor-pointer"
+          style={{ fontFamily: "'Lato', sans-serif", background: `linear-gradient(to right, ${bannerColor}, ${bannerColor}dd, ${bannerColor})` }}
           onClick={() => handleNav(`/program/${nearestUpcoming.id}`)}>
           <Sparkles size={12} className="text-white/80" />
           <span className="text-[10px] font-bold tracking-[0.15em] uppercase text-white">{nearestUpcoming.title}</span>
@@ -284,10 +285,11 @@ const Header = () => {
           <span className="text-[9px] tracking-wider uppercase text-white/50">&rarr;</span>
         </div>
       )}
+      </div>
 
       {/* Mobile menu */}
       {mobileOpen && (
-        <div data-testid="mobile-menu" className="fixed inset-0 z-[60] bg-black/95 backdrop-blur-md pt-16 overflow-y-auto">
+        <div data-testid="mobile-menu" className={`fixed inset-0 z-[60] bg-black/95 backdrop-blur-md overflow-y-auto ${bannerEnabled ? 'pt-[4.75rem]' : 'pt-16'}`}>
           <button data-testid="menu-close-btn" onClick={() => setMobileOpen(false)} className="absolute top-4 right-4 text-white hover:text-[#D4AF37] transition-colors">
             <X size={24} />
           </button>

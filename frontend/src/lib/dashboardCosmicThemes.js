@@ -320,6 +320,21 @@ export const DASHBOARD_COSMIC_THEMES = {
     canvas: { ...COSMIC_CANVAS_DEFAULT },
   },
 
+  /** Luminous dawn / amethyst field — overview “Sacred Home” (matches static v2 mockup) */
+  sacred_home_light: {
+    label: 'Sacred home',
+    sub: 'Luminous overview',
+    milkyOpacity: '0',
+    milkyGradient: 'transparent',
+    nebula1: 'transparent',
+    nebula2: 'transparent',
+    baseBg: 'transparent',
+    planetA: { background: 'transparent', boxShadow: 'none' },
+    planetB: { background: 'transparent', boxShadow: 'none' },
+    planetC: { background: 'transparent', boxShadow: 'none' },
+    canvas: { ...COSMIC_CANVAS_DEFAULT },
+  },
+
   deep_space: {
     label: 'Deep space',
     sub: 'Journey',
@@ -372,9 +387,10 @@ export function resolveCosmicTheme(variant) {
  */
 export function getDashboardCosmicVariant(pathname) {
   const p = pathname || '';
-  /** One sanctuary sky everywhere under /dashboard (sacred constellation + #0d0120). */
-  if (p.startsWith('/dashboard')) return 'immersive_purple';
-  return 'deep_space';
+  if (!p.startsWith('/dashboard')) return 'deep_space';
+  /** Light “Sacred Home” shell only on overview; other routes keep violet field. */
+  if (p === '/dashboard' || p === '/dashboard/') return 'sacred_home_light';
+  return 'immersive_purple';
 }
 
 export function getDashboardCosmicTheme(pathname) {

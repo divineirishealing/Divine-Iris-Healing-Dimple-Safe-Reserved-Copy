@@ -70,7 +70,7 @@ export function CosmicDashboardBackground({ videoActive = false, variant = 'milk
   const theme = useMemo(() => resolveCosmicTheme(variant), [variant]);
 
   useEffect(() => {
-    if (variant === 'immersive_purple') return;
+    if (variant === 'immersive_purple' || variant === 'sacred_home_light') return;
     const canvas = canvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
@@ -430,6 +430,7 @@ export function CosmicDashboardBackground({ videoActive = false, variant = 'milk
   }, [videoActive, variant]);
 
   const isImmersivePurple = variant === 'immersive_purple';
+  const isSacredHomeLight = variant === 'sacred_home_light';
 
   return (
     <div
@@ -438,7 +439,24 @@ export function CosmicDashboardBackground({ videoActive = false, variant = 'milk
       data-cosmic-variant={variant}
       aria-hidden
     >
-      {isImmersivePurple ? (
+      {isSacredHomeLight ? (
+        <>
+          <div
+            className="absolute inset-0"
+            style={{
+              background:
+                'radial-gradient(ellipse 70% 50% at 5% 0%, rgba(230,210,255,0.7) 0%, transparent 60%), radial-gradient(ellipse 50% 60% at 98% 5%, rgba(255,220,200,0.5) 0%, transparent 55%), radial-gradient(ellipse 60% 40% at 60% 100%, rgba(255,240,200,0.45) 0%, transparent 55%), radial-gradient(ellipse 80% 50% at 0% 80%, rgba(200,180,255,0.35) 0%, transparent 55%), radial-gradient(ellipse 40% 40% at 100% 70%, rgba(255,200,230,0.35) 0%, transparent 50%), linear-gradient(160deg, #f8f2ff 0%, #fff8f5 40%, #fdf5ff 70%, #f8f5ff 100%)',
+            }}
+          />
+          <div
+            className="absolute inset-0 opacity-[0.022] mix-blend-multiply"
+            style={{
+              backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E")`,
+              backgroundSize: '200px',
+            }}
+          />
+        </>
+      ) : isImmersivePurple ? (
         <>
           <div
             className="absolute inset-0"
