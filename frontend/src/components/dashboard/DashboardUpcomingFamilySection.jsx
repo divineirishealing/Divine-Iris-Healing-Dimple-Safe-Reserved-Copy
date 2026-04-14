@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { Calendar, Sparkles, Users, Tag, ArrowRight, Loader2, Plus, Trash2 } from 'lucide-react';
@@ -40,11 +40,22 @@ function programStartLabel(p) {
   return formatDateDdMonYyyy(iso) || d;
 }
 
+/** Same basis as EnrollmentPage promo discount: percentage of subtotal or fixed per currency. */
+function promoDiscountAmount(promoResult, subtotalRaw, currency) {
+  if (!promoResult || subtotalRaw <= 0) return 0;
+  if (promoResult.discount_type === 'percentage') {
+    return Math.round(subtotalRaw * (Number(promoResult.discount_percentage) || 0) / 100);
+  }
+  return promoResult[`discount_${currency}`] || promoResult.discount_aed || 0;
+}
+
 export default function DashboardUpcomingFamilySection({ homeData, onRefresh }) {
   const navigate = useNavigate();
   const { toast } = useToast();
-  const { getPrice, getOfferPrice, symbol } = useCurrency();
+  const { getPrice, getOfferPrice, symbol, currency, ready: currencyReady } = useCurrency();
   const [saving, setSaving] = useState(false);
+  const [promoByProgramId, setPromoByProgramId] = useState({});
+  const [promoPricesLoading, setPromoPricesLoading] = useState(false);
 
   const upcoming = homeData?.upcoming_programs || [];
   const offers = homeData?.dashboard_offers || {};
@@ -106,6 +117,46 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh }) 
     if (isAnnual) return annualOffer.enabled && a ? a : '';
     return familyOffer.enabled && f ? f : '';
   }, [isAnnual, annualOffer, familyOffer]);
+
+  const upcomingSliceKey = useMemo(
+    () => (upcoming || []).slice(0, 6).map((p) => p.id).join(','),
+    [upcoming]
+  );
+
+  useEffect(() => {
+    const code = promoForProgramClicks;
+    const programs = (upcoming || []).slice(0, 6);
+    if (!code || !currencyReady || programs.length === 0) {
+      setPromoByProgramId({});
+      setPromoPricesLoading(false);
+      return;
+    }
+    let cancelled = false;
+    setPromoPricesLoading(true);
+    Promise.all(
+      programs.map((p) =>
+        axios
+          .post(`${API}/api/promotions/validate`, {
+            code,
+            program_id: p.id,
+            currency,
+          })
+          .then((r) => ({ id: p.id, data: r.data }))
+          .catch(() => ({ id: p.id, data: null }))
+      )
+    ).then((rows) => {
+      if (cancelled) return;
+      const next = {};
+      rows.forEach(({ id, data }) => {
+        next[id] = data;
+      });
+      setPromoByProgramId(next);
+      setPromoPricesLoading(false);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [promoForProgramClicks, currencyReady, currency, upcomingSliceKey]);
 
   const OfferCard = ({ kind, offer, accent }) => {
     if (!offer?.enabled) return null;
@@ -196,6 +247,13 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh }) 
               const list = hasTiers && tierIdx !== null ? getPrice(p, tierIdx) : getPrice(p);
               const off = hasTiers && tierIdx !== null ? getOfferPrice(p, tierIdx) : getOfferPrice(p);
               const href = buildDashboardProgramHref(p, { tierIdx, promoCode: promoForProgramClicks });
+              const baseForPromo = off > 0 ? off : list;
+              const validated = promoForProgramClicks ? promoByProgramId[p.id] : null;
+              const disc =
+                validated && baseForPromo > 0 ? promoDiscountAmount(validated, baseForPromo, currency) : 0;
+              const afterPromo = Math.max(0, baseForPromo - disc);
+              const showSpecialPromo =
+                Boolean(promoForProgramClicks && validated && disc > 0 && !promoPricesLoading);
               return (
               <button
                 key={p.id}
@@ -222,7 +280,18 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh }) 
                   </p>
                   {(list > 0 || off > 0) && (
                     <div className="mt-1.5 pt-1.5 border-t border-slate-100">
-                      {off > 0 ? (
+                      {showSpecialPromo ? (
+                        <p className="text-[11px] text-slate-800">
+                          <span className="font-semibold text-[#b8860b]">{symbol}{afterPromo.toLocaleString()}</span>
+                          <span className="text-slate-400 line-through ml-1.5 text-[10px]">{symbol}{baseForPromo.toLocaleString()}</span>
+                          <span className="block text-[9px] text-violet-700/90 mt-0.5">
+                            With {promoForProgramClicks} (on offer price)
+                          </span>
+                          {off > 0 && list > off && (
+                            <span className="block text-[9px] text-slate-400 mt-0.5">List {symbol}{list.toLocaleString()}</span>
+                          )}
+                        </p>
+                      ) : off > 0 ? (
                         <p className="text-[11px] text-slate-800">
                           <span className="font-semibold text-[#b8860b]">{symbol}{off.toLocaleString()}</span>
                           {list > 0 && off < list && (
