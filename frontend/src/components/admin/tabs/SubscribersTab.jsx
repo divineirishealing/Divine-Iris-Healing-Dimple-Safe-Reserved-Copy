@@ -412,6 +412,22 @@ const SubscriberForm = ({ initial, onSave, onCancel, saving, packages, irisCatal
   const [schedInput, setSchedInput] = useState('');
   const [autoFilled, setAutoFilled] = useState(false);
   const [indiaSite, setIndiaSite] = useState(null);
+  const baselineRef = useRef(null);
+  if (baselineRef.current === null) {
+    baselineRef.current = JSON.stringify(initial || blankForm());
+  }
+  const isDirty = JSON.stringify(f) !== baselineRef.current;
+  const saveDisabled = saving || !f.name || (!!initial && !isDirty);
+
+  useEffect(() => {
+    if (!initial || !isDirty) return undefined;
+    const onBeforeUnload = (e) => {
+      e.preventDefault();
+      e.returnValue = '';
+    };
+    window.addEventListener('beforeunload', onBeforeUnload);
+    return () => window.removeEventListener('beforeunload', onBeforeUnload);
+  }, [initial, isDirty]);
 
   const set = (key, val) => setF(prev => ({ ...prev, [key]: val }));
   const setSess = (key, val) => setF(prev => ({ ...prev, sessions: { ...prev.sessions, [key]: val } }));
@@ -633,6 +649,43 @@ const SubscriberForm = ({ initial, onSave, onCancel, saving, packages, irisCatal
             <CheckCircle size={10} /> {selectedPkg.package_id}
           </span>
         )}
+      </div>
+
+      <div
+        className={`sticky bottom-3 z-20 -mx-2 sm:-mx-5 flex flex-wrap items-center justify-between gap-3 rounded-lg border px-3 py-2.5 shadow-md backdrop-blur-sm sm:px-4 ${
+          initial && isDirty
+            ? 'border-amber-300/90 bg-amber-50/95'
+            : 'border-purple-200/80 bg-white/95'
+        }`}
+        data-testid="subscriber-form-save-bar"
+      >
+        <p className="text-[11px] text-gray-600 min-w-0">
+          {initial ? (
+            isDirty ? (
+              <span className="font-medium text-amber-900">You have unsaved changes — save to apply them.</span>
+            ) : (
+              <span className="text-gray-500">No changes yet. Edit the form, then save.</span>
+            )
+          ) : (
+            <span className="text-gray-500">Fill in the form, then save to create this subscriber.</span>
+          )}
+        </p>
+        <div className="flex flex-wrap items-center gap-2 shrink-0">
+          <Button type="button" variant="outline" size="sm" onClick={onCancel} data-testid="form-cancel-sticky">
+            <X size={14} className="mr-1" /> Cancel
+          </Button>
+          <Button
+            type="button"
+            size="sm"
+            onClick={() => onSave(f)}
+            disabled={saveDisabled}
+            className="bg-[#5D3FD3] hover:bg-[#4c32b3]"
+            data-testid="form-save-sticky"
+          >
+            {saving ? <Loader2 size={14} className="animate-spin mr-1" /> : <Save size={14} className="mr-1" />}
+            {initial ? 'Save changes' : 'Create subscriber'}
+          </Button>
+        </div>
       </div>
 
       {/* Row 1 with Package Selector */}
@@ -994,7 +1047,7 @@ const SubscriberForm = ({ initial, onSave, onCancel, saving, packages, irisCatal
       </div>
 
       <div className="flex gap-2 pt-2 border-t">
-        <Button onClick={() => onSave(f)} disabled={saving || !f.name} className="bg-[#5D3FD3] hover:bg-[#4c32b3]" data-testid="form-save-btn">
+        <Button onClick={() => onSave(f)} disabled={saveDisabled} className="bg-[#5D3FD3] hover:bg-[#4c32b3]" data-testid="form-save-btn">
           {saving ? <Loader2 size={14} className="animate-spin mr-1" /> : <Save size={14} className="mr-1" />}
           {initial ? 'Update' : 'Create'} Subscriber
         </Button>
