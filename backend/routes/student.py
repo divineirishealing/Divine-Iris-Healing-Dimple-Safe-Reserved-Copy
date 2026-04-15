@@ -906,6 +906,8 @@ async def get_student_home(user: dict = Depends(get_current_user)):
             "india_bank_details": settings_doc.get("india_bank_details") or {},
             "india_upi_id": settings_doc.get("india_upi_id") or "",
         },
+        "preferred_india_gpay_id": (sub.get("preferred_india_gpay_id") or "").strip(),
+        "preferred_india_bank_id": (sub.get("preferred_india_bank_id") or "").strip(),
     }
 
 @router.put("/profile")

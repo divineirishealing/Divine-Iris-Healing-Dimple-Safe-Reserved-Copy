@@ -18,49 +18,9 @@ import {
 } from 'lucide-react';
 import { useToast } from '../../hooks/use-toast';
 import { resolveImageUrl, isLikelyImageUrl } from '../../lib/imageUtils';
+import { gpayRowsForPaymentModal, banksForPaymentModal } from '../../lib/indiaPaymentTags';
 
 const API = process.env.REACT_APP_BACKEND_URL;
-
-/** GPay/UPI rows from Site Settings → India (India proof). Not per-subscriber. */
-function gpayRowsFromIndiaReference(info) {
-  if (!info || typeof info !== 'object') return [];
-  const rows = (Array.isArray(info.india_gpay_accounts) ? info.india_gpay_accounts : []).filter((x) =>
-    (x.upi_id || '').trim()
-  );
-  const legacy = (info.india_upi_id || '').trim();
-  if (!legacy) return rows;
-  if (rows.some((r) => (r.upi_id || '').trim() === legacy)) return rows;
-  return [{ id: 'site-legacy-upi', label: 'UPI', upi_id: legacy, qr_image_url: '' }, ...rows];
-}
-
-/** Bank rows for proof UI: India site accounts first, then global API bank list. */
-function banksFromIndiaReference(info, fallbackBanks) {
-  if (!info || typeof info !== 'object') return fallbackBanks || [];
-  const accounts = Array.isArray(info.india_bank_accounts) ? info.india_bank_accounts : [];
-  const mapped = accounts
-    .filter((b) => (b.account_number || '').toString().trim())
-    .map((b, i) => ({
-      bank_code: b.id || `india-${i}-${String(b.account_number).slice(-4)}`,
-      bank_name: b.bank_name || b.label || 'Bank',
-      account_name: b.account_name || '',
-      account_number: b.account_number || '',
-      ifsc_code: b.ifsc || b.ifsc_code || '',
-      upi_id: b.upi_id || '',
-    }));
-  const bd = info.india_bank_details || {};
-  if (mapped.length === 0 && (bd.account_number || '').toString().trim()) {
-    mapped.push({
-      bank_code: 'india-legacy',
-      bank_name: bd.bank_name || 'Bank',
-      account_name: bd.account_name || '',
-      account_number: bd.account_number || '',
-      ifsc_code: bd.ifsc || '',
-      upi_id: bd.upi_id || '',
-    });
-  }
-  if (mapped.length > 0) return mapped;
-  return fallbackBanks || [];
-}
 
 /** Site-wide India bank / UPI (same info as India manual proof page) for quick reference on Sacred Exchange. */
 const IndiaPaymentInfoModal = ({ info, onClose }) => {
@@ -165,7 +125,18 @@ const METHOD_LABELS = {
 };
 
 /* ─── PAYMENT MODAL ─── */
-const PaymentModal = ({ emi, clientId, banks, methods, indiaReference, currency, onClose, onSuccess }) => {
+const PaymentModal = ({
+  emi,
+  clientId,
+  banks,
+  methods,
+  indiaReference,
+  preferredIndiaGpayId,
+  preferredIndiaBankId,
+  currency,
+  onClose,
+  onSuccess,
+}) => {
   const { toast } = useToast();
   const [step, setStep] = useState('choose'); // choose | gpay | manual
   const [method, setMethod] = useState('');
@@ -179,9 +150,24 @@ const PaymentModal = ({ emi, clientId, banks, methods, indiaReference, currency,
   const [payAmount, setPayAmount] = useState('');
   const [payDifferentAmount, setPayDifferentAmount] = useState(false);
 
-  const gpayList = useMemo(() => gpayRowsFromIndiaReference(indiaReference), [indiaReference]);
+  const gpayListFull = useMemo(() => gpayRowsForPaymentModal(indiaReference), [indiaReference]);
+  const gpayList = useMemo(() => {
+    const pref = (preferredIndiaGpayId || '').trim();
+    if (!pref) return gpayListFull;
+    const m = gpayListFull.filter((g) => (g.tag_id || g.id) === pref);
+    return m.length ? m : gpayListFull;
+  }, [gpayListFull, preferredIndiaGpayId]);
 
-  const effectiveBanks = useMemo(() => banksFromIndiaReference(indiaReference, banks), [indiaReference, banks]);
+  const effectiveBanksFull = useMemo(
+    () => banksForPaymentModal(indiaReference, banks),
+    [indiaReference, banks]
+  );
+  const effectiveBanks = useMemo(() => {
+    const pref = (preferredIndiaBankId || '').trim();
+    if (!pref) return effectiveBanksFull;
+    const m = effectiveBanksFull.filter((b) => (b.tag_id || b.bank_code) === pref);
+    return m.length ? m : effectiveBanksFull;
+  }, [effectiveBanksFull, preferredIndiaBankId]);
 
   const bankCodesKey = useMemo(
     () => (effectiveBanks || []).map((b) => b.bank_code).join('|'),
@@ -356,7 +342,7 @@ const PaymentModal = ({ emi, clientId, banks, methods, indiaReference, currency,
             <p className="text-[10px] uppercase tracking-wider text-emerald-700 font-semibold">India site UPI / GPay</p>
             <div className="space-y-3">
               {gpayList.map((g) => (
-                <div key={g.id || g.upi_id} className="rounded-xl border border-emerald-100 bg-emerald-50/40 p-3 text-xs">
+                <div key={g.tag_id || g.id || g.upi_id} className="rounded-xl border border-emerald-100 bg-emerald-50/40 p-3 text-xs">
                   {g.label ? <p className="font-semibold text-gray-800 mb-1">{g.label}</p> : null}
                   <p className="font-mono text-emerald-900 select-all">{g.upi_id}</p>
                   {(g.qr_image_url || '').trim() && isLikelyImageUrl(g.qr_image_url) ? (
@@ -734,6 +720,8 @@ const FinancialsPage = () => {
           banks={banks}
           methods={methods}
           indiaReference={indiaPaymentReference}
+          preferredIndiaGpayId={data?.preferred_india_gpay_id || ''}
+          preferredIndiaBankId={data?.preferred_india_bank_id || ''}
           currency={fin.currency || 'INR'}
           onClose={() => setPayingEmi(null)}
           onSuccess={fetchData}

@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import axios from 'axios';
 import { effectiveIrisJourneyLabel } from '../../../lib/irisJourney';
+import { buildIndiaGpayOptions, buildIndiaBankOptions } from '../../../lib/indiaPaymentTags';
 import { useToast } from '../../../hooks/use-toast';
 import { Button } from '../../ui/button';
 import { Input } from '../../ui/input';
@@ -361,6 +362,8 @@ const blankForm = () => ({
   emis: [], programs: [], programs_detail: [], bi_annual_download: 0, quarterly_releases: 0,
   payment_methods: ['stripe', 'manual'],
   payment_destinations: { gpay: [], bank: [], primary_gpay_id: '', primary_bank_id: '' },
+  preferred_india_gpay_id: '',
+  preferred_india_bank_id: '',
   late_fee_per_day: 0, channelization_fee: 0, show_late_fees: false,
   iris_year: 1,
   iris_year_mode: 'manual',
@@ -408,6 +411,7 @@ const SubscriberForm = ({ initial, onSave, onCancel, saving, packages, irisCatal
   const [f, setF] = useState(initial || blankForm());
   const [schedInput, setSchedInput] = useState('');
   const [autoFilled, setAutoFilled] = useState(false);
+  const [indiaSite, setIndiaSite] = useState(null);
 
   const set = (key, val) => setF(prev => ({ ...prev, [key]: val }));
   const setSess = (key, val) => setF(prev => ({ ...prev, sessions: { ...prev.sessions, [key]: val } }));
@@ -434,6 +438,27 @@ const SubscriberForm = ({ initial, onSave, onCancel, saving, packages, irisCatal
   };
 
   const selectedPkg = (packages || []).find(p => p.package_id === f.package_id);
+
+  useEffect(() => {
+    axios.get(`${API}/settings`).then((r) => setIndiaSite(r.data)).catch(() => setIndiaSite(null));
+  }, []);
+
+  const indiaGpayOpts = React.useMemo(
+    () =>
+      buildIndiaGpayOptions({
+        india_gpay_accounts: indiaSite?.india_gpay_accounts,
+        india_upi_id: indiaSite?.india_upi_id,
+      }),
+    [indiaSite]
+  );
+  const indiaBankOpts = React.useMemo(
+    () =>
+      buildIndiaBankOptions({
+        india_bank_accounts: indiaSite?.india_bank_accounts,
+        india_bank_details: indiaSite?.india_bank_details,
+      }),
+    [indiaSite]
+  );
 
   const packagePricingPreview = React.useMemo(() => {
     if (!selectedPkg) return null;
@@ -829,8 +854,16 @@ const SubscriberForm = ({ initial, onSave, onCancel, saving, packages, irisCatal
                   className="w-3 h-3 accent-[#5D3FD3]"
                   checked={(f.payment_methods || []).includes(key)}
                   onChange={(e) => {
-                    const cur = f.payment_methods || [];
-                    set('payment_methods', e.target.checked ? [...cur, key] : cur.filter((m) => m !== key));
+                    setF((prev) => {
+                      const cur = prev.payment_methods || [];
+                      const next = e.target.checked ? [...cur, key] : cur.filter((m) => m !== key);
+                      const patch = { payment_methods: next };
+                      if (!e.target.checked && key === 'gpay') patch.preferred_india_gpay_id = '';
+                      if (!e.target.checked && (key === 'bank' || key === 'manual') && !next.includes('bank') && !next.includes('manual')) {
+                        patch.preferred_india_bank_id = '';
+                      }
+                      return { ...prev, ...patch };
+                    });
                   }}
                 />
                 {label}
@@ -842,11 +875,47 @@ const SubscriberForm = ({ initial, onSave, onCancel, saving, packages, irisCatal
       </div>
 
       {(f.payment_methods || []).some((m) => ['gpay', 'bank', 'manual'].includes(m)) && (
-        <div className="border rounded-lg p-3 bg-emerald-50/40 border-emerald-100/80 space-y-1">
-          <p className="text-[11px] font-semibold text-emerald-900">India UPI &amp; bank (students)</p>
-          <p className="text-[10px] text-emerald-900/85 leading-relaxed">
-            Configure UPI IDs, QR codes, and bank accounts under <strong>Admin → Site Settings → India payment</strong> (same source as the India manual proof page). The Sacred Exchange and manual payment pages pull from there automatically.
-          </p>
+        <div className="border rounded-lg p-3 bg-emerald-50/40 border-emerald-100/80 space-y-3">
+          <div className="space-y-1">
+            <p className="text-[11px] font-semibold text-emerald-900">India UPI &amp; bank (students)</p>
+            <p className="text-[10px] text-emerald-900/85 leading-relaxed">
+              Configure UPI IDs, QR codes, and bank accounts under <strong>Admin → Site Settings → India payment</strong> (same source as the India manual proof page). The Sacred Exchange and manual payment pages pull from there automatically.
+            </p>
+          </div>
+          {indiaSite && (f.payment_methods || []).includes('gpay') && indiaGpayOpts.length > 1 && (
+            <div>
+              <Label className="text-xs">Tagged UPI for this member</Label>
+              <p className="text-[9px] text-emerald-900/80 mb-1">If India proof lists several UPIs, choose the one this member should see on Sacred Exchange.</p>
+              <select
+                value={f.preferred_india_gpay_id || ''}
+                onChange={(e) => set('preferred_india_gpay_id', e.target.value)}
+                className="w-full max-w-xl border rounded-md px-2 py-2 text-sm bg-white"
+                data-testid="preferred-india-gpay"
+              >
+                <option value="">All UPIs (student sees full list)</option>
+                {indiaGpayOpts.map((o) => (
+                  <option key={o.tag_id} value={o.tag_id}>{o.label}</option>
+                ))}
+              </select>
+            </div>
+          )}
+          {indiaSite && (f.payment_methods || []).some((m) => m === 'bank' || m === 'manual') && indiaBankOpts.length > 1 && (
+            <div>
+              <Label className="text-xs">Tagged bank account for this member</Label>
+              <p className="text-[9px] text-emerald-900/80 mb-1">If India proof lists several accounts, choose the one shown for bank transfer on Sacred Exchange.</p>
+              <select
+                value={f.preferred_india_bank_id || ''}
+                onChange={(e) => set('preferred_india_bank_id', e.target.value)}
+                className="w-full max-w-xl border rounded-md px-2 py-2 text-sm bg-white"
+                data-testid="preferred-india-bank"
+              >
+                <option value="">All accounts (student picks)</option>
+                {indiaBankOpts.map((o) => (
+                  <option key={o.tag_id} value={o.tag_id}>{o.label}</option>
+                ))}
+              </select>
+            </div>
+          )}
         </div>
       )}
 
@@ -1338,6 +1407,8 @@ const SubscribersTab = ({ openManualFormOnMount = false }) => {
     individual_tax_pct: editTarget.subscription?.individual_tax_pct != null && editTarget.subscription?.individual_tax_pct !== ''
       ? String(editTarget.subscription.individual_tax_pct)
       : '',
+    preferred_india_gpay_id: editTarget.subscription?.preferred_india_gpay_id || '',
+    preferred_india_bank_id: editTarget.subscription?.preferred_india_bank_id || '',
     sessions: editTarget.subscription?.sessions || { carry_forward: 0, current: 0, total: 0, availed: 0, yet_to_avail: 0, due: 0, scheduled_dates: [] }
   } : null;
 
