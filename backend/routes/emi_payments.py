@@ -81,20 +81,27 @@ async def delete_bank_account(bank_code: str):
 @router.post("/submit")
 async def submit_manual_payment(
     client_id: str = Form(...),
-    emi_number: int = Form(...),
+    emi_number: int = Form(0),
     payment_method: str = Form(...),  # neft, rtgs, upi, cash, gpay
     bank_code: str = Form(""),
     transaction_id: str = Form(""),
     amount: float = Form(0),
     paid_by_name: str = Form(""),  # if paid by someone else
     notes: str = Form(""),
+    is_voluntary: bool = Form(False),  # True = flexible timing/amount, credit toward balance (not a specific EMI row)
     receipt: Optional[UploadFile] = File(None)
 ):
     """Student submits manual payment proof for admin approval."""
     receipt_url = ""
+    eff_emi = 0 if is_voluntary else emi_number
+    if not is_voluntary and eff_emi < 1:
+        raise HTTPException(status_code=400, detail="emi_number is required for scheduled EMI payments (or use voluntary payment).")
+    if amount is None or float(amount) <= 0:
+        raise HTTPException(status_code=400, detail="Amount must be greater than zero.")
+
     if receipt:
         ext = receipt.filename.split(".")[-1] if "." in receipt.filename else "png"
-        fname = f"{client_id}_{emi_number}_{uuid.uuid4().hex[:8]}.{ext}"
+        fname = f"{client_id}_{eff_emi}_{uuid.uuid4().hex[:8]}.{ext}"
         fpath = UPLOAD_DIR / fname
         content = await receipt.read()
         with open(fpath, "wb") as f:
@@ -104,11 +111,12 @@ async def submit_manual_payment(
     submission = {
         "id": str(uuid.uuid4()),
         "client_id": client_id,
-        "emi_number": emi_number,
+        "emi_number": eff_emi,
+        "is_voluntary": bool(is_voluntary),
         "payment_method": payment_method,
         "bank_code": bank_code,
         "transaction_id": transaction_id,
-        "amount": amount,
+        "amount": float(amount),
         "paid_by_name": paid_by_name,
         "receipt_url": receipt_url,
         "notes": notes,
@@ -141,21 +149,26 @@ async def approve_payment(submission_id: str):
     if not sub:
         raise HTTPException(status_code=404, detail="Submission not found")
 
-    # Update EMI in client subscription
+    # Update EMI in client subscription — or credit voluntary pool
     client = await db.clients.find_one({"id": sub["client_id"]})
     if client:
         subscription = client.get("subscription", {})
-        emis = subscription.get("emis", [])
-        for emi in emis:
-            if emi["number"] == sub["emi_number"]:
-                emi["status"] = "paid"
-                emi["date"] = sub["submitted_at"][:10]
-                emi["payment_method"] = sub["payment_method"]
-                emi["transaction_id"] = sub.get("transaction_id", "")
-                emi["paid_by"] = sub.get("paid_by_name", "")
-                emi["remaining"] = max(0, emi.get("remaining", 0) - sub["amount"])
-                break
-        subscription["emis"] = emis
+        amt = float(sub.get("amount") or 0)
+        if sub.get("is_voluntary") or sub.get("emi_number") == 0:
+            vc = float(subscription.get("voluntary_credits_total") or 0)
+            subscription["voluntary_credits_total"] = round(vc + amt, 2)
+        else:
+            emis = subscription.get("emis", [])
+            for emi in emis:
+                if emi["number"] == sub["emi_number"]:
+                    emi["status"] = "paid"
+                    emi["date"] = sub["submitted_at"][:10]
+                    emi["payment_method"] = sub["payment_method"]
+                    emi["transaction_id"] = sub.get("transaction_id", "")
+                    emi["paid_by"] = sub.get("paid_by_name", "")
+                    emi["remaining"] = max(0, emi.get("remaining", 0) - amt)
+                    break
+            subscription["emis"] = emis
         await db.clients.update_one(
             {"id": sub["client_id"]},
             {"$set": {"subscription": subscription, "updated_at": datetime.now(timezone.utc).isoformat()}}

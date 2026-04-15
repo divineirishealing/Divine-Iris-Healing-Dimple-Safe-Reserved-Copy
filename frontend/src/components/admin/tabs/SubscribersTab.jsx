@@ -1769,7 +1769,9 @@ const SubscribersTab = ({ openManualFormOnMount = false }) => {
                   <div className="flex items-center gap-2 mb-1">
                     <span className="font-semibold text-gray-900 text-sm">{p.client_name}</span>
                     <span className="text-[10px] text-gray-400">{p.client_email}</span>
-                    <span className="text-[10px] px-2 py-0.5 bg-amber-50 text-amber-700 rounded-full font-bold">EMI #{p.emi_number}</span>
+                    <span className="text-[10px] px-2 py-0.5 bg-amber-50 text-amber-700 rounded-full font-bold">
+                      {p.is_voluntary || p.emi_number === 0 ? 'Flexible payment' : `EMI #${p.emi_number}`}
+                    </span>
                   </div>
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mt-2 text-xs">
                     <div><span className="text-gray-400">Method:</span> <strong className="text-gray-700 uppercase">{p.payment_method}</strong></div>

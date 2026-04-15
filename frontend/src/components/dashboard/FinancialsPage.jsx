@@ -22,6 +22,101 @@ import { resolveImageUrl, isLikelyImageUrl } from '../../lib/imageUtils';
 const API = process.env.REACT_APP_BACKEND_URL;
 const EMPTY_PD = {};
 
+/** Site-wide India bank / UPI (same info as India manual proof page) for quick reference on Sacred Exchange. */
+const IndiaPaymentInfoModal = ({ info, onClose }) => {
+  if (!info) return null;
+  const gpayList = Array.isArray(info.india_gpay_accounts) ? info.india_gpay_accounts : [];
+  const bankRows = Array.isArray(info.india_bank_accounts) ? info.india_bank_accounts : [];
+  const legacy = (info.india_upi_id || '').trim();
+  const bd = info.india_bank_details || {};
+  const hasLegacyBank = !!(bd && (bd.account_number || '').toString().trim());
+  const hasContent =
+    gpayList.length > 0 ||
+    !!legacy ||
+    bankRows.length > 0 ||
+    hasLegacyBank;
+
+  return (
+    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4" data-testid="india-payment-info-modal">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
+        <div className="flex items-center justify-between px-5 py-4 border-b bg-gradient-to-r from-amber-50/80 to-white">
+          <div>
+            <h3 className="font-bold text-gray-900 text-sm">India — UPI &amp; bank (site)</h3>
+            <p className="text-[10px] text-gray-500 mt-0.5">Use for NEFT / IMPS / UPI proof flows. Your member-specific IDs may also appear when you tap Pay.</p>
+          </div>
+          <button type="button" onClick={onClose} className="text-gray-400 hover:text-gray-600 p-1" aria-label="Close">
+            <X size={20} />
+          </button>
+        </div>
+        <div className="p-5 space-y-4 text-xs">
+          {!hasContent ? (
+            <p className="text-gray-500 text-sm">India payment details are not configured on the site yet. If you use manual transfer, check the payment email or contact support.</p>
+          ) : (
+            <>
+              {(gpayList.length > 0 || legacy) && (
+                <div>
+                  <p className="text-[10px] font-bold uppercase tracking-wider text-emerald-700 mb-2">UPI / GPay</p>
+                  <div className="space-y-2">
+                    {legacy ? (
+                      <div className="rounded-lg border border-emerald-100 bg-emerald-50/40 p-3 text-xs">
+                        <p className="text-[9px] text-gray-500 mb-0.5">Site UPI</p>
+                        <p className="font-mono text-emerald-900 select-all">{legacy}</p>
+                      </div>
+                    ) : null}
+                    {gpayList.map((g, i) => (
+                      <div key={g.id || i} className="rounded-lg border border-emerald-100 bg-emerald-50/40 p-3">
+                        {g.label ? <p className="font-semibold text-gray-800 mb-1">{g.label}</p> : null}
+                        <p className="font-mono text-emerald-900 select-all">{g.upi_id}</p>
+                        {(g.qr_image_url || '').trim() && isLikelyImageUrl(g.qr_image_url) ? (
+                          <div className="mt-2 flex justify-center">
+                            <img
+                              src={resolveImageUrl(g.qr_image_url)}
+                              alt=""
+                              className="w-36 max-w-full object-contain rounded border border-emerald-200/80 bg-white"
+                            />
+                          </div>
+                        ) : null}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+              {bankRows.length > 0 && (
+                <div>
+                  <p className="text-[10px] font-bold uppercase tracking-wider text-blue-500 mb-2">Bank accounts</p>
+                  <div className="space-y-2">
+                    {bankRows.map((b, i) => (
+                      <div key={b.id || i} className="rounded-lg border border-blue-100 bg-blue-50/50 p-3 grid grid-cols-1 gap-1">
+                        {b.label ? <p className="font-semibold text-gray-800">{b.label}</p> : null}
+                        {b.bank_name ? <p><span className="text-blue-400">Bank:</span> <strong className="text-blue-900">{b.bank_name}</strong></p> : null}
+                        {b.account_name ? <p><span className="text-blue-400">Name:</span> <strong className="text-blue-900">{b.account_name}</strong></p> : null}
+                        {b.account_number ? <p><span className="text-blue-400">A/C:</span> <strong className="font-mono text-blue-900">{b.account_number}</strong></p> : null}
+                        {b.ifsc ? <p><span className="text-blue-400">IFSC:</span> <strong className="font-mono text-blue-900">{b.ifsc}</strong></p> : null}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+              {hasLegacyBank && (
+                <div>
+                  <p className="text-[10px] font-bold uppercase tracking-wider text-blue-500 mb-2">Primary bank (legacy)</p>
+                  <div className="rounded-lg border border-blue-100 bg-blue-50/50 p-3 space-y-1">
+                    {bd.account_name && <p><span className="text-blue-400">Name:</span> <strong>{bd.account_name}</strong></p>}
+                    {bd.account_number && <p><span className="text-blue-400">A/C:</span> <strong className="font-mono">{bd.account_number}</strong></p>}
+                    {bd.ifsc && <p><span className="text-blue-400">IFSC:</span> <strong className="font-mono">{bd.ifsc}</strong></p>}
+                    {bd.bank_name && <p><span className="text-blue-400">Bank:</span> <strong>{bd.bank_name}</strong></p>}
+                    {bd.branch && <p><span className="text-blue-400">Branch:</span> {bd.branch}</p>}
+                  </div>
+                </div>
+              )}
+            </>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+};
+
 const METHOD_ICONS = {
   neft: Building2, rtgs: Building2, upi: Smartphone, cash: Wallet, gpay: Smartphone
 };
@@ -40,6 +135,10 @@ const PaymentModal = ({ emi, clientId, banks, methods, destinations, currency, o
   const [notes, setNotes] = useState('');
   const [receipt, setReceipt] = useState(null);
   const [submitting, setSubmitting] = useState(false);
+  const isVoluntary = !emi?.number || emi.number === 0;
+  const [payAmount, setPayAmount] = useState('');
+  const [payDifferentAmount, setPayDifferentAmount] = useState(false);
+
   const gpayList = useMemo(() => {
     const d = destinations || EMPTY_PD;
     let list = Array.isArray(d.gpay) ? d.gpay.filter((x) => (x.upi_id || '').trim()) : [];
@@ -80,6 +179,21 @@ const PaymentModal = ({ emi, clientId, banks, methods, destinations, currency, o
     if (effectiveBanks?.length) setSelectedBank(effectiveBanks[0].bank_code);
   }, [emi?.number, bankCodesKey]);
 
+  React.useEffect(() => {
+    setStep('choose');
+    setMethod('');
+    setTxnId('');
+    setNotes('');
+    setReceipt(null);
+    if (isVoluntary) {
+      setPayAmount('');
+      setPayDifferentAmount(true);
+    } else {
+      setPayAmount(emi?.amount != null && emi.amount !== '' ? String(emi.amount) : '');
+      setPayDifferentAmount(false);
+    }
+  }, [emi?.number, isVoluntary, emi?.amount]);
+
   const hasStripe = methods.includes('stripe');
   const hasExly = methods.includes('exly');
   const hasGpay = methods.includes('gpay') && gpayList.length > 0;
@@ -99,28 +213,46 @@ const PaymentModal = ({ emi, clientId, banks, methods, destinations, currency, o
 
   const handleManualSubmit = async () => {
     if (!method) { toast({ title: 'Select payment method', variant: 'destructive' }); return; }
+    let amt;
+    if (!isVoluntary && !payDifferentAmount) {
+      amt = Number(emi.amount);
+    } else {
+      const raw = payAmount.replace(/,/g, '').trim();
+      amt = parseFloat(raw);
+    }
+    if (!Number.isFinite(amt) || amt <= 0) {
+      toast({ title: 'Enter a valid amount', variant: 'destructive' });
+      return;
+    }
     setSubmitting(true);
     try {
       const formData = new FormData();
       formData.append('client_id', clientId);
-      formData.append('emi_number', emi.number);
+      formData.append('emi_number', isVoluntary ? '0' : String(emi.number));
+      formData.append('is_voluntary', isVoluntary ? 'true' : 'false');
       formData.append('payment_method', method);
       formData.append('bank_code', selectedBank);
       formData.append('transaction_id', txnId);
-      formData.append('amount', emi.amount || 0);
+      formData.append('amount', String(amt));
       formData.append('paid_by_name', paidBySomeoneElse ? paidBy : '');
-      formData.append('notes', notes);
+      const noteParts = [notes];
+      if (isVoluntary) noteParts.unshift('Flexible payment (student-chosen amount & timing).');
+      else if (payDifferentAmount) noteParts.unshift(`Custom amount (scheduled EMI #${emi.number} was ${currency} ${emi.amount}).`);
+      formData.append('notes', noteParts.filter(Boolean).join(' '));
       if (receipt) formData.append('receipt', receipt);
 
       await axios.post(`${API}/api/payment-mgmt/submit`, formData, {
         withCredentials: true,
         headers: { 'Content-Type': 'multipart/form-data' }
       });
-      toast({ title: 'Payment submitted!', description: 'Awaiting admin approval.' });
+      toast({
+        title: 'Payment submitted!',
+        description: isVoluntary ? 'Awaiting approval — will credit your balance.' : 'Awaiting admin approval.',
+      });
       onSuccess();
       onClose();
     } catch (err) {
-      toast({ title: 'Error submitting payment', variant: 'destructive' });
+      toast({ title: err.response?.data?.detail || 'Error submitting payment', variant: 'destructive' });
     } finally { setSubmitting(false); }
   };
 
@@ -132,13 +264,21 @@ const PaymentModal = ({ emi, clientId, banks, methods, destinations, currency, o
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b bg-gradient-to-r from-[#5D3FD3]/5 to-[#D4AF37]/5">
           <div>
-            <h3 className="font-bold text-gray-900">Pay EMI #{emi.number}</h3>
+            <h3 className="font-bold text-gray-900">
+              {isVoluntary ? 'Flexible payment' : `Pay EMI #${emi.number}`}
+            </h3>
             <p className="text-sm text-gray-500">
-              {currency} {emi.amount?.toLocaleString()} due{' '}
-              <span className="tabular-nums">{formatDateDdMonYyyy(emi.due_date) || emi.due_date || 'N/A'}</span>
+              {isVoluntary ? (
+                <>Choose any amount you wish. After approval it credits your annual balance (not tied to one EMI line).</>
+              ) : (
+                <>
+                  Scheduled {currency} {emi.amount?.toLocaleString()} · due{' '}
+                  <span className="tabular-nums">{formatDateDdMonYyyy(emi.due_date) || emi.due_date || 'N/A'}</span>
+                </>
+              )}
             </p>
           </div>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-600"><X size={20} /></button>
+          <button type="button" onClick={onClose} className="text-gray-400 hover:text-gray-600"><X size={20} /></button>
         </div>
 
         {/* Step: Choose Method */}
@@ -269,8 +409,42 @@ const PaymentModal = ({ emi, clientId, banks, methods, destinations, currency, o
             <div className="grid grid-cols-2 gap-3">
               <div><Label className="text-xs">Transaction ID</Label><Input value={txnId} onChange={e => setTxnId(e.target.value)} placeholder="UTR / Ref #" className="h-9" /></div>
               <div>
-                <Label className="text-xs">Amount</Label>
-                <Input value={emi.amount} disabled className="h-9 bg-gray-50 font-mono" />
+                <Label className="text-xs">Amount ({currency}) *</Label>
+                {isVoluntary ? (
+                  <Input
+                    value={payAmount}
+                    onChange={(e) => setPayAmount(e.target.value)}
+                    placeholder="Enter amount"
+                    className="h-9 font-mono"
+                    inputMode="decimal"
+                  />
+                ) : (
+                  <>
+                    {!payDifferentAmount ? (
+                      <Input value={emi.amount} disabled className="h-9 bg-gray-50 font-mono" />
+                    ) : (
+                      <Input
+                        value={payAmount}
+                        onChange={(e) => setPayAmount(e.target.value)}
+                        className="h-9 font-mono"
+                        inputMode="decimal"
+                      />
+                    )}
+                    <label className="flex items-center gap-2 mt-2 text-[10px] text-gray-600 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        className="w-3 h-3 accent-[#5D3FD3]"
+                        checked={payDifferentAmount}
+                        onChange={(e) => {
+                          const on = e.target.checked;
+                          setPayDifferentAmount(on);
+                          setPayAmount(on ? String(emi.amount ?? '') : String(emi.amount ?? ''));
+                        }}
+                      />
+                      Pay a different amount than scheduled
+                    </label>
+                  </>
+                )}
               </div>
             </div>
 
@@ -321,11 +495,14 @@ const PaymentModal = ({ emi, clientId, banks, methods, destinations, currency, o
 };
 
 /* ─── FINANCIALS PAGE ─── */
+const VOLUNTARY_EMI_PLACEHOLDER = { number: 0, amount: 0, due_date: '', status: 'due' };
+
 const FinancialsPage = () => {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [showAllEmis, setShowAllEmis] = useState(false);
   const [payingEmi, setPayingEmi] = useState(null);
+  const [showIndiaInfo, setShowIndiaInfo] = useState(false);
 
   const fetchData = () => {
     axios.get(`${API}/api/student/home`, { withCredentials: true })
@@ -352,6 +529,9 @@ const FinancialsPage = () => {
   const banks = data?.bank_accounts || [];
   const paymentDestinations = data?.payment_destinations;
   const clientId = data?.client_id || '';
+  const indiaPaymentReference = data?.india_payment_reference;
+  const voluntaryCredits = fin.voluntary_credits_total || 0;
+  const canManualIndia = (methods || []).some((m) => ['manual', 'gpay', 'bank'].includes(m));
 
   return (
     <div className="max-w-5xl mx-auto space-y-6" data-testid="financials-page">
@@ -363,6 +543,33 @@ const FinancialsPage = () => {
         </Link>
         .
       </p>
+      <div className="flex flex-wrap gap-2 items-center -mt-1">
+        <Button type="button" variant="outline" size="sm" className="text-xs h-8" onClick={() => setShowIndiaInfo(true)} data-testid="open-india-payment-info">
+          India: site UPI &amp; bank (reference)
+        </Button>
+        {remaining > 0 && canManualIndia && (
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="text-xs h-8 border-amber-200/80 text-amber-900 bg-amber-50/50 hover:bg-amber-50"
+            onClick={() => setPayingEmi({ ...VOLUNTARY_EMI_PLACEHOLDER })}
+            data-testid="open-flexible-payment"
+          >
+            Flexible payment — any amount, anytime
+          </Button>
+        )}
+      </div>
+      {voluntaryCredits > 0 && (
+        <p className="text-[11px] text-gray-600 -mt-2">
+          Approved flexible payments credited to your balance:{' '}
+          <strong className="tabular-nums">{fin.currency || 'INR'} {Number(voluntaryCredits).toLocaleString()}</strong>
+        </p>
+      )}
+
+      {showIndiaInfo && (
+        <IndiaPaymentInfoModal info={indiaPaymentReference} onClose={() => setShowIndiaInfo(false)} />
+      )}
 
       {/* Top Stats */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">

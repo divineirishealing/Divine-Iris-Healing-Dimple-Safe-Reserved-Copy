@@ -750,7 +750,16 @@ async def get_student_home(user: dict = Depends(get_current_user)):
 
     settings_doc = await db.site_settings.find_one(
         {"id": "site_settings"},
-        {"_id": 0, "dashboard_offer_annual": 1, "dashboard_offer_family": 1, "dashboard_program_offers": 1},
+        {
+            "_id": 0,
+            "dashboard_offer_annual": 1,
+            "dashboard_offer_family": 1,
+            "dashboard_program_offers": 1,
+            "india_gpay_accounts": 1,
+            "india_bank_accounts": 1,
+            "india_bank_details": 1,
+            "india_upi_id": 1,
+        },
     ) or {}
     dashboard_offer_annual = settings_doc.get("dashboard_offer_annual") or {}
     dashboard_offer_family = settings_doc.get("dashboard_offer_family") or {}
@@ -764,9 +773,11 @@ async def get_student_home(user: dict = Depends(get_current_user)):
     # 3. Financials - derived from subscription
     paid_emis = sum(1 for e in emis if e.get("status") == "paid")
     total_emis = len(emis)
-    total_paid = sum(e.get("amount", 0) for e in emis if e.get("status") == "paid")
+    voluntary_credits = float(sub.get("voluntary_credits_total") or 0)
+    total_paid_emis = sum(e.get("amount", 0) for e in emis if e.get("status") == "paid")
+    total_paid = total_paid_emis + voluntary_credits
     total_fee = sub.get("total_fee", 0)
-    remaining = total_fee - total_paid
+    remaining = max(0, total_fee - total_paid)
 
     financials = {
         "status": client.get("payment_status") or ("Paid" if remaining <= 0 and total_fee > 0 else ("EMI" if total_emis > 0 else "N/A")),
@@ -774,6 +785,7 @@ async def get_student_home(user: dict = Depends(get_current_user)):
         "currency": sub.get("currency", "INR"),
         "total_paid": total_paid,
         "remaining": remaining,
+        "voluntary_credits_total": voluntary_credits,
         "payment_mode": sub.get("payment_mode", ""),
         "emi_plan": f"{paid_emis}/{total_emis} EMIs Paid" if total_emis > 0 else "",
         "emis": emis,
@@ -887,7 +899,13 @@ async def get_student_home(user: dict = Depends(get_current_user)):
             "full_name": user.get("full_name") or user.get("name"),
             "city": user.get("city"),
             "tier": user.get("tier")
-        }
+        },
+        "india_payment_reference": {
+            "india_gpay_accounts": settings_doc.get("india_gpay_accounts") or [],
+            "india_bank_accounts": settings_doc.get("india_bank_accounts") or [],
+            "india_bank_details": settings_doc.get("india_bank_details") or {},
+            "india_upi_id": settings_doc.get("india_upi_id") or "",
+        },
     }
 
 @router.put("/profile")
