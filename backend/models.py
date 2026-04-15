@@ -561,9 +561,11 @@ class SiteSettings(BaseModel):
     # Student Sacred Home: offers shown to annual subscribers vs family (configured in Admin → Dashboard)
     dashboard_offer_annual: Dict = Field(default_factory=dict)  # {enabled, title, body, promo_code, cta_label, cta_path}
     dashboard_offer_family: Dict = Field(default_factory=dict)
+    # Friends & extended (non-household) dashboard seats — separate portal rules from immediate family
+    dashboard_offer_extended: Dict = Field(default_factory=dict)
     # When non-empty, these program IDs are "included in annual package" (member pays family seats only). Empty = use title keywords (MMM, AWRP, …).
     annual_package_included_program_ids: List[str] = Field(default_factory=list)
-    # Per-program portal pricing overrides: { program_id: { "annual": {...}, "family": {...} } } shallow-merged with global dashboard_offer_annual / family
+    # Per-program portal pricing overrides: { program_id: { "annual": {...}, "family": {...}, "extended": {...} } } shallow-merged with globals
     dashboard_program_offers: Dict[str, Any] = Field(default_factory=dict)
     # Student dashboard: show/hide overview tiles and sidebar links (Admin → Dashboard). Missing keys = visible.
     dashboard_element_visibility: Dict[str, Any] = Field(default_factory=dict)
@@ -735,6 +737,7 @@ class SiteSettingsUpdate(BaseModel):
     dashboard_settings: Optional[Dict] = None  # {title, colors: {primary, secondary}, fonts}
     dashboard_offer_annual: Optional[Dict] = None
     dashboard_offer_family: Optional[Dict] = None
+    dashboard_offer_extended: Optional[Dict] = None
     annual_package_included_program_ids: Optional[List[str]] = None
     dashboard_program_offers: Optional[Dict[str, Any]] = None
     dashboard_element_visibility: Optional[Dict[str, Any]] = None

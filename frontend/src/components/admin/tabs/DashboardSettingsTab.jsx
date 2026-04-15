@@ -8,12 +8,16 @@ import { RefreshCw, Sparkles, Users, Layers, LayoutGrid, PanelLeft } from 'lucid
 import { useToast } from '../../../hooks/use-toast';
 import { DASHBOARD_VISIBILITY_KEYS, DEFAULT_DASHBOARD_VISIBILITY } from '../../../lib/dashboardVisibility';
 
-/** Member or family line: pricing_rule + fields (reused for global and per-program overrides). */
+/** Member, family, or extended guest line: pricing_rule + fields (reused for global and per-program overrides). */
 function PortalPricingRuleFields({ offer, onPatch, variant }) {
   const o = offer || {};
   const rule = o.pricing_rule || 'promo';
   const border =
-    variant === 'annual' ? 'border-amber-200/80 bg-amber-50/30' : 'border-violet-200/80 bg-violet-50/30';
+    variant === 'annual'
+      ? 'border-amber-200/80 bg-amber-50/30'
+      : variant === 'extended'
+        ? 'border-sky-200/80 bg-sky-50/35'
+        : 'border-violet-200/80 bg-violet-50/30';
   return (
     <div className={`space-y-2 rounded-md border p-2 ${border}`}>
       <select
@@ -24,7 +28,9 @@ function PortalPricingRuleFields({ offer, onPatch, variant }) {
         <option value="promo">Promotion code</option>
         <option value="percent_off">Percent off</option>
         <option value="amount_off">Amount off</option>
-        <option value="fixed_price">Fixed price {variant === 'family' ? 'per seat × count' : 'per seat'}</option>
+        <option value="fixed_price">
+          Fixed price {variant === 'annual' ? 'per seat' : 'per seat × count'}
+        </option>
       </select>
       {rule === 'promo' && (
         <Input
@@ -105,6 +111,14 @@ const DashboardSettingsTab = ({ settings, onChange, programs = [] }) => {
     cta_label: 'Browse upcoming programs',
     cta_path: '/#upcoming',
   };
+  const extendedOffer = settings.dashboard_offer_extended || {
+    enabled: false,
+    title: '',
+    body: '',
+    promo_code: '',
+    cta_label: 'Browse upcoming programs',
+    cta_path: '/#upcoming',
+  };
 
   const setAnnualOffer = (patch) => {
     onChange({
@@ -116,6 +130,12 @@ const DashboardSettingsTab = ({ settings, onChange, programs = [] }) => {
     onChange({
       ...settings,
       dashboard_offer_family: { ...familyOffer, ...patch },
+    });
+  };
+  const setExtendedOffer = (patch) => {
+    onChange({
+      ...settings,
+      dashboard_offer_extended: { ...extendedOffer, ...patch },
     });
   };
 
@@ -419,17 +439,16 @@ const DashboardSettingsTab = ({ settings, onChange, programs = [] }) => {
           <h3 className="text-sm font-semibold text-gray-900 mb-1">Student dashboard — offers</h3>
           <p className="text-[11px] text-gray-500 mb-2">
             Shown only on the signed-in student dashboard (not the public homepage).{' '}
-            <strong className="text-gray-700 font-medium">The annual member&apos;s own seat and family add-on seats use separate pricing rules</strong>
-            — you can set different promo codes, % off, amount off, or fixed prices for each (e.g. 15% off for you, 25% off for
-            family). Checkout currency comes from the student&apos;s region. Upcoming programs are listed automatically; these
-            blocks are optional.
+            <strong className="text-gray-700 font-medium">Member, immediate family, and friends &amp; extended use separate portal pricing</strong>
+            — different promos, % off, amounts, or fixed prices per column. Extended guests do not use the family column unless you
+            mirror the same rules there. Checkout currency follows the student&apos;s region.
           </p>
           <p className="text-[10px] text-gray-500 mb-4 border-l-2 border-[#D4AF37]/50 pl-2">
-            Left column = <strong>member seat only</strong> · Right column = <strong>family seats only</strong> — configure independently.
+            Columns: <strong>your seat</strong> · <strong>immediate household</strong> · <strong>friends &amp; extended</strong>.
           </p>
         </div>
 
-        <div className="grid md:grid-cols-2 gap-6">
+        <div className="grid md:grid-cols-3 gap-5">
           <div className="rounded-lg border border-amber-200/80 bg-amber-50/40 p-4 space-y-3">
             <div className="flex items-center justify-between gap-2">
               <div className="flex items-center gap-2">
@@ -645,6 +664,114 @@ const DashboardSettingsTab = ({ settings, onChange, programs = [] }) => {
               </div>
             </div>
           </div>
+
+          <div className="rounded-lg border border-sky-200/80 bg-sky-50/30 p-4 space-y-3 md:min-w-0">
+            <div className="flex items-center justify-between gap-2">
+              <div className="flex items-center gap-2 min-w-0">
+                <Users size={16} className="text-sky-800 shrink-0" />
+                <span className="text-sm font-medium text-gray-900 leading-tight">Friends &amp; extended seats</span>
+              </div>
+              <Switch
+                checked={!!extendedOffer.enabled}
+                onCheckedChange={(v) => setExtendedOffer({ enabled: v })}
+                data-testid="dashboard-offer-extended-toggle"
+              />
+            </div>
+            <p className="text-[10px] text-sky-900/90 -mt-1 mb-1 leading-snug">
+              Applies to guests saved under Friends &amp; extended on the dashboard. When off, those seats use list / offer unit (no portal discount).
+            </p>
+            <div className="space-y-2">
+              <Label className="text-xs">Title</Label>
+              <Input
+                value={extendedOffer.title || ''}
+                onChange={(e) => setExtendedOffer({ title: e.target.value })}
+                placeholder="e.g. Guest enrollment"
+                className="text-sm"
+              />
+              <Label className="text-xs">Body</Label>
+              <Textarea
+                value={extendedOffer.body || ''}
+                onChange={(e) => setExtendedOffer({ body: e.target.value })}
+                rows={3}
+                className="text-sm"
+                placeholder="Optional message for the dashboard offer card…"
+              />
+              <Label className="text-xs">Promo code (when rule = Promotion code)</Label>
+              <Input
+                value={extendedOffer.promo_code || ''}
+                onChange={(e) => setExtendedOffer({ promo_code: e.target.value })}
+                className="text-sm font-mono"
+              />
+              <div className="border-t border-sky-300/50 pt-3 space-y-2">
+                <Label className="text-xs font-medium text-gray-800">Extended seats — pricing rule</Label>
+                <select
+                  value={extendedOffer.pricing_rule || 'promo'}
+                  onChange={(e) => setExtendedOffer({ pricing_rule: e.target.value })}
+                  className="w-full border rounded-md px-2 py-1.5 text-xs bg-white"
+                  data-testid="dashboard-extended-pricing-rule"
+                >
+                  <option value="promo">Promotion code</option>
+                  <option value="percent_off">Percent off (line total)</option>
+                  <option value="amount_off">Amount off (line total)</option>
+                  <option value="fixed_price">Fixed price per seat × count</option>
+                </select>
+                {(extendedOffer.pricing_rule || 'promo') === 'percent_off' && (
+                  <div>
+                    <Label className="text-[10px] text-gray-600">Percent off (0–100)</Label>
+                    <Input
+                      type="number"
+                      min={0}
+                      max={100}
+                      step={0.5}
+                      value={extendedOffer.percent_off ?? ''}
+                      onChange={(e) => setExtendedOffer({ percent_off: e.target.value === '' ? '' : e.target.value })}
+                      className="text-sm"
+                    />
+                  </div>
+                )}
+                {(extendedOffer.pricing_rule || 'promo') === 'amount_off' && (
+                  <div className="grid grid-cols-3 gap-2">
+                    {['aed', 'inr', 'usd'].map((c) => (
+                      <div key={c}>
+                        <Label className="text-[9px] uppercase text-gray-500">{c} off total</Label>
+                        <Input
+                          value={extendedOffer[`amount_off_${c}`] ?? ''}
+                          onChange={(e) => setExtendedOffer({ [`amount_off_${c}`]: e.target.value })}
+                          className="text-xs"
+                          placeholder="0"
+                        />
+                      </div>
+                    ))}
+                  </div>
+                )}
+                {(extendedOffer.pricing_rule || 'promo') === 'fixed_price' && (
+                  <div className="grid grid-cols-3 gap-2">
+                    {['aed', 'inr', 'usd'].map((c) => (
+                      <div key={c}>
+                        <Label className="text-[9px] uppercase text-gray-500">{c} / seat</Label>
+                        <Input
+                          value={extendedOffer[`fixed_price_${c}`] ?? ''}
+                          onChange={(e) => setExtendedOffer({ [`fixed_price_${c}`]: e.target.value })}
+                          className="text-xs"
+                          placeholder="0"
+                        />
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <Label className="text-xs">CTA label</Label>
+                  <Input value={extendedOffer.cta_label || ''} onChange={(e) => setExtendedOffer({ cta_label: e.target.value })} className="text-sm" />
+                </div>
+                <div>
+                  <Label className="text-xs">CTA path</Label>
+                  <Input value={extendedOffer.cta_path || ''} onChange={(e) => setExtendedOffer({ cta_path: e.target.value })} className="text-sm" placeholder="/#upcoming" />
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
 
         <div className="mt-8 rounded-lg border border-indigo-200/80 bg-indigo-50/30 p-4 space-y-3" data-testid="dashboard-program-offers">
@@ -653,9 +780,8 @@ const DashboardSettingsTab = ({ settings, onChange, programs = [] }) => {
             <div>
               <h3 className="text-sm font-semibold text-gray-900">Upcoming programs — portal pricing (per program)</h3>
               <p className="text-[11px] text-gray-500 leading-snug mt-0.5">
-                Optional. For each <strong>upcoming</strong> program, override <strong>member</strong> and <strong>family</strong>{' '}
-                pricing separately (same independence as the two global columns). Values here override global defaults for
-                checkout only; offer card title/body CTAs still follow the global blocks unless you change those too.
+                Optional. Override <strong>member</strong>, <strong>immediate family</strong>, and <strong>friends &amp; extended</strong>{' '}
+                pricing per program. Values override global defaults for checkout only.
               </p>
             </div>
           </div>
@@ -667,7 +793,8 @@ const DashboardSettingsTab = ({ settings, onChange, programs = [] }) => {
                 const row = progOffers[p.id] || {};
                 const hasRow =
                   (row.annual && Object.keys(row.annual).length > 0) ||
-                  (row.family && Object.keys(row.family).length > 0);
+                  (row.family && Object.keys(row.family).length > 0) ||
+                  (row.extended && Object.keys(row.extended).length > 0);
                 return (
                   <details
                     key={p.id}
@@ -682,7 +809,7 @@ const DashboardSettingsTab = ({ settings, onChange, programs = [] }) => {
                         <span className="text-[9px] font-normal text-gray-400">Global defaults</span>
                       )}
                     </summary>
-                    <div className="px-3 pb-3 pt-0 grid md:grid-cols-2 gap-3 border-t border-gray-100">
+                    <div className="px-3 pb-3 pt-0 grid md:grid-cols-3 gap-3 border-t border-gray-100">
                       <div className="space-y-1">
                         <Label className="text-[10px] text-amber-900">Member seat override</Label>
                         <PortalPricingRuleFields
@@ -692,14 +819,22 @@ const DashboardSettingsTab = ({ settings, onChange, programs = [] }) => {
                         />
                       </div>
                       <div className="space-y-1">
-                        <Label className="text-[10px] text-violet-900">Family override</Label>
+                        <Label className="text-[10px] text-violet-900">Immediate family override</Label>
                         <PortalPricingRuleFields
                           offer={row.family}
                           onPatch={(patch) => setProgramFamily(p.id, patch)}
                           variant="family"
                         />
                       </div>
-                      <div className="md:col-span-2">
+                      <div className="space-y-1">
+                        <Label className="text-[10px] text-sky-900">Friends &amp; extended override</Label>
+                        <PortalPricingRuleFields
+                          offer={row.extended}
+                          onPatch={(patch) => setProgramExtended(p.id, patch)}
+                          variant="extended"
+                        />
+                      </div>
+                      <div className="md:col-span-3">
                         <Button type="button" variant="outline" size="sm" className="text-[10px] h-7" onClick={() => clearProgramOffers(p.id)}>
                           Clear overrides for this program
                         </Button>

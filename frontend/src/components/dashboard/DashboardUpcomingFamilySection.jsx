@@ -273,9 +273,10 @@ function memberSubcaption(rule) {
 function familySubcaption(rule) {
   const r = rule || 'list';
   if (r === 'promo') return 'after portal promo';
-  if (r === 'percent_off') return '% off family total';
-  if (r === 'amount_off') return 'amount off family total';
+  if (r === 'percent_off') return '% off line total';
+  if (r === 'amount_off') return 'amount off line total';
   if (r === 'fixed_price') return 'fixed per seat × count';
+  if (r === 'mixed') return 'split: household vs extended rules';
   if (r === 'none') return '';
   return 'list / offer';
 }
@@ -319,6 +320,7 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh }) 
   const offers = homeData?.dashboard_offers || {};
   const annualOffer = offers.annual || {};
   const familyOffer = offers.family || {};
+  const extendedOffer = offers.extended || {};
   const isAnnual = homeData?.is_annual_subscriber;
   const initialMembers = useMemo(() => homeData?.immediate_family || [], [homeData?.immediate_family]);
   const initialOtherMembers = useMemo(() => homeData?.other_guests || [], [homeData?.other_guests]);
@@ -471,9 +473,12 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh }) 
   const promoForProgramClicks = useMemo(() => {
     const a = (annualOffer.promo_code || '').trim();
     const f = (familyOffer.promo_code || '').trim();
+    const x = (extendedOffer.promo_code || '').trim();
     if (isAnnual) return annualOffer.enabled && a ? a : '';
-    return familyOffer.enabled && f ? f : '';
-  }, [isAnnual, annualOffer, familyOffer]);
+    if (familyOffer.enabled && f) return f;
+    if (extendedOffer.enabled && x) return x;
+    return '';
+  }, [isAnnual, annualOffer, familyOffer, extendedOffer]);
 
   const upcomingSliceKey = useMemo(
     () => (upcoming || []).slice(0, 6).map((p) => p.id).join(','),
@@ -625,7 +630,13 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh }) 
 
   const OfferCard = ({ kind, offer, accent }) => {
     if (!offer?.enabled) return null;
-    const title = offer.title || (kind === 'annual' ? 'Annual member offer' : 'Family offer');
+    const title =
+      offer.title ||
+      (kind === 'annual'
+        ? 'Annual member offer'
+        : kind === 'extended'
+          ? 'Friends & extended offer'
+          : 'Family offer');
     const body = offer.body || '';
     const code = (offer.promo_code || '').trim();
     const cta = offer.cta_label || 'View programs';
@@ -653,7 +664,9 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh }) 
           'rounded-2xl border p-4 md:p-5 bg-white/80 backdrop-blur-sm shadow-sm',
           accent === 'gold'
             ? 'border-[#D4AF37]/35 bg-gradient-to-br from-amber-50/90 to-white/90'
-            : 'border-violet-200/50 bg-gradient-to-br from-violet-50/80 to-white/90'
+            : accent === 'sky'
+              ? 'border-sky-200/60 bg-gradient-to-br from-sky-50/80 to-white/90'
+              : 'border-violet-200/50 bg-gradient-to-br from-violet-50/80 to-white/90'
         )}
         data-testid={`dashboard-offer-${kind}`}
       >
@@ -661,14 +674,22 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh }) 
           <div
             className={cn(
               'w-10 h-10 rounded-xl flex items-center justify-center shrink-0',
-              accent === 'gold' ? 'bg-[#D4AF37]/20' : 'bg-violet-100'
+              accent === 'gold' ? 'bg-[#D4AF37]/20' : accent === 'sky' ? 'bg-sky-100' : 'bg-violet-100'
             )}
           >
-            {accent === 'gold' ? <Sparkles size={18} className="text-[#b8860b]" /> : <Users size={18} className="text-violet-700" />}
+            {accent === 'gold' ? (
+              <Sparkles size={18} className="text-[#b8860b]" />
+            ) : (
+              <Users size={18} className={accent === 'sky' ? 'text-sky-800' : 'text-violet-700'} />
+            )}
           </div>
           <div className="min-w-0 flex-1">
             <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-slate-500 mb-0.5">
-              {kind === 'annual' ? 'For you (annual)' : 'For your family'}
+              {kind === 'annual'
+                ? 'For you (annual)'
+                : kind === 'extended'
+                  ? 'Friends & extended'
+                  : 'Immediate family'}
             </p>
             <h3 className="text-sm font-semibold text-slate-900 leading-snug">{title}</h3>
             {body && <p className="text-xs text-slate-600 mt-1.5 leading-relaxed whitespace-pre-wrap">{body}</p>}
@@ -702,9 +723,9 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh }) 
             <h2 className="font-[family-name:'Cinzel',serif] text-[11px] uppercase tracking-[0.2em] text-[rgba(100,40,160,0.55)]">
               Upcoming programs
             </h2>
-                       <p className="text-xs text-slate-500">
-              Portal-only pricing: your seat and guest seats can use <span className="text-slate-700 font-medium">different</span>{' '}
-              discounts (set in Admin). Enroll in one step from your profile and saved lists below.
+            <p className="text-xs text-slate-500">
+              Portal-only pricing: your seat, immediate household, and friends &amp; extended can each use{' '}
+              <span className="text-slate-700 font-medium">different</span> rules (Admin → Dashboard). Enroll from your saved lists below.
             </p>
           </div>
         </div>
@@ -754,10 +775,11 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh }) 
                       const hasMap =
                         row &&
                         ((row.annual && Object.keys(row.annual).length > 0) ||
-                          (row.family && Object.keys(row.family).length > 0));
+                          (row.family && Object.keys(row.family).length > 0) ||
+                          (row.extended && Object.keys(row.extended).length > 0));
                       return hasMap || annualQuotes[p.id]?.program_portal_pricing_override ? (
                         <p className="text-[9px] text-indigo-800/90 mt-1 font-medium leading-snug">
-                          Program-specific member &amp; family pricing
+                          Program-specific portal pricing
                         </p>
                       ) : null;
                     })()}
@@ -863,21 +885,46 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh }) 
                             </div>
                           )}
                           {(includedPkg ? selCount > 0 : selCount > 0) && (
-                            <div className="flex justify-between gap-2 text-slate-600">
-                              <span className="leading-snug">
-                                Family ({selCount})
-                                {familySubcaption(aq.family_pricing_rule) ? (
-                                  <>
-                                    {' '}
-                                    <span className="text-slate-500">— {familySubcaption(aq.family_pricing_rule)}</span>
-                                  </>
-                                ) : null}
-                              </span>
-                              <span className="font-medium tabular-nums">
-                                {symbol}
-                                {Number(aq.family_after_promos || 0).toLocaleString()}
-                              </span>
-                            </div>
+                            <>
+                              {(aq.immediate_family_count || 0) > 0 && (
+                                <div className="flex justify-between gap-2 text-slate-600">
+                                  <span className="leading-snug">
+                                    Immediate family ({aq.immediate_family_count})
+                                    {familySubcaption(aq.immediate_family_pricing_rule) ? (
+                                      <>
+                                        {' '}
+                                        <span className="text-slate-500">
+                                          — {familySubcaption(aq.immediate_family_pricing_rule)}
+                                        </span>
+                                      </>
+                                    ) : null}
+                                  </span>
+                                  <span className="font-medium tabular-nums">
+                                    {symbol}
+                                    {Number(aq.immediate_family_after_promos || 0).toLocaleString()}
+                                  </span>
+                                </div>
+                              )}
+                              {(aq.extended_guest_count || 0) > 0 && (
+                                <div className="flex justify-between gap-2 text-slate-600">
+                                  <span className="leading-snug">
+                                    Friends &amp; extended ({aq.extended_guest_count})
+                                    {familySubcaption(aq.extended_guest_pricing_rule) ? (
+                                      <>
+                                        {' '}
+                                        <span className="text-slate-500">
+                                          — {familySubcaption(aq.extended_guest_pricing_rule)}
+                                        </span>
+                                      </>
+                                    ) : null}
+                                  </span>
+                                  <span className="font-medium tabular-nums">
+                                    {symbol}
+                                    {Number(aq.extended_guests_after_promos || 0).toLocaleString()}
+                                  </span>
+                                </div>
+                              )}
+                            </>
                           )}
                           <div className="flex justify-between gap-2 pt-1 border-t border-amber-100/80 font-semibold text-slate-900">
                             <span>Total</span>
@@ -1041,13 +1088,16 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh }) 
           </div>
         )}
 
-        {((isAnnual && annualOffer?.enabled) || familyOffer?.enabled) ? (
-          <div className="grid md:grid-cols-2 gap-3 mb-4">
+        {((isAnnual && annualOffer?.enabled) || familyOffer?.enabled || extendedOffer?.enabled) ? (
+          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-3 mb-4">
             {isAnnual && annualOffer?.enabled ? (
               <OfferCard kind="annual" offer={annualOffer} accent="gold" />
             ) : null}
             {familyOffer?.enabled ? (
               <OfferCard kind="family" offer={familyOffer} accent="violet" />
+            ) : null}
+            {extendedOffer?.enabled ? (
+              <OfferCard kind="extended" offer={extendedOffer} accent="sky" />
             ) : null}
           </div>
         ) : null}

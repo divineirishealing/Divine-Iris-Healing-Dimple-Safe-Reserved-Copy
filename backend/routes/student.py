@@ -283,15 +283,22 @@ def _program_included_in_annual_package(program: dict, configured_ids: Optional[
     return any(k in blob for k in keys)
 
 
-def _merge_program_dashboard_offers(global_ao: dict, global_fo: dict, program_id: str, per_map: Optional[dict]) -> Tuple[dict, dict]:
-    """Shallow-merge global annual/family offer dicts with per-program overrides from site settings."""
+def _merge_program_dashboard_offers(
+    global_ao: dict,
+    global_fo: dict,
+    global_eo: dict,
+    program_id: str,
+    per_map: Optional[dict],
+) -> Tuple[dict, dict, dict]:
+    """Shallow-merge global annual / family / extended guest offer dicts with per-program overrides."""
     pid = str(program_id)
     row = (per_map or {}).get(pid) if isinstance(per_map, dict) else None
     if not isinstance(row, dict):
         row = {}
     ao = {**(global_ao or {}), **(row.get("annual") or {})}
     fo = {**(global_fo or {}), **(row.get("family") or {})}
-    return ao, fo
+    eo = {**(global_eo or {}), **(row.get("extended") or {})}
+    return ao, fo, eo
 
 
 def _program_has_portal_pricing_override(per_map: Optional[dict], program_id: str) -> bool:
@@ -300,9 +307,12 @@ def _program_has_portal_pricing_override(per_map: Optional[dict], program_id: st
         return False
     a = row.get("annual")
     f = row.get("family")
+    e = row.get("extended")
     if isinstance(a, dict) and len(a) > 0:
         return True
     if isinstance(f, dict) and len(f) > 0:
+        return True
+    if isinstance(e, dict) and len(e) > 0:
         return True
     return False
 
@@ -332,29 +342,96 @@ def _resolve_family_rows(client: dict, family_member_ids: List[str], fallback_co
     return fam[:n]
 
 
+def _split_resolved_guest_rows_by_bucket(client: dict, rows: List[dict]) -> Tuple[int, int]:
+    """Count immediate-family vs friends/extended rows (by id membership)."""
+    im_ids = {str(m.get("id")) for m in (client.get("immediate_family") or []) if m.get("id")}
+    imm = sum(1 for r in rows if str(r.get("id") or "") in im_ids)
+    return imm, len(rows) - imm
+
+
+def _split_guest_ids_by_bucket(client: dict, id_list: List[str]) -> Tuple[int, int]:
+    im_ids = {str(m.get("id")) for m in (client.get("immediate_family") or []) if m.get("id")}
+    og_ids = {str(m.get("id")) for m in (client.get("other_guests") or []) if m.get("id")}
+    imm = sum(1 for i in id_list if i in im_ids)
+    ext = sum(1 for i in id_list if i in og_ids)
+    return imm, ext
+
+
+async def _apply_portal_guest_line_offer(
+    program_id: str,
+    currency: str,
+    fam_unit: float,
+    fc: int,
+    fo: dict,
+) -> Tuple[float, float, str, bool]:
+    """Apply family-style portal rules to one guest bucket. Returns (gross, after, rule, promo_applied)."""
+    cur = (currency or "aed").lower()
+    fc = max(0, int(fc))
+    if fc <= 0:
+        return 0.0, 0.0, "none", False
+    fam_line_gross = fam_unit * fc
+    fo = fo or {}
+    family_promo_applied = False
+    if fo.get("enabled"):
+        rule = (fo.get("pricing_rule") or "promo").lower().strip()
+        if rule in ("promo", ""):
+            code = (fo.get("promo_code") or "").strip()
+            fp_doc = await _promo_doc_for_program(code, program_id) if code else None
+            d = _promo_discount_on_line(fp_doc, fam_line_gross, cur)
+            fam_after = max(0.0, round(fam_line_gross - d, 2))
+            family_promo_applied = bool(fp_doc) and d > 0
+            family_rule = "promo"
+        elif rule == "percent_off":
+            pct = min(100.0, max(0.0, float(fo.get("percent_off") or 0)))
+            fam_after = max(0.0, round(fam_line_gross * (1 - pct / 100), 2))
+            family_rule = "percent_off"
+        elif rule == "amount_off":
+            amt = _read_currency_amount(fo, "amount_off", cur)
+            fam_after = max(0.0, round(fam_line_gross - min(fam_line_gross, amt), 2))
+            family_rule = "amount_off"
+        elif rule == "fixed_price":
+            pseat = _read_currency_amount(fo, "fixed_price", cur)
+            if pseat > 0:
+                fam_after = max(0.0, round(pseat * fc, 2))
+            else:
+                fam_after = max(0.0, round(fam_line_gross, 2))
+            family_rule = "fixed_price"
+        else:
+            fam_after = max(0.0, round(fam_line_gross, 2))
+            family_rule = "list"
+    else:
+        fam_after = max(0.0, round(fam_line_gross, 2))
+        family_rule = "list"
+    return round(fam_line_gross, 2), fam_after, family_rule, family_promo_applied
+
+
 async def compute_dashboard_annual_family_pricing(
     program: dict,
     program_id: str,
     currency: str,
-    family_count: int,
+    immediate_family_count: int,
+    extended_guest_count: int,
     annual_offer: dict,
     family_offer: dict,
+    extended_guest_offer: dict,
     include_self: bool = True,
 ) -> dict:
     """Portal-only pricing for annual subscribers.
 
-    `annual_offer` applies only to the member's own seat line; `family_offer` applies only to the family line.
-    They are merged independently from site settings (global + per-program overrides) and may use different rules.
+    Member seat uses `annual_offer`. Immediate household seats use `family_offer`.
+    Friends & extended seats use `extended_guest_offer` (when disabled → list / offer unit per seat).
+    Legacy API that only passes a total without a split should pass the full count as `immediate_family_count`
+    and zero `extended_guest_count`.
     """
     cur = (currency or "aed").lower()
     self_tier, fam_tier = _pick_self_and_family_tier_indices(program)
     self_unit = _tier_unit_price(program, self_tier, cur) if include_self else 0.0
     fam_unit = _tier_unit_price(program, fam_tier, cur)
-    fc = max(0, int(family_count))
-    fam_line_gross = fam_unit * fc
+    imm_fc = max(0, int(immediate_family_count))
+    ext_fc = max(0, int(extended_guest_count))
+    fc_total = imm_fc + ext_fc
 
     ao = annual_offer or {}
-    fo = family_offer or {}
 
     annual_promo_applied = False
     if include_self and ao.get("enabled"):
@@ -388,40 +465,25 @@ async def compute_dashboard_annual_family_pricing(
         self_after = 0.0
         member_rule = "included_in_package"
 
-    family_promo_applied = False
-    if fc <= 0:
-        fam_after = 0.0
-        family_rule = "none"
-    elif fo.get("enabled"):
-        rule = (fo.get("pricing_rule") or "promo").lower().strip()
-        if rule in ("promo", ""):
-            code = (fo.get("promo_code") or "").strip()
-            fp_doc = await _promo_doc_for_program(code, program_id) if code else None
-            d = _promo_discount_on_line(fp_doc, fam_line_gross, cur)
-            fam_after = max(0.0, round(fam_line_gross - d, 2))
-            family_promo_applied = bool(fp_doc) and d > 0
-            family_rule = "promo"
-        elif rule == "percent_off":
-            pct = min(100.0, max(0.0, float(fo.get("percent_off") or 0)))
-            fam_after = max(0.0, round(fam_line_gross * (1 - pct / 100), 2))
-            family_rule = "percent_off"
-        elif rule == "amount_off":
-            amt = _read_currency_amount(fo, "amount_off", cur)
-            fam_after = max(0.0, round(fam_line_gross - min(fam_line_gross, amt), 2))
-            family_rule = "amount_off"
-        elif rule == "fixed_price":
-            pseat = _read_currency_amount(fo, "fixed_price", cur)
-            if pseat > 0:
-                fam_after = max(0.0, round(pseat * fc, 2))
-            else:
-                fam_after = max(0.0, round(fam_line_gross, 2))
-            family_rule = "fixed_price"
-        else:
-            fam_after = max(0.0, round(fam_line_gross, 2))
-            family_rule = "list"
+    ig, imm_after, imm_rule, imm_promo = await _apply_portal_guest_line_offer(
+        program_id, currency, fam_unit, imm_fc, family_offer or {}
+    )
+    eg, ext_after, ext_rule, ext_promo = await _apply_portal_guest_line_offer(
+        program_id, currency, fam_unit, ext_fc, extended_guest_offer or {}
+    )
+
+    fam_line_gross = round(ig + eg, 2)
+    fam_after = round(imm_after + ext_after, 2)
+    family_promo_applied = imm_promo or ext_promo
+
+    if imm_fc > 0 and ext_fc > 0:
+        family_pricing_rule = "mixed"
+    elif imm_fc > 0:
+        family_pricing_rule = imm_rule
+    elif ext_fc > 0:
+        family_pricing_rule = ext_rule
     else:
-        fam_after = max(0.0, round(fam_line_gross, 2))
-        family_rule = "list"
+        family_pricing_rule = "none"
 
     total = round(self_after + fam_after, 2)
     return {
@@ -433,11 +495,21 @@ async def compute_dashboard_annual_family_pricing(
         "annual_promo_applied": annual_promo_applied,
         "member_pricing_rule": member_rule,
         "family_unit": fam_unit,
-        "family_count": fc,
-        "family_line_gross": round(fam_line_gross, 2),
+        "family_count": fc_total,
+        "immediate_family_count": imm_fc,
+        "extended_guest_count": ext_fc,
+        "immediate_family_line_gross": ig,
+        "immediate_family_after_promos": imm_after,
+        "immediate_family_pricing_rule": imm_rule,
+        "immediate_family_promo_applied": imm_promo,
+        "extended_guest_line_gross": eg,
+        "extended_guests_after_promos": ext_after,
+        "extended_guest_pricing_rule": ext_rule,
+        "extended_guest_promo_applied": ext_promo,
+        "family_line_gross": fam_line_gross,
         "family_after_promos": fam_after,
         "family_promo_applied": family_promo_applied,
-        "family_pricing_rule": family_rule,
+        "family_pricing_rule": family_pricing_rule,
         "total": total,
         "include_self": include_self,
     }
@@ -646,6 +718,10 @@ async def dashboard_quote(
         raise HTTPException(status_code=400, detail="Invalid family count")
     if fc > len(fam):
         raise HTTPException(status_code=400, detail="Save more people on your dashboard (immediate family or friends & extended) to cover this many seats")
+    if id_list:
+        imm_fc, ext_fc = _split_guest_ids_by_bucket(client, id_list)
+    else:
+        imm_fc, ext_fc = fc, 0
     program = await db.programs.find_one({"id": program_id}, {"_id": 0})
     if not program:
         raise HTTPException(status_code=404, detail="Program not found")
@@ -657,6 +733,7 @@ async def dashboard_quote(
             "_id": 0,
             "dashboard_offer_annual": 1,
             "dashboard_offer_family": 1,
+            "dashboard_offer_extended": 1,
             "annual_package_included_program_ids": 1,
             "dashboard_program_offers": 1,
         },
@@ -665,10 +742,19 @@ async def dashboard_quote(
     include_self = not included
     g_ao = settings_doc.get("dashboard_offer_annual") or {}
     g_fo = settings_doc.get("dashboard_offer_family") or {}
+    g_eo = settings_doc.get("dashboard_offer_extended") or {}
     per_map = settings_doc.get("dashboard_program_offers") or {}
-    ao, fo = _merge_program_dashboard_offers(g_ao, g_fo, program_id, per_map)
+    ao, fo, eo = _merge_program_dashboard_offers(g_ao, g_fo, g_eo, program_id, per_map)
     pricing = await compute_dashboard_annual_family_pricing(
-        program, program_id, currency, fc, ao, fo, include_self=include_self
+        program,
+        program_id,
+        currency,
+        imm_fc,
+        ext_fc,
+        ao,
+        fo,
+        eo,
+        include_self=include_self,
     )
     return {
         "program_id": program_id,
@@ -703,6 +789,7 @@ async def dashboard_pay(data: DashboardPayIn, request: Request, user: dict = Dep
             "_id": 0,
             "dashboard_offer_annual": 1,
             "dashboard_offer_family": 1,
+            "dashboard_offer_extended": 1,
             "annual_package_included_program_ids": 1,
             "dashboard_program_offers": 1,
         },
@@ -710,6 +797,7 @@ async def dashboard_pay(data: DashboardPayIn, request: Request, user: dict = Dep
     included = _program_included_in_annual_package(program, settings_doc.get("annual_package_included_program_ids"))
     all_guests = _all_dashboard_guest_rows(client)
     resolved_family = _resolve_family_rows(client, list(data.family_member_ids or []), int(data.family_count or 0))
+    imm_fc, ext_fc = _split_resolved_guest_rows_by_bucket(client, resolved_family)
     fc = len(resolved_family)
     if fc > 12:
         raise HTTPException(status_code=400, detail="Invalid family count")
@@ -724,10 +812,19 @@ async def dashboard_pay(data: DashboardPayIn, request: Request, user: dict = Dep
 
     g_ao = settings_doc.get("dashboard_offer_annual") or {}
     g_fo = settings_doc.get("dashboard_offer_family") or {}
+    g_eo = settings_doc.get("dashboard_offer_extended") or {}
     per_map = settings_doc.get("dashboard_program_offers") or {}
-    ao, fo = _merge_program_dashboard_offers(g_ao, g_fo, data.program_id, per_map)
+    ao, fo, eo = _merge_program_dashboard_offers(g_ao, g_fo, g_eo, data.program_id, per_map)
     quote = await compute_dashboard_annual_family_pricing(
-        program, data.program_id, data.currency, fc, ao, fo, include_self=not included
+        program,
+        data.program_id,
+        data.currency,
+        imm_fc,
+        ext_fc,
+        ao,
+        fo,
+        eo,
+        include_self=not included,
     )
     if quote["total"] <= 0:
         raise HTTPException(status_code=400, detail="No payable amount for this program")
@@ -838,6 +935,7 @@ async def get_student_home(user: dict = Depends(get_current_user)):
             "_id": 0,
             "dashboard_offer_annual": 1,
             "dashboard_offer_family": 1,
+            "dashboard_offer_extended": 1,
             "dashboard_program_offers": 1,
             "india_gpay_accounts": 1,
             "india_bank_accounts": 1,
@@ -847,6 +945,7 @@ async def get_student_home(user: dict = Depends(get_current_user)):
     ) or {}
     dashboard_offer_annual = settings_doc.get("dashboard_offer_annual") or {}
     dashboard_offer_family = settings_doc.get("dashboard_offer_family") or {}
+    dashboard_offer_extended = settings_doc.get("dashboard_offer_extended") or {}
     dashboard_program_offers = settings_doc.get("dashboard_program_offers") or {}
     
     # 2. Subscription data (from Excel upload)
@@ -963,6 +1062,7 @@ async def get_student_home(user: dict = Depends(get_current_user)):
         "dashboard_offers": {
             "annual": dashboard_offer_annual,
             "family": dashboard_offer_family,
+            "extended": dashboard_offer_extended,
         },
         "dashboard_program_offers": dashboard_program_offers,
         "immediate_family": immediate_family,
