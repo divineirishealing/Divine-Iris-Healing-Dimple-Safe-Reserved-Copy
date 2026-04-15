@@ -185,6 +185,10 @@ class FamilyMemberIn(BaseModel):
     date_of_birth: Optional[str] = None
     city: Optional[str] = None
     age: Optional[str] = None
+    # Session preference + enrollment email (stored on client; flows into ParticipantData on dashboard-pay)
+    attendance_mode: Optional[str] = "online"  # "online" | "offline"
+    country: Optional[str] = ""
+    notify_enrollment: bool = False
 
 
 class FamilyUpdate(BaseModel):
@@ -490,6 +494,11 @@ def _profile_snapshot_for_prefill(user: dict, client: dict) -> dict:
     }
 
 
+def _normalize_attendance_mode(raw: Optional[str]) -> str:
+    v = (raw or "online").strip().lower()
+    return v if v in ("online", "offline") else "online"
+
+
 @router.put("/family")
 async def update_immediate_family(data: FamilyUpdate, user: dict = Depends(get_current_user)):
     """Save immediate family members for dashboard offers / enrollment context (max 12)."""
@@ -502,6 +511,12 @@ async def update_immediate_family(data: FamilyUpdate, user: dict = Depends(get_c
         name = (m.name or "").strip()
         if not name:
             continue
+        em = (m.email or "").strip()
+        if m.notify_enrollment and not em:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Family row “{name}”: add an email address to receive enrollment notifications, or turn off Notify.",
+            )
         mid = (m.id or "").strip() or str(uuid.uuid4())
         dob = (m.date_of_birth or "").strip()[:10] if m.date_of_birth else ""
         age_val = (m.age or "").strip()
@@ -511,11 +526,14 @@ async def update_immediate_family(data: FamilyUpdate, user: dict = Depends(get_c
             "id": mid,
             "name": name,
             "relationship": (m.relationship or "Other").strip() or "Other",
-            "email": (m.email or "").strip(),
+            "email": em,
             "phone": (m.phone or "").strip(),
             "date_of_birth": dob,
             "city": (m.city or "").strip(),
             "age": age_val,
+            "attendance_mode": _normalize_attendance_mode(m.attendance_mode),
+            "country": (m.country or "").strip()[:4] or "",
+            "notify_enrollment": bool(m.notify_enrollment) and bool(em),
             "updated_at": datetime.now(timezone.utc).isoformat(),
         })
 
@@ -683,16 +701,21 @@ async def dashboard_pay(data: DashboardPayIn, request: Request, user: dict = Dep
             )
         )
     for m in resolved_family:
+        fam_email = (m.get("email") or "").strip() or None
+        fam_country = (m.get("country") or "").strip() or (snap.get("country") or "AE")
+        fam_country = str(fam_country)[:4] or "AE"
+        fam_mode = _normalize_attendance_mode(m.get("attendance_mode"))
+        notify_ok = bool(m.get("notify_enrollment")) and bool(fam_email)
         participants.append(
             ParticipantData(
                 name=(m.get("name") or "Guest")[:200],
                 relationship=(m.get("relationship") or "Other")[:80],
                 age=_age_int(m.get("age")),
                 gender="Prefer not to say",
-                country=(snap.get("country") or "AE")[:4],
-                attendance_mode="online",
-                notify=bool((m.get("email") or "").strip()),
-                email=(m.get("email") or "").strip() or None,
+                country=fam_country,
+                attendance_mode=fam_mode,
+                notify=notify_ok,
+                email=fam_email,
                 phone=(m.get("phone") or "").strip() or None,
                 whatsapp=(m.get("phone") or "").strip() or None,
                 program_id=data.program_id,

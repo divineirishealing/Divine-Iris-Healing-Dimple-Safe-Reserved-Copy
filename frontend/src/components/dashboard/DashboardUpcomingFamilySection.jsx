@@ -131,7 +131,19 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh }) 
     if (members.length >= 12) return;
     setMembers((m) => [
       ...m,
-      { id: '', name: '', relationship: 'Spouse', email: '', phone: '', date_of_birth: '', city: '', age: '' },
+      {
+        id: '',
+        name: '',
+        relationship: 'Spouse',
+        email: '',
+        phone: '',
+        date_of_birth: '',
+        city: '',
+        age: '',
+        attendance_mode: 'online',
+        country: '',
+        notify_enrollment: false,
+      },
     ]);
   };
 
@@ -148,6 +160,16 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh }) 
   };
 
   const saveFamily = async () => {
+    for (const m of members) {
+      if ((m.name || '').trim() && m.notify_enrollment && !(m.email || '').trim()) {
+        toast({
+          title: 'Email required for notifications',
+          description: `Add an email for “${(m.name || '').trim()}” or turn off Notify.`,
+          variant: 'destructive',
+        });
+        return;
+      }
+    }
     setSaving(true);
     try {
       await axios.put(
@@ -162,14 +184,21 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh }) 
             date_of_birth: m.date_of_birth || '',
             city: m.city || '',
             age: m.age || '',
+            attendance_mode: m.attendance_mode === 'offline' ? 'offline' : 'online',
+            country: (m.country || '').trim(),
+            notify_enrollment: !!m.notify_enrollment,
           })),
         },
         { withCredentials: true }
       );
       toast({ title: 'Family saved', description: 'Your immediate family list has been updated.' });
       onRefresh?.();
-    } catch {
-      toast({ title: 'Could not save', variant: 'destructive' });
+    } catch (err) {
+      toast({
+        title: 'Could not save',
+        description: err.response?.data?.detail || err.message || 'Try again.',
+        variant: 'destructive',
+      });
     } finally {
       setSaving(false);
     }
@@ -723,7 +752,9 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh }) 
             <div>
               <h3 className="text-sm font-semibold text-slate-900">Immediate family</h3>
               <p className="text-[11px] text-slate-500">
-                Add household members (name, relationship, date of birth, age, city) for family-only offers. These stay on your dashboard for faster enrollments (max 12).
+                Add household members for family enrollments (max 12). Set <strong className="text-slate-700 font-medium">Online / Offline</strong>,{' '}
+                <strong className="text-slate-700 font-medium">country</strong> (e.g. IN, AE), and optionally{' '}
+                <strong className="text-slate-700 font-medium">Notify</strong> — when on, they get enrollment details by email after payment is confirmed (email required).
               </p>
             </div>
           </div>
@@ -737,7 +768,7 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh }) 
                 className="overflow-x-auto rounded-lg border border-slate-200/90 bg-white shadow-sm"
                 data-testid="immediate-family-table-wrap"
               >
-                <table className="w-full min-w-[920px] text-left border-collapse" data-testid="immediate-family-table">
+                <table className="w-full min-w-[1180px] text-left border-collapse" data-testid="immediate-family-table">
                   <thead>
                     <tr className="bg-slate-100/95 border-b border-slate-200">
                       <th className="px-2 py-2 text-[9px] font-bold uppercase tracking-wide text-slate-600 whitespace-nowrap min-w-[7rem]">
@@ -745,6 +776,9 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh }) 
                       </th>
                       <th className="px-2 py-2 text-[9px] font-bold uppercase tracking-wide text-slate-600 whitespace-nowrap w-[6.5rem]">
                         Relation
+                      </th>
+                      <th className="px-2 py-2 text-[9px] font-bold uppercase tracking-wide text-slate-600 whitespace-nowrap w-[5.5rem]">
+                        Mode
                       </th>
                       <th className="px-2 py-2 text-[9px] font-bold uppercase tracking-wide text-slate-600 whitespace-nowrap w-[8.5rem]">
                         Date of birth
@@ -755,11 +789,17 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh }) 
                       <th className="px-2 py-2 text-[9px] font-bold uppercase tracking-wide text-slate-600 whitespace-nowrap min-w-[5rem]">
                         City
                       </th>
+                      <th className="px-2 py-2 text-[9px] font-bold uppercase tracking-wide text-slate-600 whitespace-nowrap w-[3.5rem]">
+                        Country
+                      </th>
                       <th className="px-2 py-2 text-[9px] font-bold uppercase tracking-wide text-slate-600 whitespace-nowrap min-w-[8rem]">
                         Email
                       </th>
                       <th className="px-2 py-2 text-[9px] font-bold uppercase tracking-wide text-slate-600 whitespace-nowrap min-w-[6.5rem]">
                         Phone
+                      </th>
+                      <th className="px-2 py-2 text-[9px] font-bold uppercase tracking-wide text-slate-600 whitespace-nowrap w-[3.25rem] text-center" title="Email enrollment details after payment">
+                        Notify
                       </th>
                       <th className="px-1 py-2 w-10" aria-label="Actions" />
                     </tr>
@@ -789,6 +829,17 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh }) 
                                 {r}
                               </option>
                             ))}
+                          </select>
+                        </td>
+                        <td className="px-2 py-1.5 align-middle">
+                          <select
+                            value={m.attendance_mode === 'offline' ? 'offline' : 'online'}
+                            onChange={(e) => updateRow(idx, 'attendance_mode', e.target.value)}
+                            className="w-full max-w-[5.5rem] text-[11px] border border-slate-200 rounded px-1 py-1 bg-white"
+                            aria-label="Online or offline"
+                          >
+                            <option value="online">Online</option>
+                            <option value="offline">Offline</option>
                           </select>
                         </td>
                         <td className="px-2 py-1.5 align-middle">
@@ -838,10 +889,19 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh }) 
                         </td>
                         <td className="px-2 py-1.5 align-middle">
                           <input
+                            value={m.country || ''}
+                            onChange={(e) => updateRow(idx, 'country', e.target.value.toUpperCase().slice(0, 4))}
+                            className="w-full max-w-[3.5rem] text-[11px] border border-slate-200 rounded px-1 py-1 bg-white uppercase"
+                            placeholder="IN"
+                            title="ISO country code (e.g. IN, AE, US)"
+                          />
+                        </td>
+                        <td className="px-2 py-1.5 align-middle">
+                          <input
                             value={m.email || ''}
                             onChange={(e) => updateRow(idx, 'email', e.target.value)}
                             className="w-full min-w-[7rem] text-[11px] border border-slate-200 rounded px-1.5 py-1 bg-white"
-                            placeholder="Optional"
+                            placeholder={m.notify_enrollment ? 'Required if notifying' : 'Optional'}
                           />
                         </td>
                         <td className="px-2 py-1.5 align-middle">
@@ -850,6 +910,16 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh }) 
                             onChange={(e) => updateRow(idx, 'phone', e.target.value)}
                             className="w-full min-w-[5.5rem] text-[11px] border border-slate-200 rounded px-1.5 py-1 bg-white"
                             placeholder="Optional"
+                          />
+                        </td>
+                        <td className="px-2 py-1.5 align-middle text-center">
+                          <input
+                            type="checkbox"
+                            className="rounded border-slate-300 w-3.5 h-3.5"
+                            checked={!!m.notify_enrollment}
+                            onChange={(e) => updateRow(idx, 'notify_enrollment', e.target.checked)}
+                            title="Send enrollment details to this email after payment is confirmed"
+                            aria-label="Notify by email when enrolled"
                           />
                         </td>
                         <td className="px-1 py-1.5 align-middle text-center">
