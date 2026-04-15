@@ -75,14 +75,25 @@ const ManualPaymentPage = () => {
             setPayerEmail(e.booker_email || '');
             if (e.phone) setPayerPhone(e.phone.replace(/^\+\d+/, ''));
 
-            const ep = e.item_type === 'program' ? 'programs' : 'sessions';
-            try {
-              const itemRes = await axios.get(`${API}/${ep}/${e.item_id}`);
-              setItemDetails(itemRes.data);
-              // Auto-detect program type
-              if (e.item_type === 'session') setProgramType('Personal Session');
-              else if (itemRes.data?.is_flagship) setProgramType('Flagship Program');
-            } catch {}
+            const programId = e.item_id || e.participants?.find((p) => p.program_id)?.program_id;
+            const ep = e.item_type === 'session' ? 'sessions' : 'programs';
+            const fetchId = e.item_id || programId;
+            if (fetchId) {
+              try {
+                const itemRes = await axios.get(`${API}/${ep}/${fetchId}`);
+                setItemDetails(itemRes.data);
+                if (e.item_type === 'session') {
+                  setProgramType('Personal Session');
+                  setSelectedItem(itemRes.data?.title || '');
+                } else {
+                  setProgramType('Flagship Program');
+                  setSelectedItem(itemRes.data?.title || '');
+                }
+              } catch {}
+            }
+            if (e.dashboard_mixed_total != null && e.dashboard_mixed_total !== '') {
+              setAmount(String(e.dashboard_mixed_total));
+            }
           } catch {}
         }
       } catch {
@@ -177,6 +188,7 @@ const ManualPaymentPage = () => {
   const hasBank = banks.length > 0;
   const currentBank = banks[selectedBank] || {};
   const programTitle = enrollment?.item_title || itemDetails?.title || '';
+  const quoteCurrency = (enrollment?.dashboard_mixed_currency || 'inr').toUpperCase();
 
   return (
     <>
@@ -196,6 +208,15 @@ const ManualPaymentPage = () => {
                   Submit Manual Payment
                 </h1>
                 <p className="text-xs text-gray-500 mb-5">Upload your payment proof for admin approval.</p>
+                {enrollment?.dashboard_mixed_total != null && enrollment?.dashboard_mixed_total !== '' && (
+                  <div className="mb-4 rounded-lg border border-amber-200 bg-amber-50/90 px-3 py-2 text-[11px] text-amber-950">
+                    Dashboard enrollment: expected total{' '}
+                    <span className="font-semibold tabular-nums">
+                      {quoteCurrency} {String(enrollment.dashboard_mixed_total)}
+                    </span>
+                    . Enter the same amount you paid (and correct currency if your bank shows a converted value).
+                  </div>
+                )}
 
                 {/* Bank Details */}
                 {hasBank && (
@@ -411,7 +432,7 @@ const ManualPaymentPage = () => {
 
                   <div className="grid grid-cols-2 gap-3">
                     <div>
-                      <label className="text-[10px] font-semibold text-gray-700 block mb-1">Amount Paid (INR) *</label>
+                      <label className="text-[10px] font-semibold text-gray-700 block mb-1">Amount paid ({quoteCurrency}) *</label>
                       <Input value={amount} onChange={e => setAmount(e.target.value)} placeholder="Amount" className="text-xs h-9" data-testid="manual-amount" />
                     </div>
                     <div>

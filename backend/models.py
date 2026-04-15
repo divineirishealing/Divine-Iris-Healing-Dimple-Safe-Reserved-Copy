@@ -561,6 +561,8 @@ class SiteSettings(BaseModel):
     # Student Sacred Home: offers shown to annual subscribers vs family (configured in Admin → Dashboard)
     dashboard_offer_annual: Dict = Field(default_factory=dict)  # {enabled, title, body, promo_code, cta_label, cta_path}
     dashboard_offer_family: Dict = Field(default_factory=dict)
+    # When non-empty, these program IDs are "included in annual package" (member pays family seats only). Empty = use title keywords (MMM, AWRP, …).
+    annual_package_included_program_ids: List[str] = Field(default_factory=list)
     india_payment_gateway: dict = {}
     india_bank_accounts: list = []
     india_bank_details: dict = {}  # {gateway_type, exly_link, api_key, api_secret, enabled, notes}  # Emails that get INR pricing from abroad  # [{buy_program_id, get_program_id, discount_type, discount_value, code, label, enabled}]
@@ -726,6 +728,7 @@ class SiteSettingsUpdate(BaseModel):
     dashboard_settings: Optional[Dict] = None  # {title, colors: {primary, secondary}, fonts}
     dashboard_offer_annual: Optional[Dict] = None
     dashboard_offer_family: Optional[Dict] = None
+    annual_package_included_program_ids: Optional[List[str]] = None
 
 class PaymentTransaction(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))

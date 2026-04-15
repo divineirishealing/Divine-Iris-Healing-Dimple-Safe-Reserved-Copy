@@ -194,6 +194,7 @@ class FamilyUpdate(BaseModel):
 class DashboardPayIn(BaseModel):
     program_id: str
     family_count: int = 0
+    family_member_ids: List[str] = []
     currency: str = "aed"
     origin_url: str = ""
 
@@ -249,6 +250,36 @@ def _promo_discount_on_line(promo: Optional[dict], line_subtotal: float, cur: st
     return min(line_subtotal, fixed)
 
 
+def _program_included_in_annual_package(program: dict, configured_ids: Optional[List] = None) -> bool:
+    """Programs in annual package: member seat included; they only pay for family add-ons.
+
+    If `annual_package_included_program_ids` in site settings is non-empty, only those IDs match.
+    If empty, fall back to title/category keywords (MMM, AWRP, …).
+    """
+    ids = [str(x).strip() for x in (configured_ids or []) if str(x).strip()]
+    if ids:
+        pid = str(program.get("id") or "")
+        return pid in set(ids)
+    blob = f"{program.get('title') or ''} {program.get('category') or ''}".lower()
+    keys = ("money magic", "mmm", "atomic weight", "awrp")
+    return any(k in blob for k in keys)
+
+
+def _resolve_family_rows(client: dict, family_member_ids: List[str], fallback_count: int) -> List[dict]:
+    fam = client.get("immediate_family") or []
+    ids = [str(x).strip() for x in (family_member_ids or []) if str(x).strip()]
+    if ids:
+        by_id = {str(m.get("id")): m for m in fam if m.get("id")}
+        out = []
+        for i in ids:
+            if i not in by_id:
+                raise HTTPException(status_code=400, detail="Unknown or removed family member — save your family list and try again")
+            out.append(by_id[i])
+        return out
+    n = max(0, int(fallback_count))
+    return fam[:n]
+
+
 async def compute_dashboard_annual_family_pricing(
     program: dict,
     program_id: str,
@@ -256,16 +287,19 @@ async def compute_dashboard_annual_family_pricing(
     family_count: int,
     annual_code: str,
     family_code: str,
+    include_self: bool = True,
 ) -> dict:
     cur = (currency or "aed").lower()
     self_tier, fam_tier = _pick_self_and_family_tier_indices(program)
-    self_unit = _tier_unit_price(program, self_tier, cur)
+    self_unit = _tier_unit_price(program, self_tier, cur) if include_self else 0.0
     fam_unit = _tier_unit_price(program, fam_tier, cur)
     fc = max(0, int(family_count))
     fam_line_gross = fam_unit * fc
-    ap = await _promo_doc_for_program(annual_code, program_id)
+    ap = await _promo_doc_for_program(annual_code, program_id) if include_self else None
     fp = await _promo_doc_for_program(family_code, program_id)
-    self_after = max(0.0, round(self_unit - _promo_discount_on_line(ap, self_unit, cur), 2))
+    self_after = (
+        max(0.0, round(self_unit - _promo_discount_on_line(ap, self_unit, cur), 2)) if include_self else 0.0
+    )
     fam_after = max(0.0, round(fam_line_gross - _promo_discount_on_line(fp, fam_line_gross, cur), 2))
     total = round(self_after + fam_after, 2)
     return {
@@ -274,13 +308,14 @@ async def compute_dashboard_annual_family_pricing(
         "family_tier_index": fam_tier,
         "self_unit": self_unit,
         "self_after_promos": self_after,
-        "annual_promo_applied": bool(ap),
+        "annual_promo_applied": bool(ap) and include_self,
         "family_unit": fam_unit,
         "family_count": fc,
         "family_line_gross": round(fam_line_gross, 2),
         "family_after_promos": fam_after,
         "family_promo_applied": bool(fp),
         "total": total,
+        "include_self": include_self,
     }
 
 
@@ -398,10 +433,11 @@ async def get_enrollment_prefill(user: dict = Depends(get_current_user)):
 async def dashboard_quote(
     program_id: str,
     family_count: int = 0,
+    family_ids: str = "",
     currency: str = "aed",
     user: dict = Depends(get_current_user),
 ):
-    """Annual members: price for you (annual tier + annual promo) + family seats (family tier + family promo)."""
+    """Annual members: mixed pricing; MMM/AWRP-style programs = family only (included in annual package)."""
     client_id = user.get("client_id")
     if not client_id:
         raise HTTPException(status_code=400, detail="User not linked to client record")
@@ -409,10 +445,18 @@ async def dashboard_quote(
     sub = client.get("subscription") or {}
     if not _is_annual_subscriber(sub, client):
         raise HTTPException(status_code=403, detail="Annual member dashboard pricing is for annual subscribers only")
-    fc = max(0, int(family_count))
+    fam = client.get("immediate_family") or []
+    id_list = [x.strip() for x in (family_ids or "").split(",") if x.strip()]
+    if id_list:
+        fam_by_id = {str(m.get("id")) for m in fam if m.get("id")}
+        for i in id_list:
+            if i not in fam_by_id:
+                raise HTTPException(status_code=400, detail="Unknown family member id")
+        fc = len(id_list)
+    else:
+        fc = max(0, int(family_count))
     if fc > 12:
         raise HTTPException(status_code=400, detail="Invalid family count")
-    fam = client.get("immediate_family") or []
     if fc > len(fam):
         raise HTTPException(status_code=400, detail="Save more family members on your dashboard to cover this many seats")
     program = await db.programs.find_one({"id": program_id}, {"_id": 0})
@@ -420,15 +464,25 @@ async def dashboard_quote(
         raise HTTPException(status_code=404, detail="Program not found")
     if not program.get("enrollment_open", True):
         raise HTTPException(status_code=400, detail="Enrollment is not open for this program")
-    settings_doc = await db.site_settings.find_one({"id": "site_settings"}, {"_id": 0, "dashboard_offer_annual": 1, "dashboard_offer_family": 1}) or {}
+    settings_doc = await db.site_settings.find_one(
+        {"id": "site_settings"},
+        {"_id": 0, "dashboard_offer_annual": 1, "dashboard_offer_family": 1, "annual_package_included_program_ids": 1},
+    ) or {}
+    included = _program_included_in_annual_package(program, settings_doc.get("annual_package_included_program_ids"))
+    include_self = not included
     ao = settings_doc.get("dashboard_offer_annual") or {}
     fo = settings_doc.get("dashboard_offer_family") or {}
     annual_code = (ao.get("promo_code") or "").strip() if ao.get("enabled") else ""
     family_code = (fo.get("promo_code") or "").strip() if fo.get("enabled") else ""
     pricing = await compute_dashboard_annual_family_pricing(
-        program, program_id, currency, fc, annual_code, family_code
+        program, program_id, currency, fc, annual_code, family_code, include_self=include_self
     )
-    return {"program_id": program_id, "program_title": program.get("title", ""), **pricing}
+    return {
+        "program_id": program_id,
+        "program_title": program.get("title", ""),
+        "included_in_annual_package": included,
+        **pricing,
+    }
 
 
 @router.post("/dashboard-pay")
@@ -443,24 +497,37 @@ async def dashboard_pay(data: DashboardPayIn, request: Request, user: dict = Dep
     sub = client.get("subscription") or {}
     if not _is_annual_subscriber(sub, client):
         raise HTTPException(status_code=403, detail="Annual member dashboard pricing is for annual subscribers only")
-    fc = max(0, int(data.family_count))
-    if fc > 12:
-        raise HTTPException(status_code=400, detail="Invalid family count")
-    fam = client.get("immediate_family") or []
-    if fc > len(fam):
-        raise HTTPException(status_code=400, detail="Save more family members on your dashboard to cover this many seats")
     program = await db.programs.find_one({"id": data.program_id}, {"_id": 0})
     if not program:
         raise HTTPException(status_code=404, detail="Program not found")
     if not program.get("enrollment_open", True):
         raise HTTPException(status_code=400, detail="Enrollment is not open for this program")
-    settings_doc = await db.site_settings.find_one({"id": "site_settings"}, {"_id": 0, "dashboard_offer_annual": 1, "dashboard_offer_family": 1}) or {}
+
+    settings_doc = await db.site_settings.find_one(
+        {"id": "site_settings"},
+        {"_id": 0, "dashboard_offer_annual": 1, "dashboard_offer_family": 1, "annual_package_included_program_ids": 1},
+    ) or {}
+    included = _program_included_in_annual_package(program, settings_doc.get("annual_package_included_program_ids"))
+    fam = client.get("immediate_family") or []
+    resolved_family = _resolve_family_rows(client, list(data.family_member_ids or []), int(data.family_count or 0))
+    fc = len(resolved_family)
+    if fc > 12:
+        raise HTTPException(status_code=400, detail="Invalid family count")
+    if fc > len(fam):
+        raise HTTPException(status_code=400, detail="Save more family members on your dashboard to cover this many seats")
+
+    if included and fc == 0:
+        raise HTTPException(
+            status_code=400,
+            detail="This program is already included in your annual package — select one or more family members to enroll.",
+        )
+
     ao = settings_doc.get("dashboard_offer_annual") or {}
     fo = settings_doc.get("dashboard_offer_family") or {}
     annual_code = (ao.get("promo_code") or "").strip() if ao.get("enabled") else ""
     family_code = (fo.get("promo_code") or "").strip() if fo.get("enabled") else ""
     quote = await compute_dashboard_annual_family_pricing(
-        program, data.program_id, data.currency, fc, annual_code, family_code
+        program, data.program_id, data.currency, fc, annual_code, family_code, include_self=not included
     )
     if quote["total"] <= 0:
         raise HTTPException(status_code=400, detail="No payable amount for this program")
@@ -474,23 +541,25 @@ async def dashboard_pay(data: DashboardPayIn, request: Request, user: dict = Dep
         except Exception:
             return 30
 
-    participants: List[ParticipantData] = [
-        ParticipantData(
-            name=snap.get("name") or user.get("name") or "Student",
-            relationship="Myself",
-            age=_age_int(snap.get("age")),
-            gender=(snap.get("gender") or "Prefer not to say")[:40],
-            country=(snap.get("country") or "AE")[:4],
-            attendance_mode="online",
-            notify=True,
-            email=snap.get("email") or user.get("email"),
-            phone=snap.get("phone"),
-            whatsapp=snap.get("phone"),
-            program_id=data.program_id,
-            program_title=program.get("title"),
+    participants: List[ParticipantData] = []
+    if not included:
+        participants.append(
+            ParticipantData(
+                name=snap.get("name") or user.get("name") or "Student",
+                relationship="Myself",
+                age=_age_int(snap.get("age")),
+                gender=(snap.get("gender") or "Prefer not to say")[:40],
+                country=(snap.get("country") or "AE")[:4],
+                attendance_mode="online",
+                notify=True,
+                email=snap.get("email") or user.get("email"),
+                phone=snap.get("phone"),
+                whatsapp=snap.get("phone"),
+                program_id=data.program_id,
+                program_title=program.get("title"),
+            )
         )
-    ]
-    for m in fam[:fc]:
+    for m in resolved_family:
         participants.append(
             ParticipantData(
                 name=(m.get("name") or "Guest")[:200],
@@ -514,6 +583,9 @@ async def dashboard_pay(data: DashboardPayIn, request: Request, user: dict = Dep
         "id": receipt_id,
         "status": "contact_verified",
         "step": 3,
+        "item_type": "program",
+        "item_id": data.program_id,
+        "item_title": program.get("title") or "",
         "booker_name": snap.get("name") or user.get("name") or "Student",
         "booker_email": (user.get("email") or "").lower().strip(),
         "booker_country": snap.get("country") or "AE",
@@ -531,10 +603,12 @@ async def dashboard_pay(data: DashboardPayIn, request: Request, user: dict = Dep
         "updated_at": datetime.now(timezone.utc).isoformat(),
     }
     await db.enrollments.insert_one(enrollment)
+    tier_for_checkout = quote.get("family_tier_index") if included else quote.get("self_tier_index")
     return {
         "enrollment_id": receipt_id,
         "pricing": quote,
-        "tier_index": quote.get("self_tier_index"),
+        "tier_index": tier_for_checkout,
+        "included_in_annual_package": included,
     }
 
 

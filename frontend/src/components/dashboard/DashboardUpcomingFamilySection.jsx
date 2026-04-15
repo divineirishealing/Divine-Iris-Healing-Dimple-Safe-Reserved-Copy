@@ -4,6 +4,7 @@ import axios from 'axios';
 import { Calendar, Sparkles, Users, Tag, ArrowRight, Loader2, Plus, Trash2, CreditCard } from 'lucide-react';
 import { useToast } from '../../hooks/use-toast';
 import { useCurrency } from '../../context/CurrencyContext';
+import { useSiteSettings } from '../../context/SiteSettingsContext';
 import { resolveImageUrl } from '../../lib/imageUtils';
 import { cn, formatDateDdMonYyyy } from '../../lib/utils';
 
@@ -41,6 +42,23 @@ function programStartLabel(p) {
   return formatDateDdMonYyyy(iso) || d;
 }
 
+/** MMM / AWRP etc. — already in annual package; member only pays for family add-ons. */
+function programIncludedInAnnualPackage(p, configuredIds) {
+  const ids = Array.isArray(configuredIds)
+    ? configuredIds.map((x) => String(x).trim()).filter(Boolean)
+    : [];
+  if (ids.length > 0) {
+    return ids.includes(String(p.id));
+  }
+  const t = `${p.title || ''} ${p.category || ''}`.toLowerCase();
+  return (
+    t.includes('money magic') ||
+    t.includes('mmm') ||
+    t.includes('atomic weight') ||
+    t.includes('awrp')
+  );
+}
+
 /** Same basis as EnrollmentPage promo discount: percentage of subtotal or fixed per currency. */
 function promoDiscountAmount(promoResult, subtotalRaw, currency) {
   if (!promoResult || subtotalRaw <= 0) return 0;
@@ -53,6 +71,8 @@ function promoDiscountAmount(promoResult, subtotalRaw, currency) {
 export default function DashboardUpcomingFamilySection({ homeData, onRefresh }) {
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { settings: siteSettings } = useSiteSettings();
+  const annualIncludedIds = siteSettings?.annual_package_included_program_ids;
   const {
     getPrice,
     getOfferPrice,
@@ -66,11 +86,13 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh }) 
   const [saving, setSaving] = useState(false);
   const [promoByProgramId, setPromoByProgramId] = useState({});
   const [promoPricesLoading, setPromoPricesLoading] = useState(false);
-  const [familySeats, setFamilySeats] = useState({});
+  const [selectedFamilyByProgram, setSelectedFamilyByProgram] = useState({});
   const [annualQuotes, setAnnualQuotes] = useState({});
   const [payingProgramId, setPayingProgramId] = useState(null);
+  const [payChannel, setPayChannel] = useState('stripe');
 
   const upcoming = homeData?.upcoming_programs || [];
+  const paymentMethods = homeData?.payment_methods || ['stripe'];
   const offers = homeData?.dashboard_offers || {};
   const annualOffer = offers.annual || {};
   const familyOffer = offers.family || {};
@@ -142,12 +164,18 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh }) 
     [upcoming]
   );
 
-  const familySeatsKey = useMemo(() => {
+  const familySelectionKey = useMemo(() => {
     return (upcoming || [])
       .slice(0, 6)
-      .map((p) => `${p.id}:${familySeats[p.id] ?? 0}`)
-      .join(',');
-  }, [upcoming, familySeats]);
+      .map((p) => `${p.id}=${(selectedFamilyByProgram[p.id] || []).slice().sort().join(':')}`)
+      .join('|');
+  }, [upcoming, selectedFamilyByProgram]);
+
+  React.useEffect(() => {
+    const m = homeData?.payment_methods || ['stripe'];
+    if (m.length === 1 && m[0] === 'manual') setPayChannel('manual');
+    if (m.length === 1 && m[0] === 'stripe') setPayChannel('stripe');
+  }, [homeData?.payment_methods]);
 
   useEffect(() => {
     if (!isAnnual || !currencyReady) {
@@ -162,10 +190,14 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh }) 
     let cancelled = false;
     Promise.all(
       programs.map((p) => {
-        const fc = Number(familySeats[p.id] ?? 0);
+        const ids = selectedFamilyByProgram[p.id] || [];
+        const params =
+          ids.length > 0
+            ? { program_id: p.id, currency, family_ids: ids.join(',') }
+            : { program_id: p.id, currency, family_count: 0 };
         return axios
           .get(`${API}/api/student/dashboard-quote`, {
-            params: { program_id: p.id, family_count: fc, currency },
+            params,
             withCredentials: true,
           })
           .then((r) => ({ id: p.id, data: r.data }))
@@ -182,7 +214,7 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh }) 
     return () => {
       cancelled = true;
     };
-  }, [isAnnual, currencyReady, currency, upcomingSliceKey, familySeatsKey]);
+  }, [isAnnual, currencyReady, currency, upcomingSliceKey, familySelectionKey]);
 
   useEffect(() => {
     const code = promoForProgramClicks;
@@ -219,21 +251,38 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh }) 
     };
   }, [promoForProgramClicks, currencyReady, currency, upcomingSliceKey]);
 
+  const toggleFamilyMember = (programId, memberId) => {
+    const mid = String(memberId || '');
+    if (!mid) return;
+    setSelectedFamilyByProgram((prev) => {
+      const cur = new Set(prev[programId] || []);
+      if (cur.has(mid)) cur.delete(mid);
+      else cur.add(mid);
+      return { ...prev, [programId]: [...cur] };
+    });
+  };
+
   const startDashboardPayment = async (programId) => {
-    const fc = Number(familySeats[programId] ?? 0);
+    const ids = selectedFamilyByProgram[programId] || [];
     setPayingProgramId(programId);
     try {
       const r = await axios.post(
         `${API}/api/student/dashboard-pay`,
         {
           program_id: programId,
-          family_count: fc,
+          family_member_ids: ids,
           currency,
           origin_url: typeof window !== 'undefined' ? window.location.origin : '',
         },
         { withCredentials: true }
       );
       const { enrollment_id, tier_index: tierIdx } = r.data;
+
+      if (payChannel === 'manual' && paymentMethods.includes('manual')) {
+        navigate(`/manual-payment/${enrollment_id}`);
+        return;
+      }
+
       const checkout = await axios.post(
         `${API}/api/enrollment/${enrollment_id}/checkout`,
         {
@@ -264,7 +313,7 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh }) 
     } catch (e) {
       toast({
         title: 'Could not start payment',
-        description: e.response?.data?.detail || 'Try again or open Enroll for the full form.',
+        description: e.response?.data?.detail || 'Try again or contact support.',
         variant: 'destructive',
       });
     } finally {
@@ -375,83 +424,100 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh }) 
               const showSpecialPromo =
                 Boolean(promoForProgramClicks && validated && disc > 0 && !promoPricesLoading);
               const aq = annualQuotes[p.id];
-              const maxFam = Math.min(12, members.length);
-              const fc = Number(familySeats[p.id] ?? 0);
+              const includedPkg =
+                aq?.included_in_annual_package ??
+                programIncludedInAnnualPackage(p, annualIncludedIds);
+              const selIds = selectedFamilyByProgram[p.id] || [];
+              const selCount = selIds.length;
+              const canPay = Boolean(aq && aq.total > 0 && (!includedPkg || selCount >= 1));
+              const cardMedia = (
+                <>
+                  <div className="h-24 bg-slate-100 overflow-hidden">
+                    <img
+                      src={resolveImageUrl(p.image)}
+                      alt=""
+                      className="w-full h-full object-cover group-hover:scale-[1.03] transition-transform duration-300"
+                      onError={(e) => {
+                        e.target.src =
+                          'https://images.unsplash.com/photo-1545389336-cf090694435e?w=400&h=200&fit=crop';
+                      }}
+                    />
+                  </div>
+                  <div className="p-3">
+                    <p className="text-[9px] text-[#D4AF37] uppercase tracking-wider mb-0.5">{p.category || 'Program'}</p>
+                    <p className="text-sm font-semibold text-slate-900 line-clamp-2 leading-snug">{p.title}</p>
+                    <p className="text-[10px] text-slate-500 mt-1 flex items-center gap-1">
+                      <Calendar size={10} /> {programStartLabel(p)}
+                    </p>
+                    {!isAnnual && (list > 0 || off > 0) && (
+                      <div className="mt-1.5 pt-1.5 border-t border-slate-100">
+                        {showSpecialPromo ? (
+                          <p className="text-[11px] text-slate-800">
+                            <span className="font-semibold text-[#b8860b]">{symbol}{afterPromo.toLocaleString()}</span>
+                            <span className="text-slate-400 line-through ml-1.5 text-[10px]">{symbol}{baseForPromo.toLocaleString()}</span>
+                            <span className="block text-[9px] text-violet-700/90 mt-0.5">
+                              With {promoForProgramClicks} (on offer price)
+                            </span>
+                            {off > 0 && list > off && (
+                              <span className="block text-[9px] text-slate-400 mt-0.5">List {symbol}{list.toLocaleString()}</span>
+                            )}
+                          </p>
+                        ) : off > 0 ? (
+                          <p className="text-[11px] text-slate-800">
+                            <span className="font-semibold text-[#b8860b]">{symbol}{off.toLocaleString()}</span>
+                            {list > 0 && off < list && (
+                              <span className="text-slate-400 line-through ml-1.5 text-[10px]">{symbol}{list.toLocaleString()}</span>
+                            )}
+                            <span className="block text-[9px] text-slate-400 mt-0.5">Offer price</span>
+                          </p>
+                        ) : list > 0 ? (
+                          <p className="text-[11px] text-slate-800 font-medium">{symbol}{list.toLocaleString()}</p>
+                        ) : null}
+                      </div>
+                    )}
+                  </div>
+                </>
+              );
               return (
                 <div
                   key={p.id}
                   className="rounded-2xl border border-slate-200/90 bg-white/90 overflow-hidden hover:border-[#D4AF37]/40 hover:shadow-md transition-all flex flex-col"
                   data-testid={`dashboard-upcoming-${p.id}`}
                 >
-                  <button
-                    type="button"
-                    onClick={() => navigate(href)}
-                    className="text-left w-full group"
-                  >
-                    <div className="h-24 bg-slate-100 overflow-hidden">
-                      <img
-                        src={resolveImageUrl(p.image)}
-                        alt=""
-                        className="w-full h-full object-cover group-hover:scale-[1.03] transition-transform duration-300"
-                        onError={(e) => {
-                          e.target.src =
-                            'https://images.unsplash.com/photo-1545389336-cf090694435e?w=400&h=200&fit=crop';
-                        }}
-                      />
-                    </div>
-                    <div className="p-3">
-                      <p className="text-[9px] text-[#D4AF37] uppercase tracking-wider mb-0.5">{p.category || 'Program'}</p>
-                      <p className="text-sm font-semibold text-slate-900 line-clamp-2 leading-snug">{p.title}</p>
-                      <p className="text-[10px] text-slate-500 mt-1 flex items-center gap-1">
-                        <Calendar size={10} /> {programStartLabel(p)}
-                      </p>
-                      {!isAnnual && (list > 0 || off > 0) && (
-                        <div className="mt-1.5 pt-1.5 border-t border-slate-100">
-                          {showSpecialPromo ? (
-                            <p className="text-[11px] text-slate-800">
-                              <span className="font-semibold text-[#b8860b]">{symbol}{afterPromo.toLocaleString()}</span>
-                              <span className="text-slate-400 line-through ml-1.5 text-[10px]">{symbol}{baseForPromo.toLocaleString()}</span>
-                              <span className="block text-[9px] text-violet-700/90 mt-0.5">
-                                With {promoForProgramClicks} (on offer price)
-                              </span>
-                              {off > 0 && list > off && (
-                                <span className="block text-[9px] text-slate-400 mt-0.5">List {symbol}{list.toLocaleString()}</span>
-                              )}
-                            </p>
-                          ) : off > 0 ? (
-                            <p className="text-[11px] text-slate-800">
-                              <span className="font-semibold text-[#b8860b]">{symbol}{off.toLocaleString()}</span>
-                              {list > 0 && off < list && (
-                                <span className="text-slate-400 line-through ml-1.5 text-[10px]">{symbol}{list.toLocaleString()}</span>
-                              )}
-                              <span className="block text-[9px] text-slate-400 mt-0.5">Offer price</span>
-                            </p>
-                          ) : list > 0 ? (
-                            <p className="text-[11px] text-slate-800 font-medium">{symbol}{list.toLocaleString()}</p>
-                          ) : null}
-                        </div>
-                      )}
-                    </div>
-                  </button>
+                  {isAnnual ? (
+                    <div className="text-left w-full group">{cardMedia}</div>
+                  ) : (
+                    <button type="button" onClick={() => navigate(href)} className="text-left w-full group">
+                      {cardMedia}
+                    </button>
+                  )}
 
                   {isAnnual && (
                     <div className="px-3 pb-3 pt-0 border-t border-slate-100 bg-gradient-to-b from-amber-50/40 to-transparent">
-                      <p className="text-[9px] font-bold uppercase tracking-wide text-[#b8860b] mt-2 mb-1.5">
+                      <p className="text-[9px] font-bold uppercase tracking-wide text-[#b8860b] mt-2 mb-1">
                         Annual member checkout
                       </p>
+                      {includedPkg && (
+                        <p className="text-[10px] text-slate-600 leading-snug mb-2">
+                          This program is included in your annual package for you. Select family members below to pay for
+                          their enrollment only.
+                        </p>
+                      )}
                       {aq ? (
                         <div className="space-y-1 text-[11px] text-slate-700">
-                          <div className="flex justify-between gap-2">
-                            <span>You (annual tier + offer)</span>
-                            <span className="font-medium tabular-nums">
-                              {symbol}
-                              {Number(aq.self_after_promos || 0).toLocaleString()}
-                            </span>
-                          </div>
-                          {fc > 0 && (
+                          {!includedPkg && (
+                            <div className="flex justify-between gap-2">
+                              <span>You (annual tier + offer)</span>
+                              <span className="font-medium tabular-nums">
+                                {symbol}
+                                {Number(aq.self_after_promos || 0).toLocaleString()}
+                              </span>
+                            </div>
+                          )}
+                          {(includedPkg ? selCount > 0 : selCount > 0) && (
                             <div className="flex justify-between gap-2 text-slate-600">
                               <span>
-                                Family × {fc} (portal promo{aq.family_promo_applied ? '' : ' — add code in admin'})
+                                Family ({selCount}) — after offer &amp; portal promo
                               </span>
                               <span className="font-medium tabular-nums">
                                 {symbol}
@@ -471,35 +537,75 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh }) 
                         <p className="text-[10px] text-slate-400 py-1">Loading pricing…</p>
                       )}
 
-                      <div className="mt-2 flex flex-wrap items-center gap-2">
-                        <label className="text-[10px] text-slate-600 flex items-center gap-1">
-                          Family seats
-                          <select
-                            value={fc}
-                            disabled={maxFam === 0}
-                            onChange={(e) =>
-                              setFamilySeats((s) => ({
-                                ...s,
-                                [p.id]: parseInt(e.target.value, 10),
-                              }))
-                            }
-                            className="text-xs border rounded-md px-1.5 py-1 bg-white max-w-[4rem]"
-                          >
-                            {Array.from({ length: maxFam + 1 }, (_, i) => (
-                              <option key={i} value={i}>
-                                {i}
-                              </option>
-                            ))}
-                          </select>
-                        </label>
-                        {maxFam === 0 && (
-                          <span className="text-[9px] text-slate-400">Add family above to book seats</span>
+                      <div className="mt-2 space-y-1.5">
+                        <p className="text-[9px] font-semibold uppercase tracking-wide text-slate-500">
+                          Family to enroll
+                        </p>
+                        {members.length === 0 ? (
+                          <p className="text-[10px] text-slate-400">Add family members in the section below first.</p>
+                        ) : (
+                          <ul className="space-y-1 max-h-28 overflow-y-auto">
+                            {members.map((m) => {
+                              const mid = m.id || `${m.name}-${m.email}`;
+                              return (
+                                <li key={mid}>
+                                  <label className="flex items-center gap-2 text-[11px] text-slate-800 cursor-pointer">
+                                    <input
+                                      type="checkbox"
+                                      className="rounded border-slate-300"
+                                      disabled={!m.id}
+                                      checked={!!m.id && selIds.includes(String(m.id))}
+                                      onChange={() => m.id && toggleFamilyMember(p.id, String(m.id))}
+                                    />
+                                    <span>
+                                      {m.name || '—'}
+                                      {m.relationship ? (
+                                        <span className="text-slate-400"> ({m.relationship})</span>
+                                      ) : null}
+                                    </span>
+                                  </label>
+                                </li>
+                              );
+                            })}
+                          </ul>
+                        )}
+                        {includedPkg && selCount === 0 && (
+                          <p className="text-[9px] text-amber-800 bg-amber-50/80 rounded px-2 py-1">
+                            Select who you are paying for — your own seat is already covered.
+                          </p>
                         )}
                       </div>
 
+                      {paymentMethods.filter((x) => x === 'stripe' || x === 'manual').length > 1 && (
+                        <div className="mt-2 flex flex-wrap gap-3 text-[10px] text-slate-700">
+                          {paymentMethods.includes('stripe') && (
+                            <label className="inline-flex items-center gap-1.5 cursor-pointer">
+                              <input
+                                type="radio"
+                                name={`pay-${p.id}`}
+                                checked={payChannel === 'stripe'}
+                                onChange={() => setPayChannel('stripe')}
+                              />
+                              Card (Stripe)
+                            </label>
+                          )}
+                          {paymentMethods.includes('manual') && (
+                            <label className="inline-flex items-center gap-1.5 cursor-pointer">
+                              <input
+                                type="radio"
+                                name={`pay-${p.id}`}
+                                checked={payChannel === 'manual'}
+                                onChange={() => setPayChannel('manual')}
+                              />
+                              Bank / manual
+                            </label>
+                          )}
+                        </div>
+                      )}
+
                       <button
                         type="button"
-                        disabled={!aq || payingProgramId === p.id || (aq && aq.total <= 0)}
+                        disabled={!canPay || payingProgramId === p.id}
                         onClick={(e) => {
                           e.stopPropagation();
                           startDashboardPayment(p.id);
@@ -512,14 +618,9 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh }) 
                         ) : (
                           <CreditCard size={14} />
                         )}
-                        Pay from dashboard
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => navigate(href)}
-                        className="mt-1.5 w-full text-center text-[10px] text-[#5D3FD3] hover:underline"
-                      >
-                        Or open full enroll form
+                        {payChannel === 'manual' && paymentMethods.includes('manual')
+                          ? 'Continue to manual payment'
+                          : 'Pay now'}
                       </button>
                     </div>
                   )}

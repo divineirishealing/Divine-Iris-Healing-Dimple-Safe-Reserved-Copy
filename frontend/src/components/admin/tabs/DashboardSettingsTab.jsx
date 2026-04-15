@@ -7,7 +7,7 @@ import { Textarea } from '../../ui/textarea';
 import { Save, RefreshCw, Sparkles, Users } from 'lucide-react';
 import { useToast } from '../../../hooks/use-toast';
 
-const DashboardSettingsTab = ({ settings, onChange }) => {
+const DashboardSettingsTab = ({ settings, onChange, programs = [] }) => {
   const { toast } = useToast();
   const dashboard = settings.dashboard_settings || { 
     title: "Sanctuary", 
@@ -44,6 +44,15 @@ const DashboardSettingsTab = ({ settings, onChange }) => {
       ...settings,
       dashboard_offer_family: { ...familyOffer, ...patch },
     });
+  };
+
+  const includedProgramIds = settings.annual_package_included_program_ids || [];
+  const toggleIncludedProgram = (id) => {
+    const sid = String(id);
+    const next = new Set((includedProgramIds || []).map(String));
+    if (next.has(sid)) next.delete(sid);
+    else next.add(sid);
+    onChange({ ...settings, annual_package_included_program_ids: [...next] });
   };
 
   const update = (field, value) => {
@@ -286,6 +295,43 @@ const DashboardSettingsTab = ({ settings, onChange }) => {
                 </div>
               </div>
             </div>
+          </div>
+        </div>
+
+        <div
+          className="mt-6 rounded-lg border border-slate-200 bg-slate-50/60 p-4 space-y-2"
+          data-testid="annual-included-programs"
+        >
+          <h3 className="text-sm font-semibold text-gray-900">Annual package — included programs</h3>
+          <p className="text-[11px] text-gray-500 leading-snug">
+            For annual subscribers, checked programs treat the member&apos;s own seat as already included; checkout is for
+            family seats only. Leave all unchecked to keep automatic detection from program title (MMM, Money Magic,
+            Atomic Weight / AWRP).
+          </p>
+          <div className="max-h-56 overflow-y-auto space-y-1.5 pr-1 border border-gray-100 rounded-md bg-white p-2">
+            {[...(programs || [])]
+              .filter((p) => p && p.id)
+              .sort((a, b) => (a.title || '').localeCompare(b.title || '', undefined, { sensitivity: 'base' }))
+              .map((p) => (
+                <label
+                  key={p.id}
+                  className="flex items-start gap-2 text-xs text-gray-800 cursor-pointer hover:bg-gray-50/80 rounded px-1 py-0.5"
+                >
+                  <input
+                    type="checkbox"
+                    className="mt-0.5 rounded border-gray-300"
+                    checked={includedProgramIds.map(String).includes(String(p.id))}
+                    onChange={() => toggleIncludedProgram(p.id)}
+                  />
+                  <span>
+                    <span className="font-medium">{p.title || p.id}</span>
+                    {p.category ? <span className="text-gray-500"> — {p.category}</span> : null}
+                  </span>
+                </label>
+              ))}
+            {(!programs || programs.length === 0) && (
+              <p className="text-[11px] text-gray-400 italic">Load programs in Admin (Programs tab) to see the list.</p>
+            )}
           </div>
         </div>
       </div>
