@@ -302,10 +302,15 @@ const DashboardSettingsTab = ({ settings, onChange, programs = [] }) => {
       <div className="mt-8 bg-white rounded-lg border p-6 space-y-6" data-testid="dashboard-offers-admin">
         <div>
           <h3 className="text-sm font-semibold text-gray-900 mb-1">Student dashboard — offers</h3>
-          <p className="text-[11px] text-gray-500 mb-4">
-            Shown only on the signed-in student dashboard (not the public homepage). For each side (member vs family), choose
-            a promotion code from Promotions, or set a percent discount, amount off, or a fixed price per seat in AED / INR /
-            USD (checkout uses the student&apos;s currency). Upcoming programs are listed automatically; these blocks are optional.
+          <p className="text-[11px] text-gray-500 mb-2">
+            Shown only on the signed-in student dashboard (not the public homepage).{' '}
+            <strong className="text-gray-700 font-medium">The annual member&apos;s own seat and family add-on seats use separate pricing rules</strong>
+            — you can set different promo codes, % off, amount off, or fixed prices for each (e.g. 15% off for you, 25% off for
+            family). Checkout currency comes from the student&apos;s region. Upcoming programs are listed automatically; these
+            blocks are optional.
+          </p>
+          <p className="text-[10px] text-gray-500 mb-4 border-l-2 border-[#D4AF37]/50 pl-2">
+            Left column = <strong>member seat only</strong> · Right column = <strong>family seats only</strong> — configure independently.
           </p>
         </div>
 
@@ -314,7 +319,7 @@ const DashboardSettingsTab = ({ settings, onChange, programs = [] }) => {
             <div className="flex items-center justify-between gap-2">
               <div className="flex items-center gap-2">
                 <Sparkles size={16} className="text-amber-700" />
-                <span className="text-sm font-medium text-gray-900">Annual subscriber offer</span>
+                <span className="text-sm font-medium text-gray-900">Annual member (your seat)</span>
               </div>
               <Switch
                 checked={!!annualOffer.enabled}
@@ -322,6 +327,9 @@ const DashboardSettingsTab = ({ settings, onChange, programs = [] }) => {
                 data-testid="dashboard-offer-annual-toggle"
               />
             </div>
+            <p className="text-[10px] text-amber-900/90 -mt-1 mb-1 leading-snug">
+              Independent from the family column — different rules and amounts are supported.
+            </p>
             <div className="space-y-2">
               <Label className="text-xs">Title</Label>
               <Input
@@ -419,7 +427,7 @@ const DashboardSettingsTab = ({ settings, onChange, programs = [] }) => {
             <div className="flex items-center justify-between gap-2">
               <div className="flex items-center gap-2">
                 <Users size={16} className="text-violet-700" />
-                <span className="text-sm font-medium text-gray-900">Immediate family offer</span>
+                <span className="text-sm font-medium text-gray-900">Family add-on seats</span>
               </div>
               <Switch
                 checked={!!familyOffer.enabled}
@@ -427,6 +435,9 @@ const DashboardSettingsTab = ({ settings, onChange, programs = [] }) => {
                 data-testid="dashboard-offer-family-toggle"
               />
             </div>
+            <p className="text-[10px] text-violet-800/90 -mt-1 mb-1 leading-snug">
+              Independent from the annual member column — different %, codes, or fixed prices are allowed.
+            </p>
             <div className="space-y-2">
               <Label className="text-xs">Title</Label>
               <Input
@@ -527,9 +538,9 @@ const DashboardSettingsTab = ({ settings, onChange, programs = [] }) => {
             <div>
               <h3 className="text-sm font-semibold text-gray-900">Upcoming programs — portal pricing (per program)</h3>
               <p className="text-[11px] text-gray-500 leading-snug mt-0.5">
-                Optional. Set member and family rules for each <strong>upcoming</strong> program. Values here override the
-                global defaults above for checkout pricing only (title/body CTAs stay global unless you also change global
-                blocks).
+                Optional. For each <strong>upcoming</strong> program, override <strong>member</strong> and <strong>family</strong>{' '}
+                pricing separately (same independence as the two global columns). Values here override global defaults for
+                checkout only; offer card title/body CTAs still follow the global blocks unless you change those too.
               </p>
             </div>
           </div>

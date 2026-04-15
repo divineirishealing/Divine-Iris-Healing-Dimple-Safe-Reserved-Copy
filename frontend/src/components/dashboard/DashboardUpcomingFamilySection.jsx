@@ -422,7 +422,8 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh }) 
               Upcoming programs
             </h2>
             <p className="text-xs text-slate-500">
-              Member pricing and promos here are for your portal only. Enroll in one step from your saved profile and family list.
+              Portal-only pricing: your seat and family seats can use <span className="text-slate-700 font-medium">different</span>{' '}
+              discounts (set in Admin). Enroll in one step from your profile and saved family list.
             </p>
           </div>
         </div>

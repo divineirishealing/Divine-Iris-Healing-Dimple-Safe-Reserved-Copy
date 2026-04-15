@@ -327,7 +327,11 @@ async def compute_dashboard_annual_family_pricing(
     family_offer: dict,
     include_self: bool = True,
 ) -> dict:
-    """Portal-only pricing for annual subscribers. Uses site settings offers (promo, %, amount off, fixed price)."""
+    """Portal-only pricing for annual subscribers.
+
+    `annual_offer` applies only to the member's own seat line; `family_offer` applies only to the family line.
+    They are merged independently from site settings (global + per-program overrides) and may use different rules.
+    """
     cur = (currency or "aed").lower()
     self_tier, fam_tier = _pick_self_and_family_tier_indices(program)
     self_unit = _tier_unit_price(program, self_tier, cur) if include_self else 0.0
