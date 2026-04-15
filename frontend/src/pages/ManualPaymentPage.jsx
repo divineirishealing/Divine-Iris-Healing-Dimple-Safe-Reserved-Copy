@@ -11,6 +11,7 @@ import {
   Loader2, Calendar, Clock, AlertCircle, ChevronLeft, Smartphone
 } from 'lucide-react';
 import { resolveImageUrl, isLikelyImageUrl } from '../lib/imageUtils';
+import { buildIndiaGpayOptions } from '../lib/indiaPaymentTags';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
@@ -54,18 +55,30 @@ const ManualPaymentPage = () => {
   const [phoneCode, setPhoneCode] = useState('+91');
   const [sessions, setSessions] = useState([]);
   const [programs, setPrograms] = useState([]);
+  /** From GET /api/student/home when logged in — matches admin-tagged GPay/bank for annual members. */
+  const [studentPrefs, setStudentPrefs] = useState({
+    preferred_india_gpay_id: '',
+    preferred_india_bank_id: '',
+  });
 
   useEffect(() => {
     const load = async () => {
       try {
-        const [settingsRes, sessionsRes, programsRes] = await Promise.all([
+        const [settingsRes, sessionsRes, programsRes, homeRes] = await Promise.all([
           axios.get(`${API}/settings`),
           axios.get(`${API}/sessions?visible_only=true`),
           axios.get(`${API}/programs?visible_only=true`),
+          axios.get(`${API}/student/home`, { withCredentials: true }).catch(() => null),
         ]);
         setSettings(settingsRes.data);
         setSessions(sessionsRes.data || []);
         setPrograms(programsRes.data || []);
+        if (homeRes?.data) {
+          setStudentPrefs({
+            preferred_india_gpay_id: (homeRes.data.preferred_india_gpay_id || '').trim(),
+            preferred_india_bank_id: (homeRes.data.preferred_india_bank_id || '').trim(),
+          });
+        }
 
         if (enrollmentId) {
           try {
@@ -106,22 +119,48 @@ const ManualPaymentPage = () => {
     load();
   }, [enrollmentId]);
 
-  /** India proof / site settings only (same as Sacred Exchange). */
+  /** India proof + optional subscriber tag (same tag_ids as admin Subscribers + Sacred Exchange). */
   const gpayToShow = useMemo(() => {
-    const siteGpayList = (Array.isArray(settings.india_gpay_accounts) ? settings.india_gpay_accounts : []).filter((x) =>
-      (x.upi_id || '').trim()
-    );
-    if (siteGpayList.length > 0) return siteGpayList;
-    const legacy = (settings.india_upi_id || '').trim();
-    if (legacy) return [{ id: 'legacy-upi', label: 'UPI', upi_id: legacy, qr_image_url: '' }];
-    return [];
-  }, [settings.india_gpay_accounts, settings.india_upi_id]);
+    const opts = buildIndiaGpayOptions({
+      india_gpay_accounts: settings.india_gpay_accounts,
+      india_upi_id: settings.india_upi_id,
+    });
+    const pref = studentPrefs.preferred_india_gpay_id;
+    let chosen = opts;
+    if (pref) {
+      const m = opts.filter((o) => o.tag_id === pref);
+      if (m.length) chosen = m;
+    }
+    return chosen.map((o) => ({
+      id: o.tag_id,
+      label: o.display_label || o.label,
+      upi_id: o.upi_id,
+      qr_image_url: o.qr_image_url || '',
+    }));
+  }, [settings.india_gpay_accounts, settings.india_upi_id, studentPrefs.preferred_india_gpay_id]);
 
   const banks = useMemo(() => {
     const bankAccounts = settings.india_bank_accounts || [];
     const singleBank = settings.india_bank_details || {};
-    return bankAccounts.length > 0 ? bankAccounts : (singleBank.account_number ? [singleBank] : []);
-  }, [settings.india_bank_accounts, settings.india_bank_details]);
+    let list = bankAccounts.length > 0 ? bankAccounts : singleBank.account_number ? [singleBank] : [];
+    const pref = studentPrefs.preferred_india_bank_id;
+    if (pref && list.length > 1) {
+      if (bankAccounts.length > 0) {
+        const filtered = bankAccounts.filter((b, i) => {
+          const tagId = b.id || `india-bank-${i}-${String(b.account_number).slice(-4)}`;
+          return tagId === pref;
+        });
+        if (filtered.length) list = filtered;
+      } else if (pref === 'india-legacy' && singleBank.account_number) {
+        list = [singleBank];
+      }
+    }
+    return list;
+  }, [
+    settings.india_bank_accounts,
+    settings.india_bank_details,
+    studentPrefs.preferred_india_bank_id,
+  ]);
 
   useEffect(() => {
     setSelectedBank(0);
@@ -242,7 +281,9 @@ const ManualPaymentPage = () => {
                     <div className="flex items-center gap-2 mb-3">
                       <Smartphone size={16} className="text-emerald-700" />
                       <h3 className="text-sm font-semibold text-gray-900">
-                        {gpayAssigned.length > 0 ? 'Your assigned UPI / GPay' : 'Divine Iris — Google Pay / UPI'}
+                        {studentPrefs.preferred_india_gpay_id
+                          ? 'Your assigned UPI / GPay'
+                          : 'Divine Iris — Google Pay / UPI'}
                       </h3>
                     </div>
                     <p className="text-[10px] text-gray-600 mb-3">
