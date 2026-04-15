@@ -198,6 +198,13 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh }) 
 
   React.useEffect(() => {
     const m = homeData?.payment_methods || ['stripe'];
+    const hasStripe = m.includes('stripe');
+    const hasOffline = m.some((x) => ['manual', 'gpay', 'bank'].includes(x));
+    // No Stripe on file → must use UPI / bank & proof (radios may be hidden).
+    if (!hasStripe && hasOffline) {
+      setPayChannel('manual');
+      return;
+    }
     if (m.length === 1 && ['manual', 'gpay', 'bank'].includes(m[0])) setPayChannel('manual');
     if (m.length === 1 && m[0] === 'stripe') setPayChannel('stripe');
   }, [homeData?.payment_methods]);
@@ -303,9 +310,11 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh }) 
       );
       const { enrollment_id, tier_index: tierIdx } = r.data;
 
+      const hasOffline = paymentMethods.some((x) => ['manual', 'gpay', 'bank'].includes(x));
+      const hasStripe = paymentMethods.includes('stripe');
       const useManualFlow =
-        payChannel === 'manual' &&
-        paymentMethods.some((x) => ['manual', 'gpay', 'bank'].includes(x));
+        hasOffline &&
+        (payChannel === 'manual' || !hasStripe);
       if (useManualFlow) {
         navigate(`/manual-payment/${enrollment_id}`, {
           state: {
@@ -341,6 +350,14 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh }) 
         navigate(`/payment/success?session_id=${checkout.data.session_id}`);
       } else if (checkout.data.url) {
         window.location.href = checkout.data.url;
+      } else {
+        toast({
+          title: 'Payment link unavailable',
+          description:
+            checkout.data?.detail ||
+            'Stripe did not return a checkout URL. If you pay by UPI or bank, choose “UPI, bank & proof” above and try again, or contact support.',
+          variant: 'destructive',
+        });
       }
     } catch (e) {
       toast({
@@ -660,34 +677,51 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh }) 
                         )}
                       </div>
 
-                      {paymentMethods.includes('stripe') && hasOfflinePaymentOption && (
+                      {hasOfflinePaymentOption && (
                         <div className="mt-2 flex flex-wrap gap-3 text-[10px] text-slate-700">
-                          <label className="inline-flex items-center gap-1.5 cursor-pointer">
-                            <input
-                              type="radio"
-                              name={`pay-${p.id}`}
-                              checked={payChannel === 'stripe'}
-                              onChange={() => setPayChannel('stripe')}
-                            />
-                            Card (Stripe)
-                          </label>
-                          <label className="inline-flex items-center gap-1.5 cursor-pointer">
-                            <input
-                              type="radio"
-                              name={`pay-${p.id}`}
-                              checked={payChannel === 'manual'}
-                              onChange={() => setPayChannel('manual')}
-                            />
-                            {paymentMethods.includes('gpay') || paymentMethods.includes('bank')
-                              ? 'UPI, bank & proof'
-                              : 'Bank / manual'}
-                          </label>
+                          {paymentMethods.includes('stripe') ? (
+                            <label className="inline-flex items-center gap-1.5 cursor-pointer">
+                              <input
+                                type="radio"
+                                name={`pay-${p.id}`}
+                                checked={payChannel === 'stripe'}
+                                onChange={() => setPayChannel('stripe')}
+                              />
+                              Card (Stripe)
+                            </label>
+                          ) : (
+                            <span className="text-slate-600">Payment: UPI / bank (per your membership)</span>
+                          )}
+                          {paymentMethods.includes('stripe') && (
+                            <label className="inline-flex items-center gap-1.5 cursor-pointer">
+                              <input
+                                type="radio"
+                                name={`pay-${p.id}`}
+                                checked={payChannel === 'manual'}
+                                onChange={() => setPayChannel('manual')}
+                              />
+                              {paymentMethods.includes('gpay') || paymentMethods.includes('bank')
+                                ? 'UPI, bank & proof'
+                                : 'Bank / manual'}
+                            </label>
+                          )}
                         </div>
                       )}
 
                       <button
                         type="button"
                         disabled={!canPay || payingProgramId === p.id}
+                        title={
+                          !canPay
+                            ? includedPkg && selCount < 1
+                              ? 'This program is included for you — select family members to pay for their seats, or wait for pricing to load.'
+                              : !aq
+                                ? 'Loading pricing…'
+                                : (aq.total || 0) <= 0
+                                  ? 'No amount due for this selection.'
+                                  : ''
+                            : undefined
+                        }
                         onClick={(e) => {
                           e.stopPropagation();
                           startDashboardPayment(p.id);
