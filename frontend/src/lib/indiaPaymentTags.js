@@ -45,6 +45,32 @@ export function gpayRowsForPaymentModal(info) {
   }));
 }
 
+/**
+ * When admin tags a subscriber to one UPI row: only that row (no fallback to listing all).
+ * @param {Array<{tag_id?: string, id?: string}>} rows — e.g. from gpayRowsForPaymentModal
+ */
+export function applyPreferredGpayRows(rows, preferredTagId) {
+  const pref = (preferredTagId || '').trim();
+  if (!pref || !Array.isArray(rows)) return rows || [];
+  return rows.filter((r) => (r.tag_id || r.id) === pref);
+}
+
+/**
+ * When admin tags a subscriber to one bank row: only that row (no fallback).
+ */
+export function applyPreferredBankRows(rows, preferredTagId) {
+  const pref = (preferredTagId || '').trim();
+  if (!pref || !Array.isArray(rows)) return rows || [];
+  return rows.filter((r) => (r.tag_id || r.bank_code) === pref);
+}
+
+/** Same tag as buildIndiaBankOptions / Subscribers admin dropdown. */
+export function indiaBankAccountTagId(b, index) {
+  if (!b) return '';
+  const num = b.account_number;
+  return (b.id || `india-bank-${index}-${String(num != null ? num : '').slice(-4)}`).trim();
+}
+
 /** @param {object} info — india_bank_accounts, india_bank_details */
 export function buildIndiaBankOptions(info) {
   if (!info || typeof info !== 'object') return [];

@@ -18,23 +18,62 @@ import {
 } from 'lucide-react';
 import { useToast } from '../../hooks/use-toast';
 import { resolveImageUrl, isLikelyImageUrl } from '../../lib/imageUtils';
-import { gpayRowsForPaymentModal, banksForPaymentModal } from '../../lib/indiaPaymentTags';
+import {
+  gpayRowsForPaymentModal,
+  banksForPaymentModal,
+  applyPreferredGpayRows,
+  applyPreferredBankRows,
+  buildIndiaGpayOptions,
+} from '../../lib/indiaPaymentTags';
 
 const API = process.env.REACT_APP_BACKEND_URL;
 
-/** Site-wide India bank / UPI (same info as India manual proof page) for quick reference on Sacred Exchange. */
-const IndiaPaymentInfoModal = ({ info, onClose }) => {
+/** Site-wide India bank / UPI; when membership tags are set, only those rows (no full list). */
+const IndiaPaymentInfoModal = ({
+  info,
+  preferredIndiaGpayId = '',
+  preferredIndiaBankId = '',
+  onClose,
+}) => {
   if (!info) return null;
+  const prefG = (preferredIndiaGpayId || '').trim();
+  const prefB = (preferredIndiaBankId || '').trim();
+
   const gpayList = Array.isArray(info.india_gpay_accounts) ? info.india_gpay_accounts : [];
-  const bankRows = Array.isArray(info.india_bank_accounts) ? info.india_bank_accounts : [];
+  const bankRowsAll = Array.isArray(info.india_bank_accounts) ? info.india_bank_accounts : [];
   const legacy = (info.india_upi_id || '').trim();
   const bd = info.india_bank_details || {};
   const hasLegacyBank = !!(bd && (bd.account_number || '').toString().trim());
+
+  const gpayTaggedOnly = prefG ? buildIndiaGpayOptions(info).filter((o) => o.tag_id === prefG) : null;
+
+  let bankRows = bankRowsAll;
+  let showLegacyBank = hasLegacyBank;
+  if (prefB) {
+    if (bankRowsAll.length > 0) {
+      bankRows = bankRowsAll.filter((b, i) => {
+        const tagId = b.id || `india-bank-${i}-${String(b.account_number).slice(-4)}`;
+        return tagId === prefB;
+      });
+      showLegacyBank = prefB === 'india-legacy' && bankRows.length === 0 && hasLegacyBank;
+    } else {
+      bankRows = [];
+      showLegacyBank = prefB === 'india-legacy' && hasLegacyBank;
+    }
+  }
+
   const hasContent =
     gpayList.length > 0 ||
     !!legacy ||
-    bankRows.length > 0 ||
+    bankRowsAll.length > 0 ||
     hasLegacyBank;
+
+  const tagNote =
+    prefG || prefB ? (
+      <p className="text-[10px] text-amber-900/90 bg-amber-50/90 border border-amber-200/80 rounded-lg px-2.5 py-1.5 mb-3 leading-snug">
+        Only the UPI and/or bank account assigned to your membership are shown.
+      </p>
+    ) : null;
 
   return (
     <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4" data-testid="india-payment-info-modal">
@@ -49,65 +88,136 @@ const IndiaPaymentInfoModal = ({ info, onClose }) => {
           </button>
         </div>
         <div className="p-5 space-y-4 text-xs">
+          {tagNote}
           {!hasContent ? (
             <p className="text-gray-500 text-sm">India payment details are not configured on the site yet. If you use manual transfer, check the payment email or contact support.</p>
           ) : (
             <>
-              {(gpayList.length > 0 || legacy) && (
+              {prefG ? (
                 <div>
                   <p className="text-[10px] font-bold uppercase tracking-wider text-emerald-700 mb-2">UPI / GPay</p>
-                  <div className="space-y-2">
-                    {legacy ? (
-                      <div className="rounded-lg border border-emerald-100 bg-emerald-50/40 p-3 text-xs">
-                        <p className="text-[9px] text-gray-500 mb-0.5">Site UPI</p>
-                        <p className="font-mono text-emerald-900 select-all">{legacy}</p>
-                      </div>
-                    ) : null}
-                    {gpayList.map((g, i) => (
-                      <div key={g.id || i} className="rounded-lg border border-emerald-100 bg-emerald-50/40 p-3">
-                        {g.label ? <p className="font-semibold text-gray-800 mb-1">{g.label}</p> : null}
-                        <p className="font-mono text-emerald-900 select-all">{g.upi_id}</p>
-                        {(g.qr_image_url || '').trim() && isLikelyImageUrl(g.qr_image_url) ? (
-                          <div className="mt-2 flex justify-center">
-                            <img
-                              src={resolveImageUrl(g.qr_image_url)}
-                              alt=""
-                              className="w-36 max-w-full object-contain rounded border border-emerald-200/80 bg-white"
-                            />
+                  {(gpayTaggedOnly || []).length === 0 ? (
+                    <p className="text-gray-500 text-sm">
+                      No UPI matches your membership tag. Ask admin to align India proof with your subscriber tag.
+                    </p>
+                  ) : (
+                    <div className="space-y-2">
+                      {(gpayTaggedOnly || []).map((o) => (
+                        <div key={o.tag_id} className="rounded-lg border border-emerald-100 bg-emerald-50/40 p-3">
+                          {o.display_label ? <p className="font-semibold text-gray-800 mb-1">{o.display_label}</p> : null}
+                          <p className="font-mono text-emerald-900 select-all">{o.upi_id}</p>
+                          {(o.qr_image_url || '').trim() && isLikelyImageUrl(o.qr_image_url) ? (
+                            <div className="mt-2 flex justify-center">
+                              <img
+                                src={resolveImageUrl(o.qr_image_url)}
+                                alt=""
+                                className="w-36 max-w-full object-contain rounded border border-emerald-200/80 bg-white"
+                              />
+                            </div>
+                          ) : null}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              ) : (
+                (gpayList.length > 0 || legacy) && (
+                  <div>
+                    <p className="text-[10px] font-bold uppercase tracking-wider text-emerald-700 mb-2">UPI / GPay</p>
+                    <div className="space-y-2">
+                      {legacy ? (
+                        <div className="rounded-lg border border-emerald-100 bg-emerald-50/40 p-3 text-xs">
+                          <p className="text-[9px] text-gray-500 mb-0.5">Site UPI</p>
+                          <p className="font-mono text-emerald-900 select-all">{legacy}</p>
+                        </div>
+                      ) : null}
+                      {gpayList.map((g, i) => (
+                        <div key={g.id || i} className="rounded-lg border border-emerald-100 bg-emerald-50/40 p-3">
+                          {g.label ? <p className="font-semibold text-gray-800 mb-1">{g.label}</p> : null}
+                          <p className="font-mono text-emerald-900 select-all">{g.upi_id}</p>
+                          {(g.qr_image_url || '').trim() && isLikelyImageUrl(g.qr_image_url) ? (
+                            <div className="mt-2 flex justify-center">
+                              <img
+                                src={resolveImageUrl(g.qr_image_url)}
+                                alt=""
+                                className="w-36 max-w-full object-contain rounded border border-emerald-200/80 bg-white"
+                              />
+                            </div>
+                          ) : null}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )
+              )}
+
+              {prefB ? (
+                <>
+                  {bankRows.length > 0 && (
+                    <div>
+                      <p className="text-[10px] font-bold uppercase tracking-wider text-blue-500 mb-2">Bank accounts</p>
+                      <div className="space-y-2">
+                        {bankRows.map((b, i) => (
+                          <div key={b.id || i} className="rounded-lg border border-blue-100 bg-blue-50/50 p-3 grid grid-cols-1 gap-1">
+                            {b.label ? <p className="font-semibold text-gray-800">{b.label}</p> : null}
+                            {b.bank_name ? <p><span className="text-blue-400">Bank:</span> <strong className="text-blue-900">{b.bank_name}</strong></p> : null}
+                            {b.account_name ? <p><span className="text-blue-400">Name:</span> <strong className="text-blue-900">{b.account_name}</strong></p> : null}
+                            {b.account_number ? <p><span className="text-blue-400">A/C:</span> <strong className="font-mono text-blue-900">{b.account_number}</strong></p> : null}
+                            {b.ifsc ? <p><span className="text-blue-400">IFSC:</span> <strong className="font-mono text-blue-900">{b.ifsc}</strong></p> : null}
                           </div>
-                        ) : null}
+                        ))}
                       </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-              {bankRows.length > 0 && (
-                <div>
-                  <p className="text-[10px] font-bold uppercase tracking-wider text-blue-500 mb-2">Bank accounts</p>
-                  <div className="space-y-2">
-                    {bankRows.map((b, i) => (
-                      <div key={b.id || i} className="rounded-lg border border-blue-100 bg-blue-50/50 p-3 grid grid-cols-1 gap-1">
-                        {b.label ? <p className="font-semibold text-gray-800">{b.label}</p> : null}
-                        {b.bank_name ? <p><span className="text-blue-400">Bank:</span> <strong className="text-blue-900">{b.bank_name}</strong></p> : null}
-                        {b.account_name ? <p><span className="text-blue-400">Name:</span> <strong className="text-blue-900">{b.account_name}</strong></p> : null}
-                        {b.account_number ? <p><span className="text-blue-400">A/C:</span> <strong className="font-mono text-blue-900">{b.account_number}</strong></p> : null}
-                        {b.ifsc ? <p><span className="text-blue-400">IFSC:</span> <strong className="font-mono text-blue-900">{b.ifsc}</strong></p> : null}
+                    </div>
+                  )}
+                  {showLegacyBank && (
+                    <div>
+                      <p className="text-[10px] font-bold uppercase tracking-wider text-blue-500 mb-2">Primary bank (legacy)</p>
+                      <div className="rounded-lg border border-blue-100 bg-blue-50/50 p-3 space-y-1">
+                        {bd.account_name && <p><span className="text-blue-400">Name:</span> <strong>{bd.account_name}</strong></p>}
+                        {bd.account_number && <p><span className="text-blue-400">A/C:</span> <strong className="font-mono">{bd.account_number}</strong></p>}
+                        {bd.ifsc && <p><span className="text-blue-400">IFSC:</span> <strong className="font-mono">{bd.ifsc}</strong></p>}
+                        {bd.bank_name && <p><span className="text-blue-400">Bank:</span> <strong>{bd.bank_name}</strong></p>}
+                        {bd.branch && <p><span className="text-blue-400">Branch:</span> {bd.branch}</p>}
                       </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-              {hasLegacyBank && (
-                <div>
-                  <p className="text-[10px] font-bold uppercase tracking-wider text-blue-500 mb-2">Primary bank (legacy)</p>
-                  <div className="rounded-lg border border-blue-100 bg-blue-50/50 p-3 space-y-1">
-                    {bd.account_name && <p><span className="text-blue-400">Name:</span> <strong>{bd.account_name}</strong></p>}
-                    {bd.account_number && <p><span className="text-blue-400">A/C:</span> <strong className="font-mono">{bd.account_number}</strong></p>}
-                    {bd.ifsc && <p><span className="text-blue-400">IFSC:</span> <strong className="font-mono">{bd.ifsc}</strong></p>}
-                    {bd.bank_name && <p><span className="text-blue-400">Bank:</span> <strong>{bd.bank_name}</strong></p>}
-                    {bd.branch && <p><span className="text-blue-400">Branch:</span> {bd.branch}</p>}
-                  </div>
-                </div>
+                    </div>
+                  )}
+                  {bankRows.length === 0 && !showLegacyBank && (
+                    <p className="text-gray-500 text-sm">
+                      No bank account matches your membership tag. Ask admin to align India proof with your subscriber tag.
+                    </p>
+                  )}
+                </>
+              ) : (
+                <>
+                  {bankRowsAll.length > 0 && (
+                    <div>
+                      <p className="text-[10px] font-bold uppercase tracking-wider text-blue-500 mb-2">Bank accounts</p>
+                      <div className="space-y-2">
+                        {bankRowsAll.map((b, i) => (
+                          <div key={b.id || i} className="rounded-lg border border-blue-100 bg-blue-50/50 p-3 grid grid-cols-1 gap-1">
+                            {b.label ? <p className="font-semibold text-gray-800">{b.label}</p> : null}
+                            {b.bank_name ? <p><span className="text-blue-400">Bank:</span> <strong className="text-blue-900">{b.bank_name}</strong></p> : null}
+                            {b.account_name ? <p><span className="text-blue-400">Name:</span> <strong className="text-blue-900">{b.account_name}</strong></p> : null}
+                            {b.account_number ? <p><span className="text-blue-400">A/C:</span> <strong className="font-mono text-blue-900">{b.account_number}</strong></p> : null}
+                            {b.ifsc ? <p><span className="text-blue-400">IFSC:</span> <strong className="font-mono text-blue-900">{b.ifsc}</strong></p> : null}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  {hasLegacyBank && (
+                    <div>
+                      <p className="text-[10px] font-bold uppercase tracking-wider text-blue-500 mb-2">Primary bank (legacy)</p>
+                      <div className="rounded-lg border border-blue-100 bg-blue-50/50 p-3 space-y-1">
+                        {bd.account_name && <p><span className="text-blue-400">Name:</span> <strong>{bd.account_name}</strong></p>}
+                        {bd.account_number && <p><span className="text-blue-400">A/C:</span> <strong className="font-mono">{bd.account_number}</strong></p>}
+                        {bd.ifsc && <p><span className="text-blue-400">IFSC:</span> <strong className="font-mono">{bd.ifsc}</strong></p>}
+                        {bd.bank_name && <p><span className="text-blue-400">Bank:</span> <strong>{bd.bank_name}</strong></p>}
+                        {bd.branch && <p><span className="text-blue-400">Branch:</span> {bd.branch}</p>}
+                      </div>
+                    </div>
+                  )}
+                </>
               )}
             </>
           )}
@@ -151,23 +261,19 @@ const PaymentModal = ({
   const [payDifferentAmount, setPayDifferentAmount] = useState(false);
 
   const gpayListFull = useMemo(() => gpayRowsForPaymentModal(indiaReference), [indiaReference]);
-  const gpayList = useMemo(() => {
-    const pref = (preferredIndiaGpayId || '').trim();
-    if (!pref) return gpayListFull;
-    const m = gpayListFull.filter((g) => (g.tag_id || g.id) === pref);
-    return m.length ? m : gpayListFull;
-  }, [gpayListFull, preferredIndiaGpayId]);
+  const gpayList = useMemo(
+    () => applyPreferredGpayRows(gpayListFull, preferredIndiaGpayId),
+    [gpayListFull, preferredIndiaGpayId]
+  );
 
   const effectiveBanksFull = useMemo(
     () => banksForPaymentModal(indiaReference, banks),
     [indiaReference, banks]
   );
-  const effectiveBanks = useMemo(() => {
-    const pref = (preferredIndiaBankId || '').trim();
-    if (!pref) return effectiveBanksFull;
-    const m = effectiveBanksFull.filter((b) => (b.tag_id || b.bank_code) === pref);
-    return m.length ? m : effectiveBanksFull;
-  }, [effectiveBanksFull, preferredIndiaBankId]);
+  const effectiveBanks = useMemo(
+    () => applyPreferredBankRows(effectiveBanksFull, preferredIndiaBankId),
+    [effectiveBanksFull, preferredIndiaBankId]
+  );
 
   const bankCodesKey = useMemo(
     () => (effectiveBanks || []).map((b) => b.bank_code).join('|'),
@@ -569,7 +675,12 @@ const FinancialsPage = () => {
       )}
 
       {showIndiaInfo && (
-        <IndiaPaymentInfoModal info={indiaPaymentReference} onClose={() => setShowIndiaInfo(false)} />
+        <IndiaPaymentInfoModal
+          info={indiaPaymentReference}
+          preferredIndiaGpayId={data?.preferred_india_gpay_id || ''}
+          preferredIndiaBankId={data?.preferred_india_bank_id || ''}
+          onClose={() => setShowIndiaInfo(false)}
+        />
       )}
 
       {/* Top Stats */}

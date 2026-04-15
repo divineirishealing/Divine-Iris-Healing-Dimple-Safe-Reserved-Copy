@@ -125,12 +125,8 @@ const ManualPaymentPage = () => {
       india_gpay_accounts: settings.india_gpay_accounts,
       india_upi_id: settings.india_upi_id,
     });
-    const pref = studentPrefs.preferred_india_gpay_id;
-    let chosen = opts;
-    if (pref) {
-      const m = opts.filter((o) => o.tag_id === pref);
-      if (m.length) chosen = m;
-    }
+    const pref = (studentPrefs.preferred_india_gpay_id || '').trim();
+    const chosen = pref ? opts.filter((o) => o.tag_id === pref) : opts;
     return chosen.map((o) => ({
       id: o.tag_id,
       label: o.display_label || o.label,
@@ -143,19 +139,16 @@ const ManualPaymentPage = () => {
     const bankAccounts = settings.india_bank_accounts || [];
     const singleBank = settings.india_bank_details || {};
     let list = bankAccounts.length > 0 ? bankAccounts : singleBank.account_number ? [singleBank] : [];
-    const pref = studentPrefs.preferred_india_bank_id;
-    if (pref && list.length > 1) {
-      if (bankAccounts.length > 0) {
-        const filtered = bankAccounts.filter((b, i) => {
-          const tagId = b.id || `india-bank-${i}-${String(b.account_number).slice(-4)}`;
-          return tagId === pref;
-        });
-        if (filtered.length) list = filtered;
-      } else if (pref === 'india-legacy' && singleBank.account_number) {
-        list = [singleBank];
-      }
+    const pref = (studentPrefs.preferred_india_bank_id || '').trim();
+    if (!pref) return list;
+    if (bankAccounts.length > 0) {
+      return bankAccounts.filter((b, i) => {
+        const tagId = b.id || `india-bank-${i}-${String(b.account_number).slice(-4)}`;
+        return tagId === pref;
+      });
     }
-    return list;
+    if (pref === 'india-legacy' && singleBank.account_number) return [singleBank];
+    return [];
   }, [
     settings.india_bank_accounts,
     settings.india_bank_details,
@@ -276,6 +269,12 @@ const ManualPaymentPage = () => {
                   </div>
                 )}
 
+                {studentPrefs.preferred_india_gpay_id && gpayToShow.length === 0 && (
+                  <div className="mb-4 rounded-lg border border-amber-200 bg-amber-50/90 px-3 py-2 text-[11px] text-amber-950">
+                    Your membership is set to a specific UPI, but it does not match any row in India proof. Ask your admin to fix the tag or site settings.
+                  </div>
+                )}
+
                 {gpayToShow.length > 0 && (
                   <div className="border rounded-xl p-5 mb-5 border-emerald-200 bg-emerald-50/50">
                     <div className="flex items-center gap-2 mb-3">
@@ -312,12 +311,20 @@ const ManualPaymentPage = () => {
                   </div>
                 )}
 
+                {studentPrefs.preferred_india_bank_id && !hasBank && (
+                  <div className="mb-4 rounded-lg border border-amber-200 bg-amber-50/90 px-3 py-2 text-[11px] text-amber-950">
+                    Your membership is set to a specific bank account, but it does not match India proof. Ask your admin to fix the tag or site settings.
+                  </div>
+                )}
+
                 {/* Bank Details */}
                 {hasBank && (
                   <div className="border rounded-xl p-5 mb-5">
                     <div className="flex items-center gap-2 mb-3">
                       <Building2 size={16} className="text-blue-600" />
-                      <h3 className="text-sm font-semibold text-gray-900">Divine Iris Bank Details</h3>
+                      <h3 className="text-sm font-semibold text-gray-900">
+                        {studentPrefs.preferred_india_bank_id ? 'Your assigned bank account' : 'Divine Iris Bank Details'}
+                      </h3>
                     </div>
 
                     {/* Always show account selector */}
