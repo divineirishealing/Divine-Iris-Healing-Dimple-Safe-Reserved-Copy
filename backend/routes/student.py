@@ -307,15 +307,25 @@ def _program_has_portal_pricing_override(per_map: Optional[dict], program_id: st
     return False
 
 
+def _all_dashboard_guest_rows(client: dict) -> List[dict]:
+    """Immediate household + friends/extended — same shape; IDs must be unique across both lists."""
+    im = list(client.get("immediate_family") or [])
+    og = list(client.get("other_guests") or [])
+    return im + og
+
+
 def _resolve_family_rows(client: dict, family_member_ids: List[str], fallback_count: int) -> List[dict]:
-    fam = client.get("immediate_family") or []
+    fam = _all_dashboard_guest_rows(client)
     ids = [str(x).strip() for x in (family_member_ids or []) if str(x).strip()]
     if ids:
         by_id = {str(m.get("id")): m for m in fam if m.get("id")}
         out = []
         for i in ids:
             if i not in by_id:
-                raise HTTPException(status_code=400, detail="Unknown or removed family member — save your family list and try again")
+                raise HTTPException(
+                    status_code=400,
+                    detail="Unknown or removed guest — save your lists below and try again",
+                )
             out.append(by_id[i])
         return out
     n = max(0, int(fallback_count))
@@ -547,6 +557,54 @@ async def update_immediate_family(data: FamilyUpdate, user: dict = Depends(get_c
     return {"message": "Family list saved", "immediate_family": out}
 
 
+@router.put("/other-guests")
+async def update_other_guests(data: FamilyUpdate, user: dict = Depends(get_current_user)):
+    """Friends, cousins, extended family, etc. — same fields as immediate family; max 12 rows."""
+    client_id = user.get("client_id")
+    if not client_id:
+        raise HTTPException(status_code=400, detail="User not linked to client record")
+
+    out: List[dict] = []
+    for m in (data.members or [])[:12]:
+        name = (m.name or "").strip()
+        if not name:
+            continue
+        em = (m.email or "").strip()
+        if m.notify_enrollment and not em:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Guest row “{name}”: add an email address to receive enrollment notifications, or turn off Notify.",
+            )
+        mid = (m.id or "").strip() or str(uuid.uuid4())
+        dob = (m.date_of_birth or "").strip()[:10] if m.date_of_birth else ""
+        age_val = (m.age or "").strip()
+        if not age_val and dob:
+            age_val = _age_from_dob_iso(dob)
+        out.append({
+            "id": mid,
+            "name": name,
+            "relationship": (m.relationship or "Other").strip() or "Other",
+            "email": em,
+            "phone": (m.phone or "").strip(),
+            "date_of_birth": dob,
+            "city": (m.city or "").strip(),
+            "age": age_val,
+            "attendance_mode": _normalize_attendance_mode(m.attendance_mode),
+            "country": (m.country or "").strip()[:4] or "",
+            "notify_enrollment": bool(m.notify_enrollment) and bool(em),
+            "updated_at": datetime.now(timezone.utc).isoformat(),
+        })
+
+    await db.clients.update_one(
+        {"id": client_id},
+        {"$set": {
+            "other_guests": out,
+            "updated_at": datetime.now(timezone.utc).isoformat(),
+        }}
+    )
+    return {"message": "Guest list saved", "other_guests": out}
+
+
 @router.get("/enrollment-prefill")
 async def get_enrollment_prefill(user: dict = Depends(get_current_user)):
     """Profile + family list for dashboard-origin enrollment (skip retyping public form fields)."""
@@ -554,7 +612,8 @@ async def get_enrollment_prefill(user: dict = Depends(get_current_user)):
     client = await db.clients.find_one({"id": client_id}, {"_id": 0}) or {} if client_id else {}
     self_data = _profile_snapshot_for_prefill(user, client)
     family = client.get("immediate_family") or []
-    return {"self": self_data, "immediate_family": family}
+    other_guests = client.get("other_guests") or []
+    return {"self": self_data, "immediate_family": family, "other_guests": other_guests}
 
 
 @router.get("/dashboard-quote")
@@ -573,20 +632,20 @@ async def dashboard_quote(
     sub = client.get("subscription") or {}
     if not _is_annual_subscriber(sub, client):
         raise HTTPException(status_code=403, detail="Annual member dashboard pricing is for annual subscribers only")
-    fam = client.get("immediate_family") or []
+    fam = _all_dashboard_guest_rows(client)
     id_list = [x.strip() for x in (family_ids or "").split(",") if x.strip()]
     if id_list:
         fam_by_id = {str(m.get("id")) for m in fam if m.get("id")}
         for i in id_list:
             if i not in fam_by_id:
-                raise HTTPException(status_code=400, detail="Unknown family member id")
+                raise HTTPException(status_code=400, detail="Unknown guest id")
         fc = len(id_list)
     else:
         fc = max(0, int(family_count))
     if fc > 12:
         raise HTTPException(status_code=400, detail="Invalid family count")
     if fc > len(fam):
-        raise HTTPException(status_code=400, detail="Save more family members on your dashboard to cover this many seats")
+        raise HTTPException(status_code=400, detail="Save more people on your dashboard (immediate family or friends & extended) to cover this many seats")
     program = await db.programs.find_one({"id": program_id}, {"_id": 0})
     if not program:
         raise HTTPException(status_code=404, detail="Program not found")
@@ -649,13 +708,13 @@ async def dashboard_pay(data: DashboardPayIn, request: Request, user: dict = Dep
         },
     ) or {}
     included = _program_included_in_annual_package(program, settings_doc.get("annual_package_included_program_ids"))
-    fam = client.get("immediate_family") or []
+    all_guests = _all_dashboard_guest_rows(client)
     resolved_family = _resolve_family_rows(client, list(data.family_member_ids or []), int(data.family_count or 0))
     fc = len(resolved_family)
     if fc > 12:
         raise HTTPException(status_code=400, detail="Invalid family count")
-    if fc > len(fam):
-        raise HTTPException(status_code=400, detail="Save more family members on your dashboard to cover this many seats")
+    if fc > len(all_guests):
+        raise HTTPException(status_code=400, detail="Save more people on your dashboard (immediate family or friends & extended) to cover this many seats")
 
     if included and fc == 0:
         raise HTTPException(
@@ -895,6 +954,7 @@ async def get_student_home(user: dict = Depends(get_current_user)):
 
     is_annual = _is_annual_subscriber(sub, client)
     immediate_family = client.get("immediate_family") or []
+    other_guests = client.get("other_guests") or []
 
     return {
         "client_id": client_id,
@@ -906,6 +966,7 @@ async def get_student_home(user: dict = Depends(get_current_user)):
         },
         "dashboard_program_offers": dashboard_program_offers,
         "immediate_family": immediate_family,
+        "other_guests": other_guests,
         "financials": financials,
         "package": package,
         "programs": programs_list,

@@ -12,6 +12,206 @@ import DashboardProgramPaymentModal from './DashboardProgramPaymentModal';
 const API = process.env.REACT_APP_BACKEND_URL;
 
 const RELATIONSHIPS = ['Spouse', 'Child', 'Parent', 'Sibling', 'Other'];
+const OTHER_RELATIONSHIPS = ['Friend', 'Cousin', 'Relative', 'Uncle / Aunt', 'Grandparent', 'Other'];
+
+function GuestMemberTable({
+  members,
+  setMembers,
+  relationships,
+  relationshipFallback,
+  wrapTestId,
+  tableTestId,
+}) {
+  const updateRow = (idx, field, value) => {
+    setMembers((m) => {
+      const next = [...m];
+      next[idx] = { ...next[idx], [field]: value };
+      return next;
+    });
+  };
+  const removeRow = (idx) => {
+    setMembers((m) => m.filter((_, i) => i !== idx));
+  };
+
+  return (
+    <div
+      className="overflow-x-auto rounded-lg border border-slate-200/90 bg-white shadow-sm"
+      data-testid={wrapTestId}
+    >
+      <table className="w-full min-w-[1180px] text-left border-collapse" data-testid={tableTestId}>
+        <thead>
+          <tr className="bg-slate-100/95 border-b border-slate-200">
+            <th className="px-2 py-2 text-[9px] font-bold uppercase tracking-wide text-slate-600 whitespace-nowrap min-w-[7rem]">
+              Name
+            </th>
+            <th className="px-2 py-2 text-[9px] font-bold uppercase tracking-wide text-slate-600 whitespace-nowrap w-[6.5rem]">
+              Relation
+            </th>
+            <th className="px-2 py-2 text-[9px] font-bold uppercase tracking-wide text-slate-600 whitespace-nowrap w-[8.5rem]">
+              Date of birth
+            </th>
+            <th className="px-2 py-2 text-[9px] font-bold uppercase tracking-wide text-slate-600 whitespace-nowrap w-[3.5rem]">
+              Age
+            </th>
+            <th className="px-2 py-2 text-[9px] font-bold uppercase tracking-wide text-slate-600 whitespace-nowrap min-w-[5rem]">
+              City
+            </th>
+            <th className="px-2 py-2 text-[9px] font-bold uppercase tracking-wide text-slate-600 whitespace-nowrap w-[3.5rem]">
+              Country
+            </th>
+            <th className="px-2 py-2 text-[9px] font-bold uppercase tracking-wide text-slate-600 whitespace-nowrap min-w-[8rem]">
+              Email
+            </th>
+            <th className="px-2 py-2 text-[9px] font-bold uppercase tracking-wide text-slate-600 whitespace-nowrap min-w-[6.5rem]">
+              Phone
+            </th>
+            <th className="px-2 py-2 text-[9px] font-bold uppercase tracking-wide text-slate-600 whitespace-nowrap w-[5.5rem]">
+              Mode
+            </th>
+            <th
+              className="px-2 py-2 text-[9px] font-bold uppercase tracking-wide text-slate-600 whitespace-nowrap w-[3.25rem] text-center"
+              title="Email enrollment details after payment"
+            >
+              Notify
+            </th>
+            <th className="px-1 py-2 w-10" aria-label="Actions" />
+          </tr>
+        </thead>
+        <tbody>
+          {members.map((m, idx) => (
+            <tr
+              key={m.id || `row-${idx}`}
+              className="border-b border-slate-100 last:border-0 hover:bg-violet-50/30 transition-colors"
+            >
+              <td className="px-2 py-1.5 align-middle">
+                <input
+                  value={m.name}
+                  onChange={(e) => updateRow(idx, 'name', e.target.value)}
+                  className="w-full min-w-[6rem] text-[11px] border border-slate-200 rounded px-1.5 py-1 bg-white"
+                  placeholder="Full name"
+                />
+              </td>
+              <td className="px-2 py-1.5 align-middle">
+                <select
+                  value={m.relationship || relationshipFallback}
+                  onChange={(e) => updateRow(idx, 'relationship', e.target.value)}
+                  className="w-full max-w-[6.5rem] text-[11px] border border-slate-200 rounded px-1 py-1 bg-white"
+                >
+                  {relationships.map((r) => (
+                    <option key={r} value={r}>
+                      {r}
+                    </option>
+                  ))}
+                </select>
+              </td>
+              <td className="px-2 py-1.5 align-middle">
+                <input
+                  type="date"
+                  value={(m.date_of_birth || '').slice(0, 10)}
+                  onChange={(e) => {
+                    const v = e.target.value;
+                    setMembers((prev) => {
+                      const next = [...prev];
+                      const cur = { ...next[idx], date_of_birth: v };
+                      if (v) {
+                        const d = new Date(`${v}T12:00:00`);
+                        if (!Number.isNaN(d.getTime())) {
+                          const today = new Date();
+                          let age = today.getFullYear() - d.getFullYear();
+                          const mdiff = today.getMonth() - d.getMonth();
+                          if (mdiff < 0 || (mdiff === 0 && today.getDate() < d.getDate())) age -= 1;
+                          cur.age = String(Math.max(0, age));
+                        }
+                      }
+                      next[idx] = cur;
+                      return next;
+                    });
+                  }}
+                  className="w-full text-[11px] border border-slate-200 rounded px-1 py-1 bg-white"
+                />
+              </td>
+              <td className="px-2 py-1.5 align-middle">
+                <input
+                  type="number"
+                  min={0}
+                  max={120}
+                  value={m.age || ''}
+                  onChange={(e) => updateRow(idx, 'age', e.target.value)}
+                  className="w-full max-w-[3.5rem] text-[11px] border border-slate-200 rounded px-1 py-1 bg-white tabular-nums"
+                  placeholder="—"
+                />
+              </td>
+              <td className="px-2 py-1.5 align-middle">
+                <input
+                  value={m.city || ''}
+                  onChange={(e) => updateRow(idx, 'city', e.target.value)}
+                  className="w-full min-w-[4rem] text-[11px] border border-slate-200 rounded px-1.5 py-1 bg-white"
+                  placeholder="City"
+                />
+              </td>
+              <td className="px-2 py-1.5 align-middle">
+                <input
+                  value={m.country || ''}
+                  onChange={(e) => updateRow(idx, 'country', e.target.value.toUpperCase().slice(0, 4))}
+                  className="w-full max-w-[3.5rem] text-[11px] border border-slate-200 rounded px-1 py-1 bg-white uppercase"
+                  placeholder="IN"
+                  title="ISO country code (e.g. IN, AE, US)"
+                />
+              </td>
+              <td className="px-2 py-1.5 align-middle">
+                <input
+                  value={m.email || ''}
+                  onChange={(e) => updateRow(idx, 'email', e.target.value)}
+                  className="w-full min-w-[7rem] text-[11px] border border-slate-200 rounded px-1.5 py-1 bg-white"
+                  placeholder={m.notify_enrollment ? 'Required if notifying' : 'Optional'}
+                />
+              </td>
+              <td className="px-2 py-1.5 align-middle">
+                <input
+                  value={m.phone || ''}
+                  onChange={(e) => updateRow(idx, 'phone', e.target.value)}
+                  className="w-full min-w-[5.5rem] text-[11px] border border-slate-200 rounded px-1.5 py-1 bg-white"
+                  placeholder="Optional"
+                />
+              </td>
+              <td className="px-2 py-1.5 align-middle">
+                <select
+                  value={m.attendance_mode === 'offline' ? 'offline' : 'online'}
+                  onChange={(e) => updateRow(idx, 'attendance_mode', e.target.value)}
+                  className="w-full max-w-[5.5rem] text-[11px] border border-slate-200 rounded px-1 py-1 bg-white"
+                  aria-label="Online or offline"
+                >
+                  <option value="online">Online</option>
+                  <option value="offline">Offline</option>
+                </select>
+              </td>
+              <td className="px-2 py-1.5 align-middle text-center">
+                <input
+                  type="checkbox"
+                  className="rounded border-slate-300 w-3.5 h-3.5"
+                  checked={!!m.notify_enrollment}
+                  onChange={(e) => updateRow(idx, 'notify_enrollment', e.target.checked)}
+                  title="Send enrollment details to this email after payment is confirmed"
+                  aria-label="Notify by email when enrolled"
+                />
+              </td>
+              <td className="px-1 py-1.5 align-middle text-center">
+                <button
+                  type="button"
+                  onClick={() => removeRow(idx)}
+                  className="p-1.5 rounded-md text-slate-400 hover:text-red-600 hover:bg-red-50 inline-flex"
+                  aria-label="Remove row"
+                >
+                  <Trash2 size={15} />
+                </button>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
 
 /** Tier index for flagship programs: prefer annual tier for annual subscribers, else first tier. */
 function pickTierIndexForDashboard(program, preferAnnualTier) {
@@ -121,11 +321,19 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh }) 
   const familyOffer = offers.family || {};
   const isAnnual = homeData?.is_annual_subscriber;
   const initialMembers = useMemo(() => homeData?.immediate_family || [], [homeData?.immediate_family]);
+  const initialOtherMembers = useMemo(() => homeData?.other_guests || [], [homeData?.other_guests]);
 
   const [members, setMembers] = useState(() => initialMembers);
   React.useEffect(() => {
     setMembers(initialMembers);
   }, [initialMembers]);
+
+  const [otherMembers, setOtherMembers] = useState(() => initialOtherMembers);
+  React.useEffect(() => {
+    setOtherMembers(initialOtherMembers);
+  }, [initialOtherMembers]);
+
+  const enrollableGuests = useMemo(() => [...members, ...otherMembers], [members, otherMembers]);
 
   const addRow = () => {
     if (members.length >= 12) return;
@@ -147,16 +355,24 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh }) 
     ]);
   };
 
-  const removeRow = (idx) => {
-    setMembers((m) => m.filter((_, i) => i !== idx));
-  };
-
-  const updateRow = (idx, field, value) => {
-    setMembers((m) => {
-      const next = [...m];
-      next[idx] = { ...next[idx], [field]: value };
-      return next;
-    });
+  const addOtherRow = () => {
+    if (otherMembers.length >= 12) return;
+    setOtherMembers((m) => [
+      ...m,
+      {
+        id: '',
+        name: '',
+        relationship: 'Friend',
+        email: '',
+        phone: '',
+        date_of_birth: '',
+        city: '',
+        age: '',
+        attendance_mode: 'online',
+        country: '',
+        notify_enrollment: false,
+      },
+    ]);
   };
 
   const saveFamily = async () => {
@@ -192,6 +408,54 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh }) 
         { withCredentials: true }
       );
       toast({ title: 'Family saved', description: 'Your immediate family list has been updated.' });
+      onRefresh?.();
+    } catch (err) {
+      toast({
+        title: 'Could not save',
+        description: err.response?.data?.detail || err.message || 'Try again.',
+        variant: 'destructive',
+      });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const saveOtherGuests = async () => {
+    for (const m of otherMembers) {
+      if ((m.name || '').trim() && m.notify_enrollment && !(m.email || '').trim()) {
+        toast({
+          title: 'Email required for notifications',
+          description: `Add an email for “${(m.name || '').trim()}” or turn off Notify.`,
+          variant: 'destructive',
+        });
+        return;
+      }
+    }
+    setSaving(true);
+    try {
+      await axios.put(
+        `${API}/api/student/other-guests`,
+        {
+          members: otherMembers.map((m) => ({
+            id: m.id || undefined,
+            name: m.name,
+            relationship: m.relationship,
+            email: m.email,
+            phone: m.phone,
+            date_of_birth: m.date_of_birth || '',
+            city: m.city || '',
+            age: m.age || '',
+            attendance_mode: m.attendance_mode === 'offline' ? 'offline' : 'online',
+            country: (m.country || '').trim(),
+            notify_enrollment: !!m.notify_enrollment,
+          })),
+        },
+        { withCredentials: true }
+      );
+      toast({
+        title: 'Guest list saved',
+        description: 'Your friends & extended list has been updated.',
+      });
       onRefresh?.();
     } catch (err) {
       toast({
@@ -438,9 +702,9 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh }) 
             <h2 className="font-[family-name:'Cinzel',serif] text-[11px] uppercase tracking-[0.2em] text-[rgba(100,40,160,0.55)]">
               Upcoming programs
             </h2>
-            <p className="text-xs text-slate-500">
-              Portal-only pricing: your seat and family seats can use <span className="text-slate-700 font-medium">different</span>{' '}
-              discounts (set in Admin). Enroll in one step from your profile and saved family list.
+                       <p className="text-xs text-slate-500">
+              Portal-only pricing: your seat and guest seats can use <span className="text-slate-700 font-medium">different</span>{' '}
+              discounts (set in Admin). Enroll in one step from your profile and saved lists below.
             </p>
           </div>
         </div>
@@ -575,8 +839,8 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh }) 
                       </p>
                       {includedPkg && (
                         <p className="text-[10px] text-slate-600 leading-snug mb-2">
-                          This program is included in your annual package for you. Select family members below to pay for
-                          their enrollment only.
+                          This program is included in your annual package for you. Select guests below (immediate family
+                          or friends &amp; extended) to pay for their enrollment only.
                         </p>
                       )}
                       {aq ? (
@@ -629,35 +893,77 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh }) 
 
                       <div className="mt-2 space-y-1.5">
                         <p className="text-[9px] font-semibold uppercase tracking-wide text-slate-500">
-                          Family to enroll
+                          Guests to enroll
                         </p>
-                        {members.length === 0 ? (
-                          <p className="text-[10px] text-slate-400">Add family members in the section below first.</p>
+                        {enrollableGuests.length === 0 ? (
+                          <p className="text-[10px] text-slate-400">
+                            Add people under Immediate family or Friends &amp; extended below, then save each list.
+                          </p>
                         ) : (
-                          <ul className="space-y-1 max-h-28 overflow-y-auto">
-                            {members.map((m) => {
-                              const mid = m.id || `${m.name}-${m.email}`;
-                              return (
-                                <li key={mid}>
-                                  <label className="flex items-center gap-2 text-[11px] text-slate-800 cursor-pointer">
-                                    <input
-                                      type="checkbox"
-                                      className="rounded border-slate-300"
-                                      disabled={!m.id}
-                                      checked={!!m.id && selIds.includes(String(m.id))}
-                                      onChange={() => m.id && toggleFamilyMember(p.id, String(m.id))}
-                                    />
-                                    <span>
-                                      {m.name || '—'}
-                                      {m.relationship ? (
-                                        <span className="text-slate-400"> ({m.relationship})</span>
-                                      ) : null}
-                                    </span>
-                                  </label>
-                                </li>
-                              );
-                            })}
-                          </ul>
+                          <div className="space-y-2 max-h-36 overflow-y-auto pr-0.5">
+                            {members.length > 0 && (
+                              <div>
+                                <p className="text-[8px] font-bold uppercase tracking-wide text-slate-400 mb-0.5">
+                                  Immediate family
+                                </p>
+                                <ul className="space-y-1">
+                                  {members.map((m, gidx) => {
+                                    const mid = m.id || `imm-${gidx}-${m.name}-${m.email}`;
+                                    return (
+                                      <li key={mid}>
+                                        <label className="flex items-center gap-2 text-[11px] text-slate-800 cursor-pointer">
+                                          <input
+                                            type="checkbox"
+                                            className="rounded border-slate-300"
+                                            disabled={!m.id}
+                                            checked={!!m.id && selIds.includes(String(m.id))}
+                                            onChange={() => m.id && toggleFamilyMember(p.id, String(m.id))}
+                                          />
+                                          <span>
+                                            {m.name || '—'}
+                                            {m.relationship ? (
+                                              <span className="text-slate-400"> ({m.relationship})</span>
+                                            ) : null}
+                                          </span>
+                                        </label>
+                                      </li>
+                                    );
+                                  })}
+                                </ul>
+                              </div>
+                            )}
+                            {otherMembers.length > 0 && (
+                              <div>
+                                <p className="text-[8px] font-bold uppercase tracking-wide text-slate-400 mb-0.5">
+                                  Friends &amp; extended
+                                </p>
+                                <ul className="space-y-1">
+                                  {otherMembers.map((m, gidx) => {
+                                    const mid = m.id || `ext-${gidx}-${m.name}-${m.email}`;
+                                    return (
+                                      <li key={mid}>
+                                        <label className="flex items-center gap-2 text-[11px] text-slate-800 cursor-pointer">
+                                          <input
+                                            type="checkbox"
+                                            className="rounded border-slate-300"
+                                            disabled={!m.id}
+                                            checked={!!m.id && selIds.includes(String(m.id))}
+                                            onChange={() => m.id && toggleFamilyMember(p.id, String(m.id))}
+                                          />
+                                          <span>
+                                            {m.name || '—'}
+                                            {m.relationship ? (
+                                              <span className="text-slate-400"> ({m.relationship})</span>
+                                            ) : null}
+                                          </span>
+                                        </label>
+                                      </li>
+                                    );
+                                  })}
+                                </ul>
+                              </div>
+                            )}
+                          </div>
                         )}
                         {includedPkg && selCount === 0 && (
                           <p className="text-[9px] text-amber-800 bg-amber-50/80 rounded px-2 py-1">
@@ -703,7 +1009,7 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh }) 
                         title={
                           !canPay
                             ? includedPkg && selCount < 1
-                              ? 'This program is included for you — select family members to pay for their seats, or wait for pricing to load.'
+                              ? 'This program is included for you — select guests to pay for their seats, or wait for pricing to load.'
                               : !aq
                                 ? 'Loading pricing…'
                                 : (aq.total || 0) <= 0
@@ -761,182 +1067,19 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh }) 
 
           <div className="mb-3">
             {members.length === 0 && (
-              <p className="text-xs text-slate-400 italic mb-2">No family members added yet — use &quot;Add family member&quot; below.</p>
+              <p className="text-xs text-slate-400 italic mb-2">
+                No household rows yet — use &quot;Add family member&quot; below.
+              </p>
             )}
             {members.length > 0 && (
-              <div
-                className="overflow-x-auto rounded-lg border border-slate-200/90 bg-white shadow-sm"
-                data-testid="immediate-family-table-wrap"
-              >
-                <table className="w-full min-w-[1180px] text-left border-collapse" data-testid="immediate-family-table">
-                  <thead>
-                    <tr className="bg-slate-100/95 border-b border-slate-200">
-                      <th className="px-2 py-2 text-[9px] font-bold uppercase tracking-wide text-slate-600 whitespace-nowrap min-w-[7rem]">
-                        Name
-                      </th>
-                      <th className="px-2 py-2 text-[9px] font-bold uppercase tracking-wide text-slate-600 whitespace-nowrap w-[6.5rem]">
-                        Relation
-                      </th>
-                      <th className="px-2 py-2 text-[9px] font-bold uppercase tracking-wide text-slate-600 whitespace-nowrap w-[8.5rem]">
-                        Date of birth
-                      </th>
-                      <th className="px-2 py-2 text-[9px] font-bold uppercase tracking-wide text-slate-600 whitespace-nowrap w-[3.5rem]">
-                        Age
-                      </th>
-                      <th className="px-2 py-2 text-[9px] font-bold uppercase tracking-wide text-slate-600 whitespace-nowrap min-w-[5rem]">
-                        City
-                      </th>
-                      <th className="px-2 py-2 text-[9px] font-bold uppercase tracking-wide text-slate-600 whitespace-nowrap w-[3.5rem]">
-                        Country
-                      </th>
-                      <th className="px-2 py-2 text-[9px] font-bold uppercase tracking-wide text-slate-600 whitespace-nowrap min-w-[8rem]">
-                        Email
-                      </th>
-                      <th className="px-2 py-2 text-[9px] font-bold uppercase tracking-wide text-slate-600 whitespace-nowrap min-w-[6.5rem]">
-                        Phone
-                      </th>
-                      <th className="px-2 py-2 text-[9px] font-bold uppercase tracking-wide text-slate-600 whitespace-nowrap w-[5.5rem]">
-                        Mode
-                      </th>
-                      <th className="px-2 py-2 text-[9px] font-bold uppercase tracking-wide text-slate-600 whitespace-nowrap w-[3.25rem] text-center" title="Email enrollment details after payment">
-                        Notify
-                      </th>
-                      <th className="px-1 py-2 w-10" aria-label="Actions" />
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {members.map((m, idx) => (
-                      <tr
-                        key={m.id || `row-${idx}`}
-                        className="border-b border-slate-100 last:border-0 hover:bg-violet-50/30 transition-colors"
-                      >
-                        <td className="px-2 py-1.5 align-middle">
-                          <input
-                            value={m.name}
-                            onChange={(e) => updateRow(idx, 'name', e.target.value)}
-                            className="w-full min-w-[6rem] text-[11px] border border-slate-200 rounded px-1.5 py-1 bg-white"
-                            placeholder="Full name"
-                          />
-                        </td>
-                        <td className="px-2 py-1.5 align-middle">
-                          <select
-                            value={m.relationship || 'Other'}
-                            onChange={(e) => updateRow(idx, 'relationship', e.target.value)}
-                            className="w-full max-w-[6.5rem] text-[11px] border border-slate-200 rounded px-1 py-1 bg-white"
-                          >
-                            {RELATIONSHIPS.map((r) => (
-                              <option key={r} value={r}>
-                                {r}
-                              </option>
-                            ))}
-                          </select>
-                        </td>
-                        <td className="px-2 py-1.5 align-middle">
-                          <input
-                            type="date"
-                            value={(m.date_of_birth || '').slice(0, 10)}
-                            onChange={(e) => {
-                              const v = e.target.value;
-                              setMembers((prev) => {
-                                const next = [...prev];
-                                const cur = { ...next[idx], date_of_birth: v };
-                                if (v) {
-                                  const d = new Date(`${v}T12:00:00`);
-                                  if (!Number.isNaN(d.getTime())) {
-                                    const today = new Date();
-                                    let age = today.getFullYear() - d.getFullYear();
-                                    const mdiff = today.getMonth() - d.getMonth();
-                                    if (mdiff < 0 || (mdiff === 0 && today.getDate() < d.getDate())) age -= 1;
-                                    cur.age = String(Math.max(0, age));
-                                  }
-                                }
-                                next[idx] = cur;
-                                return next;
-                              });
-                            }}
-                            className="w-full text-[11px] border border-slate-200 rounded px-1 py-1 bg-white"
-                          />
-                        </td>
-                        <td className="px-2 py-1.5 align-middle">
-                          <input
-                            type="number"
-                            min={0}
-                            max={120}
-                            value={m.age || ''}
-                            onChange={(e) => updateRow(idx, 'age', e.target.value)}
-                            className="w-full max-w-[3.5rem] text-[11px] border border-slate-200 rounded px-1 py-1 bg-white tabular-nums"
-                            placeholder="—"
-                          />
-                        </td>
-                        <td className="px-2 py-1.5 align-middle">
-                          <input
-                            value={m.city || ''}
-                            onChange={(e) => updateRow(idx, 'city', e.target.value)}
-                            className="w-full min-w-[4rem] text-[11px] border border-slate-200 rounded px-1.5 py-1 bg-white"
-                            placeholder="City"
-                          />
-                        </td>
-                        <td className="px-2 py-1.5 align-middle">
-                          <input
-                            value={m.country || ''}
-                            onChange={(e) => updateRow(idx, 'country', e.target.value.toUpperCase().slice(0, 4))}
-                            className="w-full max-w-[3.5rem] text-[11px] border border-slate-200 rounded px-1 py-1 bg-white uppercase"
-                            placeholder="IN"
-                            title="ISO country code (e.g. IN, AE, US)"
-                          />
-                        </td>
-                        <td className="px-2 py-1.5 align-middle">
-                          <input
-                            value={m.email || ''}
-                            onChange={(e) => updateRow(idx, 'email', e.target.value)}
-                            className="w-full min-w-[7rem] text-[11px] border border-slate-200 rounded px-1.5 py-1 bg-white"
-                            placeholder={m.notify_enrollment ? 'Required if notifying' : 'Optional'}
-                          />
-                        </td>
-                        <td className="px-2 py-1.5 align-middle">
-                          <input
-                            value={m.phone || ''}
-                            onChange={(e) => updateRow(idx, 'phone', e.target.value)}
-                            className="w-full min-w-[5.5rem] text-[11px] border border-slate-200 rounded px-1.5 py-1 bg-white"
-                            placeholder="Optional"
-                          />
-                        </td>
-                        <td className="px-2 py-1.5 align-middle">
-                          <select
-                            value={m.attendance_mode === 'offline' ? 'offline' : 'online'}
-                            onChange={(e) => updateRow(idx, 'attendance_mode', e.target.value)}
-                            className="w-full max-w-[5.5rem] text-[11px] border border-slate-200 rounded px-1 py-1 bg-white"
-                            aria-label="Online or offline"
-                          >
-                            <option value="online">Online</option>
-                            <option value="offline">Offline</option>
-                          </select>
-                        </td>
-                        <td className="px-2 py-1.5 align-middle text-center">
-                          <input
-                            type="checkbox"
-                            className="rounded border-slate-300 w-3.5 h-3.5"
-                            checked={!!m.notify_enrollment}
-                            onChange={(e) => updateRow(idx, 'notify_enrollment', e.target.checked)}
-                            title="Send enrollment details to this email after payment is confirmed"
-                            aria-label="Notify by email when enrolled"
-                          />
-                        </td>
-                        <td className="px-1 py-1.5 align-middle text-center">
-                          <button
-                            type="button"
-                            onClick={() => removeRow(idx)}
-                            className="p-1.5 rounded-md text-slate-400 hover:text-red-600 hover:bg-red-50 inline-flex"
-                            aria-label="Remove row"
-                          >
-                            <Trash2 size={15} />
-                          </button>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+              <GuestMemberTable
+                members={members}
+                setMembers={setMembers}
+                relationships={RELATIONSHIPS}
+                relationshipFallback="Other"
+                wrapTestId="immediate-family-table-wrap"
+                tableTestId="immediate-family-table"
+              />
             )}
           </div>
 
@@ -957,6 +1100,57 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh }) 
             >
               {saving ? <Loader2 size={14} className="animate-spin" /> : null}
               Save family list
+            </button>
+          </div>
+        </div>
+
+        <div className="border-t border-slate-200/80 pt-4 mt-4">
+          <div className="flex items-center gap-2 mb-3">
+            <Users size={16} className="text-indigo-600" />
+            <div>
+              <h3 className="text-sm font-semibold text-slate-900">Friends &amp; extended</h3>
+              <p className="text-[11px] text-slate-500">
+                Friends, cousins, relatives, uncles/aunts, grandparents, and similar (max 12). Same fields as immediate family — use{' '}
+                <strong className="text-slate-700 font-medium">Notify</strong> to email them enrollment details after payment.
+              </p>
+            </div>
+          </div>
+
+          <div className="mb-3">
+            {otherMembers.length === 0 && (
+              <p className="text-xs text-slate-400 italic mb-2">
+                No guests in this list yet — use &quot;Add guest&quot; below.
+              </p>
+            )}
+            {otherMembers.length > 0 && (
+              <GuestMemberTable
+                members={otherMembers}
+                setMembers={setOtherMembers}
+                relationships={OTHER_RELATIONSHIPS}
+                relationshipFallback="Friend"
+                wrapTestId="other-guests-table-wrap"
+                tableTestId="other-guests-table"
+              />
+            )}
+          </div>
+
+          <div className="flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={addOtherRow}
+              disabled={otherMembers.length >= 12}
+              className="inline-flex items-center gap-1.5 text-xs font-medium text-[#5D3FD3] border border-violet-200 rounded-full px-3 py-1.5 hover:bg-violet-50 disabled:opacity-40"
+            >
+              <Plus size={14} /> Add guest
+            </button>
+            <button
+              type="button"
+              onClick={saveOtherGuests}
+              disabled={saving}
+              className="inline-flex items-center gap-1.5 text-xs font-semibold rounded-full px-4 py-1.5 bg-indigo-600 text-white hover:bg-indigo-700 disabled:opacity-60"
+            >
+              {saving ? <Loader2 size={14} className="animate-spin" /> : null}
+              Save friends &amp; extended
             </button>
           </div>
         </div>
