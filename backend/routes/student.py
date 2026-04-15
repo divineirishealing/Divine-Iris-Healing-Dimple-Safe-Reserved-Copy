@@ -182,10 +182,59 @@ class FamilyMemberIn(BaseModel):
     relationship: str = "Other"
     email: Optional[str] = None
     phone: Optional[str] = None
+    date_of_birth: Optional[str] = None
+    city: Optional[str] = None
+    age: Optional[str] = None
 
 
 class FamilyUpdate(BaseModel):
     members: List[FamilyMemberIn] = []
+
+
+def _age_from_dob_iso(dob_str: Optional[str]) -> str:
+    if not dob_str:
+        return ""
+    try:
+        ds = str(dob_str).strip()[:10]
+        bd = datetime.strptime(ds, "%Y-%m-%d").date()
+        today = datetime.now(timezone.utc).date()
+        years = today.year - bd.year - ((today.month, today.day) < (bd.month, bd.day))
+        return str(max(0, years))
+    except (ValueError, TypeError):
+        return ""
+
+
+def _profile_snapshot_for_prefill(user: dict, client: dict) -> dict:
+    """Merge approved profile, pending update, and client fallbacks for enrollment prefill."""
+    keys = ["full_name", "gender", "place_of_birth", "date_of_birth", "city", "qualification", "profession", "phone"]
+    if user.get("profile_approved"):
+        snap = {k: user.get(k) for k in keys if user.get(k) is not None and str(user.get(k)).strip() != ""}
+    else:
+        pending = user.get("pending_profile_update") or {}
+        snap = {}
+        for k in keys:
+            v = pending.get(k) if pending.get(k) not in (None, "") else user.get(k)
+            if v is not None and str(v).strip() != "":
+                snap[k] = v
+    phone = snap.get("phone") or (client or {}).get("phone") or ""
+    city = snap.get("city") or (client or {}).get("city") or ""
+    dob = snap.get("date_of_birth") or ""
+    age = _age_from_dob_iso(dob) if dob else ""
+    name = snap.get("full_name") or user.get("name") or ""
+    country = (client or {}).get("country") or user.get("country") or ""
+    return {
+        "name": name,
+        "email": (user.get("email") or "").strip(),
+        "phone": str(phone).strip(),
+        "city": str(city).strip(),
+        "gender": snap.get("gender") or "",
+        "date_of_birth": str(dob).strip()[:10] if dob else "",
+        "age": age,
+        "country": str(country).strip() if country else "",
+        "place_of_birth": snap.get("place_of_birth") or "",
+        "qualification": snap.get("qualification") or "",
+        "profession": snap.get("profession") or "",
+    }
 
 
 @router.put("/family")
@@ -201,12 +250,19 @@ async def update_immediate_family(data: FamilyUpdate, user: dict = Depends(get_c
         if not name:
             continue
         mid = (m.id or "").strip() or str(uuid.uuid4())
+        dob = (m.date_of_birth or "").strip()[:10] if m.date_of_birth else ""
+        age_val = (m.age or "").strip()
+        if not age_val and dob:
+            age_val = _age_from_dob_iso(dob)
         out.append({
             "id": mid,
             "name": name,
             "relationship": (m.relationship or "Other").strip() or "Other",
             "email": (m.email or "").strip(),
             "phone": (m.phone or "").strip(),
+            "date_of_birth": dob,
+            "city": (m.city or "").strip(),
+            "age": age_val,
             "updated_at": datetime.now(timezone.utc).isoformat(),
         })
 
@@ -218,6 +274,16 @@ async def update_immediate_family(data: FamilyUpdate, user: dict = Depends(get_c
         }}
     )
     return {"message": "Family list saved", "immediate_family": out}
+
+
+@router.get("/enrollment-prefill")
+async def get_enrollment_prefill(user: dict = Depends(get_current_user)):
+    """Profile + family list for dashboard-origin enrollment (skip retyping public form fields)."""
+    client_id = user.get("client_id")
+    client = await db.clients.find_one({"id": client_id}, {"_id": 0}) or {} if client_id else {}
+    self_data = _profile_snapshot_for_prefill(user, client)
+    family = client.get("immediate_family") or []
+    return {"self": self_data, "immediate_family": family}
 
 
 @router.get("/home")

@@ -25,12 +25,13 @@ function pickTierIndexForDashboard(program, preferAnnualTier) {
   return 0;
 }
 
-function buildDashboardProgramHref(p, { tierIdx, promoCode }) {
+/** Direct enrollment from dashboard (member pricing + profile prefill; skips public program page). */
+function buildDashboardEnrollHref(p, { tierIdx, promoCode }) {
   const q = new URLSearchParams();
+  q.set('source', 'dashboard');
   if (tierIdx !== null && tierIdx !== undefined) q.set('tier', String(tierIdx));
   if (promoCode && String(promoCode).trim()) q.set('promo', String(promoCode).trim());
-  const qs = q.toString();
-  return qs ? `/program/${p.id}?${qs}` : `/program/${p.id}`;
+  return `/enroll/program/${p.id}?${q.toString()}`;
 }
 
 function programStartLabel(p) {
@@ -71,7 +72,10 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh }) 
 
   const addRow = () => {
     if (members.length >= 12) return;
-    setMembers((m) => [...m, { id: '', name: '', relationship: 'Spouse', email: '', phone: '' }]);
+    setMembers((m) => [
+      ...m,
+      { id: '', name: '', relationship: 'Spouse', email: '', phone: '', date_of_birth: '', city: '', age: '' },
+    ]);
   };
 
   const removeRow = (idx) => {
@@ -98,6 +102,9 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh }) 
             relationship: m.relationship,
             email: m.email,
             phone: m.phone,
+            date_of_birth: m.date_of_birth || '',
+            city: m.city || '',
+            age: m.age || '',
           })),
         },
         { withCredentials: true }
@@ -171,7 +178,11 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh }) 
       if (!dest.startsWith('/') && !dest.startsWith('#')) dest = `/${dest}`;
       if ((dest.startsWith('/program/') || dest.startsWith('/enroll/')) && code) {
         const [base, hash] = dest.split('#');
-        const u = base.includes('?') ? `${base}&${new URLSearchParams({ promo: code }).toString()}` : `${base}?promo=${encodeURIComponent(code)}`;
+        const params = new URLSearchParams();
+        params.set('promo', code);
+        params.set('source', 'dashboard');
+        const join = base.includes('?') ? '&' : '?';
+        const u = `${base}${join}${params.toString()}`;
         navigate(hash ? `${u}#${hash}` : u);
         return;
       }
@@ -233,7 +244,9 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh }) 
             <h2 className="font-[family-name:'Cinzel',serif] text-[11px] uppercase tracking-[0.2em] text-[rgba(100,40,160,0.55)]">
               Upcoming programs
             </h2>
-            <p className="text-xs text-slate-500">Open enrollments and what&apos;s next on the public site</p>
+            <p className="text-xs text-slate-500">
+              Member pricing and promos here are for your portal only. Enroll in one step from your saved profile and family list.
+            </p>
           </div>
         </div>
 
@@ -246,7 +259,7 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh }) 
               const hasTiers = p.is_flagship && (p.duration_tiers || []).length > 0;
               const list = hasTiers && tierIdx !== null ? getPrice(p, tierIdx) : getPrice(p);
               const off = hasTiers && tierIdx !== null ? getOfferPrice(p, tierIdx) : getOfferPrice(p);
-              const href = buildDashboardProgramHref(p, { tierIdx, promoCode: promoForProgramClicks });
+              const href = buildDashboardEnrollHref(p, { tierIdx, promoCode: promoForProgramClicks });
               const baseForPromo = off > 0 ? off : list;
               const validated = promoForProgramClicks ? promoByProgramId[p.id] : null;
               const disc =
@@ -328,7 +341,7 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh }) 
             <div>
               <h3 className="text-sm font-semibold text-slate-900">Immediate family</h3>
               <p className="text-[11px] text-slate-500">
-                Add household members so we can align family offers and enrollments (max 12).
+                Add household members (name, relationship, date of birth, age, city) for family-only offers. These stay on your dashboard for faster enrollments (max 12).
               </p>
             </div>
           </div>
@@ -340,58 +353,110 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh }) 
             {members.map((m, idx) => (
               <div
                 key={m.id || `row-${idx}`}
-                className="grid grid-cols-1 sm:grid-cols-12 gap-2 items-end rounded-xl border border-slate-200/90 bg-slate-50/50 p-2.5"
+                className="rounded-xl border border-slate-200/90 bg-slate-50/50 p-2.5 space-y-2"
               >
-                <div className="sm:col-span-3">
-                  <label className="text-[9px] text-slate-500 uppercase tracking-wide">Name</label>
-                  <input
-                    value={m.name}
-                    onChange={(e) => updateRow(idx, 'name', e.target.value)}
-                    className="w-full mt-0.5 text-xs border rounded-md px-2 py-1.5 bg-white"
-                    placeholder="Full name"
-                  />
+                <div className="grid grid-cols-1 sm:grid-cols-12 gap-2 items-end">
+                  <div className="sm:col-span-3">
+                    <label className="text-[9px] text-slate-500 uppercase tracking-wide">Name</label>
+                    <input
+                      value={m.name}
+                      onChange={(e) => updateRow(idx, 'name', e.target.value)}
+                      className="w-full mt-0.5 text-xs border rounded-md px-2 py-1.5 bg-white"
+                      placeholder="Full name"
+                    />
+                  </div>
+                  <div className="sm:col-span-2">
+                    <label className="text-[9px] text-slate-500 uppercase tracking-wide">Relationship</label>
+                    <select
+                      value={m.relationship || 'Other'}
+                      onChange={(e) => updateRow(idx, 'relationship', e.target.value)}
+                      className="w-full mt-0.5 text-xs border rounded-md px-2 py-1.5 bg-white"
+                    >
+                      {RELATIONSHIPS.map((r) => (
+                        <option key={r} value={r}>
+                          {r}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="sm:col-span-2">
+                    <label className="text-[9px] text-slate-500 uppercase tracking-wide">Date of birth</label>
+                    <input
+                      type="date"
+                      value={(m.date_of_birth || '').slice(0, 10)}
+                      onChange={(e) => {
+                        const v = e.target.value;
+                        setMembers((prev) => {
+                          const next = [...prev];
+                          const cur = { ...next[idx], date_of_birth: v };
+                          if (v) {
+                            const d = new Date(`${v}T12:00:00`);
+                            if (!Number.isNaN(d.getTime())) {
+                              const today = new Date();
+                              let age = today.getFullYear() - d.getFullYear();
+                              const mdiff = today.getMonth() - d.getMonth();
+                              if (mdiff < 0 || (mdiff === 0 && today.getDate() < d.getDate())) age -= 1;
+                              cur.age = String(Math.max(0, age));
+                            }
+                          }
+                          next[idx] = cur;
+                          return next;
+                        });
+                      }}
+                      className="w-full mt-0.5 text-xs border rounded-md px-2 py-1.5 bg-white"
+                    />
+                  </div>
+                  <div className="sm:col-span-1">
+                    <label className="text-[9px] text-slate-500 uppercase tracking-wide">Age</label>
+                    <input
+                      type="number"
+                      min={0}
+                      max={120}
+                      value={m.age || ''}
+                      onChange={(e) => updateRow(idx, 'age', e.target.value)}
+                      className="w-full mt-0.5 text-xs border rounded-md px-2 py-1.5 bg-white"
+                      placeholder="—"
+                    />
+                  </div>
+                  <div className="sm:col-span-2">
+                    <label className="text-[9px] text-slate-500 uppercase tracking-wide">City</label>
+                    <input
+                      value={m.city || ''}
+                      onChange={(e) => updateRow(idx, 'city', e.target.value)}
+                      className="w-full mt-0.5 text-xs border rounded-md px-2 py-1.5 bg-white"
+                      placeholder="City"
+                    />
+                  </div>
+                  <div className="sm:col-span-2 flex justify-end">
+                    <button
+                      type="button"
+                      onClick={() => removeRow(idx)}
+                      className="p-2 rounded-lg text-slate-400 hover:text-red-600 hover:bg-red-50 self-end"
+                      aria-label="Remove"
+                    >
+                      <Trash2 size={16} />
+                    </button>
+                  </div>
                 </div>
-                <div className="sm:col-span-3">
-                  <label className="text-[9px] text-slate-500 uppercase tracking-wide">Relationship</label>
-                  <select
-                    value={m.relationship || 'Other'}
-                    onChange={(e) => updateRow(idx, 'relationship', e.target.value)}
-                    className="w-full mt-0.5 text-xs border rounded-md px-2 py-1.5 bg-white"
-                  >
-                    {RELATIONSHIPS.map((r) => (
-                      <option key={r} value={r}>
-                        {r}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                <div className="sm:col-span-3">
-                  <label className="text-[9px] text-slate-500 uppercase tracking-wide">Email (optional)</label>
-                  <input
-                    value={m.email || ''}
-                    onChange={(e) => updateRow(idx, 'email', e.target.value)}
-                    className="w-full mt-0.5 text-xs border rounded-md px-2 py-1.5 bg-white"
-                    placeholder="email@example.com"
-                  />
-                </div>
-                <div className="sm:col-span-2">
-                  <label className="text-[9px] text-slate-500 uppercase tracking-wide">Phone (optional)</label>
-                  <input
-                    value={m.phone || ''}
-                    onChange={(e) => updateRow(idx, 'phone', e.target.value)}
-                    className="w-full mt-0.5 text-xs border rounded-md px-2 py-1.5 bg-white"
-                    placeholder="+…"
-                  />
-                </div>
-                <div className="sm:col-span-1 flex justify-end">
-                  <button
-                    type="button"
-                    onClick={() => removeRow(idx)}
-                    className="p-2 rounded-lg text-slate-400 hover:text-red-600 hover:bg-red-50"
-                    aria-label="Remove"
-                  >
-                    <Trash2 size={16} />
-                  </button>
+                <div className="grid grid-cols-1 sm:grid-cols-12 gap-2 items-end">
+                  <div className="sm:col-span-5">
+                    <label className="text-[9px] text-slate-500 uppercase tracking-wide">Email (optional)</label>
+                    <input
+                      value={m.email || ''}
+                      onChange={(e) => updateRow(idx, 'email', e.target.value)}
+                      className="w-full mt-0.5 text-xs border rounded-md px-2 py-1.5 bg-white"
+                      placeholder="email@example.com"
+                    />
+                  </div>
+                  <div className="sm:col-span-5">
+                    <label className="text-[9px] text-slate-500 uppercase tracking-wide">Phone (optional)</label>
+                    <input
+                      value={m.phone || ''}
+                      onChange={(e) => updateRow(idx, 'phone', e.target.value)}
+                      className="w-full mt-0.5 text-xs border rounded-md px-2 py-1.5 bg-white"
+                      placeholder="+…"
+                    />
+                  </div>
                 </div>
               </div>
             ))}

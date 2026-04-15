@@ -187,7 +187,8 @@ const DashboardSettingsTab = ({ settings, onChange }) => {
         <div>
           <h3 className="text-sm font-semibold text-gray-900 mb-1">Student dashboard — offers</h3>
           <p className="text-[11px] text-gray-500 mb-4">
-            Shown on the student Overview (Sacred Home): separate messaging for annual subscribers vs family enrollments.
+            Shown only on the signed-in student dashboard (not the public homepage). Use separate promo codes in Promotions
+            so member/family discounts stay portal-only; students enroll from here with profile prefill and skip the public flow.
             Upcoming programs are listed automatically; these blocks are optional.
           </p>
         </div>

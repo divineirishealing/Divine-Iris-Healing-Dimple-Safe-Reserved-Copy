@@ -38,6 +38,21 @@ const COUNTRIES = [
   { code: "IT", name: "Italy", phone: "+39" }, { code: "ES", name: "Spain", phone: "+34" },
   { code: "NL", name: "Netherlands", phone: "+31" }, { code: "NZ", name: "New Zealand", phone: "+64" },
 ].sort((a, b) => a.name.localeCompare(b.name));
+
+function splitPhoneForEnrollment(fullPhone, countries) {
+  const raw = String(fullPhone || '').replace(/[\s-]/g, '');
+  if (!raw) return { phone_code: '', phone: '', whatsapp: '', wa_code: '' };
+  const sorted = [...countries].sort((a, b) => (b.phone || '').length - (a.phone || '').length);
+  for (const c of sorted) {
+    const p = c.phone || '';
+    if (p && raw.startsWith(p)) {
+      const rest = raw.slice(p.length);
+      return { phone_code: p, phone: rest, whatsapp: rest, wa_code: p };
+    }
+  }
+  return { phone_code: '', phone: raw, whatsapp: raw, wa_code: '' };
+}
+
 const GENDERS = ["Female", "Male", "Non-Binary", "Prefer not to say"];
 const RELATIONSHIPS = ["Myself", "Mother", "Father", "Sister", "Brother", "Son", "Daughter", "Spouse", "Husband", "Wife", "Grandmother", "Grandfather", "Grandson", "Granddaughter", "Friend", "Colleague", "Relative", "Other"];
 
@@ -267,7 +282,9 @@ function EnrollmentPage() {
   })();
   const [selectedTier, setSelectedTier] = useState(initialTier);
   const promoFromUrl = searchParams.get('promo');
+  const sourceDashboard = searchParams.get('source') === 'dashboard';
   const promoUrlAppliedRef = useRef(false);
+  const dashboardPrefillDoneRef = useRef(false);
 
   useEffect(() => {
     promoUrlAppliedRef.current = false;
@@ -342,6 +359,50 @@ function EnrollmentPage() {
       axios.get(`${API}/session-extras/testimonials?session_id=${id}`).then(r => setSessionTestimonials(r.data || [])).catch(() => {});
     }
   }, [id, type, navigate]);
+
+  useEffect(() => {
+    dashboardPrefillDoneRef.current = false;
+  }, [id, sourceDashboard]);
+
+  useEffect(() => {
+    if (!sourceDashboard || type !== 'program' || !item || resumeId) return;
+    if (dashboardPrefillDoneRef.current) return;
+    dashboardPrefillDoneRef.current = true;
+    axios
+      .get(`${API}/student/enrollment-prefill`, { withCredentials: true })
+      .then((r) => {
+        const s = r.data?.self || {};
+        if (!s.name && !s.email) return;
+        const split = splitPhoneForEnrollment(s.phone, COUNTRIES);
+        let countryCode = '';
+        if (s.country && COUNTRIES.some((c) => c.code === s.country)) countryCode = s.country;
+        else if (detectedCountry && COUNTRIES.some((c) => c.code === detectedCountry)) countryCode = detectedCountry;
+        setParticipants([
+          {
+            ...emptyParticipant(),
+            name: s.name || '',
+            email: s.email || '',
+            phone: split.phone,
+            phone_code: split.phone_code,
+            whatsapp: split.whatsapp,
+            wa_code: split.wa_code,
+            city: s.city || '',
+            state: '',
+            country: countryCode,
+            gender: s.gender || '',
+            age: s.age || '',
+            relationship: 'Myself',
+            attendance_mode: 'online',
+            notify: true,
+          },
+        ]);
+        toast({
+          title: 'Loaded from your portal profile',
+          description: 'Review your details, verify your email, then continue to payment.',
+        });
+      })
+      .catch(() => {});
+  }, [sourceDashboard, type, item, id, resumeId, detectedCountry, toast]);
 
   // Resume enrollment from cancel/back — restore all filled info and jump to payment step
   useEffect(() => {
@@ -917,6 +978,17 @@ function EnrollmentPage() {
                 {/* Step 0: Participants + Promo + OTP */}
                 {step === 0 && (
                   <div data-testid="step-participants">
+                    {sourceDashboard && (
+                      <div
+                        className="mb-4 rounded-lg border border-violet-200 bg-violet-50/90 px-3 py-2.5 text-xs text-violet-950"
+                        data-testid="dashboard-enroll-banner"
+                      >
+                        <p className="font-semibold text-violet-900">Student portal enrollment</p>
+                        <p className="text-violet-800/95 mt-1 leading-relaxed">
+                          Member-only pricing and promos from your dashboard. We&apos;ve filled your details from your portal profile where available—confirm, verify your email, then pay.
+                        </p>
+                      </div>
+                    )}
                     <h2 className="text-sm font-semibold text-gray-900 mb-3 flex items-center gap-2"><User size={16} className="text-[#D4AF37]" /> Who is participating?</h2>
                     {participants.map((p, i) => (
                       <ParticipantRow key={i} index={i} data={p} onChange={d => { const u = [...participants]; u[i] = d; setParticipants(u); }}
