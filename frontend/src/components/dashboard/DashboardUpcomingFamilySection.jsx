@@ -59,6 +59,26 @@ function programIncludedInAnnualPackage(p, configuredIds) {
   );
 }
 
+function memberSubcaption(rule) {
+  const r = rule || 'list';
+  if (r === 'promo') return 'after portal promo';
+  if (r === 'percent_off') return '% off your seat';
+  if (r === 'amount_off') return 'amount off your seat';
+  if (r === 'fixed_price') return 'fixed member price';
+  if (r === 'included_in_package') return '';
+  return 'list / offer unit';
+}
+
+function familySubcaption(rule) {
+  const r = rule || 'list';
+  if (r === 'promo') return 'after portal promo';
+  if (r === 'percent_off') return '% off family total';
+  if (r === 'amount_off') return 'amount off family total';
+  if (r === 'fixed_price') return 'fixed per seat × count';
+  if (r === 'none') return '';
+  return 'list / offer';
+}
+
 /** Same basis as EnrollmentPage promo discount: percentage of subtotal or fixed per currency. */
 function promoDiscountAmount(promoResult, subtotalRaw, currency) {
   if (!promoResult || subtotalRaw <= 0) return 0;
@@ -487,10 +507,35 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh }) 
                   {isAnnual ? (
                     <div className="text-left w-full group">{cardMedia}</div>
                   ) : (
-                    <button type="button" onClick={() => navigate(href)} className="text-left w-full group">
+                    <div
+                      className="text-left w-full group cursor-pointer"
+                      role="button"
+                      tabIndex={0}
+                      aria-label={`Enroll in ${p.title || 'program'}`}
+                      onClick={() => navigate(href)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' || e.key === ' ') {
+                          e.preventDefault();
+                          navigate(href);
+                        }
+                      }}
+                    >
                       {cardMedia}
-                    </button>
+                    </div>
                   )}
+                  <div className="px-3 pb-2 pt-0">
+                    <button
+                      type="button"
+                      className="text-[10px] text-violet-700 hover:text-violet-900 font-medium underline-offset-2 hover:underline text-left w-full"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        navigate(`/program/${p.id}`);
+                      }}
+                      data-testid={`dashboard-know-more-${p.id}`}
+                    >
+                      Know more about this program
+                    </button>
+                  </div>
 
                   {isAnnual && (
                     <div className="px-3 pb-3 pt-0 border-t border-slate-100 bg-gradient-to-b from-amber-50/40 to-transparent">
@@ -507,7 +552,15 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh }) 
                         <div className="space-y-1 text-[11px] text-slate-700">
                           {!includedPkg && (
                             <div className="flex justify-between gap-2">
-                              <span>You (annual tier + offer)</span>
+                              <span className="leading-snug">
+                                You
+                                {memberSubcaption(aq.member_pricing_rule) ? (
+                                  <>
+                                    {' '}
+                                    <span className="text-slate-500">— {memberSubcaption(aq.member_pricing_rule)}</span>
+                                  </>
+                                ) : null}
+                              </span>
                               <span className="font-medium tabular-nums">
                                 {symbol}
                                 {Number(aq.self_after_promos || 0).toLocaleString()}
@@ -516,8 +569,14 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh }) 
                           )}
                           {(includedPkg ? selCount > 0 : selCount > 0) && (
                             <div className="flex justify-between gap-2 text-slate-600">
-                              <span>
-                                Family ({selCount}) — after offer &amp; portal promo
+                              <span className="leading-snug">
+                                Family ({selCount})
+                                {familySubcaption(aq.family_pricing_rule) ? (
+                                  <>
+                                    {' '}
+                                    <span className="text-slate-500">— {familySubcaption(aq.family_pricing_rule)}</span>
+                                  </>
+                                ) : null}
                               </span>
                               <span className="font-medium tabular-nums">
                                 {symbol}

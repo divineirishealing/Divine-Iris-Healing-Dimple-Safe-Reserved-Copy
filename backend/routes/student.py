@@ -250,6 +250,20 @@ def _promo_discount_on_line(promo: Optional[dict], line_subtotal: float, cur: st
     return min(line_subtotal, fixed)
 
 
+def _read_currency_amount(offer: dict, prefix: str, cur: str) -> float:
+    """Read offer[prefix_cur] with fallback across common currencies."""
+    cur = (cur or "aed").lower()
+    for key in (f"{prefix}_{cur}", f"{prefix}_aed", f"{prefix}_usd", f"{prefix}_inr", f"{prefix}_eur", f"{prefix}_gbp"):
+        v = offer.get(key)
+        if v is None or str(v).strip() == "":
+            continue
+        try:
+            return float(v)
+        except (TypeError, ValueError):
+            continue
+    return 0.0
+
+
 def _program_included_in_annual_package(program: dict, configured_ids: Optional[List] = None) -> bool:
     """Programs in annual package: member seat included; they only pay for family add-ons.
 
@@ -285,22 +299,88 @@ async def compute_dashboard_annual_family_pricing(
     program_id: str,
     currency: str,
     family_count: int,
-    annual_code: str,
-    family_code: str,
+    annual_offer: dict,
+    family_offer: dict,
     include_self: bool = True,
 ) -> dict:
+    """Portal-only pricing for annual subscribers. Uses site settings offers (promo, %, amount off, fixed price)."""
     cur = (currency or "aed").lower()
     self_tier, fam_tier = _pick_self_and_family_tier_indices(program)
     self_unit = _tier_unit_price(program, self_tier, cur) if include_self else 0.0
     fam_unit = _tier_unit_price(program, fam_tier, cur)
     fc = max(0, int(family_count))
     fam_line_gross = fam_unit * fc
-    ap = await _promo_doc_for_program(annual_code, program_id) if include_self else None
-    fp = await _promo_doc_for_program(family_code, program_id)
-    self_after = (
-        max(0.0, round(self_unit - _promo_discount_on_line(ap, self_unit, cur), 2)) if include_self else 0.0
-    )
-    fam_after = max(0.0, round(fam_line_gross - _promo_discount_on_line(fp, fam_line_gross, cur), 2))
+
+    ao = annual_offer or {}
+    fo = family_offer or {}
+
+    annual_promo_applied = False
+    if include_self and ao.get("enabled"):
+        rule = (ao.get("pricing_rule") or "promo").lower().strip()
+        if rule in ("promo", ""):
+            code = (ao.get("promo_code") or "").strip()
+            ap = await _promo_doc_for_program(code, program_id) if code else None
+            d = _promo_discount_on_line(ap, self_unit, cur)
+            self_after = max(0.0, round(self_unit - d, 2))
+            annual_promo_applied = bool(ap) and d > 0
+            member_rule = "promo"
+        elif rule == "percent_off":
+            pct = min(100.0, max(0.0, float(ao.get("percent_off") or 0)))
+            self_after = max(0.0, round(self_unit * (1 - pct / 100), 2))
+            member_rule = "percent_off"
+        elif rule == "amount_off":
+            amt = _read_currency_amount(ao, "amount_off", cur)
+            self_after = max(0.0, round(self_unit - min(self_unit, amt), 2))
+            member_rule = "amount_off"
+        elif rule == "fixed_price":
+            fp = _read_currency_amount(ao, "fixed_price", cur)
+            self_after = max(0.0, round(fp, 2)) if fp > 0 else max(0.0, round(self_unit, 2))
+            member_rule = "fixed_price"
+        else:
+            self_after = max(0.0, round(self_unit, 2))
+            member_rule = "list"
+    elif include_self:
+        self_after = max(0.0, round(self_unit, 2))
+        member_rule = "list"
+    else:
+        self_after = 0.0
+        member_rule = "included_in_package"
+
+    family_promo_applied = False
+    if fc <= 0:
+        fam_after = 0.0
+        family_rule = "none"
+    elif fo.get("enabled"):
+        rule = (fo.get("pricing_rule") or "promo").lower().strip()
+        if rule in ("promo", ""):
+            code = (fo.get("promo_code") or "").strip()
+            fp_doc = await _promo_doc_for_program(code, program_id) if code else None
+            d = _promo_discount_on_line(fp_doc, fam_line_gross, cur)
+            fam_after = max(0.0, round(fam_line_gross - d, 2))
+            family_promo_applied = bool(fp_doc) and d > 0
+            family_rule = "promo"
+        elif rule == "percent_off":
+            pct = min(100.0, max(0.0, float(fo.get("percent_off") or 0)))
+            fam_after = max(0.0, round(fam_line_gross * (1 - pct / 100), 2))
+            family_rule = "percent_off"
+        elif rule == "amount_off":
+            amt = _read_currency_amount(fo, "amount_off", cur)
+            fam_after = max(0.0, round(fam_line_gross - min(fam_line_gross, amt), 2))
+            family_rule = "amount_off"
+        elif rule == "fixed_price":
+            pseat = _read_currency_amount(fo, "fixed_price", cur)
+            if pseat > 0:
+                fam_after = max(0.0, round(pseat * fc, 2))
+            else:
+                fam_after = max(0.0, round(fam_line_gross, 2))
+            family_rule = "fixed_price"
+        else:
+            fam_after = max(0.0, round(fam_line_gross, 2))
+            family_rule = "list"
+    else:
+        fam_after = max(0.0, round(fam_line_gross, 2))
+        family_rule = "list"
+
     total = round(self_after + fam_after, 2)
     return {
         "currency": cur,
@@ -308,12 +388,14 @@ async def compute_dashboard_annual_family_pricing(
         "family_tier_index": fam_tier,
         "self_unit": self_unit,
         "self_after_promos": self_after,
-        "annual_promo_applied": bool(ap) and include_self,
+        "annual_promo_applied": annual_promo_applied,
+        "member_pricing_rule": member_rule,
         "family_unit": fam_unit,
         "family_count": fc,
         "family_line_gross": round(fam_line_gross, 2),
         "family_after_promos": fam_after,
-        "family_promo_applied": bool(fp),
+        "family_promo_applied": family_promo_applied,
+        "family_pricing_rule": family_rule,
         "total": total,
         "include_self": include_self,
     }
@@ -472,10 +554,8 @@ async def dashboard_quote(
     include_self = not included
     ao = settings_doc.get("dashboard_offer_annual") or {}
     fo = settings_doc.get("dashboard_offer_family") or {}
-    annual_code = (ao.get("promo_code") or "").strip() if ao.get("enabled") else ""
-    family_code = (fo.get("promo_code") or "").strip() if fo.get("enabled") else ""
     pricing = await compute_dashboard_annual_family_pricing(
-        program, program_id, currency, fc, annual_code, family_code, include_self=include_self
+        program, program_id, currency, fc, ao, fo, include_self=include_self
     )
     return {
         "program_id": program_id,
@@ -524,10 +604,8 @@ async def dashboard_pay(data: DashboardPayIn, request: Request, user: dict = Dep
 
     ao = settings_doc.get("dashboard_offer_annual") or {}
     fo = settings_doc.get("dashboard_offer_family") or {}
-    annual_code = (ao.get("promo_code") or "").strip() if ao.get("enabled") else ""
-    family_code = (fo.get("promo_code") or "").strip() if fo.get("enabled") else ""
     quote = await compute_dashboard_annual_family_pricing(
-        program, data.program_id, data.currency, fc, annual_code, family_code, include_self=not included
+        program, data.program_id, data.currency, fc, ao, fo, include_self=not included
     )
     if quote["total"] <= 0:
         raise HTTPException(status_code=400, detail="No payable amount for this program")

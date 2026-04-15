@@ -196,9 +196,9 @@ const DashboardSettingsTab = ({ settings, onChange, programs = [] }) => {
         <div>
           <h3 className="text-sm font-semibold text-gray-900 mb-1">Student dashboard — offers</h3>
           <p className="text-[11px] text-gray-500 mb-4">
-            Shown only on the signed-in student dashboard (not the public homepage). Use separate promo codes in Promotions
-            so member/family discounts stay portal-only; students enroll from here with profile prefill and skip the public flow.
-            Upcoming programs are listed automatically; these blocks are optional.
+            Shown only on the signed-in student dashboard (not the public homepage). For each side (member vs family), choose
+            a promotion code from Promotions, or set a percent discount, amount off, or a fixed price per seat in AED / INR /
+            USD (checkout uses the student&apos;s currency). Upcoming programs are listed automatically; these blocks are optional.
           </p>
         </div>
 
@@ -231,12 +231,70 @@ const DashboardSettingsTab = ({ settings, onChange, programs = [] }) => {
                 className="text-sm"
                 placeholder="Short message shown on the dashboard…"
               />
-              <Label className="text-xs">Promo code (optional)</Label>
+              <Label className="text-xs">Promo code (when rule = Promotion code)</Label>
               <Input
                 value={annualOffer.promo_code || ''}
                 onChange={(e) => setAnnualOffer({ promo_code: e.target.value })}
                 className="text-sm font-mono"
               />
+              <div className="border-t border-amber-300/50 pt-3 space-y-2">
+                <Label className="text-xs font-medium text-gray-800">Member seat — pricing rule</Label>
+                <select
+                  value={annualOffer.pricing_rule || 'promo'}
+                  onChange={(e) => setAnnualOffer({ pricing_rule: e.target.value })}
+                  className="w-full border rounded-md px-2 py-1.5 text-xs bg-white"
+                  data-testid="dashboard-annual-pricing-rule"
+                >
+                  <option value="promo">Promotion code</option>
+                  <option value="percent_off">Percent off (list/offer unit)</option>
+                  <option value="amount_off">Amount off</option>
+                  <option value="fixed_price">Fixed price per seat</option>
+                </select>
+                {(annualOffer.pricing_rule || 'promo') === 'percent_off' && (
+                  <div>
+                    <Label className="text-[10px] text-gray-600">Percent off (0–100)</Label>
+                    <Input
+                      type="number"
+                      min={0}
+                      max={100}
+                      step={0.5}
+                      value={annualOffer.percent_off ?? ''}
+                      onChange={(e) => setAnnualOffer({ percent_off: e.target.value === '' ? '' : e.target.value })}
+                      className="text-sm"
+                    />
+                  </div>
+                )}
+                {(annualOffer.pricing_rule || 'promo') === 'amount_off' && (
+                  <div className="grid grid-cols-3 gap-2">
+                    {['aed', 'inr', 'usd'].map((c) => (
+                      <div key={c}>
+                        <Label className="text-[9px] uppercase text-gray-500">{c} off</Label>
+                        <Input
+                          value={annualOffer[`amount_off_${c}`] ?? ''}
+                          onChange={(e) => setAnnualOffer({ [`amount_off_${c}`]: e.target.value })}
+                          className="text-xs"
+                          placeholder="0"
+                        />
+                      </div>
+                    ))}
+                  </div>
+                )}
+                {(annualOffer.pricing_rule || 'promo') === 'fixed_price' && (
+                  <div className="grid grid-cols-3 gap-2">
+                    {['aed', 'inr', 'usd'].map((c) => (
+                      <div key={c}>
+                        <Label className="text-[9px] uppercase text-gray-500">{c} / seat</Label>
+                        <Input
+                          value={annualOffer[`fixed_price_${c}`] ?? ''}
+                          onChange={(e) => setAnnualOffer({ [`fixed_price_${c}`]: e.target.value })}
+                          className="text-xs"
+                          placeholder="0"
+                        />
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
               <div className="grid grid-cols-2 gap-2">
                 <div>
                   <Label className="text-xs">CTA label</Label>
@@ -278,12 +336,70 @@ const DashboardSettingsTab = ({ settings, onChange, programs = [] }) => {
                 className="text-sm"
                 placeholder="Students add family in the dashboard; this text explains their perk…"
               />
-              <Label className="text-xs">Promo code (optional)</Label>
+              <Label className="text-xs">Promo code (when rule = Promotion code)</Label>
               <Input
                 value={familyOffer.promo_code || ''}
                 onChange={(e) => setFamilyOffer({ promo_code: e.target.value })}
                 className="text-sm font-mono"
               />
+              <div className="border-t border-violet-300/50 pt-3 space-y-2">
+                <Label className="text-xs font-medium text-gray-800">Family seats — pricing rule</Label>
+                <select
+                  value={familyOffer.pricing_rule || 'promo'}
+                  onChange={(e) => setFamilyOffer({ pricing_rule: e.target.value })}
+                  className="w-full border rounded-md px-2 py-1.5 text-xs bg-white"
+                  data-testid="dashboard-family-pricing-rule"
+                >
+                  <option value="promo">Promotion code</option>
+                  <option value="percent_off">Percent off (family line total)</option>
+                  <option value="amount_off">Amount off (family line total)</option>
+                  <option value="fixed_price">Fixed price per family seat × count</option>
+                </select>
+                {(familyOffer.pricing_rule || 'promo') === 'percent_off' && (
+                  <div>
+                    <Label className="text-[10px] text-gray-600">Percent off (0–100)</Label>
+                    <Input
+                      type="number"
+                      min={0}
+                      max={100}
+                      step={0.5}
+                      value={familyOffer.percent_off ?? ''}
+                      onChange={(e) => setFamilyOffer({ percent_off: e.target.value === '' ? '' : e.target.value })}
+                      className="text-sm"
+                    />
+                  </div>
+                )}
+                {(familyOffer.pricing_rule || 'promo') === 'amount_off' && (
+                  <div className="grid grid-cols-3 gap-2">
+                    {['aed', 'inr', 'usd'].map((c) => (
+                      <div key={c}>
+                        <Label className="text-[9px] uppercase text-gray-500">{c} off total</Label>
+                        <Input
+                          value={familyOffer[`amount_off_${c}`] ?? ''}
+                          onChange={(e) => setFamilyOffer({ [`amount_off_${c}`]: e.target.value })}
+                          className="text-xs"
+                          placeholder="0"
+                        />
+                      </div>
+                    ))}
+                  </div>
+                )}
+                {(familyOffer.pricing_rule || 'promo') === 'fixed_price' && (
+                  <div className="grid grid-cols-3 gap-2">
+                    {['aed', 'inr', 'usd'].map((c) => (
+                      <div key={c}>
+                        <Label className="text-[9px] uppercase text-gray-500">{c} / seat</Label>
+                        <Input
+                          value={familyOffer[`fixed_price_${c}`] ?? ''}
+                          onChange={(e) => setFamilyOffer({ [`fixed_price_${c}`]: e.target.value })}
+                          className="text-xs"
+                          placeholder="0"
+                        />
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
               <div className="grid grid-cols-2 gap-2">
                 <div>
                   <Label className="text-xs">CTA label</Label>
