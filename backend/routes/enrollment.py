@@ -608,18 +608,35 @@ async def enrollment_checkout(enrollment_id: str, data: EnrollmentSubmit, reques
             "updated_at": datetime.now(timezone.utc).isoformat(),
         }})
 
-    pricing_resp = await get_enrollment_pricing(
-        enrollment_id, data.item_type, data.item_id,
-        tier_index=data.tier_index, client_currency=data.currency,
-        browser_timezone=data.browser_timezone, browser_languages=data.browser_languages,
-    )
-    total = pricing_resp["pricing"]["total"]
-    currency = pricing_resp["pricing"]["currency"]
-    participant_count = enrollment.get("participant_count", 1)
+    if enrollment.get("dashboard_mixed_total") is not None:
+        total = float(enrollment["dashboard_mixed_total"])
+        currency = (enrollment.get("dashboard_mixed_currency") or data.currency or "aed").lower()
+        participant_count = enrollment.get("participant_count", 1)
+        pricing_resp = {
+            "pricing": {"total": total, "currency": currency, "participant_count": participant_count},
+            "security": {
+                "vpn_blocked": False,
+                "fraud_warning": None,
+                "checks": {},
+                "ip_country": ip_country,
+                "claimed_country": enrollment.get("booker_country", ""),
+                "country_mismatch": False,
+                "inr_eligible": currency == "inr",
+            },
+        }
+    else:
+        pricing_resp = await get_enrollment_pricing(
+            enrollment_id, data.item_type, data.item_id,
+            tier_index=data.tier_index, client_currency=data.currency,
+            browser_timezone=data.browser_timezone, browser_languages=data.browser_languages,
+        )
+        total = pricing_resp["pricing"]["total"]
+        currency = pricing_resp["pricing"]["currency"]
+        participant_count = enrollment.get("participant_count", 1)
 
-    # Apply promo code discount (server-side validation)
+    # Apply promo code discount (server-side validation) — skip if dashboard already baked promos into total
     promo_discount = 0
-    if data.promo_code:
+    if enrollment.get("dashboard_mixed_total") is None and data.promo_code:
         try:
             promo = await db.promotions.find_one({"code": data.promo_code.strip().upper(), "active": True}, {"_id": 0})
             if promo:

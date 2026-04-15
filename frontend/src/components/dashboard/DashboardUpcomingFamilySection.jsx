@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
-import { Calendar, Sparkles, Users, Tag, ArrowRight, Loader2, Plus, Trash2 } from 'lucide-react';
+import { Calendar, Sparkles, Users, Tag, ArrowRight, Loader2, Plus, Trash2, CreditCard } from 'lucide-react';
 import { useToast } from '../../hooks/use-toast';
 import { useCurrency } from '../../context/CurrencyContext';
 import { resolveImageUrl } from '../../lib/imageUtils';
@@ -53,10 +53,22 @@ function promoDiscountAmount(promoResult, subtotalRaw, currency) {
 export default function DashboardUpcomingFamilySection({ homeData, onRefresh }) {
   const navigate = useNavigate();
   const { toast } = useToast();
-  const { getPrice, getOfferPrice, symbol, currency, ready: currencyReady } = useCurrency();
+  const {
+    getPrice,
+    getOfferPrice,
+    symbol,
+    currency,
+    ready: currencyReady,
+    displayCurrency,
+    isPrimary,
+    displayRate,
+  } = useCurrency();
   const [saving, setSaving] = useState(false);
   const [promoByProgramId, setPromoByProgramId] = useState({});
   const [promoPricesLoading, setPromoPricesLoading] = useState(false);
+  const [familySeats, setFamilySeats] = useState({});
+  const [annualQuotes, setAnnualQuotes] = useState({});
+  const [payingProgramId, setPayingProgramId] = useState(null);
 
   const upcoming = homeData?.upcoming_programs || [];
   const offers = homeData?.dashboard_offers || {};
@@ -130,6 +142,48 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh }) 
     [upcoming]
   );
 
+  const familySeatsKey = useMemo(() => {
+    return (upcoming || [])
+      .slice(0, 6)
+      .map((p) => `${p.id}:${familySeats[p.id] ?? 0}`)
+      .join(',');
+  }, [upcoming, familySeats]);
+
+  useEffect(() => {
+    if (!isAnnual || !currencyReady) {
+      setAnnualQuotes({});
+      return;
+    }
+    const programs = (upcoming || []).slice(0, 6);
+    if (programs.length === 0) {
+      setAnnualQuotes({});
+      return;
+    }
+    let cancelled = false;
+    Promise.all(
+      programs.map((p) => {
+        const fc = Number(familySeats[p.id] ?? 0);
+        return axios
+          .get(`${API}/api/student/dashboard-quote`, {
+            params: { program_id: p.id, family_count: fc, currency },
+            withCredentials: true,
+          })
+          .then((r) => ({ id: p.id, data: r.data }))
+          .catch(() => ({ id: p.id, data: null }));
+      })
+    ).then((rows) => {
+      if (cancelled) return;
+      const next = {};
+      rows.forEach(({ id, data }) => {
+        next[id] = data;
+      });
+      setAnnualQuotes(next);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [isAnnual, currencyReady, currency, upcomingSliceKey, familySeatsKey]);
+
   useEffect(() => {
     const code = promoForProgramClicks;
     const programs = (upcoming || []).slice(0, 6);
@@ -164,6 +218,59 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh }) 
       cancelled = true;
     };
   }, [promoForProgramClicks, currencyReady, currency, upcomingSliceKey]);
+
+  const startDashboardPayment = async (programId) => {
+    const fc = Number(familySeats[programId] ?? 0);
+    setPayingProgramId(programId);
+    try {
+      const r = await axios.post(
+        `${API}/api/student/dashboard-pay`,
+        {
+          program_id: programId,
+          family_count: fc,
+          currency,
+          origin_url: typeof window !== 'undefined' ? window.location.origin : '',
+        },
+        { withCredentials: true }
+      );
+      const { enrollment_id, tier_index: tierIdx } = r.data;
+      const checkout = await axios.post(
+        `${API}/api/enrollment/${enrollment_id}/checkout`,
+        {
+          enrollment_id,
+          item_type: 'program',
+          item_id: programId,
+          currency,
+          display_currency: displayCurrency,
+          display_rate: isPrimary ? 1 : displayRate,
+          origin_url: typeof window !== 'undefined' ? window.location.origin : '',
+          promo_code: null,
+          tier_index: tierIdx != null ? tierIdx : null,
+          points_to_redeem: 0,
+          browser_timezone:
+            typeof Intl !== 'undefined' ? Intl.DateTimeFormat().resolvedOptions().timeZone : '',
+          browser_languages:
+            typeof navigator !== 'undefined' && navigator.languages
+              ? [...navigator.languages]
+              : [typeof navigator !== 'undefined' ? navigator.language : 'en'],
+        },
+        { withCredentials: true }
+      );
+      if (checkout.data.url === '__FREE_SUCCESS__') {
+        navigate(`/payment/success?session_id=${checkout.data.session_id}`);
+      } else if (checkout.data.url) {
+        window.location.href = checkout.data.url;
+      }
+    } catch (e) {
+      toast({
+        title: 'Could not start payment',
+        description: e.response?.data?.detail || 'Try again or open Enroll for the full form.',
+        variant: 'destructive',
+      });
+    } finally {
+      setPayingProgramId(null);
+    }
+  };
 
   const OfferCard = ({ kind, offer, accent }) => {
     if (!offer?.enabled) return null;
@@ -267,59 +374,157 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh }) 
               const afterPromo = Math.max(0, baseForPromo - disc);
               const showSpecialPromo =
                 Boolean(promoForProgramClicks && validated && disc > 0 && !promoPricesLoading);
+              const aq = annualQuotes[p.id];
+              const maxFam = Math.min(12, members.length);
+              const fc = Number(familySeats[p.id] ?? 0);
               return (
-              <button
-                key={p.id}
-                type="button"
-                onClick={() => navigate(href)}
-                className="text-left rounded-2xl border border-slate-200/90 bg-white/90 overflow-hidden hover:border-[#D4AF37]/40 hover:shadow-md transition-all group"
-                data-testid={`dashboard-upcoming-${p.id}`}
-              >
-                <div className="h-24 bg-slate-100 overflow-hidden">
-                  <img
-                    src={resolveImageUrl(p.image)}
-                    alt=""
-                    className="w-full h-full object-cover group-hover:scale-[1.03] transition-transform duration-300"
-                    onError={(e) => {
-                      e.target.src = 'https://images.unsplash.com/photo-1545389336-cf090694435e?w=400&h=200&fit=crop';
-                    }}
-                  />
-                </div>
-                <div className="p-3">
-                  <p className="text-[9px] text-[#D4AF37] uppercase tracking-wider mb-0.5">{p.category || 'Program'}</p>
-                  <p className="text-sm font-semibold text-slate-900 line-clamp-2 leading-snug">{p.title}</p>
-                  <p className="text-[10px] text-slate-500 mt-1 flex items-center gap-1">
-                    <Calendar size={10} /> {programStartLabel(p)}
-                  </p>
-                  {(list > 0 || off > 0) && (
-                    <div className="mt-1.5 pt-1.5 border-t border-slate-100">
-                      {showSpecialPromo ? (
-                        <p className="text-[11px] text-slate-800">
-                          <span className="font-semibold text-[#b8860b]">{symbol}{afterPromo.toLocaleString()}</span>
-                          <span className="text-slate-400 line-through ml-1.5 text-[10px]">{symbol}{baseForPromo.toLocaleString()}</span>
-                          <span className="block text-[9px] text-violet-700/90 mt-0.5">
-                            With {promoForProgramClicks} (on offer price)
-                          </span>
-                          {off > 0 && list > off && (
-                            <span className="block text-[9px] text-slate-400 mt-0.5">List {symbol}{list.toLocaleString()}</span>
+                <div
+                  key={p.id}
+                  className="rounded-2xl border border-slate-200/90 bg-white/90 overflow-hidden hover:border-[#D4AF37]/40 hover:shadow-md transition-all flex flex-col"
+                  data-testid={`dashboard-upcoming-${p.id}`}
+                >
+                  <button
+                    type="button"
+                    onClick={() => navigate(href)}
+                    className="text-left w-full group"
+                  >
+                    <div className="h-24 bg-slate-100 overflow-hidden">
+                      <img
+                        src={resolveImageUrl(p.image)}
+                        alt=""
+                        className="w-full h-full object-cover group-hover:scale-[1.03] transition-transform duration-300"
+                        onError={(e) => {
+                          e.target.src =
+                            'https://images.unsplash.com/photo-1545389336-cf090694435e?w=400&h=200&fit=crop';
+                        }}
+                      />
+                    </div>
+                    <div className="p-3">
+                      <p className="text-[9px] text-[#D4AF37] uppercase tracking-wider mb-0.5">{p.category || 'Program'}</p>
+                      <p className="text-sm font-semibold text-slate-900 line-clamp-2 leading-snug">{p.title}</p>
+                      <p className="text-[10px] text-slate-500 mt-1 flex items-center gap-1">
+                        <Calendar size={10} /> {programStartLabel(p)}
+                      </p>
+                      {!isAnnual && (list > 0 || off > 0) && (
+                        <div className="mt-1.5 pt-1.5 border-t border-slate-100">
+                          {showSpecialPromo ? (
+                            <p className="text-[11px] text-slate-800">
+                              <span className="font-semibold text-[#b8860b]">{symbol}{afterPromo.toLocaleString()}</span>
+                              <span className="text-slate-400 line-through ml-1.5 text-[10px]">{symbol}{baseForPromo.toLocaleString()}</span>
+                              <span className="block text-[9px] text-violet-700/90 mt-0.5">
+                                With {promoForProgramClicks} (on offer price)
+                              </span>
+                              {off > 0 && list > off && (
+                                <span className="block text-[9px] text-slate-400 mt-0.5">List {symbol}{list.toLocaleString()}</span>
+                              )}
+                            </p>
+                          ) : off > 0 ? (
+                            <p className="text-[11px] text-slate-800">
+                              <span className="font-semibold text-[#b8860b]">{symbol}{off.toLocaleString()}</span>
+                              {list > 0 && off < list && (
+                                <span className="text-slate-400 line-through ml-1.5 text-[10px]">{symbol}{list.toLocaleString()}</span>
+                              )}
+                              <span className="block text-[9px] text-slate-400 mt-0.5">Offer price</span>
+                            </p>
+                          ) : list > 0 ? (
+                            <p className="text-[11px] text-slate-800 font-medium">{symbol}{list.toLocaleString()}</p>
+                          ) : null}
+                        </div>
+                      )}
+                    </div>
+                  </button>
+
+                  {isAnnual && (
+                    <div className="px-3 pb-3 pt-0 border-t border-slate-100 bg-gradient-to-b from-amber-50/40 to-transparent">
+                      <p className="text-[9px] font-bold uppercase tracking-wide text-[#b8860b] mt-2 mb-1.5">
+                        Annual member checkout
+                      </p>
+                      {aq ? (
+                        <div className="space-y-1 text-[11px] text-slate-700">
+                          <div className="flex justify-between gap-2">
+                            <span>You (annual tier + offer)</span>
+                            <span className="font-medium tabular-nums">
+                              {symbol}
+                              {Number(aq.self_after_promos || 0).toLocaleString()}
+                            </span>
+                          </div>
+                          {fc > 0 && (
+                            <div className="flex justify-between gap-2 text-slate-600">
+                              <span>
+                                Family × {fc} (portal promo{aq.family_promo_applied ? '' : ' — add code in admin'})
+                              </span>
+                              <span className="font-medium tabular-nums">
+                                {symbol}
+                                {Number(aq.family_after_promos || 0).toLocaleString()}
+                              </span>
+                            </div>
                           )}
-                        </p>
-                      ) : off > 0 ? (
-                        <p className="text-[11px] text-slate-800">
-                          <span className="font-semibold text-[#b8860b]">{symbol}{off.toLocaleString()}</span>
-                          {list > 0 && off < list && (
-                            <span className="text-slate-400 line-through ml-1.5 text-[10px]">{symbol}{list.toLocaleString()}</span>
-                          )}
-                          <span className="block text-[9px] text-slate-400 mt-0.5">Offer price</span>
-                        </p>
-                      ) : list > 0 ? (
-                        <p className="text-[11px] text-slate-800 font-medium">{symbol}{list.toLocaleString()}</p>
-                      ) : null}
+                          <div className="flex justify-between gap-2 pt-1 border-t border-amber-100/80 font-semibold text-slate-900">
+                            <span>Total</span>
+                            <span className="text-[#b8860b] tabular-nums">
+                              {symbol}
+                              {Number(aq.total || 0).toLocaleString()}
+                            </span>
+                          </div>
+                        </div>
+                      ) : (
+                        <p className="text-[10px] text-slate-400 py-1">Loading pricing…</p>
+                      )}
+
+                      <div className="mt-2 flex flex-wrap items-center gap-2">
+                        <label className="text-[10px] text-slate-600 flex items-center gap-1">
+                          Family seats
+                          <select
+                            value={fc}
+                            disabled={maxFam === 0}
+                            onChange={(e) =>
+                              setFamilySeats((s) => ({
+                                ...s,
+                                [p.id]: parseInt(e.target.value, 10),
+                              }))
+                            }
+                            className="text-xs border rounded-md px-1.5 py-1 bg-white max-w-[4rem]"
+                          >
+                            {Array.from({ length: maxFam + 1 }, (_, i) => (
+                              <option key={i} value={i}>
+                                {i}
+                              </option>
+                            ))}
+                          </select>
+                        </label>
+                        {maxFam === 0 && (
+                          <span className="text-[9px] text-slate-400">Add family above to book seats</span>
+                        )}
+                      </div>
+
+                      <button
+                        type="button"
+                        disabled={!aq || payingProgramId === p.id || (aq && aq.total <= 0)}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          startDashboardPayment(p.id);
+                        }}
+                        className="mt-2 w-full inline-flex items-center justify-center gap-1.5 rounded-lg bg-[#D4AF37] text-white text-[11px] font-semibold py-2 px-3 hover:bg-[#b8962e] disabled:opacity-50 disabled:pointer-events-none"
+                        data-testid={`dashboard-pay-${p.id}`}
+                      >
+                        {payingProgramId === p.id ? (
+                          <Loader2 size={14} className="animate-spin" />
+                        ) : (
+                          <CreditCard size={14} />
+                        )}
+                        Pay from dashboard
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => navigate(href)}
+                        className="mt-1.5 w-full text-center text-[10px] text-[#5D3FD3] hover:underline"
+                      >
+                        Or open full enroll form
+                      </button>
                     </div>
                   )}
                 </div>
-              </button>
-            );
+              );
             })}
           </div>
         )}
