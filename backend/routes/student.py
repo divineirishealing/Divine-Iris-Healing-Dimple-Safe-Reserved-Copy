@@ -279,6 +279,30 @@ def _program_included_in_annual_package(program: dict, configured_ids: Optional[
     return any(k in blob for k in keys)
 
 
+def _merge_program_dashboard_offers(global_ao: dict, global_fo: dict, program_id: str, per_map: Optional[dict]) -> Tuple[dict, dict]:
+    """Shallow-merge global annual/family offer dicts with per-program overrides from site settings."""
+    pid = str(program_id)
+    row = (per_map or {}).get(pid) if isinstance(per_map, dict) else None
+    if not isinstance(row, dict):
+        row = {}
+    ao = {**(global_ao or {}), **(row.get("annual") or {})}
+    fo = {**(global_fo or {}), **(row.get("family") or {})}
+    return ao, fo
+
+
+def _program_has_portal_pricing_override(per_map: Optional[dict], program_id: str) -> bool:
+    row = (per_map or {}).get(str(program_id)) if isinstance(per_map, dict) else None
+    if not isinstance(row, dict):
+        return False
+    a = row.get("annual")
+    f = row.get("family")
+    if isinstance(a, dict) and len(a) > 0:
+        return True
+    if isinstance(f, dict) and len(f) > 0:
+        return True
+    return False
+
+
 def _resolve_family_rows(client: dict, family_member_ids: List[str], fallback_count: int) -> List[dict]:
     fam = client.get("immediate_family") or []
     ids = [str(x).strip() for x in (family_member_ids or []) if str(x).strip()]
@@ -548,12 +572,20 @@ async def dashboard_quote(
         raise HTTPException(status_code=400, detail="Enrollment is not open for this program")
     settings_doc = await db.site_settings.find_one(
         {"id": "site_settings"},
-        {"_id": 0, "dashboard_offer_annual": 1, "dashboard_offer_family": 1, "annual_package_included_program_ids": 1},
+        {
+            "_id": 0,
+            "dashboard_offer_annual": 1,
+            "dashboard_offer_family": 1,
+            "annual_package_included_program_ids": 1,
+            "dashboard_program_offers": 1,
+        },
     ) or {}
     included = _program_included_in_annual_package(program, settings_doc.get("annual_package_included_program_ids"))
     include_self = not included
-    ao = settings_doc.get("dashboard_offer_annual") or {}
-    fo = settings_doc.get("dashboard_offer_family") or {}
+    g_ao = settings_doc.get("dashboard_offer_annual") or {}
+    g_fo = settings_doc.get("dashboard_offer_family") or {}
+    per_map = settings_doc.get("dashboard_program_offers") or {}
+    ao, fo = _merge_program_dashboard_offers(g_ao, g_fo, program_id, per_map)
     pricing = await compute_dashboard_annual_family_pricing(
         program, program_id, currency, fc, ao, fo, include_self=include_self
     )
@@ -561,6 +593,7 @@ async def dashboard_quote(
         "program_id": program_id,
         "program_title": program.get("title", ""),
         "included_in_annual_package": included,
+        "program_portal_pricing_override": _program_has_portal_pricing_override(per_map, program_id),
         **pricing,
     }
 
@@ -585,7 +618,13 @@ async def dashboard_pay(data: DashboardPayIn, request: Request, user: dict = Dep
 
     settings_doc = await db.site_settings.find_one(
         {"id": "site_settings"},
-        {"_id": 0, "dashboard_offer_annual": 1, "dashboard_offer_family": 1, "annual_package_included_program_ids": 1},
+        {
+            "_id": 0,
+            "dashboard_offer_annual": 1,
+            "dashboard_offer_family": 1,
+            "annual_package_included_program_ids": 1,
+            "dashboard_program_offers": 1,
+        },
     ) or {}
     included = _program_included_in_annual_package(program, settings_doc.get("annual_package_included_program_ids"))
     fam = client.get("immediate_family") or []
@@ -602,8 +641,10 @@ async def dashboard_pay(data: DashboardPayIn, request: Request, user: dict = Dep
             detail="This program is already included in your annual package — select one or more family members to enroll.",
         )
 
-    ao = settings_doc.get("dashboard_offer_annual") or {}
-    fo = settings_doc.get("dashboard_offer_family") or {}
+    g_ao = settings_doc.get("dashboard_offer_annual") or {}
+    g_fo = settings_doc.get("dashboard_offer_family") or {}
+    per_map = settings_doc.get("dashboard_program_offers") or {}
+    ao, fo = _merge_program_dashboard_offers(g_ao, g_fo, data.program_id, per_map)
     quote = await compute_dashboard_annual_family_pricing(
         program, data.program_id, data.currency, fc, ao, fo, include_self=not included
     )
@@ -703,9 +744,13 @@ async def get_student_home(user: dict = Depends(get_current_user)):
     ).to_list(24)
     upcoming = _sort_upcoming_for_dashboard(upcoming_raw)
 
-    settings_doc = await db.site_settings.find_one({"id": "site_settings"}, {"_id": 0, "dashboard_offer_annual": 1, "dashboard_offer_family": 1}) or {}
+    settings_doc = await db.site_settings.find_one(
+        {"id": "site_settings"},
+        {"_id": 0, "dashboard_offer_annual": 1, "dashboard_offer_family": 1, "dashboard_program_offers": 1},
+    ) or {}
     dashboard_offer_annual = settings_doc.get("dashboard_offer_annual") or {}
     dashboard_offer_family = settings_doc.get("dashboard_offer_family") or {}
+    dashboard_program_offers = settings_doc.get("dashboard_program_offers") or {}
     
     # 2. Subscription data (from Excel upload)
     sub = client.get("subscription", {})
@@ -817,6 +862,7 @@ async def get_student_home(user: dict = Depends(get_current_user)):
             "annual": dashboard_offer_annual,
             "family": dashboard_offer_family,
         },
+        "dashboard_program_offers": dashboard_program_offers,
         "immediate_family": immediate_family,
         "financials": financials,
         "package": package,

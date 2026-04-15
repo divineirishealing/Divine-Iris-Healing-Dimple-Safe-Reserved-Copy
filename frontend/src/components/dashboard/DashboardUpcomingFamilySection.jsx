@@ -112,6 +112,7 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh }) 
   const [payChannel, setPayChannel] = useState('stripe');
 
   const upcoming = homeData?.upcoming_programs || [];
+  const programPortalMap = homeData?.dashboard_program_offers || {};
   const paymentMethods = homeData?.payment_methods || ['stripe'];
   const offers = homeData?.dashboard_offers || {};
   const annualOffer = offers.annual || {};
@@ -466,6 +467,18 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh }) 
                   <div className="p-3">
                     <p className="text-[9px] text-[#D4AF37] uppercase tracking-wider mb-0.5">{p.category || 'Program'}</p>
                     <p className="text-sm font-semibold text-slate-900 line-clamp-2 leading-snug">{p.title}</p>
+                    {(() => {
+                      const row = programPortalMap[p.id];
+                      const hasMap =
+                        row &&
+                        ((row.annual && Object.keys(row.annual).length > 0) ||
+                          (row.family && Object.keys(row.family).length > 0));
+                      return hasMap || annualQuotes[p.id]?.program_portal_pricing_override ? (
+                        <p className="text-[9px] text-indigo-800/90 mt-1 font-medium leading-snug">
+                          Program-specific member &amp; family pricing
+                        </p>
+                      ) : null;
+                    })()}
                     <p className="text-[10px] text-slate-500 mt-1 flex items-center gap-1">
                       <Calendar size={10} /> {programStartLabel(p)}
                     </p>

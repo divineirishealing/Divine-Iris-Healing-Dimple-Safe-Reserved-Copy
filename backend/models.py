@@ -1,5 +1,5 @@
 from pydantic import BaseModel, Field, EmailStr
-from typing import Optional, List, Dict
+from typing import Optional, List, Dict, Any
 from datetime import datetime, timezone
 import uuid
 
@@ -563,6 +563,8 @@ class SiteSettings(BaseModel):
     dashboard_offer_family: Dict = Field(default_factory=dict)
     # When non-empty, these program IDs are "included in annual package" (member pays family seats only). Empty = use title keywords (MMM, AWRP, …).
     annual_package_included_program_ids: List[str] = Field(default_factory=list)
+    # Per-program portal pricing overrides: { program_id: { "annual": {...}, "family": {...} } } shallow-merged with global dashboard_offer_annual / family
+    dashboard_program_offers: Dict[str, Any] = Field(default_factory=dict)
     india_payment_gateway: dict = {}
     india_bank_accounts: list = []
     india_bank_details: dict = {}  # {gateway_type, exly_link, api_key, api_secret, enabled, notes}  # Emails that get INR pricing from abroad  # [{buy_program_id, get_program_id, discount_type, discount_value, code, label, enabled}]
@@ -729,6 +731,7 @@ class SiteSettingsUpdate(BaseModel):
     dashboard_offer_annual: Optional[Dict] = None
     dashboard_offer_family: Optional[Dict] = None
     annual_package_included_program_ids: Optional[List[str]] = None
+    dashboard_program_offers: Optional[Dict[str, Any]] = None
 
 class PaymentTransaction(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))

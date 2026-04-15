@@ -74,6 +74,8 @@ async def update_settings(settings: SiteSettingsUpdate):
         update_data['dashboard_offer_family'] = raw['dashboard_offer_family']
     if raw.get('annual_package_included_program_ids') is not None:
         update_data['annual_package_included_program_ids'] = raw['annual_package_included_program_ids']
+    if raw.get('dashboard_program_offers') is not None:
+        update_data['dashboard_program_offers'] = raw['dashboard_program_offers']
     if raw.get('india_payment_gateway') is not None:
         update_data['india_payment_gateway'] = raw['india_payment_gateway']
     if raw.get('india_bank_accounts') is not None:

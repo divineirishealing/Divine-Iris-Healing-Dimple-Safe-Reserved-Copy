@@ -1,11 +1,83 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { Label } from '../../ui/label';
 import { Input } from '../../ui/input';
 import { Button } from '../../ui/button';
 import { Switch } from '../../ui/switch';
 import { Textarea } from '../../ui/textarea';
-import { Save, RefreshCw, Sparkles, Users } from 'lucide-react';
+import { Save, RefreshCw, Sparkles, Users, Layers } from 'lucide-react';
 import { useToast } from '../../../hooks/use-toast';
+
+/** Member or family line: pricing_rule + fields (reused for global and per-program overrides). */
+function PortalPricingRuleFields({ offer, onPatch, variant }) {
+  const o = offer || {};
+  const rule = o.pricing_rule || 'promo';
+  const border =
+    variant === 'annual' ? 'border-amber-200/80 bg-amber-50/30' : 'border-violet-200/80 bg-violet-50/30';
+  return (
+    <div className={`space-y-2 rounded-md border p-2 ${border}`}>
+      <select
+        value={rule}
+        onChange={(e) => onPatch({ pricing_rule: e.target.value })}
+        className="w-full border rounded-md px-2 py-1.5 text-[11px] bg-white"
+      >
+        <option value="promo">Promotion code</option>
+        <option value="percent_off">Percent off</option>
+        <option value="amount_off">Amount off</option>
+        <option value="fixed_price">Fixed price {variant === 'family' ? 'per seat × count' : 'per seat'}</option>
+      </select>
+      {rule === 'promo' && (
+        <Input
+          value={o.promo_code || ''}
+          onChange={(e) => onPatch({ promo_code: e.target.value })}
+          className="text-xs font-mono h-8"
+          placeholder="Promo code"
+        />
+      )}
+      {rule === 'percent_off' && (
+        <Input
+          type="number"
+          min={0}
+          max={100}
+          step={0.5}
+          value={o.percent_off ?? ''}
+          onChange={(e) => onPatch({ percent_off: e.target.value === '' ? '' : e.target.value })}
+          className="text-xs h-8"
+          placeholder="% off"
+        />
+      )}
+      {rule === 'amount_off' && (
+        <div className="grid grid-cols-3 gap-1">
+          {['aed', 'inr', 'usd'].map((c) => (
+            <div key={c}>
+              <Label className="text-[8px] uppercase text-gray-500">{c}</Label>
+              <Input
+                value={o[`amount_off_${c}`] ?? ''}
+                onChange={(e) => onPatch({ [`amount_off_${c}`]: e.target.value })}
+                className="text-[10px] h-7 px-1"
+                placeholder="0"
+              />
+            </div>
+          ))}
+        </div>
+      )}
+      {rule === 'fixed_price' && (
+        <div className="grid grid-cols-3 gap-1">
+          {['aed', 'inr', 'usd'].map((c) => (
+            <div key={c}>
+              <Label className="text-[8px] uppercase text-gray-500">{c}</Label>
+              <Input
+                value={o[`fixed_price_${c}`] ?? ''}
+                onChange={(e) => onPatch({ [`fixed_price_${c}`]: e.target.value })}
+                className="text-[10px] h-7 px-1"
+                placeholder="0"
+              />
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
 
 const DashboardSettingsTab = ({ settings, onChange, programs = [] }) => {
   const { toast } = useToast();
@@ -53,6 +125,41 @@ const DashboardSettingsTab = ({ settings, onChange, programs = [] }) => {
     if (next.has(sid)) next.delete(sid);
     else next.add(sid);
     onChange({ ...settings, annual_package_included_program_ids: [...next] });
+  };
+
+  const progOffers = settings.dashboard_program_offers || {};
+  const upcomingForPortalPricing = useMemo(
+    () =>
+      [...(programs || [])]
+        .filter((p) => p && p.is_upcoming)
+        .sort((a, b) => (a.title || '').localeCompare(b.title || '', undefined, { sensitivity: 'base' })),
+    [programs]
+  );
+
+  const setProgramAnnual = (pid, patch) => {
+    const row = progOffers[pid] || {};
+    onChange({
+      ...settings,
+      dashboard_program_offers: {
+        ...progOffers,
+        [pid]: { ...row, annual: { ...(row.annual || {}), ...patch } },
+      },
+    });
+  };
+  const setProgramFamily = (pid, patch) => {
+    const row = progOffers[pid] || {};
+    onChange({
+      ...settings,
+      dashboard_program_offers: {
+        ...progOffers,
+        [pid]: { ...row, family: { ...(row.family || {}), ...patch } },
+      },
+    });
+  };
+  const clearProgramOffers = (pid) => {
+    const next = { ...progOffers };
+    delete next[pid];
+    onChange({ ...settings, dashboard_program_offers: next });
   };
 
   const update = (field, value) => {
@@ -412,6 +519,71 @@ const DashboardSettingsTab = ({ settings, onChange, programs = [] }) => {
               </div>
             </div>
           </div>
+        </div>
+
+        <div className="mt-8 rounded-lg border border-indigo-200/80 bg-indigo-50/30 p-4 space-y-3" data-testid="dashboard-program-offers">
+          <div className="flex items-start gap-2">
+            <Layers size={16} className="text-indigo-700 mt-0.5 flex-shrink-0" />
+            <div>
+              <h3 className="text-sm font-semibold text-gray-900">Upcoming programs — portal pricing (per program)</h3>
+              <p className="text-[11px] text-gray-500 leading-snug mt-0.5">
+                Optional. Set member and family rules for each <strong>upcoming</strong> program. Values here override the
+                global defaults above for checkout pricing only (title/body CTAs stay global unless you also change global
+                blocks).
+              </p>
+            </div>
+          </div>
+          {upcomingForPortalPricing.length === 0 ? (
+            <p className="text-[11px] text-gray-500 italic">No programs marked as Upcoming — edit Programs and enable &quot;Upcoming&quot;.</p>
+          ) : (
+            <div className="space-y-2 max-h-[480px] overflow-y-auto pr-1">
+              {upcomingForPortalPricing.map((p) => {
+                const row = progOffers[p.id] || {};
+                const hasRow =
+                  (row.annual && Object.keys(row.annual).length > 0) ||
+                  (row.family && Object.keys(row.family).length > 0);
+                return (
+                  <details
+                    key={p.id}
+                    className="group border border-gray-200 rounded-lg bg-white/90 open:shadow-sm"
+                    data-testid={`dashboard-prog-offer-${p.id}`}
+                  >
+                    <summary className="cursor-pointer list-none px-3 py-2 text-xs font-medium text-gray-900 flex items-center justify-between gap-2">
+                      <span className="truncate">{p.title || p.id}</span>
+                      {hasRow ? (
+                        <span className="text-[9px] font-normal text-indigo-700 bg-indigo-100/80 px-1.5 py-0.5 rounded">Custom</span>
+                      ) : (
+                        <span className="text-[9px] font-normal text-gray-400">Global defaults</span>
+                      )}
+                    </summary>
+                    <div className="px-3 pb-3 pt-0 grid md:grid-cols-2 gap-3 border-t border-gray-100">
+                      <div className="space-y-1">
+                        <Label className="text-[10px] text-amber-900">Member seat override</Label>
+                        <PortalPricingRuleFields
+                          offer={row.annual}
+                          onPatch={(patch) => setProgramAnnual(p.id, patch)}
+                          variant="annual"
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <Label className="text-[10px] text-violet-900">Family override</Label>
+                        <PortalPricingRuleFields
+                          offer={row.family}
+                          onPatch={(patch) => setProgramFamily(p.id, patch)}
+                          variant="family"
+                        />
+                      </div>
+                      <div className="md:col-span-2">
+                        <Button type="button" variant="outline" size="sm" className="text-[10px] h-7" onClick={() => clearProgramOffers(p.id)}>
+                          Clear overrides for this program
+                        </Button>
+                      </div>
+                    </div>
+                  </details>
+                );
+              })}
+            </div>
+          )}
         </div>
 
         <div
