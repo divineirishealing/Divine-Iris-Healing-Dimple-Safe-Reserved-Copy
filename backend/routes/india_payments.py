@@ -1,10 +1,13 @@
 from fastapi import APIRouter, HTTPException, UploadFile, File, Form
 from typing import Optional
-import os, uuid, shutil, logging
+import os, uuid, logging
 from motor.motor_asyncio import AsyncIOMotorClient
 from dotenv import load_dotenv
 from pathlib import Path
 from datetime import datetime, timezone
+import mimetypes
+
+import s3_storage
 
 ROOT_DIR = Path(__file__).parent.parent
 load_dotenv(ROOT_DIR / '.env')
@@ -48,12 +51,19 @@ async def submit_payment_proof(
     if enrollment_id != "MANUAL":
         enrollment = await db.enrollments.find_one({"id": enrollment_id}, {"_id": 0}) or {}
 
-    # Save screenshot
+    # Save screenshot (S3 when AWS_S3_BUCKET is set, else local disk)
     ext = screenshot.filename.split(".")[-1] if "." in screenshot.filename else "png"
     filename = f"{uuid.uuid4().hex[:12]}.{ext}"
-    filepath = UPLOAD_DIR / filename
-    with open(filepath, "wb") as f:
-        shutil.copyfileobj(screenshot.file, f)
+    proof_bytes = await screenshot.read()
+    mime = mimetypes.types_map.get(f".{ext.lower()}") or "image/png"
+    if s3_storage.is_s3_enabled():
+        key = s3_storage.payment_proof_key(filename)
+        screenshot_public_url = s3_storage.upload_bytes(key, proof_bytes, mime)
+    else:
+        filepath = UPLOAD_DIR / filename
+        with open(filepath, "wb") as f:
+            f.write(proof_bytes)
+        screenshot_public_url = f"/api/uploads/payment_proofs/{filename}"
 
     proof = {
         "id": str(uuid.uuid4()),
@@ -77,7 +87,7 @@ async def submit_payment_proof(
         "emi_total_months": int(emi_total_months) if emi_total_months else None,
         "emi_months_covered": int(emi_months_covered) if emi_months_covered else None,
         "notes": notes,
-        "screenshot_url": f"/api/uploads/payment_proofs/{filename}",
+        "screenshot_url": screenshot_public_url,
         "status": "pending",
         "participants": enrollment.get("participants", []),
         "participant_count": enrollment.get("participant_count", 1),

@@ -3,6 +3,9 @@ from pathlib import Path
 import shutil
 import uuid
 import os
+import mimetypes
+
+import s3_storage
 
 router = APIRouter(prefix="/api/upload", tags=["Upload"])
 
@@ -59,20 +62,48 @@ def _save_locally(file, unique_filename: str) -> str:
     return f"/api/image/{unique_filename}"
 
 
+def _guess_content_type(filename: str) -> str:
+    mime, _ = mimetypes.guess_type(filename)
+    return mime or "application/octet-stream"
+
+
+def _image_upload_backend() -> str:
+    if s3_storage.is_s3_enabled():
+        return "s3"
+    if _CLOUDINARY_AVAILABLE:
+        return "cloudinary"
+    return "local"
+
+
+@router.get("/storage-status")
+async def upload_storage_status():
+    """Which backend image uploads use (no secrets). Open after setting Render env + deploy."""
+    return {
+        "image_upload_will_use": _image_upload_backend(),
+        "s3_enabled": s3_storage.is_s3_enabled(),
+        "cloudinary_enabled": _CLOUDINARY_AVAILABLE,
+        "hint": "Set AWS_S3_BUCKET (+ AWS keys) on this API service and redeploy. Name must be exactly AWS_S3_BUCKET.",
+    }
+
+
 @router.post("/image")
 async def upload_image(file: UploadFile = File(...)):
     file_ext = Path(file.filename).suffix.lower()
     if file_ext not in IMAGE_EXTENSIONS:
         raise HTTPException(status_code=400, detail=f"File type not allowed. Allowed: {', '.join(IMAGE_EXTENSIONS)}")
     try:
+        unique_filename = f"{uuid.uuid4()}{file_ext}"
+        if s3_storage.is_s3_enabled():
+            file_bytes = await file.read()
+            key = s3_storage.image_key(unique_filename)
+            url = s3_storage.upload_bytes(key, file_bytes, _guess_content_type(unique_filename))
+            return {"url": url, "filename": unique_filename}
         if _CLOUDINARY_AVAILABLE:
             file_bytes = await file.read()
-            url = _upload_to_cloudinary(file_bytes, f"{uuid.uuid4()}{file_ext}")
+            url = _upload_to_cloudinary(file_bytes, unique_filename)
             return {"url": url, "filename": Path(url).name}
-        else:
-            unique_filename = f"{uuid.uuid4()}{file_ext}"
-            url = _save_locally(file.file, unique_filename)
-            return {"url": url, "filename": unique_filename}
+        url = _save_locally(file.file, unique_filename)
+        return {"url": url, "filename": unique_filename}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to save file: {str(e)}")
 
@@ -83,21 +114,30 @@ async def upload_video(file: UploadFile = File(...)):
     if file_ext not in VIDEO_EXTENSIONS:
         raise HTTPException(status_code=400, detail=f"File type not allowed. Allowed: {', '.join(VIDEO_EXTENSIONS)}")
     try:
+        unique_filename = f"{uuid.uuid4()}{file_ext}"
+        if s3_storage.is_s3_enabled():
+            file_bytes = await file.read()
+            key = s3_storage.video_key(unique_filename)
+            url = s3_storage.upload_bytes(key, file_bytes, _guess_content_type(unique_filename))
+            return {"url": url, "filename": unique_filename}
         if _CLOUDINARY_AVAILABLE:
             file_bytes = await file.read()
-            url = _upload_to_cloudinary(file_bytes, f"{uuid.uuid4()}{file_ext}", resource_type="video")
+            url = _upload_to_cloudinary(file_bytes, unique_filename, resource_type="video")
             return {"url": url, "filename": Path(url).name}
-        else:
-            unique_filename = f"{uuid.uuid4()}{file_ext}"
-            url = _save_locally(file.file, unique_filename)
-            return {"url": url, "filename": unique_filename}
+        url = _save_locally(file.file, unique_filename)
+        return {"url": url, "filename": unique_filename}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to save file: {str(e)}")
 
 
 @router.delete("/image/{filename}")
 async def delete_image(filename: str):
-    file_path = UPLOAD_DIR / filename
+    safe_name = Path(filename).name
+    if s3_storage.is_s3_enabled():
+        key = s3_storage.image_key(safe_name)
+        if s3_storage.delete_object_key(key):
+            return {"message": "File deleted successfully"}
+    file_path = UPLOAD_DIR / safe_name
     if not file_path.exists():
         raise HTTPException(status_code=404, detail="File not found")
     try:
@@ -114,13 +154,17 @@ async def upload_document(file: UploadFile = File(...)):
     if file_ext not in allowed:
         raise HTTPException(status_code=400, detail=f"File type not allowed. Allowed: {', '.join(sorted(allowed))}")
     try:
+        unique_filename = f"{uuid.uuid4()}{file_ext}"
+        if s3_storage.is_s3_enabled():
+            file_bytes = await file.read()
+            key = s3_storage.document_key(unique_filename)
+            url = s3_storage.upload_bytes(key, file_bytes, _guess_content_type(unique_filename))
+            return {"url": url, "filename": unique_filename, "original_name": file.filename}
         if _CLOUDINARY_AVAILABLE and file_ext in IMAGE_EXTENSIONS:
             file_bytes = await file.read()
-            url = _upload_to_cloudinary(file_bytes, f"{uuid.uuid4()}{file_ext}")
+            url = _upload_to_cloudinary(file_bytes, unique_filename)
             return {"url": url, "filename": Path(url).name, "original_name": file.filename}
-        else:
-            unique_filename = f"{uuid.uuid4()}{file_ext}"
-            url = _save_locally(file.file, unique_filename)
-            return {"url": url, "filename": unique_filename, "original_name": file.filename}
+        url = _save_locally(file.file, unique_filename)
+        return {"url": url, "filename": unique_filename, "original_name": file.filename}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to save file: {str(e)}")

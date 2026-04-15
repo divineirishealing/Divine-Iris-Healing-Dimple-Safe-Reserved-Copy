@@ -14,6 +14,18 @@ services:
         value: divineIris  # Change if you used a different DB name in Atlas
       - key: HOST_URL
         sync: false        # Set to your Render backend URL e.g. https://divine-iris-backend.onrender.com
+      - key: AWS_S3_BUCKET
+        sync: false        # Optional: enables S3 for uploads (images, videos, payment proofs). Also set AWS keys + region.
+      - key: AWS_ACCESS_KEY_ID
+        sync: false
+      - key: AWS_SECRET_ACCESS_KEY
+        sync: false
+      - key: AWS_REGION
+        sync: false        # e.g. ap-southeast-1; default in code if unset
+      - key: AWS_S3_PUBLIC_BASE_URL
+        sync: false        # Optional: CloudFront or custom origin URL (no trailing slash)
+      - key: AWS_S3_PREFIX
+        sync: false        # Optional: S3 key prefix, default uploads
       - key: PYTHON_VERSION
         value: 3.11.0
 

@@ -9,6 +9,9 @@ from datetime import datetime, timezone
 from motor.motor_asyncio import AsyncIOMotorClient
 from dotenv import load_dotenv
 from pathlib import Path
+import mimetypes
+
+import s3_storage
 
 ROOT_DIR = Path(__file__).parent.parent
 load_dotenv(ROOT_DIR / '.env')
@@ -102,11 +105,16 @@ async def submit_manual_payment(
     if receipt:
         ext = receipt.filename.split(".")[-1] if "." in receipt.filename else "png"
         fname = f"{client_id}_{eff_emi}_{uuid.uuid4().hex[:8]}.{ext}"
-        fpath = UPLOAD_DIR / fname
         content = await receipt.read()
-        with open(fpath, "wb") as f:
-            f.write(content)
-        receipt_url = f"/api/uploads/payment_proofs/{fname}"
+        mime = mimetypes.types_map.get(f".{ext.lower()}") or "image/png"
+        if s3_storage.is_s3_enabled():
+            key = s3_storage.payment_proof_key(fname)
+            receipt_url = s3_storage.upload_bytes(key, content, mime)
+        else:
+            fpath = UPLOAD_DIR / fname
+            with open(fpath, "wb") as f:
+                f.write(content)
+            receipt_url = f"/api/uploads/payment_proofs/{fname}"
 
     submission = {
         "id": str(uuid.uuid4()),
