@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { useParams, useNavigate, useLocation } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import Header from '../components/Header';
 import Footer from '../components/Footer';
@@ -20,9 +20,6 @@ const EMI_MONTHS = Array.from({ length: 12 }, (_, i) => i + 1);
 const ManualPaymentPage = () => {
   const { enrollmentId } = useParams();
   const navigate = useNavigate();
-  const location = useLocation();
-  const pdFromNav = location.state?.payment_destinations;
-  const stateMethods = location.state?.payment_methods;
   const { toast } = useToast();
 
   const [settings, setSettings] = useState({});
@@ -57,25 +54,6 @@ const ManualPaymentPage = () => {
   const [phoneCode, setPhoneCode] = useState('+91');
   const [sessions, setSessions] = useState([]);
   const [programs, setPrograms] = useState([]);
-  const [fetchedPd, setFetchedPd] = useState(null);
-
-  useEffect(() => {
-    const hasDest =
-      pdFromNav &&
-      ((Array.isArray(pdFromNav.gpay) && pdFromNav.gpay.length > 0) ||
-        (Array.isArray(pdFromNav.bank) && pdFromNav.bank.length > 0));
-    if (hasDest) return undefined;
-    let cancelled = false;
-    axios
-      .get(`${process.env.REACT_APP_BACKEND_URL}/api/student/home`, { withCredentials: true })
-      .then((r) => {
-        if (!cancelled) setFetchedPd(r.data?.payment_destinations || null);
-      })
-      .catch(() => {});
-    return () => {
-      cancelled = true;
-    };
-  }, [enrollmentId, pdFromNav]);
 
   useEffect(() => {
     const load = async () => {
@@ -128,63 +106,22 @@ const ManualPaymentPage = () => {
     load();
   }, [enrollmentId]);
 
-  const paymentDestinations = useMemo(() => {
-    if (
-      pdFromNav &&
-      ((Array.isArray(pdFromNav.gpay) && pdFromNav.gpay.length > 0) ||
-        (Array.isArray(pdFromNav.bank) && pdFromNav.bank.length > 0))
-    ) {
-      return pdFromNav;
-    }
-    return fetchedPd || {};
-  }, [pdFromNav, fetchedPd]);
-
-  const gpayAssigned = useMemo(() => {
-    let rows = (Array.isArray(paymentDestinations.gpay) ? paymentDestinations.gpay : []).filter((x) =>
+  /** India proof / site settings only (same as Sacred Exchange). */
+  const gpayToShow = useMemo(() => {
+    const siteGpayList = (Array.isArray(settings.india_gpay_accounts) ? settings.india_gpay_accounts : []).filter((x) =>
       (x.upi_id || '').trim()
     );
-    const pid = paymentDestinations.primary_gpay_id;
-    if (pid && rows.some((x) => x.id === pid)) rows = rows.filter((x) => x.id === pid);
-    return rows;
-  }, [paymentDestinations]);
-
-  const siteGpayList = useMemo(
-    () =>
-      (Array.isArray(settings.india_gpay_accounts) ? settings.india_gpay_accounts : []).filter((x) =>
-        (x.upi_id || '').trim()
-      ),
-    [settings.india_gpay_accounts]
-  );
-
-  /** Member-specific UPI from subscription wins; else site-wide india_gpay_accounts. Legacy single india_upi_id if list empty. */
-  const gpayToShow = useMemo(() => {
-    if (gpayAssigned.length > 0) return gpayAssigned;
     if (siteGpayList.length > 0) return siteGpayList;
     const legacy = (settings.india_upi_id || '').trim();
     if (legacy) return [{ id: 'legacy-upi', label: 'UPI', upi_id: legacy, qr_image_url: '' }];
     return [];
-  }, [gpayAssigned, siteGpayList, settings.india_upi_id]);
+  }, [settings.india_gpay_accounts, settings.india_upi_id]);
 
   const banks = useMemo(() => {
     const bankAccounts = settings.india_bank_accounts || [];
     const singleBank = settings.india_bank_details || {};
-    const siteBanks = bankAccounts.length > 0 ? bankAccounts : (singleBank.account_number ? [singleBank] : []);
-    let subRows = (paymentDestinations.bank || []).filter((x) => (x.account_number || '').trim());
-    const bid = paymentDestinations.primary_bank_id;
-    if (bid && subRows.some((x) => x.id === bid)) subRows = subRows.filter((x) => x.id === bid);
-    const preferSub =
-      (Array.isArray(stateMethods) && stateMethods.includes('bank') && subRows.length > 0) ||
-      ((!stateMethods || stateMethods.length === 0) && subRows.length > 0);
-    if (!preferSub || subRows.length === 0) return siteBanks;
-    return subRows.map((b, i) => ({
-      label: b.label || b.bank_name || `Account ${i + 1}`,
-      bank_name: b.bank_name || '',
-      account_name: b.account_name || '',
-      account_number: b.account_number || '',
-      ifsc: b.ifsc || b.ifsc_code || '',
-      branch: b.branch || '',
-    }));
-  }, [paymentDestinations, stateMethods, settings.india_bank_accounts, settings.india_bank_details]);
+    return bankAccounts.length > 0 ? bankAccounts : (singleBank.account_number ? [singleBank] : []);
+  }, [settings.india_bank_accounts, settings.india_bank_details]);
 
   useEffect(() => {
     setSelectedBank(0);

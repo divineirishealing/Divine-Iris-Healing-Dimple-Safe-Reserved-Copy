@@ -310,7 +310,6 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh }) 
         navigate(`/manual-payment/${enrollment_id}`, {
           state: {
             payment_methods: paymentMethods,
-            payment_destinations: homeData?.payment_destinations || {},
           },
         });
         return;

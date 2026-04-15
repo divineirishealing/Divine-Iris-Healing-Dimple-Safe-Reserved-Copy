@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import axios from 'axios';
 import { effectiveIrisJourneyLabel } from '../../../lib/irisJourney';
-import { resolveImageUrl, isLikelyImageUrl } from '../../../lib/imageUtils';
 import { useToast } from '../../../hooks/use-toast';
 import { Button } from '../../ui/button';
 import { Input } from '../../ui/input';
@@ -412,13 +411,6 @@ const SubscriberForm = ({ initial, onSave, onCancel, saving, packages, irisCatal
 
   const set = (key, val) => setF(prev => ({ ...prev, [key]: val }));
   const setSess = (key, val) => setF(prev => ({ ...prev, sessions: { ...prev.sessions, [key]: val } }));
-  const setPd = (partialOrFn) => {
-    setF((prev) => {
-      const cur = normalizePaymentDestinations(prev.payment_destinations);
-      const next = typeof partialOrFn === 'function' ? partialOrFn(cur) : { ...cur, ...partialOrFn };
-      return { ...prev, payment_destinations: next };
-    });
-  };
 
   const addHomeComingCircle = () => {
     const pd = f.programs_detail || [];
@@ -822,7 +814,7 @@ const SubscriberForm = ({ initial, onSave, onCancel, saving, packages, irisCatal
         </div>
         <div className="md:col-span-2">
           <Label className="text-xs">Payment methods for this member</Label>
-          <p className="text-[9px] text-gray-500 mb-1">Stripe vs GPay/Bank can differ — assign UPI / account numbers below when using GPay or Bank.</p>
+          <p className="text-[9px] text-gray-500 mb-1">Which channels this member may use. UPI and bank <strong>details</strong> come from Site Settings → India payment (India proof), not from this form.</p>
           <div className="flex flex-wrap gap-x-3 gap-y-1 mt-1">
             {[
               ['stripe', 'Stripe'],
@@ -845,261 +837,18 @@ const SubscriberForm = ({ initial, onSave, onCancel, saving, packages, irisCatal
               </label>
             ))}
           </div>
-          <p className="text-[9px] text-gray-400 mt-0.5">*Manual uses site-wide bank accounts. Use Bank + rows below for member-specific accounts.</p>
+          <p className="text-[9px] text-gray-400 mt-0.5">*Manual uses site India bank lines from settings. GPay/Bank rows are not entered per subscriber.</p>
         </div>
       </div>
 
-      {/* Assigned UPI / bank accounts (per member) */}
-      <div className="border rounded-lg p-3 bg-slate-50/80 space-y-3">
-        <p className="text-[11px] font-semibold text-gray-800">Assigned payment numbers (optional)</p>
-        <p className="text-[9px] text-gray-500">With multiple UPI or bank rows, pick one default each so the student payment flow shows only that GPay UPI or bank account.</p>
-        {(f.payment_methods || []).includes('gpay') && (
-          <div className="space-y-2">
-            <Label className="text-xs">Google Pay / UPI IDs for this member</Label>
-            {(f.payment_destinations?.gpay || []).map((row, idx) => (
-              <div key={row.id || idx} className="border-b border-gray-100 pb-3 space-y-2">
-                <div className="flex flex-wrap gap-2 items-end">
-                  <div className="flex-1 min-w-[120px]">
-                    <Label className="text-[9px] text-gray-500">Label</Label>
-                    <Input
-                      className="h-8 text-xs"
-                      value={row.label || ''}
-                      placeholder="e.g. Primary"
-                      onChange={(e) => {
-                        setPd((cur) => {
-                          const g = [...cur.gpay];
-                          g[idx] = { ...g[idx], label: e.target.value };
-                          return { ...cur, gpay: g };
-                        });
-                      }}
-                    />
-                  </div>
-                  <div className="flex-[2] min-w-[160px]">
-                    <Label className="text-[9px] text-gray-500">UPI ID</Label>
-                    <Input
-                      className="h-8 text-xs font-mono"
-                      value={row.upi_id || ''}
-                      placeholder="name@paytm"
-                      onChange={(e) => {
-                        setPd((cur) => {
-                          const g = [...cur.gpay];
-                          g[idx] = { ...g[idx], upi_id: e.target.value };
-                          return { ...cur, gpay: g };
-                        });
-                      }}
-                    />
-                  </div>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    className="h-8 text-red-600"
-                    onClick={() => {
-                      setPd((cur) => {
-                        const removed = cur.gpay[idx];
-                        const g = cur.gpay.filter((_, i) => i !== idx);
-                        let primary_gpay_id = cur.primary_gpay_id;
-                        if (removed?.id && primary_gpay_id === removed.id) primary_gpay_id = '';
-                        return { ...cur, gpay, primary_gpay_id };
-                      });
-                    }}
-                  >
-                    <Trash2 size={14} />
-                  </Button>
-                </div>
-                <label className="flex items-center gap-2 text-[10px] text-gray-600 cursor-pointer">
-                  <input
-                    type="radio"
-                    name="subscriber-primary-gpay"
-                    className="accent-[#5D3FD3]"
-                    checked={!!row.id && f.payment_destinations?.primary_gpay_id === row.id}
-                    onChange={() => setPd({ primary_gpay_id: row.id || '' })}
-                  />
-                  Default UPI for student payments
-                </label>
-                <div className="pl-0 sm:pl-0">
-                  <Label className="text-[9px] text-gray-500">QR code (optional)</Label>
-                  <div className="flex flex-wrap gap-2 items-center mt-1">
-                    <Input
-                      className="h-7 text-[10px] font-mono flex-1 min-w-[160px]"
-                      placeholder="Image URL or upload"
-                      value={row.qr_image_url || ''}
-                      onChange={(e) => {
-                        setPd((cur) => {
-                          const g = [...cur.gpay];
-                          g[idx] = { ...g[idx], qr_image_url: e.target.value };
-                          return { ...cur, gpay: g };
-                        });
-                      }}
-                    />
-                    <input
-                      type="file"
-                      accept="image/png,image/jpeg,image/webp,image/gif"
-                      className="hidden"
-                      id={`sub-gpay-qr-${idx}`}
-                      onChange={async (e) => {
-                        const file = e.target.files?.[0];
-                        e.target.value = '';
-                        if (!file) return;
-                        const fd = new FormData();
-                        fd.append('file', file);
-                        try {
-                          const r = await axios.post(`${BACKEND_ORIGIN}/api/upload/image`, fd);
-                          const url = r.data?.url;
-                          if (url) {
-                            setPd((cur) => {
-                              const g = [...cur.gpay];
-                              g[idx] = { ...g[idx], qr_image_url: url };
-                              return { ...cur, gpay: g };
-                            });
-                            toast({ title: 'QR image uploaded' });
-                          }
-                        } catch {
-                          toast({ title: 'Upload failed', variant: 'destructive' });
-                        }
-                      }}
-                    />
-                    <label
-                      htmlFor={`sub-gpay-qr-${idx}`}
-                      className="inline-flex items-center gap-1 text-[10px] px-2 py-1 rounded border border-gray-200 bg-white cursor-pointer hover:bg-gray-50"
-                    >
-                      <Upload size={12} /> Upload
-                    </label>
-                    {(row.qr_image_url || '').trim() ? (
-                      <button
-                        type="button"
-                        className="text-[10px] text-gray-500 hover:text-red-600"
-                        onClick={() => {
-                          setPd((cur) => {
-                            const g = [...cur.gpay];
-                            g[idx] = { ...g[idx], qr_image_url: '' };
-                            return { ...cur, gpay: g };
-                          });
-                        }}
-                      >
-                        Clear
-                      </button>
-                    ) : null}
-                  </div>
-                  {(row.qr_image_url || '').trim() && isLikelyImageUrl(row.qr_image_url) ? (
-                    <img
-                      src={resolveImageUrl(row.qr_image_url)}
-                      alt=""
-                      className="mt-2 w-28 h-28 object-contain border rounded bg-white"
-                    />
-                  ) : null}
-                </div>
-              </div>
-            ))}
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              className="h-7 text-[10px]"
-              onClick={() => {
-                setPd((cur) => ({
-                  ...cur,
-                  gpay: [...cur.gpay, { id: newDestId(), label: '', upi_id: '', qr_image_url: '' }],
-                }));
-              }}
-            >
-              <Plus size={12} className="mr-1" /> Add UPI
-            </Button>
-          </div>
-        )}
-        {(f.payment_methods || []).includes('bank') && (
-          <div className="space-y-2">
-            <Label className="text-xs">Bank accounts for this member</Label>
-            {(f.payment_destinations?.bank || []).map((row, idx) => (
-              <div key={row.id || idx} className="border-b border-gray-100 pb-3 space-y-2">
-                <div className="grid grid-cols-2 md:grid-cols-6 gap-2">
-                  <div>
-                    <Label className="text-[9px] text-gray-500">Label</Label>
-                    <Input
-                      className="h-8 text-xs"
-                      value={row.label || ''}
-                      onChange={(e) => {
-                        setPd((cur) => {
-                          const b = [...cur.bank];
-                          b[idx] = { ...b[idx], label: e.target.value };
-                          return { ...cur, bank: b };
-                        });
-                      }}
-                    />
-                  </div>
-                  <div>
-                    <Label className="text-[9px] text-gray-500">Bank name</Label>
-                    <Input className="h-8 text-xs" value={row.bank_name || ''} onChange={(e) => {
-                      setPd((cur) => {
-                        const b = [...cur.bank];
-                        b[idx] = { ...b[idx], bank_name: e.target.value };
-                        return { ...cur, bank: b };
-                      });
-                    }} />
-                  </div>
-                  <div>
-                    <Label className="text-[9px] text-gray-500">Account name</Label>
-                    <Input className="h-8 text-xs" value={row.account_name || ''} onChange={(e) => {
-                      setPd((cur) => {
-                        const b = [...cur.bank];
-                        b[idx] = { ...b[idx], account_name: e.target.value };
-                        return { ...cur, bank: b };
-                      });
-                    }} />
-                  </div>
-                  <div>
-                    <Label className="text-[9px] text-gray-500">Account no.</Label>
-                    <Input className="h-8 text-xs font-mono" value={row.account_number || ''} onChange={(e) => {
-                      setPd((cur) => {
-                        const b = [...cur.bank];
-                        b[idx] = { ...b[idx], account_number: e.target.value };
-                        return { ...cur, bank: b };
-                      });
-                    }} />
-                  </div>
-                  <div>
-                    <Label className="text-[9px] text-gray-500">IFSC</Label>
-                    <Input className="h-8 text-xs font-mono" value={row.ifsc || ''} onChange={(e) => {
-                      setPd((cur) => {
-                        const b = [...cur.bank];
-                        b[idx] = { ...b[idx], ifsc: e.target.value };
-                        return { ...cur, bank: b };
-                      });
-                    }} />
-                  </div>
-                  <div className="flex items-end">
-                    <Button type="button" variant="ghost" size="sm" className="h-8 text-red-600" onClick={() => {
-                      setPd((cur) => {
-                        const removed = cur.bank[idx];
-                        const b = cur.bank.filter((_, i) => i !== idx);
-                        let primary_bank_id = cur.primary_bank_id;
-                        if (removed?.id && primary_bank_id === removed.id) primary_bank_id = '';
-                        return { ...cur, bank, primary_bank_id };
-                      });
-                    }}><Trash2 size={14} /></Button>
-                  </div>
-                </div>
-                <label className="flex items-center gap-2 text-[10px] text-gray-600 cursor-pointer">
-                  <input
-                    type="radio"
-                    name="subscriber-primary-bank"
-                    className="accent-[#5D3FD3]"
-                    checked={!!row.id && f.payment_destinations?.primary_bank_id === row.id}
-                    onChange={() => setPd({ primary_bank_id: row.id || '' })}
-                  />
-                  Default bank account for student payments
-                </label>
-              </div>
-            ))}
-            <Button type="button" variant="outline" size="sm" className="h-7 text-[10px]" onClick={() => {
-              setPd((cur) => ({
-                ...cur,
-                bank: [...cur.bank, { id: newDestId(), label: '', bank_name: '', account_name: '', account_number: '', ifsc: '' }],
-              }));
-            }}><Plus size={12} className="mr-1" /> Add bank account</Button>
-          </div>
-        )}
-      </div>
+      {(f.payment_methods || []).some((m) => ['gpay', 'bank', 'manual'].includes(m)) && (
+        <div className="border rounded-lg p-3 bg-emerald-50/40 border-emerald-100/80 space-y-1">
+          <p className="text-[11px] font-semibold text-emerald-900">India UPI &amp; bank (students)</p>
+          <p className="text-[10px] text-emerald-900/85 leading-relaxed">
+            Configure UPI IDs, QR codes, and bank accounts under <strong>Admin → Site Settings → India payment</strong> (same source as the India manual proof page). The Sacred Exchange and manual payment pages pull from there automatically.
+          </p>
+        </div>
+      )}
 
       {/* Row 3: Fees & Controls */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
@@ -1540,6 +1289,7 @@ const SubscribersTab = ({ openManualFormOnMount = false }) => {
         ...formData,
         individual_discount_pct: toNullPct(formData.individual_discount_pct),
         individual_tax_pct: toNullPct(formData.individual_tax_pct),
+        payment_destinations: { gpay: [], bank: [], primary_gpay_id: '', primary_bank_id: '' },
       };
       if (editTarget) {
         await axios.put(`${API}/admin/subscribers/update/${editTarget.id}`, payload);

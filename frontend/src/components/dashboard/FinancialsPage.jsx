@@ -20,7 +20,47 @@ import { useToast } from '../../hooks/use-toast';
 import { resolveImageUrl, isLikelyImageUrl } from '../../lib/imageUtils';
 
 const API = process.env.REACT_APP_BACKEND_URL;
-const EMPTY_PD = {};
+
+/** GPay/UPI rows from Site Settings → India (India proof). Not per-subscriber. */
+function gpayRowsFromIndiaReference(info) {
+  if (!info || typeof info !== 'object') return [];
+  const rows = (Array.isArray(info.india_gpay_accounts) ? info.india_gpay_accounts : []).filter((x) =>
+    (x.upi_id || '').trim()
+  );
+  const legacy = (info.india_upi_id || '').trim();
+  if (!legacy) return rows;
+  if (rows.some((r) => (r.upi_id || '').trim() === legacy)) return rows;
+  return [{ id: 'site-legacy-upi', label: 'UPI', upi_id: legacy, qr_image_url: '' }, ...rows];
+}
+
+/** Bank rows for proof UI: India site accounts first, then global API bank list. */
+function banksFromIndiaReference(info, fallbackBanks) {
+  if (!info || typeof info !== 'object') return fallbackBanks || [];
+  const accounts = Array.isArray(info.india_bank_accounts) ? info.india_bank_accounts : [];
+  const mapped = accounts
+    .filter((b) => (b.account_number || '').toString().trim())
+    .map((b, i) => ({
+      bank_code: b.id || `india-${i}-${String(b.account_number).slice(-4)}`,
+      bank_name: b.bank_name || b.label || 'Bank',
+      account_name: b.account_name || '',
+      account_number: b.account_number || '',
+      ifsc_code: b.ifsc || b.ifsc_code || '',
+      upi_id: b.upi_id || '',
+    }));
+  const bd = info.india_bank_details || {};
+  if (mapped.length === 0 && (bd.account_number || '').toString().trim()) {
+    mapped.push({
+      bank_code: 'india-legacy',
+      bank_name: bd.bank_name || 'Bank',
+      account_name: bd.account_name || '',
+      account_number: bd.account_number || '',
+      ifsc_code: bd.ifsc || '',
+      upi_id: bd.upi_id || '',
+    });
+  }
+  if (mapped.length > 0) return mapped;
+  return fallbackBanks || [];
+}
 
 /** Site-wide India bank / UPI (same info as India manual proof page) for quick reference on Sacred Exchange. */
 const IndiaPaymentInfoModal = ({ info, onClose }) => {
@@ -42,7 +82,7 @@ const IndiaPaymentInfoModal = ({ info, onClose }) => {
         <div className="flex items-center justify-between px-5 py-4 border-b bg-gradient-to-r from-amber-50/80 to-white">
           <div>
             <h3 className="font-bold text-gray-900 text-sm">India — UPI &amp; bank (site)</h3>
-            <p className="text-[10px] text-gray-500 mt-0.5">Use for NEFT / IMPS / UPI proof flows. Your member-specific IDs may also appear when you tap Pay.</p>
+            <p className="text-[10px] text-gray-500 mt-0.5">Same details as India manual proof — configured under Site Settings. Students use these for GPay and bank transfer.</p>
           </div>
           <button type="button" onClick={onClose} className="text-gray-400 hover:text-gray-600 p-1" aria-label="Close">
             <X size={20} />
@@ -125,7 +165,7 @@ const METHOD_LABELS = {
 };
 
 /* ─── PAYMENT MODAL ─── */
-const PaymentModal = ({ emi, clientId, banks, methods, destinations, currency, onClose, onSuccess }) => {
+const PaymentModal = ({ emi, clientId, banks, methods, indiaReference, currency, onClose, onSuccess }) => {
   const { toast } = useToast();
   const [step, setStep] = useState('choose'); // choose | gpay | manual
   const [method, setMethod] = useState('');
@@ -139,33 +179,9 @@ const PaymentModal = ({ emi, clientId, banks, methods, destinations, currency, o
   const [payAmount, setPayAmount] = useState('');
   const [payDifferentAmount, setPayDifferentAmount] = useState(false);
 
-  const gpayList = useMemo(() => {
-    const d = destinations || EMPTY_PD;
-    let list = Array.isArray(d.gpay) ? d.gpay.filter((x) => (x.upi_id || '').trim()) : [];
-    const pid = d.primary_gpay_id;
-    if (pid && list.some((x) => x.id === pid)) list = list.filter((x) => x.id === pid);
-    return list;
-  }, [destinations]);
+  const gpayList = useMemo(() => gpayRowsFromIndiaReference(indiaReference), [indiaReference]);
 
-  const subscriberBanksAsApi = useMemo(() => {
-    const d = destinations || EMPTY_PD;
-    let bankList = Array.isArray(d.bank) ? d.bank.filter((x) => (x.account_number || '').trim()) : [];
-    const bid = d.primary_bank_id;
-    if (bid && bankList.some((x) => x.id === bid)) bankList = bankList.filter((x) => x.id === bid);
-    return bankList.map((b) => ({
-      bank_code: b.id || `sub-${(b.account_number || '').slice(-6)}`,
-      bank_name: b.bank_name || b.label || 'Bank',
-      account_name: b.account_name || '',
-      account_number: b.account_number || '',
-      ifsc_code: b.ifsc || '',
-      upi_id: '',
-    }));
-  }, [destinations]);
-
-  const effectiveBanks = useMemo(() => {
-    if (methods.includes('bank') && subscriberBanksAsApi.length > 0) return subscriberBanksAsApi;
-    return banks || [];
-  }, [methods, subscriberBanksAsApi, banks]);
+  const effectiveBanks = useMemo(() => banksFromIndiaReference(indiaReference, banks), [indiaReference, banks]);
 
   const bankCodesKey = useMemo(
     () => (effectiveBanks || []).map((b) => b.bank_code).join('|'),
@@ -197,7 +213,7 @@ const PaymentModal = ({ emi, clientId, banks, methods, destinations, currency, o
   const hasStripe = methods.includes('stripe');
   const hasExly = methods.includes('exly');
   const hasGpay = methods.includes('gpay') && gpayList.length > 0;
-  const hasBankFlow = methods.includes('bank') && subscriberBanksAsApi.length > 0;
+  const hasBankFlow = methods.includes('bank') && effectiveBanks.length > 0;
   const showBankProofCard = methods.includes('manual') || hasBankFlow;
 
   const handleStripe = () => {
@@ -316,7 +332,7 @@ const PaymentModal = ({ emi, clientId, banks, methods, destinations, currency, o
                 </div>
                 <div className="text-left flex-1">
                   <p className="font-semibold text-gray-900 text-sm">Google Pay / UPI</p>
-                  <p className="text-[10px] text-gray-400">Your assigned UPI IDs — then submit proof</p>
+                  <p className="text-[10px] text-gray-400">India site UPI (from proof settings) — then submit proof</p>
                 </div>
                 <ArrowRight size={16} className="text-gray-300 group-hover:text-emerald-600" />
               </button>
@@ -326,7 +342,7 @@ const PaymentModal = ({ emi, clientId, banks, methods, destinations, currency, o
                 <div className="w-10 h-10 rounded-xl bg-[#84A98C]/10 flex items-center justify-center"><Building2 size={18} className="text-[#84A98C]" /></div>
                 <div className="text-left flex-1">
                   <p className="font-semibold text-gray-900 text-sm">Bank transfer &amp; proof</p>
-                  <p className="text-[10px] text-gray-400">Use assigned accounts or site-wide bank details, then upload proof</p>
+                  <p className="text-[10px] text-gray-400">India bank details from site settings, then upload proof</p>
                 </div>
                 <ArrowRight size={16} className="text-gray-300 group-hover:text-[#84A98C]" />
               </button>
@@ -337,7 +353,7 @@ const PaymentModal = ({ emi, clientId, banks, methods, destinations, currency, o
         {step === 'gpay' && (
           <div className="p-6 space-y-4">
             <button type="button" onClick={() => setStep('choose')} className="text-xs text-[#5D3FD3] hover:underline mb-2">&larr; Back</button>
-            <p className="text-[10px] uppercase tracking-wider text-emerald-700 font-semibold">Your assigned UPI / GPay</p>
+            <p className="text-[10px] uppercase tracking-wider text-emerald-700 font-semibold">India site UPI / GPay</p>
             <div className="space-y-3">
               {gpayList.map((g) => (
                 <div key={g.id || g.upi_id} className="rounded-xl border border-emerald-100 bg-emerald-50/40 p-3 text-xs">
@@ -527,7 +543,6 @@ const FinancialsPage = () => {
   const paidPct = totalFee > 0 ? Math.round((totalPaid / totalFee) * 100) : 0;
   const methods = data?.payment_methods || ['stripe', 'manual'];
   const banks = data?.bank_accounts || [];
-  const paymentDestinations = data?.payment_destinations;
   const clientId = data?.client_id || '';
   const indiaPaymentReference = data?.india_payment_reference;
   const voluntaryCredits = fin.voluntary_credits_total || 0;
@@ -718,7 +733,7 @@ const FinancialsPage = () => {
           clientId={clientId}
           banks={banks}
           methods={methods}
-          destinations={paymentDestinations}
+          indiaReference={indiaPaymentReference}
           currency={fin.currency || 'INR'}
           onClose={() => setPayingEmi(null)}
           onSuccess={fetchData}
