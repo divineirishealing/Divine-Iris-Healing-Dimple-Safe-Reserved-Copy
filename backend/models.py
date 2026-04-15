@@ -565,6 +565,8 @@ class SiteSettings(BaseModel):
     annual_package_included_program_ids: List[str] = Field(default_factory=list)
     # Per-program portal pricing overrides: { program_id: { "annual": {...}, "family": {...} } } shallow-merged with global dashboard_offer_annual / family
     dashboard_program_offers: Dict[str, Any] = Field(default_factory=dict)
+    # Student dashboard: show/hide overview tiles and sidebar links (Admin → Dashboard). Missing keys = visible.
+    dashboard_element_visibility: Dict[str, Any] = Field(default_factory=dict)
     india_payment_gateway: dict = {}
     india_bank_accounts: list = []
     # Site-wide GPay / UPI IDs (manual proof flows; same shape as subscriber payment_destinations.gpay rows)
@@ -735,6 +737,7 @@ class SiteSettingsUpdate(BaseModel):
     dashboard_offer_family: Optional[Dict] = None
     annual_package_included_program_ids: Optional[List[str]] = None
     dashboard_program_offers: Optional[Dict[str, Any]] = None
+    dashboard_element_visibility: Optional[Dict[str, Any]] = None
 
 class PaymentTransaction(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))

@@ -1,26 +1,34 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { Outlet, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { useSiteSettings } from '../context/SiteSettingsContext';
 import { NavLink } from 'react-router-dom';
 import { Loader2, Menu, X, Home, Sprout, Calendar, TrendingUp, Sparkles, Heart, BookOpen, User, CreditCard, LogOut, Coins } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { CosmicDashboardBackground } from '../components/dashboard/CosmicDashboardBackground';
 import { getDashboardCosmicVariant } from '../lib/dashboardCosmicThemes';
+import { mergeDashboardVisibility } from '../lib/dashboardVisibility';
 
 const NAV_ITEMS = [
-  { to: '/dashboard', label: 'Overview', icon: Home, exact: true },
-  { to: '/dashboard/garden', label: 'Soul Garden', icon: Sprout },
-  { to: '/dashboard/sessions', label: 'Schedule & calendar', icon: Calendar },
-  { to: '/dashboard/progress', label: 'Progress', icon: TrendingUp },
-  { to: '/dashboard/bhaad', label: 'Bhaad Portal', icon: Sparkles },
-  { to: '/dashboard/tribe', label: 'Soul Tribe', icon: Heart },
-  { to: '/dashboard/financials', label: 'Financials', icon: CreditCard },
-  { to: '/dashboard/points', label: 'Points', icon: Coins },
-  { to: '/dashboard/profile', label: 'Profile', icon: User },
+  { to: '/dashboard', label: 'Overview', icon: Home, exact: true, visKey: null },
+  { to: '/dashboard/garden', label: 'Soul Garden', icon: Sprout, visKey: 'nav_soul_garden' },
+  { to: '/dashboard/sessions', label: 'Schedule & calendar', icon: Calendar, visKey: 'nav_sessions' },
+  { to: '/dashboard/progress', label: 'Progress', icon: TrendingUp, visKey: 'nav_progress' },
+  { to: '/dashboard/bhaad', label: 'Bhaad Portal', icon: Sparkles, visKey: 'nav_bhaad' },
+  { to: '/dashboard/tribe', label: 'Soul Tribe', icon: Heart, visKey: 'nav_tribe' },
+  { to: '/dashboard/financials', label: 'Financials', icon: CreditCard, visKey: 'nav_financials' },
+  { to: '/dashboard/points', label: 'Points', icon: Coins, visKey: 'nav_points' },
+  { to: '/dashboard/profile', label: 'Profile', icon: User, visKey: 'nav_profile' },
 ];
 
 const DashboardLayout = () => {
   const { user, loading, logout } = useAuth();
+  const { settings } = useSiteSettings();
+  const dv = useMemo(() => mergeDashboardVisibility(settings), [settings]);
+  const visibleNavItems = useMemo(
+    () => NAV_ITEMS.filter((item) => !item.visKey || dv[item.visKey]),
+    [dv]
+  );
   const location = useLocation();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [bgVideo, setBgVideo] = useState('');
@@ -129,7 +137,7 @@ const DashboardLayout = () => {
             <p className="text-[10px] text-white/35 mt-0.5 truncate">{user?.name}</p>
           </NavLink>
           <p className="text-[8px] uppercase tracking-[0.2em] text-cyan-200/40 px-3 pt-2 pb-1">Journey</p>
-          {NAV_ITEMS.map(item => (
+          {visibleNavItems.map(item => (
             <NavLink key={item.to} to={item.to} end={item.exact}
               onClick={() => setSidebarOpen(false)}
               className={({ isActive }) => cn(
@@ -141,12 +149,16 @@ const DashboardLayout = () => {
             </NavLink>
           ))}
 
-          <div className="border-t border-white/5 my-3" />
-          <p className="text-[8px] uppercase tracking-[0.2em] text-cyan-200/40 px-3 pt-1 pb-1">More</p>
-          <NavLink to="/dashboard/roadmap" onClick={() => setSidebarOpen(false)}
-            className={({ isActive }) => cn("flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm transition-all", isActive ? "bg-[#D4AF37]/15 text-[#D4AF37]" : "text-white/60 hover:text-white hover:bg-white/5")}>
-            <BookOpen size={16} /><span>Growth Roadmap</span>
-          </NavLink>
+          {dv.nav_roadmap && (
+            <>
+              <div className="border-t border-white/5 my-3" />
+              <p className="text-[8px] uppercase tracking-[0.2em] text-cyan-200/40 px-3 pt-1 pb-1">More</p>
+              <NavLink to="/dashboard/roadmap" onClick={() => setSidebarOpen(false)}
+                className={({ isActive }) => cn("flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm transition-all", isActive ? "bg-[#D4AF37]/15 text-[#D4AF37]" : "text-white/60 hover:text-white hover:bg-white/5")}>
+                <BookOpen size={16} /><span>Growth Roadmap</span>
+              </NavLink>
+            </>
+          )}
 
           <button onClick={() => { logout(); window.location.href = '/'; }}
             className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm text-red-400/60 hover:text-red-400 hover:bg-red-400/5 transition-all w-full mt-4">

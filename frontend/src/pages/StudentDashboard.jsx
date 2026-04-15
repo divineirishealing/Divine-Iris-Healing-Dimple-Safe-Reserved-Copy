@@ -12,6 +12,7 @@ import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
 import { useToast } from '../hooks/use-toast';
 import { SANCTUARY_REFERENCE, INTENTIONS_BY_TAB } from '../lib/dashboardSanctuaryCopy';
+import { mergeDashboardVisibility } from '../lib/dashboardVisibility';
 import DashboardUpcomingFamilySection from '../components/dashboard/DashboardUpcomingFamilySection';
 
 const API = process.env.REACT_APP_BACKEND_URL;
@@ -207,6 +208,8 @@ const StudentDashboard = () => {
     greeting_subtitle: raw.greeting_subtitle || "Home for Your Soul",
   };
 
+  const dv = useMemo(() => mergeDashboardVisibility(settings), [settings]);
+
   const refreshHome = useCallback(() => {
     axios.get(`${API}/api/student/home`, { withCredentials: true })
       .then(res => setHomeData(res.data))
@@ -321,6 +324,7 @@ const StudentDashboard = () => {
       <div className="relative z-10 min-h-full flex flex-col items-center pb-8 md:pb-12">
 
         {/* ─── Sacred Home v2 — frosted hero band (light overview shell) ─── */}
+        {dv.hero && (
         <section
           data-testid="dashboard-hero"
           className="relative z-10 w-full max-w-5xl mx-auto px-4 pt-4 pb-2 md:pt-6 md:pb-4 mb-4 md:mb-6 animate-[fadeSlideUp_0.8s_ease-out_both]"
@@ -378,8 +382,9 @@ const StudentDashboard = () => {
             </div>
           </div>
         </section>
+        )}
 
-        {homeData && (
+        {homeData && dv.upcoming_family && (
           <DashboardUpcomingFamilySection homeData={homeData} onRefresh={refreshHome} />
         )}
 
@@ -387,6 +392,7 @@ const StudentDashboard = () => {
 
         {/* Desktop: ribbon schedule + bento (tall center spans two rows) */}
         <div className="w-full hidden lg:block space-y-4">
+          {dv.schedule_card && (
           <SanctuaryPetalCard overviewV2
             variant="saffron"
             testId="petal-schedule"
@@ -479,8 +485,9 @@ const StudentDashboard = () => {
               </p>
             </div>
           </SanctuaryPetalCard>
+          )}
 
-          {pts?.enabled && (
+          {dv.loyalty_points && pts?.enabled && (
             <SanctuaryPetalCard overviewV2 variant="gold" className="w-full p-4" testId="petal-points" delay={150} onClick={() => navigate('/dashboard/points')}>
               <div className="flex items-start justify-between gap-3">
                 <div className="flex items-center gap-2.5 min-w-0">
@@ -504,6 +511,7 @@ const StudentDashboard = () => {
 
           <div className="grid grid-cols-3 gap-4 items-stretch">
             {/* Profile — compact strip */}
+            {dv.profile_card && (
             <SanctuaryPetalCard overviewV2
               variant="gold"
               testId="petal-profile"
@@ -581,8 +589,10 @@ const StudentDashboard = () => {
                 <ArrowRight size={11} className="ml-0.5" />
               </div>
             </SanctuaryPetalCard>
+            )}
 
             {/* Center column — tall anchor (spans 2 rows) */}
+            {dv.journey_compass && (
             <SanctuaryPetalCard overviewV2
               variant="violet"
               testId="petal-progress"
@@ -634,8 +644,10 @@ const StudentDashboard = () => {
                 {' '}{bodyAlignPct}%
               </p>
             </SanctuaryPetalCard>
+            )}
 
             {/* Financials — compact tile */}
+            {dv.financials_card && (
             <SanctuaryPetalCard overviewV2
               variant="ember"
               testId="petal-financials"
@@ -675,8 +687,10 @@ const StudentDashboard = () => {
                 <ArrowRight size={13} className="text-slate-300 group-hover:text-[#84A98C] transition-colors" />
               </div>
             </SanctuaryPetalCard>
+            )}
 
             {/* Diary — bento lower-left */}
+            {dv.intentions_diary && (
             <SanctuaryPetalCard overviewV2
               variant="sky"
               testId="petal-diary"
@@ -757,8 +771,10 @@ const StudentDashboard = () => {
                   : SANCTUARY_REFERENCE.diaryEmpty}
               </p>
             </SanctuaryPetalCard>
+            )}
 
             {/* Transformations — bento lower-right */}
+            {dv.transformations_card && (
             <SanctuaryPetalCard overviewV2
               variant="rose"
               testId="petal-galaxy"
@@ -792,12 +808,13 @@ const StudentDashboard = () => {
                 <ChevronRight size={12} className="text-pink-400 shrink-0" />
               </div>
             </SanctuaryPetalCard>
+            )}
           </div>
         </div>
 
         {/* ─── MOBILE LAYOUT ─── */}
         <div className="lg:hidden w-full max-w-md mx-auto space-y-3">
-          {dashboardScheduleRows.length > 0 ? (
+          {dv.schedule_card && (dashboardScheduleRows.length > 0 ? (
             <SanctuaryPetalCard overviewV2 variant="saffron" testId="petal-schedule-m" className="p-4" delay={100} onClick={() => navigate('/dashboard/sessions')}>
               <div className="flex items-center gap-3 mb-2">
                 <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0" style={{ background: '#D4AF3720' }}>
@@ -865,8 +882,8 @@ const StudentDashboard = () => {
                 </p>
               )}
             </SanctuaryPetalCard>
-          )}
-          {pts?.enabled && (
+          ))}
+          {dv.loyalty_points && pts?.enabled && (
             <SanctuaryPetalCard overviewV2 variant="gold" testId="petal-points-m" className="p-4" delay={175} onClick={() => navigate('/dashboard/points')}>
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-xl bg-amber-100 flex items-center justify-center shrink-0">
@@ -881,11 +898,11 @@ const StudentDashboard = () => {
             </SanctuaryPetalCard>
           )}
           {[
-            { testId: 'petal-profile-m', icon: User, color: '#f5c840', variant: 'gold', title: SANCTUARY_REFERENCE.profileEye, sub: user?.name || 'Student', to: '/dashboard/profile', delay: 200 },
-            { testId: 'petal-financials-m', icon: CreditCard, color: '#fdba74', variant: 'ember', title: SANCTUARY_REFERENCE.financialsEye, sub: homeData?.financials?.status || pkg.program_name || SANCTUARY_REFERENCE.financialsDefaultProgram, to: '/dashboard/financials', delay: 300 },
-            { testId: 'petal-diary-m', icon: BookOpen, color: '#93C5FD', variant: 'sky', title: SANCTUARY_REFERENCE.intentionsEye, sub: SANCTUARY_REFERENCE.intentionsTitle, to: '/dashboard/diary', delay: 400 },
-            { testId: 'petal-galaxy-m', icon: Heart, color: '#F9A8D4', variant: 'rose', title: SANCTUARY_REFERENCE.speaksEye, sub: SANCTUARY_REFERENCE.transformationsHint, to: '/transformations', delay: 500 },
-          ].map(item => (
+            { visKey: 'profile_card', testId: 'petal-profile-m', icon: User, color: '#f5c840', variant: 'gold', title: SANCTUARY_REFERENCE.profileEye, sub: user?.name || 'Student', to: '/dashboard/profile', delay: 200 },
+            { visKey: 'financials_card', testId: 'petal-financials-m', icon: CreditCard, color: '#fdba74', variant: 'ember', title: SANCTUARY_REFERENCE.financialsEye, sub: homeData?.financials?.status || pkg.program_name || SANCTUARY_REFERENCE.financialsDefaultProgram, to: '/dashboard/financials', delay: 300 },
+            { visKey: 'intentions_diary', testId: 'petal-diary-m', icon: BookOpen, color: '#93C5FD', variant: 'sky', title: SANCTUARY_REFERENCE.intentionsEye, sub: SANCTUARY_REFERENCE.intentionsTitle, to: '/dashboard/diary', delay: 400 },
+            { visKey: 'transformations_card', testId: 'petal-galaxy-m', icon: Heart, color: '#F9A8D4', variant: 'rose', title: SANCTUARY_REFERENCE.speaksEye, sub: SANCTUARY_REFERENCE.transformationsHint, to: '/transformations', delay: 500 },
+          ].filter((item) => dv[item.visKey]).map(item => (
             <SanctuaryPetalCard overviewV2 key={item.testId} variant={item.variant} testId={item.testId} className="p-4" delay={item.delay} onClick={() => navigate(item.to)}>
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0" style={{ background: `${item.color}20` }}>
@@ -901,9 +918,11 @@ const StudentDashboard = () => {
           ))}
         </div>
 
+        {dv.footer_quote && (
         <p className="w-full text-center mt-10 md:mt-14 px-4 text-base italic text-[rgba(80,30,140,0.35)] tracking-[0.04em] font-[family-name:'Cormorant_Garamond',serif]">
           &ldquo;{SANCTUARY_REFERENCE.footerQuote}&rdquo; &nbsp;{SANCTUARY_REFERENCE.footerAttribution}
         </p>
+        )}
 
         </div>
 

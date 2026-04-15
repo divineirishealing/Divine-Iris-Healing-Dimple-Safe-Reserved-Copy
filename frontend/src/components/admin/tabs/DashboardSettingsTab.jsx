@@ -1,11 +1,12 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo } from 'react';
 import { Label } from '../../ui/label';
 import { Input } from '../../ui/input';
 import { Button } from '../../ui/button';
 import { Switch } from '../../ui/switch';
 import { Textarea } from '../../ui/textarea';
-import { Save, RefreshCw, Sparkles, Users, Layers } from 'lucide-react';
+import { RefreshCw, Sparkles, Users, Layers, LayoutGrid, PanelLeft } from 'lucide-react';
 import { useToast } from '../../../hooks/use-toast';
+import { DASHBOARD_VISIBILITY_KEYS, DEFAULT_DASHBOARD_VISIBILITY } from '../../../lib/dashboardVisibility';
 
 /** Member or family line: pricing_rule + fields (reused for global and per-program overrides). */
 function PortalPricingRuleFields({ offer, onPatch, variant }) {
@@ -174,11 +175,125 @@ const DashboardSettingsTab = ({ settings, onChange, programs = [] }) => {
     }
   };
 
+  const dashVis = settings.dashboard_element_visibility || {};
+  const setDashVis = (key, on) => {
+    onChange({
+      ...settings,
+      dashboard_element_visibility: { ...dashVis, [key]: on },
+    });
+  };
+  const isVisOn = (key) => dashVis[key] !== false;
+
+  const overviewKeys = [
+    'hero',
+    'upcoming_family',
+    'schedule_card',
+    'loyalty_points',
+    'profile_card',
+    'journey_compass',
+    'financials_card',
+    'intentions_diary',
+    'transformations_card',
+    'footer_quote',
+  ];
+  const navKeys = [
+    'nav_soul_garden',
+    'nav_sessions',
+    'nav_progress',
+    'nav_bhaad',
+    'nav_tribe',
+    'nav_financials',
+    'nav_points',
+    'nav_profile',
+    'nav_roadmap',
+  ];
+
+  const applyMinimalSacredHome = () => {
+    const next = { ...DEFAULT_DASHBOARD_VISIBILITY };
+    Object.keys(next).forEach((k) => {
+      next[k] = false;
+    });
+    next.upcoming_family = true;
+    next.profile_card = true;
+    next.nav_profile = true;
+    onChange({ ...settings, dashboard_element_visibility: next });
+    toast({ title: 'Preset applied', description: 'Overview shows upcoming, family & profile only. Menu: Profile + Overview. Click Save in Admin to persist.' });
+  };
+
+  const showAllDashboard = () => {
+    onChange({ ...settings, dashboard_element_visibility: {} });
+    toast({ title: 'All dashboard elements visible', description: 'Save in Admin to persist.' });
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h2 className="text-xl font-semibold text-gray-900">Dashboard Customization</h2>
         <Button variant="outline" size="sm" onClick={() => update('title', 'Sanctuary')}><RefreshCw size={14} className="mr-2" /> Reset to Default</Button>
+      </div>
+
+      <div className="bg-white p-6 rounded-lg shadow-sm border space-y-4" data-testid="dashboard-visibility-admin">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <h3 className="text-sm font-semibold text-gray-900 flex items-center gap-2">
+              <LayoutGrid size={16} className="text-[#5D3FD3]" />
+              Student dashboard — what students see
+            </h3>
+            <p className="text-[11px] text-gray-500 mt-1 max-w-2xl">
+              Turn off tiles on the Sacred Home overview and items in the hamburger menu. <strong>Overview</strong> always stays in the menu so students can open the home page.
+              Save the main Admin panel after changing toggles.
+            </p>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <Button type="button" variant="outline" size="sm" className="text-xs h-8" onClick={showAllDashboard}>
+              Show all
+            </Button>
+            <Button type="button" size="sm" className="text-xs h-8 bg-[#5D3FD3] hover:bg-[#4c32b3]" onClick={applyMinimalSacredHome}>
+              Preset: upcoming + profile + family only
+            </Button>
+          </div>
+        </div>
+        <div className="grid md:grid-cols-2 gap-6">
+          <div className="rounded-lg border border-slate-200 bg-slate-50/50 p-4 space-y-3">
+            <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Overview (home) tiles</p>
+            <div className="space-y-2 max-h-[420px] overflow-y-auto pr-1">
+              {overviewKeys.map((key) => (
+                <div key={key} className="flex items-center justify-between gap-3 py-1.5 border-b border-slate-100 last:border-0">
+                  <Label className="text-xs text-gray-800 font-normal leading-snug cursor-pointer" htmlFor={`dash-vis-${key}`}>
+                    {DASHBOARD_VISIBILITY_KEYS[key]}
+                  </Label>
+                  <Switch
+                    id={`dash-vis-${key}`}
+                    checked={isVisOn(key)}
+                    onCheckedChange={(v) => setDashVis(key, v)}
+                    data-testid={`dash-vis-${key}`}
+                  />
+                </div>
+              ))}
+            </div>
+          </div>
+          <div className="rounded-lg border border-slate-200 bg-slate-50/50 p-4 space-y-3">
+            <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500 flex items-center gap-1.5">
+              <PanelLeft size={12} />
+              Sidebar menu
+            </p>
+            <div className="space-y-2 max-h-[420px] overflow-y-auto pr-1">
+              {navKeys.map((key) => (
+                <div key={key} className="flex items-center justify-between gap-3 py-1.5 border-b border-slate-100 last:border-0">
+                  <Label className="text-xs text-gray-800 font-normal leading-snug cursor-pointer" htmlFor={`dash-vis-${key}`}>
+                    {DASHBOARD_VISIBILITY_KEYS[key]}
+                  </Label>
+                  <Switch
+                    id={`dash-vis-${key}`}
+                    checked={isVisOn(key)}
+                    onCheckedChange={(v) => setDashVis(key, v)}
+                    data-testid={`dash-vis-${key}`}
+                  />
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
       </div>
 
       <div className="bg-white p-6 rounded-lg shadow-sm border space-y-6">
