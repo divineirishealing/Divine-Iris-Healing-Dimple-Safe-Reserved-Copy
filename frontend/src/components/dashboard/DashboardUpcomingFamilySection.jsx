@@ -7,6 +7,7 @@ import { useCurrency } from '../../context/CurrencyContext';
 import { useSiteSettings } from '../../context/SiteSettingsContext';
 import { resolveImageUrl } from '../../lib/imageUtils';
 import { cn, formatDateDdMonYyyy } from '../../lib/utils';
+import DashboardProgramPaymentModal from './DashboardProgramPaymentModal';
 
 const API = process.env.REACT_APP_BACKEND_URL;
 
@@ -110,6 +111,7 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh }) 
   const [annualQuotes, setAnnualQuotes] = useState({});
   const [payingProgramId, setPayingProgramId] = useState(null);
   const [payChannel, setPayChannel] = useState('stripe');
+  const [programPaymentModal, setProgramPaymentModal] = useState(null);
 
   const upcoming = homeData?.upcoming_programs || [];
   const programPortalMap = homeData?.dashboard_program_offers || {};
@@ -309,56 +311,14 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh }) 
         { withCredentials: true }
       );
       const { enrollment_id, tier_index: tierIdx } = r.data;
-
-      const hasOffline = paymentMethods.some((x) => ['manual', 'gpay', 'bank'].includes(x));
-      const hasStripe = paymentMethods.includes('stripe');
-      const useManualFlow =
-        hasOffline &&
-        (payChannel === 'manual' || !hasStripe);
-      if (useManualFlow) {
-        navigate(`/manual-payment/${enrollment_id}`, {
-          state: {
-            payment_methods: paymentMethods,
-          },
-        });
-        return;
-      }
-
-      const checkout = await axios.post(
-        `${API}/api/enrollment/${enrollment_id}/checkout`,
-        {
-          enrollment_id,
-          item_type: 'program',
-          item_id: programId,
-          currency,
-          display_currency: displayCurrency,
-          display_rate: isPrimary ? 1 : displayRate,
-          origin_url: typeof window !== 'undefined' ? window.location.origin : '',
-          promo_code: null,
-          tier_index: tierIdx != null ? tierIdx : null,
-          points_to_redeem: 0,
-          browser_timezone:
-            typeof Intl !== 'undefined' ? Intl.DateTimeFormat().resolvedOptions().timeZone : '',
-          browser_languages:
-            typeof navigator !== 'undefined' && navigator.languages
-              ? [...navigator.languages]
-              : [typeof navigator !== 'undefined' ? navigator.language : 'en'],
-        },
-        { withCredentials: true }
-      );
-      if (checkout.data.url === '__FREE_SUCCESS__') {
-        navigate(`/payment/success?session_id=${checkout.data.session_id}`);
-      } else if (checkout.data.url) {
-        window.location.href = checkout.data.url;
-      } else {
-        toast({
-          title: 'Payment link unavailable',
-          description:
-            checkout.data?.detail ||
-            'Stripe did not return a checkout URL. If you pay by UPI or bank, choose “UPI, bank & proof” above and try again, or contact support.',
-          variant: 'destructive',
-        });
-      }
+      const prog = (upcoming || []).find((p) => p.id === programId);
+      setProgramPaymentModal({
+        enrollmentId: enrollment_id,
+        programId,
+        programTitle: prog?.title || '',
+        tierIndex: tierIdx != null ? tierIdx : null,
+        payChannel,
+      });
     } catch (e) {
       toast({
         title: 'Could not start payment',
@@ -735,8 +695,8 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh }) 
                           <CreditCard size={14} />
                         )}
                         {payChannel === 'manual' && hasOfflinePaymentOption
-                          ? 'Continue to UPI / bank & proof'
-                          : 'Pay now'}
+                          ? 'Proceed to payment (UPI / bank + proof)'
+                          : 'Proceed to payment (Stripe)'}
                       </button>
                     </div>
                   )}
@@ -905,6 +865,28 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh }) 
           </div>
         </div>
       </div>
+
+      {programPaymentModal && (
+        <DashboardProgramPaymentModal
+          open={!!programPaymentModal}
+          onClose={() => setProgramPaymentModal(null)}
+          onSuccess={() => onRefresh?.()}
+          enrollmentId={programPaymentModal.enrollmentId}
+          programId={programPaymentModal.programId}
+          programTitle={programPaymentModal.programTitle}
+          tierIndex={programPaymentModal.tierIndex}
+          initialPayChannel={programPaymentModal.payChannel}
+          paymentMethods={paymentMethods}
+          indiaReference={homeData?.india_payment_reference}
+          preferredIndiaGpayId={homeData?.preferred_india_gpay_id || ''}
+          preferredIndiaBankId={homeData?.preferred_india_bank_id || ''}
+          bankAccounts={homeData?.bank_accounts || []}
+          currency={currency}
+          displayCurrency={displayCurrency}
+          displayRate={displayRate}
+          isPrimary={isPrimary}
+        />
+      )}
     </section>
   );
 }
