@@ -847,6 +847,7 @@ async def get_student_home(user: dict = Depends(get_current_user)):
 
     # 8. Payment methods & bank details
     payment_methods = sub.get("payment_methods", ["stripe", "manual"])
+    payment_destinations = sub.get("payment_destinations") or {}
     banks = await db.bank_accounts.find({"is_active": True}, {"_id": 0}).to_list(10)
 
     iris_journey = resolve_iris_journey(sub)
@@ -875,6 +876,7 @@ async def get_student_home(user: dict = Depends(get_current_user)):
         "journey_logs": logs,
         "profile_status": profile_status,
         "payment_methods": payment_methods,
+        "payment_destinations": payment_destinations,
         "bank_accounts": banks,
         "late_fee_per_day": sub.get("late_fee_per_day", 0),
         "channelization_fee": sub.get("channelization_fee", 0),

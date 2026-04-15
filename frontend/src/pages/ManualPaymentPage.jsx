@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import React, { useState, useEffect, useMemo } from 'react';
+import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import axios from 'axios';
 import Header from '../components/Header';
 import Footer from '../components/Footer';
@@ -8,8 +8,9 @@ import { Input } from '../components/ui/input';
 import { Button } from '../components/ui/button';
 import {
   Building2, Upload, FileText, Check,
-  Loader2, Calendar, Clock, AlertCircle, ChevronLeft
+  Loader2, Calendar, Clock, AlertCircle, ChevronLeft, Smartphone
 } from 'lucide-react';
+import { resolveImageUrl, isLikelyImageUrl } from '../lib/imageUtils';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
@@ -19,6 +20,9 @@ const EMI_MONTHS = Array.from({ length: 12 }, (_, i) => i + 1);
 const ManualPaymentPage = () => {
   const { enrollmentId } = useParams();
   const navigate = useNavigate();
+  const location = useLocation();
+  const pdFromNav = location.state?.payment_destinations;
+  const stateMethods = location.state?.payment_methods;
   const { toast } = useToast();
 
   const [settings, setSettings] = useState({});
@@ -53,6 +57,25 @@ const ManualPaymentPage = () => {
   const [phoneCode, setPhoneCode] = useState('+91');
   const [sessions, setSessions] = useState([]);
   const [programs, setPrograms] = useState([]);
+  const [fetchedPd, setFetchedPd] = useState(null);
+
+  useEffect(() => {
+    const hasDest =
+      pdFromNav &&
+      ((Array.isArray(pdFromNav.gpay) && pdFromNav.gpay.length > 0) ||
+        (Array.isArray(pdFromNav.bank) && pdFromNav.bank.length > 0));
+    if (hasDest) return undefined;
+    let cancelled = false;
+    axios
+      .get(`${process.env.REACT_APP_BACKEND_URL}/api/student/home`, { withCredentials: true })
+      .then((r) => {
+        if (!cancelled) setFetchedPd(r.data?.payment_destinations || null);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [enrollmentId, pdFromNav]);
 
   useEffect(() => {
     const load = async () => {
@@ -104,6 +127,70 @@ const ManualPaymentPage = () => {
     };
     load();
   }, [enrollmentId]);
+
+  const paymentDestinations = useMemo(() => {
+    if (
+      pdFromNav &&
+      ((Array.isArray(pdFromNav.gpay) && pdFromNav.gpay.length > 0) ||
+        (Array.isArray(pdFromNav.bank) && pdFromNav.bank.length > 0))
+    ) {
+      return pdFromNav;
+    }
+    return fetchedPd || {};
+  }, [pdFromNav, fetchedPd]);
+
+  const gpayAssigned = useMemo(
+    () =>
+      (Array.isArray(paymentDestinations.gpay) ? paymentDestinations.gpay : []).filter((x) =>
+        (x.upi_id || '').trim()
+      ),
+    [paymentDestinations]
+  );
+
+  const siteGpayList = useMemo(
+    () =>
+      (Array.isArray(settings.india_gpay_accounts) ? settings.india_gpay_accounts : []).filter((x) =>
+        (x.upi_id || '').trim()
+      ),
+    [settings.india_gpay_accounts]
+  );
+
+  /** Member-specific UPI from subscription wins; else site-wide india_gpay_accounts. Legacy single india_upi_id if list empty. */
+  const gpayToShow = useMemo(() => {
+    if (gpayAssigned.length > 0) return gpayAssigned;
+    if (siteGpayList.length > 0) return siteGpayList;
+    const legacy = (settings.india_upi_id || '').trim();
+    if (legacy) return [{ id: 'legacy-upi', label: 'UPI', upi_id: legacy, qr_image_url: '' }];
+    return [];
+  }, [gpayAssigned, siteGpayList, settings.india_upi_id]);
+
+  const banks = useMemo(() => {
+    const bankAccounts = settings.india_bank_accounts || [];
+    const singleBank = settings.india_bank_details || {};
+    const siteBanks = bankAccounts.length > 0 ? bankAccounts : (singleBank.account_number ? [singleBank] : []);
+    const subRows = (paymentDestinations.bank || []).filter((x) => (x.account_number || '').trim());
+    const preferSub =
+      (Array.isArray(stateMethods) && stateMethods.includes('bank') && subRows.length > 0) ||
+      ((!stateMethods || stateMethods.length === 0) && subRows.length > 0);
+    if (!preferSub || subRows.length === 0) return siteBanks;
+    return subRows.map((b, i) => ({
+      label: b.label || b.bank_name || `Account ${i + 1}`,
+      bank_name: b.bank_name || '',
+      account_name: b.account_name || '',
+      account_number: b.account_number || '',
+      ifsc: b.ifsc || b.ifsc_code || '',
+      branch: b.branch || '',
+    }));
+  }, [paymentDestinations, stateMethods, settings.india_bank_accounts, settings.india_bank_details]);
+
+  useEffect(() => {
+    setSelectedBank(0);
+  }, [enrollmentId, banks]);
+
+  const currentBank = banks[selectedBank] || {};
+  const hasBank = banks.length > 0;
+  const programTitle = enrollment?.item_title || itemDetails?.title || '';
+  const quoteCurrency = (enrollment?.dashboard_mixed_currency || 'inr').toUpperCase();
 
   const handleScreenshot = (e) => {
     const file = e.target.files[0];
@@ -182,14 +269,6 @@ const ManualPaymentPage = () => {
     </>
   );
 
-  const bankAccounts = settings.india_bank_accounts || [];
-  const singleBank = settings.india_bank_details || {};
-  const banks = bankAccounts.length > 0 ? bankAccounts : (singleBank.account_number ? [singleBank] : []);
-  const hasBank = banks.length > 0;
-  const currentBank = banks[selectedBank] || {};
-  const programTitle = enrollment?.item_title || itemDetails?.title || '';
-  const quoteCurrency = (enrollment?.dashboard_mixed_currency || 'inr').toUpperCase();
-
   return (
     <>
       <Header />
@@ -215,6 +294,40 @@ const ManualPaymentPage = () => {
                       {quoteCurrency} {String(enrollment.dashboard_mixed_total)}
                     </span>
                     . Enter the same amount you paid (and correct currency if your bank shows a converted value).
+                  </div>
+                )}
+
+                {gpayToShow.length > 0 && (
+                  <div className="border rounded-xl p-5 mb-5 border-emerald-200 bg-emerald-50/50">
+                    <div className="flex items-center gap-2 mb-3">
+                      <Smartphone size={16} className="text-emerald-700" />
+                      <h3 className="text-sm font-semibold text-gray-900">
+                        {gpayAssigned.length > 0 ? 'Your assigned UPI / GPay' : 'Divine Iris — Google Pay / UPI'}
+                      </h3>
+                    </div>
+                    <p className="text-[10px] text-gray-600 mb-3">
+                      Pay using one of the IDs below, then upload your proof below.
+                    </p>
+                    <div className="space-y-2">
+                      {gpayToShow.map((g) => (
+                        <div
+                          key={g.id || g.upi_id}
+                          className="rounded-lg border border-emerald-100 bg-white/80 p-3 text-xs"
+                        >
+                          {g.label ? <p className="font-semibold text-gray-800 mb-1">{g.label}</p> : null}
+                          <p className="font-mono text-emerald-900 select-all">{g.upi_id}</p>
+                          {(g.qr_image_url || '').trim() && isLikelyImageUrl(g.qr_image_url) ? (
+                            <div className="mt-3 flex justify-center">
+                              <img
+                                src={resolveImageUrl(g.qr_image_url)}
+                                alt={g.label ? `QR ${g.label}` : 'UPI QR code'}
+                                className="w-44 max-w-full h-auto max-h-48 object-contain border border-emerald-100 rounded-lg bg-white"
+                              />
+                            </div>
+                          ) : null}
+                        </div>
+                      ))}
+                    </div>
                   </div>
                 )}
 
@@ -251,10 +364,12 @@ const ManualPaymentPage = () => {
                           <span className="font-mono font-semibold text-gray-900 select-all">{currentBank.account_number}</span>
                         </div>
                       )}
-                      {currentBank.ifsc && (
+                      {(currentBank.ifsc || currentBank.ifsc_code) && (
                         <div className="flex justify-between text-xs">
                           <span className="text-gray-500">IFSC Code</span>
-                          <span className="font-mono font-semibold text-gray-900 select-all">{currentBank.ifsc}</span>
+                          <span className="font-mono font-semibold text-gray-900 select-all">
+                            {currentBank.ifsc || currentBank.ifsc_code}
+                          </span>
                         </div>
                       )}
                       {currentBank.bank_name && (

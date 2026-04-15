@@ -192,9 +192,13 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh }) 
       .join('|');
   }, [upcoming, selectedFamilyByProgram]);
 
+  const hasOfflinePaymentOption = paymentMethods.some((x) =>
+    ['manual', 'gpay', 'bank'].includes(x)
+  );
+
   React.useEffect(() => {
     const m = homeData?.payment_methods || ['stripe'];
-    if (m.length === 1 && m[0] === 'manual') setPayChannel('manual');
+    if (m.length === 1 && ['manual', 'gpay', 'bank'].includes(m[0])) setPayChannel('manual');
     if (m.length === 1 && m[0] === 'stripe') setPayChannel('stripe');
   }, [homeData?.payment_methods]);
 
@@ -299,8 +303,16 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh }) 
       );
       const { enrollment_id, tier_index: tierIdx } = r.data;
 
-      if (payChannel === 'manual' && paymentMethods.includes('manual')) {
-        navigate(`/manual-payment/${enrollment_id}`);
+      const useManualFlow =
+        payChannel === 'manual' &&
+        paymentMethods.some((x) => ['manual', 'gpay', 'bank'].includes(x));
+      if (useManualFlow) {
+        navigate(`/manual-payment/${enrollment_id}`, {
+          state: {
+            payment_methods: paymentMethods,
+            payment_destinations: homeData?.payment_destinations || {},
+          },
+        });
         return;
       }
 
@@ -649,30 +661,28 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh }) 
                         )}
                       </div>
 
-                      {paymentMethods.filter((x) => x === 'stripe' || x === 'manual').length > 1 && (
+                      {paymentMethods.includes('stripe') && hasOfflinePaymentOption && (
                         <div className="mt-2 flex flex-wrap gap-3 text-[10px] text-slate-700">
-                          {paymentMethods.includes('stripe') && (
-                            <label className="inline-flex items-center gap-1.5 cursor-pointer">
-                              <input
-                                type="radio"
-                                name={`pay-${p.id}`}
-                                checked={payChannel === 'stripe'}
-                                onChange={() => setPayChannel('stripe')}
-                              />
-                              Card (Stripe)
-                            </label>
-                          )}
-                          {paymentMethods.includes('manual') && (
-                            <label className="inline-flex items-center gap-1.5 cursor-pointer">
-                              <input
-                                type="radio"
-                                name={`pay-${p.id}`}
-                                checked={payChannel === 'manual'}
-                                onChange={() => setPayChannel('manual')}
-                              />
-                              Bank / manual
-                            </label>
-                          )}
+                          <label className="inline-flex items-center gap-1.5 cursor-pointer">
+                            <input
+                              type="radio"
+                              name={`pay-${p.id}`}
+                              checked={payChannel === 'stripe'}
+                              onChange={() => setPayChannel('stripe')}
+                            />
+                            Card (Stripe)
+                          </label>
+                          <label className="inline-flex items-center gap-1.5 cursor-pointer">
+                            <input
+                              type="radio"
+                              name={`pay-${p.id}`}
+                              checked={payChannel === 'manual'}
+                              onChange={() => setPayChannel('manual')}
+                            />
+                            {paymentMethods.includes('gpay') || paymentMethods.includes('bank')
+                              ? 'UPI, bank & proof'
+                              : 'Bank / manual'}
+                          </label>
                         </div>
                       )}
 
@@ -691,8 +701,8 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh }) 
                         ) : (
                           <CreditCard size={14} />
                         )}
-                        {payChannel === 'manual' && paymentMethods.includes('manual')
-                          ? 'Continue to manual payment'
+                        {payChannel === 'manual' && hasOfflinePaymentOption
+                          ? 'Continue to UPI / bank & proof'
                           : 'Pay now'}
                       </button>
                     </div>

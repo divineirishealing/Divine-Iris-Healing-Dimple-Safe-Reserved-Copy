@@ -567,6 +567,8 @@ class SiteSettings(BaseModel):
     dashboard_program_offers: Dict[str, Any] = Field(default_factory=dict)
     india_payment_gateway: dict = {}
     india_bank_accounts: list = []
+    # Site-wide GPay / UPI IDs (manual proof flows; same shape as subscriber payment_destinations.gpay rows)
+    india_gpay_accounts: List[Dict] = Field(default_factory=list)  # [{id, label, upi_id, qr_image_url?}]
     india_bank_details: dict = {}  # {gateway_type, exly_link, api_key, api_secret, enabled, notes}  # Emails that get INR pricing from abroad  # [{buy_program_id, get_program_id, discount_type, discount_value, code, label, enabled}]
 
 class SiteSettingsUpdate(BaseModel):
@@ -703,6 +705,7 @@ class SiteSettingsUpdate(BaseModel):
     india_exly_link: Optional[str] = None
     india_bank_details: Optional[Dict] = None
     india_bank_accounts: Optional[list] = None
+    india_gpay_accounts: Optional[list] = None
     receipt_template: Optional[Dict] = None
     pricing_font: Optional[str] = None
     pricing_color: Optional[str] = None

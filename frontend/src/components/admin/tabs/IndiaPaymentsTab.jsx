@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-import { IndianRupee, Check, X, Eye, Loader2, Clock, AlertCircle, Link2, Copy, Plus, Trash2, Mail, Key, Users, Building2, PenLine, Save } from 'lucide-react';
+import { resolveImageUrl, isLikelyImageUrl } from '../../../lib/imageUtils';
+import { IndianRupee, Check, X, Eye, Loader2, Clock, AlertCircle, Link2, Copy, Plus, Trash2, Mail, Key, Users, Building2, PenLine, Save, Smartphone, Upload } from 'lucide-react';
 import { Button } from '../../ui/button';
 import { Input } from '../../ui/input';
 import { Switch } from '../../ui/switch';
@@ -62,7 +63,10 @@ const IndiaPaymentsTab = () => {
 
   return (
     <div data-testid="india-payments-tab">
-      <div className="flex items-center justify-between mb-4">
+      {/* Bank & UPI settings first — was below the proof list and easy to miss when many proofs exist */}
+      <BankAccountsEditor />
+
+      <div className="flex items-center justify-between mb-4 mt-2">
         <div className="flex items-center gap-2">
           <IndianRupee size={18} className="text-[#D4AF37]" />
           <h2 className="text-lg font-semibold text-gray-900">India Payment Proofs</h2>
@@ -251,9 +255,6 @@ const IndiaPaymentsTab = () => {
           </div>
         </div>
       )}
-
-      {/* ════ BANK ACCOUNTS ════ */}
-      <BankAccountsEditor />
     </div>
   );
 };
@@ -261,6 +262,7 @@ const IndiaPaymentsTab = () => {
 /* ─── Show full bank account details by label ─── */
 const PaidToAccountDetails = ({ bankLabel }) => {
   const [account, setAccount] = useState(null);
+  const [gpayMatch, setGpayMatch] = useState(null);
 
   useEffect(() => {
     if (!bankLabel) return;
@@ -268,8 +270,30 @@ const PaidToAccountDetails = ({ bankLabel }) => {
       const accounts = r.data?.india_bank_accounts || [];
       const match = accounts.find(a => (a.label || a.bank_name || '') === bankLabel);
       if (match) setAccount(match);
+      else setAccount(null);
+      const gpay = r.data?.india_gpay_accounts || [];
+      const gm = gpay.find(
+        (g) => (g.label || g.upi_id || '') === bankLabel || (g.upi_id && bankLabel.includes(g.upi_id))
+      );
+      setGpayMatch(gm || null);
     }).catch(() => {});
   }, [bankLabel]);
+
+  if (gpayMatch && (gpayMatch.upi_id || '').trim()) {
+    return (
+      <div className="text-[9px] text-emerald-800 space-y-0.5 mt-1">
+        <p>UPI / GPay: <strong className="font-mono select-all">{gpayMatch.upi_id}</strong></p>
+        {gpayMatch.label ? <p>Label: {gpayMatch.label}</p> : null}
+        {gpayMatch.qr_image_url && isLikelyImageUrl(gpayMatch.qr_image_url) ? (
+          <img
+            src={resolveImageUrl(gpayMatch.qr_image_url)}
+            alt="UPI QR"
+            className="mt-1 w-28 h-28 object-contain border border-emerald-100 rounded bg-white"
+          />
+        ) : null}
+      </div>
+    );
+  }
 
   if (!account) return null;
 
@@ -288,10 +312,17 @@ const PaidToAccountDetails = ({ bankLabel }) => {
 const EditProofModal = ({ proof, onClose, onSave, onSaveApprove }) => {
   const [data, setData] = useState({ ...proof });
   const [bankAccounts, setBankAccounts] = useState([]);
+  const [gpayAccounts, setGpayAccounts] = useState([]);
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    axios.get(`${API}/settings`).then(r => setBankAccounts(r.data?.india_bank_accounts || [])).catch(() => {});
+    axios
+      .get(`${API}/settings`)
+      .then((r) => {
+        setBankAccounts(r.data?.india_bank_accounts || []);
+        setGpayAccounts(Array.isArray(r.data?.india_gpay_accounts) ? r.data.india_gpay_accounts : []);
+      })
+      .catch(() => {});
   }, []);
 
   const u = (field, value) => setData(prev => ({ ...prev, [field]: value }));
@@ -332,6 +363,14 @@ const EditProofModal = ({ proof, onClose, onSave, onSaveApprove }) => {
                     {b.label || b.bank_name || `Account ${i+1}`} {b.account_number ? `(..${b.account_number.slice(-4)})` : ''}
                   </option>
                 ))}
+                {gpayAccounts
+                  .filter((g) => (g.upi_id || '').trim())
+                  .map((g, i) => (
+                    <option key={`gp-${i}`} value={g.label || g.upi_id}>
+                      UPI / GPay: {g.label || g.upi_id}
+                      {g.upi_id ? ` (${g.upi_id})` : ''}
+                    </option>
+                  ))}
                 <option value="other">Other</option>
               </select></div>
             <div><label className="text-[9px] text-gray-500 block mb-0.5">Payment Method</label>
@@ -366,10 +405,13 @@ const EditProofModal = ({ proof, onClose, onSave, onSaveApprove }) => {
   );
 };
 
+const newGpayRowId = () => `gp-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
+
 /* ─── Bank Accounts Editor ─── */
 const BankAccountsEditor = () => {
   const { toast } = useToast();
   const [banks, setBanks] = useState([]);
+  const [gpayRows, setGpayRows] = useState([]);
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
@@ -380,6 +422,12 @@ const BankAccountsEditor = () => {
       } else if (r.data?.india_bank_details?.account_number) {
         setBanks([{ label: r.data.india_bank_details.bank_name || 'Primary', ...r.data.india_bank_details }]);
       }
+      const gp = Array.isArray(r.data?.india_gpay_accounts) ? r.data.india_gpay_accounts : [];
+      if (gp.length > 0) {
+        setGpayRows(gp);
+      } else if ((r.data?.india_upi_id || '').trim()) {
+        setGpayRows([{ id: newGpayRowId(), label: 'Primary UPI', upi_id: String(r.data.india_upi_id).trim(), qr_image_url: '' }]);
+      }
     }).catch(() => {});
   }, []);
 
@@ -389,8 +437,9 @@ const BankAccountsEditor = () => {
       await axios.put(`${API}/settings`, {
         india_bank_details: banks[0] || {},
         india_bank_accounts: banks.filter(b => b.account_number),
+        india_gpay_accounts: gpayRows.filter((g) => (g.upi_id || '').trim()),
       });
-      toast({ title: 'Bank accounts saved!' });
+      toast({ title: 'Bank & UPI details saved!' });
     } catch { toast({ title: 'Error', variant: 'destructive' }); }
     finally { setSaving(false); }
   };
@@ -401,8 +450,34 @@ const BankAccountsEditor = () => {
     setBanks(updated);
   };
 
+  const updateGpay = (idx, field, val) => {
+    const next = [...gpayRows];
+    next[idx] = { ...next[idx], [field]: val };
+    setGpayRows(next);
+  };
+
+  const uploadGpayQr = async (idx, file) => {
+    if (!file) return;
+    const fd = new FormData();
+    fd.append('file', file);
+    try {
+      const { data } = await axios.post(`${BACKEND}/api/upload/image`, fd);
+      const url = data?.url;
+      if (url) {
+        updateGpay(idx, 'qr_image_url', url);
+        toast({ title: 'QR image uploaded' });
+      }
+    } catch {
+      toast({ title: 'Upload failed', variant: 'destructive' });
+    }
+  };
+
   return (
-    <div className="mt-8 border-t pt-6">
+    <div
+      id="divine-iris-bank-upi"
+      className="mb-8 pb-8 border-b border-slate-200"
+      data-testid="divine-iris-bank-accounts"
+    >
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-2">
           <Building2 size={18} className="text-blue-600" />
@@ -414,7 +489,114 @@ const BankAccountsEditor = () => {
           <Plus size={10} /> Add Account
         </button>
       </div>
-      <p className="text-xs text-gray-500 mb-4">Add your bank accounts. Users will see a dropdown to select which account they transferred to.</p>
+      <p className="text-xs text-gray-500 mb-4">Add bank accounts and optional Google Pay / UPI IDs. Users pick where they paid in manual proof and enrollment flows.</p>
+
+      {/* Google Pay / UPI */}
+      <div className="mb-6 rounded-xl border border-emerald-200 bg-emerald-50/40 p-4">
+        <div className="flex items-center justify-between mb-3">
+          <div className="flex items-center gap-2">
+            <Smartphone size={16} className="text-emerald-700" />
+            <h3 className="text-sm font-semibold text-gray-900">Google Pay / UPI</h3>
+            <span className="text-[9px] bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-full font-medium">{(gpayRows || []).filter((g) => (g.upi_id || '').trim()).length}</span>
+          </div>
+          <button
+            type="button"
+            onClick={() => setGpayRows([...gpayRows, { id: newGpayRowId(), label: '', upi_id: '', qr_image_url: '' }])}
+            className="text-[10px] px-3 py-1.5 rounded-full bg-emerald-100 text-emerald-800 hover:bg-emerald-200 font-medium flex items-center gap-1"
+          >
+            <Plus size={10} /> Add UPI ID
+          </button>
+        </div>
+        <p className="text-[10px] text-gray-600 mb-3">
+          Shown on the manual payment page when no member-specific UPI is assigned. Use the same label in payment proofs so admins can match payouts.
+        </p>
+        <div className="space-y-3">
+          {gpayRows.length === 0 ? (
+            <p className="text-[10px] text-gray-500 italic">No UPI IDs yet — add one or rely on bank transfer only.</p>
+          ) : (
+            gpayRows.map((row, idx) => (
+              <div key={row.id || idx} className="bg-white border border-emerald-100 rounded-lg p-3 space-y-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="text-[9px] text-gray-500 block mb-0.5">Label</label>
+                    <Input
+                      value={row.label || ''}
+                      onChange={(e) => updateGpay(idx, 'label', e.target.value)}
+                      placeholder="e.g. Primary GPay"
+                      className="text-xs h-8"
+                    />
+                  </div>
+                  <div className="flex gap-2 items-end">
+                    <div className="flex-1 min-w-0">
+                      <label className="text-[9px] text-gray-500 block mb-0.5">UPI ID</label>
+                      <Input
+                        value={row.upi_id || ''}
+                        onChange={(e) => updateGpay(idx, 'upi_id', e.target.value)}
+                        placeholder="name@upi"
+                        className="text-xs h-8 font-mono"
+                      />
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setGpayRows(gpayRows.filter((_, i) => i !== idx))}
+                      className="text-[10px] text-red-500 hover:text-red-700 shrink-0 mb-0.5"
+                    >
+                      Remove
+                    </button>
+                  </div>
+                </div>
+                <div className="border-t border-emerald-50 pt-2">
+                  <label className="text-[9px] text-gray-500 block mb-1">QR code (optional)</label>
+                  <p className="text-[9px] text-gray-400 mb-2">Paste an image URL or upload a PNG/JPG of your UPI QR.</p>
+                  <div className="flex flex-wrap gap-2 items-center">
+                    <Input
+                      value={row.qr_image_url || ''}
+                      onChange={(e) => updateGpay(idx, 'qr_image_url', e.target.value)}
+                      placeholder="https://… or /api/image/…"
+                      className="text-xs h-8 flex-1 min-w-[180px] font-mono"
+                    />
+                    <input
+                      type="file"
+                      accept="image/png,image/jpeg,image/jpg,image/webp,image/gif"
+                      className="hidden"
+                      id={`gpay-qr-upload-${idx}`}
+                      onChange={(e) => {
+                        const f = e.target.files?.[0];
+                        if (f) uploadGpayQr(idx, f);
+                        e.target.value = '';
+                      }}
+                    />
+                    <label
+                      htmlFor={`gpay-qr-upload-${idx}`}
+                      className="inline-flex items-center gap-1 text-[10px] px-3 py-1.5 rounded-lg bg-emerald-100 text-emerald-900 hover:bg-emerald-200 cursor-pointer font-medium"
+                    >
+                      <Upload size={12} /> Upload
+                    </label>
+                    {(row.qr_image_url || '').trim() ? (
+                      <button
+                        type="button"
+                        className="text-[10px] text-gray-500 hover:text-red-600"
+                        onClick={() => updateGpay(idx, 'qr_image_url', '')}
+                      >
+                        Clear QR
+                      </button>
+                    ) : null}
+                  </div>
+                  {(row.qr_image_url || '').trim() && isLikelyImageUrl(row.qr_image_url) ? (
+                    <div className="mt-2 flex items-start gap-3">
+                      <img
+                        src={resolveImageUrl(row.qr_image_url)}
+                        alt="UPI QR preview"
+                        className="w-36 h-36 object-contain border border-emerald-100 rounded-lg bg-white"
+                      />
+                    </div>
+                  ) : null}
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+      </div>
 
       <div className="space-y-3">
         {banks.map((bank, idx) => (
@@ -449,7 +631,7 @@ const BankAccountsEditor = () => {
       <button onClick={save} disabled={saving}
         className="mt-4 w-full bg-blue-600 hover:bg-blue-700 text-white rounded-lg py-2.5 text-sm font-medium flex items-center justify-center gap-2 transition-colors">
         {saving ? <Loader2 size={14} className="animate-spin" /> : <Check size={14} />}
-        {saving ? 'Saving...' : 'Save Bank Accounts'}
+        {saving ? 'Saving...' : 'Save bank & UPI details'}
       </button>
     </div>
   );

@@ -5,7 +5,7 @@ Handles: EMI tracking, session management, program progress, and Excel import/ex
 from fastapi import APIRouter, HTTPException, UploadFile, File
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
-from typing import Optional, List, Dict
+from typing import Optional, List, Dict, Any
 import pandas as pd
 import io
 import uuid
@@ -700,6 +700,8 @@ class SubscriberCreate(BaseModel):
     late_fee_per_day: float = 0
     channelization_fee: float = 0
     payment_methods: List[str] = ["stripe", "manual"]
+    # Per-subscriber UPI / bank instructions when payment_methods includes gpay or bank (see student dashboard + EMI modal)
+    payment_destinations: Optional[Dict[str, Any]] = None  # { "gpay": [{id,label,upi_id}], "bank": [{id,label,account_name,...}] }
     # Optional overrides vs standard package catalog (same programs for everyone; pricing can differ per person)
     individual_discount_pct: Optional[float] = None  # extra % off line-offer subtotal; None = use package pkg discount
     individual_tax_pct: Optional[float] = None  # tax % for this subscriber (e.g. 18.0); None = use package tax for currency
@@ -752,6 +754,7 @@ async def create_subscriber(data: SubscriberCreate):
         "late_fee_per_day": data.late_fee_per_day,
         "channelization_fee": data.channelization_fee,
         "payment_methods": data.payment_methods,
+        "payment_destinations": data.payment_destinations if data.payment_destinations is not None else {},
         "individual_discount_pct": data.individual_discount_pct,
         "individual_tax_pct": data.individual_tax_pct,
         "updated_at": datetime.now(timezone.utc).isoformat(),
@@ -826,6 +829,7 @@ async def update_subscriber(client_id: str, data: SubscriberCreate):
         "late_fee_per_day": data.late_fee_per_day,
         "channelization_fee": data.channelization_fee,
         "payment_methods": data.payment_methods,
+        "payment_destinations": data.payment_destinations if data.payment_destinations is not None else {},
         "individual_discount_pct": data.individual_discount_pct,
         "individual_tax_pct": data.individual_tax_pct,
         "updated_at": datetime.now(timezone.utc).isoformat(),

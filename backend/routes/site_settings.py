@@ -80,6 +80,8 @@ async def update_settings(settings: SiteSettingsUpdate):
         update_data['india_payment_gateway'] = raw['india_payment_gateway']
     if raw.get('india_bank_accounts') is not None:
         update_data['india_bank_accounts'] = raw['india_bank_accounts']
+    if raw.get('india_gpay_accounts') is not None:
+        update_data['india_gpay_accounts'] = raw['india_gpay_accounts']
     if raw.get('india_bank_details') is not None:
         update_data['india_bank_details'] = raw['india_bank_details']
     if raw.get('admin_password') is not None:

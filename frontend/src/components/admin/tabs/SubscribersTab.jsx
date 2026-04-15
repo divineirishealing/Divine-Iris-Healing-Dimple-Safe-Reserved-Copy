@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import axios from 'axios';
 import { effectiveIrisJourneyLabel } from '../../../lib/irisJourney';
+import { resolveImageUrl, isLikelyImageUrl } from '../../../lib/imageUtils';
 import { useToast } from '../../../hooks/use-toast';
 import { Button } from '../../ui/button';
 import { Input } from '../../ui/input';
@@ -12,6 +13,7 @@ import {
 } from 'lucide-react';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
+const BACKEND_ORIGIN = process.env.REACT_APP_BACKEND_URL || '';
 const CURRENCIES = ['INR', 'USD', 'AED'];
 const MODE_OPTIONS = ['EMI', 'No EMI', 'Full Paid'];
 const DURATION_UNITS = ['months', 'sessions'];
@@ -321,11 +323,17 @@ const PackageEditor = ({ pkg, onSave, saving, onDelete, onNewVersion }) => {
 };
 
 /* ═══ SUBSCRIBER FORM ═══ */
+const newDestId = () =>
+  typeof crypto !== 'undefined' && crypto.randomUUID
+    ? crypto.randomUUID()
+    : `d-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
+
 const blankForm = () => ({
   name: '', email: '', package_id: '', annual_program: '', start_date: '', end_date: '',
   total_fee: 0, currency: 'INR', payment_mode: 'No EMI', num_emis: 0, emi_day: 30,
   emis: [], programs: [], programs_detail: [], bi_annual_download: 0, quarterly_releases: 0,
   payment_methods: ['stripe', 'manual'],
+  payment_destinations: { gpay: [], bank: [] },
   late_fee_per_day: 0, channelization_fee: 0, show_late_fees: false,
   iris_year: 1,
   iris_year_mode: 'manual',
@@ -360,9 +368,16 @@ const addMonths = (dateStr, months) => {
   return new Date(targetYear, actualMonth + 1, spillDays).toISOString().split('T')[0];
 };
 
-const PAY_METHOD_LABELS = { stripe: 'Stripe', manual: 'Manual', exly: 'Exly' };
+const PAY_METHOD_LABELS = {
+  stripe: 'Stripe',
+  gpay: 'Google Pay (UPI)',
+  bank: 'Bank transfer',
+  manual: 'Manual (global bank list)',
+  exly: 'Exly',
+};
 
 const SubscriberForm = ({ initial, onSave, onCancel, saving, packages, irisCatalog = [] }) => {
+  const { toast } = useToast();
   const [f, setF] = useState(initial || blankForm());
   const [programInput, setProgramInput] = useState('');
   const [schedInput, setSchedInput] = useState('');
@@ -728,22 +743,228 @@ const SubscriberForm = ({ initial, onSave, onCancel, saving, packages, irisCatal
               }
             }} />
         </div>
-        <div>
-          <Label className="text-xs">Payment Methods</Label>
-          <div className="flex gap-2 mt-1">
-            {[['stripe', 'Stripe'], ['exly', 'Exly'], ['manual', 'Manual']].map(([key, label]) => (
+        <div className="md:col-span-2">
+          <Label className="text-xs">Payment methods for this member</Label>
+          <p className="text-[9px] text-gray-500 mb-1">Stripe vs GPay/Bank can differ — assign UPI / account numbers below when using GPay or Bank.</p>
+          <div className="flex flex-wrap gap-x-3 gap-y-1 mt-1">
+            {[
+              ['stripe', 'Stripe'],
+              ['gpay', 'GPay (UPI)'],
+              ['bank', 'Bank'],
+              ['exly', 'Exly'],
+              ['manual', 'Manual*'],
+            ].map(([key, label]) => (
               <label key={key} className="flex items-center gap-1 text-[10px] text-gray-600 cursor-pointer">
-                <input type="checkbox" className="w-3 h-3 accent-[#5D3FD3]"
+                <input
+                  type="checkbox"
+                  className="w-3 h-3 accent-[#5D3FD3]"
                   checked={(f.payment_methods || []).includes(key)}
-                  onChange={e => {
+                  onChange={(e) => {
                     const cur = f.payment_methods || [];
-                    set('payment_methods', e.target.checked ? [...cur, key] : cur.filter(m => m !== key));
-                  }} />
+                    set('payment_methods', e.target.checked ? [...cur, key] : cur.filter((m) => m !== key));
+                  }}
+                />
                 {label}
               </label>
             ))}
           </div>
+          <p className="text-[9px] text-gray-400 mt-0.5">*Manual uses site-wide bank accounts. Use Bank + rows below for member-specific accounts.</p>
         </div>
+      </div>
+
+      {/* Assigned UPI / bank accounts (per member) */}
+      <div className="border rounded-lg p-3 bg-slate-50/80 space-y-3">
+        <p className="text-[11px] font-semibold text-gray-800">Assigned payment numbers (optional)</p>
+        {(f.payment_methods || []).includes('gpay') && (
+          <div className="space-y-2">
+            <Label className="text-xs">Google Pay / UPI IDs for this member</Label>
+            {(f.payment_destinations?.gpay || []).map((row, idx) => (
+              <div key={row.id || idx} className="border-b border-gray-100 pb-3 space-y-2">
+                <div className="flex flex-wrap gap-2 items-end">
+                  <div className="flex-1 min-w-[120px]">
+                    <Label className="text-[9px] text-gray-500">Label</Label>
+                    <Input
+                      className="h-8 text-xs"
+                      value={row.label || ''}
+                      placeholder="e.g. Primary"
+                      onChange={(e) => {
+                        const g = [...(f.payment_destinations?.gpay || [])];
+                        g[idx] = { ...g[idx], label: e.target.value };
+                        set('payment_destinations', { ...(f.payment_destinations || { bank: [] }), gpay: g, bank: f.payment_destinations?.bank || [] });
+                      }}
+                    />
+                  </div>
+                  <div className="flex-[2] min-w-[160px]">
+                    <Label className="text-[9px] text-gray-500">UPI ID</Label>
+                    <Input
+                      className="h-8 text-xs font-mono"
+                      value={row.upi_id || ''}
+                      placeholder="name@paytm"
+                      onChange={(e) => {
+                        const g = [...(f.payment_destinations?.gpay || [])];
+                        g[idx] = { ...g[idx], upi_id: e.target.value };
+                        set('payment_destinations', { ...(f.payment_destinations || { bank: [] }), gpay: g, bank: f.payment_destinations?.bank || [] });
+                      }}
+                    />
+                  </div>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="h-8 text-red-600"
+                    onClick={() => {
+                      const g = (f.payment_destinations?.gpay || []).filter((_, i) => i !== idx);
+                      set('payment_destinations', { ...(f.payment_destinations || { bank: [] }), gpay: g, bank: f.payment_destinations?.bank || [] });
+                    }}
+                  >
+                    <Trash2 size={14} />
+                  </Button>
+                </div>
+                <div className="pl-0 sm:pl-0">
+                  <Label className="text-[9px] text-gray-500">QR code (optional)</Label>
+                  <div className="flex flex-wrap gap-2 items-center mt-1">
+                    <Input
+                      className="h-7 text-[10px] font-mono flex-1 min-w-[160px]"
+                      placeholder="Image URL or upload"
+                      value={row.qr_image_url || ''}
+                      onChange={(e) => {
+                        const g = [...(f.payment_destinations?.gpay || [])];
+                        g[idx] = { ...g[idx], qr_image_url: e.target.value };
+                        set('payment_destinations', { ...(f.payment_destinations || { bank: [] }), gpay: g, bank: f.payment_destinations?.bank || [] });
+                      }}
+                    />
+                    <input
+                      type="file"
+                      accept="image/png,image/jpeg,image/webp,image/gif"
+                      className="hidden"
+                      id={`sub-gpay-qr-${idx}`}
+                      onChange={async (e) => {
+                        const file = e.target.files?.[0];
+                        e.target.value = '';
+                        if (!file) return;
+                        const fd = new FormData();
+                        fd.append('file', file);
+                        try {
+                          const r = await axios.post(`${BACKEND_ORIGIN}/api/upload/image`, fd);
+                          const url = r.data?.url;
+                          if (url) {
+                            const g = [...(f.payment_destinations?.gpay || [])];
+                            g[idx] = { ...g[idx], qr_image_url: url };
+                            set('payment_destinations', { ...(f.payment_destinations || { bank: [] }), gpay: g, bank: f.payment_destinations?.bank || [] });
+                            toast({ title: 'QR image uploaded' });
+                          }
+                        } catch {
+                          toast({ title: 'Upload failed', variant: 'destructive' });
+                        }
+                      }}
+                    />
+                    <label
+                      htmlFor={`sub-gpay-qr-${idx}`}
+                      className="inline-flex items-center gap-1 text-[10px] px-2 py-1 rounded border border-gray-200 bg-white cursor-pointer hover:bg-gray-50"
+                    >
+                      <Upload size={12} /> Upload
+                    </label>
+                    {(row.qr_image_url || '').trim() ? (
+                      <button
+                        type="button"
+                        className="text-[10px] text-gray-500 hover:text-red-600"
+                        onClick={() => {
+                          const g = [...(f.payment_destinations?.gpay || [])];
+                          g[idx] = { ...g[idx], qr_image_url: '' };
+                          set('payment_destinations', { ...(f.payment_destinations || { bank: [] }), gpay: g, bank: f.payment_destinations?.bank || [] });
+                        }}
+                      >
+                        Clear
+                      </button>
+                    ) : null}
+                  </div>
+                  {(row.qr_image_url || '').trim() && isLikelyImageUrl(row.qr_image_url) ? (
+                    <img
+                      src={resolveImageUrl(row.qr_image_url)}
+                      alt=""
+                      className="mt-2 w-28 h-28 object-contain border rounded bg-white"
+                    />
+                  ) : null}
+                </div>
+              </div>
+            ))}
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="h-7 text-[10px]"
+              onClick={() => {
+                const g = [...(f.payment_destinations?.gpay || []), { id: newDestId(), label: '', upi_id: '', qr_image_url: '' }];
+                set('payment_destinations', { ...(f.payment_destinations || { bank: [] }), gpay: g, bank: f.payment_destinations?.bank || [] });
+              }}
+            >
+              <Plus size={12} className="mr-1" /> Add UPI
+            </Button>
+          </div>
+        )}
+        {(f.payment_methods || []).includes('bank') && (
+          <div className="space-y-2">
+            <Label className="text-xs">Bank accounts for this member</Label>
+            {(f.payment_destinations?.bank || []).map((row, idx) => (
+              <div key={row.id || idx} className="grid grid-cols-2 md:grid-cols-6 gap-2 border-b border-gray-100 pb-2">
+                <div>
+                  <Label className="text-[9px] text-gray-500">Label</Label>
+                  <Input
+                    className="h-8 text-xs"
+                    value={row.label || ''}
+                    onChange={(e) => {
+                      const b = [...(f.payment_destinations?.bank || [])];
+                      b[idx] = { ...b[idx], label: e.target.value };
+                      set('payment_destinations', { ...(f.payment_destinations || { gpay: [] }), bank: b, gpay: f.payment_destinations?.gpay || [] });
+                    }}
+                  />
+                </div>
+                <div>
+                  <Label className="text-[9px] text-gray-500">Bank name</Label>
+                  <Input className="h-8 text-xs" value={row.bank_name || ''} onChange={(e) => {
+                    const b = [...(f.payment_destinations?.bank || [])];
+                    b[idx] = { ...b[idx], bank_name: e.target.value };
+                    set('payment_destinations', { ...(f.payment_destinations || { gpay: [] }), bank: b, gpay: f.payment_destinations?.gpay || [] });
+                  }} />
+                </div>
+                <div>
+                  <Label className="text-[9px] text-gray-500">Account name</Label>
+                  <Input className="h-8 text-xs" value={row.account_name || ''} onChange={(e) => {
+                    const b = [...(f.payment_destinations?.bank || [])];
+                    b[idx] = { ...b[idx], account_name: e.target.value };
+                    set('payment_destinations', { ...(f.payment_destinations || { gpay: [] }), bank: b, gpay: f.payment_destinations?.gpay || [] });
+                  }} />
+                </div>
+                <div>
+                  <Label className="text-[9px] text-gray-500">Account no.</Label>
+                  <Input className="h-8 text-xs font-mono" value={row.account_number || ''} onChange={(e) => {
+                    const b = [...(f.payment_destinations?.bank || [])];
+                    b[idx] = { ...b[idx], account_number: e.target.value };
+                    set('payment_destinations', { ...(f.payment_destinations || { gpay: [] }), bank: b, gpay: f.payment_destinations?.gpay || [] });
+                  }} />
+                </div>
+                <div>
+                  <Label className="text-[9px] text-gray-500">IFSC</Label>
+                  <Input className="h-8 text-xs font-mono" value={row.ifsc || ''} onChange={(e) => {
+                    const b = [...(f.payment_destinations?.bank || [])];
+                    b[idx] = { ...b[idx], ifsc: e.target.value };
+                    set('payment_destinations', { ...(f.payment_destinations || { gpay: [] }), bank: b, gpay: f.payment_destinations?.gpay || [] });
+                  }} />
+                </div>
+                <div className="flex items-end">
+                  <Button type="button" variant="ghost" size="sm" className="h-8 text-red-600" onClick={() => {
+                    const b = (f.payment_destinations?.bank || []).filter((_, i) => i !== idx);
+                    set('payment_destinations', { ...(f.payment_destinations || { gpay: [] }), bank: b, gpay: f.payment_destinations?.gpay || [] });
+                  }}><Trash2 size={14} /></Button>
+                </div>
+              </div>
+            ))}
+            <Button type="button" variant="outline" size="sm" className="h-7 text-[10px]" onClick={() => {
+              const b = [...(f.payment_destinations?.bank || []), { id: newDestId(), label: '', bank_name: '', account_name: '', account_number: '', ifsc: '' }];
+              set('payment_destinations', { ...(f.payment_destinations || { gpay: [] }), bank: b, gpay: f.payment_destinations?.gpay || [] });
+            }}><Plus size={12} className="mr-1" /> Add bank account</Button>
+          </div>
+        )}
       </div>
 
       {/* Row 3: Fees & Controls */}
@@ -1332,6 +1553,11 @@ const SubscribersTab = ({ openManualFormOnMount = false }) => {
         })),
     bi_annual_download: editTarget.subscription?.bi_annual_download || 0, quarterly_releases: editTarget.subscription?.quarterly_releases || 0,
     payment_methods: editTarget.subscription?.payment_methods || ['stripe', 'manual'],
+    payment_destinations: (() => {
+      const pd = editTarget.subscription?.payment_destinations;
+      if (pd && typeof pd === 'object') return { gpay: pd.gpay || [], bank: pd.bank || [] };
+      return { gpay: [], bank: [] };
+    })(),
     late_fee_per_day: editTarget.subscription?.late_fee_per_day || 0,
     channelization_fee: editTarget.subscription?.channelization_fee || 0,
     show_late_fees: editTarget.subscription?.show_late_fees || false,

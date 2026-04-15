@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import axios from 'axios';
 import {
@@ -17,8 +17,10 @@ import {
   Building2, Smartphone, Wallet, Globe, FileText
 } from 'lucide-react';
 import { useToast } from '../../hooks/use-toast';
+import { resolveImageUrl, isLikelyImageUrl } from '../../lib/imageUtils';
 
 const API = process.env.REACT_APP_BACKEND_URL;
+const EMPTY_PD = {};
 
 const METHOD_ICONS = {
   neft: Building2, rtgs: Building2, upi: Smartphone, cash: Wallet, gpay: Smartphone
@@ -28,9 +30,9 @@ const METHOD_LABELS = {
 };
 
 /* ─── PAYMENT MODAL ─── */
-const PaymentModal = ({ emi, clientId, banks, methods, currency, onClose, onSuccess }) => {
+const PaymentModal = ({ emi, clientId, banks, methods, destinations, currency, onClose, onSuccess }) => {
   const { toast } = useToast();
-  const [step, setStep] = useState('choose'); // choose → manual → submitting
+  const [step, setStep] = useState('choose'); // choose | gpay | manual
   const [method, setMethod] = useState('');
   const [txnId, setTxnId] = useState('');
   const [paidBy, setPaidBy] = useState('');
@@ -38,12 +40,46 @@ const PaymentModal = ({ emi, clientId, banks, methods, currency, onClose, onSucc
   const [notes, setNotes] = useState('');
   const [receipt, setReceipt] = useState(null);
   const [submitting, setSubmitting] = useState(false);
-  const [selectedBank, setSelectedBank] = useState(banks?.[0]?.bank_code || '');
+  const gpayList = useMemo(() => {
+    const d = destinations || EMPTY_PD;
+    return Array.isArray(d.gpay) ? d.gpay.filter((x) => (x.upi_id || '').trim()) : [];
+  }, [destinations]);
+
+  const subscriberBanksAsApi = useMemo(() => {
+    const d = destinations || EMPTY_PD;
+    const bankList = Array.isArray(d.bank) ? d.bank.filter((x) => (x.account_number || '').trim()) : [];
+    return bankList.map((b) => ({
+      bank_code: b.id || `sub-${(b.account_number || '').slice(-6)}`,
+      bank_name: b.bank_name || b.label || 'Bank',
+      account_name: b.account_name || '',
+      account_number: b.account_number || '',
+      ifsc_code: b.ifsc || '',
+      upi_id: '',
+    }));
+  }, [destinations]);
+
+  const effectiveBanks = useMemo(() => {
+    if (methods.includes('bank') && subscriberBanksAsApi.length > 0) return subscriberBanksAsApi;
+    return banks || [];
+  }, [methods, subscriberBanksAsApi, banks]);
+
+  const bankCodesKey = useMemo(
+    () => (effectiveBanks || []).map((b) => b.bank_code).join('|'),
+    [effectiveBanks]
+  );
+
+  const [selectedBank, setSelectedBank] = useState(effectiveBanks?.[0]?.bank_code || '');
   const fileRef = useRef(null);
+
+  React.useEffect(() => {
+    if (effectiveBanks?.length) setSelectedBank(effectiveBanks[0].bank_code);
+  }, [emi?.number, bankCodesKey]);
 
   const hasStripe = methods.includes('stripe');
   const hasExly = methods.includes('exly');
-  const hasManual = methods.includes('manual');
+  const hasGpay = methods.includes('gpay') && gpayList.length > 0;
+  const hasBankFlow = methods.includes('bank') && subscriberBanksAsApi.length > 0;
+  const showBankProofCard = methods.includes('manual') || hasBankFlow;
 
   const handleStripe = () => {
     // Redirect to Stripe checkout for this EMI amount
@@ -83,7 +119,7 @@ const PaymentModal = ({ emi, clientId, banks, methods, currency, onClose, onSucc
     } finally { setSubmitting(false); }
   };
 
-  const bank = banks.find(b => b.bank_code === selectedBank);
+  const bank = (effectiveBanks || []).find((b) => b.bank_code === selectedBank);
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm" data-testid="payment-modal">
@@ -124,16 +160,59 @@ const PaymentModal = ({ emi, clientId, banks, methods, currency, onClose, onSucc
                 <ArrowRight size={16} className="text-gray-300 group-hover:text-[#D4AF37]" />
               </button>
             )}
-            {hasManual && (
+            {hasGpay && (
+              <button
+                onClick={() => setStep('gpay')}
+                className="w-full flex items-center gap-4 p-4 border rounded-xl hover:border-emerald-500/40 hover:bg-emerald-50/50 transition-all group"
+                data-testid="pay-gpay"
+              >
+                <div className="w-10 h-10 rounded-xl bg-emerald-500/10 flex items-center justify-center">
+                  <Smartphone size={18} className="text-emerald-700" />
+                </div>
+                <div className="text-left flex-1">
+                  <p className="font-semibold text-gray-900 text-sm">Google Pay / UPI</p>
+                  <p className="text-[10px] text-gray-400">Your assigned UPI IDs — then submit proof</p>
+                </div>
+                <ArrowRight size={16} className="text-gray-300 group-hover:text-emerald-600" />
+              </button>
+            )}
+            {showBankProofCard && (
               <button onClick={() => setStep('manual')} className="w-full flex items-center gap-4 p-4 border rounded-xl hover:border-[#84A98C] hover:bg-green-50/50 transition-all group" data-testid="pay-manual">
                 <div className="w-10 h-10 rounded-xl bg-[#84A98C]/10 flex items-center justify-center"><Building2 size={18} className="text-[#84A98C]" /></div>
                 <div className="text-left flex-1">
-                  <p className="font-semibold text-gray-900 text-sm">Manual Payment</p>
-                  <p className="text-[10px] text-gray-400">Bank Transfer, UPI, Cash, GPay</p>
+                  <p className="font-semibold text-gray-900 text-sm">Bank transfer &amp; proof</p>
+                  <p className="text-[10px] text-gray-400">Use assigned accounts or site-wide bank details, then upload proof</p>
                 </div>
                 <ArrowRight size={16} className="text-gray-300 group-hover:text-[#84A98C]" />
               </button>
             )}
+          </div>
+        )}
+
+        {step === 'gpay' && (
+          <div className="p-6 space-y-4">
+            <button type="button" onClick={() => setStep('choose')} className="text-xs text-[#5D3FD3] hover:underline mb-2">&larr; Back</button>
+            <p className="text-[10px] uppercase tracking-wider text-emerald-700 font-semibold">Your assigned UPI / GPay</p>
+            <div className="space-y-3">
+              {gpayList.map((g) => (
+                <div key={g.id || g.upi_id} className="rounded-xl border border-emerald-100 bg-emerald-50/40 p-3 text-xs">
+                  {g.label ? <p className="font-semibold text-gray-800 mb-1">{g.label}</p> : null}
+                  <p className="font-mono text-emerald-900 select-all">{g.upi_id}</p>
+                  {(g.qr_image_url || '').trim() && isLikelyImageUrl(g.qr_image_url) ? (
+                    <div className="mt-2 flex justify-center">
+                      <img
+                        src={resolveImageUrl(g.qr_image_url)}
+                        alt=""
+                        className="w-40 max-w-full h-auto max-h-44 object-contain rounded-lg border border-emerald-200/80 bg-white"
+                      />
+                    </div>
+                  ) : null}
+                </div>
+              ))}
+            </div>
+            <Button type="button" onClick={() => setStep('manual')} className="w-full bg-emerald-700 hover:bg-emerald-800 text-white h-10 text-sm">
+              I paid — submit proof
+            </Button>
           </div>
         )}
 
@@ -143,12 +222,12 @@ const PaymentModal = ({ emi, clientId, banks, methods, currency, onClose, onSucc
             <button onClick={() => setStep('choose')} className="text-xs text-[#5D3FD3] hover:underline mb-2">&larr; Back to payment options</button>
 
             {/* Bank Details Display */}
-            {banks.length > 0 && (
+            {effectiveBanks.length > 0 && (
               <div className="bg-blue-50 rounded-xl p-4 border border-blue-100">
                 <p className="text-[10px] uppercase tracking-wider text-blue-500 font-semibold mb-2">Transfer to this account</p>
-                {banks.length > 1 && (
+                {effectiveBanks.length > 1 && (
                   <select value={selectedBank} onChange={e => setSelectedBank(e.target.value)} className="w-full border rounded-lg px-3 py-1.5 text-sm mb-2 bg-white">
-                    {banks.map(b => <option key={b.bank_code} value={b.bank_code}>{b.bank_name} ({b.bank_code})</option>)}
+                    {effectiveBanks.map(b => <option key={b.bank_code} value={b.bank_code}>{b.bank_name} ({b.bank_code})</option>)}
                   </select>
                 )}
                 {bank && (
@@ -266,6 +345,7 @@ const FinancialsPage = () => {
   const paidPct = totalFee > 0 ? Math.round((totalPaid / totalFee) * 100) : 0;
   const methods = data?.payment_methods || ['stripe', 'manual'];
   const banks = data?.bank_accounts || [];
+  const paymentDestinations = data?.payment_destinations;
   const clientId = data?.client_id || '';
 
   return (
@@ -426,6 +506,7 @@ const FinancialsPage = () => {
           clientId={clientId}
           banks={banks}
           methods={methods}
+          destinations={paymentDestinations}
           currency={fin.currency || 'INR'}
           onClose={() => setPayingEmi(null)}
           onSuccess={fetchData}
