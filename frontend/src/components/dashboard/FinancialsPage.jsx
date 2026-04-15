@@ -24,6 +24,7 @@ import {
   applyPreferredGpayRows,
   applyPreferredBankRows,
   buildIndiaGpayOptions,
+  gpayRowMatchesPreference,
 } from '../../lib/indiaPaymentTags';
 
 const API = process.env.REACT_APP_BACKEND_URL;
@@ -45,7 +46,7 @@ const IndiaPaymentInfoModal = ({
   const bd = info.india_bank_details || {};
   const hasLegacyBank = !!(bd && (bd.account_number || '').toString().trim());
 
-  const gpayTaggedOnly = prefG ? buildIndiaGpayOptions(info).filter((o) => o.tag_id === prefG) : null;
+  const gpayTaggedOnly = prefG ? buildIndiaGpayOptions(info).filter((o) => gpayRowMatchesPreference(o, prefG)) : null;
 
   let bankRows = bankRowsAll;
   let showLegacyBank = hasLegacyBank;

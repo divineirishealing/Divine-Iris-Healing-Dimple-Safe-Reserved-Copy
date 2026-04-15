@@ -46,13 +46,32 @@ export function gpayRowsForPaymentModal(info) {
 }
 
 /**
+ * True if this row is the subscriber's tagged UPI. Handles tag_id, raw UPI, and `upi:handle` forms.
+ */
+export function gpayRowMatchesPreference(row, preferredTagId) {
+  const prefRaw = (preferredTagId || '').trim();
+  if (!prefRaw) return true;
+  const rowTag = String(row.tag_id || row.id || '').trim();
+  const upiNorm = String(row.upi_id || '').trim().toLowerCase();
+  const prefNorm = prefRaw.trim();
+  const prefLower = prefNorm.toLowerCase();
+
+  if (rowTag === prefNorm) return true;
+  if (upiNorm && prefLower === upiNorm) return true;
+  const withoutUpiPrefix = prefLower.startsWith('upi:') ? prefLower.slice(4) : prefLower;
+  if (upiNorm && withoutUpiPrefix === upiNorm) return true;
+  if (upiNorm && prefLower === `upi:${upiNorm}`) return true;
+  return false;
+}
+
+/**
  * When admin tags a subscriber to one UPI row: only that row (no fallback to listing all).
- * @param {Array<{tag_id?: string, id?: string}>} rows — e.g. from gpayRowsForPaymentModal
+ * @param {Array<{tag_id?: string, id?: string, upi_id?: string}>} rows — e.g. from gpayRowsForPaymentModal
  */
 export function applyPreferredGpayRows(rows, preferredTagId) {
   const pref = (preferredTagId || '').trim();
   if (!pref || !Array.isArray(rows)) return rows || [];
-  return rows.filter((r) => (r.tag_id || r.id) === pref);
+  return rows.filter((r) => gpayRowMatchesPreference(r, pref));
 }
 
 /**

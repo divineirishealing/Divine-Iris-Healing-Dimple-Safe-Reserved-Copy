@@ -722,6 +722,8 @@ async def dashboard_pay(data: DashboardPayIn, request: Request, user: dict = Dep
         "dashboard_mixed_total": quote["total"],
         "dashboard_mixed_currency": quote["currency"],
         "dashboard_checkout_ready": True,
+        "preferred_india_gpay_id": (sub.get("preferred_india_gpay_id") or "").strip(),
+        "preferred_india_bank_id": (sub.get("preferred_india_bank_id") or "").strip(),
         "created_at": datetime.now(timezone.utc).isoformat(),
         "updated_at": datetime.now(timezone.utc).isoformat(),
     }

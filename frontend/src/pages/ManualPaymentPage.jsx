@@ -11,7 +11,7 @@ import {
   Loader2, Calendar, Clock, AlertCircle, ChevronLeft, Smartphone
 } from 'lucide-react';
 import { resolveImageUrl, isLikelyImageUrl } from '../lib/imageUtils';
-import { buildIndiaGpayOptions } from '../lib/indiaPaymentTags';
+import { buildIndiaGpayOptions, gpayRowMatchesPreference } from '../lib/indiaPaymentTags';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
@@ -85,6 +85,14 @@ const ManualPaymentPage = () => {
             const enrollRes = await axios.get(`${API}/enrollment/${enrollmentId}`);
             const e = enrollRes.data;
             setEnrollment(e);
+            const pg = (e.preferred_india_gpay_id || '').trim();
+            const pb = (e.preferred_india_bank_id || '').trim();
+            if (pg || pb) {
+              setStudentPrefs((prev) => ({
+                preferred_india_gpay_id: pg || prev.preferred_india_gpay_id,
+                preferred_india_bank_id: pb || prev.preferred_india_bank_id,
+              }));
+            }
             setPayerName(e.booker_name || '');
             setPayerEmail(e.booker_email || '');
             if (e.phone) setPayerPhone(e.phone.replace(/^\+\d+/, ''));
@@ -126,7 +134,7 @@ const ManualPaymentPage = () => {
       india_upi_id: settings.india_upi_id,
     });
     const pref = (studentPrefs.preferred_india_gpay_id || '').trim();
-    const chosen = pref ? opts.filter((o) => o.tag_id === pref) : opts;
+    const chosen = pref ? opts.filter((o) => gpayRowMatchesPreference(o, pref)) : opts;
     return chosen.map((o) => ({
       id: o.tag_id,
       label: o.display_label || o.label,
