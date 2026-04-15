@@ -1,6 +1,7 @@
 services:
   - type: web
     name: divine-iris-backend
+    autoDeployTrigger: commit   # deploy on every push to the linked branch
     runtime: python
     region: singapore
     rootDir: backend
@@ -18,6 +19,7 @@ services:
 
   - type: web
     name: divine-iris-frontend
+    autoDeployTrigger: commit   # deploy on every push to the linked branch
     runtime: static
     region: singapore
     rootDir: frontend
