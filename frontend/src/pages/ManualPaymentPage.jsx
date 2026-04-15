@@ -139,13 +139,14 @@ const ManualPaymentPage = () => {
     return fetchedPd || {};
   }, [pdFromNav, fetchedPd]);
 
-  const gpayAssigned = useMemo(
-    () =>
-      (Array.isArray(paymentDestinations.gpay) ? paymentDestinations.gpay : []).filter((x) =>
-        (x.upi_id || '').trim()
-      ),
-    [paymentDestinations]
-  );
+  const gpayAssigned = useMemo(() => {
+    let rows = (Array.isArray(paymentDestinations.gpay) ? paymentDestinations.gpay : []).filter((x) =>
+      (x.upi_id || '').trim()
+    );
+    const pid = paymentDestinations.primary_gpay_id;
+    if (pid && rows.some((x) => x.id === pid)) rows = rows.filter((x) => x.id === pid);
+    return rows;
+  }, [paymentDestinations]);
 
   const siteGpayList = useMemo(
     () =>
@@ -168,7 +169,9 @@ const ManualPaymentPage = () => {
     const bankAccounts = settings.india_bank_accounts || [];
     const singleBank = settings.india_bank_details || {};
     const siteBanks = bankAccounts.length > 0 ? bankAccounts : (singleBank.account_number ? [singleBank] : []);
-    const subRows = (paymentDestinations.bank || []).filter((x) => (x.account_number || '').trim());
+    let subRows = (paymentDestinations.bank || []).filter((x) => (x.account_number || '').trim());
+    const bid = paymentDestinations.primary_bank_id;
+    if (bid && subRows.some((x) => x.id === bid)) subRows = subRows.filter((x) => x.id === bid);
     const preferSub =
       (Array.isArray(stateMethods) && stateMethods.includes('bank') && subRows.length > 0) ||
       ((!stateMethods || stateMethods.length === 0) && subRows.length > 0);

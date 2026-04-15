@@ -17,6 +17,18 @@ const BACKEND_ORIGIN = process.env.REACT_APP_BACKEND_URL || '';
 const CURRENCIES = ['INR', 'USD', 'AED'];
 const MODE_OPTIONS = ['EMI', 'No EMI', 'Full Paid'];
 const DURATION_UNITS = ['months', 'sessions'];
+/** Catalog + subscriber add-on preset for Home Coming (Circle). */
+const HOME_COMING_PROGRAM_NAME = 'Home Coming Circle';
+
+function normalizePaymentDestinations(pd) {
+  if (!pd || typeof pd !== 'object') return { gpay: [], bank: [], primary_gpay_id: '', primary_bank_id: '' };
+  return {
+    gpay: Array.isArray(pd.gpay) ? pd.gpay : [],
+    bank: Array.isArray(pd.bank) ? pd.bank : [],
+    primary_gpay_id: pd.primary_gpay_id || '',
+    primary_bank_id: pd.primary_bank_id || '',
+  };
+}
 
 /* ═══ PACKAGE PRICING (one standard offer; new row per validity / tax / discount change) ═══ */
 const DEFAULT_TAX_DECIMAL = { INR: 0.18, AED: 0.05, USD: 0 };
@@ -79,6 +91,7 @@ const PackageEditor = ({ pkg, onSave, saving, onDelete, onNewVersion }) => {
   const [progUnit, setProgUnit] = useState('months');
   const [showIntl, setShowIntl] = useState(false);
   const [stats, setStats] = useState(null);
+  const { toast: toastPkg } = useToast();
 
   useEffect(() => { setC(pkg); }, [pkg]);
   useEffect(() => {
@@ -106,6 +119,18 @@ const PackageEditor = ({ pkg, onSave, saving, onDelete, onNewVersion }) => {
     if (locked || !progName.trim()) return;
     set('included_programs', [...(c.included_programs || []), { name: progName.trim(), program_id: '', duration_value: parseInt(progVal) || 1, duration_unit: progUnit, price_per_unit: {}, offer_per_unit: {} }]);
     setProgName('');
+  };
+  const addHomeComingToCatalog = () => {
+    if (locked) return;
+    const exists = (c.included_programs || []).some((p) => (p.name || '').toLowerCase().includes('home coming'));
+    if (exists) {
+      toastPkg({ title: 'Home Coming is already in this package row' });
+      return;
+    }
+    set('included_programs', [...(c.included_programs || []), {
+      name: HOME_COMING_PROGRAM_NAME, program_id: '', duration_value: 12, duration_unit: 'months', price_per_unit: {}, offer_per_unit: {},
+    }]);
+    toastPkg({ title: `${HOME_COMING_PROGRAM_NAME} added to catalog` });
   };
   const removeProg = (idx) => { if (!locked) set('included_programs', c.included_programs.filter((_, i) => i !== idx)); };
   const toggleLock = () => setC(prev => ({ ...prev, is_locked: !prev.is_locked }));
@@ -310,11 +335,14 @@ const PackageEditor = ({ pkg, onSave, saving, onDelete, onNewVersion }) => {
           </tbody>
         </table>
         {!locked && (
-          <div className="px-2 py-1 border-t bg-gray-50 flex gap-2 items-end">
-            <Input value={progName} onChange={e => setProgName(e.target.value)} placeholder="Add program..." className="h-6 text-[9px] flex-1" onKeyDown={e => e.key === 'Enter' && (e.preventDefault(), addProg())} />
+          <div className="px-2 py-1 border-t bg-gray-50 flex flex-wrap gap-2 items-end">
+            <Input value={progName} onChange={e => setProgName(e.target.value)} placeholder="Add program..." className="h-6 text-[9px] flex-1 min-w-[120px]" onKeyDown={e => e.key === 'Enter' && (e.preventDefault(), addProg())} />
             <NumInput value={progVal} onChange={v => setProgVal(v)} className="w-10" />
             <select value={progUnit} onChange={e => setProgUnit(e.target.value)} className="h-7 text-[8px] border rounded px-0.5">{DURATION_UNITS.map(u => <option key={u} value={u}>{u === 'months' ? 'mo' : 'ss'}</option>)}</select>
-            <Button size="sm" variant="outline" onClick={addProg} className="h-6 px-1.5"><Plus size={9} /></Button>
+            <Button size="sm" variant="outline" onClick={addProg} className="h-6 px-1.5" title="Add custom program line"><Plus size={9} /></Button>
+            <Button size="sm" variant="outline" onClick={addHomeComingToCatalog} className="h-6 px-1.5 text-[8px] whitespace-nowrap border-[#5D3FD3]/40 text-[#5D3FD3]" title="Add Home Coming Circle (12 mo)">
+              Home Coming
+            </Button>
           </div>
         )}
       </div>
@@ -333,7 +361,7 @@ const blankForm = () => ({
   total_fee: 0, currency: 'INR', payment_mode: 'No EMI', num_emis: 0, emi_day: 30,
   emis: [], programs: [], programs_detail: [], bi_annual_download: 0, quarterly_releases: 0,
   payment_methods: ['stripe', 'manual'],
-  payment_destinations: { gpay: [], bank: [] },
+  payment_destinations: { gpay: [], bank: [], primary_gpay_id: '', primary_bank_id: '' },
   late_fee_per_day: 0, channelization_fee: 0, show_late_fees: false,
   iris_year: 1,
   iris_year_mode: 'manual',
@@ -379,12 +407,39 @@ const PAY_METHOD_LABELS = {
 const SubscriberForm = ({ initial, onSave, onCancel, saving, packages, irisCatalog = [] }) => {
   const { toast } = useToast();
   const [f, setF] = useState(initial || blankForm());
-  const [programInput, setProgramInput] = useState('');
   const [schedInput, setSchedInput] = useState('');
   const [autoFilled, setAutoFilled] = useState(false);
 
   const set = (key, val) => setF(prev => ({ ...prev, [key]: val }));
   const setSess = (key, val) => setF(prev => ({ ...prev, sessions: { ...prev.sessions, [key]: val } }));
+  const setPd = (partialOrFn) => {
+    setF((prev) => {
+      const cur = normalizePaymentDestinations(prev.payment_destinations);
+      const next = typeof partialOrFn === 'function' ? partialOrFn(cur) : { ...cur, ...partialOrFn };
+      return { ...prev, payment_destinations: next };
+    });
+  };
+
+  const addHomeComingCircle = () => {
+    const pd = f.programs_detail || [];
+    if (pd.some((p) => (p.name || '').toLowerCase().includes('home coming'))) {
+      toast({ title: 'Home Coming Circle is already included' });
+      return;
+    }
+    const newPD = {
+      name: HOME_COMING_PROGRAM_NAME,
+      duration_value: 12,
+      duration_unit: 'months',
+      status: 'active',
+      mode: 'online',
+      visible: true,
+      schedule: [],
+    };
+    const next = [...pd, newPD];
+    set('programs_detail', next);
+    set('programs', next.map((p) => p.name));
+    toast({ title: `${HOME_COMING_PROGRAM_NAME} added` });
+  };
 
   const selectedPkg = (packages || []).find(p => p.package_id === f.package_id);
 
@@ -441,7 +496,6 @@ const SubscriberForm = ({ initial, onSave, onCancel, saving, packages, irisCatal
 
     setF(prev => ({
       ...prev,
-      annual_program: prev.annual_program || pkg.package_name,
       total_fee: Math.round((afterDisc + taxAmt) * 100) / 100 || prev.total_fee,
       programs: programs.length > 0 ? programs : prev.programs,
       bi_annual_download: biAnnual ? biAnnual.duration_value : prev.bi_annual_download,
@@ -546,13 +600,6 @@ const SubscriberForm = ({ initial, onSave, onCancel, saving, packages, irisCatal
     set('emis', emis);
   };
 
-  const addProgram = () => {
-    if (programInput.trim() && !f.programs.includes(programInput.trim())) {
-      set('programs', [...f.programs, programInput.trim()]);
-      setProgramInput('');
-    }
-  };
-
   const addScheduledDate = () => {
     if (schedInput && !f.sessions.scheduled_dates.includes(schedInput)) {
       setSess('scheduled_dates', [...f.sessions.scheduled_dates, schedInput]);
@@ -572,7 +619,7 @@ const SubscriberForm = ({ initial, onSave, onCancel, saving, packages, irisCatal
       </div>
 
       {/* Row 1 with Package Selector */}
-      <div className="grid grid-cols-2 md:grid-cols-6 gap-3">
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
         <div className="md:col-span-2">
           <Label className="text-xs">Package (standard annual — pick row by validity &amp; discount)</Label>
           <select value={f.package_id} onChange={e => handlePackageChange(e.target.value)}
@@ -585,7 +632,6 @@ const SubscriberForm = ({ initial, onSave, onCancel, saving, packages, irisCatal
         </div>
         <div><Label className="text-xs">Name *</Label><Input value={f.name} onChange={e => set('name', e.target.value)} data-testid="form-name" /></div>
         <div><Label className="text-xs">Email</Label><Input value={f.email} onChange={e => set('email', e.target.value)} data-testid="form-email" /></div>
-        <div><Label className="text-xs">Annual Program</Label><Input value={f.annual_program} onChange={e => set('annual_program', e.target.value)} /></div>
         <div><Label className="text-xs">Start Date</Label><Input type="date" value={f.start_date} onChange={e => handleStartDateChange(e.target.value)} data-testid="form-start-date" /></div>
         <div><Label className="text-xs">End Date (auto)</Label><Input type="date" value={f.end_date} onChange={e => set('end_date', e.target.value)} className="bg-gray-50" /></div>
       </div>
@@ -651,6 +697,37 @@ const SubscriberForm = ({ initial, onSave, onCancel, saving, packages, irisCatal
           <p className="text-[9px] text-gray-500">Same standard package for everyone; set <strong>individual discount / tax</strong> below if this agreement differs from the catalog row.</p>
         </div>
       )}
+
+      <div className="rounded-lg border border-gray-200 bg-white p-3 space-y-2" data-testid="subscriber-programs-compact">
+        <Label className="text-xs font-semibold uppercase tracking-wider text-gray-500">Programs on this subscription</Label>
+        <p className="text-[9px] text-gray-500">Add <strong>{HOME_COMING_PROGRAM_NAME}</strong> from the package area, or use the catalog &quot;Home Coming&quot; button when editing packages. Chips below are what we store for the student app.</p>
+        <div className="flex flex-wrap gap-1.5 items-center">
+          {(f.programs_detail || []).length === 0 ? (
+            <span className="text-[9px] text-gray-400 italic">None</span>
+          ) : (
+            (f.programs_detail || []).map((prog, i) => (
+              <span key={i} className="inline-flex items-center gap-1 text-[9px] px-2 py-0.5 bg-gray-50 border rounded-full text-gray-800">
+                {prog.name}
+                <button
+                  type="button"
+                  className="text-gray-400 hover:text-red-600 p-0.5"
+                  onClick={() => {
+                    const next = (f.programs_detail || []).filter((_, j) => j !== i);
+                    set('programs_detail', next);
+                    set('programs', next.map((p) => p.name));
+                  }}
+                  aria-label={`Remove ${prog.name}`}
+                >
+                  <X size={10} />
+                </button>
+              </span>
+            ))
+          )}
+          <Button type="button" variant="outline" size="sm" className="h-6 text-[9px] border-[#5D3FD3]/40 text-[#5D3FD3]" onClick={addHomeComingCircle}>
+            + {HOME_COMING_PROGRAM_NAME}
+          </Button>
+        </div>
+      </div>
 
       {/* Per-subscriber pricing vs standard package catalog */}
       <div className="rounded-lg border border-gray-200 bg-gray-50/50 p-3 grid grid-cols-1 md:grid-cols-2 gap-3">
@@ -775,6 +852,7 @@ const SubscriberForm = ({ initial, onSave, onCancel, saving, packages, irisCatal
       {/* Assigned UPI / bank accounts (per member) */}
       <div className="border rounded-lg p-3 bg-slate-50/80 space-y-3">
         <p className="text-[11px] font-semibold text-gray-800">Assigned payment numbers (optional)</p>
+        <p className="text-[9px] text-gray-500">With multiple UPI or bank rows, pick one default each so the student payment flow shows only that GPay UPI or bank account.</p>
         {(f.payment_methods || []).includes('gpay') && (
           <div className="space-y-2">
             <Label className="text-xs">Google Pay / UPI IDs for this member</Label>
@@ -788,9 +866,11 @@ const SubscriberForm = ({ initial, onSave, onCancel, saving, packages, irisCatal
                       value={row.label || ''}
                       placeholder="e.g. Primary"
                       onChange={(e) => {
-                        const g = [...(f.payment_destinations?.gpay || [])];
-                        g[idx] = { ...g[idx], label: e.target.value };
-                        set('payment_destinations', { ...(f.payment_destinations || { bank: [] }), gpay: g, bank: f.payment_destinations?.bank || [] });
+                        setPd((cur) => {
+                          const g = [...cur.gpay];
+                          g[idx] = { ...g[idx], label: e.target.value };
+                          return { ...cur, gpay: g };
+                        });
                       }}
                     />
                   </div>
@@ -801,9 +881,11 @@ const SubscriberForm = ({ initial, onSave, onCancel, saving, packages, irisCatal
                       value={row.upi_id || ''}
                       placeholder="name@paytm"
                       onChange={(e) => {
-                        const g = [...(f.payment_destinations?.gpay || [])];
-                        g[idx] = { ...g[idx], upi_id: e.target.value };
-                        set('payment_destinations', { ...(f.payment_destinations || { bank: [] }), gpay: g, bank: f.payment_destinations?.bank || [] });
+                        setPd((cur) => {
+                          const g = [...cur.gpay];
+                          g[idx] = { ...g[idx], upi_id: e.target.value };
+                          return { ...cur, gpay: g };
+                        });
                       }}
                     />
                   </div>
@@ -813,13 +895,28 @@ const SubscriberForm = ({ initial, onSave, onCancel, saving, packages, irisCatal
                     size="sm"
                     className="h-8 text-red-600"
                     onClick={() => {
-                      const g = (f.payment_destinations?.gpay || []).filter((_, i) => i !== idx);
-                      set('payment_destinations', { ...(f.payment_destinations || { bank: [] }), gpay: g, bank: f.payment_destinations?.bank || [] });
+                      setPd((cur) => {
+                        const removed = cur.gpay[idx];
+                        const g = cur.gpay.filter((_, i) => i !== idx);
+                        let primary_gpay_id = cur.primary_gpay_id;
+                        if (removed?.id && primary_gpay_id === removed.id) primary_gpay_id = '';
+                        return { ...cur, gpay, primary_gpay_id };
+                      });
                     }}
                   >
                     <Trash2 size={14} />
                   </Button>
                 </div>
+                <label className="flex items-center gap-2 text-[10px] text-gray-600 cursor-pointer">
+                  <input
+                    type="radio"
+                    name="subscriber-primary-gpay"
+                    className="accent-[#5D3FD3]"
+                    checked={!!row.id && f.payment_destinations?.primary_gpay_id === row.id}
+                    onChange={() => setPd({ primary_gpay_id: row.id || '' })}
+                  />
+                  Default UPI for student payments
+                </label>
                 <div className="pl-0 sm:pl-0">
                   <Label className="text-[9px] text-gray-500">QR code (optional)</Label>
                   <div className="flex flex-wrap gap-2 items-center mt-1">
@@ -828,9 +925,11 @@ const SubscriberForm = ({ initial, onSave, onCancel, saving, packages, irisCatal
                       placeholder="Image URL or upload"
                       value={row.qr_image_url || ''}
                       onChange={(e) => {
-                        const g = [...(f.payment_destinations?.gpay || [])];
-                        g[idx] = { ...g[idx], qr_image_url: e.target.value };
-                        set('payment_destinations', { ...(f.payment_destinations || { bank: [] }), gpay: g, bank: f.payment_destinations?.bank || [] });
+                        setPd((cur) => {
+                          const g = [...cur.gpay];
+                          g[idx] = { ...g[idx], qr_image_url: e.target.value };
+                          return { ...cur, gpay: g };
+                        });
                       }}
                     />
                     <input
@@ -848,9 +947,11 @@ const SubscriberForm = ({ initial, onSave, onCancel, saving, packages, irisCatal
                           const r = await axios.post(`${BACKEND_ORIGIN}/api/upload/image`, fd);
                           const url = r.data?.url;
                           if (url) {
-                            const g = [...(f.payment_destinations?.gpay || [])];
-                            g[idx] = { ...g[idx], qr_image_url: url };
-                            set('payment_destinations', { ...(f.payment_destinations || { bank: [] }), gpay: g, bank: f.payment_destinations?.bank || [] });
+                            setPd((cur) => {
+                              const g = [...cur.gpay];
+                              g[idx] = { ...g[idx], qr_image_url: url };
+                              return { ...cur, gpay: g };
+                            });
                             toast({ title: 'QR image uploaded' });
                           }
                         } catch {
@@ -869,9 +970,11 @@ const SubscriberForm = ({ initial, onSave, onCancel, saving, packages, irisCatal
                         type="button"
                         className="text-[10px] text-gray-500 hover:text-red-600"
                         onClick={() => {
-                          const g = [...(f.payment_destinations?.gpay || [])];
-                          g[idx] = { ...g[idx], qr_image_url: '' };
-                          set('payment_destinations', { ...(f.payment_destinations || { bank: [] }), gpay: g, bank: f.payment_destinations?.bank || [] });
+                          setPd((cur) => {
+                            const g = [...cur.gpay];
+                            g[idx] = { ...g[idx], qr_image_url: '' };
+                            return { ...cur, gpay: g };
+                          });
                         }}
                       >
                         Clear
@@ -894,8 +997,10 @@ const SubscriberForm = ({ initial, onSave, onCancel, saving, packages, irisCatal
               size="sm"
               className="h-7 text-[10px]"
               onClick={() => {
-                const g = [...(f.payment_destinations?.gpay || []), { id: newDestId(), label: '', upi_id: '', qr_image_url: '' }];
-                set('payment_destinations', { ...(f.payment_destinations || { bank: [] }), gpay: g, bank: f.payment_destinations?.bank || [] });
+                setPd((cur) => ({
+                  ...cur,
+                  gpay: [...cur.gpay, { id: newDestId(), label: '', upi_id: '', qr_image_url: '' }],
+                }));
               }}
             >
               <Plus size={12} className="mr-1" /> Add UPI
@@ -906,62 +1011,91 @@ const SubscriberForm = ({ initial, onSave, onCancel, saving, packages, irisCatal
           <div className="space-y-2">
             <Label className="text-xs">Bank accounts for this member</Label>
             {(f.payment_destinations?.bank || []).map((row, idx) => (
-              <div key={row.id || idx} className="grid grid-cols-2 md:grid-cols-6 gap-2 border-b border-gray-100 pb-2">
-                <div>
-                  <Label className="text-[9px] text-gray-500">Label</Label>
-                  <Input
-                    className="h-8 text-xs"
-                    value={row.label || ''}
-                    onChange={(e) => {
-                      const b = [...(f.payment_destinations?.bank || [])];
-                      b[idx] = { ...b[idx], label: e.target.value };
-                      set('payment_destinations', { ...(f.payment_destinations || { gpay: [] }), bank: b, gpay: f.payment_destinations?.gpay || [] });
-                    }}
+              <div key={row.id || idx} className="border-b border-gray-100 pb-3 space-y-2">
+                <div className="grid grid-cols-2 md:grid-cols-6 gap-2">
+                  <div>
+                    <Label className="text-[9px] text-gray-500">Label</Label>
+                    <Input
+                      className="h-8 text-xs"
+                      value={row.label || ''}
+                      onChange={(e) => {
+                        setPd((cur) => {
+                          const b = [...cur.bank];
+                          b[idx] = { ...b[idx], label: e.target.value };
+                          return { ...cur, bank: b };
+                        });
+                      }}
+                    />
+                  </div>
+                  <div>
+                    <Label className="text-[9px] text-gray-500">Bank name</Label>
+                    <Input className="h-8 text-xs" value={row.bank_name || ''} onChange={(e) => {
+                      setPd((cur) => {
+                        const b = [...cur.bank];
+                        b[idx] = { ...b[idx], bank_name: e.target.value };
+                        return { ...cur, bank: b };
+                      });
+                    }} />
+                  </div>
+                  <div>
+                    <Label className="text-[9px] text-gray-500">Account name</Label>
+                    <Input className="h-8 text-xs" value={row.account_name || ''} onChange={(e) => {
+                      setPd((cur) => {
+                        const b = [...cur.bank];
+                        b[idx] = { ...b[idx], account_name: e.target.value };
+                        return { ...cur, bank: b };
+                      });
+                    }} />
+                  </div>
+                  <div>
+                    <Label className="text-[9px] text-gray-500">Account no.</Label>
+                    <Input className="h-8 text-xs font-mono" value={row.account_number || ''} onChange={(e) => {
+                      setPd((cur) => {
+                        const b = [...cur.bank];
+                        b[idx] = { ...b[idx], account_number: e.target.value };
+                        return { ...cur, bank: b };
+                      });
+                    }} />
+                  </div>
+                  <div>
+                    <Label className="text-[9px] text-gray-500">IFSC</Label>
+                    <Input className="h-8 text-xs font-mono" value={row.ifsc || ''} onChange={(e) => {
+                      setPd((cur) => {
+                        const b = [...cur.bank];
+                        b[idx] = { ...b[idx], ifsc: e.target.value };
+                        return { ...cur, bank: b };
+                      });
+                    }} />
+                  </div>
+                  <div className="flex items-end">
+                    <Button type="button" variant="ghost" size="sm" className="h-8 text-red-600" onClick={() => {
+                      setPd((cur) => {
+                        const removed = cur.bank[idx];
+                        const b = cur.bank.filter((_, i) => i !== idx);
+                        let primary_bank_id = cur.primary_bank_id;
+                        if (removed?.id && primary_bank_id === removed.id) primary_bank_id = '';
+                        return { ...cur, bank, primary_bank_id };
+                      });
+                    }}><Trash2 size={14} /></Button>
+                  </div>
+                </div>
+                <label className="flex items-center gap-2 text-[10px] text-gray-600 cursor-pointer">
+                  <input
+                    type="radio"
+                    name="subscriber-primary-bank"
+                    className="accent-[#5D3FD3]"
+                    checked={!!row.id && f.payment_destinations?.primary_bank_id === row.id}
+                    onChange={() => setPd({ primary_bank_id: row.id || '' })}
                   />
-                </div>
-                <div>
-                  <Label className="text-[9px] text-gray-500">Bank name</Label>
-                  <Input className="h-8 text-xs" value={row.bank_name || ''} onChange={(e) => {
-                    const b = [...(f.payment_destinations?.bank || [])];
-                    b[idx] = { ...b[idx], bank_name: e.target.value };
-                    set('payment_destinations', { ...(f.payment_destinations || { gpay: [] }), bank: b, gpay: f.payment_destinations?.gpay || [] });
-                  }} />
-                </div>
-                <div>
-                  <Label className="text-[9px] text-gray-500">Account name</Label>
-                  <Input className="h-8 text-xs" value={row.account_name || ''} onChange={(e) => {
-                    const b = [...(f.payment_destinations?.bank || [])];
-                    b[idx] = { ...b[idx], account_name: e.target.value };
-                    set('payment_destinations', { ...(f.payment_destinations || { gpay: [] }), bank: b, gpay: f.payment_destinations?.gpay || [] });
-                  }} />
-                </div>
-                <div>
-                  <Label className="text-[9px] text-gray-500">Account no.</Label>
-                  <Input className="h-8 text-xs font-mono" value={row.account_number || ''} onChange={(e) => {
-                    const b = [...(f.payment_destinations?.bank || [])];
-                    b[idx] = { ...b[idx], account_number: e.target.value };
-                    set('payment_destinations', { ...(f.payment_destinations || { gpay: [] }), bank: b, gpay: f.payment_destinations?.gpay || [] });
-                  }} />
-                </div>
-                <div>
-                  <Label className="text-[9px] text-gray-500">IFSC</Label>
-                  <Input className="h-8 text-xs font-mono" value={row.ifsc || ''} onChange={(e) => {
-                    const b = [...(f.payment_destinations?.bank || [])];
-                    b[idx] = { ...b[idx], ifsc: e.target.value };
-                    set('payment_destinations', { ...(f.payment_destinations || { gpay: [] }), bank: b, gpay: f.payment_destinations?.gpay || [] });
-                  }} />
-                </div>
-                <div className="flex items-end">
-                  <Button type="button" variant="ghost" size="sm" className="h-8 text-red-600" onClick={() => {
-                    const b = (f.payment_destinations?.bank || []).filter((_, i) => i !== idx);
-                    set('payment_destinations', { ...(f.payment_destinations || { gpay: [] }), bank: b, gpay: f.payment_destinations?.gpay || [] });
-                  }}><Trash2 size={14} /></Button>
-                </div>
+                  Default bank account for student payments
+                </label>
               </div>
             ))}
             <Button type="button" variant="outline" size="sm" className="h-7 text-[10px]" onClick={() => {
-              const b = [...(f.payment_destinations?.bank || []), { id: newDestId(), label: '', bank_name: '', account_name: '', account_number: '', ifsc: '' }];
-              set('payment_destinations', { ...(f.payment_destinations || { gpay: [] }), bank: b, gpay: f.payment_destinations?.gpay || [] });
+              setPd((cur) => ({
+                ...cur,
+                bank: [...cur.bank, { id: newDestId(), label: '', bank_name: '', account_name: '', account_number: '', ifsc: '' }],
+              }));
             }}><Plus size={12} className="mr-1" /> Add bank account</Button>
           </div>
         )}
@@ -1041,120 +1175,6 @@ const SubscriberForm = ({ initial, onSave, onCancel, saving, packages, irisCatal
         )}
       </div>
 
-      {/* Programs with Admin Controls */}
-      <div>
-        <Label className="text-xs font-semibold uppercase tracking-wider text-gray-500">Programs in Package</Label>
-        {(f.programs_detail || []).length > 0 && (
-          <div className="mt-2 space-y-2">
-            {(f.programs_detail || []).map((prog, i) => {
-              const updatePD = (field, val) => {
-                const pd = [...(f.programs_detail || [])];
-                pd[i] = { ...pd[i], [field]: val };
-                set('programs_detail', pd);
-                set('programs', pd.map(p => p.name));
-              };
-              return (
-                <div key={i} className={`border rounded-lg ${prog.status === 'paused' ? 'bg-amber-50 border-amber-200' : 'bg-white'}`}>
-                  {/* Program Header */}
-                  <div className="flex items-center gap-2 p-3 border-b">
-                    <Input value={prog.name} onChange={e => updatePD('name', e.target.value)} className="h-7 text-xs font-semibold flex-1" />
-                    <Input type="text" inputMode="numeric" value={prog.duration_value} onChange={e => updatePD('duration_value', parseInt(e.target.value) || 0)} className="h-7 text-xs w-12 text-center" />
-                    <select value={prog.duration_unit} onChange={e => updatePD('duration_unit', e.target.value)} className="h-7 text-[10px] border rounded px-1">
-                      <option value="months">months</option><option value="sessions">sessions</option>
-                    </select>
-                    <select value={prog.mode || 'online'} onChange={e => updatePD('mode', e.target.value)} className={`h-7 text-[10px] border rounded px-1 font-bold ${prog.mode === 'offline' ? 'text-green-700 bg-green-50' : 'text-blue-700 bg-blue-50'}`}>
-                      <option value="online">Online</option><option value="offline">Offline</option>
-                    </select>
-                    <button onClick={() => updatePD('status', prog.status === 'paused' ? 'active' : 'paused')}
-                      className={`text-[9px] px-2 py-1 rounded font-bold ${prog.status === 'paused' ? 'bg-amber-200 text-amber-800' : 'bg-gray-100 text-gray-500 hover:bg-amber-100'}`}>
-                      {prog.status === 'paused' ? 'Resume' : 'Pause'}
-                    </button>
-                    <label className="flex items-center gap-1 text-[9px] text-gray-500" title="Allow student to self-pause">
-                      <input type="checkbox" className="w-3 h-3 accent-amber-500" checked={prog.allow_pause || false} onChange={e => updatePD('allow_pause', e.target.checked)} />
-                      <span className="text-amber-600">Pausable</span>
-                    </label>
-                    <label className="flex items-center gap-1 text-[9px] text-gray-500">
-                      <input type="checkbox" className="w-3 h-3" checked={prog.visible !== false} onChange={e => updatePD('visible', e.target.checked)} />
-                      Vis
-                    </label>
-                    <button onClick={() => { const pd = (f.programs_detail || []).filter((_, j) => j !== i); set('programs_detail', pd); set('programs', pd.map(p => p.name)); }} className="text-gray-300 hover:text-red-500"><X size={12} /></button>
-                  </div>
-
-                  {/* Schedule Editor */}
-                  <div className="p-2">
-                    <div className="flex items-center justify-between mb-1">
-                      <span className="text-[8px] uppercase tracking-wider text-gray-400 font-semibold">Schedule ({(prog.schedule || []).length}/{prog.duration_value})</span>
-                      {(prog.schedule || []).length < prog.duration_value && (
-                        <button onClick={() => {
-                          const sched = [...(prog.schedule || [])];
-                          const num = sched.length + 1;
-                          sched.push(prog.duration_unit === 'months'
-                            ? { month: num, date: '', end_date: '', mode_choice: '', completed: false }
-                            : { session: num, date: '', time: '', mode_choice: '', completed: false });
-                          updatePD('schedule', sched);
-                        }} className="text-[8px] text-[#5D3FD3] hover:underline font-medium">+ Add {prog.duration_unit === 'months' ? 'Month' : 'Session'}</button>
-                      )}
-                    </div>
-                    {(prog.schedule || []).length > 0 && (
-                      <div className="space-y-1">
-                        {(prog.schedule || []).map((sess, si) => {
-                          const updateSched = (field, val) => {
-                            const sched = [...(prog.schedule || [])];
-                            sched[si] = { ...sched[si], [field]: val };
-                            updatePD('schedule', sched);
-                          };
-                          const label = prog.duration_unit === 'months' ? `M${si+1}` : `S${si+1}`;
-                          return (
-                            <div key={si} className={`flex items-center gap-1.5 text-[9px] ${sess.completed ? 'bg-green-50 rounded px-1 py-0.5' : ''}`}>
-                              <span className={`w-5 text-center font-bold ${sess.completed ? 'text-green-600' : 'text-gray-400'}`}>{label}</span>
-                              <Input type="date" value={sess.date || ''} onChange={e => updateSched('date', e.target.value)} className="h-6 text-[9px] w-28" />
-                              {prog.duration_unit === 'months' && (
-                                <Input type="date" value={sess.end_date || ''} onChange={e => updateSched('end_date', e.target.value)} className="h-6 text-[9px] w-28" placeholder="End" />
-                              )}
-                              {prog.duration_unit !== 'months' && (
-                                <Input value={sess.time || ''} onChange={e => updateSched('time', e.target.value)} className="h-6 text-[9px] w-20" placeholder="Time" />
-                              )}
-                              <label className="flex items-center gap-0.5 text-[8px] text-gray-400">
-                                <input type="checkbox" className="w-2.5 h-2.5" checked={sess.completed || false} onChange={e => updateSched('completed', e.target.checked)} />
-                                Done
-                              </label>
-                              {sess.mode_choice && <span className={`px-1 py-0.5 rounded text-[7px] font-bold ${sess.mode_choice === 'online' ? 'bg-blue-100 text-blue-600' : 'bg-green-100 text-green-600'}`}>{sess.mode_choice}</span>}
-                            </div>
-                          );
-                        })}
-                      </div>
-                    )}
-                    {(prog.schedule || []).length === 0 && (
-                      <button onClick={() => {
-                        const sched = [];
-                        for (let s = 1; s <= prog.duration_value; s++) {
-                          sched.push(prog.duration_unit === 'months'
-                            ? { month: s, date: '', end_date: '', mode_choice: '', completed: false }
-                            : { session: s, date: '', time: '', mode_choice: '', completed: false });
-                        }
-                        updatePD('schedule', sched);
-                      }} className="text-[9px] text-[#5D3FD3] hover:underline font-medium py-1">
-                        Generate {prog.duration_value} {prog.duration_unit === 'months' ? 'month' : 'session'} slots
-                      </button>
-                    )}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        )}
-        <div className="flex gap-2 items-end mt-2">
-          <div className="flex-1"><Input value={programInput} onChange={e => setProgramInput(e.target.value)} placeholder="Add program..." className="h-8 text-xs" onKeyDown={e => e.key === 'Enter' && (e.preventDefault(), addProgram())} /></div>
-          <Button size="sm" variant="outline" onClick={() => {
-            if (!programInput.trim()) return;
-            const newPD = { name: programInput.trim(), duration_value: 12, duration_unit: 'months', status: 'active', mode: 'online', visible: true };
-            set('programs_detail', [...(f.programs_detail || []), newPD]);
-            set('programs', [...(f.programs || []), programInput.trim()]);
-            setProgramInput('');
-          }} className="h-8"><Plus size={12} /></Button>
-        </div>
-      </div>
-
       <div className="flex gap-2 pt-2 border-t">
         <Button onClick={() => onSave(f)} disabled={saving || !f.name} className="bg-[#5D3FD3] hover:bg-[#4c32b3]" data-testid="form-save-btn">
           {saving ? <Loader2 size={14} className="animate-spin mr-1" /> : <Save size={14} className="mr-1" />}
@@ -1231,7 +1251,6 @@ const SubscriberRow = ({ s, onRefresh, onEdit, irisCatalog = [], packages = [] }
             <p className="text-[8px] text-gray-400 truncate" title={`${pkgRow.valid_from} → ${pkgRow.valid_to}`}>{pkgRow.valid_from} → {pkgRow.valid_to}</p>
           )}
         </td>
-        <td className="px-3 py-2 font-medium truncate max-w-[120px]">{sub.annual_program}</td>
         <td className="px-3 py-2 text-center text-gray-500 whitespace-nowrap">{sub.start_date}</td>
         <td className="px-3 py-2 text-center text-gray-500 whitespace-nowrap">{sub.end_date || '—'}</td>
         <td className="px-3 py-2 text-left max-w-[200px]">
@@ -1255,7 +1274,7 @@ const SubscriberRow = ({ s, onRefresh, onEdit, irisCatalog = [], packages = [] }
       {/* ═══ ADMIN MIRROR VIEW (same as student sees + edit) ═══ */}
       {open && (
         <tr>
-          <td colSpan={13} className="bg-[#FDFBF7] px-4 py-4 border-b">
+          <td colSpan={12} className="bg-[#FDFBF7] px-4 py-4 border-b">
             {/* Top Stats — same as student */}
             <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-9 gap-3 mb-4">
               {[
@@ -1554,9 +1573,9 @@ const SubscribersTab = ({ openManualFormOnMount = false }) => {
     bi_annual_download: editTarget.subscription?.bi_annual_download || 0, quarterly_releases: editTarget.subscription?.quarterly_releases || 0,
     payment_methods: editTarget.subscription?.payment_methods || ['stripe', 'manual'],
     payment_destinations: (() => {
-      const pd = editTarget.subscription?.payment_destinations;
-      if (pd && typeof pd === 'object') return { gpay: pd.gpay || [], bank: pd.bank || [] };
-      return { gpay: [], bank: [] };
+      const n = normalizePaymentDestinations(editTarget.subscription?.payment_destinations);
+      const ensureIds = (rows) => rows.map((r) => ({ ...r, id: r.id || newDestId() }));
+      return { ...n, gpay: ensureIds(n.gpay), bank: ensureIds(n.bank) };
     })(),
     late_fee_per_day: editTarget.subscription?.late_fee_per_day || 0,
     channelization_fee: editTarget.subscription?.channelization_fee || 0,
@@ -1721,7 +1740,6 @@ const SubscribersTab = ({ openManualFormOnMount = false }) => {
                   <th className="px-3 py-2 text-left sticky left-0 bg-gray-50 z-10 border-r">Name</th>
                   <th className="px-3 py-2 text-left">Email</th>
                   <th className="px-3 py-2 text-left">Package</th>
-                  <th className="px-3 py-2 text-left">Program</th>
                   <th className="px-3 py-2 text-center">Start</th>
                   <th className="px-3 py-2 text-center">End</th>
                   <th className="px-3 py-2 text-left">Iris journey</th>

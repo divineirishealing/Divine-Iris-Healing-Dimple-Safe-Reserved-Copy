@@ -42,12 +42,17 @@ const PaymentModal = ({ emi, clientId, banks, methods, destinations, currency, o
   const [submitting, setSubmitting] = useState(false);
   const gpayList = useMemo(() => {
     const d = destinations || EMPTY_PD;
-    return Array.isArray(d.gpay) ? d.gpay.filter((x) => (x.upi_id || '').trim()) : [];
+    let list = Array.isArray(d.gpay) ? d.gpay.filter((x) => (x.upi_id || '').trim()) : [];
+    const pid = d.primary_gpay_id;
+    if (pid && list.some((x) => x.id === pid)) list = list.filter((x) => x.id === pid);
+    return list;
   }, [destinations]);
 
   const subscriberBanksAsApi = useMemo(() => {
     const d = destinations || EMPTY_PD;
-    const bankList = Array.isArray(d.bank) ? d.bank.filter((x) => (x.account_number || '').trim()) : [];
+    let bankList = Array.isArray(d.bank) ? d.bank.filter((x) => (x.account_number || '').trim()) : [];
+    const bid = d.primary_bank_id;
+    if (bid && bankList.some((x) => x.id === bid)) bankList = bankList.filter((x) => x.id === bid);
     return bankList.map((b) => ({
       bank_code: b.id || `sub-${(b.account_number || '').slice(-6)}`,
       bank_name: b.bank_name || b.label || 'Bank',
