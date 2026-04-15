@@ -777,9 +777,6 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh }) 
                       <th className="px-2 py-2 text-[9px] font-bold uppercase tracking-wide text-slate-600 whitespace-nowrap w-[6.5rem]">
                         Relation
                       </th>
-                      <th className="px-2 py-2 text-[9px] font-bold uppercase tracking-wide text-slate-600 whitespace-nowrap w-[5.5rem]">
-                        Mode
-                      </th>
                       <th className="px-2 py-2 text-[9px] font-bold uppercase tracking-wide text-slate-600 whitespace-nowrap w-[8.5rem]">
                         Date of birth
                       </th>
@@ -797,6 +794,9 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh }) 
                       </th>
                       <th className="px-2 py-2 text-[9px] font-bold uppercase tracking-wide text-slate-600 whitespace-nowrap min-w-[6.5rem]">
                         Phone
+                      </th>
+                      <th className="px-2 py-2 text-[9px] font-bold uppercase tracking-wide text-slate-600 whitespace-nowrap w-[5.5rem]">
+                        Mode
                       </th>
                       <th className="px-2 py-2 text-[9px] font-bold uppercase tracking-wide text-slate-600 whitespace-nowrap w-[3.25rem] text-center" title="Email enrollment details after payment">
                         Notify
@@ -829,17 +829,6 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh }) 
                                 {r}
                               </option>
                             ))}
-                          </select>
-                        </td>
-                        <td className="px-2 py-1.5 align-middle">
-                          <select
-                            value={m.attendance_mode === 'offline' ? 'offline' : 'online'}
-                            onChange={(e) => updateRow(idx, 'attendance_mode', e.target.value)}
-                            className="w-full max-w-[5.5rem] text-[11px] border border-slate-200 rounded px-1 py-1 bg-white"
-                            aria-label="Online or offline"
-                          >
-                            <option value="online">Online</option>
-                            <option value="offline">Offline</option>
                           </select>
                         </td>
                         <td className="px-2 py-1.5 align-middle">
@@ -911,6 +900,17 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh }) 
                             className="w-full min-w-[5.5rem] text-[11px] border border-slate-200 rounded px-1.5 py-1 bg-white"
                             placeholder="Optional"
                           />
+                        </td>
+                        <td className="px-2 py-1.5 align-middle">
+                          <select
+                            value={m.attendance_mode === 'offline' ? 'offline' : 'online'}
+                            onChange={(e) => updateRow(idx, 'attendance_mode', e.target.value)}
+                            className="w-full max-w-[5.5rem] text-[11px] border border-slate-200 rounded px-1 py-1 bg-white"
+                            aria-label="Online or offline"
+                          >
+                            <option value="online">Online</option>
+                            <option value="offline">Offline</option>
+                          </select>
                         </td>
                         <td className="px-2 py-1.5 align-middle text-center">
                           <input
