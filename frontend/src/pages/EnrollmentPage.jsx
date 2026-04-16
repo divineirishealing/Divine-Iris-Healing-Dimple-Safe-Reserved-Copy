@@ -315,7 +315,7 @@ function EnrollmentPage() {
   const [otp, setOtp] = useState('');
   const [emailVerified, setEmailVerified] = useState(false);
   const [processing, setProcessing] = useState(false);
-  const [discountSettings, setDiscountSettings] = useState({ enable_referral: true });
+  const [discountSettings, setDiscountSettings] = useState({ enable_referral: true, checkout_promo_code_visible: true });
   const [paymentSettings, setPaymentSettings] = useState({ disclaimer: '', disclaimer_enabled: true, disclaimer_style: {}, india_links: [], india_exly_link: '', india_bank_details: {}, india_enabled: false, manual_form_enabled: true });
   const [sessionTestimonials, setSessionTestimonials] = useState([]);
   const [urgencyQuotes, setUrgencyQuotes] = useState([]);
@@ -330,6 +330,14 @@ function EnrollmentPage() {
   const bookerCountry = firstP.country || '';
   const phone = firstP.phone || '';
   const countryCode = firstP.phone_code || '';
+  const showCheckoutPromo = discountSettings.checkout_promo_code_visible !== false;
+
+  useEffect(() => {
+    if (discountSettings.checkout_promo_code_visible === false && !(promoFromUrl || '').trim()) {
+      setPromoCode('');
+      setPromoResult(null);
+    }
+  }, [discountSettings.checkout_promo_code_visible, promoFromUrl]);
 
   useEffect(() => {
     const ep = type === 'program' ? 'programs' : 'sessions';
@@ -1007,18 +1015,37 @@ function EnrollmentPage() {
                       <Plus size={14} /> Add Participant
                     </button>
 
-                    {/* Promo Code */}
+                    {/* Promo Code (hidden when admin turns off; link ?promo= still applies) */}
+                    {(showCheckoutPromo || promoResult) && (
                     <div className="border-t pt-4 mt-2 mb-4">
-                      <label className="text-xs font-medium text-gray-700 mb-1 block flex items-center gap-1.5"><Tag size={12} className="text-[#D4AF37]" /> Promo Code</label>
-                      <div className="flex gap-2">
-                        <Input data-testid="promo-code-input" value={promoCode} onChange={e => setPromoCode(e.target.value.toUpperCase())} placeholder="Enter code" className="text-sm flex-1" disabled={!!promoResult} />
-                        {promoResult ? <Button size="sm" variant="outline" onClick={() => { setPromoResult(null); setPromoCode(''); }}>Remove</Button>
-                          : <Button size="sm" onClick={validatePromo} disabled={promoLoading || !promoCode.trim()} className="bg-[#D4AF37] hover:bg-[#b8962e] text-white text-xs">
-                              {promoLoading ? <Loader2 className="animate-spin" size={14} /> : 'Apply'}
-                            </Button>}
-                      </div>
-                      {promoResult && <div className="mt-2 bg-green-50 border border-green-200 rounded p-2 flex items-center gap-1"><Check size={12} className="text-green-600" /><span className="text-xs text-green-700">Saving {symbol} {discount.toLocaleString()}</span></div>}
+                      {showCheckoutPromo ? (
+                        <>
+                          <label className="text-xs font-medium text-gray-700 mb-1 block flex items-center gap-1.5"><Tag size={12} className="text-[#D4AF37]" /> Promo Code</label>
+                          <div className="flex gap-2">
+                            <Input data-testid="promo-code-input" value={promoCode} onChange={e => setPromoCode(e.target.value.toUpperCase())} placeholder="Enter code" className="text-sm flex-1" disabled={!!promoResult} />
+                            {promoResult ? <Button size="sm" variant="outline" onClick={() => { setPromoResult(null); setPromoCode(''); }}>Remove</Button>
+                              : <Button size="sm" onClick={validatePromo} disabled={promoLoading || !promoCode.trim()} className="bg-[#D4AF37] hover:bg-[#b8962e] text-white text-xs">
+                                  {promoLoading ? <Loader2 className="animate-spin" size={14} /> : 'Apply'}
+                                </Button>}
+                          </div>
+                        </>
+                      ) : null}
+                      {promoResult && (
+                        <div className={`mt-2 bg-green-50 border border-green-200 rounded p-2 flex items-center gap-1 ${showCheckoutPromo ? '' : 'mt-0'}`}>
+                          <Check size={12} className="text-green-600" />
+                          <span className="text-xs text-green-700">
+                            {showCheckoutPromo
+                              ? `Saving ${symbol} ${discount.toLocaleString()}`
+                              : (
+                                <>
+                                  Promo <strong>{promoResult.code}</strong> applied — saving {symbol} {discount.toLocaleString()}
+                                </>
+                              )}
+                          </span>
+                        </div>
+                      )}
                     </div>
+                    )}
 
                     {/* Email Verification */}
                     <div className="border-t pt-4">

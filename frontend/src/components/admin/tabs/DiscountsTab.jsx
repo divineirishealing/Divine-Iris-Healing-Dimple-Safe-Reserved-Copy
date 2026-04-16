@@ -5,7 +5,7 @@ import { Input } from '../../../components/ui/input';
 import { Switch } from '../../../components/ui/switch';
 import { Label } from '../../../components/ui/label';
 import { useToast } from '../../../hooks/use-toast';
-import { Plus, Trash2, Users, ShoppingCart, Heart, UserPlus, Save, Gift, Star, Upload } from 'lucide-react';
+import { Plus, Trash2, Users, ShoppingCart, Heart, UserPlus, Save, Gift, Star, Upload, Tag } from 'lucide-react';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
@@ -17,6 +17,7 @@ const DISCOUNT_PAYLOAD_KEYS = [
   'enable_combo_discount',
   'combo_discount_pct',
   'combo_min_programs',
+  'checkout_promo_code_visible',
   'combo_rules',
   'enable_loyalty',
   'loyalty_discount_pct',
@@ -44,6 +45,7 @@ export default function DiscountsTab() {
     enable_combo_discount: false,
     combo_discount_pct: 0,
     combo_min_programs: 2,
+    checkout_promo_code_visible: true,
     combo_rules: [],
     enable_loyalty: false,
     loyalty_discount_pct: 0,
@@ -108,6 +110,30 @@ export default function DiscountsTab() {
         <Button onClick={saveSettings} disabled={saving} className="bg-[#D4AF37] hover:bg-[#b8962e] text-white" data-testid="save-discounts-btn">
           <Save size={14} className="mr-1.5" /> {saving ? 'Saving...' : 'Save Settings'}
         </Button>
+      </div>
+
+      {/* Checkout promo code visibility */}
+      <div className="bg-white rounded-lg border p-5" data-testid="checkout-promo-visibility-section">
+        <div className="flex items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 bg-amber-100 rounded-lg flex items-center justify-center">
+              <Tag size={18} className="text-amber-700" />
+            </div>
+            <div>
+              <p className="text-sm font-medium text-gray-900">Promo code on cart & enrollment</p>
+              <p className="text-xs text-gray-500 mt-0.5">
+                When off, the promo code box is hidden on the cart and on program enrollment. Link-based codes (
+                <code className="text-[10px] bg-gray-100 px-1 rounded">?promo=</code>
+                ) on enrollment still work.
+              </p>
+            </div>
+          </div>
+          <Switch
+            data-testid="checkout-promo-visible-switch"
+            checked={settings.checkout_promo_code_visible !== false}
+            onCheckedChange={(v) => setSettings((prev) => ({ ...prev, checkout_promo_code_visible: v }))}
+          />
+        </div>
       </div>
 
       {/* Referral Toggle */}

@@ -35,6 +35,8 @@ function CartCheckoutPage() {
   const [promoResult, setPromoResult] = useState(null);
   const [processing, setProcessing] = useState(false);
   const [paymentSettings, setPaymentSettings] = useState({ disclaimer: '', disclaimer_enabled: true, disclaimer_style: {}, india_links: [], india_exly_link: '', india_bank_details: {}, india_enabled: false, manual_form_enabled: true });
+  /** null = not loaded yet; only validate URL promo once true */
+  const [checkoutPromoVisible, setCheckoutPromoVisible] = useState(null);
   const [urgencyQuotes, setUrgencyQuotes] = useState([]);
   const [pointsSummary, setPointsSummary] = useState(null);
   const [pointsToRedeem, setPointsToRedeem] = useState(0);
@@ -54,13 +56,12 @@ function CartCheckoutPage() {
     if (!enrollmentId) navigate('/cart');
   }, [items, navigate, enrollmentId]);
 
-  // Validate promo on mount if provided
+  // Validate promo on mount if provided (skipped when admin hides checkout promo)
   useEffect(() => {
-    if (promoCode && items.length > 0) {
-      axios.post(`${API}/promotions/validate`, { code: promoCode, program_id: items[0]?.programId, currency })
-        .then(r => setPromoResult(r.data)).catch(() => {});
-    }
-  }, [promoCode, currency]);
+    if (checkoutPromoVisible !== true || !promoCode || items.length === 0) return;
+    axios.post(`${API}/promotions/validate`, { code: promoCode, program_id: items[0]?.programId, currency })
+      .then(r => setPromoResult(r.data)).catch(() => {});
+  }, [promoCode, currency, checkoutPromoVisible, items.length]);
 
   // Fetch payment settings
   useEffect(() => {
@@ -78,7 +79,8 @@ function CartCheckoutPage() {
         manual_form_enabled: s.manual_form_enabled !== false,
       });
       setUrgencyQuotes(s.enrollment_urgency_quotes || []);
-    }).catch(() => {});
+      setCheckoutPromoVisible(s.checkout_promo_code_visible !== false);
+    }).catch(() => { setCheckoutPromoVisible(true); });
   }, []);
 
   // Local price getters using active currency

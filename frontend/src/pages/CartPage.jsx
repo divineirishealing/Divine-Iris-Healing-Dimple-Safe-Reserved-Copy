@@ -377,7 +377,7 @@ function CartPage() {
   const { items, removeItem, updateItemParticipants, clearCart } = useCart();
   const { getPrice, getOfferPrice, symbol, baseCurrency, country: detectedCountry } = useCurrency();
   const { toast } = useToast();
-  const [discountSettings, setDiscountSettings] = useState({ enable_referral: true });
+  const [discountSettings, setDiscountSettings] = useState({ enable_referral: true, checkout_promo_code_visible: true });
   const [paymentDisclaimer, setPaymentDisclaimer] = useState('');
   const [disclaimerStyle, setDisclaimerStyle] = useState({});
   const [promoCode, setPromoCode] = useState('');
@@ -391,6 +391,14 @@ function CartPage() {
   const [loading, setLoading] = useState(false);
   const [urgencyQuotes, setUrgencyQuotes] = useState([]);
   const currency = baseCurrency;
+  const showCheckoutPromo = discountSettings.checkout_promo_code_visible !== false;
+
+  useEffect(() => {
+    if (discountSettings.checkout_promo_code_visible === false) {
+      setPromoCode('');
+      setPromoResult(null);
+    }
+  }, [discountSettings.checkout_promo_code_visible]);
 
   // Country is NOT auto-filled — user must select manually
 
@@ -739,6 +747,7 @@ function CartPage() {
             </div>
 
             {/* Promo Code */}
+            {showCheckoutPromo && (
             <div className="border-t pt-4 mt-4">
               <label className="text-xs font-medium text-gray-700 mb-1 block flex items-center gap-1.5"><Tag size={12} className="text-[#D4AF37]" /> Promo Code</label>
               <div className="flex gap-2">
@@ -759,6 +768,7 @@ function CartPage() {
                 </div>
               )}
             </div>
+            )}
 
             {/* Disclaimer */}
             {paymentDisclaimer && (

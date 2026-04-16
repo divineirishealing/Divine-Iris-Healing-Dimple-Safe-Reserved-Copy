@@ -506,6 +506,8 @@ class SiteSettings(BaseModel):
     enable_combo_discount: bool = False
     combo_discount_pct: float = 0  # % off when 2+ programs in cart
     combo_min_programs: int = 2
+    # Cart + single-program enrollment: show "Promo code" field (URL ?promo= still works on enrollment when off)
+    checkout_promo_code_visible: bool = True
     enable_loyalty: bool = False
     loyalty_discount_pct: float = 0  # % off for returning clients (have existing UID)
     # Points wallet (earn & burn) — separate from % loyalty discount above
@@ -692,6 +694,7 @@ class SiteSettingsUpdate(BaseModel):
     enable_combo_discount: Optional[bool] = None
     combo_discount_pct: Optional[float] = None
     combo_min_programs: Optional[int] = None
+    checkout_promo_code_visible: Optional[bool] = None
     enable_loyalty: Optional[bool] = None
     loyalty_discount_pct: Optional[float] = None
     points_enabled: Optional[bool] = None
