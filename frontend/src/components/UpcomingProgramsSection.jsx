@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { resolveImageUrl } from '../lib/imageUtils';
@@ -106,163 +106,6 @@ const convertTimingToLocal = (timing, timeZone, detectedCountry) => {
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
-
-function normalizePid(id) {
-  if (id == null || id === '') return '';
-  return String(id).trim();
-}
-
-/** Group admin “upcoming card” quotes by program id (visible-only list from API). */
-function buildProgramCardQuotesMap(rows) {
-  const byProgram = {};
-  for (const row of rows || []) {
-    const pid = normalizePid(row.program_id);
-    if (!pid) continue;
-    if (!byProgram[pid]) byProgram[pid] = [];
-    byProgram[pid].push({
-      order: row.order ?? 0,
-      text: (row.text || '').trim(),
-      name: (row.author || '').trim(),
-      role: (row.role || '').trim(),
-    });
-  }
-  for (const k of Object.keys(byProgram)) {
-    byProgram[k].sort((a, b) => (a.order || 0) - (b.order || 0));
-    byProgram[k] = byProgram[k].filter((q) => q.text.length > 0).map(({ text, name, role }) => ({ text, name, role }));
-  }
-  return byProgram;
-}
-
-/** Fallback: visible template testimonials linked to this program (Transformations / program page same rules). */
-function testimonialsForProgram(all, program) {
-  if (!program || !Array.isArray(all) || all.length === 0) return [];
-  const id = normalizePid(program.id);
-  const title = (program.title || '').trim().toLowerCase();
-  const matched = all.filter((t) => {
-    if (t.type !== 'template') return false;
-    if (normalizePid(t.program_id) === id) return true;
-    const tags = t.program_tags || [];
-    if (Array.isArray(tags) && tags.some((tag) => normalizePid(tag) === id)) return true;
-    const pn = (t.program_name || '').trim().toLowerCase();
-    if (title && pn && pn === title) return true;
-    return false;
-  });
-  const withQuote = matched.filter((t) => (t.text || '').trim().length > 12);
-  withQuote.sort((a, b) => (a.order || 0) - (b.order || 0));
-  return withQuote.slice(0, 8);
-}
-
-/** Quote only (no program title, no author line) — sits just under the program card */
-const UpcomingCardQuoteText = ({ text, programId }) => {
-  const displayText = (text || '').trim();
-  if (!displayText) return null;
-  return (
-    <div
-      data-testid={`upcoming-card-testimonial-${programId}`}
-      className="rounded-lg border border-[#D4AF37]/15 bg-amber-50/35 px-2 py-1.5"
-    >
-      <p
-        className="text-center italic leading-snug text-gray-800 tracking-wide"
-        style={{
-          fontFamily: "'Cormorant Garamond', Georgia, serif",
-          fontSize: 'clamp(0.82rem, 2.8vw, 0.95rem)',
-          fontWeight: 600,
-        }}
-      >
-        &ldquo;{displayText}&rdquo;
-      </p>
-    </div>
-  );
-};
-
-/* Rotating snippets — plain quote text only */
-const CardTestimonialRotate = ({ quotes, programId }) => {
-  const [index, setIndex] = useState(0);
-  const [visible, setVisible] = useState(true);
-
-  useEffect(() => {
-    if (!quotes || quotes.length <= 1) return;
-    const cycle = setInterval(() => {
-      setVisible(false);
-      setTimeout(() => {
-        setIndex((i) => (i + 1) % quotes.length);
-        setVisible(true);
-      }, 500);
-    }, 5500);
-    return () => clearInterval(cycle);
-  }, [quotes]);
-
-  if (!quotes || quotes.length === 0) return null;
-
-  const t = quotes[index];
-  const quote = (t.text || '').trim();
-  if (!quote) return null;
-
-  return (
-    <div
-      className="transition-all duration-500 ease-out"
-      style={{
-        opacity: visible ? 1 : 0,
-        transform: visible ? 'translateY(0)' : 'translateY(5px)',
-      }}
-    >
-      <UpcomingCardQuoteText text={quote} programId={programId} />
-    </div>
-  );
-};
-
-/**
- * Second row: testimonials only, below the program + sponsor grid (slight gap via mt-4).
- * Desktop: same column template as cards so quotes sit under each program; sponsor column empty.
- * Mobile: only programs that have quotes, in program order.
- */
-const UpcomingTestimonialsRow = ({ sorted, quotesByProgramId, gridClass, titleSpan, inline }) => {
-  const hasAny = sorted.some((p) => (quotesByProgramId[normalizePid(p.id)] || []).length > 0);
-  if (!hasAny) return null;
-
-  if (inline) {
-    return (
-      <div
-        data-testid="upcoming-testimonials-row"
-        className="mt-4 sm:mt-5 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 items-start"
-      >
-        {sorted.map((program) => {
-          const q = quotesByProgramId[normalizePid(program.id)];
-          return (
-            <div key={program.id} className="min-w-0">
-              {q?.length > 0 ? <CardTestimonialRotate quotes={q} programId={program.id} /> : null}
-            </div>
-          );
-        })}
-      </div>
-    );
-  }
-
-  return (
-    <div data-testid="upcoming-testimonials-row" className="mt-4 sm:mt-5">
-      <div className="space-y-2.5 lg:hidden">
-        {sorted.map((program) => {
-          const q = quotesByProgramId[normalizePid(program.id)];
-          if (!q?.length) return null;
-          return <CardTestimonialRotate key={program.id} quotes={q} programId={program.id} />;
-        })}
-      </div>
-      <div className={`hidden lg:grid ${gridClass} gap-6 gap-y-3 items-start`}>
-        <div className={titleSpan} aria-hidden />
-        <div aria-hidden className="min-w-0" />
-        {sorted.map((program) => {
-          const q = quotesByProgramId[normalizePid(program.id)];
-          return (
-            <div key={program.id} className="min-w-0">
-              {q?.length > 0 ? <CardTestimonialRotate quotes={q} programId={program.id} /> : null}
-            </div>
-          );
-        })}
-        <div aria-hidden className="min-w-0" />
-      </div>
-    </div>
-  );
-};
 
 /* ─── FOMO Subtitle Rotator ─── */
 const FomoSubtitle = ({ messages, style }) => {
@@ -802,8 +645,6 @@ const CrossSellBanner = ({ rules, programs }) => {
 
 const UpcomingProgramsSection = ({ sectionConfig, inline }) => {
   const [programs, setPrograms] = useState([]);
-  const [adminQuoteRows, setAdminQuoteRows] = useState([]);
-  const [templateRows, setTemplateRows] = useState([]);
   const [sponsorData, setSponsorData] = useState(null);
   const [sponsorConfig, setSponsorConfig] = useState(null);
   const [comboDiscount, setComboDiscount] = useState(null);
@@ -836,51 +677,6 @@ const UpcomingProgramsSection = ({ sectionConfig, inline }) => {
     }).catch(() => {});
   }, []);
 
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      try {
-        const [qRes, tRes] = await Promise.all([
-          axios.get(`${API}/upcoming-card-quotes?visible_only=true`),
-          axios.get(`${API}/testimonials?visible_only=true`),
-        ]);
-        if (cancelled) return;
-        setAdminQuoteRows(qRes.data || []);
-        setTemplateRows(tRes.data || []);
-      } catch (e) {
-        if (!cancelled) {
-          console.warn('[UpcomingPrograms] Could not load card quotes or testimonials:', e?.response?.status || e?.message || e);
-          setAdminQuoteRows([]);
-          setTemplateRows([]);
-        }
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
-  const programCardQuotes = useMemo(() => {
-    const adminMap = buildProgramCardQuotesMap(adminQuoteRows);
-    const out = {};
-    for (const p of programs) {
-      const k = normalizePid(p.id);
-      if (!k) continue;
-      const admin = adminMap[k] || [];
-      if (admin.length) {
-        out[k] = admin;
-        continue;
-      }
-      const fb = testimonialsForProgram(templateRows, p);
-      out[k] = fb.map((t) => ({
-        text: (t.text || '').trim(),
-        name: (t.name || '').trim(),
-        role: (t.role || '').trim(),
-      }));
-    }
-    return out;
-  }, [programs, adminQuoteRows, templateRows]);
-
   if (programs.length === 0) return null;
 
   const statusOrder = { open: 0, coming_soon: 1, closed: 2 };
@@ -912,11 +708,6 @@ const UpcomingProgramsSection = ({ sectionConfig, inline }) => {
               <UpcomingCard key={program.id} program={program} />
             ))}
           </div>
-          <UpcomingTestimonialsRow
-            inline
-            sorted={sorted}
-            quotesByProgramId={programCardQuotes}
-          />
         </>
       ) : (
         /* Adaptive grid: columns = program count + 1 (for sponsor), max 4 */
@@ -925,7 +716,6 @@ const UpcomingProgramsSection = ({ sectionConfig, inline }) => {
           const gridClass = totalCols === 2 ? 'lg:grid-cols-2' : totalCols === 3 ? 'lg:grid-cols-3' : 'lg:grid-cols-4';
           const titleSpan = totalCols === 2 ? 'lg:col-span-1' : totalCols === 3 ? 'lg:col-span-2' : 'lg:col-span-3';
           return (
-            <>
             <div className={`grid grid-cols-1 ${gridClass} gap-6 items-stretch`}>
               {/* Title row */}
               <div className={`${titleSpan} text-center`}>
@@ -972,13 +762,6 @@ const UpcomingProgramsSection = ({ sectionConfig, inline }) => {
                 <SponsorCard sponsorData={sponsorData} />
               </div>
             </div>
-            <UpcomingTestimonialsRow
-              sorted={sorted}
-              quotesByProgramId={programCardQuotes}
-              gridClass={gridClass}
-              titleSpan={titleSpan}
-            />
-            </>
           );
         })()
       )}
