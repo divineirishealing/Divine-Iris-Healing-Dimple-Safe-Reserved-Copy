@@ -79,7 +79,7 @@ const TemplateTestimonialCard = ({ testimonial, onClick }) => {
           <div className="flex-1 min-w-0">
             <RichText
               text={`"${text?.substring(0, 160)}${text?.length > 160 ? '...' : ''}"`}
-              style={{ fontFamily: "'Lora', Georgia, serif", fontSize: 'clamp(0.95rem, 1.8vw, 1.08rem)', color: '#3d2e1e', lineHeight: 1.82, fontStyle: 'italic', fontWeight: 500 }}
+              style={{ fontFamily: "'Cormorant Garamond', Georgia, serif", fontSize: 'clamp(0.88rem, 1.6vw, 0.98rem)', color: '#3d2e1e', lineHeight: 1.75, fontStyle: 'italic' }}
             />
           </div>
         </div>
@@ -123,7 +123,7 @@ export const TemplateTestimonialFull = ({ testimonial }) => {
           <div className="flex-1 min-w-0 flex flex-col">
             <div className="flex justify-center mb-5"><PurpleStars rating={rating} size={26} /></div>
             <div className="rounded-xl p-5 md:p-6 flex-1" style={{ background: 'rgba(255,255,255,0.75)', border: '1px solid rgba(139,92,246,0.08)' }}>
-              <RichText text={text} style={{ fontFamily: "'Lora', Georgia, serif", fontSize: 'clamp(1.05rem, 1.9vw, 1.22rem)', color: '#2d2040', lineHeight: 1.9, fontStyle: 'italic', fontWeight: 500 }} />
+              <RichText text={text} style={{ fontFamily: "'Cormorant Garamond', Georgia, serif", fontSize: 'clamp(0.95rem, 1.65vw, 1.05rem)', color: '#2d2040', lineHeight: 1.85, fontStyle: 'italic' }} />
             </div>
             {!hasPhotos && (
               <div className="mt-5 text-center">

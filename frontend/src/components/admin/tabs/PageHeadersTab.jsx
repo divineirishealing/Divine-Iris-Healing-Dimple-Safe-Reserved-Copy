@@ -16,6 +16,7 @@ const FONT_OPTIONS = [
   { value: "'Montserrat', sans-serif", label: 'Montserrat' },
   { value: "'Titillium Web', sans-serif", label: 'Titillium Web' },
   { value: "'Cormorant Garamond', serif", label: 'Cormorant' },
+  { value: "'Lora', Georgia, 'Times New Roman', serif", label: 'Lora' },
   { value: "'Poppins', sans-serif", label: 'Poppins' },
   { value: "'Raleway', sans-serif", label: 'Raleway' },
   { value: "'Great Vibes', cursive", label: 'Great Vibes' },
@@ -33,8 +34,19 @@ const SIZE_OPTIONS = ['10px','12px','14px','16px','18px','20px','24px','28px','3
 /** Sizes for Transformations page body section titles (kicker + main heading); includes responsive presets. */
 const SECTION_BODY_FONT_SIZE_OPTIONS = [
   '11px', '12px', '14px', '16px', '18px', '20px', '22px', '24px', '28px', '32px', '36px', '42px', '48px',
+  'clamp(1.05rem, 2.15vw, 1.2rem)',
+  'clamp(1.14rem, 2.2vw, 1.38rem)',
   'clamp(1.2rem, 2.5vw, 1.6rem)',
   'clamp(1.5rem, 3vw, 2rem)',
+];
+
+const LINE_HEIGHT_OPTIONS = [
+  { value: '', label: 'Line height' },
+  { value: '1.55', label: 'Tight' },
+  { value: '1.7', label: 'Snug' },
+  { value: '1.88', label: 'Default' },
+  { value: '2', label: 'Airy' },
+  { value: '2.15', label: 'Loose' },
 ];
 
 const LETTER_SPACING_OPTIONS = [
@@ -63,34 +75,65 @@ const TEXT_TRANSFORM_OPTIONS = [
 ];
 
 /** Body section headings on Transformations (not hero): typeface, size, color, bold/italic. */
-const TransformationsSectionFontRow = ({ style = {}, onStyleChange }) => {
+const TransformationsSectionFontRow = ({ style = {}, onStyleChange, showLineHeight = false, showLetterSpacingAndAlign = false }) => {
   const update = (prop, val) => onStyleChange({ ...style, [prop]: val });
+  const showExtras = showLineHeight || showLetterSpacingAndAlign;
   return (
-    <div className="mt-1.5 flex flex-wrap items-end gap-x-4 gap-y-2 p-2 rounded-md bg-gray-50/80 border border-gray-100" data-testid="transformations-section-font-row">
-      <div className="flex flex-col gap-0.5 min-w-[7.5rem]">
-        <Label className="text-[10px] text-gray-700 font-medium">Font</Label>
-        <select value={style.font_family || ''} onChange={e => update('font_family', e.target.value)} className="text-xs border rounded px-2 py-1.5 bg-white min-w-[7.5rem] max-w-[11rem]" title="Typeface">
-          {FONT_OPTIONS.map(f => <option key={f.value || 'default'} value={f.value}>{f.label}</option>)}
-        </select>
-      </div>
-      <div className="flex flex-col gap-0.5 min-w-[6.5rem]">
-        <Label className="text-[10px] text-gray-700 font-medium">Size</Label>
-        <select value={style.font_size || ''} onChange={e => update('font_size', e.target.value)} className="text-xs border rounded px-2 py-1.5 bg-white min-w-[6.5rem] max-w-[12rem]" title="Font size">
-          <option value="">Default</option>
-          {SECTION_BODY_FONT_SIZE_OPTIONS.map(s => <option key={s} value={s}>{s}</option>)}
-        </select>
-      </div>
-      <div className="flex flex-col gap-0.5">
-        <Label className="text-[10px] text-gray-700 font-medium">Color</Label>
-        <input type="color" value={style.font_color || '#000000'} onChange={e => update('font_color', e.target.value)} className="w-10 h-9 rounded cursor-pointer border border-gray-200 shrink-0" title="Text color" />
-      </div>
-      <div className="flex flex-col gap-0.5">
-        <Label className="text-[10px] text-gray-700 font-medium">Style</Label>
-        <div className="flex rounded border border-gray-200 overflow-hidden bg-white h-9">
-          <button type="button" onClick={() => update('font_weight', style.font_weight === 'bold' ? '400' : 'bold')} className={`text-xs px-3 ${style.font_weight === 'bold' ? 'bg-gray-800 text-white' : 'bg-white hover:bg-gray-50'}`} title="Bold"><b>B</b></button>
-          <button type="button" onClick={() => update('font_style', style.font_style === 'italic' ? 'normal' : 'italic')} className={`text-xs px-3 border-l border-gray-200 ${style.font_style === 'italic' ? 'bg-gray-800 text-white' : 'bg-white hover:bg-gray-50'}`} title="Italic"><i>I</i></button>
+    <div className="mt-1.5 space-y-2">
+      <div className="flex flex-wrap items-end gap-x-4 gap-y-2 p-2 rounded-md bg-gray-50/80 border border-gray-100" data-testid="transformations-section-font-row">
+        <div className="flex flex-col gap-0.5 min-w-[7.5rem]">
+          <Label className="text-[10px] text-gray-700 font-medium">Font</Label>
+          <select value={style.font_family || ''} onChange={e => update('font_family', e.target.value)} className="text-xs border rounded px-2 py-1.5 bg-white min-w-[7.5rem] max-w-[11rem]" title="Typeface">
+            {FONT_OPTIONS.map(f => <option key={f.value || 'default'} value={f.value}>{f.label}</option>)}
+          </select>
+        </div>
+        <div className="flex flex-col gap-0.5 min-w-[6.5rem]">
+          <Label className="text-[10px] text-gray-700 font-medium">Size</Label>
+          <select value={style.font_size || ''} onChange={e => update('font_size', e.target.value)} className="text-xs border rounded px-2 py-1.5 bg-white min-w-[6.5rem] max-w-[12rem]" title="Font size">
+            <option value="">Default</option>
+            {SECTION_BODY_FONT_SIZE_OPTIONS.map(s => <option key={s} value={s}>{s}</option>)}
+          </select>
+        </div>
+        <div className="flex flex-col gap-0.5">
+          <Label className="text-[10px] text-gray-700 font-medium">Color</Label>
+          <input type="color" value={style.font_color || '#000000'} onChange={e => update('font_color', e.target.value)} className="w-10 h-9 rounded cursor-pointer border border-gray-200 shrink-0" title="Text color" />
+        </div>
+        <div className="flex flex-col gap-0.5">
+          <Label className="text-[10px] text-gray-700 font-medium">Style</Label>
+          <div className="flex rounded border border-gray-200 overflow-hidden bg-white h-9">
+            <button type="button" onClick={() => update('font_weight', style.font_weight === 'bold' ? '400' : 'bold')} className={`text-xs px-3 ${style.font_weight === 'bold' ? 'bg-gray-800 text-white' : 'bg-white hover:bg-gray-50'}`} title="Bold"><b>B</b></button>
+            <button type="button" onClick={() => update('font_style', style.font_style === 'italic' ? 'normal' : 'italic')} className={`text-xs px-3 border-l border-gray-200 ${style.font_style === 'italic' ? 'bg-gray-800 text-white' : 'bg-white hover:bg-gray-50'}`} title="Italic"><i>I</i></button>
+          </div>
         </div>
       </div>
+      {showExtras && (
+        <div className="flex flex-wrap items-end gap-x-4 gap-y-2 p-2 rounded-md bg-gray-50/80 border border-gray-100" data-testid="transformations-section-font-row-extras">
+          {showLineHeight && (
+            <div className="flex flex-col gap-0.5 min-w-[6.5rem]">
+              <Label className="text-[10px] text-gray-700 font-medium">Line height</Label>
+              <select value={style.line_height ?? ''} onChange={e => update('line_height', e.target.value)} className="text-xs border rounded px-2 py-1.5 bg-white min-w-[6.5rem]" title="Line height">
+                {LINE_HEIGHT_OPTIONS.map(o => <option key={o.value || 'lh-default'} value={o.value}>{o.label}</option>)}
+              </select>
+            </div>
+          )}
+          {showLetterSpacingAndAlign && (
+            <>
+              <div className="flex flex-col gap-0.5 min-w-[6.5rem]">
+                <Label className="text-[10px] text-gray-700 font-medium">Letter spacing</Label>
+                <select value={style.letter_spacing ?? ''} onChange={e => update('letter_spacing', e.target.value)} className="text-xs border rounded px-2 py-1.5 bg-white min-w-[6.5rem]">
+                  {LETTER_SPACING_OPTIONS.map(o => <option key={o.value || 'ls-q'} value={o.value}>{o.label}</option>)}
+                </select>
+              </div>
+              <div className="flex flex-col gap-0.5 min-w-[6.5rem]">
+                <Label className="text-[10px] text-gray-700 font-medium">Align</Label>
+                <select value={style.text_align ?? ''} onChange={e => update('text_align', e.target.value)} className="text-xs border rounded px-2 py-1.5 bg-white min-w-[6.5rem]">
+                  {TEXT_ALIGN_OPTIONS.map(o => <option key={o.value || 'ta-q'} value={o.value}>{o.label}</option>)}
+                </select>
+              </div>
+            </>
+          )}
+        </div>
+      )}
     </div>
   );
 };
@@ -261,6 +304,22 @@ const PageHeadersTab = ({ settings, programs = [], onChange }) => {
                     </div>
                     <Input value={hero.stories_title ?? ''} placeholder={TRANSFORMATIONS_SECTION_DEFAULTS.stories_title} onChange={e => updateHero(pageKey, 'stories_title', e.target.value)} className="text-xs h-8 mt-1 bg-white" />
                     <TransformationsSectionFontRow style={hero.stories_title_style || {}} onStyleChange={v => updateHero(pageKey, 'stories_title_style', v)} />
+                  </div>
+                  <div className="rounded-md border border-amber-100 bg-amber-50/50 p-2.5" data-testid="transformations-written-quote-style">
+                    <p className="text-[10px] font-semibold text-amber-950 mb-0.5">Written cards — client quote</p>
+                    <p className="text-[9px] text-amber-900/80 mb-2">Story text on the Transformations page only (grid and popup). Other pages keep their default look.</p>
+                    <TransformationsSectionFontRow
+                      showLineHeight
+                      showLetterSpacingAndAlign
+                      style={hero.written_story_quote_style || {}}
+                      onStyleChange={v => updateHero(pageKey, 'written_story_quote_style', v)}
+                    />
+                    <div className="mt-2 flex justify-end">
+                      <Button type="button" variant="outline" size="sm" className="text-[10px] h-7"
+                        onClick={() => updateHero(pageKey, 'written_story_quote_style', {})}>
+                        Reset quote style
+                      </Button>
+                    </div>
                   </div>
                 </div>
               </div>

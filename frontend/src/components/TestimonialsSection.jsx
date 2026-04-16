@@ -157,9 +157,12 @@ const TestimonialsSection = ({ sectionConfig, inline }) => {
 
       {/* ── Modals ── */}
       <Dialog open={!!selectedTemplate} onOpenChange={() => { setSelectedTemplate(null); setPaused(false); }}>
-        <DialogContent className="max-w-3xl p-0 overflow-hidden rounded-2xl"
+        <DialogContent
+          className="max-w-3xl max-h-[90vh] flex flex-col gap-0 p-0 overflow-hidden rounded-2xl"
           style={{ border: '1px solid rgba(123,104,238,0.15)' }}>
-          {selectedTemplate && <SoulfulTestimonialFull testimonial={selectedTemplate} />}
+          <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
+            {selectedTemplate && <SoulfulTestimonialFull testimonial={selectedTemplate} />}
+          </div>
         </DialogContent>
       </Dialog>
 

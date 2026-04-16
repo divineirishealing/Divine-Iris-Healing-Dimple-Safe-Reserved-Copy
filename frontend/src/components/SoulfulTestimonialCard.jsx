@@ -266,8 +266,10 @@ export const SoulfulWrittenCard = ({
   footerCentered = false,
   /** /transformations: tall purple band + oval ~half on purple (56px of 112px oval) */
   transformationsLayout = false,
-  /** Program page carousel: tighter header/photo, no flex gap between quote and footer */
+   /** Program page carousel: tighter header/photo, no flex gap between quote and footer */
   compactProgram = false,
+  /** /transformations only: merged React style for quote paragraph from admin `written_story_quote_style` */
+  quoteStyle = null,
 }) => {
   const [expanded, setExpanded] = useState(false);
   const { name, text, role, rating = 5, program_name } = testimonial;
@@ -429,17 +431,20 @@ export const SoulfulWrittenCard = ({
 
         {/* Quote text — flex:1 only when card is height-stretched (avoids dead space on program carousel) */}
         <div style={{ flex: compactProgram ? '0 0 auto' : 1 }}>
-          <p style={{
-            fontFamily: "'Lora', Georgia, 'Times New Roman', serif",
-            fontSize: uniform
-              ? (compactProgram ? '0.98rem' : '1.05rem')
-              : 'clamp(1.05rem, 2.15vw, 1.2rem)',
-            lineHeight: compactProgram ? 1.72 : 1.88,
-            color: '#1e0a4e',
-            fontStyle: 'italic',
-            textAlign: 'center',
-            fontWeight: 500,
-          }}>
+          <p style={
+            quoteStyle
+              ? { textAlign: 'center', ...quoteStyle }
+              : {
+                  fontFamily: "'Cormorant Garamond', Georgia, serif",
+                  fontSize: uniform
+                    ? (compactProgram ? '0.82rem' : '0.88rem')
+                    : '0.92rem',
+                  lineHeight: compactProgram ? 1.65 : 1.8,
+                  color: '#1e0a4e',
+                  fontStyle: 'italic',
+                  textAlign: 'center',
+                }
+          }>
             {uniform ? (displayText ? `"${displayText}"` : '') : displayText}
           </p>
           {isLong && !uniform && (
@@ -730,7 +735,7 @@ const ModalAuthor = ({ name, role, program_name }) => (
 /* ══════════════════════════════════════════════════════════════════════════
    FULL MODAL VIEW (written testimonial)
    ══════════════════════════════════════════════════════════════════════════ */
-export const SoulfulTestimonialFull = ({ testimonial }) => {
+export const SoulfulTestimonialFull = ({ testimonial, quoteStyle = null }) => {
   const { name, text, role, rating = 5, program_name } = testimonial;
   const { photos, photo_labels, photo_mode } = writtenMediaFrom(testimonial);
 
@@ -742,7 +747,7 @@ export const SoulfulTestimonialFull = ({ testimonial }) => {
   const hasPhotos = effectivePhotos.length > 0;
 
   return (
-    <div className="relative overflow-hidden rounded-2xl" style={{ background: '#fdfbff', minHeight: 350 }}>
+    <div className="relative rounded-2xl" style={{ background: '#fdfbff', minHeight: 350 }}>
       {/* Jewel header bar */}
       <div className="relative px-8 pt-7 pb-6 overflow-hidden"
         style={{ background: 'linear-gradient(135deg, #1e0654 0%, #3b0f9e 45%, #6d28d9 80%, #9333ea 100%)' }}>
@@ -776,13 +781,12 @@ export const SoulfulTestimonialFull = ({ testimonial }) => {
           <div className="flex-1 min-w-0 flex flex-col">
             <div className="relative rounded-2xl p-5 md:p-7"
               style={{ background: 'rgba(255,255,255,0.9)', border: '1px solid rgba(109,40,217,0.08)', boxShadow: '0 2px 16px rgba(109,40,217,0.06)' }}>
-              <p style={{
-                fontFamily: "'Lora', Georgia, 'Times New Roman', serif",
-                fontSize: 'clamp(1.14rem, 2.2vw, 1.38rem)',
+              <p className="break-words whitespace-pre-wrap" style={quoteStyle ? quoteStyle : {
+                fontFamily: "'Cormorant Garamond', Georgia, serif",
+                fontSize: 'clamp(0.98rem, 1.5vw, 1.08rem)',
                 color: '#1e0a4e',
-                lineHeight: 1.92,
+                lineHeight: 1.95,
                 fontStyle: 'italic',
-                fontWeight: 500,
               }}>
                 "{text}"
               </p>

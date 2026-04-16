@@ -10,6 +10,7 @@ import { Dialog, DialogContent } from '../components/ui/dialog';
 import { HEADING, GOLD, LABEL } from '../lib/designTokens';
 import { resolveImageUrl } from '../lib/imageUtils';
 import { resolveTransformationsSection } from '../lib/transformationsSectionDefaults';
+import { applyWrittenQuoteStyle } from '../lib/transformationsWrittenQuoteStyle';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
@@ -85,6 +86,7 @@ function TransformationsPage() {
 
   const hasActiveFilters = selectedProgram || selectedSession || searchQuery;
   const hero = settings?.page_heroes?.transformations || {};
+  const writtenQuoteStyle = applyWrittenQuoteStyle(hero.written_story_quote_style);
   const section = resolveTransformationsSection(hero);
   const galleryVisible = settings?.transformations_gallery_visible !== false;
   // Whole-block hide (older setting): only applies if no per-line visibility was saved yet
@@ -247,7 +249,7 @@ function TransformationsPage() {
             )}
             <div className="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {writtenTestimonials.map(t => (
-                <SoulfulWrittenCard key={t.id} testimonial={t} footerCentered transformationsLayout onClick={() => setSelectedTemplate(t)} />
+                <SoulfulWrittenCard key={t.id} testimonial={t} footerCentered transformationsLayout quoteStyle={writtenQuoteStyle} onClick={() => setSelectedTemplate(t)} />
               ))}
             </div>
           </div>
@@ -327,8 +329,11 @@ function TransformationsPage() {
 
       {/* ── Full Story Modal ──────────────────────────────────────────────── */}
       <Dialog open={!!selectedTemplate} onOpenChange={(open) => { if (!open) setSelectedTemplate(null); }}>
-        <DialogContent className="max-w-3xl p-0 overflow-hidden rounded-2xl" style={{ border: '1px solid rgba(123,104,238,0.15)' }}>
-          {selectedTemplate && <SoulfulTestimonialFull testimonial={selectedTemplate} />}
+        <DialogContent className="max-w-3xl max-h-[90vh] flex flex-col gap-0 p-0 overflow-hidden rounded-2xl"
+          style={{ border: '1px solid rgba(123,104,238,0.15)' }}>
+          <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
+            {selectedTemplate && <SoulfulTestimonialFull testimonial={selectedTemplate} quoteStyle={writtenQuoteStyle} />}
+          </div>
         </DialogContent>
       </Dialog>
 
