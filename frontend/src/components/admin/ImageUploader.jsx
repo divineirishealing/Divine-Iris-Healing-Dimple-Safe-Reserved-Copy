@@ -1,18 +1,13 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import axios from 'axios';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 import { Upload, X, Image as ImageIcon } from 'lucide-react';
 import { useToast } from '../../hooks/use-toast';
+import { resolveImageUrl } from '../../lib/imageUtils';
 
 const BACKEND_URL = (process.env.REACT_APP_BACKEND_URL || '').replace(/\/$/, '');
 const API = BACKEND_URL ? `${BACKEND_URL}/api` : '';
-
-function resolveUrl(url) {
-  if (!url) return '';
-  if (url.startsWith('/api/image/')) return BACKEND_URL ? `${BACKEND_URL}${url}` : url;
-  return url;
-}
 
 function uploadErrorMessage(error) {
   if (!BACKEND_URL) {
@@ -47,7 +42,11 @@ const ImageUploader = ({ value, onChange, label = "Image" }) => {
   const { toast } = useToast();
   const fileInputRef = useRef(null);
 
-   const uploadFile = async (file) => {
+  useEffect(() => {
+    setUrlInput(value || '');
+  }, [value]);
+
+  const uploadFile = async (file) => {
     if (!file) return;
     if (!BACKEND_URL || !API) {
       toast({ title: 'Upload not available', description: uploadErrorMessage(null), variant: 'destructive' });
@@ -174,7 +173,7 @@ const ImageUploader = ({ value, onChange, label = "Image" }) => {
 
       {value && (
         <div className="relative">
-          <img src={resolveUrl(value)} alt="Preview" className="w-full h-48 object-cover rounded-lg border-2 border-gray-200"
+          <img src={resolveImageUrl(value)} alt="Preview" className="w-full h-48 object-cover rounded-lg border-2 border-gray-200"
             onError={(e) => { e.target.src = 'https://via.placeholder.com/400x300?text=Image+Not+Found'; }} />
           <button type="button" onClick={handleRemove} className="absolute top-2 right-2 bg-red-500 text-white rounded-full p-2 hover:bg-red-600 transition-colors shadow-lg">
             <X size={16} />
