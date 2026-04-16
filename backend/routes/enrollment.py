@@ -19,7 +19,7 @@ db = client[os.environ['DB_NAME']]
 logger = logging.getLogger(__name__)
 
 # ─── PPP TIERS (fixed, not live conversion) ───
-# Only India gets PPP discount. Everyone else → AED base.
+# Only India gets PPP discount. Other regions use AED or USD hub per routes.currency.get_base_currency.
 PPP_TIERS = {
     "inr": {"multiplier": 0.01, "symbol": "₹", "name": "Indian Rupee"},
 }

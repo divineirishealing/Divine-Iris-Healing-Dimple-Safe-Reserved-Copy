@@ -25,19 +25,7 @@ UAE_ONLY = {"AE"}
 GULF_MIDDLE_EAST = {"SA", "QA", "KW", "OM", "BH", "JO", "LB", "IQ", "YE", "SY", "IR", "TR", "IL", "PS"}
 ASIAN = {"SG", "MY", "PH", "TH", "ID", "VN", "KR", "JP", "CN", "HK", "TW", "BD", "LK", "NP", "PK", "MM", "KH", "LA", "MN", "UZ", "KZ", "TJ", "TM", "KG", "AZ", "AM", "GE"}
 US_ONLY = {"US"}
-AMERICAS_CONVERT = {"CA", "MX", "BR", "AR", "CL", "CO", "PE", "UY", "PY", "BO", "EC", "VE", "GT", "CR", "PA", "DO", "CU", "JM", "TT"}
-# Western Europe (incl. UK, Nordics, micro-states) → USD base → convert to local currency
-WESTERN_EUROPE = {
-    "GB", "DE", "FR", "IT", "ES", "NL", "BE", "PT", "AT", "CH", "SE", "NO", "DK", "FI",
-    "IE", "LU", "MT", "CY",
-    "IS", "LI", "MC", "AD", "SM", "VA",  # Iceland, Liechtenstein, Monaco, Andorra, San Marino, Vatican
-}
-# Eastern Europe → AED base → convert to local currency
-EASTERN_EUROPE = {
-    "PL", "CZ", "HU", "RO", "GR", "HR", "BG", "SK", "SI", "LT", "LV", "EE",
-    "UA", "RS", "BA", "MK", "AL", "ME", "MD", "BY", "RU", "XK",
-}
-OCEANIA = {"AU", "NZ", "FJ", "PG", "WS", "TO"}
+# Europe, Oceania, and the Americas are not enumerated here: they use USD hub prices (get_base_currency fallthrough).
 AFRICA = {
     "ZA", "NG", "KE", "EG", "MA", "TN", "GH", "ET", "TZ", "UG",
     "DZ", "LY", "SD", "SN", "CI", "CM", "AO", "MZ", "ZM", "ZW",
@@ -91,14 +79,15 @@ CURRENCY_SYMBOLS = {
 
 
 def get_base_currency(country_code, vpn_detected):
-    """Determine base currency (what price field to use) based on region.
+    """Which hub price column to use (inr / aed / usd) before optional local conversion.
 
-    Rules:
-    - India: exact INR price. VPN from India = no INR (protect Indian pricing).
-    - UAE: exact AED price.
-    - USA: exact USD price.
-    - Gulf / Middle East / Asia / Africa / Eastern Europe: AED base → convert to local on Stripe.
-    - Western Europe / Americas / Oceania: USD base → convert to local on Stripe.
+    Business rules:
+    - India (no VPN): INR from pricing hub.
+    - India + VPN: USD hub (protect INR pricing).
+    - UAE: AED hub.
+    - US: USD hub.
+    - Asia, Africa, Middle East (incl. Gulf): AED hub, amount shown in local currency via FX.
+    - Europe, Oceania, Americas, and any other country: USD hub, amount shown in local currency via FX.
     """
     if country_code in INDIA:
         if vpn_detected:
@@ -108,11 +97,10 @@ def get_base_currency(country_code, vpn_detected):
         return "aed"
     if country_code in US_ONLY:
         return "usd"
-    # AED base: Gulf, Middle East, Asia, Africa, Eastern Europe
-    if (country_code in GULF_MIDDLE_EAST or country_code in ASIAN
-            or country_code in AFRICA or country_code in EASTERN_EUROPE):
+    # AED hub: Middle East + Gulf + Asia + Africa (not IN/AE/US — handled above)
+    if country_code in GULF_MIDDLE_EAST or country_code in ASIAN or country_code in AFRICA:
         return "aed"
-    # USD base: Western Europe, Americas, Oceania, and anything else
+    # USD hub: Europe, Oceania, Americas, and rest of world
     return "usd"
 
 
