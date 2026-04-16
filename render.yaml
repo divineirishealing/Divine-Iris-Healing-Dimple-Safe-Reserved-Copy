@@ -35,6 +35,8 @@ services:
       - key: PYTHON_VERSION
         value: 3.11.0
 
+  # Static site: deploys swap assets with minimal user impact; service worker + GET retries
+  # cover blips. A single free API instance can still pause briefly on backend deploy — unavoidable without paid multi-instance.
   - type: web
     name: divine-iris-frontend
     autoDeployTrigger: commit   # deploy on every push to the linked branch

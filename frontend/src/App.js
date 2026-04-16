@@ -48,6 +48,7 @@ import { CartProvider } from './context/CartContext';
 import { AuthProvider } from './context/AuthContext';
 import { Analytics } from '@vercel/analytics/react';
 import SeoHead from './components/SeoHead';
+import BackendStatusBanner from './components/BackendStatusBanner';
 
 const CurrencyGate = ({ children }) => {
   const { ready } = useCurrency();
@@ -84,6 +85,7 @@ const AppContent = () => {
 
   return (
     <>
+      <BackendStatusBanner />
       <SeoHead />
       <Routes>
       <Route path="/" element={<HomePage />} />
