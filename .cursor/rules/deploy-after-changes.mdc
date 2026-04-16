@@ -1,0 +1,16 @@
+---
+description: After code changes, commit and push to main to trigger Render deploy
+alwaysApply: true
+---
+
+# Deploy after code changes
+
+This project uses Render with `autoDeployTrigger: commit` on `main`.
+
+**After you make substantive code or config changes** (not read-only exploration), unless the user explicitly says not to deploy or skip git:
+
+1. Run `git status` and stage the relevant files.
+2. `git commit` with a clear, conventional message.
+3. `git push origin main` so Render redeploys backend and frontend.
+
+Do not leave the working tree dirty with completed work. If push fails (auth/network), report the error and what was committed locally.

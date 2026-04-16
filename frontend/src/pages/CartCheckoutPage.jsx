@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import axios from 'axios';
 import Header from '../components/Header';
@@ -111,6 +111,12 @@ function CartCheckoutPage() {
   const subtotal = items.reduce((sum, item) => sum + getEffectivePrice(item) * item.participants.length, 0);
   const totalParticipants = items.reduce((sum, i) => sum + i.participants.length, 0);
   const numPrograms = items.length;
+
+  const cartProgramIdsForUrgency = useMemo(
+    () =>
+      [...new Set(items.filter((i) => i.type !== 'session').map((i) => String(i.programId).trim()).filter(Boolean))],
+    [items],
+  );
 
   const [autoDiscounts, setAutoDiscounts] = useState({ group_discount: 0, combo_discount: 0, loyalty_discount: 0, total_discount: 0 });
 
@@ -283,7 +289,12 @@ function CartCheckoutPage() {
                 </div>
               </div>
 
-              <MotivationalSignupFlash quotes={urgencyQuotes} className="mt-4" />
+              <MotivationalSignupFlash
+                quotes={urgencyQuotes}
+                programIds={cartProgramIdsForUrgency.length ? cartProgramIdsForUrgency : undefined}
+                globalOnly={cartProgramIdsForUrgency.length === 0}
+                className="mt-4"
+              />
             </div>
 
             {/* Right: Payment */}

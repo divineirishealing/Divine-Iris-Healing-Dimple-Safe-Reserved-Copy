@@ -416,7 +416,17 @@ const UpcomingHubTab = () => {
     ]);
     setPrograms(progRes.data || []);
     setCommunityLink(settingsRes.data?.community_whatsapp_link || '');
-    setUrgencyQuotes(settingsRes.data?.enrollment_urgency_quotes || []);
+    const rawQuotes = settingsRes.data?.enrollment_urgency_quotes || [];
+    setUrgencyQuotes(
+      rawQuotes.map((q) => {
+        if (typeof q === 'string') return { text: q, name: '', program_id: '' };
+        return {
+          text: q?.text || q?.quote || '',
+          name: q?.name || q?.author || '',
+          program_id: (q?.program_id != null ? String(q.program_id) : '').trim(),
+        };
+      }),
+    );
   }, []);
 
   useEffect(() => { fetchData(); }, [fetchData]);
@@ -623,37 +633,59 @@ const UpcomingHubTab = () => {
           <h3 className="text-sm font-bold text-amber-800 flex items-center gap-2">
             <Quote size={15} className="text-[#D4AF37]" /> Enrollment Urgency Testimonials
           </h3>
-          <p className="text-[10px] text-amber-600 mt-0.5">Rotating one-liner testimonials on the enrollment page. Creates urgency & social proof.</p>
+          <p className="text-[10px] text-amber-600 mt-0.5">
+            Shown on enrollment &amp; cart. Choose <strong>All programs</strong> for everyone, or a specific program so the line only appears for that enrollment/checkout.
+          </p>
         </div>
         <div className="p-4 space-y-2">
           {urgencyQuotes.map((q, i) => (
-            <div key={i} className="flex items-center gap-2" data-testid={`urgency-quote-${i}`}>
+            <div key={i} className="flex flex-wrap items-center gap-2" data-testid={`urgency-quote-${i}`}>
               <span className="text-[9px] text-gray-400 w-4 shrink-0">{i + 1}</span>
-              <Input
-                value={typeof q === 'string' ? q : q.text || ''}
-                onChange={e => {
+              <select
+                value={q.program_id || ''}
+                onChange={(e) => {
                   const updated = [...urgencyQuotes];
-                  updated[i] = typeof q === 'string' ? e.target.value : { ...q, text: e.target.value };
+                  updated[i] = { ...q, program_id: e.target.value };
+                  setUrgencyQuotes(updated);
+                }}
+                className="h-7 text-[10px] border rounded-md px-1.5 bg-white min-w-[140px] max-w-[200px] shrink-0"
+                data-testid={`urgency-quote-program-${i}`}
+              >
+                <option value="">All programs</option>
+                {[...programs]
+                  .filter((p) => p.id)
+                  .sort((a, b) => (a.title || '').localeCompare(b.title || ''))
+                  .map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {p.title || p.id}
+                    </option>
+                  ))}
+              </select>
+              <Input
+                value={q.text || ''}
+                onChange={(e) => {
+                  const updated = [...urgencyQuotes];
+                  updated[i] = { ...q, text: e.target.value };
                   setUrgencyQuotes(updated);
                 }}
                 placeholder='"Joining this program was the best decision of my life"'
-                className="h-7 text-[10px] flex-1 italic"
+                className="h-7 text-[10px] flex-1 min-w-[160px] italic"
               />
               <Input
-                value={typeof q === 'string' ? '' : q.name || ''}
-                onChange={e => {
+                value={q.name || ''}
+                onChange={(e) => {
                   const updated = [...urgencyQuotes];
-                  updated[i] = typeof q === 'string' ? { text: q, name: e.target.value } : { ...q, name: e.target.value };
+                  updated[i] = { ...q, name: e.target.value };
                   setUrgencyQuotes(updated);
                 }}
                 placeholder="Name (optional)"
-                className="h-7 text-[10px] w-32"
+                className="h-7 text-[10px] w-28 shrink-0"
               />
               <button onClick={() => setUrgencyQuotes(urgencyQuotes.filter((_, j) => j !== i))}
                 className="text-red-400 hover:text-red-600 p-1"><Trash2 size={12} /></button>
             </div>
           ))}
-          <button onClick={() => setUrgencyQuotes([...urgencyQuotes, { text: '', name: '' }])}
+          <button onClick={() => setUrgencyQuotes([...urgencyQuotes, { text: '', name: '', program_id: '' }])}
             className="text-xs text-[#D4AF37] hover:underline font-medium flex items-center gap-1" data-testid="add-urgency-quote">
             <Plus size={12} /> Add testimonial
           </button>

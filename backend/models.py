@@ -554,7 +554,7 @@ class SiteSettings(BaseModel):
     seo_organization_description: str = ""
     sanctuary_settings: Dict = {}  # {hero_bg, hero_overlay, greeting_title, greeting_subtitle}
     fraud_alert_email: str = "support@divineirishealing.com"
-    enrollment_urgency_quotes: list = []  # [{text, name}]
+    enrollment_urgency_quotes: list = []  # [{text, name, program_id?}] — omit program_id for all programs
     combo_rules: list = []  # [{min_programs, discount_pct, code, label}]
     cross_sell_rules: list = []
     special_offers: list = []  # [{id, label, discount_pct, emails:[], phones:[], program_ids:[], code, enabled}]

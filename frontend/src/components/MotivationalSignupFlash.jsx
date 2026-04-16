@@ -6,9 +6,27 @@ import { mergeSignupMotivationQuotes } from '../lib/signupMotivationQuotes';
  * Rotating testimonial one-liner with soft "flash" (brightness pulse).
  * Used on enrollment + cart/checkout only (not on upcoming program cards).
  * @param {object[]} [quotes] — raw API lines (e.g. enrollment_urgency_quotes); merged with defaults inside.
+ * @param {string} [programId] — enrollment page: show global + quotes for this program
+ * @param {string[]} [programIds] — cart: global + quotes for any of these programs
+ * @param {boolean} [globalOnly] — only quotes with no program_id (e.g. session checkout)
  */
-export default function MotivationalSignupFlash({ quotes: rawQuotes, className = '' }) {
-  const quotes = useMemo(() => mergeSignupMotivationQuotes(rawQuotes), [rawQuotes]);
+export default function MotivationalSignupFlash({
+  quotes: rawQuotes,
+  className = '',
+  programId,
+  programIds,
+  globalOnly,
+}) {
+  const programIdsKey = Array.isArray(programIds) ? programIds.join(',') : '';
+  const quotes = useMemo(
+    () =>
+      mergeSignupMotivationQuotes(rawQuotes, {
+        programId,
+        programIds,
+        globalOnly: !!globalOnly,
+      }),
+    [rawQuotes, programId, programIdsKey, globalOnly],
+  );
 
   const [index, setIndex] = useState(0);
   const [visible, setVisible] = useState(true);

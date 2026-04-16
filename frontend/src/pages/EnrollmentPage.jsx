@@ -944,9 +944,13 @@ function EnrollmentPage() {
                   </div>
                 )}
 
-                {/* Rotating motivational testimonials — merged with Admin enrollment_urgency_quotes */}
+                {/* Rotating motivational testimonials — Admin Upcoming Hub: global + per-program lines */}
                 <div className="px-5 pb-5">
-                  <MotivationalSignupFlash quotes={urgencyQuotes} />
+                  <MotivationalSignupFlash
+                    quotes={urgencyQuotes}
+                    programId={type === 'program' ? id : undefined}
+                    globalOnly={type === 'session'}
+                  />
                 </div>
               </div>
             </div>

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import Header from '../components/Header';
@@ -437,6 +437,12 @@ function CartPage() {
   const totalParticipants = items.reduce((sum, i) => sum + i.participants.length, 0);
   const numPrograms = items.length;
 
+  const cartProgramIdsForUrgency = useMemo(
+    () =>
+      [...new Set(items.filter((i) => i.type !== 'session').map((i) => String(i.programId).trim()).filter(Boolean))],
+    [items],
+  );
+
   const [autoDiscounts, setAutoDiscounts] = useState({ group_discount: 0, combo_discount: 0, loyalty_discount: 0, total_discount: 0 });
   const [crossSellRules, setCrossSellRules] = useState([]);
   const [vipOffers, setVipOffers] = useState({}); // { programId: { matched, label, discount_type, ... } }
@@ -619,7 +625,12 @@ function CartPage() {
               className="text-xs text-red-500 hover:text-red-700 transition-colors">Clear All</button>
           </div>
 
-          <MotivationalSignupFlash quotes={urgencyQuotes} className="mb-6" />
+          <MotivationalSignupFlash
+            quotes={urgencyQuotes}
+            programIds={cartProgramIdsForUrgency.length ? cartProgramIdsForUrgency : undefined}
+            globalOnly={cartProgramIdsForUrgency.length === 0}
+            className="mb-6"
+          />
 
           {/* Cart items */}
           {items.map((item, itemIdx) => {
