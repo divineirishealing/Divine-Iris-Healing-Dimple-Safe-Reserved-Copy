@@ -128,6 +128,11 @@ def get_object_bytes(key: str) -> tuple[bytes, str]:
             code = str(err.get("Code", ""))
             if code in ("NoSuchKey", "404", "NotFound"):
                 raise FileNotFoundError(key) from e
+            if code == "AccessDenied":
+                raise PermissionError(
+                    f"S3 GetObject denied for key {key!r} — add s3:GetObject on arn:aws:s3:::{bucket}/{key} "
+                    f"(or arn:aws:s3:::{bucket}/{_prefix()}/*) for the IAM user used on Render."
+                ) from e
             redirect_region = _bucket_region_from_client_error(e)
             if redirect_region and redirect_region != reg:
                 _bucket_region_cache[bucket] = redirect_region
