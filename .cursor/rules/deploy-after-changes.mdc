@@ -1,16 +1,20 @@
 ---
-description: After code changes, commit and push to main to trigger Render deploy
+description: After code changes, commit and push so GitHub + hosting redeploy automatically
 alwaysApply: true
 ---
 
-# Deploy after code changes
+# Push after changes; deploy follows automatically
 
-This project uses Render with `autoDeployTrigger: commit` on `main`.
+**Hosting:** `render.yaml` sets `autoDeployTrigger: commit` for **divine-iris-backend** and **divine-iris-frontend**. When GitHub notifies Render of a new commit on the **branch each service is linked to** in the Render dashboard, Render rebuilds and deploys—no extra deploy step in this repo.
 
-**After you make substantive code or config changes** (not read-only exploration), unless the user explicitly says not to deploy or skip git:
+If you also use **Vercel** (or similar) for the CRA app, ensure the Git integration is on so pushes to the same branch trigger builds there too.
 
-1. Run `git status` and stage the relevant files.
+**After substantive code or config changes** (not read-only exploration), unless the user explicitly says not to push or skip git:
+
+1. `git status` — stage only files that belong to the task.
 2. `git commit` with a clear, conventional message.
-3. `git push origin main` so Render redeploys backend and frontend.
+3. `git push origin <current-branch>` (e.g. `develop` or `main`). Use the branch you are actually working on; do not assume `main`.
 
-Do not leave the working tree dirty with completed work. If push fails (auth/network), report the error and what was committed locally.
+Do not leave the working tree dirty with finished work. If push fails (auth/network), report the error and confirm what was committed locally.
+
+**Note:** Auto-deploy only runs for the branch Render (and Vercel) is configured to watch. If production tracks `main` but work lands on `develop`, merge or open a PR to the linked branch so production updates.
