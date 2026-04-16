@@ -5,13 +5,30 @@ import { Input } from '../ui/input';
 import { Upload, X, Image as ImageIcon } from 'lucide-react';
 import { useToast } from '../../hooks/use-toast';
 
-const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
-const API = `${BACKEND_URL}/api`;
+const BACKEND_URL = (process.env.REACT_APP_BACKEND_URL || '').replace(/\/$/, '');
+const API = BACKEND_URL ? `${BACKEND_URL}/api` : '';
 
 function resolveUrl(url) {
   if (!url) return '';
-  if (url.startsWith('/api/image/')) return `${BACKEND_URL}${url}`;
+  if (url.startsWith('/api/image/')) return BACKEND_URL ? `${BACKEND_URL}${url}` : url;
   return url;
+}
+
+function uploadErrorMessage(error) {
+  if (!BACKEND_URL) {
+    return 'Photo upload is not wired up: the website host must set REACT_APP_BACKEND_URL to your API address, then rebuild the site (e.g. Render → Environment → redeploy).';
+  }
+  const detail = error?.response?.data?.detail;
+  if (typeof detail === 'string') {
+    if (/S3|AWS|AccessDenied|bucket|credentials/i.test(detail)) {
+      return `${detail} — On the API host (e.g. Render backend), add AWS_S3_BUCKET, AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, and AWS_REGION, then redeploy.`;
+    }
+    return detail;
+  }
+  if (error?.code === 'ERR_NETWORK' || error?.message === 'Network Error') {
+    return 'Your browser could not reach the API. Try again in a minute, or ask your host to check that the backend URL is correct and the backend has been redeployed.';
+  }
+  return error?.message || 'Upload failed. Please try again or use “Use URL” to paste an image link.';
 }
 
 const ImageUploader = ({ value, onChange, label = "Image" }) => {
@@ -22,8 +39,12 @@ const ImageUploader = ({ value, onChange, label = "Image" }) => {
   const { toast } = useToast();
   const fileInputRef = useRef(null);
 
-  const uploadFile = async (file) => {
+   const uploadFile = async (file) => {
     if (!file) return;
+    if (!BACKEND_URL || !API) {
+      toast({ title: 'Upload not available', description: uploadErrorMessage(null), variant: 'destructive' });
+      return;
+    }
     if (file.size > 10 * 1024 * 1024) {
       toast({ title: 'File too large', description: 'Max 10MB', variant: 'destructive' });
       return;
@@ -44,7 +65,7 @@ const ImageUploader = ({ value, onChange, label = "Image" }) => {
       toast({ title: 'Image uploaded!' });
     } catch (error) {
       console.error('Upload error:', error);
-      toast({ title: 'Upload failed', description: error.response?.data?.detail || error.message || 'Failed to upload', variant: 'destructive' });
+      toast({ title: 'Upload failed', description: uploadErrorMessage(error), variant: 'destructive' });
     } finally {
       setUploading(false);
     }

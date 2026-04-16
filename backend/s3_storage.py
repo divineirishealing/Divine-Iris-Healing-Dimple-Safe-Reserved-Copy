@@ -23,6 +23,10 @@ from pathlib import Path
 
 logger = logging.getLogger(__name__)
 
+# When env region ≠ bucket region, first put_object may fail; we retry using
+# x-amz-bucket-region and cache it for later requests.
+_bucket_region_cache: dict[str, str] = {}
+
 
 def _region() -> str:
     return (
@@ -41,12 +45,12 @@ def is_s3_enabled() -> bool:
     return bool((os.environ.get("AWS_S3_BUCKET") or "").strip())
 
 
-def _public_url(bucket: str, key: str) -> str:
+def _public_url(bucket: str, key: str, *, s3_region: str | None = None) -> str:
     base = (os.environ.get("AWS_S3_PUBLIC_BASE_URL") or "").strip().rstrip("/")
     encoded = urllib.parse.quote(key, safe="/")
     if base:
         return f"{base}/{encoded}"
-    region = _region()
+    region = s3_region or _bucket_region_cache.get(bucket) or _region()
     if region == "us-east-1":
         host = f"{bucket}.s3.amazonaws.com"
     else:
@@ -54,14 +58,50 @@ def _public_url(bucket: str, key: str) -> str:
     return f"https://{host}/{encoded}"
 
 
-def _client():
+def _client(region_name: str | None = None):
     import boto3
 
-    kwargs = {"region_name": _region()}
+    kwargs = {"region_name": region_name or _region()}
     endpoint = (os.environ.get("AWS_S3_ENDPOINT_URL") or "").strip()
     if endpoint:
         kwargs["endpoint_url"] = endpoint
     return boto3.client("s3", **kwargs)
+
+
+def _bucket_region_from_client_error(exc: BaseException) -> str | None:
+    """Read bucket's actual region from S3 error (e.g. PermanentRedirect)."""
+    try:
+        from botocore.exceptions import ClientError
+
+        if not isinstance(exc, ClientError):
+            return None
+        err = exc.response.get("Error") or {}
+        code = str(err.get("Code", ""))
+        if code not in ("PermanentRedirect", "301", "AuthorizationHeaderMalformed"):
+            return None
+        hdrs = exc.response.get("ResponseMetadata", {}).get("HTTPHeaders") or {}
+        r = hdrs.get("x-amz-bucket-region")
+        if r:
+            return str(r)
+        msg = str(err.get("Message", ""))
+        # "The authorization header is malformed; the region 'us-east-1' is wrong; expecting 'ap-southeast-1'"
+        if "expecting" in msg.lower():
+            import re
+
+            m = re.search(r"expecting\s+['\"]([a-z0-9-]+)['\"]", msg, re.I)
+            if m:
+                return m.group(1)
+    except ImportError:
+        pass
+    return None
+
+
+def credentials_configured() -> bool:
+    """IAM user keys or instance role; session token optional."""
+    return bool(
+        (os.environ.get("AWS_ACCESS_KEY_ID") or "").strip()
+        and (os.environ.get("AWS_SECRET_ACCESS_KEY") or "").strip()
+    )
 
 
 def upload_bytes(key: str, body: bytes, content_type: str) -> str:
@@ -74,13 +114,65 @@ def upload_bytes(key: str, body: bytes, content_type: str) -> str:
         "ContentType": content_type or "application/octet-stream",
         "CacheControl": "public, max-age=31536000",
     }
-    try:
-        _client().put_object(Bucket=bucket, Key=key, Body=body, **extra)
-    except Exception as e:
-        logger.exception("S3 put_object failed: bucket=%s key=%s", bucket, key)
-        raise RuntimeError(f"S3 upload failed: {e}") from e
+    preferred = _bucket_region_cache.get(bucket) or _region()
+    success_region = preferred
 
-    return _public_url(bucket, key)
+    def _put(reg: str) -> None:
+        _client(reg).put_object(Bucket=bucket, Key=key, Body=body, **extra)
+
+    try:
+        _put(preferred)
+    except Exception as e:
+        redirect_region = _bucket_region_from_client_error(e)
+        if redirect_region and redirect_region != preferred:
+            logger.warning(
+                "S3 put_object region mismatch; retrying with bucket region %s (was %s)",
+                redirect_region,
+                preferred,
+            )
+            try:
+                _put(redirect_region)
+                _bucket_region_cache[bucket] = redirect_region
+                success_region = redirect_region
+            except Exception as e2:
+                logger.exception("S3 put_object failed after region retry: bucket=%s key=%s", bucket, key)
+                msg = _friendly_s3_error(e2, bucket, key)
+                raise RuntimeError(msg) from e2
+        else:
+            logger.exception("S3 put_object failed: bucket=%s key=%s", bucket, key)
+            msg = _friendly_s3_error(e, bucket, key)
+            raise RuntimeError(msg) from e
+
+    return _public_url(bucket, key, s3_region=success_region)
+
+
+def _friendly_s3_error(exc: BaseException, bucket: str, key: str) -> str:
+    """Map boto ClientError to admin-actionable text (still safe to return in API detail)."""
+    try:
+        from botocore.exceptions import ClientError
+
+        if isinstance(exc, ClientError):
+            err = exc.response.get("Error") or {}
+            code = err.get("Code", "")
+            amsg = err.get("Message", "") or str(exc)
+            if code == "AccessDenied":
+                return (
+                    f"S3 AccessDenied for bucket “{bucket}”. Attach an IAM policy with s3:PutObject (and s3:PutObjectAcl if you use ACLs) "
+                    f"on arn:aws:s3:::{bucket}/* — see server logs for key {key!r}."
+                )
+            if code in ("InvalidAccessKeyId", "SignatureDoesNotMatch"):
+                return f"S3 rejected AWS credentials ({code}). Check AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY on the API host."
+            if code == "NoSuchBucket":
+                return f"S3 bucket “{bucket}” does not exist in region {_region()} (or wrong AWS_REGION)."
+            if code == "PermanentRedirect":
+                return (
+                    f"S3 PermanentRedirect: bucket “{bucket}” is in a different region. Set AWS_REGION (or AWS_DEFAULT_REGION) "
+                    "to the bucket’s region."
+                )
+            return f"S3 error {code}: {amsg}"
+    except ImportError:
+        pass
+    return f"S3 upload failed: {exc}"
 
 
 def prefixed_key(*parts: str) -> str:
@@ -95,7 +187,7 @@ def delete_object_key(key: str) -> bool:
         return False
     bucket = (os.environ.get("AWS_S3_BUCKET") or "").strip()
     try:
-        _client().delete_object(Bucket=bucket, Key=key)
+        _client(_bucket_region_cache.get(bucket)).delete_object(Bucket=bucket, Key=key)
         return True
     except Exception as e:
         logger.warning("S3 delete_object failed: %s", e)

@@ -237,13 +237,23 @@ ALLOWED_ORIGINS = [
     if origin.strip()
 ]
 
-app.add_middleware(
-    CORSMiddleware,
+# Lets browsers on Render / Vercel talk to this API without pasting origins into ALLOWED_ORIGINS.
+# Custom domains still need ALLOWED_ORIGINS, e.g. https://yoursite.com
+# Set ALLOWED_ORIGINS_REGEX to empty on the server to turn this off.
+_cors_regex = os.environ.get(
+    "ALLOWED_ORIGINS_REGEX",
+    r"https://.+\.onrender\.com\Z|https://.+\.vercel\.app\Z",
+)
+_cors_mw_kwargs = dict(
     allow_credentials=True,
     allow_origins=ALLOWED_ORIGINS,
     allow_methods=["*"],
     allow_headers=["*"],
 )
+if (_cors_regex or "").strip():
+    _cors_mw_kwargs["allow_origin_regex"] = _cors_regex.strip()
+
+app.add_middleware(CORSMiddleware, **_cors_mw_kwargs)
 
 # Configure logging
 logging.basicConfig(

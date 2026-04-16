@@ -78,11 +78,21 @@ def _image_upload_backend() -> str:
 @router.get("/storage-status")
 async def upload_storage_status():
     """Which backend image uploads use (no secrets). Open after setting Render env + deploy."""
+    bucket = (os.environ.get("AWS_S3_BUCKET") or "").strip()
+    region = (
+        os.environ.get("AWS_REGION")
+        or os.environ.get("AWS_DEFAULT_REGION")
+        or "ap-southeast-1"
+    )
     return {
         "image_upload_will_use": _image_upload_backend(),
         "s3_enabled": s3_storage.is_s3_enabled(),
+        "s3_bucket": bucket if bucket else None,
+        "aws_region_configured": region,
+        "aws_static_access_key_configured": bool(s3_storage.credentials_configured()),
         "cloudinary_enabled": _CLOUDINARY_AVAILABLE,
-        "hint": "Set AWS_S3_BUCKET (+ AWS keys) on this API service and redeploy. Name must be exactly AWS_S3_BUCKET.",
+        "hint": "If uploads fail: set AWS_S3_BUCKET; IAM user needs AWS_ACCESS_KEY_ID + AWS_SECRET_ACCESS_KEY (or use an instance/task role). "
+        "Policy: s3:PutObject on arn:aws:s3:::BUCKET/*. AWS_REGION must match the bucket. Error detail from POST /api/upload/image includes the S3 code.",
     }
 
 
