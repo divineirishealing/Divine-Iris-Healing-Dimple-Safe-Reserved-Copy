@@ -5,6 +5,7 @@ import { Textarea } from '../../ui/textarea';
 import { Label } from '../../ui/label';
 import { Switch } from '../../ui/switch';
 import { Button } from '../../ui/button';
+import { useToast } from '../../../hooks/use-toast';
 import {
   Plus, X, Edit, Trash2, Save, Tag, Percent, Clock, Zap, Gift,
   Calendar, Users, Check
@@ -20,7 +21,10 @@ const TYPE_OPTIONS = [
 ];
 
 const PromotionsTab = ({ programs }) => {
+  const { toast } = useToast();
   const [promotions, setPromotions] = useState([]);
+  const [checkoutPromoVisible, setCheckoutPromoVisible] = useState(true);
+  const [checkoutPromoLoaded, setCheckoutPromoLoaded] = useState(false);
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState(null);
   const [form, setForm] = useState({
@@ -31,6 +35,31 @@ const PromotionsTab = ({ programs }) => {
   });
 
   useEffect(() => { loadPromotions(); }, []);
+
+  useEffect(() => {
+    axios
+      .get(`${API}/settings`)
+      .then((r) => {
+        setCheckoutPromoVisible(r.data?.checkout_promo_code_visible !== false);
+        setCheckoutPromoLoaded(true);
+      })
+      .catch(() => setCheckoutPromoLoaded(true));
+  }, []);
+
+  const persistCheckoutPromoVisible = async (v) => {
+    const prev = checkoutPromoVisible;
+    setCheckoutPromoVisible(v);
+    try {
+      await axios.put(`${API}/settings`, { checkout_promo_code_visible: v });
+      toast({
+        title: v ? 'Promo code field is now visible' : 'Promo code field is hidden',
+        description: 'On cart and program enrollment.',
+      });
+    } catch {
+      setCheckoutPromoVisible(prev);
+      toast({ title: 'Could not save setting', variant: 'destructive' });
+    }
+  };
 
   const loadPromotions = async () => {
     try {
@@ -98,6 +127,27 @@ const PromotionsTab = ({ programs }) => {
 
   return (
     <div data-testid="promotions-tab">
+      <div className="mb-6 rounded-xl border-2 border-amber-300 bg-amber-50/80 p-4 shadow-sm" data-testid="promotions-checkout-promo-banner">
+        <div className="flex items-center justify-between gap-4 flex-wrap">
+          <div>
+            <p className="text-sm font-semibold text-gray-900">Website: show “Promo code” box</p>
+            <p className="text-xs text-gray-600 mt-1 max-w-xl">
+              Controls the promo field on the <strong>cart</strong> and <strong>program enrollment</strong> pages. Saves immediately when you flip the switch.
+              Enrollment links with <code className="text-[10px] bg-white/80 px-1 rounded border">?promo=</code> still work when this is off.
+            </p>
+          </div>
+          <div className="flex items-center gap-2 flex-shrink-0">
+            <span className="text-xs text-gray-600">{checkoutPromoVisible ? 'On' : 'Off'}</span>
+            <Switch
+              data-testid="promotions-checkout-promo-switch"
+              checked={checkoutPromoVisible}
+              onCheckedChange={persistCheckoutPromoVisible}
+              disabled={!checkoutPromoLoaded}
+            />
+          </div>
+        </div>
+      </div>
+
       <div className="flex justify-between items-center mb-6">
         <div>
           <h2 className="text-xl font-semibold text-gray-900">Promotions & Coupons</h2>

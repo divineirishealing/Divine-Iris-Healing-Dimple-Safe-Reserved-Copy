@@ -78,6 +78,21 @@ export default function DiscountsTab() {
     } finally { setSaving(false); }
   };
 
+  const persistCheckoutPromoVisible = async (v) => {
+    const prev = settings.checkout_promo_code_visible;
+    setSettings((p) => ({ ...p, checkout_promo_code_visible: v }));
+    try {
+      await axios.put(`${API}/settings`, { checkout_promo_code_visible: v });
+      toast({
+        title: v ? 'Promo code field is now visible' : 'Promo code field is hidden',
+        description: 'On cart and program enrollment pages.',
+      });
+    } catch {
+      setSettings((p) => ({ ...p, checkout_promo_code_visible: prev }));
+      toast({ title: 'Could not save setting', variant: 'destructive' });
+    }
+  };
+
   const addGroupRule = () => {
     setSettings(prev => ({
       ...prev,
@@ -112,26 +127,25 @@ export default function DiscountsTab() {
         </Button>
       </div>
 
-      {/* Checkout promo code visibility */}
-      <div className="bg-white rounded-lg border p-5" data-testid="checkout-promo-visibility-section">
-        <div className="flex items-center justify-between gap-4">
-          <div className="flex items-center gap-3">
-            <div className="w-9 h-9 bg-amber-100 rounded-lg flex items-center justify-center">
-              <Tag size={18} className="text-amber-700" />
+      {/* Checkout promo code visibility — saves immediately (no need to click Save Settings) */}
+      <div className="bg-amber-50/80 rounded-xl border-2 border-amber-300 p-5 shadow-sm" data-testid="checkout-promo-visibility-section">
+        <div className="flex items-center justify-between gap-4 flex-wrap">
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="w-9 h-9 bg-amber-200 rounded-lg flex items-center justify-center flex-shrink-0">
+              <Tag size={18} className="text-amber-900" />
             </div>
             <div>
-              <p className="text-sm font-medium text-gray-900">Promo code on cart & enrollment</p>
-              <p className="text-xs text-gray-500 mt-0.5">
-                When off, the promo code box is hidden on the cart and on program enrollment. Link-based codes (
-                <code className="text-[10px] bg-gray-100 px-1 rounded">?promo=</code>
-                ) on enrollment still work.
+              <p className="text-sm font-semibold text-gray-900">Show promo code on cart & enrollment</p>
+              <p className="text-xs text-gray-600 mt-0.5">
+                Saves immediately. When off, the promo box is hidden. Enrollment links with{' '}
+                <code className="text-[10px] bg-white/80 px-1 rounded border">?promo=</code> still work.
               </p>
             </div>
           </div>
           <Switch
             data-testid="checkout-promo-visible-switch"
             checked={settings.checkout_promo_code_visible !== false}
-            onCheckedChange={(v) => setSettings((prev) => ({ ...prev, checkout_promo_code_visible: v }))}
+            onCheckedChange={persistCheckoutPromoVisible}
           />
         </div>
       </div>
