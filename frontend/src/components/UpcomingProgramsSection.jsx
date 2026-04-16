@@ -152,46 +152,31 @@ function testimonialsForProgram(all, program) {
   return withQuote.slice(0, 8);
 }
 
-/** Text-only quote — used in the separate “Voices” band below upcoming cards */
-const UpcomingCardQuoteText = ({ text, name, role, programId, embedded }) => {
+/** Quote only (no program title, no author line) — sits just under the program card */
+const UpcomingCardQuoteText = ({ text, programId }) => {
   const displayText = (text || '').trim();
   if (!displayText) return null;
-  const footerName = (name || '').trim();
-  const footerRole = (role || '').trim();
-  const attribution = [footerName, footerRole].filter(Boolean);
   return (
     <div
       data-testid={`upcoming-card-testimonial-${programId}`}
-      className={
-        embedded
-          ? 'px-0 py-1'
-          : 'border-t border-[#D4AF37]/25 bg-gradient-to-b from-amber-50/50 to-transparent px-3 py-2.5'
-      }
+      className="rounded-lg border border-[#D4AF37]/15 bg-amber-50/35 px-2 py-1.5"
     >
       <p
         className="text-center italic leading-snug text-gray-800 tracking-wide"
         style={{
           fontFamily: "'Cormorant Garamond', Georgia, serif",
-          fontSize: 'clamp(0.92rem, 3.2vw, 1.05rem)',
+          fontSize: 'clamp(0.82rem, 2.8vw, 0.95rem)',
           fontWeight: 600,
         }}
       >
         &ldquo;{displayText}&rdquo;
       </p>
-      {attribution.length > 0 && (
-        <p
-          className="text-center text-[0.65rem] text-gray-500 mt-1.5"
-          style={{ fontFamily: "'Lato', sans-serif" }}
-        >
-          {attribution.join(' · ')}
-        </p>
-      )}
     </div>
   );
 };
 
-/* Rotating snippets — plain text only */
-const CardTestimonialRotate = ({ quotes, programId, embedded }) => {
+/* Rotating snippets — plain quote text only */
+const CardTestimonialRotate = ({ quotes, programId }) => {
   const [index, setIndex] = useState(0);
   const [visible, setVisible] = useState(true);
 
@@ -221,53 +206,7 @@ const CardTestimonialRotate = ({ quotes, programId, embedded }) => {
         transform: visible ? 'translateY(0)' : 'translateY(5px)',
       }}
     >
-      <UpcomingCardQuoteText text={quote} name={t.name} role={t.role} programId={programId} embedded={embedded} />
-    </div>
-  );
-};
-
-/** Full-width band below program cards so quotes don’t change card heights or styling */
-const UpcomingProgramQuotesBand = ({ programs, quotesByProgramId }) => {
-  const navigate = useNavigate();
-  const withQuotes = useMemo(() => {
-    return programs
-      .map((p) => ({
-        program: p,
-        quotes: quotesByProgramId[normalizePid(p.id)],
-      }))
-      .filter((x) => Array.isArray(x.quotes) && x.quotes.length > 0);
-  }, [programs, quotesByProgramId]);
-
-  if (withQuotes.length === 0) return null;
-
-  return (
-    <div
-      data-testid="upcoming-program-quotes-band"
-      className="mt-10 pt-10 border-t border-gray-200/90"
-    >
-      <h3
-        className="text-center text-lg md:text-xl font-semibold text-gray-900 tracking-tight mb-6"
-        style={{ fontFamily: "'Cormorant Garamond', Georgia, serif" }}
-      >
-        Words that resonate
-      </h3>
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-        {withQuotes.map(({ program, quotes }) => (
-          <div
-            key={program.id}
-            className="rounded-xl border border-[#D4AF37]/20 bg-gradient-to-b from-amber-50/40 via-white to-white p-4 flex flex-col shadow-sm"
-          >
-            <button
-              type="button"
-              onClick={() => navigate(`/program/${program.id}`)}
-              className="text-left w-full mb-1 text-[10px] font-bold uppercase tracking-wider text-[#b8962e] hover:text-[#7a5f12] transition-colors"
-            >
-              {program.title}
-            </button>
-            <CardTestimonialRotate quotes={quotes} programId={program.id} embedded />
-          </div>
-        ))}
-      </div>
+      <UpcomingCardQuoteText text={quote} programId={programId} />
     </div>
   );
 };
@@ -371,7 +310,7 @@ function durationPillDisplay(isAnnualTier, durationStr) {
   return durationStr;
 }
 
-const UpcomingCard = ({ program }) => {
+const UpcomingCard = ({ program, cardQuotes }) => {
   const navigate = useNavigate();
   const { getPrice, getOfferPrice, symbol, country: detectedCountry } = useCurrency();
   const { addItem, items } = useCart();
@@ -473,8 +412,9 @@ const UpcomingCard = ({ program }) => {
     tiers.length <= 1 ? 'grid-cols-1' : tiers.length === 2 ? 'grid-cols-2' : 'grid-cols-3';
 
   return (
+    <div className="flex flex-col h-full min-h-0" data-testid={`upcoming-card-wrap-${program.id}`}>
     <div data-testid={`upcoming-card-${program.id}`}
-      className={`group bg-white rounded-xl overflow-hidden shadow-lg transition-all duration-300 border border-gray-100 flex flex-col h-full ${enrollStatus === 'closed' ? 'opacity-60' : 'hover:shadow-2xl'}`}>
+      className={`group bg-white rounded-xl overflow-hidden shadow-lg transition-all duration-300 border border-gray-100 flex flex-col flex-1 min-h-0 ${enrollStatus === 'closed' ? 'opacity-60' : 'hover:shadow-2xl'}`}>
       <div className="relative h-48 overflow-hidden cursor-pointer" onClick={() => navigate(`/program/${program.id}`)}>
         <img src={resolveImageUrl(program.image)} alt={program.title}
           className={`w-full h-full object-cover transition-transform duration-500 ${enrollStatus === 'open' ? 'group-hover:scale-105' : enrollStatus === 'closed' ? 'grayscale-[40%]' : ''}`}
@@ -686,6 +626,12 @@ const UpcomingCard = ({ program }) => {
           </div>
         )}
       </div>
+    </div>
+    {Array.isArray(cardQuotes) && cardQuotes.length > 0 && (
+      <div className="mt-0.5 shrink-0">
+        <CardTestimonialRotate quotes={cardQuotes} programId={program.id} />
+      </div>
+    )}
     </div>
   );
 };
@@ -917,7 +863,11 @@ const UpcomingProgramsSection = ({ sectionConfig, inline }) => {
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 items-stretch">
             {sorted.map((program) => (
-              <UpcomingCard key={program.id} program={program} />
+              <UpcomingCard
+                key={program.id}
+                program={program}
+                cardQuotes={programCardQuotes[normalizePid(program.id)]}
+              />
             ))}
           </div>
         </>
@@ -957,7 +907,11 @@ const UpcomingProgramsSection = ({ sectionConfig, inline }) => {
               </div>
               {/* Cards */}
               {sorted.map((program) => (
-                <UpcomingCard key={program.id} program={program} />
+                <UpcomingCard
+                  key={program.id}
+                  program={program}
+                  cardQuotes={programCardQuotes[normalizePid(program.id)]}
+                />
               ))}
 
               {/* Combo Discount Banner — spans full width below cards on mobile, beside sponsor on desktop */}
@@ -977,8 +931,6 @@ const UpcomingProgramsSection = ({ sectionConfig, inline }) => {
           );
         })()
       )}
-
-      <UpcomingProgramQuotesBand programs={sorted} quotesByProgramId={programCardQuotes} />
 
       {/* Combo Banner — desktop full width below grid */}
       {!inline && comboDiscount && openPrograms.length >= (comboDiscount.rules[0]?.min_programs || 2) && (
