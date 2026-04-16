@@ -1,20 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
+import { resolveImageUrl } from '../lib/imageUtils';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
-
-function resolveUrl(url) {
-  if (!url) return '';
-  if (url.startsWith('/api/image/')) return `${BACKEND_URL}${url}`;
-  return url;
-}
 
 const LogoSection = () => {
   const [settings, setSettings] = useState(null);
   useEffect(() => { axios.get(`${API}/settings`).then(r => setSettings(r.data)).catch(() => {}); }, []);
 
-  const logoUrl = settings?.logo_url ? resolveUrl(settings.logo_url) : '';
+  const logoUrl = settings?.logo_url ? resolveImageUrl(settings.logo_url) : '';
   const logoWidth = settings?.logo_width || 96;
 
   if (!logoUrl) return null;

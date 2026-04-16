@@ -6,15 +6,10 @@ import Footer from '../components/Footer';
 import FloatingButtons from '../components/FloatingButtons';
 import { HEADING, SUBTITLE, BODY, GOLD, LABEL, CONTAINER, SECTION_PY } from '../lib/designTokens';
 import { renderMarkdown } from '../lib/renderMarkdown';
+import { resolveImageUrl } from '../lib/imageUtils';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
-
-function resolveUrl(url) {
-  if (!url) return '';
-  if (url.startsWith('/api/image/')) return `${BACKEND_URL}${url}`;
-  return url;
-}
 
 const applyStyle = (styleObj, defaults = {}) => {
   if (!styleObj || Object.keys(styleObj).length === 0) return defaults;
@@ -48,7 +43,7 @@ export default function AboutPage() {
   }, []);
 
   const s = settings || {};
-  const aboutImage = s.about_image ? resolveUrl(s.about_image) : '';
+  const aboutImage = s.about_image ? resolveImageUrl(s.about_image) : '';
 
   return (
     <div className="min-h-screen bg-white">
@@ -59,7 +54,7 @@ export default function AboutPage() {
         const hero = s.page_heroes?.about || {};
         const titleAlign = hero.title_alignment || 'center';
         const subtitleAlign = hero.subtitle_alignment || 'center';
-        const heroLogoUrl = hero.logo_url ? resolveUrl(hero.logo_url) : '';
+        const heroLogoUrl = hero.logo_url ? resolveImageUrl(hero.logo_url) : '';
         const dividerW = hero.divider_width || '56';
         const dividerColor = hero.divider_color || GOLD;
         const dividerThickness = hero.divider_thickness || '2';
@@ -67,7 +62,7 @@ export default function AboutPage() {
         return (
           <section data-testid="about-hero" className="relative min-h-[50vh] flex flex-col items-center justify-center px-6 pt-20"
             style={{ background: hero.hero_image ? 'transparent' : 'linear-gradient(180deg, #1a1a1a 0%, #1a1a1add 50%, #1a1a1a 100%)' }}>
-            {hero.hero_image && <div className="absolute inset-0" style={{ backgroundImage: `url(${resolveUrl(hero.hero_image)})`, backgroundSize: 'cover', backgroundPosition: 'center' }} />}
+            {hero.hero_image && <div className="absolute inset-0" style={{ backgroundImage: `url(${resolveImageUrl(hero.hero_image)})`, backgroundSize: 'cover', backgroundPosition: 'center' }} />}
             {hero.hero_image && <div className="absolute inset-0" style={{ background: '#000', opacity: (hero.overlay_opacity || 60) / 100 }} />}
             <div className={`relative z-10 flex flex-col w-full max-w-4xl ${alignClass[titleAlign]}`}>
               {hero.logo_visible !== false && heroLogoUrl && (

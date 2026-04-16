@@ -49,6 +49,7 @@ import { AuthProvider } from './context/AuthContext';
 import { Analytics } from '@vercel/analytics/react';
 import SeoHead from './components/SeoHead';
 import BackendStatusBanner from './components/BackendStatusBanner';
+import { resolveImageUrl } from './lib/imageUtils';
 
 const CurrencyGate = ({ children }) => {
   const { ready } = useCurrency();
@@ -72,7 +73,7 @@ const AppContent = () => {
       if (d?.logo_url) {
         const link = document.querySelector("link[rel*='icon']") || document.createElement('link');
         link.type = 'image/png'; link.rel = 'icon';
-        link.href = d.logo_url.startsWith('/') ? `${API}${d.logo_url}` : d.logo_url;
+        link.href = resolveImageUrl(d.logo_url);
         document.head.appendChild(link);
       }
     }).catch(() => {});
