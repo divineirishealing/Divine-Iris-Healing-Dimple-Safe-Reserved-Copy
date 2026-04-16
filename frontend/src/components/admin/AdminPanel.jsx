@@ -62,7 +62,7 @@ function testimonialPhotoUrl(p) {
   return '';
 }
 
-/** Legacy image / before_image from API (string or Cloudinary-shaped object). */
+/** Legacy image / before_image from API (string or { url, secure_url } object). */
 function testimonialLegacyImageField(v) {
   if (v == null) return '';
   if (typeof v === 'string') return v.trim();
@@ -202,7 +202,7 @@ const AdminPanel = () => {
   const resetSessionForm = () => { setShowSessionForm(false); setEditingId(null); setSessionForm({ title: '', description: '', image: '', price_usd: 0, price_inr: 0, price_eur: 0, price_gbp: 0, price_aed: 0, offer_price_aed: 0, offer_price_usd: 0, offer_price_inr: 0, offer_text: '', offer_expiry: '', duration: '60-90 minutes', session_mode: 'online', available_dates: [], time_slots: [], testimonial_text: '', title_style: null, description_style: null, visible: true, order: 0 }); };
 
   // ===== TESTIMONIALS =====
-  /** Keep photos + legacy image/before_image in sync so saves never wipe Cloudinary URLs. */
+  /** Keep photos + legacy image/before_image in sync so saves never wipe external image URLs. */
   const normalizeTestimonialPayload = (form) => {
     let photos = (Array.isArray(form.photos) ? form.photos : [])
       .map((p) => testimonialPhotoUrl(p))

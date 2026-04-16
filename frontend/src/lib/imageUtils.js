@@ -47,7 +47,7 @@ export function isLikelyImageUrl(s) {
 
 /**
  * Resolves an image/video URL for <img src> / background.
- * - Accepts a string or { url, secure_url } (Cloudinary-style).
+ * - Accepts a string or { url, secure_url } (legacy object shape from older uploads).
  * - Absolute http(s) / data / blob URLs are returned as-is.
  * - Paths under /api/... are prefixed with BACKEND_URL from config (env or current origin).
  * - Tolerates missing leading slash (api/...) from older data.

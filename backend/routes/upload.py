@@ -1,6 +1,5 @@
 from fastapi import APIRouter, UploadFile, File, HTTPException
 from pathlib import Path
-import shutil
 import uuid
 import os
 import mimetypes
@@ -43,7 +42,7 @@ def _ensure_upload_url_is_durable(url: str) -> None:
         status_code=503,
         detail=(
             "Images cannot be saved to this server’s temporary disk — they are deleted when the service restarts. "
-            "Add CLOUDINARY_URL to this API service in your host’s environment (or configure AWS S3 with a public-read bucket), "
+            "Configure AWS S3 on this API (AWS_S3_BUCKET, credentials or IAM role, AWS_REGION matching the bucket), "
             "then redeploy. Open GET /api/upload/storage-status on the API for a diagnostic summary."
         ),
     )
@@ -66,47 +65,6 @@ MAX_IMAGE_SIZE = 10 * 1024 * 1024   # 10MB
 MAX_VIDEO_SIZE = 100 * 1024 * 1024  # 100MB
 MAX_DOC_SIZE = 25 * 1024 * 1024     # 25MB
 
-# ── Cloudinary (optional persistent cloud storage) ──────────────────────────
-# Set CLOUDINARY_URL or all three vars in Render environment variables.
-# If not set, falls back to local filesystem (ephemeral on Render free tier).
-_CLOUDINARY_AVAILABLE = False
-try:
-    import cloudinary
-    import cloudinary.uploader
-    cloud_url = os.environ.get("CLOUDINARY_URL", "")
-    cloud_name = os.environ.get("CLOUDINARY_CLOUD_NAME", "")
-    cloud_key  = os.environ.get("CLOUDINARY_API_KEY", "")
-    cloud_sec  = os.environ.get("CLOUDINARY_API_SECRET", "")
-    if cloud_url:
-        cloudinary.config(cloudinary_url=cloud_url)
-        _CLOUDINARY_AVAILABLE = True
-    elif cloud_name and cloud_key and cloud_sec:
-        cloudinary.config(cloud_name=cloud_name, api_key=cloud_key, api_secret=cloud_sec)
-        _CLOUDINARY_AVAILABLE = True
-except ImportError:
-    pass  # cloudinary not installed — use local fallback
-
-
-def _upload_to_cloudinary(file_bytes: bytes, filename: str, resource_type: str = "image") -> str:
-    """Upload to Cloudinary and return the secure URL."""
-    import cloudinary.uploader
-    result = cloudinary.uploader.upload(
-        file_bytes,
-        public_id=f"divine-iris/{Path(filename).stem}",
-        resource_type=resource_type,
-        overwrite=False,
-        unique_filename=True,
-    )
-    return result["secure_url"]
-
-
-def _save_locally(file, unique_filename: str) -> str:
-    """Save to local uploads dir and return relative API path."""
-    file_path = UPLOAD_DIR / unique_filename
-    with file_path.open("wb") as buffer:
-        shutil.copyfileobj(file, buffer)
-    return f"/api/image/{unique_filename}"
-
 
 def _save_locally_bytes(file_bytes: bytes, unique_filename: str) -> str:
     p = UPLOAD_DIR / unique_filename
@@ -119,12 +77,9 @@ def _s3_put_then_fallback(
     unique_filename: str,
     *,
     s3_key: str,
-    cloudinary_resource: str = "image",
-    allow_cloudinary: bool = True,
 ) -> tuple[str, str]:
     """
-    Try S3 first when enabled; on any failure use Cloudinary (if allowed+configured) else local disk.
-    When REQUIRE_S3_FOR_UPLOADS is set, S3 must be configured and PutObject must succeed — no fallback.
+    Try S3 when enabled; on failure fall back to local disk unless REQUIRE_S3_FOR_UPLOADS.
     Returns (url, filename for client).
     """
     must_s3 = s3_storage.media_must_use_s3()
@@ -148,15 +103,9 @@ def _s3_put_then_fallback(
                     status_code=503,
                     detail=f"S3 upload failed (no fallback allowed): {e}",
                 ) from e
-            logger.warning("S3 upload failed; using fallback: %s", e)
-            if _CLOUDINARY_AVAILABLE and allow_cloudinary:
-                url = _upload_to_cloudinary(file_bytes, unique_filename, resource_type=cloudinary_resource)
-                return _return_upload(url, Path(url).name)
+            logger.warning("S3 upload failed; using local disk: %s", e)
             url = _save_locally_bytes(file_bytes, unique_filename)
             return _return_upload(url, unique_filename)
-    if _CLOUDINARY_AVAILABLE and allow_cloudinary:
-        url = _upload_to_cloudinary(file_bytes, unique_filename, resource_type=cloudinary_resource)
-        return _return_upload(url, Path(url).name)
     url = _save_locally_bytes(file_bytes, unique_filename)
     return _return_upload(url, unique_filename)
 
@@ -171,8 +120,6 @@ def _image_upload_backend() -> str:
         return "s3" if s3_storage.is_s3_enabled() else "blocked_require_s3"
     if s3_storage.is_s3_enabled():
         return "s3"
-    if _CLOUDINARY_AVAILABLE:
-        return "cloudinary"
     return "local"
 
 
@@ -196,14 +143,13 @@ async def upload_storage_status():
         "aws_region_configured": region,
         "aws_static_access_key_configured": bool(s3_storage.credentials_configured()),
         "aws_s3_use_iam_role": s3_storage.use_iam_role_without_static_keys(),
-        "cloudinary_enabled": _CLOUDINARY_AVAILABLE,
         "host_treats_local_disk_as_ephemeral": ephemeral,
         "local_api_image_paths_blocked": ephemeral and not _allow_ephemeral_disk_uploads(),
         "allow_ephemeral_uploads_env_override": _allow_ephemeral_disk_uploads(),
         "hint": (
-            "When REQUIRE_S3_FOR_UPLOADS=true, all media must land in S3 — no Cloudinary or local fallback. "
-            "Otherwise: if AWS is incomplete, fix IAM (s3:PutObject) or set CLOUDINARY_URL — uploads fall back when S3 errors. "
-            "On Render/Railway, local disk is not persistent — without Cloudinary or working S3, images disappear after restart."
+            "Media uploads use Amazon S3 when AWS_S3_BUCKET and credentials (or AWS_S3_USE_IAM_ROLE) are set; "
+            "otherwise files go to local disk (not persistent on Render/Railway unless ALLOW_EPHEMERAL_UPLOADS). "
+            "Set REQUIRE_S3_FOR_UPLOADS=true in production once S3 is working to forbid local fallback."
         ),
     }
 
@@ -220,8 +166,6 @@ async def upload_image(file: UploadFile = File(...)):
             file_bytes,
             unique_filename,
             s3_key=s3_storage.image_key(unique_filename),
-            cloudinary_resource="image",
-            allow_cloudinary=True,
         )
         return {"url": url, "filename": fname}
     except HTTPException:
@@ -242,8 +186,6 @@ async def upload_video(file: UploadFile = File(...)):
             file_bytes,
             unique_filename,
             s3_key=s3_storage.video_key(unique_filename),
-            cloudinary_resource="video",
-            allow_cloudinary=True,
         )
         return {"url": url, "filename": fname}
     except HTTPException:
@@ -278,13 +220,10 @@ async def upload_document(file: UploadFile = File(...)):
     try:
         unique_filename = f"{uuid.uuid4()}{file_ext}"
         file_bytes = await file.read()
-        use_cdn = file_ext in IMAGE_EXTENSIONS
         url, fname = _s3_put_then_fallback(
             file_bytes,
             unique_filename,
             s3_key=s3_storage.document_key(unique_filename),
-            cloudinary_resource="image",
-            allow_cloudinary=use_cdn,
         )
         return {"url": url, "filename": fname, "original_name": file.filename}
     except HTTPException:
