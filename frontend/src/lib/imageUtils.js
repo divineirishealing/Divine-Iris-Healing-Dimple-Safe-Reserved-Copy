@@ -80,6 +80,28 @@ function rewriteS3VirtualHostFromStorage(url) {
   }
 }
 
+/** When DB has https://bucket.s3.region.amazonaws.com/uploads/... but the bucket is private: serve via API using REACT_APP_BACKEND_URL (no /api/settings required). */
+function tryRewriteS3VirtualHostForPrivateBucket(url, apiBase) {
+  if (!url || !apiBase) return null;
+  const prefix = (process.env.REACT_APP_AWS_S3_PREFIX || 'uploads').replace(/^\/+|\/+$/g, '');
+  try {
+    const u = new URL(url);
+    const host = u.hostname || '';
+    if (!/^[^.]+\.s3(\.[a-z0-9-]+)?\.amazonaws\.com$/i.test(host)) return null;
+    let path = u.pathname.replace(/^\/+/, '');
+    const pfx = `${prefix}/`;
+    if (!path.startsWith(pfx) && path !== prefix) return null;
+    if (path === prefix || !path) return null;
+    const segments = path
+      .split('/')
+      .filter(Boolean)
+      .map((seg) => encodeURIComponent(decodeURIComponent(seg)));
+    return `${apiBase.replace(/\/$/, '')}/api/s3-media/${segments.join('/')}`;
+  } catch {
+    return null;
+  }
+}
+
 /** True if the value looks like an image URL (excludes mistaken plain text such as a client name). */
 export function isLikelyImageUrl(s) {
   if (s == null || typeof s !== 'string') return false;
@@ -121,6 +143,11 @@ export function resolveImageUrl(url) {
   if (lower.startsWith('https://') || lower.startsWith('http://')) {
     const proxied = rewriteS3VirtualHostFromStorage(u);
     if (proxied) return proxied;
+    const origin = backendOrigin();
+    if (origin) {
+      const viaApi = tryRewriteS3VirtualHostForPrivateBucket(u, origin);
+      if (viaApi) return viaApi;
+    }
   }
   if (
     lower.startsWith('http://') ||

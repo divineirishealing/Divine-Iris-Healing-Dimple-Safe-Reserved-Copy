@@ -150,9 +150,9 @@ function App() {
     <HelmetProvider>
       <div className="App">
         <CurrencyProvider>
-          <CurrencyGate>
-            <CartProvider>
-              <SiteSettingsProvider>
+          <SiteSettingsProvider>
+            <CurrencyGate>
+              <CartProvider>
                 <BrowserRouter>
                   <SeoPageProvider>
                     <AuthProvider>
@@ -161,9 +161,9 @@ function App() {
                   </SeoPageProvider>
                 </BrowserRouter>
                 <Toaster />
-              </SiteSettingsProvider>
-            </CartProvider>
-          </CurrencyGate>
+              </CartProvider>
+            </CurrencyGate>
+          </SiteSettingsProvider>
         </CurrencyProvider>
         <Analytics />
       </div>
