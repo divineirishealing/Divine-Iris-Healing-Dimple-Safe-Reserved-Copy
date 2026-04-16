@@ -5,6 +5,7 @@
     { key: 'programs', label: 'Programs', icon: Package, count: programs.length },
     { key: 'pricing_hub', label: 'Pricing Hub', icon: DollarSign },
     { key: 'upcoming_hub', label: 'Upcoming Hub', icon: Calendar },
+    { key: 'upcoming_card_quotes', label: 'Upcoming Card Quotes', icon: Calendar },
     { key: 'sessions', label: 'Sessions', icon: Calendar, count: sessions.length },
     { key: 'testimonials', label: 'Testimonials', icon: MessageSquare, count: testimonials.length },
     { key: 'text_testimonials', label: 'Text Quotes', icon: Quote },

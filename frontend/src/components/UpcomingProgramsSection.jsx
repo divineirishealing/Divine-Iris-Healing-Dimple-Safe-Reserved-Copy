@@ -6,6 +6,7 @@ import { useCurrency } from '../context/CurrencyContext';
 import { useCart } from '../context/CartContext';
 import { useToast } from '../hooks/use-toast';
 import { Monitor, Calendar, Clock, AlertTriangle, Wifi, ShoppingCart, Check, Bell, Heart, Gift, Users } from 'lucide-react';
+import { SoulfulWrittenSnippet } from './SoulfulTestimonialCard';
 
 // Map common timezone abbreviations to UTC offset in hours
 const TZ_OFFSETS = {
@@ -107,56 +108,52 @@ const convertTimingToLocal = (timing, timeZone, detectedCountry) => {
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
 
-/** Match testimonials to a program (same rules as program detail: id, tags, title). */
-function testimonialsForProgram(all, program) {
-  if (!program || !Array.isArray(all) || all.length === 0) return [];
-  const id = String(program.id);
-  const title = (program.title || '').trim().toLowerCase();
-  const matched = all.filter((t) => {
-    if (t.type !== 'template') return false;
-    if (String(t.program_id || '') === id) return true;
-    const tags = t.program_tags || [];
-    if (Array.isArray(tags) && tags.some((tag) => String(tag) === id)) return true;
-    const pn = (t.program_name || '').trim().toLowerCase();
-    if (title && pn && pn === title) return true;
-    return false;
-  });
-  const withQuote = matched.filter((t) => (t.text || '').trim().length > 12);
-  withQuote.sort((a, b) => (a.order || 0) - (b.order || 0));
-  return withQuote.slice(0, 8);
+/** Group admin “upcoming card” quotes by program id (visible-only list from API). */
+function buildProgramCardQuotesMap(rows) {
+  const byProgram = {};
+  for (const row of rows || []) {
+    const pid = String(row.program_id || '');
+    if (!pid) continue;
+    if (!byProgram[pid]) byProgram[pid] = [];
+    byProgram[pid].push({
+      order: row.order ?? 0,
+      text: (row.text || '').trim(),
+      name: (row.author || '').trim(),
+      role: (row.role || '').trim(),
+    });
+  }
+  for (const k of Object.keys(byProgram)) {
+    byProgram[k].sort((a, b) => (a.order || 0) - (b.order || 0));
+    byProgram[k] = byProgram[k].filter((q) => q.text.length > 0).map(({ text, name, role }) => ({ text, name, role }));
+  }
+  return byProgram;
 }
 
-/* Gentle rotating quote — feels part of the card, not a new section */
-const CardTestimonialRotate = ({ testimonials, programId }) => {
+/* Rotating snippets — jewel “written” template (no photos), shared with SoulfulTestimonialCard */
+const CardTestimonialRotate = ({ quotes, programId }) => {
   const [index, setIndex] = useState(0);
   const [visible, setVisible] = useState(true);
 
   useEffect(() => {
-    if (!testimonials || testimonials.length <= 1) return;
+    if (!quotes || quotes.length <= 1) return;
     const cycle = setInterval(() => {
       setVisible(false);
       setTimeout(() => {
-        setIndex((i) => (i + 1) % testimonials.length);
+        setIndex((i) => (i + 1) % quotes.length);
         setVisible(true);
       }, 500);
     }, 5500);
     return () => clearInterval(cycle);
-  }, [testimonials]);
+  }, [quotes]);
 
-  if (!testimonials || testimonials.length === 0) return null;
+  if (!quotes || quotes.length === 0) return null;
 
-  const t = testimonials[index];
+  const t = quotes[index];
   const quote = (t.text || '').trim();
   if (!quote) return null;
-  const displayQuote = quote.length > 240 ? `${quote.slice(0, 237)}…` : quote;
-  const rolePart = (t.role || '').trim();
-  const attrib = [t.name, rolePart].filter(Boolean).join(rolePart ? ' · ' : '');
 
   return (
-    <div
-      data-testid={`upcoming-card-testimonial-${programId}`}
-      className="border-t border-[#D4AF37]/15 bg-gradient-to-b from-amber-50/50 via-white to-white px-4 py-3"
-    >
+    <div data-testid={`upcoming-card-testimonial-${programId}`}>
       <div
         className="transition-all duration-500 ease-out"
         style={{
@@ -164,14 +161,7 @@ const CardTestimonialRotate = ({ testimonials, programId }) => {
           transform: visible ? 'translateY(0)' : 'translateY(5px)',
         }}
       >
-        <p className="text-[11px] sm:text-xs text-gray-700 leading-relaxed italic text-center">
-          &ldquo;{displayQuote}&rdquo;
-        </p>
-        {attrib ? (
-          <p className="text-[10px] text-center text-[#9a7b2d] font-medium mt-2 tracking-wide">
-            — {attrib}
-          </p>
-        ) : null}
+        <SoulfulWrittenSnippet text={quote} name={t.name} role={t.role} />
       </div>
     </div>
   );
@@ -276,7 +266,7 @@ function durationPillDisplay(isAnnualTier, durationStr) {
   return durationStr;
 }
 
-const UpcomingCard = ({ program, testimonials: cardTestimonials }) => {
+const UpcomingCard = ({ program, cardQuotes }) => {
   const navigate = useNavigate();
   const { getPrice, getOfferPrice, symbol, country: detectedCountry } = useCurrency();
   const { addItem, items } = useCart();
@@ -591,8 +581,8 @@ const UpcomingCard = ({ program, testimonials: cardTestimonials }) => {
           </div>
         )}
       </div>
-      {Array.isArray(cardTestimonials) && cardTestimonials.length > 0 && (
-        <CardTestimonialRotate testimonials={cardTestimonials} programId={program.id} />
+      {Array.isArray(cardQuotes) && cardQuotes.length > 0 && (
+        <CardTestimonialRotate quotes={cardQuotes} programId={program.id} />
       )}
     </div>
   );
@@ -718,7 +708,7 @@ const CrossSellBanner = ({ rules, programs }) => {
 
 const UpcomingProgramsSection = ({ sectionConfig, inline }) => {
   const [programs, setPrograms] = useState([]);
-  const [programTestimonials, setProgramTestimonials] = useState({});
+  const [programCardQuotes, setProgramCardQuotes] = useState({});
   const [sponsorData, setSponsorData] = useState(null);
   const [sponsorConfig, setSponsorConfig] = useState(null);
   const [comboDiscount, setComboDiscount] = useState(null);
@@ -752,26 +742,20 @@ const UpcomingProgramsSection = ({ sectionConfig, inline }) => {
   }, []);
 
   useEffect(() => {
-    if (programs.length === 0) return;
     let cancelled = false;
     axios
-      .get(`${API}/testimonials?visible_only=true`)
+      .get(`${API}/upcoming-card-quotes?visible_only=true`)
       .then((r) => {
         if (cancelled) return;
-        const all = r.data || [];
-        const map = {};
-        programs.forEach((p) => {
-          map[String(p.id)] = testimonialsForProgram(all, p);
-        });
-        setProgramTestimonials(map);
+        setProgramCardQuotes(buildProgramCardQuotesMap(r.data || []));
       })
       .catch(() => {
-        if (!cancelled) setProgramTestimonials({});
+        if (!cancelled) setProgramCardQuotes({});
       });
     return () => {
       cancelled = true;
     };
-  }, [programs]);
+  }, []);
 
   if (programs.length === 0) return null;
 
@@ -804,7 +788,7 @@ const UpcomingProgramsSection = ({ sectionConfig, inline }) => {
               <UpcomingCard
                 key={program.id}
                 program={program}
-                testimonials={programTestimonials[String(program.id)]}
+                cardQuotes={programCardQuotes[String(program.id)]}
               />
             ))}
           </div>
@@ -848,7 +832,7 @@ const UpcomingProgramsSection = ({ sectionConfig, inline }) => {
                 <UpcomingCard
                   key={program.id}
                   program={program}
-                  testimonials={programTestimonials[String(program.id)]}
+                  cardQuotes={programCardQuotes[String(program.id)]}
                 />
               ))}
 

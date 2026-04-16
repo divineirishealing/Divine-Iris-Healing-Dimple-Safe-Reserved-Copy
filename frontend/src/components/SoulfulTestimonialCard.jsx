@@ -469,6 +469,113 @@ export const SoulfulWrittenCard = ({
   );
 };
 
+/**
+ * Same visual language as SoulfulWrittenCard with no photos (uniform + compactProgram quote styles):
+ * jewel header, stars, quote in Cormorant, optional name/role — for e.g. upcoming program cards.
+ */
+export const SoulfulWrittenSnippet = ({ text, name, role, rating = 5 }) => {
+  const displayText = (text || '').trim();
+  if (!displayText) return null;
+  const footerName = (name || '').trim();
+  const footerRole = (role || '').trim();
+
+  return (
+    <div
+      data-testid="soulful-written-snippet"
+      className="relative overflow-hidden"
+      style={{
+        background: '#fdfbff',
+        borderTop: '1.5px solid rgba(109,40,217,0.22)',
+      }}
+    >
+      <div
+        className="relative px-4 overflow-visible pt-4"
+        style={{
+          background: 'linear-gradient(135deg, #1e0654 0%, #3b0f9e 45%, #6d28d9 80%, #9333ea 100%)',
+          paddingBottom: '44px',
+        }}
+      >
+        <div
+          className="absolute inset-0 pointer-events-none"
+          style={{
+            background: 'radial-gradient(ellipse 80% 60% at 50% 100%, rgba(212,175,55,0.22) 0%, transparent 65%)',
+          }}
+        />
+        <div className="flex justify-center relative z-10 mb-1">
+          <Stars rating={rating} />
+        </div>
+        <div className="relative z-10 flex items-center justify-center gap-2 mt-2">
+          <div style={{ height: 1, width: 28, background: 'linear-gradient(to right, transparent, rgba(212,175,55,0.6))' }} />
+          <div style={{ width: 4, height: 4, borderRadius: '50%', background: '#D4AF37', opacity: 0.7 }} />
+          <div style={{ height: 1, width: 28, background: 'linear-gradient(to left, transparent, rgba(212,175,55,0.6))' }} />
+        </div>
+      </div>
+
+      <div className="px-4 pb-3 pt-2" style={{ display: 'flex', flexDirection: 'column' }}>
+        <p
+          style={{
+            fontFamily: "'Cormorant Garamond', Georgia, serif",
+            fontSize: '0.82rem',
+            lineHeight: 1.65,
+            color: '#1e0a4e',
+            fontStyle: 'italic',
+            textAlign: 'center',
+          }}
+        >
+          {`"${displayText}"`}
+        </p>
+        {(footerName || footerRole) && (
+          <>
+            <div
+              className="h-px"
+              style={{
+                background:
+                  'linear-gradient(90deg, transparent, rgba(212,175,55,0.5) 30%, rgba(109,40,217,0.4) 70%, transparent)',
+                margin: '8px 0 6px',
+              }}
+            />
+            <div className="w-full min-w-0 text-center">
+              {footerName ? (
+                <p
+                  style={{
+                    fontFamily: "'Lato', sans-serif",
+                    fontWeight: 800,
+                    fontSize: '0.84rem',
+                    color: '#1a0a4e',
+                    letterSpacing: '0.02em',
+                    textAlign: 'center',
+                  }}
+                >
+                  {footerName}
+                </p>
+              ) : null}
+              {footerRole ? (
+                <p
+                  style={{
+                    fontFamily: "'Lato', sans-serif",
+                    fontSize: '0.62rem',
+                    color: '#7c6a9a',
+                    fontStyle: 'italic',
+                    marginTop: footerName ? 1 : 0,
+                    textAlign: 'center',
+                  }}
+                >
+                  {footerRole}
+                </p>
+              ) : null}
+            </div>
+          </>
+        )}
+      </div>
+
+      <div
+        className="h-0.5 w-full"
+        style={{ background: 'linear-gradient(90deg, #6d28d9, #9333ea 40%, #D4AF37 70%, #b8860b)' }}
+      />
+    </div>
+  );
+};
+
 /* ══════════════════════════════════════════════════════════════════════════
    UNIFORM VIDEO CARD  —  same jewel-tone template as written card
    ══════════════════════════════════════════════════════════════════════════ */

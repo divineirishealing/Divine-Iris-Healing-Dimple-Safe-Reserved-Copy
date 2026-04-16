@@ -12,7 +12,7 @@ from pathlib import Path
 import mimetypes
 
 # Import routes
-from routes import programs, sessions, testimonials, stats, newsletter, upload, payments, webhook, currency, site_settings, seo_sitemap, enrollment, promotions, discounts, session_extras, india_payments, notify_me, inbox, clients, text_testimonials, search, fraud
+from routes import programs, sessions, testimonials, stats, newsletter, upload, payments, webhook, currency, site_settings, seo_sitemap, enrollment, promotions, discounts, session_extras, india_payments, notify_me, inbox, clients, text_testimonials, upcoming_card_quotes, search, fraud
 from routes import admin_clients, student, points as points_admin
 from routes import auth
 from routes import subscribers
@@ -194,6 +194,7 @@ app.include_router(notify_me.router)
 app.include_router(inbox.router)
 app.include_router(clients.router)
 app.include_router(text_testimonials.router)
+app.include_router(upcoming_card_quotes.router)
 app.include_router(search.router)
 app.include_router(fraud.router)
 app.include_router(admin_clients.router)

@@ -12,7 +12,7 @@ import { resolveImageUrl } from '../../lib/imageUtils';
 import {
   Settings, Package, Calendar, MessageSquare, BarChart3, Mail, Inbox,
   Trash2, Edit, Plus, X, Eye, EyeOff, Save, ArrowUp, ArrowDown,
-  Globe, Layout, Image, Users, Palette, Gift, Monitor, Wifi,   Tag, ChevronLeft, ChevronRight, ChevronDown, Upload, FileText, DollarSign, Quote, Star, ShieldAlert, CreditCard, UserPlus, Search, Wallet
+  Globe, Layout, Image, Users, Palette, Gift, Monitor, Wifi,   Tag, ChevronLeft, ChevronRight, ChevronDown, Upload, FileText, DollarSign, Quote, Star, ShieldAlert, CreditCard, UserPlus, Search, Wallet, Sparkles
 } from 'lucide-react';
 
 import CollapsibleSection from './CollapsibleSection';
@@ -40,6 +40,7 @@ import IndiaPaymentsTab from './tabs/IndiaPaymentsTab';
 import ReceiptTemplateTab from './tabs/ReceiptTemplateTab';
 import PricingHubTab from './tabs/PricingHubTab';
 import UpcomingHubTab from './tabs/UpcomingHubTab';
+import UpcomingCardQuotesTab from './tabs/UpcomingCardQuotesTab';
 import InboxTab from './tabs/InboxTab';
 import ClientsTab from './tabs/ClientsTab';
 import BulkClientUpload from './tabs/BulkClientUpload';
@@ -307,6 +308,7 @@ const AdminPanel = () => {
       { key: 'programs', label: 'Programs', icon: Package },
       { key: 'pricing_hub', label: 'Pricing Hub', icon: DollarSign },
       { key: 'upcoming_hub', label: 'Upcoming Hub', icon: Calendar },
+      { key: 'upcoming_card_quotes', label: 'Upcoming Card Quotes', icon: Sparkles },
       { key: 'sessions', label: 'Sessions', icon: Calendar },
       { key: 'promotions', label: 'Promotions', icon: Gift },
       { key: 'discounts', label: 'Discounts & Loyalty', icon: Tag },
@@ -536,6 +538,7 @@ const AdminPanel = () => {
           {activeTab === 'receipt_template' && <ReceiptTemplateTab />}
           {activeTab === 'pricing_hub' && <PricingHubTab />}
           {activeTab === 'upcoming_hub' && <UpcomingHubTab />}
+          {activeTab === 'upcoming_card_quotes' && <UpcomingCardQuotesTab programs={programs} />}
           {activeTab === 'text_testimonials' && <TextTestimonialsTab />}
           {activeTab === 'annual_subscribers' && <SubscribersTab />}
           {activeTab === 'add_annual_subscriber' && <SubscribersTab openManualFormOnMount />}
