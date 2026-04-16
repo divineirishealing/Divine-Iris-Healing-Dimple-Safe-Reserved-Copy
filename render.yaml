@@ -26,6 +26,8 @@ services:
         sync: false        # Optional: CloudFront or custom origin URL (no trailing slash)
       - key: AWS_S3_PREFIX
         sync: false        # Optional: S3 key prefix, default uploads
+      - key: CLOUDINARY_URL
+        sync: false        # Optional: if S3 fails or unset, uploads can use Cloudinary (dashboard → Environment)
       - key: PYTHON_VERSION
         value: 3.11.0
 

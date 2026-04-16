@@ -4,8 +4,11 @@ import shutil
 import uuid
 import os
 import mimetypes
+import logging
 
 import s3_storage
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/upload", tags=["Upload"])
 
@@ -62,6 +65,42 @@ def _save_locally(file, unique_filename: str) -> str:
     return f"/api/image/{unique_filename}"
 
 
+def _save_locally_bytes(file_bytes: bytes, unique_filename: str) -> str:
+    p = UPLOAD_DIR / unique_filename
+    p.write_bytes(file_bytes)
+    return f"/api/image/{unique_filename}"
+
+
+def _s3_put_then_fallback(
+    file_bytes: bytes,
+    unique_filename: str,
+    *,
+    s3_key: str,
+    cloudinary_resource: str = "image",
+    allow_cloudinary: bool = True,
+) -> tuple[str, str]:
+    """
+    Try S3 first when enabled; on any failure use Cloudinary (if allowed+configured) else local disk.
+    Returns (url, filename for client).
+    """
+    if s3_storage.is_s3_enabled():
+        try:
+            url = s3_storage.upload_bytes(s3_key, file_bytes, _guess_content_type(unique_filename))
+            return url, unique_filename
+        except Exception as e:
+            logger.warning("S3 upload failed; using fallback: %s", e)
+            if _CLOUDINARY_AVAILABLE and allow_cloudinary:
+                url = _upload_to_cloudinary(file_bytes, unique_filename, resource_type=cloudinary_resource)
+                return url, Path(url).name
+            url = _save_locally_bytes(file_bytes, unique_filename)
+            return url, unique_filename
+    if _CLOUDINARY_AVAILABLE and allow_cloudinary:
+        url = _upload_to_cloudinary(file_bytes, unique_filename, resource_type=cloudinary_resource)
+        return url, Path(url).name
+    url = _save_locally_bytes(file_bytes, unique_filename)
+    return url, unique_filename
+
+
 def _guess_content_type(filename: str) -> str:
     mime, _ = mimetypes.guess_type(filename)
     return mime or "application/octet-stream"
@@ -91,8 +130,8 @@ async def upload_storage_status():
         "aws_region_configured": region,
         "aws_static_access_key_configured": bool(s3_storage.credentials_configured()),
         "cloudinary_enabled": _CLOUDINARY_AVAILABLE,
-        "hint": "If uploads fail: set AWS_S3_BUCKET; IAM user needs AWS_ACCESS_KEY_ID + AWS_SECRET_ACCESS_KEY (or use an instance/task role). "
-        "Policy: s3:PutObject on arn:aws:s3:::BUCKET/*. AWS_REGION must match the bucket. Error detail from POST /api/upload/image includes the S3 code.",
+        "hint": "If AWS is incomplete, either fix IAM (s3:PutObject) or set CLOUDINARY_URL on this API — uploads fall back to Cloudinary or local disk when S3 errors. "
+        "Easiest fix without AWS: remove AWS_S3_BUCKET and add CLOUDINARY_URL from cloudinary.com, then redeploy.",
     }
 
 
@@ -103,17 +142,15 @@ async def upload_image(file: UploadFile = File(...)):
         raise HTTPException(status_code=400, detail=f"File type not allowed. Allowed: {', '.join(IMAGE_EXTENSIONS)}")
     try:
         unique_filename = f"{uuid.uuid4()}{file_ext}"
-        if s3_storage.is_s3_enabled():
-            file_bytes = await file.read()
-            key = s3_storage.image_key(unique_filename)
-            url = s3_storage.upload_bytes(key, file_bytes, _guess_content_type(unique_filename))
-            return {"url": url, "filename": unique_filename}
-        if _CLOUDINARY_AVAILABLE:
-            file_bytes = await file.read()
-            url = _upload_to_cloudinary(file_bytes, unique_filename)
-            return {"url": url, "filename": Path(url).name}
-        url = _save_locally(file.file, unique_filename)
-        return {"url": url, "filename": unique_filename}
+        file_bytes = await file.read()
+        url, fname = _s3_put_then_fallback(
+            file_bytes,
+            unique_filename,
+            s3_key=s3_storage.image_key(unique_filename),
+            cloudinary_resource="image",
+            allow_cloudinary=True,
+        )
+        return {"url": url, "filename": fname}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to save file: {str(e)}")
 
@@ -125,17 +162,15 @@ async def upload_video(file: UploadFile = File(...)):
         raise HTTPException(status_code=400, detail=f"File type not allowed. Allowed: {', '.join(VIDEO_EXTENSIONS)}")
     try:
         unique_filename = f"{uuid.uuid4()}{file_ext}"
-        if s3_storage.is_s3_enabled():
-            file_bytes = await file.read()
-            key = s3_storage.video_key(unique_filename)
-            url = s3_storage.upload_bytes(key, file_bytes, _guess_content_type(unique_filename))
-            return {"url": url, "filename": unique_filename}
-        if _CLOUDINARY_AVAILABLE:
-            file_bytes = await file.read()
-            url = _upload_to_cloudinary(file_bytes, unique_filename, resource_type="video")
-            return {"url": url, "filename": Path(url).name}
-        url = _save_locally(file.file, unique_filename)
-        return {"url": url, "filename": unique_filename}
+        file_bytes = await file.read()
+        url, fname = _s3_put_then_fallback(
+            file_bytes,
+            unique_filename,
+            s3_key=s3_storage.video_key(unique_filename),
+            cloudinary_resource="video",
+            allow_cloudinary=True,
+        )
+        return {"url": url, "filename": fname}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to save file: {str(e)}")
 
@@ -165,16 +200,15 @@ async def upload_document(file: UploadFile = File(...)):
         raise HTTPException(status_code=400, detail=f"File type not allowed. Allowed: {', '.join(sorted(allowed))}")
     try:
         unique_filename = f"{uuid.uuid4()}{file_ext}"
-        if s3_storage.is_s3_enabled():
-            file_bytes = await file.read()
-            key = s3_storage.document_key(unique_filename)
-            url = s3_storage.upload_bytes(key, file_bytes, _guess_content_type(unique_filename))
-            return {"url": url, "filename": unique_filename, "original_name": file.filename}
-        if _CLOUDINARY_AVAILABLE and file_ext in IMAGE_EXTENSIONS:
-            file_bytes = await file.read()
-            url = _upload_to_cloudinary(file_bytes, unique_filename)
-            return {"url": url, "filename": Path(url).name, "original_name": file.filename}
-        url = _save_locally(file.file, unique_filename)
-        return {"url": url, "filename": unique_filename, "original_name": file.filename}
+        file_bytes = await file.read()
+        use_cdn = file_ext in IMAGE_EXTENSIONS
+        url, fname = _s3_put_then_fallback(
+            file_bytes,
+            unique_filename,
+            s3_key=s3_storage.document_key(unique_filename),
+            cloudinary_resource="image",
+            allow_cloudinary=use_cdn,
+        )
+        return {"url": url, "filename": fname, "original_name": file.filename}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to save file: {str(e)}")
