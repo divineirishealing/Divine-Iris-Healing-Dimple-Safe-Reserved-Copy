@@ -234,7 +234,8 @@ async def submit_payment_proof(
     ext = screenshot.filename.split(".")[-1] if "." in screenshot.filename else "png"
     filename = f"{uuid.uuid4().hex[:12]}.{ext}"
     proof_bytes = await screenshot.read()
-    mime = mimetypes.types_map.get(f".{ext.lower()}") or "image/png"
+    mime, _ = mimetypes.guess_type(filename)
+    mime = mime or "image/png"
     must_s3 = s3_storage.media_must_use_s3()
     if must_s3 and not s3_storage.is_s3_enabled():
         raise HTTPException(

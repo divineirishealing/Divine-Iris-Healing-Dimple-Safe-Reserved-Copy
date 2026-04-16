@@ -110,7 +110,8 @@ async def submit_manual_payment(
         ext = receipt.filename.split(".")[-1] if "." in receipt.filename else "png"
         fname = f"{client_id}_{eff_emi}_{uuid.uuid4().hex[:8]}.{ext}"
         content = await receipt.read()
-        mime = mimetypes.types_map.get(f".{ext.lower()}") or "image/png"
+        mime, _ = mimetypes.guess_type(fname)
+        mime = mime or "image/png"
         must_s3 = s3_storage.media_must_use_s3()
         if must_s3 and not s3_storage.is_s3_enabled():
             raise HTTPException(

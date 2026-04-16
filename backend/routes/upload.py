@@ -34,7 +34,7 @@ def _host_uses_ephemeral_disk_by_default() -> bool:
 def _ensure_upload_url_is_durable(url: str) -> None:
     """Raise503 if we would persist only a local API path on an ephemeral host."""
     u = (url or "").strip()
-    if not u.startswith("/api/image/"):
+    if not (u.startswith("/api/image/") or u.startswith("/api/uploads/")):
         return
     if not _host_uses_ephemeral_disk_by_default():
         return
