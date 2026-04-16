@@ -574,6 +574,12 @@ class SiteSettings(BaseModel):
     # Site-wide GPay / UPI IDs (manual proof flows; same shape as subscriber payment_destinations.gpay rows)
     india_gpay_accounts: List[Dict] = Field(default_factory=list)  # [{id, label, upi_id, qr_image_url?}]
     india_bank_details: dict = {}  # {gateway_type, exly_link, api_key, api_secret, enabled, notes}  # Emails that get INR pricing from abroad  # [{buy_program_id, get_program_id, discount_type, discount_value, code, label, enabled}]
+    # Automated enrollment participant report (Excel by email)
+    enrollment_auto_report_enabled: bool = False
+    enrollment_auto_report_emails: str = ""  # comma-separated
+    enrollment_auto_report_interval_hours: int = 24  # clamped 6–168 server-side
+    enrollment_auto_report_paid_only: bool = True
+    enrollment_auto_report_last_sent_at: str = ""  # ISO UTC; set by server
 
 class SiteSettingsUpdate(BaseModel):
     heading_font: Optional[str] = None
@@ -741,6 +747,10 @@ class SiteSettingsUpdate(BaseModel):
     annual_package_included_program_ids: Optional[List[str]] = None
     dashboard_program_offers: Optional[Dict[str, Any]] = None
     dashboard_element_visibility: Optional[Dict[str, Any]] = None
+    enrollment_auto_report_enabled: Optional[bool] = None
+    enrollment_auto_report_emails: Optional[str] = None
+    enrollment_auto_report_interval_hours: Optional[int] = None
+    enrollment_auto_report_paid_only: Optional[bool] = None
 
 class PaymentTransaction(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))

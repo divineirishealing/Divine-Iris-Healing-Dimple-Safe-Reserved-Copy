@@ -1,5 +1,5 @@
 from fastapi import APIRouter, HTTPException, UploadFile, File, Form
-from typing import Optional
+from typing import Optional, Any, Dict, List
 import os, uuid, logging
 from motor.motor_asyncio import AsyncIOMotorClient
 from dotenv import load_dotenv
@@ -19,6 +19,185 @@ client = AsyncIOMotorClient(mongo_url)
 db = client[os.environ['DB_NAME']]
 
 logger = logging.getLogger(__name__)
+
+# ─── Admin enrollment reporting: one `enrollments` collection for all flows ───
+
+
+def _txn_sort_key(t: dict) -> float:
+    v = t.get("updated_at") or t.get("created_at") or t.get("paid_at")
+    if v is None:
+        return 0.0
+    if hasattr(v, "timestamp"):
+        try:
+            return float(v.timestamp())
+        except Exception:
+            return 0.0
+    if isinstance(v, str):
+        try:
+            from datetime import datetime as dt
+
+            return dt.fromisoformat(v.replace("Z", "+00:00")).timestamp()
+        except Exception:
+            return 0.0
+    return 0.0
+
+
+def _pick_best_transaction(txns: List[dict]) -> Optional[dict]:
+    """Prefer paid/completed txns; else most recently updated."""
+    if not txns:
+        return None
+
+    def _is_paid(t: dict) -> bool:
+        s = str(t.get("payment_status", "")).lower()
+        return s in ("paid", "complete", "completed")
+
+    paid_pool = [t for t in txns if _is_paid(t)]
+    pool = paid_pool if paid_pool else txns
+    return max(pool, key=_txn_sort_key)
+
+
+async def _transactions_grouped_by_enrollment(enrollment_ids: List[str]) -> Dict[str, List[dict]]:
+    if not enrollment_ids:
+        return {}
+    all_tx = await db.payment_transactions.find(
+        {"enrollment_id": {"$in": enrollment_ids}},
+        {"_id": 0},
+    ).to_list(20000)
+    out: Dict[str, List[dict]] = {}
+    for t in all_tx:
+        eid = t.get("enrollment_id")
+        if not eid:
+            continue
+        out.setdefault(eid, []).append(t)
+    return out
+
+
+def _enrollment_origin(e: dict) -> str:
+    """Rough source: student dashboard annual flow vs public site (cart / program / session pages)."""
+    if e.get("dashboard_checkout_ready") or e.get("dashboard_mixed_total") is not None:
+        return "dashboard"
+    return "website"
+
+
+def _clean_str(val: Any) -> str:
+    if val is None:
+        return ""
+    s = str(val)
+    if s in ("None", "null"):
+        return ""
+    return s
+
+
+def _payment_amount_currency(e: dict, txn: Optional[dict]) -> tuple:
+    """Display amount + currency; fall back to dashboard quote when no txn yet."""
+    if txn:
+        return txn.get("amount", 0) or 0, _clean_str(txn.get("currency")).lower()
+    amt = e.get("dashboard_mixed_total")
+    cur = _clean_str(e.get("dashboard_mixed_currency")).lower()
+    if amt is not None:
+        try:
+            return float(amt), cur
+        except Exception:
+            return 0, cur
+    return 0, cur
+
+
+def build_participant_report_rows(
+    enrollments: List[dict],
+    txns_by_eid: Dict[str, List[dict]],
+    *,
+    paid_completed_only: bool = False,
+) -> List[dict]:
+    """
+    One row per participant (or one booker row if participants missing).
+    Covers dashboard, cart, program page, session page, upcoming — all use `enrollments`.
+    """
+    rows: List[dict] = []
+    done_status = frozenset(
+        {
+            "completed",
+            "paid",
+            "india_payment_approved",
+        }
+    )
+
+    for e in enrollments:
+        eid = e.get("id") or ""
+        st = (e.get("status") or "").lower()
+        txn = _pick_best_transaction(txns_by_eid.get(eid) or [])
+        pay_st = _clean_str((txn or {}).get("payment_status")).lower()
+        is_done = (
+            pay_st in ("paid", "complete", "completed")
+            or st in done_status
+            or e.get("step") == 5
+        )
+
+        if paid_completed_only and not is_done:
+            continue
+
+        amt, cur = _payment_amount_currency(e, txn)
+        inv = _clean_str((txn or {}).get("invoice_number")) or _clean_str(e.get("invoice_number"))
+        program = _clean_str(e.get("item_title"))
+        item_type = _clean_str(e.get("item_type"))
+        booker_name = _clean_str(e.get("booker_name"))
+        booker_email = _clean_str(e.get("booker_email"))
+        booker_phone = _clean_str(e.get("phone"))
+        booker_country = _clean_str(e.get("booker_country"))
+        created = _clean_str(e.get("created_at"))
+        origin = _enrollment_origin(e)
+
+        participants = e.get("participants") or []
+
+        def one_row(
+            participant_name: str,
+            age: Any,
+            country: str,
+            phone: str,
+            whatsapp: str,
+        ):
+            ph = _clean_str(phone) or booker_phone
+            wa = _clean_str(whatsapp) or ph
+            rows.append(
+                {
+                    "invoice_number": inv,
+                    "enrollment_id": eid,
+                    "program": program,
+                    "item_type": item_type,
+                    "enrollment_status": _clean_str(e.get("status")),
+                    "enrollment_origin": origin,
+                    "booker_name": booker_name,
+                    "booker_email": booker_email,
+                    "booker_phone": booker_phone,
+                    "participant_name": participant_name,
+                    "age": age if age is not None and age != "" else "",
+                    "country": _clean_str(country) or booker_country,
+                    "phone": ph,
+                    "whatsapp": wa,
+                    "payment_amount": amt,
+                    "payment_currency": cur,
+                    "payment_status": pay_st or _clean_str(e.get("status")),
+                    "created_at": created,
+                }
+            )
+
+        if not participants:
+            one_row(booker_name, "", booker_country, booker_phone, booker_phone)
+        else:
+            for p in participants:
+                if not isinstance(p, dict):
+                    continue
+                p_phone = _clean_str(p.get("phone"))
+                p_wa = _clean_str(p.get("whatsapp"))
+                one_row(
+                    _clean_str(p.get("name")) or booker_name,
+                    p.get("age", ""),
+                    _clean_str(p.get("country")),
+                    p_phone,
+                    p_wa or p_phone,
+                )
+
+    return rows
+
 
 UPLOAD_DIR = ROOT_DIR / "uploads" / "payment_proofs"
 UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
@@ -284,16 +463,163 @@ async def reject_payment_proof(proof_id: str, reason: str = ""):
 
 @router.get("/admin/enrollments")
 async def list_enrollments():
-    """Admin: list all enrollments with payment details."""
-    enrollments = await db.enrollments.find({}, {"_id": 0}).sort("created_at", -1).to_list(1000)
+    """Admin: list all enrollments with payment details (all checkout paths use `enrollments`)."""
+    enrollments = await db.enrollments.find({}, {"_id": 0}).sort("created_at", -1).to_list(5000)
+    eids = [e.get("id") for e in enrollments if e.get("id")]
+    by_e = await _transactions_grouped_by_enrollment(eids)
     for e in enrollments:
-        txn = await db.payment_transactions.find_one(
-            {"enrollment_id": e.get("id")}, {"_id": 0, "amount": 1, "currency": 1, "payment_status": 1, "stripe_session_id": 1, "invoice_number": 1, "stripe_currency": 1, "stripe_amount": 1}
-        )
-        e["payment"] = txn if txn else None
+        eid = e.get("id")
+        txn = _pick_best_transaction(by_e.get(eid) or [])
+        e["payment"] = txn
+        e["enrollment_origin"] = _enrollment_origin(e)
         if txn and txn.get("invoice_number"):
             e["invoice_number"] = txn["invoice_number"]
     return enrollments
+
+
+@router.get("/admin/enrollments/participant-rows")
+async def participant_enrollment_rows(paid_completed_only: bool = False):
+    """
+    Flat report: one row per participant with name, age, country, phone, WhatsApp,
+    payment amount/currency (same total for each row in a multi-seat enrollment).
+    """
+    enrollments = await db.enrollments.find({}, {"_id": 0}).sort("created_at", -1).to_list(5000)
+    eids = [e.get("id") for e in enrollments if e.get("id")]
+    by_e = await _transactions_grouped_by_enrollment(eids)
+    return build_participant_report_rows(
+        enrollments,
+        by_e,
+        paid_completed_only=paid_completed_only,
+    )
+
+
+async def build_participant_report_xlsx_bytes(paid_completed_only: bool = False) -> bytes:
+    """Build participant-level enrollment Excel as raw bytes (HTTP download or email attachment)."""
+    import io
+
+    try:
+        import openpyxl
+        from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
+    except ImportError:
+        raise RuntimeError("openpyxl not installed")
+
+    enrollments = await db.enrollments.find({}, {"_id": 0}).sort("created_at", -1).to_list(5000)
+    eids = [e.get("id") for e in enrollments if e.get("id")]
+    by_e = await _transactions_grouped_by_enrollment(eids)
+    rows = build_participant_report_rows(
+        enrollments,
+        by_e,
+        paid_completed_only=paid_completed_only,
+    )
+
+    headers = [
+        "Invoice #",
+        "Enrollment ID",
+        "Program",
+        "Type",
+        "Enrollment status",
+        "Origin",
+        "Booker name",
+        "Booker email",
+        "Booker phone",
+        "Participant name",
+        "Age",
+        "Country",
+        "Phone",
+        "WhatsApp",
+        "Payment amount",
+        "Currency",
+        "Payment status",
+        "Created",
+    ]
+
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = "Participants"
+
+    header_font = Font(bold=True, color="FFFFFF", size=11)
+    header_fill = PatternFill(start_color="4A148C", end_color="4A148C", fill_type="solid")
+    thin_border = Border(
+        left=Side(style="thin"),
+        right=Side(style="thin"),
+        top=Side(style="thin"),
+        bottom=Side(style="thin"),
+    )
+
+    for col_idx, h in enumerate(headers, 1):
+        cell = ws.cell(row=1, column=col_idx, value=h)
+        cell.font = header_font
+        cell.fill = header_fill
+        cell.alignment = Alignment(horizontal="center", wrap_text=True)
+        cell.border = thin_border
+
+    last_col = openpyxl.utils.get_column_letter(len(headers))
+    ws.auto_filter.ref = f"A1:{last_col}1"
+    ws.freeze_panes = "A2"
+
+    for r in rows:
+        created = _clean_str(r.get("created_at"))
+        if created:
+            try:
+                from datetime import datetime as dt
+
+                d = dt.fromisoformat(created.replace("Z", "+00:00"))
+                created = d.strftime("%Y-%m-%d %H:%M")
+            except Exception:
+                pass
+        ws.append(
+            [
+                _clean_str(r.get("invoice_number")),
+                _clean_str(r.get("enrollment_id")),
+                _clean_str(r.get("program")),
+                _clean_str(r.get("item_type")),
+                _clean_str(r.get("enrollment_status")),
+                _clean_str(r.get("enrollment_origin")),
+                _clean_str(r.get("booker_name")),
+                _clean_str(r.get("booker_email")),
+                _clean_str(r.get("booker_phone")),
+                _clean_str(r.get("participant_name")),
+                _clean_str(r.get("age")),
+                _clean_str(r.get("country")),
+                _clean_str(r.get("phone")),
+                _clean_str(r.get("whatsapp")),
+                r.get("payment_amount", 0) or 0,
+                _clean_str(r.get("payment_currency")),
+                _clean_str(r.get("payment_status")),
+                created,
+            ]
+        )
+
+    for col in ws.columns:
+        max_len = min(max(len(str(cell.value or "")) for cell in col) + 2, 45)
+        ws.column_dimensions[col[0].column_letter].width = max_len
+
+    output = io.BytesIO()
+    wb.save(output)
+    output.seek(0)
+    return output.getvalue()
+
+
+@router.get("/admin/enrollments/clean-export")
+async def export_participant_enrollments_excel(paid_completed_only: bool = False):
+    """Excel: one row per participant — clean columns for ops."""
+    import io
+
+    try:
+        data = await build_participant_report_xlsx_bytes(paid_completed_only=paid_completed_only)
+    except RuntimeError as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+    from fastapi.responses import StreamingResponse
+
+    suffix = "paid_only" if paid_completed_only else "all"
+    return StreamingResponse(
+        io.BytesIO(data),
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={
+            "Content-Disposition": f"attachment; filename=enrollments_by_participant_{suffix}.xlsx"
+        },
+    )
 
 
 @router.get("/admin/enrollments/export")
@@ -316,6 +642,8 @@ async def export_enrollments_excel():
         return s
 
     enrollments = await db.enrollments.find({}, {"_id": 0}).sort("created_at", -1).to_list(5000)
+    eids = [e.get("id") for e in enrollments if e.get("id")]
+    by_e = await _transactions_grouped_by_enrollment(eids)
 
     # Determine max participant count across all enrollments
     max_participants = 0
@@ -325,11 +653,9 @@ async def export_enrollments_excel():
             max_participants = count
     max_participants = max(max_participants, 1)
 
-    # Fetch payment data for each enrollment
+    # Payment data (prefer paid txn when multiple exist)
     for e in enrollments:
-        txn = await db.payment_transactions.find_one(
-            {"enrollment_id": e.get("id")}, {"_id": 0}
-        )
+        txn = _pick_best_transaction(by_e.get(e.get("id")) or [])
         if txn:
             e["invoice_number"] = txn.get("invoice_number", "")
             e["payment_amount"] = txn.get("amount", 0)
@@ -341,7 +667,7 @@ async def export_enrollments_excel():
 
     # Build headers: base columns + per-participant columns
     base_headers = [
-        "Invoice #", "Receipt ID", "Status", "Program", "Program Type",
+        "Invoice #", "Receipt ID", "Status", "Program", "Program Type", "Origin",
         "Booker Name", "Booker Email", "Booker Country", "Booker Phone",
         "Participant Count", "Payment Amount", "Payment Currency", "Payment Method",
         "Bank Account", "Payment Status", "Admin Notes", "Promo Code",
@@ -401,6 +727,7 @@ async def export_enrollments_excel():
             clean(e.get("status")),
             clean(e.get("item_title")),
             clean(e.get("item_type")),
+            _enrollment_origin(e),
             clean(e.get("booker_name")),
             clean(e.get("booker_email")),
             clean(e.get("booker_country")),

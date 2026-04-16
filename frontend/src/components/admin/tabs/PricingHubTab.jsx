@@ -8,6 +8,61 @@ import { Save, DollarSign, Tag, Plus, Trash2, ChevronDown, ChevronUp, Monitor, W
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
+/** Program fields this tab edits — merge onto fresh server rows so image / copy / hub-only fields are never wiped. */
+const PRICING_PROGRAM_FIELD_KEYS = [
+  'visible', 'enable_online', 'enable_offline', 'enable_in_person',
+  'show_pricing_on_card', 'show_tiers_on_card',
+  'price_aed', 'price_inr', 'price_usd',
+  'offer_price_aed', 'offer_price_inr', 'offer_price_usd', 'offer_text',
+];
+
+const TIER_PRICING_FIELD_KEYS = [
+  'label', 'duration_value', 'duration_unit',
+  'price_aed', 'price_inr', 'price_usd',
+  'offer_price_aed', 'offer_price_inr', 'offer_price_usd', 'offer_text',
+];
+
+const PRICING_SESSION_FIELD_KEYS = [
+  'visible', 'enable_online', 'enable_offline', 'enable_in_person', 'show_pricing',
+  'price_aed', 'price_inr', 'price_usd',
+  'offer_price_aed', 'offer_price_inr', 'offer_price_usd', 'offer_text',
+];
+
+function mergeDurationTiersForPricingSave(serverTiers = [], localTiers = []) {
+  const st = Array.isArray(serverTiers) ? serverTiers : [];
+  const lt = Array.isArray(localTiers) ? localTiers : [];
+  return lt.map((loc, i) => {
+    const base = st[i] || {};
+    const merged = { ...base };
+    for (const k of TIER_PRICING_FIELD_KEYS) {
+      if (Object.prototype.hasOwnProperty.call(loc, k)) merged[k] = loc[k];
+    }
+    merged.start_date = base.start_date ?? loc.start_date ?? '';
+    merged.end_date = base.end_date ?? loc.end_date ?? '';
+    if (loc.duration !== undefined && loc.duration !== null && loc.duration !== '') {
+      merged.duration = loc.duration;
+    }
+    return merged;
+  });
+}
+
+function buildPricingProgramPutPayload(local, server) {
+  const base = server && typeof server === 'object' ? { ...server } : { ...local };
+  for (const k of PRICING_PROGRAM_FIELD_KEYS) {
+    if (Object.prototype.hasOwnProperty.call(local, k)) base[k] = local[k];
+  }
+  base.duration_tiers = mergeDurationTiersForPricingSave(server?.duration_tiers, local?.duration_tiers);
+  return base;
+}
+
+function buildPricingSessionPutPayload(local, server) {
+  const base = server && typeof server === 'object' ? { ...server } : { ...local };
+  for (const k of PRICING_SESSION_FIELD_KEYS) {
+    if (Object.prototype.hasOwnProperty.call(local, k)) base[k] = local[k];
+  }
+  return base;
+}
+
 const DURATION_PRESETS = [
   ...Array.from({ length: 30 }, (_, i) => `${i + 1} Day${i > 0 ? 's' : ''}`),
   '1 Week', '2 Weeks', '3 Weeks', '4 Weeks',
@@ -96,11 +151,23 @@ const PricingHubTab = () => {
   const saveAll = async () => {
     setSaving(true);
     try {
+      const [freshProgRes, freshSessRes] = await Promise.all([
+        axios.get(`${API}/programs`),
+        axios.get(`${API}/sessions`),
+      ]);
+      const progById = new Map((freshProgRes.data || []).map(pr => [pr.id, pr]));
+      const sessById = new Map((freshSessRes.data || []).map(se => [se.id, se]));
       const validPrograms = programs.filter(p => p.id && p.title);
       const validSessions = sessions.filter(s => s.id && s.title);
       const results = await Promise.allSettled([
-        ...validPrograms.map(p => axios.put(`${API}/programs/${p.id}`, p)),
-        ...validSessions.map(s => axios.put(`${API}/sessions/${s.id}`, s))
+        ...validPrograms.map((p) => {
+          const server = progById.get(p.id);
+          return axios.put(`${API}/programs/${p.id}`, buildPricingProgramPutPayload(p, server || p));
+        }),
+        ...validSessions.map((s) => {
+          const server = sessById.get(s.id);
+          return axios.put(`${API}/sessions/${s.id}`, buildPricingSessionPutPayload(s, server || s));
+        }),
       ]);
       const failed = results.filter(r => r.status === 'rejected');
       if (failed.length > 0) {
@@ -109,7 +176,10 @@ const PricingHubTab = () => {
         toast({ title: 'All pricing saved!' });
       }
     } catch (e) { toast({ title: 'Error saving', description: e.message, variant: 'destructive' }); }
-    setSaving(false);
+    finally {
+      try { await fetchData(); } catch (_) { /* refresh after save */ }
+      setSaving(false);
+    }
   };
 
   const toggleExpand = (id) => setExpandedPrograms(e => ({ ...e, [id]: !e[id] }));

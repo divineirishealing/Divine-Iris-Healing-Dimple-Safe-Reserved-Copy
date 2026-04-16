@@ -667,6 +667,9 @@ function EnrollmentPage() {
       const bookerPhone = phone ? `${countryCode}${phone}` : null;
       const enrollRes = await axios.post(`${API}/enrollment/start`, {
         booker_name: bookerName, booker_email: bookerEmail, booker_country: bookerCountry,
+        item_type: type,
+        item_id: id,
+        item_title: item?.title || '',
         participants: participants.map(p => {
           const refName = p.has_referral ? (p.referred_by_name || '') : (p.referral_source === 'Friend / Family' ? (p.referred_by_name || '') : '');
           const refEmailRaw = (p.referred_by_email || '').trim().toLowerCase();

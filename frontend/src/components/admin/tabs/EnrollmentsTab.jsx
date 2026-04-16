@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { useToast } from '../../../hooks/use-toast';
-import { FileSpreadsheet, Download, Search, Users, CreditCard, Building2, Upload, Globe, ChevronDown, ChevronUp } from 'lucide-react';
+import { FileSpreadsheet, Download, Search, CreditCard, Building2, Upload, Globe, ChevronDown, ChevronUp, LayoutList, Table2, Mail } from 'lucide-react';
 import { Input } from '../../ui/input';
+import { Label } from '../../ui/label';
+import { Switch } from '../../ui/switch';
 
 const API = `${process.env.REACT_APP_BACKEND_URL || ''}/api`;
 
@@ -53,8 +55,56 @@ const EnrollmentsTab = () => {
   const [statusFilter, setStatusFilter] = useState('all');
   const [paymentFilter, setPaymentFilter] = useState('all');
   const [expandedId, setExpandedId] = useState(null);
+  /** summary = one row per checkout; participants = one row per person (all flows use the same enrollments DB). */
+  const [viewMode, setViewMode] = useState('summary');
+  const [participantRows, setParticipantRows] = useState([]);
+  const [loadingParticipants, setLoadingParticipants] = useState(false);
+  const [paidOnlyReport, setPaidOnlyReport] = useState(false);
+  const [participantSearch, setParticipantSearch] = useState('');
+  const [autoReport, setAutoReport] = useState({
+    enrollment_auto_report_enabled: false,
+    enrollment_auto_report_emails: '',
+    enrollment_auto_report_interval_hours: 24,
+    enrollment_auto_report_paid_only: true,
+    enrollment_auto_report_last_sent_at: '',
+  });
+  const [savingReport, setSavingReport] = useState(false);
+  const [sendingTest, setSendingTest] = useState(false);
 
   useEffect(() => { loadEnrollments(); }, []);
+
+  useEffect(() => {
+    axios.get(`${API}/settings`)
+      .then((r) => {
+        const d = r.data || {};
+        setAutoReport({
+          enrollment_auto_report_enabled: !!d.enrollment_auto_report_enabled,
+          enrollment_auto_report_emails: d.enrollment_auto_report_emails || '',
+          enrollment_auto_report_interval_hours: Math.min(168, Math.max(6, Number(d.enrollment_auto_report_interval_hours) || 24)),
+          enrollment_auto_report_paid_only: d.enrollment_auto_report_paid_only !== false,
+          enrollment_auto_report_last_sent_at: d.enrollment_auto_report_last_sent_at || '',
+        });
+      })
+      .catch(() => {});
+  }, []);
+
+  const loadParticipantReport = async () => {
+    setLoadingParticipants(true);
+    try {
+      const r = await axios.get(`${API}/india-payments/admin/enrollments/participant-rows`, {
+        params: { paid_completed_only: paidOnlyReport },
+      });
+      setParticipantRows(Array.isArray(r.data) ? r.data : []);
+    } catch {
+      toast({ title: 'Failed to load participant report', variant: 'destructive' });
+    } finally {
+      setLoadingParticipants(false);
+    }
+  };
+
+  useEffect(() => {
+    if (viewMode === 'participants') loadParticipantReport();
+  }, [viewMode, paidOnlyReport]);
 
   const loadEnrollments = async () => {
     try {
@@ -76,6 +126,58 @@ const EnrollmentsTab = () => {
     } catch { toast({ title: 'Export failed', variant: 'destructive' }); }
   };
 
+  const saveAutoReportSettings = async () => {
+    setSavingReport(true);
+    try {
+      const hrs = Math.min(168, Math.max(6, Number(autoReport.enrollment_auto_report_interval_hours) || 24));
+      await axios.put(`${API}/settings`, {
+        enrollment_auto_report_enabled: autoReport.enrollment_auto_report_enabled,
+        enrollment_auto_report_emails: autoReport.enrollment_auto_report_emails.trim(),
+        enrollment_auto_report_interval_hours: hrs,
+        enrollment_auto_report_paid_only: autoReport.enrollment_auto_report_paid_only,
+      });
+      setAutoReport((prev) => ({ ...prev, enrollment_auto_report_interval_hours: hrs }));
+      toast({ title: 'Automated report settings saved' });
+    } catch {
+      toast({ title: 'Save failed', variant: 'destructive' });
+    } finally {
+      setSavingReport(false);
+    }
+  };
+
+  const sendReportTestNow = async () => {
+    setSendingTest(true);
+    try {
+      const r = await axios.post(`${API}/admin/enrollment-report/send-now`);
+      toast({ title: r.data?.message || 'Sent' });
+    } catch (e) {
+      toast({
+        title: e.response?.data?.detail || 'Send failed — check emails & mail config',
+        variant: 'destructive',
+      });
+    } finally {
+      setSendingTest(false);
+    }
+  };
+
+  const handleCleanExport = async () => {
+    try {
+      const r = await axios.get(`${API}/india-payments/admin/enrollments/clean-export`, {
+        params: { paid_completed_only: paidOnlyReport },
+        responseType: 'blob',
+      });
+      const url = window.URL.createObjectURL(new Blob([r.data]));
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `enrollments_by_participant_${new Date().toISOString().split('T')[0]}.xlsx`;
+      a.click();
+      window.URL.revokeObjectURL(url);
+      toast({ title: 'Participant report downloaded!' });
+    } catch {
+      toast({ title: 'Export failed', variant: 'destructive' });
+    }
+  };
+
   const filtered = enrollments.filter(e => {
     const matchSearch = !search || [e.id, e.booker_name, e.booker_email, e.item_title, e.phone, e.invoice_number]
       .filter(Boolean).some(f => f.toLowerCase().includes(search.toLowerCase()));
@@ -92,22 +194,173 @@ const EnrollmentsTab = () => {
   const paymentCounts = {};
   enrollments.forEach(e => { const m = getPaymentMode(e) || 'unknown'; paymentCounts[m] = (paymentCounts[m] || 0) + 1; });
 
+  const filteredParticipants = participantRows.filter((row) => {
+    if (!participantSearch.trim()) return true;
+    const q = participantSearch.toLowerCase();
+    return [
+      row.participant_name,
+      row.booker_name,
+      row.booker_email,
+      row.phone,
+      row.whatsapp,
+      row.country,
+      row.program,
+      row.invoice_number,
+      row.enrollment_id,
+    ].filter(Boolean).some((f) => String(f).toLowerCase().includes(q));
+  });
+
   return (
     <div data-testid="enrollments-tab">
       {/* Header */}
-      <div className="flex items-center justify-between mb-4">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
         <div className="flex items-center gap-2">
           <FileSpreadsheet size={18} className="text-[#D4AF37]" />
-          <h2 className="text-lg font-semibold text-gray-900">All Enrollments</h2>
+          <h2 className="text-lg font-semibold text-gray-900">Enrollments</h2>
           <span className="text-xs bg-purple-100 text-purple-700 px-2 py-0.5 rounded-full font-medium">{enrollments.length}</span>
         </div>
-        <button onClick={handleExport} data-testid="export-enrollments"
-          className="flex items-center gap-1.5 text-[10px] px-4 py-2 rounded-full bg-green-600 text-white hover:bg-green-700 font-medium">
-          <Download size={12} /> Download Excel
-        </button>
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="flex rounded-full border border-gray-200 p-0.5 bg-gray-50">
+            <button
+              type="button"
+              onClick={() => setViewMode('summary')}
+              className={`flex items-center gap-1 text-[10px] px-3 py-1.5 rounded-full font-medium ${viewMode === 'summary' ? 'bg-white shadow text-purple-800' : 'text-gray-600'}`}
+            >
+              <Table2 size={12} /> By checkout
+            </button>
+            <button
+              type="button"
+              onClick={() => setViewMode('participants')}
+              data-testid="enrollments-view-participants"
+              className={`flex items-center gap-1 text-[10px] px-3 py-1.5 rounded-full font-medium ${viewMode === 'participants' ? 'bg-white shadow text-purple-800' : 'text-gray-600'}`}
+            >
+              <LayoutList size={12} /> By participant
+            </button>
+          </div>
+          {viewMode === 'summary' ? (
+            <button onClick={handleExport} data-testid="export-enrollments"
+              className="flex items-center gap-1.5 text-[10px] px-4 py-2 rounded-full bg-green-600 text-white hover:bg-green-700 font-medium">
+              <Download size={12} /> Full Excel
+            </button>
+          ) : (
+            <button onClick={handleCleanExport} data-testid="export-enrollments-clean"
+              className="flex items-center gap-1.5 text-[10px] px-4 py-2 rounded-full bg-green-600 text-white hover:bg-green-700 font-medium">
+              <Download size={12} /> Participant Excel
+            </button>
+          )}
+        </div>
       </div>
 
-      {/* Search + Filters */}
+      <div className="mb-6 rounded-lg border border-violet-200 bg-violet-50/40 p-4" data-testid="enrollment-auto-report">
+        <div className="flex items-center gap-2 mb-2">
+          <Mail size={16} className="text-violet-700" />
+          <h3 className="text-sm font-semibold text-gray-900">Automated enrollment reports</h3>
+        </div>
+        <p className="text-[11px] text-gray-600 mb-3 max-w-2xl">
+          On a schedule, the server emails the same <strong>participant-level</strong> Excel as &quot;Participant Excel&quot; below.
+          Uses your SMTP or Resend keys (Admin → API Keys). Check runs every hour; minimum gap between sends is 6 hours, maximum 1 week.
+        </p>
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="flex items-center justify-between gap-2 rounded-md bg-white/80 border border-violet-100 px-3 py-2">
+            <Label className="text-[11px] text-gray-700">Enable schedule</Label>
+            <Switch
+              checked={autoReport.enrollment_auto_report_enabled}
+              onCheckedChange={(v) => setAutoReport((p) => ({ ...p, enrollment_auto_report_enabled: v }))}
+              data-testid="enrollment-auto-report-enabled"
+            />
+          </div>
+          <div className="sm:col-span-2">
+            <Label className="text-[10px] text-gray-500">Email addresses (comma-separated)</Label>
+            <Input
+              className="text-xs h-9 mt-0.5"
+              placeholder="you@example.com, ops@example.com"
+              value={autoReport.enrollment_auto_report_emails}
+              onChange={(e) => setAutoReport((p) => ({ ...p, enrollment_auto_report_emails: e.target.value }))}
+              data-testid="enrollment-auto-report-emails"
+            />
+          </div>
+          <div>
+            <Label className="text-[10px] text-gray-500">Hours between sends (6–168)</Label>
+            <Input
+              type="number"
+              min={6}
+              max={168}
+              className="text-xs h-9 mt-0.5"
+              value={autoReport.enrollment_auto_report_interval_hours}
+              onChange={(e) => setAutoReport((p) => ({ ...p, enrollment_auto_report_interval_hours: e.target.value }))}
+            />
+          </div>
+          <div className="flex items-center gap-2 rounded-md bg-white/80 border border-violet-100 px-3 py-2">
+            <input
+              type="checkbox"
+              id="auto-report-paid-only"
+              className="rounded border-gray-300"
+              checked={autoReport.enrollment_auto_report_paid_only}
+              onChange={(e) => setAutoReport((p) => ({ ...p, enrollment_auto_report_paid_only: e.target.checked }))}
+            />
+            <label htmlFor="auto-report-paid-only" className="text-[11px] text-gray-700 cursor-pointer">
+              Paid / completed rows only
+            </label>
+          </div>
+          <div className="text-[10px] text-gray-500 flex items-end">
+            {autoReport.enrollment_auto_report_last_sent_at
+              ? `Last sent: ${new Date(autoReport.enrollment_auto_report_last_sent_at).toLocaleString()}`
+              : 'Last sent: —'}
+          </div>
+        </div>
+        <div className="flex flex-wrap gap-2 mt-3">
+          <button
+            type="button"
+            onClick={saveAutoReportSettings}
+            disabled={savingReport}
+            className="text-[10px] px-4 py-2 rounded-full bg-violet-700 text-white hover:bg-violet-800 disabled:opacity-50 font-medium"
+          >
+            {savingReport ? 'Saving…' : 'Save automation'}
+          </button>
+          <button
+            type="button"
+            onClick={sendReportTestNow}
+            disabled={sendingTest || !autoReport.enrollment_auto_report_emails.trim()}
+            data-testid="enrollment-auto-report-send-now"
+            className="text-[10px] px-4 py-2 rounded-full border border-violet-300 text-violet-800 hover:bg-violet-100 disabled:opacity-50 font-medium"
+          >
+            {sendingTest ? 'Sending…' : 'Send test now'}
+          </button>
+        </div>
+      </div>
+
+      {viewMode === 'participants' && (
+        <p className="text-[11px] text-gray-600 mb-3 max-w-3xl">
+          Every path—program page, session, upcoming, cart, checkout, or student dashboard pay—creates a record in <strong>Enrollments</strong>.
+          This view is one row per <strong>participant</strong> with name, age, country, phone, WhatsApp, and the <strong>total</strong> paid for that checkout (repeated on each row when there are multiple people).
+        </p>
+      )}
+
+      {viewMode === 'participants' && (
+        <div className="flex flex-wrap items-center gap-3 mb-4">
+          <label className="flex items-center gap-2 text-[11px] text-gray-700 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={paidOnlyReport}
+              onChange={(ev) => setPaidOnlyReport(ev.target.checked)}
+              className="rounded border-gray-300"
+            />
+            Paid / completed only
+          </label>
+          <div className="relative flex-1 min-w-[200px] max-w-sm">
+            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+            <Input
+              value={participantSearch}
+              onChange={(e) => setParticipantSearch(e.target.value)}
+              placeholder="Search participant, phone, program…"
+              className="pl-9 text-xs h-9"
+            />
+          </div>
+        </div>
+      )}
+
+      {/* Search + Filters (summary) */}
+      {viewMode === 'summary' && (
       <div className="flex flex-wrap items-center gap-3 mb-4">
         <div className="relative flex-1 max-w-xs">
           <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
@@ -146,13 +399,13 @@ const EnrollmentsTab = () => {
           ))}
         </div>
       </div>
+      )}
 
-      {/* Table */}
-      {loading ? (
+      {viewMode === 'summary' && loading ? (
         <div className="text-center py-12 text-gray-400 text-sm">Loading...</div>
-      ) : filtered.length === 0 ? (
+      ) : viewMode === 'summary' && filtered.length === 0 ? (
         <div className="text-center py-12 text-gray-400 text-sm">No enrollments found</div>
-      ) : (
+      ) : viewMode === 'summary' ? (
         <div className="overflow-x-auto border rounded-lg">
           <table className="w-full text-xs">
             <thead className="bg-gray-50 border-b">
@@ -160,6 +413,7 @@ const EnrollmentsTab = () => {
                 <th className="text-left px-3 py-2 font-semibold text-gray-600">Invoice #</th>
                 <th className="text-left px-3 py-2 font-semibold text-gray-600">Booker</th>
                 <th className="text-left px-3 py-2 font-semibold text-gray-600">Program</th>
+                <th className="text-left px-3 py-2 font-semibold text-gray-600">Origin</th>
                 <th className="text-left px-3 py-2 font-semibold text-gray-600">Pax</th>
                 <th className="text-left px-3 py-2 font-semibold text-gray-600">Amount</th>
                 <th className="text-left px-3 py-2 font-semibold text-gray-600">Payment Mode</th>
@@ -175,8 +429,8 @@ const EnrollmentsTab = () => {
                 const modeInfo = mode ? PAYMENT_MODE_MAP[mode] : null;
                 const ModeIcon = modeInfo?.icon || CreditCard;
                 const isExpanded = expandedId === e.id;
-                const amount = e.payment?.amount || e.total || 0;
-                const currency = e.payment?.currency || e.currency || '';
+                const amount = e.payment?.amount ?? e.dashboard_mixed_total ?? e.total ?? 0;
+                const currency = e.payment?.currency || e.dashboard_mixed_currency || e.currency || '';
                 const symbols = { inr: '₹', aed: 'AED ', usd: '$' };
                 const sym = symbols[currency] || currency.toUpperCase() + ' ';
 
@@ -194,6 +448,11 @@ const EnrollmentsTab = () => {
                       <td className="px-3 py-2.5">
                         <p className="text-gray-700">{e.item_title || '-'}</p>
                         <p className="text-gray-400 capitalize text-[10px]">{e.item_type || ''}</p>
+                      </td>
+                      <td className="px-3 py-2.5">
+                        <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${e.enrollment_origin === 'dashboard' ? 'bg-amber-50 text-amber-800' : 'bg-slate-100 text-slate-700'}`}>
+                          {e.enrollment_origin === 'dashboard' ? 'Dashboard' : 'Website'}
+                        </span>
                       </td>
                       <td className="px-3 py-2.5 text-center">
                         <span className="font-medium">{e.participant_count || e.participants?.length || 0}</span>
@@ -221,11 +480,12 @@ const EnrollmentsTab = () => {
                     {/* Expanded details */}
                     {isExpanded && (
                       <tr>
-                        <td colSpan={9} className="bg-gray-50 px-4 py-3">
+                        <td colSpan={10} className="bg-gray-50 px-4 py-3">
                           <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-[10px]">
                             <div><span className="text-gray-400 block">Enrollment ID</span><span className="font-mono">{e.id}</span></div>
+                            <div><span className="text-gray-400 block">Origin</span>{e.enrollment_origin === 'dashboard' ? 'Dashboard' : 'Website'}</div>
                             <div><span className="text-gray-400 block">Country</span>{e.booker_country || '-'}</div>
-                            <div><span className="text-gray-400 block">Currency</span>{currency.toUpperCase()}</div>
+                            <div><span className="text-gray-400 block">Currency</span>{(currency || '').toUpperCase() || '—'}</div>
                             <div><span className="text-gray-400 block">Tier</span>{e.tier_index != null ? `Tier ${e.tier_index + 1}` : '-'}</div>
                             <div><span className="text-gray-400 block">Promo Code</span>{e.promo_code || '-'}</div>
                             <div><span className="text-gray-400 block">Bank/Account</span>{e.bank_name || e.payment?.bank_name || '-'}</div>
@@ -239,10 +499,12 @@ const EnrollmentsTab = () => {
                               <span className="text-[10px] text-gray-400 font-semibold">Participants:</span>
                               <div className="mt-1 space-y-1">
                                 {e.participants.map((p, pi) => (
-                                  <div key={pi} className="flex items-center gap-3 text-[10px] bg-white rounded px-2 py-1 border">
+                                  <div key={pi} className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[10px] bg-white rounded px-2 py-1 border">
                                     <span className="font-medium text-gray-900">{p.name || '-'}</span>
+                                    {p.age != null && p.age !== '' && <span className="text-gray-500">Age {p.age}</span>}
                                     <span className="text-gray-500">{p.email || ''}</span>
-                                    <span className="text-gray-500">{p.phone || ''}</span>
+                                    <span className="text-gray-500">Ph {p.phone || '—'}</span>
+                                    <span className="text-gray-500">WA {p.whatsapp || p.phone || '—'}</span>
                                     <span className="text-gray-400 capitalize">{p.attendance_mode || ''}</span>
                                     <span className="text-gray-400">{p.country || ''}</span>
                                   </div>
@@ -259,6 +521,69 @@ const EnrollmentsTab = () => {
             </tbody>
           </table>
         </div>
+      ) : null}
+
+      {/* Table — one row per participant */}
+      {viewMode === 'participants' && (
+        loadingParticipants ? (
+          <div className="text-center py-12 text-gray-400 text-sm">Loading participant report…</div>
+        ) : filteredParticipants.length === 0 ? (
+          <div className="text-center py-12 text-gray-400 text-sm">No rows match this filter.</div>
+        ) : (
+          <div className="overflow-x-auto border rounded-lg" data-testid="enrollments-participant-table">
+            <table className="w-full text-xs">
+              <thead className="bg-gray-50 border-b">
+                <tr>
+                  <th className="text-left px-3 py-2 font-semibold text-gray-600">Participant</th>
+                  <th className="text-left px-3 py-2 font-semibold text-gray-600">Age</th>
+                  <th className="text-left px-3 py-2 font-semibold text-gray-600">Country</th>
+                  <th className="text-left px-3 py-2 font-semibold text-gray-600">Phone</th>
+                  <th className="text-left px-3 py-2 font-semibold text-gray-600">WhatsApp</th>
+                  <th className="text-left px-3 py-2 font-semibold text-gray-600">Amount</th>
+                  <th className="text-left px-3 py-2 font-semibold text-gray-600">Currency</th>
+                  <th className="text-left px-3 py-2 font-semibold text-gray-600">Program</th>
+                  <th className="text-left px-3 py-2 font-semibold text-gray-600">Booker</th>
+                  <th className="text-left px-3 py-2 font-semibold text-gray-600">Invoice</th>
+                  <th className="text-left px-3 py-2 font-semibold text-gray-600">Origin</th>
+                  <th className="text-left px-3 py-2 font-semibold text-gray-600">Status</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y">
+                {filteredParticipants.map((row, idx) => {
+                  const cur = (row.payment_currency || '').toLowerCase();
+                  const symbols = { inr: '\u20B9', aed: 'AED ', usd: '$' };
+                  const sym = symbols[cur] || (cur ? `${cur.toUpperCase()} ` : '');
+                  const amt = row.payment_amount;
+                  return (
+                    <tr key={`${row.enrollment_id}-${idx}`} className="hover:bg-gray-50">
+                      <td className="px-3 py-2 font-medium text-gray-900">{row.participant_name || '—'}</td>
+                      <td className="px-3 py-2 text-gray-700">{row.age !== '' && row.age != null ? row.age : '—'}</td>
+                      <td className="px-3 py-2 text-gray-700">{row.country || '—'}</td>
+                      <td className="px-3 py-2 text-gray-600 font-mono text-[10px]">{row.phone || '—'}</td>
+                      <td className="px-3 py-2 text-gray-600 font-mono text-[10px]">{row.whatsapp || '—'}</td>
+                      <td className="px-3 py-2 font-medium text-gray-900">
+                        {amt > 0 ? `${sym}${Number(amt).toLocaleString()}` : '0'}
+                      </td>
+                      <td className="px-3 py-2 uppercase text-gray-600">{cur || '—'}</td>
+                      <td className="px-3 py-2 text-gray-700 max-w-[140px] truncate" title={row.program}>{row.program || '—'}</td>
+                      <td className="px-3 py-2 text-gray-600 max-w-[120px]">
+                        <span className="block truncate" title={row.booker_name}>{row.booker_name || '—'}</span>
+                        <span className="block text-[10px] text-gray-400 truncate">{row.booker_phone || ''}</span>
+                      </td>
+                      <td className="px-3 py-2 font-mono text-[10px] text-purple-700">{row.invoice_number || row.enrollment_id?.slice(0, 10) || '—'}</td>
+                      <td className="px-3 py-2">
+                        <span className={`text-[10px] px-2 py-0.5 rounded-full ${row.enrollment_origin === 'dashboard' ? 'bg-amber-50 text-amber-800' : 'bg-slate-100 text-slate-700'}`}>
+                          {row.enrollment_origin === 'dashboard' ? 'Dashboard' : 'Website'}
+                        </span>
+                      </td>
+                      <td className="px-3 py-2 text-[10px] text-gray-600">{row.enrollment_status || row.payment_status || '—'}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )
       )}
     </div>
   );

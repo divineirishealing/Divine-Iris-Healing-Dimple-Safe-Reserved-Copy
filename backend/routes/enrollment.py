@@ -71,6 +71,10 @@ class ProfileData(BaseModel):
     booker_email: str
     booker_country: str = "AE"
     participants: list[ParticipantData]
+    # Filled by enrollment UI so abandoned-checkout reminder links work before payment step
+    item_type: Optional[str] = None
+    item_id: Optional[str] = None
+    item_title: Optional[str] = None
 
 
 class EmailValidation(BaseModel):
@@ -212,6 +216,19 @@ async def start_enrollment(profile: ProfileData, request: Request):
         "created_at": datetime.now(timezone.utc).isoformat(),
         "updated_at": datetime.now(timezone.utc).isoformat(),
     }
+    if profile.item_type and profile.item_id:
+        enrollment["item_type"] = profile.item_type.strip()
+        enrollment["item_id"] = profile.item_id.strip()
+        if profile.item_title:
+            enrollment["item_title"] = profile.item_title.strip()
+    else:
+        # Cart-style flow: program on first participant row
+        p0 = profile.participants[0]
+        if p0.program_id:
+            enrollment["item_type"] = "program"
+            enrollment["item_id"] = str(p0.program_id).strip()
+            if p0.program_title:
+                enrollment["item_title"] = str(p0.program_title).strip()
 
     await db.enrollments.insert_one(enrollment)
 

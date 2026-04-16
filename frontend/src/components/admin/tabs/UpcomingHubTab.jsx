@@ -17,6 +17,44 @@ const STATUS_OPTIONS = [
 const CLOSURE_OPTIONS = ['Registration Closed', 'Seats Full', 'Enrollment Closed', 'Sold Out'];
 const TZ_OPTIONS = ['', 'IST', 'GST Dubai', 'EST', 'PST', 'CST', 'MST', 'GMT', 'UTC', 'BST', 'CET', 'AEST', 'SGT', 'JST'];
 
+/** Fields the Programs Hub edits — everything else (image, description, pricing, content_sections, …) must stay as on the server so Save All never wipes them. */
+const HUB_PROGRAM_FIELD_KEYS = [
+  'is_upcoming', 'is_flagship', 'replicate_to_flagship', 'enrollment_status', 'enrollment_open', 'closure_text',
+  'start_date', 'end_date', 'deadline_date', 'timing', 'time_zone',
+  'exclusive_offer_enabled', 'exclusive_offer_text',
+  'highlight_label', 'highlight_style',
+  'enable_online', 'enable_offline', 'enable_in_person',
+  'duration',
+  'show_start_date_on_card', 'show_end_date_on_card', 'show_timing_on_card', 'show_duration_on_card',
+  'whatsapp_group_link', 'zoom_link', 'custom_link', 'custom_link_label',
+  'show_whatsapp_link', 'show_zoom_link', 'show_custom_link', 'show_whatsapp_link_2', 'whatsapp_group_link_2',
+];
+
+function mergeDurationTiersForHubSave(serverTiers = [], localTiers = []) {
+  const st = Array.isArray(serverTiers) ? serverTiers : [];
+  const lt = Array.isArray(localTiers) ? localTiers : [];
+  if (st.length === 0) return lt;
+  return st.map((base, i) => {
+    const loc = lt[i] || {};
+    return {
+      ...base,
+      start_date: loc.start_date !== undefined && loc.start_date !== null ? loc.start_date : base.start_date,
+      end_date: loc.end_date !== undefined && loc.end_date !== null ? loc.end_date : base.end_date,
+      duration: loc.duration !== undefined && loc.duration !== null ? loc.duration : base.duration,
+    };
+  });
+}
+
+/** Merge hub UI state onto the latest server row so PUT never overwrites image / copy / prices with a stale tab. */
+function buildProgramPutPayloadFromHub(local, server) {
+  const base = server && typeof server === 'object' ? { ...server } : { ...local };
+  for (const k of HUB_PROGRAM_FIELD_KEYS) {
+    if (Object.prototype.hasOwnProperty.call(local, k)) base[k] = local[k];
+  }
+  base.duration_tiers = mergeDurationTiersForHubSave(server?.duration_tiers, local?.duration_tiers);
+  return base;
+}
+
 const ProgramRow = ({ p, update, updateTier }) => {
   const [open, setOpen] = useState(false);
   const status = p.enrollment_status || (p.enrollment_open !== false ? 'open' : 'closed');
@@ -400,9 +438,15 @@ const UpcomingHubTab = () => {
   const saveAll = async () => {
     setSaving(true);
     try {
+      const freshRes = await axios.get(`${API}/programs`);
+      const freshById = new Map((freshRes.data || []).map(pr => [pr.id, pr]));
       const validPrograms = programs.filter(p => p.id && p.title);
       const results = await Promise.allSettled([
-        ...validPrograms.map(p => axios.put(`${API}/programs/${p.id}`, p)),
+        ...validPrograms.map((p) => {
+          const server = freshById.get(p.id);
+          const body = buildProgramPutPayloadFromHub(p, server || p);
+          return axios.put(`${API}/programs/${p.id}`, body);
+        }),
         axios.put(`${API}/settings`, { community_whatsapp_link: communityLink, enrollment_urgency_quotes: urgencyQuotes }),
       ]);
       const failed = results.filter(r => r.status === 'rejected');
@@ -412,7 +456,10 @@ const UpcomingHubTab = () => {
         toast({ title: 'Saved!' });
       }
     } catch (e) { toast({ title: 'Error', description: e.message, variant: 'destructive' }); }
-    setSaving(false);
+    finally {
+      try { await fetchData(); } catch (_) { /* keep UI in sync with server after save */ }
+      setSaving(false);
+    }
   };
 
   // Sort: non-tiered first, then tiered

@@ -1,9 +1,12 @@
 import os
+import base64
 import logging
 import aiosmtplib
 import httpx
 from email.mime.text import MIMEText
+from email.mime.base import MIMEBase
 from email.mime.multipart import MIMEMultipart
+from email import encoders
 from dotenv import load_dotenv
 from pathlib import Path
 
@@ -25,6 +28,39 @@ async def _get_smtp_config():
         "receipt": await get_key("receipt_email") or os.environ.get('RECEIPT_EMAIL', 'receipt@divineirishealing.com'),
         "resend_key": await get_key("resend_api_key") or os.environ.get('RESEND_API_KEY', ''),
     }
+
+
+async def _send_via_resend_with_attachments(
+    to: str,
+    subject: str,
+    html: str,
+    sender: str,
+    api_key: str,
+    attachments: list,
+) -> bool:
+    """attachments: [{filename, content_bytes}]"""
+    try:
+        att_json = [
+            {
+                "filename": a["filename"],
+                "content": base64.standard_b64encode(a["content_bytes"]).decode("ascii"),
+            }
+            for a in attachments
+        ]
+        async with httpx.AsyncClient(timeout=60) as client:
+            resp = await client.post(
+                "https://api.resend.com/emails",
+                headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
+                json={"from": sender, "to": [to], "subject": subject, "html": html, "attachments": att_json},
+            )
+        if resp.status_code in (200, 201):
+            logger.info(f"Email with attachment sent to {to} via Resend")
+            return True
+        logger.error(f"Resend rejected email to {to}: {resp.status_code} {resp.text}")
+        return False
+    except Exception as e:
+        logger.error(f"Resend delivery failed for {to}: {e}")
+        return False
 
 
 async def _send_via_resend(to: str, subject: str, html: str, sender: str, api_key: str) -> bool:
@@ -79,6 +115,65 @@ async def send_email(to: str, subject: str, html: str, from_email: str = None):
             return {"id": "resend_ok"}
 
     logger.error(f"All delivery methods failed for {to}. Configure SMTP password or Resend API key in Admin → API Keys.")
+    return None
+
+
+async def send_email_with_attachment(
+    to: str,
+    subject: str,
+    html: str,
+    attachment_filename: str,
+    attachment_bytes: bytes,
+    from_email: str = None,
+    mime_main: str = "application",
+    mime_sub: str = "vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+):
+    """
+    Send one HTML email with a single file attachment (e.g. Excel).
+    Returns truthy dict on success, None on failure.
+    """
+    cfg = await _get_smtp_config()
+    sender = from_email or cfg["sender"]
+
+    if cfg["user"] and cfg["password"]:
+        msg = MIMEMultipart()
+        msg["From"] = sender
+        msg["To"] = to
+        msg["Subject"] = subject
+        msg.attach(MIMEText(html, "html", "utf-8"))
+        part = MIMEBase(mime_main, mime_sub)
+        part.set_payload(attachment_bytes)
+        encoders.encode_base64(part)
+        part.add_header("Content-Disposition", f'attachment; filename="{attachment_filename}"')
+        msg.attach(part)
+        try:
+            await aiosmtplib.send(
+                msg,
+                hostname=cfg["host"],
+                port=cfg["port"],
+                start_tls=True,
+                username=cfg["user"],
+                password=cfg["password"],
+                timeout=60,
+            )
+            logger.info(f"Email with attachment sent to {to} via SMTP")
+            return {"id": "smtp_ok"}
+        except Exception as e:
+            logger.warning(f"SMTP attachment send failed for {to}: {e} — trying Resend")
+
+    if cfg["resend_key"]:
+        ok = await _send_via_resend_with_attachments(
+            to,
+            subject,
+            html,
+            sender,
+            cfg["resend_key"],
+            [{"filename": attachment_filename, "content_bytes": attachment_bytes}],
+        )
+        if ok:
+            return {"id": "resend_ok"}
+
+    logger.error(f"All delivery methods failed for attachment email to {to}")
     return None
 
 

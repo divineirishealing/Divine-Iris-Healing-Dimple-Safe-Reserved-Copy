@@ -18,6 +18,7 @@ from routes import auth
 from routes import subscribers
 from routes import emi_payments
 from routes import reminders as reminders_module
+from routes import enrollment_auto_report as enrollment_auto_report_module
 import asyncio
 
 ROOT_DIR = Path(__file__).parent
@@ -118,9 +119,27 @@ async def _reminder_loop():
         except Exception as e:
             logging.getLogger("reminders").error(f"Reminder loop error: {e}")
 
+
+async def _enrollment_report_loop():
+    """Hourly check: email participant-level enrollment Excel when interval elapsed (see site settings)."""
+    while True:
+        await asyncio.sleep(3600)
+        try:
+            n = await enrollment_auto_report_module.maybe_send_enrollment_report(db)
+            if n > 0:
+                logging.getLogger("enrollment_report").info(f"Enrollment auto-report sent to {n} address(es)")
+        except Exception as e:
+            logging.getLogger("enrollment_report").error(f"Enrollment report loop error: {e}")
+
+
 @app.on_event("startup")
 async def start_reminder_loop():
     asyncio.create_task(_reminder_loop())
+
+
+@app.on_event("startup")
+async def start_enrollment_report_loop():
+    asyncio.create_task(_enrollment_report_loop())
 
 @app.on_event("startup")
 async def ensure_api_logs_ttl_index():
@@ -169,6 +188,7 @@ app.include_router(student.router)
 app.include_router(auth.router)
 app.include_router(subscribers.router)
 app.include_router(emi_payments.router)
+app.include_router(enrollment_auto_report_module.router)
 
 @api_router.get("/admin/api-keys")
 async def get_api_keys():

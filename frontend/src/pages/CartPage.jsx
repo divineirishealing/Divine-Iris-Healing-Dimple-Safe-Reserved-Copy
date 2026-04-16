@@ -553,9 +553,13 @@ function CartPage() {
         })
       );
 
+      const leadItem = items[0];
       const enrollRes = await axios.post(`${API}/enrollment/start`, {
         booker_name: bookerName, booker_email: bookerEmail, booker_country: bookerCountry,
         booker_city: bookerCity, booker_state: bookerState,
+        item_type: leadItem?.type === 'session' ? 'session' : 'program',
+        item_id: leadItem?.programId || '',
+        item_title: leadItem?.programTitle || '',
         participants: allParticipants,
       });
       const eid = enrollRes.data.enrollment_id;
