@@ -17,7 +17,9 @@ services:
       - key: HOST_URL
         sync: false        # Set to your Render backend URL e.g. https://divine-iris-backend.onrender.com
       - key: FRONTEND_URL
-        sync: false        # Optional: public site URL for emails/reminders (e.g. https://divine-iris-frontend.onrender.com)
+        sync: false        # Public site: https://divineirishealing.com (or https://www.divineirishealing.com)
+      - key: ALLOWED_ORIGINS
+        value: "https://divineirishealing.com,https://www.divineirishealing.com,https://divine-iris-healing-dimple-safe-res.vercel.app"
       - key: AWS_S3_BUCKET
         sync: false        # Bucket name; also set keys + AWS_REGION matching the bucket’s region
       - key: AWS_ACCESS_KEY_ID

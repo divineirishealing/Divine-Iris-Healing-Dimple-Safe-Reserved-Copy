@@ -264,7 +264,11 @@ async def send_receipt_preview():
 # Include the main router in the app
 app.include_router(api_router)
 
-_default_origins = "https://divine-iris-healing-dimple-safe-res.vercel.app"
+_default_origins = (
+    "https://divineirishealing.com,"
+    "https://www.divineirishealing.com,"
+    "https://divine-iris-healing-dimple-safe-res.vercel.app"
+)
 if os.environ.get("ENVIRONMENT", "production").lower() != "production":
     _default_origins += ",http://localhost:3000,http://localhost:3001,http://127.0.0.1:3000"
 
@@ -279,7 +283,7 @@ ALLOWED_ORIGINS = [
 # Set ALLOWED_ORIGINS_REGEX to empty on the server to turn this off.
 _cors_regex = os.environ.get(
     "ALLOWED_ORIGINS_REGEX",
-    r"https://.+\.onrender\.com\Z|https://.+\.vercel\.app\Z",
+    r"https://.+\.onrender\.com\Z|https://.+\.vercel\.app\Z|https://(www\.)?divineirishealing\.com\Z",
 )
 _cors_mw_kwargs = dict(
     allow_credentials=True,
