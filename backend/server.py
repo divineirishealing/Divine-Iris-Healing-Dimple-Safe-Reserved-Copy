@@ -1,6 +1,6 @@
 from fastapi import FastAPI, APIRouter, Request
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, JSONResponse
 from dotenv import load_dotenv
 from starlette.middleware.cors import CORSMiddleware
 from motor.motor_asyncio import AsyncIOMotorClient
@@ -43,7 +43,7 @@ app = FastAPI(title="Divine Iris Healing API")
 api_router = APIRouter(prefix="/api")
 
 # Paths that are high-volume file serving — excluded from request logging
-_SKIP_LOG_PREFIXES = ("/api/image/", "/api/uploads/", "/static/")
+_SKIP_LOG_PREFIXES = ("/api/image/", "/api/uploads/", "/static/", "/api/health")
 
 @app.middleware("http")
 async def log_api_requests(request: Request, call_next):
@@ -70,6 +70,20 @@ async def log_api_requests(request: Request, call_next):
 @api_router.get("/")
 async def root():
     return {"message": "Divine Iris Healing API - Welcome!"}
+
+
+@api_router.get("/health")
+async def health():
+    """For Render health checks and uptime monitors. Verifies MongoDB is reachable."""
+    try:
+        await db.command("ping")
+        return {"status": "ok", "db": "connected"}
+    except Exception:
+        return JSONResponse(
+            status_code=503,
+            content={"status": "error", "db": "unreachable"},
+        )
+
 
 # Custom route to serve uploaded images with correct content type
 @app.get("/api/image/{filename}")

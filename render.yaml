@@ -7,6 +7,8 @@ services:
     rootDir: backend
     buildCommand: pip install -r requirements-render.txt
     startCommand: uvicorn server:app --host 0.0.0.0 --port $PORT
+    # Waits until Mongo responds before sending traffic (reduces 502s during deploy / wake)
+    healthCheckPath: /api/health
     envVars:
       - key: MONGO_URL
         sync: false        # Set this in Render dashboard — your MongoDB Atlas connection string
@@ -14,6 +16,8 @@ services:
         value: divineIris  # Change if you used a different DB name in Atlas
       - key: HOST_URL
         sync: false        # Set to your Render backend URL e.g. https://divine-iris-backend.onrender.com
+      - key: FRONTEND_URL
+        sync: false        # Optional: public site URL for emails/reminders (e.g. https://divine-iris-frontend.onrender.com)
       - key: AWS_S3_BUCKET
         sync: false        # Optional: enables S3 for uploads (images, videos, payment proofs). Also set AWS keys + region.
       - key: AWS_ACCESS_KEY_ID

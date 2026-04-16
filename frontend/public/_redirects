@@ -1,0 +1,2 @@
+# SPA fallback (Netlify, Cloudflare Pages). Render static uses render.yaml routes; this helps if you move hosts.
+/*    /index.html   200
