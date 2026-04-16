@@ -25,19 +25,21 @@ export const CurrencyProvider = ({ children }) => {
   const [country, setCountry] = useState(cached?.country || '');
   const [vpnDetected, setVpnDetected] = useState(cached?.vpn_detected || false);
   const [ready, setReady] = useState(!!cached);
-  const locked = useRef(!!cached);
+  /** Always refresh from API on load — old behavior skipped detect when cache existed, so VPN/country changes never updated (e.g. stuck on €). */
+  const detectStarted = useRef(false);
 
   // Expose `currency` and `symbol` as DISPLAY values (backwards compatible)
   const currency = baseCurrency;
   const symbol = displaySymbol;
 
   useEffect(() => {
-    if (locked.current) return;
-    // Timeout fallback: show page after 1.5s even if API hasn't responded
-    const fallback = setTimeout(() => {
-      if (!locked.current) setReady(true);
-    }, 1500);
-    detectCurrency().finally(() => clearTimeout(fallback));
+    if (detectStarted.current) return;
+    detectStarted.current = true;
+    const fallback = setTimeout(() => setReady(true), 1500);
+    detectCurrency().finally(() => {
+      clearTimeout(fallback);
+      setReady(true);
+    });
   }, []);
 
   const applyData = (d) => {
@@ -49,12 +51,12 @@ export const CurrencyProvider = ({ children }) => {
     setDisplaySymbol(d.display_symbol || d.symbol);
     setDisplayRate(d.display_rate || 1.0);
     setIsPrimary(d.is_primary !== false);
-    locked.current = true;
-    try { localStorage.setItem('currency_detect', JSON.stringify(d)); } catch {}
+    try {
+      localStorage.setItem('currency_detect', JSON.stringify(d));
+    } catch { /* ignore */ }
   };
 
   const detectCurrency = async () => {
-    if (locked.current) return;
     try {
       const urlParams = new URLSearchParams(window.location.search);
       const previewCountry = urlParams.get('preview_country');
@@ -62,9 +64,7 @@ export const CurrencyProvider = ({ children }) => {
       const response = await axios.get(url);
       applyData(response.data);
     } catch {
-      locked.current = true;
-    } finally {
-      setReady(true);
+      /* keep cached / initial state */
     }
   };
 
