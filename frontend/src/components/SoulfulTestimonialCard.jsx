@@ -430,18 +430,22 @@ export const SoulfulWrittenCard = ({
         {/* Quote text — flex:1 only when card is height-stretched (avoids dead space on program carousel) */}
         <div style={{ flex: compactProgram ? '0 0 auto' : 1 }}>
           <p style={{
-            fontFamily: "'Cormorant Garamond', Georgia, serif",
-            fontSize: uniform ? (compactProgram ? '0.82rem' : '0.88rem') : '0.92rem',
-            lineHeight: compactProgram ? 1.65 : 1.8,
+            fontFamily: "'Lora', Georgia, 'Times New Roman', serif",
+            fontSize: uniform
+              ? (compactProgram ? '0.98rem' : '1.05rem')
+              : 'clamp(1.05rem, 2.15vw, 1.2rem)',
+            lineHeight: compactProgram ? 1.72 : 1.88,
             color: '#1e0a4e',
-            fontStyle: 'italic', textAlign: 'center',
+            fontStyle: 'italic',
+            textAlign: 'center',
+            fontWeight: 500,
           }}>
             {uniform ? (displayText ? `"${displayText}"` : '') : displayText}
           </p>
           {isLong && !uniform && (
             <button
               onClick={(e) => { e.stopPropagation(); setExpanded(!expanded); }}
-              className="flex items-center gap-1 mx-auto mt-2 text-[11px] font-semibold tracking-wide transition-colors"
+              className="flex items-center gap-1 mx-auto mt-2 text-sm font-semibold tracking-wide transition-colors"
               style={{ color: '#7c3aed' }}
             >
               {expanded ? <><ChevronUp size={12} /> Read less</> : <><ChevronDown size={12} /> Read more</>}
@@ -772,7 +776,14 @@ export const SoulfulTestimonialFull = ({ testimonial }) => {
           <div className="flex-1 min-w-0 flex flex-col">
             <div className="relative rounded-2xl p-5 md:p-7"
               style={{ background: 'rgba(255,255,255,0.9)', border: '1px solid rgba(109,40,217,0.08)', boxShadow: '0 2px 16px rgba(109,40,217,0.06)' }}>
-              <p style={{ fontFamily: "'Cormorant Garamond', Georgia, serif", fontSize: 'clamp(0.98rem, 1.5vw, 1.08rem)', color: '#1e0a4e', lineHeight: 1.95, fontStyle: 'italic' }}>
+              <p style={{
+                fontFamily: "'Lora', Georgia, 'Times New Roman', serif",
+                fontSize: 'clamp(1.14rem, 2.2vw, 1.38rem)',
+                color: '#1e0a4e',
+                lineHeight: 1.92,
+                fontStyle: 'italic',
+                fontWeight: 500,
+              }}>
                 "{text}"
               </p>
             </div>
