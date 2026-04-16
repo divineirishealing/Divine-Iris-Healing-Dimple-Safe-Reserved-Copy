@@ -122,8 +122,9 @@ const UpcomingCardQuotesTab = ({ programs = [] }) => {
           <div>
             <h2 className="text-xl font-semibold text-gray-900">Upcoming card quotes</h2>
             <p className="text-xs text-gray-500 mt-1 max-w-xl">
-              Short 1–2 line testimonials tied to a <strong>specific program</strong>. They appear inside each upcoming
-              program card on the homepage (not the long Transformations testimonials). Keep copy brief for impact.
+              Short 1–2 line quotes tied to a <strong>specific program</strong> — these show first on each upcoming card.
+              If a program has no row here, the site falls back to visible <strong>written (template)</strong> testimonials
+              linked to that program in Testimonials. Keep copy brief for impact.
             </p>
           </div>
         </div>

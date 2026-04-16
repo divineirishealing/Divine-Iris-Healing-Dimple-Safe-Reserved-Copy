@@ -22,14 +22,26 @@ class UpcomingCardQuoteCreate(BaseModel):
     order: int = 0
 
 
+def _serialize_quote(doc: dict) -> dict:
+    out = {k: v for k, v in doc.items() if k != "_id"}
+    pid = out.get("program_id")
+    if pid is not None:
+        out["program_id"] = str(pid).strip()
+    return out
+
+
 @router.get("")
 async def list_upcoming_card_quotes(visible_only: bool = False):
     db = get_db()
-    query = {"visible": True} if visible_only else {}
+    if visible_only:
+        # Treat missing `visible` as public (older docs / imports)
+        query = {"$or": [{"visible": True}, {"visible": {"$exists": False}}]}
+    else:
+        query = {}
     items = await db.upcoming_card_quotes.find(query, {"_id": 0}).sort(
         [("program_id", 1), ("order", 1)]
     ).to_list(200)
-    return items
+    return [_serialize_quote(x) for x in items]
 
 
 @router.post("")

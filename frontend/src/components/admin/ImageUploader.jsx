@@ -20,10 +20,18 @@ function uploadErrorMessage(error) {
   }
   const detail = error?.response?.data?.detail;
   if (typeof detail === 'string') {
+    if (/temporary disk|ephemeral|CLOUDINARY_URL|durable storage/i.test(detail)) {
+      return detail;
+    }
     if (/S3|AWS|AccessDenied|bucket|credentials/i.test(detail)) {
       return `${detail} — On the API host (e.g. Render backend), add AWS_S3_BUCKET, AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, and AWS_REGION, then redeploy.`;
     }
     return detail;
+  }
+  if (error?.response?.status === 503) {
+    return typeof detail === 'string'
+      ? detail
+      : 'Storage is not configured for persistent images. Add CLOUDINARY_URL (or fix S3) on the API service and redeploy.';
   }
   if (error?.code === 'ERR_NETWORK' || error?.message === 'Network Error') {
     return 'Your browser could not reach the API. Try again in a minute, or ask your host to check that the backend URL is correct and the backend has been redeployed.';

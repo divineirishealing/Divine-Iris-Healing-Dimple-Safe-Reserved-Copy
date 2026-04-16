@@ -19,19 +19,25 @@ services:
       - key: FRONTEND_URL
         sync: false        # Optional: public site URL for emails/reminders (e.g. https://divine-iris-frontend.onrender.com)
       - key: AWS_S3_BUCKET
-        sync: false        # Optional: enables S3 for uploads (images, videos, payment proofs). Also set AWS keys + region.
+        sync: false        # Bucket name; also set keys + AWS_REGION matching the bucket’s region
       - key: AWS_ACCESS_KEY_ID
         sync: false
       - key: AWS_SECRET_ACCESS_KEY
         sync: false
       - key: AWS_REGION
-        sync: false        # e.g. ap-southeast-1; default in code if unset
+        sync: false        # Must match bucket region (e.g. ap-southeast-1)
+      - key: AWS_S3_USE_IAM_ROLE
+        sync: false        # true on EC2/ECS with instance/task role (skip static keys)
+      - key: AWS_S3_OBJECT_ACL
+        sync: false        # Optional public-read; omit if bucket uses owner enforced + bucket policy for GetObject
       - key: AWS_S3_PUBLIC_BASE_URL
-        sync: false        # Optional: CloudFront or custom origin URL (no trailing slash)
+        sync: false        # Optional: CloudFront or website endpoint, no trailing slash
       - key: AWS_S3_PREFIX
-        sync: false        # Optional: S3 key prefix, default uploads
+        sync: false        # Optional; default uploads — use same prefix in bucket policy Resource
+      - key: AWS_S3_ADDRESSING_STYLE
+        sync: false        # Optional path | virtual for S3-compatible APIs
       - key: CLOUDINARY_URL
-        sync: false        # Optional: if S3 fails or unset, uploads can use Cloudinary (dashboard → Environment)
+        sync: false        # Strongly recommended on Render: local disk is wiped on restart — without this or working S3, uploaded images disappear
       - key: PYTHON_VERSION
         value: 3.11.0
 

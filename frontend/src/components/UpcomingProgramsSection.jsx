@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { resolveImageUrl } from '../lib/imageUtils';
@@ -108,11 +108,16 @@ const convertTimingToLocal = (timing, timeZone, detectedCountry) => {
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
 
+function normalizePid(id) {
+  if (id == null || id === '') return '';
+  return String(id).trim();
+}
+
 /** Group admin “upcoming card” quotes by program id (visible-only list from API). */
 function buildProgramCardQuotesMap(rows) {
   const byProgram = {};
   for (const row of rows || []) {
-    const pid = String(row.program_id || '');
+    const pid = normalizePid(row.program_id);
     if (!pid) continue;
     if (!byProgram[pid]) byProgram[pid] = [];
     byProgram[pid].push({
@@ -127,6 +132,25 @@ function buildProgramCardQuotesMap(rows) {
     byProgram[k] = byProgram[k].filter((q) => q.text.length > 0).map(({ text, name, role }) => ({ text, name, role }));
   }
   return byProgram;
+}
+
+/** Fallback: visible template testimonials linked to this program (Transformations / program page same rules). */
+function testimonialsForProgram(all, program) {
+  if (!program || !Array.isArray(all) || all.length === 0) return [];
+  const id = normalizePid(program.id);
+  const title = (program.title || '').trim().toLowerCase();
+  const matched = all.filter((t) => {
+    if (t.type !== 'template') return false;
+    if (normalizePid(t.program_id) === id) return true;
+    const tags = t.program_tags || [];
+    if (Array.isArray(tags) && tags.some((tag) => normalizePid(tag) === id)) return true;
+    const pn = (t.program_name || '').trim().toLowerCase();
+    if (title && pn && pn === title) return true;
+    return false;
+  });
+  const withQuote = matched.filter((t) => (t.text || '').trim().length > 12);
+  withQuote.sort((a, b) => (a.order || 0) - (b.order || 0));
+  return withQuote.slice(0, 8);
 }
 
 /* Rotating snippets — jewel “written” template (no photos), shared with SoulfulTestimonialCard */
@@ -708,7 +732,8 @@ const CrossSellBanner = ({ rules, programs }) => {
 
 const UpcomingProgramsSection = ({ sectionConfig, inline }) => {
   const [programs, setPrograms] = useState([]);
-  const [programCardQuotes, setProgramCardQuotes] = useState({});
+  const [adminQuoteRows, setAdminQuoteRows] = useState([]);
+  const [templateRows, setTemplateRows] = useState([]);
   const [sponsorData, setSponsorData] = useState(null);
   const [sponsorConfig, setSponsorConfig] = useState(null);
   const [comboDiscount, setComboDiscount] = useState(null);
@@ -743,19 +768,48 @@ const UpcomingProgramsSection = ({ sectionConfig, inline }) => {
 
   useEffect(() => {
     let cancelled = false;
-    axios
-      .get(`${API}/upcoming-card-quotes?visible_only=true`)
-      .then((r) => {
+    (async () => {
+      try {
+        const [qRes, tRes] = await Promise.all([
+          axios.get(`${API}/upcoming-card-quotes?visible_only=true`),
+          axios.get(`${API}/testimonials?visible_only=true`),
+        ]);
         if (cancelled) return;
-        setProgramCardQuotes(buildProgramCardQuotesMap(r.data || []));
-      })
-      .catch(() => {
-        if (!cancelled) setProgramCardQuotes({});
-      });
+        setAdminQuoteRows(qRes.data || []);
+        setTemplateRows(tRes.data || []);
+      } catch (e) {
+        if (!cancelled) {
+          console.warn('[UpcomingPrograms] Could not load card quotes or testimonials:', e?.response?.status || e?.message || e);
+          setAdminQuoteRows([]);
+          setTemplateRows([]);
+        }
+      }
+    })();
     return () => {
       cancelled = true;
     };
   }, []);
+
+  const programCardQuotes = useMemo(() => {
+    const adminMap = buildProgramCardQuotesMap(adminQuoteRows);
+    const out = {};
+    for (const p of programs) {
+      const k = normalizePid(p.id);
+      if (!k) continue;
+      const admin = adminMap[k] || [];
+      if (admin.length) {
+        out[k] = admin;
+        continue;
+      }
+      const fb = testimonialsForProgram(templateRows, p);
+      out[k] = fb.map((t) => ({
+        text: (t.text || '').trim(),
+        name: (t.name || '').trim(),
+        role: (t.role || '').trim(),
+      }));
+    }
+    return out;
+  }, [programs, adminQuoteRows, templateRows]);
 
   if (programs.length === 0) return null;
 
@@ -788,7 +842,7 @@ const UpcomingProgramsSection = ({ sectionConfig, inline }) => {
               <UpcomingCard
                 key={program.id}
                 program={program}
-                cardQuotes={programCardQuotes[String(program.id)]}
+                cardQuotes={programCardQuotes[normalizePid(program.id)]}
               />
             ))}
           </div>
@@ -832,7 +886,7 @@ const UpcomingProgramsSection = ({ sectionConfig, inline }) => {
                 <UpcomingCard
                   key={program.id}
                   program={program}
-                  cardQuotes={programCardQuotes[String(program.id)]}
+                  cardQuotes={programCardQuotes[normalizePid(program.id)]}
                 />
               ))}
 

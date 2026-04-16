@@ -10,6 +10,49 @@ import s3_storage
 
 logger = logging.getLogger(__name__)
 
+# ── Ephemeral disk (Render / Railway / etc.) ────────────────────────────────
+# Local /api/image/... URLs point at server filesystem, which is wiped on
+# redeploy/restart — Mongo still has the path but the bytes are gone. Refuse
+# that outcome in production unless ops explicitly opts in.
+
+
+def _allow_ephemeral_disk_uploads() -> bool:
+    return (os.environ.get("ALLOW_EPHEMERAL_UPLOADS") or "").lower() in ("true", "1", "yes")
+
+
+def _host_uses_ephemeral_disk_by_default() -> bool:
+    if _allow_ephemeral_disk_uploads():
+        return False
+    if (os.environ.get("RENDER") or "").lower() in ("true", "1", "yes"):
+        return True
+    if (os.environ.get("RAILWAY_ENVIRONMENT") or "").strip():
+        return True
+    if (os.environ.get("K_SERVICE") or "").strip():  # Cloud Run
+        return True
+    return False
+
+
+def _ensure_upload_url_is_durable(url: str) -> None:
+    """Raise503 if we would persist only a local API path on an ephemeral host."""
+    u = (url or "").strip()
+    if not u.startswith("/api/image/"):
+        return
+    if not _host_uses_ephemeral_disk_by_default():
+        return
+    raise HTTPException(
+        status_code=503,
+        detail=(
+            "Images cannot be saved to this server’s temporary disk — they are deleted when the service restarts. "
+            "Add CLOUDINARY_URL to this API service in your host’s environment (or configure AWS S3 with a public-read bucket), "
+            "then redeploy. Open GET /api/upload/storage-status on the API for a diagnostic summary."
+        ),
+    )
+
+
+def _return_upload(url: str, fname: str) -> tuple[str, str]:
+    _ensure_upload_url_is_durable(url)
+    return url, fname
+
 router = APIRouter(prefix="/api/upload", tags=["Upload"])
 
 UPLOAD_DIR = Path(__file__).parent.parent / "uploads"
@@ -86,19 +129,19 @@ def _s3_put_then_fallback(
     if s3_storage.is_s3_enabled():
         try:
             url = s3_storage.upload_bytes(s3_key, file_bytes, _guess_content_type(unique_filename))
-            return url, unique_filename
+            return _return_upload(url, unique_filename)
         except Exception as e:
             logger.warning("S3 upload failed; using fallback: %s", e)
             if _CLOUDINARY_AVAILABLE and allow_cloudinary:
                 url = _upload_to_cloudinary(file_bytes, unique_filename, resource_type=cloudinary_resource)
-                return url, Path(url).name
+                return _return_upload(url, Path(url).name)
             url = _save_locally_bytes(file_bytes, unique_filename)
-            return url, unique_filename
+            return _return_upload(url, unique_filename)
     if _CLOUDINARY_AVAILABLE and allow_cloudinary:
         url = _upload_to_cloudinary(file_bytes, unique_filename, resource_type=cloudinary_resource)
-        return url, Path(url).name
+        return _return_upload(url, Path(url).name)
     url = _save_locally_bytes(file_bytes, unique_filename)
-    return url, unique_filename
+    return _return_upload(url, unique_filename)
 
 
 def _guess_content_type(filename: str) -> str:
@@ -123,15 +166,22 @@ async def upload_storage_status():
         or os.environ.get("AWS_DEFAULT_REGION")
         or "ap-southeast-1"
     )
+    ephemeral = _host_uses_ephemeral_disk_by_default()
+    s3_on = s3_storage.is_s3_enabled()
     return {
         "image_upload_will_use": _image_upload_backend(),
-        "s3_enabled": s3_storage.is_s3_enabled(),
+        "s3_enabled": s3_on,
         "s3_bucket": bucket if bucket else None,
         "aws_region_configured": region,
         "aws_static_access_key_configured": bool(s3_storage.credentials_configured()),
+        "aws_s3_use_iam_role": s3_storage.use_iam_role_without_static_keys(),
         "cloudinary_enabled": _CLOUDINARY_AVAILABLE,
+        "host_treats_local_disk_as_ephemeral": ephemeral,
+        "local_api_image_paths_blocked": ephemeral and not _allow_ephemeral_disk_uploads(),
+        "allow_ephemeral_uploads_env_override": _allow_ephemeral_disk_uploads(),
         "hint": "If AWS is incomplete, either fix IAM (s3:PutObject) or set CLOUDINARY_URL on this API — uploads fall back to Cloudinary or local disk when S3 errors. "
-        "Easiest fix without AWS: remove AWS_S3_BUCKET and add CLOUDINARY_URL from cloudinary.com, then redeploy.",
+        "Easiest fix without AWS: remove AWS_S3_BUCKET and add CLOUDINARY_URL from cloudinary.com, then redeploy. "
+        "On Render/Railway, local disk is not persistent — without Cloudinary or working S3, images disappear after restart.",
     }
 
 
@@ -151,6 +201,8 @@ async def upload_image(file: UploadFile = File(...)):
             allow_cloudinary=True,
         )
         return {"url": url, "filename": fname}
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to save file: {str(e)}")
 
@@ -171,6 +223,8 @@ async def upload_video(file: UploadFile = File(...)):
             allow_cloudinary=True,
         )
         return {"url": url, "filename": fname}
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to save file: {str(e)}")
 
@@ -210,5 +264,7 @@ async def upload_document(file: UploadFile = File(...)):
             allow_cloudinary=use_cdn,
         )
         return {"url": url, "filename": fname, "original_name": file.filename}
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to save file: {str(e)}")
