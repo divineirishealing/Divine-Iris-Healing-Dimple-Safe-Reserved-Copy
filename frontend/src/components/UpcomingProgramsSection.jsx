@@ -107,6 +107,80 @@ const convertTimingToLocal = (timing, timeZone, detectedCountry) => {
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
 
+/** Match testimonials to a program (same rules as program detail: id, tags, title). */
+function testimonialsForProgram(all, program) {
+  if (!program || !Array.isArray(all) || all.length === 0) return [];
+  const id = String(program.id);
+  const title = (program.title || '').trim().toLowerCase();
+  const matched = all.filter((t) => {
+    if (String(t.program_id || '') === id) return true;
+    const tags = t.program_tags || [];
+    if (Array.isArray(tags) && tags.some((tag) => String(tag) === id)) return true;
+    const pn = (t.program_name || '').trim().toLowerCase();
+    if (title && pn && pn === title) return true;
+    return false;
+  });
+  const withQuote = matched.filter((t) => (t.text || '').trim().length > 12);
+  withQuote.sort((a, b) => {
+    const pref = (x) => (x.type === 'template' ? 0 : x.type === 'video' ? 1 : 2);
+    const d = pref(a) - pref(b);
+    if (d !== 0) return d;
+    return (a.order || 0) - (b.order || 0);
+  });
+  return withQuote.slice(0, 8);
+}
+
+/* Gentle rotating quote — feels part of the card, not a new section */
+const CardTestimonialRotate = ({ testimonials, programId }) => {
+  const [index, setIndex] = useState(0);
+  const [visible, setVisible] = useState(true);
+
+  useEffect(() => {
+    if (!testimonials || testimonials.length <= 1) return;
+    const cycle = setInterval(() => {
+      setVisible(false);
+      setTimeout(() => {
+        setIndex((i) => (i + 1) % testimonials.length);
+        setVisible(true);
+      }, 500);
+    }, 5500);
+    return () => clearInterval(cycle);
+  }, [testimonials]);
+
+  if (!testimonials || testimonials.length === 0) return null;
+
+  const t = testimonials[index];
+  const quote = (t.text || '').trim();
+  if (!quote) return null;
+  const displayQuote = quote.length > 240 ? `${quote.slice(0, 237)}…` : quote;
+  const rolePart = (t.role || '').trim();
+  const attrib = [t.name, rolePart].filter(Boolean).join(rolePart ? ' · ' : '');
+
+  return (
+    <div
+      data-testid={`upcoming-card-testimonial-${programId}`}
+      className="border-t border-[#D4AF37]/15 bg-gradient-to-b from-amber-50/50 via-white to-white px-4 py-3"
+    >
+      <div
+        className="transition-all duration-500 ease-out"
+        style={{
+          opacity: visible ? 1 : 0,
+          transform: visible ? 'translateY(0)' : 'translateY(5px)',
+        }}
+      >
+        <p className="text-[11px] sm:text-xs text-gray-700 leading-relaxed italic text-center">
+          &ldquo;{displayQuote}&rdquo;
+        </p>
+        {attrib ? (
+          <p className="text-[10px] text-center text-[#9a7b2d] font-medium mt-2 tracking-wide">
+            — {attrib}
+          </p>
+        ) : null}
+      </div>
+    </div>
+  );
+};
+
 /* ─── FOMO Subtitle Rotator ─── */
 const FomoSubtitle = ({ messages, style }) => {
   const [index, setIndex] = useState(0);
@@ -206,7 +280,7 @@ function durationPillDisplay(isAnnualTier, durationStr) {
   return durationStr;
 }
 
-const UpcomingCard = ({ program }) => {
+const UpcomingCard = ({ program, testimonials: cardTestimonials }) => {
   const navigate = useNavigate();
   const { getPrice, getOfferPrice, symbol, country: detectedCountry } = useCurrency();
   const { addItem, items } = useCart();
@@ -521,6 +595,9 @@ const UpcomingCard = ({ program }) => {
           </div>
         )}
       </div>
+      {Array.isArray(cardTestimonials) && cardTestimonials.length > 0 && (
+        <CardTestimonialRotate testimonials={cardTestimonials} programId={program.id} />
+      )}
     </div>
   );
 };
@@ -645,6 +722,7 @@ const CrossSellBanner = ({ rules, programs }) => {
 
 const UpcomingProgramsSection = ({ sectionConfig, inline }) => {
   const [programs, setPrograms] = useState([]);
+  const [programTestimonials, setProgramTestimonials] = useState({});
   const [sponsorData, setSponsorData] = useState(null);
   const [sponsorConfig, setSponsorConfig] = useState(null);
   const [comboDiscount, setComboDiscount] = useState(null);
@@ -677,6 +755,28 @@ const UpcomingProgramsSection = ({ sectionConfig, inline }) => {
     }).catch(() => {});
   }, []);
 
+  useEffect(() => {
+    if (programs.length === 0) return;
+    let cancelled = false;
+    axios
+      .get(`${API}/testimonials?visible_only=true`)
+      .then((r) => {
+        if (cancelled) return;
+        const all = r.data || [];
+        const map = {};
+        programs.forEach((p) => {
+          map[String(p.id)] = testimonialsForProgram(all, p);
+        });
+        setProgramTestimonials(map);
+      })
+      .catch(() => {
+        if (!cancelled) setProgramTestimonials({});
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [programs]);
+
   if (programs.length === 0) return null;
 
   const statusOrder = { open: 0, coming_soon: 1, closed: 2 };
@@ -704,7 +804,13 @@ const UpcomingProgramsSection = ({ sectionConfig, inline }) => {
             <h2 className="text-xl md:text-2xl text-gray-900" style={applyTitleStyle(sectionConfig?.title_style, {})}>{sectionConfig?.title || 'Upcoming Programs'}</h2>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 items-stretch">
-            {sorted.map(program => <UpcomingCard key={program.id} program={program} />)}
+            {sorted.map((program) => (
+              <UpcomingCard
+                key={program.id}
+                program={program}
+                testimonials={programTestimonials[String(program.id)]}
+              />
+            ))}
           </div>
         </>
       ) : (
@@ -742,7 +848,13 @@ const UpcomingProgramsSection = ({ sectionConfig, inline }) => {
                 )}
               </div>
               {/* Cards */}
-              {sorted.map(program => <UpcomingCard key={program.id} program={program} />)}
+              {sorted.map((program) => (
+                <UpcomingCard
+                  key={program.id}
+                  program={program}
+                  testimonials={programTestimonials[String(program.id)]}
+                />
+              ))}
 
               {/* Combo Discount Banner — spans full width below cards on mobile, beside sponsor on desktop */}
               {comboDiscount && openPrograms.length >= (comboDiscount.rules[0]?.min_programs || 2) && (
