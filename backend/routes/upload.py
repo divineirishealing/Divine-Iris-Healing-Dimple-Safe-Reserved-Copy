@@ -155,33 +155,50 @@ async def upload_storage_status():
     ephemeral = _host_uses_ephemeral_disk_by_default()
     s3_on = s3_storage.is_s3_enabled()
     require_s3 = s3_storage.media_must_use_s3()
+    host_u = (os.environ.get("HOST_URL") or "").strip().rstrip("/")
     if s3_on:
         mode = (os.environ.get("S3_URL_FOR_BROWSER") or "direct").strip().lower()
         if mode in ("api", "proxy", "backend"):
-            plain = (
-                "New uploads return URLs via this API (/api/s3-media/...) so images work without a public S3 bucket. "
-                "Set HOST_URL to this service’s public URL. Re-save any program that still has an old s3.amazonaws.com link."
-            )
+            if not host_u:
+                plain = (
+                    "S3_URL_FOR_BROWSER=api but HOST_URL is empty — set HOST_URL on Render to this API’s https address "
+                    "(copy from the service URL in Render), redeploy, then upload again."
+                )
+            else:
+                plain = (
+                    "Easy mode: images are served through this API (/api/s3-media/...). You do NOT need to make the S3 "
+                    "bucket public. Ensure your IAM user has s3:GetObject on your uploads folder (same user as PutObject)."
+                )
         else:
             plain = (
-                "New uploads use direct S3 HTTPS links. If images upload but do not show on the site, the bucket likely "
-                "blocks public reads: add a bucket policy for s3:GetObject on your uploads prefix (see env.example), "
-                "or set S3_URL_FOR_BROWSER=api plus HOST_URL and re-upload / re-save the image."
+                "New uploads use direct S3 HTTPS links. If images do not show, either make the bucket publicly readable "
+                "for uploads/* (AWS S3 bucket policy) or switch S3_URL_FOR_BROWSER=api and set HOST_URL."
             )
     elif ephemeral:
         plain = "S3 is not active on this server — new uploads use temporary disk and can vanish after restart. Check bucket name, region, and API keys on the backend host, then redeploy."
     else:
         plain = "New uploads are saved on this computer’s disk (fine for local development)."
+    mode_out = (os.environ.get("S3_URL_FOR_BROWSER") or "direct").strip().lower()
+    s3_pref = (os.environ.get("AWS_S3_PREFIX") or "uploads").strip().strip("/")
+    checklist = []
+    if s3_on and mode_out in ("api", "proxy", "backend"):
+        checklist = [
+            f"Render: HOST_URL must be your API base, e.g. https://your-service.onrender.com (currently: {host_u or 'NOT SET — fix this'})",
+            f"AWS IAM: allow s3:GetObject and s3:PutObject on arn:aws:s3:::{bucket or 'YOUR_BUCKET'}/{s3_pref}/*",
+            "Vercel: REACT_APP_BACKEND_URL must match that same API base; redeploy frontend after changes.",
+        ]
     return {
         "simple": plain,
+        "your_next_steps": checklist,
         "image_upload_will_use": _image_upload_backend(),
         "require_s3_for_uploads": require_s3,
         "s3_enabled": s3_on,
         "s3_bucket": bucket if bucket else None,
+        "host_url_configured": bool(host_u),
         "aws_region_configured": region,
         "aws_static_access_key_configured": bool(s3_storage.credentials_configured()),
         "aws_s3_use_iam_role": s3_storage.use_iam_role_without_static_keys(),
-        "s3_url_for_browser": (os.environ.get("S3_URL_FOR_BROWSER") or "direct").strip().lower(),
+        "s3_url_for_browser": mode_out,
         "host_treats_local_disk_as_ephemeral": ephemeral,
         "local_api_image_paths_blocked": ephemeral and not _allow_ephemeral_disk_uploads(),
         "allow_ephemeral_uploads_env_override": _allow_ephemeral_disk_uploads(),
