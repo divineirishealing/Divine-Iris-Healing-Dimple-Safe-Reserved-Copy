@@ -211,6 +211,59 @@ const CardTestimonialRotate = ({ quotes, programId }) => {
   );
 };
 
+/**
+ * Second row: testimonials only, below the program + sponsor grid (slight gap via mt-4).
+ * Desktop: same column template as cards so quotes sit under each program; sponsor column empty.
+ * Mobile: only programs that have quotes, in program order.
+ */
+const UpcomingTestimonialsRow = ({ sorted, quotesByProgramId, gridClass, titleSpan, inline }) => {
+  const hasAny = sorted.some((p) => (quotesByProgramId[normalizePid(p.id)] || []).length > 0);
+  if (!hasAny) return null;
+
+  if (inline) {
+    return (
+      <div
+        data-testid="upcoming-testimonials-row"
+        className="mt-4 sm:mt-5 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 items-start"
+      >
+        {sorted.map((program) => {
+          const q = quotesByProgramId[normalizePid(program.id)];
+          return (
+            <div key={program.id} className="min-w-0">
+              {q?.length > 0 ? <CardTestimonialRotate quotes={q} programId={program.id} /> : null}
+            </div>
+          );
+        })}
+      </div>
+    );
+  }
+
+  return (
+    <div data-testid="upcoming-testimonials-row" className="mt-4 sm:mt-5">
+      <div className="space-y-2.5 lg:hidden">
+        {sorted.map((program) => {
+          const q = quotesByProgramId[normalizePid(program.id)];
+          if (!q?.length) return null;
+          return <CardTestimonialRotate key={program.id} quotes={q} programId={program.id} />;
+        })}
+      </div>
+      <div className={`hidden lg:grid ${gridClass} gap-6 gap-y-3 items-start`}>
+        <div className={titleSpan} aria-hidden />
+        <div aria-hidden className="min-w-0" />
+        {sorted.map((program) => {
+          const q = quotesByProgramId[normalizePid(program.id)];
+          return (
+            <div key={program.id} className="min-w-0">
+              {q?.length > 0 ? <CardTestimonialRotate quotes={q} programId={program.id} /> : null}
+            </div>
+          );
+        })}
+        <div aria-hidden className="min-w-0" />
+      </div>
+    </div>
+  );
+};
+
 /* ─── FOMO Subtitle Rotator ─── */
 const FomoSubtitle = ({ messages, style }) => {
   const [index, setIndex] = useState(0);
@@ -310,7 +363,7 @@ function durationPillDisplay(isAnnualTier, durationStr) {
   return durationStr;
 }
 
-const UpcomingCard = ({ program, cardQuotes }) => {
+const UpcomingCard = ({ program }) => {
   const navigate = useNavigate();
   const { getPrice, getOfferPrice, symbol, country: detectedCountry } = useCurrency();
   const { addItem, items } = useCart();
@@ -412,9 +465,8 @@ const UpcomingCard = ({ program, cardQuotes }) => {
     tiers.length <= 1 ? 'grid-cols-1' : tiers.length === 2 ? 'grid-cols-2' : 'grid-cols-3';
 
   return (
-    <div className="flex flex-col h-full min-h-0" data-testid={`upcoming-card-wrap-${program.id}`}>
     <div data-testid={`upcoming-card-${program.id}`}
-      className={`group bg-white rounded-xl overflow-hidden shadow-lg transition-all duration-300 border border-gray-100 flex flex-col flex-1 min-h-0 ${enrollStatus === 'closed' ? 'opacity-60' : 'hover:shadow-2xl'}`}>
+      className={`group bg-white rounded-xl overflow-hidden shadow-lg transition-all duration-300 border border-gray-100 flex flex-col h-full ${enrollStatus === 'closed' ? 'opacity-60' : 'hover:shadow-2xl'}`}>
       <div className="relative h-48 overflow-hidden cursor-pointer" onClick={() => navigate(`/program/${program.id}`)}>
         <img src={resolveImageUrl(program.image)} alt={program.title}
           className={`w-full h-full object-cover transition-transform duration-500 ${enrollStatus === 'open' ? 'group-hover:scale-105' : enrollStatus === 'closed' ? 'grayscale-[40%]' : ''}`}
@@ -626,12 +678,6 @@ const UpcomingCard = ({ program, cardQuotes }) => {
           </div>
         )}
       </div>
-    </div>
-    {Array.isArray(cardQuotes) && cardQuotes.length > 0 && (
-      <div className="mt-0.5 shrink-0">
-        <CardTestimonialRotate quotes={cardQuotes} programId={program.id} />
-      </div>
-    )}
     </div>
   );
 };
@@ -863,13 +909,14 @@ const UpcomingProgramsSection = ({ sectionConfig, inline }) => {
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 items-stretch">
             {sorted.map((program) => (
-              <UpcomingCard
-                key={program.id}
-                program={program}
-                cardQuotes={programCardQuotes[normalizePid(program.id)]}
-              />
+              <UpcomingCard key={program.id} program={program} />
             ))}
           </div>
+          <UpcomingTestimonialsRow
+            inline
+            sorted={sorted}
+            quotesByProgramId={programCardQuotes}
+          />
         </>
       ) : (
         /* Adaptive grid: columns = program count + 1 (for sponsor), max 4 */
@@ -878,6 +925,7 @@ const UpcomingProgramsSection = ({ sectionConfig, inline }) => {
           const gridClass = totalCols === 2 ? 'lg:grid-cols-2' : totalCols === 3 ? 'lg:grid-cols-3' : 'lg:grid-cols-4';
           const titleSpan = totalCols === 2 ? 'lg:col-span-1' : totalCols === 3 ? 'lg:col-span-2' : 'lg:col-span-3';
           return (
+            <>
             <div className={`grid grid-cols-1 ${gridClass} gap-6 items-stretch`}>
               {/* Title row */}
               <div className={`${titleSpan} text-center`}>
@@ -907,11 +955,7 @@ const UpcomingProgramsSection = ({ sectionConfig, inline }) => {
               </div>
               {/* Cards */}
               {sorted.map((program) => (
-                <UpcomingCard
-                  key={program.id}
-                  program={program}
-                  cardQuotes={programCardQuotes[normalizePid(program.id)]}
-                />
+                <UpcomingCard key={program.id} program={program} />
               ))}
 
               {/* Combo Discount Banner — spans full width below cards on mobile, beside sponsor on desktop */}
@@ -928,6 +972,13 @@ const UpcomingProgramsSection = ({ sectionConfig, inline }) => {
                 <SponsorCard sponsorData={sponsorData} />
               </div>
             </div>
+            <UpcomingTestimonialsRow
+              sorted={sorted}
+              quotesByProgramId={programCardQuotes}
+              gridClass={gridClass}
+              titleSpan={titleSpan}
+            />
+            </>
           );
         })()
       )}
