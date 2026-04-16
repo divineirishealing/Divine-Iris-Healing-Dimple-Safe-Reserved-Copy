@@ -40,7 +40,7 @@ const SeoSettingsTab = ({ settings, onChange }) => {
     (s.seo_default_title || 'Your site title').length > 70
       ? `${(s.seo_default_title || '').slice(0, 67)}…`
       : s.seo_default_title || 'Your site title';
-  const previewUrl = (s.seo_site_url || 'https://yoursite.com').replace(/\/$/, '') || 'https://yoursite.com';
+  const previewUrl = (s.seo_site_url || 'https://divineirishealing.com').replace(/\/$/, '') || 'https://divineirishealing.com';
   const previewDesc =
     (s.seo_default_description || 'Your description will appear here. Write 1–2 sentences: who you help, what you offer, and your location or niche.')
       .length > 160
