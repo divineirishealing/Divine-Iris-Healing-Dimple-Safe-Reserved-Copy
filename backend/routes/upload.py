@@ -124,13 +124,30 @@ def _s3_put_then_fallback(
 ) -> tuple[str, str]:
     """
     Try S3 first when enabled; on any failure use Cloudinary (if allowed+configured) else local disk.
+    When REQUIRE_S3_FOR_UPLOADS is set, S3 must be configured and PutObject must succeed — no fallback.
     Returns (url, filename for client).
     """
+    must_s3 = s3_storage.media_must_use_s3()
+    if must_s3 and not s3_storage.is_s3_enabled():
+        raise HTTPException(
+            status_code=503,
+            detail=(
+                "REQUIRE_S3_FOR_UPLOADS is enabled but S3 is not fully configured. "
+                "Set AWS_S3_BUCKET, AWS_REGION (bucket region), and credentials or AWS_S3_USE_IAM_ROLE, then redeploy. "
+                "Open GET /api/upload/storage-status for a diagnostic summary."
+            ),
+        )
     if s3_storage.is_s3_enabled():
         try:
             url = s3_storage.upload_bytes(s3_key, file_bytes, _guess_content_type(unique_filename))
             return _return_upload(url, unique_filename)
         except Exception as e:
+            if must_s3:
+                logger.warning("S3 upload failed; REQUIRE_S3_FOR_UPLOADS disallows fallback: %s", e)
+                raise HTTPException(
+                    status_code=503,
+                    detail=f"S3 upload failed (no fallback allowed): {e}",
+                ) from e
             logger.warning("S3 upload failed; using fallback: %s", e)
             if _CLOUDINARY_AVAILABLE and allow_cloudinary:
                 url = _upload_to_cloudinary(file_bytes, unique_filename, resource_type=cloudinary_resource)
@@ -150,6 +167,8 @@ def _guess_content_type(filename: str) -> str:
 
 
 def _image_upload_backend() -> str:
+    if s3_storage.media_must_use_s3():
+        return "s3" if s3_storage.is_s3_enabled() else "blocked_require_s3"
     if s3_storage.is_s3_enabled():
         return "s3"
     if _CLOUDINARY_AVAILABLE:
@@ -168,8 +187,10 @@ async def upload_storage_status():
     )
     ephemeral = _host_uses_ephemeral_disk_by_default()
     s3_on = s3_storage.is_s3_enabled()
+    require_s3 = s3_storage.media_must_use_s3()
     return {
         "image_upload_will_use": _image_upload_backend(),
+        "require_s3_for_uploads": require_s3,
         "s3_enabled": s3_on,
         "s3_bucket": bucket if bucket else None,
         "aws_region_configured": region,
@@ -179,9 +200,11 @@ async def upload_storage_status():
         "host_treats_local_disk_as_ephemeral": ephemeral,
         "local_api_image_paths_blocked": ephemeral and not _allow_ephemeral_disk_uploads(),
         "allow_ephemeral_uploads_env_override": _allow_ephemeral_disk_uploads(),
-        "hint": "If AWS is incomplete, either fix IAM (s3:PutObject) or set CLOUDINARY_URL on this API — uploads fall back to Cloudinary or local disk when S3 errors. "
-        "Easiest fix without AWS: remove AWS_S3_BUCKET and add CLOUDINARY_URL from cloudinary.com, then redeploy. "
-        "On Render/Railway, local disk is not persistent — without Cloudinary or working S3, images disappear after restart.",
+        "hint": (
+            "When REQUIRE_S3_FOR_UPLOADS=true, all media must land in S3 — no Cloudinary or local fallback. "
+            "Otherwise: if AWS is incomplete, fix IAM (s3:PutObject) or set CLOUDINARY_URL — uploads fall back when S3 errors. "
+            "On Render/Railway, local disk is not persistent — without Cloudinary or working S3, images disappear after restart."
+        ),
     }
 
 

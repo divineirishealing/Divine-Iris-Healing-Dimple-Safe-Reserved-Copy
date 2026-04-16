@@ -4,7 +4,9 @@ Payment Management - Bank Accounts, Manual Payments, Approvals
 from fastapi import APIRouter, HTTPException, UploadFile, File, Form
 from pydantic import BaseModel
 from typing import Optional, List
-import uuid, os
+import logging
+import uuid
+import os
 from datetime import datetime, timezone
 from motor.motor_asyncio import AsyncIOMotorClient
 from dotenv import load_dotenv
@@ -21,6 +23,8 @@ router = APIRouter(prefix="/api/payment-mgmt", tags=["Payment Management"])
 mongo_url = os.environ['MONGO_URL']
 _client = AsyncIOMotorClient(mongo_url)
 db = _client[os.environ['DB_NAME']]
+
+logger = logging.getLogger(__name__)
 
 UPLOAD_DIR = ROOT_DIR / 'uploads' / 'payment_proofs'
 UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
@@ -107,9 +111,27 @@ async def submit_manual_payment(
         fname = f"{client_id}_{eff_emi}_{uuid.uuid4().hex[:8]}.{ext}"
         content = await receipt.read()
         mime = mimetypes.types_map.get(f".{ext.lower()}") or "image/png"
+        must_s3 = s3_storage.media_must_use_s3()
+        if must_s3 and not s3_storage.is_s3_enabled():
+            raise HTTPException(
+                status_code=503,
+                detail=(
+                    "Receipt uploads require S3 (REQUIRE_S3_FOR_UPLOADS) but S3 is not configured. "
+                    "See GET /api/upload/storage-status."
+                ),
+            )
         if s3_storage.is_s3_enabled():
             key = s3_storage.payment_proof_key(fname)
-            receipt_url = s3_storage.upload_bytes(key, content, mime)
+            try:
+                receipt_url = s3_storage.upload_bytes(key, content, mime)
+            except Exception as e:
+                if must_s3:
+                    raise HTTPException(status_code=503, detail=f"S3 upload failed: {e}") from e
+                logger.warning("S3 receipt upload failed; saving locally: %s", e)
+                fpath = UPLOAD_DIR / fname
+                with open(fpath, "wb") as f:
+                    f.write(content)
+                receipt_url = f"/api/uploads/payment_proofs/{fname}"
         else:
             fpath = UPLOAD_DIR / fname
             with open(fpath, "wb") as f:

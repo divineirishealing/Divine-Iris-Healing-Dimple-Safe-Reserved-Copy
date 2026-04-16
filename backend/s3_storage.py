@@ -13,6 +13,8 @@ Env:
   AWS_S3_ENDPOINT_URL     — optional (MinIO, LocalStack)
   AWS_S3_OBJECT_ACL       — optional e.g. public-read (omit if bucket uses “Bucket owner enforced” + bucket policy)
   AWS_S3_ADDRESSING_STYLE — optional path | virtual (default auto; try path for some S3-compatible APIs)
+  REQUIRE_S3_FOR_UPLOADS — if true (or legacy AWS_S3_REQUIRED), media uploads must succeed on S3 only
+    (no Cloudinary or local-disk fallback). Use on production when all images must live in the bucket.
 
 Objects must be readable in the browser: use a bucket policy allowing s3:GetObject
 on arn:aws:s3:::YOUR_BUCKET/uploads/* (or your prefix). Do not rely on ACLs if
@@ -63,6 +65,12 @@ def is_s3_enabled() -> bool:
     if use_iam_role_without_static_keys():
         return True
     return credentials_configured()
+
+
+def media_must_use_s3() -> bool:
+    """When true, callers must not fall back to Cloudinary or local disk for media."""
+    v = (os.environ.get("REQUIRE_S3_FOR_UPLOADS") or os.environ.get("AWS_S3_REQUIRED") or "").strip()
+    return v.lower() in ("true", "1", "yes")
 
 
 def _public_url(bucket: str, key: str, *, s3_region: str | None = None) -> str:

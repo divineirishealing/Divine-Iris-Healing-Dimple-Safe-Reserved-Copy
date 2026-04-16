@@ -230,14 +230,32 @@ async def submit_payment_proof(
     if enrollment_id != "MANUAL":
         enrollment = await db.enrollments.find_one({"id": enrollment_id}, {"_id": 0}) or {}
 
-    # Save screenshot (S3 when AWS_S3_BUCKET is set, else local disk)
+    # Save screenshot (S3 when configured, else local disk unless REQUIRE_S3_FOR_UPLOADS)
     ext = screenshot.filename.split(".")[-1] if "." in screenshot.filename else "png"
     filename = f"{uuid.uuid4().hex[:12]}.{ext}"
     proof_bytes = await screenshot.read()
     mime = mimetypes.types_map.get(f".{ext.lower()}") or "image/png"
+    must_s3 = s3_storage.media_must_use_s3()
+    if must_s3 and not s3_storage.is_s3_enabled():
+        raise HTTPException(
+            status_code=503,
+            detail=(
+                "Payment proof screenshots must be stored in S3 (REQUIRE_S3_FOR_UPLOADS) but S3 is not configured. "
+                "See GET /api/upload/storage-status."
+            ),
+        )
     if s3_storage.is_s3_enabled():
         key = s3_storage.payment_proof_key(filename)
-        screenshot_public_url = s3_storage.upload_bytes(key, proof_bytes, mime)
+        try:
+            screenshot_public_url = s3_storage.upload_bytes(key, proof_bytes, mime)
+        except Exception as e:
+            if must_s3:
+                raise HTTPException(status_code=503, detail=f"S3 upload failed: {e}") from e
+            logger.warning("S3 payment proof upload failed; saving locally: %s", e)
+            filepath = UPLOAD_DIR / filename
+            with open(filepath, "wb") as f:
+                f.write(proof_bytes)
+            screenshot_public_url = f"/api/uploads/payment_proofs/{filename}"
     else:
         filepath = UPLOAD_DIR / filename
         with open(filepath, "wb") as f:
