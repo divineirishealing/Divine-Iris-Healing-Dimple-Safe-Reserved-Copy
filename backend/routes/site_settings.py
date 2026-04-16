@@ -16,6 +16,10 @@ db = client[os.environ['DB_NAME']]
 
 DEFAULT_SETTINGS = SiteSettings().dict()
 
+def _with_public_api_base(obj: SiteSettings) -> SiteSettings:
+    host = (os.environ.get("HOST_URL") or "").strip().rstrip("/")
+    return obj.model_copy(update={"public_api_base": host})
+
 DEFAULT_SECTION_TEMPLATE = [
     {"id": "journey", "section_type": "journey", "default_title": "The Journey", "default_subtitle": "", "order": 0, "is_enabled": True},
     {"id": "who_for", "section_type": "who_for", "default_title": "Who It Is For?", "default_subtitle": "A Sacred Invitation for those who resonate", "order": 1, "is_enabled": True},
@@ -28,7 +32,7 @@ async def get_settings():
     settings = await db.site_settings.find_one({"id": "site_settings"})
     if not settings:
         await db.site_settings.insert_one(DEFAULT_SETTINGS)
-        return SiteSettings(**DEFAULT_SETTINGS)
+        return _with_public_api_base(SiteSettings(**DEFAULT_SETTINGS))
     # Auto-seed section template if empty
     if not settings.get("program_section_template"):
         settings["program_section_template"] = DEFAULT_SECTION_TEMPLATE
@@ -37,7 +41,7 @@ async def get_settings():
     if settings.get("hero_title_size") == "70px":
         await db.site_settings.update_one({"id": "site_settings"}, {"$set": {"hero_title_size": "44px"}})
         settings["hero_title_size"] = "44px"
-    return SiteSettings(**settings)
+    return _with_public_api_base(SiteSettings(**settings))
 
 @router.put("")
 async def update_settings(settings: SiteSettingsUpdate):

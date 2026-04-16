@@ -6,7 +6,6 @@ import { useCurrency } from '../context/CurrencyContext';
 import { useCart } from '../context/CartContext';
 import { useToast } from '../hooks/use-toast';
 import { Monitor, Calendar, Clock, AlertTriangle, Wifi, ShoppingCart, Check, Bell, Heart, Gift, Users } from 'lucide-react';
-import { SoulfulWrittenSnippet } from './SoulfulTestimonialCard';
 
 // Map common timezone abbreviations to UTC offset in hours
 const TZ_OFFSETS = {
@@ -153,7 +152,41 @@ function testimonialsForProgram(all, program) {
   return withQuote.slice(0, 8);
 }
 
-/* Rotating snippets — jewel “written” template (no photos), shared with SoulfulTestimonialCard */
+/** Text-only quote under the card — no jewel header / stars / full testimonial chrome */
+const UpcomingCardQuoteText = ({ text, name, role, programId }) => {
+  const displayText = (text || '').trim();
+  if (!displayText) return null;
+  const footerName = (name || '').trim();
+  const footerRole = (role || '').trim();
+  const attribution = [footerName, footerRole].filter(Boolean);
+  return (
+    <div
+      data-testid={`upcoming-card-testimonial-${programId}`}
+      className="border-t border-[#D4AF37]/25 bg-gradient-to-b from-amber-50/50 to-transparent px-3 py-2.5"
+    >
+      <p
+        className="text-center italic leading-snug text-gray-800 tracking-wide"
+        style={{
+          fontFamily: "'Cormorant Garamond', Georgia, serif",
+          fontSize: 'clamp(0.92rem, 3.2vw, 1.05rem)',
+          fontWeight: 600,
+        }}
+      >
+        &ldquo;{displayText}&rdquo;
+      </p>
+      {attribution.length > 0 && (
+        <p
+          className="text-center text-[0.65rem] text-gray-500 mt-1.5"
+          style={{ fontFamily: "'Lato', sans-serif" }}
+        >
+          {attribution.join(' · ')}
+        </p>
+      )}
+    </div>
+  );
+};
+
+/* Rotating snippets — plain text only */
 const CardTestimonialRotate = ({ quotes, programId }) => {
   const [index, setIndex] = useState(0);
   const [visible, setVisible] = useState(true);
@@ -177,16 +210,14 @@ const CardTestimonialRotate = ({ quotes, programId }) => {
   if (!quote) return null;
 
   return (
-    <div data-testid={`upcoming-card-testimonial-${programId}`}>
-      <div
-        className="transition-all duration-500 ease-out"
-        style={{
-          opacity: visible ? 1 : 0,
-          transform: visible ? 'translateY(0)' : 'translateY(5px)',
-        }}
-      >
-        <SoulfulWrittenSnippet text={quote} name={t.name} role={t.role} />
-      </div>
+    <div
+      className="transition-all duration-500 ease-out"
+      style={{
+        opacity: visible ? 1 : 0,
+        transform: visible ? 'translateY(0)' : 'translateY(5px)',
+      }}
+    >
+      <UpcomingCardQuoteText text={quote} name={t.name} role={t.role} programId={programId} />
     </div>
   );
 };

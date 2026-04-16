@@ -379,6 +379,8 @@ class SectionStyle(BaseModel):
 
 class SiteSettings(BaseModel):
     id: str = "site_settings"
+    # Set from server HOST_URL on GET only — not stored in Mongo; helps the static site prefix /api/image URLs
+    public_api_base: str = ""
     heading_font: str = "Playfair Display"
     body_font: str = "Lato"
     heading_color: str = "#1a1a1a"

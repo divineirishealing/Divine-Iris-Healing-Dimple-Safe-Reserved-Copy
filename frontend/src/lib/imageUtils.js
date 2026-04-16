@@ -1,11 +1,32 @@
 import { BACKEND_URL as CONFIG_BACKEND_URL } from './config';
 
+const PUBLIC_API_STORAGE_KEY = 'divine_iris_public_api_base';
+
+/** Call when /api/settings loads — HOST_URL from the server helps /api/image URLs if the bundle lacked REACT_APP_BACKEND_URL. */
+export function rememberPublicApiBase(url) {
+  if (typeof window === 'undefined' || url == null) return;
+  const u = String(url).trim().replace(/\/$/, '');
+  if (!u) return;
+  try {
+    sessionStorage.setItem(PUBLIC_API_STORAGE_KEY, u);
+  } catch (_) {
+    /* private mode / quota */
+  }
+}
+
 /**
- * Same origin resolution as the rest of the app (env at build time, else window.location.origin).
- * Must match axios/API base so /api/image/... loads from the real API host, not the static site.
+ * Origin for resolving /api/... media paths — build-time env first, then server-reported public_api_base.
  */
 function backendOrigin() {
-  return (CONFIG_BACKEND_URL || '').replace(/\/$/, '');
+  const env = (CONFIG_BACKEND_URL || '').replace(/\/$/, '');
+  if (env) return env;
+  if (typeof window !== 'undefined') {
+    try {
+      const stored = sessionStorage.getItem(PUBLIC_API_STORAGE_KEY);
+      if (stored) return stored.replace(/\/$/, '');
+    } catch (_) {}
+  }
+  return '';
 }
 
 /** True if the value looks like an image URL (excludes mistaken plain text such as a client name). */

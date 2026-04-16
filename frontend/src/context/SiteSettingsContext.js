@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import axios from 'axios';
+import { rememberPublicApiBase } from '../lib/imageUtils';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
@@ -28,6 +29,8 @@ export const SiteSettingsProvider = ({ children }) => {
 
   const applySettings = (s) => {
     if (!s) return;
+    const apiBase = (s.public_api_base || '').trim().replace(/\/$/, '');
+    if (apiBase) rememberPublicApiBase(apiBase);
     const root = document.documentElement;
 
     const headingFont = s.heading_font || 'Playfair Display';
