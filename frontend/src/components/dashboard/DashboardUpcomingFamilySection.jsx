@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
-import { Calendar, Sparkles, Users, Loader2, Plus, Trash2, CreditCard, Clock, AlertTriangle } from 'lucide-react';
+import { Calendar, Sparkles, Users, Loader2, Plus, Trash2, CreditCard, Clock, AlertTriangle, Lock } from 'lucide-react';
 import { useToast } from '../../hooks/use-toast';
 import { useCurrency } from '../../context/CurrencyContext';
 import { useSiteSettings } from '../../context/SiteSettingsContext';
@@ -10,6 +10,9 @@ import { formatDateDdMonYyyy } from '../../lib/utils';
 import DashboardProgramPaymentModal from './DashboardProgramPaymentModal';
 
 const API = process.env.REACT_APP_BACKEND_URL;
+
+/** Cap parallel quote / promo requests (matches backend upcoming program list cap). */
+const DASHBOARD_UPCOMING_PREFETCH_LIMIT = 100;
 
 const RELATIONSHIPS = ['Spouse', 'Child', 'Parent', 'Sibling', 'Other'];
 const OTHER_RELATIONSHIPS = ['Friend', 'Cousin', 'Relative', 'Uncle / Aunt', 'Grandparent', 'Other'];
@@ -21,6 +24,7 @@ function GuestMemberTable({
   relationshipFallback,
   wrapTestId,
   tableTestId,
+  readOnly = false,
 }) {
   const updateRow = (idx, field, value) => {
     setMembers((m) => {
@@ -87,7 +91,8 @@ function GuestMemberTable({
                 <input
                   value={m.name}
                   onChange={(e) => updateRow(idx, 'name', e.target.value)}
-                  className="w-full min-w-[6rem] text-[11px] border border-slate-200 rounded px-1.5 py-1 bg-white"
+                  disabled={readOnly}
+                  className="w-full min-w-[6rem] text-[11px] border border-slate-200 rounded px-1.5 py-1 bg-white disabled:opacity-60 disabled:bg-slate-50"
                   placeholder="Full name"
                 />
               </td>
@@ -95,7 +100,8 @@ function GuestMemberTable({
                 <select
                   value={m.relationship || relationshipFallback}
                   onChange={(e) => updateRow(idx, 'relationship', e.target.value)}
-                  className="w-full max-w-[6.5rem] text-[11px] border border-slate-200 rounded px-1 py-1 bg-white"
+                  disabled={readOnly}
+                  className="w-full max-w-[6.5rem] text-[11px] border border-slate-200 rounded px-1 py-1 bg-white disabled:opacity-60 disabled:bg-slate-50"
                 >
                   {relationships.map((r) => (
                     <option key={r} value={r}>
@@ -108,6 +114,7 @@ function GuestMemberTable({
                 <input
                   type="date"
                   value={(m.date_of_birth || '').slice(0, 10)}
+                  disabled={readOnly}
                   onChange={(e) => {
                     const v = e.target.value;
                     setMembers((prev) => {
@@ -127,7 +134,7 @@ function GuestMemberTable({
                       return next;
                     });
                   }}
-                  className="w-full text-[11px] border border-slate-200 rounded px-1 py-1 bg-white"
+                  className="w-full text-[11px] border border-slate-200 rounded px-1 py-1 bg-white disabled:opacity-60 disabled:bg-slate-50"
                 />
               </td>
               <td className="px-2 py-1.5 align-middle">
@@ -137,7 +144,8 @@ function GuestMemberTable({
                   max={120}
                   value={m.age || ''}
                   onChange={(e) => updateRow(idx, 'age', e.target.value)}
-                  className="w-full max-w-[3.5rem] text-[11px] border border-slate-200 rounded px-1 py-1 bg-white tabular-nums"
+                  disabled={readOnly}
+                  className="w-full max-w-[3.5rem] text-[11px] border border-slate-200 rounded px-1 py-1 bg-white tabular-nums disabled:opacity-60 disabled:bg-slate-50"
                   placeholder="—"
                 />
               </td>
@@ -145,7 +153,8 @@ function GuestMemberTable({
                 <input
                   value={m.city || ''}
                   onChange={(e) => updateRow(idx, 'city', e.target.value)}
-                  className="w-full min-w-[4rem] text-[11px] border border-slate-200 rounded px-1.5 py-1 bg-white"
+                  disabled={readOnly}
+                  className="w-full min-w-[4rem] text-[11px] border border-slate-200 rounded px-1.5 py-1 bg-white disabled:opacity-60 disabled:bg-slate-50"
                   placeholder="City"
                 />
               </td>
@@ -153,7 +162,8 @@ function GuestMemberTable({
                 <input
                   value={m.country || ''}
                   onChange={(e) => updateRow(idx, 'country', e.target.value.toUpperCase().slice(0, 4))}
-                  className="w-full max-w-[3.5rem] text-[11px] border border-slate-200 rounded px-1 py-1 bg-white uppercase"
+                  disabled={readOnly}
+                  className="w-full max-w-[3.5rem] text-[11px] border border-slate-200 rounded px-1 py-1 bg-white uppercase disabled:opacity-60 disabled:bg-slate-50"
                   placeholder="IN"
                   title="ISO country code (e.g. IN, AE, US)"
                 />
@@ -162,7 +172,8 @@ function GuestMemberTable({
                 <input
                   value={m.email || ''}
                   onChange={(e) => updateRow(idx, 'email', e.target.value)}
-                  className="w-full min-w-[7rem] text-[11px] border border-slate-200 rounded px-1.5 py-1 bg-white"
+                  disabled={readOnly}
+                  className="w-full min-w-[7rem] text-[11px] border border-slate-200 rounded px-1.5 py-1 bg-white disabled:opacity-60 disabled:bg-slate-50"
                   placeholder={m.notify_enrollment ? 'Required if notifying' : 'Optional'}
                 />
               </td>
@@ -170,7 +181,8 @@ function GuestMemberTable({
                 <input
                   value={m.phone || ''}
                   onChange={(e) => updateRow(idx, 'phone', e.target.value)}
-                  className="w-full min-w-[5.5rem] text-[11px] border border-slate-200 rounded px-1.5 py-1 bg-white"
+                  disabled={readOnly}
+                  className="w-full min-w-[5.5rem] text-[11px] border border-slate-200 rounded px-1.5 py-1 bg-white disabled:opacity-60 disabled:bg-slate-50"
                   placeholder="Optional"
                 />
               </td>
@@ -178,7 +190,8 @@ function GuestMemberTable({
                 <select
                   value={m.attendance_mode === 'offline' ? 'offline' : 'online'}
                   onChange={(e) => updateRow(idx, 'attendance_mode', e.target.value)}
-                  className="w-full max-w-[5.5rem] text-[11px] border border-slate-200 rounded px-1 py-1 bg-white"
+                  disabled={readOnly}
+                  className="w-full max-w-[5.5rem] text-[11px] border border-slate-200 rounded px-1 py-1 bg-white disabled:opacity-60 disabled:bg-slate-50"
                   aria-label="Online or offline"
                 >
                   <option value="online">Online</option>
@@ -191,19 +204,22 @@ function GuestMemberTable({
                   className="rounded border-slate-300 w-3.5 h-3.5"
                   checked={!!m.notify_enrollment}
                   onChange={(e) => updateRow(idx, 'notify_enrollment', e.target.checked)}
+                  disabled={readOnly}
                   title="Send enrollment details to this email after payment is confirmed"
                   aria-label="Notify by email when enrolled"
                 />
               </td>
               <td className="px-1 py-1.5 align-middle text-center">
-                <button
-                  type="button"
-                  onClick={() => removeRow(idx)}
-                  className="p-1.5 rounded-md text-slate-400 hover:text-red-600 hover:bg-red-50 inline-flex"
-                  aria-label="Remove row"
-                >
-                  <Trash2 size={15} />
-                </button>
+                {!readOnly ? (
+                  <button
+                    type="button"
+                    onClick={() => removeRow(idx)}
+                    className="p-1.5 rounded-md text-slate-400 hover:text-red-600 hover:bg-red-50 inline-flex"
+                    aria-label="Remove row"
+                  >
+                    <Trash2 size={15} />
+                  </button>
+                ) : null}
               </td>
             </tr>
           ))}
@@ -361,7 +377,11 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh }) 
   const [payChannel, setPayChannel] = useState('stripe');
   const [programPaymentModal, setProgramPaymentModal] = useState(null);
 
-  const upcoming = homeData?.upcoming_programs || [];
+  const upcomingList = homeData?.upcoming_programs || [];
+  const programsForPrefetch = useMemo(
+    () => upcomingList.slice(0, DASHBOARD_UPCOMING_PREFETCH_LIMIT),
+    [upcomingList]
+  );
   const programPortalMap = homeData?.dashboard_program_offers || {};
   const paymentMethods = homeData?.payment_methods || ['stripe'];
   const offers = homeData?.dashboard_offers || {};
@@ -369,6 +389,9 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh }) 
   const familyOffer = offers.family || {};
   const extendedOffer = offers.extended || {};
   const isAnnual = homeData?.is_annual_subscriber;
+  const immediateFamilyLocked = !!homeData?.immediate_family_locked;
+  const immediateFamilyEditApproved = !!homeData?.immediate_family_editing_approved;
+  const immediateFamilyReadOnly = immediateFamilyLocked && !immediateFamilyEditApproved;
   const initialMembers = useMemo(() => homeData?.immediate_family || [], [homeData?.immediate_family]);
   const initialOtherMembers = useMemo(() => homeData?.other_guests || [], [homeData?.other_guests]);
 
@@ -385,13 +408,13 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh }) 
   const enrollableGuests = useMemo(() => [...members, ...otherMembers], [members, otherMembers]);
 
   const nearestUpcomingProgram = useMemo(() => {
-    const list = (upcoming || [])
+    const list = upcomingList
       .filter((p) => p && (p.deadline_date || p.start_date))
       .sort((a, b) =>
         String(a.deadline_date || a.start_date || '').localeCompare(String(b.deadline_date || b.start_date || ''))
       );
     return list[0] || null;
-  }, [upcoming]);
+  }, [upcomingList]);
   const countdownDeadline = nearestUpcomingProgram
     ? nearestUpcomingProgram.deadline_date || nearestUpcomingProgram.start_date
     : null;
@@ -545,17 +568,16 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh }) 
     return '';
   }, [isAnnual, annualOffer, familyOffer, extendedOffer]);
 
-  const upcomingSliceKey = useMemo(
-    () => (upcoming || []).slice(0, 6).map((p) => p.id).join(','),
-    [upcoming]
+  const prefetchProgramsKey = useMemo(
+    () => programsForPrefetch.map((p) => p.id).join(','),
+    [programsForPrefetch]
   );
 
   const familySelectionKey = useMemo(() => {
-    return (upcoming || [])
-      .slice(0, 6)
+    return programsForPrefetch
       .map((p) => `${p.id}=${(selectedFamilyByProgram[p.id] || []).slice().sort().join(':')}`)
       .join('|');
-  }, [upcoming, selectedFamilyByProgram]);
+  }, [programsForPrefetch, selectedFamilyByProgram]);
 
   const hasOfflinePaymentOption = paymentMethods.some((x) =>
     ['manual', 'gpay', 'bank'].includes(x)
@@ -579,7 +601,7 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh }) 
       setAnnualQuotes({});
       return;
     }
-    const programs = (upcoming || []).slice(0, 6);
+    const programs = programsForPrefetch;
     if (programs.length === 0) {
       setAnnualQuotes({});
       return;
@@ -611,11 +633,11 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh }) 
     return () => {
       cancelled = true;
     };
-  }, [isAnnual, currencyReady, currency, upcomingSliceKey, familySelectionKey]);
+  }, [isAnnual, currencyReady, currency, prefetchProgramsKey, familySelectionKey, programsForPrefetch]);
 
   useEffect(() => {
     const code = promoForProgramClicks;
-    const programs = (upcoming || []).slice(0, 6);
+    const programs = programsForPrefetch;
     if (!code || !currencyReady || programs.length === 0) {
       setPromoByProgramId({});
       setPromoPricesLoading(false);
@@ -646,7 +668,7 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh }) 
     return () => {
       cancelled = true;
     };
-  }, [promoForProgramClicks, currencyReady, currency, upcomingSliceKey]);
+  }, [promoForProgramClicks, currencyReady, currency, prefetchProgramsKey, programsForPrefetch]);
 
   const toggleFamilyMember = (programId, memberId) => {
     const mid = String(memberId || '');
@@ -674,7 +696,7 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh }) 
         { withCredentials: true }
       );
       const { enrollment_id, tier_index: tierIdx } = r.data;
-      const prog = (upcoming || []).find((p) => p.id === programId);
+      const prog = upcomingList.find((p) => p.id === programId);
       setProgramPaymentModal({
         enrollmentId: enrollment_id,
         programId,
@@ -734,11 +756,11 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh }) 
           </div>
         )}
 
-        {upcoming.length === 0 ? (
+        {upcomingList.length === 0 ? (
           <p className="text-sm text-slate-500 italic py-2">No upcoming programs listed yet — check back soon.</p>
         ) : (
           <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3 mb-4">
-            {upcoming.slice(0, 6).map((p) => {
+            {upcomingList.map((p) => {
               const tierIdx = pickTierIndexForDashboard(p, isAnnual);
               const hasTiers = p.is_flagship && (p.duration_tiers || []).length > 0;
               const list = hasTiers && tierIdx !== null ? getPrice(p, tierIdx) : getPrice(p);
@@ -1105,6 +1127,28 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh }) 
             </div>
           </div>
 
+          {immediateFamilyReadOnly ? (
+            <div
+              className="mb-3 flex gap-2 rounded-xl border border-amber-200/90 bg-amber-50/80 px-3 py-2.5 text-[11px] text-amber-950"
+              data-testid="immediate-family-locked-notice"
+            >
+              <Lock size={14} className="shrink-0 mt-0.5 text-amber-700" />
+              <p>
+                This list is <span className="font-semibold">locked</span> after your first save with names on file. To
+                change it, ask your admin to allow edits in Client Garden, then refresh this page.
+              </p>
+            </div>
+          ) : null}
+          {immediateFamilyLocked && immediateFamilyEditApproved ? (
+            <div className="mb-3 flex gap-2 rounded-xl border border-emerald-200/90 bg-emerald-50/70 px-3 py-2.5 text-[11px] text-emerald-950">
+              <Lock size={14} className="shrink-0 mt-0.5 text-emerald-700" />
+              <p>
+                An admin has <span className="font-semibold">approved edits</span> to your immediate family list. Update
+                and save when you are done.
+              </p>
+            </div>
+          ) : null}
+
           <div className="mb-3">
             {members.length === 0 && (
               <p className="text-xs text-slate-400 italic mb-2">
@@ -1119,6 +1163,7 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh }) 
                 relationshipFallback="Other"
                 wrapTestId="immediate-family-table-wrap"
                 tableTestId="immediate-family-table"
+                readOnly={immediateFamilyReadOnly}
               />
             )}
           </div>
@@ -1127,7 +1172,7 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh }) 
             <button
               type="button"
               onClick={addRow}
-              disabled={members.length >= 12}
+              disabled={immediateFamilyReadOnly || members.length >= 12}
               className="inline-flex items-center gap-1.5 text-xs font-medium text-[#5D3FD3] border border-violet-200 rounded-full px-3 py-1.5 hover:bg-violet-50 disabled:opacity-40"
             >
               <Plus size={14} /> Add family member
@@ -1135,7 +1180,7 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh }) 
             <button
               type="button"
               onClick={saveFamily}
-              disabled={saving}
+              disabled={saving || immediateFamilyReadOnly}
               className="inline-flex items-center gap-1.5 text-xs font-semibold rounded-full px-4 py-1.5 bg-[#D4AF37] text-white hover:bg-[#b8962e] disabled:opacity-60"
             >
               {saving ? <Loader2 size={14} className="animate-spin" /> : null}

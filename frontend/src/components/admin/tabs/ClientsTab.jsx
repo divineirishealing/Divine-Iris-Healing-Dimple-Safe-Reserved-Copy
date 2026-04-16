@@ -8,7 +8,7 @@ import { Label } from '../../ui/label';
 import {
   Users, Search, Download, RefreshCw, ChevronDown, ChevronUp,
   Droplets, Sprout, TreeDeciduous, Flower2, Star,   Sparkles, Crown,
-  Clock, Tag, Edit2, Save, X, Trash2, UserPlus
+  Clock, Tag, Edit2, Save, X, Trash2, UserPlus, Lock
 } from 'lucide-react';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
@@ -330,12 +330,21 @@ const ClientDetail = ({ client: cl, labelConfig: cfg, onUpdate, onDelete, toast 
   const [editing, setEditing] = useState(false);
   const [labelManual, setLabelManual] = useState(cl.label_manual || '');
   const [notes, setNotes] = useState(cl.notes || '');
+  const [familyEditApproved, setFamilyEditApproved] = useState(!!cl.immediate_family_editing_approved);
   const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    setFamilyEditApproved(!!cl.immediate_family_editing_approved);
+  }, [cl.id, cl.immediate_family_editing_approved]);
 
   const handleSave = async () => {
     setSaving(true);
     try {
-      await axios.put(`${API}/clients/${cl.id}`, { label_manual: labelManual, notes });
+      await axios.put(`${API}/clients/${cl.id}`, {
+        label_manual: labelManual,
+        notes,
+        immediate_family_editing_approved: familyEditApproved,
+      });
       toast({ title: 'Client updated' });
       setEditing(false);
       onUpdate();
@@ -345,6 +354,8 @@ const ClientDetail = ({ client: cl, labelConfig: cfg, onUpdate, onDelete, toast 
 
   // Sort timeline by date descending
   const timeline = [...(cl.timeline || [])].sort((a, b) => new Date(b.date) - new Date(a.date));
+  const hasImmediateFamilyNames = (cl.immediate_family || []).some((m) => (m.name || '').trim());
+  const familyListLocked = !!cl.immediate_family_locked || hasImmediateFamilyNames;
 
   return (
     <div className={`border-t ${cfg.bg} px-4 py-4`} data-testid={`client-detail-${cl.id}`}>
@@ -397,6 +408,27 @@ const ClientDetail = ({ client: cl, labelConfig: cfg, onUpdate, onDelete, toast 
               <Label className="text-[9px] text-gray-500">Notes</Label>
               <Textarea data-testid="client-notes" value={notes} onChange={e => setNotes(e.target.value)} rows={2} className="text-xs mt-1" placeholder="Personal notes about this client..." />
             </div>
+            <div className="rounded-lg border border-violet-100 bg-violet-50/40 px-2 py-2">
+              <label className="flex items-start gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  data-testid="client-family-edit-approved"
+                  checked={familyEditApproved}
+                  onChange={(e) => setFamilyEditApproved(e.target.checked)}
+                  className="mt-0.5 rounded border-violet-300"
+                />
+                <span>
+                  <span className="text-[10px] font-semibold text-gray-800 flex items-center gap-1">
+                    <Lock size={10} className="text-violet-600" />
+                    Allow member to edit immediate family (dashboard)
+                  </span>
+                  <span className="text-[9px] text-gray-500 block mt-0.5 leading-snug">
+                    When their list is locked after first save, turn this on so they can update names and details in
+                    the portal. Turn off again to re-lock after they are done.
+                  </span>
+                </span>
+              </label>
+            </div>
             <Button data-testid="client-save" onClick={handleSave} disabled={saving} size="sm" className="text-[10px] bg-[#D4AF37] hover:bg-[#b8962e] gap-1">
               <Save size={10} /> {saving ? 'Saving...' : 'Save'}
             </Button>
@@ -408,6 +440,23 @@ const ClientDetail = ({ client: cl, labelConfig: cfg, onUpdate, onDelete, toast 
               {cl.label_manual && <span className="text-[9px] text-gray-400">(manually set)</span>}
             </div>
             {cl.notes && <p className="text-[10px] text-gray-600 mt-1">{cl.notes}</p>}
+            <div className="mt-3 pt-2 border-t border-gray-100">
+              <p className="text-[9px] text-gray-400 uppercase tracking-wider mb-1 flex items-center gap-1">
+                <Lock size={9} /> Member portal — immediate family
+              </p>
+              <p className="text-[10px] text-gray-600 leading-snug">
+                {familyListLocked ? (
+                  <>
+                    List is <span className="font-semibold">locked</span> (saved names on file).
+                    {cl.immediate_family_editing_approved
+                      ? ' You have allowed edits until you turn that off.'
+                      : ' They cannot change it until you enable “Allow member to edit immediate family” above.'}
+                  </>
+                ) : (
+                  <>Not locked yet — first save with at least one named row will lock the list.</>
+                )}
+              </p>
+            </div>
           </div>
         )}
       </div>

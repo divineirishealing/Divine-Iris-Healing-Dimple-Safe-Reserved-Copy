@@ -10,6 +10,7 @@ from pathlib import Path
 from .auth import get_current_user
 from models_extended import JourneyLog
 from iris_journey import resolve_iris_journey
+from routes.programs import fetch_programs_with_deadline_sync, sort_programs_like_homepage
 
 ROOT_DIR = Path(__file__).parent.parent
 load_dotenv(ROOT_DIR / '.env')
@@ -19,6 +20,18 @@ router = APIRouter(prefix="/api/student", tags=["Student Dashboard"])
 mongo_url = os.environ['MONGO_URL']
 client = AsyncIOMotorClient(mongo_url)
 db = client[os.environ['DB_NAME']]
+
+
+def _immediate_family_has_names(rows: Optional[List[dict]]) -> bool:
+    return any(((m.get("name") or "").strip()) for m in (rows or []))
+
+
+def _immediate_family_effective_locked(client_doc: dict) -> bool:
+    """True if the list is treated as locked (explicit flag or legacy rows on file before lock shipped)."""
+    if bool(client_doc.get("immediate_family_locked")):
+        return True
+    return _immediate_family_has_names(client_doc.get("immediate_family"))
+
 
 def _merge_global_schedule_into_programs(programs_list: List[dict], global_programs: List[dict]) -> List[dict]:
     """Attach dates from admin program schedule (same merge as subscribers sync)."""
@@ -108,15 +121,6 @@ async def _merged_programs_list_for_client(client_doc: dict) -> List[dict]:
     sched_doc = await db.program_schedule.find_one({"id": "global"}, {"_id": 0})
     global_sched = sched_doc.get("programs", []) if sched_doc else []
     return _merge_global_schedule_into_programs(programs_list, global_sched)
-
-
-def _sort_upcoming_for_dashboard(programs: List[dict]) -> List[dict]:
-    """Soonest deadline/start first; trim for dashboard."""
-    def sort_key(p):
-        raw = p.get("deadline_date") or p.get("start_date") or ""
-        return str(raw)
-    rows = sorted(programs or [], key=sort_key)
-    return rows[:12]
 
 
 def _is_annual_subscriber(sub: dict, client: dict) -> bool:
@@ -588,6 +592,21 @@ async def update_immediate_family(data: FamilyUpdate, user: dict = Depends(get_c
     if not client_id:
         raise HTTPException(status_code=400, detail="User not linked to client record")
 
+    client_row = await db.clients.find_one(
+        {"id": client_id},
+        {"immediate_family_locked": 1, "immediate_family_editing_approved": 1, "immediate_family": 1},
+    )
+    prev_family = (client_row or {}).get("immediate_family") or []
+    locked_flag = bool(client_row and client_row.get("immediate_family_locked"))
+    legacy_filled = _immediate_family_has_names(prev_family)
+    locked = locked_flag or legacy_filled
+    approved = bool(client_row and client_row.get("immediate_family_editing_approved"))
+    if locked and not approved:
+        raise HTTPException(
+            status_code=403,
+            detail="Your immediate family list is locked. Contact support if you need an admin to allow edits.",
+        )
+
     out: List[dict] = []
     for m in (data.members or [])[:12]:
         name = (m.name or "").strip()
@@ -619,14 +638,22 @@ async def update_immediate_family(data: FamilyUpdate, user: dict = Depends(get_c
             "updated_at": datetime.now(timezone.utc).isoformat(),
         })
 
-    await db.clients.update_one(
-        {"id": client_id},
-        {"$set": {
-            "immediate_family": out,
-            "updated_at": datetime.now(timezone.utc).isoformat(),
-        }}
-    )
-    return {"message": "Family list saved", "immediate_family": out}
+    now_iso = datetime.now(timezone.utc).isoformat()
+    set_doc = {
+        "immediate_family": out,
+        "updated_at": now_iso,
+    }
+    if len(out) > 0 or locked_flag or legacy_filled:
+        set_doc["immediate_family_locked"] = True
+
+    await db.clients.update_one({"id": client_id}, {"$set": set_doc})
+    locked_after = bool(set_doc.get("immediate_family_locked")) or _immediate_family_has_names(out)
+    return {
+        "message": "Family list saved",
+        "immediate_family": out,
+        "immediate_family_locked": locked_after,
+        "immediate_family_editing_approved": approved,
+    }
 
 
 @router.put("/other-guests")
@@ -922,12 +949,9 @@ async def get_student_home(user: dict = Depends(get_current_user)):
     client_id = user.get("client_id")
     client = await db.clients.find_one({"id": client_id}, {"_id": 0}) or {}
 
-    # 1. Upcoming Programs (General) — sorted soonest first for dashboard
-    upcoming_raw = await db.programs.find(
-        {"is_upcoming": True, "visible": True},
-        {"_id": 0}
-    ).to_list(24)
-    upcoming = _sort_upcoming_for_dashboard(upcoming_raw)
+    # 1. Upcoming programs — same pipeline + ordering as public homepage (GET /api/programs?visible_only&upcoming_only)
+    upcoming_models = await fetch_programs_with_deadline_sync(db, True, True)
+    upcoming = [p.model_dump() for p in sort_programs_like_homepage(upcoming_models)]
 
     settings_doc = await db.site_settings.find_one(
         {"id": "site_settings"},
@@ -1054,6 +1078,8 @@ async def get_student_home(user: dict = Depends(get_current_user)):
     is_annual = _is_annual_subscriber(sub, client)
     immediate_family = client.get("immediate_family") or []
     other_guests = client.get("other_guests") or []
+    immediate_family_locked = _immediate_family_effective_locked(client)
+    immediate_family_editing_approved = bool(client.get("immediate_family_editing_approved"))
 
     return {
         "client_id": client_id,
@@ -1067,6 +1093,8 @@ async def get_student_home(user: dict = Depends(get_current_user)):
         "dashboard_program_offers": dashboard_program_offers,
         "immediate_family": immediate_family,
         "other_guests": other_guests,
+        "immediate_family_locked": immediate_family_locked,
+        "immediate_family_editing_approved": immediate_family_editing_approved,
         "financials": financials,
         "package": package,
         "programs": programs_list,

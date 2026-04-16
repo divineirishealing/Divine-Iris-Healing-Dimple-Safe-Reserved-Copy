@@ -450,6 +450,7 @@ class ClientUpdate(BaseModel):
     notes: Optional[str] = None
     name: Optional[str] = None
     phone: Optional[str] = None
+    immediate_family_editing_approved: Optional[bool] = None
 
 
 @router.put("/{client_id}")
@@ -470,6 +471,8 @@ async def update_client(client_id: str, data: ClientUpdate):
         update_fields["name"] = data.name
     if data.phone is not None:
         update_fields["phone"] = data.phone
+    if data.immediate_family_editing_approved is not None:
+        update_fields["immediate_family_editing_approved"] = bool(data.immediate_family_editing_approved)
 
     await db.clients.update_one({"id": client_id}, {"$set": update_fields})
 

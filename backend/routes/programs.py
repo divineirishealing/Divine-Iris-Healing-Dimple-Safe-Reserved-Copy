@@ -17,32 +17,61 @@ mongo_url = os.environ['MONGO_URL']
 client = AsyncIOMotorClient(mongo_url)
 db = client[os.environ['DB_NAME']]
 
-@router.get("", response_model=List[Program])
-async def get_programs(visible_only: Optional[bool] = None, upcoming_only: Optional[bool] = None):
+# Mirrors public homepage sort (UpcomingProgramsSection.jsx): open → coming_soon → closed, then admin `order`.
+_STATUS_ORDER_HOME = {"open": 0, "coming_soon": 1, "closed": 2}
+
+
+def _program_status_rank(prog: Program) -> int:
+    raw = (prog.enrollment_status or "").strip().lower()
+    if raw in _STATUS_ORDER_HOME:
+        return _STATUS_ORDER_HOME[raw]
+    fallback = "open" if prog.enrollment_open is not False else "closed"
+    return _STATUS_ORDER_HOME.get(fallback, 1)
+
+
+def sort_programs_like_homepage(programs: List[Program]) -> List[Program]:
+    return sorted(programs, key=lambda p: (_program_status_rank(p), p.order))
+
+
+async def fetch_programs_with_deadline_sync(
+    db_ref,
+    visible_only: Optional[bool] = None,
+    upcoming_only: Optional[bool] = None,
+) -> List[Program]:
+    """Load programs from Mongo, apply the same deadline auto-close as the public API, optionally persist."""
     query = {}
     if visible_only:
         query["visible"] = True
     if upcoming_only:
         query["is_upcoming"] = True
-    programs = await db.programs.find(query).sort("order", 1).to_list(100)
+    raw_list = await db_ref.programs.find(query).sort("order", 1).to_list(100)
     now = datetime.now(timezone.utc)
-    result = []
-    for p in programs:
+    result: List[Program] = []
+    for p in raw_list:
         prog = Program(**p)
-        # Auto-close if deadline passed
         deadline = p.get("deadline_date") or p.get("start_date") or ""
         if deadline and prog.enrollment_status == "open":
             try:
                 dl = datetime.fromisoformat(deadline + "T23:59:59+00:00") if "T" not in deadline else datetime.fromisoformat(deadline)
                 if dl < now:
-                    prog.enrollment_status = "closed"
-                    prog.closure_text = prog.closure_text or "Registration Closed"
-                    # Persist the change
-                    await db.programs.update_one({"id": prog.id}, {"$set": {"enrollment_status": "closed", "enrollment_open": False}})
+                    prog = prog.model_copy(update={
+                        "enrollment_status": "closed",
+                        "enrollment_open": False,
+                        "closure_text": prog.closure_text or "Registration Closed",
+                    })
+                    await db_ref.programs.update_one(
+                        {"id": prog.id},
+                        {"$set": {"enrollment_status": "closed", "enrollment_open": False}},
+                    )
             except (ValueError, TypeError):
                 pass
         result.append(prog)
     return result
+
+
+@router.get("", response_model=List[Program])
+async def get_programs(visible_only: Optional[bool] = None, upcoming_only: Optional[bool] = None):
+    return await fetch_programs_with_deadline_sync(db, visible_only, upcoming_only)
 
 @router.get("/{program_id}", response_model=Program)
 async def get_program(program_id: str):
