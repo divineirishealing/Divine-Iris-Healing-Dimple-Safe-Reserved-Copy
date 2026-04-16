@@ -156,7 +156,18 @@ async def upload_storage_status():
     s3_on = s3_storage.is_s3_enabled()
     require_s3 = s3_storage.media_must_use_s3()
     if s3_on:
-        plain = "New uploads are saved in your S3 bucket. Program/session images in the database are still whatever URL is stored there (re-upload if you see a broken picture)."
+        mode = (os.environ.get("S3_URL_FOR_BROWSER") or "direct").strip().lower()
+        if mode in ("api", "proxy", "backend"):
+            plain = (
+                "New uploads return URLs via this API (/api/s3-media/...) so images work without a public S3 bucket. "
+                "Set HOST_URL to this service’s public URL. Re-save any program that still has an old s3.amazonaws.com link."
+            )
+        else:
+            plain = (
+                "New uploads use direct S3 HTTPS links. If images upload but do not show on the site, the bucket likely "
+                "blocks public reads: add a bucket policy for s3:GetObject on your uploads prefix (see env.example), "
+                "or set S3_URL_FOR_BROWSER=api plus HOST_URL and re-upload / re-save the image."
+            )
     elif ephemeral:
         plain = "S3 is not active on this server — new uploads use temporary disk and can vanish after restart. Check bucket name, region, and API keys on the backend host, then redeploy."
     else:
@@ -170,6 +181,7 @@ async def upload_storage_status():
         "aws_region_configured": region,
         "aws_static_access_key_configured": bool(s3_storage.credentials_configured()),
         "aws_s3_use_iam_role": s3_storage.use_iam_role_without_static_keys(),
+        "s3_url_for_browser": (os.environ.get("S3_URL_FOR_BROWSER") or "direct").strip().lower(),
         "host_treats_local_disk_as_ephemeral": ephemeral,
         "local_api_image_paths_blocked": ephemeral and not _allow_ephemeral_disk_uploads(),
         "allow_ephemeral_uploads_env_override": _allow_ephemeral_disk_uploads(),

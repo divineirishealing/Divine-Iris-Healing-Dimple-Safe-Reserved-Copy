@@ -13,6 +13,7 @@ import mimetypes
 
 # Import routes
 from routes import programs, sessions, testimonials, stats, newsletter, upload, payments, webhook, currency, site_settings, seo_sitemap, enrollment, promotions, discounts, session_extras, india_payments, notify_me, inbox, clients, text_testimonials, upcoming_card_quotes, search, fraud
+from routes import s3_media_proxy
 from routes import admin_clients, student, points as points_admin
 from routes import auth
 from routes import subscribers
@@ -43,7 +44,7 @@ app = FastAPI(title="Divine Iris Healing API")
 api_router = APIRouter(prefix="/api")
 
 # Paths that are high-volume file serving — excluded from request logging
-_SKIP_LOG_PREFIXES = ("/api/image/", "/api/uploads/", "/static/", "/api/health")
+_SKIP_LOG_PREFIXES = ("/api/image/", "/api/uploads/", "/api/s3-media/", "/static/", "/api/health")
 
 @app.middleware("http")
 async def log_api_requests(request: Request, call_next):
@@ -181,6 +182,7 @@ app.include_router(testimonials.router)
 app.include_router(stats.router)
 app.include_router(newsletter.router)
 app.include_router(upload.router)
+app.include_router(s3_media_proxy.router)
 app.include_router(payments.router)
 app.include_router(webhook.router)
 app.include_router(currency.router)

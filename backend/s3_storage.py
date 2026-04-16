@@ -15,14 +15,17 @@ Env:
   AWS_S3_ADDRESSING_STYLE — optional path | virtual (default auto; try path for some S3-compatible APIs)
   REQUIRE_S3_FOR_UPLOADS — if true (or legacy AWS_S3_REQUIRED), media uploads must succeed on S3 only
     (no local-disk fallback). Use on production when all images must live in the bucket.
+  S3_URL_FOR_BROWSER — direct (default) = return public S3/CloudFront URL (needs bucket read access for guests).
+    api = return HOST_URL/api/s3-media/... so the API streams the object with IAM (private bucket OK).
 
-Objects must be readable in the browser: use a bucket policy allowing s3:GetObject
-on arn:aws:s3:::YOUR_BUCKET/uploads/* (or your prefix). Do not rely on ACLs if
-Object Ownership is “Bucket owner enforced”.
+Objects must be readable in the browser unless S3_URL_FOR_BROWSER=api: either use a bucket policy allowing
+s3:GetObject on arn:aws:s3:::YOUR_BUCKET/uploads/* (or your prefix), or set S3_URL_FOR_BROWSER=api and HOST_URL.
+Do not rely on ACLs if Object Ownership is “Bucket owner enforced”.
 """
 from __future__ import annotations
 
 import logging
+import mimetypes
 import os
 import urllib.parse
 from pathlib import Path
@@ -71,6 +74,75 @@ def media_must_use_s3() -> bool:
     """When true, callers must not fall back to local disk for media."""
     v = (os.environ.get("REQUIRE_S3_FOR_UPLOADS") or os.environ.get("AWS_S3_REQUIRED") or "").strip()
     return v.lower() in ("true", "1", "yes")
+
+
+def s3_url_for_browser_mode() -> str:
+    return (os.environ.get("S3_URL_FOR_BROWSER") or "direct").strip().lower()
+
+
+def url_for_browser_after_upload(bucket: str, key: str, *, s3_region: str | None) -> str:
+    """
+    URL stored in Mongo and used in <img src>. Default: virtual-host S3 HTTPS URL.
+    If S3_URL_FOR_BROWSER=api|proxy|backend, use this API’s /api/s3-media/... so a private bucket still works.
+    """
+    mode = s3_url_for_browser_mode()
+    if mode in ("api", "proxy", "backend"):
+        host = (os.environ.get("HOST_URL") or "").strip().rstrip("/")
+        if not host:
+            logger.warning(
+                "S3_URL_FOR_BROWSER=%s but HOST_URL is empty; falling back to direct S3 URL (browser may 403)",
+                mode,
+            )
+            return _public_url(bucket, key, s3_region=s3_region)
+        encoded = "/".join(urllib.parse.quote(segment, safe="") for segment in key.split("/"))
+        return f"{host}/api/s3-media/{encoded}"
+    return _public_url(bucket, key, s3_region=s3_region)
+
+
+def validate_public_proxy_key(key_path: str) -> str:
+    """Ensure URL path maps to an object key under AWS_S3_PREFIX (blocks .. and bucket escape)."""
+    if not key_path or ".." in key_path:
+        raise ValueError("invalid key path")
+    segments = [urllib.parse.unquote(p) for p in key_path.split("/") if p]
+    key = "/".join(segments)
+    pref = _prefix()
+    if not key.startswith(pref + "/"):
+        raise ValueError("key outside uploads prefix")
+    return key
+
+
+def get_object_bytes(key: str) -> tuple[bytes, str]:
+    """Fetch object from S3 for /api/s3-media proxy. IAM needs s3:GetObject on the key."""
+    bucket = (os.environ.get("AWS_S3_BUCKET") or "").strip()
+    if not bucket:
+        raise RuntimeError("AWS_S3_BUCKET is not set")
+    reg = _bucket_region_cache.get(bucket) or _region()
+    client = _client(reg)
+    try:
+        from botocore.exceptions import ClientError
+
+        try:
+            resp = client.get_object(Bucket=bucket, Key=key)
+        except ClientError as e:
+            err = e.response.get("Error") or {}
+            code = str(err.get("Code", ""))
+            if code in ("NoSuchKey", "404", "NotFound"):
+                raise FileNotFoundError(key) from e
+            redirect_region = _bucket_region_from_client_error(e)
+            if redirect_region and redirect_region != reg:
+                _bucket_region_cache[bucket] = redirect_region
+                resp = _client(redirect_region).get_object(Bucket=bucket, Key=key)
+            else:
+                raise
+    except ImportError:
+        resp = client.get_object(Bucket=bucket, Key=key)
+    body = resp["Body"].read()
+    ctype = (
+        resp.get("ContentType")
+        or mimetypes.guess_type(key)[0]
+        or "application/octet-stream"
+    )
+    return body, ctype
 
 
 def _public_url(bucket: str, key: str, *, s3_region: str | None = None) -> str:
@@ -202,7 +274,7 @@ def upload_bytes(key: str, body: bytes, content_type: str) -> str:
             msg = _friendly_s3_error(e, bucket, key)
             raise RuntimeError(msg) from e
 
-    return _public_url(bucket, key, s3_region=success_region)
+    return url_for_browser_after_upload(bucket, key, s3_region=success_region)
 
 
 def _friendly_s3_error(exc: BaseException, bucket: str, key: str) -> str:
