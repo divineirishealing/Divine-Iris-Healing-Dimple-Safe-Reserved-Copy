@@ -210,6 +210,13 @@ const AdminPanel = () => {
     const mode = form.photo_mode || 'single';
     const next = { ...form, photos, photo_labels };
     if (next.clear_template_media !== true) delete next.clear_template_media;
+    if (form.type === 'graphic') {
+      const im = testimonialLegacyImageField(form.image);
+      if (im) {
+        next.image = im;
+        next.photos = [im];
+      }
+    }
     if (form.type !== 'template') return next;
 
     if (photos.length === 0) {

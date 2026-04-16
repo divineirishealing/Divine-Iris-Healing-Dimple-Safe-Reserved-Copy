@@ -117,7 +117,7 @@ def _restore_template_media_if_cleared(merged: dict, existing: dict) -> None:
 
 
 def _prepare_testimonial_write(data: dict) -> dict:
-    """Normalize photos/labels; sync legacy image/before_image with photos for template (written) testimonials."""
+    """Normalize photos/labels; sync image ↔ photos for graphic and template testimonials."""
     t = dict(data)
     typ = (t.get("type") or "graphic").strip().lower()
     photos = _coerce_url_list(t.get("photos"))
@@ -148,6 +148,12 @@ def _prepare_testimonial_write(data: dict) -> dict:
 
         if mode == "before_after" and len(photos) >= 2 and (not labels or all(x == "" for x in labels)):
             labels = ["Before", "After"]
+
+    elif typ == "graphic":
+        if img:
+            photos = [img]
+        elif photos:
+            t["image"] = str(photos[0] or "").strip()
 
     t["photos"] = photos
     t["photo_labels"] = labels
@@ -183,6 +189,12 @@ def _doc_to_testimonial(raw: dict) -> Testimonial:
                 t["image"] = t["photos"][0]
             elif not img:
                 t["image"] = t["photos"][0]
+    elif typ == "graphic":
+        img = str(t.get("image") or "").strip()
+        if not t["photos"] and img:
+            t["photos"] = [img]
+        elif t["photos"] and not img:
+            t["image"] = str(t["photos"][0] or "").strip()
     for key in ("program_tags", "session_tags"):
         v = t.get(key)
         if v is None:
