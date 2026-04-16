@@ -1,13 +1,14 @@
-"""Abandoned enrollment / checkout reminders (FOMO nudges).
+"""Abandoned enrollment reminders and registration-deadline nudges.
 
-Sends up to 3 emails per enrollment when someone starts but does not complete payment:
-30 min, 24 h, 72 h after enrollment was created.
+- Abandonment: at most one nudge every 24 hours per enrollment (after a short initial wait).
+- Deadline: exactly one email ~2 hours before registration closes, and one ~1 hour before
+  (based on program deadline_date / start_date, or session last available date).
 
-Covers: profile still in progress (email OTP step), verified but not paid, checkout started.
+Call check_and_send_reminders periodically (e.g. every 10 minutes).
 """
 import os
 import logging
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from motor.motor_asyncio import AsyncIOMotorClient
 from dotenv import load_dotenv
 from pathlib import Path
@@ -23,33 +24,101 @@ db = client[os.environ["DB_NAME"]]
 
 # Statuses where the user has begun but not completed payment
 ABANDONED_STATUSES = [
-    "profile_complete",  # submitted details; may be stuck on OTP
-    "contact_verified",  # after OTP; on pricing / pay step (incl. cart checkout page)
-    "checkout_started",  # Stripe session created, not paid
-    "otp_verified",  # legacy alias if any old rows exist
+    "profile_complete",
+    "contact_verified",
+    "checkout_started",
+    "otp_verified",
 ]
 
-REMINDER_SCHEDULE = [
-    {
-        "after_minutes": 30,
-        "label": "30min",
-        "subject": "Your seat is still open — don’t leave your transformation hanging",
-    },
-    {
-        "after_minutes": 1440,
-        "label": "24hr",
-        "subject": "Others are moving forward — reclaim your spot today",
-    },
-    {
-        "after_minutes": 4320,
-        "label": "72hr",
-        "subject": "Final nudge: this portal won’t chase you again",
-    },
-]
+# Wait this long after enrollment start before the first abandonment email can send
+ABANDON_MINUTES_AFTER_START = 60
+# Minimum time between abandonment emails (same enrollment)
+ABANDON_COOLDOWN_HOURS = 24
+
+# Window around target time (job may run every ~10 min), minutes before close
+DEADLINE_2H_TARGET_MIN = 120
+DEADLINE_1H_TARGET_MIN = 60
+DEADLINE_WINDOW_SLACK_MIN = 12  # send if within target ± this many minutes
+
+DEADLINE_2H_LABEL = "deadline_2h"
+DEADLINE_1H_LABEL = "deadline_1h"
+
+
+def _parse_dt(val) -> datetime | None:
+    if not val:
+        return None
+    if isinstance(val, datetime):
+        dt = val
+    else:
+        s = str(val).strip().replace("Z", "+00:00")
+        try:
+            dt = datetime.fromisoformat(s)
+        except (ValueError, TypeError):
+            return None
+    if not dt.tzinfo:
+        dt = dt.replace(tzinfo=timezone.utc)
+    return dt
+
+
+def _registration_close_utc(item: dict | None, item_type: str) -> datetime | None:
+    """End of registration moment in UTC for reminder scheduling."""
+    if not item:
+        return None
+    item_type = (item_type or "program").strip().lower()
+
+    if item_type == "session":
+        dates = item.get("available_dates") or []
+        if not dates:
+            return None
+        try:
+            last_day = max(str(d) for d in dates)
+        except (TypeError, ValueError):
+            return None
+        if "T" in last_day:
+            return _parse_dt(last_day)
+        try:
+            return datetime.fromisoformat(f"{last_day}T23:59:59+00:00")
+        except (ValueError, TypeError):
+            return None
+
+    deadline = (item.get("deadline_date") or item.get("start_date") or "").strip()
+    if not deadline:
+        return None
+    if "T" in deadline:
+        return _parse_dt(deadline)
+    try:
+        return datetime.fromisoformat(deadline + "T23:59:59+00:00")
+    except (ValueError, TypeError):
+        return None
+
+
+def _program_registration_still_open(program: dict) -> bool:
+    if not program:
+        return False
+    if program.get("enrollment_open") is False:
+        return False
+    if (program.get("enrollment_status") or "").lower() == "closed":
+        return False
+    return True
+
+
+async def _load_item_for_enrollment(enrollment: dict) -> tuple[dict | None, str]:
+    item_type = (enrollment.get("item_type") or "program").strip() or "program"
+    item_id = (enrollment.get("item_id") or "").strip()
+    if not item_id:
+        for p in enrollment.get("participants") or []:
+            if isinstance(p, dict) and p.get("program_id"):
+                item_id = str(p["program_id"]).strip()
+                item_type = "program"
+                break
+    if not item_id:
+        return None, item_type
+    coll = "sessions" if item_type == "session" else "programs"
+    item = await db[coll].find_one({"id": item_id}, {"_id": 0})
+    return item, item_type
 
 
 def _resume_url(enrollment: dict) -> str:
-    """Deep link back into /enroll/{type}/{id}?resume=… when we know the offering."""
     site = (
         os.environ.get("FRONTEND_URL")
         or os.environ.get("HOST_URL", "").replace("/api", "").rstrip("/")
@@ -74,48 +143,59 @@ def _resume_url(enrollment: dict) -> str:
     return f"{site}/programs"
 
 
-def _build_reminder_html(booker_name, item_title, reminder_label, resume_url, receipt_template=None):
+def _build_reminder_html(
+    booker_name,
+    item_title,
+    reminder_label,
+    resume_url,
+    receipt_template=None,
+    *,
+    deadline_human: str | None = None,
+):
     name = (booker_name or "there").split()[0] if booker_name else "there"
     tpl = receipt_template or {}
     accent = tpl.get("accent_color", "#D4AF37")
     heading_font = tpl.get("heading_font", "'Playfair Display', serif")
     title = item_title or "your chosen journey"
+    dh = deadline_human or ""
 
-    if reminder_label == "30min":
-        headline = "You’re one step away"
+    if reminder_label == DEADLINE_2H_LABEL:
+        headline = "Registration closes in about 2 hours"
         message = (
-            f"Hi {name}, you began enrolling for <strong>{title}</strong> — and we held the energy open for you. "
-            f"Sacred containers don’t stay open forever; when you’re ready, complete your registration in one go."
-        )
-        fomo = (
-            '<p style="font-size:13px;color:#7c3aed;line-height:1.6;margin:16px 0 0;font-weight:600">'
-            "Spots in this journey are limited — the ones who return soon often say they felt nudged to come back.</p>"
-        )
-        cta = "Complete my enrollment"
-    elif reminder_label == "24hr":
-        headline = "Still thinking about it?"
-        message = (
-            f"{name}, your path toward <strong>{title}</strong> is still waiting. "
-            f"While you pause, others are saying yes to the same transformation — not to pressure you, "
-            f"but because this work moves quickly when the collective is ready."
+            f"{name}, registration for <strong>{title}</strong> is closing soon"
+            f"{(' — ' + dh) if dh else ''}. "
+            f"If you meant to join, this is a good moment to complete your enrollment."
         )
         fomo = (
             '<p style="font-size:13px;color:#b45309;line-height:1.6;margin:16px 0 0;font-weight:600">'
-            "Cohorts fill in waves. If this speaks to you, coming back now keeps you aligned with the current opening.</p>"
+            "After the window closes, you may need to wait for the next opening.</p>"
         )
-        cta = "Reclaim my spot"
-    else:
-        headline = "Last invitation from us"
+        cta = "Complete registration now"
+        subject = f"2 hours left — complete your spot for {title}"
+    elif reminder_label == DEADLINE_1H_LABEL:
+        headline = "Final hour to register"
         message = (
-            f"This is our final note about <strong>{title}</strong>, {name}. "
-            f"We won't flood your inbox — we'd rather you choose consciously than wonder 'what if.' "
-            f"If it's a no, we honour that. If it's a yes, the door is still here for a little longer."
+            f"This is a short heads-up, {name}: <strong>{title}</strong> is about to close for registration"
+            f"{(' (' + dh + ')') if dh else ''}. "
         )
         fomo = (
-            "<p style=\"font-size:13px;color:#991b1b;line-height:1.6;margin:16px 0 0;font-weight:600\">"
-            "This is the last automated reminder — after this, the moment passes until you return on your own.</p>"
+            '<p style="font-size:13px;color:#991b1b;line-height:1.6;margin:16px 0 0;font-weight:600">'
+            "If you feel called to this container, please don’t leave it for ‘later.’</p>"
         )
-        cta = "I’m ready — continue"
+        cta = "Finish enrollment"
+        subject = f"Last hour — {title} registration closing"
+    else:
+        headline = "You’re almost there"
+        message = (
+            f"Hi {name}, you started enrolling for <strong>{title}</strong> but haven’t finished yet. "
+            f"When you’re ready, you can pick up right where you left off."
+        )
+        fomo = (
+            '<p style="font-size:13px;color:#7c3aed;line-height:1.6;margin:16px 0 0;font-weight:600">'
+            "Sacred spaces don’t stay open indefinitely — completing soon keeps you aligned with the current wave.</p>"
+        )
+        cta = "Continue my enrollment"
+        subject = f"Still interested in {title}?"
 
     return f"""<!DOCTYPE html>
 <html><body style="margin:0;padding:0;background:#f4f1eb;font-family:'Lato',Arial,sans-serif">
@@ -139,8 +219,41 @@ def _build_reminder_html(booker_name, item_title, reminder_label, resume_url, re
 </body></html>"""
 
 
+def _minutes_before_close(now: datetime, close_dt: datetime) -> float:
+    return (close_dt - now).total_seconds() / 60.0
+
+
+def _in_deadline_window(minutes_before: float, target: float) -> bool:
+    return abs(minutes_before - target) <= DEADLINE_WINDOW_SLACK_MIN
+
+
+async def _send_one(
+    enrollment_id: str,
+    booker_email: str,
+    subject: str,
+    html: str,
+    now: datetime,
+    *,
+    set_last_abandon: bool = False,
+    reminder_label: str | None = None,
+) -> bool:
+    from routes.emails import send_email
+
+    result = await send_email(booker_email, subject, html)
+    if not result:
+        logger.warning("Reminder email not delivered to %s (mail not configured?)", booker_email)
+        return False
+    update: dict = {"$set": {"last_reminder_at": now.isoformat()}}
+    if set_last_abandon:
+        update["$set"]["last_abandon_reminder_at"] = now.isoformat()
+    if reminder_label:
+        update["$push"] = {"reminders_sent": reminder_label}
+    await db.enrollments.update_one({"id": enrollment_id}, update)
+    return True
+
+
 async def check_and_send_reminders():
-    """Check for abandoned enrollments and send one reminder stage per run. Call every ~10 minutes."""
+    """Send at most one actionable reminder per enrollment per run (priority: 1h deadline, 2h deadline, abandon)."""
     now = datetime.now(timezone.utc)
     sent_count = 0
 
@@ -153,20 +266,6 @@ async def check_and_send_reminders():
     ).to_list(500)
 
     for enrollment in enrollments:
-        created_at = enrollment.get("created_at")
-        if not created_at:
-            continue
-
-        if isinstance(created_at, str):
-            try:
-                created_at = datetime.fromisoformat(created_at.replace("Z", "+00:00"))
-            except (ValueError, TypeError):
-                continue
-        if not created_at.tzinfo:
-            created_at = created_at.replace(tzinfo=timezone.utc)
-
-        minutes_since = (now - created_at).total_seconds() / 60
-        reminders_sent = enrollment.get("reminders_sent", []) or []
         booker_email = (enrollment.get("booker_email") or "").strip()
         if not booker_email:
             continue
@@ -174,43 +273,120 @@ async def check_and_send_reminders():
         enrollment_id = enrollment.get("id", "")
         resume_url = _resume_url(enrollment)
         item_title = enrollment.get("item_title") or "your program"
+        reminders_sent = enrollment.get("reminders_sent", []) or []
 
-        for reminder in REMINDER_SCHEDULE:
-            if minutes_since >= reminder["after_minutes"] and reminder["label"] not in reminders_sent:
-                try:
-                    from routes.emails import send_email
+        created_at = enrollment.get("created_at")
+        if created_at:
+            created_at = _parse_dt(created_at)
+        if not created_at:
+            continue
 
-                    html = _build_reminder_html(
-                        enrollment.get("booker_name", ""),
-                        item_title,
-                        reminder["label"],
-                        resume_url,
-                        receipt_tpl,
-                    )
-                    result = await send_email(
-                        booker_email,
-                        reminder["subject"],
-                        html,
-                    )
-                    if result:
-                        await db.enrollments.update_one(
-                            {"id": enrollment_id},
-                            {
-                                "$push": {"reminders_sent": reminder["label"]},
-                                "$set": {"last_reminder_at": now.isoformat()},
-                            },
-                        )
-                        sent_count += 1
-                        logger.info(
-                            "Reminder '%s' sent to %s for enrollment %s",
-                            reminder["label"],
-                            booker_email,
-                            enrollment_id,
-                        )
-                    else:
-                        logger.warning("Reminder email not delivered to %s (mail not configured?)", booker_email)
-                except Exception as e:
-                    logger.error("Failed to send reminder to %s: %s", booker_email, e)
-                break
+        minutes_since_start = (now - created_at).total_seconds() / 60.0
+
+        item, item_type = await _load_item_for_enrollment(enrollment)
+        if item and item_type != "session" and not _program_registration_still_open(item):
+            item = None
+
+        close_dt = _registration_close_utc(item, item_type)
+        deadline_human = ""
+        if close_dt and item:
+            if item_type == "session":
+                deadline_human = f"last listed date {close_dt.date().isoformat()}"
+            else:
+                d = (item.get("deadline_date") or item.get("start_date") or "").strip()
+                deadline_human = d or close_dt.date().isoformat()
+
+        # --- Priority1: 1 hour before close ---
+        if (
+            close_dt
+            and now < close_dt
+            and DEADLINE_1H_LABEL not in reminders_sent
+            and _in_deadline_window(_minutes_before_close(now, close_dt), DEADLINE_1H_TARGET_MIN)
+        ):
+            html = _build_reminder_html(
+                enrollment.get("booker_name", ""),
+                item_title,
+                DEADLINE_1H_LABEL,
+                resume_url,
+                receipt_tpl,
+                deadline_human=deadline_human or None,
+            )
+            try:
+                if await _send_one(
+                    enrollment_id,
+                    booker_email,
+                    f"Last hour — {item_title}",
+                    html,
+                    now,
+                    reminder_label=DEADLINE_1H_LABEL,
+                ):
+                    sent_count += 1
+                    logger.info("Reminder '%s' sent to %s for enrollment %s", DEADLINE_1H_LABEL, booker_email, enrollment_id)
+            except Exception as e:
+                logger.error("Failed to send reminder to %s: %s", booker_email, e)
+            continue
+
+        # --- Priority 2: 2 hours before close ---
+        if (
+            close_dt
+            and now < close_dt
+            and DEADLINE_2H_LABEL not in reminders_sent
+            and _in_deadline_window(_minutes_before_close(now, close_dt), DEADLINE_2H_TARGET_MIN)
+        ):
+            html = _build_reminder_html(
+                enrollment.get("booker_name", ""),
+                item_title,
+                DEADLINE_2H_LABEL,
+                resume_url,
+                receipt_tpl,
+                deadline_human=deadline_human or None,
+            )
+            try:
+                if await _send_one(
+                    enrollment_id,
+                    booker_email,
+                    f"2 hours left — complete your spot for {item_title}",
+                    html,
+                    now,
+                    reminder_label=DEADLINE_2H_LABEL,
+                ):
+                    sent_count += 1
+                    logger.info("Reminder '%s' sent to %s for enrollment %s", DEADLINE_2H_LABEL, booker_email, enrollment_id)
+            except Exception as e:
+                logger.error("Failed to send reminder to %s: %s", booker_email, e)
+            continue
+
+        # No abandonment emails after registration has ended (when we can compute a close time)
+        if close_dt and now >= close_dt:
+            continue
+
+        # --- Priority 3: abandonment (max once per 24h) ---
+        last_ab = enrollment.get("last_abandon_reminder_at")
+        last_ab_dt = _parse_dt(last_ab) if last_ab else None
+        cooldown_ok = True
+        if last_ab_dt:
+            cooldown_ok = (now - last_ab_dt) >= timedelta(hours=ABANDON_COOLDOWN_HOURS)
+
+        if minutes_since_start >= ABANDON_MINUTES_AFTER_START and cooldown_ok:
+            html = _build_reminder_html(
+                enrollment.get("booker_name", ""),
+                item_title,
+                "abandon",
+                resume_url,
+                receipt_tpl,
+            )
+            try:
+                if await _send_one(
+                    enrollment_id,
+                    booker_email,
+                    f"Still interested in {item_title}?",
+                    html,
+                    now,
+                    set_last_abandon=True,
+                ):
+                    sent_count += 1
+                    logger.info("Abandon reminder sent to %s for enrollment %s", booker_email, enrollment_id)
+            except Exception as e:
+                logger.error("Failed to send abandon reminder to %s: %s", booker_email, e)
 
     return sent_count
