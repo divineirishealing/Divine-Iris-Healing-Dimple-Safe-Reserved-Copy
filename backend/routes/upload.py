@@ -135,7 +135,14 @@ async def upload_storage_status():
     ephemeral = _host_uses_ephemeral_disk_by_default()
     s3_on = s3_storage.is_s3_enabled()
     require_s3 = s3_storage.media_must_use_s3()
+    if s3_on:
+        plain = "New uploads are saved in your S3 bucket. Program/session images in the database are still whatever URL is stored there (re-upload if you see a broken picture)."
+    elif ephemeral:
+        plain = "S3 is not active on this server — new uploads use temporary disk and can vanish after restart. Check bucket name, region, and API keys on the backend host, then redeploy."
+    else:
+        plain = "New uploads are saved on this computer’s disk (fine for local development)."
     return {
+        "simple": plain,
         "image_upload_will_use": _image_upload_backend(),
         "require_s3_for_uploads": require_s3,
         "s3_enabled": s3_on,
@@ -147,9 +154,9 @@ async def upload_storage_status():
         "local_api_image_paths_blocked": ephemeral and not _allow_ephemeral_disk_uploads(),
         "allow_ephemeral_uploads_env_override": _allow_ephemeral_disk_uploads(),
         "hint": (
-            "Media uploads use Amazon S3 when AWS_S3_BUCKET and credentials (or AWS_S3_USE_IAM_ROLE) are set; "
-            "otherwise files go to local disk (not persistent on Render/Railway unless ALLOW_EPHEMERAL_UPLOADS). "
-            "Set REQUIRE_S3_FOR_UPLOADS=true in production once S3 is working to forbid local fallback."
+            "If simple says S3 is off but you set env vars: region must match the bucket; IAM needs s3:PutObject; "
+            "on Render use static keys (not AWS_S3_USE_IAM_ROLE unless you know you need it). "
+            "Optional: REQUIRE_S3_FOR_UPLOADS=true once uploads work."
         ),
     }
 
