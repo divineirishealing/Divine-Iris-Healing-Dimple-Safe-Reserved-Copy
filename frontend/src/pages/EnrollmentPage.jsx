@@ -343,7 +343,7 @@ function EnrollmentPage() {
     const ep = type === 'program' ? 'programs' : 'sessions';
     axios.get(`${API}/${ep}/${id}`).then(r => setItem(r.data)).catch(() => navigate('/'));
     axios.get(`${API}/discounts/settings`).then(r => {
-      setDiscountSettings(r.data);
+      setDiscountSettings((prev) => ({ ...prev, ...r.data }));
       if (r.data?.enable_cross_sell && r.data?.cross_sell_rules?.length > 0) {
         setCrossSellRules(r.data.cross_sell_rules.filter(r => r.enabled !== false));
       }
@@ -362,6 +362,10 @@ function EnrollmentPage() {
         manual_form_enabled: s.manual_form_enabled !== false,
       });
       setUrgencyQuotes(s.enrollment_urgency_quotes || []);
+      setDiscountSettings((prev) => ({
+        ...prev,
+        checkout_promo_code_visible: s.checkout_promo_code_visible !== false,
+      }));
     }).catch(() => {});
     if (type === 'session') {
       axios.get(`${API}/session-extras/testimonials?session_id=${id}`).then(r => setSessionTestimonials(r.data || [])).catch(() => {});

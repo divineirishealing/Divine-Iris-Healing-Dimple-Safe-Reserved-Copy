@@ -403,14 +403,25 @@ function CartPage() {
   // Country is NOT auto-filled — user must select manually
 
   useEffect(() => {
-    axios.get(`${API}/discounts/settings`).then(r => setDiscountSettings(r.data)).catch(() => {});
-    axios.get(`${API}/settings`).then(r => {
-      if (r.data.payment_disclaimer_enabled !== false && r.data.payment_disclaimer) {
-        setPaymentDisclaimer(r.data.payment_disclaimer);
-        if (r.data.payment_disclaimer_style) setDisclaimerStyle(r.data.payment_disclaimer_style);
-      }
-      setUrgencyQuotes(r.data.enrollment_urgency_quotes || []);
-    }).catch(() => {});
+    axios
+      .get(`${API}/discounts/settings`)
+      .then((r) => setDiscountSettings((prev) => ({ ...prev, ...r.data })))
+      .catch(() => {});
+    axios
+      .get(`${API}/settings`)
+      .then((r) => {
+        if (r.data.payment_disclaimer_enabled !== false && r.data.payment_disclaimer) {
+          setPaymentDisclaimer(r.data.payment_disclaimer);
+          if (r.data.payment_disclaimer_style) setDisclaimerStyle(r.data.payment_disclaimer_style);
+        }
+        setUrgencyQuotes(r.data.enrollment_urgency_quotes || []);
+        // Canonical flag (admin saves here) — avoids race if /discounts/settings overwrites state without this key
+        setDiscountSettings((prev) => ({
+          ...prev,
+          checkout_promo_code_visible: r.data.checkout_promo_code_visible !== false,
+        }));
+      })
+      .catch(() => {});
   }, []);
 
   const getItemPrice = (item) => {

@@ -62,9 +62,12 @@ async def get_settings():
 
 @router.put("")
 async def update_settings(settings: SiteSettingsUpdate):
-    raw = settings.dict()
-    # Allow empty strings and empty lists (only skip None)
+    raw = settings.model_dump(exclude_unset=True) if hasattr(settings, "model_dump") else settings.dict(exclude_unset=True)
+    # Allow empty strings and empty lists (only skip None). Booleans may be False — must not drop them.
     update_data = {k: v for k, v in raw.items() if v is not None}
+    # Defensive: Pydantic v2 partial bodies should still persist explicit False
+    if hasattr(settings, "model_fields_set") and "checkout_promo_code_visible" in settings.model_fields_set:
+        update_data["checkout_promo_code_visible"] = bool(settings.checkout_promo_code_visible)
     # Also include fields explicitly set to empty string or empty list
     for field in ['terms_content', 'privacy_content']:
         if raw.get(field) is not None or (field in raw and raw[field] == ''):
