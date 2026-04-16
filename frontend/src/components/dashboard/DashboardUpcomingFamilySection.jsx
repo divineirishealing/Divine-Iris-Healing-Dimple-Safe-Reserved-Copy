@@ -1,12 +1,12 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
-import { Calendar, Sparkles, Users, Tag, ArrowRight, Loader2, Plus, Trash2, CreditCard } from 'lucide-react';
+import { Calendar, Sparkles, Users, Loader2, Plus, Trash2, CreditCard, Clock, AlertTriangle } from 'lucide-react';
 import { useToast } from '../../hooks/use-toast';
 import { useCurrency } from '../../context/CurrencyContext';
 import { useSiteSettings } from '../../context/SiteSettingsContext';
 import { resolveImageUrl } from '../../lib/imageUtils';
-import { cn, formatDateDdMonYyyy } from '../../lib/utils';
+import { formatDateDdMonYyyy } from '../../lib/utils';
 import DashboardProgramPaymentModal from './DashboardProgramPaymentModal';
 
 const API = process.env.REACT_APP_BACKEND_URL;
@@ -290,6 +290,53 @@ function promoDiscountAmount(promoResult, subtotalRaw, currency) {
   return promoResult[`discount_${currency}`] || promoResult.discount_aed || 0;
 }
 
+function getDeadlineTimeLeft(dateStr) {
+  if (!dateStr) return null;
+  const target = new Date(dateStr);
+  if (Number.isNaN(target.getTime())) return null;
+  const diff = target.getTime() - Date.now();
+  if (diff <= 0) return { expired: true };
+  return {
+    expired: false,
+    days: Math.floor(diff / 86400000),
+    hours: Math.floor((diff % 86400000) / 3600000),
+    minutes: Math.floor((diff % 3600000) / 60000),
+    seconds: Math.floor((diff % 60000) / 1000),
+  };
+}
+
+/** Matches public upcoming cards: countdown to nearest deadline/start in the list. */
+function DashboardEnrollmentCountdown({ deadline, programTitle }) {
+  const [timeLeft, setTimeLeft] = useState(() => getDeadlineTimeLeft(deadline));
+  useEffect(() => {
+    if (!deadline) return undefined;
+    const tick = () => setTimeLeft(getDeadlineTimeLeft(deadline));
+    tick();
+    const id = setInterval(tick, 1000);
+    return () => clearInterval(id);
+  }, [deadline]);
+  if (!deadline || !timeLeft) return null;
+  if (timeLeft.expired) {
+    return (
+      <span className="inline-flex items-center gap-1 text-[10px] font-medium text-red-600/90">
+        <AlertTriangle size={12} className="shrink-0" />
+        Registration closed{programTitle ? ` · ${programTitle}` : ''}
+      </span>
+    );
+  }
+  return (
+    <span className="inline-flex items-center gap-1.5 text-[10px] font-semibold text-slate-800 min-w-0">
+      <Clock size={12} className="text-[#b8860b] shrink-0 animate-pulse" />
+      <span className="tabular-nums tracking-tight">
+        {timeLeft.days > 0 ? `${timeLeft.days}d ` : ''}
+        {String(timeLeft.hours).padStart(2, '0')}:{String(timeLeft.minutes).padStart(2, '0')}:
+        {String(timeLeft.seconds).padStart(2, '0')}
+      </span>
+      <span className="text-slate-500 font-normal truncate max-w-[11rem]">left · {programTitle || 'Next intake'}</span>
+    </span>
+  );
+}
+
 export default function DashboardUpcomingFamilySection({ homeData, onRefresh }) {
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -336,6 +383,24 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh }) 
   }, [initialOtherMembers]);
 
   const enrollableGuests = useMemo(() => [...members, ...otherMembers], [members, otherMembers]);
+
+  const nearestUpcomingProgram = useMemo(() => {
+    const list = (upcoming || [])
+      .filter((p) => p && (p.deadline_date || p.start_date))
+      .sort((a, b) =>
+        String(a.deadline_date || a.start_date || '').localeCompare(String(b.deadline_date || b.start_date || ''))
+      );
+    return list[0] || null;
+  }, [upcoming]);
+  const countdownDeadline = nearestUpcomingProgram
+    ? nearestUpcomingProgram.deadline_date || nearestUpcomingProgram.start_date
+    : null;
+  const exclusiveSiteOffer = siteSettings?.exclusive_offer || {};
+  const exclusiveOfferLine =
+    exclusiveSiteOffer.enabled && String(exclusiveSiteOffer.text || '').trim()
+      ? String(exclusiveSiteOffer.text).trim()
+      : '';
+  const showOfferCountdownStrip = Boolean(exclusiveOfferLine || countdownDeadline);
 
   const addRow = () => {
     if (members.length >= 12) return;
@@ -628,90 +693,6 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh }) 
     }
   };
 
-  const OfferCard = ({ kind, offer, accent }) => {
-    if (!offer?.enabled) return null;
-    const title =
-      offer.title ||
-      (kind === 'annual'
-        ? 'Annual member offer'
-        : kind === 'extended'
-          ? 'Friends & extended offer'
-          : 'Family offer');
-    const body = offer.body || '';
-    const code = (offer.promo_code || '').trim();
-    const cta = offer.cta_label || 'View programs';
-    const path = offer.cta_path || '/#upcoming';
-
-    const navigateOfferCta = () => {
-      let dest = path.trim() || '/#upcoming';
-      if (!dest.startsWith('/') && !dest.startsWith('#')) dest = `/${dest}`;
-      if ((dest.startsWith('/program/') || dest.startsWith('/enroll/')) && code) {
-        const [base, hash] = dest.split('#');
-        const params = new URLSearchParams();
-        params.set('promo', code);
-        params.set('source', 'dashboard');
-        const join = base.includes('?') ? '&' : '?';
-        const u = `${base}${join}${params.toString()}`;
-        navigate(hash ? `${u}#${hash}` : u);
-        return;
-      }
-      navigate(dest.startsWith('/') ? dest : `/${dest}`);
-    };
-
-    return (
-      <div
-        className={cn(
-          'rounded-2xl border p-4 md:p-5 bg-white/80 backdrop-blur-sm shadow-sm',
-          accent === 'gold'
-            ? 'border-[#D4AF37]/35 bg-gradient-to-br from-amber-50/90 to-white/90'
-            : accent === 'sky'
-              ? 'border-sky-200/60 bg-gradient-to-br from-sky-50/80 to-white/90'
-              : 'border-violet-200/50 bg-gradient-to-br from-violet-50/80 to-white/90'
-        )}
-        data-testid={`dashboard-offer-${kind}`}
-      >
-        <div className="flex items-start gap-3">
-          <div
-            className={cn(
-              'w-10 h-10 rounded-xl flex items-center justify-center shrink-0',
-              accent === 'gold' ? 'bg-[#D4AF37]/20' : accent === 'sky' ? 'bg-sky-100' : 'bg-violet-100'
-            )}
-          >
-            {accent === 'gold' ? (
-              <Sparkles size={18} className="text-[#b8860b]" />
-            ) : (
-              <Users size={18} className={accent === 'sky' ? 'text-sky-800' : 'text-violet-700'} />
-            )}
-          </div>
-          <div className="min-w-0 flex-1">
-            <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-slate-500 mb-0.5">
-              {kind === 'annual'
-                ? 'For you (annual)'
-                : kind === 'extended'
-                  ? 'Friends & extended'
-                  : 'Immediate family'}
-            </p>
-            <h3 className="text-sm font-semibold text-slate-900 leading-snug">{title}</h3>
-            {body && <p className="text-xs text-slate-600 mt-1.5 leading-relaxed whitespace-pre-wrap">{body}</p>}
-            {code && (
-              <p className="mt-2 inline-flex items-center gap-1.5 text-[11px] font-mono font-semibold text-amber-900 bg-amber-100/80 border border-amber-200/80 rounded-lg px-2.5 py-1">
-                <Tag size={12} /> {code}
-              </p>
-            )}
-            <button
-              type="button"
-              onClick={navigateOfferCta}
-              className="mt-3 inline-flex items-center gap-1 text-[11px] font-semibold text-[#5D3FD3] hover:text-violet-800"
-            >
-              {cta}
-              <ArrowRight size={12} />
-            </button>
-          </div>
-        </div>
-      </div>
-    );
-  };
-
   return (
     <section className="w-full max-w-5xl mx-auto px-4 mb-4 md:mb-6" data-testid="dashboard-upcoming-family">
       <div className="rounded-[28px] border border-[rgba(160,100,220,0.14)] bg-white/70 backdrop-blur-xl px-5 py-5 md:px-7 md:py-6 shadow-[0_4px_48px_rgba(140,60,220,0.08)]">
@@ -729,6 +710,29 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh }) 
             </p>
           </div>
         </div>
+
+        {showOfferCountdownStrip && (
+          <div
+            className="mb-4 flex flex-col sm:flex-row sm:flex-wrap sm:items-center gap-2 sm:gap-x-4 rounded-xl border border-[rgba(212,175,55,0.28)] bg-gradient-to-r from-amber-50/75 via-white/55 to-violet-50/45 px-3 py-2.5"
+            data-testid="dashboard-offer-countdown-strip"
+          >
+            {exclusiveOfferLine ? (
+              <div className="inline-flex items-start gap-1.5 text-[11px] font-semibold text-[#6b5420] leading-snug min-w-0">
+                <Sparkles size={14} className="text-[#b8860b] shrink-0 mt-0.5" />
+                <span>{exclusiveOfferLine}</span>
+              </div>
+            ) : null}
+            {exclusiveOfferLine && countdownDeadline ? (
+              <span className="hidden sm:block w-px h-4 bg-[rgba(212,175,55,0.35)] shrink-0" aria-hidden />
+            ) : null}
+            {countdownDeadline ? (
+              <DashboardEnrollmentCountdown
+                deadline={countdownDeadline}
+                programTitle={nearestUpcomingProgram?.title}
+              />
+            ) : null}
+          </div>
+        )}
 
         {upcoming.length === 0 ? (
           <p className="text-sm text-slate-500 italic py-2">No upcoming programs listed yet — check back soon.</p>
@@ -1087,20 +1091,6 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh }) 
             })}
           </div>
         )}
-
-        {((isAnnual && annualOffer?.enabled) || familyOffer?.enabled || extendedOffer?.enabled) ? (
-          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-3 mb-4">
-            {isAnnual && annualOffer?.enabled ? (
-              <OfferCard kind="annual" offer={annualOffer} accent="gold" />
-            ) : null}
-            {familyOffer?.enabled ? (
-              <OfferCard kind="family" offer={familyOffer} accent="violet" />
-            ) : null}
-            {extendedOffer?.enabled ? (
-              <OfferCard kind="extended" offer={extendedOffer} accent="sky" />
-            ) : null}
-          </div>
-        ) : null}
 
         <div className="border-t border-slate-200/80 pt-4 mt-2">
           <div className="flex items-center gap-2 mb-3">
