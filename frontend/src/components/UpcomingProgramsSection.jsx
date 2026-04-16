@@ -185,6 +185,27 @@ const CountdownTimer = ({ deadline }) => {
   );
 };
 
+/** Tier toggle text: keeps flagship cards (e.g. MMM, Stress Release) the same height — long "Annual Program" → "Annual". */
+function compactTierButtonLabel(raw) {
+  if (raw == null || typeof raw !== 'string') return '—';
+  const t = raw.trim();
+  if (!t) return '—';
+  const L = t.toLowerCase();
+  if (L.includes('annual') || (L.includes('year') && L.includes('program'))) return 'Annual';
+  if (L.includes('year-long') || L === 'year') return 'Annual';
+  if (t.length <= 16) return t;
+  return `${t.slice(0, 14)}…`;
+}
+
+/** Gold duration pill on card image: annual tracks show a short label instead of a long day count. */
+function durationPillDisplay(isAnnualTier, durationStr) {
+  if (!durationStr) return '';
+  if (isAnnualTier) return 'Annual';
+  const L = String(durationStr).toLowerCase();
+  if (L.includes('annual') || /\b12\s*months?\b/.test(L) || /\b1\s*year\b/.test(L)) return 'Annual';
+  return durationStr;
+}
+
 const UpcomingCard = ({ program }) => {
   const navigate = useNavigate();
   const { getPrice, getOfferPrice, symbol, country: detectedCountry } = useCurrency();
@@ -249,6 +270,17 @@ const UpcomingCard = ({ program }) => {
     return program.duration || '';
   })();
 
+  const isAnnualTierRow = (t) =>
+    !!t &&
+    (String(t.label || '')
+      .toLowerCase()
+      .includes('annual') ||
+      String(t.label || '')
+        .toLowerCase()
+        .includes('year') ||
+      t.duration_unit === 'year');
+  const durationOnImage = durationPillDisplay(tier ? isAnnualTierRow(tier) : false, autoDuration);
+
   // Format date to standard: "27 Mar 2026"
   const fmtDate = (d) => {
     const dt = parseDate(d);
@@ -272,9 +304,12 @@ const UpcomingCard = ({ program }) => {
     } catch { toast({ title: 'Error', variant: 'destructive' }); }
   };
 
+  const tierGridClass =
+    tiers.length <= 1 ? 'grid-cols-1' : tiers.length === 2 ? 'grid-cols-2' : 'grid-cols-3';
+
   return (
     <div data-testid={`upcoming-card-${program.id}`}
-      className={`group bg-white rounded-xl overflow-hidden shadow-lg transition-all duration-300 border border-gray-100 flex flex-col ${enrollStatus === 'closed' ? 'opacity-60' : 'hover:shadow-2xl'}`}>
+      className={`group bg-white rounded-xl overflow-hidden shadow-lg transition-all duration-300 border border-gray-100 flex flex-col h-full ${enrollStatus === 'closed' ? 'opacity-60' : 'hover:shadow-2xl'}`}>
       <div className="relative h-48 overflow-hidden cursor-pointer" onClick={() => navigate(`/program/${program.id}`)}>
         <img src={resolveImageUrl(program.image)} alt={program.title}
           className={`w-full h-full object-cover transition-transform duration-500 ${enrollStatus === 'open' ? 'group-hover:scale-105' : enrollStatus === 'closed' ? 'grayscale-[40%]' : ''}`}
@@ -306,8 +341,10 @@ const UpcomingCard = ({ program }) => {
                     <Clock size={10} className="flex-shrink-0" /> {timingConverted.local ? `${timingConverted.local} ${timingConverted.localTz}` : `${program.timing} ${timingConverted.srcTz}`}
                   </span>
                 )}
-                {autoDuration && program.show_duration_on_card !== false && (
-                  <span className="bg-[#D4AF37] backdrop-blur-sm text-white text-[11px] font-bold px-2.5 py-1 rounded shadow-sm">{autoDuration}</span>
+                {durationOnImage && program.show_duration_on_card !== false && (
+                  <span className="bg-[#D4AF37] backdrop-blur-sm text-white text-[10px] font-bold px-2 py-0.5 rounded shadow-sm tracking-wide">
+                    {durationOnImage}
+                  </span>
                 )}
               </div>
             )}
@@ -342,8 +379,16 @@ const UpcomingCard = ({ program }) => {
 
       <div className="p-4 flex-1 flex flex-col">
         <p className="text-[#D4AF37] text-[10px] tracking-wider mb-0.5 uppercase">{program.category}</p>
-        <div className="flex items-start gap-2 mb-1.5">
+        <div className="flex items-start gap-2 mb-1.5 flex-wrap">
           <h3 className="text-base font-semibold text-gray-900 leading-tight">{program.title}</h3>
+          {hasTiers && isAnnual && (
+            <span
+              data-testid={`annual-tier-label-${program.id}`}
+              className="flex-shrink-0 inline-flex items-center rounded-md border border-[#D4AF37]/40 bg-amber-50/95 text-[8px] font-bold uppercase tracking-wider text-[#6b5210] px-2 py-0.5"
+            >
+              Annual
+            </span>
+          )}
           {program.highlight_label && (
             <span data-testid={`highlight-badge-${program.id}`}
               className={`flex-shrink-0 inline-flex items-center gap-1 text-[8px] font-bold tracking-wider uppercase px-2 py-1 rounded-full whitespace-nowrap ${program.highlight_style === 'glow' ? 'animate-pulse' : ''}`}
@@ -368,14 +413,18 @@ const UpcomingCard = ({ program }) => {
             {/* Tier Selector */}
             {hasTiers && (
               <div data-testid={`upcoming-tier-selector-${program.id}`} className="mb-3">
-                <div className="flex gap-1">
+                <div className={`grid ${tierGridClass} gap-1`}>
                   {tiers.map((t, i) => (
-                    <button key={i} data-testid={`upcoming-tier-btn-${program.id}-${i}`}
+                    <button                      key={i}
+                      data-testid={`upcoming-tier-btn-${program.id}-${i}`}
+                      type="button"
+                      title={t.label || undefined}
                       onClick={() => setSelectedTier(i)}
-                      className={`flex-1 text-[10px] py-1.5 rounded-full border transition-all ${
-                        selectedTier === i ? 'bg-[#D4AF37] text-white border-[#D4AF37]' : 'bg-white text-gray-500 border-gray-200 hover:border-[#D4AF37]'
-                      }`}>
-                      {t.label}
+                      className={`min-h-[2.25rem] px-1.5 text-[10px] leading-tight rounded-full border transition-all flex items-center justify-center text-center ${
+                        selectedTier === i ? 'bg-[#D4AF37] text-white border-[#D4AF37]' : 'bg-white text-gray-600 border-gray-200 hover:border-[#D4AF37]'
+                      }`}
+                    >
+                      <span className="line-clamp-2 break-words">{compactTierButtonLabel(t.label)}</span>
                     </button>
                   ))}
                 </div>
@@ -654,7 +703,7 @@ const UpcomingProgramsSection = ({ sectionConfig, inline }) => {
           <div className="text-center mb-8">
             <h2 className="text-xl md:text-2xl text-gray-900" style={applyTitleStyle(sectionConfig?.title_style, {})}>{sectionConfig?.title || 'Upcoming Programs'}</h2>
           </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 items-stretch">
             {sorted.map(program => <UpcomingCard key={program.id} program={program} />)}
           </div>
         </>
@@ -665,7 +714,7 @@ const UpcomingProgramsSection = ({ sectionConfig, inline }) => {
           const gridClass = totalCols === 2 ? 'lg:grid-cols-2' : totalCols === 3 ? 'lg:grid-cols-3' : 'lg:grid-cols-4';
           const titleSpan = totalCols === 2 ? 'lg:col-span-1' : totalCols === 3 ? 'lg:col-span-2' : 'lg:col-span-3';
           return (
-            <div className={`grid grid-cols-1 ${gridClass} gap-6`}>
+            <div className={`grid grid-cols-1 ${gridClass} gap-6 items-stretch`}>
               {/* Title row */}
               <div className={`${titleSpan} text-center`}>
                 <h2 className="text-3xl md:text-4xl text-gray-900" style={applyTitleStyle(sectionConfig?.title_style, {})}>{sectionConfig?.title || 'Upcoming Programs'}</h2>
