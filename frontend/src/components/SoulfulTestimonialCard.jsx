@@ -512,14 +512,46 @@ export const SoulfulWrittenSnippet = ({ text, name, role, rating = 5 }) => {
       </div>
 
       <div className="px-4 pb-3 pt-2" style={{ display: 'flex', flexDirection: 'column' }}>
+        <style>{`
+          @keyframes soulfulSnippetQuoteFomo {
+            0%, 100% {
+              transform: scale(1);
+              text-shadow:
+                0 1px 0 rgba(255,255,255,0.7),
+                0 2px 18px rgba(212,175,55,0.35),
+                0 0 28px rgba(212,175,55,0.2),
+                0 0 2px rgba(91,33,182,0.15);
+            }
+            50% {
+              transform: scale(1.02);
+              text-shadow:
+                0 1px 0 rgba(255,255,255,0.85),
+                0 3px 26px rgba(212,175,55,0.55),
+                0 0 40px rgba(212,175,55,0.32),
+                0 0 3px rgba(147,51,234,0.2);
+            }
+          }
+          @media (prefers-reduced-motion: reduce) {
+            .soulful-snippet-fomo-quote {
+              animation: none !important;
+              transform: none !important;
+              text-shadow: 0 1px 0 rgba(255,255,255,0.6), 0 2px 16px rgba(212,175,55,0.3) !important;
+            }
+          }
+        `}</style>
         <p
+          className="soulful-snippet-fomo-quote"
           style={{
             fontFamily: "'Cormorant Garamond', Georgia, serif",
-            fontSize: '0.82rem',
-            lineHeight: 1.65,
-            color: '#1e0a4e',
+            fontSize: 'clamp(1rem, 4.2vw, 1.22rem)',
+            lineHeight: 1.48,
+            fontWeight: 600,
             fontStyle: 'italic',
             textAlign: 'center',
+            letterSpacing: '0.045em',
+            color: '#2a0f4a',
+            animation: 'soulfulSnippetQuoteFomo 2.5s ease-in-out infinite',
+            willChange: 'transform',
           }}
         >
           {`"${displayText}"`}
