@@ -5,6 +5,8 @@ from motor.motor_asyncio import AsyncIOMotorClient
 from dotenv import load_dotenv
 from pathlib import Path
 
+import s3_storage
+
 ROOT_DIR = Path(__file__).parent.parent
 load_dotenv(ROOT_DIR / '.env')
 
@@ -18,7 +20,22 @@ DEFAULT_SETTINGS = SiteSettings().dict()
 
 def _with_public_api_base(obj: SiteSettings) -> SiteSettings:
     host = (os.environ.get("HOST_URL") or "").strip().rstrip("/")
-    return obj.model_copy(update={"public_api_base": host})
+    bucket = (os.environ.get("AWS_S3_BUCKET") or "").strip()
+    force_vh = (os.environ.get("S3_PROXY_VIRTUAL_HOST_URLS") or "").lower() in ("true", "1", "yes")
+    mode = s3_storage.s3_url_for_browser_mode()
+    use_proxy_vh = (
+        bool(host)
+        and bool(bucket)
+        and s3_storage.is_s3_enabled()
+        and (mode in ("api", "proxy", "backend") or force_vh)
+    )
+    return obj.model_copy(
+        update={
+            "public_api_base": host,
+            "s3_media_bucket": bucket if use_proxy_vh else "",
+            "s3_proxy_virtual_host_urls": use_proxy_vh,
+        }
+    )
 
 DEFAULT_SECTION_TEMPLATE = [
     {"id": "journey", "section_type": "journey", "default_title": "The Journey", "default_subtitle": "", "order": 0, "is_enabled": True},

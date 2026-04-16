@@ -1,6 +1,21 @@
 import { BACKEND_URL as CONFIG_BACKEND_URL } from './config';
 
 const PUBLIC_API_STORAGE_KEY = 'divine_iris_public_api_base';
+const S3_VH_REWRITE_KEY = 'divine_iris_s3_vh_rewrite';
+
+/** When the API sets s3_proxy_virtual_host_urls, store bucket name so resolveImageUrl can map private S3 URLs to /api/s3-media/... */
+export function rememberS3VirtualHostRewrite(bucket, enabled) {
+  if (typeof window === 'undefined') return;
+  try {
+    if (enabled && bucket) {
+      sessionStorage.setItem(S3_VH_REWRITE_KEY, JSON.stringify({ bucket, enabled: true }));
+    } else {
+      sessionStorage.removeItem(S3_VH_REWRITE_KEY);
+    }
+  } catch (_) {
+    /* private mode / quota */
+  }
+}
 
 /** Call when /api/settings loads — HOST_URL from the server helps /api/image URLs if the bundle lacked REACT_APP_BACKEND_URL. */
 export function rememberPublicApiBase(url) {
@@ -27,6 +42,42 @@ function backendOrigin() {
     } catch (_) {}
   }
   return '';
+}
+
+function tryRewriteS3VirtualHostUrl(url, bucket, apiBase) {
+  if (!url || !bucket || !apiBase) return null;
+  try {
+    const u = new URL(url);
+    const host = u.hostname.toLowerCase();
+    const b = bucket.toLowerCase();
+    const escaped = b.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const re = new RegExp(`^${escaped}\\.s3(?:\\.[a-z0-9-]+)?\\.amazonaws\\.com$`, 'i');
+    if (!re.test(host)) return null;
+    const raw = u.pathname.replace(/^\/+/, '');
+    if (!raw) return null;
+    const segments = decodeURIComponent(raw)
+      .split('/')
+      .filter(Boolean)
+      .map((seg) => encodeURIComponent(seg));
+    return `${apiBase.replace(/\/$/, '')}/api/s3-media/${segments.join('/')}`;
+  } catch {
+    return null;
+  }
+}
+
+function rewriteS3VirtualHostFromStorage(url) {
+  if (typeof window === 'undefined') return null;
+  try {
+    const raw = sessionStorage.getItem(S3_VH_REWRITE_KEY);
+    if (!raw) return null;
+    const { bucket, enabled } = JSON.parse(raw);
+    if (!enabled || !bucket) return null;
+    const origin = backendOrigin();
+    if (!origin) return null;
+    return tryRewriteS3VirtualHostUrl(url, bucket, origin);
+  } catch {
+    return null;
+  }
 }
 
 /** True if the value looks like an image URL (excludes mistaken plain text such as a client name). */
@@ -67,6 +118,10 @@ export function resolveImageUrl(url) {
   if (!u) return '';
 
   const lower = u.toLowerCase();
+  if (lower.startsWith('https://') || lower.startsWith('http://')) {
+    const proxied = rewriteS3VirtualHostFromStorage(u);
+    if (proxied) return proxied;
+  }
   if (
     lower.startsWith('http://') ||
     lower.startsWith('https://') ||

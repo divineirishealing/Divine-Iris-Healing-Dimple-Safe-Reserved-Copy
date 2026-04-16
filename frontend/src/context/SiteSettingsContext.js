@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import axios from 'axios';
-import { rememberPublicApiBase } from '../lib/imageUtils';
+import { rememberPublicApiBase, rememberS3VirtualHostRewrite } from '../lib/imageUtils';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
@@ -31,6 +31,10 @@ export const SiteSettingsProvider = ({ children }) => {
     if (!s) return;
     const apiBase = (s.public_api_base || '').trim().replace(/\/$/, '');
     if (apiBase) rememberPublicApiBase(apiBase);
+    rememberS3VirtualHostRewrite(
+      (s.s3_media_bucket || '').trim(),
+      !!s.s3_proxy_virtual_host_urls,
+    );
     const root = document.documentElement;
 
     const headingFont = s.heading_font || 'Playfair Display';

@@ -8,7 +8,7 @@ import { Textarea } from '../ui/textarea';
 import { Switch } from '../ui/switch';
 import { Label } from '../ui/label';
 import ImageUploader from './ImageUploader';
-import { resolveImageUrl } from '../../lib/imageUtils';
+import { resolveImageUrl, rememberPublicApiBase, rememberS3VirtualHostRewrite } from '../../lib/imageUtils';
 import {
   Settings, Package, Calendar, MessageSquare, BarChart3, Mail, Inbox,
   Trash2, Edit, Plus, X, Eye, EyeOff, Save, ArrowUp, ArrowDown,
@@ -146,7 +146,16 @@ const AdminPanel = () => {
       if (results[2].status === 'fulfilled') setTestimonials(results[2].value.data);
       if (results[3].status === 'fulfilled') setStats(results[3].value.data);
       if (results[4].status === 'fulfilled') setSubscribers(results[4].value.data);
-      if (results[5].status === 'fulfilled') setSiteSettings(results[5].value.data);
+      if (results[5].status === 'fulfilled') {
+        const s = results[5].value.data;
+        setSiteSettings(s);
+        const base = (s.public_api_base || '').trim().replace(/\/$/, '');
+        if (base) rememberPublicApiBase(base);
+        rememberS3VirtualHostRewrite(
+          (s.s3_media_bucket || '').trim(),
+          !!s.s3_proxy_virtual_host_urls,
+        );
+      }
 
     } catch (error) {
       console.error('Critical error loading admin data:', error);

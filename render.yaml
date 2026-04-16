@@ -39,7 +39,9 @@ services:
       - key: REQUIRE_S3_FOR_UPLOADS
         sync: false        # Optional: true = uploads must use S3 only (no local fallback). Recommended on Render with AWS fully configured.
       - key: S3_URL_FOR_BROWSER
-        value: direct      # Native https://bucket.s3... URLs (recommended). Use api + HOST_URL only if the bucket must stay private.
+        value: direct      # Native https://bucket.s3... URLs stored in Mongo; pair with public GetObject OR S3_PROXY_VIRTUAL_HOST_URLS
+      - key: S3_PROXY_VIRTUAL_HOST_URLS
+        value: "true"     # Rewrite bucket.s3... URLs to /api/s3-media/... in the browser (private bucket OK; IAM needs s3:GetObject)
       - key: PYTHON_VERSION
         value: 3.11.0
 

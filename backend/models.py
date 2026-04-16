@@ -381,6 +381,9 @@ class SiteSettings(BaseModel):
     id: str = "site_settings"
     # Set from server HOST_URL on GET only — not stored in Mongo; helps the static site prefix /api/image URLs
     public_api_base: str = ""
+    # GET-only (not in Mongo): when true, frontend rewrites this bucket’s virtual-host S3 URLs to /api/s3-media/...
+    s3_media_bucket: str = ""
+    s3_proxy_virtual_host_urls: bool = False
     heading_font: str = "Playfair Display"
     body_font: str = "Lato"
     heading_color: str = "#1a1a1a"
