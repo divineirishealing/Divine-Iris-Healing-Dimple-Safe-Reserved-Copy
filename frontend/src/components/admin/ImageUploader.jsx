@@ -16,11 +16,11 @@ function resolveUrl(url) {
 
 function uploadErrorMessage(error) {
   if (!BACKEND_URL) {
-    return 'Photo upload is not wired up: the website host must set REACT_APP_BACKEND_URL to your API address, then rebuild the site (e.g. Render → Environment → redeploy).';
+    return 'Photo upload is not wired up: on Vercel set REACT_APP_BACKEND_URL to your **Render API** URL (https://….onrender.com), then redeploy the **frontend** so uploads hit the backend.';
   }
   const detail = error?.response?.data?.detail;
   if (typeof detail === 'string') {
-    if (/temporary disk|ephemeral|durable storage|AWS S3|S3 is not/i.test(detail)) {
+    if (/temporary disk|ephemeral|durable storage|AWS S3|S3 is not|S3 upload failed|S3 is not enabled/i.test(detail)) {
       return detail;
     }
     if (/S3|AWS|AccessDenied|bucket|credentials/i.test(detail)) {

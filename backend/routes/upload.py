@@ -103,9 +103,29 @@ def _s3_put_then_fallback(
                     status_code=503,
                     detail=f"S3 upload failed (no fallback allowed): {e}",
                 ) from e
+            if _host_uses_ephemeral_disk_by_default():
+                logger.warning("S3 upload failed; ephemeral host cannot use local disk: %s", e)
+                raise HTTPException(
+                    status_code=503,
+                    detail=(
+                        f"S3 upload failed (images cannot be stored on this server’s disk): {e}. "
+                        "Fix IAM (s3:PutObject on your prefix), bucket region = AWS_REGION, and credentials. "
+                        "GET /api/upload/storage-status"
+                    ),
+                ) from e
             logger.warning("S3 upload failed; using local disk: %s", e)
             url = _save_locally_bytes(file_bytes, unique_filename)
             return _return_upload(url, unique_filename)
+    if _host_uses_ephemeral_disk_by_default():
+        raise HTTPException(
+            status_code=503,
+            detail=(
+                "S3 is not enabled on this API (missing bucket or credentials), and this host cannot store "
+                "uploads on disk. Set AWS_S3_BUCKET, AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, and AWS_REGION "
+                "on the Render **backend** service (not the Vercel frontend), redeploy, then try again. "
+                "GET /api/upload/storage-status"
+            ),
+        )
     url = _save_locally_bytes(file_bytes, unique_filename)
     return _return_upload(url, unique_filename)
 
