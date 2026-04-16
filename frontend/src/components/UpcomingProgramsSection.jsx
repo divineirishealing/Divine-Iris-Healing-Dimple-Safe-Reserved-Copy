@@ -113,6 +113,7 @@ function testimonialsForProgram(all, program) {
   const id = String(program.id);
   const title = (program.title || '').trim().toLowerCase();
   const matched = all.filter((t) => {
+    if (t.type !== 'template') return false;
     if (String(t.program_id || '') === id) return true;
     const tags = t.program_tags || [];
     if (Array.isArray(tags) && tags.some((tag) => String(tag) === id)) return true;
@@ -121,12 +122,7 @@ function testimonialsForProgram(all, program) {
     return false;
   });
   const withQuote = matched.filter((t) => (t.text || '').trim().length > 12);
-  withQuote.sort((a, b) => {
-    const pref = (x) => (x.type === 'template' ? 0 : x.type === 'video' ? 1 : 2);
-    const d = pref(a) - pref(b);
-    if (d !== 0) return d;
-    return (a.order || 0) - (b.order || 0);
-  });
+  withQuote.sort((a, b) => (a.order || 0) - (b.order || 0));
   return withQuote.slice(0, 8);
 }
 
