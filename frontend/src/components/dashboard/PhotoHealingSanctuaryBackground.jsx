@@ -5,23 +5,23 @@ const IMG = `${process.env.PUBLIC_URL || ''}/dashboard-healing-sanctuary.png`;
 const BREEZE_LAYERS = [
   {
     anim: 'dashboard-healing-breeze-deep',
-    mask: 'linear-gradient(108deg, rgb(0,0,0) 0%, rgba(0,0,0,0.62) 16%, rgba(0,0,0,0.22) 30%, transparent 44%)',
-    blur: 1.1,
-    opacity: 0.22,
+    mask: 'linear-gradient(108deg, rgb(0,0,0) 0%, rgba(0,0,0,0.58) 17%, rgba(0,0,0,0.2) 32%, transparent 46%)',
+    blur: 1.15,
+    opacity: 0.17,
     mix: 'soft-light',
   },
   {
     anim: 'dashboard-healing-breeze-mid',
-    mask: 'linear-gradient(102deg, rgb(0,0,0) 0%, rgba(0,0,0,0.45) 24%, rgba(0,0,0,0.12) 38%, transparent 52%)',
-    blur: 2,
-    opacity: 0.15,
+    mask: 'linear-gradient(102deg, rgb(0,0,0) 0%, rgba(0,0,0,0.42) 26%, rgba(0,0,0,0.1) 40%, transparent 54%)',
+    blur: 2.1,
+    opacity: 0.12,
     mix: 'overlay',
   },
   {
     anim: 'dashboard-healing-breeze-light',
-    mask: 'radial-gradient(ellipse 72% 88% at 4% 76%, rgb(0,0,0) 0%, rgba(0,0,0,0.35) 42%, transparent 68%)',
-    blur: 1.6,
-    opacity: 0.17,
+    mask: 'radial-gradient(ellipse 72% 88% at 4% 76%, rgb(0,0,0) 0%, rgba(0,0,0,0.32) 44%, transparent 70%)',
+    blur: 1.7,
+    opacity: 0.13,
     mix: 'soft-light',
   },
 ];
@@ -52,32 +52,40 @@ export function PhotoHealingSanctuaryBackground({ storageScope = 'student' }) {
 
   const petals = useMemo(
     () =>
-      Array.from({ length: 11 }, (_, i) => ({
+      Array.from({ length: 9 }, (_, i) => ({
         id: i,
-        left: 3 + rand() * 40,
-        delay: rand() * -40,
-        duration: 52 + rand() * 48,
-        size: 4 + rand() * 6,
-        rot: -35 + rand() * 70,
-        dx: -22 + rand() * 44,
-        hue: rand() > 0.5 ? '236, 72, 153' : '124, 58, 237',
+        left: 2 + rand() * 38,
+        delay: rand() * -55,
+        duration: 72 + rand() * 56,
+        size: 3.5 + rand() * 5.5,
+        dx: Math.round(-36 + rand() * 72),
+        rotN: Math.round(-65 + rand() * 130),
+        hue: rand() > 0.48 ? '236, 72, 153' : '124, 58, 237',
       })),
     [rand]
   );
 
   const particles = useMemo(
     () =>
-      Array.from({ length: 40 }, (_, i) => ({
-        id: i,
-        left: rand() * 100,
-        top: rand() * 100,
-        size: 1 + rand() * 2.2,
-        duration: 24 + rand() * 28,
-        delay: -rand() * 32,
-        mx: `${-12 + rand() * 24}px`,
-        my: `${-14 + rand() * 28}px`,
-        gold: rand() > 0.42,
-      })),
+      Array.from({ length: 46 }, (_, i) => {
+        const a = 6 + rand() * 9;
+        const b = 5 + rand() * 8;
+        return {
+          id: i,
+          left: rand() * 100,
+          top: rand() * 100,
+          size: 0.85 + rand() * 2,
+          duration: 38 + rand() * 36,
+          delay: -rand() * 40,
+          mx: `${(rand() - 0.5) * a}px`,
+          my: `${(rand() - 0.5) * b}px`,
+          mx2: `${(rand() - 0.5) * a * 1.1}px`,
+          my2: `${(rand() - 0.5) * b * 1.1}px`,
+          mx3: `${(rand() - 0.5) * a * 0.85}px`,
+          my3: `${(rand() - 0.5) * b * 0.85}px`,
+          gold: rand() > 0.4,
+        };
+      }),
     [rand]
   );
 
@@ -121,20 +129,30 @@ export function PhotoHealingSanctuaryBackground({ storageScope = 'student' }) {
       </div>
 
       <div
-        className="pointer-events-none absolute inset-0 mix-blend-soft-light opacity-[0.22] dashboard-healing-sunray"
+        className="pointer-events-none absolute inset-0 mix-blend-soft-light opacity-[0.2] dashboard-healing-sunray"
         style={{
           background:
-            'radial-gradient(ellipse 85% 70% at 96% 4%, rgba(255, 232, 200, 0.55) 0%, transparent 52%)',
+            'radial-gradient(ellipse 88% 72% at 94% 5%, rgba(255, 232, 200, 0.52) 0%, transparent 54%)',
         }}
       />
 
       <div
-        className="pointer-events-none absolute inset-0 opacity-[0.38] dashboard-healing-leaf-shadow"
+        className="pointer-events-none absolute inset-0 opacity-[0.34] dashboard-healing-leaf-shadow"
         style={{
           background: `
-            radial-gradient(ellipse 45% 28% at 72% 8%, rgba(76, 29, 149, 0.22) 0%, transparent 70%),
-            radial-gradient(ellipse 38% 22% at 58% 12%, rgba(91, 33, 182, 0.18) 0%, transparent 68%),
-            radial-gradient(ellipse 52% 30% at 88% 18%, rgba(109, 40, 217, 0.14) 0%, transparent 72%)
+            radial-gradient(ellipse 45% 28% at 72% 8%, rgba(76, 29, 149, 0.2) 0%, transparent 70%),
+            radial-gradient(ellipse 38% 22% at 58% 12%, rgba(91, 33, 182, 0.16) 0%, transparent 68%),
+            radial-gradient(ellipse 52% 30% at 88% 18%, rgba(109, 40, 217, 0.12) 0%, transparent 72%)
+          `,
+        }}
+      />
+
+      <div
+        className="pointer-events-none absolute inset-0 opacity-[0.28] dashboard-healing-leaf-shadow-alt"
+        style={{
+          background: `
+            radial-gradient(ellipse 38% 22% at 46% 14%, rgba(67, 56, 120, 0.16) 0%, transparent 66%),
+            radial-gradient(ellipse 44% 26% at 84% 20%, rgba(76, 29, 149, 0.11) 0%, transparent 70%)
           `,
         }}
       />
@@ -143,7 +161,7 @@ export function PhotoHealingSanctuaryBackground({ storageScope = 'student' }) {
         className="pointer-events-none absolute inset-0 dashboard-healing-center-veil"
         style={{
           background:
-            'radial-gradient(ellipse 48% 58% at 50% 48%, rgba(253, 250, 255, 0.38) 0%, transparent 62%)',
+            'radial-gradient(ellipse 50% 60% at 50% 48%, rgba(255, 254, 255, 0.5) 0%, rgba(253, 250, 255, 0.22) 45%, transparent 64%)',
         }}
       />
 
@@ -161,7 +179,11 @@ export function PhotoHealingSanctuaryBackground({ storageScope = 'student' }) {
               animationDelay: `${p.delay}s`,
               ['--mx']: p.mx,
               ['--my']: p.my,
-              ['--a']: p.gold ? 0.48 : 0.32,
+              ['--mx2']: p.mx2,
+              ['--my2']: p.my2,
+              ['--mx3']: p.mx3,
+              ['--my3']: p.my3,
+              ['--a']: p.gold ? 0.44 : 0.28,
               background: p.gold
                 ? 'radial-gradient(circle, rgba(255, 220, 160, 0.85) 0%, rgba(212, 175, 55, 0.28) 100%)'
                 : 'radial-gradient(circle, rgba(230, 210, 255, 0.75) 0%, rgba(167, 139, 250, 0.22) 100%)',
@@ -186,10 +208,10 @@ export function PhotoHealingSanctuaryBackground({ storageScope = 'student' }) {
               height: p.size * 1.35,
               animationDelay: `${p.delay}s`,
               animationDuration: `${p.duration}s`,
-              ['--dx']: `${p.dx}px`,
-              ['--rot']: `${p.rot}deg`,
-              background: `linear-gradient(155deg, rgba(${p.hue}, 0.42), rgba(${p.hue}, 0.08))`,
-              boxShadow: '0 1px 4px rgba(76, 29, 149, 0.08)',
+              ['--dx']: p.dx,
+              ['--rot-n']: p.rotN,
+              background: `linear-gradient(155deg, rgba(${p.hue}, 0.38), rgba(${p.hue}, 0.06))`,
+              boxShadow: '0 1px 4px rgba(76, 29, 149, 0.06)',
             }}
           />
         ))}
@@ -225,7 +247,7 @@ export function PhotoHealingSanctuaryBackground({ storageScope = 'student' }) {
               />
             </filter>
           </defs>
-          <g filter={`url(#dh-steam-blur-${sid})`} style={{ opacity: 0.86 }}>
+          <g filter={`url(#dh-steam-blur-${sid})`} style={{ opacity: 0.84 }}>
             <path
               className="dashboard-healing-steam-strand"
               style={{ animationDelay: '0s' }}
@@ -237,7 +259,7 @@ export function PhotoHealingSanctuaryBackground({ storageScope = 'student' }) {
             />
             <path
               className="dashboard-healing-steam-strand"
-              style={{ animationDelay: '-3s' }}
+              style={{ animationDelay: '-4.2s' }}
               d="M 72 190 Q 62 148 78 122 Q 88 92 70 62 Q 58 34 74 12"
               fill="none"
               stroke={`url(#dh-steam-g-${sid})`}
@@ -246,7 +268,7 @@ export function PhotoHealingSanctuaryBackground({ storageScope = 'student' }) {
             />
             <path
               className="dashboard-healing-steam-strand"
-              style={{ animationDelay: '-6.2s' }}
+              style={{ animationDelay: '-8.5s' }}
               d="M 48 188 Q 56 152 44 128 Q 38 98 52 68 Q 64 38 48 14"
               fill="none"
               stroke={`url(#dh-steam-g-${sid})`}
@@ -255,12 +277,22 @@ export function PhotoHealingSanctuaryBackground({ storageScope = 'student' }) {
             />
             <path
               className="dashboard-healing-steam-strand-alt"
-              style={{ animationDelay: '-1.6s' }}
+              style={{ animationDelay: '-2.1s' }}
               d="M 64 188 Q 54 158 66 128 Q 74 96 60 64 Q 50 36 68 10"
               fill="none"
               stroke={`url(#dh-steam-g-${sid})`}
               strokeWidth="1.35"
               strokeLinecap="round"
+            />
+            <path
+              className="dashboard-healing-steam-heart"
+              style={{ animationDelay: '-5.5s' }}
+              d="M 60 188 Q 54 172 56 158 Q 60 148 64 158 Q 68 148 72 158 Q 74 172 68 182 Q 64 188 60 188"
+              fill="none"
+              stroke={`url(#dh-steam-g-${sid})`}
+              strokeWidth="1.25"
+              strokeLinecap="round"
+              strokeLinejoin="round"
             />
           </g>
         </svg>

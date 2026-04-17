@@ -278,13 +278,13 @@ html {
 @keyframes dashboard-healing-base-drift {
   0%,
   100% {
-    transform: scale(1.045) translate3d(0, 0, 0);
+    transform: scale(1.042) translate3d(0, 0, 0);
   }
-  31% {
-    transform: scale(1.045) translate3d(0.22%, -0.12%, 0);
+  38% {
+    transform: scale(1.042) translate3d(0.14%, -0.08%, 0);
   }
-  63% {
-    transform: scale(1.045) translate3d(-0.16%, 0.1%, 0);
+  72% {
+    transform: scale(1.042) translate3d(-0.1%, 0.07%, 0);
   }
 }
 
@@ -293,14 +293,14 @@ html {
   100% {
     transform: translate3d(0, 0, 0) skewX(0deg) rotate(0deg);
   }
-  24% {
-    transform: translate3d(2.5px, -1.2px, 0) skewX(0.2deg) rotate(0.14deg);
+  26% {
+    transform: translate3d(1.5px, -0.75px, 0) skewX(0.12deg) rotate(0.09deg);
   }
-  49% {
-    transform: translate3d(-1.8px, 0.7px, 0) skewX(-0.14deg) rotate(-0.1deg);
+  52% {
+    transform: translate3d(-1.1px, 0.5px, 0) skewX(-0.09deg) rotate(-0.06deg);
   }
-  74% {
-    transform: translate3d(1.4px, -0.5px, 0) skewX(0.1deg) rotate(0.08deg);
+  76% {
+    transform: translate3d(0.85px, -0.35px, 0) skewX(0.06deg) rotate(0.05deg);
   }
 }
 
@@ -309,17 +309,17 @@ html {
   100% {
     transform: translate3d(0, 0, 0) skewX(0deg) rotate(0deg);
   }
-  19% {
-    transform: translate3d(-3px, 1px, 0) skewX(-0.24deg) rotate(-0.16deg);
+  21% {
+    transform: translate3d(-1.75px, 0.65px, 0) skewX(-0.14deg) rotate(-0.1deg);
   }
-  41% {
-    transform: translate3d(2.4px, -0.8px, 0) skewX(0.17deg) rotate(0.11deg);
+  44% {
+    transform: translate3d(1.45px, -0.5px, 0) skewX(0.1deg) rotate(0.07deg);
   }
-  62% {
-    transform: translate3d(-1.2px, 0.5px, 0) skewX(-0.1deg) rotate(-0.07deg);
+  66% {
+    transform: translate3d(-0.75px, 0.35px, 0) skewX(-0.07deg) rotate(-0.05deg);
   }
-  84% {
-    transform: translate3d(1.6px, -0.4px, 0) skewX(0.08deg) rotate(0.06deg);
+  86% {
+    transform: translate3d(1px, -0.28px, 0) skewX(0.05deg) rotate(0.04deg);
   }
 }
 
@@ -328,97 +328,157 @@ html {
   100% {
     transform: translate3d(0, 0, 0) rotate(0deg);
   }
-  28% {
-    transform: translate3d(3.5px, -1.8px, 0) rotate(0.22deg);
+  30% {
+    transform: translate3d(2.1px, -1.1px, 0) rotate(0.13deg);
   }
-  55% {
-    transform: translate3d(-2.6px, 1.1px, 0) rotate(-0.16deg);
+  58% {
+    transform: translate3d(-1.55px, 0.75px, 0) rotate(-0.1deg);
   }
-  81% {
-    transform: translate3d(1.8px, -0.6px, 0) rotate(0.1deg);
+  84% {
+    transform: translate3d(1.15px, -0.4px, 0) rotate(0.07deg);
   }
 }
 
 @keyframes dashboard-healing-steam-rise {
   0% {
-    opacity: 0.14;
-    transform: translateY(9px) translateX(0);
+    opacity: 0.12;
+    transform: translateY(10px) translateX(0);
   }
-  22% {
-    opacity: 0.48;
-    transform: translateY(-6px) translateX(1.5px);
+  28% {
+    opacity: 0.42;
+    transform: translateY(-4px) translateX(1px);
   }
-  48% {
-    opacity: 0.74;
-    transform: translateY(-26px) translateX(-1px);
+  52% {
+    opacity: 0.68;
+    transform: translateY(-22px) translateX(-0.8px);
   }
-  72% {
-    opacity: 0.38;
-    transform: translateY(-42px) translateX(2px);
+  78% {
+    opacity: 0.36;
+    transform: translateY(-38px) translateX(1.4px);
   }
   100% {
-    opacity: 0.05;
-    transform: translateY(-58px) translateX(0.5px);
+    opacity: 0.04;
+    transform: translateY(-54px) translateX(0.4px);
   }
 }
 
 @keyframes dashboard-healing-steam-rise-alt {
   0% {
-    opacity: 0.12;
-    transform: translateY(11px) translateX(-1px);
+    opacity: 0.1;
+    transform: translateY(12px) translateX(-0.8px);
+  }
+  32% {
+    opacity: 0.48;
+    transform: translateY(-8px) translateX(1.6px);
+  }
+  62% {
+    opacity: 0.62;
+    transform: translateY(-30px) translateX(-1.2px);
+  }
+  100% {
+    opacity: 0.03;
+    transform: translateY(-56px) translateX(0.8px);
+  }
+}
+
+@keyframes dashboard-healing-steam-heart {
+  0% {
+    opacity: 0;
+    transform: translateY(12px) scale(0.94);
   }
   30% {
-    opacity: 0.58;
-    transform: translateY(-12px) translateX(2px);
+    opacity: 0.32;
+    transform: translateY(-2px) scale(1);
   }
-  58% {
-    opacity: 0.68;
-    transform: translateY(-34px) translateX(-1.5px);
+  55% {
+    opacity: 0.4;
+    transform: translateY(-20px) scale(1.02);
+  }
+  82% {
+    opacity: 0.18;
+    transform: translateY(-36px) scale(0.98);
   }
   100% {
-    opacity: 0.04;
-    transform: translateY(-60px) translateX(1px);
+    opacity: 0;
+    transform: translateY(-48px) scale(0.96);
   }
 }
 
-@keyframes dashboard-healing-petal-drift {
+@keyframes dashboard-healing-petal-tumble {
   0% {
-    transform: translate(0, 0) rotate(0deg) scale(1);
+    transform: translate3d(0, 0, 0) rotate(0deg);
     opacity: 0;
   }
-  8% {
-    opacity: 0.55;
+  4% {
+    opacity: 0.46;
   }
-  92% {
-    opacity: 0.35;
+  24% {
+    transform: translate3d(calc(var(--dx, 0) * 0.36 * 1px), 24vh, 0) rotate(calc(var(--rot-n, 0) * 0.34 * 1deg));
+  }
+  46% {
+    transform: translate3d(calc(var(--dx, 0) * -0.22 * 1px), 49vh, 0) rotate(calc(var(--rot-n, 0) * 0.64 * 1deg));
+  }
+  69% {
+    transform: translate3d(calc(var(--dx, 0) * 0.78 * 1px), 78vh, 0) rotate(calc(var(--rot-n, 0) * 1deg));
+  }
+  93% {
+    opacity: 0.26;
   }
   100% {
-    transform: translate(var(--dx, 0px), 115vh) rotate(var(--rot, 12deg)) scale(0.92);
+    transform: translate3d(calc(var(--dx, 0) * 1px), 118vh, 0) rotate(calc(var(--rot-n, 0) * 1.08 * 1deg));
     opacity: 0;
   }
 }
 
-@keyframes dashboard-healing-particle-float {
+@keyframes dashboard-healing-particle-drift {
   0%,
   100% {
-    transform: translate(0, 0);
-    opacity: var(--a, 0.45);
+    transform: translate3d(0, 0, 0);
+    opacity: var(--a, 0.4);
   }
-  50% {
-    transform: translate(var(--mx, 8px), var(--my, -12px));
-    opacity: calc(var(--a, 0.45) * 1.22);
+  22% {
+    transform: translate3d(var(--mx, 0px), var(--my, 0px), 0);
+    opacity: calc(var(--a, 0.4) * 1.1);
+  }
+  48% {
+    transform: translate3d(var(--mx2, 0px), var(--my2, 0px), 0);
+    opacity: var(--a, 0.4);
+  }
+  74% {
+    transform: translate3d(var(--mx3, 0px), var(--my3, 0px), 0);
+    opacity: calc(var(--a, 0.4) * 1.06);
   }
 }
 
 @keyframes dashboard-healing-leaf-dapple {
   0%,
   100% {
-    opacity: 0.36;
-    transform: translate(0, 0);
+    opacity: 0.32;
+    transform: translate3d(0, 0, 0);
   }
-  50% {
-    opacity: 0.52;
-    transform: translate(8px, -5px);
+  33% {
+    opacity: 0.44;
+    transform: translate3d(5px, -3px, 0);
+  }
+  66% {
+    opacity: 0.38;
+    transform: translate3d(-4px, 2px, 0);
+  }
+}
+
+@keyframes dashboard-healing-leaf-dapple-alt {
+  0%,
+  100% {
+    opacity: 0.24;
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+  35% {
+    opacity: 0.34;
+    transform: translate3d(-5px, 3px, 0) scale(1.015);
+  }
+  68% {
+    opacity: 0.28;
+    transform: translate3d(4px, -2px, 0) scale(1.008);
   }
 }
 
@@ -438,69 +498,79 @@ html {
     opacity: 1;
   }
   50% {
-    opacity: 0.92;
+    opacity: 0.94;
   }
 }
 
 .dashboard-healing-base-drift {
   transform-origin: 50% 55%;
-  animation: dashboard-healing-base-drift 36s cubic-bezier(0.42, 0, 0.58, 1) infinite;
+  animation: dashboard-healing-base-drift 44s cubic-bezier(0.45, 0, 0.55, 1) infinite;
 }
 
 .dashboard-healing-breeze-deep {
   transform-origin: 12% 91%;
-  animation: dashboard-healing-breeze-deep 23s cubic-bezier(0.45, 0.05, 0.55, 0.95) infinite;
+  animation: dashboard-healing-breeze-deep 30s cubic-bezier(0.48, 0.06, 0.52, 0.94) infinite;
 }
 
 .dashboard-healing-breeze-mid {
   transform-origin: 7% 87%;
-  animation: dashboard-healing-breeze-mid 17.5s cubic-bezier(0.42, 0, 0.58, 1) infinite;
-  animation-delay: -5.5s;
+  animation: dashboard-healing-breeze-mid 24s cubic-bezier(0.44, 0.02, 0.56, 1) infinite;
+  animation-delay: -6.5s;
 }
 
 .dashboard-healing-breeze-light {
   transform-origin: 22% 89%;
-  animation: dashboard-healing-breeze-light 14.2s cubic-bezier(0.4, 0.12, 0.6, 0.88) infinite;
-  animation-delay: -2.8s;
+  animation: dashboard-healing-breeze-light 19s cubic-bezier(0.43, 0.1, 0.57, 0.9) infinite;
+  animation-delay: -3.5s;
 }
 
 .dashboard-healing-steam-strand {
-  animation: dashboard-healing-steam-rise 11.5s cubic-bezier(0.4, 0.15, 0.45, 1) infinite;
+  animation: dashboard-healing-steam-rise 15s cubic-bezier(0.38, 0.08, 0.42, 1) infinite;
   transform-box: fill-box;
   transform-origin: 50% 100%;
 }
 
 .dashboard-healing-steam-strand-alt {
-  animation: dashboard-healing-steam-rise-alt 13s cubic-bezier(0.35, 0.1, 0.5, 1) infinite;
+  animation: dashboard-healing-steam-rise-alt 17s cubic-bezier(0.36, 0.06, 0.48, 1) infinite;
+  transform-box: fill-box;
+  transform-origin: 50% 100%;
+}
+
+.dashboard-healing-steam-heart {
+  animation: dashboard-healing-steam-heart 16s cubic-bezier(0.4, 0.1, 0.45, 1) infinite;
   transform-box: fill-box;
   transform-origin: 50% 100%;
 }
 
 .dashboard-healing-petal {
-  animation-name: dashboard-healing-petal-drift;
-  animation-timing-function: cubic-bezier(0.33, 0.02, 0.2, 1);
+  animation-name: dashboard-healing-petal-tumble;
+  animation-timing-function: cubic-bezier(0.4, 0.02, 0.18, 1);
   animation-iteration-count: infinite;
-  filter: blur(0.65px);
+  filter: blur(0.7px);
   will-change: transform, opacity;
 }
 
 .dashboard-healing-particle {
-  animation-name: dashboard-healing-particle-float;
-  animation-timing-function: ease-in-out;
+  animation-name: dashboard-healing-particle-drift;
+  animation-timing-function: cubic-bezier(0.45, 0.2, 0.55, 0.8);
   animation-iteration-count: infinite;
   will-change: transform, opacity;
 }
 
 .dashboard-healing-leaf-shadow {
-  animation: dashboard-healing-leaf-dapple 22s ease-in-out infinite;
+  animation: dashboard-healing-leaf-dapple 32s ease-in-out infinite;
+}
+
+.dashboard-healing-leaf-shadow-alt {
+  animation: dashboard-healing-leaf-dapple-alt 42s ease-in-out infinite;
 }
 
 .dashboard-healing-sunray {
-  animation: dashboard-healing-sunray-shift 18s ease-in-out infinite;
+  animation: dashboard-healing-sunray-shift 26s ease-in-out infinite;
 }
 
 .dashboard-healing-center-veil {
-  animation: dashboard-healing-center-veil-pulse 14s ease-in-out infinite;
+  animation: dashboard-healing-center-veil-pulse 22s ease-in-out infinite;
 }
 
 /* Illustrated sanctuary — stem-cluster sway (each group its own phase / origin) */
@@ -585,9 +655,11 @@ html {
   .dashboard-healing-breeze-light,
   .dashboard-healing-steam-strand,
   .dashboard-healing-steam-strand-alt,
+  .dashboard-healing-steam-heart,
   .dashboard-healing-petal,
   .dashboard-healing-particle,
   .dashboard-healing-leaf-shadow,
+  .dashboard-healing-leaf-shadow-alt,
   .dashboard-healing-sunray,
   .dashboard-healing-center-veil {
     animation: none !important;

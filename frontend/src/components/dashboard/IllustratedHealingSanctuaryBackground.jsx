@@ -43,11 +43,11 @@ export function IllustratedHealingSanctuaryBackground({ storageScope = 'student'
       Array.from({ length: 12 }, (_, i) => ({
         id: i,
         left: 2 + rand() * 42,
-        delay: rand() * -42,
-        duration: 48 + rand() * 52,
+        delay: rand() * -50,
+        duration: 68 + rand() * 52,
         size: 3.5 + rand() * 5.5,
-        rot: -32 + rand() * 64,
-        dx: -20 + rand() * 40,
+        dx: Math.round(-34 + rand() * 68),
+        rotN: Math.round(-60 + rand() * 120),
         hue: rand() > 0.48 ? '236, 72, 153' : '124, 58, 237',
       })),
     [rand]
@@ -55,17 +55,25 @@ export function IllustratedHealingSanctuaryBackground({ storageScope = 'student'
 
   const particles = useMemo(
     () =>
-      Array.from({ length: 44 }, (_, i) => ({
-        id: i,
-        left: rand() * 100,
-        top: rand() * 100,
-        size: 0.9 + rand() * 2.4,
-        duration: 22 + rand() * 30,
-        delay: -rand() * 30,
-        mx: `${-11 + rand() * 22}px`,
-        my: `${-13 + rand() * 26}px`,
-        gold: rand() > 0.4,
-      })),
+      Array.from({ length: 44 }, (_, i) => {
+        const a = 6 + rand() * 9;
+        const b = 5 + rand() * 8;
+        return {
+          id: i,
+          left: rand() * 100,
+          top: rand() * 100,
+          size: 0.9 + rand() * 2.4,
+          duration: 36 + rand() * 34,
+          delay: -rand() * 36,
+          mx: `${(rand() - 0.5) * a}px`,
+          my: `${(rand() - 0.5) * b}px`,
+          mx2: `${(rand() - 0.5) * a * 1.1}px`,
+          my2: `${(rand() - 0.5) * b * 1.1}px`,
+          mx3: `${(rand() - 0.5) * a * 0.85}px`,
+          my3: `${(rand() - 0.5) * b * 0.85}px`,
+          gold: rand() > 0.4,
+        };
+      }),
     [rand]
   );
 
@@ -150,7 +158,11 @@ export function IllustratedHealingSanctuaryBackground({ storageScope = 'student'
               animationDelay: `${p.delay}s`,
               ['--mx']: p.mx,
               ['--my']: p.my,
-              ['--a']: p.gold ? 0.46 : 0.3,
+              ['--mx2']: p.mx2,
+              ['--my2']: p.my2,
+              ['--mx3']: p.mx3,
+              ['--my3']: p.my3,
+              ['--a']: p.gold ? 0.42 : 0.27,
               background: p.gold
                 ? 'radial-gradient(circle, rgba(255, 220, 160, 0.82) 0%, rgba(212, 175, 55, 0.26) 100%)'
                 : 'radial-gradient(circle, rgba(230, 210, 255, 0.72) 0%, rgba(167, 139, 250, 0.2) 100%)',
@@ -369,8 +381,8 @@ export function IllustratedHealingSanctuaryBackground({ storageScope = 'student'
               height: p.size * 1.35,
               animationDelay: `${p.delay}s`,
               animationDuration: `${p.duration}s`,
-              ['--dx']: `${p.dx}px`,
-              ['--rot']: `${p.rot}deg`,
+              ['--dx']: p.dx,
+              ['--rot-n']: p.rotN,
               background: `linear-gradient(155deg, rgba(${p.hue}, 0.4), rgba(${p.hue}, 0.06))`,
               boxShadow: '0 1px 4px rgba(76, 29, 149, 0.06)',
             }}
