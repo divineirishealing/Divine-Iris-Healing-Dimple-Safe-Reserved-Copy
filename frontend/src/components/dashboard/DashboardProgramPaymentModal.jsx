@@ -24,9 +24,6 @@ import {
 
 const API = process.env.REACT_APP_BACKEND_URL;
 
-/** Stable id — only one payment modal open at a time. Matches IndiaPaymentPage proof pattern. */
-const DASHBOARD_PROOF_FILE_INPUT_ID = 'dashboard-program-payment-proof-screenshot';
-
 /**
  * Annual dashboard: pay for an upcoming program without leaving the page.
  * — Stripe: generate checkout link (copy + open)
@@ -384,43 +381,41 @@ export default function DashboardProgramPaymentModal({
                   <div className="grid gap-2">
                     <div>
                       <Label className="text-[10px]">Screenshot *</Label>
-                      <div
-                        role="button"
-                        tabIndex={0}
-                        className="mt-1 cursor-pointer rounded-lg border-2 border-dashed border-slate-200 bg-slate-50/80 px-3 py-5 text-center transition-colors hover:border-[#5D3FD3]/45 hover:bg-violet-50/30"
-                        onClick={() => document.getElementById(DASHBOARD_PROOF_FILE_INPUT_ID)?.click()}
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter' || e.key === ' ') {
-                            e.preventDefault();
-                            document.getElementById(DASHBOARD_PROOF_FILE_INPUT_ID)?.click();
-                          }
-                        }}
-                      >
-                        {screenshot ? (
-                          <>
-                            <Upload size={18} className="mx-auto text-[#5D3FD3] mb-1" aria-hidden />
-                            <p className="text-[11px] font-medium text-gray-800 truncate max-w-full">{screenshot.name}</p>
-                            <p className="text-[10px] text-gray-500 mt-0.5">Tap to change image</p>
-                          </>
-                        ) : (
-                          <>
-                            <Upload size={22} className="mx-auto text-gray-400 mb-1" aria-hidden />
-                            <p className="text-[11px] text-gray-600">Tap to upload screenshot</p>
-                          </>
-                        )}
-                      </div>
+                      <p className="text-[10px] text-slate-500 mt-0.5 mb-1">
+                        Tap the native <span className="font-medium text-slate-700">Choose file</span> control (most reliable on
+                        phones). You can take a photo or pick from your gallery.
+                      </p>
                       <input
-                        id={DASHBOARD_PROOF_FILE_INPUT_ID}
+                        key={open ? `proof-${enrollmentId ?? 'session'}` : 'proof-closed'}
                         type="file"
                         accept="image/*"
-                        className="hidden"
                         data-testid="dashboard-proof-screenshot-input"
+                        className="mt-1 block w-full min-h-[3rem] cursor-pointer rounded-md border border-slate-200 bg-white px-2 py-2 text-xs text-slate-600 shadow-sm file:mr-3 file:min-h-10 file:cursor-pointer file:rounded-md file:border file:border-slate-300 file:bg-slate-50 file:px-4 file:py-2 file:text-xs file:font-semibold file:text-slate-900 hover:file:bg-violet-50/80"
                         onChange={(e) => {
-                          const f = e.target.files?.[0] || null;
+                          const inputEl = e.target;
+                          const f = inputEl.files?.[0] ?? null;
+                          if (f && f.type && !f.type.startsWith('image/')) {
+                            toast({
+                              title: 'Please choose an image',
+                              description: 'Screenshots and photos only for payment proof.',
+                              variant: 'destructive',
+                            });
+                            inputEl.value = '';
+                            setScreenshot(null);
+                            return;
+                          }
                           setScreenshot(f);
-                          e.target.value = '';
+                          window.requestAnimationFrame(() => {
+                            inputEl.value = '';
+                          });
                         }}
                       />
+                      {screenshot ? (
+                        <p className="mt-1.5 text-[10px] text-emerald-800 flex items-center gap-1">
+                          <Upload size={12} className="shrink-0" aria-hidden />
+                          <span className="truncate">Selected: {screenshot.name}</span>
+                        </p>
+                      ) : null}
                     </div>
                     <div className="grid grid-cols-2 gap-2">
                       <div>
