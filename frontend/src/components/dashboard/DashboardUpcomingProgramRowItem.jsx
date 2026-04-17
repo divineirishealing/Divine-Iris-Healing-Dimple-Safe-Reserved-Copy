@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Calendar, Clock, Bell, ShoppingCart, Check, CreditCard, Loader2 } from 'lucide-react';
+import { Calendar, Clock, Bell, BellOff, ShoppingCart, Check, CreditCard, Loader2, Monitor, Wifi } from 'lucide-react';
 import { useCart } from '../../context/CartContext';
 import { useToast } from '../../hooks/use-toast';
 import { resolveImageUrl } from '../../lib/imageUtils';
@@ -39,6 +39,7 @@ export default function DashboardUpcomingProgramRowItem({
   addProgramToCartAndGo,
   openEnrollmentSeatModal,
   payingProgramId,
+  annualSeatUi = null,
 }) {
   const navigate = useNavigate();
   const { addItem, items } = useCart();
@@ -466,6 +467,199 @@ export default function DashboardUpcomingProgramRowItem({
                     Select who you are paying for — your seat is already covered.
                   </p>
                 )}
+
+                {annualSeatUi && (!includedPkg || selCount >= 1) ? (
+                  <div
+                    className="mt-3 rounded-lg border border-violet-200/80 bg-gradient-to-b from-violet-50/40 to-white px-2.5 py-2 space-y-2"
+                    data-testid={`dashboard-compact-seat-${p.id}`}
+                  >
+                    <div>
+                      <p className="text-[11px] font-semibold text-slate-900 leading-tight">Enrollment for this program</p>
+                      <p className="text-[9px] text-slate-600 leading-snug mt-0.5">
+                        Attendance and enrollment email (e.g. WhatsApp link). Defaults can apply to every program on this
+                        device.
+                      </p>
+                    </div>
+                    {annualSeatUi.draft?.enrollmentDefaultsLoaded ? (
+                      <p className="text-[9px] text-violet-900 bg-violet-100/80 border border-violet-200/60 rounded px-2 py-1 leading-snug">
+                        Loaded saved defaults for this browser — adjust below or{' '}
+                        <button
+                          type="button"
+                          className="font-semibold text-violet-800 underline underline-offset-2"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            annualSeatUi.onClearSavedDefaults();
+                          }}
+                        >
+                          clear
+                        </button>
+                        .
+                      </p>
+                    ) : null}
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                      <div className="rounded-md border border-violet-100/90 bg-violet-50/35 px-2 py-1.5 space-y-1">
+                        <p className="text-[8px] font-bold uppercase tracking-wide text-slate-500">Attendance</p>
+                        <div className="space-y-0.5">
+                          <label className="flex items-center gap-1.5 cursor-pointer text-[10px] text-slate-800">
+                            <input
+                              type="checkbox"
+                              className="rounded border-slate-300 shrink-0 scale-90"
+                              checked={annualSeatUi.attendanceQuickPreset === 'all_online'}
+                              onChange={(e) => {
+                                e.stopPropagation();
+                                if (e.target.checked) annualSeatUi.onApplyAttendanceDraft(p.id, 'all_online');
+                              }}
+                            />
+                            All online
+                          </label>
+                          <label className="flex items-center gap-1.5 cursor-pointer text-[10px] text-slate-800">
+                            <input
+                              type="checkbox"
+                              className="rounded border-slate-300 shrink-0 scale-90"
+                              checked={annualSeatUi.attendanceQuickPreset === 'all_offline'}
+                              onChange={(e) => {
+                                e.stopPropagation();
+                                if (e.target.checked) annualSeatUi.onApplyAttendanceDraft(p.id, 'all_offline');
+                              }}
+                            />
+                            All offline
+                          </label>
+                          {!includedPkg ? (
+                            <label className="flex items-center gap-1.5 cursor-pointer text-[10px] text-slate-800">
+                              <input
+                                type="checkbox"
+                                className="rounded border-slate-300 shrink-0 scale-90"
+                                checked={annualSeatUi.attendanceQuickPreset === 'except_me'}
+                                onChange={(e) => {
+                                  e.stopPropagation();
+                                  if (e.target.checked) annualSeatUi.onApplyAttendanceDraft(p.id, 'guests_offline_booker_online');
+                                }}
+                              />
+                              Guests offline, me online
+                            </label>
+                          ) : null}
+                        </div>
+                        {annualSeatUi.attendanceQuickPreset === 'custom' ? (
+                          <p className="text-[8px] text-amber-800/90">Mixed — use advanced or pick a preset.</p>
+                        ) : null}
+                      </div>
+                      <div className="rounded-md border border-slate-200/90 bg-slate-50/50 px-2 py-1.5 space-y-1">
+                        <p className="text-[8px] font-bold uppercase tracking-wide text-slate-500 leading-snug">
+                          Enrollment email
+                        </p>
+                        <div className="space-y-0.5">
+                          <label className="flex items-center gap-1.5 cursor-pointer text-[10px] text-slate-800">
+                            <input
+                              type="checkbox"
+                              className="rounded border-slate-300 shrink-0 scale-90"
+                              checked={annualSeatUi.notifyQuickPreset === 'email_all'}
+                              onChange={(e) => {
+                                e.stopPropagation();
+                                if (e.target.checked) annualSeatUi.onApplyNotifyDraft(p.id, 'all_on');
+                              }}
+                            />
+                            Email all
+                          </label>
+                          <label className="flex items-center gap-1.5 cursor-pointer text-[10px] text-slate-800">
+                            <input
+                              type="checkbox"
+                              className="rounded border-slate-300 shrink-0 scale-90"
+                              checked={annualSeatUi.notifyQuickPreset === 'email_me_only'}
+                              onChange={(e) => {
+                                e.stopPropagation();
+                                if (e.target.checked) annualSeatUi.onApplyNotifyDraft(p.id, 'me_only');
+                              }}
+                            />
+                            Email me only
+                          </label>
+                          <label className="flex items-center gap-1.5 cursor-pointer text-[10px] text-slate-800">
+                            <input
+                              type="checkbox"
+                              className="rounded border-slate-300 shrink-0 scale-90"
+                              checked={annualSeatUi.notifyQuickPreset === 'custom'}
+                              onChange={(e) => {
+                                e.stopPropagation();
+                                if (e.target.checked) annualSeatUi.onApplyNotifyDraft(p.id, 'all_off');
+                              }}
+                            />
+                            Custom / off
+                          </label>
+                        </div>
+                        {annualSeatUi.notifyQuickPreset === 'mixed' ? (
+                          <p className="text-[8px] text-amber-800/90">Mixed — open advanced.</p>
+                        ) : null}
+                      </div>
+                    </div>
+
+                    {!includedPkg ? (
+                      <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[10px] text-slate-700 border-t border-slate-200/60 pt-1.5">
+                        <span className="font-medium text-slate-600 shrink-0">You</span>
+                        <span className="truncate max-w-[10rem]">{annualSeatUi.bookerDisplayName}</span>
+                        <label className="inline-flex items-center gap-0.5 cursor-pointer">
+                          <input
+                            type="radio"
+                            name={`dash-inline-booker-${p.id}`}
+                            checked={(annualSeatUi.draft?.bookerSeatMode || 'online') !== 'offline'}
+                            onChange={() => annualSeatUi.onPatchDraft(p.id, { bookerSeatMode: 'online' })}
+                          />
+                          <Wifi size={11} className="text-slate-500" />
+                          Online
+                        </label>
+                        <label className="inline-flex items-center gap-0.5 cursor-pointer">
+                          <input
+                            type="radio"
+                            name={`dash-inline-booker-${p.id}`}
+                            checked={(annualSeatUi.draft?.bookerSeatMode || 'online') === 'offline'}
+                            onChange={() => annualSeatUi.onPatchDraft(p.id, { bookerSeatMode: 'offline' })}
+                          />
+                          <Monitor size={11} className="text-slate-500" />
+                          Offline
+                        </label>
+                        <label className="inline-flex items-center gap-1 cursor-pointer ml-1">
+                          <input
+                            type="checkbox"
+                            className="rounded border-slate-300 scale-90"
+                            checked={annualSeatUi.draft?.bookerSeatNotify !== false}
+                            onChange={(e) => annualSeatUi.onPatchDraft(p.id, { bookerSeatNotify: e.target.checked })}
+                          />
+                          <span className="inline-flex items-center gap-0.5">
+                            {annualSeatUi.draft?.bookerSeatNotify !== false ? (
+                              <Bell size={11} className="text-slate-500" />
+                            ) : (
+                              <BellOff size={11} className="text-slate-400" />
+                            )}
+                            Email me details
+                          </span>
+                        </label>
+                      </div>
+                    ) : null}
+
+                    <label className="flex items-start gap-1.5 cursor-pointer text-[10px] text-slate-800">
+                      <input
+                        type="checkbox"
+                        className="mt-0.5 rounded border-slate-300 scale-90"
+                        checked={!!annualSeatUi.draft?.persistEnrollmentDefaultsOnContinue}
+                        onChange={(e) =>
+                          annualSeatUi.onPatchDraft(p.id, { persistEnrollmentDefaultsOnContinue: e.target.checked })
+                        }
+                      />
+                      <span className="leading-snug">Save as default for every program on this device</span>
+                    </label>
+
+                    <button
+                      type="button"
+                      className="text-[9px] text-violet-700 hover:text-violet-900 underline underline-offset-2"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        annualSeatUi.onOpenAdvancedModal();
+                      }}
+                    >
+                      Per-person attendance &amp; email…
+                    </button>
+                  </div>
+                ) : null}
+
                 <p className="text-xs text-slate-500 leading-relaxed mt-3">
                   Payment method in the next step matches your membership (Stripe vs UPI / bank).
                 </p>
@@ -485,7 +679,11 @@ export default function DashboardUpcomingProgramRowItem({
                   }
                   onClick={(e) => {
                     e.stopPropagation();
-                    openEnrollmentSeatModal(p, includedPkg, selIds);
+                    if (annualSeatUi?.onContinuePay) {
+                      annualSeatUi.onContinuePay();
+                    } else {
+                      openEnrollmentSeatModal(p, includedPkg, selIds);
+                    }
                   }}
                   className="mt-3 w-full inline-flex items-center justify-center gap-2 rounded-xl bg-[#D4AF37] text-white text-sm font-semibold py-2.5 px-4 hover:bg-[#b8962e] disabled:opacity-50 disabled:pointer-events-none shadow-sm"
                   data-testid={`dashboard-pay-${p.id}`}

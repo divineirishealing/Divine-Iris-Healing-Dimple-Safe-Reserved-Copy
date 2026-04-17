@@ -7,7 +7,7 @@ import { useCurrency } from '../../context/CurrencyContext';
 import { useSiteSettings } from '../../context/SiteSettingsContext';
 import { useCart } from '../../context/CartContext';
 import DashboardProgramPaymentModal from './DashboardProgramPaymentModal';
-import { pickTierIndexForDashboard } from './dashboardUpcomingHelpers';
+import { pickTierIndexForDashboard, programIncludedInAnnualPackage } from './dashboardUpcomingHelpers';
 import DashboardUpcomingProgramRowItem from './DashboardUpcomingProgramRowItem';
 import { Button } from '../ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '../ui/dialog';
@@ -43,6 +43,17 @@ function saveDashboardEnrollmentDefaults(payload) {
 function clearDashboardEnrollmentDefaults() {
   if (typeof localStorage === 'undefined') return;
   localStorage.removeItem(DASHBOARD_ENROLLMENT_DEFAULTS_KEY);
+}
+
+function createEmptySeatDraft() {
+  const saved = loadDashboardEnrollmentDefaults();
+  return {
+    bookerSeatMode: saved ? saved.bookerMode : 'online',
+    bookerSeatNotify: saved ? saved.bookerNotify : true,
+    guestSeatForm: {},
+    enrollmentDefaultsLoaded: !!saved,
+    persistEnrollmentDefaultsOnContinue: false,
+  };
 }
 
 /** Matches modal state to a bulk attendance preset (for radio / checkbox group). */
@@ -373,6 +384,12 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh, bo
   const [guestSeatForm, setGuestSeatForm] = useState({});
   const [enrollmentDefaultsLoaded, setEnrollmentDefaultsLoaded] = useState(false);
   const [persistEnrollmentDefaultsOnContinue, setPersistEnrollmentDefaultsOnContinue] = useState(false);
+  const [seatDraftsByProgram, setSeatDraftsByProgram] = useState({});
+  const seatDraftsRef = useRef({});
+
+  useEffect(() => {
+    seatDraftsRef.current = seatDraftsByProgram;
+  }, [seatDraftsByProgram]);
 
   const attendanceQuickPresetLive = useMemo(
     () => deriveAttendanceQuickPreset(seatModalCtx, guestSeatForm, bookerSeatMode),
@@ -732,6 +749,53 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh, bo
   }, [isAnnual, currencyReady, currency, prefetchProgramsKey, familySelectionKey, programsForPrefetch]);
 
   useEffect(() => {
+    if (!isAnnual) return;
+    setSeatDraftsByProgram((prev) => {
+      const saved = loadDashboardEnrollmentDefaults();
+      let changed = false;
+      const next = { ...prev };
+      for (const p of programsForPrefetch) {
+        const programId = p.id;
+        const ids = (selectedFamilyByProgram[programId] || []).map(String).filter(Boolean);
+        const curBase =
+          prev[programId] ||
+          ({
+            bookerSeatMode: saved ? saved.bookerMode : 'online',
+            bookerSeatNotify: saved ? saved.bookerNotify : true,
+            guestSeatForm: {},
+            enrollmentDefaultsLoaded: !!saved,
+            persistEnrollmentDefaultsOnContinue: false,
+          });
+        const g = { ...curBase.guestSeatForm };
+        ids.forEach((id) => {
+          if (!g[id]) {
+            g[id] = {
+              attendance_mode: saved ? saved.guestMode : 'online',
+              notify_enrollment: saved ? saved.guestNotify : false,
+            };
+          }
+        });
+        Object.keys(g).forEach((id) => {
+          if (!ids.includes(id)) delete g[id];
+        });
+        const prevG = curBase.guestSeatForm || {};
+        const keysEq =
+          Object.keys(g).length === Object.keys(prevG).length &&
+          Object.keys(g).every((k) => {
+            const a = g[k];
+            const b = prevG[k];
+            return b && a.attendance_mode === b.attendance_mode && a.notify_enrollment === b.notify_enrollment;
+          });
+        if (!prev[programId] || !keysEq) {
+          next[programId] = { ...curBase, guestSeatForm: g };
+          changed = true;
+        }
+      }
+      return changed ? next : prev;
+    });
+  }, [isAnnual, programsForPrefetch, selectedFamilyByProgram, annualIncludedIds, annualQuotes]);
+
+  useEffect(() => {
     const code = promoForProgramClicks;
     const programs = programsForPrefetch;
     if (!code || !currencyReady || programs.length === 0) {
@@ -797,19 +861,20 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh, bo
 
   const openEnrollmentSeatModal = (program, includedPkg, selectedIds) => {
     const ids = (selectedIds || []).map((x) => String(x));
+    const draft = seatDraftsRef.current[program.id];
     const saved = loadDashboardEnrollmentDefaults();
     const initGuests = {};
     ids.forEach((id) => {
-      initGuests[id] = {
+      initGuests[id] = draft?.guestSeatForm?.[id] || {
         attendance_mode: saved ? saved.guestMode : 'online',
         notify_enrollment: saved ? saved.guestNotify : false,
       };
     });
     setGuestSeatForm(initGuests);
-    setBookerSeatMode(saved ? saved.bookerMode : 'online');
-    setBookerSeatNotify(saved ? saved.bookerNotify : true);
-    setEnrollmentDefaultsLoaded(!!saved);
-    setPersistEnrollmentDefaultsOnContinue(false);
+    setBookerSeatMode(draft?.bookerSeatMode ?? (saved ? saved.bookerMode : 'online'));
+    setBookerSeatNotify(draft?.bookerSeatNotify ?? (saved ? saved.bookerNotify : true));
+    setEnrollmentDefaultsLoaded(draft?.enrollmentDefaultsLoaded ?? !!saved);
+    setPersistEnrollmentDefaultsOnContinue(!!draft?.persistEnrollmentDefaultsOnContinue);
     setSeatModalCtx({
       programId: program.id,
       programTitle: program.title || '',
@@ -888,10 +953,85 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh, bo
     });
   };
 
-  const confirmEnrollmentSeatsAndPay = async () => {
-    if (!seatModalCtx) return;
-    const { programId, includedPkg, selectedIds } = seatModalCtx;
-    if (!includedPkg && bookerSeatNotify && !String(bookerEmail || '').trim()) {
+  const patchSeatDraft = (programId, partial) => {
+    setSeatDraftsByProgram((prev) => {
+      const base = prev[programId] || createEmptySeatDraft();
+      return { ...prev, [programId]: { ...base, ...partial } };
+    });
+  };
+
+  const applyBulkSeatModesDraft = (programId, preset) => {
+    setSeatDraftsByProgram((prev) => {
+      const base = prev[programId] || createEmptySeatDraft();
+      const prog = programsForPrefetch.find((x) => x.id === programId);
+      if (!prog) return prev;
+      const includedPkg =
+        programIncludedInAnnualPackage(prog, annualIncludedIds) || !!annualQuotes[programId]?.included_in_annual_package;
+      const ids = (selectedFamilyByProgram[programId] || []).map(String);
+      const guestSeatForm = { ...base.guestSeatForm };
+      let bookerSeatMode = base.bookerSeatMode;
+      const patchGuests = (mode) => {
+        ids.forEach((idStr) => {
+          guestSeatForm[idStr] = {
+            attendance_mode: 'online',
+            notify_enrollment: false,
+            ...guestSeatForm[idStr],
+            attendance_mode: mode,
+          };
+        });
+      };
+      if (preset === 'all_online') {
+        if (!includedPkg) bookerSeatMode = 'online';
+        patchGuests('online');
+      } else if (preset === 'all_offline') {
+        if (!includedPkg) bookerSeatMode = 'offline';
+        patchGuests('offline');
+      } else if (preset === 'guests_offline_booker_online') {
+        if (!includedPkg) bookerSeatMode = 'online';
+        patchGuests('offline');
+      }
+      return { ...prev, [programId]: { ...base, bookerSeatMode, guestSeatForm } };
+    });
+  };
+
+  const applyBulkNotifyDraft = (programId, preset) => {
+    setSeatDraftsByProgram((prev) => {
+      const base = prev[programId] || createEmptySeatDraft();
+      const prog = programsForPrefetch.find((x) => x.id === programId);
+      if (!prog) return prev;
+      const includedPkg =
+        programIncludedInAnnualPackage(prog, annualIncludedIds) || !!annualQuotes[programId]?.included_in_annual_package;
+      const ids = (selectedFamilyByProgram[programId] || []).map(String);
+      let bookerSeatNotify = base.bookerSeatNotify;
+      if (!includedPkg) {
+        bookerSeatNotify = preset !== 'all_off';
+      }
+      const guestNotify = preset === 'all_on';
+      const guestSeatForm = { ...base.guestSeatForm };
+      ids.forEach((idStr) => {
+        guestSeatForm[idStr] = {
+          attendance_mode: 'online',
+          notify_enrollment: false,
+          ...guestSeatForm[idStr],
+          notify_enrollment: guestNotify,
+        };
+      });
+      return { ...prev, [programId]: { ...base, bookerSeatNotify, guestSeatForm } };
+    });
+  };
+
+  const executeEnrollmentPay = async ({
+    programId,
+    programTitle,
+    includedPkg,
+    selectedIds,
+    bookerSeatMode: bookerModeIn,
+    bookerSeatNotify: bookerNotifyIn,
+    guestSeatForm: guestFormIn,
+    persistEnrollmentDefaultsOnContinue: persistDefaults,
+  }) => {
+    const included = !!includedPkg;
+    if (!included && bookerNotifyIn && !String(bookerEmail || '').trim()) {
       toast({
         title: 'Email needed for notifications',
         description: 'Turn off “Email me enrollment details” for your seat, or add an email to your account.',
@@ -900,7 +1040,7 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh, bo
       return;
     }
     for (const id of selectedIds) {
-      const row = guestSeatForm[id] || {};
+      const row = guestFormIn[id] || {};
       if (row.notify_enrollment) {
         const m = enrollableGuests.find((g) => String(g.id) === String(id));
         if (!m || !(String(m.email || '').trim())) {
@@ -914,11 +1054,11 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh, bo
       }
     }
 
-    if (persistEnrollmentDefaultsOnContinue) {
+    if (persistDefaults) {
       const sid = selectedIds.map(String);
       if (sid.length > 0) {
-        const modes = new Set(sid.map((id) => (guestSeatForm[id]?.attendance_mode === 'offline' ? 'offline' : 'online')));
-        const notifs = new Set(sid.map((id) => !!guestSeatForm[id]?.notify_enrollment));
+        const modes = new Set(sid.map((id) => (guestFormIn[id]?.attendance_mode === 'offline' ? 'offline' : 'online')));
+        const notifs = new Set(sid.map((id) => !!guestFormIn[id]?.notify_enrollment));
         if (modes.size > 1 || notifs.size > 1) {
           toast({
             title: 'Match family rows to save defaults',
@@ -930,11 +1070,11 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh, bo
         }
       }
       saveDashboardEnrollmentDefaults({
-        bookerMode: bookerSeatMode === 'offline' ? 'offline' : 'online',
-        bookerNotify: !!bookerSeatNotify,
+        bookerMode: bookerModeIn === 'offline' ? 'offline' : 'online',
+        bookerNotify: !!bookerNotifyIn,
         guestMode:
-          sid.length > 0 ? (guestSeatForm[sid[0]]?.attendance_mode === 'offline' ? 'offline' : 'online') : 'online',
-        guestNotify: sid.length > 0 ? !!guestSeatForm[sid[0]]?.notify_enrollment : false,
+          sid.length > 0 ? (guestFormIn[sid[0]]?.attendance_mode === 'offline' ? 'offline' : 'online') : 'online',
+        guestNotify: sid.length > 0 ? !!guestFormIn[sid[0]]?.notify_enrollment : false,
       });
       toast({
         title: 'Defaults saved for all programs',
@@ -944,7 +1084,7 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh, bo
 
     setEnrollmentSeatOpen(false);
     const guest_seat_prefs = selectedIds.map((id) => {
-      const row = guestSeatForm[id] || {};
+      const row = guestFormIn[id] || {};
       return {
         family_member_id: id,
         attendance_mode: row.attendance_mode === 'offline' ? 'offline' : 'online',
@@ -961,16 +1101,16 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh, bo
         origin_url: typeof window !== 'undefined' ? window.location.origin : '',
         guest_seat_prefs,
       };
-      if (!includedPkg) {
-        body.booker_attendance_mode = bookerSeatMode === 'offline' ? 'offline' : 'online';
-        body.booker_notify = !!bookerSeatNotify;
+      if (!included) {
+        body.booker_attendance_mode = bookerModeIn === 'offline' ? 'offline' : 'online';
+        body.booker_notify = !!bookerNotifyIn;
       }
       const r = await axios.post(`${API}/api/student/dashboard-pay`, body, { withCredentials: true });
       const { enrollment_id, tier_index: tierIdx } = r.data;
       setProgramPaymentModal({
         enrollmentId: enrollment_id,
         programId,
-        programTitle: seatModalCtx.programTitle,
+        programTitle,
         tierIndex: tierIdx != null ? tierIdx : null,
       });
       setSeatModalCtx(null);
@@ -984,6 +1124,57 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh, bo
       setPayingProgramId(null);
     }
   };
+
+  const confirmEnrollmentSeatsAndPay = async () => {
+    if (!seatModalCtx) return;
+    await executeEnrollmentPay({
+      programId: seatModalCtx.programId,
+      programTitle: seatModalCtx.programTitle,
+      includedPkg: seatModalCtx.includedPkg,
+      selectedIds: seatModalCtx.selectedIds,
+      bookerSeatMode,
+      bookerSeatNotify,
+      guestSeatForm,
+      persistEnrollmentDefaultsOnContinue,
+    });
+  };
+
+  const continueAnnualEnrollmentPay = async (program, includedPkg, selectedIds) => {
+    const d = seatDraftsRef.current[program.id] || createEmptySeatDraft();
+    await executeEnrollmentPay({
+      programId: program.id,
+      programTitle: program.title || '',
+      includedPkg,
+      selectedIds,
+      bookerSeatMode: d.bookerSeatMode,
+      bookerSeatNotify: d.bookerSeatNotify,
+      guestSeatForm: d.guestSeatForm,
+      persistEnrollmentDefaultsOnContinue: d.persistEnrollmentDefaultsOnContinue,
+    });
+  };
+
+  useEffect(() => {
+    if (!enrollmentSeatOpen || !seatModalCtx) return;
+    const pid = seatModalCtx.programId;
+    setSeatDraftsByProgram((prev) => ({
+      ...prev,
+      [pid]: {
+        bookerSeatMode,
+        bookerSeatNotify,
+        guestSeatForm: { ...guestSeatForm },
+        enrollmentDefaultsLoaded,
+        persistEnrollmentDefaultsOnContinue,
+      },
+    }));
+  }, [
+    enrollmentSeatOpen,
+    seatModalCtx?.programId,
+    bookerSeatMode,
+    bookerSeatNotify,
+    guestSeatForm,
+    enrollmentDefaultsLoaded,
+    persistEnrollmentDefaultsOnContinue,
+  ]);
 
   const addProgramToCartAndGo = (p, tierOverride = null) => {
     const tierIdx = tierOverride != null ? tierOverride : pickTierIndexForDashboard(p, isAnnual);
@@ -1049,33 +1240,74 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh, bo
           <p className="text-sm text-slate-500 italic py-2">No upcoming programs listed yet — check back soon.</p>
         ) : (
           <div className="space-y-5 mb-4 max-w-full">
-            {upcomingList.map((p) => (
-              <DashboardUpcomingProgramRowItem
-                key={p.id}
-                program={p}
-                isAnnual={isAnnual}
-                detectedCountry={detectedCountry}
-                symbol={symbol}
-                currency={currency}
-                getPrice={getPrice}
-                getOfferPrice={getOfferPrice}
-                promoForProgramClicks={promoForProgramClicks}
-                promoByProgramId={promoByProgramId}
-                promoPricesLoading={promoPricesLoading}
-                aq={annualQuotes[p.id]}
-                annualIncludedIds={annualIncludedIds}
-                members={members}
-                otherMembers={otherMembers}
-                enrollableGuests={enrollableGuests}
-                selectableFamilyMemberIds={selectableFamilyMemberIds}
-                selectedFamilyByProgram={selectedFamilyByProgram}
-                toggleFamilyMember={toggleFamilyMember}
-                toggleSelectAllFamilyForProgram={toggleSelectAllFamilyForProgram}
-                addProgramToCartAndGo={addProgramToCartAndGo}
-                openEnrollmentSeatModal={openEnrollmentSeatModal}
-                payingProgramId={payingProgramId}
-              />
-            ))}
+            {upcomingList.map((p) => {
+              const sel = selectedFamilyByProgram[p.id] || [];
+              const includedForSeat =
+                programIncludedInAnnualPackage(p, annualIncludedIds) ||
+                !!annualQuotes[p.id]?.included_in_annual_package;
+              const seatCtxMini = { includedPkg: includedForSeat, selectedIds: sel };
+              const draftRow = seatDraftsByProgram[p.id];
+              const attendanceQuick = deriveAttendanceQuickPreset(
+                seatCtxMini,
+                draftRow?.guestSeatForm || {},
+                draftRow?.bookerSeatMode || 'online'
+              );
+              const notifyQuick = deriveNotifyQuickPreset(
+                seatCtxMini,
+                draftRow?.guestSeatForm || {},
+                draftRow?.bookerSeatNotify !== false
+              );
+              return (
+                <DashboardUpcomingProgramRowItem
+                  key={p.id}
+                  program={p}
+                  isAnnual={isAnnual}
+                  detectedCountry={detectedCountry}
+                  symbol={symbol}
+                  currency={currency}
+                  getPrice={getPrice}
+                  getOfferPrice={getOfferPrice}
+                  promoForProgramClicks={promoForProgramClicks}
+                  promoByProgramId={promoByProgramId}
+                  promoPricesLoading={promoPricesLoading}
+                  aq={annualQuotes[p.id]}
+                  annualIncludedIds={annualIncludedIds}
+                  members={members}
+                  otherMembers={otherMembers}
+                  enrollableGuests={enrollableGuests}
+                  selectableFamilyMemberIds={selectableFamilyMemberIds}
+                  selectedFamilyByProgram={selectedFamilyByProgram}
+                  toggleFamilyMember={toggleFamilyMember}
+                  toggleSelectAllFamilyForProgram={toggleSelectAllFamilyForProgram}
+                  addProgramToCartAndGo={addProgramToCartAndGo}
+                  openEnrollmentSeatModal={openEnrollmentSeatModal}
+                  payingProgramId={payingProgramId}
+                  annualSeatUi={
+                    isAnnual
+                      ? {
+                          draft: draftRow,
+                          attendanceQuickPreset: attendanceQuick,
+                          notifyQuickPreset: notifyQuick,
+                          bookerDisplayName: homeData?.user_details?.full_name || 'Account holder',
+                          onPatchDraft: patchSeatDraft,
+                          onApplyAttendanceDraft: applyBulkSeatModesDraft,
+                          onApplyNotifyDraft: applyBulkNotifyDraft,
+                          onClearSavedDefaults: () => {
+                            clearDashboardEnrollmentDefaults();
+                            patchSeatDraft(p.id, { enrollmentDefaultsLoaded: false });
+                            toast({
+                              title: 'Saved defaults cleared',
+                              description: 'New enrollments will start from standard options until you save again.',
+                            });
+                          },
+                          onOpenAdvancedModal: () => openEnrollmentSeatModal(p, includedForSeat, sel),
+                          onContinuePay: () => continueAnnualEnrollmentPay(p, includedForSeat, sel),
+                        }
+                      : null
+                  }
+                />
+              );
+            })}
           </div>
         )}
 
