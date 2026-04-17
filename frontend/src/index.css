@@ -503,7 +503,82 @@ html {
   animation: dashboard-healing-center-veil-pulse 14s ease-in-out infinite;
 }
 
+/* Illustrated sanctuary — stem-cluster sway (each group its own phase / origin) */
+@keyframes dash-illus-cluster-sway-slow {
+  0%,
+  100% {
+    transform: rotate(0deg) translate3d(0, 0, 0);
+  }
+  27% {
+    transform: rotate(0.65deg) translate3d(1.5px, -0.5px, 0);
+  }
+  54% {
+    transform: rotate(-0.42deg) translate3d(-1px, 0.4px, 0);
+  }
+  78% {
+    transform: rotate(0.35deg) translate3d(0.8px, -0.3px, 0);
+  }
+}
+
+@keyframes dash-illus-cluster-sway-mid {
+  0%,
+  100% {
+    transform: rotate(0deg) translate3d(0, 0, 0);
+  }
+  22% {
+    transform: rotate(-0.72deg) translate3d(-2px, 0.6px, 0);
+  }
+  48% {
+    transform: rotate(0.55deg) translate3d(1.6px, -0.4px, 0);
+  }
+  71% {
+    transform: rotate(-0.38deg) translate3d(-0.9px, 0.3px, 0);
+  }
+}
+
+@keyframes dash-illus-cluster-sway-fast {
+  0%,
+  100% {
+    transform: rotate(0deg) translate3d(0, 0, 0);
+  }
+  31% {
+    transform: rotate(0.85deg) translate3d(2px, -0.7px, 0);
+  }
+  62% {
+    transform: rotate(-0.58deg) translate3d(-1.4px, 0.5px, 0);
+  }
+}
+
+@keyframes dash-illus-wind-drift {
+  to {
+    stroke-dashoffset: -140;
+  }
+}
+
+.dash-illus-cluster-slow {
+  animation: dash-illus-cluster-sway-slow 19s cubic-bezier(0.45, 0.05, 0.55, 0.95) infinite;
+}
+
+.dash-illus-cluster-mid {
+  animation: dash-illus-cluster-sway-mid 15.5s cubic-bezier(0.42, 0, 0.58, 1) infinite;
+  animation-delay: -4s;
+}
+
+.dash-illus-cluster-fast {
+  animation: dash-illus-cluster-sway-fast 12.8s cubic-bezier(0.4, 0.1, 0.6, 0.9) infinite;
+  animation-delay: -2.5s;
+}
+
+.dash-illus-wind-line {
+  stroke-dasharray: 6 22;
+  animation: dash-illus-wind-drift 22s linear infinite;
+}
+
 @media (prefers-reduced-motion: reduce) {
+  .dash-illus-cluster-slow,
+  .dash-illus-cluster-mid,
+  .dash-illus-cluster-fast,
+  .dash-illus-wind-line,
   .dashboard-healing-base-drift,
   .dashboard-healing-breeze-deep,
   .dashboard-healing-breeze-mid,
@@ -516,6 +591,10 @@ html {
   .dashboard-healing-sunray,
   .dashboard-healing-center-veil {
     animation: none !important;
+  }
+
+  .dash-illus-wind-line {
+    stroke-dashoffset: 0;
   }
 
   .dashboard-healing-base-drift {
