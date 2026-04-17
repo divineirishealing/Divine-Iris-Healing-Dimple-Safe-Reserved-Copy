@@ -6,12 +6,9 @@ import { useToast } from '../../hooks/use-toast';
 import { resolveImageUrl } from '../../lib/imageUtils';
 import { buildHomepageStyleDatetimeBadges } from '../../lib/upcomingHomepagePresentation';
 import { CountdownTimer, compactTierButtonLabel } from '../UpcomingProgramsSection';
-import { DashboardUpcomingPortalPricing } from './DashboardUpcomingPortalPricingBlock';
 import {
   pickTierIndexForDashboard,
   programIncludedInAnnualPackage,
-  memberSubcaption,
-  familySubcaption,
   promoDiscountAmount,
 } from './dashboardUpcomingHelpers';
 
@@ -30,10 +27,8 @@ export default function DashboardUpcomingProgramRowItem({
   promoForProgramClicks,
   promoByProgramId,
   promoPricesLoading,
-  programPortalMap,
   aq,
   annualIncludedIds,
-  portalPreview,
   members,
   otherMembers,
   enrollableGuests,
@@ -91,13 +86,6 @@ export default function DashboardUpcomingProgramRowItem({
   const selIds = selectedFamilyByProgram[p.id] || [];
   const selCount = selIds.length;
   const canPay = Boolean(aq && aq.total > 0 && (!includedPkg || selCount >= 1));
-
-  const row = programPortalMap[p.id];
-  const hasMap =
-    row &&
-    ((row.annual && Object.keys(row.annual).length > 0) ||
-      (row.family && Object.keys(row.family).length > 0) ||
-      (row.extended && Object.keys(row.extended).length > 0));
 
   const inCart = items.some((i) => i.programId === p.id && i.tierIndex === tierIdxForDisplay);
   const [justAdded, setJustAdded] = useState(false);
@@ -330,6 +318,7 @@ export default function DashboardUpcomingProgramRowItem({
         )}
 
         {enrollStatus === 'open' &&
+          !subscriberIsAnnual &&
           offerPrice > 0 &&
           deadline &&
           (() => {
@@ -356,85 +345,24 @@ export default function DashboardUpcomingProgramRowItem({
           })()}
 
         {subscriberIsAnnual ? (
-          <div className="mt-auto pt-4 border-t border-gray-100 space-y-5">
-            <div className="grid lg:grid-cols-2 gap-6 lg:gap-8 items-start">
-              <div className="space-y-4 min-w-0">
-                <DashboardUpcomingPortalPricing symbol={symbol} preview={portalPreview} />
-                <div>
-                  <p className="text-[10px] font-bold uppercase tracking-wide text-[#b8860b] mb-2">Annual member checkout</p>
-                  {includedPkg && (
-                    <p className="text-sm text-slate-600 leading-relaxed mb-3">
-                      Included in your package for you. Select household or friends &amp; extended — you only pay for their
-                      seats.
-                    </p>
-                  )}
-                  {aq ? (
-                    <div className="space-y-2 text-sm text-slate-700">
-                      {!includedPkg && (
-                        <div className="flex justify-between gap-3">
-                          <span className="leading-snug">
-                            You
-                            {memberSubcaption(aq.member_pricing_rule) ? (
-                              <span className="text-slate-500"> — {memberSubcaption(aq.member_pricing_rule)}</span>
-                            ) : null}
-                          </span>
-                          <span className="font-semibold tabular-nums">
-                            {symbol}
-                            {Number(aq.self_after_promos || 0).toLocaleString()}
-                          </span>
-                        </div>
-                      )}
-                      {(includedPkg ? selCount > 0 : selCount > 0) && (
-                        <>
-                          {(aq.immediate_family_count || 0) > 0 && (
-                            <div className="flex justify-between gap-3 text-slate-600">
-                              <span className="leading-snug">
-                                Immediate family ({aq.immediate_family_count})
-                                {familySubcaption(aq.immediate_family_pricing_rule) ? (
-                                  <span className="text-slate-500"> — {familySubcaption(aq.immediate_family_pricing_rule)}</span>
-                                ) : null}
-                              </span>
-                              <span className="font-semibold tabular-nums">
-                                {symbol}
-                                {Number(aq.immediate_family_after_promos || 0).toLocaleString()}
-                              </span>
-                            </div>
-                          )}
-                          {(aq.extended_guest_count || 0) > 0 && (
-                            <div className="flex justify-between gap-3 text-slate-600">
-                              <span className="leading-snug">
-                                Friends &amp; extended ({aq.extended_guest_count})
-                                {familySubcaption(aq.extended_guest_pricing_rule) ? (
-                                  <span className="text-slate-500"> — {familySubcaption(aq.extended_guest_pricing_rule)}</span>
-                                ) : null}
-                              </span>
-                              <span className="font-semibold tabular-nums">
-                                {symbol}
-                                {Number(aq.extended_guests_after_promos || 0).toLocaleString()}
-                              </span>
-                            </div>
-                          )}
-                        </>
-                      )}
-                      <div className="flex justify-between gap-3 pt-2 border-t border-amber-100/90 font-semibold text-slate-900 text-base">
-                        <span>Total</span>
-                        <span className="text-[#b8860b] tabular-nums">
-                          {symbol}
-                          {Number(aq.total || 0).toLocaleString()}
-                        </span>
-                      </div>
-                    </div>
-                  ) : (
-                    <p className="text-sm text-slate-400 py-1">Loading pricing…</p>
-                  )}
-                </div>
+          <div className="mt-auto pt-4 border-t border-gray-100">
+            <div className="flex flex-col lg:flex-row lg:items-stretch gap-5 lg:gap-8">
+              <div className="flex-1 min-w-0 flex flex-col justify-center">
+                {includedPkg ? (
+                  <p className="text-sm sm:text-[0.9375rem] text-slate-600 leading-relaxed">
+                    Your seat is included in your annual package. Select household or friends &amp; extended to add them —
+                    amounts are confirmed in the next step.
+                  </p>
+                ) : (
+                  <p className="text-sm sm:text-[0.9375rem] text-slate-600 leading-relaxed">
+                    Choose who is joining, then continue. Member and guest pricing is shown when you enroll — nothing to
+                    review here.
+                  </p>
+                )}
               </div>
 
-              <div className="min-w-0 rounded-xl border border-amber-100/80 bg-amber-50/25 px-3 py-3 sm:px-4 sm:py-4">
+              <div className="w-full lg:w-[min(100%,20rem)] xl:w-[22rem] shrink-0 rounded-xl border border-amber-100/80 bg-amber-50/25 px-3 py-3 sm:px-4 sm:py-4">
                 <p className="text-[10px] font-bold uppercase tracking-wide text-slate-600 mb-2">Family members to join</p>
-                {hasMap || aq?.program_portal_pricing_override ? (
-                  <p className="text-xs text-indigo-800/90 font-medium mb-2">Program-specific portal pricing</p>
-                ) : null}
                 {enrollableGuests.length === 0 ? (
                   <p className="text-sm text-slate-500">Add people under the lists below, then save.</p>
                 ) : (

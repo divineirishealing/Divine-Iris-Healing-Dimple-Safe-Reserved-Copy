@@ -364,7 +364,6 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh, bo
   const [promoPricesLoading, setPromoPricesLoading] = useState(false);
   const [selectedFamilyByProgram, setSelectedFamilyByProgram] = useState({});
   const [annualQuotes, setAnnualQuotes] = useState({});
-  const [portalSeatPreviewByProgram, setPortalSeatPreviewByProgram] = useState({});
   const [payingProgramId, setPayingProgramId] = useState(null);
   const [programPaymentModal, setProgramPaymentModal] = useState(null);
   const [enrollmentSeatOpen, setEnrollmentSeatOpen] = useState(false);
@@ -390,7 +389,6 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh, bo
     () => upcomingList.slice(0, DASHBOARD_UPCOMING_PREFETCH_LIMIT),
     [upcomingList]
   );
-  const programPortalMap = homeData?.dashboard_program_offers || {};
   const paymentMethods = homeData?.payment_methods || ['stripe'];
   const offers = homeData?.dashboard_offers || {};
   const annualOffer = offers.annual || {};
@@ -733,94 +731,6 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh, bo
     };
   }, [isAnnual, currencyReady, currency, prefetchProgramsKey, familySelectionKey, programsForPrefetch]);
 
-  const seatPreviewContextKey = useMemo(() => {
-    const i = members.find((m) => m.id)?.id || '';
-    const x = otherMembers.find((m) => m.id)?.id || '';
-    return `${currency}|${i}|${x}|${prefetchProgramsKey}`;
-  }, [currency, members, otherMembers, prefetchProgramsKey]);
-
-  useEffect(() => {
-    if (!isAnnual || !currencyReady || !API) {
-      setPortalSeatPreviewByProgram({});
-      return;
-    }
-    const programs = programsForPrefetch;
-    if (programs.length === 0) {
-      setPortalSeatPreviewByProgram({});
-      return;
-    }
-    const firstImm = members.find((m) => m.id)?.id;
-    const firstExt = otherMembers.find((m) => m.id)?.id;
-    let cancelled = false;
-    const next = {};
-    programs.forEach((p) => {
-      next[p.id] = { loading: true };
-    });
-    setPortalSeatPreviewByProgram(next);
-
-    (async () => {
-      await Promise.all(
-        programs.map(async (p) => {
-          try {
-            const r0 = await axios.get(`${API}/api/student/dashboard-quote`, {
-              params: { program_id: p.id, currency, family_count: 0 },
-              withCredentials: true,
-            });
-            const q0 = r0.data;
-            const included = !!q0.included_in_annual_package;
-            let qImm = null;
-            if (firstImm) {
-              try {
-                const rI = await axios.get(`${API}/api/student/dashboard-quote`, {
-                  params: { program_id: p.id, currency, family_ids: String(firstImm) },
-                  withCredentials: true,
-                });
-                qImm = rI.data;
-              } catch {
-                qImm = null;
-              }
-            }
-            let qExt = null;
-            if (firstExt) {
-              try {
-                const rE = await axios.get(`${API}/api/student/dashboard-quote`, {
-                  params: { program_id: p.id, currency, family_ids: String(firstExt) },
-                  withCredentials: true,
-                });
-                qExt = rE.data;
-              } catch {
-                qExt = null;
-              }
-            }
-            const annualSeat = included ? 'included' : Number(q0.self_after_promos);
-            let householdSeat = null;
-            if (qImm && qImm.immediate_family_count > 0) {
-              householdSeat = Number(qImm.immediate_family_after_promos) / qImm.immediate_family_count;
-            }
-            let extendedSeat = null;
-            if (qExt && qExt.extended_guest_count > 0) {
-              extendedSeat = Number(qExt.extended_guests_after_promos) / qExt.extended_guest_count;
-            }
-            next[p.id] = {
-              loading: false,
-              annualSeat,
-              householdSeat,
-              extendedSeat,
-              included,
-            };
-          } catch {
-            next[p.id] = { loading: false, error: true };
-          }
-        })
-      );
-      if (!cancelled) setPortalSeatPreviewByProgram({ ...next });
-    })();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [isAnnual, currencyReady, currency, seatPreviewContextKey, programsForPrefetch, members, otherMembers]);
-
   useEffect(() => {
     const code = promoForProgramClicks;
     const programs = programsForPrefetch;
@@ -1152,10 +1062,8 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh, bo
                 promoForProgramClicks={promoForProgramClicks}
                 promoByProgramId={promoByProgramId}
                 promoPricesLoading={promoPricesLoading}
-                programPortalMap={programPortalMap}
                 aq={annualQuotes[p.id]}
                 annualIncludedIds={annualIncludedIds}
-                portalPreview={portalSeatPreviewByProgram[p.id]}
                 members={members}
                 otherMembers={otherMembers}
                 enrollableGuests={enrollableGuests}

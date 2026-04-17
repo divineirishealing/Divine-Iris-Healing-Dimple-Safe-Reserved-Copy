@@ -29,27 +29,6 @@ export function programIncludedInAnnualPackage(p, configuredIds) {
   );
 }
 
-export function memberSubcaption(rule) {
-  const r = rule || 'list';
-  if (r === 'promo') return 'after portal promo';
-  if (r === 'percent_off') return '% off your seat';
-  if (r === 'amount_off') return 'amount off your seat';
-  if (r === 'fixed_price') return 'fixed member price';
-  if (r === 'included_in_package') return '';
-  return 'list / offer unit';
-}
-
-export function familySubcaption(rule) {
-  const r = rule || 'list';
-  if (r === 'promo') return 'after portal promo';
-  if (r === 'percent_off') return '% off line total';
-  if (r === 'amount_off') return 'amount off line total';
-  if (r === 'fixed_price') return 'fixed per seat × count';
-  if (r === 'mixed') return 'split: household vs extended rules';
-  if (r === 'none') return '';
-  return 'list / offer';
-}
-
 /** Same basis as EnrollmentPage promo discount: percentage of subtotal or fixed per currency. */
 export function promoDiscountAmount(promoResult, subtotalRaw, currency) {
   if (!promoResult || subtotalRaw <= 0) return 0;
