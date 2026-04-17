@@ -619,6 +619,8 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh, bo
     const hasStripe = m.includes('stripe');
     const hasOffline = m.some((x) => ['manual', 'gpay', 'bank'].includes(x));
     if (!hasStripe && hasOffline) return 'manual';
+    // When both exist, default to manual so the payment-proof upload shows immediately (card users can switch to Stripe).
+    if (hasStripe && hasOffline) return 'manual';
     if (hasStripe) return 'stripe';
     return 'manual';
   }, [paymentMethods]);

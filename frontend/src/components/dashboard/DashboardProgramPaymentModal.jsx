@@ -65,6 +65,7 @@ export default function DashboardProgramPaymentModal({
   const [bankName, setBankName] = useState('');
   const [proofMethod, setProofMethod] = useState('upi');
   const [screenshot, setScreenshot] = useState(null);
+  const [screenshotPreviewUrl, setScreenshotPreviewUrl] = useState('');
   const [notes, setNotes] = useState('');
   const [submittingProof, setSubmittingProof] = useState(false);
   const [proofSubmitted, setProofSubmitted] = useState(false);
@@ -90,6 +91,10 @@ export default function DashboardProgramPaymentModal({
     setChannel(initialPayChannel === 'manual' || !hasStripe ? 'manual' : 'stripe');
     setProofSubmitted(false);
     setScreenshot(null);
+    setScreenshotPreviewUrl((prev) => {
+      if (prev) URL.revokeObjectURL(prev);
+      return '';
+    });
     setSelectedBankIdx(0);
     setLoadingEnroll(true);
     axios
@@ -254,15 +259,22 @@ export default function DashboardProgramPaymentModal({
               </p>
 
               {hasStripe && hasOffline && (
-                <div className="flex flex-wrap gap-3 text-[11px] text-slate-700">
-                  <label className="inline-flex items-center gap-1.5 cursor-pointer">
-                    <input type="radio" name="dash-pay-ch" checked={channel === 'stripe'} onChange={() => setChannel('stripe')} />
-                    Card (Stripe)
-                  </label>
-                  <label className="inline-flex items-center gap-1.5 cursor-pointer">
-                    <input type="radio" name="dash-pay-ch" checked={channel === 'manual'} onChange={() => setChannel('manual')} />
-                    UPI / bank + proof
-                  </label>
+                <div className="flex flex-col gap-2 text-[11px] text-slate-700">
+                  <div className="flex flex-wrap gap-3">
+                    <label className="inline-flex items-center gap-1.5 cursor-pointer">
+                      <input type="radio" name="dash-pay-ch" checked={channel === 'stripe'} onChange={() => setChannel('stripe')} />
+                      Card (Stripe)
+                    </label>
+                    <label className="inline-flex items-center gap-1.5 cursor-pointer">
+                      <input type="radio" name="dash-pay-ch" checked={channel === 'manual'} onChange={() => setChannel('manual')} />
+                      UPI / bank + proof
+                    </label>
+                  </div>
+                  {channel === 'stripe' ? (
+                    <p className="text-[10px] text-amber-900/90 bg-amber-50 border border-amber-200/80 rounded-lg px-2.5 py-1.5 leading-snug">
+                      To upload a payment screenshot, choose <span className="font-semibold">UPI / bank + proof</span> above.
+                    </p>
+                  ) : null}
                 </div>
               )}
 
@@ -392,6 +404,13 @@ export default function DashboardProgramPaymentModal({
                         picker reliably (avoids sr-only + htmlFor quirks on some desktop browsers).
                       */}
                       <label className="mt-1 flex cursor-pointer flex-col gap-2 rounded-lg border-2 border-dashed border-slate-200 bg-slate-50/80 px-3 py-3 transition-colors hover:border-[#5D3FD3]/45 hover:bg-violet-50/25">
+                        {screenshotPreviewUrl ? (
+                          <img
+                            src={screenshotPreviewUrl}
+                            alt=""
+                            className="max-h-36 w-full object-contain rounded-md border border-slate-100 bg-white"
+                          />
+                        ) : null}
                         <div className="flex items-center gap-2 select-none">
                           <Upload size={18} className="text-[#5D3FD3] shrink-0" aria-hidden />
                           <span className="text-[11px] font-medium text-slate-800">
@@ -401,13 +420,13 @@ export default function DashboardProgramPaymentModal({
                         {screenshot ? (
                           <p className="text-[10px] text-emerald-800 truncate">{screenshot.name}</p>
                         ) : (
-                          <p className="text-[10px] text-slate-500">Then pick a file with the button below.</p>
+                          <p className="text-[10px] text-slate-500">Use Browse / Choose File below (any device).</p>
                         )}
                         <input
                           key={open ? `proof-${enrollmentId ?? 'session'}` : 'proof-closed'}
                           ref={proofFileInputRef}
                           type="file"
-                          accept="image/*"
+                          accept="image/*,.jpg,.jpeg,.png,.webp,.heic,.heif"
                           data-testid="dashboard-proof-screenshot-input"
                           className="block w-full min-h-10 cursor-pointer text-xs text-slate-700 file:mr-3 file:inline-flex file:h-9 file:cursor-pointer file:items-center file:rounded-md file:border file:border-slate-300 file:bg-white file:px-4 file:py-2 file:text-xs file:font-semibold file:text-slate-900 hover:file:bg-violet-50"
                           onChange={(e) => {
@@ -422,9 +441,17 @@ export default function DashboardProgramPaymentModal({
                               });
                               inputEl.value = '';
                               setScreenshot(null);
+                              setScreenshotPreviewUrl((prev) => {
+                                if (prev) URL.revokeObjectURL(prev);
+                                return '';
+                              });
                               return;
                             }
                             setScreenshot(f);
+                            setScreenshotPreviewUrl((prev) => {
+                              if (prev) URL.revokeObjectURL(prev);
+                              return URL.createObjectURL(f);
+                            });
                           }}
                         />
                       </label>
@@ -434,6 +461,10 @@ export default function DashboardProgramPaymentModal({
                           className="mt-1.5 text-[10px] text-slate-500 underline decoration-slate-300 hover:text-slate-800"
                           onClick={() => {
                             setScreenshot(null);
+                            setScreenshotPreviewUrl((prev) => {
+                              if (prev) URL.revokeObjectURL(prev);
+                              return '';
+                            });
                             const el = proofFileInputRef.current;
                             if (el) el.value = '';
                           }}
