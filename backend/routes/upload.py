@@ -232,12 +232,37 @@ async def upload_image(file: UploadFile = File(...)):
 
 @router.post("/video")
 async def upload_video(file: UploadFile = File(...)):
-    file_ext = Path(file.filename).suffix.lower()
+    raw_name = (file.filename or "").strip() or "video"
+    file_ext = Path(raw_name).suffix.lower()
+    if not file_ext or file_ext == ".":
+        ct = (file.content_type or "").lower()
+        if "webm" in ct:
+            file_ext = ".webm"
+        elif "quicktime" in ct or "/mov" in ct:
+            file_ext = ".mov"
+        elif "mp4" in ct or ct.startswith("video/"):
+            file_ext = ".mp4"
+        elif "x-msvideo" in ct:
+            file_ext = ".avi"
     if file_ext not in VIDEO_EXTENSIONS:
-        raise HTTPException(status_code=400, detail=f"File type not allowed. Allowed: {', '.join(VIDEO_EXTENSIONS)}")
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                f"File type not allowed (extension {file_ext!r}, content-type {file.content_type!r}). "
+                f"Allowed: {', '.join(sorted(VIDEO_EXTENSIONS))}"
+            ),
+        )
     try:
         unique_filename = f"{uuid.uuid4()}{file_ext}"
         file_bytes = await file.read()
+        if len(file_bytes) > MAX_VIDEO_SIZE:
+            raise HTTPException(
+                status_code=413,
+                detail=(
+                    f"Video too large ({len(file_bytes) // (1024 * 1024)} MB). "
+                    f"Maximum is {MAX_VIDEO_SIZE // (1024 * 1024)} MB."
+                ),
+            )
         url, fname = _s3_put_then_fallback(
             file_bytes,
             unique_filename,

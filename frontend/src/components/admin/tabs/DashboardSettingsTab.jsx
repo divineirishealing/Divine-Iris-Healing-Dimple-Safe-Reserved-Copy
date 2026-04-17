@@ -1,4 +1,5 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useCallback } from 'react';
+import axios from 'axios';
 import { Label } from '../../ui/label';
 import { Input } from '../../ui/input';
 import { Button } from '../../ui/button';
@@ -6,8 +7,32 @@ import { Switch } from '../../ui/switch';
 import { Textarea } from '../../ui/textarea';
 import { RefreshCw, Sparkles, Users, Layers, LayoutGrid, PanelLeft } from 'lucide-react';
 import { useToast } from '../../../hooks/use-toast';
+import { useSiteSettings } from '../../../context/SiteSettingsContext';
 import { DASHBOARD_VISIBILITY_KEYS, DEFAULT_DASHBOARD_VISIBILITY } from '../../../lib/dashboardVisibility';
 import { resolveImageUrl } from '../../../lib/imageUtils';
+
+const BACKEND = (process.env.REACT_APP_BACKEND_URL || '').replace(/\/$/, '');
+const API = BACKEND ? `${BACKEND}/api` : '';
+
+function videoUploadErrorMessage(err) {
+  if (!BACKEND) {
+    return 'REACT_APP_BACKEND_URL is not set on this frontend build. Set it to your API URL (e.g. https://your-api.onrender.com), redeploy, then try again.';
+  }
+  const d = err?.response?.data?.detail;
+  if (typeof d === 'string') return d;
+  if (Array.isArray(d)) return d.map((x) => (typeof x === 'object' ? x.msg || JSON.stringify(x) : String(x))).join(' ');
+  const st = err?.response?.status;
+  if (st === 413) return 'File too large for the server (max 100 MB for videos).';
+  if (st === 503) {
+    return typeof d === 'string'
+      ? d
+      : 'Storage unavailable — configure AWS S3 on the API host or see GET /api/upload/storage-status.';
+  }
+  if (err?.code === 'ERR_NETWORK' || err?.message === 'Network Error') {
+    return 'Could not reach the API. Check the backend URL, CORS, and that the server is running.';
+  }
+  return err?.message || 'Upload failed.';
+}
 
 /** Member, family, or extended guest line: pricing_rule + fields (reused for global and per-program overrides). */
 function PortalPricingRuleFields({ offer, onPatch, variant }) {
@@ -89,6 +114,7 @@ function PortalPricingRuleFields({ offer, onPatch, variant }) {
 
 const DashboardSettingsTab = ({ settings, onChange, programs = [] }) => {
   const { toast } = useToast();
+  const { refreshSettings } = useSiteSettings();
   const dashboard = settings.dashboard_settings || { 
     title: "Sanctuary", 
     primaryColor: "#5D3FD3", 
@@ -194,6 +220,58 @@ const DashboardSettingsTab = ({ settings, onChange, programs = [] }) => {
       });
     }
   };
+
+  const uploadDashboardVideoFile = useCallback(
+    async (file, settingsKey) => {
+      if (!file || !API) {
+        toast({ title: 'Upload not available', description: videoUploadErrorMessage(null), variant: 'destructive' });
+        return;
+      }
+      const base = file.name || '';
+      const ext = base.includes('.') ? base.split('.').pop().toLowerCase() : '';
+      if (ext && !['mp4', 'webm', 'mov', 'avi'].includes(ext)) {
+        toast({
+          title: 'Unsupported file type',
+          description: 'Use MP4, WebM, MOV, or AVI.',
+          variant: 'destructive',
+        });
+        return;
+      }
+      if (file.size > 100 * 1024 * 1024) {
+        toast({ title: 'File too large', description: 'Maximum video size is 100 MB.', variant: 'destructive' });
+        return;
+      }
+      try {
+        const formData = new FormData();
+        formData.append('file', file);
+        const { data } = await axios.post(`${API}/upload/video`, formData, {
+          timeout: 180000,
+        });
+        if (!data?.url) {
+          toast({ title: 'Upload failed', description: 'Server did not return a video URL.', variant: 'destructive' });
+          return;
+        }
+        await axios.put(
+          `${API}/settings`,
+          { [settingsKey]: data.url },
+          { headers: { 'Content-Type': 'application/json' } }
+        );
+        onChange({ ...settings, [settingsKey]: data.url });
+        await refreshSettings();
+        toast({
+          title: 'Video saved',
+          description:
+            settingsKey === 'dashboard_sanctuary_video_url'
+              ? 'Sacred Home will use this loop. Refresh the student dashboard if it is already open.'
+              : 'Background video updated. Refresh the dashboard to see it.',
+        });
+      } catch (err) {
+        console.error('Dashboard video upload:', err);
+        toast({ title: 'Upload failed', description: videoUploadErrorMessage(err), variant: 'destructive' });
+      }
+    },
+    [toast, refreshSettings, settings, onChange]
+  );
 
   const dashVis = settings.dashboard_element_visibility || {};
   const setDashVis = (key, on) => {
@@ -403,25 +481,17 @@ const DashboardSettingsTab = ({ settings, onChange, programs = [] }) => {
         <h3 className="text-sm font-semibold text-gray-900 mb-1">Dashboard Background Video</h3>
         <p className="text-[10px] text-gray-500 mb-3">Upload a looping video that plays behind the entire dashboard (sidebar + content). Keep it under 10MB for best performance.</p>
         <div className="flex items-center gap-3">
-          <input type="file" accept="video/mp4,video/webm" onChange={async (e) => {
-            const file = e.target.files?.[0];
-            if (!file) return;
-            const fd = new FormData();
-            fd.append('file', file);
-            try {
-              const r = await fetch(`${process.env.REACT_APP_BACKEND_URL}/api/upload/video`, { method: 'POST', body: fd });
-              const data = await r.json();
-              if (data.url) {
-                // Save directly to settings
-                await fetch(`${process.env.REACT_APP_BACKEND_URL}/api/settings`, {
-                  method: 'PUT', headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify({ dashboard_bg_video: data.url }),
-                });
-                update('dashboard_bg_video', data.url);
-                alert('Video uploaded and saved! Refresh dashboard to see it.');
-              }
-            } catch (err) { alert('Upload failed: ' + err.message); }
-          }} className="text-xs" data-testid="bg-video-upload" />
+          <input
+            type="file"
+            accept="video/mp4,video/webm,video/quicktime"
+            onChange={async (e) => {
+              const file = e.target.files?.[0];
+              e.target.value = '';
+              if (file) await uploadDashboardVideoFile(file, 'dashboard_bg_video');
+            }}
+            className="text-xs"
+            data-testid="bg-video-upload"
+          />
           {(settings.dashboard_bg_video || dashboard.bg_video) && (
             <button onClick={() => update('dashboard_bg_video', '')} className="text-xs text-red-500 hover:underline">Remove</button>
           )}
@@ -447,25 +517,8 @@ const DashboardSettingsTab = ({ settings, onChange, programs = [] }) => {
             accept="video/mp4,video/webm,video/quicktime"
             onChange={async (e) => {
               const file = e.target.files?.[0];
-              if (!file) return;
-              const fd = new FormData();
-              fd.append('file', file);
-              try {
-                const r = await fetch(`${process.env.REACT_APP_BACKEND_URL}/api/upload/video`, { method: 'POST', body: fd });
-                const data = await r.json();
-                if (data.url) {
-                  await fetch(`${process.env.REACT_APP_BACKEND_URL}/api/settings`, {
-                    method: 'PUT',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ dashboard_sanctuary_video_url: data.url }),
-                  });
-                  update('dashboard_sanctuary_video_url', data.url);
-                  toast({ title: 'Sanctuary video saved', description: 'Refresh the student dashboard to see it.' });
-                }
-              } catch (err) {
-                toast({ title: 'Upload failed', description: err?.message || 'Try again', variant: 'destructive' });
-              }
               e.target.value = '';
+              if (file) await uploadDashboardVideoFile(file, 'dashboard_sanctuary_video_url');
             }}
             className="text-xs"
             data-testid="sanctuary-video-upload"
@@ -475,15 +528,20 @@ const DashboardSettingsTab = ({ settings, onChange, programs = [] }) => {
               type="button"
               onClick={async () => {
                 try {
-                  await fetch(`${process.env.REACT_APP_BACKEND_URL}/api/settings`, {
-                    method: 'PUT',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ dashboard_sanctuary_video_url: '' }),
-                  });
-                  update('dashboard_sanctuary_video_url', '');
+                  await axios.put(
+                    `${API}/settings`,
+                    { dashboard_sanctuary_video_url: '' },
+                    { headers: { 'Content-Type': 'application/json' } }
+                  );
+                  onChange({ ...settings, dashboard_sanctuary_video_url: '' });
+                  await refreshSettings();
                   toast({ title: 'Removed', description: 'Using bundled fallback video until you upload again.' });
                 } catch (err) {
-                  toast({ title: 'Could not remove', variant: 'destructive' });
+                  toast({
+                    title: 'Could not remove',
+                    description: videoUploadErrorMessage(err),
+                    variant: 'destructive',
+                  });
                 }
               }}
               className="text-xs text-red-500 hover:underline"
