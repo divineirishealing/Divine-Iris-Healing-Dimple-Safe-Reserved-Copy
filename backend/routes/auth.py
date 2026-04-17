@@ -33,14 +33,24 @@ class User(BaseModel):
 
 # --- HELPERS ---
 
+def _session_token_from_request(request: Request) -> Optional[str]:
+    """
+    Prefer Authorization: Bearer (localStorage / axios interceptor) over the cookie.
+    Stale API-domain cookies are common when the SPA stores a fresh token after OAuth;
+    cookie-first would ignore Bearer and return 401, breaking dashboard login.
+    """
+    auth_header = request.headers.get("Authorization") or ""
+    if auth_header.startswith("Bearer "):
+        token = auth_header[7:].strip()
+        if token:
+            return token
+    cookie = request.cookies.get("session_token")
+    return cookie.strip() if cookie else None
+
+
 async def get_current_user(request: Request):
-    session_token = request.cookies.get("session_token")
-    if not session_token:
-        # Fallback to Header
-        auth_header = request.headers.get("Authorization")
-        if auth_header and auth_header.startswith("Bearer "):
-            session_token = auth_header.split(" ")[1]
-    
+    session_token = _session_token_from_request(request)
+
     if not session_token:
         raise HTTPException(status_code=401, detail="Not authenticated")
 
