@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useMemo, useRef, useId } from 'react';
 import { createPortal } from 'react-dom';
 import axios from 'axios';
 import {
@@ -50,6 +50,7 @@ export default function DashboardProgramPaymentModal({
 }) {
   const { toast } = useToast();
   const proofFileInputRef = useRef(null);
+  const proofFileInputDomId = useId().replace(/:/g, '');
 
   const [enrollment, setEnrollment] = useState(null);
   const [loadingEnroll, setLoadingEnroll] = useState(false);
@@ -240,28 +241,20 @@ export default function DashboardProgramPaymentModal({
     return true;
   };
 
-  /**
-   * File input is portaled to document.body (see below) so it is not under overflow-y-auto.
-   * Do not use showPicker() for type=file: on desktop Chrome/Edge it often returns a Promise that
-   * rejects without opening a dialog; our early `return` skipped click() so nothing happened.
-   * A direct click() from this button keeps the user gesture and works on laptop + mobile.
-   */
-  const openProofFilePicker = () => {
-    proofFileInputRef.current?.click();
-  };
-
   if (!open) return null;
 
   const proofFileInput =
     hasOffline && !proofSubmitted && !loadingEnroll ? (
       <input
         key={open ? `proof-${enrollmentId ?? 'session'}` : 'proof-closed'}
+        id={proofFileInputDomId}
         ref={proofFileInputRef}
         type="file"
         accept="image/*"
         data-testid="dashboard-proof-screenshot-input"
         aria-label="Choose payment proof image"
-        className="sr-only"
+        className="fixed left-0 top-0 h-px w-px opacity-0"
+        tabIndex={-1}
         onChange={(e) => {
           const inputEl = e.target;
           const f = inputEl.files?.[0] ?? null;
@@ -465,14 +458,12 @@ export default function DashboardProgramPaymentModal({
                               <p className="text-[10px] text-emerald-800 truncate max-w-full">{screenshot.name}</p>
                             ) : null}
                           </div>
-                          <Button
-                            type="button"
-                            variant="outline"
-                            className="mt-1 h-11 w-full text-xs font-semibold border-slate-300 bg-white touch-manipulation"
-                            onClick={openProofFilePicker}
+                          <label
+                            htmlFor={proofFileInputDomId}
+                            className="mt-1 flex h-11 w-full cursor-pointer select-none items-center justify-center rounded-md border border-slate-300 bg-white text-xs font-semibold text-slate-900 shadow-sm hover:bg-violet-50 touch-manipulation"
                           >
                             Choose photo / file
-                          </Button>
+                          </label>
                         </div>
                       </div>
                       {screenshot ? (
