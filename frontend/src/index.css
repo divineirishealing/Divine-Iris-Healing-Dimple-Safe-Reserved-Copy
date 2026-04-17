@@ -274,44 +274,126 @@ html {
   }
 }
 
-/* Dashboard overview — photo healing sanctuary (iris sway, steam, petals, particles) */
-@keyframes dashboard-healing-floral-sway {
+/* Dashboard — healing sanctuary: organic breeze (multi-phase), soft steam, slow petals */
+@keyframes dashboard-healing-base-drift {
   0%,
   100% {
-    transform: rotate(-0.42deg) translateX(0);
+    transform: scale(1.045) translate3d(0, 0, 0);
   }
-  50% {
-    transform: rotate(0.62deg) translateX(2px);
+  31% {
+    transform: scale(1.045) translate3d(0.22%, -0.12%, 0);
+  }
+  63% {
+    transform: scale(1.045) translate3d(-0.16%, 0.1%, 0);
+  }
+}
+
+@keyframes dashboard-healing-breeze-deep {
+  0%,
+  100% {
+    transform: translate3d(0, 0, 0) skewX(0deg) rotate(0deg);
+  }
+  24% {
+    transform: translate3d(2.5px, -1.2px, 0) skewX(0.2deg) rotate(0.14deg);
+  }
+  49% {
+    transform: translate3d(-1.8px, 0.7px, 0) skewX(-0.14deg) rotate(-0.1deg);
+  }
+  74% {
+    transform: translate3d(1.4px, -0.5px, 0) skewX(0.1deg) rotate(0.08deg);
+  }
+}
+
+@keyframes dashboard-healing-breeze-mid {
+  0%,
+  100% {
+    transform: translate3d(0, 0, 0) skewX(0deg) rotate(0deg);
+  }
+  19% {
+    transform: translate3d(-3px, 1px, 0) skewX(-0.24deg) rotate(-0.16deg);
+  }
+  41% {
+    transform: translate3d(2.4px, -0.8px, 0) skewX(0.17deg) rotate(0.11deg);
+  }
+  62% {
+    transform: translate3d(-1.2px, 0.5px, 0) skewX(-0.1deg) rotate(-0.07deg);
+  }
+  84% {
+    transform: translate3d(1.6px, -0.4px, 0) skewX(0.08deg) rotate(0.06deg);
+  }
+}
+
+@keyframes dashboard-healing-breeze-light {
+  0%,
+  100% {
+    transform: translate3d(0, 0, 0) rotate(0deg);
+  }
+  28% {
+    transform: translate3d(3.5px, -1.8px, 0) rotate(0.22deg);
+  }
+  55% {
+    transform: translate3d(-2.6px, 1.1px, 0) rotate(-0.16deg);
+  }
+  81% {
+    transform: translate3d(1.8px, -0.6px, 0) rotate(0.1deg);
   }
 }
 
 @keyframes dashboard-healing-steam-rise {
   0% {
-    opacity: 0.18;
-    transform: translateY(10px);
+    opacity: 0.14;
+    transform: translateY(9px) translateX(0);
   }
-  38% {
-    opacity: 0.82;
+  22% {
+    opacity: 0.48;
+    transform: translateY(-6px) translateX(1.5px);
+  }
+  48% {
+    opacity: 0.74;
+    transform: translateY(-26px) translateX(-1px);
+  }
+  72% {
+    opacity: 0.38;
+    transform: translateY(-42px) translateX(2px);
   }
   100% {
-    opacity: 0.06;
-    transform: translateY(-52px);
+    opacity: 0.05;
+    transform: translateY(-58px) translateX(0.5px);
+  }
+}
+
+@keyframes dashboard-healing-steam-rise-alt {
+  0% {
+    opacity: 0.12;
+    transform: translateY(11px) translateX(-1px);
+  }
+  30% {
+    opacity: 0.58;
+    transform: translateY(-12px) translateX(2px);
+  }
+  58% {
+    opacity: 0.68;
+    transform: translateY(-34px) translateX(-1.5px);
+  }
+  100% {
+    opacity: 0.04;
+    transform: translateY(-60px) translateX(1px);
   }
 }
 
 @keyframes dashboard-healing-petal-drift {
   0% {
-    transform: translate(0, 0) rotate(0deg);
+    transform: translate(0, 0) rotate(0deg) scale(1);
     opacity: 0;
   }
-  6% {
-    opacity: 0.78;
+  8% {
+    opacity: 0.55;
   }
-  88% {
-    opacity: 0.5;
+  92% {
+    opacity: 0.35;
   }
   100% {
-    transform: translate(var(--dx, 0px), 115vh) rotate(var(--rot, 12deg));
+    transform: translate(var(--dx, 0px), 115vh) rotate(var(--rot, 12deg)) scale(0.92);
     opacity: 0;
   }
 }
@@ -324,7 +406,7 @@ html {
   }
   50% {
     transform: translate(var(--mx, 8px), var(--my, -12px));
-    opacity: calc(var(--a, 0.45) * 1.35);
+    opacity: calc(var(--a, 0.45) * 1.22);
   }
 }
 
@@ -360,21 +442,45 @@ html {
   }
 }
 
-.dashboard-healing-floral-sway {
-  transform-origin: 32% 90%;
-  animation: dashboard-healing-floral-sway 11.5s ease-in-out infinite;
+.dashboard-healing-base-drift {
+  transform-origin: 50% 55%;
+  animation: dashboard-healing-base-drift 36s cubic-bezier(0.42, 0, 0.58, 1) infinite;
+}
+
+.dashboard-healing-breeze-deep {
+  transform-origin: 12% 91%;
+  animation: dashboard-healing-breeze-deep 23s cubic-bezier(0.45, 0.05, 0.55, 0.95) infinite;
+}
+
+.dashboard-healing-breeze-mid {
+  transform-origin: 7% 87%;
+  animation: dashboard-healing-breeze-mid 17.5s cubic-bezier(0.42, 0, 0.58, 1) infinite;
+  animation-delay: -5.5s;
+}
+
+.dashboard-healing-breeze-light {
+  transform-origin: 22% 89%;
+  animation: dashboard-healing-breeze-light 14.2s cubic-bezier(0.4, 0.12, 0.6, 0.88) infinite;
+  animation-delay: -2.8s;
 }
 
 .dashboard-healing-steam-strand {
-  animation: dashboard-healing-steam-rise 8s ease-in-out infinite;
+  animation: dashboard-healing-steam-rise 11.5s cubic-bezier(0.4, 0.15, 0.45, 1) infinite;
+  transform-box: fill-box;
+  transform-origin: 50% 100%;
+}
+
+.dashboard-healing-steam-strand-alt {
+  animation: dashboard-healing-steam-rise-alt 13s cubic-bezier(0.35, 0.1, 0.5, 1) infinite;
   transform-box: fill-box;
   transform-origin: 50% 100%;
 }
 
 .dashboard-healing-petal {
   animation-name: dashboard-healing-petal-drift;
-  animation-timing-function: linear;
+  animation-timing-function: cubic-bezier(0.33, 0.02, 0.2, 1);
   animation-iteration-count: infinite;
+  filter: blur(0.65px);
   will-change: transform, opacity;
 }
 
@@ -398,14 +504,26 @@ html {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .dashboard-healing-floral-sway,
+  .dashboard-healing-base-drift,
+  .dashboard-healing-breeze-deep,
+  .dashboard-healing-breeze-mid,
+  .dashboard-healing-breeze-light,
   .dashboard-healing-steam-strand,
+  .dashboard-healing-steam-strand-alt,
   .dashboard-healing-petal,
   .dashboard-healing-particle,
   .dashboard-healing-leaf-shadow,
   .dashboard-healing-sunray,
   .dashboard-healing-center-veil {
     animation: none !important;
+  }
+
+  .dashboard-healing-base-drift {
+    transform: none;
+  }
+
+  .dashboard-healing-breeze-stack {
+    display: none !important;
   }
 
   .dashboard-healing-petal {
