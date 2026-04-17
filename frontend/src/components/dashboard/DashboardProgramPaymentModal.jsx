@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useMemo, useId } from 'react';
 import axios from 'axios';
 import {
   X,
@@ -49,7 +49,7 @@ export default function DashboardProgramPaymentModal({
   isPrimary,
 }) {
   const { toast } = useToast();
-  const fileRef = useRef(null);
+  const screenshotInputId = useId();
 
   const [enrollment, setEnrollment] = useState(null);
   const [loadingEnroll, setLoadingEnroll] = useState(false);
@@ -383,21 +383,19 @@ export default function DashboardProgramPaymentModal({
                     <div>
                       <Label className="text-[10px]">Screenshot *</Label>
                       <input
-                        ref={fileRef}
+                        id={screenshotInputId}
                         type="file"
                         accept="image/*"
-                        className="hidden"
+                        className="sr-only"
                         onChange={(e) => setScreenshot(e.target.files?.[0] || null)}
                       />
-                      <Button
-                        type="button"
-                        variant="outline"
-                        className="w-full h-10 text-xs"
-                        onClick={() => fileRef.current?.click()}
+                      <label
+                        htmlFor={screenshotInputId}
+                        className="mt-1 flex w-full cursor-pointer items-center justify-center gap-2 rounded-md border border-input bg-background px-3 py-2 text-xs font-medium shadow-sm hover:bg-accent hover:text-accent-foreground"
                       >
-                        <Upload size={14} className="mr-2" />
-                        {screenshot ? screenshot.name : 'Choose image'}
-                      </Button>
+                        <Upload size={14} className="shrink-0" aria-hidden />
+                        <span className="truncate">{screenshot ? screenshot.name : 'Choose image'}</span>
+                      </label>
                     </div>
                     <div className="grid grid-cols-2 gap-2">
                       <div>
