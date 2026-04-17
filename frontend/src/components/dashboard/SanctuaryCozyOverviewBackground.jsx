@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useId } from 'react';
 import { SANCTUARY_MUG_QUOTES } from './sanctuaryCozyQuotes';
 
 const HERO_SRC = `${process.env.PUBLIC_URL || ''}/dashboard/sanctuary-cozy-hero.png`;
@@ -20,10 +20,12 @@ function isPageReload() {
 }
 
 /**
- * Dashboard overview: full-bleed studio poster (iris, lavender, white mug, book, candle)
- * with the same lavender/cream palette, gentle motion, rising steam SVG, and dynamic mug quote.
+ * Iris Path–style field: warm lavender, iris left, mug + book right (reference art).
+ * Reference PNG is a full mockup — we crop left / right so only the scenic design shows,
+ * not the sample UI in the middle. Dynamic gold script on the mug; heart steam overlay.
  */
 export function SanctuaryCozyOverviewBackground({ storageScope = 'student' }) {
+  const steamGlowId = useId().replace(/:/g, '');
   const [quote] = useState(() => {
     const sk = mugQuoteStorageKey(storageScope);
     const reload = isPageReload();
@@ -50,94 +52,128 @@ export function SanctuaryCozyOverviewBackground({ storageScope = 'student' }) {
       data-testid="sanctuary-cozy-overview-bg"
       aria-hidden
     >
-      {/* Base wash — matches poster lavender wall when image loads */}
+      {/* Base — golden-hour lavender (matches reference lighting) */}
       <div
         className="absolute inset-0 z-0"
         style={{
-          background:
-            'radial-gradient(ellipse 90% 70% at 50% 20%, rgba(245, 240, 255, 0.95) 0%, rgba(230, 210, 250, 0.5) 45%, transparent 70%), linear-gradient(165deg, #ede4f7 0%, #f8f4ff 35%, #fdf8f5 70%, #f3ecfc 100%)',
+          background: `
+            radial-gradient(ellipse 80% 60% at 92% 8%, rgba(255, 228, 190, 0.42) 0%, transparent 55%),
+            radial-gradient(ellipse 70% 50% at 8% 85%, rgba(216, 180, 254, 0.35) 0%, transparent 55%),
+            radial-gradient(ellipse 90% 45% at 50% 100%, rgba(245, 230, 255, 0.5) 0%, transparent 60%),
+            linear-gradient(165deg, #ebe3f7 0%, #f8f2ff 38%, #fff8f0 72%, #f3ebfc 100%)
+          `,
         }}
       />
 
-      {/* Photo layer — studio poster still life; whole scene breathes like a light breeze */}
+      {/* Scenic halves — hides mockup UI band in the center of the reference image */}
       <div className="absolute inset-0 z-[1] overflow-hidden">
-        <div className="sanctuary-cozy-hero-breeze absolute inset-[-5%_-4%_-8%_-4%]">
-          <img
-            src={HERO_SRC}
-            alt=""
-            className="absolute inset-0 h-full w-full object-cover object-[center_72%] select-none"
-            draggable={false}
+        <div className="absolute inset-[-6%_-3%_-10%_-3%] flex">
+          <div className="relative h-full w-[48%] max-md:w-[52%] overflow-hidden">
+            <div className="sanctuary-cozy-overview-floral absolute inset-[-4%_-18%_-6%_-12%]">
+              <img
+                src={HERO_SRC}
+                alt=""
+                draggable={false}
+                className="absolute h-[112%] max-md:h-[118%] bottom-0 left-0 w-auto min-w-[320%] max-w-none object-cover object-left pointer-events-none select-none"
+                style={{ objectPosition: '8% 38%' }}
+              />
+            </div>
+          </div>
+          <div
+            className="h-full w-[4%] max-md:w-[2%] shrink-0"
+            style={{
+              background:
+                'linear-gradient(180deg, rgba(253, 251, 255, 0.85) 0%, rgba(244, 235, 255, 0.75) 45%, rgba(250, 245, 255, 0.9) 100%)',
+            }}
           />
+          <div className="relative h-full flex-1 overflow-hidden">
+            <div className="sanctuary-cozy-overview-floral-delayed absolute inset-[-4%_-12%_-6%_-18%]">
+              <img
+                src={HERO_SRC}
+                alt=""
+                draggable={false}
+                className="absolute h-[112%] max-md:h-[118%] bottom-0 right-0 w-auto min-w-[320%] max-w-none object-cover object-right pointer-events-none select-none"
+                style={{ objectPosition: '92% 42%' }}
+              />
+            </div>
+          </div>
         </div>
       </div>
 
-      {/* Light scrim — keeps dashboard copy readable without washing out purples */}
+      {/* Soft scrim — readability + downplays any seam */}
       <div
         className="absolute inset-0 z-[2] pointer-events-none"
         style={{
           background:
-            'linear-gradient(180deg, rgba(255, 252, 250, 0.52) 0%, rgba(255, 250, 252, 0.22) 18%, rgba(253, 248, 255, 0.06) 42%, rgba(248, 242, 255, 0.14) 100%)',
+            'linear-gradient(180deg, rgba(255, 252, 248, 0.5) 0%, rgba(255, 250, 252, 0.18) 25%, rgba(253, 248, 255, 0.05) 48%, rgba(248, 242, 255, 0.12) 100%)',
         }}
       />
       <div
-        className="absolute inset-0 z-[2] pointer-events-none opacity-90"
+        className="absolute inset-0 z-[2] pointer-events-none"
         style={{
           background:
-            'radial-gradient(ellipse 55% 40% at 70% 88%, rgba(124, 58, 237, 0.08) 0%, transparent 65%)',
+            'radial-gradient(ellipse 58% 50% at 50% 40%, rgba(255, 253, 250, 0.55) 0%, transparent 62%)',
         }}
       />
 
-      {/* Grain */}
       <div
-        className="absolute inset-0 z-[2] opacity-[0.035] mix-blend-multiply pointer-events-none"
+        className="absolute inset-0 z-[2] opacity-[0.03] mix-blend-multiply pointer-events-none"
         style={{
           backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E")`,
           backgroundSize: '180px',
         }}
       />
 
-      {/* Animated steam — sits over the mug; positions tuned for this poster crop */}
+      {/* Heart steam + soft wisps — right still-life (mug) */}
       <div className="absolute inset-0 z-[3] pointer-events-none overflow-hidden">
         <svg
-          className="absolute w-[min(100%,520px)] h-[min(45vh,320px)]"
+          className="absolute h-[min(42vh,300px)] w-[min(88vw,380px)]"
           style={{
-            left: 'clamp(38%, 44vw, 52%)',
-            bottom: 'clamp(10%, 14vh, 20%)',
-            transform: 'translateX(-40%)',
+            right: 'clamp(4%, 8vw, 14%)',
+            bottom: 'clamp(9%, 15vh, 22%)',
           }}
-          viewBox="0 0 200 180"
+          viewBox="0 0 200 200"
           preserveAspectRatio="xMidYMax meet"
           xmlns="http://www.w3.org/2000/svg"
         >
-          <g transform="translate(96, 168)">
-            <g className="sanctuary-cozy-overview-steam" style={{ animationDelay: '0s' }}>
+          <defs>
+            <filter id={steamGlowId} x="-50%" y="-50%" width="200%" height="200%">
+              <feGaussianBlur in="SourceGraphic" stdDeviation="2.8" result="b" />
+              <feMerge>
+                <feMergeNode in="b" />
+                <feMergeNode in="SourceGraphic" />
+              </feMerge>
+            </filter>
+          </defs>
+          <g transform="translate(100, 192)">
+            <g className="sanctuary-cozy-steam-heart" filter={`url(#${steamGlowId})`}>
               <path
-                d="M 0 0 Q 10 -28 2 -58 Q -8 -90 -4 -122"
-                fill="none"
-                stroke="rgba(255,255,255,0.82)"
-                strokeWidth="4"
-                strokeLinecap="round"
+                d="M 0 14 C -22 -10 -38 12 -20 34 C -8 48 0 56 0 56 C 0 56 8 48 20 34 C 38 12 22 -10 0 14 Z"
+                fill="rgba(255,255,255,0.38)"
+                stroke="rgba(255,255,255,0.5)"
+                strokeWidth="1"
+                transform="scale(1.15)"
               />
             </g>
           </g>
-          <g transform="translate(118, 172)">
-            <g className="sanctuary-cozy-overview-steam" style={{ animationDelay: '-1.3s' }}>
+          <g transform="translate(124, 182)">
+            <g className="sanctuary-cozy-overview-steam" style={{ animationDelay: '-1.1s' }}>
               <path
-                d="M 0 0 Q -14 -26 -2 -54 Q 10 -82 -4 -118"
+                d="M 0 0 Q 8 -22 2 -48 Q -6 -74 -2 -102"
                 fill="none"
-                stroke="rgba(255,255,255,0.72)"
-                strokeWidth="3"
-                strokeLinecap="round"
-              />
-            </g>
-          </g>
-          <g transform="translate(78, 170)">
-            <g className="sanctuary-cozy-overview-steam" style={{ animationDelay: '-2.5s' }}>
-              <path
-                d="M 0 0 Q 6 -22 -6 -48 Q -12 -78 -8 -108"
-                fill="none"
-                stroke="rgba(255,255,255,0.62)"
+                stroke="rgba(255,255,255,0.5)"
                 strokeWidth="2.5"
+                strokeLinecap="round"
+              />
+            </g>
+          </g>
+          <g transform="translate(78, 184)">
+            <g className="sanctuary-cozy-overview-steam" style={{ animationDelay: '-2.4s' }}>
+              <path
+                d="M 0 0 Q -10 -20 -2 -44 Q 8 -70 2 -98"
+                fill="none"
+                stroke="rgba(255,255,255,0.4)"
+                strokeWidth="2"
                 strokeLinecap="round"
               />
             </g>
@@ -145,26 +181,27 @@ export function SanctuaryCozyOverviewBackground({ storageScope = 'student' }) {
         </svg>
       </div>
 
-      {/* Mug quote — frosted patch over printed mug text; dynamic line */}
+      {/* Mug quote — lavender glass, gold script (Iris Path reference) */}
       <div
         className="absolute z-[4] flex items-center justify-center pointer-events-none"
         style={{
-          left: '50%',
-          bottom: 'clamp(7rem, 17vh, 11rem)',
-          transform: 'translateX(-50%)',
-          width: 'clamp(10.5rem, 32vw, 15rem)',
-          minHeight: 'clamp(4.25rem, 11vh, 6.5rem)',
-          padding: '0.45rem 0.65rem',
-          borderRadius: '42% 42% 48% 48% / 38% 38% 55% 55%',
-          background: 'linear-gradient(165deg, rgba(255,255,255,0.94) 0%, rgba(252, 250, 255, 0.88) 100%)',
+          right: 'clamp(5%, 10vw, 12%)',
+          left: 'auto',
+          bottom: 'clamp(7.5rem, 19vh, 12.5rem)',
+          width: 'clamp(10rem, 28vw, 15.5rem)',
+          minHeight: 'clamp(4rem, 12vh, 7rem)',
+          padding: '0.5rem 0.65rem',
+          borderRadius: '46% 46% 52% 52% / 40% 40% 58% 58%',
+          background: 'linear-gradient(165deg, rgba(250, 245, 255, 0.82) 0%, rgba(235, 225, 252, 0.72) 100%)',
           boxShadow:
-            'inset 0 1px 2px rgba(255,255,255,0.95), 0 2px 12px rgba(91, 33, 182, 0.07)',
+            'inset 0 1px 3px rgba(255,255,255,0.85), 0 4px 20px rgba(91, 33, 182, 0.08)',
+          border: '1px solid rgba(255,255,255,0.5)',
         }}
       >
         <p
           className="sanctuary-cozy-overview-quote m-0 w-full text-center font-normal leading-snug px-0.5"
           style={{
-            fontSize: 'clamp(0.88rem, 2.5vw, 1.28rem)',
+            fontSize: 'clamp(0.82rem, 2.35vw, 1.22rem)',
           }}
         >
           {quote}

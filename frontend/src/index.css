@@ -230,6 +230,20 @@ html {
   }
 }
 
+@keyframes sanctuary-cozy-steam-heart-rise {
+  0% {
+    opacity: 0.18;
+    transform: translateY(10px) scale(0.88);
+  }
+  40% {
+    opacity: 0.52;
+  }
+  100% {
+    opacity: 0.08;
+    transform: translateY(-48px) scale(1.06);
+  }
+}
+
 @keyframes sanctuary-mug-quote-reveal {
   0% {
     clip-path: inset(0 100% 0 0);
@@ -268,11 +282,20 @@ html {
   transform-origin: 50% 100%;
 }
 
+.sanctuary-cozy-steam-heart {
+  transform-box: fill-box;
+  transform-origin: 50% 100%;
+  animation: sanctuary-cozy-steam-heart-rise 5.2s ease-in-out infinite;
+}
+
 .sanctuary-cozy-overview-quote {
   font-family: 'Great Vibes', cursive;
-  color: rgba(76, 29, 149, 0.92);
-  text-shadow: 0 1px 0 rgba(255, 255, 255, 0.65);
-  line-height: 1.15;
+  line-height: 1.2;
+  background: linear-gradient(180deg, #d4a84b 0%, #9a7214 48%, #7a5a12 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  filter: drop-shadow(0 1px 1px rgba(255, 255, 255, 0.55));
   animation: sanctuary-mug-quote-reveal 6.5s cubic-bezier(0.22, 1, 0.36, 1) forwards,
     sanctuary-mug-quote-float 9s ease-in-out 6.5s infinite;
 }
@@ -285,7 +308,8 @@ html {
 
   .sanctuary-cozy-overview-floral,
   .sanctuary-cozy-overview-floral-delayed,
-  .sanctuary-cozy-overview-steam {
+  .sanctuary-cozy-overview-steam,
+  .sanctuary-cozy-steam-heart {
     animation: none !important;
   }
 
@@ -293,5 +317,10 @@ html {
     animation: none;
     clip-path: none;
     opacity: 1;
+    color: #8f6912;
+    background: none;
+    -webkit-background-clip: unset;
+    background-clip: unset;
+    filter: none;
   }
 }
