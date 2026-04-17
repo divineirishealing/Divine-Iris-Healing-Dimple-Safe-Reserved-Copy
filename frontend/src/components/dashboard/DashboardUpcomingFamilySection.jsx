@@ -14,6 +14,37 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 
 const API = process.env.REACT_APP_BACKEND_URL;
 
+/** Persisted enrollment seat + email defaults (applies every time this modal opens on this browser). */
+const DASHBOARD_ENROLLMENT_DEFAULTS_KEY = 'divine_iris_dashboard_enrollment_defaults_v2';
+
+function loadDashboardEnrollmentDefaults() {
+  if (typeof localStorage === 'undefined') return null;
+  try {
+    const raw = localStorage.getItem(DASHBOARD_ENROLLMENT_DEFAULTS_KEY);
+    if (!raw) return null;
+    const o = JSON.parse(raw);
+    if (!o || o.v !== 2) return null;
+    return {
+      bookerMode: o.bookerMode === 'offline' ? 'offline' : 'online',
+      bookerNotify: !!o.bookerNotify,
+      guestMode: o.guestMode === 'offline' ? 'offline' : 'online',
+      guestNotify: !!o.guestNotify,
+    };
+  } catch {
+    return null;
+  }
+}
+
+function saveDashboardEnrollmentDefaults(payload) {
+  if (typeof localStorage === 'undefined') return;
+  localStorage.setItem(DASHBOARD_ENROLLMENT_DEFAULTS_KEY, JSON.stringify({ v: 2, ...payload }));
+}
+
+function clearDashboardEnrollmentDefaults() {
+  if (typeof localStorage === 'undefined') return;
+  localStorage.removeItem(DASHBOARD_ENROLLMENT_DEFAULTS_KEY);
+}
+
 /** Cap parallel quote / promo requests (matches backend upcoming program list cap). */
 const DASHBOARD_UPCOMING_PREFETCH_LIMIT = 100;
 
@@ -343,6 +374,8 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh, bo
   const [bookerSeatMode, setBookerSeatMode] = useState('online');
   const [bookerSeatNotify, setBookerSeatNotify] = useState(true);
   const [guestSeatForm, setGuestSeatForm] = useState({});
+  const [enrollmentDefaultsLoaded, setEnrollmentDefaultsLoaded] = useState(false);
+  const [persistEnrollmentDefaultsOnContinue, setPersistEnrollmentDefaultsOnContinue] = useState(false);
 
   const upcomingList = homeData?.upcoming_programs || [];
   const programsForPrefetch = useMemo(
@@ -614,13 +647,19 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh, bo
 
   const openEnrollmentSeatModal = (program, includedPkg, selectedIds) => {
     const ids = (selectedIds || []).map((x) => String(x));
+    const saved = loadDashboardEnrollmentDefaults();
     const initGuests = {};
     ids.forEach((id) => {
-      initGuests[id] = { attendance_mode: 'online', notify_enrollment: false };
+      initGuests[id] = {
+        attendance_mode: saved ? saved.guestMode : 'online',
+        notify_enrollment: saved ? saved.guestNotify : false,
+      };
     });
     setGuestSeatForm(initGuests);
-    setBookerSeatMode('online');
-    setBookerSeatNotify(true);
+    setBookerSeatMode(saved ? saved.bookerMode : 'online');
+    setBookerSeatNotify(saved ? saved.bookerNotify : true);
+    setEnrollmentDefaultsLoaded(!!saved);
+    setPersistEnrollmentDefaultsOnContinue(false);
     setSeatModalCtx({
       programId: program.id,
       programTitle: program.title || '',
@@ -641,6 +680,89 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh, bo
         [field]: value,
       },
     }));
+  };
+
+  /** Bulk attendance presets; notify checkboxes are left unchanged. */
+  const applyBulkSeatModes = (preset) => {
+    if (!seatModalCtx) return;
+    const { includedPkg, selectedIds } = seatModalCtx;
+    const ids = (selectedIds || []).map((x) => String(x));
+
+    const patchGuests = (mode) => {
+      setGuestSeatForm((prev) => {
+        const next = { ...prev };
+        ids.forEach((idStr) => {
+          next[idStr] = {
+            attendance_mode: 'online',
+            notify_enrollment: false,
+            ...prev[idStr],
+            attendance_mode: mode,
+          };
+        });
+        return next;
+      });
+    };
+
+    if (preset === 'all_online') {
+      if (!includedPkg) setBookerSeatMode('online');
+      patchGuests('online');
+    } else if (preset === 'all_offline') {
+      if (!includedPkg) setBookerSeatMode('offline');
+      patchGuests('offline');
+    } else if (preset === 'guests_offline_booker_online') {
+      if (!includedPkg) setBookerSeatMode('online');
+      patchGuests('offline');
+    }
+  };
+
+  /** Bulk email-enrollment toggles: all_on | me_only (booker yes, guests no) | all_off */
+  const applyBulkNotify = (preset) => {
+    if (!seatModalCtx) return;
+    const { includedPkg, selectedIds } = seatModalCtx;
+    const ids = (selectedIds || []).map((x) => String(x));
+    if (!includedPkg) {
+      setBookerSeatNotify(preset !== 'all_off');
+    }
+    const guestNotify = preset === 'all_on';
+    setGuestSeatForm((prev) => {
+      const next = { ...prev };
+      ids.forEach((idStr) => {
+        next[idStr] = {
+          attendance_mode: 'online',
+          notify_enrollment: false,
+          ...prev[idStr],
+          notify_enrollment: guestNotify,
+        };
+      });
+      return next;
+    });
+  };
+
+  /** One-tap attendance + email combinations */
+  const applySmartEnrollmentPreset = (key) => {
+    if (!seatModalCtx) return;
+    const { includedPkg } = seatModalCtx;
+    if (key === 'all_online_email_all') {
+      applyBulkSeatModes('all_online');
+      applyBulkNotify('all_on');
+    } else if (key === 'all_offline_email_me_only') {
+      applyBulkSeatModes('all_offline');
+      applyBulkNotify('me_only');
+    } else if (key === 'guests_off_me_online_email_me_only') {
+      if (!includedPkg) {
+        applyBulkSeatModes('guests_offline_booker_online');
+        applyBulkNotify('me_only');
+      }
+    } else if (key === 'all_online_email_me_only') {
+      applyBulkSeatModes('all_online');
+      applyBulkNotify('me_only');
+    } else if (key === 'all_offline_no_emails') {
+      applyBulkSeatModes('all_offline');
+      applyBulkNotify('all_off');
+    } else if (key === 'included_guests_offline_no_guest_email') {
+      applyBulkSeatModes('all_offline');
+      applyBulkNotify('me_only');
+    }
   };
 
   const confirmEnrollmentSeatsAndPay = async () => {
@@ -667,6 +789,34 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh, bo
           return;
         }
       }
+    }
+
+    if (persistEnrollmentDefaultsOnContinue) {
+      const sid = selectedIds.map(String);
+      if (sid.length > 0) {
+        const modes = new Set(sid.map((id) => (guestSeatForm[id]?.attendance_mode === 'offline' ? 'offline' : 'online')));
+        const notifs = new Set(sid.map((id) => !!guestSeatForm[id]?.notify_enrollment));
+        if (modes.size > 1 || notifs.size > 1) {
+          toast({
+            title: 'Match guest rows to save defaults',
+            description:
+              'Use a one-tap preset or the quick buttons so every guest has the same attendance and email settings, then try again.',
+            variant: 'destructive',
+          });
+          return;
+        }
+      }
+      saveDashboardEnrollmentDefaults({
+        bookerMode: bookerSeatMode === 'offline' ? 'offline' : 'online',
+        bookerNotify: !!bookerSeatNotify,
+        guestMode:
+          sid.length > 0 ? (guestSeatForm[sid[0]]?.attendance_mode === 'offline' ? 'offline' : 'online') : 'online',
+        guestNotify: sid.length > 0 ? !!guestSeatForm[sid[0]]?.notify_enrollment : false,
+      });
+      toast({
+        title: 'Defaults saved for all programs',
+        description: 'These options will load automatically the next time you enroll from the dashboard on this device.',
+      });
     }
 
     setEnrollmentSeatOpen(false);
@@ -1235,20 +1385,193 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh, bo
           if (!open) {
             setEnrollmentSeatOpen(false);
             setSeatModalCtx(null);
+            setPersistEnrollmentDefaultsOnContinue(false);
           }
         }}
       >
-        <DialogContent className="max-w-lg max-h-[88vh] overflow-y-auto">
+        <DialogContent className="max-w-xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="text-base font-semibold text-slate-900">Enrollment for this program</DialogTitle>
             <DialogDescription className="text-[11px] text-slate-600 leading-relaxed">
-              Set attendance (online vs in-person remote) and whether each seat should receive enrollment details by email.
-              These choices apply to this checkout only.
+              Set attendance and enrollment emails for this checkout. Use one-tap presets to avoid clicking each row, or
+              save your choices as the default for every upcoming program on this device.
             </DialogDescription>
           </DialogHeader>
 
           {seatModalCtx && (
             <div className="space-y-4 text-[11px]">
+              {enrollmentDefaultsLoaded ? (
+                <p className="text-[10px] text-violet-800 bg-violet-50 border border-violet-100 rounded-lg px-2.5 py-1.5">
+                  Loaded your <strong>saved defaults</strong> for this browser. Adjust below or clear them with the link
+                  under the checkbox.
+                </p>
+              ) : null}
+
+              <div className="rounded-lg border border-amber-100 bg-amber-50/60 px-3 py-2.5 space-y-2">
+                <p className="text-[9px] font-bold uppercase tracking-wide text-amber-900/80">One-tap smart sets</p>
+                <div className="flex flex-wrap gap-1.5">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="text-[10px] h-auto min-h-8 py-1.5 px-2 border-amber-200 bg-white hover:bg-amber-50/80 leading-tight text-left"
+                    onClick={() => applySmartEnrollmentPreset('all_online_email_all')}
+                  >
+                    All online · email all
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="text-[10px] h-auto min-h-8 py-1.5 px-2 border-amber-200 bg-white hover:bg-amber-50/80 leading-tight text-left"
+                    onClick={() => applySmartEnrollmentPreset('all_offline_email_me_only')}
+                  >
+                    All offline · email me only
+                  </Button>
+                  {!seatModalCtx.includedPkg ? (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="text-[10px] h-auto min-h-8 py-1.5 px-2 border-amber-200 bg-white hover:bg-amber-50/80 leading-tight text-left"
+                      onClick={() => applySmartEnrollmentPreset('guests_off_me_online_email_me_only')}
+                    >
+                      Guests offline, I&apos;m online · email me only
+                    </Button>
+                  ) : null}
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="text-[10px] h-auto min-h-8 py-1.5 px-2 border-amber-200 bg-white hover:bg-amber-50/80 leading-tight text-left"
+                    onClick={() => applySmartEnrollmentPreset('all_online_email_me_only')}
+                  >
+                    All online · email me only
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="text-[10px] h-auto min-h-8 py-1.5 px-2 border-amber-200 bg-white hover:bg-amber-50/80 leading-tight text-left"
+                    onClick={() => applySmartEnrollmentPreset('all_offline_no_emails')}
+                  >
+                    All offline · no enrollment emails
+                  </Button>
+                  {seatModalCtx.includedPkg && seatModalCtx.selectedIds.length > 0 ? (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="text-[10px] h-auto min-h-8 py-1.5 px-2 border-amber-200 bg-white hover:bg-amber-50/80 leading-tight text-left"
+                      onClick={() => applySmartEnrollmentPreset('included_guests_offline_no_guest_email')}
+                    >
+                      All guests offline · no guest emails
+                    </Button>
+                  ) : null}
+                </div>
+              </div>
+
+              <div className="rounded-lg border border-violet-100 bg-violet-50/50 px-3 py-2.5 space-y-2">
+                <p className="text-[9px] font-bold uppercase tracking-wide text-slate-500">Attendance only</p>
+                <div className="flex flex-wrap gap-1.5">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="text-[10px] h-8 px-2.5 border-violet-200 bg-white hover:bg-violet-50"
+                    onClick={() => applyBulkSeatModes('all_online')}
+                  >
+                    All online
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="text-[10px] h-8 px-2.5 border-violet-200 bg-white hover:bg-violet-50"
+                    onClick={() => applyBulkSeatModes('all_offline')}
+                  >
+                    All offline
+                  </Button>
+                  {!seatModalCtx.includedPkg ? (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="text-[10px] h-8 px-2.5 border-violet-200 bg-white hover:bg-violet-50"
+                      onClick={() => applyBulkSeatModes('guests_offline_booker_online')}
+                      title="Your seat stays online; all selected guests go offline"
+                    >
+                      Guests offline, my seat online
+                    </Button>
+                  ) : null}
+                </div>
+              </div>
+
+              <div className="rounded-lg border border-slate-200 bg-slate-50/80 px-3 py-2.5 space-y-2">
+                <p className="text-[9px] font-bold uppercase tracking-wide text-slate-500">Enrollment email only</p>
+                <div className="flex flex-wrap gap-1.5">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="text-[10px] h-8 px-2.5 bg-white"
+                    onClick={() => applyBulkNotify('all_on')}
+                  >
+                    Email all (needs guest emails)
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="text-[10px] h-8 px-2.5 bg-white"
+                    onClick={() => applyBulkNotify('me_only')}
+                  >
+                    Email me only
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="text-[10px] h-8 px-2.5 bg-white"
+                    onClick={() => applyBulkNotify('all_off')}
+                  >
+                    No enrollment emails
+                  </Button>
+                </div>
+              </div>
+
+              <div className="rounded-lg border border-slate-200 bg-white px-3 py-2.5 space-y-2">
+                <label className="flex items-start gap-2 cursor-pointer text-[11px] text-slate-800">
+                  <input
+                    type="checkbox"
+                    className="mt-0.5 rounded border-slate-300"
+                    checked={persistEnrollmentDefaultsOnContinue}
+                    onChange={(e) => setPersistEnrollmentDefaultsOnContinue(e.target.checked)}
+                  />
+                  <span>
+                    <span className="font-medium">Save these choices as my default for every program</span>
+                    <span className="block text-[9px] text-slate-500 mt-0.5 leading-snug">
+                      When you continue to payment, we store them in this browser. Next time you open enrollment, fields
+                      fill automatically. Guests must all match (use a preset) to save.
+                    </span>
+                  </span>
+                </label>
+                <button
+                  type="button"
+                  className="text-[10px] text-violet-700 hover:text-violet-900 underline underline-offset-2"
+                  onClick={() => {
+                    clearDashboardEnrollmentDefaults();
+                    setEnrollmentDefaultsLoaded(false);
+                    toast({
+                      title: 'Saved defaults cleared',
+                      description: 'New enrollments will start from standard options until you save again.',
+                    });
+                  }}
+                >
+                  Clear saved defaults on this device
+                </button>
+              </div>
+
               {!seatModalCtx.includedPkg && (
                 <div className="rounded-lg border border-slate-200 bg-slate-50/80 p-3 space-y-2">
                   <p className="font-semibold text-slate-800 flex items-center gap-1.5">
