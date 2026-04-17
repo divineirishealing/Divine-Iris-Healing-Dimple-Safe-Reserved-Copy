@@ -1,11 +1,11 @@
-import React, { useMemo, useCallback } from 'react';
+import React, { useMemo, useCallback, useState } from 'react';
 import axios from 'axios';
 import { Label } from '../../ui/label';
 import { Input } from '../../ui/input';
 import { Button } from '../../ui/button';
 import { Switch } from '../../ui/switch';
 import { Textarea } from '../../ui/textarea';
-import { RefreshCw, Sparkles, Users, Layers, LayoutGrid, PanelLeft } from 'lucide-react';
+import { RefreshCw, Sparkles, Users, Layers, LayoutGrid, PanelLeft, Upload } from 'lucide-react';
 import { useToast } from '../../../hooks/use-toast';
 import { useSiteSettings } from '../../../context/SiteSettingsContext';
 import { DASHBOARD_VISIBILITY_KEYS, DEFAULT_DASHBOARD_VISIBILITY } from '../../../lib/dashboardVisibility';
@@ -115,6 +115,8 @@ function PortalPricingRuleFields({ offer, onPatch, variant }) {
 const DashboardSettingsTab = ({ settings, onChange, programs = [] }) => {
   const { toast } = useToast();
   const { refreshSettings } = useSiteSettings();
+  const [bgVideoDragActive, setBgVideoDragActive] = useState(false);
+  const [sanctuaryVideoDragActive, setSanctuaryVideoDragActive] = useState(false);
   const dashboard = settings.dashboard_settings || { 
     title: "Sanctuary", 
     primaryColor: "#5D3FD3", 
@@ -480,21 +482,55 @@ const DashboardSettingsTab = ({ settings, onChange, programs = [] }) => {
       <div className="mt-6 bg-white rounded-lg border p-5" data-testid="bg-video-section">
         <h3 className="text-sm font-semibold text-gray-900 mb-1">Dashboard Background Video</h3>
         <p className="text-[10px] text-gray-500 mb-3">Upload a looping video that plays behind the entire dashboard (sidebar + content). Keep it under 10MB for best performance.</p>
-        <div className="flex items-center gap-3">
-          <input
-            type="file"
-            accept="video/mp4,video/webm,video/quicktime"
-            onChange={async (e) => {
-              const file = e.target.files?.[0];
-              e.target.value = '';
-              if (file) await uploadDashboardVideoFile(file, 'dashboard_bg_video');
-            }}
-            className="text-xs"
-            data-testid="bg-video-upload"
-          />
-          {(settings.dashboard_bg_video || dashboard.bg_video) && (
-            <button onClick={() => update('dashboard_bg_video', '')} className="text-xs text-red-500 hover:underline">Remove</button>
-          )}
+        <div
+          className={`rounded-lg border-2 border-dashed transition-colors ${
+            bgVideoDragActive ? 'border-amber-400 bg-amber-50/50' : 'border-gray-200 bg-gray-50/40'
+          }`}
+          onDragEnter={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            setBgVideoDragActive(true);
+          }}
+          onDragOver={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            e.dataTransfer.dropEffect = 'copy';
+          }}
+          onDragLeave={(e) => {
+            const rel = e.relatedTarget;
+            if (rel && e.currentTarget.contains(rel)) return;
+            setBgVideoDragActive(false);
+          }}
+          onDrop={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            setBgVideoDragActive(false);
+            const file = e.dataTransfer.files?.[0];
+            if (file) void uploadDashboardVideoFile(file, 'dashboard_bg_video');
+          }}
+        >
+          <div className="flex flex-col gap-3 p-4 sm:flex-row sm:flex-wrap sm:items-center">
+            <div className="flex items-center gap-2 text-gray-600">
+              <Upload className="h-4 w-4 shrink-0 text-[#D4AF37]" aria-hidden />
+              <span className="text-xs">Drag and drop a video here, or choose a file.</span>
+            </div>
+            <input
+              type="file"
+              accept="video/mp4,video/webm,video/quicktime"
+              onChange={async (e) => {
+                const file = e.target.files?.[0];
+                e.target.value = '';
+                if (file) await uploadDashboardVideoFile(file, 'dashboard_bg_video');
+              }}
+              className="text-xs"
+              data-testid="bg-video-upload"
+            />
+            {(settings.dashboard_bg_video || dashboard.bg_video) && (
+              <button type="button" onClick={() => update('dashboard_bg_video', '')} className="text-xs text-red-500 hover:underline sm:ml-auto">
+                Remove
+              </button>
+            )}
+          </div>
         </div>
         {(settings.dashboard_bg_video || dashboard.bg_video) && (
           <div className="mt-2 bg-gray-50 rounded-lg p-2">
@@ -511,44 +547,76 @@ const DashboardSettingsTab = ({ settings, onChange, programs = [] }) => {
           If empty, the site falls back to the bundled <code className="text-[9px] bg-gray-100 px-1 rounded">dashboard-healing-sanctuary.mp4</code> in the app.
           MP4 or WebM recommended; keep file size reasonable for mobile.
         </p>
-        <div className="flex flex-wrap items-center gap-3">
-          <input
-            type="file"
-            accept="video/mp4,video/webm,video/quicktime"
-            onChange={async (e) => {
-              const file = e.target.files?.[0];
-              e.target.value = '';
-              if (file) await uploadDashboardVideoFile(file, 'dashboard_sanctuary_video_url');
-            }}
-            className="text-xs"
-            data-testid="sanctuary-video-upload"
-          />
-          {settings.dashboard_sanctuary_video_url ? (
-            <button
-              type="button"
-              onClick={async () => {
-                try {
-                  await axios.put(
-                    `${API}/settings`,
-                    { dashboard_sanctuary_video_url: '' },
-                    { headers: { 'Content-Type': 'application/json' } }
-                  );
-                  onChange({ ...settings, dashboard_sanctuary_video_url: '' });
-                  await refreshSettings();
-                  toast({ title: 'Removed', description: 'Using bundled fallback video until you upload again.' });
-                } catch (err) {
-                  toast({
-                    title: 'Could not remove',
-                    description: videoUploadErrorMessage(err),
-                    variant: 'destructive',
-                  });
-                }
+        <div
+          className={`rounded-lg border-2 border-dashed transition-colors ${
+            sanctuaryVideoDragActive ? 'border-amber-400 bg-amber-50/50' : 'border-gray-200 bg-gray-50/40'
+          }`}
+          onDragEnter={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            setSanctuaryVideoDragActive(true);
+          }}
+          onDragOver={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            e.dataTransfer.dropEffect = 'copy';
+          }}
+          onDragLeave={(e) => {
+            const rel = e.relatedTarget;
+            if (rel && e.currentTarget.contains(rel)) return;
+            setSanctuaryVideoDragActive(false);
+          }}
+          onDrop={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            setSanctuaryVideoDragActive(false);
+            const file = e.dataTransfer.files?.[0];
+            if (file) void uploadDashboardVideoFile(file, 'dashboard_sanctuary_video_url');
+          }}
+        >
+          <div className="flex flex-col gap-3 p-4 sm:flex-row sm:flex-wrap sm:items-center">
+            <div className="flex items-center gap-2 text-gray-600">
+              <Upload className="h-4 w-4 shrink-0 text-[#D4AF37]" aria-hidden />
+              <span className="text-xs">Drag and drop a video here, or choose a file.</span>
+            </div>
+            <input
+              type="file"
+              accept="video/mp4,video/webm,video/quicktime"
+              onChange={async (e) => {
+                const file = e.target.files?.[0];
+                e.target.value = '';
+                if (file) await uploadDashboardVideoFile(file, 'dashboard_sanctuary_video_url');
               }}
-              className="text-xs text-red-500 hover:underline"
-            >
-              Remove
-            </button>
-          ) : null}
+              className="text-xs"
+              data-testid="sanctuary-video-upload"
+            />
+            {settings.dashboard_sanctuary_video_url ? (
+              <button
+                type="button"
+                onClick={async () => {
+                  try {
+                    await axios.put(
+                      `${API}/settings`,
+                      { dashboard_sanctuary_video_url: '' },
+                      { headers: { 'Content-Type': 'application/json' } }
+                    );
+                    onChange({ ...settings, dashboard_sanctuary_video_url: '' });
+                    await refreshSettings();
+                    toast({ title: 'Removed', description: 'Using bundled fallback video until you upload again.' });
+                  } catch (err) {
+                    toast({
+                      title: 'Could not remove',
+                      description: videoUploadErrorMessage(err),
+                      variant: 'destructive',
+                    });
+                  }
+                }}
+                className="text-xs text-red-500 hover:underline sm:ml-auto"
+              >
+                Remove
+              </button>
+            ) : null}
+          </div>
         </div>
         {settings.dashboard_sanctuary_video_url ? (
           <div className="mt-3 space-y-2">
