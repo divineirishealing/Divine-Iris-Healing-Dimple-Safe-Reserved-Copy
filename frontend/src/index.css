@@ -188,6 +188,23 @@ html {
   }
 }
 
+/* Dashboard overview — full poster gently moves (breeze) */
+@keyframes sanctuary-cozy-hero-breeze {
+  0%,
+  100% {
+    transform: translateX(0) rotate(-0.4deg) scale(1.05);
+  }
+  50% {
+    transform: translateX(6px) rotate(0.55deg) scale(1.055);
+  }
+}
+
+.sanctuary-cozy-hero-breeze {
+  transform-origin: 50% 88%;
+  animation: sanctuary-cozy-hero-breeze 9s ease-in-out infinite;
+  will-change: transform;
+}
+
 /* Dashboard overview — cozy morning: iris / lavender sway, steam, mug quote */
 @keyframes sanctuary-cozy-floral-sway {
   0%,
@@ -261,6 +278,11 @@ html {
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .sanctuary-cozy-hero-breeze {
+    animation: none;
+    transform: scale(1.05);
+  }
+
   .sanctuary-cozy-overview-floral,
   .sanctuary-cozy-overview-floral-delayed,
   .sanctuary-cozy-overview-steam {
