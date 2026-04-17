@@ -1,0 +1,31 @@
+# When Vercel’s GitHub integration does not receive pushes, use a Deploy Hook:
+# Vercel → your project → Settings → Git → Deploy Hooks → create (Production branch).
+# GitHub → this repo → Settings → Secrets and variables → Actions → New repository secret:
+#   Name: VERCEL_DEPLOY_HOOK_URL
+#   Value: the full hook URL from Vercel (keep it secret).
+#
+# If the secret is not set, this workflow skips the POST so pushes stay green.
+name: Trigger Vercel (deploy hook)
+
+on:
+  push:
+    branches: [main, develop]
+    paths:
+      - 'frontend/**'
+      - '.github/workflows/trigger-vercel-deploy-hook.yml'
+
+jobs:
+  hook:
+    runs-on: ubuntu-latest
+    steps:
+      - name: POST Vercel deploy hook
+        env:
+          HOOK: ${{ secrets.VERCEL_DEPLOY_HOOK_URL }}
+        run: |
+          set -euo pipefail
+          if [ -z "${HOOK}" ]; then
+            echo "::notice::VERCEL_DEPLOY_HOOK_URL is not set — skipping. Add the secret from Vercel Deploy Hooks, or reconnect Git under Vercel → Settings → Git."
+            exit 0
+          fi
+          curl -fsS --connect-timeout 30 --max-time 120 -X POST "$HOOK"
+          echo "Deploy hook accepted by Vercel."
