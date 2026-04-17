@@ -354,13 +354,21 @@ async def submit_payment_proof(
 
     pm = (payment_method or "").strip().lower()
     bank_deposit_methods = {"bank_transfer", "bank_deposit"}
-    requires_screenshot = pm in bank_deposit_methods
+    cash_deposit_methods = {"cash_deposit"}
+    requires_screenshot = pm in bank_deposit_methods or pm in cash_deposit_methods
     if requires_screenshot:
         if screenshot is None or not (getattr(screenshot, "filename", None) or "").strip():
-            raise HTTPException(
-                status_code=400,
-                detail="Payment screenshot is required for bank deposit submissions.",
-            )
+            if pm in cash_deposit_methods:
+                detail = "Payment screenshot is required for cash deposit (e.g. deposit slip or receipt)."
+            else:
+                detail = "Payment screenshot is required for bank transfer / deposit submissions."
+            raise HTTPException(status_code=400, detail=detail)
+
+    if pm in cash_deposit_methods and not (notes or "").strip():
+        raise HTTPException(
+            status_code=400,
+            detail="Notes are required for cash deposit: include who deposited, when, and which bank/branch.",
+        )
 
     screenshot_public_url = ""
     if screenshot is not None and (getattr(screenshot, "filename", None) or "").strip():

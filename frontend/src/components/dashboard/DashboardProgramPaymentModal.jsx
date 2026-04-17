@@ -13,6 +13,7 @@ import {
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 import { Label } from '../ui/label';
+import { Textarea } from '../ui/textarea';
 import { useToast } from '../../hooks/use-toast';
 import { resolveImageUrl, isLikelyImageUrl } from '../../lib/imageUtils';
 import {
@@ -175,7 +176,41 @@ export default function DashboardProgramPaymentModal({
   };
 
   const proofRequiresScreenshot =
-    proofMethod === 'bank_transfer' || proofMethod === 'bank_deposit';
+    proofMethod === 'bank_transfer' ||
+    proofMethod === 'bank_deposit' ||
+    proofMethod === 'cash_deposit';
+
+  const proofRequiresNotes = proofMethod === 'cash_deposit';
+
+  const notesFieldHints = useMemo(() => {
+    switch (proofMethod) {
+      case 'cash_deposit':
+        return {
+          placeholder:
+            'Required: Who deposited (full name), when (date/time), and which bank & branch received the cash.',
+        };
+      case 'bank_transfer':
+      case 'bank_deposit':
+        return {
+          placeholder: 'Who transferred (name) and which bank? Add any reference details that help us verify.',
+        };
+      case 'upi':
+      default:
+        return {
+          placeholder: 'Who transferred? (Your name as on GPay / UPI ID or app if known — helps match your payment.)',
+        };
+    }
+  }, [proofMethod]);
+
+  const screenshotBlurb = useMemo(() => {
+    if (proofMethod === 'cash_deposit') {
+      return 'Required for cash deposit — e.g. stamped deposit slip, counter receipt, or bank acknowledgement.';
+    }
+    if (proofMethod === 'bank_transfer' || proofMethod === 'bank_deposit') {
+      return 'Required for bank transfer — statement screenshot, transfer receipt, or confirmation.';
+    }
+    return 'Optional — add a screenshot or receipt if you have one.';
+  }, [proofMethod]);
 
   const submitProof = async () => {
     if (!payerName.trim() || !paymentDate || !transactionId.trim() || !amountInput.trim()) {
@@ -185,7 +220,18 @@ export default function DashboardProgramPaymentModal({
     if (proofRequiresScreenshot && !screenshot) {
       toast({
         title: 'Screenshot required',
-        description: 'Bank deposit payments need a payment proof image.',
+        description:
+          proofMethod === 'cash_deposit'
+            ? 'Cash deposit requires a proof image (e.g. deposit slip).'
+            : 'Bank deposit / transfer requires a payment proof image.',
+        variant: 'destructive',
+      });
+      return;
+    }
+    if (proofRequiresNotes && !notes.trim()) {
+      toast({
+        title: 'Notes required',
+        description: 'For cash deposit, please say who deposited, when, and which bank/branch.',
         variant: 'destructive',
       });
       return;
@@ -422,8 +468,9 @@ export default function DashboardProgramPaymentModal({
           <div className="shrink-0 border-t border-slate-200 bg-gradient-to-b from-slate-50/90 to-white p-5 sm:p-6 text-xs shadow-[0_-6px_24px_rgba(0,0,0,0.06)]">
             <h4 className="text-sm font-bold uppercase tracking-wide text-slate-700">Upload payment proof</h4>
             <p className="text-[11px] text-gray-600 mt-1.5 leading-relaxed max-w-3xl">
-              Tell us how you paid. A <span className="font-semibold">screenshot is required only for bank deposit</span> (online
-              transfer to the account shown above). UPI and cash deposit can be submitted without an image if you prefer.
+              <span className="font-semibold">Bank transfer</span> and <span className="font-semibold">cash deposit</span> need a
+              payment screenshot. <span className="font-semibold">Cash deposit</span> also needs notes (who, when, which bank).{' '}
+              <span className="font-semibold">UPI / GPay</span> can be submitted without a screenshot; use notes to say who transferred if helpful.
             </p>
             <div className="mt-4 grid gap-3 sm:gap-4">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -479,11 +526,7 @@ export default function DashboardProgramPaymentModal({
                 <Label className="text-[11px] font-semibold text-slate-800">
                   Payment screenshot {proofRequiresScreenshot ? <span className="text-red-600">*</span> : <span className="text-slate-500 font-normal">(optional)</span>}
                 </Label>
-                <p className="text-[10px] text-slate-500 mt-1">
-                  {proofRequiresScreenshot
-                    ? 'Required for bank deposit — drag an image here or choose a file.'
-                    : 'Optional — add a receipt or screenshot if you have one.'}
-                </p>
+                <p className="text-[10px] text-slate-500 mt-1">{screenshotBlurb}</p>
                 <input
                   key={open ? `proof-${enrollmentId ?? 'session'}` : 'proof-closed'}
                   id={proofFileInputDomId}
@@ -557,8 +600,16 @@ export default function DashboardProgramPaymentModal({
               </div>
 
               <div>
-                <Label className="text-[10px]">Notes</Label>
-                <Input value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Anything else we should know" className="h-10 text-xs mt-0.5" />
+                <Label className="text-[10px]">
+                  Notes {proofRequiresNotes ? <span className="text-red-600">*</span> : null}
+                </Label>
+                <Textarea
+                  value={notes}
+                  onChange={(e) => setNotes(e.target.value)}
+                  placeholder={notesFieldHints.placeholder}
+                  className="mt-1 min-h-[72px] text-xs resize-y"
+                  rows={3}
+                />
               </div>
               <Button
                 type="button"
