@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import axios from 'axios';
 import {
   X,
@@ -239,9 +240,51 @@ export default function DashboardProgramPaymentModal({
     return true;
   };
 
+  /** File input lives in a document.body portal so it is not under overflow-y-auto (iOS Safari blocks the picker there). */
+  const openProofFilePicker = () => {
+    const el = proofFileInputRef.current;
+    if (!el) return;
+    try {
+      if (typeof el.showPicker === 'function') {
+        el.showPicker();
+        return;
+      }
+    } catch {
+      /* showPicker can throw if not user-activated or unsupported */
+    }
+    el.click();
+  };
+
   if (!open) return null;
 
+  const proofFileInput =
+    hasOffline && !proofSubmitted && !loadingEnroll ? (
+      <input
+        key={open ? `proof-${enrollmentId ?? 'session'}` : 'proof-closed'}
+        ref={proofFileInputRef}
+        type="file"
+        accept="image/*"
+        data-testid="dashboard-proof-screenshot-input"
+        aria-label="Choose payment proof image"
+        className="sr-only"
+        onChange={(e) => {
+          const inputEl = e.target;
+          const f = inputEl.files?.[0] ?? null;
+          if (!f) return;
+          if (!ingestProofFile(f)) {
+            inputEl.value = '';
+            setScreenshot(null);
+            setScreenshotPreviewUrl((prev) => {
+              if (prev) URL.revokeObjectURL(prev);
+              return '';
+            });
+          }
+        }}
+      />
+    ) : null;
+
   return (
+    <>
     <div
       className="fixed inset-0 z-[70] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4"
       data-testid="dashboard-program-payment-modal"
@@ -391,8 +434,7 @@ export default function DashboardProgramPaymentModal({
                     <div>
                       <Label className="text-[10px]">Screenshot *</Label>
                       <p className="text-[10px] text-slate-500 mt-0.5 mb-1">
-                        Drag an image into the box, or use the file button below (native &quot;Choose file&quot; — most
-                        reliable on phones). Images only.
+                        Drag an image into the box, or tap the button to open your photo library / files. Images only.
                       </p>
                       <div
                         className="relative mt-1 rounded-lg border-2 border-dashed border-slate-200 bg-slate-50/80 transition-colors hover:border-[#5D3FD3]/45 hover:bg-violet-50/25"
@@ -428,28 +470,14 @@ export default function DashboardProgramPaymentModal({
                               <p className="text-[10px] text-emerald-800 truncate max-w-full">{screenshot.name}</p>
                             ) : null}
                           </div>
-                          <input
-                            key={open ? `proof-${enrollmentId ?? 'session'}` : 'proof-closed'}
-                            ref={proofFileInputRef}
-                            type="file"
-                            accept="image/*"
-                            data-testid="dashboard-proof-screenshot-input"
-                            aria-label="Choose payment proof image"
-                            className="block w-full min-h-11 cursor-pointer text-xs text-slate-700 file:mr-3 file:inline-flex file:h-10 file:min-h-[44px] file:cursor-pointer file:items-center file:rounded-md file:border file:border-slate-300 file:bg-white file:px-4 file:py-2 file:text-xs file:font-semibold file:text-slate-900 hover:file:bg-violet-50"
-                            onChange={(e) => {
-                              const inputEl = e.target;
-                              const f = inputEl.files?.[0] ?? null;
-                              if (!f) return;
-                              if (!ingestProofFile(f)) {
-                                inputEl.value = '';
-                                setScreenshot(null);
-                                setScreenshotPreviewUrl((prev) => {
-                                  if (prev) URL.revokeObjectURL(prev);
-                                  return '';
-                                });
-                              }
-                            }}
-                          />
+                          <Button
+                            type="button"
+                            variant="outline"
+                            className="mt-1 h-11 w-full text-xs font-semibold border-slate-300 bg-white touch-manipulation"
+                            onClick={openProofFilePicker}
+                          >
+                            Choose photo / file
+                          </Button>
                         </div>
                       </div>
                       {screenshot ? (
@@ -545,5 +573,9 @@ export default function DashboardProgramPaymentModal({
         </div>
       </div>
     </div>
+    {proofFileInput && typeof document !== 'undefined'
+      ? createPortal(proofFileInput, document.body)
+      : null}
+    </>
   );
 }
