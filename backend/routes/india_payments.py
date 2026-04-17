@@ -88,6 +88,15 @@ def _clean_str(val: Any) -> str:
     return s
 
 
+def _participant_notify_flag(p: dict) -> bool:
+    """Form uses `notify`; some paths may store `notify_enrollment`."""
+    if not isinstance(p, dict):
+        return False
+    if "notify" in p and p.get("notify") is not None:
+        return bool(p.get("notify"))
+    return bool(p.get("notify_enrollment"))
+
+
 def _payment_amount_currency(e: dict, txn: Optional[dict]) -> tuple:
     """Display amount + currency; fall back to dashboard quote when no txn yet."""
     if txn:
@@ -110,6 +119,7 @@ def build_participant_report_rows(
 ) -> List[dict]:
     """
     One row per participant (or one booker row if participants missing).
+    Includes enrollment form fields: relationship, gender, city, state, attendance, notify, referral, etc.
     Covers dashboard, cart, program page, session page, upcoming — all use `enrollments`.
     """
     rows: List[dict] = []
@@ -146,17 +156,59 @@ def build_participant_report_rows(
         created = _clean_str(e.get("created_at"))
         origin = _enrollment_origin(e)
 
-        participants = e.get("participants") or []
+        participants = [p for p in (e.get("participants") or []) if isinstance(p, dict)]
+        total_slots = len(participants) if participants else 1
 
-        def one_row(
-            participant_name: str,
-            age: Any,
-            country: str,
-            phone: str,
-            whatsapp: str,
-        ):
-            ph = _clean_str(phone) or booker_phone
-            wa = _clean_str(whatsapp) or ph
+        def push_row(p: Optional[dict], index: int, *, booker_only: bool) -> None:
+            if booker_only or p is None:
+                ph = booker_phone
+                wa = booker_phone
+                rows.append(
+                    {
+                        "invoice_number": inv,
+                        "enrollment_id": eid,
+                        "program": program,
+                        "item_type": item_type,
+                        "enrollment_status": _clean_str(e.get("status")),
+                        "enrollment_origin": origin,
+                        "booker_name": booker_name,
+                        "booker_email": booker_email,
+                        "booker_phone": booker_phone,
+                        "booker_country": booker_country,
+                        "participant_index": 1,
+                        "participant_total": 1,
+                        "participant_name": booker_name,
+                        "relationship": "",
+                        "age": "",
+                        "gender": "",
+                        "country": booker_country,
+                        "city": "",
+                        "state": "",
+                        "attendance_mode": "",
+                        "notify_enrollment": "",
+                        "participant_email": booker_email,
+                        "phone": ph,
+                        "whatsapp": wa,
+                        "is_first_time": "",
+                        "referral_source": "",
+                        "referred_by_name": "",
+                        "referred_by_email": "",
+                        "participant_program_id": "",
+                        "participant_program_title": "",
+                        "participant_uid": "",
+                        "payment_amount": amt,
+                        "payment_currency": cur,
+                        "payment_status": pay_st or _clean_str(e.get("status")),
+                        "created_at": created,
+                    }
+                )
+                return
+
+            p_phone = _clean_str(p.get("phone"))
+            p_wa = _clean_str(p.get("whatsapp"))
+            ph = p_phone or booker_phone
+            wa = (p_wa or p_phone) or ph
+            notify_yes = _participant_notify_flag(p)
             rows.append(
                 {
                     "invoice_number": inv,
@@ -168,11 +220,28 @@ def build_participant_report_rows(
                     "booker_name": booker_name,
                     "booker_email": booker_email,
                     "booker_phone": booker_phone,
-                    "participant_name": participant_name,
-                    "age": age if age is not None and age != "" else "",
-                    "country": _clean_str(country) or booker_country,
+                    "booker_country": booker_country,
+                    "participant_index": index,
+                    "participant_total": total_slots,
+                    "participant_name": _clean_str(p.get("name")) or booker_name,
+                    "relationship": _clean_str(p.get("relationship")),
+                    "age": p.get("age", "") if p.get("age") is not None else "",
+                    "gender": _clean_str(p.get("gender")),
+                    "country": _clean_str(p.get("country")) or booker_country,
+                    "city": _clean_str(p.get("city")),
+                    "state": _clean_str(p.get("state")),
+                    "attendance_mode": _clean_str(p.get("attendance_mode")),
+                    "notify_enrollment": "Yes" if notify_yes else "No",
+                    "participant_email": _clean_str(p.get("email")),
                     "phone": ph,
                     "whatsapp": wa,
+                    "is_first_time": "Yes" if p.get("is_first_time") else "No",
+                    "referral_source": _clean_str(p.get("referral_source")),
+                    "referred_by_name": _clean_str(p.get("referred_by_name")),
+                    "referred_by_email": _clean_str(p.get("referred_by_email")),
+                    "participant_program_id": _clean_str(p.get("program_id")),
+                    "participant_program_title": _clean_str(p.get("program_title")),
+                    "participant_uid": _clean_str(p.get("uid")),
                     "payment_amount": amt,
                     "payment_currency": cur,
                     "payment_status": pay_st or _clean_str(e.get("status")),
@@ -181,20 +250,10 @@ def build_participant_report_rows(
             )
 
         if not participants:
-            one_row(booker_name, "", booker_country, booker_phone, booker_phone)
+            push_row(None, 1, booker_only=True)
         else:
-            for p in participants:
-                if not isinstance(p, dict):
-                    continue
-                p_phone = _clean_str(p.get("phone"))
-                p_wa = _clean_str(p.get("whatsapp"))
-                one_row(
-                    _clean_str(p.get("name")) or booker_name,
-                    p.get("age", ""),
-                    _clean_str(p.get("country")),
-                    p_phone,
-                    p_wa or p_phone,
-                )
+            for i, p in enumerate(participants, start=1):
+                push_row(p, i, booker_only=False)
 
     return rows
 
@@ -499,8 +558,9 @@ async def list_enrollments():
 @router.get("/admin/enrollments/participant-rows")
 async def participant_enrollment_rows(paid_completed_only: bool = False):
     """
-    Flat report: one row per participant with name, age, country, phone, WhatsApp,
-    payment amount/currency (same total for each row in a multi-seat enrollment).
+    Flat report: one row per participant (never merged into one cell) with enrollment form fields
+    including notify, relationship, city/state, attendance, referral, participant email, etc.
+    Payment amount/currency is the checkout total (repeated on each row for multi-seat enrollments).
     """
     enrollments = await db.enrollments.find({}, {"_id": 0}).sort("created_at", -1).to_list(5000)
     eids = [e.get("id") for e in enrollments if e.get("id")]
@@ -541,11 +601,28 @@ async def build_participant_report_xlsx_bytes(paid_completed_only: bool = False)
         "Booker name",
         "Booker email",
         "Booker phone",
+        "Booker country",
+        "Participant #",
+        "Of total",
         "Participant name",
+        "Relationship",
         "Age",
+        "Gender",
         "Country",
+        "City",
+        "State",
+        "Attendance mode",
+        "Notify enrollment",
+        "Participant email",
         "Phone",
         "WhatsApp",
+        "First time",
+        "Referral source",
+        "Referred by name",
+        "Referred by email",
+        "Participant program ID",
+        "Participant program title",
+        "Participant UID",
         "Payment amount",
         "Currency",
         "Payment status",
@@ -597,11 +674,28 @@ async def build_participant_report_xlsx_bytes(paid_completed_only: bool = False)
                 _clean_str(r.get("booker_name")),
                 _clean_str(r.get("booker_email")),
                 _clean_str(r.get("booker_phone")),
+                _clean_str(r.get("booker_country")),
+                r.get("participant_index", "") or "",
+                r.get("participant_total", "") or "",
                 _clean_str(r.get("participant_name")),
+                _clean_str(r.get("relationship")),
                 _clean_str(r.get("age")),
+                _clean_str(r.get("gender")),
                 _clean_str(r.get("country")),
+                _clean_str(r.get("city")),
+                _clean_str(r.get("state")),
+                _clean_str(r.get("attendance_mode")),
+                _clean_str(r.get("notify_enrollment")),
+                _clean_str(r.get("participant_email")),
                 _clean_str(r.get("phone")),
                 _clean_str(r.get("whatsapp")),
+                _clean_str(r.get("is_first_time")),
+                _clean_str(r.get("referral_source")),
+                _clean_str(r.get("referred_by_name")),
+                _clean_str(r.get("referred_by_email")),
+                _clean_str(r.get("participant_program_id")),
+                _clean_str(r.get("participant_program_title")),
+                _clean_str(r.get("participant_uid")),
                 r.get("payment_amount", 0) or 0,
                 _clean_str(r.get("payment_currency")),
                 _clean_str(r.get("payment_status")),
@@ -694,9 +788,9 @@ async def export_enrollments_excel():
     ]
 
     participant_fields = [
-        "Name", "Relationship", "Age", "Gender", "Country",
-        "Attendance Mode", "Is First Time", "Referral Source", "Referred By",
-        "Email", "Phone", "WhatsApp", "UID",
+        "Name", "Relationship", "Age", "Gender", "Country", "City", "State",
+        "Attendance Mode", "Notify", "Is First Time", "Referral Source", "Referred By",
+        "Referred By Email", "Email", "Phone", "WhatsApp", "UID",
     ]
 
     headers = list(base_headers)
@@ -770,16 +864,21 @@ async def export_enrollments_excel():
                 p = participants[i]
                 p_phone = clean(p.get("phone"))
                 p_wa = clean(p.get("whatsapp"))
+                notify_yes = _participant_notify_flag(p)
                 row.extend([
                     clean(p.get("name")),
                     clean(p.get("relationship")),
                     clean(p.get("age")),
                     clean(p.get("gender")),
                     clean(p.get("country")),
+                    clean(p.get("city")),
+                    clean(p.get("state")),
                     clean(p.get("attendance_mode")),
+                    "Yes" if notify_yes else "No",
                     "Yes" if p.get("is_first_time") else "No",
                     clean(p.get("referral_source")),
                     clean(p.get("referred_by_name")),
+                    clean(p.get("referred_by_email")),
                     clean(p.get("email")),
                     p_phone,
                     p_wa,

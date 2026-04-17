@@ -201,12 +201,20 @@ const EnrollmentsTab = () => {
       row.participant_name,
       row.booker_name,
       row.booker_email,
+      row.participant_email,
       row.phone,
       row.whatsapp,
       row.country,
+      row.city,
+      row.state,
+      row.relationship,
       row.program,
       row.invoice_number,
       row.enrollment_id,
+      row.notify_enrollment,
+      row.referral_source,
+      row.referred_by_name,
+      row.referred_by_email,
     ].filter(Boolean).some((f) => String(f).toLowerCase().includes(q));
   });
 
@@ -332,7 +340,7 @@ const EnrollmentsTab = () => {
       {viewMode === 'participants' && (
         <p className="text-[11px] text-gray-600 mb-3 max-w-3xl">
           Every path—program page, session, upcoming, cart, checkout, or student dashboard pay—creates a record in <strong>Enrollments</strong>.
-          This view is one row per <strong>participant</strong> with name, age, country, phone, WhatsApp, and the <strong>total</strong> paid for that checkout (repeated on each row when there are multiple people).
+          <strong>By participant</strong> lists one row per person (not merged): relationship, city/state, attendance, notify, referral, participant email, etc. Checkout total repeats on each row when several people enroll together.
         </p>
       )}
 
@@ -531,37 +539,70 @@ const EnrollmentsTab = () => {
           <div className="text-center py-12 text-gray-400 text-sm">No rows match this filter.</div>
         ) : (
           <div className="overflow-x-auto border rounded-lg" data-testid="enrollments-participant-table">
-            <table className="w-full text-xs">
+            <table className="w-full text-xs min-w-[1600px]">
               <thead className="bg-gray-50 border-b">
                 <tr>
-                  <th className="text-left px-3 py-2 font-semibold text-gray-600">Participant</th>
-                  <th className="text-left px-3 py-2 font-semibold text-gray-600">Age</th>
-                  <th className="text-left px-3 py-2 font-semibold text-gray-600">Country</th>
-                  <th className="text-left px-3 py-2 font-semibold text-gray-600">Phone</th>
-                  <th className="text-left px-3 py-2 font-semibold text-gray-600">WhatsApp</th>
-                  <th className="text-left px-3 py-2 font-semibold text-gray-600">Amount</th>
-                  <th className="text-left px-3 py-2 font-semibold text-gray-600">Currency</th>
-                  <th className="text-left px-3 py-2 font-semibold text-gray-600">Program</th>
-                  <th className="text-left px-3 py-2 font-semibold text-gray-600">Booker</th>
-                  <th className="text-left px-3 py-2 font-semibold text-gray-600">Invoice</th>
-                  <th className="text-left px-3 py-2 font-semibold text-gray-600">Origin</th>
-                  <th className="text-left px-3 py-2 font-semibold text-gray-600">Status</th>
+                  <th className="text-left px-3 py-2 font-semibold text-gray-600 whitespace-nowrap">#</th>
+                  <th className="text-left px-3 py-2 font-semibold text-gray-600 whitespace-nowrap">Participant</th>
+                  <th className="text-left px-3 py-2 font-semibold text-gray-600 whitespace-nowrap">Relation</th>
+                  <th className="text-left px-3 py-2 font-semibold text-gray-600 whitespace-nowrap">Age</th>
+                  <th className="text-left px-3 py-2 font-semibold text-gray-600 whitespace-nowrap">Gender</th>
+                  <th className="text-left px-3 py-2 font-semibold text-gray-600 whitespace-nowrap">Country</th>
+                  <th className="text-left px-3 py-2 font-semibold text-gray-600 whitespace-nowrap">City</th>
+                  <th className="text-left px-3 py-2 font-semibold text-gray-600 whitespace-nowrap">State</th>
+                  <th className="text-left px-3 py-2 font-semibold text-gray-600 whitespace-nowrap">Mode</th>
+                  <th className="text-left px-3 py-2 font-semibold text-gray-600 whitespace-nowrap">Notify</th>
+                  <th className="text-left px-3 py-2 font-semibold text-gray-600 whitespace-nowrap">Email</th>
+                  <th className="text-left px-3 py-2 font-semibold text-gray-600 whitespace-nowrap">Phone</th>
+                  <th className="text-left px-3 py-2 font-semibold text-gray-600 whitespace-nowrap">WhatsApp</th>
+                  <th className="text-left px-3 py-2 font-semibold text-gray-600 whitespace-nowrap">1st time</th>
+                  <th className="text-left px-3 py-2 font-semibold text-gray-600 whitespace-nowrap">Referral</th>
+                  <th className="text-left px-3 py-2 font-semibold text-gray-600 whitespace-nowrap">Referred by</th>
+                  <th className="text-left px-3 py-2 font-semibold text-gray-600 whitespace-nowrap">Amount</th>
+                  <th className="text-left px-3 py-2 font-semibold text-gray-600 whitespace-nowrap">Cur</th>
+                  <th className="text-left px-3 py-2 font-semibold text-gray-600 whitespace-nowrap">Program</th>
+                  <th className="text-left px-3 py-2 font-semibold text-gray-600 whitespace-nowrap">Booker</th>
+                  <th className="text-left px-3 py-2 font-semibold text-gray-600 whitespace-nowrap">Invoice</th>
+                  <th className="text-left px-3 py-2 font-semibold text-gray-600 whitespace-nowrap">Origin</th>
+                  <th className="text-left px-3 py-2 font-semibold text-gray-600 whitespace-nowrap">Status</th>
                 </tr>
               </thead>
               <tbody className="divide-y">
-                {filteredParticipants.map((row, idx) => {
+                {filteredParticipants.map((row) => {
                   const cur = (row.payment_currency || '').toLowerCase();
                   const symbols = { inr: '\u20B9', aed: 'AED ', usd: '$' };
                   const sym = symbols[cur] || (cur ? `${cur.toUpperCase()} ` : '');
                   const amt = row.payment_amount;
+                  const pTotal = Number(row.participant_total);
+                  const pIdx = Number(row.participant_index);
+                  let slot = '—';
+                  if (Number.isFinite(pTotal) && pTotal > 1 && Number.isFinite(pIdx) && pIdx > 0) {
+                    slot = `${pIdx} / ${pTotal}`;
+                  } else if (Number.isFinite(pIdx) && pIdx > 0) {
+                    slot = String(pIdx);
+                  }
                   return (
-                    <tr key={`${row.enrollment_id}-${idx}`} className="hover:bg-gray-50">
-                      <td className="px-3 py-2 font-medium text-gray-900">{row.participant_name || '—'}</td>
+                    <tr
+                      key={`${row.enrollment_id}-${row.participant_index ?? row.participant_name}-${row.participant_email}`}
+                      className="hover:bg-gray-50"
+                    >
+                      <td className="px-3 py-2 text-gray-500 tabular-nums whitespace-nowrap">{slot}</td>
+                      <td className="px-3 py-2 font-medium text-gray-900 whitespace-nowrap">{row.participant_name || '—'}</td>
+                      <td className="px-3 py-2 text-gray-700 max-w-[100px] truncate" title={row.relationship}>{row.relationship || '—'}</td>
                       <td className="px-3 py-2 text-gray-700">{row.age !== '' && row.age != null ? row.age : '—'}</td>
+                      <td className="px-3 py-2 text-gray-700 max-w-[90px] truncate" title={row.gender}>{row.gender || '—'}</td>
                       <td className="px-3 py-2 text-gray-700">{row.country || '—'}</td>
-                      <td className="px-3 py-2 text-gray-600 font-mono text-[10px]">{row.phone || '—'}</td>
-                      <td className="px-3 py-2 text-gray-600 font-mono text-[10px]">{row.whatsapp || '—'}</td>
-                      <td className="px-3 py-2 font-medium text-gray-900">
+                      <td className="px-3 py-2 text-gray-700 max-w-[100px] truncate" title={row.city}>{row.city || '—'}</td>
+                      <td className="px-3 py-2 text-gray-700 max-w-[100px] truncate" title={row.state}>{row.state || '—'}</td>
+                      <td className="px-3 py-2 text-gray-700 whitespace-nowrap">{row.attendance_mode || '—'}</td>
+                      <td className="px-3 py-2 text-gray-800 whitespace-nowrap">{row.notify_enrollment || '—'}</td>
+                      <td className="px-3 py-2 text-gray-600 max-w-[140px] truncate text-[10px]" title={row.participant_email}>{row.participant_email || '—'}</td>
+                      <td className="px-3 py-2 text-gray-600 font-mono text-[10px] whitespace-nowrap">{row.phone || '—'}</td>
+                      <td className="px-3 py-2 text-gray-600 font-mono text-[10px] whitespace-nowrap">{row.whatsapp || '—'}</td>
+                      <td className="px-3 py-2 text-gray-700">{row.is_first_time || '—'}</td>
+                      <td className="px-3 py-2 text-gray-600 max-w-[120px] truncate text-[10px]" title={row.referral_source}>{row.referral_source || '—'}</td>
+                      <td className="px-3 py-2 text-gray-600 max-w-[120px] truncate text-[10px]" title={row.referred_by_name}>{row.referred_by_name || '—'}</td>
+                      <td className="px-3 py-2 font-medium text-gray-900 whitespace-nowrap">
                         {amt > 0 ? `${sym}${Number(amt).toLocaleString()}` : '0'}
                       </td>
                       <td className="px-3 py-2 uppercase text-gray-600">{cur || '—'}</td>
@@ -570,13 +611,13 @@ const EnrollmentsTab = () => {
                         <span className="block truncate" title={row.booker_name}>{row.booker_name || '—'}</span>
                         <span className="block text-[10px] text-gray-400 truncate">{row.booker_phone || ''}</span>
                       </td>
-                      <td className="px-3 py-2 font-mono text-[10px] text-purple-700">{row.invoice_number || row.enrollment_id?.slice(0, 10) || '—'}</td>
+                      <td className="px-3 py-2 font-mono text-[10px] text-purple-700 whitespace-nowrap">{row.invoice_number || row.enrollment_id?.slice(0, 10) || '—'}</td>
                       <td className="px-3 py-2">
                         <span className={`text-[10px] px-2 py-0.5 rounded-full ${row.enrollment_origin === 'dashboard' ? 'bg-amber-50 text-amber-800' : 'bg-slate-100 text-slate-700'}`}>
                           {row.enrollment_origin === 'dashboard' ? 'Dashboard' : 'Website'}
                         </span>
                       </td>
-                      <td className="px-3 py-2 text-[10px] text-gray-600">{row.enrollment_status || row.payment_status || '—'}</td>
+                      <td className="px-3 py-2 text-[10px] text-gray-600 whitespace-nowrap">{row.enrollment_status || row.payment_status || '—'}</td>
                     </tr>
                   );
                 })}

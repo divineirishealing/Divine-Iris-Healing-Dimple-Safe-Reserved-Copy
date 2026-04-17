@@ -53,6 +53,8 @@ class ParticipantData(BaseModel):
     age: int
     gender: str
     country: str = "AE"
+    city: str = ""
+    state: str = ""
     attendance_mode: str = "online"
     notify: bool = False
     email: Optional[str] = None
