@@ -385,7 +385,11 @@ const StudentDashboard = () => {
         )}
 
         {homeData && dv.upcoming_family && (
-          <DashboardUpcomingFamilySection homeData={homeData} onRefresh={refreshHome} />
+          <DashboardUpcomingFamilySection
+            homeData={homeData}
+            onRefresh={refreshHome}
+            bookerEmail={(user?.email || '').trim()}
+          />
         )}
 
         <div className="w-full max-w-6xl mx-auto px-4 md:px-0 flex flex-col items-center">

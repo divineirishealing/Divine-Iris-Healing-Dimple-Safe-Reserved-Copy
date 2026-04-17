@@ -199,12 +199,22 @@ class FamilyUpdate(BaseModel):
     members: List[FamilyMemberIn] = []
 
 
+class DashboardGuestSeatPref(BaseModel):
+    """Per-guest choices at checkout (not stored on the saved family list)."""
+    family_member_id: str
+    attendance_mode: str = "online"
+    notify_enrollment: bool = False
+
+
 class DashboardPayIn(BaseModel):
     program_id: str
     family_count: int = 0
     family_member_ids: List[str] = []
     currency: str = "aed"
     origin_url: str = ""
+    booker_attendance_mode: Optional[str] = "online"
+    booker_notify: bool = True
+    guest_seat_prefs: List[DashboardGuestSeatPref] = []
 
 
 def _tier_unit_price(program: dict, tier_index: Optional[int], cur: str) -> float:
@@ -856,7 +866,28 @@ async def dashboard_pay(data: DashboardPayIn, request: Request, user: dict = Dep
     if quote["total"] <= 0:
         raise HTTPException(status_code=400, detail="No payable amount for this program")
 
+    pref_by_id = {
+        str(x.family_member_id).strip(): x
+        for x in (data.guest_seat_prefs or [])
+        if str(x.family_member_id).strip()
+    }
+
     snap = _profile_snapshot_for_prefill(user, client)
+    booker_email_raw = (snap.get("email") or user.get("email") or "").strip()
+    if not included and bool(data.booker_notify) and not booker_email_raw:
+        raise HTTPException(
+            status_code=400,
+            detail="Your profile needs an email on file to receive enrollment notifications, or turn off Notify for your seat.",
+        )
+    for m in resolved_family:
+        mid = str(m.get("id") or "").strip()
+        pref = pref_by_id.get(mid)
+        wants = bool(pref.notify_enrollment if pref else False)
+        if wants and not (m.get("email") or "").strip():
+            raise HTTPException(
+                status_code=400,
+                detail=f"Add an email for {(m.get('name') or 'guest').strip() or 'this guest'} to use Notify, or turn off Notify for them.",
+            )
 
     def _age_int(raw) -> int:
         try:
@@ -866,6 +897,9 @@ async def dashboard_pay(data: DashboardPayIn, request: Request, user: dict = Dep
             return 30
 
     participants: List[ParticipantData] = []
+    booker_mode = _normalize_attendance_mode(data.booker_attendance_mode or "online")
+    booker_wants_notify = bool(data.booker_notify)
+    booker_email = snap.get("email") or user.get("email")
     if not included:
         participants.append(
             ParticipantData(
@@ -876,9 +910,9 @@ async def dashboard_pay(data: DashboardPayIn, request: Request, user: dict = Dep
                 country=(snap.get("country") or "AE")[:4],
                 city=(snap.get("city") or "")[:120],
                 state="",
-                attendance_mode="online",
-                notify=True,
-                email=snap.get("email") or user.get("email"),
+                attendance_mode=booker_mode,
+                notify=booker_wants_notify and bool(booker_email),
+                email=booker_email,
                 phone=snap.get("phone"),
                 whatsapp=snap.get("phone"),
                 program_id=data.program_id,
@@ -889,8 +923,13 @@ async def dashboard_pay(data: DashboardPayIn, request: Request, user: dict = Dep
         fam_email = (m.get("email") or "").strip() or None
         fam_country = (m.get("country") or "").strip() or (snap.get("country") or "AE")
         fam_country = str(fam_country)[:4] or "AE"
-        fam_mode = _normalize_attendance_mode(m.get("attendance_mode"))
-        notify_ok = bool(m.get("notify_enrollment")) and bool(fam_email)
+        mid = str(m.get("id") or "").strip()
+        pref = pref_by_id.get(mid)
+        fam_mode = _normalize_attendance_mode(
+            (pref.attendance_mode if pref else None) or m.get("attendance_mode") or "online"
+        )
+        notify_opted = bool(pref.notify_enrollment if pref else False)
+        notify_ok = notify_opted and bool(fam_email)
         participants.append(
             ParticipantData(
                 name=(m.get("name") or "Guest")[:200],

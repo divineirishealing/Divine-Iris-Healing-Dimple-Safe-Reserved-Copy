@@ -1,13 +1,16 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
-import { Calendar, Sparkles, Users, Loader2, Plus, Trash2, CreditCard, Clock, AlertTriangle, Lock } from 'lucide-react';
+import { Calendar, Sparkles, Users, Loader2, Plus, Trash2, CreditCard, Clock, AlertTriangle, Lock, Bell, BellOff, Monitor, Wifi } from 'lucide-react';
 import { useToast } from '../../hooks/use-toast';
 import { useCurrency } from '../../context/CurrencyContext';
 import { useSiteSettings } from '../../context/SiteSettingsContext';
+import { useCart } from '../../context/CartContext';
 import { resolveImageUrl } from '../../lib/imageUtils';
 import { formatDateDdMonYyyy } from '../../lib/utils';
 import DashboardProgramPaymentModal from './DashboardProgramPaymentModal';
+import { Button } from '../ui/button';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '../ui/dialog';
 
 const API = process.env.REACT_APP_BACKEND_URL;
 
@@ -42,7 +45,7 @@ function GuestMemberTable({
       className="overflow-x-auto rounded-lg border border-slate-200/90 bg-white shadow-sm"
       data-testid={wrapTestId}
     >
-      <table className="w-full min-w-[1180px] text-left border-collapse" data-testid={tableTestId}>
+      <table className="w-full min-w-[920px] text-left border-collapse" data-testid={tableTestId}>
         <thead>
           <tr className="bg-slate-100/95 border-b border-slate-200">
             <th className="px-2 py-2 text-[9px] font-bold uppercase tracking-wide text-slate-600 whitespace-nowrap min-w-[7rem]">
@@ -68,15 +71,6 @@ function GuestMemberTable({
             </th>
             <th className="px-2 py-2 text-[9px] font-bold uppercase tracking-wide text-slate-600 whitespace-nowrap min-w-[6.5rem]">
               Phone
-            </th>
-            <th className="px-2 py-2 text-[9px] font-bold uppercase tracking-wide text-slate-600 whitespace-nowrap w-[5.5rem]">
-              Mode
-            </th>
-            <th
-              className="px-2 py-2 text-[9px] font-bold uppercase tracking-wide text-slate-600 whitespace-nowrap w-[3.25rem] text-center"
-              title="Email enrollment details after payment"
-            >
-              Notify
             </th>
             <th className="px-1 py-2 w-10" aria-label="Actions" />
           </tr>
@@ -174,7 +168,7 @@ function GuestMemberTable({
                   onChange={(e) => updateRow(idx, 'email', e.target.value)}
                   disabled={readOnly}
                   className="w-full min-w-[7rem] text-[11px] border border-slate-200 rounded px-1.5 py-1 bg-white disabled:opacity-60 disabled:bg-slate-50"
-                  placeholder={m.notify_enrollment ? 'Required if notifying' : 'Optional'}
+                  placeholder="Optional"
                 />
               </td>
               <td className="px-2 py-1.5 align-middle">
@@ -184,29 +178,6 @@ function GuestMemberTable({
                   disabled={readOnly}
                   className="w-full min-w-[5.5rem] text-[11px] border border-slate-200 rounded px-1.5 py-1 bg-white disabled:opacity-60 disabled:bg-slate-50"
                   placeholder="Optional"
-                />
-              </td>
-              <td className="px-2 py-1.5 align-middle">
-                <select
-                  value={m.attendance_mode === 'offline' ? 'offline' : 'online'}
-                  onChange={(e) => updateRow(idx, 'attendance_mode', e.target.value)}
-                  disabled={readOnly}
-                  className="w-full max-w-[5.5rem] text-[11px] border border-slate-200 rounded px-1 py-1 bg-white disabled:opacity-60 disabled:bg-slate-50"
-                  aria-label="Online or offline"
-                >
-                  <option value="online">Online</option>
-                  <option value="offline">Offline</option>
-                </select>
-              </td>
-              <td className="px-2 py-1.5 align-middle text-center">
-                <input
-                  type="checkbox"
-                  className="rounded border-slate-300 w-3.5 h-3.5"
-                  checked={!!m.notify_enrollment}
-                  onChange={(e) => updateRow(idx, 'notify_enrollment', e.target.checked)}
-                  disabled={readOnly}
-                  title="Send enrollment details to this email after payment is confirmed"
-                  aria-label="Notify by email when enrolled"
                 />
               </td>
               <td className="px-1 py-1.5 align-middle text-center">
@@ -241,15 +212,6 @@ function pickTierIndexForDashboard(program, preferAnnualTier) {
     if (idx >= 0) return idx;
   }
   return 0;
-}
-
-/** Direct enrollment from dashboard (member pricing + profile prefill; skips public program page). */
-function buildDashboardEnrollHref(p, { tierIdx, promoCode }) {
-  const q = new URLSearchParams();
-  q.set('source', 'dashboard');
-  if (tierIdx !== null && tierIdx !== undefined) q.set('tier', String(tierIdx));
-  if (promoCode && String(promoCode).trim()) q.set('promo', String(promoCode).trim());
-  return `/enroll/program/${p.id}?${q.toString()}`;
 }
 
 function programStartLabel(p) {
@@ -353,8 +315,9 @@ function DashboardEnrollmentCountdown({ deadline, programTitle }) {
   );
 }
 
-export default function DashboardUpcomingFamilySection({ homeData, onRefresh }) {
+export default function DashboardUpcomingFamilySection({ homeData, onRefresh, bookerEmail = '' }) {
   const navigate = useNavigate();
+  const { addItem } = useCart();
   const { toast } = useToast();
   const { settings: siteSettings } = useSiteSettings();
   const annualIncludedIds = siteSettings?.annual_package_included_program_ids;
@@ -374,8 +337,12 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh }) 
   const [selectedFamilyByProgram, setSelectedFamilyByProgram] = useState({});
   const [annualQuotes, setAnnualQuotes] = useState({});
   const [payingProgramId, setPayingProgramId] = useState(null);
-  const [payChannel, setPayChannel] = useState('stripe');
   const [programPaymentModal, setProgramPaymentModal] = useState(null);
+  const [enrollmentSeatOpen, setEnrollmentSeatOpen] = useState(false);
+  const [seatModalCtx, setSeatModalCtx] = useState(null);
+  const [bookerSeatMode, setBookerSeatMode] = useState('online');
+  const [bookerSeatNotify, setBookerSeatNotify] = useState(true);
+  const [guestSeatForm, setGuestSeatForm] = useState({});
 
   const upcomingList = homeData?.upcoming_programs || [];
   const programsForPrefetch = useMemo(
@@ -438,9 +405,7 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh }) 
         date_of_birth: '',
         city: '',
         age: '',
-        attendance_mode: 'online',
         country: '',
-        notify_enrollment: false,
       },
     ]);
   };
@@ -458,24 +423,12 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh }) 
         date_of_birth: '',
         city: '',
         age: '',
-        attendance_mode: 'online',
         country: '',
-        notify_enrollment: false,
       },
     ]);
   };
 
   const saveFamily = async () => {
-    for (const m of members) {
-      if ((m.name || '').trim() && m.notify_enrollment && !(m.email || '').trim()) {
-        toast({
-          title: 'Email required for notifications',
-          description: `Add an email for “${(m.name || '').trim()}” or turn off Notify.`,
-          variant: 'destructive',
-        });
-        return;
-      }
-    }
     setSaving(true);
     try {
       await axios.put(
@@ -490,9 +443,7 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh }) 
             date_of_birth: m.date_of_birth || '',
             city: m.city || '',
             age: m.age || '',
-            attendance_mode: m.attendance_mode === 'offline' ? 'offline' : 'online',
             country: (m.country || '').trim(),
-            notify_enrollment: !!m.notify_enrollment,
           })),
         },
         { withCredentials: true }
@@ -511,16 +462,6 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh }) 
   };
 
   const saveOtherGuests = async () => {
-    for (const m of otherMembers) {
-      if ((m.name || '').trim() && m.notify_enrollment && !(m.email || '').trim()) {
-        toast({
-          title: 'Email required for notifications',
-          description: `Add an email for “${(m.name || '').trim()}” or turn off Notify.`,
-          variant: 'destructive',
-        });
-        return;
-      }
-    }
     setSaving(true);
     try {
       await axios.put(
@@ -535,9 +476,7 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh }) 
             date_of_birth: m.date_of_birth || '',
             city: m.city || '',
             age: m.age || '',
-            attendance_mode: m.attendance_mode === 'offline' ? 'offline' : 'online',
             country: (m.country || '').trim(),
-            notify_enrollment: !!m.notify_enrollment,
           })),
         },
         { withCredentials: true }
@@ -579,22 +518,14 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh }) 
       .join('|');
   }, [programsForPrefetch, selectedFamilyByProgram]);
 
-  const hasOfflinePaymentOption = paymentMethods.some((x) =>
-    ['manual', 'gpay', 'bank'].includes(x)
-  );
-
-  React.useEffect(() => {
-    const m = homeData?.payment_methods || ['stripe'];
+  const defaultPaymentChannel = useMemo(() => {
+    const m = paymentMethods;
     const hasStripe = m.includes('stripe');
     const hasOffline = m.some((x) => ['manual', 'gpay', 'bank'].includes(x));
-    // No Stripe on file → must use UPI / bank & proof (radios may be hidden).
-    if (!hasStripe && hasOffline) {
-      setPayChannel('manual');
-      return;
-    }
-    if (m.length === 1 && ['manual', 'gpay', 'bank'].includes(m[0])) setPayChannel('manual');
-    if (m.length === 1 && m[0] === 'stripe') setPayChannel('stripe');
-  }, [homeData?.payment_methods]);
+    if (!hasStripe && hasOffline) return 'manual';
+    if (hasStripe) return 'stripe';
+    return 'manual';
+  }, [paymentMethods]);
 
   useEffect(() => {
     if (!isAnnual || !currencyReady) {
@@ -681,29 +612,96 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh }) 
     });
   };
 
-  const startDashboardPayment = async (programId) => {
-    const ids = selectedFamilyByProgram[programId] || [];
+  const openEnrollmentSeatModal = (program, includedPkg, selectedIds) => {
+    const ids = (selectedIds || []).map((x) => String(x));
+    const initGuests = {};
+    ids.forEach((id) => {
+      initGuests[id] = { attendance_mode: 'online', notify_enrollment: false };
+    });
+    setGuestSeatForm(initGuests);
+    setBookerSeatMode('online');
+    setBookerSeatNotify(true);
+    setSeatModalCtx({
+      programId: program.id,
+      programTitle: program.title || '',
+      includedPkg: !!includedPkg,
+      selectedIds: ids,
+    });
+    setEnrollmentSeatOpen(true);
+  };
+
+  const updateGuestSeatField = (memberId, field, value) => {
+    const id = String(memberId);
+    setGuestSeatForm((prev) => ({
+      ...prev,
+      [id]: {
+        attendance_mode: 'online',
+        notify_enrollment: false,
+        ...prev[id],
+        [field]: value,
+      },
+    }));
+  };
+
+  const confirmEnrollmentSeatsAndPay = async () => {
+    if (!seatModalCtx) return;
+    const { programId, includedPkg, selectedIds } = seatModalCtx;
+    if (!includedPkg && bookerSeatNotify && !String(bookerEmail || '').trim()) {
+      toast({
+        title: 'Email needed for notifications',
+        description: 'Turn off “Email me enrollment details” for your seat, or add an email to your account.',
+        variant: 'destructive',
+      });
+      return;
+    }
+    for (const id of selectedIds) {
+      const row = guestSeatForm[id] || {};
+      if (row.notify_enrollment) {
+        const m = enrollableGuests.find((g) => String(g.id) === String(id));
+        if (!m || !(String(m.email || '').trim())) {
+          toast({
+            title: 'Guest email required',
+            description: `Add an email for “${(m?.name || 'this guest').trim()}” or turn off notifications for their seat.`,
+            variant: 'destructive',
+          });
+          return;
+        }
+      }
+    }
+
+    setEnrollmentSeatOpen(false);
+    const guest_seat_prefs = selectedIds.map((id) => {
+      const row = guestSeatForm[id] || {};
+      return {
+        family_member_id: id,
+        attendance_mode: row.attendance_mode === 'offline' ? 'offline' : 'online',
+        notify_enrollment: !!row.notify_enrollment,
+      };
+    });
+
     setPayingProgramId(programId);
     try {
-      const r = await axios.post(
-        `${API}/api/student/dashboard-pay`,
-        {
-          program_id: programId,
-          family_member_ids: ids,
-          currency,
-          origin_url: typeof window !== 'undefined' ? window.location.origin : '',
-        },
-        { withCredentials: true }
-      );
+      const body = {
+        program_id: programId,
+        family_member_ids: selectedIds,
+        currency,
+        origin_url: typeof window !== 'undefined' ? window.location.origin : '',
+        guest_seat_prefs,
+      };
+      if (!includedPkg) {
+        body.booker_attendance_mode = bookerSeatMode === 'offline' ? 'offline' : 'online';
+        body.booker_notify = !!bookerSeatNotify;
+      }
+      const r = await axios.post(`${API}/api/student/dashboard-pay`, body, { withCredentials: true });
       const { enrollment_id, tier_index: tierIdx } = r.data;
-      const prog = upcomingList.find((p) => p.id === programId);
       setProgramPaymentModal({
         enrollmentId: enrollment_id,
         programId,
-        programTitle: prog?.title || '',
+        programTitle: seatModalCtx.programTitle,
         tierIndex: tierIdx != null ? tierIdx : null,
-        payChannel,
+        payChannel: defaultPaymentChannel,
       });
+      setSeatModalCtx(null);
     } catch (e) {
       toast({
         title: 'Could not start payment',
@@ -713,6 +711,24 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh }) 
     } finally {
       setPayingProgramId(null);
     }
+  };
+
+  const addProgramToCartAndGo = (p) => {
+    const tierIdx = pickTierIndexForDashboard(p, isAnnual);
+    const tier = tierIdx == null ? 0 : tierIdx;
+    const added = addItem(p, tier);
+    if (added) {
+      toast({
+        title: 'Added to cart',
+        description: 'Set online/offline and email options on the cart page, then checkout like the main site.',
+      });
+    } else {
+      toast({
+        title: 'Already in cart',
+        description: 'Opening your cart — continue checkout there.',
+      });
+    }
+    navigate('/cart');
   };
 
   return (
@@ -728,7 +744,8 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh }) 
             </h2>
             <p className="text-xs text-slate-500">
               Portal-only pricing: your seat, immediate household, and friends &amp; extended can each use{' '}
-              <span className="text-slate-700 font-medium">different</span> rules (Admin → Dashboard). Enroll from your saved lists below.
+              <span className="text-slate-700 font-medium">different</span> rules (Admin → Dashboard). Annual members pay below
+              after choosing guests; other members add programs to the cart and use the same checkout as the main site.
             </p>
           </div>
         </div>
@@ -765,7 +782,6 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh }) 
               const hasTiers = p.is_flagship && (p.duration_tiers || []).length > 0;
               const list = hasTiers && tierIdx !== null ? getPrice(p, tierIdx) : getPrice(p);
               const off = hasTiers && tierIdx !== null ? getOfferPrice(p, tierIdx) : getOfferPrice(p);
-              const href = buildDashboardEnrollHref(p, { tierIdx, promoCode: promoForProgramClicks });
               const baseForPromo = off > 0 ? off : list;
               const validated = promoForProgramClicks ? promoByProgramId[p.id] : null;
               const disc =
@@ -850,16 +866,16 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh }) 
                   {isAnnual ? (
                     <div className="text-left w-full group">{cardMedia}</div>
                   ) : (
-                    <div
+                                       <div
                       className="text-left w-full group cursor-pointer"
                       role="button"
                       tabIndex={0}
-                      aria-label={`Enroll in ${p.title || 'program'}`}
-                      onClick={() => navigate(href)}
+                      aria-label={`Add ${p.title || 'program'} to cart`}
+                      onClick={() => addProgramToCartAndGo(p)}
                       onKeyDown={(e) => {
                         if (e.key === 'Enter' || e.key === ' ') {
                           e.preventDefault();
-                          navigate(href);
+                          addProgramToCartAndGo(p);
                         }
                       }}
                     >
@@ -1045,36 +1061,10 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh }) 
                         )}
                       </div>
 
-                      {hasOfflinePaymentOption && (
-                        <div className="mt-2 flex flex-wrap gap-3 text-[10px] text-slate-700">
-                          {paymentMethods.includes('stripe') ? (
-                            <label className="inline-flex items-center gap-1.5 cursor-pointer">
-                              <input
-                                type="radio"
-                                name={`pay-${p.id}`}
-                                checked={payChannel === 'stripe'}
-                                onChange={() => setPayChannel('stripe')}
-                              />
-                              Card (Stripe)
-                            </label>
-                          ) : (
-                            <span className="text-slate-600">Payment: UPI / bank (per your membership)</span>
-                          )}
-                          {paymentMethods.includes('stripe') && (
-                            <label className="inline-flex items-center gap-1.5 cursor-pointer">
-                              <input
-                                type="radio"
-                                name={`pay-${p.id}`}
-                                checked={payChannel === 'manual'}
-                                onChange={() => setPayChannel('manual')}
-                              />
-                              {paymentMethods.includes('gpay') || paymentMethods.includes('bank')
-                                ? 'UPI, bank & proof'
-                                : 'Bank / manual'}
-                            </label>
-                          )}
-                        </div>
-                      )}
+                      <p className="mt-2 text-[9px] text-slate-500 leading-snug">
+                        Payment method (Stripe vs UPI / bank + proof) matches your membership tags — choose in the next
+                        step, same as the main site.
+                      </p>
 
                       <button
                         type="button"
@@ -1092,7 +1082,7 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh }) 
                         }
                         onClick={(e) => {
                           e.stopPropagation();
-                          startDashboardPayment(p.id);
+                          openEnrollmentSeatModal(p, includedPkg, selIds);
                         }}
                         className="mt-2 w-full inline-flex items-center justify-center gap-1.5 rounded-lg bg-[#D4AF37] text-white text-[11px] font-semibold py-2 px-3 hover:bg-[#b8962e] disabled:opacity-50 disabled:pointer-events-none"
                         data-testid={`dashboard-pay-${p.id}`}
@@ -1102,9 +1092,7 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh }) 
                         ) : (
                           <CreditCard size={14} />
                         )}
-                        {payChannel === 'manual' && hasOfflinePaymentOption
-                          ? 'Proceed to payment (UPI / bank + proof)'
-                          : 'Proceed to payment (Stripe)'}
+                        Continue to enrollment &amp; payment
                       </button>
                     </div>
                   )}
@@ -1120,9 +1108,9 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh }) 
             <div>
               <h3 className="text-sm font-semibold text-slate-900">Immediate family</h3>
               <p className="text-[11px] text-slate-500">
-                Add household members for family enrollments (max 12). Set <strong className="text-slate-700 font-medium">Online / Offline</strong>,{' '}
-                <strong className="text-slate-700 font-medium">country</strong> (e.g. IN, AE), and optionally{' '}
-                <strong className="text-slate-700 font-medium">Notify</strong> — when on, they get enrollment details by email after payment is confirmed (email required).
+                Add household members for family enrollments (max 12). Use <strong className="text-slate-700 font-medium">country</strong>{' '}
+                (e.g. IN, AE) and contact fields. Online / offline and enrollment email notifications are chosen when you
+                enroll or pay for a program, not on this list.
               </p>
             </div>
           </div>
@@ -1195,8 +1183,8 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh }) 
             <div>
               <h3 className="text-sm font-semibold text-slate-900">Friends &amp; extended</h3>
               <p className="text-[11px] text-slate-500">
-                Friends, cousins, relatives, uncles/aunts, grandparents, and similar (max 12). Same fields as immediate family — use{' '}
-                <strong className="text-slate-700 font-medium">Notify</strong> to email them enrollment details after payment.
+                Friends, cousins, relatives, uncles/aunts, grandparents, and similar (max 12). Same contact fields as
+                immediate family; session mode and enrollment emails are set at checkout time.
               </p>
             </div>
           </div>
@@ -1240,6 +1228,160 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh }) 
           </div>
         </div>
       </div>
+
+      <Dialog
+        open={enrollmentSeatOpen}
+        onOpenChange={(open) => {
+          if (!open) {
+            setEnrollmentSeatOpen(false);
+            setSeatModalCtx(null);
+          }
+        }}
+      >
+        <DialogContent className="max-w-lg max-h-[88vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="text-base font-semibold text-slate-900">Enrollment for this program</DialogTitle>
+            <DialogDescription className="text-[11px] text-slate-600 leading-relaxed">
+              Set attendance (online vs in-person remote) and whether each seat should receive enrollment details by email.
+              These choices apply to this checkout only.
+            </DialogDescription>
+          </DialogHeader>
+
+          {seatModalCtx && (
+            <div className="space-y-4 text-[11px]">
+              {!seatModalCtx.includedPkg && (
+                <div className="rounded-lg border border-slate-200 bg-slate-50/80 p-3 space-y-2">
+                  <p className="font-semibold text-slate-800 flex items-center gap-1.5">
+                    <Users size={14} className="text-violet-600" />
+                    Your seat
+                  </p>
+                  <p className="text-slate-600">{homeData?.user_details?.full_name || 'Account holder'}</p>
+                  <div className="flex flex-wrap gap-3 items-center">
+                    <span className="text-slate-500 shrink-0">Mode</span>
+                    <label className="inline-flex items-center gap-1 cursor-pointer">
+                      <input
+                        type="radio"
+                        name="dash-booker-mode"
+                        checked={bookerSeatMode === 'online'}
+                        onChange={() => setBookerSeatMode('online')}
+                      />
+                      <Wifi size={12} className="text-slate-500" />
+                      Online
+                    </label>
+                    <label className="inline-flex items-center gap-1 cursor-pointer">
+                      <input
+                        type="radio"
+                        name="dash-booker-mode"
+                        checked={bookerSeatMode === 'offline'}
+                        onChange={() => setBookerSeatMode('offline')}
+                      />
+                      <Monitor size={12} className="text-slate-500" />
+                      Offline
+                    </label>
+                  </div>
+                  <label className="flex items-start gap-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      className="mt-0.5 rounded border-slate-300"
+                      checked={bookerSeatNotify}
+                      onChange={(e) => setBookerSeatNotify(e.target.checked)}
+                    />
+                    <span>
+                      <span className="inline-flex items-center gap-1 font-medium text-slate-800">
+                        {bookerSeatNotify ? <Bell size={12} className="text-slate-500" /> : <BellOff size={12} className="text-slate-400" />}
+                        Email me enrollment details
+                      </span>
+                      <span className="block text-[10px] text-slate-500 mt-0.5">
+                        Requires an email on your login account if enabled.
+                      </span>
+                    </span>
+                  </label>
+                </div>
+              )}
+
+              {seatModalCtx.selectedIds.length > 0 && (
+                <div className="space-y-2">
+                  <p className="font-semibold text-slate-800 text-[11px]">Guests in this enrollment</p>
+                  <div className="space-y-2 max-h-[42vh] overflow-y-auto pr-1">
+                    {seatModalCtx.selectedIds.map((id) => {
+                      const m = enrollableGuests.find((g) => String(g.id) === String(id));
+                      const row = guestSeatForm[id] || { attendance_mode: 'online', notify_enrollment: false };
+                      return (
+                        <div key={id} className="rounded-lg border border-slate-200 p-2.5 space-y-2 bg-white">
+                          <p className="font-medium text-slate-900">
+                            {m?.name || 'Guest'}
+                            {m?.relationship ? (
+                              <span className="text-slate-400 font-normal"> ({m.relationship})</span>
+                            ) : null}
+                          </p>
+                          <div className="flex flex-wrap gap-3 items-center">
+                            <span className="text-slate-500 shrink-0">Mode</span>
+                            <label className="inline-flex items-center gap-1 cursor-pointer">
+                              <input
+                                type="radio"
+                                name={`guest-mode-${id}`}
+                                checked={row.attendance_mode !== 'offline'}
+                                onChange={() => updateGuestSeatField(id, 'attendance_mode', 'online')}
+                              />
+                              <Wifi size={12} className="text-slate-500" />
+                              Online
+                            </label>
+                            <label className="inline-flex items-center gap-1 cursor-pointer">
+                              <input
+                                type="radio"
+                                name={`guest-mode-${id}`}
+                                checked={row.attendance_mode === 'offline'}
+                                onChange={() => updateGuestSeatField(id, 'attendance_mode', 'offline')}
+                              />
+                              <Monitor size={12} className="text-slate-500" />
+                              Offline
+                            </label>
+                          </div>
+                          <label className="flex items-start gap-2 cursor-pointer">
+                            <input
+                              type="checkbox"
+                              className="mt-0.5 rounded border-slate-300"
+                              checked={!!row.notify_enrollment}
+                              onChange={(e) => updateGuestSeatField(id, 'notify_enrollment', e.target.checked)}
+                            />
+                            <span>
+                              <span className="font-medium text-slate-800">Email enrollment details to guest</span>
+                              <span className="block text-[10px] text-slate-500 mt-0.5">
+                                Requires an email in their saved row above.
+                              </span>
+                            </span>
+                          </label>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          <DialogFooter className="gap-2 sm:justify-end">
+            <Button
+              type="button"
+              variant="outline"
+              className="text-xs h-9"
+              onClick={() => {
+                setEnrollmentSeatOpen(false);
+                setSeatModalCtx(null);
+              }}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              className="text-xs h-9 bg-[#D4AF37] hover:bg-[#b8962e] text-white"
+              onClick={confirmEnrollmentSeatsAndPay}
+            >
+              Continue to payment
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {programPaymentModal && (
         <DashboardProgramPaymentModal

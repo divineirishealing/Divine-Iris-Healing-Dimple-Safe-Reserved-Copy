@@ -7,9 +7,6 @@ import {
   Upload,
   Loader2,
   CheckCircle,
-  ExternalLink,
-  Copy,
-  Check,
   CreditCard,
   Globe,
 } from 'lucide-react';
@@ -58,8 +55,6 @@ export default function DashboardProgramPaymentModal({
   const [loadingEnroll, setLoadingEnroll] = useState(false);
   const [channel, setChannel] = useState('stripe');
   const [stripeLoading, setStripeLoading] = useState(false);
-  const [stripeUrl, setStripeUrl] = useState('');
-  const [copied, setCopied] = useState(false);
 
   const [payerName, setPayerName] = useState('');
   const [payerEmail, setPayerEmail] = useState('');
@@ -93,8 +88,6 @@ export default function DashboardProgramPaymentModal({
   useEffect(() => {
     if (!open) return;
     setChannel(initialPayChannel === 'manual' || !hasStripe ? 'manual' : 'stripe');
-    setStripeUrl('');
-    setCopied(false);
     setProofSubmitted(false);
     setScreenshot(null);
     setSelectedBankIdx(0);
@@ -123,7 +116,6 @@ export default function DashboardProgramPaymentModal({
 
   const startStripeCheckout = async () => {
     setStripeLoading(true);
-    setStripeUrl('');
     try {
       const checkout = await axios.post(
         `${API}/api/enrollment/${enrollmentId}/checkout`,
@@ -150,15 +142,17 @@ export default function DashboardProgramPaymentModal({
       if (checkout.data.url === '__FREE_SUCCESS__') {
         toast({ title: 'No payment required' });
         onSuccess?.();
-        onClose();
+        const sid = checkout.data.session_id;
+        if (sid && typeof window !== 'undefined') {
+          window.location.href = `/payment/success?session_id=${encodeURIComponent(sid)}`;
+        } else {
+          onClose();
+        }
         return;
       }
       if (checkout.data.url) {
-        setStripeUrl(checkout.data.url);
-        toast({
-          title: 'Stripe link ready',
-          description: 'Open the link below or copy it to pay on another device.',
-        });
+        window.location.href = checkout.data.url;
+        return;
       } else {
         toast({
           title: 'Stripe link unavailable',
@@ -174,17 +168,6 @@ export default function DashboardProgramPaymentModal({
       });
     } finally {
       setStripeLoading(false);
-    }
-  };
-
-  const copyStripe = async () => {
-    if (!stripeUrl) return;
-    try {
-      await navigator.clipboard.writeText(stripeUrl);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    } catch {
-      toast({ title: 'Could not copy', variant: 'destructive' });
     }
   };
 
@@ -291,7 +274,7 @@ export default function DashboardProgramPaymentModal({
                     <span className="font-semibold text-sm text-gray-900">Stripe checkout</span>
                   </div>
                   <p className="text-[10px] text-gray-600">
-                    Secure card payment. You can open the link here or copy it to pay on another device.
+                    Secure card payment — you will be redirected to Stripe (same as the main enrollment checkout).
                   </p>
                   <Button
                     type="button"
@@ -304,28 +287,8 @@ export default function DashboardProgramPaymentModal({
                     ) : (
                       <CreditCard size={16} className="mr-2" />
                     )}
-                    {stripeUrl ? 'Refresh Stripe link' : 'Get Stripe payment link'}
+                    Continue to Stripe
                   </Button>
-                  {stripeUrl ? (
-                    <div className="space-y-2">
-                      <Label className="text-[10px]">Payment link</Label>
-                      <div className="flex gap-2">
-                        <Input readOnly value={stripeUrl} className="text-[10px] h-9 font-mono" />
-                        <Button type="button" variant="outline" size="sm" className="shrink-0 h-9 px-2" onClick={copyStripe}>
-                          {copied ? <Check size={14} className="text-green-600" /> : <Copy size={14} />}
-                        </Button>
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                          className="shrink-0 h-9 px-2"
-                          onClick={() => window.open(stripeUrl, '_blank', 'noopener,noreferrer')}
-                        >
-                          <ExternalLink size={14} />
-                        </Button>
-                      </div>
-                    </div>
-                  ) : null}
                 </div>
               )}
 
