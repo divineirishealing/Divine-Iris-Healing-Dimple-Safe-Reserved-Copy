@@ -13,7 +13,7 @@ import {
 } from './dashboardUpcomingHelpers';
 
 /** Bottom-left panel: portal quote lines (template: “Prices / calculate total”). */
-function AnnualQuoteBreakdown({ aq, symbol, includedPkg }) {
+function AnnualQuoteBreakdown({ aq, symbol, includedPkg, suppressIntro = false }) {
   if (!aq) {
     return <p className="text-[11px] text-slate-500 italic">Calculating total…</p>;
   }
@@ -22,10 +22,14 @@ function AnnualQuoteBreakdown({ aq, symbol, includedPkg }) {
   const showSelf = !includedPkg && aq.include_self !== false;
   return (
     <div className="space-y-2 text-[11px] text-slate-700 leading-snug">
-      <p className="text-[10px] font-bold uppercase tracking-wide text-slate-500">
-        Prices — Annual member · Immediate family · Friends &amp; extended
-      </p>
-      <p className="font-semibold text-slate-900 text-xs">Calculate total amount</p>
+      {!suppressIntro ? (
+        <>
+          <p className="text-[10px] font-bold uppercase tracking-wide text-slate-500">
+            Prices — Annual member · Immediate family · Friends &amp; extended
+          </p>
+          <p className="font-semibold text-slate-900 text-xs">Calculate total amount</p>
+        </>
+      ) : null}
       <ul className="list-none space-y-1.5 pl-0 text-[11px]">
         {includedPkg ? <li className="text-slate-600">Your seat: included in annual package</li> : null}
         {showSelf ? (
@@ -191,7 +195,7 @@ export default function DashboardUpcomingProgramRowItem({
     tiers.length <= 1 ? 'grid-cols-1' : tiers.length === 2 ? 'grid-cols-2' : 'grid-cols-3';
 
   const outerShellClass = subscriberIsAnnual
-    ? `w-full max-w-6xl mr-auto transition-all duration-300 ${enrollStatus === 'closed' ? 'opacity-60' : ''}`
+    ? `w-full mr-auto transition-all duration-300 ${enrollStatus === 'closed' ? 'opacity-60' : ''}`
     : `group bg-white rounded-xl overflow-hidden shadow-lg border border-gray-100 flex flex-col sm:flex-row sm:items-stretch w-full max-w-md mr-auto transition-all duration-300 ${
         enrollStatus === 'closed' ? 'opacity-60' : 'hover:shadow-2xl'
       }`;
@@ -316,9 +320,10 @@ export default function DashboardUpcomingProgramRowItem({
   return (
     <div className={outerShellClass} data-testid={`dashboard-upcoming-${p.id}`}>
       {subscriberIsAnnual ? (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 lg:gap-5 items-stretch w-full">
+        <div className="w-full flex flex-col xl:flex-row xl:items-stretch gap-4 xl:gap-4">
+          {/* 1 — Same footprint as non-annual dashboard card: vertical max-w-md (~28rem) */}
           <div
-            className={`group bg-white rounded-xl overflow-hidden shadow-lg border border-gray-100 flex flex-col min-h-0 ${
+            className={`group bg-white rounded-xl overflow-hidden shadow-lg border border-gray-100 flex flex-col w-full max-w-md xl:w-[28rem] xl:max-w-[28rem] xl:shrink-0 mx-auto xl:mx-0 min-h-0 ${
               enrollStatus === 'closed' ? 'opacity-60' : 'hover:shadow-2xl'
             }`}
           >
@@ -384,11 +389,11 @@ export default function DashboardUpcomingProgramRowItem({
                   const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
                   const mins = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
                   return (
-                    <div className="flex items-center gap-2 bg-red-50 border border-red-100 rounded-lg px-3 py-2 mb-3 animate-pulse">
+                    <div className="flex items-center gap-2 bg-red-50 border border-red-200 rounded-lg px-3 py-2 mb-3">
                       <Bell size={14} className="text-red-500 flex-shrink-0" />
-                      <div className="text-xs">
-                        <span className="font-bold text-red-600">{p.offer_text || 'Early Bird'}</span>
-                        <span className="text-red-500 ml-1.5">
+                      <div className="text-xs leading-snug min-w-0">
+                        <span className="font-bold text-red-600 uppercase tracking-wide">{p.offer_text || 'Exclusive'}</span>
+                        <span className="text-red-600 ml-1.5">
                           ends in {days}d {hours}h {mins}m
                         </span>
                       </div>
@@ -396,7 +401,7 @@ export default function DashboardUpcomingProgramRowItem({
                   );
                 })()}
               {aq ? (
-                <div className="flex flex-wrap items-baseline gap-2 mb-3">
+                <div className="flex flex-wrap items-baseline gap-2 mb-3 mt-auto">
                   <span className="text-xl font-bold text-[#D4AF37] tabular-nums">
                     {symbol} {Number(aq.total ?? 0).toLocaleString()}
                   </span>
@@ -409,22 +414,79 @@ export default function DashboardUpcomingProgramRowItem({
               ) : (
                 <p className="text-xs text-slate-500 mb-2">Loading price…</p>
               )}
-              <button
-                type="button"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  goProgram();
-                }}
-                data-testid={`dashboard-know-more-annual-${p.id}`}
-                className="w-full inline-flex items-center justify-center bg-[#1a1a1a] hover:bg-[#333] text-white py-2.5 px-6 rounded-full text-[10px] tracking-wider transition-all duration-300 uppercase font-medium"
-              >
-                Know More
-              </button>
-              {enrollStatus === 'closed' && (
+              {enrollStatus === 'open' ? (
+                <>
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      goProgram();
+                    }}
+                    data-testid={`dashboard-know-more-annual-${p.id}`}
+                    className="w-full inline-flex items-center justify-center bg-[#1a1a1a] hover:bg-[#333] text-white py-2.5 px-6 rounded-full text-[10px] tracking-wider transition-all duration-300 uppercase font-medium"
+                  >
+                    Know More
+                  </button>
+                  <div className="flex gap-1.5 mt-2">
+                    {price > 0 ? (
+                      <button
+                        type="button"
+                        onClick={handleAddToCart}
+                        disabled={inCart || justAdded}
+                        className={`flex items-center justify-center px-2.5 py-2 rounded-full text-[10px] transition-all font-medium border shrink-0 ${
+                          inCart || justAdded
+                            ? 'bg-green-50 text-green-600 border-green-200'
+                            : 'bg-white text-gray-700 border-gray-200 hover:border-[#D4AF37] hover:text-[#D4AF37]'
+                        }`}
+                        aria-label="Add to cart"
+                      >
+                        {inCart || justAdded ? <Check size={11} /> : <ShoppingCart size={11} />}
+                      </button>
+                    ) : null}
+                    <button
+                      type="button"
+                      disabled={!canPay || payingProgramId === p.id}
+                      title={
+                        !canPay
+                          ? includedPkg && selCount < 1
+                            ? 'Select family members in the next column, or wait for pricing.'
+                            : !aq
+                              ? 'Loading pricing…'
+                              : (aq.total || 0) <= 0
+                                ? 'No amount due for this selection.'
+                                : ''
+                          : undefined
+                      }
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        if (annualSeatUi?.onContinuePay) {
+                          annualSeatUi.onContinuePay();
+                        } else {
+                          openEnrollmentSeatModal(p, includedPkg, selIds);
+                        }
+                      }}
+                      className="flex-1 min-w-[7rem] bg-[#D4AF37] hover:bg-[#b8962e] text-white py-2 rounded-full text-[10px] tracking-wider transition-all duration-300 uppercase font-medium disabled:opacity-50 disabled:pointer-events-none"
+                      data-testid={`dashboard-enroll-annual-${p.id}`}
+                    >
+                      {payingProgramId === p.id ? (
+                        <span className="inline-flex items-center justify-center gap-1.5">
+                          <Loader2 size={14} className="animate-spin shrink-0" />
+                          Processing
+                        </span>
+                      ) : (
+                        'Enroll Now'
+                      )}
+                    </button>
+                  </div>
+                  <p className="text-[10px] text-slate-500 mt-2 leading-snug">
+                    Portal checkout uses the attendance &amp; email column when you continue.
+                  </p>
+                </>
+              ) : (
                 <button
                   type="button"
                   disabled
-                  className="mt-3 w-full bg-gray-300 text-gray-500 py-2 rounded-full text-[10px] tracking-wider uppercase font-medium cursor-not-allowed"
+                  className="mt-1 w-full bg-gray-300 text-gray-500 py-2 rounded-full text-[10px] tracking-wider uppercase font-medium cursor-not-allowed"
                 >
                   {p.closure_text || 'Closed'}
                 </button>
@@ -432,10 +494,20 @@ export default function DashboardUpcomingProgramRowItem({
             </div>
           </div>
 
-          <div className="rounded-xl border border-amber-100/80 bg-amber-50/25 p-3 sm:p-4 min-h-0 flex flex-col">
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 flex-1">
+          {/* 2 — Pricing & offer */}
+          <div className="rounded-xl border border-slate-200 bg-white p-3 sm:p-4 shadow-sm min-h-0 flex flex-col flex-1 min-w-0">
+            <p className="text-[10px] font-bold uppercase tracking-wide text-slate-600 mb-2">Pricing &amp; offer</p>
+            <div className="flex-1 min-h-0 overflow-y-auto max-h-[28rem] xl:max-h-none">
+              <AnnualQuoteBreakdown aq={aq} symbol={symbol} includedPkg={includedPkg} suppressIntro />
+            </div>
+          </div>
+
+          {/* 3 — Family to join */}
+          <div className="rounded-xl border border-amber-100/80 bg-amber-50/25 p-3 sm:p-4 min-h-0 flex flex-col flex-1 min-w-0">
+            <p className="text-[10px] font-bold uppercase tracking-wide text-slate-600 mb-2">Family to join</p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 flex-1 min-h-0">
               <div className="min-w-0">
-                <p className="text-[10px] font-bold uppercase tracking-wide text-slate-600 mb-2">Family members to join</p>
+                <p className="text-[10px] font-bold uppercase tracking-wide text-slate-500 mb-2">Immediate family</p>
                 {enrollableGuests.length === 0 ? (
                   <p className="text-xs text-slate-500">Add people under the lists below, then save.</p>
                 ) : (
@@ -464,7 +536,6 @@ export default function DashboardUpcomingProgramRowItem({
                     ) : null}
                     {members.length > 0 ? (
                       <div>
-                        <p className="text-[10px] font-bold uppercase tracking-wide text-slate-500 mb-1">Immediate family</p>
                         <ul className="space-y-1.5">
                           {members.map((m, gidx) => {
                             const mid = m.id || `imm-${gidx}-${m.name}-${m.email}`;
@@ -531,14 +602,14 @@ export default function DashboardUpcomingProgramRowItem({
             )}
           </div>
 
-          <div className="rounded-xl border border-slate-200 bg-white p-3 sm:p-4 shadow-sm min-h-0">
-            <AnnualQuoteBreakdown aq={aq} symbol={symbol} includedPkg={includedPkg} />
-          </div>
-
-          <div className="rounded-xl border border-slate-200/90 bg-white p-3 sm:p-4 shadow-sm flex flex-col gap-3 min-h-0">
+          {/* 4 — Attendance & notification */}
+          <div className="rounded-xl border border-slate-200/90 bg-white p-3 sm:p-4 shadow-sm flex flex-col gap-3 min-h-0 flex-1 min-w-0">
+            <p className="text-[10px] font-bold uppercase tracking-wide text-slate-600 shrink-0">
+              Attendance &amp; notification
+            </p>
             {annualSeatUi && (!includedPkg || selCount >= 1) ? (
               <div
-                className="rounded-lg border border-violet-200/80 bg-gradient-to-b from-violet-50/40 to-white px-2.5 py-2 space-y-2"
+                className="rounded-lg border border-violet-200/80 bg-gradient-to-b from-violet-50/40 to-white px-2.5 py-2 space-y-2 flex-1 min-h-0 overflow-y-auto max-h-[28rem] xl:max-h-none"
                 data-testid={`dashboard-compact-seat-${p.id}`}
               >
                 <div>
