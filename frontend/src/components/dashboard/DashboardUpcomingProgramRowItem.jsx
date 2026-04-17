@@ -120,14 +120,14 @@ export default function DashboardUpcomingProgramRowItem({
 
   return (
     <div
-      className={`group bg-white rounded-xl overflow-hidden shadow-lg border border-gray-100/90 flex flex-col lg:flex-row lg:items-stretch transition-all duration-300 hover:shadow-xl ${
+      className={`group bg-white rounded-xl overflow-hidden shadow-lg border border-gray-100/90 flex flex-col transition-all duration-300 hover:shadow-xl ${
         enrollStatus === 'closed' ? 'opacity-[0.88]' : ''
       }`}
       data-testid={`dashboard-upcoming-${p.id}`}
     >
-      {/* Hero — matches homepage upcoming card image strip */}
+      {/* Hero — shorter strip; full width above copy */}
       <div
-        className={`relative h-52 sm:h-56 lg:h-auto lg:min-h-[17.5rem] w-full lg:w-[min(100%,22rem)] xl:w-[min(100%,24rem)] shrink-0 overflow-hidden ${
+        className={`relative h-36 sm:h-40 md:h-44 w-full shrink-0 overflow-hidden ${
           enrollStatus === 'open' && !subscriberIsAnnual ? 'cursor-pointer' : enrollStatus === 'open' ? 'cursor-pointer' : ''
         }`}
         onClick={heroClick}
@@ -158,19 +158,19 @@ export default function DashboardUpcomingProgramRowItem({
 
         {enrollStatus === 'open' ? (
           <>
-            <div className="absolute top-3 left-3 z-10 flex flex-col gap-1.5 max-w-[48%]">
+            <div className="absolute top-2 left-2 z-10 flex flex-col gap-1 max-w-[46%]">
               {p.enable_online !== false && (
-                <span className="px-2.5 py-1 rounded-full text-[11px] sm:text-xs font-semibold shadow-md bg-blue-500 text-white w-fit leading-snug">
+                <span className="px-2 py-0.5 rounded-full text-[10px] sm:text-[11px] font-semibold shadow-md bg-blue-500 text-white w-fit leading-snug">
                   Online (Zoom)
                 </span>
               )}
               {p.enable_offline !== false && (
-                <span className="px-2.5 py-1 rounded-full text-[11px] sm:text-xs font-semibold shadow-md bg-teal-600 text-white w-fit leading-snug">
+                <span className="px-2 py-0.5 rounded-full text-[10px] sm:text-[11px] font-semibold shadow-md bg-teal-600 text-white w-fit leading-snug">
                   Offline (Remote, Not In-Person)
                 </span>
               )}
               {p.enable_in_person && (
-                <span className="px-2.5 py-1 rounded-full text-[11px] sm:text-xs font-semibold shadow-md bg-teal-700 text-white w-fit leading-snug">
+                <span className="px-2 py-0.5 rounded-full text-[10px] sm:text-[11px] font-semibold shadow-md bg-teal-700 text-white w-fit leading-snug">
                   In-Person
                 </span>
               )}
@@ -178,26 +178,26 @@ export default function DashboardUpcomingProgramRowItem({
 
             {datetimeBadges.length > 0 && (
               <div
-                className="absolute top-3 right-3 z-10 flex flex-col items-end gap-1.5 max-w-[52%]"
+                className="absolute top-2 right-2 z-10 flex flex-col items-end gap-1 max-w-[54%]"
                 data-testid={`dashboard-hero-datetime-${p.id}`}
               >
                 {datetimeBadges.map((row, idx) =>
                   row.type === 'duration' ? (
                     <span
                       key={idx}
-                      className="bg-[#D4AF37] backdrop-blur-md text-white text-[11px] sm:text-xs font-bold px-2.5 py-1 rounded-md shadow-md tracking-wide"
+                      className="bg-[#D4AF37] backdrop-blur-md text-white text-[10px] sm:text-[11px] font-bold px-2 py-0.5 rounded-md shadow-md tracking-wide"
                     >
                       {row.text}
                     </span>
                   ) : (
                     <span
                       key={idx}
-                      className="bg-black/60 backdrop-blur-md text-white text-[11px] sm:text-xs font-bold px-2.5 py-1 rounded-md flex items-center gap-1.5"
+                      className="bg-black/60 backdrop-blur-md text-white text-[10px] sm:text-[11px] font-bold px-2 py-0.5 rounded-md flex items-center gap-1"
                     >
                       {row.type === 'clock' ? (
-                        <Clock size={12} className="flex-shrink-0 opacity-95" />
+                        <Clock size={11} className="flex-shrink-0 opacity-95" />
                       ) : (
-                        <Calendar size={12} className="flex-shrink-0 opacity-95" />
+                        <Calendar size={11} className="flex-shrink-0 opacity-95" />
                       )}
                       <span className="text-left leading-snug">{row.text}</span>
                     </span>
@@ -206,7 +206,7 @@ export default function DashboardUpcomingProgramRowItem({
               </div>
             )}
 
-            <div className="absolute bottom-0 left-0 right-0 z-10 bg-gradient-to-t from-black/80 via-black/35 to-transparent px-3 py-3 pt-10">
+            <div className="absolute bottom-0 left-0 right-0 z-10 bg-gradient-to-t from-black/80 via-black/35 to-transparent px-2.5 py-2 pt-7">
               <div className="flex items-end justify-between gap-3">
                 <div className="flex-shrink-0 min-w-0">
                   {deadline && <CountdownTimer deadline={deadline} />}
@@ -237,8 +237,8 @@ export default function DashboardUpcomingProgramRowItem({
         )}
       </div>
 
-      {/* Body — homepage card content, calmer spacing */}
-      <div className="flex-1 min-w-0 flex flex-col p-5 md:p-6 lg:py-6 lg:pr-6">
+      {/* Body — below hero: title, write-up, Know more, then actions */}
+      <div className="flex-1 min-w-0 flex flex-col p-4 md:p-5">
         <p className="text-[#D4AF37] text-[11px] sm:text-xs tracking-[0.14em] mb-1 uppercase font-semibold">
           {p.category || 'Program'}
         </p>
@@ -292,7 +292,19 @@ export default function DashboardUpcomingProgramRowItem({
           )}
         </div>
 
-        <p className="text-slate-600 text-sm sm:text-[0.9375rem] leading-relaxed mb-4 line-clamp-3">{p.description}</p>
+        <p className="text-slate-600 text-sm sm:text-[0.9375rem] leading-relaxed mb-3 line-clamp-4">{p.description}</p>
+
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            goProgram();
+          }}
+          data-testid={`dashboard-know-more-${p.id}`}
+          className="mb-4 w-full sm:w-auto inline-flex items-center justify-center bg-[#1a1a1a] hover:bg-[#333] text-white py-2.5 px-8 rounded-full text-xs sm:text-sm tracking-wider transition-all uppercase font-semibold shadow-sm"
+        >
+          Know More
+        </button>
 
         {enrollStatus === 'open' && !subscriberIsAnnual && hasTiers && (
           <div data-testid={`dashboard-tier-selector-${p.id}`} className="mb-4">
@@ -537,26 +549,17 @@ export default function DashboardUpcomingProgramRowItem({
                     )}
                   </div>
                   <div className="flex flex-wrap gap-2">
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        goProgram();
-                      }}
-                      className="flex-1 min-w-[7rem] bg-[#1a1a1a] hover:bg-[#333] text-white py-2.5 rounded-full text-xs sm:text-sm tracking-wider transition-all uppercase font-semibold"
-                    >
-                      Know More
-                    </button>
                     {price > 0 && (
                       <button
                         type="button"
                         onClick={handleAddToCart}
                         disabled={inCart || justAdded}
-                        className={`flex items-center justify-center px-3 py-2.5 rounded-full text-xs sm:text-sm font-semibold border transition-all ${
+                        className={`flex flex-1 min-w-[3rem] items-center justify-center px-3 py-2.5 rounded-full text-xs sm:text-sm font-semibold border transition-all ${
                           inCart || justAdded
                             ? 'bg-green-50 text-green-700 border-green-200'
                             : 'bg-white text-gray-700 border-gray-200 hover:border-[#D4AF37] hover:text-[#D4AF37]'
                         }`}
+                        aria-label="Add to cart"
                       >
                         {inCart || justAdded ? <Check size={16} /> : <ShoppingCart size={16} />}
                       </button>
@@ -567,7 +570,7 @@ export default function DashboardUpcomingProgramRowItem({
                         e.stopPropagation();
                         navigate(`/enroll/program/${p.id}?tier=${tierIdxForDisplay}`);
                       }}
-                      className="flex-1 min-w-[7rem] bg-[#D4AF37] hover:bg-[#b8962e] text-white py-2.5 rounded-full text-xs sm:text-sm tracking-wider transition-all uppercase font-semibold"
+                      className="flex-1 min-w-[9rem] bg-[#D4AF37] hover:bg-[#b8962e] text-white py-2.5 rounded-full text-xs sm:text-sm tracking-wider transition-all uppercase font-semibold"
                     >
                       {price > 0 ? 'Enroll Now' : 'Register Free'}
                     </button>
@@ -581,31 +584,12 @@ export default function DashboardUpcomingProgramRowItem({
           )
         )}
 
-        {enrollStatus === 'coming_soon' && (
+        {enrollStatus === 'closed' && (
           <div className="mt-auto pt-4 border-t border-gray-100">
             <button
               type="button"
-              onClick={goProgram}
-              className="w-full bg-[#1a1a1a] hover:bg-[#333] text-white py-2.5 rounded-full text-sm tracking-wider uppercase font-semibold"
-            >
-              Know More
-            </button>
-          </div>
-        )}
-
-        {enrollStatus === 'closed' && (
-          <div className="mt-auto pt-4 border-t border-gray-100 flex flex-wrap gap-2">
-            <button
-              type="button"
-              onClick={goProgram}
-              className="flex-1 bg-[#1a1a1a] hover:bg-[#333] text-white py-2.5 rounded-full text-sm tracking-wider uppercase font-semibold"
-            >
-              Know More
-            </button>
-            <button
-              type="button"
               disabled
-              className="flex-1 bg-gray-300 text-gray-500 py-2.5 rounded-full text-sm tracking-wider uppercase font-semibold cursor-not-allowed"
+              className="w-full bg-gray-200 text-gray-500 py-2.5 rounded-full text-sm tracking-wider uppercase font-semibold cursor-not-allowed"
             >
               {p.closure_text || 'Closed'}
             </button>
