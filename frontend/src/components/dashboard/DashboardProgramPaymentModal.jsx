@@ -24,6 +24,9 @@ import {
 
 const API = process.env.REACT_APP_BACKEND_URL;
 
+/** Stable id — only one payment modal open at a time. Matches IndiaPaymentPage proof pattern. */
+const DASHBOARD_PROOF_FILE_INPUT_ID = 'dashboard-program-payment-proof-screenshot';
+
 /**
  * Annual dashboard: pay for an upcoming program without leaving the page.
  * — Stripe: generate checkout link (copy + open)
@@ -381,26 +384,43 @@ export default function DashboardProgramPaymentModal({
                   <div className="grid gap-2">
                     <div>
                       <Label className="text-[10px]">Screenshot *</Label>
-                      <div className="relative mt-1 h-10 w-full">
-                        <input
-                          type="file"
-                          accept="image/png,image/jpeg,image/webp,image/heic,.png,.jpg,.jpeg,.webp,.heic"
-                          className="absolute inset-0 z-30 h-full w-full cursor-pointer opacity-0"
-                          onChange={(e) => {
-                            const f = e.target.files?.[0] || null;
-                            setScreenshot(f);
-                            e.target.value = '';
-                          }}
-                          aria-label="Choose payment screenshot image"
-                        />
-                        <div
-                          className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center gap-2 rounded-md border border-input bg-background px-3 text-xs font-medium shadow-sm hover:bg-accent hover:text-accent-foreground"
-                          aria-hidden
-                        >
-                          <Upload size={14} className="shrink-0" />
-                          <span className="truncate">{screenshot ? screenshot.name : 'Choose image'}</span>
-                        </div>
+                      <div
+                        role="button"
+                        tabIndex={0}
+                        className="mt-1 cursor-pointer rounded-lg border-2 border-dashed border-slate-200 bg-slate-50/80 px-3 py-5 text-center transition-colors hover:border-[#5D3FD3]/45 hover:bg-violet-50/30"
+                        onClick={() => document.getElementById(DASHBOARD_PROOF_FILE_INPUT_ID)?.click()}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter' || e.key === ' ') {
+                            e.preventDefault();
+                            document.getElementById(DASHBOARD_PROOF_FILE_INPUT_ID)?.click();
+                          }
+                        }}
+                      >
+                        {screenshot ? (
+                          <>
+                            <Upload size={18} className="mx-auto text-[#5D3FD3] mb-1" aria-hidden />
+                            <p className="text-[11px] font-medium text-gray-800 truncate max-w-full">{screenshot.name}</p>
+                            <p className="text-[10px] text-gray-500 mt-0.5">Tap to change image</p>
+                          </>
+                        ) : (
+                          <>
+                            <Upload size={22} className="mx-auto text-gray-400 mb-1" aria-hidden />
+                            <p className="text-[11px] text-gray-600">Tap to upload screenshot</p>
+                          </>
+                        )}
                       </div>
+                      <input
+                        id={DASHBOARD_PROOF_FILE_INPUT_ID}
+                        type="file"
+                        accept="image/*"
+                        className="hidden"
+                        data-testid="dashboard-proof-screenshot-input"
+                        onChange={(e) => {
+                          const f = e.target.files?.[0] || null;
+                          setScreenshot(f);
+                          e.target.value = '';
+                        }}
+                      />
                     </div>
                     <div className="grid grid-cols-2 gap-2">
                       <div>
