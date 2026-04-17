@@ -566,24 +566,45 @@ const PaymentModal = ({
               <div><Label className="text-xs">Payer's Name</Label><Input value={paidBy} onChange={e => setPaidBy(e.target.value)} placeholder="Full name of payer" className="h-9" /></div>
             )}
 
-            {/* Receipt Upload */}
+            {/* Receipt Upload — visible file input (reliable on desktop; hidden + ref.click() is flaky in some browsers) */}
             <div>
               <Label className="text-xs">Upload Receipt / Screenshot</Label>
-              <div className="mt-1">
+              <div className="mt-1 space-y-2">
                 {receipt ? (
                   <div className="flex items-center gap-2 p-2 bg-green-50 rounded-lg border border-green-200">
                     <FileText size={14} className="text-green-600" />
                     <span className="text-xs text-green-700 flex-1 truncate">{receipt.name}</span>
-                    <button onClick={() => setReceipt(null)} className="text-red-400 hover:text-red-600"><X size={12} /></button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setReceipt(null);
+                        const el = fileRef.current;
+                        if (el) el.value = '';
+                      }}
+                      className="text-red-400 hover:text-red-600"
+                    >
+                      <X size={12} />
+                    </button>
                   </div>
-                ) : (
-                  <button onClick={() => fileRef.current?.click()}
-                    className="w-full h-16 border-2 border-dashed rounded-xl flex flex-col items-center justify-center gap-1 text-gray-400 hover:text-gray-600 hover:border-gray-400 transition-colors">
-                    <Upload size={16} />
-                    <span className="text-[10px]">Upload receipt (PNG, JPG, PDF)</span>
-                  </button>
-                )}
-                <input ref={fileRef} type="file" accept="image/*,.pdf" className="hidden" onChange={e => setReceipt(e.target.files?.[0])} />
+                ) : null}
+                <label className="flex cursor-pointer flex-col gap-2 rounded-xl border-2 border-dashed border-gray-200 bg-gray-50/50 p-3 hover:border-gray-400 transition-colors">
+                  <div className="flex items-center gap-2 text-[11px] text-gray-700">
+                    <Upload size={16} className="text-[#5D3FD3] shrink-0" />
+                    <span>{receipt ? 'Change file' : 'Add receipt (PNG, JPG, PDF)'}</span>
+                  </div>
+                  <input
+                    ref={fileRef}
+                    type="file"
+                    accept="image/*,.pdf"
+                    className="block w-full min-h-9 cursor-pointer text-xs text-gray-700 file:mr-3 file:inline-flex file:h-9 file:cursor-pointer file:items-center file:rounded-md file:border file:border-gray-300 file:bg-white file:px-3 file:py-1.5 file:text-xs file:font-medium hover:file:bg-violet-50"
+                    onChange={(e) => {
+                      const el = e.target;
+                      const f = el.files?.[0] ?? null;
+                      if (!f) return;
+                      setReceipt(f);
+                    }}
+                  />
+                </label>
               </div>
             </div>
 

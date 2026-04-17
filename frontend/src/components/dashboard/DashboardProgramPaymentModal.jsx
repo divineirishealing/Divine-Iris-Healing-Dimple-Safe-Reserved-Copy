@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useId, useRef } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import axios from 'axios';
 import {
   X,
@@ -49,7 +49,6 @@ export default function DashboardProgramPaymentModal({
   isPrimary,
 }) {
   const { toast } = useToast();
-  const proofFileInputId = useId();
   const proofFileInputRef = useRef(null);
 
   const [enrollment, setEnrollment] = useState(null);
@@ -384,49 +383,50 @@ export default function DashboardProgramPaymentModal({
                     <div>
                       <Label className="text-[10px]">Screenshot *</Label>
                       <p className="text-[10px] text-slate-500 mt-0.5 mb-1">
-                        Tap the dashed area below (or &quot;Choose image&quot;) to open your gallery or camera. If a pick
-                        seems to do nothing, try again — do not use a hidden upload area from another app.
+                        On a laptop, use the native <span className="font-medium text-slate-700">Browse / Choose File</span>{' '}
+                        control (inside the dashed box). You can also click anywhere in that box. Images only (PNG, JPG,
+                        HEIC, etc.).
                       </p>
-                      <input
-                        key={open ? `proof-${enrollmentId ?? 'session'}` : 'proof-closed'}
-                        ref={proofFileInputRef}
-                        id={proofFileInputId}
-                        type="file"
-                        accept="image/*"
-                        data-testid="dashboard-proof-screenshot-input"
-                        className="sr-only"
-                        onChange={(e) => {
-                          const inputEl = e.target;
-                          const f = inputEl.files?.[0] ?? null;
-                          // Clearing the input (or canceling the picker) often fires `change` with no file — never wipe a
-                          // valid selection in that case.
-                          if (!f) return;
-                          if (f.type && !f.type.startsWith('image/')) {
-                            toast({
-                              title: 'Please choose an image',
-                              description: 'Screenshots and photos only for payment proof.',
-                              variant: 'destructive',
-                            });
-                            inputEl.value = '';
-                            setScreenshot(null);
-                            return;
-                          }
-                          setScreenshot(f);
-                        }}
-                      />
-                      <label
-                        htmlFor={proofFileInputId}
-                        className="mt-1 flex min-h-[3rem] cursor-pointer flex-col items-center justify-center gap-1 rounded-lg border-2 border-dashed border-slate-200 bg-slate-50/80 px-3 py-4 text-center transition-colors hover:border-[#5D3FD3]/45 hover:bg-violet-50/30"
-                      >
-                        <Upload size={20} className="text-[#5D3FD3]" aria-hidden />
-                        <span className="text-[11px] font-medium text-slate-800">
-                          {screenshot ? 'Tap to change image' : 'Choose image from gallery or camera'}
-                        </span>
+                      {/*
+                        Visible file input inside <label> so both the OS file button and the dashed hit-area open the
+                        picker reliably (avoids sr-only + htmlFor quirks on some desktop browsers).
+                      */}
+                      <label className="mt-1 flex cursor-pointer flex-col gap-2 rounded-lg border-2 border-dashed border-slate-200 bg-slate-50/80 px-3 py-3 transition-colors hover:border-[#5D3FD3]/45 hover:bg-violet-50/25">
+                        <div className="flex items-center gap-2 select-none">
+                          <Upload size={18} className="text-[#5D3FD3] shrink-0" aria-hidden />
+                          <span className="text-[11px] font-medium text-slate-800">
+                            {screenshot ? 'Change screenshot' : 'Add payment screenshot'}
+                          </span>
+                        </div>
                         {screenshot ? (
-                          <span className="text-[10px] text-emerald-800 truncate max-w-full">{screenshot.name}</span>
+                          <p className="text-[10px] text-emerald-800 truncate">{screenshot.name}</p>
                         ) : (
-                          <span className="text-[10px] text-slate-500">PNG, JPG, HEIC, or screenshot</span>
+                          <p className="text-[10px] text-slate-500">Then pick a file with the button below.</p>
                         )}
+                        <input
+                          key={open ? `proof-${enrollmentId ?? 'session'}` : 'proof-closed'}
+                          ref={proofFileInputRef}
+                          type="file"
+                          accept="image/*"
+                          data-testid="dashboard-proof-screenshot-input"
+                          className="block w-full min-h-10 cursor-pointer text-xs text-slate-700 file:mr-3 file:inline-flex file:h-9 file:cursor-pointer file:items-center file:rounded-md file:border file:border-slate-300 file:bg-white file:px-4 file:py-2 file:text-xs file:font-semibold file:text-slate-900 hover:file:bg-violet-50"
+                          onChange={(e) => {
+                            const inputEl = e.target;
+                            const f = inputEl.files?.[0] ?? null;
+                            if (!f) return;
+                            if (f.type && !f.type.startsWith('image/')) {
+                              toast({
+                                title: 'Please choose an image',
+                                description: 'Screenshots and photos only for payment proof.',
+                                variant: 'destructive',
+                              });
+                              inputEl.value = '';
+                              setScreenshot(null);
+                              return;
+                            }
+                            setScreenshot(f);
+                          }}
+                        />
                       </label>
                       {screenshot ? (
                         <button
