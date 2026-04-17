@@ -614,17 +614,6 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh, bo
       .join('|');
   }, [programsForPrefetch, selectedFamilyByProgram]);
 
-  const defaultPaymentChannel = useMemo(() => {
-    const m = paymentMethods;
-    const hasStripe = m.includes('stripe');
-    const hasOffline = m.some((x) => ['manual', 'gpay', 'bank'].includes(x));
-    if (!hasStripe && hasOffline) return 'manual';
-    // When both exist, default to manual so the payment-proof upload shows immediately (card users can switch to Stripe).
-    if (hasStripe && hasOffline) return 'manual';
-    if (hasStripe) return 'stripe';
-    return 'manual';
-  }, [paymentMethods]);
-
   useEffect(() => {
     if (!isAnnual || !currencyReady) {
       setAnnualQuotes({});
@@ -905,7 +894,6 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh, bo
         programId,
         programTitle: seatModalCtx.programTitle,
         tierIndex: tierIdx != null ? tierIdx : null,
-        payChannel: defaultPaymentChannel,
       });
       setSeatModalCtx(null);
     } catch (e) {
@@ -1761,7 +1749,6 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh, bo
           programId={programPaymentModal.programId}
           programTitle={programPaymentModal.programTitle}
           tierIndex={programPaymentModal.tierIndex}
-          initialPayChannel={programPaymentModal.payChannel}
           paymentMethods={paymentMethods}
           indiaReference={homeData?.india_payment_reference}
           preferredIndiaGpayId={homeData?.preferred_india_gpay_id || ''}

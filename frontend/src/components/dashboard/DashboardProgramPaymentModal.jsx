@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useMemo, useRef, useId } from 'react';
 import axios from 'axios';
 import {
   X,
@@ -37,7 +37,6 @@ export default function DashboardProgramPaymentModal({
   programId,
   programTitle,
   tierIndex,
-  initialPayChannel = 'stripe',
   paymentMethods = [],
   indiaReference,
   preferredIndiaGpayId = '',
@@ -50,6 +49,7 @@ export default function DashboardProgramPaymentModal({
 }) {
   const { toast } = useToast();
   const proofFileInputRef = useRef(null);
+  const proofFileInputId = useId();
 
   const [enrollment, setEnrollment] = useState(null);
   const [loadingEnroll, setLoadingEnroll] = useState(false);
@@ -88,7 +88,6 @@ export default function DashboardProgramPaymentModal({
 
   useEffect(() => {
     if (!open) return;
-    setChannel(initialPayChannel === 'manual' || !hasStripe ? 'manual' : 'stripe');
     setProofSubmitted(false);
     setScreenshot(null);
     setScreenshotPreviewUrl((prev) => {
@@ -115,7 +114,7 @@ export default function DashboardProgramPaymentModal({
       })
       .finally(() => setLoadingEnroll(false));
     // eslint-disable-next-line react-hooks/exhaustive-deps -- reload enrollment when modal opens / id changes
-  }, [open, enrollmentId, initialPayChannel, hasStripe]);
+  }, [open, enrollmentId]);
 
   const quoteCurrency = (enrollment?.dashboard_mixed_currency || currency || 'INR').toUpperCase();
 
@@ -222,7 +221,7 @@ export default function DashboardProgramPaymentModal({
     }
   };
 
-  /** Used by file input, Browse button, and drag-and-drop. Avoid nesting file input inside label — breaks native Browse in many browsers. */
+  /** Shared by the proof file input (change) and drag-and-drop on the drop zone label. */
   const ingestProofFile = (file) => {
     if (!file) return false;
     if (file.type && !file.type.startsWith('image/')) {
@@ -272,33 +271,13 @@ export default function DashboardProgramPaymentModal({
           ) : (
             <>
               <p className="text-[11px] text-gray-600 leading-relaxed bg-slate-50 border border-slate-100 rounded-lg px-3 py-2">
-                Your payment options match what is set on your membership. For UPI or bank transfer, pay using the details
-                below, then upload proof. After admin approval, you will receive your receipt by email (same as our
-                standard enrollment flow).
+                Your payment options match what is set on your membership. Use card checkout and/or the UPI or bank details
+                below; if you pay offline, upload proof. After admin approval, you will receive your receipt by email (same as
+                our standard enrollment flow).
               </p>
 
-              {hasStripe && hasOffline && (
-                <div className="flex flex-col gap-2 text-[11px] text-slate-700">
-                  <div className="flex flex-wrap gap-3">
-                    <label className="inline-flex items-center gap-1.5 cursor-pointer">
-                      <input type="radio" name="dash-pay-ch" checked={channel === 'stripe'} onChange={() => setChannel('stripe')} />
-                      Card (Stripe)
-                    </label>
-                    <label className="inline-flex items-center gap-1.5 cursor-pointer">
-                      <input type="radio" name="dash-pay-ch" checked={channel === 'manual'} onChange={() => setChannel('manual')} />
-                      UPI / bank + proof
-                    </label>
-                  </div>
-                  {channel === 'stripe' ? (
-                    <p className="text-[10px] text-amber-900/90 bg-amber-50 border border-amber-200/80 rounded-lg px-2.5 py-1.5 leading-snug">
-                      To upload a payment screenshot, choose <span className="font-semibold">UPI / bank + proof</span> above.
-                    </p>
-                  ) : null}
-                </div>
-              )}
-
               {/* Stripe */}
-              {hasStripe && channel === 'stripe' && (
+              {hasStripe && (
                 <div className="rounded-xl border border-[#635BFF]/30 bg-[#635BFF]/5 p-4 space-y-3">
                   <div className="flex items-center gap-2 text-[#635BFF]">
                     <Globe size={16} />
@@ -324,7 +303,7 @@ export default function DashboardProgramPaymentModal({
               )}
 
               {/* Tagged GPay / UPI */}
-              {hasOffline && channel === 'manual' && paymentMethods.includes('gpay') && (
+              {hasOffline && paymentMethods.includes('gpay') && (
                 <div className="rounded-xl border border-emerald-200 bg-emerald-50/50 p-4 space-y-2">
                   <div className="flex items-center gap-2 text-emerald-800">
                     <Smartphone size={16} />
@@ -354,7 +333,6 @@ export default function DashboardProgramPaymentModal({
 
               {/* Tagged / site bank (bank or manual channel on membership) */}
               {hasOffline &&
-                channel === 'manual' &&
                 bankRows.length > 0 &&
                 (paymentMethods.includes('bank') || paymentMethods.includes('manual')) && (
                 <div className="rounded-xl border border-blue-200 bg-blue-50/50 p-4 space-y-2">
@@ -403,7 +381,7 @@ export default function DashboardProgramPaymentModal({
               )}
 
               {/* Proof upload */}
-              {hasOffline && channel === 'manual' && !proofSubmitted && (
+              {hasOffline && !proofSubmitted && (
                 <div className="border-t border-slate-200 pt-4 space-y-3">
                   <h4 className="text-xs font-bold uppercase tracking-wide text-slate-600">Upload payment proof</h4>
                   <p className="text-[10px] text-gray-500">
@@ -414,34 +392,50 @@ export default function DashboardProgramPaymentModal({
                     <div>
                       <Label className="text-[10px]">Screenshot *</Label>
                       <p className="text-[10px] text-slate-500 mt-0.5 mb-1">
-                        Drag an image into the box, tap <span className="font-medium text-slate-700">Browse files</span>, or
-                        use the system file row below. Images only (PNG, JPG, HEIC, etc.).
+                        One box: drag an image onto it, or tap / click it to use your device&apos;s file chooser (same as
+                        &quot;Choose file&quot;). Images only (PNG, JPG, HEIC, etc.).
                       </p>
-                      <div
-                        role="button"
-                        tabIndex={0}
-                        className="mt-1 flex flex-col gap-2 rounded-lg border-2 border-dashed border-slate-200 bg-slate-50/80 px-3 py-3 transition-colors hover:border-[#5D3FD3]/45 hover:bg-violet-50/25 outline-none focus-visible:ring-2 focus-visible:ring-[#5D3FD3]/40"
-                        onDragEnter={(e) => {
-                          e.preventDefault();
-                          e.stopPropagation();
-                        }}
-                        onDragOver={(e) => {
-                          e.preventDefault();
-                          e.stopPropagation();
-                        }}
-                        onDrop={(e) => {
-                          e.preventDefault();
-                          e.stopPropagation();
-                          const f = e.dataTransfer?.files?.[0] ?? null;
-                          ingestProofFile(f);
-                        }}
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter' || e.key === ' ') {
+                      <div className="mt-1 rounded-lg focus-within:ring-2 focus-within:ring-[#5D3FD3]/40 focus-within:ring-offset-1">
+                        <input
+                          key={open ? `proof-${enrollmentId ?? 'session'}` : 'proof-closed'}
+                          id={proofFileInputId}
+                          ref={proofFileInputRef}
+                          type="file"
+                          accept="image/*,.jpg,.jpeg,.png,.webp,.heic,.heif"
+                          data-testid="dashboard-proof-screenshot-input"
+                          className="sr-only"
+                          onChange={(e) => {
+                            const inputEl = e.target;
+                            const f = inputEl.files?.[0] ?? null;
+                            if (!f) return;
+                            if (!ingestProofFile(f)) {
+                              inputEl.value = '';
+                              setScreenshot(null);
+                              setScreenshotPreviewUrl((prev) => {
+                                if (prev) URL.revokeObjectURL(prev);
+                                return '';
+                              });
+                            }
+                          }}
+                        />
+                        <label
+                          htmlFor={proofFileInputId}
+                          className="flex flex-col gap-2 rounded-lg border-2 border-dashed border-slate-200 bg-slate-50/80 px-3 py-3 transition-colors hover:border-[#5D3FD3]/45 hover:bg-violet-50/25 cursor-pointer select-none"
+                          onDragEnter={(e) => {
                             e.preventDefault();
-                            proofFileInputRef.current?.click();
-                          }
-                        }}
-                      >
+                            e.stopPropagation();
+                          }}
+                          onDragOver={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                          }}
+                          onDrop={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            const f = e.dataTransfer?.files?.[0] ?? null;
+                            ingestProofFile(f);
+                          }}
+                        >
                         {screenshotPreviewUrl ? (
                           <img
                             src={screenshotPreviewUrl}
@@ -452,46 +446,14 @@ export default function DashboardProgramPaymentModal({
                         <div className="flex flex-col items-center gap-1 text-center">
                           <Upload size={18} className="text-[#5D3FD3]" aria-hidden />
                           <span className="text-[11px] font-medium text-slate-800">
-                            {screenshot ? 'Drop to replace' : 'Drop screenshot here'}
+                            {screenshot ? 'Drop to replace or tap to choose another' : 'Drop here or tap to choose file'}
                           </span>
                           {screenshot ? (
                             <p className="text-[10px] text-emerald-800 truncate max-w-full">{screenshot.name}</p>
                           ) : null}
                         </div>
+                      </label>
                       </div>
-                      <div className="mt-2 flex flex-wrap items-center gap-2">
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                          className="h-9 text-xs border-slate-300 bg-white"
-                          onClick={() => proofFileInputRef.current?.click()}
-                        >
-                          Browse files
-                        </Button>
-                        <span className="text-[10px] text-slate-500">Opens your file picker</span>
-                      </div>
-                      <input
-                        key={open ? `proof-${enrollmentId ?? 'session'}` : 'proof-closed'}
-                        ref={proofFileInputRef}
-                        type="file"
-                        accept="image/*,.jpg,.jpeg,.png,.webp,.heic,.heif"
-                        data-testid="dashboard-proof-screenshot-input"
-                        className="mt-1 block w-full min-h-10 cursor-pointer text-xs text-slate-700 file:mr-3 file:inline-flex file:h-9 file:cursor-pointer file:items-center file:rounded-md file:border file:border-slate-300 file:bg-white file:px-4 file:py-2 file:text-xs file:font-semibold file:text-slate-900 hover:file:bg-violet-50"
-                        onChange={(e) => {
-                          const inputEl = e.target;
-                          const f = inputEl.files?.[0] ?? null;
-                          if (!f) return;
-                          if (!ingestProofFile(f)) {
-                            inputEl.value = '';
-                            setScreenshot(null);
-                            setScreenshotPreviewUrl((prev) => {
-                              if (prev) URL.revokeObjectURL(prev);
-                              return '';
-                            });
-                          }
-                        }}
-                      />
                       {screenshot ? (
                         <button
                           type="button"
