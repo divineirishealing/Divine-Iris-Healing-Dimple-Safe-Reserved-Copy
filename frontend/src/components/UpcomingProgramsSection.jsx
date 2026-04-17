@@ -141,7 +141,7 @@ const FomoSubtitle = ({ messages, style }) => {
   );
 };
 
-const CountdownTimer = ({ deadline }) => {
+export const CountdownTimer = ({ deadline }) => {
   const [timeLeft, setTimeLeft] = useState(getTimeLeft(deadline));
 
   function getTimeLeft(dateStr) {
@@ -186,7 +186,7 @@ const CountdownTimer = ({ deadline }) => {
 };
 
 /** Tier toggle text: keeps flagship cards (e.g. MMM, Stress Release) the same height — long "Annual Program" → "Annual". */
-function compactTierButtonLabel(raw) {
+export function compactTierButtonLabel(raw) {
   if (raw == null || typeof raw !== 'string') return '—';
   const t = raw.trim();
   if (!t) return '—';

@@ -6,9 +6,9 @@ import { useToast } from '../../hooks/use-toast';
 import { useCurrency } from '../../context/CurrencyContext';
 import { useSiteSettings } from '../../context/SiteSettingsContext';
 import { useCart } from '../../context/CartContext';
-import { resolveImageUrl } from '../../lib/imageUtils';
-import { buildHomepageStyleDatetimeBadges } from '../../lib/upcomingHomepagePresentation';
 import DashboardProgramPaymentModal from './DashboardProgramPaymentModal';
+import { pickTierIndexForDashboard } from './dashboardUpcomingHelpers';
+import DashboardUpcomingProgramRowItem from './DashboardUpcomingProgramRowItem';
 import { Button } from '../ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '../ui/dialog';
 
@@ -293,150 +293,6 @@ function GuestMemberTable({
       </table>
     </div>
   );
-}
-
-/** Tier index for flagship programs: prefer annual tier for annual subscribers, else first tier. */
-function pickTierIndexForDashboard(program, preferAnnualTier) {
-  const tiers = program?.duration_tiers || [];
-  if (!program?.is_flagship || tiers.length === 0) return null;
-  if (preferAnnualTier) {
-    const idx = tiers.findIndex((t) => {
-      const l = (t.label || '').toLowerCase();
-      return l.includes('annual') || l.includes('year') || t.duration_unit === 'year';
-    });
-    if (idx >= 0) return idx;
-  }
-  return 0;
-}
-
-/** MMM / AWRP etc. — already in annual package; member only pays for family add-ons. */
-function programIncludedInAnnualPackage(p, configuredIds) {
-  const ids = Array.isArray(configuredIds)
-    ? configuredIds.map((x) => String(x).trim()).filter(Boolean)
-    : [];
-  if (ids.length > 0) {
-    return ids.includes(String(p.id));
-  }
-  const t = `${p.title || ''} ${p.category || ''}`.toLowerCase();
-  return (
-    t.includes('money magic') ||
-    t.includes('mmm') ||
-    t.includes('atomic weight') ||
-    t.includes('awrp')
-  );
-}
-
-function memberSubcaption(rule) {
-  const r = rule || 'list';
-  if (r === 'promo') return 'after portal promo';
-  if (r === 'percent_off') return '% off your seat';
-  if (r === 'amount_off') return 'amount off your seat';
-  if (r === 'fixed_price') return 'fixed member price';
-  if (r === 'included_in_package') return '';
-  return 'list / offer unit';
-}
-
-function familySubcaption(rule) {
-  const r = rule || 'list';
-  if (r === 'promo') return 'after portal promo';
-  if (r === 'percent_off') return '% off line total';
-  if (r === 'amount_off') return 'amount off line total';
-  if (r === 'fixed_price') return 'fixed per seat × count';
-  if (r === 'mixed') return 'split: household vs extended rules';
-  if (r === 'none') return '';
-  return 'list / offer';
-}
-
-function roundPortalSeat(n) {
-  if (n == null || Number.isNaN(Number(n))) return null;
-  return Math.round(Number(n) * 100) / 100;
-}
-
-/** Per-seat portal preview (annual subscribers): matches Admin dashboard offer buckets. */
-function DashboardUpcomingPortalPricing({ symbol, preview }) {
-  if (!preview || preview.loading) {
-    return <p className="text-[10px] text-slate-400">Loading portal prices…</p>;
-  }
-  if (preview.error) {
-    return <p className="text-[10px] text-slate-400">Could not load prices</p>;
-  }
-  const { annualSeat, householdSeat, extendedSeat, included } = preview;
-  const a = annualSeat === 'included' ? null : roundPortalSeat(annualSeat);
-  const h = roundPortalSeat(householdSeat);
-  const e = roundPortalSeat(extendedSeat);
-
-  if (a != null && h != null && e != null && a === h && h === e) {
-    return (
-      <div className="text-left">
-        <p className="text-[8px] font-bold uppercase tracking-wide text-[#b8860b] mb-1">Portal (each seat)</p>
-        <p className="text-sm font-semibold text-slate-900 tabular-nums">
-          {symbol}
-          {a.toLocaleString()}
-        </p>
-        <p className="text-[9px] text-slate-500 mt-0.5">Same for annual, household &amp; friends</p>
-      </div>
-    );
-  }
-
-  if (included && h != null && e != null && h === e) {
-    return (
-      <div className="text-left space-y-1.5">
-        <p className="text-[8px] font-bold uppercase tracking-wide text-[#b8860b]">Your seat</p>
-        <p className="text-[11px] font-semibold text-emerald-800">Included in package</p>
-        <p className="text-[8px] font-bold uppercase tracking-wide text-slate-600 pt-1">Each guest seat</p>
-        <p className="text-sm font-semibold text-slate-900 tabular-nums">
-          {symbol}
-          {h.toLocaleString()}
-        </p>
-        <p className="text-[9px] text-slate-500">Household &amp; friends — same rate</p>
-      </div>
-    );
-  }
-
-  return (
-    <div className="text-left space-y-1.5">
-      <p className="text-[8px] font-bold uppercase tracking-wide text-[#b8860b]">Portal seat prices (each)</p>
-      {included ? (
-        <p className="text-[11px] text-slate-800">
-          <span className="text-slate-500">Annual member:</span>{' '}
-          <span className="font-semibold text-emerald-800">Included</span>
-        </p>
-      ) : (
-        <p className="text-[11px] text-slate-800">
-          <span className="text-slate-500">Annual member:</span>{' '}
-          <span className="font-semibold tabular-nums">
-            {a != null ? `${symbol}${a.toLocaleString()}` : '—'}
-          </span>
-        </p>
-      )}
-      <p className="text-[11px] text-slate-800">
-        <span className="text-slate-500">Household:</span>{' '}
-        <span className="font-semibold tabular-nums">
-          {h != null ? `${symbol}${h.toLocaleString()}` : '—'}
-        </span>
-      </p>
-      <p className="text-[11px] text-slate-800">
-        <span className="text-slate-500">Friends &amp; extended:</span>{' '}
-        <span className="font-semibold tabular-nums">
-          {e != null ? `${symbol}${e.toLocaleString()}` : '—'}
-        </span>
-      </p>
-      {(h == null || e == null) && (
-        <p className="text-[9px] text-slate-400 pt-0.5 leading-snug">
-          Save at least one contact in each list (below) to preview prices for seats you haven&apos;t added yet.
-        </p>
-      )}
-    </div>
-  );
-}
-
-/** Same basis as EnrollmentPage promo discount: percentage of subtotal or fixed per currency. */
-function promoDiscountAmount(promoResult, subtotalRaw, currency) {
-  if (!promoResult || subtotalRaw <= 0) return 0;
-  if (promoResult.discount_type === 'percentage') {
-    return Math.round(subtotalRaw * (Number(promoResult.discount_percentage) || 0) / 100);
-  }
-  return promoResult[`discount_${currency}`] || promoResult.discount_aed || 0;
 }
 
 function getDeadlineTimeLeft(dateStr) {
@@ -1219,8 +1075,8 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh, bo
     }
   };
 
-  const addProgramToCartAndGo = (p) => {
-    const tierIdx = pickTierIndexForDashboard(p, isAnnual);
+  const addProgramToCartAndGo = (p, tierOverride = null) => {
+    const tierIdx = tierOverride != null ? tierOverride : pickTierIndexForDashboard(p, isAnnual);
     const tier = tierIdx == null ? 0 : tierIdx;
     const added = addItem(p, tier);
     if (added) {
@@ -1282,406 +1138,36 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh, bo
         {upcomingList.length === 0 ? (
           <p className="text-sm text-slate-500 italic py-2">No upcoming programs listed yet — check back soon.</p>
         ) : (
-          <div className="space-y-3 mb-4 max-w-full">
-            {upcomingList.map((p) => {
-              const tierIdx = pickTierIndexForDashboard(p, isAnnual);
-              const hasTiers = p.is_flagship && (p.duration_tiers || []).length > 0;
-              const list = hasTiers && tierIdx !== null ? getPrice(p, tierIdx) : getPrice(p);
-              const off = hasTiers && tierIdx !== null ? getOfferPrice(p, tierIdx) : getOfferPrice(p);
-              const baseForPromo = off > 0 ? off : list;
-              const validated = promoForProgramClicks ? promoByProgramId[p.id] : null;
-              const disc =
-                validated && baseForPromo > 0 ? promoDiscountAmount(validated, baseForPromo, currency) : 0;
-              const afterPromo = Math.max(0, baseForPromo - disc);
-              const showSpecialPromo =
-                Boolean(promoForProgramClicks && validated && disc > 0 && !promoPricesLoading);
-              const aq = annualQuotes[p.id];
-              const includedPkg =
-                aq?.included_in_annual_package ??
-                programIncludedInAnnualPackage(p, annualIncludedIds);
-              const selIds = selectedFamilyByProgram[p.id] || [];
-              const selCount = selIds.length;
-              const canPay = Boolean(aq && aq.total > 0 && (!includedPkg || selCount >= 1));
-              const datetimeBadges = buildHomepageStyleDatetimeBadges(p, tierIdx, detectedCountry);
-              const portalPreview = portalSeatPreviewByProgram[p.id];
-
-              const row = programPortalMap[p.id];
-              const hasMap =
-                row &&
-                ((row.annual && Object.keys(row.annual).length > 0) ||
-                  (row.family && Object.keys(row.family).length > 0) ||
-                  (row.extended && Object.keys(row.extended).length > 0));
-
-              const leftGraphic = (
-                <>
-                  <div className="h-28 shrink-0 bg-slate-100 overflow-hidden xl:rounded-tl-[14px]">
-                    <img
-                      src={resolveImageUrl(p.image)}
-                      alt=""
-                      className="w-full h-full object-cover group-hover:scale-[1.02] transition-transform duration-300"
-                      onError={(e) => {
-                        e.target.src =
-                          'https://images.unsplash.com/photo-1545389336-cf090694435e?w=400&h=200&fit=crop';
-                      }}
-                    />
-                  </div>
-                  <div className="p-3 flex-1 flex flex-col min-h-0">
-                    <p className="text-[9px] text-[#D4AF37] uppercase tracking-wider mb-0.5">{p.category || 'Program'}</p>
-                    <p className="text-sm font-semibold text-slate-900 line-clamp-3 leading-snug">{p.title}</p>
-                    {hasMap || annualQuotes[p.id]?.program_portal_pricing_override ? (
-                      <p className="text-[9px] text-indigo-800/90 mt-1 font-medium leading-snug">
-                        Program-specific portal pricing
-                      </p>
-                    ) : null}
-                    <button
-                      type="button"
-                      className="mt-2 text-left text-[10px] text-violet-700 hover:text-violet-900 font-medium underline-offset-2 hover:underline w-full"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        navigate(`/program/${p.id}`);
-                      }}
-                      data-testid={`dashboard-know-more-${p.id}`}
-                    >
-                      Know more about this program
-                    </button>
-                  </div>
-                </>
-              );
-
-              return (
-                <div
-                  key={p.id}
-                  className="rounded-2xl border border-slate-200/90 bg-white/90 overflow-hidden hover:border-[#D4AF37]/40 hover:shadow-md transition-all flex flex-col xl:flex-row xl:items-stretch"
-                  data-testid={`dashboard-upcoming-${p.id}`}
-                >
-                  {isAnnual ? (
-                    <div className="text-left w-full xl:w-[min(100%,220px)] shrink-0 flex flex-col border-b xl:border-b-0 xl:border-r border-slate-100/95 group">
-                      {leftGraphic}
-                    </div>
-                  ) : (
-                    <div
-                      className="text-left w-full xl:w-[min(100%,220px)] shrink-0 flex flex-col border-b xl:border-b-0 xl:border-r border-slate-100/95 group cursor-pointer"
-                      role="button"
-                      tabIndex={0}
-                      aria-label={`Add ${p.title || 'program'} to cart`}
-                      onClick={() => addProgramToCartAndGo(p)}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter' || e.key === ' ') {
-                          e.preventDefault();
-                          addProgramToCartAndGo(p);
-                        }
-                      }}
-                    >
-                      {leftGraphic}
-                    </div>
-                  )}
-
-                  <div className="flex-1 min-w-0 flex flex-col justify-center py-2 px-3 xl:px-4 border-b xl:border-b-0 xl:border-r border-slate-100/95 bg-slate-50/40">
-                    <p className="text-[9px] font-semibold uppercase tracking-wide text-slate-500 mb-1.5 xl:hidden">
-                      Schedule
-                    </p>
-                    <div className="flex flex-col gap-1 items-end">
-                      {datetimeBadges.map((row, idx) =>
-                        row.type === 'duration' ? (
-                          <span
-                            key={idx}
-                            className="bg-[#D4AF37] backdrop-blur-sm text-white text-[10px] font-bold px-2 py-0.5 rounded shadow-sm tracking-wide w-fit max-w-full"
-                          >
-                            {row.text}
-                          </span>
-                        ) : (
-                          <span
-                            key={idx}
-                            className="bg-black/60 backdrop-blur-sm text-white text-[10px] font-bold px-2 py-0.5 rounded flex items-center gap-1 w-fit max-w-full"
-                          >
-                            {row.type === 'clock' ? (
-                              <Clock size={10} className="flex-shrink-0" />
-                            ) : (
-                              <Calendar size={10} className="flex-shrink-0" />
-                            )}
-                            <span className="text-left">{row.text}</span>
-                          </span>
-                        )
-                      )}
-                      {datetimeBadges.length === 0 && (
-                        <span className="text-[10px] text-slate-400">Dates and times TBC</span>
-                      )}
-                    </div>
-                  </div>
-
-                  <div className="shrink-0 w-full xl:w-48 py-3 px-3 xl:pl-4 border-b xl:border-b-0 xl:border-r border-slate-100/95">
-                    {isAnnual ? (
-                      <DashboardUpcomingPortalPricing symbol={symbol} preview={portalPreview} />
-                    ) : (
-                      <div>
-                        <p className="text-[8px] font-bold uppercase tracking-wide text-[#b8860b] mb-1">Site price</p>
-                        {list > 0 || off > 0 ? (
-                          showSpecialPromo ? (
-                            <p className="text-[11px] text-slate-800">
-                              <span className="font-semibold text-[#b8860b]">{symbol}{afterPromo.toLocaleString()}</span>
-                              <span className="text-slate-400 line-through ml-1.5 text-[10px]">{symbol}{baseForPromo.toLocaleString()}</span>
-                              <span className="block text-[9px] text-violet-700/90 mt-0.5">
-                                With {promoForProgramClicks} (on offer price)
-                              </span>
-                              {off > 0 && list > off && (
-                                <span className="block text-[9px] text-slate-400 mt-0.5">List {symbol}{list.toLocaleString()}</span>
-                              )}
-                            </p>
-                          ) : off > 0 ? (
-                            <p className="text-[11px] text-slate-800">
-                              <span className="font-semibold text-[#b8860b]">{symbol}{off.toLocaleString()}</span>
-                              {list > 0 && off < list && (
-                                <span className="text-slate-400 line-through ml-1.5 text-[10px]">{symbol}{list.toLocaleString()}</span>
-                              )}
-                              <span className="block text-[9px] text-slate-400 mt-0.5">Offer price</span>
-                            </p>
-                          ) : list > 0 ? (
-                            <p className="text-[11px] text-slate-800 font-medium">{symbol}{list.toLocaleString()}</p>
-                          ) : (
-                            <p className="text-[10px] text-slate-400">See program page</p>
-                          )
-                        ) : (
-                          <p className="text-[10px] text-slate-400">See program page</p>
-                        )}
-                      </div>
-                    )}
-                  </div>
-
-                  {isAnnual ? (
-                    <div className="flex-1 min-w-[12rem] max-w-2xl py-3 px-3 xl:pl-4 bg-gradient-to-b from-amber-50/35 to-transparent">
-                      <p className="text-[9px] font-bold uppercase tracking-wide text-[#b8860b] mb-1">
-                        Annual member checkout
-                      </p>
-                      {includedPkg && (
-                        <p className="text-[10px] text-slate-600 leading-snug mb-2">
-                          This program is included in your annual package for you. Choose family members to join below
-                          (immediate family or friends &amp; extended) — you only pay for their seats.
-                        </p>
-                      )}
-                      {aq ? (
-                        <div className="space-y-1 text-[11px] text-slate-700">
-                          {!includedPkg && (
-                            <div className="flex justify-between gap-2">
-                              <span className="leading-snug">
-                                You
-                                {memberSubcaption(aq.member_pricing_rule) ? (
-                                  <>
-                                    {' '}
-                                    <span className="text-slate-500">— {memberSubcaption(aq.member_pricing_rule)}</span>
-                                  </>
-                                ) : null}
-                              </span>
-                              <span className="font-medium tabular-nums">
-                                {symbol}
-                                {Number(aq.self_after_promos || 0).toLocaleString()}
-                              </span>
-                            </div>
-                          )}
-                          {(includedPkg ? selCount > 0 : selCount > 0) && (
-                            <>
-                              {(aq.immediate_family_count || 0) > 0 && (
-                                <div className="flex justify-between gap-2 text-slate-600">
-                                  <span className="leading-snug">
-                                    Immediate family ({aq.immediate_family_count})
-                                    {familySubcaption(aq.immediate_family_pricing_rule) ? (
-                                      <>
-                                        {' '}
-                                        <span className="text-slate-500">
-                                          — {familySubcaption(aq.immediate_family_pricing_rule)}
-                                        </span>
-                                      </>
-                                    ) : null}
-                                  </span>
-                                  <span className="font-medium tabular-nums">
-                                    {symbol}
-                                    {Number(aq.immediate_family_after_promos || 0).toLocaleString()}
-                                  </span>
-                                </div>
-                              )}
-                              {(aq.extended_guest_count || 0) > 0 && (
-                                <div className="flex justify-between gap-2 text-slate-600">
-                                  <span className="leading-snug">
-                                    Friends &amp; extended ({aq.extended_guest_count})
-                                    {familySubcaption(aq.extended_guest_pricing_rule) ? (
-                                      <>
-                                        {' '}
-                                        <span className="text-slate-500">
-                                          — {familySubcaption(aq.extended_guest_pricing_rule)}
-                                        </span>
-                                      </>
-                                    ) : null}
-                                  </span>
-                                  <span className="font-medium tabular-nums">
-                                    {symbol}
-                                    {Number(aq.extended_guests_after_promos || 0).toLocaleString()}
-                                  </span>
-                                </div>
-                              )}
-                            </>
-                          )}
-                          <div className="flex justify-between gap-2 pt-1 border-t border-amber-100/80 font-semibold text-slate-900">
-                            <span>Total</span>
-                            <span className="text-[#b8860b] tabular-nums">
-                              {symbol}
-                              {Number(aq.total || 0).toLocaleString()}
-                            </span>
-                          </div>
-                        </div>
-                      ) : (
-                        <p className="text-[10px] text-slate-400 py-1">Loading pricing…</p>
-                      )}
-
-                      <div className="mt-2 space-y-1.5">
-                        <p className="text-[9px] font-semibold uppercase tracking-wide text-slate-500">
-                          Family members to join
-                        </p>
-                        {enrollableGuests.length === 0 ? (
-                          <p className="text-[10px] text-slate-400">
-                            Add people under Immediate family or Friends &amp; extended below, then save each list.
-                          </p>
-                        ) : (
-                          <div className="space-y-2 max-h-36 overflow-y-auto pr-0.5">
-                            {selectableFamilyMemberIds.length > 0 ? (
-                              <label className="flex items-center gap-2 text-[10px] font-semibold text-slate-700 cursor-pointer select-none pb-0.5 border-b border-slate-100/90">
-                                <input
-                                  type="checkbox"
-                                  className="rounded border-slate-300"
-                                  checked={
-                                    selectableFamilyMemberIds.length > 0 &&
-                                    selectableFamilyMemberIds.every((id) => selIds.includes(id))
-                                  }
-                                  ref={(el) => {
-                                    if (!el) return;
-                                    const some = selectableFamilyMemberIds.some((id) => selIds.includes(id));
-                                    const all =
-                                      selectableFamilyMemberIds.length > 0 &&
-                                      selectableFamilyMemberIds.every((id) => selIds.includes(id));
-                                    el.indeterminate = some && !all;
-                                  }}
-                                  onChange={() => toggleSelectAllFamilyForProgram(p.id)}
-                                />
-                                <span>
-                                  Add all ({selectableFamilyMemberIds.length} with saved profile
-                                  {selectableFamilyMemberIds.length !== 1 ? 's' : ''})
-                                </span>
-                              </label>
-                            ) : null}
-                            {members.length > 0 && (
-                              <div>
-                                <p className="text-[8px] font-bold uppercase tracking-wide text-slate-400 mb-0.5">
-                                  Immediate family
-                                </p>
-                                <ul className="space-y-1">
-                                  {members.map((m, gidx) => {
-                                    const mid = m.id || `imm-${gidx}-${m.name}-${m.email}`;
-                                    return (
-                                      <li key={mid}>
-                                        <label className="flex items-center gap-2 text-[11px] text-slate-800 cursor-pointer">
-                                          <input
-                                            type="checkbox"
-                                            className="rounded border-slate-300"
-                                            disabled={!m.id}
-                                            checked={!!m.id && selIds.includes(String(m.id))}
-                                            onChange={() => m.id && toggleFamilyMember(p.id, String(m.id))}
-                                          />
-                                          <span>
-                                            {m.name || '—'}
-                                            {m.relationship ? (
-                                              <span className="text-slate-400"> ({m.relationship})</span>
-                                            ) : null}
-                                          </span>
-                                        </label>
-                                      </li>
-                                    );
-                                  })}
-                                </ul>
-                              </div>
-                            )}
-                            {otherMembers.length > 0 && (
-                              <div>
-                                <p className="text-[8px] font-bold uppercase tracking-wide text-slate-400 mb-0.5">
-                                  Friends &amp; extended
-                                </p>
-                                <ul className="space-y-1">
-                                  {otherMembers.map((m, gidx) => {
-                                    const mid = m.id || `ext-${gidx}-${m.name}-${m.email}`;
-                                    return (
-                                      <li key={mid}>
-                                        <label className="flex items-center gap-2 text-[11px] text-slate-800 cursor-pointer">
-                                          <input
-                                            type="checkbox"
-                                            className="rounded border-slate-300"
-                                            disabled={!m.id}
-                                            checked={!!m.id && selIds.includes(String(m.id))}
-                                            onChange={() => m.id && toggleFamilyMember(p.id, String(m.id))}
-                                          />
-                                          <span>
-                                            {m.name || '—'}
-                                            {m.relationship ? (
-                                              <span className="text-slate-400"> ({m.relationship})</span>
-                                            ) : null}
-                                          </span>
-                                        </label>
-                                      </li>
-                                    );
-                                  })}
-                                </ul>
-                              </div>
-                            )}
-                          </div>
-                        )}
-                        {includedPkg && selCount === 0 && (
-                          <p className="text-[9px] text-amber-800 bg-amber-50/80 rounded px-2 py-1">
-                            Select who you are paying for — your own seat is already covered.
-                          </p>
-                        )}
-                      </div>
-
-                      <p className="mt-2 text-[9px] text-slate-500 leading-snug">
-                        Payment method (Stripe vs UPI / bank + proof) matches your membership tags — choose in the next
-                        step, same as the main site.
-                      </p>
-
-                      <button
-                        type="button"
-                        disabled={!canPay || payingProgramId === p.id}
-                        title={
-                          !canPay
-                            ? includedPkg && selCount < 1
-                              ? 'This program is included for you — select family members to join or wait for pricing to load.'
-                              : !aq
-                                ? 'Loading pricing…'
-                                : (aq.total || 0) <= 0
-                                  ? 'No amount due for this selection.'
-                                  : ''
-                            : undefined
-                        }
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          openEnrollmentSeatModal(p, includedPkg, selIds);
-                        }}
-                        className="mt-2 w-full inline-flex items-center justify-center gap-1.5 rounded-lg bg-[#D4AF37] text-white text-[11px] font-semibold py-2 px-3 hover:bg-[#b8962e] disabled:opacity-50 disabled:pointer-events-none"
-                        data-testid={`dashboard-pay-${p.id}`}
-                      >
-                        {payingProgramId === p.id ? (
-                          <Loader2 size={14} className="animate-spin" />
-                        ) : (
-                          <CreditCard size={14} />
-                        )}
-                        Continue to enrollment &amp; payment
-                      </button>
-                    </div>
-                  ) : (
-                    <div className="flex-1 min-w-0 py-3 px-3 xl:pl-4 flex flex-col justify-center">
-                      <p className="text-[10px] text-slate-500 leading-snug">
-                        Tap the program card to add it to your cart, or use <strong className="text-slate-700">Know more</strong>{' '}
-                        for details — same checkout as the main site.
-                      </p>
-                    </div>
-                  )}
-                </div>
-              );
-            })}
+          <div className="space-y-5 mb-4 max-w-full">
+            {upcomingList.map((p) => (
+              <DashboardUpcomingProgramRowItem
+                key={p.id}
+                program={p}
+                isAnnual={isAnnual}
+                detectedCountry={detectedCountry}
+                symbol={symbol}
+                currency={currency}
+                getPrice={getPrice}
+                getOfferPrice={getOfferPrice}
+                promoForProgramClicks={promoForProgramClicks}
+                promoByProgramId={promoByProgramId}
+                promoPricesLoading={promoPricesLoading}
+                programPortalMap={programPortalMap}
+                aq={annualQuotes[p.id]}
+                annualIncludedIds={annualIncludedIds}
+                portalPreview={portalSeatPreviewByProgram[p.id]}
+                members={members}
+                otherMembers={otherMembers}
+                enrollableGuests={enrollableGuests}
+                selectableFamilyMemberIds={selectableFamilyMemberIds}
+                selectedFamilyByProgram={selectedFamilyByProgram}
+                toggleFamilyMember={toggleFamilyMember}
+                toggleSelectAllFamilyForProgram={toggleSelectAllFamilyForProgram}
+                addProgramToCartAndGo={addProgramToCartAndGo}
+                openEnrollmentSeatModal={openEnrollmentSeatModal}
+                payingProgramId={payingProgramId}
+              />
+            ))}
           </div>
         )}
 
