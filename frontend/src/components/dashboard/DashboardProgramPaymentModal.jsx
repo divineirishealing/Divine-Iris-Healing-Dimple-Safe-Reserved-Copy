@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useRef, useId } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import axios from 'axios';
 import {
   X,
@@ -49,7 +49,6 @@ export default function DashboardProgramPaymentModal({
 }) {
   const { toast } = useToast();
   const proofFileInputRef = useRef(null);
-  const proofFileInputId = useId();
 
   const [enrollment, setEnrollment] = useState(null);
   const [loadingEnroll, setLoadingEnroll] = useState(false);
@@ -395,15 +394,51 @@ export default function DashboardProgramPaymentModal({
                         One box: drag an image onto it, or tap / click it to use your device&apos;s file chooser (same as
                         &quot;Choose file&quot;). Images only (PNG, JPG, HEIC, etc.).
                       </p>
-                      <div className="mt-1 rounded-lg focus-within:ring-2 focus-within:ring-[#5D3FD3]/40 focus-within:ring-offset-1">
+                      {/* Opacity-0 overlay input: real hit area for tap (sr-only + label fails on many mobile WebKit builds). */}
+                      <div
+                        className="relative mt-1 min-h-[7.5rem] overflow-hidden rounded-lg border-2 border-dashed border-slate-200 bg-slate-50/80 transition-colors hover:border-[#5D3FD3]/45 hover:bg-violet-50/25 focus-within:ring-2 focus-within:ring-[#5D3FD3]/40 focus-within:ring-offset-1"
+                        onDragEnter={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                        }}
+                        onDragOver={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                        }}
+                        onDrop={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          const f = e.dataTransfer?.files?.[0] ?? null;
+                          ingestProofFile(f);
+                        }}
+                      >
+                        <div className="pointer-events-none relative z-0 flex flex-col gap-2 p-3">
+                          {screenshotPreviewUrl ? (
+                            <img
+                              src={screenshotPreviewUrl}
+                              alt=""
+                              className="max-h-36 w-full object-contain rounded-md border border-slate-100 bg-white"
+                            />
+                          ) : null}
+                          <div className="flex flex-col items-center gap-1 text-center">
+                            <Upload size={18} className="text-[#5D3FD3]" aria-hidden />
+                            <span className="text-[11px] font-medium text-slate-800">
+                              {screenshot ? 'Drop to replace or tap to choose another' : 'Drop here or tap to choose file'}
+                            </span>
+                            {screenshot ? (
+                              <p className="text-[10px] text-emerald-800 truncate max-w-full">{screenshot.name}</p>
+                            ) : null}
+                          </div>
+                        </div>
                         <input
                           key={open ? `proof-${enrollmentId ?? 'session'}` : 'proof-closed'}
-                          id={proofFileInputId}
                           ref={proofFileInputRef}
                           type="file"
-                          accept="image/*,.jpg,.jpeg,.png,.webp,.heic,.heif"
+                          accept="image/*"
                           data-testid="dashboard-proof-screenshot-input"
-                          className="sr-only"
+                          aria-label="Choose payment proof image"
+                          className="absolute inset-0 z-[1] block h-full min-h-[7.5rem] w-full cursor-pointer opacity-0"
+                          style={{ fontSize: 'max(16px, 1rem)' }}
                           onChange={(e) => {
                             const inputEl = e.target;
                             const f = inputEl.files?.[0] ?? null;
@@ -418,41 +453,6 @@ export default function DashboardProgramPaymentModal({
                             }
                           }}
                         />
-                        <label
-                          htmlFor={proofFileInputId}
-                          className="flex flex-col gap-2 rounded-lg border-2 border-dashed border-slate-200 bg-slate-50/80 px-3 py-3 transition-colors hover:border-[#5D3FD3]/45 hover:bg-violet-50/25 cursor-pointer select-none"
-                          onDragEnter={(e) => {
-                            e.preventDefault();
-                            e.stopPropagation();
-                          }}
-                          onDragOver={(e) => {
-                            e.preventDefault();
-                            e.stopPropagation();
-                          }}
-                          onDrop={(e) => {
-                            e.preventDefault();
-                            e.stopPropagation();
-                            const f = e.dataTransfer?.files?.[0] ?? null;
-                            ingestProofFile(f);
-                          }}
-                        >
-                        {screenshotPreviewUrl ? (
-                          <img
-                            src={screenshotPreviewUrl}
-                            alt=""
-                            className="max-h-36 w-full object-contain rounded-md border border-slate-100 bg-white"
-                          />
-                        ) : null}
-                        <div className="flex flex-col items-center gap-1 text-center">
-                          <Upload size={18} className="text-[#5D3FD3]" aria-hidden />
-                          <span className="text-[11px] font-medium text-slate-800">
-                            {screenshot ? 'Drop to replace or tap to choose another' : 'Drop here or tap to choose file'}
-                          </span>
-                          {screenshot ? (
-                            <p className="text-[10px] text-emerald-800 truncate max-w-full">{screenshot.name}</p>
-                          ) : null}
-                        </div>
-                      </label>
                       </div>
                       {screenshot ? (
                         <button
