@@ -262,7 +262,7 @@ export default function DashboardProgramPaymentModal({
       setProofSubmitted(true);
       toast({
         title: 'Proof submitted',
-        description: 'We will verify your payment and email your receipt after approval.',
+        description: 'After admin approval, you will receive your receipt by email.',
       });
       onSuccess?.();
     } catch (e) {
@@ -339,12 +339,6 @@ export default function DashboardProgramPaymentModal({
             </div>
           ) : (
             <>
-              <p className="text-[11px] text-gray-600 leading-relaxed bg-slate-50 border border-slate-100 rounded-lg px-3 py-2">
-                Your payment options match what is set on your membership. Use card checkout and/or the UPI or bank details
-                below; if you pay offline, upload proof. After admin approval, you will receive your receipt by email (same as
-                our standard enrollment flow).
-              </p>
-
               {/* Stripe */}
               {hasStripe && (
                 <div className="rounded-xl border border-[#635BFF]/30 bg-[#635BFF]/5 p-4 space-y-3">
@@ -451,8 +445,9 @@ export default function DashboardProgramPaymentModal({
 
               {proofSubmitted && (
                 <div className="space-y-2">
-                  <div className="rounded-lg bg-green-50 border border-green-200 px-3 py-2 text-[11px] text-green-900">
-                    Proof received. You will get your receipt by email after admin approval.
+                  <div className="rounded-lg bg-green-50 border border-green-200 px-3 py-3 text-[11px] text-green-900 leading-relaxed">
+                    <p className="font-semibold text-green-950">Submitted for approval</p>
+                    <p className="mt-1.5">After admin approval, you will receive your receipt by email.</p>
                   </div>
                   <Button type="button" variant="outline" className="w-full h-9 text-xs" onClick={onClose}>
                     Close
