@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { Calendar, Sparkles, Users, Loader2, Plus, Trash2, CreditCard, Clock, AlertTriangle, Lock, Bell, BellOff, Monitor, Wifi } from 'lucide-react';
@@ -100,6 +100,17 @@ function deriveNotifyQuickPreset(ctx, guestForm, bookerNotify) {
 
 /** Cap parallel quote / promo requests (matches backend upcoming program list cap). */
 const DASHBOARD_UPCOMING_PREFETCH_LIMIT = 100;
+
+/** Session snapshot for history back / leaving the site: enrollment + payment flow + guest picks. */
+const UPCOMING_SESSION_V = 1;
+const UPCOMING_SESSION_MAX_AGE_MS = 24 * 60 * 60 * 1000;
+
+function upcomingSessionStorageKey(bookerEmail) {
+  const s = String(bookerEmail || 'anon')
+    .toLowerCase()
+    .replace(/[^a-z0-9@._-]/gi, '_');
+  return `dih_dash_upcoming_v${UPCOMING_SESSION_V}_${s.slice(0, 120)}`;
+}
 
 const RELATIONSHIPS = ['Spouse', 'Child', 'Parent', 'Sibling', 'Other'];
 const OTHER_RELATIONSHIPS = ['Friend', 'Cousin', 'Relative', 'Uncle / Aunt', 'Grandparent', 'Other'];
@@ -470,6 +481,20 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh, bo
 
   const enrollableGuests = useMemo(() => [...members, ...otherMembers], [members, otherMembers]);
 
+  const enrollableGuestIdsKey = useMemo(
+    () =>
+      enrollableGuests
+        .filter((m) => m.id)
+        .map((m) => String(m.id))
+        .sort()
+        .join(','),
+    [enrollableGuests]
+  );
+
+  const familyRowCount = members.length + otherMembers.length;
+
+  const restoredUpcomingRef = useRef(false);
+
   const nearestUpcomingProgram = useMemo(() => {
     const list = upcomingList
       .filter((p) => p && (p.deadline_date || p.start_date))
@@ -487,6 +512,127 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh, bo
       ? String(exclusiveSiteOffer.text).trim()
       : '';
   const showOfferCountdownStrip = Boolean(exclusiveOfferLine || countdownDeadline);
+
+  useEffect(() => {
+    if (typeof sessionStorage === 'undefined' || !bookerEmail) return;
+    const save = () => {
+      try {
+        sessionStorage.setItem(
+          upcomingSessionStorageKey(bookerEmail),
+          JSON.stringify({
+            v: UPCOMING_SESSION_V,
+            savedAt: Date.now(),
+            selectedFamilyByProgram,
+            programPaymentModal,
+            enrollmentSeatOpen,
+            seatModalCtx,
+            bookerSeatMode,
+            bookerSeatNotify,
+            guestSeatForm,
+            persistEnrollmentDefaultsOnContinue,
+            enrollmentDefaultsLoaded,
+          })
+        );
+      } catch (_) {
+        /* ignore quota / private mode */
+      }
+    };
+    const id = requestAnimationFrame(save);
+    return () => {
+      cancelAnimationFrame(id);
+      save();
+    };
+  }, [
+    bookerEmail,
+    selectedFamilyByProgram,
+    programPaymentModal,
+    enrollmentSeatOpen,
+    seatModalCtx,
+    bookerSeatMode,
+    bookerSeatNotify,
+    guestSeatForm,
+    persistEnrollmentDefaultsOnContinue,
+    enrollmentDefaultsLoaded,
+  ]);
+
+  useEffect(() => {
+    if (!bookerEmail || !homeData || restoredUpcomingRef.current) return;
+
+    let raw = null;
+    try {
+      raw = sessionStorage.getItem(upcomingSessionStorageKey(bookerEmail));
+    } catch (_) {
+      restoredUpcomingRef.current = true;
+      return;
+    }
+    if (!raw) {
+      restoredUpcomingRef.current = true;
+      return;
+    }
+    let data;
+    try {
+      data = JSON.parse(raw);
+    } catch {
+      restoredUpcomingRef.current = true;
+      return;
+    }
+    if (!data || data.v !== UPCOMING_SESSION_V) {
+      restoredUpcomingRef.current = true;
+      return;
+    }
+    if (Date.now() - (data.savedAt || 0) > UPCOMING_SESSION_MAX_AGE_MS) {
+      restoredUpcomingRef.current = true;
+      return;
+    }
+
+    const programs = homeData?.upcoming_programs || [];
+    const programIds = new Set(programs.map((p) => String(p.id)));
+    let pay = data.programPaymentModal || null;
+    let seatOpen = !!data.enrollmentSeatOpen;
+    let seatCtx = data.seatModalCtx || null;
+
+    if (pay && !programIds.has(String(pay.programId))) pay = null;
+    if (seatCtx && !programIds.has(String(seatCtx.programId))) {
+      seatCtx = null;
+      seatOpen = false;
+    }
+    if (pay) seatOpen = false;
+
+    const guestIdSet = new Set(
+      enrollableGuestIdsKey ? enrollableGuestIdsKey.split(',').filter(Boolean) : []
+    );
+    const seatMemberIds = seatCtx && seatOpen ? (seatCtx.selectedIds || []).map(String).filter(Boolean) : [];
+    if (seatMemberIds.length > 0 && guestIdSet.size === 0) {
+      if (familyRowCount === 0) return;
+      seatCtx = null;
+      seatOpen = false;
+    } else if (seatCtx && seatOpen && seatMemberIds.length > 0) {
+      const invalid = seatMemberIds.some((id) => !guestIdSet.has(id));
+      if (invalid) {
+        seatCtx = null;
+        seatOpen = false;
+      }
+    }
+
+    restoredUpcomingRef.current = true;
+
+    const sel = {};
+    Object.entries(data.selectedFamilyByProgram || {}).forEach(([k, v]) => {
+      if (programIds.has(String(k))) sel[k] = v;
+    });
+    if (Object.keys(sel).length > 0) setSelectedFamilyByProgram(sel);
+    if (pay) {
+      setProgramPaymentModal(pay);
+    } else if (seatOpen && seatCtx) {
+      setSeatModalCtx(seatCtx);
+      setBookerSeatMode(data.bookerSeatMode === 'offline' ? 'offline' : 'online');
+      setBookerSeatNotify(!!data.bookerSeatNotify);
+      setGuestSeatForm(data.guestSeatForm && typeof data.guestSeatForm === 'object' ? data.guestSeatForm : {});
+      setPersistEnrollmentDefaultsOnContinue(!!data.persistEnrollmentDefaultsOnContinue);
+      setEnrollmentDefaultsLoaded(!!data.enrollmentDefaultsLoaded);
+      setEnrollmentSeatOpen(true);
+    }
+  }, [bookerEmail, homeData, enrollableGuestIdsKey, familyRowCount]);
 
   const addRow = () => {
     if (members.length >= 12) return;

@@ -1,6 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { Outlet, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { useDashboardScrollSession } from '../hooks/useDashboardScrollSession';
 import { useSiteSettings } from '../context/SiteSettingsContext';
 import { NavLink } from 'react-router-dom';
 import { Loader2, Menu, X, Home, Sprout, Calendar, TrendingUp, Sparkles, Heart, BookOpen, User, CreditCard, LogOut, Coins } from 'lucide-react';
@@ -23,6 +24,7 @@ const NAV_ITEMS = [
 
 const DashboardLayout = () => {
   const { user, loading, logout } = useAuth();
+  useDashboardScrollSession();
   const { settings } = useSiteSettings();
   const dv = useMemo(() => mergeDashboardVisibility(settings), [settings]);
   const visibleNavItems = useMemo(
