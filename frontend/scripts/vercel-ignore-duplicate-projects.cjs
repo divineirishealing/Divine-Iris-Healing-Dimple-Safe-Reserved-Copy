@@ -6,21 +6,26 @@
  *
  * Override (e.g. temporary): set env ALLOW_NON_PRIMARY_VERCEL_BUILD=true on a project.
  */
-const isVercel = process.env.VERCEL === '1';
-/** Matches project name in Vercel dashboard and GitHub commit status context. */
+/** Vercel sets this during the ignore-build step and the build. */
+const onVercel = process.env.VERCEL === '1';
+
+/** Matches project name in Vercel dashboard and GitHub commit status (Vercel – …). */
 const PRIMARY_PROJECT = 'divine-iris-healing-dimple-safe-res';
 
 if (process.env.ALLOW_NON_PRIMARY_VERCEL_BUILD === 'true') {
   process.exit(0);
 }
 
-if (!isVercel) {
+if (!onVercel) {
   process.exit(0);
 }
 
-const name = process.env.VERCEL_PROJECT_NAME || '';
-if (!name) {
-  process.exit(0);
+const name = String(process.env.VERCEL_PROJECT_NAME || '').trim();
+
+// If we cannot identify the project, skip — otherwise an empty name treated as “primary”
+// lets every linked clone run a deployment and burns Hobby rate limits (3× per push).
+if (!name || name !== PRIMARY_PROJECT) {
+  process.exit(1);
 }
 
-process.exit(name === PRIMARY_PROJECT ? 0 : 1);
+process.exit(0);
