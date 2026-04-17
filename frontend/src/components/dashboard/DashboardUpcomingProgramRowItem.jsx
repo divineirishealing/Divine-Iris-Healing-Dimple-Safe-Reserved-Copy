@@ -12,14 +12,118 @@ import {
   promoDiscountAmount,
 } from './dashboardUpcomingHelpers';
 
-/** Bottom-left panel: portal quote lines (template: “Prices / calculate total”). */
-function AnnualQuoteBreakdown({ aq, symbol, includedPkg, suppressIntro = false }) {
+/** Portal quote: list or spreadsheet-style table (aligned columns). */
+function AnnualQuoteBreakdown({ aq, symbol, includedPkg, suppressIntro = false, layout = 'list' }) {
   if (!aq) {
     return <p className="text-[11px] text-slate-500 italic">Calculating total…</p>;
   }
   const imm = Number(aq.immediate_family_count || 0);
   const ext = Number(aq.extended_guest_count || 0);
   const showSelf = !includedPkg && aq.include_self !== false;
+
+  const selfStrike =
+    !includedPkg && Number(aq.self_unit) > Number(aq.self_after_promos ?? 0) ? (
+      <span className="text-slate-400 line-through tabular-nums">
+        {symbol}
+        {Number(aq.self_unit).toLocaleString()}
+      </span>
+    ) : null;
+
+  if (layout === 'table') {
+    const cell = 'border border-slate-200 px-2 py-1.5 align-top';
+    const th = `${cell} bg-slate-100/95 text-[9px] font-bold uppercase tracking-wide text-slate-600`;
+    const money = 'text-right tabular-nums whitespace-nowrap';
+    return (
+      <div className="text-[11px] text-slate-800 leading-snug w-full min-w-0">
+        {!suppressIntro ? (
+          <p className="text-[10px] font-bold uppercase tracking-wide text-slate-500 mb-2">
+            Prices — Annual member · Immediate family · Friends &amp; extended
+          </p>
+        ) : null}
+        <div className="overflow-x-auto rounded-md border border-slate-200 bg-white">
+          <table className="w-full min-w-[280px] border-collapse table-fixed">
+            <colgroup>
+              <col className="w-[44%]" />
+              <col className="w-[36%]" />
+              <col className="w-[20%]" />
+            </colgroup>
+            <thead>
+              <tr>
+                <th className={`${th} text-left`}>Line</th>
+                <th className={`${th} text-left`}>Detail</th>
+                <th className={`${th} ${money}`}>Amount</th>
+              </tr>
+            </thead>
+            <tbody>
+              {includedPkg ? (
+                <tr>
+                  <td className={`${cell} text-slate-700`}>Your seat</td>
+                  <td className={`${cell} text-slate-600`}>Included in annual package</td>
+                  <td className={`${cell} ${money} text-slate-500`}>—</td>
+                </tr>
+              ) : null}
+              {showSelf ? (
+                <tr>
+                  <td className={cell}>You (annual member)</td>
+                  <td className={`${cell} text-slate-600`}>{selfStrike ? <span className="block">List {selfStrike}</span> : '—'}</td>
+                  <td className={`${cell} ${money} font-semibold text-slate-900`}>
+                    {symbol}
+                    {Number(aq.self_after_promos ?? 0).toLocaleString()}
+                  </td>
+                </tr>
+              ) : null}
+              {imm > 0 ? (
+                <tr>
+                  <td className={cell}>Immediate family</td>
+                  <td className={`${cell} text-slate-600`}>
+                    × {imm}
+                    {imm > 1 ? (
+                      <span className="block text-[10px] text-slate-500 tabular-nums">
+                        {symbol}
+                        {(Number(aq.immediate_family_after_promos) / imm).toFixed(0)} each
+                      </span>
+                    ) : null}
+                  </td>
+                  <td className={`${cell} ${money} font-semibold text-slate-900`}>
+                    {symbol}
+                    {Number(aq.immediate_family_after_promos ?? 0).toLocaleString()}
+                  </td>
+                </tr>
+              ) : null}
+              {ext > 0 ? (
+                <tr>
+                  <td className={cell}>Friends &amp; extended</td>
+                  <td className={`${cell} text-slate-600`}>
+                    × {ext}
+                    {ext > 1 ? (
+                      <span className="block text-[10px] text-slate-500 tabular-nums">
+                        {symbol}
+                        {(Number(aq.extended_guests_after_promos) / ext).toFixed(0)} each
+                      </span>
+                    ) : null}
+                  </td>
+                  <td className={`${cell} ${money} font-semibold text-slate-900`}>
+                    {symbol}
+                    {Number(aq.extended_guests_after_promos ?? 0).toLocaleString()}
+                  </td>
+                </tr>
+              ) : null}
+              <tr className="bg-slate-50/90">
+                <td className={`${cell} font-bold text-slate-900`} colSpan={2}>
+                  Total
+                </td>
+                <td className={`${cell} ${money} font-bold text-slate-900`}>
+                  {symbol}
+                  {Number(aq.total ?? 0).toLocaleString()}
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-2 text-[11px] text-slate-700 leading-snug">
       {!suppressIntro ? (
@@ -88,8 +192,7 @@ function AnnualQuoteBreakdown({ aq, symbol, includedPkg, suppressIntro = false }
 
 /**
  * Upcoming program row: non-annual = homepage-style horizontal card (hero + body).
- * Annual = fixed 2×2 template: program card (stacked hero + copy + quote total + Know More) |
- * two-column family picks | portal price breakdown | enrollment + pay.
+ * Annual = row: program card | pricing table | family; full-width horizontal attendance + pay.
  */
 export default function DashboardUpcomingProgramRowItem({
   program: p,
@@ -320,6 +423,7 @@ export default function DashboardUpcomingProgramRowItem({
   return (
     <div className={outerShellClass} data-testid={`dashboard-upcoming-${p.id}`}>
       {subscriberIsAnnual ? (
+        <div className="w-full flex flex-col gap-4">
         <div className="w-full flex flex-col xl:flex-row xl:items-stretch gap-4 xl:gap-4">
           {/* 1 — Same footprint as non-annual dashboard card: vertical max-w-md (~28rem) */}
           <div
@@ -479,7 +583,7 @@ export default function DashboardUpcomingProgramRowItem({
                     </button>
                   </div>
                   <p className="text-[10px] text-slate-500 mt-2 leading-snug">
-                    Portal checkout uses the attendance &amp; email column when you continue.
+                    Set attendance &amp; email in the full-width section below, then continue to payment.
                   </p>
                 </>
               ) : (
@@ -497,8 +601,8 @@ export default function DashboardUpcomingProgramRowItem({
           {/* 2 — Pricing & offer */}
           <div className="rounded-xl border border-slate-200 bg-white p-3 sm:p-4 shadow-sm min-h-0 flex flex-col flex-1 min-w-0">
             <p className="text-[10px] font-bold uppercase tracking-wide text-slate-600 mb-2">Pricing &amp; offer</p>
-            <div className="flex-1 min-h-0 overflow-y-auto max-h-[28rem] xl:max-h-none">
-              <AnnualQuoteBreakdown aq={aq} symbol={symbol} includedPkg={includedPkg} suppressIntro />
+            <div className="flex-1 min-h-0 overflow-x-auto">
+              <AnnualQuoteBreakdown aq={aq} symbol={symbol} includedPkg={includedPkg} suppressIntro layout="table" />
             </div>
           </div>
 
@@ -602,26 +706,25 @@ export default function DashboardUpcomingProgramRowItem({
             )}
           </div>
 
-          {/* 4 — Attendance & notification */}
-          <div className="rounded-xl border border-slate-200/90 bg-white p-3 sm:p-4 shadow-sm flex flex-col gap-3 min-h-0 flex-1 min-w-0">
-            <p className="text-[10px] font-bold uppercase tracking-wide text-slate-600 shrink-0">
-              Attendance &amp; notification
-            </p>
+        </div>
+
+        {/* Full-width — Attendance & notification (horizontal) + checkout */}
+        <div className="w-full rounded-xl border border-slate-200/90 bg-white p-3 sm:p-4 shadow-sm">
+          <div className="flex flex-col gap-3 w-full">
+            <p className="text-[10px] font-bold uppercase tracking-wide text-slate-600">Attendance &amp; notification</p>
+
             {annualSeatUi && (!includedPkg || selCount >= 1) ? (
               <div
-                className="rounded-lg border border-violet-200/80 bg-gradient-to-b from-violet-50/40 to-white px-2.5 py-2 space-y-2 flex-1 min-h-0 overflow-y-auto max-h-[28rem] xl:max-h-none"
+                className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2.5"
                 data-testid={`dashboard-compact-seat-${p.id}`}
               >
-                <div>
-                  <p className="text-[11px] font-semibold text-slate-900 leading-tight">Enrollment for this program</p>
-                  <p className="text-[9px] text-slate-600 leading-snug mt-0.5">
-                    Set attendance and enrollment notification email for this checkout — including the WhatsApp group link
-                    when applicable. Combine the options below, or save your choices as the default for every program on
-                    this device.
-                  </p>
-                </div>
+                <p className="text-[10px] text-slate-600 leading-snug mb-2">
+                  <span className="font-semibold text-slate-800">Enrollment for this program.</span>{' '}
+                  Choose attendance and enrollment notification email (WhatsApp group link when applicable). You can save
+                  these as defaults for this browser.
+                </p>
                 {annualSeatUi.draft?.enrollmentDefaultsLoaded ? (
-                  <p className="text-[9px] text-violet-900 bg-violet-100/80 border border-violet-200/60 rounded px-2 py-1 leading-snug">
+                  <p className="text-[9px] text-violet-900 bg-violet-50 border border-violet-200/70 rounded px-2 py-1 leading-snug mb-2 w-full">
                     Loaded your <strong>saved defaults</strong> for this browser. Adjust below or{' '}
                     <button
                       type="button"
@@ -637,11 +740,13 @@ export default function DashboardUpcomingProgramRowItem({
                   </p>
                 ) : null}
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                  <div className="rounded-md border border-violet-100/90 bg-violet-50/35 px-2 py-1.5 space-y-1">
-                    <p className="text-[8px] font-bold uppercase tracking-wide text-slate-500">Attendance (pick one)</p>
-                    <div className="space-y-0.5">
-                      <label className="flex items-center gap-1.5 cursor-pointer text-[10px] text-slate-800">
+                <div className="w-full flex flex-col gap-0 divide-y divide-slate-200">
+                  <div className="flex flex-col min-[680px]:flex-row min-[680px]:items-center gap-2 py-2 first:pt-0 w-full">
+                    <span className="text-[9px] font-bold uppercase tracking-wide text-slate-500 shrink-0 min-w-[7.5rem]">
+                      Attendance
+                    </span>
+                    <div className="flex flex-wrap items-center gap-x-5 gap-y-1 flex-1 min-w-0">
+                      <label className="inline-flex items-center gap-1.5 cursor-pointer text-[10px] text-slate-800 whitespace-nowrap">
                         <input
                           type="checkbox"
                           className="rounded border-slate-300 shrink-0 scale-90"
@@ -653,7 +758,7 @@ export default function DashboardUpcomingProgramRowItem({
                         />
                         All online
                       </label>
-                      <label className="flex items-center gap-1.5 cursor-pointer text-[10px] text-slate-800">
+                      <label className="inline-flex items-center gap-1.5 cursor-pointer text-[10px] text-slate-800 whitespace-nowrap">
                         <input
                           type="checkbox"
                           className="rounded border-slate-300 shrink-0 scale-90"
@@ -666,7 +771,7 @@ export default function DashboardUpcomingProgramRowItem({
                         All offline
                       </label>
                       {!includedPkg ? (
-                        <label className="flex items-center gap-1.5 cursor-pointer text-[10px] text-slate-800">
+                        <label className="inline-flex items-center gap-1.5 cursor-pointer text-[10px] text-slate-800 whitespace-nowrap">
                           <input
                             type="checkbox"
                             className="rounded border-slate-300 shrink-0 scale-90"
@@ -679,17 +784,18 @@ export default function DashboardUpcomingProgramRowItem({
                           All offline except Myself
                         </label>
                       ) : null}
+                      {annualSeatUi.attendanceQuickPreset === 'custom' ? (
+                        <span className="text-[9px] text-amber-800/90">Mixed — use advanced or pick a preset.</span>
+                      ) : null}
                     </div>
-                    {annualSeatUi.attendanceQuickPreset === 'custom' ? (
-                      <p className="text-[8px] text-amber-800/90">Mixed — use advanced or pick a preset.</p>
-                    ) : null}
                   </div>
-                  <div className="rounded-md border border-slate-200/90 bg-slate-50/50 px-2 py-1.5 space-y-1">
-                    <p className="text-[8px] font-bold uppercase tracking-wide text-slate-500 leading-snug">
-                      Enrollment Notification Email (for WhatsApp Group Link)
-                    </p>
-                    <div className="space-y-0.5">
-                      <label className="flex items-center gap-1.5 cursor-pointer text-[10px] text-slate-800">
+
+                  <div className="flex flex-col min-[680px]:flex-row min-[680px]:items-center gap-2 py-2 w-full">
+                    <span className="text-[9px] font-bold uppercase tracking-wide text-slate-500 shrink-0 min-w-[7.5rem] leading-snug">
+                      Enrollment email
+                    </span>
+                    <div className="flex flex-wrap items-center gap-x-5 gap-y-1 flex-1 min-w-0">
+                      <label className="inline-flex items-center gap-1.5 cursor-pointer text-[10px] text-slate-800 whitespace-nowrap">
                         <input
                           type="checkbox"
                           className="rounded border-slate-300 shrink-0 scale-90"
@@ -701,7 +807,7 @@ export default function DashboardUpcomingProgramRowItem({
                         />
                         Email all
                       </label>
-                      <label className="flex items-center gap-1.5 cursor-pointer text-[10px] text-slate-800">
+                      <label className="inline-flex items-center gap-1.5 cursor-pointer text-[10px] text-slate-800 whitespace-nowrap">
                         <input
                           type="checkbox"
                           className="rounded border-slate-300 shrink-0 scale-90"
@@ -713,7 +819,7 @@ export default function DashboardUpcomingProgramRowItem({
                         />
                         Email Me Only
                       </label>
-                      <label className="flex items-center gap-1.5 cursor-pointer text-[10px] text-slate-800">
+                      <label className="inline-flex items-center gap-1.5 cursor-pointer text-[10px] text-slate-800 whitespace-nowrap">
                         <input
                           type="checkbox"
                           className="rounded border-slate-300 shrink-0 scale-90"
@@ -725,115 +831,119 @@ export default function DashboardUpcomingProgramRowItem({
                         />
                         Custom
                       </label>
+                      {annualSeatUi.notifyQuickPreset === 'mixed' ? (
+                        <span className="text-[9px] text-amber-800/90">Mixed — open advanced.</span>
+                      ) : null}
                     </div>
-                    {annualSeatUi.notifyQuickPreset === 'mixed' ? (
-                      <p className="text-[8px] text-amber-800/90">Mixed — open advanced.</p>
-                    ) : null}
                   </div>
-                </div>
 
-                {!includedPkg ? (
-                  <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[10px] text-slate-700 border-t border-slate-200/60 pt-1.5">
-                    <span className="font-medium text-slate-600 shrink-0">You</span>
-                    <span className="truncate max-w-[10rem]">{annualSeatUi.bookerDisplayName}</span>
-                    <label className="inline-flex items-center gap-0.5 cursor-pointer">
-                      <input
-                        type="radio"
-                        name={`dash-inline-booker-${p.id}`}
-                        checked={(annualSeatUi.draft?.bookerSeatMode || 'online') !== 'offline'}
-                        onChange={() => annualSeatUi.onPatchDraft(p.id, { bookerSeatMode: 'online' })}
-                      />
-                      <Wifi size={11} className="text-slate-500" />
-                      Online
-                    </label>
-                    <label className="inline-flex items-center gap-0.5 cursor-pointer">
-                      <input
-                        type="radio"
-                        name={`dash-inline-booker-${p.id}`}
-                        checked={(annualSeatUi.draft?.bookerSeatMode || 'online') === 'offline'}
-                        onChange={() => annualSeatUi.onPatchDraft(p.id, { bookerSeatMode: 'offline' })}
-                      />
-                      <Monitor size={11} className="text-slate-500" />
-                      Offline
-                    </label>
-                    <label className="inline-flex items-center gap-1 cursor-pointer ml-1">
+                  {!includedPkg ? (
+                    <div className="flex flex-wrap items-center gap-x-3 gap-y-1 py-2 text-[10px] text-slate-700">
+                      <span className="font-semibold text-slate-600 shrink-0 min-w-[7.5rem] uppercase text-[9px] tracking-wide">
+                        Your seat
+                      </span>
+                      <span className="truncate max-w-[12rem] font-medium text-slate-800">{annualSeatUi.bookerDisplayName}</span>
+                      <label className="inline-flex items-center gap-0.5 cursor-pointer whitespace-nowrap">
+                        <input
+                          type="radio"
+                          name={`dash-inline-booker-${p.id}`}
+                          checked={(annualSeatUi.draft?.bookerSeatMode || 'online') !== 'offline'}
+                          onChange={() => annualSeatUi.onPatchDraft(p.id, { bookerSeatMode: 'online' })}
+                        />
+                        <Wifi size={11} className="text-slate-500" />
+                        Online
+                      </label>
+                      <label className="inline-flex items-center gap-0.5 cursor-pointer whitespace-nowrap">
+                        <input
+                          type="radio"
+                          name={`dash-inline-booker-${p.id}`}
+                          checked={(annualSeatUi.draft?.bookerSeatMode || 'online') === 'offline'}
+                          onChange={() => annualSeatUi.onPatchDraft(p.id, { bookerSeatMode: 'offline' })}
+                        />
+                        <Monitor size={11} className="text-slate-500" />
+                        Offline
+                      </label>
+                      <label className="inline-flex items-center gap-1 cursor-pointer whitespace-nowrap">
+                        <input
+                          type="checkbox"
+                          className="rounded border-slate-300 scale-90"
+                          checked={annualSeatUi.draft?.bookerSeatNotify !== false}
+                          onChange={(e) => annualSeatUi.onPatchDraft(p.id, { bookerSeatNotify: e.target.checked })}
+                        />
+                        <span className="inline-flex items-center gap-0.5">
+                          {annualSeatUi.draft?.bookerSeatNotify !== false ? (
+                            <Bell size={11} className="text-slate-500" />
+                          ) : (
+                            <BellOff size={11} className="text-slate-400" />
+                          )}
+                          Email me details
+                        </span>
+                      </label>
+                    </div>
+                  ) : null}
+
+                  <div className="flex flex-wrap items-center gap-x-5 gap-y-2 py-2">
+                    <label className="inline-flex items-center gap-1.5 cursor-pointer text-[10px] text-slate-800">
                       <input
                         type="checkbox"
                         className="rounded border-slate-300 scale-90"
-                        checked={annualSeatUi.draft?.bookerSeatNotify !== false}
-                        onChange={(e) => annualSeatUi.onPatchDraft(p.id, { bookerSeatNotify: e.target.checked })}
+                        checked={!!annualSeatUi.draft?.persistEnrollmentDefaultsOnContinue}
+                        onChange={(e) =>
+                          annualSeatUi.onPatchDraft(p.id, { persistEnrollmentDefaultsOnContinue: e.target.checked })
+                        }
                       />
-                      <span className="inline-flex items-center gap-0.5">
-                        {annualSeatUi.draft?.bookerSeatNotify !== false ? (
-                          <Bell size={11} className="text-slate-500" />
-                        ) : (
-                          <BellOff size={11} className="text-slate-400" />
-                        )}
-                        Email me details
-                      </span>
+                      <span className="font-medium">Save as my default for every program (this browser)</span>
                     </label>
+                    <button
+                      type="button"
+                      className="text-[9px] text-violet-700 hover:text-violet-900 underline underline-offset-2"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        annualSeatUi.onOpenAdvancedModal();
+                      }}
+                    >
+                      Per-person attendance &amp; email…
+                    </button>
                   </div>
-                ) : null}
-
-                <label className="flex items-start gap-1.5 cursor-pointer text-[10px] text-slate-800">
-                  <input
-                    type="checkbox"
-                    className="mt-0.5 rounded border-slate-300 scale-90"
-                    checked={!!annualSeatUi.draft?.persistEnrollmentDefaultsOnContinue}
-                    onChange={(e) =>
-                      annualSeatUi.onPatchDraft(p.id, { persistEnrollmentDefaultsOnContinue: e.target.checked })
-                    }
-                  />
-                  <span className="leading-snug">
-                    <span className="font-medium">Save these choices as my default for every program</span>
-                  </span>
-                </label>
-
-                <button
-                  type="button"
-                  className="text-[9px] text-violet-700 hover:text-violet-900 underline underline-offset-2"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    annualSeatUi.onOpenAdvancedModal();
-                  }}
-                >
-                  Per-person attendance &amp; email…
-                </button>
+                </div>
               </div>
             ) : null}
 
-            <p className="text-xs text-slate-500 leading-relaxed">
-              Payment method in the next step matches your membership (Stripe vs UPI / bank).
-            </p>
-            <button
-              type="button"
-              disabled={!canPay || payingProgramId === p.id}
-              title={
-                !canPay
-                  ? includedPkg && selCount < 1
-                    ? 'Select family members to join or wait for pricing.'
-                    : !aq
-                      ? 'Loading pricing…'
-                      : (aq.total || 0) <= 0
-                        ? 'No amount due for this selection.'
-                        : ''
-                  : undefined
-              }
-              onClick={(e) => {
-                e.stopPropagation();
-                if (annualSeatUi?.onContinuePay) {
-                  annualSeatUi.onContinuePay();
-                } else {
-                  openEnrollmentSeatModal(p, includedPkg, selIds);
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pt-1 border-t border-slate-100">
+              <p className="text-xs text-slate-500 leading-relaxed flex-1 min-w-0">
+                Payment method in the next step matches your membership (Stripe vs UPI / bank).
+              </p>
+              <button
+                type="button"
+                disabled={!canPay || payingProgramId === p.id}
+                title={
+                  !canPay
+                    ? includedPkg && selCount < 1
+                      ? 'Select family members to join or wait for pricing.'
+                      : !aq
+                        ? 'Loading pricing…'
+                        : (aq.total || 0) <= 0
+                          ? 'No amount due for this selection.'
+                          : ''
+                    : undefined
                 }
-              }}
-              className="w-full inline-flex items-center justify-center gap-2 rounded-xl bg-[#D4AF37] text-white text-sm font-semibold py-2.5 px-4 hover:bg-[#b8962e] disabled:opacity-50 disabled:pointer-events-none shadow-sm mt-auto"
-              data-testid={`dashboard-pay-${p.id}`}
-            >
-              {payingProgramId === p.id ? <Loader2 size={18} className="animate-spin" /> : <CreditCard size={18} />}
-              Continue to enrollment &amp; payment
-            </button>
+                onClick={(e) => {
+                  e.stopPropagation();
+                  if (annualSeatUi?.onContinuePay) {
+                    annualSeatUi.onContinuePay();
+                  } else {
+                    openEnrollmentSeatModal(p, includedPkg, selIds);
+                  }
+                }}
+                className="w-full sm:w-auto shrink-0 inline-flex items-center justify-center gap-2 rounded-xl bg-[#D4AF37] text-white text-sm font-semibold py-2.5 px-5 hover:bg-[#b8962e] disabled:opacity-50 disabled:pointer-events-none shadow-sm sm:min-w-[16rem]"
+                data-testid={`dashboard-pay-${p.id}`}
+              >
+                {payingProgramId === p.id ? <Loader2 size={18} className="animate-spin" /> : <CreditCard size={18} />}
+                Continue to enrollment &amp; payment
+              </button>
+            </div>
           </div>
+        </div>
         </div>
       ) : (
         <>
