@@ -183,6 +183,8 @@ const StudentDashboard = () => {
   const [homeData, setHomeData] = useState(null);
   const [homeLoading, setHomeLoading] = useState(true);
   const [homeFetchError, setHomeFetchError] = useState(false);
+  /** Distinguish auth failures (incognito / expired session) from real network errors. */
+  const [homeErrorKind, setHomeErrorKind] = useState(null);
   const [intentionsTab, setIntentionsTab] = useState('d');
   const progressGradId = `pg-${useId().replace(/:/g, '')}`;
 
@@ -217,16 +219,22 @@ const StudentDashboard = () => {
 
   const refreshHome = useCallback(() => {
     setHomeFetchError(false);
+    setHomeErrorKind(null);
     setHomeLoading(true);
     axios
       .get(`${API}/api/student/home`, { withCredentials: true })
       .then((res) => setHomeData(res.data))
-      .catch(() => {
+      .catch((err) => {
         setHomeData(null);
         setHomeFetchError(true);
+        const status = err.response?.status;
+        const unauthorized = status === 401 || status === 403;
+        setHomeErrorKind(unauthorized ? 'auth' : 'network');
         toast({
-          title: 'Could not load dashboard',
-          description: 'Upcoming programs and your schedule need a working connection. Try again in a moment.',
+          title: unauthorized ? 'Sign-in required' : 'Could not load dashboard',
+          description: unauthorized
+            ? 'Open a normal window and sign in, or log in again. Private browsing often blocks session cookies — your saved token will be used when present.'
+            : 'Upcoming programs and your schedule need a working connection. Try again in a moment.',
           variant: 'destructive',
         });
       })
@@ -418,9 +426,28 @@ const StudentDashboard = () => {
             {!homeLoading && homeFetchError && (
               <section className="w-full max-w-5xl mx-auto px-4 mb-4 md:mb-6" data-testid="dashboard-upcoming-error">
                 <div className="rounded-[28px] border border-red-200 bg-red-50/90 px-5 py-5 text-sm text-red-950">
-                  <p className="font-semibold">Could not load programs</p>
+                  <p className="font-semibold">
+                    {homeErrorKind === 'auth' ? 'Could not load programs — not signed in' : 'Could not load programs'}
+                  </p>
                   <p className="text-xs mt-1 text-red-900/85">
-                    Check your connection and tap Retry. For payments you can also open Financials from the sidebar menu.
+                    {homeErrorKind === 'auth' ? (
+                      <>
+                        This page needs a valid session. In private/incognito windows, sign in again from{' '}
+                        <button
+                          type="button"
+                          className="font-medium text-[#5D3FD3] underline"
+                          onClick={() => navigate('/login')}
+                        >
+                          Log in
+                        </button>
+                        . If you are already signed in, tap Retry.
+                      </>
+                    ) : (
+                      <>
+                        Check your connection and tap Retry. For payments you can also open Financials from the sidebar
+                        menu.
+                      </>
+                    )}
                   </p>
                   <Button
                     type="button"

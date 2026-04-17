@@ -391,12 +391,11 @@ export default function DashboardProgramPaymentModal({
                     <div>
                       <Label className="text-[10px]">Screenshot *</Label>
                       <p className="text-[10px] text-slate-500 mt-0.5 mb-1">
-                        One box: drag an image onto it, or tap / click it to use your device&apos;s file chooser (same as
-                        &quot;Choose file&quot;). Images only (PNG, JPG, HEIC, etc.).
+                        Drag an image into the box, or use the file button below (native &quot;Choose file&quot; — most
+                        reliable on phones). Images only.
                       </p>
-                      {/* Opacity-0 overlay input: real hit area for tap (sr-only + label fails on many mobile WebKit builds). */}
                       <div
-                        className="relative mt-1 min-h-[7.5rem] overflow-hidden rounded-lg border-2 border-dashed border-slate-200 bg-slate-50/80 transition-colors hover:border-[#5D3FD3]/45 hover:bg-violet-50/25 focus-within:ring-2 focus-within:ring-[#5D3FD3]/40 focus-within:ring-offset-1"
+                        className="relative mt-1 rounded-lg border-2 border-dashed border-slate-200 bg-slate-50/80 transition-colors hover:border-[#5D3FD3]/45 hover:bg-violet-50/25"
                         onDragEnter={(e) => {
                           e.preventDefault();
                           e.stopPropagation();
@@ -412,7 +411,7 @@ export default function DashboardProgramPaymentModal({
                           ingestProofFile(f);
                         }}
                       >
-                        <div className="pointer-events-none relative z-0 flex flex-col gap-2 p-3">
+                        <div className="flex flex-col gap-2 p-3">
                           {screenshotPreviewUrl ? (
                             <img
                               src={screenshotPreviewUrl}
@@ -423,36 +422,35 @@ export default function DashboardProgramPaymentModal({
                           <div className="flex flex-col items-center gap-1 text-center">
                             <Upload size={18} className="text-[#5D3FD3]" aria-hidden />
                             <span className="text-[11px] font-medium text-slate-800">
-                              {screenshot ? 'Drop to replace or tap to choose another' : 'Drop here or tap to choose file'}
+                              {screenshot ? 'Drop to replace, or pick another file' : 'Drop screenshot here'}
                             </span>
                             {screenshot ? (
                               <p className="text-[10px] text-emerald-800 truncate max-w-full">{screenshot.name}</p>
                             ) : null}
                           </div>
+                          <input
+                            key={open ? `proof-${enrollmentId ?? 'session'}` : 'proof-closed'}
+                            ref={proofFileInputRef}
+                            type="file"
+                            accept="image/*"
+                            data-testid="dashboard-proof-screenshot-input"
+                            aria-label="Choose payment proof image"
+                            className="block w-full min-h-11 cursor-pointer text-xs text-slate-700 file:mr-3 file:inline-flex file:h-10 file:min-h-[44px] file:cursor-pointer file:items-center file:rounded-md file:border file:border-slate-300 file:bg-white file:px-4 file:py-2 file:text-xs file:font-semibold file:text-slate-900 hover:file:bg-violet-50"
+                            onChange={(e) => {
+                              const inputEl = e.target;
+                              const f = inputEl.files?.[0] ?? null;
+                              if (!f) return;
+                              if (!ingestProofFile(f)) {
+                                inputEl.value = '';
+                                setScreenshot(null);
+                                setScreenshotPreviewUrl((prev) => {
+                                  if (prev) URL.revokeObjectURL(prev);
+                                  return '';
+                                });
+                              }
+                            }}
+                          />
                         </div>
-                        <input
-                          key={open ? `proof-${enrollmentId ?? 'session'}` : 'proof-closed'}
-                          ref={proofFileInputRef}
-                          type="file"
-                          accept="image/*"
-                          data-testid="dashboard-proof-screenshot-input"
-                          aria-label="Choose payment proof image"
-                          className="absolute inset-0 z-[1] block h-full min-h-[7.5rem] w-full cursor-pointer opacity-0"
-                          style={{ fontSize: 'max(16px, 1rem)' }}
-                          onChange={(e) => {
-                            const inputEl = e.target;
-                            const f = inputEl.files?.[0] ?? null;
-                            if (!f) return;
-                            if (!ingestProofFile(f)) {
-                              inputEl.value = '';
-                              setScreenshot(null);
-                              setScreenshotPreviewUrl((prev) => {
-                                if (prev) URL.revokeObjectURL(prev);
-                                return '';
-                              });
-                            }
-                          }}
-                        />
                       </div>
                       {screenshot ? (
                         <button

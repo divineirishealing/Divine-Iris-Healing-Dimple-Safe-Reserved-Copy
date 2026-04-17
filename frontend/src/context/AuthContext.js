@@ -1,17 +1,11 @@
 import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
 import axios from 'axios';
 import { useLocation, useNavigate } from 'react-router-dom';
+import { getAuthHeaders } from '../lib/authHeaders';
 
 const AuthContext = createContext();
 
 const API = process.env.REACT_APP_BACKEND_URL || 'http://localhost:8001';
-
-// Returns auth headers using the localStorage token as a fallback for
-// environments where cross-domain cookies are blocked by the browser.
-const authHeaders = () => {
-  const token = localStorage.getItem('session_token');
-  return token ? { Authorization: `Bearer ${token}` } : {};
-};
 
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
@@ -54,7 +48,7 @@ export const AuthProvider = ({ children }) => {
     try {
       await axios.post(`${API}/api/auth/logout`, {}, {
         withCredentials: true,
-        headers: authHeaders(),
+        headers: getAuthHeaders(),
       });
       localStorage.removeItem('session_token');
       setUser(null);

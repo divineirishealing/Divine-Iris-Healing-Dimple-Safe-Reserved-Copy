@@ -4,6 +4,17 @@
  * Does not retry POST/PUT/PATCH (payments, enrollment, etc.).
  */
 import axios from 'axios';
+import { getAuthHeaders } from './lib/authHeaders';
+
+/** Attach Bearer token when present so API calls work without cross-site cookies (incognito / Safari). */
+axios.interceptors.request.use((config) => {
+  const { Authorization } = getAuthHeaders();
+  if (Authorization && !config.headers?.Authorization) {
+    config.headers = config.headers || {};
+    config.headers.Authorization = Authorization;
+  }
+  return config;
+});
 
 const MAX_GET_RETRIES = 6;
 const RETRY_STATUSES = new Set([502, 503, 504]);
