@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useId } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import axios from 'axios';
 import {
   X,
@@ -49,7 +49,6 @@ export default function DashboardProgramPaymentModal({
   isPrimary,
 }) {
   const { toast } = useToast();
-  const screenshotInputId = useId();
 
   const [enrollment, setEnrollment] = useState(null);
   const [loadingEnroll, setLoadingEnroll] = useState(false);
@@ -382,20 +381,26 @@ export default function DashboardProgramPaymentModal({
                   <div className="grid gap-2">
                     <div>
                       <Label className="text-[10px]">Screenshot *</Label>
-                      <input
-                        id={screenshotInputId}
-                        type="file"
-                        accept="image/*"
-                        className="sr-only"
-                        onChange={(e) => setScreenshot(e.target.files?.[0] || null)}
-                      />
-                      <label
-                        htmlFor={screenshotInputId}
-                        className="mt-1 flex w-full cursor-pointer items-center justify-center gap-2 rounded-md border border-input bg-background px-3 py-2 text-xs font-medium shadow-sm hover:bg-accent hover:text-accent-foreground"
-                      >
-                        <Upload size={14} className="shrink-0" aria-hidden />
-                        <span className="truncate">{screenshot ? screenshot.name : 'Choose image'}</span>
-                      </label>
+                      <div className="relative mt-1 h-10 w-full">
+                        <input
+                          type="file"
+                          accept="image/png,image/jpeg,image/webp,image/heic,.png,.jpg,.jpeg,.webp,.heic"
+                          className="absolute inset-0 z-30 h-full w-full cursor-pointer opacity-0"
+                          onChange={(e) => {
+                            const f = e.target.files?.[0] || null;
+                            setScreenshot(f);
+                            e.target.value = '';
+                          }}
+                          aria-label="Choose payment screenshot image"
+                        />
+                        <div
+                          className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center gap-2 rounded-md border border-input bg-background px-3 text-xs font-medium shadow-sm hover:bg-accent hover:text-accent-foreground"
+                          aria-hidden
+                        >
+                          <Upload size={14} className="shrink-0" />
+                          <span className="truncate">{screenshot ? screenshot.name : 'Choose image'}</span>
+                        </div>
+                      </div>
                     </div>
                     <div className="grid grid-cols-2 gap-2">
                       <div>
