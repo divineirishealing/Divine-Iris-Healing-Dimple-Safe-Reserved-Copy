@@ -222,6 +222,25 @@ export default function DashboardProgramPaymentModal({
     }
   };
 
+  /** Used by file input, Browse button, and drag-and-drop. Avoid nesting file input inside label — breaks native Browse in many browsers. */
+  const ingestProofFile = (file) => {
+    if (!file) return false;
+    if (file.type && !file.type.startsWith('image/')) {
+      toast({
+        title: 'Please choose an image',
+        description: 'Screenshots and photos only for payment proof.',
+        variant: 'destructive',
+      });
+      return false;
+    }
+    setScreenshot(file);
+    setScreenshotPreviewUrl((prev) => {
+      if (prev) URL.revokeObjectURL(prev);
+      return URL.createObjectURL(file);
+    });
+    return true;
+  };
+
   if (!open) return null;
 
   return (
@@ -395,15 +414,34 @@ export default function DashboardProgramPaymentModal({
                     <div>
                       <Label className="text-[10px]">Screenshot *</Label>
                       <p className="text-[10px] text-slate-500 mt-0.5 mb-1">
-                        On a laptop, use the native <span className="font-medium text-slate-700">Browse / Choose File</span>{' '}
-                        control (inside the dashed box). You can also click anywhere in that box. Images only (PNG, JPG,
-                        HEIC, etc.).
+                        Drag an image into the box, tap <span className="font-medium text-slate-700">Browse files</span>, or
+                        use the system file row below. Images only (PNG, JPG, HEIC, etc.).
                       </p>
-                      {/*
-                        Visible file input inside <label> so both the OS file button and the dashed hit-area open the
-                        picker reliably (avoids sr-only + htmlFor quirks on some desktop browsers).
-                      */}
-                      <label className="mt-1 flex cursor-pointer flex-col gap-2 rounded-lg border-2 border-dashed border-slate-200 bg-slate-50/80 px-3 py-3 transition-colors hover:border-[#5D3FD3]/45 hover:bg-violet-50/25">
+                      <div
+                        role="button"
+                        tabIndex={0}
+                        className="mt-1 flex flex-col gap-2 rounded-lg border-2 border-dashed border-slate-200 bg-slate-50/80 px-3 py-3 transition-colors hover:border-[#5D3FD3]/45 hover:bg-violet-50/25 outline-none focus-visible:ring-2 focus-visible:ring-[#5D3FD3]/40"
+                        onDragEnter={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                        }}
+                        onDragOver={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                        }}
+                        onDrop={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          const f = e.dataTransfer?.files?.[0] ?? null;
+                          ingestProofFile(f);
+                        }}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter' || e.key === ' ') {
+                            e.preventDefault();
+                            proofFileInputRef.current?.click();
+                          }
+                        }}
+                      >
                         {screenshotPreviewUrl ? (
                           <img
                             src={screenshotPreviewUrl}
@@ -411,50 +449,49 @@ export default function DashboardProgramPaymentModal({
                             className="max-h-36 w-full object-contain rounded-md border border-slate-100 bg-white"
                           />
                         ) : null}
-                        <div className="flex items-center gap-2 select-none">
-                          <Upload size={18} className="text-[#5D3FD3] shrink-0" aria-hidden />
+                        <div className="flex flex-col items-center gap-1 text-center">
+                          <Upload size={18} className="text-[#5D3FD3]" aria-hidden />
                           <span className="text-[11px] font-medium text-slate-800">
-                            {screenshot ? 'Change screenshot' : 'Add payment screenshot'}
+                            {screenshot ? 'Drop to replace' : 'Drop screenshot here'}
                           </span>
+                          {screenshot ? (
+                            <p className="text-[10px] text-emerald-800 truncate max-w-full">{screenshot.name}</p>
+                          ) : null}
                         </div>
-                        {screenshot ? (
-                          <p className="text-[10px] text-emerald-800 truncate">{screenshot.name}</p>
-                        ) : (
-                          <p className="text-[10px] text-slate-500">Use Browse / Choose File below (any device).</p>
-                        )}
-                        <input
-                          key={open ? `proof-${enrollmentId ?? 'session'}` : 'proof-closed'}
-                          ref={proofFileInputRef}
-                          type="file"
-                          accept="image/*,.jpg,.jpeg,.png,.webp,.heic,.heif"
-                          data-testid="dashboard-proof-screenshot-input"
-                          className="block w-full min-h-10 cursor-pointer text-xs text-slate-700 file:mr-3 file:inline-flex file:h-9 file:cursor-pointer file:items-center file:rounded-md file:border file:border-slate-300 file:bg-white file:px-4 file:py-2 file:text-xs file:font-semibold file:text-slate-900 hover:file:bg-violet-50"
-                          onChange={(e) => {
-                            const inputEl = e.target;
-                            const f = inputEl.files?.[0] ?? null;
-                            if (!f) return;
-                            if (f.type && !f.type.startsWith('image/')) {
-                              toast({
-                                title: 'Please choose an image',
-                                description: 'Screenshots and photos only for payment proof.',
-                                variant: 'destructive',
-                              });
-                              inputEl.value = '';
-                              setScreenshot(null);
-                              setScreenshotPreviewUrl((prev) => {
-                                if (prev) URL.revokeObjectURL(prev);
-                                return '';
-                              });
-                              return;
-                            }
-                            setScreenshot(f);
+                      </div>
+                      <div className="mt-2 flex flex-wrap items-center gap-2">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          className="h-9 text-xs border-slate-300 bg-white"
+                          onClick={() => proofFileInputRef.current?.click()}
+                        >
+                          Browse files
+                        </Button>
+                        <span className="text-[10px] text-slate-500">Opens your file picker</span>
+                      </div>
+                      <input
+                        key={open ? `proof-${enrollmentId ?? 'session'}` : 'proof-closed'}
+                        ref={proofFileInputRef}
+                        type="file"
+                        accept="image/*,.jpg,.jpeg,.png,.webp,.heic,.heif"
+                        data-testid="dashboard-proof-screenshot-input"
+                        className="mt-1 block w-full min-h-10 cursor-pointer text-xs text-slate-700 file:mr-3 file:inline-flex file:h-9 file:cursor-pointer file:items-center file:rounded-md file:border file:border-slate-300 file:bg-white file:px-4 file:py-2 file:text-xs file:font-semibold file:text-slate-900 hover:file:bg-violet-50"
+                        onChange={(e) => {
+                          const inputEl = e.target;
+                          const f = inputEl.files?.[0] ?? null;
+                          if (!f) return;
+                          if (!ingestProofFile(f)) {
+                            inputEl.value = '';
+                            setScreenshot(null);
                             setScreenshotPreviewUrl((prev) => {
                               if (prev) URL.revokeObjectURL(prev);
-                              return URL.createObjectURL(f);
+                              return '';
                             });
-                          }}
-                        />
-                      </label>
+                          }
+                        }}
+                      />
                       {screenshot ? (
                         <button
                           type="button"
