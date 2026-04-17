@@ -343,8 +343,8 @@ async def submit_payment_proof(
     is_emi: str = Form("false"),
     emi_total_months: str = Form(""),
     emi_months_covered: str = Form(""),
-    screenshot: UploadFile = File(...),
     notes: str = Form(""),
+    screenshot: Optional[UploadFile] = File(None),
 ):
     """Submit India alternative payment proof for admin approval."""
     # Validate enrollment exists (skip for standalone 'MANUAL' submissions)
@@ -352,38 +352,50 @@ async def submit_payment_proof(
     if enrollment_id != "MANUAL":
         enrollment = await db.enrollments.find_one({"id": enrollment_id}, {"_id": 0}) or {}
 
-    # Save screenshot (S3 when configured, else local disk unless REQUIRE_S3_FOR_UPLOADS)
-    ext = screenshot.filename.split(".")[-1] if "." in screenshot.filename else "png"
-    filename = f"{uuid.uuid4().hex[:12]}.{ext}"
-    proof_bytes = await screenshot.read()
-    mime, _ = mimetypes.guess_type(filename)
-    mime = mime or "image/png"
-    must_s3 = s3_storage.media_must_use_s3()
-    if must_s3 and not s3_storage.is_s3_enabled():
-        raise HTTPException(
-            status_code=503,
-            detail=(
-                "Payment proof screenshots must be stored in S3 (REQUIRE_S3_FOR_UPLOADS) but S3 is not configured. "
-                "See GET /api/upload/storage-status."
-            ),
-        )
-    if s3_storage.is_s3_enabled():
-        key = s3_storage.payment_proof_key(filename)
-        try:
-            screenshot_public_url = s3_storage.upload_bytes(key, proof_bytes, mime)
-        except Exception as e:
-            if must_s3:
-                raise HTTPException(status_code=503, detail=f"S3 upload failed: {e}") from e
-            logger.warning("S3 payment proof upload failed; saving locally: %s", e)
+    pm = (payment_method or "").strip().lower()
+    bank_deposit_methods = {"bank_transfer", "bank_deposit"}
+    requires_screenshot = pm in bank_deposit_methods
+    if requires_screenshot:
+        if screenshot is None or not (getattr(screenshot, "filename", None) or "").strip():
+            raise HTTPException(
+                status_code=400,
+                detail="Payment screenshot is required for bank deposit submissions.",
+            )
+
+    screenshot_public_url = ""
+    if screenshot is not None and (getattr(screenshot, "filename", None) or "").strip():
+        # Save screenshot (S3 when configured, else local disk unless REQUIRE_S3_FOR_UPLOADS)
+        ext = screenshot.filename.split(".")[-1] if "." in screenshot.filename else "png"
+        filename = f"{uuid.uuid4().hex[:12]}.{ext}"
+        proof_bytes = await screenshot.read()
+        mime, _ = mimetypes.guess_type(filename)
+        mime = mime or "image/png"
+        must_s3 = s3_storage.media_must_use_s3()
+        if must_s3 and not s3_storage.is_s3_enabled():
+            raise HTTPException(
+                status_code=503,
+                detail=(
+                    "Payment proof screenshots must be stored in S3 (REQUIRE_S3_FOR_UPLOADS) but S3 is not configured. "
+                    "See GET /api/upload/storage-status."
+                ),
+            )
+        if s3_storage.is_s3_enabled():
+            key = s3_storage.payment_proof_key(filename)
+            try:
+                screenshot_public_url = s3_storage.upload_bytes(key, proof_bytes, mime)
+            except Exception as e:
+                if must_s3:
+                    raise HTTPException(status_code=503, detail=f"S3 upload failed: {e}") from e
+                logger.warning("S3 payment proof upload failed; saving locally: %s", e)
+                filepath = UPLOAD_DIR / filename
+                with open(filepath, "wb") as f:
+                    f.write(proof_bytes)
+                screenshot_public_url = f"/api/uploads/payment_proofs/{filename}"
+        else:
             filepath = UPLOAD_DIR / filename
             with open(filepath, "wb") as f:
                 f.write(proof_bytes)
             screenshot_public_url = f"/api/uploads/payment_proofs/{filename}"
-    else:
-        filepath = UPLOAD_DIR / filename
-        with open(filepath, "wb") as f:
-            f.write(proof_bytes)
-        screenshot_public_url = f"/api/uploads/payment_proofs/{filename}"
 
     proof = {
         "id": str(uuid.uuid4()),

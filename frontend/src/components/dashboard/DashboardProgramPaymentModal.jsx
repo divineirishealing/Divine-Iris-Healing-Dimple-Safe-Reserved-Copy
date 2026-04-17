@@ -53,7 +53,6 @@ export default function DashboardProgramPaymentModal({
 
   const [enrollment, setEnrollment] = useState(null);
   const [loadingEnroll, setLoadingEnroll] = useState(false);
-  const [channel, setChannel] = useState('stripe');
   const [stripeLoading, setStripeLoading] = useState(false);
 
   const [payerName, setPayerName] = useState('');
@@ -175,9 +174,20 @@ export default function DashboardProgramPaymentModal({
     }
   };
 
+  const proofRequiresScreenshot =
+    proofMethod === 'bank_transfer' || proofMethod === 'bank_deposit';
+
   const submitProof = async () => {
-    if (!screenshot || !payerName.trim() || !paymentDate || !transactionId.trim() || !amountInput.trim()) {
+    if (!payerName.trim() || !paymentDate || !transactionId.trim() || !amountInput.trim()) {
       toast({ title: 'Fill all required proof fields', variant: 'destructive' });
+      return;
+    }
+    if (proofRequiresScreenshot && !screenshot) {
+      toast({
+        title: 'Screenshot required',
+        description: 'Bank deposit payments need a payment proof image.',
+        variant: 'destructive',
+      });
       return;
     }
     setSubmittingProof(true);
@@ -198,7 +208,7 @@ export default function DashboardProgramPaymentModal({
       formData.append('selected_item', programTitle || '');
       formData.append('is_emi', 'false');
       formData.append('notes', notes);
-      formData.append('screenshot', screenshot);
+      if (screenshot) formData.append('screenshot', screenshot);
 
       await axios.post(`${API}/api/india-payments/submit-proof`, formData, {
         withCredentials: true,
@@ -261,7 +271,7 @@ export default function DashboardProgramPaymentModal({
       className="fixed inset-0 z-[70] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4"
       data-testid="dashboard-program-payment-modal"
     >
-      <div className="bg-white rounded-2xl shadow-2xl flex w-full max-w-lg max-h-[92vh] flex-col overflow-hidden">
+      <div className="bg-white rounded-2xl shadow-2xl flex w-full max-w-3xl max-h-[96vh] flex-col overflow-hidden sm:rounded-3xl">
         <div className="sticky top-0 z-10 flex items-start justify-between gap-3 px-5 py-4 border-b bg-gradient-to-r from-[#5D3FD3]/8 to-amber-50/80">
           <div>
             <h3 className="font-bold text-gray-900 text-sm">Pay for upcoming program</h3>
@@ -409,17 +419,70 @@ export default function DashboardProgramPaymentModal({
         </div>
 
         {!loadingEnroll && hasOffline && !proofSubmitted && (
-          <div className="shrink-0 border-t border-slate-200 bg-slate-50/50 p-5 text-xs shadow-[0_-4px_12px_rgba(0,0,0,0.04)]">
-            <h4 className="text-xs font-bold uppercase tracking-wide text-slate-600">Upload payment proof</h4>
-            <p className="text-[10px] text-gray-500 mt-1">
-              After paying by UPI or bank, upload a screenshot and UTR. Admin will approve and you will receive your receipt by
-              email.
+          <div className="shrink-0 border-t border-slate-200 bg-gradient-to-b from-slate-50/90 to-white p-5 sm:p-6 text-xs shadow-[0_-6px_24px_rgba(0,0,0,0.06)]">
+            <h4 className="text-sm font-bold uppercase tracking-wide text-slate-700">Upload payment proof</h4>
+            <p className="text-[11px] text-gray-600 mt-1.5 leading-relaxed max-w-3xl">
+              Tell us how you paid. A <span className="font-semibold">screenshot is required only for bank deposit</span> (online
+              transfer to the account shown above). UPI and cash deposit can be submitted without an image if you prefer.
             </p>
-            <div className="mt-3 grid gap-2">
-              <div>
-                <Label className="text-[10px]">Screenshot *</Label>
-                <p className="text-[10px] text-slate-500 mt-0.5 mb-1">
-                  Drag an image into the box, or tap Choose photo / file. Images only.
+            <div className="mt-4 grid gap-3 sm:gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <Label className="text-[10px]">Your name *</Label>
+                  <Input value={payerName} onChange={(e) => setPayerName(e.target.value)} className="h-10 text-xs mt-0.5" />
+                </div>
+                <div>
+                  <Label className="text-[10px]">Payment date *</Label>
+                  <Input type="date" value={paymentDate} onChange={(e) => setPaymentDate(e.target.value)} className="h-10 text-xs mt-0.5" />
+                </div>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <Label className="text-[10px]">Email</Label>
+                  <Input type="email" value={payerEmail} onChange={(e) => setPayerEmail(e.target.value)} className="h-10 text-xs mt-0.5" />
+                </div>
+                <div>
+                  <Label className="text-[10px]">Phone</Label>
+                  <Input value={payerPhone} onChange={(e) => setPayerPhone(e.target.value)} className="h-10 text-xs mt-0.5" />
+                </div>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <Label className="text-[10px]">UTR / Ref *</Label>
+                  <Input value={transactionId} onChange={(e) => setTransactionId(e.target.value)} className="h-10 text-xs mt-0.5 font-mono" />
+                </div>
+                <div>
+                  <Label className="text-[10px]">Amount ({quoteCurrency}) *</Label>
+                  <Input value={amountInput} onChange={(e) => setAmountInput(e.target.value)} className="h-10 text-xs mt-0.5 font-mono" />
+                </div>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <Label className="text-[10px]">Paid via *</Label>
+                  <select
+                    value={proofMethod}
+                    onChange={(e) => setProofMethod(e.target.value)}
+                    className="w-full border rounded-lg h-10 text-xs px-2 mt-0.5 bg-white"
+                  >
+                    <option value="upi">UPI / GPay</option>
+                    <option value="bank_transfer">Bank deposit (transfer)</option>
+                    <option value="cash_deposit">Cash deposit</option>
+                  </select>
+                </div>
+                <div>
+                  <Label className="text-[10px]">Bank / branch (optional)</Label>
+                  <Input value={bankName} onChange={(e) => setBankName(e.target.value)} placeholder="e.g. HDFC, branch name" className="h-10 text-xs mt-0.5" />
+                </div>
+              </div>
+
+              <div className="rounded-2xl border-2 border-dashed border-slate-200 bg-white p-4 sm:p-5">
+                <Label className="text-[11px] font-semibold text-slate-800">
+                  Payment screenshot {proofRequiresScreenshot ? <span className="text-red-600">*</span> : <span className="text-slate-500 font-normal">(optional)</span>}
+                </Label>
+                <p className="text-[10px] text-slate-500 mt-1">
+                  {proofRequiresScreenshot
+                    ? 'Required for bank deposit — drag an image here or choose a file.'
+                    : 'Optional — add a receipt or screenshot if you have one.'}
                 </p>
                 <input
                   key={open ? `proof-${enrollmentId ?? 'session'}` : 'proof-closed'}
@@ -433,7 +496,7 @@ export default function DashboardProgramPaymentModal({
                   onChange={proofFileInputOnChange}
                 />
                 <div
-                  className="relative mt-1 rounded-lg border-2 border-dashed border-slate-200 bg-white transition-colors hover:border-[#5D3FD3]/45"
+                  className="relative mt-3 min-h-[11rem] sm:min-h-[13rem] rounded-xl border border-slate-100 bg-slate-50/80 transition-colors hover:border-[#5D3FD3]/35"
                   onDragEnter={(e) => {
                     e.preventDefault();
                     e.stopPropagation();
@@ -449,17 +512,17 @@ export default function DashboardProgramPaymentModal({
                     ingestProofFile(f);
                   }}
                 >
-                  <div className="flex flex-col gap-2 p-3">
+                  <div className="flex flex-col gap-3 p-4 sm:p-5">
                     {screenshotPreviewUrl ? (
                       <img
                         src={screenshotPreviewUrl}
                         alt=""
-                        className="max-h-36 w-full object-contain rounded-md border border-slate-100 bg-white"
+                        className="max-h-52 sm:max-h-64 w-full object-contain rounded-lg border border-slate-100 bg-white shadow-sm"
                       />
                     ) : null}
-                    <div className="flex flex-col items-center gap-1 text-center">
-                      <Upload size={18} className="text-[#5D3FD3]" aria-hidden />
-                      <span className="text-[11px] font-medium text-slate-800">
+                    <div className="flex flex-col items-center gap-2 text-center py-2">
+                      <Upload size={22} className="text-[#5D3FD3]" aria-hidden />
+                      <span className="text-xs font-medium text-slate-800">
                         {screenshot ? 'Drop to replace, or pick another file' : 'Drop screenshot here'}
                       </span>
                       {screenshot ? (
@@ -468,7 +531,7 @@ export default function DashboardProgramPaymentModal({
                     </div>
                     <label
                       htmlFor={proofFileInputDomId}
-                      className="mt-1 flex h-11 w-full cursor-pointer select-none items-center justify-center rounded-md border border-slate-300 bg-white text-xs font-semibold text-slate-900 shadow-sm hover:bg-violet-50 touch-manipulation"
+                      className="flex h-12 w-full cursor-pointer select-none items-center justify-center rounded-xl border-2 border-slate-200 bg-white text-xs font-semibold text-slate-900 shadow-sm hover:border-[#5D3FD3]/40 hover:bg-violet-50/80 touch-manipulation"
                     >
                       Choose photo / file
                     </label>
@@ -477,7 +540,7 @@ export default function DashboardProgramPaymentModal({
                 {screenshot ? (
                   <button
                     type="button"
-                    className="mt-1.5 text-[10px] text-slate-500 underline decoration-slate-300 hover:text-slate-800"
+                    className="mt-2 text-[10px] text-slate-500 underline decoration-slate-300 hover:text-slate-800"
                     onClick={() => {
                       setScreenshot(null);
                       setScreenshotPreviewUrl((prev) => {
@@ -492,58 +555,16 @@ export default function DashboardProgramPaymentModal({
                   </button>
                 ) : null}
               </div>
-              <div className="grid grid-cols-2 gap-2">
-                <div>
-                  <Label className="text-[10px]">Your name *</Label>
-                  <Input value={payerName} onChange={(e) => setPayerName(e.target.value)} className="h-9 text-xs" />
-                </div>
-                <div>
-                  <Label className="text-[10px]">Payment date *</Label>
-                  <Input type="date" value={paymentDate} onChange={(e) => setPaymentDate(e.target.value)} className="h-9 text-xs" />
-                </div>
-              </div>
-              <div>
-                <Label className="text-[10px]">Email</Label>
-                <Input type="email" value={payerEmail} onChange={(e) => setPayerEmail(e.target.value)} className="h-9 text-xs" />
-              </div>
-              <div>
-                <Label className="text-[10px]">Phone</Label>
-                <Input value={payerPhone} onChange={(e) => setPayerPhone(e.target.value)} className="h-9 text-xs" />
-              </div>
-              <div className="grid grid-cols-2 gap-2">
-                <div>
-                  <Label className="text-[10px]">UTR / Ref *</Label>
-                  <Input value={transactionId} onChange={(e) => setTransactionId(e.target.value)} className="h-9 text-xs" />
-                </div>
-                <div>
-                  <Label className="text-[10px]">Amount ({quoteCurrency}) *</Label>
-                  <Input value={amountInput} onChange={(e) => setAmountInput(e.target.value)} className="h-9 text-xs font-mono" />
-                </div>
-              </div>
-              <div>
-                <Label className="text-[10px]">Paid via</Label>
-                <select
-                  value={proofMethod}
-                  onChange={(e) => setProofMethod(e.target.value)}
-                  className="w-full border rounded-lg h-9 text-xs px-2"
-                >
-                  <option value="upi">UPI / GPay</option>
-                  <option value="bank_transfer">Bank transfer</option>
-                </select>
-              </div>
-              <div>
-                <Label className="text-[10px]">Bank / app (optional)</Label>
-                <Input value={bankName} onChange={(e) => setBankName(e.target.value)} placeholder="e.g. HDFC, GPay" className="h-9 text-xs" />
-              </div>
+
               <div>
                 <Label className="text-[10px]">Notes</Label>
-                <Input value={notes} onChange={(e) => setNotes(e.target.value)} className="h-9 text-xs" />
+                <Input value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Anything else we should know" className="h-10 text-xs mt-0.5" />
               </div>
               <Button
                 type="button"
                 onClick={submitProof}
                 disabled={submittingProof}
-                className="w-full bg-[#5D3FD3] hover:bg-[#4c32b3] h-10"
+                className="w-full bg-[#5D3FD3] hover:bg-[#4c32b3] h-11 text-sm"
               >
                 {submittingProof ? <Loader2 size={14} className="animate-spin mr-2" /> : <CheckCircle size={14} className="mr-2" />}
                 Submit for approval
