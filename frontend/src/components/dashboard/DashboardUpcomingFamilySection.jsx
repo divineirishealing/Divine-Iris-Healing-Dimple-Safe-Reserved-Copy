@@ -70,6 +70,34 @@ function deriveAttendanceQuickPreset(ctx, guestForm, bookerMode) {
   return 'custom';
 }
 
+/** Matches modal notify state to bulk email preset: email_all | email_me_only | custom | mixed */
+function deriveNotifyQuickPreset(ctx, guestForm, bookerNotify) {
+  if (!ctx) return 'mixed';
+  const { includedPkg, selectedIds } = ctx;
+  const ids = (selectedIds || []).map(String);
+  const gOn = (id) => !!guestForm[id]?.notify_enrollment;
+  const gAllOn = ids.length === 0 || ids.every((id) => gOn(id));
+  const gAllOff = ids.length === 0 || ids.every((id) => !gOn(id));
+  const bOn = !!bookerNotify;
+  const bOff = !bookerNotify;
+
+  if (!includedPkg) {
+    if (ids.length === 0) {
+      if (bOff) return 'custom';
+      if (bOn) return 'email_all';
+      return 'mixed';
+    }
+    if (bOn && gAllOn) return 'email_all';
+    if (bOn && gAllOff) return 'email_me_only';
+    if (bOff && gAllOff) return 'custom';
+    return 'mixed';
+  }
+  if (ids.length === 0) return 'mixed';
+  if (gAllOn) return 'email_all';
+  if (gAllOff) return 'custom';
+  return 'mixed';
+}
+
 /** Cap parallel quote / promo requests (matches backend upcoming program list cap). */
 const DASHBOARD_UPCOMING_PREFETCH_LIMIT = 100;
 
@@ -405,6 +433,11 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh, bo
   const attendanceQuickPresetLive = useMemo(
     () => deriveAttendanceQuickPreset(seatModalCtx, guestSeatForm, bookerSeatMode),
     [seatModalCtx, guestSeatForm, bookerSeatMode]
+  );
+
+  const notifyQuickPresetLive = useMemo(
+    () => deriveNotifyQuickPreset(seatModalCtx, guestSeatForm, bookerSeatNotify),
+    [seatModalCtx, guestSeatForm, bookerSeatNotify]
   );
 
   const upcomingList = homeData?.upcoming_programs || [];
@@ -784,33 +817,6 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh, bo
       });
       return next;
     });
-  };
-
-  /** One-tap attendance + email combinations */
-  const applySmartEnrollmentPreset = (key) => {
-    if (!seatModalCtx) return;
-    const { includedPkg } = seatModalCtx;
-    if (key === 'all_online_email_all') {
-      applyBulkSeatModes('all_online');
-      applyBulkNotify('all_on');
-    } else if (key === 'all_offline_email_me_only') {
-      applyBulkSeatModes('all_offline');
-      applyBulkNotify('me_only');
-    } else if (key === 'guests_off_me_online_email_me_only') {
-      if (!includedPkg) {
-        applyBulkSeatModes('guests_offline_booker_online');
-        applyBulkNotify('me_only');
-      }
-    } else if (key === 'all_online_email_me_only') {
-      applyBulkSeatModes('all_online');
-      applyBulkNotify('me_only');
-    } else if (key === 'all_offline_no_emails') {
-      applyBulkSeatModes('all_offline');
-      applyBulkNotify('all_off');
-    } else if (key === 'included_guests_offline_no_guest_email') {
-      applyBulkSeatModes('all_offline');
-      applyBulkNotify('me_only');
-    }
   };
 
   const confirmEnrollmentSeatsAndPay = async () => {
@@ -1462,12 +1468,12 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh, bo
           }
         }}
       >
-        <DialogContent className="max-w-xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="text-base font-semibold text-slate-900">Enrollment for this program</DialogTitle>
             <DialogDescription className="text-[11px] text-slate-600 leading-relaxed">
-              Set attendance and enrollment emails for this checkout. Use one-tap presets to avoid clicking each row, or
-              save your choices as the default for every upcoming program on this device.
+              Set attendance and enrollment notification email for this checkout — including the WhatsApp group link when
+              applicable. Combine the options below, or save your choices as the default for every program on this device.
             </DialogDescription>
           </DialogHeader>
 
@@ -1480,149 +1486,101 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh, bo
                 </p>
               ) : null}
 
-              <div className="rounded-lg border border-amber-100 bg-amber-50/60 px-3 py-2.5 space-y-2">
-                <p className="text-[9px] font-bold uppercase tracking-wide text-amber-900/80">One-tap smart sets</p>
-                <div className="flex flex-wrap gap-1.5">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    className="text-[10px] h-auto min-h-8 py-1.5 px-2 border-amber-200 bg-white hover:bg-amber-50/80 leading-tight text-left"
-                    onClick={() => applySmartEnrollmentPreset('all_online_email_all')}
-                  >
-                    All online · email all
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    className="text-[10px] h-auto min-h-8 py-1.5 px-2 border-amber-200 bg-white hover:bg-amber-50/80 leading-tight text-left"
-                    onClick={() => applySmartEnrollmentPreset('all_offline_email_me_only')}
-                  >
-                    All offline · email me only
-                  </Button>
-                  {!seatModalCtx.includedPkg ? (
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      className="text-[10px] h-auto min-h-8 py-1.5 px-2 border-amber-200 bg-white hover:bg-amber-50/80 leading-tight text-left"
-                      onClick={() => applySmartEnrollmentPreset('guests_off_me_online_email_me_only')}
-                    >
-                      Guests offline, I&apos;m online · email me only
-                    </Button>
-                  ) : null}
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    className="text-[10px] h-auto min-h-8 py-1.5 px-2 border-amber-200 bg-white hover:bg-amber-50/80 leading-tight text-left"
-                    onClick={() => applySmartEnrollmentPreset('all_online_email_me_only')}
-                  >
-                    All online · email me only
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    className="text-[10px] h-auto min-h-8 py-1.5 px-2 border-amber-200 bg-white hover:bg-amber-50/80 leading-tight text-left"
-                    onClick={() => applySmartEnrollmentPreset('all_offline_no_emails')}
-                  >
-                    All offline · no enrollment emails
-                  </Button>
-                  {seatModalCtx.includedPkg && seatModalCtx.selectedIds.length > 0 ? (
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      className="text-[10px] h-auto min-h-8 py-1.5 px-2 border-amber-200 bg-white hover:bg-amber-50/80 leading-tight text-left"
-                      onClick={() => applySmartEnrollmentPreset('included_guests_offline_no_guest_email')}
-                    >
-                      All family offline · no emails for them
-                    </Button>
-                  ) : null}
-                </div>
-              </div>
-
-              <div className="rounded-lg border border-violet-100 bg-violet-50/50 px-3 py-2.5 space-y-2">
-                <p className="text-[9px] font-bold uppercase tracking-wide text-slate-500">Attendance (pick one)</p>
-                <div className="space-y-1.5">
-                  <label className="flex items-center gap-2 cursor-pointer text-[11px] text-slate-800">
-                    <input
-                      type="checkbox"
-                      className="rounded border-slate-300 shrink-0"
-                      checked={attendanceQuickPresetLive === 'all_online'}
-                      onChange={(e) => {
-                        if (e.target.checked) applyBulkSeatModes('all_online');
-                      }}
-                    />
-                    All online
-                  </label>
-                  <label className="flex items-center gap-2 cursor-pointer text-[11px] text-slate-800">
-                    <input
-                      type="checkbox"
-                      className="rounded border-slate-300 shrink-0"
-                      checked={attendanceQuickPresetLive === 'all_offline'}
-                      onChange={(e) => {
-                        if (e.target.checked) applyBulkSeatModes('all_offline');
-                      }}
-                    />
-                    All offline
-                  </label>
-                  {!seatModalCtx.includedPkg ? (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 items-start">
+                <div className="rounded-lg border border-violet-100 bg-violet-50/50 px-3 py-2.5 space-y-2">
+                  <p className="text-[9px] font-bold uppercase tracking-wide text-slate-500">Attendance (pick one)</p>
+                  <div className="space-y-1.5">
                     <label className="flex items-center gap-2 cursor-pointer text-[11px] text-slate-800">
                       <input
                         type="checkbox"
                         className="rounded border-slate-300 shrink-0"
-                        checked={attendanceQuickPresetLive === 'except_me'}
+                        checked={attendanceQuickPresetLive === 'all_online'}
                         onChange={(e) => {
-                          if (e.target.checked) applyBulkSeatModes('guests_offline_booker_online');
+                          if (e.target.checked) applyBulkSeatModes('all_online');
                         }}
                       />
-                      All offline except myself (my seat online, family joining offline)
+                      All online
                     </label>
-                  ) : (
-                    <p className="text-[9px] text-slate-500 pl-5">
-                      “All offline except myself” applies when your own seat is part of this payment (not package-only
-                      checkout).
+                    <label className="flex items-center gap-2 cursor-pointer text-[11px] text-slate-800">
+                      <input
+                        type="checkbox"
+                        className="rounded border-slate-300 shrink-0"
+                        checked={attendanceQuickPresetLive === 'all_offline'}
+                        onChange={(e) => {
+                          if (e.target.checked) applyBulkSeatModes('all_offline');
+                        }}
+                      />
+                      All offline
+                    </label>
+                    {!seatModalCtx.includedPkg ? (
+                      <label className="flex items-center gap-2 cursor-pointer text-[11px] text-slate-800">
+                        <input
+                          type="checkbox"
+                          className="rounded border-slate-300 shrink-0"
+                          checked={attendanceQuickPresetLive === 'except_me'}
+                          onChange={(e) => {
+                            if (e.target.checked) applyBulkSeatModes('guests_offline_booker_online');
+                          }}
+                        />
+                        All offline except Myself
+                      </label>
+                    ) : (
+                      <p className="text-[9px] text-slate-500">
+                        “All offline except Myself” is available when your own seat is part of this payment.
+                      </p>
+                    )}
+                  </div>
+                  {attendanceQuickPresetLive === 'custom' ? (
+                    <p className="text-[9px] text-amber-800/90">
+                      Mixed modes — adjust rows below or pick an option above.
                     </p>
-                  )}
+                  ) : null}
                 </div>
-                {attendanceQuickPresetLive === 'custom' ? (
-                  <p className="text-[9px] text-amber-800/90">Mixed modes — adjust rows below or pick an option above.</p>
-                ) : null}
-              </div>
 
-              <div className="rounded-lg border border-slate-200 bg-slate-50/80 px-3 py-2.5 space-y-2">
-                <p className="text-[9px] font-bold uppercase tracking-wide text-slate-500">Enrollment email only</p>
-                <div className="flex flex-wrap gap-1.5">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    className="text-[10px] h-8 px-2.5 bg-white"
-                    onClick={() => applyBulkNotify('all_on')}
-                  >
-                    Email all (needs emails on file)
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    className="text-[10px] h-8 px-2.5 bg-white"
-                    onClick={() => applyBulkNotify('me_only')}
-                  >
-                    Email me only
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    className="text-[10px] h-8 px-2.5 bg-white"
-                    onClick={() => applyBulkNotify('all_off')}
-                  >
-                    No enrollment emails
-                  </Button>
+                <div className="rounded-lg border border-slate-200 bg-slate-50/80 px-3 py-2.5 space-y-2">
+                  <p className="text-[9px] font-bold uppercase tracking-wide text-slate-500 leading-snug">
+                    Enrollment Notification Email (for WhatsApp Group Link)
+                  </p>
+                  <div className="space-y-1.5">
+                    <label className="flex items-center gap-2 cursor-pointer text-[11px] text-slate-800">
+                      <input
+                        type="checkbox"
+                        className="rounded border-slate-300 shrink-0"
+                        checked={notifyQuickPresetLive === 'email_all'}
+                        onChange={(e) => {
+                          if (e.target.checked) applyBulkNotify('all_on');
+                        }}
+                      />
+                      Email all
+                    </label>
+                    <label className="flex items-center gap-2 cursor-pointer text-[11px] text-slate-800">
+                      <input
+                        type="checkbox"
+                        className="rounded border-slate-300 shrink-0"
+                        checked={notifyQuickPresetLive === 'email_me_only'}
+                        onChange={(e) => {
+                          if (e.target.checked) applyBulkNotify('me_only');
+                        }}
+                      />
+                      Email Me Only
+                    </label>
+                    <label className="flex items-center gap-2 cursor-pointer text-[11px] text-slate-800">
+                      <input
+                        type="checkbox"
+                        className="rounded border-slate-300 shrink-0"
+                        checked={notifyQuickPresetLive === 'custom'}
+                        onChange={(e) => {
+                          if (e.target.checked) applyBulkNotify('all_off');
+                        }}
+                      />
+                      Custom
+                    </label>
+                  </div>
+                  {notifyQuickPresetLive === 'mixed' ? (
+                    <p className="text-[9px] text-amber-800/90">
+                      Mixed notification choices — adjust rows below or pick an option above.
+                    </p>
+                  ) : null}
                 </div>
               </div>
 
