@@ -92,6 +92,8 @@ async def update_settings(settings: SiteSettingsUpdate):
         update_data['enrollment_urgency_quotes'] = raw['enrollment_urgency_quotes']
     if raw.get('dashboard_bg_video') is not None:
         update_data['dashboard_bg_video'] = raw['dashboard_bg_video']
+    if raw.get('dashboard_sanctuary_video_url') is not None:
+        update_data['dashboard_sanctuary_video_url'] = raw['dashboard_sanctuary_video_url']
     if raw.get('dashboard_offer_annual') is not None:
         update_data['dashboard_offer_annual'] = raw['dashboard_offer_annual']
     if raw.get('dashboard_offer_family') is not None:

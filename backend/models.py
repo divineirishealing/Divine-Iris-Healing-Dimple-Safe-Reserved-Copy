@@ -565,6 +565,8 @@ class SiteSettings(BaseModel):
     special_offers: list = []  # [{id, label, discount_pct, emails:[], phones:[], program_ids:[], code, enabled}]
     inr_whitelist_emails: list = []
     dashboard_bg_video: str = ""
+    # Full-bleed loop behind Sacred Home (student dashboard overview + immersive shell) — uploaded in Admin → Dashboard
+    dashboard_sanctuary_video_url: str = ""
     # Student Sacred Home: offers shown to annual subscribers vs family (configured in Admin → Dashboard)
     dashboard_offer_annual: Dict = Field(default_factory=dict)  # {enabled, title, body, promo_code, cta_label, cta_path}
     dashboard_offer_family: Dict = Field(default_factory=dict)
@@ -738,6 +740,7 @@ class SiteSettingsUpdate(BaseModel):
     special_offers: Optional[list] = None
     inr_whitelist_emails: Optional[list] = None
     dashboard_bg_video: Optional[str] = None
+    dashboard_sanctuary_video_url: Optional[str] = None
     india_payment_gateway: Optional[dict] = None
     seo_site_url: Optional[str] = None
     seo_default_title: Optional[str] = None

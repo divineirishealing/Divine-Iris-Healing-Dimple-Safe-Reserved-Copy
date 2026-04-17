@@ -7,6 +7,7 @@ import { Textarea } from '../../ui/textarea';
 import { RefreshCw, Sparkles, Users, Layers, LayoutGrid, PanelLeft } from 'lucide-react';
 import { useToast } from '../../../hooks/use-toast';
 import { DASHBOARD_VISIBILITY_KEYS, DEFAULT_DASHBOARD_VISIBILITY } from '../../../lib/dashboardVisibility';
+import { resolveImageUrl } from '../../../lib/imageUtils';
 
 /** Member, family, or extended guest line: pricing_rule + fields (reused for global and per-program overrides). */
 function PortalPricingRuleFields({ offer, onPatch, variant }) {
@@ -184,9 +185,8 @@ const DashboardSettingsTab = ({ settings, onChange, programs = [] }) => {
   };
 
   const update = (field, value) => {
-    if (field === 'dashboard_bg_video') {
-      // Save at top level
-      onChange({ ...settings, dashboard_bg_video: value });
+    if (field === 'dashboard_bg_video' || field === 'dashboard_sanctuary_video_url') {
+      onChange({ ...settings, [field]: value });
     } else {
       onChange({
         ...settings,
@@ -431,6 +431,80 @@ const DashboardSettingsTab = ({ settings, onChange, programs = [] }) => {
             <p className="text-[9px] text-green-600 font-medium">Video set: {settings.dashboard_bg_video || dashboard.bg_video}</p>
           </div>
         )}
+      </div>
+
+      {/* Sacred Home full-bleed sanctuary video (exact loop, no extra effects) */}
+      <div className="mt-6 bg-white rounded-lg border p-5" data-testid="sanctuary-video-section">
+        <h3 className="text-sm font-semibold text-gray-900 mb-1">Sacred Home sanctuary video</h3>
+        <p className="text-[10px] text-gray-500 mb-3">
+          Full-screen loop behind the student dashboard (overview and violet shell). Shown as uploaded — no overlays.
+          If empty, the site falls back to the bundled <code className="text-[9px] bg-gray-100 px-1 rounded">dashboard-healing-sanctuary.mp4</code> in the app.
+          MP4 or WebM recommended; keep file size reasonable for mobile.
+        </p>
+        <div className="flex flex-wrap items-center gap-3">
+          <input
+            type="file"
+            accept="video/mp4,video/webm,video/quicktime"
+            onChange={async (e) => {
+              const file = e.target.files?.[0];
+              if (!file) return;
+              const fd = new FormData();
+              fd.append('file', file);
+              try {
+                const r = await fetch(`${process.env.REACT_APP_BACKEND_URL}/api/upload/video`, { method: 'POST', body: fd });
+                const data = await r.json();
+                if (data.url) {
+                  await fetch(`${process.env.REACT_APP_BACKEND_URL}/api/settings`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ dashboard_sanctuary_video_url: data.url }),
+                  });
+                  update('dashboard_sanctuary_video_url', data.url);
+                  toast({ title: 'Sanctuary video saved', description: 'Refresh the student dashboard to see it.' });
+                }
+              } catch (err) {
+                toast({ title: 'Upload failed', description: err?.message || 'Try again', variant: 'destructive' });
+              }
+              e.target.value = '';
+            }}
+            className="text-xs"
+            data-testid="sanctuary-video-upload"
+          />
+          {settings.dashboard_sanctuary_video_url ? (
+            <button
+              type="button"
+              onClick={async () => {
+                try {
+                  await fetch(`${process.env.REACT_APP_BACKEND_URL}/api/settings`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ dashboard_sanctuary_video_url: '' }),
+                  });
+                  update('dashboard_sanctuary_video_url', '');
+                  toast({ title: 'Removed', description: 'Using bundled fallback video until you upload again.' });
+                } catch (err) {
+                  toast({ title: 'Could not remove', variant: 'destructive' });
+                }
+              }}
+              className="text-xs text-red-500 hover:underline"
+            >
+              Remove
+            </button>
+          ) : null}
+        </div>
+        {settings.dashboard_sanctuary_video_url ? (
+          <div className="mt-3 space-y-2">
+            <p className="text-[9px] text-green-700 font-medium break-all">Using: {settings.dashboard_sanctuary_video_url}</p>
+            <video
+              src={resolveImageUrl(settings.dashboard_sanctuary_video_url)}
+              className="w-full max-w-md rounded border bg-black/80 max-h-40 object-contain"
+              muted
+              playsInline
+              loop
+              controls
+            />
+          </div>
+        ) : null}
       </div>
 
       {/* Student dashboard: annual vs family offers (Sacred Home) */}
