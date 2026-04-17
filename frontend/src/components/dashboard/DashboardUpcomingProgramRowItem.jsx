@@ -13,8 +13,8 @@ import {
 } from './dashboardUpcomingHelpers';
 
 /**
- * One upcoming program row: homepage-style hero (image + overlays + countdown) and card body.
- * Layout is row-wise on large screens; fonts slightly larger than the public grid cards for clarity.
+ * One upcoming program row: matches homepage UpcomingCard hero (h-48) and column width (max-w-md),
+ * left-aligned on the dashboard. Image sits on the left from sm breakpoint up; annual subscribers use a wider max width so the family block stays usable.
  */
 export default function DashboardUpcomingProgramRowItem({
   program: p,
@@ -118,16 +118,18 @@ export default function DashboardUpcomingProgramRowItem({
   const tierGridClass =
     tiers.length <= 1 ? 'grid-cols-1' : tiers.length === 2 ? 'grid-cols-2' : 'grid-cols-3';
 
+  const cardWidthClass = subscriberIsAnnual ? 'max-w-4xl' : 'max-w-md';
+
   return (
     <div
-      className={`group bg-white rounded-xl overflow-hidden shadow-lg border border-gray-100/90 flex flex-col transition-all duration-300 hover:shadow-xl ${
-        enrollStatus === 'closed' ? 'opacity-[0.88]' : ''
+      className={`group bg-white rounded-xl overflow-hidden shadow-lg border border-gray-100 flex flex-col sm:flex-row sm:items-stretch w-full ${cardWidthClass} mr-auto transition-all duration-300 ${
+        enrollStatus === 'closed' ? 'opacity-60' : 'hover:shadow-2xl'
       }`}
       data-testid={`dashboard-upcoming-${p.id}`}
     >
-      {/* Hero — shorter strip; full width above copy */}
+      {/* Hero — same height as homepage UpcomingCard (h-48); left column on sm+ */}
       <div
-        className={`relative h-36 sm:h-40 md:h-44 w-full shrink-0 overflow-hidden ${
+        className={`relative h-48 w-full sm:w-48 shrink-0 overflow-hidden ${
           enrollStatus === 'open' && !subscriberIsAnnual ? 'cursor-pointer' : enrollStatus === 'open' ? 'cursor-pointer' : ''
         }`}
         onClick={heroClick}
@@ -149,7 +151,7 @@ export default function DashboardUpcomingProgramRowItem({
           src={resolveImageUrl(p.image)}
           alt={p.title || ''}
           className={`w-full h-full object-cover transition-transform duration-500 ${
-            enrollStatus === 'open' ? 'group-hover:scale-[1.04]' : enrollStatus === 'closed' ? 'grayscale-[35%]' : ''
+            enrollStatus === 'open' ? 'group-hover:scale-105' : enrollStatus === 'closed' ? 'grayscale-[40%]' : ''
           }`}
           onError={(e) => {
             e.target.src = 'https://images.unsplash.com/photo-1545389336-cf090694435e?w=600&h=400&fit=crop';
@@ -158,19 +160,19 @@ export default function DashboardUpcomingProgramRowItem({
 
         {enrollStatus === 'open' ? (
           <>
-            <div className="absolute top-2 left-2 z-10 flex flex-col gap-1 max-w-[46%]">
+            <div className="absolute top-3 left-3 z-10 flex flex-col gap-1 max-w-[48%]">
               {p.enable_online !== false && (
-                <span className="px-2 py-0.5 rounded-full text-[10px] sm:text-[11px] font-semibold shadow-md bg-blue-500 text-white w-fit leading-snug">
+                <span className="px-2.5 py-1 rounded-full text-[10px] font-semibold shadow-sm bg-blue-500 text-white w-fit leading-snug">
                   Online (Zoom)
                 </span>
               )}
               {p.enable_offline !== false && (
-                <span className="px-2 py-0.5 rounded-full text-[10px] sm:text-[11px] font-semibold shadow-md bg-teal-600 text-white w-fit leading-snug">
+                <span className="px-2.5 py-1 rounded-full text-[10px] font-semibold shadow-sm bg-teal-600 text-white w-fit leading-snug">
                   Offline (Remote, Not In-Person)
                 </span>
               )}
               {p.enable_in_person && (
-                <span className="px-2 py-0.5 rounded-full text-[10px] sm:text-[11px] font-semibold shadow-md bg-teal-700 text-white w-fit leading-snug">
+                <span className="px-2.5 py-1 rounded-full text-[10px] font-semibold shadow-sm bg-teal-700 text-white w-fit leading-snug">
                   In-Person
                 </span>
               )}
@@ -178,26 +180,26 @@ export default function DashboardUpcomingProgramRowItem({
 
             {datetimeBadges.length > 0 && (
               <div
-                className="absolute top-2 right-2 z-10 flex flex-col items-end gap-1 max-w-[54%]"
+                className="absolute top-3 right-3 z-10 flex flex-col items-end gap-1 max-w-[52%]"
                 data-testid={`dashboard-hero-datetime-${p.id}`}
               >
                 {datetimeBadges.map((row, idx) =>
                   row.type === 'duration' ? (
                     <span
                       key={idx}
-                      className="bg-[#D4AF37] backdrop-blur-md text-white text-[10px] sm:text-[11px] font-bold px-2 py-0.5 rounded-md shadow-md tracking-wide"
+                      className="bg-[#D4AF37] backdrop-blur-sm text-white text-[10px] font-bold px-2 py-0.5 rounded shadow-sm tracking-wide"
                     >
                       {row.text}
                     </span>
                   ) : (
                     <span
                       key={idx}
-                      className="bg-black/60 backdrop-blur-md text-white text-[10px] sm:text-[11px] font-bold px-2 py-0.5 rounded-md flex items-center gap-1"
+                      className="bg-black/60 backdrop-blur-sm text-white text-[10px] font-bold px-2 py-0.5 rounded flex items-center gap-1"
                     >
                       {row.type === 'clock' ? (
-                        <Clock size={11} className="flex-shrink-0 opacity-95" />
+                        <Clock size={10} className="flex-shrink-0" />
                       ) : (
-                        <Calendar size={11} className="flex-shrink-0 opacity-95" />
+                        <Calendar size={10} className="flex-shrink-0" />
                       )}
                       <span className="text-left leading-snug">{row.text}</span>
                     </span>
@@ -206,15 +208,15 @@ export default function DashboardUpcomingProgramRowItem({
               </div>
             )}
 
-            <div className="absolute bottom-0 left-0 right-0 z-10 bg-gradient-to-t from-black/80 via-black/35 to-transparent px-2.5 py-2 pt-7">
-              <div className="flex items-end justify-between gap-3">
+            <div className="absolute bottom-0 left-0 right-0 z-10 bg-gradient-to-t from-black/70 via-black/30 to-transparent p-2.5 pt-6">
+              <div className="flex items-end justify-between gap-2">
                 <div className="flex-shrink-0 min-w-0">
                   {deadline && <CountdownTimer deadline={deadline} />}
                 </div>
                 {p.exclusive_offer_enabled && p.exclusive_offer_text && (
                   <span
                     data-testid={`dashboard-exclusive-offer-${p.id}`}
-                    className="bg-red-600 text-white text-[10px] sm:text-[11px] font-bold px-3 py-1 rounded-full shadow-lg tracking-wide uppercase text-right leading-snug max-w-[55%]"
+                    className="bg-red-600 text-white text-[10px] font-bold px-2.5 py-1 rounded-full shadow-lg tracking-wide uppercase animate-pulse text-right leading-snug max-w-[55%]"
                   >
                     {p.exclusive_offer_text}
                   </span>
@@ -237,24 +239,24 @@ export default function DashboardUpcomingProgramRowItem({
         )}
       </div>
 
-      {/* Body — below hero: title, write-up, Know more, then actions */}
-      <div className="flex-1 min-w-0 flex flex-col p-4 md:p-5">
-        <p className="text-[#D4AF37] text-[11px] sm:text-xs tracking-[0.14em] mb-1 uppercase font-semibold">
+      {/* Body — homepage UpcomingCard padding; content to the right of hero on sm+ */}
+      <div className="flex-1 min-w-0 flex flex-col p-4">
+        <p className="text-[#D4AF37] text-[10px] tracking-wider mb-0.5 uppercase">
           {p.category || 'Program'}
         </p>
-        <div className="flex items-start gap-2 mb-2 flex-wrap">
-          <h3 className="font-[family-name:'Cinzel',serif] text-lg sm:text-xl font-semibold text-gray-900 leading-snug pr-1">
+        <div className="flex items-start gap-2 mb-1.5 flex-wrap">
+          <h3 className="text-base font-semibold text-gray-900 leading-tight pr-1">
             {p.title}
           </h3>
           {hasTiers && tierIsYearLong && (
-            <span className="flex-shrink-0 inline-flex items-center rounded-md border border-[#D4AF37]/45 bg-amber-50/95 text-[10px] font-bold uppercase tracking-wider text-[#6b5210] px-2 py-0.5">
+            <span className="flex-shrink-0 inline-flex items-center rounded-md border border-[#D4AF37]/40 bg-amber-50/95 text-[8px] font-bold uppercase tracking-wider text-[#6b5210] px-2 py-0.5">
               Annual
             </span>
           )}
           {p.highlight_label && (
             <span
               data-testid={`dashboard-highlight-${p.id}`}
-              className={`flex-shrink-0 inline-flex items-center gap-1 text-[10px] font-bold tracking-wider uppercase px-2.5 py-1 rounded-full whitespace-nowrap ${
+              className={`flex-shrink-0 inline-flex items-center gap-1 text-[8px] font-bold tracking-wider uppercase px-2 py-1 rounded-full whitespace-nowrap ${
                 p.highlight_style === 'glow' ? 'animate-pulse' : ''
               }`}
               style={
@@ -283,7 +285,7 @@ export default function DashboardUpcomingProgramRowItem({
               }
             >
               {p.highlight_style !== 'ribbon' && (
-                <svg width="9" height="9" viewBox="0 0 24 24" fill={p.highlight_style === 'glow' ? 'none' : '#3d2200'} stroke={p.highlight_style === 'glow' ? '#b8860b' : 'none'} strokeWidth="2">
+                <svg width="8" height="8" viewBox="0 0 24 24" fill={p.highlight_style === 'glow' ? 'none' : '#3d2200'} stroke={p.highlight_style === 'glow' ? '#b8860b' : 'none'} strokeWidth="2">
                   <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
                 </svg>
               )}
@@ -292,7 +294,7 @@ export default function DashboardUpcomingProgramRowItem({
           )}
         </div>
 
-        <p className="text-slate-600 text-sm sm:text-[0.9375rem] leading-relaxed mb-3 line-clamp-4">{p.description}</p>
+        <p className="text-gray-500 text-xs leading-relaxed mb-3 line-clamp-2 flex-1">{p.description}</p>
 
         <button
           type="button"
@@ -301,14 +303,14 @@ export default function DashboardUpcomingProgramRowItem({
             goProgram();
           }}
           data-testid={`dashboard-know-more-${p.id}`}
-          className="mb-4 w-full sm:w-auto inline-flex items-center justify-center bg-[#1a1a1a] hover:bg-[#333] text-white py-2.5 px-8 rounded-full text-xs sm:text-sm tracking-wider transition-all uppercase font-semibold shadow-sm"
+          className="mb-3 w-full sm:w-auto inline-flex items-center justify-center bg-[#1a1a1a] hover:bg-[#333] text-white py-2 px-6 rounded-full text-[10px] tracking-wider transition-all duration-300 uppercase font-medium"
         >
           Know More
         </button>
 
         {enrollStatus === 'open' && !subscriberIsAnnual && hasTiers && (
-          <div data-testid={`dashboard-tier-selector-${p.id}`} className="mb-4">
-            <div className={`grid ${tierGridClass} gap-2`}>
+          <div data-testid={`dashboard-tier-selector-${p.id}`} className="mb-3">
+            <div className={`grid ${tierGridClass} gap-1`}>
               {tiers.map((t, i) => (
                 <button
                   key={i}
@@ -318,8 +320,8 @@ export default function DashboardUpcomingProgramRowItem({
                     e.stopPropagation();
                     setLocalTier(i);
                   }}
-                  className={`min-h-[2.5rem] px-2 text-[11px] sm:text-xs leading-tight rounded-full border transition-all flex items-center justify-center text-center ${
-                    localTier === i ? 'bg-[#D4AF37] text-white border-[#D4AF37] shadow-sm' : 'bg-white text-gray-600 border-gray-200 hover:border-[#D4AF37]'
+                  className={`min-h-[2.25rem] px-1.5 text-[10px] leading-tight rounded-full border transition-all flex items-center justify-center text-center ${
+                    localTier === i ? 'bg-[#D4AF37] text-white border-[#D4AF37]' : 'bg-white text-gray-600 border-gray-200 hover:border-[#D4AF37]'
                   }`}
                 >
                   <span className="line-clamp-2 break-words">{compactTierButtonLabel(t.label)}</span>
@@ -343,12 +345,12 @@ export default function DashboardUpcomingProgramRowItem({
             return (
               <div
                 data-testid={`dashboard-early-bird-${p.id}`}
-                className="flex items-center gap-2.5 bg-red-50/95 border border-red-100/90 rounded-xl px-3.5 py-2.5 mb-4"
+                className="flex items-center gap-2 bg-red-50 border border-red-100 rounded-lg px-3 py-2 mb-3 animate-pulse"
               >
-                <Bell size={16} className="text-red-500 flex-shrink-0" />
-                <div className="text-sm">
-                  <span className="font-bold text-red-700">{p.offer_text || 'Early Bird'}</span>
-                  <span className="text-red-600 ml-2">
+                <Bell size={14} className="text-red-500 flex-shrink-0" />
+                <div className="text-xs">
+                  <span className="font-bold text-red-600">{p.offer_text || 'Early Bird'}</span>
+                  <span className="text-red-500 ml-1.5">
                     ends in {days}d {hours}h {mins}m
                   </span>
                 </div>
@@ -499,69 +501,69 @@ export default function DashboardUpcomingProgramRowItem({
             <div className="mt-auto pt-4 border-t border-gray-100">
               {showContact ? (
                 <div className="text-center mb-2">
-                  <p className="text-slate-500 text-sm mb-2">Custom pricing</p>
+                  <p className="text-gray-500 text-[10px] mb-1.5">Custom pricing</p>
                   <button
                     type="button"
                     onClick={(e) => {
                       e.stopPropagation();
                       navigate(`/contact?program=${p.id}&title=${encodeURIComponent(p.title)}&tier=Annual`);
                     }}
-                    className="w-full bg-gray-900 hover:bg-gray-800 text-white py-2.5 rounded-full text-xs sm:text-sm tracking-wider transition-colors uppercase font-semibold"
+                    className="w-full bg-gray-900 hover:bg-gray-800 text-white py-2 rounded-full text-[10px] tracking-wider transition-colors uppercase font-medium"
                   >
                     Contact for Pricing
                   </button>
                 </div>
               ) : (
                 <>
-                  <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1 mb-3">
+                  <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1 mb-2">
                     {showSpecialPromo ? (
                       <div className="flex flex-col gap-1 w-full">
                         <div className="flex flex-wrap items-baseline gap-2">
-                          <span className="text-2xl font-bold text-[#D4AF37] tabular-nums">
+                          <span className="text-xl font-bold text-[#D4AF37] tabular-nums">
                             {symbol} {afterPromo.toLocaleString()}
                           </span>
-                          <span className="text-sm text-gray-400 line-through tabular-nums">
+                          <span className="text-xs text-gray-400 line-through tabular-nums">
                             {symbol} {baseForPromo.toLocaleString()}
                           </span>
                         </div>
-                        <span className="text-sm text-violet-700 font-medium">
+                        <span className="text-xs text-violet-700 font-medium">
                           With {promoForProgramClicks} (on offer price)
                         </span>
                         {offerPrice > 0 && price > offerPrice && (
-                          <span className="text-xs text-gray-400">List {symbol}{price.toLocaleString()}</span>
+                          <span className="text-[10px] text-gray-400">List {symbol}{price.toLocaleString()}</span>
                         )}
                       </div>
                     ) : offerPrice > 0 ? (
                       <>
-                        <span className="text-2xl font-bold text-[#D4AF37] tabular-nums">
+                        <span className="text-xl font-bold text-[#D4AF37] tabular-nums">
                           {symbol} {offerPrice.toLocaleString()}
                         </span>
-                        <span className="text-sm text-gray-400 line-through tabular-nums">
+                        <span className="text-xs text-gray-400 line-through tabular-nums">
                           {symbol} {price.toLocaleString()}
                         </span>
                       </>
                     ) : price > 0 ? (
-                      <span className="text-2xl font-bold text-gray-900 tabular-nums">
+                      <span className="text-xl font-bold text-gray-900 tabular-nums">
                         {symbol} {price.toLocaleString()}
                       </span>
                     ) : (
-                      <span className="text-2xl font-bold text-green-600">FREE</span>
+                      <span className="text-xl font-bold text-green-600">FREE</span>
                     )}
                   </div>
-                  <div className="flex flex-wrap gap-2">
+                  <div className="flex gap-1.5">
                     {price > 0 && (
                       <button
                         type="button"
                         onClick={handleAddToCart}
                         disabled={inCart || justAdded}
-                        className={`flex flex-1 min-w-[3rem] items-center justify-center px-3 py-2.5 rounded-full text-xs sm:text-sm font-semibold border transition-all ${
+                        className={`flex items-center justify-center px-2.5 py-2 rounded-full text-[10px] transition-all font-medium border ${
                           inCart || justAdded
-                            ? 'bg-green-50 text-green-700 border-green-200'
+                            ? 'bg-green-50 text-green-600 border-green-200'
                             : 'bg-white text-gray-700 border-gray-200 hover:border-[#D4AF37] hover:text-[#D4AF37]'
                         }`}
                         aria-label="Add to cart"
                       >
-                        {inCart || justAdded ? <Check size={16} /> : <ShoppingCart size={16} />}
+                        {inCart || justAdded ? <Check size={11} /> : <ShoppingCart size={11} />}
                       </button>
                     )}
                     <button
@@ -570,7 +572,7 @@ export default function DashboardUpcomingProgramRowItem({
                         e.stopPropagation();
                         navigate(`/enroll/program/${p.id}?tier=${tierIdxForDisplay}`);
                       }}
-                      className="flex-1 min-w-[9rem] bg-[#D4AF37] hover:bg-[#b8962e] text-white py-2.5 rounded-full text-xs sm:text-sm tracking-wider transition-all uppercase font-semibold"
+                      className="flex-1 min-w-[7rem] bg-[#D4AF37] hover:bg-[#b8962e] text-white py-2 rounded-full text-[10px] tracking-wider transition-all duration-300 uppercase font-medium"
                     >
                       {price > 0 ? 'Enroll Now' : 'Register Free'}
                     </button>
@@ -589,7 +591,7 @@ export default function DashboardUpcomingProgramRowItem({
             <button
               type="button"
               disabled
-              className="w-full bg-gray-200 text-gray-500 py-2.5 rounded-full text-sm tracking-wider uppercase font-semibold cursor-not-allowed"
+              className="w-full bg-gray-300 text-gray-500 py-2 rounded-full text-[10px] tracking-wider uppercase font-medium cursor-not-allowed"
             >
               {p.closure_text || 'Closed'}
             </button>
