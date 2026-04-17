@@ -9,7 +9,10 @@ import { useToast } from '../../../hooks/use-toast';
 
 const API = `${process.env.REACT_APP_BACKEND_URL || ''}/api`;
 const BACKEND = process.env.REACT_APP_BACKEND_URL || '';
-const SITE_URL = (BACKEND || window.location.origin || '').replace('/api', '').replace('api/', '');
+/** Public site for shareable student links (manual payment is a React route, not the API host). */
+const publicSiteOrigin = () =>
+  (process.env.REACT_APP_PUBLIC_SITE_URL || '').replace(/\/$/, '') ||
+  (typeof window !== 'undefined' ? window.location.origin : '');
 
 const IndiaPaymentsTab = () => {
   const { toast } = useToast();
@@ -76,7 +79,7 @@ const IndiaPaymentsTab = () => {
         </div>
         <div className="flex items-center gap-3">
           <button onClick={() => {
-            const link = `${BACKEND}/manual-payment`;
+            const link = `${publicSiteOrigin()}/manual-payment`;
             navigator.clipboard.writeText(link);
             toast({ title: 'Link copied!', description: link });
           }}

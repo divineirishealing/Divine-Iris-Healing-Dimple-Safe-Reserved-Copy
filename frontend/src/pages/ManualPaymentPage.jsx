@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import Header from '../components/Header';
@@ -34,6 +34,7 @@ const ManualPaymentPage = () => {
   // Form fields
   const [screenshot, setScreenshot] = useState(null);
   const [screenshotPreview, setScreenshotPreview] = useState('');
+  const proofFileRef = useRef(null);
   const [payerName, setPayerName] = useState('');
   const [paymentDate, setPaymentDate] = useState('');
   const [bankName, setBankName] = useState('');
@@ -173,11 +174,28 @@ const ManualPaymentPage = () => {
   const quoteCurrency = (enrollment?.dashboard_mixed_currency || 'inr').toUpperCase();
 
   const handleScreenshot = (e) => {
-    const file = e.target.files[0];
-    if (file) {
-      setScreenshot(file);
-      setScreenshotPreview(URL.createObjectURL(file));
+    const file = e.target.files?.[0] ?? null;
+    if (!file) return;
+    if (file.type && !file.type.startsWith('image/')) {
+      toast({ title: 'Please choose an image file', variant: 'destructive' });
+      e.target.value = '';
+      return;
     }
+    setScreenshotPreview((prev) => {
+      if (prev) URL.revokeObjectURL(prev);
+      return URL.createObjectURL(file);
+    });
+    setScreenshot(file);
+  };
+
+  const clearScreenshot = () => {
+    setScreenshotPreview((prev) => {
+      if (prev) URL.revokeObjectURL(prev);
+      return '';
+    });
+    setScreenshot(null);
+    const el = proofFileRef.current;
+    if (el) el.value = '';
   };
 
   const handleSubmit = async () => {
@@ -505,18 +523,36 @@ const ManualPaymentPage = () => {
                 <div className="space-y-3">
                   <div>
                     <label className="text-[10px] font-semibold text-gray-700 block mb-1">Payment Screenshot *</label>
-                    <div className="border-2 border-dashed rounded-lg p-4 text-center hover:border-[#D4AF37] transition-colors cursor-pointer"
-                      onClick={() => document.getElementById('manual-proof-screenshot').click()}>
+                    <p className="text-[10px] text-gray-500 mb-1">
+                      Use Browse / Choose File (works on phone, tablet, and laptop). You can also tap the dashed area.
+                    </p>
+                    <label className="flex cursor-pointer flex-col gap-2 rounded-lg border-2 border-dashed border-gray-200 bg-gray-50/80 p-3 transition-colors hover:border-[#D4AF37]/80">
                       {screenshotPreview ? (
-                        <img src={screenshotPreview} alt="Screenshot" className="max-h-32 mx-auto rounded" />
+                        <img src={screenshotPreview} alt="" className="max-h-36 mx-auto rounded object-contain" />
                       ) : (
-                        <>
-                          <Upload size={20} className="text-gray-300 mx-auto mb-1" />
-                          <p className="text-xs text-gray-400">Click to upload screenshot</p>
-                        </>
+                        <div className="flex flex-col items-center gap-1 py-2 text-gray-400">
+                          <Upload size={20} className="mx-auto" />
+                          <p className="text-xs">Add screenshot</p>
+                        </div>
                       )}
-                    </div>
-                    <input type="file" id="manual-proof-screenshot" accept="image/*" className="hidden" onChange={handleScreenshot} data-testid="manual-proof-screenshot" />
+                      <input
+                        ref={proofFileRef}
+                        type="file"
+                        accept="image/*"
+                        data-testid="manual-proof-screenshot"
+                        className="block w-full min-h-10 cursor-pointer text-xs text-gray-700 file:mr-3 file:inline-flex file:h-9 file:cursor-pointer file:items-center file:rounded-md file:border file:border-gray-300 file:bg-white file:px-3 file:py-1.5 file:text-xs file:font-medium hover:file:bg-amber-50/80"
+                        onChange={handleScreenshot}
+                      />
+                    </label>
+                    {screenshot ? (
+                      <button
+                        type="button"
+                        className="mt-1.5 text-[10px] text-gray-500 underline"
+                        onClick={clearScreenshot}
+                      >
+                        Remove image
+                      </button>
+                    ) : null}
                   </div>
 
                   <div className="grid grid-cols-2 gap-3">

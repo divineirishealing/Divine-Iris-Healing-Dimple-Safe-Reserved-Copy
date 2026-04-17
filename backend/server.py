@@ -1,6 +1,6 @@
 from fastapi import FastAPI, APIRouter, Request
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi.responses import FileResponse, JSONResponse, RedirectResponse
 from dotenv import load_dotenv
 from starlette.middleware.cors import CORSMiddleware
 from motor.motor_asyncio import AsyncIOMotorClient
@@ -39,6 +39,39 @@ db = client[os.environ['DB_NAME']]
 
 # Create the main app without a prefix
 app = FastAPI(title="Divine Iris Healing API")
+
+
+def _public_site_url() -> str:
+    """Where the React app is hosted (not this API). Used when users open /manual-payment on Render by mistake."""
+    return (
+        os.environ.get("PUBLIC_SITE_URL")
+        or os.environ.get("FRONTEND_URL")
+        or "https://divineirishealing.com"
+    ).rstrip("/")
+
+
+@app.get("/manual-payment")
+async def redirect_manual_payment_standalone(request: Request):
+    dest = f"{_public_site_url()}/manual-payment"
+    if request.url.query:
+        dest = f"{dest}?{request.url.query}"
+    return RedirectResponse(url=dest, status_code=307)
+
+
+@app.get("/manual-payment/{enrollment_id}")
+async def redirect_manual_payment_enrollment(enrollment_id: str, request: Request):
+    dest = f"{_public_site_url()}/manual-payment/{enrollment_id}"
+    if request.url.query:
+        dest = f"{dest}?{request.url.query}"
+    return RedirectResponse(url=dest, status_code=307)
+
+
+@app.get("/india-payment/{enrollment_id}")
+async def redirect_india_payment_page(enrollment_id: str, request: Request):
+    dest = f"{_public_site_url()}/india-payment/{enrollment_id}"
+    if request.url.query:
+        dest = f"{dest}?{request.url.query}"
+    return RedirectResponse(url=dest, status_code=307)
 
 # Create a router with the /api prefix
 api_router = APIRouter(prefix="/api")
