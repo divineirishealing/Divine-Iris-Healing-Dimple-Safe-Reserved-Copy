@@ -45,6 +45,31 @@ function clearDashboardEnrollmentDefaults() {
   localStorage.removeItem(DASHBOARD_ENROLLMENT_DEFAULTS_KEY);
 }
 
+/** Matches modal state to a bulk attendance preset (for radio / checkbox group). */
+function deriveAttendanceQuickPreset(ctx, guestForm, bookerMode) {
+  if (!ctx) return 'custom';
+  const { includedPkg, selectedIds } = ctx;
+  const ids = (selectedIds || []).map(String);
+  const allGuestsOnline = ids.length === 0 || ids.every((id) => guestForm[id]?.attendance_mode !== 'offline');
+  const allGuestsOffline = ids.length > 0 && ids.every((id) => guestForm[id]?.attendance_mode === 'offline');
+  const bOn = bookerMode !== 'offline';
+  const bOff = bookerMode === 'offline';
+  if (!includedPkg) {
+    if (ids.length === 0) {
+      if (bOn) return 'all_online';
+      if (bOff) return 'all_offline';
+      return 'custom';
+    }
+    if (bOn && allGuestsOnline) return 'all_online';
+    if (bOff && allGuestsOffline) return 'all_offline';
+    if (bOn && allGuestsOffline) return 'except_me';
+  } else {
+    if (allGuestsOnline) return 'all_online';
+    if (allGuestsOffline && ids.length > 0) return 'all_offline';
+  }
+  return 'custom';
+}
+
 /** Cap parallel quote / promo requests (matches backend upcoming program list cap). */
 const DASHBOARD_UPCOMING_PREFETCH_LIMIT = 100;
 
@@ -377,6 +402,11 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh, bo
   const [enrollmentDefaultsLoaded, setEnrollmentDefaultsLoaded] = useState(false);
   const [persistEnrollmentDefaultsOnContinue, setPersistEnrollmentDefaultsOnContinue] = useState(false);
 
+  const attendanceQuickPresetLive = useMemo(
+    () => deriveAttendanceQuickPreset(seatModalCtx, guestSeatForm, bookerSeatMode),
+    [seatModalCtx, guestSeatForm, bookerSeatMode]
+  );
+
   const upcomingList = homeData?.upcoming_programs || [];
   const programsForPrefetch = useMemo(
     () => upcomingList.slice(0, DASHBOARD_UPCOMING_PREFETCH_LIMIT),
@@ -645,6 +675,24 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh, bo
     });
   };
 
+  const selectableFamilyMemberIds = useMemo(
+    () => enrollableGuests.filter((m) => m.id).map((m) => String(m.id)),
+    [enrollableGuests]
+  );
+
+  const toggleSelectAllFamilyForProgram = (programId) => {
+    if (selectableFamilyMemberIds.length === 0) return;
+    setSelectedFamilyByProgram((prev) => {
+      const cur = prev[programId] || [];
+      const curSet = new Set(cur.map(String));
+      const allOn = selectableFamilyMemberIds.every((id) => curSet.has(id));
+      if (allOn) {
+        return { ...prev, [programId]: [] };
+      }
+      return { ...prev, [programId]: [...selectableFamilyMemberIds] };
+    });
+  };
+
   const openEnrollmentSeatModal = (program, includedPkg, selectedIds) => {
     const ids = (selectedIds || []).map((x) => String(x));
     const saved = loadDashboardEnrollmentDefaults();
@@ -782,8 +830,8 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh, bo
         const m = enrollableGuests.find((g) => String(g.id) === String(id));
         if (!m || !(String(m.email || '').trim())) {
           toast({
-            title: 'Guest email required',
-            description: `Add an email for “${(m?.name || 'this guest').trim()}” or turn off notifications for their seat.`,
+            title: 'Email required for notifications',
+            description: `Add an email for “${(m?.name || 'this person').trim()}” or turn off notifications for their seat.`,
             variant: 'destructive',
           });
           return;
@@ -798,9 +846,9 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh, bo
         const notifs = new Set(sid.map((id) => !!guestSeatForm[id]?.notify_enrollment));
         if (modes.size > 1 || notifs.size > 1) {
           toast({
-            title: 'Match guest rows to save defaults',
+            title: 'Match family rows to save defaults',
             description:
-              'Use a one-tap preset or the quick buttons so every guest has the same attendance and email settings, then try again.',
+              'Use a one-tap preset or the quick options so every selected person has the same attendance and email settings, then try again.',
             variant: 'destructive',
           });
           return;
@@ -1053,8 +1101,8 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh, bo
                       </p>
                       {includedPkg && (
                         <p className="text-[10px] text-slate-600 leading-snug mb-2">
-                          This program is included in your annual package for you. Select guests below (immediate family
-                          or friends &amp; extended) to pay for their enrollment only.
+                          This program is included in your annual package for you. Choose family members to join below
+                          (immediate family or friends &amp; extended) — you only pay for their seats.
                         </p>
                       )}
                       {aq ? (
@@ -1132,7 +1180,7 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh, bo
 
                       <div className="mt-2 space-y-1.5">
                         <p className="text-[9px] font-semibold uppercase tracking-wide text-slate-500">
-                          Guests to enroll
+                          Family members to join
                         </p>
                         {enrollableGuests.length === 0 ? (
                           <p className="text-[10px] text-slate-400">
@@ -1140,6 +1188,31 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh, bo
                           </p>
                         ) : (
                           <div className="space-y-2 max-h-36 overflow-y-auto pr-0.5">
+                            {selectableFamilyMemberIds.length > 0 ? (
+                              <label className="flex items-center gap-2 text-[10px] font-semibold text-slate-700 cursor-pointer select-none pb-0.5 border-b border-slate-100/90">
+                                <input
+                                  type="checkbox"
+                                  className="rounded border-slate-300"
+                                  checked={
+                                    selectableFamilyMemberIds.length > 0 &&
+                                    selectableFamilyMemberIds.every((id) => selIds.includes(id))
+                                  }
+                                  ref={(el) => {
+                                    if (!el) return;
+                                    const some = selectableFamilyMemberIds.some((id) => selIds.includes(id));
+                                    const all =
+                                      selectableFamilyMemberIds.length > 0 &&
+                                      selectableFamilyMemberIds.every((id) => selIds.includes(id));
+                                    el.indeterminate = some && !all;
+                                  }}
+                                  onChange={() => toggleSelectAllFamilyForProgram(p.id)}
+                                />
+                                <span>
+                                  Add all ({selectableFamilyMemberIds.length} with saved profile
+                                  {selectableFamilyMemberIds.length !== 1 ? 's' : ''})
+                                </span>
+                              </label>
+                            ) : null}
                             {members.length > 0 && (
                               <div>
                                 <p className="text-[8px] font-bold uppercase tracking-wide text-slate-400 mb-0.5">
@@ -1222,7 +1295,7 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh, bo
                         title={
                           !canPay
                             ? includedPkg && selCount < 1
-                              ? 'This program is included for you — select guests to pay for their seats, or wait for pricing to load.'
+                              ? 'This program is included for you — select family members to join or wait for pricing to load.'
                               : !aq
                                 ? 'Loading pricing…'
                                 : (aq.total || 0) <= 0
@@ -1465,46 +1538,59 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh, bo
                       className="text-[10px] h-auto min-h-8 py-1.5 px-2 border-amber-200 bg-white hover:bg-amber-50/80 leading-tight text-left"
                       onClick={() => applySmartEnrollmentPreset('included_guests_offline_no_guest_email')}
                     >
-                      All guests offline · no guest emails
+                      All family offline · no emails for them
                     </Button>
                   ) : null}
                 </div>
               </div>
 
               <div className="rounded-lg border border-violet-100 bg-violet-50/50 px-3 py-2.5 space-y-2">
-                <p className="text-[9px] font-bold uppercase tracking-wide text-slate-500">Attendance only</p>
-                <div className="flex flex-wrap gap-1.5">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    className="text-[10px] h-8 px-2.5 border-violet-200 bg-white hover:bg-violet-50"
-                    onClick={() => applyBulkSeatModes('all_online')}
-                  >
+                <p className="text-[9px] font-bold uppercase tracking-wide text-slate-500">Attendance (pick one)</p>
+                <div className="space-y-1.5">
+                  <label className="flex items-center gap-2 cursor-pointer text-[11px] text-slate-800">
+                    <input
+                      type="checkbox"
+                      className="rounded border-slate-300 shrink-0"
+                      checked={attendanceQuickPresetLive === 'all_online'}
+                      onChange={(e) => {
+                        if (e.target.checked) applyBulkSeatModes('all_online');
+                      }}
+                    />
                     All online
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    className="text-[10px] h-8 px-2.5 border-violet-200 bg-white hover:bg-violet-50"
-                    onClick={() => applyBulkSeatModes('all_offline')}
-                  >
+                  </label>
+                  <label className="flex items-center gap-2 cursor-pointer text-[11px] text-slate-800">
+                    <input
+                      type="checkbox"
+                      className="rounded border-slate-300 shrink-0"
+                      checked={attendanceQuickPresetLive === 'all_offline'}
+                      onChange={(e) => {
+                        if (e.target.checked) applyBulkSeatModes('all_offline');
+                      }}
+                    />
                     All offline
-                  </Button>
+                  </label>
                   {!seatModalCtx.includedPkg ? (
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      className="text-[10px] h-8 px-2.5 border-violet-200 bg-white hover:bg-violet-50"
-                      onClick={() => applyBulkSeatModes('guests_offline_booker_online')}
-                      title="Your seat stays online; all selected guests go offline"
-                    >
-                      Guests offline, my seat online
-                    </Button>
-                  ) : null}
+                    <label className="flex items-center gap-2 cursor-pointer text-[11px] text-slate-800">
+                      <input
+                        type="checkbox"
+                        className="rounded border-slate-300 shrink-0"
+                        checked={attendanceQuickPresetLive === 'except_me'}
+                        onChange={(e) => {
+                          if (e.target.checked) applyBulkSeatModes('guests_offline_booker_online');
+                        }}
+                      />
+                      All offline except myself (my seat online, family joining offline)
+                    </label>
+                  ) : (
+                    <p className="text-[9px] text-slate-500 pl-5">
+                      “All offline except myself” applies when your own seat is part of this payment (not package-only
+                      checkout).
+                    </p>
+                  )}
                 </div>
+                {attendanceQuickPresetLive === 'custom' ? (
+                  <p className="text-[9px] text-amber-800/90">Mixed modes — adjust rows below or pick an option above.</p>
+                ) : null}
               </div>
 
               <div className="rounded-lg border border-slate-200 bg-slate-50/80 px-3 py-2.5 space-y-2">
@@ -1517,7 +1603,7 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh, bo
                     className="text-[10px] h-8 px-2.5 bg-white"
                     onClick={() => applyBulkNotify('all_on')}
                   >
-                    Email all (needs guest emails)
+                    Email all (needs emails on file)
                   </Button>
                   <Button
                     type="button"
@@ -1552,7 +1638,7 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh, bo
                     <span className="font-medium">Save these choices as my default for every program</span>
                     <span className="block text-[9px] text-slate-500 mt-0.5 leading-snug">
                       When you continue to payment, we store them in this browser. Next time you open enrollment, fields
-                      fill automatically. Guests must all match (use a preset) to save.
+                      fill automatically. Selected family rows must all match (use a preset) to save.
                     </span>
                   </span>
                 </label>
@@ -1624,7 +1710,7 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh, bo
 
               {seatModalCtx.selectedIds.length > 0 && (
                 <div className="space-y-2">
-                  <p className="font-semibold text-slate-800 text-[11px]">Guests in this enrollment</p>
+                  <p className="font-semibold text-slate-800 text-[11px]">Family members in this enrollment</p>
                   <div className="space-y-2 max-h-[42vh] overflow-y-auto pr-1">
                     {seatModalCtx.selectedIds.map((id) => {
                       const m = enrollableGuests.find((g) => String(g.id) === String(id));
@@ -1632,7 +1718,7 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh, bo
                       return (
                         <div key={id} className="rounded-lg border border-slate-200 p-2.5 space-y-2 bg-white">
                           <p className="font-medium text-slate-900">
-                            {m?.name || 'Guest'}
+                            {m?.name || 'Member'}
                             {m?.relationship ? (
                               <span className="text-slate-400 font-normal"> ({m.relationship})</span>
                             ) : null}
@@ -1668,9 +1754,9 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh, bo
                               onChange={(e) => updateGuestSeatField(id, 'notify_enrollment', e.target.checked)}
                             />
                             <span>
-                              <span className="font-medium text-slate-800">Email enrollment details to guest</span>
+                              <span className="font-medium text-slate-800">Email enrollment details to this person</span>
                               <span className="block text-[10px] text-slate-500 mt-0.5">
-                                Requires an email in their saved row above.
+                                Requires an email in their saved list row above.
                               </span>
                             </span>
                           </label>
