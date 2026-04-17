@@ -7,7 +7,7 @@ import { useCurrency } from '../../context/CurrencyContext';
 import { useSiteSettings } from '../../context/SiteSettingsContext';
 import { useCart } from '../../context/CartContext';
 import { resolveImageUrl } from '../../lib/imageUtils';
-import { formatDateDdMonYyyy } from '../../lib/utils';
+import { buildHomepageStyleDatetimeBadges } from '../../lib/upcomingHomepagePresentation';
 import DashboardProgramPaymentModal from './DashboardProgramPaymentModal';
 import { Button } from '../ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '../ui/dialog';
@@ -309,13 +309,6 @@ function pickTierIndexForDashboard(program, preferAnnualTier) {
   return 0;
 }
 
-function programStartLabel(p) {
-  const d = p.start_date || p.deadline_date;
-  if (!d) return 'Dates TBC';
-  const iso = String(d).slice(0, 10);
-  return formatDateDdMonYyyy(iso) || d;
-}
-
 /** MMM / AWRP etc. — already in annual package; member only pays for family add-ons. */
 function programIncludedInAnnualPackage(p, configuredIds) {
   const ids = Array.isArray(configuredIds)
@@ -352,6 +345,89 @@ function familySubcaption(rule) {
   if (r === 'mixed') return 'split: household vs extended rules';
   if (r === 'none') return '';
   return 'list / offer';
+}
+
+function roundPortalSeat(n) {
+  if (n == null || Number.isNaN(Number(n))) return null;
+  return Math.round(Number(n) * 100) / 100;
+}
+
+/** Per-seat portal preview (annual subscribers): matches Admin dashboard offer buckets. */
+function DashboardUpcomingPortalPricing({ symbol, preview }) {
+  if (!preview || preview.loading) {
+    return <p className="text-[10px] text-slate-400">Loading portal prices…</p>;
+  }
+  if (preview.error) {
+    return <p className="text-[10px] text-slate-400">Could not load prices</p>;
+  }
+  const { annualSeat, householdSeat, extendedSeat, included } = preview;
+  const a = annualSeat === 'included' ? null : roundPortalSeat(annualSeat);
+  const h = roundPortalSeat(householdSeat);
+  const e = roundPortalSeat(extendedSeat);
+
+  if (a != null && h != null && e != null && a === h && h === e) {
+    return (
+      <div className="text-left">
+        <p className="text-[8px] font-bold uppercase tracking-wide text-[#b8860b] mb-1">Portal (each seat)</p>
+        <p className="text-sm font-semibold text-slate-900 tabular-nums">
+          {symbol}
+          {a.toLocaleString()}
+        </p>
+        <p className="text-[9px] text-slate-500 mt-0.5">Same for annual, household &amp; friends</p>
+      </div>
+    );
+  }
+
+  if (included && h != null && e != null && h === e) {
+    return (
+      <div className="text-left space-y-1.5">
+        <p className="text-[8px] font-bold uppercase tracking-wide text-[#b8860b]">Your seat</p>
+        <p className="text-[11px] font-semibold text-emerald-800">Included in package</p>
+        <p className="text-[8px] font-bold uppercase tracking-wide text-slate-600 pt-1">Each guest seat</p>
+        <p className="text-sm font-semibold text-slate-900 tabular-nums">
+          {symbol}
+          {h.toLocaleString()}
+        </p>
+        <p className="text-[9px] text-slate-500">Household &amp; friends — same rate</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="text-left space-y-1.5">
+      <p className="text-[8px] font-bold uppercase tracking-wide text-[#b8860b]">Portal seat prices (each)</p>
+      {included ? (
+        <p className="text-[11px] text-slate-800">
+          <span className="text-slate-500">Annual member:</span>{' '}
+          <span className="font-semibold text-emerald-800">Included</span>
+        </p>
+      ) : (
+        <p className="text-[11px] text-slate-800">
+          <span className="text-slate-500">Annual member:</span>{' '}
+          <span className="font-semibold tabular-nums">
+            {a != null ? `${symbol}${a.toLocaleString()}` : '—'}
+          </span>
+        </p>
+      )}
+      <p className="text-[11px] text-slate-800">
+        <span className="text-slate-500">Household:</span>{' '}
+        <span className="font-semibold tabular-nums">
+          {h != null ? `${symbol}${h.toLocaleString()}` : '—'}
+        </span>
+      </p>
+      <p className="text-[11px] text-slate-800">
+        <span className="text-slate-500">Friends &amp; extended:</span>{' '}
+        <span className="font-semibold tabular-nums">
+          {e != null ? `${symbol}${e.toLocaleString()}` : '—'}
+        </span>
+      </p>
+      {(h == null || e == null) && (
+        <p className="text-[9px] text-slate-400 pt-0.5 leading-snug">
+          Save at least one contact in each list (below) to preview prices for seats you haven&apos;t added yet.
+        </p>
+      )}
+    </div>
+  );
 }
 
 /** Same basis as EnrollmentPage promo discount: percentage of subtotal or fixed per currency. */
@@ -416,7 +492,7 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh, bo
   const { toast } = useToast();
   const { settings: siteSettings } = useSiteSettings();
   const annualIncludedIds = siteSettings?.annual_package_included_program_ids;
-  const {
+   const {
     getPrice,
     getOfferPrice,
     symbol,
@@ -425,12 +501,14 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh, bo
     displayCurrency,
     isPrimary,
     displayRate,
+    country: detectedCountry,
   } = useCurrency();
   const [saving, setSaving] = useState(false);
   const [promoByProgramId, setPromoByProgramId] = useState({});
   const [promoPricesLoading, setPromoPricesLoading] = useState(false);
   const [selectedFamilyByProgram, setSelectedFamilyByProgram] = useState({});
   const [annualQuotes, setAnnualQuotes] = useState({});
+  const [portalSeatPreviewByProgram, setPortalSeatPreviewByProgram] = useState({});
   const [payingProgramId, setPayingProgramId] = useState(null);
   const [programPaymentModal, setProgramPaymentModal] = useState(null);
   const [enrollmentSeatOpen, setEnrollmentSeatOpen] = useState(false);
@@ -799,6 +877,94 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh, bo
     };
   }, [isAnnual, currencyReady, currency, prefetchProgramsKey, familySelectionKey, programsForPrefetch]);
 
+  const seatPreviewContextKey = useMemo(() => {
+    const i = members.find((m) => m.id)?.id || '';
+    const x = otherMembers.find((m) => m.id)?.id || '';
+    return `${currency}|${i}|${x}|${prefetchProgramsKey}`;
+  }, [currency, members, otherMembers, prefetchProgramsKey]);
+
+  useEffect(() => {
+    if (!isAnnual || !currencyReady || !API) {
+      setPortalSeatPreviewByProgram({});
+      return;
+    }
+    const programs = programsForPrefetch;
+    if (programs.length === 0) {
+      setPortalSeatPreviewByProgram({});
+      return;
+    }
+    const firstImm = members.find((m) => m.id)?.id;
+    const firstExt = otherMembers.find((m) => m.id)?.id;
+    let cancelled = false;
+    const next = {};
+    programs.forEach((p) => {
+      next[p.id] = { loading: true };
+    });
+    setPortalSeatPreviewByProgram(next);
+
+    (async () => {
+      await Promise.all(
+        programs.map(async (p) => {
+          try {
+            const r0 = await axios.get(`${API}/api/student/dashboard-quote`, {
+              params: { program_id: p.id, currency, family_count: 0 },
+              withCredentials: true,
+            });
+            const q0 = r0.data;
+            const included = !!q0.included_in_annual_package;
+            let qImm = null;
+            if (firstImm) {
+              try {
+                const rI = await axios.get(`${API}/api/student/dashboard-quote`, {
+                  params: { program_id: p.id, currency, family_ids: String(firstImm) },
+                  withCredentials: true,
+                });
+                qImm = rI.data;
+              } catch {
+                qImm = null;
+              }
+            }
+            let qExt = null;
+            if (firstExt) {
+              try {
+                const rE = await axios.get(`${API}/api/student/dashboard-quote`, {
+                  params: { program_id: p.id, currency, family_ids: String(firstExt) },
+                  withCredentials: true,
+                });
+                qExt = rE.data;
+              } catch {
+                qExt = null;
+              }
+            }
+            const annualSeat = included ? 'included' : Number(q0.self_after_promos);
+            let householdSeat = null;
+            if (qImm && qImm.immediate_family_count > 0) {
+              householdSeat = Number(qImm.immediate_family_after_promos) / qImm.immediate_family_count;
+            }
+            let extendedSeat = null;
+            if (qExt && qExt.extended_guest_count > 0) {
+              extendedSeat = Number(qExt.extended_guests_after_promos) / qExt.extended_guest_count;
+            }
+            next[p.id] = {
+              loading: false,
+              annualSeat,
+              householdSeat,
+              extendedSeat,
+              included,
+            };
+          } catch {
+            next[p.id] = { loading: false, error: true };
+          }
+        })
+      );
+      if (!cancelled) setPortalSeatPreviewByProgram({ ...next });
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [isAnnual, currencyReady, currency, seatPreviewContextKey, programsForPrefetch, members, otherMembers]);
+
   useEffect(() => {
     const code = promoForProgramClicks;
     const programs = programsForPrefetch;
@@ -1072,7 +1238,7 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh, bo
   };
 
   return (
-    <section className="w-full max-w-5xl mx-auto px-4 mb-4 md:mb-6" data-testid="dashboard-upcoming-family">
+    <section className="w-full max-w-7xl mx-auto px-4 mb-4 md:mb-6" data-testid="dashboard-upcoming-family">
       <div className="rounded-[28px] border border-[rgba(160,100,220,0.14)] bg-white/70 backdrop-blur-xl px-5 py-5 md:px-7 md:py-6 shadow-[0_4px_48px_rgba(140,60,220,0.08)]">
         <div className="flex items-center gap-2 mb-4">
           <div className="w-9 h-9 rounded-xl bg-[#D4AF37]/15 flex items-center justify-center">
@@ -1116,7 +1282,7 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh, bo
         {upcomingList.length === 0 ? (
           <p className="text-sm text-slate-500 italic py-2">No upcoming programs listed yet — check back soon.</p>
         ) : (
-          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3 mb-4">
+          <div className="space-y-3 mb-4 max-w-full">
             {upcomingList.map((p) => {
               const tierIdx = pickTierIndexForDashboard(p, isAnnual);
               const hasTiers = p.is_flagship && (p.duration_tiers || []).length > 0;
@@ -1136,78 +1302,65 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh, bo
               const selIds = selectedFamilyByProgram[p.id] || [];
               const selCount = selIds.length;
               const canPay = Boolean(aq && aq.total > 0 && (!includedPkg || selCount >= 1));
-              const cardMedia = (
+              const datetimeBadges = buildHomepageStyleDatetimeBadges(p, tierIdx, detectedCountry);
+              const portalPreview = portalSeatPreviewByProgram[p.id];
+
+              const row = programPortalMap[p.id];
+              const hasMap =
+                row &&
+                ((row.annual && Object.keys(row.annual).length > 0) ||
+                  (row.family && Object.keys(row.family).length > 0) ||
+                  (row.extended && Object.keys(row.extended).length > 0));
+
+              const leftGraphic = (
                 <>
-                  <div className="h-24 bg-slate-100 overflow-hidden">
+                  <div className="h-28 shrink-0 bg-slate-100 overflow-hidden xl:rounded-tl-[14px]">
                     <img
                       src={resolveImageUrl(p.image)}
                       alt=""
-                      className="w-full h-full object-cover group-hover:scale-[1.03] transition-transform duration-300"
+                      className="w-full h-full object-cover group-hover:scale-[1.02] transition-transform duration-300"
                       onError={(e) => {
                         e.target.src =
                           'https://images.unsplash.com/photo-1545389336-cf090694435e?w=400&h=200&fit=crop';
                       }}
                     />
                   </div>
-                  <div className="p-3">
+                  <div className="p-3 flex-1 flex flex-col min-h-0">
                     <p className="text-[9px] text-[#D4AF37] uppercase tracking-wider mb-0.5">{p.category || 'Program'}</p>
-                    <p className="text-sm font-semibold text-slate-900 line-clamp-2 leading-snug">{p.title}</p>
-                    {(() => {
-                      const row = programPortalMap[p.id];
-                      const hasMap =
-                        row &&
-                        ((row.annual && Object.keys(row.annual).length > 0) ||
-                          (row.family && Object.keys(row.family).length > 0) ||
-                          (row.extended && Object.keys(row.extended).length > 0));
-                      return hasMap || annualQuotes[p.id]?.program_portal_pricing_override ? (
-                        <p className="text-[9px] text-indigo-800/90 mt-1 font-medium leading-snug">
-                          Program-specific portal pricing
-                        </p>
-                      ) : null;
-                    })()}
-                    <p className="text-[10px] text-slate-500 mt-1 flex items-center gap-1">
-                      <Calendar size={10} /> {programStartLabel(p)}
-                    </p>
-                    {!isAnnual && (list > 0 || off > 0) && (
-                      <div className="mt-1.5 pt-1.5 border-t border-slate-100">
-                        {showSpecialPromo ? (
-                          <p className="text-[11px] text-slate-800">
-                            <span className="font-semibold text-[#b8860b]">{symbol}{afterPromo.toLocaleString()}</span>
-                            <span className="text-slate-400 line-through ml-1.5 text-[10px]">{symbol}{baseForPromo.toLocaleString()}</span>
-                            <span className="block text-[9px] text-violet-700/90 mt-0.5">
-                              With {promoForProgramClicks} (on offer price)
-                            </span>
-                            {off > 0 && list > off && (
-                              <span className="block text-[9px] text-slate-400 mt-0.5">List {symbol}{list.toLocaleString()}</span>
-                            )}
-                          </p>
-                        ) : off > 0 ? (
-                          <p className="text-[11px] text-slate-800">
-                            <span className="font-semibold text-[#b8860b]">{symbol}{off.toLocaleString()}</span>
-                            {list > 0 && off < list && (
-                              <span className="text-slate-400 line-through ml-1.5 text-[10px]">{symbol}{list.toLocaleString()}</span>
-                            )}
-                            <span className="block text-[9px] text-slate-400 mt-0.5">Offer price</span>
-                          </p>
-                        ) : list > 0 ? (
-                          <p className="text-[11px] text-slate-800 font-medium">{symbol}{list.toLocaleString()}</p>
-                        ) : null}
-                      </div>
-                    )}
+                    <p className="text-sm font-semibold text-slate-900 line-clamp-3 leading-snug">{p.title}</p>
+                    {hasMap || annualQuotes[p.id]?.program_portal_pricing_override ? (
+                      <p className="text-[9px] text-indigo-800/90 mt-1 font-medium leading-snug">
+                        Program-specific portal pricing
+                      </p>
+                    ) : null}
+                    <button
+                      type="button"
+                      className="mt-2 text-left text-[10px] text-violet-700 hover:text-violet-900 font-medium underline-offset-2 hover:underline w-full"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        navigate(`/program/${p.id}`);
+                      }}
+                      data-testid={`dashboard-know-more-${p.id}`}
+                    >
+                      Know more about this program
+                    </button>
                   </div>
                 </>
               );
+
               return (
                 <div
                   key={p.id}
-                  className="rounded-2xl border border-slate-200/90 bg-white/90 overflow-hidden hover:border-[#D4AF37]/40 hover:shadow-md transition-all flex flex-col"
+                  className="rounded-2xl border border-slate-200/90 bg-white/90 overflow-hidden hover:border-[#D4AF37]/40 hover:shadow-md transition-all flex flex-col xl:flex-row xl:items-stretch"
                   data-testid={`dashboard-upcoming-${p.id}`}
                 >
                   {isAnnual ? (
-                    <div className="text-left w-full group">{cardMedia}</div>
+                    <div className="text-left w-full xl:w-[min(100%,220px)] shrink-0 flex flex-col border-b xl:border-b-0 xl:border-r border-slate-100/95 group">
+                      {leftGraphic}
+                    </div>
                   ) : (
-                                       <div
-                      className="text-left w-full group cursor-pointer"
+                    <div
+                      className="text-left w-full xl:w-[min(100%,220px)] shrink-0 flex flex-col border-b xl:border-b-0 xl:border-r border-slate-100/95 group cursor-pointer"
                       role="button"
                       tabIndex={0}
                       aria-label={`Add ${p.title || 'program'} to cart`}
@@ -1219,26 +1372,84 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh, bo
                         }
                       }}
                     >
-                      {cardMedia}
+                      {leftGraphic}
                     </div>
                   )}
-                  <div className="px-3 pb-2 pt-0">
-                    <button
-                      type="button"
-                      className="text-[10px] text-violet-700 hover:text-violet-900 font-medium underline-offset-2 hover:underline text-left w-full"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        navigate(`/program/${p.id}`);
-                      }}
-                      data-testid={`dashboard-know-more-${p.id}`}
-                    >
-                      Know more about this program
-                    </button>
+
+                  <div className="flex-1 min-w-0 flex flex-col justify-center py-2 px-3 xl:px-4 border-b xl:border-b-0 xl:border-r border-slate-100/95 bg-slate-50/40">
+                    <p className="text-[9px] font-semibold uppercase tracking-wide text-slate-500 mb-1.5 xl:hidden">
+                      Schedule
+                    </p>
+                    <div className="flex flex-col gap-1 items-end">
+                      {datetimeBadges.map((row, idx) =>
+                        row.type === 'duration' ? (
+                          <span
+                            key={idx}
+                            className="bg-[#D4AF37] backdrop-blur-sm text-white text-[10px] font-bold px-2 py-0.5 rounded shadow-sm tracking-wide w-fit max-w-full"
+                          >
+                            {row.text}
+                          </span>
+                        ) : (
+                          <span
+                            key={idx}
+                            className="bg-black/60 backdrop-blur-sm text-white text-[10px] font-bold px-2 py-0.5 rounded flex items-center gap-1 w-fit max-w-full"
+                          >
+                            {row.type === 'clock' ? (
+                              <Clock size={10} className="flex-shrink-0" />
+                            ) : (
+                              <Calendar size={10} className="flex-shrink-0" />
+                            )}
+                            <span className="text-left">{row.text}</span>
+                          </span>
+                        )
+                      )}
+                      {datetimeBadges.length === 0 && (
+                        <span className="text-[10px] text-slate-400">Dates and times TBC</span>
+                      )}
+                    </div>
                   </div>
 
-                  {isAnnual && (
-                    <div className="px-3 pb-3 pt-0 border-t border-slate-100 bg-gradient-to-b from-amber-50/40 to-transparent">
-                      <p className="text-[9px] font-bold uppercase tracking-wide text-[#b8860b] mt-2 mb-1">
+                  <div className="shrink-0 w-full xl:w-48 py-3 px-3 xl:pl-4 border-b xl:border-b-0 xl:border-r border-slate-100/95">
+                    {isAnnual ? (
+                      <DashboardUpcomingPortalPricing symbol={symbol} preview={portalPreview} />
+                    ) : (
+                      <div>
+                        <p className="text-[8px] font-bold uppercase tracking-wide text-[#b8860b] mb-1">Site price</p>
+                        {list > 0 || off > 0 ? (
+                          showSpecialPromo ? (
+                            <p className="text-[11px] text-slate-800">
+                              <span className="font-semibold text-[#b8860b]">{symbol}{afterPromo.toLocaleString()}</span>
+                              <span className="text-slate-400 line-through ml-1.5 text-[10px]">{symbol}{baseForPromo.toLocaleString()}</span>
+                              <span className="block text-[9px] text-violet-700/90 mt-0.5">
+                                With {promoForProgramClicks} (on offer price)
+                              </span>
+                              {off > 0 && list > off && (
+                                <span className="block text-[9px] text-slate-400 mt-0.5">List {symbol}{list.toLocaleString()}</span>
+                              )}
+                            </p>
+                          ) : off > 0 ? (
+                            <p className="text-[11px] text-slate-800">
+                              <span className="font-semibold text-[#b8860b]">{symbol}{off.toLocaleString()}</span>
+                              {list > 0 && off < list && (
+                                <span className="text-slate-400 line-through ml-1.5 text-[10px]">{symbol}{list.toLocaleString()}</span>
+                              )}
+                              <span className="block text-[9px] text-slate-400 mt-0.5">Offer price</span>
+                            </p>
+                          ) : list > 0 ? (
+                            <p className="text-[11px] text-slate-800 font-medium">{symbol}{list.toLocaleString()}</p>
+                          ) : (
+                            <p className="text-[10px] text-slate-400">See program page</p>
+                          )
+                        ) : (
+                          <p className="text-[10px] text-slate-400">See program page</p>
+                        )}
+                      </div>
+                    )}
+                  </div>
+
+                  {isAnnual ? (
+                    <div className="flex-1 min-w-[12rem] max-w-2xl py-3 px-3 xl:pl-4 bg-gradient-to-b from-amber-50/35 to-transparent">
+                      <p className="text-[9px] font-bold uppercase tracking-wide text-[#b8860b] mb-1">
                         Annual member checkout
                       </p>
                       {includedPkg && (
@@ -1459,6 +1670,13 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh, bo
                         )}
                         Continue to enrollment &amp; payment
                       </button>
+                    </div>
+                  ) : (
+                    <div className="flex-1 min-w-0 py-3 px-3 xl:pl-4 flex flex-col justify-center">
+                      <p className="text-[10px] text-slate-500 leading-snug">
+                        Tap the program card to add it to your cart, or use <strong className="text-slate-700">Know more</strong>{' '}
+                        for details — same checkout as the main site.
+                      </p>
                     </div>
                   )}
                 </div>

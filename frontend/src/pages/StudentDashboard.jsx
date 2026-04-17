@@ -413,7 +413,7 @@ const StudentDashboard = () => {
           <>
             {homeLoading && (
               <section
-                className="w-full max-w-5xl mx-auto px-4 mb-4 md:mb-6"
+                className="w-full max-w-7xl mx-auto px-4 mb-4 md:mb-6"
                 aria-busy="true"
                 data-testid="dashboard-upcoming-loading"
               >
@@ -424,7 +424,7 @@ const StudentDashboard = () => {
               </section>
             )}
             {!homeLoading && homeFetchError && (
-              <section className="w-full max-w-5xl mx-auto px-4 mb-4 md:mb-6" data-testid="dashboard-upcoming-error">
+              <section className="w-full max-w-7xl mx-auto px-4 mb-4 md:mb-6" data-testid="dashboard-upcoming-error">
                 <div className="rounded-[28px] border border-red-200 bg-red-50/90 px-5 py-5 text-sm text-red-950">
                   <p className="font-semibold">
                     {homeErrorKind === 'auth' ? 'Could not load programs — not signed in' : 'Could not load programs'}
