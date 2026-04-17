@@ -70,7 +70,13 @@ const DashboardLayout = () => {
 
   return (
     <div className="min-h-screen relative bg-transparent font-lato antialiased">
-      <CosmicDashboardBackground videoActive={Boolean(bgVideo) && !isSacredHomeOverview} variant={cosmicVariant} />
+      <CosmicDashboardBackground
+        videoActive={Boolean(bgVideo) && !isSacredHomeOverview}
+        variant={cosmicVariant}
+        sacredHomeRemountKey={
+          isSacredHomeOverview ? String(user?.id || user?.email || user?.name || 'student') : undefined
+        }
+      />
 
       {/* Optional admin video — kept subtle so constellations & planets stay the hero */}
       {bgVideo && !isSacredHomeOverview && (

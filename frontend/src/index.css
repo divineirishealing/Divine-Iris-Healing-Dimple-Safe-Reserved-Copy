@@ -187,3 +187,89 @@ html {
     animation: none;
   }
 }
+
+/* Dashboard overview — cozy morning: iris / lavender sway, steam, mug quote */
+@keyframes sanctuary-cozy-floral-sway {
+  0%,
+  100% {
+    transform: rotate(-0.9deg) translateX(0);
+  }
+  50% {
+    transform: rotate(1deg) translateX(4px);
+  }
+}
+
+@keyframes sanctuary-cozy-steam-rise {
+  0% {
+    opacity: 0.12;
+    transform: translateY(6px);
+  }
+  35% {
+    opacity: 0.42;
+  }
+  100% {
+    opacity: 0.06;
+    transform: translateY(-32px);
+  }
+}
+
+@keyframes sanctuary-mug-quote-reveal {
+  0% {
+    clip-path: inset(0 100% 0 0);
+    opacity: 0.35;
+  }
+  100% {
+    clip-path: inset(0 0 0 0);
+    opacity: 1;
+  }
+}
+
+@keyframes sanctuary-mug-quote-float {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-3px);
+  }
+}
+
+.sanctuary-cozy-overview-floral {
+  transform-origin: 50% 100%;
+  animation: sanctuary-cozy-floral-sway 7s ease-in-out infinite;
+}
+
+.sanctuary-cozy-overview-floral-delayed {
+  transform-origin: 50% 100%;
+  animation: sanctuary-cozy-floral-sway 8.5s ease-in-out infinite;
+  animation-delay: -2s;
+}
+
+.sanctuary-cozy-overview-steam {
+  animation: sanctuary-cozy-steam-rise 4.2s ease-in-out infinite;
+  transform-box: fill-box;
+  transform-origin: 50% 100%;
+}
+
+.sanctuary-cozy-overview-quote {
+  font-family: 'Great Vibes', cursive;
+  color: rgba(76, 29, 149, 0.92);
+  text-shadow: 0 1px 0 rgba(255, 255, 255, 0.65);
+  line-height: 1.15;
+  animation: sanctuary-mug-quote-reveal 6.5s cubic-bezier(0.22, 1, 0.36, 1) forwards,
+    sanctuary-mug-quote-float 9s ease-in-out 6.5s infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sanctuary-cozy-overview-floral,
+  .sanctuary-cozy-overview-floral-delayed,
+  .sanctuary-cozy-overview-steam {
+    animation: none !important;
+  }
+
+  .sanctuary-cozy-overview-quote {
+    animation: none;
+    clip-path: none;
+    opacity: 1;
+  }
+}
