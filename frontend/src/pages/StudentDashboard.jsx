@@ -5,6 +5,7 @@ import {
   Calendar, User, CreditCard, Heart, BookOpen,
   ArrowRight, ChevronRight,
   Coins,
+  Loader2,
 } from 'lucide-react';
 import { cn, formatDateDdMonYyyy, formatDashboardTime, dashboardStudentScheduleTable } from '../lib/utils';
 import { buildDashboardScheduleRows, summarizeDatedProgramProgress } from '../lib/dashboardSchedule';
@@ -14,6 +15,7 @@ import { useToast } from '../hooks/use-toast';
 import { SANCTUARY_REFERENCE, INTENTIONS_BY_TAB } from '../lib/dashboardSanctuaryCopy';
 import { mergeDashboardVisibility } from '../lib/dashboardVisibility';
 import DashboardUpcomingFamilySection from '../components/dashboard/DashboardUpcomingFamilySection';
+import { Button } from '../components/ui/button';
 
 const API = process.env.REACT_APP_BACKEND_URL;
 
@@ -177,7 +179,10 @@ const StudentDashboard = () => {
   const { user } = useAuth();
   const { settings } = useSiteSettings();
   const navigate = useNavigate();
+  const { toast } = useToast();
   const [homeData, setHomeData] = useState(null);
+  const [homeLoading, setHomeLoading] = useState(true);
+  const [homeFetchError, setHomeFetchError] = useState(false);
   const [intentionsTab, setIntentionsTab] = useState('d');
   const progressGradId = `pg-${useId().replace(/:/g, '')}`;
 
@@ -211,10 +216,22 @@ const StudentDashboard = () => {
   const dv = useMemo(() => mergeDashboardVisibility(settings), [settings]);
 
   const refreshHome = useCallback(() => {
-    axios.get(`${API}/api/student/home`, { withCredentials: true })
-      .then(res => setHomeData(res.data))
-      .catch(() => {});
-  }, []);
+    setHomeFetchError(false);
+    setHomeLoading(true);
+    axios
+      .get(`${API}/api/student/home`, { withCredentials: true })
+      .then((res) => setHomeData(res.data))
+      .catch(() => {
+        setHomeData(null);
+        setHomeFetchError(true);
+        toast({
+          title: 'Could not load dashboard',
+          description: 'Upcoming programs and your schedule need a working connection. Try again in a moment.',
+          variant: 'destructive',
+        });
+      })
+      .finally(() => setHomeLoading(false));
+  }, [toast]);
 
   useEffect(() => {
     refreshHome();
@@ -384,12 +401,71 @@ const StudentDashboard = () => {
         </section>
         )}
 
-        {homeData && dv.upcoming_family && (
-          <DashboardUpcomingFamilySection
-            homeData={homeData}
-            onRefresh={refreshHome}
-            bookerEmail={(user?.email || '').trim()}
-          />
+        {dv.upcoming_family ? (
+          <>
+            {homeLoading && (
+              <section
+                className="w-full max-w-5xl mx-auto px-4 mb-4 md:mb-6"
+                aria-busy="true"
+                data-testid="dashboard-upcoming-loading"
+              >
+                <div className="rounded-[28px] border border-[rgba(160,100,240,0.14)] bg-white/70 backdrop-blur-xl px-5 py-14 flex flex-col items-center justify-center gap-3 text-slate-600">
+                  <Loader2 className="h-8 w-8 animate-spin text-[#5D3FD3]" aria-hidden />
+                  <p className="text-sm">Loading upcoming programs…</p>
+                </div>
+              </section>
+            )}
+            {!homeLoading && homeFetchError && (
+              <section className="w-full max-w-5xl mx-auto px-4 mb-4 md:mb-6" data-testid="dashboard-upcoming-error">
+                <div className="rounded-[28px] border border-red-200 bg-red-50/90 px-5 py-5 text-sm text-red-950">
+                  <p className="font-semibold">Could not load programs</p>
+                  <p className="text-xs mt-1 text-red-900/85">
+                    Check your connection and tap Retry. For payments you can also open Financials from the sidebar menu.
+                  </p>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="mt-3 h-9 text-xs border-red-300"
+                    onClick={refreshHome}
+                  >
+                    Retry
+                  </Button>
+                </div>
+              </section>
+            )}
+            {!homeLoading && !homeFetchError && homeData && (
+              <DashboardUpcomingFamilySection
+                homeData={homeData}
+                onRefresh={refreshHome}
+                bookerEmail={(user?.email || '').trim()}
+              />
+            )}
+          </>
+        ) : (
+          dv.hero && (
+            <section
+              className="w-full max-w-5xl mx-auto px-4 mb-4 md:mb-6"
+              data-testid="dashboard-upcoming-hidden-hint"
+            >
+              <div className="rounded-xl border border-violet-200/80 bg-violet-50/70 px-4 py-3 text-[11px] text-violet-950 leading-snug">
+                <p className="font-medium text-violet-900">Upcoming programs are turned off on this home page.</p>
+                <p className="mt-1 text-violet-800/90">
+                  An administrator can enable them in{' '}
+                  <span className="font-medium">Admin → Dashboard settings</span> →{' '}
+                  <span className="font-medium">Upcoming programs &amp; add family</span>, or use{' '}
+                  <button
+                    type="button"
+                    className="underline font-medium text-[#5D3FD3] hover:text-[#4a32b8]"
+                    onClick={() => navigate('/dashboard/financials')}
+                  >
+                    Financials
+                  </button>{' '}
+                  from the menu for EMI and payment proof.
+                </p>
+              </div>
+            </section>
+          )
         )}
 
         <div className="w-full max-w-6xl mx-auto px-4 md:px-0 flex flex-col items-center">

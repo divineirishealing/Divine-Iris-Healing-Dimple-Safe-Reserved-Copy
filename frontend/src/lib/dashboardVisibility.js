@@ -5,7 +5,7 @@
 export const DASHBOARD_VISIBILITY_KEYS = {
   // Overview (Sacred Home)
   hero: 'Welcome hero (greeting & stats)',
-  upcoming_family: 'Upcoming programs & add family',
+  upcoming_family: 'Upcoming programs & add family (required for Pay on dashboard home)',
   schedule_card: 'Schedule / calendar card',
   loyalty_points: 'Divine Iris Points',
   profile_card: 'Profile summary card',
