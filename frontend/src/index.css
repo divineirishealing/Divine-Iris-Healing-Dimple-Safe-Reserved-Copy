@@ -273,3 +273,142 @@ html {
     opacity: 1;
   }
 }
+
+/* Dashboard overview — photo healing sanctuary (iris sway, steam, petals, particles) */
+@keyframes dashboard-healing-floral-sway {
+  0%,
+  100% {
+    transform: rotate(-0.42deg) translateX(0);
+  }
+  50% {
+    transform: rotate(0.62deg) translateX(2px);
+  }
+}
+
+@keyframes dashboard-healing-steam-rise {
+  0% {
+    opacity: 0.18;
+    transform: translateY(10px);
+  }
+  38% {
+    opacity: 0.82;
+  }
+  100% {
+    opacity: 0.06;
+    transform: translateY(-52px);
+  }
+}
+
+@keyframes dashboard-healing-petal-drift {
+  0% {
+    transform: translate(0, 0) rotate(0deg);
+    opacity: 0;
+  }
+  6% {
+    opacity: 0.78;
+  }
+  88% {
+    opacity: 0.5;
+  }
+  100% {
+    transform: translate(var(--dx, 0px), 115vh) rotate(var(--rot, 12deg));
+    opacity: 0;
+  }
+}
+
+@keyframes dashboard-healing-particle-float {
+  0%,
+  100% {
+    transform: translate(0, 0);
+    opacity: var(--a, 0.45);
+  }
+  50% {
+    transform: translate(var(--mx, 8px), var(--my, -12px));
+    opacity: calc(var(--a, 0.45) * 1.35);
+  }
+}
+
+@keyframes dashboard-healing-leaf-dapple {
+  0%,
+  100% {
+    opacity: 0.36;
+    transform: translate(0, 0);
+  }
+  50% {
+    opacity: 0.52;
+    transform: translate(8px, -5px);
+  }
+}
+
+@keyframes dashboard-healing-sunray-shift {
+  0%,
+  100% {
+    opacity: 0.19;
+  }
+  50% {
+    opacity: 0.26;
+  }
+}
+
+@keyframes dashboard-healing-center-veil-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.92;
+  }
+}
+
+.dashboard-healing-floral-sway {
+  transform-origin: 32% 90%;
+  animation: dashboard-healing-floral-sway 11.5s ease-in-out infinite;
+}
+
+.dashboard-healing-steam-strand {
+  animation: dashboard-healing-steam-rise 8s ease-in-out infinite;
+  transform-box: fill-box;
+  transform-origin: 50% 100%;
+}
+
+.dashboard-healing-petal {
+  animation-name: dashboard-healing-petal-drift;
+  animation-timing-function: linear;
+  animation-iteration-count: infinite;
+  will-change: transform, opacity;
+}
+
+.dashboard-healing-particle {
+  animation-name: dashboard-healing-particle-float;
+  animation-timing-function: ease-in-out;
+  animation-iteration-count: infinite;
+  will-change: transform, opacity;
+}
+
+.dashboard-healing-leaf-shadow {
+  animation: dashboard-healing-leaf-dapple 22s ease-in-out infinite;
+}
+
+.dashboard-healing-sunray {
+  animation: dashboard-healing-sunray-shift 18s ease-in-out infinite;
+}
+
+.dashboard-healing-center-veil {
+  animation: dashboard-healing-center-veil-pulse 14s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dashboard-healing-floral-sway,
+  .dashboard-healing-steam-strand,
+  .dashboard-healing-petal,
+  .dashboard-healing-particle,
+  .dashboard-healing-leaf-shadow,
+  .dashboard-healing-sunray,
+  .dashboard-healing-center-veil {
+    animation: none !important;
+  }
+
+  .dashboard-healing-petal {
+    opacity: 0;
+  }
+}

@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useMemo } from 'react';
 import { cn } from '../../lib/utils';
 import { resolveCosmicTheme } from '../../lib/dashboardCosmicThemes';
-import { SanctuaryCozyOverviewBackground } from './SanctuaryCozyOverviewBackground';
+import { DashboardHealingSanctuaryBackground } from './DashboardHealingSanctuaryBackground';
 
 /** Electric violet constellations — bolder than default, aligned with Transformations hero energy */
 const CONSTELLATION_PATTERNS = [
@@ -446,28 +446,33 @@ export function CosmicDashboardBackground({
       data-cosmic-variant={variant}
       aria-hidden
     >
-      {isSacredHomeLight ? (
-        <SanctuaryCozyOverviewBackground
-          key={sacredHomeRemountKey || 'sanctuary-cozy'}
-          storageScope={sacredHomeRemountKey || 'student'}
+      {(isSacredHomeLight || isImmersivePurple) && (
+        <DashboardHealingSanctuaryBackground
+          key={`${sacredHomeRemountKey || 'student'}-${isImmersivePurple ? 'sub' : 'ov'}`}
+          storageScope={
+            isSacredHomeLight
+              ? sacredHomeRemountKey || 'student'
+              : `sub-${sacredHomeRemountKey || 'student'}`
+          }
         />
-      ) : isImmersivePurple ? (
+      )}
+      {isSacredHomeLight ? null : isImmersivePurple ? (
         <>
           <div
             className="absolute inset-0"
             style={{
               background:
-                'linear-gradient(165deg, #1a0a3e 0%, #2d1b69 22%, #4c1d95 48%, #5b21b6 72%, #312e81 100%)',
+                'linear-gradient(165deg, rgba(26,10, 62, 0.88) 0%, rgba(45, 27, 105, 0.85) 22%, rgba(76, 29, 149, 0.88) 48%, rgba(91, 33, 182, 0.86) 72%, rgba(49, 46, 129, 0.9) 100%)',
             }}
           />
           <div
             className="absolute inset-0"
             style={{
-              opacity: 0.95,
+              opacity: 0.92,
               background: `
-                radial-gradient(ellipse 110% 85% at 50% -15%, rgba(196, 181, 253, 0.55) 0%, transparent 52%),
-                radial-gradient(ellipse 90% 70% at 100% 45%, rgba(167, 139, 250, 0.35) 0%, transparent 48%),
-                radial-gradient(ellipse 80% 60% at 0% 85%, rgba(139, 92, 246, 0.28) 0%, transparent 45%)
+                radial-gradient(ellipse 110% 85% at 50% -15%, rgba(196, 181, 253, 0.5) 0%, transparent 52%),
+                radial-gradient(ellipse 90% 70% at 100% 45%, rgba(167, 139, 250, 0.32) 0%, transparent 48%),
+                radial-gradient(ellipse 80% 60% at 0% 85%, rgba(139, 92, 246, 0.26) 0%, transparent 45%)
               `,
             }}
           />
