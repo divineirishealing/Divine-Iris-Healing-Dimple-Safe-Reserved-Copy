@@ -209,7 +209,7 @@ async def start_enrollment(profile: ProfileData, request: Request):
         "booker_name": profile.booker_name,
         "booker_email": email,
         "booker_country": profile.booker_country,
-        "participants": [p.dict() for p in profile.participants],
+        "participants": [p.model_dump(mode="python") for p in profile.participants],
         "participant_count": len(profile.participants),
         "ip_info": ip_info,
         "phone": None,

@@ -922,7 +922,7 @@ async def dashboard_pay(data: DashboardPayIn, request: Request, user: dict = Dep
         "booker_name": snap.get("name") or user.get("name") or "Student",
         "booker_email": (user.get("email") or "").lower().strip(),
         "booker_country": snap.get("country") or "AE",
-        "participants": [p.dict() for p in participants],
+        "participants": [p.model_dump(mode="python") for p in participants],
         "participant_count": len(participants),
         "ip_info": ip_info,
         "phone": snap.get("phone"),

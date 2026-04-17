@@ -88,13 +88,74 @@ def _clean_str(val: Any) -> str:
     return s
 
 
-def _participant_notify_flag(p: dict) -> bool:
-    """Form uses `notify`; some paths may store `notify_enrollment`."""
-    if not isinstance(p, dict):
+def _scalar_field(d: dict, *keys: str) -> Any:
+    """First non-empty value for any of the keys (exact or case-insensitive)."""
+    if not isinstance(d, dict):
+        return None
+    lower_map = {str(k).lower(): v for k, v in d.items()}
+    for k in keys:
+        if k in d:
+            v = d[k]
+            if v is not None and v != "":
+                return v
+        lk = k.lower()
+        if lk in lower_map:
+            v = lower_map[lk]
+            if v is not None and v != "":
+                return v
+    return None
+
+
+def _format_age_for_report(val: Any) -> str:
+    if val is None or val == "":
+        return ""
+    try:
+        if isinstance(val, float):
+            return str(int(val)) if val == int(val) else str(val).strip()
+        return str(int(val))
+    except (TypeError, ValueError):
+        s = str(val).strip()
+        return s
+
+
+def _merge_participants_for_report(enrollment: dict, txn: Optional[dict]) -> List[dict]:
+    """
+    Prefer enrollment.participants; merge with transaction.participants index-wise so
+    missing fields on one side are filled from the other. If enrollment has no dict rows
+    but the txn snapshot does, use txn (fixes sparse / legacy enrollments).
+    """
+    raw = [x for x in (enrollment.get("participants") or []) if isinstance(x, dict)]
+    tx_list = [x for x in ((txn or {}).get("participants") or []) if isinstance(x, dict)]
+    if not raw:
+        return list(tx_list)
+    if not tx_list:
+        return list(raw)
+    merged: List[dict] = []
+    n = max(len(raw), len(tx_list))
+    for i in range(n):
+        a = raw[i] if i < len(raw) else {}
+        b = tx_list[i] if i < len(tx_list) else {}
+        m = {**b, **a}
+        for k, v in b.items():
+            if (m.get(k) in (None, "")) and v not in (None, ""):
+                m[k] = v
+        merged.append(m)
+    return merged
+
+
+def _notify_yes_from_participant(p: dict) -> bool:
+    v = _scalar_field(p, "notify", "notify_enrollment", "Notify")
+    if v is None:
         return False
-    if "notify" in p and p.get("notify") is not None:
-        return bool(p.get("notify"))
-    return bool(p.get("notify_enrollment"))
+    if isinstance(v, bool):
+        return v
+    s = str(v).strip().lower()
+    return s in ("1", "true", "yes", "y", "on")
+
+
+def _attendance_mode_from_participant(p: dict) -> str:
+    v = _scalar_field(p, "attendance_mode", "attendanceMode", "session_mode", "mode")
+    return _clean_str(v).lower() if v is not None and v != "" else ""
 
 
 def _payment_amount_currency(e: dict, txn: Optional[dict]) -> tuple:
@@ -156,7 +217,7 @@ def build_participant_report_rows(
         created = _clean_str(e.get("created_at"))
         origin = _enrollment_origin(e)
 
-        participants = [p for p in (e.get("participants") or []) if isinstance(p, dict)]
+        participants = _merge_participants_for_report(e, txn)
         total_slots = len(participants) if participants else 1
 
         def push_row(p: Optional[dict], index: int, *, booker_only: bool) -> None:
@@ -204,11 +265,13 @@ def build_participant_report_rows(
                 )
                 return
 
-            p_phone = _clean_str(p.get("phone"))
-            p_wa = _clean_str(p.get("whatsapp"))
+            p_phone = _clean_str(_scalar_field(p, "phone", "Phone"))
+            p_wa = _clean_str(_scalar_field(p, "whatsapp", "WhatsApp"))
             ph = p_phone or booker_phone
             wa = (p_wa or p_phone) or ph
-            notify_yes = _participant_notify_flag(p)
+            notify_yes = _notify_yes_from_participant(p)
+            first_time_v = _scalar_field(p, "is_first_time", "isFirstTime")
+            is_first = bool(first_time_v) if isinstance(first_time_v, bool) else str(first_time_v).strip().lower() in ("1", "true", "yes")
             rows.append(
                 {
                     "invoice_number": inv,
@@ -223,25 +286,25 @@ def build_participant_report_rows(
                     "booker_country": booker_country,
                     "participant_index": index,
                     "participant_total": total_slots,
-                    "participant_name": _clean_str(p.get("name")) or booker_name,
-                    "relationship": _clean_str(p.get("relationship")),
-                    "age": p.get("age", "") if p.get("age") is not None else "",
-                    "gender": _clean_str(p.get("gender")),
-                    "country": _clean_str(p.get("country")) or booker_country,
-                    "city": _clean_str(p.get("city")),
-                    "state": _clean_str(p.get("state")),
-                    "attendance_mode": _clean_str(p.get("attendance_mode")),
+                    "participant_name": _clean_str(_scalar_field(p, "name", "Name")) or booker_name,
+                    "relationship": _clean_str(_scalar_field(p, "relationship", "Relationship")),
+                    "age": _format_age_for_report(_scalar_field(p, "age", "Age")),
+                    "gender": _clean_str(_scalar_field(p, "gender", "Gender")),
+                    "country": _clean_str(_scalar_field(p, "country", "Country")) or booker_country,
+                    "city": _clean_str(_scalar_field(p, "city", "City")),
+                    "state": _clean_str(_scalar_field(p, "state", "State")),
+                    "attendance_mode": _attendance_mode_from_participant(p),
                     "notify_enrollment": "Yes" if notify_yes else "No",
-                    "participant_email": _clean_str(p.get("email")),
+                    "participant_email": _clean_str(_scalar_field(p, "email", "Email")),
                     "phone": ph,
                     "whatsapp": wa,
-                    "is_first_time": "Yes" if p.get("is_first_time") else "No",
-                    "referral_source": _clean_str(p.get("referral_source")),
-                    "referred_by_name": _clean_str(p.get("referred_by_name")),
-                    "referred_by_email": _clean_str(p.get("referred_by_email")),
-                    "participant_program_id": _clean_str(p.get("program_id")),
-                    "participant_program_title": _clean_str(p.get("program_title")),
-                    "participant_uid": _clean_str(p.get("uid")),
+                    "is_first_time": "Yes" if is_first else "No",
+                    "referral_source": _clean_str(_scalar_field(p, "referral_source", "referralSource")),
+                    "referred_by_name": _clean_str(_scalar_field(p, "referred_by_name", "referredByName")),
+                    "referred_by_email": _clean_str(_scalar_field(p, "referred_by_email", "referredByEmail")),
+                    "participant_program_id": _clean_str(_scalar_field(p, "program_id", "programId")),
+                    "participant_program_title": _clean_str(_scalar_field(p, "program_title", "programTitle")),
+                    "participant_uid": _clean_str(_scalar_field(p, "uid", "UID")),
                     "payment_amount": amt,
                     "payment_currency": cur,
                     "payment_status": pay_st or _clean_str(e.get("status")),
@@ -864,7 +927,7 @@ async def export_enrollments_excel():
                 p = participants[i]
                 p_phone = clean(p.get("phone"))
                 p_wa = clean(p.get("whatsapp"))
-                notify_yes = _participant_notify_flag(p)
+                notify_yes = _notify_yes_from_participant(p)
                 row.extend([
                     clean(p.get("name")),
                     clean(p.get("relationship")),
