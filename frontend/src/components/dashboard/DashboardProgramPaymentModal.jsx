@@ -240,19 +240,14 @@ export default function DashboardProgramPaymentModal({
     return true;
   };
 
-  /** File input lives in a document.body portal so it is not under overflow-y-auto (iOS Safari blocks the picker there). */
+  /**
+   * File input is portaled to document.body (see below) so it is not under overflow-y-auto.
+   * Do not use showPicker() for type=file: on desktop Chrome/Edge it often returns a Promise that
+   * rejects without opening a dialog; our early `return` skipped click() so nothing happened.
+   * A direct click() from this button keeps the user gesture and works on laptop + mobile.
+   */
   const openProofFilePicker = () => {
-    const el = proofFileInputRef.current;
-    if (!el) return;
-    try {
-      if (typeof el.showPicker === 'function') {
-        el.showPicker();
-        return;
-      }
-    } catch {
-      /* showPicker can throw if not user-activated or unsupported */
-    }
-    el.click();
+    proofFileInputRef.current?.click();
   };
 
   if (!open) return null;
