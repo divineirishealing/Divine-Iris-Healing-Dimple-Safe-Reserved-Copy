@@ -57,8 +57,6 @@ export default function DashboardProgramPaymentModal({
   const [stripeLoading, setStripeLoading] = useState(false);
 
   const [payerName, setPayerName] = useState('');
-  const [payerEmail, setPayerEmail] = useState('');
-  const [payerPhone, setPayerPhone] = useState('');
   const [paymentDate, setPaymentDate] = useState('');
   const [transactionId, setTransactionId] = useState('');
   const [amountInput, setAmountInput] = useState('');
@@ -102,8 +100,6 @@ export default function DashboardProgramPaymentModal({
         const e = res.data;
         setEnrollment(e);
         setPayerName(e.booker_name || '');
-        setPayerEmail(e.booker_email || '');
-        if (e.phone) setPayerPhone(String(e.phone).replace(/^\+\d+\s*/, ''));
         const amt = e.dashboard_mixed_total;
         if (amt != null && amt !== '') setAmountInput(String(amt));
         const today = new Date().toISOString().slice(0, 10);
@@ -240,9 +236,12 @@ export default function DashboardProgramPaymentModal({
     try {
       const formData = new FormData();
       formData.append('enrollment_id', enrollmentId);
-      formData.append('payer_name', payerName);
-      formData.append('payer_email', payerEmail);
-      formData.append('payer_phone', payerPhone);
+           formData.append('payer_name', payerName);
+      formData.append('payer_email', (enrollment?.booker_email || '').trim());
+      formData.append(
+        'payer_phone',
+        enrollment?.phone ? String(enrollment.phone).replace(/^\+\d+\s*/, '') : ''
+      );
       formData.append('payment_date', paymentDate);
       formData.append('bank_name', bankName || currentBank.bank_name || '');
       formData.append('transaction_id', transactionId);
@@ -477,20 +476,13 @@ export default function DashboardProgramPaymentModal({
                 <div>
                   <Label className="text-[10px]">Your name *</Label>
                   <Input value={payerName} onChange={(e) => setPayerName(e.target.value)} className="h-10 text-xs mt-0.5" />
+                  <p className="text-[9px] text-slate-500 mt-1">
+                    Email and phone are sent from your enrollment profile — update them in My Profile if needed.
+                  </p>
                 </div>
                 <div>
                   <Label className="text-[10px]">Payment date *</Label>
                   <Input type="date" value={paymentDate} onChange={(e) => setPaymentDate(e.target.value)} className="h-10 text-xs mt-0.5" />
-                </div>
-              </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
-                  <Label className="text-[10px]">Email</Label>
-                  <Input type="email" value={payerEmail} onChange={(e) => setPayerEmail(e.target.value)} className="h-10 text-xs mt-0.5" />
-                </div>
-                <div>
-                  <Label className="text-[10px]">Phone</Label>
-                  <Input value={payerPhone} onChange={(e) => setPayerPhone(e.target.value)} className="h-10 text-xs mt-0.5" />
                 </div>
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
