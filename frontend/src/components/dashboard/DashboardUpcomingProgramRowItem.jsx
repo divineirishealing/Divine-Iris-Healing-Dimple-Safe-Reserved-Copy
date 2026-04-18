@@ -510,60 +510,10 @@ export default function DashboardUpcomingProgramRowItem({
                   >
                     Know More
                   </button>
-                  <div className="flex gap-1.5 mt-2">
-                    <button
-                      type="button"
-                      onClick={handleAddToCart}
-                      disabled={inCart || justAdded}
-                      className={`inline-flex items-center justify-center gap-1 px-2.5 sm:px-3 py-2 rounded-full text-[10px] transition-all font-medium border shrink-0 ${
-                        inCart || justAdded
-                          ? 'bg-green-50 text-green-600 border-green-200'
-                          : 'bg-white text-gray-700 border-gray-200 hover:border-[#D4AF37] hover:text-[#D4AF37]'
-                      }`}
-                      aria-label="Add to cart"
-                      data-testid={`dashboard-add-cart-annual-${p.id}`}
-                    >
-                      {inCart || justAdded ? <Check size={11} className="shrink-0" /> : <ShoppingCart size={11} className="shrink-0" />}
-                      <span className="hidden sm:inline font-semibold tracking-wide">Cart</span>
-                    </button>
-                    <button
-                      type="button"
-                      disabled={!canPay || payingProgramId === p.id}
-                      title={
-                        !canPay
-                          ? includedPkg && selCount < 1
-                            ? 'Select family members below Pricing & offer, or wait for pricing.'
-                            : !aq
-                              ? 'Loading pricing…'
-                              : (aq.total || 0) <= 0
-                                ? 'No amount due for this selection.'
-                                : ''
-                          : undefined
-                      }
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        if (annualSeatUi?.onContinuePay) {
-                          annualSeatUi.onContinuePay();
-                        } else {
-                          openEnrollmentSeatModal(p, includedPkg, selIds);
-                        }
-                      }}
-                      className="flex-1 min-w-[7rem] bg-[#D4AF37] hover:bg-[#b8962e] text-white py-2 rounded-full text-[10px] tracking-wider transition-all duration-300 uppercase font-medium disabled:opacity-50 disabled:pointer-events-none"
-                      data-testid={`dashboard-enroll-annual-${p.id}`}
-                    >
-                      {payingProgramId === p.id ? (
-                        <span className="inline-flex items-center justify-center gap-1.5">
-                          <Loader2 size={14} className="animate-spin shrink-0" />
-                          Processing
-                        </span>
-                      ) : (
-                        'Enroll Now'
-                      )}
-                    </button>
-                  </div>
                   <p className="text-[10px] text-slate-500 mt-2 leading-snug">
-                    Use Cart to bundle several programs for one checkout. Set attendance &amp; email under Family to join for
-                    portal pay, or pay from the cart with main-site pricing.
+                    Use <strong className="text-slate-700 font-medium">Add to Cart</strong> or{' '}
+                    <strong className="text-slate-700 font-medium">Continue to enrollment &amp; payment</strong> in the section
+                    below (open <strong className="text-slate-700 font-medium">Attendance &amp; notification</strong> if collapsed).
                   </p>
                 </>
               ) : (
@@ -928,38 +878,59 @@ export default function DashboardUpcomingProgramRowItem({
                 </div>
               ) : null}
 
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pt-3 border-t border-slate-100">
-              <p className="text-xs text-slate-500 leading-relaxed flex-1 min-w-0">
-                Payment method in the next step matches your membership (Stripe vs UPI / bank).
+            <div className="pt-3 border-t border-slate-100 space-y-3">
+              <p className="text-xs text-slate-500 leading-relaxed">
+                Payment method in the next step matches your membership (Stripe vs UPI / bank). Cart uses main-site checkout;
+                continue below for annual portal pricing.
               </p>
-              <button
-                type="button"
-                disabled={!canPay || payingProgramId === p.id}
-                title={
-                  !canPay
-                    ? includedPkg && selCount < 1
-                      ? 'Select family members to join or wait for pricing.'
-                      : !aq
-                        ? 'Loading pricing…'
-                        : (aq.total || 0) <= 0
-                          ? 'No amount due for this selection.'
-                          : ''
-                    : undefined
-                }
-                onClick={(e) => {
-                  e.stopPropagation();
-                  if (annualSeatUi?.onContinuePay) {
-                    annualSeatUi.onContinuePay();
-                  } else {
-                    openEnrollmentSeatModal(p, includedPkg, selIds);
+              <div className="flex flex-col sm:flex-row gap-2 sm:items-stretch">
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleAddToCart(e);
+                  }}
+                  disabled={inCart || justAdded}
+                  className={`w-full sm:flex-1 inline-flex items-center justify-center gap-2 rounded-xl border-2 py-2.5 px-4 text-sm font-semibold transition-colors ${
+                    inCart || justAdded
+                      ? 'border-green-300 bg-green-50 text-green-800'
+                      : 'border-slate-200 bg-white text-slate-800 hover:border-[#D4AF37]/60 hover:bg-[#D4AF37]/5'
+                  }`}
+                  aria-label="Add to cart"
+                  data-testid={`dashboard-add-cart-annual-${p.id}`}
+                >
+                  {inCart || justAdded ? <Check size={18} className="shrink-0" /> : <ShoppingCart size={18} className="shrink-0" />}
+                  Add to Cart
+                </button>
+                <button
+                  type="button"
+                  disabled={!canPay || payingProgramId === p.id}
+                  title={
+                    !canPay
+                      ? includedPkg && selCount < 1
+                        ? 'Select family members to join or wait for pricing.'
+                        : !aq
+                          ? 'Loading pricing…'
+                          : (aq.total || 0) <= 0
+                            ? 'No amount due for this selection.'
+                            : ''
+                      : undefined
                   }
-                }}
-                className="w-full sm:w-auto shrink-0 inline-flex items-center justify-center gap-2 rounded-xl bg-[#D4AF37] text-white text-sm font-semibold py-2.5 px-5 hover:bg-[#b8962e] disabled:opacity-50 disabled:pointer-events-none shadow-sm sm:min-w-[16rem]"
-                data-testid={`dashboard-pay-${p.id}`}
-              >
-                {payingProgramId === p.id ? <Loader2 size={18} className="animate-spin" /> : <CreditCard size={18} />}
-                Continue to enrollment &amp; payment
-              </button>
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    if (annualSeatUi?.onContinuePay) {
+                      annualSeatUi.onContinuePay();
+                    } else {
+                      openEnrollmentSeatModal(p, includedPkg, selIds);
+                    }
+                  }}
+                  className="w-full sm:flex-1 inline-flex items-center justify-center gap-2 rounded-xl bg-[#D4AF37] text-white text-sm font-semibold py-2.5 px-5 hover:bg-[#b8962e] disabled:opacity-50 disabled:pointer-events-none shadow-sm"
+                  data-testid={`dashboard-pay-${p.id}`}
+                >
+                  {payingProgramId === p.id ? <Loader2 size={18} className="animate-spin" /> : <CreditCard size={18} />}
+                  Continue to enrollment &amp; payment
+                </button>
+              </div>
             </div>
             </div>
           </div>
