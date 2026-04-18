@@ -75,6 +75,15 @@ function cartParticipantNotifyEmailSummary(p) {
   return 'Notifications on — add email below';
 }
 
+/** Short label for row-wise “Email / updates” column (matches at-a-glance table). */
+function cartParticipantEmailAtAGlance(p) {
+  const wantsNotify = p.attendance_mode === 'online' || p.notify;
+  if (!wantsNotify) return '—';
+  const em = String(p.email || '').trim();
+  if (em) return em;
+  return 'Add in form below';
+}
+
 const CartItemCard = ({ item, onRemove, onUpdateParticipants, symbol, getItemPrice, getItemOfferPrice, showReferral, detectedCountry, copySource, crossSellDiscount, vipOffer }) => {
   const [expanded, setExpanded] = useState(true);
   const tier = item.durationTiers?.[item.tierIndex];
@@ -177,55 +186,57 @@ const CartItemCard = ({ item, onRemove, onUpdateParticipants, symbol, getItemPri
         {expanded ? <ChevronUp size={14} className="text-gray-400" /> : <ChevronDown size={14} className="text-gray-400" />}
       </button>
 
-      {/* Row-wise at-a-glance summary (same card as participant forms below) */}
-      <div className="px-4 pt-1 pb-3">
-        <div
-          data-testid={`cart-one-eye-${item.id}`}
-          className="rounded-lg border border-gray-200 bg-gray-50 p-3 shadow-sm"
-        >
-          <p className="text-[10px] font-semibold text-[#D4AF37] uppercase tracking-wide mb-2">
-            At a glance
-          </p>
-          <div className="overflow-x-auto -mx-0.5 px-0.5">
-            <table className="w-full text-[10px] text-left border-collapse min-w-[260px]">
-              <thead>
-                <tr className="text-gray-500 border-b border-gray-200">
-                  <th className="py-1.5 pr-2 font-medium align-bottom">Name</th>
-                  <th className="py-1.5 pr-2 font-medium align-bottom">Role</th>
-                  <th className="py-1.5 pr-2 font-medium align-bottom">Attendance</th>
-                  <th className="py-1.5 font-medium align-bottom">Email / updates</th>
-                </tr>
-              </thead>
-              <tbody>
-                {item.participants.map((p, idx) => {
-                  const name = String(p.name || '').trim() || `Participant ${idx + 1}`;
-                  const role = String(p.relationship || '').trim() || '—';
-                  return (
-                    <tr key={idx} className="border-b border-gray-100 last:border-0 text-gray-800">
-                      <td className="py-2 pr-2 font-medium text-gray-900 max-w-[7rem] truncate" title={name}>
-                        {name}
-                      </td>
-                      <td className="py-2 pr-2 text-gray-600 max-w-[5.5rem] truncate" title={role}>
-                        {role}
-                      </td>
-                      <td className="py-2 pr-2 text-gray-600 whitespace-nowrap">
-                        {cartParticipantAttendanceLabel(p)}
-                      </td>
-                      <td className="py-2 text-gray-600 max-w-[10rem] truncate" title={cartParticipantNotifyEmailSummary(p)}>
-                        {cartParticipantNotifyEmailSummary(p)}
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-          <p className="text-[9px] text-gray-500 mt-2 leading-relaxed">
-            {expanded
-              ? 'Full details for checkout are in the forms below.'
-              : <>Tap <strong className="text-gray-700 font-medium">Participants</strong> above to open name, age, phone, and the rest.</>}
-          </p>
+      {/* Row-wise AT A GLANCE (borderless table, one row per participant) */}
+      <div
+        data-testid={`cart-one-eye-${item.id}`}
+        className="px-4 pt-2 pb-3 border-t border-gray-100"
+      >
+        <p className="text-[10px] font-semibold text-[#D4AF37] uppercase tracking-[0.12em] mb-2.5">
+          At a glance
+        </p>
+        <div className="overflow-x-auto -mx-1 px-1">
+          <table className="w-full text-[11px] text-left border-collapse min-w-[280px]">
+            <thead>
+              <tr className="text-gray-500 border-b border-gray-200">
+                <th className="py-2 pr-3 font-semibold align-bottom">Name</th>
+                <th className="py-2 pr-3 font-semibold align-bottom">Role</th>
+                <th className="py-2 pr-3 font-semibold align-bottom">Attendance</th>
+                <th className="py-2 font-semibold align-bottom">Email / updates</th>
+              </tr>
+            </thead>
+            <tbody>
+              {item.participants.map((p, idx) => {
+                const name = String(p.name || '').trim() || `Participant ${idx + 1}`;
+                const role = String(p.relationship || '').trim() || '—';
+                const emailCell = cartParticipantEmailAtAGlance(p);
+                return (
+                  <tr
+                    key={idx}
+                    className="text-gray-900 border-b border-gray-100 last:border-b-0"
+                  >
+                    <td className="py-2.5 pr-3 font-medium max-w-[9rem] truncate align-top" title={name}>
+                      {name}
+                    </td>
+                    <td className="py-2.5 pr-3 text-gray-700 max-w-[6rem] truncate align-top" title={role}>
+                      {role}
+                    </td>
+                    <td className="py-2.5 pr-3 text-gray-700 whitespace-nowrap align-top">
+                      {cartParticipantAttendanceLabel(p)}
+                    </td>
+                    <td className="py-2.5 text-gray-700 max-w-[11rem] truncate align-top" title={emailCell}>
+                      {emailCell}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
         </div>
+        <p className="text-[9px] text-gray-500 mt-2.5 leading-relaxed">
+          {expanded
+            ? 'Full details for checkout are in the forms below.'
+            : <>Tap <strong className="text-gray-700 font-medium">Participants</strong> above to open name, age, phone, and the rest.</>}
+        </p>
       </div>
 
       {/* Copy from first program */}
