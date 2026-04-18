@@ -41,17 +41,12 @@ function AnnualQuoteBreakdown({ aq, symbol, includedPkg, suppressIntro = false, 
           </p>
         ) : null}
         <div className="overflow-x-auto rounded-md border border-slate-200 bg-white">
-          <table className="w-full min-w-[280px] border-collapse table-fixed">
-            <colgroup>
-              <col className="w-[44%]" />
-              <col className="w-[36%]" />
-              <col className="w-[20%]" />
-            </colgroup>
+          <table className="w-full min-w-[22rem] border-collapse table-auto">
             <thead>
               <tr>
                 <th className={`${th} text-left`}>Line</th>
                 <th className={`${th} text-left`}>Detail</th>
-                <th className={`${th} ${money}`}>Amount</th>
+                <th className={`${th} ${money} min-w-[6.5rem] w-[1%]`}>Amount</th>
               </tr>
             </thead>
             <tbody>
@@ -59,14 +54,14 @@ function AnnualQuoteBreakdown({ aq, symbol, includedPkg, suppressIntro = false, 
                 <tr>
                   <td className={`${cell} text-slate-700`}>Your seat</td>
                   <td className={`${cell} text-slate-600`}>Included in annual package</td>
-                  <td className={`${cell} ${money} text-slate-500`}>—</td>
+                  <td className={`${cell} ${money} min-w-[6.5rem] w-[1%] text-slate-500`}>—</td>
                 </tr>
               ) : null}
               {showSelf ? (
                 <tr>
                   <td className={cell}>You (annual member)</td>
                   <td className={`${cell} text-slate-600`}>{selfStrike ? <span className="block">List {selfStrike}</span> : '—'}</td>
-                  <td className={`${cell} ${money} font-semibold text-slate-900`}>
+                  <td className={`${cell} ${money} min-w-[6.5rem] w-[1%] font-semibold text-slate-900`}>
                     {symbol}
                     {Number(aq.self_after_promos ?? 0).toLocaleString()}
                   </td>
@@ -84,7 +79,7 @@ function AnnualQuoteBreakdown({ aq, symbol, includedPkg, suppressIntro = false, 
                       </span>
                     ) : null}
                   </td>
-                  <td className={`${cell} ${money} font-semibold text-slate-900`}>
+                  <td className={`${cell} ${money} min-w-[6.5rem] w-[1%] font-semibold text-slate-900`}>
                     {symbol}
                     {Number(aq.immediate_family_after_promos ?? 0).toLocaleString()}
                   </td>
@@ -102,7 +97,7 @@ function AnnualQuoteBreakdown({ aq, symbol, includedPkg, suppressIntro = false, 
                       </span>
                     ) : null}
                   </td>
-                  <td className={`${cell} ${money} font-semibold text-slate-900`}>
+                  <td className={`${cell} ${money} min-w-[6.5rem] w-[1%] font-semibold text-slate-900`}>
                     {symbol}
                     {Number(aq.extended_guests_after_promos ?? 0).toLocaleString()}
                   </td>
@@ -112,7 +107,7 @@ function AnnualQuoteBreakdown({ aq, symbol, includedPkg, suppressIntro = false, 
                 <td className={`${cell} font-bold text-slate-900`} colSpan={2}>
                   Total
                 </td>
-                <td className={`${cell} ${money} font-bold text-slate-900`}>
+                <td className={`${cell} ${money} min-w-[6.5rem] w-[1%] font-bold text-slate-900`}>
                   {symbol}
                   {Number(aq.total ?? 0).toLocaleString()}
                 </td>
@@ -599,9 +594,9 @@ export default function DashboardUpcomingProgramRowItem({
           </div>
 
           {/* 2 — Pricing & offer */}
-          <div className="rounded-xl border border-slate-200 bg-white p-3 sm:p-4 shadow-sm min-h-0 flex flex-col flex-1 min-w-0">
+          <div className="rounded-xl border border-slate-200 bg-white p-3 sm:p-4 shadow-sm min-h-0 flex flex-col flex-1 min-w-0 md:min-w-[18rem]">
             <p className="text-[10px] font-bold uppercase tracking-wide text-slate-600 mb-2">Pricing &amp; offer</p>
-            <div className="flex-1 min-h-0 overflow-x-auto">
+            <div className="flex-1 min-h-0 min-w-0 overflow-x-auto">
               <AnnualQuoteBreakdown aq={aq} symbol={symbol} includedPkg={includedPkg} suppressIntro layout="table" />
             </div>
           </div>
