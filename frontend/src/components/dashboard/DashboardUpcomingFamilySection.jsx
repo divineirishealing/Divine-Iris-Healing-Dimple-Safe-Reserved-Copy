@@ -1178,7 +1178,10 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh, bo
 
     setEnrollmentSeatOpen(false);
     setSeatModalCtx(null);
-    navigate('/dashboard/combined-checkout');
+    toast({
+      title: 'Order updated',
+      description: `${program.title || 'Program'} is in your order. Click DIVINE CART in the sidebar when you are ready to review and pay.`,
+    });
   };
 
   const confirmEnrollmentSeatsAndPay = async () => {
@@ -1233,8 +1236,7 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh, bo
                   </>
                 ) : (
                   <>
-                    Use <strong className="text-slate-700 font-medium">Add to Divine Cart</strong> on each program (or the
-                    sidebar link) to open checkout, review every seat, and pay.
+                    Use <strong className="text-slate-700 font-medium">Add to Divine Cart</strong> on each program to update your order, then click <strong className="text-slate-700 font-medium">DIVINE CART</strong> in the sidebar to review and pay.
                   </>
                 )}
               </p>
@@ -1503,10 +1505,10 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh, bo
           <DialogHeader>
             <DialogTitle className="text-base font-semibold text-slate-900">Enrollment for this program</DialogTitle>
             <DialogDescription className="text-[11px] text-slate-600 leading-relaxed">
-              Set attendance and enrollment notification email for this checkout — including the WhatsApp group link when
+              Set attendance and enrollment notification email for your order — including the WhatsApp group link when
               applicable. Use <strong className="text-slate-800">Save defaults &amp; close</strong> to store choices in this
-              browser without paying, or <strong className="text-slate-800">Continue to payment</strong> with the checkbox
-              below to save defaults when you pay.
+              browser, or <strong className="text-slate-800">Add to order</strong> with the checkbox below to save defaults when
+              you update the cart. Open <strong className="text-slate-800">DIVINE CART</strong> in the sidebar when you are ready to review and pay.
             </DialogDescription>
           </DialogHeader>
 
@@ -1687,8 +1689,8 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh, bo
                   <span>
                     <span className="font-medium">Save these choices as my default for every program</span>
                     <span className="block text-[9px] text-slate-500 mt-0.5 leading-snug">
-                      When you continue to payment, we store them in this browser. Next time you open enrollment, fields
-                      fill automatically. Selected family rows must all match (use a preset) to save.
+                      When you add to order, we store them in this browser. Next time you open enrollment, fields fill
+                      automatically. Selected family rows must all match (use a preset) to save.
                     </span>
                   </span>
                 </label>
@@ -1847,7 +1849,7 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh, bo
               disabled={syncingEnrollmentToCheckout}
             >
               {syncingEnrollmentToCheckout ? <Loader2 size={14} className="animate-spin shrink-0" /> : null}
-              Continue to Divine Cart
+              Add to order
             </Button>
           </DialogFooter>
         </DialogContent>

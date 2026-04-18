@@ -13,6 +13,7 @@ import {
   ChevronDown,
 } from 'lucide-react';
 import { useCart } from '../../context/CartContext';
+import { useToast } from '../../hooks/use-toast';
 import { resolveImageUrl } from '../../lib/imageUtils';
 import { buildHomepageStyleDatetimeBadges } from '../../lib/upcomingHomepagePresentation';
 import { CountdownTimer, compactTierButtonLabel } from '../UpcomingProgramsSection';
@@ -204,6 +205,7 @@ export default function DashboardUpcomingProgramRowItem({
 }) {
   const navigate = useNavigate();
   const { syncProgramLineItem } = useCart();
+  const { toast } = useToast();
 
   const tiers = p.duration_tiers || [];
   const hasTiers = p.is_flagship && tiers.length > 0;
@@ -302,7 +304,10 @@ export default function DashboardUpcomingProgramRowItem({
     setAddingToCheckout(true);
     try {
       await syncThisProgramToDivineCart();
-      navigate('/dashboard/combined-checkout');
+      toast({
+        title: 'Order updated',
+        description: `${p.title || 'Program'} is in your order. Click DIVINE CART in the sidebar when you are ready to review and pay.`,
+      });
     } finally {
       setAddingToCheckout(false);
     }
@@ -992,11 +997,11 @@ export default function DashboardUpcomingProgramRowItem({
                 Payment method matches your membership (Stripe vs UPI / bank).{' '}
                 {includedPkg ? (
                   <>
-                    This program is included in your annual package. Use <strong className="text-slate-700 font-medium">Add to Divine Cart</strong> below to send your guest seats to checkout and pay in the portal.
+                    This program is included in your annual package. Use <strong className="text-slate-700 font-medium">Add to Divine Cart</strong> below to add guest seats to your order, then open <strong className="text-slate-700 font-medium">DIVINE CART</strong> to review and pay.
                   </>
                 ) : (
                   <>
-                    <strong className="text-slate-700 font-medium">Add to Divine Cart</strong> saves this program to your cart and opens checkout so you can review every participant and pay in the portal.
+                    <strong className="text-slate-700 font-medium">Add to Divine Cart</strong> adds this program to your order. Open <strong className="text-slate-700 font-medium">DIVINE CART</strong> in the sidebar when you are ready to review and pay.
                   </>
                 )}
               </p>
@@ -1236,8 +1241,7 @@ export default function DashboardUpcomingProgramRowItem({
                     Add to Divine Cart
                   </button>
                   <p className="text-xs text-slate-500 mt-3 leading-relaxed">
-                    Tap the image to open the program page. Use <strong className="text-slate-700 font-medium">Add to Divine Cart</strong> to add this tier to your order; everyone you include appears under{' '}
-                    <strong className="text-slate-700 font-medium">DIVINE CART</strong> in the sidebar.
+                    Tap the image to open the program page. Use <strong className="text-slate-700 font-medium">Add to Divine Cart</strong> to add this tier to your order; click <strong className="text-slate-700 font-medium">DIVINE CART</strong> in the sidebar when you want to review and pay.
                   </p>
                 </>
               )}
