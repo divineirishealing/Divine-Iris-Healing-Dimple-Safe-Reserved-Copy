@@ -193,23 +193,13 @@ export const CartProvider = ({ children }) => {
     localStorage.removeItem(STORAGE_KEY);
   }, []);
 
-  /** Explicit flush (cart also auto-saves when `items` change). */
-  const persistCart = useCallback(() => {
-    try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(items));
-      return true;
-    } catch {
-      return false;
-    }
-  }, [items]);
-
   const itemCount = items.length;
   const totalParticipants = items.reduce((sum, i) => sum + i.participants.length, 0);
 
   return (
     <CartContext.Provider value={{
       items, itemCount, totalParticipants,
-      addItem, syncProgramLineItem, addSessionItem, removeItem, updateItemParticipants, clearCart, persistCart,
+      addItem, syncProgramLineItem, addSessionItem, removeItem, updateItemParticipants, clearCart,
     }}>
       {children}
     </CartContext.Provider>

@@ -142,7 +142,7 @@ export default function DashboardCombinedCheckoutPage() {
   const location = useLocation();
   const [searchParams, setSearchParams] = useSearchParams();
   const { user } = useAuth();
-  const { items, clearCart, syncProgramLineItem, persistCart } = useCart();
+  const { items, clearCart, syncProgramLineItem } = useCart();
   const {
     country: detectedCountry,
     symbol,
@@ -997,27 +997,6 @@ export default function DashboardCombinedCheckoutPage() {
             variant="outline"
             className="border-white/30 bg-white/10 text-white hover:bg-white/20"
             onClick={() => {
-              if (persistCart()) {
-                toast({
-                  title: 'Cart saved',
-                  description: 'Your Divine Cart is stored in this browser. You can leave and come back anytime.',
-                });
-              } else {
-                toast({
-                  title: 'Could not save',
-                  description: 'Allow local storage for this site and try again.',
-                  variant: 'destructive',
-                });
-              }
-            }}
-          >
-            Save cart
-          </Button>
-          <Button
-            type="button"
-            variant="outline"
-            className="border-white/30 bg-white/10 text-white hover:bg-white/20"
-            onClick={() => {
               if (!window.confirm('Clear all items from your Divine Cart on this device?')) return;
               clearCart();
             }}
@@ -1030,7 +1009,7 @@ export default function DashboardCombinedCheckoutPage() {
             className="border-white/30 bg-white/10 text-white hover:bg-white/20"
             onClick={() => navigate('/dashboard/orders')}
           >
-            <ClipboardList size={16} className="mr-1" /> Order history
+            <ClipboardList size={16} className="mr-1" /> My order history
           </Button>
           <Button
             type="button"

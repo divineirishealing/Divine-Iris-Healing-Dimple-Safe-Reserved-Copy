@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import axios from 'axios';
 import Header from '../components/Header';
 import Footer from '../components/Footer';
@@ -262,7 +262,7 @@ const CartItemCard = ({ item, onRemove, onUpdateParticipants, symbol, getItemPri
 function CartPage() {
   const navigate = useNavigate();
   const { user } = useAuth();
-  const { items, removeItem, updateItemParticipants, clearCart, persistCart } = useCart();
+  const { items, removeItem, updateItemParticipants, clearCart } = useCart();
   const { getPrice, getOfferPrice, symbol, baseCurrency, country: detectedCountry } = useCurrency();
   const { toast } = useToast();
   const portalCartBackfillInFlight = useRef(false);
@@ -587,26 +587,13 @@ function CartPage() {
               <p className="text-sm text-gray-500 mt-1">{items.length} item{items.length > 1 ? 's' : ''} &middot; {totalParticipants} participant{totalParticipants > 1 ? 's' : ''}</p>
             </div>
             <div className="flex flex-wrap items-center gap-2 justify-end">
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                className="text-xs"
-                data-testid="save-cart-btn"
-                onClick={() => {
-                  if (persistCart()) {
-                    toast({ title: 'Cart saved', description: 'Your cart is stored in this browser.' });
-                  } else {
-                    toast({
-                      title: 'Could not save',
-                      description: 'Allow local storage for this site and try again.',
-                      variant: 'destructive',
-                    });
-                  }
-                }}
+              <Link
+                to="/dashboard/orders"
+                data-testid="my-order-history-link"
+                className="text-xs font-medium text-[#5D3FD3] hover:text-[#4c32b3] px-3 py-1.5 rounded-md border border-[#5D3FD3]/35 hover:bg-violet-50 transition-colors"
               >
-                Save changes
-              </Button>
+                My order history
+              </Link>
               <button
                 type="button"
                 onClick={() => {
