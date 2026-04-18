@@ -145,6 +145,22 @@ export function buildSelfOnlyCartParticipants(self, program, bookerEmail, detect
   ];
 }
 
+/** Map selected guest ids → immediate | extended using immediate-family ids (same split as /dashboard-quote). */
+export function buildGuestBucketByIdFromSelection(selIds, immediateFamilyMembers) {
+  const imm = new Set(
+    (immediateFamilyMembers || [])
+      .map((m) => (m && m.id != null ? String(m.id) : ''))
+      .filter(Boolean),
+  );
+  const out = {};
+  for (const raw of selIds || []) {
+    const id = String(raw ?? '').trim();
+    if (!id) continue;
+    out[id] = imm.has(id) ? 'immediate' : 'extended';
+  }
+  return out;
+}
+
 /**
  * Annual dashboard: booker row (if paying for self) + selected family/guest rows with seat draft prefs.
  */
@@ -157,6 +173,7 @@ export function buildAnnualDashboardCartParticipants({
   self,
   bookerEmail,
   detectedCountry,
+  immediateFamilyMembers,
 }) {
   const participants = [];
   const guestForm = seatDraft?.guestSeatForm || {};
@@ -198,6 +215,8 @@ export function buildAnnualDashboardCartParticipants({
     pushBookerRow();
   }
 
+  const guestBucketById = buildGuestBucketByIdFromSelection(selectedMemberIds, immediateFamilyMembers);
+
   const ids = (selectedMemberIds || []).map((x) => String(x));
   for (const id of ids) {
     const member = findEnrollableGuestById(enrollableGuests, id);
@@ -216,6 +235,8 @@ export function buildAnnualDashboardCartParticipants({
     const relationship = member
       ? String(member.relationship || 'Other').trim() || 'Other'
       : 'Other';
+    const idStr = String(id);
+    const portalGuestBucket = guestBucketById[idStr] || 'extended';
     participants.push(
       baseParticipant(program, {
         name: displayName,
@@ -233,6 +254,8 @@ export function buildAnnualDashboardCartParticipants({
         whatsapp: split.whatsapp,
         wa_code: split.wa_code,
         is_first_time: false,
+        portal_guest_bucket: portalGuestBucket,
+        dashboard_family_member_id: idStr,
       })
     );
   }

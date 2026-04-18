@@ -26,6 +26,7 @@ import {
 } from './dashboardUpcomingHelpers';
 import {
   buildAnnualDashboardCartParticipants,
+  buildGuestBucketByIdFromSelection,
   buildFullPortalRosterCartParticipants,
   buildSelfOnlyCartParticipants,
 } from '../../lib/dashboardCartPrefill';
@@ -279,6 +280,7 @@ export default function DashboardUpcomingProgramRowItem({
           self,
           bookerEmail,
           detectedCountry,
+          immediateFamilyMembers: members,
         });
       } else {
         participants =
@@ -291,11 +293,13 @@ export default function DashboardUpcomingProgramRowItem({
     const wasInCart = items.some((i) => i.programId === p.id && i.tierIndex === tierIdxForDisplay);
     const includedForMeta =
       aq?.included_in_annual_package ?? programIncludedInAnnualPackage(p, annualIncludedIds);
+    const guestBucketById = buildGuestBucketByIdFromSelection(selIds, members);
     syncProgramLineItem(p, tierIdxForDisplay, participants, {
       familyIds: selIds.map(String),
       bookerJoins: annualSeatUi?.draft?.bookerJoinsProgram !== false,
       annualIncluded: includedForMeta,
       portalQuoteTotal: aq?.total != null ? Number(aq.total) : null,
+      guestBucketById,
     });
     setJustAdded(true);
     toast({

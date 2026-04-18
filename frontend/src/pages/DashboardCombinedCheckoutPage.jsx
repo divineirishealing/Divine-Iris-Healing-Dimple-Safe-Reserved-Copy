@@ -26,6 +26,7 @@ import {
   buildAnnualDashboardCartParticipants,
   buildFullPortalRosterCartParticipants,
   buildSelfOnlyCartParticipants,
+  buildGuestBucketByIdFromSelection,
 } from '../lib/dashboardCartPrefill';
 import { programIncludedInAnnualPackage } from '../components/dashboard/dashboardUpcomingHelpers';
 
@@ -43,6 +44,41 @@ function combinedAttendanceLabel(p) {
 function combinedNotifyLabel(p) {
   if (p.attendance_mode === 'online') return 'On (Zoom)';
   return p.notify ? 'On' : 'Off';
+}
+
+/** Base-currency amounts from GET /dashboard-quote; apply `toDisplay` like program card prices. */
+function annualPortalSeatUnitBasePrices(quote, participant, guestBucketById) {
+  if (!quote) return null;
+  const rel = String(participant.relationship || '').trim();
+  if (rel === 'Myself') {
+    if (!quote.include_self) return { offer: 0, list: 0 };
+    return {
+      offer: Number(quote.self_after_promos ?? 0),
+      list: Number(quote.self_unit ?? 0),
+    };
+  }
+  const id = String(participant.dashboard_family_member_id || '').trim();
+  const fromP = participant.portal_guest_bucket;
+  const bucket =
+    fromP === 'immediate' || fromP === 'extended'
+      ? fromP
+      : id && guestBucketById && guestBucketById[id] === 'immediate'
+        ? 'immediate'
+        : 'extended';
+  if (bucket === 'immediate') {
+    const n = Number(quote.immediate_family_count || 0);
+    if (n <= 0) return { offer: 0, list: 0 };
+    return {
+      offer: Number(quote.immediate_family_after_promos ?? 0) / n,
+      list: Number(quote.immediate_family_line_gross ?? 0) / n,
+    };
+  }
+  const n = Number(quote.extended_guest_count || 0);
+  if (n <= 0) return { offer: 0, list: 0 };
+  return {
+    offer: Number(quote.extended_guests_after_promos ?? 0) / n,
+    list: Number(quote.extended_guest_line_gross ?? 0) / n,
+  };
 }
 
 const PAYMENT_METHOD_BADGES = {
@@ -119,6 +155,7 @@ export default function DashboardCombinedCheckoutPage() {
   const [portalSelf, setPortalSelf] = useState(null);
   const [subscriberIsAnnual, setSubscriberIsAnnual] = useState(false);
   const [annualPortalSubtotal, setAnnualPortalSubtotal] = useState(null);
+  const [annualQuotesByProgram, setAnnualQuotesByProgram] = useState({});
   const promoFromUrlApplied = useRef(false);
 
   useEffect(() => {
@@ -246,7 +283,8 @@ export default function DashboardCombinedCheckoutPage() {
           : [];
         const upcoming = home.upcoming_programs || [];
         const isAnnual = !!home.is_annual_subscriber;
-        const enrollableGuests = [...(home.immediate_family || []), ...(home.other_guests || [])];
+        const immediateFamily = home.immediate_family || [];
+        const enrollableGuests = [...immediateFamily, ...(home.other_guests || [])];
         const snap = readUpcomingDashboardSession(email);
         const selectedMap = snap?.selectedFamilyByProgram || {};
         const drafts = snap?.seatDraftsByProgram || {};
@@ -261,6 +299,7 @@ export default function DashboardCombinedCheckoutPage() {
             const includedForSeat = programIncludedInAnnualPackage(program, annualIncludedIds);
             const sel = selectedMap[program.id] || selectedMap[String(program.id)] || [];
             const draft = drafts[program.id] || drafts[String(program.id)];
+            const guestBucketById = buildGuestBucketByIdFromSelection(sel, immediateFamily);
             participants = buildAnnualDashboardCartParticipants({
               program,
               includedPkg: includedForSeat,
@@ -270,6 +309,7 @@ export default function DashboardCombinedCheckoutPage() {
               self,
               bookerEmail: email,
               detectedCountry,
+              immediateFamilyMembers: immediateFamily,
             });
             if (participants && participants.length > 0) {
               syncProgramLineItem(program, line.tierIndex, participants, {
@@ -277,6 +317,7 @@ export default function DashboardCombinedCheckoutPage() {
                 bookerJoins: draft?.bookerJoinsProgram !== false,
                 annualIncluded: includedForSeat,
                 portalQuoteTotal: null,
+                guestBucketById,
               });
             }
           } else {
@@ -353,11 +394,13 @@ export default function DashboardCombinedCheckoutPage() {
   useEffect(() => {
     if (!subscriberIsAnnual || !annualQuoteDeps) {
       setAnnualPortalSubtotal(null);
+      setAnnualQuotesByProgram({});
       return;
     }
     const email = (user?.email || '').trim();
     if (!email) {
       setAnnualPortalSubtotal(null);
+      setAnnualQuotesByProgram({});
       return;
     }
     let cancelled = false;
@@ -365,6 +408,7 @@ export default function DashboardCombinedCheckoutPage() {
     const programItems = items.filter((i) => i.type === 'program');
     if (!programItems.length) {
       setAnnualPortalSubtotal(null);
+      setAnnualQuotesByProgram({});
       return;
     }
     Promise.all(
@@ -372,6 +416,7 @@ export default function DashboardCombinedCheckoutPage() {
         const meta = i.portalLineMeta || {};
         const ids = (meta.familyIds || []).map(String).filter(Boolean).join(',');
         const bj = meta.bookerJoins !== false;
+        const pid = String(i.programId);
         return axios
           .get(`${API}/student/dashboard-quote`, {
             params: {
@@ -383,11 +428,18 @@ export default function DashboardCombinedCheckoutPage() {
             withCredentials: true,
             headers,
           })
-          .then((r) => Number(r.data?.total))
-          .catch(() => null);
+          .then((r) => ({ programId: pid, data: r.data, total: Number(r.data?.total) }))
+          .catch(() => ({ programId: pid, data: null, total: null }));
       }),
-    ).then((totals) => {
+    ).then((results) => {
       if (cancelled) return;
+      const map = {};
+      const totals = [];
+      for (const row of results) {
+        map[row.programId] = row.data;
+        totals.push(row.total);
+      }
+      setAnnualQuotesByProgram(map);
       if (totals.some((t) => t == null || Number.isNaN(t))) {
         setAnnualPortalSubtotal(null);
         return;
@@ -821,8 +873,22 @@ export default function DashboardCombinedCheckoutPage() {
             const meta = item.portalLineMeta;
             const selfIncluded =
               subscriberIsAnnual && meta?.annualIncluded && String(p.relationship || '').trim() === 'Myself';
-            const unitOffer = selfIncluded ? 0 : getItemOfferPrice(item);
-            const unitList = selfIncluded ? 0 : getItemPrice(item);
+            const lineQuote = annualQuotesByProgram[String(item.programId)] || null;
+            const guestBucketById = meta?.guestBucketById || {};
+            const portalBase =
+              subscriberIsAnnual && lineQuote && !selfIncluded
+                ? annualPortalSeatUnitBasePrices(lineQuote, p, guestBucketById)
+                : null;
+            const unitOffer = selfIncluded
+              ? 0
+              : portalBase
+                ? toDisplay(portalBase.offer)
+                : getItemOfferPrice(item);
+            const unitList = selfIncluded
+              ? 0
+              : portalBase
+                ? toDisplay(portalBase.list)
+                : getItemPrice(item);
             return (
               <div
                 key={key}

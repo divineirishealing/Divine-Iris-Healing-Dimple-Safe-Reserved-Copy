@@ -10,6 +10,7 @@ import DashboardProgramPaymentModal from './DashboardProgramPaymentModal';
 import { pickTierIndexForDashboard, programIncludedInAnnualPackage } from './dashboardUpcomingHelpers';
 import {
   buildAnnualDashboardCartParticipants,
+  buildGuestBucketByIdFromSelection,
   buildFullPortalRosterCartParticipants,
   buildSelfOnlyCartParticipants,
 } from '../../lib/dashboardCartPrefill';
@@ -1218,6 +1219,7 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh, bo
           self: pre.self,
           bookerEmail,
           detectedCountry,
+          immediateFamilyMembers: members,
         });
       } else {
         participants =
@@ -1231,11 +1233,13 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh, bo
       programIncludedInAnnualPackage(p, annualIncludedIds) || !!annualQuotes[p.id]?.included_in_annual_package;
     const sel = selectedFamilyByProgram[p.id] || [];
     const draft = seatDraftsRef.current[p.id];
+    const guestBucketById = buildGuestBucketByIdFromSelection(sel, members);
     syncProgramLineItem(p, tier, participants, {
       familyIds: sel.map(String),
       bookerJoins: draft?.bookerJoinsProgram !== false,
       annualIncluded: includedForSeat,
       portalQuoteTotal: annualQuotes[p.id]?.total != null ? Number(annualQuotes[p.id].total) : null,
+      guestBucketById,
     });
     toast({
       title: 'Order updated',
