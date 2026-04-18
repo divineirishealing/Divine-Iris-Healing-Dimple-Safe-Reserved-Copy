@@ -135,7 +135,7 @@ const OrderHistoryPage = () => {
               My order history
             </h1>
             <p className="text-base md:text-lg text-white/90 mt-2 leading-relaxed max-w-3xl drop-shadow-[0_1px_4px_rgba(0,0,0,0.25)]">
-              Programs, sessions, and contributions linked to your portal email and your Client Garden record (as booker,
+              Programs, sessions, and contributions linked to your profile email and your growth record (as booker,
               participant, or donor).
             </p>
             {user?.email ? (
@@ -178,8 +178,8 @@ const OrderHistoryPage = () => {
             <div className="text-base text-gray-600 py-12 px-6 text-center space-y-3 max-w-2xl mx-auto">
               <p className="text-lg font-medium text-gray-800">No orders matched this account yet.</p>
               <p className="text-base text-gray-500 leading-relaxed">
-                If you paid with a different email than the one you use to sign in, ask your admin to align your Client
-                Garden email or add your portal email on the enrollment. Completed checkouts from the public site and
+                If you paid with a different email than the one you use to sign in, ask your admin to align your growth
+                record email or add your profile email on the enrollment. Completed checkouts from the public site and
                 Divine Cart usually appear within a few seconds — try Refresh.
               </p>
             </div>
