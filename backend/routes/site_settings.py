@@ -110,6 +110,8 @@ async def update_settings(settings: SiteSettingsUpdate):
         update_data['india_payment_gateway'] = raw['india_payment_gateway']
     if raw.get('india_bank_accounts') is not None:
         update_data['india_bank_accounts'] = raw['india_bank_accounts']
+    if hasattr(settings, "model_fields_set") and "dashboard_annual_quote_show_tax" in settings.model_fields_set:
+        update_data["dashboard_annual_quote_show_tax"] = bool(settings.dashboard_annual_quote_show_tax)
     if raw.get('india_gpay_accounts') is not None:
         update_data['india_gpay_accounts'] = raw['india_gpay_accounts']
     if raw.get('india_bank_details') is not None:

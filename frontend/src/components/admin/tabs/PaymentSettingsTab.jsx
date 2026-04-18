@@ -20,6 +20,7 @@ const PaymentSettingsTab = () => {
   const [exlyLink, setExlyLink] = useState('');
   const [altDiscountPct, setAltDiscountPct] = useState(9);
   const [gstPct, setGstPct] = useState(18);
+  const [dashboardAnnualQuoteShowTax, setDashboardAnnualQuoteShowTax] = useState(true);
   const [platformPct, setPlatformPct] = useState(3);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -34,6 +35,7 @@ const PaymentSettingsTab = () => {
       setExlyLink(r.data.india_exly_link || '');
       setAltDiscountPct(r.data.india_alt_discount_percent ?? 9);
       setGstPct(r.data.india_gst_percent ?? 18);
+      setDashboardAnnualQuoteShowTax(r.data.dashboard_annual_quote_show_tax !== false);
       setPlatformPct(r.data.india_platform_charge_percent ?? 3);
     }).catch(() => {}).finally(() => setLoading(false));
   }, []);
@@ -50,6 +52,7 @@ const PaymentSettingsTab = () => {
         india_exly_link: exlyLink,
         india_alt_discount_percent: parseFloat(altDiscountPct) || 9,
         india_gst_percent: parseFloat(gstPct) || 18,
+        dashboard_annual_quote_show_tax: !!dashboardAnnualQuoteShowTax,
         india_platform_charge_percent: parseFloat(platformPct) || 3,
       });
       toast({ title: 'Payment settings saved!' });
@@ -218,6 +221,20 @@ const PaymentSettingsTab = () => {
             <Input data-testid="india-platform-input" type="number" value={platformPct}
               onChange={e => setPlatformPct(e.target.value)} className="text-xs h-9" min={0} max={100} />
           </div>
+        </div>
+
+        <div className="flex items-center justify-between gap-4 mt-4 pt-4 border-t border-green-200">
+          <div className="min-w-0">
+            <p className="text-xs font-semibold text-gray-900">Annual member dashboard — show tax row</p>
+            <p className="text-[10px] text-gray-500 mt-0.5">
+              Controls the tax line on the annual pricing quote table. GST % above still applies to receipts when tax is hidden here.
+            </p>
+          </div>
+          <Switch
+            checked={dashboardAnnualQuoteShowTax}
+            onCheckedChange={setDashboardAnnualQuoteShowTax}
+            data-testid="dashboard-annual-quote-show-tax"
+          />
         </div>
 
         <div className="mt-3 bg-white rounded-lg p-3 border text-xs">

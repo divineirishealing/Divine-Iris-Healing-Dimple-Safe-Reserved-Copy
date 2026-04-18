@@ -779,6 +779,7 @@ async def dashboard_quote(
             "annual_package_included_program_ids": 1,
             "dashboard_program_offers": 1,
             "india_gst_percent": 1,
+            "dashboard_annual_quote_show_tax": 1,
         },
     ) or {}
     included = _program_included_in_annual_package(program, settings_doc.get("annual_package_included_program_ids"))
@@ -802,8 +803,12 @@ async def dashboard_quote(
     cur = str(pricing.get("currency") or "aed").lower()
     gst_pct = float(settings_doc.get("india_gst_percent") or 18)
     tot = float(pricing.get("total") or 0)
+    quote_show_tax = settings_doc.get("dashboard_annual_quote_show_tax", True)
+    if quote_show_tax is None:
+        quote_show_tax = True
+    quote_show_tax = bool(quote_show_tax)
     tax_included_estimate = 0.0
-    if cur == "inr" and gst_pct > 0 and tot > 0:
+    if quote_show_tax and cur == "inr" and gst_pct > 0 and tot > 0:
         tax_included_estimate = round(tot - tot / (1 + gst_pct / 100), 2)
     return {
         "program_id": program_id,
@@ -811,8 +816,9 @@ async def dashboard_quote(
         "included_in_annual_package": included,
         "program_portal_pricing_override": _program_has_portal_pricing_override(per_map, program_id),
         **pricing,
-        "tax_rate_pct": gst_pct if cur == "inr" else 0.0,
-        "tax_included_estimate": tax_included_estimate if cur == "inr" else 0.0,
+        "quote_show_tax": quote_show_tax,
+        "tax_rate_pct": gst_pct if cur == "inr" and quote_show_tax else 0.0,
+        "tax_included_estimate": tax_included_estimate if cur == "inr" and quote_show_tax else 0.0,
     }
 
 

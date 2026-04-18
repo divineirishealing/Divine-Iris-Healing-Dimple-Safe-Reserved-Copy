@@ -56,7 +56,15 @@ function AnnualQuoteBreakdown({ aq, symbol, includedPkg, suppressIntro = false, 
         : Math.max(0, listSub - offerSub);
     const taxEst = Number(aq.tax_included_estimate || 0);
     const taxRate = Number(aq.tax_rate_pct || 0);
-    const sumLine = `${cell} font-semibold text-slate-800 break-words`;
+    const showTaxRow = aq.quote_show_tax !== false;
+    const detailTd = (title, subtitle) => (
+      <td className={`${cell} min-w-0`}>
+        <div className="font-semibold text-slate-800">{title}</div>
+        {subtitle ? (
+          <div className="text-slate-600 text-[9px] sm:text-[10px] mt-0.5 leading-snug">{subtitle}</div>
+        ) : null}
+      </td>
+    );
     return (
       <div className="text-[11px] text-slate-800 leading-snug w-full min-w-0">
         {!suppressIntro ? (
@@ -67,78 +75,65 @@ function AnnualQuoteBreakdown({ aq, symbol, includedPkg, suppressIntro = false, 
         <div className="rounded-md border border-slate-200 bg-white w-full">
           <table className="w-full border-collapse table-fixed text-[10px] sm:text-[11px]">
             <colgroup>
-              <col className="w-[32%]" />
-              <col className="w-[40%]" />
-              <col className="w-[28%]" />
+              <col className="w-[62%]" />
+              <col className="w-[38%]" />
             </colgroup>
             <thead>
               <tr>
-                <th className={`${th} text-left min-w-0 break-words`}>Line</th>
                 <th className={`${th} text-left min-w-0 break-words`}>Detail</th>
                 <th className={`${th} ${money}`}>Amount</th>
               </tr>
             </thead>
             <tbody>
               <tr className="bg-slate-50/80">
-                <td className={sumLine}>Original price</td>
-                <td className={`${cell} text-slate-600 break-words`}>List total before offers</td>
+                {detailTd('Original price', 'List total before offers')}
                 <td className={`${cell} ${money} font-semibold text-slate-900`}>
                   {symbol}
                   {listSub.toLocaleString()}
                 </td>
               </tr>
               <tr className="bg-slate-50/80">
-                <td className={sumLine}>Offer price</td>
-                <td className={`${cell} text-slate-600 break-words`}>After portal offers</td>
+                {detailTd('Offer price', 'After portal offers')}
                 <td className={`${cell} ${money} font-semibold text-slate-900`}>
                   {symbol}
                   {offerSub.toLocaleString()}
                 </td>
               </tr>
               <tr className="bg-slate-50/80">
-                <td className={sumLine}>Total discount</td>
-                <td className={`${cell} text-slate-600 break-words`}>
-                  {discTotal > 0 ? 'Promos &amp; portal rules' : '—'}
-                </td>
+                {detailTd('Total discount', discTotal > 0 ? 'Promos & portal rules' : '—')}
                 <td className={`${cell} ${money} font-semibold text-emerald-800`}>
                   {discTotal > 0 ? '−' : ''}
                   {symbol}
                   {discTotal.toLocaleString()}
                 </td>
               </tr>
-              <tr className="bg-slate-50/80">
-                <td className={sumLine}>Tax</td>
-                <td className={`${cell} text-slate-600 break-words`}>
-                  {taxEst > 0 && taxRate > 0 ? (
-                    <span>
-                      GST {taxRate}% included in offer price
-                    </span>
-                  ) : (
-                    '—'
+              {showTaxRow ? (
+                <tr className="bg-slate-50/80">
+                  {detailTd(
+                    'Tax',
+                    taxEst > 0 && taxRate > 0 ? `GST ${taxRate}% included in offer price` : '—',
                   )}
-                </td>
-                <td className={`${cell} ${money} font-semibold text-slate-900`}>
-                  {taxEst > 0 ? (
-                    <>
-                      {symbol}
-                      {taxEst.toLocaleString()}
-                    </>
-                  ) : (
-                    '—'
-                  )}
-                </td>
-              </tr>
+                  <td className={`${cell} ${money} font-semibold text-slate-900`}>
+                    {taxEst > 0 ? (
+                      <>
+                        {symbol}
+                        {taxEst.toLocaleString()}
+                      </>
+                    ) : (
+                      '—'
+                    )}
+                  </td>
+                </tr>
+              ) : null}
               {includedPkg ? (
                 <tr>
-                  <td className={`${cell} text-slate-700 break-words`}>Your seat</td>
-                  <td className={`${cell} text-slate-600 break-words`}>Included in annual package</td>
+                  {detailTd('Your seat', 'Included in annual package')}
                   <td className={`${cell} ${money} text-slate-500`}>—</td>
                 </tr>
               ) : null}
               {showSelf ? (
                 <tr>
-                  <td className={`${cell} break-words`}>You (annual member)</td>
-                  <td className={`${cell} text-slate-600 break-words`}>{selfStrike ? <span className="block">List {selfStrike}</span> : '—'}</td>
+                  {detailTd('You (annual member)', selfStrike ? <>List {selfStrike}</> : '—')}
                   <td className={`${cell} ${money} font-semibold text-slate-900`}>
                     {symbol}
                     {Number(aq.self_after_promos ?? 0).toLocaleString()}
@@ -147,16 +142,18 @@ function AnnualQuoteBreakdown({ aq, symbol, includedPkg, suppressIntro = false, 
               ) : null}
               {imm > 0 ? (
                 <tr>
-                  <td className={`${cell} break-words`}>Immediate family</td>
-                  <td className={`${cell} text-slate-600 break-words`}>
-                    × {imm}
-                    {imm > 1 ? (
-                      <span className="block text-[10px] text-slate-500 tabular-nums">
-                        {symbol}
-                        {(Number(aq.immediate_family_after_promos) / imm).toFixed(0)} each
-                      </span>
-                    ) : null}
-                  </td>
+                  {detailTd(
+                    'Immediate family',
+                    <>
+                      <span>× {imm}</span>
+                      {imm > 1 ? (
+                        <span className="block text-[10px] text-slate-500 tabular-nums mt-0.5">
+                          {symbol}
+                          {(Number(aq.immediate_family_after_promos) / imm).toFixed(0)} each
+                        </span>
+                      ) : null}
+                    </>,
+                  )}
                   <td className={`${cell} ${money} font-semibold text-slate-900`}>
                     {symbol}
                     {Number(aq.immediate_family_after_promos ?? 0).toLocaleString()}
@@ -165,16 +162,18 @@ function AnnualQuoteBreakdown({ aq, symbol, includedPkg, suppressIntro = false, 
               ) : null}
               {ext > 0 ? (
                 <tr>
-                  <td className={`${cell} break-words`}>Friends &amp; extended</td>
-                  <td className={`${cell} text-slate-600 break-words`}>
-                    × {ext}
-                    {ext > 1 ? (
-                      <span className="block text-[10px] text-slate-500 tabular-nums">
-                        {symbol}
-                        {(Number(aq.extended_guests_after_promos) / ext).toFixed(0)} each
-                      </span>
-                    ) : null}
-                  </td>
+                  {detailTd(
+                    'Friends & extended',
+                    <>
+                      <span>× {ext}</span>
+                      {ext > 1 ? (
+                        <span className="block text-[10px] text-slate-500 tabular-nums mt-0.5">
+                          {symbol}
+                          {(Number(aq.extended_guests_after_promos) / ext).toFixed(0)} each
+                        </span>
+                      ) : null}
+                    </>,
+                  )}
                   <td className={`${cell} ${money} font-semibold text-slate-900`}>
                     {symbol}
                     {Number(aq.extended_guests_after_promos ?? 0).toLocaleString()}
@@ -182,9 +181,7 @@ function AnnualQuoteBreakdown({ aq, symbol, includedPkg, suppressIntro = false, 
                 </tr>
               ) : null}
               <tr className="bg-slate-50/90">
-                <td className={`${cell} font-bold text-slate-900`} colSpan={2}>
-                  Total
-                </td>
+                <td className={`${cell} font-bold text-slate-900`}>Total</td>
                 <td className={`${cell} ${money} font-bold text-slate-900`}>
                   {symbol}
                   {Number(aq.total ?? 0).toLocaleString()}
