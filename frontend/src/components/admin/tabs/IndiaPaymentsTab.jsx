@@ -6,7 +6,7 @@ import { Button } from '../../ui/button';
 import { Input } from '../../ui/input';
 import { Switch } from '../../ui/switch';
 import { useToast } from '../../../hooks/use-toast';
-import { getApiUrl, getBackendUrl } from '../../../lib/config';
+import { getApiUrl, getBackendUrl, isUploadApiReachable } from '../../../lib/config';
 
 const API = getApiUrl();
 const BACKEND = getBackendUrl() || '';
@@ -464,12 +464,7 @@ const BankAccountsEditor = () => {
 
   const uploadGpayQr = async (idx, file) => {
     if (!file) return;
-    const apiBase = getApiUrl();
-    if (
-      typeof window !== 'undefined' &&
-      !/^(localhost|127\.0\.0\.1)$/i.test(window.location.hostname) &&
-      !(typeof apiBase === 'string' && apiBase.startsWith('http'))
-    ) {
+    if (typeof window !== 'undefined' && !isUploadApiReachable()) {
       toast({
         title: 'Cannot upload',
         description:

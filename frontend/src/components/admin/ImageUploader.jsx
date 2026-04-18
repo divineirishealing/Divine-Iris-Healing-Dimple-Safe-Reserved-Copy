@@ -5,13 +5,10 @@ import { Input } from '../ui/input';
 import { Upload, X, Image as ImageIcon } from 'lucide-react';
 import { useToast } from '../../hooks/use-toast';
 import { resolveImageUrl } from '../../lib/imageUtils';
-import { getApiUrl } from '../../lib/config';
+import { getApiUrl, isUploadApiReachable } from '../../lib/config';
 
 function uploadReachable() {
-  const api = getApiUrl();
-  if (typeof window === 'undefined') return !!api;
-  if (/^(localhost|127\.0\.0\.1)$/i.test(window.location.hostname)) return !!api;
-  return typeof api === 'string' && api.startsWith('http');
+  return isUploadApiReachable();
 }
 
 function uploadErrorMessage(error) {

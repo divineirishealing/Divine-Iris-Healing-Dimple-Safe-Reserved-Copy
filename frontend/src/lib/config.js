@@ -31,15 +31,26 @@ const sameOriginApi =
   typeof process !== 'undefined' && process.env.REACT_APP_SAME_ORIGIN_API === '1';
 
 export function getBackendUrl() {
-  if (sameOriginApi && BACKEND_URL && typeof window !== 'undefined' && window.location?.origin) {
+  if (sameOriginApi && typeof window !== 'undefined' && window.location?.origin) {
     return window.location.origin;
   }
   return BACKEND_URL;
 }
 
 export function getApiUrl() {
-  if (sameOriginApi && BACKEND_URL && typeof window !== 'undefined' && window.location?.origin) {
+  if (sameOriginApi && typeof window !== 'undefined' && window.location?.origin) {
     return `${window.location.origin}/api`;
   }
   return API_URL;
+}
+
+/** True when the bundle can call the API from this browser (absolute URL, or same-origin path like /api). */
+export function isUploadApiReachable() {
+  const api = getApiUrl();
+  if (!api) return false;
+  if (typeof window === 'undefined') return true;
+  if (/^(localhost|127\.0\.0\.1)$/i.test(window.location.hostname)) return true;
+  if (api.startsWith('http')) return true;
+  if (api.startsWith('/')) return true;
+  return false;
 }
