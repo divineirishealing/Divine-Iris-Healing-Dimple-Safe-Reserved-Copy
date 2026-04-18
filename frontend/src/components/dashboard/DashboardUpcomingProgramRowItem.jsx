@@ -961,39 +961,36 @@ export default function DashboardUpcomingProgramRowItem({
 
             {subscriberIsAnnual && annualSeatUi ? (
               <div
-                className="w-full rounded-xl border border-slate-200/90 bg-white px-3 py-2.5 shadow-sm flex flex-col md:flex-row md:flex-wrap md:items-center gap-3 md:gap-x-5"
+                className="w-full rounded-xl border border-slate-200/90 bg-white px-3 py-2 shadow-sm flex flex-col gap-2"
                 data-testid={`dashboard-enrollment-defaults-${p.id}`}
               >
-                <p className="text-[9px] font-bold uppercase tracking-wide text-slate-500 shrink-0 md:max-w-[13rem] md:leading-tight">
-                  Defaults &amp; per-person seating (this program)
-                </p>
-                <div className="flex flex-col sm:flex-row sm:flex-wrap sm:items-center gap-3 flex-1 min-w-0">
-                  <label className="flex items-start sm:items-center gap-2 cursor-pointer text-[10px] text-slate-800 leading-snug shrink-0">
-                    <input
-                      type="checkbox"
-                      className="rounded border-slate-300 scale-90 shrink-0 mt-0.5 sm:mt-0"
-                      checked={!!annualSeatUi.persistEnrollmentDefaultsOnContinue}
-                      onChange={(e) => annualSeatUi.onPersistEnrollmentDefaultsChange?.(e.target.checked)}
-                    />
-                    <span className="font-medium">Save as my default for every program (this browser)</span>
-                  </label>
-                  <p className="text-[10px] text-slate-600 leading-snug min-w-0 flex-1">
-                    <button
-                      type="button"
-                      className="text-violet-700 font-bold uppercase tracking-wide text-[9px] underline underline-offset-2 hover:text-violet-900 p-0 bg-transparent border-0 cursor-pointer text-left"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        annualSeatUi.onOpenPerPersonSeatModal?.();
-                      }}
-                    >
-                      Per-person attendance &amp; email…
-                    </button>{' '}
-                    <span className="text-slate-500">
-                      Opens the full editor for <span className="font-medium text-slate-700">{p.title || 'this program'}</span>.
-                      Use <strong className="text-slate-700">Save defaults &amp; close</strong> in the dialog if you only want to store preferences.
-                    </span>
+                <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2 sm:gap-4 w-full min-w-0">
+                  <button
+                    type="button"
+                    className="text-violet-700 font-bold uppercase tracking-wide text-[9px] underline underline-offset-2 hover:text-violet-900 p-0 bg-transparent border-0 cursor-pointer text-left shrink-0 sm:pt-0.5"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      annualSeatUi.onOpenPerPersonSeatModal?.();
+                    }}
+                  >
+                    Per-person attendance &amp; email…
+                  </button>
+                  <p className="text-[10px] text-slate-500 leading-snug flex-1 min-w-0 sm:max-w-[min(100%,32rem)]">
+                    Opens the full editor for <span className="font-medium text-slate-700">{p.title || 'this program'}</span>.
+                    Use <strong className="text-slate-700">Save defaults &amp; close</strong> in the dialog if you only want to store preferences.
                   </p>
                 </div>
+                <label className="flex items-center gap-2 cursor-pointer pt-2 border-t border-slate-100">
+                  <input
+                    type="checkbox"
+                    className="rounded border-slate-300 scale-90 shrink-0"
+                    checked={!!annualSeatUi.persistEnrollmentDefaultsOnContinue}
+                    onChange={(e) => annualSeatUi.onPersistEnrollmentDefaultsChange?.(e.target.checked)}
+                  />
+                  <span className="font-semibold text-[9px] text-slate-800 uppercase tracking-wide leading-snug">
+                    Save as my default for every program (this browser)
+                  </span>
+                </label>
               </div>
             ) : null}
 
