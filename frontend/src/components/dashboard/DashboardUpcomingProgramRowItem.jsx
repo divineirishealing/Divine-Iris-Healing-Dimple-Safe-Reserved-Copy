@@ -254,7 +254,7 @@ export default function DashboardUpcomingProgramRowItem({
   const selCount = selIds.length;
   const canPay = Boolean(aq && aq.total > 0 && (!includedPkg || selCount >= 1));
 
-  const inCart = items.some((i) => i.programId === p.id && i.tierIndex === tierIdxForDisplay);
+  const inCart = items.some((i) => String(i.programId) === String(p.id) && i.tierIndex === tierIdxForDisplay);
   const [justAdded, setJustAdded] = useState(false);
   const [annualPricingOpen, setAnnualPricingOpen] = useState(true);
   const [annualFamilyOpen, setAnnualFamilyOpen] = useState(true);
@@ -298,14 +298,15 @@ export default function DashboardUpcomingProgramRowItem({
     } catch {
       /* empty row */
     }
-    const wasInCart = items.some((i) => i.programId === p.id && i.tierIndex === tierIdxForDisplay);
-    const includedForMeta =
-      aq?.included_in_annual_package ?? programIncludedInAnnualPackage(p, annualIncludedIds);
+    const wasInCart = items.some(
+      (i) => String(i.programId) === String(p.id) && i.tierIndex === tierIdxForDisplay,
+    );
     const guestBucketById = buildGuestBucketByIdFromSelection(selIds, members);
     syncProgramLineItem(p, tierIdxForDisplay, participants, {
       familyIds: selIds.map(String),
       bookerJoins: annualSeatUi?.draft?.bookerJoinsProgram !== false,
-      annualIncluded: subscriberIsAnnual ? false : includedForMeta,
+      /** Must match dashboard / quote: annual add-ons were always false here before, so Review & pay used title heuristics and dropped real lines. */
+      annualIncluded: !!includedPkg,
       portalQuoteTotal: aq?.total != null ? Number(aq.total) : null,
       guestBucketById,
     });

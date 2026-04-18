@@ -1271,7 +1271,7 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh, bo
     syncProgramLineItem(p, tier, participants, {
       familyIds: sel.map(String),
       bookerJoins: draft?.bookerJoinsProgram !== false,
-      annualIncluded: isAnnual ? false : includedForSeat,
+      annualIncluded: !!includedForSeat,
       portalQuoteTotal: annualQuotes[p.id]?.total != null ? Number(annualQuotes[p.id].total) : null,
       guestBucketById,
     });

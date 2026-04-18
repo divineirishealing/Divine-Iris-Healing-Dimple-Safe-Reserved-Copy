@@ -35,7 +35,10 @@ export function programIncludedInAnnualPackage(p, configuredIds) {
  */
 export function isAnnualPackageIncludedCartLine(item, configuredIds) {
   if (!item || item.type !== 'program') return false;
-  if (item.portalLineMeta?.annualIncluded) return true;
+  const meta = item.portalLineMeta;
+  /** Dashboard sets this to false for add-ons so we do not strip them via title heuristics. */
+  if (meta && meta.annualIncluded === false) return false;
+  if (meta?.annualIncluded === true) return true;
   return programIncludedInAnnualPackage(
     { id: item.programId, title: item.programTitle, category: item.programCategory },
     configuredIds,
