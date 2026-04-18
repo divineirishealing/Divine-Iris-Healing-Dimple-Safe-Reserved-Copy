@@ -541,6 +541,26 @@ async def approve_payment_proof(proof_id: str):
         await db.india_payment_proofs.update_one({"id": proof_id}, {"$set": {"enrollment_id": enrollment_id}})
 
     if enrollment_id:
+        enrollment_doc = None
+        if enrollment_id != "MANUAL":
+            enrollment_doc = await db.enrollments.find_one(
+                {"id": enrollment_id},
+                {"_id": 0, "booker_email": 1, "booker_name": 1},
+            )
+        booker_email_resolved = (
+            (enrollment_doc or {}).get("booker_email")
+            or proof.get("booker_email")
+            or proof.get("payer_email")
+            or ""
+        )
+        payer_email_resolved = (proof.get("payer_email") or proof.get("booker_email") or booker_email_resolved or "")
+        booker_name_resolved = (
+            (enrollment_doc or {}).get("booker_name")
+            or proof.get("booker_name")
+            or proof.get("payer_name")
+            or ""
+        )
+
         # Create a completed transaction
         fake_session_id = f"india_{uuid.uuid4().hex[:12]}"
         transaction = {
@@ -555,13 +575,15 @@ async def approve_payment_proof(proof_id: str):
             "payment_status": "paid",
             "payment_method": "manual_proof",
             "bank_name": proof.get("bank_name", ""),
-            "booker_name": proof.get("booker_name"),
-            "booker_email": proof.get("booker_email"),
+            "booker_name": booker_name_resolved,
+            "booker_email": booker_email_resolved,
+            "payer_email": payer_email_resolved,
             "phone": proof.get("phone", ""),
             "participants": proof.get("participants", []),
             "participant_count": proof.get("participant_count", 1),
             "is_india_alt": True,
             "india_proof_id": proof_id,
+            "india_payment_method": (proof.get("payment_method") or "").strip().lower(),
             "invoice_number": "",
             "created_at": datetime.now(timezone.utc),
             "updated_at": datetime.now(timezone.utc),

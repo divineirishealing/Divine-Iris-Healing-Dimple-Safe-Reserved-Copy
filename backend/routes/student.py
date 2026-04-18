@@ -1325,12 +1325,21 @@ async def list_student_orders(user: dict = Depends(get_current_user)):
     ).to_list(600)
     pid_list = [e["id"] for e in participant_enrollments if e.get("id")]
 
+    # Booker's email is not always duplicated on participant rows; include enrollments they booked.
+    booker_enrollments = await db.enrollments.find(
+        {"booker_email": ep},
+        {"id": 1, "_id": 0},
+    ).to_list(600)
+    bid_list = [e["id"] for e in booker_enrollments if e.get("id")]
+    enrollment_ids_for_user = sorted(set(pid_list) | set(bid_list))
+
     or_clauses: List[dict] = [
         {"booker_email": ep},
         {"donor_email": ep},
+        {"payer_email": ep},
     ]
-    if pid_list:
-        or_clauses.append({"enrollment_id": {"$in": pid_list}})
+    if enrollment_ids_for_user:
+        or_clauses.append({"enrollment_id": {"$in": enrollment_ids_for_user}})
 
     cursor = (
         db.payment_transactions.find({"$or": or_clauses}, {"_id": 0, "participants": 0})

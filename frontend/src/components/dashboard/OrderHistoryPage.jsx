@@ -35,6 +35,16 @@ function statusClass(status) {
   return 'bg-slate-100 text-slate-700 border-slate-200';
 }
 
+/** Label for approved India manual / proof flows (Stripe rows omit this). */
+function indiaProofMethodBadge(row) {
+  const pm = (row.india_payment_method || '').toLowerCase();
+  if (pm === 'upi') return { label: 'UPI / GPay', className: 'text-emerald-700 font-medium' };
+  if (pm === 'bank_transfer') return { label: 'Bank transfer (manual)', className: 'text-slate-600' };
+  if (pm === 'cash_deposit') return { label: 'Cash deposit', className: 'text-slate-600' };
+  if (pm === 'cheque') return { label: 'Cheque', className: 'text-slate-600' };
+  return { label: 'India manual', className: 'text-gray-500' };
+}
+
 const OrderHistoryPage = () => {
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -115,6 +125,7 @@ const OrderHistoryPage = () => {
                 const title = row.item_title || (row.item_type === 'sponsor' ? 'Shine a Light' : row.item_id || 'Order');
                 const when = row.created_at || row.updated_at;
                 const dateStr = when ? (formatDateDdMonYyyy(when) || '—') : '—';
+                const indiaBadge = row.payment_method === 'manual_proof' ? indiaProofMethodBadge(row) : null;
                 return (
                   <li key={row.id || sid} className="py-4 first:pt-0 flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
                     <div className="min-w-0 flex-1">
@@ -128,9 +139,9 @@ const OrderHistoryPage = () => {
                         <span className={`text-[10px] uppercase tracking-wider px-2 py-0.5 rounded-full border font-semibold ${statusClass(row.payment_status)}`}>
                           {statusLabel(row.payment_status)}
                         </span>
-                        {row.payment_method === 'manual_proof' && (
-                          <span className="text-[10px] text-gray-500">India manual</span>
-                        )}
+                        {indiaBadge ? (
+                          <span className={`text-[10px] ${indiaBadge.className}`}>{indiaBadge.label}</span>
+                        ) : null}
                         {row.is_free && (
                           <span className="text-[10px] text-violet-600 font-medium">Complimentary</span>
                         )}
