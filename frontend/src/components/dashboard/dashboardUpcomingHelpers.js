@@ -29,6 +29,19 @@ export function programIncludedInAnnualPackage(p, configuredIds) {
   );
 }
 
+/**
+ * Cart line for an annual package–included program must not go through combined Review & pay
+ * (use per-program “Continue to enrollment & payment” instead).
+ */
+export function isAnnualPackageIncludedCartLine(item, configuredIds) {
+  if (!item || item.type !== 'program') return false;
+  if (item.portalLineMeta?.annualIncluded) return true;
+  return programIncludedInAnnualPackage(
+    { id: item.programId, title: item.programTitle, category: item.programCategory },
+    configuredIds,
+  );
+}
+
 /** Same basis as EnrollmentPage promo discount: percentage of subtotal or fixed per currency. */
 export function promoDiscountAmount(promoResult, subtotalRaw, currency) {
   if (!promoResult || subtotalRaw <= 0) return 0;

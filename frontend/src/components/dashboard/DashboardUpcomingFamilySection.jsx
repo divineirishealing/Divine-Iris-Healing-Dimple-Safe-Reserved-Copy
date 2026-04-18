@@ -1206,13 +1206,21 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh, bo
     try {
       const pre = await loadEnrollmentPrefill();
       if (isAnnual) {
-        const sel = selectedFamilyByProgram[p.id] || [];
-        const draft = seatDraftsRef.current[p.id];
         const includedForSeat =
           programIncludedInAnnualPackage(p, annualIncludedIds) || !!annualQuotes[p.id]?.included_in_annual_package;
+        if (includedForSeat) {
+          toast({
+            title: 'Use payment on this program',
+            description:
+              'Programs included in your annual package are not added to combined Review & pay. Use Continue to enrollment & payment on this card to pay for guest seats only.',
+          });
+          return;
+        }
+        const sel = selectedFamilyByProgram[p.id] || [];
+        const draft = seatDraftsRef.current[p.id];
         participants = buildAnnualDashboardCartParticipants({
           program: p,
-          includedPkg: includedForSeat,
+          includedPkg: false,
           selectedMemberIds: sel,
           seatDraft: draft,
           enrollableGuests,
@@ -1229,6 +1237,12 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh, bo
     } catch {
       /* syncProgramLineItem will add a blank row if build failed */
     }
+    if (
+      isAnnual &&
+      (programIncludedInAnnualPackage(p, annualIncludedIds) || !!annualQuotes[p.id]?.included_in_annual_package)
+    ) {
+      return;
+    }
     const includedForSeat =
       programIncludedInAnnualPackage(p, annualIncludedIds) || !!annualQuotes[p.id]?.included_in_annual_package;
     const sel = selectedFamilyByProgram[p.id] || [];
@@ -1237,7 +1251,7 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh, bo
     syncProgramLineItem(p, tier, participants, {
       familyIds: sel.map(String),
       bookerJoins: draft?.bookerJoinsProgram !== false,
-      annualIncluded: includedForSeat,
+      annualIncluded: isAnnual ? false : includedForSeat,
       portalQuoteTotal: annualQuotes[p.id]?.total != null ? Number(annualQuotes[p.id].total) : null,
       guestBucketById,
     });
@@ -1264,10 +1278,23 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh, bo
               </h2>
               <p className="text-xs text-slate-500">
                 Portal-only pricing: your seat, immediate household, and friends &amp; extended can each use{' '}
-                <span className="text-slate-700 font-medium">different</span> rules (Admin → Dashboard). Use{' '}
-                <strong className="text-slate-700 font-medium">Add to order</strong> on each program, then open{' '}
-                <strong className="text-slate-700 font-medium">Review &amp; pay</strong> in the sidebar to see every seat and
-                checkout. Annual members choose guests per program below.
+                <span className="text-slate-700 font-medium">different</span> rules (Admin → Dashboard).{' '}
+                {isAnnual ? (
+                  <>
+                    <strong className="text-slate-700 font-medium">Review &amp; pay</strong> is only for programs{' '}
+                    <span className="text-slate-700 font-medium">not</span> already in your annual package — use{' '}
+                    <strong className="text-slate-700 font-medium">Add to order</strong> on those. For package-included
+                    programs, use <strong className="text-slate-700 font-medium">Continue to enrollment &amp; payment</strong>{' '}
+                    on each card (guest seats only). On add-on programs you can choose whether you enroll yourself under
+                    Attendance &amp; notification.
+                  </>
+                ) : (
+                  <>
+                    Use <strong className="text-slate-700 font-medium">Add to order</strong> on each program, then open{' '}
+                    <strong className="text-slate-700 font-medium">Review &amp; pay</strong> in the sidebar to see every seat
+                    and checkout.
+                  </>
+                )}
               </p>
             </div>
           </div>

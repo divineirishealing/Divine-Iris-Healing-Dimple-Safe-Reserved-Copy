@@ -262,6 +262,14 @@ export default function DashboardUpcomingProgramRowItem({
 
   const handleAddToCart = async (e) => {
     e.stopPropagation();
+    if (subscriberIsAnnual && includedPkg) {
+      toast({
+        title: 'Not added to combined order',
+        description:
+          'Programs in your annual package do not go through Review & pay. Pay for guest seats with Continue to enrollment & payment on this card.',
+      });
+      return;
+    }
     let participants = null;
     try {
       const r = await axios.get(`${API_ROOT}/api/student/enrollment-prefill`, {
@@ -297,7 +305,7 @@ export default function DashboardUpcomingProgramRowItem({
     syncProgramLineItem(p, tierIdxForDisplay, participants, {
       familyIds: selIds.map(String),
       bookerJoins: annualSeatUi?.draft?.bookerJoinsProgram !== false,
-      annualIncluded: includedForMeta,
+      annualIncluded: subscriberIsAnnual ? false : includedForMeta,
       portalQuoteTotal: aq?.total != null ? Number(aq.total) : null,
       guestBucketById,
     });
@@ -955,29 +963,42 @@ export default function DashboardUpcomingProgramRowItem({
 
             <div className="pt-3 border-t border-slate-100 space-y-3">
               <p className="text-xs text-slate-500 leading-relaxed">
-                Payment method matches your membership (Stripe vs UPI / bank). Open{' '}
-                <strong className="text-slate-700 font-medium">Review &amp; pay</strong> to see every participant and complete
-                checkout in the portal.
+                Payment method matches your membership (Stripe vs UPI / bank).{' '}
+                {includedPkg ? (
+                  <>
+                    This program is in your annual package — combined <strong className="text-slate-700 font-medium">Review &amp; pay</strong> is only for add-on programs. Use the button below to pay for guest seats.
+                  </>
+                ) : (
+                  <>
+                    Open <strong className="text-slate-700 font-medium">Review &amp; pay</strong> to see every participant and complete checkout in the portal.
+                  </>
+                )}
               </p>
               <div className="flex flex-col sm:flex-row gap-2 sm:items-stretch">
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    handleAddToCart(e);
-                  }}
-                  disabled={inCart || justAdded}
-                  className={`w-full sm:flex-1 inline-flex items-center justify-center gap-2 rounded-xl border-2 py-2.5 px-4 text-sm font-semibold transition-colors ${
-                    inCart || justAdded
-                      ? 'border-green-300 bg-green-50 text-green-800'
-                      : 'border-slate-200 bg-white text-slate-800 hover:border-[#D4AF37]/60 hover:bg-[#D4AF37]/5'
-                  }`}
-                  aria-label="Add to order"
-                  data-testid={`dashboard-add-cart-annual-${p.id}`}
-                >
-                  {inCart || justAdded ? <Check size={18} className="shrink-0" /> : <ShoppingCart size={18} className="shrink-0" />}
-                  Add to order
-                </button>
+                {subscriberIsAnnual && includedPkg ? (
+                  <p className="w-full sm:flex-1 text-[11px] text-slate-600 bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 leading-snug">
+                    <strong className="text-slate-800">Add to order</strong> is hidden for package-included programs.
+                  </p>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleAddToCart(e);
+                    }}
+                    disabled={inCart || justAdded}
+                    className={`w-full sm:flex-1 inline-flex items-center justify-center gap-2 rounded-xl border-2 py-2.5 px-4 text-sm font-semibold transition-colors ${
+                      inCart || justAdded
+                        ? 'border-green-300 bg-green-50 text-green-800'
+                        : 'border-slate-200 bg-white text-slate-800 hover:border-[#D4AF37]/60 hover:bg-[#D4AF37]/5'
+                    }`}
+                    aria-label="Add to order"
+                    data-testid={`dashboard-add-cart-annual-${p.id}`}
+                  >
+                    {inCart || justAdded ? <Check size={18} className="shrink-0" /> : <ShoppingCart size={18} className="shrink-0" />}
+                    Add to order
+                  </button>
+                )}
                 <button
                   type="button"
                   disabled={!canPay || payingProgramId === p.id}

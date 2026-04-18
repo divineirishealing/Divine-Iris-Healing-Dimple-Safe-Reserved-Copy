@@ -28,7 +28,10 @@ import {
   buildSelfOnlyCartParticipants,
   buildGuestBucketByIdFromSelection,
 } from '../lib/dashboardCartPrefill';
-import { programIncludedInAnnualPackage } from '../components/dashboard/dashboardUpcomingHelpers';
+import {
+  programIncludedInAnnualPackage,
+  isAnnualPackageIncludedCartLine,
+} from '../components/dashboard/dashboardUpcomingHelpers';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
@@ -121,7 +124,7 @@ export default function DashboardCombinedCheckoutPage() {
   const location = useLocation();
   const [searchParams, setSearchParams] = useSearchParams();
   const { user } = useAuth();
-  const { items, clearCart, syncProgramLineItem } = useCart();
+  const { items, clearCart, syncProgramLineItem, removeItem } = useCart();
   const {
     country: detectedCountry,
     symbol,
@@ -156,6 +159,8 @@ export default function DashboardCombinedCheckoutPage() {
   const [subscriberIsAnnual, setSubscriberIsAnnual] = useState(false);
   const [annualPortalSubtotal, setAnnualPortalSubtotal] = useState(null);
   const [annualQuotesByProgram, setAnnualQuotesByProgram] = useState({});
+  /** null until /settings loaded — avoids stripping cart lines before we know admin-configured ids */
+  const [annualPackageIncludedProgramIds, setAnnualPackageIncludedProgramIds] = useState(null);
   const promoFromUrlApplied = useRef(false);
 
   useEffect(() => {
@@ -297,12 +302,16 @@ export default function DashboardCombinedCheckoutPage() {
           let participants = null;
           if (isAnnual) {
             const includedForSeat = programIncludedInAnnualPackage(program, annualIncludedIds);
+            if (includedForSeat) {
+              removeItem(line.id);
+              continue;
+            }
             const sel = selectedMap[program.id] || selectedMap[String(program.id)] || [];
             const draft = drafts[program.id] || drafts[String(program.id)];
             const guestBucketById = buildGuestBucketByIdFromSelection(sel, immediateFamily);
             participants = buildAnnualDashboardCartParticipants({
               program,
-              includedPkg: includedForSeat,
+              includedPkg: false,
               selectedMemberIds: sel,
               seatDraft: draft,
               enrollableGuests,
@@ -315,7 +324,7 @@ export default function DashboardCombinedCheckoutPage() {
               syncProgramLineItem(program, line.tierIndex, participants, {
                 familyIds: sel.map(String),
                 bookerJoins: draft?.bookerJoinsProgram !== false,
-                annualIncluded: includedForSeat,
+                annualIncluded: false,
                 portalQuoteTotal: null,
                 guestBucketById,
               });
@@ -344,6 +353,7 @@ export default function DashboardCombinedCheckoutPage() {
     eidParam,
     detectedCountry,
     syncProgramLineItem,
+    removeItem,
   ]);
 
   useEffect(() => {
@@ -359,11 +369,30 @@ export default function DashboardCombinedCheckoutPage() {
         });
         setUrgencyQuotes(s.enrollment_urgency_quotes || []);
         setCheckoutPromoVisible(s.checkout_promo_code_visible !== false);
+        setAnnualPackageIncludedProgramIds(
+          Array.isArray(s.annual_package_included_program_ids) ? s.annual_package_included_program_ids : [],
+        );
       })
       .catch(() => {
         setCheckoutPromoVisible(true);
+        setAnnualPackageIncludedProgramIds([]);
       });
   }, []);
+
+  /** Annual: package-included programs belong on the per-program payment flow only, not combined Review & pay. */
+  useEffect(() => {
+    if (!subscriberIsAnnual || annualPackageIncludedProgramIds === null) return;
+    const excluded = items.filter((i) => isAnnualPackageIncludedCartLine(i, annualPackageIncludedProgramIds));
+    if (excluded.length === 0) return;
+    excluded.forEach((i) => removeItem(i.id));
+    toast({
+      title: 'Combined order updated',
+      description:
+        excluded.length === 1
+          ? 'Programs already in your annual package are not checked out here. Use Continue to enrollment & payment on that program to pay for guest seats only.'
+          : `Removed ${excluded.length} package-included programs from this order. Use Continue to enrollment & payment on each of those cards for guest seats.`,
+    });
+  }, [subscriberIsAnnual, annualPackageIncludedProgramIds, items, removeItem, toast]);
 
   const getItemPrice = (item) => {
     const tiers = item.durationTiers || [];
