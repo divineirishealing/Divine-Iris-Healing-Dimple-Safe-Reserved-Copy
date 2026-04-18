@@ -75,6 +75,25 @@ async def get_current_user(request: Request):
 
     return user
 
+
+async def get_optional_user(request: Request):
+    """Same session resolution as get_current_user, but returns None if not signed in."""
+    session_token = _session_token_from_request(request)
+    if not session_token:
+        return None
+    session = await db.sessions.find_one({"token": session_token})
+    if not session:
+        return None
+    expires_at = session.get("expires_at")
+    if isinstance(expires_at, str):
+        expires_at = datetime.fromisoformat(expires_at)
+    if expires_at and expires_at.tzinfo is None:
+        expires_at = expires_at.replace(tzinfo=timezone.utc)
+    if expires_at and expires_at < datetime.now(timezone.utc):
+        return None
+    user = await db.users.find_one({"id": session["user_id"]}, {"_id": 0})
+    return user
+
 # --- ROUTES ---
 
 @router.post("/google")
@@ -194,6 +213,8 @@ async def get_me(request: Request):
         "tier": user.get("tier", 1),
         "picture": user.get("picture", ""),
         "client_id": user.get("client_id") or None,
+        # India hub pricing (INR / Stripe) — same as geo-India when set or whitelisted
+        "pricing_country_override": user.get("pricing_country_override") or None,
     }
 
 @router.post("/logout")

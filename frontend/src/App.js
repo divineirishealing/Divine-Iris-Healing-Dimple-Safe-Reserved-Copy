@@ -154,22 +154,22 @@ function App() {
   return (
     <HelmetProvider>
       <div className="App">
-        <CurrencyProvider>
-          <SiteSettingsProvider>
-            <CurrencyGate>
-              <CartProvider>
-                <BrowserRouter>
-                  <SeoPageProvider>
-                    <AuthProvider>
+        <BrowserRouter>
+          <SeoPageProvider>
+            <AuthProvider>
+              <CurrencyProvider>
+                <SiteSettingsProvider>
+                  <CurrencyGate>
+                    <CartProvider>
                       <AppContent />
-                    </AuthProvider>
-                  </SeoPageProvider>
-                </BrowserRouter>
-                <Toaster />
-              </CartProvider>
-            </CurrencyGate>
-          </SiteSettingsProvider>
-        </CurrencyProvider>
+                      <Toaster />
+                    </CartProvider>
+                  </CurrencyGate>
+                </SiteSettingsProvider>
+              </CurrencyProvider>
+            </AuthProvider>
+          </SeoPageProvider>
+        </BrowserRouter>
         <Analytics />
       </div>
     </HelmetProvider>

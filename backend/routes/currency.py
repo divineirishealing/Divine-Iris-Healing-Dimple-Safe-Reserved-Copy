@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Request
+from typing import Optional
 from models import CurrencyInfo
 import httpx
 import logging
@@ -208,18 +209,59 @@ async def detect_ip_info(request: Request):
     return country, vpn_detected
 
 
+async def _inr_whitelist_emails() -> list:
+    doc = await db.site_settings.find_one({"id": "site_settings"}, {"_id": 0, "inr_whitelist_emails": 1})
+    return [e.lower().strip() for e in (doc or {}).get("inr_whitelist_emails", [])]
+
+
+def _user_should_see_india_pricing_hub(user: Optional[dict], whitelist: list) -> bool:
+    """INR hub + India display rules (same as a geo-India visitor without VPN)."""
+    if not user:
+        return False
+    if (user.get("pricing_country_override") or "").upper() == "IN":
+        return True
+    em = (user.get("email") or "").lower().strip()
+    return bool(em and em in whitelist)
+
+
+async def resolve_stripe_hub_currency(request: Request, sponsor_or_guest_email: Optional[str] = None) -> str:
+    """Which hub (inr / aed / usd) Stripe and cart may charge — matches /currency/detect logic."""
+    from routes.auth import get_optional_user
+
+    user = await get_optional_user(request)
+    whitelist = await _inr_whitelist_emails()
+    if user and _user_should_see_india_pricing_hub(user, whitelist):
+        return "inr"
+    em = (sponsor_or_guest_email or "").lower().strip()
+    if em and em in whitelist:
+        return "inr"
+    ip_country, vpn_detected = await detect_ip_info(request)
+    return get_base_currency(ip_country, vpn_detected)
+
+
 # ── Endpoints ──
 @router.get("/detect")
 async def detect_currency(request: Request, preview_country: str = None):
     """Detect user's currency from IP. Returns locked currency info."""
-    if preview_country:
-        country = preview_country.upper()
-        vpn_detected = False
-    else:
-        country, vpn_detected = await detect_ip_info(request)
+    from routes.auth import get_optional_user
 
-    base_currency = get_base_currency(country, vpn_detected)
-    display_currency = get_display_currency(country, vpn_detected)
+    if preview_country:
+        country_display = preview_country.upper()
+        vpn_detected = False
+        hub_country, hub_vpn = country_display, False
+    else:
+        ip_country, vpn_raw = await detect_ip_info(request)
+        country_display = ip_country
+        vpn_detected = vpn_raw
+        user = await get_optional_user(request)
+        whitelist = await _inr_whitelist_emails()
+        if user and _user_should_see_india_pricing_hub(user, whitelist):
+            hub_country, hub_vpn = "IN", False
+        else:
+            hub_country, hub_vpn = ip_country, vpn_raw
+
+    base_currency = get_base_currency(hub_country, hub_vpn)
+    display_currency = get_display_currency(hub_country, hub_vpn)
     base_symbol = CURRENCY_SYMBOLS.get(base_currency, base_currency.upper())
     display_symbol = CURRENCY_SYMBOLS.get(display_currency, display_currency.upper())
 
@@ -232,12 +274,13 @@ async def detect_currency(request: Request, preview_country: str = None):
     return {
         "currency": base_currency,
         "symbol": base_symbol,
-        "country": country,
+        "country": country_display,
         "vpn_detected": vpn_detected,
         "display_currency": display_currency,
         "display_symbol": display_symbol,
         "display_rate": display_rate,
         "is_primary": base_currency == display_currency,
+        "inr_pricing_as_india": base_currency == "inr" and hub_country == "IN",
     }
 
 
@@ -247,8 +290,7 @@ async def verify_currency_at_payment(request: Request, data: dict):
     Compares frontend-claimed currency with fresh IP detection."""
     claimed_currency = data.get("claimed_currency", "usd")
 
-    country, vpn_detected = await detect_ip_info(request)
-    actual_base = get_base_currency(country, vpn_detected)
+    actual_base = await resolve_stripe_hub_currency(request, None)
 
     # If frontend claimed INR but server says not India → reject
     if claimed_currency == "inr" and actual_base != "inr":

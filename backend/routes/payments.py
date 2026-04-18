@@ -577,10 +577,10 @@ async def create_sponsor_checkout(req: CreateSponsorCheckoutRequest, http_reques
     if req.amount <= 0:
         raise HTTPException(status_code=400, detail="Amount must be greater than 0")
 
-    # ── Currency verification ──
-    from routes.currency import detect_ip_info, get_base_currency
-    ip_country, vpn_detected = await detect_ip_info(http_request)
-    server_currency = get_base_currency(ip_country, vpn_detected)
+    # ── Currency verification (INR if India IP, whitelist email, or user override) ──
+    from routes.currency import resolve_stripe_hub_currency
+
+    server_currency = await resolve_stripe_hub_currency(http_request, req.email)
     claimed_currency = (req.currency or "usd").lower()
     if claimed_currency == "inr" and server_currency != "inr":
         raise HTTPException(status_code=403, detail="Currency mismatch — your region does not qualify for INR pricing. Please refresh the page.")
@@ -635,10 +635,10 @@ async def create_sponsor_checkout(req: CreateSponsorCheckoutRequest, http_reques
 
 @router.post("/create-checkout")
 async def create_checkout(req: CreateCheckoutRequest, http_request: Request):
-    # ── Currency verification: re-check IP before payment ──
-    from routes.currency import detect_ip_info, get_base_currency
-    ip_country, vpn_detected = await detect_ip_info(http_request)
-    server_currency = get_base_currency(ip_country, vpn_detected)
+    # ── Currency verification: India hub for whitelisted / override users abroad ──
+    from routes.currency import resolve_stripe_hub_currency
+
+    server_currency = await resolve_stripe_hub_currency(http_request, None)
     claimed_currency = (req.currency or "usd").lower()
     if claimed_currency == "inr" and server_currency != "inr":
         raise HTTPException(status_code=403, detail="Currency mismatch — your region does not qualify for INR pricing. Please refresh the page.")

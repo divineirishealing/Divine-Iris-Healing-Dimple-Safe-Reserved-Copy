@@ -1,5 +1,7 @@
-import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
+import React, { createContext, useContext, useState, useEffect } from 'react';
 import axios from 'axios';
+import { useAuth } from './AuthContext';
+import { getAuthHeaders } from '../lib/authHeaders';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
@@ -9,6 +11,7 @@ const CurrencyContext = createContext(null);
 export const useCurrency = () => useContext(CurrencyContext);
 
 export const CurrencyProvider = ({ children }) => {
+  const { user } = useAuth();
   // Base currency (what Stripe charges): usd, aed, inr
   const getCached = () => {
     try { return JSON.parse(localStorage.getItem('currency_detect')) || null; } catch { return null; }
@@ -26,21 +29,10 @@ export const CurrencyProvider = ({ children }) => {
   const [vpnDetected, setVpnDetected] = useState(cached?.vpn_detected || false);
   const [ready, setReady] = useState(!!cached);
   /** Always refresh from API on load — old behavior skipped detect when cache existed, so VPN/country changes never updated (e.g. stuck on €). */
-  const detectStarted = useRef(false);
 
   // Expose `currency` and `symbol` as DISPLAY values (backwards compatible)
   const currency = baseCurrency;
   const symbol = displaySymbol;
-
-  useEffect(() => {
-    if (detectStarted.current) return;
-    detectStarted.current = true;
-    const fallback = setTimeout(() => setReady(true), 1500);
-    detectCurrency().finally(() => {
-      clearTimeout(fallback);
-      setReady(true);
-    });
-  }, []);
 
   const applyData = (d) => {
     setBaseCurrency(d.currency);
@@ -61,12 +53,23 @@ export const CurrencyProvider = ({ children }) => {
       const urlParams = new URLSearchParams(window.location.search);
       const previewCountry = urlParams.get('preview_country');
       const url = previewCountry ? `${API}/currency/detect?preview_country=${previewCountry}` : `${API}/currency/detect`;
-      const response = await axios.get(url);
+      const response = await axios.get(url, {
+        withCredentials: true,
+        headers: getAuthHeaders(),
+      });
       applyData(response.data);
     } catch {
       /* keep cached / initial state */
     }
   };
+
+  useEffect(() => {
+    const fallback = setTimeout(() => setReady(true), 1500);
+    detectCurrency().finally(() => {
+      clearTimeout(fallback);
+      setReady(true);
+    });
+  }, [user?.email, user?.pricing_country_override]);
 
   // Convert base amount to display amount
   const toDisplay = (amount) => {
