@@ -18,6 +18,7 @@ import {
   FileText,
   Gift,
   ExternalLink,
+  ClipboardList,
 } from 'lucide-react';
 import MotivationalSignupFlash from '../components/MotivationalSignupFlash';
 import { ManualPaymentProofBody } from '../components/dashboard/ManualPaymentProofBody';
@@ -181,10 +182,51 @@ export default function DashboardCombinedCheckoutPage() {
   const [annualPortalSubtotal, setAnnualPortalSubtotal] = useState(null);
   const [annualQuotesByProgram, setAnnualQuotesByProgram] = useState({});
   const promoFromUrlApplied = useRef(false);
+  /** When true, skip the "empty cart → back to dashboard" redirect (e.g. after pay redirect or intentional clear + orders). */
+  const suppressEmptyCartRedirectRef = useRef(false);
 
   useEffect(() => {
     if (eidParam && eidParam !== enrollmentId) setEnrollmentId(eidParam);
   }, [eidParam, enrollmentId]);
+
+  /** Enrollment already paid or proof submitted: local cart is stale — clear and go to order history. */
+  useEffect(() => {
+    const eid = (enrollmentId || '').trim();
+    if (!eid) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await axios.get(`${API}/enrollment/${eid}`);
+        if (cancelled) return;
+        const st = String(res.data?.status || '').toLowerCase();
+        if (st === 'completed' || st === 'india_payment_proof_submitted') {
+          suppressEmptyCartRedirectRef.current = true;
+          clearCart();
+          setEnrollmentId(null);
+          userClosedPortalPayRef.current = false;
+          setPortalPayMode(null);
+          setSearchParams((prev) => {
+            const next = new URLSearchParams(prev);
+            next.delete('eid');
+            return next;
+          }, { replace: true });
+          toast({
+            title: st === 'completed' ? 'This order is complete' : 'Proof already submitted',
+            description:
+              st === 'completed'
+                ? 'Your Divine Cart was cleared. Open Order history to see the receipt and status.'
+                : 'Your Divine Cart was cleared. Order history shows Pending approval until an admin approves.',
+          });
+          navigate('/dashboard/orders', { replace: true });
+        }
+      } catch {
+        /* 404 or network */
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [enrollmentId, clearCart, navigate, setSearchParams, toast]);
 
   const {
     bookerName,
@@ -253,10 +295,13 @@ export default function DashboardCombinedCheckoutPage() {
   }, [user?.email]);
 
   useEffect(() => {
-    if (items.length === 0) {
-      toast({ title: 'Nothing to review', description: 'Add programs from your dashboard, then return here.' });
-      navigate('/dashboard');
+    if (items.length > 0) return;
+    if (suppressEmptyCartRedirectRef.current) {
+      suppressEmptyCartRedirectRef.current = false;
+      return;
     }
+    toast({ title: 'Nothing to review', description: 'Add programs from your dashboard, then return here.' });
+    navigate('/dashboard');
   }, [items.length, navigate, toast]);
 
   const portalCartLineKey = useMemo(
@@ -883,6 +928,7 @@ export default function DashboardCombinedCheckoutPage() {
         browser_timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
         browser_languages: navigator.languages ? [...navigator.languages] : [navigator.language],
       });
+      suppressEmptyCartRedirectRef.current = true;
       clearCart();
       if (res.data.url === '__FREE_SUCCESS__') {
         navigate(`/payment/success?session_id=${res.data.session_id}`);
@@ -935,18 +981,34 @@ export default function DashboardCombinedCheckoutPage() {
           <p className="text-sm text-violet-100/90 mt-1.5 max-w-xl leading-relaxed">
             One row per seat. Change guests on the dashboard, then refresh this page if needed.
           </p>
+          <p className="text-xs text-violet-200/90 mt-2 max-w-xl leading-snug">
+            <strong className="font-semibold text-white">Already paid or approved?</strong> Open{' '}
+            <span className="text-white font-medium">Order history</span> in the sidebar (or the button above). This page
+            keeps your seat list until checkout finishes; it clears when payment is complete or after you submit proof and
+            we detect a completed enrollment.
+          </p>
           <div className="mt-3 rounded-xl border border-white/20 bg-white/10 backdrop-blur-sm px-3 py-2.5">
             <PaymentMethodTags methods={paymentMethods} />
           </div>
         </div>
-        <Button
-          type="button"
-          variant="outline"
-          className="border-white/30 bg-white/10 text-white hover:bg-white/20 shrink-0"
-          onClick={() => navigate('/dashboard')}
-        >
-          <ChevronLeft size={16} className="mr-1" /> Back to dashboard
-        </Button>
+        <div className="flex flex-col sm:flex-row gap-2 shrink-0">
+          <Button
+            type="button"
+            variant="outline"
+            className="border-white/30 bg-white/10 text-white hover:bg-white/20"
+            onClick={() => navigate('/dashboard/orders')}
+          >
+            <ClipboardList size={16} className="mr-1" /> Order history
+          </Button>
+          <Button
+            type="button"
+            variant="outline"
+            className="border-white/30 bg-white/10 text-white hover:bg-white/20"
+            onClick={() => navigate('/dashboard')}
+          >
+            <ChevronLeft size={16} className="mr-1" /> Back to dashboard
+          </Button>
+        </div>
       </div>
 
       <div className="bg-white/95 backdrop-blur rounded-xl border border-[rgba(212,175,55,0.35)] shadow-lg p-4 sm:p-5 mb-6 w-full">
@@ -1272,6 +1334,7 @@ export default function DashboardCombinedCheckoutPage() {
                         setPortalPayMode(null);
                       }}
                       onSubmitted={() => {
+                        suppressEmptyCartRedirectRef.current = true;
                         clearCart();
                         toast({
                           title: 'Proof submitted',
