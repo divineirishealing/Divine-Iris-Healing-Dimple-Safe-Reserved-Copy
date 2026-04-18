@@ -32,26 +32,26 @@ const UPCOMING_IRIS_PETALS = 8;
 function UpcomingProgramsIrisBloom() {
   return (
     <div
-      className="relative mx-auto h-[4.5rem] w-[4.5rem] shrink-0 md:h-[5.5rem] md:w-[5.5rem]"
+      className="relative mx-auto h-[3.75rem] w-[3.75rem] shrink-0 md:h-[4.5rem] md:w-[4.5rem]"
       aria-hidden
     >
       <div className="absolute inset-0 flex animate-iris-flower-sway items-center justify-center">
         {Array.from({ length: UPCOMING_IRIS_PETALS }).map((_, i) => (
           <div
             key={i}
-            className="absolute left-1/2 top-1/2 -ml-[7px] -mt-10 h-10 w-[14px] md:-ml-2 md:-mt-12 md:h-12 md:w-4"
+            className="absolute left-1/2 top-1/2 -ml-[6px] -mt-8 h-8 w-3 md:-ml-[7px] md:-mt-10 md:h-10 md:w-[14px]"
             style={{
               transform: `rotate(${(360 / UPCOMING_IRIS_PETALS) * i}deg)`,
               transformOrigin: '50% 100%',
             }}
           >
             <div
-              className="h-full w-full origin-bottom rounded-full bg-gradient-to-t from-[#5b21b6] via-[#8b5cf6] to-[#e9d5ff] shadow-[0_0_12px_rgba(139,92,246,0.5)] animate-iris-petal-furl"
+              className="h-full w-full origin-bottom rounded-full bg-gradient-to-t from-[#5b21b6] via-[#8b5cf6] to-[#e9d5ff] shadow-[0_0_10px_rgba(139,92,246,0.45)] animate-iris-petal-furl"
               style={{ animationDelay: `${i * 0.14}s` }}
             />
           </div>
         ))}
-        <div className="absolute left-1/2 top-1/2 z-10 h-4 w-4 -translate-x-1/2 -translate-y-1/2 rounded-full bg-gradient-to-br from-[#fde68a] via-[#f59e0b] to-[#b45309] shadow-[0_2px_8px_rgba(217,119,6,0.45)] ring-2 ring-white/90 animate-pulse md:h-5 md:w-5" />
+        <div className="absolute left-1/2 top-1/2 z-10 h-3.5 w-3.5 -translate-x-1/2 -translate-y-1/2 rounded-full bg-gradient-to-br from-[#fde68a] via-[#f59e0b] to-[#b45309] shadow-[0_2px_6px_rgba(217,119,6,0.4)] ring-2 ring-white/90 animate-pulse md:h-4 md:w-4" />
       </div>
     </div>
   );
@@ -1247,12 +1247,12 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh, bo
   return (
     <section className="w-full max-w-7xl mx-auto px-4 mb-4 md:mb-6" data-testid="dashboard-upcoming-family">
       <div className="rounded-[28px] border border-[rgba(160,100,220,0.14)] bg-white/70 backdrop-blur-xl px-5 py-5 md:px-7 md:py-6 shadow-[0_4px_48px_rgba(140,60,220,0.08)]">
-        <div className="mb-5 md:mb-6 flex flex-col items-center text-center">
+        <div className="mb-4 md:mb-5 flex flex-col items-center text-center">
           <UpcomingProgramsIrisBloom />
-          <h2 className="font-[family-name:'Cinzel',serif] mt-4 px-2 text-2xl font-bold tracking-tight text-[#3b0764] drop-shadow-sm md:text-4xl lg:text-5xl">
+          <h2 className="font-[family-name:'Cinzel',serif] mt-3 px-2 text-xl font-bold tracking-tight text-[#3b0764] drop-shadow-sm md:text-3xl lg:text-4xl">
             Upcoming programs
           </h2>
-          <div className="mt-5 flex w-full flex-wrap justify-center gap-2 sm:justify-end">
+          <div className="mt-4 flex w-full flex-wrap justify-center gap-2 sm:justify-end">
             <Button
               type="button"
               variant="outline"
