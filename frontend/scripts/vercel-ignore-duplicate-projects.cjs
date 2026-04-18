@@ -9,8 +9,13 @@
 /** Vercel sets this during the ignore-build step and the build. */
 const onVercel = process.env.VERCEL === '1';
 
-/** Matches project name in Vercel dashboard and GitHub commit status (Vercel – …). */
-const PRIMARY_PROJECT = 'divine-iris-healing-dimple-safe-res';
+/**
+ * Canonical project slug (Vercel → Project Settings → General → Project Name).
+ * If you renamed the Vercel project, set env VERCEL_PRIMARY_PROJECT_NAME to that exact * Project Name or builds are skipped (exit 1) and GitHub shows no deployment.
+ */
+const PRIMARY_PROJECT =
+  String(process.env.VERCEL_PRIMARY_PROJECT_NAME || '').trim() ||
+  'divine-iris-healing-dimple-safe-res';
 
 if (process.env.ALLOW_NON_PRIMARY_VERCEL_BUILD === 'true') {
   process.exit(0);
@@ -22,8 +27,7 @@ if (!onVercel) {
 
 const name = String(process.env.VERCEL_PROJECT_NAME || '').trim();
 
-// If we cannot identify the project, skip — otherwise an empty name treated as “primary”
-// lets every linked clone run a deployment and burns Hobby rate limits (3× per push).
+// Empty name: do not build (same as before). Wrong name: duplicate/legacy project — skip.
 if (!name || name !== PRIMARY_PROJECT) {
   process.exit(1);
 }
