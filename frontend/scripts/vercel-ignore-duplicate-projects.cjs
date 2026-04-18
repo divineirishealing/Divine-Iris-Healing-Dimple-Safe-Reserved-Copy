@@ -2,15 +2,18 @@
 /**
  * Ignore Build Step for Vercel (optional guard).
  *
- * By default this script does NOT skip builds — renamed/misnamed projects were exiting1
- * and blocking all production deploys.
+ * Vercel semantics (ignoreCommand / Ignored Build Step):
+ *   exit 0 → build is SKIPPED (cancelled)
+ *   exit 1 → build PROCEEDS
  *
- * To re-enable “only the canonical project may build” (e.g. duplicate Hobby projects):
+ * By default this script exits 1 so every push builds. Duplicate-project guard is opt-in.
+ *
+ * To enable “only the canonical project may build”:
  *   Vercel → Project → Settings → Environment Variables:
  *     VERCEL_ENFORCE_PRIMARY_PROJECT = true
  *     VERCEL_PRIMARY_PROJECT_NAME = <exact Project Name from Settings → General>
  *
- * Emergency bypass: ALLOW_NON_PRIMARY_VERCEL_BUILD=true
+ * Emergency bypass when enforce is on: ALLOW_NON_PRIMARY_VERCEL_BUILD=true
  */
 const onVercel = process.env.VERCEL === '1';
 
@@ -18,22 +21,27 @@ const PRIMARY_PROJECT =
   String(process.env.VERCEL_PRIMARY_PROJECT_NAME || '').trim() ||
   'divine-iris-healing-dimple-safe-res';
 
+/** Proceed with build */
+const proceed = () => process.exit(1);
+/** Skip build */
+const skip = () => process.exit(0);
+
 if (process.env.ALLOW_NON_PRIMARY_VERCEL_BUILD === 'true') {
-  process.exit(0);
+  proceed();
 }
 
 if (!onVercel) {
-  process.exit(0);
+  proceed();
 }
 
 const enforce = String(process.env.VERCEL_ENFORCE_PRIMARY_PROJECT || '').toLowerCase() === 'true';
 if (!enforce) {
-  process.exit(0);
+  proceed();
 }
 
 const name = String(process.env.VERCEL_PROJECT_NAME || '').trim();
 if (!name || name !== PRIMARY_PROJECT) {
-  process.exit(1);
+  skip();
 }
 
-process.exit(0);
+proceed();
