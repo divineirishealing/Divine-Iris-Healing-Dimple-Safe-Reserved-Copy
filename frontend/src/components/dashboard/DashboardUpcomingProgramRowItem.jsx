@@ -569,21 +569,7 @@ export default function DashboardUpcomingProgramRowItem({
               ) : subscriberIsAnnual ? (
                 <p className="text-[11px] text-slate-500 italic mb-2">Loading portal total…</p>
               ) : null}
-              {enrollStatus === 'open' ? (
-                <>
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      goProgram();
-                    }}
-                    data-testid={`dashboard-know-more-annual-${p.id}`}
-                    className="w-full inline-flex items-center justify-center bg-[#1a1a1a] hover:bg-[#333] text-white py-2.5 px-6 rounded-full text-[10px] tracking-wider transition-all duration-300 uppercase font-medium"
-                  >
-                    Know More
-                  </button>
-                </>
-              ) : (
+              {enrollStatus === 'open' ? null : (
                 <button
                   type="button"
                   disabled
@@ -995,38 +981,64 @@ export default function DashboardUpcomingProgramRowItem({
             ) : null}
 
             <div className="w-full pt-3 border-t border-slate-100">
-              <button
-                type="button"
-                disabled={!canAddToDivineCart || addingToCheckout}
-                title={
-                  !canAddToDivineCart
-                    ? subscriberIsAnnual
-                      ? includedPkg && selCount < 1
-                        ? 'Select family members to join or wait for pricing.'
-                        : !aq
-                          ? 'Loading pricing…'
-                          : (aq.total || 0) <= 0
-                            ? 'No amount due for this selection.'
-                            : ''
-                      : showContact
-                        ? 'Use contact for pricing for this program.'
-                        : enrollStatus !== 'open'
-                          ? 'Enrollment is closed.'
-                          : ''
-                    : undefined
-                }
-                onClick={handleAddToDivineCart}
-                className="w-full inline-flex items-center justify-center gap-2 rounded-xl bg-[#D4AF37] text-white text-xs font-bold uppercase tracking-widest py-3 px-5 hover:bg-[#b8962e] disabled:opacity-50 disabled:pointer-events-none shadow-sm"
-                aria-label="Add to Divine Cart"
-                data-testid={`dashboard-divine-cart-${p.id}`}
-              >
-                {addingToCheckout ? (
-                  <Loader2 size={18} className="animate-spin shrink-0" />
-                ) : (
-                  <ShoppingCart size={18} className="shrink-0" />
-                )}
-                Add to Divine Cart
-              </button>
+              {enrollStatus === 'open' ? (
+                <div className="flex flex-col sm:flex-row gap-2 sm:gap-3 w-full min-w-0">
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      goProgram();
+                    }}
+                    data-testid={`dashboard-know-more-annual-${p.id}`}
+                    className="flex-1 min-w-0 inline-flex items-center justify-center gap-2 rounded-full py-2.5 px-4 sm:px-6 text-[10px] tracking-wider uppercase font-medium transition-all duration-300 bg-[#1a1a1a] hover:bg-[#333] text-white"
+                  >
+                    Know More
+                  </button>
+                  <button
+                    type="button"
+                    disabled={!canAddToDivineCart || addingToCheckout}
+                    title={
+                      !canAddToDivineCart
+                        ? subscriberIsAnnual
+                          ? includedPkg && selCount < 1
+                            ? 'Select family members to join or wait for pricing.'
+                            : !aq
+                              ? 'Loading pricing…'
+                              : (aq.total || 0) <= 0
+                                ? 'No amount due for this selection.'
+                                : ''
+                          : showContact
+                            ? 'Use contact for pricing for this program.'
+                            : enrollStatus !== 'open'
+                              ? 'Enrollment is closed.'
+                              : ''
+                        : undefined
+                    }
+                    onClick={handleAddToDivineCart}
+                    className="flex-1 min-w-0 inline-flex items-center justify-center gap-2 rounded-full py-2.5 px-4 sm:px-6 text-[10px] tracking-wider uppercase font-medium transition-all duration-300 bg-[#D4AF37] text-white hover:bg-[#b8962e] disabled:opacity-50 disabled:pointer-events-none shadow-sm"
+                    aria-label="Add to Divine Cart"
+                    data-testid={`dashboard-divine-cart-${p.id}`}
+                  >
+                    {addingToCheckout ? (
+                      <Loader2 size={16} className="animate-spin shrink-0" />
+                    ) : (
+                      <ShoppingCart size={16} className="shrink-0" />
+                    )}
+                    Add to Divine Cart
+                  </button>
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  disabled
+                  className="w-full inline-flex items-center justify-center gap-2 rounded-full py-2.5 px-6 text-[10px] tracking-wider uppercase font-medium bg-gray-300 text-gray-500 cursor-not-allowed shadow-sm"
+                  aria-label="Add to Divine Cart"
+                  data-testid={`dashboard-divine-cart-${p.id}`}
+                >
+                  <ShoppingCart size={16} className="shrink-0 opacity-70" />
+                  Add to Divine Cart
+                </button>
+              )}
             </div>
           </div>
         </div>
