@@ -2,7 +2,6 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { Menu, X, Facebook, Instagram, Youtube, Linkedin, ChevronDown, ShoppingCart, Clock, Sparkles, Search } from 'lucide-react';
 import { useCart } from '../context/CartContext';
-import { useAuth } from '../context/AuthContext';
 import GlobalSearch from './GlobalSearch';
 import axios from 'axios';
 import { resolveImageUrl } from '../lib/imageUtils';
@@ -50,7 +49,6 @@ const Header = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { itemCount } = useCart();
-  const { user } = useAuth();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [programsOpen, setProgramsOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
@@ -246,11 +244,7 @@ const Header = () => {
               <button data-testid="search-icon-btn" onClick={() => setSearchOpen(true)} className="text-white/80 hover:text-[#D4AF37] transition-colors ml-1">
                 <Search size={17} />
               </button>
-              <button
-                data-testid="cart-icon-btn"
-                onClick={() => navigate(user ? '/dashboard/combined-checkout' : '/cart')}
-                className="relative text-white/80 hover:text-[#D4AF37] transition-colors ml-2"
-              >
+              <button data-testid="cart-icon-btn" onClick={() => navigate('/cart')} className="relative text-white/80 hover:text-[#D4AF37] transition-colors ml-2">
                 <ShoppingCart size={18} />
                 {itemCount > 0 && (
                   <span data-testid="cart-count-badge" className="absolute -top-2 -right-2 bg-[#D4AF37] text-white text-[8px] font-bold w-4 h-4 flex items-center justify-center rounded-full">

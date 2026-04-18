@@ -13,7 +13,6 @@ import {
   ShieldCheck, ShieldAlert, ShoppingCart, FileText, Gift
 } from 'lucide-react';
 import MotivationalSignupFlash from '../components/MotivationalSignupFlash';
-import { useAuth } from '../context/AuthContext';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
@@ -24,7 +23,6 @@ const StepDot = ({ active, done }) => (
 
 function CartCheckoutPage() {
   const navigate = useNavigate();
-  const { user, loading: authLoading } = useAuth();
   const { items, clearCart } = useCart();
   const { country: detectedCountry, symbol, baseCurrency, baseSymbol, displayCurrency, displaySymbol, isPrimary, getPrice, getOfferPrice, toDisplay } = useCurrency();
   const { toast } = useToast();
@@ -53,22 +51,10 @@ function CartCheckoutPage() {
   const phone = firstP.phone || '';
   const countryCode = firstP.phone_code || '';
 
-  const checkoutSearch = searchParams.toString();
-
   useEffect(() => {
-    if (authLoading) return;
-    if (user) {
-      const qs = checkoutSearch ? `?${checkoutSearch}` : '';
-      navigate(`/dashboard/combined-checkout${qs}`, { replace: true });
-    }
-  }, [user, authLoading, navigate, checkoutSearch]);
-
-  useEffect(() => {
-    if (authLoading) return;
-    if (user) return;
     if (items.length === 0) navigate('/cart');
     if (!enrollmentId) navigate('/cart');
-  }, [items, navigate, enrollmentId, user, authLoading]);
+  }, [items, navigate, enrollmentId]);
 
   // Validate promo on mount if provided (skipped when admin hides checkout promo)
   useEffect(() => {
@@ -230,17 +216,6 @@ function CartCheckoutPage() {
       setProcessing(false);
     }
   };
-
-  if (authLoading || user) {
-    return (
-      <div className="min-h-screen bg-gray-50">
-        <Header />
-        <div className="pt-24 pb-16 flex justify-center">
-          <Loader2 className="w-10 h-10 text-[#D4AF37] animate-spin" />
-        </div>
-      </div>
-    );
-  }
 
   if (items.length === 0) return null;
 

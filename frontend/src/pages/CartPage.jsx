@@ -261,7 +261,7 @@ const CartItemCard = ({ item, onRemove, onUpdateParticipants, symbol, getItemPri
 
 function CartPage() {
   const navigate = useNavigate();
-  const { user, loading: authLoading } = useAuth();
+  const { user } = useAuth();
   const { items, removeItem, updateItemParticipants, clearCart } = useCart();
   const { getPrice, getOfferPrice, symbol, baseCurrency, country: detectedCountry } = useCurrency();
   const { toast } = useToast();
@@ -288,12 +288,6 @@ function CartPage() {
       setPromoResult(null);
     }
   }, [discountSettings.checkout_promo_code_visible]);
-
-  /** Logged-in students use Divine Cart (dashboard); skip public OTP cart. */
-  useEffect(() => {
-    if (authLoading) return;
-    if (user) navigate('/dashboard/combined-checkout', { replace: true });
-  }, [user, authLoading, navigate]);
 
   /** If logged in with Bearer token, recover empty cart rows from /student/enrollment-prefill (same auth as dashboard). */
   useEffect(() => {
@@ -566,18 +560,6 @@ function CartPage() {
       toast({ title: err.response?.data?.detail || 'Wrong code', variant: 'destructive' });
     } finally { setLoading(false); }
   };
-
-  if (authLoading || user) {
-    return (
-      <div className="min-h-screen bg-gray-50">
-        <Header />
-        <div className="pt-24 pb-16 flex flex-col items-center justify-center min-h-[50vh]">
-          <Loader2 className="w-10 h-10 text-[#D4AF37] animate-spin" />
-        </div>
-        <Footer />
-      </div>
-    );
-  }
 
   if (items.length === 0) {
     return (
