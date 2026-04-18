@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
+import axios from 'axios';
 import {
   Calendar,
   Clock,
@@ -23,6 +24,12 @@ import {
   programIncludedInAnnualPackage,
   promoDiscountAmount,
 } from './dashboardUpcomingHelpers';
+import {
+  buildAnnualDashboardCartParticipants,
+  buildSelfOnlyCartParticipants,
+} from '../../lib/dashboardCartPrefill';
+
+const API_ROOT = process.env.REACT_APP_BACKEND_URL;
 
 /** Portal quote: list layout, or compact “offer per person” under Pricing & offer. */
 function AnnualQuoteBreakdown({ aq, symbol, includedPkg, suppressIntro = false, layout = 'list' }) {
@@ -174,6 +181,7 @@ function AnnualQuoteBreakdown({ aq, symbol, includedPkg, suppressIntro = false, 
 export default function DashboardUpcomingProgramRowItem({
   program: p,
   isAnnual: subscriberIsAnnual,
+  bookerEmail = '',
   detectedCountry,
   symbol,
   currency,
@@ -249,14 +257,37 @@ export default function DashboardUpcomingProgramRowItem({
   const [annualFamilyOpen, setAnnualFamilyOpen] = useState(true);
   const [annualAttendanceOpen, setAnnualAttendanceOpen] = useState(true);
 
-  const handleAddToCart = (e) => {
+  const handleAddToCart = async (e) => {
     e.stopPropagation();
-    const added = addItem(p, tierIdxForDisplay);
+    let participants = null;
+    try {
+      const r = await axios.get(`${API_ROOT}/api/student/enrollment-prefill`, { withCredentials: true });
+      const self = r.data?.self;
+      if (subscriberIsAnnual) {
+        participants = buildAnnualDashboardCartParticipants({
+          program: p,
+          includedPkg,
+          selectedMemberIds: selIds,
+          seatDraft: annualSeatUi?.draft,
+          enrollableGuests,
+          self,
+          bookerEmail,
+          detectedCountry,
+        });
+      } else {
+        participants = buildSelfOnlyCartParticipants(self, p, bookerEmail, detectedCountry);
+      }
+    } catch {
+      /* empty row */
+    }
+    const added = addItem(p, tierIdxForDisplay, participants);
     if (added) {
       setJustAdded(true);
       toast({
         title: `${p.title} added to cart`,
-        description: `${tier?.label || 'Selected'} plan`,
+        description: participants?.length
+          ? `${tier?.label || 'Selected'} plan — details loaded from your portal; open Cart to pay for every program in one checkout.`
+          : `${tier?.label || 'Selected'} plan`,
       });
       setTimeout(() => setJustAdded(false), 2000);
     } else {

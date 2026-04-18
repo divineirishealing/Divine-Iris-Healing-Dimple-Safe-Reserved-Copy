@@ -8,6 +8,10 @@ import { useSiteSettings } from '../../context/SiteSettingsContext';
 import { useCart } from '../../context/CartContext';
 import DashboardProgramPaymentModal from './DashboardProgramPaymentModal';
 import { pickTierIndexForDashboard, programIncludedInAnnualPackage } from './dashboardUpcomingHelpers';
+import {
+  buildAnnualDashboardCartParticipants,
+  buildSelfOnlyCartParticipants,
+} from '../../lib/dashboardCartPrefill';
 import DashboardUpcomingProgramRowItem from './DashboardUpcomingProgramRowItem';
 import { Button } from '../ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '../ui/dialog';
@@ -386,6 +390,7 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh, bo
   const [persistEnrollmentDefaultsOnContinue, setPersistEnrollmentDefaultsOnContinue] = useState(false);
   const [seatDraftsByProgram, setSeatDraftsByProgram] = useState({});
   const seatDraftsRef = useRef({});
+  const enrollmentPrefillCacheRef = useRef(null);
 
   useEffect(() => {
     seatDraftsRef.current = seatDraftsByProgram;
@@ -1176,14 +1181,47 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh, bo
     persistEnrollmentDefaultsOnContinue,
   ]);
 
-  const addProgramToCartAndGo = (p, tierOverride = null) => {
+  const loadEnrollmentPrefill = async () => {
+    if (enrollmentPrefillCacheRef.current) return enrollmentPrefillCacheRef.current;
+    const r = await axios.get(`${API}/api/student/enrollment-prefill`, { withCredentials: true });
+    enrollmentPrefillCacheRef.current = r.data || {};
+    return enrollmentPrefillCacheRef.current;
+  };
+
+  const addProgramToCartAndGo = async (p, tierOverride = null) => {
     const tierIdx = tierOverride != null ? tierOverride : pickTierIndexForDashboard(p, isAnnual);
     const tier = tierIdx == null ? 0 : tierIdx;
-    const added = addItem(p, tier);
+    let participants = null;
+    try {
+      const pre = await loadEnrollmentPrefill();
+      if (isAnnual) {
+        const sel = selectedFamilyByProgram[p.id] || [];
+        const draft = seatDraftsRef.current[p.id];
+        const includedForSeat =
+          programIncludedInAnnualPackage(p, annualIncludedIds) || !!annualQuotes[p.id]?.included_in_annual_package;
+        participants = buildAnnualDashboardCartParticipants({
+          program: p,
+          includedPkg: includedForSeat,
+          selectedMemberIds: sel,
+          seatDraft: draft,
+          enrollableGuests,
+          self: pre.self,
+          bookerEmail,
+          detectedCountry,
+        });
+      } else {
+        participants = buildSelfOnlyCartParticipants(pre.self, p, bookerEmail, detectedCountry);
+      }
+    } catch {
+      /* fall back to empty single row in addItem */
+    }
+    const added = addItem(p, tier, participants);
     if (added) {
       toast({
         title: 'Added to cart',
-        description: 'Set online/offline and email options on the cart page, then checkout like the main site.',
+        description: participants?.length
+          ? 'We copied your portal guests and profile — review the cart, then verify email to pay for all items together.'
+          : 'Set online/offline and email options on the cart page, then checkout like the main site.',
       });
     } else {
       toast({
@@ -1284,6 +1322,7 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh, bo
                   key={p.id}
                   program={p}
                   isAnnual={isAnnual}
+                  bookerEmail={bookerEmail}
                   detectedCountry={detectedCountry}
                   symbol={symbol}
                   currency={currency}

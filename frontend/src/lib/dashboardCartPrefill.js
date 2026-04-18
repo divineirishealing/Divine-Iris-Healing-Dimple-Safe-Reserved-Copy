@@ -1,0 +1,219 @@
+/** Map dashboard family + enrollment-prefill "self" into CartContext participant rows. */
+
+const COUNTRIES_WITH_PHONE = [
+  { code: 'IN', name: 'India', phone: '+91' },
+  { code: 'AE', name: 'UAE', phone: '+971' },
+  { code: 'US', name: 'United States', phone: '+1' },
+  { code: 'GB', name: 'United Kingdom', phone: '+44' },
+  { code: 'CA', name: 'Canada', phone: '+1' },
+  { code: 'AU', name: 'Australia', phone: '+61' },
+  { code: 'SG', name: 'Singapore', phone: '+65' },
+  { code: 'DE', name: 'Germany', phone: '+49' },
+  { code: 'FR', name: 'France', phone: '+33' },
+  { code: 'SA', name: 'Saudi Arabia', phone: '+966' },
+  { code: 'QA', name: 'Qatar', phone: '+974' },
+  { code: 'PK', name: 'Pakistan', phone: '+92' },
+  { code: 'BD', name: 'Bangladesh', phone: '+880' },
+  { code: 'LK', name: 'Sri Lanka', phone: '+94' },
+  { code: 'MY', name: 'Malaysia', phone: '+60' },
+  { code: 'JP', name: 'Japan', phone: '+81' },
+  { code: 'ZA', name: 'South Africa', phone: '+27' },
+  { code: 'NP', name: 'Nepal', phone: '+977' },
+  { code: 'KW', name: 'Kuwait', phone: '+965' },
+  { code: 'OM', name: 'Oman', phone: '+968' },
+  { code: 'BH', name: 'Bahrain', phone: '+973' },
+  { code: 'PH', name: 'Philippines', phone: '+63' },
+  { code: 'ID', name: 'Indonesia', phone: '+62' },
+  { code: 'TH', name: 'Thailand', phone: '+66' },
+  { code: 'KE', name: 'Kenya', phone: '+254' },
+  { code: 'NG', name: 'Nigeria', phone: '+234' },
+  { code: 'EG', name: 'Egypt', phone: '+20' },
+  { code: 'TR', name: 'Turkey', phone: '+90' },
+  { code: 'IT', name: 'Italy', phone: '+39' },
+  { code: 'ES', name: 'Spain', phone: '+34' },
+  { code: 'NL', name: 'Netherlands', phone: '+31' },
+  { code: 'NZ', name: 'New Zealand', phone: '+64' },
+].sort((a, b) => a.name.localeCompare(b.name));
+
+export function splitPhoneForCart(fullPhone, countries = COUNTRIES_WITH_PHONE) {
+  const raw = String(fullPhone || '').replace(/[\s-]/g, '');
+  if (!raw) return { phone_code: '', phone: '', whatsapp: '', wa_code: '' };
+  const sorted = [...countries].sort((a, b) => (b.phone || '').length - (a.phone || '').length);
+  for (const c of sorted) {
+    const p = c.phone || '';
+    if (p && raw.startsWith(p)) {
+      const rest = raw.slice(p.length);
+      return { phone_code: p, phone: rest, whatsapp: rest, wa_code: p };
+    }
+  }
+  return { phone_code: '', phone: raw, whatsapp: raw, wa_code: '' };
+}
+
+function ageFromDobIso(dob) {
+  const ds = String(dob || '').trim().slice(0, 10);
+  if (!ds) return '';
+  const d = new Date(ds);
+  if (Number.isNaN(d.getTime())) return '';
+  const t = new Date();
+  let age = t.getFullYear() - d.getFullYear();
+  const m = t.getMonth() - d.getMonth();
+  if (m < 0 || (m === 0 && t.getDate() < d.getDate())) age -= 1;
+  return age >= 0 ? String(age) : '';
+}
+
+function resolveCountryCode(raw, detectedCountry) {
+  const c = String(raw || '').trim().slice(0, 4);
+  if (c && COUNTRIES_WITH_PHONE.some((x) => x.code === c)) return c;
+  const d = String(detectedCountry || '').trim();
+  if (d && COUNTRIES_WITH_PHONE.some((x) => x.code === d)) return d;
+  return '';
+}
+
+function baseParticipant(program, overrides) {
+  const defaultMode = program.session_mode === 'remote' ? 'offline' : 'online';
+  return {
+    name: '',
+    relationship: '',
+    age: '',
+    gender: '',
+    country: '',
+    city: '',
+    state: '',
+    attendance_mode: defaultMode,
+    notify: program.session_mode !== 'remote',
+    email: '',
+    phone: '',
+    whatsapp: '',
+    phone_code: '',
+    wa_code: '',
+    is_first_time: false,
+    referral_source: '',
+    referred_by_email: '',
+    referred_by_name: '',
+    has_referral: false,
+    ...overrides,
+  };
+}
+
+/**
+ * Single-row cart from portal profile (non-annual or fallback).
+ * @param {object|null} self — /student/enrollment-prefill → self
+ */
+export function buildSelfOnlyCartParticipants(self, program, bookerEmail, detectedCountry) {
+  const name = String(self?.name || '').trim();
+  const email = String(self?.email || bookerEmail || '').trim();
+  if (!name && !email) return null;
+
+  const split = splitPhoneForCart(self?.phone || '', COUNTRIES_WITH_PHONE);
+  const country = resolveCountryCode(self?.country, detectedCountry);
+  const age = String(self?.age || '').trim() || ageFromDobIso(self?.date_of_birth);
+  const city = String(self?.city || '').trim();
+  const attendance_mode = program.session_mode === 'remote' ? 'offline' : 'online';
+  const notify = attendance_mode === 'online';
+
+  return [
+    baseParticipant(program, {
+      name: name || email || 'Account holder',
+      relationship: 'Myself',
+      age: age || '',
+      gender: String(self?.gender || '').trim() || 'Prefer not to say',
+      country,
+      city,
+      state: city ? String(self?.state || '').trim() || 'N/A' : 'N/A',
+      attendance_mode,
+      notify,
+      email,
+      phone: split.phone,
+      phone_code: split.phone_code,
+      whatsapp: split.whatsapp,
+      wa_code: split.wa_code,
+      is_first_time: false,
+    }),
+  ];
+}
+
+/**
+ * Annual dashboard: booker row (if paying for self) + selected family/guest rows with seat draft prefs.
+ */
+export function buildAnnualDashboardCartParticipants({
+  program,
+  includedPkg,
+  selectedMemberIds,
+  seatDraft,
+  enrollableGuests,
+  self,
+  bookerEmail,
+  detectedCountry,
+}) {
+  const participants = [];
+  const guestForm = seatDraft?.guestSeatForm || {};
+  const bookerMode = seatDraft?.bookerSeatMode === 'offline' ? 'offline' : 'online';
+  const bookerNotify = seatDraft?.bookerSeatNotify !== false;
+
+  if (!includedPkg) {
+    const name = String(self?.name || '').trim();
+    const email = String(self?.email || bookerEmail || '').trim();
+    if (name || email) {
+      const split = splitPhoneForCart(self?.phone || '', COUNTRIES_WITH_PHONE);
+      const country = resolveCountryCode(self?.country, detectedCountry);
+      const age = String(self?.age || '').trim() || ageFromDobIso(self?.date_of_birth);
+      const city = String(self?.city || '').trim();
+      const notify = bookerNotify || bookerMode === 'online';
+      participants.push(
+        baseParticipant(program, {
+          name: name || email || 'Account holder',
+          relationship: 'Myself',
+          age: age || '',
+          gender: String(self?.gender || '').trim() || 'Prefer not to say',
+          country,
+          city,
+          state: city ? String(self?.state || '').trim() || 'N/A' : 'N/A',
+          attendance_mode: bookerMode,
+          notify,
+          email,
+          phone: split.phone,
+          phone_code: split.phone_code,
+          whatsapp: split.whatsapp,
+          wa_code: split.wa_code,
+          is_first_time: false,
+        })
+      );
+    }
+  }
+
+  const ids = (selectedMemberIds || []).map((x) => String(x));
+  for (const id of ids) {
+    const member = enrollableGuests.find((g) => String(g.id) === id);
+    if (!member || !String(member.name || '').trim()) continue;
+    const row = guestForm[id] || {};
+    const attendance_mode = row.attendance_mode === 'offline' ? 'offline' : 'online';
+    const notifyEnrollment = !!row.notify_enrollment;
+    const notify = notifyEnrollment || attendance_mode === 'online';
+    const split = splitPhoneForCart(member.phone || '', COUNTRIES_WITH_PHONE);
+    const country = resolveCountryCode(member.country, detectedCountry);
+    const age =
+      String(member.age || '').trim() || ageFromDobIso(member.date_of_birth);
+    const city = String(member.city || '').trim();
+    participants.push(
+      baseParticipant(program, {
+        name: String(member.name || '').trim(),
+        relationship: String(member.relationship || 'Other').trim() || 'Other',
+        age: age || '',
+        gender: 'Prefer not to say',
+        country,
+        city,
+        state: city ? 'N/A' : 'N/A',
+        attendance_mode,
+        notify,
+        email: String(member.email || '').trim(),
+        phone: split.phone,
+        phone_code: split.phone_code,
+        whatsapp: split.whatsapp,
+        wa_code: split.wa_code,
+        is_first_time: false,
+      })
+    );
+  }
+
+  return participants.length > 0 ? participants : null;
+}

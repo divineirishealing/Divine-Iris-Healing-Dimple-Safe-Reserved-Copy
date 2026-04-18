@@ -21,11 +21,26 @@ export const CartProvider = ({ children }) => {
 
   useEffect(() => { saveCart(items); }, [items]);
 
-  const addItem = useCallback((program, tierIndex) => {
+  const addItem = useCallback((program, tierIndex, participantsOverride = null) => {
     const tiers = program.duration_tiers || [];
     const tier = tiers[tierIndex] || null;
     const exists = items.find(i => i.programId === program.id && i.tierIndex === tierIndex);
     if (exists) return false;
+
+    const defaultParticipant = {
+      name: '', relationship: 'Myself', age: '', gender: '',
+      country: '', city: '', state: '',
+      attendance_mode: program.session_mode === 'remote' ? 'offline' : 'online',
+      notify: program.session_mode !== 'remote', email: '', phone: '',
+      phone_code: '', wa_code: '', whatsapp: '',
+      is_first_time: true, referral_source: '', referred_by_email: '',
+    };
+    let participants;
+    if (Array.isArray(participantsOverride) && participantsOverride.length > 0) {
+      participants = participantsOverride.map((p) => ({ ...defaultParticipant, ...p }));
+    } else {
+      participants = [defaultParticipant];
+    }
 
     const newItem = {
       id: `${program.id}-${tierIndex}-${Date.now()}`,
@@ -48,11 +63,7 @@ export const CartProvider = ({ children }) => {
       enable_online: program.enable_online !== false,
       enable_offline: program.enable_offline !== false,
       enable_in_person: program.enable_in_person || false,
-      participants: [{
-        name: '', relationship: 'Myself', age: '', gender: '',
-        country: '', attendance_mode: program.session_mode === 'remote' ? 'offline' : 'online',
-        notify: program.session_mode !== 'remote', email: '', phone: '',
-      }],
+      participants,
     };
     setItems(prev => [...prev, newItem]);
     return true;

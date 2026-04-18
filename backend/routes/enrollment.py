@@ -18,6 +18,71 @@ db = client[os.environ['DB_NAME']]
 
 logger = logging.getLogger(__name__)
 
+
+def _per_person_price_for_program(program: dict, tier_index: Optional[int], currency: str) -> float:
+    """Per-person list price for cart checkout (offer price wins when set). Matches get_enrollment_pricing tier logic."""
+    cur = (currency or "aed").lower()
+    tiers = program.get("duration_tiers") or []
+    ti = None
+    if tier_index is not None and str(tier_index).strip() != "":
+        try:
+            ti = int(tier_index)
+        except (TypeError, ValueError):
+            ti = None
+    has_tier = bool(tiers) and ti is not None and 0 <= ti < len(tiers)
+    if has_tier:
+        tier = tiers[ti]
+        price_aed = float(tier.get("price_aed", 0) or 0)
+        price_inr = float(tier.get("price_inr", 0) or 0)
+        price_usd = float(tier.get("price_usd", 0) or 0)
+        offer_aed = float(tier.get("offer_price_aed", 0) or 0)
+        offer_inr = float(tier.get("offer_price_inr", 0) or 0)
+        offer_usd = float(tier.get("offer_price_usd", 0) or 0)
+    else:
+        price_aed = float(program.get("price_aed", 0) or 0)
+        price_inr = float(program.get("price_inr", 0) or 0)
+        price_usd = float(program.get("price_usd", 0) or 0)
+        offer_aed = float(program.get("offer_price_aed", 0) or 0)
+        offer_inr = float(program.get("offer_price_inr", 0) or 0)
+        offer_usd = float(program.get("offer_price_usd", 0) or 0)
+    if cur == "inr":
+        price, offer_price = price_inr, offer_inr
+    elif cur == "usd":
+        price = price_usd if price_usd > 0 else price_aed
+        offer_price = offer_usd if offer_usd > 0 else offer_aed
+        if price <= 0:
+            price, offer_price = price_aed, offer_aed
+    else:
+        price, offer_price = price_aed, offer_aed
+        if price <= 0 and price_usd > 0:
+            price = price_usd
+            offer_price = offer_usd if offer_usd > 0 else price_usd
+    per = float(offer_price) if offer_price and float(offer_price) > 0 else float(price)
+    return per
+
+
+async def _checkout_total_from_cart_items(cart_items: list, currency: str):
+    """Sum line totals for multi-program cart; returns (subtotal, headcount)."""
+    subtotal = 0.0
+    headcount = 0
+    for ci in cart_items or []:
+        pid = str(ci.get("program_id") or "").strip()
+        try:
+            npc = int(ci.get("participants_count") or 0)
+        except (TypeError, ValueError):
+            npc = 0
+        if not pid or npc <= 0:
+            continue
+        program = await db.programs.find_one({"id": pid}, {"_id": 0})
+        if not program:
+            logger.warning("Cart checkout: program id=%s not found", pid)
+            continue
+        per = _per_person_price_for_program(program, ci.get("tier_index"), currency)
+        subtotal += round(float(per) * npc, 2)
+        headcount += npc
+    return subtotal, headcount
+
+
 # ─── PPP TIERS (fixed, not live conversion) ───
 # Only India gets PPP discount. Other regions use AED or USD hub per routes.currency.get_base_currency.
 PPP_TIERS = {
@@ -653,6 +718,15 @@ async def enrollment_checkout(enrollment_id: str, data: EnrollmentSubmit, reques
         currency = pricing_resp["pricing"]["currency"]
         participant_count = enrollment.get("participant_count", 1)
 
+        cart_lines = data.cart_items or []
+        if cart_lines:
+            agg_total, agg_headcount = await _checkout_total_from_cart_items(cart_lines, currency)
+            if agg_total > 0 and agg_headcount > 0:
+                total = agg_total
+                participant_count = agg_headcount
+                pricing_resp["pricing"]["total"] = total
+                pricing_resp["pricing"]["participant_count"] = participant_count
+
     # Apply promo code discount (server-side validation) — skip if dashboard already baked promos into total
     promo_discount = 0
     if enrollment.get("dashboard_mixed_total") is None and data.promo_code:
@@ -672,9 +746,22 @@ async def enrollment_checkout(enrollment_id: str, data: EnrollmentSubmit, reques
     auto_discount = 0
     try:
         from routes.discounts import calculate_discounts as _calc_discounts
+        cart_lines_dc = data.cart_items or []
+        num_programs_dc = len(cart_lines_dc) if cart_lines_dc else 1
+        num_participants_dc = participant_count
+        if cart_lines_dc:
+            npc_sum = sum(int(ci.get("participants_count") or 0) for ci in cart_lines_dc)
+            if npc_sum > 0:
+                num_participants_dc = npc_sum
+        program_ids_dc = [str(ci.get("program_id")) for ci in cart_lines_dc if ci.get("program_id")]
         disc_result = await _calc_discounts({
-            "num_programs": 1, "num_participants": participant_count,
-            "subtotal": total, "email": enrollment.get("booker_email", ""), "currency": currency,
+            "num_programs": num_programs_dc,
+            "num_participants": num_participants_dc,
+            "subtotal": total,
+            "email": enrollment.get("booker_email", ""),
+            "currency": currency,
+            "program_ids": program_ids_dc,
+            "cart_items": cart_lines_dc,
         })
         auto_discount = float(disc_result.get("total_discount", 0))
     except Exception as e:
@@ -806,7 +893,7 @@ async def enrollment_checkout(enrollment_id: str, data: EnrollmentSubmit, reques
             "booker_email": enrollment.get("booker_email"),
             "phone": enrollment.get("phone"),
             "participants": enrollment.get("participants"),
-            "participant_count": enrollment.get("participant_count", 1),
+            "participant_count": participant_count,
             "attendance": enrollment.get("attendance"),
             "tier_index": data.tier_index,
             "is_free": True,
@@ -918,7 +1005,7 @@ async def enrollment_checkout(enrollment_id: str, data: EnrollmentSubmit, reques
             "email": enrollment.get("booker_email", "") or "",
             "phone": enrollment.get("phone", "") or "",
             "name": enrollment.get("booker_name", "") or "",
-            "participant_count": str(enrollment.get("participant_count", 1)),
+            "participant_count": str(participant_count),
             "currency": currency,
             "booker_country": enrollment.get("booker_country", "") or "",
         }
@@ -951,7 +1038,7 @@ async def enrollment_checkout(enrollment_id: str, data: EnrollmentSubmit, reques
         "booker_email": enrollment.get("booker_email"),
         "phone": enrollment.get("phone"),
         "participants": enrollment.get("participants"),
-        "participant_count": enrollment.get("participant_count", 1),
+        "participant_count": participant_count,
         "attendance": enrollment.get("attendance"),
         "tier_index": data.tier_index,
         "pre_points_total": pre_points_total,
