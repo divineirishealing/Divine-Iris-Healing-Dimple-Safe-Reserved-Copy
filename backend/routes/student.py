@@ -500,6 +500,8 @@ async def compute_dashboard_annual_family_pricing(
         family_pricing_rule = "none"
 
     total = round(self_after + fam_after, 2)
+    list_subtotal = round((self_unit if include_self else 0.0) + fam_line_gross, 2)
+    portal_discount_total = round(max(0.0, list_subtotal - total), 2)
     return {
         "currency": cur,
         "self_tier_index": self_tier,
@@ -524,6 +526,9 @@ async def compute_dashboard_annual_family_pricing(
         "family_after_promos": fam_after,
         "family_promo_applied": family_promo_applied,
         "family_pricing_rule": family_pricing_rule,
+        "list_subtotal": list_subtotal,
+        "offer_subtotal": total,
+        "portal_discount_total": portal_discount_total,
         "total": total,
         "include_self": include_self,
     }
@@ -773,6 +778,7 @@ async def dashboard_quote(
             "dashboard_offer_extended": 1,
             "annual_package_included_program_ids": 1,
             "dashboard_program_offers": 1,
+            "india_gst_percent": 1,
         },
     ) or {}
     included = _program_included_in_annual_package(program, settings_doc.get("annual_package_included_program_ids"))
@@ -793,12 +799,20 @@ async def dashboard_quote(
         eo,
         include_self=include_self,
     )
+    cur = str(pricing.get("currency") or "aed").lower()
+    gst_pct = float(settings_doc.get("india_gst_percent") or 18)
+    tot = float(pricing.get("total") or 0)
+    tax_included_estimate = 0.0
+    if cur == "inr" and gst_pct > 0 and tot > 0:
+        tax_included_estimate = round(tot - tot / (1 + gst_pct / 100), 2)
     return {
         "program_id": program_id,
         "program_title": program.get("title", ""),
         "included_in_annual_package": included,
         "program_portal_pricing_override": _program_has_portal_pricing_override(per_map, program_id),
         **pricing,
+        "tax_rate_pct": gst_pct if cur == "inr" else 0.0,
+        "tax_included_estimate": tax_included_estimate if cur == "inr" else 0.0,
     }
 
 

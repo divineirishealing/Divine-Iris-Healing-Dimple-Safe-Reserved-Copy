@@ -1,6 +1,18 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Calendar, Clock, Bell, BellOff, ShoppingCart, Check, CreditCard, Loader2, Monitor, Wifi } from 'lucide-react';
+import {
+  Calendar,
+  Clock,
+  Bell,
+  BellOff,
+  ShoppingCart,
+  Check,
+  CreditCard,
+  Loader2,
+  Monitor,
+  Wifi,
+  ChevronDown,
+} from 'lucide-react';
 import { useCart } from '../../context/CartContext';
 import { useToast } from '../../hooks/use-toast';
 import { resolveImageUrl } from '../../lib/imageUtils';
@@ -33,6 +45,18 @@ function AnnualQuoteBreakdown({ aq, symbol, includedPkg, suppressIntro = false, 
     const cell = 'border border-slate-200 px-1.5 sm:px-2 py-1.5 align-top min-w-0';
     const th = `${cell} bg-slate-100/95 text-[9px] font-bold uppercase tracking-wide text-slate-600`;
     const money = 'text-right tabular-nums whitespace-nowrap';
+    const listSub =
+      aq.list_subtotal != null
+        ? Number(aq.list_subtotal)
+        : (showSelf ? Number(aq.self_unit || 0) : 0) + Number(aq.family_line_gross || 0);
+    const offerSub = Number(aq.offer_subtotal ?? aq.total ?? 0);
+    const discTotal =
+      aq.portal_discount_total != null
+        ? Number(aq.portal_discount_total)
+        : Math.max(0, listSub - offerSub);
+    const taxEst = Number(aq.tax_included_estimate || 0);
+    const taxRate = Number(aq.tax_rate_pct || 0);
+    const summaryRow = 'flex justify-between gap-3 text-[10px] text-slate-700';
     return (
       <div className="text-[11px] text-slate-800 leading-snug w-full min-w-0">
         {!suppressIntro ? (
@@ -40,6 +64,51 @@ function AnnualQuoteBreakdown({ aq, symbol, includedPkg, suppressIntro = false, 
             Prices — Annual member · Immediate family · Friends &amp; extended
           </p>
         ) : null}
+        <div className="rounded-md border border-slate-200 bg-slate-50/90 w-full mb-2 p-2.5 space-y-1.5">
+          <p className="text-[9px] font-bold uppercase tracking-wide text-slate-500">Summary</p>
+          <div className={summaryRow}>
+            <span>Price (list)</span>
+            <span className="tabular-nums font-semibold text-slate-900">
+              {symbol}
+              {listSub.toLocaleString()}
+            </span>
+          </div>
+          <div className={summaryRow}>
+            <span>Offer price</span>
+            <span className="tabular-nums font-semibold text-slate-900">
+              {symbol}
+              {offerSub.toLocaleString()}
+            </span>
+          </div>
+          <div className={summaryRow}>
+            <span>Total discount</span>
+            <span className="tabular-nums font-semibold text-emerald-800">
+              {discTotal > 0 ? '−' : ''}
+              {symbol}
+              {discTotal.toLocaleString()}
+            </span>
+          </div>
+          <div className={summaryRow}>
+            <span className="min-w-0">
+              Tax
+              {taxEst > 0 && taxRate > 0 ? (
+                <span className="block text-[9px] font-normal text-slate-500 normal-case">
+                  GST {taxRate}% incl. in offer price
+                </span>
+              ) : null}
+            </span>
+            <span className="tabular-nums font-semibold text-slate-900 shrink-0">
+              {taxEst > 0 ? (
+                <>
+                  {symbol}
+                  {taxEst.toLocaleString()}
+                </>
+              ) : (
+                '—'
+              )}
+            </span>
+          </div>
+        </div>
         <div className="rounded-md border border-slate-200 bg-white w-full">
           <table className="w-full border-collapse table-fixed text-[10px] sm:text-[11px]">
             <colgroup>
@@ -192,7 +261,7 @@ function AnnualQuoteBreakdown({ aq, symbol, includedPkg, suppressIntro = false, 
 
 /**
  * Upcoming program row: non-annual = homepage-style horizontal card (hero + body).
- * Annual = row: program card | (pricing table + family stacked); full-width attendance + pay.
+ * Annual = row: program card | stacked pricing (collapsible), family (collapsible), attendance (collapsible) + pay.
  */
 export default function DashboardUpcomingProgramRowItem({
   program: p,
@@ -268,6 +337,9 @@ export default function DashboardUpcomingProgramRowItem({
 
   const inCart = items.some((i) => i.programId === p.id && i.tierIndex === tierIdxForDisplay);
   const [justAdded, setJustAdded] = useState(false);
+  const [annualPricingOpen, setAnnualPricingOpen] = useState(true);
+  const [annualFamilyOpen, setAnnualFamilyOpen] = useState(true);
+  const [annualAttendanceOpen, setAnnualAttendanceOpen] = useState(true);
 
   const handleAddToCart = (e) => {
     e.stopPropagation();
@@ -600,15 +672,41 @@ export default function DashboardUpcomingProgramRowItem({
           {/* 2 — Pricing & offer, Family to join, Attendance & checkout (stacked) */}
           <div className="flex flex-col gap-4 flex-1 min-w-0 w-full">
             <div className="rounded-xl border border-slate-200 bg-white p-3 sm:p-4 shadow-sm min-h-0 flex flex-col min-w-0 w-full">
-              <p className="text-[10px] font-bold uppercase tracking-wide text-slate-600 mb-2">Pricing &amp; offer</p>
-              <div className="min-w-0 w-full">
-                <AnnualQuoteBreakdown aq={aq} symbol={symbol} includedPkg={includedPkg} suppressIntro layout="table" />
-              </div>
+              <button
+                type="button"
+                className="w-full flex items-center justify-between gap-2 text-left rounded-lg outline-none focus-visible:ring-2 focus-visible:ring-[#D4AF37]/40"
+                onClick={() => setAnnualPricingOpen((o) => !o)}
+                aria-expanded={annualPricingOpen}
+              >
+                <span className="text-[10px] font-bold uppercase tracking-wide text-slate-600">Pricing &amp; offer</span>
+                <ChevronDown
+                  className={`h-4 w-4 text-slate-500 shrink-0 transition-transform ${annualPricingOpen ? '' : '-rotate-90'}`}
+                  aria-hidden
+                />
+              </button>
+              {annualPricingOpen ? (
+                <div className="min-w-0 w-full pt-2">
+                  <AnnualQuoteBreakdown aq={aq} symbol={symbol} includedPkg={includedPkg} suppressIntro layout="table" />
+                </div>
+              ) : null}
             </div>
 
             <div className="rounded-xl border border-amber-100/80 bg-amber-50/25 p-3 sm:p-4 min-h-0 flex flex-col min-w-0 w-full">
-            <p className="text-[10px] font-bold uppercase tracking-wide text-slate-600 mb-2">Family to join</p>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 flex-1 min-h-0">
+              <button
+                type="button"
+                className="w-full flex items-center justify-between gap-2 text-left rounded-lg outline-none focus-visible:ring-2 focus-visible:ring-amber-400/50"
+                onClick={() => setAnnualFamilyOpen((o) => !o)}
+                aria-expanded={annualFamilyOpen}
+              >
+                <span className="text-[10px] font-bold uppercase tracking-wide text-slate-600">Family to join</span>
+                <ChevronDown
+                  className={`h-4 w-4 text-slate-500 shrink-0 transition-transform ${annualFamilyOpen ? '' : '-rotate-90'}`}
+                  aria-hidden
+                />
+              </button>
+              {annualFamilyOpen ? (
+                <>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 flex-1 min-h-0 pt-2">
               <div className="min-w-0">
                 <p className="text-[10px] font-bold uppercase tracking-wide text-slate-500 mb-2">Immediate family</p>
                 {enrollableGuests.length === 0 ? (
@@ -703,13 +801,26 @@ export default function DashboardUpcomingProgramRowItem({
                 Select who you are paying for — your seat is already covered.
               </p>
             )}
+                </>
+              ) : null}
             </div>
 
             {/* Attendance & notification + checkout — below family */}
             <div className="w-full rounded-xl border border-slate-200/90 bg-white p-3 sm:p-4 shadow-sm min-w-0">
-              <div className="flex flex-col gap-3 w-full min-w-0">
-                <p className="text-[10px] font-bold uppercase tracking-wide text-slate-600">Attendance &amp; notification</p>
-
+              <button
+                type="button"
+                className="w-full flex items-center justify-between gap-2 text-left rounded-lg outline-none focus-visible:ring-2 focus-visible:ring-[#D4AF37]/40"
+                onClick={() => setAnnualAttendanceOpen((o) => !o)}
+                aria-expanded={annualAttendanceOpen}
+              >
+                <span className="text-[10px] font-bold uppercase tracking-wide text-slate-600">Attendance &amp; notification</span>
+                <ChevronDown
+                  className={`h-4 w-4 text-slate-500 shrink-0 transition-transform ${annualAttendanceOpen ? '' : '-rotate-90'}`}
+                  aria-hidden
+                />
+              </button>
+              {annualAttendanceOpen ? (
+                <div className="flex flex-col gap-3 w-full min-w-0 pt-2">
                 {annualSeatUi && (!includedPkg || selCount >= 1) ? (
                   <div
                     className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2.5"
@@ -905,8 +1016,10 @@ export default function DashboardUpcomingProgramRowItem({
                 </div>
               </div>
             ) : null}
+                </div>
+              ) : null}
 
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pt-1 border-t border-slate-100">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pt-3 border-t border-slate-100">
               <p className="text-xs text-slate-500 leading-relaxed flex-1 min-w-0">
                 Payment method in the next step matches your membership (Stripe vs UPI / bank).
               </p>
@@ -939,7 +1052,6 @@ export default function DashboardUpcomingProgramRowItem({
                 Continue to enrollment &amp; payment
               </button>
             </div>
-              </div>
             </div>
           </div>
         </div>
