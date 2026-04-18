@@ -449,9 +449,9 @@ export default function DashboardUpcomingProgramRowItem({
     <div className={outerShellClass} data-testid={`dashboard-upcoming-${p.id}`}>
       {subscriberIsAnnual ? (
         <div className="w-full flex flex-col gap-4">
-        {/* xl: grid gives both columns the same row height so the left hero card aligns with the right stack bottom */}
-        <div className="w-full flex flex-col gap-4 xl:grid xl:grid-cols-[minmax(0,28rem)_minmax(18rem,1fr)] xl:items-stretch xl:gap-4 xl:min-h-0">
-          {/* 1 — Same footprint as non-annual dashboard card: vertical max-w-md (~28rem) */}
+        {/* xl: narrower left column → wider right stack (closer to healing-scene mug on the right) */}
+        <div className="w-full flex flex-col gap-4 xl:grid xl:grid-cols-[minmax(0,24rem)_minmax(18rem,1fr)] xl:items-stretch xl:gap-4 xl:min-h-0">
+          {/* 1 — Program card; grid caps width on xl (non-annual still uses max-w-md ~28rem) */}
           <div
             className={`group bg-white rounded-xl overflow-hidden shadow-lg border border-gray-100 flex flex-col w-full max-w-md xl:mx-0 xl:w-full xl:max-w-none xl:min-h-0 xl:h-full min-h-0 ${
               enrollStatus === 'closed' ? 'opacity-60' : 'hover:shadow-2xl'
