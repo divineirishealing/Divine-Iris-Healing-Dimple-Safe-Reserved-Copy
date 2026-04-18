@@ -160,10 +160,11 @@ async def google_auth_callback(data: AuthSessionStart, response: Response):
     response.set_cookie(
         key="session_token",
         value=session_token,
+        path="/",
         httponly=True,
         secure=True,
         samesite="none",
-        expires=expires_at.timestamp()
+        max_age=int((expires_at - datetime.now(timezone.utc)).total_seconds()),
     )
 
     return {
@@ -197,9 +198,15 @@ async def get_me(request: Request):
 
 @router.post("/logout")
 async def logout(response: Response, request: Request):
-    session_token = request.cookies.get("session_token")
+    session_token = _session_token_from_request(request)
     if session_token:
         await db.sessions.delete_one({"token": session_token})
-    
-    response.delete_cookie("session_token")
+
+    response.delete_cookie(
+        "session_token",
+        path="/",
+        secure=True,
+        samesite="none",
+        httponly=True,
+    )
     return {"message": "Logged out"}

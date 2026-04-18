@@ -3,8 +3,7 @@ import axios from 'axios';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useToast } from '../../hooks/use-toast';
 import { useAuth } from '../../context/AuthContext';
-
-const API = process.env.REACT_APP_BACKEND_URL || 'http://localhost:8001';
+import { getBackendUrl } from '../../lib/config';
 
 const AuthCallback = () => {
   const location = useLocation();
@@ -28,7 +27,7 @@ const AuthCallback = () => {
     }
 
     // Exchange session_id for session_token (cookie + body token for cross-domain)
-    axios.post(`${API}/api/auth/google`, { session_id: sessionId }, { withCredentials: true })
+    axios.post(`${getBackendUrl()}/api/auth/google`, { session_id: sessionId }, { withCredentials: true })
       .then(async (res) => {
         // Persist token in localStorage so it can be sent as a Bearer header.
         // This is needed because third-party cookies are blocked in modern browsers
