@@ -32,71 +32,6 @@ import { getAuthHeaders } from '../../lib/authHeaders';
 
 const API_ROOT = process.env.REACT_APP_BACKEND_URL;
 
-function glanceAttendanceLabel(participant) {
-  if (participant.attendance_mode === 'online') return 'Online (Zoom)';
-  if (participant.attendance_mode === 'in_person') return 'In person';
-  return 'Offline / remote';
-}
-
-function glanceNotifyLabel(participant) {
-  if (participant.attendance_mode === 'online') return 'On (Zoom)';
-  return participant.notify ? 'On' : 'Off';
-}
-
-function ProgramEnrollmentGlance({ programId, rows }) {
-  if (!rows?.length) return null;
-  return (
-    <div
-      className="rounded-xl border border-[rgba(212,175,55,0.35)] bg-gradient-to-b from-amber-50/35 to-white px-3 py-2.5 shadow-sm"
-      data-testid={`dashboard-enrollment-glance-${programId}`}
-    >
-      <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-[#D4AF37] mb-2">
-        At a glance — who is enrolling
-      </p>
-      <div className="overflow-x-auto -mx-1 px-1">
-        <table className="w-full text-[10px] sm:text-[11px] text-left border-collapse min-w-[420px]">
-          <thead>
-            <tr className="text-slate-500 border-b border-slate-200">
-              <th className="py-1.5 pr-2 font-semibold whitespace-nowrap">Name</th>
-              <th className="py-1.5 pr-2 font-semibold whitespace-nowrap">Role</th>
-              <th className="py-1.5 pr-2 font-semibold whitespace-nowrap">Attendance</th>
-              <th className="py-1.5 pr-2 font-semibold min-w-[6.5rem]">Email</th>
-              <th className="py-1.5 font-semibold whitespace-nowrap">Notifications</th>
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map((row, idx) => {
-              const name = String(row.name || '').trim() || `Participant ${idx + 1}`;
-              const role = String(row.relationship || '').trim() || '—';
-              const email = String(row.email || '').trim() || '—';
-              return (
-                <tr key={`${name}-${idx}`} className="border-b border-slate-100 last:border-0 text-slate-900">
-                  <td className="py-2 pr-2 font-medium max-w-[9rem] truncate align-top" title={name}>
-                    {name}
-                  </td>
-                  <td className="py-2 pr-2 text-slate-700 max-w-[5rem] truncate align-top" title={role}>
-                    {role}
-                  </td>
-                  <td className="py-2 pr-2 text-slate-700 whitespace-nowrap align-top">
-                    {glanceAttendanceLabel(row)}
-                  </td>
-                  <td className="py-2 pr-2 text-slate-700 max-w-[11rem] truncate align-top" title={email}>
-                    {email}
-                  </td>
-                  <td className="py-2 text-slate-700 whitespace-nowrap align-top">{glanceNotifyLabel(row)}</td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
-      </div>
-      <p className="text-[9px] text-slate-500 mt-2 leading-snug">
-        This summary stays on your dashboard. Adjust guests or attendance below; use Cart when you are ready to pay on the main site.
-      </p>
-    </div>
-  );
-}
-
 /** Portal quote: list layout, or compact “offer per person” under Pricing & offer. */
 function AnnualQuoteBreakdown({ aq, symbol, includedPkg, suppressIntro = false, layout = 'list' }) {
   if (!aq) {
@@ -248,7 +183,6 @@ export default function DashboardUpcomingProgramRowItem({
   program: p,
   isAnnual: subscriberIsAnnual,
   bookerEmail = '',
-  enrollmentSelf = null,
   detectedCountry,
   symbol,
   currency,
@@ -318,33 +252,6 @@ export default function DashboardUpcomingProgramRowItem({
   const selCount = selIds.length;
   const canPay = Boolean(aq && aq.total > 0 && (!includedPkg || selCount >= 1));
 
-  const dashboardGlanceParticipants = useMemo(() => {
-    if (subscriberIsAnnual) {
-      if (!annualSeatUi) return null;
-      return buildAnnualDashboardCartParticipants({
-        program: p,
-        includedPkg,
-        selectedMemberIds: selIds,
-        seatDraft: annualSeatUi.draft,
-        enrollableGuests,
-        self: enrollmentSelf,
-        bookerEmail,
-        detectedCountry,
-      });
-    }
-    return buildSelfOnlyCartParticipants(enrollmentSelf, p, bookerEmail, detectedCountry);
-  }, [
-    subscriberIsAnnual,
-    annualSeatUi,
-    p,
-    includedPkg,
-    selIds,
-    enrollableGuests,
-    enrollmentSelf,
-    bookerEmail,
-    detectedCountry,
-  ]);
-
   const inCart = items.some((i) => i.programId === p.id && i.tierIndex === tierIdxForDisplay);
   const [justAdded, setJustAdded] = useState(false);
   const [annualPricingOpen, setAnnualPricingOpen] = useState(true);
@@ -381,14 +288,14 @@ export default function DashboardUpcomingProgramRowItem({
     if (added) {
       setJustAdded(true);
       toast({
-        title: `${p.title} added to cart`,
+        title: `${p.title} added to your order`,
         description: participants?.length
-          ? `${tier?.label || 'Selected'} plan — details loaded from your portal; open Cart to pay for every program in one checkout.`
+          ? `${tier?.label || 'Selected'} plan — open Review & pay in the sidebar to see everyone and checkout.`
           : `${tier?.label || 'Selected'} plan`,
       });
       setTimeout(() => setJustAdded(false), 2000);
     } else {
-      toast({ title: 'Already in cart', variant: 'destructive' });
+      toast({ title: 'Already in your order', variant: 'destructive' });
     }
   };
 
@@ -639,11 +546,10 @@ export default function DashboardUpcomingProgramRowItem({
                     Know More
                   </button>
                   <p className="text-[10px] text-slate-500 mt-2 leading-snug">
-                    Use <strong className="text-slate-700 font-medium">Add to Cart</strong> or{' '}
-                    <strong className="text-slate-700 font-medium">Continue to enrollment &amp; payment</strong> in the section
-                    below. A row-wise summary for everyone you selected appears on this dashboard between{' '}
-                    <strong className="text-slate-700 font-medium">Family to join</strong> and{' '}
-                    <strong className="text-slate-700 font-medium">Attendance &amp; notification</strong>.
+                    Use <strong className="text-slate-700 font-medium">Add to order</strong> or{' '}
+                    <strong className="text-slate-700 font-medium">Continue to enrollment &amp; payment</strong> below. Everyone
+                    you select appears in <strong className="text-slate-700 font-medium">Review &amp; pay</strong> (sidebar) with
+                    name, attendance, email, and notifications.
                   </p>
                 </>
               ) : (
@@ -793,18 +699,6 @@ export default function DashboardUpcomingProgramRowItem({
                 </>
               ) : null}
             </div>
-
-            {dashboardGlanceParticipants?.length ? (
-              <ProgramEnrollmentGlance programId={p.id} rows={dashboardGlanceParticipants} />
-            ) : subscriberIsAnnual && includedPkg && selCount === 0 ? (
-              <div
-                className="rounded-xl border border-amber-200/90 bg-amber-50/50 px-3 py-2.5 text-[10px] text-amber-950"
-                data-testid={`dashboard-glance-empty-${p.id}`}
-              >
-                Select who is joining above to see each person&apos;s name, attendance, and email notifications here on your
-                dashboard.
-              </div>
-            ) : null}
 
             {/* Attendance & notification + checkout — below family */}
             <div className="w-full rounded-xl border border-slate-200/90 bg-white p-3 sm:p-4 shadow-sm min-w-0">
@@ -1022,9 +916,9 @@ export default function DashboardUpcomingProgramRowItem({
 
             <div className="pt-3 border-t border-slate-100 space-y-3">
               <p className="text-xs text-slate-500 leading-relaxed">
-                Payment method in the next step matches your membership (Stripe vs UPI / bank). The row-wise enrollment summary
-                above stays on this dashboard; <strong className="text-slate-700 font-medium">Cart</strong> on the main site is
-                optional for multi-program checkout.
+                Payment method matches your membership (Stripe vs UPI / bank). Open{' '}
+                <strong className="text-slate-700 font-medium">Review &amp; pay</strong> to see every participant and complete
+                checkout in the portal.
               </p>
               <div className="flex flex-col sm:flex-row gap-2 sm:items-stretch">
                 <button
@@ -1039,11 +933,11 @@ export default function DashboardUpcomingProgramRowItem({
                       ? 'border-green-300 bg-green-50 text-green-800'
                       : 'border-slate-200 bg-white text-slate-800 hover:border-[#D4AF37]/60 hover:bg-[#D4AF37]/5'
                   }`}
-                  aria-label="Add to cart"
+                  aria-label="Add to order"
                   data-testid={`dashboard-add-cart-annual-${p.id}`}
                 >
                   {inCart || justAdded ? <Check size={18} className="shrink-0" /> : <ShoppingCart size={18} className="shrink-0" />}
-                  Add to Cart
+                  Add to order
                 </button>
                 <button
                   type="button"
@@ -1149,10 +1043,6 @@ export default function DashboardUpcomingProgramRowItem({
         >
           Know More
         </button>
-
-        {!subscriberIsAnnual && dashboardGlanceParticipants?.length ? (
-          <ProgramEnrollmentGlance programId={p.id} rows={dashboardGlanceParticipants} />
-        ) : null}
 
         {enrollStatus === 'open' && !subscriberIsAnnual && hasTiers && (
           <div data-testid={`dashboard-tier-selector-${p.id}`} className="mb-3">
