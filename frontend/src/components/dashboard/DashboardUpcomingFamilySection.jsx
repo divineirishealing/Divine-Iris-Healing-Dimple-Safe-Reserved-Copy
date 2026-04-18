@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
-import { Calendar, Sparkles, Users, Loader2, Plus, Trash2, CreditCard, Clock, AlertTriangle, Lock, Bell, BellOff, Monitor, Wifi } from 'lucide-react';
+import { Sparkles, Users, Loader2, Plus, Trash2, CreditCard, Clock, AlertTriangle, Lock, Bell, BellOff, Monitor, Wifi } from 'lucide-react';
 import { useToast } from '../../hooks/use-toast';
 import { useCurrency } from '../../context/CurrencyContext';
 import { useSiteSettings } from '../../context/SiteSettingsContext';
@@ -25,6 +25,37 @@ import { Button } from '../ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '../ui/dialog';
 
 const API = process.env.REACT_APP_BACKEND_URL;
+
+const UPCOMING_IRIS_PETALS = 8;
+
+/** Decorative animated iris for the “Upcoming programs” heading (furl / unfurl bloom). */
+function UpcomingProgramsIrisBloom() {
+  return (
+    <div
+      className="relative mx-auto h-[4.5rem] w-[4.5rem] shrink-0 md:h-[5.5rem] md:w-[5.5rem]"
+      aria-hidden
+    >
+      <div className="absolute inset-0 flex animate-iris-flower-sway items-center justify-center">
+        {Array.from({ length: UPCOMING_IRIS_PETALS }).map((_, i) => (
+          <div
+            key={i}
+            className="absolute left-1/2 top-1/2 -ml-[7px] -mt-10 h-10 w-[14px] md:-ml-2 md:-mt-12 md:h-12 md:w-4"
+            style={{
+              transform: `rotate(${(360 / UPCOMING_IRIS_PETALS) * i}deg)`,
+              transformOrigin: '50% 100%',
+            }}
+          >
+            <div
+              className="h-full w-full origin-bottom rounded-full bg-gradient-to-t from-[#5b21b6] via-[#8b5cf6] to-[#e9d5ff] shadow-[0_0_12px_rgba(139,92,246,0.5)] animate-iris-petal-furl"
+              style={{ animationDelay: `${i * 0.14}s` }}
+            />
+          </div>
+        ))}
+        <div className="absolute left-1/2 top-1/2 z-10 h-4 w-4 -translate-x-1/2 -translate-y-1/2 rounded-full bg-gradient-to-br from-[#fde68a] via-[#f59e0b] to-[#b45309] shadow-[0_2px_8px_rgba(217,119,6,0.45)] ring-2 ring-white/90 animate-pulse md:h-5 md:w-5" />
+      </div>
+    </div>
+  );
+}
 
 /** Persisted enrollment seat + email defaults (applies every time this modal opens on this browser). */
 const DASHBOARD_ENROLLMENT_DEFAULTS_KEY = 'divine_iris_dashboard_enrollment_defaults_v2';
@@ -1216,18 +1247,12 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh, bo
   return (
     <section className="w-full max-w-7xl mx-auto px-4 mb-4 md:mb-6" data-testid="dashboard-upcoming-family">
       <div className="rounded-[28px] border border-[rgba(160,100,220,0.14)] bg-white/70 backdrop-blur-xl px-5 py-5 md:px-7 md:py-6 shadow-[0_4px_48px_rgba(140,60,220,0.08)]">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between mb-4">
-          <div className="flex items-center gap-2 min-w-0">
-            <div className="w-9 h-9 rounded-xl bg-[#D4AF37]/15 flex items-center justify-center shrink-0">
-              <Calendar size={17} className="text-[#D4AF37]" />
-            </div>
-            <div className="min-w-0">
-              <h2 className="font-[family-name:'Cinzel',serif] text-[11px] uppercase tracking-[0.2em] text-[rgba(100,40,160,0.55)]">
-                Upcoming programs
-              </h2>
-            </div>
-          </div>
-          <div className="flex flex-wrap gap-2 shrink-0 justify-end">
+        <div className="mb-5 md:mb-6 flex flex-col items-center text-center">
+          <UpcomingProgramsIrisBloom />
+          <h2 className="font-[family-name:'Cinzel',serif] mt-4 px-2 text-2xl font-bold tracking-tight text-[#3b0764] drop-shadow-sm md:text-4xl lg:text-5xl">
+            Upcoming programs
+          </h2>
+          <div className="mt-5 flex w-full flex-wrap justify-center gap-2 sm:justify-end">
             <Button
               type="button"
               variant="outline"
