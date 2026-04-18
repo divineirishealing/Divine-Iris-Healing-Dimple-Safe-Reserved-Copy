@@ -955,7 +955,7 @@ export default function DashboardUpcomingProgramRowItem({
                         by the <strong className="font-medium text-slate-700">Attendance</strong> and{' '}
                         <strong className="font-medium text-slate-700">Enrollment email</strong> rows above — those controls
                         already update your own mode and email. The extra row only appears when choices are mixed (then you
-                        can fine-tune here or use the advanced editor below the program list).
+                        can fine-tune here or open <strong className="font-medium text-slate-700">Per-person attendance &amp; email</strong> on this card).
                       </p>
                     )
                   ) : null}
@@ -964,6 +964,42 @@ export default function DashboardUpcomingProgramRowItem({
             ) : null}
                 </div>
               ) : null}
+
+            {subscriberIsAnnual && annualSeatUi ? (
+              <div
+                className="mt-3 rounded-xl border border-slate-200/90 bg-white px-3 py-2.5 shadow-sm space-y-2"
+                data-testid={`dashboard-enrollment-defaults-${p.id}`}
+              >
+                <p className="text-[9px] font-bold uppercase tracking-wide text-slate-500">
+                  Defaults &amp; per-person seating (this program)
+                </p>
+                <label className="flex items-start gap-2 cursor-pointer text-[10px] text-slate-800 leading-snug">
+                  <input
+                    type="checkbox"
+                    className="rounded border-slate-300 scale-90 shrink-0 mt-0.5"
+                    checked={!!annualSeatUi.persistEnrollmentDefaultsOnContinue}
+                    onChange={(e) => annualSeatUi.onPersistEnrollmentDefaultsChange?.(e.target.checked)}
+                  />
+                  <span className="font-medium">Save as my default for every program (this browser)</span>
+                </label>
+                <p className="text-[10px] text-slate-600 leading-snug">
+                  <button
+                    type="button"
+                    className="text-violet-700 font-semibold underline underline-offset-2 hover:text-violet-900 p-0 bg-transparent border-0 cursor-pointer text-left"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      annualSeatUi.onOpenPerPersonSeatModal?.();
+                    }}
+                  >
+                    Per-person attendance &amp; email…
+                  </button>{' '}
+                  <span className="text-slate-500">
+                    Opens the full editor for <span className="font-medium text-slate-700">{p.title || 'this program'}</span>.
+                    Use <strong className="text-slate-700">Save defaults &amp; close</strong> in the dialog if you only want to store preferences.
+                  </span>
+                </p>
+              </div>
+            ) : null}
 
             <div className="pt-3 border-t border-slate-100 space-y-3">
               <p className="text-xs text-slate-500 leading-relaxed">

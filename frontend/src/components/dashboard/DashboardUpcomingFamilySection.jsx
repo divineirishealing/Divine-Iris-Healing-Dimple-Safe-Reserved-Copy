@@ -381,8 +381,6 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh, bo
   const [guestSeatForm, setGuestSeatForm] = useState({});
   const [enrollmentDefaultsLoaded, setEnrollmentDefaultsLoaded] = useState(false);
   const [persistEnrollmentDefaultsOnContinue, setPersistEnrollmentDefaultsOnContinue] = useState(false);
-  /** Program chosen for the shared “Per-person attendance” modal (one place for all cards). */
-  const [perPersonProgramId, setPerPersonProgramId] = useState(null);
   const [seatDraftsByProgram, setSeatDraftsByProgram] = useState({});
   const seatDraftsRef = useRef({});
   const enrollmentPrefillCacheRef = useRef(null);
@@ -470,16 +468,6 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh, bo
       ? String(exclusiveSiteOffer.text).trim()
       : '';
   const showOfferCountdownStrip = Boolean(exclusiveOfferLine || countdownDeadline);
-
-  useEffect(() => {
-    if (!isAnnual || upcomingList.length === 0) return;
-    setPerPersonProgramId((prev) => {
-      const exists = prev != null && upcomingList.some((p) => String(p.id) === String(prev));
-      if (exists) return prev;
-      const pick = nearestUpcomingProgram?.id ?? upcomingList[0]?.id;
-      return pick != null ? pick : null;
-    });
-  }, [isAnnual, upcomingList, nearestUpcomingProgram]);
 
   useEffect(() => {
     if (typeof sessionStorage === 'undefined' || !bookerEmail) return;
@@ -910,18 +898,6 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh, bo
       selectedIds: ids,
     });
     setEnrollmentSeatOpen(true);
-  };
-
-  const openPerPersonSeatModalForSelection = () => {
-    const prog = upcomingList.find((x) => String(x.id) === String(perPersonProgramId));
-    if (!prog) {
-      toast({ title: 'Pick a program', description: 'Choose which program to edit seats for.', variant: 'destructive' });
-      return;
-    }
-    const includedForSeat =
-      programIncludedInAnnualPackage(prog, annualIncludedIds) || !!annualQuotes[prog.id]?.included_in_annual_package;
-    const sel = selectedFamilyByProgram[prog.id] || [];
-    openEnrollmentSeatModal(prog, includedForSeat, sel);
   };
 
   const updateGuestSeatField = (memberId, field, value) => {
@@ -1457,60 +1433,15 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh, bo
                             });
                           },
                           onContinuePay: () => continueAnnualEnrollmentPay(p, includedForSeat, sel),
+                          persistEnrollmentDefaultsOnContinue,
+                          onPersistEnrollmentDefaultsChange: setPersistEnrollmentDefaultsOnContinue,
+                          onOpenPerPersonSeatModal: () => openEnrollmentSeatModal(p, includedForSeat, sel),
                         }
                       : null
                   }
                 />
               );
             })}
-            {isAnnual ? (
-              <div
-                className="rounded-xl border border-slate-200/90 bg-white px-3 py-3 sm:px-4 shadow-sm"
-                data-testid="dashboard-enrollment-defaults-global"
-              >
-                <p className="text-[9px] font-bold uppercase tracking-wide text-slate-500 mb-2">
-                  Enrollment defaults &amp; per-person seating
-                </p>
-                <p className="text-[10px] text-slate-600 leading-snug mb-3">
-                  These apply to <strong className="text-slate-800">all</strong> upcoming programs — set once here instead of
-                  on every card. Open a program, adjust attendance and email options, then use <strong className="text-slate-800">Save defaults &amp; close</strong> in the dialog (no payment required) or continue to payment with the checkbox on.
-                </p>
-                <div className="flex flex-col sm:flex-row sm:flex-wrap sm:items-center gap-3 sm:gap-x-5 sm:gap-y-2">
-                  <label className="inline-flex items-center gap-2 cursor-pointer text-[10px] text-slate-800">
-                    <input
-                      type="checkbox"
-                      className="rounded border-slate-300 scale-90 shrink-0"
-                      checked={persistEnrollmentDefaultsOnContinue}
-                      onChange={(e) => setPersistEnrollmentDefaultsOnContinue(e.target.checked)}
-                    />
-                    <span className="font-medium">Save as my default for every program (this browser)</span>
-                  </label>
-                  <div className="flex flex-wrap items-center gap-2 text-[10px] text-slate-800">
-                    <span className="text-slate-600 shrink-0">Per-person attendance &amp; email for</span>
-                    <select
-                      className="border border-slate-200 rounded-lg px-2 py-1 text-[10px] bg-white max-w-[14rem] sm:max-w-[18rem] truncate"
-                      value={perPersonProgramId != null ? String(perPersonProgramId) : ''}
-                      onChange={(e) => setPerPersonProgramId(e.target.value || null)}
-                    >
-                      {upcomingList.map((prog) => (
-                        <option key={prog.id} value={String(prog.id)}>
-                          {prog.title || prog.id}
-                        </option>
-                      ))}
-                    </select>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      className="h-8 text-[10px] border-violet-200 text-violet-900 hover:bg-violet-50"
-                      onClick={openPerPersonSeatModalForSelection}
-                    >
-                      Open…
-                    </Button>
-                  </div>
-                </div>
-              </div>
-            ) : null}
           </div>
         )}
 
