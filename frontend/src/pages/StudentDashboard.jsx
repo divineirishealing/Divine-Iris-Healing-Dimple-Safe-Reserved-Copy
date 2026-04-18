@@ -352,7 +352,7 @@ const StudentDashboard = () => {
         {dv.hero && (
         <section
           data-testid="dashboard-hero"
-          className="relative z-10 w-full max-w-5xl mx-auto pl-4 pr-6 sm:pr-8 md:pr-10 lg:pr-12 pt-4 pb-2 md:pt-6 md:pb-4 mb-4 md:mb-6 animate-[fadeSlideUp_0.8s_ease-out_both]"
+          className="relative z-10 w-full max-w-6xl mx-auto pl-4 pr-6 sm:pr-8 md:pr-10 lg:pr-12 pt-4 pb-2 md:pt-6 md:pb-4 mb-4 md:mb-6 animate-[fadeSlideUp_0.8s_ease-out_both]"
         >
           <div
             className="relative flex flex-col gap-6 md:flex-row md:items-center md:justify-between rounded-[28px] border border-[rgba(160,100,240,0.14)] bg-white/70 backdrop-blur-xl px-6 py-6 md:px-9 md:py-7 shadow-[0_4px_48px_rgba(140,60,220,0.08)] overflow-hidden"
@@ -413,7 +413,7 @@ const StudentDashboard = () => {
           <>
             {homeLoading && (
               <section
-                className="w-full max-w-7xl mx-auto pl-4 pr-6 sm:pr-8 md:pr-10 lg:pr-12 mb-4 md:mb-6"
+                className="w-full max-w-6xl mx-auto pl-4 pr-6 sm:pr-8 md:pr-10 lg:pr-12 mb-4 md:mb-6"
                 aria-busy="true"
                 data-testid="dashboard-upcoming-loading"
               >
@@ -424,7 +424,7 @@ const StudentDashboard = () => {
               </section>
             )}
             {!homeLoading && homeFetchError && (
-              <section className="w-full max-w-7xl mx-auto pl-4 pr-6 sm:pr-8 md:pr-10 lg:pr-12 mb-4 md:mb-6" data-testid="dashboard-upcoming-error">
+              <section className="w-full max-w-6xl mx-auto pl-4 pr-6 sm:pr-8 md:pr-10 lg:pr-12 mb-4 md:mb-6" data-testid="dashboard-upcoming-error">
                 <div className="rounded-[28px] border border-red-200 bg-red-50/90 px-5 py-5 text-sm text-red-950">
                   <p className="font-semibold">
                     {homeErrorKind === 'auth' ? 'Could not load programs — not signed in' : 'Could not load programs'}
@@ -472,7 +472,7 @@ const StudentDashboard = () => {
         ) : (
           dv.hero && (
             <section
-              className="w-full max-w-5xl mx-auto pl-4 pr-6 sm:pr-8 md:pr-10 lg:pr-12 mb-4 md:mb-6"
+              className="w-full max-w-6xl mx-auto pl-4 pr-6 sm:pr-8 md:pr-10 lg:pr-12 mb-4 md:mb-6"
               data-testid="dashboard-upcoming-hidden-hint"
             >
               <div className="rounded-xl border border-violet-200/80 bg-violet-50/70 px-4 py-3 text-[11px] text-violet-950 leading-snug">
@@ -495,7 +495,7 @@ const StudentDashboard = () => {
           )
         )}
 
-        <div className="w-full max-w-6xl mx-auto pl-4 pr-6 sm:pr-8 md:pl-6 md:pr-10 lg:pr-12 flex flex-col items-center">
+        <div className="w-full max-w-5xl mx-auto pl-4 pr-6 sm:pr-8 md:pl-6 md:pr-10 lg:pr-12 flex flex-col items-center">
 
         {/* Desktop: ribbon schedule + bento (tall center spans two rows) */}
         <div className="w-full hidden lg:block space-y-4">
