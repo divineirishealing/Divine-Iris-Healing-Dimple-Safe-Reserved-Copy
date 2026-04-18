@@ -5,7 +5,7 @@ import { ClipboardList, ExternalLink, Loader2, Package, RefreshCw } from 'lucide
 import { Card, CardHeader, CardTitle, CardContent } from '../ui/card';
 import { Button } from '../ui/button';
 import { getAuthHeaders } from '../../lib/authHeaders';
-import { formatDateDdMonYyyy } from '../../lib/utils';
+import { cn, formatDateDdMonYyyy } from '../../lib/utils';
 import { BACKEND_URL, getApiUrl } from '../../lib/config';
 import { useAuth } from '../../context/AuthContext';
 
@@ -124,57 +124,58 @@ const OrderHistoryPage = () => {
   };
 
   return (
-    <div className="max-w-3xl mx-auto space-y-6">
-      <div className="flex items-start gap-3">
-        <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-[#5D3FD3]/20 to-[#84A98C]/20 flex items-center justify-center border border-violet-100">
-          <ClipboardList className="text-[#5D3FD3]" size={22} />
-        </div>
-        <div className="min-w-0 flex-1">
-          <h1 className="text-2xl font-bold text-gray-900">My order history</h1>
-          <p className="text-sm text-gray-500 mt-0.5">
-            Programs, sessions, and contributions linked to your portal email and your Client Garden record (as booker,
-            participant, or donor).
-          </p>
-          {user?.email ? (
-            <p className="text-xs text-gray-400 mt-1.5">
-              Signed in as <span className="text-gray-600 font-medium">{user.email}</span>
+    <div className="w-full max-w-[min(100vw-2rem,1600px)] mx-auto space-y-6">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+        <div className="flex items-start gap-4 min-w-0">
+          <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-[#5D3FD3]/20 to-[#84A98C]/20 flex items-center justify-center border border-violet-100 shrink-0">
+            <ClipboardList className="text-[#5D3FD3]" size={28} />
+          </div>
+          <div className="min-w-0">
+            <h1 className="text-3xl md:text-4xl font-bold text-gray-900 tracking-tight">My order history</h1>
+            <p className="text-base md:text-lg text-gray-600 mt-2 leading-relaxed max-w-3xl">
+              Programs, sessions, and contributions linked to your portal email and your Client Garden record (as booker,
+              participant, or donor).
             </p>
-          ) : null}
+            {user?.email ? (
+              <p className="text-sm md:text-base text-gray-500 mt-2">
+                Signed in as <span className="text-gray-800 font-semibold">{user.email}</span>
+              </p>
+            ) : null}
+          </div>
         </div>
         <Button
           type="button"
           variant="outline"
-          size="sm"
-          className="shrink-0 gap-1.5 border-gray-200"
+          className="shrink-0 gap-2 border-gray-300 text-base h-11 px-5"
           disabled={loading || !BACKEND_URL}
           onClick={() => setReloadToken((t) => t + 1)}
         >
-          <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
+          <RefreshCw size={18} className={loading ? 'animate-spin' : ''} />
           Refresh
         </Button>
       </div>
 
-      <Card>
-        <CardHeader className="pb-2">
-          <CardTitle className="text-base flex items-center gap-2">
-            <Package size={18} className="text-[#5D3FD3]" />
+      <Card className="border border-slate-200/90 shadow-sm overflow-hidden">
+        <CardHeader className="pb-3 border-b border-slate-100 bg-slate-50/80">
+          <CardTitle className="text-xl md:text-2xl font-semibold flex items-center gap-3 text-slate-800">
+            <Package size={24} className="text-[#5D3FD3]" />
             Your orders
           </CardTitle>
         </CardHeader>
-        <CardContent>
+        <CardContent className="p-0">
           {loading && (
-            <div className="flex flex-col items-center py-14 text-gray-500 gap-2">
-              <Loader2 className="animate-spin text-[#5D3FD3]" size={28} />
-              <span className="text-sm">Loading…</span>
+            <div className="flex flex-col items-center py-20 text-gray-500 gap-3">
+              <Loader2 className="animate-spin text-[#5D3FD3]" size={36} />
+              <span className="text-base">Loading…</span>
             </div>
           )}
           {error && !loading && (
-            <p className="text-sm text-red-600 py-6 text-center">{error}</p>
+            <p className="text-base text-red-600 py-10 px-6 text-center leading-relaxed">{error}</p>
           )}
           {!loading && !error && sorted.length === 0 && (
-            <div className="text-sm text-gray-500 py-8 text-center space-y-2 px-2">
-              <p>No orders matched this account yet.</p>
-              <p className="text-xs text-gray-400 max-w-md mx-auto leading-relaxed">
+            <div className="text-base text-gray-600 py-12 px-6 text-center space-y-3 max-w-2xl mx-auto">
+              <p className="text-lg font-medium text-gray-800">No orders matched this account yet.</p>
+              <p className="text-base text-gray-500 leading-relaxed">
                 If you paid with a different email than the one you use to sign in, ask your admin to align your Client
                 Garden email or add your portal email on the enrollment. Completed checkouts from the public site and
                 Divine Cart usually appear within a few seconds — try Refresh.
@@ -182,75 +183,114 @@ const OrderHistoryPage = () => {
             </div>
           )}
           {!loading && !error && sorted.length > 0 && (
-            <ul className="divide-y divide-gray-100">
-              {sorted.map((row) => {
-                const sid = row.stripe_session_id || '';
-                const title = row.item_title || (row.item_type === 'sponsor' ? 'Shine a Light' : row.item_id || 'Order');
-                const when = row.created_at || row.updated_at;
-                const dateStr = when ? (formatDateDdMonYyyy(when) || '—') : '—';
-                const indiaBadge =
-                  row.payment_method === 'manual_proof' || row.is_india_proof_pending
-                    ? indiaProofMethodBadge(row)
-                    : null;
-                return (
-                  <li key={row.id || sid} className="py-4 first:pt-0 flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
-                    <div className="min-w-0 flex-1">
-                      <p className="font-medium text-gray-900 truncate">{title}</p>
-                      {row.booker_name && row.payment_method === 'manual_proof' ? (
-                        <p className="text-xs text-gray-600 mt-0.5">Booked by {row.booker_name}</p>
-                      ) : null}
-                      <p className="text-xs text-gray-500 mt-0.5">
-                        {dateStr}
-                        {row.invoice_number ? ` · Invoice ${row.invoice_number}` : ''}
-                        {row.participant_count > 1 ? ` · ${row.participant_count} seats` : ''}
-                        {row.payment_method === 'manual_proof' && row.enrollment_id
-                          ? ` · Enrollment ${row.enrollment_id}`
-                          : ''}
-                      </p>
-                      {row.is_india_proof_pending ? (
-                        <p className="text-[10px] text-amber-800 mt-1">Awaiting admin approval — you&apos;ll see Complete once approved.</p>
-                      ) : null}
-                      <div className="mt-2 flex flex-wrap items-center gap-2">
-                        <span className={`text-[10px] uppercase tracking-wider px-2 py-0.5 rounded-full border font-semibold ${statusClass(row.payment_status)}`}>
-                          {statusLabel(row.payment_status, row)}
-                        </span>
-                        {indiaBadge ? (
-                          <span className={`text-[10px] ${indiaBadge.className}`}>{indiaBadge.label}</span>
-                        ) : null}
-                        {row.is_free && (
-                          <span className="text-[10px] text-violet-600 font-medium">Complimentary</span>
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-[900px] text-left border-collapse">
+                <thead>
+                  <tr className="bg-slate-100 text-slate-700 border-b border-slate-200">
+                    <th className="px-4 md:px-5 py-4 text-sm md:text-base font-semibold whitespace-nowrap">Program / item</th>
+                    <th className="px-4 md:px-5 py-4 text-sm md:text-base font-semibold whitespace-nowrap">Date</th>
+                    <th className="px-4 md:px-5 py-4 text-sm md:text-base font-semibold whitespace-nowrap">Invoice</th>
+                    <th className="px-4 md:px-5 py-4 text-sm md:text-base font-semibold whitespace-nowrap text-center">Seats</th>
+                    <th className="px-4 md:px-5 py-4 text-sm md:text-base font-semibold whitespace-nowrap">Enrollment</th>
+                    <th className="px-4 md:px-5 py-4 text-sm md:text-base font-semibold whitespace-nowrap">Status</th>
+                    <th className="px-4 md:px-5 py-4 text-sm md:text-base font-semibold whitespace-nowrap text-right">Amount</th>
+                    <th className="px-4 md:px-5 py-4 text-sm md:text-base font-semibold whitespace-nowrap text-right">Receipt</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {sorted.map((row, idx) => {
+                    const sid = row.stripe_session_id || '';
+                    const title = row.item_title || (row.item_type === 'sponsor' ? 'Shine a Light' : row.item_id || 'Order');
+                    const when = row.created_at || row.updated_at;
+                    const dateStr = when ? (formatDateDdMonYyyy(when) || '—') : '—';
+                    const indiaBadge =
+                      row.payment_method === 'manual_proof' || row.is_india_proof_pending
+                        ? indiaProofMethodBadge(row)
+                        : null;
+                    return (
+                      <tr
+                        key={row.id || sid || idx}
+                        className={cn(
+                          'border-b border-slate-200 align-top hover:bg-violet-50/40 transition-colors',
+                          idx % 2 === 1 ? 'bg-slate-50/50' : 'bg-white',
                         )}
-                      </div>
-                    </div>
-                    <div className="flex flex-col items-stretch sm:items-end gap-2 shrink-0">
-                      <p className="text-sm font-semibold text-gray-900 tabular-nums">
-                        {formatMoney(row.amount, row.currency)}
-                      </p>
-                      {sid ? (
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                          className="text-xs h-8 gap-1 border-[#5D3FD3]/30 text-[#5D3FD3] hover:bg-violet-50"
-                          onClick={() => openReceipt(sid)}
-                        >
-                          Receipt &amp; links
-                          <ExternalLink size={12} />
-                        </Button>
-                      ) : null}
-                    </div>
-                  </li>
-                );
-              })}
-            </ul>
+                      >
+                        <td className="px-4 md:px-5 py-4 text-base md:text-[1.05rem] text-gray-900 font-medium max-w-md">
+                          <span className="leading-snug block">{title}</span>
+                          {row.booker_name && row.payment_method === 'manual_proof' ? (
+                            <span className="text-sm md:text-base text-gray-600 font-normal block mt-1.5">
+                              Booked by {row.booker_name}
+                            </span>
+                          ) : null}
+                          {row.is_india_proof_pending ? (
+                            <span className="text-sm text-amber-800 block mt-1.5">
+                              Awaiting admin approval — Complete after approval.
+                            </span>
+                          ) : null}
+                          {row.is_free ? (
+                            <span className="text-sm text-violet-600 font-medium block mt-1">Complimentary</span>
+                          ) : null}
+                        </td>
+                        <td className="px-4 md:px-5 py-4 text-base md:text-[1.05rem] text-gray-700 whitespace-nowrap">
+                          {dateStr}
+                        </td>
+                        <td className="px-4 md:px-5 py-4 text-base md:text-[1.05rem] text-gray-700 whitespace-nowrap">
+                          {row.invoice_number || '—'}
+                        </td>
+                        <td className="px-4 md:px-5 py-4 text-base md:text-[1.05rem] text-gray-700 text-center whitespace-nowrap">
+                          {row.participant_count > 1 ? row.participant_count : row.participant_count === 1 ? '1' : '—'}
+                        </td>
+                        <td className="px-4 md:px-5 py-4 text-base md:text-[1.05rem] text-gray-700 font-mono text-sm md:text-base">
+                          {row.enrollment_id || '—'}
+                        </td>
+                        <td className="px-4 md:px-5 py-4">
+                          <div className="flex flex-col gap-1.5 items-start">
+                            <span
+                              className={`text-xs md:text-sm uppercase tracking-wide px-2.5 py-1 rounded-md border font-semibold ${statusClass(row.payment_status)}`}
+                            >
+                              {statusLabel(row.payment_status, row)}
+                            </span>
+                            {indiaBadge ? (
+                              <span className={`text-sm md:text-base ${indiaBadge.className}`}>{indiaBadge.label}</span>
+                            ) : null}
+                          </div>
+                        </td>
+                        <td className="px-4 md:px-5 py-4 text-lg md:text-xl font-semibold text-gray-900 tabular-nums text-right whitespace-nowrap">
+                          {formatMoney(row.amount, row.currency)}
+                        </td>
+                        <td className="px-4 md:px-5 py-4 text-right">
+                          {sid ? (
+                            <Button
+                              type="button"
+                              variant="outline"
+                              className="text-sm md:text-base h-10 px-4 gap-1.5 border-[#5D3FD3]/35 text-[#5D3FD3] hover:bg-violet-50 whitespace-nowrap"
+                              onClick={() => openReceipt(sid)}
+                            >
+                              Receipt &amp; links
+                              <ExternalLink size={16} />
+                            </Button>
+                          ) : (
+                            <span className="text-base text-gray-400">—</span>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
           )}
         </CardContent>
       </Card>
 
-      <p className="text-center text-xs text-gray-400">
-        <Link to="/dashboard/profile" className="text-[#5D3FD3] hover:underline">Back to profile</Link>
+      <p className="text-center text-sm md:text-base text-gray-500">
+        <Link to="/dashboard/profile" className="text-[#5D3FD3] hover:underline font-medium">
+          Back to profile
+        </Link>
         {' · '}
-        <Link to="/dashboard/financials" className="text-[#5D3FD3] hover:underline">Financials</Link>
+        <Link to="/dashboard/financials" className="text-[#5D3FD3] hover:underline font-medium">
+          Financials
+        </Link>
       </p>
     </div>
   );
