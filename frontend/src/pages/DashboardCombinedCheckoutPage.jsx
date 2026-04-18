@@ -533,6 +533,7 @@ export default function DashboardCombinedCheckoutPage() {
     (autoDiscounts.group_discount || 0) +
     (autoDiscounts.combo_discount || 0) +
     (autoDiscounts.loyalty_discount || 0);
+  const totalDiscountAmount = totalAutoDiscount + discount;
   const total = Math.max(0, subtotal - discount - totalAutoDiscount);
 
   useEffect(() => {
@@ -836,10 +837,10 @@ export default function DashboardCombinedCheckoutPage() {
     <div className="relative z-10 max-w-5xl mx-auto px-4 py-8 md:py-10">
       <div className="mb-6 flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
         <div>
-          <h1 className="text-xl md:text-2xl font-semibold text-white drop-shadow-sm" data-testid="dashboard-combined-title">
-            DIVINE CART — combined order
+          <h1 className="text-2xl md:text-3xl font-semibold text-white drop-shadow-sm" data-testid="dashboard-combined-title">
+            DIVINE CART
           </h1>
-          <p className="text-xs text-violet-100/90 mt-1 max-w-xl">
+          <p className="text-sm text-violet-100/90 mt-1.5 max-w-xl leading-relaxed">
             One row per seat. Change guests on the dashboard, then refresh this page if needed.
           </p>
           <div className="mt-3 rounded-xl border border-white/20 bg-white/10 backdrop-blur-sm px-3 py-2.5">
@@ -857,16 +858,16 @@ export default function DashboardCombinedCheckoutPage() {
       </div>
 
       <div className="bg-white/95 backdrop-blur rounded-xl border border-[rgba(212,175,55,0.35)] shadow-lg p-4 sm:p-5 mb-6 w-full">
-        <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-[#D4AF37] mb-3">
+        <p className="text-xs font-bold uppercase tracking-[0.12em] text-[#D4AF37] mb-3">
           At a glance — who is enrolling
         </p>
-        <p className="text-[10px] text-gray-500 mb-3" data-testid="dashboard-combined-roster-count">
-          <strong className="text-gray-700">{rosterParticipantCount}</strong> seat{rosterParticipantCount !== 1 ? 's' : ''}{' '}
-          · <strong className="text-gray-700">{items.length}</strong> program{items.length !== 1 ? 's' : ''}. Seat price is per
+        <p className="text-xs text-gray-600 mb-3 leading-relaxed" data-testid="dashboard-combined-roster-count">
+          <strong className="text-gray-800">{rosterParticipantCount}</strong> seat{rosterParticipantCount !== 1 ? 's' : ''}{' '}
+          · <strong className="text-gray-800">{items.length}</strong> program{items.length !== 1 ? 's' : ''}. Seat price is per
           person for that program (offer vs list when shown).
         </p>
         {subscriberIsAnnual && annualPortalSubtotal != null ? (
-          <p className="text-[10px] text-emerald-900 bg-emerald-50/90 border border-emerald-200/80 rounded-lg px-2 py-1.5 mb-3 leading-snug">
+          <p className="text-xs text-emerald-900 bg-emerald-50/90 border border-emerald-200/80 rounded-lg px-3 py-2 mb-3 leading-snug">
             Totals here use your <strong>portal annual pricing</strong>. Your own seat on programs included in your package is
             not charged; only guest seats are billed. Use the dashboard checkbox if you are not attending a program yourself.
           </p>
@@ -899,40 +900,40 @@ export default function DashboardCombinedCheckoutPage() {
             return (
               <div
                 key={key}
-                className="grid grid-cols-1 sm:grid-cols-12 gap-2 py-3 text-[11px] sm:text-xs text-gray-900 leading-snug"
+                className="grid grid-cols-1 sm:grid-cols-12 gap-2 py-3.5 text-xs sm:text-sm text-gray-900 leading-snug"
               >
                 <div className="sm:col-span-1 text-gray-500 tabular-nums font-medium">{n + 1}</div>
                 <div className="sm:col-span-3 min-w-0 break-words">
-                  <span className="text-gray-500 text-[10px] uppercase tracking-wide sm:hidden">Program · </span>
+                  <span className="text-gray-500 text-[11px] uppercase tracking-wide sm:hidden">Program · </span>
                   <span className="font-medium text-gray-900">{item.programTitle}</span>
                 </div>
                 <div className="sm:col-span-2 min-w-0 break-words">
-                  <span className="text-gray-500 text-[10px] uppercase tracking-wide sm:hidden">Name · </span>
+                  <span className="text-gray-500 text-[11px] uppercase tracking-wide sm:hidden">Name · </span>
                   {name}
                 </div>
                 <div className="sm:col-span-2 min-w-0 break-words text-gray-700">
-                  <span className="text-gray-500 text-[10px] uppercase tracking-wide sm:hidden">Role · </span>
+                  <span className="text-gray-500 text-[11px] uppercase tracking-wide sm:hidden">Role · </span>
                   {role}
                 </div>
                 <div className="sm:col-span-2 min-w-0 break-words text-gray-700">
-                  <span className="text-gray-500 text-[10px] uppercase tracking-wide sm:hidden">Attendance · </span>
+                  <span className="text-gray-500 text-[11px] uppercase tracking-wide sm:hidden">Attendance · </span>
                   {combinedAttendanceLabel(p)}
                 </div>
                 <div className="sm:col-span-1 min-w-0 break-words text-gray-700">
-                  <span className="text-gray-500 text-[10px] uppercase tracking-wide sm:hidden">Notify · </span>
+                  <span className="text-gray-500 text-[11px] uppercase tracking-wide sm:hidden">Notify · </span>
                   {notify}
                 </div>
                 <div className="sm:col-span-1 min-w-0 text-right tabular-nums">
-                  <span className="text-gray-500 text-[10px] uppercase tracking-wide sm:hidden">Seat · </span>
+                  <span className="text-gray-500 text-[11px] uppercase tracking-wide sm:hidden">Seat · </span>
                   {selfIncluded ? (
-                    <span className="text-emerald-700 font-semibold text-[10px] sm:text-xs">Package</span>
+                    <span className="text-emerald-700 font-semibold text-xs sm:text-sm">Package</span>
                   ) : unitOffer > 0 ? (
                     <span className="inline-flex flex-col sm:flex-row sm:items-end sm:gap-1 sm:justify-end">
                       <span className="text-[#D4AF37] font-semibold">
                         {symbol} {unitOffer.toLocaleString()}
                       </span>
                       {unitList > unitOffer ? (
-                        <span className="line-through text-gray-400 text-[10px] font-normal">
+                        <span className="line-through text-gray-400 text-xs font-normal">
                           {symbol} {unitList.toLocaleString()}
                         </span>
                       ) : null}
@@ -948,73 +949,71 @@ export default function DashboardCombinedCheckoutPage() {
           })}
         </div>
         {items.some((it) => (it.participants || []).length === 0) ? (
-          <p className="text-[10px] text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-2 py-1.5 mt-3">
+          <p className="text-xs text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 mt-3 leading-relaxed">
             A line item has no participant rows. Remove it from your order or re-add the program from your dashboard.
           </p>
         ) : null}
-        <div className="border-t border-gray-200 mt-4 pt-3 space-y-1">
-          <div className="flex justify-between text-xs text-gray-600">
+        <div className="border-t border-gray-200 mt-4 pt-4 space-y-1.5">
+          <div className="flex justify-between text-sm text-gray-700">
             <span>Subtotal</span>
-            <span>
+            <span className="tabular-nums">
               {symbol} {subtotal.toLocaleString()}
             </span>
           </div>
           {autoDiscounts.group_discount > 0 && (
-            <div className="flex justify-between text-xs text-green-600">
+            <div className="flex justify-between text-sm text-green-700">
               <span>Group ({totalParticipants} people)</span>
-              <span>
+              <span className="tabular-nums">
                 -{symbol} {autoDiscounts.group_discount.toLocaleString()}
               </span>
             </div>
           )}
           {autoDiscounts.combo_discount > 0 && (
-            <div className="flex justify-between text-xs text-green-600">
+            <div className="flex justify-between text-sm text-green-700">
               <span>Combo ({numPrograms} programs)</span>
-              <span>
+              <span className="tabular-nums">
                 -{symbol} {autoDiscounts.combo_discount.toLocaleString()}
               </span>
             </div>
           )}
           {autoDiscounts.loyalty_discount > 0 && (
-            <div className="flex justify-between text-xs text-green-600">
+            <div className="flex justify-between text-sm text-green-700">
               <span>Loyalty</span>
-              <span>
+              <span className="tabular-nums">
                 -{symbol} {autoDiscounts.loyalty_discount.toLocaleString()}
               </span>
             </div>
           )}
           {discount > 0 && (
-            <div className="flex justify-between text-xs text-green-600">
+            <div className="flex justify-between text-sm text-green-700">
               <span>Promo ({promoResult?.code})</span>
-              <span>
+              <span className="tabular-nums">
                 -{symbol} {discount.toLocaleString()}
               </span>
             </div>
           )}
-          <div className="flex justify-between font-bold text-base sm:text-lg border-t border-gray-200 pt-2 mt-2">
+          <div className="flex justify-between text-sm font-semibold text-green-800 border-t border-dashed border-green-200/80 pt-2 mt-2">
+            <span>Total discount</span>
+            <span className="tabular-nums">
+              {totalDiscountAmount > 0 ? `-${symbol} ${totalDiscountAmount.toLocaleString()}` : `${symbol} 0`}
+            </span>
+          </div>
+          <div className="flex justify-between font-bold text-lg sm:text-xl border-t border-gray-200 pt-3 mt-2">
             <span>Total</span>
-            <span className="text-[#D4AF37]">
+            <span className="text-[#D4AF37] tabular-nums">
               {displayCheckoutTotal <= 0 ? 'FREE' : `${symbol} ${displayCheckoutTotal.toLocaleString()}`}
             </span>
           </div>
         </div>
       </div>
 
-      <div className="flex flex-col lg:flex-row gap-6">
-        <div className="lg:w-2/5 space-y-4">
-          <MotivationalSignupFlash
-            quotes={urgencyQuotes}
-            programIds={cartProgramIdsForUrgency.length ? cartProgramIdsForUrgency : undefined}
-            globalOnly={cartProgramIdsForUrgency.length === 0}
-          />
-        </div>
-
-        <div className="lg:w-3/5 space-y-4">
-          <div className="bg-white/95 backdrop-blur rounded-xl border border-white/40 shadow-lg p-6">
+      <div className="space-y-6">
+        <div className="w-full">
+          <div className="bg-white/95 backdrop-blur rounded-xl border border-white/40 shadow-lg p-6 sm:p-7">
             {checkoutPromoVisible && (
               <div className="mb-4 pb-4 border-b border-gray-100">
-                <label className="text-xs font-medium text-gray-700 mb-1 block flex items-center gap-1.5">
-                  <Tag size={12} className="text-[#D4AF37]" /> Promo code
+                <label className="text-sm font-medium text-gray-800 mb-1.5 block flex items-center gap-2">
+                  <Tag size={14} className="text-[#D4AF37]" /> Promo code
                 </label>
                 <div className="flex gap-2">
                   <Input
@@ -1057,23 +1056,23 @@ export default function DashboardCombinedCheckoutPage() {
             )}
 
             {!enrollmentId ? (
-              <div data-testid="dashboard-combined-verify">
-                <h2 className="text-base font-semibold text-gray-900 mb-2 flex items-center gap-2">
-                  <ShieldCheck size={16} className="text-[#D4AF37]" /> Continue to payment
+              <div className="w-full space-y-3" data-testid="dashboard-combined-verify">
+                <h2 className="w-full text-lg sm:text-xl font-semibold text-gray-900 flex items-center gap-2">
+                  <ShieldCheck size={20} className="text-[#D4AF37] shrink-0" /> Continue to payment
                 </h2>
-                <p className="text-[10px] text-gray-500 mb-3">
+                <p className="text-sm text-gray-600 leading-relaxed">
                   Review the list above, then continue.
                 </p>
                 <Button
                   onClick={startTrustedEnrollment}
                   disabled={enrollmentSubmitLoading}
-                  className="w-full bg-[#D4AF37] hover:bg-[#b8962e] text-white py-3 rounded-full"
+                  className="w-full bg-[#D4AF37] hover:bg-[#b8962e] text-white py-4 text-base font-semibold rounded-xl shadow-sm"
                 >
                   {enrollmentSubmitLoading ? (
-                    <Loader2 className="animate-spin" size={16} />
+                    <Loader2 className="animate-spin" size={18} />
                   ) : (
                     <>
-                      <ChevronRight size={14} className="mr-2" /> Save enrollment &amp; show payment options
+                      <ChevronRight size={18} className="mr-2" /> Save enrollment &amp; show payment options
                     </>
                   )}
                 </Button>
@@ -1239,15 +1238,12 @@ export default function DashboardCombinedCheckoutPage() {
                   </div>
                 )}
 
-                <div className="flex gap-3 mt-4">
-                  <Button variant="outline" onClick={() => navigate('/dashboard')} className="rounded-full">
-                    <ChevronLeft size={16} />
-                  </Button>
+                <div className="flex flex-col gap-3 mt-4 w-full">
                   <Button
                     data-testid="dashboard-combined-stripe-pay"
                     onClick={handleCheckout}
                     disabled={processing || (total > 0 && !enrollmentId) || (total > 0 && !hasStripe)}
-                    className="flex-1 bg-[#D4AF37] hover:bg-[#b8962e] text-white py-3 rounded-full disabled:opacity-50"
+                    className="w-full bg-[#D4AF37] hover:bg-[#b8962e] text-white py-4 text-base font-semibold rounded-xl disabled:opacity-50 shadow-sm"
                     title={
                       total > 0 && !hasStripe
                         ? 'Stripe is not enabled on your account — use India / manual options if shown, or contact support.'
@@ -1256,18 +1252,25 @@ export default function DashboardCombinedCheckoutPage() {
                   >
                     {processing ? (
                       <>
-                        <Loader2 className="animate-spin mr-2" size={16} />{' '}
+                        <Loader2 className="animate-spin mr-2" size={18} />{' '}
                         {displayCheckoutTotal <= 0 ? 'Registering…' : 'Redirecting…'}
                       </>
                     ) : displayCheckoutTotal <= 0 ? (
                       <>
-                        <Check size={14} className="mr-2" /> Complete registration
+                        <Check size={18} className="mr-2" /> Complete registration
                       </>
                     ) : (
                       <>
-                        <Lock size={14} className="mr-2" /> Pay {symbol} {displayCheckoutTotal.toLocaleString()} (Stripe)
+                        <Lock size={18} className="mr-2" /> Pay {symbol} {displayCheckoutTotal.toLocaleString()} (Stripe)
                       </>
                     )}
+                  </Button>
+                  <Button
+                    variant="outline"
+                    onClick={() => navigate('/dashboard')}
+                    className="w-full rounded-xl py-3 text-sm border-gray-300"
+                  >
+                    <ChevronLeft size={16} className="mr-2" /> Back to dashboard
                   </Button>
                 </div>
 
@@ -1303,6 +1306,14 @@ export default function DashboardCombinedCheckoutPage() {
               </div>
             )}
           </div>
+        </div>
+
+        <div className="w-full">
+          <MotivationalSignupFlash
+            quotes={urgencyQuotes}
+            programIds={cartProgramIdsForUrgency.length ? cartProgramIdsForUrgency : undefined}
+            globalOnly={cartProgramIdsForUrgency.length === 0}
+          />
         </div>
       </div>
     </div>
