@@ -1076,24 +1076,15 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh, bo
     });
   };
 
-  const executeEnrollmentPay = async ({
-    programId,
-    programTitle,
-    includedPkg,
-    selectedIds,
-    bookerSeatMode: bookerModeIn,
-    bookerSeatNotify: bookerNotifyIn,
-    guestSeatForm: guestFormIn,
-    persistEnrollmentDefaultsOnContinue: persistDefaults,
-  }) => {
-    const included = !!includedPkg;
+  /** Email / guest validation before payment or before saving browser defaults. */
+  const validateEnrollmentSeatContacts = (included, selectedIds, guestFormIn, bookerNotifyIn) => {
     if (!included && bookerNotifyIn && !String(bookerEmail || '').trim()) {
       toast({
         title: 'Email needed for notifications',
         description: 'Turn off “Email me enrollment details” for your seat, or add an email to your account.',
         variant: 'destructive',
       });
-      return;
+      return false;
     }
     for (const id of selectedIds) {
       const row = guestFormIn[id] || {};
@@ -1105,37 +1096,72 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh, bo
             description: `Add an email for “${(m?.name || 'this person').trim()}” or turn off notifications for their seat.`,
             variant: 'destructive',
           });
-          return;
+          return false;
         }
       }
     }
+    return true;
+  };
 
-    if (persistDefaults) {
-      const sid = selectedIds.map(String);
-      if (sid.length > 0) {
-        const modes = new Set(sid.map((id) => (guestFormIn[id]?.attendance_mode === 'offline' ? 'offline' : 'online')));
-        const notifs = new Set(sid.map((id) => !!guestFormIn[id]?.notify_enrollment));
-        if (modes.size > 1 || notifs.size > 1) {
-          toast({
-            title: 'Match family rows to save defaults',
-            description:
-              'Use a one-tap preset or the quick options so every selected person has the same attendance and email settings, then try again.',
-            variant: 'destructive',
-          });
-          return;
-        }
+  /**
+   * Writes dashboard enrollment defaults to localStorage. When guests are selected, they must share one
+   * attendance mode and one notify flag so a single default row can apply to future enrollments.
+   */
+  const persistEnrollmentSeatDefaultsToBrowser = (selectedIds, bookerModeIn, bookerNotifyIn, guestFormIn) => {
+    const sid = selectedIds.map(String);
+    if (sid.length > 0) {
+      const modes = new Set(sid.map((id) => (guestFormIn[id]?.attendance_mode === 'offline' ? 'offline' : 'online')));
+      const notifs = new Set(sid.map((id) => !!guestFormIn[id]?.notify_enrollment));
+      if (modes.size > 1 || notifs.size > 1) {
+        toast({
+          title: 'Match family rows to save defaults',
+          description:
+            'Use a one-tap preset or the quick options so every selected person has the same attendance and email settings, then try again.',
+          variant: 'destructive',
+        });
+        return false;
       }
-      saveDashboardEnrollmentDefaults({
-        bookerMode: bookerModeIn === 'offline' ? 'offline' : 'online',
-        bookerNotify: !!bookerNotifyIn,
-        guestMode:
-          sid.length > 0 ? (guestFormIn[sid[0]]?.attendance_mode === 'offline' ? 'offline' : 'online') : 'online',
-        guestNotify: sid.length > 0 ? !!guestFormIn[sid[0]]?.notify_enrollment : false,
-      });
-      toast({
-        title: 'Defaults saved for all programs',
-        description: 'These options will load automatically the next time you enroll from the dashboard on this device.',
-      });
+    }
+    saveDashboardEnrollmentDefaults({
+      bookerMode: bookerModeIn === 'offline' ? 'offline' : 'online',
+      bookerNotify: !!bookerNotifyIn,
+      guestMode:
+        sid.length > 0 ? (guestFormIn[sid[0]]?.attendance_mode === 'offline' ? 'offline' : 'online') : 'online',
+      guestNotify: sid.length > 0 ? !!guestFormIn[sid[0]]?.notify_enrollment : false,
+    });
+    setEnrollmentDefaultsLoaded(true);
+    toast({
+      title: 'Defaults saved for all programs',
+      description: 'These options will load automatically the next time you enroll from the dashboard on this device.',
+    });
+    return true;
+  };
+
+  const saveEnrollmentDefaultsAndCloseModal = () => {
+    if (!seatModalCtx) return;
+    const included = !!seatModalCtx.includedPkg;
+    const selectedIds = seatModalCtx.selectedIds || [];
+    if (!validateEnrollmentSeatContacts(included, selectedIds, guestSeatForm, bookerSeatNotify)) return;
+    if (!persistEnrollmentSeatDefaultsToBrowser(selectedIds, bookerSeatMode, bookerSeatNotify, guestSeatForm)) return;
+    setEnrollmentSeatOpen(false);
+    setSeatModalCtx(null);
+  };
+
+  const executeEnrollmentPay = async ({
+    programId,
+    programTitle,
+    includedPkg,
+    selectedIds,
+    bookerSeatMode: bookerModeIn,
+    bookerSeatNotify: bookerNotifyIn,
+    guestSeatForm: guestFormIn,
+    persistEnrollmentDefaultsOnContinue: persistDefaults,
+  }) => {
+    const included = !!includedPkg;
+    if (!validateEnrollmentSeatContacts(included, selectedIds, guestFormIn, bookerNotifyIn)) return;
+
+    if (persistDefaults && !persistEnrollmentSeatDefaultsToBrowser(selectedIds, bookerModeIn, bookerNotifyIn, guestFormIn)) {
+      return;
     }
 
     setEnrollmentSeatOpen(false);
@@ -1447,7 +1473,7 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh, bo
                 </p>
                 <p className="text-[10px] text-slate-600 leading-snug mb-3">
                   These apply to <strong className="text-slate-800">all</strong> upcoming programs — set once here instead of
-                  on every card.
+                  on every card. Open a program, adjust attendance and email options, then use <strong className="text-slate-800">Save defaults &amp; close</strong> in the dialog (no payment required) or continue to payment with the checkbox on.
                 </p>
                 <div className="flex flex-col sm:flex-row sm:flex-wrap sm:items-center gap-3 sm:gap-x-5 sm:gap-y-2">
                   <label className="inline-flex items-center gap-2 cursor-pointer text-[10px] text-slate-800">
@@ -1621,7 +1647,6 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh, bo
           if (!open) {
             setEnrollmentSeatOpen(false);
             setSeatModalCtx(null);
-            setPersistEnrollmentDefaultsOnContinue(false);
           }
         }}
       >
@@ -1630,7 +1655,9 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh, bo
             <DialogTitle className="text-base font-semibold text-slate-900">Enrollment for this program</DialogTitle>
             <DialogDescription className="text-[11px] text-slate-600 leading-relaxed">
               Set attendance and enrollment notification email for this checkout — including the WhatsApp group link when
-              applicable. Combine the options below, or save your choices as the default for every program on this device.
+              applicable. Use <strong className="text-slate-800">Save defaults &amp; close</strong> to store choices in this
+              browser without paying, or <strong className="text-slate-800">Continue to payment</strong> with the checkbox
+              below to save defaults when you pay.
             </DialogDescription>
           </DialogHeader>
 
@@ -1640,6 +1667,13 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh, bo
                 <p className="text-[10px] text-violet-800 bg-violet-50 border border-violet-100 rounded-lg px-2.5 py-1.5">
                   Loaded your <strong>saved defaults</strong> for this browser. Adjust below or clear them with the link
                   under the checkbox.
+                </p>
+              ) : null}
+
+              {seatModalCtx.includedPkg && seatModalCtx.selectedIds.length === 0 ? (
+                <p className="text-[10px] text-amber-900 bg-amber-50 border border-amber-200/80 rounded-lg px-2.5 py-1.5 leading-snug">
+                  <strong>Package-included program:</strong> select who is joining on the program card under &quot;Family to
+                  join&quot; first. Then presets and per-person rows here apply to those guests.
                 </p>
               ) : null}
 
@@ -1884,11 +1918,11 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh, bo
             </div>
           )}
 
-          <DialogFooter className="gap-2 sm:justify-end">
+          <DialogFooter className="gap-2 flex-col sm:flex-row sm:justify-end sm:items-center">
             <Button
               type="button"
               variant="outline"
-              className="text-xs h-9"
+              className="text-xs h-9 w-full sm:w-auto order-2 sm:order-1"
               onClick={() => {
                 setEnrollmentSeatOpen(false);
                 setSeatModalCtx(null);
@@ -1898,7 +1932,16 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh, bo
             </Button>
             <Button
               type="button"
-              className="text-xs h-9 bg-[#D4AF37] hover:bg-[#b8962e] text-white"
+              variant="secondary"
+              className="text-xs h-9 w-full sm:w-auto order-1 sm:order-2 border border-violet-200 bg-violet-50 text-violet-950 hover:bg-violet-100"
+              onClick={saveEnrollmentDefaultsAndCloseModal}
+              data-testid="dashboard-save-enrollment-defaults"
+            >
+              Save defaults &amp; close
+            </Button>
+            <Button
+              type="button"
+              className="text-xs h-9 w-full sm:w-auto order-3 bg-[#D4AF37] hover:bg-[#b8962e] text-white"
               onClick={confirmEnrollmentSeatsAndPay}
             >
               Continue to payment
