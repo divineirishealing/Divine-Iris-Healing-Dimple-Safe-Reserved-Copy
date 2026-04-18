@@ -105,6 +105,41 @@ function AnnualQuoteBreakdown({ aq, symbol, includedPkg, suppressIntro = false, 
             <p className="text-[11px] text-slate-500">Select who is joining to see offer price per guest seat.</p>
           ) : null}
         </div>
+        {(showSelf && !includedPkg) || imm > 0 || ext > 0 ? (
+          <div className="rounded-md border border-slate-200/90 bg-slate-50/90 px-3 py-2 space-y-1.5 text-[10px] text-slate-700">
+            <p className="font-bold uppercase tracking-wide text-slate-500">Line totals (× seats)</p>
+            {showSelf && !includedPkg ? (
+              <div className="flex flex-wrap items-baseline justify-between gap-x-2 gap-y-0.5 tabular-nums">
+                <span className="text-slate-800">You</span>
+                <span>
+                  {symbol}
+                  {selfOffer.toLocaleString()} × 1 = {symbol}
+                  {selfOffer.toLocaleString()}
+                </span>
+              </div>
+            ) : null}
+            {imm > 0 ? (
+              <div className="flex flex-wrap items-baseline justify-between gap-x-2 gap-y-0.5 tabular-nums">
+                <span className="text-slate-800">Immediate family</span>
+                <span>
+                  {symbol}
+                  {Math.round(immOfferEach ?? 0).toLocaleString()} × {imm} = {symbol}
+                  {Number(aq.immediate_family_after_promos ?? 0).toLocaleString()}
+                </span>
+              </div>
+            ) : null}
+            {ext > 0 ? (
+              <div className="flex flex-wrap items-baseline justify-between gap-x-2 gap-y-0.5 tabular-nums">
+                <span className="text-slate-800">Friends &amp; extended</span>
+                <span>
+                  {symbol}
+                  {Math.round(extOfferEach ?? 0).toLocaleString()} × {ext} = {symbol}
+                  {Number(aq.extended_guests_after_promos ?? 0).toLocaleString()}
+                </span>
+              </div>
+            ) : null}
+          </div>
+        ) : null}
       </div>
     );
   }
@@ -202,6 +237,8 @@ export default function DashboardUpcomingProgramRowItem({
   toggleSelectAllFamilyForProgram,
   openEnrollmentSeatModal,
   annualSeatUi = null,
+  dashboardTierIndex,
+  onDashboardTierChange,
 }) {
   const navigate = useNavigate();
   const { syncProgramLineItem } = useCart();
@@ -216,7 +253,11 @@ export default function DashboardUpcomingProgramRowItem({
     setLocalTier(pickTierIndexForDashboard(p, false) ?? 0);
   }, [p.id, p.is_flagship, tiers.length]);
 
-  const tierIdxForDisplay = subscriberIsAnnual ? pickTierIndexForDashboard(p, true) ?? 0 : localTier;
+  const tierIdxForDisplay = subscriberIsAnnual
+    ? typeof dashboardTierIndex === 'number'
+      ? dashboardTierIndex
+      : pickTierIndexForDashboard(p, true) ?? 0
+    : localTier;
   const tier = hasTiers ? tiers[tierIdxForDisplay] : null;
   const tierIsYearLong =
     tier &&
@@ -442,6 +483,7 @@ export default function DashboardUpcomingProgramRowItem({
   return (
     <div className={outerShellClass} data-testid={`dashboard-upcoming-${p.id}`}>
       {subscriberIsAnnual ? (
+        <div className="w-full flex flex-col gap-4">
         <div className="w-full flex flex-col xl:flex-row xl:items-stretch gap-4 xl:gap-4">
           {/* 1 — Same footprint as non-annual dashboard card: vertical max-w-md (~28rem) */}
           <div
@@ -500,6 +542,31 @@ export default function DashboardUpcomingProgramRowItem({
                 )}
               </div>
               <p className="text-gray-500 text-xs leading-relaxed mb-2 line-clamp-3">{p.description}</p>
+              {hasTiers && enrollStatus === 'open' && tiers.length > 1 ? (
+                <div data-testid={`dashboard-tier-selector-annual-${p.id}`} className="mb-3">
+                  <p className="text-[9px] font-bold uppercase tracking-wide text-slate-500 mb-1.5">Duration / tier</p>
+                  <div className={`grid ${tierGridClass} gap-1`}>
+                    {tiers.map((t, i) => (
+                      <button
+                        key={i}
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onDashboardTierChange?.(p.id, i);
+                        }}
+                        title={t.label || undefined}
+                        className={`min-h-[2.25rem] px-1.5 text-[10px] leading-tight rounded-full border transition-all flex items-center justify-center text-center ${
+                          tierIdxForDisplay === i
+                            ? 'bg-[#D4AF37] text-white border-[#D4AF37]'
+                            : 'bg-white text-gray-600 border-gray-200 hover:border-[#D4AF37]'
+                        }`}
+                      >
+                        <span className="line-clamp-2 break-words">{compactTierButtonLabel(t.label)}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              ) : null}
               {enrollStatus === 'open' &&
                 offerPrice > 0 &&
                 deadline &&
@@ -559,27 +626,6 @@ export default function DashboardUpcomingProgramRowItem({
                   <span className="text-xl font-bold text-green-600">FREE</span>
                 )}
               </div>
-              {enrollStatus === 'open' ? (
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    goProgram();
-                  }}
-                  data-testid={`dashboard-know-more-annual-${p.id}`}
-                  className="mt-auto w-full inline-flex items-center justify-center bg-[#1a1a1a] hover:bg-[#333] text-white py-2.5 px-6 rounded-full text-[10px] tracking-wider transition-all duration-300 uppercase font-medium"
-                >
-                  Know More
-                </button>
-              ) : (
-                <button
-                  type="button"
-                  disabled
-                  className="mt-auto w-full bg-gray-300 text-gray-500 py-2 rounded-full text-[10px] tracking-wider uppercase font-medium cursor-not-allowed"
-                >
-                  {p.closure_text || 'Closed'}
-                </button>
-              )}
             </div>
           </div>
 
@@ -994,54 +1040,82 @@ export default function DashboardUpcomingProgramRowItem({
               </div>
             ) : null}
 
-            <div className="w-full pt-3 border-t border-slate-100 mt-auto">
-              {enrollStatus === 'open' ? (
-                <button
-                  type="button"
-                  disabled={!canAddToDivineCart || addingToCheckout}
-                  title={
-                    !canAddToDivineCart
-                      ? subscriberIsAnnual
-                        ? includedPkg && selCount < 1
-                          ? 'Select family members to join or wait for pricing.'
-                          : !aq
-                            ? 'Loading pricing…'
-                            : (aq.total || 0) <= 0
-                              ? 'No amount due for this selection.'
-                              : ''
-                        : showContact
-                          ? 'Use contact for pricing for this program.'
-                          : enrollStatus !== 'open'
-                            ? 'Enrollment is closed.'
-                            : ''
-                      : undefined
-                  }
-                  onClick={handleAddToDivineCart}
-                  className="w-full inline-flex items-center justify-center gap-2 rounded-full py-2.5 px-6 text-[10px] tracking-wider uppercase font-medium transition-all duration-300 bg-[#D4AF37] text-white hover:bg-[#b8962e] disabled:opacity-50 disabled:pointer-events-none shadow-sm"
-                  aria-label="Add to Divine Cart"
-                  data-testid={`dashboard-divine-cart-${p.id}`}
-                >
-                  {addingToCheckout ? (
-                    <Loader2 size={16} className="animate-spin shrink-0" />
-                  ) : (
-                    <ShoppingCart size={16} className="shrink-0" />
-                  )}
-                  Add to Divine Cart
-                </button>
-              ) : (
-                <button
-                  type="button"
-                  disabled
-                  className="w-full inline-flex items-center justify-center gap-2 rounded-full py-2.5 px-6 text-[10px] tracking-wider uppercase font-medium bg-gray-300 text-gray-500 cursor-not-allowed shadow-sm"
-                  aria-label="Add to Divine Cart"
-                  data-testid={`dashboard-divine-cart-${p.id}`}
-                >
-                  <ShoppingCart size={16} className="shrink-0 opacity-70" />
-                  Add to Divine Cart
-                </button>
-              )}
-            </div>
           </div>
+        </div>
+
+        {/* Know More + Divine Cart — one row on sm+ so both align */}
+        <div className="flex flex-col sm:flex-row gap-3 w-full sm:items-center sm:justify-between pt-1 border-t border-slate-200/70">
+          <div className="w-full sm:w-[min(100%,28rem)] sm:shrink-0">
+            {enrollStatus === 'open' ? (
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  goProgram();
+                }}
+                data-testid={`dashboard-know-more-annual-${p.id}`}
+                className="w-full inline-flex items-center justify-center bg-[#1a1a1a] hover:bg-[#333] text-white py-2.5 px-6 rounded-full text-[10px] tracking-wider transition-all duration-300 uppercase font-medium"
+              >
+                Know More
+              </button>
+            ) : (
+              <button
+                type="button"
+                disabled
+                className="w-full bg-gray-300 text-gray-500 py-2.5 rounded-full text-[10px] tracking-wider uppercase font-medium cursor-not-allowed"
+              >
+                {p.closure_text || 'Closed'}
+              </button>
+            )}
+          </div>
+          <div className="w-full min-w-0 flex-1">
+            {enrollStatus === 'open' ? (
+              <button
+                type="button"
+                disabled={!canAddToDivineCart || addingToCheckout}
+                title={
+                  !canAddToDivineCart
+                    ? subscriberIsAnnual
+                      ? includedPkg && selCount < 1
+                        ? 'Select family members to join or wait for pricing.'
+                        : !aq
+                          ? 'Loading pricing…'
+                          : (aq.total || 0) <= 0
+                            ? 'No amount due for this selection.'
+                            : ''
+                      : showContact
+                        ? 'Use contact for pricing for this program.'
+                        : enrollStatus !== 'open'
+                          ? 'Enrollment is closed.'
+                          : ''
+                    : undefined
+                }
+                onClick={handleAddToDivineCart}
+                className="w-full inline-flex items-center justify-center gap-2 rounded-full py-2.5 px-6 text-[10px] tracking-wider uppercase font-medium transition-all duration-300 bg-[#D4AF37] text-white hover:bg-[#b8962e] disabled:opacity-50 disabled:pointer-events-none shadow-sm"
+                aria-label="Add to Divine Cart"
+                data-testid={`dashboard-divine-cart-${p.id}`}
+              >
+                {addingToCheckout ? (
+                  <Loader2 size={16} className="animate-spin shrink-0" />
+                ) : (
+                  <ShoppingCart size={16} className="shrink-0" />
+                )}
+                Add to Divine Cart
+              </button>
+            ) : (
+              <button
+                type="button"
+                disabled
+                className="w-full inline-flex items-center justify-center gap-2 rounded-full py-2.5 px-6 text-[10px] tracking-wider uppercase font-medium bg-gray-300 text-gray-500 cursor-not-allowed shadow-sm"
+                aria-label="Add to Divine Cart"
+                data-testid={`dashboard-divine-cart-${p.id}`}
+              >
+                <ShoppingCart size={16} className="shrink-0 opacity-70" />
+                Add to Divine Cart
+              </button>
+            )}
+          </div>
+        </div>
         </div>
       ) : (
         <>

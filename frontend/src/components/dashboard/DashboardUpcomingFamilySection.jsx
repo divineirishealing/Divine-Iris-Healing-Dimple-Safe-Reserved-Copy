@@ -408,6 +408,8 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh, bo
   const [promoPricesLoading, setPromoPricesLoading] = useState(false);
   const [selectedFamilyByProgram, setSelectedFamilyByProgram] = useState({});
   const [annualQuotes, setAnnualQuotes] = useState({});
+  /** Per-program flagship tier (1 mo / 3 mo / annual) for portal quotes + cart line. */
+  const [dashboardTierByProgram, setDashboardTierByProgram] = useState({});
   const [enrollmentSeatOpen, setEnrollmentSeatOpen] = useState(false);
   const [syncingEnrollmentToCheckout, setSyncingEnrollmentToCheckout] = useState(false);
   const [seatModalCtx, setSeatModalCtx] = useState(null);
@@ -771,6 +773,22 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh, bo
       .join('|');
   }, [programsForPrefetch, selectedFamilyByProgram]);
 
+  const getDashboardTier = useCallback(
+    (p) => {
+      const tiers = p.duration_tiers || [];
+      if (!p.is_flagship || tiers.length === 0) return 0;
+      const saved = dashboardTierByProgram[p.id];
+      if (typeof saved === 'number' && saved >= 0 && saved < tiers.length) return saved;
+      return pickTierIndexForDashboard(p, true) ?? 0;
+    },
+    [dashboardTierByProgram]
+  );
+
+  const dashboardTierKey = useMemo(
+    () => programsForPrefetch.map((p) => `${p.id}:${getDashboardTier(p)}`).join('|'),
+    [programsForPrefetch, getDashboardTier]
+  );
+
   useEffect(() => {
     if (!isAnnual || !currencyReady) {
       setAnnualQuotes({});
@@ -792,6 +810,9 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh, bo
           ids.length > 0
             ? { program_id: p.id, currency, family_ids: ids.join(','), booker_joins: bookerJoins }
             : { program_id: p.id, currency, family_count: 0, booker_joins: bookerJoins };
+        if (p.is_flagship && (p.duration_tiers || []).length > 0) {
+          params.tier_index = getDashboardTier(p);
+        }
         return axios
           .get(`${API}/api/student/dashboard-quote`, {
             params,
@@ -811,7 +832,7 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh, bo
     return () => {
       cancelled = true;
     };
-  }, [isAnnual, currencyReady, currency, prefetchProgramsKey, familySelectionKey, programsForPrefetch, seatDraftsByProgram]);
+  }, [isAnnual, currencyReady, currency, prefetchProgramsKey, familySelectionKey, dashboardTierKey, programsForPrefetch, seatDraftsByProgram, getDashboardTier, annualIncludedIds]);
 
   useEffect(() => {
     if (!isAnnual) return;
@@ -1171,7 +1192,7 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh, bo
       return;
     }
 
-    const tierIdx = pickTierIndexForDashboard(program, isAnnual) ?? 0;
+    const tierIdx = isAnnual ? getDashboardTier(program) : pickTierIndexForDashboard(program, false) ?? 0;
     const perDraft = seatDraftsRef.current[programId] || seatDraftsByProgram[programId];
     const draft = mergeGlobalSeatDraft(perDraft, bookerModeIn, bookerNotifyIn, guestFormIn);
 
@@ -1345,6 +1366,14 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh, bo
                   toggleFamilyMember={toggleFamilyMember}
                   toggleSelectAllFamilyForProgram={toggleSelectAllFamilyForProgram}
                   openEnrollmentSeatModal={openEnrollmentSeatModal}
+                  dashboardTierIndex={isAnnual ? getDashboardTier(p) : undefined}
+                  onDashboardTierChange={
+                    isAnnual
+                      ? (programId, tierIndex) => {
+                          setDashboardTierByProgram((prev) => ({ ...prev, [programId]: tierIndex }));
+                        }
+                      : undefined
+                  }
                   annualSeatUi={
                     isAnnual
                       ? {

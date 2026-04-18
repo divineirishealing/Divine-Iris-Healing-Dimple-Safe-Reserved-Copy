@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException, Request, Depends
+from fastapi import APIRouter, HTTPException, Request, Depends, Query
 from pydantic import BaseModel
 from typing import Optional, List, Dict, Tuple
 import os
@@ -231,10 +231,19 @@ def _tier_unit_price(program: dict, tier_index: Optional[int], cur: str) -> floa
     return off if off > 0 else base
 
 
-def _pick_self_and_family_tier_indices(program: dict) -> Tuple[Optional[int], Optional[int]]:
+def _pick_self_and_family_tier_indices(
+    program: dict, tier_index_override: Optional[int] = None
+) -> Tuple[Optional[int], Optional[int]]:
     tiers = program.get("duration_tiers") or []
     if not program.get("is_flagship") or not tiers:
         return None, None
+    if tier_index_override is not None:
+        try:
+            ti = int(tier_index_override)
+        except (TypeError, ValueError):
+            ti = -1
+        if 0 <= ti < len(tiers):
+            return ti, ti
     self_idx = None
     for i, t in enumerate(tiers):
         lab = (t.get("label") or "").lower()
@@ -431,6 +440,7 @@ async def compute_dashboard_annual_family_pricing(
     family_offer: dict,
     extended_guest_offer: dict,
     include_self: bool = True,
+    tier_index_override: Optional[int] = None,
 ) -> dict:
     """Portal-only pricing for annual subscribers.
 
@@ -440,7 +450,7 @@ async def compute_dashboard_annual_family_pricing(
     and zero `extended_guest_count`.
     """
     cur = (currency or "aed").lower()
-    self_tier, fam_tier = _pick_self_and_family_tier_indices(program)
+    self_tier, fam_tier = _pick_self_and_family_tier_indices(program, tier_index_override)
     self_unit = _tier_unit_price(program, self_tier, cur) if include_self else 0.0
     fam_unit = _tier_unit_price(program, fam_tier, cur)
     imm_fc = max(0, int(immediate_family_count))
@@ -833,6 +843,7 @@ async def dashboard_quote(
     family_ids: str = "",
     currency: str = "aed",
     booker_joins: bool = True,
+    tier_index: Optional[int] = Query(None, description="Flagship duration tier index (1 month, 3 month, annual, …)"),
     user: dict = Depends(get_current_user),
 ):
     """Annual members: mixed pricing; MMM/AWRP-style programs = family only (included in annual package)."""
@@ -899,6 +910,7 @@ async def dashboard_quote(
         fo,
         eo,
         include_self=include_self,
+        tier_index_override=tier_index,
     )
     cur = str(pricing.get("currency") or "aed").lower()
     gst_pct = float(settings_doc.get("india_gst_percent") or 18)
