@@ -891,15 +891,8 @@ export default function DashboardCombinedCheckoutPage() {
         </p>
         <p className="text-xs text-gray-600 mb-3 leading-relaxed" data-testid="dashboard-combined-roster-count">
           <strong className="text-gray-800">{rosterParticipantCount}</strong> seat{rosterParticipantCount !== 1 ? 's' : ''}{' '}
-          · <strong className="text-gray-800">{items.length}</strong> program{items.length !== 1 ? 's' : ''}. Seat price is per
-          person for that program (offer vs list when shown).
+          · <strong className="text-gray-800">{items.length}</strong> program{items.length !== 1 ? 's' : ''}.
         </p>
-        {subscriberIsAnnual && annualPortalSubtotal != null ? (
-          <p className="text-xs text-emerald-900 bg-emerald-50/90 border border-emerald-200/80 rounded-lg px-3 py-2 mb-3 leading-snug">
-            Totals here use your <strong>portal annual pricing</strong>. Your own seat on programs included in your package is
-            not charged; only guest seats are billed. Use the dashboard checkbox if you are not attending a program yourself.
-          </p>
-        ) : null}
         <div className="space-y-0 divide-y divide-gray-100" data-testid="dashboard-combined-roster-table">
           {rosterRows.map((row, n) => {
             const { item, p, idx, key } = row;
