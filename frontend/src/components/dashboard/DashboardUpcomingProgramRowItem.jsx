@@ -629,6 +629,31 @@ export default function DashboardUpcomingProgramRowItem({
               </button>
               {annualFamilyOpen ? (
                 <>
+            {annualSeatUi ? (
+              <div className="mb-3 pb-3 border-b border-amber-200/70">
+                <label className="flex items-start gap-2 cursor-pointer text-[10px] text-slate-800 leading-snug">
+                  <input
+                    type="checkbox"
+                    className="rounded border-slate-300 mt-0.5 shrink-0"
+                    checked={annualSeatUi.draft?.bookerJoinsProgram !== false}
+                    onChange={(e) => {
+                      e.stopPropagation();
+                      annualSeatUi.onPatchDraft(p.id, { bookerJoinsProgram: e.target.checked });
+                    }}
+                  />
+                  <span>
+                    {includedPkg ? (
+                      <>
+                        <span className="font-semibold text-slate-900">Include me on the roster.</span> Your annual package
+                        covers your seat (no extra charge). Uncheck if only your selected guests are attending.
+                      </>
+                    ) : (
+                      <span className="font-semibold text-slate-900">I am enrolling myself</span>
+                    )}
+                  </span>
+                </label>
+              </div>
+            ) : null}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 flex-1 min-h-0 pt-2">
               <div className="min-w-0">
                 <p className="text-[10px] font-bold uppercase tracking-wide text-slate-500 mb-2">Immediate family</p>
@@ -772,32 +797,6 @@ export default function DashboardUpcomingProgramRowItem({
                 ) : null}
 
                 <div className="w-full flex flex-col gap-0 divide-y divide-slate-200">
-                  <div className="py-2 first:pt-0">
-                    <label className="flex items-start gap-2 cursor-pointer text-[10px] text-slate-800 leading-snug">
-                      <input
-                        type="checkbox"
-                        className="rounded border-slate-300 mt-0.5 shrink-0"
-                        checked={annualSeatUi.draft?.bookerJoinsProgram !== false}
-                        onChange={(e) => {
-                          e.stopPropagation();
-                          annualSeatUi.onPatchDraft(p.id, { bookerJoinsProgram: e.target.checked });
-                        }}
-                      />
-                      <span>
-                        {includedPkg ? (
-                          <>
-                            <span className="font-semibold text-slate-900">Include me on the roster.</span> Your annual package
-                            covers your seat (no extra charge). Uncheck if only your selected guests are attending.
-                          </>
-                        ) : (
-                          <>
-                            <span className="font-semibold text-slate-900">I am enrolling myself</span> — my seat is billed on
-                            this order. Uncheck if you are only enrolling family or friends.
-                          </>
-                        )}
-                      </span>
-                    </label>
-                  </div>
                   <div className="flex flex-col min-[680px]:flex-row min-[680px]:items-center gap-2 py-2 first:pt-0 w-full">
                     <span className="text-[9px] font-bold uppercase tracking-wide text-slate-500 shrink-0 min-w-[7.5rem]">
                       Attendance
