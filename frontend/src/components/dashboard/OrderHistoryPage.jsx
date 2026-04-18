@@ -117,7 +117,7 @@ const OrderHistoryPage = () => {
           <ClipboardList className="text-[#5D3FD3]" size={22} />
         </div>
         <div className="min-w-0 flex-1">
-          <h1 className="text-2xl font-bold text-gray-900">Order history</h1>
+          <h1 className="text-2xl font-bold text-gray-900">My order history</h1>
           <p className="text-sm text-gray-500 mt-0.5">
             Programs, sessions, and contributions linked to your portal email and your Client Garden record (as booker,
             participant, or donor).
