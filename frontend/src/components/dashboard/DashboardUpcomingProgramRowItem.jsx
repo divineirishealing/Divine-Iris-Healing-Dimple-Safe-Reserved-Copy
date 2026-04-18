@@ -448,7 +448,7 @@ export default function DashboardUpcomingProgramRowItem({
   return (
     <div className={outerShellClass} data-testid={`dashboard-upcoming-${p.id}`}>
       {subscriberIsAnnual ? (
-        <div className="w-full flex flex-col gap-4">
+        <div className="w-full flex flex-col gap-4 rounded-2xl border border-slate-200/80 bg-white p-3 sm:p-4 md:p-5 shadow-sm box-border">
         {/* xl: narrower left column → wider right stack (closer to healing-scene mug on the right) */}
         <div className="w-full flex flex-col gap-4 xl:grid xl:grid-cols-[minmax(0,24rem)_minmax(18rem,1fr)] xl:items-stretch xl:gap-4 xl:min-h-0">
           {/* 1 — Program card; grid caps width on xl (non-annual still uses max-w-md ~28rem) */}
@@ -988,8 +988,8 @@ export default function DashboardUpcomingProgramRowItem({
           </div>
         </div>
 
-        {/* Know More + Divine Cart — one row on sm+ so both align */}
-        <div className="flex flex-col sm:flex-row gap-3 w-full sm:items-center sm:justify-between pt-1 border-t border-slate-200/70">
+        {/* Know More + Divine Cart — inside same white shell as grid; inset from cup text */}
+        <div className="flex flex-col sm:flex-row gap-3 w-full sm:items-center sm:justify-between pt-3 mt-1 border-t border-slate-200/70">
           <div className="w-full sm:w-[min(100%,28rem)] xl:w-[min(100%,24rem)] sm:shrink-0">
             {enrollStatus === 'open' ? (
               <button
@@ -999,7 +999,7 @@ export default function DashboardUpcomingProgramRowItem({
                   goProgram();
                 }}
                 data-testid={`dashboard-know-more-annual-${p.id}`}
-                className="w-full inline-flex items-center justify-center bg-[#1a1a1a] hover:bg-[#333] text-white py-2.5 px-6 rounded-full text-[10px] tracking-wider transition-all duration-300 uppercase font-medium"
+                className="w-full inline-flex items-center justify-center bg-[#1a1a1a] hover:bg-[#333] text-white py-2.5 px-5 rounded-full text-[10px] tracking-wider transition-all duration-300 uppercase font-medium"
               >
                 Know More
               </button>
@@ -1036,7 +1036,7 @@ export default function DashboardUpcomingProgramRowItem({
                     : undefined
                 }
                 onClick={handleAddToDivineCart}
-                className="w-full inline-flex items-center justify-center gap-2 rounded-full py-2.5 px-6 text-[10px] tracking-wider uppercase font-medium transition-all duration-300 bg-[#D4AF37] text-white hover:bg-[#b8962e] disabled:opacity-50 disabled:pointer-events-none shadow-sm"
+                className="w-full inline-flex items-center justify-center gap-2 rounded-full py-2.5 px-5 text-[10px] tracking-wider uppercase font-medium transition-all duration-300 bg-[#D4AF37] text-white hover:bg-[#b8962e] disabled:opacity-50 disabled:pointer-events-none shadow-sm"
                 aria-label="Add to Divine Cart"
                 data-testid={`dashboard-divine-cart-${p.id}`}
               >
@@ -1051,7 +1051,7 @@ export default function DashboardUpcomingProgramRowItem({
               <button
                 type="button"
                 disabled
-                className="w-full inline-flex items-center justify-center gap-2 rounded-full py-2.5 px-6 text-[10px] tracking-wider uppercase font-medium bg-gray-300 text-gray-500 cursor-not-allowed shadow-sm"
+                className="w-full inline-flex items-center justify-center gap-2 rounded-full py-2.5 px-5 text-[10px] tracking-wider uppercase font-medium bg-gray-300 text-gray-500 cursor-not-allowed shadow-sm"
                 aria-label="Add to Divine Cart"
                 data-testid={`dashboard-divine-cart-${p.id}`}
               >
