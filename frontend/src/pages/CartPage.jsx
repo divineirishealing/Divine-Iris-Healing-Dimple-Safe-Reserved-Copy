@@ -459,7 +459,6 @@ function CartPage() {
         const p = item.participants[i];
         if (!p.name.trim()) { toast({ title: `${item.programTitle}: Participant ${i + 1} needs a name`, variant: 'destructive' }); return false; }
         if (!p.relationship) { toast({ title: `${item.programTitle}: Participant ${i + 1} needs relationship`, variant: 'destructive' }); return false; }
-        if (!p.age || parseInt(p.age) < 5) { toast({ title: `${item.programTitle}: Participant ${i + 1} needs valid age (5+)`, variant: 'destructive' }); return false; }
         if (!p.gender) { toast({ title: `${item.programTitle}: Participant ${i + 1} needs gender`, variant: 'destructive' }); return false; }
         if (!p.country) { toast({ title: `${item.programTitle}: Participant ${i + 1} needs country`, variant: 'destructive' }); return false; }
         if (!p.city || !p.city.trim()) { toast({ title: `${item.programTitle}: Participant ${i + 1} needs city`, variant: 'destructive' }); return false; }
@@ -512,7 +511,7 @@ function CartPage() {
           const refEmailRaw = (p.referred_by_email || '').trim().toLowerCase();
           const refEmail = (p.has_referral || p.referral_source === 'Friend / Family') && refEmailRaw ? refEmailRaw : null;
           return {
-            name: p.name, relationship: p.relationship, age: parseInt(p.age),
+            name: p.name, relationship: p.relationship, age: parseInt(p.age, 10) || 0,
             gender: p.gender, country: p.country, city: p.city, state: p.state, attendance_mode: p.attendance_mode,
             notify: p.notify, email: p.email || null,
             phone: p.notify && p.phone ? `${p.phone_code || ''}${p.phone}` : null,

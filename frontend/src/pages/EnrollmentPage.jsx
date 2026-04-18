@@ -118,7 +118,7 @@ const ParticipantRow = ({ index, data, onChange, onRemove, canRemove, showReferr
       </div>
       <div className="grid grid-cols-3 gap-2 mb-2">
         <div><label className="text-[9px] text-gray-500">Age *</label>
-          <Input data-testid={`p-age-${index}`} type="number" min="5" max="120" value={data.age} onChange={e => update('age', e.target.value)} placeholder="Age" className="text-xs h-8" /></div>
+          <Input data-testid={`p-age-${index}`} type="number" min="0" max="120" value={data.age} onChange={e => update('age', e.target.value)} placeholder="Age" className="text-xs h-8" /></div>
         <div><label className="text-[9px] text-gray-500">Gender *</label>
           <select data-testid={`p-gender-${index}`} value={data.gender} onChange={e => update('gender', e.target.value)} className="w-full border rounded-md px-2 py-1.5 text-xs bg-white h-8">
             <option value="">Select</option>{GENDERS.map(g => <option key={g} value={g}>{g}</option>)}
@@ -661,7 +661,13 @@ function EnrollmentPage() {
       const p = participants[i];
       if (!p.name.trim()) return toast({ title: `Participant ${i + 1}: Enter name`, variant: 'destructive' });
       if (!p.relationship) return toast({ title: `Participant ${i + 1}: Select relationship`, variant: 'destructive' });
-      if (!p.age || parseInt(p.age) < 5) return toast({ title: `Participant ${i + 1}: Enter valid age`, variant: 'destructive' });
+      const ageRaw = String(p.age ?? '').trim();
+      if (ageRaw !== '') {
+        const an = parseInt(ageRaw, 10);
+        if (!Number.isFinite(an) || an < 0 || an > 120) {
+          return toast({ title: `Participant ${i + 1}: Enter a valid age (0–120)`, variant: 'destructive' });
+        }
+      }
       if (!p.gender) return toast({ title: `Participant ${i + 1}: Select gender`, variant: 'destructive' });
       if (!p.country) return toast({ title: `Participant ${i + 1}: Select country`, variant: 'destructive' });
       if (!p.city || !p.city.trim()) return toast({ title: `Participant ${i + 1}: Enter city`, variant: 'destructive' });
@@ -687,7 +693,7 @@ function EnrollmentPage() {
           const refName = p.has_referral ? (p.referred_by_name || '') : (p.referral_source === 'Friend / Family' ? (p.referred_by_name || '') : '');
           const refEmailRaw = (p.referred_by_email || '').trim().toLowerCase();
           const refEmail = (p.has_referral || p.referral_source === 'Friend / Family') && refEmailRaw ? refEmailRaw : null;
-          return { name: p.name, relationship: p.relationship, age: parseInt(p.age), gender: p.gender, country: p.country, city: p.city, state: p.state, attendance_mode: p.attendance_mode, notify: p.notify, email: p.notify ? p.email : null, phone: p.notify && p.phone ? `${p.phone_code || ''}${p.phone}` : null, whatsapp: p.whatsapp ? `${p.wa_code || ''}${p.whatsapp}` : null, is_first_time: p.is_first_time || false, referral_source: p.referral_source || '', referred_by_name: refName, referred_by_email: refEmail };
+          return { name: p.name, relationship: p.relationship, age: parseInt(String(p.age).trim(), 10) || 0, gender: p.gender, country: p.country, city: p.city, state: p.state, attendance_mode: p.attendance_mode, notify: p.notify, email: p.notify ? p.email : null, phone: p.notify && p.phone ? `${p.phone_code || ''}${p.phone}` : null, whatsapp: p.whatsapp ? `${p.wa_code || ''}${p.whatsapp}` : null, is_first_time: p.is_first_time || false, referral_source: p.referral_source || '', referred_by_name: refName, referred_by_email: refEmail };
         }),
       });
       const eid = enrollRes.data.enrollment_id;

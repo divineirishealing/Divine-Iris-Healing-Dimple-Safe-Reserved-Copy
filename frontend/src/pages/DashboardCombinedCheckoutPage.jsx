@@ -617,13 +617,6 @@ export default function DashboardCombinedCheckoutPage() {
           });
           return false;
         }
-        if (!p.age || parseInt(p.age, 10) < 5) {
-          toast({
-            title: `${item.programTitle}: Participant ${i + 1} needs valid age (5+)`,
-            variant: 'destructive',
-          });
-          return false;
-        }
         if (!p.gender) {
           toast({
             title: `${item.programTitle}: Participant ${i + 1} needs gender`,
@@ -1057,22 +1050,25 @@ export default function DashboardCombinedCheckoutPage() {
 
             {!enrollmentId ? (
               <div className="w-full space-y-3" data-testid="dashboard-combined-verify">
-                <h2 className="w-full text-lg sm:text-xl font-semibold text-gray-900 flex items-center gap-2">
-                  <ShieldCheck size={20} className="text-[#D4AF37] shrink-0" /> Continue to payment
-                </h2>
                 <p className="text-sm text-gray-600 leading-relaxed">
                   Review the list above, then continue.
                 </p>
                 <Button
                   onClick={startTrustedEnrollment}
                   disabled={enrollmentSubmitLoading}
-                  className="w-full bg-[#D4AF37] hover:bg-[#b8962e] text-white py-4 text-base font-semibold rounded-xl shadow-sm"
+                  className="w-full bg-[#D4AF37] hover:bg-[#b8962e] text-white py-4 rounded-xl shadow-sm flex flex-col gap-1 items-center justify-center min-h-[3.5rem]"
                 >
                   {enrollmentSubmitLoading ? (
-                    <Loader2 className="animate-spin" size={18} />
+                    <Loader2 className="animate-spin" size={22} />
                   ) : (
                     <>
-                      <ChevronRight size={18} className="mr-2" /> Save enrollment &amp; show payment options
+                      <span className="flex items-center gap-2 text-base sm:text-lg font-semibold">
+                        <ChevronRight size={20} className="shrink-0" aria-hidden />
+                        Continue to payment
+                      </span>
+                      <span className="text-xs sm:text-sm font-normal text-white/90 leading-snug">
+                        Save enrollment &amp; show payment options
+                      </span>
                     </>
                   )}
                 </Button>
