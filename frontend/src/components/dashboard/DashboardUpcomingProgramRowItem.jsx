@@ -614,14 +614,7 @@ export default function DashboardUpcomingProgramRowItem({
                 onClick={() => setAnnualFamilyOpen((o) => !o)}
                 aria-expanded={annualFamilyOpen}
               >
-                <span className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5 min-w-0">
-                  {annualSeatUi?.bookerDisplayName ? (
-                    <span className="text-[11px] font-semibold text-slate-900 truncate max-w-[12rem] sm:max-w-[16rem]">
-                      {annualSeatUi.bookerDisplayName}
-                    </span>
-                  ) : null}
-                  <span className="text-[10px] font-bold uppercase tracking-wide text-slate-600">Family to join</span>
-                </span>
+                <span className="text-[10px] font-bold uppercase tracking-wide text-slate-600">Family to join</span>
                 <ChevronDown
                   className={`h-4 w-4 text-slate-500 shrink-0 transition-transform ${annualFamilyOpen ? '' : '-rotate-90'}`}
                   aria-hidden
