@@ -24,6 +24,7 @@ import { useAuth } from '../context/AuthContext';
 import { readUpcomingDashboardSession } from '../lib/dashboardUpcomingSessionStorage';
 import {
   buildAnnualDashboardCartParticipants,
+  buildFullPortalRosterCartParticipants,
   buildSelfOnlyCartParticipants,
 } from '../lib/dashboardCartPrefill';
 import { programIncludedInAnnualPackage } from '../components/dashboard/dashboardUpcomingHelpers';
@@ -253,7 +254,9 @@ export default function DashboardCombinedCheckoutPage() {
               detectedCountry,
             });
           } else {
-            participants = buildSelfOnlyCartParticipants(self, program, email, detectedCountry);
+            participants =
+              buildFullPortalRosterCartParticipants(program, pre, email, detectedCountry) ||
+              buildSelfOnlyCartParticipants(self, program, email, detectedCountry);
           }
           if (participants && participants.length > 0) {
             syncProgramLineItem(program, line.tierIndex, participants);

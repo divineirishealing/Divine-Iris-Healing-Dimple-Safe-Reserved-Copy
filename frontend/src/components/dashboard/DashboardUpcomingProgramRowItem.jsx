@@ -26,6 +26,7 @@ import {
 } from './dashboardUpcomingHelpers';
 import {
   buildAnnualDashboardCartParticipants,
+  buildFullPortalRosterCartParticipants,
   buildSelfOnlyCartParticipants,
 } from '../../lib/dashboardCartPrefill';
 import { getAuthHeaders } from '../../lib/authHeaders';
@@ -266,7 +267,8 @@ export default function DashboardUpcomingProgramRowItem({
         withCredentials: true,
         headers: getAuthHeaders(),
       });
-      const self = r.data?.self;
+      const pre = r.data || {};
+      const self = pre.self;
       if (subscriberIsAnnual) {
         participants = buildAnnualDashboardCartParticipants({
           program: p,
@@ -279,7 +281,9 @@ export default function DashboardUpcomingProgramRowItem({
           detectedCountry,
         });
       } else {
-        participants = buildSelfOnlyCartParticipants(self, p, bookerEmail, detectedCountry);
+        participants =
+          buildFullPortalRosterCartParticipants(p, pre, bookerEmail, detectedCountry) ||
+          buildSelfOnlyCartParticipants(self, p, bookerEmail, detectedCountry);
       }
     } catch {
       /* empty row */

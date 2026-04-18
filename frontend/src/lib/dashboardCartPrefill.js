@@ -274,9 +274,12 @@ export function buildFullPortalRosterCartParticipants(programLike, pre, bookerEm
   };
   const selfRows = buildSelfOnlyCartParticipants(pre?.self, prog, bookerEmail, detectedCountry);
   const rows = selfRows ? [...selfRows] : [];
+  const bookerEm = String(bookerEmail || pre?.self?.email || '').trim().toLowerCase();
   const fam = [...(pre?.immediate_family || []), ...(pre?.other_guests || [])];
   for (const m of fam) {
     if (!String(m.name || '').trim()) continue;
+    const memEm = String(m.email || '').trim().toLowerCase();
+    if (bookerEm && memEm && memEm === bookerEm) continue;
     const split = splitPhoneForCart(m.phone || '', COUNTRIES_WITH_PHONE);
     const country = resolveCountryCode(m.country, detectedCountry);
     const age = String(m.age || '').trim() || ageFromDobIso(m.date_of_birth);

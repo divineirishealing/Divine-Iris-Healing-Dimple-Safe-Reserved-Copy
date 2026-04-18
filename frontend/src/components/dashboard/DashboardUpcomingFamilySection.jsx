@@ -10,6 +10,7 @@ import DashboardProgramPaymentModal from './DashboardProgramPaymentModal';
 import { pickTierIndexForDashboard, programIncludedInAnnualPackage } from './dashboardUpcomingHelpers';
 import {
   buildAnnualDashboardCartParticipants,
+  buildFullPortalRosterCartParticipants,
   buildSelfOnlyCartParticipants,
 } from '../../lib/dashboardCartPrefill';
 import {
@@ -645,6 +646,7 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh, bo
         { withCredentials: true }
       );
       toast({ title: 'Family saved', description: 'Your immediate family list has been updated.' });
+      enrollmentPrefillCacheRef.current = null;
       onRefresh?.();
     } catch (err) {
       toast({
@@ -681,6 +683,7 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh, bo
         title: 'Guest list saved',
         description: 'Your friends & extended list has been updated.',
       });
+      enrollmentPrefillCacheRef.current = null;
       onRefresh?.();
     } catch (err) {
       toast({
@@ -1213,7 +1216,9 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh, bo
           detectedCountry,
         });
       } else {
-        participants = buildSelfOnlyCartParticipants(pre.self, p, bookerEmail, detectedCountry);
+        participants =
+          buildFullPortalRosterCartParticipants(p, pre, bookerEmail, detectedCountry) ||
+          buildSelfOnlyCartParticipants(pre.self, p, bookerEmail, detectedCountry);
       }
     } catch {
       /* syncProgramLineItem will add a blank row if build failed */
