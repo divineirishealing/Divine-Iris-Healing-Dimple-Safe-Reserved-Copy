@@ -12,6 +12,7 @@ import {
   buildAnnualDashboardCartParticipants,
   buildSelfOnlyCartParticipants,
 } from '../../lib/dashboardCartPrefill';
+import { getAuthHeaders } from '../../lib/authHeaders';
 import DashboardUpcomingProgramRowItem from './DashboardUpcomingProgramRowItem';
 import { Button } from '../ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '../ui/dialog';
@@ -1183,7 +1184,10 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh, bo
 
   const loadEnrollmentPrefill = async () => {
     if (enrollmentPrefillCacheRef.current) return enrollmentPrefillCacheRef.current;
-    const r = await axios.get(`${API}/api/student/enrollment-prefill`, { withCredentials: true });
+    const r = await axios.get(`${API}/api/student/enrollment-prefill`, {
+      withCredentials: true,
+      headers: getAuthHeaders(),
+    });
     enrollmentPrefillCacheRef.current = r.data || {};
     return enrollmentPrefillCacheRef.current;
   };

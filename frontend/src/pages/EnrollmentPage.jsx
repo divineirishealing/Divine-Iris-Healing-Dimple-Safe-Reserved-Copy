@@ -7,6 +7,7 @@ import { useToast } from '../hooks/use-toast';
 import { useCurrency } from '../context/CurrencyContext';
 import { useCart } from '../context/CartContext';
 import { resolveImageUrl } from '../lib/imageUtils';
+import { getAuthHeaders } from '../lib/authHeaders';
 import { Input } from '../components/ui/input';
 import { Button } from '../components/ui/button';
 import {
@@ -381,7 +382,7 @@ function EnrollmentPage() {
     if (dashboardPrefillDoneRef.current) return;
     dashboardPrefillDoneRef.current = true;
     axios
-      .get(`${API}/student/enrollment-prefill`, { withCredentials: true })
+      .get(`${API}/student/enrollment-prefill`, { withCredentials: true, headers: getAuthHeaders() })
       .then((r) => {
         const s = r.data?.self || {};
         if (!s.name && !s.email) return;

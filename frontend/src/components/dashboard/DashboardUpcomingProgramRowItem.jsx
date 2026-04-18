@@ -28,6 +28,7 @@ import {
   buildAnnualDashboardCartParticipants,
   buildSelfOnlyCartParticipants,
 } from '../../lib/dashboardCartPrefill';
+import { getAuthHeaders } from '../../lib/authHeaders';
 
 const API_ROOT = process.env.REACT_APP_BACKEND_URL;
 
@@ -261,7 +262,10 @@ export default function DashboardUpcomingProgramRowItem({
     e.stopPropagation();
     let participants = null;
     try {
-      const r = await axios.get(`${API_ROOT}/api/student/enrollment-prefill`, { withCredentials: true });
+      const r = await axios.get(`${API_ROOT}/api/student/enrollment-prefill`, {
+        withCredentials: true,
+        headers: getAuthHeaders(),
+      });
       const self = r.data?.self;
       if (subscriberIsAnnual) {
         participants = buildAnnualDashboardCartParticipants({

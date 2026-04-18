@@ -217,3 +217,73 @@ export function buildAnnualDashboardCartParticipants({
 
   return participants.length > 0 ? participants : null;
 }
+
+/** Blank row matching CartPage / CartContext shape (pad when roster shorter than existing slots). */
+export function emptyCartParticipantSlot(programLike) {
+  const mode = programLike.session_mode ?? programLike.sessionMode;
+  const defaultMode = mode === 'remote' ? 'offline' : 'online';
+  return {
+    name: '',
+    relationship: 'Myself',
+    age: '',
+    gender: '',
+    country: '',
+    city: '',
+    state: '',
+    attendance_mode: defaultMode,
+    notify: mode !== 'remote',
+    email: '',
+    phone: '',
+    whatsapp: '',
+    phone_code: '',
+    wa_code: '',
+    is_first_time: true,
+    referral_source: '',
+    referred_by_email: '',
+    referred_by_name: '',
+    has_referral: false,
+  };
+}
+
+/**
+ * Logged-in cart recovery: self + every saved immediate/other guest from enrollment-prefill API.
+ * Uses each member's saved attendance_mode / notify when present.
+ */
+export function buildFullPortalRosterCartParticipants(programLike, pre, bookerEmail, detectedCountry) {
+  const prog = {
+    ...programLike,
+    session_mode: programLike.session_mode ?? programLike.sessionMode,
+  };
+  const selfRows = buildSelfOnlyCartParticipants(pre?.self, prog, bookerEmail, detectedCountry);
+  const rows = selfRows ? [...selfRows] : [];
+  const fam = [...(pre?.immediate_family || []), ...(pre?.other_guests || [])];
+  for (const m of fam) {
+    if (!String(m.name || '').trim()) continue;
+    const split = splitPhoneForCart(m.phone || '', COUNTRIES_WITH_PHONE);
+    const country = resolveCountryCode(m.country, detectedCountry);
+    const age = String(m.age || '').trim() || ageFromDobIso(m.date_of_birth);
+    const city = String(m.city || '').trim();
+    const attendance_mode = m.attendance_mode === 'offline' ? 'offline' : 'online';
+    const notify = attendance_mode === 'online' || !!m.notify_enrollment;
+    rows.push(
+      baseParticipant(prog, {
+        name: String(m.name || '').trim(),
+        relationship: String(m.relationship || 'Other').trim() || 'Other',
+        age: age || '',
+        gender: 'Prefer not to say',
+        country,
+        city,
+        state: city ? 'N/A' : 'N/A',
+        attendance_mode,
+        notify,
+        email: String(m.email || '').trim(),
+        phone: split.phone,
+        phone_code: split.phone_code,
+        whatsapp: split.whatsapp,
+        wa_code: split.wa_code,
+        is_first_time: false,
+      })
+    );
+  }
+  return rows.length > 0 ? rows : null;
+}

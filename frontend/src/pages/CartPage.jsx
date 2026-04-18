@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import Header from '../components/Header';
@@ -15,6 +15,9 @@ import {
 } from 'lucide-react';
 import { ShieldCheck, ShieldAlert } from 'lucide-react';
 import MotivationalSignupFlash from '../components/MotivationalSignupFlash';
+import { useAuth } from '../context/AuthContext';
+import { getAuthHeaders } from '../lib/authHeaders';
+import { buildFullPortalRosterCartParticipants, emptyCartParticipantSlot } from '../lib/dashboardCartPrefill';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
@@ -374,9 +377,11 @@ const CartItemCard = ({ item, onRemove, onUpdateParticipants, symbol, getItemPri
 
 function CartPage() {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const { items, removeItem, updateItemParticipants, clearCart } = useCart();
   const { getPrice, getOfferPrice, symbol, baseCurrency, country: detectedCountry } = useCurrency();
   const { toast } = useToast();
+  const portalCartBackfillInFlight = useRef(false);
   const [discountSettings, setDiscountSettings] = useState({ enable_referral: true, checkout_promo_code_visible: true });
   const [paymentDisclaimer, setPaymentDisclaimer] = useState('');
   const [disclaimerStyle, setDisclaimerStyle] = useState({});
@@ -399,6 +404,64 @@ function CartPage() {
       setPromoResult(null);
     }
   }, [discountSettings.checkout_promo_code_visible]);
+
+  /** If logged in with Bearer token, recover empty cart rows from /student/enrollment-prefill (same auth as dashboard). */
+  useEffect(() => {
+    if (items.length === 0) return;
+    let token = '';
+    try {
+      token = localStorage.getItem('session_token') || '';
+    } catch {
+      return;
+    }
+    if (!token) return;
+
+    const targets = items.filter(
+      (item) =>
+        item.type === 'program' &&
+        item.participants.length > 0 &&
+        item.participants.every((p) => !String(p.name || '').trim()),
+    );
+    if (targets.length === 0) return;
+    if (portalCartBackfillInFlight.current) return;
+    portalCartBackfillInFlight.current = true;
+    let cancelled = false;
+
+    (async () => {
+      try {
+        const r = await axios.get(`${API}/student/enrollment-prefill`, {
+          withCredentials: true,
+          headers: getAuthHeaders(),
+        });
+        if (cancelled) return;
+        const pre = r.data;
+        const bookerEmail = (user?.email || '').trim();
+        targets.forEach((item) => {
+          const roster = buildFullPortalRosterCartParticipants(item, pre, bookerEmail, detectedCountry);
+          if (!roster?.length) return;
+          const n = item.participants.length;
+          const merged = roster.slice(0, n);
+          while (merged.length < n) {
+            merged.push(emptyCartParticipantSlot(item));
+          }
+          updateItemParticipants(item.id, merged);
+        });
+        toast({
+          title: 'Filled from your portal',
+          description: 'Your profile and saved family list were applied — review each program, then continue.',
+        });
+      } catch {
+        /* not logged in or prefill unavailable */
+      } finally {
+        portalCartBackfillInFlight.current = false;
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+      portalCartBackfillInFlight.current = false;
+    };
+  }, [items, user?.email, detectedCountry, updateItemParticipants, toast]);
 
   // Country is NOT auto-filled — user must select manually
 
