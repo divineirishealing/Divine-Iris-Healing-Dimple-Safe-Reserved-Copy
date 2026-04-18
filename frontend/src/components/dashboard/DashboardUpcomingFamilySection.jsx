@@ -378,8 +378,6 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh, bo
   const [saving, setSaving] = useState(false);
   const [promoByProgramId, setPromoByProgramId] = useState({});
   const [promoPricesLoading, setPromoPricesLoading] = useState(false);
-  /** Profile + family from API — used for cart “who’s included” preview on each row. */
-  const [portalEnrollmentPreview, setPortalEnrollmentPreview] = useState(null);
   const [selectedFamilyByProgram, setSelectedFamilyByProgram] = useState({});
   const [annualQuotes, setAnnualQuotes] = useState({});
   const [payingProgramId, setPayingProgramId] = useState(null);
@@ -1194,21 +1192,6 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh, bo
     return enrollmentPrefillCacheRef.current;
   }, []);
 
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      try {
-        const d = await loadEnrollmentPrefill();
-        if (!cancelled) setPortalEnrollmentPreview(d);
-      } catch {
-        if (!cancelled) setPortalEnrollmentPreview(null);
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [loadEnrollmentPrefill, bookerEmail]);
-
   const addProgramToCartAndGo = async (p, tierOverride = null) => {
     const tierIdx = tierOverride != null ? tierOverride : pickTierIndexForDashboard(p, isAnnual);
     const tier = tierIdx == null ? 0 : tierIdx;
@@ -1344,7 +1327,6 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh, bo
                   program={p}
                   isAnnual={isAnnual}
                   bookerEmail={bookerEmail}
-                  portalEnrollmentPreview={portalEnrollmentPreview}
                   detectedCountry={detectedCountry}
                   symbol={symbol}
                   currency={currency}

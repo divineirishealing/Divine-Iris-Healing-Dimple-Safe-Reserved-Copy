@@ -61,6 +61,20 @@ const emptyParticipant = (mode = 'online') => ({
   is_first_time: true, referral_source: '', referred_by_email: '',
 });
 
+function cartParticipantAttendanceLabel(p) {
+  if (p.attendance_mode === 'online') return 'Online (Zoom)';
+  if (p.attendance_mode === 'in_person') return 'In person';
+  return 'Offline / remote';
+}
+
+function cartParticipantNotifyEmailSummary(p) {
+  const wantsNotify = p.attendance_mode === 'online' || p.notify;
+  if (!wantsNotify) return 'No email updates';
+  const em = String(p.email || '').trim();
+  if (em) return em;
+  return 'Notifications on — add email below';
+}
+
 const CartItemCard = ({ item, onRemove, onUpdateParticipants, symbol, getItemPrice, getItemOfferPrice, showReferral, detectedCountry, copySource, crossSellDiscount, vipOffer }) => {
   const [expanded, setExpanded] = useState(true);
   const tier = item.durationTiers?.[item.tierIndex];
@@ -152,6 +166,52 @@ const CartItemCard = ({ item, onRemove, onUpdateParticipants, symbol, getItemPri
             <Trash2 size={16} />
           </button>
         </div>
+      </div>
+
+      <div
+        data-testid={`cart-one-eye-${item.id}`}
+        className="px-4 py-3 border-b bg-gradient-to-b from-violet-50/40 to-white"
+      >
+        <p className="text-[10px] font-semibold text-slate-600 uppercase tracking-wide mb-2">
+          Who is enrolling (summary)
+        </p>
+        <div className="overflow-x-auto -mx-1 px-1">
+          <table className="w-full text-[10px] text-left border-collapse min-w-[280px]">
+            <thead>
+              <tr className="text-slate-500 border-b border-slate-200/80">
+                <th className="py-1.5 pr-2 font-medium align-bottom">Name</th>
+                <th className="py-1.5 pr-2 font-medium align-bottom">Role</th>
+                <th className="py-1.5 pr-2 font-medium align-bottom">Attendance</th>
+                <th className="py-1.5 font-medium align-bottom">Email / updates</th>
+              </tr>
+            </thead>
+            <tbody>
+              {item.participants.map((p, idx) => {
+                const name = String(p.name || '').trim() || `Participant ${idx + 1}`;
+                const role = String(p.relationship || '').trim() || '—';
+                return (
+                  <tr key={idx} className="border-b border-slate-100/90 last:border-0 text-slate-800">
+                    <td className="py-2 pr-2 font-medium text-slate-900 max-w-[7rem] truncate" title={name}>
+                      {name}
+                    </td>
+                    <td className="py-2 pr-2 text-slate-600 max-w-[5.5rem] truncate" title={role}>
+                      {role}
+                    </td>
+                    <td className="py-2 pr-2 text-slate-600 whitespace-nowrap">
+                      {cartParticipantAttendanceLabel(p)}
+                    </td>
+                    <td className="py-2 text-slate-600 max-w-[10rem] truncate" title={cartParticipantNotifyEmailSummary(p)}>
+                      {cartParticipantNotifyEmailSummary(p)}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+        <p className="text-[9px] text-slate-500 mt-2 leading-relaxed">
+          Expand <strong className="text-slate-600 font-medium">Participants</strong> below to edit full details for checkout.
+        </p>
       </div>
 
       {/* Participants toggle */}

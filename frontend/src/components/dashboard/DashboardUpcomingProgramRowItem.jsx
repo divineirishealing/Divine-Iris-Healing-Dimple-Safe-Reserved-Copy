@@ -32,47 +32,6 @@ import { getAuthHeaders } from '../../lib/authHeaders';
 
 const API_ROOT = process.env.REACT_APP_BACKEND_URL;
 
-/** Row-wise summary of who and which prefs go into the cart (matches prefill logic). */
-function CartAddParticipantPreviewTable({ rows }) {
-  if (!rows?.length) return null;
-  return (
-    <div
-      className="rounded-xl border-2 border-[#D4AF37]/45 bg-gradient-to-b from-amber-50/90 via-white to-white overflow-hidden shadow-md ring-1 ring-[#D4AF37]/15"
-      data-testid="dashboard-cart-add-preview"
-    >
-      <p className="text-[10px] sm:text-[11px] font-bold uppercase tracking-wide text-[#5c4a12] px-3 py-2 bg-amber-100/90 border-b border-amber-200/80">
-        Cart — who is included &amp; preferences
-      </p>
-      <div className="overflow-x-auto max-w-full">
-        <table className="w-full min-w-[280px] text-left text-[11px] sm:text-xs">
-          <thead>
-            <tr className="text-slate-600 border-b border-amber-100/90 bg-amber-50/50">
-              <th className="px-3 py-2 font-bold whitespace-nowrap">Name</th>
-              <th className="px-2 py-2 font-bold whitespace-nowrap">Role</th>
-              <th className="px-2 py-2 font-bold whitespace-nowrap">Attendance</th>
-              <th className="px-2 py-2 font-bold min-w-[7rem]">Enrollment email</th>
-              <th className="px-2 py-2 font-bold whitespace-nowrap">Notify</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-amber-100/80">
-            {rows.map((row) => (
-              <tr key={row.key} className="text-slate-900 bg-white/80">
-                <td className="px-3 py-2 font-semibold align-top max-w-[11rem] break-words">{row.name}</td>
-                <td className="px-2 py-2 text-slate-700 align-top whitespace-nowrap">{row.role}</td>
-                <td className="px-2 py-2 align-top whitespace-nowrap font-medium">{row.attendance}</td>
-                <td className="px-2 py-2 align-top text-slate-800 break-all max-w-[14rem]">{row.emailCell}</td>
-                <td className="px-2 py-2 align-top whitespace-nowrap">
-                  {row.notifyOn ? <span className="text-emerald-800 font-semibold">On</span> : <span className="text-slate-500 font-medium">Off</span>}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-    </div>
-  );
-}
-
 /** Portal quote: list layout, or compact “offer per person” under Pricing & offer. */
 function AnnualQuoteBreakdown({ aq, symbol, includedPkg, suppressIntro = false, layout = 'list' }) {
   if (!aq) {
@@ -224,7 +183,6 @@ export default function DashboardUpcomingProgramRowItem({
   program: p,
   isAnnual: subscriberIsAnnual,
   bookerEmail = '',
-  portalEnrollmentPreview = null,
   detectedCountry,
   symbol,
   currency,
@@ -299,88 +257,6 @@ export default function DashboardUpcomingProgramRowItem({
   const [annualPricingOpen, setAnnualPricingOpen] = useState(true);
   const [annualFamilyOpen, setAnnualFamilyOpen] = useState(true);
   const [annualAttendanceOpen, setAnnualAttendanceOpen] = useState(true);
-
-  const addToCartPreviewRows = useMemo(() => {
-    const selfSnap = portalEnrollmentPreview?.self;
-    const bookerMail = (bookerEmail || selfSnap?.email || '').trim();
-
-    if (subscriberIsAnnual) {
-      const rows = [];
-      const draft = annualSeatUi?.draft;
-      const guestForm = draft?.guestSeatForm || {};
-
-      if (!includedPkg) {
-        const mode = (draft?.bookerSeatMode || 'online') === 'offline' ? 'Offline' : 'Online';
-        const notifyOn = draft?.bookerSeatNotify !== false;
-        const needsEmail = notifyOn || mode === 'Online';
-        rows.push({
-          key: 'booker',
-          name: annualSeatUi?.bookerDisplayName || 'You',
-          role: 'Myself',
-          attendance: mode,
-          emailCell: needsEmail ? bookerMail || '—' : '—',
-          notifyOn,
-        });
-      }
-
-      for (const id of selIds) {
-        const m = enrollableGuests.find((g) => String(g.id) === String(id));
-        if (!m?.name?.trim()) continue;
-        const row = guestForm[id] || {};
-        const mode = row.attendance_mode === 'offline' ? 'Offline' : 'Online';
-        const notifyG = !!row.notify_enrollment;
-        const notifyOn = mode === 'Online' || notifyG;
-        const em = (m.email || '').trim();
-        const needsEmail = notifyOn;
-        rows.push({
-          key: String(id),
-          name: m.name.trim(),
-          role: (m.relationship || 'Guest').trim() || 'Guest',
-          attendance: mode,
-          emailCell: needsEmail ? em || '—' : '—',
-          notifyOn,
-        });
-      }
-
-      if (includedPkg && rows.length === 0) {
-        rows.push({
-          key: 'annual-included-only',
-          name: annualSeatUi?.bookerDisplayName || 'You',
-          role: 'Seat included (no paid add-ons yet)',
-          attendance: '—',
-          emailCell: 'Pick guests under “Family to join” — they will show here with attendance & email',
-          notifyOn: false,
-        });
-      }
-
-      return rows;
-    }
-
-    const name = (selfSnap?.name || bookerMail || '').trim();
-    if (!name && !bookerMail) return [];
-    const mode = p.session_mode === 'remote' ? 'Offline' : 'Online';
-    const notifyOn = p.session_mode !== 'remote';
-    const em = (selfSnap?.email || bookerMail || '').trim();
-    return [
-      {
-        key: 'self',
-        name: selfSnap?.name?.trim() || bookerMail || 'Account holder',
-        role: 'Myself',
-        attendance: mode,
-        emailCell: em || '—',
-        notifyOn,
-      },
-    ];
-  }, [
-    subscriberIsAnnual,
-    includedPkg,
-    annualSeatUi,
-    selIds,
-    enrollableGuests,
-    bookerEmail,
-    portalEnrollmentPreview,
-    p.session_mode,
-  ]);
 
   const handleAddToCart = async (e) => {
     e.stopPropagation();
@@ -656,11 +532,6 @@ export default function DashboardUpcomingProgramRowItem({
               ) : (
                 <p className="text-xs text-slate-500 mb-2">Loading price…</p>
               )}
-              {enrollStatus === 'open' && addToCartPreviewRows.length > 0 ? (
-                <div className="mb-3 w-full min-w-0" data-testid={`dashboard-cart-preview-left-${p.id}`}>
-                  <CartAddParticipantPreviewTable rows={addToCartPreviewRows} />
-                </div>
-              ) : null}
               {enrollStatus === 'open' ? (
                 <>
                   <button
@@ -675,11 +546,10 @@ export default function DashboardUpcomingProgramRowItem({
                     Know More
                   </button>
                   <p className="text-[10px] text-slate-500 mt-2 leading-snug">
-                    One-eye <strong className="text-slate-700 font-medium">cart preview</strong> is above. Use{' '}
-                    <strong className="text-slate-700 font-medium">Add to Cart</strong> or{' '}
-                    <strong className="text-slate-700 font-medium">Continue to enrollment &amp; payment</strong> under{' '}
-                    <strong className="text-slate-700 font-medium">Attendance &amp; notification</strong> (scroll down on small
-                    screens).
+                    Use <strong className="text-slate-700 font-medium">Add to Cart</strong> or{' '}
+                    <strong className="text-slate-700 font-medium">Continue to enrollment &amp; payment</strong> in the section
+                    below (open <strong className="text-slate-700 font-medium">Attendance &amp; notification</strong> if collapsed).
+                    Row-wise names and preferences appear on the <strong className="text-slate-700 font-medium">Cart</strong> page.
                   </p>
                 </>
               ) : (
@@ -1045,12 +915,10 @@ export default function DashboardUpcomingProgramRowItem({
               ) : null}
 
             <div className="pt-3 border-t border-slate-100 space-y-3">
-              <p className="text-[10px] text-slate-600 leading-snug font-medium">
-                Full cart preview is on the program card (left / above). Adjust attendance and email under the presets here.
-              </p>
               <p className="text-xs text-slate-500 leading-relaxed">
                 Payment method in the next step matches your membership (Stripe vs UPI / bank). Cart uses main-site checkout;
-                continue below for annual portal pricing.
+                continue below for annual portal pricing. Open <strong className="text-slate-700 font-medium">Cart</strong> to see
+                everyone in a row-wise summary before checkout.
               </p>
               <div className="flex flex-col sm:flex-row gap-2 sm:items-stretch">
                 <button
@@ -1279,11 +1147,6 @@ export default function DashboardUpcomingProgramRowItem({
                       <span className="text-xl font-bold text-green-600">FREE</span>
                     )}
                   </div>
-                  {addToCartPreviewRows.length > 0 ? (
-                    <div className="mb-2">
-                      <CartAddParticipantPreviewTable rows={addToCartPreviewRows} />
-                    </div>
-                  ) : null}
                   <div className="flex gap-1.5">
                     <button
                       type="button"
@@ -1312,7 +1175,9 @@ export default function DashboardUpcomingProgramRowItem({
                     </button>
                   </div>
                   <p className="text-xs text-slate-500 mt-3 leading-relaxed">
-                    Tap the image to add this program to your cart with the tier selected above.
+                    Tap the image to add this program to your cart with the tier selected above. On the{' '}
+                    <strong className="text-slate-700 font-medium">Cart</strong> page you will see each person in a row-wise summary
+                    before editing full details.
                   </p>
                 </>
               )}
