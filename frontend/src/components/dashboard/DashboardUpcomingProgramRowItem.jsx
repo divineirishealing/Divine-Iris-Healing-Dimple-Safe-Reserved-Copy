@@ -423,7 +423,6 @@ export default function DashboardUpcomingProgramRowItem({
   return (
     <div className={outerShellClass} data-testid={`dashboard-upcoming-${p.id}`}>
       {subscriberIsAnnual ? (
-        <div className="w-full flex flex-col gap-4">
         <div className="w-full flex flex-col xl:flex-row xl:items-stretch gap-4 xl:gap-4">
           {/* 1 — Same footprint as non-annual dashboard card: vertical max-w-md (~28rem) */}
           <div
@@ -583,7 +582,7 @@ export default function DashboardUpcomingProgramRowItem({
                     </button>
                   </div>
                   <p className="text-[10px] text-slate-500 mt-2 leading-snug">
-                    Set attendance &amp; email in the full-width section below, then continue to payment.
+                    Set attendance &amp; email under Family to join, then continue to payment.
                   </p>
                 </>
               ) : (
@@ -598,7 +597,7 @@ export default function DashboardUpcomingProgramRowItem({
             </div>
           </div>
 
-          {/* 2 — Pricing & offer + Family to join (stacked in one column) */}
+          {/* 2 — Pricing & offer, Family to join, Attendance & checkout (stacked) */}
           <div className="flex flex-col gap-4 flex-1 min-w-0 w-full">
             <div className="rounded-xl border border-slate-200 bg-white p-3 sm:p-4 shadow-sm min-h-0 flex flex-col min-w-0 w-full">
               <p className="text-[10px] font-bold uppercase tracking-wide text-slate-600 mb-2">Pricing &amp; offer</p>
@@ -704,21 +703,18 @@ export default function DashboardUpcomingProgramRowItem({
                 Select who you are paying for — your seat is already covered.
               </p>
             )}
-          </div>
-          </div>
+            </div>
 
-        </div>
+            {/* Attendance & notification + checkout — below family */}
+            <div className="w-full rounded-xl border border-slate-200/90 bg-white p-3 sm:p-4 shadow-sm min-w-0">
+              <div className="flex flex-col gap-3 w-full min-w-0">
+                <p className="text-[10px] font-bold uppercase tracking-wide text-slate-600">Attendance &amp; notification</p>
 
-        {/* Full-width — Attendance & notification (horizontal) + checkout */}
-        <div className="w-full rounded-xl border border-slate-200/90 bg-white p-3 sm:p-4 shadow-sm">
-          <div className="flex flex-col gap-3 w-full">
-            <p className="text-[10px] font-bold uppercase tracking-wide text-slate-600">Attendance &amp; notification</p>
-
-            {annualSeatUi && (!includedPkg || selCount >= 1) ? (
-              <div
-                className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2.5"
-                data-testid={`dashboard-compact-seat-${p.id}`}
-              >
+                {annualSeatUi && (!includedPkg || selCount >= 1) ? (
+                  <div
+                    className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2.5"
+                    data-testid={`dashboard-compact-seat-${p.id}`}
+                  >
                 <p className="text-[10px] text-slate-600 leading-snug mb-2">
                   <span className="font-semibold text-slate-800">Enrollment for this program.</span>{' '}
                   Choose attendance and enrollment notification email (WhatsApp group link when applicable). You can save
@@ -943,8 +939,9 @@ export default function DashboardUpcomingProgramRowItem({
                 Continue to enrollment &amp; payment
               </button>
             </div>
+              </div>
+            </div>
           </div>
-        </div>
         </div>
       ) : (
         <>
