@@ -20,6 +20,7 @@ import {
 } from 'lucide-react';
 import MotivationalSignupFlash from '../components/MotivationalSignupFlash';
 import { getAuthHeaders } from '../lib/authHeaders';
+import { useAuth } from '../context/AuthContext';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
@@ -75,6 +76,7 @@ function PaymentMethodTags({ methods }) {
 export default function DashboardCombinedCheckoutPage() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
+  const { user } = useAuth();
   const { items, clearCart } = useCart();
   const {
     country: detectedCountry,
@@ -106,29 +108,77 @@ export default function DashboardCombinedCheckoutPage() {
   const [pointsToRedeem, setPointsToRedeem] = useState(0);
   const [paymentMethods, setPaymentMethods] = useState(['stripe']);
   const [enrollmentSubmitLoading, setEnrollmentSubmitLoading] = useState(false);
+  const [portalSelf, setPortalSelf] = useState(null);
   const promoFromUrlApplied = useRef(false);
 
   useEffect(() => {
     if (eidParam && eidParam !== enrollmentId) setEnrollmentId(eidParam);
   }, [eidParam, enrollmentId]);
 
-  const firstP = items[0]?.participants?.[0] || {};
-  const bookerName = firstP.name || '';
-  const bookerEmail = firstP.email || '';
-  const bookerCountry = firstP.country || '';
-  const bookerCity = firstP.city || '';
-  const bookerState = firstP.state || '';
-  const phone = firstP.phone || '';
-  const countryCode = firstP.phone_code || '';
+  const {
+    bookerName,
+    bookerEmail,
+    bookerCountry,
+    bookerPhoneForPatch,
+    bookerPhoneDisplay,
+  } = useMemo(() => {
+    const seat = items[0]?.participants?.[0] || {};
+    const email = (user?.email || portalSelf?.email || '').trim();
+    const name = (
+      portalSelf?.name ||
+      user?.name ||
+      user?.full_name ||
+      seat.name ||
+      ''
+    ).trim();
+    const country = (
+      portalSelf?.country ||
+      seat.country ||
+      detectedCountry ||
+      'AE'
+    ).trim() || 'AE';
+    const rawProfilePhone = (portalSelf?.phone || '').trim().replace(/\s+/g, '');
+    let patchPhone = '';
+    let displayPhone = '';
+    if (rawProfilePhone) {
+      patchPhone = rawProfilePhone;
+      displayPhone = rawProfilePhone;
+    } else {
+      const cc = String(seat.phone_code || '').trim();
+      const loc = String(seat.phone || '').trim();
+      if (loc) {
+        patchPhone = `${cc}${loc}`;
+        displayPhone = patchPhone;
+      }
+    }
+    return {
+      bookerName: name,
+      bookerEmail: email,
+      bookerCountry: country,
+      bookerPhoneForPatch: patchPhone || null,
+      bookerPhoneDisplay: displayPhone,
+    };
+  }, [user, portalSelf, items, detectedCountry]);
 
   useEffect(() => {
-    axios.get(`${API}/student/home`, { withCredentials: true })
-      .then((r) => {
-        const pm = r.data?.payment_methods;
+    if (!(user?.email || '').trim()) return;
+    let cancelled = false;
+    const headers = getAuthHeaders();
+    Promise.all([
+      axios.get(`${API}/student/home`, { withCredentials: true, headers }),
+      axios.get(`${API}/student/enrollment-prefill`, { withCredentials: true, headers }),
+    ])
+      .then(([homeRes, prefillRes]) => {
+        if (cancelled) return;
+        const pm = homeRes.data?.payment_methods;
         if (Array.isArray(pm) && pm.length) setPaymentMethods(pm);
+        setPortalSelf(prefillRes.data?.self || null);
       })
       .catch(() => {});
-  }, []);
+    return () => {
+      cancelled = true;
+    };
+  }, [user?.email]);
 
   useEffect(() => {
     if (items.length === 0) {
@@ -402,7 +452,6 @@ export default function DashboardCombinedCheckoutPage() {
     }
     setEnrollmentSubmitLoading(true);
     try {
-      const bookerPhone = phone ? `${countryCode}${phone}` : null;
       const allParticipants = items.flatMap((item) =>
         item.participants.map((p) => {
           const refName = p.has_referral
@@ -413,10 +462,11 @@ export default function DashboardCombinedCheckoutPage() {
           const refEmailRaw = (p.referred_by_email || '').trim().toLowerCase();
           const refEmail =
             (p.has_referral || p.referral_source === 'Friend / Family') && refEmailRaw ? refEmailRaw : null;
+          const ageNum = parseInt(String(p.age), 10);
           return {
             name: p.name,
             relationship: p.relationship,
-            age: parseInt(p.age, 10),
+            age: Number.isFinite(ageNum) ? ageNum : 0,
             gender: p.gender,
             country: p.country,
             city: p.city,
@@ -452,8 +502,10 @@ export default function DashboardCombinedCheckoutPage() {
       );
       const eid = enrollRes.data.enrollment_id;
       setEnrollmentId(eid);
-      if (bookerPhone) {
-        await axios.patch(`${API}/enrollment/${eid}/update-phone`, { phone: bookerPhone }).catch(() => {});
+      if (bookerPhoneForPatch) {
+        await axios
+          .patch(`${API}/enrollment/${eid}/update-phone`, { phone: bookerPhoneForPatch })
+          .catch(() => {});
       }
       toast({ title: enrollRes.data.message || 'Ready for payment' });
       const next = new URLSearchParams();
@@ -787,12 +839,11 @@ export default function DashboardCombinedCheckoutPage() {
                     <strong>Email:</strong> {bookerEmail}{' '}
                     <span className="text-slate-500 font-medium">(portal account)</span>
                   </p>
-                  {phone && (
+                  {bookerPhoneDisplay ? (
                     <p>
-                      <strong>Phone:</strong> {countryCode}
-                      {phone}
+                      <strong>Phone:</strong> {bookerPhoneDisplay}
                     </p>
-                  )}
+                  ) : null}
                 </div>
 
                 {total > 0 && !hasStripe && (
