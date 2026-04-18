@@ -931,34 +931,10 @@ export default function DashboardUpcomingProgramRowItem({
                         by the <strong className="font-medium text-slate-700">Attendance</strong> and{' '}
                         <strong className="font-medium text-slate-700">Enrollment email</strong> rows above — those controls
                         already update your own mode and email. The extra row only appears when choices are mixed (then you
-                        can fine-tune here or under Per-person attendance &amp; email).
+                        can fine-tune here or use the advanced editor below the program list).
                       </p>
                     )
                   ) : null}
-
-                  <div className="flex flex-wrap items-center gap-x-5 gap-y-2 py-2">
-                    <label className="inline-flex items-center gap-1.5 cursor-pointer text-[10px] text-slate-800">
-                      <input
-                        type="checkbox"
-                        className="rounded border-slate-300 scale-90"
-                        checked={!!annualSeatUi.draft?.persistEnrollmentDefaultsOnContinue}
-                        onChange={(e) =>
-                          annualSeatUi.onPatchDraft(p.id, { persistEnrollmentDefaultsOnContinue: e.target.checked })
-                        }
-                      />
-                      <span className="font-medium">Save as my default for every program (this browser)</span>
-                    </label>
-                    <button
-                      type="button"
-                      className="text-[9px] text-violet-700 hover:text-violet-900 underline underline-offset-2"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        annualSeatUi.onOpenAdvancedModal();
-                      }}
-                    >
-                      Per-person attendance &amp; email…
-                    </button>
-                  </div>
                 </div>
               </div>
             ) : null}
