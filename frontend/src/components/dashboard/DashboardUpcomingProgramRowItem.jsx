@@ -770,7 +770,9 @@ export default function DashboardUpcomingProgramRowItem({
                 onClick={() => setAnnualAttendanceOpen((o) => !o)}
                 aria-expanded={annualAttendanceOpen}
               >
-                <span className="text-[10px] font-bold uppercase tracking-wide text-slate-600">Attendance &amp; notification</span>
+                <span className="text-[9px] sm:text-[10px] font-bold uppercase tracking-tight text-slate-600 whitespace-nowrap">
+                  Attendance &amp; notification
+                </span>
                 <ChevronDown
                   className={`h-4 w-4 text-slate-500 shrink-0 transition-transform ${annualAttendanceOpen ? '' : '-rotate-90'}`}
                   aria-hidden
@@ -964,7 +966,7 @@ export default function DashboardUpcomingProgramRowItem({
                   >
                     Per-person attendance &amp; email…
                   </button>
-                  <p className="text-[10px] text-slate-500 leading-snug flex-1 min-w-0 sm:max-w-[min(100%,32rem)]">
+                  <p className="text-[10px] text-slate-500 leading-snug flex-1 min-w-0 sm:max-w-none line-clamp-2">
                     Opens the full editor for <span className="font-medium text-slate-700">{p.title || 'this program'}</span>.
                     Use <strong className="text-slate-700">Save defaults &amp; close</strong> in the dialog if you only want to store preferences.
                   </p>
@@ -988,7 +990,7 @@ export default function DashboardUpcomingProgramRowItem({
 
         {/* Know More + Divine Cart — one row on sm+ so both align */}
         <div className="flex flex-col sm:flex-row gap-3 w-full sm:items-center sm:justify-between pt-1 border-t border-slate-200/70">
-          <div className="w-full sm:w-[min(100%,28rem)] sm:shrink-0">
+          <div className="w-full sm:w-[min(100%,28rem)] xl:w-[min(100%,24rem)] sm:shrink-0">
             {enrollStatus === 'open' ? (
               <button
                 type="button"
