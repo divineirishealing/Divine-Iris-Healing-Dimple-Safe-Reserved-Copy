@@ -4,7 +4,7 @@ Handles: EMI tracking, session management, program progress, and Excel import/ex
 """
 from fastapi import APIRouter, HTTPException, UploadFile, File
 from fastapi.responses import StreamingResponse
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 from typing import Optional, List, Dict, Any
 import pandas as pd
 import io
@@ -646,6 +646,8 @@ async def get_iris_journey_catalog():
 # ─── CREATE / UPDATE SUBSCRIBER (manual) ───
 
 class EMIInput(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+
     number: int
     date: str = ""
     amount: float = 0
@@ -654,6 +656,8 @@ class EMIInput(BaseModel):
     status: str = "pending"
 
 class SessionsInput(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+
     carry_forward: int = 0
     current: int = 0
     total: int = 0
@@ -663,6 +667,8 @@ class SessionsInput(BaseModel):
     scheduled_dates: List[str] = []
 
 class ProgramDetail(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+
     name: str
     duration_value: int = 0
     duration_unit: str = "months"

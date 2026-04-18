@@ -461,17 +461,41 @@ const BankAccountsEditor = () => {
 
   const uploadGpayQr = async (idx, file) => {
     if (!file) return;
+    const base = (BACKEND || '').replace(/\/$/, '');
+    if (!base) {
+      toast({
+        title: 'Cannot upload',
+        description: 'Set REACT_APP_BACKEND_URL on this admin build so uploads hit the API.',
+        variant: 'destructive',
+      });
+      return;
+    }
     const fd = new FormData();
     fd.append('file', file);
     try {
-      const { data } = await axios.post(`${BACKEND}/api/upload/image`, fd);
+      const { data } = await axios.post(`${base}/api/upload/image`, fd);
       const url = data?.url;
       if (url) {
         updateGpay(idx, 'qr_image_url', url);
         toast({ title: 'QR image uploaded' });
+      } else {
+        toast({ title: 'Upload failed', description: 'No URL returned from server.', variant: 'destructive' });
       }
-    } catch {
-      toast({ title: 'Upload failed', variant: 'destructive' });
+    } catch (e) {
+      const d = e.response?.data?.detail;
+      const desc =
+        typeof d === 'string'
+          ? d
+          : Array.isArray(d)
+            ? d.map((x) => (x && (x.msg || x.message)) || String(x)).join(' ')
+            : e.message || '';
+      toast({
+        title: 'Upload failed',
+        description:
+          desc ||
+          'Configure S3 on the backend or see GET /api/upload/storage-status (ephemeral hosts need S3).',
+        variant: 'destructive',
+      });
     }
   };
 

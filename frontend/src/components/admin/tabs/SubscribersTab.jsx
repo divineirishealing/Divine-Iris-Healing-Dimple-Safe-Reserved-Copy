@@ -358,7 +358,7 @@ const newDestId = () =>
 
 const blankForm = () => ({
   name: '', email: '', package_id: '', annual_program: '', start_date: '', end_date: '',
-  total_fee: 0, currency: 'INR', payment_mode: 'No EMI', num_emis: 0, emi_day: 30,
+  total_fee: 0, currency: 'INR', display_currency: 'INR', payment_mode: 'No EMI', num_emis: 0, emi_day: 30,
   emis: [], programs: [], programs_detail: [], bi_annual_download: 0, quarterly_releases: 0,
   payment_methods: ['stripe', 'manual'],
   payment_destinations: { gpay: [], bank: [], primary_gpay_id: '', primary_bank_id: '' },
@@ -579,6 +579,7 @@ const SubscriberForm = ({ initial, onSave, onCancel, saving, packages, irisCatal
   // Auto-update fee when currency changes
   const handleCurrencyChange = (cur) => {
     set('currency', cur);
+    set('display_currency', cur);
     if (selectedPkg && !initial) {
       const totalOffer = (selectedPkg.included_programs || []).reduce((s, p) => s + ((p.offer_per_unit?.[cur] || 0) * (p.duration_value || 0)), 0);
       const disc = effectiveIndividualDiscountPct(f, selectedPkg);
@@ -935,10 +936,14 @@ const SubscriberForm = ({ initial, onSave, onCancel, saving, packages, irisCatal
               Configure UPI IDs, QR codes, and bank accounts under <strong>Admin → Site Settings → India payment</strong> (same source as the India manual proof page). The Sacred Exchange and manual payment pages pull from there automatically.
             </p>
           </div>
-          {indiaSite && (f.payment_methods || []).includes('gpay') && indiaGpayOpts.length > 1 && (
+          {indiaSite && (f.payment_methods || []).includes('gpay') && indiaGpayOpts.length >= 1 && (
             <div>
               <Label className="text-xs">Tagged UPI for this member</Label>
-              <p className="text-[9px] text-emerald-900/80 mb-1">If India proof lists several UPIs, choose the one this member should see on Sacred Exchange.</p>
+              <p className="text-[9px] text-emerald-900/80 mb-1">
+                {indiaGpayOpts.length > 1
+                  ? 'If India proof lists several UPIs, choose the one this member should see on Sacred Exchange.'
+                  : 'This site has one UPI row; you can pin it explicitly for this member.'}
+              </p>
               <select
                 value={f.preferred_india_gpay_id || ''}
                 onChange={(e) => set('preferred_india_gpay_id', e.target.value)}
@@ -952,10 +957,14 @@ const SubscriberForm = ({ initial, onSave, onCancel, saving, packages, irisCatal
               </select>
             </div>
           )}
-          {indiaSite && (f.payment_methods || []).some((m) => m === 'bank' || m === 'manual') && indiaBankOpts.length > 1 && (
+          {indiaSite && (f.payment_methods || []).some((m) => m === 'bank' || m === 'manual') && indiaBankOpts.length >= 1 && (
             <div>
               <Label className="text-xs">Tagged bank account for this member</Label>
-              <p className="text-[9px] text-emerald-900/80 mb-1">If India proof lists several accounts, choose the one shown for bank transfer on Sacred Exchange.</p>
+              <p className="text-[9px] text-emerald-900/80 mb-1">
+                {indiaBankOpts.length > 1
+                  ? 'If India proof lists several accounts, choose the one shown for bank transfer on Sacred Exchange.'
+                  : 'Pin the site’s bank row for this member if you use a single account.'}
+              </p>
               <select
                 value={f.preferred_india_bank_id || ''}
                 onChange={(e) => set('preferred_india_bank_id', e.target.value)}
@@ -1409,9 +1418,10 @@ const SubscribersTab = ({ openManualFormOnMount = false }) => {
       };
       const payload = {
         ...formData,
+        display_currency: formData.display_currency || formData.currency || 'INR',
         individual_discount_pct: toNullPct(formData.individual_discount_pct),
         individual_tax_pct: toNullPct(formData.individual_tax_pct),
-        payment_destinations: { gpay: [], bank: [], primary_gpay_id: '', primary_bank_id: '' },
+        payment_destinations: normalizePaymentDestinations(formData.payment_destinations),
       };
       if (editTarget) {
         await axios.put(`${API}/admin/subscribers/update/${editTarget.id}`, payload);
@@ -1432,7 +1442,9 @@ const SubscribersTab = ({ openManualFormOnMount = false }) => {
     package_id: editTarget.subscription?.package_id || '',
     annual_program: editTarget.subscription?.annual_program || '',
     start_date: editTarget.subscription?.start_date || '', end_date: editTarget.subscription?.end_date || '',
-    total_fee: editTarget.subscription?.total_fee || 0, currency: editTarget.subscription?.currency || 'INR',
+    total_fee: editTarget.subscription?.total_fee || 0,
+    currency: editTarget.subscription?.currency || 'INR',
+    display_currency: editTarget.subscription?.display_currency || editTarget.subscription?.currency || 'INR',
     payment_mode: editTarget.subscription?.payment_mode || 'No EMI', num_emis: editTarget.subscription?.num_emis || 0,
     emi_day: editTarget.subscription?.emi_day || 30,
     emis: editTarget.subscription?.emis || [], programs: editTarget.subscription?.programs || [],
