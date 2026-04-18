@@ -65,7 +65,6 @@ const ImageUploader = ({ value, onChange, label = "Image" }) => {
       const formData = new FormData();
       formData.append('file', file);
       const response = await axios.post(`${API}/upload/image`, formData, {
-        headers: { 'Content-Type': 'multipart/form-data' },
         timeout: 30000,
       });
       onChange(response.data.url);

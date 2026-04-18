@@ -210,9 +210,26 @@ async def upload_storage_status():
     }
 
 
+def _image_ext_from_upload(file: UploadFile, file_ext: str) -> str:
+    if file_ext in IMAGE_EXTENSIONS:
+        return file_ext
+    ct = (file.content_type or "").lower()
+    if "png" in ct:
+        return ".png"
+    if "jpeg" in ct or ct == "image/jpg":
+        return ".jpg"
+    if "webp" in ct:
+        return ".webp"
+    if "gif" in ct:
+        return ".gif"
+    return file_ext
+
+
 @router.post("/image")
 async def upload_image(file: UploadFile = File(...)):
-    file_ext = Path(file.filename).suffix.lower()
+    raw_name = (file.filename or "").strip() or "image"
+    file_ext = Path(raw_name).suffix.lower()
+    file_ext = _image_ext_from_upload(file, file_ext)
     if file_ext not in IMAGE_EXTENSIONS:
         raise HTTPException(status_code=400, detail=f"File type not allowed. Allowed: {', '.join(IMAGE_EXTENSIONS)}")
     try:

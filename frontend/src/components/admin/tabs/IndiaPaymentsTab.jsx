@@ -7,8 +7,15 @@ import { Input } from '../../ui/input';
 import { Switch } from '../../ui/switch';
 import { useToast } from '../../../hooks/use-toast';
 
-const API = `${process.env.REACT_APP_BACKEND_URL || ''}/api`;
-const BACKEND = process.env.REACT_APP_BACKEND_URL || '';
+/** API host only (no /api suffix). Avoids https://host/api + /api → double /api. */
+function backendRootFromEnv() {
+  const raw = (process.env.REACT_APP_BACKEND_URL || '').trim().replace(/\/+$/, '');
+  if (!raw) return '';
+  return raw.toLowerCase().endsWith('/api') ? raw.slice(0, -4).replace(/\/+$/, '') : raw;
+}
+const BACKEND_ROOT = backendRootFromEnv();
+const API = BACKEND_ROOT ? `${BACKEND_ROOT}/api` : '/api';
+const BACKEND = BACKEND_ROOT;
 /** Public site for shareable student links (manual payment is a React route, not the API host). */
 const publicSiteOrigin = () =>
   (process.env.REACT_APP_PUBLIC_SITE_URL || '').replace(/\/$/, '') ||
@@ -416,6 +423,7 @@ const BankAccountsEditor = () => {
   const [banks, setBanks] = useState([]);
   const [gpayRows, setGpayRows] = useState([]);
   const [saving, setSaving] = useState(false);
+  const [uploadingQrIdx, setUploadingQrIdx] = useState(null);
 
   useEffect(() => {
     axios.get(`${API}/settings`).then(r => {
@@ -461,19 +469,34 @@ const BankAccountsEditor = () => {
 
   const uploadGpayQr = async (idx, file) => {
     if (!file) return;
-    const base = (BACKEND || '').replace(/\/$/, '');
-    if (!base) {
+    if (!BACKEND_ROOT && typeof window !== 'undefined' && !/^(localhost|127\.0\.0\.1)$/i.test(window.location.hostname)) {
       toast({
         title: 'Cannot upload',
-        description: 'Set REACT_APP_BACKEND_URL on this admin build so uploads hit the API.',
+        description:
+          'Set REACT_APP_BACKEND_URL on this admin (Vercel) build to your API base URL (e.g. https://….onrender.com), redeploy, then try again.',
         variant: 'destructive',
       });
       return;
     }
+    if (!file.type.startsWith('image/')) {
+      toast({
+        title: 'Invalid file',
+        description: 'Choose an image (PNG, JPG, WebP, or GIF).',
+        variant: 'destructive',
+      });
+      return;
+    }
+    if (file.size > 10 * 1024 * 1024) {
+      toast({ title: 'File too large', description: 'Max 10MB.', variant: 'destructive' });
+      return;
+    }
     const fd = new FormData();
     fd.append('file', file);
+    setUploadingQrIdx(idx);
     try {
-      const { data } = await axios.post(`${base}/api/upload/image`, fd);
+      const { data } = await axios.post(`${API}/upload/image`, fd, {
+        timeout: 60000,
+      });
       const url = data?.url;
       if (url) {
         updateGpay(idx, 'qr_image_url', url);
@@ -493,9 +516,11 @@ const BankAccountsEditor = () => {
         title: 'Upload failed',
         description:
           desc ||
-          'Configure S3 on the backend or see GET /api/upload/storage-status (ephemeral hosts need S3).',
+          'On Render, configure AWS S3 on the API service (bucket + keys + region) or open GET /api/upload/storage-status on your API.',
         variant: 'destructive',
       });
+    } finally {
+      setUploadingQrIdx(null);
     }
   };
 
@@ -595,9 +620,11 @@ const BankAccountsEditor = () => {
                     />
                     <label
                       htmlFor={`gpay-qr-upload-${idx}`}
-                      className="inline-flex items-center gap-1 text-[10px] px-3 py-1.5 rounded-lg bg-emerald-100 text-emerald-900 hover:bg-emerald-200 cursor-pointer font-medium"
+                      className={`inline-flex items-center gap-1 text-[10px] px-3 py-1.5 rounded-lg bg-emerald-100 text-emerald-900 font-medium ${
+                        uploadingQrIdx === idx ? 'opacity-60 pointer-events-none' : 'hover:bg-emerald-200 cursor-pointer'
+                      }`}
                     >
-                      <Upload size={12} /> Upload
+                      <Upload size={12} /> {uploadingQrIdx === idx ? 'Uploading…' : 'Upload'}
                     </label>
                     {(row.qr_image_url || '').trim() ? (
                       <button
