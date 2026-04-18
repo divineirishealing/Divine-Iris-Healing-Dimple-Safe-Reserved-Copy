@@ -2,10 +2,9 @@ import React, { createContext, useContext, useState, useEffect } from 'react';
 import axios from 'axios';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { getAuthHeaders } from '../lib/authHeaders';
+import { BACKEND_URL } from '../lib/config';
 
 const AuthContext = createContext();
-
-const API = process.env.REACT_APP_BACKEND_URL || 'http://localhost:8001';
 
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
@@ -15,8 +14,13 @@ export const AuthProvider = ({ children }) => {
 
   // Check auth status
   const checkAuth = async () => {
+    if (!BACKEND_URL) {
+      setUser(null);
+      setLoading(false);
+      return;
+    }
     try {
-      const res = await axios.get(`${API}/api/auth/me`, {
+      const res = await axios.get(`${BACKEND_URL}/api/auth/me`, {
         withCredentials: true,
         headers: getAuthHeaders(),
       });
@@ -45,8 +49,14 @@ export const AuthProvider = ({ children }) => {
   };
 
   const logout = async () => {
+    if (!BACKEND_URL) {
+      localStorage.removeItem('session_token');
+      setUser(null);
+      navigate('/login');
+      return;
+    }
     try {
-      await axios.post(`${API}/api/auth/logout`, {}, {
+      await axios.post(`${BACKEND_URL}/api/auth/logout`, {}, {
         withCredentials: true,
         headers: getAuthHeaders(),
       });

@@ -79,6 +79,10 @@ const OrderHistoryPage = () => {
           const detail = e.response?.data?.detail;
           if (st === 401) {
             setError('Please sign in again to view order history.');
+          } else if (st === 404) {
+            setError(
+              'Order history endpoint was not found (404). Redeploy the latest backend on Render, and set REACT_APP_BACKEND_URL on the frontend to your API origin (e.g. https://…onrender.com) — not the marketing site unless /api is proxied to that API.',
+            );
           } else {
             setError(
               typeof detail === 'string' && detail
