@@ -1,12 +1,13 @@
-import React, { useEffect, useState, useMemo } from 'react';
+import React, { useEffect, useState, useMemo, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import axios from 'axios';
-import { ClipboardList, ExternalLink, Loader2, Package } from 'lucide-react';
+import { ClipboardList, ExternalLink, Loader2, Package, RefreshCw } from 'lucide-react';
 import { Card, CardHeader, CardTitle, CardContent } from '../ui/card';
 import { Button } from '../ui/button';
 import { getAuthHeaders } from '../../lib/authHeaders';
 import { formatDateDdMonYyyy } from '../../lib/utils';
 import { API_URL, BACKEND_URL } from '../../lib/config';
+import { useAuth } from '../../context/AuthContext';
 
 function formatMoney(amount, currency) {
   const c = (currency || 'aed').toLowerCase();
@@ -46,26 +47,32 @@ function indiaProofMethodBadge(row) {
 }
 
 const OrderHistoryPage = () => {
+  const { user } = useAuth();
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [reloadToken, setReloadToken] = useState(0);
+
+  const fetchOrders = useCallback(async () => {
+    if (!BACKEND_URL) {
+      setError('Order history is not configured: set REACT_APP_BACKEND_URL on the frontend build.');
+      setOrders([]);
+      return;
+    }
+    const res = await axios.get(`${API_URL}/student/orders`, {
+      withCredentials: true,
+      headers: getAuthHeaders(),
+    });
+    setOrders(Array.isArray(res.data?.orders) ? res.data.orders : []);
+    setError(null);
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
     (async () => {
       try {
-        if (!BACKEND_URL) {
-          if (!cancelled) {
-            setError('Order history is not configured: set REACT_APP_BACKEND_URL on the frontend build.');
-            setOrders([]);
-          }
-          return;
-        }
-        const res = await axios.get(`${API_URL}/student/orders`, {
-          withCredentials: true,
-          headers: getAuthHeaders(),
-        });
-        if (!cancelled) setOrders(Array.isArray(res.data?.orders) ? res.data.orders : []);
+        setLoading(true);
+        await fetchOrders();
       } catch (e) {
         if (!cancelled) {
           const st = e.response?.status;
@@ -87,7 +94,7 @@ const OrderHistoryPage = () => {
       }
     })();
     return () => { cancelled = true; };
-  }, []);
+  }, [fetchOrders, reloadToken]);
 
   const sorted = useMemo(() => {
     return [...orders].sort((a, b) => {
@@ -109,12 +116,29 @@ const OrderHistoryPage = () => {
         <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-[#5D3FD3]/20 to-[#84A98C]/20 flex items-center justify-center border border-violet-100">
           <ClipboardList className="text-[#5D3FD3]" size={22} />
         </div>
-        <div>
+        <div className="min-w-0 flex-1">
           <h1 className="text-2xl font-bold text-gray-900">Order history</h1>
           <p className="text-sm text-gray-500 mt-0.5">
-            Programs, sessions, and contributions linked to your email (as booker, participant, or donor).
+            Programs, sessions, and contributions linked to your portal email and your Client Garden record (as booker,
+            participant, or donor).
           </p>
+          {user?.email ? (
+            <p className="text-xs text-gray-400 mt-1.5">
+              Signed in as <span className="text-gray-600 font-medium">{user.email}</span>
+            </p>
+          ) : null}
         </div>
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          className="shrink-0 gap-1.5 border-gray-200"
+          disabled={loading || !BACKEND_URL}
+          onClick={() => setReloadToken((t) => t + 1)}
+        >
+          <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
+          Refresh
+        </Button>
       </div>
 
       <Card>
@@ -135,9 +159,14 @@ const OrderHistoryPage = () => {
             <p className="text-sm text-red-600 py-6 text-center">{error}</p>
           )}
           {!loading && !error && sorted.length === 0 && (
-            <p className="text-sm text-gray-500 py-8 text-center">
-              No orders yet. When you complete checkout from the site or your Divine Cart, they will appear here.
-            </p>
+            <div className="text-sm text-gray-500 py-8 text-center space-y-2 px-2">
+              <p>No orders matched this account yet.</p>
+              <p className="text-xs text-gray-400 max-w-md mx-auto leading-relaxed">
+                If you paid with a different email than the one you use to sign in, ask your admin to align your Client
+                Garden email or add your portal email on the enrollment. Completed checkouts from the public site and
+                Divine Cart usually appear within a few seconds — try Refresh.
+              </p>
+            </div>
           )}
           {!loading && !error && sorted.length > 0 && (
             <ul className="divide-y divide-gray-100">

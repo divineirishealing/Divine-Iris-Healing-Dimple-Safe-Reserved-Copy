@@ -191,7 +191,8 @@ async def get_me(request: Request):
         "name": user["name"],
         "role": user.get("role", "student"),
         "tier": user.get("tier", 1),
-        "picture": user.get("picture", "")
+        "picture": user.get("picture", ""),
+        "client_id": user.get("client_id") or None,
     }
 
 @router.post("/logout")

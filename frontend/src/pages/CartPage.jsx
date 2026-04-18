@@ -262,7 +262,7 @@ const CartItemCard = ({ item, onRemove, onUpdateParticipants, symbol, getItemPri
 function CartPage() {
   const navigate = useNavigate();
   const { user } = useAuth();
-  const { items, removeItem, updateItemParticipants, clearCart } = useCart();
+  const { items, removeItem, updateItemParticipants, clearCart, persistCart } = useCart();
   const { getPrice, getOfferPrice, symbol, baseCurrency, country: detectedCountry } = useCurrency();
   const { toast } = useToast();
   const portalCartBackfillInFlight = useRef(false);
@@ -581,13 +581,45 @@ function CartPage() {
       <Header />
       <div className="pt-24 pb-16">
         <div className="container mx-auto px-4 max-w-4xl">
-          <div className="flex items-center justify-between mb-6">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-6">
             <div>
               <h1 data-testid="cart-title" className="text-2xl md:text-3xl text-gray-900">Your Cart</h1>
               <p className="text-sm text-gray-500 mt-1">{items.length} item{items.length > 1 ? 's' : ''} &middot; {totalParticipants} participant{totalParticipants > 1 ? 's' : ''}</p>
             </div>
-            <button onClick={() => { clearCart(); toast({ title: 'Cart cleared' }); }} data-testid="clear-cart-btn"
-              className="text-xs text-red-500 hover:text-red-700 transition-colors">Clear All</button>
+            <div className="flex flex-wrap items-center gap-2 justify-end">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="text-xs"
+                data-testid="save-cart-btn"
+                onClick={() => {
+                  if (persistCart()) {
+                    toast({ title: 'Cart saved', description: 'Your cart is stored in this browser.' });
+                  } else {
+                    toast({
+                      title: 'Could not save',
+                      description: 'Allow local storage for this site and try again.',
+                      variant: 'destructive',
+                    });
+                  }
+                }}
+              >
+                Save changes
+              </Button>
+              <button
+                type="button"
+                onClick={() => {
+                  if (!window.confirm('Remove all items from your cart?')) return;
+                  clearCart();
+                  toast({ title: 'Cart cleared' });
+                }}
+                data-testid="clear-cart-btn"
+                className="text-xs text-red-500 hover:text-red-700 transition-colors px-2 py-1.5 rounded-md border border-transparent hover:border-red-200"
+              >
+                Clear cart
+              </button>
+            </div>
           </div>
 
           <MotivationalSignupFlash

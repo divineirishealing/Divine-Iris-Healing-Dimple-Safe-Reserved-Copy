@@ -1293,6 +1293,28 @@ def _student_order_email_pattern(email: str):
     return re.compile(f"^{re.escape((email or '').strip().lower())}$", re.IGNORECASE)
 
 
+async def _order_identity_emails(user: dict) -> List[str]:
+    """
+    Emails used to match payment_transactions and enrollments.
+    Includes the portal account email and, when present, the linked Client Garden email
+    (covers legacy checkouts booked under the CRM address while login uses Google alias).
+    """
+    out: List[str] = []
+
+    def push(raw: Optional[str]) -> None:
+        s = (raw or "").strip().lower()
+        if s and s not in out:
+            out.append(s)
+
+    push(user.get("email"))
+    cid = (user.get("client_id") or "").strip()
+    if cid:
+        client_doc = await db.clients.find_one({"id": cid}, {"_id": 0, "email": 1})
+        if client_doc:
+            push(client_doc.get("email"))
+    return out
+
+
 def _serialize_payment_transaction_row(row: dict) -> dict:
     out: Dict = {}
     for k, v in row.items():
@@ -1335,42 +1357,61 @@ async def list_student_orders(user: dict = Depends(get_current_user)):
     or a seat where this email appears on the enrollment.
     Includes pending India payment proofs (awaiting admin approval) as rows with payment_status pending.
     """
-    email_raw = (user.get("email") or "").strip()
-    if not email_raw:
+    identity_emails = await _order_identity_emails(user)
+    if not identity_emails:
         raise HTTPException(status_code=400, detail="No email on account")
 
-    email_lower = email_raw.lower()
-    ep = _student_order_email_pattern(email_raw)
     uid = user.get("id")
     cid = (user.get("client_id") or "").strip()
 
-    participant_enrollments = await db.enrollments.find(
-        {
-            "$or": [
+    participant_or: List[dict] = []
+    booker_or: List[dict] = []
+    txn_email_or: List[dict] = []
+    proof_email_or: List[dict] = []
+
+    for em in identity_emails:
+        ep = _student_order_email_pattern(em)
+        participant_or.extend(
+            [
                 {"participants": {"$elemMatch": {"email": ep}}},
-                {"participants": {"$elemMatch": {"email": email_lower}}},
+                {"participants": {"$elemMatch": {"email": em}}},
             ]
-        },
+        )
+        booker_or.extend([{"booker_email": ep}, {"booker_email": em}])
+        txn_email_or.extend(
+            [
+                {"booker_email": ep},
+                {"booker_email": em},
+                {"donor_email": ep},
+                {"donor_email": em},
+                {"payer_email": ep},
+                {"payer_email": em},
+            ]
+        )
+        proof_email_or.extend(
+            [
+                {"payer_email": ep},
+                {"booker_email": ep},
+                {"payer_email": em},
+                {"booker_email": em},
+            ]
+        )
+
+    participant_enrollments = await db.enrollments.find(
+        {"$or": participant_or},
         {"id": 1, "_id": 0},
     ).to_list(600)
     pid_list = [e["id"] for e in participant_enrollments if e.get("id")]
 
     # Booker's email is not always duplicated on participant rows; include enrollments they booked.
     booker_enrollments = await db.enrollments.find(
-        {"$or": [{"booker_email": ep}, {"booker_email": email_lower}]},
+        {"$or": booker_or},
         {"id": 1, "_id": 0},
     ).to_list(600)
     bid_list = [e["id"] for e in booker_enrollments if e.get("id")]
     enrollment_ids_for_user = sorted(set(pid_list) | set(bid_list))
 
-    or_clauses: List[dict] = [
-        {"booker_email": ep},
-        {"booker_email": email_lower},
-        {"donor_email": ep},
-        {"donor_email": email_lower},
-        {"payer_email": ep},
-        {"payer_email": email_lower},
-    ]
+    or_clauses: List[dict] = list(txn_email_or)
     if uid:
         or_clauses.append({"portal_user_id": uid})
     if cid:
@@ -1385,12 +1426,7 @@ async def list_student_orders(user: dict = Depends(get_current_user)):
     )
     rows = await cursor.to_list(300)
 
-    proof_or: List[dict] = [
-        {"payer_email": ep},
-        {"booker_email": ep},
-        {"payer_email": email_lower},
-        {"booker_email": email_lower},
-    ]
+    proof_or: List[dict] = list(proof_email_or)
     if enrollment_ids_for_user:
         proof_or.append({"enrollment_id": {"$in": enrollment_ids_for_user}})
 
