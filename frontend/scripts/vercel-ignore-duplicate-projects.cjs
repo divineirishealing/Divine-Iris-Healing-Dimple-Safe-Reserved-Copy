@@ -1,19 +1,19 @@
 #!/usr/bin/env node
 /**
- * Ignore Build Step for Vercel: only the canonical project may create deployments.
- * Multiple Vercel projects were linked to the same GitHub repo, which triggered
- * three deployments per push and hit Hobby deployment rate limits.
+ * Ignore Build Step for Vercel (optional guard).
  *
- * Override (e.g. temporary): set env ALLOW_NON_PRIMARY_VERCEL_BUILD=true on a project.
+ * By default this script does NOT skip builds — renamed/misnamed projects were exiting1
+ * and blocking all production deploys.
+ *
+ * To re-enable “only the canonical project may build” (e.g. duplicate Hobby projects):
+ *   Vercel → Project → Settings → Environment Variables:
+ *     VERCEL_ENFORCE_PRIMARY_PROJECT = true
+ *     VERCEL_PRIMARY_PROJECT_NAME = <exact Project Name from Settings → General>
+ *
+ * Emergency bypass: ALLOW_NON_PRIMARY_VERCEL_BUILD=true
  */
-/** Vercel sets this during the ignore-build step and the build. */
 const onVercel = process.env.VERCEL === '1';
 
-/**
- * Canonical project slug (Vercel → Project Settings → General → Project Name).
- * If you renamed the Vercel project, set env VERCEL_PRIMARY_PROJECT_NAME to the exact
- * Project Name (Settings → General) or the ignore step skips every build.
- */
 const PRIMARY_PROJECT =
   String(process.env.VERCEL_PRIMARY_PROJECT_NAME || '').trim() ||
   'divine-iris-healing-dimple-safe-res';
@@ -26,9 +26,12 @@ if (!onVercel) {
   process.exit(0);
 }
 
-const name = String(process.env.VERCEL_PROJECT_NAME || '').trim();
+const enforce = String(process.env.VERCEL_ENFORCE_PRIMARY_PROJECT || '').toLowerCase() === 'true';
+if (!enforce) {
+  process.exit(0);
+}
 
-// Empty name: do not build (same as before). Wrong name: duplicate/legacy project — skip.
+const name = String(process.env.VERCEL_PROJECT_NAME || '').trim();
 if (!name || name !== PRIMARY_PROJECT) {
   process.exit(1);
 }
