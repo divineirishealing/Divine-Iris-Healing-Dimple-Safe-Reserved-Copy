@@ -179,10 +179,24 @@ export function ManualPaymentProofBody({
     setSelectedBank(0);
   }, [enrollmentId, banks]);
 
+  /** Divine Cart embed: default payment date to today. */
+  useEffect(() => {
+    if (!isEmbed) return;
+    setPaymentDate(new Date().toISOString().slice(0, 10));
+  }, [isEmbed, enrollmentId]);
+
+  /** Divine Cart embed: prefer UPI when only GPay rows exist; bank transfer when only bank. */
+  useEffect(() => {
+    if (!isEmbed || loading) return;
+    if (gpayToShow.length > 0 && banks.length === 0) setPaymentMethod('upi');
+    else if (gpayToShow.length === 0 && banks.length > 0) setPaymentMethod('bank_transfer');
+  }, [isEmbed, loading, gpayToShow.length, banks.length]);
+
   const currentBank = banks[selectedBank] || {};
   const hasBank = banks.length > 0;
   const programTitle = enrollment?.item_title || itemDetails?.title || '';
   const quoteCurrency = (enrollment?.dashboard_mixed_currency || 'inr').toUpperCase();
+  const isUpiMethod = paymentMethod === 'upi';
 
   const handleScreenshot = (e) => {
     const file = e.target.files?.[0] ?? null;
@@ -210,12 +224,28 @@ export function ManualPaymentProofBody({
   };
 
   const handleSubmit = async () => {
-    if (!screenshot || !payerName || !paymentDate || !transactionId || !amount || !programType) {
+    if (!screenshot || !payerName || !paymentDate || !transactionId || !amount) {
       toast({ title: 'Please fill all required fields', variant: 'destructive' });
+      return;
+    }
+    if (!isEmbed && !programType) {
+      toast({ title: 'Please fill all required fields', variant: 'destructive' });
+      return;
+    }
+    if (!isUpiMethod && !(bankName || '').trim() && !hasBank) {
+      toast({ title: 'Enter bank / app name or pick a bank account above', variant: 'destructive' });
       return;
     }
     setSubmitting(true);
     try {
+      const effProgramType =
+        programType ||
+        (enrollment?.item_type === 'session' ? 'Personal Session' : 'Flagship Program');
+      const effSelectedItem = (selectedItem || programTitle || '').trim();
+      const bankField =
+        (bankName || '').trim() ||
+        (isUpiMethod ? 'UPI / GPay' : '') ||
+        (currentBank.label || currentBank.bank_name || '');
       const formData = new FormData();
       formData.append('screenshot', screenshot);
       formData.append('enrollment_id', enrollmentId || 'MANUAL');
@@ -223,14 +253,14 @@ export function ManualPaymentProofBody({
       formData.append('payer_email', payerEmail);
       formData.append('payer_phone', `${phoneCode}${payerPhone}`);
       formData.append('payment_date', paymentDate);
-      formData.append('bank_name', bankName || currentBank.label || currentBank.bank_name || '');
+      formData.append('bank_name', bankField);
       formData.append('transaction_id', transactionId);
       formData.append('amount', amount);
       formData.append('city', city);
       formData.append('state', state);
       formData.append('payment_method', paymentMethod);
-      formData.append('program_type', programType);
-      formData.append('selected_item', selectedItem);
+      formData.append('program_type', effProgramType);
+      formData.append('selected_item', effSelectedItem);
       formData.append('is_emi', isEmi ? 'true' : 'false');
       if (isEmi) {
         formData.append('emi_total_months', emiMonths);
@@ -300,10 +330,10 @@ export function ManualPaymentProofBody({
           >
             <ChevronLeft size={16} /> {isEmbed ? 'Back to checkout' : 'Back to payment options'}
           </button>
-          <div className="grid lg:grid-cols-5 gap-6">
+          <div className={isEmbed ? 'grid grid-cols-1 gap-6' : 'grid lg:grid-cols-5 gap-6'}>
 
             {/* Left: Form */}
-            <div className="lg:col-span-3 space-y-4">
+            <div className={isEmbed ? 'space-y-4' : 'lg:col-span-3 space-y-4'}>
               <div className="bg-white rounded-xl shadow-sm border p-6">
                 <h1 className="text-lg font-bold text-gray-900 mb-1 flex items-center gap-2">
                   <Building2 size={20} className="text-[#D4AF37]" />
@@ -427,6 +457,8 @@ export function ManualPaymentProofBody({
                   </div>
                 )}
 
+                {!isEmbed && (
+                <>
                 {/* Email & Phone */}
                 <div className="grid grid-cols-2 gap-3 mb-4">
                   <div>
@@ -543,8 +575,11 @@ export function ManualPaymentProofBody({
                     </div>
                   )}
                 </div>
+                </>
+                )}
 
-                {/* Payment Proof Form */}
+                {/* Payment Proof Form — full layout (public manual page) */}
+                {!isEmbed && (
                 <div className="space-y-3">
                   <div>
                     <label className="text-[10px] font-semibold text-gray-700 block mb-1">Payment Screenshot *</label>
@@ -646,10 +681,117 @@ export function ManualPaymentProofBody({
                     {submitting ? <><Loader2 size={14} className="animate-spin mr-2" /> Submitting...</> : <><Check size={14} className="mr-2" /> Submit Payment Proof</>}
                   </Button>
                 </div>
+                )}
+
+                {/* Divine Cart embed: compact field order; screenshot before notes; no enrollment sidebar */}
+                {isEmbed && (
+                <div className="space-y-3">
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="text-[10px] font-semibold text-gray-700 block mb-1">Your Name *</label>
+                      <Input value={payerName} onChange={e => setPayerName(e.target.value)} placeholder="Full name" className="text-xs h-9" data-testid="manual-payer-name-embed" />
+                    </div>
+                    <div>
+                      <label className="text-[10px] font-semibold text-gray-700 block mb-1">Payment Date *</label>
+                      <Input type="date" value={paymentDate} onChange={e => setPaymentDate(e.target.value)} className="text-xs h-9" data-testid="manual-payment-date-embed" />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="text-[10px] font-semibold text-gray-700 block mb-1">Transaction ID *</label>
+                      <Input value={transactionId} onChange={e => setTransactionId(e.target.value)} placeholder="UTR / Reference No." className="text-xs h-9" data-testid="manual-txn-id-embed" />
+                    </div>
+                    <div>
+                      <label className="text-[10px] font-semibold text-gray-700 block mb-1">Amount paid ({quoteCurrency}) *</label>
+                      <Input value={amount} onChange={e => setAmount(e.target.value)} placeholder="Amount" className="text-xs h-9" data-testid="manual-amount-embed" />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="text-[10px] font-semibold text-gray-700 block mb-1">Payment Method *</label>
+                    <select value={paymentMethod} onChange={e => setPaymentMethod(e.target.value)}
+                      className="w-full border rounded-lg text-xs h-9 px-3 text-gray-700 focus:ring-1 focus:ring-[#D4AF37]"
+                      data-testid="manual-payment-method-embed">
+                      <option value="bank_transfer">Bank Transfer (NEFT/IMPS/RTGS)</option>
+                      <option value="upi">UPI / GPay</option>
+                      <option value="cash_deposit">Cash Deposit</option>
+                      <option value="cheque">Cheque</option>
+                      <option value="other">Other</option>
+                    </select>
+                  </div>
+
+                  {!isUpiMethod && (
+                    <div>
+                      <label className="text-[10px] font-semibold text-gray-700 block mb-1">Bank / App *</label>
+                      <Input value={bankName} onChange={e => setBankName(e.target.value)} placeholder="e.g., HDFC, ICICI" className="text-xs h-9" data-testid="manual-bank-name-embed" />
+                    </div>
+                  )}
+
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="text-[10px] font-semibold text-gray-700 block mb-1">City</label>
+                      <Input value={city} onChange={e => setCity(e.target.value)} placeholder="Your city" className="text-xs h-9" data-testid="manual-city-embed" />
+                    </div>
+                    <div>
+                      <label className="text-[10px] font-semibold text-gray-700 block mb-1">State</label>
+                      <Input value={state} onChange={e => setState(e.target.value)} placeholder="Your state" className="text-xs h-9" data-testid="manual-state-embed" />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="text-[10px] font-semibold text-gray-700 block mb-1">Payment Screenshot *</label>
+                    <p className="text-[10px] text-gray-500 mb-1">
+                      Use Browse / Choose File (works on phone, tablet, and laptop). You can also tap the dashed area.
+                    </p>
+                    <label className="flex cursor-pointer flex-col gap-2 rounded-lg border-2 border-dashed border-gray-200 bg-gray-50/80 p-3 transition-colors hover:border-[#D4AF37]/80">
+                      {screenshotPreview ? (
+                        <img src={screenshotPreview} alt="" className="max-h-36 mx-auto rounded object-contain" />
+                      ) : (
+                        <div className="flex flex-col items-center gap-1 py-2 text-gray-400">
+                          <Upload size={20} className="mx-auto" />
+                          <p className="text-xs">Add screenshot</p>
+                        </div>
+                      )}
+                      <input
+                        ref={proofFileRef}
+                        type="file"
+                        accept="image/*"
+                        data-testid="manual-proof-screenshot-embed"
+                        className="block w-full min-h-10 cursor-pointer text-xs text-gray-700 file:mr-3 file:inline-flex file:h-9 file:cursor-pointer file:items-center file:rounded-md file:border file:border-gray-300 file:bg-white file:px-3 file:py-1.5 file:text-xs file:font-medium hover:file:bg-amber-50/80"
+                        onChange={handleScreenshot}
+                      />
+                    </label>
+                    {screenshot ? (
+                      <button
+                        type="button"
+                        className="mt-1.5 text-[10px] text-gray-500 underline"
+                        onClick={clearScreenshot}
+                      >
+                        Remove image
+                      </button>
+                    ) : null}
+                  </div>
+
+                  <div>
+                    <label className="text-[10px] font-semibold text-gray-700 block mb-1">Additional Notes</label>
+                    <textarea value={notes} onChange={e => setNotes(e.target.value)}
+                      placeholder="Any additional details..."
+                      rows={2} className="w-full border rounded-lg text-xs px-3 py-2 text-gray-700 resize-none focus:ring-1 focus:ring-[#D4AF37]"
+                      data-testid="manual-notes-embed" />
+                  </div>
+
+                  <Button onClick={handleSubmit} disabled={submitting}
+                    className="w-full bg-[#D4AF37] hover:bg-[#b8962e] text-white py-3 rounded-full mt-2"
+                    data-testid="manual-submit-btn-embed">
+                    {submitting ? <><Loader2 size={14} className="animate-spin mr-2" /> Submitting...</> : <><Check size={14} className="mr-2" /> Submit Payment Proof</>}
+                  </Button>
+                </div>
+                )}
               </div>
             </div>
 
-            {/* Right: Enrollment Details */}
+            {!isEmbed && (
             <div className="lg:col-span-2">
               <div className="bg-white rounded-xl shadow-sm border p-5 sticky top-28">
                 <h3 className="text-sm font-bold text-gray-900 mb-3 flex items-center gap-2">
@@ -742,6 +884,7 @@ export function ManualPaymentProofBody({
                 )}
               </div>
             </div>
+            )}
           </div>
         </div>
     </div>
