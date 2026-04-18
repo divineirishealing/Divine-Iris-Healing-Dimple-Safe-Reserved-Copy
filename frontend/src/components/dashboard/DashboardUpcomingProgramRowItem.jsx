@@ -762,8 +762,8 @@ export default function DashboardUpcomingProgramRowItem({
               ) : null}
               </div>
 
-            {/* Attendance & notification — column beside family; defaults + cart sit below full width */}
-            <div className="w-full max-w-full rounded-xl border border-slate-200/90 bg-white p-3 shadow-sm min-w-0 flex flex-col lg:justify-self-start">
+            {/* Attendance & notification — column beside family; shell matches Pricing & offer */}
+            <div className="rounded-xl border border-slate-200 bg-white p-3 sm:p-4 shadow-sm min-h-0 flex flex-col min-w-0 w-full">
               <button
                 type="button"
                 className="w-full flex items-center justify-between gap-2 text-left rounded-lg outline-none focus-visible:ring-2 focus-visible:ring-[#D4AF37]/40"
@@ -975,7 +975,7 @@ export default function DashboardUpcomingProgramRowItem({
 
             {subscriberIsAnnual && annualSeatUi ? (
               <div
-                className="w-full rounded-xl border border-slate-200/90 bg-white px-3 py-2 shadow-sm flex flex-col gap-2"
+                className="w-full rounded-xl border border-slate-200 bg-white p-3 sm:p-4 shadow-sm min-h-0 flex flex-col gap-2 min-w-0"
                 data-testid={`dashboard-enrollment-defaults-${p.id}`}
               >
                 <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2 sm:gap-4 w-full min-w-0">
