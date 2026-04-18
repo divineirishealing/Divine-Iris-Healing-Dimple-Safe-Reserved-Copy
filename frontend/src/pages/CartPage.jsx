@@ -1,5 +1,5 @@
-import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import React, { useState, useEffect, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import Header from '../components/Header';
 import Footer from '../components/Footer';
@@ -10,13 +10,11 @@ import { Input } from '../components/ui/input';
 import { Button } from '../components/ui/button';
 import { resolveImageUrl } from '../lib/imageUtils';
 import {
-  ShoppingCart, Trash2, User, Copy, Tag, Mail, Loader2, Check, Lock, Gift, Star
+  ShoppingCart, Trash2, Plus, User, Monitor, Wifi, ChevronRight, ChevronDown, ChevronUp,
+  Bell, BellOff, Copy, Tag, Mail, Loader2, Check, Lock, Gift, Star
 } from 'lucide-react';
 import { ShieldCheck, ShieldAlert } from 'lucide-react';
 import MotivationalSignupFlash from '../components/MotivationalSignupFlash';
-import { useAuth } from '../context/AuthContext';
-import { getAuthHeaders } from '../lib/authHeaders';
-import { buildFullPortalRosterCartParticipants, emptyCartParticipantSlot } from '../lib/dashboardCartPrefill';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
@@ -34,45 +32,34 @@ const COUNTRIES = [
   { code: "TR", name: "Turkey" }, { code: "IT", name: "Italy" }, { code: "ES", name: "Spain" },
   { code: "NL", name: "Netherlands" }, { code: "NZ", name: "New Zealand" },
 ].sort((a, b) => a.name.localeCompare(b.name));
-function cartParticipantAttendanceLabel(p) {
-  if (p.attendance_mode === 'online') return 'Online (Zoom)';
-  if (p.attendance_mode === 'in_person') return 'In person';
-  return 'Offline / remote';
-}
+const GENDERS = ["Female", "Male", "Non-Binary", "Prefer not to say"];
+const RELATIONSHIPS = ["Myself", "Mother", "Father", "Sister", "Brother", "Son", "Daughter", "Spouse", "Husband", "Wife", "Grandmother", "Grandfather", "Grandson", "Granddaughter", "Friend", "Colleague", "Relative", "Other"];
 
-/** Short label for row-wise “Email / updates” column (matches at-a-glance table). */
-function cartParticipantEmailAtAGlance(p) {
-  const wantsNotify = p.attendance_mode === 'online' || p.notify;
-  if (!wantsNotify) return '—';
-  const em = String(p.email || '').trim();
-  if (em) return em;
-  return '—';
-}
+const REFERRAL_SOURCES = ["Instagram", "Facebook", "YouTube", "LinkedIn", "Spotify", "Google Search", "Friend / Family", "WhatsApp", "Other"];
 
-function cartParticipantLocationLabel(p) {
-  const city = String(p.city || '').trim();
-  const st = String(p.state || '').trim();
-  const cc = String(p.country || '').trim();
-  if (!city && !st && !cc) return '—';
-  const countryLbl = cc ? (COUNTRIES.find((c) => c.code === cc)?.name || cc) : '';
-  return [city, st, countryLbl].filter(Boolean).join(', ');
-}
+const COUNTRIES_PHONE = [
+  { code: "IN", phone: "+91" }, { code: "AE", phone: "+971" }, { code: "US", phone: "+1" },
+  { code: "GB", phone: "+44" }, { code: "CA", phone: "+1" }, { code: "AU", phone: "+61" },
+  { code: "SG", phone: "+65" }, { code: "DE", phone: "+49" }, { code: "FR", phone: "+33" },
+  { code: "SA", phone: "+966" }, { code: "QA", phone: "+974" }, { code: "PK", phone: "+92" },
+  { code: "BD", phone: "+880" }, { code: "LK", phone: "+94" }, { code: "MY", phone: "+60" },
+  { code: "JP", phone: "+81" }, { code: "ZA", phone: "+27" }, { code: "NP", phone: "+977" },
+  { code: "KW", phone: "+965" }, { code: "OM", phone: "+968" }, { code: "BH", phone: "+973" },
+  { code: "PH", phone: "+63" }, { code: "ID", phone: "+62" }, { code: "TH", phone: "+66" },
+  { code: "KE", phone: "+254" }, { code: "NG", phone: "+234" }, { code: "EG", phone: "+20" },
+  { code: "TR", phone: "+90" }, { code: "IT", phone: "+39" }, { code: "ES", phone: "+34" },
+  { code: "NL", phone: "+31" }, { code: "NZ", phone: "+64" },
+];
 
-function cartParticipantPhoneAtAGlance(p) {
-  const ph = String(p.phone || '').trim();
-  if (!ph) return '—';
-  const code = String(p.phone_code || '').trim();
-  return code ? `${code} ${ph}` : ph;
-}
+const emptyParticipant = (mode = 'online') => ({
+  name: '', relationship: '', age: '', gender: '',
+  country: '', city: '', state: '', attendance_mode: mode, notify: true, email: '', phone: '', whatsapp: '',
+  phone_code: '', wa_code: '',
+  is_first_time: true, referral_source: '', referred_by_email: '',
+});
 
-function cartParticipantMemberLabel(p) {
-  if (p.is_first_time === false) return 'Soul Tribe';
-  if (p.is_first_time === true) return 'New';
-  return '—';
-}
-
-const CartItemCard = ({ item, onRemove, onUpdateParticipants, symbol, getItemPrice, getItemOfferPrice, copySource, crossSellDiscount, vipOffer }) => {
-  const navigate = useNavigate();
+const CartItemCard = ({ item, onRemove, onUpdateParticipants, symbol, getItemPrice, getItemOfferPrice, showReferral, detectedCountry, copySource, crossSellDiscount, vipOffer }) => {
+  const [expanded, setExpanded] = useState(true);
   const tier = item.durationTiers?.[item.tierIndex];
   const price = getItemPrice(item);
   const offerPrice = getItemOfferPrice(item);
@@ -85,16 +72,30 @@ const CartItemCard = ({ item, onRemove, onUpdateParticipants, symbol, getItemPri
   const pCount = item.participants.length;
   const isSession = item.type === 'session';
 
-  const openFullEnrollment = () => {
-    if (item.type === 'session') {
-      const q = new URLSearchParams();
-      if (item.selectedDate) q.set('date', item.selectedDate);
-      if (item.selectedTime) q.set('slot', item.selectedTime);
-      const qs = q.toString();
-      navigate(`/enroll/session/${item.sessionId || item.programId}${qs ? `?${qs}` : ''}`);
-    } else {
-      navigate(`/enroll/program/${item.programId}?tier=${item.tierIndex ?? 0}`);
+  const updateParticipant = (idx, field, value) => {
+    const updated = [...item.participants];
+    const prev = updated[idx];
+    updated[idx] = { ...prev, [field]: value };
+    // When switching to online, force notify on
+    if (field === 'attendance_mode' && value === 'online') {
+      updated[idx].notify = true;
     }
+    onUpdateParticipants(updated);
+  };
+
+  const addParticipant = () => {
+    const p = emptyParticipant(item.sessionMode === 'remote' ? 'offline' : 'online');
+    if (detectedCountry) {
+      p.country = detectedCountry;
+      const c = COUNTRIES.find(c => c.code === detectedCountry);
+      if (c) { p.phone_code = c.phone; p.wa_code = c.phone; }
+    }
+    onUpdateParticipants([...item.participants, p]);
+  };
+
+  const removeParticipant = (idx) => {
+    if (item.participants.length <= 1) return;
+    onUpdateParticipants(item.participants.filter((_, i) => i !== idx));
   };
 
   return (
@@ -150,96 +151,18 @@ const CartItemCard = ({ item, onRemove, onUpdateParticipants, symbol, getItemPri
         </div>
       </div>
 
-      <div className="w-full flex items-center justify-between px-4 py-2.5 bg-gray-50/60 border-t border-gray-100">
+      {/* Participants toggle */}
+      <button onClick={() => setExpanded(!expanded)} className="w-full flex items-center justify-between px-4 py-2.5 hover:bg-gray-50 transition-colors">
         <span className="text-xs font-medium text-gray-700 flex items-center gap-1.5">
           <User size={14} className="text-[#D4AF37]" />
           {pCount} Participant{pCount > 1 ? 's' : ''}
         </span>
-      </div>
+        {expanded ? <ChevronUp size={14} className="text-gray-400" /> : <ChevronDown size={14} className="text-gray-400" />}
+      </button>
 
-      {/* Row-wise AT A GLANCE — one row per participant (no inline forms) */}
-      <div
-        data-testid={`cart-one-eye-${item.id}`}
-        className="px-4 pt-2 pb-3 border-t border-gray-100"
-      >
-        <p className="text-[10px] font-semibold text-[#D4AF37] uppercase tracking-[0.12em] mb-2.5">
-          At a glance
-        </p>
-        <div className="overflow-x-auto -mx-1 px-1">
-          <table className="w-full text-[10px] sm:text-[11px] text-left border-collapse min-w-[640px]">
-            <thead>
-              <tr className="text-gray-500 border-b border-gray-200">
-                <th className="py-2 pr-2 font-semibold align-bottom whitespace-nowrap">Name</th>
-                <th className="py-2 pr-2 font-semibold align-bottom whitespace-nowrap">Role</th>
-                <th className="py-2 pr-2 font-semibold align-bottom whitespace-nowrap">Age</th>
-                <th className="py-2 pr-2 font-semibold align-bottom whitespace-nowrap">Gender</th>
-                <th className="py-2 pr-2 font-semibold align-bottom min-w-[7rem]">Location</th>
-                <th className="py-2 pr-2 font-semibold align-bottom whitespace-nowrap">Attendance</th>
-                <th className="py-2 pr-2 font-semibold align-bottom min-w-[6.5rem]">Email</th>
-                <th className="py-2 pr-2 font-semibold align-bottom whitespace-nowrap">Phone</th>
-                <th className="py-2 font-semibold align-bottom whitespace-nowrap">With us</th>
-              </tr>
-            </thead>
-            <tbody>
-              {item.participants.map((p, idx) => {
-                const name = String(p.name || '').trim() || `Participant ${idx + 1}`;
-                const role = String(p.relationship || '').trim() || '—';
-                const age = String(p.age || '').trim() || '—';
-                const gender = String(p.gender || '').trim() || '—';
-                const loc = cartParticipantLocationLabel(p);
-                const emailCell = cartParticipantEmailAtAGlance(p);
-                const phoneCell = cartParticipantPhoneAtAGlance(p);
-                const member = cartParticipantMemberLabel(p);
-                return (
-                  <tr
-                    key={idx}
-                    data-testid={`cart-participant-row-${item.id}-${idx}`}
-                    className="text-gray-900 border-b border-gray-100 last:border-b-0"
-                  >
-                    <td className="py-2.5 pr-2 font-medium max-w-[8rem] truncate align-top" title={name}>
-                      {name}
-                    </td>
-                    <td className="py-2.5 pr-2 text-gray-700 max-w-[5rem] truncate align-top" title={role}>
-                      {role}
-                    </td>
-                    <td className="py-2.5 pr-2 text-gray-700 whitespace-nowrap align-top">{age}</td>
-                    <td className="py-2.5 pr-2 text-gray-700 max-w-[5.5rem] truncate align-top" title={gender}>
-                      {gender}
-                    </td>
-                    <td className="py-2.5 pr-2 text-gray-700 max-w-[10rem] truncate align-top" title={loc}>
-                      {loc}
-                    </td>
-                    <td className="py-2.5 pr-2 text-gray-700 whitespace-nowrap align-top">
-                      {cartParticipantAttendanceLabel(p)}
-                    </td>
-                    <td className="py-2.5 pr-2 text-gray-700 max-w-[9rem] truncate align-top" title={emailCell}>
-                      {emailCell}
-                    </td>
-                    <td className="py-2.5 pr-2 text-gray-700 whitespace-nowrap align-top" title={phoneCell}>
-                      {phoneCell}
-                    </td>
-                    <td className="py-2.5 text-gray-700 whitespace-nowrap align-top">{member}</td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
-        <p className="text-[9px] text-gray-500 mt-2.5 leading-relaxed">
-          Review everyone above, then continue. To change details, use{' '}
-          <button
-            type="button"
-            onClick={openFullEnrollment}
-            className="text-[#5D3FD3] font-semibold underline decoration-[#5D3FD3]/40 underline-offset-2 hover:text-[#4a32a8]"
-          >
-            full enrollment
-          </button>
-          {' '}or your dashboard before paying.
-        </p>
-      </div>
-
-      {copySource && (
-        <div className="px-4 pb-3">
+      {/* Copy from first program */}
+      {copySource && expanded && (
+        <div className="px-4 pb-2">
           <button
             type="button"
             data-testid={`copy-details-${item.id}`}
@@ -255,17 +178,205 @@ const CartItemCard = ({ item, onRemove, onUpdateParticipants, symbol, getItemPri
           </button>
         </div>
       )}
+
+      {/* Participants */}
+      {expanded && (
+        <div className="px-4 pb-4">
+          {item.participants.map((p, idx) => (
+            <div key={idx} data-testid={`cart-participant-${item.id}-${idx}`}
+              className="border rounded-lg p-3 mb-2 bg-gray-50 relative">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-[10px] font-semibold text-[#D4AF37]">Participant {idx + 1}</span>
+                {item.participants.length > 1 && (
+                  <button onClick={() => removeParticipant(idx)} className="text-red-400 hover:text-red-600">
+                    <Trash2 size={13} />
+                  </button>
+                )}
+              </div>
+              <div className="grid grid-cols-2 gap-2 mb-2">
+                <div><label className="text-[9px] text-gray-500">Name *</label>
+                  <Input value={p.name} onChange={e => updateParticipant(idx, 'name', e.target.value)}
+                    placeholder="Full name" className="text-xs h-8" data-testid={`cp-name-${item.id}-${idx}`} /></div>
+                <div><label className="text-[9px] text-gray-500">Relationship *</label>
+                  <select value={p.relationship} onChange={e => updateParticipant(idx, 'relationship', e.target.value)}
+                    className="w-full border rounded-md px-2 py-1.5 text-xs bg-white h-8">
+                    <option value="">Select</option>
+                    {RELATIONSHIPS.map(r => <option key={r} value={r}>{r}</option>)}
+                  </select></div>
+              </div>
+              <div className="grid grid-cols-3 gap-2 mb-2">
+                <div><label className="text-[9px] text-gray-500">Age *</label>
+                  <Input type="number" min="5" max="120" value={p.age}
+                    onChange={e => updateParticipant(idx, 'age', e.target.value)}
+                    placeholder="Age" className="text-xs h-8" /></div>
+                <div><label className="text-[9px] text-gray-500">Gender *</label>
+                  <select value={p.gender} onChange={e => updateParticipant(idx, 'gender', e.target.value)}
+                    className="w-full border rounded-md px-2 py-1.5 text-xs bg-white h-8">
+                    <option value="">Select</option>
+                    {GENDERS.map(g => <option key={g} value={g}>{g}</option>)}
+                  </select></div>
+                <div><label className="text-[9px] text-gray-500">Country *</label>
+                  <select value={p.country} onChange={e => {
+                    const code = e.target.value;
+                    const c = COUNTRIES_PHONE.find(c => c.code === code);
+                    const updated = [...item.participants];
+                    updated[idx] = { ...p, country: code, city: '', state: '', phone_code: c ? c.phone : '', wa_code: c ? c.phone : '' };
+                    onUpdateParticipants(updated);
+                  }} className="w-full border rounded-md px-2 py-1.5 text-xs bg-white h-8">
+                    <option value="">Select country</option>
+                    {COUNTRIES.map(c => <option key={c.code} value={c.code}>{c.name}</option>)}
+                  </select></div>
+              </div>
+              <div className="grid grid-cols-2 gap-2 mb-2">
+                <div><label className="text-[9px] text-gray-500">City *</label>
+                  <Input value={p.city || ''} onChange={e => updateParticipant(idx, 'city', e.target.value)} placeholder="City" className="text-xs h-8" /></div>
+                <div><label className="text-[9px] text-gray-500">State *</label>
+                  <Input value={p.state || ''} onChange={e => updateParticipant(idx, 'state', e.target.value)} placeholder="State / Province" className="text-xs h-8" /></div>
+              </div>
+              <div className="flex gap-1 mb-1">
+                {item.enable_online !== false && (
+                  <button type="button" onClick={() => updateParticipant(idx, 'attendance_mode', 'online')}
+                    className={`flex-1 flex flex-col items-center justify-center gap-0.5 py-1.5 rounded border text-[10px] transition-all ${
+                      p.attendance_mode === 'online' ? 'bg-blue-50 border-blue-400 text-blue-600' : 'bg-white border-gray-200 text-gray-500'}`}>
+                    <span className="flex items-center gap-1"><Monitor size={10} /> Online (Zoom)</span>
+                    <span className="text-[8px] opacity-70">via Zoom</span>
+                  </button>
+                )}
+                {item.enable_offline !== false && (
+                  <button type="button" onClick={() => updateParticipant(idx, 'attendance_mode', 'offline')}
+                    className={`flex-1 flex flex-col items-center justify-center gap-0.5 py-1.5 rounded border text-[10px] transition-all ${
+                      p.attendance_mode === 'offline' ? 'bg-teal-50 border-teal-400 text-teal-700' : 'bg-white border-gray-200 text-gray-500'}`}>
+                    <span className="flex items-center gap-1"><Wifi size={10} /> Offline</span>
+                    <span className="text-[8px] opacity-70">Remote, Not In-Person</span>
+                  </button>
+                )}
+                {item.enable_in_person && (
+                  <button type="button" onClick={() => updateParticipant(idx, 'attendance_mode', 'in_person')}
+                    className={`flex-1 flex flex-col items-center justify-center gap-0.5 py-1.5 rounded border text-[10px] transition-all ${
+                      p.attendance_mode === 'in_person' ? 'bg-teal-50 border-teal-400 text-teal-700' : 'bg-white border-gray-200 text-gray-500'}`}>
+                    <span className="flex items-center gap-1"><Wifi size={10} /> Offline</span>
+                    <span className="text-[8px] opacity-70">Remote, Not In-Person</span>
+                  </button>
+                )}
+              </div>
+              {!item.enable_in_person && (
+                <p className="text-[8px] text-gray-400 mb-1 italic">All sessions are online via Zoom or remote distance healing — no in-person sessions at this time.</p>
+              )}
+
+              {/* Divine Iris membership status — two buttons matching EnrollmentPage */}
+              <div className="mb-2 mt-2">
+                <label className="text-[9px] text-gray-500 mb-1 block">Are you new to Divine Iris? *</label>
+                <div className="flex gap-2">
+                  <button type="button" onClick={() => updateParticipant(idx, 'is_first_time', true)}
+                    className={`flex-1 py-2 rounded-lg border text-[10px] font-medium transition-all ${
+                      p.is_first_time === true ? 'bg-[#D4AF37]/10 border-[#D4AF37] text-[#D4AF37]' : 'bg-white border-gray-200 text-gray-500 hover:border-gray-300'}`}>
+                    First time joining Divine Iris
+                  </button>
+                  <button type="button" onClick={() => updateParticipant(idx, 'is_first_time', false)}
+                    className={`flex-1 py-2 rounded-lg border text-[10px] font-medium transition-all ${
+                      p.is_first_time === false ? 'bg-purple-50 border-purple-300 text-purple-700' : 'bg-white border-gray-200 text-gray-500 hover:border-gray-300'}`}>
+                    I am Divine Iris Soul Tribe
+                  </button>
+                </div>
+              </div>
+
+              {/* Referral source — only shown for first-timers */}
+              {p.is_first_time && (
+                <div className="mb-2 grid grid-cols-2 gap-2">
+                  <div>
+                    <label className="text-[9px] text-gray-500">How did you hear about us?</label>
+                    <select value={p.referral_source || ''} onChange={e => updateParticipant(idx, 'referral_source', e.target.value)}
+                      className="w-full border rounded-md px-2 py-1.5 text-xs bg-white h-8" data-testid={`cp-referral-${item.id}-${idx}`}>
+                      <option value="">Select (optional)</option>{REFERRAL_SOURCES.map(r => <option key={r} value={r}>{r}</option>)}
+                    </select>
+                  </div>
+                  {p.referral_source === 'Friend / Family' && (
+                    <>
+                      <div>
+                        <label className="text-[9px] text-gray-500">Referred by (name)</label>
+                        <Input type="text" value={p.referred_by_name || ''} onChange={e => updateParticipant(idx, 'referred_by_name', e.target.value)} placeholder="Referrer's name" className="text-xs h-8" />
+                      </div>
+                      <div className="col-span-2">
+                        <label className="text-[9px] text-gray-500">Referrer email (optional)</label>
+                        <Input type="email" autoComplete="off" value={p.referred_by_email || ''} onChange={e => updateParticipant(idx, 'referred_by_email', e.target.value)} placeholder="friend@email.com" className="text-xs h-8" />
+                      </div>
+                    </>
+                  )}
+                </div>
+              )}
+
+              {showReferral && (
+                <>
+                  <label className="flex items-center gap-1.5 cursor-pointer mb-1.5" data-testid={`cp-referred-toggle-${item.id}-${idx}`}>
+                    <input type="checkbox" checked={p.has_referral || false} onChange={e => updateParticipant(idx, 'has_referral', e.target.checked)} className="w-3.5 h-3.5 rounded border-gray-300 text-[#D4AF37]" />
+                    <span className="text-[10px] text-gray-600">Referred by a Divine Iris member</span>
+                  </label>
+                  {p.has_referral && (
+                    <div className="space-y-2 mb-2">
+                      <Input value={p.referred_by_name || ''} onChange={e => updateParticipant(idx, 'referred_by_name', e.target.value)} placeholder="Referrer's name" className="text-xs h-8" />
+                      <Input type="email" autoComplete="off" value={p.referred_by_email || ''} onChange={e => updateParticipant(idx, 'referred_by_email', e.target.value)} placeholder="Referrer email (optional)" className="text-xs h-8" />
+                    </div>
+                  )}
+                </>
+              )}
+
+              {/* Notify — mandatory for online, optional otherwise (matching EnrollmentPage) */}
+              {p.attendance_mode === 'online' ? (
+                <div className="flex items-center gap-1.5 mb-0.5">
+                  <Bell size={10} className="text-[#D4AF37]" />
+                  <span className="text-[10px] text-[#D4AF37] font-medium">Notification will be sent to Participant</span>
+                </div>
+              ) : (
+                <label className="flex items-center gap-1.5 cursor-pointer" data-testid={`cp-notify-${item.id}-${idx}`}>
+                  <input type="checkbox" checked={p.notify} onChange={e => updateParticipant(idx, 'notify', e.target.checked)} className="w-3.5 h-3.5 rounded border-gray-300 text-[#D4AF37]" />
+                  <span className="text-[10px] text-gray-600 flex items-center gap-1">
+                    {p.notify ? <Bell size={10} className="text-[#D4AF37]" /> : <BellOff size={10} className="text-gray-400" />} Notify this participant
+                  </span>
+                </label>
+              )}
+              {p.notify && (
+                <div className="grid grid-cols-3 gap-2 mt-2">
+                  <Input value={p.email || ''} onChange={e => updateParticipant(idx, 'email', e.target.value)} placeholder="Email" className="text-xs h-8" data-testid={`cp-email-${item.id}-${idx}`} />
+                  <div className="flex gap-0.5">
+                    <span className="border rounded-md px-1.5 py-1 text-[10px] w-[60px] bg-gray-50 h-8 flex-shrink-0 flex items-center justify-center text-gray-600">
+                      {p.phone_code || '—'}
+                    </span>
+                    <Input value={p.phone || ''} onChange={e => {
+                      const val = e.target.value.replace(/\D/g, '').slice(0, 10);
+                      const shouldSync = !p.whatsapp || p.whatsapp === p.phone;
+                      const updated = [...item.participants];
+                      updated[idx] = { ...p, phone: val, ...(shouldSync ? { whatsapp: val } : {}) };
+                      onUpdateParticipants(updated);
+                    }} placeholder="Phone (10 digits)" maxLength={10} className="text-xs h-8" data-testid={`cp-phone-${item.id}-${idx}`} />
+                  </div>
+                  <div className="flex gap-0.5">
+                    <span className="border rounded-md px-1.5 py-1 text-[10px] w-[60px] bg-gray-50 h-8 flex-shrink-0 flex items-center justify-center text-gray-600">
+                      {p.wa_code || '—'}
+                    </span>
+                    <div className="relative flex-1">
+                      <Input value={p.whatsapp || ''} onChange={e => updateParticipant(idx, 'whatsapp', e.target.value.replace(/\D/g, '').slice(0, 10))} placeholder="WhatsApp (10 digits)" maxLength={10} className="text-xs h-8 pl-7" />
+                      <svg className="absolute left-2 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-green-500" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z"/><path d="M12 0C5.373 0 0 5.373 0 12c0 2.625.846 5.059 2.284 7.034L.789 23.492a.5.5 0 00.612.638l4.67-1.228A11.947 11.947 0 0012 24c6.627 0 12-5.373 12-12S18.627 0 12 0zm0 22c-2.352 0-4.55-.743-6.357-2.012l-.232-.168-3.227.85.862-3.147-.185-.239A9.96 9.96 0 012 12C2 6.486 6.486 2 12 2s10 4.486 10 10-4.486 10-10 10z"/></svg>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          ))}
+          <button onClick={addParticipant} data-testid={`cart-add-participant-${item.id}`}
+            className="w-full border border-dashed border-[#D4AF37]/40 rounded-lg py-2 flex items-center justify-center gap-1 text-xs text-[#D4AF37] hover:bg-[#D4AF37]/5 transition-colors">
+            <Plus size={14} /> Add Participant
+          </button>
+        </div>
+      )}
     </div>
   );
 };
 
 function CartPage() {
   const navigate = useNavigate();
-  const { user } = useAuth();
   const { items, removeItem, updateItemParticipants, clearCart } = useCart();
   const { getPrice, getOfferPrice, symbol, baseCurrency, country: detectedCountry } = useCurrency();
   const { toast } = useToast();
-  const portalCartBackfillInFlight = useRef(false);
   const [discountSettings, setDiscountSettings] = useState({ enable_referral: true, checkout_promo_code_visible: true });
   const [paymentDisclaimer, setPaymentDisclaimer] = useState('');
   const [disclaimerStyle, setDisclaimerStyle] = useState({});
@@ -288,64 +399,6 @@ function CartPage() {
       setPromoResult(null);
     }
   }, [discountSettings.checkout_promo_code_visible]);
-
-  /** If logged in with Bearer token, recover empty cart rows from /student/enrollment-prefill (same auth as dashboard). */
-  useEffect(() => {
-    if (items.length === 0) return;
-    let token = '';
-    try {
-      token = localStorage.getItem('session_token') || '';
-    } catch {
-      return;
-    }
-    if (!token) return;
-
-    const targets = items.filter(
-      (item) =>
-        item.type === 'program' &&
-        item.participants.length > 0 &&
-        item.participants.every((p) => !String(p.name || '').trim()),
-    );
-    if (targets.length === 0) return;
-    if (portalCartBackfillInFlight.current) return;
-    portalCartBackfillInFlight.current = true;
-    let cancelled = false;
-
-    (async () => {
-      try {
-        const r = await axios.get(`${API}/student/enrollment-prefill`, {
-          withCredentials: true,
-          headers: getAuthHeaders(),
-        });
-        if (cancelled) return;
-        const pre = r.data;
-        const bookerEmail = (user?.email || '').trim();
-        targets.forEach((item) => {
-          const roster = buildFullPortalRosterCartParticipants(item, pre, bookerEmail, detectedCountry);
-          if (!roster?.length) return;
-          const n = item.participants.length;
-          const merged = roster.slice(0, n);
-          while (merged.length < n) {
-            merged.push(emptyCartParticipantSlot(item));
-          }
-          updateItemParticipants(item.id, merged);
-        });
-        toast({
-          title: 'Filled from your portal',
-          description: 'Your profile and saved family list were applied — review each program, then continue.',
-        });
-      } catch {
-        /* not logged in or prefill unavailable */
-      } finally {
-        portalCartBackfillInFlight.current = false;
-      }
-    })();
-
-    return () => {
-      cancelled = true;
-      portalCartBackfillInFlight.current = false;
-    };
-  }, [items, user?.email, detectedCountry, updateItemParticipants, toast]);
 
   // Country is NOT auto-filled — user must select manually
 
@@ -459,6 +512,7 @@ function CartPage() {
         const p = item.participants[i];
         if (!p.name.trim()) { toast({ title: `${item.programTitle}: Participant ${i + 1} needs a name`, variant: 'destructive' }); return false; }
         if (!p.relationship) { toast({ title: `${item.programTitle}: Participant ${i + 1} needs relationship`, variant: 'destructive' }); return false; }
+        if (!p.age || parseInt(p.age) < 5) { toast({ title: `${item.programTitle}: Participant ${i + 1} needs valid age (5+)`, variant: 'destructive' }); return false; }
         if (!p.gender) { toast({ title: `${item.programTitle}: Participant ${i + 1} needs gender`, variant: 'destructive' }); return false; }
         if (!p.country) { toast({ title: `${item.programTitle}: Participant ${i + 1} needs country`, variant: 'destructive' }); return false; }
         if (!p.city || !p.city.trim()) { toast({ title: `${item.programTitle}: Participant ${i + 1} needs city`, variant: 'destructive' }); return false; }
@@ -511,7 +565,7 @@ function CartPage() {
           const refEmailRaw = (p.referred_by_email || '').trim().toLowerCase();
           const refEmail = (p.has_referral || p.referral_source === 'Friend / Family') && refEmailRaw ? refEmailRaw : null;
           return {
-            name: p.name, relationship: p.relationship, age: parseInt(p.age, 10) || 0,
+            name: p.name, relationship: p.relationship, age: parseInt(p.age),
             gender: p.gender, country: p.country, city: p.city, state: p.state, attendance_mode: p.attendance_mode,
             notify: p.notify, email: p.email || null,
             phone: p.notify && p.phone ? `${p.phone_code || ''}${p.phone}` : null,
@@ -581,32 +635,13 @@ function CartPage() {
       <Header />
       <div className="pt-24 pb-16">
         <div className="container mx-auto px-4 max-w-4xl">
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-6">
+          <div className="flex items-center justify-between mb-6">
             <div>
               <h1 data-testid="cart-title" className="text-2xl md:text-3xl text-gray-900">Your Cart</h1>
               <p className="text-sm text-gray-500 mt-1">{items.length} item{items.length > 1 ? 's' : ''} &middot; {totalParticipants} participant{totalParticipants > 1 ? 's' : ''}</p>
             </div>
-            <div className="flex flex-wrap items-center gap-2 justify-end">
-              <Link
-                to="/dashboard/orders"
-                data-testid="my-order-history-link"
-                className="text-xs font-medium text-[#5D3FD3] hover:text-[#4c32b3] px-3 py-1.5 rounded-md border border-[#5D3FD3]/35 hover:bg-violet-50 transition-colors"
-              >
-                My order history
-              </Link>
-              <button
-                type="button"
-                onClick={() => {
-                  if (!window.confirm('Remove all items from your cart?')) return;
-                  clearCart();
-                  toast({ title: 'Cart cleared' });
-                }}
-                data-testid="clear-cart-btn"
-                className="text-xs text-red-500 hover:text-red-700 transition-colors px-2 py-1.5 rounded-md border border-transparent hover:border-red-200"
-              >
-                Clear cart
-              </button>
-            </div>
+            <button onClick={() => { clearCart(); toast({ title: 'Cart cleared' }); }} data-testid="clear-cart-btn"
+              className="text-xs text-red-500 hover:text-red-700 transition-colors">Clear All</button>
           </div>
 
           <MotivationalSignupFlash
@@ -642,6 +677,7 @@ function CartPage() {
                 onRemove={() => removeItem(item.id)}
                 onUpdateParticipants={(p) => updateItemParticipants(item.id, p)}
                 symbol={symbol} getItemPrice={getItemPrice} getItemOfferPrice={getItemOfferPrice}
+                showReferral={discountSettings.enable_referral} detectedCountry={detectedCountry}
                 copySource={itemIdx > 0 ? items[0] : null}
                 crossSellDiscount={itemCrossSell}
                 vipOffer={vipOffers[item.programId] || null} />
