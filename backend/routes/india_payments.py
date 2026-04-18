@@ -602,19 +602,24 @@ async def approve_payment_proof(proof_id: str):
         except Exception as e:
             logger.warning(f"India proof loyalty points: {e}")
 
-        # Complete enrollment
+        # Complete enrollment — keep booker contact in sync so receipt email + portal order history match the payer
+        enrollment_complete = {
+            "step": 5,
+            "status": "completed",
+            "payment_method": "manual_proof",
+            "bank_name": proof.get("bank_name", ""),
+            "stripe_session_id": fake_session_id,
+            "is_india_alt": True,
+            "paid_at": datetime.now(timezone.utc).isoformat(),
+            "updated_at": datetime.now(timezone.utc).isoformat(),
+        }
+        if (booker_email_resolved or "").strip():
+            enrollment_complete["booker_email"] = (booker_email_resolved or "").strip()
+        if (booker_name_resolved or "").strip():
+            enrollment_complete["booker_name"] = (booker_name_resolved or "").strip()
         await db.enrollments.update_one(
             {"id": enrollment_id},
-            {"$set": {
-                "step": 5,
-                "status": "completed",
-                "payment_method": "manual_proof",
-                "bank_name": proof.get("bank_name", ""),
-                "stripe_session_id": fake_session_id,
-                "is_india_alt": True,
-                "paid_at": datetime.now(timezone.utc).isoformat(),
-                "updated_at": datetime.now(timezone.utc).isoformat(),
-            }}
+            {"$set": enrollment_complete},
         )
 
         # Generate UIDs and send receipt email
@@ -624,7 +629,11 @@ async def approve_payment_proof(proof_id: str):
             # Send receipt directly (not via create_task to avoid silent failures)
             txn_clean = {k: v for k, v in transaction.items() if k != '_id'}
             await send_enrollment_receipt(txn_clean)
-            logger.info(f"Receipt sent for manual proof {proof_id} to {proof.get('booker_email')}")
+            logger.info(
+                "Receipt sent for manual proof %s to %s",
+                proof_id,
+                (booker_email_resolved or proof.get("payer_email") or proof.get("booker_email") or ""),
+            )
         except Exception as e:
             logger.warning(f"Error generating UIDs/emails for India payment: {e}")
             import traceback

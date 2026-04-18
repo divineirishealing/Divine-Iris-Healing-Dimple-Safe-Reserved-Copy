@@ -355,9 +355,14 @@ async def _send_receipt_and_notifications(tx):
     if not enrollment:
         return
 
-    booker_name = enrollment.get("booker_name", "")
-    booker_email = enrollment.get("booker_email", "")
-    phone = enrollment.get("phone", "")
+    # Enrollment may lag the transaction (e.g. India manual proof); fall back to txn payer fields for receipt.
+    booker_name = (enrollment.get("booker_name") or tx.get("booker_name") or "").strip()
+    booker_email = (
+        (enrollment.get("booker_email") or "").strip()
+        or (tx.get("booker_email") or "").strip()
+        or (tx.get("payer_email") or "").strip()
+    )
+    phone = (enrollment.get("phone", "") or tx.get("phone", "") or "").strip()
     participants = enrollment.get("participants", [])
     item_title = tx.get("item_title", "")
     total = tx.get("amount", 0)
