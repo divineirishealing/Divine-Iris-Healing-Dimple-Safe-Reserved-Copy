@@ -1272,29 +1272,48 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh, bo
                 Portal-only pricing: your seat, immediate household, and friends &amp; extended can each use{' '}
                 <span className="text-slate-700 font-medium">different</span> rules (Admin → Dashboard). Use{' '}
                 <strong className="text-slate-700 font-medium">Add to cart</strong> on each program to build an order of several
-                programs, then open <strong className="text-slate-700 font-medium">Cart</strong> for the same checkout as the main
-                site. Annual members can still pay per program below after choosing guests.
+                programs, then use <strong className="text-slate-700 font-medium">Review &amp; pay</strong> in the sidebar (or
+                main-site <strong className="text-slate-700 font-medium">Cart</strong>) for one combined checkout. Annual members
+                can still pay per program below after choosing guests.
               </p>
             </div>
           </div>
-          <Button
-            type="button"
-            variant="outline"
-            className="shrink-0 h-10 px-4 border-slate-200 bg-white/90 hover:bg-[#D4AF37]/10 hover:border-[#D4AF37]/40 text-slate-800 gap-2"
-            onClick={() => navigate('/cart')}
-            data-testid="dashboard-open-cart"
-          >
-            <ShoppingCart size={16} className="text-[#D4AF37]" />
-            <span className="text-xs font-semibold">Cart</span>
-            {itemCount > 0 ? (
-              <span
-                className="min-w-[1.25rem] h-5 px-1.5 rounded-full bg-[#D4AF37] text-white text-[10px] font-bold tabular-nums flex items-center justify-center"
-                data-testid="dashboard-cart-count"
-              >
-                {itemCount}
-              </span>
-            ) : null}
-          </Button>
+          <div className="flex flex-wrap gap-2 shrink-0 justify-end">
+            <Button
+              type="button"
+              variant="outline"
+              className="h-10 px-4 border-violet-200 bg-white/90 hover:bg-violet-50 text-slate-800 gap-2"
+              onClick={() => navigate('/dashboard/combined-checkout')}
+              disabled={itemCount === 0}
+              data-testid="dashboard-open-combined-checkout"
+            >
+              <CreditCard size={16} className="text-violet-700" />
+              <span className="text-xs font-semibold">Review &amp; pay</span>
+              {itemCount > 0 ? (
+                <span className="min-w-[1.25rem] h-5 px-1.5 rounded-full bg-violet-600 text-white text-[10px] font-bold tabular-nums flex items-center justify-center">
+                  {itemCount}
+                </span>
+              ) : null}
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              className="h-10 px-4 border-slate-200 bg-white/90 hover:bg-[#D4AF37]/10 hover:border-[#D4AF37]/40 text-slate-800 gap-2"
+              onClick={() => navigate('/cart')}
+              data-testid="dashboard-open-cart"
+            >
+              <ShoppingCart size={16} className="text-[#D4AF37]" />
+              <span className="text-xs font-semibold">Cart</span>
+              {itemCount > 0 ? (
+                <span
+                  className="min-w-[1.25rem] h-5 px-1.5 rounded-full bg-[#D4AF37] text-white text-[10px] font-bold tabular-nums flex items-center justify-center"
+                  data-testid="dashboard-cart-count"
+                >
+                  {itemCount}
+                </span>
+              ) : null}
+            </Button>
+          </div>
         </div>
 
         {showOfferCountdownStrip && (

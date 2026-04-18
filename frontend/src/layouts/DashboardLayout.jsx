@@ -4,7 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import { useDashboardScrollSession } from '../hooks/useDashboardScrollSession';
 import { useSiteSettings } from '../context/SiteSettingsContext';
 import { NavLink } from 'react-router-dom';
-import { Loader2, Menu, X, Home, Sprout, Calendar, TrendingUp, Sparkles, Heart, BookOpen, User, CreditCard, LogOut, Coins } from 'lucide-react';
+import { Loader2, Menu, X, Home, Sprout, Calendar, TrendingUp, Sparkles, Heart, BookOpen, User, CreditCard, LogOut, Coins, ShoppingCart } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { CosmicDashboardBackground } from '../components/dashboard/CosmicDashboardBackground';
 import { getDashboardCosmicVariant } from '../lib/dashboardCosmicThemes';
@@ -18,6 +18,7 @@ const NAV_ITEMS = [
   { to: '/dashboard/bhaad', label: 'Bhaad Portal', icon: Sparkles, visKey: 'nav_bhaad' },
   { to: '/dashboard/tribe', label: 'Soul Tribe', icon: Heart, visKey: 'nav_tribe' },
   { to: '/dashboard/financials', label: 'Financials', icon: CreditCard, visKey: 'nav_financials' },
+  { to: '/dashboard/combined-checkout', label: 'Review & pay', icon: ShoppingCart, visKey: null },
   { to: '/dashboard/points', label: 'Points', icon: Coins, visKey: 'nav_points' },
   { to: '/dashboard/profile', label: 'Profile', icon: User, visKey: 'nav_profile' },
 ];
