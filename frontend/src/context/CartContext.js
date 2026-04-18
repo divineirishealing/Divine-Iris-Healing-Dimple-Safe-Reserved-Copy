@@ -73,7 +73,7 @@ export const CartProvider = ({ children }) => {
    * Add a program line or replace its participants if the same programId + tierIndex exists.
    * Keeps Review & pay in sync when dashboard seat picks change after the program was already in the cart.
    */
-  const syncProgramLineItem = useCallback((program, tierIndex, participantsOverride = null) => {
+  const syncProgramLineItem = useCallback((program, tierIndex, participantsOverride = null, portalLineMeta = null) => {
     const tiers = program.duration_tiers || [];
     const tier = tiers[tierIndex] || null;
     const defaultParticipant = {
@@ -113,6 +113,7 @@ export const CartProvider = ({ children }) => {
       enable_offline: program.enable_offline !== false,
       enable_in_person: program.enable_in_person || false,
       participants,
+      ...(portalLineMeta && typeof portalLineMeta === 'object' ? { portalLineMeta } : {}),
     };
 
     setItems((prev) => {
@@ -121,14 +122,22 @@ export const CartProvider = ({ children }) => {
         return [...prev, newItem];
       }
       const existing = prev[idx];
+      const mergedMeta =
+        portalLineMeta && typeof portalLineMeta === 'object'
+          ? { ...(existing.portalLineMeta || {}), ...portalLineMeta }
+          : existing.portalLineMeta;
+      const nextLine = { ...existing, participants, portalLineMeta: mergedMeta };
       try {
-        if (JSON.stringify(existing.participants) === JSON.stringify(participants)) {
+        if (
+          JSON.stringify(existing.participants) === JSON.stringify(participants) &&
+          JSON.stringify(existing.portalLineMeta || null) === JSON.stringify(nextLine.portalLineMeta || null)
+        ) {
           return prev;
         }
       } catch {
         /* compare failed — apply update */
       }
-      return prev.map((i, j) => (j === idx ? { ...i, participants } : i));
+      return prev.map((i, j) => (j === idx ? nextLine : i));
     });
     return true;
   }, []);

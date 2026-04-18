@@ -1,6 +1,6 @@
 from fastapi import APIRouter, HTTPException, Request
-from pydantic import BaseModel, EmailStr
-from typing import Optional
+from pydantic import BaseModel, EmailStr, Field
+from typing import Optional, List
 import os, re, random, uuid, logging, httpx, dns.resolver
 from motor.motor_asyncio import AsyncIOMotorClient
 from dotenv import load_dotenv
@@ -133,6 +133,14 @@ class ParticipantData(BaseModel):
     referred_by_email: Optional[str] = None
 
 
+class PortalCartLineIn(BaseModel):
+    """Annual portal Review & pay: one line per program so server can set dashboard_mixed_total like dashboard-pay."""
+    program_id: str
+    tier_index: int = 0
+    family_member_ids: List[str] = Field(default_factory=list)
+    booker_joins: bool = True
+
+
 class ProfileData(BaseModel):
     booker_name: str
     booker_email: str
@@ -142,6 +150,8 @@ class ProfileData(BaseModel):
     item_type: Optional[str] = None
     item_id: Optional[str] = None
     item_title: Optional[str] = None
+    portal_cart_currency: Optional[str] = None
+    portal_cart_lines: Optional[List[PortalCartLineIn]] = None
 
 
 class EmailValidation(BaseModel):

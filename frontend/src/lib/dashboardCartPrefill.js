@@ -162,36 +162,40 @@ export function buildAnnualDashboardCartParticipants({
   const guestForm = seatDraft?.guestSeatForm || {};
   const bookerMode = seatDraft?.bookerSeatMode === 'offline' ? 'offline' : 'online';
   const bookerNotify = seatDraft?.bookerSeatNotify !== false;
+  const bookerJoins = seatDraft?.bookerJoinsProgram !== false;
 
-  if (!includedPkg) {
+  const pushBookerRow = () => {
     const name = String(self?.name || '').trim();
     const email = String(self?.email || bookerEmail || '').trim();
-    if (name || email) {
-      const split = splitPhoneForCart(self?.phone || '', COUNTRIES_WITH_PHONE);
-      const country = resolveCountryCode(self?.country, detectedCountry);
-      const age = String(self?.age || '').trim() || ageFromDobIso(self?.date_of_birth);
-      const city = String(self?.city || '').trim();
-      const notify = bookerNotify || bookerMode === 'online';
-      participants.push(
-        baseParticipant(program, {
-          name: name || email || 'Account holder',
-          relationship: 'Myself',
-          age: age || '',
-          gender: String(self?.gender || '').trim() || 'Prefer not to say',
-          country,
-          city,
-          state: city ? String(self?.state || '').trim() || 'N/A' : 'N/A',
-          attendance_mode: bookerMode,
-          notify,
-          email,
-          phone: split.phone,
-          phone_code: split.phone_code,
-          whatsapp: split.whatsapp,
-          wa_code: split.wa_code,
-          is_first_time: false,
-        })
-      );
-    }
+    if (!name && !email) return;
+    const split = splitPhoneForCart(self?.phone || '', COUNTRIES_WITH_PHONE);
+    const country = resolveCountryCode(self?.country, detectedCountry);
+    const age = String(self?.age || '').trim() || ageFromDobIso(self?.date_of_birth);
+    const city = String(self?.city || '').trim();
+    const notify = bookerNotify || bookerMode === 'online';
+    participants.push(
+      baseParticipant(program, {
+        name: name || email || 'Account holder',
+        relationship: 'Myself',
+        age: age || '',
+        gender: String(self?.gender || '').trim() || 'Prefer not to say',
+        country,
+        city,
+        state: city ? String(self?.state || '').trim() || 'N/A' : 'N/A',
+        attendance_mode: bookerMode,
+        notify,
+        email,
+        phone: split.phone,
+        phone_code: split.phone_code,
+        whatsapp: split.whatsapp,
+        wa_code: split.wa_code,
+        is_first_time: false,
+      }),
+    );
+  };
+
+  if (bookerJoins) {
+    pushBookerRow();
   }
 
   const ids = (selectedMemberIds || []).map((x) => String(x));

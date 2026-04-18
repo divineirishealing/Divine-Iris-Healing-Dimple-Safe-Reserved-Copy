@@ -61,6 +61,7 @@ function createEmptySeatDraft() {
   return {
     bookerSeatMode: saved ? saved.bookerMode : 'online',
     bookerSeatNotify: saved ? saved.bookerNotify : true,
+    bookerJoinsProgram: true,
     guestSeatForm: {},
     enrollmentDefaultsLoaded: !!saved,
     persistEnrollmentDefaultsOnContinue: false,
@@ -731,10 +732,12 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh, bo
     Promise.all(
       programs.map((p) => {
         const ids = selectedFamilyByProgram[p.id] || [];
+        const draft = seatDraftsByProgram[p.id];
+        const bookerJoins = draft?.bookerJoinsProgram !== false;
         const params =
           ids.length > 0
-            ? { program_id: p.id, currency, family_ids: ids.join(',') }
-            : { program_id: p.id, currency, family_count: 0 };
+            ? { program_id: p.id, currency, family_ids: ids.join(','), booker_joins: bookerJoins }
+            : { program_id: p.id, currency, family_count: 0, booker_joins: bookerJoins };
         return axios
           .get(`${API}/api/student/dashboard-quote`, {
             params,
@@ -754,7 +757,7 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh, bo
     return () => {
       cancelled = true;
     };
-  }, [isAnnual, currencyReady, currency, prefetchProgramsKey, familySelectionKey, programsForPrefetch]);
+  }, [isAnnual, currencyReady, currency, prefetchProgramsKey, familySelectionKey, programsForPrefetch, seatDraftsByProgram]);
 
   useEffect(() => {
     if (!isAnnual) return;
@@ -770,6 +773,7 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh, bo
           ({
             bookerSeatMode: saved ? saved.bookerMode : 'online',
             bookerSeatNotify: saved ? saved.bookerNotify : true,
+            bookerJoinsProgram: true,
             guestSeatForm: {},
             enrollmentDefaultsLoaded: !!saved,
             persistEnrollmentDefaultsOnContinue: false,
@@ -1223,7 +1227,16 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh, bo
     } catch {
       /* syncProgramLineItem will add a blank row if build failed */
     }
-    syncProgramLineItem(p, tier, participants);
+    const includedForSeat =
+      programIncludedInAnnualPackage(p, annualIncludedIds) || !!annualQuotes[p.id]?.included_in_annual_package;
+    const sel = selectedFamilyByProgram[p.id] || [];
+    const draft = seatDraftsRef.current[p.id];
+    syncProgramLineItem(p, tier, participants, {
+      familyIds: sel.map(String),
+      bookerJoins: draft?.bookerJoinsProgram !== false,
+      annualIncluded: includedForSeat,
+      portalQuoteTotal: annualQuotes[p.id]?.total != null ? Number(annualQuotes[p.id].total) : null,
+    });
     toast({
       title: 'Order updated',
       description: participants?.length

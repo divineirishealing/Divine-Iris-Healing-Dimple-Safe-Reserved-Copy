@@ -117,6 +117,8 @@ export default function DashboardCombinedCheckoutPage() {
   const [paymentMethods, setPaymentMethods] = useState(['stripe']);
   const [enrollmentSubmitLoading, setEnrollmentSubmitLoading] = useState(false);
   const [portalSelf, setPortalSelf] = useState(null);
+  const [subscriberIsAnnual, setSubscriberIsAnnual] = useState(false);
+  const [annualPortalSubtotal, setAnnualPortalSubtotal] = useState(null);
   const promoFromUrlApplied = useRef(false);
 
   useEffect(() => {
@@ -180,6 +182,7 @@ export default function DashboardCombinedCheckoutPage() {
         if (cancelled) return;
         const pm = homeRes.data?.payment_methods;
         if (Array.isArray(pm) && pm.length) setPaymentMethods(pm);
+        setSubscriberIsAnnual(!!homeRes.data?.is_annual_subscriber);
         setPortalSelf(prefillRes.data?.self || null);
       })
       .catch(() => {});
@@ -202,6 +205,21 @@ export default function DashboardCombinedCheckoutPage() {
         .map((i) => `${i.programId}:${i.tierIndex}`)
         .sort()
         .join('|'),
+    [items],
+  );
+
+  const annualQuoteDeps = useMemo(
+    () =>
+      items
+        .filter((i) => i.type === 'program')
+        .map((i) => {
+          const m = i.portalLineMeta || {};
+          const ids = (m.familyIds || []).map(String).filter(Boolean).slice().sort().join(':');
+          const bj = m.bookerJoins !== false ? '1' : '0';
+          return `${i.programId}|${ids}|${bj}`;
+        })
+        .sort()
+        .join('||'),
     [items],
   );
 
@@ -253,13 +271,21 @@ export default function DashboardCombinedCheckoutPage() {
               bookerEmail: email,
               detectedCountry,
             });
+            if (participants && participants.length > 0) {
+              syncProgramLineItem(program, line.tierIndex, participants, {
+                familyIds: sel.map(String),
+                bookerJoins: draft?.bookerJoinsProgram !== false,
+                annualIncluded: includedForSeat,
+                portalQuoteTotal: null,
+              });
+            }
           } else {
             participants =
               buildFullPortalRosterCartParticipants(program, pre, email, detectedCountry) ||
               buildSelfOnlyCartParticipants(self, program, email, detectedCountry);
-          }
-          if (participants && participants.length > 0) {
-            syncProgramLineItem(program, line.tierIndex, participants);
+            if (participants && participants.length > 0) {
+              syncProgramLineItem(program, line.tierIndex, participants);
+            }
           }
         }
       } catch {
@@ -324,7 +350,58 @@ export default function DashboardCombinedCheckoutPage() {
     return offer > 0 ? offer : getItemPrice(item);
   };
 
-  const subtotal = items.reduce((sum, item) => sum + getEffectivePrice(item) * item.participants.length, 0);
+  useEffect(() => {
+    if (!subscriberIsAnnual || !annualQuoteDeps) {
+      setAnnualPortalSubtotal(null);
+      return;
+    }
+    const email = (user?.email || '').trim();
+    if (!email) {
+      setAnnualPortalSubtotal(null);
+      return;
+    }
+    let cancelled = false;
+    const headers = getAuthHeaders();
+    const programItems = items.filter((i) => i.type === 'program');
+    if (!programItems.length) {
+      setAnnualPortalSubtotal(null);
+      return;
+    }
+    Promise.all(
+      programItems.map((i) => {
+        const meta = i.portalLineMeta || {};
+        const ids = (meta.familyIds || []).map(String).filter(Boolean).join(',');
+        const bj = meta.bookerJoins !== false;
+        return axios
+          .get(`${API}/student/dashboard-quote`, {
+            params: {
+              program_id: i.programId,
+              currency,
+              ...(ids ? { family_ids: ids } : { family_count: 0 }),
+              booker_joins: bj,
+            },
+            withCredentials: true,
+            headers,
+          })
+          .then((r) => Number(r.data?.total))
+          .catch(() => null);
+      }),
+    ).then((totals) => {
+      if (cancelled) return;
+      if (totals.some((t) => t == null || Number.isNaN(t))) {
+        setAnnualPortalSubtotal(null);
+        return;
+      }
+      setAnnualPortalSubtotal(Math.round(totals.reduce((a, t) => a + t, 0) * 100) / 100);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [subscriberIsAnnual, annualQuoteDeps, currency, user?.email]);
+
+  const naiveSubtotal = items.reduce((sum, item) => sum + getEffectivePrice(item) * item.participants.length, 0);
+  const subtotal =
+    subscriberIsAnnual && annualPortalSubtotal != null ? annualPortalSubtotal : naiveSubtotal;
   const totalParticipants = items.reduce((sum, i) => sum + i.participants.length, 0);
   const numPrograms = items.length;
 
@@ -579,6 +656,7 @@ export default function DashboardCombinedCheckoutPage() {
       );
 
       const leadItem = items[0];
+      const programLines = items.filter((i) => i.type === 'program');
       const enrollRes = await axios.post(
         `${API}/student/combined-enrollment-start`,
         {
@@ -589,6 +667,17 @@ export default function DashboardCombinedCheckoutPage() {
           item_id: leadItem?.programId || '',
           item_title: leadItem?.programTitle || '',
           participants: allParticipants,
+          ...(subscriberIsAnnual && programLines.length > 0
+            ? {
+                portal_cart_currency: currency,
+                portal_cart_lines: programLines.map((i) => ({
+                  program_id: String(i.programId),
+                  tier_index: i.tierIndex ?? 0,
+                  family_member_ids: (i.portalLineMeta?.familyIds || []).map(String),
+                  booker_joins: i.portalLineMeta?.bookerJoins !== false,
+                })),
+              }
+            : {}),
         },
         { withCredentials: true, headers: getAuthHeaders() },
       );
@@ -717,14 +806,23 @@ export default function DashboardCombinedCheckoutPage() {
           · <strong className="text-gray-700">{items.length}</strong> program{items.length !== 1 ? 's' : ''}. Seat price is per
           person for that program (offer vs list when shown).
         </p>
+        {subscriberIsAnnual && annualPortalSubtotal != null ? (
+          <p className="text-[10px] text-emerald-900 bg-emerald-50/90 border border-emerald-200/80 rounded-lg px-2 py-1.5 mb-3 leading-snug">
+            Totals here use your <strong>portal annual pricing</strong>. Your own seat on programs included in your package is
+            not charged; only guest seats are billed. Use the dashboard checkbox if you are not attending a program yourself.
+          </p>
+        ) : null}
         <div className="space-y-0 divide-y divide-gray-100" data-testid="dashboard-combined-roster-table">
           {rosterRows.map((row, n) => {
             const { item, p, idx, key } = row;
             const name = String(p.name || '').trim() || '—';
             const role = String(p.relationship || '').trim() || '—';
             const notify = combinedNotifyLabel(p);
-            const unitOffer = getItemOfferPrice(item);
-            const unitList = getItemPrice(item);
+            const meta = item.portalLineMeta;
+            const selfIncluded =
+              subscriberIsAnnual && meta?.annualIncluded && String(p.relationship || '').trim() === 'Myself';
+            const unitOffer = selfIncluded ? 0 : getItemOfferPrice(item);
+            const unitList = selfIncluded ? 0 : getItemPrice(item);
             return (
               <div
                 key={key}
@@ -753,7 +851,9 @@ export default function DashboardCombinedCheckoutPage() {
                 </div>
                 <div className="sm:col-span-1 min-w-0 text-right tabular-nums">
                   <span className="text-gray-500 text-[10px] uppercase tracking-wide sm:hidden">Seat · </span>
-                  {unitOffer > 0 ? (
+                  {selfIncluded ? (
+                    <span className="text-emerald-700 font-semibold text-[10px] sm:text-xs">Package</span>
+                  ) : unitOffer > 0 ? (
                     <span className="inline-flex flex-col sm:flex-row sm:items-end sm:gap-1 sm:justify-end">
                       <span className="text-[#D4AF37] font-semibold">
                         {symbol} {unitOffer.toLocaleString()}

@@ -289,7 +289,14 @@ export default function DashboardUpcomingProgramRowItem({
       /* empty row */
     }
     const wasInCart = items.some((i) => i.programId === p.id && i.tierIndex === tierIdxForDisplay);
-    syncProgramLineItem(p, tierIdxForDisplay, participants);
+    const includedForMeta =
+      aq?.included_in_annual_package ?? programIncludedInAnnualPackage(p, annualIncludedIds);
+    syncProgramLineItem(p, tierIdxForDisplay, participants, {
+      familyIds: selIds.map(String),
+      bookerJoins: annualSeatUi?.draft?.bookerJoinsProgram !== false,
+      annualIncluded: includedForMeta,
+      portalQuoteTotal: aq?.total != null ? Number(aq.total) : null,
+    });
     setJustAdded(true);
     toast({
       title: wasInCart ? `${p.title} — order refreshed` : `${p.title} added to your order`,
@@ -746,6 +753,32 @@ export default function DashboardUpcomingProgramRowItem({
                 ) : null}
 
                 <div className="w-full flex flex-col gap-0 divide-y divide-slate-200">
+                  <div className="py-2 first:pt-0">
+                    <label className="flex items-start gap-2 cursor-pointer text-[10px] text-slate-800 leading-snug">
+                      <input
+                        type="checkbox"
+                        className="rounded border-slate-300 mt-0.5 shrink-0"
+                        checked={annualSeatUi.draft?.bookerJoinsProgram !== false}
+                        onChange={(e) => {
+                          e.stopPropagation();
+                          annualSeatUi.onPatchDraft(p.id, { bookerJoinsProgram: e.target.checked });
+                        }}
+                      />
+                      <span>
+                        {includedPkg ? (
+                          <>
+                            <span className="font-semibold text-slate-900">Include me on the roster.</span> Your annual package
+                            covers your seat (no extra charge). Uncheck if only your selected guests are attending.
+                          </>
+                        ) : (
+                          <>
+                            <span className="font-semibold text-slate-900">I am enrolling myself</span> — my seat is billed on
+                            this order. Uncheck if you are only enrolling family or friends.
+                          </>
+                        )}
+                      </span>
+                    </label>
+                  </div>
                   <div className="flex flex-col min-[680px]:flex-row min-[680px]:items-center gap-2 py-2 first:pt-0 w-full">
                     <span className="text-[9px] font-bold uppercase tracking-wide text-slate-500 shrink-0 min-w-[7.5rem]">
                       Attendance

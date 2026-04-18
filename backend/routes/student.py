@@ -731,6 +731,74 @@ async def get_enrollment_prefill(user: dict = Depends(get_current_user)):
     return {"self": self_data, "immediate_family": family, "other_guests": other_guests}
 
 
+async def _portal_combined_dashboard_total(user: dict, profile: ProfileData) -> Optional[Tuple[float, str]]:
+    """Sum annual portal quotes for cart lines (same basis as GET /dashboard-quote). Sets checkout total like dashboard-pay."""
+    lines = profile.portal_cart_lines
+    if not lines:
+        return None
+    client_id = user.get("client_id")
+    if not client_id:
+        return None
+    client = await db.clients.find_one({"id": client_id}, {"_id": 0}) or {}
+    sub = client.get("subscription") or {}
+    if not _is_annual_subscriber(sub, client):
+        return None
+    cur = (profile.portal_cart_currency or "aed").strip().lower()
+    settings_doc = await db.site_settings.find_one(
+        {"id": "site_settings"},
+        {
+            "_id": 0,
+            "dashboard_offer_annual": 1,
+            "dashboard_offer_family": 1,
+            "dashboard_offer_extended": 1,
+            "annual_package_included_program_ids": 1,
+            "dashboard_program_offers": 1,
+        },
+    ) or {}
+    fam_all = _all_dashboard_guest_rows(client)
+    fam_by_id = {str(m.get("id")) for m in fam_all if m.get("id")}
+    g_ao = settings_doc.get("dashboard_offer_annual") or {}
+    g_fo = settings_doc.get("dashboard_offer_family") or {}
+    g_eo = settings_doc.get("dashboard_offer_extended") or {}
+    per_map = settings_doc.get("dashboard_program_offers") or {}
+    inc_cfg = settings_doc.get("annual_package_included_program_ids")
+    total = 0.0
+    for line in lines:
+        pid = str(line.program_id).strip()
+        if not pid:
+            continue
+        program = await db.programs.find_one({"id": pid}, {"_id": 0})
+        if not program:
+            raise HTTPException(status_code=400, detail=f"Unknown program in cart: {pid}")
+        id_list = [str(x).strip() for x in (line.family_member_ids or []) if str(x).strip()]
+        for i in id_list:
+            if i not in fam_by_id:
+                raise HTTPException(status_code=400, detail="Unknown guest id in portal cart")
+        if id_list:
+            imm_fc, ext_fc = _split_guest_ids_by_bucket(client, id_list)
+        else:
+            imm_fc, ext_fc = 0, 0
+        included = _program_included_in_annual_package(program, inc_cfg)
+        if included:
+            include_self = False
+        else:
+            include_self = bool(line.booker_joins)
+        ao, fo, eo = _merge_program_dashboard_offers(g_ao, g_fo, g_eo, pid, per_map)
+        pricing = await compute_dashboard_annual_family_pricing(
+            program,
+            pid,
+            cur,
+            imm_fc,
+            ext_fc,
+            ao,
+            fo,
+            eo,
+            include_self=include_self,
+        )
+        total += float(pricing.get("total") or 0)
+    return round(total, 2), cur
+
+
 @router.post("/combined-enrollment-start")
 async def student_combined_enrollment_start(profile: ProfileData, request: Request, user: dict = Depends(get_current_user)):
     """Portal Review & pay: create enrollment without email OTP; booker must match logged-in student."""
@@ -739,7 +807,22 @@ async def student_combined_enrollment_start(profile: ProfileData, request: Reque
         raise HTTPException(status_code=400, detail="Account has no email")
     if uemail != profile.booker_email.strip().lower():
         raise HTTPException(status_code=403, detail="Booker email must match your logged-in account.")
-    return await insert_enrollment_from_profile(profile, request, trusted_contact=True)
+    mixed = await _portal_combined_dashboard_total(user, profile)
+    result = await insert_enrollment_from_profile(profile, request, trusted_contact=True)
+    if mixed:
+        tot, cur = mixed
+        await db.enrollments.update_one(
+            {"id": result["enrollment_id"]},
+            {
+                "$set": {
+                    "dashboard_mixed_total": tot,
+                    "dashboard_mixed_currency": cur,
+                    "dashboard_checkout_ready": True,
+                    "updated_at": datetime.now(timezone.utc).isoformat(),
+                }
+            },
+        )
+    return result
 
 
 @router.get("/dashboard-quote")
@@ -748,6 +831,7 @@ async def dashboard_quote(
     family_count: int = 0,
     family_ids: str = "",
     currency: str = "aed",
+    booker_joins: bool = True,
     user: dict = Depends(get_current_user),
 ):
     """Annual members: mixed pricing; MMM/AWRP-style programs = family only (included in annual package)."""
@@ -795,7 +879,10 @@ async def dashboard_quote(
         },
     ) or {}
     included = _program_included_in_annual_package(program, settings_doc.get("annual_package_included_program_ids"))
-    include_self = not included
+    if included:
+        include_self = False
+    else:
+        include_self = bool(booker_joins)
     g_ao = settings_doc.get("dashboard_offer_annual") or {}
     g_fo = settings_doc.get("dashboard_offer_family") or {}
     g_eo = settings_doc.get("dashboard_offer_extended") or {}
