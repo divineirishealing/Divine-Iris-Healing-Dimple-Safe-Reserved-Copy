@@ -7,14 +7,12 @@ import {
   Bell,
   BellOff,
   ShoppingCart,
-  Check,
   Loader2,
   Monitor,
   Wifi,
   ChevronDown,
 } from 'lucide-react';
 import { useCart } from '../../context/CartContext';
-import { useToast } from '../../hooks/use-toast';
 import { resolveImageUrl } from '../../lib/imageUtils';
 import { buildHomepageStyleDatetimeBadges } from '../../lib/upcomingHomepagePresentation';
 import { CountdownTimer, compactTierButtonLabel } from '../UpcomingProgramsSection';
@@ -201,14 +199,11 @@ export default function DashboardUpcomingProgramRowItem({
   selectedFamilyByProgram,
   toggleFamilyMember,
   toggleSelectAllFamilyForProgram,
-  addProgramToCartAndGo,
   openEnrollmentSeatModal,
-  payingProgramId,
   annualSeatUi = null,
 }) {
   const navigate = useNavigate();
-  const { syncProgramLineItem, items } = useCart();
-  const { toast } = useToast();
+  const { syncProgramLineItem } = useCart();
 
   const tiers = p.duration_tiers || [];
   const hasTiers = p.is_flagship && tiers.length > 0;
@@ -251,11 +246,11 @@ export default function DashboardUpcomingProgramRowItem({
   const includedPkg = aq?.included_in_annual_package ?? programIncludedInAnnualPackage(p, annualIncludedIds);
   const selIds = selectedFamilyByProgram[p.id] || [];
   const selCount = selIds.length;
-  const canPay = Boolean(aq && aq.total > 0 && (!includedPkg || selCount >= 1));
+  const canAddToDivineCart = subscriberIsAnnual
+    ? Boolean(aq && aq.total > 0 && (!includedPkg || selCount >= 1))
+    : Boolean(enrollStatus === 'open' && !showContact);
 
-  const inCart = items.some((i) => String(i.programId) === String(p.id) && i.tierIndex === tierIdxForDisplay);
-  const [justAdded, setJustAdded] = useState(false);
-  const [addingToAnnualCart, setAddingToAnnualCart] = useState(false);
+  const [addingToCheckout, setAddingToCheckout] = useState(false);
   const [annualPricingOpen, setAnnualPricingOpen] = useState(true);
   const [annualFamilyOpen, setAnnualFamilyOpen] = useState(true);
   const [annualAttendanceOpen, setAnnualAttendanceOpen] = useState(true);
@@ -289,70 +284,32 @@ export default function DashboardUpcomingProgramRowItem({
     } catch {
       /* empty row */
     }
-    const wasInCart = items.some(
-      (i) => String(i.programId) === String(p.id) && i.tierIndex === tierIdxForDisplay,
-    );
     const guestBucketById = buildGuestBucketByIdFromSelection(selIds, members);
     syncProgramLineItem(p, tierIdxForDisplay, participants, {
       familyIds: selIds.map(String),
-      bookerJoins: annualSeatUi?.draft?.bookerJoinsProgram !== false,
+      bookerJoins: includedPkg ? false : annualSeatUi?.draft?.bookerJoinsProgram !== false,
       /** Must match dashboard / quote: annual add-ons were always false here before, so Divine Cart used title heuristics and dropped real lines. */
       annualIncluded: !!includedPkg,
       portalQuoteTotal: aq?.total != null ? Number(aq.total) : null,
       guestBucketById,
     });
-    return { wasInCart, participants };
-  };
-
-  const handleAddToCart = async (e) => {
-    e.stopPropagation();
-    if (subscriberIsAnnual && includedPkg) {
-      toast({
-        title: 'Not added to combined order',
-        description:
-          'Programs in your annual package do not go through DIVINE CART. Use Add to Divine Cart on this card to pay for guest seats.',
-      });
-      return;
-    }
-    const { wasInCart, participants } = await syncThisProgramToDivineCart();
-    setJustAdded(true);
-    toast({
-      title: wasInCart ? `${p.title} — order refreshed` : `${p.title} added to your order`,
-      description: participants?.length
-        ? `${tier?.label || 'Selected'} plan — DIVINE CART matches who you selected on the dashboard.`
-        : `${tier?.label || 'Selected'} plan`,
-      variant: wasInCart && !participants?.length ? 'destructive' : undefined,
-    });
-    setTimeout(() => setJustAdded(false), 2000);
-  };
-
-  const handleAddToDivineCart = async (e) => {
-    e.stopPropagation();
-    if (includedPkg) {
-      if (annualSeatUi?.onContinuePay) {
-        annualSeatUi.onContinuePay();
-      } else {
-        openEnrollmentSeatModal(p, includedPkg, selIds);
-      }
-      return;
-    }
-    setAddingToAnnualCart(true);
-    try {
-      await syncThisProgramToDivineCart();
-      navigate('/dashboard/combined-checkout');
-    } finally {
-      setAddingToAnnualCart(false);
-    }
   };
 
   const goProgram = () => navigate(`/program/${p.id}`);
 
-  const heroClick = () => {
-    if (!subscriberIsAnnual && enrollStatus === 'open') {
-      addProgramToCartAndGo(p, localTier);
-    } else if (enrollStatus === 'open') {
-      goProgram();
+  const handleAddToDivineCart = async (e) => {
+    e.stopPropagation();
+    setAddingToCheckout(true);
+    try {
+      await syncThisProgramToDivineCart();
+      navigate('/dashboard/combined-checkout');
+    } finally {
+      setAddingToCheckout(false);
     }
+  };
+
+  const heroClick = () => {
+    if (enrollStatus === 'open') goProgram();
   };
 
   const tierGridClass =
@@ -382,11 +339,7 @@ export default function DashboardUpcomingProgramRowItem({
         }}
         role={enrollStatus === 'open' ? 'button' : undefined}
         tabIndex={enrollStatus === 'open' ? 0 : undefined}
-        aria-label={
-          subscriberIsAnnual || enrollStatus !== 'open'
-            ? `Open ${p.title || 'program'}`
-            : `Add ${p.title || 'program'} to cart`
-        }
+        aria-label={enrollStatus === 'open' ? `Open ${p.title || 'program'}` : `${p.title || 'program'}`}
       >
         <img
           src={resolveImageUrl(p.image)}
@@ -564,20 +517,53 @@ export default function DashboardUpcomingProgramRowItem({
                     </div>
                   );
                 })()}
+              <div className="flex flex-wrap items-baseline gap-2 mb-1 mt-auto">
+                {showSpecialPromo ? (
+                  <div className="flex flex-col gap-1 w-full">
+                    <div className="flex flex-wrap items-baseline gap-2">
+                      <span className="text-xl font-bold text-[#D4AF37] tabular-nums">
+                        {symbol} {afterPromo.toLocaleString()}
+                      </span>
+                      <span className="text-xs text-gray-400 line-through tabular-nums">
+                        {symbol} {baseForPromo.toLocaleString()}
+                      </span>
+                    </div>
+                    <span className="text-xs text-violet-700 font-medium">
+                      With {promoForProgramClicks} (on offer price)
+                    </span>
+                    {offerPrice > 0 && price > offerPrice ? (
+                      <span className="text-[10px] text-gray-400">List {symbol}
+                        {price.toLocaleString()}
+                      </span>
+                    ) : null}
+                  </div>
+                ) : offerPrice > 0 ? (
+                  <>
+                    <span className="text-xl font-bold text-[#D4AF37] tabular-nums">
+                      {symbol} {offerPrice.toLocaleString()}
+                    </span>
+                    <span className="text-xs text-gray-400 line-through tabular-nums">
+                      {symbol} {price.toLocaleString()}
+                    </span>
+                  </>
+                ) : price > 0 ? (
+                  <span className="text-xl font-bold text-gray-900 tabular-nums">
+                    {symbol} {price.toLocaleString()}
+                  </span>
+                ) : (
+                  <span className="text-xl font-bold text-green-600">FREE</span>
+                )}
+              </div>
               {aq ? (
-                <div className="flex flex-wrap items-baseline gap-2 mb-3 mt-auto">
-                  <span className="text-xl font-bold text-[#D4AF37] tabular-nums">
+                <p className="text-[11px] text-slate-600 mb-2 leading-snug">
+                  Your selection total{includedPkg ? ' (guests & add-ons)' : ''}:{' '}
+                  <span className="font-semibold text-slate-800 tabular-nums">
                     {symbol} {Number(aq.total ?? 0).toLocaleString()}
                   </span>
-                  {!includedPkg && Number(aq.self_unit) > Number(aq.self_after_promos ?? 0) ? (
-                    <span className="text-xs text-gray-400 line-through tabular-nums">
-                      {symbol} {Number(aq.self_unit).toLocaleString()}
-                    </span>
-                  ) : null}
-                </div>
-              ) : (
-                <p className="text-xs text-slate-500 mb-2">Loading price…</p>
-              )}
+                </p>
+              ) : subscriberIsAnnual ? (
+                <p className="text-[11px] text-slate-500 italic mb-2">Loading portal total…</p>
+              ) : null}
               {enrollStatus === 'open' ? (
                 <>
                   <button
@@ -1006,7 +992,7 @@ export default function DashboardUpcomingProgramRowItem({
                 Payment method matches your membership (Stripe vs UPI / bank).{' '}
                 {includedPkg ? (
                   <>
-                    This program is in your annual package — combined <strong className="text-slate-700 font-medium">DIVINE CART</strong> in the sidebar is only for add-on programs. Use <strong className="text-slate-700 font-medium">Add to Divine Cart</strong> below to pay for guest seats.
+                    This program is included in your annual package. Use <strong className="text-slate-700 font-medium">Add to Divine Cart</strong> below to send your guest seats to checkout and pay in the portal.
                   </>
                 ) : (
                   <>
@@ -1016,15 +1002,21 @@ export default function DashboardUpcomingProgramRowItem({
               </p>
               <button
                 type="button"
-                disabled={!canPay || payingProgramId === p.id || addingToAnnualCart}
+                disabled={!canAddToDivineCart || addingToCheckout}
                 title={
-                  !canPay
-                    ? includedPkg && selCount < 1
-                      ? 'Select family members to join or wait for pricing.'
-                      : !aq
-                        ? 'Loading pricing…'
-                        : (aq.total || 0) <= 0
-                          ? 'No amount due for this selection.'
+                  !canAddToDivineCart
+                    ? subscriberIsAnnual
+                      ? includedPkg && selCount < 1
+                        ? 'Select family members to join or wait for pricing.'
+                        : !aq
+                          ? 'Loading pricing…'
+                          : (aq.total || 0) <= 0
+                            ? 'No amount due for this selection.'
+                            : ''
+                      : showContact
+                        ? 'Use contact for pricing for this program.'
+                        : enrollStatus !== 'open'
+                          ? 'Enrollment is closed.'
                           : ''
                     : undefined
                 }
@@ -1033,7 +1025,7 @@ export default function DashboardUpcomingProgramRowItem({
                 aria-label="Add to Divine Cart"
                 data-testid={`dashboard-divine-cart-${p.id}`}
               >
-                {payingProgramId === p.id || addingToAnnualCart ? (
+                {addingToCheckout ? (
                   <Loader2 size={18} className="animate-spin shrink-0" />
                 ) : (
                   <ShoppingCart size={18} className="shrink-0" />
@@ -1219,35 +1211,32 @@ export default function DashboardUpcomingProgramRowItem({
                       <span className="text-xl font-bold text-green-600">FREE</span>
                     )}
                   </div>
-                  <div className="flex gap-1.5">
-                    <button
-                      type="button"
-                      onClick={handleAddToCart}
-                      disabled={inCart || justAdded}
-                      className={`inline-flex items-center justify-center gap-1 px-2.5 sm:px-3 py-2 rounded-full text-[10px] transition-all font-medium border shrink-0 ${
-                        inCart || justAdded
-                          ? 'bg-green-50 text-green-600 border-green-200'
-                          : 'bg-white text-gray-700 border-gray-200 hover:border-[#D4AF37] hover:text-[#D4AF37]'
-                      }`}
-                      aria-label="Add to cart"
-                      data-testid={`dashboard-add-cart-${p.id}`}
-                    >
-                      {inCart || justAdded ? <Check size={11} className="shrink-0" /> : <ShoppingCart size={11} className="shrink-0" />}
-                      <span className="font-semibold tracking-wide">Cart</span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        navigate(`/enroll/program/${p.id}?tier=${tierIdxForDisplay}`);
-                      }}
-                      className="flex-1 min-w-[7rem] bg-[#D4AF37] hover:bg-[#b8962e] text-white py-2 rounded-full text-[10px] tracking-wider transition-all duration-300 uppercase font-medium"
-                    >
-                      {price > 0 ? 'Enroll Now' : 'Register Free'}
-                    </button>
-                  </div>
+                  <button
+                    type="button"
+                    disabled={!canAddToDivineCart || addingToCheckout}
+                    title={
+                      !canAddToDivineCart
+                        ? showContact
+                          ? 'Use contact for pricing for this program.'
+                          : enrollStatus !== 'open'
+                            ? 'Enrollment is closed.'
+                            : ''
+                        : undefined
+                    }
+                    onClick={handleAddToDivineCart}
+                    className="w-full inline-flex items-center justify-center gap-2 bg-[#D4AF37] hover:bg-[#b8962e] disabled:opacity-50 disabled:pointer-events-none text-white py-2.5 rounded-full text-[10px] tracking-wider transition-all duration-300 uppercase font-medium"
+                    aria-label="Add to Divine Cart"
+                    data-testid={`dashboard-divine-cart-${p.id}`}
+                  >
+                    {addingToCheckout ? (
+                      <Loader2 size={14} className="animate-spin shrink-0" />
+                    ) : (
+                      <ShoppingCart size={14} className="shrink-0" />
+                    )}
+                    Add to Divine Cart
+                  </button>
                   <p className="text-xs text-slate-500 mt-3 leading-relaxed">
-                    Tap the image to add this program to your order with the tier selected above. Everyone you add shows up under{' '}
+                    Tap the image to open the program page. Use <strong className="text-slate-700 font-medium">Add to Divine Cart</strong> to add this tier to your order; everyone you include appears under{' '}
                     <strong className="text-slate-700 font-medium">DIVINE CART</strong> in the sidebar.
                   </p>
                 </>

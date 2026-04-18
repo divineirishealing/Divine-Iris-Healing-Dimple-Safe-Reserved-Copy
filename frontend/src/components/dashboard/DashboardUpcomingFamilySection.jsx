@@ -6,7 +6,6 @@ import { useToast } from '../../hooks/use-toast';
 import { useCurrency } from '../../context/CurrencyContext';
 import { useSiteSettings } from '../../context/SiteSettingsContext';
 import { useCart } from '../../context/CartContext';
-import DashboardProgramPaymentModal from './DashboardProgramPaymentModal';
 import { pickTierIndexForDashboard, programIncludedInAnnualPackage } from './dashboardUpcomingHelpers';
 import {
   buildAnnualDashboardCartParticipants,
@@ -372,9 +371,8 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh, bo
   const [promoPricesLoading, setPromoPricesLoading] = useState(false);
   const [selectedFamilyByProgram, setSelectedFamilyByProgram] = useState({});
   const [annualQuotes, setAnnualQuotes] = useState({});
-  const [payingProgramId, setPayingProgramId] = useState(null);
-  const [programPaymentModal, setProgramPaymentModal] = useState(null);
   const [enrollmentSeatOpen, setEnrollmentSeatOpen] = useState(false);
+  const [syncingEnrollmentToCheckout, setSyncingEnrollmentToCheckout] = useState(false);
   const [seatModalCtx, setSeatModalCtx] = useState(null);
   const [bookerSeatMode, setBookerSeatMode] = useState('online');
   const [bookerSeatNotify, setBookerSeatNotify] = useState(true);
@@ -404,7 +402,6 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh, bo
     () => upcomingList.slice(0, DASHBOARD_UPCOMING_PREFETCH_LIMIT),
     [upcomingList]
   );
-  const paymentMethods = homeData?.payment_methods || ['stripe'];
   const offers = homeData?.dashboard_offers || {};
   const annualOffer = offers.annual || {};
   const familyOffer = offers.family || {};
@@ -480,7 +477,6 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh, bo
             savedAt: Date.now(),
             selectedFamilyByProgram,
             seatDraftsByProgram,
-            programPaymentModal,
             enrollmentSeatOpen,
             seatModalCtx,
             bookerSeatMode,
@@ -503,7 +499,6 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh, bo
     bookerEmail,
     selectedFamilyByProgram,
     seatDraftsByProgram,
-    programPaymentModal,
     enrollmentSeatOpen,
     seatModalCtx,
     bookerSeatMode,
@@ -551,16 +546,13 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh, bo
 
     const programs = homeData?.upcoming_programs || [];
     const programIds = new Set(programs.map((p) => String(p.id)));
-    let pay = data.programPaymentModal || null;
     let seatOpen = !!data.enrollmentSeatOpen;
     let seatCtx = data.seatModalCtx || null;
 
-    if (pay && !programIds.has(String(pay.programId))) pay = null;
     if (seatCtx && !programIds.has(String(seatCtx.programId))) {
       seatCtx = null;
       seatOpen = false;
     }
-    if (pay) seatOpen = false;
 
     const guestIdSet = new Set(
       enrollableGuestIdsKey ? enrollableGuestIdsKey.split(',').filter(Boolean) : []
@@ -608,9 +600,7 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh, bo
     if (data.enrollmentDefaultsLoaded !== undefined) {
       setEnrollmentDefaultsLoaded(!!data.enrollmentDefaultsLoaded);
     }
-    if (pay) {
-      setProgramPaymentModal(pay);
-    } else if (seatOpen && seatCtx) {
+    if (seatOpen && seatCtx) {
       setSeatModalCtx(seatCtx);
       setEnrollmentSeatOpen(true);
     }
@@ -1123,9 +1113,8 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh, bo
     setSeatModalCtx(null);
   };
 
-  const executeEnrollmentPay = async ({
+  const syncEnrollmentModalProgramToDivineCart = async ({
     programId,
-    programTitle,
     includedPkg,
     selectedIds,
     bookerSeatMode: bookerModeIn,
@@ -1140,74 +1129,74 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh, bo
       return;
     }
 
-    setEnrollmentSeatOpen(false);
-    const guest_seat_prefs = selectedIds.map((id) => {
-      const row = guestFormIn[id] || {};
-      return {
-        family_member_id: id,
-        attendance_mode: row.attendance_mode === 'offline' ? 'offline' : 'online',
-        notify_enrollment: !!row.notify_enrollment,
-      };
-    });
-
-    setPayingProgramId(programId);
-    try {
-      const body = {
-        program_id: programId,
-        family_member_ids: selectedIds,
-        currency,
-        origin_url: typeof window !== 'undefined' ? window.location.origin : '',
-        guest_seat_prefs,
-      };
-      if (!included) {
-        body.booker_attendance_mode = bookerModeIn === 'offline' ? 'offline' : 'online';
-        body.booker_notify = !!bookerNotifyIn;
-      }
-      const r = await axios.post(`${API}/api/student/dashboard-pay`, body, { withCredentials: true });
-      const { enrollment_id, tier_index: tierIdx } = r.data;
-      setProgramPaymentModal({
-        enrollmentId: enrollment_id,
-        programId,
-        programTitle,
-        tierIndex: tierIdx != null ? tierIdx : null,
-      });
-      setSeatModalCtx(null);
-    } catch (e) {
+    const program = upcomingList.find((x) => String(x.id) === String(programId));
+    if (!program) {
       toast({
-        title: 'Could not start payment',
-        description: e.response?.data?.detail || 'Try again or contact support.',
+        title: 'Program not found',
+        description: 'Refresh the dashboard and try again.',
         variant: 'destructive',
       });
-    } finally {
-      setPayingProgramId(null);
+      return;
     }
+
+    const tierIdx = pickTierIndexForDashboard(program, isAnnual) ?? 0;
+    const perDraft = seatDraftsRef.current[programId] || seatDraftsByProgram[programId];
+    const draft = mergeGlobalSeatDraft(perDraft, bookerModeIn, bookerNotifyIn, guestFormIn);
+
+    let participants = null;
+    try {
+      const pre = await loadEnrollmentPrefill();
+      if (isAnnual) {
+        participants = buildAnnualDashboardCartParticipants({
+          program,
+          includedPkg: included,
+          selectedMemberIds: selectedIds,
+          seatDraft: draft,
+          enrollableGuests,
+          self: pre.self,
+          bookerEmail,
+          detectedCountry,
+          immediateFamilyMembers: members,
+        });
+      } else {
+        participants =
+          buildFullPortalRosterCartParticipants(program, pre, bookerEmail, detectedCountry) ||
+          buildSelfOnlyCartParticipants(pre.self, program, bookerEmail, detectedCountry);
+      }
+    } catch {
+      /* syncProgramLineItem still updates line meta */
+    }
+
+    const guestBucketById = buildGuestBucketByIdFromSelection(selectedIds, members);
+    syncProgramLineItem(program, tierIdx, participants, {
+      familyIds: selectedIds.map(String),
+      bookerJoins: included ? false : draft?.bookerJoinsProgram !== false,
+      annualIncluded: !!included,
+      portalQuoteTotal: annualQuotes[programId]?.total != null ? Number(annualQuotes[programId].total) : null,
+      guestBucketById,
+    });
+
+    setEnrollmentSeatOpen(false);
+    setSeatModalCtx(null);
+    navigate('/dashboard/combined-checkout');
   };
 
   const confirmEnrollmentSeatsAndPay = async () => {
     if (!seatModalCtx) return;
-    await executeEnrollmentPay({
-      programId: seatModalCtx.programId,
-      programTitle: seatModalCtx.programTitle,
-      includedPkg: seatModalCtx.includedPkg,
-      selectedIds: seatModalCtx.selectedIds,
-      bookerSeatMode,
-      bookerSeatNotify,
-      guestSeatForm,
-      persistEnrollmentDefaultsOnContinue,
-    });
-  };
-
-  const continueAnnualEnrollmentPay = async (program, includedPkg, selectedIds) => {
-    await executeEnrollmentPay({
-      programId: program.id,
-      programTitle: program.title || '',
-      includedPkg,
-      selectedIds,
-      bookerSeatMode,
-      bookerSeatNotify,
-      guestSeatForm,
-      persistEnrollmentDefaultsOnContinue,
-    });
+    setSyncingEnrollmentToCheckout(true);
+    try {
+      await syncEnrollmentModalProgramToDivineCart({
+        programId: seatModalCtx.programId,
+        includedPkg: seatModalCtx.includedPkg,
+        selectedIds: seatModalCtx.selectedIds,
+        bookerSeatMode,
+        bookerSeatNotify,
+        guestSeatForm,
+        persistEnrollmentDefaultsOnContinue,
+      });
+    } finally {
+      setSyncingEnrollmentToCheckout(false);
+    }
   };
 
   const loadEnrollmentPrefill = useCallback(async () => {
@@ -1219,72 +1208,6 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh, bo
     enrollmentPrefillCacheRef.current = r.data || {};
     return enrollmentPrefillCacheRef.current;
   }, []);
-
-  const addProgramToCartAndGo = async (p, tierOverride = null) => {
-    const tierIdx = tierOverride != null ? tierOverride : pickTierIndexForDashboard(p, isAnnual);
-    const tier = tierIdx == null ? 0 : tierIdx;
-    let participants = null;
-    try {
-      const pre = await loadEnrollmentPrefill();
-      if (isAnnual) {
-        const includedForSeat =
-          programIncludedInAnnualPackage(p, annualIncludedIds) || !!annualQuotes[p.id]?.included_in_annual_package;
-        if (includedForSeat) {
-          toast({
-            title: 'Use payment on this program',
-            description:
-              'Programs included in your annual package are not added to combined DIVINE CART. Use Add to Divine Cart on that program’s card to pay for guest seats only.',
-          });
-          return;
-        }
-        const sel = selectedFamilyByProgram[p.id] || [];
-        const perDraft = seatDraftsRef.current[p.id];
-        const draft = mergeGlobalSeatDraft(perDraft, bookerSeatMode, bookerSeatNotify, guestSeatForm);
-        participants = buildAnnualDashboardCartParticipants({
-          program: p,
-          includedPkg: false,
-          selectedMemberIds: sel,
-          seatDraft: draft,
-          enrollableGuests,
-          self: pre.self,
-          bookerEmail,
-          detectedCountry,
-          immediateFamilyMembers: members,
-        });
-      } else {
-        participants =
-          buildFullPortalRosterCartParticipants(p, pre, bookerEmail, detectedCountry) ||
-          buildSelfOnlyCartParticipants(pre.self, p, bookerEmail, detectedCountry);
-      }
-    } catch {
-      /* syncProgramLineItem will add a blank row if build failed */
-    }
-    if (
-      isAnnual &&
-      (programIncludedInAnnualPackage(p, annualIncludedIds) || !!annualQuotes[p.id]?.included_in_annual_package)
-    ) {
-      return;
-    }
-    const includedForSeat =
-      programIncludedInAnnualPackage(p, annualIncludedIds) || !!annualQuotes[p.id]?.included_in_annual_package;
-    const sel = selectedFamilyByProgram[p.id] || [];
-    const draft = seatDraftsRef.current[p.id];
-    const guestBucketById = buildGuestBucketByIdFromSelection(sel, members);
-    syncProgramLineItem(p, tier, participants, {
-      familyIds: sel.map(String),
-      bookerJoins: draft?.bookerJoinsProgram !== false,
-      annualIncluded: !!includedForSeat,
-      portalQuoteTotal: annualQuotes[p.id]?.total != null ? Number(annualQuotes[p.id].total) : null,
-      guestBucketById,
-    });
-    toast({
-      title: 'Order updated',
-      description: participants?.length
-        ? 'DIVINE CART now matches your dashboard seats for this program.'
-        : 'Add details on the dashboard, then open DIVINE CART.',
-    });
-    navigate('/dashboard/combined-checkout');
-  };
 
   return (
     <section className="w-full max-w-7xl mx-auto px-4 mb-4 md:mb-6" data-testid="dashboard-upcoming-family">
@@ -1303,12 +1226,10 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh, bo
                 <span className="text-slate-700 font-medium">different</span> rules (Admin → Dashboard).{' '}
                 {isAnnual ? (
                   <>
-                    <strong className="text-slate-700 font-medium">DIVINE CART</strong> is only for programs{' '}
-                    <span className="text-slate-700 font-medium">not</span> already in your annual package — use{' '}
-                    <strong className="text-slate-700 font-medium">Add to Divine Cart</strong> on those. For package-included
-                    programs, use <strong className="text-slate-700 font-medium">Add to Divine Cart</strong> on each card for
-                    guest seats only. On add-on programs you can choose whether you enroll yourself under Attendance &amp;
-                    notification.
+                    Checkout and payment run in <strong className="text-slate-700 font-medium">DIVINE CART</strong>. Use{' '}
+                    <strong className="text-slate-700 font-medium">Add to Divine Cart</strong> on each program after you choose
+                    who joins; package-included programs add guest seats the same way. On add-on programs you can choose whether
+                    you enroll yourself under Attendance &amp; notification.
                   </>
                 ) : (
                   <>
@@ -1411,9 +1332,7 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh, bo
                   selectedFamilyByProgram={selectedFamilyByProgram}
                   toggleFamilyMember={toggleFamilyMember}
                   toggleSelectAllFamilyForProgram={toggleSelectAllFamilyForProgram}
-                  addProgramToCartAndGo={addProgramToCartAndGo}
                   openEnrollmentSeatModal={openEnrollmentSeatModal}
-                  payingProgramId={payingProgramId}
                   annualSeatUi={
                     isAnnual
                       ? {
@@ -1432,7 +1351,6 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh, bo
                               description: 'New enrollments will start from standard options until you save again.',
                             });
                           },
-                          onContinuePay: () => continueAnnualEnrollmentPay(p, includedForSeat, sel),
                           persistEnrollmentDefaultsOnContinue,
                           onPersistEnrollmentDefaultsChange: setPersistEnrollmentDefaultsOnContinue,
                           onOpenPerPersonSeatModal: () => openEnrollmentSeatModal(p, includedForSeat, sel),
@@ -1924,35 +1842,17 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh, bo
             </Button>
             <Button
               type="button"
-              className="text-xs h-9 w-full sm:w-auto order-3 bg-[#D4AF37] hover:bg-[#b8962e] text-white"
+              className="text-xs h-9 w-full sm:w-auto order-3 bg-[#D4AF37] hover:bg-[#b8962e] text-white gap-2"
               onClick={confirmEnrollmentSeatsAndPay}
+              disabled={syncingEnrollmentToCheckout}
             >
-              Continue to payment
+              {syncingEnrollmentToCheckout ? <Loader2 size={14} className="animate-spin shrink-0" /> : null}
+              Continue to Divine Cart
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
-      {programPaymentModal && (
-        <DashboardProgramPaymentModal
-          open={!!programPaymentModal}
-          onClose={() => setProgramPaymentModal(null)}
-          onSuccess={() => onRefresh?.()}
-          enrollmentId={programPaymentModal.enrollmentId}
-          programId={programPaymentModal.programId}
-          programTitle={programPaymentModal.programTitle}
-          tierIndex={programPaymentModal.tierIndex}
-          paymentMethods={paymentMethods}
-          indiaReference={homeData?.india_payment_reference}
-          preferredIndiaGpayId={homeData?.preferred_india_gpay_id || ''}
-          preferredIndiaBankId={homeData?.preferred_india_bank_id || ''}
-          bankAccounts={homeData?.bank_accounts || []}
-          currency={currency}
-          displayCurrency={displayCurrency}
-          displayRate={displayRate}
-          isPrimary={isPrimary}
-        />
-      )}
     </section>
   );
 }

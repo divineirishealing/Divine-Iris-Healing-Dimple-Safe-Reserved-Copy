@@ -29,10 +29,7 @@ import {
   buildGuestBucketByIdFromSelection,
   mergeGlobalSeatDraft,
 } from '../lib/dashboardCartPrefill';
-import {
-  programIncludedInAnnualPackage,
-  isAnnualPackageIncludedCartLine,
-} from '../components/dashboard/dashboardUpcomingHelpers';
+import { programIncludedInAnnualPackage } from '../components/dashboard/dashboardUpcomingHelpers';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
@@ -125,7 +122,7 @@ export default function DashboardCombinedCheckoutPage() {
   const location = useLocation();
   const [searchParams, setSearchParams] = useSearchParams();
   const { user } = useAuth();
-  const { items, clearCart, syncProgramLineItem, removeItem } = useCart();
+  const { items, clearCart, syncProgramLineItem } = useCart();
   const {
     country: detectedCountry,
     symbol,
@@ -160,8 +157,6 @@ export default function DashboardCombinedCheckoutPage() {
   const [subscriberIsAnnual, setSubscriberIsAnnual] = useState(false);
   const [annualPortalSubtotal, setAnnualPortalSubtotal] = useState(null);
   const [annualQuotesByProgram, setAnnualQuotesByProgram] = useState({});
-  /** null until /settings loaded — avoids stripping cart lines before we know admin-configured ids */
-  const [annualPackageIncludedProgramIds, setAnnualPackageIncludedProgramIds] = useState(null);
   const promoFromUrlApplied = useRef(false);
 
   useEffect(() => {
@@ -303,10 +298,6 @@ export default function DashboardCombinedCheckoutPage() {
           let participants = null;
           if (isAnnual) {
             const includedForSeat = programIncludedInAnnualPackage(program, annualIncludedIds);
-            if (includedForSeat) {
-              removeItem(line.id);
-              continue;
-            }
             const sel = selectedMap[program.id] || selectedMap[String(program.id)] || [];
             const perDraft = drafts[program.id] || drafts[String(program.id)];
             const draft = mergeGlobalSeatDraft(
@@ -318,7 +309,7 @@ export default function DashboardCombinedCheckoutPage() {
             const guestBucketById = buildGuestBucketByIdFromSelection(sel, immediateFamily);
             participants = buildAnnualDashboardCartParticipants({
               program,
-              includedPkg: false,
+              includedPkg: !!includedForSeat,
               selectedMemberIds: sel,
               seatDraft: draft,
               enrollableGuests,
@@ -330,8 +321,8 @@ export default function DashboardCombinedCheckoutPage() {
             if (participants && participants.length > 0) {
               syncProgramLineItem(program, line.tierIndex, participants, {
                 familyIds: sel.map(String),
-                bookerJoins: draft?.bookerJoinsProgram !== false,
-                annualIncluded: false,
+                bookerJoins: includedForSeat ? false : draft?.bookerJoinsProgram !== false,
+                annualIncluded: !!includedForSeat,
                 portalQuoteTotal: null,
                 guestBucketById,
               });
@@ -360,7 +351,6 @@ export default function DashboardCombinedCheckoutPage() {
     eidParam,
     detectedCountry,
     syncProgramLineItem,
-    removeItem,
   ]);
 
   useEffect(() => {
@@ -376,30 +366,11 @@ export default function DashboardCombinedCheckoutPage() {
         });
         setUrgencyQuotes(s.enrollment_urgency_quotes || []);
         setCheckoutPromoVisible(s.checkout_promo_code_visible !== false);
-        setAnnualPackageIncludedProgramIds(
-          Array.isArray(s.annual_package_included_program_ids) ? s.annual_package_included_program_ids : [],
-        );
       })
       .catch(() => {
         setCheckoutPromoVisible(true);
-        setAnnualPackageIncludedProgramIds([]);
       });
   }, []);
-
-  /** Annual: package-included programs belong on the per-program payment flow only, not combined Divine Cart. */
-  useEffect(() => {
-    if (!subscriberIsAnnual || annualPackageIncludedProgramIds === null) return;
-    const excluded = items.filter((i) => isAnnualPackageIncludedCartLine(i, annualPackageIncludedProgramIds));
-    if (excluded.length === 0) return;
-    excluded.forEach((i) => removeItem(i.id));
-    toast({
-      title: 'Combined order updated',
-      description:
-        excluded.length === 1
-          ? 'Programs already in your annual package are not checked out here. Use Add to Divine Cart on that program’s card to pay for guest seats only.'
-          : `Removed ${excluded.length} package-included programs from this order. Use Add to Divine Cart on each of those cards for guest seats.`,
-    });
-  }, [subscriberIsAnnual, annualPackageIncludedProgramIds, items, removeItem, toast]);
 
   const getItemPrice = (item) => {
     const tiers = item.durationTiers || [];
