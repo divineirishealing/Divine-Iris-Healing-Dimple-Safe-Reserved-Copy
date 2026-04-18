@@ -768,9 +768,10 @@ export default function DashboardUpcomingProgramRowItem({
                     data-testid={`dashboard-compact-seat-${p.id}`}
                   >
                 <p className="text-[10px] text-slate-600 leading-snug mb-2">
-                  <span className="font-semibold text-slate-800">Enrollment for this program.</span>{' '}
-                  Choose attendance and enrollment notification email (WhatsApp group link when applicable). You can save
-                  these as defaults for this browser.
+                  <span className="font-semibold text-slate-800">Attendance &amp; notification</span> are{' '}
+                  <span className="font-semibold text-slate-800">the same for every upcoming program</span> — change them
+                  once here (or in the advanced modal) and they stay in sync across all cards. You can save these as
+                  defaults for this browser.
                 </p>
                 {annualSeatUi.draft?.enrollmentDefaultsLoaded ? (
                   <p className="text-[9px] text-violet-900 bg-violet-50 border border-violet-200/70 rounded px-2 py-1 leading-snug mb-2 w-full">

@@ -27,6 +27,7 @@ import {
   buildFullPortalRosterCartParticipants,
   buildSelfOnlyCartParticipants,
   buildGuestBucketByIdFromSelection,
+  mergeGlobalSeatDraft,
 } from '../lib/dashboardCartPrefill';
 import {
   programIncludedInAnnualPackage,
@@ -307,7 +308,13 @@ export default function DashboardCombinedCheckoutPage() {
               continue;
             }
             const sel = selectedMap[program.id] || selectedMap[String(program.id)] || [];
-            const draft = drafts[program.id] || drafts[String(program.id)];
+            const perDraft = drafts[program.id] || drafts[String(program.id)];
+            const draft = mergeGlobalSeatDraft(
+              perDraft,
+              snap?.bookerSeatMode,
+              snap?.bookerSeatNotify,
+              snap?.guestSeatForm,
+            );
             const guestBucketById = buildGuestBucketByIdFromSelection(sel, immediateFamily);
             participants = buildAnnualDashboardCartParticipants({
               program,

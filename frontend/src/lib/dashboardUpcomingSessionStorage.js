@@ -10,7 +10,7 @@ export function upcomingSessionStorageKey(bookerEmail) {
   return `dih_dash_upcoming_v${UPCOMING_SESSION_V}_${s.slice(0, 120)}`;
 }
 
-/** @returns {{ selectedFamilyByProgram: object, seatDraftsByProgram: object } | null} */
+/** @returns {{ selectedFamilyByProgram: object, seatDraftsByProgram: object, bookerSeatMode?: string, bookerSeatNotify?: boolean, guestSeatForm?: object } | null} */
 export function readUpcomingDashboardSession(bookerEmail) {
   if (typeof sessionStorage === 'undefined') return null;
   const em = String(bookerEmail || '').trim();
@@ -27,6 +27,9 @@ export function readUpcomingDashboardSession(bookerEmail) {
         : {},
       seatDraftsByProgram:
         data.seatDraftsByProgram && typeof data.seatDraftsByProgram === 'object' ? data.seatDraftsByProgram : {},
+      bookerSeatMode: data.bookerSeatMode,
+      bookerSeatNotify: data.bookerSeatNotify,
+      guestSeatForm: data.guestSeatForm && typeof data.guestSeatForm === 'object' ? data.guestSeatForm : undefined,
     };
   } catch {
     return null;

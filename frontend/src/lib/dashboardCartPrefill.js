@@ -145,6 +145,22 @@ export function buildSelfOnlyCartParticipants(self, program, bookerEmail, detect
   ];
 }
 
+/** Merge per-program seat draft (e.g. bookerJoinsProgram) with dashboard-wide attendance / notify / guest form. */
+export function mergeGlobalSeatDraft(perProgramDraft, bookerSeatMode, bookerSeatNotify, guestSeatForm) {
+  const p = perProgramDraft && typeof perProgramDraft === 'object' ? perProgramDraft : {};
+  const bm =
+    bookerSeatMode !== undefined && bookerSeatMode !== null ? bookerSeatMode : p.bookerSeatMode;
+  const bn =
+    bookerSeatNotify !== undefined && bookerSeatNotify !== null ? bookerSeatNotify : p.bookerSeatNotify;
+  const gf = guestSeatForm !== undefined && guestSeatForm !== null ? guestSeatForm : p.guestSeatForm;
+  return {
+    ...p,
+    bookerSeatMode: bm === 'offline' ? 'offline' : 'online',
+    bookerSeatNotify: bn !== false,
+    guestSeatForm: gf && typeof gf === 'object' ? gf : {},
+  };
+}
+
 /** Map selected guest ids → immediate | extended using immediate-family ids (same split as /dashboard-quote). */
 export function buildGuestBucketByIdFromSelection(selIds, immediateFamilyMembers) {
   const imm = new Set(
