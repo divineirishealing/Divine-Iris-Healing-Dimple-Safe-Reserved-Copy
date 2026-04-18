@@ -495,7 +495,7 @@ const StudentDashboard = () => {
           )
         )}
 
-        <div className="w-full max-w-4xl mx-auto pl-4 pr-6 sm:pr-8 md:pl-6 md:pr-10 lg:pr-12 flex flex-col items-center">
+        <div className="w-full max-w-5xl mx-auto pl-4 pr-6 sm:pr-8 md:pl-6 md:pr-10 lg:pr-12 flex flex-col items-center">
 
         {/* Desktop: ribbon schedule + bento (tall center spans two rows) */}
         <div className="w-full hidden lg:block space-y-4">

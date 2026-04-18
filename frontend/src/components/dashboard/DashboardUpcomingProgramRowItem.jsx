@@ -450,7 +450,7 @@ export default function DashboardUpcomingProgramRowItem({
       {subscriberIsAnnual ? (
         <div className="w-full flex flex-col gap-4">
         {/* xl: grid gives both columns the same row height so the left hero card aligns with the right stack bottom */}
-        <div className="w-full flex flex-col gap-4 xl:grid xl:grid-cols-[minmax(0,28rem)_minmax(0,1fr)] xl:items-stretch xl:gap-4 xl:min-h-0">
+        <div className="w-full flex flex-col gap-4 xl:grid xl:grid-cols-[minmax(0,28rem)_minmax(18rem,1fr)] xl:items-stretch xl:gap-4 xl:min-h-0">
           {/* 1 — Same footprint as non-annual dashboard card: vertical max-w-md (~28rem) */}
           <div
             className={`group bg-white rounded-xl overflow-hidden shadow-lg border border-gray-100 flex flex-col w-full max-w-md xl:mx-0 xl:w-full xl:max-w-none xl:min-h-0 xl:h-full min-h-0 ${
@@ -631,8 +631,8 @@ export default function DashboardUpcomingProgramRowItem({
               ) : null}
             </div>
 
-            <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_minmax(17rem,22rem)] gap-3 lg:gap-x-3 items-start w-full min-w-0 flex-1 min-h-0">
-              <div className="rounded-xl border border-amber-100/80 bg-amber-50/25 p-3 sm:p-4 min-h-0 flex flex-col min-w-0 w-full">
+            <div className="grid grid-cols-1 lg:grid-cols-[minmax(13rem,1fr)_minmax(13rem,1fr)] gap-3 lg:gap-x-3 items-start w-full min-w-0 flex-1 min-h-0">
+              <div className="rounded-xl border border-amber-100/80 bg-amber-50/25 p-3 sm:p-4 min-h-0 flex flex-col min-w-[13rem] w-full">
               <button
                 type="button"
                 className="w-full flex items-center justify-between gap-2 text-left rounded-lg outline-none focus-visible:ring-2 focus-visible:ring-amber-400/50"
@@ -763,7 +763,7 @@ export default function DashboardUpcomingProgramRowItem({
               </div>
 
             {/* Attendance & notification — column beside family; shell matches Pricing & offer */}
-            <div className="rounded-xl border border-slate-200 bg-white p-3 sm:p-4 shadow-sm min-h-0 flex flex-col min-w-0 w-full">
+            <div className="rounded-xl border border-slate-200 bg-white p-3 sm:p-4 shadow-sm min-h-0 flex flex-col min-w-[13rem] w-full">
               <button
                 type="button"
                 className="w-full flex items-center justify-between gap-2 text-left rounded-lg outline-none focus-visible:ring-2 focus-visible:ring-[#D4AF37]/40"
