@@ -110,7 +110,10 @@ function deriveNotifyQuickPreset(ctx, guestForm, bookerNotify) {
     if (bOff && gAllOff) return 'custom';
     return 'mixed';
   }
-  if (ids.length === 0) return 'mixed';
+  if (ids.length === 0) {
+    if (bOn) return 'email_me_only';
+    return 'custom';
+  }
   if (gAllOn) return 'email_all';
   if (gAllOff) {
     if (bOn) return 'email_me_only';
@@ -942,11 +945,10 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh, bo
   /** Bulk email-enrollment toggles: all_on | me_only (booker yes, guests no) | all_off */
   const applyBulkNotify = (preset) => {
     if (!seatModalCtx) return;
-    const { includedPkg, selectedIds } = seatModalCtx;
+    const { selectedIds } = seatModalCtx;
     const ids = (selectedIds || []).map((x) => String(x));
-    if (!includedPkg) {
-      setBookerSeatNotify(preset !== 'all_off');
-    }
+    /** Package-included (e.g. MMM): booker still receives enrollment mail when enrolling others. */
+    setBookerSeatNotify(preset !== 'all_off');
     const guestNotify = preset === 'all_on';
     setGuestSeatForm((prev) => {
       const next = { ...prev };
@@ -1024,12 +1026,8 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh, bo
   const applyBulkNotifyDraft = (programId, preset) => {
     const prog = programsForPrefetch.find((x) => x.id === programId);
     if (!prog) return;
-    const includedPkg =
-      programIncludedInAnnualPackage(prog, annualIncludedIds) || !!annualQuotes[programId]?.included_in_annual_package;
     const ids = (selectedFamilyByProgram[programId] || []).map(String);
-    if (!includedPkg) {
-      setBookerSeatNotify(preset !== 'all_off');
-    }
+    setBookerSeatNotify(preset !== 'all_off');
     const guestNotify = preset === 'all_on';
     setGuestSeatForm((prev) => {
       const next = { ...prev };
