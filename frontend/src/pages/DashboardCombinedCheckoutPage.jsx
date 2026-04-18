@@ -91,6 +91,23 @@ const PAYMENT_METHOD_BADGES = {
   manual: { label: 'Manual · proof upload', className: 'bg-amber-100/90 text-amber-950 border-amber-200/80' },
 };
 
+/** Pills matching the manual proof form paths (UPI vs bank transfer). */
+function IndiaPaymentPathTags({ className = '' }) {
+  return (
+    <div
+      className={`flex flex-wrap gap-1.5 ${className}`}
+      data-testid="dashboard-india-path-tags"
+    >
+      <span className="text-[9px] font-bold uppercase tracking-wide px-2 py-0.5 rounded-full border bg-emerald-50/95 text-emerald-900 border-emerald-200/90">
+        GPay / UPI
+      </span>
+      <span className="text-[9px] font-bold uppercase tracking-wide px-2 py-0.5 rounded-full border bg-slate-100/95 text-slate-800 border-slate-200/90">
+        Bank transfer
+      </span>
+    </div>
+  );
+}
+
 function PaymentMethodTags({ methods }) {
   const list = Array.isArray(methods) && methods.length > 0 ? methods : ['stripe'];
   return (
@@ -1322,14 +1339,15 @@ export default function DashboardCombinedCheckoutPage() {
                             <div className="w-8 h-8 bg-purple-100 rounded-lg flex items-center justify-center">
                               <CreditCard size={14} className="text-purple-600" />
                             </div>
-                            <div>
+                            <div className="min-w-0 text-left">
                               <span className="text-sm font-medium text-gray-900 group-hover:text-purple-600">
                                 Exly / bank transfer
                               </span>
-                              <p className="text-[10px] text-gray-500">GPay, cards, NEFT</p>
+                              <p className="text-[10px] text-gray-500">GPay, cards, NEFT via Exly checkout</p>
+                              <IndiaPaymentPathTags className="mt-1.5" />
                             </div>
                           </div>
-                          <ChevronRight size={16} className="text-gray-400 group-hover:text-purple-600" />
+                          <ChevronRight size={16} className="text-gray-400 group-hover:text-purple-600 shrink-0" />
                         </button>
                       )}
                       {allowManualProof && (
@@ -1344,16 +1362,17 @@ export default function DashboardCombinedCheckoutPage() {
                             <div className="w-8 h-8 bg-teal-100 rounded-lg flex items-center justify-center">
                               <FileText size={14} className="text-teal-600" />
                             </div>
-                            <div>
+                            <div className="min-w-0 text-left">
                               <span className="text-sm font-medium text-gray-900 group-hover:text-teal-600">
                                 Manual payment · proof upload
                               </span>
                               <p className="text-[10px] text-teal-600 font-medium">
-                                UPI / bank — stay on this dashboard page
+                                Same form as manual proof — stay on this page
                               </p>
+                              <IndiaPaymentPathTags className="mt-1.5" />
                             </div>
                           </div>
-                          <ChevronRight size={16} className="text-gray-400 group-hover:text-teal-600" />
+                          <ChevronRight size={16} className="text-gray-400 group-hover:text-teal-600 shrink-0" />
                         </button>
                       )}
                     </div>
