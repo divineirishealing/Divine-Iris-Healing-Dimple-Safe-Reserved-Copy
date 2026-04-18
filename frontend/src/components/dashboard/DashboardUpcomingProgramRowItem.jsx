@@ -748,7 +748,7 @@ export default function DashboardUpcomingProgramRowItem({
               ) : null}
               </div>
 
-            {/* Attendance & notification + checkout — narrower column beside family to avoid dead space */}
+            {/* Attendance & notification — column beside family; defaults + cart sit below full width */}
             <div className="w-full max-w-full rounded-xl border border-slate-200/90 bg-white p-3 shadow-sm min-w-0 flex flex-col lg:justify-self-start">
               <button
                 type="button"
@@ -955,44 +955,49 @@ export default function DashboardUpcomingProgramRowItem({
             ) : null}
                 </div>
               ) : null}
+            </div>
+
+            </div>
 
             {subscriberIsAnnual && annualSeatUi ? (
               <div
-                className="mt-2 rounded-xl border border-slate-200/90 bg-white px-3 py-2 shadow-sm space-y-1.5"
+                className="w-full rounded-xl border border-slate-200/90 bg-white px-3 py-2.5 shadow-sm flex flex-col md:flex-row md:flex-wrap md:items-center gap-3 md:gap-x-5"
                 data-testid={`dashboard-enrollment-defaults-${p.id}`}
               >
-                <p className="text-[9px] font-bold uppercase tracking-wide text-slate-500">
+                <p className="text-[9px] font-bold uppercase tracking-wide text-slate-500 shrink-0 md:max-w-[13rem] md:leading-tight">
                   Defaults &amp; per-person seating (this program)
                 </p>
-                <label className="flex items-start gap-2 cursor-pointer text-[10px] text-slate-800 leading-snug">
-                  <input
-                    type="checkbox"
-                    className="rounded border-slate-300 scale-90 shrink-0 mt-0.5"
-                    checked={!!annualSeatUi.persistEnrollmentDefaultsOnContinue}
-                    onChange={(e) => annualSeatUi.onPersistEnrollmentDefaultsChange?.(e.target.checked)}
-                  />
-                  <span className="font-medium">Save as my default for every program (this browser)</span>
-                </label>
-                <p className="text-[10px] text-slate-600 leading-snug">
-                  <button
-                    type="button"
-                    className="text-violet-700 font-bold uppercase tracking-wide text-[9px] underline underline-offset-2 hover:text-violet-900 p-0 bg-transparent border-0 cursor-pointer text-left"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      annualSeatUi.onOpenPerPersonSeatModal?.();
-                    }}
-                  >
-                    Per-person attendance &amp; email…
-                  </button>{' '}
-                  <span className="text-slate-500">
-                    Opens the full editor for <span className="font-medium text-slate-700">{p.title || 'this program'}</span>.
-                    Use <strong className="text-slate-700">Save defaults &amp; close</strong> in the dialog if you only want to store preferences.
-                  </span>
-                </p>
+                <div className="flex flex-col sm:flex-row sm:flex-wrap sm:items-center gap-3 flex-1 min-w-0">
+                  <label className="flex items-start sm:items-center gap-2 cursor-pointer text-[10px] text-slate-800 leading-snug shrink-0">
+                    <input
+                      type="checkbox"
+                      className="rounded border-slate-300 scale-90 shrink-0 mt-0.5 sm:mt-0"
+                      checked={!!annualSeatUi.persistEnrollmentDefaultsOnContinue}
+                      onChange={(e) => annualSeatUi.onPersistEnrollmentDefaultsChange?.(e.target.checked)}
+                    />
+                    <span className="font-medium">Save as my default for every program (this browser)</span>
+                  </label>
+                  <p className="text-[10px] text-slate-600 leading-snug min-w-0 flex-1">
+                    <button
+                      type="button"
+                      className="text-violet-700 font-bold uppercase tracking-wide text-[9px] underline underline-offset-2 hover:text-violet-900 p-0 bg-transparent border-0 cursor-pointer text-left"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        annualSeatUi.onOpenPerPersonSeatModal?.();
+                      }}
+                    >
+                      Per-person attendance &amp; email…
+                    </button>{' '}
+                    <span className="text-slate-500">
+                      Opens the full editor for <span className="font-medium text-slate-700">{p.title || 'this program'}</span>.
+                      Use <strong className="text-slate-700">Save defaults &amp; close</strong> in the dialog if you only want to store preferences.
+                    </span>
+                  </p>
+                </div>
               </div>
             ) : null}
 
-            <div className="pt-3 border-t border-slate-100">
+            <div className="w-full pt-3 border-t border-slate-100">
               <button
                 type="button"
                 disabled={!canAddToDivineCart || addingToCheckout}
@@ -1014,7 +1019,7 @@ export default function DashboardUpcomingProgramRowItem({
                     : undefined
                 }
                 onClick={handleAddToDivineCart}
-                className="w-full inline-flex items-center justify-center gap-2 rounded-xl bg-[#D4AF37] text-white text-sm font-semibold py-2.5 px-5 hover:bg-[#b8962e] disabled:opacity-50 disabled:pointer-events-none shadow-sm"
+                className="w-full inline-flex items-center justify-center gap-2 rounded-xl bg-[#D4AF37] text-white text-xs font-bold uppercase tracking-widest py-3 px-5 hover:bg-[#b8962e] disabled:opacity-50 disabled:pointer-events-none shadow-sm"
                 aria-label="Add to Divine Cart"
                 data-testid={`dashboard-divine-cart-${p.id}`}
               >
@@ -1025,8 +1030,6 @@ export default function DashboardUpcomingProgramRowItem({
                 )}
                 Add to Divine Cart
               </button>
-            </div>
-            </div>
             </div>
           </div>
         </div>
