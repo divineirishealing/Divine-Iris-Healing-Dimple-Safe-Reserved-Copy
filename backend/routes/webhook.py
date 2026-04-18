@@ -61,6 +61,12 @@ async def stripe_webhook(request: Request):
                 logger.warning(f"No transaction found for session: {session_id}")
                 return {"status": "ok", "note": "no matching transaction"}
 
+            enrollment_id = txn.get("enrollment_id")
+            from routes.payments import backfill_transaction_portal_ids
+
+            await backfill_transaction_portal_ids(session_id, txn)
+            txn = await db.payment_transactions.find_one({"stripe_session_id": session_id}) or txn
+
             try:
                 from routes.points_logic import run_post_payment_loyalty
 
@@ -69,8 +75,7 @@ async def stripe_webhook(request: Request):
             except Exception as e:
                 logger.warning(f"Points webhook loyalty: {e}")
 
-            enrollment_id = txn.get("enrollment_id")
-            txn_clean = {k: v for k, v in txn.items() if k != '_id'}
+            txn_clean = {k: v for k, v in txn.items() if k != "_id"}
             logger.info(f"Transaction found: {txn_clean.get('id')} for enrollment: {enrollment_id}")
 
             # Step 2: Update enrollment status

@@ -127,6 +127,38 @@ STRIPE_API_KEY = os.environ.get('STRIPE_API_KEY')
 logger = logging.getLogger(__name__)
 
 
+async def backfill_transaction_portal_ids(session_id: str, tx: dict) -> None:
+    """Attach portal_user_id / portal_client_id so paid enrollments appear in student order history."""
+    enrollment_id = tx.get("enrollment_id")
+    if not enrollment_id or tx.get("portal_user_id"):
+        return
+    en_doc = await db.enrollments.find_one(
+        {"id": enrollment_id},
+        {"_id": 0, "booker_email": 1},
+    )
+    be_norm = (
+        ((en_doc or {}).get("booker_email") or tx.get("booker_email") or "")
+        .strip()
+        .lower()
+    )
+    if not be_norm:
+        return
+    pud = await db.users.find_one({"email": be_norm}, {"id": 1, "client_id": 1})
+    if not pud:
+        return
+    pset = {
+        "portal_user_id": pud.get("id"),
+        "updated_at": datetime.now(timezone.utc),
+    }
+    pcid = (pud.get("client_id") or "").strip()
+    if pcid:
+        pset["portal_client_id"] = pcid
+    await db.payment_transactions.update_one(
+        {"stripe_session_id": session_id},
+        {"$set": pset},
+    )
+
+
 async def _get_stripe_key():
     """Get Stripe key from key_manager (MongoDB) with .env fallback."""
     try:
@@ -732,6 +764,7 @@ async def check_payment_status(session_id: str, http_request: Request, backgroun
 
     # If already marked as paid, return immediately (prevent double processing)
     if tx.get("payment_status") == "paid":
+        await backfill_transaction_portal_ids(session_id, tx)
         return {
             "status": "complete",
             "payment_status": "paid",
@@ -762,6 +795,9 @@ async def check_payment_status(session_id: str, http_request: Request, backgroun
                 "updated_at": datetime.now(timezone.utc),
             }}
         )
+
+        if new_status == "paid":
+            await backfill_transaction_portal_ids(session_id, tx)
 
         # Complete enrollment and send confirmation when payment is newly confirmed
         if new_status == "paid" and not tx.get("emails_sent"):

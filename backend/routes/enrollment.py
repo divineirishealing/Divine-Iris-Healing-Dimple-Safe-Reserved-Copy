@@ -19,6 +19,20 @@ db = client[os.environ['DB_NAME']]
 logger = logging.getLogger(__name__)
 
 
+async def _attach_portal_ids_to_transaction(transaction: dict, enrollment: dict) -> None:
+    """Link Stripe/manual enrollment payments to portal users for order history (matches India approval flow)."""
+    be_norm = (enrollment.get("booker_email") or "").strip().lower()
+    if not be_norm:
+        return
+    portal_user_doc = await db.users.find_one({"email": be_norm}, {"id": 1, "client_id": 1})
+    if not portal_user_doc:
+        return
+    transaction["portal_user_id"] = portal_user_doc.get("id")
+    pcid = (portal_user_doc.get("client_id") or "").strip()
+    if pcid:
+        transaction["portal_client_id"] = pcid
+
+
 def _per_person_price_for_program(program: dict, tier_index: Optional[int], currency: str) -> float:
     """Per-person list price for cart checkout (offer price wins when set). Matches get_enrollment_pricing tier logic."""
     cur = (currency or "aed").lower()
@@ -919,6 +933,7 @@ async def enrollment_checkout(enrollment_id: str, data: EnrollmentSubmit, reques
             "created_at": datetime.now(timezone.utc),
             "updated_at": datetime.now(timezone.utc),
         }
+        await _attach_portal_ids_to_transaction(transaction, enrollment)
         await db.payment_transactions.insert_one(transaction)
 
         await db.enrollments.update_one(
@@ -1063,6 +1078,7 @@ async def enrollment_checkout(enrollment_id: str, data: EnrollmentSubmit, reques
         "created_at": datetime.now(timezone.utc),
         "updated_at": datetime.now(timezone.utc),
     }
+    await _attach_portal_ids_to_transaction(transaction, enrollment)
     await db.payment_transactions.insert_one(transaction)
 
     # Update enrollment status

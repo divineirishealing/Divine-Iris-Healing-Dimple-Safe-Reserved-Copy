@@ -1315,6 +1315,73 @@ async def _order_identity_emails(user: dict) -> List[str]:
     return out
 
 
+def _enrollment_booker_email_norm_expr(em: str) -> dict:
+    """booker_email equals em after trim + lowercase (handles stray whitespace in DB)."""
+    return {
+        "$expr": {
+            "$eq": [
+                {"$toLower": {"$trim": {"input": {"$ifNull": ["$booker_email", ""]}}}},
+                em,
+            ]
+        }
+    }
+
+
+def _enrollment_participant_email_norm_expr(em: str) -> dict:
+    """Any participant.email equals em after trim + lowercase."""
+    return {
+        "$expr": {
+            "$gt": [
+                {
+                    "$size": {
+                        "$filter": {
+                            "input": {"$ifNull": ["$participants", []]},
+                            "as": "p",
+                            "cond": {
+                                "$eq": [
+                                    {
+                                        "$toLower": {
+                                            "$trim": {
+                                                "input": {"$ifNull": ["$$p.email", ""]},
+                                            }
+                                        }
+                                    },
+                                    em,
+                                ]
+                            },
+                        }
+                    }
+                },
+                0,
+            ]
+        }
+    }
+
+
+def _txn_email_field_norm_expr(field: str, em: str) -> dict:
+    """payment_transactions: field equals em after trim + lowercase."""
+    return {
+        "$expr": {
+            "$eq": [
+                {"$toLower": {"$trim": {"input": {"$ifNull": [f"${field}", ""]}}}},
+                em,
+            ]
+        }
+    }
+
+
+def _india_proof_email_norm_expr(field: str, em: str) -> dict:
+    """india_payment_proofs payer/booker email normalized match."""
+    return {
+        "$expr": {
+            "$eq": [
+                {"$toLower": {"$trim": {"input": {"$ifNull": [f"${field}", ""]}}}},
+                em,
+            ]
+        }
+    }
+
+
 def _serialize_payment_transaction_row(row: dict) -> dict:
     out: Dict = {}
     for k, v in row.items():
@@ -1375,9 +1442,16 @@ async def list_student_orders(user: dict = Depends(get_current_user)):
             [
                 {"participants": {"$elemMatch": {"email": ep}}},
                 {"participants": {"$elemMatch": {"email": em}}},
+                _enrollment_participant_email_norm_expr(em),
             ]
         )
-        booker_or.extend([{"booker_email": ep}, {"booker_email": em}])
+        booker_or.extend(
+            [
+                {"booker_email": ep},
+                {"booker_email": em},
+                _enrollment_booker_email_norm_expr(em),
+            ]
+        )
         txn_email_or.extend(
             [
                 {"booker_email": ep},
@@ -1386,6 +1460,9 @@ async def list_student_orders(user: dict = Depends(get_current_user)):
                 {"donor_email": em},
                 {"payer_email": ep},
                 {"payer_email": em},
+                _txn_email_field_norm_expr("booker_email", em),
+                _txn_email_field_norm_expr("donor_email", em),
+                _txn_email_field_norm_expr("payer_email", em),
             ]
         )
         proof_email_or.extend(
@@ -1394,6 +1471,8 @@ async def list_student_orders(user: dict = Depends(get_current_user)):
                 {"booker_email": ep},
                 {"payer_email": em},
                 {"booker_email": em},
+                _india_proof_email_norm_expr("payer_email", em),
+                _india_proof_email_norm_expr("booker_email", em),
             ]
         )
 
