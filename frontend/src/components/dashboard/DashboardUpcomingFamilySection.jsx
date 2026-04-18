@@ -32,26 +32,26 @@ const UPCOMING_IRIS_PETALS = 8;
 function UpcomingProgramsIrisBloom() {
   return (
     <div
-      className="relative mx-auto h-[3.75rem] w-[3.75rem] shrink-0 md:h-[4.5rem] md:w-[4.5rem]"
+      className="relative mx-auto h-12 w-12 shrink-0 md:h-[3.25rem] md:w-[3.25rem]"
       aria-hidden
     >
       <div className="absolute inset-0 flex animate-iris-flower-sway items-center justify-center">
         {Array.from({ length: UPCOMING_IRIS_PETALS }).map((_, i) => (
           <div
             key={i}
-            className="absolute left-1/2 top-1/2 -ml-[6px] -mt-8 h-8 w-3 md:-ml-[7px] md:-mt-10 md:h-10 md:w-[14px]"
+            className="absolute left-1/2 top-1/2 -ml-[5px] -mt-6 h-6 w-[10px] md:-ml-[6px] md:-mt-8 md:h-8 md:w-3"
             style={{
               transform: `rotate(${(360 / UPCOMING_IRIS_PETALS) * i}deg)`,
               transformOrigin: '50% 100%',
             }}
           >
             <div
-              className="h-full w-full origin-bottom rounded-full bg-gradient-to-t from-[#5b21b6] via-[#8b5cf6] to-[#e9d5ff] shadow-[0_0_10px_rgba(139,92,246,0.45)] animate-iris-petal-furl"
+              className="h-full w-full origin-bottom rounded-full bg-gradient-to-t from-[#5b21b6] via-[#8b5cf6] to-[#e9d5ff] shadow-[0_0_8px_rgba(139,92,246,0.4)] animate-iris-petal-furl"
               style={{ animationDelay: `${i * 0.14}s` }}
             />
           </div>
         ))}
-        <div className="absolute left-1/2 top-1/2 z-10 h-3.5 w-3.5 -translate-x-1/2 -translate-y-1/2 rounded-full bg-gradient-to-br from-[#fde68a] via-[#f59e0b] to-[#b45309] shadow-[0_2px_6px_rgba(217,119,6,0.4)] ring-2 ring-white/90 animate-pulse md:h-4 md:w-4" />
+        <div className="absolute left-1/2 top-1/2 z-10 h-2.5 w-2.5 -translate-x-1/2 -translate-y-1/2 rounded-full bg-gradient-to-br from-[#fde68a] via-[#f59e0b] to-[#b45309] shadow-[0_1px_4px_rgba(217,119,6,0.4)] ring-1 ring-white/90 animate-pulse md:h-3 md:w-3" />
       </div>
     </div>
   );
@@ -1249,10 +1249,10 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh, bo
       <div className="rounded-[28px] border border-[rgba(160,100,220,0.14)] bg-white/70 backdrop-blur-xl px-5 py-5 md:px-7 md:py-6 shadow-[0_4px_48px_rgba(140,60,220,0.08)]">
         <div className="mb-4 md:mb-5 flex flex-col items-center text-center">
           <UpcomingProgramsIrisBloom />
-          <h2 className="font-[family-name:'Cinzel',serif] mt-3 px-2 text-xl font-bold tracking-tight text-[#3b0764] drop-shadow-sm md:text-3xl lg:text-4xl">
+          <h2 className="font-[family-name:'Cinzel',serif] mt-2 px-2 text-lg font-bold tracking-tight text-[#3b0764] drop-shadow-sm md:text-2xl lg:text-3xl">
             Upcoming programs
           </h2>
-          <div className="mt-4 flex w-full flex-wrap justify-center gap-2 sm:justify-end">
+          <div className="mt-3 flex w-full flex-wrap justify-center gap-2 sm:justify-end">
             <Button
               type="button"
               variant="outline"
