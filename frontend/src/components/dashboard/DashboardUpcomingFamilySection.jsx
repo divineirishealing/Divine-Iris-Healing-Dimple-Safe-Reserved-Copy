@@ -1225,22 +1225,6 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh, bo
               <h2 className="font-[family-name:'Cinzel',serif] text-[11px] uppercase tracking-[0.2em] text-[rgba(100,40,160,0.55)]">
                 Upcoming programs
               </h2>
-              <p className="text-xs text-slate-500">
-                Portal-only pricing: your seat, immediate household, and friends &amp; extended can each use{' '}
-                <span className="text-slate-700 font-medium">different</span> rules (Admin → Dashboard).{' '}
-                {isAnnual ? (
-                  <>
-                    Checkout and payment run in <strong className="text-slate-700 font-medium">DIVINE CART</strong>. Use{' '}
-                    <strong className="text-slate-700 font-medium">Add to Divine Cart</strong> on each program after you choose
-                    who joins; package-included programs add guest seats the same way. On add-on programs you can choose whether
-                    you enroll yourself under Attendance &amp; notification.
-                  </>
-                ) : (
-                  <>
-                    Use <strong className="text-slate-700 font-medium">Add to Divine Cart</strong> on each program to update your order, then click <strong className="text-slate-700 font-medium">DIVINE CART</strong> in the sidebar to review and pay.
-                  </>
-                )}
-              </p>
             </div>
           </div>
           <div className="flex flex-wrap gap-2 shrink-0 justify-end">
