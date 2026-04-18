@@ -1470,9 +1470,7 @@ def _order_display_title_from_enrollment(
     return txn_fallback or tid or "Order"
 
 
-@router.get("/orders")
-@router.get("/order-history")
-async def list_student_orders(user: dict = Depends(get_current_user)):
+async def list_student_orders_impl(user: dict):
     """
     Enrollment-related payment rows for this account: booker, sponsor donor,
     or a seat where this email appears on the enrollment.

@@ -89,7 +89,7 @@ const OrderHistoryPage = () => {
             setError('Please sign in again to view order history.');
           } else if (st === 404) {
             setError(
-              'Order history endpoint was not found (404). Redeploy the latest backend on Render, and set REACT_APP_BACKEND_URL on the frontend to your API origin (e.g. https://…onrender.com) — not the marketing site unless /api is proxied to that API.',
+              `Order history returned 404 (nothing at ${API_URL}/student/orders). Redeploy the backend service on Render from the latest main branch. Set REACT_APP_BACKEND_URL to your API host only (e.g. https://….onrender.com), not the marketing domain unless /api is proxied there.`,
             );
           } else {
             setError(

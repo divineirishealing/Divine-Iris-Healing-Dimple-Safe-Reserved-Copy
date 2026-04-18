@@ -1,4 +1,4 @@
-from fastapi import FastAPI, APIRouter, Request
+from fastapi import FastAPI, APIRouter, Request, Depends
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse, JSONResponse, RedirectResponse
 from dotenv import load_dotenv
@@ -16,6 +16,8 @@ from routes import programs, sessions, testimonials, stats, newsletter, upload, 
 from routes import s3_media_proxy
 from routes import admin_clients, student, points as points_admin
 from routes import auth
+from routes.auth import get_current_user
+from routes.student import list_student_orders_impl
 from routes import subscribers
 from routes import emi_payments
 from routes import reminders as reminders_module
@@ -117,6 +119,13 @@ async def health():
             status_code=503,
             content={"status": "error", "db": "unreachable"},
         )
+
+
+@api_router.get("/student/orders", tags=["Student Dashboard"])
+@api_router.get("/student/order-history", tags=["Student Dashboard"])
+async def student_orders_list(user: dict = Depends(get_current_user)):
+    """Registered on api_router (same mount chain as /api/health) so order history is always reachable."""
+    return await list_student_orders_impl(user)
 
 
 # Custom route to serve uploaded images with correct content type
