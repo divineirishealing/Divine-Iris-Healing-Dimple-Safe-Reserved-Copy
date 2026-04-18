@@ -183,10 +183,16 @@ const OrderHistoryPage = () => {
                   <li key={row.id || sid} className="py-4 first:pt-0 flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
                     <div className="min-w-0 flex-1">
                       <p className="font-medium text-gray-900 truncate">{title}</p>
+                      {row.booker_name && row.payment_method === 'manual_proof' ? (
+                        <p className="text-xs text-gray-600 mt-0.5">Booked by {row.booker_name}</p>
+                      ) : null}
                       <p className="text-xs text-gray-500 mt-0.5">
                         {dateStr}
                         {row.invoice_number ? ` · Invoice ${row.invoice_number}` : ''}
                         {row.participant_count > 1 ? ` · ${row.participant_count} seats` : ''}
+                        {row.payment_method === 'manual_proof' && row.enrollment_id
+                          ? ` · Enrollment ${row.enrollment_id}`
+                          : ''}
                       </p>
                       {row.is_india_proof_pending ? (
                         <p className="text-[10px] text-amber-800 mt-1">Awaiting admin approval — you&apos;ll see Complete once approved.</p>

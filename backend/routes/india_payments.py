@@ -422,6 +422,8 @@ async def submit_payment_proof(
         "transaction_id": transaction_id,
         "program_type": program_type,
         "selected_item": selected_item,
+        "item_id": (enrollment.get("item_id") or "").strip() if enrollment else "",
+        "item_type": ((enrollment.get("item_type") or "program") if enrollment else "program").strip().lower(),
         "program_title": enrollment.get("item_title", selected_item or program_type),
         "amount": amount,
         "city": city,
@@ -492,26 +494,33 @@ async def approve_payment_proof(proof_id: str):
     )
 
     enrollment_id = proof.get("enrollment_id")
-    
-    # Try to match program by title to get item_id and links
-    program_title = proof.get("program_title", "")
+
+    program_title_for_match = (proof.get("program_title") or "").strip()
     matched_program = None
-    if program_title:
+    if program_title_for_match:
         matched_program = await db.programs.find_one(
-            {"title": {"$regex": program_title, "$options": "i"}}, {"_id": 0}
+            {"title": {"$regex": program_title_for_match, "$options": "i"}}, {"_id": 0}
         )
         if not matched_program:
-            # Try partial match
             matched_program = await db.programs.find_one(
-                {"title": {"$regex": program_title.split("(")[0].strip(), "$options": "i"}}, {"_id": 0}
+                {"title": {"$regex": program_title_for_match.split("(")[0].strip(), "$options": "i"}}, {"_id": 0}
             )
-    if not matched_program:
+    if not matched_program and program_title_for_match:
         matched_program = await db.sessions.find_one(
-            {"title": {"$regex": program_title, "$options": "i"}}, {"_id": 0}
+            {"title": {"$regex": program_title_for_match, "$options": "i"}}, {"_id": 0}
         )
-    
-    item_id = proof.get("item_id") or (matched_program.get("id") if matched_program else "")
-    item_type = "session" if (matched_program and "session_mode" in matched_program and "category" not in matched_program) else "program"
+
+    fallback_item_id = (proof.get("item_id") or "").strip() or (matched_program.get("id") if matched_program else "")
+    fallback_item_type = (
+        "session"
+        if (matched_program and "session_mode" in matched_program and "category" not in matched_program)
+        else "program"
+    )
+    title_for_synthetic = (
+        program_title_for_match
+        or (proof.get("selected_item") or "").strip()
+        or (proof.get("program_type") or "").strip()
+    )
 
     # If no real enrollment exists (manual submissions), create one
     if not enrollment_id or enrollment_id == "MANUAL":
@@ -522,9 +531,9 @@ async def approve_payment_proof(proof_id: str):
             "booker_email": proof.get("booker_email", ""),
             "booker_country": "IN",
             "phone": proof.get("phone", ""),
-            "item_type": item_type,
-            "item_id": item_id,
-            "item_title": program_title,
+            "item_type": fallback_item_type,
+            "item_id": fallback_item_id,
+            "item_title": title_for_synthetic,
             "participant_count": proof.get("participant_count", 1),
             "participants": proof.get("participants", [{"name": proof.get("payer_name", ""), "email": proof.get("booker_email", "")}]),
             "status": "completed",
@@ -537,29 +546,48 @@ async def approve_payment_proof(proof_id: str):
             "updated_at": datetime.now(timezone.utc).isoformat(),
         }
         await db.enrollments.insert_one(new_enrollment)
-        # Update proof with real enrollment_id
         await db.india_payment_proofs.update_one({"id": proof_id}, {"$set": {"enrollment_id": enrollment_id}})
 
     if enrollment_id:
-        enrollment_doc = None
-        if enrollment_id != "MANUAL":
-            enrollment_doc = await db.enrollments.find_one(
-                {"id": enrollment_id},
-                {"_id": 0, "booker_email": 1, "booker_name": 1},
-            )
+        full_enrollment = await db.enrollments.find_one({"id": enrollment_id}, {"_id": 0}) or {}
+
+        resolved_item_id = (
+            (full_enrollment.get("item_id") or "").strip()
+            or (proof.get("item_id") or "").strip()
+            or fallback_item_id
+        )
+        resolved_item_type = (full_enrollment.get("item_type") or "").strip().lower()
+        if resolved_item_type not in ("program", "session"):
+            resolved_item_type = fallback_item_type
+        resolved_item_title = (
+            (full_enrollment.get("item_title") or "").strip()
+            or (proof.get("program_title") or "").strip()
+            or (proof.get("selected_item") or "").strip()
+            or title_for_synthetic
+        )
+        try:
+            resolved_participant_count = int(full_enrollment.get("participant_count") or proof.get("participant_count") or 1)
+        except (TypeError, ValueError):
+            resolved_participant_count = int(proof.get("participant_count") or 1)
+        resolved_participants = full_enrollment.get("participants") or proof.get("participants") or []
+
         booker_email_resolved = (
-            (enrollment_doc or {}).get("booker_email")
-            or proof.get("booker_email")
-            or proof.get("payer_email")
-            or ""
+            (full_enrollment.get("booker_email") or "").strip()
+            or (proof.get("booker_email") or "").strip()
+            or (proof.get("payer_email") or "").strip()
         )
-        payer_email_resolved = (proof.get("payer_email") or proof.get("booker_email") or booker_email_resolved or "")
+        payer_email_resolved = (
+            (proof.get("payer_email") or "").strip()
+            or (proof.get("booker_email") or "").strip()
+            or booker_email_resolved
+        )
         booker_name_resolved = (
-            (enrollment_doc or {}).get("booker_name")
-            or proof.get("booker_name")
-            or proof.get("payer_name")
-            or ""
+            (full_enrollment.get("booker_name") or "").strip()
+            or (proof.get("booker_name") or "").strip()
+            or (proof.get("payer_name") or "").strip()
         )
+        phone_resolved = (full_enrollment.get("phone") or "").strip() or (proof.get("payer_phone") or "").strip()
+
         be_norm = (booker_email_resolved or "").strip().lower()
         pe_norm = (payer_email_resolved or "").strip().lower()
         portal_user_doc = None
@@ -568,15 +596,15 @@ async def approve_payment_proof(proof_id: str):
         if not portal_user_doc and pe_norm and pe_norm != be_norm:
             portal_user_doc = await db.users.find_one({"email": pe_norm}, {"id": 1, "client_id": 1})
 
-        # Create a completed transaction
+        # Same fields drive receipt email (_send_receipt_and_notifications) and student order history.
         fake_session_id = f"india_{uuid.uuid4().hex[:12]}"
         transaction = {
             "id": str(uuid.uuid4()),
             "enrollment_id": enrollment_id,
             "stripe_session_id": fake_session_id,
-            "item_type": item_type,
-            "item_id": item_id,
-            "item_title": program_title,
+            "item_type": resolved_item_type,
+            "item_id": resolved_item_id,
+            "item_title": resolved_item_title,
             "amount": float(proof.get("amount", 0)),
             "currency": "inr",
             "payment_status": "paid",
@@ -585,9 +613,9 @@ async def approve_payment_proof(proof_id: str):
             "booker_name": booker_name_resolved,
             "booker_email": be_norm or booker_email_resolved,
             "payer_email": pe_norm or be_norm or payer_email_resolved,
-            "phone": proof.get("phone", ""),
-            "participants": proof.get("participants", []),
-            "participant_count": proof.get("participant_count", 1),
+            "phone": phone_resolved,
+            "participants": resolved_participants,
+            "participant_count": resolved_participant_count,
             "is_india_alt": True,
             "india_proof_id": proof_id,
             "india_payment_method": (proof.get("payment_method") or "").strip().lower(),
@@ -595,6 +623,11 @@ async def approve_payment_proof(proof_id: str):
             "created_at": datetime.now(timezone.utc),
             "updated_at": datetime.now(timezone.utc),
         }
+        if full_enrollment.get("tier_index") is not None:
+            try:
+                transaction["tier_index"] = int(full_enrollment["tier_index"])
+            except (TypeError, ValueError):
+                pass
         if portal_user_doc:
             transaction["portal_user_id"] = portal_user_doc.get("id")
             pcid = (portal_user_doc.get("client_id") or "").strip()
