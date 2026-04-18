@@ -1,5 +1,5 @@
 /* Offline-first shell for the static site (free CDN). API calls still need a live backend. */
-const CACHE = 'dih-site-v4';
+const CACHE = 'dih-site-v5';
 
 function shellUrl() {
   return `${self.location.origin}/index.html`;

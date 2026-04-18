@@ -11,7 +11,6 @@ import { pickTierIndexForDashboard, programIncludedInAnnualPackage } from './das
 import {
   buildAnnualDashboardCartParticipants,
   buildSelfOnlyCartParticipants,
-  buildFullPortalRosterCartParticipants,
 } from '../../lib/dashboardCartPrefill';
 import { getAuthHeaders } from '../../lib/authHeaders';
 import DashboardUpcomingProgramRowItem from './DashboardUpcomingProgramRowItem';
@@ -1215,10 +1214,7 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh, bo
           detectedCountry,
         });
       } else {
-        participants = buildFullPortalRosterCartParticipants(p, pre, bookerEmail, detectedCountry);
-        if (!participants?.length) {
-          participants = buildSelfOnlyCartParticipants(pre.self, p, bookerEmail, detectedCountry);
-        }
+        participants = buildSelfOnlyCartParticipants(pre.self, p, bookerEmail, detectedCountry);
       }
     } catch {
       /* fall back to empty single row in addItem */
