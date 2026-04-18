@@ -622,7 +622,8 @@ export default function DashboardUpcomingProgramRowItem({
               ) : null}
             </div>
 
-            <div className="rounded-xl border border-amber-100/80 bg-amber-50/25 p-3 sm:p-4 min-h-0 flex flex-col min-w-0 w-full">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 items-start w-full min-w-0">
+              <div className="rounded-xl border border-amber-100/80 bg-amber-50/25 p-3 sm:p-4 min-h-0 flex flex-col min-w-0 w-full lg:min-h-full">
               <button
                 type="button"
                 className="w-full flex items-center justify-between gap-2 text-left rounded-lg outline-none focus-visible:ring-2 focus-visible:ring-amber-400/50"
@@ -653,13 +654,13 @@ export default function DashboardUpcomingProgramRowItem({
                 </label>
               </div>
             ) : null}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 flex-1 min-h-0 pt-2">
+            <div className="flex flex-col gap-4 flex-1 min-h-0 max-h-[min(26rem,55vh)] overflow-y-auto pr-1 pt-2">
               <div className="min-w-0">
                 <p className="text-[10px] font-bold uppercase tracking-wide text-slate-500 mb-2">Immediate family</p>
                 {enrollableGuests.length === 0 ? (
                   <p className="text-xs text-slate-500">Add people under the lists below, then save.</p>
                 ) : (
-                  <div className="space-y-2 max-h-56 overflow-y-auto pr-1">
+                  <div className="space-y-2">
                     {selectableFamilyMemberIds.length > 0 ? (
                       <label className="flex items-center gap-2 text-xs font-semibold text-slate-700 cursor-pointer select-none pb-1 border-b border-slate-200/80">
                         <input
@@ -713,10 +714,10 @@ export default function DashboardUpcomingProgramRowItem({
                   </div>
                 )}
               </div>
-              <div className="min-w-0">
+              <div className="min-w-0 pt-1 border-t border-amber-200/50">
                 <p className="text-[10px] font-bold uppercase tracking-wide text-slate-500 mb-2">Friends &amp; extended</p>
                 {otherMembers.length > 0 ? (
-                  <ul className="space-y-1.5 max-h-56 overflow-y-auto pr-1">
+                  <ul className="space-y-1.5">
                     {otherMembers.map((m, gidx) => {
                       const mid = m.id || `ext-${gidx}-${m.name}-${m.email}`;
                       return (
@@ -750,10 +751,10 @@ export default function DashboardUpcomingProgramRowItem({
             )}
                 </>
               ) : null}
-            </div>
+              </div>
 
-            {/* Attendance & notification + checkout — below family */}
-            <div className="w-full rounded-xl border border-slate-200/90 bg-white p-3 sm:p-4 shadow-sm min-w-0">
+            {/* Attendance & notification + checkout — beside family on large screens */}
+            <div className="w-full rounded-xl border border-slate-200/90 bg-white p-3 sm:p-4 shadow-sm min-w-0 lg:min-h-full flex flex-col">
               <button
                 type="button"
                 className="w-full flex items-center justify-between gap-2 text-left rounded-lg outline-none focus-visible:ring-2 focus-visible:ring-[#D4AF37]/40"
@@ -1037,6 +1038,7 @@ export default function DashboardUpcomingProgramRowItem({
                 )}
                 Add to Divine Cart
               </button>
+            </div>
             </div>
             </div>
           </div>
