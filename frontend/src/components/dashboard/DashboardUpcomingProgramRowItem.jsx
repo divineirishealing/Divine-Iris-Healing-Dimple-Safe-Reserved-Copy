@@ -559,16 +559,6 @@ export default function DashboardUpcomingProgramRowItem({
                   <span className="text-xl font-bold text-green-600">FREE</span>
                 )}
               </div>
-              {aq ? (
-                <p className="text-[11px] text-slate-600 mb-2 leading-snug">
-                  Your selection total{includedPkg ? ' (guests & add-ons)' : ''}:{' '}
-                  <span className="font-semibold text-slate-800 tabular-nums">
-                    {symbol} {Number(aq.total ?? 0).toLocaleString()}
-                  </span>
-                </p>
-              ) : subscriberIsAnnual ? (
-                <p className="text-[11px] text-slate-500 italic mb-2">Loading portal total…</p>
-              ) : null}
               {enrollStatus === 'open' ? (
                 <button
                   type="button"
@@ -612,6 +602,18 @@ export default function DashboardUpcomingProgramRowItem({
                 <div className="min-w-0 w-full pt-2">
                   <AnnualQuoteBreakdown aq={aq} symbol={symbol} includedPkg={includedPkg} suppressIntro layout="table" />
                 </div>
+              ) : null}
+              {aq ? (
+                <p className="text-[11px] text-slate-600 mt-2 pt-2 border-t border-slate-100 leading-snug">
+                  Your selection total{includedPkg ? ' (guests & add-ons)' : ''}:{' '}
+                  <span className="font-semibold text-slate-800 tabular-nums">
+                    {symbol} {Number(aq.total ?? 0).toLocaleString()}
+                  </span>
+                </p>
+              ) : subscriberIsAnnual ? (
+                <p className="text-[11px] text-slate-500 italic mt-2 pt-2 border-t border-slate-100">
+                  Loading portal total…
+                </p>
               ) : null}
             </div>
 
