@@ -571,6 +571,20 @@ export default function DashboardCombinedCheckoutPage() {
   const totalDiscountAmount = totalAutoDiscount + discount;
   const total = Math.max(0, subtotal - discount - totalAutoDiscount);
 
+  const pmLower = useMemo(
+    () => paymentMethods.map((x) => String(x).toLowerCase()),
+    [paymentMethods],
+  );
+  const hasStripe = pmLower.includes('stripe');
+  /** Subscriber has India-tagged methods from admin (UPI / bank / manual) — show proof & Exly paths even when IP ≠ IN. */
+  const memberIndiaTagged =
+    pmLower.includes('gpay') || pmLower.includes('bank') || pmLower.includes('manual');
+  const bookerIndia = String(bookerCountry || '').trim().toUpperCase() === 'IN';
+  const siteIndiaAlternatePayments =
+    !!paymentSettings.india_enabled && (detectedCountry === 'IN' || bookerIndia);
+  const showIndiaAlternatePaymentsBlock =
+    total > 0 && (memberIndiaTagged || siteIndiaAlternatePayments);
+
   useEffect(() => {
     if (promoFromUrlApplied.current || checkoutPromoVisible !== true || items.length === 0) return;
     const code = searchParams.get('promo');
@@ -858,8 +872,6 @@ export default function DashboardCombinedCheckoutPage() {
   const rosterParticipantCount = rosterRows.length;
 
   if (items.length === 0) return null;
-
-  const hasStripe = paymentMethods.map((x) => String(x).toLowerCase()).includes('stripe');
 
   return (
     <div className="relative z-10 max-w-5xl mx-auto px-4 py-8 md:py-10">
@@ -1153,15 +1165,15 @@ export default function DashboardCombinedCheckoutPage() {
 
                 {total > 0 && !hasStripe && (
                   <div className="mb-3 rounded-lg border border-amber-200 bg-amber-50 p-3 text-[10px] text-amber-950 leading-snug">
-                    {detectedCountry === 'IN' && paymentSettings.india_enabled ? (
+                    {showIndiaAlternatePaymentsBlock ? (
                       <p>
-                        <strong>Stripe is off</strong> for your account. Use the India (Exly) or manual proof flow below — aligned
-                        with your GPay / bank tags.
+                        <strong>Stripe is off</strong> for your account. Use the Exly or <strong>manual proof</strong> option below
+                        {memberIndiaTagged ? ' (aligned with your GPay / bank tags).' : '.'}
                       </p>
                     ) : (
                       <p>
-                        <strong>Stripe is off</strong> for your account. Ask your admin to enable a payment method, or complete
-                        payment through an India/manual flow if available.
+                        <strong>Stripe is off</strong> for your account. Ask your admin to enable a payment method (e.g. tag GPay/UPI
+                        on your membership) or turn on India checkout in site settings.
                       </p>
                     )}
                   </div>
@@ -1198,7 +1210,7 @@ export default function DashboardCombinedCheckoutPage() {
                   </div>
                 )}
 
-                {detectedCountry === 'IN' && paymentSettings.india_enabled && total > 0 && (
+                {showIndiaAlternatePaymentsBlock && (
                   <div className="mb-4" data-testid="dashboard-combined-india">
                     <div className="border-2 border-[#D4AF37] rounded-lg p-4 mb-3 bg-[#D4AF37]/5">
                       <div className="flex items-center gap-2 mb-2 flex-wrap">
