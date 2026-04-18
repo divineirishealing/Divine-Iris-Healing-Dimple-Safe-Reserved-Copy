@@ -445,12 +445,12 @@ export default function DashboardUpcomingProgramRowItem({
         <div className="w-full flex flex-col xl:flex-row xl:items-stretch gap-4 xl:gap-4">
           {/* 1 — Same footprint as non-annual dashboard card: vertical max-w-md (~28rem) */}
           <div
-            className={`group bg-white rounded-xl overflow-hidden shadow-lg border border-gray-100 flex flex-col w-full max-w-md xl:w-[28rem] xl:max-w-[28rem] xl:shrink-0 mx-auto xl:mx-0 min-h-0 ${
+            className={`group bg-white rounded-xl overflow-hidden shadow-lg border border-gray-100 flex flex-col w-full max-w-md xl:w-[28rem] xl:max-w-[28rem] xl:shrink-0 xl:self-stretch xl:h-full mx-auto xl:mx-0 min-h-0 ${
               enrollStatus === 'closed' ? 'opacity-60' : 'hover:shadow-2xl'
             }`}
           >
             {heroBlock}
-            <div className="p-4 flex flex-col flex-1 min-h-0">
+            <div className="p-4 flex flex-col flex-1 min-h-0 xl:min-h-0">
               <p className="text-[#D4AF37] text-[10px] tracking-wider mb-0.5 uppercase">{p.category || 'Program'}</p>
               <div className="flex items-start gap-2 mb-1.5 flex-wrap">
                 <h3 className="text-base font-semibold text-gray-900 leading-tight pr-1">{p.title}</h3>
@@ -522,7 +522,7 @@ export default function DashboardUpcomingProgramRowItem({
                     </div>
                   );
                 })()}
-              <div className="flex flex-wrap items-baseline gap-2 mb-1 mt-auto">
+              <div className="flex flex-wrap items-baseline gap-2 mb-1">
                 {showSpecialPromo ? (
                   <div className="flex flex-col gap-1 w-full">
                     <div className="flex flex-wrap items-baseline gap-2">
@@ -594,7 +594,7 @@ export default function DashboardUpcomingProgramRowItem({
           </div>
 
                    {/* 2 — Pricing & offer, Family to join, Attendance & checkout (stacked); cart at bottom aligns with Know More on xl */}
-          <div className="flex flex-col gap-4 flex-1 min-w-0 w-full min-h-0">
+          <div className="flex flex-col gap-4 flex-1 min-w-0 w-full min-h-0 xl:self-stretch xl:h-full">
             <div className="rounded-xl border border-slate-200 bg-white p-3 sm:p-4 shadow-sm min-h-0 flex flex-col min-w-0 w-full">
               <button
                 type="button"
@@ -615,7 +615,7 @@ export default function DashboardUpcomingProgramRowItem({
               ) : null}
             </div>
 
-            <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_minmax(17rem,22rem)] gap-3 lg:gap-x-3 items-start w-full min-w-0">
+            <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_minmax(17rem,22rem)] gap-3 lg:gap-x-3 items-start w-full min-w-0 flex-1 min-h-0">
               <div className="rounded-xl border border-amber-100/80 bg-amber-50/25 p-3 sm:p-4 min-h-0 flex flex-col min-w-0 w-full">
               <button
                 type="button"
