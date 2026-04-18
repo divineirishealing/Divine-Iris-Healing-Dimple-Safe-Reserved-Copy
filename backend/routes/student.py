@@ -1417,6 +1417,59 @@ def _student_order_sort_ts(doc: dict) -> float:
     return 0.0
 
 
+def _order_display_title_from_enrollment(
+    enrollment: Optional[dict],
+    order_row: dict,
+    prog_titles_by_id: Dict[str, str],
+) -> str:
+    """
+    Show the program(s) the student actually signed up for.
+    Checkout often stores only the lead line's title on the transaction; combined carts
+    duplicate each seat's program_title on participant rows and/or list program_id in portal_cart_lines.
+    """
+    txn_fallback = (order_row.get("item_title") or "").strip()
+    if not enrollment:
+        return txn_fallback or (order_row.get("item_id") or "") or "Order"
+
+    titles: List[str] = []
+    for p in enrollment.get("participants") or []:
+        t = (p.get("program_title") or "").strip()
+        if t and t not in titles:
+            titles.append(t)
+    if len(titles) > 1:
+        return " · ".join(titles)
+    if len(titles) == 1:
+        return titles[0]
+
+    for line in enrollment.get("portal_cart_lines") or []:
+        pid = str(line.get("program_id") or "").strip()
+        t = (prog_titles_by_id.get(pid) or "").strip()
+        if t and t not in titles:
+            titles.append(t)
+    if len(titles) > 1:
+        return " · ".join(titles)
+    if len(titles) == 1:
+        return titles[0]
+
+    lead_pid = (enrollment.get("item_id") or "").strip()
+    if lead_pid:
+        t = (prog_titles_by_id.get(lead_pid) or "").strip()
+        if t:
+            return t
+
+    en_title = (enrollment.get("item_title") or "").strip()
+    if en_title:
+        return en_title
+
+    tid = (order_row.get("item_id") or "").strip()
+    if tid and (order_row.get("item_type") or "").lower() == "program":
+        t = (prog_titles_by_id.get(tid) or "").strip()
+        if t:
+            return t
+
+    return txn_fallback or tid or "Order"
+
+
 @router.get("/orders")
 async def list_student_orders(user: dict = Depends(get_current_user)):
     """
@@ -1556,6 +1609,48 @@ async def list_student_orders(user: dict = Depends(get_current_user)):
     combined: List[dict] = [_serialize_payment_transaction_row(r) for r in rows]
     combined.extend(_serialize_payment_transaction_row(r) for r in pending_as_orders)
     combined.sort(key=_student_order_sort_ts, reverse=True)
+
+    eids = {str(o.get("enrollment_id") or "").strip() for o in combined if o.get("enrollment_id")}
+    eids.discard("")
+    if eids:
+        enrollments_list = await db.enrollments.find(
+            {"id": {"$in": list(eids)}},
+            {"_id": 0, "id": 1, "item_title": 1, "participants": 1, "portal_cart_lines": 1},
+        ).to_list(max(len(eids), 1))
+        by_eid = {e["id"]: e for e in enrollments_list}
+        prog_ids: List[str] = []
+        for e in enrollments_list:
+            eid0 = str(e.get("item_id") or "").strip()
+            if eid0 and eid0 not in prog_ids:
+                prog_ids.append(eid0)
+            for line in e.get("portal_cart_lines") or []:
+                pid = str(line.get("program_id") or "").strip()
+                if pid and pid not in prog_ids:
+                    prog_ids.append(pid)
+        prog_titles_by_id: Dict[str, str] = {}
+        for o in combined:
+            if (o.get("item_type") or "").lower() == "program":
+                tid = str(o.get("item_id") or "").strip()
+                if tid and tid not in prog_ids:
+                    prog_ids.append(tid)
+        if prog_ids:
+            for p in await db.programs.find(
+                {"id": {"$in": prog_ids}},
+                {"_id": 0, "id": 1, "title": 1},
+            ).to_list(len(prog_ids)):
+                prog_titles_by_id[p["id"]] = (p.get("title") or "").strip()
+        for o in combined:
+            eid = str(o.get("enrollment_id") or "").strip()
+            if not eid:
+                continue
+            if (o.get("item_type") or "").lower() == "sponsor":
+                continue
+            o["item_title"] = _order_display_title_from_enrollment(
+                by_eid.get(eid),
+                o,
+                prog_titles_by_id,
+            )
+
     return {"orders": combined}
 
 
