@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
-import { Calendar, Sparkles, Users, Loader2, Plus, Trash2, CreditCard, Clock, AlertTriangle, Lock, Bell, BellOff, Monitor, Wifi } from 'lucide-react';
+import { Calendar, Sparkles, Users, Loader2, Plus, Trash2, CreditCard, Clock, AlertTriangle, Lock, Bell, BellOff, Monitor, Wifi, ShoppingCart } from 'lucide-react';
 import { useToast } from '../../hooks/use-toast';
 import { useCurrency } from '../../context/CurrencyContext';
 import { useSiteSettings } from '../../context/SiteSettingsContext';
@@ -355,7 +355,7 @@ function DashboardEnrollmentCountdown({ deadline, programTitle }) {
 
 export default function DashboardUpcomingFamilySection({ homeData, onRefresh, bookerEmail = '' }) {
   const navigate = useNavigate();
-  const { addItem } = useCart();
+  const { addItem, itemCount } = useCart();
   const { toast } = useToast();
   const { settings: siteSettings } = useSiteSettings();
   const annualIncludedIds = siteSettings?.annual_package_included_program_ids;
@@ -1197,20 +1197,42 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh, bo
   return (
     <section className="w-full max-w-7xl mx-auto px-4 mb-4 md:mb-6" data-testid="dashboard-upcoming-family">
       <div className="rounded-[28px] border border-[rgba(160,100,220,0.14)] bg-white/70 backdrop-blur-xl px-5 py-5 md:px-7 md:py-6 shadow-[0_4px_48px_rgba(140,60,220,0.08)]">
-        <div className="flex items-center gap-2 mb-4">
-          <div className="w-9 h-9 rounded-xl bg-[#D4AF37]/15 flex items-center justify-center">
-            <Calendar size={17} className="text-[#D4AF37]" />
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between mb-4">
+          <div className="flex items-center gap-2 min-w-0">
+            <div className="w-9 h-9 rounded-xl bg-[#D4AF37]/15 flex items-center justify-center shrink-0">
+              <Calendar size={17} className="text-[#D4AF37]" />
+            </div>
+            <div className="min-w-0">
+              <h2 className="font-[family-name:'Cinzel',serif] text-[11px] uppercase tracking-[0.2em] text-[rgba(100,40,160,0.55)]">
+                Upcoming programs
+              </h2>
+              <p className="text-xs text-slate-500">
+                Portal-only pricing: your seat, immediate household, and friends &amp; extended can each use{' '}
+                <span className="text-slate-700 font-medium">different</span> rules (Admin → Dashboard). Use{' '}
+                <strong className="text-slate-700 font-medium">Add to cart</strong> on each program to build an order of several
+                programs, then open <strong className="text-slate-700 font-medium">Cart</strong> for the same checkout as the main
+                site. Annual members can still pay per program below after choosing guests.
+              </p>
+            </div>
           </div>
-          <div>
-            <h2 className="font-[family-name:'Cinzel',serif] text-[11px] uppercase tracking-[0.2em] text-[rgba(100,40,160,0.55)]">
-              Upcoming programs
-            </h2>
-            <p className="text-xs text-slate-500">
-              Portal-only pricing: your seat, immediate household, and friends &amp; extended can each use{' '}
-              <span className="text-slate-700 font-medium">different</span> rules (Admin → Dashboard). Annual members pay below
-              after choosing guests; other members add programs to the cart and use the same checkout as the main site.
-            </p>
-          </div>
+          <Button
+            type="button"
+            variant="outline"
+            className="shrink-0 h-10 px-4 border-slate-200 bg-white/90 hover:bg-[#D4AF37]/10 hover:border-[#D4AF37]/40 text-slate-800 gap-2"
+            onClick={() => navigate('/cart')}
+            data-testid="dashboard-open-cart"
+          >
+            <ShoppingCart size={16} className="text-[#D4AF37]" />
+            <span className="text-xs font-semibold">Cart</span>
+            {itemCount > 0 ? (
+              <span
+                className="min-w-[1.25rem] h-5 px-1.5 rounded-full bg-[#D4AF37] text-white text-[10px] font-bold tabular-nums flex items-center justify-center"
+                data-testid="dashboard-cart-count"
+              >
+                {itemCount}
+              </span>
+            ) : null}
+          </Button>
         </div>
 
         {showOfferCountdownStrip && (

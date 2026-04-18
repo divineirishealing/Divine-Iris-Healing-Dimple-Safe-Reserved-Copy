@@ -511,21 +511,21 @@ export default function DashboardUpcomingProgramRowItem({
                     Know More
                   </button>
                   <div className="flex gap-1.5 mt-2">
-                    {price > 0 ? (
-                      <button
-                        type="button"
-                        onClick={handleAddToCart}
-                        disabled={inCart || justAdded}
-                        className={`flex items-center justify-center px-2.5 py-2 rounded-full text-[10px] transition-all font-medium border shrink-0 ${
-                          inCart || justAdded
-                            ? 'bg-green-50 text-green-600 border-green-200'
-                            : 'bg-white text-gray-700 border-gray-200 hover:border-[#D4AF37] hover:text-[#D4AF37]'
-                        }`}
-                        aria-label="Add to cart"
-                      >
-                        {inCart || justAdded ? <Check size={11} /> : <ShoppingCart size={11} />}
-                      </button>
-                    ) : null}
+                    <button
+                      type="button"
+                      onClick={handleAddToCart}
+                      disabled={inCart || justAdded}
+                      className={`inline-flex items-center justify-center gap-1 px-2.5 sm:px-3 py-2 rounded-full text-[10px] transition-all font-medium border shrink-0 ${
+                        inCart || justAdded
+                          ? 'bg-green-50 text-green-600 border-green-200'
+                          : 'bg-white text-gray-700 border-gray-200 hover:border-[#D4AF37] hover:text-[#D4AF37]'
+                      }`}
+                      aria-label="Add to cart"
+                      data-testid={`dashboard-add-cart-annual-${p.id}`}
+                    >
+                      {inCart || justAdded ? <Check size={11} className="shrink-0" /> : <ShoppingCart size={11} className="shrink-0" />}
+                      <span className="hidden sm:inline font-semibold tracking-wide">Cart</span>
+                    </button>
                     <button
                       type="button"
                       disabled={!canPay || payingProgramId === p.id}
@@ -562,7 +562,8 @@ export default function DashboardUpcomingProgramRowItem({
                     </button>
                   </div>
                   <p className="text-[10px] text-slate-500 mt-2 leading-snug">
-                    Set attendance &amp; email under Family to join, then continue to payment.
+                    Use Cart to bundle several programs for one checkout. Set attendance &amp; email under Family to join for
+                    portal pay, or pay from the cart with main-site pricing.
                   </p>
                 </>
               ) : (
@@ -1139,21 +1140,21 @@ export default function DashboardUpcomingProgramRowItem({
                     )}
                   </div>
                   <div className="flex gap-1.5">
-                    {price > 0 && (
-                      <button
-                        type="button"
-                        onClick={handleAddToCart}
-                        disabled={inCart || justAdded}
-                        className={`flex items-center justify-center px-2.5 py-2 rounded-full text-[10px] transition-all font-medium border ${
-                          inCart || justAdded
-                            ? 'bg-green-50 text-green-600 border-green-200'
-                            : 'bg-white text-gray-700 border-gray-200 hover:border-[#D4AF37] hover:text-[#D4AF37]'
-                        }`}
-                        aria-label="Add to cart"
-                      >
-                        {inCart || justAdded ? <Check size={11} /> : <ShoppingCart size={11} />}
-                      </button>
-                    )}
+                    <button
+                      type="button"
+                      onClick={handleAddToCart}
+                      disabled={inCart || justAdded}
+                      className={`inline-flex items-center justify-center gap-1 px-2.5 sm:px-3 py-2 rounded-full text-[10px] transition-all font-medium border shrink-0 ${
+                        inCart || justAdded
+                          ? 'bg-green-50 text-green-600 border-green-200'
+                          : 'bg-white text-gray-700 border-gray-200 hover:border-[#D4AF37] hover:text-[#D4AF37]'
+                      }`}
+                      aria-label="Add to cart"
+                      data-testid={`dashboard-add-cart-${p.id}`}
+                    >
+                      {inCart || justAdded ? <Check size={11} className="shrink-0" /> : <ShoppingCart size={11} className="shrink-0" />}
+                      <span className="font-semibold tracking-wide">Cart</span>
+                    </button>
                     <button
                       type="button"
                       onClick={(e) => {
