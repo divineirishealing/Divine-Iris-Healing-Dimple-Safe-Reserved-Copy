@@ -206,7 +206,7 @@ export default function DashboardUpcomingProgramRowItem({
   annualSeatUi = null,
 }) {
   const navigate = useNavigate();
-  const { addItem, items } = useCart();
+  const { syncProgramLineItem, items } = useCart();
   const { toast } = useToast();
 
   const tiers = p.duration_tiers || [];
@@ -284,19 +284,17 @@ export default function DashboardUpcomingProgramRowItem({
     } catch {
       /* empty row */
     }
-    const added = addItem(p, tierIdxForDisplay, participants);
-    if (added) {
-      setJustAdded(true);
-      toast({
-        title: `${p.title} added to your order`,
-        description: participants?.length
-          ? `${tier?.label || 'Selected'} plan — open Review & pay in the sidebar to see everyone and checkout.`
-          : `${tier?.label || 'Selected'} plan`,
-      });
-      setTimeout(() => setJustAdded(false), 2000);
-    } else {
-      toast({ title: 'Already in your order', variant: 'destructive' });
-    }
+    const wasInCart = items.some((i) => i.programId === p.id && i.tierIndex === tierIdxForDisplay);
+    syncProgramLineItem(p, tierIdxForDisplay, participants);
+    setJustAdded(true);
+    toast({
+      title: wasInCart ? `${p.title} — order refreshed` : `${p.title} added to your order`,
+      description: participants?.length
+        ? `${tier?.label || 'Selected'} plan — Review & pay matches who you selected on the dashboard.`
+        : `${tier?.label || 'Selected'} plan`,
+      variant: wasInCart && !participants?.length ? 'destructive' : undefined,
+    });
+    setTimeout(() => setJustAdded(false), 2000);
   };
 
   const goProgram = () => navigate(`/program/${p.id}`);

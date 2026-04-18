@@ -69,6 +69,70 @@ export const CartProvider = ({ children }) => {
     return true;
   }, [items]);
 
+  /**
+   * Add a program line or replace its participants if the same programId + tierIndex exists.
+   * Keeps Review & pay in sync when dashboard seat picks change after the program was already in the cart.
+   */
+  const syncProgramLineItem = useCallback((program, tierIndex, participantsOverride = null) => {
+    const tiers = program.duration_tiers || [];
+    const tier = tiers[tierIndex] || null;
+    const defaultParticipant = {
+      name: '', relationship: 'Myself', age: '', gender: '',
+      country: '', city: '', state: '',
+      attendance_mode: program.session_mode === 'remote' ? 'offline' : 'online',
+      notify: program.session_mode !== 'remote', email: '', phone: '',
+      phone_code: '', wa_code: '', whatsapp: '',
+      is_first_time: true, referral_source: '', referred_by_email: '',
+    };
+    let participants;
+    if (Array.isArray(participantsOverride) && participantsOverride.length > 0) {
+      participants = participantsOverride.map((p) => ({ ...defaultParticipant, ...p }));
+    } else {
+      participants = [defaultParticipant];
+    }
+
+    const newItem = {
+      id: `${program.id}-${tierIndex}-${Date.now()}`,
+      type: 'program',
+      programId: program.id,
+      programTitle: program.title,
+      programImage: program.image,
+      programCategory: program.category,
+      sessionMode: program.session_mode,
+      tierIndex,
+      tierLabel: tier?.label || 'Standard',
+      isFlagship: program.is_flagship,
+      durationTiers: tiers,
+      offer_price_aed: program.offer_price_aed || 0,
+      offer_price_inr: program.offer_price_inr || 0,
+      offer_price_usd: program.offer_price_usd || 0,
+      price_aed: program.price_aed || 0,
+      price_inr: program.price_inr || 0,
+      price_usd: program.price_usd || 0,
+      enable_online: program.enable_online !== false,
+      enable_offline: program.enable_offline !== false,
+      enable_in_person: program.enable_in_person || false,
+      participants,
+    };
+
+    setItems((prev) => {
+      const idx = prev.findIndex((i) => i.programId === program.id && i.tierIndex === tierIndex);
+      if (idx === -1) {
+        return [...prev, newItem];
+      }
+      const existing = prev[idx];
+      try {
+        if (JSON.stringify(existing.participants) === JSON.stringify(participants)) {
+          return prev;
+        }
+      } catch {
+        /* compare failed — apply update */
+      }
+      return prev.map((i, j) => (j === idx ? { ...i, participants } : i));
+    });
+    return true;
+  }, []);
+
   const addSessionItem = useCallback((session, selectedDate, selectedTime) => {
     const exists = items.find(i => i.type === 'session' && i.sessionId === session.id && i.selectedDate === selectedDate && i.selectedTime === selectedTime);
     if (exists) return false;
@@ -126,7 +190,7 @@ export const CartProvider = ({ children }) => {
   return (
     <CartContext.Provider value={{
       items, itemCount, totalParticipants,
-      addItem, addSessionItem, removeItem, updateItemParticipants, clearCart,
+      addItem, syncProgramLineItem, addSessionItem, removeItem, updateItemParticipants, clearCart,
     }}>
       {children}
     </CartContext.Provider>

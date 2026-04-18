@@ -12,6 +12,11 @@ import {
   buildAnnualDashboardCartParticipants,
   buildSelfOnlyCartParticipants,
 } from '../../lib/dashboardCartPrefill';
+import {
+  UPCOMING_SESSION_V,
+  UPCOMING_SESSION_MAX_AGE_MS,
+  upcomingSessionStorageKey,
+} from '../../lib/dashboardUpcomingSessionStorage';
 import { getAuthHeaders } from '../../lib/authHeaders';
 import DashboardUpcomingProgramRowItem from './DashboardUpcomingProgramRowItem';
 import { Button } from '../ui/button';
@@ -116,17 +121,6 @@ function deriveNotifyQuickPreset(ctx, guestForm, bookerNotify) {
 
 /** Cap parallel quote / promo requests (matches backend upcoming program list cap). */
 const DASHBOARD_UPCOMING_PREFETCH_LIMIT = 100;
-
-/** Session snapshot for history back / leaving the site: enrollment + payment flow + guest picks. */
-const UPCOMING_SESSION_V = 1;
-const UPCOMING_SESSION_MAX_AGE_MS = 24 * 60 * 60 * 1000;
-
-function upcomingSessionStorageKey(bookerEmail) {
-  const s = String(bookerEmail || 'anon')
-    .toLowerCase()
-    .replace(/[^a-z0-9@._-]/gi, '_');
-  return `dih_dash_upcoming_v${UPCOMING_SESSION_V}_${s.slice(0, 120)}`;
-}
 
 const RELATIONSHIPS = ['Spouse', 'Child', 'Parent', 'Sibling', 'Other'];
 const OTHER_RELATIONSHIPS = ['Friend', 'Cousin', 'Relative', 'Uncle / Aunt', 'Grandparent', 'Other'];
@@ -360,7 +354,7 @@ function DashboardEnrollmentCountdown({ deadline, programTitle }) {
 
 export default function DashboardUpcomingFamilySection({ homeData, onRefresh, bookerEmail = '' }) {
   const navigate = useNavigate();
-  const { addItem, itemCount } = useCart();
+  const { syncProgramLineItem, itemCount } = useCart();
   const { toast } = useToast();
   const { settings: siteSettings } = useSiteSettings();
   const annualIncludedIds = siteSettings?.annual_package_included_program_ids;
@@ -478,6 +472,7 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh, bo
             v: UPCOMING_SESSION_V,
             savedAt: Date.now(),
             selectedFamilyByProgram,
+            seatDraftsByProgram,
             programPaymentModal,
             enrollmentSeatOpen,
             seatModalCtx,
@@ -500,6 +495,7 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh, bo
   }, [
     bookerEmail,
     selectedFamilyByProgram,
+    seatDraftsByProgram,
     programPaymentModal,
     enrollmentSeatOpen,
     seatModalCtx,
@@ -576,6 +572,9 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh, bo
       if (programIds.has(String(k))) sel[k] = v;
     });
     if (Object.keys(sel).length > 0) setSelectedFamilyByProgram(sel);
+    if (data.seatDraftsByProgram && typeof data.seatDraftsByProgram === 'object') {
+      setSeatDraftsByProgram(data.seatDraftsByProgram);
+    }
     if (pay) {
       setProgramPaymentModal(pay);
     } else if (seatOpen && seatCtx) {
@@ -1217,22 +1216,15 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh, bo
         participants = buildSelfOnlyCartParticipants(pre.self, p, bookerEmail, detectedCountry);
       }
     } catch {
-      /* fall back to empty single row in addItem */
+      /* syncProgramLineItem will add a blank row if build failed */
     }
-    const added = addItem(p, tier, participants);
-    if (added) {
-      toast({
-        title: 'Added to your order',
-        description: participants?.length
-          ? 'Open Review & pay in the sidebar to see every seat and complete checkout.'
-          : 'Add details on the dashboard, then open Review & pay.',
-      });
-    } else {
-      toast({
-        title: 'Already in your order',
-        description: 'Opening Review & pay — you can adjust on the dashboard and refresh.',
-      });
-    }
+    syncProgramLineItem(p, tier, participants);
+    toast({
+      title: 'Order updated',
+      description: participants?.length
+        ? 'Review & pay now matches your dashboard seats for this program.'
+        : 'Add details on the dashboard, then open Review & pay.',
+    });
     navigate('/dashboard/combined-checkout');
   };
 

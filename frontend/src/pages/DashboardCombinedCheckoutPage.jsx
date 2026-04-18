@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useNavigate, useSearchParams, useLocation } from 'react-router-dom';
 import axios from 'axios';
 import { useCart } from '../context/CartContext';
 import { useCurrency } from '../context/CurrencyContext';
@@ -21,6 +21,12 @@ import {
 import MotivationalSignupFlash from '../components/MotivationalSignupFlash';
 import { getAuthHeaders } from '../lib/authHeaders';
 import { useAuth } from '../context/AuthContext';
+import { readUpcomingDashboardSession } from '../lib/dashboardUpcomingSessionStorage';
+import {
+  buildAnnualDashboardCartParticipants,
+  buildSelfOnlyCartParticipants,
+} from '../lib/dashboardCartPrefill';
+import { programIncludedInAnnualPackage } from '../components/dashboard/dashboardUpcomingHelpers';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
@@ -75,9 +81,10 @@ function PaymentMethodTags({ methods }) {
  */
 export default function DashboardCombinedCheckoutPage() {
   const navigate = useNavigate();
+  const location = useLocation();
   const [searchParams, setSearchParams] = useSearchParams();
   const { user } = useAuth();
-  const { items, clearCart } = useCart();
+  const { items, clearCart, syncProgramLineItem } = useCart();
   const {
     country: detectedCountry,
     symbol,
@@ -186,6 +193,88 @@ export default function DashboardCombinedCheckoutPage() {
       navigate('/dashboard');
     }
   }, [items.length, navigate, toast]);
+
+  const portalCartLineKey = useMemo(
+    () =>
+      items
+        .filter((i) => i.type === 'program')
+        .map((i) => `${i.programId}:${i.tierIndex}`)
+        .sort()
+        .join('|'),
+    [items],
+  );
+
+  /** Align cart roster with Upcoming programs seat picks (session) + latest profile; skip after enrollment draft exists. */
+  useEffect(() => {
+    const email = (user?.email || '').trim();
+    if (!email || !portalCartLineKey || location.pathname !== PORTAL_CHECKOUT_PATH) return;
+    if (enrollmentId || eidParam) return;
+
+    let cancelled = false;
+    (async () => {
+      try {
+        const [homeRes, preRes, settingsRes] = await Promise.all([
+          axios.get(`${API}/student/home`, { withCredentials: true, headers: getAuthHeaders() }),
+          axios.get(`${API}/student/enrollment-prefill`, { withCredentials: true, headers: getAuthHeaders() }),
+          axios.get(`${API}/settings`),
+        ]);
+        if (cancelled) return;
+        const home = homeRes.data || {};
+        const pre = preRes.data || {};
+        const self = pre.self;
+        const annualIncludedIds = Array.isArray(settingsRes.data?.annual_package_included_program_ids)
+          ? settingsRes.data.annual_package_included_program_ids
+          : [];
+        const upcoming = home.upcoming_programs || [];
+        const isAnnual = !!home.is_annual_subscriber;
+        const enrollableGuests = [...(home.immediate_family || []), ...(home.other_guests || [])];
+        const snap = readUpcomingDashboardSession(email);
+        const selectedMap = snap?.selectedFamilyByProgram || {};
+        const drafts = snap?.seatDraftsByProgram || {};
+
+        for (const line of items) {
+          if (line.type !== 'program') continue;
+          const program = upcoming.find((p) => String(p.id) === String(line.programId));
+          if (!program) continue;
+
+          let participants = null;
+          if (isAnnual) {
+            const includedForSeat = programIncludedInAnnualPackage(program, annualIncludedIds);
+            const sel = selectedMap[program.id] || selectedMap[String(program.id)] || [];
+            const draft = drafts[program.id] || drafts[String(program.id)];
+            participants = buildAnnualDashboardCartParticipants({
+              program,
+              includedPkg: includedForSeat,
+              selectedMemberIds: sel,
+              seatDraft: draft,
+              enrollableGuests,
+              self,
+              bookerEmail: email,
+              detectedCountry,
+            });
+          } else {
+            participants = buildSelfOnlyCartParticipants(self, program, email, detectedCountry);
+          }
+          if (participants && participants.length > 0) {
+            syncProgramLineItem(program, line.tierIndex, participants);
+          }
+        }
+      } catch {
+        /* keep existing cart */
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    user?.email,
+    portalCartLineKey,
+    location.pathname,
+    enrollmentId,
+    eidParam,
+    detectedCountry,
+    syncProgramLineItem,
+  ]);
 
   useEffect(() => {
     axios.get(`${API}/settings`)
