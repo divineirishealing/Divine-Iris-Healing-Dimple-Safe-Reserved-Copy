@@ -31,7 +31,7 @@ export function programIncludedInAnnualPackage(p, configuredIds) {
 
 /**
  * Cart line for an annual package–included program must not go through combined Divine Cart
- * (use per-program “Continue to enrollment & payment” instead).
+ * (use per-program “Add to Divine Cart” instead).
  */
 export function isAnnualPackageIncludedCartLine(item, configuredIds) {
   if (!item || item.type !== 'program') return false;

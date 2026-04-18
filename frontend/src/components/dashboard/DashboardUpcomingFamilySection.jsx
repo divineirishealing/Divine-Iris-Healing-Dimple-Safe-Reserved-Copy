@@ -1231,7 +1231,7 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh, bo
           toast({
             title: 'Use payment on this program',
             description:
-              'Programs included in your annual package are not added to combined DIVINE CART. Use Continue to enrollment & payment on this card to pay for guest seats only.',
+              'Programs included in your annual package are not added to combined DIVINE CART. Use Add to Divine Cart on that program’s card to pay for guest seats only.',
           });
           return;
         }
@@ -1303,16 +1303,15 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh, bo
                   <>
                     <strong className="text-slate-700 font-medium">DIVINE CART</strong> is only for programs{' '}
                     <span className="text-slate-700 font-medium">not</span> already in your annual package — use{' '}
-                    <strong className="text-slate-700 font-medium">Add to order</strong> on those. For package-included
-                    programs, use <strong className="text-slate-700 font-medium">Continue to enrollment &amp; payment</strong>{' '}
-                    on each card (guest seats only). On add-on programs you can choose whether you enroll yourself under
-                    Attendance &amp; notification.
+                    <strong className="text-slate-700 font-medium">Add to Divine Cart</strong> on those. For package-included
+                    programs, use <strong className="text-slate-700 font-medium">Add to Divine Cart</strong> on each card for
+                    guest seats only. On add-on programs you can choose whether you enroll yourself under Attendance &amp;
+                    notification.
                   </>
                 ) : (
                   <>
-                    Use <strong className="text-slate-700 font-medium">Add to order</strong> on each program, then open{' '}
-                    <strong className="text-slate-700 font-medium">DIVINE CART</strong> in the sidebar to see every seat
-                    and checkout.
+                    Use <strong className="text-slate-700 font-medium">Add to Divine Cart</strong> on each program (or the
+                    sidebar link) to open checkout, review every seat, and pay.
                   </>
                 )}
               </p>

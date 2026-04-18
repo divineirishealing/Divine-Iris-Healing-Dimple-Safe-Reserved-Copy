@@ -396,8 +396,8 @@ export default function DashboardCombinedCheckoutPage() {
       title: 'Combined order updated',
       description:
         excluded.length === 1
-          ? 'Programs already in your annual package are not checked out here. Use Continue to enrollment & payment on that program to pay for guest seats only.'
-          : `Removed ${excluded.length} package-included programs from this order. Use Continue to enrollment & payment on each of those cards for guest seats.`,
+          ? 'Programs already in your annual package are not checked out here. Use Add to Divine Cart on that program’s card to pay for guest seats only.'
+          : `Removed ${excluded.length} package-included programs from this order. Use Add to Divine Cart on each of those cards for guest seats.`,
     });
   }, [subscriberIsAnnual, annualPackageIncludedProgramIds, items, removeItem, toast]);
 

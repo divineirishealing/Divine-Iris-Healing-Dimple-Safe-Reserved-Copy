@@ -8,7 +8,6 @@ import {
   BellOff,
   ShoppingCart,
   Check,
-  CreditCard,
   Loader2,
   Monitor,
   Wifi,
@@ -256,20 +255,12 @@ export default function DashboardUpcomingProgramRowItem({
 
   const inCart = items.some((i) => String(i.programId) === String(p.id) && i.tierIndex === tierIdxForDisplay);
   const [justAdded, setJustAdded] = useState(false);
+  const [addingToAnnualCart, setAddingToAnnualCart] = useState(false);
   const [annualPricingOpen, setAnnualPricingOpen] = useState(true);
   const [annualFamilyOpen, setAnnualFamilyOpen] = useState(true);
   const [annualAttendanceOpen, setAnnualAttendanceOpen] = useState(true);
 
-  const handleAddToCart = async (e) => {
-    e.stopPropagation();
-    if (subscriberIsAnnual && includedPkg) {
-      toast({
-        title: 'Not added to combined order',
-        description:
-          'Programs in your annual package do not go through DIVINE CART. Pay for guest seats with Continue to enrollment & payment on this card.',
-      });
-      return;
-    }
+  const syncThisProgramToDivineCart = async () => {
     let participants = null;
     try {
       const r = await axios.get(`${API_ROOT}/api/student/enrollment-prefill`, {
@@ -310,6 +301,20 @@ export default function DashboardUpcomingProgramRowItem({
       portalQuoteTotal: aq?.total != null ? Number(aq.total) : null,
       guestBucketById,
     });
+    return { wasInCart, participants };
+  };
+
+  const handleAddToCart = async (e) => {
+    e.stopPropagation();
+    if (subscriberIsAnnual && includedPkg) {
+      toast({
+        title: 'Not added to combined order',
+        description:
+          'Programs in your annual package do not go through DIVINE CART. Use Add to Divine Cart on this card to pay for guest seats.',
+      });
+      return;
+    }
+    const { wasInCart, participants } = await syncThisProgramToDivineCart();
     setJustAdded(true);
     toast({
       title: wasInCart ? `${p.title} — order refreshed` : `${p.title} added to your order`,
@@ -319,6 +324,25 @@ export default function DashboardUpcomingProgramRowItem({
       variant: wasInCart && !participants?.length ? 'destructive' : undefined,
     });
     setTimeout(() => setJustAdded(false), 2000);
+  };
+
+  const handleAddToDivineCart = async (e) => {
+    e.stopPropagation();
+    if (includedPkg) {
+      if (annualSeatUi?.onContinuePay) {
+        annualSeatUi.onContinuePay();
+      } else {
+        openEnrollmentSeatModal(p, includedPkg, selIds);
+      }
+      return;
+    }
+    setAddingToAnnualCart(true);
+    try {
+      await syncThisProgramToDivineCart();
+      navigate('/dashboard/combined-checkout');
+    } finally {
+      setAddingToAnnualCart(false);
+    }
   };
 
   const goProgram = () => navigate(`/program/${p.id}`);
@@ -568,10 +592,9 @@ export default function DashboardUpcomingProgramRowItem({
                     Know More
                   </button>
                   <p className="text-[10px] text-slate-500 mt-2 leading-snug">
-                    Use <strong className="text-slate-700 font-medium">Add to order</strong> or{' '}
-                    <strong className="text-slate-700 font-medium">Continue to enrollment &amp; payment</strong> below. Everyone
-                    you select appears in <strong className="text-slate-700 font-medium">DIVINE CART</strong> (sidebar) with
-                    name, attendance, email, and notifications.
+                    Use <strong className="text-slate-700 font-medium">Add to Divine Cart</strong> below. Everyone you select
+                    appears in <strong className="text-slate-700 font-medium">DIVINE CART</strong> (sidebar) with name,
+                    attendance, email, and notifications.
                   </p>
                 </>
               ) : (
@@ -947,68 +970,40 @@ export default function DashboardUpcomingProgramRowItem({
                 Payment method matches your membership (Stripe vs UPI / bank).{' '}
                 {includedPkg ? (
                   <>
-                    This program is in your annual package — combined <strong className="text-slate-700 font-medium">DIVINE CART</strong> is only for add-on programs. Use the button below to pay for guest seats.
+                    This program is in your annual package — combined <strong className="text-slate-700 font-medium">DIVINE CART</strong> in the sidebar is only for add-on programs. Use <strong className="text-slate-700 font-medium">Add to Divine Cart</strong> below to pay for guest seats.
                   </>
                 ) : (
                   <>
-                    Open <strong className="text-slate-700 font-medium">DIVINE CART</strong> to see every participant and complete checkout in the portal.
+                    <strong className="text-slate-700 font-medium">Add to Divine Cart</strong> saves this program to your cart and opens checkout so you can review every participant and pay in the portal.
                   </>
                 )}
               </p>
-              <div className="flex flex-col sm:flex-row gap-2 sm:items-stretch">
-                {subscriberIsAnnual && includedPkg ? (
-                  <p className="w-full sm:flex-1 text-[11px] text-slate-600 bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 leading-snug">
-                    <strong className="text-slate-800">Add to order</strong> is hidden for package-included programs.
-                  </p>
+              <button
+                type="button"
+                disabled={!canPay || payingProgramId === p.id || addingToAnnualCart}
+                title={
+                  !canPay
+                    ? includedPkg && selCount < 1
+                      ? 'Select family members to join or wait for pricing.'
+                      : !aq
+                        ? 'Loading pricing…'
+                        : (aq.total || 0) <= 0
+                          ? 'No amount due for this selection.'
+                          : ''
+                    : undefined
+                }
+                onClick={handleAddToDivineCart}
+                className="w-full inline-flex items-center justify-center gap-2 rounded-xl bg-[#D4AF37] text-white text-sm font-semibold py-2.5 px-5 hover:bg-[#b8962e] disabled:opacity-50 disabled:pointer-events-none shadow-sm"
+                aria-label="Add to Divine Cart"
+                data-testid={`dashboard-divine-cart-${p.id}`}
+              >
+                {payingProgramId === p.id || addingToAnnualCart ? (
+                  <Loader2 size={18} className="animate-spin shrink-0" />
                 ) : (
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleAddToCart(e);
-                    }}
-                    disabled={inCart || justAdded}
-                    className={`w-full sm:flex-1 inline-flex items-center justify-center gap-2 rounded-xl border-2 py-2.5 px-4 text-sm font-semibold transition-colors ${
-                      inCart || justAdded
-                        ? 'border-green-300 bg-green-50 text-green-800'
-                        : 'border-slate-200 bg-white text-slate-800 hover:border-[#D4AF37]/60 hover:bg-[#D4AF37]/5'
-                    }`}
-                    aria-label="Add to order"
-                    data-testid={`dashboard-add-cart-annual-${p.id}`}
-                  >
-                    {inCart || justAdded ? <Check size={18} className="shrink-0" /> : <ShoppingCart size={18} className="shrink-0" />}
-                    Add to order
-                  </button>
+                  <ShoppingCart size={18} className="shrink-0" />
                 )}
-                <button
-                  type="button"
-                  disabled={!canPay || payingProgramId === p.id}
-                  title={
-                    !canPay
-                      ? includedPkg && selCount < 1
-                        ? 'Select family members to join or wait for pricing.'
-                        : !aq
-                          ? 'Loading pricing…'
-                          : (aq.total || 0) <= 0
-                            ? 'No amount due for this selection.'
-                            : ''
-                      : undefined
-                  }
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    if (annualSeatUi?.onContinuePay) {
-                      annualSeatUi.onContinuePay();
-                    } else {
-                      openEnrollmentSeatModal(p, includedPkg, selIds);
-                    }
-                  }}
-                  className="w-full sm:flex-1 inline-flex items-center justify-center gap-2 rounded-xl bg-[#D4AF37] text-white text-sm font-semibold py-2.5 px-5 hover:bg-[#b8962e] disabled:opacity-50 disabled:pointer-events-none shadow-sm"
-                  data-testid={`dashboard-pay-${p.id}`}
-                >
-                  {payingProgramId === p.id ? <Loader2 size={18} className="animate-spin" /> : <CreditCard size={18} />}
-                  Continue to enrollment &amp; payment
-                </button>
-              </div>
+                Add to Divine Cart
+              </button>
             </div>
             </div>
           </div>
