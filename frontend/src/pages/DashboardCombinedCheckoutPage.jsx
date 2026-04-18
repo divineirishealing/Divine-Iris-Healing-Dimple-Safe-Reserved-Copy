@@ -27,6 +27,17 @@ const API = `${BACKEND_URL}/api`;
 
 const PORTAL_CHECKOUT_PATH = '/dashboard/combined-checkout';
 
+function combinedAttendanceLabel(p) {
+  if (p.attendance_mode === 'online') return 'Online (Zoom)';
+  if (p.attendance_mode === 'in_person') return 'In person';
+  return 'Offline / remote';
+}
+
+function combinedNotifyLabel(p) {
+  if (p.attendance_mode === 'online') return 'On (Zoom)';
+  return p.notify ? 'On' : 'Off';
+}
+
 const PAYMENT_METHOD_BADGES = {
   stripe: { label: 'Stripe · card', className: 'bg-violet-100/90 text-violet-900 border-violet-200/80' },
   gpay: { label: 'GPay / UPI', className: 'bg-emerald-100/90 text-emerald-900 border-emerald-200/80' },
@@ -531,6 +542,21 @@ export default function DashboardCombinedCheckoutPage() {
     return s ? `?${s}` : '';
   }, [enrollmentId, promoResult?.code, promoCode]);
 
+  const rosterRows = useMemo(
+    () =>
+      items.flatMap((item) =>
+        (item.participants || []).map((p, idx) => ({
+          item,
+          p,
+          idx,
+          key: `${item.id}-${idx}`,
+        })),
+      ),
+    [items],
+  );
+
+  const rosterParticipantCount = rosterRows.length;
+
   if (items.length === 0) return null;
 
   const hasStripe = paymentMethods.map((x) => String(x).toLowerCase()).includes('stripe');
@@ -563,35 +589,70 @@ export default function DashboardCombinedCheckoutPage() {
       <div className="flex flex-col lg:flex-row gap-6">
         <div className="lg:w-2/5 space-y-4">
           <div className="bg-white/95 backdrop-blur rounded-xl border border-white/40 shadow-lg p-5">
-            <h3 className="text-sm font-semibold text-gray-900 mb-3 flex items-center gap-2">
+            <h3 className="text-sm font-semibold text-gray-900 mb-1 flex items-center gap-2">
               <ShoppingCart size={16} className="text-[#D4AF37]" /> Programs &amp; people
             </h3>
+            <p className="text-[10px] text-gray-500 mb-2" data-testid="dashboard-combined-roster-count">
+              <strong className="text-gray-700">{rosterParticipantCount}</strong> participant
+              {rosterParticipantCount !== 1 ? 's' : ''} across <strong className="text-gray-700">{items.length}</strong> program
+              {items.length !== 1 ? 's' : ''} — one row each.
+            </p>
             <div className="overflow-x-auto -mx-1 px-1 mb-3">
-              <table className="w-full text-[10px] text-left border-collapse min-w-[280px]">
+              <table
+                className="w-full text-[10px] sm:text-[11px] text-left border-collapse min-w-[520px]"
+                data-testid="dashboard-combined-roster-table"
+              >
                 <thead>
                   <tr className="text-gray-500 border-b border-gray-200">
-                    <th className="py-1.5 pr-2 font-semibold">Program</th>
-                    <th className="py-1.5 pr-2 font-semibold">Name</th>
-                    <th className="py-1.5 font-semibold">Attendance</th>
+                    <th className="py-1.5 pr-2 font-semibold whitespace-nowrap">#</th>
+                    <th className="py-1.5 pr-2 font-semibold min-w-[6.5rem]">Program</th>
+                    <th className="py-1.5 pr-2 font-semibold min-w-[5.5rem]">Name</th>
+                    <th className="py-1.5 pr-2 font-semibold min-w-[4rem]">Role</th>
+                    <th className="py-1.5 pr-2 font-semibold whitespace-nowrap">Attendance</th>
+                    <th className="py-1.5 pr-2 font-semibold min-w-[6rem]">Email</th>
+                    <th className="py-1.5 font-semibold whitespace-nowrap">Notify</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {items.flatMap((item) =>
-                    item.participants.map((p, idx) => (
-                      <tr key={`${item.id}-${idx}`} className="border-b border-gray-100 last:border-0 text-gray-900">
-                        <td className="py-1.5 pr-2 max-w-[7rem] truncate" title={item.programTitle}>
+                  {rosterRows.map((row, n) => {
+                    const { item, p, idx, key } = row;
+                    const name = String(p.name || '').trim() || `Seat ${idx + 1}`;
+                    const role = String(p.relationship || '').trim() || '—';
+                    const email = String(p.email || '').trim() || '—';
+                    const notify = combinedNotifyLabel(p);
+                    return (
+                      <tr key={key} className="border-b border-gray-100 last:border-0 text-gray-900">
+                        <td className="py-2 pr-2 text-gray-500 tabular-nums align-top">{n + 1}</td>
+                        <td className="py-2 pr-2 max-w-[9rem] truncate align-top font-medium" title={item.programTitle}>
                           {item.programTitle}
                         </td>
-                        <td className="py-1.5 pr-2 max-w-[6rem] truncate">{p.name || '—'}</td>
-                        <td className="py-1.5 text-gray-700 whitespace-nowrap">
-                          {p.attendance_mode === 'online' ? 'Online' : p.attendance_mode === 'in_person' ? 'In person' : 'Offline'}
+                        <td className="py-2 pr-2 max-w-[7rem] truncate align-top" title={name}>
+                          {name}
+                        </td>
+                        <td className="py-2 pr-2 max-w-[5rem] truncate text-gray-700 align-top" title={role}>
+                          {role}
+                        </td>
+                        <td className="py-2 pr-2 text-gray-700 whitespace-nowrap align-top">
+                          {combinedAttendanceLabel(p)}
+                        </td>
+                        <td className="py-2 pr-2 max-w-[8.5rem] truncate text-gray-700 align-top" title={email}>
+                          {email}
+                        </td>
+                        <td className="py-2 text-gray-700 whitespace-nowrap align-top" title={notify}>
+                          {notify}
                         </td>
                       </tr>
-                    )),
-                  )}
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
+            {items.some((it) => (it.participants || []).length === 0) ? (
+              <p className="text-[10px] text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-2 py-1.5 mb-2">
+                A line item has no participant rows. Remove it from the cart or re-add the program from your dashboard with
+                guests selected.
+              </p>
+            ) : null}
             {items.map((item) => (
               <div key={item.id} className="flex items-start gap-3 py-2 border-b last:border-0 border-gray-100">
                 <div className="flex-1 min-w-0">
