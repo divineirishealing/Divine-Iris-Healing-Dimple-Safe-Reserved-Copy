@@ -56,7 +56,7 @@ function AnnualQuoteBreakdown({ aq, symbol, includedPkg, suppressIntro = false, 
         : Math.max(0, listSub - offerSub);
     const taxEst = Number(aq.tax_included_estimate || 0);
     const taxRate = Number(aq.tax_rate_pct || 0);
-    const summaryRow = 'flex justify-between gap-3 text-[10px] text-slate-700';
+    const sumLine = `${cell} font-semibold text-slate-800 break-words`;
     return (
       <div className="text-[11px] text-slate-800 leading-snug w-full min-w-0">
         {!suppressIntro ? (
@@ -64,51 +64,6 @@ function AnnualQuoteBreakdown({ aq, symbol, includedPkg, suppressIntro = false, 
             Prices — Annual member · Immediate family · Friends &amp; extended
           </p>
         ) : null}
-        <div className="rounded-md border border-slate-200 bg-slate-50/90 w-full mb-2 p-2.5 space-y-1.5">
-          <p className="text-[9px] font-bold uppercase tracking-wide text-slate-500">Summary</p>
-          <div className={summaryRow}>
-            <span>Price (list)</span>
-            <span className="tabular-nums font-semibold text-slate-900">
-              {symbol}
-              {listSub.toLocaleString()}
-            </span>
-          </div>
-          <div className={summaryRow}>
-            <span>Offer price</span>
-            <span className="tabular-nums font-semibold text-slate-900">
-              {symbol}
-              {offerSub.toLocaleString()}
-            </span>
-          </div>
-          <div className={summaryRow}>
-            <span>Total discount</span>
-            <span className="tabular-nums font-semibold text-emerald-800">
-              {discTotal > 0 ? '−' : ''}
-              {symbol}
-              {discTotal.toLocaleString()}
-            </span>
-          </div>
-          <div className={summaryRow}>
-            <span className="min-w-0">
-              Tax
-              {taxEst > 0 && taxRate > 0 ? (
-                <span className="block text-[9px] font-normal text-slate-500 normal-case">
-                  GST {taxRate}% incl. in offer price
-                </span>
-              ) : null}
-            </span>
-            <span className="tabular-nums font-semibold text-slate-900 shrink-0">
-              {taxEst > 0 ? (
-                <>
-                  {symbol}
-                  {taxEst.toLocaleString()}
-                </>
-              ) : (
-                '—'
-              )}
-            </span>
-          </div>
-        </div>
         <div className="rounded-md border border-slate-200 bg-white w-full">
           <table className="w-full border-collapse table-fixed text-[10px] sm:text-[11px]">
             <colgroup>
@@ -124,6 +79,55 @@ function AnnualQuoteBreakdown({ aq, symbol, includedPkg, suppressIntro = false, 
               </tr>
             </thead>
             <tbody>
+              <tr className="bg-slate-50/80">
+                <td className={sumLine}>Original price</td>
+                <td className={`${cell} text-slate-600 break-words`}>List total before offers</td>
+                <td className={`${cell} ${money} font-semibold text-slate-900`}>
+                  {symbol}
+                  {listSub.toLocaleString()}
+                </td>
+              </tr>
+              <tr className="bg-slate-50/80">
+                <td className={sumLine}>Offer price</td>
+                <td className={`${cell} text-slate-600 break-words`}>After portal offers</td>
+                <td className={`${cell} ${money} font-semibold text-slate-900`}>
+                  {symbol}
+                  {offerSub.toLocaleString()}
+                </td>
+              </tr>
+              <tr className="bg-slate-50/80">
+                <td className={sumLine}>Total discount</td>
+                <td className={`${cell} text-slate-600 break-words`}>
+                  {discTotal > 0 ? 'Promos &amp; portal rules' : '—'}
+                </td>
+                <td className={`${cell} ${money} font-semibold text-emerald-800`}>
+                  {discTotal > 0 ? '−' : ''}
+                  {symbol}
+                  {discTotal.toLocaleString()}
+                </td>
+              </tr>
+              <tr className="bg-slate-50/80">
+                <td className={sumLine}>Tax</td>
+                <td className={`${cell} text-slate-600 break-words`}>
+                  {taxEst > 0 && taxRate > 0 ? (
+                    <span>
+                      GST {taxRate}% included in offer price
+                    </span>
+                  ) : (
+                    '—'
+                  )}
+                </td>
+                <td className={`${cell} ${money} font-semibold text-slate-900`}>
+                  {taxEst > 0 ? (
+                    <>
+                      {symbol}
+                      {taxEst.toLocaleString()}
+                    </>
+                  ) : (
+                    '—'
+                  )}
+                </td>
+              </tr>
               {includedPkg ? (
                 <tr>
                   <td className={`${cell} text-slate-700 break-words`}>Your seat</td>
