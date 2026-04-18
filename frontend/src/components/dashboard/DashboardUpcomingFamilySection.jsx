@@ -392,6 +392,8 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh, bo
   const [seatDraftsByProgram, setSeatDraftsByProgram] = useState({});
   const seatDraftsRef = useRef({});
   const enrollmentPrefillCacheRef = useRef(null);
+  /** Self row from /student/enrollment-prefill — for dashboard “at a glance” without opening Cart. */
+  const [enrollmentSelf, setEnrollmentSelf] = useState(null);
 
   useEffect(() => {
     seatDraftsRef.current = seatDraftsByProgram;
@@ -1192,6 +1194,24 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh, bo
     return enrollmentPrefillCacheRef.current;
   }, []);
 
+  useEffect(() => {
+    if (!bookerEmail) {
+      setEnrollmentSelf(null);
+      return;
+    }
+    let cancelled = false;
+    loadEnrollmentPrefill()
+      .then((pre) => {
+        if (!cancelled) setEnrollmentSelf(pre?.self ?? null);
+      })
+      .catch(() => {
+        if (!cancelled) setEnrollmentSelf(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [bookerEmail, loadEnrollmentPrefill]);
+
   const addProgramToCartAndGo = async (p, tierOverride = null) => {
     const tierIdx = tierOverride != null ? tierOverride : pickTierIndexForDashboard(p, isAnnual);
     const tier = tierIdx == null ? 0 : tierIdx;
@@ -1327,6 +1347,7 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh, bo
                   program={p}
                   isAnnual={isAnnual}
                   bookerEmail={bookerEmail}
+                  enrollmentSelf={enrollmentSelf}
                   detectedCountry={detectedCountry}
                   symbol={symbol}
                   currency={currency}
