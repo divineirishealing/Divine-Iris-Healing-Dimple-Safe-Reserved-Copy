@@ -2,7 +2,7 @@ import React, { createContext, useContext, useState, useEffect } from 'react';
 import axios from 'axios';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { getAuthHeaders } from '../lib/authHeaders';
-import { BACKEND_URL } from '../lib/config';
+import { BACKEND_URL, getBackendUrl } from '../lib/config';
 
 const AuthContext = createContext();
 
@@ -20,7 +20,7 @@ export const AuthProvider = ({ children }) => {
       return;
     }
     try {
-      const res = await axios.get(`${BACKEND_URL}/api/auth/me`, {
+      const res = await axios.get(`${getBackendUrl()}/api/auth/me`, {
         withCredentials: true,
         headers: getAuthHeaders(),
       });
@@ -56,7 +56,7 @@ export const AuthProvider = ({ children }) => {
       return;
     }
     try {
-      await axios.post(`${BACKEND_URL}/api/auth/logout`, {}, {
+      await axios.post(`${getBackendUrl()}/api/auth/logout`, {}, {
         withCredentials: true,
         headers: getAuthHeaders(),
       });

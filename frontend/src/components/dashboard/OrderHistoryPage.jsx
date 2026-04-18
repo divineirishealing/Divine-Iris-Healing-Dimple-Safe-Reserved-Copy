@@ -6,7 +6,7 @@ import { Card, CardHeader, CardTitle, CardContent } from '../ui/card';
 import { Button } from '../ui/button';
 import { getAuthHeaders } from '../../lib/authHeaders';
 import { formatDateDdMonYyyy } from '../../lib/utils';
-import { API_URL, BACKEND_URL } from '../../lib/config';
+import { BACKEND_URL, getApiUrl } from '../../lib/config';
 import { useAuth } from '../../context/AuthContext';
 
 function formatMoney(amount, currency) {
@@ -59,14 +59,15 @@ const OrderHistoryPage = () => {
       setOrders([]);
       return;
     }
+    const apiBase = getApiUrl();
     const opts = { withCredentials: true, headers: getAuthHeaders() };
     let res;
     try {
-      res = await axios.get(`${API_URL}/student/orders`, opts);
+      res = await axios.get(`${apiBase}/student/orders`, opts);
     } catch (first) {
       // Alias path (older proxies) or misconfigured path; backend also serves /order-history.
       if (first.response?.status === 404) {
-        res = await axios.get(`${API_URL}/student/order-history`, opts);
+        res = await axios.get(`${apiBase}/student/order-history`, opts);
       } else {
         throw first;
       }
@@ -89,7 +90,7 @@ const OrderHistoryPage = () => {
             setError('Please sign in again to view order history.');
           } else if (st === 404) {
             setError(
-              `Order history returned 404 (nothing at ${API_URL}/student/orders). Redeploy the backend service on Render from the latest main branch. Set REACT_APP_BACKEND_URL to your API host only (e.g. https://….onrender.com), not the marketing domain unless /api is proxied there.`,
+              `Order history returned 404 (nothing at ${getApiUrl()}/student/orders). Redeploy the backend web service on Render from the latest main. If the site is on Render static, sync the blueprint so REACT_APP_BACKEND_URL comes from the API service (render.yaml). On Vercel, set REACT_APP_BACKEND_URL to the API origin or add an /api rewrite and REACT_APP_SAME_ORIGIN_API=1.`,
             );
           } else {
             setError(

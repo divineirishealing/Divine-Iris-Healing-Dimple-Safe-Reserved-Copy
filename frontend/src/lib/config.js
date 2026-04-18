@@ -25,3 +25,21 @@ const devFallback =
 export const BACKEND_URL = fromEnv || devFallback;
 export const API_URL = `${BACKEND_URL}/api`;
 export const SITE_URL = BACKEND_URL;
+
+/** When REACT_APP_SAME_ORIGIN_API=1 (e.g. Vercel rewrites /api/* to Render), call APIs on the page origin. */
+const sameOriginApi =
+  typeof process !== 'undefined' && process.env.REACT_APP_SAME_ORIGIN_API === '1';
+
+export function getBackendUrl() {
+  if (sameOriginApi && BACKEND_URL && typeof window !== 'undefined' && window.location?.origin) {
+    return window.location.origin;
+  }
+  return BACKEND_URL;
+}
+
+export function getApiUrl() {
+  if (sameOriginApi && BACKEND_URL && typeof window !== 'undefined' && window.location?.origin) {
+    return `${window.location.origin}/api`;
+  }
+  return API_URL;
+}
