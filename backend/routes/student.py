@@ -1339,19 +1339,25 @@ async def list_student_orders(user: dict = Depends(get_current_user)):
     if not email_raw:
         raise HTTPException(status_code=400, detail="No email on account")
 
+    email_lower = email_raw.lower()
     ep = _student_order_email_pattern(email_raw)
     uid = user.get("id")
     cid = (user.get("client_id") or "").strip()
 
     participant_enrollments = await db.enrollments.find(
-        {"participants": {"$elemMatch": {"email": ep}}},
+        {
+            "$or": [
+                {"participants": {"$elemMatch": {"email": ep}}},
+                {"participants": {"$elemMatch": {"email": email_lower}}},
+            ]
+        },
         {"id": 1, "_id": 0},
     ).to_list(600)
     pid_list = [e["id"] for e in participant_enrollments if e.get("id")]
 
     # Booker's email is not always duplicated on participant rows; include enrollments they booked.
     booker_enrollments = await db.enrollments.find(
-        {"booker_email": ep},
+        {"$or": [{"booker_email": ep}, {"booker_email": email_lower}]},
         {"id": 1, "_id": 0},
     ).to_list(600)
     bid_list = [e["id"] for e in booker_enrollments if e.get("id")]
@@ -1359,8 +1365,11 @@ async def list_student_orders(user: dict = Depends(get_current_user)):
 
     or_clauses: List[dict] = [
         {"booker_email": ep},
+        {"booker_email": email_lower},
         {"donor_email": ep},
+        {"donor_email": email_lower},
         {"payer_email": ep},
+        {"payer_email": email_lower},
     ]
     if uid:
         or_clauses.append({"portal_user_id": uid})
@@ -1376,7 +1385,12 @@ async def list_student_orders(user: dict = Depends(get_current_user)):
     )
     rows = await cursor.to_list(300)
 
-    proof_or: List[dict] = [{"payer_email": ep}, {"booker_email": ep}]
+    proof_or: List[dict] = [
+        {"payer_email": ep},
+        {"booker_email": ep},
+        {"payer_email": email_lower},
+        {"booker_email": email_lower},
+    ]
     if enrollment_ids_for_user:
         proof_or.append({"enrollment_id": {"$in": enrollment_ids_for_user}})
 

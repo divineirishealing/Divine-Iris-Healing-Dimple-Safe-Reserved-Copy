@@ -6,8 +6,7 @@ import { Card, CardHeader, CardTitle, CardContent } from '../ui/card';
 import { Button } from '../ui/button';
 import { getAuthHeaders } from '../../lib/authHeaders';
 import { formatDateDdMonYyyy } from '../../lib/utils';
-
-const API = process.env.REACT_APP_BACKEND_URL;
+import { API_URL, BACKEND_URL } from '../../lib/config';
 
 function formatMoney(amount, currency) {
   const c = (currency || 'aed').toLowerCase();
@@ -55,13 +54,34 @@ const OrderHistoryPage = () => {
     let cancelled = false;
     (async () => {
       try {
-        const res = await axios.get(`${API}/api/student/orders`, {
+        if (!BACKEND_URL) {
+          if (!cancelled) {
+            setError('Order history is not configured: set REACT_APP_BACKEND_URL on the frontend build.');
+            setOrders([]);
+          }
+          return;
+        }
+        const res = await axios.get(`${API_URL}/student/orders`, {
           withCredentials: true,
           headers: getAuthHeaders(),
         });
         if (!cancelled) setOrders(Array.isArray(res.data?.orders) ? res.data.orders : []);
       } catch (e) {
-        if (!cancelled) setError('Could not load order history.');
+        if (!cancelled) {
+          const st = e.response?.status;
+          const detail = e.response?.data?.detail;
+          if (st === 401) {
+            setError('Please sign in again to view order history.');
+          } else {
+            setError(
+              typeof detail === 'string' && detail
+                ? detail
+                : st                  ? `Could not load order history (HTTP ${st}).`
+                  : 'Could not load order history. Check your connection and REACT_APP_BACKEND_URL.',
+            );
+          }
+          setOrders([]);
+        }
       } finally {
         if (!cancelled) setLoading(false);
       }
