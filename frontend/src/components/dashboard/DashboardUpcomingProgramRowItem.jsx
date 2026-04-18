@@ -71,30 +71,30 @@ function AnnualQuoteBreakdown({ aq, symbol, includedPkg, suppressIntro = false, 
           {showSelf ? (
             <div className={rowClass}>
               <span className="font-medium text-slate-800">You (annual member)</span>
-              <span className="font-semibold tabular-nums text-slate-900">
+              <span className="font-semibold tabular-nums text-slate-900 text-right">
                 {symbol}
                 {selfOffer.toLocaleString()}
-                <span className="text-slate-500 font-normal text-[10px] ml-1">per person</span>
+                <span className="text-slate-500 font-normal text-[10px] ml-1">· 1 seat</span>
               </span>
             </div>
           ) : null}
           {imm > 0 ? (
             <div className={rowClass}>
               <span className="font-medium text-slate-800">Immediate family</span>
-              <span className="font-semibold tabular-nums text-slate-900">
+              <span className="font-semibold tabular-nums text-slate-900 text-right leading-snug">
                 {symbol}
-                {Math.round(immOfferEach ?? 0).toLocaleString()}
-                <span className="text-slate-500 font-normal text-[10px] ml-1">per person</span>
+                {Math.round(immOfferEach ?? 0).toLocaleString()} × {imm} = {symbol}
+                {Number(aq.immediate_family_after_promos ?? 0).toLocaleString()}
               </span>
             </div>
           ) : null}
           {ext > 0 ? (
             <div className={rowClass}>
               <span className="font-medium text-slate-800">Friends &amp; extended</span>
-              <span className="font-semibold tabular-nums text-slate-900">
+              <span className="font-semibold tabular-nums text-slate-900 text-right leading-snug">
                 {symbol}
-                {Math.round(extOfferEach ?? 0).toLocaleString()}
-                <span className="text-slate-500 font-normal text-[10px] ml-1">per person</span>
+                {Math.round(extOfferEach ?? 0).toLocaleString()} × {ext} = {symbol}
+                {Number(aq.extended_guests_after_promos ?? 0).toLocaleString()}
               </span>
             </div>
           ) : null}
@@ -105,41 +105,6 @@ function AnnualQuoteBreakdown({ aq, symbol, includedPkg, suppressIntro = false, 
             <p className="text-[11px] text-slate-500">Select who is joining to see offer price per guest seat.</p>
           ) : null}
         </div>
-        {(showSelf && !includedPkg) || imm > 0 || ext > 0 ? (
-          <div className="rounded-md border border-slate-200/90 bg-slate-50/90 px-3 py-2 space-y-1.5 text-[10px] text-slate-700">
-            <p className="font-bold uppercase tracking-wide text-slate-500">Line totals (× seats)</p>
-            {showSelf && !includedPkg ? (
-              <div className="flex flex-wrap items-baseline justify-between gap-x-2 gap-y-0.5 tabular-nums">
-                <span className="text-slate-800">You</span>
-                <span>
-                  {symbol}
-                  {selfOffer.toLocaleString()} × 1 = {symbol}
-                  {selfOffer.toLocaleString()}
-                </span>
-              </div>
-            ) : null}
-            {imm > 0 ? (
-              <div className="flex flex-wrap items-baseline justify-between gap-x-2 gap-y-0.5 tabular-nums">
-                <span className="text-slate-800">Immediate family</span>
-                <span>
-                  {symbol}
-                  {Math.round(immOfferEach ?? 0).toLocaleString()} × {imm} = {symbol}
-                  {Number(aq.immediate_family_after_promos ?? 0).toLocaleString()}
-                </span>
-              </div>
-            ) : null}
-            {ext > 0 ? (
-              <div className="flex flex-wrap items-baseline justify-between gap-x-2 gap-y-0.5 tabular-nums">
-                <span className="text-slate-800">Friends &amp; extended</span>
-                <span>
-                  {symbol}
-                  {Math.round(extOfferEach ?? 0).toLocaleString()} × {ext} = {symbol}
-                  {Number(aq.extended_guests_after_promos ?? 0).toLocaleString()}
-                </span>
-              </div>
-            ) : null}
-          </div>
-        ) : null}
       </div>
     );
   }
