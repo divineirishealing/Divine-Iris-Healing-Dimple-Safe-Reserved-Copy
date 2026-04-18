@@ -58,12 +58,10 @@ services:
     buildCommand: yarn install && yarn build
     staticPublishPath: build
     envVars:
-      # Build-time: point the SPA at the Python API (same blueprint). Override in dashboard only if the API is not this backend.
+      # Build-time API origin (no path). Set in the Render dashboard to your Python service URL, e.g. https://your-api-xxxx.onrender.com
+      # Do not use fromService here unless your Python service name in Render is exactly "divine-iris-backend" (blueprint default).
       - key: REACT_APP_BACKEND_URL
-        fromService:
-          name: divine-iris-backend
-          type: web
-          envVarKey: RENDER_EXTERNAL_URL
+        sync: false
     routes:
       - type: rewrite
         source: /*
