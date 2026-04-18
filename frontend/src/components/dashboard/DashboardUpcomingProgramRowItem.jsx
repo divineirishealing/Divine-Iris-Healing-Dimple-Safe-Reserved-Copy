@@ -30,7 +30,7 @@ function AnnualQuoteBreakdown({ aq, symbol, includedPkg, suppressIntro = false, 
     ) : null;
 
   if (layout === 'table') {
-    const cell = 'border border-slate-200 px-2 py-1.5 align-top';
+    const cell = 'border border-slate-200 px-1.5 sm:px-2 py-1.5 align-top min-w-0';
     const th = `${cell} bg-slate-100/95 text-[9px] font-bold uppercase tracking-wide text-slate-600`;
     const money = 'text-right tabular-nums whitespace-nowrap';
     return (
@@ -40,28 +40,33 @@ function AnnualQuoteBreakdown({ aq, symbol, includedPkg, suppressIntro = false, 
             Prices — Annual member · Immediate family · Friends &amp; extended
           </p>
         ) : null}
-        <div className="overflow-x-auto rounded-md border border-slate-200 bg-white">
-          <table className="w-full min-w-[22rem] border-collapse table-auto">
+        <div className="rounded-md border border-slate-200 bg-white w-full">
+          <table className="w-full border-collapse table-fixed text-[10px] sm:text-[11px]">
+            <colgroup>
+              <col className="w-[32%]" />
+              <col className="w-[40%]" />
+              <col className="w-[28%]" />
+            </colgroup>
             <thead>
               <tr>
-                <th className={`${th} text-left`}>Line</th>
-                <th className={`${th} text-left`}>Detail</th>
-                <th className={`${th} ${money} min-w-[6.5rem] w-[1%]`}>Amount</th>
+                <th className={`${th} text-left min-w-0 break-words`}>Line</th>
+                <th className={`${th} text-left min-w-0 break-words`}>Detail</th>
+                <th className={`${th} ${money}`}>Amount</th>
               </tr>
             </thead>
             <tbody>
               {includedPkg ? (
                 <tr>
-                  <td className={`${cell} text-slate-700`}>Your seat</td>
-                  <td className={`${cell} text-slate-600`}>Included in annual package</td>
-                  <td className={`${cell} ${money} min-w-[6.5rem] w-[1%] text-slate-500`}>—</td>
+                  <td className={`${cell} text-slate-700 break-words`}>Your seat</td>
+                  <td className={`${cell} text-slate-600 break-words`}>Included in annual package</td>
+                  <td className={`${cell} ${money} text-slate-500`}>—</td>
                 </tr>
               ) : null}
               {showSelf ? (
                 <tr>
-                  <td className={cell}>You (annual member)</td>
-                  <td className={`${cell} text-slate-600`}>{selfStrike ? <span className="block">List {selfStrike}</span> : '—'}</td>
-                  <td className={`${cell} ${money} min-w-[6.5rem] w-[1%] font-semibold text-slate-900`}>
+                  <td className={`${cell} break-words`}>You (annual member)</td>
+                  <td className={`${cell} text-slate-600 break-words`}>{selfStrike ? <span className="block">List {selfStrike}</span> : '—'}</td>
+                  <td className={`${cell} ${money} font-semibold text-slate-900`}>
                     {symbol}
                     {Number(aq.self_after_promos ?? 0).toLocaleString()}
                   </td>
@@ -69,8 +74,8 @@ function AnnualQuoteBreakdown({ aq, symbol, includedPkg, suppressIntro = false, 
               ) : null}
               {imm > 0 ? (
                 <tr>
-                  <td className={cell}>Immediate family</td>
-                  <td className={`${cell} text-slate-600`}>
+                  <td className={`${cell} break-words`}>Immediate family</td>
+                  <td className={`${cell} text-slate-600 break-words`}>
                     × {imm}
                     {imm > 1 ? (
                       <span className="block text-[10px] text-slate-500 tabular-nums">
@@ -79,7 +84,7 @@ function AnnualQuoteBreakdown({ aq, symbol, includedPkg, suppressIntro = false, 
                       </span>
                     ) : null}
                   </td>
-                  <td className={`${cell} ${money} min-w-[6.5rem] w-[1%] font-semibold text-slate-900`}>
+                  <td className={`${cell} ${money} font-semibold text-slate-900`}>
                     {symbol}
                     {Number(aq.immediate_family_after_promos ?? 0).toLocaleString()}
                   </td>
@@ -87,8 +92,8 @@ function AnnualQuoteBreakdown({ aq, symbol, includedPkg, suppressIntro = false, 
               ) : null}
               {ext > 0 ? (
                 <tr>
-                  <td className={cell}>Friends &amp; extended</td>
-                  <td className={`${cell} text-slate-600`}>
+                  <td className={`${cell} break-words`}>Friends &amp; extended</td>
+                  <td className={`${cell} text-slate-600 break-words`}>
                     × {ext}
                     {ext > 1 ? (
                       <span className="block text-[10px] text-slate-500 tabular-nums">
@@ -97,7 +102,7 @@ function AnnualQuoteBreakdown({ aq, symbol, includedPkg, suppressIntro = false, 
                       </span>
                     ) : null}
                   </td>
-                  <td className={`${cell} ${money} min-w-[6.5rem] w-[1%] font-semibold text-slate-900`}>
+                  <td className={`${cell} ${money} font-semibold text-slate-900`}>
                     {symbol}
                     {Number(aq.extended_guests_after_promos ?? 0).toLocaleString()}
                   </td>
@@ -107,7 +112,7 @@ function AnnualQuoteBreakdown({ aq, symbol, includedPkg, suppressIntro = false, 
                 <td className={`${cell} font-bold text-slate-900`} colSpan={2}>
                   Total
                 </td>
-                <td className={`${cell} ${money} min-w-[6.5rem] w-[1%] font-bold text-slate-900`}>
+                <td className={`${cell} ${money} font-bold text-slate-900`}>
                   {symbol}
                   {Number(aq.total ?? 0).toLocaleString()}
                 </td>
@@ -187,7 +192,7 @@ function AnnualQuoteBreakdown({ aq, symbol, includedPkg, suppressIntro = false, 
 
 /**
  * Upcoming program row: non-annual = homepage-style horizontal card (hero + body).
- * Annual = row: program card | pricing table | family; full-width horizontal attendance + pay.
+ * Annual = row: program card | (pricing table + family stacked); full-width attendance + pay.
  */
 export default function DashboardUpcomingProgramRowItem({
   program: p,
@@ -548,7 +553,7 @@ export default function DashboardUpcomingProgramRowItem({
                       title={
                         !canPay
                           ? includedPkg && selCount < 1
-                            ? 'Select family members in the next column, or wait for pricing.'
+                            ? 'Select family members below Pricing & offer, or wait for pricing.'
                             : !aq
                               ? 'Loading pricing…'
                               : (aq.total || 0) <= 0
@@ -593,16 +598,16 @@ export default function DashboardUpcomingProgramRowItem({
             </div>
           </div>
 
-          {/* 2 — Pricing & offer */}
-          <div className="rounded-xl border border-slate-200 bg-white p-3 sm:p-4 shadow-sm min-h-0 flex flex-col flex-1 min-w-0 md:min-w-[18rem]">
-            <p className="text-[10px] font-bold uppercase tracking-wide text-slate-600 mb-2">Pricing &amp; offer</p>
-            <div className="flex-1 min-h-0 min-w-0 overflow-x-auto">
-              <AnnualQuoteBreakdown aq={aq} symbol={symbol} includedPkg={includedPkg} suppressIntro layout="table" />
+          {/* 2 — Pricing & offer + Family to join (stacked in one column) */}
+          <div className="flex flex-col gap-4 flex-1 min-w-0 w-full">
+            <div className="rounded-xl border border-slate-200 bg-white p-3 sm:p-4 shadow-sm min-h-0 flex flex-col min-w-0 w-full">
+              <p className="text-[10px] font-bold uppercase tracking-wide text-slate-600 mb-2">Pricing &amp; offer</p>
+              <div className="min-w-0 w-full">
+                <AnnualQuoteBreakdown aq={aq} symbol={symbol} includedPkg={includedPkg} suppressIntro layout="table" />
+              </div>
             </div>
-          </div>
 
-          {/* 3 — Family to join */}
-          <div className="rounded-xl border border-amber-100/80 bg-amber-50/25 p-3 sm:p-4 min-h-0 flex flex-col flex-1 min-w-0">
+            <div className="rounded-xl border border-amber-100/80 bg-amber-50/25 p-3 sm:p-4 min-h-0 flex flex-col min-w-0 w-full">
             <p className="text-[10px] font-bold uppercase tracking-wide text-slate-600 mb-2">Family to join</p>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 flex-1 min-h-0">
               <div className="min-w-0">
@@ -699,6 +704,7 @@ export default function DashboardUpcomingProgramRowItem({
                 Select who you are paying for — your seat is already covered.
               </p>
             )}
+          </div>
           </div>
 
         </div>
