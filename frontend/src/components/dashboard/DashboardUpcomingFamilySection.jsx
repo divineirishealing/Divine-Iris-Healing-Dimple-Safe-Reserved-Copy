@@ -112,7 +112,10 @@ function deriveNotifyQuickPreset(ctx, guestForm, bookerNotify) {
   }
   if (ids.length === 0) return 'mixed';
   if (gAllOn) return 'email_all';
-  if (gAllOff) return 'custom';
+  if (gAllOff) {
+    if (bOn) return 'email_me_only';
+    return 'custom';
+  }
   return 'mixed';
 }
 
