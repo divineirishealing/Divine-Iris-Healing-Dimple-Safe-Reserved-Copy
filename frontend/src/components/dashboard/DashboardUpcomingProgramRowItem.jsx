@@ -622,7 +622,7 @@ export default function DashboardUpcomingProgramRowItem({
               </button>
               {annualFamilyOpen ? (
                 <>
-            {annualSeatUi ? (
+            {annualSeatUi && !includedPkg ? (
               <div className="mb-3 pb-3 border-b border-amber-200/70">
                 <label className="flex items-start gap-2 cursor-pointer text-[10px] text-slate-800 leading-snug">
                   <input
@@ -634,16 +634,7 @@ export default function DashboardUpcomingProgramRowItem({
                       annualSeatUi.onPatchDraft(p.id, { bookerJoinsProgram: e.target.checked });
                     }}
                   />
-                  <span>
-                    {includedPkg ? (
-                      <>
-                        <span className="font-semibold text-slate-900">Include me on the roster.</span> Your annual package
-                        covers your seat (no extra charge). Uncheck if only your selected guests are attending.
-                      </>
-                    ) : (
-                      <span className="font-semibold text-slate-900">I am enrolling myself</span>
-                    )}
-                  </span>
+                  <span className="font-semibold text-slate-900">I am enrolling myself</span>
                 </label>
               </div>
             ) : null}

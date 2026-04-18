@@ -759,7 +759,8 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh, bo
       programs.map((p) => {
         const ids = selectedFamilyByProgram[p.id] || [];
         const draft = seatDraftsByProgram[p.id];
-        const bookerJoins = draft?.bookerJoinsProgram !== false;
+        const includedInPkg = programIncludedInAnnualPackage(p, annualIncludedIds);
+        const bookerJoins = includedInPkg ? false : draft?.bookerJoinsProgram !== false;
         const params =
           ids.length > 0
             ? { program_id: p.id, currency, family_ids: ids.join(','), booker_joins: bookerJoins }

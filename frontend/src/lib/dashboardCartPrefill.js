@@ -195,7 +195,7 @@ export function buildAnnualDashboardCartParticipants({
   const guestForm = seatDraft?.guestSeatForm || {};
   const bookerMode = seatDraft?.bookerSeatMode === 'offline' ? 'offline' : 'online';
   const bookerNotify = seatDraft?.bookerSeatNotify !== false;
-  const bookerJoins = seatDraft?.bookerJoinsProgram !== false;
+  const bookerJoins = includedPkg ? false : seatDraft?.bookerJoinsProgram !== false;
 
   const pushBookerRow = () => {
     const name = String(self?.name || '').trim();
