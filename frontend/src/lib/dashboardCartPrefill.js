@@ -184,20 +184,25 @@ export function buildAnnualDashboardCartParticipants({
   const ids = (selectedMemberIds || []).map((x) => String(x));
   for (const id of ids) {
     const member = enrollableGuests.find((g) => String(g.id) === id);
-    if (!member || !String(member.name || '').trim()) continue;
-    const row = guestForm[id] || {};
+    const row = guestForm[id] || guestForm[String(id)] || {};
     const attendance_mode = row.attendance_mode === 'offline' ? 'offline' : 'online';
     const notifyEnrollment = !!row.notify_enrollment;
     const notify = notifyEnrollment || attendance_mode === 'online';
-    const split = splitPhoneForCart(member.phone || '', COUNTRIES_WITH_PHONE);
-    const country = resolveCountryCode(member.country, detectedCountry);
+    const split = splitPhoneForCart((member && member.phone) || '', COUNTRIES_WITH_PHONE);
+    const country = resolveCountryCode(member && member.country, detectedCountry);
     const age =
-      String(member.age || '').trim() || ageFromDobIso(member.date_of_birth);
-    const city = String(member.city || '').trim();
+      (member && (String(member.age || '').trim() || ageFromDobIso(member.date_of_birth))) || '';
+    const city = member ? String(member.city || '').trim() : '';
+    const rawName = member ? String(member.name || '').trim() : '';
+    const rawEmail = member ? String(member.email || '').trim() : '';
+    const displayName = rawName || rawEmail || `Guest (${id.length > 10 ? `…${id.slice(-6)}` : id})`;
+    const relationship = member
+      ? String(member.relationship || 'Other').trim() || 'Other'
+      : 'Other';
     participants.push(
       baseParticipant(program, {
-        name: String(member.name || '').trim(),
-        relationship: String(member.relationship || 'Other').trim() || 'Other',
+        name: displayName,
+        relationship,
         age: age || '',
         gender: 'Prefer not to say',
         country,
@@ -205,7 +210,7 @@ export function buildAnnualDashboardCartParticipants({
         state: city ? 'N/A' : 'N/A',
         attendance_mode,
         notify,
-        email: String(member.email || '').trim(),
+        email: rawEmail,
         phone: split.phone,
         phone_code: split.phone_code,
         whatsapp: split.whatsapp,

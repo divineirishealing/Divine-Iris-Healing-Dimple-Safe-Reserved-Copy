@@ -225,15 +225,13 @@ def get_ppp_price(base_aed_price: float, currency: str) -> float:
 
 # ─── ROUTES ───
 
-@router.post("/start")
-async def start_enrollment(profile: ProfileData, request: Request):
-    """Step 1: Create enrollment with booker info + participants (each with country, attendance, notify prefs) + IP detection"""
+async def insert_enrollment_from_profile(profile: ProfileData, request: Request, *, trusted_contact: bool) -> dict:
+    """Create enrollment. When trusted_contact=True (logged-in portal combined checkout), skip OTP; checkout may proceed."""
     ip_info = await detect_ip_info(request)
 
     if not profile.participants or len(profile.participants) == 0:
         raise HTTPException(status_code=400, detail="At least one participant is required")
 
-    # Validate booker email (format + MX)
     email = profile.booker_email.strip().lower()
     if not validate_email_format(email):
         raise HTTPException(status_code=400, detail="Invalid email format")
@@ -244,7 +242,6 @@ async def start_enrollment(profile: ProfileData, request: Request):
     if domain in disposable_domains:
         raise HTTPException(status_code=400, detail="Disposable email addresses are not allowed.")
 
-    # Validate per-participant data
     for i, p in enumerate(profile.participants):
         if p.attendance_mode not in ["online", "offline"]:
             raise HTTPException(status_code=400, detail=f"Participant {i+1}: attendance mode must be 'online' or 'offline'")
@@ -252,8 +249,6 @@ async def start_enrollment(profile: ProfileData, request: Request):
             if p.email and not validate_email_format(p.email.strip()):
                 raise HTTPException(status_code=400, detail=f"Participant {i+1}: invalid email format")
 
-    # Generate receipt ID: DIH-{MONTH}{SEQ*3:02d}-{SEQ:03d}
-    # First digit = month, then skip-3 mystery: 303,306,309...
     now = datetime.now(timezone.utc)
     month = now.month
     counter = await db.counters.find_one_and_update(
@@ -269,8 +264,8 @@ async def start_enrollment(profile: ProfileData, request: Request):
 
     enrollment = {
         "id": receipt_id,
-        "status": "profile_complete",
-        "step": 1,
+        "status": "contact_verified" if trusted_contact else "profile_complete",
+        "step": 3 if trusted_contact else 1,
         "booker_name": profile.booker_name,
         "booker_email": email,
         "booker_country": profile.booker_country,
@@ -278,7 +273,8 @@ async def start_enrollment(profile: ProfileData, request: Request):
         "participant_count": len(profile.participants),
         "ip_info": ip_info,
         "phone": None,
-        "phone_verified": False,
+        "phone_verified": trusted_contact,
+        "email_verified": trusted_contact,
         "vpn_blocked": ip_info["is_vpn"] or ip_info["is_proxy"] or ip_info["is_hosting"],
         "created_at": datetime.now(timezone.utc).isoformat(),
         "updated_at": datetime.now(timezone.utc).isoformat(),
@@ -289,7 +285,6 @@ async def start_enrollment(profile: ProfileData, request: Request):
         if profile.item_title:
             enrollment["item_title"] = profile.item_title.strip()
     else:
-        # Cart-style flow: program on first participant row
         p0 = profile.participants[0]
         if p0.program_id:
             enrollment["item_type"] = "program"
@@ -299,14 +294,25 @@ async def start_enrollment(profile: ProfileData, request: Request):
 
     await db.enrollments.insert_one(enrollment)
 
+    msg = (
+        "Enrollment saved. You can complete payment below."
+        if trusted_contact
+        else f"Profile saved for {len(profile.participants)} participant(s). Proceed to verification."
+    )
     return {
         "enrollment_id": enrollment["id"],
-        "step": 1,
+        "step": enrollment["step"],
         "participant_count": len(profile.participants),
         "ip_country": ip_info["country"],
         "vpn_detected": enrollment["vpn_blocked"],
-        "message": f"Profile saved for {len(profile.participants)} participant(s). Proceed to verification.",
+        "message": msg,
     }
+
+
+@router.post("/start")
+async def start_enrollment(profile: ProfileData, request: Request):
+    """Step 1: Create enrollment with booker info + participants (each with country, attendance, notify prefs) + IP detection"""
+    return await insert_enrollment_from_profile(profile, request, trusted_contact=False)
 
 
 @router.post("/{enrollment_id}/send-otp")

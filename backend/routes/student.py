@@ -11,6 +11,7 @@ from .auth import get_current_user
 from models_extended import JourneyLog
 from iris_journey import resolve_iris_journey
 from routes.programs import fetch_programs_with_deadline_sync, sort_programs_like_homepage
+from routes.enrollment import ProfileData, insert_enrollment_from_profile
 
 ROOT_DIR = Path(__file__).parent.parent
 load_dotenv(ROOT_DIR / '.env')
@@ -728,6 +729,17 @@ async def get_enrollment_prefill(user: dict = Depends(get_current_user)):
     family = client.get("immediate_family") or []
     other_guests = client.get("other_guests") or []
     return {"self": self_data, "immediate_family": family, "other_guests": other_guests}
+
+
+@router.post("/combined-enrollment-start")
+async def student_combined_enrollment_start(profile: ProfileData, request: Request, user: dict = Depends(get_current_user)):
+    """Portal Review & pay: create enrollment without email OTP; booker must match logged-in student."""
+    uemail = (user.get("email") or "").strip().lower()
+    if not uemail:
+        raise HTTPException(status_code=400, detail="Account has no email")
+    if uemail != profile.booker_email.strip().lower():
+        raise HTTPException(status_code=403, detail="Booker email must match your logged-in account.")
+    return await insert_enrollment_from_profile(profile, request, trusted_contact=True)
 
 
 @router.get("/dashboard-quote")

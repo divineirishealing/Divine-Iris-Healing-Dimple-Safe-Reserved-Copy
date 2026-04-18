@@ -9,7 +9,6 @@ import { Button } from '../components/ui/button';
 import {
   Tag,
   CreditCard,
-  Mail,
   Lock,
   Loader2,
   Check,
@@ -21,6 +20,7 @@ import {
   Gift,
 } from 'lucide-react';
 import MotivationalSignupFlash from '../components/MotivationalSignupFlash';
+import { getAuthHeaders } from '../lib/authHeaders';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
@@ -71,7 +71,7 @@ function PaymentMethodTags({ methods }) {
 
 /**
  * Portal-only combined cart checkout: same enrollment + Stripe / India / manual flows as /cart/checkout,
- * with email verification on this page when no eid yet. Uses membership payment_methods from /api/student/home.
+ * Logged-in portal flow skips email OTP; uses membership payment_methods from /api/student/home.
  */
 export default function DashboardCombinedCheckoutPage() {
   const navigate = useNavigate();
@@ -106,15 +106,11 @@ export default function DashboardCombinedCheckoutPage() {
   const [pointsSummary, setPointsSummary] = useState(null);
   const [pointsToRedeem, setPointsToRedeem] = useState(0);
   const [paymentMethods, setPaymentMethods] = useState(['stripe']);
-  const [otpSent, setOtpSent] = useState(false);
-  const [otp, setOtp] = useState('');
-  const [verifyLoading, setVerifyLoading] = useState(false);
-  const [emailVerified, setEmailVerified] = useState(Boolean(eidParam));
+  const [enrollmentSubmitLoading, setEnrollmentSubmitLoading] = useState(false);
   const promoFromUrlApplied = useRef(false);
 
   useEffect(() => {
     if (eidParam && eidParam !== enrollmentId) setEnrollmentId(eidParam);
-    if (eidParam) setEmailVerified(true);
   }, [eidParam, enrollmentId]);
 
   const firstP = items[0]?.participants?.[0] || {};
@@ -399,13 +395,13 @@ export default function DashboardCombinedCheckoutPage() {
     return true;
   }, [items, toast]);
 
-  const submitAndSendOtp = async () => {
+  const startTrustedEnrollment = async () => {
     if (!validateAndProceed()) return;
     if (!bookerEmail) {
       toast({ title: 'Booker email is required', variant: 'destructive' });
       return;
     }
-    setVerifyLoading(true);
+    setEnrollmentSubmitLoading(true);
     try {
       const bookerPhone = phone ? `${countryCode}${phone}` : null;
       const allParticipants = items.flatMap((item) =>
@@ -442,25 +438,30 @@ export default function DashboardCombinedCheckoutPage() {
       );
 
       const leadItem = items[0];
-      const enrollRes = await axios.post(`${API}/enrollment/start`, {
-        booker_name: bookerName,
-        booker_email: bookerEmail,
-        booker_country: bookerCountry,
-        booker_city: bookerCity,
-        booker_state: bookerState,
-        item_type: leadItem?.type === 'session' ? 'session' : 'program',
-        item_id: leadItem?.programId || '',
-        item_title: leadItem?.programTitle || '',
-        participants: allParticipants,
-      });
+      const enrollRes = await axios.post(
+        `${API}/student/combined-enrollment-start`,
+        {
+          booker_name: bookerName,
+          booker_email: bookerEmail,
+          booker_country: bookerCountry,
+          item_type: leadItem?.type === 'session' ? 'session' : 'program',
+          item_id: leadItem?.programId || '',
+          item_title: leadItem?.programTitle || '',
+          participants: allParticipants,
+        },
+        { withCredentials: true, headers: getAuthHeaders() },
+      );
       const eid = enrollRes.data.enrollment_id;
       setEnrollmentId(eid);
       if (bookerPhone) {
         await axios.patch(`${API}/enrollment/${eid}/update-phone`, { phone: bookerPhone }).catch(() => {});
       }
-      await axios.post(`${API}/enrollment/${eid}/send-otp`, { email: bookerEmail });
-      setOtpSent(true);
-      toast({ title: 'Verification code sent to your email!' });
+      toast({ title: enrollRes.data.message || 'Ready for payment' });
+      const next = new URLSearchParams();
+      next.set('eid', eid);
+      if (promoResult?.code) next.set('promo', promoResult.code);
+      else if (promoCode) next.set('promo', promoCode);
+      setSearchParams(next, { replace: true });
     } catch (err) {
       toast({
         title: 'Error',
@@ -468,28 +469,7 @@ export default function DashboardCombinedCheckoutPage() {
         variant: 'destructive',
       });
     } finally {
-      setVerifyLoading(false);
-    }
-  };
-
-  const verifyOtp = async () => {
-    if (otp.length !== 6) {
-      toast({ title: 'Enter 6-digit code', variant: 'destructive' });
-      return;
-    }
-    setVerifyLoading(true);
-    try {
-      await axios.post(`${API}/enrollment/${enrollmentId}/verify-otp`, { email: bookerEmail, otp });
-      setEmailVerified(true);
-      toast({ title: 'Email verified!' });
-      const next = new URLSearchParams();
-      next.set('eid', enrollmentId);
-      if (promoResult?.code) next.set('promo', promoResult.code);
-      setSearchParams(next, { replace: true });
-    } catch (err) {
-      toast({ title: err.response?.data?.detail || 'Wrong code', variant: 'destructive' });
-    } finally {
-      setVerifyLoading(false);
+      setEnrollmentSubmitLoading(false);
     }
   };
 
@@ -779,61 +759,27 @@ export default function DashboardCombinedCheckoutPage() {
               </div>
             )}
 
-            {!emailVerified ? (
+            {!enrollmentId ? (
               <div data-testid="dashboard-combined-verify">
                 <h2 className="text-base font-semibold text-gray-900 mb-2 flex items-center gap-2">
-                  <Mail size={16} className="text-[#D4AF37]" /> Verify email
+                  <ShieldCheck size={16} className="text-[#D4AF37]" /> Continue to payment
                 </h2>
                 <p className="text-[10px] text-gray-500 mb-3">
-                  We will send a code to <strong>{bookerEmail || 'your booker email'}</strong> to lock this combined enrollment.
+                  Confirm the roster at left, then continue. Your portal login replaces email verification for this checkout.
                 </p>
-                {!otpSent ? (
-                  <Button
-                    onClick={submitAndSendOtp}
-                    disabled={verifyLoading}
-                    className="w-full bg-[#D4AF37] hover:bg-[#b8962e] text-white py-3 rounded-full"
-                  >
-                    {verifyLoading ? (
-                      <Loader2 className="animate-spin" size={16} />
-                    ) : (
-                      <>
-                        <Mail size={14} className="mr-2" /> Send verification code
-                      </>
-                    )}
-                  </Button>
-                ) : (
-                  <div className="border rounded-lg p-4 bg-gray-50">
-                    <p className="text-xs text-gray-600 mb-2">
-                      Enter the code sent to <strong>{bookerEmail}</strong>
-                    </p>
-                    <div className="flex gap-2">
-                      <Input
-                        value={otp}
-                        onChange={(e) => setOtp(e.target.value.replace(/\D/g, '').slice(0, 6))}
-                        placeholder="000000"
-                        maxLength={6}
-                        className="flex-1 text-center tracking-[0.5em] font-mono text-lg"
-                      />
-                      <Button
-                        onClick={verifyOtp}
-                        disabled={verifyLoading || otp.length !== 6}
-                        className="bg-[#D4AF37] hover:bg-[#b8962e] text-white"
-                      >
-                        {verifyLoading ? <Loader2 className="animate-spin" size={14} /> : 'Verify'}
-                      </Button>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setOtpSent(false);
-                        setOtp('');
-                      }}
-                      className="text-[10px] text-purple-600 mt-2 hover:underline"
-                    >
-                      Resend / start over
-                    </button>
-                  </div>
-                )}
+                <Button
+                  onClick={startTrustedEnrollment}
+                  disabled={enrollmentSubmitLoading}
+                  className="w-full bg-[#D4AF37] hover:bg-[#b8962e] text-white py-3 rounded-full"
+                >
+                  {enrollmentSubmitLoading ? (
+                    <Loader2 className="animate-spin" size={16} />
+                  ) : (
+                    <>
+                      <ChevronRight size={14} className="mr-2" /> Save enrollment &amp; show payment options
+                    </>
+                  )}
+                </Button>
               </div>
             ) : (
               <div data-testid="dashboard-combined-pay">
@@ -859,7 +805,7 @@ export default function DashboardCombinedCheckoutPage() {
                   </p>
                   <p>
                     <strong>Email:</strong> {bookerEmail}{' '}
-                    <span className="text-green-600 font-medium">Verified</span>
+                    <span className="text-slate-500 font-medium">(portal account)</span>
                   </p>
                   {phone && (
                     <p>
