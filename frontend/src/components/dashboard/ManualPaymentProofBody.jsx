@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import axios from 'axios';
 import { useToast } from '../../hooks/use-toast';
 import { getAuthHeaders } from '../../lib/authHeaders';
@@ -40,14 +40,13 @@ export function ManualPaymentProofBody({
   // Form fields
   const [screenshot, setScreenshot] = useState(null);
   const [screenshotPreview, setScreenshotPreview] = useState('');
+  const [proofDropActive, setProofDropActive] = useState(false);
   const proofFileRef = useRef(null);
   const [payerName, setPayerName] = useState('');
   const [paymentDate, setPaymentDate] = useState('');
   const [bankName, setBankName] = useState('');
   const [transactionId, setTransactionId] = useState('');
   const [amount, setAmount] = useState('');
-  const [city, setCity] = useState('');
-  const [state, setState] = useState('');
   const [paymentMethod, setPaymentMethod] = useState('bank_transfer');
   const [notes, setNotes] = useState('');
 
@@ -197,20 +196,60 @@ export function ManualPaymentProofBody({
   const programTitle = enrollment?.item_title || itemDetails?.title || '';
   const quoteCurrency = (enrollment?.dashboard_mixed_currency || 'inr').toUpperCase();
   const isUpiMethod = paymentMethod === 'upi';
+  const screenshotRequired =
+    paymentMethod === 'cheque' || paymentMethod === 'cash_deposit';
+  const notesRequired =
+    isUpiMethod || paymentMethod === 'cheque' || paymentMethod === 'cash_deposit';
+  const notesLabel = notesRequired ? 'Payment details *' : 'Additional notes';
+  const notesPlaceholder = isUpiMethod
+    ? 'Who paid (name as on UPI / GPay)? When did you pay (date and approximate time)?'
+    : paymentMethod === 'cheque' || paymentMethod === 'cash_deposit'
+      ? 'Who deposited or gave the cheque? Which city? Which bank / branch?'
+      : 'Any extra detail (optional).';
+
+  const acceptProofFile = useCallback(
+    (file, inputEl) => {
+      if (!file) return;
+      if (file.type && !file.type.startsWith('image/')) {
+        toast({ title: 'Please use an image file', variant: 'destructive' });
+        if (inputEl) inputEl.value = '';
+        return;
+      }
+      setScreenshotPreview((prev) => {
+        if (prev) URL.revokeObjectURL(prev);
+        return URL.createObjectURL(file);
+      });
+      setScreenshot(file);
+      try {
+        const el = proofFileRef.current;
+        if (el) {
+          const dt = new DataTransfer();
+          dt.items.add(file);
+          el.files = dt.files;
+        }
+      } catch {
+        // Some browsers disallow assigning input.files
+      }
+    },
+    [toast],
+  );
 
   const handleScreenshot = (e) => {
-    const file = e.target.files?.[0] ?? null;
-    if (!file) return;
-    if (file.type && !file.type.startsWith('image/')) {
-      toast({ title: 'Please choose an image file', variant: 'destructive' });
-      e.target.value = '';
-      return;
-    }
-    setScreenshotPreview((prev) => {
-      if (prev) URL.revokeObjectURL(prev);
-      return URL.createObjectURL(file);
-    });
-    setScreenshot(file);
+    acceptProofFile(e.target.files?.[0] ?? null, e.target);
+  };
+
+  const handleProofDrop = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setProofDropActive(false);
+    const file = e.dataTransfer?.files?.[0] ?? null;
+    acceptProofFile(file, null);
+  };
+
+  const handleProofDragOver = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (e.dataTransfer) e.dataTransfer.dropEffect = 'copy';
   };
 
   const clearScreenshot = () => {
@@ -224,8 +263,26 @@ export function ManualPaymentProofBody({
   };
 
   const handleSubmit = async () => {
-    if (!screenshot || !payerName || !paymentDate || !transactionId || !amount) {
+    if (!payerName || !paymentDate || !transactionId || !amount) {
       toast({ title: 'Please fill all required fields', variant: 'destructive' });
+      return;
+    }
+    if (screenshotRequired && !screenshot) {
+      toast({
+        title: 'Screenshot required',
+        description: 'Attach an image for cheque or cash deposit.',
+        variant: 'destructive',
+      });
+      return;
+    }
+    if (notesRequired && !(notes || '').trim()) {
+      toast({
+        title: 'Payment details required',
+        description: isUpiMethod
+          ? 'Add who paid and when in the details box.'
+          : 'Add who paid, city, and bank in the details box.',
+        variant: 'destructive',
+      });
       return;
     }
     if (!isEmbed && !programType) {
@@ -247,7 +304,7 @@ export function ManualPaymentProofBody({
         (isUpiMethod ? 'UPI / GPay' : '') ||
         (currentBank.label || currentBank.bank_name || '');
       const formData = new FormData();
-      formData.append('screenshot', screenshot);
+      if (screenshot) formData.append('screenshot', screenshot);
       formData.append('enrollment_id', enrollmentId || 'MANUAL');
       formData.append('payer_name', payerName);
       formData.append('payer_email', payerEmail);
@@ -256,8 +313,8 @@ export function ManualPaymentProofBody({
       formData.append('bank_name', bankField);
       formData.append('transaction_id', transactionId);
       formData.append('amount', amount);
-      formData.append('city', city);
-      formData.append('state', state);
+      formData.append('city', '');
+      formData.append('state', '');
       formData.append('payment_method', paymentMethod);
       formData.append('program_type', effProgramType);
       formData.append('selected_item', effSelectedItem);
@@ -367,7 +424,7 @@ export function ManualPaymentProofBody({
                       </h3>
                     </div>
                     <p className="text-[10px] text-gray-600 mb-3">
-                      Pay using one of the IDs below, then upload your proof below.
+                      Pay using one of the IDs below. Screenshot is optional for UPI; add payment details in the notes field.
                     </p>
                     <div className="space-y-2">
                       {gpayToShow.map((g) => (
@@ -655,52 +712,59 @@ export function ManualPaymentProofBody({
                     </div>
                   )}
 
-                  <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <label className="text-[10px] font-semibold text-gray-700 block mb-1">City</label>
-                      <Input
-                        value={city}
-                        onChange={(e) => setCity(e.target.value)}
-                        placeholder="Your city"
-                        className="text-xs h-9"
-                        data-testid={isEmbed ? 'manual-city-embed' : 'manual-city'}
-                      />
-                    </div>
-                    <div>
-                      <label className="text-[10px] font-semibold text-gray-700 block mb-1">State</label>
-                      <Input
-                        value={state}
-                        onChange={(e) => setState(e.target.value)}
-                        placeholder="Your state"
-                        className="text-xs h-9"
-                        data-testid={isEmbed ? 'manual-state-embed' : 'manual-state'}
-                      />
-                    </div>
+                  <div>
+                    <label className="text-[10px] font-semibold text-gray-700 block mb-1">{notesLabel}</label>
+                    <textarea
+                      value={notes}
+                      onChange={(e) => setNotes(e.target.value)}
+                      placeholder={notesPlaceholder}
+                      rows={3}
+                      className="w-full border rounded-lg text-xs px-3 py-2 text-gray-700 resize-y min-h-[4.5rem] focus:ring-1 focus:ring-[#D4AF37]"
+                      data-testid={isEmbed ? 'manual-notes-embed' : 'manual-notes'}
+                    />
                   </div>
 
                   <div>
-                    <label className="text-[10px] font-semibold text-gray-700 block mb-1">Payment Screenshot *</label>
-                    <p className="text-[10px] text-gray-500 mb-1">
-                      Use Browse / Choose File (works on phone, tablet, and laptop). You can also tap the dashed area.
-                    </p>
-                    <label className="flex cursor-pointer flex-col gap-2 rounded-lg border-2 border-dashed border-gray-200 bg-gray-50/80 p-3 transition-colors hover:border-[#D4AF37]/80">
-                      {screenshotPreview ? (
-                        <img src={screenshotPreview} alt="" className="max-h-36 mx-auto rounded object-contain" />
-                      ) : (
-                        <div className="flex flex-col items-center gap-1 py-2 text-gray-400">
-                          <Upload size={20} className="mx-auto" />
-                          <p className="text-xs">Add screenshot</p>
-                        </div>
-                      )}
-                      <input
-                        ref={proofFileRef}
-                        type="file"
-                        accept="image/*"
-                        data-testid={isEmbed ? 'manual-proof-screenshot-embed' : 'manual-proof-screenshot'}
-                        className="block w-full min-h-10 cursor-pointer text-xs text-gray-700 file:mr-3 file:inline-flex file:h-9 file:cursor-pointer file:items-center file:rounded-md file:border file:border-gray-300 file:bg-white file:px-3 file:py-1.5 file:text-xs file:font-medium hover:file:bg-amber-50/80"
-                        onChange={handleScreenshot}
-                      />
+                    <label className="text-[10px] font-semibold text-gray-700 block mb-1">
+                      Payment screenshot{screenshotRequired ? ' *' : ' (optional)'}
                     </label>
+                    <p className="text-[10px] text-gray-500 mb-1">
+                      Drag and drop an image here, tap the dashed area, or use Choose file. Required for cheque and cash deposit only.
+                    </p>
+                    <div
+                      onDragEnter={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        setProofDropActive(true);
+                      }}
+                      onDragLeave={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        if (!e.currentTarget.contains(e.relatedTarget)) setProofDropActive(false);
+                      }}
+                      onDragOver={handleProofDragOver}
+                      onDrop={handleProofDrop}
+                      className={`rounded-lg transition-colors ${proofDropActive ? 'ring-2 ring-[#D4AF37] ring-offset-1 bg-amber-50/50' : ''}`}
+                    >
+                      <label className="flex cursor-pointer flex-col gap-2 rounded-lg border-2 border-dashed border-gray-200 bg-gray-50/80 p-3 transition-colors hover:border-[#D4AF37]/80">
+                        {screenshotPreview ? (
+                          <img src={screenshotPreview} alt="" className="max-h-36 mx-auto rounded object-contain pointer-events-none" />
+                        ) : (
+                          <div className="flex flex-col items-center gap-1 py-2 text-gray-400 pointer-events-none">
+                            <Upload size={20} className="mx-auto" />
+                            <p className="text-xs">Drop image, tap here, or browse</p>
+                          </div>
+                        )}
+                        <input
+                          ref={proofFileRef}
+                          type="file"
+                          accept="image/*"
+                          data-testid={isEmbed ? 'manual-proof-screenshot-embed' : 'manual-proof-screenshot'}
+                          className="block w-full min-h-10 cursor-pointer text-xs text-gray-700 file:mr-3 file:inline-flex file:h-9 file:cursor-pointer file:items-center file:rounded-md file:border file:border-gray-300 file:bg-white file:px-3 file:py-1.5 file:text-xs file:font-medium hover:file:bg-amber-50/80"
+                          onChange={handleScreenshot}
+                        />
+                      </label>
+                    </div>
                     {screenshot ? (
                       <button
                         type="button"
@@ -710,18 +774,6 @@ export function ManualPaymentProofBody({
                         Remove image
                       </button>
                     ) : null}
-                  </div>
-
-                  <div>
-                    <label className="text-[10px] font-semibold text-gray-700 block mb-1">Additional Notes</label>
-                    <textarea
-                      value={notes}
-                      onChange={(e) => setNotes(e.target.value)}
-                      placeholder="Any additional details..."
-                      rows={2}
-                      className="w-full border rounded-lg text-xs px-3 py-2 text-gray-700 resize-none focus:ring-1 focus:ring-[#D4AF37]"
-                      data-testid={isEmbed ? 'manual-notes-embed' : 'manual-notes'}
-                    />
                   </div>
 
                   <Button

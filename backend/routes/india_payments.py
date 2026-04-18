@@ -353,21 +353,25 @@ async def submit_payment_proof(
         enrollment = await db.enrollments.find_one({"id": enrollment_id}, {"_id": 0}) or {}
 
     pm = (payment_method or "").strip().lower()
-    bank_deposit_methods = {"bank_transfer", "bank_deposit"}
-    cash_deposit_methods = {"cash_deposit"}
-    requires_screenshot = pm in bank_deposit_methods or pm in cash_deposit_methods
+    requires_screenshot = pm in {"cash_deposit", "cheque"}
     if requires_screenshot:
         if screenshot is None or not (getattr(screenshot, "filename", None) or "").strip():
-            if pm in cash_deposit_methods:
-                detail = "Payment screenshot is required for cash deposit (e.g. deposit slip or receipt)."
+            if pm == "cheque":
+                detail = "Payment screenshot is required for cheque (e.g. scan or photo of the cheque / deposit proof)."
             else:
-                detail = "Payment screenshot is required for bank transfer / deposit submissions."
+                detail = "Payment screenshot is required for cash deposit (e.g. deposit slip or receipt)."
             raise HTTPException(status_code=400, detail=detail)
 
-    if pm in cash_deposit_methods and not (notes or "").strip():
+    if pm in {"cash_deposit", "cheque"} and not (notes or "").strip():
         raise HTTPException(
             status_code=400,
-            detail="Notes are required for cash deposit: include who deposited, when, and which bank/branch.",
+            detail="Notes are required: who deposited or issued the cheque, which city, and which bank / branch.",
+        )
+
+    if pm == "upi" and not (notes or "").strip():
+        raise HTTPException(
+            status_code=400,
+            detail="Notes are required for UPI / GPay: who paid (name as on the app) and when you paid (date/time if possible).",
         )
 
     screenshot_public_url = ""
