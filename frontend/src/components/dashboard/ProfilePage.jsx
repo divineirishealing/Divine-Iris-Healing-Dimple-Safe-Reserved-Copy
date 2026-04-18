@@ -1,12 +1,14 @@
 import React, { useState } from 'react';
+import { Link } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../hooks/use-toast';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 import { Label } from '../ui/label';
 import { Card, CardHeader, CardTitle, CardContent } from '../ui/card';
-import { User, MapPin, Calendar, Briefcase, GraduationCap } from 'lucide-react';
+import { User, MapPin, Calendar, Briefcase, GraduationCap, ClipboardList, ChevronRight } from 'lucide-react';
 import axios from 'axios';
+import { getAuthHeaders } from '../../lib/authHeaders';
 
 const API = process.env.REACT_APP_BACKEND_URL;
 
@@ -33,7 +35,10 @@ const ProfilePage = () => {
     e.preventDefault();
     setLoading(true);
     try {
-      await axios.put(`${API}/api/student/profile`, formData, { withCredentials: true });
+      await axios.put(`${API}/api/student/profile`, formData, {
+        withCredentials: true,
+        headers: getAuthHeaders(),
+      });
       toast({ title: "Profile Submitted", description: "Your changes are pending approval." });
     } catch (err) {
       toast({ title: "Error", description: "Failed to update profile.", variant: "destructive" });
@@ -59,6 +64,22 @@ const ProfilePage = () => {
           </div>
         </div>
       </div>
+
+      <Link
+        to="/dashboard/orders"
+        className="flex items-center justify-between gap-3 rounded-xl border border-violet-100 bg-gradient-to-r from-violet-50/80 to-white px-4 py-3 text-left hover:border-[#5D3FD3]/30 transition-colors shadow-sm"
+      >
+        <span className="flex items-center gap-3 min-w-0">
+          <span className="w-10 h-10 rounded-lg bg-white border border-violet-100 flex items-center justify-center shrink-0">
+            <ClipboardList size={20} className="text-[#5D3FD3]" />
+          </span>
+          <span className="min-w-0">
+            <span className="block font-semibold text-gray-900 text-sm">Order history</span>
+            <span className="block text-xs text-gray-500 truncate">Receipts, invoices, and program links</span>
+          </span>
+        </span>
+        <ChevronRight size={18} className="text-[#5D3FD3] shrink-0" />
+      </Link>
 
       <Card>
         <CardHeader>

@@ -28,6 +28,7 @@ import StudentDashboard from './pages/StudentDashboard';
 import DashboardLayout from './layouts/DashboardLayout';
 import AuthCallback from './components/auth/AuthCallback';
 import ProfilePage from './components/dashboard/ProfilePage';
+import OrderHistoryPage from './components/dashboard/OrderHistoryPage';
 import FinancialsPage from './components/dashboard/FinancialsPage';
 import CalendarPage from './components/dashboard/CalendarPage';
 import ProgressPage from './components/dashboard/ProgressPage';
@@ -122,6 +123,7 @@ const AppContent = () => {
       <Route path="/dashboard" element={<DashboardLayout />}>
         <Route index element={<StudentDashboard />} />
         <Route path="profile" element={<ProfilePage />} />
+        <Route path="orders" element={<OrderHistoryPage />} />
         <Route path="financials" element={<FinancialsPage />} />
         <Route path="points" element={<PointsPage />} />
         <Route path="combined-checkout" element={<DashboardCombinedCheckoutPage />} />

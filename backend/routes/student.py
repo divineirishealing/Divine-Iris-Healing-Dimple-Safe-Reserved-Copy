@@ -2,6 +2,7 @@ from fastapi import APIRouter, HTTPException, Request, Depends
 from pydantic import BaseModel
 from typing import Optional, List, Dict, Tuple
 import os
+import re
 import uuid
 from motor.motor_asyncio import AsyncIOMotorClient
 from datetime import datetime, timezone
@@ -1285,6 +1286,60 @@ async def get_student_home(user: dict = Depends(get_current_user)):
         "preferred_india_gpay_id": (sub.get("preferred_india_gpay_id") or "").strip(),
         "preferred_india_bank_id": (sub.get("preferred_india_bank_id") or "").strip(),
     }
+
+
+def _student_order_email_pattern(email: str):
+    """Case-insensitive exact match for participant / booker email fields."""
+    return re.compile(f"^{re.escape((email or '').strip().lower())}$", re.IGNORECASE)
+
+
+def _serialize_payment_transaction_row(row: dict) -> dict:
+    out: Dict = {}
+    for k, v in row.items():
+        if k == "_id":
+            continue
+        if isinstance(v, datetime):
+            if v.tzinfo is None:
+                v = v.replace(tzinfo=timezone.utc)
+            out[k] = v.isoformat()
+        else:
+            out[k] = v
+    return out
+
+
+@router.get("/orders")
+async def list_student_orders(user: dict = Depends(get_current_user)):
+    """
+    Enrollment-related payment rows for this account: booker, sponsor donor,
+    or a seat where this email appears on the enrollment.
+    """
+    email_raw = (user.get("email") or "").strip()
+    if not email_raw:
+        raise HTTPException(status_code=400, detail="No email on account")
+
+    ep = _student_order_email_pattern(email_raw)
+
+    participant_enrollments = await db.enrollments.find(
+        {"participants": {"$elemMatch": {"email": ep}}},
+        {"id": 1, "_id": 0},
+    ).to_list(600)
+    pid_list = [e["id"] for e in participant_enrollments if e.get("id")]
+
+    or_clauses: List[dict] = [
+        {"booker_email": ep},
+        {"donor_email": ep},
+    ]
+    if pid_list:
+        or_clauses.append({"enrollment_id": {"$in": pid_list}})
+
+    cursor = (
+        db.payment_transactions.find({"$or": or_clauses}, {"_id": 0, "participants": 0})
+        .sort([("created_at", -1), ("updated_at", -1)])
+        .limit(300)
+    )
+    rows = await cursor.to_list(300)
+    return {"orders": [_serialize_payment_transaction_row(r) for r in rows]}
+
 
 @router.put("/profile")
 async def update_profile(data: ProfileUpdate, user: dict = Depends(get_current_user)):
