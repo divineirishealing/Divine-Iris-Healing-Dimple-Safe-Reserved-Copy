@@ -836,21 +836,8 @@ export default function DashboardUpcomingProgramRowItem({
                         />
                         All offline
                       </label>
-                      {!includedPkg ? (
-                        <label className="inline-flex items-center gap-1.5 cursor-pointer text-[10px] text-slate-800 whitespace-nowrap">
-                          <input
-                            type="checkbox"
-                            className="rounded border-slate-300 shrink-0 scale-90"
-                            checked={annualSeatUi.attendanceQuickPreset === 'except_me'}
-                            onChange={(e) => {
-                              e.stopPropagation();
-                              if (e.target.checked) annualSeatUi.onApplyAttendanceDraft(p.id, 'guests_offline_booker_online');
-                            }}
-                          />
-                          All offline except Myself
-                        </label>
-                      ) : null}
-                      {annualSeatUi.attendanceQuickPreset === 'custom' ? (
+                      {annualSeatUi.attendanceQuickPreset === 'custom' ||
+                      annualSeatUi.attendanceQuickPreset === 'except_me' ? (
                         <span className="text-[9px] text-amber-800/90">Mixed — use advanced or pick a preset.</span>
                       ) : null}
                     </div>
@@ -903,66 +890,54 @@ export default function DashboardUpcomingProgramRowItem({
                     </div>
                   </div>
 
-                                   {!includedPkg ? (
-                    annualSeatUi.attendanceQuickPreset === 'custom' ||
-                    annualSeatUi.notifyQuickPreset === 'mixed' ? (
-                      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 py-2 text-[10px] text-slate-700">
-                        <span className="font-semibold text-slate-600 shrink-0 uppercase text-[9px] tracking-wide">
-                          Your seat
+                  {!includedPkg &&
+                  (annualSeatUi.attendanceQuickPreset === 'custom' ||
+                    annualSeatUi.attendanceQuickPreset === 'except_me' ||
+                    annualSeatUi.notifyQuickPreset === 'mixed') ? (
+                    <div className="flex flex-wrap items-center gap-x-3 gap-y-1 py-2 text-[10px] text-slate-700">
+                      <span className="font-semibold text-slate-600 shrink-0 uppercase text-[9px] tracking-wide">
+                        Your seat
+                      </span>
+                      <span className="truncate max-w-[12rem] font-medium text-slate-800">
+                        {annualSeatUi.bookerDisplayName}
+                      </span>
+                      <label className="inline-flex items-center gap-0.5 cursor-pointer whitespace-nowrap">
+                        <input
+                          type="radio"
+                          name={`dash-inline-booker-${p.id}`}
+                          checked={(annualSeatUi.draft?.bookerSeatMode || 'online') !== 'offline'}
+                          onChange={() => annualSeatUi.onPatchDraft(p.id, { bookerSeatMode: 'online' })}
+                        />
+                        <Wifi size={11} className="text-slate-500" />
+                        Online
+                      </label>
+                      <label className="inline-flex items-center gap-0.5 cursor-pointer whitespace-nowrap">
+                        <input
+                          type="radio"
+                          name={`dash-inline-booker-${p.id}`}
+                          checked={(annualSeatUi.draft?.bookerSeatMode || 'online') === 'offline'}
+                          onChange={() => annualSeatUi.onPatchDraft(p.id, { bookerSeatMode: 'offline' })}
+                        />
+                        <Monitor size={11} className="text-slate-500" />
+                        Offline
+                      </label>
+                      <label className="inline-flex items-center gap-1 cursor-pointer whitespace-nowrap">
+                        <input
+                          type="checkbox"
+                          className="rounded border-slate-300 scale-90"
+                          checked={annualSeatUi.draft?.bookerSeatNotify !== false}
+                          onChange={(e) => annualSeatUi.onPatchDraft(p.id, { bookerSeatNotify: e.target.checked })}
+                        />
+                        <span className="inline-flex items-center gap-0.5">
+                          {annualSeatUi.draft?.bookerSeatNotify !== false ? (
+                            <Bell size={11} className="text-slate-500" />
+                          ) : (
+                            <BellOff size={11} className="text-slate-400" />
+                          )}
+                          Email me details
                         </span>
-                        <span className="truncate max-w-[12rem] font-medium text-slate-800">
-                          {annualSeatUi.bookerDisplayName}
-                        </span>
-                        <label className="inline-flex items-center gap-0.5 cursor-pointer whitespace-nowrap">
-                          <input
-                            type="radio"
-                            name={`dash-inline-booker-${p.id}`}
-                            checked={(annualSeatUi.draft?.bookerSeatMode || 'online') !== 'offline'}
-                            onChange={() => annualSeatUi.onPatchDraft(p.id, { bookerSeatMode: 'online' })}
-                          />
-                          <Wifi size={11} className="text-slate-500" />
-                          Online
-                        </label>
-                        <label className="inline-flex items-center gap-0.5 cursor-pointer whitespace-nowrap">
-                          <input
-                            type="radio"
-                            name={`dash-inline-booker-${p.id}`}
-                            checked={(annualSeatUi.draft?.bookerSeatMode || 'online') === 'offline'}
-                            onChange={() => annualSeatUi.onPatchDraft(p.id, { bookerSeatMode: 'offline' })}
-                          />
-                          <Monitor size={11} className="text-slate-500" />
-                          Offline
-                        </label>
-                        <label className="inline-flex items-center gap-1 cursor-pointer whitespace-nowrap">
-                          <input
-                            type="checkbox"
-                            className="rounded border-slate-300 scale-90"
-                            checked={annualSeatUi.draft?.bookerSeatNotify !== false}
-                            onChange={(e) => annualSeatUi.onPatchDraft(p.id, { bookerSeatNotify: e.target.checked })}
-                          />
-                          <span className="inline-flex items-center gap-0.5">
-                            {annualSeatUi.draft?.bookerSeatNotify !== false ? (
-                              <Bell size={11} className="text-slate-500" />
-                            ) : (
-                              <BellOff size={11} className="text-slate-400" />
-                            )}
-                            Email me details
-                          </span>
-                        </label>
-                      </div>
-                    ) : (
-                      <p className="text-[9px] text-slate-500 py-2 leading-snug border-t border-slate-100">
-                        <span className="font-medium text-slate-600">Your seat</span> ({annualSeatUi.bookerDisplayName}) is set
-                        by the <strong className="font-medium text-slate-700">Attendance</strong> and{' '}
-                        <strong className="font-medium text-slate-700">Enrollment email</strong> rows above — those controls
-                        already update your own mode and email. The extra row only appears when choices are mixed (then you
-                        can fine-tune here or open{' '}
-                        <strong className="font-semibold text-slate-700 uppercase tracking-wide text-[9px]">
-                          Per-person attendance &amp; email
-                        </strong>{' '}
-                        on this card).
-                      </p>
-                    )
+                      </label>
+                    </div>
                   ) : null}
                 </div>
               </div>
