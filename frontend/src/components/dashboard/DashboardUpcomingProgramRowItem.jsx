@@ -993,19 +993,7 @@ export default function DashboardUpcomingProgramRowItem({
               </div>
             ) : null}
 
-            <div className="pt-3 border-t border-slate-100 space-y-3">
-              <p className="text-xs text-slate-500 leading-relaxed">
-                Payment method matches your membership (Stripe vs UPI / bank).{' '}
-                {includedPkg ? (
-                  <>
-                    This program is included in your annual package. Use <strong className="text-slate-700 font-medium">Add to Divine Cart</strong> below to add guest seats to your order, then open <strong className="text-slate-700 font-medium">DIVINE CART</strong> to review and pay.
-                  </>
-                ) : (
-                  <>
-                    <strong className="text-slate-700 font-medium">Add to Divine Cart</strong> adds this program to your order. Open <strong className="text-slate-700 font-medium">DIVINE CART</strong> in the sidebar when you are ready to review and pay.
-                  </>
-                )}
-              </p>
+            <div className="pt-3 border-t border-slate-100">
               <button
                 type="button"
                 disabled={!canAddToDivineCart || addingToCheckout}
