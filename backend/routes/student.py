@@ -1471,6 +1471,7 @@ def _order_display_title_from_enrollment(
 
 
 @router.get("/orders")
+@router.get("/order-history")
 async def list_student_orders(user: dict = Depends(get_current_user)):
     """
     Enrollment-related payment rows for this account: booker, sponsor donor,

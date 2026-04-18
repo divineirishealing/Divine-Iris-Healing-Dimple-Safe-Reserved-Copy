@@ -59,10 +59,18 @@ const OrderHistoryPage = () => {
       setOrders([]);
       return;
     }
-    const res = await axios.get(`${API_URL}/student/orders`, {
-      withCredentials: true,
-      headers: getAuthHeaders(),
-    });
+    const opts = { withCredentials: true, headers: getAuthHeaders() };
+    let res;
+    try {
+      res = await axios.get(`${API_URL}/student/orders`, opts);
+    } catch (first) {
+      // Alias path (older proxies) or misconfigured path; backend also serves /order-history.
+      if (first.response?.status === 404) {
+        res = await axios.get(`${API_URL}/student/order-history`, opts);
+      } else {
+        throw first;
+      }
+    }
     setOrders(Array.isArray(res.data?.orders) ? res.data.orders : []);
     setError(null);
   }, []);

@@ -3,9 +3,19 @@
 function normalizeBackendOrigin(raw) {
   let s = (raw || '').trim().replace(/\/$/, '');
   if (!s) return '';
-  // Accept either https://api.host.com or https://api.host.com/api (avoid double /api/api in API_URL)
-  s = s.replace(/\/api\/?$/, '');
-  return s;
+  // Use origin only (protocol + host + port). Extra path segments (e.g. …/api/v1 or …/api/foo) would otherwise
+  // produce …/api/foo/api/student/… and FastAPI returns 404 {"detail":"Not Found"}.
+  if (!/^https?:\/\//i.test(s)) {
+    const host0 = s.split('/')[0] || '';
+    const local = /^(localhost|127\.0\.0\.1)(:\d+)?$/i.test(host0);
+    s = `${local ? 'http' : 'https'}://${s}`;
+  }
+  try {
+    const u = new URL(s);
+    return `${u.protocol}//${u.host}`;
+  } catch {
+    return s.replace(/\/api\/?$/, '');
+  }
 }
 const fromEnv = normalizeBackendOrigin(process.env.REACT_APP_BACKEND_URL);
 const devFallback =
