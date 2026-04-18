@@ -617,7 +617,7 @@ export default function DashboardUpcomingProgramRowItem({
               ) : null}
             </div>
 
-            <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_minmax(15.5rem,19.5rem)] gap-3 lg:gap-x-3 items-start w-full min-w-0">
+            <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_minmax(17rem,22rem)] gap-3 lg:gap-x-3 items-start w-full min-w-0">
               <div className="rounded-xl border border-amber-100/80 bg-amber-50/25 p-3 sm:p-4 min-h-0 flex flex-col min-w-0 w-full">
               <button
                 type="button"
