@@ -5,12 +5,17 @@ import { Input } from '../ui/input';
 import { Upload, X, Image as ImageIcon } from 'lucide-react';
 import { useToast } from '../../hooks/use-toast';
 import { resolveImageUrl } from '../../lib/imageUtils';
+import { getApiUrl } from '../../lib/config';
 
-const BACKEND_URL = (process.env.REACT_APP_BACKEND_URL || '').replace(/\/$/, '');
-const API = BACKEND_URL ? `${BACKEND_URL}/api` : '';
+function uploadReachable() {
+  const api = getApiUrl();
+  if (typeof window === 'undefined') return !!api;
+  if (/^(localhost|127\.0\.0\.1)$/i.test(window.location.hostname)) return !!api;
+  return typeof api === 'string' && api.startsWith('http');
+}
 
 function uploadErrorMessage(error) {
-  if (!BACKEND_URL) {
+  if (!uploadReachable()) {
     return 'Photo upload is not wired up: on Vercel set REACT_APP_BACKEND_URL to your **Render API** URL (https://….onrender.com), then redeploy the **frontend** so uploads hit the backend.';
   }
   const detail = error?.response?.data?.detail;
@@ -48,7 +53,7 @@ const ImageUploader = ({ value, onChange, label = "Image" }) => {
 
   const uploadFile = async (file) => {
     if (!file) return;
-    if (!BACKEND_URL || !API) {
+    if (!uploadReachable()) {
       toast({ title: 'Upload not available', description: uploadErrorMessage(null), variant: 'destructive' });
       return;
     }
@@ -64,7 +69,8 @@ const ImageUploader = ({ value, onChange, label = "Image" }) => {
     try {
       const formData = new FormData();
       formData.append('file', file);
-      const response = await axios.post(`${API}/upload/image`, formData, {
+      const apiBase = getApiUrl().replace(/\/$/, '');
+      const response = await axios.post(`${apiBase}/upload/image`, formData, {
         timeout: 30000,
       });
       onChange(response.data.url);
@@ -94,6 +100,7 @@ const ImageUploader = ({ value, onChange, label = "Image" }) => {
   const handleDragOver = (e) => {
     e.preventDefault();
     e.stopPropagation();
+    if (e.dataTransfer) e.dataTransfer.dropEffect = 'copy';
     setDragOver(true);
   };
 
@@ -150,16 +157,16 @@ const ImageUploader = ({ value, onChange, label = "Image" }) => {
             }`}
           >
             {uploading ? (
-              <div className="text-center">
+              <div className="text-center pointer-events-none">
                 <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#D4AF37] mx-auto mb-3"></div>
                 <p className="text-sm text-gray-600">Uploading...</p>
               </div>
             ) : (
-              <>
+              <div className="pointer-events-none flex flex-col items-center">
                 <Upload size={40} className={`mb-3 ${dragOver ? 'text-[#D4AF37]' : 'text-gray-400'}`} />
                 <p className="text-sm text-gray-600 mb-1">{dragOver ? 'Drop image here' : 'Click to upload or drag and drop'}</p>
                 <p className="text-xs text-gray-500">JPG, PNG, GIF, WebP (max 10MB)</p>
-              </>
+              </div>
             )}
           </div>
         </div>

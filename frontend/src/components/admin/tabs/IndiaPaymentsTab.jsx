@@ -6,16 +6,10 @@ import { Button } from '../../ui/button';
 import { Input } from '../../ui/input';
 import { Switch } from '../../ui/switch';
 import { useToast } from '../../../hooks/use-toast';
+import { getApiUrl, getBackendUrl } from '../../../lib/config';
 
-/** API host only (no /api suffix). Avoids https://host/api + /api → double /api. */
-function backendRootFromEnv() {
-  const raw = (process.env.REACT_APP_BACKEND_URL || '').trim().replace(/\/+$/, '');
-  if (!raw) return '';
-  return raw.toLowerCase().endsWith('/api') ? raw.slice(0, -4).replace(/\/+$/, '') : raw;
-}
-const BACKEND_ROOT = backendRootFromEnv();
-const API = BACKEND_ROOT ? `${BACKEND_ROOT}/api` : '/api';
-const BACKEND = BACKEND_ROOT;
+const API = getApiUrl();
+const BACKEND = getBackendUrl() || '';
 /** Public site for shareable student links (manual payment is a React route, not the API host). */
 const publicSiteOrigin = () =>
   (process.env.REACT_APP_PUBLIC_SITE_URL || '').replace(/\/$/, '') ||
@@ -424,6 +418,7 @@ const BankAccountsEditor = () => {
   const [gpayRows, setGpayRows] = useState([]);
   const [saving, setSaving] = useState(false);
   const [uploadingQrIdx, setUploadingQrIdx] = useState(null);
+  const [qrDragRow, setQrDragRow] = useState(null);
 
   useEffect(() => {
     axios.get(`${API}/settings`).then(r => {
@@ -469,7 +464,12 @@ const BankAccountsEditor = () => {
 
   const uploadGpayQr = async (idx, file) => {
     if (!file) return;
-    if (!BACKEND_ROOT && typeof window !== 'undefined' && !/^(localhost|127\.0\.0\.1)$/i.test(window.location.hostname)) {
+    const apiBase = getApiUrl();
+    if (
+      typeof window !== 'undefined' &&
+      !/^(localhost|127\.0\.0\.1)$/i.test(window.location.hostname) &&
+      !(typeof apiBase === 'string' && apiBase.startsWith('http'))
+    ) {
       toast({
         title: 'Cannot upload',
         description:
@@ -478,7 +478,7 @@ const BankAccountsEditor = () => {
       });
       return;
     }
-    if (!file.type.startsWith('image/')) {
+    if (file.type && !file.type.startsWith('image/')) {
       toast({
         title: 'Invalid file',
         description: 'Choose an image (PNG, JPG, WebP, or GIF).',
@@ -494,7 +494,7 @@ const BankAccountsEditor = () => {
     fd.append('file', file);
     setUploadingQrIdx(idx);
     try {
-      const { data } = await axios.post(`${API}/upload/image`, fd, {
+      const { data } = await axios.post(`${getApiUrl().replace(/\/$/, '')}/upload/image`, fd, {
         timeout: 60000,
       });
       const url = data?.url;
@@ -599,7 +599,7 @@ const BankAccountsEditor = () => {
                 </div>
                 <div className="border-t border-emerald-50 pt-2">
                   <label className="text-[9px] text-gray-500 block mb-1">QR code (optional)</label>
-                  <p className="text-[9px] text-gray-400 mb-2">Paste an image URL or upload a PNG/JPG of your UPI QR.</p>
+                  <p className="text-[9px] text-gray-400 mb-2">Paste an image URL, click Upload, or drag and drop a PNG/JPG of your UPI QR.</p>
                   <div className="flex flex-wrap gap-2 items-center">
                     <Input
                       value={row.qr_image_url || ''}
@@ -609,7 +609,7 @@ const BankAccountsEditor = () => {
                     />
                     <input
                       type="file"
-                      accept="image/png,image/jpeg,image/jpg,image/webp,image/gif"
+                      accept="image/*"
                       className="hidden"
                       id={`gpay-qr-upload-${idx}`}
                       onChange={(e) => {
@@ -635,6 +635,43 @@ const BankAccountsEditor = () => {
                         Clear QR
                       </button>
                     ) : null}
+                  </div>
+                  <div
+                    role="presentation"
+                    className={`mt-2 rounded-lg border-2 border-dashed px-3 py-4 text-center transition-colors ${
+                      qrDragRow === idx ? 'border-emerald-500 bg-emerald-100/60' : 'border-emerald-200 bg-emerald-50/40'
+                    } ${uploadingQrIdx === idx ? 'opacity-50 pointer-events-none' : ''}`}
+                    onDragOver={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      if (e.dataTransfer) e.dataTransfer.dropEffect = 'copy';
+                      setQrDragRow(idx);
+                    }}
+                    onDragEnter={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                    }}
+                    onDragLeave={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      if (!e.currentTarget.contains(e.relatedTarget)) {
+                        setQrDragRow((r) => (r === idx ? null : r));
+                      }
+                    }}
+                    onDrop={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      setQrDragRow(null);
+                      const f = e.dataTransfer?.files?.[0];
+                      if (f) uploadGpayQr(idx, f);
+                    }}
+                  >
+                    <div className="pointer-events-none flex flex-col items-center gap-1">
+                      <Upload size={18} className="text-emerald-600" />
+                      <span className="text-[10px] text-gray-700 font-medium">
+                        {qrDragRow === idx ? 'Drop image here' : 'Drag & drop QR image here'}
+                      </span>
+                    </div>
                   </div>
                   {(row.qr_image_url || '').trim() && isLikelyImageUrl(row.qr_image_url) ? (
                     <div className="mt-2 flex items-start gap-3">
