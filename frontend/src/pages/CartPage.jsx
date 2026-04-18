@@ -168,52 +168,6 @@ const CartItemCard = ({ item, onRemove, onUpdateParticipants, symbol, getItemPri
         </div>
       </div>
 
-      <div
-        data-testid={`cart-one-eye-${item.id}`}
-        className="px-4 py-3 border-b bg-gradient-to-b from-violet-50/40 to-white"
-      >
-        <p className="text-[10px] font-semibold text-slate-600 uppercase tracking-wide mb-2">
-          Who is enrolling (summary)
-        </p>
-        <div className="overflow-x-auto -mx-1 px-1">
-          <table className="w-full text-[10px] text-left border-collapse min-w-[280px]">
-            <thead>
-              <tr className="text-slate-500 border-b border-slate-200/80">
-                <th className="py-1.5 pr-2 font-medium align-bottom">Name</th>
-                <th className="py-1.5 pr-2 font-medium align-bottom">Role</th>
-                <th className="py-1.5 pr-2 font-medium align-bottom">Attendance</th>
-                <th className="py-1.5 font-medium align-bottom">Email / updates</th>
-              </tr>
-            </thead>
-            <tbody>
-              {item.participants.map((p, idx) => {
-                const name = String(p.name || '').trim() || `Participant ${idx + 1}`;
-                const role = String(p.relationship || '').trim() || '—';
-                return (
-                  <tr key={idx} className="border-b border-slate-100/90 last:border-0 text-slate-800">
-                    <td className="py-2 pr-2 font-medium text-slate-900 max-w-[7rem] truncate" title={name}>
-                      {name}
-                    </td>
-                    <td className="py-2 pr-2 text-slate-600 max-w-[5.5rem] truncate" title={role}>
-                      {role}
-                    </td>
-                    <td className="py-2 pr-2 text-slate-600 whitespace-nowrap">
-                      {cartParticipantAttendanceLabel(p)}
-                    </td>
-                    <td className="py-2 text-slate-600 max-w-[10rem] truncate" title={cartParticipantNotifyEmailSummary(p)}>
-                      {cartParticipantNotifyEmailSummary(p)}
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
-        <p className="text-[9px] text-slate-500 mt-2 leading-relaxed">
-          Expand <strong className="text-slate-600 font-medium">Participants</strong> below to edit full details for checkout.
-        </p>
-      </div>
-
       {/* Participants toggle */}
       <button onClick={() => setExpanded(!expanded)} className="w-full flex items-center justify-between px-4 py-2.5 hover:bg-gray-50 transition-colors">
         <span className="text-xs font-medium text-gray-700 flex items-center gap-1.5">
@@ -222,6 +176,57 @@ const CartItemCard = ({ item, onRemove, onUpdateParticipants, symbol, getItemPri
         </span>
         {expanded ? <ChevronUp size={14} className="text-gray-400" /> : <ChevronDown size={14} className="text-gray-400" />}
       </button>
+
+      {/* Row-wise at-a-glance summary (same card as participant forms below) */}
+      <div className="px-4 pt-1 pb-3">
+        <div
+          data-testid={`cart-one-eye-${item.id}`}
+          className="rounded-lg border border-gray-200 bg-gray-50 p-3 shadow-sm"
+        >
+          <p className="text-[10px] font-semibold text-[#D4AF37] uppercase tracking-wide mb-2">
+            At a glance
+          </p>
+          <div className="overflow-x-auto -mx-0.5 px-0.5">
+            <table className="w-full text-[10px] text-left border-collapse min-w-[260px]">
+              <thead>
+                <tr className="text-gray-500 border-b border-gray-200">
+                  <th className="py-1.5 pr-2 font-medium align-bottom">Name</th>
+                  <th className="py-1.5 pr-2 font-medium align-bottom">Role</th>
+                  <th className="py-1.5 pr-2 font-medium align-bottom">Attendance</th>
+                  <th className="py-1.5 font-medium align-bottom">Email / updates</th>
+                </tr>
+              </thead>
+              <tbody>
+                {item.participants.map((p, idx) => {
+                  const name = String(p.name || '').trim() || `Participant ${idx + 1}`;
+                  const role = String(p.relationship || '').trim() || '—';
+                  return (
+                    <tr key={idx} className="border-b border-gray-100 last:border-0 text-gray-800">
+                      <td className="py-2 pr-2 font-medium text-gray-900 max-w-[7rem] truncate" title={name}>
+                        {name}
+                      </td>
+                      <td className="py-2 pr-2 text-gray-600 max-w-[5.5rem] truncate" title={role}>
+                        {role}
+                      </td>
+                      <td className="py-2 pr-2 text-gray-600 whitespace-nowrap">
+                        {cartParticipantAttendanceLabel(p)}
+                      </td>
+                      <td className="py-2 text-gray-600 max-w-[10rem] truncate" title={cartParticipantNotifyEmailSummary(p)}>
+                        {cartParticipantNotifyEmailSummary(p)}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+          <p className="text-[9px] text-gray-500 mt-2 leading-relaxed">
+            {expanded
+              ? 'Full details for checkout are in the forms below.'
+              : <>Tap <strong className="text-gray-700 font-medium">Participants</strong> above to open name, age, phone, and the rest.</>}
+          </p>
+        </div>
+      </div>
 
       {/* Copy from first program */}
       {copySource && expanded && (
