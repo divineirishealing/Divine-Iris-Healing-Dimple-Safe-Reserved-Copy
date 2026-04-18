@@ -69,6 +69,19 @@ function resolveCountryCode(raw, detectedCountry) {
   return '';
 }
 
+/** Match dashboard family row to cart prefill (ids vary by API shape). */
+export function findEnrollableGuestById(enrollableGuests, id) {
+  const s = String(id ?? '').trim();
+  if (!s) return undefined;
+  return (enrollableGuests || []).find(
+    (g) =>
+      g &&
+      (String(g.id) === s ||
+        String(g._id) === s ||
+        (g.client_family_id != null && String(g.client_family_id) === s)),
+  );
+}
+
 function baseParticipant(program, overrides) {
   const defaultMode = program.session_mode === 'remote' ? 'offline' : 'online';
   return {
@@ -183,7 +196,7 @@ export function buildAnnualDashboardCartParticipants({
 
   const ids = (selectedMemberIds || []).map((x) => String(x));
   for (const id of ids) {
-    const member = enrollableGuests.find((g) => String(g.id) === id);
+    const member = findEnrollableGuestById(enrollableGuests, id);
     const row = guestForm[id] || guestForm[String(id)] || {};
     const attendance_mode = row.attendance_mode === 'offline' ? 'offline' : 'online';
     const notifyEnrollment = !!row.notify_enrollment;

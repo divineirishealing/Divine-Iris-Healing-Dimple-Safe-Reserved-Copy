@@ -15,8 +15,8 @@ import {
   ChevronLeft,
   ChevronRight,
   ShieldCheck,
-  ShoppingCart,
   FileText,
+  Users,
   Gift,
 } from 'lucide-react';
 import MotivationalSignupFlash from '../components/MotivationalSignupFlash';
@@ -70,7 +70,7 @@ function PaymentMethodTags({ methods }) {
 }
 
 /**
- * Portal-only combined cart checkout: same enrollment + Stripe / India / manual flows as /cart/checkout,
+ * Portal Review & pay: same enrollment + Stripe / India / manual flows as main-site checkout,
  * Logged-in portal flow skips email OTP; uses membership payment_methods from /api/student/home.
  */
 export default function DashboardCombinedCheckoutPage() {
@@ -133,7 +133,7 @@ export default function DashboardCombinedCheckoutPage() {
 
   useEffect(() => {
     if (items.length === 0) {
-      toast({ title: 'Cart is empty', description: 'Add programs from your dashboard, then return here.' });
+      toast({ title: 'Nothing to review', description: 'Add programs from your dashboard, then return here.' });
       navigate('/dashboard');
     }
   }, [items.length, navigate, toast]);
@@ -549,7 +549,7 @@ export default function DashboardCombinedCheckoutPage() {
             Review &amp; pay — combined order
           </h1>
           <p className="text-xs text-violet-100/90 mt-1 max-w-xl">
-            All programs and participants in your cart, one total. Payment options follow the methods enabled for your
+            Every seat you added from the dashboard is listed below. Payment options follow the methods enabled for your
             membership.
           </p>
           <div className="mt-3 rounded-xl border border-white/20 bg-white/10 backdrop-blur-sm px-3 py-2.5">
@@ -566,77 +566,68 @@ export default function DashboardCombinedCheckoutPage() {
         </Button>
       </div>
 
+      <div className="bg-white/95 backdrop-blur rounded-xl border border-[rgba(212,175,55,0.35)] shadow-lg p-4 sm:p-5 mb-6 w-full">
+        <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-[#D4AF37] mb-3">
+          At a glance — who is enrolling
+        </p>
+        <p className="text-[10px] text-gray-500 mb-3" data-testid="dashboard-combined-roster-count">
+          <strong className="text-gray-700">{rosterParticipantCount}</strong> seat          {rosterParticipantCount !== 1 ? 's' : ''} across <strong className="text-gray-700">{items.length}</strong> program
+          {items.length !== 1 ? 's' : ''}. Adjust guests on the dashboard, remove a line item here if needed, then continue
+          below.
+        </p>
+        <div className="space-y-0 divide-y divide-gray-100" data-testid="dashboard-combined-roster-table">
+          {rosterRows.map((row, n) => {
+            const { item, p, idx, key } = row;
+            const name = String(p.name || '').trim() || `Seat ${idx + 1}`;
+            const role = String(p.relationship || '').trim() || '—';
+            const notify = combinedNotifyLabel(p);
+            return (
+              <div
+                key={key}
+                className="grid grid-cols-1 sm:grid-cols-12 gap-2 py-3 text-[11px] sm:text-xs text-gray-900 leading-snug"
+              >
+                <div className="sm:col-span-1 text-gray-500 tabular-nums font-medium">{n + 1}</div>
+                <div className="sm:col-span-4 min-w-0 break-words">
+                  <span className="text-gray-500 text-[10px] uppercase tracking-wide sm:hidden">Program · </span>
+                  <span className="font-medium text-gray-900">{item.programTitle}</span>
+                </div>
+                <div className="sm:col-span-2 min-w-0 break-words">
+                  <span className="text-gray-500 text-[10px] uppercase tracking-wide sm:hidden">Name · </span>
+                  {name}
+                </div>
+                <div className="sm:col-span-2 min-w-0 break-words text-gray-700">
+                  <span className="text-gray-500 text-[10px] uppercase tracking-wide sm:hidden">Role · </span>
+                  {role}
+                </div>
+                <div className="sm:col-span-2 min-w-0 break-words text-gray-700">
+                  <span className="text-gray-500 text-[10px] uppercase tracking-wide sm:hidden">Attendance · </span>
+                  {combinedAttendanceLabel(p)}
+                </div>
+                <div className="sm:col-span-1 min-w-0 break-words text-gray-700">
+                  <span className="text-gray-500 text-[10px] uppercase tracking-wide sm:hidden">Notify · </span>
+                  {notify}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+        {items.some((it) => (it.participants || []).length === 0) ? (
+          <p className="text-[10px] text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-2 py-1.5 mt-3">
+            A line item has no participant rows. Remove it from your order or re-add the program from your dashboard.
+          </p>
+        ) : null}
+      </div>
+
       <div className="flex flex-col lg:flex-row gap-6">
         <div className="lg:w-2/5 space-y-4">
           <div className="bg-white/95 backdrop-blur rounded-xl border border-white/40 shadow-lg p-5">
-            <h3 className="text-sm font-semibold text-gray-900 mb-1 flex items-center gap-2">
-              <ShoppingCart size={16} className="text-[#D4AF37]" /> Programs &amp; people
+            <h3 className="text-sm font-semibold text-gray-900 mb-3 flex items-center gap-2">
+              <Users size={16} className="text-[#D4AF37]" /> Order summary
             </h3>
-            <p className="text-[10px] text-gray-500 mb-2" data-testid="dashboard-combined-roster-count">
-              <strong className="text-gray-700">{rosterParticipantCount}</strong> participant
-              {rosterParticipantCount !== 1 ? 's' : ''} across <strong className="text-gray-700">{items.length}</strong> program
-              {items.length !== 1 ? 's' : ''} — one row each.
-            </p>
-            <div className="overflow-x-auto -mx-1 px-1 mb-3">
-              <table
-                className="w-full text-[10px] sm:text-[11px] text-left border-collapse min-w-[520px]"
-                data-testid="dashboard-combined-roster-table"
-              >
-                <thead>
-                  <tr className="text-gray-500 border-b border-gray-200">
-                    <th className="py-1.5 pr-2 font-semibold whitespace-nowrap">#</th>
-                    <th className="py-1.5 pr-2 font-semibold min-w-[6.5rem]">Program</th>
-                    <th className="py-1.5 pr-2 font-semibold min-w-[5.5rem]">Name</th>
-                    <th className="py-1.5 pr-2 font-semibold min-w-[4rem]">Role</th>
-                    <th className="py-1.5 pr-2 font-semibold whitespace-nowrap">Attendance</th>
-                    <th className="py-1.5 pr-2 font-semibold min-w-[6rem]">Email</th>
-                    <th className="py-1.5 font-semibold whitespace-nowrap">Notify</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {rosterRows.map((row, n) => {
-                    const { item, p, idx, key } = row;
-                    const name = String(p.name || '').trim() || `Seat ${idx + 1}`;
-                    const role = String(p.relationship || '').trim() || '—';
-                    const email = String(p.email || '').trim() || '—';
-                    const notify = combinedNotifyLabel(p);
-                    return (
-                      <tr key={key} className="border-b border-gray-100 last:border-0 text-gray-900">
-                        <td className="py-2 pr-2 text-gray-500 tabular-nums align-top">{n + 1}</td>
-                        <td className="py-2 pr-2 max-w-[9rem] truncate align-top font-medium" title={item.programTitle}>
-                          {item.programTitle}
-                        </td>
-                        <td className="py-2 pr-2 max-w-[7rem] truncate align-top" title={name}>
-                          {name}
-                        </td>
-                        <td className="py-2 pr-2 max-w-[5rem] truncate text-gray-700 align-top" title={role}>
-                          {role}
-                        </td>
-                        <td className="py-2 pr-2 text-gray-700 whitespace-nowrap align-top">
-                          {combinedAttendanceLabel(p)}
-                        </td>
-                        <td className="py-2 pr-2 max-w-[8.5rem] truncate text-gray-700 align-top" title={email}>
-                          {email}
-                        </td>
-                        <td className="py-2 text-gray-700 whitespace-nowrap align-top" title={notify}>
-                          {notify}
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-            {items.some((it) => (it.participants || []).length === 0) ? (
-              <p className="text-[10px] text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-2 py-1.5 mb-2">
-                A line item has no participant rows. Remove it from the cart or re-add the program from your dashboard with
-                guests selected.
-              </p>
-            ) : null}
             {items.map((item) => (
               <div key={item.id} className="flex items-start gap-3 py-2 border-b last:border-0 border-gray-100">
                 <div className="flex-1 min-w-0">
-                  <p className="text-xs font-medium text-gray-900 truncate">{item.programTitle}</p>
+                  <p className="text-xs font-medium text-gray-900 break-words">{item.programTitle}</p>
                   <p className="text-[10px] text-gray-500">
                     {item.tierLabel} · {item.participants.length} seat{item.participants.length > 1 ? 's' : ''}
                   </p>

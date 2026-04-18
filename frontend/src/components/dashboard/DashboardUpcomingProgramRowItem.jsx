@@ -27,6 +27,7 @@ import {
 import {
   buildAnnualDashboardCartParticipants,
   buildSelfOnlyCartParticipants,
+  buildFullPortalRosterCartParticipants,
 } from '../../lib/dashboardCartPrefill';
 import { getAuthHeaders } from '../../lib/authHeaders';
 
@@ -279,7 +280,10 @@ export default function DashboardUpcomingProgramRowItem({
           detectedCountry,
         });
       } else {
-        participants = buildSelfOnlyCartParticipants(self, p, bookerEmail, detectedCountry);
+        participants = buildFullPortalRosterCartParticipants(p, r.data, bookerEmail, detectedCountry);
+        if (!participants?.length) {
+          participants = buildSelfOnlyCartParticipants(self, p, bookerEmail, detectedCountry);
+        }
       }
     } catch {
       /* empty row */

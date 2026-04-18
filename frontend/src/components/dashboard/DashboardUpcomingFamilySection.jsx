@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
-import { Calendar, Sparkles, Users, Loader2, Plus, Trash2, CreditCard, Clock, AlertTriangle, Lock, Bell, BellOff, Monitor, Wifi, ShoppingCart } from 'lucide-react';
+import { Calendar, Sparkles, Users, Loader2, Plus, Trash2, CreditCard, Clock, AlertTriangle, Lock, Bell, BellOff, Monitor, Wifi } from 'lucide-react';
 import { useToast } from '../../hooks/use-toast';
 import { useCurrency } from '../../context/CurrencyContext';
 import { useSiteSettings } from '../../context/SiteSettingsContext';
@@ -11,6 +11,7 @@ import { pickTierIndexForDashboard, programIncludedInAnnualPackage } from './das
 import {
   buildAnnualDashboardCartParticipants,
   buildSelfOnlyCartParticipants,
+  buildFullPortalRosterCartParticipants,
 } from '../../lib/dashboardCartPrefill';
 import { getAuthHeaders } from '../../lib/authHeaders';
 import DashboardUpcomingProgramRowItem from './DashboardUpcomingProgramRowItem';
@@ -392,8 +393,6 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh, bo
   const [seatDraftsByProgram, setSeatDraftsByProgram] = useState({});
   const seatDraftsRef = useRef({});
   const enrollmentPrefillCacheRef = useRef(null);
-  /** Self row from /student/enrollment-prefill — for dashboard “at a glance” without opening Cart. */
-  const [enrollmentSelf, setEnrollmentSelf] = useState(null);
 
   useEffect(() => {
     seatDraftsRef.current = seatDraftsByProgram;
@@ -1194,24 +1193,6 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh, bo
     return enrollmentPrefillCacheRef.current;
   }, []);
 
-  useEffect(() => {
-    if (!bookerEmail) {
-      setEnrollmentSelf(null);
-      return;
-    }
-    let cancelled = false;
-    loadEnrollmentPrefill()
-      .then((pre) => {
-        if (!cancelled) setEnrollmentSelf(pre?.self ?? null);
-      })
-      .catch(() => {
-        if (!cancelled) setEnrollmentSelf(null);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [bookerEmail, loadEnrollmentPrefill]);
-
   const addProgramToCartAndGo = async (p, tierOverride = null) => {
     const tierIdx = tierOverride != null ? tierOverride : pickTierIndexForDashboard(p, isAnnual);
     const tier = tierIdx == null ? 0 : tierIdx;
@@ -1234,7 +1215,10 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh, bo
           detectedCountry,
         });
       } else {
-        participants = buildSelfOnlyCartParticipants(pre.self, p, bookerEmail, detectedCountry);
+        participants = buildFullPortalRosterCartParticipants(p, pre, bookerEmail, detectedCountry);
+        if (!participants?.length) {
+          participants = buildSelfOnlyCartParticipants(pre.self, p, bookerEmail, detectedCountry);
+        }
       }
     } catch {
       /* fall back to empty single row in addItem */
@@ -1242,18 +1226,18 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh, bo
     const added = addItem(p, tier, participants);
     if (added) {
       toast({
-        title: 'Added to cart',
+        title: 'Added to your order',
         description: participants?.length
-          ? 'We copied your portal guests and profile — review the cart, then verify email to pay for all items together.'
-          : 'Set online/offline and email options on the cart page, then checkout like the main site.',
+          ? 'Open Review & pay in the sidebar to see every seat and complete checkout.'
+          : 'Add details on the dashboard, then open Review & pay.',
       });
     } else {
       toast({
-        title: 'Already in cart',
-        description: 'Opening your cart — continue checkout there.',
+        title: 'Already in your order',
+        description: 'Opening Review & pay — you can adjust on the dashboard and refresh.',
       });
     }
-    navigate('/cart');
+    navigate('/dashboard/combined-checkout');
   };
 
   return (
@@ -1271,10 +1255,9 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh, bo
               <p className="text-xs text-slate-500">
                 Portal-only pricing: your seat, immediate household, and friends &amp; extended can each use{' '}
                 <span className="text-slate-700 font-medium">different</span> rules (Admin → Dashboard). Use{' '}
-                <strong className="text-slate-700 font-medium">Add to cart</strong> on each program to build an order of several
-                programs, then use <strong className="text-slate-700 font-medium">Review &amp; pay</strong> in the sidebar (or
-                main-site <strong className="text-slate-700 font-medium">Cart</strong>) for one combined checkout. Annual members
-                can still pay per program below after choosing guests.
+                <strong className="text-slate-700 font-medium">Add to order</strong> on each program, then open{' '}
+                <strong className="text-slate-700 font-medium">Review &amp; pay</strong> in the sidebar to see every seat and
+                checkout. Annual members choose guests per program below.
               </p>
             </div>
           </div>
@@ -1291,24 +1274,6 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh, bo
               <span className="text-xs font-semibold">Review &amp; pay</span>
               {itemCount > 0 ? (
                 <span className="min-w-[1.25rem] h-5 px-1.5 rounded-full bg-violet-600 text-white text-[10px] font-bold tabular-nums flex items-center justify-center">
-                  {itemCount}
-                </span>
-              ) : null}
-            </Button>
-            <Button
-              type="button"
-              variant="outline"
-              className="h-10 px-4 border-slate-200 bg-white/90 hover:bg-[#D4AF37]/10 hover:border-[#D4AF37]/40 text-slate-800 gap-2"
-              onClick={() => navigate('/cart')}
-              data-testid="dashboard-open-cart"
-            >
-              <ShoppingCart size={16} className="text-[#D4AF37]" />
-              <span className="text-xs font-semibold">Cart</span>
-              {itemCount > 0 ? (
-                <span
-                  className="min-w-[1.25rem] h-5 px-1.5 rounded-full bg-[#D4AF37] text-white text-[10px] font-bold tabular-nums flex items-center justify-center"
-                  data-testid="dashboard-cart-count"
-                >
                   {itemCount}
                 </span>
               ) : null}
@@ -1366,7 +1331,6 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh, bo
                   program={p}
                   isAnnual={isAnnual}
                   bookerEmail={bookerEmail}
-                  enrollmentSelf={enrollmentSelf}
                   detectedCountry={detectedCountry}
                   symbol={symbol}
                   currency={currency}
