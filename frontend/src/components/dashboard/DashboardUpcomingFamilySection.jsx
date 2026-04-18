@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect, useRef } from 'react';
+import React, { useState, useMemo, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { Calendar, Sparkles, Users, Loader2, Plus, Trash2, CreditCard, Clock, AlertTriangle, Lock, Bell, BellOff, Monitor, Wifi, ShoppingCart } from 'lucide-react';
@@ -378,6 +378,8 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh, bo
   const [saving, setSaving] = useState(false);
   const [promoByProgramId, setPromoByProgramId] = useState({});
   const [promoPricesLoading, setPromoPricesLoading] = useState(false);
+  /** Profile + family from API — used for cart “who’s included” preview on each row. */
+  const [portalEnrollmentPreview, setPortalEnrollmentPreview] = useState(null);
   const [selectedFamilyByProgram, setSelectedFamilyByProgram] = useState({});
   const [annualQuotes, setAnnualQuotes] = useState({});
   const [payingProgramId, setPayingProgramId] = useState(null);
@@ -1182,7 +1184,7 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh, bo
     persistEnrollmentDefaultsOnContinue,
   ]);
 
-  const loadEnrollmentPrefill = async () => {
+  const loadEnrollmentPrefill = useCallback(async () => {
     if (enrollmentPrefillCacheRef.current) return enrollmentPrefillCacheRef.current;
     const r = await axios.get(`${API}/api/student/enrollment-prefill`, {
       withCredentials: true,
@@ -1190,7 +1192,22 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh, bo
     });
     enrollmentPrefillCacheRef.current = r.data || {};
     return enrollmentPrefillCacheRef.current;
-  };
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const d = await loadEnrollmentPrefill();
+        if (!cancelled) setPortalEnrollmentPreview(d);
+      } catch {
+        if (!cancelled) setPortalEnrollmentPreview(null);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [loadEnrollmentPrefill, bookerEmail]);
 
   const addProgramToCartAndGo = async (p, tierOverride = null) => {
     const tierIdx = tierOverride != null ? tierOverride : pickTierIndexForDashboard(p, isAnnual);
@@ -1327,6 +1344,7 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh, bo
                   program={p}
                   isAnnual={isAnnual}
                   bookerEmail={bookerEmail}
+                  portalEnrollmentPreview={portalEnrollmentPreview}
                   detectedCountry={detectedCountry}
                   symbol={symbol}
                   currency={currency}

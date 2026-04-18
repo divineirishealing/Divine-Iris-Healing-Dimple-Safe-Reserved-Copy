@@ -32,6 +32,47 @@ import { getAuthHeaders } from '../../lib/authHeaders';
 
 const API_ROOT = process.env.REACT_APP_BACKEND_URL;
 
+/** Row-wise summary of who and which prefs go into the cart (matches prefill logic). */
+function CartAddParticipantPreviewTable({ rows }) {
+  if (!rows?.length) return null;
+  return (
+    <div
+      className="rounded-lg border border-slate-200/90 bg-white/95 overflow-hidden shadow-sm"
+      data-testid="dashboard-cart-add-preview"
+    >
+      <p className="text-[9px] font-bold uppercase tracking-wider text-slate-500 px-2.5 py-1.5 bg-slate-50 border-b border-slate-100">
+        Add to cart — who &amp; preferences
+      </p>
+      <div className="overflow-x-auto max-w-full">
+        <table className="w-full min-w-[320px] text-left text-[10px]">
+          <thead>
+            <tr className="text-slate-500 border-b border-slate-100 bg-slate-50/60">
+              <th className="px-2.5 py-1.5 font-semibold whitespace-nowrap">Name</th>
+              <th className="px-2 py-1.5 font-semibold whitespace-nowrap">Role</th>
+              <th className="px-2 py-1.5 font-semibold whitespace-nowrap">Attendance</th>
+              <th className="px-2 py-1.5 font-semibold min-w-[6rem]">Enrollment email</th>
+              <th className="px-2 py-1.5 font-semibold whitespace-nowrap">Notify</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-slate-100">
+            {rows.map((row) => (
+              <tr key={row.key} className="text-slate-800">
+                <td className="px-2.5 py-1.5 font-medium align-top max-w-[10rem] break-words">{row.name}</td>
+                <td className="px-2 py-1.5 text-slate-600 align-top whitespace-nowrap">{row.role}</td>
+                <td className="px-2 py-1.5 align-top whitespace-nowrap text-slate-800">{row.attendance}</td>
+                <td className="px-2 py-1.5 align-top text-slate-700 break-all max-w-[12rem]">{row.emailCell}</td>
+                <td className="px-2 py-1.5 align-top whitespace-nowrap">
+                  {row.notifyOn ? <span className="text-emerald-700 font-medium">On</span> : <span className="text-slate-400">Off</span>}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
 /** Portal quote: list layout, or compact “offer per person” under Pricing & offer. */
 function AnnualQuoteBreakdown({ aq, symbol, includedPkg, suppressIntro = false, layout = 'list' }) {
   if (!aq) {
@@ -183,6 +224,7 @@ export default function DashboardUpcomingProgramRowItem({
   program: p,
   isAnnual: subscriberIsAnnual,
   bookerEmail = '',
+  portalEnrollmentPreview = null,
   detectedCountry,
   symbol,
   currency,
@@ -257,6 +299,76 @@ export default function DashboardUpcomingProgramRowItem({
   const [annualPricingOpen, setAnnualPricingOpen] = useState(true);
   const [annualFamilyOpen, setAnnualFamilyOpen] = useState(true);
   const [annualAttendanceOpen, setAnnualAttendanceOpen] = useState(true);
+
+  const addToCartPreviewRows = useMemo(() => {
+    const selfSnap = portalEnrollmentPreview?.self;
+    const bookerMail = (bookerEmail || selfSnap?.email || '').trim();
+
+    if (subscriberIsAnnual) {
+      const rows = [];
+      const draft = annualSeatUi?.draft;
+      const guestForm = draft?.guestSeatForm || {};
+
+      if (!includedPkg) {
+        const mode = (draft?.bookerSeatMode || 'online') === 'offline' ? 'Offline' : 'Online';
+        const notifyOn = draft?.bookerSeatNotify !== false;
+        const needsEmail = notifyOn || mode === 'Online';
+        rows.push({
+          key: 'booker',
+          name: annualSeatUi?.bookerDisplayName || 'You',
+          role: 'Myself',
+          attendance: mode,
+          emailCell: needsEmail ? bookerMail || '—' : '—',
+          notifyOn,
+        });
+      }
+
+      for (const id of selIds) {
+        const m = enrollableGuests.find((g) => String(g.id) === String(id));
+        if (!m?.name?.trim()) continue;
+        const row = guestForm[id] || {};
+        const mode = row.attendance_mode === 'offline' ? 'Offline' : 'Online';
+        const notifyG = !!row.notify_enrollment;
+        const notifyOn = mode === 'Online' || notifyG;
+        const em = (m.email || '').trim();
+        const needsEmail = notifyOn;
+        rows.push({
+          key: String(id),
+          name: m.name.trim(),
+          role: (m.relationship || 'Guest').trim() || 'Guest',
+          attendance: mode,
+          emailCell: needsEmail ? em || '—' : '—',
+          notifyOn,
+        });
+      }
+      return rows;
+    }
+
+    const name = (selfSnap?.name || bookerMail || '').trim();
+    if (!name && !bookerMail) return [];
+    const mode = p.session_mode === 'remote' ? 'Offline' : 'Online';
+    const notifyOn = p.session_mode !== 'remote';
+    const em = (selfSnap?.email || bookerMail || '').trim();
+    return [
+      {
+        key: 'self',
+        name: selfSnap?.name?.trim() || bookerMail || 'Account holder',
+        role: 'Myself',
+        attendance: mode,
+        emailCell: em || '—',
+        notifyOn,
+      },
+    ];
+  }, [
+    subscriberIsAnnual,
+    includedPkg,
+    annualSeatUi,
+    selIds,
+    enrollableGuests,
+    bookerEmail,
+    portalEnrollmentPreview,
+    p.session_mode,
+  ]);
 
   const handleAddToCart = async (e) => {
     e.stopPropagation();
@@ -914,6 +1026,13 @@ export default function DashboardUpcomingProgramRowItem({
               ) : null}
 
             <div className="pt-3 border-t border-slate-100 space-y-3">
+              {addToCartPreviewRows.length > 0 ? (
+                <CartAddParticipantPreviewTable rows={addToCartPreviewRows} />
+              ) : subscriberIsAnnual && includedPkg && selCount < 1 ? (
+                <p className="text-[10px] text-slate-500 italic">
+                  Select family or friends above to see who will be included when you add to cart.
+                </p>
+              ) : null}
               <p className="text-xs text-slate-500 leading-relaxed">
                 Payment method in the next step matches your membership (Stripe vs UPI / bank). Cart uses main-site checkout;
                 continue below for annual portal pricing.
@@ -1145,6 +1264,11 @@ export default function DashboardUpcomingProgramRowItem({
                       <span className="text-xl font-bold text-green-600">FREE</span>
                     )}
                   </div>
+                  {addToCartPreviewRows.length > 0 ? (
+                    <div className="mb-2">
+                      <CartAddParticipantPreviewTable rows={addToCartPreviewRows} />
+                    </div>
+                  ) : null}
                   <div className="flex gap-1.5">
                     <button
                       type="button"
