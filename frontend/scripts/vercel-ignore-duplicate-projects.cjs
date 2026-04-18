@@ -11,7 +11,8 @@ const onVercel = process.env.VERCEL === '1';
 
 /**
  * Canonical project slug (Vercel → Project Settings → General → Project Name).
- * If you renamed the Vercel project, set env VERCEL_PRIMARY_PROJECT_NAME to that exact * Project Name or builds are skipped (exit 1) and GitHub shows no deployment.
+ * If you renamed the Vercel project, set env VERCEL_PRIMARY_PROJECT_NAME to the exact
+ * Project Name (Settings → General) or the ignore step skips every build.
  */
 const PRIMARY_PROJECT =
   String(process.env.VERCEL_PRIMARY_PROJECT_NAME || '').trim() ||
