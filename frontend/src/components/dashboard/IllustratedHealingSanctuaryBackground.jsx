@@ -175,7 +175,7 @@ export function IllustratedHealingSanctuaryBackground({ storageScope = 'student'
 
       <div className="pointer-events-none absolute left-0 right-0 bottom-0 h-[min(64vh,620px)]">
         <svg
-          className="absolute bottom-0 left-1/2 h-full w-[min(1550px,235%)] max-w-none -translate-x-1/2"
+          className="absolute bottom-0 left-1/2 h-full w-[min(1550px,235%)] max-w-none -translate-x-[calc(50%+min(8vw,5.5rem))]"
           viewBox="0 0 1000 520"
           preserveAspectRatio="xMidYMax meet"
           xmlns="http://www.w3.org/2000/svg"
