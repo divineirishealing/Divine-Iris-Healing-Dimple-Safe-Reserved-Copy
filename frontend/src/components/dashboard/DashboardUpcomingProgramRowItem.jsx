@@ -37,32 +37,32 @@ function CartAddParticipantPreviewTable({ rows }) {
   if (!rows?.length) return null;
   return (
     <div
-      className="rounded-lg border border-slate-200/90 bg-white/95 overflow-hidden shadow-sm"
+      className="rounded-xl border-2 border-[#D4AF37]/45 bg-gradient-to-b from-amber-50/90 via-white to-white overflow-hidden shadow-md ring-1 ring-[#D4AF37]/15"
       data-testid="dashboard-cart-add-preview"
     >
-      <p className="text-[9px] font-bold uppercase tracking-wider text-slate-500 px-2.5 py-1.5 bg-slate-50 border-b border-slate-100">
-        Add to cart — who &amp; preferences
+      <p className="text-[10px] sm:text-[11px] font-bold uppercase tracking-wide text-[#5c4a12] px-3 py-2 bg-amber-100/90 border-b border-amber-200/80">
+        Cart — who is included &amp; preferences
       </p>
       <div className="overflow-x-auto max-w-full">
-        <table className="w-full min-w-[320px] text-left text-[10px]">
+        <table className="w-full min-w-[280px] text-left text-[11px] sm:text-xs">
           <thead>
-            <tr className="text-slate-500 border-b border-slate-100 bg-slate-50/60">
-              <th className="px-2.5 py-1.5 font-semibold whitespace-nowrap">Name</th>
-              <th className="px-2 py-1.5 font-semibold whitespace-nowrap">Role</th>
-              <th className="px-2 py-1.5 font-semibold whitespace-nowrap">Attendance</th>
-              <th className="px-2 py-1.5 font-semibold min-w-[6rem]">Enrollment email</th>
-              <th className="px-2 py-1.5 font-semibold whitespace-nowrap">Notify</th>
+            <tr className="text-slate-600 border-b border-amber-100/90 bg-amber-50/50">
+              <th className="px-3 py-2 font-bold whitespace-nowrap">Name</th>
+              <th className="px-2 py-2 font-bold whitespace-nowrap">Role</th>
+              <th className="px-2 py-2 font-bold whitespace-nowrap">Attendance</th>
+              <th className="px-2 py-2 font-bold min-w-[7rem]">Enrollment email</th>
+              <th className="px-2 py-2 font-bold whitespace-nowrap">Notify</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-slate-100">
+          <tbody className="divide-y divide-amber-100/80">
             {rows.map((row) => (
-              <tr key={row.key} className="text-slate-800">
-                <td className="px-2.5 py-1.5 font-medium align-top max-w-[10rem] break-words">{row.name}</td>
-                <td className="px-2 py-1.5 text-slate-600 align-top whitespace-nowrap">{row.role}</td>
-                <td className="px-2 py-1.5 align-top whitespace-nowrap text-slate-800">{row.attendance}</td>
-                <td className="px-2 py-1.5 align-top text-slate-700 break-all max-w-[12rem]">{row.emailCell}</td>
-                <td className="px-2 py-1.5 align-top whitespace-nowrap">
-                  {row.notifyOn ? <span className="text-emerald-700 font-medium">On</span> : <span className="text-slate-400">Off</span>}
+              <tr key={row.key} className="text-slate-900 bg-white/80">
+                <td className="px-3 py-2 font-semibold align-top max-w-[11rem] break-words">{row.name}</td>
+                <td className="px-2 py-2 text-slate-700 align-top whitespace-nowrap">{row.role}</td>
+                <td className="px-2 py-2 align-top whitespace-nowrap font-medium">{row.attendance}</td>
+                <td className="px-2 py-2 align-top text-slate-800 break-all max-w-[14rem]">{row.emailCell}</td>
+                <td className="px-2 py-2 align-top whitespace-nowrap">
+                  {row.notifyOn ? <span className="text-emerald-800 font-semibold">On</span> : <span className="text-slate-500 font-medium">Off</span>}
                 </td>
               </tr>
             ))}
@@ -341,6 +341,18 @@ export default function DashboardUpcomingProgramRowItem({
           notifyOn,
         });
       }
+
+      if (includedPkg && rows.length === 0) {
+        rows.push({
+          key: 'annual-included-only',
+          name: annualSeatUi?.bookerDisplayName || 'You',
+          role: 'Seat included (no paid add-ons yet)',
+          attendance: '—',
+          emailCell: 'Pick guests under “Family to join” — they will show here with attendance & email',
+          notifyOn: false,
+        });
+      }
+
       return rows;
     }
 
@@ -644,6 +656,11 @@ export default function DashboardUpcomingProgramRowItem({
               ) : (
                 <p className="text-xs text-slate-500 mb-2">Loading price…</p>
               )}
+              {enrollStatus === 'open' && addToCartPreviewRows.length > 0 ? (
+                <div className="mb-3 w-full min-w-0" data-testid={`dashboard-cart-preview-left-${p.id}`}>
+                  <CartAddParticipantPreviewTable rows={addToCartPreviewRows} />
+                </div>
+              ) : null}
               {enrollStatus === 'open' ? (
                 <>
                   <button
@@ -658,9 +675,11 @@ export default function DashboardUpcomingProgramRowItem({
                     Know More
                   </button>
                   <p className="text-[10px] text-slate-500 mt-2 leading-snug">
-                    Use <strong className="text-slate-700 font-medium">Add to Cart</strong> or{' '}
-                    <strong className="text-slate-700 font-medium">Continue to enrollment &amp; payment</strong> in the section
-                    below (open <strong className="text-slate-700 font-medium">Attendance &amp; notification</strong> if collapsed).
+                    One-eye <strong className="text-slate-700 font-medium">cart preview</strong> is above. Use{' '}
+                    <strong className="text-slate-700 font-medium">Add to Cart</strong> or{' '}
+                    <strong className="text-slate-700 font-medium">Continue to enrollment &amp; payment</strong> under{' '}
+                    <strong className="text-slate-700 font-medium">Attendance &amp; notification</strong> (scroll down on small
+                    screens).
                   </p>
                 </>
               ) : (
@@ -1026,13 +1045,9 @@ export default function DashboardUpcomingProgramRowItem({
               ) : null}
 
             <div className="pt-3 border-t border-slate-100 space-y-3">
-              {addToCartPreviewRows.length > 0 ? (
-                <CartAddParticipantPreviewTable rows={addToCartPreviewRows} />
-              ) : subscriberIsAnnual && includedPkg && selCount < 1 ? (
-                <p className="text-[10px] text-slate-500 italic">
-                  Select family or friends above to see who will be included when you add to cart.
-                </p>
-              ) : null}
+              <p className="text-[10px] text-slate-600 leading-snug font-medium">
+                Full cart preview is on the program card (left / above). Adjust attendance and email under the presets here.
+              </p>
               <p className="text-xs text-slate-500 leading-relaxed">
                 Payment method in the next step matches your membership (Stripe vs UPI / bank). Cart uses main-site checkout;
                 continue below for annual portal pricing.
