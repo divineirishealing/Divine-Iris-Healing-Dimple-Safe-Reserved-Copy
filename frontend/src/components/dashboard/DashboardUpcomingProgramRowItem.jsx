@@ -599,7 +599,7 @@ export default function DashboardUpcomingProgramRowItem({
 
                    {/* 2 — Pricing & offer, Family to join, Attendance & checkout (stacked); cart at bottom aligns with Know More on xl */}
           <div className="flex flex-col gap-4 flex-1 min-w-0 w-full min-h-0 xl:min-h-0 xl:h-full">
-            <div className="rounded-xl border border-slate-200 bg-white p-3 sm:p-4 shadow-sm min-h-0 flex flex-col min-w-0 w-full">
+            <div className="rounded-xl border border-slate-200 bg-white p-3 sm:p-4 shadow-sm min-h-0 flex flex-col min-w-0 w-full max-w-xl">
               <button
                 type="button"
                 className="w-full flex items-center justify-between gap-2 text-left rounded-lg outline-none focus-visible:ring-2 focus-visible:ring-[#D4AF37]/40"
