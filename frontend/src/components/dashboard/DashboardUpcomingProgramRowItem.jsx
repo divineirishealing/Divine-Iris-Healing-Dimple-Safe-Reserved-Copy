@@ -617,8 +617,8 @@ export default function DashboardUpcomingProgramRowItem({
               ) : null}
             </div>
 
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 items-start w-full min-w-0">
-              <div className="rounded-xl border border-amber-100/80 bg-amber-50/25 p-3 sm:p-4 min-h-0 flex flex-col min-w-0 w-full lg:min-h-full">
+            <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_minmax(15.5rem,19.5rem)] gap-3 lg:gap-x-3 items-start w-full min-w-0">
+              <div className="rounded-xl border border-amber-100/80 bg-amber-50/25 p-3 sm:p-4 min-h-0 flex flex-col min-w-0 w-full">
               <button
                 type="button"
                 className="w-full flex items-center justify-between gap-2 text-left rounded-lg outline-none focus-visible:ring-2 focus-visible:ring-amber-400/50"
@@ -748,8 +748,8 @@ export default function DashboardUpcomingProgramRowItem({
               ) : null}
               </div>
 
-            {/* Attendance & notification + checkout — beside family on large screens */}
-            <div className="w-full rounded-xl border border-slate-200/90 bg-white p-3 sm:p-4 shadow-sm min-w-0 lg:min-h-full flex flex-col">
+            {/* Attendance & notification + checkout — narrower column beside family to avoid dead space */}
+            <div className="w-full max-w-full rounded-xl border border-slate-200/90 bg-white p-3 shadow-sm min-w-0 flex flex-col lg:justify-self-start">
               <button
                 type="button"
                 className="w-full flex items-center justify-between gap-2 text-left rounded-lg outline-none focus-visible:ring-2 focus-visible:ring-[#D4AF37]/40"
@@ -763,13 +763,13 @@ export default function DashboardUpcomingProgramRowItem({
                 />
               </button>
               {annualAttendanceOpen ? (
-                <div className="flex flex-col gap-3 w-full min-w-0 pt-2">
+                <div className="flex flex-col gap-2 w-full min-w-0 pt-2">
                 {annualSeatUi && (!includedPkg || selCount >= 1) ? (
                   <div
-                    className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2.5"
+                    className="w-full rounded-lg border border-slate-200 bg-white px-2.5 py-2"
                     data-testid={`dashboard-compact-seat-${p.id}`}
                   >
-                <p className="text-[10px] text-slate-600 leading-snug mb-2">
+                <p className="text-[10px] text-slate-600 leading-snug mb-1.5">
                   <span className="font-semibold text-slate-800">Attendance &amp; notification</span> are{' '}
                   <span className="font-semibold text-slate-800">the same for every upcoming program</span> — change them
                   once here (or in the advanced modal) and they stay in sync across all cards. You can save these as
@@ -793,11 +793,11 @@ export default function DashboardUpcomingProgramRowItem({
                 ) : null}
 
                 <div className="w-full flex flex-col gap-0 divide-y divide-slate-200">
-                  <div className="flex flex-col min-[680px]:flex-row min-[680px]:items-center gap-2 py-2 first:pt-0 w-full">
-                    <span className="text-[9px] font-bold uppercase tracking-wide text-slate-500 shrink-0 min-w-[7.5rem]">
+                  <div className="flex flex-col gap-1.5 py-2 first:pt-0 w-full">
+                    <span className="text-[9px] font-bold uppercase tracking-wide text-slate-500 shrink-0">
                       Attendance
                     </span>
-                    <div className="flex flex-wrap items-center gap-x-5 gap-y-1 flex-1 min-w-0">
+                    <div className="flex flex-wrap items-center gap-x-3 gap-y-1 flex-1 min-w-0">
                       <label className="inline-flex items-center gap-1.5 cursor-pointer text-[10px] text-slate-800 whitespace-nowrap">
                         <input
                           type="checkbox"
@@ -842,11 +842,11 @@ export default function DashboardUpcomingProgramRowItem({
                     </div>
                   </div>
 
-                  <div className="flex flex-col min-[680px]:flex-row min-[680px]:items-center gap-2 py-2 w-full">
-                    <span className="text-[9px] font-bold uppercase tracking-wide text-slate-500 shrink-0 min-w-[7.5rem] leading-snug">
+                  <div className="flex flex-col gap-1.5 py-2 w-full">
+                    <span className="text-[9px] font-bold uppercase tracking-wide text-slate-500 shrink-0 leading-snug">
                       Enrollment email
                     </span>
-                    <div className="flex flex-wrap items-center gap-x-5 gap-y-1 flex-1 min-w-0">
+                    <div className="flex flex-wrap items-center gap-x-3 gap-y-1 flex-1 min-w-0">
                       <label className="inline-flex items-center gap-1.5 cursor-pointer text-[10px] text-slate-800 whitespace-nowrap">
                         <input
                           type="checkbox"
@@ -893,7 +893,7 @@ export default function DashboardUpcomingProgramRowItem({
                     annualSeatUi.attendanceQuickPreset === 'custom' ||
                     annualSeatUi.notifyQuickPreset === 'mixed' ? (
                       <div className="flex flex-wrap items-center gap-x-3 gap-y-1 py-2 text-[10px] text-slate-700">
-                        <span className="font-semibold text-slate-600 shrink-0 min-w-[7.5rem] uppercase text-[9px] tracking-wide">
+                        <span className="font-semibold text-slate-600 shrink-0 uppercase text-[9px] tracking-wide">
                           Your seat
                         </span>
                         <span className="truncate max-w-[12rem] font-medium text-slate-800">
@@ -942,7 +942,11 @@ export default function DashboardUpcomingProgramRowItem({
                         by the <strong className="font-medium text-slate-700">Attendance</strong> and{' '}
                         <strong className="font-medium text-slate-700">Enrollment email</strong> rows above — those controls
                         already update your own mode and email. The extra row only appears when choices are mixed (then you
-                        can fine-tune here or open <strong className="font-medium text-slate-700">Per-person attendance &amp; email</strong> on this card).
+                        can fine-tune here or open{' '}
+                        <strong className="font-semibold text-slate-700 uppercase tracking-wide text-[9px]">
+                          Per-person attendance &amp; email
+                        </strong>{' '}
+                        on this card).
                       </p>
                     )
                   ) : null}
@@ -954,7 +958,7 @@ export default function DashboardUpcomingProgramRowItem({
 
             {subscriberIsAnnual && annualSeatUi ? (
               <div
-                className="mt-3 rounded-xl border border-slate-200/90 bg-white px-3 py-2.5 shadow-sm space-y-2"
+                className="mt-2 rounded-xl border border-slate-200/90 bg-white px-3 py-2 shadow-sm space-y-1.5"
                 data-testid={`dashboard-enrollment-defaults-${p.id}`}
               >
                 <p className="text-[9px] font-bold uppercase tracking-wide text-slate-500">
@@ -972,7 +976,7 @@ export default function DashboardUpcomingProgramRowItem({
                 <p className="text-[10px] text-slate-600 leading-snug">
                   <button
                     type="button"
-                    className="text-violet-700 font-semibold underline underline-offset-2 hover:text-violet-900 p-0 bg-transparent border-0 cursor-pointer text-left"
+                    className="text-violet-700 font-bold uppercase tracking-wide text-[9px] underline underline-offset-2 hover:text-violet-900 p-0 bg-transparent border-0 cursor-pointer text-left"
                     onClick={(e) => {
                       e.stopPropagation();
                       annualSeatUi.onOpenPerPersonSeatModal?.();
