@@ -464,6 +464,41 @@ export default function DashboardCombinedCheckoutPage() {
   const totalParticipants = items.reduce((sum, i) => sum + i.participants.length, 0);
   const numPrograms = items.length;
 
+  /** Sum of list vs offer unit prices per paying seat (matches roster columns) for “list – offer” savings line. */
+  const seatListOfferRollup = useMemo(() => {
+    let listTotal = 0;
+    let offerTotal = 0;
+    for (const item of items) {
+      for (const p of item.participants || []) {
+        const meta = item.portalLineMeta || {};
+        const selfIncluded =
+          subscriberIsAnnual && meta.annualIncluded && String(p.relationship || '').trim() === 'Myself';
+        if (selfIncluded) continue;
+        const lineQuote = annualQuotesByProgram[String(item.programId)] || null;
+        const guestBucketById = meta.guestBucketById || {};
+        const portalBase =
+          subscriberIsAnnual && lineQuote
+            ? annualPortalSeatUnitBasePrices(lineQuote, p, guestBucketById)
+            : null;
+        const unitOfferRaw = portalBase
+          ? toDisplay(portalBase.offer)
+          : getItemOfferPrice(item);
+        const unitListRaw = portalBase
+          ? toDisplay(portalBase.list)
+          : getItemPrice(item);
+        const payable = unitOfferRaw > 0 ? unitOfferRaw : unitListRaw;
+        const listPart =
+          unitOfferRaw > 0 && unitListRaw > unitOfferRaw ? unitListRaw : payable;
+        listTotal += listPart;
+        offerTotal += payable;
+      }
+    }
+    return {
+      listTotal: Math.round(listTotal * 100) / 100,
+      offerTotal: Math.round(offerTotal * 100) / 100,
+    };
+  }, [items, subscriberIsAnnual, annualQuotesByProgram, currency]);
+
   const cartProgramIdsForUrgency = useMemo(
     () =>
       [...new Set(items.filter((i) => i.type !== 'session').map((i) => String(i.programId).trim()).filter(Boolean))],
@@ -947,6 +982,28 @@ export default function DashboardCombinedCheckoutPage() {
           </p>
         ) : null}
         <div className="border-t border-gray-200 mt-4 pt-4 space-y-1.5">
+          {seatListOfferRollup.listTotal > seatListOfferRollup.offerTotal ? (
+            <div className="text-center mb-4 pb-3 border-b border-gray-100">
+              <p className="text-[10px] sm:text-xs font-bold uppercase tracking-[0.14em] text-gray-500 mb-2">
+                Program prices — list → offer
+              </p>
+              <p className="text-xl sm:text-2xl md:text-3xl font-bold text-gray-900 tabular-nums leading-tight">
+                <span className="line-through decoration-2 text-gray-400">
+                  {symbol}
+                  {seatListOfferRollup.listTotal.toLocaleString()}
+                </span>
+                <span className="mx-2 sm:mx-3 text-gray-300 font-light">–</span>
+                <span className="text-[#D4AF37]">
+                  {symbol}
+                  {seatListOfferRollup.offerTotal.toLocaleString()}
+                </span>
+              </p>
+              <p className="text-sm sm:text-base font-semibold text-green-700 mt-2 tabular-nums">
+                Save {symbol}
+                {(seatListOfferRollup.listTotal - seatListOfferRollup.offerTotal).toLocaleString()} on listed prices
+              </p>
+            </div>
+          ) : null}
           <div className="flex justify-between text-sm text-gray-700">
             <span>Subtotal</span>
             <span className="tabular-nums">
@@ -1049,26 +1106,21 @@ export default function DashboardCombinedCheckoutPage() {
             )}
 
             {!enrollmentId ? (
-              <div className="w-full space-y-3" data-testid="dashboard-combined-verify">
-                <p className="text-sm text-gray-600 leading-relaxed">
+              <div className="w-full space-y-4" data-testid="dashboard-combined-verify">
+                <p className="text-center text-lg sm:text-xl md:text-2xl font-bold text-gray-900 leading-snug px-1">
                   Review the list above, then continue.
                 </p>
                 <Button
                   onClick={startTrustedEnrollment}
                   disabled={enrollmentSubmitLoading}
-                  className="w-full bg-[#D4AF37] hover:bg-[#b8962e] text-white py-4 rounded-xl shadow-sm flex flex-col gap-1 items-center justify-center min-h-[3.5rem]"
+                  className="w-full bg-[#D4AF37] hover:bg-[#b8962e] text-white py-4 rounded-xl shadow-sm flex flex-row items-center justify-center gap-2 min-h-[3.25rem] font-bold uppercase tracking-wide text-base sm:text-lg"
                 >
                   {enrollmentSubmitLoading ? (
                     <Loader2 className="animate-spin" size={22} />
                   ) : (
                     <>
-                      <span className="flex items-center gap-2 text-base sm:text-lg font-semibold">
-                        <ChevronRight size={20} className="shrink-0" aria-hidden />
-                        Continue to payment
-                      </span>
-                      <span className="text-xs sm:text-sm font-normal text-white/90 leading-snug">
-                        Save enrollment &amp; show payment options
-                      </span>
+                      <ChevronRight size={22} className="shrink-0" aria-hidden />
+                      CONTINUE TO PAYMENT
                     </>
                   )}
                 </Button>
@@ -1309,6 +1361,7 @@ export default function DashboardCombinedCheckoutPage() {
             quotes={urgencyQuotes}
             programIds={cartProgramIdsForUrgency.length ? cartProgramIdsForUrgency : undefined}
             globalOnly={cartProgramIdsForUrgency.length === 0}
+            variant="centeredLarge"
           />
         </div>
       </div>

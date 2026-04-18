@@ -16,6 +16,8 @@ export default function MotivationalSignupFlash({
   programId,
   programIds,
   globalOnly,
+  /** Larger, centered quote — e.g. Divine Cart checkout */
+  variant = 'default',
 }) {
   const programIdsKey = Array.isArray(programIds) ? programIds.join(',') : '';
   const quotes = useMemo(
@@ -53,26 +55,53 @@ export default function MotivationalSignupFlash({
   const q = quotes[index];
   const text = q.text || '';
   const author = q.name || q.author;
+  const isCentered = variant === 'centeredLarge';
 
   return (
     <div
-      className={`overflow-hidden rounded-xl border-2 border-[#D4AF37]/40 px-4 py-3 relative ${className}`}
+      className={`overflow-hidden rounded-xl border-2 border-[#D4AF37]/40 relative ${
+        isCentered ? 'px-6 py-6 sm:px-8 sm:py-7' : 'px-4 py-3'
+      } ${className}`}
       style={{ background: 'linear-gradient(135deg, #2D1B69 0%, #4c1d95 40%, #5D3FD3 100%)' }}
       data-testid="motivation-flash-banner"
     >
       <div className="absolute top-0 left-0 right-0 h-0.5 bg-gradient-to-r from-transparent via-[#D4AF37] to-transparent animate-motivation-flash" />
       <div
-        className={`flex items-center gap-3 transition-all duration-300 ${
-          visible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-1'
+        className={`transition-all duration-300 ${
+          isCentered
+            ? `flex flex-col items-center text-center gap-4 ${visible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-1'}`
+            : `flex items-center gap-3 ${visible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-1'}`
         }`}
       >
-        <div className="w-7 h-7 rounded-full bg-[#D4AF37]/20 border border-[#D4AF37]/40 flex items-center justify-center shrink-0 animate-motivation-flash">
-          <Quote size={13} className="text-[#D4AF37]" />
+        <div
+          className={`rounded-full bg-[#D4AF37]/20 border border-[#D4AF37]/40 flex items-center justify-center shrink-0 animate-motivation-flash ${
+            isCentered ? 'w-11 h-11 sm:w-12 sm:h-12' : 'w-7 h-7'
+          }`}
+        >
+          <Quote size={isCentered ? 22 : 13} className="text-[#D4AF37]" />
         </div>
-        <p className="text-xs text-white/90 italic flex-1 leading-snug font-medium">
-          "{text}"
+        <p
+          className={
+            isCentered
+              ? 'text-lg sm:text-xl md:text-2xl text-white font-semibold leading-snug max-w-3xl mx-auto'
+              : 'text-xs text-white/90 italic flex-1 leading-snug font-medium'
+          }
+        >
+          {isCentered ? (
+            <span className="italic font-medium text-white/95">&ldquo;{text}&rdquo;</span>
+          ) : (
+            <>
+              &ldquo;{text}&rdquo;
+            </>
+          )}
         </p>
-        {author ? <span className="text-[10px] text-[#D4AF37] font-bold whitespace-nowrap">— {author}</span> : null}
+        {author ? (
+          <span
+            className={`text-[#D4AF37] font-bold ${isCentered ? 'text-sm sm:text-base' : 'text-[10px] whitespace-nowrap'}`}
+          >
+            — {author}
+          </span>
+        ) : null}
       </div>
     </div>
   );
