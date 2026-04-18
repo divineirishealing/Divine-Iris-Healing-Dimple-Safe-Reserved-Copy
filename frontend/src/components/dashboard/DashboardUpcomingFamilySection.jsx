@@ -1745,7 +1745,7 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh, bo
                             checked={notifyQuickPresetLive === 'custom'}
                             onChange={() => applyBulkNotify('all_off')}
                           />
-                          Custom (no emails)
+                          Custom
                         </label>
                         {notifyQuickPresetLive === 'mixed' ? (
                           <p className="text-[9px] text-amber-800/90">
