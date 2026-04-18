@@ -569,11 +569,23 @@ export default function DashboardUpcomingProgramRowItem({
               ) : subscriberIsAnnual ? (
                 <p className="text-[11px] text-slate-500 italic mb-2">Loading portal total…</p>
               ) : null}
-              {enrollStatus === 'open' ? null : (
+              {enrollStatus === 'open' ? (
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    goProgram();
+                  }}
+                  data-testid={`dashboard-know-more-annual-${p.id}`}
+                  className="mt-auto w-full inline-flex items-center justify-center bg-[#1a1a1a] hover:bg-[#333] text-white py-2.5 px-6 rounded-full text-[10px] tracking-wider transition-all duration-300 uppercase font-medium"
+                >
+                  Know More
+                </button>
+              ) : (
                 <button
                   type="button"
                   disabled
-                  className="mt-1 w-full bg-gray-300 text-gray-500 py-2 rounded-full text-[10px] tracking-wider uppercase font-medium cursor-not-allowed"
+                  className="mt-auto w-full bg-gray-300 text-gray-500 py-2 rounded-full text-[10px] tracking-wider uppercase font-medium cursor-not-allowed"
                 >
                   {p.closure_text || 'Closed'}
                 </button>
@@ -581,8 +593,8 @@ export default function DashboardUpcomingProgramRowItem({
             </div>
           </div>
 
-          {/* 2 — Pricing & offer, Family to join, Attendance & checkout (stacked) */}
-          <div className="flex flex-col gap-4 flex-1 min-w-0 w-full">
+                   {/* 2 — Pricing & offer, Family to join, Attendance & checkout (stacked); cart at bottom aligns with Know More on xl */}
+          <div className="flex flex-col gap-4 flex-1 min-w-0 w-full min-h-0">
             <div className="rounded-xl border border-slate-200 bg-white p-3 sm:p-4 shadow-sm min-h-0 flex flex-col min-w-0 w-full">
               <button
                 type="button"
@@ -980,53 +992,40 @@ export default function DashboardUpcomingProgramRowItem({
               </div>
             ) : null}
 
-            <div className="w-full pt-3 border-t border-slate-100">
+            <div className="w-full pt-3 border-t border-slate-100 mt-auto">
               {enrollStatus === 'open' ? (
-                <div className="flex flex-col sm:flex-row gap-2 sm:gap-3 w-full min-w-0">
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      goProgram();
-                    }}
-                    data-testid={`dashboard-know-more-annual-${p.id}`}
-                    className="flex-1 min-w-0 inline-flex items-center justify-center gap-2 rounded-full py-2.5 px-4 sm:px-6 text-[10px] tracking-wider uppercase font-medium transition-all duration-300 bg-[#1a1a1a] hover:bg-[#333] text-white"
-                  >
-                    Know More
-                  </button>
-                  <button
-                    type="button"
-                    disabled={!canAddToDivineCart || addingToCheckout}
-                    title={
-                      !canAddToDivineCart
-                        ? subscriberIsAnnual
-                          ? includedPkg && selCount < 1
-                            ? 'Select family members to join or wait for pricing.'
-                            : !aq
-                              ? 'Loading pricing…'
-                              : (aq.total || 0) <= 0
-                                ? 'No amount due for this selection.'
-                                : ''
-                          : showContact
-                            ? 'Use contact for pricing for this program.'
-                            : enrollStatus !== 'open'
-                              ? 'Enrollment is closed.'
+                <button
+                  type="button"
+                  disabled={!canAddToDivineCart || addingToCheckout}
+                  title={
+                    !canAddToDivineCart
+                      ? subscriberIsAnnual
+                        ? includedPkg && selCount < 1
+                          ? 'Select family members to join or wait for pricing.'
+                          : !aq
+                            ? 'Loading pricing…'
+                            : (aq.total || 0) <= 0
+                              ? 'No amount due for this selection.'
                               : ''
-                        : undefined
-                    }
-                    onClick={handleAddToDivineCart}
-                    className="flex-1 min-w-0 inline-flex items-center justify-center gap-2 rounded-full py-2.5 px-4 sm:px-6 text-[10px] tracking-wider uppercase font-medium transition-all duration-300 bg-[#D4AF37] text-white hover:bg-[#b8962e] disabled:opacity-50 disabled:pointer-events-none shadow-sm"
-                    aria-label="Add to Divine Cart"
-                    data-testid={`dashboard-divine-cart-${p.id}`}
-                  >
-                    {addingToCheckout ? (
-                      <Loader2 size={16} className="animate-spin shrink-0" />
-                    ) : (
-                      <ShoppingCart size={16} className="shrink-0" />
-                    )}
-                    Add to Divine Cart
-                  </button>
-                </div>
+                        : showContact
+                          ? 'Use contact for pricing for this program.'
+                          : enrollStatus !== 'open'
+                            ? 'Enrollment is closed.'
+                            : ''
+                      : undefined
+                  }
+                  onClick={handleAddToDivineCart}
+                  className="w-full inline-flex items-center justify-center gap-2 rounded-full py-2.5 px-6 text-[10px] tracking-wider uppercase font-medium transition-all duration-300 bg-[#D4AF37] text-white hover:bg-[#b8962e] disabled:opacity-50 disabled:pointer-events-none shadow-sm"
+                  aria-label="Add to Divine Cart"
+                  data-testid={`dashboard-divine-cart-${p.id}`}
+                >
+                  {addingToCheckout ? (
+                    <Loader2 size={16} className="animate-spin shrink-0" />
+                  ) : (
+                    <ShoppingCart size={16} className="shrink-0" />
+                  )}
+                  Add to Divine Cart
+                </button>
               ) : (
                 <button
                   type="button"
