@@ -18,7 +18,7 @@ const NAV_ITEMS = [
   { to: '/dashboard/bhaad', label: 'Bhaad Portal', icon: Sparkles, visKey: 'nav_bhaad' },
   { to: '/dashboard/tribe', label: 'Soul Tribe', icon: Heart, visKey: 'nav_tribe' },
   { to: '/dashboard/financials', label: 'Financials', icon: CreditCard, visKey: 'nav_financials' },
-  { to: '/dashboard/combined-checkout', label: 'Review & pay', icon: ShoppingCart, visKey: null },
+  { to: '/dashboard/combined-checkout', label: 'DIVINE CART', icon: ShoppingCart, visKey: null },
   { to: '/dashboard/points', label: 'Points', icon: Coins, visKey: 'nav_points' },
   { to: '/dashboard/profile', label: 'Profile', icon: User, visKey: 'nav_profile' },
 ];

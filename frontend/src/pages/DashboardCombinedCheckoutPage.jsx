@@ -117,7 +117,7 @@ function PaymentMethodTags({ methods }) {
 }
 
 /**
- * Portal Review & pay: same enrollment + Stripe / India / manual flows as main-site checkout,
+ * Portal Divine Cart (combined checkout): same enrollment + Stripe / India / manual flows as main-site checkout,
  * Logged-in portal flow skips email OTP; uses membership payment_methods from /api/student/home.
  */
 export default function DashboardCombinedCheckoutPage() {
@@ -386,7 +386,7 @@ export default function DashboardCombinedCheckoutPage() {
       });
   }, []);
 
-  /** Annual: package-included programs belong on the per-program payment flow only, not combined Review & pay. */
+  /** Annual: package-included programs belong on the per-program payment flow only, not combined Divine Cart. */
   useEffect(() => {
     if (!subscriberIsAnnual || annualPackageIncludedProgramIds === null) return;
     const excluded = items.filter((i) => isAnnualPackageIncludedCartLine(i, annualPackageIncludedProgramIds));
@@ -866,7 +866,7 @@ export default function DashboardCombinedCheckoutPage() {
       <div className="mb-6 flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
         <div>
           <h1 className="text-xl md:text-2xl font-semibold text-white drop-shadow-sm" data-testid="dashboard-combined-title">
-            Review &amp; pay — combined order
+            DIVINE CART — combined order
           </h1>
           <p className="text-xs text-violet-100/90 mt-1 max-w-xl">
             One row per seat. Change guests on the dashboard, then refresh this page if needed.

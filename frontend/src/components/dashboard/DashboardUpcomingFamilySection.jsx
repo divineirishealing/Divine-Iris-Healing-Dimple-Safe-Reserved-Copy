@@ -1231,7 +1231,7 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh, bo
           toast({
             title: 'Use payment on this program',
             description:
-              'Programs included in your annual package are not added to combined Review & pay. Use Continue to enrollment & payment on this card to pay for guest seats only.',
+              'Programs included in your annual package are not added to combined DIVINE CART. Use Continue to enrollment & payment on this card to pay for guest seats only.',
           });
           return;
         }
@@ -1278,8 +1278,8 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh, bo
     toast({
       title: 'Order updated',
       description: participants?.length
-        ? 'Review & pay now matches your dashboard seats for this program.'
-        : 'Add details on the dashboard, then open Review & pay.',
+        ? 'DIVINE CART now matches your dashboard seats for this program.'
+        : 'Add details on the dashboard, then open DIVINE CART.',
     });
     navigate('/dashboard/combined-checkout');
   };
@@ -1301,7 +1301,7 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh, bo
                 <span className="text-slate-700 font-medium">different</span> rules (Admin → Dashboard).{' '}
                 {isAnnual ? (
                   <>
-                    <strong className="text-slate-700 font-medium">Review &amp; pay</strong> is only for programs{' '}
+                    <strong className="text-slate-700 font-medium">DIVINE CART</strong> is only for programs{' '}
                     <span className="text-slate-700 font-medium">not</span> already in your annual package — use{' '}
                     <strong className="text-slate-700 font-medium">Add to order</strong> on those. For package-included
                     programs, use <strong className="text-slate-700 font-medium">Continue to enrollment &amp; payment</strong>{' '}
@@ -1311,7 +1311,7 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh, bo
                 ) : (
                   <>
                     Use <strong className="text-slate-700 font-medium">Add to order</strong> on each program, then open{' '}
-                    <strong className="text-slate-700 font-medium">Review &amp; pay</strong> in the sidebar to see every seat
+                    <strong className="text-slate-700 font-medium">DIVINE CART</strong> in the sidebar to see every seat
                     and checkout.
                   </>
                 )}
@@ -1328,7 +1328,7 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh, bo
               data-testid="dashboard-open-combined-checkout"
             >
               <CreditCard size={16} className="text-violet-700" />
-              <span className="text-xs font-semibold">Review &amp; pay</span>
+              <span className="text-xs font-semibold">DIVINE CART</span>
               {itemCount > 0 ? (
                 <span className="min-w-[1.25rem] h-5 px-1.5 rounded-full bg-violet-600 text-white text-[10px] font-bold tabular-nums flex items-center justify-center">
                   {itemCount}

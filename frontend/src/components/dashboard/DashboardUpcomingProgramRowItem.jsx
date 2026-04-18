@@ -266,7 +266,7 @@ export default function DashboardUpcomingProgramRowItem({
       toast({
         title: 'Not added to combined order',
         description:
-          'Programs in your annual package do not go through Review & pay. Pay for guest seats with Continue to enrollment & payment on this card.',
+          'Programs in your annual package do not go through DIVINE CART. Pay for guest seats with Continue to enrollment & payment on this card.',
       });
       return;
     }
@@ -305,7 +305,7 @@ export default function DashboardUpcomingProgramRowItem({
     syncProgramLineItem(p, tierIdxForDisplay, participants, {
       familyIds: selIds.map(String),
       bookerJoins: annualSeatUi?.draft?.bookerJoinsProgram !== false,
-      /** Must match dashboard / quote: annual add-ons were always false here before, so Review & pay used title heuristics and dropped real lines. */
+      /** Must match dashboard / quote: annual add-ons were always false here before, so Divine Cart used title heuristics and dropped real lines. */
       annualIncluded: !!includedPkg,
       portalQuoteTotal: aq?.total != null ? Number(aq.total) : null,
       guestBucketById,
@@ -314,7 +314,7 @@ export default function DashboardUpcomingProgramRowItem({
     toast({
       title: wasInCart ? `${p.title} — order refreshed` : `${p.title} added to your order`,
       description: participants?.length
-        ? `${tier?.label || 'Selected'} plan — Review & pay matches who you selected on the dashboard.`
+        ? `${tier?.label || 'Selected'} plan — DIVINE CART matches who you selected on the dashboard.`
         : `${tier?.label || 'Selected'} plan`,
       variant: wasInCart && !participants?.length ? 'destructive' : undefined,
     });
@@ -570,7 +570,7 @@ export default function DashboardUpcomingProgramRowItem({
                   <p className="text-[10px] text-slate-500 mt-2 leading-snug">
                     Use <strong className="text-slate-700 font-medium">Add to order</strong> or{' '}
                     <strong className="text-slate-700 font-medium">Continue to enrollment &amp; payment</strong> below. Everyone
-                    you select appears in <strong className="text-slate-700 font-medium">Review &amp; pay</strong> (sidebar) with
+                    you select appears in <strong className="text-slate-700 font-medium">DIVINE CART</strong> (sidebar) with
                     name, attendance, email, and notifications.
                   </p>
                 </>
@@ -947,11 +947,11 @@ export default function DashboardUpcomingProgramRowItem({
                 Payment method matches your membership (Stripe vs UPI / bank).{' '}
                 {includedPkg ? (
                   <>
-                    This program is in your annual package — combined <strong className="text-slate-700 font-medium">Review &amp; pay</strong> is only for add-on programs. Use the button below to pay for guest seats.
+                    This program is in your annual package — combined <strong className="text-slate-700 font-medium">DIVINE CART</strong> is only for add-on programs. Use the button below to pay for guest seats.
                   </>
                 ) : (
                   <>
-                    Open <strong className="text-slate-700 font-medium">Review &amp; pay</strong> to see every participant and complete checkout in the portal.
+                    Open <strong className="text-slate-700 font-medium">DIVINE CART</strong> to see every participant and complete checkout in the portal.
                   </>
                 )}
               </p>
@@ -1217,7 +1217,7 @@ export default function DashboardUpcomingProgramRowItem({
                   </div>
                   <p className="text-xs text-slate-500 mt-3 leading-relaxed">
                     Tap the image to add this program to your order with the tier selected above. Everyone you add shows up under{' '}
-                    <strong className="text-slate-700 font-medium">Review &amp; pay</strong> in the sidebar.
+                    <strong className="text-slate-700 font-medium">DIVINE CART</strong> in the sidebar.
                   </p>
                 </>
               )}

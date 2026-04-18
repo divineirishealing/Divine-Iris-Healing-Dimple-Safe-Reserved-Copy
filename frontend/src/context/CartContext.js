@@ -71,7 +71,7 @@ export const CartProvider = ({ children }) => {
 
   /**
    * Add a program line or replace its participants if the same programId + tierIndex exists.
-   * Keeps Review & pay in sync when dashboard seat picks change after the program was already in the cart.
+   * Keeps Divine Cart in sync when dashboard seat picks change after the program was already in the cart.
    */
   const syncProgramLineItem = useCallback((program, tierIndex, participantsOverride = null, portalLineMeta = null) => {
     const tiers = program.duration_tiers || [];

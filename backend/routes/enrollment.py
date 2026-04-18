@@ -134,7 +134,7 @@ class ParticipantData(BaseModel):
 
 
 class PortalCartLineIn(BaseModel):
-    """Annual portal Review & pay: one line per program so server can set dashboard_mixed_total like dashboard-pay."""
+    """Annual portal Divine Cart: one line per program so server can set dashboard_mixed_total like dashboard-pay."""
     program_id: str
     tier_index: int = 0
     family_member_ids: List[str] = Field(default_factory=list)

@@ -801,7 +801,7 @@ async def _portal_combined_dashboard_total(user: dict, profile: ProfileData) -> 
 
 @router.post("/combined-enrollment-start")
 async def student_combined_enrollment_start(profile: ProfileData, request: Request, user: dict = Depends(get_current_user)):
-    """Portal Review & pay: create enrollment without email OTP; booker must match logged-in student."""
+    """Portal Divine Cart: create enrollment without email OTP; booker must match logged-in student."""
     uemail = (user.get("email") or "").strip().lower()
     if not uemail:
         raise HTTPException(status_code=400, detail="Account has no email")

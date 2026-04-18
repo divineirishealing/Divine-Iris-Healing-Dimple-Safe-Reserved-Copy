@@ -30,7 +30,7 @@ export function programIncludedInAnnualPackage(p, configuredIds) {
 }
 
 /**
- * Cart line for an annual package–included program must not go through combined Review & pay
+ * Cart line for an annual package–included program must not go through combined Divine Cart
  * (use per-program “Continue to enrollment & payment” instead).
  */
 export function isAnnualPackageIncludedCartLine(item, configuredIds) {
