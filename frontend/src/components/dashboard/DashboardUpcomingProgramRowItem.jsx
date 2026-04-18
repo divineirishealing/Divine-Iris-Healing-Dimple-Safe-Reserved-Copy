@@ -24,7 +24,7 @@ import {
   promoDiscountAmount,
 } from './dashboardUpcomingHelpers';
 
-/** Portal quote: list or spreadsheet-style table (aligned columns). */
+/** Portal quote: list layout, or compact “offer per person” under Pricing & offer. */
 function AnnualQuoteBreakdown({ aq, symbol, includedPkg, suppressIntro = false, layout = 'list' }) {
   if (!aq) {
     return <p className="text-[11px] text-slate-500 italic">Calculating total…</p>;
@@ -42,153 +42,60 @@ function AnnualQuoteBreakdown({ aq, symbol, includedPkg, suppressIntro = false, 
     ) : null;
 
   if (layout === 'table') {
-    const cell = 'border border-slate-200 px-1.5 sm:px-2 py-1.5 align-top min-w-0';
-    const th = `${cell} bg-slate-100/95 text-[9px] font-bold uppercase tracking-wide text-slate-600`;
-    const money = 'text-right tabular-nums whitespace-nowrap';
-    const listSub =
-      aq.list_subtotal != null
-        ? Number(aq.list_subtotal)
-        : (showSelf ? Number(aq.self_unit || 0) : 0) + Number(aq.family_line_gross || 0);
-    const offerSub = Number(aq.offer_subtotal ?? aq.total ?? 0);
-    const discTotal =
-      aq.portal_discount_total != null
-        ? Number(aq.portal_discount_total)
-        : Math.max(0, listSub - offerSub);
-    const taxEst = Number(aq.tax_included_estimate || 0);
-    const taxRate = Number(aq.tax_rate_pct || 0);
-    const showTaxRow = aq.quote_show_tax !== false;
-    const detailTd = (title, subtitle) => (
-      <td className={`${cell} min-w-0`}>
-        <div className="font-semibold text-slate-800">{title}</div>
-        {subtitle ? (
-          <div className="text-slate-600 text-[9px] sm:text-[10px] mt-0.5 leading-snug">{subtitle}</div>
-        ) : null}
-      </td>
-    );
+    const selfOffer = Number(aq.self_after_promos ?? 0);
+    const immOfferEach = imm > 0 ? Number(aq.immediate_family_after_promos ?? 0) / imm : null;
+    const extOfferEach = ext > 0 ? Number(aq.extended_guests_after_promos ?? 0) / ext : null;
+    const rowClass = 'flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1 text-[11px] text-slate-800';
     return (
-      <div className="text-[11px] text-slate-800 leading-snug w-full min-w-0">
+      <div className="text-[11px] text-slate-800 leading-snug w-full min-w-0 space-y-2">
         {!suppressIntro ? (
-          <p className="text-[10px] font-bold uppercase tracking-wide text-slate-500 mb-2">
-            Prices — Annual member · Immediate family · Friends &amp; extended
+          <p className="text-[10px] font-bold uppercase tracking-wide text-slate-500">
+            Offer price per person (portal)
           </p>
         ) : null}
-        <div className="rounded-md border border-slate-200 bg-white w-full">
-          <table className="w-full border-collapse table-fixed text-[10px] sm:text-[11px]">
-            <colgroup>
-              <col className="w-[62%]" />
-              <col className="w-[38%]" />
-            </colgroup>
-            <thead>
-              <tr>
-                <th className={`${th} text-left min-w-0 break-words`}>Detail</th>
-                <th className={`${th} ${money}`}>Amount</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr className="bg-slate-50/80">
-                {detailTd('Original price', 'List total before offers')}
-                <td className={`${cell} ${money} font-semibold text-slate-900`}>
-                  {symbol}
-                  {listSub.toLocaleString()}
-                </td>
-              </tr>
-              <tr className="bg-slate-50/80">
-                {detailTd('Offer price', 'After portal offers')}
-                <td className={`${cell} ${money} font-semibold text-slate-900`}>
-                  {symbol}
-                  {offerSub.toLocaleString()}
-                </td>
-              </tr>
-              <tr className="bg-slate-50/80">
-                {detailTd('Total discount', discTotal > 0 ? 'Promos & portal rules' : '—')}
-                <td className={`${cell} ${money} font-semibold text-emerald-800`}>
-                  {discTotal > 0 ? '−' : ''}
-                  {symbol}
-                  {discTotal.toLocaleString()}
-                </td>
-              </tr>
-              {showTaxRow ? (
-                <tr className="bg-slate-50/80">
-                  {detailTd(
-                    'Tax',
-                    taxEst > 0 && taxRate > 0 ? `GST ${taxRate}% included in offer price` : '—',
-                  )}
-                  <td className={`${cell} ${money} font-semibold text-slate-900`}>
-                    {taxEst > 0 ? (
-                      <>
-                        {symbol}
-                        {taxEst.toLocaleString()}
-                      </>
-                    ) : (
-                      '—'
-                    )}
-                  </td>
-                </tr>
-              ) : null}
-              {includedPkg ? (
-                <tr>
-                  {detailTd('Your seat', 'Included in annual package')}
-                  <td className={`${cell} ${money} text-slate-500`}>—</td>
-                </tr>
-              ) : null}
-              {showSelf ? (
-                <tr>
-                  {detailTd('You (annual member)', selfStrike ? <>List {selfStrike}</> : '—')}
-                  <td className={`${cell} ${money} font-semibold text-slate-900`}>
-                    {symbol}
-                    {Number(aq.self_after_promos ?? 0).toLocaleString()}
-                  </td>
-                </tr>
-              ) : null}
-              {imm > 0 ? (
-                <tr>
-                  {detailTd(
-                    'Immediate family',
-                    <>
-                      <span>× {imm}</span>
-                      {imm > 1 ? (
-                        <span className="block text-[10px] text-slate-500 tabular-nums mt-0.5">
-                          {symbol}
-                          {(Number(aq.immediate_family_after_promos) / imm).toFixed(0)} each
-                        </span>
-                      ) : null}
-                    </>,
-                  )}
-                  <td className={`${cell} ${money} font-semibold text-slate-900`}>
-                    {symbol}
-                    {Number(aq.immediate_family_after_promos ?? 0).toLocaleString()}
-                  </td>
-                </tr>
-              ) : null}
-              {ext > 0 ? (
-                <tr>
-                  {detailTd(
-                    'Friends & extended',
-                    <>
-                      <span>× {ext}</span>
-                      {ext > 1 ? (
-                        <span className="block text-[10px] text-slate-500 tabular-nums mt-0.5">
-                          {symbol}
-                          {(Number(aq.extended_guests_after_promos) / ext).toFixed(0)} each
-                        </span>
-                      ) : null}
-                    </>,
-                  )}
-                  <td className={`${cell} ${money} font-semibold text-slate-900`}>
-                    {symbol}
-                    {Number(aq.extended_guests_after_promos ?? 0).toLocaleString()}
-                  </td>
-                </tr>
-              ) : null}
-              <tr className="bg-slate-50/90">
-                <td className={`${cell} font-bold text-slate-900`}>Total</td>
-                <td className={`${cell} ${money} font-bold text-slate-900`}>
-                  {symbol}
-                  {Number(aq.total ?? 0).toLocaleString()}
-                </td>
-              </tr>
-            </tbody>
-          </table>
+        <div className="rounded-md border border-slate-200 bg-white w-full px-3 py-2.5 space-y-2">
+          {includedPkg ? (
+            <div className={rowClass}>
+              <span className="text-slate-700">Your seat</span>
+              <span className="text-slate-600 text-right">Included in annual package</span>
+            </div>
+          ) : null}
+          {showSelf ? (
+            <div className={rowClass}>
+              <span className="font-medium text-slate-800">You (annual member)</span>
+              <span className="font-semibold tabular-nums text-slate-900">
+                {symbol}
+                {selfOffer.toLocaleString()}
+                <span className="text-slate-500 font-normal text-[10px] ml-1">per person</span>
+              </span>
+            </div>
+          ) : null}
+          {imm > 0 ? (
+            <div className={rowClass}>
+              <span className="font-medium text-slate-800">Immediate family</span>
+              <span className="font-semibold tabular-nums text-slate-900">
+                {symbol}
+                {Math.round(immOfferEach ?? 0).toLocaleString()}
+                <span className="text-slate-500 font-normal text-[10px] ml-1">per person</span>
+              </span>
+            </div>
+          ) : null}
+          {ext > 0 ? (
+            <div className={rowClass}>
+              <span className="font-medium text-slate-800">Friends &amp; extended</span>
+              <span className="font-semibold tabular-nums text-slate-900">
+                {symbol}
+                {Math.round(extOfferEach ?? 0).toLocaleString()}
+                <span className="text-slate-500 font-normal text-[10px] ml-1">per person</span>
+              </span>
+            </div>
+          ) : null}
+          {!includedPkg && !showSelf && imm === 0 && ext === 0 ? (
+            <p className="text-[11px] text-slate-500">Select family members to see offer pricing for guests.</p>
+          ) : null}
+          {includedPkg && imm === 0 && ext === 0 ? (
+            <p className="text-[11px] text-slate-500">Select who is joining to see offer price per guest seat.</p>
+          ) : null}
         </div>
       </div>
     );
