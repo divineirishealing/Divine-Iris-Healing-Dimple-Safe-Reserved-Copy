@@ -582,11 +582,6 @@ export default function DashboardUpcomingProgramRowItem({
                   >
                     Know More
                   </button>
-                  <p className="text-[10px] text-slate-500 mt-2 leading-snug">
-                    Use <strong className="text-slate-700 font-medium">Add to Divine Cart</strong> below. Everyone you select
-                    appears in <strong className="text-slate-700 font-medium">DIVINE CART</strong> (sidebar) with name,
-                    attendance, email, and notifications.
-                  </p>
                 </>
               ) : (
                 <button
