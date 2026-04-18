@@ -127,18 +127,20 @@ const OrderHistoryPage = () => {
     <div className="w-full max-w-[min(100vw-2rem,1600px)] mx-auto space-y-6">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div className="flex items-start gap-4 min-w-0">
-          <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-[#5D3FD3]/20 to-[#84A98C]/20 flex items-center justify-center border border-violet-100 shrink-0">
-            <ClipboardList className="text-[#5D3FD3]" size={28} />
+          <div className="w-14 h-14 rounded-2xl bg-white/15 flex items-center justify-center border border-white/25 shadow-[0_4px_24px_rgba(0,0,0,0.15)] shrink-0 backdrop-blur-sm">
+            <ClipboardList className="text-[#E8D5A3]" size={28} />
           </div>
           <div className="min-w-0">
-            <h1 className="text-3xl md:text-4xl font-bold text-gray-900 tracking-tight">My order history</h1>
-            <p className="text-base md:text-lg text-gray-600 mt-2 leading-relaxed max-w-3xl">
+            <h1 className="text-3xl md:text-4xl font-bold text-white tracking-tight drop-shadow-[0_2px_8px_rgba(0,0,0,0.35)]">
+              My order history
+            </h1>
+            <p className="text-base md:text-lg text-white/90 mt-2 leading-relaxed max-w-3xl drop-shadow-[0_1px_4px_rgba(0,0,0,0.25)]">
               Programs, sessions, and contributions linked to your portal email and your Client Garden record (as booker,
               participant, or donor).
             </p>
             {user?.email ? (
-              <p className="text-sm md:text-base text-gray-500 mt-2">
-                Signed in as <span className="text-gray-800 font-semibold">{user.email}</span>
+              <p className="text-sm md:text-base text-white/80 mt-2 drop-shadow-[0_1px_3px_rgba(0,0,0,0.2)]">
+                Signed in as <span className="text-[#F5E6B8] font-semibold">{user.email}</span>
               </p>
             ) : null}
           </div>
@@ -146,7 +148,7 @@ const OrderHistoryPage = () => {
         <Button
           type="button"
           variant="outline"
-          className="shrink-0 gap-2 border-gray-300 text-base h-11 px-5"
+          className="shrink-0 gap-2 border-white/40 bg-white/10 text-white text-base h-11 px-5 hover:bg-white/20 hover:text-white backdrop-blur-sm"
           disabled={loading || !BACKEND_URL}
           onClick={() => setReloadToken((t) => t + 1)}
         >
@@ -283,12 +285,12 @@ const OrderHistoryPage = () => {
         </CardContent>
       </Card>
 
-      <p className="text-center text-sm md:text-base text-gray-500">
-        <Link to="/dashboard/profile" className="text-[#5D3FD3] hover:underline font-medium">
+      <p className="text-center text-sm md:text-base text-white/70">
+        <Link to="/dashboard/profile" className="text-[#E8D5A3] hover:text-[#F5E6B8] hover:underline font-medium">
           Back to profile
         </Link>
-        {' · '}
-        <Link to="/dashboard/financials" className="text-[#5D3FD3] hover:underline font-medium">
+        <span className="text-white/40 mx-2">·</span>
+        <Link to="/dashboard/financials" className="text-[#E8D5A3] hover:text-[#F5E6B8] hover:underline font-medium">
           Financials
         </Link>
       </p>
