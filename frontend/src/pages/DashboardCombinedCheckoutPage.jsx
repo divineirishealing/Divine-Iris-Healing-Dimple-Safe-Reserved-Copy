@@ -17,8 +17,10 @@ import {
   ShieldCheck,
   FileText,
   Gift,
+  ExternalLink,
 } from 'lucide-react';
 import MotivationalSignupFlash from '../components/MotivationalSignupFlash';
+import { ManualPaymentProofBody } from '../components/dashboard/ManualPaymentProofBody';
 import { getAuthHeaders } from '../lib/authHeaders';
 import { useAuth } from '../context/AuthContext';
 import { readUpcomingDashboardSession } from '../lib/dashboardUpcomingSessionStorage';
@@ -146,7 +148,11 @@ export default function DashboardCombinedCheckoutPage() {
     disclaimer_style: {},
     india_enabled: false,
     manual_form_enabled: true,
+    india_exly_link: '',
   });
+  /** null | 'manual' | 'exly' — keep India flows on this dashboard page (no public site routes). */
+  const [portalPayMode, setPortalPayMode] = useState(null);
+  const userClosedPortalPayRef = useRef(false);
   const [checkoutPromoVisible, setCheckoutPromoVisible] = useState(null);
   const [urgencyQuotes, setUrgencyQuotes] = useState([]);
   const [pointsSummary, setPointsSummary] = useState(null);
@@ -363,6 +369,7 @@ export default function DashboardCombinedCheckoutPage() {
           disclaimer_style: s.payment_disclaimer_style || {},
           india_enabled: s.india_payment_enabled || false,
           manual_form_enabled: s.manual_form_enabled !== false,
+          india_exly_link: (s.india_exly_link || '').trim(),
         });
         setUrgencyQuotes(s.enrollment_urgency_quotes || []);
         setCheckoutPromoVisible(s.checkout_promo_code_visible !== false);
@@ -576,14 +583,42 @@ export default function DashboardCombinedCheckoutPage() {
     [paymentMethods],
   );
   const hasStripe = pmLower.includes('stripe');
-  /** Subscriber has India-tagged methods from admin (UPI / bank / manual) — show proof & Exly paths even when IP ≠ IN. */
+  const memberExlyTagged = pmLower.includes('exly');
+  /** Subscriber has India-tagged methods from admin (UPI / bank / manual) — show proof paths even when IP ≠ IN. */
   const memberIndiaTagged =
     pmLower.includes('gpay') || pmLower.includes('bank') || pmLower.includes('manual');
   const bookerIndia = String(bookerCountry || '').trim().toUpperCase() === 'IN';
   const siteIndiaAlternatePayments =
     !!paymentSettings.india_enabled && (detectedCountry === 'IN' || bookerIndia);
   const showIndiaAlternatePaymentsBlock =
-    total > 0 && (memberIndiaTagged || siteIndiaAlternatePayments);
+    total > 0 && (memberIndiaTagged || memberExlyTagged || siteIndiaAlternatePayments);
+  const allowManualProof =
+    paymentSettings.manual_form_enabled !== false &&
+    memberIndiaTagged &&
+    showIndiaAlternatePaymentsBlock;
+  const allowExlyCheckout =
+    memberExlyTagged && showIndiaAlternatePaymentsBlock && !!paymentSettings.india_exly_link;
+
+  useEffect(() => {
+    userClosedPortalPayRef.current = false;
+    setPortalPayMode(null);
+  }, [enrollmentId]);
+
+  /** One non-Stripe path: open immediately after CONTINUE TO PAYMENT (until user backs out once). */
+  useEffect(() => {
+    if (!enrollmentId || total <= 0 || hasStripe) return;
+    if (portalPayMode != null) return;
+    if (userClosedPortalPayRef.current) return;
+    if (allowManualProof && !allowExlyCheckout) setPortalPayMode('manual');
+    else if (allowExlyCheckout && !allowManualProof) setPortalPayMode('exly');
+  }, [
+    enrollmentId,
+    total,
+    hasStripe,
+    allowManualProof,
+    allowExlyCheckout,
+    portalPayMode,
+  ]);
 
   useEffect(() => {
     if (promoFromUrlApplied.current || checkoutPromoVisible !== true || items.length === 0) return;
@@ -1210,96 +1245,134 @@ export default function DashboardCombinedCheckoutPage() {
                   </div>
                 )}
 
-                {showIndiaAlternatePaymentsBlock && (
-                  <div className="mb-4" data-testid="dashboard-combined-india">
-                    <div className="border-2 border-[#D4AF37] rounded-lg p-4 mb-3 bg-[#D4AF37]/5">
-                      <div className="flex items-center gap-2 mb-2 flex-wrap">
-                        <CreditCard size={16} className="text-[#D4AF37]" />
-                        <span className="text-sm font-semibold text-gray-900">Pay with card (Stripe)</span>
-                        {hasStripe ? (
-                          <span className="text-[9px] bg-green-100 text-green-700 px-2 py-0.5 rounded-full font-medium">
-                            Enabled for you
-                          </span>
-                        ) : (
-                          <span className="text-[9px] bg-amber-100 text-amber-800 px-2 py-0.5 rounded-full font-medium">
-                            Not on your account — use manual / India options
-                          </span>
-                        )}
-                      </div>
-                      <p className="text-[10px] text-gray-600">
-                        International card payment when Stripe is enabled for your membership.
-                      </p>
-                    </div>
-                    <div className="relative my-3">
-                      <div className="absolute inset-0 flex items-center">
-                        <div className="w-full border-t border-gray-200" />
-                      </div>
-                      <div className="relative flex justify-center">
-                        <span className="bg-white px-3 text-[10px] text-gray-400 uppercase">India options</span>
-                      </div>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        window.history.replaceState(null, '', `${PORTAL_CHECKOUT_PATH}${portalReturnQs}`);
-                        const params = new URLSearchParams({
-                          program: items.map((i) => i.programTitle).join(', '),
-                          price: String(subtotal || 0),
-                          promo_discount: String(discount || 0),
-                          auto_discount: String(totalAutoDiscount || 0),
-                        });
-                        navigate(`/india-payment/${enrollmentId}?${params.toString()}`);
+                {total > 0 && enrollmentId && portalPayMode === 'manual' && (
+                  <div className="mb-4" data-testid="dashboard-combined-manual-embed">
+                    <ManualPaymentProofBody
+                      enrollmentId={enrollmentId}
+                      variant="embed"
+                      onBack={() => {
+                        userClosedPortalPayRef.current = true;
+                        setPortalPayMode(null);
                       }}
-                      className="flex items-center justify-between w-full border rounded-lg p-4 hover:border-purple-400 hover:bg-purple-50/50 transition-all group"
-                    >
-                      <div className="flex items-center gap-3">
-                        <div className="w-8 h-8 bg-purple-100 rounded-lg flex items-center justify-center">
-                          <CreditCard size={14} className="text-purple-600" />
-                        </div>
-                        <div>
-                          <span className="text-sm font-medium text-gray-900 group-hover:text-purple-600">
-                            Exly / bank transfer
-                          </span>
-                          <p className="text-[10px] text-gray-500">GPay, cards, NEFT</p>
-                        </div>
-                      </div>
-                      <ChevronRight size={16} className="text-gray-400 group-hover:text-purple-600" />
-                    </button>
-                    {paymentSettings.manual_form_enabled && (
-                      <button
-                        type="button"
-                        onClick={() => {
-                          window.history.replaceState(null, '', `${PORTAL_CHECKOUT_PATH}${portalReturnQs}`);
-                          navigate(`/manual-payment/${enrollmentId}`);
-                        }}
-                        className="flex items-center justify-between w-full border rounded-lg p-4 mt-2 hover:border-teal-400 hover:bg-teal-50/50 transition-all group"
-                      >
-                        <div className="flex items-center gap-3">
-                          <div className="w-8 h-8 bg-teal-100 rounded-lg flex items-center justify-center">
-                            <FileText size={14} className="text-teal-600" />
-                          </div>
-                          <div>
-                            <span className="text-sm font-medium text-gray-900 group-hover:text-teal-600">
-                              Manual payment · proof upload
-                            </span>
-                            <p className="text-[10px] text-teal-600 font-medium">Aligned with GPay / bank on your account</p>
-                          </div>
-                        </div>
-                        <ChevronRight size={16} className="text-gray-400 group-hover:text-teal-600" />
-                      </button>
-                    )}
+                      onSubmitted={() => {
+                        clearCart();
+                        navigate('/dashboard');
+                      }}
+                    />
                   </div>
                 )}
 
+                {total > 0 && enrollmentId && portalPayMode === 'exly' && (
+                  <div
+                    className="mb-4 rounded-xl border border-purple-200 bg-purple-50/70 p-4 space-y-3"
+                    data-testid="dashboard-combined-exly-embed"
+                  >
+                    <p className="text-sm font-semibold text-gray-900">Pay with Exly</p>
+                    <p className="text-[11px] text-gray-600 leading-snug">
+                      Complete payment on Exly in a new tab. When finished, you can return to your dashboard — or use manual proof if
+                      your admin asked for a receipt upload.
+                    </p>
+                    <a
+                      href={paymentSettings.india_exly_link}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center justify-center gap-2 w-full rounded-xl bg-[#5D3FD3] hover:bg-[#4c32b3] text-white text-sm font-semibold py-3 px-4"
+                    >
+                      Open Exly checkout <ExternalLink size={16} />
+                    </a>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="w-full rounded-xl"
+                      onClick={() => {
+                        userClosedPortalPayRef.current = true;
+                        setPortalPayMode(null);
+                      }}
+                    >
+                      <ChevronLeft size={16} className="mr-2" /> Back to checkout
+                    </Button>
+                  </div>
+                )}
+
+                {showIndiaAlternatePaymentsBlock &&
+                  portalPayMode == null &&
+                  (allowExlyCheckout || allowManualProof) && (
+                    <div className="mb-4" data-testid="dashboard-combined-india">
+                      <div className="relative my-3">
+                        <div className="absolute inset-0 flex items-center">
+                          <div className="w-full border-t border-gray-200" />
+                        </div>
+                        <div className="relative flex justify-center">
+                          <span className="bg-white px-3 text-[10px] text-gray-400 uppercase">
+                            {allowExlyCheckout && allowManualProof
+                              ? 'Choose how to pay'
+                              : allowExlyCheckout
+                                ? 'Your payment option'
+                                : 'Your payment option'}
+                          </span>
+                        </div>
+                      </div>
+                      {allowExlyCheckout && (
+                        <button
+                          type="button"
+                          onClick={() => setPortalPayMode('exly')}
+                          className="flex items-center justify-between w-full border rounded-lg p-4 hover:border-purple-400 hover:bg-purple-50/50 transition-all group"
+                        >
+                          <div className="flex items-center gap-3">
+                            <div className="w-8 h-8 bg-purple-100 rounded-lg flex items-center justify-center">
+                              <CreditCard size={14} className="text-purple-600" />
+                            </div>
+                            <div>
+                              <span className="text-sm font-medium text-gray-900 group-hover:text-purple-600">
+                                Exly / bank transfer
+                              </span>
+                              <p className="text-[10px] text-gray-500">GPay, cards, NEFT</p>
+                            </div>
+                          </div>
+                          <ChevronRight size={16} className="text-gray-400 group-hover:text-purple-600" />
+                        </button>
+                      )}
+                      {allowManualProof && (
+                        <button
+                          type="button"
+                          onClick={() => setPortalPayMode('manual')}
+                          className={`flex items-center justify-between w-full border rounded-lg p-4 hover:border-teal-400 hover:bg-teal-50/50 transition-all group ${
+                            allowExlyCheckout ? 'mt-2' : ''
+                          }`}
+                        >
+                          <div className="flex items-center gap-3">
+                            <div className="w-8 h-8 bg-teal-100 rounded-lg flex items-center justify-center">
+                              <FileText size={14} className="text-teal-600" />
+                            </div>
+                            <div>
+                              <span className="text-sm font-medium text-gray-900 group-hover:text-teal-600">
+                                Manual payment · proof upload
+                              </span>
+                              <p className="text-[10px] text-teal-600 font-medium">
+                                UPI / bank — stay on this dashboard page
+                              </p>
+                            </div>
+                          </div>
+                          <ChevronRight size={16} className="text-gray-400 group-hover:text-teal-600" />
+                        </button>
+                      )}
+                    </div>
+                  )}
+
                 <div className="flex flex-col gap-3 mt-4 w-full">
+                  {(total <= 0 || hasStripe) && !(total > 0 && portalPayMode === 'manual') && (
                   <Button
                     data-testid="dashboard-combined-stripe-pay"
                     onClick={handleCheckout}
-                    disabled={processing || (total > 0 && !enrollmentId) || (total > 0 && !hasStripe)}
+                    disabled={
+                      processing ||
+                      (total > 0 && !enrollmentId) ||
+                      (total > 0 && !hasStripe)
+                    }
                     className="w-full bg-[#D4AF37] hover:bg-[#b8962e] text-white py-4 text-base font-semibold rounded-xl disabled:opacity-50 shadow-sm"
                     title={
                       total > 0 && !hasStripe
-                        ? 'Stripe is not enabled on your account — use India / manual options if shown, or contact support.'
+                        ? 'Stripe is not enabled on your account — use the option above, or contact support.'
                         : undefined
                     }
                   >
@@ -1318,6 +1391,7 @@ export default function DashboardCombinedCheckoutPage() {
                       </>
                     )}
                   </Button>
+                  )}
                   <Button
                     variant="outline"
                     onClick={() => navigate('/dashboard')}
