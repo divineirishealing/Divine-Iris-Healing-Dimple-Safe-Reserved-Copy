@@ -560,6 +560,13 @@ async def approve_payment_proof(proof_id: str):
             or proof.get("payer_name")
             or ""
         )
+        be_norm = (booker_email_resolved or "").strip().lower()
+        pe_norm = (payer_email_resolved or "").strip().lower()
+        portal_user_doc = None
+        if be_norm:
+            portal_user_doc = await db.users.find_one({"email": be_norm}, {"id": 1, "client_id": 1})
+        if not portal_user_doc and pe_norm and pe_norm != be_norm:
+            portal_user_doc = await db.users.find_one({"email": pe_norm}, {"id": 1, "client_id": 1})
 
         # Create a completed transaction
         fake_session_id = f"india_{uuid.uuid4().hex[:12]}"
@@ -576,8 +583,8 @@ async def approve_payment_proof(proof_id: str):
             "payment_method": "manual_proof",
             "bank_name": proof.get("bank_name", ""),
             "booker_name": booker_name_resolved,
-            "booker_email": booker_email_resolved,
-            "payer_email": payer_email_resolved,
+            "booker_email": be_norm or booker_email_resolved,
+            "payer_email": pe_norm or be_norm or payer_email_resolved,
             "phone": proof.get("phone", ""),
             "participants": proof.get("participants", []),
             "participant_count": proof.get("participant_count", 1),
@@ -588,6 +595,11 @@ async def approve_payment_proof(proof_id: str):
             "created_at": datetime.now(timezone.utc),
             "updated_at": datetime.now(timezone.utc),
         }
+        if portal_user_doc:
+            transaction["portal_user_id"] = portal_user_doc.get("id")
+            pcid = (portal_user_doc.get("client_id") or "").strip()
+            if pcid:
+                transaction["portal_client_id"] = pcid
         # Generate invoice number
         month_prefix = datetime.now(timezone.utc).strftime("%Y-%m")
         count = await db.payment_transactions.count_documents({"invoice_number": {"$regex": f"^{month_prefix}"}})
@@ -614,7 +626,7 @@ async def approve_payment_proof(proof_id: str):
             "updated_at": datetime.now(timezone.utc).isoformat(),
         }
         if (booker_email_resolved or "").strip():
-            enrollment_complete["booker_email"] = (booker_email_resolved or "").strip()
+            enrollment_complete["booker_email"] = be_norm or (booker_email_resolved or "").strip().lower()
         if (booker_name_resolved or "").strip():
             enrollment_complete["booker_name"] = (booker_name_resolved or "").strip()
         await db.enrollments.update_one(

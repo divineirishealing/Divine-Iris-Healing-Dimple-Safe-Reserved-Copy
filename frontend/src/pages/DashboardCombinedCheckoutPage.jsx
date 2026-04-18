@@ -1273,7 +1273,12 @@ export default function DashboardCombinedCheckoutPage() {
                       }}
                       onSubmitted={() => {
                         clearCart();
-                        navigate('/dashboard');
+                        toast({
+                          title: 'Proof submitted',
+                          description:
+                            'Your cart is cleared. Order history shows Pending approval until an admin confirms payment; then it becomes Complete.',
+                        });
+                        navigate('/dashboard/orders');
                       }}
                     />
                   </div>

@@ -20,9 +20,10 @@ function formatMoney(amount, currency) {
   }
 }
 
-function statusLabel(status) {
+function statusLabel(status, row) {
   const s = (status || '').toLowerCase();
-  if (s === 'paid') return 'Paid';
+  if (s === 'paid') return 'Complete';
+  if (s === 'pending' && row?.is_india_proof_pending) return 'Pending approval';
   if (s === 'pending') return 'Pending';
   if (s === 'unpaid') return 'Unpaid';
   return status || '—';
@@ -125,7 +126,10 @@ const OrderHistoryPage = () => {
                 const title = row.item_title || (row.item_type === 'sponsor' ? 'Shine a Light' : row.item_id || 'Order');
                 const when = row.created_at || row.updated_at;
                 const dateStr = when ? (formatDateDdMonYyyy(when) || '—') : '—';
-                const indiaBadge = row.payment_method === 'manual_proof' ? indiaProofMethodBadge(row) : null;
+                const indiaBadge =
+                  row.payment_method === 'manual_proof' || row.is_india_proof_pending
+                    ? indiaProofMethodBadge(row)
+                    : null;
                 return (
                   <li key={row.id || sid} className="py-4 first:pt-0 flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
                     <div className="min-w-0 flex-1">
@@ -135,9 +139,12 @@ const OrderHistoryPage = () => {
                         {row.invoice_number ? ` · Invoice ${row.invoice_number}` : ''}
                         {row.participant_count > 1 ? ` · ${row.participant_count} seats` : ''}
                       </p>
+                      {row.is_india_proof_pending ? (
+                        <p className="text-[10px] text-amber-800 mt-1">Awaiting admin approval — you&apos;ll see Complete once approved.</p>
+                      ) : null}
                       <div className="mt-2 flex flex-wrap items-center gap-2">
                         <span className={`text-[10px] uppercase tracking-wider px-2 py-0.5 rounded-full border font-semibold ${statusClass(row.payment_status)}`}>
-                          {statusLabel(row.payment_status)}
+                          {statusLabel(row.payment_status, row)}
                         </span>
                         {indiaBadge ? (
                           <span className={`text-[10px] ${indiaBadge.className}`}>{indiaBadge.label}</span>

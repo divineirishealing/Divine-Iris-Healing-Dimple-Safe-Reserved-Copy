@@ -1307,17 +1307,41 @@ def _serialize_payment_transaction_row(row: dict) -> dict:
     return out
 
 
+def _student_order_sort_ts(doc: dict) -> float:
+    for key in ("created_at", "updated_at"):
+        v = doc.get(key)
+        if v is None:
+            continue
+        if isinstance(v, datetime):
+            if v.tzinfo is None:
+                v = v.replace(tzinfo=timezone.utc)
+            return v.timestamp()
+        if isinstance(v, str):
+            try:
+                s = v.replace("Z", "+00:00")
+                d = datetime.fromisoformat(s)
+                if d.tzinfo is None:
+                    d = d.replace(tzinfo=timezone.utc)
+                return d.timestamp()
+            except Exception:
+                continue
+    return 0.0
+
+
 @router.get("/orders")
 async def list_student_orders(user: dict = Depends(get_current_user)):
     """
     Enrollment-related payment rows for this account: booker, sponsor donor,
     or a seat where this email appears on the enrollment.
+    Includes pending India payment proofs (awaiting admin approval) as rows with payment_status pending.
     """
     email_raw = (user.get("email") or "").strip()
     if not email_raw:
         raise HTTPException(status_code=400, detail="No email on account")
 
     ep = _student_order_email_pattern(email_raw)
+    uid = user.get("id")
+    cid = (user.get("client_id") or "").strip()
 
     participant_enrollments = await db.enrollments.find(
         {"participants": {"$elemMatch": {"email": ep}}},
@@ -1338,6 +1362,10 @@ async def list_student_orders(user: dict = Depends(get_current_user)):
         {"donor_email": ep},
         {"payer_email": ep},
     ]
+    if uid:
+        or_clauses.append({"portal_user_id": uid})
+    if cid:
+        or_clauses.append({"portal_client_id": cid})
     if enrollment_ids_for_user:
         or_clauses.append({"enrollment_id": {"$in": enrollment_ids_for_user}})
 
@@ -1347,7 +1375,59 @@ async def list_student_orders(user: dict = Depends(get_current_user)):
         .limit(300)
     )
     rows = await cursor.to_list(300)
-    return {"orders": [_serialize_payment_transaction_row(r) for r in rows]}
+
+    proof_or: List[dict] = [{"payer_email": ep}, {"booker_email": ep}]
+    if enrollment_ids_for_user:
+        proof_or.append({"enrollment_id": {"$in": enrollment_ids_for_user}})
+
+    pending_proofs = await db.india_payment_proofs.find(
+        {"status": "pending", "$or": proof_or},
+        {"_id": 0},
+    ).sort("created_at", -1).to_list(80)
+
+    paid_eids = {
+        str(r.get("enrollment_id") or "")
+        for r in rows
+        if str(r.get("enrollment_id") or "")
+        and str(r.get("payment_status") or "").lower() == "paid"
+    }
+
+    pending_as_orders: List[dict] = []
+    seen_pending_eid = set()
+    for p in pending_proofs:
+        eid = str(p.get("enrollment_id") or "")
+        if eid and eid in paid_eids:
+            continue
+        if eid and eid in seen_pending_eid:
+            continue
+        if eid:
+            seen_pending_eid.add(eid)
+        pending_as_orders.append(
+            {
+                "id": f"india-proof-pending-{p['id']}",
+                "enrollment_id": p.get("enrollment_id"),
+                "stripe_session_id": None,
+                "item_type": p.get("item_type") or "program",
+                "item_id": p.get("item_id") or "",
+                "item_title": p.get("program_title")
+                or p.get("selected_item")
+                or "India payment (pending approval)",
+                "amount": p.get("amount"),
+                "currency": "inr",
+                "payment_status": "pending",
+                "payment_method": "manual_proof",
+                "india_payment_method": (p.get("payment_method") or "").strip().lower(),
+                "is_india_proof_pending": True,
+                "created_at": p.get("created_at"),
+                "updated_at": p.get("updated_at") or p.get("created_at"),
+                "participant_count": p.get("participant_count", 1),
+            }
+        )
+
+    combined: List[dict] = [_serialize_payment_transaction_row(r) for r in rows]
+    combined.extend(_serialize_payment_transaction_row(r) for r in pending_as_orders)
+    combined.sort(key=_student_order_sort_ts, reverse=True)
+    return {"orders": combined}
 
 
 @router.put("/profile")
