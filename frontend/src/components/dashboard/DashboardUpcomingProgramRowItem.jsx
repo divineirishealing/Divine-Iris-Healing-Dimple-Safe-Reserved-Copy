@@ -1175,9 +1175,8 @@ export default function DashboardUpcomingProgramRowItem({
                     </button>
                   </div>
                   <p className="text-xs text-slate-500 mt-3 leading-relaxed">
-                    Tap the image to add this program to your cart with the tier selected above. Your portal profile row (name,
-                    attendance, email) appears in <strong className="text-slate-700 font-medium">At a glance</strong> on this
-                    dashboard when loaded.
+                    Tap the image to add this program to your order with the tier selected above. Everyone you add shows up under{' '}
+                    <strong className="text-slate-700 font-medium">Review &amp; pay</strong> in the sidebar.
                   </p>
                 </>
               )}
