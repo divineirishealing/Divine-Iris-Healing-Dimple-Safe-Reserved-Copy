@@ -1677,103 +1677,155 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh, bo
                 </p>
               ) : null}
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 items-start">
-                <div className="rounded-lg border border-violet-100 bg-violet-50/50 px-3 py-2.5 space-y-2">
-                  <p className="text-[9px] font-bold uppercase tracking-wide text-slate-500">Attendance (pick one)</p>
-                  <div className="space-y-1.5">
-                    <label className="flex items-center gap-2 cursor-pointer text-[11px] text-slate-800">
-                      <input
-                        type="checkbox"
-                        className="rounded border-slate-300 shrink-0"
-                        checked={attendanceQuickPresetLive === 'all_online'}
-                        onChange={(e) => {
-                          if (e.target.checked) applyBulkSeatModes('all_online');
-                        }}
-                      />
-                      All online
-                    </label>
-                    <label className="flex items-center gap-2 cursor-pointer text-[11px] text-slate-800">
-                      <input
-                        type="checkbox"
-                        className="rounded border-slate-300 shrink-0"
-                        checked={attendanceQuickPresetLive === 'all_offline'}
-                        onChange={(e) => {
-                          if (e.target.checked) applyBulkSeatModes('all_offline');
-                        }}
-                      />
-                      All offline
-                    </label>
-                    {!seatModalCtx.includedPkg ? (
-                      <label className="flex items-center gap-2 cursor-pointer text-[11px] text-slate-800">
-                        <input
-                          type="checkbox"
-                          className="rounded border-slate-300 shrink-0"
-                          checked={attendanceQuickPresetLive === 'except_me'}
-                          onChange={(e) => {
-                            if (e.target.checked) applyBulkSeatModes('guests_offline_booker_online');
-                          }}
-                        />
-                        All offline except Myself
-                      </label>
+              {!(seatModalCtx.includedPkg && seatModalCtx.selectedIds.length === 0) ? (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 items-start">
+                  <div className="rounded-lg border border-violet-100 bg-violet-50/50 px-3 py-2.5 space-y-2">
+                    <p className="text-[9px] font-bold uppercase tracking-wide text-slate-500">Attendance (pick one)</p>
+                    {!seatModalCtx.includedPkg && seatModalCtx.selectedIds.length === 0 ? (
+                      <div className="space-y-1.5" role="radiogroup" aria-label="Your attendance">
+                        <p className="text-[9px] text-slate-600 leading-snug mb-1">
+                          No family guests in this enrollment yet — these apply to <strong>your</strong> seat only.
+                        </p>
+                        <label className="flex items-center gap-2 cursor-pointer text-[11px] text-slate-800">
+                          <input
+                            type="radio"
+                            name={`dash-att-booker-${seatModalCtx.programId}`}
+                            className="shrink-0 border-slate-300 text-violet-700"
+                            checked={bookerSeatMode !== 'offline'}
+                            onChange={() => applyBulkSeatModes('all_online')}
+                          />
+                          Online (Zoom)
+                        </label>
+                        <label className="flex items-center gap-2 cursor-pointer text-[11px] text-slate-800">
+                          <input
+                            type="radio"
+                            name={`dash-att-booker-${seatModalCtx.programId}`}
+                            className="shrink-0 border-slate-300 text-violet-700"
+                            checked={bookerSeatMode === 'offline'}
+                            onChange={() => applyBulkSeatModes('all_offline')}
+                          />
+                          Offline / remote
+                        </label>
+                      </div>
                     ) : (
-                      <p className="text-[9px] text-slate-500">
-                        “All offline except Myself” is available when your own seat is part of this payment.
-                      </p>
+                      <div className="space-y-1.5" role="radiogroup" aria-label="Attendance preset">
+                        <label className="flex items-center gap-2 cursor-pointer text-[11px] text-slate-800">
+                          <input
+                            type="radio"
+                            name={`dash-att-${seatModalCtx.programId}`}
+                            className="shrink-0 border-slate-300 text-violet-700"
+                            checked={attendanceQuickPresetLive === 'all_online'}
+                            onChange={() => applyBulkSeatModes('all_online')}
+                          />
+                          All online
+                        </label>
+                        <label className="flex items-center gap-2 cursor-pointer text-[11px] text-slate-800">
+                          <input
+                            type="radio"
+                            name={`dash-att-${seatModalCtx.programId}`}
+                            className="shrink-0 border-slate-300 text-violet-700"
+                            checked={attendanceQuickPresetLive === 'all_offline'}
+                            onChange={() => applyBulkSeatModes('all_offline')}
+                          />
+                          All offline
+                        </label>
+                        {!seatModalCtx.includedPkg && seatModalCtx.selectedIds.length > 0 ? (
+                          <label className="flex items-center gap-2 cursor-pointer text-[11px] text-slate-800">
+                            <input
+                              type="radio"
+                              name={`dash-att-${seatModalCtx.programId}`}
+                              className="shrink-0 border-slate-300 text-violet-700"
+                              checked={attendanceQuickPresetLive === 'except_me'}
+                              onChange={() => applyBulkSeatModes('guests_offline_booker_online')}
+                            />
+                            All offline except Myself
+                          </label>
+                        ) : seatModalCtx.includedPkg ? (
+                          <p className="text-[9px] text-slate-500">
+                            “All offline except Myself” applies when your own seat is in the payment (add-on programs).
+                          </p>
+                        ) : null}
+                        {attendanceQuickPresetLive === 'custom' ? (
+                          <p className="text-[9px] text-amber-800/90">
+                            Mixed modes — adjust rows below or pick an option above.
+                          </p>
+                        ) : null}
+                      </div>
                     )}
                   </div>
-                  {attendanceQuickPresetLive === 'custom' ? (
-                    <p className="text-[9px] text-amber-800/90">
-                      Mixed modes — adjust rows below or pick an option above.
-                    </p>
-                  ) : null}
-                </div>
 
-                <div className="rounded-lg border border-slate-200 bg-slate-50/80 px-3 py-2.5 space-y-2">
-                  <p className="text-[9px] font-bold uppercase tracking-wide text-slate-500 leading-snug">
-                    Enrollment Notification Email (for WhatsApp Group Link)
-                  </p>
-                  <div className="space-y-1.5">
-                    <label className="flex items-center gap-2 cursor-pointer text-[11px] text-slate-800">
-                      <input
-                        type="checkbox"
-                        className="rounded border-slate-300 shrink-0"
-                        checked={notifyQuickPresetLive === 'email_all'}
-                        onChange={(e) => {
-                          if (e.target.checked) applyBulkNotify('all_on');
-                        }}
-                      />
-                      Email all
-                    </label>
-                    <label className="flex items-center gap-2 cursor-pointer text-[11px] text-slate-800">
-                      <input
-                        type="checkbox"
-                        className="rounded border-slate-300 shrink-0"
-                        checked={notifyQuickPresetLive === 'email_me_only'}
-                        onChange={(e) => {
-                          if (e.target.checked) applyBulkNotify('me_only');
-                        }}
-                      />
-                      Email Me Only
-                    </label>
-                    <label className="flex items-center gap-2 cursor-pointer text-[11px] text-slate-800">
-                      <input
-                        type="checkbox"
-                        className="rounded border-slate-300 shrink-0"
-                        checked={notifyQuickPresetLive === 'custom'}
-                        onChange={(e) => {
-                          if (e.target.checked) applyBulkNotify('all_off');
-                        }}
-                      />
-                      Custom
-                    </label>
-                  </div>
-                  {notifyQuickPresetLive === 'mixed' ? (
-                    <p className="text-[9px] text-amber-800/90">
-                      Mixed notification choices — adjust rows below or pick an option above.
+                  <div className="rounded-lg border border-slate-200 bg-slate-50/80 px-3 py-2.5 space-y-2">
+                    <p className="text-[9px] font-bold uppercase tracking-wide text-slate-500 leading-snug">
+                      Enrollment Notification Email (for WhatsApp Group Link)
                     </p>
-                  ) : null}
+                    {!seatModalCtx.includedPkg && seatModalCtx.selectedIds.length === 0 ? (
+                      <div className="space-y-1.5" role="radiogroup" aria-label="Enrollment email to you">
+                        <p className="text-[9px] text-slate-600 leading-snug mb-1">
+                          Guest emails apply after you select family on the program card.
+                        </p>
+                        <label className="flex items-center gap-2 cursor-pointer text-[11px] text-slate-800">
+                          <input
+                            type="radio"
+                            name={`dash-ntf-booker-${seatModalCtx.programId}`}
+                            className="shrink-0 border-slate-300 text-violet-700"
+                            checked={bookerSeatNotify}
+                            onChange={() => applyBulkNotify('me_only')}
+                          />
+                          Email me enrollment details
+                        </label>
+                        <label className="flex items-center gap-2 cursor-pointer text-[11px] text-slate-800">
+                          <input
+                            type="radio"
+                            name={`dash-ntf-booker-${seatModalCtx.programId}`}
+                            className="shrink-0 border-slate-300 text-violet-700"
+                            checked={!bookerSeatNotify}
+                            onChange={() => applyBulkNotify('all_off')}
+                          />
+                          No enrollment emails
+                        </label>
+                      </div>
+                    ) : (
+                      <div className="space-y-1.5" role="radiogroup" aria-label="Enrollment email preset">
+                        <label className="flex items-center gap-2 cursor-pointer text-[11px] text-slate-800">
+                          <input
+                            type="radio"
+                            name={`dash-ntf-${seatModalCtx.programId}`}
+                            className="shrink-0 border-slate-300 text-violet-700"
+                            checked={notifyQuickPresetLive === 'email_all'}
+                            onChange={() => applyBulkNotify('all_on')}
+                          />
+                          Email all
+                        </label>
+                        <label className="flex items-center gap-2 cursor-pointer text-[11px] text-slate-800">
+                          <input
+                            type="radio"
+                            name={`dash-ntf-${seatModalCtx.programId}`}
+                            className="shrink-0 border-slate-300 text-violet-700"
+                            checked={notifyQuickPresetLive === 'email_me_only'}
+                            onChange={() => applyBulkNotify('me_only')}
+                          />
+                          Email Me Only
+                        </label>
+                        <label className="flex items-center gap-2 cursor-pointer text-[11px] text-slate-800">
+                          <input
+                            type="radio"
+                            name={`dash-ntf-${seatModalCtx.programId}`}
+                            className="shrink-0 border-slate-300 text-violet-700"
+                            checked={notifyQuickPresetLive === 'custom'}
+                            onChange={() => applyBulkNotify('all_off')}
+                          />
+                          Custom (no emails)
+                        </label>
+                        {notifyQuickPresetLive === 'mixed' ? (
+                          <p className="text-[9px] text-amber-800/90">
+                            Mixed notification choices — adjust rows below or pick an option above.
+                          </p>
+                        ) : null}
+                      </div>
+                    )}
+                  </div>
                 </div>
-              </div>
+              ) : null}
 
               <div className="rounded-lg border border-slate-200 bg-white px-3 py-2.5 space-y-2">
                 <label className="flex items-start gap-2 cursor-pointer text-[11px] text-slate-800">
