@@ -818,9 +818,9 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh, bo
       if (!p.is_flagship || tiers.length === 0) return 0;
       const saved = dashboardTierByProgram[p.id];
       if (typeof saved === 'number' && saved >= 0 && saved < tiers.length) return saved;
-      return pickTierIndexForDashboard(p, true) ?? 0;
+      return pickTierIndexForDashboard(p, !!isAnnual) ?? 0;
     },
-    [dashboardTierByProgram]
+    [dashboardTierByProgram, isAnnual]
   );
 
   const dashboardTierKey = useMemo(
@@ -829,7 +829,7 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh, bo
   );
 
   useEffect(() => {
-    if (!isAnnual || !currencyReady) {
+    if (!currencyReady) {
       setAnnualQuotes({});
       return;
     }
@@ -843,7 +843,8 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh, bo
       programs.map((p) => {
         const ids = selectedFamilyByProgram[p.id] || [];
         const draft = seatDraftsByProgram[p.id];
-        const includedInPkg = programIncludedInAnnualPackage(p, annualIncludedIds);
+        const includedInPkg =
+          isAnnual && (programIncludedInAnnualPackage(p, annualIncludedIds) || false);
         const bookerJoins = includedInPkg ? false : draft?.bookerJoinsProgram !== false;
         const params =
           ids.length > 0
@@ -874,7 +875,6 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh, bo
   }, [isAnnual, currencyReady, portalQuoteCurrency, prefetchProgramsKey, familySelectionKey, dashboardTierKey, programsForPrefetch, seatDraftsByProgram, getDashboardTier, annualIncludedIds]);
 
   useEffect(() => {
-    if (!isAnnual) return;
     setGuestSeatForm((prev) => {
       const ids = selectedGuestIdsUnionKey ? selectedGuestIdsUnionKey.split(',').filter(Boolean) : [];
       const saved = loadDashboardEnrollmentDefaults();
@@ -897,7 +897,7 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh, bo
       });
       return changed ? next : prev;
     });
-  }, [isAnnual, selectedGuestIdsUnionKey]);
+  }, [selectedGuestIdsUnionKey]);
 
   useEffect(() => {
     const code = promoForProgramClicks;
@@ -1231,7 +1231,7 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh, bo
       return;
     }
 
-    const tierIdx = isAnnual ? getDashboardTier(program) : pickTierIndexForDashboard(program, false) ?? 0;
+    const tierIdx = getDashboardTier(program);
     const perDraft = seatDraftsRef.current[programId] || seatDraftsByProgram[programId];
     const draft = mergeGlobalSeatDraft(perDraft, bookerModeIn, bookerNotifyIn, guestFormIn);
 

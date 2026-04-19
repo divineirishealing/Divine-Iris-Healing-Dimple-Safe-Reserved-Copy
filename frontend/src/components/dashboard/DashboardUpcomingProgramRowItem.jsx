@@ -29,7 +29,14 @@ import { getAuthHeaders } from '../../lib/authHeaders';
 const API_ROOT = process.env.REACT_APP_BACKEND_URL;
 
 /** Portal quote: list layout, or compact “offer per person” under Pricing & offer. */
-function AnnualQuoteBreakdown({ aq, symbol, includedPkg, suppressIntro = false, layout = 'list' }) {
+function AnnualQuoteBreakdown({
+  aq,
+  symbol,
+  includedPkg,
+  suppressIntro = false,
+  layout = 'list',
+  isAnnualSubscriber = true,
+}) {
   if (!aq) {
     return <p className="text-[11px] text-slate-500 italic">Calculating total…</p>;
   }
@@ -66,7 +73,7 @@ function AnnualQuoteBreakdown({ aq, symbol, includedPkg, suppressIntro = false, 
           ) : null}
           {showSelf ? (
             <div className={rowClass}>
-              <span className="font-medium text-slate-800">You (annual member)</span>
+              <span className="font-medium text-slate-800">{isAnnualSubscriber ? 'You (annual member)' : 'You'}</span>
               <span className="font-semibold tabular-nums text-slate-900 text-right">
                 {symbol}
                 {selfOffer.toLocaleString()}
@@ -110,7 +117,9 @@ function AnnualQuoteBreakdown({ aq, symbol, includedPkg, suppressIntro = false, 
       {!suppressIntro ? (
         <>
           <p className="text-[10px] font-bold uppercase tracking-wide text-slate-500">
-            Prices — Annual member · Immediate family · Friends &amp; extended
+            {isAnnualSubscriber
+              ? 'Prices — Annual member · Immediate family · Friends & extended'
+              : 'Prices — You · Immediate family · Friends & extended'}
           </p>
           <p className="font-semibold text-slate-900 text-xs">Calculate total amount</p>
         </>
@@ -119,7 +128,7 @@ function AnnualQuoteBreakdown({ aq, symbol, includedPkg, suppressIntro = false, 
         {includedPkg ? <li className="text-slate-600">Your seat: included in annual package</li> : null}
         {showSelf ? (
           <li>
-            You (annual member):{' '}
+            {isAnnualSubscriber ? 'You (annual member)' : 'You'}:{' '}
             <span className="font-semibold text-slate-900 tabular-nums">
               {symbol}
               {Number(aq.self_after_promos ?? 0).toLocaleString()}
@@ -246,8 +255,9 @@ export default function DashboardUpcomingProgramRowItem({
     subscriberIsAnnual && (aq?.included_in_annual_package ?? programIncludedInAnnualPackage(p, annualIncludedIds));
   const selIds = selectedFamilyByProgram[p.id] || [];
   const selCount = selIds.length;
-  const canAddToDivineCart = subscriberIsAnnual
-    ? Boolean(aq && aq.total > 0 && (!includedPkg || selCount >= 1))
+  const hasPortalTotal = aq != null && typeof aq.total === 'number';
+  const canAddToDivineCart = hasPortalTotal
+    ? Boolean(aq.total > 0 && (!includedPkg || selCount >= 1))
     : Boolean(enrollStatus === 'open' && !showContact);
 
   const [addingToCheckout, setAddingToCheckout] = useState(false);
@@ -596,8 +606,15 @@ export default function DashboardUpcomingProgramRowItem({
               </button>
               {annualPricingOpen ? (
                 <div className="min-w-0 w-full pt-2">
-                  {subscriberIsAnnual ? (
-                    <AnnualQuoteBreakdown aq={aq} symbol={symbol} includedPkg={includedPkg} suppressIntro layout="table" />
+                  {aq ? (
+                    <AnnualQuoteBreakdown
+                      aq={aq}
+                      symbol={symbol}
+                      includedPkg={includedPkg}
+                      isAnnualSubscriber={subscriberIsAnnual}
+                      suppressIntro
+                      layout="table"
+                    />
                   ) : (() => {
                     const bookerJoins = annualSeatUi?.draft?.bookerJoinsProgram !== false;
                     const seatPrice = showSpecialPromo ? afterPromo : offerPrice > 0 ? offerPrice : price;
@@ -669,19 +686,17 @@ export default function DashboardUpcomingProgramRowItem({
                   })()}
                 </div>
               ) : null}
-              {subscriberIsAnnual ? (
-                aq ? (
-                  <p className="text-[11px] text-slate-600 mt-2 pt-2 border-t border-slate-100 leading-snug">
-                    Your selection total{includedPkg ? ' (guests & add-ons)' : ''}:{' '}
-                    <span className="font-semibold text-slate-800 tabular-nums">
-                      {symbol} {Number(aq.total ?? 0).toLocaleString()}
-                    </span>
-                  </p>
-                ) : (
-                  <p className="text-[11px] text-slate-500 italic mt-2 pt-2 border-t border-slate-100">
-                    Loading portal total…
-                  </p>
-                )
+              {aq ? (
+                <p className="text-[11px] text-slate-600 mt-2 pt-2 border-t border-slate-100 leading-snug">
+                  Your selection total{includedPkg ? ' (guests & add-ons)' : ''}:{' '}
+                  <span className="font-semibold text-slate-800 tabular-nums">
+                    {symbol} {Number(aq.total ?? 0).toLocaleString()}
+                  </span>
+                </p>
+              ) : subscriberIsAnnual ? (
+                <p className="text-[11px] text-slate-500 italic mt-2 pt-2 border-t border-slate-100">
+                  Loading portal total…
+                </p>
               ) : (() => {
                 const bookerJoins = annualSeatUi?.draft?.bookerJoinsProgram !== false;
                 const seatPrice = showSpecialPromo ? afterPromo : offerPrice > 0 ? offerPrice : price;
@@ -1058,7 +1073,7 @@ export default function DashboardUpcomingProgramRowItem({
             )}
           </div>
           <div className="w-full min-w-0 flex-1">
-            {!subscriberIsAnnual && enrollStatus === 'open' && (() => {
+            {enrollStatus === 'open' && (() => {
               const bookerJoins = annualSeatUi?.draft?.bookerJoinsProgram !== false;
               const selectedNames = selIds.map(id => {
                 const m = [...(members || []), ...(otherMembers || [])].find(x => String(x.id) === String(id));
@@ -1086,17 +1101,17 @@ export default function DashboardUpcomingProgramRowItem({
                 disabled={!canAddToDivineCart || addingToCheckout}
                 title={
                   !canAddToDivineCart
-                    ? subscriberIsAnnual
+                    ? hasPortalTotal
                       ? includedPkg && selCount < 1
                         ? 'Select family members to join or wait for pricing.'
-                        : !aq
-                          ? 'Loading pricing…'
-                          : (aq.total || 0) <= 0
-                            ? 'No amount due for this selection.'
-                            : ''
+                        : (aq.total || 0) <= 0
+                          ? 'No amount due for this selection.'
+                          : ''
                       : showContact
                         ? 'Use contact for pricing for this program.'
-                        : 'Enrollment is closed.'
+                        : !aq && enrollStatus === 'open'
+                          ? 'Loading pricing…'
+                          : 'Enrollment is closed.'
                     : undefined
                 }
                 onClick={handleAddToDivineCart}

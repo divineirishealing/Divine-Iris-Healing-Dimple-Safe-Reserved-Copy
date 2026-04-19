@@ -757,7 +757,7 @@ async def get_enrollment_prefill(user: dict = Depends(get_current_user)):
 
 
 async def _portal_combined_dashboard_total(user: dict, profile: ProfileData) -> Optional[Tuple[float, str]]:
-    """Sum annual portal quotes for cart lines (same basis as GET /dashboard-quote). Sets checkout total like dashboard-pay."""
+    """Sum portal quotes for cart lines (same basis as GET /dashboard-quote). Sets checkout total like dashboard-pay."""
     lines = profile.portal_cart_lines
     if not lines:
         return None
@@ -766,8 +766,7 @@ async def _portal_combined_dashboard_total(user: dict, profile: ProfileData) -> 
         return None
     client = await db.clients.find_one({"id": client_id}, {"_id": 0}) or {}
     sub = client.get("subscription") or {}
-    if not _is_annual_subscriber(sub, client):
-        return None
+    is_annual = _is_annual_subscriber(sub, client)
     cur = (profile.portal_cart_currency or "aed").strip().lower()
     settings_doc = await db.site_settings.find_one(
         {"id": "site_settings"},
@@ -804,6 +803,8 @@ async def _portal_combined_dashboard_total(user: dict, profile: ProfileData) -> 
         else:
             imm_fc, ext_fc = 0, 0
         included = _program_included_in_annual_package(program, inc_cfg)
+        if not is_annual:
+            included = False
         if included:
             include_self = False
         else:
@@ -819,6 +820,7 @@ async def _portal_combined_dashboard_total(user: dict, profile: ProfileData) -> 
             fo,
             eo,
             include_self=include_self,
+            tier_index_override=line.tier_index,
         )
         total += float(pricing.get("total") or 0)
     return round(total, 2), cur
@@ -860,14 +862,13 @@ async def dashboard_quote(
     tier_index: Optional[int] = Query(None, description="Flagship duration tier index (1 month, 3 month, annual, …)"),
     user: dict = Depends(get_current_user),
 ):
-    """Annual members: mixed pricing; MMM/AWRP-style programs = family only (included in annual package)."""
+    """Portal pricing for logged-in clients (same rules as Sacred Home upcoming cards). Annual-only package inclusion applies to annual subscribers."""
     client_id = user.get("client_id")
     if not client_id:
         raise HTTPException(status_code=400, detail="User not linked to client record")
     client = await db.clients.find_one({"id": client_id}, {"_id": 0}) or {}
     sub = client.get("subscription") or {}
-    if not _is_annual_subscriber(sub, client):
-        raise HTTPException(status_code=403, detail="Annual member dashboard pricing is for annual subscribers only")
+    is_annual = _is_annual_subscriber(sub, client)
     fam = _all_dashboard_guest_rows(client)
     id_list = [x.strip() for x in (family_ids or "").split(",") if x.strip()]
     if id_list:
@@ -905,6 +906,8 @@ async def dashboard_quote(
         },
     ) or {}
     included = _program_included_in_annual_package(program, settings_doc.get("annual_package_included_program_ids"))
+    if not is_annual:
+        included = False
     if included:
         include_self = False
     else:
@@ -950,7 +953,7 @@ async def dashboard_quote(
 
 @router.post("/dashboard-pay")
 async def dashboard_pay(data: DashboardPayIn, request: Request, user: dict = Depends(get_current_user)):
-    """Create a verified enrollment with mixed annual/family pricing; client then POSTs /api/enrollment/{id}/checkout."""
+    """Create a verified enrollment with portal (annual/family) pricing; client then POSTs /api/enrollment/{id}/checkout."""
     from routes.enrollment import ParticipantData, detect_ip_info
 
     client_id = user.get("client_id")
@@ -958,8 +961,7 @@ async def dashboard_pay(data: DashboardPayIn, request: Request, user: dict = Dep
         raise HTTPException(status_code=400, detail="User not linked to client record")
     client = await db.clients.find_one({"id": client_id}, {"_id": 0}) or {}
     sub = client.get("subscription") or {}
-    if not _is_annual_subscriber(sub, client):
-        raise HTTPException(status_code=403, detail="Annual member dashboard pricing is for annual subscribers only")
+    is_annual = _is_annual_subscriber(sub, client)
     program = await db.programs.find_one({"id": data.program_id}, {"_id": 0})
     if not program:
         raise HTTPException(status_code=404, detail="Program not found")
@@ -978,6 +980,8 @@ async def dashboard_pay(data: DashboardPayIn, request: Request, user: dict = Dep
         },
     ) or {}
     included = _program_included_in_annual_package(program, settings_doc.get("annual_package_included_program_ids"))
+    if not is_annual:
+        included = False
     all_guests = _all_dashboard_guest_rows(client)
     resolved_family = _resolve_family_rows(client, list(data.family_member_ids or []), int(data.family_count or 0))
     imm_fc, ext_fc = _split_resolved_guest_rows_by_bucket(client, resolved_family)
