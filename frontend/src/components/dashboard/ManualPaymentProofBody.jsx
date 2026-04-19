@@ -36,6 +36,8 @@ export function ManualPaymentProofBody({
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [selectedBank, setSelectedBank] = useState(0);
+  /** When multiple UPI rows exist, student picks one payee — only that QR / ID is shown. */
+  const [selectedGpayIndex, setSelectedGpayIndex] = useState(0);
 
   // Form fields
   const [screenshot, setScreenshot] = useState(null);
@@ -138,21 +140,35 @@ export function ManualPaymentProofBody({
     load();
   }, [enrollmentId]);
 
-  /** India proof + optional subscriber tag (same tag_ids as admin Subscribers + Sacred Exchange). */
-  const gpayToShow = useMemo(() => {
+  /** All India GPay / UPI rows from site settings; user tags one on the form when several exist. */
+  const gpayOptionsAll = useMemo(() => {
     const opts = buildIndiaGpayOptions({
       india_gpay_accounts: settings.india_gpay_accounts,
       india_upi_id: settings.india_upi_id,
     });
-    const pref = (studentPrefs.preferred_india_gpay_id || '').trim();
-    const chosen = pref ? opts.filter((o) => gpayRowMatchesPreference(o, pref)) : opts;
-    return chosen.map((o) => ({
+    return opts.map((o) => ({
       id: o.tag_id,
       label: o.display_label || o.label,
       upi_id: o.upi_id,
       qr_image_url: o.qr_image_url || '',
     }));
-  }, [settings.india_gpay_accounts, settings.india_upi_id, studentPrefs.preferred_india_gpay_id]);
+  }, [settings.india_gpay_accounts, settings.india_upi_id]);
+
+  useEffect(() => {
+    const pref = (studentPrefs.preferred_india_gpay_id || '').trim();
+    if (gpayOptionsAll.length === 0) return;
+    if (pref) {
+      const idx = gpayOptionsAll.findIndex((g) => gpayRowMatchesPreference(g, pref));
+      setSelectedGpayIndex(idx >= 0 ? idx : 0);
+    } else {
+      setSelectedGpayIndex(0);
+    }
+  }, [gpayOptionsAll, studentPrefs.preferred_india_gpay_id]);
+
+  const selectedGpay =
+    gpayOptionsAll.length > 0
+      ? gpayOptionsAll[Math.min(Math.max(0, selectedGpayIndex), gpayOptionsAll.length - 1)]
+      : null;
 
   const banks = useMemo(() => {
     const bankAccounts = settings.india_bank_accounts || [];
@@ -187,9 +203,9 @@ export function ManualPaymentProofBody({
   /** Prefer UPI when only GPay rows exist; bank transfer when only bank. */
   useEffect(() => {
     if (loading) return;
-    if (gpayToShow.length > 0 && banks.length === 0) setPaymentMethod('upi');
-    else if (gpayToShow.length === 0 && banks.length > 0) setPaymentMethod('bank_transfer');
-  }, [loading, gpayToShow.length, banks.length]);
+    if (gpayOptionsAll.length > 0 && banks.length === 0) setPaymentMethod('upi');
+    else if (gpayOptionsAll.length === 0 && banks.length > 0) setPaymentMethod('bank_transfer');
+  }, [loading, gpayOptionsAll.length, banks.length]);
 
   const currentBank = banks[selectedBank] || {};
   const hasBank = banks.length > 0;
@@ -299,8 +315,13 @@ export function ManualPaymentProofBody({
         programType ||
         (enrollment?.item_type === 'session' ? 'Personal Session' : 'Flagship Program');
       const effSelectedItem = (selectedItem || programTitle || '').trim();
+      const gpayTagLine =
+        isUpiMethod && selectedGpay
+          ? `UPI / GPay — ${(selectedGpay.label || 'Payee').trim()} (${String(selectedGpay.upi_id || '').trim()})`
+          : '';
       const bankField =
         (bankName || '').trim() ||
+        gpayTagLine ||
         (isUpiMethod ? 'UPI / GPay' : '') ||
         (currentBank.label || currentBank.bank_name || '');
       const formData = new FormData();
@@ -407,13 +428,13 @@ export function ManualPaymentProofBody({
                   </div>
                 )}
 
-                {studentPrefs.preferred_india_gpay_id && gpayToShow.length === 0 && (
+                {studentPrefs.preferred_india_gpay_id && gpayOptionsAll.length === 0 && (
                   <div className="mb-4 rounded-lg border border-amber-200 bg-amber-50/90 px-3 py-2 text-[11px] text-amber-950">
                     Your membership is set to a specific UPI, but it does not match any row in India proof. Ask your admin to fix the tag or site settings.
                   </div>
                 )}
 
-                {gpayToShow.length > 0 && (
+                {gpayOptionsAll.length > 0 && selectedGpay && (
                   <div className="border rounded-xl p-5 mb-5 border-emerald-200 bg-emerald-50/50">
                     <div className="flex items-center gap-2 mb-3">
                       <Smartphone size={16} className="text-emerald-700" />
@@ -423,28 +444,57 @@ export function ManualPaymentProofBody({
                           : 'Divine Iris — Google Pay / UPI'}
                       </h3>
                     </div>
-                    <p className="text-[10px] text-gray-600 mb-3">
-                      Pay using one of the IDs below. Screenshot is optional for UPI; add payment details in the notes field.
-                    </p>
-                    <div className="space-y-2">
-                      {gpayToShow.map((g) => (
-                        <div
-                          key={g.id || g.upi_id}
-                          className="rounded-lg border border-emerald-100 bg-white/80 p-3 text-xs"
-                        >
-                          {g.label ? <p className="font-semibold text-gray-800 mb-1">{g.label}</p> : null}
-                          <p className="font-mono text-emerald-900 select-all">{g.upi_id}</p>
-                          {(g.qr_image_url || '').trim() && isLikelyImageUrl(g.qr_image_url) ? (
-                            <div className="mt-3 flex justify-center">
-                              <img
-                                src={resolveImageUrl(g.qr_image_url)}
-                                alt={g.label ? `QR ${g.label}` : 'UPI QR code'}
-                                className="w-44 max-w-full h-auto max-h-48 object-contain border border-emerald-100 rounded-lg bg-white"
+                    {gpayOptionsAll.length > 1 ? (
+                      <div className="mb-4">
+                        <p className="text-[10px] font-semibold text-gray-700 mb-2">
+                          Tag the account you paid to (only that QR is shown) *
+                        </p>
+                        <div className="space-y-2">
+                          {gpayOptionsAll.map((g, i) => (
+                            <label
+                              key={g.id || g.upi_id || i}
+                              className={`flex items-start gap-2 rounded-lg border p-2.5 cursor-pointer text-xs ${
+                                selectedGpayIndex === i
+                                  ? 'border-emerald-400 bg-white shadow-sm'
+                                  : 'border-emerald-100 bg-white/60'
+                              }`}
+                            >
+                              <input
+                                type="radio"
+                                name="manual-proof-gpay-tag"
+                                className="mt-0.5 shrink-0"
+                                checked={selectedGpayIndex === i}
+                                onChange={() => setSelectedGpayIndex(i)}
                               />
-                            </div>
-                          ) : null}
+                              <span className="min-w-0">
+                                <span className="font-semibold text-gray-800 block">{g.label || 'UPI'}</span>
+                                <span className="font-mono text-emerald-900 select-all text-[11px]">{g.upi_id}</span>
+                              </span>
+                            </label>
+                          ))}
                         </div>
-                      ))}
+                        <p className="text-[10px] text-gray-600 mt-3">
+                          Use the QR and UPI ID below for your tagged payee. Screenshot is optional; add who paid and when in
+                          the notes field.
+                        </p>
+                      </div>
+                    ) : (
+                      <p className="text-[10px] text-gray-600 mb-3">
+                        Pay using the UPI ID below. Screenshot is optional; add payment details in the notes field.
+                      </p>
+                    )}
+                    <div className="rounded-lg border border-emerald-100 bg-white/80 p-3 text-xs">
+                      {selectedGpay.label ? <p className="font-semibold text-gray-800 mb-1">{selectedGpay.label}</p> : null}
+                      <p className="font-mono text-emerald-900 select-all">{selectedGpay.upi_id}</p>
+                      {(selectedGpay.qr_image_url || '').trim() && isLikelyImageUrl(selectedGpay.qr_image_url) ? (
+                        <div className="mt-3 flex justify-center">
+                          <img
+                            src={resolveImageUrl(selectedGpay.qr_image_url)}
+                            alt={selectedGpay.label ? `QR ${selectedGpay.label}` : 'UPI QR code'}
+                            className="w-44 max-w-full h-auto max-h-48 object-contain border border-emerald-100 rounded-lg bg-white"
+                          />
+                        </div>
+                      ) : null}
                     </div>
                   </div>
                 )}
