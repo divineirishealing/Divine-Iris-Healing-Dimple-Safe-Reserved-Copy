@@ -328,13 +328,13 @@ export default function DashboardUpcomingProgramRowItem({
 
   const outerShellClass = subscriberIsAnnual
     ? `w-full mr-auto transition-all duration-300 ${enrollStatus === 'closed' ? 'opacity-60' : ''}`
-    : `group bg-white rounded-xl overflow-hidden shadow-lg border border-gray-100 flex flex-col sm:flex-row sm:items-stretch w-full max-w-md mr-auto transition-all duration-300 ${
+    : `group bg-white rounded-xl overflow-hidden shadow-lg border border-gray-100 flex flex-col sm:flex-row sm:items-stretch w-full transition-all duration-300 ${
         enrollStatus === 'closed' ? 'opacity-60' : 'hover:shadow-2xl'
       }`;
 
   const heroShellClass = subscriberIsAnnual
     ? 'relative h-48 w-full shrink-0 overflow-hidden'
-    : 'relative h-48 w-full sm:w-48 shrink-0 overflow-hidden';
+    : 'relative h-52 sm:h-auto w-full sm:w-64 lg:w-80 shrink-0 overflow-hidden';
 
   const heroBlock = (
     <div
@@ -1065,8 +1065,8 @@ export default function DashboardUpcomingProgramRowItem({
       ) : (
         <>
           {heroBlock}
-      {/* Body — homepage UpcomingCard padding; content to the right of hero on sm+ */}
-      <div className="flex-1 min-w-0 flex flex-col p-4">
+      {/* Body — content to the right of hero on sm+ */}
+      <div className="flex-1 min-w-0 flex flex-col p-4 sm:p-5">
         <p className="text-[#D4AF37] text-[10px] tracking-wider mb-0.5 uppercase">
           {p.category || 'Program'}
         </p>
@@ -1120,19 +1120,21 @@ export default function DashboardUpcomingProgramRowItem({
           )}
         </div>
 
-        <p className="text-gray-500 text-xs leading-relaxed mb-3 line-clamp-2 flex-1">{p.description}</p>
+        <p className="text-gray-500 text-xs leading-relaxed mb-3 line-clamp-3 flex-1">{p.description}</p>
 
-        <button
-          type="button"
-          onClick={(e) => {
-            e.stopPropagation();
-            goProgram();
-          }}
-          data-testid={`dashboard-know-more-${p.id}`}
-          className="mb-3 w-full sm:w-auto inline-flex items-center justify-center bg-[#1a1a1a] hover:bg-[#333] text-white py-2 px-6 rounded-full text-[10px] tracking-wider transition-all duration-300 uppercase font-medium"
-        >
-          Know More
-        </button>
+        <div className="flex flex-wrap items-center gap-2 mb-3">
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              goProgram();
+            }}
+            data-testid={`dashboard-know-more-${p.id}`}
+            className="inline-flex items-center justify-center bg-[#1a1a1a] hover:bg-[#333] text-white py-2 px-6 rounded-full text-[10px] tracking-wider transition-all duration-300 uppercase font-medium"
+          >
+            Know More
+          </button>
+        </div>
 
         {enrollStatus === 'open' && !subscriberIsAnnual && hasTiers && (
           <div data-testid={`dashboard-tier-selector-${p.id}`} className="mb-3">
