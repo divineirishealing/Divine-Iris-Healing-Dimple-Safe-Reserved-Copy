@@ -456,6 +456,7 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh, bo
   const [seatDraftsByProgram, setSeatDraftsByProgram] = useState({});
   const seatDraftsRef = useRef({});
   const enrollmentPrefillCacheRef = useRef(null);
+  const [enrollmentSelf, setEnrollmentSelf] = useState(null);
 
   useEffect(() => {
     seatDraftsRef.current = seatDraftsByProgram;
@@ -1317,6 +1318,13 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh, bo
     return enrollmentPrefillCacheRef.current;
   }, []);
 
+  // Pre-warm enrollment prefill on mount so cards can auto-sync stale cart data
+  useEffect(() => {
+    loadEnrollmentPrefill()
+      .then((pre) => setEnrollmentSelf(pre?.self || null))
+      .catch(() => {});
+  }, [loadEnrollmentPrefill]);
+
   return (
     <section className="w-full max-w-[68rem] mx-auto pl-4 pr-6 sm:pr-8 md:pr-10 lg:pr-12 mb-4 md:mb-6" data-testid="dashboard-upcoming-family">
       <div className="rounded-[28px] border border-[rgba(160,100,220,0.14)] bg-white/70 backdrop-blur-xl px-5 py-5 md:px-7 md:py-6 shadow-[0_4px_48px_rgba(140,60,220,0.08)]">
@@ -1426,6 +1434,7 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh, bo
                         }
                       : undefined
                   }
+                  enrollmentSelf={enrollmentSelf}
                   annualSeatUi={{
                     draft: draftRow,
                     attendanceQuickPreset: attendanceQuick,

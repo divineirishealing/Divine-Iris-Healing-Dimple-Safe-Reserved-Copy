@@ -202,11 +202,12 @@ export default function DashboardUpcomingProgramRowItem({
   toggleSelectAllFamilyForProgram,
   openEnrollmentSeatModal,
   annualSeatUi = null,
+  enrollmentSelf = null,
   dashboardTierIndex,
   onDashboardTierChange,
 }) {
   const navigate = useNavigate();
-  const { syncProgramLineItem } = useCart();
+  const { syncProgramLineItem, items: cartItems } = useCart();
   const { toast } = useToast();
 
   const tiers = p.duration_tiers || [];
@@ -270,6 +271,7 @@ export default function DashboardUpcomingProgramRowItem({
   // (derived preset can't represent 'except_me' when no guests are selected yet)
   const [nonAnnualAttendMode, setNonAnnualAttendMode] = useState(null);
   const nonAnnualAttendJustClicked = useRef(false);
+  const didAutoSyncRef = useRef(false);
   const [nonAnnualSaveDefaults, setNonAnnualSaveDefaults] = useState(false);
   const [nonAnnualEmailPreset, setNonAnnualEmailPreset] = useState('email_me_only');
 
@@ -285,15 +287,49 @@ export default function DashboardUpcomingProgramRowItem({
     setNonAnnualAttendMode(derived);
   }, [annualSeatUi?.attendanceQuickPreset]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Auto-sync cart on dashboard load: when enrollment prefill data first arrives,
+  // update any stale cart entry for this program so the cart always reflects current selections.
+  useEffect(() => {
+    if (!enrollmentSelf || subscriberIsAnnual || didAutoSyncRef.current) return;
+    const inCart = cartItems.some((i) => String(i.programId) === String(p.id));
+    if (!inCart) return;
+    didAutoSyncRef.current = true;
+    const effectivePreset = nonAnnualAttendMode ?? annualSeatUi?.attendanceQuickPreset ?? 'all_online';
+    const gAtt = (effectivePreset === 'all_offline' || effectivePreset === 'except_me') ? 'offline' : 'online';
+    const bAtt = effectivePreset === 'all_offline' ? 'offline' : 'online';
+    const base = annualSeatUi?.draft || {};
+    const overridden = Object.fromEntries(
+      selIds.map((id) => [id, { ...(base.guestSeatForm?.[id] || {}), attendance_mode: gAtt }])
+    );
+    const draft = { ...base, bookerSeatMode: bAtt, guestSeatForm: { ...base.guestSeatForm, ...overridden } };
+    const bookerJoins = draft.bookerJoinsProgram !== false;
+    const autoParticipants =
+      buildAnnualDashboardCartParticipants({
+        program: p, includedPkg: false, selectedMemberIds: selIds, seatDraft: draft,
+        enrollableGuests, self: enrollmentSelf, bookerEmail, detectedCountry, immediateFamilyMembers: members,
+      }) || (bookerJoins
+        ? buildSelfOnlyCartParticipants(enrollmentSelf, p, bookerEmail, detectedCountry, bAtt)
+        : null);
+    syncProgramLineItem(p, tierIdxForDisplay, autoParticipants, {
+      familyIds: selIds.map(String),
+      bookerJoins,
+      annualIncluded: false,
+      portalQuoteTotal: aq?.total != null ? Number(aq.total) : null,
+      guestBucketById: buildGuestBucketByIdFromSelection(selIds, members),
+    });
+  }, [enrollmentSelf]); // eslint-disable-line react-hooks/exhaustive-deps
+
   const syncThisProgramToDivineCart = async () => {
     let participants = null;
     try {
-      const r = await axios.get(`${API_ROOT}/api/student/enrollment-prefill`, {
-        withCredentials: true,
-        headers: getAuthHeaders(),
-      });
-      const pre = r.data || {};
-      const self = pre.self;
+      let self = enrollmentSelf;
+      if (!self) {
+        const r = await axios.get(`${API_ROOT}/api/student/enrollment-prefill`, {
+          withCredentials: true,
+          headers: getAuthHeaders(),
+        });
+        self = (r.data || {}).self;
+      }
       if (subscriberIsAnnual) {
         participants = buildAnnualDashboardCartParticipants({
           program: p,
