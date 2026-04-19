@@ -35,6 +35,9 @@ class DeactivateBody(BaseModel):
 class SubmitBody(BaseModel):
     name: str = Field(..., min_length=1, max_length=200)
     email: EmailStr
+    phone: str = Field(..., min_length=1, max_length=80)
+    city: str = Field(..., min_length=1, max_length=120)
+    country: str = Field(..., min_length=1, max_length=120)
 
 
 def _tier_from_label(label: str) -> int:
@@ -50,12 +53,22 @@ def _tier_from_label(label: str) -> int:
     return tier_map.get(label or "Dew", 1)
 
 
-async def _ensure_client_for_contact(email: str, name: str, now: str) -> dict:
+async def _ensure_client_for_contact(
+    email: str, name: str, phone: str, city: str, country: str, now: str
+) -> dict:
     existing = await db.clients.find_one({"email": email}, {"_id": 0})
     if existing:
         await db.clients.update_one(
             {"id": existing["id"]},
-            {"$set": {"name": name, "updated_at": now}},
+            {
+                "$set": {
+                    "name": name,
+                    "phone": phone,
+                    "city": city,
+                    "country": country,
+                    "updated_at": now,
+                }
+            },
         )
         u = await db.clients.find_one({"id": existing["id"]}, {"_id": 0})
         return u or existing
@@ -66,12 +79,14 @@ async def _ensure_client_for_contact(email: str, name: str, now: str) -> dict:
         "did": did,
         "email": email,
         "name": name,
-        "phone": "",
+        "phone": phone,
+        "city": city,
+        "country": country,
         "label": "Dew",
         "label_manual": "",
         "sources": ["Contact update link"],
         "conversions": [],
-        "timeline": [{"type": "Contact update link", "detail": "Submitted name and email", "date": now}],
+        "timeline": [{"type": "Contact update link", "detail": "Submitted contact details", "date": now}],
         "notes": "",
         "created_at": now,
         "updated_at": now,
@@ -123,8 +138,13 @@ async def submit_contact_update(token: str, body: SubmitBody, response: Response
         raise HTTPException(status_code=404, detail="This link is invalid or no longer active.")
     name = body.name.strip()
     email = str(body.email).strip().lower()
+    phone = body.phone.strip()
+    city = body.city.strip()
+    country = body.country.strip()
     if not name or not email:
         raise HTTPException(status_code=400, detail="Name and email are required.")
+    if not phone or not city or not country:
+        raise HTTPException(status_code=400, detail="Phone, city, and country are required.")
 
     grant_dash = doc.get("grant_dashboard_access")
     if grant_dash is None:
@@ -138,6 +158,9 @@ async def submit_contact_update(token: str, body: SubmitBody, response: Response
         "link_label": doc.get("label") or "",
         "name": name,
         "email": email,
+        "phone": phone,
+        "city": city,
+        "country": country,
         "created_at": now,
         "dashboard_access_granted": False,
     }
@@ -148,7 +171,15 @@ async def submit_contact_update(token: str, body: SubmitBody, response: Response
         if existing:
             await db.clients.update_one(
                 {"id": existing["id"]},
-                {"$set": {"name": name, "updated_at": now}},
+                {
+                    "$set": {
+                        "name": name,
+                        "phone": phone,
+                        "city": city,
+                        "country": country,
+                        "updated_at": now,
+                    }
+                },
             )
         return {
             "success": True,
@@ -156,7 +187,7 @@ async def submit_contact_update(token: str, body: SubmitBody, response: Response
             "dashboard_access": False,
         }
 
-    client_doc = await _ensure_client_for_contact(email, name, now)
+    client_doc = await _ensure_client_for_contact(email, name, phone, city, country, now)
     user = await _ensure_user_for_client(client_doc, email, name, now)
 
     session_token = str(uuid.uuid4())
@@ -245,13 +276,29 @@ async def admin_export_submissions_csv():
     items = await db.contact_update_submissions.find({}, {"_id": 0}).sort("created_at", -1).to_list(5000)
     buf = io.StringIO()
     w = csv.writer(buf)
-    w.writerow(["created_at", "name", "email", "link_label", "token", "submission_id", "dashboard_access_granted"])
+    w.writerow(
+        [
+            "created_at",
+            "name",
+            "email",
+            "phone",
+            "city",
+            "country",
+            "link_label",
+            "token",
+            "submission_id",
+            "dashboard_access_granted",
+        ]
+    )
     for it in items:
         w.writerow(
             [
                 it.get("created_at") or "",
                 it.get("name") or "",
                 it.get("email") or "",
+                it.get("phone") or "",
+                it.get("city") or "",
+                it.get("country") or "",
                 it.get("link_label") or "",
                 it.get("token") or "",
                 it.get("id") or "",

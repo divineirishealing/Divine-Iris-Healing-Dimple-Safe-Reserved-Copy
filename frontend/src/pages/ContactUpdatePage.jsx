@@ -14,9 +14,11 @@ export default function ContactUpdatePage() {
   const [loading, setLoading] = useState(true);
   const [invalid, setInvalid] = useState(false);
   const [label, setLabel] = useState('');
-  const [grantDashboardAccess, setGrantDashboardAccess] = useState(true);
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
+  const [phone, setPhone] = useState('');
+  const [city, setCity] = useState('');
+  const [country, setCountry] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [done, setDone] = useState(false);
   const [error, setError] = useState('');
@@ -31,7 +33,6 @@ export default function ContactUpdatePage() {
       .get(`${API}/contact-update/${encodeURIComponent(token)}`)
       .then((r) => {
         setLabel(r.data?.label || '');
-        setGrantDashboardAccess(r.data?.grant_dashboard_access !== false);
         setInvalid(false);
       })
       .catch(() => {
@@ -45,7 +46,17 @@ export default function ContactUpdatePage() {
     setError('');
     setSubmitting(true);
     axios
-      .post(`${API}/contact-update/${encodeURIComponent(token)}`, { name: name.trim(), email: email.trim() }, { withCredentials: true })
+      .post(
+        `${API}/contact-update/${encodeURIComponent(token)}`,
+        {
+          name: name.trim(),
+          email: email.trim(),
+          phone: phone.trim(),
+          city: city.trim(),
+          country: country.trim(),
+        },
+        { withCredentials: true }
+      )
       .then((res) => {
         const data = res.data || {};
         if (data.session_token) {
@@ -89,7 +100,7 @@ export default function ContactUpdatePage() {
           <div className="bg-white rounded-xl border border-emerald-100 shadow-sm p-8 text-center">
             <CheckCircle className="w-12 h-12 text-emerald-500 mx-auto mb-4" />
             <p className="text-gray-900 font-semibold mb-2">Thank you</p>
-            <p className="text-sm text-gray-600">Your name and email have been saved.</p>
+            <p className="text-sm text-gray-600">Your details have been saved.</p>
           </div>
         )}
 
@@ -98,12 +109,7 @@ export default function ContactUpdatePage() {
             <div className="bg-gradient-to-r from-[#5D3FD3]/10 to-[#D4AF37]/10 px-6 py-4 border-b border-gray-100">
               <h1 className="text-lg font-serif text-gray-900">Update your details</h1>
               {label && <p className="text-xs text-gray-500 mt-1">{label}</p>}
-              <p className="text-xs text-gray-500 mt-2">Please confirm your name and email so we can stay in touch.</p>
-              {grantDashboardAccess && (
-                <p className="text-xs text-[#5D3FD3]/90 mt-2 leading-relaxed">
-                  After you save, you&apos;ll be signed in and taken to your student dashboard (same access as when you log in with Google, using these details).
-                </p>
-              )}
+              <p className="text-xs text-gray-500 mt-2">Please share your name, email, phone, and location so we can stay in touch.</p>
             </div>
             <form onSubmit={handleSubmit} className="p-6 space-y-4">
               <div>
@@ -136,6 +142,52 @@ export default function ContactUpdatePage() {
                   data-testid="contact-update-email"
                 />
               </div>
+              <div>
+                <label htmlFor="cu-phone" className="block text-xs font-medium text-gray-600 mb-1">
+                  Phone number
+                </label>
+                <input
+                  id="cu-phone"
+                  type="tel"
+                  required
+                  value={phone}
+                  onChange={(e) => setPhone(e.target.value)}
+                  className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#D4AF37]/40 focus:border-[#D4AF37]"
+                  autoComplete="tel"
+                  placeholder="Include country code if outside your country"
+                  data-testid="contact-update-phone"
+                />
+              </div>
+              <div>
+                <label htmlFor="cu-city" className="block text-xs font-medium text-gray-600 mb-1">
+                  City
+                </label>
+                <input
+                  id="cu-city"
+                  type="text"
+                  required
+                  value={city}
+                  onChange={(e) => setCity(e.target.value)}
+                  className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#D4AF37]/40 focus:border-[#D4AF37]"
+                  autoComplete="address-level2"
+                  data-testid="contact-update-city"
+                />
+              </div>
+              <div>
+                <label htmlFor="cu-country" className="block text-xs font-medium text-gray-600 mb-1">
+                  Country
+                </label>
+                <input
+                  id="cu-country"
+                  type="text"
+                  required
+                  value={country}
+                  onChange={(e) => setCountry(e.target.value)}
+                  className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#D4AF37]/40 focus:border-[#D4AF37]"
+                  autoComplete="country-name"
+                  data-testid="contact-update-country"
+                />
+              </div>
               {error && <p className="text-xs text-red-600">{error}</p>}
               <button
                 type="submit"
@@ -143,7 +195,7 @@ export default function ContactUpdatePage() {
                 className="w-full py-2.5 rounded-lg bg-[#D4AF37] hover:bg-[#b8962e] text-white text-sm font-medium transition-colors disabled:opacity-60"
                 data-testid="contact-update-submit"
               >
-                {submitting ? 'Saving…' : grantDashboardAccess ? 'Save & go to dashboard' : 'Save'}
+                {submitting ? 'Saving…' : 'Save'}
               </button>
             </form>
           </div>

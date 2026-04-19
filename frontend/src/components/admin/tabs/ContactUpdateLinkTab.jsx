@@ -131,8 +131,9 @@ const ContactUpdateLinkTab = () => {
         <h2 className="text-lg font-semibold text-gray-900">Contact update links</h2>
       </div>
       <p className="text-xs text-gray-500 mb-4 max-w-2xl">
-        Share the link below (or create another). When &quot;Dashboard access&quot; is on, submitting adds them to Client
-        Garden if needed and signs them into the student dashboard. Export responses as CSV anytime.
+        Share the link below (or create another). Collects name, email, phone, city, and country. When &quot;Dashboard
+        access&quot; is on, submitting also updates Client Garden and can sign them into the dashboard (not shown on the
+        public form). Export CSV anytime.
       </p>
 
       {readyShareUrl && (
@@ -264,6 +265,9 @@ const ContactUpdateLinkTab = () => {
                   <th className="px-3 py-2">When</th>
                   <th className="px-3 py-2">Name</th>
                   <th className="px-3 py-2">Email</th>
+                  <th className="px-3 py-2">Phone</th>
+                  <th className="px-3 py-2">City</th>
+                  <th className="px-3 py-2">Country</th>
                   <th className="px-3 py-2">Signed in</th>
                   <th className="px-3 py-2">Link label</th>
                 </tr>
@@ -276,6 +280,9 @@ const ContactUpdateLinkTab = () => {
                     </td>
                     <td className="px-3 py-2">{s.name}</td>
                     <td className="px-3 py-2">{s.email}</td>
+                    <td className="px-3 py-2 text-xs">{s.phone || '—'}</td>
+                    <td className="px-3 py-2 text-xs">{s.city || '—'}</td>
+                    <td className="px-3 py-2 text-xs">{s.country || '—'}</td>
                     <td className="px-3 py-2 text-xs">{s.dashboard_access_granted ? 'Yes' : '—'}</td>
                     <td className="px-3 py-2 text-xs text-gray-500">{s.link_label || '—'}</td>
                   </tr>
