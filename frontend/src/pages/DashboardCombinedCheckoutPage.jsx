@@ -1237,12 +1237,14 @@ export default function DashboardCombinedCheckoutPage() {
                   <span className="tabular-nums">{symbol} {Math.round(indiaBreakdown.gstAmount).toLocaleString()}</span>
                 </div>
               ) : null}
-              <div className="flex justify-between text-sm text-amber-950">
-                <span>Platform ({indiaBreakdown.platformPct}%)</span>
-                <span className="tabular-nums">
-                  {symbol} {Math.round(indiaBreakdown.platformAmount).toLocaleString()}
-                </span>
-              </div>
+              {indiaBreakdown.platformPct > 0 ? (
+                <div className="flex justify-between text-sm text-amber-950">
+                  <span>Platform ({indiaBreakdown.platformPct}%)</span>
+                  <span className="tabular-nums">
+                    {symbol} {Math.round(indiaBreakdown.platformAmount).toLocaleString()}
+                  </span>
+                </div>
+              ) : null}
             </div>
           ) : null}
           <div className="flex justify-between font-bold text-lg sm:text-xl border-t border-gray-200 pt-3 mt-2">

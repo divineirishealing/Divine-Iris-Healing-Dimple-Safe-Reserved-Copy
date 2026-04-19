@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import axios from 'axios';
 import { CreditCard, Save, Loader2, Percent, ExternalLink, Building2, IndianRupee, Check, X, Plus, Trash2, Key, Mail, Copy } from 'lucide-react';
 import { Button } from '../../ui/button';
@@ -14,6 +14,12 @@ const SITE_URL =
   typeof window !== 'undefined' && window.location?.origin
     ? window.location.origin.replace(/\/$/, '')
     : (getBackendUrl() || '').replace(/\/api\/?$/, '').replace(/\/api\//, '/');
+
+/** Parse admin % inputs; 0 is valid — do not use `|| fallback` (0 is falsy). */
+function pctOr(raw, fallback) {
+  const v = parseFloat(raw);
+  return Number.isFinite(v) ? v : fallback;
+}
 
 const PaymentSettingsTab = () => {
   const { toast } = useToast();
@@ -46,6 +52,27 @@ const PaymentSettingsTab = () => {
       setInrWhitelistEmails(Array.isArray(r.data.inr_whitelist_emails) ? r.data.inr_whitelist_emails : []);
     }).catch(() => {}).finally(() => setLoading(false));
   }, []);
+
+  const receiptPreviewExample = useMemo(() => {
+    const base = 10000;
+    const alt = pctOr(altDiscountPct, 9);
+    const gst = pctOr(gstPct, 18);
+    const plat = pctOr(platformPct, 3);
+    const taxable = base * (1 - alt / 100);
+    const gstAmt = Math.round((taxable * gst) / 100);
+    const platAmt = Math.round((taxable * plat) / 100);
+    const totalInr = Math.round(taxable + gstAmt + platAmt);
+    return {
+      alt,
+      gst,
+      plat,
+      taxable,
+      gstAmt,
+      platAmt,
+      totalInr,
+      showPlatformLine: plat > 0,
+    };
+  }, [altDiscountPct, gstPct, platformPct]);
 
   const save = async () => {
     setSaving(true);
@@ -257,10 +284,20 @@ const PaymentSettingsTab = () => {
 
         <div className="mt-3 bg-white rounded-lg p-3 border text-xs">
           <p className="text-gray-500 mb-1">Receipt Preview (example INR 10,000 base):</p>
-          <p className="text-gray-700">Taxable (after {altDiscountPct}% discount): <strong>INR {(10000 * (1 - (parseFloat(altDiscountPct) || 9) / 100)).toLocaleString()}</strong></p>
-          <p className="text-gray-700">GST ({gstPct}%): <strong>INR {Math.round(10000 * (1 - (parseFloat(altDiscountPct) || 9) / 100) * (parseFloat(gstPct) || 18) / 100).toLocaleString()}</strong></p>
-          <p className="text-gray-700">Platform ({platformPct}%): <strong>INR {Math.round(10000 * (1 - (parseFloat(altDiscountPct) || 9) / 100) * (parseFloat(platformPct) || 3) / 100).toLocaleString()}</strong></p>
-          <p className="text-[#D4AF37] font-bold">Total: INR {Math.round(10000 * (1 - (parseFloat(altDiscountPct) || 9) / 100) * (1 + (parseFloat(gstPct) || 18) / 100 + (parseFloat(platformPct) || 3) / 100)).toLocaleString()}</p>
+          <p className="text-gray-700">
+            Taxable (after {receiptPreviewExample.alt}% discount):{' '}
+            <strong>INR {Math.round(receiptPreviewExample.taxable).toLocaleString()}</strong>
+          </p>
+          <p className="text-gray-700">
+            GST ({receiptPreviewExample.gst}%): <strong>INR {receiptPreviewExample.gstAmt.toLocaleString()}</strong>
+          </p>
+          {receiptPreviewExample.showPlatformLine ? (
+            <p className="text-gray-700">
+              Platform ({receiptPreviewExample.plat}%):{' '}
+              <strong>INR {receiptPreviewExample.platAmt.toLocaleString()}</strong>
+            </p>
+          ) : null}
+          <p className="text-[#D4AF37] font-bold">Total: INR {receiptPreviewExample.totalInr.toLocaleString()}</p>
         </div>
       </div>
       </CollapsibleSection>
