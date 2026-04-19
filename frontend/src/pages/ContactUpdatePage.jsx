@@ -14,6 +14,7 @@ export default function ContactUpdatePage() {
   const [loading, setLoading] = useState(true);
   const [invalid, setInvalid] = useState(false);
   const [label, setLabel] = useState('');
+  const [grantDashboardAccess, setGrantDashboardAccess] = useState(true);
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [submitting, setSubmitting] = useState(false);
@@ -30,6 +31,7 @@ export default function ContactUpdatePage() {
       .get(`${API}/contact-update/${encodeURIComponent(token)}`)
       .then((r) => {
         setLabel(r.data?.label || '');
+        setGrantDashboardAccess(r.data?.grant_dashboard_access !== false);
         setInvalid(false);
       })
       .catch(() => {
@@ -43,8 +45,16 @@ export default function ContactUpdatePage() {
     setError('');
     setSubmitting(true);
     axios
-      .post(`${API}/contact-update/${encodeURIComponent(token)}`, { name: name.trim(), email: email.trim() })
-      .then(() => {
+      .post(`${API}/contact-update/${encodeURIComponent(token)}`, { name: name.trim(), email: email.trim() }, { withCredentials: true })
+      .then((res) => {
+        const data = res.data || {};
+        if (data.session_token) {
+          localStorage.setItem('session_token', data.session_token);
+        }
+        if (data.dashboard_access) {
+          window.location.href = '/dashboard';
+          return;
+        }
         setDone(true);
       })
       .catch((err) => {
@@ -89,6 +99,11 @@ export default function ContactUpdatePage() {
               <h1 className="text-lg font-serif text-gray-900">Update your details</h1>
               {label && <p className="text-xs text-gray-500 mt-1">{label}</p>}
               <p className="text-xs text-gray-500 mt-2">Please confirm your name and email so we can stay in touch.</p>
+              {grantDashboardAccess && (
+                <p className="text-xs text-[#5D3FD3]/90 mt-2 leading-relaxed">
+                  After you save, you&apos;ll be signed in and taken to your student dashboard (same access as when you log in with Google, using these details).
+                </p>
+              )}
             </div>
             <form onSubmit={handleSubmit} className="p-6 space-y-4">
               <div>
@@ -128,7 +143,7 @@ export default function ContactUpdatePage() {
                 className="w-full py-2.5 rounded-lg bg-[#D4AF37] hover:bg-[#b8962e] text-white text-sm font-medium transition-colors disabled:opacity-60"
                 data-testid="contact-update-submit"
               >
-                {submitting ? 'Saving…' : 'Save'}
+                {submitting ? 'Saving…' : grantDashboardAccess ? 'Save & go to dashboard' : 'Save'}
               </button>
             </form>
           </div>

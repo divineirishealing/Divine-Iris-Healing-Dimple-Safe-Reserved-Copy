@@ -4,6 +4,7 @@ import { useToast } from '../../../hooks/use-toast';
 import { Button } from '../../ui/button';
 import { Input } from '../../ui/input';
 import { Label } from '../../ui/label';
+import { Switch } from '../../ui/switch';
 import { Link2, Copy, Download, Loader2, RefreshCw, Ban, ExternalLink } from 'lucide-react';
 import { getApiUrl } from '../../../lib/config';
 
@@ -17,6 +18,7 @@ const ContactUpdateLinkTab = () => {
   const [submissions, setSubmissions] = useState([]);
   const [loading, setLoading] = useState(false);
   const [creating, setCreating] = useState(false);
+  const [grantDashboardAccess, setGrantDashboardAccess] = useState(true);
 
   const fullUrl = (path) => {
     if (typeof window === 'undefined') return path;
@@ -58,6 +60,7 @@ const ContactUpdateLinkTab = () => {
       const res = await axios.post(`${API}/admin/contact-update/links`, {
         admin_password: adminPassword,
         label: linkLabel.trim(),
+        grant_dashboard_access: grantDashboardAccess,
       });
       const path = res.data?.path || `/update-contact/${res.data?.token}`;
       const url = fullUrl(path);
@@ -133,8 +136,9 @@ const ContactUpdateLinkTab = () => {
         <h2 className="text-lg font-semibold text-gray-900">Contact update links</h2>
       </div>
       <p className="text-xs text-gray-500 mb-6 max-w-2xl">
-        Create a shareable page where people can confirm or update their name and email. Responses appear below and
-        can be downloaded as CSV. If the email matches someone in Client Garden, their name is updated there too.
+        Create a shareable page where people confirm name and email. When &quot;Dashboard access&quot; is on, submitting
+        also adds them to Client Garden if needed, creates their portal login, and signs them straight into the student
+        dashboard (same as after Google login). Responses can be downloaded as CSV.
       </p>
 
       <div className="bg-white rounded-lg border p-4 mb-6 space-y-3">
@@ -150,7 +154,7 @@ const ContactUpdateLinkTab = () => {
             data-testid="contact-update-admin-password"
           />
         </div>
-        <div className="flex flex-wrap gap-2 items-end">
+        <div className="flex flex-col sm:flex-row sm:flex-wrap gap-4 items-start sm:items-end">
           <div className="flex-1 min-w-[200px]">
             <Label className="text-xs text-gray-600">Label (optional)</Label>
             <Input
@@ -161,6 +165,10 @@ const ContactUpdateLinkTab = () => {
               data-testid="contact-update-link-label"
             />
           </div>
+          <label className="flex items-center gap-2 cursor-pointer select-none pt-1">
+            <Switch checked={grantDashboardAccess} onCheckedChange={setGrantDashboardAccess} data-testid="contact-update-grant-dashboard" />
+            <span className="text-xs text-gray-700 max-w-[220px]">Sign them into dashboard after submit</span>
+          </label>
           <Button
             type="button"
             onClick={createLink}
@@ -192,6 +200,7 @@ const ContactUpdateLinkTab = () => {
               <thead>
                 <tr className="border-b text-left text-[10px] uppercase text-gray-400">
                   <th className="px-3 py-2">Label</th>
+                  <th className="px-3 py-2">Dashboard</th>
                   <th className="px-3 py-2">Link</th>
                   <th className="px-3 py-2">Created</th>
                   <th className="px-3 py-2 w-24"></th>
@@ -201,9 +210,11 @@ const ContactUpdateLinkTab = () => {
                 {links.map((row) => {
                   const path = `/update-contact/${row.token}`;
                   const active = row.active !== false;
+                  const grant = row.grant_dashboard_access !== false;
                   return (
                     <tr key={row.token} className="border-b border-gray-50">
                       <td className="px-3 py-2">{row.label || '—'}</td>
+                      <td className="px-3 py-2 text-xs">{grant ? 'Yes' : 'No'}</td>
                       <td className="px-3 py-2">
                         {active ? (
                           <div className="flex flex-wrap items-center gap-1">
@@ -257,6 +268,7 @@ const ContactUpdateLinkTab = () => {
                   <th className="px-3 py-2">When</th>
                   <th className="px-3 py-2">Name</th>
                   <th className="px-3 py-2">Email</th>
+                  <th className="px-3 py-2">Signed in</th>
                   <th className="px-3 py-2">Link label</th>
                 </tr>
               </thead>
@@ -268,6 +280,7 @@ const ContactUpdateLinkTab = () => {
                     </td>
                     <td className="px-3 py-2">{s.name}</td>
                     <td className="px-3 py-2">{s.email}</td>
+                    <td className="px-3 py-2 text-xs">{s.dashboard_access_granted ? 'Yes' : '—'}</td>
                     <td className="px-3 py-2 text-xs text-gray-500">{s.link_label || '—'}</td>
                   </tr>
                 ))}
