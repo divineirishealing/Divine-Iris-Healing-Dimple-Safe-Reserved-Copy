@@ -1412,30 +1412,26 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh, bo
                         }
                       : undefined
                   }
-                  annualSeatUi={
-                    isAnnual
-                      ? {
-                          draft: draftRow,
-                          attendanceQuickPreset: attendanceQuick,
-                          notifyQuickPreset: notifyQuick,
-                          bookerDisplayName: homeData?.user_details?.full_name || 'Account holder',
-                          onPatchDraft: patchSeatDraft,
-                          onApplyAttendanceDraft: applyBulkSeatModesDraft,
-                          onApplyNotifyDraft: applyBulkNotifyDraft,
-                          onClearSavedDefaults: () => {
-                            clearDashboardEnrollmentDefaults();
-                            patchSeatDraft(p.id, { enrollmentDefaultsLoaded: false });
-                            toast({
-                              title: 'Saved defaults cleared',
-                              description: 'New enrollments will start from standard options until you save again.',
-                            });
-                          },
-                          persistEnrollmentDefaultsOnContinue,
-                          onPersistEnrollmentDefaultsChange: setPersistEnrollmentDefaultsOnContinue,
-                          onOpenPerPersonSeatModal: () => openEnrollmentSeatModal(p, includedForSeat, sel),
-                        }
-                      : null
-                  }
+                  annualSeatUi={{
+                    draft: draftRow,
+                    attendanceQuickPreset: attendanceQuick,
+                    notifyQuickPreset: notifyQuick,
+                    bookerDisplayName: homeData?.user_details?.full_name || 'Account holder',
+                    onPatchDraft: patchSeatDraft,
+                    onApplyAttendanceDraft: applyBulkSeatModesDraft,
+                    onApplyNotifyDraft: applyBulkNotifyDraft,
+                    onClearSavedDefaults: () => {
+                      clearDashboardEnrollmentDefaults();
+                      patchSeatDraft(p.id, { enrollmentDefaultsLoaded: false });
+                      toast({
+                        title: 'Saved defaults cleared',
+                        description: 'New enrollments will start from standard options until you save again.',
+                      });
+                    },
+                    persistEnrollmentDefaultsOnContinue,
+                    onPersistEnrollmentDefaultsChange: setPersistEnrollmentDefaultsOnContinue,
+                    onOpenPerPersonSeatModal: () => openEnrollmentSeatModal(p, includedForSeat, sel),
+                  }}
                 />
               );
             })}

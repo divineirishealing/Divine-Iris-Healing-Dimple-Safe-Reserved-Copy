@@ -1308,7 +1308,7 @@ export default function DashboardUpcomingProgramRowItem({
                   )}
                 </div>
 
-                {/* Attendance & Notification */}
+                {/* Attendance & Notification — wired to annualSeatUi (same state as the per-person modal) */}
                 <div className="rounded-xl border border-slate-200 bg-white p-3 sm:p-4 shadow-sm min-h-0 flex flex-col min-w-[13rem] w-full">
                   <button type="button" className="w-full flex items-center justify-between gap-2 text-left rounded-lg outline-none focus-visible:ring-2 focus-visible:ring-[#D4AF37]/40" onClick={() => setNonAnnualAttendanceOpen(o => !o)} aria-expanded={nonAnnualAttendanceOpen}>
                     <span className="text-[9px] sm:text-[10px] font-bold uppercase tracking-tight text-slate-600 whitespace-nowrap">Attendance &amp; notification</span>
@@ -1327,30 +1327,54 @@ export default function DashboardUpcomingProgramRowItem({
                             <span className="text-[9px] font-bold uppercase tracking-wide text-slate-500 shrink-0">Attendance</span>
                             <div className="flex flex-wrap items-center gap-x-3 gap-y-1 flex-1 min-w-0">
                               <label className="inline-flex items-center gap-1.5 cursor-pointer text-[10px] text-slate-800 whitespace-nowrap">
-                                <input type="checkbox" className="rounded border-slate-300 shrink-0 scale-90" checked={nonAnnualAttendMode === 'online'} onChange={() => setNonAnnualAttendMode('online')} />
+                                <input type="checkbox" className="rounded border-slate-300 shrink-0 scale-90"
+                                  checked={annualSeatUi?.attendanceQuickPreset === 'all_online'}
+                                  onChange={(e) => { e.stopPropagation(); if (e.target.checked) annualSeatUi?.onApplyAttendanceDraft(p.id, 'all_online'); }} />
                                 All online
                               </label>
                               <label className="inline-flex items-center gap-1.5 cursor-pointer text-[10px] text-slate-800 whitespace-nowrap">
-                                <input type="checkbox" className="rounded border-slate-300 shrink-0 scale-90" checked={nonAnnualAttendMode === 'offline'} onChange={() => setNonAnnualAttendMode('offline')} />
+                                <input type="checkbox" className="rounded border-slate-300 shrink-0 scale-90"
+                                  checked={annualSeatUi?.attendanceQuickPreset === 'all_offline'}
+                                  onChange={(e) => { e.stopPropagation(); if (e.target.checked) annualSeatUi?.onApplyAttendanceDraft(p.id, 'all_offline'); }} />
                                 All offline
                               </label>
+                              {selCount > 0 && (
+                                <label className="inline-flex items-center gap-1.5 cursor-pointer text-[10px] text-slate-800 whitespace-nowrap">
+                                  <input type="checkbox" className="rounded border-slate-300 shrink-0 scale-90"
+                                    checked={annualSeatUi?.attendanceQuickPreset === 'except_me'}
+                                    onChange={(e) => { e.stopPropagation(); if (e.target.checked) annualSeatUi?.onApplyAttendanceDraft(p.id, 'guests_offline_booker_online'); }} />
+                                  All offline except Myself
+                                </label>
+                              )}
+                              {(annualSeatUi?.attendanceQuickPreset === 'custom') && (
+                                <span className="text-[9px] text-amber-800/90">Mixed — use advanced or pick a preset.</span>
+                              )}
                             </div>
                           </div>
                           <div className="flex flex-col gap-1.5 py-2 w-full">
                             <span className="text-[9px] font-bold uppercase tracking-wide text-slate-500 shrink-0 leading-snug">Enrollment email</span>
                             <div className="flex flex-wrap items-center gap-x-3 gap-y-1 flex-1 min-w-0">
                               <label className="inline-flex items-center gap-1.5 cursor-pointer text-[10px] text-slate-800 whitespace-nowrap">
-                                <input type="checkbox" className="rounded border-slate-300 shrink-0 scale-90" checked={nonAnnualEmailPreset === 'email_all'} onChange={() => setNonAnnualEmailPreset('email_all')} />
+                                <input type="checkbox" className="rounded border-slate-300 shrink-0 scale-90"
+                                  checked={annualSeatUi?.notifyQuickPreset === 'email_all'}
+                                  onChange={(e) => { e.stopPropagation(); if (e.target.checked) annualSeatUi?.onApplyNotifyDraft(p.id, 'all_on'); }} />
                                 Email all
                               </label>
                               <label className="inline-flex items-center gap-1.5 cursor-pointer text-[10px] text-slate-800 whitespace-nowrap">
-                                <input type="checkbox" className="rounded border-slate-300 shrink-0 scale-90" checked={nonAnnualEmailPreset === 'email_me_only'} onChange={() => setNonAnnualEmailPreset('email_me_only')} />
+                                <input type="checkbox" className="rounded border-slate-300 shrink-0 scale-90"
+                                  checked={annualSeatUi?.notifyQuickPreset === 'email_me_only'}
+                                  onChange={(e) => { e.stopPropagation(); if (e.target.checked) annualSeatUi?.onApplyNotifyDraft(p.id, 'me_only'); }} />
                                 Email Me Only
                               </label>
                               <label className="inline-flex items-center gap-1.5 cursor-pointer text-[10px] text-slate-800 whitespace-nowrap">
-                                <input type="checkbox" className="rounded border-slate-300 shrink-0 scale-90" checked={nonAnnualEmailPreset === 'custom'} onChange={() => setNonAnnualEmailPreset('custom')} />
+                                <input type="checkbox" className="rounded border-slate-300 shrink-0 scale-90"
+                                  checked={annualSeatUi?.notifyQuickPreset === 'custom'}
+                                  onChange={(e) => { e.stopPropagation(); if (e.target.checked) annualSeatUi?.onApplyNotifyDraft(p.id, 'all_off'); }} />
                                 Custom
                               </label>
+                              {annualSeatUi?.notifyQuickPreset === 'mixed' && (
+                                <span className="text-[9px] text-amber-800/90">Mixed — open advanced.</span>
+                              )}
                             </div>
                           </div>
                         </div>
@@ -1376,7 +1400,9 @@ export default function DashboardUpcomingProgramRowItem({
                     </p>
                   </div>
                   <label className="flex items-center gap-2 cursor-pointer pt-2 border-t border-slate-100">
-                    <input type="checkbox" className="rounded border-slate-300 scale-90 shrink-0" checked={!!nonAnnualSaveDefaults} onChange={(e) => setNonAnnualSaveDefaults(e.target.checked)} />
+                    <input type="checkbox" className="rounded border-slate-300 scale-90 shrink-0"
+                      checked={!!annualSeatUi?.persistEnrollmentDefaultsOnContinue}
+                      onChange={(e) => annualSeatUi?.onPersistEnrollmentDefaultsChange?.(e.target.checked)} />
                     <span className="font-semibold text-[9px] text-slate-800 uppercase tracking-wide leading-snug">
                       Save as my default for every program (this browser)
                     </span>
