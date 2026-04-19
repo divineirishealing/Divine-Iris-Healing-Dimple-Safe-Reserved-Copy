@@ -1082,7 +1082,7 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh, bo
   };
 
   const applyBulkSeatModesDraft = (programId, preset) => {
-    const prog = programsForPrefetch.find((x) => x.id === programId);
+    const prog = programsForPrefetch.find((x) => String(x.id) === String(programId));
     if (!prog) return;
     const includedPkg =
       programIncludedInAnnualPackage(prog, annualIncludedIds) || !!annualQuotes[programId]?.included_in_annual_package;
@@ -1114,7 +1114,7 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh, bo
   };
 
   const applyBulkNotifyDraft = (programId, preset) => {
-    const prog = programsForPrefetch.find((x) => x.id === programId);
+    const prog = programsForPrefetch.find((x) => String(x.id) === String(programId));
     if (!prog) return;
     const ids = (selectedFamilyByProgram[programId] || []).map(String);
     setBookerSeatNotify(preset !== 'all_off');
@@ -1250,9 +1250,19 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh, bo
           immediateFamilyMembers: members,
         });
       } else {
+        // Non-annual: respect selectedIds + attendance modes from modal (draft already merged)
         participants =
-          buildFullPortalRosterCartParticipants(program, pre, bookerEmail, detectedCountry) ||
-          buildSelfOnlyCartParticipants(pre.self, program, bookerEmail, detectedCountry);
+          buildAnnualDashboardCartParticipants({
+            program,
+            includedPkg: false,
+            selectedMemberIds: selectedIds,
+            seatDraft: draft,
+            enrollableGuests,
+            self: pre.self,
+            bookerEmail,
+            detectedCountry,
+            immediateFamilyMembers: members,
+          }) || buildSelfOnlyCartParticipants(pre.self, program, bookerEmail, detectedCountry);
       }
     } catch {
       /* syncProgramLineItem still updates line meta */

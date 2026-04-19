@@ -307,13 +307,26 @@ export default function DashboardUpcomingProgramRowItem({
           immediateFamilyMembers: members,
         });
       } else {
-        // Non-annual: use selected family members + seat draft (same builder as annual)
-        // so attendance mode and who-is-enrolling match what the user set on the card
+        // Non-annual: build seatDraft directly from the card's current attendance preset so
+        // the cart is correct even when the user picked attendance before selecting family members
+        // (in that case guestSeatForm may not yet have the mode for newly-added guests).
+        const effectiveAttendPreset = nonAnnualAttendMode ?? annualSeatUi?.attendanceQuickPreset ?? 'all_online';
+        const guestAttendMode = (effectiveAttendPreset === 'all_offline' || effectiveAttendPreset === 'except_me') ? 'offline' : 'online';
+        const bookerAttendMode = effectiveAttendPreset === 'all_offline' ? 'offline' : 'online';
+        const baseDraft = annualSeatUi?.draft || {};
+        const overriddenGuestForm = Object.fromEntries(
+          selIds.map((id) => [id, { ...(baseDraft.guestSeatForm?.[id] || {}), attendance_mode: guestAttendMode }])
+        );
+        const nonAnnualSeatDraft = {
+          ...baseDraft,
+          bookerSeatMode: bookerAttendMode,
+          guestSeatForm: { ...baseDraft.guestSeatForm, ...overriddenGuestForm },
+        };
         participants = buildAnnualDashboardCartParticipants({
           program: p,
           includedPkg: false,
           selectedMemberIds: selIds,
-          seatDraft: annualSeatUi?.draft,
+          seatDraft: nonAnnualSeatDraft,
           enrollableGuests,
           self,
           bookerEmail,
