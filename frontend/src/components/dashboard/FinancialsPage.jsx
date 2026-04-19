@@ -659,6 +659,7 @@ const FinancialsPage = () => {
   const banks = data?.bank_accounts || [];
   const clientId = data?.client_id || '';
   const indiaPaymentReference = data?.india_payment_reference;
+  const indiaTaxInfo = data?.india_tax_info;
   const voluntaryCredits = fin.voluntary_credits_total || 0;
   const canManualIndia = (methods || []).some((m) => ['manual', 'gpay', 'bank'].includes(m));
 
@@ -719,6 +720,13 @@ const FinancialsPage = () => {
           </div>
         ))}
       </div>
+
+      {/* India Tax info badge */}
+      {indiaTaxInfo?.enabled && indiaTaxInfo?.visible_on_dashboard && (
+        <p className="text-[11px] text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 -mt-2">
+          Your fee includes <strong>{indiaTaxInfo.percent}% {indiaTaxInfo.label}</strong> applicable on India payments (GPay / UPI / Bank Transfer).
+        </p>
+      )}
 
       {/* Payment Progress */}
       {totalFee > 0 && (

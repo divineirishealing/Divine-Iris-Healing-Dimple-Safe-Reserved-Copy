@@ -455,11 +455,13 @@ const ClientDetail = ({ client: cl, labelConfig: cfg, onUpdate, onDelete, toast 
   const [labelManual, setLabelManual] = useState(cl.label_manual || '');
   const [notes, setNotes] = useState(cl.notes || '');
   const [familyEditApproved, setFamilyEditApproved] = useState(!!cl.immediate_family_editing_approved);
+  const [portalLoginAllowed, setPortalLoginAllowed] = useState(cl.portal_login_allowed !== false);
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     setFamilyEditApproved(!!cl.immediate_family_editing_approved);
-  }, [cl.id, cl.immediate_family_editing_approved]);
+    setPortalLoginAllowed(cl.portal_login_allowed !== false);
+  }, [cl.id, cl.immediate_family_editing_approved, cl.portal_login_allowed]);
 
   const handleSave = async () => {
     setSaving(true);
@@ -468,6 +470,7 @@ const ClientDetail = ({ client: cl, labelConfig: cfg, onUpdate, onDelete, toast 
         label_manual: labelManual,
         notes,
         immediate_family_editing_approved: familyEditApproved,
+        portal_login_allowed: portalLoginAllowed,
       });
       toast({ title: 'Client updated' });
       setEditing(false);
@@ -553,6 +556,27 @@ const ClientDetail = ({ client: cl, labelConfig: cfg, onUpdate, onDelete, toast 
                 </span>
               </label>
             </div>
+            <div className={`rounded-lg border px-2 py-2 ${portalLoginAllowed ? 'border-green-200 bg-green-50/40' : 'border-red-200 bg-red-50/30'}`}>
+              <label className="flex items-start gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  data-testid="client-portal-login-allowed"
+                  checked={portalLoginAllowed}
+                  onChange={(e) => setPortalLoginAllowed(e.target.checked)}
+                  className="mt-0.5 rounded border-green-300"
+                />
+                <span>
+                  <span className="text-[10px] font-semibold text-gray-800 flex items-center gap-1">
+                    <Lock size={10} className={portalLoginAllowed ? 'text-green-600' : 'text-red-500'} />
+                    Allow Google login to student dashboard
+                  </span>
+                  <span className="text-[9px] text-gray-500 block mt-0.5 leading-snug">
+                    When enabled, this client can sign in via Google and access their student portal.
+                    Turn off to block dashboard access for this individual.
+                  </span>
+                </span>
+              </label>
+            </div>
             <Button data-testid="client-save" onClick={handleSave} disabled={saving} size="sm" className="text-[10px] bg-[#D4AF37] hover:bg-[#b8962e] gap-1">
               <Save size={10} /> {saving ? 'Saving...' : 'Save'}
             </Button>
@@ -564,6 +588,12 @@ const ClientDetail = ({ client: cl, labelConfig: cfg, onUpdate, onDelete, toast 
               {cl.label_manual && <span className="text-[9px] text-gray-400">(manually set)</span>}
             </div>
             {cl.notes && <p className="text-[10px] text-gray-600 mt-1">{cl.notes}</p>}
+            <div className="mt-2 flex items-center gap-1.5">
+              <span className={`inline-flex items-center gap-1 text-[9px] px-2 py-0.5 rounded-full font-semibold ${portalLoginAllowed ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-600'}`}>
+                <Lock size={8} />
+                Dashboard: {portalLoginAllowed ? 'Access allowed' : 'Access blocked'}
+              </span>
+            </div>
             <div className="mt-3 pt-2 border-t border-gray-100">
               <p className="text-[9px] text-gray-400 uppercase tracking-wider mb-1 flex items-center gap-1">
                 <Lock size={9} /> Member portal — immediate family

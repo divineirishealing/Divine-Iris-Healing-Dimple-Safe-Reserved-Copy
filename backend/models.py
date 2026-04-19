@@ -101,6 +101,10 @@ class Program(BaseModel):
     show_start_date_on_card: bool = True
     show_end_date_on_card: bool = True
     show_timing_on_card: bool = True
+    india_tax_enabled: bool = False
+    india_tax_percent: float = 18.0
+    india_tax_label: str = "GST"
+    india_tax_visible_on_dashboard: bool = True
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 class ProgramCreate(BaseModel):

@@ -21,12 +21,14 @@ const IndiaPaymentPage = () => {
   const { toast } = useToast();
 
   const programTitle = searchParams.get('program') || '';
+  const programId = searchParams.get('program_id') || '';
   const basePrice = parseFloat(searchParams.get('price') || '0');
   const promoDiscount = parseFloat(searchParams.get('promo_discount') || '0');
   const autoDiscount = parseFloat(searchParams.get('auto_discount') || '0');
   const isManualMode = searchParams.get('mode') === 'manual';
 
   const [settings, setSettings] = useState({});
+  const [programData, setProgramData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
@@ -47,25 +49,44 @@ const IndiaPaymentPage = () => {
   const [notes, setNotes] = useState('');
 
   useEffect(() => {
-    axios.get(`${API}/settings`).then(r => {
-      setSettings(r.data);
-      if (isManualMode) {
-        setActiveMethod('bank');
-      } else if (!r.data.india_exly_link && r.data.india_bank_details?.account_number) {
-        setActiveMethod('bank');
+    const fetchAll = async () => {
+      try {
+        const [settingsRes, programRes] = await Promise.all([
+          axios.get(`${API}/settings`),
+          programId ? axios.get(`${API}/programs/${programId}`).catch(() => ({ data: null })) : Promise.resolve({ data: null }),
+        ]);
+        setSettings(settingsRes.data);
+        setProgramData(programRes.data);
+        if (isManualMode) {
+          setActiveMethod('bank');
+        } else if (!settingsRes.data.india_exly_link && settingsRes.data.india_bank_details?.account_number) {
+          setActiveMethod('bank');
+        }
+      } catch {
+        // ignore
+      } finally {
+        setLoading(false);
       }
-    }).catch(() => {}).finally(() => setLoading(false));
-  }, [isManualMode]);
+    };
+    fetchAll();
+  }, [isManualMode, programId]);
 
   const pricing = useMemo(() => {
     const altDiscount = settings.india_alt_discount_percent || 9;
-    const gstPct = settings.india_gst_percent || 18;
     const platformPct = settings.india_platform_charge_percent || 3;
+
+    // Program-specific tax overrides global site setting
+    const taxEnabled = programData ? !!programData.india_tax_enabled : true;
+    const gstPct = taxEnabled
+      ? (programData ? (programData.india_tax_percent ?? 18) : (settings.india_gst_percent || 18))
+      : 0;
+    const taxLabel = (programData?.india_tax_label) || 'GST';
+
     const effectiveBase = Math.max(0, basePrice - promoDiscount - autoDiscount);
     const altDiscountAmt = effectiveBase * altDiscount / 100;
     const discountedBase = effectiveBase - altDiscountAmt;
-    const gstAmount = discountedBase * gstPct / 100; // GST on taxable amount
-    const platformAmount = discountedBase * platformPct / 100; // Platform on taxable amount
+    const gstAmount = discountedBase * gstPct / 100;
+    const platformAmount = discountedBase * platformPct / 100;
     const total = discountedBase + gstAmount + platformAmount;
     return {
       originalBase: basePrice,
@@ -75,13 +96,15 @@ const IndiaPaymentPage = () => {
       altDiscountPct: altDiscount,
       altDiscountAmt,
       discountedBase,
+      taxEnabled,
+      taxLabel,
       gstPct,
       gstAmount,
       platformPct,
       platformAmount,
       total: Math.round(total),
     };
-  }, [basePrice, promoDiscount, autoDiscount, settings]);
+  }, [basePrice, promoDiscount, autoDiscount, settings, programData]);
 
   const handleScreenshot = (e) => {
     const file = e.target.files?.[0] ?? null;
@@ -448,10 +471,12 @@ const IndiaPaymentPage = () => {
                     <span className="text-gray-900 font-medium">INR {Math.round(pricing.discountedBase).toLocaleString()}</span>
                   </div>
 
+                  {pricing.taxEnabled && pricing.gstPct > 0 && (
                   <div className="flex justify-between">
-                    <span className="text-gray-500">GST ({pricing.gstPct}%)</span>
+                    <span className="text-gray-500">{pricing.taxLabel} ({pricing.gstPct}%)</span>
                     <span className="text-gray-900">+ INR {Math.round(pricing.gstAmount).toLocaleString()}</span>
                   </div>
+                  )}
 
                   {pricing.platformAmount > 0 && (
                     <div className="flex justify-between">
