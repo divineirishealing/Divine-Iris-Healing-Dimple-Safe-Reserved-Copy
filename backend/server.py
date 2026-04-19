@@ -22,6 +22,7 @@ from routes.student import list_student_orders_impl
 from routes import subscribers
 from routes import emi_payments
 from routes import annual_subscribers as annual_subscribers_module
+from routes import client_intake as client_intake_module
 from routes import reminders as reminders_module
 from routes import enrollment_auto_report as enrollment_auto_report_module
 import asyncio
@@ -252,6 +253,7 @@ app.include_router(contact_update.admin_router)
 app.include_router(subscribers.router)
 app.include_router(emi_payments.router)
 app.include_router(annual_subscribers_module.router)
+app.include_router(client_intake_module.router)
 app.include_router(enrollment_auto_report_module.router)
 
 @api_router.get("/admin/api-keys")

@@ -338,10 +338,12 @@ async def sync_clients():
 # ========== LIST / SEARCH ==========
 
 @router.get("")
-async def list_clients(label: Optional[str] = None, search: Optional[str] = None):
+async def list_clients(label: Optional[str] = None, search: Optional[str] = None, intake_pending: Optional[str] = None):
     query = {}
     if label:
         query["label"] = label
+    if intake_pending == "true":
+        query["intake_pending"] = True
     if search:
         search_regex = {"$regex": search, "$options": "i"}
         query["$or"] = [
@@ -460,6 +462,7 @@ class ClientUpdate(BaseModel):
     india_tax_visible_on_dashboard: Optional[bool] = None
     india_payment_method: Optional[str] = None   # e.g. "gpay", "upi", "bank_transfer", "any"
     india_discount_percent: Optional[float] = None  # client-specific discount on base price
+    intake_pending: Optional[bool] = None
 
 
 @router.put("/{client_id}")
@@ -496,6 +499,8 @@ async def update_client(client_id: str, data: ClientUpdate):
         update_fields["india_payment_method"] = data.india_payment_method
     if data.india_discount_percent is not None:
         update_fields["india_discount_percent"] = float(data.india_discount_percent)
+    if data.intake_pending is not None:
+        update_fields["intake_pending"] = bool(data.intake_pending)
 
     await db.clients.update_one({"id": client_id}, {"$set": update_fields})
 

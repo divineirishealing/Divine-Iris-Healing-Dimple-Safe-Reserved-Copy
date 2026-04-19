@@ -18,7 +18,7 @@ import {
 import {
   Users, Search, Download, RefreshCw, ChevronDown, ChevronUp,
   Droplets, Sprout, TreeDeciduous, Flower2, Star, Sparkles, Crown,
-  Clock, Tag, Edit2, Save, X, Trash2, UserPlus, Lock, Eye,
+  Clock, Tag, Edit2, Save, X, Trash2, UserPlus, Lock, Eye, Bell,
 } from 'lucide-react';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
@@ -53,6 +53,8 @@ const ClientsTab = () => {
   const [clients, setClients] = useState([]);
   const [stats, setStats] = useState({ total: 0, by_label: {} });
   const [filterLabel, setFilterLabel] = useState('');
+  const [filterPending, setFilterPending] = useState(false);
+  const [pendingCount, setPendingCount] = useState(0);
   const [searchText, setSearchText] = useState('');
   const [expandedId, setExpandedId] = useState(null);
   const [syncing, setSyncing] = useState(false);
@@ -124,15 +126,18 @@ const ClientsTab = () => {
     try {
       const params = {};
       if (filterLabel) params.label = filterLabel;
+      if (filterPending) params.intake_pending = 'true';
       if (searchText.trim()) params.search = searchText.trim();
-      const [cRes, sRes] = await Promise.all([
+      const [cRes, sRes, pcRes] = await Promise.all([
         axios.get(`${API}/clients`, { params }),
         axios.get(`${API}/clients/stats`),
+        axios.get(`${API}/client-intake/pending-count`),
       ]);
       setClients(cRes.data || []);
       setStats(sRes.data || { total: 0, by_label: {} });
+      setPendingCount(pcRes.data?.count || 0);
     } catch (e) { console.error(e); }
-  }, [filterLabel, searchText]);
+  }, [filterLabel, filterPending, searchText]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
@@ -327,6 +332,25 @@ const ClientsTab = () => {
         })}
       </div>
 
+      {/* Pending Review banner */}
+      <button
+        onClick={() => { setFilterPending(p => !p); setFilterLabel(''); }}
+        className={`w-full flex items-center justify-between px-4 py-2.5 rounded-xl border-2 mb-3 transition-all text-sm font-medium
+          ${filterPending
+            ? 'bg-orange-50 border-orange-300 text-orange-800'
+            : pendingCount > 0
+              ? 'bg-orange-50/60 border-orange-200 text-orange-700 hover:border-orange-300'
+              : 'bg-gray-50 border-gray-100 text-gray-400 cursor-default'}`}
+      >
+        <span className="flex items-center gap-2">
+          <Bell size={14} className={pendingCount > 0 ? 'text-orange-500' : 'text-gray-300'} />
+          Pending Review — clients awaiting dashboard access &amp; payment setup
+        </span>
+        <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${pendingCount > 0 ? 'bg-orange-200 text-orange-800' : 'bg-gray-100 text-gray-400'}`}>
+          {pendingCount}
+        </span>
+      </button>
+
       {/* Total + Search */}
       <div className="flex items-center gap-3 mb-4">
         <div className="bg-gray-900 text-white rounded-lg px-3 py-1.5 text-xs font-semibold">
@@ -337,8 +361,8 @@ const ClientsTab = () => {
           <input data-testid="clients-search" type="text" value={searchText} onChange={e => setSearchText(e.target.value)}
             placeholder="Search by name, email, or phone..." className="w-full pl-9 pr-3 py-2 text-xs border rounded-lg focus:outline-none focus:ring-1 focus:ring-[#D4AF37]" />
         </div>
-        {filterLabel && (
-          <button onClick={() => setFilterLabel('')} className="text-[10px] text-gray-500 hover:text-gray-700 flex items-center gap-1 border rounded px-2 py-1">
+        {(filterLabel || filterPending) && (
+          <button onClick={() => { setFilterLabel(''); setFilterPending(false); }} className="text-[10px] text-gray-500 hover:text-gray-700 flex items-center gap-1 border rounded px-2 py-1">
             <X size={10} /> Clear filter
           </button>
         )}
@@ -391,7 +415,7 @@ const ClientsTab = () => {
               </div>
 
               {isExpanded && (
-                <ClientDetail client={cl} labelConfig={cfg} onUpdate={fetchData} onDelete={() => handleDelete(cl.id)} toast={toast} />
+                <ClientDetail client={cl} labelConfig={cfg} onUpdate={fetchData} onDelete={() => handleDelete(cl.id)} onRefresh={fetchData} toast={toast} />
               )}
             </div>
           );
@@ -450,7 +474,7 @@ const ClientsTab = () => {
   );
 };
 
-const ClientDetail = ({ client: cl, labelConfig: cfg, onUpdate, onDelete, toast }) => {
+const ClientDetail = ({ client: cl, labelConfig: cfg, onUpdate, onDelete, onRefresh, toast }) => {
   const [editing, setEditing] = useState(false);
   const [labelManual, setLabelManual] = useState(cl.label_manual || '');
   const [notes, setNotes] = useState(cl.notes || '');
@@ -701,6 +725,24 @@ const ClientDetail = ({ client: cl, labelConfig: cfg, onUpdate, onDelete, toast 
               {cl.label_manual && <span className="text-[9px] text-gray-400">(manually set)</span>}
             </div>
             {cl.notes && <p className="text-[10px] text-gray-600 mt-1">{cl.notes}</p>}
+            {cl.intake_pending && (
+              <div className="mt-2 flex items-center justify-between bg-orange-50 border border-orange-200 rounded-lg px-3 py-2">
+                <span className="flex items-center gap-1.5 text-[10px] font-semibold text-orange-700">
+                  <Bell size={10} /> Pending Review — submitted via intake form
+                  {cl.intake_submitted_at && <span className="font-normal text-orange-500">· {timeAgo(cl.intake_submitted_at)}</span>}
+                </span>
+                <button
+                  onClick={async (e) => {
+                    e.stopPropagation();
+                    await axios.put(`${API}/clients/${cl.id}`, { intake_pending: false });
+                    onRefresh();
+                  }}
+                  className="text-[9px] px-2 py-0.5 bg-orange-200 hover:bg-orange-300 text-orange-800 rounded font-semibold transition-colors"
+                >
+                  Mark reviewed
+                </button>
+              </div>
+            )}
             <div className="mt-2 flex flex-wrap items-center gap-1.5">
               <span className={`inline-flex items-center gap-1 text-[9px] px-2 py-0.5 rounded-full font-semibold ${portalLoginAllowed ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-600'}`}>
                 <Lock size={8} />
@@ -722,6 +764,20 @@ const ClientDetail = ({ client: cl, labelConfig: cfg, onUpdate, onDelete, toast 
                 </span>
               )}
             </div>
+            {(cl.city || cl.state || cl.country_name || cl.preferred_payment_method) && (
+              <div className="mt-2 flex flex-wrap gap-1.5">
+                {(cl.city || cl.state || cl.country_name) && (
+                  <span className="text-[9px] px-2 py-0.5 rounded-full bg-gray-100 text-gray-600">
+                    📍 {[cl.city, cl.state, cl.country_name].filter(Boolean).join(', ')}
+                  </span>
+                )}
+                {cl.preferred_payment_method && (
+                  <span className="text-[9px] px-2 py-0.5 rounded-full bg-teal-50 text-teal-700 font-medium border border-teal-200">
+                    Prefers: {{ gpay: 'GPay', upi: 'UPI', bank_transfer: 'Bank Transfer', cash_deposit: 'Cash Deposit' }[cl.preferred_payment_method] || cl.preferred_payment_method}
+                  </span>
+                )}
+              </div>
+            )}
             <div className="mt-3 pt-2 border-t border-gray-100">
               <p className="text-[9px] text-gray-400 uppercase tracking-wider mb-1 flex items-center gap-1">
                 <Lock size={9} /> Member portal — immediate family
