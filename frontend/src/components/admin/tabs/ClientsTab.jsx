@@ -456,6 +456,8 @@ const ClientDetail = ({ client: cl, labelConfig: cfg, onUpdate, onDelete, toast 
   const [notes, setNotes] = useState(cl.notes || '');
   const [familyEditApproved, setFamilyEditApproved] = useState(!!cl.immediate_family_editing_approved);
   const [portalLoginAllowed, setPortalLoginAllowed] = useState(cl.portal_login_allowed !== false);
+  const [indiaPaymentMethod, setIndiaPaymentMethod] = useState(cl.india_payment_method || '');
+  const [indiaDiscountPercent, setIndiaDiscountPercent] = useState(cl.india_discount_percent ?? '');
   const [indiaTaxEnabled, setIndiaTaxEnabled] = useState(!!cl.india_tax_enabled);
   const [indiaTaxPercent, setIndiaTaxPercent] = useState(cl.india_tax_percent ?? 18);
   const [indiaTaxLabel, setIndiaTaxLabel] = useState(cl.india_tax_label || 'GST');
@@ -465,11 +467,13 @@ const ClientDetail = ({ client: cl, labelConfig: cfg, onUpdate, onDelete, toast 
   useEffect(() => {
     setFamilyEditApproved(!!cl.immediate_family_editing_approved);
     setPortalLoginAllowed(cl.portal_login_allowed !== false);
+    setIndiaPaymentMethod(cl.india_payment_method || '');
+    setIndiaDiscountPercent(cl.india_discount_percent ?? '');
     setIndiaTaxEnabled(!!cl.india_tax_enabled);
     setIndiaTaxPercent(cl.india_tax_percent ?? 18);
     setIndiaTaxLabel(cl.india_tax_label || 'GST');
     setIndiaTaxVisibleOnDashboard(cl.india_tax_visible_on_dashboard !== false);
-  }, [cl.id, cl.immediate_family_editing_approved, cl.portal_login_allowed, cl.india_tax_enabled, cl.india_tax_percent, cl.india_tax_label, cl.india_tax_visible_on_dashboard]);
+  }, [cl.id, cl.immediate_family_editing_approved, cl.portal_login_allowed, cl.india_payment_method, cl.india_discount_percent, cl.india_tax_enabled, cl.india_tax_percent, cl.india_tax_label, cl.india_tax_visible_on_dashboard]);
 
   const handleSave = async () => {
     setSaving(true);
@@ -479,6 +483,8 @@ const ClientDetail = ({ client: cl, labelConfig: cfg, onUpdate, onDelete, toast 
         notes,
         immediate_family_editing_approved: familyEditApproved,
         portal_login_allowed: portalLoginAllowed,
+        india_payment_method: indiaPaymentMethod || null,
+        india_discount_percent: indiaDiscountPercent !== '' ? parseFloat(indiaDiscountPercent) || 0 : null,
         india_tax_enabled: indiaTaxEnabled,
         india_tax_percent: indiaTaxEnabled ? parseFloat(indiaTaxPercent) || 0 : null,
         india_tax_label: indiaTaxLabel || 'GST',
@@ -589,57 +595,99 @@ const ClientDetail = ({ client: cl, labelConfig: cfg, onUpdate, onDelete, toast 
                 </span>
               </label>
             </div>
-            {/* India Tax */}
-            <div className={`rounded-lg border px-2 py-2 ${indiaTaxEnabled ? 'border-orange-200 bg-orange-50/40' : 'border-gray-200 bg-gray-50/30'}`}>
-              <div className="flex items-center gap-2 mb-1.5">
-                <input
-                  type="checkbox"
-                  id={`india-tax-${cl.id}`}
-                  checked={indiaTaxEnabled}
-                  onChange={(e) => setIndiaTaxEnabled(e.target.checked)}
-                  className="rounded border-orange-300"
-                />
-                <label htmlFor={`india-tax-${cl.id}`} className="text-[10px] font-semibold text-gray-800 cursor-pointer">
-                  Apply India tax on GPay / UPI / Bank Transfer
-                </label>
+            {/* India Payments */}
+            <div className="rounded-lg border border-orange-200 bg-orange-50/30 px-3 py-2.5 space-y-3">
+              <p className="text-[10px] font-semibold text-orange-800 flex items-center gap-1.5">
+                ₹ India Payments (GPay / UPI / Bank Transfer)
+              </p>
+
+              {/* Row 1: Payment method tag */}
+              <div>
+                <Label className="text-[9px] text-gray-500 block mb-0.5">Payment method tag</Label>
+                <select
+                  value={indiaPaymentMethod}
+                  onChange={(e) => setIndiaPaymentMethod(e.target.value)}
+                  className="w-full text-xs border rounded-md px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-orange-300 bg-white"
+                >
+                  <option value="">— Not tagged —</option>
+                  <option value="gpay">GPay</option>
+                  <option value="upi">UPI</option>
+                  <option value="bank_transfer">Bank Transfer</option>
+                  <option value="any">Any / Multiple</option>
+                </select>
               </div>
-              {indiaTaxEnabled && (
-                <div className="space-y-1.5 mt-2 pl-1">
-                  <div className="flex gap-2">
-                    <div className="flex-1">
-                      <Label className="text-[9px] text-gray-500">Tax % (your decision)</Label>
-                      <Input
-                        type="number"
-                        min="0"
-                        max="100"
-                        step="0.5"
-                        value={indiaTaxPercent}
-                        onChange={(e) => setIndiaTaxPercent(e.target.value)}
-                        className="h-7 text-xs mt-0.5"
-                        placeholder="18"
-                      />
-                    </div>
-                    <div className="flex-1">
-                      <Label className="text-[9px] text-gray-500">Label shown to them</Label>
-                      <Input
-                        value={indiaTaxLabel}
-                        onChange={(e) => setIndiaTaxLabel(e.target.value)}
-                        className="h-7 text-xs mt-0.5"
-                        placeholder="GST"
-                      />
-                    </div>
-                  </div>
-                  <label className="flex items-center gap-1.5 cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={indiaTaxVisibleOnDashboard}
-                      onChange={(e) => setIndiaTaxVisibleOnDashboard(e.target.checked)}
-                      className="rounded border-orange-300"
-                    />
-                    <span className="text-[9px] text-gray-600">Show tax breakdown on their dashboard (Financials page)</span>
+
+              {/* Row 2: Discount on base price */}
+              <div>
+                <Label className="text-[9px] text-gray-500 block mb-0.5">Discount % on base price</Label>
+                <div className="flex items-center gap-1.5">
+                  <Input
+                    type="number"
+                    min="0"
+                    max="100"
+                    step="0.5"
+                    value={indiaDiscountPercent}
+                    onChange={(e) => setIndiaDiscountPercent(e.target.value)}
+                    className="h-7 text-xs flex-1"
+                    placeholder="e.g. 9 (leave blank to use site default)"
+                  />
+                  <span className="text-[10px] text-gray-400 flex-shrink-0">%</span>
+                </div>
+                <p className="text-[9px] text-gray-400 mt-0.5">Applied on base price before GST. Overrides the site-wide alt-payment discount.</p>
+              </div>
+
+              {/* Row 3: GST */}
+              <div className="space-y-1.5">
+                <div className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    id={`india-tax-${cl.id}`}
+                    checked={indiaTaxEnabled}
+                    onChange={(e) => setIndiaTaxEnabled(e.target.checked)}
+                    className="rounded border-orange-300"
+                  />
+                  <label htmlFor={`india-tax-${cl.id}`} className="text-[9px] font-semibold text-gray-700 cursor-pointer">
+                    Apply GST on after-discount price
                   </label>
                 </div>
-              )}
+                {indiaTaxEnabled && (
+                  <div className="pl-5 space-y-1.5">
+                    <div className="flex gap-2">
+                      <div className="flex-1">
+                        <Label className="text-[9px] text-gray-500">GST %</Label>
+                        <Input
+                          type="number"
+                          min="0"
+                          max="100"
+                          step="0.5"
+                          value={indiaTaxPercent}
+                          onChange={(e) => setIndiaTaxPercent(e.target.value)}
+                          className="h-7 text-xs mt-0.5"
+                          placeholder="18"
+                        />
+                      </div>
+                      <div className="flex-1">
+                        <Label className="text-[9px] text-gray-500">Label shown to them</Label>
+                        <Input
+                          value={indiaTaxLabel}
+                          onChange={(e) => setIndiaTaxLabel(e.target.value)}
+                          className="h-7 text-xs mt-0.5"
+                          placeholder="GST"
+                        />
+                      </div>
+                    </div>
+                    <label className="flex items-center gap-1.5 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={indiaTaxVisibleOnDashboard}
+                        onChange={(e) => setIndiaTaxVisibleOnDashboard(e.target.checked)}
+                        className="rounded border-orange-300"
+                      />
+                      <span className="text-[9px] text-gray-600">Show tax breakdown on their dashboard</span>
+                    </label>
+                  </div>
+                )}
+              </div>
             </div>
 
             <Button data-testid="client-save" onClick={handleSave} disabled={saving} size="sm" className="text-[10px] bg-[#D4AF37] hover:bg-[#b8962e] gap-1">
@@ -658,9 +706,19 @@ const ClientDetail = ({ client: cl, labelConfig: cfg, onUpdate, onDelete, toast 
                 <Lock size={8} />
                 Dashboard: {portalLoginAllowed ? 'Access allowed' : 'Access blocked'}
               </span>
-              {indiaTaxEnabled && (
+              {indiaPaymentMethod && (
+                <span className="inline-flex items-center gap-1 text-[9px] px-2 py-0.5 rounded-full font-semibold bg-blue-100 text-blue-700">
+                  ₹ {{ gpay: 'GPay', upi: 'UPI', bank_transfer: 'Bank Transfer', any: 'Any India method' }[indiaPaymentMethod] || indiaPaymentMethod}
+                </span>
+              )}
+              {indiaDiscountPercent !== '' && indiaDiscountPercent !== null && (
                 <span className="inline-flex items-center gap-1 text-[9px] px-2 py-0.5 rounded-full font-semibold bg-orange-100 text-orange-700">
-                  India tax: {indiaTaxPercent}% {indiaTaxLabel}
+                  {indiaDiscountPercent}% India discount
+                </span>
+              )}
+              {indiaTaxEnabled && (
+                <span className="inline-flex items-center gap-1 text-[9px] px-2 py-0.5 rounded-full font-semibold bg-amber-100 text-amber-800">
+                  +{indiaTaxPercent}% {indiaTaxLabel}
                 </span>
               )}
             </div>

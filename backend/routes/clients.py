@@ -458,6 +458,8 @@ class ClientUpdate(BaseModel):
     india_tax_percent: Optional[float] = None
     india_tax_label: Optional[str] = None
     india_tax_visible_on_dashboard: Optional[bool] = None
+    india_payment_method: Optional[str] = None   # e.g. "gpay", "upi", "bank_transfer", "any"
+    india_discount_percent: Optional[float] = None  # client-specific discount on base price
 
 
 @router.put("/{client_id}")
@@ -490,6 +492,10 @@ async def update_client(client_id: str, data: ClientUpdate):
         update_fields["india_tax_label"] = data.india_tax_label
     if data.india_tax_visible_on_dashboard is not None:
         update_fields["india_tax_visible_on_dashboard"] = bool(data.india_tax_visible_on_dashboard)
+    if data.india_payment_method is not None:
+        update_fields["india_payment_method"] = data.india_payment_method
+    if data.india_discount_percent is not None:
+        update_fields["india_discount_percent"] = float(data.india_discount_percent)
 
     await db.clients.update_one({"id": client_id}, {"$set": update_fields})
 

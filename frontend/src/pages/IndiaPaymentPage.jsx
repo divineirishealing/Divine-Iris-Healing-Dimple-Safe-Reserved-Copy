@@ -73,10 +73,16 @@ const IndiaPaymentPage = () => {
   }, [isManualMode, enrollmentId]);
 
   const pricing = useMemo(() => {
-    const altDiscount = settings.india_alt_discount_percent || 9;
     const platformPct = settings.india_platform_charge_percent || 3;
 
-    // Client-specific tax settings; fall back to global site setting when not set
+    // Client-specific discount overrides the site-wide alt-payment discount
+    const hasClientDiscount = clientTax && clientTax.india_discount_percent != null;
+    const discountPct = hasClientDiscount
+      ? clientTax.india_discount_percent
+      : (settings.india_alt_discount_percent || 9);
+    const discountLabel = hasClientDiscount ? 'India Discount' : `Alt. Payment Discount`;
+
+    // Client-specific tax (GST on after-discount price)
     const taxEnabled = clientTax ? !!clientTax.india_tax_enabled : true;
     const gstPct = taxEnabled
       ? (clientTax?.india_tax_enabled ? (clientTax.india_tax_percent ?? 18) : (settings.india_gst_percent || 18))
@@ -84,19 +90,20 @@ const IndiaPaymentPage = () => {
     const taxLabel = clientTax?.india_tax_label || 'GST';
 
     const effectiveBase = Math.max(0, basePrice - promoDiscount - autoDiscount);
-    const altDiscountAmt = effectiveBase * altDiscount / 100;
-    const discountedBase = effectiveBase - altDiscountAmt;
-    const gstAmount = discountedBase * gstPct / 100;
-    const platformAmount = discountedBase * platformPct / 100;
-    const total = discountedBase + gstAmount + platformAmount;
+    const discountAmt = effectiveBase * discountPct / 100;
+    const taxableBase = effectiveBase - discountAmt;           // after discount
+    const gstAmount = taxableBase * gstPct / 100;             // GST on after-discount
+    const platformAmount = taxableBase * platformPct / 100;
+    const total = taxableBase + gstAmount + platformAmount;
     return {
       originalBase: basePrice,
       promoDiscount,
       autoDiscount,
       effectiveBase,
-      altDiscountPct: altDiscount,
-      altDiscountAmt,
-      discountedBase,
+      discountPct,
+      discountLabel,
+      discountAmt,
+      taxableBase,
       taxEnabled,
       taxLabel,
       gstPct,
@@ -463,13 +470,13 @@ const IndiaPaymentPage = () => {
                   )}
 
                   <div className="flex justify-between text-green-600">
-                    <span>Alt. Payment Discount ({pricing.altDiscountPct}%)</span>
-                    <span>- INR {Math.round(pricing.altDiscountAmt).toLocaleString()}</span>
+                    <span>{pricing.discountLabel} ({pricing.discountPct}%)</span>
+                    <span>- INR {Math.round(pricing.discountAmt).toLocaleString()}</span>
                   </div>
 
                   <div className="flex justify-between">
-                    <span className="text-gray-500">Taxable Amount</span>
-                    <span className="text-gray-900 font-medium">INR {Math.round(pricing.discountedBase).toLocaleString()}</span>
+                    <span className="text-gray-500">After Discount</span>
+                    <span className="text-gray-900 font-medium">INR {Math.round(pricing.taxableBase).toLocaleString()}</span>
                   </div>
 
                   {pricing.taxEnabled && pricing.gstPct > 0 && (
@@ -495,8 +502,8 @@ const IndiaPaymentPage = () => {
                 </div>
 
                 <div className="mt-4 bg-green-50 border border-green-200 rounded-lg p-3">
-                  <p className="text-[10px] text-green-700 font-medium mb-0.5">You save INR {Math.round(pricing.altDiscountAmt).toLocaleString()} with India payment!</p>
-                  <p className="text-[10px] text-green-600">{pricing.altDiscountPct}% discount applied for alternative payment method.</p>
+                  <p className="text-[10px] text-green-700 font-medium mb-0.5">You save INR {Math.round(pricing.discountAmt).toLocaleString()} with India payment!</p>
+                  <p className="text-[10px] text-green-600">{pricing.discountPct}% discount applied on the base price.</p>
                 </div>
               </div>
             </div>
