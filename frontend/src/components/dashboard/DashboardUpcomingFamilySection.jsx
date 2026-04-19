@@ -1086,7 +1086,7 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh, bo
     const prog = programsForPrefetch.find((x) => String(x.id) === String(programId));
     if (!prog) return;
     const includedPkg =
-      programIncludedInAnnualPackage(prog, annualIncludedIds) || !!annualQuotes[programId]?.included_in_annual_package;
+      isAnnual && (programIncludedInAnnualPackage(prog, annualIncludedIds) || !!annualQuotes[programId]?.included_in_annual_package);
     const ids = (selectedFamilyByProgram[programId] || []).map(String);
     const patchGuests = (mode) => {
       setGuestSeatForm((prev) => {
@@ -1383,8 +1383,10 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh, bo
             {upcomingList.map((p) => {
               const sel = selectedFamilyByProgram[p.id] || [];
               const includedForSeat =
-                programIncludedInAnnualPackage(p, annualIncludedIds) ||
-                !!annualQuotes[p.id]?.included_in_annual_package;
+                isAnnual && (
+                  programIncludedInAnnualPackage(p, annualIncludedIds) ||
+                  !!annualQuotes[p.id]?.included_in_annual_package
+                );
               const seatCtxMini = { includedPkg: includedForSeat, selectedIds: sel };
               const draftRow = mergeGlobalSeatDraft(
                 seatDraftsByProgram[p.id],
