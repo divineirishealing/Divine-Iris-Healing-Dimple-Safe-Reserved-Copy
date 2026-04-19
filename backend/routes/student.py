@@ -210,6 +210,7 @@ class FamilyMemberIn(BaseModel):
 
 class FamilyUpdate(BaseModel):
     members: List[FamilyMemberIn] = []
+    submit_for_review: bool = True  # False = save draft only; True = notify admin (when list non-empty)
 
 
 class DashboardGuestSeatPref(BaseModel):
@@ -692,18 +693,21 @@ async def update_immediate_family(data: FamilyUpdate, user: dict = Depends(get_c
     }
     if len(out) > 0 or locked_flag or legacy_filled:
         set_doc["immediate_family_locked"] = True
-    # Mark pending review whenever client saves a non-empty list (until admin approves)
-    if len(out) > 0:
+    # Only queue admin review when member explicitly submits (not draft saves)
+    if len(out) > 0 and bool(data.submit_for_review):
         set_doc["family_pending_review"] = True
 
     await db.clients.update_one({"id": client_id}, {"$set": set_doc})
     locked_after = bool(set_doc.get("immediate_family_locked")) or _immediate_family_has_names(out)
+    pending_review = set_doc.get("family_pending_review")
+    if pending_review is None:
+        pending_review = bool((client_row or {}).get("family_pending_review"))
     return {
         "message": "Family list saved",
         "immediate_family": out,
         "immediate_family_locked": locked_after,
         "immediate_family_editing_approved": approved,
-        "family_pending_review": bool(set_doc.get("family_pending_review")),
+        "family_pending_review": bool(pending_review),
         "family_approved": False,
     }
 
@@ -714,6 +718,8 @@ async def update_other_guests(data: FamilyUpdate, user: dict = Depends(get_curre
     client_id = user.get("client_id")
     if not client_id:
         raise HTTPException(status_code=400, detail="User not linked to client record")
+
+    client_guest = await db.clients.find_one({"id": client_id}, {"family_pending_review": 1}) or {}
 
     out: List[dict] = []
     for m in (data.members or [])[:12]:
@@ -746,14 +752,22 @@ async def update_other_guests(data: FamilyUpdate, user: dict = Depends(get_curre
             "updated_at": datetime.now(timezone.utc).isoformat(),
         })
 
-    await db.clients.update_one(
-        {"id": client_id},
-        {"$set": {
-            "other_guests": out,
-            "updated_at": datetime.now(timezone.utc).isoformat(),
-        }}
-    )
-    return {"message": "Guest list saved", "other_guests": out}
+    set_og: dict = {
+        "other_guests": out,
+        "updated_at": datetime.now(timezone.utc).isoformat(),
+    }
+    if len(out) > 0 and bool(data.submit_for_review):
+        set_og["family_pending_review"] = True
+
+    await db.clients.update_one({"id": client_id}, {"$set": set_og})
+    pending_review = set_og.get("family_pending_review")
+    if pending_review is None:
+        pending_review = bool(client_guest.get("family_pending_review"))
+    return {
+        "message": "Guest list saved",
+        "other_guests": out,
+        "family_pending_review": bool(pending_review),
+    }
 
 
 @router.get("/enrollment-prefill")

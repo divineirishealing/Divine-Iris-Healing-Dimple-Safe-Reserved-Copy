@@ -1,7 +1,22 @@
 import React, { useState, useMemo, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
-import { Sparkles, Users, Loader2, Plus, Trash2, CreditCard, Clock, AlertTriangle, Lock, Bell, BellOff, Monitor, Wifi } from 'lucide-react';
+import {
+  Sparkles,
+  Users,
+  Loader2,
+  Plus,
+  Trash2,
+  CreditCard,
+  Clock,
+  AlertTriangle,
+  Lock,
+  Bell,
+  BellOff,
+  Monitor,
+  Wifi,
+  Send,
+} from 'lucide-react';
 import { useToast } from '../../hooks/use-toast';
 import { useCurrency } from '../../context/CurrencyContext';
 import { useAuth } from '../../context/AuthContext';
@@ -157,27 +172,45 @@ function deriveNotifyQuickPreset(ctx, guestForm, bookerNotify) {
 /** Cap parallel quote / promo requests (matches backend upcoming program list cap). */
 const DASHBOARD_UPCOMING_PREFETCH_LIMIT = 100;
 
-/** Avoid narrow labels (spouse, child, parent, sibling, etc.) — use neutral household wording. */
-const RELATIONSHIPS = ['Partner', 'Guardian', 'Dependent', 'Extended family', 'Other'];
+/** Immediate family — household relations for enrollments. */
+const RELATIONSHIPS = [
+  'Mother',
+  'Father',
+  'Sister',
+  'Brother',
+  'Husband',
+  'Wife',
+  'Son',
+  'Daughter',
+  'Spouse',
+  'Partner',
+  'Grandmother',
+  'Grandfather',
+  'Other',
+];
 const LEGACY_IMMEDIATE_REL = {
-  Spouse: 'Partner',
-  Husband: 'Partner',
-  Wife: 'Partner',
-  Child: 'Dependent',
-  Parent: 'Guardian',
-  Mother: 'Guardian',
-  Father: 'Guardian',
-  Sibling: 'Extended family',
-  Brother: 'Extended family',
-  Sister: 'Extended family',
+  Guardian: 'Mother',
+  Dependent: 'Son',
+  'Extended family': 'Brother',
+  Parent: 'Mother',
+  Child: 'Son',
+  Sibling: 'Brother',
 };
 
-const OTHER_RELATIONSHIPS = ['Friend', 'Connection', 'Community', 'Other'];
+const OTHER_RELATIONSHIPS = [
+  'Friend',
+  'Cousin',
+  'Uncle',
+  'Aunt',
+  'Grandparent',
+  'Relative',
+  'Colleague',
+  'Other',
+];
 const LEGACY_OTHER_REL = {
-  Cousin: 'Connection',
-  Relative: 'Connection',
-  'Uncle / Aunt': 'Connection',
-  Grandparent: 'Community',
+  Connection: 'Friend',
+  Community: 'Relative',
+  'Uncle / Aunt': 'Uncle',
 };
 
 function GuestMemberTable({
@@ -734,7 +767,7 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh, bo
       {
         id: '',
         name: '',
-        relationship: 'Partner',
+        relationship: 'Other',
         email: '',
         phone: '',
         date_of_birth: '',
@@ -763,12 +796,22 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh, bo
     ]);
   };
 
-  const saveFamily = async () => {
+  const saveFamily = async (submitForReview) => {
+    const named = members.filter((m) => (m.name || '').trim());
+    if (submitForReview && named.length === 0) {
+      toast({
+        title: 'Add at least one family member',
+        description: 'Enter a name, then send for admin review.',
+        variant: 'destructive',
+      });
+      return;
+    }
     setSaving(true);
     try {
       await axios.put(
         `${API}/api/student/family`,
         {
+          submit_for_review: !!submitForReview,
           members: members.map((m) => ({
             id: m.id || undefined,
             name: m.name,
@@ -783,7 +826,17 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh, bo
         },
         { withCredentials: true }
       );
-      toast({ title: 'Family saved', description: 'Your immediate family list has been updated.' });
+      toast(
+        submitForReview
+          ? {
+              title: 'Sent for admin review',
+              description: 'An admin will confirm your immediate family list — you will be notified when it is set.',
+            }
+          : {
+              title: 'Family list saved',
+              description: 'Your changes are saved. Use Send for admin review when you are ready for confirmation.',
+            },
+      );
       enrollmentPrefillCacheRef.current = null;
       onRefresh?.();
     } catch (err) {
@@ -797,12 +850,22 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh, bo
     }
   };
 
-  const saveOtherGuests = async () => {
+  const saveOtherGuests = async (submitForReview) => {
+    const named = otherMembers.filter((m) => (m.name || '').trim());
+    if (submitForReview && named.length === 0) {
+      toast({
+        title: 'Add at least one guest',
+        description: 'Enter a name, then send for admin review.',
+        variant: 'destructive',
+      });
+      return;
+    }
     setSaving(true);
     try {
       await axios.put(
         `${API}/api/student/other-guests`,
         {
+          submit_for_review: !!submitForReview,
           members: otherMembers.map((m) => ({
             id: m.id || undefined,
             name: m.name,
@@ -817,10 +880,17 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh, bo
         },
         { withCredentials: true }
       );
-      toast({
-        title: 'Guest list saved',
-        description: 'Your friends & extended list has been updated.',
-      });
+      toast(
+        submitForReview
+          ? {
+              title: 'Sent for admin review',
+              description: 'An admin will confirm your friends & extended list — you will be notified when it is set.',
+            }
+          : {
+              title: 'Guest list saved',
+              description: 'Your changes are saved. Use Send for admin review when you are ready for confirmation.',
+            },
+      );
       enrollmentPrefillCacheRef.current = null;
       onRefresh?.();
     } catch (err) {
@@ -1547,7 +1617,10 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh, bo
             <Users size={16} className="text-violet-700" />
             <div>
               <h3 className="text-sm font-semibold text-slate-900">Immediate family</h3>
-              <p className="text-[11px] text-slate-500">Up to 12 household members for enrollments.</p>
+              <p className="text-[11px] text-slate-500">
+                Up to 12 household members. <strong className="font-medium text-slate-600">Save family list</strong> keeps your edits;
+                use <strong className="font-medium text-slate-600">Send for admin review</strong> when you want confirmation.
+              </p>
             </div>
           </div>
 
@@ -1568,7 +1641,8 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh, bo
             >
               <Lock size={14} className="shrink-0 mt-0.5 text-amber-700" />
               <p>
-                Your family list has been <span className="font-semibold">submitted for review</span>. Dimple will confirm it shortly — you'll be notified once it's set.
+                Your family list has been <span className="font-semibold">submitted for review</span>. An admin will confirm it
+                shortly — you will be notified when it is set (admin will confirm).
               </p>
             </div>
           ) : immediateFamilyReadOnly ? (
@@ -1622,12 +1696,23 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh, bo
             </button>
             <button
               type="button"
-              onClick={saveFamily}
+              onClick={() => saveFamily(false)}
               disabled={saving || immediateFamilyReadOnly}
               className="inline-flex items-center gap-1.5 text-xs font-semibold rounded-full px-4 py-1.5 bg-[#D4AF37] text-white hover:bg-[#b8962e] disabled:opacity-60"
+              data-testid="save-immediate-family-draft"
             >
               {saving ? <Loader2 size={14} className="animate-spin" /> : null}
               Save family list
+            </button>
+            <button
+              type="button"
+              onClick={() => saveFamily(true)}
+              disabled={saving || immediateFamilyReadOnly}
+              className="inline-flex items-center gap-1.5 text-xs font-semibold rounded-full px-4 py-1.5 border-2 border-[#7c3aed] bg-violet-50 text-violet-900 hover:bg-violet-100 disabled:opacity-60"
+              data-testid="send-immediate-family-review"
+            >
+              {saving ? <Loader2 size={14} className="animate-spin" /> : <Send size={14} />}
+              Send for admin review
             </button>
           </div>
         </div>
@@ -1637,7 +1722,9 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh, bo
             <Users size={16} className="text-indigo-600" />
             <div>
               <h3 className="text-sm font-semibold text-slate-900">Friends &amp; extended</h3>
-              <p className="text-[11px] text-slate-500">Up to 12 additional guests.</p>
+              <p className="text-[11px] text-slate-500">
+                Up to 12 additional guests. Save keeps your edits; send when you want an admin to confirm this list.
+              </p>
             </div>
           </div>
 
@@ -1671,12 +1758,23 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh, bo
             </button>
             <button
               type="button"
-              onClick={saveOtherGuests}
+              onClick={() => saveOtherGuests(false)}
               disabled={saving}
               className="inline-flex items-center gap-1.5 text-xs font-semibold rounded-full px-4 py-1.5 bg-indigo-600 text-white hover:bg-indigo-700 disabled:opacity-60"
+              data-testid="save-other-guests-draft"
             >
               {saving ? <Loader2 size={14} className="animate-spin" /> : null}
               Save friends &amp; extended
+            </button>
+            <button
+              type="button"
+              onClick={() => saveOtherGuests(true)}
+              disabled={saving}
+              className="inline-flex items-center gap-1.5 text-xs font-semibold rounded-full px-4 py-1.5 border-2 border-indigo-500 bg-indigo-50 text-indigo-900 hover:bg-indigo-100 disabled:opacity-60"
+              data-testid="send-other-guests-review"
+            >
+              {saving ? <Loader2 size={14} className="animate-spin" /> : <Send size={14} />}
+              Send for admin review
             </button>
           </div>
         </div>
