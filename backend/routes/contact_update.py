@@ -22,22 +22,14 @@ public_router = APIRouter(prefix="/api/contact-update", tags=["Contact Update"])
 admin_router = APIRouter(prefix="/api/admin/contact-update", tags=["Admin Contact Update"])
 
 
-async def _verify_admin_password(password: str) -> None:
-    settings = await db.site_settings.find_one({"id": "site_settings"}, {"_id": 0, "admin_password": 1})
-    stored = (settings or {}).get("admin_password", "divineadmin2024")
-    if password != stored:
-        raise HTTPException(status_code=401, detail="Invalid admin password")
-
-
 class CreateLinkBody(BaseModel):
-    admin_password: str
     label: str = ""
     # When True, submit also ensures Client Garden + portal user and returns a session (dashboard).
     grant_dashboard_access: bool = True
 
 
-class AdminPasswordBody(BaseModel):
-    admin_password: str
+class DeactivateBody(BaseModel):
+    token: str
 
 
 class SubmitBody(BaseModel):
@@ -214,7 +206,6 @@ async def submit_contact_update(token: str, body: SubmitBody, response: Response
 
 @admin_router.post("/links")
 async def admin_create_link(body: CreateLinkBody):
-    await _verify_admin_password(body.admin_password)
     token = uuid.uuid4().hex
     await db.contact_update_links.insert_one(
         {
@@ -228,33 +219,29 @@ async def admin_create_link(body: CreateLinkBody):
     return {"token": token, "path": f"/update-contact/{token}"}
 
 
-@admin_router.post("/links/list")
-async def admin_list_links(body: AdminPasswordBody):
-    await _verify_admin_password(body.admin_password)
+@admin_router.get("/links")
+async def admin_list_links():
     items = await db.contact_update_links.find({}, {"_id": 0}).sort("created_at", -1).to_list(200)
     return items
 
 
 @admin_router.post("/links/deactivate")
-async def admin_deactivate_link(body: dict):
-    await _verify_admin_password(body.get("admin_password") or "")
-    token = (body.get("token") or "").strip()
+async def admin_deactivate_link(body: DeactivateBody):
+    token = (body.token or "").strip()
     if not token:
         raise HTTPException(status_code=400, detail="token required")
     await db.contact_update_links.update_one({"token": token}, {"$set": {"active": False}})
     return {"ok": True}
 
 
-@admin_router.post("/submissions/list")
-async def admin_list_submissions(body: AdminPasswordBody):
-    await _verify_admin_password(body.admin_password)
+@admin_router.get("/submissions")
+async def admin_list_submissions():
     items = await db.contact_update_submissions.find({}, {"_id": 0}).sort("created_at", -1).to_list(5000)
     return items
 
 
-@admin_router.post("/submissions/export")
-async def admin_export_submissions_csv(body: AdminPasswordBody):
-    await _verify_admin_password(body.admin_password)
+@admin_router.get("/submissions/export")
+async def admin_export_submissions_csv():
     items = await db.contact_update_submissions.find({}, {"_id": 0}).sort("created_at", -1).to_list(5000)
     buf = io.StringIO()
     w = csv.writer(buf)

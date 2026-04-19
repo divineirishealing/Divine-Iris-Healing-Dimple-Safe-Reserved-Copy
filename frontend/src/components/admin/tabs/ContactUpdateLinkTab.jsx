@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect, useMemo } from 'react';
 import axios from 'axios';
 import { useToast } from '../../../hooks/use-toast';
 import { Button } from '../../ui/button';
@@ -12,7 +12,6 @@ const API = getApiUrl();
 
 const ContactUpdateLinkTab = () => {
   const { toast } = useToast();
-  const [adminPassword, setAdminPassword] = useState('');
   const [linkLabel, setLinkLabel] = useState('');
   const [links, setLinks] = useState([]);
   const [submissions, setSubmissions] = useState([]);
@@ -26,15 +25,11 @@ const ContactUpdateLinkTab = () => {
   };
 
   const loadData = useCallback(async () => {
-    if (!adminPassword.trim()) {
-      toast({ title: 'Enter admin password', variant: 'destructive' });
-      return;
-    }
     setLoading(true);
     try {
       const [lRes, sRes] = await Promise.all([
-        axios.post(`${API}/admin/contact-update/links/list`, { admin_password: adminPassword }),
-        axios.post(`${API}/admin/contact-update/submissions/list`, { admin_password: adminPassword }),
+        axios.get(`${API}/admin/contact-update/links`),
+        axios.get(`${API}/admin/contact-update/submissions`),
       ]);
       setLinks(lRes.data || []);
       setSubmissions(sRes.data || []);
@@ -48,17 +43,23 @@ const ContactUpdateLinkTab = () => {
     } finally {
       setLoading(false);
     }
-  }, [adminPassword, toast]);
+  }, [toast]);
+
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
+
+  const readyShareUrl = useMemo(() => {
+    const active = (links || []).find((r) => r.active !== false);
+    if (!active?.token) return '';
+    if (typeof window === 'undefined') return `/update-contact/${active.token}`;
+    return `${window.location.origin.replace(/\/$/, '')}/update-contact/${active.token}`;
+  }, [links]);
 
   const createLink = async () => {
-    if (!adminPassword.trim()) {
-      toast({ title: 'Enter admin password', variant: 'destructive' });
-      return;
-    }
     setCreating(true);
     try {
       const res = await axios.post(`${API}/admin/contact-update/links`, {
-        admin_password: adminPassword,
         label: linkLabel.trim(),
         grant_dashboard_access: grantDashboardAccess,
       });
@@ -85,13 +86,15 @@ const ContactUpdateLinkTab = () => {
     navigator.clipboard.writeText(url).then(() => toast({ title: 'Copied', description: url }));
   };
 
+  const copyReady = () => {
+    if (!readyShareUrl) return;
+    navigator.clipboard.writeText(readyShareUrl).then(() => toast({ title: 'Copied', description: readyShareUrl }));
+  };
+
   const deactivate = async (token) => {
     if (!window.confirm('Turn off this link? People will no longer be able to use it.')) return;
     try {
-      await axios.post(`${API}/admin/contact-update/links/deactivate`, {
-        admin_password: adminPassword,
-        token,
-      });
+      await axios.post(`${API}/admin/contact-update/links/deactivate`, { token });
       toast({ title: 'Link deactivated' });
       loadData();
     } catch (err) {
@@ -101,16 +104,8 @@ const ContactUpdateLinkTab = () => {
   };
 
   const downloadCsv = async () => {
-    if (!adminPassword.trim()) {
-      toast({ title: 'Enter admin password', variant: 'destructive' });
-      return;
-    }
     try {
-      const res = await axios.post(
-        `${API}/admin/contact-update/submissions/export`,
-        { admin_password: adminPassword },
-        { responseType: 'blob' }
-      );
+      const res = await axios.get(`${API}/admin/contact-update/submissions/export`, { responseType: 'blob' });
       const blob = new Blob([res.data], { type: 'text/csv;charset=utf-8' });
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
@@ -135,25 +130,26 @@ const ContactUpdateLinkTab = () => {
         <Link2 size={18} className="text-[#D4AF37]" />
         <h2 className="text-lg font-semibold text-gray-900">Contact update links</h2>
       </div>
-      <p className="text-xs text-gray-500 mb-6 max-w-2xl">
-        Create a shareable page where people confirm name and email. When &quot;Dashboard access&quot; is on, submitting
-        also adds them to Client Garden if needed, creates their portal login, and signs them straight into the student
-        dashboard (same as after Google login). Responses can be downloaded as CSV.
+      <p className="text-xs text-gray-500 mb-4 max-w-2xl">
+        Share the link below (or create another). When &quot;Dashboard access&quot; is on, submitting adds them to Client
+        Garden if needed and signs them into the student dashboard. Export responses as CSV anytime.
       </p>
 
-      <div className="bg-white rounded-lg border p-4 mb-6 space-y-3">
-        <div>
-          <Label className="text-xs text-gray-600">Admin password</Label>
-          <Input
-            type="password"
-            value={adminPassword}
-            onChange={(e) => setAdminPassword(e.target.value)}
-            className="h-9 mt-1 max-w-sm"
-            autoComplete="current-password"
-            placeholder="Required to create links and load data"
-            data-testid="contact-update-admin-password"
-          />
+      {readyShareUrl && (
+        <div className="mb-6 rounded-xl border-2 border-[#D4AF37]/40 bg-gradient-to-br from-amber-50/90 to-white p-4 shadow-sm">
+          <p className="text-[10px] font-bold uppercase tracking-wider text-[#b8962e] mb-2">Ready to share</p>
+          <div className="flex flex-col sm:flex-row sm:items-center gap-2">
+            <code className="flex-1 text-xs sm:text-sm bg-white/80 border border-amber-100 rounded-lg px-3 py-2.5 break-all text-gray-800">
+              {readyShareUrl}
+            </code>
+            <Button type="button" onClick={copyReady} className="bg-[#D4AF37] hover:bg-[#b8962e] shrink-0 h-10 gap-1.5">
+              <Copy size={14} /> Copy link
+            </Button>
+          </div>
         </div>
+      )}
+
+      <div className="bg-white rounded-lg border p-4 mb-6 space-y-3">
         <div className="flex flex-col sm:flex-row sm:flex-wrap gap-4 items-start sm:items-end">
           <div className="flex-1 min-w-[200px]">
             <Label className="text-xs text-gray-600">Label (optional)</Label>
@@ -172,7 +168,7 @@ const ContactUpdateLinkTab = () => {
           <Button
             type="button"
             onClick={createLink}
-            disabled={creating || !adminPassword.trim()}
+            disabled={creating}
             className="bg-[#D4AF37] hover:bg-[#b8962e] h-9"
             data-testid="contact-update-create-link"
           >
@@ -183,7 +179,7 @@ const ContactUpdateLinkTab = () => {
             {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4 mr-1" />}
             Refresh
           </Button>
-          <Button type="button" variant="outline" onClick={downloadCsv} disabled={!adminPassword.trim()} className="h-9">
+          <Button type="button" variant="outline" onClick={downloadCsv} className="h-9">
             <Download className="w-4 h-4 mr-1" />
             Download CSV
           </Button>
@@ -191,9 +187,9 @@ const ContactUpdateLinkTab = () => {
       </div>
 
       <div className="bg-white rounded-lg border overflow-hidden mb-8">
-        <div className="px-4 py-2 border-b bg-gray-50 text-xs font-semibold text-gray-700">Active links</div>
+        <div className="px-4 py-2 border-b bg-gray-50 text-xs font-semibold text-gray-700">All links</div>
         {links.length === 0 ? (
-          <p className="p-6 text-sm text-gray-400 text-center">No links yet. Create one above.</p>
+          <p className="p-6 text-sm text-gray-400 text-center">No links yet. Create one above — it will be copied automatically.</p>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
