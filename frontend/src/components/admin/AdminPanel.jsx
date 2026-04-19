@@ -38,6 +38,7 @@ import PointsWalletTab from './tabs/PointsWalletTab';
 import ApiKeysTab from './tabs/ApiKeysTab';
 import PaymentSettingsTab from './tabs/PaymentSettingsTab';
 import IndiaPaymentsTab from './tabs/IndiaPaymentsTab';
+import BankTransactionsTab from './tabs/BankTransactionsTab';
 import ReceiptTemplateTab from './tabs/ReceiptTemplateTab';
 import PricingHubTab from './tabs/PricingHubTab';
 import UpcomingHubTab from './tabs/UpcomingHubTab';
@@ -337,6 +338,7 @@ const AdminPanel = () => {
       { key: 'enrollments', label: 'Enrollments', icon: Users },
       { key: 'payment_settings', label: 'Indian Payment', icon: Tag },
       { key: 'india_payments', label: 'India Proofs', icon: Tag },
+      { key: 'bank_transactions', label: 'Bank Transactions', icon: Tag },
       { key: 'api_keys', label: 'API Keys', icon: Settings },
       { key: 'receipt_template', label: 'Receipt Template', icon: FileText },
       { key: 'fraud_alerts', label: 'Fraud Detection', icon: ShieldAlert },
@@ -552,6 +554,7 @@ const AdminPanel = () => {
           {activeTab === 'api_keys' && <ApiKeysTab />}
           {activeTab === 'payment_settings' && <PaymentSettingsTab />}
           {activeTab === 'india_payments' && <IndiaPaymentsTab />}
+          {activeTab === 'bank_transactions' && <BankTransactionsTab />}
           {activeTab === 'fraud_alerts' && <FraudAlertsTab />}
           {activeTab === 'receipt_template' && <ReceiptTemplateTab />}
           {activeTab === 'pricing_hub' && <PricingHubTab />}

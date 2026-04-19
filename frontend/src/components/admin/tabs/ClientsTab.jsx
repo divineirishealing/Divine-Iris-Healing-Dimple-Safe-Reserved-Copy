@@ -623,7 +623,7 @@ const ClientDetail = ({ client: cl, labelConfig: cfg, onUpdate, onDelete, onRefr
             {/* India Payments */}
             <div className="rounded-lg border border-orange-200 bg-orange-50/30 px-3 py-2.5 space-y-3">
               <p className="text-[10px] font-semibold text-orange-800 flex items-center gap-1.5">
-                ₹ India Payments (GPay / UPI / Bank Transfer)
+                ₹ India / Card Payments
               </p>
 
               {/* Row 1: Payment method tag */}
@@ -638,6 +638,8 @@ const ClientDetail = ({ client: cl, labelConfig: cfg, onUpdate, onDelete, onRefr
                   <option value="gpay">GPay</option>
                   <option value="upi">UPI</option>
                   <option value="bank_transfer">Bank Transfer</option>
+                  <option value="cash_deposit">Cash Deposit</option>
+                  <option value="stripe">Stripe</option>
                   <option value="any">Any / Multiple</option>
                 </select>
               </div>
@@ -751,7 +753,7 @@ const ClientDetail = ({ client: cl, labelConfig: cfg, onUpdate, onDelete, onRefr
               </span>
               {indiaPaymentMethod && (
                 <span className="inline-flex items-center gap-1 text-[9px] px-2 py-0.5 rounded-full font-semibold bg-blue-100 text-blue-700">
-                  ₹ {{ gpay: 'GPay', upi: 'UPI', bank_transfer: 'Bank Transfer', any: 'Any India method' }[indiaPaymentMethod] || indiaPaymentMethod}
+                  ₹ {{ gpay: 'GPay', upi: 'UPI', bank_transfer: 'Bank Transfer', cash_deposit: 'Cash Deposit', stripe: 'Stripe', any: 'Any / Multiple' }[indiaPaymentMethod] || indiaPaymentMethod}
                 </span>
               )}
               {indiaDiscountPercent !== '' && indiaDiscountPercent !== null && (
