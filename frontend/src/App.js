@@ -43,6 +43,7 @@ import BhaadPortalPage from './components/dashboard/BhaadPortalPage';
 import SoulTribePage from './components/dashboard/SoulTribePage';
 import PointsPage from './components/dashboard/PointsPage';
 import DashboardCombinedCheckoutPage from './pages/DashboardCombinedCheckoutPage';
+import DashboardAccessPage from './pages/DashboardAccessPage';
 import { Toaster } from './components/ui/toaster';
 import { HelmetProvider } from 'react-helmet-async';
 import { SiteSettingsProvider } from './context/SiteSettingsContext';
@@ -126,6 +127,7 @@ const AppContent = () => {
       {/* Dashboard Routes */}
       <Route path="/dashboard" element={<DashboardLayout />}>
         <Route index element={<StudentDashboard />} />
+        <Route path="access" element={<DashboardAccessPage />} />
         <Route path="profile" element={<ProfilePage />} />
         <Route path="orders" element={<OrderHistoryPage />} />
         <Route path="financials" element={<FinancialsPage />} />

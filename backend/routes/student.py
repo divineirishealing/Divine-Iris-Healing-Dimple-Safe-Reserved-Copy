@@ -1363,6 +1363,14 @@ async def get_student_home(user: dict = Depends(get_current_user)):
             "india_tax_percent": float(client.get("india_tax_percent") or 18.0),
             "india_tax_label": client.get("india_tax_label") or "GST",
         },
+        "dashboard_access": {
+            "full_name": (user.get("full_name") or user.get("name") or "").strip(),
+            "email": (user.get("email") or "").strip(),
+            "phone": str(client.get("phone") or user.get("phone") or "").strip(),
+            "preferred_payment_method": (client.get("preferred_payment_method") or "").strip() or None,
+            "payment_tag": (client.get("india_payment_method") or "").strip() or None,
+            "access_type": "annual" if is_annual else "non_annual",
+        },
         "preferred_india_gpay_id": pref_gpay_m,
         "preferred_india_bank_id": pref_bank_m,
     }
