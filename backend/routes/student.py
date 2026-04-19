@@ -1239,21 +1239,15 @@ async def get_student_home(user: dict = Depends(get_current_user)):
     if not user.get("profile_approved") and not user.get("pending_profile_update"):
         profile_status = "incomplete"
 
-    # 7b. India tax info for the client's active program
+    # 7b. India tax info from the client record (per-user setting)
     india_tax_info = None
-    active_program_name = (sub.get("annual_program") or "").strip()
-    if active_program_name:
-        prog_doc = await db.programs.find_one(
-            {"title": active_program_name},
-            {"_id": 0, "india_tax_enabled": 1, "india_tax_percent": 1, "india_tax_label": 1, "india_tax_visible_on_dashboard": 1},
-        )
-        if prog_doc and prog_doc.get("india_tax_enabled"):
-            india_tax_info = {
-                "enabled": True,
-                "percent": prog_doc.get("india_tax_percent", 18.0),
-                "label": prog_doc.get("india_tax_label", "GST"),
-                "visible_on_dashboard": prog_doc.get("india_tax_visible_on_dashboard", True),
-            }
+    if client.get("india_tax_enabled"):
+        india_tax_info = {
+            "enabled": True,
+            "percent": client.get("india_tax_percent", 18.0),
+            "label": client.get("india_tax_label", "GST"),
+            "visible_on_dashboard": client.get("india_tax_visible_on_dashboard", True),
+        }
 
     # 8. Payment methods & bank details
     payment_methods = sub.get("payment_methods", ["stripe", "manual"])

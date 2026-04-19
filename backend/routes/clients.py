@@ -454,6 +454,10 @@ class ClientUpdate(BaseModel):
     immediate_family_editing_approved: Optional[bool] = None
     """When False, Google / student portal sign-in is blocked until set to True."""
     portal_login_allowed: Optional[bool] = None
+    india_tax_enabled: Optional[bool] = None
+    india_tax_percent: Optional[float] = None
+    india_tax_label: Optional[str] = None
+    india_tax_visible_on_dashboard: Optional[bool] = None
 
 
 @router.put("/{client_id}")
@@ -478,6 +482,14 @@ async def update_client(client_id: str, data: ClientUpdate):
         update_fields["immediate_family_editing_approved"] = bool(data.immediate_family_editing_approved)
     if data.portal_login_allowed is not None:
         update_fields["portal_login_allowed"] = bool(data.portal_login_allowed)
+    if data.india_tax_enabled is not None:
+        update_fields["india_tax_enabled"] = bool(data.india_tax_enabled)
+    if data.india_tax_percent is not None:
+        update_fields["india_tax_percent"] = float(data.india_tax_percent)
+    if data.india_tax_label is not None:
+        update_fields["india_tax_label"] = data.india_tax_label
+    if data.india_tax_visible_on_dashboard is not None:
+        update_fields["india_tax_visible_on_dashboard"] = bool(data.india_tax_visible_on_dashboard)
 
     await db.clients.update_one({"id": client_id}, {"$set": update_fields})
 

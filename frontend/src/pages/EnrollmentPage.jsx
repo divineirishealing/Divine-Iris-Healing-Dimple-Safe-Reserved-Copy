@@ -1215,7 +1215,6 @@ function EnrollmentPage() {
                               price: String(subtotal || 0),
                               promo_discount: String(discount || 0),
                               auto_discount: String(totalAutoDiscount || 0),
-                              ...(item?.id ? { program_id: item.id } : {}),
                             });
                             navigate(`/india-payment/${enrollmentId}?${params.toString()}`);
                           }}

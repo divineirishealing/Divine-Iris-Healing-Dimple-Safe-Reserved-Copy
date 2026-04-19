@@ -21,14 +21,13 @@ const IndiaPaymentPage = () => {
   const { toast } = useToast();
 
   const programTitle = searchParams.get('program') || '';
-  const programId = searchParams.get('program_id') || '';
   const basePrice = parseFloat(searchParams.get('price') || '0');
   const promoDiscount = parseFloat(searchParams.get('promo_discount') || '0');
   const autoDiscount = parseFloat(searchParams.get('auto_discount') || '0');
   const isManualMode = searchParams.get('mode') === 'manual';
 
   const [settings, setSettings] = useState({});
-  const [programData, setProgramData] = useState(null);
+  const [clientTax, setClientTax] = useState(null);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
@@ -51,12 +50,14 @@ const IndiaPaymentPage = () => {
   useEffect(() => {
     const fetchAll = async () => {
       try {
-        const [settingsRes, programRes] = await Promise.all([
+        const [settingsRes, taxRes] = await Promise.all([
           axios.get(`${API}/settings`),
-          programId ? axios.get(`${API}/programs/${programId}`).catch(() => ({ data: null })) : Promise.resolve({ data: null }),
+          enrollmentId
+            ? axios.get(`${API}/india-payments/client-tax/${enrollmentId}`).catch(() => ({ data: null }))
+            : Promise.resolve({ data: null }),
         ]);
         setSettings(settingsRes.data);
-        setProgramData(programRes.data);
+        setClientTax(taxRes.data);
         if (isManualMode) {
           setActiveMethod('bank');
         } else if (!settingsRes.data.india_exly_link && settingsRes.data.india_bank_details?.account_number) {
@@ -69,18 +70,18 @@ const IndiaPaymentPage = () => {
       }
     };
     fetchAll();
-  }, [isManualMode, programId]);
+  }, [isManualMode, enrollmentId]);
 
   const pricing = useMemo(() => {
     const altDiscount = settings.india_alt_discount_percent || 9;
     const platformPct = settings.india_platform_charge_percent || 3;
 
-    // Program-specific tax overrides global site setting
-    const taxEnabled = programData ? !!programData.india_tax_enabled : true;
+    // Client-specific tax settings; fall back to global site setting when not set
+    const taxEnabled = clientTax ? !!clientTax.india_tax_enabled : true;
     const gstPct = taxEnabled
-      ? (programData ? (programData.india_tax_percent ?? 18) : (settings.india_gst_percent || 18))
+      ? (clientTax?.india_tax_enabled ? (clientTax.india_tax_percent ?? 18) : (settings.india_gst_percent || 18))
       : 0;
-    const taxLabel = (programData?.india_tax_label) || 'GST';
+    const taxLabel = clientTax?.india_tax_label || 'GST';
 
     const effectiveBase = Math.max(0, basePrice - promoDiscount - autoDiscount);
     const altDiscountAmt = effectiveBase * altDiscount / 100;
@@ -104,7 +105,7 @@ const IndiaPaymentPage = () => {
       platformAmount,
       total: Math.round(total),
     };
-  }, [basePrice, promoDiscount, autoDiscount, settings, programData]);
+  }, [basePrice, promoDiscount, autoDiscount, settings, clientTax]);
 
   const handleScreenshot = (e) => {
     const file = e.target.files?.[0] ?? null;

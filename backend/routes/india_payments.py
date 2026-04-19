@@ -1068,3 +1068,44 @@ async def export_enrollments_excel():
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         headers={"Content-Disposition": "attachment; filename=enrollments.xlsx"}
     )
+
+
+@router.get("/client-tax/{enrollment_id}")
+async def get_client_tax_for_enrollment(enrollment_id: str):
+    """Return per-client India tax settings for a given enrollment.
+
+    Used by IndiaPaymentPage to apply the correct tax at checkout.
+    Falls back to nulls when no tax is configured for the client.
+    """
+    enrollment = await db.enrollments.find_one(
+        {"id": enrollment_id},
+        {"_id": 0, "booker_email": 1, "client_id": 1},
+    )
+    if not enrollment:
+        return {"india_tax_enabled": False}
+
+    # Look up client by email or client_id
+    client_doc = None
+    booker_email = (enrollment.get("booker_email") or "").strip().lower()
+    client_id = (enrollment.get("client_id") or "").strip()
+
+    if client_id:
+        client_doc = await db.clients.find_one(
+            {"id": client_id},
+            {"_id": 0, "india_tax_enabled": 1, "india_tax_percent": 1, "india_tax_label": 1, "india_tax_visible_on_dashboard": 1},
+        )
+    if not client_doc and booker_email:
+        client_doc = await db.clients.find_one(
+            {"email": booker_email},
+            {"_id": 0, "india_tax_enabled": 1, "india_tax_percent": 1, "india_tax_label": 1, "india_tax_visible_on_dashboard": 1},
+        )
+
+    if not client_doc or not client_doc.get("india_tax_enabled"):
+        return {"india_tax_enabled": False}
+
+    return {
+        "india_tax_enabled": True,
+        "india_tax_percent": client_doc.get("india_tax_percent", 18.0),
+        "india_tax_label": client_doc.get("india_tax_label", "GST"),
+        "india_tax_visible_on_dashboard": client_doc.get("india_tax_visible_on_dashboard", True),
+    }

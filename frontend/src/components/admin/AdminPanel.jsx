@@ -743,66 +743,6 @@ const AdminPanel = () => {
                           </>}
                         </div>
 
-                        <div className="mt-5 border-t pt-4">
-                          <button type="button" onClick={() => setProgramForm(f => ({...f, _indiaTaxOpen: !f._indiaTaxOpen}))} className="w-full flex items-center gap-2 cursor-pointer group mb-3">
-                            {programForm._indiaTaxOpen ? <ChevronDown size={14} className="text-orange-400" /> : <ChevronRight size={14} className="text-orange-400" />}
-                            <p className="text-[10px] font-semibold text-orange-700 bg-orange-50 border border-orange-100 rounded px-3 py-1.5 flex-1 text-left">INDIA TAX (GPay / UPI / Bank Transfer)</p>
-                          </button>
-                          {programForm._indiaTaxOpen && (
-                            <div className="space-y-3 bg-orange-50/30 border border-orange-100 rounded-lg p-3">
-                              <p className="text-[9px] text-orange-700 leading-snug">
-                                Override the site-wide GST for this program. When disabled, no tax line appears on the India payment page or dashboard. When enabled, you set the % and label (e.g. "GST", "Service Tax"). The global alt-payment discount and platform charge still apply.
-                              </p>
-                              <div className="flex items-center gap-2">
-                                <input
-                                  type="checkbox"
-                                  id={`india-tax-enabled-${editingId}`}
-                                  checked={!!programForm.india_tax_enabled}
-                                  onChange={e => setProgramForm(f => ({...f, india_tax_enabled: e.target.checked}))}
-                                  className="rounded border-orange-300"
-                                />
-                                <Label htmlFor={`india-tax-enabled-${editingId}`} className="text-xs cursor-pointer">Enable tax for India payments on this program</Label>
-                              </div>
-                              {programForm.india_tax_enabled && (
-                                <div className="grid grid-cols-2 gap-3">
-                                  <div>
-                                    <Label className="text-[10px] text-gray-600">Tax % (you decide)</Label>
-                                    <Input
-                                      type="number"
-                                      min="0"
-                                      max="100"
-                                      step="0.5"
-                                      value={programForm.india_tax_percent ?? 18}
-                                      onChange={e => setProgramForm(f => ({...f, india_tax_percent: parseFloat(e.target.value) || 0}))}
-                                      className="h-8 text-xs mt-1"
-                                      placeholder="e.g. 18"
-                                    />
-                                  </div>
-                                  <div>
-                                    <Label className="text-[10px] text-gray-600">Tax label (shown to user)</Label>
-                                    <Input
-                                      value={programForm.india_tax_label ?? 'GST'}
-                                      onChange={e => setProgramForm(f => ({...f, india_tax_label: e.target.value}))}
-                                      className="h-8 text-xs mt-1"
-                                      placeholder="e.g. GST"
-                                    />
-                                  </div>
-                                  <div className="col-span-2 flex items-center gap-2">
-                                    <input
-                                      type="checkbox"
-                                      id={`india-tax-visible-${editingId}`}
-                                      checked={programForm.india_tax_visible_on_dashboard !== false}
-                                      onChange={e => setProgramForm(f => ({...f, india_tax_visible_on_dashboard: e.target.checked}))}
-                                      className="rounded border-orange-300"
-                                    />
-                                    <Label htmlFor={`india-tax-visible-${editingId}`} className="text-[10px] cursor-pointer text-gray-700">Show tax breakdown on student dashboard (Financials page)</Label>
-                                  </div>
-                                </div>
-                              )}
-                            </div>
-                          )}
-                        </div>
-
                         <div className="mt-4 flex gap-2">
                           <Button data-testid="save-program-btn" onClick={saveProgram} className="bg-[#D4AF37] hover:bg-[#b8962e]"><Save size={14} className="mr-1" /> Save</Button>
                           <Button variant="outline" onClick={resetProgramForm}>Collapse</Button>

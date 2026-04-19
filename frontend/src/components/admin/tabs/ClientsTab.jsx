@@ -456,12 +456,20 @@ const ClientDetail = ({ client: cl, labelConfig: cfg, onUpdate, onDelete, toast 
   const [notes, setNotes] = useState(cl.notes || '');
   const [familyEditApproved, setFamilyEditApproved] = useState(!!cl.immediate_family_editing_approved);
   const [portalLoginAllowed, setPortalLoginAllowed] = useState(cl.portal_login_allowed !== false);
+  const [indiaTaxEnabled, setIndiaTaxEnabled] = useState(!!cl.india_tax_enabled);
+  const [indiaTaxPercent, setIndiaTaxPercent] = useState(cl.india_tax_percent ?? 18);
+  const [indiaTaxLabel, setIndiaTaxLabel] = useState(cl.india_tax_label || 'GST');
+  const [indiaTaxVisibleOnDashboard, setIndiaTaxVisibleOnDashboard] = useState(cl.india_tax_visible_on_dashboard !== false);
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     setFamilyEditApproved(!!cl.immediate_family_editing_approved);
     setPortalLoginAllowed(cl.portal_login_allowed !== false);
-  }, [cl.id, cl.immediate_family_editing_approved, cl.portal_login_allowed]);
+    setIndiaTaxEnabled(!!cl.india_tax_enabled);
+    setIndiaTaxPercent(cl.india_tax_percent ?? 18);
+    setIndiaTaxLabel(cl.india_tax_label || 'GST');
+    setIndiaTaxVisibleOnDashboard(cl.india_tax_visible_on_dashboard !== false);
+  }, [cl.id, cl.immediate_family_editing_approved, cl.portal_login_allowed, cl.india_tax_enabled, cl.india_tax_percent, cl.india_tax_label, cl.india_tax_visible_on_dashboard]);
 
   const handleSave = async () => {
     setSaving(true);
@@ -471,6 +479,10 @@ const ClientDetail = ({ client: cl, labelConfig: cfg, onUpdate, onDelete, toast 
         notes,
         immediate_family_editing_approved: familyEditApproved,
         portal_login_allowed: portalLoginAllowed,
+        india_tax_enabled: indiaTaxEnabled,
+        india_tax_percent: indiaTaxEnabled ? parseFloat(indiaTaxPercent) || 0 : null,
+        india_tax_label: indiaTaxLabel || 'GST',
+        india_tax_visible_on_dashboard: indiaTaxVisibleOnDashboard,
       });
       toast({ title: 'Client updated' });
       setEditing(false);
@@ -577,6 +589,59 @@ const ClientDetail = ({ client: cl, labelConfig: cfg, onUpdate, onDelete, toast 
                 </span>
               </label>
             </div>
+            {/* India Tax */}
+            <div className={`rounded-lg border px-2 py-2 ${indiaTaxEnabled ? 'border-orange-200 bg-orange-50/40' : 'border-gray-200 bg-gray-50/30'}`}>
+              <div className="flex items-center gap-2 mb-1.5">
+                <input
+                  type="checkbox"
+                  id={`india-tax-${cl.id}`}
+                  checked={indiaTaxEnabled}
+                  onChange={(e) => setIndiaTaxEnabled(e.target.checked)}
+                  className="rounded border-orange-300"
+                />
+                <label htmlFor={`india-tax-${cl.id}`} className="text-[10px] font-semibold text-gray-800 cursor-pointer">
+                  Apply India tax on GPay / UPI / Bank Transfer
+                </label>
+              </div>
+              {indiaTaxEnabled && (
+                <div className="space-y-1.5 mt-2 pl-1">
+                  <div className="flex gap-2">
+                    <div className="flex-1">
+                      <Label className="text-[9px] text-gray-500">Tax % (your decision)</Label>
+                      <Input
+                        type="number"
+                        min="0"
+                        max="100"
+                        step="0.5"
+                        value={indiaTaxPercent}
+                        onChange={(e) => setIndiaTaxPercent(e.target.value)}
+                        className="h-7 text-xs mt-0.5"
+                        placeholder="18"
+                      />
+                    </div>
+                    <div className="flex-1">
+                      <Label className="text-[9px] text-gray-500">Label shown to them</Label>
+                      <Input
+                        value={indiaTaxLabel}
+                        onChange={(e) => setIndiaTaxLabel(e.target.value)}
+                        className="h-7 text-xs mt-0.5"
+                        placeholder="GST"
+                      />
+                    </div>
+                  </div>
+                  <label className="flex items-center gap-1.5 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={indiaTaxVisibleOnDashboard}
+                      onChange={(e) => setIndiaTaxVisibleOnDashboard(e.target.checked)}
+                      className="rounded border-orange-300"
+                    />
+                    <span className="text-[9px] text-gray-600">Show tax breakdown on their dashboard (Financials page)</span>
+                  </label>
+                </div>
+              )}
+            </div>
+
             <Button data-testid="client-save" onClick={handleSave} disabled={saving} size="sm" className="text-[10px] bg-[#D4AF37] hover:bg-[#b8962e] gap-1">
               <Save size={10} /> {saving ? 'Saving...' : 'Save'}
             </Button>
@@ -588,11 +653,16 @@ const ClientDetail = ({ client: cl, labelConfig: cfg, onUpdate, onDelete, toast 
               {cl.label_manual && <span className="text-[9px] text-gray-400">(manually set)</span>}
             </div>
             {cl.notes && <p className="text-[10px] text-gray-600 mt-1">{cl.notes}</p>}
-            <div className="mt-2 flex items-center gap-1.5">
+            <div className="mt-2 flex flex-wrap items-center gap-1.5">
               <span className={`inline-flex items-center gap-1 text-[9px] px-2 py-0.5 rounded-full font-semibold ${portalLoginAllowed ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-600'}`}>
                 <Lock size={8} />
                 Dashboard: {portalLoginAllowed ? 'Access allowed' : 'Access blocked'}
               </span>
+              {indiaTaxEnabled && (
+                <span className="inline-flex items-center gap-1 text-[9px] px-2 py-0.5 rounded-full font-semibold bg-orange-100 text-orange-700">
+                  India tax: {indiaTaxPercent}% {indiaTaxLabel}
+                </span>
+              )}
             </div>
             <div className="mt-3 pt-2 border-t border-gray-100">
               <p className="text-[9px] text-gray-400 uppercase tracking-wider mb-1 flex items-center gap-1">
