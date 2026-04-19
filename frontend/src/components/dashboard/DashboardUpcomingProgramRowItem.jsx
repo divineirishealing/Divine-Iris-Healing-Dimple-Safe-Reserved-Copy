@@ -1305,8 +1305,8 @@ export default function DashboardUpcomingProgramRowItem({
                         )}
                       </div>
                       {selCount > 0 && (
-                        <p className="text-xs text-amber-900 bg-amber-50/90 rounded-lg px-2 py-2 mt-1 border border-amber-200/80">
-                          {selCount} guest{selCount > 1 ? 's' : ''} will be enrolled separately.
+                        <p className="text-[10px] text-slate-600 bg-violet-50/60 rounded-lg px-2 py-1.5 mt-1 border border-violet-100">
+                          {selCount} guest{selCount > 1 ? 's' : ''} added to your enrollment.
                         </p>
                       )}
                     </div>
@@ -1374,7 +1374,7 @@ export default function DashboardUpcomingProgramRowItem({
               <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2 sm:gap-4 w-full min-w-0">
                 <button type="button"
                   className="text-violet-700 font-bold uppercase tracking-wide text-[9px] underline underline-offset-2 hover:text-violet-900 p-0 bg-transparent border-0 cursor-pointer text-left shrink-0 sm:pt-0.5"
-                  onClick={(e) => { e.stopPropagation(); openEnrollmentSeatModal?.(p.id); }}>
+                  onClick={(e) => { e.stopPropagation(); openEnrollmentSeatModal?.(p, false, selIds); }}>
                   Per-person attendance &amp; email…
                 </button>
                 <p className="text-[10px] text-slate-500 leading-snug flex-1 min-w-0 line-clamp-2">
