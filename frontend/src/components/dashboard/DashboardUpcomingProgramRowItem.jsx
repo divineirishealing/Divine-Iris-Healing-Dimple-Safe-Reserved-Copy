@@ -579,7 +579,7 @@ export default function DashboardUpcomingProgramRowItem({
             </div>
           </div>
 
-                   {/* 2 — Pricing & offer, Family to join, Attendance & checkout (stacked); cart at bottom aligns with Know More on xl */}
+                   {/* 2 — Pricing & offer, Choose members to join, Attendance & checkout (stacked); cart at bottom aligns with Know More on xl */}
           <div className="flex flex-col gap-4 flex-1 min-w-0 w-full min-h-0 xl:min-h-0 xl:h-full">
             <div className="rounded-xl border border-slate-200 bg-white p-3 sm:p-4 shadow-sm min-h-0 flex flex-col min-w-0 w-full max-w-xl">
               <button
@@ -710,7 +710,7 @@ export default function DashboardUpcomingProgramRowItem({
                 onClick={() => setAnnualFamilyOpen((o) => !o)}
                 aria-expanded={annualFamilyOpen}
               >
-                <span className="text-[10px] font-bold uppercase tracking-wide text-slate-600">Family to join</span>
+                <span className="text-[10px] font-bold uppercase tracking-wide text-slate-600">Choose members to join</span>
                 <ChevronDown
                   className={`h-4 w-4 text-slate-500 shrink-0 transition-transform ${annualFamilyOpen ? '' : '-rotate-90'}`}
                   aria-hidden
