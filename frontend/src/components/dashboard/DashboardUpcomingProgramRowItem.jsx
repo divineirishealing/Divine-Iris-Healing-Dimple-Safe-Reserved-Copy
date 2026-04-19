@@ -244,7 +244,8 @@ export default function DashboardUpcomingProgramRowItem({
   const afterPromo = Math.max(0, baseForPromo - disc);
   const showSpecialPromo = Boolean(promoForProgramClicks && validated && disc > 0 && !promoPricesLoading);
 
-  const includedPkg = aq?.included_in_annual_package ?? programIncludedInAnnualPackage(p, annualIncludedIds);
+  const includedPkg =
+    subscriberIsAnnual && (aq?.included_in_annual_package ?? programIncludedInAnnualPackage(p, annualIncludedIds));
   const selIds = selectedFamilyByProgram[p.id] || [];
   const selCount = selIds.length;
   const canAddToDivineCart = subscriberIsAnnual
