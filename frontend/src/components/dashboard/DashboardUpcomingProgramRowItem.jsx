@@ -1157,62 +1157,88 @@ export default function DashboardUpcomingProgramRowItem({
             {/* Right: Pricing summary, Family, Attendance panels */}
             <div className="flex flex-col gap-4 flex-1 min-w-0 w-full min-h-0 xl:min-h-0 xl:h-full">
 
-              {/* Pricing & Offer — summary panel matching annual layout */}
-              <div className="rounded-xl border border-slate-200 bg-white p-3 sm:p-4 shadow-sm min-h-0 flex flex-col min-w-0 w-full max-w-xl">
-                <button type="button" className="w-full flex items-center justify-between gap-2 text-left rounded-lg outline-none focus-visible:ring-2 focus-visible:ring-[#D4AF37]/40" onClick={() => setNonAnnualPricingOpen(o => !o)} aria-expanded={nonAnnualPricingOpen}>
-                  <span className="text-[10px] font-bold uppercase tracking-wide text-slate-600">Pricing &amp; offer</span>
-                  <ChevronDown className={`h-4 w-4 text-slate-500 shrink-0 transition-transform ${nonAnnualPricingOpen ? '' : '-rotate-90'}`} aria-hidden />
-                </button>
-                {nonAnnualPricingOpen ? (
-                  <div className="min-w-0 w-full pt-2">
-                    <div className="rounded-md border border-slate-200 bg-white w-full px-3 py-2.5 space-y-2">
-                      {showContact ? (
-                        <div className="flex justify-between text-[11px] text-slate-800">
-                          <span className="text-slate-700">Your seat</span>
-                          <span className="text-slate-600 text-right">Contact for pricing</span>
+              {/* Pricing & Offer — per-person breakdown matching annual layout */}
+              {(() => {
+                const seatPrice = showSpecialPromo ? afterPromo : offerPrice > 0 ? offerPrice : price;
+                const immMemberIds = new Set(members.map(m => m.id ? String(m.id) : null).filter(Boolean));
+                const extMemberIds = new Set(otherMembers.map(m => m.id ? String(m.id) : null).filter(Boolean));
+                const immCount = selIds.filter(id => immMemberIds.has(id)).length;
+                const extCount = selIds.filter(id => extMemberIds.has(id)).length;
+                const immTotal = immCount * seatPrice;
+                const extTotal = extCount * seatPrice;
+                const grandTotal = (price > 0 || offerPrice > 0) ? seatPrice + immTotal + extTotal : 0;
+                const hasGuests = immCount > 0 || extCount > 0;
+                const rowClass = 'flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1 text-[11px] text-slate-800';
+                return (
+                  <div className="rounded-xl border border-slate-200 bg-white p-3 sm:p-4 shadow-sm min-h-0 flex flex-col min-w-0 w-full max-w-xl">
+                    <button type="button" className="w-full flex items-center justify-between gap-2 text-left rounded-lg outline-none focus-visible:ring-2 focus-visible:ring-[#D4AF37]/40" onClick={() => setNonAnnualPricingOpen(o => !o)} aria-expanded={nonAnnualPricingOpen}>
+                      <span className="text-[10px] font-bold uppercase tracking-wide text-slate-600">Pricing &amp; offer</span>
+                      <ChevronDown className={`h-4 w-4 text-slate-500 shrink-0 transition-transform ${nonAnnualPricingOpen ? '' : '-rotate-90'}`} aria-hidden />
+                    </button>
+                    {nonAnnualPricingOpen ? (
+                      <div className="min-w-0 w-full pt-2">
+                        <div className="rounded-md border border-slate-200 bg-white w-full px-3 py-2.5 space-y-2">
+                          {showContact ? (
+                            <div className={rowClass}>
+                              <span className="text-slate-700">Your seat</span>
+                              <span className="text-slate-600 text-right">Contact for pricing</span>
+                            </div>
+                          ) : seatPrice > 0 ? (
+                            <div className={rowClass}>
+                              <span className="font-medium text-slate-800">Your seat</span>
+                              <span className="font-semibold tabular-nums text-slate-900 text-right">
+                                {symbol}{seatPrice.toLocaleString()}
+                                {offerPrice > 0 && price > offerPrice && !showSpecialPromo && (
+                                  <span className="text-slate-400 line-through ml-1.5 text-[10px] font-normal">{symbol}{price.toLocaleString()}</span>
+                                )}
+                                <span className="text-slate-500 font-normal text-[10px] ml-1">· 1 seat</span>
+                              </span>
+                            </div>
+                          ) : (
+                            <div className={rowClass}>
+                              <span className="font-medium text-slate-800">Your seat</span>
+                              <span className="font-bold text-green-600">FREE</span>
+                            </div>
+                          )}
+                          {showSpecialPromo && (
+                            <div className={`${rowClass} text-[10px] text-violet-700`}>
+                              <span>With {promoForProgramClicks} (on offer price)</span>
+                            </div>
+                          )}
+                          {immCount > 0 && (
+                            <div className={rowClass}>
+                              <span className="font-medium text-slate-800">Immediate family</span>
+                              <span className="font-semibold tabular-nums text-slate-900 text-right leading-snug">
+                                {symbol}{seatPrice.toLocaleString()} × {immCount} = {symbol}{immTotal.toLocaleString()}
+                              </span>
+                            </div>
+                          )}
+                          {extCount > 0 && (
+                            <div className={rowClass}>
+                              <span className="font-medium text-slate-800">Friends &amp; extended</span>
+                              <span className="font-semibold tabular-nums text-slate-900 text-right leading-snug">
+                                {symbol}{seatPrice.toLocaleString()} × {extCount} = {symbol}{extTotal.toLocaleString()}
+                              </span>
+                            </div>
+                          )}
+                          {!hasGuests && enrollableGuests.length > 0 && (
+                            <p className="text-[11px] text-slate-500">Select who is joining to see offer price per guest seat.</p>
+                          )}
+                          {!hasGuests && enrollableGuests.length === 0 && (
+                            <p className="text-[11px] text-slate-500">Add family members to include them in your enrollment.</p>
+                          )}
                         </div>
-                      ) : showSpecialPromo ? (
-                        <>
-                          <div className="flex justify-between text-[11px] text-slate-800">
-                            <span className="text-slate-700">Your seat</span>
-                            <span className="font-semibold tabular-nums text-slate-900 text-right">{symbol} {afterPromo.toLocaleString()} <span className="text-slate-400 line-through text-[10px] ml-1">{symbol} {baseForPromo.toLocaleString()}</span></span>
-                          </div>
-                          <div className="flex justify-between text-[11px] text-slate-600 italic text-[10px]">
-                            <span>With {promoForProgramClicks}</span><span className="text-violet-700 font-medium">on offer price</span>
-                          </div>
-                        </>
-                      ) : offerPrice > 0 ? (
-                        <div className="flex justify-between text-[11px] text-slate-800">
-                          <span className="text-slate-700">Your seat</span>
-                          <span className="font-semibold tabular-nums text-slate-900 text-right">{symbol} {offerPrice.toLocaleString()} <span className="text-slate-400 line-through text-[10px] ml-1">{symbol} {price.toLocaleString()}</span></span>
-                        </div>
-                      ) : price > 0 ? (
-                        <div className="flex justify-between text-[11px] text-slate-800">
-                          <span className="text-slate-700">Your seat</span>
-                          <span className="font-semibold tabular-nums text-slate-900">{symbol} {price.toLocaleString()}</span>
-                        </div>
-                      ) : (
-                        <div className="flex justify-between text-[11px] text-slate-800">
-                          <span className="text-slate-700">Your seat</span>
-                          <span className="font-bold text-green-600">FREE</span>
-                        </div>
-                      )}
-                      {selCount > 0 && (
-                        <div className="flex justify-between text-[11px] text-slate-800 pt-1 border-t border-slate-100">
-                          <span className="text-slate-700">Guest seats × {selCount}</span>
-                          <span className="text-slate-500 italic text-[10px]">priced separately</span>
-                        </div>
-                      )}
-                    </div>
+                      </div>
+                    ) : null}
+                    <p className="text-[11px] text-slate-600 mt-2 pt-2 border-t border-slate-100 leading-snug">
+                      Your selection total{hasGuests ? ' (guests & add-ons)' : ''}:{' '}
+                      <span className="font-semibold text-slate-800 tabular-nums">
+                        {symbol} {grandTotal.toLocaleString()}
+                      </span>
+                    </p>
                   </div>
-                ) : null}
-                <p className="text-[11px] text-slate-600 mt-2 pt-2 border-t border-slate-100 leading-snug">
-                  Your selection total:{' '}
-                  <span className="font-semibold text-slate-800 tabular-nums">
-                    {symbol} {(showSpecialPromo ? afterPromo : offerPrice > 0 ? offerPrice : price > 0 ? price : 0).toLocaleString()}
-                  </span>
-                </p>
-              </div>
+                );
+              })()}
 
               {/* Family + Attendance side-by-side */}
               <div className="grid grid-cols-1 lg:grid-cols-[minmax(13rem,1fr)_minmax(13rem,1fr)] gap-3 lg:gap-x-3 items-start w-full min-w-0 flex-1 min-h-0">
