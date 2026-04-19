@@ -1,3 +1,11 @@
+/** Read a numeric % from GET /api/settings; 0 is valid (do not treat as missing). */
+export function parseIndiaSitePercent(settingsResponse, key, fallback) {
+  if (!settingsResponse || typeof settingsResponse !== 'object') return fallback;
+  if (!Object.prototype.hasOwnProperty.call(settingsResponse, key)) return fallback;
+  const n = Number(settingsResponse[key]);
+  return Number.isFinite(n) ? n : fallback;
+}
+
 /**
  * India manual / UPI checkout math — aligned with IndiaPaymentPage (discount on net after cart promos, then GST + platform on taxable base).
  * @param {number} effectiveBase - Amount after cart subtotal minus promo and automatic cart discounts (INR).
@@ -10,12 +18,9 @@ export function computeIndiaCheckoutBreakdown(effectiveBase, clientPricing, sett
   if (!Number.isFinite(base) || base <= 0) return null;
 
   const s = settings || {};
-  const platformPct = Number(s.india_platform_charge_percent);
-  const platformPctN = Number.isFinite(platformPct) ? platformPct : 3;
-  const altDisc = Number(s.india_alt_discount_percent);
-  const altDiscN = Number.isFinite(altDisc) ? altDisc : 9;
-  const siteGst = Number(s.india_gst_percent);
-  const siteGstN = Number.isFinite(siteGst) ? siteGst : 18;
+  const platformPctN = parseIndiaSitePercent(s, 'india_platform_charge_percent', 3);
+  const altDiscN = parseIndiaSitePercent(s, 'india_alt_discount_percent', 9);
+  const siteGstN = parseIndiaSitePercent(s, 'india_gst_percent', 18);
 
   const cp = clientPricing || {};
   const rawDisc = cp.india_discount_percent;

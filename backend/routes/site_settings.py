@@ -174,6 +174,12 @@ async def update_settings(payload: Dict[str, Any]):
         update_data['india_bank_accounts'] = raw['india_bank_accounts']
     if hasattr(settings, "model_fields_set") and "dashboard_annual_quote_show_tax" in settings.model_fields_set:
         update_data["dashboard_annual_quote_show_tax"] = bool(settings.dashboard_annual_quote_show_tax)
+    # Explicit 0 must persist (Pydantic / exclude_unset quirks); raw JSON is source of truth.
+    if "india_platform_charge_percent" in payload:
+        try:
+            update_data["india_platform_charge_percent"] = float(payload["india_platform_charge_percent"])
+        except (TypeError, ValueError):
+            pass
     if raw.get('india_gpay_accounts') is not None:
         update_data['india_gpay_accounts'] = raw['india_gpay_accounts']
     if raw.get('india_bank_details') is not None:

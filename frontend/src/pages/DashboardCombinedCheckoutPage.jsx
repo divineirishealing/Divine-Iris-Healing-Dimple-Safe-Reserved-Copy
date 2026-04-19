@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
-import { computeIndiaCheckoutBreakdown } from '../lib/indiaClientPricing';
+import { computeIndiaCheckoutBreakdown, parseIndiaSitePercent } from '../lib/indiaClientPricing';
 import { useNavigate, useSearchParams, useLocation } from 'react-router-dom';
 import axios from 'axios';
 import { useCart } from '../context/CartContext';
@@ -168,9 +168,9 @@ export default function DashboardCombinedCheckoutPage() {
     india_enabled: false,
     manual_form_enabled: true,
     india_exly_link: '',
-    india_alt_discount_percent: 9,
-    india_gst_percent: 18,
-    india_platform_charge_percent: 3,
+    india_alt_discount_percent: undefined,
+    india_gst_percent: undefined,
+    india_platform_charge_percent: undefined,
   });
   /** null | 'manual' | 'exly' — keep India flows on this dashboard page (no public site routes). */
   const [portalPayMode, setPortalPayMode] = useState(null);
@@ -429,8 +429,11 @@ export default function DashboardCombinedCheckoutPage() {
   ]);
 
   useEffect(() => {
-    axios.get(`${API}/settings`)
+    let cancelled = false;
+    axios
+      .get(`${API}/settings`)
       .then((r) => {
+        if (cancelled) return;
         const s = r.data;
         setPaymentSettings((prev) => ({
           ...prev,
@@ -440,22 +443,20 @@ export default function DashboardCombinedCheckoutPage() {
           india_enabled: s.india_payment_enabled || false,
           manual_form_enabled: s.manual_form_enabled !== false,
           india_exly_link: (s.india_exly_link || '').trim(),
-          india_alt_discount_percent: s.india_alt_discount_percent ?? 9,
-          india_gst_percent: s.india_gst_percent ?? 18,
-          india_platform_charge_percent: (() => {
-            const raw = s.india_platform_charge_percent;
-            if (raw === null || raw === undefined || raw === '') return 3;
-            const p = Number(raw);
-            return Number.isFinite(p) ? p : 3;
-          })(),
+          india_alt_discount_percent: parseIndiaSitePercent(s, 'india_alt_discount_percent', 9),
+          india_gst_percent: parseIndiaSitePercent(s, 'india_gst_percent', 18),
+          india_platform_charge_percent: parseIndiaSitePercent(s, 'india_platform_charge_percent', 3),
         }));
         setUrgencyQuotes(s.enrollment_urgency_quotes || []);
         setCheckoutPromoVisible(s.checkout_promo_code_visible !== false);
       })
       .catch(() => {
-        setCheckoutPromoVisible(true);
+        if (!cancelled) setCheckoutPromoVisible(true);
       });
-  }, []);
+    return () => {
+      cancelled = true;
+    };
+  }, [location.pathname]);
 
   const getItemPrice = (item) => {
     const tiers = item.durationTiers || [];
