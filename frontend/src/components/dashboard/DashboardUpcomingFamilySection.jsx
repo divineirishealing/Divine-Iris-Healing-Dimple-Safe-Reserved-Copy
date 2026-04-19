@@ -1617,7 +1617,6 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh, bo
             <Users size={16} className="text-violet-700" />
             <div>
               <h3 className="text-sm font-semibold text-slate-900">Immediate family</h3>
-              <p className="text-[11px] text-slate-500">Up to 12 household members for enrollments.</p>
             </div>
           </div>
 
@@ -1719,7 +1718,6 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh, bo
             <Users size={16} className="text-indigo-600" />
             <div>
               <h3 className="text-sm font-semibold text-slate-900">Friends &amp; extended</h3>
-              <p className="text-[11px] text-slate-500">Up to 12 additional guests.</p>
             </div>
           </div>
 
