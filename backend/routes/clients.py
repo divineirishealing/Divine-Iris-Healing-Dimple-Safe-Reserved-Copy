@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, UploadFile, File
 from pydantic import BaseModel
 from typing import Optional, List, Dict, Any
 from datetime import datetime, timezone
@@ -458,8 +458,13 @@ class ClientUpdate(BaseModel):
     india_tax_percent: Optional[float] = None
     india_tax_label: Optional[str] = None
     india_tax_visible_on_dashboard: Optional[bool] = None
-    india_payment_method: Optional[str] = None   # e.g. "gpay", "upi", "bank_transfer", "any"
-    india_discount_percent: Optional[float] = None  # client-specific discount on base price
+    india_payment_method: Optional[str] = None
+    india_discount_percent: Optional[float] = None
+    is_annual_subscriber: Optional[bool] = None
+    annual_start_date: Optional[str] = None
+    annual_end_date: Optional[str] = None
+    sponsorship_discount_percent: Optional[float] = None
+    annual_pause_reason: Optional[str] = None
 
 
 @router.put("/{client_id}")
@@ -496,6 +501,18 @@ async def update_client(client_id: str, data: ClientUpdate):
         update_fields["india_payment_method"] = data.india_payment_method
     if data.india_discount_percent is not None:
         update_fields["india_discount_percent"] = float(data.india_discount_percent)
+    if data.is_annual_subscriber is not None:
+        update_fields["is_annual_subscriber"] = bool(data.is_annual_subscriber)
+        if data.is_annual_subscriber:
+            update_fields.setdefault("portal_login_allowed", True)
+    if data.annual_start_date is not None:
+        update_fields["annual_start_date"] = data.annual_start_date
+    if data.annual_end_date is not None:
+        update_fields["annual_end_date"] = data.annual_end_date
+    if data.sponsorship_discount_percent is not None:
+        update_fields["sponsorship_discount_percent"] = float(data.sponsorship_discount_percent)
+    if data.annual_pause_reason is not None:
+        update_fields["annual_pause_reason"] = data.annual_pause_reason
 
     await db.clients.update_one({"id": client_id}, {"$set": update_fields})
 
@@ -580,3 +597,161 @@ async def export_clients_excel():
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         headers={"Content-Disposition": f"attachment; filename=divine_iris_clients_{timestamp}.xlsx"}
     )
+
+
+# ========== ANNUAL SUBSCRIBERS ==========
+
+ANNUAL_COLUMNS = [
+    ("email",                    "Email *"),
+    ("name",                     "Name"),
+    ("phone",                    "Phone"),
+    ("did",                      "Divine Iris ID"),
+    ("annual_start_date",        "Annual Start Date (YYYY-MM-DD)"),
+    ("annual_end_date",          "Annual End Date (YYYY-MM-DD)"),
+    ("portal_login_allowed",     "Portal Access (Yes/No, default Yes)"),
+    ("india_payment_method",     "Payment Method (gpay/upi/bank_transfer/any)"),
+    ("india_discount_percent",   "Discount % on Base"),
+    ("india_tax_enabled",        "Tax Enabled (Yes/No)"),
+    ("india_tax_percent",        "Tax %"),
+    ("india_tax_label",          "Tax Label (e.g. GST)"),
+    ("sponsorship_discount_percent", "Sponsorship Discount %"),
+    ("notes",                    "Notes / Pause Reason"),
+]
+
+
+@router.get("/annual-subscribers")
+async def list_annual_subscribers():
+    docs = await db.clients.find(
+        {"is_annual_subscriber": True},
+        {"_id": 0}
+    ).sort("name", 1).to_list(2000)
+    return docs
+
+
+@router.get("/annual-subscribers/excel-template")
+async def download_annual_template():
+    import io
+    from openpyxl import Workbook
+    from openpyxl.styles import Font, PatternFill, Alignment
+    from fastapi.responses import StreamingResponse
+
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "Annual Subscribers"
+
+    hdr_font = Font(bold=True, color="FFFFFF", size=11)
+    hdr_fill = PatternFill(start_color="7C3AED", end_color="7C3AED", fill_type="solid")
+    sample_fill = PatternFill(start_color="F5F3FF", end_color="F5F3FF", fill_type="solid")
+
+    for col, (_, label) in enumerate(ANNUAL_COLUMNS, 1):
+        c = ws.cell(row=1, column=col, value=label)
+        c.font = hdr_font
+        c.fill = hdr_fill
+        c.alignment = Alignment(horizontal="center")
+
+    sample = ["sample@email.com", "Jane Doe", "+91 98765 43210", "DI-001",
+              "2024-01-01", "2024-12-31", "Yes", "gpay", "15", "Yes", "18", "GST", "", ""]
+    for col, val in enumerate(sample, 1):
+        c = ws.cell(row=2, column=col, value=val)
+        c.fill = sample_fill
+
+    col_widths = [28, 22, 18, 14, 26, 24, 28, 28, 18, 20, 10, 16, 22, 30]
+    for i, w in enumerate(col_widths):
+        ws.column_dimensions[ws.cell(row=1, column=i + 1).column_letter].width = w
+
+    out = io.BytesIO()
+    wb.save(out)
+    out.seek(0)
+    return StreamingResponse(
+        out,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": "attachment; filename=annual_subscribers_template.xlsx"}
+    )
+
+
+@router.post("/annual-subscribers/upload")
+async def upload_annual_subscribers(file: UploadFile = File(...)):
+    """Bulk upsert annual subscribers from Excel.
+    Matches by email. Creates new client if not found, updates if exists.
+    Sets is_annual_subscriber=True and portal_login_allowed=True for all rows.
+    """
+    import io
+    from openpyxl import load_workbook
+
+    content = await file.read()
+    wb = load_workbook(io.BytesIO(content), data_only=True)
+    ws = wb.active
+
+    # Build column index from header row
+    header_row = [str(c.value or "").strip() for c in ws[1]]
+    col_map = {}
+    for field, label in ANNUAL_COLUMNS:
+        for i, h in enumerate(header_row):
+            if h.lower().replace("*", "").strip() == label.lower().replace("*", "").strip() or h.lower() == field.lower():
+                col_map[field] = i
+                break
+
+    created = updated = skipped = 0
+    errors = []
+
+    for row_idx, row in enumerate(ws.iter_rows(min_row=2, values_only=True), start=2):
+        if not any(row):
+            continue
+
+        def get(field):
+            i = col_map.get(field)
+            v = row[i] if i is not None and i < len(row) else None
+            return str(v).strip() if v is not None else ""
+
+        email = normalize_email(get("email"))
+        if not email:
+            errors.append(f"Row {row_idx}: missing email, skipped")
+            skipped += 1
+            continue
+
+        def parse_bool(val, default=True):
+            if val == "": return default
+            return str(val).strip().lower() in ("yes", "true", "1", "y")
+
+        def parse_float(val):
+            try: return float(val) if val != "" else None
+            except: return None
+
+        fields = {
+            "is_annual_subscriber": True,
+            "portal_login_allowed": parse_bool(get("portal_login_allowed"), True),
+            "updated_at": datetime.now(timezone.utc).isoformat(),
+        }
+        for f in ("name", "phone", "did", "annual_start_date", "annual_end_date",
+                  "india_payment_method", "india_tax_label", "notes"):
+            v = get(f)
+            if v: fields[f] = v
+
+        for f, fn in [("india_discount_percent", parse_float), ("india_tax_percent", parse_float),
+                      ("sponsorship_discount_percent", parse_float)]:
+            v = fn(get(f))
+            if v is not None: fields[f] = v
+
+        it = get("india_tax_enabled")
+        if it: fields["india_tax_enabled"] = parse_bool(it, False)
+
+        notes_val = get("notes")
+        if notes_val: fields["annual_pause_reason"] = notes_val
+
+        existing = await db.clients.find_one({"email": email})
+        if existing:
+            await db.clients.update_one({"email": email}, {"$set": fields})
+            updated += 1
+        else:
+            new_doc = {
+                "id": str(uuid.uuid4()),
+                "email": email,
+                "label": "Iris",
+                "sources": ["annual_import"],
+                "created_at": datetime.now(timezone.utc).isoformat(),
+                **fields,
+            }
+            await db.clients.insert_one(new_doc)
+            created += 1
+
+    return {"created": created, "updated": updated, "skipped": skipped, "errors": errors}

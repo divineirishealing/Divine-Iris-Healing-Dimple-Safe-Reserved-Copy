@@ -684,6 +684,17 @@ async def approve_payment_proof(proof_id: str):
             import traceback
             traceback.print_exc()
 
+    # Auto-flag as annual subscriber if the program is marked is_annual_program
+    try:
+        booker_email_for_annual = (booker_email_resolved or proof.get("booker_email") or "").strip().lower()
+        if matched_program and matched_program.get("is_annual_program") and booker_email_for_annual:
+            await db.clients.update_one(
+                {"email": booker_email_for_annual},
+                {"$set": {"is_annual_subscriber": True, "portal_login_allowed": True}},
+            )
+    except Exception as e:
+        logger.warning(f"Could not auto-flag annual subscriber: {e}")
+
     return {"message": "Payment proof approved. Enrollment completed.", "status": "approved"}
 
 
