@@ -268,6 +268,7 @@ export default function DashboardUpcomingProgramRowItem({
   const [nonAnnualAttendanceOpen, setNonAnnualAttendanceOpen] = useState(true);
   const [nonAnnualAttendMode, setNonAnnualAttendMode] = useState('online');
   const [nonAnnualSaveDefaults, setNonAnnualSaveDefaults] = useState(false);
+  const [nonAnnualEmailPreset, setNonAnnualEmailPreset] = useState('email_me_only');
 
   const syncThisProgramToDivineCart = async () => {
     let participants = null;
@@ -1295,6 +1296,11 @@ export default function DashboardUpcomingProgramRowItem({
                   {nonAnnualAttendanceOpen && (
                     <div className="flex flex-col gap-2 w-full min-w-0 pt-2">
                       <div className="w-full rounded-lg border border-slate-200 bg-white px-2.5 py-2">
+                        <p className="text-[10px] text-slate-600 leading-snug mb-1.5">
+                          <span className="font-semibold text-slate-800">Attendance &amp; notification</span> are{' '}
+                          <span className="font-semibold text-slate-800">the same for every upcoming program</span>
+                          {' '}— change them once here (or in the advanced modal) and they stay in sync across all cards. You can save these as defaults for this browser.
+                        </p>
                         <div className="w-full flex flex-col gap-0 divide-y divide-slate-200">
                           <div className="flex flex-col gap-1.5 py-2 first:pt-0 w-full">
                             <span className="text-[9px] font-bold uppercase tracking-wide text-slate-500 shrink-0">Attendance</span>
@@ -1309,9 +1315,25 @@ export default function DashboardUpcomingProgramRowItem({
                               </label>
                             </div>
                           </div>
+                          <div className="flex flex-col gap-1.5 py-2 w-full">
+                            <span className="text-[9px] font-bold uppercase tracking-wide text-slate-500 shrink-0 leading-snug">Enrollment email</span>
+                            <div className="flex flex-wrap items-center gap-x-3 gap-y-1 flex-1 min-w-0">
+                              <label className="inline-flex items-center gap-1.5 cursor-pointer text-[10px] text-slate-800 whitespace-nowrap">
+                                <input type="checkbox" className="rounded border-slate-300 shrink-0 scale-90" checked={nonAnnualEmailPreset === 'email_all'} onChange={() => setNonAnnualEmailPreset('email_all')} />
+                                Email all
+                              </label>
+                              <label className="inline-flex items-center gap-1.5 cursor-pointer text-[10px] text-slate-800 whitespace-nowrap">
+                                <input type="checkbox" className="rounded border-slate-300 shrink-0 scale-90" checked={nonAnnualEmailPreset === 'email_me_only'} onChange={() => setNonAnnualEmailPreset('email_me_only')} />
+                                Email Me Only
+                              </label>
+                              <label className="inline-flex items-center gap-1.5 cursor-pointer text-[10px] text-slate-800 whitespace-nowrap">
+                                <input type="checkbox" className="rounded border-slate-300 shrink-0 scale-90" checked={nonAnnualEmailPreset === 'custom'} onChange={() => setNonAnnualEmailPreset('custom')} />
+                                Custom
+                              </label>
+                            </div>
+                          </div>
                         </div>
                       </div>
-                      {/* Per-person link is shown in the bottom defaults section */}
                     </div>
                   )}
                 </div>
