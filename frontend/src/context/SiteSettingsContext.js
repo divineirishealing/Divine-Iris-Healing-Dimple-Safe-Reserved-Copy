@@ -1,9 +1,9 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import axios from 'axios';
 import { rememberPublicApiBase, rememberS3VirtualHostRewrite } from '../lib/imageUtils';
+import { getApiUrl } from '../lib/config';
 
-const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
-const API = `${BACKEND_URL}/api`;
+const API = getApiUrl();
 
 // Initialize with an empty object to avoid null access errors
 const SiteSettingsContext = createContext({ settings: {}, refreshSettings: () => {} });

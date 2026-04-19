@@ -15,6 +15,7 @@ import {
   Globe, Layout, Image, Users, Palette, Gift, Monitor, Wifi,   Tag, ChevronLeft, ChevronRight, ChevronDown, Upload, FileText, DollarSign, Quote, Star, ShieldAlert, CreditCard, UserPlus, Search, Wallet, Sparkles
 } from 'lucide-react';
 
+import { getApiUrl } from '../../lib/config';
 import CollapsibleSection from './CollapsibleSection';
 import HeroSettingsTab from './tabs/HeroSettingsTab';
 import AboutSettingsTab from './tabs/AboutSettingsTab';
@@ -50,8 +51,7 @@ import FraudAlertsTab from './tabs/FraudAlertsTab';
 import SubscribersTab from './tabs/SubscribersTab';
 import SchedulerTab from './tabs/SchedulerTab';
 
-const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
-const API = `${BACKEND_URL}/api`;
+const API = getApiUrl();
 
 /** One photo URL from API (string or { url } / { secure_url }). */
 function testimonialPhotoUrl(p) {
@@ -281,9 +281,14 @@ const AdminPanel = () => {
 
   // ===== SITE SETTINGS =====
   const saveSiteSettings = async () => {
+    if (!siteSettings) return;
     try {
-      await axios.put(`${API}/settings`, siteSettings);
+      const freshRes = await axios.get(`${API}/settings`);
+      const fresh = freshRes.data || {};
+      const payload = { ...fresh, ...siteSettings };
+      const res = await axios.put(`${API}/settings`, payload);
       toast({ title: 'Settings saved!' });
+      if (res.data) setSiteSettings(res.data);
       refreshSettings();
     } catch (error) { toast({ title: 'Error', description: error.message, variant: 'destructive' }); }
   };
@@ -765,9 +770,9 @@ const AdminPanel = () => {
                       const formData = new FormData();
                       formData.append('file', f);
                       try {
-                        const res = await axios.post(`${BACKEND_URL}/api/sessions/upload-excel`, formData, { headers: { 'Content-Type': 'multipart/form-data' }, timeout: 30000 });
+                        const res = await axios.post(`${API}/sessions/upload-excel`, formData, { headers: { 'Content-Type': 'multipart/form-data' }, timeout: 30000 });
                         toast({ title: res.data.message });
-                        const sess = await axios.get(`${BACKEND_URL}/api/sessions`);
+                        const sess = await axios.get(`${API}/sessions`);
                         setSessions(sess.data);
                       } catch (err) {
                         console.error('Upload error:', err);

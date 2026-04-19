@@ -1,6 +1,6 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
-from typing import List
+from typing import Any, Dict, List, Optional
 from models import SiteSettings, SiteSettingsUpdate
 import os
 from motor.motor_asyncio import AsyncIOMotorClient
@@ -18,7 +18,37 @@ mongo_url = os.environ['MONGO_URL']
 client = AsyncIOMotorClient(mongo_url)
 db = client[os.environ['DB_NAME']]
 
-DEFAULT_SETTINGS = SiteSettings().dict()
+DEFAULT_SETTINGS = SiteSettings().model_dump() if hasattr(SiteSettings(), "model_dump") else SiteSettings().dict()
+
+
+def _normalize_inr_whitelist_from_payload(val: Any) -> List[str]:
+    if val is None:
+        return []
+    if not isinstance(val, list):
+        return []
+    out = []
+    for e in val:
+        s = str(e).strip().lower()
+        if s and "@" in s:
+            out.append(s)
+    return out
+
+
+def _mongo_doc_for_site_settings(doc: Optional[dict]) -> dict:
+    """Strip Mongo _id and normalize fields so SiteSettings() always sees a stable inr_whitelist_emails list."""
+    if not doc:
+        return {}
+    out = dict(doc)
+    out.pop("_id", None)
+    wl = out.get("inr_whitelist_emails")
+    if wl is None:
+        out["inr_whitelist_emails"] = []
+    elif not isinstance(wl, list):
+        out["inr_whitelist_emails"] = []
+    else:
+        out["inr_whitelist_emails"] = _normalize_inr_whitelist_from_payload(wl)
+    return out
+
 
 def _with_public_api_base(obj: SiteSettings) -> SiteSettings:
     host = (os.environ.get("HOST_URL") or "").strip().rstrip("/")
@@ -51,7 +81,7 @@ async def get_settings():
     settings = await db.site_settings.find_one({"id": "site_settings"})
     if not settings:
         await db.site_settings.insert_one(DEFAULT_SETTINGS)
-        return _with_public_api_base(SiteSettings(**DEFAULT_SETTINGS))
+        return _with_public_api_base(SiteSettings(**_mongo_doc_for_site_settings(DEFAULT_SETTINGS)))
     # Auto-seed section template if empty
     if not settings.get("program_section_template"):
         settings["program_section_template"] = DEFAULT_SECTION_TEMPLATE
@@ -60,7 +90,7 @@ async def get_settings():
     if settings.get("hero_title_size") == "70px":
         await db.site_settings.update_one({"id": "site_settings"}, {"$set": {"hero_title_size": "44px"}})
         settings["hero_title_size"] = "44px"
-    return _with_public_api_base(SiteSettings(**settings))
+    return _with_public_api_base(SiteSettings(**_mongo_doc_for_site_settings(settings)))
 
 class InrWhitelistEmailsBody(BaseModel):
     emails: List[str] = []
@@ -85,18 +115,18 @@ async def put_inr_whitelist_emails(body: InrWhitelistEmailsBody):
 
 
 @router.put("")
-async def update_settings(settings: SiteSettingsUpdate):
+async def update_settings(payload: Dict[str, Any]):
+    """Accept raw JSON so inr_whitelist_emails is persisted whenever the key is present (axios/FastAPI/Pydantic can omit model_fields_set)."""
+    try:
+        settings = SiteSettingsUpdate.model_validate(payload)
+    except Exception as e:
+        raise HTTPException(status_code=422, detail=str(e))
     raw = settings.model_dump(exclude_unset=True) if hasattr(settings, "model_dump") else settings.dict(exclude_unset=True)
     # Allow empty strings and empty lists (only skip None). Booleans may be False — must not drop them.
     update_data = {k: v for k, v in raw.items() if v is not None}
-    # Pydantic v2: ensure INR whitelist is written when the client sent this field (dump can omit edge cases).
-    _fs = getattr(settings, "model_fields_set", None) or set()
-    if "inr_whitelist_emails" in _fs:
-        wl = settings.inr_whitelist_emails
-        if wl is not None:
-            update_data["inr_whitelist_emails"] = [
-                str(e).strip().lower() for e in wl if str(e).strip() and "@" in str(e)
-            ]
+    # Raw body key — source of truth for NRI whitelist (do not rely on model_fields_set alone).
+    if "inr_whitelist_emails" in payload:
+        update_data["inr_whitelist_emails"] = _normalize_inr_whitelist_from_payload(payload.get("inr_whitelist_emails"))
     # Defensive: Pydantic v2 partial bodies should still persist explicit False
     if hasattr(settings, "model_fields_set") and "checkout_promo_code_visible" in settings.model_fields_set:
         update_data["checkout_promo_code_visible"] = bool(settings.checkout_promo_code_visible)
@@ -167,4 +197,4 @@ async def update_settings(settings: SiteSettingsUpdate):
     else:
         await db.site_settings.update_one({"id": "site_settings"}, {"$set": update_data})
     updated = await db.site_settings.find_one({"id": "site_settings"})
-    return SiteSettings(**updated)
+    return SiteSettings(**_mongo_doc_for_site_settings(updated))
