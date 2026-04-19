@@ -262,6 +262,11 @@ export default function DashboardUpcomingProgramRowItem({
   const [annualPricingOpen, setAnnualPricingOpen] = useState(true);
   const [annualFamilyOpen, setAnnualFamilyOpen] = useState(true);
   const [annualAttendanceOpen, setAnnualAttendanceOpen] = useState(true);
+  // Non-annual panel open states (same layout as annual)
+  const [nonAnnualPricingOpen, setNonAnnualPricingOpen] = useState(true);
+  const [nonAnnualFamilyOpen, setNonAnnualFamilyOpen] = useState(true);
+  const [nonAnnualAttendanceOpen, setNonAnnualAttendanceOpen] = useState(true);
+  const [nonAnnualAttendMode, setNonAnnualAttendMode] = useState('online');
 
   const syncThisProgramToDivineCart = async () => {
     let participants = null;
@@ -1063,227 +1068,266 @@ export default function DashboardUpcomingProgramRowItem({
         </div>
         </div>
       ) : (
-        <>
-          {heroBlock}
-      {/* Body — content to the right of hero on sm+ */}
-      <div className="flex-1 min-w-0 flex flex-col p-4 sm:p-5">
-        <p className="text-[#D4AF37] text-[10px] tracking-wider mb-0.5 uppercase">
-          {p.category || 'Program'}
-        </p>
-        <div className="flex items-start gap-2 mb-1.5 flex-wrap">
-          <h3 className="text-base font-semibold text-gray-900 leading-tight pr-1">
-            {p.title}
-          </h3>
-          {hasTiers && tierIsYearLong && (
-            <span className="flex-shrink-0 inline-flex items-center rounded-md border border-[#D4AF37]/40 bg-amber-50/95 text-[8px] font-bold uppercase tracking-wider text-[#6b5210] px-2 py-0.5">
-              Annual
-            </span>
-          )}
-          {p.highlight_label && (
-            <span
-              data-testid={`dashboard-highlight-${p.id}`}
-              className={`flex-shrink-0 inline-flex items-center gap-1 text-[8px] font-bold tracking-wider uppercase px-2 py-1 rounded-full whitespace-nowrap ${
-                p.highlight_style === 'glow' ? 'animate-pulse' : ''
-              }`}
-              style={
-                p.highlight_style === 'ribbon'
-                  ? {
-                      background: '#1a1a1a',
-                      color: '#D4AF37',
-                      letterSpacing: '0.08em',
-                      borderLeft: '2px solid #D4AF37',
-                      borderRadius: '4px',
-                    }
-                  : p.highlight_style === 'glow'
-                    ? {
-                        background: 'linear-gradient(135deg, #fff8e7, #fff3d0)',
-                        color: '#b8860b',
-                        border: '1px solid #D4AF3755',
-                        letterSpacing: '0.06em',
-                        boxShadow: '0 0 10px rgba(212,175,55,0.2)',
-                      }
-                    : {
-                        background: 'linear-gradient(135deg, #D4AF37, #f5d77a, #D4AF37)',
-                        color: '#3d2200',
-                        letterSpacing: '0.06em',
-                        boxShadow: '0 2px 6px rgba(212,175,55,0.25)',
-                      }
-              }
-            >
-              {p.highlight_style !== 'ribbon' && (
-                <svg width="8" height="8" viewBox="0 0 24 24" fill={p.highlight_style === 'glow' ? 'none' : '#3d2200'} stroke={p.highlight_style === 'glow' ? '#b8860b' : 'none'} strokeWidth="2">
-                  <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
-                </svg>
-              )}
-              {p.highlight_label}
-            </span>
-          )}
-        </div>
+        /* Non-annual: identical full-width layout as annual subscriber */
+        <div className="w-full flex flex-col gap-4 rounded-2xl border border-slate-200/80 bg-white p-3 sm:p-4 md:p-5 shadow-sm box-border">
+          <div className="w-full flex flex-col gap-4 xl:grid xl:grid-cols-[minmax(0,24rem)_minmax(18rem,1fr)] xl:items-stretch xl:gap-4 xl:min-h-0">
 
-        <p className="text-gray-500 text-xs leading-relaxed mb-3 line-clamp-3 flex-1">{p.description}</p>
-
-        <div className="flex flex-wrap items-center gap-2 mb-3">
-          <button
-            type="button"
-            onClick={(e) => {
-              e.stopPropagation();
-              goProgram();
-            }}
-            data-testid={`dashboard-know-more-${p.id}`}
-            className="inline-flex items-center justify-center bg-[#1a1a1a] hover:bg-[#333] text-white py-2 px-6 rounded-full text-[10px] tracking-wider transition-all duration-300 uppercase font-medium"
-          >
-            Know More
-          </button>
-        </div>
-
-        {enrollStatus === 'open' && !subscriberIsAnnual && hasTiers && (
-          <div data-testid={`dashboard-tier-selector-${p.id}`} className="mb-3">
-            <div className={`grid ${tierGridClass} gap-1`}>
-              {tiers.map((t, i) => (
-                <button
-                  key={i}
-                  type="button"
-                  title={t.label || undefined}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setLocalTier(i);
-                  }}
-                  className={`min-h-[2.25rem] px-1.5 text-[10px] leading-tight rounded-full border transition-all flex items-center justify-center text-center ${
-                    localTier === i ? 'bg-[#D4AF37] text-white border-[#D4AF37]' : 'bg-white text-gray-600 border-gray-200 hover:border-[#D4AF37]'
-                  }`}
-                >
-                  <span className="line-clamp-2 break-words">{compactTierButtonLabel(t.label)}</span>
-                </button>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {enrollStatus === 'open' &&
-          !subscriberIsAnnual &&
-          offerPrice > 0 &&
-          deadline &&
-          (() => {
-            const dl = new Date(deadline);
-            if (dl <= new Date()) return null;
-            const diff = dl - Date.now();
-            const days = Math.floor(diff / (1000 * 60 * 60 * 24));
-            const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
-            const mins = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
-            return (
-              <div
-                data-testid={`dashboard-early-bird-${p.id}`}
-                className="flex items-center gap-2 bg-red-50 border border-red-100 rounded-lg px-3 py-2 mb-3 animate-pulse"
-              >
-                <Bell size={14} className="text-red-500 flex-shrink-0" />
-                <div className="text-xs">
-                  <span className="font-bold text-red-600">{p.offer_text || 'Early Bird'}</span>
-                  <span className="text-red-500 ml-1.5">
-                    ends in {days}d {hours}h {mins}m
-                  </span>
+            {/* Left: program card */}
+            <div className={`group bg-white rounded-xl overflow-hidden shadow-lg border border-gray-100 flex flex-col w-full max-w-md xl:mx-0 xl:w-full xl:max-w-none xl:min-h-0 xl:h-full min-h-0 ${enrollStatus === 'closed' ? 'opacity-60' : 'hover:shadow-2xl'}`}>
+              {heroBlock}
+              <div className="p-4 flex flex-col flex-1 min-h-0 xl:min-h-0">
+                <p className="text-[#D4AF37] text-[10px] tracking-wider mb-0.5 uppercase">{p.category || 'Program'}</p>
+                <div className="flex items-start gap-2 mb-1.5 flex-wrap">
+                  <h3 className="text-base font-semibold text-gray-900 leading-tight pr-1">{p.title}</h3>
+                  {hasTiers && tierIsYearLong && (
+                    <span className="flex-shrink-0 inline-flex items-center rounded-md border border-[#D4AF37]/40 bg-amber-50/95 text-[8px] font-bold uppercase tracking-wider text-[#6b5210] px-2 py-0.5">Annual</span>
+                  )}
+                  {p.highlight_label && (
+                    <span data-testid={`dashboard-highlight-${p.id}`}
+                      className={`flex-shrink-0 inline-flex items-center gap-1 text-[8px] font-bold tracking-wider uppercase px-2 py-1 rounded-full whitespace-nowrap ${p.highlight_style === 'glow' ? 'animate-pulse' : ''}`}
+                      style={p.highlight_style === 'ribbon' ? { background: '#1a1a1a', color: '#D4AF37', letterSpacing: '0.08em', borderLeft: '2px solid #D4AF37', borderRadius: '4px' } : p.highlight_style === 'glow' ? { background: 'linear-gradient(135deg, #fff8e7, #fff3d0)', color: '#b8860b', border: '1px solid #D4AF3755', letterSpacing: '0.06em', boxShadow: '0 0 10px rgba(212,175,55,0.2)' } : { background: 'linear-gradient(135deg, #D4AF37, #f5d77a, #D4AF37)', color: '#3d2200', letterSpacing: '0.06em', boxShadow: '0 2px 6px rgba(212,175,55,0.25)' }}>
+                      {p.highlight_style !== 'ribbon' && (<svg width="8" height="8" viewBox="0 0 24 24" fill={p.highlight_style === 'glow' ? 'none' : '#3d2200'} stroke={p.highlight_style === 'glow' ? '#b8860b' : 'none'} strokeWidth="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" /></svg>)}
+                      {p.highlight_label}
+                    </span>
+                  )}
                 </div>
+                <p className="text-gray-500 text-xs leading-relaxed mb-2 line-clamp-3">{p.description}</p>
+                <div className="hidden xl:block flex-1 min-h-0 shrink-0" aria-hidden />
               </div>
-            );
-          })()}
+            </div>
 
-        {enrollStatus === 'open' && !subscriberIsAnnual && (
-            <div className="mt-auto pt-4 border-t border-gray-100">
-              {showContact ? (
-                <div className="text-center mb-2">
-                  <p className="text-gray-500 text-[10px] mb-1.5">Custom pricing</p>
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      navigate(`/contact?program=${p.id}&title=${encodeURIComponent(p.title)}&tier=Annual`);
-                    }}
-                    className="w-full bg-gray-900 hover:bg-gray-800 text-white py-2 rounded-full text-[10px] tracking-wider transition-colors uppercase font-medium"
-                  >
-                    Contact for Pricing
-                  </button>
-                </div>
-              ) : (
-                <>
-                  <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1 mb-2">
-                    {showSpecialPromo ? (
-                      <div className="flex flex-col gap-1 w-full">
-                        <div className="flex flex-wrap items-baseline gap-2">
-                          <span className="text-xl font-bold text-[#D4AF37] tabular-nums">
-                            {symbol} {afterPromo.toLocaleString()}
-                          </span>
-                          <span className="text-xs text-gray-400 line-through tabular-nums">
-                            {symbol} {baseForPromo.toLocaleString()}
-                          </span>
+            {/* Right: Pricing, Family, Attendance panels */}
+            <div className="flex flex-col gap-4 flex-1 min-w-0 w-full min-h-0 xl:min-h-0 xl:h-full">
+
+              {/* Pricing & Offer */}
+              <div className="rounded-xl border border-slate-200 bg-white p-3 sm:p-4 shadow-sm min-h-0 flex flex-col min-w-0 w-full max-w-xl">
+                <button type="button" className="w-full flex items-center justify-between gap-2 text-left rounded-lg outline-none focus-visible:ring-2 focus-visible:ring-[#D4AF37]/40" onClick={() => setNonAnnualPricingOpen(o => !o)} aria-expanded={nonAnnualPricingOpen}>
+                  <span className="text-[10px] font-bold uppercase tracking-wide text-slate-600">Pricing &amp; offer</span>
+                  <ChevronDown className={`h-4 w-4 text-slate-500 shrink-0 transition-transform ${nonAnnualPricingOpen ? '' : '-rotate-90'}`} aria-hidden />
+                </button>
+                {nonAnnualPricingOpen && enrollStatus === 'open' && (
+                  <div className="pt-2 min-w-0 w-full space-y-3">
+                    {hasTiers && tiers.length > 1 && (
+                      <div data-testid={`dashboard-tier-selector-${p.id}`}>
+                        <p className="text-[9px] font-bold uppercase tracking-wide text-slate-500 mb-1.5">Duration / tier</p>
+                        <div className={`grid ${tierGridClass} gap-1`}>
+                          {tiers.map((t, i) => (
+                            <button key={i} type="button" title={t.label || undefined} onClick={(e) => { e.stopPropagation(); setLocalTier(i); }}
+                              className={`min-h-[2.25rem] px-1.5 text-[10px] leading-tight rounded-full border transition-all flex items-center justify-center text-center ${localTier === i ? 'bg-[#D4AF37] text-white border-[#D4AF37]' : 'bg-white text-gray-600 border-gray-200 hover:border-[#D4AF37]'}`}>
+                              <span className="line-clamp-2 break-words">{compactTierButtonLabel(t.label)}</span>
+                            </button>
+                          ))}
                         </div>
-                        <span className="text-xs text-violet-700 font-medium">
-                          With {promoForProgramClicks} (on offer price)
-                        </span>
-                        {offerPrice > 0 && price > offerPrice && (
-                          <span className="text-[10px] text-gray-400">List {symbol}{price.toLocaleString()}</span>
+                      </div>
+                    )}
+                    {offerPrice > 0 && deadline && (() => {
+                      const dl = new Date(deadline);
+                      if (dl <= new Date()) return null;
+                      const diff = dl - Date.now();
+                      const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+                      const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+                      const mins = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+                      return (
+                        <div data-testid={`dashboard-early-bird-${p.id}`} className="flex items-center gap-2 bg-red-50 border border-red-200 rounded-lg px-3 py-2 animate-pulse">
+                          <Bell size={14} className="text-red-500 flex-shrink-0" />
+                          <div className="text-xs leading-snug min-w-0">
+                            <span className="font-bold text-red-600 uppercase tracking-wide">{p.offer_text || 'Exclusive'}</span>
+                            <span className="text-red-600 ml-1.5">ends in {days}d {hours}h {mins}m</span>
+                          </div>
+                        </div>
+                      );
+                    })()}
+                    <div className="rounded-md border border-slate-200 bg-white w-full px-3 py-2.5 space-y-2">
+                      {showContact ? (
+                        <div className="flex justify-between text-[11px] text-slate-800">
+                          <span className="text-slate-700">Your seat</span>
+                          <span className="text-slate-600 text-right">Contact for pricing</span>
+                        </div>
+                      ) : showSpecialPromo ? (
+                        <>
+                          <div className="flex justify-between text-[11px] text-slate-800">
+                            <span className="text-slate-700">Your seat</span>
+                            <span className="font-semibold tabular-nums text-slate-900 text-right">{symbol} {afterPromo.toLocaleString()} <span className="text-slate-400 line-through text-[10px] ml-1">{symbol} {baseForPromo.toLocaleString()}</span></span>
+                          </div>
+                          <div className="flex justify-between text-[11px] text-slate-600">
+                            <span>With {promoForProgramClicks}</span><span className="text-violet-700 font-medium">on offer price</span>
+                          </div>
+                        </>
+                      ) : offerPrice > 0 ? (
+                        <div className="flex justify-between text-[11px] text-slate-800">
+                          <span className="text-slate-700">Your seat</span>
+                          <span className="font-semibold tabular-nums text-slate-900 text-right">{symbol} {offerPrice.toLocaleString()} <span className="text-slate-400 line-through text-[10px] ml-1">{symbol} {price.toLocaleString()}</span></span>
+                        </div>
+                      ) : price > 0 ? (
+                        <div className="flex justify-between text-[11px] text-slate-800">
+                          <span className="text-slate-700">Your seat</span>
+                          <span className="font-semibold tabular-nums text-slate-900">{symbol} {price.toLocaleString()}</span>
+                        </div>
+                      ) : (
+                        <div className="flex justify-between text-[11px] text-slate-800">
+                          <span className="text-slate-700">Your seat</span>
+                          <span className="font-bold text-green-600">FREE</span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+                <p className="text-[11px] text-slate-600 mt-2 pt-2 border-t border-slate-100 leading-snug">
+                  Your selection total:{' '}
+                  <span className="font-semibold text-slate-800 tabular-nums">
+                    {symbol} {(showSpecialPromo ? afterPromo : offerPrice > 0 ? offerPrice : price > 0 ? price : 0).toLocaleString()}
+                  </span>
+                </p>
+              </div>
+
+              {/* Family + Attendance side-by-side */}
+              <div className="grid grid-cols-1 lg:grid-cols-[minmax(13rem,1fr)_minmax(13rem,1fr)] gap-3 lg:gap-x-3 items-start w-full min-w-0 flex-1 min-h-0">
+
+                {/* Family to join */}
+                <div className="rounded-xl border border-amber-100/80 bg-amber-50/25 p-3 sm:p-4 min-h-0 flex flex-col min-w-[13rem] w-full">
+                  <button type="button" className="w-full flex items-center justify-between gap-2 text-left rounded-lg outline-none focus-visible:ring-2 focus-visible:ring-amber-400/50" onClick={() => setNonAnnualFamilyOpen(o => !o)} aria-expanded={nonAnnualFamilyOpen}>
+                    <span className="text-[10px] font-bold uppercase tracking-wide text-slate-600">Family to join</span>
+                    <ChevronDown className={`h-4 w-4 text-slate-500 shrink-0 transition-transform ${nonAnnualFamilyOpen ? '' : '-rotate-90'}`} aria-hidden />
+                  </button>
+                  {nonAnnualFamilyOpen && (
+                    <div className="flex flex-col gap-4 flex-1 min-h-0 max-h-[min(26rem,55vh)] overflow-y-auto pr-1 pt-2">
+                      <div className="min-w-0">
+                        <p className="text-[10px] font-bold uppercase tracking-wide text-slate-500 mb-2">Immediate family</p>
+                        {enrollableGuests.length === 0 ? (
+                          <p className="text-xs text-slate-500">Add people under the lists below, then save.</p>
+                        ) : (
+                          <div className="space-y-2">
+                            {selectableFamilyMemberIds.length > 0 && (
+                              <label className="flex items-center gap-2 text-xs font-semibold text-slate-700 cursor-pointer select-none pb-1 border-b border-slate-200/80">
+                                <input type="checkbox" className="rounded border-slate-300"
+                                  checked={selectableFamilyMemberIds.length > 0 && selectableFamilyMemberIds.every(id => selIds.includes(id))}
+                                  ref={el => { if (!el) return; const some = selectableFamilyMemberIds.some(id => selIds.includes(id)); const all = selectableFamilyMemberIds.length > 0 && selectableFamilyMemberIds.every(id => selIds.includes(id)); el.indeterminate = some && !all; }}
+                                  onChange={() => toggleSelectAllFamilyForProgram(p.id)} />
+                                <span>Add all ({selectableFamilyMemberIds.length} saved)</span>
+                              </label>
+                            )}
+                            {members.length > 0 && (
+                              <ul className="space-y-1.5">
+                                {members.map((m, gidx) => {
+                                  const mid = m.id || `imm-${gidx}-${m.name}-${m.email}`;
+                                  return (
+                                    <li key={mid}>
+                                      <label className="flex items-center gap-2 text-sm text-slate-800 cursor-pointer">
+                                        <input type="checkbox" className="rounded border-slate-300" disabled={!m.id} checked={!!m.id && selIds.includes(String(m.id))} onChange={() => m.id && toggleFamilyMember(p.id, String(m.id))} />
+                                        <span>{m.name || '—'}{m.relationship ? <span className="text-slate-500"> ({m.relationship})</span> : null}</span>
+                                      </label>
+                                    </li>
+                                  );
+                                })}
+                              </ul>
+                            )}
+                          </div>
                         )}
                       </div>
-                    ) : offerPrice > 0 ? (
-                      <>
-                        <span className="text-xl font-bold text-[#D4AF37] tabular-nums">
-                          {symbol} {offerPrice.toLocaleString()}
-                        </span>
-                        <span className="text-xs text-gray-400 line-through tabular-nums">
-                          {symbol} {price.toLocaleString()}
-                        </span>
-                      </>
-                    ) : price > 0 ? (
-                      <span className="text-xl font-bold text-gray-900 tabular-nums">
-                        {symbol} {price.toLocaleString()}
-                      </span>
-                    ) : (
-                      <span className="text-xl font-bold text-green-600">FREE</span>
-                    )}
-                  </div>
-                  <button
-                    type="button"
-                    disabled={!canAddToDivineCart || addingToCheckout}
-                    title={
-                      !canAddToDivineCart
-                        ? showContact
-                          ? 'Use contact for pricing for this program.'
-                          : enrollStatus !== 'open'
-                            ? 'Enrollment is closed.'
-                            : ''
-                        : undefined
-                    }
-                    onClick={handleAddToDivineCart}
-                    className="w-full inline-flex items-center justify-center gap-2 bg-[#D4AF37] hover:bg-[#b8962e] disabled:opacity-50 disabled:pointer-events-none text-white py-2.5 rounded-full text-[10px] tracking-wider transition-all duration-300 uppercase font-medium"
-                    aria-label="Add to Divine Cart"
-                    data-testid={`dashboard-divine-cart-${p.id}`}
-                  >
-                    {addingToCheckout ? (
-                      <Loader2 size={14} className="animate-spin shrink-0" />
-                    ) : (
-                      <ShoppingCart size={14} className="shrink-0" />
-                    )}
-                    Add to Divine Cart
+                      <div className="min-w-0 pt-1 border-t border-amber-200/50">
+                        <p className="text-[10px] font-bold uppercase tracking-wide text-slate-500 mb-2">Friends &amp; extended</p>
+                        {otherMembers.length > 0 ? (
+                          <ul className="space-y-1.5">
+                            {otherMembers.map((m, gidx) => {
+                              const mid = m.id || `ext-${gidx}-${m.name}-${m.email}`;
+                              return (
+                                <li key={mid}>
+                                  <label className="flex items-center gap-2 text-sm text-slate-800 cursor-pointer">
+                                    <input type="checkbox" className="rounded border-slate-300" disabled={!m.id} checked={!!m.id && selIds.includes(String(m.id))} onChange={() => m.id && toggleFamilyMember(p.id, String(m.id))} />
+                                    <span>{m.name || '—'}{m.relationship ? <span className="text-slate-500"> ({m.relationship})</span> : null}</span>
+                                  </label>
+                                </li>
+                              );
+                            })}
+                          </ul>
+                        ) : (
+                          <p className="text-[11px] text-slate-400 italic">No saved guests in this list yet.</p>
+                        )}
+                      </div>
+                      {selCount > 0 && (
+                        <p className="text-xs text-amber-900 bg-amber-50/90 rounded-lg px-2 py-2 mt-1 border border-amber-200/80">
+                          {selCount} guest{selCount > 1 ? 's' : ''} will be enrolled separately.
+                        </p>
+                      )}
+                    </div>
+                  )}
+                </div>
+
+                {/* Attendance & Notification */}
+                <div className="rounded-xl border border-slate-200 bg-white p-3 sm:p-4 shadow-sm min-h-0 flex flex-col min-w-[13rem] w-full">
+                  <button type="button" className="w-full flex items-center justify-between gap-2 text-left rounded-lg outline-none focus-visible:ring-2 focus-visible:ring-[#D4AF37]/40" onClick={() => setNonAnnualAttendanceOpen(o => !o)} aria-expanded={nonAnnualAttendanceOpen}>
+                    <span className="text-[9px] sm:text-[10px] font-bold uppercase tracking-tight text-slate-600 whitespace-nowrap">Attendance &amp; notification</span>
+                    <ChevronDown className={`h-4 w-4 text-slate-500 shrink-0 transition-transform ${nonAnnualAttendanceOpen ? '' : '-rotate-90'}`} aria-hidden />
                   </button>
-                  <p className="text-xs text-slate-500 mt-3 leading-relaxed">
-                    Tap the image to open the program page. Use <strong className="text-slate-700 font-medium">Add to Divine Cart</strong> to add this tier to your order; click <strong className="text-slate-700 font-medium">DIVINE CART</strong> in the sidebar when you want to review and pay.
-                  </p>
-                </>
+                  {nonAnnualAttendanceOpen && (
+                    <div className="flex flex-col gap-2 w-full min-w-0 pt-2">
+                      <div className="w-full rounded-lg border border-slate-200 bg-white px-2.5 py-2">
+                        <div className="w-full flex flex-col gap-0 divide-y divide-slate-200">
+                          <div className="flex flex-col gap-1.5 py-2 first:pt-0 w-full">
+                            <span className="text-[9px] font-bold uppercase tracking-wide text-slate-500 shrink-0">Attendance</span>
+                            <div className="flex flex-wrap items-center gap-x-3 gap-y-1 flex-1 min-w-0">
+                              <label className="inline-flex items-center gap-1.5 cursor-pointer text-[10px] text-slate-800 whitespace-nowrap">
+                                <input type="checkbox" className="rounded border-slate-300 shrink-0 scale-90" checked={nonAnnualAttendMode === 'online'} onChange={() => setNonAnnualAttendMode('online')} />
+                                All online
+                              </label>
+                              <label className="inline-flex items-center gap-1.5 cursor-pointer text-[10px] text-slate-800 whitespace-nowrap">
+                                <input type="checkbox" className="rounded border-slate-300 shrink-0 scale-90" checked={nonAnnualAttendMode === 'offline'} onChange={() => setNonAnnualAttendMode('offline')} />
+                                All offline
+                              </label>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                      {enrollStatus === 'open' && (
+                        <button type="button"
+                          className="text-violet-700 font-bold uppercase tracking-wide text-[9px] underline underline-offset-2 hover:text-violet-900 p-0 bg-transparent border-0 cursor-pointer text-left shrink-0"
+                          onClick={(e) => { e.stopPropagation(); openEnrollmentSeatModal?.(p.id); }}>
+                          Per-person attendance &amp; email…
+                        </button>
+                      )}
+                    </div>
+                  )}
+                </div>
+
+              </div>
+            </div>
+          </div>
+
+          {/* Bottom: Know More + Add to Divine Cart */}
+          <div className="flex flex-col sm:flex-row gap-3 w-full sm:items-center sm:justify-between pt-3 mt-1 border-t border-slate-200/70">
+            <div className="w-full sm:w-[min(100%,28rem)] xl:w-[min(100%,24rem)] sm:shrink-0">
+              {enrollStatus === 'open' ? (
+                <button type="button" onClick={(e) => { e.stopPropagation(); goProgram(); }} data-testid={`dashboard-know-more-${p.id}`}
+                  className="w-full inline-flex items-center justify-center bg-[#1a1a1a] hover:bg-[#333] text-white py-2.5 px-5 rounded-full text-[10px] tracking-wider transition-all duration-300 uppercase font-medium">
+                  Know More
+                </button>
+              ) : (
+                <button type="button" disabled className="w-full bg-gray-300 text-gray-500 py-2.5 rounded-full text-[10px] tracking-wider uppercase font-medium cursor-not-allowed">
+                  {p.closure_text || 'Closed'}
+                </button>
               )}
             </div>
-        )}
-
-        {enrollStatus === 'closed' && (
-          <div className="mt-auto pt-4 border-t border-gray-100">
-            <button
-              type="button"
-              disabled
-              className="w-full bg-gray-300 text-gray-500 py-2 rounded-full text-[10px] tracking-wider uppercase font-medium cursor-not-allowed"
-            >
-              {p.closure_text || 'Closed'}
-            </button>
+            <div className="w-full min-w-0 flex-1">
+              {enrollStatus === 'open' ? (
+                <button type="button" disabled={!canAddToDivineCart || addingToCheckout}
+                  title={!canAddToDivineCart ? (showContact ? 'Use contact for pricing for this program.' : enrollStatus !== 'open' ? 'Enrollment is closed.' : '') : undefined}
+                  onClick={handleAddToDivineCart}
+                  className="w-full inline-flex items-center justify-center gap-2 rounded-full py-2.5 px-5 text-[10px] tracking-wider uppercase font-medium transition-all duration-300 bg-[#D4AF37] text-white hover:bg-[#b8962e] disabled:opacity-50 disabled:pointer-events-none shadow-sm"
+                  aria-label="Add to Divine Cart" data-testid={`dashboard-divine-cart-${p.id}`}>
+                  {addingToCheckout ? <Loader2 size={16} className="animate-spin shrink-0" /> : <ShoppingCart size={16} className="shrink-0" />}
+                  Add to Divine Cart
+                </button>
+              ) : (
+                <button type="button" disabled
+                  className="w-full inline-flex items-center justify-center gap-2 rounded-full py-2.5 px-5 text-[10px] tracking-wider uppercase font-medium bg-gray-300 text-gray-500 cursor-not-allowed shadow-sm"
+                  aria-label="Add to Divine Cart" data-testid={`dashboard-divine-cart-${p.id}`}>
+                  <ShoppingCart size={16} className="shrink-0 opacity-70" />
+                  Add to Divine Cart
+                </button>
+              )}
+            </div>
           </div>
-        )}
-      </div>
-        </>
+        </div>
       )}
     </div>
   );
