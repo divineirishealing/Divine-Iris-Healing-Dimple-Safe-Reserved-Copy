@@ -773,7 +773,7 @@ const ClientDetail = ({ client: cl, labelConfig: cfg, onUpdate, onDelete, onRefr
                 )}
                 {cl.preferred_payment_method && (
                   <span className="text-[9px] px-2 py-0.5 rounded-full bg-teal-50 text-teal-700 font-medium border border-teal-200">
-                    Prefers: {{ gpay: 'GPay', upi: 'UPI', bank_transfer: 'Bank Transfer', cash_deposit: 'Cash Deposit' }[cl.preferred_payment_method] || cl.preferred_payment_method}
+                    Prefers: {{ gpay_upi: 'GPay / UPI', bank_transfer: 'Bank Transfer', cash_deposit: 'Cash Deposit', stripe: 'Stripe' }[cl.preferred_payment_method] || cl.preferred_payment_method}
                   </span>
                 )}
               </div>

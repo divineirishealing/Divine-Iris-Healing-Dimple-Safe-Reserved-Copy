@@ -23,7 +23,7 @@ mongo_url = os.environ['MONGO_URL']
 _client = AsyncIOMotorClient(mongo_url)
 db = _client[os.environ['DB_NAME']]
 
-VALID_PAYMENT_METHODS = {"gpay", "upi", "bank_transfer", "cash_deposit"}
+VALID_PAYMENT_METHODS = {"gpay_upi", "bank_transfer", "cash_deposit", "stripe"}
 
 
 class ClientIntakeSubmit(BaseModel):

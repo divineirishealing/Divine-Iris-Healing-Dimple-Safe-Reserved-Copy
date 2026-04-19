@@ -38,13 +38,13 @@ const COUNTRY_CODES = [
 ];
 
 const PAYMENT_METHODS = [
-  { value: 'gpay',          label: 'GPay',          desc: 'Google Pay' },
-  { value: 'upi',           label: 'UPI',            desc: 'Any UPI app' },
+  { value: 'gpay_upi',      label: 'GPay / UPI',     desc: 'Google Pay or any UPI app' },
   { value: 'bank_transfer', label: 'Bank Transfer',  desc: 'NEFT / RTGS / IMPS' },
   { value: 'cash_deposit',  label: 'Cash Deposit',   desc: 'Cash at bank' },
+  { value: 'stripe',        label: 'Stripe',         desc: 'Card / international' },
 ];
 
-const GST_METHODS = new Set(['gpay', 'upi', 'bank_transfer', 'cash_deposit']);
+const GST_METHODS = new Set(['gpay_upi', 'bank_transfer', 'cash_deposit']);
 
 const Field = ({ label, required, icon: Icon, children, hint }) => (
   <div className="space-y-1.5">
