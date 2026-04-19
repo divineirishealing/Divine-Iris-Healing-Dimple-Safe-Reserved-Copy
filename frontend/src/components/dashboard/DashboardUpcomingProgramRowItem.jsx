@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import {
@@ -206,7 +206,7 @@ export default function DashboardUpcomingProgramRowItem({
   onDashboardTierChange,
 }) {
   const navigate = useNavigate();
-  const { syncProgramLineItem, items: cartItems } = useCart();
+  const { syncProgramLineItem } = useCart();
   const { toast } = useToast();
 
   const tiers = p.duration_tiers || [];
@@ -255,28 +255,6 @@ export default function DashboardUpcomingProgramRowItem({
   const [annualPricingOpen, setAnnualPricingOpen] = useState(true);
   const [annualFamilyOpen, setAnnualFamilyOpen] = useState(true);
   const [annualAttendanceOpen, setAnnualAttendanceOpen] = useState(true);
-  const didAutoSyncRef = useRef(false);
-
-  // Auto-sync cart on dashboard load (non-annual only): when enrollment prefill arrives,
-  // update any stale cart entry so the cart reflects current dashboard selections.
-  useEffect(() => {
-    if (!enrollmentSelf || subscriberIsAnnual || didAutoSyncRef.current) return;
-    const inCart = cartItems.some((i) => String(i.programId) === String(p.id));
-    if (!inCart) return;
-    didAutoSyncRef.current = true;
-    const autoParticipants = buildAnnualDashboardCartParticipants({
-      program: p, includedPkg, selectedMemberIds: selIds, seatDraft: annualSeatUi?.draft,
-      enrollableGuests, self: enrollmentSelf, bookerEmail, detectedCountry, immediateFamilyMembers: members,
-    });
-    const guestBucketById = buildGuestBucketByIdFromSelection(selIds, members);
-    syncProgramLineItem(p, tierIdxForDisplay, autoParticipants, {
-      familyIds: selIds.map(String),
-      bookerJoins: includedPkg ? false : annualSeatUi?.draft?.bookerJoinsProgram !== false,
-      annualIncluded: !!includedPkg,
-      portalQuoteTotal: aq?.total != null ? Number(aq.total) : null,
-      guestBucketById,
-    });
-  }, [enrollmentSelf]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const syncThisProgramToDivineCart = async () => {
     let participants = null;
