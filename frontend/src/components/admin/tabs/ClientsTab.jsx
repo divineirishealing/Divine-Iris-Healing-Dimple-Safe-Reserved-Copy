@@ -635,8 +635,7 @@ const ClientDetail = ({ client: cl, labelConfig: cfg, onUpdate, onDelete, onRefr
                   className="w-full text-xs border rounded-md px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-orange-300 bg-white"
                 >
                   <option value="">— Not tagged —</option>
-                  <option value="gpay">GPay</option>
-                  <option value="upi">UPI</option>
+                  <option value="gpay_upi">GPay / UPI</option>
                   <option value="bank_transfer">Bank Transfer</option>
                   <option value="cash_deposit">Cash Deposit</option>
                   <option value="stripe">Stripe</option>
@@ -753,7 +752,7 @@ const ClientDetail = ({ client: cl, labelConfig: cfg, onUpdate, onDelete, onRefr
               </span>
               {indiaPaymentMethod && (
                 <span className="inline-flex items-center gap-1 text-[9px] px-2 py-0.5 rounded-full font-semibold bg-blue-100 text-blue-700">
-                  ₹ {{ gpay: 'GPay', upi: 'UPI', bank_transfer: 'Bank Transfer', cash_deposit: 'Cash Deposit', stripe: 'Stripe', any: 'Any / Multiple' }[indiaPaymentMethod] || indiaPaymentMethod}
+                  ₹ {{ gpay_upi: 'GPay / UPI', gpay: 'GPay / UPI', upi: 'GPay / UPI', bank_transfer: 'Bank Transfer', cash_deposit: 'Cash Deposit', stripe: 'Stripe', any: 'Any / Multiple' }[indiaPaymentMethod] || indiaPaymentMethod}
                 </span>
               )}
               {indiaDiscountPercent !== '' && indiaDiscountPercent !== null && (

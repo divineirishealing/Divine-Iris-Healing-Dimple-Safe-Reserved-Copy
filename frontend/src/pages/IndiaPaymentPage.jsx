@@ -9,7 +9,7 @@ import { Button } from '../components/ui/button';
 import {
   IndianRupee, Building2, ExternalLink, Upload,
   User, FileText, CreditCard, ChevronLeft, Loader2, Check,
-  AlertCircle, Clock
+  AlertCircle, Clock, Smartphone, Copy
 } from 'lucide-react';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
@@ -32,7 +32,7 @@ const IndiaPaymentPage = () => {
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [activeMethod, setActiveMethod] = useState('exly');
-  const [paymentMethod, setPaymentMethod] = useState('bank_transfer');
+  const [paymentMethod, setPaymentMethod] = useState('gpay_upi');
 
   // Proof form state (for bank transfer only)
   const [screenshot, setScreenshot] = useState(null);
@@ -56,11 +56,23 @@ const IndiaPaymentPage = () => {
             ? axios.get(`${API}/india-payments/client-tax/${enrollmentId}`).catch(() => ({ data: null }))
             : Promise.resolve({ data: null }),
         ]);
-        setSettings(settingsRes.data);
-        setClientTax(taxRes.data);
+        const s = settingsRes.data;
+        const ct = taxRes.data;
+        setSettings(s);
+        setClientTax(ct);
+
+        // Pre-select the active method tab based on the client's tagged payment method
+        const tagged = (ct?.india_payment_method || '').toLowerCase();
         if (isManualMode) {
           setActiveMethod('bank');
-        } else if (!settingsRes.data.india_exly_link && settingsRes.data.india_bank_details?.account_number) {
+        } else if (tagged === 'gpay_upi' || tagged === 'gpay' || tagged === 'upi') {
+          const hasGpay = (s.india_gpay_accounts || []).some(g => (g.upi_id || '').trim());
+          setActiveMethod(hasGpay ? 'gpay' : 'bank');
+        } else if (tagged === 'bank_transfer') {
+          setActiveMethod('bank');
+        } else if (tagged === 'stripe') {
+          setActiveMethod('exly');
+        } else if (!s.india_exly_link && s.india_bank_details?.account_number) {
           setActiveMethod('bank');
         }
       } catch {
@@ -205,6 +217,11 @@ const IndiaPaymentPage = () => {
   const bankDetails = settings.india_bank_details || {};
   const hasExly = !!exlyLink;
   const hasBank = !!bankDetails.account_number;
+  const gpayAccounts = (settings.india_gpay_accounts || []).filter(g => (g.upi_id || '').trim());
+  const bankAccounts = settings.india_bank_accounts || [];
+  const hasGpay = gpayAccounts.length > 0;
+  // Effective bank details: prefer multi-account array, fall back to legacy single field
+  const effectiveBanks = bankAccounts.length > 0 ? bankAccounts : (hasBank ? [bankDetails] : []);
 
   return (
     <>
@@ -225,19 +242,69 @@ const IndiaPaymentPage = () => {
                 </h1>
                 <p className="text-xs text-gray-500 mb-5">{isManualMode ? 'Upload your payment proof for admin approval.' : 'Choose a payment method to complete your enrollment.'}</p>
 
-                {/* Method Tabs — hide in manual mode */}
-                {!isManualMode && hasExly && hasBank && (
-                  <div className="flex gap-2 mb-5">
-                    <button onClick={() => setActiveMethod('exly')}
-                      className={`flex-1 py-2.5 rounded-lg text-xs font-semibold transition-all border ${activeMethod === 'exly' ? 'bg-purple-50 border-purple-300 text-purple-700' : 'bg-gray-50 border-gray-200 text-gray-500 hover:bg-gray-100'}`}
-                      data-testid="tab-exly">
-                      <CreditCard size={14} className="inline mr-1.5" /> Pay via Exly
-                    </button>
-                    <button onClick={() => setActiveMethod('bank')}
-                      className={`flex-1 py-2.5 rounded-lg text-xs font-semibold transition-all border ${activeMethod === 'bank' ? 'bg-blue-50 border-blue-300 text-blue-700' : 'bg-gray-50 border-gray-200 text-gray-500 hover:bg-gray-100'}`}
-                      data-testid="tab-bank">
-                      <Building2 size={14} className="inline mr-1.5" /> Bank Transfer
-                    </button>
+                {/* Method Tabs — hide in manual mode, show only relevant tabs */}
+                {!isManualMode && (hasGpay || (hasExly && (hasBank || effectiveBanks.length > 0))) && (
+                  <div className="flex gap-2 mb-5 flex-wrap">
+                    {hasGpay && (
+                      <button onClick={() => setActiveMethod('gpay')}
+                        className={`flex-1 py-2.5 rounded-lg text-xs font-semibold transition-all border ${activeMethod === 'gpay' ? 'bg-green-50 border-green-300 text-green-700' : 'bg-gray-50 border-gray-200 text-gray-500 hover:bg-gray-100'}`}
+                        data-testid="tab-gpay">
+                        <Smartphone size={14} className="inline mr-1.5" /> GPay / UPI
+                      </button>
+                    )}
+                    {effectiveBanks.length > 0 && (
+                      <button onClick={() => setActiveMethod('bank')}
+                        className={`flex-1 py-2.5 rounded-lg text-xs font-semibold transition-all border ${activeMethod === 'bank' ? 'bg-blue-50 border-blue-300 text-blue-700' : 'bg-gray-50 border-gray-200 text-gray-500 hover:bg-gray-100'}`}
+                        data-testid="tab-bank">
+                        <Building2 size={14} className="inline mr-1.5" /> Bank Transfer
+                      </button>
+                    )}
+                    {hasExly && (
+                      <button onClick={() => setActiveMethod('exly')}
+                        className={`flex-1 py-2.5 rounded-lg text-xs font-semibold transition-all border ${activeMethod === 'exly' ? 'bg-purple-50 border-purple-300 text-purple-700' : 'bg-gray-50 border-gray-200 text-gray-500 hover:bg-gray-100'}`}
+                        data-testid="tab-exly">
+                        <CreditCard size={14} className="inline mr-1.5" /> Pay via Exly
+                      </button>
+                    )}
+                  </div>
+                )}
+
+                {/* GPay / UPI Payment */}
+                {activeMethod === 'gpay' && hasGpay && (
+                  <div data-testid="gpay-payment">
+                    <div className="border rounded-xl p-5 mb-4">
+                      <div className="flex items-center gap-2 mb-3">
+                        <Smartphone size={16} className="text-green-600" />
+                        <h3 className="text-sm font-semibold text-gray-900">GPay / UPI Transfer</h3>
+                      </div>
+                      <p className="text-[10px] text-gray-500 mb-4">
+                        Send <strong className="text-[#D4AF37]">INR {pricing.total.toLocaleString()}</strong> to the UPI ID below, then submit proof below.
+                      </p>
+                      <div className="space-y-3">
+                        {gpayAccounts.map((acct, i) => (
+                          <div key={i} className="bg-green-50 border border-green-200 rounded-lg p-4">
+                            {acct.label && (
+                              <p className="text-[10px] font-semibold text-green-700 mb-2 uppercase tracking-wide">{acct.label}</p>
+                            )}
+                            <div className="flex items-center justify-between gap-3">
+                              <span className="font-mono font-bold text-sm text-gray-900 select-all break-all">{acct.upi_id}</span>
+                              <button
+                                type="button"
+                                onClick={() => { navigator.clipboard.writeText(acct.upi_id); toast({ title: 'UPI ID copied!' }); }}
+                                className="shrink-0 flex items-center gap-1 text-[10px] bg-white border border-green-300 text-green-700 px-2 py-1 rounded-md hover:bg-green-50 transition-colors"
+                              >
+                                <Copy size={11} /> Copy
+                              </button>
+                            </div>
+                            {acct.qr_image_url && (
+                              <div className="mt-3 flex justify-center">
+                                <img src={acct.qr_image_url} alt="UPI QR Code" className="w-36 h-36 object-contain rounded border" />
+                              </div>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
                   </div>
                 )}
 
@@ -263,45 +330,54 @@ const IndiaPaymentPage = () => {
                 )}
 
                 {/* Bank Transfer / Manual Payment */}
-                {(activeMethod === 'bank' && (hasBank || isManualMode)) && (
+                {(activeMethod === 'bank' && (effectiveBanks.length > 0 || isManualMode)) && (
                   <div data-testid="bank-payment">
-                    {/* Bank Details — show only if configured and not pure manual mode */}
-                    {hasBank && (
+                    {/* Bank Details — show all configured accounts */}
+                    {effectiveBanks.length > 0 && (
                     <div className="border rounded-xl p-5 mb-4">
                       <div className="flex items-center gap-2 mb-3">
                         <Building2 size={16} className="text-blue-600" />
                         <h3 className="text-sm font-semibold text-gray-900">Bank Transfer (NEFT / IMPS / RTGS)</h3>
                       </div>
                       <p className="text-[10px] text-gray-500 mb-3">Transfer <strong className="text-[#D4AF37]">INR {pricing.total.toLocaleString()}</strong> to the following account:</p>
-                      <div className="bg-gray-50 border rounded-lg p-4 space-y-2">
-                        {bankDetails.account_name && (
-                          <div className="flex justify-between text-xs">
-                            <span className="text-gray-500">Account Name</span>
-                            <span className="font-semibold text-gray-900 select-all">{bankDetails.account_name}</span>
+                      <div className="space-y-3">
+                        {effectiveBanks.map((bd, i) => (
+                          <div key={i} className="bg-gray-50 border rounded-lg p-4 space-y-2">
+                            {bd.label && effectiveBanks.length > 1 && (
+                              <p className="text-[10px] font-semibold text-blue-700 mb-1 uppercase tracking-wide">{bd.label}</p>
+                            )}
+                            {bd.account_name && (
+                              <div className="flex justify-between text-xs">
+                                <span className="text-gray-500">Account Name</span>
+                                <span className="font-semibold text-gray-900 select-all">{bd.account_name}</span>
+                              </div>
+                            )}
+                            {bd.account_number && (
+                              <div className="flex justify-between text-xs">
+                                <span className="text-gray-500">Account Number</span>
+                                <span className="font-mono font-semibold text-gray-900 select-all">{bd.account_number}</span>
+                              </div>
+                            )}
+                            {bd.ifsc && (
+                              <div className="flex justify-between text-xs">
+                                <span className="text-gray-500">IFSC Code</span>
+                                <span className="font-mono font-semibold text-gray-900 select-all">{bd.ifsc}</span>
+                              </div>
+                            )}
+                            {bd.bank_name && (
+                              <div className="flex justify-between text-xs">
+                                <span className="text-gray-500">Bank</span>
+                                <span className="font-semibold text-gray-900">{bd.bank_name}</span>
+                              </div>
+                            )}
+                            {bd.branch && (
+                              <div className="flex justify-between text-xs">
+                                <span className="text-gray-500">Branch</span>
+                                <span className="font-semibold text-gray-900">{bd.branch}</span>
+                              </div>
+                            )}
                           </div>
-                        )}
-                        <div className="flex justify-between text-xs">
-                          <span className="text-gray-500">Account Number</span>
-                          <span className="font-mono font-semibold text-gray-900 select-all">{bankDetails.account_number}</span>
-                        </div>
-                        {bankDetails.ifsc && (
-                          <div className="flex justify-between text-xs">
-                            <span className="text-gray-500">IFSC Code</span>
-                            <span className="font-mono font-semibold text-gray-900 select-all">{bankDetails.ifsc}</span>
-                          </div>
-                        )}
-                        {bankDetails.bank_name && (
-                          <div className="flex justify-between text-xs">
-                            <span className="text-gray-500">Bank</span>
-                            <span className="font-semibold text-gray-900">{bankDetails.bank_name}</span>
-                          </div>
-                        )}
-                        {bankDetails.branch && (
-                          <div className="flex justify-between text-xs">
-                            <span className="text-gray-500">Branch</span>
-                            <span className="font-semibold text-gray-900">{bankDetails.branch}</span>
-                          </div>
-                        )}
+                        ))}
                       </div>
                     </div>
                     )}
@@ -394,8 +470,8 @@ const IndiaPaymentPage = () => {
                           <select value={paymentMethod} onChange={e => setPaymentMethod(e.target.value)}
                             className="w-full border rounded-lg text-xs h-9 px-3 text-gray-700 focus:ring-1 focus:ring-[#D4AF37]"
                             data-testid="proof-payment-method">
+                            <option value="gpay_upi">GPay / UPI</option>
                             <option value="bank_transfer">Bank Transfer (NEFT/IMPS/RTGS)</option>
-                            <option value="upi">UPI</option>
                             <option value="cash_deposit">Cash Deposit</option>
                             <option value="cheque">Cheque</option>
                             <option value="other">Other</option>

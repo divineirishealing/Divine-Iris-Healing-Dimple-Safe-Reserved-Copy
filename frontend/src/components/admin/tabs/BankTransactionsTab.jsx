@@ -17,16 +17,18 @@ import {
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
 const PM_LABEL = {
-  gpay:          'GPay',
-  upi:           'UPI',
+  gpay_upi:      'GPay / UPI',
+  gpay:          'GPay / UPI',
+  upi:           'GPay / UPI',
   bank_transfer: 'Bank Transfer',
   cash_deposit:  'Cash Deposit',
   stripe:        'Stripe',
 };
 
 const PM_COLORS = {
+  gpay_upi:      'bg-blue-100 text-blue-700',
   gpay:          'bg-blue-100 text-blue-700',
-  upi:           'bg-violet-100 text-violet-700',
+  upi:           'bg-blue-100 text-blue-700',
   bank_transfer: 'bg-teal-100 text-teal-700',
   cash_deposit:  'bg-amber-100 text-amber-700',
   stripe:        'bg-indigo-100 text-indigo-700',
