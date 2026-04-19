@@ -1426,14 +1426,10 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh, bo
                   toggleFamilyMember={toggleFamilyMember}
                   toggleSelectAllFamilyForProgram={toggleSelectAllFamilyForProgram}
                   openEnrollmentSeatModal={openEnrollmentSeatModal}
-                  dashboardTierIndex={isAnnual ? getDashboardTier(p) : undefined}
-                  onDashboardTierChange={
-                    isAnnual
-                      ? (programId, tierIndex) => {
-                          setDashboardTierByProgram((prev) => ({ ...prev, [programId]: tierIndex }));
-                        }
-                      : undefined
-                  }
+                  dashboardTierIndex={getDashboardTier(p)}
+                  onDashboardTierChange={(programId, tierIndex) => {
+                    setDashboardTierByProgram((prev) => ({ ...prev, [programId]: tierIndex }));
+                  }}
                   enrollmentSelf={enrollmentSelf}
                   annualSeatUi={{
                     draft: draftRow,

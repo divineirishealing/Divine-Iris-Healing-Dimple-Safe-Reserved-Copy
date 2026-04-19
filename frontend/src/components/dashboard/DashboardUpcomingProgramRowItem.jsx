@@ -26,7 +26,6 @@ import {
   buildAnnualDashboardCartParticipants,
   buildGuestBucketByIdFromSelection,
   buildFullPortalRosterCartParticipants,
-  buildSelfOnlyCartParticipants,
 } from '../../lib/dashboardCartPrefill';
 import { getAuthHeaders } from '../../lib/authHeaders';
 
@@ -213,17 +212,10 @@ export default function DashboardUpcomingProgramRowItem({
   const tiers = p.duration_tiers || [];
   const hasTiers = p.is_flagship && tiers.length > 0;
 
-  const [localTier, setLocalTier] = useState(() => pickTierIndexForDashboard(p, false) ?? 0);
-
-  useEffect(() => {
-    setLocalTier(pickTierIndexForDashboard(p, false) ?? 0);
-  }, [p.id, p.is_flagship, tiers.length]);
-
-  const tierIdxForDisplay = subscriberIsAnnual
-    ? typeof dashboardTierIndex === 'number'
+  const tierIdxForDisplay =
+    typeof dashboardTierIndex === 'number'
       ? dashboardTierIndex
-      : pickTierIndexForDashboard(p, true) ?? 0
-    : localTier;
+      : pickTierIndexForDashboard(p, subscriberIsAnnual) ?? 0;
   const tier = hasTiers ? tiers[tierIdxForDisplay] : null;
   const tierIsYearLong =
     tier &&
@@ -263,62 +255,26 @@ export default function DashboardUpcomingProgramRowItem({
   const [annualPricingOpen, setAnnualPricingOpen] = useState(true);
   const [annualFamilyOpen, setAnnualFamilyOpen] = useState(true);
   const [annualAttendanceOpen, setAnnualAttendanceOpen] = useState(true);
-  // Non-annual panel open states (same layout as annual)
-  const [nonAnnualPricingOpen, setNonAnnualPricingOpen] = useState(true);
-  const [nonAnnualFamilyOpen, setNonAnnualFamilyOpen] = useState(true);
-  const [nonAnnualAttendanceOpen, setNonAnnualAttendanceOpen] = useState(true);
-  // Local attendance preset for non-annual card — tracks what the user explicitly clicked
-  // (derived preset can't represent 'except_me' when no guests are selected yet)
-  const [nonAnnualAttendMode, setNonAnnualAttendMode] = useState(null);
-  const nonAnnualAttendJustClicked = useRef(false);
   const didAutoSyncRef = useRef(false);
-  const [nonAnnualSaveDefaults, setNonAnnualSaveDefaults] = useState(false);
-  const [nonAnnualEmailPreset, setNonAnnualEmailPreset] = useState('email_me_only');
-
-  // Sync local attend preset when the UNDERLYING attendance state changes (bookerSeatMode / guestSeatForm).
-  // Intentionally NOT depending on attendanceQuickPreset: that derived value changes whenever a guest is
-  // added/removed (selIds change) even though the actual attendance prefs didn't change, which would
-  // incorrectly reset a user's "All offline" / "except_me" selection back to "All online".
-  useEffect(() => {
-    if (subscriberIsAnnual) return;
-    const derived = annualSeatUi?.attendanceQuickPreset;
-    if (!derived) return;
-    if (nonAnnualAttendJustClicked.current) {
-      nonAnnualAttendJustClicked.current = false;
-      return;
-    }
-    setNonAnnualAttendMode(derived);
-  }, [annualSeatUi?.draft?.bookerSeatMode, annualSeatUi?.draft?.guestSeatForm]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Auto-sync cart on dashboard load: when enrollment prefill data first arrives,
-  // update any stale cart entry for this program so the cart always reflects current selections.
+  // update any stale cart entry so the cart always reflects current selections.
   useEffect(() => {
-    if (!enrollmentSelf || subscriberIsAnnual || didAutoSyncRef.current) return;
+    if (!enrollmentSelf || didAutoSyncRef.current) return;
     const inCart = cartItems.some((i) => String(i.programId) === String(p.id));
     if (!inCart) return;
     didAutoSyncRef.current = true;
-    const effectivePreset = nonAnnualAttendMode ?? annualSeatUi?.attendanceQuickPreset ?? 'all_online';
-    const gAtt = (effectivePreset === 'all_offline' || effectivePreset === 'except_me') ? 'offline' : 'online';
-    const bAtt = effectivePreset === 'all_offline' ? 'offline' : 'online';
-    const base = annualSeatUi?.draft || {};
-    const overridden = Object.fromEntries(
-      selIds.map((id) => [id, { ...(base.guestSeatForm?.[id] || {}), attendance_mode: gAtt }])
-    );
-    const draft = { ...base, bookerSeatMode: bAtt, guestSeatForm: { ...base.guestSeatForm, ...overridden } };
-    const bookerJoins = draft.bookerJoinsProgram !== false;
-    const autoParticipants =
-      buildAnnualDashboardCartParticipants({
-        program: p, includedPkg: false, selectedMemberIds: selIds, seatDraft: draft,
-        enrollableGuests, self: enrollmentSelf, bookerEmail, detectedCountry, immediateFamilyMembers: members,
-      }) || (bookerJoins
-        ? buildSelfOnlyCartParticipants(enrollmentSelf, p, bookerEmail, detectedCountry, bAtt)
-        : null);
+    const autoParticipants = buildAnnualDashboardCartParticipants({
+      program: p, includedPkg, selectedMemberIds: selIds, seatDraft: annualSeatUi?.draft,
+      enrollableGuests, self: enrollmentSelf, bookerEmail, detectedCountry, immediateFamilyMembers: members,
+    });
+    const guestBucketById = buildGuestBucketByIdFromSelection(selIds, members);
     syncProgramLineItem(p, tierIdxForDisplay, autoParticipants, {
       familyIds: selIds.map(String),
-      bookerJoins,
-      annualIncluded: false,
+      bookerJoins: includedPkg ? false : annualSeatUi?.draft?.bookerJoinsProgram !== false,
+      annualIncluded: !!includedPkg,
       portalQuoteTotal: aq?.total != null ? Number(aq.total) : null,
-      guestBucketById: buildGuestBucketByIdFromSelection(selIds, members),
+      guestBucketById,
     });
   }, [enrollmentSelf]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -333,49 +289,17 @@ export default function DashboardUpcomingProgramRowItem({
         });
         self = (r.data || {}).self;
       }
-      if (subscriberIsAnnual) {
-        participants = buildAnnualDashboardCartParticipants({
-          program: p,
-          includedPkg,
-          selectedMemberIds: selIds,
-          seatDraft: annualSeatUi?.draft,
-          enrollableGuests,
-          self,
-          bookerEmail,
-          detectedCountry,
-          immediateFamilyMembers: members,
-        });
-      } else {
-        // Non-annual: build seatDraft directly from the card's current attendance preset so
-        // the cart is correct even when the user picked attendance before selecting family members
-        // (in that case guestSeatForm may not yet have the mode for newly-added guests).
-        const effectiveAttendPreset = nonAnnualAttendMode ?? annualSeatUi?.attendanceQuickPreset ?? 'all_online';
-        const guestAttendMode = (effectiveAttendPreset === 'all_offline' || effectiveAttendPreset === 'except_me') ? 'offline' : 'online';
-        const bookerAttendMode = effectiveAttendPreset === 'all_offline' ? 'offline' : 'online';
-        const baseDraft = annualSeatUi?.draft || {};
-        const overriddenGuestForm = Object.fromEntries(
-          selIds.map((id) => [id, { ...(baseDraft.guestSeatForm?.[id] || {}), attendance_mode: guestAttendMode }])
-        );
-        const nonAnnualSeatDraft = {
-          ...baseDraft,
-          bookerSeatMode: bookerAttendMode,
-          guestSeatForm: { ...baseDraft.guestSeatForm, ...overriddenGuestForm },
-        };
-        const bookerJoinsFinal = nonAnnualSeatDraft.bookerJoinsProgram !== false;
-        participants = buildAnnualDashboardCartParticipants({
-          program: p,
-          includedPkg: false,
-          selectedMemberIds: selIds,
-          seatDraft: nonAnnualSeatDraft,
-          enrollableGuests,
-          self,
-          bookerEmail,
-          detectedCountry,
-          immediateFamilyMembers: members,
-        }) || (bookerJoinsFinal
-          ? buildSelfOnlyCartParticipants(self, p, bookerEmail, detectedCountry, bookerAttendMode)
-          : null);
-      }
+      participants = buildAnnualDashboardCartParticipants({
+        program: p,
+        includedPkg,
+        selectedMemberIds: selIds,
+        seatDraft: annualSeatUi?.draft,
+        enrollableGuests,
+        self,
+        bookerEmail,
+        detectedCountry,
+        immediateFamilyMembers: members,
+      });
     } catch {
       /* empty row */
     }
@@ -534,7 +458,7 @@ export default function DashboardUpcomingProgramRowItem({
 
   return (
     <div className={outerShellClass} data-testid={`dashboard-upcoming-${p.id}`}>
-      {subscriberIsAnnual ? (
+      {(
         <div className="w-full flex flex-col gap-4 rounded-2xl border border-slate-200/80 bg-white p-3 sm:p-4 md:p-5 shadow-sm box-border">
         {/* xl: narrower left column → wider right stack (closer to healing-scene mug on the right) */}
         <div className="w-full flex flex-col gap-4 xl:grid xl:grid-cols-[minmax(0,24rem)_minmax(18rem,1fr)] xl:items-stretch xl:gap-4 xl:min-h-0">
@@ -701,21 +625,110 @@ export default function DashboardUpcomingProgramRowItem({
               </button>
               {annualPricingOpen ? (
                 <div className="min-w-0 w-full pt-2">
-                  <AnnualQuoteBreakdown aq={aq} symbol={symbol} includedPkg={includedPkg} suppressIntro layout="table" />
+                  {subscriberIsAnnual ? (
+                    <AnnualQuoteBreakdown aq={aq} symbol={symbol} includedPkg={includedPkg} suppressIntro layout="table" />
+                  ) : (() => {
+                    const bookerJoins = annualSeatUi?.draft?.bookerJoinsProgram !== false;
+                    const seatPrice = showSpecialPromo ? afterPromo : offerPrice > 0 ? offerPrice : price;
+                    const immMemberIds = new Set(members.map(m => m.id ? String(m.id) : null).filter(Boolean));
+                    const extMemberIds = new Set(otherMembers.map(m => m.id ? String(m.id) : null).filter(Boolean));
+                    const immCount = selIds.filter(id => immMemberIds.has(id)).length;
+                    const extCount = selIds.filter(id => extMemberIds.has(id)).length;
+                    const immTotal = immCount * seatPrice;
+                    const extTotal = extCount * seatPrice;
+                    const rowClass = 'flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1 text-[11px] text-slate-800';
+                    return (
+                      <div className="rounded-md border border-slate-200 bg-white w-full px-3 py-2.5 space-y-2">
+                        {showContact ? (
+                          <div className={rowClass}>
+                            <span className={`text-slate-700 ${!bookerJoins ? 'line-through opacity-50' : ''}`}>Your seat</span>
+                            <span className="text-slate-600 text-right">{bookerJoins ? 'Contact for pricing' : <span className="text-slate-400 italic text-[10px]">not enrolling</span>}</span>
+                          </div>
+                        ) : bookerJoins && seatPrice > 0 ? (
+                          <div className={rowClass}>
+                            <span className="font-medium text-slate-800">Your seat</span>
+                            <span className="font-semibold tabular-nums text-slate-900 text-right">
+                              {symbol}{seatPrice.toLocaleString()}
+                              {offerPrice > 0 && price > offerPrice && !showSpecialPromo && (
+                                <span className="text-slate-400 line-through ml-1.5 text-[10px] font-normal">{symbol}{price.toLocaleString()}</span>
+                              )}
+                              <span className="text-slate-500 font-normal text-[10px] ml-1">· 1 seat</span>
+                            </span>
+                          </div>
+                        ) : bookerJoins ? (
+                          <div className={rowClass}>
+                            <span className="font-medium text-slate-800">Your seat</span>
+                            <span className="font-bold text-green-600">FREE</span>
+                          </div>
+                        ) : (
+                          <div className={`${rowClass} opacity-50`}>
+                            <span className="line-through text-slate-600">Your seat</span>
+                            <span className="text-slate-400 italic text-[10px]">not enrolling yourself</span>
+                          </div>
+                        )}
+                        {showSpecialPromo && (
+                          <div className={`${rowClass} text-[10px] text-violet-700`}>
+                            <span>With {promoForProgramClicks} (on offer price)</span>
+                          </div>
+                        )}
+                        {immCount > 0 && (
+                          <div className={rowClass}>
+                            <span className="font-medium text-slate-800">Immediate family</span>
+                            <span className="font-semibold tabular-nums text-slate-900 text-right leading-snug">
+                              {symbol}{seatPrice.toLocaleString()} × {immCount} = {symbol}{immTotal.toLocaleString()}
+                            </span>
+                          </div>
+                        )}
+                        {extCount > 0 && (
+                          <div className={rowClass}>
+                            <span className="font-medium text-slate-800">Friends &amp; extended</span>
+                            <span className="font-semibold tabular-nums text-slate-900 text-right leading-snug">
+                              {symbol}{seatPrice.toLocaleString()} × {extCount} = {symbol}{extTotal.toLocaleString()}
+                            </span>
+                          </div>
+                        )}
+                        {immCount === 0 && extCount === 0 && enrollableGuests.length > 0 && (
+                          <p className="text-[11px] text-slate-500">Select who is joining to see offer price per guest seat.</p>
+                        )}
+                        {immCount === 0 && extCount === 0 && enrollableGuests.length === 0 && (
+                          <p className="text-[11px] text-slate-500">Add family members to include them in your enrollment.</p>
+                        )}
+                      </div>
+                    );
+                  })()}
                 </div>
               ) : null}
-              {aq ? (
-                <p className="text-[11px] text-slate-600 mt-2 pt-2 border-t border-slate-100 leading-snug">
-                  Your selection total{includedPkg ? ' (guests & add-ons)' : ''}:{' '}
-                  <span className="font-semibold text-slate-800 tabular-nums">
-                    {symbol} {Number(aq.total ?? 0).toLocaleString()}
-                  </span>
-                </p>
-              ) : subscriberIsAnnual ? (
-                <p className="text-[11px] text-slate-500 italic mt-2 pt-2 border-t border-slate-100">
-                  Loading portal total…
-                </p>
-              ) : null}
+              {subscriberIsAnnual ? (
+                aq ? (
+                  <p className="text-[11px] text-slate-600 mt-2 pt-2 border-t border-slate-100 leading-snug">
+                    Your selection total{includedPkg ? ' (guests & add-ons)' : ''}:{' '}
+                    <span className="font-semibold text-slate-800 tabular-nums">
+                      {symbol} {Number(aq.total ?? 0).toLocaleString()}
+                    </span>
+                  </p>
+                ) : (
+                  <p className="text-[11px] text-slate-500 italic mt-2 pt-2 border-t border-slate-100">
+                    Loading portal total…
+                  </p>
+                )
+              ) : (() => {
+                const bookerJoins = annualSeatUi?.draft?.bookerJoinsProgram !== false;
+                const seatPrice = showSpecialPromo ? afterPromo : offerPrice > 0 ? offerPrice : price;
+                const immCount = selIds.filter(id => members.some(m => String(m.id) === id)).length;
+                const extCount = selIds.filter(id => otherMembers.some(m => String(m.id) === id)).length;
+                const grandTotal = (price > 0 || offerPrice > 0) ? (bookerJoins ? seatPrice : 0) + (immCount + extCount) * seatPrice : 0;
+                const hasGuests = immCount > 0 || extCount > 0;
+                return (bookerJoins || hasGuests) ? (
+                  <p className="text-[11px] text-slate-600 mt-2 pt-2 border-t border-slate-100 leading-snug">
+                    Your selection total{hasGuests ? ' (guests & add-ons)' : ''}:{' '}
+                    <span className="font-semibold text-slate-800 tabular-nums">{symbol} {grandTotal.toLocaleString()}</span>
+                  </p>
+                ) : (
+                  <p className="text-[11px] text-slate-400 italic mt-2 pt-2 border-t border-slate-100">
+                    Uncheck "I am enrolling myself" to enroll guests only.
+                  </p>
+                );
+              })()}
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-[minmax(13rem,1fr)_minmax(13rem,1fr)] gap-3 lg:gap-x-3 items-start w-full min-w-0 flex-1 min-h-0">
@@ -1037,7 +1050,7 @@ export default function DashboardUpcomingProgramRowItem({
 
             </div>
 
-            {subscriberIsAnnual && annualSeatUi ? (
+            {annualSeatUi ? (
               <div
                 className="w-full rounded-xl border border-slate-200 bg-white p-3 sm:p-4 shadow-sm min-h-0 flex flex-col gap-2 min-w-0"
                 data-testid={`dashboard-enrollment-defaults-${p.id}`}
@@ -1117,9 +1130,7 @@ export default function DashboardUpcomingProgramRowItem({
                             : ''
                       : showContact
                         ? 'Use contact for pricing for this program.'
-                        : enrollStatus !== 'open'
-                          ? 'Enrollment is closed.'
-                          : ''
+                        : 'Enrollment is closed.'
                     : undefined
                 }
                 onClick={handleAddToDivineCart}
@@ -1148,423 +1159,6 @@ export default function DashboardUpcomingProgramRowItem({
             )}
           </div>
         </div>
-        </div>
-      ) : (
-        /* Non-annual: identical full-width layout as annual subscriber */
-        <div className="w-full flex flex-col gap-4 rounded-2xl border border-slate-200/80 bg-white p-3 sm:p-4 md:p-5 shadow-sm box-border">
-          <div className="w-full flex flex-col gap-4 xl:grid xl:grid-cols-[minmax(0,24rem)_minmax(18rem,1fr)] xl:items-stretch xl:gap-4 xl:min-h-0">
-
-            {/* Left: program card */}
-            <div className={`group bg-white rounded-xl overflow-hidden shadow-lg border border-gray-100 flex flex-col w-full max-w-md xl:mx-0 xl:w-full xl:max-w-none xl:min-h-0 xl:h-full min-h-0 ${enrollStatus === 'closed' ? 'opacity-60' : 'hover:shadow-2xl'}`}>
-              {heroBlock}
-              <div className="p-4 flex flex-col flex-1 min-h-0 xl:min-h-0">
-                <p className="text-[#D4AF37] text-[10px] tracking-wider mb-0.5 uppercase">{p.category || 'Program'}</p>
-                <div className="flex items-start gap-2 mb-1.5 flex-wrap">
-                  <h3 className="text-base font-semibold text-gray-900 leading-tight pr-1">{p.title}</h3>
-                  {hasTiers && tierIsYearLong && (
-                    <span className="flex-shrink-0 inline-flex items-center rounded-md border border-[#D4AF37]/40 bg-amber-50/95 text-[8px] font-bold uppercase tracking-wider text-[#6b5210] px-2 py-0.5">Annual</span>
-                  )}
-                  {p.highlight_label && (
-                    <span data-testid={`dashboard-highlight-${p.id}`}
-                      className={`flex-shrink-0 inline-flex items-center gap-1 text-[8px] font-bold tracking-wider uppercase px-2 py-1 rounded-full whitespace-nowrap ${p.highlight_style === 'glow' ? 'animate-pulse' : ''}`}
-                      style={p.highlight_style === 'ribbon' ? { background: '#1a1a1a', color: '#D4AF37', letterSpacing: '0.08em', borderLeft: '2px solid #D4AF37', borderRadius: '4px' } : p.highlight_style === 'glow' ? { background: 'linear-gradient(135deg, #fff8e7, #fff3d0)', color: '#b8860b', border: '1px solid #D4AF3755', letterSpacing: '0.06em', boxShadow: '0 0 10px rgba(212,175,55,0.2)' } : { background: 'linear-gradient(135deg, #D4AF37, #f5d77a, #D4AF37)', color: '#3d2200', letterSpacing: '0.06em', boxShadow: '0 2px 6px rgba(212,175,55,0.25)' }}>
-                      {p.highlight_style !== 'ribbon' && (<svg width="8" height="8" viewBox="0 0 24 24" fill={p.highlight_style === 'glow' ? 'none' : '#3d2200'} stroke={p.highlight_style === 'glow' ? '#b8860b' : 'none'} strokeWidth="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" /></svg>)}
-                      {p.highlight_label}
-                    </span>
-                  )}
-                </div>
-                <p className="text-gray-500 text-xs leading-relaxed mb-2 line-clamp-3">{p.description}</p>
-                {/* Tier selector — same position as annual left card */}
-                {hasTiers && enrollStatus === 'open' && tiers.length > 1 && (
-                  <div data-testid={`dashboard-tier-selector-${p.id}`} className="mb-3">
-                    <p className="text-[9px] font-bold uppercase tracking-wide text-slate-500 mb-1.5">Duration / tier</p>
-                    <div className={`grid ${tierGridClass} gap-1`}>
-                      {tiers.map((t, i) => (
-                        <button key={i} type="button" title={t.label || undefined} onClick={(e) => { e.stopPropagation(); setLocalTier(i); }}
-                          className={`min-h-[2.25rem] px-1.5 text-[10px] leading-tight rounded-full border transition-all flex items-center justify-center text-center ${localTier === i ? 'bg-[#D4AF37] text-white border-[#D4AF37]' : 'bg-white text-gray-600 border-gray-200 hover:border-[#D4AF37]'}`}>
-                          <span className="line-clamp-2 break-words">{compactTierButtonLabel(t.label)}</span>
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                )}
-                {/* Early bird — same position as annual left card */}
-                {enrollStatus === 'open' && offerPrice > 0 && deadline && (() => {
-                  const dl = new Date(deadline);
-                  if (dl <= new Date()) return null;
-                  const diff = dl - Date.now();
-                  const days = Math.floor(diff / (1000 * 60 * 60 * 24));
-                  const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
-                  const mins = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
-                  return (
-                    <div data-testid={`dashboard-early-bird-${p.id}`} className="flex items-center gap-2 bg-red-50 border border-red-200 rounded-lg px-3 py-2 mb-3">
-                      <Bell size={14} className="text-red-500 flex-shrink-0" />
-                      <div className="text-xs leading-snug min-w-0">
-                        <span className="font-bold text-red-600 uppercase tracking-wide">{p.offer_text || 'Exclusive'}</span>
-                        <span className="text-red-600 ml-1.5">ends in {days}d {hours}h {mins}m</span>
-                      </div>
-                    </div>
-                  );
-                })()}
-                {/* Pricing — same position as annual left card */}
-                {enrollStatus === 'open' && (
-                  <div className="flex flex-wrap items-baseline gap-2 mb-1">
-                    {showSpecialPromo ? (
-                      <div className="flex flex-col gap-1 w-full">
-                        <div className="flex flex-wrap items-baseline gap-2">
-                          <span className="text-xl font-bold text-[#D4AF37] tabular-nums">{symbol} {afterPromo.toLocaleString()}</span>
-                          <span className="text-xs text-gray-400 line-through tabular-nums">{symbol} {baseForPromo.toLocaleString()}</span>
-                        </div>
-                        <span className="text-xs text-violet-700 font-medium">With {promoForProgramClicks} (on offer price)</span>
-                        {offerPrice > 0 && price > offerPrice && <span className="text-[10px] text-gray-400">List {symbol}{price.toLocaleString()}</span>}
-                      </div>
-                    ) : offerPrice > 0 ? (
-                      <>
-                        <span className="text-xl font-bold text-[#D4AF37] tabular-nums">{symbol} {offerPrice.toLocaleString()}</span>
-                        <span className="text-xs text-gray-400 line-through tabular-nums">{symbol} {price.toLocaleString()}</span>
-                      </>
-                    ) : price > 0 ? (
-                      <span className="text-xl font-bold text-gray-900 tabular-nums">{symbol} {price.toLocaleString()}</span>
-                    ) : (
-                      <span className="text-xl font-bold text-green-600">FREE</span>
-                    )}
-                  </div>
-                )}
-                <div className="hidden xl:block flex-1 min-h-0 shrink-0" aria-hidden />
-              </div>
-            </div>
-
-            {/* Right: Pricing summary, Family, Attendance panels */}
-            <div className="flex flex-col gap-4 flex-1 min-w-0 w-full min-h-0 xl:min-h-0 xl:h-full">
-
-              {/* Pricing & Offer — per-person breakdown matching annual layout */}
-              {(() => {
-                const bookerJoins = annualSeatUi?.draft?.bookerJoinsProgram !== false;
-                const seatPrice = showSpecialPromo ? afterPromo : offerPrice > 0 ? offerPrice : price;
-                const immMemberIds = new Set(members.map(m => m.id ? String(m.id) : null).filter(Boolean));
-                const extMemberIds = new Set(otherMembers.map(m => m.id ? String(m.id) : null).filter(Boolean));
-                const immCount = selIds.filter(id => immMemberIds.has(id)).length;
-                const extCount = selIds.filter(id => extMemberIds.has(id)).length;
-                const immTotal = immCount * seatPrice;
-                const extTotal = extCount * seatPrice;
-                const grandTotal = (price > 0 || offerPrice > 0) ? (bookerJoins ? seatPrice : 0) + immTotal + extTotal : 0;
-                const hasGuests = immCount > 0 || extCount > 0;
-                const rowClass = 'flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1 text-[11px] text-slate-800';
-                return (
-                  <div className="rounded-xl border border-slate-200 bg-white p-3 sm:p-4 shadow-sm min-h-0 flex flex-col min-w-0 w-full max-w-xl">
-                    <button type="button" className="w-full flex items-center justify-between gap-2 text-left rounded-lg outline-none focus-visible:ring-2 focus-visible:ring-[#D4AF37]/40" onClick={() => setNonAnnualPricingOpen(o => !o)} aria-expanded={nonAnnualPricingOpen}>
-                      <span className="text-[10px] font-bold uppercase tracking-wide text-slate-600">Pricing &amp; offer</span>
-                      <ChevronDown className={`h-4 w-4 text-slate-500 shrink-0 transition-transform ${nonAnnualPricingOpen ? '' : '-rotate-90'}`} aria-hidden />
-                    </button>
-                    {nonAnnualPricingOpen ? (
-                      <div className="min-w-0 w-full pt-2">
-                        <div className="rounded-md border border-slate-200 bg-white w-full px-3 py-2.5 space-y-2">
-                          {showContact ? (
-                            <div className={rowClass}>
-                              <span className={`text-slate-700 ${!bookerJoins ? 'line-through opacity-50' : ''}`}>Your seat</span>
-                              <span className="text-slate-600 text-right">{bookerJoins ? 'Contact for pricing' : <span className="text-slate-400 italic text-[10px]">not enrolling</span>}</span>
-                            </div>
-                          ) : bookerJoins && seatPrice > 0 ? (
-                            <div className={rowClass}>
-                              <span className="font-medium text-slate-800">Your seat</span>
-                              <span className="font-semibold tabular-nums text-slate-900 text-right">
-                                {symbol}{seatPrice.toLocaleString()}
-                                {offerPrice > 0 && price > offerPrice && !showSpecialPromo && (
-                                  <span className="text-slate-400 line-through ml-1.5 text-[10px] font-normal">{symbol}{price.toLocaleString()}</span>
-                                )}
-                                <span className="text-slate-500 font-normal text-[10px] ml-1">· 1 seat</span>
-                              </span>
-                            </div>
-                          ) : bookerJoins ? (
-                            <div className={rowClass}>
-                              <span className="font-medium text-slate-800">Your seat</span>
-                              <span className="font-bold text-green-600">FREE</span>
-                            </div>
-                          ) : (
-                            <div className={`${rowClass} opacity-50`}>
-                              <span className="line-through text-slate-600">Your seat</span>
-                              <span className="text-slate-400 italic text-[10px]">not enrolling yourself</span>
-                            </div>
-                          )}
-                          {showSpecialPromo && (
-                            <div className={`${rowClass} text-[10px] text-violet-700`}>
-                              <span>With {promoForProgramClicks} (on offer price)</span>
-                            </div>
-                          )}
-                          {immCount > 0 && (
-                            <div className={rowClass}>
-                              <span className="font-medium text-slate-800">Immediate family</span>
-                              <span className="font-semibold tabular-nums text-slate-900 text-right leading-snug">
-                                {symbol}{seatPrice.toLocaleString()} × {immCount} = {symbol}{immTotal.toLocaleString()}
-                              </span>
-                            </div>
-                          )}
-                          {extCount > 0 && (
-                            <div className={rowClass}>
-                              <span className="font-medium text-slate-800">Friends &amp; extended</span>
-                              <span className="font-semibold tabular-nums text-slate-900 text-right leading-snug">
-                                {symbol}{seatPrice.toLocaleString()} × {extCount} = {symbol}{extTotal.toLocaleString()}
-                              </span>
-                            </div>
-                          )}
-                          {!hasGuests && enrollableGuests.length > 0 && (
-                            <p className="text-[11px] text-slate-500">Select who is joining to see offer price per guest seat.</p>
-                          )}
-                          {!hasGuests && enrollableGuests.length === 0 && (
-                            <p className="text-[11px] text-slate-500">Add family members to include them in your enrollment.</p>
-                          )}
-                        </div>
-                      </div>
-                    ) : null}
-                    <p className="text-[11px] text-slate-600 mt-2 pt-2 border-t border-slate-100 leading-snug">
-                      {bookerJoins || hasGuests ? (
-                        <>
-                          Your selection total{hasGuests ? ' (guests & add-ons)' : ''}:{' '}
-                          <span className="font-semibold text-slate-800 tabular-nums">
-                            {symbol} {grandTotal.toLocaleString()}
-                          </span>
-                        </>
-                      ) : (
-                        <span className="text-slate-400 italic">Uncheck "I am enrolling myself" to enroll guests only.</span>
-                      )}
-                    </p>
-                  </div>
-                );
-              })()}
-
-              {/* Family + Attendance side-by-side */}
-              <div className="grid grid-cols-1 lg:grid-cols-[minmax(13rem,1fr)_minmax(13rem,1fr)] gap-3 lg:gap-x-3 items-start w-full min-w-0 flex-1 min-h-0">
-
-                {/* Family to join */}
-                <div className="rounded-xl border border-amber-100/80 bg-amber-50/25 p-3 sm:p-4 min-h-0 flex flex-col min-w-[13rem] w-full">
-                  <button type="button" className="w-full flex items-center justify-between gap-2 text-left rounded-lg outline-none focus-visible:ring-2 focus-visible:ring-amber-400/50" onClick={() => setNonAnnualFamilyOpen(o => !o)} aria-expanded={nonAnnualFamilyOpen}>
-                    <span className="text-[10px] font-bold uppercase tracking-wide text-slate-600">Family to join</span>
-                    <ChevronDown className={`h-4 w-4 text-slate-500 shrink-0 transition-transform ${nonAnnualFamilyOpen ? '' : '-rotate-90'}`} aria-hidden />
-                  </button>
-                  {nonAnnualFamilyOpen && (
-                    <>
-                    {annualSeatUi ? (
-                      <div className="mb-3 pb-3 border-b border-amber-200/70 pt-2">
-                        <label className="flex items-start gap-2 cursor-pointer text-[10px] text-slate-800 leading-snug">
-                          <input
-                            type="checkbox"
-                            className="rounded border-slate-300 mt-0.5 shrink-0"
-                            checked={annualSeatUi.draft?.bookerJoinsProgram !== false}
-                            onChange={(e) => {
-                              e.stopPropagation();
-                              annualSeatUi.onPatchDraft(p.id, { bookerJoinsProgram: e.target.checked });
-                            }}
-                          />
-                          <span className="font-semibold text-slate-900">I am enrolling myself</span>
-                        </label>
-                      </div>
-                    ) : null}
-                    <div className="flex flex-col gap-4 flex-1 min-h-0 max-h-[min(26rem,55vh)] overflow-y-auto pr-1 pt-2">
-                      <div className="min-w-0">
-                        <p className="text-[10px] font-bold uppercase tracking-wide text-slate-500 mb-2">Immediate family</p>
-                        {enrollableGuests.length === 0 ? (
-                          <p className="text-xs text-slate-500">Add people under the lists below, then save.</p>
-                        ) : (
-                          <div className="space-y-2">
-                            {selectableFamilyMemberIds.length > 0 && (
-                              <label className="flex items-center gap-2 text-xs font-semibold text-slate-700 cursor-pointer select-none pb-1 border-b border-slate-200/80">
-                                <input type="checkbox" className="rounded border-slate-300"
-                                  checked={selectableFamilyMemberIds.length > 0 && selectableFamilyMemberIds.every(id => selIds.includes(id))}
-                                  ref={el => { if (!el) return; const some = selectableFamilyMemberIds.some(id => selIds.includes(id)); const all = selectableFamilyMemberIds.length > 0 && selectableFamilyMemberIds.every(id => selIds.includes(id)); el.indeterminate = some && !all; }}
-                                  onChange={() => toggleSelectAllFamilyForProgram(p.id)} />
-                                <span>Add all ({selectableFamilyMemberIds.length} saved)</span>
-                              </label>
-                            )}
-                            {members.length > 0 && (
-                              <ul className="space-y-1.5">
-                                {members.map((m, gidx) => {
-                                  const mid = m.id || `imm-${gidx}-${m.name}-${m.email}`;
-                                  return (
-                                    <li key={mid}>
-                                      <label className="flex items-center gap-2 text-sm text-slate-800 cursor-pointer">
-                                        <input type="checkbox" className="rounded border-slate-300" disabled={!m.id} checked={!!m.id && selIds.includes(String(m.id))} onChange={() => m.id && toggleFamilyMember(p.id, String(m.id))} />
-                                        <span>{m.name || '—'}{m.relationship ? <span className="text-slate-500"> ({m.relationship})</span> : null}</span>
-                                      </label>
-                                    </li>
-                                  );
-                                })}
-                              </ul>
-                            )}
-                          </div>
-                        )}
-                      </div>
-                      <div className="min-w-0 pt-1 border-t border-amber-200/50">
-                        <p className="text-[10px] font-bold uppercase tracking-wide text-slate-500 mb-2">Friends &amp; extended</p>
-                        {otherMembers.length > 0 ? (
-                          <ul className="space-y-1.5">
-                            {otherMembers.map((m, gidx) => {
-                              const mid = m.id || `ext-${gidx}-${m.name}-${m.email}`;
-                              return (
-                                <li key={mid}>
-                                  <label className="flex items-center gap-2 text-sm text-slate-800 cursor-pointer">
-                                    <input type="checkbox" className="rounded border-slate-300" disabled={!m.id} checked={!!m.id && selIds.includes(String(m.id))} onChange={() => m.id && toggleFamilyMember(p.id, String(m.id))} />
-                                    <span>{m.name || '—'}{m.relationship ? <span className="text-slate-500"> ({m.relationship})</span> : null}</span>
-                                  </label>
-                                </li>
-                              );
-                            })}
-                          </ul>
-                        ) : (
-                          <p className="text-[11px] text-slate-400 italic">No saved guests in this list yet.</p>
-                        )}
-                      </div>
-                    </div>
-                    </>
-                  )}
-                </div>
-
-                {/* Attendance & Notification — wired to annualSeatUi (same state as the per-person modal) */}
-                <div className="rounded-xl border border-slate-200 bg-white p-3 sm:p-4 shadow-sm min-h-0 flex flex-col min-w-[13rem] w-full">
-                  <button type="button" className="w-full flex items-center justify-between gap-2 text-left rounded-lg outline-none focus-visible:ring-2 focus-visible:ring-[#D4AF37]/40" onClick={() => setNonAnnualAttendanceOpen(o => !o)} aria-expanded={nonAnnualAttendanceOpen}>
-                    <span className="text-[9px] sm:text-[10px] font-bold uppercase tracking-tight text-slate-600 whitespace-nowrap">Attendance &amp; notification</span>
-                    <ChevronDown className={`h-4 w-4 text-slate-500 shrink-0 transition-transform ${nonAnnualAttendanceOpen ? '' : '-rotate-90'}`} aria-hidden />
-                  </button>
-                  {nonAnnualAttendanceOpen && (
-                    <div className="flex flex-col gap-2 w-full min-w-0 pt-2">
-                      <div className="w-full rounded-lg border border-slate-200 bg-white px-2.5 py-2">
-                        <p className="text-[10px] text-slate-600 leading-snug mb-1.5">
-                          <span className="font-semibold text-slate-800">Attendance &amp; notification</span> are{' '}
-                          <span className="font-semibold text-slate-800">the same for every upcoming program</span>
-                          {' '}— change them once here (or in the advanced modal) and they stay in sync across all cards. You can save these as defaults for this browser.
-                        </p>
-                        <div className="w-full flex flex-col gap-0 divide-y divide-slate-200">
-                          <div className="flex flex-col gap-1.5 py-2 first:pt-0 w-full">
-                            <span className="text-[9px] font-bold uppercase tracking-wide text-slate-500 shrink-0">Attendance</span>
-                            {(() => {
-                              const effectivePreset = nonAnnualAttendMode ?? annualSeatUi?.attendanceQuickPreset ?? 'all_online';
-                              const applyAttend = (preset, apiPreset) => {
-                                nonAnnualAttendJustClicked.current = true;
-                                setNonAnnualAttendMode(preset);
-                                annualSeatUi?.onApplyAttendanceDraft(p.id, apiPreset);
-                              };
-                              return (
-                                <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 flex-1 min-w-0" role="radiogroup" aria-label="Attendance preset">
-                                  <label className="inline-flex items-center gap-2 cursor-pointer text-[11px] text-slate-800 whitespace-nowrap">
-                                    <input type="radio" name={`nonannu-att-${p.id}`} className="shrink-0 border-slate-300 text-violet-700"
-                                      checked={effectivePreset === 'all_online'}
-                                      onChange={(e) => { e.stopPropagation(); applyAttend('all_online', 'all_online'); }} />
-                                    All online
-                                  </label>
-                                  <label className="inline-flex items-center gap-2 cursor-pointer text-[11px] text-slate-800 whitespace-nowrap">
-                                    <input type="radio" name={`nonannu-att-${p.id}`} className="shrink-0 border-slate-300 text-violet-700"
-                                      checked={effectivePreset === 'all_offline'}
-                                      onChange={(e) => { e.stopPropagation(); applyAttend('all_offline', 'all_offline'); }} />
-                                    All offline
-                                  </label>
-                                  <label className="inline-flex items-center gap-2 cursor-pointer text-[11px] text-slate-800 whitespace-nowrap">
-                                    <input type="radio" name={`nonannu-att-${p.id}`} className="shrink-0 border-slate-300 text-violet-700"
-                                      checked={effectivePreset === 'except_me'}
-                                      onChange={(e) => { e.stopPropagation(); applyAttend('except_me', 'guests_offline_booker_online'); }} />
-                                    All offline except Myself
-                                  </label>
-                                  {effectivePreset === 'custom' && (
-                                    <span className="text-[9px] text-amber-800/90 whitespace-nowrap">Mixed — use advanced.</span>
-                                  )}
-                                </div>
-                              );
-                            })()}
-                          </div>
-                          <div className="flex flex-col gap-1.5 py-2 w-full">
-                            <span className="text-[9px] font-bold uppercase tracking-wide text-slate-500 shrink-0 leading-snug">Enrollment email</span>
-                            <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 flex-1 min-w-0" role="radiogroup" aria-label="Enrollment email preset">
-                              <label className="inline-flex items-center gap-2 cursor-pointer text-[11px] text-slate-800 whitespace-nowrap">
-                                <input type="radio" name={`nonannu-ntf-${p.id}`} className="shrink-0 border-slate-300 text-violet-700"
-                                  checked={annualSeatUi?.notifyQuickPreset === 'email_all'}
-                                  onChange={(e) => { e.stopPropagation(); annualSeatUi?.onApplyNotifyDraft(p.id, 'all_on'); }} />
-                                Email all
-                              </label>
-                              <label className="inline-flex items-center gap-2 cursor-pointer text-[11px] text-slate-800 whitespace-nowrap">
-                                <input type="radio" name={`nonannu-ntf-${p.id}`} className="shrink-0 border-slate-300 text-violet-700"
-                                  checked={annualSeatUi?.notifyQuickPreset === 'email_me_only'}
-                                  onChange={(e) => { e.stopPropagation(); annualSeatUi?.onApplyNotifyDraft(p.id, 'me_only'); }} />
-                                Email Me Only
-                              </label>
-                              <label className="inline-flex items-center gap-2 cursor-pointer text-[11px] text-slate-800 whitespace-nowrap">
-                                <input type="radio" name={`nonannu-ntf-${p.id}`} className="shrink-0 border-slate-300 text-violet-700"
-                                  checked={annualSeatUi?.notifyQuickPreset === 'custom'}
-                                  onChange={(e) => { e.stopPropagation(); annualSeatUi?.onApplyNotifyDraft(p.id, 'all_off'); }} />
-                                Custom
-                              </label>
-                              {annualSeatUi?.notifyQuickPreset === 'mixed' && (
-                                <span className="text-[9px] text-amber-800/90 whitespace-nowrap">Mixed — open advanced.</span>
-                              )}
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  )}
-                </div>
-
-              </div>{/* closes Family+Attendance grid */}
-
-              {/* Per-person + Save as default row — inside right panels, below Family+Attendance */}
-              {enrollStatus === 'open' && (
-                <div className="w-full rounded-xl border border-slate-200 bg-white p-3 sm:p-4 shadow-sm min-h-0 flex flex-col gap-2 min-w-0">
-                  <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2 sm:gap-4 w-full min-w-0">
-                    <button type="button"
-                      className="text-violet-700 font-bold uppercase tracking-wide text-[9px] underline underline-offset-2 hover:text-violet-900 p-0 bg-transparent border-0 cursor-pointer text-left shrink-0 sm:pt-0.5"
-                      onClick={(e) => { e.stopPropagation(); openEnrollmentSeatModal?.(p, false, selIds); }}>
-                      Per-person attendance &amp; email…
-                    </button>
-                    <p className="text-[10px] text-slate-500 leading-snug flex-1 min-w-0 line-clamp-2">
-                      Opens the full editor for <span className="font-medium text-slate-700">{p.title || 'this program'}</span>.
-                      Use <strong className="text-slate-700">Save defaults &amp; close</strong> in the dialog if you only want to store preferences.
-                    </p>
-                  </div>
-                  <label className="flex items-center gap-2 cursor-pointer pt-2 border-t border-slate-100">
-                    <input type="checkbox" className="rounded border-slate-300 scale-90 shrink-0"
-                      checked={!!annualSeatUi?.persistEnrollmentDefaultsOnContinue}
-                      onChange={(e) => annualSeatUi?.onPersistEnrollmentDefaultsChange?.(e.target.checked)} />
-                    <span className="font-semibold text-[9px] text-slate-800 uppercase tracking-wide leading-snug">
-                      Save as my default for every program (this browser)
-                    </span>
-                  </label>
-                </div>
-              )}
-
-            </div>
-          </div>
-
-          {/* Bottom: Know More + Add to Divine Cart */}
-          <div className="flex flex-col sm:flex-row gap-3 w-full sm:items-center sm:justify-between pt-3 mt-1 border-t border-slate-200/70">
-            <div className="w-full sm:w-[min(100%,28rem)] xl:w-[min(100%,24rem)] sm:shrink-0">
-              {enrollStatus === 'open' ? (
-                <button type="button" onClick={(e) => { e.stopPropagation(); goProgram(); }} data-testid={`dashboard-know-more-${p.id}`}
-                  className="w-full inline-flex items-center justify-center bg-[#1a1a1a] hover:bg-[#333] text-white py-2.5 px-5 rounded-full text-[10px] tracking-wider transition-all duration-300 uppercase font-medium">
-                  Know More
-                </button>
-              ) : (
-                <button type="button" disabled className="w-full bg-gray-300 text-gray-500 py-2.5 rounded-full text-[10px] tracking-wider uppercase font-medium cursor-not-allowed">
-                  {p.closure_text || 'Closed'}
-                </button>
-              )}
-            </div>
-            <div className="w-full min-w-0 flex-1">
-              {enrollStatus === 'open' ? (
-                <button type="button" disabled={!canAddToDivineCart || addingToCheckout}
-                  title={!canAddToDivineCart ? (showContact ? 'Use contact for pricing for this program.' : enrollStatus !== 'open' ? 'Enrollment is closed.' : '') : undefined}
-                  onClick={handleAddToDivineCart}
-                  className="w-full inline-flex items-center justify-center gap-2 rounded-full py-2.5 px-5 text-[10px] tracking-wider uppercase font-medium transition-all duration-300 bg-[#D4AF37] text-white hover:bg-[#b8962e] disabled:opacity-50 disabled:pointer-events-none shadow-sm"
-                  aria-label="Add to Divine Cart" data-testid={`dashboard-divine-cart-${p.id}`}>
-                  {addingToCheckout ? <Loader2 size={16} className="animate-spin shrink-0" /> : <ShoppingCart size={16} className="shrink-0" />}
-                  Add to Divine Cart
-                </button>
-              ) : (
-                <button type="button" disabled
-                  className="w-full inline-flex items-center justify-center gap-2 rounded-full py-2.5 px-5 text-[10px] tracking-wider uppercase font-medium bg-gray-300 text-gray-500 cursor-not-allowed shadow-sm"
-                  aria-label="Add to Divine Cart" data-testid={`dashboard-divine-cart-${p.id}`}>
-                  <ShoppingCart size={16} className="shrink-0 opacity-70" />
-                  Add to Divine Cart
-                </button>
-              )}
-            </div>
-          </div>
         </div>
       )}
     </div>
