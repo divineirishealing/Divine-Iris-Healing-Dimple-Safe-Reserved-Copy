@@ -5,11 +5,8 @@ import {
   Calendar,
   Clock,
   Bell,
-  BellOff,
   ShoppingCart,
   Loader2,
-  Monitor,
-  Wifi,
   ChevronDown,
 } from 'lucide-react';
 import { useCart } from '../../context/CartContext';
@@ -206,7 +203,8 @@ export default function DashboardUpcomingProgramRowItem({
   onDashboardTierChange,
 }) {
   const navigate = useNavigate();
-  const { syncProgramLineItem } = useCart();
+  const { syncProgramLineItem, items: cartItems } = useCart();
+  const isInCart = cartItems.some((i) => String(i.programId) === String(p.id));
   const { toast } = useToast();
 
   const tiers = p.duration_tiers || [];
@@ -987,56 +985,6 @@ export default function DashboardUpcomingProgramRowItem({
                     </div>
                   </div>
 
-                  {!subscriberIsAnnual &&
-                  !includedPkg &&
-                  (annualSeatUi.attendanceQuickPreset === 'custom' ||
-                    annualSeatUi.attendanceQuickPreset === 'except_me' ||
-                    annualSeatUi.notifyQuickPreset === 'mixed') ? (
-                    <div className="flex flex-wrap items-center gap-x-3 gap-y-1 py-2 text-[10px] text-slate-700">
-                      <span className="font-semibold text-slate-600 shrink-0 uppercase text-[9px] tracking-wide">
-                        Your seat
-                      </span>
-                      <span className="truncate max-w-[12rem] font-medium text-slate-800">
-                        {annualSeatUi.bookerDisplayName}
-                      </span>
-                      <label className="inline-flex items-center gap-0.5 cursor-pointer whitespace-nowrap">
-                        <input
-                          type="radio"
-                          name={`dash-inline-booker-${p.id}`}
-                          checked={(annualSeatUi.draft?.bookerSeatMode || 'online') !== 'offline'}
-                          onChange={() => annualSeatUi.onPatchDraft(p.id, { bookerSeatMode: 'online' })}
-                        />
-                        <Wifi size={11} className="text-slate-500" />
-                        Online
-                      </label>
-                      <label className="inline-flex items-center gap-0.5 cursor-pointer whitespace-nowrap">
-                        <input
-                          type="radio"
-                          name={`dash-inline-booker-${p.id}`}
-                          checked={(annualSeatUi.draft?.bookerSeatMode || 'online') === 'offline'}
-                          onChange={() => annualSeatUi.onPatchDraft(p.id, { bookerSeatMode: 'offline' })}
-                        />
-                        <Monitor size={11} className="text-slate-500" />
-                        Offline
-                      </label>
-                      <label className="inline-flex items-center gap-1 cursor-pointer whitespace-nowrap">
-                        <input
-                          type="checkbox"
-                          className="rounded border-slate-300 scale-90"
-                          checked={annualSeatUi.draft?.bookerSeatNotify !== false}
-                          onChange={(e) => annualSeatUi.onPatchDraft(p.id, { bookerSeatNotify: e.target.checked })}
-                        />
-                        <span className="inline-flex items-center gap-0.5">
-                          {annualSeatUi.draft?.bookerSeatNotify !== false ? (
-                            <Bell size={11} className="text-slate-500" />
-                          ) : (
-                            <BellOff size={11} className="text-slate-400" />
-                          )}
-                          Email me details
-                        </span>
-                      </label>
-                    </div>
-                  ) : null}
                 </div>
               </div>
             ) : null}
@@ -1139,7 +1087,7 @@ export default function DashboardUpcomingProgramRowItem({
                 ) : (
                   <ShoppingCart size={16} className="shrink-0" />
                 )}
-                Add to Divine Cart
+                {isInCart ? 'Update Divine Cart' : 'Add to Divine Cart'}
               </button>
             ) : (
               <button
