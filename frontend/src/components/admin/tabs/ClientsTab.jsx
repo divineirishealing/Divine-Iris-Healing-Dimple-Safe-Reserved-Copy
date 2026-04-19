@@ -17,7 +17,7 @@ import {
   DialogTitle,
 } from '../../ui/dialog';
 import {
-  Users, Search, Download, RefreshCw, ChevronDown, ChevronUp,
+  Users, Search, Download, RefreshCw,
   Droplets, Sprout, TreeDeciduous, Flower2, Star, Sparkles, Crown,
   Clock, Tag, Edit2, Save, X, Trash2, UserPlus, Lock, Eye, Bell, CheckCircle,
 } from 'lucide-react';
@@ -57,7 +57,6 @@ const ClientsTab = () => {
   const [filterPending, setFilterPending] = useState(false);
   const [pendingCount, setPendingCount] = useState(0);
   const [searchText, setSearchText] = useState('');
-  const [expandedId, setExpandedId] = useState(null);
   const [syncing, setSyncing] = useState(false);
   const [showAddClient, setShowAddClient] = useState(false);
   const [addForm, setAddForm] = useState({
@@ -187,7 +186,6 @@ const ClientsTab = () => {
       setAddForm({ name: '', email: '', phone: '', notes: '', label_manual: '' });
       setShowAddClient(false);
       await fetchData();
-      if (res.data?.id) setExpandedId(res.data.id);
     } catch (err) {
       const msg = err.response?.data?.detail;
       toast({
@@ -369,58 +367,109 @@ const ClientsTab = () => {
         )}
       </div>
 
-      {/* Client List */}
-      <div className="space-y-2">
-        {clients.length === 0 && (
+      {/* Client list — table summary row + full detail row (always visible, not collapsible) */}
+      <div className="rounded-xl border border-gray-200 bg-white overflow-hidden overflow-x-auto" data-testid="clients-table-wrap">
+        {clients.length === 0 ? (
           <div className="text-center py-16 text-gray-400">
             <Users size={32} className="mx-auto mb-2 opacity-30" />
             <p className="text-sm">No clients found. Use Add client or Sync All Data to populate.</p>
           </div>
+        ) : (
+          <table className="w-full min-w-[960px] text-left border-collapse" data-testid="clients-table">
+            <thead>
+              <tr className="bg-gray-50 border-b border-gray-200 text-[10px] uppercase tracking-wide text-gray-500">
+                <th className="py-2.5 pl-3 pr-2 font-semibold">Client</th>
+                <th className="py-2.5 px-2 font-semibold w-[88px]">Label</th>
+                <th className="py-2.5 px-2 font-semibold w-[120px]">DID</th>
+                <th className="py-2.5 px-2 font-semibold min-w-[140px]">Email</th>
+                <th className="py-2.5 px-2 font-semibold min-w-[100px]">Phone</th>
+                <th className="py-2.5 px-2 font-semibold w-[100px]">Activity</th>
+                <th className="py-2.5 px-2 font-semibold w-[72px]">Updated</th>
+                <th className="py-2.5 pr-3 pl-2 font-semibold text-right w-[108px]">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {clients.map((cl) => {
+                const cfg = LABEL_CONFIG[cl.label] || LABEL_CONFIG.Dew;
+                const Icon = cfg.icon;
+                return (
+                  <React.Fragment key={cl.id}>
+                    <tr
+                      data-testid={`client-${cl.id}`}
+                      className="border-b border-gray-100 bg-white align-middle hover:bg-violet-50/40"
+                    >
+                      <td className="py-2.5 pl-3 pr-2">
+                        <div className="flex items-center gap-2 min-w-0">
+                          <div className={`w-7 h-7 rounded-full ${cfg.bg} ${cfg.border} border flex items-center justify-center shrink-0`}>
+                            <Icon size={12} className={cfg.text} />
+                          </div>
+                          <span className="text-xs font-semibold text-gray-900 truncate max-w-[180px]" title={cl.name || ''}>
+                            {cl.name || 'Unknown'}
+                          </span>
+                        </div>
+                      </td>
+                      <td className="py-2.5 px-2">
+                        <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full whitespace-nowrap ${cfg.badge}`}>{cl.label}</span>
+                      </td>
+                      <td className="py-2.5 px-2 font-mono text-[10px] text-purple-700 truncate max-w-[120px]" title={cl.did || ''}>
+                        {cl.did || '—'}
+                      </td>
+                      <td className="py-2.5 px-2 text-[10px] text-gray-800 truncate max-w-[200px]" title={cl.email || ''}>
+                        {cl.email || '—'}
+                      </td>
+                      <td className="py-2.5 px-2 text-[10px] text-gray-600 whitespace-nowrap">{cl.phone || '—'}</td>
+                      <td className="py-2.5 px-2">
+                        <div className="flex flex-col gap-0.5">
+                          {cl.conversions?.length > 0 && (
+                            <span className="text-[9px] bg-green-100 text-green-800 px-1.5 py-0.5 rounded-full w-fit font-medium">
+                              {cl.conversions.length} conv.
+                            </span>
+                          )}
+                          {cl.intake_pending && (
+                            <span className="text-[9px] bg-orange-100 text-orange-800 px-1.5 py-0.5 rounded-full w-fit font-medium">
+                              Intake
+                            </span>
+                          )}
+                          {!cl.conversions?.length && !cl.intake_pending && (
+                            <span className="text-[10px] text-gray-400">—</span>
+                          )}
+                        </div>
+                      </td>
+                      <td className="py-2.5 px-2 text-[10px] text-gray-500 whitespace-nowrap">
+                        {timeAgo(cl.updated_at || cl.created_at)}
+                      </td>
+                      <td className="py-2.5 pr-3 pl-2 text-right">
+                        <button
+                          type="button"
+                          data-testid={`client-view-as-${cl.id}`}
+                          onClick={(e) => openImpersonate(e, cl)}
+                          disabled={!cl.email?.trim()}
+                          title={cl.email?.trim() ? 'Open their student dashboard (admin preview)' : 'Add an email first'}
+                          className="inline-flex items-center gap-1 rounded-md border border-[#5D3FD3]/40 bg-white px-2 py-1 text-[9px] font-medium text-[#5D3FD3] hover:bg-[#5D3FD3]/10 disabled:opacity-40 disabled:cursor-not-allowed"
+                        >
+                          <Eye size={11} /> View as
+                        </button>
+                      </td>
+                    </tr>
+                    <tr className="border-b border-gray-200 bg-[#faf9fc]">
+                      <td colSpan={8} className="p-0 align-top">
+                        <ClientDetail
+                          client={cl}
+                          labelConfig={cfg}
+                          omitContactSummary
+                          onUpdate={fetchData}
+                          onDelete={() => handleDelete(cl.id)}
+                          onRefresh={fetchData}
+                          toast={toast}
+                        />
+                      </td>
+                    </tr>
+                  </React.Fragment>
+                );
+              })}
+            </tbody>
+          </table>
         )}
-        {clients.map(cl => {
-          const cfg = LABEL_CONFIG[cl.label] || LABEL_CONFIG.Dew;
-          const Icon = cfg.icon;
-          const isExpanded = expandedId === cl.id;
-          return (
-            <div key={cl.id} data-testid={`client-${cl.id}`}
-              className={`border rounded-xl overflow-hidden transition-all ${isExpanded ? `${cfg.border} shadow-lg` : 'border-gray-200 hover:border-gray-300'}`}>
-              <div className="flex items-center gap-3 px-4 py-3 cursor-pointer bg-white hover:bg-gray-50/50"
-                onClick={() => setExpandedId(isExpanded ? null : cl.id)}>
-                <div className={`w-8 h-8 rounded-full ${cfg.bg} ${cfg.border} border flex items-center justify-center flex-shrink-0`}>
-                  <Icon size={14} className={cfg.text} />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs font-semibold text-gray-900 truncate">{cl.name || 'Unknown'}</span>
-                    <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full ${cfg.badge}`}>{cl.label}</span>
-                  </div>
-                  <p className="text-[10px] text-gray-500 truncate">{cl.did && <span className="font-mono text-[9px] text-purple-600 mr-1.5">{cl.did}</span>}{cl.email}{cl.phone ? ` | ${cl.phone}` : ''}</p>
-                </div>
-                <div className="flex items-center gap-3 flex-shrink-0">
-                  <button
-                    type="button"
-                    data-testid={`client-view-as-${cl.id}`}
-                    onClick={(e) => openImpersonate(e, cl)}
-                    disabled={!cl.email?.trim()}
-                    title={cl.email?.trim() ? 'Open their student dashboard (admin preview)' : 'Add an email first'}
-                    className="inline-flex items-center gap-1 rounded-md border border-[#5D3FD3]/40 bg-white px-2 py-1 text-[9px] font-medium text-[#5D3FD3] hover:bg-[#5D3FD3]/10 disabled:opacity-40 disabled:cursor-not-allowed"
-                  >
-                    <Eye size={11} /> View as
-                  </button>
-                  {cl.conversions?.length > 0 && (
-                    <span className="text-[9px] bg-green-100 text-green-700 px-2 py-0.5 rounded-full font-medium">{cl.conversions.length} conversion{cl.conversions.length > 1 ? 's' : ''}</span>
-                  )}
-                  <span className="text-[10px] text-gray-400">{timeAgo(cl.updated_at || cl.created_at)}</span>
-                  {isExpanded ? <ChevronUp size={14} className="text-gray-400" /> : <ChevronDown size={14} className="text-gray-400" />}
-                </div>
-              </div>
-
-              {isExpanded && (
-                <ClientDetail client={cl} labelConfig={cfg} onUpdate={fetchData} onDelete={() => handleDelete(cl.id)} onRefresh={fetchData} toast={toast} />
-              )}
-            </div>
-          );
-        })}
       </div>
 
       <Dialog open={impersonateOpen} onOpenChange={setImpersonateOpen}>
@@ -475,7 +524,16 @@ const ClientsTab = () => {
   );
 };
 
-const ClientDetail = ({ client: cl, labelConfig: cfg, onUpdate, onDelete, onRefresh, toast }) => {
+const ClientDetail = ({
+  client: cl,
+  labelConfig: cfg,
+  onUpdate,
+  onDelete,
+  onRefresh,
+  toast,
+  /** When true, hide duplicate name/email/phone grid (shown in table row above). */
+  omitContactSummary = false,
+}) => {
   const [editing, setEditing] = useState(false);
   const [labelManual, setLabelManual] = useState(cl.label_manual || '');
   const [notes, setNotes] = useState(cl.notes || '');
@@ -553,15 +611,20 @@ const ClientDetail = ({ client: cl, labelConfig: cfg, onUpdate, onDelete, onRefr
   const familyListLocked = !!cl.immediate_family_locked || hasImmediateFamilyNames;
 
   return (
-    <div className={`border-t ${cfg.bg} px-4 py-4`} data-testid={`client-detail-${cl.id}`}>
-      {/* Info Grid */}
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-4">
-        {cl.did && <InfoField label="Divine Iris ID" value={cl.did} />}
-        <InfoField label="Name" value={cl.name} />
-        <InfoField label="Email" value={cl.email} />
-        <InfoField label="Phone" value={cl.phone} />
-        <InfoField label="First Contact" value={cl.created_at ? new Date(cl.created_at).toLocaleDateString() : ''} />
-      </div>
+    <div
+      className={`${omitContactSummary ? 'border-0 bg-white/90 px-4 py-3' : `border-t ${cfg.bg} px-4 py-4`}`}
+      data-testid={`client-detail-${cl.id}`}
+    >
+      {/* Info Grid — omitted in table layout (summary row shows contact fields) */}
+      {!omitContactSummary && (
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-4">
+          {cl.did && <InfoField label="Divine Iris ID" value={cl.did} />}
+          <InfoField label="Name" value={cl.name} />
+          <InfoField label="Email" value={cl.email} />
+          <InfoField label="Phone" value={cl.phone} />
+          <InfoField label="First Contact" value={cl.created_at ? new Date(cl.created_at).toLocaleDateString() : ''} />
+        </div>
+      )}
 
       {/* Sources */}
       <div className="mb-4">
