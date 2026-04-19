@@ -105,7 +105,6 @@ class Program(BaseModel):
     india_tax_percent: float = 18.0
     india_tax_label: str = "GST"
     india_tax_visible_on_dashboard: bool = True
-    is_annual_program: bool = False
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 class ProgramCreate(BaseModel):
