@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import axios from 'axios';
 import Header from '../components/Header';
@@ -22,6 +22,7 @@ export default function ContactUpdatePage() {
   const [submitting, setSubmitting] = useState(false);
   const [done, setDone] = useState(false);
   const [error, setError] = useState('');
+  const submitLock = useRef(false);
 
   useEffect(() => {
     if (!token) {
@@ -43,34 +44,25 @@ export default function ContactUpdatePage() {
 
   const handleSubmit = (e) => {
     e.preventDefault();
+    if (submitLock.current) return;
+    submitLock.current = true;
     setError('');
     setSubmitting(true);
     axios
-      .post(
-        `${API}/contact-update/${encodeURIComponent(token)}`,
-        {
-          name: name.trim(),
-          email: email.trim(),
-          phone: phone.trim(),
-          city: city.trim(),
-          country: country.trim(),
-        },
-        { withCredentials: true }
-      )
-      .then((res) => {
-        const data = res.data || {};
-        if (data.session_token) {
-          localStorage.setItem('session_token', data.session_token);
-        }
-        if (data.dashboard_access) {
-          window.location.href = '/dashboard';
-          return;
-        }
+      .post(`${API}/contact-update/${encodeURIComponent(token)}`, {
+        name: name.trim(),
+        email: email.trim(),
+        phone: phone.trim(),
+        city: city.trim(),
+        country: country.trim(),
+      })
+      .then(() => {
         setDone(true);
       })
       .catch((err) => {
         const d = err.response?.data?.detail;
         setError(typeof d === 'string' ? d : err.message || 'Something went wrong.');
+        submitLock.current = false;
       })
       .finally(() => setSubmitting(false));
   };
@@ -109,7 +101,6 @@ export default function ContactUpdatePage() {
             <div className="bg-gradient-to-r from-[#5D3FD3]/10 to-[#D4AF37]/10 px-6 py-4 border-b border-gray-100">
               <h1 className="text-lg font-serif text-gray-900">Update your details</h1>
               {label && <p className="text-xs text-gray-500 mt-1">{label}</p>}
-              <p className="text-xs text-gray-500 mt-2">Please share your name, email, phone, and location so we can stay in touch.</p>
             </div>
             <form onSubmit={handleSubmit} className="p-6 space-y-4">
               <div>

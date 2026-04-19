@@ -231,6 +231,13 @@ async def google_auth_callback(data: AuthSessionStart, response: Response):
         # REJECT LOGIN - User not in portal
         raise HTTPException(status_code=403, detail="Account not found. Access is restricted to registered students.")
 
+    # Portal access must be explicitly allowed (e.g. after contact form, admin enables in Client Garden).
+    if client_doc.get("portal_login_allowed") is False:
+        raise HTTPException(
+            status_code=403,
+            detail="Portal sign-in is not enabled for your account yet. Please wait for approval from your host.",
+        )
+
     # 3. Find or Create User in 'users' collection
     user = await db.users.find_one({"email": email})
     

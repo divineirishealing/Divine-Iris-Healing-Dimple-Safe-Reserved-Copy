@@ -413,6 +413,7 @@ async def create_client_manual(data: ClientManualCreate):
         "notes": (data.notes or "").strip(),
         "created_at": now,
         "updated_at": now,
+        "portal_login_allowed": True,
     }
     await db.clients.insert_one(client_doc)
 
@@ -451,6 +452,8 @@ class ClientUpdate(BaseModel):
     name: Optional[str] = None
     phone: Optional[str] = None
     immediate_family_editing_approved: Optional[bool] = None
+    """When False, Google / student portal sign-in is blocked until set to True."""
+    portal_login_allowed: Optional[bool] = None
 
 
 @router.put("/{client_id}")
@@ -473,6 +476,8 @@ async def update_client(client_id: str, data: ClientUpdate):
         update_fields["phone"] = data.phone
     if data.immediate_family_editing_approved is not None:
         update_fields["immediate_family_editing_approved"] = bool(data.immediate_family_editing_approved)
+    if data.portal_login_allowed is not None:
+        update_fields["portal_login_allowed"] = bool(data.portal_login_allowed)
 
     await db.clients.update_one({"id": client_id}, {"$set": update_fields})
 
