@@ -267,6 +267,7 @@ export default function DashboardUpcomingProgramRowItem({
   const [nonAnnualFamilyOpen, setNonAnnualFamilyOpen] = useState(true);
   const [nonAnnualAttendanceOpen, setNonAnnualAttendanceOpen] = useState(true);
   const [nonAnnualAttendMode, setNonAnnualAttendMode] = useState('online');
+  const [nonAnnualSaveDefaults, setNonAnnualSaveDefaults] = useState(false);
 
   const syncThisProgramToDivineCart = async () => {
     let participants = null;
@@ -1092,51 +1093,77 @@ export default function DashboardUpcomingProgramRowItem({
                   )}
                 </div>
                 <p className="text-gray-500 text-xs leading-relaxed mb-2 line-clamp-3">{p.description}</p>
+                {/* Tier selector — same position as annual left card */}
+                {hasTiers && enrollStatus === 'open' && tiers.length > 1 && (
+                  <div data-testid={`dashboard-tier-selector-${p.id}`} className="mb-3">
+                    <p className="text-[9px] font-bold uppercase tracking-wide text-slate-500 mb-1.5">Duration / tier</p>
+                    <div className={`grid ${tierGridClass} gap-1`}>
+                      {tiers.map((t, i) => (
+                        <button key={i} type="button" title={t.label || undefined} onClick={(e) => { e.stopPropagation(); setLocalTier(i); }}
+                          className={`min-h-[2.25rem] px-1.5 text-[10px] leading-tight rounded-full border transition-all flex items-center justify-center text-center ${localTier === i ? 'bg-[#D4AF37] text-white border-[#D4AF37]' : 'bg-white text-gray-600 border-gray-200 hover:border-[#D4AF37]'}`}>
+                          <span className="line-clamp-2 break-words">{compactTierButtonLabel(t.label)}</span>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                {/* Early bird — same position as annual left card */}
+                {enrollStatus === 'open' && offerPrice > 0 && deadline && (() => {
+                  const dl = new Date(deadline);
+                  if (dl <= new Date()) return null;
+                  const diff = dl - Date.now();
+                  const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+                  const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+                  const mins = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+                  return (
+                    <div data-testid={`dashboard-early-bird-${p.id}`} className="flex items-center gap-2 bg-red-50 border border-red-200 rounded-lg px-3 py-2 mb-3">
+                      <Bell size={14} className="text-red-500 flex-shrink-0" />
+                      <div className="text-xs leading-snug min-w-0">
+                        <span className="font-bold text-red-600 uppercase tracking-wide">{p.offer_text || 'Exclusive'}</span>
+                        <span className="text-red-600 ml-1.5">ends in {days}d {hours}h {mins}m</span>
+                      </div>
+                    </div>
+                  );
+                })()}
+                {/* Pricing — same position as annual left card */}
+                {enrollStatus === 'open' && (
+                  <div className="flex flex-wrap items-baseline gap-2 mb-1">
+                    {showSpecialPromo ? (
+                      <div className="flex flex-col gap-1 w-full">
+                        <div className="flex flex-wrap items-baseline gap-2">
+                          <span className="text-xl font-bold text-[#D4AF37] tabular-nums">{symbol} {afterPromo.toLocaleString()}</span>
+                          <span className="text-xs text-gray-400 line-through tabular-nums">{symbol} {baseForPromo.toLocaleString()}</span>
+                        </div>
+                        <span className="text-xs text-violet-700 font-medium">With {promoForProgramClicks} (on offer price)</span>
+                        {offerPrice > 0 && price > offerPrice && <span className="text-[10px] text-gray-400">List {symbol}{price.toLocaleString()}</span>}
+                      </div>
+                    ) : offerPrice > 0 ? (
+                      <>
+                        <span className="text-xl font-bold text-[#D4AF37] tabular-nums">{symbol} {offerPrice.toLocaleString()}</span>
+                        <span className="text-xs text-gray-400 line-through tabular-nums">{symbol} {price.toLocaleString()}</span>
+                      </>
+                    ) : price > 0 ? (
+                      <span className="text-xl font-bold text-gray-900 tabular-nums">{symbol} {price.toLocaleString()}</span>
+                    ) : (
+                      <span className="text-xl font-bold text-green-600">FREE</span>
+                    )}
+                  </div>
+                )}
                 <div className="hidden xl:block flex-1 min-h-0 shrink-0" aria-hidden />
               </div>
             </div>
 
-            {/* Right: Pricing, Family, Attendance panels */}
+            {/* Right: Pricing summary, Family, Attendance panels */}
             <div className="flex flex-col gap-4 flex-1 min-w-0 w-full min-h-0 xl:min-h-0 xl:h-full">
 
-              {/* Pricing & Offer */}
+              {/* Pricing & Offer — summary panel matching annual layout */}
               <div className="rounded-xl border border-slate-200 bg-white p-3 sm:p-4 shadow-sm min-h-0 flex flex-col min-w-0 w-full max-w-xl">
                 <button type="button" className="w-full flex items-center justify-between gap-2 text-left rounded-lg outline-none focus-visible:ring-2 focus-visible:ring-[#D4AF37]/40" onClick={() => setNonAnnualPricingOpen(o => !o)} aria-expanded={nonAnnualPricingOpen}>
                   <span className="text-[10px] font-bold uppercase tracking-wide text-slate-600">Pricing &amp; offer</span>
                   <ChevronDown className={`h-4 w-4 text-slate-500 shrink-0 transition-transform ${nonAnnualPricingOpen ? '' : '-rotate-90'}`} aria-hidden />
                 </button>
-                {nonAnnualPricingOpen && enrollStatus === 'open' && (
-                  <div className="pt-2 min-w-0 w-full space-y-3">
-                    {hasTiers && tiers.length > 1 && (
-                      <div data-testid={`dashboard-tier-selector-${p.id}`}>
-                        <p className="text-[9px] font-bold uppercase tracking-wide text-slate-500 mb-1.5">Duration / tier</p>
-                        <div className={`grid ${tierGridClass} gap-1`}>
-                          {tiers.map((t, i) => (
-                            <button key={i} type="button" title={t.label || undefined} onClick={(e) => { e.stopPropagation(); setLocalTier(i); }}
-                              className={`min-h-[2.25rem] px-1.5 text-[10px] leading-tight rounded-full border transition-all flex items-center justify-center text-center ${localTier === i ? 'bg-[#D4AF37] text-white border-[#D4AF37]' : 'bg-white text-gray-600 border-gray-200 hover:border-[#D4AF37]'}`}>
-                              <span className="line-clamp-2 break-words">{compactTierButtonLabel(t.label)}</span>
-                            </button>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-                    {offerPrice > 0 && deadline && (() => {
-                      const dl = new Date(deadline);
-                      if (dl <= new Date()) return null;
-                      const diff = dl - Date.now();
-                      const days = Math.floor(diff / (1000 * 60 * 60 * 24));
-                      const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
-                      const mins = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
-                      return (
-                        <div data-testid={`dashboard-early-bird-${p.id}`} className="flex items-center gap-2 bg-red-50 border border-red-200 rounded-lg px-3 py-2 animate-pulse">
-                          <Bell size={14} className="text-red-500 flex-shrink-0" />
-                          <div className="text-xs leading-snug min-w-0">
-                            <span className="font-bold text-red-600 uppercase tracking-wide">{p.offer_text || 'Exclusive'}</span>
-                            <span className="text-red-600 ml-1.5">ends in {days}d {hours}h {mins}m</span>
-                          </div>
-                        </div>
-                      );
-                    })()}
+                {nonAnnualPricingOpen ? (
+                  <div className="min-w-0 w-full pt-2">
                     <div className="rounded-md border border-slate-200 bg-white w-full px-3 py-2.5 space-y-2">
                       {showContact ? (
                         <div className="flex justify-between text-[11px] text-slate-800">
@@ -1149,7 +1176,7 @@ export default function DashboardUpcomingProgramRowItem({
                             <span className="text-slate-700">Your seat</span>
                             <span className="font-semibold tabular-nums text-slate-900 text-right">{symbol} {afterPromo.toLocaleString()} <span className="text-slate-400 line-through text-[10px] ml-1">{symbol} {baseForPromo.toLocaleString()}</span></span>
                           </div>
-                          <div className="flex justify-between text-[11px] text-slate-600">
+                          <div className="flex justify-between text-[11px] text-slate-600 italic text-[10px]">
                             <span>With {promoForProgramClicks}</span><span className="text-violet-700 font-medium">on offer price</span>
                           </div>
                         </>
@@ -1169,9 +1196,15 @@ export default function DashboardUpcomingProgramRowItem({
                           <span className="font-bold text-green-600">FREE</span>
                         </div>
                       )}
+                      {selCount > 0 && (
+                        <div className="flex justify-between text-[11px] text-slate-800 pt-1 border-t border-slate-100">
+                          <span className="text-slate-700">Guest seats × {selCount}</span>
+                          <span className="text-slate-500 italic text-[10px]">priced separately</span>
+                        </div>
+                      )}
                     </div>
                   </div>
-                )}
+                ) : null}
                 <p className="text-[11px] text-slate-600 mt-2 pt-2 border-t border-slate-100 leading-snug">
                   Your selection total:{' '}
                   <span className="font-semibold text-slate-800 tabular-nums">
@@ -1278,13 +1311,7 @@ export default function DashboardUpcomingProgramRowItem({
                           </div>
                         </div>
                       </div>
-                      {enrollStatus === 'open' && (
-                        <button type="button"
-                          className="text-violet-700 font-bold uppercase tracking-wide text-[9px] underline underline-offset-2 hover:text-violet-900 p-0 bg-transparent border-0 cursor-pointer text-left shrink-0"
-                          onClick={(e) => { e.stopPropagation(); openEnrollmentSeatModal?.(p.id); }}>
-                          Per-person attendance &amp; email…
-                        </button>
-                      )}
+                      {/* Per-person link is shown in the bottom defaults section */}
                     </div>
                   )}
                 </div>
@@ -1292,6 +1319,29 @@ export default function DashboardUpcomingProgramRowItem({
               </div>
             </div>
           </div>
+
+          {/* Per-person + Save as default row — mirrors annual layout */}
+          {enrollStatus === 'open' && (
+            <div className="w-full rounded-xl border border-slate-200 bg-white p-3 sm:p-4 shadow-sm min-h-0 flex flex-col gap-2 min-w-0">
+              <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2 sm:gap-4 w-full min-w-0">
+                <button type="button"
+                  className="text-violet-700 font-bold uppercase tracking-wide text-[9px] underline underline-offset-2 hover:text-violet-900 p-0 bg-transparent border-0 cursor-pointer text-left shrink-0 sm:pt-0.5"
+                  onClick={(e) => { e.stopPropagation(); openEnrollmentSeatModal?.(p.id); }}>
+                  Per-person attendance &amp; email…
+                </button>
+                <p className="text-[10px] text-slate-500 leading-snug flex-1 min-w-0 line-clamp-2">
+                  Opens the full editor for <span className="font-medium text-slate-700">{p.title || 'this program'}</span>.
+                  Use <strong className="text-slate-700">Save defaults &amp; close</strong> in the dialog if you only want to store preferences.
+                </p>
+              </div>
+              <label className="flex items-center gap-2 cursor-pointer pt-2 border-t border-slate-100">
+                <input type="checkbox" className="rounded border-slate-300 scale-90 shrink-0" checked={!!nonAnnualSaveDefaults} onChange={(e) => setNonAnnualSaveDefaults(e.target.checked)} />
+                <span className="font-semibold text-[9px] text-slate-800 uppercase tracking-wide leading-snug">
+                  Save as my default for every program (this browser)
+                </span>
+              </label>
+            </div>
+          )}
 
           {/* Bottom: Know More + Add to Divine Cart */}
           <div className="flex flex-col sm:flex-row gap-3 w-full sm:items-center sm:justify-between pt-3 mt-1 border-t border-slate-200/70">
