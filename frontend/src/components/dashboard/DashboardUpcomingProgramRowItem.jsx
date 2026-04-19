@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import {
@@ -266,9 +266,24 @@ export default function DashboardUpcomingProgramRowItem({
   const [nonAnnualPricingOpen, setNonAnnualPricingOpen] = useState(true);
   const [nonAnnualFamilyOpen, setNonAnnualFamilyOpen] = useState(true);
   const [nonAnnualAttendanceOpen, setNonAnnualAttendanceOpen] = useState(true);
-  const [nonAnnualAttendMode, setNonAnnualAttendMode] = useState('online');
+  // Local attendance preset for non-annual card — tracks what the user explicitly clicked
+  // (derived preset can't represent 'except_me' when no guests are selected yet)
+  const [nonAnnualAttendMode, setNonAnnualAttendMode] = useState(null);
+  const nonAnnualAttendJustClicked = useRef(false);
   const [nonAnnualSaveDefaults, setNonAnnualSaveDefaults] = useState(false);
   const [nonAnnualEmailPreset, setNonAnnualEmailPreset] = useState('email_me_only');
+
+  // Sync local attend preset FROM annualSeatUi derived value, but skip the sync on card-initiated clicks
+  // (otherwise clicking "except_me" immediately reverts to "all_online" because derived state has no guests)
+  useEffect(() => {
+    const derived = annualSeatUi?.attendanceQuickPreset;
+    if (!derived) return;
+    if (nonAnnualAttendJustClicked.current) {
+      nonAnnualAttendJustClicked.current = false;
+      return;
+    }
+    setNonAnnualAttendMode(derived);
+  }, [annualSeatUi?.attendanceQuickPreset]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const syncThisProgramToDivineCart = async () => {
     let participants = null;
@@ -292,9 +307,19 @@ export default function DashboardUpcomingProgramRowItem({
           immediateFamilyMembers: members,
         });
       } else {
-        participants =
-          buildFullPortalRosterCartParticipants(p, pre, bookerEmail, detectedCountry) ||
-          buildSelfOnlyCartParticipants(self, p, bookerEmail, detectedCountry);
+        // Non-annual: use selected family members + seat draft (same builder as annual)
+        // so attendance mode and who-is-enrolling match what the user set on the card
+        participants = buildAnnualDashboardCartParticipants({
+          program: p,
+          includedPkg: false,
+          selectedMemberIds: selIds,
+          seatDraft: annualSeatUi?.draft,
+          enrollableGuests,
+          self,
+          bookerEmail,
+          detectedCountry,
+          immediateFamilyMembers: members,
+        }) || buildSelfOnlyCartParticipants(self, p, bookerEmail, detectedCountry);
       }
     } catch {
       /* empty row */
@@ -1325,29 +1350,39 @@ export default function DashboardUpcomingProgramRowItem({
                         <div className="w-full flex flex-col gap-0 divide-y divide-slate-200">
                           <div className="flex flex-col gap-1.5 py-2 first:pt-0 w-full">
                             <span className="text-[9px] font-bold uppercase tracking-wide text-slate-500 shrink-0">Attendance</span>
-                            <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 flex-1 min-w-0" role="radiogroup" aria-label="Attendance preset">
-                              <label className="inline-flex items-center gap-2 cursor-pointer text-[11px] text-slate-800 whitespace-nowrap">
-                                <input type="radio" name={`nonannu-att-${p.id}`} className="shrink-0 border-slate-300 text-violet-700"
-                                  checked={annualSeatUi?.attendanceQuickPreset === 'all_online'}
-                                  onChange={(e) => { e.stopPropagation(); annualSeatUi?.onApplyAttendanceDraft(p.id, 'all_online'); }} />
-                                All online
-                              </label>
-                              <label className="inline-flex items-center gap-2 cursor-pointer text-[11px] text-slate-800 whitespace-nowrap">
-                                <input type="radio" name={`nonannu-att-${p.id}`} className="shrink-0 border-slate-300 text-violet-700"
-                                  checked={annualSeatUi?.attendanceQuickPreset === 'all_offline'}
-                                  onChange={(e) => { e.stopPropagation(); annualSeatUi?.onApplyAttendanceDraft(p.id, 'all_offline'); }} />
-                                All offline
-                              </label>
-                              <label className="inline-flex items-center gap-2 cursor-pointer text-[11px] text-slate-800 whitespace-nowrap">
-                                <input type="radio" name={`nonannu-att-${p.id}`} className="shrink-0 border-slate-300 text-violet-700"
-                                  checked={annualSeatUi?.attendanceQuickPreset === 'except_me'}
-                                  onChange={(e) => { e.stopPropagation(); annualSeatUi?.onApplyAttendanceDraft(p.id, 'guests_offline_booker_online'); }} />
-                                All offline except Myself
-                              </label>
-                              {annualSeatUi?.attendanceQuickPreset === 'custom' && (
-                                <span className="text-[9px] text-amber-800/90 whitespace-nowrap">Mixed — use advanced.</span>
-                              )}
-                            </div>
+                            {(() => {
+                              const effectivePreset = nonAnnualAttendMode ?? annualSeatUi?.attendanceQuickPreset ?? 'all_online';
+                              const applyAttend = (preset, apiPreset) => {
+                                nonAnnualAttendJustClicked.current = true;
+                                setNonAnnualAttendMode(preset);
+                                annualSeatUi?.onApplyAttendanceDraft(p.id, apiPreset);
+                              };
+                              return (
+                                <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 flex-1 min-w-0" role="radiogroup" aria-label="Attendance preset">
+                                  <label className="inline-flex items-center gap-2 cursor-pointer text-[11px] text-slate-800 whitespace-nowrap">
+                                    <input type="radio" name={`nonannu-att-${p.id}`} className="shrink-0 border-slate-300 text-violet-700"
+                                      checked={effectivePreset === 'all_online'}
+                                      onChange={(e) => { e.stopPropagation(); applyAttend('all_online', 'all_online'); }} />
+                                    All online
+                                  </label>
+                                  <label className="inline-flex items-center gap-2 cursor-pointer text-[11px] text-slate-800 whitespace-nowrap">
+                                    <input type="radio" name={`nonannu-att-${p.id}`} className="shrink-0 border-slate-300 text-violet-700"
+                                      checked={effectivePreset === 'all_offline'}
+                                      onChange={(e) => { e.stopPropagation(); applyAttend('all_offline', 'all_offline'); }} />
+                                    All offline
+                                  </label>
+                                  <label className="inline-flex items-center gap-2 cursor-pointer text-[11px] text-slate-800 whitespace-nowrap">
+                                    <input type="radio" name={`nonannu-att-${p.id}`} className="shrink-0 border-slate-300 text-violet-700"
+                                      checked={effectivePreset === 'except_me'}
+                                      onChange={(e) => { e.stopPropagation(); applyAttend('except_me', 'guests_offline_booker_online'); }} />
+                                    All offline except Myself
+                                  </label>
+                                  {effectivePreset === 'custom' && (
+                                    <span className="text-[9px] text-amber-800/90 whitespace-nowrap">Mixed — use advanced.</span>
+                                  )}
+                                </div>
+                              );
+                            })()}
                           </div>
                           <div className="flex flex-col gap-1.5 py-2 w-full">
                             <span className="text-[9px] font-bold uppercase tracking-wide text-slate-500 shrink-0 leading-snug">Enrollment email</span>
