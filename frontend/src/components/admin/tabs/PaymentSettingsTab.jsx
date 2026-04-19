@@ -53,7 +53,7 @@ const PaymentSettingsTab = () => {
       .map((e) => String(e).trim().toLowerCase())
       .filter((e) => e.includes('@'));
     try {
-      await axios.put(`${API}/settings`, {
+      const res = await axios.put(`${API}/settings`, {
         payment_disclaimer: disclaimer,
         payment_disclaimer_enabled: disclaimerEnabled,
         payment_disclaimer_style: disclaimerStyle,
@@ -64,9 +64,9 @@ const PaymentSettingsTab = () => {
         india_gst_percent: parseFloat(gstPct) || 18,
         dashboard_annual_quote_show_tax: !!dashboardAnnualQuoteShowTax,
         india_platform_charge_percent: parseFloat(platformPct) || 3,
+        inr_whitelist_emails: emails,
       });
-      const wlRes = await axios.put(`${API}/settings/inr-whitelist-emails`, { emails });
-      const saved = wlRes.data?.inr_whitelist_emails;
+      const saved = res.data?.inr_whitelist_emails;
       setInrWhitelistEmails(Array.isArray(saved) ? saved : emails);
       toast({ title: 'Payment settings saved!' });
     } catch (err) {
