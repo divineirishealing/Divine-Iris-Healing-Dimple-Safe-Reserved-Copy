@@ -182,10 +182,6 @@ const RELATIONSHIPS = [
   'Wife',
   'Son',
   'Daughter',
-  'Spouse',
-  'Partner',
-  'Grandmother',
-  'Grandfather',
   'Other',
 ];
 const LEGACY_IMMEDIATE_REL = {
@@ -195,6 +191,10 @@ const LEGACY_IMMEDIATE_REL = {
   Parent: 'Mother',
   Child: 'Son',
   Sibling: 'Brother',
+  Spouse: 'Other',
+  Partner: 'Other',
+  Grandmother: 'Other',
+  Grandfather: 'Other',
 };
 
 const OTHER_RELATIONSHIPS = [
