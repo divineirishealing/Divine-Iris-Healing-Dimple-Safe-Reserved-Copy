@@ -462,6 +462,7 @@ class ClientUpdate(BaseModel):
     india_tax_visible_on_dashboard: Optional[bool] = None
     india_payment_method: Optional[str] = None   # e.g. "gpay", "upi", "bank_transfer", "any"
     india_discount_percent: Optional[float] = None  # client-specific discount on base price
+    preferred_payment_method: Optional[str] = None  # gpay_upi, bank_transfer, cash_deposit, stripe (intake / CRM)
     intake_pending: Optional[bool] = None
     family_pending_review: Optional[bool] = None
     family_approved: Optional[bool] = None        # once True, list is permanently frozen
@@ -503,9 +504,13 @@ async def update_client(client_id: str, data: ClientUpdate):
     if data.india_tax_visible_on_dashboard is not None:
         update_fields["india_tax_visible_on_dashboard"] = bool(data.india_tax_visible_on_dashboard)
     if data.india_payment_method is not None:
-        update_fields["india_payment_method"] = data.india_payment_method
+        vpm = (data.india_payment_method or "").strip()
+        update_fields["india_payment_method"] = vpm if vpm else None
     if data.india_discount_percent is not None:
         update_fields["india_discount_percent"] = float(data.india_discount_percent)
+    if data.preferred_payment_method is not None:
+        pm = (data.preferred_payment_method or "").strip().lower()
+        update_fields["preferred_payment_method"] = pm if pm else None
     if data.intake_pending is not None:
         update_fields["intake_pending"] = bool(data.intake_pending)
     if data.family_pending_review is not None:
