@@ -1014,7 +1014,8 @@ export default function DashboardUpcomingProgramRowItem({
                     </div>
                   </div>
 
-                  {!includedPkg &&
+                  {!subscriberIsAnnual &&
+                  !includedPkg &&
                   (annualSeatUi.attendanceQuickPreset === 'custom' ||
                     annualSeatUi.attendanceQuickPreset === 'except_me' ||
                     annualSeatUi.notifyQuickPreset === 'mixed') ? (
