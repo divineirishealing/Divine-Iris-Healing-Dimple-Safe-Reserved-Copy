@@ -275,9 +275,12 @@ export default function DashboardUpcomingProgramRowItem({
   const [nonAnnualSaveDefaults, setNonAnnualSaveDefaults] = useState(false);
   const [nonAnnualEmailPreset, setNonAnnualEmailPreset] = useState('email_me_only');
 
-  // Sync local attend preset FROM annualSeatUi derived value, but skip the sync on card-initiated clicks
-  // (otherwise clicking "except_me" immediately reverts to "all_online" because derived state has no guests)
+  // Sync local attend preset when the UNDERLYING attendance state changes (bookerSeatMode / guestSeatForm).
+  // Intentionally NOT depending on attendanceQuickPreset: that derived value changes whenever a guest is
+  // added/removed (selIds change) even though the actual attendance prefs didn't change, which would
+  // incorrectly reset a user's "All offline" / "except_me" selection back to "All online".
   useEffect(() => {
+    if (subscriberIsAnnual) return;
     const derived = annualSeatUi?.attendanceQuickPreset;
     if (!derived) return;
     if (nonAnnualAttendJustClicked.current) {
@@ -285,7 +288,7 @@ export default function DashboardUpcomingProgramRowItem({
       return;
     }
     setNonAnnualAttendMode(derived);
-  }, [annualSeatUi?.attendanceQuickPreset]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [annualSeatUi?.draft?.bookerSeatMode, annualSeatUi?.draft?.guestSeatForm]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Auto-sync cart on dashboard load: when enrollment prefill data first arrives,
   // update any stale cart entry for this program so the cart always reflects current selections.
