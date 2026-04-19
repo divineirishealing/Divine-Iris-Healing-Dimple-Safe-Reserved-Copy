@@ -1,10 +1,11 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import axios from 'axios';
 import Header from '../components/Header';
 import Footer from '../components/Footer';
 import { useToast } from '../hooks/use-toast';
 import { useCurrency } from '../context/CurrencyContext';
+import { useAuth } from '../context/AuthContext';
 import { useCart } from '../context/CartContext';
 import { resolveImageUrl } from '../lib/imageUtils';
 import { getAuthHeaders } from '../lib/authHeaders';
@@ -272,6 +273,7 @@ function EnrollmentPage() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { user } = useAuth();
   const { getPrice, getOfferPrice, symbol: rawSymbol, baseCurrency, baseSymbol, displayCurrency, displaySymbol, isPrimary, toDisplay, country: detectedCountry } = useCurrency();
   const currency = baseCurrency;
 
@@ -292,7 +294,9 @@ function EnrollmentPage() {
   }, [id, promoFromUrl]);
   const resumeId = searchParams.get('resume');
   const inrToken = searchParams.get('inr_token');
-  const [inrOverride, setInrOverride] = useState(false);
+  /** True when ?inr_token= validates — invite link. */
+  const [inrTokenActive, setInrTokenActive] = useState(false);
+  const [inrWhitelistEmails, setInrWhitelistEmails] = useState([]);
 
   // Country is NOT auto-filled — user must select manually
 
@@ -351,6 +355,7 @@ function EnrollmentPage() {
     }).catch(() => {});
     axios.get(`${API}/settings`).then(r => {
       const s = r.data;
+      setInrWhitelistEmails(Array.isArray(s.inr_whitelist_emails) ? s.inr_whitelist_emails : []);
       setPaymentSettings({
         disclaimer: s.payment_disclaimer || '',
         disclaimer_enabled: s.payment_disclaimer_enabled !== false,
@@ -453,11 +458,26 @@ function EnrollmentPage() {
   useEffect(() => {
     if (!inrToken) return;
     axios.post(`${API}/enrollment/inr-override/validate-token`, { token: inrToken })
-      .then(() => { setInrOverride(true); toast({ title: 'INR pricing activated!' }); })
+      .then(() => { setInrTokenActive(true); toast({ title: 'INR pricing activated!' }); })
       .catch(() => {});
   }, [inrToken]);
 
-  // Apply promo from URL once (e.g. dashboard / program detail ?promo=...)
+  // Local price getters — INR hub (same as India): token, whitelist, user override, or currency detect
+  const showIndiaHubPricing = useMemo(() => {
+    if (inrTokenActive) return true;
+    if (baseCurrency === 'inr') return true;
+    if ((user?.pricing_country_override || '').toUpperCase() === 'IN') return true;
+    const wl = (inrWhitelistEmails || []).map((e) => String(e).toLowerCase().trim()).filter(Boolean);
+    const em = (bookerEmail || user?.email || '').toLowerCase().trim();
+    if (em && wl.includes(em)) return true;
+    return false;
+  }, [inrTokenActive, baseCurrency, user?.pricing_country_override, user?.email, bookerEmail, inrWhitelistEmails]);
+
+  const priceCurrency = showIndiaHubPricing ? 'inr' : currency;
+  const priceSymbol = showIndiaHubPricing ? '₹' : rawSymbol;
+  const symbol = priceSymbol; // Use INR symbol when override active
+
+  // Apply promo from URL once (e.g. dashboard / program detail ?promo=...) — uses priceCurrency so INR whitelist matches backend
   useEffect(() => {
     if (type !== 'program' || !item || !promoFromUrl?.trim() || promoUrlAppliedRef.current) return;
     const code = promoFromUrl.trim().toUpperCase();
@@ -465,7 +485,7 @@ function EnrollmentPage() {
     setPromoCode(code);
     setPromoLoading(true);
     axios
-      .post(`${API}/promotions/validate`, { code, program_id: id, currency })
+      .post(`${API}/promotions/validate`, { code, program_id: id, currency: priceCurrency })
       .then((res) => {
         setPromoResult(res.data);
         toast({ title: 'Promo applied', description: res.data?.message || `${code} is active for this enrollment.` });
@@ -475,12 +495,8 @@ function EnrollmentPage() {
         toast({ title: 'Promo could not be applied', description: 'Check the code or remove it and try again.', variant: 'destructive' });
       })
       .finally(() => setPromoLoading(false));
-  }, [type, item, id, currency, promoFromUrl, toast]);
+  }, [type, item, id, priceCurrency, promoFromUrl, toast]);
 
-  // Local price getters — use INR when inrOverride active
-  const priceCurrency = inrOverride ? 'inr' : currency;
-  const priceSymbol = inrOverride ? '₹' : rawSymbol;
-  const symbol = priceSymbol; // Use INR symbol when override active
   const getLocalPrice = (item, tierIndex = null) => {
     if (!item) return 0;
     const tiers = item.duration_tiers || [];
@@ -511,12 +527,12 @@ function EnrollmentPage() {
   const displayEndDate = tierObj?.end_date || item?.end_date || '';
   const displayDuration = tierObj?.duration || item?.duration || '';
 
-  // Price getters — use INR directly when inrOverride is active
-  const effectiveCurrency = inrOverride ? 'inr' : currency;
-  const effectiveSymbol = inrOverride ? '₹' : symbol;
+  // Price getters — use INR directly when India hub pricing is active
+  const effectiveCurrency = showIndiaHubPricing ? 'inr' : currency;
+  const effectiveSymbol = showIndiaHubPricing ? '₹' : symbol;
 
-  const unitPrice = item ? (inrOverride ? getLocalPrice(item, hasTiers ? selectedTier : null) : toDisplay(getLocalPrice(item, hasTiers ? selectedTier : null))) : 0;
-  const offerUnitPrice = item ? (inrOverride ? getLocalOfferPrice(item, hasTiers ? selectedTier : null) : toDisplay(getLocalOfferPrice(item, hasTiers ? selectedTier : null))) : 0;
+  const unitPrice = item ? (showIndiaHubPricing ? getLocalPrice(item, hasTiers ? selectedTier : null) : toDisplay(getLocalPrice(item, hasTiers ? selectedTier : null))) : 0;
+  const offerUnitPrice = item ? (showIndiaHubPricing ? getLocalOfferPrice(item, hasTiers ? selectedTier : null) : toDisplay(getLocalOfferPrice(item, hasTiers ? selectedTier : null))) : 0;
   const effectiveUnitPrice = offerUnitPrice > 0 ? offerUnitPrice : unitPrice;
 
   // Cross-sell: check if "buy" program is in cart → this program gets discount
@@ -580,7 +596,7 @@ function EnrollmentPage() {
       try {
         const res = await axios.post(`${API}/discounts/calculate`, {
           num_programs: 1 + cartItems.length, num_participants: pCount,
-          subtotal: subtotalRaw, email: bookerEmail, currency,
+          subtotal: subtotalRaw, email: bookerEmail, currency: priceCurrency,
           program_ids: [id, ...cartItems.map(i => i.programId)],
           cart_items: [{ program_id: id, tier_index: selectedTier }, ...cartItems.map(i => ({ program_id: i.programId, tier_index: i.tierIndex }))],
         });
@@ -589,12 +605,12 @@ function EnrollmentPage() {
     };
     const timer = setTimeout(fetchDiscounts, 300);
     return () => clearTimeout(timer);
-  }, [subtotalRaw, pCount, bookerEmail, currency]);
+  }, [subtotalRaw, pCount, bookerEmail, priceCurrency]);
 
   const discount = (() => {
     if (!promoResult) return 0;
     if (promoResult.discount_type === 'percentage') return Math.round(subtotalRaw * promoResult.discount_percentage / 100);
-    return promoResult[`discount_${currency}`] || promoResult.discount_aed || 0;
+    return promoResult[`discount_${priceCurrency}`] || promoResult.discount_aed || 0;
   })();
   const subtotal = subtotalRaw;
   // Exclude cross_sell from auto discounts — it's already applied per-program via finalUnitPrice
@@ -649,7 +665,7 @@ function EnrollmentPage() {
     if (!promoCode.trim()) return;
     setPromoLoading(true);
     try {
-      const res = await axios.post(`${API}/promotions/validate`, { code: promoCode.trim(), program_id: id, currency });
+      const res = await axios.post(`${API}/promotions/validate`, { code: promoCode.trim(), program_id: id, currency: priceCurrency });
       setPromoResult(res.data); toast({ title: res.data.message });
     } catch (err) { setPromoResult(null); toast({ title: 'Invalid Code', variant: 'destructive' }); }
     finally { setPromoLoading(false); }

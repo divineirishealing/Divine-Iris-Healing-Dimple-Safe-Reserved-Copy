@@ -4,6 +4,7 @@ import axios from 'axios';
 import { Sparkles, Users, Loader2, Plus, Trash2, CreditCard, Clock, AlertTriangle, Lock, Bell, BellOff, Monitor, Wifi } from 'lucide-react';
 import { useToast } from '../../hooks/use-toast';
 import { useCurrency } from '../../context/CurrencyContext';
+import { useAuth } from '../../context/AuthContext';
 import { useSiteSettings } from '../../context/SiteSettingsContext';
 import { useCart } from '../../context/CartContext';
 import { pickTierIndexForDashboard, programIncludedInAnnualPackage } from './dashboardUpcomingHelpers';
@@ -391,6 +392,7 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh, bo
   const { syncProgramLineItem, itemCount } = useCart();
   const { toast } = useToast();
   const { settings: siteSettings } = useSiteSettings();
+  const { user } = useAuth();
   const annualIncludedIds = siteSettings?.annual_package_included_program_ids;
    const {
     getPrice,
@@ -403,6 +405,39 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh, bo
     displayRate,
     country: detectedCountry,
   } = useCurrency();
+
+  /** INR hub when whitelisted / override, even if IP-based currency detect is still USD+local FX. */
+  const portalQuoteCurrency = useMemo(() => {
+    const wl = (siteSettings?.inr_whitelist_emails || []).map((e) => String(e).toLowerCase().trim()).filter(Boolean);
+    const em = (bookerEmail || user?.email || '').toLowerCase().trim();
+    if (em && wl.includes(em)) return 'inr';
+    if ((user?.pricing_country_override || '').toUpperCase() === 'IN') return 'inr';
+    if (currency === 'inr') return 'inr';
+    return currency;
+  }, [siteSettings?.inr_whitelist_emails, bookerEmail, user?.email, user?.pricing_country_override, currency]);
+
+  const portalQuoteSymbol = portalQuoteCurrency === 'inr' ? '₹' : symbol;
+
+  const rawInrProgramPrice = useCallback((item, tierIndex = null) => {
+    if (!item) return 0;
+    const tiers = item.duration_tiers || [];
+    const hasTiers = item.is_flagship && tiers.length > 0;
+    const tier = hasTiers && tierIndex !== null ? tiers[tierIndex] : null;
+    const key = 'price_inr';
+    return tier ? tier[key] || 0 : item[key] || 0;
+  }, []);
+
+  const rawInrProgramOffer = useCallback((item, tierIndex = null) => {
+    if (!item) return 0;
+    const tiers = item.duration_tiers || [];
+    const hasTiers = item.is_flagship && tiers.length > 0;
+    const tier = hasTiers && tierIndex !== null ? tiers[tierIndex] : null;
+    if (tier) return tier.offer_price_inr || tier.offer_inr || 0;
+    return item.offer_price_inr || 0;
+  }, []);
+
+  const displayGetPrice = portalQuoteCurrency === 'inr' ? rawInrProgramPrice : getPrice;
+  const displayGetOfferPrice = portalQuoteCurrency === 'inr' ? rawInrProgramOffer : getOfferPrice;
   const [saving, setSaving] = useState(false);
   const [promoByProgramId, setPromoByProgramId] = useState({});
   const [promoPricesLoading, setPromoPricesLoading] = useState(false);
@@ -808,8 +843,8 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh, bo
         const bookerJoins = includedInPkg ? false : draft?.bookerJoinsProgram !== false;
         const params =
           ids.length > 0
-            ? { program_id: p.id, currency, family_ids: ids.join(','), booker_joins: bookerJoins }
-            : { program_id: p.id, currency, family_count: 0, booker_joins: bookerJoins };
+            ? { program_id: p.id, currency: portalQuoteCurrency, family_ids: ids.join(','), booker_joins: bookerJoins }
+            : { program_id: p.id, currency: portalQuoteCurrency, family_count: 0, booker_joins: bookerJoins };
         if (p.is_flagship && (p.duration_tiers || []).length > 0) {
           params.tier_index = getDashboardTier(p);
         }
@@ -832,7 +867,7 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh, bo
     return () => {
       cancelled = true;
     };
-  }, [isAnnual, currencyReady, currency, prefetchProgramsKey, familySelectionKey, dashboardTierKey, programsForPrefetch, seatDraftsByProgram, getDashboardTier, annualIncludedIds]);
+  }, [isAnnual, currencyReady, portalQuoteCurrency, prefetchProgramsKey, familySelectionKey, dashboardTierKey, programsForPrefetch, seatDraftsByProgram, getDashboardTier, annualIncludedIds]);
 
   useEffect(() => {
     if (!isAnnual) return;
@@ -876,7 +911,7 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh, bo
           .post(`${API}/api/promotions/validate`, {
             code,
             program_id: p.id,
-            currency,
+            currency: portalQuoteCurrency,
           })
           .then((r) => ({ id: p.id, data: r.data }))
           .catch(() => ({ id: p.id, data: null }))
@@ -893,7 +928,7 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh, bo
     return () => {
       cancelled = true;
     };
-  }, [promoForProgramClicks, currencyReady, currency, prefetchProgramsKey, programsForPrefetch]);
+  }, [promoForProgramClicks, currencyReady, portalQuoteCurrency, prefetchProgramsKey, programsForPrefetch]);
 
   const toggleFamilyMember = (programId, memberId) => {
     const mid = String(memberId || '');
@@ -1349,10 +1384,10 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh, bo
                   isAnnual={isAnnual}
                   bookerEmail={bookerEmail}
                   detectedCountry={detectedCountry}
-                  symbol={symbol}
-                  currency={currency}
-                  getPrice={getPrice}
-                  getOfferPrice={getOfferPrice}
+                  symbol={portalQuoteSymbol}
+                  currency={portalQuoteCurrency}
+                  getPrice={displayGetPrice}
+                  getOfferPrice={displayGetOfferPrice}
                   promoForProgramClicks={promoForProgramClicks}
                   promoByProgramId={promoByProgramId}
                   promoPricesLoading={promoPricesLoading}
