@@ -1304,11 +1304,6 @@ export default function DashboardUpcomingProgramRowItem({
                           <p className="text-[11px] text-slate-400 italic">No saved guests in this list yet.</p>
                         )}
                       </div>
-                      {selCount > 0 && (
-                        <p className="text-[10px] text-slate-600 bg-violet-50/60 rounded-lg px-2 py-1.5 mt-1 border border-violet-100">
-                          {selCount} guest{selCount > 1 ? 's' : ''} added to your enrollment.
-                        </p>
-                      )}
                     </div>
                   )}
                 </div>
@@ -1364,32 +1359,33 @@ export default function DashboardUpcomingProgramRowItem({
                   )}
                 </div>
 
-              </div>
+              </div>{/* closes Family+Attendance grid */}
+
+              {/* Per-person + Save as default row — inside right panels, below Family+Attendance */}
+              {enrollStatus === 'open' && (
+                <div className="w-full rounded-xl border border-slate-200 bg-white p-3 sm:p-4 shadow-sm min-h-0 flex flex-col gap-2 min-w-0">
+                  <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2 sm:gap-4 w-full min-w-0">
+                    <button type="button"
+                      className="text-violet-700 font-bold uppercase tracking-wide text-[9px] underline underline-offset-2 hover:text-violet-900 p-0 bg-transparent border-0 cursor-pointer text-left shrink-0 sm:pt-0.5"
+                      onClick={(e) => { e.stopPropagation(); openEnrollmentSeatModal?.(p, false, selIds); }}>
+                      Per-person attendance &amp; email…
+                    </button>
+                    <p className="text-[10px] text-slate-500 leading-snug flex-1 min-w-0 line-clamp-2">
+                      Opens the full editor for <span className="font-medium text-slate-700">{p.title || 'this program'}</span>.
+                      Use <strong className="text-slate-700">Save defaults &amp; close</strong> in the dialog if you only want to store preferences.
+                    </p>
+                  </div>
+                  <label className="flex items-center gap-2 cursor-pointer pt-2 border-t border-slate-100">
+                    <input type="checkbox" className="rounded border-slate-300 scale-90 shrink-0" checked={!!nonAnnualSaveDefaults} onChange={(e) => setNonAnnualSaveDefaults(e.target.checked)} />
+                    <span className="font-semibold text-[9px] text-slate-800 uppercase tracking-wide leading-snug">
+                      Save as my default for every program (this browser)
+                    </span>
+                  </label>
+                </div>
+              )}
+
             </div>
           </div>
-
-          {/* Per-person + Save as default row — mirrors annual layout */}
-          {enrollStatus === 'open' && (
-            <div className="w-full rounded-xl border border-slate-200 bg-white p-3 sm:p-4 shadow-sm min-h-0 flex flex-col gap-2 min-w-0">
-              <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2 sm:gap-4 w-full min-w-0">
-                <button type="button"
-                  className="text-violet-700 font-bold uppercase tracking-wide text-[9px] underline underline-offset-2 hover:text-violet-900 p-0 bg-transparent border-0 cursor-pointer text-left shrink-0 sm:pt-0.5"
-                  onClick={(e) => { e.stopPropagation(); openEnrollmentSeatModal?.(p, false, selIds); }}>
-                  Per-person attendance &amp; email…
-                </button>
-                <p className="text-[10px] text-slate-500 leading-snug flex-1 min-w-0 line-clamp-2">
-                  Opens the full editor for <span className="font-medium text-slate-700">{p.title || 'this program'}</span>.
-                  Use <strong className="text-slate-700">Save defaults &amp; close</strong> in the dialog if you only want to store preferences.
-                </p>
-              </div>
-              <label className="flex items-center gap-2 cursor-pointer pt-2 border-t border-slate-100">
-                <input type="checkbox" className="rounded border-slate-300 scale-90 shrink-0" checked={!!nonAnnualSaveDefaults} onChange={(e) => setNonAnnualSaveDefaults(e.target.checked)} />
-                <span className="font-semibold text-[9px] text-slate-800 uppercase tracking-wide leading-snug">
-                  Save as my default for every program (this browser)
-                </span>
-              </label>
-            </div>
-          )}
 
           {/* Bottom: Know More + Add to Divine Cart */}
           <div className="flex flex-col sm:flex-row gap-3 w-full sm:items-center sm:justify-between pt-3 mt-1 border-t border-slate-200/70">
