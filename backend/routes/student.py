@@ -639,7 +639,7 @@ async def update_immediate_family(data: FamilyUpdate, user: dict = Depends(get_c
     locked_flag = bool(client_row and client_row.get("immediate_family_locked"))
     legacy_filled = _immediate_family_has_names(prev_family)
     locked = locked_flag or legacy_filled
-    approved = bool(client_row and client_row.get("immediate_family_editing_approved"))
+    approved = bool(client_row) and client_row.get("immediate_family_editing_approved") is not False
     family_approved = bool(client_row and client_row.get("family_approved"))
 
     # Permanently frozen — admin has reviewed and approved; no more edits ever
@@ -680,7 +680,7 @@ async def update_immediate_family(data: FamilyUpdate, user: dict = Depends(get_c
             "city": (m.city or "").strip(),
             "age": age_val,
             "attendance_mode": _normalize_attendance_mode(m.attendance_mode),
-            "country": (m.country or "").strip()[:4] or "",
+            "country": (m.country or "").strip()[:120] or "",
             "notify_enrollment": bool(m.notify_enrollment) and bool(em),
             "updated_at": datetime.now(timezone.utc).isoformat(),
         })
@@ -741,7 +741,7 @@ async def update_other_guests(data: FamilyUpdate, user: dict = Depends(get_curre
             "city": (m.city or "").strip(),
             "age": age_val,
             "attendance_mode": _normalize_attendance_mode(m.attendance_mode),
-            "country": (m.country or "").strip()[:4] or "",
+            "country": (m.country or "").strip()[:120] or "",
             "notify_enrollment": bool(m.notify_enrollment) and bool(em),
             "updated_at": datetime.now(timezone.utc).isoformat(),
         })
@@ -1295,7 +1295,7 @@ async def get_student_home(user: dict = Depends(get_current_user)):
     immediate_family = client.get("immediate_family") or []
     other_guests = client.get("other_guests") or []
     immediate_family_locked = _immediate_family_effective_locked(client)
-    immediate_family_editing_approved = bool(client.get("immediate_family_editing_approved"))
+    immediate_family_editing_approved = client.get("immediate_family_editing_approved") is not False
     family_approved = bool(client.get("family_approved"))
     family_pending_review = bool(client.get("family_pending_review"))
 

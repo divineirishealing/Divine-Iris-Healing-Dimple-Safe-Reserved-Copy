@@ -479,7 +479,7 @@ const ClientDetail = ({ client: cl, labelConfig: cfg, onUpdate, onDelete, onRefr
   const [editing, setEditing] = useState(false);
   const [labelManual, setLabelManual] = useState(cl.label_manual || '');
   const [notes, setNotes] = useState(cl.notes || '');
-  const [familyEditApproved, setFamilyEditApproved] = useState(!!cl.immediate_family_editing_approved);
+  const [familyEditApproved, setFamilyEditApproved] = useState(cl.immediate_family_editing_approved !== false);
   const [portalLoginAllowed, setPortalLoginAllowed] = useState(cl.portal_login_allowed !== false);
   const [indiaPaymentMethod, setIndiaPaymentMethod] = useState(cl.india_payment_method || '');
   const [indiaDiscountPercent, setIndiaDiscountPercent] = useState(cl.india_discount_percent ?? '');
@@ -501,7 +501,7 @@ const ClientDetail = ({ client: cl, labelConfig: cfg, onUpdate, onDelete, onRefr
   }, []);
 
   useEffect(() => {
-    setFamilyEditApproved(!!cl.immediate_family_editing_approved);
+    setFamilyEditApproved(cl.immediate_family_editing_approved !== false);
     setPortalLoginAllowed(cl.portal_login_allowed !== false);
     setIndiaPaymentMethod(cl.india_payment_method || '');
     setIndiaDiscountPercent(cl.india_discount_percent ?? '');
@@ -619,7 +619,7 @@ const ClientDetail = ({ client: cl, labelConfig: cfg, onUpdate, onDelete, onRefr
                       Allow member to edit immediate family (dashboard)
                     </span>
                     <span className="text-[9px] text-gray-500 block mt-0.5 leading-snug">
-                      Temporarily re-opens editing before you approve. Once you click Approve &amp; Freeze, this is no longer available.
+                      On by default so members can maintain their list. Turn off to block edits once their names are saved, unless you allow a temporary unlock below.
                     </span>
                   </span>
                 </label>
@@ -658,7 +658,7 @@ const ClientDetail = ({ client: cl, labelConfig: cfg, onUpdate, onDelete, onRefr
                 <span>
                   <span className="text-[10px] font-semibold text-gray-800">Sacred Home: use annual-member pricing</span>
                   <span className="text-[9px] text-gray-500 block mt-0.5 leading-snug">
-                    Turn on after you verify they are on the annual path (intake “yes” or your records). This unlocks package-inclusion and annual-offer logic like the Subscribers sheet, without requiring an Excel subscriber row.
+                    Turn on after you verify they are on the annual path. This unlocks package-inclusion and annual-offer logic like the Subscribers sheet, without requiring an Excel subscriber row.
                   </span>
                 </span>
               </label>
@@ -913,7 +913,7 @@ const ClientDetail = ({ client: cl, labelConfig: cfg, onUpdate, onDelete, onRefr
               ) : familyListLocked ? (
                 <p className="text-[10px] text-gray-600">
                   List is <span className="font-semibold">locked</span>.{" "}
-                  {cl.immediate_family_editing_approved
+                  {cl.immediate_family_editing_approved !== false
                     ? "Edits currently allowed — turn off above to re-lock."
                     : 'Enable "Allow member to edit immediate family" above to let them update it.'}
                 </p>

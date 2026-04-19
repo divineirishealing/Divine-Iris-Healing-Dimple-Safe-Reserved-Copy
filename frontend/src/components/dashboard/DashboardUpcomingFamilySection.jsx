@@ -157,18 +157,46 @@ function deriveNotifyQuickPreset(ctx, guestForm, bookerNotify) {
 /** Cap parallel quote / promo requests (matches backend upcoming program list cap). */
 const DASHBOARD_UPCOMING_PREFETCH_LIMIT = 100;
 
-const RELATIONSHIPS = ['Spouse', 'Child', 'Parent', 'Sibling', 'Other'];
-const OTHER_RELATIONSHIPS = ['Friend', 'Cousin', 'Relative', 'Uncle / Aunt', 'Grandparent', 'Other'];
+/** Avoid narrow labels (spouse, child, parent, sibling, etc.) — use neutral household wording. */
+const RELATIONSHIPS = ['Partner', 'Guardian', 'Dependent', 'Extended family', 'Other'];
+const LEGACY_IMMEDIATE_REL = {
+  Spouse: 'Partner',
+  Husband: 'Partner',
+  Wife: 'Partner',
+  Child: 'Dependent',
+  Parent: 'Guardian',
+  Mother: 'Guardian',
+  Father: 'Guardian',
+  Sibling: 'Extended family',
+  Brother: 'Extended family',
+  Sister: 'Extended family',
+};
+
+const OTHER_RELATIONSHIPS = ['Friend', 'Connection', 'Community', 'Other'];
+const LEGACY_OTHER_REL = {
+  Cousin: 'Connection',
+  Relative: 'Connection',
+  'Uncle / Aunt': 'Connection',
+  Grandparent: 'Community',
+};
 
 function GuestMemberTable({
   members,
   setMembers,
   relationships,
   relationshipFallback,
+  legacyRelationshipMap = {},
   wrapTestId,
   tableTestId,
   readOnly = false,
 }) {
+  const coalesceRelationship = (raw) => {
+    const r = (raw || '').trim();
+    if (relationships.includes(r)) return r;
+    const mapped = legacyRelationshipMap[r];
+    if (mapped && relationships.includes(mapped)) return mapped;
+    return relationshipFallback;
+  };
   const updateRow = (idx, field, value) => {
     setMembers((m) => {
       const next = [...m];
@@ -185,13 +213,13 @@ function GuestMemberTable({
       className="overflow-x-auto rounded-lg border border-slate-200/90 bg-white shadow-sm"
       data-testid={wrapTestId}
     >
-      <table className="w-full min-w-[920px] text-left border-collapse" data-testid={tableTestId}>
+      <table className="w-full min-w-[980px] text-left border-collapse" data-testid={tableTestId}>
         <thead>
           <tr className="bg-slate-100/95 border-b border-slate-200">
             <th className="px-2 py-2 text-[9px] font-bold uppercase tracking-wide text-slate-600 whitespace-nowrap min-w-[7rem]">
               Name
             </th>
-            <th className="px-2 py-2 text-[9px] font-bold uppercase tracking-wide text-slate-600 whitespace-nowrap w-[6.5rem]">
+            <th className="px-2 py-2 text-[9px] font-bold uppercase tracking-wide text-slate-600 whitespace-nowrap min-w-[7.5rem]">
               Relation
             </th>
             <th className="px-2 py-2 text-[9px] font-bold uppercase tracking-wide text-slate-600 whitespace-nowrap w-[8.5rem]">
@@ -203,7 +231,7 @@ function GuestMemberTable({
             <th className="px-2 py-2 text-[9px] font-bold uppercase tracking-wide text-slate-600 whitespace-nowrap min-w-[5rem]">
               City
             </th>
-            <th className="px-2 py-2 text-[9px] font-bold uppercase tracking-wide text-slate-600 whitespace-nowrap w-[3.5rem]">
+            <th className="px-2 py-2 text-[9px] font-bold uppercase tracking-wide text-slate-600 whitespace-nowrap min-w-[7.5rem]">
               Country
             </th>
             <th className="px-2 py-2 text-[9px] font-bold uppercase tracking-wide text-slate-600 whitespace-nowrap min-w-[8rem]">
@@ -232,10 +260,10 @@ function GuestMemberTable({
               </td>
               <td className="px-2 py-1.5 align-middle">
                 <select
-                  value={m.relationship || relationshipFallback}
+                  value={coalesceRelationship(m.relationship)}
                   onChange={(e) => updateRow(idx, 'relationship', e.target.value)}
                   disabled={readOnly}
-                  className="w-full max-w-[6.5rem] text-[11px] border border-slate-200 rounded px-1 py-1 bg-white disabled:opacity-60 disabled:bg-slate-50"
+                  className="w-full min-w-[7rem] max-w-[10rem] text-[11px] border border-slate-200 rounded px-1 py-1 bg-white disabled:opacity-60 disabled:bg-slate-50"
                 >
                   {relationships.map((r) => (
                     <option key={r} value={r}>
@@ -295,11 +323,11 @@ function GuestMemberTable({
               <td className="px-2 py-1.5 align-middle">
                 <input
                   value={m.country || ''}
-                  onChange={(e) => updateRow(idx, 'country', e.target.value.toUpperCase().slice(0, 4))}
+                  onChange={(e) => updateRow(idx, 'country', e.target.value.slice(0, 120))}
                   disabled={readOnly}
-                  className="w-full max-w-[3.5rem] text-[11px] border border-slate-200 rounded px-1 py-1 bg-white uppercase disabled:opacity-60 disabled:bg-slate-50"
-                  placeholder="IN"
-                  title="ISO country code (e.g. IN, AE, US)"
+                  className="w-full min-w-[6.5rem] text-[11px] border border-slate-200 rounded px-1.5 py-1 bg-white disabled:opacity-60 disabled:bg-slate-50"
+                  placeholder="e.g. India"
+                  title="Full country name"
                 />
               </td>
               <td className="px-2 py-1.5 align-middle">
@@ -507,7 +535,7 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh, bo
   const extendedOffer = offers.extended || {};
   const isAnnual = homeData?.is_annual_subscriber;
   const immediateFamilyLocked = !!homeData?.immediate_family_locked;
-  const immediateFamilyEditApproved = !!homeData?.immediate_family_editing_approved;
+  const immediateFamilyEditApproved = homeData?.immediate_family_editing_approved !== false;
   const familyApproved = !!homeData?.family_approved;
   const familyPendingReview = !!homeData?.family_pending_review;
   // Permanently frozen once approved; otherwise locked until admin temporarily re-opens
@@ -706,7 +734,7 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh, bo
       {
         id: '',
         name: '',
-        relationship: 'Spouse',
+        relationship: 'Partner',
         email: '',
         phone: '',
         date_of_birth: '',
@@ -1519,11 +1547,7 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh, bo
             <Users size={16} className="text-violet-700" />
             <div>
               <h3 className="text-sm font-semibold text-slate-900">Immediate family</h3>
-              <p className="text-[11px] text-slate-500">
-                Add household members for family enrollments (max 12). Use <strong className="text-slate-700 font-medium">country</strong>{' '}
-                (e.g. IN, AE) and contact fields. Online / offline and enrollment email notifications are chosen when you
-                enroll or pay for a program, not on this list.
-              </p>
+              <p className="text-[11px] text-slate-500">Up to 12 household members for enrollments.</p>
             </div>
           </div>
 
@@ -1579,6 +1603,7 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh, bo
                 setMembers={setMembers}
                 relationships={RELATIONSHIPS}
                 relationshipFallback="Other"
+                legacyRelationshipMap={LEGACY_IMMEDIATE_REL}
                 wrapTestId="immediate-family-table-wrap"
                 tableTestId="immediate-family-table"
                 readOnly={immediateFamilyReadOnly}
@@ -1612,10 +1637,7 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh, bo
             <Users size={16} className="text-indigo-600" />
             <div>
               <h3 className="text-sm font-semibold text-slate-900">Friends &amp; extended</h3>
-              <p className="text-[11px] text-slate-500">
-                Friends, cousins, relatives, uncles/aunts, grandparents, and similar (max 12). Same contact fields as
-                immediate family; session mode and enrollment emails are set at checkout time.
-              </p>
+              <p className="text-[11px] text-slate-500">Up to 12 additional guests.</p>
             </div>
           </div>
 
@@ -1631,6 +1653,7 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh, bo
                 setMembers={setOtherMembers}
                 relationships={OTHER_RELATIONSHIPS}
                 relationshipFallback="Friend"
+                legacyRelationshipMap={LEGACY_OTHER_REL}
                 wrapTestId="other-guests-table-wrap"
                 tableTestId="other-guests-table"
               />
