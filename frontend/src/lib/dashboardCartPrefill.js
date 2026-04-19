@@ -150,16 +150,26 @@ export function buildSelfOnlyCartParticipants(self, program, bookerEmail, detect
 /** Merge per-program seat draft (e.g. bookerJoinsProgram) with dashboard-wide attendance / notify / guest form. */
 export function mergeGlobalSeatDraft(perProgramDraft, bookerSeatMode, bookerSeatNotify, guestSeatForm) {
   const p = perProgramDraft && typeof perProgramDraft === 'object' ? perProgramDraft : {};
-  const bm =
-    bookerSeatMode !== undefined && bookerSeatMode !== null ? bookerSeatMode : p.bookerSeatMode;
-  const bn =
-    bookerSeatNotify !== undefined && bookerSeatNotify !== null ? bookerSeatNotify : p.bookerSeatNotify;
-  const gf = guestSeatForm !== undefined && guestSeatForm !== null ? guestSeatForm : p.guestSeatForm;
+  const hasPerBooker = p.bookerSeatMode !== undefined && p.bookerSeatMode !== null;
+  const bm = hasPerBooker
+    ? p.bookerSeatMode
+    : bookerSeatMode !== undefined && bookerSeatMode !== null
+      ? bookerSeatMode
+      : p.bookerSeatMode;
+  const hasPerNotify = p.bookerSeatNotify !== undefined && p.bookerSeatNotify !== null;
+  const bn = hasPerNotify
+    ? p.bookerSeatNotify
+    : bookerSeatNotify !== undefined && bookerSeatNotify !== null
+      ? bookerSeatNotify
+      : p.bookerSeatNotify;
+  const snapG = guestSeatForm && typeof guestSeatForm === 'object' ? guestSeatForm : {};
+  const perG = p.guestSeatForm && typeof p.guestSeatForm === 'object' ? p.guestSeatForm : {};
+  const gf = { ...snapG, ...perG };
   return {
     ...p,
     bookerSeatMode: bm === 'offline' ? 'offline' : 'online',
     bookerSeatNotify: bn !== false,
-    guestSeatForm: gf && typeof gf === 'object' ? gf : {},
+    guestSeatForm: gf,
   };
 }
 

@@ -28,8 +28,6 @@ import { useAuth } from '../context/AuthContext';
 import { readUpcomingDashboardSession } from '../lib/dashboardUpcomingSessionStorage';
 import {
   buildAnnualDashboardCartParticipants,
-  buildFullPortalRosterCartParticipants,
-  buildSelfOnlyCartParticipants,
   buildGuestBucketByIdFromSelection,
   mergeGlobalSeatDraft,
 } from '../lib/dashboardCartPrefill';
@@ -143,7 +141,7 @@ export default function DashboardCombinedCheckoutPage() {
   const location = useLocation();
   const [searchParams, setSearchParams] = useSearchParams();
   const { user } = useAuth();
-  const { items, clearCart, syncProgramLineItem } = useCart();
+  const { items, clearCart, syncProgramLineItem, removeItem } = useCart();
   const {
     country: detectedCountry,
     symbol,
@@ -190,6 +188,34 @@ export default function DashboardCombinedCheckoutPage() {
   const promoFromUrlApplied = useRef(false);
   /** When true, skip the "empty cart → back to dashboard" redirect (e.g. after pay redirect or intentional clear + orders). */
   const suppressEmptyCartRedirectRef = useRef(false);
+  /** Bumps when returning to the tab on checkout so we re-read Sacred Home sessionStorage and realign the cart roster. */
+  const [dashSessionNonce, setDashSessionNonce] = useState(0);
+  useEffect(() => {
+    if (location.pathname !== PORTAL_CHECKOUT_PATH) return undefined;
+    const onVis = () => {
+      if (document.visibilityState === 'visible') setDashSessionNonce((n) => n + 1);
+    };
+    document.addEventListener('visibilitychange', onVis);
+    return () => document.removeEventListener('visibilitychange', onVis);
+  }, [location.pathname]);
+
+  const sacredHomeSessionKey = useMemo(() => {
+    const email = (user?.email || '').trim();
+    if (!email) return '';
+    const snap = readUpcomingDashboardSession(email);
+    if (!snap) return 'none';
+    try {
+      return JSON.stringify({
+        sel: snap.selectedFamilyByProgram,
+        drafts: snap.seatDraftsByProgram,
+        bm: snap.bookerSeatMode,
+        bn: snap.bookerSeatNotify,
+        gf: snap.guestSeatForm,
+      });
+    } catch {
+      return 'err';
+    }
+  }, [user?.email, location.key, dashSessionNonce]);
 
   useEffect(() => {
     if (eidParam && eidParam !== enrollmentId) setEnrollmentId(eidParam);
@@ -336,7 +362,7 @@ export default function DashboardCombinedCheckoutPage() {
     [items],
   );
 
-  /** Align cart roster with Upcoming programs seat picks (session) + latest profile; skip after enrollment draft exists. */
+  /** Align cart roster with Sacred Home session (who is selected + attendance), same logic for annual and non-annual. */
   useEffect(() => {
     const email = (user?.email || '').trim();
     if (!email || !portalCartLineKey || location.pathname !== PORTAL_CHECKOUT_PATH) return;
@@ -365,50 +391,42 @@ export default function DashboardCombinedCheckoutPage() {
         const selectedMap = snap?.selectedFamilyByProgram || {};
         const drafts = snap?.seatDraftsByProgram || {};
 
-        for (const line of items) {
+        for (const line of [...items]) {
           if (line.type !== 'program') continue;
           const program = upcoming.find((p) => String(p.id) === String(line.programId));
           if (!program) continue;
 
-          let participants = null;
-          if (isAnnual) {
-            const includedForSeat = programIncludedInAnnualPackage(program, annualIncludedIds);
-            const sel = selectedMap[program.id] || selectedMap[String(program.id)] || [];
-            const perDraft = drafts[program.id] || drafts[String(program.id)];
-            const draft = mergeGlobalSeatDraft(
-              perDraft,
-              snap?.bookerSeatMode,
-              snap?.bookerSeatNotify,
-              snap?.guestSeatForm,
-            );
+          const includedForSeat = isAnnual && programIncludedInAnnualPackage(program, annualIncludedIds);
+          const sel = selectedMap[program.id] || selectedMap[String(program.id)] || [];
+          const perDraft = drafts[program.id] || drafts[String(program.id)];
+          const draft = mergeGlobalSeatDraft(
+            perDraft,
+            snap?.bookerSeatMode,
+            snap?.bookerSeatNotify,
+            snap?.guestSeatForm,
+          );
+          const participants = buildAnnualDashboardCartParticipants({
+            program,
+            includedPkg: !!includedForSeat,
+            selectedMemberIds: sel,
+            seatDraft: draft,
+            enrollableGuests,
+            self,
+            bookerEmail: email,
+            detectedCountry,
+            immediateFamilyMembers: immediateFamily,
+          });
+          if (participants && participants.length > 0) {
             const guestBucketById = buildGuestBucketByIdFromSelection(sel, immediateFamily);
-            participants = buildAnnualDashboardCartParticipants({
-              program,
-              includedPkg: !!includedForSeat,
-              selectedMemberIds: sel,
-              seatDraft: draft,
-              enrollableGuests,
-              self,
-              bookerEmail: email,
-              detectedCountry,
-              immediateFamilyMembers: immediateFamily,
+            syncProgramLineItem(program, line.tierIndex, participants, {
+              familyIds: sel.map(String),
+              bookerJoins: includedForSeat ? false : draft?.bookerJoinsProgram !== false,
+              annualIncluded: !!includedForSeat,
+              portalQuoteTotal: null,
+              guestBucketById,
             });
-            if (participants && participants.length > 0) {
-              syncProgramLineItem(program, line.tierIndex, participants, {
-                familyIds: sel.map(String),
-                bookerJoins: includedForSeat ? false : draft?.bookerJoinsProgram !== false,
-                annualIncluded: !!includedForSeat,
-                portalQuoteTotal: null,
-                guestBucketById,
-              });
-            }
           } else {
-            participants =
-              buildFullPortalRosterCartParticipants(program, pre, email, detectedCountry) ||
-              buildSelfOnlyCartParticipants(self, program, email, detectedCountry);
-            if (participants && participants.length > 0) {
-              syncProgramLineItem(program, line.tierIndex, participants);
-            }
+            removeItem(line.id);
           }
         }
       } catch {
@@ -421,11 +439,13 @@ export default function DashboardCombinedCheckoutPage() {
   }, [
     user?.email,
     portalCartLineKey,
+    sacredHomeSessionKey,
     location.pathname,
     enrollmentId,
     eidParam,
     detectedCountry,
     syncProgramLineItem,
+    removeItem,
   ]);
 
   useEffect(() => {
@@ -485,7 +505,7 @@ export default function DashboardCombinedCheckoutPage() {
   };
 
   useEffect(() => {
-    if (!subscriberIsAnnual || !annualQuoteDeps) {
+    if (!annualQuoteDeps) {
       setAnnualPortalSubtotal(null);
       setAnnualQuotesByProgram({});
       return;
@@ -542,11 +562,10 @@ export default function DashboardCombinedCheckoutPage() {
     return () => {
       cancelled = true;
     };
-  }, [subscriberIsAnnual, annualQuoteDeps, currency, user?.email]);
+  }, [annualQuoteDeps, currency, user?.email]);
 
   const naiveSubtotal = items.reduce((sum, item) => sum + getEffectivePrice(item) * item.participants.length, 0);
-  const subtotal =
-    subscriberIsAnnual && annualPortalSubtotal != null ? annualPortalSubtotal : naiveSubtotal;
+  const subtotal = annualPortalSubtotal != null ? annualPortalSubtotal : naiveSubtotal;
   const totalParticipants = items.reduce((sum, i) => sum + i.participants.length, 0);
   const numPrograms = items.length;
 
@@ -562,10 +581,7 @@ export default function DashboardCombinedCheckoutPage() {
         if (selfIncluded) continue;
         const lineQuote = annualQuotesByProgram[String(item.programId)] || null;
         const guestBucketById = meta.guestBucketById || {};
-        const portalBase =
-          subscriberIsAnnual && lineQuote
-            ? annualPortalSeatUnitBasePrices(lineQuote, p, guestBucketById)
-            : null;
+        const portalBase = lineQuote ? annualPortalSeatUnitBasePrices(lineQuote, p, guestBucketById) : null;
         const unitOfferRaw = portalBase
           ? toDisplay(portalBase.offer)
           : getItemOfferPrice(item);
@@ -583,7 +599,7 @@ export default function DashboardCombinedCheckoutPage() {
       listTotal: Math.round(listTotal * 100) / 100,
       offerTotal: Math.round(offerTotal * 100) / 100,
     };
-  }, [items, subscriberIsAnnual, annualQuotesByProgram, currency]);
+  }, [items, subscriberIsAnnual, annualQuotesByProgram, currency, toDisplay]);
 
   const cartProgramIdsForUrgency = useMemo(
     () =>
@@ -902,7 +918,7 @@ export default function DashboardCombinedCheckoutPage() {
           item_id: leadItem?.programId || '',
           item_title: leadItem?.programTitle || '',
           participants: allParticipants,
-          ...(subscriberIsAnnual && programLines.length > 0
+          ...(programLines.length > 0
             ? {
                 portal_cart_currency: currency,
                 portal_cart_lines: programLines.map((i) => ({
