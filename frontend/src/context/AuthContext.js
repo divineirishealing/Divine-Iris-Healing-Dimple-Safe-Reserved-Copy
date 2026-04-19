@@ -48,11 +48,11 @@ export const AuthProvider = ({ children }) => {
     window.location.href = `https://auth.emergentagent.com/?redirect=${encodeURIComponent(redirectUrl)}`;
   };
 
-  const logout = async () => {
+  const logout = async (redirectTo = '/login') => {
     if (!BACKEND_URL) {
       localStorage.removeItem('session_token');
       setUser(null);
-      navigate('/login');
+      navigate(redirectTo);
       return;
     }
     try {
@@ -62,12 +62,12 @@ export const AuthProvider = ({ children }) => {
       });
       localStorage.removeItem('session_token');
       setUser(null);
-      navigate('/login');
+      navigate(redirectTo);
     } catch (err) {
       console.error("Logout failed", err);
       localStorage.removeItem('session_token');
       setUser(null);
-      navigate('/login');
+      navigate(redirectTo);
     }
   };
 

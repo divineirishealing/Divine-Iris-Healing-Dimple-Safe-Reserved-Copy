@@ -1,14 +1,24 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
 import { useToast } from '../../../hooks/use-toast';
+import { useAuth } from '../../../context/AuthContext';
+import { getBackendUrl } from '../../../lib/config';
 import { Button } from '../../ui/button';
 import { Textarea } from '../../ui/textarea';
 import { Input } from '../../ui/input';
 import { Label } from '../../ui/label';
 import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '../../ui/dialog';
+import {
   Users, Search, Download, RefreshCw, ChevronDown, ChevronUp,
-  Droplets, Sprout, TreeDeciduous, Flower2, Star,   Sparkles, Crown,
-  Clock, Tag, Edit2, Save, X, Trash2, UserPlus, Lock
+  Droplets, Sprout, TreeDeciduous, Flower2, Star, Sparkles, Crown,
+  Clock, Tag, Edit2, Save, X, Trash2, UserPlus, Lock, Eye,
 } from 'lucide-react';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
@@ -39,6 +49,7 @@ const timeAgo = (dateStr) => {
 
 const ClientsTab = () => {
   const { toast } = useToast();
+  const { checkAuth } = useAuth();
   const [clients, setClients] = useState([]);
   const [stats, setStats] = useState({ total: 0, by_label: {} });
   const [filterLabel, setFilterLabel] = useState('');
@@ -54,6 +65,60 @@ const ClientsTab = () => {
     label_manual: '',
   });
   const [addingClient, setAddingClient] = useState(false);
+
+  const [impersonateOpen, setImpersonateOpen] = useState(false);
+  const [impersonateEmail, setImpersonateEmail] = useState('');
+  const [impersonateName, setImpersonateName] = useState('');
+  const [adminPasswordImpersonate, setAdminPasswordImpersonate] = useState('');
+  const [impersonateLoading, setImpersonateLoading] = useState(false);
+
+  const openImpersonate = (e, cl) => {
+    e.stopPropagation();
+    const em = (cl.email || '').trim();
+    if (!em) {
+      toast({
+        title: 'No email on file',
+        description: 'Add an email to this client to preview their dashboard.',
+        variant: 'destructive',
+      });
+      return;
+    }
+    setImpersonateEmail(em);
+    setImpersonateName(cl.name || '');
+    setAdminPasswordImpersonate('');
+    setImpersonateOpen(true);
+  };
+
+  const submitImpersonate = async (e) => {
+    e.preventDefault();
+    setImpersonateLoading(true);
+    try {
+      const res = await axios.post(
+        `${getBackendUrl()}/api/auth/impersonate`,
+        { admin_password: adminPasswordImpersonate, email: impersonateEmail },
+        { withCredentials: true }
+      );
+      if (res.data.session_token) {
+        localStorage.setItem('session_token', res.data.session_token);
+      }
+      await checkAuth();
+      setImpersonateOpen(false);
+      toast({
+        title: 'Opening dashboard',
+        description: `Preview as ${res.data.user?.email || impersonateEmail}`,
+      });
+      window.location.href = '/dashboard';
+    } catch (err) {
+      const d = err.response?.data?.detail;
+      toast({
+        title: 'Could not start preview',
+        description: typeof d === 'string' ? d : err.message,
+        variant: 'destructive',
+      });
+    } finally {
+      setImpersonateLoading(false);
+    }
+  };
 
   const fetchData = useCallback(async () => {
     try {
@@ -307,6 +372,16 @@ const ClientsTab = () => {
                   <p className="text-[10px] text-gray-500 truncate">{cl.did && <span className="font-mono text-[9px] text-purple-600 mr-1.5">{cl.did}</span>}{cl.email}{cl.phone ? ` | ${cl.phone}` : ''}</p>
                 </div>
                 <div className="flex items-center gap-3 flex-shrink-0">
+                  <button
+                    type="button"
+                    data-testid={`client-view-as-${cl.id}`}
+                    onClick={(e) => openImpersonate(e, cl)}
+                    disabled={!cl.email?.trim()}
+                    title={cl.email?.trim() ? 'Open their student dashboard (admin preview)' : 'Add an email first'}
+                    className="inline-flex items-center gap-1 rounded-md border border-[#5D3FD3]/40 bg-white px-2 py-1 text-[9px] font-medium text-[#5D3FD3] hover:bg-[#5D3FD3]/10 disabled:opacity-40 disabled:cursor-not-allowed"
+                  >
+                    <Eye size={11} /> View as
+                  </button>
                   {cl.conversions?.length > 0 && (
                     <span className="text-[9px] bg-green-100 text-green-700 px-2 py-0.5 rounded-full font-medium">{cl.conversions.length} conversion{cl.conversions.length > 1 ? 's' : ''}</span>
                   )}
@@ -322,6 +397,55 @@ const ClientsTab = () => {
           );
         })}
       </div>
+
+      <Dialog open={impersonateOpen} onOpenChange={setImpersonateOpen}>
+        <DialogContent className="sm:max-w-md" data-testid="impersonate-dialog">
+          <form onSubmit={submitImpersonate}>
+            <DialogHeader>
+              <DialogTitle className="text-base">View dashboard as client</DialogTitle>
+              <DialogDescription className="text-xs text-left">
+                Opens the student portal as <strong>{impersonateName || impersonateEmail}</strong> ({impersonateEmail})
+                using a real session. Enter your admin password to confirm.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-2 py-2">
+              <Label htmlFor="admin-impersonate-password" className="text-xs text-gray-600">
+                Admin password
+              </Label>
+              <Input
+                id="admin-impersonate-password"
+                type="password"
+                autoComplete="current-password"
+                value={adminPasswordImpersonate}
+                onChange={(e) => setAdminPasswordImpersonate(e.target.value)}
+                className="h-9 text-sm"
+                placeholder="Site admin password"
+                data-testid="impersonate-admin-password"
+              />
+            </div>
+            <DialogFooter className="gap-2 sm:gap-0">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => setImpersonateOpen(false)}
+                disabled={impersonateLoading}
+              >
+                Cancel
+              </Button>
+              <Button
+                type="submit"
+                size="sm"
+                className="bg-[#5D3FD3] hover:bg-[#4c32b3]"
+                disabled={impersonateLoading || !adminPasswordImpersonate.trim()}
+                data-testid="impersonate-submit"
+              >
+                {impersonateLoading ? 'Opening…' : 'Open dashboard'}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

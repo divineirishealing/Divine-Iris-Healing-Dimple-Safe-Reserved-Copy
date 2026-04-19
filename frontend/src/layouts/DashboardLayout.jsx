@@ -26,6 +26,7 @@ const NAV_ITEMS = [
 
 const DashboardLayout = () => {
   const { user, loading, logout } = useAuth();
+
   useDashboardScrollSession();
   const { settings } = useSiteSettings();
   const dv = useMemo(() => mergeDashboardVisibility(settings), [settings]);
@@ -72,6 +73,25 @@ const DashboardLayout = () => {
 
   return (
     <div className="min-h-screen relative bg-transparent font-lato antialiased">
+      {user?.impersonating && (
+        <div
+          className="fixed top-0 left-0 right-0 z-[80] flex flex-wrap items-center justify-between gap-2 px-4 py-2.5 text-xs sm:text-sm text-amber-950 bg-amber-200/95 border-b border-amber-400/80 shadow-md"
+          role="status"
+          data-testid="impersonation-banner"
+        >
+          <span>
+            Viewing this dashboard as <strong className="font-semibold">{user.email}</strong> (admin preview).
+          </span>
+          <button
+            type="button"
+            onClick={() => logout('/admin')}
+            className="shrink-0 rounded-md bg-amber-900/90 px-3 py-1 text-[11px] font-medium text-amber-50 hover:bg-amber-950"
+            data-testid="impersonation-exit-btn"
+          >
+            Exit to admin
+          </button>
+        </div>
+      )}
       <CosmicDashboardBackground
         videoActive={Boolean(bgVideo) && !isSacredHomeOverview}
         variant={cosmicVariant}
@@ -170,15 +190,25 @@ const DashboardLayout = () => {
             </>
           )}
 
-          <button onClick={() => { logout(); window.location.href = '/'; }}
-            className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm text-red-400/60 hover:text-red-400 hover:bg-red-400/5 transition-all w-full mt-4">
-            <LogOut size={16} /><span>Sign Out</span>
+          <button
+            type="button"
+            onClick={() => {
+              if (user?.impersonating) {
+                logout('/admin');
+                return;
+              }
+              logout();
+              window.location.href = '/';
+            }}
+            className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm text-red-400/60 hover:text-red-400 hover:bg-red-400/5 transition-all w-full mt-4"
+          >
+            <LogOut size={16} /><span>{user?.impersonating ? 'End preview' : 'Sign Out'}</span>
           </button>
         </div>
       </div>
 
       {/* ═══ MAIN CONTENT ═══ */}
-      <main className="relative z-20 min-h-screen">
+      <main className={cn('relative z-20 min-h-screen', user?.impersonating && 'pt-[52px]')}>
         <div className="p-4 md:p-8 pb-24 md:pb-28">
           <Outlet />
         </div>
