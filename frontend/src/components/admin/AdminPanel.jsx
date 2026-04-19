@@ -559,7 +559,7 @@ const AdminPanel = () => {
           {activeTab === 'upcoming_card_quotes' && <UpcomingCardQuotesTab programs={programs} />}
           {activeTab === 'text_testimonials' && <TextTestimonialsTab />}
           {activeTab === 'annual_subscribers' && <AnnualSubscribersTab />}
-          {activeTab === 'add_annual_subscriber' && <AnnualSubscribersTab />}
+          {activeTab === 'add_annual_subscriber' && <SubscribersTab openManualFormOnMount />}
           {activeTab === 'scheduler' && <SchedulerTab />}
 
           {/* ===== SUBSCRIBERS TAB ===== */}
