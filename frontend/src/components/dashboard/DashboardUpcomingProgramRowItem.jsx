@@ -315,20 +315,14 @@ export default function DashboardUpcomingProgramRowItem({
   const tierGridClass =
     tiers.length <= 1 ? 'grid-cols-1' : tiers.length === 2 ? 'grid-cols-2' : 'grid-cols-3';
 
-  const outerShellClass = subscriberIsAnnual
-    ? `w-full mr-auto transition-all duration-300 ${enrollStatus === 'closed' ? 'opacity-60' : ''}`
-    : `group bg-white rounded-xl overflow-hidden shadow-lg border border-gray-100 flex flex-col sm:flex-row sm:items-stretch w-full transition-all duration-300 ${
-        enrollStatus === 'closed' ? 'opacity-60' : 'hover:shadow-2xl'
-      }`;
+  const outerShellClass = `w-full mr-auto transition-all duration-300 ${enrollStatus === 'closed' ? 'opacity-60' : ''}`;
 
-  const heroShellClass = subscriberIsAnnual
-    ? 'relative h-48 w-full shrink-0 overflow-hidden'
-    : 'relative h-52 sm:h-auto w-full sm:w-64 lg:w-80 shrink-0 overflow-hidden';
+  const heroShellClass = 'relative h-48 w-full shrink-0 overflow-hidden';
 
   const heroBlock = (
     <div
       className={`${heroShellClass} ${
-        enrollStatus === 'open' && !subscriberIsAnnual ? 'cursor-pointer' : enrollStatus === 'open' ? 'cursor-pointer' : ''
+        enrollStatus === 'open' ? 'cursor-pointer' : ''
       }`}
         onClick={heroClick}
         onKeyDown={(e) => {
