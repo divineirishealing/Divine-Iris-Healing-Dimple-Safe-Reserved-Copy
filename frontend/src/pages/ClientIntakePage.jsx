@@ -67,6 +67,7 @@ const ClientIntakePage = () => {
     city: '',
     state: '',
     country: '',
+    claims_annual_member: '', // 'yes' | 'no' | ''
     preferred_payment_method: '',
   });
   const [errors, setErrors] = useState({});
@@ -84,6 +85,7 @@ const ClientIntakePage = () => {
     if (!form.email.trim())       e.email = 'Email address is required';
     else if (!/\S+@\S+\.\S+/.test(form.email)) e.email = 'Enter a valid email address';
     if (!form.phoneNumber.trim()) e.phoneNumber = 'Phone number is required';
+    if (!form.claims_annual_member) e.claims_annual_member = 'Please let us know if you are on the annual membership path';
     return e;
   };
 
@@ -102,6 +104,7 @@ const ClientIntakePage = () => {
         state:   form.state.trim() || undefined,
         country: form.country.trim() || undefined,
         preferred_payment_method: form.preferred_payment_method || undefined,
+        intake_claims_annual_member: form.claims_annual_member === 'yes',
       });
       setSubmitted(true);
     } catch (err) {
@@ -253,6 +256,38 @@ const ClientIntakePage = () => {
                     />
                   </Field>
                 </div>
+
+                {/* Annual membership (self-declared; verified by Divine Iris) */}
+                <Field
+                  label="Are you on the annual membership path?"
+                  required
+                  icon={Info}
+                  hint="This helps us prepare the right dashboard and offers. Our team will confirm your status."
+                >
+                  <div className="grid grid-cols-2 gap-2">
+                    {[
+                      { value: 'yes', label: 'Yes', desc: 'Annual / Iris-style member' },
+                      { value: 'no', label: 'No', desc: 'Workshops or other path' },
+                    ].map((opt) => (
+                      <button
+                        key={opt.value}
+                        type="button"
+                        onClick={() => set('claims_annual_member', opt.value)}
+                        className={`flex flex-col items-start px-4 py-3 rounded-lg border text-sm transition-all text-left ${
+                          form.claims_annual_member === opt.value
+                            ? 'border-[#D4AF37] bg-[#D4AF37]/5 text-gray-800'
+                            : 'border-gray-200 text-gray-600 hover:border-gray-300'
+                        }`}
+                      >
+                        <span className="font-medium">{opt.label}</span>
+                        <span className="text-[11px] text-gray-400 mt-0.5">{opt.desc}</span>
+                      </button>
+                    ))}
+                  </div>
+                  {errors.claims_annual_member && (
+                    <p className="text-xs text-rose-500 mt-1">{errors.claims_annual_member}</p>
+                  )}
+                </Field>
 
                 {/* Payment method */}
                 <Field label="Preferred Payment Method" icon={CreditCard} hint="How would you like to make payments?">

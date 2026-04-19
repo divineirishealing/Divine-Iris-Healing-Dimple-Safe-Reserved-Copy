@@ -34,6 +34,7 @@ class ClientIntakeSubmit(BaseModel):
     state: Optional[str] = None
     country: Optional[str] = None
     preferred_payment_method: Optional[str] = None   # gpay | upi | bank_transfer | cash_deposit
+    intake_claims_annual_member: bool = False        # self-declared; admin verifies + dashboard flags
 
 
 @router.post("")
@@ -59,6 +60,7 @@ async def submit_intake(data: ClientIntakeSubmit):
         "intake_submitted_at":   now,
         "portal_login_allowed":  False,
         "updated_at":            now,
+        "intake_claims_annual_member": bool(data.intake_claims_annual_member),
     }
     if data.city:    intake_fields["city"]    = data.city.strip()
     if data.state:   intake_fields["state"]   = data.state.strip()

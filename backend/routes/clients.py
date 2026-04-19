@@ -465,6 +465,11 @@ class ClientUpdate(BaseModel):
     intake_pending: Optional[bool] = None
     family_pending_review: Optional[bool] = None
     family_approved: Optional[bool] = None        # once True, list is permanently frozen
+    # India proof row tags (merged with subscription.* in student home when subscription is empty)
+    preferred_india_gpay_id: Optional[str] = None
+    preferred_india_bank_id: Optional[str] = None
+    # When True, Sacred Home uses annual-subscriber pricing like an Excel-tagged Iris member
+    annual_member_dashboard: Optional[bool] = None
 
 
 @router.put("/{client_id}")
@@ -512,6 +517,12 @@ async def update_client(client_id: str, data: ClientUpdate):
             update_fields["immediate_family_locked"] = True
             update_fields["family_pending_review"] = False
             update_fields["immediate_family_editing_approved"] = False
+    if data.preferred_india_gpay_id is not None:
+        update_fields["preferred_india_gpay_id"] = (data.preferred_india_gpay_id or "").strip()
+    if data.preferred_india_bank_id is not None:
+        update_fields["preferred_india_bank_id"] = (data.preferred_india_bank_id or "").strip()
+    if data.annual_member_dashboard is not None:
+        update_fields["annual_member_dashboard"] = bool(data.annual_member_dashboard)
 
     await db.clients.update_one({"id": client_id}, {"$set": update_fields})
 

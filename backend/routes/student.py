@@ -125,8 +125,19 @@ async def _merged_programs_list_for_client(client_doc: dict) -> List[dict]:
     return _merge_global_schedule_into_programs(programs_list, global_sched)
 
 
+def _merged_preferred_india_ids(sub: dict, client: dict) -> Tuple[str, str]:
+    """Subscription tags win when set; client-level tags apply for intake-only / CRM rows."""
+    gpay_sub = (sub.get("preferred_india_gpay_id") or "").strip()
+    bank_sub = (sub.get("preferred_india_bank_id") or "").strip()
+    gpay_cli = (client.get("preferred_india_gpay_id") or "").strip()
+    bank_cli = (client.get("preferred_india_bank_id") or "").strip()
+    return (gpay_sub or gpay_cli, bank_sub or bank_cli)
+
+
 def _is_annual_subscriber(sub: dict, client: dict) -> bool:
-    """Heuristic: annual program name, package, or program detail labels."""
+    """Heuristic: annual program name, package, program detail labels, or admin CRM flag."""
+    if bool(client.get("annual_member_dashboard")):
+        return True
     if (sub.get("annual_program") or "").strip():
         return True
     if sub.get("package_id"):
@@ -1101,6 +1112,7 @@ async def dashboard_pay(data: DashboardPayIn, request: Request, user: dict = Dep
 
     ip_info = await detect_ip_info(request)
     receipt_id = await _next_receipt_id()
+    pref_gpay, pref_bank = _merged_preferred_india_ids(sub, client)
     enrollment = {
         "id": receipt_id,
         "status": "contact_verified",
@@ -1121,8 +1133,8 @@ async def dashboard_pay(data: DashboardPayIn, request: Request, user: dict = Dep
         "dashboard_mixed_total": quote["total"],
         "dashboard_mixed_currency": quote["currency"],
         "dashboard_checkout_ready": True,
-        "preferred_india_gpay_id": (sub.get("preferred_india_gpay_id") or "").strip(),
-        "preferred_india_bank_id": (sub.get("preferred_india_bank_id") or "").strip(),
+        "preferred_india_gpay_id": pref_gpay,
+        "preferred_india_bank_id": pref_bank,
         "created_at": datetime.now(timezone.utc).isoformat(),
         "updated_at": datetime.now(timezone.utc).isoformat(),
     }
@@ -1279,6 +1291,7 @@ async def get_student_home(user: dict = Depends(get_current_user)):
     loyalty_points = await points_public_summary(db, user.get("email") or "")
 
     is_annual = _is_annual_subscriber(sub, client)
+    pref_gpay_m, pref_bank_m = _merged_preferred_india_ids(sub, client)
     immediate_family = client.get("immediate_family") or []
     other_guests = client.get("other_guests") or []
     immediate_family_locked = _immediate_family_effective_locked(client)
@@ -1336,8 +1349,8 @@ async def get_student_home(user: dict = Depends(get_current_user)):
             "india_tax_percent": float(client.get("india_tax_percent") or 18.0),
             "india_tax_label": client.get("india_tax_label") or "GST",
         },
-        "preferred_india_gpay_id": (sub.get("preferred_india_gpay_id") or "").strip(),
-        "preferred_india_bank_id": (sub.get("preferred_india_bank_id") or "").strip(),
+        "preferred_india_gpay_id": pref_gpay_m,
+        "preferred_india_bank_id": pref_bank_m,
     }
 
 

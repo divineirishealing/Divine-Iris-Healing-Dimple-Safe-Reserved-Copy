@@ -1,5 +1,6 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import axios from 'axios';
+import { buildIndiaGpayOptions, buildIndiaBankOptions } from '../../../lib/indiaPaymentTags';
 import { useToast } from '../../../hooks/use-toast';
 import { useAuth } from '../../../context/AuthContext';
 import { getBackendUrl } from '../../../lib/config';
@@ -486,7 +487,18 @@ const ClientDetail = ({ client: cl, labelConfig: cfg, onUpdate, onDelete, onRefr
   const [indiaTaxPercent, setIndiaTaxPercent] = useState(cl.india_tax_percent ?? 18);
   const [indiaTaxLabel, setIndiaTaxLabel] = useState(cl.india_tax_label || 'GST');
   const [indiaTaxVisibleOnDashboard, setIndiaTaxVisibleOnDashboard] = useState(cl.india_tax_visible_on_dashboard !== false);
+  const [annualMemberDashboard, setAnnualMemberDashboard] = useState(!!cl.annual_member_dashboard);
+  const [preferredIndiaGpayId, setPreferredIndiaGpayId] = useState(cl.preferred_india_gpay_id || '');
+  const [preferredIndiaBankId, setPreferredIndiaBankId] = useState(cl.preferred_india_bank_id || '');
+  const [indiaSite, setIndiaSite] = useState(null);
   const [saving, setSaving] = useState(false);
+
+  const indiaGpayOpts = useMemo(() => buildIndiaGpayOptions(indiaSite || {}), [indiaSite]);
+  const indiaBankOpts = useMemo(() => buildIndiaBankOptions(indiaSite || {}), [indiaSite]);
+
+  useEffect(() => {
+    axios.get(`${API}/settings`).then((r) => setIndiaSite(r.data)).catch(() => setIndiaSite({}));
+  }, []);
 
   useEffect(() => {
     setFamilyEditApproved(!!cl.immediate_family_editing_approved);
@@ -497,7 +509,18 @@ const ClientDetail = ({ client: cl, labelConfig: cfg, onUpdate, onDelete, onRefr
     setIndiaTaxPercent(cl.india_tax_percent ?? 18);
     setIndiaTaxLabel(cl.india_tax_label || 'GST');
     setIndiaTaxVisibleOnDashboard(cl.india_tax_visible_on_dashboard !== false);
-  }, [cl.id, cl.immediate_family_editing_approved, cl.portal_login_allowed, cl.india_payment_method, cl.india_discount_percent, cl.india_tax_enabled, cl.india_tax_percent, cl.india_tax_label, cl.india_tax_visible_on_dashboard]);
+    setAnnualMemberDashboard(!!cl.annual_member_dashboard);
+    setPreferredIndiaGpayId(cl.preferred_india_gpay_id || '');
+    setPreferredIndiaBankId(cl.preferred_india_bank_id || '');
+  }, [cl.id, cl.immediate_family_editing_approved, cl.portal_login_allowed, cl.india_payment_method, cl.india_discount_percent, cl.india_tax_enabled, cl.india_tax_percent, cl.india_tax_label, cl.india_tax_visible_on_dashboard, cl.annual_member_dashboard, cl.preferred_india_gpay_id, cl.preferred_india_bank_id]);
+
+  const setPaymentMethodTagged = (v) => {
+    setIndiaPaymentMethod(v);
+    const gpayOk = v === 'gpay_upi' || v === 'any' || v === '';
+    const bankOk = v === 'bank_transfer' || v === 'cash_deposit' || v === 'any' || v === '';
+    if (!gpayOk) setPreferredIndiaGpayId('');
+    if (!bankOk) setPreferredIndiaBankId('');
+  };
 
   const handleSave = async () => {
     setSaving(true);
@@ -513,6 +536,9 @@ const ClientDetail = ({ client: cl, labelConfig: cfg, onUpdate, onDelete, onRefr
         india_tax_percent: indiaTaxEnabled ? parseFloat(indiaTaxPercent) || 0 : null,
         india_tax_label: indiaTaxLabel || 'GST',
         india_tax_visible_on_dashboard: indiaTaxVisibleOnDashboard,
+        annual_member_dashboard: annualMemberDashboard,
+        preferred_india_gpay_id: preferredIndiaGpayId || '',
+        preferred_india_bank_id: preferredIndiaBankId || '',
       });
       toast({ title: 'Client updated' });
       setEditing(false);
@@ -620,6 +646,23 @@ const ClientDetail = ({ client: cl, labelConfig: cfg, onUpdate, onDelete, onRefr
                 </span>
               </label>
             </div>
+            <div className={`rounded-lg border px-2 py-2 ${annualMemberDashboard ? 'border-purple-200 bg-purple-50/40' : 'border-gray-200 bg-gray-50/40'}`}>
+              <label className="flex items-start gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  data-testid="client-annual-member-dashboard"
+                  checked={annualMemberDashboard}
+                  onChange={(e) => setAnnualMemberDashboard(e.target.checked)}
+                  className="mt-0.5 rounded border-purple-300"
+                />
+                <span>
+                  <span className="text-[10px] font-semibold text-gray-800">Sacred Home: use annual-member pricing</span>
+                  <span className="text-[9px] text-gray-500 block mt-0.5 leading-snug">
+                    Turn on after you verify they are on the annual path (intake “yes” or your records). This unlocks package-inclusion and annual-offer logic like the Subscribers sheet, without requiring an Excel subscriber row.
+                  </span>
+                </span>
+              </label>
+            </div>
             {/* India Payments */}
             <div className="rounded-lg border border-orange-200 bg-orange-50/30 px-3 py-2.5 space-y-3">
               <p className="text-[10px] font-semibold text-orange-800 flex items-center gap-1.5">
@@ -631,7 +674,7 @@ const ClientDetail = ({ client: cl, labelConfig: cfg, onUpdate, onDelete, onRefr
                 <Label className="text-[9px] text-gray-500 block mb-0.5">Payment method tag</Label>
                 <select
                   value={indiaPaymentMethod}
-                  onChange={(e) => setIndiaPaymentMethod(e.target.value)}
+                  onChange={(e) => setPaymentMethodTagged(e.target.value)}
                   className="w-full text-xs border rounded-md px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-orange-300 bg-white"
                 >
                   <option value="">— Not tagged —</option>
@@ -661,6 +704,47 @@ const ClientDetail = ({ client: cl, labelConfig: cfg, onUpdate, onDelete, onRefr
                 </div>
                 <p className="text-[9px] text-gray-400 mt-0.5">Applied on base price before GST. Overrides the site-wide alt-payment discount.</p>
               </div>
+
+              {(indiaGpayOpts.length >= 1) && (indiaPaymentMethod === 'gpay_upi' || indiaPaymentMethod === 'any') && (
+                <div>
+                  <Label className="text-[9px] text-gray-500 block mb-0.5">Tagged UPI (India proof row)</Label>
+                  <p className="text-[9px] text-gray-400 mb-1 leading-snug">
+                    Same as Subscribers: pick one row from Site Settings → India payment so this client only sees that UPI on Sacred Exchange.
+                    If they also have a Subscribers record, tags on that row take priority.
+                  </p>
+                  <select
+                    value={preferredIndiaGpayId}
+                    onChange={(e) => setPreferredIndiaGpayId(e.target.value)}
+                    className="w-full text-xs border rounded-md px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-orange-300 bg-white"
+                    data-testid="client-preferred-india-gpay"
+                  >
+                    <option value="">All UPIs (full list on payment page)</option>
+                    {indiaGpayOpts.map((o) => (
+                      <option key={o.tag_id} value={o.tag_id}>{o.label}</option>
+                    ))}
+                  </select>
+                </div>
+              )}
+
+              {(indiaBankOpts.length >= 1) && (indiaPaymentMethod === 'bank_transfer' || indiaPaymentMethod === 'cash_deposit' || indiaPaymentMethod === 'any') && (
+                <div>
+                  <Label className="text-[9px] text-gray-500 block mb-0.5">Tagged bank account (India proof)</Label>
+                  <p className="text-[9px] text-gray-400 mb-1 leading-snug">
+                    Pin one bank row for bank transfer / cash-deposit flows. Subscriber row overrides when set.
+                  </p>
+                  <select
+                    value={preferredIndiaBankId}
+                    onChange={(e) => setPreferredIndiaBankId(e.target.value)}
+                    className="w-full text-xs border rounded-md px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-orange-300 bg-white"
+                    data-testid="client-preferred-india-bank"
+                  >
+                    <option value="">All accounts (student picks)</option>
+                    {indiaBankOpts.map((o) => (
+                      <option key={o.tag_id} value={o.tag_id}>{o.label}</option>
+                    ))}
+                  </select>
+                </div>
+              )}
 
               {/* Row 3: GST */}
               <div className="space-y-1.5">
@@ -763,6 +847,26 @@ const ClientDetail = ({ client: cl, labelConfig: cfg, onUpdate, onDelete, onRefr
               {indiaTaxEnabled && (
                 <span className="inline-flex items-center gap-1 text-[9px] px-2 py-0.5 rounded-full font-semibold bg-amber-100 text-amber-800">
                   +{indiaTaxPercent}% {indiaTaxLabel}
+                </span>
+              )}
+              {cl.intake_claims_annual_member && (
+                <span className="inline-flex items-center gap-1 text-[9px] px-2 py-0.5 rounded-full font-semibold bg-violet-100 text-violet-800">
+                  Intake: annual path (self-reported)
+                </span>
+              )}
+              {annualMemberDashboard && (
+                <span className="inline-flex items-center gap-1 text-[9px] px-2 py-0.5 rounded-full font-semibold bg-purple-100 text-purple-800">
+                  Sacred Home: annual pricing
+                </span>
+              )}
+              {preferredIndiaGpayId && (
+                <span className="inline-flex items-center gap-1 text-[9px] px-2 py-0.5 rounded-full font-semibold bg-emerald-100 text-emerald-800 max-w-[240px] truncate" title={preferredIndiaGpayId}>
+                  UPI tag: {indiaGpayOpts.find((o) => o.tag_id === preferredIndiaGpayId)?.label || preferredIndiaGpayId}
+                </span>
+              )}
+              {preferredIndiaBankId && (
+                <span className="inline-flex items-center gap-1 text-[9px] px-2 py-0.5 rounded-full font-semibold bg-emerald-100 text-emerald-800 max-w-[240px] truncate" title={preferredIndiaBankId}>
+                  Bank tag: {indiaBankOpts.find((o) => o.tag_id === preferredIndiaBankId)?.label || preferredIndiaBankId}
                 </span>
               )}
             </div>
