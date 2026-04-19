@@ -621,13 +621,22 @@ async def update_immediate_family(data: FamilyUpdate, user: dict = Depends(get_c
 
     client_row = await db.clients.find_one(
         {"id": client_id},
-        {"immediate_family_locked": 1, "immediate_family_editing_approved": 1, "immediate_family": 1},
+        {"immediate_family_locked": 1, "immediate_family_editing_approved": 1, "immediate_family": 1,
+         "family_approved": 1, "family_pending_review": 1},
     )
     prev_family = (client_row or {}).get("immediate_family") or []
     locked_flag = bool(client_row and client_row.get("immediate_family_locked"))
     legacy_filled = _immediate_family_has_names(prev_family)
     locked = locked_flag or legacy_filled
     approved = bool(client_row and client_row.get("immediate_family_editing_approved"))
+    family_approved = bool(client_row and client_row.get("family_approved"))
+
+    # Permanently frozen — admin has reviewed and approved; no more edits ever
+    if family_approved:
+        raise HTTPException(
+            status_code=403,
+            detail="Your family list has been reviewed and confirmed. Please contact support if you need a change.",
+        )
     if locked and not approved:
         raise HTTPException(
             status_code=403,
@@ -672,6 +681,9 @@ async def update_immediate_family(data: FamilyUpdate, user: dict = Depends(get_c
     }
     if len(out) > 0 or locked_flag or legacy_filled:
         set_doc["immediate_family_locked"] = True
+    # Mark pending review whenever client saves a non-empty list (until admin approves)
+    if len(out) > 0:
+        set_doc["family_pending_review"] = True
 
     await db.clients.update_one({"id": client_id}, {"$set": set_doc})
     locked_after = bool(set_doc.get("immediate_family_locked")) or _immediate_family_has_names(out)
@@ -680,6 +692,8 @@ async def update_immediate_family(data: FamilyUpdate, user: dict = Depends(get_c
         "immediate_family": out,
         "immediate_family_locked": locked_after,
         "immediate_family_editing_approved": approved,
+        "family_pending_review": bool(set_doc.get("family_pending_review")),
+        "family_approved": False,
     }
 
 
@@ -1265,6 +1279,8 @@ async def get_student_home(user: dict = Depends(get_current_user)):
     other_guests = client.get("other_guests") or []
     immediate_family_locked = _immediate_family_effective_locked(client)
     immediate_family_editing_approved = bool(client.get("immediate_family_editing_approved"))
+    family_approved = bool(client.get("family_approved"))
+    family_pending_review = bool(client.get("family_pending_review"))
 
     return {
         "client_id": client_id,
@@ -1280,6 +1296,8 @@ async def get_student_home(user: dict = Depends(get_current_user)):
         "other_guests": other_guests,
         "immediate_family_locked": immediate_family_locked,
         "immediate_family_editing_approved": immediate_family_editing_approved,
+        "family_approved": family_approved,
+        "family_pending_review": family_pending_review,
         "financials": financials,
         "package": package,
         "programs": programs_list,

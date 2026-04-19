@@ -463,6 +463,8 @@ class ClientUpdate(BaseModel):
     india_payment_method: Optional[str] = None   # e.g. "gpay", "upi", "bank_transfer", "any"
     india_discount_percent: Optional[float] = None  # client-specific discount on base price
     intake_pending: Optional[bool] = None
+    family_pending_review: Optional[bool] = None
+    family_approved: Optional[bool] = None        # once True, list is permanently frozen
 
 
 @router.put("/{client_id}")
@@ -501,6 +503,15 @@ async def update_client(client_id: str, data: ClientUpdate):
         update_fields["india_discount_percent"] = float(data.india_discount_percent)
     if data.intake_pending is not None:
         update_fields["intake_pending"] = bool(data.intake_pending)
+    if data.family_pending_review is not None:
+        update_fields["family_pending_review"] = bool(data.family_pending_review)
+    if data.family_approved is not None:
+        update_fields["family_approved"] = bool(data.family_approved)
+        if data.family_approved:
+            # Approve & Freeze: lock the list, clear pending flag, revoke any re-edit approval
+            update_fields["immediate_family_locked"] = True
+            update_fields["family_pending_review"] = False
+            update_fields["immediate_family_editing_approved"] = False
 
     await db.clients.update_one({"id": client_id}, {"$set": update_fields})
 

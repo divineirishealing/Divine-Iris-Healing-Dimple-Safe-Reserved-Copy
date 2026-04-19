@@ -483,7 +483,10 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh, bo
   const isAnnual = homeData?.is_annual_subscriber;
   const immediateFamilyLocked = !!homeData?.immediate_family_locked;
   const immediateFamilyEditApproved = !!homeData?.immediate_family_editing_approved;
-  const immediateFamilyReadOnly = immediateFamilyLocked && !immediateFamilyEditApproved;
+  const familyApproved = !!homeData?.family_approved;
+  const familyPendingReview = !!homeData?.family_pending_review;
+  // Permanently frozen once approved; otherwise locked until admin temporarily re-opens
+  const immediateFamilyReadOnly = familyApproved || (immediateFamilyLocked && !immediateFamilyEditApproved);
   const initialMembers = useMemo(() => homeData?.immediate_family || [], [homeData?.immediate_family]);
   const initialOtherMembers = useMemo(() => homeData?.other_guests || [], [homeData?.other_guests]);
 
@@ -1452,24 +1455,42 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh, bo
             </div>
           </div>
 
-          {immediateFamilyReadOnly ? (
+          {familyApproved ? (
+            <div
+              className="mb-3 flex gap-2 rounded-xl border border-green-200/90 bg-green-50/80 px-3 py-2.5 text-[11px] text-green-900"
+              data-testid="immediate-family-locked-notice"
+            >
+              <Lock size={14} className="shrink-0 mt-0.5 text-green-600" />
+              <p>
+                Your family list has been <span className="font-semibold">reviewed and confirmed</span>. Please reach out if you need to make a change.
+              </p>
+            </div>
+          ) : familyPendingReview ? (
             <div
               className="mb-3 flex gap-2 rounded-xl border border-amber-200/90 bg-amber-50/80 px-3 py-2.5 text-[11px] text-amber-950"
               data-testid="immediate-family-locked-notice"
             >
               <Lock size={14} className="shrink-0 mt-0.5 text-amber-700" />
               <p>
-                This list is <span className="font-semibold">locked</span> after your first save with names on file. To
-                change it, ask your admin to allow edits in Client Garden, then refresh this page.
+                Your family list has been <span className="font-semibold">submitted for review</span>. Dimple will confirm it shortly — you'll be notified once it's set.
+              </p>
+            </div>
+          ) : immediateFamilyReadOnly ? (
+            <div
+              className="mb-3 flex gap-2 rounded-xl border border-amber-200/90 bg-amber-50/80 px-3 py-2.5 text-[11px] text-amber-950"
+              data-testid="immediate-family-locked-notice"
+            >
+              <Lock size={14} className="shrink-0 mt-0.5 text-amber-700" />
+              <p>
+                This list is <span className="font-semibold">locked</span>. To change it, please contact support.
               </p>
             </div>
           ) : null}
-          {immediateFamilyLocked && immediateFamilyEditApproved ? (
+          {immediateFamilyLocked && immediateFamilyEditApproved && !familyApproved ? (
             <div className="mb-3 flex gap-2 rounded-xl border border-emerald-200/90 bg-emerald-50/70 px-3 py-2.5 text-[11px] text-emerald-950">
               <Lock size={14} className="shrink-0 mt-0.5 text-emerald-700" />
               <p>
-                An admin has <span className="font-semibold">approved edits</span> to your immediate family list. Update
-                and save when you are done.
+                Edits have been <span className="font-semibold">temporarily allowed</span> for your family list. Update and save when you are done.
               </p>
             </div>
           ) : null}

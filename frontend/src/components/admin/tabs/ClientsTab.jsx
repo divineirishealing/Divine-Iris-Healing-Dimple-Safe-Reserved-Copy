@@ -18,7 +18,7 @@ import {
 import {
   Users, Search, Download, RefreshCw, ChevronDown, ChevronUp,
   Droplets, Sprout, TreeDeciduous, Flower2, Star, Sparkles, Crown,
-  Clock, Tag, Edit2, Save, X, Trash2, UserPlus, Lock, Eye, Bell,
+  Clock, Tag, Edit2, Save, X, Trash2, UserPlus, Lock, Eye, Bell, CheckCircle,
 } from 'lucide-react';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
@@ -577,27 +577,28 @@ const ClientDetail = ({ client: cl, labelConfig: cfg, onUpdate, onDelete, onRefr
               <Label className="text-[9px] text-gray-500">Notes</Label>
               <Textarea data-testid="client-notes" value={notes} onChange={e => setNotes(e.target.value)} rows={2} className="text-xs mt-1" placeholder="Personal notes about this client..." />
             </div>
-            <div className="rounded-lg border border-violet-100 bg-violet-50/40 px-2 py-2">
-              <label className="flex items-start gap-2 cursor-pointer">
-                <input
-                  type="checkbox"
-                  data-testid="client-family-edit-approved"
-                  checked={familyEditApproved}
-                  onChange={(e) => setFamilyEditApproved(e.target.checked)}
-                  className="mt-0.5 rounded border-violet-300"
-                />
-                <span>
-                  <span className="text-[10px] font-semibold text-gray-800 flex items-center gap-1">
-                    <Lock size={10} className="text-violet-600" />
-                    Allow member to edit immediate family (dashboard)
+            {!cl.family_approved && (
+              <div className="rounded-lg border border-violet-100 bg-violet-50/40 px-2 py-2">
+                <label className="flex items-start gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    data-testid="client-family-edit-approved"
+                    checked={familyEditApproved}
+                    onChange={(e) => setFamilyEditApproved(e.target.checked)}
+                    className="mt-0.5 rounded border-violet-300"
+                  />
+                  <span>
+                    <span className="text-[10px] font-semibold text-gray-800 flex items-center gap-1">
+                      <Lock size={10} className="text-violet-600" />
+                      Allow member to edit immediate family (dashboard)
+                    </span>
+                    <span className="text-[9px] text-gray-500 block mt-0.5 leading-snug">
+                      Temporarily re-opens editing before you approve. Once you click Approve &amp; Freeze, this is no longer available.
+                    </span>
                   </span>
-                  <span className="text-[9px] text-gray-500 block mt-0.5 leading-snug">
-                    When their list is locked after first save, turn this on so they can update names and details in
-                    the portal. Turn off again to re-lock after they are done.
-                  </span>
-                </span>
-              </label>
-            </div>
+                </label>
+              </div>
+            )}
             <div className={`rounded-lg border px-2 py-2 ${portalLoginAllowed ? 'border-green-200 bg-green-50/40' : 'border-red-200 bg-red-50/30'}`}>
               <label className="flex items-start gap-2 cursor-pointer">
                 <input
@@ -778,22 +779,44 @@ const ClientDetail = ({ client: cl, labelConfig: cfg, onUpdate, onDelete, onRefr
                 )}
               </div>
             )}
-            <div className="mt-3 pt-2 border-t border-gray-100">
-              <p className="text-[9px] text-gray-400 uppercase tracking-wider mb-1 flex items-center gap-1">
-                <Lock size={9} /> Member portal — immediate family
+            <div className="mt-3 pt-2 border-t border-gray-100 space-y-2">
+              <p className="text-[9px] text-gray-400 uppercase tracking-wider flex items-center gap-1">
+                <Lock size={9} /> Immediate family list
               </p>
-              <p className="text-[10px] text-gray-600 leading-snug">
-                {familyListLocked ? (
-                  <>
-                    List is <span className="font-semibold">locked</span> (saved names on file).
-                    {cl.immediate_family_editing_approved
-                      ? ' You have allowed edits until you turn that off.'
-                      : ' They cannot change it until you enable “Allow member to edit immediate family” above.'}
-                  </>
-                ) : (
-                  <>Not locked yet — first save with at least one named row will lock the list.</>
-                )}
-              </p>
+
+              {cl.family_approved ? (
+                <div className="flex items-center gap-2 bg-green-50 border border-green-200 rounded-lg px-3 py-2">
+                  <CheckCircle size={12} className="text-green-500 flex-shrink-0" />
+                  <p className="text-[10px] text-green-800 font-medium">Approved &amp; permanently frozen — client cannot edit.</p>
+                </div>
+              ) : cl.family_pending_review ? (
+                <div className="flex items-center justify-between bg-orange-50 border border-orange-200 rounded-lg px-3 py-2 gap-2">
+                  <span className="flex items-center gap-1.5 text-[10px] font-semibold text-orange-700">
+                    <Bell size={10} /> Family list submitted — pending your review
+                  </span>
+                  <button
+                    onClick={async (e) => {
+                      e.stopPropagation();
+                      await axios.put(`${API}/clients/${cl.id}`, { family_approved: true });
+                      onRefresh();
+                    }}
+                    className="text-[9px] px-2.5 py-1 bg-green-600 hover:bg-green-700 text-white rounded font-semibold transition-colors whitespace-nowrap"
+                  >
+                    Approve &amp; Freeze
+                  </button>
+                </div>
+              ) : familyListLocked ? (
+                <p className="text-[10px] text-gray-600">
+                  List is <span className="font-semibold">locked</span>.{" "}
+                  {cl.immediate_family_editing_approved
+                    ? "Edits currently allowed — turn off above to re-lock."
+                    : 'Enable "Allow member to edit immediate family" above to let them update it.'}
+                </p>
+              ) : (
+                <p className="text-[10px] text-gray-400 italic">
+                  Not submitted yet — open to the client until they save names for the first time.
+                </p>
+              )}
             </div>
           </div>
         )}
