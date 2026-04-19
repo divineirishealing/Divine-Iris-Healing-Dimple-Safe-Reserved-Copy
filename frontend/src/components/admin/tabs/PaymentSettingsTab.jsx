@@ -6,9 +6,14 @@ import { Input } from '../../ui/input';
 import { Switch } from '../../ui/switch';
 import { useToast } from '../../../hooks/use-toast';
 import CollapsibleSection from '../CollapsibleSection';
+import { getApiUrl, getBackendUrl } from '../../../lib/config';
 
-const API = `${process.env.REACT_APP_BACKEND_URL || ''}/api`;
-const SITE_URL = (process.env.REACT_APP_BACKEND_URL || window.location.origin || '').replace('/api', '').replace('api/', '');
+const API = getApiUrl();
+/** Public site base for copied invite links (not the API host). */
+const SITE_URL =
+  typeof window !== 'undefined' && window.location?.origin
+    ? window.location.origin.replace(/\/$/, '')
+    : (getBackendUrl() || '').replace(/\/api\/?$/, '').replace(/\/api\//, '/');
 
 const PaymentSettingsTab = () => {
   const { toast } = useToast();
@@ -44,6 +49,9 @@ const PaymentSettingsTab = () => {
 
   const save = async () => {
     setSaving(true);
+    const emails = inrWhitelistEmails
+      .map((e) => String(e).trim().toLowerCase())
+      .filter((e) => e.includes('@'));
     try {
       await axios.put(`${API}/settings`, {
         payment_disclaimer: disclaimer,
@@ -56,11 +64,15 @@ const PaymentSettingsTab = () => {
         india_gst_percent: parseFloat(gstPct) || 18,
         dashboard_annual_quote_show_tax: !!dashboardAnnualQuoteShowTax,
         india_platform_charge_percent: parseFloat(platformPct) || 3,
-        inr_whitelist_emails: inrWhitelistEmails.map((e) => String(e).trim().toLowerCase()).filter(Boolean),
       });
+      const wlRes = await axios.put(`${API}/settings/inr-whitelist-emails`, { emails });
+      const saved = wlRes.data?.inr_whitelist_emails;
+      setInrWhitelistEmails(Array.isArray(saved) ? saved : emails);
       toast({ title: 'Payment settings saved!' });
     } catch (err) {
-      toast({ title: 'Failed to save', variant: 'destructive' });
+      const detail = err.response?.data?.detail;
+      const msg = typeof detail === 'string' ? detail : Array.isArray(detail) ? detail.map((d) => d.msg || d).join(' ') : err.message;
+      toast({ title: 'Failed to save', description: msg || 'Check network and API URL.', variant: 'destructive' });
     } finally { setSaving(false); }
   };
 
@@ -256,7 +268,7 @@ const PaymentSettingsTab = () => {
       </CollapsibleSection>
 
       {/* ════ INR FOR NRI STUDENTS ════ */}
-      <CollapsibleSection title="INR Pricing for NRI Students" badge="Whitelist, Tokens, Promo">
+      <CollapsibleSection title="INR Pricing for NRI Students" badge="Whitelist, Tokens, Promo" defaultOpen>
         <InrOverrideConfig
           whitelist={inrWhitelistEmails}
           setWhitelist={setInrWhitelistEmails}

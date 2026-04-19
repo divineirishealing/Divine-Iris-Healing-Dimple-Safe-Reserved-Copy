@@ -1,4 +1,6 @@
 from fastapi import APIRouter
+from pydantic import BaseModel
+from typing import List
 from models import SiteSettings, SiteSettingsUpdate
 import os
 from motor.motor_asyncio import AsyncIOMotorClient
@@ -60,11 +62,41 @@ async def get_settings():
         settings["hero_title_size"] = "44px"
     return _with_public_api_base(SiteSettings(**settings))
 
+class InrWhitelistEmailsBody(BaseModel):
+    emails: List[str] = []
+
+
+@router.put("/inr-whitelist-emails")
+async def put_inr_whitelist_emails(body: InrWhitelistEmailsBody):
+    """Persist INR NRI email list only (avoids losing the field on partial SiteSettings PUT quirks)."""
+    normalized = []
+    for e in body.emails or []:
+        s = str(e).strip().lower()
+        if s and "@" in s:
+            normalized.append(s)
+    existing = await db.site_settings.find_one({"id": "site_settings"})
+    if not existing:
+        doc = {**DEFAULT_SETTINGS, **{"id": "site_settings", "inr_whitelist_emails": normalized}}
+        await db.site_settings.insert_one(doc)
+    else:
+        await db.site_settings.update_one({"id": "site_settings"}, {"$set": {"inr_whitelist_emails": normalized}})
+    updated = await db.site_settings.find_one({"id": "site_settings"})
+    return {"inr_whitelist_emails": (updated or {}).get("inr_whitelist_emails", [])}
+
+
 @router.put("")
 async def update_settings(settings: SiteSettingsUpdate):
     raw = settings.model_dump(exclude_unset=True) if hasattr(settings, "model_dump") else settings.dict(exclude_unset=True)
     # Allow empty strings and empty lists (only skip None). Booleans may be False — must not drop them.
     update_data = {k: v for k, v in raw.items() if v is not None}
+    # Pydantic v2: ensure INR whitelist is written when the client sent this field (dump can omit edge cases).
+    _fs = getattr(settings, "model_fields_set", None) or set()
+    if "inr_whitelist_emails" in _fs:
+        wl = settings.inr_whitelist_emails
+        if wl is not None:
+            update_data["inr_whitelist_emails"] = [
+                str(e).strip().lower() for e in wl if str(e).strip() and "@" in str(e)
+            ]
     # Defensive: Pydantic v2 partial bodies should still persist explicit False
     if hasattr(settings, "model_fields_set") and "checkout_promo_code_visible" in settings.model_fields_set:
         update_data["checkout_promo_code_visible"] = bool(settings.checkout_promo_code_visible)
@@ -128,8 +160,6 @@ async def update_settings(settings: SiteSettingsUpdate):
         update_data['points_activities'] = raw['points_activities']
     if raw.get('points_redeem_excludes_flagship') is not None:
         update_data['points_redeem_excludes_flagship'] = raw['points_redeem_excludes_flagship']
-    if raw.get('inr_whitelist_emails') is not None:
-        update_data['inr_whitelist_emails'] = raw['inr_whitelist_emails']
     existing = await db.site_settings.find_one({"id": "site_settings"})
     if not existing:
         full_settings = {**DEFAULT_SETTINGS, **update_data}
