@@ -872,10 +872,9 @@ export default function DashboardUpcomingProgramRowItem({
                     data-testid={`dashboard-compact-seat-${p.id}`}
                   >
                 <p className="text-[10px] text-slate-600 leading-snug mb-1.5">
-                  <span className="font-semibold text-slate-800">Attendance &amp; notification</span> are{' '}
-                  <span className="font-semibold text-slate-800">the same for every upcoming program</span> — change them
-                  once here (or in the advanced modal) and they stay in sync across all cards. You can save these as
-                  defaults for this browser.
+                  <span className="font-semibold text-slate-800">Attendance &amp; notification</span> are set{' '}
+                  <span className="font-semibold text-slate-800">for this program only</span>
+                  — other upcoming programs keep their own choices. You can save browser defaults from the advanced modal.
                 </p>
                 {annualSeatUi.draft?.enrollmentDefaultsLoaded ? (
                   <p className="text-[9px] text-violet-900 bg-violet-50 border border-violet-200/70 rounded px-2 py-1 leading-snug mb-2 w-full">

@@ -462,15 +462,39 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh, bo
     seatDraftsRef.current = seatDraftsByProgram;
   }, [seatDraftsByProgram]);
 
-  const attendanceQuickPresetLive = useMemo(
-    () => deriveAttendanceQuickPreset(seatModalCtx, guestSeatForm, bookerSeatMode),
-    [seatModalCtx, guestSeatForm, bookerSeatMode]
-  );
+  /** Enrollment modal presets use this program’s draft merged with globals (fallback for new programs). */
+  const attendanceQuickPresetLive = useMemo(() => {
+    if (!seatModalCtx?.programId) return 'custom';
+    const m = mergeGlobalSeatDraft(
+      seatDraftsByProgram[seatModalCtx.programId] || {},
+      bookerSeatMode,
+      bookerSeatNotify,
+      guestSeatForm,
+    );
+    return deriveAttendanceQuickPreset(seatModalCtx, m.guestSeatForm || {}, m.bookerSeatMode || 'online');
+  }, [seatModalCtx, seatDraftsByProgram, bookerSeatMode, bookerSeatNotify, guestSeatForm]);
 
-  const notifyQuickPresetLive = useMemo(
-    () => deriveNotifyQuickPreset(seatModalCtx, guestSeatForm, bookerSeatNotify),
-    [seatModalCtx, guestSeatForm, bookerSeatNotify]
-  );
+  const notifyQuickPresetLive = useMemo(() => {
+    if (!seatModalCtx?.programId) return 'custom';
+    const m = mergeGlobalSeatDraft(
+      seatDraftsByProgram[seatModalCtx.programId] || {},
+      bookerSeatMode,
+      bookerSeatNotify,
+      guestSeatForm,
+    );
+    return deriveNotifyQuickPreset(seatModalCtx, m.guestSeatForm || {}, m.bookerSeatNotify !== false);
+  }, [seatModalCtx, seatDraftsByProgram, bookerSeatMode, bookerSeatNotify, guestSeatForm]);
+
+  /** Single merged view for the open enrollment modal (this program + global fallbacks). */
+  const modalSeatMerged = useMemo(() => {
+    if (!seatModalCtx?.programId) return null;
+    return mergeGlobalSeatDraft(
+      seatDraftsByProgram[seatModalCtx.programId] || {},
+      bookerSeatMode,
+      bookerSeatNotify,
+      guestSeatForm,
+    );
+  }, [seatModalCtx?.programId, seatDraftsByProgram, bookerSeatMode, bookerSeatNotify, guestSeatForm]);
 
   const upcomingList = homeData?.upcoming_programs || [];
   const programsForPrefetch = useMemo(
@@ -512,15 +536,6 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh, bo
         .join(','),
     [enrollableGuests]
   );
-
-  /** Guest ids selected on any upcoming program — attendance/notify prefs are shared across all programs. */
-  const selectedGuestIdsUnionKey = useMemo(() => {
-    const s = new Set();
-    for (const prog of programsForPrefetch) {
-      (selectedFamilyByProgram[prog.id] || []).forEach((id) => s.add(String(id)));
-    }
-    return [...s].sort().join(',');
-  }, [programsForPrefetch, selectedFamilyByProgram]);
 
   const familyRowCount = members.length + otherMembers.length;
 
@@ -874,30 +889,42 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh, bo
     };
   }, [isAnnual, currencyReady, portalQuoteCurrency, prefetchProgramsKey, familySelectionKey, dashboardTierKey, programsForPrefetch, seatDraftsByProgram, getDashboardTier, annualIncludedIds]);
 
+  /** Per-program guest seat rows: each upcoming card keeps its own attendance/notify for selected members. */
   useEffect(() => {
-    setGuestSeatForm((prev) => {
-      const ids = selectedGuestIdsUnionKey ? selectedGuestIdsUnionKey.split(',').filter(Boolean) : [];
-      const saved = loadDashboardEnrollmentDefaults();
-      const next = { ...prev };
-      let changed = false;
-      ids.forEach((id) => {
-        if (!next[id]) {
-          next[id] = {
-            attendance_mode: saved && saved.guestMode === 'offline' ? 'offline' : 'online',
-            notify_enrollment: !!(saved && saved.guestNotify),
-          };
-          changed = true;
+    const saved = loadDashboardEnrollmentDefaults();
+    setSeatDraftsByProgram((prev) => {
+      let next = prev;
+      let any = false;
+      for (const prog of programsForPrefetch) {
+        const pid = prog.id;
+        const sel = (selectedFamilyByProgram[pid] || []).map(String);
+        const curDraft = { ...(next[pid] || createEmptySeatDraft()) };
+        const gf = { ...(curDraft.guestSeatForm || {}) };
+        let ch = false;
+        sel.forEach((idStr) => {
+          if (!gf[idStr]) {
+            gf[idStr] = {
+              attendance_mode: saved && saved.guestMode === 'offline' ? 'offline' : 'online',
+              notify_enrollment: !!(saved && saved.guestNotify),
+            };
+            ch = true;
+          }
+        });
+        Object.keys(gf).forEach((id) => {
+          if (!sel.includes(id)) {
+            delete gf[id];
+            ch = true;
+          }
+        });
+        if (ch) {
+          if (next === prev) next = { ...prev };
+          next[pid] = { ...curDraft, guestSeatForm: gf };
+          any = true;
         }
-      });
-      Object.keys(next).forEach((id) => {
-        if (!ids.includes(id)) {
-          delete next[id];
-          changed = true;
-        }
-      });
-      return changed ? next : prev;
+      }
+      return any ? next : prev;
     });
-  }, [selectedGuestIdsUnionKey]);
+  }, [programsForPrefetch, selectedFamilyByProgram]);
 
   useEffect(() => {
     const code = promoForProgramClicks;
@@ -988,97 +1015,106 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh, bo
   };
 
   const updateGuestSeatField = (memberId, field, value) => {
+    if (!seatModalCtx?.programId) return;
+    const pid = seatModalCtx.programId;
     const id = String(memberId);
-    setGuestSeatForm((prev) => ({
-      ...prev,
-      [id]: {
+    setSeatDraftsByProgram((prev) => {
+      const draft = { ...(prev[pid] || createEmptySeatDraft()) };
+      const gf = { ...(draft.guestSeatForm || {}) };
+      const baseGlobal = guestSeatForm[id] || {};
+      const base = {
         attendance_mode: 'online',
         notify_enrollment: false,
-        ...prev[id],
+        ...baseGlobal,
+        ...gf[id],
         [field]: value,
-      },
-    }));
+      };
+      gf[id] = base;
+      return { ...prev, [pid]: { ...draft, guestSeatForm: gf } };
+    });
   };
 
-  /** Bulk attendance presets; notify checkboxes are left unchanged. */
+  /** Bulk attendance presets for the enrollment modal — only the open program’s draft changes. */
   const applyBulkSeatModes = (preset) => {
-    if (!seatModalCtx) return;
+    if (!seatModalCtx?.programId) return;
+    const pid = seatModalCtx.programId;
     const { includedPkg, selectedIds } = seatModalCtx;
     const ids = (selectedIds || []).map((x) => String(x));
-
-    const patchGuests = (mode) => {
-      setGuestSeatForm((prev) => {
-        const next = { ...prev };
+    setSeatDraftsByProgram((prev) => {
+      const draft = { ...(prev[pid] || createEmptySeatDraft()) };
+      const gf = { ...(draft.guestSeatForm || {}) };
+      const patchGuests = (mode) => {
         ids.forEach((idStr) => {
-          next[idStr] = {
+          gf[idStr] = {
             attendance_mode: 'online',
             notify_enrollment: false,
-            ...prev[idStr],
+            ...gf[idStr],
             attendance_mode: mode,
           };
         });
-        return next;
-      });
-    };
-
-    if (preset === 'all_online') {
-      if (!includedPkg) setBookerSeatMode('online');
-      patchGuests('online');
-    } else if (preset === 'all_offline') {
-      if (!includedPkg) setBookerSeatMode('offline');
-      patchGuests('offline');
-    } else if (preset === 'guests_offline_booker_online') {
-      if (!includedPkg) setBookerSeatMode('online');
-      patchGuests('offline');
-    }
+      };
+      if (preset === 'all_online') {
+        if (!includedPkg) draft.bookerSeatMode = 'online';
+        patchGuests('online');
+      } else if (preset === 'all_offline') {
+        if (!includedPkg) draft.bookerSeatMode = 'offline';
+        patchGuests('offline');
+      } else if (preset === 'guests_offline_booker_online') {
+        if (!includedPkg) draft.bookerSeatMode = 'online';
+        patchGuests('offline');
+      }
+      draft.guestSeatForm = gf;
+      return { ...prev, [pid]: draft };
+    });
   };
 
-  /** Bulk email-enrollment toggles: all_on | me_only (booker yes, guests no) | all_off */
+  /** Bulk email enrollment toggles for the enrollment modal — per program draft only. */
   const applyBulkNotify = (preset) => {
-    if (!seatModalCtx) return;
+    if (!seatModalCtx?.programId) return;
+    const pid = seatModalCtx.programId;
     const { selectedIds } = seatModalCtx;
     const ids = (selectedIds || []).map((x) => String(x));
-    /** Package-included (e.g. MMM): booker still receives enrollment mail when enrolling others. */
-    setBookerSeatNotify(preset !== 'all_off');
-    const guestNotify = preset === 'all_on';
-    setGuestSeatForm((prev) => {
-      const next = { ...prev };
+    setSeatDraftsByProgram((prev) => {
+      const draft = { ...(prev[pid] || createEmptySeatDraft()) };
+      draft.bookerSeatNotify = preset !== 'all_off';
+      const guestNotify = preset === 'all_on';
+      const gf = { ...(draft.guestSeatForm || {}) };
       ids.forEach((idStr) => {
-        next[idStr] = {
+        gf[idStr] = {
           attendance_mode: 'online',
           notify_enrollment: false,
-          ...prev[idStr],
+          ...gf[idStr],
           notify_enrollment: guestNotify,
         };
       });
-      return next;
+      draft.guestSeatForm = gf;
+      return { ...prev, [pid]: draft };
     });
   };
 
   const patchSeatDraft = (programId, partial) => {
-    if (partial.bookerSeatMode !== undefined) {
-      setBookerSeatMode(partial.bookerSeatMode === 'offline' ? 'offline' : 'online');
-    }
-    if (partial.bookerSeatNotify !== undefined) {
-      setBookerSeatNotify(!!partial.bookerSeatNotify);
-    }
-    if (partial.guestSeatForm !== undefined) {
-      setGuestSeatForm(partial.guestSeatForm);
+    const touchesDraft =
+      partial.bookerSeatMode !== undefined ||
+      partial.bookerSeatNotify !== undefined ||
+      partial.guestSeatForm !== undefined ||
+      partial.bookerJoinsProgram !== undefined;
+    if (touchesDraft) {
+      setSeatDraftsByProgram((prev) => {
+        const cur = { ...(prev[programId] || createEmptySeatDraft()) };
+        if (partial.bookerJoinsProgram !== undefined) cur.bookerJoinsProgram = partial.bookerJoinsProgram;
+        if (partial.bookerSeatMode !== undefined) {
+          cur.bookerSeatMode = partial.bookerSeatMode === 'offline' ? 'offline' : 'online';
+        }
+        if (partial.bookerSeatNotify !== undefined) cur.bookerSeatNotify = !!partial.bookerSeatNotify;
+        if (partial.guestSeatForm !== undefined) cur.guestSeatForm = partial.guestSeatForm;
+        return { ...prev, [programId]: cur };
+      });
     }
     if (partial.enrollmentDefaultsLoaded !== undefined) {
       setEnrollmentDefaultsLoaded(!!partial.enrollmentDefaultsLoaded);
     }
     if (partial.persistEnrollmentDefaultsOnContinue !== undefined) {
       setPersistEnrollmentDefaultsOnContinue(!!partial.persistEnrollmentDefaultsOnContinue);
-    }
-    if (partial.bookerJoinsProgram !== undefined) {
-      setSeatDraftsByProgram((prev) => ({
-        ...prev,
-        [programId]: {
-          ...(prev[programId] || createEmptySeatDraft()),
-          bookerJoinsProgram: partial.bookerJoinsProgram,
-        },
-      }));
     }
   };
 
@@ -1088,49 +1124,51 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh, bo
     const includedPkg =
       isAnnual && (programIncludedInAnnualPackage(prog, annualIncludedIds) || !!annualQuotes[programId]?.included_in_annual_package);
     const ids = (selectedFamilyByProgram[programId] || []).map(String);
-    const patchGuests = (mode) => {
-      setGuestSeatForm((prev) => {
-        const next = { ...prev };
+    setSeatDraftsByProgram((prev) => {
+      const draft = { ...(prev[programId] || createEmptySeatDraft()) };
+      const gf = { ...(draft.guestSeatForm || {}) };
+      const patchGuests = (mode) => {
         ids.forEach((idStr) => {
-          next[idStr] = {
+          gf[idStr] = {
             attendance_mode: 'online',
             notify_enrollment: false,
-            ...prev[idStr],
+            ...gf[idStr],
             attendance_mode: mode,
           };
         });
-        return next;
-      });
-    };
-    if (preset === 'all_online') {
-      if (!includedPkg) setBookerSeatMode('online');
-      patchGuests('online');
-    } else if (preset === 'all_offline') {
-      if (!includedPkg) setBookerSeatMode('offline');
-      patchGuests('offline');
-    } else if (preset === 'guests_offline_booker_online') {
-      if (!includedPkg) setBookerSeatMode('online');
-      patchGuests('offline');
-    }
+      };
+      if (preset === 'all_online') {
+        if (!includedPkg) draft.bookerSeatMode = 'online';
+        patchGuests('online');
+      } else if (preset === 'all_offline') {
+        if (!includedPkg) draft.bookerSeatMode = 'offline';
+        patchGuests('offline');
+      } else if (preset === 'guests_offline_booker_online') {
+        if (!includedPkg) draft.bookerSeatMode = 'online';
+        patchGuests('offline');
+      }
+      draft.guestSeatForm = gf;
+      return { ...prev, [programId]: draft };
+    });
   };
 
   const applyBulkNotifyDraft = (programId, preset) => {
-    const prog = programsForPrefetch.find((x) => String(x.id) === String(programId));
-    if (!prog) return;
     const ids = (selectedFamilyByProgram[programId] || []).map(String);
-    setBookerSeatNotify(preset !== 'all_off');
-    const guestNotify = preset === 'all_on';
-    setGuestSeatForm((prev) => {
-      const next = { ...prev };
+    setSeatDraftsByProgram((prev) => {
+      const draft = { ...(prev[programId] || createEmptySeatDraft()) };
+      draft.bookerSeatNotify = preset !== 'all_off';
+      const guestNotify = preset === 'all_on';
+      const gf = { ...(draft.guestSeatForm || {}) };
       ids.forEach((idStr) => {
-        next[idStr] = {
+        gf[idStr] = {
           attendance_mode: 'online',
           notify_enrollment: false,
-          ...prev[idStr],
+          ...gf[idStr],
           notify_enrollment: guestNotify,
         };
       });
-      return next;
+      draft.guestSeatForm = gf;
+      return { ...prev, [programId]: draft };
     });
   };
 
@@ -1189,18 +1227,35 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh, bo
     });
     setEnrollmentDefaultsLoaded(true);
     toast({
-      title: 'Defaults saved for all programs',
-      description: 'These options will load automatically the next time you enroll from the dashboard on this device.',
+      title: 'Defaults saved for this browser',
+      description: 'These options seed new enrollments on this device. Each program card still keeps its own attendance until you change it.',
     });
     return true;
   };
 
   const saveEnrollmentDefaultsAndCloseModal = () => {
-    if (!seatModalCtx) return;
+    if (!seatModalCtx?.programId) return;
     const included = !!seatModalCtx.includedPkg;
     const selectedIds = seatModalCtx.selectedIds || [];
-    if (!validateEnrollmentSeatContacts(included, selectedIds, guestSeatForm, bookerSeatNotify)) return;
-    if (!persistEnrollmentSeatDefaultsToBrowser(selectedIds, bookerSeatMode, bookerSeatNotify, guestSeatForm)) return;
+    const merged = mergeGlobalSeatDraft(
+      seatDraftsByProgram[seatModalCtx.programId] || {},
+      bookerSeatMode,
+      bookerSeatNotify,
+      guestSeatForm,
+    );
+    if (!validateEnrollmentSeatContacts(included, selectedIds, merged.guestSeatForm || {}, merged.bookerSeatNotify !== false)) {
+      return;
+    }
+    if (
+      !persistEnrollmentSeatDefaultsToBrowser(
+        selectedIds,
+        merged.bookerSeatMode,
+        merged.bookerSeatNotify,
+        merged.guestSeatForm || {},
+      )
+    ) {
+      return;
+    }
     setEnrollmentSeatOpen(false);
     setSeatModalCtx(null);
   };
@@ -1654,7 +1709,7 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh, bo
                             type="radio"
                             name={`dash-att-booker-${seatModalCtx.programId}`}
                             className="shrink-0 border-slate-300 text-violet-700"
-                            checked={bookerSeatMode !== 'offline'}
+                            checked={(modalSeatMerged?.bookerSeatMode || 'online') !== 'offline'}
                             onChange={() => applyBulkSeatModes('all_online')}
                           />
                           Online (Zoom)
@@ -1664,7 +1719,7 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh, bo
                             type="radio"
                             name={`dash-att-booker-${seatModalCtx.programId}`}
                             className="shrink-0 border-slate-300 text-violet-700"
-                            checked={bookerSeatMode === 'offline'}
+                            checked={(modalSeatMerged?.bookerSeatMode || 'online') === 'offline'}
                             onChange={() => applyBulkSeatModes('all_offline')}
                           />
                           Offline / remote
@@ -1731,7 +1786,7 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh, bo
                             type="radio"
                             name={`dash-ntf-booker-${seatModalCtx.programId}`}
                             className="shrink-0 border-slate-300 text-violet-700"
-                            checked={bookerSeatNotify}
+                            checked={modalSeatMerged?.bookerSeatNotify !== false}
                             onChange={() => applyBulkNotify('me_only')}
                           />
                           Email me enrollment details
@@ -1741,7 +1796,7 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh, bo
                             type="radio"
                             name={`dash-ntf-booker-${seatModalCtx.programId}`}
                             className="shrink-0 border-slate-300 text-violet-700"
-                            checked={!bookerSeatNotify}
+                            checked={modalSeatMerged?.bookerSeatNotify === false}
                             onChange={() => applyBulkNotify('all_off')}
                           />
                           No enrollment emails
@@ -1834,9 +1889,9 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh, bo
                     <label className="inline-flex items-center gap-1 cursor-pointer">
                       <input
                         type="radio"
-                        name="dash-booker-mode"
-                        checked={bookerSeatMode === 'online'}
-                        onChange={() => setBookerSeatMode('online')}
+                        name={`dash-booker-mode-${seatModalCtx.programId}`}
+                        checked={(modalSeatMerged?.bookerSeatMode || 'online') !== 'offline'}
+                        onChange={() => patchSeatDraft(seatModalCtx.programId, { bookerSeatMode: 'online' })}
                       />
                       <Wifi size={12} className="text-slate-500" />
                       Online
@@ -1844,9 +1899,9 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh, bo
                     <label className="inline-flex items-center gap-1 cursor-pointer">
                       <input
                         type="radio"
-                        name="dash-booker-mode"
-                        checked={bookerSeatMode === 'offline'}
-                        onChange={() => setBookerSeatMode('offline')}
+                        name={`dash-booker-mode-${seatModalCtx.programId}`}
+                        checked={(modalSeatMerged?.bookerSeatMode || 'online') === 'offline'}
+                        onChange={() => patchSeatDraft(seatModalCtx.programId, { bookerSeatMode: 'offline' })}
                       />
                       <Monitor size={12} className="text-slate-500" />
                       Offline
@@ -1856,12 +1911,16 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh, bo
                     <input
                       type="checkbox"
                       className="mt-0.5 rounded border-slate-300"
-                      checked={bookerSeatNotify}
-                      onChange={(e) => setBookerSeatNotify(e.target.checked)}
+                      checked={modalSeatMerged?.bookerSeatNotify !== false}
+                      onChange={(e) => patchSeatDraft(seatModalCtx.programId, { bookerSeatNotify: e.target.checked })}
                     />
                     <span>
                       <span className="inline-flex items-center gap-1 font-medium text-slate-800">
-                        {bookerSeatNotify ? <Bell size={12} className="text-slate-500" /> : <BellOff size={12} className="text-slate-400" />}
+                        {modalSeatMerged?.bookerSeatNotify !== false ? (
+                          <Bell size={12} className="text-slate-500" />
+                        ) : (
+                          <BellOff size={12} className="text-slate-400" />
+                        )}
                         Email me enrollment details
                       </span>
                       <span className="block text-[10px] text-slate-500 mt-0.5">
@@ -1878,7 +1937,10 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh, bo
                   <div className="space-y-2 max-h-[42vh] overflow-y-auto pr-1">
                     {seatModalCtx.selectedIds.map((id) => {
                       const m = enrollableGuests.find((g) => String(g.id) === String(id));
-                      const row = guestSeatForm[id] || { attendance_mode: 'online', notify_enrollment: false };
+                      const row =
+                        (modalSeatMerged?.guestSeatForm || {})[id] ||
+                        guestSeatForm[id] ||
+                        ({ attendance_mode: 'online', notify_enrollment: false });
                       return (
                         <div key={id} className="rounded-lg border border-slate-200 p-2.5 space-y-2 bg-white">
                           <p className="font-medium text-slate-900">
