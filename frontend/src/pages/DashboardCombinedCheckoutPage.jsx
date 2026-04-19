@@ -108,11 +108,42 @@ function IndiaPaymentPathTags({ className = '' }) {
   );
 }
 
-function PaymentMethodTags({ methods }) {
+/**
+ * Client Garden tag (`india_payment_method`) → subscriber payment keys used on /student/home.
+ * When set (not "any"), only these should show in the cart pills.
+ */
+function paymentMethodKeysFromIndiaTag(tagRaw) {
+  const t = String(tagRaw || '').trim().toLowerCase();
+  if (!t || t === 'any') return null;
+  if (t === 'stripe') return ['stripe'];
+  if (t === 'gpay_upi' || t === 'gpay' || t === 'upi') return ['gpay', 'manual'];
+  if (t === 'bank_transfer' || t === 'bank') return ['bank', 'manual'];
+  if (t === 'cash_deposit' || t === 'cash') return ['manual'];
+  return null;
+}
+
+function displayMethodsForTag(homeMethods, indiaPaymentTag) {
+  const fromHome = Array.isArray(homeMethods) && homeMethods.length
+    ? homeMethods.map((x) => String(x).toLowerCase().trim())
+    : ['stripe'];
+  const canonical = paymentMethodKeysFromIndiaTag(indiaPaymentTag);
+  if (!canonical) return { list: fromHome, tagged: false };
+  const inter = canonical.filter((k) => fromHome.includes(k));
+  const list = inter.length > 0 ? inter : canonical;
+  return { list, tagged: true };
+}
+
+function PaymentMethodTags({ methods, tagged }) {
   const list = Array.isArray(methods) && methods.length > 0 ? methods : ['stripe'];
+  const heading =
+    !tagged
+      ? 'Your enabled methods'
+      : list.length > 1
+        ? 'Your tagged payment methods'
+        : 'Your tagged payment method';
   return (
     <div className="flex flex-wrap gap-2" data-testid="dashboard-combined-payment-tags">
-      <span className="text-[9px] font-bold uppercase tracking-wide text-slate-500 w-full">Your enabled methods</span>
+      <span className="text-[9px] font-bold uppercase tracking-wide text-slate-500 w-full">{heading}</span>
       {list.map((key) => {
         const raw = String(key || '').toLowerCase().trim();
         const def = PAYMENT_METHOD_BADGES[raw] || {
@@ -692,9 +723,16 @@ export default function DashboardCombinedCheckoutPage() {
 
   const payableTotal = indiaBreakdown ? indiaBreakdown.roundedTotal : total;
 
+  const indiaPaymentTag = clientIndiaPricing?.india_payment_method;
+
+  const { list: paymentMethodsForDisplay, tagged: paymentMethodsTagged } = useMemo(
+    () => displayMethodsForTag(paymentMethods, indiaPaymentTag),
+    [paymentMethods, indiaPaymentTag],
+  );
+
   const pmLower = useMemo(
-    () => paymentMethods.map((x) => String(x).toLowerCase()),
-    [paymentMethods],
+    () => paymentMethodsForDisplay.map((x) => String(x).toLowerCase()),
+    [paymentMethodsForDisplay],
   );
   const hasStripe = pmLower.includes('stripe');
   const memberExlyTagged = pmLower.includes('exly');
@@ -1040,7 +1078,7 @@ export default function DashboardCombinedCheckoutPage() {
             we detect a completed enrollment.
           </p>
           <div className="mt-3 rounded-xl border border-white/20 bg-white/10 backdrop-blur-sm px-3 py-2.5">
-            <PaymentMethodTags methods={paymentMethods} />
+            <PaymentMethodTags methods={paymentMethodsForDisplay} tagged={paymentMethodsTagged} />
           </div>
         </div>
         <div className="flex flex-col sm:flex-row flex-wrap gap-2 shrink-0 justify-end">
