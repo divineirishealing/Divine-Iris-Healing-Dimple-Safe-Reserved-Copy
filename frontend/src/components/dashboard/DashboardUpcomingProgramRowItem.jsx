@@ -257,10 +257,10 @@ export default function DashboardUpcomingProgramRowItem({
   const [annualAttendanceOpen, setAnnualAttendanceOpen] = useState(true);
   const didAutoSyncRef = useRef(false);
 
-  // Auto-sync cart on dashboard load: when enrollment prefill data first arrives,
-  // update any stale cart entry so the cart always reflects current selections.
+  // Auto-sync cart on dashboard load (non-annual only): when enrollment prefill arrives,
+  // update any stale cart entry so the cart reflects current dashboard selections.
   useEffect(() => {
-    if (!enrollmentSelf || didAutoSyncRef.current) return;
+    if (!enrollmentSelf || subscriberIsAnnual || didAutoSyncRef.current) return;
     const inCart = cartItems.some((i) => String(i.programId) === String(p.id));
     if (!inCart) return;
     didAutoSyncRef.current = true;
@@ -938,10 +938,32 @@ export default function DashboardUpcomingProgramRowItem({
                         />
                         All offline
                       </label>
-                      {annualSeatUi.attendanceQuickPreset === 'custom' ||
-                      annualSeatUi.attendanceQuickPreset === 'except_me' ? (
-                        <span className="text-[9px] text-amber-800/90">Mixed — use advanced or pick a preset.</span>
+                      {!includedPkg && selCount >= 1 ? (
+                        <label className="inline-flex items-center gap-1.5 cursor-pointer text-[10px] text-slate-800 whitespace-nowrap">
+                          <input
+                            type="checkbox"
+                            className="rounded border-slate-300 shrink-0 scale-90"
+                            checked={annualSeatUi.attendanceQuickPreset === 'except_me'}
+                            onChange={(e) => {
+                              e.stopPropagation();
+                              if (e.target.checked) annualSeatUi.onApplyAttendanceDraft(p.id, 'guests_offline_booker_online');
+                            }}
+                          />
+                          All offline except Myself
+                        </label>
                       ) : null}
+                      <label className="inline-flex items-center gap-1.5 cursor-pointer text-[10px] text-slate-800 whitespace-nowrap">
+                        <input
+                          type="checkbox"
+                          className="rounded border-slate-300 shrink-0 scale-90"
+                          checked={annualSeatUi.attendanceQuickPreset === 'custom'}
+                          onChange={(e) => {
+                            e.stopPropagation();
+                            if (e.target.checked) annualSeatUi.onOpenPerPersonSeatModal?.();
+                          }}
+                        />
+                        Custom
+                      </label>
                     </div>
                   </div>
 
