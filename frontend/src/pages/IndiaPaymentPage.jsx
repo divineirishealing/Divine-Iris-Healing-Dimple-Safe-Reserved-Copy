@@ -85,7 +85,10 @@ const IndiaPaymentPage = () => {
   }, [isManualMode, enrollmentId]);
 
   const pricing = useMemo(() => {
-    const platformPct = settings.india_platform_charge_percent || 3;
+    const platformPct = (() => {
+      const v = Number(settings.india_platform_charge_percent);
+      return Number.isFinite(v) ? v : 3;
+    })();
 
     // Client-specific discount overrides the site-wide alt-payment discount
     const hasClientDiscount = clientTax && clientTax.india_discount_percent != null;

@@ -442,7 +442,12 @@ export default function DashboardCombinedCheckoutPage() {
           india_exly_link: (s.india_exly_link || '').trim(),
           india_alt_discount_percent: s.india_alt_discount_percent ?? 9,
           india_gst_percent: s.india_gst_percent ?? 18,
-          india_platform_charge_percent: s.india_platform_charge_percent ?? 3,
+          india_platform_charge_percent: (() => {
+            const raw = s.india_platform_charge_percent;
+            if (raw === null || raw === undefined || raw === '') return 3;
+            const p = Number(raw);
+            return Number.isFinite(p) ? p : 3;
+          })(),
         }));
         setUrgencyQuotes(s.enrollment_urgency_quotes || []);
         setCheckoutPromoVisible(s.checkout_promo_code_visible !== false);

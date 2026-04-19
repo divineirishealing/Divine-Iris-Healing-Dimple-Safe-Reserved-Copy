@@ -63,7 +63,10 @@ const PaymentSettingsTab = () => {
         india_alt_discount_percent: parseFloat(altDiscountPct) || 9,
         india_gst_percent: parseFloat(gstPct) || 18,
         dashboard_annual_quote_show_tax: !!dashboardAnnualQuoteShowTax,
-        india_platform_charge_percent: parseFloat(platformPct) || 3,
+        india_platform_charge_percent: (() => {
+          const p = parseFloat(platformPct);
+          return Number.isFinite(p) ? p : 3;
+        })(),
         inr_whitelist_emails: emails,
       });
       const saved = res.data?.inr_whitelist_emails;
