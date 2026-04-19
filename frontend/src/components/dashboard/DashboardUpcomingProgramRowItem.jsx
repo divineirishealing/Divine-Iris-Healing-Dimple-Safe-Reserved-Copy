@@ -1058,6 +1058,28 @@ export default function DashboardUpcomingProgramRowItem({
             )}
           </div>
           <div className="w-full min-w-0 flex-1">
+            {!subscriberIsAnnual && enrollStatus === 'open' && (() => {
+              const bookerJoins = annualSeatUi?.draft?.bookerJoinsProgram !== false;
+              const selectedNames = selIds.map(id => {
+                const m = [...(members || []), ...(otherMembers || [])].find(x => String(x.id) === String(id));
+                return m?.name || m?.email || id;
+              });
+              const allNames = [...(bookerJoins ? [annualSeatUi?.bookerDisplayName || 'You'] : []), ...selectedNames];
+              return allNames.length > 0 ? (
+                <div className="flex flex-wrap items-center gap-1.5 mb-2 text-[10px] text-slate-600 leading-snug">
+                  <span className="font-semibold text-slate-500 uppercase tracking-wide text-[9px]">Enrolling:</span>
+                  {allNames.map((name, i) => (
+                    <span key={i} className="bg-amber-50 border border-amber-200 text-amber-900 rounded-full px-2 py-0.5 font-medium">{name}</span>
+                  ))}
+                  {selIds.length > 0 && (
+                    <button type="button" onClick={() => selIds.forEach(id => toggleFamilyMember?.(p.id, id))}
+                      className="text-red-500 underline underline-offset-2 text-[9px] ml-1">clear guests</button>
+                  )}
+                </div>
+              ) : (
+                <p className="text-[10px] text-slate-400 italic mb-2">No one selected — check "I am enrolling myself" or pick family members.</p>
+              );
+            })()}
             {enrollStatus === 'open' ? (
               <button
                 type="button"
