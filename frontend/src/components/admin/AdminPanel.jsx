@@ -12,7 +12,7 @@ import { resolveImageUrl, rememberPublicApiBase, rememberS3VirtualHostRewrite } 
 import {
   Settings, Package, Calendar, MessageSquare, BarChart3, Mail, Inbox,
   Trash2, Edit, Plus, X, Eye, EyeOff, Save, ArrowUp, ArrowDown,
-  Globe, Layout, Image, Users, Palette, Gift, Monitor, Wifi,   Tag, ChevronLeft, ChevronRight, ChevronDown, Upload, FileText, DollarSign, Quote, Star, ShieldAlert, CreditCard, UserPlus, Search, Wallet, Sparkles
+  Globe, Layout, Image, Users, Palette, Gift, Monitor, Wifi,   Tag, ChevronLeft, ChevronRight, ChevronDown, Upload, FileText, DollarSign, Quote, Star, ShieldAlert, CreditCard, UserPlus, Search, Wallet, Sparkles, Link2
 } from 'lucide-react';
 
 import { getApiUrl } from '../../lib/config';
@@ -50,6 +50,7 @@ import TextTestimonialsTab from './tabs/TextTestimonialsTab';
 import FraudAlertsTab from './tabs/FraudAlertsTab';
 import SubscribersTab from './tabs/SubscribersTab';
 import SchedulerTab from './tabs/SchedulerTab';
+import ContactUpdateLinkTab from './tabs/ContactUpdateLinkTab';
 
 const API = getApiUrl();
 
@@ -344,6 +345,7 @@ const AdminPanel = () => {
     ]},
     { label: 'Clients', icon: Users, tabs: [
       { key: 'clients', label: 'Client Garden', icon: Users },
+      { key: 'contact_update_link', label: 'Contact update link', icon: Link2 },
       { key: 'subscribers', label: 'Subscribers', icon: Mail },
       { key: 'annual_subscribers', label: 'Annual Subscribers', icon: Star },
       { key: 'scheduler', label: 'Scheduler', icon: Calendar },
@@ -539,6 +541,7 @@ const AdminPanel = () => {
               <ClientsTab />
             </div>
           )}
+          {activeTab === 'contact_update_link' && <ContactUpdateLinkTab />}
           {activeTab === 'promotions' && <PromotionsTab programs={programs} />}
           {activeTab === 'discounts' && <DiscountsTab />}
           {activeTab === 'points_wallet' && <PointsWalletTab />}

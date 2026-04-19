@@ -23,6 +23,7 @@ import BlogPage from './pages/BlogPage';
 import SponsorPage from './pages/SponsorPage';
 import IndiaPaymentPage from './pages/IndiaPaymentPage';
 import ManualPaymentPage from './pages/ManualPaymentPage';
+import ContactUpdatePage from './pages/ContactUpdatePage';
 import LoginPage from './pages/LoginPage';
 import StudentDashboard from './pages/StudentDashboard';
 import DashboardLayout from './layouts/DashboardLayout';
@@ -110,6 +111,7 @@ const AppContent = () => {
       <Route path="/manual-payment/:enrollmentId" element={<ManualPaymentPage />} />
       <Route path="/manual-payment" element={<ManualPaymentPage />} />
       <Route path="/contact" element={<ContactPage />} />
+      <Route path="/update-contact/:token" element={<ContactUpdatePage />} />
       <Route path="/terms" element={<TermsPage />} />
       <Route path="/privacy" element={<PrivacyPage />} />
       <Route path="/about" element={<AboutPage />} />

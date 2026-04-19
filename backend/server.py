@@ -16,6 +16,7 @@ from routes import programs, sessions, testimonials, stats, newsletter, upload, 
 from routes import s3_media_proxy
 from routes import admin_clients, student, points as points_admin
 from routes import auth
+from routes import contact_update
 from routes.auth import get_current_user
 from routes.student import list_student_orders_impl
 from routes import subscribers
@@ -245,6 +246,8 @@ app.include_router(admin_clients.router)
 app.include_router(points_admin.router)
 app.include_router(student.router)
 app.include_router(auth.router)
+app.include_router(contact_update.public_router)
+app.include_router(contact_update.admin_router)
 app.include_router(subscribers.router)
 app.include_router(emi_payments.router)
 app.include_router(enrollment_auto_report_module.router)
