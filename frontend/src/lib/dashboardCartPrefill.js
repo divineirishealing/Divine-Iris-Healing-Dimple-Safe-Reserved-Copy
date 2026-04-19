@@ -112,7 +112,7 @@ function baseParticipant(program, overrides) {
  * Single-row cart from portal profile (non-annual or fallback).
  * @param {object|null} self — /student/enrollment-prefill → self
  */
-export function buildSelfOnlyCartParticipants(self, program, bookerEmail, detectedCountry) {
+export function buildSelfOnlyCartParticipants(self, program, bookerEmail, detectedCountry, attendanceModeOverride) {
   const name = String(self?.name || '').trim();
   const email = String(self?.email || bookerEmail || '').trim();
   if (!name && !email) return null;
@@ -121,7 +121,9 @@ export function buildSelfOnlyCartParticipants(self, program, bookerEmail, detect
   const country = resolveCountryCode(self?.country, detectedCountry);
   const age = String(self?.age || '').trim() || ageFromDobIso(self?.date_of_birth);
   const city = String(self?.city || '').trim();
-  const attendance_mode = program.session_mode === 'remote' ? 'offline' : 'online';
+  const attendance_mode = attendanceModeOverride === 'offline' ? 'offline'
+    : attendanceModeOverride === 'online' ? 'online'
+    : program.session_mode === 'remote' ? 'offline' : 'online';
   const notify = attendance_mode === 'online';
 
   return [

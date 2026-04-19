@@ -322,6 +322,7 @@ export default function DashboardUpcomingProgramRowItem({
           bookerSeatMode: bookerAttendMode,
           guestSeatForm: { ...baseDraft.guestSeatForm, ...overriddenGuestForm },
         };
+        const bookerJoinsFinal = nonAnnualSeatDraft.bookerJoinsProgram !== false;
         participants = buildAnnualDashboardCartParticipants({
           program: p,
           includedPkg: false,
@@ -332,7 +333,9 @@ export default function DashboardUpcomingProgramRowItem({
           bookerEmail,
           detectedCountry,
           immediateFamilyMembers: members,
-        }) || buildSelfOnlyCartParticipants(self, p, bookerEmail, detectedCountry);
+        }) || (bookerJoinsFinal
+          ? buildSelfOnlyCartParticipants(self, p, bookerEmail, detectedCountry, bookerAttendMode)
+          : null);
       }
     } catch {
       /* empty row */

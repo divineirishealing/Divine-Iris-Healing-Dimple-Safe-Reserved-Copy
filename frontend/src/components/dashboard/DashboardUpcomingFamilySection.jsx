@@ -1251,6 +1251,8 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh, bo
         });
       } else {
         // Non-annual: respect selectedIds + attendance modes from modal (draft already merged)
+        const nonAnnualBookerJoins = draft?.bookerJoinsProgram !== false;
+        const nonAnnualBookerMode = draft?.bookerSeatMode === 'offline' ? 'offline' : 'online';
         participants =
           buildAnnualDashboardCartParticipants({
             program,
@@ -1262,7 +1264,9 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh, bo
             bookerEmail,
             detectedCountry,
             immediateFamilyMembers: members,
-          }) || buildSelfOnlyCartParticipants(pre.self, program, bookerEmail, detectedCountry);
+          }) || (nonAnnualBookerJoins
+            ? buildSelfOnlyCartParticipants(pre.self, program, bookerEmail, detectedCountry, nonAnnualBookerMode)
+            : null);
       }
     } catch {
       /* syncProgramLineItem still updates line meta */
