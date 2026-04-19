@@ -1617,10 +1617,7 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh, bo
             <Users size={16} className="text-violet-700" />
             <div>
               <h3 className="text-sm font-semibold text-slate-900">Immediate family</h3>
-              <p className="text-[11px] text-slate-500">
-                Up to 12 household members. <strong className="font-medium text-slate-600">Save family list</strong> keeps your edits;
-                use <strong className="font-medium text-slate-600">Send for admin review</strong> when you want confirmation.
-              </p>
+              <p className="text-[11px] text-slate-500">Up to 12 household members for enrollments.</p>
             </div>
           </div>
 
