@@ -888,7 +888,7 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh, bo
             }
           : {
               title: 'Guest list saved',
-              description: 'Your changes are saved. Use Send for admin review when you are ready for confirmation.',
+              description: 'Your friends & extended list has been updated.',
             },
       );
       enrollmentPrefillCacheRef.current = null;
@@ -1719,9 +1719,7 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh, bo
             <Users size={16} className="text-indigo-600" />
             <div>
               <h3 className="text-sm font-semibold text-slate-900">Friends &amp; extended</h3>
-              <p className="text-[11px] text-slate-500">
-                Up to 12 additional guests. Save keeps your edits; send when you want an admin to confirm this list.
-              </p>
+              <p className="text-[11px] text-slate-500">Up to 12 additional guests.</p>
             </div>
           </div>
 
@@ -1763,16 +1761,9 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh, bo
               {saving ? <Loader2 size={14} className="animate-spin" /> : null}
               Save friends &amp; extended
             </button>
-            <button
-              type="button"
-              onClick={() => saveOtherGuests(true)}
-              disabled={saving}
-              className="inline-flex items-center gap-1.5 text-xs font-semibold rounded-full px-4 py-1.5 border-2 border-indigo-500 bg-indigo-50 text-indigo-900 hover:bg-indigo-100 disabled:opacity-60"
-              data-testid="send-other-guests-review"
-            >
-              {saving ? <Loader2 size={14} className="animate-spin" /> : <Send size={14} />}
-              Send for admin review
-            </button>
+            {/*
+              Later: restore “Send for admin review” for this list — call saveOtherGuests(true); API already supports submit_for_review on PUT /api/student/other-guests.
+            */}
           </div>
         </div>
       </div>

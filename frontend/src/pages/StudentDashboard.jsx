@@ -247,6 +247,9 @@ const StudentDashboard = () => {
 
   const pts = homeData?.points;
   const pkg = homeData?.package || {};
+  /** Backend default when there is no subscriber package — hide journey week line & hero stat pills until real data exists. */
+  const isNoActivePackage =
+    !(pkg.program_name || '').trim() || /^no active package$/i.test(String(pkg.program_name).trim());
   const progressPct = pkg.total_sessions ? Math.round((pkg.used_sessions / pkg.total_sessions) * 100) : 0;
   const tierLabel = { 1: 'Seeker', 2: 'Initiate', 3: 'Explorer', 4: 'Iris Zenith' }[user?.tier] || 'Seeker';
   const irisJourney = homeData?.iris_journey;
@@ -255,17 +258,18 @@ const StudentDashboard = () => {
   const bodyAlignPct = progressPct > 0 ? Math.min(99, progressPct + 8) : 72;
 
   const welcomeSubtitle = useMemo(() => {
-    const rawName = (pkg.program_name || '').trim();
-    const programPhrase = rawName
-      ? `${rawName.replace(/\s+journey\s*$/i, '').trim()} journey`
-      : 'AWRP journey';
-    const weekN = typeof pkg.used_sessions === 'number' && pkg.used_sessions >= 0 ? pkg.used_sessions : null;
-    const lead =
-      weekN != null ? `Week ${weekN} of your ${programPhrase}` : `Your ${programPhrase}`;
     const d = new Date();
     const weekday = d.toLocaleDateString('en-US', { weekday: 'long' });
     const ymd = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
     const todayDisp = formatDateDdMonYyyy(ymd);
+    const rawName = (pkg.program_name || '').trim();
+    if (!rawName || /^no active package$/i.test(rawName)) {
+      return `${weekday}, ${todayDisp} · ${SANCTUARY_REFERENCE.welcomeAffirmation}`;
+    }
+    const programPhrase = `${rawName.replace(/\s+journey\s*$/i, '').trim()} journey`;
+    const weekN = typeof pkg.used_sessions === 'number' && pkg.used_sessions >= 0 ? pkg.used_sessions : null;
+    const lead =
+      weekN != null ? `Week ${weekN} of your ${programPhrase}` : `Your ${programPhrase}`;
     return `${lead} · ${weekday}, ${todayDisp} · ${SANCTUARY_REFERENCE.welcomeAffirmation}`;
   }, [pkg.program_name, pkg.used_sessions]);
 
@@ -379,21 +383,23 @@ const StudentDashboard = () => {
               </p>
             </div>
             <div className="relative z-[1] flex flex-wrap items-stretch justify-start md:justify-end gap-3 shrink-0">
-              {[
-                [pkg.used_sessions ?? '—', SANCTUARY_REFERENCE.statSessions],
-                [`${journeyDisplayPct}%`, 'Compass'],
-                [daysActiveSince(pkg.start_date) ?? '—', SANCTUARY_REFERENCE.statDaysActive],
-              ].map(([num, lbl], i) => (
-                <div
-                  key={lbl + i}
-                  className="text-center rounded-[18px] border border-[rgba(160,80,220,0.1)] bg-[rgba(160,80,220,0.05)] px-4 py-3 min-w-[4.5rem]"
-                >
-                  <div className="font-[family-name:'Playfair_Display',serif] text-[1.65rem] leading-none text-[#5b0ecc] tabular-nums">{num}</div>
-                  <div className="mt-1 font-[family-name:'Cinzel',serif] text-[9px] tracking-[0.1em] text-[rgba(80,20,160,0.45)] uppercase">
-                    {lbl}
+              {/* Sessions / Compass / Days Active — hidden when no subscriber package (re-enable when journey stats are live). */}
+              {!isNoActivePackage &&
+                [
+                  [pkg.used_sessions ?? '—', SANCTUARY_REFERENCE.statSessions],
+                  [`${journeyDisplayPct}%`, 'Compass'],
+                  [daysActiveSince(pkg.start_date) ?? '—', SANCTUARY_REFERENCE.statDaysActive],
+                ].map(([num, lbl], i) => (
+                  <div
+                    key={lbl + String(i)}
+                    className="text-center rounded-[18px] border border-[rgba(160,80,220,0.1)] bg-[rgba(160,80,220,0.05)] px-4 py-3 min-w-[4.5rem]"
+                  >
+                    <div className="font-[family-name:'Playfair_Display',serif] text-[1.65rem] leading-none text-[#5b0ecc] tabular-nums">{num}</div>
+                    <div className="mt-1 font-[family-name:'Cinzel',serif] text-[9px] tracking-[0.1em] text-[rgba(80,20,160,0.45)] uppercase">
+                      {lbl}
+                    </div>
                   </div>
-                </div>
-              ))}
+                ))}
               <div className="self-center rounded-[14px] border border-[rgba(200,150,30,0.22)] bg-gradient-to-br from-[rgba(200,150,30,0.12)] to-[rgba(245,200,64,0.08)] px-4 py-2.5 text-center min-w-[7.5rem] max-w-[11rem]">
                 <div className="font-[family-name:'Cinzel',serif] text-[11px] text-[#8a6800] tracking-[0.08em]">
                   ✦ {tierLabel}
