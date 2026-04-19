@@ -4,7 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import { useDashboardScrollSession } from '../hooks/useDashboardScrollSession';
 import { useSiteSettings } from '../context/SiteSettingsContext';
 import { NavLink } from 'react-router-dom';
-import { Loader2, Menu, X, Home, Sprout, Calendar, TrendingUp, Sparkles, Heart, BookOpen, User, CreditCard, LogOut, Coins, ShoppingCart, ClipboardList, KeyRound } from 'lucide-react';
+import { Loader2, Menu, X, Home, Sprout, Calendar, TrendingUp, Sparkles, Heart, BookOpen, User, CreditCard, LogOut, Coins, ShoppingCart, ClipboardList } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { CosmicDashboardBackground } from '../components/dashboard/CosmicDashboardBackground';
 import { getDashboardCosmicVariant } from '../lib/dashboardCosmicThemes';
@@ -12,7 +12,6 @@ import { mergeDashboardVisibility } from '../lib/dashboardVisibility';
 
 const NAV_ITEMS = [
   { to: '/dashboard', label: 'Overview', icon: Home, exact: true, visKey: null },
-  { to: '/dashboard/access', label: 'Dashboard access', icon: KeyRound, visKey: null },
   { to: '/dashboard/garden', label: 'Soul Garden', icon: Sprout, visKey: 'nav_soul_garden' },
   { to: '/dashboard/sessions', label: 'Schedule & calendar', icon: Calendar, visKey: 'nav_sessions' },
   { to: '/dashboard/progress', label: 'Progress', icon: TrendingUp, visKey: 'nav_progress' },

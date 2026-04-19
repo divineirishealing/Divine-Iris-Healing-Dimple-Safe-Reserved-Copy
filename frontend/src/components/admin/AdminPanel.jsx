@@ -12,7 +12,7 @@ import { resolveImageUrl, rememberPublicApiBase, rememberS3VirtualHostRewrite } 
 import {
   Settings, Package, Calendar, MessageSquare, BarChart3, Mail, Inbox,
   Trash2, Edit, Plus, X, Eye, EyeOff, Save, ArrowUp, ArrowDown,
-  Globe, Layout, Image, Users, Palette, Gift, Monitor, Wifi,   Tag, ChevronLeft, ChevronRight, ChevronDown, Upload, FileText, DollarSign, Quote, Star, ShieldAlert, CreditCard, UserPlus, Search, Wallet, Sparkles, Link2
+  Globe, Layout, Image, Users, Palette, Gift, Monitor, Wifi,   Tag, ChevronLeft, ChevronRight, ChevronDown, Upload, FileText, DollarSign, Quote, Star, ShieldAlert,   CreditCard, UserPlus, Search, Wallet, Sparkles, Link2, KeyRound
 } from 'lucide-react';
 
 import { getApiUrl } from '../../lib/config';
@@ -53,6 +53,7 @@ import SubscribersTab from './tabs/SubscribersTab';
 import SchedulerTab from './tabs/SchedulerTab';
 import ContactUpdateLinkTab from './tabs/ContactUpdateLinkTab';
 import AnnualSubscribersTab from './tabs/AnnualSubscribersTab';
+import DashboardAccessTab from './tabs/DashboardAccessTab';
 
 const API = getApiUrl();
 
@@ -348,6 +349,7 @@ const AdminPanel = () => {
     ]},
     { label: 'Clients', icon: Users, tabs: [
       { key: 'clients', label: 'Client Garden', icon: Users },
+      { key: 'dashboard_access', label: 'Dashboard access', icon: KeyRound },
       { key: 'contact_update_link', label: 'Contact update link', icon: Link2 },
       { key: 'subscribers', label: 'Subscribers', icon: Mail },
       { key: 'annual_subscribers', label: 'Annual Subscribers', icon: Star },
@@ -544,6 +546,7 @@ const AdminPanel = () => {
               <ClientsTab />
             </div>
           )}
+          {activeTab === 'dashboard_access' && <DashboardAccessTab />}
           {activeTab === 'contact_update_link' && <ContactUpdateLinkTab />}
           {activeTab === 'promotions' && <PromotionsTab programs={programs} />}
           {activeTab === 'discounts' && <DiscountsTab />}
