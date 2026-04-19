@@ -1197,6 +1197,7 @@ export default function DashboardUpcomingProgramRowItem({
 
               {/* Pricing & Offer — per-person breakdown matching annual layout */}
               {(() => {
+                const bookerJoins = annualSeatUi?.draft?.bookerJoinsProgram !== false;
                 const seatPrice = showSpecialPromo ? afterPromo : offerPrice > 0 ? offerPrice : price;
                 const immMemberIds = new Set(members.map(m => m.id ? String(m.id) : null).filter(Boolean));
                 const extMemberIds = new Set(otherMembers.map(m => m.id ? String(m.id) : null).filter(Boolean));
@@ -1204,7 +1205,7 @@ export default function DashboardUpcomingProgramRowItem({
                 const extCount = selIds.filter(id => extMemberIds.has(id)).length;
                 const immTotal = immCount * seatPrice;
                 const extTotal = extCount * seatPrice;
-                const grandTotal = (price > 0 || offerPrice > 0) ? seatPrice + immTotal + extTotal : 0;
+                const grandTotal = (price > 0 || offerPrice > 0) ? (bookerJoins ? seatPrice : 0) + immTotal + extTotal : 0;
                 const hasGuests = immCount > 0 || extCount > 0;
                 const rowClass = 'flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1 text-[11px] text-slate-800';
                 return (
@@ -1218,10 +1219,10 @@ export default function DashboardUpcomingProgramRowItem({
                         <div className="rounded-md border border-slate-200 bg-white w-full px-3 py-2.5 space-y-2">
                           {showContact ? (
                             <div className={rowClass}>
-                              <span className="text-slate-700">Your seat</span>
-                              <span className="text-slate-600 text-right">Contact for pricing</span>
+                              <span className={`text-slate-700 ${!bookerJoins ? 'line-through opacity-50' : ''}`}>Your seat</span>
+                              <span className="text-slate-600 text-right">{bookerJoins ? 'Contact for pricing' : <span className="text-slate-400 italic text-[10px]">not enrolling</span>}</span>
                             </div>
-                          ) : seatPrice > 0 ? (
+                          ) : bookerJoins && seatPrice > 0 ? (
                             <div className={rowClass}>
                               <span className="font-medium text-slate-800">Your seat</span>
                               <span className="font-semibold tabular-nums text-slate-900 text-right">
@@ -1232,10 +1233,15 @@ export default function DashboardUpcomingProgramRowItem({
                                 <span className="text-slate-500 font-normal text-[10px] ml-1">· 1 seat</span>
                               </span>
                             </div>
-                          ) : (
+                          ) : bookerJoins ? (
                             <div className={rowClass}>
                               <span className="font-medium text-slate-800">Your seat</span>
                               <span className="font-bold text-green-600">FREE</span>
+                            </div>
+                          ) : (
+                            <div className={`${rowClass} opacity-50`}>
+                              <span className="line-through text-slate-600">Your seat</span>
+                              <span className="text-slate-400 italic text-[10px]">not enrolling yourself</span>
                             </div>
                           )}
                           {showSpecialPromo && (
@@ -1269,10 +1275,16 @@ export default function DashboardUpcomingProgramRowItem({
                       </div>
                     ) : null}
                     <p className="text-[11px] text-slate-600 mt-2 pt-2 border-t border-slate-100 leading-snug">
-                      Your selection total{hasGuests ? ' (guests & add-ons)' : ''}:{' '}
-                      <span className="font-semibold text-slate-800 tabular-nums">
-                        {symbol} {grandTotal.toLocaleString()}
-                      </span>
+                      {bookerJoins || hasGuests ? (
+                        <>
+                          Your selection total{hasGuests ? ' (guests & add-ons)' : ''}:{' '}
+                          <span className="font-semibold text-slate-800 tabular-nums">
+                            {symbol} {grandTotal.toLocaleString()}
+                          </span>
+                        </>
+                      ) : (
+                        <span className="text-slate-400 italic">Uncheck "I am enrolling myself" to enroll guests only.</span>
+                      )}
                     </p>
                   </div>
                 );
@@ -1288,6 +1300,23 @@ export default function DashboardUpcomingProgramRowItem({
                     <ChevronDown className={`h-4 w-4 text-slate-500 shrink-0 transition-transform ${nonAnnualFamilyOpen ? '' : '-rotate-90'}`} aria-hidden />
                   </button>
                   {nonAnnualFamilyOpen && (
+                    <>
+                    {annualSeatUi ? (
+                      <div className="mb-3 pb-3 border-b border-amber-200/70 pt-2">
+                        <label className="flex items-start gap-2 cursor-pointer text-[10px] text-slate-800 leading-snug">
+                          <input
+                            type="checkbox"
+                            className="rounded border-slate-300 mt-0.5 shrink-0"
+                            checked={annualSeatUi.draft?.bookerJoinsProgram !== false}
+                            onChange={(e) => {
+                              e.stopPropagation();
+                              annualSeatUi.onPatchDraft(p.id, { bookerJoinsProgram: e.target.checked });
+                            }}
+                          />
+                          <span className="font-semibold text-slate-900">I am enrolling myself</span>
+                        </label>
+                      </div>
+                    ) : null}
                     <div className="flex flex-col gap-4 flex-1 min-h-0 max-h-[min(26rem,55vh)] overflow-y-auto pr-1 pt-2">
                       <div className="min-w-0">
                         <p className="text-[10px] font-bold uppercase tracking-wide text-slate-500 mb-2">Immediate family</p>
@@ -1343,6 +1372,7 @@ export default function DashboardUpcomingProgramRowItem({
                         )}
                       </div>
                     </div>
+                    </>
                   )}
                 </div>
 
