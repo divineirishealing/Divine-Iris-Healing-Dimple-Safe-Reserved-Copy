@@ -1325,55 +1325,53 @@ export default function DashboardUpcomingProgramRowItem({
                         <div className="w-full flex flex-col gap-0 divide-y divide-slate-200">
                           <div className="flex flex-col gap-1.5 py-2 first:pt-0 w-full">
                             <span className="text-[9px] font-bold uppercase tracking-wide text-slate-500 shrink-0">Attendance</span>
-                            <div className="flex flex-wrap items-center gap-x-3 gap-y-1 flex-1 min-w-0">
-                              <label className="inline-flex items-center gap-1.5 cursor-pointer text-[10px] text-slate-800 whitespace-nowrap">
-                                <input type="checkbox" className="rounded border-slate-300 shrink-0 scale-90"
+                            <div className="flex flex-col gap-1.5 flex-1 min-w-0" role="radiogroup" aria-label="Attendance preset">
+                              <label className="inline-flex items-center gap-2 cursor-pointer text-[11px] text-slate-800">
+                                <input type="radio" name={`nonannu-att-${p.id}`} className="shrink-0 border-slate-300 text-violet-700"
                                   checked={annualSeatUi?.attendanceQuickPreset === 'all_online'}
-                                  onChange={(e) => { e.stopPropagation(); if (e.target.checked) annualSeatUi?.onApplyAttendanceDraft(p.id, 'all_online'); }} />
+                                  onChange={(e) => { e.stopPropagation(); annualSeatUi?.onApplyAttendanceDraft(p.id, 'all_online'); }} />
                                 All online
                               </label>
-                              <label className="inline-flex items-center gap-1.5 cursor-pointer text-[10px] text-slate-800 whitespace-nowrap">
-                                <input type="checkbox" className="rounded border-slate-300 shrink-0 scale-90"
+                              <label className="inline-flex items-center gap-2 cursor-pointer text-[11px] text-slate-800">
+                                <input type="radio" name={`nonannu-att-${p.id}`} className="shrink-0 border-slate-300 text-violet-700"
                                   checked={annualSeatUi?.attendanceQuickPreset === 'all_offline'}
-                                  onChange={(e) => { e.stopPropagation(); if (e.target.checked) annualSeatUi?.onApplyAttendanceDraft(p.id, 'all_offline'); }} />
+                                  onChange={(e) => { e.stopPropagation(); annualSeatUi?.onApplyAttendanceDraft(p.id, 'all_offline'); }} />
                                 All offline
                               </label>
-                              {selCount > 0 && (
-                                <label className="inline-flex items-center gap-1.5 cursor-pointer text-[10px] text-slate-800 whitespace-nowrap">
-                                  <input type="checkbox" className="rounded border-slate-300 shrink-0 scale-90"
-                                    checked={annualSeatUi?.attendanceQuickPreset === 'except_me'}
-                                    onChange={(e) => { e.stopPropagation(); if (e.target.checked) annualSeatUi?.onApplyAttendanceDraft(p.id, 'guests_offline_booker_online'); }} />
-                                  All offline except Myself
-                                </label>
-                              )}
-                              {(annualSeatUi?.attendanceQuickPreset === 'custom') && (
-                                <span className="text-[9px] text-amber-800/90">Mixed — use advanced or pick a preset.</span>
+                              <label className="inline-flex items-center gap-2 cursor-pointer text-[11px] text-slate-800">
+                                <input type="radio" name={`nonannu-att-${p.id}`} className="shrink-0 border-slate-300 text-violet-700"
+                                  checked={annualSeatUi?.attendanceQuickPreset === 'except_me'}
+                                  onChange={(e) => { e.stopPropagation(); annualSeatUi?.onApplyAttendanceDraft(p.id, 'guests_offline_booker_online'); }} />
+                                All offline except Myself
+                              </label>
+                              {annualSeatUi?.attendanceQuickPreset === 'custom' && (
+                                <p className="text-[9px] text-amber-800/90">Mixed modes — use advanced or pick a preset.</p>
                               )}
                             </div>
                           </div>
                           <div className="flex flex-col gap-1.5 py-2 w-full">
                             <span className="text-[9px] font-bold uppercase tracking-wide text-slate-500 shrink-0 leading-snug">Enrollment email</span>
-                            <div className="flex flex-wrap items-center gap-x-3 gap-y-1 flex-1 min-w-0">
-                              <label className="inline-flex items-center gap-1.5 cursor-pointer text-[10px] text-slate-800 whitespace-nowrap">
-                                <input type="checkbox" className="rounded border-slate-300 shrink-0 scale-90"
+                            <div className="flex flex-col gap-1.5 flex-1 min-w-0" role="radiogroup" aria-label="Enrollment email preset">
+                              <label className="inline-flex items-center gap-2 cursor-pointer text-[11px] text-slate-800">
+                                <input type="radio" name={`nonannu-ntf-${p.id}`} className="shrink-0 border-slate-300 text-violet-700"
                                   checked={annualSeatUi?.notifyQuickPreset === 'email_all'}
-                                  onChange={(e) => { e.stopPropagation(); if (e.target.checked) annualSeatUi?.onApplyNotifyDraft(p.id, 'all_on'); }} />
+                                  onChange={(e) => { e.stopPropagation(); annualSeatUi?.onApplyNotifyDraft(p.id, 'all_on'); }} />
                                 Email all
                               </label>
-                              <label className="inline-flex items-center gap-1.5 cursor-pointer text-[10px] text-slate-800 whitespace-nowrap">
-                                <input type="checkbox" className="rounded border-slate-300 shrink-0 scale-90"
+                              <label className="inline-flex items-center gap-2 cursor-pointer text-[11px] text-slate-800">
+                                <input type="radio" name={`nonannu-ntf-${p.id}`} className="shrink-0 border-slate-300 text-violet-700"
                                   checked={annualSeatUi?.notifyQuickPreset === 'email_me_only'}
-                                  onChange={(e) => { e.stopPropagation(); if (e.target.checked) annualSeatUi?.onApplyNotifyDraft(p.id, 'me_only'); }} />
+                                  onChange={(e) => { e.stopPropagation(); annualSeatUi?.onApplyNotifyDraft(p.id, 'me_only'); }} />
                                 Email Me Only
                               </label>
-                              <label className="inline-flex items-center gap-1.5 cursor-pointer text-[10px] text-slate-800 whitespace-nowrap">
-                                <input type="checkbox" className="rounded border-slate-300 shrink-0 scale-90"
+                              <label className="inline-flex items-center gap-2 cursor-pointer text-[11px] text-slate-800">
+                                <input type="radio" name={`nonannu-ntf-${p.id}`} className="shrink-0 border-slate-300 text-violet-700"
                                   checked={annualSeatUi?.notifyQuickPreset === 'custom'}
-                                  onChange={(e) => { e.stopPropagation(); if (e.target.checked) annualSeatUi?.onApplyNotifyDraft(p.id, 'all_off'); }} />
+                                  onChange={(e) => { e.stopPropagation(); annualSeatUi?.onApplyNotifyDraft(p.id, 'all_off'); }} />
                                 Custom
                               </label>
                               {annualSeatUi?.notifyQuickPreset === 'mixed' && (
-                                <span className="text-[9px] text-amber-800/90">Mixed — open advanced.</span>
+                                <p className="text-[9px] text-amber-800/90">Mixed — open advanced editor.</p>
                               )}
                             </div>
                           </div>
