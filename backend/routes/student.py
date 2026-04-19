@@ -1324,6 +1324,14 @@ async def get_student_home(user: dict = Depends(get_current_user)):
             "india_upi_id": settings_doc.get("india_upi_id") or "",
         },
         "india_tax_info": india_tax_info,
+        # Mirrors Client Garden + site defaults for India manual checkout (discount → GST → platform on after-discount base).
+        "client_india_pricing": {
+            "india_payment_method": (client.get("india_payment_method") or "") or None,
+            "india_discount_percent": client.get("india_discount_percent"),
+            "india_tax_enabled": bool(client.get("india_tax_enabled")),
+            "india_tax_percent": float(client.get("india_tax_percent") or 18.0),
+            "india_tax_label": client.get("india_tax_label") or "GST",
+        },
         "preferred_india_gpay_id": (sub.get("preferred_india_gpay_id") or "").strip(),
         "preferred_india_bank_id": (sub.get("preferred_india_bank_id") or "").strip(),
     }

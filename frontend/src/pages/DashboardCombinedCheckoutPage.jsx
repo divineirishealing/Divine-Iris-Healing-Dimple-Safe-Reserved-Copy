@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
+import { computeIndiaCheckoutBreakdown } from '../lib/indiaClientPricing';
 import { useNavigate, useSearchParams, useLocation } from 'react-router-dom';
 import axios from 'axios';
 import { useCart } from '../context/CartContext';
@@ -167,6 +168,9 @@ export default function DashboardCombinedCheckoutPage() {
     india_enabled: false,
     manual_form_enabled: true,
     india_exly_link: '',
+    india_alt_discount_percent: 9,
+    india_gst_percent: 18,
+    india_platform_charge_percent: 3,
   });
   /** null | 'manual' | 'exly' — keep India flows on this dashboard page (no public site routes). */
   const [portalPayMode, setPortalPayMode] = useState(null);
@@ -178,6 +182,8 @@ export default function DashboardCombinedCheckoutPage() {
   const [paymentMethods, setPaymentMethods] = useState(['stripe']);
   const [enrollmentSubmitLoading, setEnrollmentSubmitLoading] = useState(false);
   const [portalSelf, setPortalSelf] = useState(null);
+  /** Client Garden India fields — same basis as India payment page / manual proof. */
+  const [clientIndiaPricing, setClientIndiaPricing] = useState(null);
   const [subscriberIsAnnual, setSubscriberIsAnnual] = useState(false);
   const [annualPortalSubtotal, setAnnualPortalSubtotal] = useState(null);
   const [annualQuotesByProgram, setAnnualQuotesByProgram] = useState({});
@@ -287,6 +293,7 @@ export default function DashboardCombinedCheckoutPage() {
         if (Array.isArray(pm) && pm.length) setPaymentMethods(pm);
         setSubscriberIsAnnual(!!homeRes.data?.is_annual_subscriber);
         setPortalSelf(prefillRes.data?.self || null);
+        setClientIndiaPricing(homeRes.data?.client_india_pricing || null);
       })
       .catch(() => {});
     return () => {
@@ -425,14 +432,18 @@ export default function DashboardCombinedCheckoutPage() {
     axios.get(`${API}/settings`)
       .then((r) => {
         const s = r.data;
-        setPaymentSettings({
+        setPaymentSettings((prev) => ({
+          ...prev,
           disclaimer: s.payment_disclaimer || '',
           disclaimer_enabled: s.payment_disclaimer_enabled !== false,
           disclaimer_style: s.payment_disclaimer_style || {},
           india_enabled: s.india_payment_enabled || false,
           manual_form_enabled: s.manual_form_enabled !== false,
           india_exly_link: (s.india_exly_link || '').trim(),
-        });
+          india_alt_discount_percent: s.india_alt_discount_percent ?? 9,
+          india_gst_percent: s.india_gst_percent ?? 18,
+          india_platform_charge_percent: s.india_platform_charge_percent ?? 3,
+        }));
         setUrgencyQuotes(s.enrollment_urgency_quotes || []);
         setCheckoutPromoVisible(s.checkout_promo_code_visible !== false);
       })
@@ -640,6 +651,25 @@ export default function DashboardCombinedCheckoutPage() {
   const totalDiscountAmount = totalAutoDiscount + discount;
   const total = Math.max(0, subtotal - discount - totalAutoDiscount);
 
+  /** INR: same stack as India payment page (Client Garden + Payment Settings) on net after cart promos. */
+  const indiaBreakdown = useMemo(() => {
+    if (String(currency).toLowerCase() !== 'inr') return null;
+    return computeIndiaCheckoutBreakdown(total, clientIndiaPricing, {
+      india_alt_discount_percent: paymentSettings.india_alt_discount_percent,
+      india_gst_percent: paymentSettings.india_gst_percent,
+      india_platform_charge_percent: paymentSettings.india_platform_charge_percent,
+    });
+  }, [
+    currency,
+    total,
+    clientIndiaPricing,
+    paymentSettings.india_alt_discount_percent,
+    paymentSettings.india_gst_percent,
+    paymentSettings.india_platform_charge_percent,
+  ]);
+
+  const payableTotal = indiaBreakdown ? indiaBreakdown.roundedTotal : total;
+
   const pmLower = useMemo(
     () => paymentMethods.map((x) => String(x).toLowerCase()),
     [paymentMethods],
@@ -653,7 +683,7 @@ export default function DashboardCombinedCheckoutPage() {
   const siteIndiaAlternatePayments =
     !!paymentSettings.india_enabled && (detectedCountry === 'IN' || bookerIndia);
   const showIndiaAlternatePaymentsBlock =
-    total > 0 && (memberIndiaTagged || memberExlyTagged || siteIndiaAlternatePayments);
+    payableTotal > 0 && (memberIndiaTagged || memberExlyTagged || siteIndiaAlternatePayments);
   const allowManualProof =
     paymentSettings.manual_form_enabled !== false &&
     memberIndiaTagged &&
@@ -668,14 +698,14 @@ export default function DashboardCombinedCheckoutPage() {
 
   /** One non-Stripe path: open immediately after CONTINUE TO PAYMENT (until user backs out once). */
   useEffect(() => {
-    if (!enrollmentId || total <= 0 || hasStripe) return;
+    if (!enrollmentId || payableTotal <= 0 || hasStripe) return;
     if (portalPayMode != null) return;
     if (userClosedPortalPayRef.current) return;
     if (allowManualProof && !allowExlyCheckout) setPortalPayMode('manual');
     else if (allowExlyCheckout && !allowManualProof) setPortalPayMode('exly');
   }, [
     enrollmentId,
-    total,
+    payableTotal,
     hasStripe,
     allowManualProof,
     allowExlyCheckout,
@@ -701,7 +731,7 @@ export default function DashboardCombinedCheckoutPage() {
   }, [checkoutPromoVisible, items.length, items, currency, searchParams]);
 
   useEffect(() => {
-    if (!enrollmentId || total <= 0) {
+    if (!enrollmentId || payableTotal <= 0) {
       setPointsSummary(null);
       return;
     }
@@ -710,7 +740,7 @@ export default function DashboardCombinedCheckoutPage() {
     axios
       .get(`${API}/enrollment/${enrollmentId}/points-summary`, {
         params: {
-          basket_subtotal: total,
+          basket_subtotal: payableTotal,
           currency,
           item_type: first?.type === 'session' ? 'session' : 'program',
           item_id: first?.programId || '',
@@ -722,13 +752,13 @@ export default function DashboardCombinedCheckoutPage() {
         setPointsToRedeem(0);
       })
       .catch(() => setPointsSummary(null));
-  }, [enrollmentId, total, currency, items]);
+  }, [enrollmentId, payableTotal, currency, items]);
 
   const pointsCashEstimate = (() => {
-    if (!pointsSummary?.enabled || !pointsToRedeem || total <= 0) return 0;
+    if (!pointsSummary?.enabled || !pointsToRedeem || payableTotal <= 0) return 0;
     const per = Number(pointsSummary.fiat_per_point) || 0;
     const pct = Number(pointsSummary.max_basket_pct) || 20;
-    const maxCash = total * (pct / 100);
+    const maxCash = payableTotal * (pct / 100);
     const bal = Number(pointsSummary.balance) || 0;
     const maxByOrder = per > 0 ? Math.floor(maxCash / per) : 0;
     const cap =
@@ -736,14 +766,14 @@ export default function DashboardCombinedCheckoutPage() {
         ? Math.min(bal, pointsSummary.max_points_usable)
         : Math.min(bal, maxByOrder);
     const pts = Math.min(Math.max(0, parseInt(String(pointsToRedeem), 10) || 0), cap);
-    const cash = Math.min(pts * per, maxCash, total);
+    const cash = Math.min(pts * per, maxCash, payableTotal);
     return Math.round(cash * 100) / 100;
   })();
 
   const displayCheckoutTotal =
-    pointsSummary?.enabled && total > 0
-      ? Math.max(0, Math.round((total - pointsCashEstimate) * 100) / 100)
-      : total;
+    pointsSummary?.enabled && payableTotal > 0
+      ? Math.max(0, Math.round((payableTotal - pointsCashEstimate) * 100) / 100)
+      : payableTotal;
 
   const validateAndProceed = useCallback(() => {
     for (const item of items) {
@@ -1178,6 +1208,38 @@ export default function DashboardCombinedCheckoutPage() {
               {totalDiscountAmount > 0 ? `-${symbol} ${totalDiscountAmount.toLocaleString()}` : `${symbol} 0`}
             </span>
           </div>
+          {indiaBreakdown ? (
+            <div
+              className="space-y-1 border border-amber-200/80 bg-amber-50/50 rounded-lg px-3 py-2.5 mt-2"
+              data-testid="divine-cart-india-settlement"
+            >
+              <p className="text-[9px] font-bold uppercase tracking-wide text-amber-900/90 mb-0.5">
+                India (INR) — matches Client Garden &amp; payment settings
+              </p>
+              <div className="flex justify-between text-sm text-amber-950">
+                <span>
+                  {indiaBreakdown.discountLabel} ({indiaBreakdown.discountPct}%)
+                </span>
+                <span className="tabular-nums">
+                  -{symbol} {Math.round(indiaBreakdown.discountAmt).toLocaleString()}
+                </span>
+              </div>
+              {indiaBreakdown.gstPct > 0 ? (
+                <div className="flex justify-between text-sm text-amber-950">
+                  <span>
+                    {indiaBreakdown.taxLabel} ({indiaBreakdown.gstPct}%)
+                  </span>
+                  <span className="tabular-nums">{symbol} {Math.round(indiaBreakdown.gstAmount).toLocaleString()}</span>
+                </div>
+              ) : null}
+              <div className="flex justify-between text-sm text-amber-950">
+                <span>Platform ({indiaBreakdown.platformPct}%)</span>
+                <span className="tabular-nums">
+                  {symbol} {Math.round(indiaBreakdown.platformAmount).toLocaleString()}
+                </span>
+              </div>
+            </div>
+          ) : null}
           <div className="flex justify-between font-bold text-lg sm:text-xl border-t border-gray-200 pt-3 mt-2">
             <span>Total</span>
             <span className="text-[#D4AF37] tabular-nums">
@@ -1257,7 +1319,7 @@ export default function DashboardCombinedCheckoutPage() {
               </div>
             ) : (
               <div data-testid="dashboard-combined-pay">
-                {total <= 0 ? (
+                {payableTotal <= 0 ? (
                   <>
                     <h2 className="text-base font-semibold text-gray-900 mb-4 flex items-center gap-2">
                       <ShieldCheck size={16} className="text-green-600" /> Confirm registration
@@ -1288,7 +1350,7 @@ export default function DashboardCombinedCheckoutPage() {
                   ) : null}
                 </div>
 
-                {total > 0 && !hasStripe && (
+                {payableTotal > 0 && !hasStripe && (
                   <div className="mb-3 rounded-lg border border-amber-200 bg-amber-50 p-3 text-[10px] text-amber-950 leading-snug">
                     {showIndiaAlternatePaymentsBlock ? (
                       <p>
@@ -1304,7 +1366,7 @@ export default function DashboardCombinedCheckoutPage() {
                   </div>
                 )}
 
-                {pointsSummary?.enabled && total > 0 && pointsSummary.redeem_blocked && (
+                {pointsSummary?.enabled && payableTotal > 0 && pointsSummary.redeem_blocked && (
                   <div className="border border-amber-200 rounded-lg p-3 mb-4 bg-amber-50/60">
                     <p className="text-[10px] text-amber-900 flex items-center gap-1.5">
                       <Gift size={14} className="text-amber-700 shrink-0" />
@@ -1312,7 +1374,7 @@ export default function DashboardCombinedCheckoutPage() {
                     </p>
                   </div>
                 )}
-                {pointsSummary?.enabled && total > 0 && (pointsSummary.max_points_usable || 0) > 0 && (
+                {pointsSummary?.enabled && payableTotal > 0 && (pointsSummary.max_points_usable || 0) > 0 && (
                   <div className="border border-amber-200 rounded-lg p-3 mb-4 bg-amber-50/40">
                     <p className="text-xs font-semibold text-gray-900 mb-0.5 flex items-center gap-1.5">
                       <Gift size={14} className="text-amber-600" /> Use points
@@ -1335,7 +1397,7 @@ export default function DashboardCombinedCheckoutPage() {
                   </div>
                 )}
 
-                {total > 0 && enrollmentId && portalPayMode === 'manual' && (
+                {payableTotal > 0 && enrollmentId && portalPayMode === 'manual' && (
                   <div className="mb-4" data-testid="dashboard-combined-manual-embed">
                     <ManualPaymentProofBody
                       enrollmentId={enrollmentId}
@@ -1358,7 +1420,7 @@ export default function DashboardCombinedCheckoutPage() {
                   </div>
                 )}
 
-                {total > 0 && enrollmentId && portalPayMode === 'exly' && (
+                {payableTotal > 0 && enrollmentId && portalPayMode === 'exly' && (
                   <div
                     className="mb-4 rounded-xl border border-purple-200 bg-purple-50/70 p-4 space-y-3"
                     data-testid="dashboard-combined-exly-embed"
@@ -1458,18 +1520,18 @@ export default function DashboardCombinedCheckoutPage() {
                   )}
 
                 <div className="flex flex-col gap-3 mt-4 w-full">
-                  {(total <= 0 || hasStripe) && !(total > 0 && portalPayMode === 'manual') && (
+                  {(payableTotal <= 0 || hasStripe) && !(payableTotal > 0 && portalPayMode === 'manual') && (
                   <Button
                     data-testid="dashboard-combined-stripe-pay"
                     onClick={handleCheckout}
                     disabled={
                       processing ||
-                      (total > 0 && !enrollmentId) ||
-                      (total > 0 && !hasStripe)
+                      (payableTotal > 0 && !enrollmentId) ||
+                      (payableTotal > 0 && !hasStripe)
                     }
                     className="w-full bg-[#D4AF37] hover:bg-[#b8962e] text-white py-4 text-base font-semibold rounded-xl disabled:opacity-50 shadow-sm"
                     title={
-                      total > 0 && !hasStripe
+                      payableTotal > 0 && !hasStripe
                         ? 'Stripe is not enabled on your account — use the option above, or contact support.'
                         : undefined
                     }
@@ -1499,7 +1561,7 @@ export default function DashboardCombinedCheckoutPage() {
                   </Button>
                 </div>
 
-                {total > 0 && paymentSettings.disclaimer_enabled && paymentSettings.disclaimer && (
+                {payableTotal > 0 && paymentSettings.disclaimer_enabled && paymentSettings.disclaimer && (
                   <div
                     className="mt-3 rounded-xl p-4 border-2 shadow-sm"
                     style={{
