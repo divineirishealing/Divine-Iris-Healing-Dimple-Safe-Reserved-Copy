@@ -22,6 +22,7 @@ const PaymentSettingsTab = () => {
   const [gstPct, setGstPct] = useState(18);
   const [dashboardAnnualQuoteShowTax, setDashboardAnnualQuoteShowTax] = useState(true);
   const [platformPct, setPlatformPct] = useState(3);
+  const [inrWhitelistEmails, setInrWhitelistEmails] = useState([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
@@ -37,6 +38,7 @@ const PaymentSettingsTab = () => {
       setGstPct(r.data.india_gst_percent ?? 18);
       setDashboardAnnualQuoteShowTax(r.data.dashboard_annual_quote_show_tax !== false);
       setPlatformPct(r.data.india_platform_charge_percent ?? 3);
+      setInrWhitelistEmails(Array.isArray(r.data.inr_whitelist_emails) ? r.data.inr_whitelist_emails : []);
     }).catch(() => {}).finally(() => setLoading(false));
   }, []);
 
@@ -54,6 +56,7 @@ const PaymentSettingsTab = () => {
         india_gst_percent: parseFloat(gstPct) || 18,
         dashboard_annual_quote_show_tax: !!dashboardAnnualQuoteShowTax,
         india_platform_charge_percent: parseFloat(platformPct) || 3,
+        inr_whitelist_emails: inrWhitelistEmails.map((e) => String(e).trim().toLowerCase()).filter(Boolean),
       });
       toast({ title: 'Payment settings saved!' });
     } catch (err) {
@@ -254,7 +257,10 @@ const PaymentSettingsTab = () => {
 
       {/* ════ INR FOR NRI STUDENTS ════ */}
       <CollapsibleSection title="INR Pricing for NRI Students" badge="Whitelist, Tokens, Promo">
-        <InrOverrideConfig />
+        <InrOverrideConfig
+          whitelist={inrWhitelistEmails}
+          setWhitelist={setInrWhitelistEmails}
+        />
       </CollapsibleSection>
 
       <Button onClick={save} disabled={saving} className="w-full bg-[#D4AF37] hover:bg-[#b8962e] text-white" data-testid="save-payment-settings-btn">
@@ -324,23 +330,34 @@ const IndiaGatewayConfig = () => {
 };
 
 /* ─── INR Override for NRI ─── */
-const InrOverrideConfig = () => {
+const InrOverrideConfig = ({ whitelist, setWhitelist }) => {
   const { toast } = useToast();
-  const [whitelist, setWhitelist] = useState([]);
   const [tokens, setTokens] = useState([]);
   const [newEmail, setNewEmail] = useState('');
   const [newLabel, setNewLabel] = useState('');
   const [newMaxUses, setNewMaxUses] = useState(10);
 
   useEffect(() => {
-    axios.get(`${API}/settings`).then(r => setWhitelist(r.data?.inr_whitelist_emails || [])).catch(() => {});
     axios.get(`${API}/enrollment/inr-override/tokens`).then(r => setTokens(r.data || [])).catch(() => {});
   }, []);
 
-  const saveWhitelist = async (list) => {
-    setWhitelist(list);
-    await axios.put(`${API}/settings`, { inr_whitelist_emails: list });
-    toast({ title: 'Whitelist saved' });
+  const addEmail = () => {
+    const raw = newEmail.trim().toLowerCase();
+    if (!raw.includes('@')) {
+      toast({ title: 'Enter a valid email', variant: 'destructive' });
+      return;
+    }
+    if (whitelist.some((e) => String(e).toLowerCase().trim() === raw)) {
+      toast({ title: 'Already in list', variant: 'destructive' });
+      return;
+    }
+    setWhitelist((prev) => [...prev, raw]);
+    setNewEmail('');
+    toast({ title: 'Added to list', description: 'Click Save Payment Settings at the bottom to save.' });
+  };
+
+  const removeEmail = (index) => {
+    setWhitelist((prev) => prev.filter((_, j) => j !== index));
   };
 
   const generateToken = async () => {
@@ -359,17 +376,20 @@ const InrOverrideConfig = () => {
   return (
     <div className="space-y-5">
       <p className="text-xs text-gray-500">3 ways to give INR pricing to Indian students living abroad</p>
+      <p className="text-[10px] text-amber-800 bg-amber-50 border border-amber-200 rounded-md px-2 py-1.5 mb-2">
+        After adding or removing emails, use <strong>Save Payment Settings</strong> at the bottom of this page to persist the list.
+      </p>
 
       {/* Whitelist */}
       <div>
         <p className="text-sm font-medium mb-1 flex items-center gap-1"><Mail size={14} className="text-blue-500" /> Email Whitelist</p>
         <div className="flex gap-2 mb-2">
           <Input value={newEmail} onChange={e => setNewEmail(e.target.value.toLowerCase())} placeholder="student@email.com" className="h-8 text-xs flex-1" />
-          <Button size="sm" onClick={() => { if (newEmail.includes('@')) { saveWhitelist([...whitelist, newEmail.trim()]); setNewEmail(''); } }} className="h-8 bg-blue-500 text-white text-xs"><Plus size={12} /></Button>
+          <Button type="button" size="sm" onClick={addEmail} className="h-8 bg-blue-500 text-white text-xs"><Plus size={12} /></Button>
         </div>
         <div className="flex flex-wrap gap-1">{whitelist.map((e, i) => (
-          <span key={i} className="inline-flex items-center gap-1 bg-blue-50 text-blue-700 text-[10px] px-2 py-0.5 rounded-full border border-blue-200">
-            {e} <button onClick={() => saveWhitelist(whitelist.filter((_, j) => j !== i))} className="text-blue-400 hover:text-red-500"><X size={8} /></button>
+          <span key={`${e}-${i}`} className="inline-flex items-center gap-1 bg-blue-50 text-blue-700 text-[10px] px-2 py-0.5 rounded-full border border-blue-200">
+            {e} <button type="button" onClick={() => removeEmail(i)} className="text-blue-400 hover:text-red-500" aria-label="Remove email"><X size={8} /></button>
           </span>
         ))}</div>
       </div>
