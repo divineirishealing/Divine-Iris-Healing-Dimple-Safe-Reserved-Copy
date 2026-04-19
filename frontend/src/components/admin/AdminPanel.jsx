@@ -51,6 +51,7 @@ import FraudAlertsTab from './tabs/FraudAlertsTab';
 import SubscribersTab from './tabs/SubscribersTab';
 import SchedulerTab from './tabs/SchedulerTab';
 import ContactUpdateLinkTab from './tabs/ContactUpdateLinkTab';
+import AnnualSubscribersTab from './tabs/AnnualSubscribersTab';
 
 const API = getApiUrl();
 
@@ -557,7 +558,7 @@ const AdminPanel = () => {
           {activeTab === 'upcoming_hub' && <UpcomingHubTab />}
           {activeTab === 'upcoming_card_quotes' && <UpcomingCardQuotesTab programs={programs} />}
           {activeTab === 'text_testimonials' && <TextTestimonialsTab />}
-          {activeTab === 'annual_subscribers' && <SubscribersTab />}
+          {activeTab === 'annual_subscribers' && <AnnualSubscribersTab />}
           {activeTab === 'add_annual_subscriber' && <SubscribersTab openManualFormOnMount />}
           {activeTab === 'scheduler' && <SchedulerTab />}
 
