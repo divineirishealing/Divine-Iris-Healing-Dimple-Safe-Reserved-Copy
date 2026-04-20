@@ -398,7 +398,7 @@ const HeaderFooterTab = ({ settings, onChange }) => {
           { value: '/transformations', label: 'Transformations Page' },
           { value: '/blog', label: 'Blog Page' },
           { value: '/cart', label: 'Cart Page' },
-          { value: '/client-intake', label: 'Dashboard access form' },
+          { value: '/dashboardaccessform', label: 'Dashboard access form' },
           { value: '/terms', label: 'Terms & Conditions' },
           { value: '/privacy', label: 'Privacy Policy' },
         ];

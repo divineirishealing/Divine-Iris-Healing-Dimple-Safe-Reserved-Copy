@@ -8,6 +8,6 @@ export function publicNavLinkLabel(href, storedLabel) {
     .trim()
     .split('?')[0]
     .toLowerCase();
-  if (path === '/client-intake') return 'Dashboard access form';
+  if (path === '/dashboardaccessform' || path === '/client-intake') return 'Dashboard access form';
   return String(storedLabel ?? '').trim();
 }

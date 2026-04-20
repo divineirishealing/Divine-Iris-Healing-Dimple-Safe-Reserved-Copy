@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react';
-import { BrowserRouter, Routes, Route, useLocation } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, useLocation, Navigate } from 'react-router-dom';
 import HomePage from './pages/HomePage';
 import AdminPage from './pages/AdminPage';
 import ProgramDetailPage from './pages/ProgramDetailPage';
@@ -111,7 +111,8 @@ const AppContent = () => {
       <Route path="/india-payment/:enrollmentId" element={<IndiaPaymentPage />} />
       <Route path="/manual-payment/:enrollmentId" element={<ManualPaymentPage />} />
       <Route path="/manual-payment" element={<ManualPaymentPage />} />
-      <Route path="/client-intake" element={<ClientIntakePage />} />
+      <Route path="/dashboardaccessform" element={<ClientIntakePage />} />
+      <Route path="/client-intake" element={<Navigate to="/dashboardaccessform" replace />} />
       <Route path="/contact" element={<ContactPage />} />
       <Route path="/update-contact/:token" element={<ContactUpdatePage />} />
       <Route path="/terms" element={<TermsPage />} />
