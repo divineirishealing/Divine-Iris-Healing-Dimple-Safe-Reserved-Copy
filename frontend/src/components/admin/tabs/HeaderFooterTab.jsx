@@ -6,6 +6,7 @@ import { Switch } from '../../ui/switch';
 import { Button } from '../../ui/button';
 import { Facebook, Instagram, Youtube, Linkedin, Plus, Trash2, Mail, Music, ArrowUp, ArrowDown, Eye, EyeOff, Link, ExternalLink } from 'lucide-react';
 import ImageUploader from '../ImageUploader';
+import { publicNavLinkLabel } from '../../../lib/navLinkLabels';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL || '';
 function resolveLogoUrl(url) {
@@ -148,12 +149,12 @@ const HeaderFooterTab = ({ settings, onChange }) => {
               <div className="bg-gray-900 rounded-lg px-4 py-2.5 mb-4 flex items-center justify-between">
                 <div className="flex items-center gap-3">
                   {headerNav.filter(i => i.visible && i.position !== 'right').map((item, i) => (
-                    <span key={i} className="text-white/70 text-[9px] tracking-wider uppercase">{item.label}</span>
+                    <span key={i} className="text-white/70 text-[9px] tracking-wider uppercase">{publicNavLinkLabel(item.href, item.label)}</span>
                   ))}
                 </div>
                 <div className="flex items-center gap-3">
                   {headerNav.filter(i => i.visible && i.position === 'right').map((item, i) => (
-                    <span key={i} className="text-white/70 text-[9px] tracking-wider uppercase">{item.label}</span>
+                    <span key={i} className="text-white/70 text-[9px] tracking-wider uppercase">{publicNavLinkLabel(item.href, item.label)}</span>
                   ))}
                   <span className="text-[#D4AF37] text-[9px]">Cart</span>
                   <span className="text-white/40 text-[9px]">Socials</span>
@@ -397,6 +398,7 @@ const HeaderFooterTab = ({ settings, onChange }) => {
           { value: '/transformations', label: 'Transformations Page' },
           { value: '/blog', label: 'Blog Page' },
           { value: '/cart', label: 'Cart Page' },
+          { value: '/client-intake', label: 'Dashboard access form' },
           { value: '/terms', label: 'Terms & Conditions' },
           { value: '/privacy', label: 'Privacy Policy' },
         ];

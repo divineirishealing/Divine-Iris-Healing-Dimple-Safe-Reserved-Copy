@@ -4,6 +4,7 @@ import axios from 'axios';
 import { Facebook, Instagram, Youtube, Linkedin, Mail, Phone, X, Send, Loader2 } from 'lucide-react';
 import { Dialog, DialogContent, DialogTitle } from './ui/dialog';
 import { BODY, GOLD, CONTAINER } from '../lib/designTokens';
+import { publicNavLinkLabel } from '../lib/navLinkLabels';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
@@ -225,12 +226,16 @@ const Footer = () => {
             <div>
               <h4 className="text-xs font-medium mb-3 tracking-wider text-gray-300" style={FONT_LATO}>MENU</h4>
               <ul className="space-y-1.5 text-gray-400 text-[11px]" style={FONT_LATO}>
-                {footerMenuItems.map(item => (
-                  <li key={item.label}>
-                    <button onClick={() => handleMenuClick(item.href)}
-                      className="hover:text-[#D4AF37] transition-colors text-left">{item.label}</button>
-                  </li>
-                ))}
+                {footerMenuItems.map((item) => {
+                  const fh = item.href || '';
+                  const fLabel = publicNavLinkLabel(fh, item.label);
+                  return (
+                    <li key={fh || item.label}>
+                      <button onClick={() => handleMenuClick(item.href)}
+                        className="hover:text-[#D4AF37] transition-colors text-left">{fLabel}</button>
+                    </li>
+                  );
+                })}
                 <li>
                   <button data-testid="footer-contact-btn" onClick={() => setContactOpen(true)}
                     className="hover:text-[#D4AF37] transition-colors text-left">Contact</button>

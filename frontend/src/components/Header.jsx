@@ -5,6 +5,7 @@ import { useCart } from '../context/CartContext';
 import GlobalSearch from './GlobalSearch';
 import axios from 'axios';
 import { resolveImageUrl } from '../lib/imageUtils';
+import { publicNavLinkLabel } from '../lib/navLinkLabels';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
@@ -145,16 +146,18 @@ const Header = () => {
   const upcomingPrograms = programs.filter(p => p.is_upcoming);
 
   const NavButton = ({ item }) => {
-    const hasOffer = shouldShowOffer(item.label);
+    const href = item.href || item.path || '';
+    const displayLabel = publicNavLinkLabel(href, item.label);
+    const hasOffer = shouldShowOffer(item.label) || shouldShowOffer(displayLabel);
     return (
       <div className="relative flex flex-col items-center">
-        <button onClick={() => handleNav(item.href || item.path)} data-testid={`nav-${item.label.toLowerCase().replace(/\s+/g, '-')}`}
+        <button onClick={() => handleNav(href)} data-testid={`nav-${(href || item.label).replace(/\//g, '').replace(/\s+/g, '-') || 'link'}`}
           className="text-white/80 hover:text-[#D4AF37] text-[11px] tracking-[0.12em] uppercase font-medium px-3 py-2 transition-colors whitespace-nowrap">
-          {item.label}
+          {displayLabel}
         </button>
         {hasOffer && (
-          <span data-testid={`offer-badge-${item.label.toLowerCase().replace(/\s+/g, '-')}`}
-            onClick={() => handleNav(item.href || item.path)}
+          <span data-testid={`offer-badge-${displayLabel.toLowerCase().replace(/\s+/g, '-')}`}
+            onClick={() => handleNav(href)}
             className="absolute -bottom-2 left-1/2 -translate-x-1/2 cursor-pointer inline-flex items-center gap-0.5 text-[7px] font-bold tracking-wider px-1.5 py-px rounded-full shadow-md animate-pulse whitespace-nowrap"
             style={{ background: `linear-gradient(to right, ${pillFrom}, ${pillTo})`, color: '#1a1a1a', fontFamily: `'${pillFont}', sans-serif`, animationDuration: '2s', boxShadow: `0 4px 12px ${pillFrom}40` }}>
             <Sparkles size={7} />
@@ -294,14 +297,18 @@ const Header = () => {
                 <img src={logoUrl} alt="Divine Iris Healing" className="h-12 w-auto object-contain" style={{ maxWidth: 160 }} />
               </button>
             )}
-            {headerNav.map(item => (
-              <div key={item.label}>
-                <button onClick={() => handleNav(item.href || item.path)}
-                  className="text-white/80 hover:text-[#D4AF37] text-sm tracking-[0.15em] uppercase font-light transition-colors">
-                  {item.label}
-                </button>
-              </div>
-            ))}
+            {headerNav.map((item) => {
+              const mh = item.href || item.path || '';
+              const mLabel = publicNavLinkLabel(mh, item.label);
+              return (
+                <div key={mh || item.label}>
+                  <button onClick={() => handleNav(mh)}
+                    className="text-white/80 hover:text-[#D4AF37] text-sm tracking-[0.15em] uppercase font-light transition-colors">
+                    {mLabel}
+                  </button>
+                </div>
+              );
+            })}
             {showProgramsDropdown && (
               <>
                 <button onClick={() => setProgramsOpen(!programsOpen)}
