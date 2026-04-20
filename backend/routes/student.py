@@ -340,19 +340,27 @@ def _read_currency_amount(offer: dict, prefix: str, cur: str) -> float:
     return 0.0
 
 
-def _program_included_in_annual_package(program: dict, configured_ids: Optional[List] = None) -> bool:
-    """Programs in annual package: member seat included; they only pay for family add-ons.
-
-    If `annual_package_included_program_ids` in site settings is non-empty, only those IDs match.
-    If empty, fall back to title/category keywords (MMM, AWRP, …).
-    """
-    ids = [str(x).strip() for x in (configured_ids or []) if str(x).strip()]
-    if ids:
-        pid = str(program.get("id") or "")
-        return pid in set(ids)
+def _program_keyword_in_annual_package(program: dict) -> bool:
+    """Title/category heuristics when admin does not list every program ID explicitly."""
     blob = f"{program.get('title') or ''} {program.get('category') or ''}".lower()
     keys = ("money magic", "mmm", "atomic weight", "awrp")
     return any(k in blob for k in keys)
+
+
+def _program_included_in_annual_package(program: dict, configured_ids: Optional[List] = None) -> bool:
+    """Programs in annual package: member seat included; they only pay for family add-ons.
+
+    If `annual_package_included_program_ids` is non-empty, a program matches when its id is listed
+    **or** it matches the keyword fallback (MMM, AWRP, …). Listing ids no longer hides keyword
+    matches — otherwise MMM can disappear from inclusion when admins curate a partial id list.
+    If the list is empty, only keyword fallback applies.
+    """
+    keyword = _program_keyword_in_annual_package(program)
+    ids = [str(x).strip() for x in (configured_ids or []) if str(x).strip()]
+    if ids:
+        pid = str(program.get("id") or "")
+        return pid in set(ids) or keyword
+    return keyword
 
 
 def _merge_program_dashboard_offers(

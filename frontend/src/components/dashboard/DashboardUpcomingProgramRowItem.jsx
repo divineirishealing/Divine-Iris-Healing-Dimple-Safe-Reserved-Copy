@@ -260,9 +260,11 @@ export default function DashboardUpcomingProgramRowItem({
   const afterPromo = Math.max(0, baseForPromo - disc);
   const showSpecialPromo = Boolean(promoForProgramClicks && validated && disc > 0 && !promoPricesLoading);
 
+  /** Backend + Client Garden heuristics (MMM/AWRP keywords). Use OR: API `false` must not block keyword match. */
   const includedPkg = Boolean(
-    aq?.included_in_annual_package ??
-      (programIncludedInAnnualPackage(p, annualIncludedIds) && annualDashboardAccess),
+    annualDashboardAccess &&
+      ((aq?.included_in_annual_package ?? false) ||
+        programIncludedInAnnualPackage(p, annualIncludedIds)),
   );
   const selIds = selectedFamilyByProgram[p.id] || [];
   const selCount = selIds.length;
