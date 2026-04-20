@@ -34,7 +34,7 @@ class ClientIntakeSubmit(BaseModel):
     state: Optional[str] = None
     country: Optional[str] = None
     preferred_payment_method: Optional[str] = None   # gpay | upi | bank_transfer | cash_deposit
-    intake_claims_annual_member: Optional[bool] = None  # legacy; omit from form — set only when provided
+    intake_claims_annual_member: Optional[bool] = None  # set from intake form Yes/No
 
 
 @router.post("")

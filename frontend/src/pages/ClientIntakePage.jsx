@@ -67,6 +67,7 @@ const ClientIntakePage = () => {
     city: '',
     state: '',
     country: '',
+    annual_member: '', // '' | 'yes' | 'no'
     preferred_payment_method: '',
   });
   const [errors, setErrors] = useState({});
@@ -84,6 +85,9 @@ const ClientIntakePage = () => {
     if (!form.email.trim())       e.email = 'Email address is required';
     else if (!/\S+@\S+\.\S+/.test(form.email)) e.email = 'Enter a valid email address';
     if (!form.phoneNumber.trim()) e.phoneNumber = 'Phone number is required';
+    if (form.annual_member !== 'yes' && form.annual_member !== 'no') {
+      e.annual_member = 'Please answer: Are you an Annual Member?';
+    }
     return e;
   };
 
@@ -102,6 +106,7 @@ const ClientIntakePage = () => {
         state:   form.state.trim() || undefined,
         country: form.country.trim() || undefined,
         preferred_payment_method: form.preferred_payment_method || undefined,
+        intake_claims_annual_member: form.annual_member === 'yes',
       });
       setSubmitted(true);
     } catch (err) {
@@ -253,6 +258,32 @@ const ClientIntakePage = () => {
                     />
                   </Field>
                 </div>
+
+                {/* Annual member */}
+                <Field label="Are you an Annual Member?" required hint="Members on the annual / Sacred Home path receive aligned pricing and setup.">
+                  <div className="flex gap-2">
+                    {[
+                      { value: 'yes', label: 'Yes' },
+                      { value: 'no', label: 'No' },
+                    ].map((opt) => (
+                      <button
+                        key={opt.value}
+                        type="button"
+                        onClick={() => set('annual_member', opt.value)}
+                        className={`flex-1 h-11 px-4 rounded-lg border text-sm font-medium transition-all ${
+                          form.annual_member === opt.value
+                            ? 'border-[#D4AF37] bg-[#D4AF37]/10 text-gray-900'
+                            : 'border-gray-200 text-gray-600 hover:border-gray-300'
+                        }`}
+                      >
+                        {opt.label}
+                      </button>
+                    ))}
+                  </div>
+                  {errors.annual_member && (
+                    <p className="text-xs text-rose-500 mt-1">{errors.annual_member}</p>
+                  )}
+                </Field>
 
                 {/* Payment method */}
                 <Field label="Preferred Payment Method" icon={CreditCard} hint="How would you like to make payments?">

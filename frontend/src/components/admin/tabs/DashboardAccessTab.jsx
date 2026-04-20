@@ -317,9 +317,21 @@ export default function DashboardAccessTab() {
       </div>
       <p className="text-[10px] text-gray-400">Press Enter or use Refresh to run search.</p>
 
-      <div className="bg-white rounded-lg border shadow-sm overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm min-w-[1180px]">
+      <div className="bg-white rounded-lg border shadow-sm overflow-hidden w-full">
+        <div className="w-full overflow-x-auto md:overflow-x-visible">
+          <table className="w-full text-sm table-fixed">
+            <colgroup>
+              <col className="w-[10%]" />
+              <col className="w-[14%]" />
+              <col className="w-[9%]" />
+              <col className="w-[10%]" />
+              <col className="w-[20%]" />
+              <col className="w-[8%]" />
+              <col className="w-[9%]" />
+              <col className="w-[6%]" />
+              <col className="w-[6%]" />
+              <col className="w-[8%]" />
+            </colgroup>
             <thead className="bg-gray-50 border-b">
               <tr>
                 <th className="text-left px-3 py-2.5 text-[10px] font-semibold text-gray-500 uppercase tracking-wider">
@@ -334,8 +346,11 @@ export default function DashboardAccessTab() {
                 <th className="text-left px-3 py-2.5 text-[10px] font-semibold text-gray-500 uppercase tracking-wider">
                   Preferred payment
                 </th>
-                <th className="text-left px-3 py-2.5 text-[10px] font-semibold text-gray-500 uppercase tracking-wider min-w-[200px]">
+                <th className="text-left px-3 py-2.5 text-[10px] font-semibold text-gray-500 uppercase tracking-wider">
                   Tagged payment (site)
+                </th>
+                <th className="text-left px-3 py-2.5 text-[10px] font-semibold text-gray-500 uppercase tracking-wider">
+                  Annual member? (intake)
                 </th>
                 <th className="text-left px-3 py-2.5 text-[10px] font-semibold text-gray-500 uppercase tracking-wider">
                   Access type
@@ -354,14 +369,14 @@ export default function DashboardAccessTab() {
             <tbody className="divide-y divide-gray-100">
               {loading ? (
                 <tr>
-                  <td colSpan={9} className="px-4 py-12 text-center text-gray-500">
+                  <td colSpan={10} className="px-4 py-12 text-center text-gray-500">
                     <Loader2 className="inline animate-spin mr-2 align-middle" size={18} />
                     Loading…
                   </td>
                 </tr>
               ) : rows.length === 0 ? (
                 <tr>
-                  <td colSpan={9} className="px-4 py-10 text-center text-gray-400 text-sm">
+                  <td colSpan={10} className="px-4 py-10 text-center text-gray-400 text-sm">
                     No clients match.
                   </td>
                 </tr>
@@ -383,10 +398,17 @@ export default function DashboardAccessTab() {
                         {labelFrom(PREFERRED_LABEL, cl.preferred_payment_method)}
                       </td>
                       <td
-                        className="px-3 py-2 text-gray-800 text-[11px] max-w-[min(280px,28vw)] align-top leading-snug"
+                        className="px-3 py-2 text-gray-800 text-[11px] align-top leading-snug break-words"
                         title={taggedDetail}
                       >
                         {taggedDetail}
+                      </td>
+                      <td className="px-3 py-2 text-xs text-gray-700">
+                        {cl.intake_claims_annual_member === true
+                          ? 'Yes'
+                          : cl.intake_claims_annual_member === false
+                            ? 'No'
+                            : '—'}
                       </td>
                       <td className="px-3 py-2">
                         <span
