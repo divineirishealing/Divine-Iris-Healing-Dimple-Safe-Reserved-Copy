@@ -1,8 +1,5 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
-import { buildIndiaGpayOptions, buildIndiaBankOptions } from '../../../lib/indiaPaymentTags';
-import IndiaDiscountBandsEditor from '../IndiaDiscountBandsEditor';
-import { serverBandsToRows, rowsToBandsPayload, validateBandRows } from '../../../lib/indiaDiscountBandsUi';
 import { useToast } from '../../../hooks/use-toast';
 import { Button } from '../../ui/button';
 import { Textarea } from '../../ui/textarea';
@@ -27,6 +24,16 @@ const LABEL_CONFIG = {
 };
 
 const ALL_LABELS = ['Dew', 'Seed', 'Root', 'Bloom', 'Iris', 'Purple Bees', 'Iris Bees'];
+
+const INDIA_PAY_METHOD_LABEL = {
+  gpay_upi: 'GPay / UPI',
+  gpay: 'GPay / UPI',
+  upi: 'GPay / UPI',
+  bank_transfer: 'Bank Transfer',
+  cash_deposit: 'Cash Deposit',
+  stripe: 'Stripe',
+  any: 'Any / Multiple',
+};
 
 const timeAgo = (dateStr) => {
   if (!dateStr) return '';
@@ -139,8 +146,7 @@ const ClientsTab = () => {
             <Users size={18} className="text-[#D4AF37]" /> Client Garden
           </h2>
           <p className="text-xs text-gray-500 mt-0.5 max-w-xl">
-            Your unified client database — track every soul&apos;s journey from Dew to Iris. New dashboard access
-            requests and pricing preview are handled under the <strong className="font-semibold text-gray-700">Dashboard Access</strong> tab.
+            Your unified client database — track every soul&apos;s journey from Dew to Iris. <strong className="font-semibold text-gray-700">Dashboard access</strong> is where you set portal login, Sacred Home pricing, and India checkout; this tab is for garden stage, notes, household key, and history — no duplicate editing of dashboard fields.
             <span className="block mt-1 text-[10px] text-gray-400">
               Auto-label stays <strong className="font-medium text-gray-600">Dew</strong> for first-time contacts and anyone who has not finished a paid checkout yet.
               After payment completes, the garden stage updates from enrollments. You can always override the label on each client (Label &amp; Notes → Edit).
@@ -402,77 +408,21 @@ const ClientDetail = ({
   const [notes, setNotes] = useState(cl.notes || '');
   const [householdKey, setHouseholdKey] = useState(cl.household_key || '');
   const [primaryHouseholdContact, setPrimaryHouseholdContact] = useState(!!cl.is_primary_household_contact);
-  const [familyEditApproved, setFamilyEditApproved] = useState(cl.immediate_family_editing_approved !== false);
-  const [portalLoginAllowed, setPortalLoginAllowed] = useState(cl.portal_login_allowed !== false);
-  const [indiaPaymentMethod, setIndiaPaymentMethod] = useState(cl.india_payment_method || '');
-  const [indiaDiscountPercent, setIndiaDiscountPercent] = useState(cl.india_discount_percent ?? '');
-  const [indiaDiscountBandRows, setIndiaDiscountBandRows] = useState([]);
-  const [indiaTaxEnabled, setIndiaTaxEnabled] = useState(!!cl.india_tax_enabled);
-  const [indiaTaxPercent, setIndiaTaxPercent] = useState(cl.india_tax_percent ?? 18);
-  const [indiaTaxLabel, setIndiaTaxLabel] = useState(cl.india_tax_label || 'GST');
-  const [indiaTaxVisibleOnDashboard, setIndiaTaxVisibleOnDashboard] = useState(cl.india_tax_visible_on_dashboard !== false);
-  const [annualMemberDashboard, setAnnualMemberDashboard] = useState(!!cl.annual_member_dashboard);
-  const [preferredIndiaGpayId, setPreferredIndiaGpayId] = useState(cl.preferred_india_gpay_id || '');
-  const [preferredIndiaBankId, setPreferredIndiaBankId] = useState(cl.preferred_india_bank_id || '');
-  const [indiaSite, setIndiaSite] = useState(null);
   const [saving, setSaving] = useState(false);
 
-  const indiaGpayOpts = useMemo(() => buildIndiaGpayOptions(indiaSite || {}), [indiaSite]);
-  const indiaBankOpts = useMemo(() => buildIndiaBankOptions(indiaSite || {}), [indiaSite]);
-
   useEffect(() => {
-    axios.get(`${API}/settings`).then((r) => setIndiaSite(r.data)).catch(() => setIndiaSite({}));
-  }, []);
-
-  useEffect(() => {
-    setFamilyEditApproved(cl.immediate_family_editing_approved !== false);
-    setPortalLoginAllowed(cl.portal_login_allowed !== false);
-    setIndiaPaymentMethod(cl.india_payment_method || '');
-    setIndiaDiscountPercent(cl.india_discount_percent ?? '');
-    setIndiaDiscountBandRows(serverBandsToRows(cl.india_discount_member_bands || []));
-    setIndiaTaxEnabled(!!cl.india_tax_enabled);
-    setIndiaTaxPercent(cl.india_tax_percent ?? 18);
-    setIndiaTaxLabel(cl.india_tax_label || 'GST');
-    setIndiaTaxVisibleOnDashboard(cl.india_tax_visible_on_dashboard !== false);
-    setAnnualMemberDashboard(!!cl.annual_member_dashboard);
-    setPreferredIndiaGpayId(cl.preferred_india_gpay_id || '');
-    setPreferredIndiaBankId(cl.preferred_india_bank_id || '');
+    setLabelManual(cl.label_manual || '');
+    setNotes(cl.notes || '');
     setHouseholdKey(cl.household_key || '');
     setPrimaryHouseholdContact(!!cl.is_primary_household_contact);
-  }, [cl.id, cl.immediate_family_editing_approved, cl.portal_login_allowed, cl.india_payment_method, cl.india_discount_percent, cl.india_discount_member_bands, cl.india_tax_enabled, cl.india_tax_percent, cl.india_tax_label, cl.india_tax_visible_on_dashboard, cl.annual_member_dashboard, cl.preferred_india_gpay_id, cl.preferred_india_bank_id, cl.household_key, cl.is_primary_household_contact]);
-
-  const setPaymentMethodTagged = (v) => {
-    setIndiaPaymentMethod(v);
-    const gpayOk = v === 'gpay_upi' || v === 'any' || v === '';
-    const bankOk = v === 'bank_transfer' || v === 'cash_deposit' || v === 'any' || v === '';
-    if (!gpayOk) setPreferredIndiaGpayId('');
-    if (!bankOk) setPreferredIndiaBankId('');
-  };
+  }, [cl.id, cl.label_manual, cl.notes, cl.household_key, cl.is_primary_household_contact]);
 
   const handleSave = async () => {
-    const bandErr = validateBandRows(indiaDiscountBandRows);
-    if (bandErr) {
-      toast({ title: 'Group discount rules', description: bandErr, variant: 'destructive' });
-      return;
-    }
-    const bandsPayload = rowsToBandsPayload(indiaDiscountBandRows);
     setSaving(true);
     try {
       await axios.put(`${API}/clients/${cl.id}`, {
         label_manual: labelManual,
         notes,
-        immediate_family_editing_approved: familyEditApproved,
-        portal_login_allowed: portalLoginAllowed,
-        india_payment_method: indiaPaymentMethod || null,
-        india_discount_percent: indiaDiscountPercent !== '' ? parseFloat(indiaDiscountPercent) || 0 : null,
-        india_discount_member_bands: bandsPayload,
-        india_tax_enabled: indiaTaxEnabled,
-        india_tax_percent: indiaTaxEnabled ? parseFloat(indiaTaxPercent) || 0 : null,
-        india_tax_label: indiaTaxLabel || 'GST',
-        india_tax_visible_on_dashboard: indiaTaxVisibleOnDashboard,
-        annual_member_dashboard: annualMemberDashboard,
-        preferred_india_gpay_id: preferredIndiaGpayId || '',
-        preferred_india_bank_id: preferredIndiaBankId || '',
         household_key: householdKey.trim() || null,
         is_primary_household_contact: primaryHouseholdContact,
       });
@@ -586,220 +536,10 @@ const ClientDetail = ({
                 <span className="text-[10px] text-slate-800">Primary household contact</span>
               </label>
             </div>
-            {!cl.family_approved && (
-              <div className="rounded-lg border border-violet-100 bg-violet-50/40 px-2 py-2">
-                <label className="flex items-start gap-2 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    data-testid="client-family-edit-approved"
-                    checked={familyEditApproved}
-                    onChange={(e) => setFamilyEditApproved(e.target.checked)}
-                    className="mt-0.5 rounded border-violet-300"
-                  />
-                  <span>
-                    <span className="text-[10px] font-semibold text-gray-800 flex items-center gap-1">
-                      <Lock size={10} className="text-violet-600" />
-                      Allow member to edit immediate family (dashboard)
-                    </span>
-                    <span className="text-[9px] text-gray-500 block mt-0.5 leading-snug">
-                      On by default so members can maintain their list. Turn off to block edits once their names are saved, unless you allow a temporary unlock below.
-                    </span>
-                  </span>
-                </label>
-              </div>
-            )}
-            <div className={`rounded-lg border px-2 py-2 ${portalLoginAllowed ? 'border-green-200 bg-green-50/40' : 'border-red-200 bg-red-50/30'}`}>
-              <label className="flex items-start gap-2 cursor-pointer">
-                <input
-                  type="checkbox"
-                  data-testid="client-portal-login-allowed"
-                  checked={portalLoginAllowed}
-                  onChange={(e) => setPortalLoginAllowed(e.target.checked)}
-                  className="mt-0.5 rounded border-green-300"
-                />
-                <span>
-                  <span className="text-[10px] font-semibold text-gray-800 flex items-center gap-1">
-                    <Lock size={10} className={portalLoginAllowed ? 'text-green-600' : 'text-red-500'} />
-                    Allow Google login to student dashboard
-                  </span>
-                  <span className="text-[9px] text-gray-500 block mt-0.5 leading-snug">
-                    When enabled, this client can sign in via Google and access their student portal.
-                    Turn off to block dashboard access for this individual.
-                    {' '}
-                    <span className="text-violet-700/90">
-                      The first time you turn this on after access was blocked, they receive a short welcome email at this client&apos;s address with a link to sign in.
-                    </span>
-                  </span>
-                </span>
-              </label>
-            </div>
-            <div className={`rounded-lg border px-2 py-2 ${annualMemberDashboard ? 'border-purple-200 bg-purple-50/40' : 'border-gray-200 bg-gray-50/40'}`}>
-              <label className="flex items-start gap-2 cursor-pointer">
-                <input
-                  type="checkbox"
-                  data-testid="client-annual-member-dashboard"
-                  checked={annualMemberDashboard}
-                  onChange={(e) => setAnnualMemberDashboard(e.target.checked)}
-                  className="mt-0.5 rounded border-purple-300"
-                />
-                <span>
-                  <span className="text-[10px] font-semibold text-gray-800">Sacred Home: use annual-member pricing</span>
-                  <span className="text-[9px] text-gray-500 block mt-0.5 leading-snug">
-                    Turn on after you verify they are on the annual path. This unlocks package-inclusion and annual-offer logic like the Subscribers sheet, without requiring an Excel subscriber row.
-                  </span>
-                </span>
-              </label>
-            </div>
-            {/* India Payments */}
-            <div className="rounded-lg border border-orange-200 bg-orange-50/30 px-3 py-2.5 space-y-3">
-              <p className="text-[10px] font-semibold text-orange-800 flex items-center gap-1.5">
-                ₹ India / Card Payments
-              </p>
-
-              {/* Row 1: Payment method tag */}
-              <div>
-                <Label className="text-[9px] text-gray-500 block mb-0.5">Payment method tag</Label>
-                <select
-                  value={indiaPaymentMethod}
-                  onChange={(e) => setPaymentMethodTagged(e.target.value)}
-                  className="w-full text-xs border rounded-md px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-orange-300 bg-white"
-                >
-                  <option value="">— Not tagged —</option>
-                  <option value="gpay_upi">GPay / UPI</option>
-                  <option value="bank_transfer">Bank Transfer</option>
-                  <option value="cash_deposit">Cash Deposit</option>
-                  <option value="stripe">Stripe</option>
-                  <option value="any">Any / Multiple</option>
-                </select>
-              </div>
-
-              {/* Row 2: Discount on base price */}
-              <div>
-                <Label className="text-[9px] text-gray-500 block mb-0.5">Discount % on base price</Label>
-                <div className="flex items-center gap-1.5">
-                  <Input
-                    type="number"
-                    min="0"
-                    max="100"
-                    step="0.5"
-                    value={indiaDiscountPercent}
-                    onChange={(e) => setIndiaDiscountPercent(e.target.value)}
-                    className="h-7 text-xs flex-1"
-                    placeholder="e.g. 9 (leave blank to use site default)"
-                  />
-                  <span className="text-[10px] text-gray-400 flex-shrink-0">%</span>
-                </div>
-                <p className="text-[9px] text-gray-400 mt-0.5">
-                  Applied on base price before GST. Optional bands below override this for specific headcounts.
-                </p>
-              </div>
-
-              <div>
-                <Label className="text-[9px] text-gray-500 block mb-0.5">Optional: group discount by # of people</Label>
-                <p className="text-[9px] text-gray-400 mb-1.5">
-                  Sacred Exchange total participants. First matching rule wins. Otherwise the flat % above or site default.
-                </p>
-                <IndiaDiscountBandsEditor
-                  compact
-                  rows={indiaDiscountBandRows}
-                  onChange={setIndiaDiscountBandRows}
-                />
-              </div>
-
-              {(indiaGpayOpts.length >= 1) && (indiaPaymentMethod === 'gpay_upi' || indiaPaymentMethod === 'any') && (
-                <div>
-                  <Label className="text-[9px] text-gray-500 block mb-0.5">Tagged UPI (India proof row)</Label>
-                  <p className="text-[9px] text-gray-400 mb-1 leading-snug">
-                    Same as Subscribers: pick one row from Site Settings → India payment so this client only sees that UPI on Sacred Exchange.
-                    If they also have a Subscribers record, tags on that row take priority.
-                  </p>
-                  <select
-                    value={preferredIndiaGpayId}
-                    onChange={(e) => setPreferredIndiaGpayId(e.target.value)}
-                    className="w-full text-xs border rounded-md px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-orange-300 bg-white"
-                    data-testid="client-preferred-india-gpay"
-                  >
-                    <option value="">All UPIs (full list on payment page)</option>
-                    {indiaGpayOpts.map((o) => (
-                      <option key={o.tag_id} value={o.tag_id}>{o.label}</option>
-                    ))}
-                  </select>
-                </div>
-              )}
-
-              {(indiaBankOpts.length >= 1) && (indiaPaymentMethod === 'bank_transfer' || indiaPaymentMethod === 'cash_deposit' || indiaPaymentMethod === 'any') && (
-                <div>
-                  <Label className="text-[9px] text-gray-500 block mb-0.5">Tagged bank account (India proof)</Label>
-                  <p className="text-[9px] text-gray-400 mb-1 leading-snug">
-                    Pin one bank row for bank transfer / cash-deposit flows. Subscriber row overrides when set.
-                  </p>
-                  <select
-                    value={preferredIndiaBankId}
-                    onChange={(e) => setPreferredIndiaBankId(e.target.value)}
-                    className="w-full text-xs border rounded-md px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-orange-300 bg-white"
-                    data-testid="client-preferred-india-bank"
-                  >
-                    <option value="">All accounts (student picks)</option>
-                    {indiaBankOpts.map((o) => (
-                      <option key={o.tag_id} value={o.tag_id}>{o.label}</option>
-                    ))}
-                  </select>
-                </div>
-              )}
-
-              {/* Row 3: GST */}
-              <div className="space-y-1.5">
-                <div className="flex items-center gap-2">
-                  <input
-                    type="checkbox"
-                    id={`india-tax-${cl.id}`}
-                    checked={indiaTaxEnabled}
-                    onChange={(e) => setIndiaTaxEnabled(e.target.checked)}
-                    className="rounded border-orange-300"
-                  />
-                  <label htmlFor={`india-tax-${cl.id}`} className="text-[9px] font-semibold text-gray-700 cursor-pointer">
-                    Apply GST on after-discount price
-                  </label>
-                </div>
-                {indiaTaxEnabled && (
-                  <div className="pl-5 space-y-1.5">
-                    <div className="flex gap-2">
-                      <div className="flex-1">
-                        <Label className="text-[9px] text-gray-500">GST %</Label>
-                        <Input
-                          type="number"
-                          min="0"
-                          max="100"
-                          step="0.5"
-                          value={indiaTaxPercent}
-                          onChange={(e) => setIndiaTaxPercent(e.target.value)}
-                          className="h-7 text-xs mt-0.5"
-                          placeholder="18"
-                        />
-                      </div>
-                      <div className="flex-1">
-                        <Label className="text-[9px] text-gray-500">Label shown to them</Label>
-                        <Input
-                          value={indiaTaxLabel}
-                          onChange={(e) => setIndiaTaxLabel(e.target.value)}
-                          className="h-7 text-xs mt-0.5"
-                          placeholder="GST"
-                        />
-                      </div>
-                    </div>
-                    <label className="flex items-center gap-1.5 cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={indiaTaxVisibleOnDashboard}
-                        onChange={(e) => setIndiaTaxVisibleOnDashboard(e.target.checked)}
-                        className="rounded border-orange-300"
-                      />
-                      <span className="text-[9px] text-gray-600">Show tax breakdown on their dashboard</span>
-                    </label>
-                  </div>
-                )}
-              </div>
-            </div>
+            <p className="text-[9px] text-violet-800/95 bg-violet-50/80 border border-violet-100 rounded-md px-2 py-1.5 leading-snug">
+              <strong className="font-semibold">Sacred Home &amp; dashboard settings</strong> (Google login, annual pricing, India tags, family-list edit): edit under{' '}
+              <strong className="font-semibold">Clients → Dashboard access</strong> — not in this form.
+            </p>
 
             <Button data-testid="client-save" onClick={handleSave} disabled={saving} size="sm" className="text-[10px] bg-[#D4AF37] hover:bg-[#b8962e] gap-1">
               <Save size={10} /> {saving ? 'Saving...' : 'Save'}
@@ -807,6 +547,13 @@ const ClientDetail = ({
           </div>
         ) : (
           <div>
+            <div className="mb-2 rounded-lg border border-violet-200 bg-violet-50/60 px-3 py-2">
+              <p className="text-[10px] font-semibold text-violet-900">Sacred Home &amp; dashboard</p>
+              <p className="text-[9px] text-violet-800/95 mt-0.5 leading-snug">
+                Read-only here. To edit login, annual pricing, India checkout, or family-list rules, use{' '}
+                <strong className="font-semibold">Clients → Dashboard access</strong>.
+              </p>
+            </div>
             <div className="flex items-center gap-2 mb-1">
               <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${cfg.badge}`}>{cl.label}</span>
               {cl.label_manual && <span className="text-[9px] text-gray-400">(manually set)</span>}
@@ -831,23 +578,28 @@ const ClientDetail = ({
               </div>
             )}
             <div className="mt-2 flex flex-wrap items-center gap-1.5">
-              <span className={`inline-flex items-center gap-1 text-[9px] px-2 py-0.5 rounded-full font-semibold ${portalLoginAllowed ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-600'}`}>
+              <span className={`inline-flex items-center gap-1 text-[9px] px-2 py-0.5 rounded-full font-semibold ${cl.portal_login_allowed !== false ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-600'}`}>
                 <Lock size={8} />
-                Dashboard: {portalLoginAllowed ? 'Access allowed' : 'Access blocked'}
+                Dashboard: {cl.portal_login_allowed !== false ? 'Access allowed' : 'Access blocked'}
               </span>
-              {indiaPaymentMethod && (
+              {cl.india_payment_method && (
                 <span className="inline-flex items-center gap-1 text-[9px] px-2 py-0.5 rounded-full font-semibold bg-blue-100 text-blue-700">
-                  ₹ {{ gpay_upi: 'GPay / UPI', gpay: 'GPay / UPI', upi: 'GPay / UPI', bank_transfer: 'Bank Transfer', cash_deposit: 'Cash Deposit', stripe: 'Stripe', any: 'Any / Multiple' }[indiaPaymentMethod] || indiaPaymentMethod}
+                  ₹ {INDIA_PAY_METHOD_LABEL[cl.india_payment_method] || cl.india_payment_method}
                 </span>
               )}
-              {indiaDiscountPercent !== '' && indiaDiscountPercent !== null && (
+              {cl.india_discount_percent !== null && cl.india_discount_percent !== undefined && cl.india_discount_percent !== '' && (
                 <span className="inline-flex items-center gap-1 text-[9px] px-2 py-0.5 rounded-full font-semibold bg-orange-100 text-orange-700">
-                  {indiaDiscountPercent}% India discount
+                  {cl.india_discount_percent}% India discount
                 </span>
               )}
-              {indiaTaxEnabled && (
+              {Array.isArray(cl.india_discount_member_bands) && cl.india_discount_member_bands.length > 0 && (
+                <span className="inline-flex items-center gap-1 text-[9px] px-2 py-0.5 rounded-full font-semibold bg-orange-50 text-orange-800 border border-orange-200">
+                  Group discount bands ({cl.india_discount_member_bands.length})
+                </span>
+              )}
+              {cl.india_tax_enabled && (
                 <span className="inline-flex items-center gap-1 text-[9px] px-2 py-0.5 rounded-full font-semibold bg-amber-100 text-amber-800">
-                  +{indiaTaxPercent}% {indiaTaxLabel}
+                  +{cl.india_tax_percent ?? 18}% {cl.india_tax_label || 'GST'}
                 </span>
               )}
               {cl.intake_claims_annual_member && (
@@ -855,19 +607,24 @@ const ClientDetail = ({
                   Intake: annual path (self-reported)
                 </span>
               )}
-              {annualMemberDashboard && (
+              {cl.annual_member_dashboard && (
                 <span className="inline-flex items-center gap-1 text-[9px] px-2 py-0.5 rounded-full font-semibold bg-purple-100 text-purple-800">
                   Sacred Home: annual pricing
                 </span>
               )}
-              {preferredIndiaGpayId && (
-                <span className="inline-flex items-center gap-1 text-[9px] px-2 py-0.5 rounded-full font-semibold bg-emerald-100 text-emerald-800 max-w-[240px] truncate" title={preferredIndiaGpayId}>
-                  UPI tag: {indiaGpayOpts.find((o) => o.tag_id === preferredIndiaGpayId)?.label || preferredIndiaGpayId}
+              {cl.preferred_india_gpay_id && (
+                <span className="inline-flex items-center gap-1 text-[9px] px-2 py-0.5 rounded-full font-semibold bg-emerald-100 text-emerald-800 max-w-[240px] truncate" title={cl.preferred_india_gpay_id}>
+                  UPI tag: {cl.preferred_india_gpay_id}
                 </span>
               )}
-              {preferredIndiaBankId && (
-                <span className="inline-flex items-center gap-1 text-[9px] px-2 py-0.5 rounded-full font-semibold bg-emerald-100 text-emerald-800 max-w-[240px] truncate" title={preferredIndiaBankId}>
-                  Bank tag: {indiaBankOpts.find((o) => o.tag_id === preferredIndiaBankId)?.label || preferredIndiaBankId}
+              {cl.preferred_india_bank_id && (
+                <span className="inline-flex items-center gap-1 text-[9px] px-2 py-0.5 rounded-full font-semibold bg-emerald-100 text-emerald-800 max-w-[240px] truncate" title={cl.preferred_india_bank_id}>
+                  Bank tag: {cl.preferred_india_bank_id}
+                </span>
+              )}
+              {cl.immediate_family_editing_approved === false && (
+                <span className="inline-flex items-center gap-1 text-[9px] px-2 py-0.5 rounded-full font-semibold bg-gray-100 text-gray-700">
+                  Family list edits blocked
                 </span>
               )}
             </div>
@@ -913,10 +670,10 @@ const ClientDetail = ({
                 </div>
               ) : familyListLocked ? (
                 <p className="text-[10px] text-gray-600">
-                  List is <span className="font-semibold">locked</span>.{" "}
+                  List is <span className="font-semibold">locked</span>.{' '}
                   {cl.immediate_family_editing_approved !== false
-                    ? "Edits currently allowed — turn off above to re-lock."
-                    : 'Enable "Allow member to edit immediate family" above to let them update it.'}
+                    ? 'Edits may be allowed — block re-edits from Dashboard access if needed.'
+                    : 'Allow edits from Dashboard access (“Allow member to edit immediate family”) if they need to update it.'}
                 </p>
               ) : (
                 <p className="text-[10px] text-gray-400 italic">
