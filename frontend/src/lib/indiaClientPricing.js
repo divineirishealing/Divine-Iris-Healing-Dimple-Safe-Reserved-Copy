@@ -24,7 +24,7 @@ export function resolveIndiaDiscountRule(clientPricing, memberCount, siteAltPerc
       const hi = b.max == null ? lo : Math.max(lo, Math.floor(Number(b.max)));
       if (n < lo || n > hi) continue;
 
-      const amtRaw = b.amount_inr;
+      const amtRaw = b.amount ?? b.amount_inr;
       if (amtRaw != null && amtRaw !== '' && Number(amtRaw) > 0) {
         return {
           fromBand: true,

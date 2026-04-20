@@ -600,24 +600,35 @@ async def get_client(client_id: str):
 class IndiaDiscountMemberBand(BaseModel):
     """India checkout discount for participant count in [min, max] (inclusive).
 
-    Use either ``percent`` or ``amount_inr`` (fixed INR off the effective base), not both.
+    Use either ``percent`` or ``amount`` (fixed INR off the effective base), not both.
+    Legacy stored key ``amount_inr`` is accepted on input and normalized to ``amount``.
     """
 
     min: int = Field(ge=0, le=999)
     max: int = Field(ge=0, le=999)
     percent: Optional[float] = Field(default=None, ge=0, le=100)
-    amount_inr: Optional[float] = Field(default=None, ge=0, le=1_000_000_000)
+    amount: Optional[float] = Field(default=None, ge=0, le=1_000_000_000)
+
+    @model_validator(mode="before")
+    @classmethod
+    def normalize_legacy_amount_inr(cls, data: Any) -> Any:
+        if isinstance(data, dict):
+            d = dict(data)
+            if d.get("amount_inr") is not None and d.get("amount") is None:
+                d["amount"] = d.pop("amount_inr")
+            return d
+        return data
 
     @model_validator(mode="after")
     def validate_range_and_discount(self) -> "IndiaDiscountMemberBand":
         if self.max < self.min:
             raise ValueError("max must be >= min")
-        has_amt = self.amount_inr is not None and float(self.amount_inr) > 0
+        has_amt = self.amount is not None and float(self.amount) > 0
         has_pct = self.percent is not None and float(self.percent) > 0
         if has_amt and has_pct:
-            raise ValueError("Use either amount_inr or percent, not both")
+            raise ValueError("Use either amount or percent, not both")
         if not has_amt and not has_pct:
-            raise ValueError("Set a positive percent or amount_inr on each band")
+            raise ValueError("Set a positive percent or amount on each band")
         return self
 
 
@@ -708,7 +719,9 @@ async def update_client(client_id: str, data: ClientUpdate):
     if "india_discount_member_bands" in incoming:
         bands = data.india_discount_member_bands
         if bands:
-            update_fields["india_discount_member_bands"] = [b.model_dump() for b in bands]
+            update_fields["india_discount_member_bands"] = [
+                b.model_dump(exclude_none=True) for b in bands
+            ]
         else:
             update_fields["india_discount_member_bands"] = None
 

@@ -16,6 +16,8 @@ import {
 import { useToast } from '../../../hooks/use-toast';
 import { useAuth } from '../../../context/AuthContext';
 import { getBackendUrl } from '../../../lib/config';
+import IndiaDiscountBandsEditor from '../IndiaDiscountBandsEditor';
+import { serverBandsToRows, rowsToBandsPayload, validateBandRows } from '../../../lib/indiaDiscountBandsUi';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
@@ -171,7 +173,7 @@ export default function DashboardAccessTab() {
   const [preferredIndiaGpayId, setPreferredIndiaGpayId] = useState('');
   const [preferredIndiaBankId, setPreferredIndiaBankId] = useState('');
   const [indiaDiscountPercent, setIndiaDiscountPercent] = useState('');
-  const [indiaDiscountBandsJson, setIndiaDiscountBandsJson] = useState('');
+  const [indiaDiscountBandRows, setIndiaDiscountBandRows] = useState([]);
   const [indiaTaxEnabled, setIndiaTaxEnabled] = useState(false);
   const [indiaTaxPercent, setIndiaTaxPercent] = useState(18);
   const [indiaTaxLabel, setIndiaTaxLabel] = useState('GST');
@@ -395,11 +397,7 @@ export default function DashboardAccessTab() {
     setPreferredIndiaGpayId(cl.preferred_india_gpay_id || '');
     setPreferredIndiaBankId(cl.preferred_india_bank_id || '');
     setIndiaDiscountPercent(cl.india_discount_percent ?? '');
-    setIndiaDiscountBandsJson(
-      Array.isArray(cl.india_discount_member_bands) && cl.india_discount_member_bands.length
-        ? JSON.stringify(cl.india_discount_member_bands, null, 2)
-        : '',
-    );
+    setIndiaDiscountBandRows(serverBandsToRows(cl.india_discount_member_bands || []));
     setIndiaTaxEnabled(!!cl.india_tax_enabled);
     setIndiaTaxPercent(cl.india_tax_percent ?? 18);
     setIndiaTaxLabel(cl.india_tax_label || 'GST');
@@ -413,22 +411,12 @@ export default function DashboardAccessTab() {
 
   const handleSave = async () => {
     if (!editing?.id) return;
-    let bandsPayload = null;
-    const trimmedBands = (indiaDiscountBandsJson || '').trim();
-    if (trimmedBands) {
-      try {
-        const parsed = JSON.parse(trimmedBands);
-        if (!Array.isArray(parsed)) throw new Error('Must be a JSON array');
-        bandsPayload = parsed.length ? parsed : null;
-      } catch (e) {
-        toast({
-          title: 'Invalid discount bands JSON',
-          description: e?.message || 'Check the format',
-          variant: 'destructive',
-        });
-        return;
-      }
+    const bandErr = validateBandRows(indiaDiscountBandRows);
+    if (bandErr) {
+      toast({ title: 'Group discount rules', description: bandErr, variant: 'destructive' });
+      return;
     }
+    const bandsPayload = rowsToBandsPayload(indiaDiscountBandRows);
     setSaving(true);
     try {
       const wasPending = isPendingIntakeReview(editing);
@@ -1152,17 +1140,11 @@ export default function DashboardAccessTab() {
             </div>
 
             <div>
-              <Label className="text-xs text-gray-600">Optional: discount by number of people (JSON)</Label>
-              <p className="text-[10px] text-gray-400 mb-1">
-                Total participants on Sacred Exchange. First matching row wins (exclusive). Use either <strong>percent</strong> or <strong>amount_inr</strong> per row — not both. Label on checkout: Group discount.
+              <Label className="text-xs text-gray-600">Optional: group discount by number of people</Label>
+              <p className="text-[10px] text-gray-400 mb-2">
+                Total participants on Sacred Exchange checkout. First matching rule wins. Choose either a percent or a fixed ₹ amount per row. Checkout label: Group discount.
               </p>
-              <textarea
-                value={indiaDiscountBandsJson}
-                onChange={(e) => setIndiaDiscountBandsJson(e.target.value)}
-                placeholder={`[\n  { "min": 1, "max": 1, "percent": 20 },\n  { "min": 3, "max": 4, "amount_inr": 1500 }\n]`}
-                rows={5}
-                className="w-full text-xs font-mono border rounded-md px-2 py-2 bg-white mt-1"
-              />
+              <IndiaDiscountBandsEditor rows={indiaDiscountBandRows} onChange={setIndiaDiscountBandRows} />
             </div>
 
             <div className="rounded-lg border border-orange-100 bg-orange-50/40 px-3 py-3 space-y-2">
