@@ -6,9 +6,16 @@ import { Textarea } from '../../ui/textarea';
 import { Input } from '../../ui/input';
 import { Label } from '../../ui/label';
 import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '../../ui/dialog';
+import {
   Users, Search, Download, RefreshCw,
   Droplets, Sprout, TreeDeciduous, Flower2, Star, Sparkles, Crown,
-  Clock, Tag, Edit2, Save, X, Trash2, UserPlus, Lock, Bell, CheckCircle,
+  Clock, Edit2, Save, X, Trash2, UserPlus,
 } from 'lucide-react';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
@@ -37,6 +44,12 @@ const timeAgo = (dateStr) => {
   return new Date(dateStr).toLocaleDateString();
 };
 
+function truncate(s, n) {
+  const t = (s || '').trim();
+  if (t.length <= n) return t;
+  return `${t.slice(0, n)}…`;
+}
+
 const ClientsTab = () => {
   const { toast } = useToast();
   const [clients, setClients] = useState([]);
@@ -53,6 +66,7 @@ const ClientsTab = () => {
     label_manual: '',
   });
   const [addingClient, setAddingClient] = useState(false);
+  const [editClient, setEditClient] = useState(null);
 
   const fetchData = useCallback(async () => {
     try {
@@ -86,6 +100,7 @@ const ClientsTab = () => {
       await axios.delete(`${API}/clients/${id}`);
       toast({ title: 'Client removed' });
       fetchData();
+      setEditClient((c) => (c?.id === id ? null : c));
     } catch { toast({ title: 'Delete failed', variant: 'destructive' }); }
   };
 
@@ -104,7 +119,7 @@ const ClientsTab = () => {
     }
     setAddingClient(true);
     try {
-      const res = await axios.post(`${API}/clients`, {
+      await axios.post(`${API}/clients`, {
         name,
         email: email || undefined,
         phone: phone || undefined,
@@ -129,18 +144,14 @@ const ClientsTab = () => {
 
   return (
     <div data-testid="clients-tab">
-      {/* Header */}
       <div className="flex items-center justify-between mb-4">
         <div>
           <h2 className="text-lg font-bold text-gray-900 flex items-center gap-2">
             <Users size={18} className="text-[#D4AF37]" /> Client Garden
           </h2>
-          <p className="text-xs text-gray-500 mt-0.5 max-w-xl">
-            Your unified client database — track every soul&apos;s journey from Dew to Iris. Portal pricing and login are configured in <strong className="font-semibold text-gray-700">Dashboard access</strong>; this tab stays focused on garden stage, notes, household key, and history.
-            <span className="block mt-1 text-[10px] text-gray-400">
-              Auto-label stays <strong className="font-medium text-gray-600">Dew</strong> for first-time contacts and anyone who has not finished a paid checkout yet.
-              After payment completes, the garden stage updates from enrollments. You can always override the label on each client (Label &amp; Notes → Edit).
-            </span>
+          <p className="text-xs text-gray-500 mt-0.5 max-w-2xl">
+            One row per client — your central database (labels, contacts, household key, notes, sources, conversion count).
+            Portal and intake workflows live under <strong className="font-semibold text-gray-700">Dashboard access</strong>.
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
@@ -168,7 +179,7 @@ const ClientsTab = () => {
           className="mb-4 rounded-xl border border-[#5D3FD3]/25 bg-gradient-to-r from-purple-50/80 to-white p-4 space-y-3"
         >
           <p className="text-xs font-semibold text-gray-800">Add client manually</p>
-          <p className="text-[10px] text-gray-500">Trial-friendly: creates a garden record with source &quot;Manual&quot;. Requires name and at least email or phone.</p>
+          <p className="text-[10px] text-gray-500">Creates a garden record with source &quot;Manual&quot;. Requires name and at least email or phone.</p>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <Label className="text-[9px] text-gray-500">Name *</Label>
@@ -241,9 +252,8 @@ const ClientsTab = () => {
         </form>
       )}
 
-      {/* Label Stats Cards */}
       <div className="grid grid-cols-7 gap-2 mb-4" data-testid="clients-label-stats">
-        {ALL_LABELS.map(label => {
+        {ALL_LABELS.map((label) => {
           const cfg = LABEL_CONFIG[label];
           const Icon = cfg.icon;
           const count = stats.by_label[label] || 0;
@@ -260,14 +270,13 @@ const ClientsTab = () => {
         })}
       </div>
 
-      {/* Total + Search */}
       <div className="flex items-center gap-3 mb-4">
         <div className="bg-gray-900 text-white rounded-lg px-3 py-1.5 text-xs font-semibold">
           {stats.total} Total Clients
         </div>
         <div className="flex-1 relative">
           <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-          <input data-testid="clients-search" type="text" value={searchText} onChange={e => setSearchText(e.target.value)}
+          <input data-testid="clients-search" type="text" value={searchText} onChange={(e) => setSearchText(e.target.value)}
             placeholder="Search name, email, phone, or household key..." className="w-full pl-9 pr-3 py-2 text-xs border rounded-lg focus:outline-none focus:ring-1 focus:ring-[#D4AF37]" />
         </div>
         {filterLabel && (
@@ -277,7 +286,6 @@ const ClientsTab = () => {
         )}
       </div>
 
-      {/* Client list — table summary row + full detail row (always visible, not collapsible) */}
       <div className="rounded-xl border border-gray-200 bg-white overflow-hidden overflow-x-auto" data-testid="clients-table-wrap">
         {clients.length === 0 ? (
           <div className="text-center py-16 text-gray-400">
@@ -285,115 +293,97 @@ const ClientsTab = () => {
             <p className="text-sm">No clients found. Use Add client or Sync All Data to populate.</p>
           </div>
         ) : (
-          <table className="w-full min-w-[860px] text-left border-collapse" data-testid="clients-table">
+          <table className="w-full min-w-[1200px] text-left border-collapse text-[10px]" data-testid="clients-table">
             <thead>
-              <tr className="bg-gray-50 border-b border-gray-200 text-[10px] uppercase tracking-wide text-gray-500">
-                <th className="py-2.5 pl-3 pr-2 font-semibold">Client</th>
-                <th className="py-2.5 px-2 font-semibold w-[88px]">Label</th>
-                <th className="py-2.5 px-2 font-semibold w-[120px]">DID</th>
-                <th className="py-2.5 px-2 font-semibold min-w-[140px]">Email</th>
-                <th className="py-2.5 px-2 font-semibold min-w-[100px]">Phone</th>
-                <th className="py-2.5 px-2 font-semibold w-[100px]">Activity</th>
-                <th className="py-2.5 pr-3 pl-2 font-semibold w-[72px]">Updated</th>
+              <tr className="bg-gray-100 border-b border-gray-200 text-[9px] uppercase tracking-wide text-gray-600">
+                <th className="py-2 pl-3 pr-2 font-semibold sticky left-0 bg-gray-100 z-10">Name</th>
+                <th className="py-2 px-2 font-semibold w-[72px]">Label</th>
+                <th className="py-2 px-2 font-semibold w-[100px]">DID</th>
+                <th className="py-2 px-2 font-semibold min-w-[140px]">Email</th>
+                <th className="py-2 px-2 font-semibold min-w-[88px]">Phone</th>
+                <th className="py-2 px-2 font-semibold min-w-[100px]">Household</th>
+                <th className="py-2 px-2 font-semibold w-[40px] text-center">Pri</th>
+                <th className="py-2 px-2 font-semibold min-w-[160px]">Notes</th>
+                <th className="py-2 px-2 font-semibold min-w-[100px]">Sources</th>
+                <th className="py-2 px-2 font-semibold w-[44px] text-center">Conv</th>
+                <th className="py-2 px-2 font-semibold w-[72px]">First</th>
+                <th className="py-2 px-2 font-semibold w-[72px]">Updated</th>
+                <th className="py-2 pr-3 pl-2 font-semibold w-[88px] text-right sticky right-0 bg-gray-100 z-10">Actions</th>
               </tr>
             </thead>
             <tbody>
               {clients.map((cl) => {
                 const cfg = LABEL_CONFIG[cl.label] || LABEL_CONFIG.Dew;
                 const Icon = cfg.icon;
+                const sourcesStr = (cl.sources || []).join(', ');
                 return (
-                  <React.Fragment key={cl.id}>
-                    <tr
-                      data-testid={`client-${cl.id}`}
-                      className="border-b border-gray-100 bg-white align-middle hover:bg-violet-50/40"
-                    >
-                      <td className="py-2.5 pl-3 pr-2">
-                        <div className="flex items-center gap-2 min-w-0">
-                          <div className={`w-7 h-7 rounded-full ${cfg.bg} ${cfg.border} border flex items-center justify-center shrink-0`}>
-                            <Icon size={12} className={cfg.text} />
-                          </div>
-                          <div className="min-w-0 flex flex-col">
-                            <span className="text-xs font-semibold text-gray-900 truncate max-w-[180px]" title={cl.name || ''}>
-                              {cl.name || 'Unknown'}
-                            </span>
-                            {(cl.household_key || cl.is_primary_household_contact) && (
-                              <span className="text-[9px] text-slate-500 truncate max-w-[200px]" title={[cl.household_key, cl.is_primary_household_contact ? 'Primary contact' : ''].filter(Boolean).join(' · ')}>
-                                {cl.household_key ? <span className="font-mono text-slate-600">{cl.household_key}</span> : null}
-                                {cl.household_key && cl.is_primary_household_contact ? <span className="text-slate-400"> · </span> : null}
-                                {cl.is_primary_household_contact ? (
-                                  <span className="text-amber-700 font-medium">Primary</span>
-                                ) : null}
-                              </span>
-                            )}
-                          </div>
+                  <tr
+                    key={cl.id}
+                    data-testid={`client-${cl.id}`}
+                    className="group border-b border-gray-100 bg-white align-top hover:bg-amber-50/30"
+                  >
+                    <td className="py-2 pl-3 pr-2 sticky left-0 bg-white z-[1] border-r border-gray-100 group-hover:bg-amber-50/30">
+                      <div className="flex items-center gap-1.5 min-w-0">
+                        <div className={`w-6 h-6 rounded-full ${cfg.bg} ${cfg.border} border flex items-center justify-center shrink-0`}>
+                          <Icon size={10} className={cfg.text} />
                         </div>
-                      </td>
-                      <td className="py-2.5 px-2">
-                        <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full whitespace-nowrap ${cfg.badge}`}>{cl.label}</span>
-                      </td>
-                      <td className="py-2.5 px-2 font-mono text-[10px] text-purple-700 truncate max-w-[120px]" title={cl.did || ''}>
-                        {cl.did || '—'}
-                      </td>
-                      <td className="py-2.5 px-2 text-[10px] text-gray-800 truncate max-w-[200px]" title={cl.email || ''}>
-                        {cl.email || '—'}
-                      </td>
-                      <td className="py-2.5 px-2 text-[10px] text-gray-600 whitespace-nowrap">{cl.phone || '—'}</td>
-                      <td className="py-2.5 px-2">
-                        <div className="flex flex-col gap-0.5">
-                          {cl.conversions?.length > 0 && (
-                            <span className="text-[9px] bg-green-100 text-green-800 px-1.5 py-0.5 rounded-full w-fit font-medium">
-                              {cl.conversions.length} conv.
-                            </span>
-                          )}
-                          {cl.intake_pending && (
-                            <span className="text-[9px] bg-orange-100 text-orange-800 px-1.5 py-0.5 rounded-full w-fit font-medium">
-                              Intake
-                            </span>
-                          )}
-                          {!cl.conversions?.length && !cl.intake_pending && (
-                            <span className="text-[10px] text-gray-400">—</span>
-                          )}
-                        </div>
-                      </td>
-                      <td className="py-2.5 pr-3 pl-2 text-[10px] text-gray-500 whitespace-nowrap">
-                        {timeAgo(cl.updated_at || cl.created_at)}
-                      </td>
-                    </tr>
-                    <tr className="border-b border-gray-200 bg-[#faf9fc]">
-                      <td colSpan={7} className="p-0 align-top">
-                        <ClientDetail
-                          client={cl}
-                          labelConfig={cfg}
-                          omitContactSummary
-                          onUpdate={fetchData}
-                          onDelete={() => handleDelete(cl.id)}
-                          onRefresh={fetchData}
-                          toast={toast}
-                        />
-                      </td>
-                    </tr>
-                  </React.Fragment>
+                        <span className="font-semibold text-gray-900 truncate max-w-[140px]" title={cl.name || ''}>{cl.name || '—'}</span>
+                      </div>
+                    </td>
+                    <td className="py-2 px-2">
+                      <span className={`font-bold px-1.5 py-0.5 rounded-full whitespace-nowrap ${cfg.badge}`}>{cl.label}</span>
+                    </td>
+                    <td className="py-2 px-2 font-mono text-purple-700 truncate max-w-[100px]" title={cl.did || ''}>{cl.did || '—'}</td>
+                    <td className="py-2 px-2 text-gray-800 truncate max-w-[180px]" title={cl.email || ''}>{cl.email || '—'}</td>
+                    <td className="py-2 px-2 text-gray-600 whitespace-nowrap">{cl.phone || '—'}</td>
+                    <td className="py-2 px-2 font-mono text-slate-600 truncate max-w-[120px]" title={cl.household_key || ''}>{cl.household_key || '—'}</td>
+                    <td className="py-2 px-2 text-center text-gray-700">{cl.is_primary_household_contact ? 'Y' : '—'}</td>
+                    <td className="py-2 px-2 text-gray-600" title={cl.notes || ''}>{truncate(cl.notes, 56) || '—'}</td>
+                    <td className="py-2 px-2 text-gray-500" title={sourcesStr}>{truncate(sourcesStr, 40) || '—'}</td>
+                    <td className="py-2 px-2 text-center font-medium text-gray-800">{cl.conversions?.length ?? 0}</td>
+                    <td className="py-2 px-2 text-gray-500 whitespace-nowrap">{cl.created_at ? new Date(cl.created_at).toLocaleDateString() : '—'}</td>
+                    <td className="py-2 px-2 text-gray-500 whitespace-nowrap">{timeAgo(cl.updated_at || cl.created_at)}</td>
+                    <td className="py-2 pr-3 pl-2 text-right sticky right-0 bg-white z-[1] border-l border-gray-100 group-hover:bg-amber-50/30">
+                      <div className="flex items-center justify-end gap-1">
+                        <button
+                          type="button"
+                          className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[#D4AF37] hover:bg-amber-50 font-medium"
+                          onClick={() => setEditClient(cl)}
+                        >
+                          <Edit2 size={10} /> Edit
+                        </button>
+                        <button
+                          type="button"
+                          data-testid={`client-delete-${cl.id}`}
+                          className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-red-400 hover:bg-red-50"
+                          onClick={() => handleDelete(cl.id)}
+                        >
+                          <Trash2 size={10} />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
                 );
               })}
             </tbody>
           </table>
         )}
       </div>
+
+      {editClient && (
+        <ClientEditDialog
+          client={editClient}
+          onClose={() => setEditClient(null)}
+          onSaved={() => { fetchData(); setEditClient(null); }}
+          onDelete={() => handleDelete(editClient.id)}
+          toast={toast}
+        />
+      )}
     </div>
   );
 };
 
-const ClientDetail = ({
-  client: cl,
-  labelConfig: cfg,
-  onUpdate,
-  onDelete,
-  onRefresh,
-  toast,
-  /** When true, hide duplicate name/email/phone grid (shown in table row above). */
-  omitContactSummary = false,
-}) => {
-  const [editing, setEditing] = useState(false);
+function ClientEditDialog({ client: cl, onClose, onSaved, onDelete, toast }) {
   const [labelManual, setLabelManual] = useState(cl.label_manual || '');
   const [notes, setNotes] = useState(cl.notes || '');
   const [householdKey, setHouseholdKey] = useState(cl.household_key || '');
@@ -405,7 +395,10 @@ const ClientDetail = ({
     setNotes(cl.notes || '');
     setHouseholdKey(cl.household_key || '');
     setPrimaryHouseholdContact(!!cl.is_primary_household_contact);
-  }, [cl.id, cl.label_manual, cl.notes, cl.household_key, cl.is_primary_household_contact]);
+  }, [cl.id, cl.updated_at, cl.label_manual, cl.notes, cl.household_key, cl.is_primary_household_contact]);
+
+  const cfg = LABEL_CONFIG[cl.label] || LABEL_CONFIG.Dew;
+  const timeline = [...(cl.timeline || [])].sort((a, b) => new Date(b.date) - new Date(a.date));
 
   const handleSave = async () => {
     setSaving(true);
@@ -417,242 +410,129 @@ const ClientDetail = ({
         is_primary_household_contact: primaryHouseholdContact,
       });
       toast({ title: 'Client updated' });
-      setEditing(false);
-      onUpdate();
-    } catch { toast({ title: 'Save failed', variant: 'destructive' }); }
+      onSaved();
+    } catch {
+      toast({ title: 'Save failed', variant: 'destructive' });
+    }
     setSaving(false);
   };
 
-  // Sort timeline by date descending
-  const timeline = [...(cl.timeline || [])].sort((a, b) => new Date(b.date) - new Date(a.date));
-  const hasImmediateFamilyNames = (cl.immediate_family || []).some((m) => (m.name || '').trim());
-  const familyListLocked = !!cl.immediate_family_locked || hasImmediateFamilyNames;
-
   return (
-    <div
-      className={`${omitContactSummary ? 'border-0 bg-white/90 px-4 py-3' : `border-t ${cfg.bg} px-4 py-4`}`}
-      data-testid={`client-detail-${cl.id}`}
-    >
-      {/* Info Grid — omitted in table layout (summary row shows contact fields) */}
-      {!omitContactSummary && (
-        <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-4">
-          {cl.did && <InfoField label="Divine Iris ID" value={cl.did} />}
-          <InfoField label="Name" value={cl.name} />
-          <InfoField label="Email" value={cl.email} />
-          <InfoField label="Phone" value={cl.phone} />
-          <InfoField label="First Contact" value={cl.created_at ? new Date(cl.created_at).toLocaleDateString() : ''} />
-        </div>
-      )}
+    <Dialog open onOpenChange={(v) => !v && onClose()}>
+      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto" data-testid={`client-detail-${cl.id}`}>
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2 pr-6">
+            <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${cfg.badge}`}>{cl.label}</span>
+            <span className="truncate">{cl.name || 'Client'}</span>
+          </DialogTitle>
+        </DialogHeader>
 
-      {/* Sources */}
-      <div className="mb-4">
-        <p className="text-[9px] text-gray-400 uppercase tracking-wider mb-1">Sources</p>
-        <div className="flex flex-wrap gap-1">
-          {(cl.sources || []).map((s, i) => (
-            <span key={i} className="text-[10px] bg-white border rounded-full px-2 py-0.5 text-gray-600">{s}</span>
-          ))}
-        </div>
-      </div>
+        <div className="space-y-4 text-xs">
+          <div className="grid grid-cols-2 gap-2 text-[10px] text-gray-600">
+            {cl.did && <p><span className="text-gray-400">DID</span> <span className="font-mono text-purple-700">{cl.did}</span></p>}
+            <p><span className="text-gray-400">Email</span> {cl.email || '—'}</p>
+            <p><span className="text-gray-400">Phone</span> {cl.phone || '—'}</p>
+            <p><span className="text-gray-400">First contact</span> {cl.created_at ? new Date(cl.created_at).toLocaleString() : '—'}</p>
+          </div>
 
-      {/* Label & Notes Editor */}
-      <div className="bg-white rounded-lg border p-3 mb-4">
-        <div className="flex items-center justify-between mb-2">
-          <p className="text-xs font-semibold text-gray-800 flex items-center gap-1.5"><Tag size={12} className="text-[#D4AF37]" /> Label & Notes</p>
-          {!editing ? (
-            <button onClick={() => setEditing(true)} className="text-[10px] text-[#D4AF37] hover:underline flex items-center gap-1"><Edit2 size={10} /> Edit</button>
-          ) : (
-            <div className="flex gap-1">
-              <button onClick={() => setEditing(false)} className="text-[10px] text-gray-400 hover:text-gray-600"><X size={12} /></button>
+          <div>
+            <Label className="text-[10px] text-gray-500">Override label</Label>
+            <select
+              data-testid="client-label-select"
+              value={labelManual}
+              onChange={(e) => setLabelManual(e.target.value)}
+              className="w-full text-xs border rounded-lg px-2 py-1.5 mt-1"
+            >
+              <option value="">Auto (Dew until paid program, then from conversions)</option>
+              {ALL_LABELS.map((l) => <option key={l} value={l}>{l} — {LABEL_CONFIG[l]?.desc}</option>)}
+            </select>
+          </div>
+          <div>
+            <Label className="text-[10px] text-gray-500">Notes</Label>
+            <Textarea data-testid="client-notes" value={notes} onChange={(e) => setNotes(e.target.value)} rows={3} className="text-xs mt-1" placeholder="Internal notes…" />
+          </div>
+          <div className="rounded-lg border border-slate-200 bg-slate-50/80 p-3 space-y-2">
+            <p className="text-[10px] font-semibold text-slate-800 flex items-center gap-1"><Users size={12} className="text-slate-500" /> Household (CRM)</p>
+            <div>
+              <Label className="text-[10px] text-gray-500">Household key</Label>
+              <Input
+                data-testid="client-household-key"
+                value={householdKey}
+                onChange={(e) => setHouseholdKey(e.target.value)}
+                className="h-8 text-xs mt-1 font-mono"
+                placeholder="Same key on each family member row"
+                maxLength={200}
+              />
+            </div>
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input
+                type="checkbox"
+                data-testid="client-primary-household-contact"
+                checked={primaryHouseholdContact}
+                onChange={(e) => setPrimaryHouseholdContact(e.target.checked)}
+                className="rounded border-slate-300"
+              />
+              <span className="text-[11px]">Primary household contact</span>
+            </label>
+          </div>
+
+          <div>
+            <p className="text-[9px] text-gray-400 uppercase tracking-wider mb-1">Sources</p>
+            <div className="flex flex-wrap gap-1">
+              {(cl.sources || []).length ? (cl.sources || []).map((s, i) => (
+                <span key={i} className="text-[10px] bg-gray-100 border rounded-full px-2 py-0.5 text-gray-600">{s}</span>
+              )) : <span className="text-[10px] text-gray-400">—</span>}
+            </div>
+          </div>
+
+          {cl.conversions?.length > 0 && (
+            <div>
+              <p className="text-[9px] text-gray-400 uppercase tracking-wider mb-1">Conversions ({cl.conversions.length})</p>
+              <div className="space-y-1 max-h-32 overflow-y-auto border rounded-md p-2 bg-gray-50/80">
+                {cl.conversions.map((c, i) => (
+                  <div key={i} className="flex justify-between gap-2 text-[10px]">
+                    <span className="truncate text-gray-800">{c.program_title || c.status}</span>
+                    <span className="text-gray-400 shrink-0">{c.date ? new Date(c.date).toLocaleDateString() : ''}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {timeline.length > 0 && (
+            <div>
+              <p className="text-[9px] text-gray-400 uppercase tracking-wider mb-1">Journey timeline</p>
+              <div className="max-h-28 overflow-y-auto space-y-1 text-[10px] text-gray-600 border rounded-md p-2">
+                {timeline.slice(0, 15).map((t, i) => (
+                  <div key={i} className="flex gap-2">
+                    <span className="text-gray-400 shrink-0">{t.date ? timeAgo(t.date) : ''}</span>
+                    <span>{t.type}{t.detail ? ` — ${t.detail}` : ''}</span>
+                  </div>
+                ))}
+              </div>
             </div>
           )}
         </div>
-        <p className="text-[9px] text-gray-500 leading-relaxed mb-2">
-          Without an override, the badge follows paid enrollments only: <span className="font-medium text-gray-600">Dew</span> until checkout completes, then Seed / Root / Bloom / Iris from what they bought.
-          Pick any stage below to lock it yourself; choose Auto to clear your override.
-        </p>
-        {!editing && (cl.household_key || cl.is_primary_household_contact) && (
-          <div className="flex flex-wrap gap-1.5 mb-2 text-[10px]">
-            {cl.household_key ? (
-              <span className="inline-flex items-center gap-1 bg-slate-100 border border-slate-200 text-slate-700 rounded px-2 py-0.5 font-mono max-w-full truncate" title={cl.household_key}>
-                <Users size={10} className="shrink-0 text-slate-500" />
-                {cl.household_key}
-              </span>
-            ) : null}
-            {cl.is_primary_household_contact ? (
-              <span className="inline-flex items-center text-[9px] font-semibold text-amber-900 bg-amber-50 border border-amber-200 rounded px-2 py-0.5">Primary household contact</span>
-            ) : null}
-          </div>
-        )}
-        {editing ? (
-          <div className="space-y-2">
-            <div>
-              <Label className="text-[9px] text-gray-500">Override label</Label>
-              <select data-testid="client-label-select" value={labelManual} onChange={e => setLabelManual(e.target.value)}
-                className="w-full text-xs border rounded-lg px-2 py-1.5 mt-1 focus:outline-none focus:ring-1 focus:ring-[#D4AF37]">
-                <option value="">Auto (Dew until paid program, then from conversions)</option>
-                {ALL_LABELS.map(l => <option key={l} value={l}>{l} — {LABEL_CONFIG[l]?.desc}</option>)}
-              </select>
-            </div>
-            <div>
-              <Label className="text-[9px] text-gray-500">Notes</Label>
-              <Textarea data-testid="client-notes" value={notes} onChange={e => setNotes(e.target.value)} rows={2} className="text-xs mt-1" placeholder="Personal notes about this client..." />
-            </div>
-            <div className="rounded-lg border border-slate-200 bg-slate-50/80 px-2 py-2 space-y-2">
-              <p className="text-[10px] font-semibold text-slate-800 flex items-center gap-1">
-                <Users size={12} className="text-slate-500" /> Household (CRM)
-              </p>
-              <p className="text-[9px] text-slate-500 leading-snug">
-                Use the <strong className="font-medium text-slate-700">same household key</strong> on each family member’s client row. Optionally mark the person who handles renewals and comms as primary — each person still keeps their own email.
-              </p>
-              <div>
-                <Label className="text-[9px] text-gray-500">Household key</Label>
-                <Input
-                  data-testid="client-household-key"
-                  value={householdKey}
-                  onChange={(e) => setHouseholdKey(e.target.value)}
-                  className="h-8 text-xs mt-1 font-mono"
-                  placeholder="e.g. Sharma-annual-2026"
-                  maxLength={200}
-                />
-              </div>
-              <label className="flex items-start gap-2 cursor-pointer">
-                <input
-                  type="checkbox"
-                  data-testid="client-primary-household-contact"
-                  checked={primaryHouseholdContact}
-                  onChange={(e) => setPrimaryHouseholdContact(e.target.checked)}
-                  className="mt-0.5 rounded border-slate-300"
-                />
-                <span className="text-[10px] text-slate-800">Primary household contact</span>
-              </label>
-            </div>
 
-            <Button data-testid="client-save" onClick={handleSave} disabled={saving} size="sm" className="text-[10px] bg-[#D4AF37] hover:bg-[#b8962e] gap-1">
-              <Save size={10} /> {saving ? 'Saving...' : 'Save'}
+        <DialogFooter className="gap-2 sm:gap-0 flex-col sm:flex-row sm:justify-between">
+          <button
+            type="button"
+            data-testid="client-delete"
+            onClick={() => onDelete()}
+            className="text-red-500 hover:text-red-700 text-xs flex items-center gap-1 mr-auto"
+          >
+            <Trash2 size={12} /> Remove client
+          </button>
+          <div className="flex gap-2">
+            <Button type="button" variant="outline" size="sm" className="text-xs" onClick={onClose}>Cancel</Button>
+            <Button data-testid="client-save" size="sm" className="text-xs bg-[#D4AF37] hover:bg-[#b8962e]" onClick={handleSave} disabled={saving}>
+              <Save size={12} className="mr-1" /> {saving ? 'Saving…' : 'Save'}
             </Button>
           </div>
-        ) : (
-          <div>
-            <div className="flex items-center gap-2 mb-1">
-              <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${cfg.badge}`}>{cl.label}</span>
-              {cl.label_manual && <span className="text-[9px] text-gray-400">(manually set)</span>}
-            </div>
-            {cl.notes && <p className="text-[10px] text-gray-600 mt-1">{cl.notes}</p>}
-            {cl.intake_pending && (
-              <div className="mt-2 flex items-center justify-between bg-orange-50 border border-orange-200 rounded-lg px-3 py-2">
-                <span className="flex items-center gap-1.5 text-[10px] font-semibold text-orange-700">
-                  <Bell size={10} /> Pending Review — submitted via intake form
-                  {cl.intake_submitted_at && <span className="font-normal text-orange-500">· {timeAgo(cl.intake_submitted_at)}</span>}
-                </span>
-                <button
-                  onClick={async (e) => {
-                    e.stopPropagation();
-                    await axios.put(`${API}/clients/${cl.id}`, { intake_pending: false });
-                    onRefresh();
-                  }}
-                  className="text-[9px] px-2 py-0.5 bg-orange-200 hover:bg-orange-300 text-orange-800 rounded font-semibold transition-colors"
-                >
-                  Mark reviewed
-                </button>
-              </div>
-            )}
-            <div className="mt-3 pt-2 border-t border-gray-100 space-y-2">
-              <p className="text-[9px] text-gray-400 uppercase tracking-wider flex items-center gap-1">
-                <Lock size={9} /> Immediate family list
-              </p>
-
-              {cl.family_approved ? (
-                <div className="flex items-center gap-2 bg-green-50 border border-green-200 rounded-lg px-3 py-2">
-                  <CheckCircle size={12} className="text-green-500 flex-shrink-0" />
-                  <p className="text-[10px] text-green-800 font-medium">Approved &amp; permanently frozen — client cannot edit.</p>
-                </div>
-              ) : cl.family_pending_review ? (
-                <div className="flex items-center justify-between bg-orange-50 border border-orange-200 rounded-lg px-3 py-2 gap-2">
-                  <span className="flex items-center gap-1.5 text-[10px] font-semibold text-orange-700">
-                    <Bell size={10} /> Family list submitted — pending your review
-                  </span>
-                  <button
-                    onClick={async (e) => {
-                      e.stopPropagation();
-                      await axios.put(`${API}/clients/${cl.id}`, { family_approved: true });
-                      onRefresh();
-                    }}
-                    className="text-[9px] px-2.5 py-1 bg-green-600 hover:bg-green-700 text-white rounded font-semibold transition-colors whitespace-nowrap"
-                  >
-                    Approve &amp; Freeze
-                  </button>
-                </div>
-              ) : familyListLocked ? (
-                <p className="text-[10px] text-gray-600">
-                  List is <span className="font-semibold">locked</span>.{' '}
-                  {cl.immediate_family_editing_approved !== false
-                    ? 'Edits may be allowed — block re-edits from Dashboard access if needed.'
-                    : 'Allow edits from Dashboard access (“Allow member to edit immediate family”) if they need to update it.'}
-                </p>
-              ) : (
-                <p className="text-[10px] text-gray-400 italic">
-                  Not submitted yet — open to the client until they save names for the first time.
-                </p>
-              )}
-            </div>
-          </div>
-        )}
-      </div>
-
-      {/* Conversions */}
-      {cl.conversions?.length > 0 && (
-        <div className="mb-4">
-          <p className="text-[9px] text-gray-400 uppercase tracking-wider mb-2">Conversions ({cl.conversions.length})</p>
-          <div className="space-y-1.5">
-            {cl.conversions.map((c, i) => (
-              <div key={i} className="flex items-center gap-3 bg-white rounded-lg border px-3 py-2">
-                <div className={`w-2 h-2 rounded-full flex-shrink-0 ${c.is_flagship ? 'bg-purple-500' : 'bg-green-500'}`} />
-                <div className="flex-1 min-w-0">
-                  <p className="text-[11px] font-medium text-gray-800 truncate">{c.program_title || `Enrollment (${c.status})`}</p>
-                  <p className="text-[9px] text-gray-400">{c.item_type || 'program'} {c.tier_label ? `| ${c.tier_label}` : ''} | {c.status}</p>
-                </div>
-                <span className="text-[9px] text-gray-400 flex-shrink-0">{c.date ? new Date(c.date).toLocaleDateString() : ''}</span>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* Timeline */}
-      {timeline.length > 0 && (
-        <div className="mb-4">
-          <p className="text-[9px] text-gray-400 uppercase tracking-wider mb-2">Journey Timeline</p>
-          <div className="relative pl-4 border-l-2 border-gray-200 space-y-3">
-            {timeline.slice(0, 10).map((t, i) => (
-              <div key={i} className="relative">
-                <div className="absolute -left-[21px] w-2.5 h-2.5 rounded-full bg-[#D4AF37] border-2 border-white" />
-                <div className="flex items-baseline gap-2">
-                  <span className="text-[10px] font-medium text-gray-700">{t.type}</span>
-                  <span className="text-[9px] text-gray-400 flex items-center gap-1"><Clock size={8} />{t.date ? timeAgo(t.date) : ''}</span>
-                </div>
-                {t.detail && <p className="text-[9px] text-gray-500 mt-0.5 truncate">{t.detail}</p>}
-              </div>
-            ))}
-            {timeline.length > 10 && <p className="text-[9px] text-gray-400 italic">+{timeline.length - 10} more events</p>}
-          </div>
-        </div>
-      )}
-
-      {/* Delete */}
-      <div className="flex justify-end">
-        <button data-testid="client-delete" onClick={onDelete} className="text-red-400 hover:text-red-600 text-[10px] flex items-center gap-1">
-          <Trash2 size={12} /> Remove Client
-        </button>
-      </div>
-    </div>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
-};
-
-const InfoField = ({ label, value }) => (
-  <div>
-    <p className="text-[9px] text-gray-400 uppercase tracking-wider">{label}</p>
-    <p className="text-[11px] text-gray-800 font-medium truncate" title={value || '—'}>{value || '—'}</p>
-  </div>
-);
+}
 
 export default ClientsTab;
