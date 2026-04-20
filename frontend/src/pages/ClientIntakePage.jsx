@@ -131,7 +131,7 @@ const ClientIntakePage = () => {
           </div>
           <h2 className="text-2xl font-semibold text-gray-900">Thank you, {form.name.split(' ')[0]}!</h2>
           <p className="text-gray-500 text-sm leading-relaxed">
-            Your details have been received. Dimple will review your information and
+            Your details have been received. Your form will be reviewed and we will
             reach out to you shortly with your dashboard access and payment details.
           </p>
           <p className="text-xs text-gray-400 bg-gray-50 rounded-lg px-4 py-2">
