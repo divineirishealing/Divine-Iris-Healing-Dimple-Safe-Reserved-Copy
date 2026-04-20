@@ -2,6 +2,7 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 from typing import Optional, List, Dict, Any
 from datetime import datetime, timezone
+import logging
 import os
 import uuid
 from motor.motor_asyncio import AsyncIOMotorClient
@@ -16,6 +17,8 @@ router = APIRouter(prefix="/api/clients", tags=["Clients"])
 mongo_url = os.environ['MONGO_URL']
 client = AsyncIOMotorClient(mongo_url)
 db = client[os.environ['DB_NAME']]
+
+logger = logging.getLogger(__name__)
 
 # Label hierarchy (garden journey)
 LABELS = ["Dew", "Seed", "Root", "Bloom", "Iris", "Purple Bees", "Iris Bees"]
@@ -530,6 +533,21 @@ async def update_client(client_id: str, data: ClientUpdate):
         update_fields["annual_member_dashboard"] = bool(data.annual_member_dashboard)
 
     await db.clients.update_one({"id": client_id}, {"$set": update_fields})
+
+    # Email when Google / student portal access is newly enabled (was blocked, e.g. after intake)
+    if (
+        data.portal_login_allowed is not None
+        and bool(data.portal_login_allowed) is True
+        and cl.get("portal_login_allowed") is False
+    ):
+        to_em = (cl.get("email") or "").strip()
+        if to_em:
+            try:
+                from routes.emails import send_dashboard_access_granted_email
+
+                await send_dashboard_access_granted_email(to_em, cl.get("name") or "")
+            except Exception:
+                logger.exception("send_dashboard_access_granted_email failed for client_id=%s", client_id)
 
     # Back to automatic rules (usually Dew until paid conversions) when override cleared
     if data.label_manual is not None and not (data.label_manual or "").strip():

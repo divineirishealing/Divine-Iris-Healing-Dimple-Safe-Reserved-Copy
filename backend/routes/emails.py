@@ -1,5 +1,6 @@
 import os
 import base64
+import html
 import logging
 import aiosmtplib
 import httpx
@@ -697,3 +698,81 @@ def participant_notification_email(participant_name, item_title, attendance_mode
     </html>
     """
     return html
+
+
+def _public_site_base_url() -> str:
+    return (os.environ.get("FRONTEND_URL") or os.environ.get("SEO_PUBLIC_SITE_URL") or "https://divineirishealing.com").strip().rstrip("/")
+
+
+async def send_dashboard_access_granted_email(to_email: str, client_name: str = "") -> bool:
+    """
+    Sent when admin enables student portal login (portal_login_allowed: False → True).
+    Uses the same SMTP / Resend pipeline as other site mail.
+    """
+    to_email = (to_email or "").strip()
+    if not to_email:
+        logger.warning("send_dashboard_access_granted_email: no recipient")
+        return False
+
+    raw_first = (client_name or "").strip().split()
+    greeting_name = raw_first[0] if raw_first else ""
+    safe_greeting = html.escape(greeting_name) if greeting_name else "beautiful soul"
+    safe_email = html.escape(to_email)
+    base = _public_site_base_url()
+    login_url = f"{base}/login"
+    dashboard_url = f"{base}/dashboard"
+
+    body_html = f"""
+    <!DOCTYPE html>
+    <html>
+    <head><meta charset="utf-8"></head>
+    <body style="margin:0;padding:0;font-family:Georgia,'Times New Roman',serif;background:#f5f2eb">
+      <div style="max-width:520px;margin:0 auto;background:#ffffff">
+        <div style="background:linear-gradient(180deg,#1a1a1a 0%,#252525 100%);padding:32px 28px;text-align:center">
+          <p style="color:#D4AF37;margin:0 0 8px;font-size:11px;letter-spacing:4px;text-transform:uppercase">Divine Iris Healing</p>
+          <h1 style="color:#faf8f4;margin:0;font-size:22px;font-weight:400;line-height:1.35;font-style:italic">
+            Your sanctuary door is open
+          </h1>
+        </div>
+        <div style="padding:36px 32px 28px">
+          <p style="color:#3d3d3d;font-size:16px;line-height:1.65;margin:0 0 18px">
+            Dear {safe_greeting},
+          </p>
+          <p style="color:#555;font-size:15px;line-height:1.75;margin:0 0 16px">
+            With gratitude and care, we welcome you into your <strong style="color:#4a3f2e">student dashboard</strong> — a quiet space
+            Dimple has prepared for your journey: programs, sacred exchange, and the gentle rhythm of your path forward.
+          </p>
+          <p style="color:#555;font-size:15px;line-height:1.75;margin:0 0 24px">
+            You may now sign in with <strong>Google</strong> using this same email address:
+            <span style="color:#6b5a3e;word-break:break-all">{safe_email}</span>.
+          </p>
+          <div style="text-align:center;margin:28px 0 24px">
+            <a href="{login_url}" style="display:inline-block;background:#D4AF37;color:#1a1a1a;text-decoration:none;font-size:14px;font-weight:600;padding:14px 32px;border-radius:10px;letter-spacing:0.5px">
+              Enter your dashboard
+            </a>
+          </div>
+          <p style="color:#888;font-size:12px;line-height:1.6;margin:0 0 20px;text-align:center">
+            After you sign in, you can bookmark<br/>
+            <a href="{dashboard_url}" style="color:#9a7b2e">{dashboard_url}</a>
+          </p>
+          <p style="color:#999;font-size:12px;line-height:1.65;margin:0;padding-top:16px;border-top:1px solid #eee">
+            If you did not expect this message, you can ignore it — or reply and we will help with care.
+          </p>
+        </div>
+        <div style="background:#1a1a1a;padding:22px;text-align:center">
+          <p style="color:#D4AF37;font-size:11px;margin:0;letter-spacing:2px">DIVINE IRIS HEALING</p>
+          <p style="color:#777;font-size:10px;margin:8px 0 0;line-height:1.5">May this space hold you gently on your way.</p>
+        </div>
+      </div>
+    </body>
+    </html>
+    """
+
+    cfg = await _get_smtp_config()
+    subject = "Your Divine Iris dashboard is ready — sign in with your email"
+    result = await send_email(to_email, subject, body_html, from_email=cfg["sender"])
+    if result:
+        logger.info("Dashboard access granted email sent to %s", to_email)
+        return True
+    logger.error("Dashboard access granted email failed for %s (configure SMTP or Resend)", to_email)
+    return False

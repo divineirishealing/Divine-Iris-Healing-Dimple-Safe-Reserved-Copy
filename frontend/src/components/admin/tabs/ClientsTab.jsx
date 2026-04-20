@@ -705,6 +705,10 @@ const ClientDetail = ({
                   <span className="text-[9px] text-gray-500 block mt-0.5 leading-snug">
                     When enabled, this client can sign in via Google and access their student portal.
                     Turn off to block dashboard access for this individual.
+                    {' '}
+                    <span className="text-violet-700/90">
+                      The first time you turn this on after access was blocked, they receive a short welcome email at this client&apos;s address with a link to sign in.
+                    </span>
                   </span>
                 </span>
               </label>
