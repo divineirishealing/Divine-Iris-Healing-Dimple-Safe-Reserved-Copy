@@ -453,7 +453,14 @@ async def list_annual_portal_subscribers():
         "annual_member_dashboard": True,
         "$nor": [{"portal_login_allowed": False}],
     }
-    proj = {"_id": 0, "id": 1, "name": 1, "email": 1}
+    proj = {
+        "_id": 0,
+        "id": 1,
+        "name": 1,
+        "email": 1,
+        "household_key": 1,
+        "is_primary_household_contact": 1,
+    }
     rows = (
         await db.clients.find(query, proj).sort([("name", 1)]).to_list(5000)
     )
