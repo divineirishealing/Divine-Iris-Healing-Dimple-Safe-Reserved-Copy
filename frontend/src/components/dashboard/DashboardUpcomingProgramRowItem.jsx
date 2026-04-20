@@ -77,7 +77,7 @@ function AnnualQuoteBreakdown({
           {showSelf ? (
             <div className={rowClass}>
               <span className="font-medium text-slate-800">
-                {annualDashboardAccess ? 'You (Annual access)' : 'You'}
+                {annualDashboardAccess ? 'You (Annual Member)' : 'You'}
               </span>
               <span className="font-semibold tabular-nums text-slate-900 text-right">
                 {symbol}
@@ -123,7 +123,7 @@ function AnnualQuoteBreakdown({
         <>
           <p className="text-[10px] font-bold uppercase tracking-wide text-slate-500">
             {annualDashboardAccess
-              ? 'Prices — Annual access · Immediate family · Friends & extended'
+              ? 'Prices — Annual Member · Immediate family · Friends & extended'
               : 'Prices — You · Immediate family · Friends & extended'}
           </p>
           <p className="font-semibold text-slate-900 text-xs">Calculate total amount</p>
@@ -133,7 +133,7 @@ function AnnualQuoteBreakdown({
         {includedPkg ? <li className="text-slate-600">Your seat: included in annual package</li> : null}
         {showSelf ? (
           <li>
-            {annualDashboardAccess ? 'You (Annual access)' : 'You'}:{' '}
+            {annualDashboardAccess ? 'You (Annual Member)' : 'You'}:{' '}
             <span className="font-semibold text-slate-900 tabular-nums">
               {symbol}
               {Number(aq.self_after_promos ?? 0).toLocaleString()}
