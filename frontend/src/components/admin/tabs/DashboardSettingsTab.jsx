@@ -648,6 +648,12 @@ const DashboardSettingsTab = ({ settings, onChange, programs = [] }) => {
           <p className="text-[10px] text-gray-500 mb-4 border-l-2 border-[#D4AF37]/50 pl-2">
             Columns: <strong>your seat</strong> · <strong>immediate household</strong> · <strong>friends &amp; extended</strong>.
           </p>
+          <p className="text-[10px] text-gray-600 mb-4 leading-snug rounded-md border border-slate-200/80 bg-slate-50/90 px-2.5 py-2">
+            <strong className="text-gray-800">Two dashboard access types (Client Garden):</strong>{' '}
+            <strong>Annual</strong> — programs ticked under &quot;Annual package — included programs&quot; do not charge the
+            member&apos;s own seat; all other programs use the portal offers here (global + per-program).{' '}
+            <strong>Non-annual</strong> — checkout matches the public website (upcoming program tier list/offer); these columns are ignored.
+          </p>
         </div>
 
         <div className="grid md:grid-cols-3 gap-5">
@@ -1057,9 +1063,9 @@ const DashboardSettingsTab = ({ settings, onChange, programs = [] }) => {
         >
           <h3 className="text-sm font-semibold text-gray-900">Annual package — included programs</h3>
           <p className="text-[11px] text-gray-500 leading-snug">
-            For annual subscribers, checked programs treat the member&apos;s own seat as already included; checkout is for
-            family seats only. Leave all unchecked to keep automatic detection from program title (MMM, Money Magic,
-            Atomic Weight / AWRP).
+            For clients with <strong className="text-gray-700">Dashboard Access = Annual</strong>, checked programs treat the
+            member&apos;s own seat as already included (no charge for that seat); checkout is for add-on family/guest seats only.
+            Leave all unchecked to keep automatic detection from program title (MMM, Money Magic, Atomic Weight / AWRP).
           </p>
           <div className="max-h-56 overflow-y-auto space-y-1.5 pr-1 border border-gray-100 rounded-md bg-white p-2">
             {[...(programs || [])]
