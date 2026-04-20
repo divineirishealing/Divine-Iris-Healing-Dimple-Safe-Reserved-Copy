@@ -243,6 +243,25 @@ def _tier_unit_price(program: dict, tier_index: Optional[int], cur: str) -> floa
     return off if off > 0 else base
 
 
+def _tier_list_unit_price(program: dict, tier_index: Optional[int], cur: str) -> float:
+    """Published list price only (no tier offer_price), aligned with public site list column."""
+    cur = (cur or "aed").lower()
+    tiers = program.get("duration_tiers") or []
+    if program.get("is_flagship") and tiers and tier_index is not None and 0 <= tier_index < len(tiers):
+        t = tiers[tier_index]
+    else:
+        t = program
+    return float(t.get(f"price_{cur}", 0) or 0)
+
+
+def _portal_tier_unit_price(
+    program: dict, tier_index: Optional[int], cur: str, apply_tier_offer_prices: bool
+) -> float:
+    if apply_tier_offer_prices:
+        return _tier_unit_price(program, tier_index, cur)
+    return _tier_list_unit_price(program, tier_index, cur)
+
+
 def _pick_self_and_family_tier_indices(
     program: dict, tier_index_override: Optional[int] = None
 ) -> Tuple[Optional[int], Optional[int]]:
@@ -453,18 +472,20 @@ async def compute_dashboard_annual_family_pricing(
     extended_guest_offer: dict,
     include_self: bool = True,
     tier_index_override: Optional[int] = None,
+    apply_tier_offer_prices: bool = True,
 ) -> dict:
-    """Portal-only pricing for annual subscribers.
+    """Portal pricing for logged-in clients (Sacred Home + Divine Cart).
 
-    Member seat uses `annual_offer`. Immediate household seats use `family_offer`.
-    Friends & extended seats use `extended_guest_offer` (when disabled → list / offer unit per seat).
-    Legacy API that only passes a total without a split should pass the full count as `immediate_family_count`
-    and zero `extended_guest_count`.
+    When `apply_tier_offer_prices` is True (annual subscribers), tier `offer_price_*` is used when set,
+    plus optional dashboard overlays (`annual_offer`, `family_offer`, `extended_guest_offer`).
+    When False (non-annual subscribers), only published list `price_*` is used per seat — same basis as
+    the public site before any tier promotional offer; dashboard overlays are not applied (callers pass
+    empty offer dicts).
     """
     cur = (currency or "aed").lower()
     self_tier, fam_tier = _pick_self_and_family_tier_indices(program, tier_index_override)
-    self_unit = _tier_unit_price(program, self_tier, cur) if include_self else 0.0
-    fam_unit = _tier_unit_price(program, fam_tier, cur)
+    self_unit = _portal_tier_unit_price(program, self_tier, cur, apply_tier_offer_prices) if include_self else 0.0
+    fam_unit = _portal_tier_unit_price(program, fam_tier, cur, apply_tier_offer_prices)
     imm_fc = max(0, int(immediate_family_count))
     ext_fc = max(0, int(extended_guest_count))
     fc_total = imm_fc + ext_fc
@@ -835,6 +856,8 @@ async def _portal_combined_dashboard_total(user: dict, profile: ProfileData) -> 
         else:
             include_self = bool(line.booker_joins)
         ao, fo, eo = _merge_program_dashboard_offers(g_ao, g_fo, g_eo, pid, per_map)
+        if not is_annual:
+            ao, fo, eo = {}, {}, {}
         pricing = await compute_dashboard_annual_family_pricing(
             program,
             pid,
@@ -846,6 +869,7 @@ async def _portal_combined_dashboard_total(user: dict, profile: ProfileData) -> 
             eo,
             include_self=include_self,
             tier_index_override=line.tier_index,
+            apply_tier_offer_prices=is_annual,
         )
         total += float(pricing.get("total") or 0)
     return round(total, 2), cur
@@ -942,6 +966,8 @@ async def dashboard_quote(
     g_eo = settings_doc.get("dashboard_offer_extended") or {}
     per_map = settings_doc.get("dashboard_program_offers") or {}
     ao, fo, eo = _merge_program_dashboard_offers(g_ao, g_fo, g_eo, program_id, per_map)
+    if not is_annual:
+        ao, fo, eo = {}, {}, {}
     pricing = await compute_dashboard_annual_family_pricing(
         program,
         program_id,
@@ -953,6 +979,7 @@ async def dashboard_quote(
         eo,
         include_self=include_self,
         tier_index_override=tier_index,
+        apply_tier_offer_prices=is_annual,
     )
     cur = str(pricing.get("currency") or "aed").lower()
     gst_pct = float(settings_doc.get("india_gst_percent") or 18)
@@ -1027,6 +1054,8 @@ async def dashboard_pay(data: DashboardPayIn, request: Request, user: dict = Dep
     g_eo = settings_doc.get("dashboard_offer_extended") or {}
     per_map = settings_doc.get("dashboard_program_offers") or {}
     ao, fo, eo = _merge_program_dashboard_offers(g_ao, g_fo, g_eo, data.program_id, per_map)
+    if not is_annual:
+        ao, fo, eo = {}, {}, {}
     quote = await compute_dashboard_annual_family_pricing(
         program,
         data.program_id,
@@ -1037,6 +1066,7 @@ async def dashboard_pay(data: DashboardPayIn, request: Request, user: dict = Dep
         fo,
         eo,
         include_self=not included,
+        apply_tier_offer_prices=is_annual,
     )
     if quote["total"] <= 0:
         raise HTTPException(status_code=400, detail="No payable amount for this program")

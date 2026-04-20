@@ -579,7 +579,9 @@ export default function DashboardCombinedCheckoutPage() {
     return toDisplay(base);
   };
 
+  /** Non–annual subscribers pay published list prices on the dashboard; tier offers apply only for annual subscribers. */
   const getEffectivePrice = (item) => {
+    if (!subscriberIsAnnual) return getItemPrice(item);
     const offer = getItemOfferPrice(item);
     return offer > 0 ? offer : getItemPrice(item);
   };
@@ -664,7 +666,9 @@ export default function DashboardCombinedCheckoutPage() {
         const portalBase = lineQuote ? annualPortalSeatUnitBasePrices(lineQuote, p, guestBucketById) : null;
         const unitOfferRaw = portalBase
           ? toDisplay(portalBase.offer)
-          : getItemOfferPrice(item);
+          : subscriberIsAnnual
+            ? getItemOfferPrice(item)
+            : getItemPrice(item);
         const unitListRaw = portalBase
           ? toDisplay(portalBase.list)
           : getItemPrice(item);
@@ -1190,7 +1194,7 @@ export default function DashboardCombinedCheckoutPage() {
             const lineQuote = annualQuotesByProgram[String(item.programId)] || null;
             const guestBucketById = meta?.guestBucketById || {};
             const portalBase =
-              subscriberIsAnnual && lineQuote && !selfIncluded
+              lineQuote && !selfIncluded
                 ? annualPortalSeatUnitBasePrices(lineQuote, p, guestBucketById)
                 : null;
             const unitOffer = selfIncluded

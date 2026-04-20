@@ -232,6 +232,9 @@ export default function DashboardUpcomingProgramRowItem({
 
   const price = getPrice(p, hasTiers ? tierIdxForDisplay : null);
   const offerPrice = getOfferPrice(p, hasTiers ? tierIdxForDisplay : null);
+  /** Dashboard: tier promotional offer applies to annual subscribers only; others pay list (matches portal quote). */
+  const dashboardSeatUnit =
+    subscriberIsAnnual && offerPrice > 0 ? offerPrice : price;
   const showContact = !subscriberIsAnnual && tierIsYearLong && price === 0;
 
   const deadline = p.deadline_date || p.start_date;
@@ -246,7 +249,7 @@ export default function DashboardUpcomingProgramRowItem({
   const datetimeBadges = buildHomepageStyleDatetimeBadges(p, tierIdxForDisplay, detectedCountry);
 
   const validated = promoForProgramClicks ? promoByProgramId[p.id] : null;
-  const baseForPromo = offerPrice > 0 ? offerPrice : price;
+  const baseForPromo = dashboardSeatUnit;
   const disc = validated && baseForPromo > 0 ? promoDiscountAmount(validated, baseForPromo, currency) : 0;
   const afterPromo = Math.max(0, baseForPromo - disc);
   const showSpecialPromo = Boolean(promoForProgramClicks && validated && disc > 0 && !promoPricesLoading);
@@ -526,6 +529,7 @@ export default function DashboardUpcomingProgramRowItem({
                 </div>
               ) : null}
               {enrollStatus === 'open' &&
+                subscriberIsAnnual &&
                 offerPrice > 0 &&
                 deadline &&
                 (() => {
@@ -561,13 +565,13 @@ export default function DashboardUpcomingProgramRowItem({
                     <span className="text-xs text-violet-700 font-medium">
                       With {promoForProgramClicks} (on offer price)
                     </span>
-                    {offerPrice > 0 && price > offerPrice ? (
+                    {subscriberIsAnnual && offerPrice > 0 && price > offerPrice ? (
                       <span className="text-[10px] text-gray-400">List {symbol}
                         {price.toLocaleString()}
                       </span>
                     ) : null}
                   </div>
-                ) : offerPrice > 0 ? (
+                ) : subscriberIsAnnual && offerPrice > 0 ? (
                   <>
                     <span className="text-xl font-bold text-[#D4AF37] tabular-nums">
                       {symbol} {offerPrice.toLocaleString()}
@@ -617,7 +621,7 @@ export default function DashboardUpcomingProgramRowItem({
                     />
                   ) : (() => {
                     const bookerJoins = annualSeatUi?.draft?.bookerJoinsProgram !== false;
-                    const seatPrice = showSpecialPromo ? afterPromo : offerPrice > 0 ? offerPrice : price;
+                    const seatPrice = showSpecialPromo ? afterPromo : dashboardSeatUnit;
                     const immMemberIds = new Set(members.map(m => m.id ? String(m.id) : null).filter(Boolean));
                     const extMemberIds = new Set(otherMembers.map(m => m.id ? String(m.id) : null).filter(Boolean));
                     const immCount = selIds.filter(id => immMemberIds.has(id)).length;
@@ -637,7 +641,10 @@ export default function DashboardUpcomingProgramRowItem({
                             <span className="font-medium text-slate-800">Your seat</span>
                             <span className="font-semibold tabular-nums text-slate-900 text-right">
                               {symbol}{seatPrice.toLocaleString()}
-                              {offerPrice > 0 && price > offerPrice && !showSpecialPromo && (
+                              {subscriberIsAnnual &&
+                                offerPrice > 0 &&
+                                price > offerPrice &&
+                                !showSpecialPromo && (
                                 <span className="text-slate-400 line-through ml-1.5 text-[10px] font-normal">{symbol}{price.toLocaleString()}</span>
                               )}
                               <span className="text-slate-500 font-normal text-[10px] ml-1">· 1 seat</span>
@@ -699,10 +706,13 @@ export default function DashboardUpcomingProgramRowItem({
                 </p>
               ) : (() => {
                 const bookerJoins = annualSeatUi?.draft?.bookerJoinsProgram !== false;
-                const seatPrice = showSpecialPromo ? afterPromo : offerPrice > 0 ? offerPrice : price;
+                const seatPrice = showSpecialPromo ? afterPromo : dashboardSeatUnit;
                 const immCount = selIds.filter(id => members.some(m => String(m.id) === id)).length;
                 const extCount = selIds.filter(id => otherMembers.some(m => String(m.id) === id)).length;
-                const grandTotal = (price > 0 || offerPrice > 0) ? (bookerJoins ? seatPrice : 0) + (immCount + extCount) * seatPrice : 0;
+                const grandTotal =
+                  (price > 0 || (subscriberIsAnnual && offerPrice > 0))
+                    ? (bookerJoins ? seatPrice : 0) + (immCount + extCount) * seatPrice
+                    : 0;
                 const hasGuests = immCount > 0 || extCount > 0;
                 return (bookerJoins || hasGuests) ? (
                   <p className="text-[11px] text-slate-600 mt-2 pt-2 border-t border-slate-100 leading-snug">
