@@ -570,6 +570,8 @@ class SiteSettings(BaseModel):
     cross_sell_rules: list = []
     special_offers: list = []  # [{id, label, discount_pct, emails:[], phones:[], program_ids:[], code, enabled}]
     inr_whitelist_emails: list = []
+    # Per-email pricing hub (inr / aed / usd) — same mechanism as NRI INR list, but for any hub; evaluated before INR whitelist in /currency/detect.
+    pricing_hub_email_overrides: list = Field(default_factory=list)  # [{"email":"a@b.com","hub":"inr"}, ...]
     dashboard_bg_video: str = ""
     # Full-bleed loop behind Sacred Home (student dashboard overview + immersive shell) — uploaded in Admin → Dashboard
     dashboard_sanctuary_video_url: str = ""
@@ -746,6 +748,7 @@ class SiteSettingsUpdate(BaseModel):
     cross_sell_rules: Optional[list] = None
     special_offers: Optional[list] = None
     inr_whitelist_emails: Optional[list] = None
+    pricing_hub_email_overrides: Optional[list] = None
     dashboard_bg_video: Optional[str] = None
     dashboard_sanctuary_video_url: Optional[str] = None
     india_payment_gateway: Optional[dict] = None

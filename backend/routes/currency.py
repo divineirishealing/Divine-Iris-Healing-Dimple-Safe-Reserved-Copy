@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Request, HTTPException
-from typing import Optional
+from typing import Optional, List, Dict, Any
 from models import CurrencyInfo
 import httpx
 import logging
@@ -8,6 +8,8 @@ import time
 from motor.motor_asyncio import AsyncIOMotorClient
 from dotenv import load_dotenv
 from pathlib import Path
+
+from routes.site_settings import _normalize_pricing_hub_email_overrides
 
 ROOT_DIR = Path(__file__).parent.parent
 load_dotenv(ROOT_DIR / '.env')
@@ -214,6 +216,24 @@ async def _inr_whitelist_emails() -> list:
     return [e.lower().strip() for e in (doc or {}).get("inr_whitelist_emails", [])]
 
 
+async def _pricing_hub_email_overrides_rows() -> List[Dict[str, Any]]:
+    doc = await db.site_settings.find_one({"id": "site_settings"}, {"_id": 0, "pricing_hub_email_overrides": 1})
+    return _normalize_pricing_hub_email_overrides((doc or {}).get("pricing_hub_email_overrides"))
+
+
+async def resolve_booker_pricing_hub_email(email: Optional[str]) -> Optional[str]:
+    """If this email has an admin-configured hub override, return 'inr' | 'aed' | 'usd'."""
+    em = (email or "").strip().lower()
+    if not em or "@" not in em:
+        return None
+    for row in await _pricing_hub_email_overrides_rows():
+        if row.get("email") == em:
+            h = (row.get("hub") or "").strip().lower()
+            if h in ("inr", "aed", "usd"):
+                return h
+    return None
+
+
 def _user_should_see_india_pricing_hub(user: Optional[dict], whitelist: list) -> bool:
     """INR hub + India display rules (same as a geo-India visitor without VPN)."""
     if not user:
@@ -229,10 +249,18 @@ async def resolve_stripe_hub_currency(request: Request, sponsor_or_guest_email: 
     from routes.auth import get_optional_user
 
     user = await get_optional_user(request)
+    if user:
+        oh = await resolve_booker_pricing_hub_email(user.get("email"))
+        if oh:
+            return oh
+    em = (sponsor_or_guest_email or "").lower().strip()
+    if em:
+        oh2 = await resolve_booker_pricing_hub_email(em)
+        if oh2:
+            return oh2
     whitelist = await _inr_whitelist_emails()
     if user and _user_should_see_india_pricing_hub(user, whitelist):
         return "inr"
-    em = (sponsor_or_guest_email or "").lower().strip()
     if em and em in whitelist:
         return "inr"
     ip_country, vpn_detected = await detect_ip_info(request)
@@ -270,8 +298,15 @@ async def detect_currency(request: Request, preview_country: str = None):
         country_display = ip_country
         vpn_detected = vpn_raw
         user = await get_optional_user(request)
+        email_hub = await resolve_booker_pricing_hub_email((user.get("email") or "") if user else None)
         whitelist = await _inr_whitelist_emails()
-        if user and _user_should_see_india_pricing_hub(user, whitelist):
+        if email_hub == "inr":
+            hub_country, hub_vpn = "IN", False
+        elif email_hub == "aed":
+            hub_country, hub_vpn = "AE", False
+        elif email_hub == "usd":
+            hub_country, hub_vpn = "US", False
+        elif user and _user_should_see_india_pricing_hub(user, whitelist):
             hub_country, hub_vpn = "IN", False
         else:
             hub_country, hub_vpn = ip_country, vpn_raw

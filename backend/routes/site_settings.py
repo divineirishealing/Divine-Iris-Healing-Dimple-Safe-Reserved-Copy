@@ -21,6 +21,31 @@ db = client[os.environ['DB_NAME']]
 DEFAULT_SETTINGS = SiteSettings().model_dump() if hasattr(SiteSettings(), "model_dump") else SiteSettings().dict()
 
 
+ALLOWED_PRICING_HUB_EMAIL_HUBS = frozenset({"inr", "aed", "usd"})
+
+
+def _normalize_pricing_hub_email_overrides(val: Any) -> List[Dict[str, str]]:
+    """[{email, hub}] with hub in inr|aed|usd; de-dupe by email (first wins)."""
+    if val is None:
+        return []
+    if not isinstance(val, list):
+        return []
+    out: List[Dict[str, str]] = []
+    seen = set()
+    for row in val:
+        if not isinstance(row, dict):
+            continue
+        em = str(row.get("email") or "").strip().lower()
+        hub = str(row.get("hub") or "").strip().lower()
+        if not em or "@" not in em or hub not in ALLOWED_PRICING_HUB_EMAIL_HUBS:
+            continue
+        if em in seen:
+            continue
+        seen.add(em)
+        out.append({"email": em, "hub": hub})
+    return out
+
+
 def _normalize_inr_whitelist_from_payload(val: Any) -> List[str]:
     if val is None:
         return []
@@ -47,6 +72,8 @@ def _mongo_doc_for_site_settings(doc: Optional[dict]) -> dict:
         out["inr_whitelist_emails"] = []
     else:
         out["inr_whitelist_emails"] = _normalize_inr_whitelist_from_payload(wl)
+    ph = out.get("pricing_hub_email_overrides")
+    out["pricing_hub_email_overrides"] = _normalize_pricing_hub_email_overrides(ph)
     return out
 
 
@@ -127,6 +154,10 @@ async def update_settings(payload: Dict[str, Any]):
     # Raw body key — source of truth for NRI whitelist (do not rely on model_fields_set alone).
     if "inr_whitelist_emails" in payload:
         update_data["inr_whitelist_emails"] = _normalize_inr_whitelist_from_payload(payload.get("inr_whitelist_emails"))
+    if "pricing_hub_email_overrides" in payload:
+        update_data["pricing_hub_email_overrides"] = _normalize_pricing_hub_email_overrides(
+            payload.get("pricing_hub_email_overrides")
+        )
     # Defensive: Pydantic v2 partial bodies should still persist explicit False
     if hasattr(settings, "model_fields_set") and "checkout_promo_code_visible" in settings.model_fields_set:
         update_data["checkout_promo_code_visible"] = bool(settings.checkout_promo_code_visible)

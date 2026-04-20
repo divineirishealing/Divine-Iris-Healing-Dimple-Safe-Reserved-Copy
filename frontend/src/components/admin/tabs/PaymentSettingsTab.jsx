@@ -34,6 +34,8 @@ const PaymentSettingsTab = () => {
   const [dashboardAnnualQuoteShowTax, setDashboardAnnualQuoteShowTax] = useState(true);
   const [platformPct, setPlatformPct] = useState(3);
   const [inrWhitelistEmails, setInrWhitelistEmails] = useState([]);
+  /** @type {[{ email: string, hub: string }]} Per-email pricing hub (inr|aed|usd); same detection path as NRI INR whitelist. */
+  const [pricingHubEmailOverrides, setPricingHubEmailOverrides] = useState([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
@@ -50,6 +52,9 @@ const PaymentSettingsTab = () => {
       setDashboardAnnualQuoteShowTax(r.data.dashboard_annual_quote_show_tax !== false);
       setPlatformPct(r.data.india_platform_charge_percent ?? 3);
       setInrWhitelistEmails(Array.isArray(r.data.inr_whitelist_emails) ? r.data.inr_whitelist_emails : []);
+      setPricingHubEmailOverrides(
+        Array.isArray(r.data.pricing_hub_email_overrides) ? r.data.pricing_hub_email_overrides : []
+      );
     }).catch(() => {}).finally(() => setLoading(false));
   }, []);
 
@@ -79,6 +84,16 @@ const PaymentSettingsTab = () => {
     const emails = inrWhitelistEmails
       .map((e) => String(e).trim().toLowerCase())
       .filter((e) => e.includes('@'));
+    const hubOverrides = pricingHubEmailOverrides
+      .map((row) => ({
+        email: String(row.email || '')
+          .trim()
+          .toLowerCase(),
+        hub: String(row.hub || 'inr')
+          .trim()
+          .toLowerCase(),
+      }))
+      .filter((row) => row.email.includes('@') && ['inr', 'aed', 'usd'].includes(row.hub));
     try {
       const res = await axios.put(`${API}/settings`, {
         payment_disclaimer: disclaimer,
@@ -95,9 +110,12 @@ const PaymentSettingsTab = () => {
           return Number.isFinite(p) ? p : 3;
         })(),
         inr_whitelist_emails: emails,
+        pricing_hub_email_overrides: hubOverrides,
       });
       const saved = res.data?.inr_whitelist_emails;
       setInrWhitelistEmails(Array.isArray(saved) ? saved : emails);
+      const savedHubs = res.data?.pricing_hub_email_overrides;
+      setPricingHubEmailOverrides(Array.isArray(savedHubs) ? savedHubs : hubOverrides);
       toast({ title: 'Payment settings saved!' });
     } catch (err) {
       const detail = err.response?.data?.detail;
@@ -315,6 +333,14 @@ const PaymentSettingsTab = () => {
         />
       </CollapsibleSection>
 
+      {/* ════ PRICING HUB BY EMAIL (ONE-OFF) ════ */}
+      <CollapsibleSection title="Pricing hub by email" badge="INR / AED / USD" defaultOpen={false}>
+        <PricingHubEmailOverridesConfig
+          rows={pricingHubEmailOverrides}
+          setRows={setPricingHubEmailOverrides}
+        />
+      </CollapsibleSection>
+
       <Button onClick={save} disabled={saving} className="w-full bg-[#D4AF37] hover:bg-[#b8962e] text-white" data-testid="save-payment-settings-btn">
         {saving ? <Loader2 size={14} className="animate-spin mr-2" /> : <Save size={14} className="mr-2" />}
         Save Payment Settings
@@ -469,6 +495,62 @@ const InrOverrideConfig = ({ whitelist, setWhitelist }) => {
       <div className="bg-gray-50 rounded-lg p-3 text-[10px] text-gray-500">
         <strong>Method 3:</strong> Create an INR promo code in <strong>Promotions</strong> tab. When applied, it forces INR pricing.
       </div>
+    </div>
+  );
+};
+
+/** Admin: per-email hub (inr/aed/usd) — mirrors /currency/detect + Stripe hub resolution. */
+const PricingHubEmailOverridesConfig = ({ rows, setRows }) => {
+  const updateRow = (i, field, value) => {
+    setRows((prev) => prev.map((r, j) => (j === i ? { ...r, [field]: value } : r)));
+  };
+  const removeRow = (i) => setRows((prev) => prev.filter((_, j) => j !== i));
+  const addRow = () => setRows((prev) => [...prev, { email: '', hub: 'inr' }]);
+
+  return (
+    <div className="space-y-3">
+      <p className="text-xs text-gray-500">
+        When this email signs in (or enrolls as booker), they see that hub&apos;s price column site-wide — same idea as INR for NRI, but you can choose INR, AED, or USD.
+      </p>
+      <p className="text-[10px] text-amber-800 bg-amber-50 border border-amber-200 rounded-md px-2 py-1.5">
+        If an email is listed here and in the NRI INR whitelist, this row wins. Use <strong>Save Payment Settings</strong> below to persist.
+      </p>
+      {rows.length === 0 ? (
+        <p className="text-[11px] text-gray-400">No overrides. Add an email to assign a hub.</p>
+      ) : (
+        <div className="space-y-2">
+          {rows.map((row, i) => (
+            <div key={`hub-${i}-${row.email}`} className="flex flex-wrap gap-2 items-center">
+              <Input
+                value={row.email}
+                onChange={(e) => updateRow(i, 'email', e.target.value.toLowerCase())}
+                placeholder="student@email.com"
+                className="h-8 text-xs flex-1 min-w-[12rem]"
+              />
+              <select
+                value={row.hub || 'inr'}
+                onChange={(e) => updateRow(i, 'hub', e.target.value)}
+                className="h-8 text-xs border rounded-lg px-2 bg-white"
+              >
+                <option value="inr">INR hub</option>
+                <option value="aed">AED hub</option>
+                <option value="usd">USD hub</option>
+              </select>
+              <button
+                type="button"
+                onClick={() => removeRow(i)}
+                className="text-red-500 hover:text-red-700 p-1"
+                aria-label="Remove row"
+              >
+                <Trash2 size={14} />
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+      <Button type="button" size="sm" variant="outline" onClick={addRow} className="h-8 text-xs">
+        <Plus size={12} className="mr-1 inline" /> Add email
+      </Button>
     </div>
   );
 };

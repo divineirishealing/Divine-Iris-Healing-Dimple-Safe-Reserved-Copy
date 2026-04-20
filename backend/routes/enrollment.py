@@ -501,8 +501,18 @@ async def get_enrollment_pricing(enrollment_id: str, item_type: str, item_id: st
     }
 
     # ─── REGIONAL CURRENCY MAPPING ───
-    from routes.currency import get_base_currency as _get_base_currency
-    if inr_eligible:
+    from routes.currency import get_base_currency as _get_base_currency, resolve_booker_pricing_hub_email
+
+    email_hub = await resolve_booker_pricing_hub_email(booker_email)
+
+    if email_hub:
+        allowed_currency = email_hub
+        if email_hub == "inr":
+            inr_eligible = not is_blocklisted
+        else:
+            inr_eligible = False
+        fraud_warning = None
+    elif inr_eligible:
         allowed_currency = "inr"
         fraud_warning = None
     else:
@@ -516,8 +526,9 @@ async def get_enrollment_pricing(enrollment_id: str, item_type: str, item_id: st
     # to the verified base currency. This overrides the stale stored enrollment IP
     # (which defaults to "AE" when IP detection fails at enrollment start).
     # Block only: blocklisted users cannot claim INR.
+    # Per-email hub overrides (above) win over client_currency.
     if client_currency in ("inr", "aed", "usd"):
-        if not (is_blocklisted and client_currency == "inr"):
+        if not email_hub and not (is_blocklisted and client_currency == "inr"):
             allowed_currency = client_currency
             if client_currency == "inr":
                 inr_eligible = True
@@ -672,7 +683,7 @@ async def enrollment_checkout(enrollment_id: str, data: EnrollmentSubmit, reques
         raise HTTPException(status_code=400, detail="Phone not verified")
 
     # ── Currency verification: re-check IP before payment ──
-    from routes.currency import detect_ip_info, get_base_currency
+    from routes.currency import detect_ip_info, get_base_currency, get_display_currency, resolve_booker_pricing_hub_email
     ip_country, vpn_detected = await detect_ip_info(request)
     server_currency = get_base_currency(ip_country, vpn_detected)
     claimed_currency = (data.currency or "usd").lower()
@@ -680,6 +691,10 @@ async def enrollment_checkout(enrollment_id: str, data: EnrollmentSubmit, reques
     # ── INR Override: Check 3 methods for NRI/whitelisted students ──
     inr_override = False
     booker_email = enrollment.get("booker_email", "").lower().strip()
+
+    email_hub = await resolve_booker_pricing_hub_email(booker_email)
+    if email_hub:
+        server_currency = email_hub
     
     # Method 1: Email whitelist
     settings = await db.site_settings.find_one({"id": "site_settings"}, {"_id": 0, "inr_whitelist_emails": 1})
@@ -716,9 +731,8 @@ async def enrollment_checkout(enrollment_id: str, data: EnrollmentSubmit, reques
 
     # Always enforce display_currency server-side from live IP detection.
     # This ensures the Stripe page always matches what was shown on the homepage,
-    # regardless of whether the frontend passed display_currency correctly.
-    from routes.currency import get_display_currency as _get_display_currency
-    server_display_currency = _get_display_currency(ip_country, vpn_detected)
+    # unless the booker has a per-email hub override (same as /currency/detect).
+    server_display_currency = email_hub if email_hub else get_display_currency(ip_country, vpn_detected)
     if server_display_currency:
         data.display_currency = server_display_currency
 
