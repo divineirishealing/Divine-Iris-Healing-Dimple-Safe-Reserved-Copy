@@ -739,6 +739,10 @@ export default function DashboardCombinedCheckoutPage() {
   /** Subscriber has India-tagged methods from admin (UPI / bank / manual) — show proof paths even when IP ≠ IN. */
   const memberIndiaTagged =
     pmLower.includes('gpay') || pmLower.includes('bank') || pmLower.includes('manual');
+  /** Stripe rail: hide India INR stack (Client Garden discount / GST / platform). Show again if they pick manual or Exly. */
+  const showIndiaInrSettlement =
+    !!indiaBreakdown &&
+    (!hasStripe || portalPayMode === 'manual' || portalPayMode === 'exly');
   const bookerIndia = String(bookerCountry || '').trim().toUpperCase() === 'IN';
   const siteIndiaAlternatePayments =
     !!paymentSettings.india_enabled && (detectedCountry === 'IN' || bookerIndia);
@@ -1268,7 +1272,7 @@ export default function DashboardCombinedCheckoutPage() {
               {totalDiscountAmount > 0 ? `-${symbol} ${totalDiscountAmount.toLocaleString()}` : `${symbol} 0`}
             </span>
           </div>
-          {indiaBreakdown ? (
+          {showIndiaInrSettlement ? (
             <div
               className="space-y-1 border border-amber-200/80 bg-amber-50/50 rounded-lg px-3 py-2.5 mt-2"
               data-testid="divine-cart-india-settlement"
