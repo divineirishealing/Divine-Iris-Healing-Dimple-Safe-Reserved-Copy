@@ -2,7 +2,6 @@ import React, { useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
 import { useToast } from '../../../hooks/use-toast';
 import { Button } from '../../ui/button';
-import { Textarea } from '../../ui/textarea';
 import { Input } from '../../ui/input';
 import { Label } from '../../ui/label';
 import {
@@ -15,7 +14,7 @@ import {
 import {
   Users, Search, Download, RefreshCw,
   Droplets, Sprout, TreeDeciduous, Flower2, Star, Sparkles, Crown,
-  Clock, Edit2, Save, X, Trash2, UserPlus,
+  Edit2, Save, Trash2, UserPlus,
 } from 'lucide-react';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
@@ -29,8 +28,6 @@ const LABEL_CONFIG = {
   'Purple Bees': { icon: Sparkles,       bg: 'bg-violet-50', border: 'border-violet-200', text: 'text-violet-700', badge: 'bg-violet-100 text-violet-700', desc: 'Soulful referral partner' },
   'Iris Bees':   { icon: Crown,          bg: 'bg-yellow-50', border: 'border-yellow-200', text: 'text-yellow-700', badge: 'bg-yellow-100 text-yellow-700', desc: 'Brand Ambassador' },
 };
-
-const ALL_LABELS = ['Dew', 'Seed', 'Root', 'Bloom', 'Iris', 'Purple Bees', 'Iris Bees'];
 
 const timeAgo = (dateStr) => {
   if (!dateStr) return '';
@@ -54,7 +51,6 @@ const ClientsTab = () => {
   const { toast } = useToast();
   const [clients, setClients] = useState([]);
   const [stats, setStats] = useState({ total: 0, by_label: {} });
-  const [filterLabel, setFilterLabel] = useState('');
   const [searchText, setSearchText] = useState('');
   const [syncing, setSyncing] = useState(false);
   const [showAddClient, setShowAddClient] = useState(false);
@@ -62,8 +58,6 @@ const ClientsTab = () => {
     name: '',
     email: '',
     phone: '',
-    notes: '',
-    label_manual: '',
   });
   const [addingClient, setAddingClient] = useState(false);
   const [editClient, setEditClient] = useState(null);
@@ -71,7 +65,6 @@ const ClientsTab = () => {
   const fetchData = useCallback(async () => {
     try {
       const params = {};
-      if (filterLabel) params.label = filterLabel;
       if (searchText.trim()) params.search = searchText.trim();
       const [cRes, sRes] = await Promise.all([
         axios.get(`${API}/clients`, { params }),
@@ -80,7 +73,7 @@ const ClientsTab = () => {
       setClients(cRes.data || []);
       setStats(sRes.data || { total: 0, by_label: {} });
     } catch (e) { console.error(e); }
-  }, [filterLabel, searchText]);
+  }, [searchText]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
@@ -123,11 +116,9 @@ const ClientsTab = () => {
         name,
         email: email || undefined,
         phone: phone || undefined,
-        notes: addForm.notes.trim() || undefined,
-        label_manual: addForm.label_manual || undefined,
       });
       toast({ title: 'Client added', description: name });
-      setAddForm({ name: '', email: '', phone: '', notes: '', label_manual: '' });
+      setAddForm({ name: '', email: '', phone: '' });
       setShowAddClient(false);
       await fetchData();
     } catch (err) {
@@ -150,8 +141,7 @@ const ClientsTab = () => {
             <Users size={18} className="text-[#D4AF37]" /> Client Garden
           </h2>
           <p className="text-xs text-gray-500 mt-0.5 max-w-2xl">
-            One row per client — your central database (labels, contacts, household key, notes, sources, conversion count).
-            Portal and intake workflows live under <strong className="font-semibold text-gray-700">Dashboard access</strong>.
+            One row per client — contacts, household key, sources, and conversion count. Labels and notes are maintained elsewhere (e.g. conversions sync, <strong className="font-semibold text-gray-700">Dashboard access</strong>).
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
@@ -193,20 +183,6 @@ const ClientsTab = () => {
               />
             </div>
             <div>
-              <Label className="text-[9px] text-gray-500">Garden label</Label>
-              <select
-                data-testid="clients-add-label"
-                value={addForm.label_manual}
-                onChange={(e) => setAddForm((f) => ({ ...f, label_manual: e.target.value }))}
-                className="w-full h-9 text-xs border rounded-md px-2 mt-1"
-              >
-                <option value="">Auto — Dew until a paid program, then from conversions</option>
-                {ALL_LABELS.map((l) => (
-                  <option key={l} value={l}>{l}</option>
-                ))}
-              </select>
-            </div>
-            <div>
               <Label className="text-[9px] text-gray-500">Email</Label>
               <Input
                 data-testid="clients-add-email"
@@ -230,17 +206,6 @@ const ClientsTab = () => {
               />
             </div>
           </div>
-          <div>
-            <Label className="text-[9px] text-gray-500">Notes</Label>
-            <Textarea
-              data-testid="clients-add-notes"
-              value={addForm.notes}
-              onChange={(e) => setAddForm((f) => ({ ...f, notes: e.target.value }))}
-              rows={2}
-              className="text-xs mt-1"
-              placeholder="Optional internal notes"
-            />
-          </div>
           <div className="flex gap-2">
             <Button type="submit" disabled={addingClient} size="sm" className="text-[10px] h-8 bg-[#5D3FD3] hover:bg-[#4c32b3] gap-1" data-testid="clients-add-submit">
               <UserPlus size={12} /> {addingClient ? 'Saving…' : 'Save client'}
@@ -252,24 +217,6 @@ const ClientsTab = () => {
         </form>
       )}
 
-      <div className="grid grid-cols-7 gap-2 mb-4" data-testid="clients-label-stats">
-        {ALL_LABELS.map((label) => {
-          const cfg = LABEL_CONFIG[label];
-          const Icon = cfg.icon;
-          const count = stats.by_label[label] || 0;
-          const isActive = filterLabel === label;
-          return (
-            <button key={label} data-testid={`clients-label-${label.replace(/\s/g, '-')}`}
-              onClick={() => setFilterLabel(isActive ? '' : label)}
-              className={`flex flex-col items-center p-2.5 rounded-xl border-2 transition-all ${isActive ? `${cfg.bg} ${cfg.border} shadow-md scale-[1.02]` : 'bg-white border-gray-100 hover:border-gray-200'}`}>
-              <Icon size={16} className={isActive ? cfg.text : 'text-gray-400'} />
-              <span className={`text-lg font-bold mt-1 ${isActive ? cfg.text : 'text-gray-800'}`}>{count}</span>
-              <span className="text-[8px] text-gray-500 leading-tight text-center">{label}</span>
-            </button>
-          );
-        })}
-      </div>
-
       <div className="flex items-center gap-3 mb-4">
         <div className="bg-gray-900 text-white rounded-lg px-3 py-1.5 text-xs font-semibold">
           {stats.total} Total Clients
@@ -279,11 +226,6 @@ const ClientsTab = () => {
           <input data-testid="clients-search" type="text" value={searchText} onChange={(e) => setSearchText(e.target.value)}
             placeholder="Search name, email, phone, or household key..." className="w-full pl-9 pr-3 py-2 text-xs border rounded-lg focus:outline-none focus:ring-1 focus:ring-[#D4AF37]" />
         </div>
-        {filterLabel && (
-          <button onClick={() => { setFilterLabel(''); }} className="text-[10px] text-gray-500 hover:text-gray-700 flex items-center gap-1 border rounded px-2 py-1">
-            <X size={10} /> Clear filter
-          </button>
-        )}
       </div>
 
       <div className="rounded-xl border border-gray-200 bg-white overflow-hidden overflow-x-auto" data-testid="clients-table-wrap">
@@ -293,17 +235,15 @@ const ClientsTab = () => {
             <p className="text-sm">No clients found. Use Add client or Sync All Data to populate.</p>
           </div>
         ) : (
-          <table className="w-full min-w-[1200px] text-left border-collapse text-[10px]" data-testid="clients-table">
+          <table className="w-full min-w-[1000px] text-left border-collapse text-[10px]" data-testid="clients-table">
             <thead>
               <tr className="bg-gray-100 border-b border-gray-200 text-[9px] uppercase tracking-wide text-gray-600">
                 <th className="py-2 pl-3 pr-2 font-semibold sticky left-0 bg-gray-100 z-10">Name</th>
-                <th className="py-2 px-2 font-semibold w-[72px]">Label</th>
                 <th className="py-2 px-2 font-semibold w-[100px]">DID</th>
                 <th className="py-2 px-2 font-semibold min-w-[140px]">Email</th>
                 <th className="py-2 px-2 font-semibold min-w-[88px]">Phone</th>
                 <th className="py-2 px-2 font-semibold min-w-[100px]">Household</th>
                 <th className="py-2 px-2 font-semibold w-[40px] text-center">Pri</th>
-                <th className="py-2 px-2 font-semibold min-w-[160px]">Notes</th>
                 <th className="py-2 px-2 font-semibold min-w-[100px]">Sources</th>
                 <th className="py-2 px-2 font-semibold w-[44px] text-center">Conv</th>
                 <th className="py-2 px-2 font-semibold w-[72px]">First</th>
@@ -330,15 +270,11 @@ const ClientsTab = () => {
                         <span className="font-semibold text-gray-900 truncate max-w-[140px]" title={cl.name || ''}>{cl.name || '—'}</span>
                       </div>
                     </td>
-                    <td className="py-2 px-2">
-                      <span className={`font-bold px-1.5 py-0.5 rounded-full whitespace-nowrap ${cfg.badge}`}>{cl.label}</span>
-                    </td>
                     <td className="py-2 px-2 font-mono text-purple-700 truncate max-w-[100px]" title={cl.did || ''}>{cl.did || '—'}</td>
                     <td className="py-2 px-2 text-gray-800 truncate max-w-[180px]" title={cl.email || ''}>{cl.email || '—'}</td>
                     <td className="py-2 px-2 text-gray-600 whitespace-nowrap">{cl.phone || '—'}</td>
                     <td className="py-2 px-2 font-mono text-slate-600 truncate max-w-[120px]" title={cl.household_key || ''}>{cl.household_key || '—'}</td>
                     <td className="py-2 px-2 text-center text-gray-700">{cl.is_primary_household_contact ? 'Y' : '—'}</td>
-                    <td className="py-2 px-2 text-gray-600" title={cl.notes || ''}>{truncate(cl.notes, 56) || '—'}</td>
                     <td className="py-2 px-2 text-gray-500" title={sourcesStr}>{truncate(sourcesStr, 40) || '—'}</td>
                     <td className="py-2 px-2 text-center font-medium text-gray-800">{cl.conversions?.length ?? 0}</td>
                     <td className="py-2 px-2 text-gray-500 whitespace-nowrap">{cl.created_at ? new Date(cl.created_at).toLocaleDateString() : '—'}</td>
@@ -384,28 +320,23 @@ const ClientsTab = () => {
 };
 
 function ClientEditDialog({ client: cl, onClose, onSaved, onDelete, toast }) {
-  const [labelManual, setLabelManual] = useState(cl.label_manual || '');
-  const [notes, setNotes] = useState(cl.notes || '');
   const [householdKey, setHouseholdKey] = useState(cl.household_key || '');
   const [primaryHouseholdContact, setPrimaryHouseholdContact] = useState(!!cl.is_primary_household_contact);
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    setLabelManual(cl.label_manual || '');
-    setNotes(cl.notes || '');
     setHouseholdKey(cl.household_key || '');
     setPrimaryHouseholdContact(!!cl.is_primary_household_contact);
-  }, [cl.id, cl.updated_at, cl.label_manual, cl.notes, cl.household_key, cl.is_primary_household_contact]);
+  }, [cl.id, cl.updated_at, cl.household_key, cl.is_primary_household_contact]);
 
   const cfg = LABEL_CONFIG[cl.label] || LABEL_CONFIG.Dew;
+  const RowIcon = cfg.icon;
   const timeline = [...(cl.timeline || [])].sort((a, b) => new Date(b.date) - new Date(a.date));
 
   const handleSave = async () => {
     setSaving(true);
     try {
       await axios.put(`${API}/clients/${cl.id}`, {
-        label_manual: labelManual,
-        notes,
         household_key: householdKey.trim() || null,
         is_primary_household_contact: primaryHouseholdContact,
       });
@@ -422,8 +353,10 @@ function ClientEditDialog({ client: cl, onClose, onSaved, onDelete, toast }) {
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto" data-testid={`client-detail-${cl.id}`}>
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 pr-6">
-            <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${cfg.badge}`}>{cl.label}</span>
-            <span className="truncate">{cl.name || 'Client'}</span>
+            <div className={`w-8 h-8 rounded-full ${cfg.bg} ${cfg.border} border flex items-center justify-center shrink-0`}>
+              <RowIcon size={14} className={cfg.text} />
+            </div>
+            <span className="truncate text-base">{cl.name || 'Client'}</span>
           </DialogTitle>
         </DialogHeader>
 
@@ -435,22 +368,6 @@ function ClientEditDialog({ client: cl, onClose, onSaved, onDelete, toast }) {
             <p><span className="text-gray-400">First contact</span> {cl.created_at ? new Date(cl.created_at).toLocaleString() : '—'}</p>
           </div>
 
-          <div>
-            <Label className="text-[10px] text-gray-500">Override label</Label>
-            <select
-              data-testid="client-label-select"
-              value={labelManual}
-              onChange={(e) => setLabelManual(e.target.value)}
-              className="w-full text-xs border rounded-lg px-2 py-1.5 mt-1"
-            >
-              <option value="">Auto (Dew until paid program, then from conversions)</option>
-              {ALL_LABELS.map((l) => <option key={l} value={l}>{l} — {LABEL_CONFIG[l]?.desc}</option>)}
-            </select>
-          </div>
-          <div>
-            <Label className="text-[10px] text-gray-500">Notes</Label>
-            <Textarea data-testid="client-notes" value={notes} onChange={(e) => setNotes(e.target.value)} rows={3} className="text-xs mt-1" placeholder="Internal notes…" />
-          </div>
           <div className="rounded-lg border border-slate-200 bg-slate-50/80 p-3 space-y-2">
             <p className="text-[10px] font-semibold text-slate-800 flex items-center gap-1"><Users size={12} className="text-slate-500" /> Household (CRM)</p>
             <div>
