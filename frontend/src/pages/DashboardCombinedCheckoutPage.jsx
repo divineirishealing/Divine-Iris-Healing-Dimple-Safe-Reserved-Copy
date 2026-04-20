@@ -780,6 +780,13 @@ export default function DashboardCombinedCheckoutPage() {
     paymentSettings.india_platform_charge_percent,
   ]);
 
+  /** Dashboard Access group bands / flat India % — must show in main cart lines (not only in India settlement box). */
+  const indiaClientDiscountAmt =
+    indiaBreakdown && Number(indiaBreakdown.discountAmt) > 0
+      ? Math.round(Number(indiaBreakdown.discountAmt))
+      : 0;
+  const totalDiscountIncludingIndia = totalDiscountAmount + indiaClientDiscountAmt;
+
   const payableTotal = indiaBreakdown ? indiaBreakdown.roundedTotal : total;
 
   const indiaPaymentTag = clientIndiaPricing?.india_payment_method;
@@ -1330,32 +1337,39 @@ export default function DashboardCombinedCheckoutPage() {
               </span>
             </div>
           )}
+          {indiaClientDiscountAmt > 0 && indiaBreakdown ? (
+            <div className="flex justify-between text-sm text-green-700">
+              <span>
+                {indiaBreakdown.discountKind === 'amount'
+                  ? `${indiaBreakdown.discountLabel} (₹${indiaClientDiscountAmt.toLocaleString()} off)`
+                  : `${indiaBreakdown.discountLabel} (${Number(
+                      indiaBreakdown.discountNominalPercent != null
+                        ? indiaBreakdown.discountNominalPercent
+                        : indiaBreakdown.discountPct,
+                    )
+                      .toFixed(1)
+                      .replace(/\.0$/, '')}%)`}
+              </span>
+              <span className="tabular-nums">
+                -{symbol} {indiaClientDiscountAmt.toLocaleString()}
+              </span>
+            </div>
+          ) : null}
           <div className="flex justify-between text-sm font-semibold text-green-800 border-t border-dashed border-green-200/80 pt-2 mt-2">
             <span>Total discount</span>
             <span className="tabular-nums">
-              {totalDiscountAmount > 0 ? `-${symbol} ${totalDiscountAmount.toLocaleString()}` : `${symbol} 0`}
+              {totalDiscountIncludingIndia > 0
+                ? `-${symbol} ${totalDiscountIncludingIndia.toLocaleString()}`
+                : `${symbol} 0`}
             </span>
           </div>
-          {showIndiaInrSettlement ? (
+          {showIndiaInrSettlement &&
+          indiaBreakdown &&
+          (indiaBreakdown.gstPct > 0 || indiaBreakdown.platformPct > 0) ? (
             <div
               className="space-y-1 border border-amber-200/80 bg-amber-50/50 rounded-lg px-3 py-2.5 mt-2"
               data-testid="divine-cart-india-settlement"
             >
-              <div className="flex justify-between text-sm text-amber-950">
-                <span>
-                  {indiaBreakdown.discountKind === 'amount'
-                    ? `${indiaBreakdown.discountLabel} (₹${Math.round(indiaBreakdown.discountAmt).toLocaleString()} off)`
-                    : `${indiaBreakdown.discountLabel} (${Number(
-                        indiaBreakdown.discountNominalPercent != null
-                          ? indiaBreakdown.discountNominalPercent
-                          : indiaBreakdown.discountPct,
-                      ).toFixed(1)
-                        .replace(/\.0$/, '')}%)`}
-                </span>
-                <span className="tabular-nums">
-                  -{symbol} {Math.round(indiaBreakdown.discountAmt).toLocaleString()}
-                </span>
-              </div>
               {indiaBreakdown.gstPct > 0 ? (
                 <div className="flex justify-between text-sm text-amber-950">
                   <span>
