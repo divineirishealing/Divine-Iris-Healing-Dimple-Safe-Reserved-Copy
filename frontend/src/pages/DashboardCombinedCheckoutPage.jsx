@@ -433,7 +433,8 @@ export default function DashboardCombinedCheckoutPage() {
           const m = i.portalLineMeta || {};
           const ids = (m.familyIds || []).map(String).filter(Boolean).slice().sort().join(':');
           const bj = m.bookerJoins !== false ? '1' : '0';
-          return `${i.programId}|${ids}|${bj}`;
+          const ti = typeof i.tierIndex === 'number' ? String(i.tierIndex) : 'x';
+          return `${i.programId}|${ti}|${ids}|${bj}`;
         })
         .sort()
         .join('||'),
@@ -612,14 +613,18 @@ export default function DashboardCombinedCheckoutPage() {
         const ids = (meta.familyIds || []).map(String).filter(Boolean).join(',');
         const bj = meta.bookerJoins !== false;
         const pid = String(i.programId);
+        const quoteParams = {
+          program_id: i.programId,
+          currency,
+          ...(ids ? { family_ids: ids } : { family_count: 0 }),
+          booker_joins: bj,
+        };
+        if (i.isFlagship && (i.durationTiers || []).length > 0 && typeof i.tierIndex === 'number') {
+          quoteParams.tier_index = i.tierIndex;
+        }
         return axios
           .get(`${API}/student/dashboard-quote`, {
-            params: {
-              program_id: i.programId,
-              currency,
-              ...(ids ? { family_ids: ids } : { family_count: 0 }),
-              booker_joins: bj,
-            },
+            params: quoteParams,
             withCredentials: true,
             headers,
           })

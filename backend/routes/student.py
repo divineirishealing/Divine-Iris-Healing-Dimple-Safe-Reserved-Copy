@@ -296,16 +296,8 @@ def _pick_self_and_family_tier_indices(
             ti = -1
         if 0 <= ti < len(tiers):
             return ti, ti
-    self_idx = None
-    for i, t in enumerate(tiers):
-        lab = (t.get("label") or "").lower()
-        if "annual" in lab or "year" in lab or t.get("duration_unit") == "year":
-            self_idx = i
-            break
-    if self_idx is None:
-        self_idx = 0
-    fam_idx = 0
-    return self_idx, fam_idx
+    # No override: first tier (same default as public site / 1 Month). Callers with tier UI must pass tier_index.
+    return 0, 0
 
 
 async def _promo_doc_for_program(code: str, program_id: str) -> Optional[dict]:

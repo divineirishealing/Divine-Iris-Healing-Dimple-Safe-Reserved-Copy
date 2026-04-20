@@ -225,7 +225,7 @@ export default function DashboardUpcomingProgramRowItem({
   const tierIdxForDisplay =
     typeof dashboardTierIndex === 'number'
       ? dashboardTierIndex
-      : pickTierIndexForDashboard(p, subscriberIsAnnual) ?? 0;
+      : pickTierIndexForDashboard(p, annualDashboardAccess) ?? 0;
   const tier = hasTiers ? tiers[tierIdxForDisplay] : null;
   const tierIsYearLong =
     tier &&

@@ -935,9 +935,10 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh, bo
       if (!p.is_flagship || tiers.length === 0) return 0;
       const saved = dashboardTierByProgram[p.id];
       if (typeof saved === 'number' && saved >= 0 && saved < tiers.length) return saved;
-      return pickTierIndexForDashboard(p, !!isAnnualSubscriber) ?? 0;
+      // Prefer annual tier only when Client Garden access type is Annual — not subscription alone
+      return pickTierIndexForDashboard(p, !!annualMemberDashboard) ?? 0;
     },
-    [dashboardTierByProgram, isAnnualSubscriber]
+    [dashboardTierByProgram, annualMemberDashboard]
   );
 
   const dashboardTierKey = useMemo(

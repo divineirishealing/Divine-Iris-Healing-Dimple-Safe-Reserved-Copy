@@ -1,4 +1,7 @@
-/** Tier index for flagship programs: prefer annual tier for annual subscribers, else first tier. */
+/**
+ * Tier index for flagship programs: prefer annual-duration tier when `preferAnnualTier` (Client Garden
+ * Annual access), else first tier (e.g. 1 Month). Do not use subscription-only “annual subscriber” here.
+ */
 export function pickTierIndexForDashboard(program, preferAnnualTier) {
   const tiers = program?.duration_tiers || [];
   if (!program?.is_flagship || tiers.length === 0) return null;
