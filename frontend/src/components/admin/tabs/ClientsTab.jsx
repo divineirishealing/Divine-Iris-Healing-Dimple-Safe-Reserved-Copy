@@ -25,16 +25,6 @@ const LABEL_CONFIG = {
 
 const ALL_LABELS = ['Dew', 'Seed', 'Root', 'Bloom', 'Iris', 'Purple Bees', 'Iris Bees'];
 
-const INDIA_PAY_METHOD_LABEL = {
-  gpay_upi: 'GPay / UPI',
-  gpay: 'GPay / UPI',
-  upi: 'GPay / UPI',
-  bank_transfer: 'Bank Transfer',
-  cash_deposit: 'Cash Deposit',
-  stripe: 'Stripe',
-  any: 'Any / Multiple',
-};
-
 const timeAgo = (dateStr) => {
   if (!dateStr) return '';
   const diff = Date.now() - new Date(dateStr).getTime();
@@ -146,7 +136,7 @@ const ClientsTab = () => {
             <Users size={18} className="text-[#D4AF37]" /> Client Garden
           </h2>
           <p className="text-xs text-gray-500 mt-0.5 max-w-xl">
-            Your unified client database — track every soul&apos;s journey from Dew to Iris. <strong className="font-semibold text-gray-700">Dashboard access</strong> is where you set portal login, Sacred Home pricing, and India checkout; this tab is for garden stage, notes, household key, and history — no duplicate editing of dashboard fields.
+            Your unified client database — track every soul&apos;s journey from Dew to Iris. Portal pricing and login are configured in <strong className="font-semibold text-gray-700">Dashboard access</strong>; this tab stays focused on garden stage, notes, household key, and history.
             <span className="block mt-1 text-[10px] text-gray-400">
               Auto-label stays <strong className="font-medium text-gray-600">Dew</strong> for first-time contacts and anyone who has not finished a paid checkout yet.
               After payment completes, the garden stage updates from enrollments. You can always override the label on each client (Label &amp; Notes → Edit).
@@ -536,10 +526,6 @@ const ClientDetail = ({
                 <span className="text-[10px] text-slate-800">Primary household contact</span>
               </label>
             </div>
-            <p className="text-[9px] text-violet-800/95 bg-violet-50/80 border border-violet-100 rounded-md px-2 py-1.5 leading-snug">
-              <strong className="font-semibold">Sacred Home &amp; dashboard settings</strong> (Google login, annual pricing, India tags, family-list edit): edit under{' '}
-              <strong className="font-semibold">Clients → Dashboard access</strong> — not in this form.
-            </p>
 
             <Button data-testid="client-save" onClick={handleSave} disabled={saving} size="sm" className="text-[10px] bg-[#D4AF37] hover:bg-[#b8962e] gap-1">
               <Save size={10} /> {saving ? 'Saving...' : 'Save'}
@@ -547,13 +533,6 @@ const ClientDetail = ({
           </div>
         ) : (
           <div>
-            <div className="mb-2 rounded-lg border border-violet-200 bg-violet-50/60 px-3 py-2">
-              <p className="text-[10px] font-semibold text-violet-900">Sacred Home &amp; dashboard</p>
-              <p className="text-[9px] text-violet-800/95 mt-0.5 leading-snug">
-                Read-only here. To edit login, annual pricing, India checkout, or family-list rules, use{' '}
-                <strong className="font-semibold">Clients → Dashboard access</strong>.
-              </p>
-            </div>
             <div className="flex items-center gap-2 mb-1">
               <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${cfg.badge}`}>{cl.label}</span>
               {cl.label_manual && <span className="text-[9px] text-gray-400">(manually set)</span>}
@@ -575,71 +554,6 @@ const ClientDetail = ({
                 >
                   Mark reviewed
                 </button>
-              </div>
-            )}
-            <div className="mt-2 flex flex-wrap items-center gap-1.5">
-              <span className={`inline-flex items-center gap-1 text-[9px] px-2 py-0.5 rounded-full font-semibold ${cl.portal_login_allowed !== false ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-600'}`}>
-                <Lock size={8} />
-                Dashboard: {cl.portal_login_allowed !== false ? 'Access allowed' : 'Access blocked'}
-              </span>
-              {cl.india_payment_method && (
-                <span className="inline-flex items-center gap-1 text-[9px] px-2 py-0.5 rounded-full font-semibold bg-blue-100 text-blue-700">
-                  ₹ {INDIA_PAY_METHOD_LABEL[cl.india_payment_method] || cl.india_payment_method}
-                </span>
-              )}
-              {cl.india_discount_percent !== null && cl.india_discount_percent !== undefined && cl.india_discount_percent !== '' && (
-                <span className="inline-flex items-center gap-1 text-[9px] px-2 py-0.5 rounded-full font-semibold bg-orange-100 text-orange-700">
-                  {cl.india_discount_percent}% India discount
-                </span>
-              )}
-              {Array.isArray(cl.india_discount_member_bands) && cl.india_discount_member_bands.length > 0 && (
-                <span className="inline-flex items-center gap-1 text-[9px] px-2 py-0.5 rounded-full font-semibold bg-orange-50 text-orange-800 border border-orange-200">
-                  Group discount bands ({cl.india_discount_member_bands.length})
-                </span>
-              )}
-              {cl.india_tax_enabled && (
-                <span className="inline-flex items-center gap-1 text-[9px] px-2 py-0.5 rounded-full font-semibold bg-amber-100 text-amber-800">
-                  +{cl.india_tax_percent ?? 18}% {cl.india_tax_label || 'GST'}
-                </span>
-              )}
-              {cl.intake_claims_annual_member && (
-                <span className="inline-flex items-center gap-1 text-[9px] px-2 py-0.5 rounded-full font-semibold bg-violet-100 text-violet-800">
-                  Intake: annual path (self-reported)
-                </span>
-              )}
-              {cl.annual_member_dashboard && (
-                <span className="inline-flex items-center gap-1 text-[9px] px-2 py-0.5 rounded-full font-semibold bg-purple-100 text-purple-800">
-                  Sacred Home: annual pricing
-                </span>
-              )}
-              {cl.preferred_india_gpay_id && (
-                <span className="inline-flex items-center gap-1 text-[9px] px-2 py-0.5 rounded-full font-semibold bg-emerald-100 text-emerald-800 max-w-[240px] truncate" title={cl.preferred_india_gpay_id}>
-                  UPI tag: {cl.preferred_india_gpay_id}
-                </span>
-              )}
-              {cl.preferred_india_bank_id && (
-                <span className="inline-flex items-center gap-1 text-[9px] px-2 py-0.5 rounded-full font-semibold bg-emerald-100 text-emerald-800 max-w-[240px] truncate" title={cl.preferred_india_bank_id}>
-                  Bank tag: {cl.preferred_india_bank_id}
-                </span>
-              )}
-              {cl.immediate_family_editing_approved === false && (
-                <span className="inline-flex items-center gap-1 text-[9px] px-2 py-0.5 rounded-full font-semibold bg-gray-100 text-gray-700">
-                  Family list edits blocked
-                </span>
-              )}
-            </div>
-            {(cl.city || cl.state || cl.country_name || cl.preferred_payment_method) && (
-              <div className="mt-2 flex flex-wrap gap-1.5">
-                {(cl.city || cl.state || cl.country_name) && (
-                  <span className="text-[9px] px-2 py-0.5 rounded-full bg-gray-100 text-gray-600">
-                    📍 {[cl.city, cl.state, cl.country_name].filter(Boolean).join(', ')}
-                  </span>
-                )}
-                {cl.preferred_payment_method && (
-                  <span className="text-[9px] px-2 py-0.5 rounded-full bg-teal-50 text-teal-700 font-medium border border-teal-200">
-                    Prefers: {{ gpay_upi: 'GPay / UPI', bank_transfer: 'Bank Transfer', cash_deposit: 'Cash Deposit', stripe: 'Stripe' }[cl.preferred_payment_method] || cl.preferred_payment_method}
-                  </span>
-                )}
               </div>
             )}
             <div className="mt-3 pt-2 border-t border-gray-100 space-y-2">
