@@ -441,6 +441,72 @@ async def client_stats():
     return {"total": total, "by_label": label_counts}
 
 
+class BulkSetPortalLoginBody(BaseModel):
+    client_ids: List[str]
+    portal_login_allowed: bool
+
+
+@router.post("/bulk-set-portal-login")
+async def bulk_set_portal_login(data: BulkSetPortalLoginBody):
+    """
+    Set portal_login_allowed for many clients in one request.
+    When enabling (True), sends the welcome email for each client that was explicitly blocked (False → True).
+    """
+    raw_ids = [str(i).strip() for i in (data.client_ids or []) if i is not None and str(i).strip()]
+    # Dedupe while preserving order
+    seen = set()
+    ids = []
+    for i in raw_ids:
+        if i not in seen:
+            seen.add(i)
+            ids.append(i)
+    if not ids:
+        raise HTTPException(status_code=400, detail="No client_ids provided")
+    if len(ids) > 500:
+        raise HTTPException(status_code=400, detail="Maximum 500 clients per request")
+
+    value = bool(data.portal_login_allowed)
+    now = datetime.now(timezone.utc).isoformat()
+    updated = 0
+    not_found = 0
+    welcome_emails_sent = 0
+    welcome_emails_failed = 0
+
+    for cid in ids:
+        cl = await db.clients.find_one({"id": cid})
+        if not cl:
+            not_found += 1
+            continue
+
+        await db.clients.update_one(
+            {"id": cid},
+            {"$set": {"portal_login_allowed": value, "updated_at": now}},
+        )
+        updated += 1
+
+        if value and cl.get("portal_login_allowed") is False:
+            to_em = (cl.get("email") or "").strip()
+            if to_em:
+                try:
+                    from routes.emails import send_dashboard_access_granted_email
+
+                    ok = await send_dashboard_access_granted_email(to_em, cl.get("name") or "")
+                    if ok:
+                        welcome_emails_sent += 1
+                    else:
+                        welcome_emails_failed += 1
+                except Exception:
+                    welcome_emails_failed += 1
+                    logger.exception("bulk_set_portal_login: email failed for client_id=%s", cid)
+
+    return {
+        "updated": updated,
+        "not_found": not_found,
+        "welcome_emails_sent": welcome_emails_sent,
+        "welcome_emails_failed": welcome_emails_failed,
+    }
+
+
 @router.get("/{client_id}")
 async def get_client(client_id: str):
     cl = await db.clients.find_one({"id": client_id}, {"_id": 0})

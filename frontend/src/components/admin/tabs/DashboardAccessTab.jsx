@@ -152,6 +152,8 @@ export default function DashboardAccessTab() {
   const [indiaTaxEnabled, setIndiaTaxEnabled] = useState(false);
   const [indiaTaxPercent, setIndiaTaxPercent] = useState(18);
   const [indiaTaxLabel, setIndiaTaxLabel] = useState('GST');
+  const [selectedIds, setSelectedIds] = useState([]);
+  const [bulkLoading, setBulkLoading] = useState(false);
 
   const indiaGpayOpts = useMemo(() => buildIndiaGpayOptions(indiaSite || {}), [indiaSite]);
   const indiaBankOpts = useMemo(() => buildIndiaBankOptions(indiaSite || {}), [indiaSite]);
@@ -314,6 +316,62 @@ export default function DashboardAccessTab() {
     return list;
   }, [clients]);
 
+  const allVisibleSelected = useMemo(
+    () => rows.length > 0 && rows.every((r) => selectedIds.includes(r.id)),
+    [rows, selectedIds],
+  );
+
+  const toggleSelectAll = () => {
+    if (allVisibleSelected) {
+      setSelectedIds([]);
+    } else {
+      setSelectedIds(rows.map((r) => r.id));
+    }
+  };
+
+  const toggleRowSelected = (id) => {
+    setSelectedIds((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
+  };
+
+  const handleBulkAllowGoogle = async () => {
+    if (!selectedIds.length || bulkLoading) return;
+    const n = selectedIds.length;
+    const blockedAmong = rows.filter(
+      (r) => selectedIds.includes(r.id) && r.portal_login_allowed === false,
+    ).length;
+    const msg =
+      blockedAmong > 0
+        ? `Enable Google login for ${n} selected client(s)? Welcome emails will be sent for ${blockedAmong} who were blocked.`
+        : `Enable Google login for ${n} selected client(s)? (Those already allowed stay unchanged; no extra emails.)`;
+    if (!window.confirm(msg)) return;
+    setBulkLoading(true);
+    try {
+      const res = await axios.post(`${API}/clients/bulk-set-portal-login`, {
+        client_ids: selectedIds,
+        portal_login_allowed: true,
+      });
+      const d = res.data || {};
+      const failed = d.welcome_emails_failed || 0;
+      toast({
+        title: 'Bulk update complete',
+        description: `Updated ${d.updated ?? n} client(s). Welcome emails sent: ${d.welcome_emails_sent ?? 0}${
+          failed ? ` (${failed} email delivery issue(s))` : ''
+        }.`,
+      });
+      setSelectedIds([]);
+      await fetchData();
+    } catch (e) {
+      console.error(e);
+      toast({
+        title: 'Bulk update failed',
+        description: e.response?.data?.detail || e.message,
+        variant: 'destructive',
+      });
+    } finally {
+      setBulkLoading(false);
+    }
+  };
+
   const markReviewed = async (cl, e) => {
     if (e) e.stopPropagation();
     try {
@@ -360,6 +418,7 @@ export default function DashboardAccessTab() {
               Tagged payment shows rows from <strong>Site Settings → Indian Payment</strong> (e.g. pin “Priyanka” UPI). Set
               access type, <strong>Google login</strong>, preferred payment, tags, GST, and discount — including allowing their
               student portal (welcome email sends the first time you enable login after it was blocked).
+              Use the checkboxes + <strong>Allow Google login for selected</strong> to turn on access for many clients at once.
             </p>
           </div>
         </div>
@@ -383,6 +442,33 @@ export default function DashboardAccessTab() {
       </div>
       <p className="text-[10px] text-gray-400">Press Enter or use Refresh to run search.</p>
 
+      {!loading && rows.length > 0 && (
+        <div className="flex flex-wrap items-center gap-2 text-sm" data-testid="dashboard-access-bulk-bar">
+          <span className="text-[11px] text-gray-500">
+            Select rows, then enable Google login for many at once.
+          </span>
+          {selectedIds.length > 0 && (
+            <>
+              <span className="text-xs font-semibold text-gray-700">{selectedIds.length} selected</span>
+              <Button
+                type="button"
+                size="sm"
+                className="h-8 gap-1.5 bg-green-700 hover:bg-green-800 text-white"
+                disabled={bulkLoading}
+                onClick={handleBulkAllowGoogle}
+                data-testid="dashboard-access-bulk-allow-google"
+              >
+                {bulkLoading ? <Loader2 size={14} className="animate-spin" /> : <Lock size={14} />}
+                Allow Google login for selected
+              </Button>
+              <Button type="button" variant="ghost" size="sm" className="h-8 text-xs" onClick={() => setSelectedIds([])}>
+                Clear selection
+              </Button>
+            </>
+          )}
+        </div>
+      )}
+
       {pendingCount > 0 && (
         <div
           className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-orange-200 bg-orange-50/90 px-4 py-3 text-sm text-orange-900"
@@ -401,7 +487,8 @@ export default function DashboardAccessTab() {
         <div className="w-full overflow-x-auto md:overflow-x-visible">
           <table className="w-full text-sm table-fixed">
             <colgroup>
-              <col className="w-[8%]" />
+              <col className="w-[3%]" />
+              <col className="w-[7%]" />
               <col className="w-[11%]" />
               <col className="w-[7%]" />
               <col className="w-[6%]" />
@@ -415,6 +502,16 @@ export default function DashboardAccessTab() {
             </colgroup>
             <thead className="bg-gray-50 border-b">
               <tr>
+                <th className="px-1 py-2.5 w-8 text-center">
+                  <input
+                    type="checkbox"
+                    className="rounded border-gray-300"
+                    checked={allVisibleSelected}
+                    onChange={toggleSelectAll}
+                    title="Select all rows in this list"
+                    data-testid="dashboard-access-select-all"
+                  />
+                </th>
                 <th className="text-left px-3 py-2.5 text-[10px] font-semibold text-gray-500 uppercase tracking-wider">
                   Name
                 </th>
@@ -453,14 +550,14 @@ export default function DashboardAccessTab() {
             <tbody className="divide-y divide-gray-100">
               {loading ? (
                 <tr>
-                  <td colSpan={11} className="px-4 py-12 text-center text-gray-500">
+                  <td colSpan={12} className="px-4 py-12 text-center text-gray-500">
                     <Loader2 className="inline animate-spin mr-2 align-middle" size={18} />
                     Loading…
                   </td>
                 </tr>
               ) : rows.length === 0 ? (
                 <tr>
-                  <td colSpan={11} className="px-4 py-10 text-center text-gray-400 text-sm">
+                  <td colSpan={12} className="px-4 py-10 text-center text-gray-400 text-sm">
                     No clients match.
                   </td>
                 </tr>
@@ -475,6 +572,15 @@ export default function DashboardAccessTab() {
                       className={`hover:bg-gray-50/80 ${cl.intake_pending ? 'bg-orange-50/60' : ''}`}
                       data-intake-pending={cl.intake_pending ? 'true' : undefined}
                     >
+                      <td className="px-1 py-2 align-top text-center w-8">
+                        <input
+                          type="checkbox"
+                          className="rounded border-gray-300"
+                          checked={selectedIds.includes(cl.id)}
+                          onChange={() => toggleRowSelected(cl.id)}
+                          data-testid={`dashboard-access-select-${cl.id}`}
+                        />
+                      </td>
                       <td
                         className={`px-3 py-2 text-gray-900 font-medium align-top ${cl.intake_pending ? 'border-l-[3px] border-l-orange-400 pl-2' : ''}`}
                         title={cl.name}
