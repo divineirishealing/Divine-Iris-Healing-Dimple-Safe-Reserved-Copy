@@ -1,5 +1,9 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { parseIndiaSitePercent, resolveIndiaDiscountPercent } from '../lib/indiaClientPricing';
+import {
+  parseIndiaSitePercent,
+  resolveIndiaDiscountRule,
+  applyIndiaDiscountRuleToBase,
+} from '../lib/indiaClientPricing';
 import { useParams, useSearchParams, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import Header from '../components/Header';
@@ -93,12 +97,7 @@ const IndiaPaymentPage = () => {
 
     const participantCount = clientTax?.participant_count ?? 1;
     const altDisc = parseIndiaSitePercent(settings, 'india_alt_discount_percent', 9);
-    const r = resolveIndiaDiscountPercent(clientTax || {}, participantCount, altDisc);
-    const discountPct = r.discountPct;
-    const hasIndiaDiscount =
-      r.fromBand ||
-      !!(clientTax && clientTax.india_discount_percent != null && clientTax.india_discount_percent !== '');
-    const discountLabel = hasIndiaDiscount ? 'India Discount' : 'Alt. Payment Discount';
+    const rule = resolveIndiaDiscountRule(clientTax || {}, participantCount, altDisc);
 
     // Client-specific tax (GST on after-discount price)
     const taxEnabled = clientTax ? !!clientTax.india_tax_enabled : true;
@@ -108,7 +107,13 @@ const IndiaPaymentPage = () => {
     const taxLabel = clientTax?.india_tax_label || 'GST';
 
     const effectiveBase = Math.max(0, basePrice - promoDiscount - autoDiscount);
-    const discountAmt = effectiveBase * discountPct / 100;
+    const applied = applyIndiaDiscountRuleToBase(effectiveBase, rule);
+    const discountAmt = applied.discountAmt;
+    const discountKind = applied.discountKind;
+    const discountPct =
+      applied.discountNominalPercent != null
+        ? applied.discountNominalPercent
+        : applied.discountPctEffective;
     const taxableBase = effectiveBase - discountAmt;           // after discount
     const gstAmount = taxableBase * gstPct / 100;             // GST on after-discount
     const platformAmount = taxableBase * platformPct / 100;
@@ -119,7 +124,8 @@ const IndiaPaymentPage = () => {
       autoDiscount,
       effectiveBase,
       discountPct,
-      discountLabel,
+      discountKind,
+      discountLabel: rule.label,
       discountAmt,
       taxableBase,
       taxEnabled,
@@ -552,7 +558,12 @@ const IndiaPaymentPage = () => {
                   )}
 
                   <div className="flex justify-between text-green-600">
-                    <span>{pricing.discountLabel} ({pricing.discountPct}%)</span>
+                    <span>
+                      {pricing.discountLabel}
+                      {pricing.discountKind === 'amount'
+                        ? ` (₹${Math.round(pricing.discountAmt).toLocaleString()} off)`
+                        : ` (${Number(pricing.discountPct).toFixed(1).replace(/\.0$/, '')}%)`}
+                    </span>
                     <span>- INR {Math.round(pricing.discountAmt).toLocaleString()}</span>
                   </div>
 
@@ -585,7 +596,11 @@ const IndiaPaymentPage = () => {
 
                 <div className="mt-4 bg-green-50 border border-green-200 rounded-lg p-3">
                   <p className="text-[10px] text-green-700 font-medium mb-0.5">You save INR {Math.round(pricing.discountAmt).toLocaleString()} with India payment!</p>
-                  <p className="text-[10px] text-green-600">{pricing.discountPct}% discount applied on the base price.</p>
+                  <p className="text-[10px] text-green-600">
+                    {pricing.discountKind === 'amount'
+                      ? `Flat ₹${Math.round(pricing.discountAmt).toLocaleString()} group discount on the base price.`
+                      : `${Number(pricing.discountPct).toFixed(1).replace(/\.0$/, '')}% discount applied on the base price.`}
+                  </p>
                 </div>
               </div>
             </div>

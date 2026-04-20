@@ -648,12 +648,13 @@ const ClientDetail = ({
                 <textarea
                   value={indiaDiscountBandsJson}
                   onChange={(e) => setIndiaDiscountBandsJson(e.target.value)}
-                  placeholder={`[\n  { "min": 1, "max": 1, "percent": 20 },\n  { "min": 3, "max": 4, "percent": 12 }\n]`}
+                  placeholder={`[\n  { "min": 1, "max": 1, "percent": 20 },\n  { "min": 3, "max": 4, "amount_inr": 1500 }\n]`}
                   rows={4}
                   className="w-full text-[10px] font-mono border rounded-md px-2 py-1.5 bg-white"
                 />
                 <p className="text-[9px] text-gray-400 mt-0.5">
-                  Sacred Exchange total participants. First matching range wins; otherwise the flat % above or site default.
+                  Each row: <code className="text-[9px] bg-white/80 px-0.5 rounded">percent</code> or{' '}
+                  <code className="text-[9px] bg-white/80 px-0.5 rounded">amount_inr</code> (not both). Group discount on checkout; otherwise flat % or site default.
                 </p>
               </div>
 

@@ -1154,12 +1154,12 @@ export default function DashboardAccessTab() {
             <div>
               <Label className="text-xs text-gray-600">Optional: discount by number of people (JSON)</Label>
               <p className="text-[10px] text-gray-400 mb-1">
-                Total participants on Sacred Exchange checkout. First matching row wins. Example: one person 20%, three to four people 12%. Leave blank to disable.
+                Total participants on Sacred Exchange. First matching row wins (exclusive). Use either <strong>percent</strong> or <strong>amount_inr</strong> per row — not both. Label on checkout: Group discount.
               </p>
               <textarea
                 value={indiaDiscountBandsJson}
                 onChange={(e) => setIndiaDiscountBandsJson(e.target.value)}
-                placeholder={`[\n  { "min": 1, "max": 1, "percent": 20 },\n  { "min": 3, "max": 4, "percent": 12 }\n]`}
+                placeholder={`[\n  { "min": 1, "max": 1, "percent": 20 },\n  { "min": 3, "max": 4, "amount_inr": 1500 }\n]`}
                 rows={5}
                 className="w-full text-xs font-mono border rounded-md px-2 py-2 bg-white mt-1"
               />

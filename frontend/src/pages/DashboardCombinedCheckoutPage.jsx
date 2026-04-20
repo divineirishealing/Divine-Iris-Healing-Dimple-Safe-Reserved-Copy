@@ -1343,7 +1343,14 @@ export default function DashboardCombinedCheckoutPage() {
             >
               <div className="flex justify-between text-sm text-amber-950">
                 <span>
-                  {indiaBreakdown.discountLabel} ({indiaBreakdown.discountPct}%)
+                  {indiaBreakdown.discountKind === 'amount'
+                    ? `${indiaBreakdown.discountLabel} (₹${Math.round(indiaBreakdown.discountAmt).toLocaleString()} off)`
+                    : `${indiaBreakdown.discountLabel} (${Number(
+                        indiaBreakdown.discountNominalPercent != null
+                          ? indiaBreakdown.discountNominalPercent
+                          : indiaBreakdown.discountPct,
+                      ).toFixed(1)
+                        .replace(/\.0$/, '')}%)`}
                 </span>
                 <span className="tabular-nums">
                   -{symbol} {Math.round(indiaBreakdown.discountAmt).toLocaleString()}

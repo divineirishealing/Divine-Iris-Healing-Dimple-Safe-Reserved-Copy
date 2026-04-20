@@ -7,13 +7,14 @@ export function parseIndiaSitePercent(settingsResponse, key, fallback) {
 }
 
 /**
- * Resolve India discount %: optional member-count bands first, then flat client %, then site alt %.
- * Bands: array of { min, max, percent } — first match wins (inclusive range on total participant count).
+ * Resolved India discount rule before GST (member bands, flat client %, or site alt %).
+ * Band rules are exclusive: first matching [min,max] wins; use either % or fixed INR on that band.
+ *
  * @param {object|null} clientPricing
- * @param {number} memberCount - Total people in checkout (e.g. cart participants).
- * @param {number} siteAltPercent - Default alt-payment % from site settings.
+ * @param {number} memberCount
+ * @param {number} siteAltPercent
  */
-export function resolveIndiaDiscountPercent(clientPricing, memberCount, siteAltPercent) {
+export function resolveIndiaDiscountRule(clientPricing, memberCount, siteAltPercent) {
   const cp = clientPricing || {};
   const bands = cp.india_discount_member_bands;
   const n = Math.max(0, Math.floor(Number(memberCount)));
@@ -21,17 +22,94 @@ export function resolveIndiaDiscountPercent(clientPricing, memberCount, siteAltP
     for (const b of bands) {
       const lo = Math.max(0, Math.floor(Number(b.min)));
       const hi = b.max == null ? lo : Math.max(lo, Math.floor(Number(b.max)));
-      if (n >= lo && n <= hi) {
-        return { discountPct: Number(b.percent) || 0, fromBand: true };
+      if (n < lo || n > hi) continue;
+
+      const amtRaw = b.amount_inr;
+      if (amtRaw != null && amtRaw !== '' && Number(amtRaw) > 0) {
+        return {
+          fromBand: true,
+          mode: 'amount',
+          amountInr: Number(amtRaw),
+          percent: 0,
+          label: 'Group discount',
+        };
+      }
+      const p = b.percent;
+      if (p != null && p !== '' && Number.isFinite(Number(p)) && Number(p) >= 0) {
+        return {
+          fromBand: true,
+          mode: 'percent',
+          amountInr: 0,
+          percent: Number(p),
+          label: 'Group discount',
+        };
       }
     }
   }
+
   const rawDisc = cp.india_discount_percent;
   const hasClientDiscount = rawDisc != null && rawDisc !== '';
   if (hasClientDiscount) {
-    return { discountPct: Number(rawDisc) || 0, fromBand: false };
+    return {
+      fromBand: false,
+      mode: 'percent',
+      amountInr: 0,
+      percent: Number(rawDisc) || 0,
+      label: 'India discount',
+    };
   }
-  return { discountPct: Number(siteAltPercent) || 0, fromBand: false };
+  return {
+    fromBand: false,
+    mode: 'percent',
+    amountInr: 0,
+    percent: Number(siteAltPercent) || 0,
+    label: 'Alt. payment discount',
+  };
+}
+
+/**
+ * @deprecated Use resolveIndiaDiscountRule — kept for narrow compatibility (percent-only).
+ */
+export function resolveIndiaDiscountPercent(clientPricing, memberCount, siteAltPercent) {
+  const r = resolveIndiaDiscountRule(clientPricing, memberCount, siteAltPercent);
+  const discountPct =
+    r.mode === 'amount' && r.amountInr > 0
+      ? 0
+      : Number(r.percent) || 0;
+  return { discountPct, fromBand: r.fromBand };
+}
+
+/**
+ * Apply resolved rule to an INR base (after cart promos).
+ */
+export function applyIndiaDiscountRuleToBase(base, rule) {
+  const b = Math.max(0, Number(base));
+  if (!Number.isFinite(b) || b <= 0) {
+    return {
+      discountAmt: 0,
+      discountKind: 'percent',
+      discountNominalPercent: 0,
+      discountPctEffective: 0,
+    };
+  }
+  if (rule.mode === 'amount' && rule.amountInr > 0) {
+    const discountAmt = Math.min(b, rule.amountInr);
+    const discountPctEffective = b > 0 ? (discountAmt / b) * 100 : 0;
+    return {
+      discountAmt,
+      discountKind: 'amount',
+      discountNominalPercent: null,
+      discountPctEffective,
+    };
+  }
+  const pct = Number(rule.percent) || 0;
+  const discountAmt = (b * pct) / 100;
+  return {
+    discountAmt,
+    discountKind: 'percent',
+    discountNominalPercent: pct,
+    discountPctEffective: pct,
+  };
 }
 
 /**
@@ -54,21 +132,33 @@ export function computeIndiaCheckoutBreakdown(effectiveBase, clientPricing, sett
   const cp = clientPricing || {};
   const mcRaw =
     memberCount != null && memberCount !== '' ? Number(memberCount) : NaN;
-  let discountPct;
-  let discountLabel;
+
+  let rule;
   if (Number.isFinite(mcRaw)) {
-    const r = resolveIndiaDiscountPercent(cp, mcRaw, altDiscN);
-    discountPct = r.discountPct;
-    const india =
-      r.fromBand ||
-      (cp.india_discount_percent != null && cp.india_discount_percent !== '');
-    discountLabel = india ? 'India discount' : 'Alt. payment discount';
+    rule = resolveIndiaDiscountRule(cp, mcRaw, altDiscN);
   } else {
     const rawDisc = cp.india_discount_percent;
     const hasClientDiscount = rawDisc != null && rawDisc !== '';
-    discountPct = hasClientDiscount ? Number(rawDisc) : altDiscN;
-    discountLabel = hasClientDiscount ? 'India discount' : 'Alt. payment discount';
+    rule = hasClientDiscount
+      ? {
+          fromBand: false,
+          mode: 'percent',
+          amountInr: 0,
+          percent: Number(rawDisc) || 0,
+          label: 'India discount',
+        }
+      : {
+          fromBand: false,
+          mode: 'percent',
+          amountInr: 0,
+          percent: Number(altDiscN) || 0,
+          label: 'Alt. payment discount',
+        };
   }
+
+  const applied = applyIndiaDiscountRuleToBase(base, rule);
+  const discountAmt = applied.discountAmt;
+  const discountLabel = rule.label;
 
   const taxEnabled = clientPricing ? !!cp.india_tax_enabled : true;
   const gstPct = !taxEnabled
@@ -78,7 +168,6 @@ export function computeIndiaCheckoutBreakdown(effectiveBase, clientPricing, sett
       : siteGstN;
   const taxLabel = String(cp.india_tax_label || 'GST').trim() || 'GST';
 
-  const discountAmt = (base * (Number(discountPct) || 0)) / 100;
   const taxableBase = Math.max(0, base - discountAmt);
   const gstAmount = (taxableBase * gstPct) / 100;
   const platformAmount = (taxableBase * platformPctN) / 100;
@@ -86,7 +175,9 @@ export function computeIndiaCheckoutBreakdown(effectiveBase, clientPricing, sett
   const roundedTotal = Math.round(finalTotal);
 
   return {
-    discountPct: Number(discountPct) || 0,
+    discountKind: applied.discountKind,
+    discountNominalPercent: applied.discountNominalPercent,
+    discountPct: applied.discountPctEffective,
     discountLabel,
     discountAmt,
     taxableBase,

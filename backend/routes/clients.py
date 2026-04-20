@@ -598,16 +598,26 @@ async def get_client(client_id: str):
 
 
 class IndiaDiscountMemberBand(BaseModel):
-    """Optional India checkout discount % when total participant count is in [min, max] (inclusive)."""
+    """India checkout discount for participant count in [min, max] (inclusive).
+
+    Use either ``percent`` or ``amount_inr`` (fixed INR off the effective base), not both.
+    """
 
     min: int = Field(ge=0, le=999)
     max: int = Field(ge=0, le=999)
-    percent: float = Field(ge=0, le=100)
+    percent: Optional[float] = Field(default=None, ge=0, le=100)
+    amount_inr: Optional[float] = Field(default=None, ge=0, le=1_000_000_000)
 
     @model_validator(mode="after")
-    def max_ge_min(self) -> "IndiaDiscountMemberBand":
+    def validate_range_and_discount(self) -> "IndiaDiscountMemberBand":
         if self.max < self.min:
             raise ValueError("max must be >= min")
+        has_amt = self.amount_inr is not None and float(self.amount_inr) > 0
+        has_pct = self.percent is not None and float(self.percent) > 0
+        if has_amt and has_pct:
+            raise ValueError("Use either amount_inr or percent, not both")
+        if not has_amt and not has_pct:
+            raise ValueError("Set a positive percent or amount_inr on each band")
         return self
 
 
