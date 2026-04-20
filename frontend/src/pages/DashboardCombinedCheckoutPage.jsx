@@ -91,6 +91,14 @@ const PAYMENT_METHOD_BADGES = {
   manual: { label: 'Manual · proof upload', className: 'bg-amber-100/90 text-amber-950 border-amber-200/80' },
 };
 
+/** Client Garden / intake — human labels for the cart header (replaces technical subscription keys when set). */
+const PREFERRED_PAYMENT_BADGES = {
+  stripe: { label: 'Stripe', className: 'bg-violet-100/90 text-violet-900 border-violet-200/80' },
+  gpay_upi: { label: 'GPay / UPI', className: 'bg-emerald-100/90 text-emerald-900 border-emerald-200/80' },
+  bank_transfer: { label: 'Bank transfer', className: 'bg-slate-100/90 text-slate-800 border-slate-200/80' },
+  cash_deposit: { label: 'Cash deposit', className: 'bg-amber-100/90 text-amber-950 border-amber-200/80' },
+};
+
 /** Pills matching the manual proof form paths (UPI vs bank transfer). */
 function IndiaPaymentPathTags({ className = '' }) {
   return (
@@ -133,7 +141,23 @@ function displayMethodsForTag(homeMethods, indiaPaymentTag) {
   return { list, tagged: true };
 }
 
-function PaymentMethodTags({ methods, tagged }) {
+function PaymentMethodTags({ methods, tagged, preferredPaymentMethod }) {
+  const prefRaw = String(preferredPaymentMethod || '').trim().toLowerCase();
+  const prefKey = prefRaw === 'gpay' || prefRaw === 'upi' ? 'gpay_upi' : prefRaw;
+  if (prefKey && PREFERRED_PAYMENT_BADGES[prefKey]) {
+    const def = PREFERRED_PAYMENT_BADGES[prefKey];
+    return (
+      <div className="flex flex-wrap gap-2" data-testid="dashboard-combined-payment-tags">
+        <span className="text-[9px] font-bold uppercase tracking-wide text-slate-500 w-full">
+          Your preferred payment method
+        </span>
+        <span className={`text-[10px] font-semibold px-2.5 py-1 rounded-full border ${def.className}`}>
+          {def.label}
+        </span>
+      </div>
+    );
+  }
+
   const list = Array.isArray(methods) && methods.length > 0 ? methods : ['stripe'];
   const heading =
     !tagged
@@ -213,6 +237,8 @@ export default function DashboardCombinedCheckoutPage() {
   const [portalSelf, setPortalSelf] = useState(null);
   /** Client Garden India fields — same basis as India payment page / manual proof. */
   const [clientIndiaPricing, setClientIndiaPricing] = useState(null);
+  /** From Client Garden — drives Divine Cart payment pills when set (Stripe, GPay/UPI, bank, cash). */
+  const [clientPreferredPaymentMethod, setClientPreferredPaymentMethod] = useState('');
   const [subscriberIsAnnual, setSubscriberIsAnnual] = useState(false);
   const [annualPortalSubtotal, setAnnualPortalSubtotal] = useState(null);
   const [annualQuotesByProgram, setAnnualQuotesByProgram] = useState({});
@@ -351,6 +377,7 @@ export default function DashboardCombinedCheckoutPage() {
         setSubscriberIsAnnual(!!homeRes.data?.is_annual_subscriber);
         setPortalSelf(prefillRes.data?.self || null);
         setClientIndiaPricing(homeRes.data?.client_india_pricing || null);
+        setClientPreferredPaymentMethod(String(homeRes.data?.preferred_payment_method || '').trim());
       })
       .catch(() => {});
     return () => {
@@ -1082,7 +1109,11 @@ export default function DashboardCombinedCheckoutPage() {
             we detect a completed enrollment.
           </p>
           <div className="mt-3 rounded-xl border border-white/20 bg-white/10 backdrop-blur-sm px-3 py-2.5">
-            <PaymentMethodTags methods={paymentMethodsForDisplay} tagged={paymentMethodsTagged} />
+            <PaymentMethodTags
+              methods={paymentMethodsForDisplay}
+              tagged={paymentMethodsTagged}
+              preferredPaymentMethod={clientPreferredPaymentMethod}
+            />
           </div>
         </div>
         <div className="flex flex-col sm:flex-row flex-wrap gap-2 shrink-0 justify-end">
