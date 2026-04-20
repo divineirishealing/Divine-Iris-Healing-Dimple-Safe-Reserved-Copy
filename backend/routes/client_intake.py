@@ -71,6 +71,11 @@ async def submit_intake(data: ClientIntakeSubmit):
     existing = await db.clients.find_one({"email": email})
 
     if existing:
+        if existing.get("intake_submitted_at"):
+            raise HTTPException(
+                status_code=409,
+                detail="We already have a dashboard access request from this email. If you need to update something, please contact Divine Iris Healing.",
+            )
         # Update basic info + intake fields without touching any payment/tax/discount settings
         update = {
             **intake_fields,
