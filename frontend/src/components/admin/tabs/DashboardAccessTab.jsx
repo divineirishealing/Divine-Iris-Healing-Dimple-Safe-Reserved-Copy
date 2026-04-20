@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import axios from 'axios';
-import { KeyRound, RefreshCw, Search, Loader2, Pencil, Bell, Trash2 } from 'lucide-react';
+import { KeyRound, RefreshCw, Search, Loader2, Pencil, Bell, Trash2, Lock } from 'lucide-react';
 import { buildIndiaGpayOptions, buildIndiaBankOptions, gpayRowMatchesPreference } from '../../../lib/indiaPaymentTags';
 import { Input } from '../../ui/input';
 import { Button } from '../../ui/button';
@@ -143,6 +143,7 @@ export default function DashboardAccessTab() {
   const [editing, setEditing] = useState(null);
   const [saving, setSaving] = useState(false);
   const [annualMemberDashboard, setAnnualMemberDashboard] = useState(false);
+  const [portalLoginAllowed, setPortalLoginAllowed] = useState(true);
   const [preferredPaymentMethod, setPreferredPaymentMethod] = useState('');
   const [indiaPaymentMethod, setIndiaPaymentMethod] = useState('');
   const [preferredIndiaGpayId, setPreferredIndiaGpayId] = useState('');
@@ -237,6 +238,7 @@ export default function DashboardAccessTab() {
   const openEdit = (cl) => {
     setEditing(cl);
     setAnnualMemberDashboard(!!cl.annual_member_dashboard);
+    setPortalLoginAllowed(cl.portal_login_allowed !== false);
     setPreferredPaymentMethod(cl.preferred_payment_method || '');
     setIndiaPaymentMethod(cl.india_payment_method || '');
     setPreferredIndiaGpayId(cl.preferred_india_gpay_id || '');
@@ -258,8 +260,10 @@ export default function DashboardAccessTab() {
     setSaving(true);
     try {
       const wasPending = !!editing.intake_pending;
+      const newlyGrantedPortal = editing.portal_login_allowed === false && portalLoginAllowed === true;
       await axios.put(`${API}/clients/${editing.id}`, {
         annual_member_dashboard: annualMemberDashboard,
+        portal_login_allowed: portalLoginAllowed,
         intake_pending: false,
         // Empty string clears (backend treats "" as unset for these fields).
         preferred_payment_method: (preferredPaymentMethod || '').trim().toLowerCase() || '',
@@ -276,9 +280,12 @@ export default function DashboardAccessTab() {
       });
       toast({
         title: 'Saved',
-        description: wasPending
-          ? 'Dashboard access updated and this request is marked reviewed (no longer “new”).'
-          : 'Dashboard access fields updated.',
+        description:
+          newlyGrantedPortal
+            ? 'Dashboard access saved. A welcome email was sent so they can sign in with Google using their address.'
+            : wasPending
+              ? 'Dashboard access updated and this request is marked reviewed (no longer “new”).'
+              : 'Dashboard access fields updated.',
       });
       closeDialog();
       await fetchData();
@@ -351,7 +358,8 @@ export default function DashboardAccessTab() {
             <h2 className="text-lg font-semibold text-gray-900">Dashboard access</h2>
             <p className="text-xs text-gray-500 mt-0.5 max-w-2xl">
               Tagged payment shows rows from <strong>Site Settings → Indian Payment</strong> (e.g. pin “Priyanka” UPI). Set
-              access type, preferred payment, tags, GST, and discount; name and phone stay in Client Garden.
+              access type, <strong>Google login</strong>, preferred payment, tags, GST, and discount — including allowing their
+              student portal (welcome email sends the first time you enable login after it was blocked).
             </p>
           </div>
         </div>
@@ -393,15 +401,16 @@ export default function DashboardAccessTab() {
         <div className="w-full overflow-x-auto md:overflow-x-visible">
           <table className="w-full text-sm table-fixed">
             <colgroup>
-              <col className="w-[9%]" />
-              <col className="w-[13%]" />
               <col className="w-[8%]" />
-              <col className="w-[9%]" />
-              <col className="w-[18%]" />
+              <col className="w-[11%]" />
               <col className="w-[7%]" />
+              <col className="w-[6%]" />
               <col className="w-[8%]" />
+              <col className="w-[14%]" />
               <col className="w-[6%]" />
+              <col className="w-[7%]" />
               <col className="w-[6%]" />
+              <col className="w-[5%]" />
               <col className="w-[10%]" />
             </colgroup>
             <thead className="bg-gray-50 border-b">
@@ -414,6 +423,9 @@ export default function DashboardAccessTab() {
                 </th>
                 <th className="text-left px-3 py-2.5 text-[10px] font-semibold text-gray-500 uppercase tracking-wider">
                   Phone
+                </th>
+                <th className="text-left px-3 py-2.5 text-[10px] font-semibold text-gray-500 uppercase tracking-wider">
+                  Google login
                 </th>
                 <th className="text-left px-3 py-2.5 text-[10px] font-semibold text-gray-500 uppercase tracking-wider">
                   Preferred payment
@@ -441,14 +453,14 @@ export default function DashboardAccessTab() {
             <tbody className="divide-y divide-gray-100">
               {loading ? (
                 <tr>
-                  <td colSpan={10} className="px-4 py-12 text-center text-gray-500">
+                  <td colSpan={11} className="px-4 py-12 text-center text-gray-500">
                     <Loader2 className="inline animate-spin mr-2 align-middle" size={18} />
                     Loading…
                   </td>
                 </tr>
               ) : rows.length === 0 ? (
                 <tr>
-                  <td colSpan={10} className="px-4 py-10 text-center text-gray-400 text-sm">
+                  <td colSpan={11} className="px-4 py-10 text-center text-gray-400 text-sm">
                     No clients match.
                   </td>
                 </tr>
@@ -483,6 +495,13 @@ export default function DashboardAccessTab() {
                         {(cl.email || '').trim() || '—'}
                       </td>
                       <td className="px-3 py-2 text-gray-700 whitespace-nowrap">{(cl.phone || '').trim() || '—'}</td>
+                      <td className="px-3 py-2 text-[10px] text-gray-800 align-top">
+                        {cl.portal_login_allowed === false ? (
+                          <span className="font-semibold text-red-600">Blocked</span>
+                        ) : (
+                          <span className="font-semibold text-green-700">Allowed</span>
+                        )}
+                      </td>
                       <td className="px-3 py-2 text-gray-700 text-xs max-w-[100px]">
                         {labelFrom(PREFERRED_LABEL, cl.preferred_payment_method)}
                       </td>
@@ -595,6 +614,31 @@ export default function DashboardAccessTab() {
                 <option value="non_annual">Non-annual</option>
                 <option value="annual">Annual</option>
               </select>
+            </div>
+
+            <div
+              className={`rounded-lg border px-3 py-2.5 ${
+                portalLoginAllowed ? 'border-green-200 bg-green-50/50' : 'border-red-200 bg-red-50/40'
+              }`}
+            >
+              <label className="flex items-start gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={portalLoginAllowed}
+                  onChange={(e) => setPortalLoginAllowed(e.target.checked)}
+                  className="mt-1 rounded border-gray-300"
+                  data-testid="dashboard-access-portal-login-allowed"
+                />
+                <span>
+                  <span className="text-xs font-semibold text-gray-800 flex items-center gap-1.5">
+                    <Lock size={14} className={portalLoginAllowed ? 'text-green-600' : 'text-red-500'} />
+                    Allow Google login to student dashboard
+                  </span>
+                  <span className="text-[10px] text-gray-500 block mt-1 leading-snug">
+                    When you enable this for someone who was blocked (e.g. after intake), they receive a welcome email at this address with a link to sign in.
+                  </span>
+                </span>
+              </label>
             </div>
 
             <div>
