@@ -1,7 +1,9 @@
 """Abandoned enrollment reminders and registration-deadline nudges.
 
-- Abandonment: first nudge after 15 minutes from enrollment start; then at most once per 24 hours.
-- Deadline: one email ~1 hour before registration closes, and one ~10 minutes before (program deadline_date / start_date, or session last available date).
+- Abandonment (programs only when registration is open): first nudge after 15 minutes from
+  enrollment start; then at most once every 3 days.
+- Deadline: one email ~1 hour before registration closes, and one ~10 minutes before
+  (program deadline_date / start_date, or session last available date).
 
 Call check_and_send_reminders periodically (e.g. every 10 minutes).
 """
@@ -32,7 +34,7 @@ ABANDONED_STATUSES = [
 # Wait this long after enrollment start before the first abandonment email can send
 ABANDON_MINUTES_AFTER_START = 15
 # Minimum time between abandonment emails (same enrollment)
-ABANDON_COOLDOWN_HOURS = 24
+ABANDON_COOLDOWN_HOURS = 72  # 3 days
 
 # Minutes before registration close; slack so a ~10-minute cron still catches the window
 DEADLINE_1H_TARGET_MIN = 60
@@ -369,7 +371,12 @@ async def check_and_send_reminders():
         if close_dt and now >= close_dt:
             continue
 
-        # --- Priority 3: abandonment (max once per 24h) ---
+        # Abandonment nudges for programs: only while registration is still open (skip closed/missing program)
+        if (item_type or "program").strip().lower() == "program":
+            if item is None or not _program_registration_still_open(item):
+                continue
+
+        # --- Priority 3: abandonment (max once per 3 days for programs still open) ---
         last_ab = enrollment.get("last_abandon_reminder_at")
         last_ab_dt = _parse_dt(last_ab) if last_ab else None
         cooldown_ok = True
