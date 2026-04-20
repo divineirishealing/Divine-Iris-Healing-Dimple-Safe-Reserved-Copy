@@ -53,6 +53,7 @@ import SubscribersTab from './tabs/SubscribersTab';
 import SchedulerTab from './tabs/SchedulerTab';
 import ContactUpdateLinkTab from './tabs/ContactUpdateLinkTab';
 import AnnualSubscribersTab from './tabs/AnnualSubscribersTab';
+import AnnualPortalClientsTab from './tabs/AnnualPortalClientsTab';
 import DashboardAccessTab from './tabs/DashboardAccessTab';
 
 const API = getApiUrl();
@@ -350,6 +351,7 @@ const AdminPanel = () => {
     { label: 'Clients', icon: Users, tabs: [
       { key: 'clients', label: 'Client Garden', icon: Users },
       { key: 'dashboard_access', label: 'Dashboard access', icon: KeyRound },
+      { key: 'annual_portal_clients', label: 'Annual + dashboard', icon: Sparkles },
       { key: 'contact_update_link', label: 'Contact update link', icon: Link2 },
       { key: 'subscribers', label: 'Subscribers', icon: Mail },
       { key: 'annual_subscribers', label: 'Annual Subscribers', icon: Star },
@@ -547,6 +549,7 @@ const AdminPanel = () => {
             </div>
           )}
           {activeTab === 'dashboard_access' && <DashboardAccessTab />}
+          {activeTab === 'annual_portal_clients' && <AnnualPortalClientsTab />}
           {activeTab === 'contact_update_link' && <ContactUpdateLinkTab />}
           {activeTab === 'promotions' && <PromotionsTab programs={programs} />}
           {activeTab === 'discounts' && <DiscountsTab />}

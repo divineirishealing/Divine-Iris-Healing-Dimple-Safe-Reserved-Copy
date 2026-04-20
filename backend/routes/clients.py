@@ -443,6 +443,23 @@ async def client_stats():
     return {"total": total, "by_label": label_counts}
 
 
+@router.get("/annual-portal-subscribers")
+async def list_annual_portal_subscribers():
+    """
+    Clients with annual-member (Sacred Home) dashboard on their record and portal login not blocked.
+    Used for admin listing; does not include clients with portal_login_allowed explicitly False.
+    """
+    query = {
+        "annual_member_dashboard": True,
+        "$nor": [{"portal_login_allowed": False}],
+    }
+    proj = {"_id": 0, "id": 1, "name": 1, "email": 1}
+    rows = (
+        await db.clients.find(query, proj).sort([("name", 1)]).to_list(5000)
+    )
+    return {"clients": rows}
+
+
 class BulkSetPortalLoginBody(BaseModel):
     client_ids: List[str]
     portal_login_allowed: bool
