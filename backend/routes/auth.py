@@ -97,6 +97,17 @@ async def _verify_admin_password(password: str) -> None:
         raise HTTPException(status_code=401, detail="Invalid admin password")
 
 
+async def require_admin_console(request: Request) -> bool:
+    """Dependency: valid X-Admin-Session from POST /api/admin/clients/login."""
+    hdr = (request.headers.get("X-Admin-Session") or "").strip()
+    if await _admin_console_session_valid(hdr):
+        return True
+    raise HTTPException(
+        status_code=401,
+        detail="Admin session required. Sign in to admin again.",
+    )
+
+
 async def _admin_console_session_valid(token: Optional[str]) -> bool:
     """Valid token from POST /api/admin/clients/login (stored in admin_sessions)."""
     if not token or len(token.strip()) < 16:

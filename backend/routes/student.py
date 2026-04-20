@@ -1032,6 +1032,123 @@ async def dashboard_quote(
     }
 
 
+def _dashboard_tier_index_for_preview(program: dict, annual_dashboard_access: bool) -> Optional[int]:
+    """Match dashboard UI: Annual access prefers year-long tier; else first tier."""
+    tiers = program.get("duration_tiers") or []
+    if not program.get("is_flagship") or not tiers:
+        return None
+    if annual_dashboard_access:
+        for i, t in enumerate(tiers):
+            lab = (t.get("label") or "").lower()
+            if "annual" in lab or "year" in lab or t.get("duration_unit") == "year":
+                return i
+    return 0
+
+
+async def build_admin_dashboard_pricing_snapshot(
+    client_id: str, currency: str = "inr", limit: int = 15
+) -> Optional[dict]:
+    """
+    Same portal math as GET /dashboard-quote for each upcoming program (self only, no guests).
+    Used by admin Dashboard Access preview — no student session / impersonation.
+    """
+    client = await db.clients.find_one({"id": client_id}, {"_id": 0})
+    if not client:
+        return None
+    sub = client.get("subscription") or {}
+    annual_dashboard_access = _annual_dashboard_access(client)
+    is_annual = _is_annual_subscriber(sub, client)
+
+    upcoming_models = await fetch_programs_with_deadline_sync(db, True, True)
+    upcoming = [p.model_dump() for p in sort_programs_like_homepage(upcoming_models)]
+
+    settings_doc = await db.site_settings.find_one(
+        {"id": "site_settings"},
+        {
+            "_id": 0,
+            "dashboard_offer_annual": 1,
+            "dashboard_offer_family": 1,
+            "dashboard_offer_extended": 1,
+            "annual_package_included_program_ids": 1,
+            "dashboard_program_offers": 1,
+            "india_gst_percent": 1,
+            "dashboard_annual_quote_show_tax": 1,
+        },
+    ) or {}
+    g_ao = settings_doc.get("dashboard_offer_annual") or {}
+    g_fo = settings_doc.get("dashboard_offer_family") or {}
+    g_eo = settings_doc.get("dashboard_offer_extended") or {}
+    per_map = settings_doc.get("dashboard_program_offers") or {}
+    inc_cfg = settings_doc.get("annual_package_included_program_ids")
+    gst_pct = float(settings_doc.get("india_gst_percent") or 18)
+    qst = settings_doc.get("dashboard_annual_quote_show_tax", True)
+    quote_show_tax = True if qst is None else bool(qst)
+
+    cur_in = (currency or "inr").lower()
+    program_rows: List[dict] = []
+    for raw in upcoming[: max(1, min(limit, 40))]:
+        pid = str(raw.get("id") or "")
+        if not pid:
+            continue
+        program = await db.programs.find_one({"id": pid}, {"_id": 0})
+        if not program:
+            program = raw
+        if program.get("enrollment_open") is False:
+            continue
+        tier_idx = _dashboard_tier_index_for_preview(program, annual_dashboard_access)
+        included = _portal_included_in_annual_package(program, inc_cfg, sub, client)
+        include_self = False if included else True
+        ao, fo, eo = _merge_program_dashboard_offers(g_ao, g_fo, g_eo, pid, per_map)
+        if not annual_dashboard_access:
+            ao, fo, eo = {}, {}, {}
+        pricing = await compute_dashboard_annual_family_pricing(
+            program,
+            pid,
+            cur_in,
+            0,
+            0,
+            ao,
+            fo,
+            eo,
+            include_self=include_self,
+            tier_index_override=tier_idx,
+            apply_tier_offer_prices=True,
+        )
+        cur = str(pricing.get("currency") or cur_in).lower()
+        tot = float(pricing.get("total") or 0)
+        tax_included_estimate = 0.0
+        if quote_show_tax and cur == "inr" and gst_pct > 0 and tot > 0:
+            tax_included_estimate = round(tot - tot / (1 + gst_pct / 100), 2)
+        program_rows.append(
+            {
+                "program_id": pid,
+                "program_title": program.get("title") or raw.get("title") or "",
+                "included_in_annual_package": included,
+                "portal_pricing_override": bool(
+                    annual_dashboard_access and _program_has_portal_pricing_override(per_map, pid)
+                ),
+                "tier_index": tier_idx,
+                "self_after_promos": pricing.get("self_after_promos"),
+                "total": pricing.get("total"),
+                "self_unit": pricing.get("self_unit"),
+                "member_pricing_rule": pricing.get("member_pricing_rule"),
+                "currency": cur,
+                "quote_show_tax": quote_show_tax,
+                "tax_included_estimate": tax_included_estimate if quote_show_tax and cur == "inr" else None,
+            }
+        )
+
+    return {
+        "client_id": client_id,
+        "client_name": client.get("name"),
+        "email": client.get("email"),
+        "annual_member_dashboard": bool(client.get("annual_member_dashboard")),
+        "is_annual_subscriber": is_annual,
+        "currency": cur_in,
+        "programs": program_rows,
+    }
+
+
 @router.post("/dashboard-pay")
 async def dashboard_pay(data: DashboardPayIn, request: Request, user: dict = Depends(get_current_user)):
     """Create a verified enrollment with portal (annual/family) pricing; client then POSTs /api/enrollment/{id}/checkout."""

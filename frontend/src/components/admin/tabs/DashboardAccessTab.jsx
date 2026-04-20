@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import axios from 'axios';
-import { KeyRound, RefreshCw, Search, Loader2, Pencil, Bell, Trash2, Lock, SlidersHorizontal } from 'lucide-react';
+import { KeyRound, RefreshCw, Search, Loader2, Pencil, Bell, Trash2, Lock, SlidersHorizontal, Eye } from 'lucide-react';
 import { buildIndiaGpayOptions, buildIndiaBankOptions, gpayRowMatchesPreference } from '../../../lib/indiaPaymentTags';
 import { Input } from '../../ui/input';
 import { Button } from '../../ui/button';
@@ -181,6 +181,11 @@ export default function DashboardAccessTab() {
   const [bulkTaxPct, setBulkTaxPct] = useState('18');
   const [bulkTaxLabel, setBulkTaxLabel] = useState('GST');
 
+  const [pricingPreviewOpen, setPricingPreviewOpen] = useState(false);
+  const [pricingPreviewClient, setPricingPreviewClient] = useState(null);
+  const [pricingPreviewData, setPricingPreviewData] = useState(null);
+  const [pricingPreviewLoading, setPricingPreviewLoading] = useState(false);
+
   const indiaGpayOpts = useMemo(() => buildIndiaGpayOptions(indiaSite || {}), [indiaSite]);
   const indiaBankOpts = useMemo(() => buildIndiaBankOptions(indiaSite || {}), [indiaSite]);
 
@@ -285,6 +290,36 @@ export default function DashboardAccessTab() {
       setPreferredIndiaGpayId('');
     } else if (low === 'gpay_upi') {
       setPreferredIndiaBankId('');
+    }
+  };
+
+  const openPricingPreview = async (cl) => {
+    setPricingPreviewClient(cl);
+    setPricingPreviewData(null);
+    setPricingPreviewOpen(true);
+    setPricingPreviewLoading(true);
+    try {
+      const adminTok = (typeof localStorage !== 'undefined' && localStorage.getItem('admin_token')) || '';
+      const headers = {};
+      if (adminTok && String(adminTok).length >= 16) {
+        headers['X-Admin-Session'] = adminTok;
+      }
+      const res = await axios.get(`${API}/admin/clients/${cl.id}/dashboard-pricing-preview`, {
+        params: { currency: 'inr' },
+        headers,
+      });
+      setPricingPreviewData(res.data);
+    } catch (err) {
+      const d = err.response?.data?.detail;
+      toast({
+        title: 'Could not load pricing preview',
+        description: typeof d === 'string' ? d : err.message,
+        variant: 'destructive',
+      });
+      setPricingPreviewOpen(false);
+      setPricingPreviewClient(null);
+    } finally {
+      setPricingPreviewLoading(false);
     }
   };
 
@@ -567,7 +602,8 @@ export default function DashboardAccessTab() {
               access type, <strong>Google login</strong>, preferred payment, tags, GST, and discount — including allowing their
               student portal (welcome email sends the first time you enable login after it was blocked).
               Use the checkboxes + <strong>Allow Google login for selected</strong> or{' '}
-              <strong>Bulk edit access &amp; payments</strong> to update many clients at once.
+              <strong>Bulk edit access &amp; payments</strong> to update many clients at once.{' '}
+              <strong>View as</strong> opens a popup with their upcoming-program portal pricing (no new tab — uses your admin session).
             </p>
           </div>
         </div>
@@ -812,7 +848,18 @@ export default function DashboardAccessTab() {
                               Mark reviewed
                             </button>
                           )}
-                          <div className="flex items-center gap-0.5">
+                          <div className="flex items-center gap-0.5 flex-wrap justify-end">
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              className="h-8 gap-1 text-[#5D3FD3] px-2"
+                              onClick={() => openPricingPreview(cl)}
+                              data-testid={`dashboard-access-view-as-${cl.id}`}
+                            >
+                              <Eye size={14} />
+                              View as
+                            </Button>
                             <Button
                               type="button"
                               variant="ghost"
@@ -1290,6 +1337,91 @@ export default function DashboardAccessTab() {
               {bulkFieldsSaving ? 'Applying…' : `Apply to ${selectedIds.length} client(s)`}
             </Button>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={pricingPreviewOpen}
+        onOpenChange={(o) => {
+          if (!o) {
+            setPricingPreviewOpen(false);
+            setPricingPreviewClient(null);
+            setPricingPreviewData(null);
+          }
+        }}
+      >
+        <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto" data-testid="dashboard-access-pricing-preview-dialog">
+          <DialogHeader>
+            <DialogTitle>Dashboard pricing preview</DialogTitle>
+            <DialogDescription className="text-left text-xs">
+              {pricingPreviewClient?.name || 'Client'}
+              {pricingPreviewClient?.email ? (
+                <span className="block text-gray-600 mt-0.5">{pricingPreviewClient.email}</span>
+              ) : null}
+            </DialogDescription>
+          </DialogHeader>
+          {pricingPreviewLoading ? (
+            <div className="flex items-center gap-2 py-10 text-sm text-gray-600 justify-center">
+              <Loader2 className="animate-spin" size={18} />
+              Loading portal quotes…
+            </div>
+          ) : pricingPreviewData ? (
+            <div className="space-y-3">
+              <div className="text-[11px] space-y-1 rounded-md border border-slate-200 bg-slate-50 px-3 py-2.5">
+                <p>
+                  <span className="font-semibold text-gray-800">Dashboard access:</span>{' '}
+                  {pricingPreviewData.annual_member_dashboard ? 'Annual' : 'Non-annual'}
+                </p>
+                <p>
+                  <span className="font-semibold text-gray-800">Annual (subscription data):</span>{' '}
+                  {pricingPreviewData.is_annual_subscriber ? 'Yes' : 'No'}
+                </p>
+                <p className="text-[10px] text-gray-500 leading-snug">
+                  Self-seat amounts for each upcoming program — same calculation as their Sacred Home pricing block (no guests).
+                </p>
+              </div>
+              {!pricingPreviewData.programs?.length ? (
+                <p className="text-sm text-gray-500 py-4 text-center">No upcoming programs with open enrollment.</p>
+              ) : (
+                <div className="overflow-x-auto border border-gray-200 rounded-md">
+                  <table className="w-full text-xs">
+                    <thead>
+                      <tr className="bg-gray-50 border-b border-gray-200">
+                        <th className="text-left px-2 py-2 font-semibold text-gray-600">Program</th>
+                        <th className="text-right px-2 py-2 font-semibold text-gray-600">Your seat</th>
+                        <th className="text-center px-2 py-2 font-semibold text-gray-600">Annual pkg</th>
+                        <th className="text-left px-2 py-2 font-semibold text-gray-600">Rule</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-100">
+                      {pricingPreviewData.programs.map((row) => (
+                        <tr key={row.program_id}>
+                          <td className="px-2 py-2 align-top text-gray-900 max-w-[200px]">{row.program_title}</td>
+                          <td className="px-2 py-2 text-right tabular-nums text-gray-900">
+                            ₹{Number(row.self_after_promos ?? 0).toLocaleString()}
+                            {row.quote_show_tax && row.tax_included_estimate != null && row.currency === 'inr' ? (
+                              <span className="block text-[10px] text-gray-500 font-normal">
+                                ~GST incl. ₹{Number(row.tax_included_estimate).toLocaleString()}
+                              </span>
+                            ) : null}
+                          </td>
+                          <td className="px-2 py-2 text-center text-gray-700">
+                            {row.included_in_annual_package ? 'Yes' : '—'}
+                          </td>
+                          <td className="px-2 py-2 text-[10px] text-gray-600 capitalize">
+                            {(row.member_pricing_rule || '—').replace(/_/g, ' ')}
+                            {row.portal_pricing_override ? (
+                              <span className="block text-violet-600 mt-0.5">Portal override</span>
+                            ) : null}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          ) : null}
         </DialogContent>
       </Dialog>
     </div>

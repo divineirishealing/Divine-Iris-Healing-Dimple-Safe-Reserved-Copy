@@ -11,6 +11,9 @@ import os
 from dotenv import load_dotenv
 from pathlib import Path
 
+from routes.auth import require_admin_console
+from routes.student import build_admin_dashboard_pricing_snapshot
+
 ROOT_DIR = Path(__file__).parent.parent
 load_dotenv(ROOT_DIR / '.env')
 
@@ -173,6 +176,18 @@ async def reject_profile(user_id: str):
     )
     return {"message": "Profile update rejected"}
 
+
+@router.get("/{client_id}/dashboard-pricing-preview")
+async def dashboard_pricing_preview(
+    client_id: str,
+    currency: str = "inr",
+    _authorized: bool = Depends(require_admin_console),
+):
+    """Admin-only: portal-style self-seat quotes for upcoming programs (same math as student dashboard)."""
+    snap = await build_admin_dashboard_pricing_snapshot(client_id, currency=(currency or "inr").lower())
+    if snap is None:
+        raise HTTPException(status_code=404, detail="Client not found")
+    return snap
 
 
 # Admin login — returns a server-side session token for impersonation (X-Admin-Session) without re-entering password.

@@ -2,24 +2,14 @@ import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import axios from 'axios';
 import { buildIndiaGpayOptions, buildIndiaBankOptions } from '../../../lib/indiaPaymentTags';
 import { useToast } from '../../../hooks/use-toast';
-import { useAuth } from '../../../context/AuthContext';
-import { getBackendUrl } from '../../../lib/config';
 import { Button } from '../../ui/button';
 import { Textarea } from '../../ui/textarea';
 import { Input } from '../../ui/input';
 import { Label } from '../../ui/label';
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '../../ui/dialog';
-import {
   Users, Search, Download, RefreshCw,
   Droplets, Sprout, TreeDeciduous, Flower2, Star, Sparkles, Crown,
-  Clock, Tag, Edit2, Save, X, Trash2, UserPlus, Lock, Eye, Bell, CheckCircle,
+  Clock, Tag, Edit2, Save, X, Trash2, UserPlus, Lock, Bell, CheckCircle,
 } from 'lucide-react';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
@@ -50,12 +40,9 @@ const timeAgo = (dateStr) => {
 
 const ClientsTab = () => {
   const { toast } = useToast();
-  const { checkAuth } = useAuth();
   const [clients, setClients] = useState([]);
   const [stats, setStats] = useState({ total: 0, by_label: {} });
   const [filterLabel, setFilterLabel] = useState('');
-  const [filterPending, setFilterPending] = useState(false);
-  const [pendingCount, setPendingCount] = useState(0);
   const [searchText, setSearchText] = useState('');
   const [syncing, setSyncing] = useState(false);
   const [showAddClient, setShowAddClient] = useState(false);
@@ -68,85 +55,19 @@ const ClientsTab = () => {
   });
   const [addingClient, setAddingClient] = useState(false);
 
-  const [impersonateOpen, setImpersonateOpen] = useState(false);
-  const [impersonateEmail, setImpersonateEmail] = useState('');
-  const [impersonateName, setImpersonateName] = useState('');
-  const [adminPasswordImpersonate, setAdminPasswordImpersonate] = useState('');
-  const [impersonateLoading, setImpersonateLoading] = useState(false);
-
-  const openImpersonate = (e, cl) => {
-    e.stopPropagation();
-    const em = (cl.email || '').trim();
-    if (!em) {
-      toast({
-        title: 'No email on file',
-        description: 'Add an email to this client to preview their dashboard.',
-        variant: 'destructive',
-      });
-      return;
-    }
-    setImpersonateEmail(em);
-    setImpersonateName(cl.name || '');
-    setAdminPasswordImpersonate('');
-    setImpersonateOpen(true);
-  };
-
-  const submitImpersonate = async (e) => {
-    e.preventDefault();
-    setImpersonateLoading(true);
-    try {
-      const adminTok = (typeof localStorage !== 'undefined' && localStorage.getItem('admin_token')) || '';
-      const headers = {};
-      if (adminTok && String(adminTok).length >= 16) {
-        headers['X-Admin-Session'] = adminTok;
-      }
-      const payload = { email: impersonateEmail };
-      if (adminPasswordImpersonate.trim()) {
-        payload.admin_password = adminPasswordImpersonate.trim();
-      }
-      const res = await axios.post(
-        `${getBackendUrl()}/api/auth/impersonate`,
-        payload,
-        { withCredentials: true, headers }
-      );
-      if (res.data.session_token) {
-        localStorage.setItem('session_token', res.data.session_token);
-      }
-      await checkAuth();
-      setImpersonateOpen(false);
-      toast({
-        title: 'Opening dashboard',
-        description: `Preview as ${res.data.user?.email || impersonateEmail}`,
-      });
-      window.location.href = '/dashboard';
-    } catch (err) {
-      const d = err.response?.data?.detail;
-      toast({
-        title: 'Could not start preview',
-        description: typeof d === 'string' ? d : err.message,
-        variant: 'destructive',
-      });
-    } finally {
-      setImpersonateLoading(false);
-    }
-  };
-
   const fetchData = useCallback(async () => {
     try {
       const params = {};
       if (filterLabel) params.label = filterLabel;
-      if (filterPending) params.intake_pending = 'true';
       if (searchText.trim()) params.search = searchText.trim();
-      const [cRes, sRes, pcRes] = await Promise.all([
+      const [cRes, sRes] = await Promise.all([
         axios.get(`${API}/clients`, { params }),
         axios.get(`${API}/clients/stats`),
-        axios.get(`${API}/client-intake/pending-count`),
       ]);
       setClients(cRes.data || []);
       setStats(sRes.data || { total: 0, by_label: {} });
-      setPendingCount(pcRes.data?.count || 0);
     } catch (e) { console.error(e); }
-  }, [filterLabel, filterPending, searchText]);
+  }, [filterLabel, searchText]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
@@ -216,7 +137,8 @@ const ClientsTab = () => {
             <Users size={18} className="text-[#D4AF37]" /> Client Garden
           </h2>
           <p className="text-xs text-gray-500 mt-0.5 max-w-xl">
-            Your unified client database — track every soul&apos;s journey from Dew to Iris.
+            Your unified client database — track every soul&apos;s journey from Dew to Iris. New dashboard access
+            requests and pricing preview are handled under the <strong className="font-semibold text-gray-700">Dashboard Access</strong> tab.
             <span className="block mt-1 text-[10px] text-gray-400">
               Auto-label stays <strong className="font-medium text-gray-600">Dew</strong> for first-time contacts and anyone who has not finished a paid checkout yet.
               After payment completes, the garden stage updates from enrollments. You can always override the label on each client (Label &amp; Notes → Edit).
@@ -340,25 +262,6 @@ const ClientsTab = () => {
         })}
       </div>
 
-      {/* Pending Review banner */}
-      <button
-        onClick={() => { setFilterPending(p => !p); setFilterLabel(''); }}
-        className={`w-full flex items-center justify-between px-4 py-2.5 rounded-xl border-2 mb-3 transition-all text-sm font-medium
-          ${filterPending
-            ? 'bg-orange-50 border-orange-300 text-orange-800'
-            : pendingCount > 0
-              ? 'bg-orange-50/60 border-orange-200 text-orange-700 hover:border-orange-300'
-              : 'bg-gray-50 border-gray-100 text-gray-400 cursor-default'}`}
-      >
-        <span className="flex items-center gap-2">
-          <Bell size={14} className={pendingCount > 0 ? 'text-orange-500' : 'text-gray-300'} />
-          Pending Review — clients awaiting dashboard access &amp; payment setup
-        </span>
-        <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${pendingCount > 0 ? 'bg-orange-200 text-orange-800' : 'bg-gray-100 text-gray-400'}`}>
-          {pendingCount}
-        </span>
-      </button>
-
       {/* Total + Search */}
       <div className="flex items-center gap-3 mb-4">
         <div className="bg-gray-900 text-white rounded-lg px-3 py-1.5 text-xs font-semibold">
@@ -369,8 +272,8 @@ const ClientsTab = () => {
           <input data-testid="clients-search" type="text" value={searchText} onChange={e => setSearchText(e.target.value)}
             placeholder="Search by name, email, or phone..." className="w-full pl-9 pr-3 py-2 text-xs border rounded-lg focus:outline-none focus:ring-1 focus:ring-[#D4AF37]" />
         </div>
-        {(filterLabel || filterPending) && (
-          <button onClick={() => { setFilterLabel(''); setFilterPending(false); }} className="text-[10px] text-gray-500 hover:text-gray-700 flex items-center gap-1 border rounded px-2 py-1">
+        {filterLabel && (
+          <button onClick={() => { setFilterLabel(''); }} className="text-[10px] text-gray-500 hover:text-gray-700 flex items-center gap-1 border rounded px-2 py-1">
             <X size={10} /> Clear filter
           </button>
         )}
@@ -384,7 +287,7 @@ const ClientsTab = () => {
             <p className="text-sm">No clients found. Use Add client or Sync All Data to populate.</p>
           </div>
         ) : (
-          <table className="w-full min-w-[960px] text-left border-collapse" data-testid="clients-table">
+          <table className="w-full min-w-[860px] text-left border-collapse" data-testid="clients-table">
             <thead>
               <tr className="bg-gray-50 border-b border-gray-200 text-[10px] uppercase tracking-wide text-gray-500">
                 <th className="py-2.5 pl-3 pr-2 font-semibold">Client</th>
@@ -393,8 +296,7 @@ const ClientsTab = () => {
                 <th className="py-2.5 px-2 font-semibold min-w-[140px]">Email</th>
                 <th className="py-2.5 px-2 font-semibold min-w-[100px]">Phone</th>
                 <th className="py-2.5 px-2 font-semibold w-[100px]">Activity</th>
-                <th className="py-2.5 px-2 font-semibold w-[72px]">Updated</th>
-                <th className="py-2.5 pr-3 pl-2 font-semibold text-right w-[108px]">Actions</th>
+                <th className="py-2.5 pr-3 pl-2 font-semibold w-[72px]">Updated</th>
               </tr>
             </thead>
             <tbody>
@@ -444,24 +346,12 @@ const ClientsTab = () => {
                           )}
                         </div>
                       </td>
-                      <td className="py-2.5 px-2 text-[10px] text-gray-500 whitespace-nowrap">
+                      <td className="py-2.5 pr-3 pl-2 text-[10px] text-gray-500 whitespace-nowrap">
                         {timeAgo(cl.updated_at || cl.created_at)}
-                      </td>
-                      <td className="py-2.5 pr-3 pl-2 text-right">
-                        <button
-                          type="button"
-                          data-testid={`client-view-as-${cl.id}`}
-                          onClick={(e) => openImpersonate(e, cl)}
-                          disabled={!cl.email?.trim()}
-                          title={cl.email?.trim() ? 'Open their student dashboard (admin preview)' : 'Add an email first'}
-                          className="inline-flex items-center gap-1 rounded-md border border-[#5D3FD3]/40 bg-white px-2 py-1 text-[9px] font-medium text-[#5D3FD3] hover:bg-[#5D3FD3]/10 disabled:opacity-40 disabled:cursor-not-allowed"
-                        >
-                          <Eye size={11} /> View as
-                        </button>
                       </td>
                     </tr>
                     <tr className="border-b border-gray-200 bg-[#faf9fc]">
-                      <td colSpan={8} className="p-0 align-top">
+                      <td colSpan={7} className="p-0 align-top">
                         <ClientDetail
                           client={cl}
                           labelConfig={cfg}
@@ -480,56 +370,6 @@ const ClientsTab = () => {
           </table>
         )}
       </div>
-
-      <Dialog open={impersonateOpen} onOpenChange={setImpersonateOpen}>
-        <DialogContent className="sm:max-w-md" data-testid="impersonate-dialog">
-          <form onSubmit={submitImpersonate}>
-            <DialogHeader>
-              <DialogTitle className="text-base">View dashboard as client</DialogTitle>
-              <DialogDescription className="text-xs text-left">
-                Opens the student portal as <strong>{impersonateName || impersonateEmail}</strong> ({impersonateEmail})
-                using a real session. Uses your current admin sign-in — no admin password needed. Optional password
-                below only if your admin session expired.
-              </DialogDescription>
-            </DialogHeader>
-            <div className="space-y-2 py-2">
-              <Label htmlFor="admin-impersonate-password" className="text-xs text-gray-600">
-                Admin password (optional)
-              </Label>
-              <Input
-                id="admin-impersonate-password"
-                type="password"
-                autoComplete="current-password"
-                value={adminPasswordImpersonate}
-                onChange={(e) => setAdminPasswordImpersonate(e.target.value)}
-                className="h-9 text-sm"
-                placeholder="Only if admin session expired"
-                data-testid="impersonate-admin-password"
-              />
-            </div>
-            <DialogFooter className="gap-2 sm:gap-0">
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={() => setImpersonateOpen(false)}
-                disabled={impersonateLoading}
-              >
-                Cancel
-              </Button>
-              <Button
-                type="submit"
-                size="sm"
-                className="bg-[#5D3FD3] hover:bg-[#4c32b3]"
-                disabled={impersonateLoading}
-                data-testid="impersonate-submit"
-              >
-                {impersonateLoading ? 'Opening…' : 'Open dashboard'}
-              </Button>
-            </DialogFooter>
-          </form>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 };
