@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import axios from 'axios';
-import { KeyRound, RefreshCw, Search, Loader2, Pencil } from 'lucide-react';
+import { KeyRound, RefreshCw, Search, Loader2, Pencil, Bell, Trash2 } from 'lucide-react';
 import { buildIndiaGpayOptions, buildIndiaBankOptions, gpayRowMatchesPreference } from '../../../lib/indiaPaymentTags';
 import { Input } from '../../ui/input';
 import { Button } from '../../ui/button';
@@ -131,6 +131,7 @@ function formatTaggedPaymentDetails(cl, siteInfo) {
 export default function DashboardAccessTab() {
   const { toast } = useToast();
   const [clients, setClients] = useState([]);
+  const [pendingCount, setPendingCount] = useState(0);
   const [loading, setLoading] = useState(true);
   const [searchText, setSearchText] = useState('');
   const searchRef = useRef(searchText);
@@ -194,8 +195,12 @@ export default function DashboardAccessTab() {
       const q = String(searchRef.current || '').trim();
       const params = {};
       if (q) params.search = q;
-      const res = await axios.get(`${API}/clients`, { params });
-      setClients(res.data || []);
+      const [cRes, pcRes] = await Promise.all([
+        axios.get(`${API}/clients`, { params }),
+        axios.get(`${API}/client-intake/pending-count`),
+      ]);
+      setClients(cRes.data || []);
+      setPendingCount(pcRes.data?.count ?? 0);
     } catch (e) {
       console.error(e);
       setClients([]);
@@ -252,8 +257,10 @@ export default function DashboardAccessTab() {
     if (!editing?.id) return;
     setSaving(true);
     try {
+      const wasPending = !!editing.intake_pending;
       await axios.put(`${API}/clients/${editing.id}`, {
         annual_member_dashboard: annualMemberDashboard,
+        intake_pending: false,
         // Empty string clears (backend treats "" as unset for these fields).
         preferred_payment_method: (preferredPaymentMethod || '').trim().toLowerCase() || '',
         india_payment_method: (indiaPaymentMethod || '').trim() || '',
@@ -267,7 +274,12 @@ export default function DashboardAccessTab() {
         preferred_india_gpay_id: (preferredIndiaGpayId || '').trim() || '',
         preferred_india_bank_id: (preferredIndiaBankId || '').trim() || '',
       });
-      toast({ title: 'Saved', description: 'Dashboard access fields updated.' });
+      toast({
+        title: 'Saved',
+        description: wasPending
+          ? 'Dashboard access updated and this request is marked reviewed (no longer “new”).'
+          : 'Dashboard access fields updated.',
+      });
       closeDialog();
       await fetchData();
     } catch (e) {
@@ -282,7 +294,53 @@ export default function DashboardAccessTab() {
     }
   };
 
-  const rows = useMemo(() => clients || [], [clients]);
+  const rows = useMemo(() => {
+    const list = [...(clients || [])];
+    list.sort((a, b) => {
+      const pa = !!a.intake_pending;
+      const pb = !!b.intake_pending;
+      if (pa !== pb) return pa ? -1 : 1;
+      const tb = new Date(b.updated_at || b.created_at || 0).getTime();
+      const ta = new Date(a.updated_at || a.created_at || 0).getTime();
+      return tb - ta;
+    });
+    return list;
+  }, [clients]);
+
+  const markReviewed = async (cl, e) => {
+    if (e) e.stopPropagation();
+    try {
+      await axios.put(`${API}/clients/${cl.id}`, { intake_pending: false });
+      toast({
+        title: 'Marked reviewed',
+        description: `${cl.name || cl.email || 'Client'} removed from new requests.`,
+      });
+      await fetchData();
+    } catch (err) {
+      toast({
+        title: 'Could not update',
+        description: err.response?.data?.detail || err.message,
+        variant: 'destructive',
+      });
+    }
+  };
+
+  const confirmDelete = async (cl) => {
+    if (!window.confirm(`Remove ${cl.name || cl.email || 'this client'} from the database? This cannot be undone.`)) {
+      return;
+    }
+    try {
+      await axios.delete(`${API}/clients/${cl.id}`);
+      toast({ title: 'Client removed', description: cl.name || cl.email || 'Deleted.' });
+      await fetchData();
+    } catch (err) {
+      toast({
+        title: 'Delete failed',
+        description: err.response?.data?.detail || err.message,
+        variant: 'destructive',
+      });
+    }
+  };
 
   return (
     <div className="space-y-4" data-testid="admin-dashboard-access">
@@ -317,20 +375,34 @@ export default function DashboardAccessTab() {
       </div>
       <p className="text-[10px] text-gray-400">Press Enter or use Refresh to run search.</p>
 
+      {pendingCount > 0 && (
+        <div
+          className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-orange-200 bg-orange-50/90 px-4 py-3 text-sm text-orange-900"
+          data-testid="dashboard-access-pending-banner"
+        >
+          <span className="flex items-center gap-2 font-medium">
+            <Bell size={18} className="text-orange-500 shrink-0" />
+            <span>
+              <strong>{pendingCount}</strong> new intake request{pendingCount === 1 ? '' : 's'} — highlight below; set payment tags, then save or mark reviewed.
+            </span>
+          </span>
+        </div>
+      )}
+
       <div className="bg-white rounded-lg border shadow-sm overflow-hidden w-full">
         <div className="w-full overflow-x-auto md:overflow-x-visible">
           <table className="w-full text-sm table-fixed">
             <colgroup>
-              <col className="w-[10%]" />
-              <col className="w-[14%]" />
               <col className="w-[9%]" />
-              <col className="w-[10%]" />
-              <col className="w-[20%]" />
+              <col className="w-[13%]" />
               <col className="w-[8%]" />
               <col className="w-[9%]" />
-              <col className="w-[6%]" />
-              <col className="w-[6%]" />
+              <col className="w-[18%]" />
+              <col className="w-[7%]" />
               <col className="w-[8%]" />
+              <col className="w-[6%]" />
+              <col className="w-[6%]" />
+              <col className="w-[10%]" />
             </colgroup>
             <thead className="bg-gray-50 border-b">
               <tr>
@@ -361,8 +433,8 @@ export default function DashboardAccessTab() {
                 <th className="text-left px-3 py-2.5 text-[10px] font-semibold text-gray-500 uppercase tracking-wider">
                   Discount
                 </th>
-                <th className="text-left px-3 py-2.5 text-[10px] font-semibold text-gray-500 uppercase tracking-wider w-[88px]">
-                  Edit
+                <th className="text-left px-3 py-2.5 text-[10px] font-semibold text-gray-500 uppercase tracking-wider">
+                  Actions
                 </th>
               </tr>
             </thead>
@@ -386,9 +458,26 @@ export default function DashboardAccessTab() {
                   const subHint = !cl.annual_member_dashboard && isAnnualViaSubscription(cl);
                   const taggedDetail = formatTaggedPaymentDetails(cl, indiaSite);
                   return (
-                    <tr key={cl.id} className="hover:bg-gray-50/80">
-                      <td className="px-3 py-2 text-gray-900 font-medium max-w-[120px] truncate" title={cl.name}>
-                        {cl.name || '—'}
+                    <tr
+                      key={cl.id}
+                      className={`hover:bg-gray-50/80 ${cl.intake_pending ? 'bg-orange-50/60' : ''}`}
+                      data-intake-pending={cl.intake_pending ? 'true' : undefined}
+                    >
+                      <td
+                        className={`px-3 py-2 text-gray-900 font-medium align-top ${cl.intake_pending ? 'border-l-[3px] border-l-orange-400 pl-2' : ''}`}
+                        title={cl.name}
+                      >
+                        <div className="flex items-start gap-1.5 min-w-0">
+                          {cl.intake_pending && (
+                            <span
+                              className="shrink-0 mt-0.5 text-[8px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded bg-orange-200 text-orange-900"
+                              title="Submitted via dashboard access form — not reviewed yet"
+                            >
+                              New
+                            </span>
+                          )}
+                          <span className="truncate leading-snug">{cl.name || '—'}</span>
+                        </div>
                       </td>
                       <td className="px-3 py-2 text-gray-700 max-w-[160px] truncate" title={cl.email}>
                         {(cl.email || '').trim() || '—'}
@@ -426,18 +515,43 @@ export default function DashboardAccessTab() {
                       </td>
                       <td className="px-3 py-2 text-xs text-gray-700 whitespace-nowrap">{gstSummary(cl)}</td>
                       <td className="px-3 py-2 text-xs text-gray-700">{discountSummary(cl)}</td>
-                      <td className="px-3 py-2">
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="sm"
-                          className="h-8 gap-1 text-[#D4AF37]"
-                          onClick={() => openEdit(cl)}
-                          data-testid={`dashboard-access-edit-${cl.id}`}
-                        >
-                          <Pencil size={14} />
-                          Edit
-                        </Button>
+                      <td className="px-2 py-2 align-top">
+                        <div className="flex flex-col items-end gap-1.5">
+                          {cl.intake_pending && (
+                            <button
+                              type="button"
+                              onClick={(e) => markReviewed(cl, e)}
+                              className="text-[9px] font-semibold text-orange-700 hover:text-orange-900 hover:underline whitespace-nowrap"
+                              data-testid={`dashboard-access-reviewed-${cl.id}`}
+                            >
+                              Mark reviewed
+                            </button>
+                          )}
+                          <div className="flex items-center gap-0.5">
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              className="h-8 gap-1 text-[#D4AF37] px-2"
+                              onClick={() => openEdit(cl)}
+                              data-testid={`dashboard-access-edit-${cl.id}`}
+                            >
+                              <Pencil size={14} />
+                              Edit
+                            </Button>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              className="h-8 w-8 p-0 text-gray-400 hover:text-red-600"
+                              onClick={() => confirmDelete(cl)}
+                              title="Delete client"
+                              data-testid={`dashboard-access-delete-${cl.id}`}
+                            >
+                              <Trash2 size={14} />
+                            </Button>
+                          </div>
+                        </div>
                       </td>
                     </tr>
                   );
@@ -459,6 +573,15 @@ export default function DashboardAccessTab() {
               ) : null}
             </DialogDescription>
           </DialogHeader>
+
+          {editing?.intake_pending && (
+            <p
+              className="text-[11px] text-orange-800 bg-orange-50 border border-orange-200 rounded-md px-3 py-2 -mt-1"
+              data-testid="dashboard-access-new-request-notice"
+            >
+              <strong>New request.</strong> When you save, this row is marked reviewed and the orange “New” highlight is cleared.
+            </p>
+          )}
 
           <div className="space-y-4 py-2">
             <div>
