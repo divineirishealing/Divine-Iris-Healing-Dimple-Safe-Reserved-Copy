@@ -566,7 +566,11 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh, bo
   const annualOffer = offers.annual || {};
   const familyOffer = offers.family || {};
   const extendedOffer = offers.extended || {};
-  const isAnnual = homeData?.is_annual_subscriber;
+  /** Subscription / schedule heuristics (year-long tier, modal paths). */
+  const isAnnualSubscriber = homeData?.is_annual_subscriber;
+  /** Client Garden Dashboard Access = Annual — drives dashboard offer columns + portal quote overlays. */
+  const annualMemberDashboard = !!homeData?.annual_member_dashboard;
+  const subscriptionAnnualSignals = !!homeData?.subscription_annual_package_signals;
   const immediateFamilyLocked = !!homeData?.immediate_family_locked;
   const immediateFamilyEditApproved = homeData?.immediate_family_editing_approved !== false;
   const familyApproved = !!homeData?.family_approved;
@@ -908,11 +912,11 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh, bo
     const a = (annualOffer.promo_code || '').trim();
     const f = (familyOffer.promo_code || '').trim();
     const x = (extendedOffer.promo_code || '').trim();
-    if (isAnnual) return annualOffer.enabled && a ? a : '';
+    if (annualMemberDashboard) return annualOffer.enabled && a ? a : '';
     if (familyOffer.enabled && f) return f;
     if (extendedOffer.enabled && x) return x;
     return '';
-  }, [isAnnual, annualOffer, familyOffer, extendedOffer]);
+  }, [annualMemberDashboard, annualOffer, familyOffer, extendedOffer]);
 
   const prefetchProgramsKey = useMemo(
     () => programsForPrefetch.map((p) => p.id).join(','),
@@ -931,9 +935,9 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh, bo
       if (!p.is_flagship || tiers.length === 0) return 0;
       const saved = dashboardTierByProgram[p.id];
       if (typeof saved === 'number' && saved >= 0 && saved < tiers.length) return saved;
-      return pickTierIndexForDashboard(p, !!isAnnual) ?? 0;
+      return pickTierIndexForDashboard(p, !!isAnnualSubscriber) ?? 0;
     },
-    [dashboardTierByProgram, isAnnual]
+    [dashboardTierByProgram, isAnnualSubscriber]
   );
 
   const dashboardTierKey = useMemo(
@@ -957,7 +961,9 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh, bo
         const ids = selectedFamilyByProgram[p.id] || [];
         const draft = seatDraftsByProgram[p.id];
         const includedInPkg =
-          isAnnual && (programIncludedInAnnualPackage(p, annualIncludedIds) || false);
+          annualMemberDashboard &&
+          subscriptionAnnualSignals &&
+          (programIncludedInAnnualPackage(p, annualIncludedIds) || false);
         const bookerJoins = includedInPkg ? false : draft?.bookerJoinsProgram !== false;
         const params =
           ids.length > 0
@@ -985,7 +991,19 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh, bo
     return () => {
       cancelled = true;
     };
-  }, [isAnnual, currencyReady, portalQuoteCurrency, prefetchProgramsKey, familySelectionKey, dashboardTierKey, programsForPrefetch, seatDraftsByProgram, getDashboardTier, annualIncludedIds]);
+  }, [
+    annualMemberDashboard,
+    subscriptionAnnualSignals,
+    currencyReady,
+    portalQuoteCurrency,
+    prefetchProgramsKey,
+    familySelectionKey,
+    dashboardTierKey,
+    programsForPrefetch,
+    seatDraftsByProgram,
+    getDashboardTier,
+    annualIncludedIds,
+  ]);
 
   /** Per-program guest seat rows: each upcoming card keeps its own attendance/notify for selected members. */
   useEffect(() => {
@@ -1220,7 +1238,9 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh, bo
     const prog = programsForPrefetch.find((x) => String(x.id) === String(programId));
     if (!prog) return;
     const includedPkg =
-      isAnnual && (programIncludedInAnnualPackage(prog, annualIncludedIds) || !!annualQuotes[programId]?.included_in_annual_package);
+      annualMemberDashboard &&
+      subscriptionAnnualSignals &&
+      (programIncludedInAnnualPackage(prog, annualIncludedIds) || !!annualQuotes[programId]?.included_in_annual_package);
     const ids = (selectedFamilyByProgram[programId] || []).map(String);
     setSeatDraftsByProgram((prev) => {
       const draft = { ...(prev[programId] || createEmptySeatDraft()) };
@@ -1391,7 +1411,7 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh, bo
     let participants = null;
     try {
       const pre = await loadEnrollmentPrefill();
-      if (isAnnual) {
+      if (isAnnualSubscriber) {
         participants = buildAnnualDashboardCartParticipants({
           program,
           includedPkg: included,
@@ -1536,10 +1556,10 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh, bo
             {upcomingList.map((p) => {
               const sel = selectedFamilyByProgram[p.id] || [];
               const includedForSeat =
-                isAnnual && (
-                  programIncludedInAnnualPackage(p, annualIncludedIds) ||
-                  !!annualQuotes[p.id]?.included_in_annual_package
-                );
+                annualMemberDashboard &&
+                subscriptionAnnualSignals &&
+                (programIncludedInAnnualPackage(p, annualIncludedIds) ||
+                  !!annualQuotes[p.id]?.included_in_annual_package);
               const seatCtxMini = { includedPkg: includedForSeat, selectedIds: sel };
               const draftRow = mergeGlobalSeatDraft(
                 seatDraftsByProgram[p.id],
@@ -1561,7 +1581,9 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh, bo
                 <DashboardUpcomingProgramRowItem
                   key={p.id}
                   program={p}
-                  isAnnual={isAnnual}
+                  isAnnual={isAnnualSubscriber}
+                  annualDashboardAccess={annualMemberDashboard}
+                  subscriptionAnnualSignals={subscriptionAnnualSignals}
                   bookerEmail={bookerEmail}
                   detectedCountry={detectedCountry}
                   symbol={portalQuoteSymbol}

@@ -134,10 +134,8 @@ def _merged_preferred_india_ids(sub: dict, client: dict) -> Tuple[str, str]:
     return (gpay_sub or gpay_cli, bank_sub or bank_cli)
 
 
-def _is_annual_subscriber(sub: dict, client: dict) -> bool:
-    """Heuristic: annual program name, package, program detail labels, or admin CRM flag."""
-    if bool(client.get("annual_member_dashboard")):
-        return True
+def _subscription_annual_package_signals(sub: dict) -> bool:
+    """True when the subscriber record looks like a paid annual package (no CRM dashboard flag)."""
     if (sub.get("annual_program") or "").strip():
         return True
     if sub.get("package_id"):
@@ -147,6 +145,29 @@ def _is_annual_subscriber(sub: dict, client: dict) -> bool:
         if "annual" in blob or "year" in blob:
             return True
     return False
+
+
+def _annual_dashboard_access(client: dict) -> bool:
+    """Client Garden / Dashboard Access: Annual vs Non-annual. Drives portal offers + tier promotional pricing."""
+    return bool(client.get("annual_member_dashboard"))
+
+
+def _is_annual_subscriber(sub: dict, client: dict) -> bool:
+    """Heuristic: annual program name, package, program detail labels, or admin CRM flag."""
+    if _annual_dashboard_access(client):
+        return True
+    return _subscription_annual_package_signals(sub)
+
+
+def _portal_included_in_annual_package(program: dict, inc_cfg, sub: dict, client: dict) -> bool:
+    """Prepaid annual-package inclusion: requires Dashboard Access = Annual and subscription annual signals."""
+    if not _program_included_in_annual_package(program, inc_cfg):
+        return False
+    if not _annual_dashboard_access(client):
+        return False
+    if not _subscription_annual_package_signals(sub):
+        return False
+    return True
 
 
 def _overlay_program_metadata(merged_programs: List[dict], old_detail: List[dict]) -> List[dict]:
@@ -476,11 +497,11 @@ async def compute_dashboard_annual_family_pricing(
 ) -> dict:
     """Portal pricing for logged-in clients (Sacred Home + Divine Cart).
 
-    When `apply_tier_offer_prices` is True (annual subscribers), tier `offer_price_*` is used when set,
-    plus optional dashboard overlays (`annual_offer`, `family_offer`, `extended_guest_offer`).
-    When False (non-annual subscribers), only published list `price_*` is used per seat — same basis as
-    the public site before any tier promotional offer; dashboard overlays are not applied (callers pass
-    empty offer dicts).
+    Tier `offer_price_*` is used when set (same basis as the public website). Optional dashboard overlays
+    (`annual_offer`, `family_offer`, `extended_guest_offer`) are merged by callers; when Client Garden
+    access is Non-annual (`annual_member_dashboard` false), callers pass empty dicts so only tier
+    list/offer applies. `apply_tier_offer_prices` is retained for compatibility; callers use True so
+    tier promotional prices match the website.
     """
     cur = (currency or "aed").lower()
     self_tier, fam_tier = _pick_self_and_family_tier_indices(program, tier_index_override)
@@ -812,7 +833,7 @@ async def _portal_combined_dashboard_total(user: dict, profile: ProfileData) -> 
         return None
     client = await db.clients.find_one({"id": client_id}, {"_id": 0}) or {}
     sub = client.get("subscription") or {}
-    is_annual = _is_annual_subscriber(sub, client)
+    annual_dashboard_access = _annual_dashboard_access(client)
     cur = (profile.portal_cart_currency or "aed").strip().lower()
     settings_doc = await db.site_settings.find_one(
         {"id": "site_settings"},
@@ -848,15 +869,13 @@ async def _portal_combined_dashboard_total(user: dict, profile: ProfileData) -> 
             imm_fc, ext_fc = _split_guest_ids_by_bucket(client, id_list)
         else:
             imm_fc, ext_fc = 0, 0
-        included = _program_included_in_annual_package(program, inc_cfg)
-        if not is_annual:
-            included = False
+        included = _portal_included_in_annual_package(program, inc_cfg, sub, client)
         if included:
             include_self = False
         else:
             include_self = bool(line.booker_joins)
         ao, fo, eo = _merge_program_dashboard_offers(g_ao, g_fo, g_eo, pid, per_map)
-        if not is_annual:
+        if not annual_dashboard_access:
             ao, fo, eo = {}, {}, {}
         pricing = await compute_dashboard_annual_family_pricing(
             program,
@@ -869,7 +888,7 @@ async def _portal_combined_dashboard_total(user: dict, profile: ProfileData) -> 
             eo,
             include_self=include_self,
             tier_index_override=line.tier_index,
-            apply_tier_offer_prices=is_annual,
+            apply_tier_offer_prices=True,
         )
         total += float(pricing.get("total") or 0)
     return round(total, 2), cur
@@ -911,13 +930,18 @@ async def dashboard_quote(
     tier_index: Optional[int] = Query(None, description="Flagship duration tier index (1 month, 3 month, annual, …)"),
     user: dict = Depends(get_current_user),
 ):
-    """Portal pricing for logged-in clients (same rules as Sacred Home upcoming cards). Annual-only package inclusion applies to annual subscribers."""
+    """Portal pricing for logged-in clients (Sacred Home + Divine Cart).
+
+    Dashboard Settings offer columns (annual / family / extended) apply only when
+    Client Garden access type is Annual (`annual_member_dashboard`). Non-annual
+    access uses the same tier list/offer basis as the public website (no portal overlays).
+    """
     client_id = user.get("client_id")
     if not client_id:
         raise HTTPException(status_code=400, detail="User not linked to client record")
     client = await db.clients.find_one({"id": client_id}, {"_id": 0}) or {}
     sub = client.get("subscription") or {}
-    is_annual = _is_annual_subscriber(sub, client)
+    annual_dashboard_access = _annual_dashboard_access(client)
     fam = _all_dashboard_guest_rows(client)
     id_list = [x.strip() for x in (family_ids or "").split(",") if x.strip()]
     if id_list:
@@ -954,9 +978,9 @@ async def dashboard_quote(
             "dashboard_annual_quote_show_tax": 1,
         },
     ) or {}
-    included = _program_included_in_annual_package(program, settings_doc.get("annual_package_included_program_ids"))
-    if not is_annual:
-        included = False
+    included = _portal_included_in_annual_package(
+        program, settings_doc.get("annual_package_included_program_ids"), sub, client
+    )
     if included:
         include_self = False
     else:
@@ -966,7 +990,7 @@ async def dashboard_quote(
     g_eo = settings_doc.get("dashboard_offer_extended") or {}
     per_map = settings_doc.get("dashboard_program_offers") or {}
     ao, fo, eo = _merge_program_dashboard_offers(g_ao, g_fo, g_eo, program_id, per_map)
-    if not is_annual:
+    if not annual_dashboard_access:
         ao, fo, eo = {}, {}, {}
     pricing = await compute_dashboard_annual_family_pricing(
         program,
@@ -979,7 +1003,7 @@ async def dashboard_quote(
         eo,
         include_self=include_self,
         tier_index_override=tier_index,
-        apply_tier_offer_prices=is_annual,
+        apply_tier_offer_prices=True,
     )
     cur = str(pricing.get("currency") or "aed").lower()
     gst_pct = float(settings_doc.get("india_gst_percent") or 18)
@@ -1013,7 +1037,7 @@ async def dashboard_pay(data: DashboardPayIn, request: Request, user: dict = Dep
         raise HTTPException(status_code=400, detail="User not linked to client record")
     client = await db.clients.find_one({"id": client_id}, {"_id": 0}) or {}
     sub = client.get("subscription") or {}
-    is_annual = _is_annual_subscriber(sub, client)
+    annual_dashboard_access = _annual_dashboard_access(client)
     program = await db.programs.find_one({"id": data.program_id}, {"_id": 0})
     if not program:
         raise HTTPException(status_code=404, detail="Program not found")
@@ -1031,9 +1055,9 @@ async def dashboard_pay(data: DashboardPayIn, request: Request, user: dict = Dep
             "dashboard_program_offers": 1,
         },
     ) or {}
-    included = _program_included_in_annual_package(program, settings_doc.get("annual_package_included_program_ids"))
-    if not is_annual:
-        included = False
+    included = _portal_included_in_annual_package(
+        program, settings_doc.get("annual_package_included_program_ids"), sub, client
+    )
     all_guests = _all_dashboard_guest_rows(client)
     resolved_family = _resolve_family_rows(client, list(data.family_member_ids or []), int(data.family_count or 0))
     imm_fc, ext_fc = _split_resolved_guest_rows_by_bucket(client, resolved_family)
@@ -1054,7 +1078,7 @@ async def dashboard_pay(data: DashboardPayIn, request: Request, user: dict = Dep
     g_eo = settings_doc.get("dashboard_offer_extended") or {}
     per_map = settings_doc.get("dashboard_program_offers") or {}
     ao, fo, eo = _merge_program_dashboard_offers(g_ao, g_fo, g_eo, data.program_id, per_map)
-    if not is_annual:
+    if not annual_dashboard_access:
         ao, fo, eo = {}, {}, {}
     quote = await compute_dashboard_annual_family_pricing(
         program,
@@ -1066,7 +1090,7 @@ async def dashboard_pay(data: DashboardPayIn, request: Request, user: dict = Dep
         fo,
         eo,
         include_self=not included,
-        apply_tier_offer_prices=is_annual,
+        apply_tier_offer_prices=True,
     )
     if quote["total"] <= 0:
         raise HTTPException(status_code=400, detail="No payable amount for this program")
@@ -1347,6 +1371,8 @@ async def get_student_home(user: dict = Depends(get_current_user)):
         "client_id": client_id,
         "upcoming_programs": upcoming,
         "is_annual_subscriber": is_annual,
+        "annual_member_dashboard": bool(client.get("annual_member_dashboard")),
+        "subscription_annual_package_signals": _subscription_annual_package_signals(sub),
         "dashboard_offers": {
             "annual": dashboard_offer_annual,
             "family": dashboard_offer_family,

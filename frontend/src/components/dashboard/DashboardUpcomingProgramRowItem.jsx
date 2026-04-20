@@ -187,6 +187,9 @@ function AnnualQuoteBreakdown({
 export default function DashboardUpcomingProgramRowItem({
   program: p,
   isAnnual: subscriberIsAnnual,
+  /** Client Garden Dashboard Access = Annual — portal quote applies dashboard offer overlays. */
+  annualDashboardAccess = false,
+  subscriptionAnnualSignals = false,
   bookerEmail = '',
   detectedCountry,
   symbol,
@@ -232,9 +235,8 @@ export default function DashboardUpcomingProgramRowItem({
 
   const price = getPrice(p, hasTiers ? tierIdxForDisplay : null);
   const offerPrice = getOfferPrice(p, hasTiers ? tierIdxForDisplay : null);
-  /** Dashboard: tier promotional offer applies to annual subscribers only; others pay list (matches portal quote). */
-  const dashboardSeatUnit =
-    subscriberIsAnnual && offerPrice > 0 ? offerPrice : price;
+  /** Public-site style unit: tier offer when set, else list (portal quote adds dashboard overlays only for Annual access). */
+  const dashboardSeatUnit = offerPrice > 0 ? offerPrice : price;
   const showContact = !subscriberIsAnnual && tierIsYearLong && price === 0;
 
   const deadline = p.deadline_date || p.start_date;
@@ -254,8 +256,12 @@ export default function DashboardUpcomingProgramRowItem({
   const afterPromo = Math.max(0, baseForPromo - disc);
   const showSpecialPromo = Boolean(promoForProgramClicks && validated && disc > 0 && !promoPricesLoading);
 
-  const includedPkg =
-    subscriberIsAnnual && (aq?.included_in_annual_package ?? programIncludedInAnnualPackage(p, annualIncludedIds));
+  const includedPkg = Boolean(
+    aq?.included_in_annual_package ??
+      (programIncludedInAnnualPackage(p, annualIncludedIds) &&
+        annualDashboardAccess &&
+        subscriptionAnnualSignals),
+  );
   const selIds = selectedFamilyByProgram[p.id] || [];
   const selCount = selIds.length;
   const hasPortalTotal = aq != null && typeof aq.total === 'number';
@@ -529,7 +535,6 @@ export default function DashboardUpcomingProgramRowItem({
                 </div>
               ) : null}
               {enrollStatus === 'open' &&
-                subscriberIsAnnual &&
                 offerPrice > 0 &&
                 deadline &&
                 (() => {
@@ -565,13 +570,13 @@ export default function DashboardUpcomingProgramRowItem({
                     <span className="text-xs text-violet-700 font-medium">
                       With {promoForProgramClicks} (on offer price)
                     </span>
-                    {subscriberIsAnnual && offerPrice > 0 && price > offerPrice ? (
+                    {offerPrice > 0 && price > offerPrice ? (
                       <span className="text-[10px] text-gray-400">List {symbol}
                         {price.toLocaleString()}
                       </span>
                     ) : null}
                   </div>
-                ) : subscriberIsAnnual && offerPrice > 0 ? (
+                ) : offerPrice > 0 ? (
                   <>
                     <span className="text-xl font-bold text-[#D4AF37] tabular-nums">
                       {symbol} {offerPrice.toLocaleString()}
@@ -641,8 +646,7 @@ export default function DashboardUpcomingProgramRowItem({
                             <span className="font-medium text-slate-800">Your seat</span>
                             <span className="font-semibold tabular-nums text-slate-900 text-right">
                               {symbol}{seatPrice.toLocaleString()}
-                              {subscriberIsAnnual &&
-                                offerPrice > 0 &&
+                              {offerPrice > 0 &&
                                 price > offerPrice &&
                                 !showSpecialPromo && (
                                 <span className="text-slate-400 line-through ml-1.5 text-[10px] font-normal">{symbol}{price.toLocaleString()}</span>
@@ -700,17 +704,13 @@ export default function DashboardUpcomingProgramRowItem({
                     {symbol} {Number(aq.total ?? 0).toLocaleString()}
                   </span>
                 </p>
-              ) : subscriberIsAnnual ? (
-                <p className="text-[11px] text-slate-500 italic mt-2 pt-2 border-t border-slate-100">
-                  Loading portal total…
-                </p>
               ) : (() => {
                 const bookerJoins = annualSeatUi?.draft?.bookerJoinsProgram !== false;
                 const seatPrice = showSpecialPromo ? afterPromo : dashboardSeatUnit;
                 const immCount = selIds.filter(id => members.some(m => String(m.id) === id)).length;
                 const extCount = selIds.filter(id => otherMembers.some(m => String(m.id) === id)).length;
                 const grandTotal =
-                  (price > 0 || (subscriberIsAnnual && offerPrice > 0))
+                  (price > 0 || offerPrice > 0)
                     ? (bookerJoins ? seatPrice : 0) + (immCount + extCount) * seatPrice
                     : 0;
                 const hasGuests = immCount > 0 || extCount > 0;

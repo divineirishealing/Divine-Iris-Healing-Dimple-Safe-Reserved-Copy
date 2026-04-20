@@ -261,7 +261,6 @@ export default function DashboardCombinedCheckoutPage() {
   const [clientIndiaPricing, setClientIndiaPricing] = useState(null);
   /** From Client Garden — drives Divine Cart payment pills when set (Stripe, GPay/UPI, bank, cash). */
   const [clientPreferredPaymentMethod, setClientPreferredPaymentMethod] = useState('');
-  const [subscriberIsAnnual, setSubscriberIsAnnual] = useState(false);
   const [annualPortalSubtotal, setAnnualPortalSubtotal] = useState(null);
   const [annualQuotesByProgram, setAnnualQuotesByProgram] = useState({});
   const promoFromUrlApplied = useRef(false);
@@ -396,7 +395,6 @@ export default function DashboardCombinedCheckoutPage() {
         if (cancelled) return;
         const pm = homeRes.data?.payment_methods;
         if (Array.isArray(pm) && pm.length) setPaymentMethods(pm);
-        setSubscriberIsAnnual(!!homeRes.data?.is_annual_subscriber);
         setPortalSelf(prefillRes.data?.self || null);
         setClientIndiaPricing(homeRes.data?.client_india_pricing || null);
         setClientPreferredPaymentMethod(String(homeRes.data?.preferred_payment_method || '').trim());
@@ -464,7 +462,8 @@ export default function DashboardCombinedCheckoutPage() {
           ? settingsRes.data.annual_package_included_program_ids
           : [];
         const upcoming = home.upcoming_programs || [];
-        const isAnnual = !!home.is_annual_subscriber;
+        const annualAccess = !!home.annual_member_dashboard;
+        const subAnnualSignals = !!home.subscription_annual_package_signals;
         const immediateFamily = home.immediate_family || [];
         const enrollableGuests = [...immediateFamily, ...(home.other_guests || [])];
         const snap = readUpcomingDashboardSession(email);
@@ -476,7 +475,8 @@ export default function DashboardCombinedCheckoutPage() {
           const program = upcoming.find((p) => String(p.id) === String(line.programId));
           if (!program) continue;
 
-          const includedForSeat = isAnnual && programIncludedInAnnualPackage(program, annualIncludedIds);
+          const includedForSeat =
+            annualAccess && subAnnualSignals && programIncludedInAnnualPackage(program, annualIncludedIds);
           const sel = selectedMap[program.id] || selectedMap[String(program.id)] || [];
           const perDraft = drafts[program.id] || drafts[String(program.id)];
           const draft = mergeGlobalSeatDraft(
@@ -579,11 +579,11 @@ export default function DashboardCombinedCheckoutPage() {
     return toDisplay(base);
   };
 
-  /** Non–annual subscribers pay published list prices on the dashboard; tier offers apply only for annual subscribers. */
+  /** When the portal quote is unavailable, match public site: tier offer if set, else list. Quotes include dashboard overlays only for Annual access. */
   const getEffectivePrice = (item) => {
-    if (!subscriberIsAnnual) return getItemPrice(item);
     const offer = getItemOfferPrice(item);
-    return offer > 0 ? offer : getItemPrice(item);
+    const list = getItemPrice(item);
+    return offer > 0 ? offer : list;
   };
 
   useEffect(() => {
@@ -659,15 +659,16 @@ export default function DashboardCombinedCheckoutPage() {
       for (const p of item.participants || []) {
         const meta = item.portalLineMeta || {};
         const selfIncluded =
-          subscriberIsAnnual && meta.annualIncluded && String(p.relationship || '').trim() === 'Myself';
+          meta.annualIncluded && String(p.relationship || '').trim() === 'Myself';
         if (selfIncluded) continue;
         const lineQuote = annualQuotesByProgram[String(item.programId)] || null;
         const guestBucketById = meta.guestBucketById || {};
         const portalBase = lineQuote ? annualPortalSeatUnitBasePrices(lineQuote, p, guestBucketById) : null;
+        const fallbackOffer = getItemOfferPrice(item);
         const unitOfferRaw = portalBase
           ? toDisplay(portalBase.offer)
-          : subscriberIsAnnual
-            ? getItemOfferPrice(item)
+          : fallbackOffer > 0
+            ? fallbackOffer
             : getItemPrice(item);
         const unitListRaw = portalBase
           ? toDisplay(portalBase.list)
@@ -683,7 +684,7 @@ export default function DashboardCombinedCheckoutPage() {
       listTotal: Math.round(listTotal * 100) / 100,
       offerTotal: Math.round(offerTotal * 100) / 100,
     };
-  }, [items, subscriberIsAnnual, annualQuotesByProgram, currency, toDisplay]);
+  }, [items, annualQuotesByProgram, currency, toDisplay]);
 
   const cartProgramIdsForUrgency = useMemo(
     () =>
@@ -1190,7 +1191,7 @@ export default function DashboardCombinedCheckoutPage() {
             const notify = combinedNotifyLabel(p);
             const meta = item.portalLineMeta;
             const selfIncluded =
-              subscriberIsAnnual && meta?.annualIncluded && String(p.relationship || '').trim() === 'Myself';
+              meta?.annualIncluded && String(p.relationship || '').trim() === 'Myself';
             const lineQuote = annualQuotesByProgram[String(item.programId)] || null;
             const guestBucketById = meta?.guestBucketById || {};
             const portalBase =
