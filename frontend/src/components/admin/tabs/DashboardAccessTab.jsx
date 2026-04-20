@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import axios from 'axios';
 import { KeyRound, RefreshCw, Search, Loader2, Pencil } from 'lucide-react';
+import { buildIndiaGpayOptions, buildIndiaBankOptions, gpayRowMatchesPreference } from '../../../lib/indiaPaymentTags';
 import { Input } from '../../ui/input';
 import { Button } from '../../ui/button';
 import { Label } from '../../ui/label';
@@ -73,6 +74,37 @@ function isAnnualViaSubscription(cl) {
   return false;
 }
 
+/** Resolve Client Garden tag + pinned rows to labels from Site Settings → Indian Payment (GPay/UPI & bank list). */
+function formatTaggedPaymentDetails(cl, siteInfo) {
+  const method = String(cl.india_payment_method || '').trim().toLowerCase();
+  if (method === 'stripe') return 'Stripe';
+
+  const info = siteInfo && typeof siteInfo === 'object' ? siteInfo : {};
+  const gpayOpts = buildIndiaGpayOptions(info);
+  const bankOpts = buildIndiaBankOptions(info);
+  const prefG = (cl.preferred_india_gpay_id || '').trim();
+  const prefB = (cl.preferred_india_bank_id || '').trim();
+
+  const parts = [];
+  if (method && method !== 'any') parts.push(labelFrom(TAG_LABEL, method));
+
+  const tagGpay =
+    method === 'gpay_upi' || method === 'gpay' || method === 'upi' || method === 'any' || !method;
+  if (tagGpay && prefG) {
+    const row = gpayOpts.find((o) => gpayRowMatchesPreference(o, prefG));
+    parts.push(row ? row.label : `UPI ref: ${prefG}`);
+  }
+
+  const tagBank = method === 'bank_transfer' || method === 'cash_deposit' || method === 'cash' || method === 'any';
+  if (tagBank && prefB) {
+    const row = bankOpts.find((b) => (b.tag_id || b.bank_code) === prefB);
+    parts.push(row ? row.label : `Bank ref: ${prefB}`);
+  }
+
+  if (parts.length === 0) return labelFrom(TAG_LABEL, cl.india_payment_method);
+  return parts.join(' · ');
+}
+
 export default function DashboardAccessTab() {
   const { toast } = useToast();
   const [clients, setClients] = useState([]);
@@ -80,6 +112,8 @@ export default function DashboardAccessTab() {
   const [searchText, setSearchText] = useState('');
   const searchRef = useRef(searchText);
   searchRef.current = searchText;
+  /** Site Settings — Indian Payment GPay rows & bank rows (same source as Client Garden). */
+  const [indiaSite, setIndiaSite] = useState(null);
 
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState(null);
@@ -87,10 +121,22 @@ export default function DashboardAccessTab() {
   const [annualMemberDashboard, setAnnualMemberDashboard] = useState(false);
   const [preferredPaymentMethod, setPreferredPaymentMethod] = useState('');
   const [indiaPaymentMethod, setIndiaPaymentMethod] = useState('');
+  const [preferredIndiaGpayId, setPreferredIndiaGpayId] = useState('');
+  const [preferredIndiaBankId, setPreferredIndiaBankId] = useState('');
   const [indiaDiscountPercent, setIndiaDiscountPercent] = useState('');
   const [indiaTaxEnabled, setIndiaTaxEnabled] = useState(false);
   const [indiaTaxPercent, setIndiaTaxPercent] = useState(18);
   const [indiaTaxLabel, setIndiaTaxLabel] = useState('GST');
+
+  const indiaGpayOpts = useMemo(() => buildIndiaGpayOptions(indiaSite || {}), [indiaSite]);
+  const indiaBankOpts = useMemo(() => buildIndiaBankOptions(indiaSite || {}), [indiaSite]);
+
+  useEffect(() => {
+    axios
+      .get(`${API}/settings`)
+      .then((r) => setIndiaSite(r.data || {}))
+      .catch(() => setIndiaSite({}));
+  }, []);
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -112,11 +158,21 @@ export default function DashboardAccessTab() {
     fetchData();
   }, [fetchData]);
 
+  const setIndiaMethodTagged = (v) => {
+    setIndiaPaymentMethod(v);
+    const gpayOk = v === 'gpay_upi' || v === 'any' || v === '';
+    const bankOk = v === 'bank_transfer' || v === 'cash_deposit' || v === 'any' || v === '';
+    if (!gpayOk) setPreferredIndiaGpayId('');
+    if (!bankOk) setPreferredIndiaBankId('');
+  };
+
   const openEdit = (cl) => {
     setEditing(cl);
     setAnnualMemberDashboard(!!cl.annual_member_dashboard);
     setPreferredPaymentMethod(cl.preferred_payment_method || '');
     setIndiaPaymentMethod(cl.india_payment_method || '');
+    setPreferredIndiaGpayId(cl.preferred_india_gpay_id || '');
+    setPreferredIndiaBankId(cl.preferred_india_bank_id || '');
     setIndiaDiscountPercent(cl.india_discount_percent ?? '');
     setIndiaTaxEnabled(!!cl.india_tax_enabled);
     setIndiaTaxPercent(cl.india_tax_percent ?? 18);
@@ -145,6 +201,8 @@ export default function DashboardAccessTab() {
         india_tax_enabled: indiaTaxEnabled,
         india_tax_percent: indiaTaxEnabled ? parseFloat(String(indiaTaxPercent)) || 0 : null,
         india_tax_label: (indiaTaxLabel || 'GST').trim() || 'GST',
+        preferred_india_gpay_id: (preferredIndiaGpayId || '').trim() || '',
+        preferred_india_bank_id: (preferredIndiaBankId || '').trim() || '',
       });
       toast({ title: 'Saved', description: 'Dashboard access fields updated.' });
       closeDialog();
@@ -171,8 +229,8 @@ export default function DashboardAccessTab() {
           <div>
             <h2 className="text-lg font-semibold text-gray-900">Dashboard access</h2>
             <p className="text-xs text-gray-500 mt-0.5 max-w-2xl">
-              Set access type (annual on Sacred Home), preferred payment, India payment tag, GST, and per-client discount.
-              Name, email, and phone are edited in Client Garden rows.
+              Tagged payment shows rows from <strong>Site Settings → Indian Payment</strong> (e.g. pin “Priyanka” UPI). Set
+              access type, preferred payment, tags, GST, and discount; name and phone stay in Client Garden.
             </p>
           </div>
         </div>
@@ -198,7 +256,7 @@ export default function DashboardAccessTab() {
 
       <div className="bg-white rounded-lg border shadow-sm overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="w-full text-sm min-w-[1080px]">
+          <table className="w-full text-sm min-w-[1180px]">
             <thead className="bg-gray-50 border-b">
               <tr>
                 <th className="text-left px-3 py-2.5 text-[10px] font-semibold text-gray-500 uppercase tracking-wider">
@@ -213,8 +271,8 @@ export default function DashboardAccessTab() {
                 <th className="text-left px-3 py-2.5 text-[10px] font-semibold text-gray-500 uppercase tracking-wider">
                   Preferred payment
                 </th>
-                <th className="text-left px-3 py-2.5 text-[10px] font-semibold text-gray-500 uppercase tracking-wider">
-                  Payment tag
+                <th className="text-left px-3 py-2.5 text-[10px] font-semibold text-gray-500 uppercase tracking-wider min-w-[200px]">
+                  Tagged payment (site)
                 </th>
                 <th className="text-left px-3 py-2.5 text-[10px] font-semibold text-gray-500 uppercase tracking-wider">
                   Access type
@@ -248,6 +306,7 @@ export default function DashboardAccessTab() {
                 rows.map((cl) => {
                   const accessTagged = cl.annual_member_dashboard ? 'Annual' : 'Non-annual';
                   const subHint = !cl.annual_member_dashboard && isAnnualViaSubscription(cl);
+                  const taggedDetail = formatTaggedPaymentDetails(cl, indiaSite);
                   return (
                     <tr key={cl.id} className="hover:bg-gray-50/80">
                       <td className="px-3 py-2 text-gray-900 font-medium max-w-[120px] truncate" title={cl.name}>
@@ -260,8 +319,11 @@ export default function DashboardAccessTab() {
                       <td className="px-3 py-2 text-gray-700 text-xs max-w-[100px]">
                         {labelFrom(PREFERRED_LABEL, cl.preferred_payment_method)}
                       </td>
-                      <td className="px-3 py-2 text-gray-700 text-xs max-w-[100px]">
-                        {labelFrom(TAG_LABEL, cl.india_payment_method)}
+                      <td
+                        className="px-3 py-2 text-gray-800 text-[11px] max-w-[min(280px,28vw)] align-top leading-snug"
+                        title={taggedDetail}
+                      >
+                        {taggedDetail}
                       </td>
                       <td className="px-3 py-2">
                         <span
@@ -302,7 +364,7 @@ export default function DashboardAccessTab() {
       </div>
 
       <Dialog open={dialogOpen} onOpenChange={(o) => !o && closeDialog()}>
-        <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto" data-testid="dashboard-access-edit-dialog">
+        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto" data-testid="dashboard-access-edit-dialog">
           <DialogHeader>
             <DialogTitle>Edit dashboard access</DialogTitle>
             <DialogDescription>
@@ -343,11 +405,13 @@ export default function DashboardAccessTab() {
             </div>
 
             <div>
-              <Label className="text-xs text-gray-600">Payment details tag</Label>
-              <p className="text-[10px] text-gray-400 mb-1.5">Controls which India / manual options show on checkout.</p>
+              <Label className="text-xs text-gray-600">Payment method tag</Label>
+              <p className="text-[10px] text-gray-400 mb-1.5">
+                Which rails show on checkout. Then pin a Divine Iris GPay or bank row from Site Settings → Indian Payment.
+              </p>
               <select
                 value={indiaPaymentMethod}
-                onChange={(e) => setIndiaPaymentMethod(e.target.value)}
+                onChange={(e) => setIndiaMethodTagged(e.target.value)}
                 className="w-full text-sm border rounded-md px-2 py-2 bg-white mt-1"
               >
                 <option value="">— Not tagged —</option>
@@ -358,6 +422,51 @@ export default function DashboardAccessTab() {
                 <option value="any">Any / multiple</option>
               </select>
             </div>
+
+            {indiaGpayOpts.length >= 1 && (indiaPaymentMethod === 'gpay_upi' || indiaPaymentMethod === 'any') && (
+              <div>
+                <Label className="text-xs text-gray-600">Tagged UPI (from Indian Payment list)</Label>
+                <p className="text-[10px] text-gray-400 mb-1">
+                  e.g. pick “Priyanka” so this client only sees that GPay row on proof / cart.
+                </p>
+                <select
+                  value={preferredIndiaGpayId}
+                  onChange={(e) => setPreferredIndiaGpayId(e.target.value)}
+                  className="w-full text-sm border rounded-md px-2 py-2 bg-white mt-1"
+                  data-testid="dashboard-access-preferred-gpay"
+                >
+                  <option value="">All UPIs (full list on payment)</option>
+                  {indiaGpayOpts.map((o) => (
+                    <option key={o.tag_id} value={o.tag_id}>
+                      {o.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+
+            {indiaBankOpts.length >= 1 &&
+              (indiaPaymentMethod === 'bank_transfer' ||
+                indiaPaymentMethod === 'cash_deposit' ||
+                indiaPaymentMethod === 'any') && (
+                <div>
+                  <Label className="text-xs text-gray-600">Tagged bank account</Label>
+                  <p className="text-[10px] text-gray-400 mb-1">Pin one bank row from Site Settings.</p>
+                  <select
+                    value={preferredIndiaBankId}
+                    onChange={(e) => setPreferredIndiaBankId(e.target.value)}
+                    className="w-full text-sm border rounded-md px-2 py-2 bg-white mt-1"
+                    data-testid="dashboard-access-preferred-bank"
+                  >
+                    <option value="">All accounts (student picks)</option>
+                    {indiaBankOpts.map((o) => (
+                      <option key={o.tag_id} value={o.tag_id}>
+                        {o.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
 
             <div>
               <Label className="text-xs text-gray-600">Discount % on base price</Label>

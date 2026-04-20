@@ -1277,9 +1277,6 @@ export default function DashboardCombinedCheckoutPage() {
               className="space-y-1 border border-amber-200/80 bg-amber-50/50 rounded-lg px-3 py-2.5 mt-2"
               data-testid="divine-cart-india-settlement"
             >
-              <p className="text-[9px] font-bold uppercase tracking-wide text-amber-900/90 mb-0.5">
-                India (INR) — matches Client Garden &amp; payment settings
-              </p>
               <div className="flex justify-between text-sm text-amber-950">
                 <span>
                   {indiaBreakdown.discountLabel} ({indiaBreakdown.discountPct}%)
