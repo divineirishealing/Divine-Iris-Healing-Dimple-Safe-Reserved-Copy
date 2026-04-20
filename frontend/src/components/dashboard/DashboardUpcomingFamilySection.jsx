@@ -467,15 +467,8 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh, bo
     country: detectedCountry,
   } = useCurrency();
 
-  /** INR hub when whitelisted / override, even if IP-based currency detect is still USD+local FX. */
-  const portalQuoteCurrency = useMemo(() => {
-    const wl = (siteSettings?.inr_whitelist_emails || []).map((e) => String(e).toLowerCase().trim()).filter(Boolean);
-    const em = (bookerEmail || user?.email || '').toLowerCase().trim();
-    if (em && wl.includes(em)) return 'inr';
-    if ((user?.pricing_country_override || '').toUpperCase() === 'IN') return 'inr';
-    if (currency === 'inr') return 'inr';
-    return currency;
-  }, [siteSettings?.inr_whitelist_emails, bookerEmail, user?.email, user?.pricing_country_override, currency]);
+  /** Same pricing hub as payment gateway: GET /api/currency/detect (whitelist + IP + VPN) — do not duplicate rules here. */
+  const portalQuoteCurrency = currencyReady ? currency : 'aed';
 
   const portalQuoteSymbol = portalQuoteCurrency === 'inr' ? '₹' : symbol;
 

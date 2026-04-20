@@ -13,6 +13,8 @@ from models_extended import JourneyLog
 from iris_journey import resolve_iris_journey
 from routes.programs import fetch_programs_with_deadline_sync, sort_programs_like_homepage
 from routes.enrollment import ProfileData, insert_enrollment_from_profile
+from routes.currency import assert_claimed_hub_matches_stripe
+from country_normalize import normalize_country_iso2
 
 ROOT_DIR = Path(__file__).parent.parent
 load_dotenv(ROOT_DIR / '.env')
@@ -905,6 +907,7 @@ async def student_combined_enrollment_start(profile: ProfileData, request: Reque
         raise HTTPException(status_code=400, detail="Account has no email")
     if uemail != profile.booker_email.strip().lower():
         raise HTTPException(status_code=403, detail="Booker email must match your logged-in account.")
+    await assert_claimed_hub_matches_stripe(request, (profile.portal_cart_currency or "aed").strip())
     mixed = await _portal_combined_dashboard_total(user, profile)
     result = await insert_enrollment_from_profile(profile, request, trusted_contact=True)
     if mixed:
@@ -925,6 +928,7 @@ async def student_combined_enrollment_start(profile: ProfileData, request: Reque
 
 @router.get("/dashboard-quote")
 async def dashboard_quote(
+    request: Request,
     program_id: str,
     family_count: int = 0,
     family_ids: str = "",
@@ -942,6 +946,7 @@ async def dashboard_quote(
     client_id = user.get("client_id")
     if not client_id:
         raise HTTPException(status_code=400, detail="User not linked to client record")
+    await assert_claimed_hub_matches_stripe(request, currency)
     client = await db.clients.find_one({"id": client_id}, {"_id": 0}) or {}
     sub = client.get("subscription") or {}
     annual_dashboard_access = _annual_dashboard_access(client)
@@ -1157,6 +1162,7 @@ async def dashboard_pay(data: DashboardPayIn, request: Request, user: dict = Dep
     client_id = user.get("client_id")
     if not client_id:
         raise HTTPException(status_code=400, detail="User not linked to client record")
+    await assert_claimed_hub_matches_stripe(request, data.currency)
     client = await db.clients.find_one({"id": client_id}, {"_id": 0}) or {}
     sub = client.get("subscription") or {}
     annual_dashboard_access = _annual_dashboard_access(client)
@@ -1224,6 +1230,7 @@ async def dashboard_pay(data: DashboardPayIn, request: Request, user: dict = Dep
     }
 
     snap = _profile_snapshot_for_prefill(user, client)
+    booker_country_iso = normalize_country_iso2(snap.get("country") or client.get("country"))
     booker_email_raw = (snap.get("email") or user.get("email") or "").strip()
     if not included and bool(data.booker_notify) and not booker_email_raw:
         raise HTTPException(
@@ -1258,7 +1265,7 @@ async def dashboard_pay(data: DashboardPayIn, request: Request, user: dict = Dep
                 relationship="Myself",
                 age=_age_int(snap.get("age")),
                 gender=(snap.get("gender") or "Prefer not to say")[:40],
-                country=(snap.get("country") or "AE")[:4],
+                country=booker_country_iso,
                 city=(snap.get("city") or "")[:120],
                 state="",
                 attendance_mode=booker_mode,
@@ -1272,8 +1279,9 @@ async def dashboard_pay(data: DashboardPayIn, request: Request, user: dict = Dep
         )
     for m in resolved_family:
         fam_email = (m.get("email") or "").strip() or None
-        fam_country = (m.get("country") or "").strip() or (snap.get("country") or "AE")
-        fam_country = str(fam_country)[:4] or "AE"
+        raw_gc = (m.get("country") or "").strip()
+        # Per-guest country only — do not inherit booker's country when family/friends differ (same as gateway ISO claims).
+        fam_country = normalize_country_iso2(raw_gc) if raw_gc else "AE"
         mid = str(m.get("id") or "").strip()
         pref = pref_by_id.get(mid)
         fam_mode = _normalize_attendance_mode(
@@ -1312,7 +1320,7 @@ async def dashboard_pay(data: DashboardPayIn, request: Request, user: dict = Dep
         "item_title": program.get("title") or "",
         "booker_name": snap.get("name") or user.get("name") or "Student",
         "booker_email": (user.get("email") or "").lower().strip(),
-        "booker_country": snap.get("country") or "AE",
+        "booker_country": booker_country_iso,
         "participants": [p.model_dump(mode="python") for p in participants],
         "participant_count": len(participants),
         "ip_info": ip_info,

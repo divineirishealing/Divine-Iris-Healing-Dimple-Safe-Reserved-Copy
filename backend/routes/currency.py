@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Request
+from fastapi import APIRouter, Request, HTTPException
 from typing import Optional
 from models import CurrencyInfo
 import httpx
@@ -237,6 +237,22 @@ async def resolve_stripe_hub_currency(request: Request, sponsor_or_guest_email: 
         return "inr"
     ip_country, vpn_detected = await detect_ip_info(request)
     return get_base_currency(ip_country, vpn_detected)
+
+
+async def assert_claimed_hub_matches_stripe(request: Request, claimed_currency: Optional[str]) -> None:
+    """Same rules as POST /payments/create-checkout — Sacred Home quotes and dashboard-pay must match server hub."""
+    server_hub = await resolve_stripe_hub_currency(request, None)
+    claimed = (claimed_currency or "usd").lower().strip()
+    if claimed == "inr" and server_hub != "inr":
+        raise HTTPException(
+            status_code=403,
+            detail="Currency mismatch — your region does not qualify for INR pricing. Please refresh the page.",
+        )
+    if claimed == "aed" and server_hub == "usd":
+        raise HTTPException(
+            status_code=403,
+            detail="Currency mismatch — please refresh the page.",
+        )
 
 
 # ── Endpoints ──

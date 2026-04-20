@@ -1,6 +1,8 @@
 from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel, EmailStr, Field
 from typing import Optional, List
+
+from country_normalize import normalize_country_iso2
 import os, re, random, uuid, logging, httpx, dns.resolver
 from motor.motor_asyncio import AsyncIOMotorClient
 from dotenv import load_dotenv
@@ -286,15 +288,22 @@ async def insert_enrollment_from_profile(profile: ProfileData, request: Request,
     mystery = f"{month}{seq * 3:02d}"
     receipt_id = f"DIH-{mystery}-{seq:03d}"
 
+    booker_c = normalize_country_iso2(profile.booker_country)
+    norm_participants: List[ParticipantData] = []
+    for p in profile.participants:
+        pd = p.model_dump(mode="python")
+        pd["country"] = normalize_country_iso2(pd.get("country"))
+        norm_participants.append(ParticipantData(**pd))
+
     enrollment = {
         "id": receipt_id,
         "status": "contact_verified" if trusted_contact else "profile_complete",
         "step": 3 if trusted_contact else 1,
         "booker_name": profile.booker_name,
         "booker_email": email,
-        "booker_country": profile.booker_country,
-        "participants": [p.model_dump(mode="python") for p in profile.participants],
-        "participant_count": len(profile.participants),
+        "booker_country": booker_c,
+        "participants": [p.model_dump(mode="python") for p in norm_participants],
+        "participant_count": len(norm_participants),
         "ip_info": ip_info,
         "phone": None,
         "phone_verified": trusted_contact,
