@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException, UploadFile, File, Form, Depends
+from fastapi import APIRouter, HTTPException, UploadFile, File, Form, Depends, Request, Query, Body
 from pydantic import BaseModel
 from typing import Optional, List
 import pandas as pd
@@ -11,8 +11,19 @@ import os
 from dotenv import load_dotenv
 from pathlib import Path
 
-from routes.auth import require_admin_console
+from routes.auth import assert_admin_session_or_password
 from routes.student import build_admin_dashboard_pricing_snapshot
+
+
+class DashboardPreviewBody(BaseModel):
+    admin_password: Optional[str] = None
+
+
+async def _dashboard_pricing_snapshot_response(client_id: str, currency: str):
+    snap = await build_admin_dashboard_pricing_snapshot(client_id, currency=(currency or "inr").lower())
+    if snap is None:
+        raise HTTPException(status_code=404, detail="Client not found")
+    return snap
 
 ROOT_DIR = Path(__file__).parent.parent
 load_dotenv(ROOT_DIR / '.env')
@@ -178,16 +189,26 @@ async def reject_profile(user_id: str):
 
 
 @router.get("/{client_id}/dashboard-pricing-preview")
-async def dashboard_pricing_preview(
+async def dashboard_pricing_preview_get(
     client_id: str,
-    currency: str = "inr",
-    _authorized: bool = Depends(require_admin_console),
+    request: Request,
+    currency: str = Query("inr"),
 ):
-    """Admin-only: portal-style self-seat quotes for upcoming programs (same math as student dashboard)."""
-    snap = await build_admin_dashboard_pricing_snapshot(client_id, currency=(currency or "inr").lower())
-    if snap is None:
-        raise HTTPException(status_code=404, detail="Client not found")
-    return snap
+    """Admin-only: portal-style self-seat quotes (session header only). Prefer POST for password fallback."""
+    await assert_admin_session_or_password(request, None)
+    return await _dashboard_pricing_snapshot_response(client_id, currency)
+
+
+@router.post("/{client_id}/dashboard-pricing-preview")
+async def dashboard_pricing_preview_post(
+    client_id: str,
+    request: Request,
+    body: DashboardPreviewBody = Body(default_factory=DashboardPreviewBody),
+    currency: str = Query("inr"),
+):
+    """Admin-only: same as GET; body may include `admin_password` when admin session token is missing."""
+    await assert_admin_session_or_password(request, body.admin_password)
+    return await _dashboard_pricing_snapshot_response(client_id, currency)
 
 
 # Admin login — returns a server-side session token for impersonation (X-Admin-Session) without re-entering password.

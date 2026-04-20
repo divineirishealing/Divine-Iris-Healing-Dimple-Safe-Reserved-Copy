@@ -14,8 +14,18 @@ import {
   DialogDescription,
 } from '../../ui/dialog';
 import { useToast } from '../../../hooks/use-toast';
+import { useAuth } from '../../../context/AuthContext';
+import { getBackendUrl } from '../../../lib/config';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
+
+function formatApiError(err) {
+  const d = err.response?.data?.detail;
+  if (typeof d === 'string') return d;
+  if (Array.isArray(d)) return d.map((x) => x.msg || JSON.stringify(x)).join('; ');
+  if (d && typeof d === 'object') return JSON.stringify(d);
+  return err.message || 'Request failed';
+}
 
 const PREFERRED_LABEL = {
   gpay_upi: 'GPay / UPI',
@@ -135,6 +145,7 @@ function isPendingIntakeReview(cl) {
 
 export default function DashboardAccessTab() {
   const { toast } = useToast();
+  const { checkAuth } = useAuth();
   const [clients, setClients] = useState([]);
   const [pendingCount, setPendingCount] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -185,6 +196,8 @@ export default function DashboardAccessTab() {
   const [pricingPreviewClient, setPricingPreviewClient] = useState(null);
   const [pricingPreviewData, setPricingPreviewData] = useState(null);
   const [pricingPreviewLoading, setPricingPreviewLoading] = useState(false);
+  const [previewAdminPassword, setPreviewAdminPassword] = useState('');
+  const [openingDashboard, setOpeningDashboard] = useState(false);
 
   const indiaGpayOpts = useMemo(() => buildIndiaGpayOptions(indiaSite || {}), [indiaSite]);
   const indiaBankOpts = useMemo(() => buildIndiaBankOptions(indiaSite || {}), [indiaSite]);
@@ -293,33 +306,76 @@ export default function DashboardAccessTab() {
     }
   };
 
-  const openPricingPreview = async (cl) => {
-    setPricingPreviewClient(cl);
-    setPricingPreviewData(null);
-    setPricingPreviewOpen(true);
+  const loadPricingPreview = async (cl, pwd = '') => {
+    if (!cl?.id) return;
     setPricingPreviewLoading(true);
+    setPricingPreviewData(null);
     try {
       const adminTok = (typeof localStorage !== 'undefined' && localStorage.getItem('admin_token')) || '';
       const headers = {};
-      if (adminTok && String(adminTok).length >= 16) {
-        headers['X-Admin-Session'] = adminTok;
-      }
-      const res = await axios.get(`${API}/admin/clients/${cl.id}/dashboard-pricing-preview`, {
-        params: { currency: 'inr' },
-        headers,
-      });
+      if (adminTok) headers['X-Admin-Session'] = adminTok;
+      const body = {};
+      if (String(pwd || '').trim()) body.admin_password = String(pwd).trim();
+      const res = await axios.post(
+        `${API}/admin/clients/${cl.id}/dashboard-pricing-preview?currency=inr`,
+        body,
+        { headers }
+      );
       setPricingPreviewData(res.data);
     } catch (err) {
-      const d = err.response?.data?.detail;
       toast({
         title: 'Could not load pricing preview',
-        description: typeof d === 'string' ? d : err.message,
+        description: formatApiError(err),
         variant: 'destructive',
       });
-      setPricingPreviewOpen(false);
-      setPricingPreviewClient(null);
     } finally {
       setPricingPreviewLoading(false);
+    }
+  };
+
+  const openPricingPreview = (cl) => {
+    setPricingPreviewClient(cl);
+    setPreviewAdminPassword('');
+    setPricingPreviewOpen(true);
+    void loadPricingPreview(cl, '');
+  };
+
+  const openFullStudentDashboard = async () => {
+    const cl = pricingPreviewClient;
+    const em = (cl?.email || '').trim();
+    if (!em) {
+      toast({
+        title: 'No email on file',
+        description: 'Add an email for this client in Client Garden first.',
+        variant: 'destructive',
+      });
+      return;
+    }
+    setOpeningDashboard(true);
+    try {
+      const adminTok = (typeof localStorage !== 'undefined' && localStorage.getItem('admin_token')) || '';
+      const headers = {};
+      if (adminTok) headers['X-Admin-Session'] = adminTok;
+      const payload = { email: em };
+      if (previewAdminPassword.trim()) payload.admin_password = previewAdminPassword.trim();
+      const res = await axios.post(`${getBackendUrl()}/api/auth/impersonate`, payload, {
+        withCredentials: true,
+        headers,
+      });
+      if (res.data.session_token) {
+        localStorage.setItem('session_token', res.data.session_token);
+      }
+      await checkAuth();
+      setPricingPreviewOpen(false);
+      window.location.href = '/dashboard';
+    } catch (err) {
+      toast({
+        title: 'Could not open their dashboard',
+        description: formatApiError(err),
+        variant: 'destructive',
+      });
+    } finally {
+      setOpeningDashboard(false);
     }
   };
 
@@ -1347,6 +1403,7 @@ export default function DashboardAccessTab() {
             setPricingPreviewOpen(false);
             setPricingPreviewClient(null);
             setPricingPreviewData(null);
+            setPreviewAdminPassword('');
           }
         }}
       >
@@ -1360,6 +1417,39 @@ export default function DashboardAccessTab() {
               ) : null}
             </DialogDescription>
           </DialogHeader>
+
+          <div className="rounded-md border border-slate-200 bg-slate-50/80 px-3 py-2 space-y-2">
+            <p className="text-[10px] text-gray-600">
+              If pricing fails to load, enter your <strong>site admin password</strong> and click Retry (session may have expired).
+            </p>
+            <div className="flex flex-wrap items-end gap-2">
+              <div className="flex-1 min-w-[140px]">
+                <Label htmlFor="preview-admin-password" className="text-[10px] text-gray-500">
+                  Admin password (optional)
+                </Label>
+                <Input
+                  id="preview-admin-password"
+                  type="password"
+                  autoComplete="current-password"
+                  className="h-8 text-xs mt-0.5"
+                  value={previewAdminPassword}
+                  onChange={(e) => setPreviewAdminPassword(e.target.value)}
+                  placeholder="Only when needed"
+                />
+              </div>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="h-8 text-xs"
+                disabled={pricingPreviewLoading || !pricingPreviewClient}
+                onClick={() => pricingPreviewClient && loadPricingPreview(pricingPreviewClient, previewAdminPassword)}
+              >
+                Retry load
+              </Button>
+            </div>
+          </div>
+
           {pricingPreviewLoading ? (
             <div className="flex items-center gap-2 py-10 text-sm text-gray-600 justify-center">
               <Loader2 className="animate-spin" size={18} />
@@ -1422,6 +1512,30 @@ export default function DashboardAccessTab() {
               )}
             </div>
           ) : null}
+
+          <DialogFooter className="flex-col sm:flex-row gap-2 sm:justify-between border-t border-gray-100 pt-3 mt-2">
+            <Button
+              type="button"
+              className="bg-[#5D3FD3] hover:bg-[#4c32b3] w-full sm:w-auto"
+              disabled={
+                openingDashboard ||
+                pricingPreviewLoading ||
+                !(pricingPreviewClient?.email || '').trim()
+              }
+              onClick={openFullStudentDashboard}
+              data-testid="dashboard-access-open-full-dashboard"
+            >
+              {openingDashboard ? 'Opening…' : 'Open their dashboard (full view)'}
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setPricingPreviewOpen(false)}
+              className="w-full sm:w-auto"
+            >
+              Close
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>

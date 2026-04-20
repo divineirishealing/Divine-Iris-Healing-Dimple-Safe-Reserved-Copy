@@ -108,6 +108,22 @@ async def require_admin_console(request: Request) -> bool:
     )
 
 
+async def assert_admin_session_or_password(
+    request: Request, admin_password: Optional[str] = None
+) -> None:
+    """Valid X-Admin-Session **or** site admin password (for preview when session cookie/header is missing)."""
+    hdr = (request.headers.get("X-Admin-Session") or "").strip()
+    if await _admin_console_session_valid(hdr):
+        return
+    if (admin_password or "").strip():
+        await _verify_admin_password(admin_password.strip())
+        return
+    raise HTTPException(
+        status_code=401,
+        detail="Admin session required. Sign in to admin again, or send admin_password in the request body.",
+    )
+
+
 async def _admin_console_session_valid(token: Optional[str]) -> bool:
     """Valid token from POST /api/admin/clients/login (stored in admin_sessions)."""
     if not token or len(token.strip()) < 16:

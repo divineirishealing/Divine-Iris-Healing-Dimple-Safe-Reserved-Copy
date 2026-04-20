@@ -9,10 +9,13 @@ import { getAuthHeaders } from './lib/authHeaders';
 /** Attach Bearer token when present so API calls work without cross-site cookies (incognito / Safari). */
 axios.interceptors.request.use((config) => {
   const { Authorization } = getAuthHeaders();
-  if (Authorization && !config.headers?.Authorization) {
-    config.headers = config.headers || {};
-    config.headers.Authorization = Authorization;
+  const headers = { ...(config.headers || {}) };
+  const hasAdminSession = headers['X-Admin-Session'] || headers['x-admin-session'];
+  // Do not attach student Bearer when calling admin endpoints that use X-Admin-Session.
+  if (Authorization && !headers.Authorization && !hasAdminSession) {
+    headers.Authorization = Authorization;
   }
+  config.headers = headers;
   return config;
 });
 
