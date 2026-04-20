@@ -74,10 +74,12 @@ function isAnnualViaSubscription(cl) {
   return false;
 }
 
-/** Resolve Client Garden tag + pinned rows to labels from Site Settings → Indian Payment (GPay/UPI & bank list). */
+/** Resolve preferred method + Client Garden tag + pinned rows → labels from Site Settings → Indian Payment. */
 function formatTaggedPaymentDetails(cl, siteInfo) {
   const method = String(cl.india_payment_method || '').trim().toLowerCase();
-  if (method === 'stripe') return 'Stripe';
+  const prefPay = String(cl.preferred_payment_method || '').trim().toLowerCase();
+
+  if (method === 'stripe' || prefPay === 'stripe') return 'Stripe';
 
   const info = siteInfo && typeof siteInfo === 'object' ? siteInfo : {};
   const gpayOpts = buildIndiaGpayOptions(info);
@@ -86,22 +88,43 @@ function formatTaggedPaymentDetails(cl, siteInfo) {
   const prefB = (cl.preferred_india_bank_id || '').trim();
 
   const parts = [];
-  if (method && method !== 'any') parts.push(labelFrom(TAG_LABEL, method));
+  const methodLabel = method && method !== 'any' ? labelFrom(TAG_LABEL, method) : '';
+  const prefLabel = prefPay && prefPay !== 'any' ? labelFrom(PREFERRED_LABEL, prefPay) : '';
+  if (methodLabel) parts.push(methodLabel);
+  else if (prefLabel) parts.push(prefLabel);
 
-  const tagGpay =
-    method === 'gpay_upi' || method === 'gpay' || method === 'upi' || method === 'any' || !method;
-  if (tagGpay && prefG) {
+  const wantGpay =
+    prefPay === 'gpay_upi' ||
+    method === 'gpay_upi' ||
+    method === 'gpay' ||
+    method === 'upi' ||
+    method === 'any';
+  if (wantGpay && prefG) {
     const row = gpayOpts.find((o) => gpayRowMatchesPreference(o, prefG));
     parts.push(row ? row.label : `UPI ref: ${prefG}`);
   }
 
-  const tagBank = method === 'bank_transfer' || method === 'cash_deposit' || method === 'cash' || method === 'any';
-  if (tagBank && prefB) {
+  const wantBank =
+    prefPay === 'bank_transfer' ||
+    prefPay === 'cash_deposit' ||
+    method === 'bank_transfer' ||
+    method === 'cash_deposit' ||
+    method === 'cash' ||
+    method === 'any';
+  if (wantBank && prefB) {
     const row = bankOpts.find((b) => (b.tag_id || b.bank_code) === prefB);
     parts.push(row ? row.label : `Bank ref: ${prefB}`);
   }
 
-  if (parts.length === 0) return labelFrom(TAG_LABEL, cl.india_payment_method);
+  if (parts.length === 0) {
+    return (
+      methodLabel ||
+      prefLabel ||
+      labelFrom(TAG_LABEL, cl.india_payment_method) ||
+      labelFrom(PREFERRED_LABEL, cl.preferred_payment_method) ||
+      '—'
+    );
+  }
   return parts.join(' · ');
 }
 
@@ -130,6 +153,33 @@ export default function DashboardAccessTab() {
 
   const indiaGpayOpts = useMemo(() => buildIndiaGpayOptions(indiaSite || {}), [indiaSite]);
   const indiaBankOpts = useMemo(() => buildIndiaBankOptions(indiaSite || {}), [indiaSite]);
+
+  /** Show Divine Iris GPay/UPI row picker — driven by preferred method and/or checkout tag. */
+  const showTaggedGpayPicker = useMemo(() => {
+    const pref = (preferredPaymentMethod || '').trim().toLowerCase();
+    const tag = (indiaPaymentMethod || '').trim().toLowerCase();
+    return (
+      pref === 'gpay_upi' ||
+      tag === 'gpay_upi' ||
+      tag === 'gpay' ||
+      tag === 'upi' ||
+      tag === 'any'
+    );
+  }, [preferredPaymentMethod, indiaPaymentMethod]);
+
+  /** Show Divine Iris bank row picker — driven by preferred method and/or checkout tag. */
+  const showTaggedBankPicker = useMemo(() => {
+    const pref = (preferredPaymentMethod || '').trim().toLowerCase();
+    const tag = (indiaPaymentMethod || '').trim().toLowerCase();
+    return (
+      pref === 'bank_transfer' ||
+      pref === 'cash_deposit' ||
+      tag === 'bank_transfer' ||
+      tag === 'cash_deposit' ||
+      tag === 'cash' ||
+      tag === 'any'
+    );
+  }, [preferredPaymentMethod, indiaPaymentMethod]);
 
   useEffect(() => {
     axios
@@ -164,6 +214,19 @@ export default function DashboardAccessTab() {
     const bankOk = v === 'bank_transfer' || v === 'cash_deposit' || v === 'any' || v === '';
     if (!gpayOk) setPreferredIndiaGpayId('');
     if (!bankOk) setPreferredIndiaBankId('');
+  };
+
+  const onPreferredPaymentChange = (v) => {
+    const low = (v || '').trim().toLowerCase();
+    setPreferredPaymentMethod(v);
+    if (low === 'stripe') {
+      setPreferredIndiaGpayId('');
+      setPreferredIndiaBankId('');
+    } else if (low === 'bank_transfer' || low === 'cash_deposit') {
+      setPreferredIndiaGpayId('');
+    } else if (low === 'gpay_upi') {
+      setPreferredIndiaBankId('');
+    }
   };
 
   const openEdit = (cl) => {
@@ -391,10 +454,14 @@ export default function DashboardAccessTab() {
 
             <div>
               <Label className="text-xs text-gray-600">Preferred payment method</Label>
+              <p className="text-[10px] text-gray-400 mb-1">
+                Choose Bank or GPay/UPI to load Divine Iris accounts from Site Settings → Indian Payment.
+              </p>
               <select
                 value={preferredPaymentMethod}
-                onChange={(e) => setPreferredPaymentMethod(e.target.value)}
+                onChange={(e) => onPreferredPaymentChange(e.target.value)}
                 className="w-full text-sm border rounded-md px-2 py-2 bg-white mt-1"
+                data-testid="dashboard-access-preferred-payment"
               >
                 <option value="">— Not set —</option>
                 <option value="gpay_upi">GPay / UPI</option>
@@ -423,35 +490,40 @@ export default function DashboardAccessTab() {
               </select>
             </div>
 
-            {indiaGpayOpts.length >= 1 && (indiaPaymentMethod === 'gpay_upi' || indiaPaymentMethod === 'any') && (
-              <div>
-                <Label className="text-xs text-gray-600">Tagged UPI (from Indian Payment list)</Label>
-                <p className="text-[10px] text-gray-400 mb-1">
-                  e.g. pick “Priyanka” so this client only sees that GPay row on proof / cart.
-                </p>
-                <select
-                  value={preferredIndiaGpayId}
-                  onChange={(e) => setPreferredIndiaGpayId(e.target.value)}
-                  className="w-full text-sm border rounded-md px-2 py-2 bg-white mt-1"
-                  data-testid="dashboard-access-preferred-gpay"
-                >
-                  <option value="">All UPIs (full list on payment)</option>
-                  {indiaGpayOpts.map((o) => (
-                    <option key={o.tag_id} value={o.tag_id}>
-                      {o.label}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            )}
-
-            {indiaBankOpts.length >= 1 &&
-              (indiaPaymentMethod === 'bank_transfer' ||
-                indiaPaymentMethod === 'cash_deposit' ||
-                indiaPaymentMethod === 'any') && (
+            {showTaggedGpayPicker &&
+              (indiaGpayOpts.length >= 1 ? (
                 <div>
-                  <Label className="text-xs text-gray-600">Tagged bank account</Label>
-                  <p className="text-[10px] text-gray-400 mb-1">Pin one bank row from Site Settings.</p>
+                  <Label className="text-xs text-gray-600">Tagged UPI (Divine Iris — Indian Payment)</Label>
+                  <p className="text-[10px] text-gray-400 mb-1">
+                    Rows from site settings (e.g. Priyanka&apos;s GPay). Leave blank to allow every UPI on checkout.
+                  </p>
+                  <select
+                    value={preferredIndiaGpayId}
+                    onChange={(e) => setPreferredIndiaGpayId(e.target.value)}
+                    className="w-full text-sm border rounded-md px-2 py-2 bg-white mt-1"
+                    data-testid="dashboard-access-preferred-gpay"
+                  >
+                    <option value="">All UPIs (full list on payment)</option>
+                    {indiaGpayOpts.map((o) => (
+                      <option key={o.tag_id} value={o.tag_id}>
+                        {o.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              ) : (
+                <div className="rounded-md border border-amber-200 bg-amber-50/80 px-3 py-2 text-[11px] text-amber-900">
+                  Add GPay / UPI rows under <strong>Admin → Indian Payment</strong> to tag a specific account here.
+                </div>
+              ))}
+
+            {showTaggedBankPicker &&
+              (indiaBankOpts.length >= 1 ? (
+                <div>
+                  <Label className="text-xs text-gray-600">Tagged bank account (Divine Iris — Indian Payment)</Label>
+                  <p className="text-[10px] text-gray-400 mb-1">
+                    Bank details loaded from site settings. Pick which account this client should use.
+                  </p>
                   <select
                     value={preferredIndiaBankId}
                     onChange={(e) => setPreferredIndiaBankId(e.target.value)}
@@ -466,7 +538,11 @@ export default function DashboardAccessTab() {
                     ))}
                   </select>
                 </div>
-              )}
+              ) : (
+                <div className="rounded-md border border-amber-200 bg-amber-50/80 px-3 py-2 text-[11px] text-amber-900">
+                  Add bank accounts under <strong>Admin → Indian Payment</strong> so bank details can be tagged here.
+                </div>
+              ))}
 
             <div>
               <Label className="text-xs text-gray-600">Discount % on base price</Label>
