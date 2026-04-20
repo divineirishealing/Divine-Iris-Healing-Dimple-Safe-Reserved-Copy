@@ -507,6 +507,84 @@ async def bulk_set_portal_login(data: BulkSetPortalLoginBody):
     }
 
 
+class BulkDashboardAccessBody(BaseModel):
+    """Only fields present in the JSON body are applied to every selected client."""
+
+    client_ids: List[str]
+    annual_member_dashboard: Optional[bool] = None
+    preferred_payment_method: Optional[str] = None
+    india_payment_method: Optional[str] = None
+    india_discount_percent: Optional[float] = None
+    india_tax_enabled: Optional[bool] = None
+    india_tax_percent: Optional[float] = None
+    india_tax_label: Optional[str] = None
+    preferred_india_gpay_id: Optional[str] = None
+    preferred_india_bank_id: Optional[str] = None
+
+
+@router.post("/bulk-update-dashboard-access")
+async def bulk_update_dashboard_access(data: BulkDashboardAccessBody):
+    """Apply the same dashboard-access fields (access type, payments, GST, discount) to many clients."""
+    raw_ids = [str(i).strip() for i in (data.client_ids or []) if i is not None and str(i).strip()]
+    seen = set()
+    ids = []
+    for i in raw_ids:
+        if i not in seen:
+            seen.add(i)
+            ids.append(i)
+    if not ids:
+        raise HTTPException(status_code=400, detail="No client_ids provided")
+    if len(ids) > 500:
+        raise HTTPException(status_code=400, detail="Maximum 500 clients per request")
+
+    patch = data.model_dump(exclude_unset=True)
+    patch.pop("client_ids", None)
+    if not patch:
+        raise HTTPException(status_code=400, detail="No fields to update — send at least one field besides client_ids")
+
+    uf: Dict[str, Any] = {}
+    if "annual_member_dashboard" in patch:
+        uf["annual_member_dashboard"] = bool(patch["annual_member_dashboard"])
+    if "preferred_payment_method" in patch:
+        pm = (patch.get("preferred_payment_method") or "").strip().lower()
+        uf["preferred_payment_method"] = pm if pm else None
+    if "india_payment_method" in patch:
+        vpm = (patch.get("india_payment_method") or "").strip()
+        uf["india_payment_method"] = vpm if vpm else None
+    if "india_discount_percent" in patch:
+        idp = patch.get("india_discount_percent")
+        if idp is None:
+            uf["india_discount_percent"] = None
+        else:
+            uf["india_discount_percent"] = float(idp)
+    if "india_tax_enabled" in patch:
+        uf["india_tax_enabled"] = bool(patch["india_tax_enabled"])
+    if "india_tax_percent" in patch:
+        itp = patch.get("india_tax_percent")
+        uf["india_tax_percent"] = float(itp) if itp is not None else None
+    if "india_tax_label" in patch:
+        uf["india_tax_label"] = (patch.get("india_tax_label") or "GST").strip() or "GST"
+    if "preferred_india_gpay_id" in patch:
+        uf["preferred_india_gpay_id"] = (patch.get("preferred_india_gpay_id") or "").strip()
+    if "preferred_india_bank_id" in patch:
+        uf["preferred_india_bank_id"] = (patch.get("preferred_india_bank_id") or "").strip()
+
+    now = datetime.now(timezone.utc).isoformat()
+    uf["updated_at"] = now
+    updated = 0
+    not_found = 0
+
+    for cid in ids:
+        cl = await db.clients.find_one({"id": cid})
+        if not cl:
+            not_found += 1
+            continue
+        await db.clients.update_one({"id": cid}, {"$set": uf})
+        updated += 1
+
+    return {"updated": updated, "not_found": not_found}
+
+
 @router.get("/{client_id}")
 async def get_client(client_id: str):
     cl = await db.clients.find_one({"id": client_id}, {"_id": 0})
