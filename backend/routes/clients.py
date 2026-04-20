@@ -347,6 +347,7 @@ async def list_clients(label: Optional[str] = None, search: Optional[str] = None
         query["label"] = label
     if intake_pending == "true":
         query["intake_pending"] = True
+        query["portal_login_allowed"] = False
     if search:
         search_regex = {"$regex": search, "$options": "i"}
         query["$or"] = [
@@ -478,10 +479,10 @@ async def bulk_set_portal_login(data: BulkSetPortalLoginBody):
             not_found += 1
             continue
 
-        await db.clients.update_one(
-            {"id": cid},
-            {"$set": {"portal_login_allowed": value, "updated_at": now}},
-        )
+        set_doc: Dict[str, Any] = {"portal_login_allowed": value, "updated_at": now}
+        if value:
+            set_doc["intake_pending"] = False
+        await db.clients.update_one({"id": cid}, {"$set": set_doc})
         updated += 1
 
         if value and cl.get("portal_login_allowed") is False:
@@ -675,6 +676,10 @@ async def update_client(client_id: str, data: ClientUpdate):
         update_fields["preferred_india_bank_id"] = (data.preferred_india_bank_id or "").strip()
     if data.annual_member_dashboard is not None:
         update_fields["annual_member_dashboard"] = bool(data.annual_member_dashboard)
+
+    # New-intake queue clears when Google login is enabled (no separate "mark reviewed" needed)
+    if data.portal_login_allowed is not None and bool(data.portal_login_allowed):
+        update_fields["intake_pending"] = False
 
     await db.clients.update_one({"id": client_id}, {"$set": update_fields})
 

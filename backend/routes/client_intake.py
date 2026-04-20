@@ -98,6 +98,8 @@ async def submit_intake(data: ClientIntakeSubmit):
 
 @router.get("/pending-count")
 async def pending_count():
-    """Admin helper — how many intake submissions are pending review."""
-    count = await db.clients.count_documents({"intake_pending": True})
+    """Admin helper — intakes still awaiting review (blocked from Google login)."""
+    count = await db.clients.count_documents(
+        {"intake_pending": True, "portal_login_allowed": False}
+    )
     return {"count": count}

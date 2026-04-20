@@ -128,6 +128,11 @@ function formatTaggedPaymentDetails(cl, siteInfo) {
   return parts.join(' · ');
 }
 
+/** Intake "new" queue: pending only while Google login is still blocked. */
+function isPendingIntakeReview(cl) {
+  return !!cl?.intake_pending && cl.portal_login_allowed === false;
+}
+
 export default function DashboardAccessTab() {
   const { toast } = useToast();
   const [clients, setClients] = useState([]);
@@ -307,7 +312,7 @@ export default function DashboardAccessTab() {
     if (!editing?.id) return;
     setSaving(true);
     try {
-      const wasPending = !!editing.intake_pending;
+      const wasPending = isPendingIntakeReview(editing);
       const newlyGrantedPortal = editing.portal_login_allowed === false && portalLoginAllowed === true;
       await axios.put(`${API}/clients/${editing.id}`, {
         annual_member_dashboard: annualMemberDashboard,
@@ -352,8 +357,8 @@ export default function DashboardAccessTab() {
   const rows = useMemo(() => {
     const list = [...(clients || [])];
     list.sort((a, b) => {
-      const pa = !!a.intake_pending;
-      const pb = !!b.intake_pending;
+      const pa = isPendingIntakeReview(a);
+      const pb = isPendingIntakeReview(b);
       if (pa !== pb) return pa ? -1 : 1;
       const tb = new Date(b.updated_at || b.created_at || 0).getTime();
       const ta = new Date(a.updated_at || a.created_at || 0).getTime();
@@ -724,8 +729,8 @@ export default function DashboardAccessTab() {
                   return (
                     <tr
                       key={cl.id}
-                      className={`hover:bg-gray-50/80 ${cl.intake_pending ? 'bg-orange-50/60' : ''}`}
-                      data-intake-pending={cl.intake_pending ? 'true' : undefined}
+                      className={`hover:bg-gray-50/80 ${isPendingIntakeReview(cl) ? 'bg-orange-50/60' : ''}`}
+                      data-intake-pending={isPendingIntakeReview(cl) ? 'true' : undefined}
                     >
                       <td className="px-1 py-2 align-top text-center w-8">
                         <input
@@ -737,11 +742,11 @@ export default function DashboardAccessTab() {
                         />
                       </td>
                       <td
-                        className={`px-3 py-2 text-gray-900 font-medium align-top ${cl.intake_pending ? 'border-l-[3px] border-l-orange-400 pl-2' : ''}`}
+                        className={`px-3 py-2 text-gray-900 font-medium align-top ${isPendingIntakeReview(cl) ? 'border-l-[3px] border-l-orange-400 pl-2' : ''}`}
                         title={cl.name}
                       >
                         <div className="flex items-start gap-1.5 min-w-0">
-                          {cl.intake_pending && (
+                          {isPendingIntakeReview(cl) && (
                             <span
                               className="shrink-0 mt-0.5 text-[8px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded bg-orange-200 text-orange-900"
                               title="Submitted via dashboard access form — not reviewed yet"
@@ -797,7 +802,7 @@ export default function DashboardAccessTab() {
                       <td className="px-3 py-2 text-xs text-gray-700">{discountSummary(cl)}</td>
                       <td className="px-2 py-2 align-top">
                         <div className="flex flex-col items-end gap-1.5">
-                          {cl.intake_pending && (
+                          {isPendingIntakeReview(cl) && (
                             <button
                               type="button"
                               onClick={(e) => markReviewed(cl, e)}
@@ -854,12 +859,12 @@ export default function DashboardAccessTab() {
             </DialogDescription>
           </DialogHeader>
 
-          {editing?.intake_pending && (
+          {editing && isPendingIntakeReview(editing) && (
             <p
               className="text-[11px] text-orange-800 bg-orange-50 border border-orange-200 rounded-md px-3 py-2 -mt-1"
               data-testid="dashboard-access-new-request-notice"
             >
-              <strong>New request.</strong> When you save, this row is marked reviewed and the orange “New” highlight is cleared.
+              <strong>New request.</strong> When you save, this row is marked reviewed and the orange “New” highlight is cleared — or enable Google login below to clear it automatically.
             </p>
           )}
 
