@@ -272,7 +272,7 @@ const ClientsTab = () => {
         <div className="flex-1 relative">
           <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
           <input data-testid="clients-search" type="text" value={searchText} onChange={e => setSearchText(e.target.value)}
-            placeholder="Search by name, email, or phone..." className="w-full pl-9 pr-3 py-2 text-xs border rounded-lg focus:outline-none focus:ring-1 focus:ring-[#D4AF37]" />
+            placeholder="Search name, email, phone, or household key..." className="w-full pl-9 pr-3 py-2 text-xs border rounded-lg focus:outline-none focus:ring-1 focus:ring-[#D4AF37]" />
         </div>
         {filterLabel && (
           <button onClick={() => { setFilterLabel(''); }} className="text-[10px] text-gray-500 hover:text-gray-700 flex items-center gap-1 border rounded px-2 py-1">
@@ -316,9 +316,20 @@ const ClientsTab = () => {
                           <div className={`w-7 h-7 rounded-full ${cfg.bg} ${cfg.border} border flex items-center justify-center shrink-0`}>
                             <Icon size={12} className={cfg.text} />
                           </div>
-                          <span className="text-xs font-semibold text-gray-900 truncate max-w-[180px]" title={cl.name || ''}>
-                            {cl.name || 'Unknown'}
-                          </span>
+                          <div className="min-w-0 flex flex-col">
+                            <span className="text-xs font-semibold text-gray-900 truncate max-w-[180px]" title={cl.name || ''}>
+                              {cl.name || 'Unknown'}
+                            </span>
+                            {(cl.household_key || cl.is_primary_household_contact) && (
+                              <span className="text-[9px] text-slate-500 truncate max-w-[200px]" title={[cl.household_key, cl.is_primary_household_contact ? 'Primary contact' : ''].filter(Boolean).join(' · ')}>
+                                {cl.household_key ? <span className="font-mono text-slate-600">{cl.household_key}</span> : null}
+                                {cl.household_key && cl.is_primary_household_contact ? <span className="text-slate-400"> · </span> : null}
+                                {cl.is_primary_household_contact ? (
+                                  <span className="text-amber-700 font-medium">Primary</span>
+                                ) : null}
+                              </span>
+                            )}
+                          </div>
                         </div>
                       </td>
                       <td className="py-2.5 px-2">
@@ -389,6 +400,8 @@ const ClientDetail = ({
   const [editing, setEditing] = useState(false);
   const [labelManual, setLabelManual] = useState(cl.label_manual || '');
   const [notes, setNotes] = useState(cl.notes || '');
+  const [householdKey, setHouseholdKey] = useState(cl.household_key || '');
+  const [primaryHouseholdContact, setPrimaryHouseholdContact] = useState(!!cl.is_primary_household_contact);
   const [familyEditApproved, setFamilyEditApproved] = useState(cl.immediate_family_editing_approved !== false);
   const [portalLoginAllowed, setPortalLoginAllowed] = useState(cl.portal_login_allowed !== false);
   const [indiaPaymentMethod, setIndiaPaymentMethod] = useState(cl.india_payment_method || '');
@@ -424,7 +437,9 @@ const ClientDetail = ({
     setAnnualMemberDashboard(!!cl.annual_member_dashboard);
     setPreferredIndiaGpayId(cl.preferred_india_gpay_id || '');
     setPreferredIndiaBankId(cl.preferred_india_bank_id || '');
-  }, [cl.id, cl.immediate_family_editing_approved, cl.portal_login_allowed, cl.india_payment_method, cl.india_discount_percent, cl.india_discount_member_bands, cl.india_tax_enabled, cl.india_tax_percent, cl.india_tax_label, cl.india_tax_visible_on_dashboard, cl.annual_member_dashboard, cl.preferred_india_gpay_id, cl.preferred_india_bank_id]);
+    setHouseholdKey(cl.household_key || '');
+    setPrimaryHouseholdContact(!!cl.is_primary_household_contact);
+  }, [cl.id, cl.immediate_family_editing_approved, cl.portal_login_allowed, cl.india_payment_method, cl.india_discount_percent, cl.india_discount_member_bands, cl.india_tax_enabled, cl.india_tax_percent, cl.india_tax_label, cl.india_tax_visible_on_dashboard, cl.annual_member_dashboard, cl.preferred_india_gpay_id, cl.preferred_india_bank_id, cl.household_key, cl.is_primary_household_contact]);
 
   const setPaymentMethodTagged = (v) => {
     setIndiaPaymentMethod(v);
@@ -458,6 +473,8 @@ const ClientDetail = ({
         annual_member_dashboard: annualMemberDashboard,
         preferred_india_gpay_id: preferredIndiaGpayId || '',
         preferred_india_bank_id: preferredIndiaBankId || '',
+        household_key: householdKey.trim() || null,
+        is_primary_household_contact: primaryHouseholdContact,
       });
       toast({ title: 'Client updated' });
       setEditing(false);
@@ -513,6 +530,19 @@ const ClientDetail = ({
           Without an override, the badge follows paid enrollments only: <span className="font-medium text-gray-600">Dew</span> until checkout completes, then Seed / Root / Bloom / Iris from what they bought.
           Pick any stage below to lock it yourself; choose Auto to clear your override.
         </p>
+        {!editing && (cl.household_key || cl.is_primary_household_contact) && (
+          <div className="flex flex-wrap gap-1.5 mb-2 text-[10px]">
+            {cl.household_key ? (
+              <span className="inline-flex items-center gap-1 bg-slate-100 border border-slate-200 text-slate-700 rounded px-2 py-0.5 font-mono max-w-full truncate" title={cl.household_key}>
+                <Users size={10} className="shrink-0 text-slate-500" />
+                {cl.household_key}
+              </span>
+            ) : null}
+            {cl.is_primary_household_contact ? (
+              <span className="inline-flex items-center text-[9px] font-semibold text-amber-900 bg-amber-50 border border-amber-200 rounded px-2 py-0.5">Primary household contact</span>
+            ) : null}
+          </div>
+        )}
         {editing ? (
           <div className="space-y-2">
             <div>
@@ -526,6 +556,35 @@ const ClientDetail = ({
             <div>
               <Label className="text-[9px] text-gray-500">Notes</Label>
               <Textarea data-testid="client-notes" value={notes} onChange={e => setNotes(e.target.value)} rows={2} className="text-xs mt-1" placeholder="Personal notes about this client..." />
+            </div>
+            <div className="rounded-lg border border-slate-200 bg-slate-50/80 px-2 py-2 space-y-2">
+              <p className="text-[10px] font-semibold text-slate-800 flex items-center gap-1">
+                <Users size={12} className="text-slate-500" /> Household (CRM)
+              </p>
+              <p className="text-[9px] text-slate-500 leading-snug">
+                Use the <strong className="font-medium text-slate-700">same household key</strong> on each family member’s client row. Optionally mark the person who handles renewals and comms as primary — each person still keeps their own email.
+              </p>
+              <div>
+                <Label className="text-[9px] text-gray-500">Household key</Label>
+                <Input
+                  data-testid="client-household-key"
+                  value={householdKey}
+                  onChange={(e) => setHouseholdKey(e.target.value)}
+                  className="h-8 text-xs mt-1 font-mono"
+                  placeholder="e.g. Sharma-annual-2026"
+                  maxLength={200}
+                />
+              </div>
+              <label className="flex items-start gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  data-testid="client-primary-household-contact"
+                  checked={primaryHouseholdContact}
+                  onChange={(e) => setPrimaryHouseholdContact(e.target.checked)}
+                  className="mt-0.5 rounded border-slate-300"
+                />
+                <span className="text-[10px] text-slate-800">Primary household contact</span>
+              </label>
             </div>
             {!cl.family_approved && (
               <div className="rounded-lg border border-violet-100 bg-violet-50/40 px-2 py-2">

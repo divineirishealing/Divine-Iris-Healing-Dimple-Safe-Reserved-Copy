@@ -354,6 +354,7 @@ async def list_clients(label: Optional[str] = None, search: Optional[str] = None
             {"name": search_regex},
             {"email": search_regex},
             {"phone": search_regex},
+            {"household_key": search_regex},
         ]
     clients_list = await db.clients.find(query, {"_id": 0}).sort("updated_at", -1).to_list(1000)
     return clients_list
@@ -657,6 +658,9 @@ class ClientUpdate(BaseModel):
     preferred_india_bank_id: Optional[str] = None
     # When True, Sacred Home uses annual-subscriber pricing like an Excel-tagged Iris member
     annual_member_dashboard: Optional[bool] = None
+    # CRM: same key on each family member’s client row; optional primary flag on the manager’s row
+    household_key: Optional[str] = None
+    is_primary_household_contact: Optional[bool] = None
 
 
 @router.put("/{client_id}")
@@ -714,6 +718,11 @@ async def update_client(client_id: str, data: ClientUpdate):
         update_fields["preferred_india_bank_id"] = (data.preferred_india_bank_id or "").strip()
     if data.annual_member_dashboard is not None:
         update_fields["annual_member_dashboard"] = bool(data.annual_member_dashboard)
+    if data.household_key is not None:
+        hk = (data.household_key or "").strip()[:200]
+        update_fields["household_key"] = hk if hk else None
+    if data.is_primary_household_contact is not None:
+        update_fields["is_primary_household_contact"] = bool(data.is_primary_household_contact)
 
     incoming = data.model_dump(exclude_unset=True)
     if "india_discount_member_bands" in incoming:
@@ -780,7 +789,21 @@ async def export_clients_excel():
     ws = wb.active
     ws.title = "Client Garden"
 
-    headers = ["DID", "Label", "Name", "Email", "Phone", "Sources", "Programs Enrolled", "Total Conversions", "First Contact", "Last Updated", "Notes"]
+    headers = [
+        "DID",
+        "Label",
+        "Name",
+        "Email",
+        "Phone",
+        "Household key",
+        "Primary household contact",
+        "Sources",
+        "Programs Enrolled",
+        "Total Conversions",
+        "First Contact",
+        "Last Updated",
+        "Notes",
+    ]
     header_font = Font(bold=True, color="FFFFFF", size=11)
     header_fill = PatternFill(start_color="1A1A1A", end_color="1A1A1A", fill_type="solid")
     thin_border = Border(bottom=Side(style="thin", color="E8E0C8"))
@@ -805,7 +828,21 @@ async def export_clients_excel():
         programs = ", ".join(set(c.get("program_title", "") for c in cl.get("conversions", []) if c.get("program_title")))
         sources = ", ".join(set(cl.get("sources", [])))
         label = cl.get("label", "Dew")
-        row_data = [cl.get("did", ""), label, cl.get("name", ""), cl.get("email", ""), cl.get("phone", ""), sources, programs, len(cl.get("conversions", [])), cl.get("created_at", ""), cl.get("updated_at", ""), cl.get("notes", "")]
+        row_data = [
+            cl.get("did", ""),
+            label,
+            cl.get("name", ""),
+            cl.get("email", ""),
+            cl.get("phone", ""),
+            cl.get("household_key") or "",
+            "Yes" if cl.get("is_primary_household_contact") else "",
+            sources,
+            programs,
+            len(cl.get("conversions", [])),
+            cl.get("created_at", ""),
+            cl.get("updated_at", ""),
+            cl.get("notes", ""),
+        ]
 
         fill = label_fills.get(label, PatternFill())
         for col, val in enumerate(row_data, 1):
@@ -813,7 +850,7 @@ async def export_clients_excel():
             cell.fill = fill
             cell.border = thin_border
 
-    col_widths = [14, 12, 20, 30, 18, 25, 40, 16, 22, 22, 30]
+    col_widths = [14, 12, 20, 30, 18, 22, 12, 25, 40, 16, 22, 22, 30]
     for i, w in enumerate(col_widths):
         ws.column_dimensions[ws.cell(row=1, column=i + 1).column_letter].width = w
 
