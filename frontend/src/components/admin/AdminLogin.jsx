@@ -19,7 +19,7 @@ const AdminLogin = ({ onLogin }) => {
     setLoading(true);
     setError('');
     try {
-      const res = await axios.post(`${API}/admin/login`, { username, password });
+      const res = await axios.post(`${API}/admin/clients/login`, { username, password });
       if (res.data?.success) {
         localStorage.setItem('admin_token', res.data.token || 'authenticated');
         onLogin(true);
@@ -32,6 +32,14 @@ const AdminLogin = ({ onLogin }) => {
       const defaultPass = 'divineadmin2024';
       const checkPass = storedHash || defaultPass;
       if (username === 'admin' && password === checkPass) {
+        try {
+          const res2 = await axios.post(`${API}/admin/clients/login`, { username, password });
+          if (res2.data?.success && res2.data.token) {
+            localStorage.setItem('admin_token', res2.data.token);
+          }
+        } catch {
+          /* offline or API still unavailable — impersonation may require password until next login */
+        }
         onLogin(true);
       } else {
         setError('Invalid username or password');

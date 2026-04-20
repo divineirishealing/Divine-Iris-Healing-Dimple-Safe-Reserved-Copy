@@ -95,10 +95,19 @@ const ClientsTab = () => {
     e.preventDefault();
     setImpersonateLoading(true);
     try {
+      const adminTok = (typeof localStorage !== 'undefined' && localStorage.getItem('admin_token')) || '';
+      const headers = {};
+      if (adminTok && String(adminTok).length >= 16) {
+        headers['X-Admin-Session'] = adminTok;
+      }
+      const payload = { email: impersonateEmail };
+      if (adminPasswordImpersonate.trim()) {
+        payload.admin_password = adminPasswordImpersonate.trim();
+      }
       const res = await axios.post(
         `${getBackendUrl()}/api/auth/impersonate`,
-        { admin_password: adminPasswordImpersonate, email: impersonateEmail },
-        { withCredentials: true }
+        payload,
+        { withCredentials: true, headers }
       );
       if (res.data.session_token) {
         localStorage.setItem('session_token', res.data.session_token);
@@ -479,12 +488,13 @@ const ClientsTab = () => {
               <DialogTitle className="text-base">View dashboard as client</DialogTitle>
               <DialogDescription className="text-xs text-left">
                 Opens the student portal as <strong>{impersonateName || impersonateEmail}</strong> ({impersonateEmail})
-                using a real session. Enter your admin password to confirm.
+                using a real session. Uses your current admin sign-in — no admin password needed. Optional password
+                below only if your admin session expired.
               </DialogDescription>
             </DialogHeader>
             <div className="space-y-2 py-2">
               <Label htmlFor="admin-impersonate-password" className="text-xs text-gray-600">
-                Admin password
+                Admin password (optional)
               </Label>
               <Input
                 id="admin-impersonate-password"
@@ -493,7 +503,7 @@ const ClientsTab = () => {
                 value={adminPasswordImpersonate}
                 onChange={(e) => setAdminPasswordImpersonate(e.target.value)}
                 className="h-9 text-sm"
-                placeholder="Site admin password"
+                placeholder="Only if admin session expired"
                 data-testid="impersonate-admin-password"
               />
             </div>
@@ -511,7 +521,7 @@ const ClientsTab = () => {
                 type="submit"
                 size="sm"
                 className="bg-[#5D3FD3] hover:bg-[#4c32b3]"
-                disabled={impersonateLoading || !adminPasswordImpersonate.trim()}
+                disabled={impersonateLoading}
                 data-testid="impersonate-submit"
               >
                 {impersonateLoading ? 'Opening…' : 'Open dashboard'}

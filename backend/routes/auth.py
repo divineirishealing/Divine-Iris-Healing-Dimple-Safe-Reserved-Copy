@@ -97,6 +97,21 @@ async def _verify_admin_password(password: str) -> None:
         raise HTTPException(status_code=401, detail="Invalid admin password")
 
 
+async def _admin_console_session_valid(token: Optional[str]) -> bool:
+    """Valid token from POST /api/admin/clients/login (stored in admin_sessions)."""
+    if not token or len(token.strip()) < 16:
+        return False
+    t = token.strip()
+    doc = await db.admin_sessions.find_one({"token": t})
+    if not doc:
+        return False
+    exp = _parse_session_expires_at(doc)
+    if exp and exp < datetime.now(timezone.utc):
+        await db.admin_sessions.delete_one({"token": t})
+        return False
+    return True
+
+
 async def _ensure_user_for_impersonation(email: Optional[str], user_id: Optional[str]) -> dict:
     """Resolve a portal user; create from Client Garden if needed (same rules as Google OAuth)."""
     if user_id:
@@ -145,21 +160,33 @@ async def _ensure_user_for_impersonation(email: Optional[str], user_id: Optional
 
 
 class ImpersonateBody(BaseModel):
-    admin_password: str
+    """`admin_password` optional when request includes a valid `X-Admin-Session` from admin login."""
+    admin_password: Optional[str] = None
     email: Optional[str] = None
     user_id: Optional[str] = None
 
 # --- ROUTES ---
 
 @router.post("/impersonate")
-async def admin_impersonate(body: ImpersonateBody, response: Response):
+async def admin_impersonate(request: Request, body: ImpersonateBody, response: Response):
     """
     Admin-only: open a real student session for a user (same portal rules as OAuth).
-    Requires the site admin password. Marks the session so /me reports impersonating.
+
+    Authorization: valid `X-Admin-Session` header (issued by POST /api/admin/clients/login), **or**
+    `admin_password` matching site settings. Marks the session so /me reports impersonating.
     """
     if not body.email and not body.user_id:
         raise HTTPException(status_code=400, detail="Provide email or user_id")
-    await _verify_admin_password(body.admin_password)
+    hdr = (request.headers.get("X-Admin-Session") or "").strip()
+    if await _admin_console_session_valid(hdr):
+        pass
+    elif (body.admin_password or "").strip():
+        await _verify_admin_password(body.admin_password or "")
+    else:
+        raise HTTPException(
+            status_code=401,
+            detail="Admin session missing or expired — sign in to admin again, or send admin_password.",
+        )
     user = await _ensure_user_for_impersonation(body.email, body.user_id)
 
     session_token = str(uuid.uuid4())

@@ -4,7 +4,8 @@ from typing import Optional, List
 import pandas as pd
 import io
 import uuid
-from datetime import datetime, timezone
+import secrets
+from datetime import datetime, timezone, timedelta
 from motor.motor_asyncio import AsyncIOMotorClient
 import os
 from dotenv import load_dotenv
@@ -174,7 +175,7 @@ async def reject_profile(user_id: str):
 
 
 
-# Admin login
+# Admin login — returns a server-side session token for impersonation (X-Admin-Session) without re-entering password.
 @router.post("/login")
 async def admin_login(data: dict):
     username = data.get("username", "")
@@ -183,5 +184,12 @@ async def admin_login(data: dict):
     settings = await db.site_settings.find_one({"id": "site_settings"}, {"_id": 0, "admin_password": 1})
     stored = (settings or {}).get("admin_password", "divineadmin2024")
     if username == "admin" and password == stored:
-        return {"success": True, "token": "admin-session"}
+        token = secrets.token_urlsafe(32)
+        expires_at = datetime.now(timezone.utc) + timedelta(days=7)
+        await db.admin_sessions.insert_one({
+            "token": token,
+            "created_at": datetime.now(timezone.utc).isoformat(),
+            "expires_at": expires_at.isoformat(),
+        })
+        return {"success": True, "token": token}
     raise HTTPException(status_code=401, detail="Invalid credentials")
