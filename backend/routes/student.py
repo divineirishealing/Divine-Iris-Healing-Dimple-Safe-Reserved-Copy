@@ -1011,7 +1011,9 @@ async def dashboard_quote(
         "program_id": program_id,
         "program_title": program.get("title", ""),
         "included_in_annual_package": included,
-        "program_portal_pricing_override": _program_has_portal_pricing_override(per_map, program_id),
+        "program_portal_pricing_override": bool(
+            annual_dashboard_access and _program_has_portal_pricing_override(per_map, program_id)
+        ),
         **pricing,
         "quote_show_tax": quote_show_tax,
         "tax_rate_pct": gst_pct if cur == "inr" and quote_show_tax else 0.0,

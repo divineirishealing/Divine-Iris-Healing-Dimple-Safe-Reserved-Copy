@@ -641,7 +641,9 @@ const DashboardSettingsTab = ({ settings, onChange, programs = [] }) => {
             Shown only on the signed-in student dashboard (not the public homepage).{' '}
             <strong className="text-gray-700 font-medium">Member, immediate family, and friends &amp; extended use separate portal pricing</strong>
             — different promos, % off, amounts, or fixed prices per column. Extended guests do not use the family column unless you
-            mirror the same rules there. Checkout currency follows the student&apos;s region.
+            mirror the same rules there. Checkout currency follows the student&apos;s region.{' '}
+            <strong className="text-gray-700">These portal rules (global and per-program below) apply only when the client&apos;s Dashboard Access type is Annual</strong>
+            in Client Garden; Non-annual access uses public website tier pricing at checkout.
           </p>
           <p className="text-[10px] text-gray-500 mb-4 border-l-2 border-[#D4AF37]/50 pl-2">
             Columns: <strong>your seat</strong> · <strong>immediate household</strong> · <strong>friends &amp; extended</strong>.
@@ -981,7 +983,9 @@ const DashboardSettingsTab = ({ settings, onChange, programs = [] }) => {
               <h3 className="text-sm font-semibold text-gray-900">Upcoming programs — portal pricing (per program)</h3>
               <p className="text-[11px] text-gray-500 leading-snug mt-0.5">
                 Optional. Override <strong>member</strong>, <strong>immediate family</strong>, and <strong>friends &amp; extended</strong>{' '}
-                pricing per program. Values override global defaults for checkout only.
+                pricing per program. Values override global defaults for portal checkout only, and{' '}
+                <strong className="text-gray-700">only for clients with Dashboard Access = Annual</strong> (same as the three columns above).
+                Non-annual access ignores these overrides and uses website list/offer prices.
               </p>
             </div>
           </div>
