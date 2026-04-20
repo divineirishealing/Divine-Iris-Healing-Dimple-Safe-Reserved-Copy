@@ -464,7 +464,6 @@ export default function DashboardCombinedCheckoutPage() {
           : [];
         const upcoming = home.upcoming_programs || [];
         const annualAccess = !!home.annual_member_dashboard;
-        const subAnnualSignals = !!home.subscription_annual_package_signals;
         const immediateFamily = home.immediate_family || [];
         const enrollableGuests = [...immediateFamily, ...(home.other_guests || [])];
         const snap = readUpcomingDashboardSession(email);
@@ -477,7 +476,7 @@ export default function DashboardCombinedCheckoutPage() {
           if (!program) continue;
 
           const includedForSeat =
-            annualAccess && subAnnualSignals && programIncludedInAnnualPackage(program, annualIncludedIds);
+            annualAccess && programIncludedInAnnualPackage(program, annualIncludedIds);
           const sel = selectedMap[program.id] || selectedMap[String(program.id)] || [];
           const perDraft = drafts[program.id] || drafts[String(program.id)];
           const draft = mergeGlobalSeatDraft(

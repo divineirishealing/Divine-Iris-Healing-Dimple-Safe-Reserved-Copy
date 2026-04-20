@@ -570,7 +570,6 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh, bo
   const isAnnualSubscriber = homeData?.is_annual_subscriber;
   /** Client Garden Dashboard Access = Annual — drives dashboard offer columns + portal quote overlays. */
   const annualMemberDashboard = !!homeData?.annual_member_dashboard;
-  const subscriptionAnnualSignals = !!homeData?.subscription_annual_package_signals;
   const immediateFamilyLocked = !!homeData?.immediate_family_locked;
   const immediateFamilyEditApproved = homeData?.immediate_family_editing_approved !== false;
   const familyApproved = !!homeData?.family_approved;
@@ -962,9 +961,7 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh, bo
         const ids = selectedFamilyByProgram[p.id] || [];
         const draft = seatDraftsByProgram[p.id];
         const includedInPkg =
-          annualMemberDashboard &&
-          subscriptionAnnualSignals &&
-          (programIncludedInAnnualPackage(p, annualIncludedIds) || false);
+          annualMemberDashboard && (programIncludedInAnnualPackage(p, annualIncludedIds) || false);
         const bookerJoins = includedInPkg ? false : draft?.bookerJoinsProgram !== false;
         const params =
           ids.length > 0
@@ -994,7 +991,6 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh, bo
     };
   }, [
     annualMemberDashboard,
-    subscriptionAnnualSignals,
     currencyReady,
     portalQuoteCurrency,
     prefetchProgramsKey,
@@ -1240,7 +1236,6 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh, bo
     if (!prog) return;
     const includedPkg =
       annualMemberDashboard &&
-      subscriptionAnnualSignals &&
       (programIncludedInAnnualPackage(prog, annualIncludedIds) || !!annualQuotes[programId]?.included_in_annual_package);
     const ids = (selectedFamilyByProgram[programId] || []).map(String);
     setSeatDraftsByProgram((prev) => {
@@ -1558,7 +1553,6 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh, bo
               const sel = selectedFamilyByProgram[p.id] || [];
               const includedForSeat =
                 annualMemberDashboard &&
-                subscriptionAnnualSignals &&
                 (programIncludedInAnnualPackage(p, annualIncludedIds) ||
                   !!annualQuotes[p.id]?.included_in_annual_package);
               const seatCtxMini = { includedPkg: includedForSeat, selectedIds: sel };
@@ -1584,7 +1578,6 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh, bo
                   program={p}
                   isAnnual={isAnnualSubscriber}
                   annualDashboardAccess={annualMemberDashboard}
-                  subscriptionAnnualSignals={subscriptionAnnualSignals}
                   bookerEmail={bookerEmail}
                   detectedCountry={detectedCountry}
                   symbol={portalQuoteSymbol}

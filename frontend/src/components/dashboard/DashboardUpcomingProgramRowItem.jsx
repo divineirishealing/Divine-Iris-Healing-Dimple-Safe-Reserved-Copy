@@ -189,7 +189,6 @@ export default function DashboardUpcomingProgramRowItem({
   isAnnual: subscriberIsAnnual,
   /** Client Garden Dashboard Access = Annual — portal quote applies dashboard offer overlays. */
   annualDashboardAccess = false,
-  subscriptionAnnualSignals = false,
   bookerEmail = '',
   detectedCountry,
   symbol,
@@ -258,15 +257,16 @@ export default function DashboardUpcomingProgramRowItem({
 
   const includedPkg = Boolean(
     aq?.included_in_annual_package ??
-      (programIncludedInAnnualPackage(p, annualIncludedIds) &&
-        annualDashboardAccess &&
-        subscriptionAnnualSignals),
+      (programIncludedInAnnualPackage(p, annualIncludedIds) && annualDashboardAccess),
   );
   const selIds = selectedFamilyByProgram[p.id] || [];
   const selCount = selIds.length;
   const hasPortalTotal = aq != null && typeof aq.total === 'number';
+  /** Included package: total can be 0 (member seat only). Otherwise require a positive quote total. */
   const canAddToDivineCart = hasPortalTotal
-    ? Boolean(aq.total > 0 && (!includedPkg || selCount >= 1))
+    ? Boolean(
+        (includedPkg && Number(aq.total) >= 0) || (!includedPkg && aq.total > 0),
+      )
     : Boolean(enrollStatus === 'open' && !showContact);
 
   const [addingToCheckout, setAddingToCheckout] = useState(false);

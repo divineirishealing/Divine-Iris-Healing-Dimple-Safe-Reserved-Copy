@@ -159,13 +159,16 @@ def _is_annual_subscriber(sub: dict, client: dict) -> bool:
     return _subscription_annual_package_signals(sub)
 
 
-def _portal_included_in_annual_package(program: dict, inc_cfg, sub: dict, client: dict) -> bool:
-    """Prepaid annual-package inclusion: requires Dashboard Access = Annual and subscription annual signals."""
+def _portal_included_in_annual_package(program: dict, inc_cfg, _sub: dict, client: dict) -> bool:
+    """Prepaid annual-package inclusion: program must be in the configured package, and Client Garden access must be Annual.
+
+    Subscription fields (`package_id`, etc.) may be missing or stale in Mongo; we do not require
+    subscription heuristics here — otherwise included programs (e.g. MMM) still charge the member seat.
+    Non-annual dashboard access never gets package inclusion.
+    """
     if not _program_included_in_annual_package(program, inc_cfg):
         return False
     if not _annual_dashboard_access(client):
-        return False
-    if not _subscription_annual_package_signals(sub):
         return False
     return True
 
