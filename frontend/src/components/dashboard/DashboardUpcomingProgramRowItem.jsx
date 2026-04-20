@@ -35,8 +35,7 @@ function AnnualQuoteBreakdown({
   includedPkg,
   suppressIntro = false,
   layout = 'list',
-  /** Client Garden Dashboard Access = Annual — portal offer columns & per-program overrides apply. */
-  annualDashboardAccess = false,
+  isAnnualSubscriber = true,
 }) {
   if (!aq) {
     return <p className="text-[11px] text-slate-500 italic">Calculating total…</p>;
@@ -62,9 +61,7 @@ function AnnualQuoteBreakdown({
       <div className="text-[11px] text-slate-800 leading-snug w-full min-w-0 space-y-2">
         {!suppressIntro ? (
           <p className="text-[10px] font-bold uppercase tracking-wide text-slate-500">
-            {annualDashboardAccess
-              ? 'Offer price per person (portal)'
-              : 'Price per seat (same as website upcoming)'}
+            Offer price per person (portal)
           </p>
         ) : null}
         <div className="rounded-md border border-slate-200 bg-white w-full px-3 py-2.5 space-y-2">
@@ -76,9 +73,7 @@ function AnnualQuoteBreakdown({
           ) : null}
           {showSelf ? (
             <div className={rowClass}>
-              <span className="font-medium text-slate-800">
-                {annualDashboardAccess ? 'You (Annual access)' : 'You'}
-              </span>
+              <span className="font-medium text-slate-800">{isAnnualSubscriber ? 'You (annual member)' : 'You'}</span>
               <span className="font-semibold tabular-nums text-slate-900 text-right">
                 {symbol}
                 {selfOffer.toLocaleString()}
@@ -122,8 +117,8 @@ function AnnualQuoteBreakdown({
       {!suppressIntro ? (
         <>
           <p className="text-[10px] font-bold uppercase tracking-wide text-slate-500">
-            {annualDashboardAccess
-              ? 'Prices — Annual access · Immediate family · Friends & extended'
+            {isAnnualSubscriber
+              ? 'Prices — Annual member · Immediate family · Friends & extended'
               : 'Prices — You · Immediate family · Friends & extended'}
           </p>
           <p className="font-semibold text-slate-900 text-xs">Calculate total amount</p>
@@ -133,7 +128,7 @@ function AnnualQuoteBreakdown({
         {includedPkg ? <li className="text-slate-600">Your seat: included in annual package</li> : null}
         {showSelf ? (
           <li>
-            {annualDashboardAccess ? 'You (Annual access)' : 'You'}:{' '}
+            {isAnnualSubscriber ? 'You (annual member)' : 'You'}:{' '}
             <span className="font-semibold text-slate-900 tabular-nums">
               {symbol}
               {Number(aq.self_after_promos ?? 0).toLocaleString()}
@@ -625,7 +620,7 @@ export default function DashboardUpcomingProgramRowItem({
                       aq={aq}
                       symbol={symbol}
                       includedPkg={includedPkg}
-                      annualDashboardAccess={annualDashboardAccess}
+                      isAnnualSubscriber={subscriberIsAnnual}
                       suppressIntro
                       layout="table"
                     />
