@@ -1079,7 +1079,7 @@ async def get_client_tax_for_enrollment(enrollment_id: str):
     """
     enrollment = await db.enrollments.find_one(
         {"id": enrollment_id},
-        {"_id": 0, "booker_email": 1, "client_id": 1},
+        {"_id": 0, "booker_email": 1, "client_id": 1, "participants": 1},
     )
     if not enrollment:
         return {"india_tax_enabled": False}
@@ -1089,7 +1089,16 @@ async def get_client_tax_for_enrollment(enrollment_id: str):
     booker_email = (enrollment.get("booker_email") or "").strip().lower()
     client_id = (enrollment.get("client_id") or "").strip()
 
-    _proj = {"_id": 0, "india_payment_method": 1, "india_discount_percent": 1, "india_tax_enabled": 1, "india_tax_percent": 1, "india_tax_label": 1, "india_tax_visible_on_dashboard": 1}
+    _proj = {
+        "_id": 0,
+        "india_payment_method": 1,
+        "india_discount_percent": 1,
+        "india_discount_member_bands": 1,
+        "india_tax_enabled": 1,
+        "india_tax_percent": 1,
+        "india_tax_label": 1,
+        "india_tax_visible_on_dashboard": 1,
+    }
     if client_id:
         client_doc = await db.clients.find_one({"id": client_id}, _proj)
     if not client_doc and booker_email:
@@ -1098,9 +1107,16 @@ async def get_client_tax_for_enrollment(enrollment_id: str):
     if not client_doc:
         return {"india_tax_enabled": False}
 
+    participants = enrollment.get("participants") or []
+    participant_count = len(participants) if isinstance(participants, list) else 0
+    if participant_count < 1:
+        participant_count = 1
+
     return {
         "india_payment_method": client_doc.get("india_payment_method") or None,
         "india_discount_percent": client_doc.get("india_discount_percent"),  # None = use site default
+        "india_discount_member_bands": client_doc.get("india_discount_member_bands") or None,
+        "participant_count": participant_count,
         "india_tax_enabled": bool(client_doc.get("india_tax_enabled")),
         "india_tax_percent": client_doc.get("india_tax_percent", 18.0),
         "india_tax_label": client_doc.get("india_tax_label", "GST"),

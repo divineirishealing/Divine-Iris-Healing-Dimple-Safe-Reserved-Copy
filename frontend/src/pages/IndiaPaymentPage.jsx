@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
+import { parseIndiaSitePercent, resolveIndiaDiscountPercent } from '../lib/indiaClientPricing';
 import { useParams, useSearchParams, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import Header from '../components/Header';
@@ -90,12 +91,14 @@ const IndiaPaymentPage = () => {
       return Number.isFinite(v) ? v : 3;
     })();
 
-    // Client-specific discount overrides the site-wide alt-payment discount
-    const hasClientDiscount = clientTax && clientTax.india_discount_percent != null;
-    const discountPct = hasClientDiscount
-      ? clientTax.india_discount_percent
-      : (settings.india_alt_discount_percent || 9);
-    const discountLabel = hasClientDiscount ? 'India Discount' : `Alt. Payment Discount`;
+    const participantCount = clientTax?.participant_count ?? 1;
+    const altDisc = parseIndiaSitePercent(settings, 'india_alt_discount_percent', 9);
+    const r = resolveIndiaDiscountPercent(clientTax || {}, participantCount, altDisc);
+    const discountPct = r.discountPct;
+    const hasIndiaDiscount =
+      r.fromBand ||
+      !!(clientTax && clientTax.india_discount_percent != null && clientTax.india_discount_percent !== '');
+    const discountLabel = hasIndiaDiscount ? 'India Discount' : 'Alt. Payment Discount';
 
     // Client-specific tax (GST on after-discount price)
     const taxEnabled = clientTax ? !!clientTax.india_tax_enabled : true;

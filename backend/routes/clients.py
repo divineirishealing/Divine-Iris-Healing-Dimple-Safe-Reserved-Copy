@@ -1,5 +1,5 @@
 from fastapi import APIRouter, HTTPException
-from pydantic import BaseModel
+from pydantic import BaseModel, Field, model_validator
 from typing import Optional, List, Dict, Any
 from datetime import datetime, timezone
 import logging
@@ -596,6 +596,21 @@ async def get_client(client_id: str):
 
 # ========== UPDATE ==========
 
+
+class IndiaDiscountMemberBand(BaseModel):
+    """Optional India checkout discount % when total participant count is in [min, max] (inclusive)."""
+
+    min: int = Field(ge=0, le=999)
+    max: int = Field(ge=0, le=999)
+    percent: float = Field(ge=0, le=100)
+
+    @model_validator(mode="after")
+    def max_ge_min(self) -> "IndiaDiscountMemberBand":
+        if self.max < self.min:
+            raise ValueError("max must be >= min")
+        return self
+
+
 class ClientUpdate(BaseModel):
     label_manual: Optional[str] = None
     notes: Optional[str] = None
@@ -610,6 +625,8 @@ class ClientUpdate(BaseModel):
     india_tax_visible_on_dashboard: Optional[bool] = None
     india_payment_method: Optional[str] = None   # e.g. "gpay", "upi", "bank_transfer", "any"
     india_discount_percent: Optional[float] = None  # client-specific discount on base price
+    # When set, first matching band (by order) overrides india_discount_percent for that participant count.
+    india_discount_member_bands: Optional[List[IndiaDiscountMemberBand]] = None
     preferred_payment_method: Optional[str] = None  # gpay_upi, bank_transfer, cash_deposit, stripe (intake / CRM)
     intake_pending: Optional[bool] = None
     family_pending_review: Optional[bool] = None
@@ -676,6 +693,14 @@ async def update_client(client_id: str, data: ClientUpdate):
         update_fields["preferred_india_bank_id"] = (data.preferred_india_bank_id or "").strip()
     if data.annual_member_dashboard is not None:
         update_fields["annual_member_dashboard"] = bool(data.annual_member_dashboard)
+
+    incoming = data.model_dump(exclude_unset=True)
+    if "india_discount_member_bands" in incoming:
+        bands = data.india_discount_member_bands
+        if bands:
+            update_fields["india_discount_member_bands"] = [b.model_dump() for b in bands]
+        else:
+            update_fields["india_discount_member_bands"] = None
 
     # New-intake queue clears when Google login is enabled (no separate "mark reviewed" needed)
     if data.portal_login_allowed is not None and bool(data.portal_login_allowed):

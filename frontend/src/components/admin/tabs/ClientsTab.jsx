@@ -391,6 +391,7 @@ const ClientDetail = ({
   const [portalLoginAllowed, setPortalLoginAllowed] = useState(cl.portal_login_allowed !== false);
   const [indiaPaymentMethod, setIndiaPaymentMethod] = useState(cl.india_payment_method || '');
   const [indiaDiscountPercent, setIndiaDiscountPercent] = useState(cl.india_discount_percent ?? '');
+  const [indiaDiscountBandsJson, setIndiaDiscountBandsJson] = useState('');
   const [indiaTaxEnabled, setIndiaTaxEnabled] = useState(!!cl.india_tax_enabled);
   const [indiaTaxPercent, setIndiaTaxPercent] = useState(cl.india_tax_percent ?? 18);
   const [indiaTaxLabel, setIndiaTaxLabel] = useState(cl.india_tax_label || 'GST');
@@ -413,6 +414,11 @@ const ClientDetail = ({
     setPortalLoginAllowed(cl.portal_login_allowed !== false);
     setIndiaPaymentMethod(cl.india_payment_method || '');
     setIndiaDiscountPercent(cl.india_discount_percent ?? '');
+    setIndiaDiscountBandsJson(
+      Array.isArray(cl.india_discount_member_bands) && cl.india_discount_member_bands.length
+        ? JSON.stringify(cl.india_discount_member_bands, null, 2)
+        : '',
+    );
     setIndiaTaxEnabled(!!cl.india_tax_enabled);
     setIndiaTaxPercent(cl.india_tax_percent ?? 18);
     setIndiaTaxLabel(cl.india_tax_label || 'GST');
@@ -420,7 +426,7 @@ const ClientDetail = ({
     setAnnualMemberDashboard(!!cl.annual_member_dashboard);
     setPreferredIndiaGpayId(cl.preferred_india_gpay_id || '');
     setPreferredIndiaBankId(cl.preferred_india_bank_id || '');
-  }, [cl.id, cl.immediate_family_editing_approved, cl.portal_login_allowed, cl.india_payment_method, cl.india_discount_percent, cl.india_tax_enabled, cl.india_tax_percent, cl.india_tax_label, cl.india_tax_visible_on_dashboard, cl.annual_member_dashboard, cl.preferred_india_gpay_id, cl.preferred_india_bank_id]);
+  }, [cl.id, cl.immediate_family_editing_approved, cl.portal_login_allowed, cl.india_payment_method, cl.india_discount_percent, cl.india_discount_member_bands, cl.india_tax_enabled, cl.india_tax_percent, cl.india_tax_label, cl.india_tax_visible_on_dashboard, cl.annual_member_dashboard, cl.preferred_india_gpay_id, cl.preferred_india_bank_id]);
 
   const setPaymentMethodTagged = (v) => {
     setIndiaPaymentMethod(v);
@@ -431,6 +437,18 @@ const ClientDetail = ({
   };
 
   const handleSave = async () => {
+    let bandsPayload = null;
+    const trimmedBands = (indiaDiscountBandsJson || '').trim();
+    if (trimmedBands) {
+      try {
+        const parsed = JSON.parse(trimmedBands);
+        if (!Array.isArray(parsed)) throw new Error('Must be a JSON array');
+        bandsPayload = parsed.length ? parsed : null;
+      } catch (e) {
+        toast({ title: 'Invalid discount bands JSON', description: e?.message || '', variant: 'destructive' });
+        return;
+      }
+    }
     setSaving(true);
     try {
       await axios.put(`${API}/clients/${cl.id}`, {
@@ -440,6 +458,7 @@ const ClientDetail = ({
         portal_login_allowed: portalLoginAllowed,
         india_payment_method: indiaPaymentMethod || null,
         india_discount_percent: indiaDiscountPercent !== '' ? parseFloat(indiaDiscountPercent) || 0 : null,
+        india_discount_member_bands: bandsPayload,
         india_tax_enabled: indiaTaxEnabled,
         india_tax_percent: indiaTaxEnabled ? parseFloat(indiaTaxPercent) || 0 : null,
         india_tax_label: indiaTaxLabel || 'GST',
@@ -619,7 +638,23 @@ const ClientDetail = ({
                   />
                   <span className="text-[10px] text-gray-400 flex-shrink-0">%</span>
                 </div>
-                <p className="text-[9px] text-gray-400 mt-0.5">Applied on base price before GST. Overrides the site-wide alt-payment discount.</p>
+                <p className="text-[9px] text-gray-400 mt-0.5">
+                  Applied on base price before GST. Optional bands below override this for specific headcounts.
+                </p>
+              </div>
+
+              <div>
+                <Label className="text-[9px] text-gray-500 block mb-0.5">Optional: discount by # of people (JSON)</Label>
+                <textarea
+                  value={indiaDiscountBandsJson}
+                  onChange={(e) => setIndiaDiscountBandsJson(e.target.value)}
+                  placeholder={`[\n  { "min": 1, "max": 1, "percent": 20 },\n  { "min": 3, "max": 4, "percent": 12 }\n]`}
+                  rows={4}
+                  className="w-full text-[10px] font-mono border rounded-md px-2 py-1.5 bg-white"
+                />
+                <p className="text-[9px] text-gray-400 mt-0.5">
+                  Sacred Exchange total participants. First matching range wins; otherwise the flat % above or site default.
+                </p>
               </div>
 
               {(indiaGpayOpts.length >= 1) && (indiaPaymentMethod === 'gpay_upi' || indiaPaymentMethod === 'any') && (

@@ -769,10 +769,11 @@ export default function DashboardCombinedCheckoutPage() {
       india_alt_discount_percent: paymentSettings.india_alt_discount_percent,
       india_gst_percent: paymentSettings.india_gst_percent,
       india_platform_charge_percent: paymentSettings.india_platform_charge_percent,
-    });
+    }, totalParticipants);
   }, [
     currency,
     total,
+    totalParticipants,
     clientIndiaPricing,
     paymentSettings.india_alt_discount_percent,
     paymentSettings.india_gst_percent,

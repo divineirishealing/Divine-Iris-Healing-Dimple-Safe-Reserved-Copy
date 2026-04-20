@@ -62,11 +62,17 @@ function gstSummary(cl) {
 }
 
 function discountSummary(cl) {
+  const bands = cl.india_discount_member_bands;
+  const hasBands = Array.isArray(bands) && bands.length > 0;
   const d = cl.india_discount_percent;
-  if (d === null || d === undefined || d === '') return '—';
-  const n = Number(d);
-  if (Number.isNaN(n)) return '—';
-  return `${n}%`;
+  const parts = [];
+  if (hasBands) parts.push('by # people');
+  if (d !== null && d !== undefined && d !== '') {
+    const n = Number(d);
+    if (!Number.isNaN(n)) parts.push(`${n}% fallback`);
+  }
+  if (!parts.length) return '—';
+  return parts.join(' · ');
 }
 
 /**
@@ -165,6 +171,7 @@ export default function DashboardAccessTab() {
   const [preferredIndiaGpayId, setPreferredIndiaGpayId] = useState('');
   const [preferredIndiaBankId, setPreferredIndiaBankId] = useState('');
   const [indiaDiscountPercent, setIndiaDiscountPercent] = useState('');
+  const [indiaDiscountBandsJson, setIndiaDiscountBandsJson] = useState('');
   const [indiaTaxEnabled, setIndiaTaxEnabled] = useState(false);
   const [indiaTaxPercent, setIndiaTaxPercent] = useState(18);
   const [indiaTaxLabel, setIndiaTaxLabel] = useState('GST');
@@ -388,6 +395,11 @@ export default function DashboardAccessTab() {
     setPreferredIndiaGpayId(cl.preferred_india_gpay_id || '');
     setPreferredIndiaBankId(cl.preferred_india_bank_id || '');
     setIndiaDiscountPercent(cl.india_discount_percent ?? '');
+    setIndiaDiscountBandsJson(
+      Array.isArray(cl.india_discount_member_bands) && cl.india_discount_member_bands.length
+        ? JSON.stringify(cl.india_discount_member_bands, null, 2)
+        : '',
+    );
     setIndiaTaxEnabled(!!cl.india_tax_enabled);
     setIndiaTaxPercent(cl.india_tax_percent ?? 18);
     setIndiaTaxLabel(cl.india_tax_label || 'GST');
@@ -401,6 +413,22 @@ export default function DashboardAccessTab() {
 
   const handleSave = async () => {
     if (!editing?.id) return;
+    let bandsPayload = null;
+    const trimmedBands = (indiaDiscountBandsJson || '').trim();
+    if (trimmedBands) {
+      try {
+        const parsed = JSON.parse(trimmedBands);
+        if (!Array.isArray(parsed)) throw new Error('Must be a JSON array');
+        bandsPayload = parsed.length ? parsed : null;
+      } catch (e) {
+        toast({
+          title: 'Invalid discount bands JSON',
+          description: e?.message || 'Check the format',
+          variant: 'destructive',
+        });
+        return;
+      }
+    }
     setSaving(true);
     try {
       const wasPending = isPendingIntakeReview(editing);
@@ -421,6 +449,7 @@ export default function DashboardAccessTab() {
         india_tax_label: (indiaTaxLabel || 'GST').trim() || 'GST',
         preferred_india_gpay_id: (preferredIndiaGpayId || '').trim() || '',
         preferred_india_bank_id: (preferredIndiaBankId || '').trim() || '',
+        india_discount_member_bands: bandsPayload,
       });
       toast({
         title: 'Saved',
@@ -1104,7 +1133,9 @@ export default function DashboardAccessTab() {
 
             <div>
               <Label className="text-xs text-gray-600">Discount % on base price</Label>
-              <p className="text-[10px] text-gray-400 mb-1">Applied before GST. Leave empty for no client-specific discount.</p>
+              <p className="text-[10px] text-gray-400 mb-1">
+                Applied before GST. Leave empty for no client-specific flat discount (site default applies unless bands match below).
+              </p>
               <div className="flex items-center gap-2 mt-1">
                 <Input
                   type="number"
@@ -1118,6 +1149,20 @@ export default function DashboardAccessTab() {
                 />
                 <span className="text-xs text-gray-500">%</span>
               </div>
+            </div>
+
+            <div>
+              <Label className="text-xs text-gray-600">Optional: discount by number of people (JSON)</Label>
+              <p className="text-[10px] text-gray-400 mb-1">
+                Total participants on Sacred Exchange checkout. First matching row wins. Example: one person 20%, three to four people 12%. Leave blank to disable.
+              </p>
+              <textarea
+                value={indiaDiscountBandsJson}
+                onChange={(e) => setIndiaDiscountBandsJson(e.target.value)}
+                placeholder={`[\n  { "min": 1, "max": 1, "percent": 20 },\n  { "min": 3, "max": 4, "percent": 12 }\n]`}
+                rows={5}
+                className="w-full text-xs font-mono border rounded-md px-2 py-2 bg-white mt-1"
+              />
             </div>
 
             <div className="rounded-lg border border-orange-100 bg-orange-50/40 px-3 py-3 space-y-2">
