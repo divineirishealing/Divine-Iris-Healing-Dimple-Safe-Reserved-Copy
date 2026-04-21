@@ -425,6 +425,20 @@ async def _household_club_all_annual(household_key: str) -> bool:
     return True
 
 
+def _family_offer_for_included_package_guests(
+    included_in_package: bool,
+    payable_immediate_seat_count: int,
+    fo_imm: dict,
+) -> dict:
+    """When the program is included in the prepaid annual package, add-on immediate-family seats
+    (non–household-peer guests) must use program tier list/offer — not the global dashboard family
+    column (fixed ₹1,111, promos, etc.), which targets other programs like short detoxes.
+    """
+    if included_in_package and payable_immediate_seat_count > 0:
+        return {}
+    return fo_imm or {}
+
+
 def _immediate_line_offer_for_annual_household_peers(
     annual_offer: dict,
     family_offer: dict,
@@ -515,7 +529,7 @@ async def _household_peer_guest_rows(
 
 def _merge_immediate_family_with_household_peers(stored_im: List[dict], peers: List[dict]) -> List[dict]:
     """Stored rows keep order; on id collision merge household-peer flags from linked Client Garden rows."""
-    peer_by_id = {str(p.get("id")): p for p in (peers or []) if p.get("id")}
+    peer_by_id = {str(p.get("id") or "").strip(): p for p in (peers or []) if p.get("id")}
     seen: Set[str] = set()
     out: List[dict] = []
     for m in stored_im or []:
@@ -550,7 +564,7 @@ async def _all_dashboard_guest_rows_with_household(
     """
     base = _all_dashboard_guest_rows(client)
     peers = await _household_peer_guest_rows(client_id, client, for_payment=for_payment)
-    peer_by_id = {str(p.get("id")): p for p in peers if p.get("id")}
+    peer_by_id = {str(p.get("id") or "").strip(): p for p in peers if p.get("id")}
     out: List[dict] = []
     for m in base:
         mid = str(m.get("id") or "").strip()
@@ -655,12 +669,7 @@ async def _apply_portal_guest_line_offer(
             pseat = _read_currency_amount(fo, "fixed_price", cur)
             # Global dashboard "family fixed" can target short programs (e.g. ₹1,111). For tier-priced
             # flagship programs (e.g. MMM ₹9,990), use the program tier line instead of that global seat price.
-            use_tier_not_global_fixed = (
-                pseat > 0
-                and fam_unit > 0
-                and pseat < fam_unit * 0.5
-                and bool((program or {}).get("is_flagship"))
-            )
+            use_tier_not_global_fixed = pseat > 0 and fam_unit > 0 and pseat < fam_unit * 0.5
             if use_tier_not_global_fixed:
                 fam_after = max(0.0, round(fam_line_gross, 2))
                 family_rule = "list"
@@ -1068,6 +1077,7 @@ async def _portal_combined_dashboard_total(user: dict, profile: ProfileData) -> 
         for i in id_list:
             if i not in fam_by_id:
                 raise HTTPException(status_code=400, detail="Unknown guest id in portal cart")
+        included = _portal_included_in_annual_package(program, inc_cfg, sub, client)
         if id_list:
             resolved_rows = [fam_by_row[i] for i in id_list if i in fam_by_row]
             imm_fc, ext_fc = _split_resolved_guest_rows_by_bucket(
@@ -1076,7 +1086,6 @@ async def _portal_combined_dashboard_total(user: dict, profile: ProfileData) -> 
         else:
             imm_fc, ext_fc = 0, 0
             resolved_rows = []
-        included = _portal_included_in_annual_package(program, inc_cfg, sub, client)
         if included:
             include_self = False
         else:
@@ -1085,6 +1094,7 @@ async def _portal_combined_dashboard_total(user: dict, profile: ProfileData) -> 
         if not annual_dashboard_access:
             ao, fo, eo = {}, {}, {}
         fo_imm = _immediate_line_offer_for_annual_household_peers(ao, fo, resolved_rows)
+        fo_imm = _family_offer_for_included_package_guests(included, imm_fc, fo_imm)
         pricing = await compute_dashboard_annual_family_pricing(
             program,
             pid,
@@ -1209,6 +1219,7 @@ async def dashboard_quote(
     else:
         imm_fc, ext_fc = fc, 0
         fo_imm = fo
+    fo_imm = _family_offer_for_included_package_guests(included, imm_fc, fo_imm)
     pricing = await compute_dashboard_annual_family_pricing(
         program,
         program_id,
@@ -1422,6 +1433,7 @@ async def dashboard_pay(data: DashboardPayIn, request: Request, user: dict = Dep
     if not annual_dashboard_access:
         ao, fo, eo = {}, {}, {}
     fo_imm = _immediate_line_offer_for_annual_household_peers(ao, fo, resolved_family)
+    fo_imm = _family_offer_for_included_package_guests(included, imm_fc, fo_imm)
     quote = await compute_dashboard_annual_family_pricing(
         program,
         data.program_id,
