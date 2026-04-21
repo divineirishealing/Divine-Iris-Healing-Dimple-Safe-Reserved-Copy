@@ -406,6 +406,43 @@ def _all_dashboard_guest_rows(client: dict) -> List[dict]:
     return im + og
 
 
+async def _household_club_all_annual(household_key: str) -> bool:
+    """True only when every client with this household_key has Annual dashboard access and portal is not blocked."""
+    hk = (household_key or "").strip()
+    if not hk:
+        return False
+    rows = await db.clients.find(
+        {"household_key": hk},
+        {"_id": 0, "annual_member_dashboard": 1, "portal_login_allowed": 1},
+    ).to_list(100)
+    if not rows:
+        return False
+    for c in rows:
+        if not bool(c.get("annual_member_dashboard")):
+            return False
+        if c.get("portal_login_allowed") is False:
+            return False
+    return True
+
+
+def _immediate_line_offer_for_annual_household_peers(
+    annual_offer: dict,
+    family_offer: dict,
+    resolved_guest_rows: Optional[List[dict]],
+) -> dict:
+    """When every selected guest is a linked annual household peer, use the Annual portal column for their seats."""
+    if not resolved_guest_rows:
+        return family_offer or {}
+    if not all(bool(r.get("household_client_link")) for r in resolved_guest_rows):
+        return family_offer or {}
+    if not all(bool(r.get("annual_member_dashboard")) for r in resolved_guest_rows):
+        return family_offer or {}
+    ao = annual_offer or {}
+    if ao.get("enabled"):
+        return ao
+    return family_offer or {}
+
+
 async def _household_peer_ids(client_id: str, client: dict) -> Set[str]:
     """Other Client Garden ids sharing the same household_key.
 
@@ -436,9 +473,20 @@ async def _household_peer_guest_rows(
     hk = (client.get("household_key") or "").strip()
     if not hk or not client_id:
         return []
+    if not await _household_club_all_annual(hk):
+        return []
     rows = await db.clients.find(
         {"household_key": hk, "id": {"$ne": client_id}},
-        {"_id": 0, "id": 1, "name": 1, "email": 1, "phone": 1, "city": 1, "country": 1},
+        {
+            "_id": 0,
+            "id": 1,
+            "name": 1,
+            "email": 1,
+            "phone": 1,
+            "city": 1,
+            "country": 1,
+            "annual_member_dashboard": 1,
+        },
     ).sort([("name", 1)]).to_list(80)
     now = datetime.now(timezone.utc).isoformat()
     out: List[dict] = []
@@ -458,6 +506,7 @@ async def _household_peer_guest_rows(
                 "country": (m.get("country") or "").strip()[:120] or "",
                 "notify_enrollment": bool(em),
                 "household_client_link": True,
+                "annual_member_dashboard": bool(m.get("annual_member_dashboard")),
                 "updated_at": now,
             }
         )
@@ -966,6 +1015,7 @@ async def _portal_combined_dashboard_total(user: dict, profile: ProfileData) -> 
     household_peer_ids = await _household_peer_ids(client_id, client)
     fam_all = await _all_dashboard_guest_rows_with_household(client_id, client, for_payment=True)
     fam_by_id = {str(m.get("id")) for m in fam_all if m.get("id")}
+    fam_by_row = {str(m.get("id")): m for m in fam_all if m.get("id")}
     g_ao = settings_doc.get("dashboard_offer_annual") or {}
     g_fo = settings_doc.get("dashboard_offer_family") or {}
     g_eo = settings_doc.get("dashboard_offer_extended") or {}
@@ -985,8 +1035,10 @@ async def _portal_combined_dashboard_total(user: dict, profile: ProfileData) -> 
                 raise HTTPException(status_code=400, detail="Unknown guest id in portal cart")
         if id_list:
             imm_fc, ext_fc = _split_guest_ids_by_bucket(client, id_list, household_peer_ids)
+            resolved_rows = [fam_by_row[i] for i in id_list if i in fam_by_row]
         else:
             imm_fc, ext_fc = 0, 0
+            resolved_rows = []
         included = _portal_included_in_annual_package(program, inc_cfg, sub, client)
         if included:
             include_self = False
@@ -995,6 +1047,7 @@ async def _portal_combined_dashboard_total(user: dict, profile: ProfileData) -> 
         ao, fo, eo = _merge_program_dashboard_offers(g_ao, g_fo, g_eo, pid, per_map)
         if not annual_dashboard_access:
             ao, fo, eo = {}, {}, {}
+        fo_imm = _immediate_line_offer_for_annual_household_peers(ao, fo, resolved_rows)
         pricing = await compute_dashboard_annual_family_pricing(
             program,
             pid,
@@ -1002,7 +1055,7 @@ async def _portal_combined_dashboard_total(user: dict, profile: ProfileData) -> 
             imm_fc,
             ext_fc,
             ao,
-            fo,
+            fo_imm,
             eo,
             include_self=include_self,
             tier_index_override=line.tier_index,
@@ -1114,6 +1167,12 @@ async def dashboard_quote(
     ao, fo, eo = _merge_program_dashboard_offers(g_ao, g_fo, g_eo, program_id, per_map)
     if not annual_dashboard_access:
         ao, fo, eo = {}, {}, {}
+    if id_list:
+        fam_by_row = {str(m.get("id")): m for m in fam if m.get("id")}
+        resolved_rows = [fam_by_row[i] for i in id_list if i in fam_by_row]
+        fo_imm = _immediate_line_offer_for_annual_household_peers(ao, fo, resolved_rows)
+    else:
+        fo_imm = fo
     pricing = await compute_dashboard_annual_family_pricing(
         program,
         program_id,
@@ -1121,7 +1180,7 @@ async def dashboard_quote(
         imm_fc,
         ext_fc,
         ao,
-        fo,
+        fo_imm,
         eo,
         include_self=include_self,
         tier_index_override=tier_index,
@@ -1324,6 +1383,7 @@ async def dashboard_pay(data: DashboardPayIn, request: Request, user: dict = Dep
     ao, fo, eo = _merge_program_dashboard_offers(g_ao, g_fo, g_eo, data.program_id, per_map)
     if not annual_dashboard_access:
         ao, fo, eo = {}, {}, {}
+    fo_imm = _immediate_line_offer_for_annual_household_peers(ao, fo, resolved_family)
     quote = await compute_dashboard_annual_family_pricing(
         program,
         data.program_id,
@@ -1331,7 +1391,7 @@ async def dashboard_pay(data: DashboardPayIn, request: Request, user: dict = Dep
         imm_fc,
         ext_fc,
         ao,
-        fo,
+        fo_imm,
         eo,
         include_self=not included,
         apply_tier_offer_prices=True,
@@ -1606,8 +1666,12 @@ async def get_student_home(user: dict = Depends(get_current_user)):
 
     is_annual = _is_annual_subscriber(sub, client)
     pref_gpay_m, pref_bank_m = _merged_preferred_india_ids(sub, client)
-    hh_peers = await _household_peer_guest_rows(client_id, client, for_payment=False) if client_id else []
-    immediate_family = _merge_immediate_family_with_household_peers(client.get("immediate_family") or [], hh_peers)
+    hk = (client.get("household_key") or "").strip()
+    annual_household_club_ok = bool(hk) and await _household_club_all_annual(hk) if client_id else False
+    annual_household_peers = (
+        await _household_peer_guest_rows(client_id, client, for_payment=False) if client_id else []
+    )
+    immediate_family = client.get("immediate_family") or []
     other_guests = client.get("other_guests") or []
     immediate_family_locked = _immediate_family_effective_locked(client)
     immediate_family_editing_approved = client.get("immediate_family_editing_approved") is not False
@@ -1627,6 +1691,9 @@ async def get_student_home(user: dict = Depends(get_current_user)):
         },
         "dashboard_program_offers": dashboard_program_offers,
         "immediate_family": immediate_family,
+        "annual_household_peers": annual_household_peers,
+        "annual_household_club_ok": annual_household_club_ok,
+        "has_household_key": bool(hk),
         "is_primary_household_contact": bool(client.get("is_primary_household_contact")),
         "other_guests": other_guests,
         "immediate_family_locked": immediate_family_locked,

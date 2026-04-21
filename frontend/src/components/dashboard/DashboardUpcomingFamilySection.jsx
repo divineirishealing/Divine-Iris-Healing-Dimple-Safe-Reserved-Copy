@@ -223,7 +223,6 @@ function GuestMemberTable({
   wrapTestId,
   tableTestId,
   readOnly = false,
-  isPrimaryHouseholdContact = true,
 }) {
   const coalesceRelationship = (raw) => {
     const r = (raw || '').trim();
@@ -280,24 +279,13 @@ function GuestMemberTable({
         </thead>
         <tbody>
           {members.map((m, idx) => {
-            const rowReadOnly = readOnly || !!m.household_client_link;
+            const rowReadOnly = readOnly;
             return (
             <tr
               key={m.id || `row-${idx}`}
               className="border-b border-slate-100 last:border-0 hover:bg-violet-50/30 transition-colors"
             >
               <td className="px-2 py-1.5 align-middle">
-                <div className="flex flex-col gap-0.5 min-w-0">
-                  {m.household_client_link ? (
-                    <span className="text-[9px] font-medium text-violet-700 uppercase tracking-wide">
-                      Client Garden · same household key
-                      {!readOnly && !isPrimaryHouseholdContact ? (
-                        <span className="block font-normal text-slate-500 normal-case mt-0.5">
-                          Only the primary household contact can pay for linked seats — sign in as primary to enroll everyone.
-                        </span>
-                      ) : null}
-                    </span>
-                  ) : null}
                 <input
                   value={m.name}
                   onChange={(e) => updateRow(idx, 'name', e.target.value)}
@@ -305,7 +293,6 @@ function GuestMemberTable({
                   className="w-full min-w-[6rem] text-[11px] border border-slate-200 rounded px-1.5 py-1 bg-white disabled:opacity-60 disabled:bg-slate-50"
                   placeholder="Full name"
                 />
-                </div>
               </td>
               <td className="px-2 py-1.5 align-middle">
                 <select
@@ -588,6 +575,9 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh, bo
   const immediateFamilyReadOnly = familyApproved || (immediateFamilyLocked && !immediateFamilyEditApproved);
   const initialMembers = useMemo(() => homeData?.immediate_family || [], [homeData?.immediate_family]);
   const initialOtherMembers = useMemo(() => homeData?.other_guests || [], [homeData?.other_guests]);
+  const annualHouseholdPeers = useMemo(() => homeData?.annual_household_peers || [], [homeData?.annual_household_peers]);
+  const annualHouseholdClubOk = !!homeData?.annual_household_club_ok;
+  const hasHouseholdKey = !!homeData?.has_household_key;
   /** Only this login may add linked same-key clients as paid seats (checkout / enrollment). */
   const isPrimaryHouseholdContact = !!homeData?.is_primary_household_contact;
 
@@ -596,10 +586,7 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh, bo
     setMembers(initialMembers);
   }, [initialMembers]);
 
-  const manualImmediateFamilyCount = useMemo(
-    () => members.filter((m) => !m.household_client_link).length,
-    [members]
-  );
+  const manualImmediateFamilyCount = useMemo(() => members.length, [members]);
 
   const [otherMembers, setOtherMembers] = useState(() => initialOtherMembers);
   React.useEffect(() => {
@@ -608,9 +595,9 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh, bo
 
   const enrollableGuests = useMemo(() => {
     const base = [...members, ...otherMembers];
-    if (isPrimaryHouseholdContact) return base;
-    return base.filter((m) => !m.household_client_link);
-  }, [members, otherMembers, isPrimaryHouseholdContact]);
+    if (isPrimaryHouseholdContact) return [...base, ...annualHouseholdPeers];
+    return base;
+  }, [members, otherMembers, isPrimaryHouseholdContact, annualHouseholdPeers]);
 
   const enrollableGuestIdsKey = useMemo(
     () =>
@@ -622,7 +609,7 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh, bo
     [enrollableGuests]
   );
 
-  const familyRowCount = members.length + otherMembers.length;
+  const familyRowCount = members.length + otherMembers.length + annualHouseholdPeers.length;
 
   const restoredUpcomingRef = useRef(false);
 
@@ -821,7 +808,7 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh, bo
   };
 
   const saveFamily = async (submitForReview) => {
-    const named = members.filter((m) => !m.household_client_link && (m.name || '').trim());
+    const named = members.filter((m) => (m.name || '').trim());
     if (submitForReview && named.length === 0) {
       toast({
         title: 'Add at least one family member',
@@ -836,9 +823,7 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh, bo
         `${API}/api/student/family`,
         {
           submit_for_review: !!submitForReview,
-          members: members
-            .filter((m) => !m.household_client_link)
-            .map((m) => ({
+          members: members.map((m) => ({
               id: m.id || undefined,
               name: m.name,
               relationship: m.relationship,
@@ -1716,7 +1701,6 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh, bo
                 wrapTestId="immediate-family-table-wrap"
                 tableTestId="immediate-family-table"
                 readOnly={immediateFamilyReadOnly}
-                isPrimaryHouseholdContact={isPrimaryHouseholdContact}
               />
             )}
           </div>
@@ -1751,6 +1735,43 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh, bo
               Send for admin review
             </button>
           </div>
+        </div>
+
+        <div className="border-t border-slate-200/80 pt-4 mt-4">
+          <div className="flex items-center gap-2 mb-2">
+            <Users size={16} className="text-violet-700" />
+            <div>
+              <h3 className="text-sm font-semibold text-slate-900">Annual household (Client Garden key)</h3>
+              <p className="text-[11px] text-slate-500 mt-0.5 max-w-3xl">
+                Not the same as the lists above. Clubbing appears only when everyone on your key has Annual
+                dashboard access in Client Garden. The primary household contact can add these people as paid
+                seats at annual portal pricing.
+              </p>
+            </div>
+          </div>
+          {hasHouseholdKey && !annualHouseholdClubOk ? (
+            <div className="mb-3 rounded-lg border border-amber-200 bg-amber-50/80 px-3 py-2 text-[11px] text-amber-950">
+              Not every member on this household key has Annual dashboard access yet — linked group checkout
+              unlocks when all do.
+            </div>
+          ) : null}
+          {annualHouseholdPeers.length > 0 ? (
+            <div className="mb-3">
+              <GuestMemberTable
+                members={annualHouseholdPeers}
+                setMembers={() => {}}
+                relationships={RELATIONSHIPS}
+                relationshipFallback="Household"
+                legacyRelationshipMap={LEGACY_IMMEDIATE_REL}
+                wrapTestId="annual-household-peers-wrap"
+                tableTestId="annual-household-peers-table"
+                readOnly
+              />
+            </div>
+          ) : null}
+          {annualHouseholdClubOk && isPrimaryHouseholdContact && annualHouseholdPeers.length === 0 ? (
+            <p className="text-xs text-slate-400 italic mb-2">No other accounts share your household key.</p>
+          ) : null}
         </div>
 
         <div className="border-t border-slate-200/80 pt-4 mt-4">
