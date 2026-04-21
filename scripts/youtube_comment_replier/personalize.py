@@ -37,7 +37,11 @@ def generate_reply(
         return _one_line(fallback, max_out)
 
     system = (os.environ.get("YT_REPLY_SYSTEM_PROMPT") or DEFAULT_SYSTEM).strip()
+    persona = (os.environ.get("YT_REPLY_PERSONA") or "").strip()
+    if persona:
+        system = f"{system}\n\nSound like this creator (tone, phrases, sign-off — stay specific to each comment):\n{persona}"
     model = (os.environ.get("OPENAI_MODEL") or "gpt-4o-mini").strip()
+    temperature = env_temperature()
 
     user_block = (
         f"Video title: {video_title or '(unknown)'}\n"
@@ -55,7 +59,7 @@ def generate_reply(
                 {"role": "user", "content": user_block},
             ],
             max_tokens=220,
-            temperature=0.65,
+            temperature=temperature,
         )
         raw = (resp.choices[0].message.content or "").strip()
     except Exception:
@@ -71,3 +75,14 @@ def env_max_chars() -> int:
         return max(80, min(5000, int(os.environ.get("MAX_REPLY_CHARS", "600"))))
     except ValueError:
         return 600
+
+
+def env_temperature() -> float:
+    """0.35–0.9; lower = more consistent voice, higher = more varied wording."""
+    raw = (os.environ.get("YT_REPLY_TEMPERATURE") or "").strip()
+    if not raw:
+        return 0.65
+    try:
+        return max(0.35, min(0.9, float(raw)))
+    except ValueError:
+        return 0.65
