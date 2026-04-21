@@ -41,11 +41,15 @@ function AnnualQuoteBreakdown({
   if (!aq) {
     return <p className="text-[11px] text-slate-500 italic">Calculating total…</p>;
   }
-  const ah = Number(aq.annual_household_peer_count ?? 0);
+  const ah = Number(
+    aq.annual_household_peer_selected_count ?? aq.annual_household_peer_count ?? 0,
+  );
   const immOnly =
-    aq.immediate_family_only_count != null
-      ? Number(aq.immediate_family_only_count)
-      : Math.max(0, Number(aq.immediate_family_count || 0) - ah);
+    aq.immediate_family_only_selected_count != null
+      ? Number(aq.immediate_family_only_selected_count)
+      : aq.immediate_family_only_count != null
+        ? Number(aq.immediate_family_only_count)
+        : Math.max(0, Number(aq.immediate_family_count || 0) - ah);
   const ext = Number(aq.extended_guest_count || 0);
   const showSelf = !includedPkg && aq.include_self !== false;
 
@@ -94,11 +98,15 @@ function AnnualQuoteBreakdown({
           {ah > 0 ? (
             <div className={rowClass}>
               <span className="font-medium text-slate-800">Annual household (same key)</span>
-              <span className="font-semibold tabular-nums text-slate-900 text-right leading-snug">
-                {symbol}
-                {Math.round(ahOfferEach ?? 0).toLocaleString()} × {ah} = {symbol}
-                {Number(aq.annual_household_after_promos ?? 0).toLocaleString()}
-              </span>
+              {includedPkg ? (
+                <span className="text-slate-600 text-right">Included in annual package</span>
+              ) : (
+                <span className="font-semibold tabular-nums text-slate-900 text-right leading-snug">
+                  {symbol}
+                  {Math.round(ahOfferEach ?? 0).toLocaleString()} × {ah} = {symbol}
+                  {Number(aq.annual_household_after_promos ?? 0).toLocaleString()}
+                </span>
+              )}
             </div>
           ) : null}
           {immOnly > 0 ? (
@@ -162,18 +170,24 @@ function AnnualQuoteBreakdown({
           </li>
         ) : null}
         {ah > 0 ? (
-          <li>
+          <li className={includedPkg ? 'text-slate-600' : undefined}>
             Annual household (same key) × {ah}:{' '}
-            <span className="font-semibold text-slate-900 tabular-nums">
-              {symbol}
-              {Number(aq.annual_household_after_promos ?? 0).toLocaleString()}
-            </span>
-            {ah > 1 ? (
-              <span className="text-slate-500 ml-1">
-                ({symbol}
-                {(Number(aq.annual_household_after_promos) / ah).toFixed(0)} each)
-              </span>
-            ) : null}
+            {includedPkg ? (
+              <span className="font-medium text-slate-800">included in annual package</span>
+            ) : (
+              <>
+                <span className="font-semibold text-slate-900 tabular-nums">
+                  {symbol}
+                  {Number(aq.annual_household_after_promos ?? 0).toLocaleString()}
+                </span>
+                {ah > 1 ? (
+                  <span className="text-slate-500 ml-1">
+                    ({symbol}
+                    {(Number(aq.annual_household_after_promos) / ah).toFixed(0)} each)
+                  </span>
+                ) : null}
+              </>
+            )}
           </li>
         ) : null}
         {immOnly > 0 ? (

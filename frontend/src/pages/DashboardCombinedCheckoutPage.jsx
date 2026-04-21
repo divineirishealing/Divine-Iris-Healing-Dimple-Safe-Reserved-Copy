@@ -71,7 +71,8 @@ function annualPortalSeatUnitBasePrices(quote, participant, guestBucketById) {
           ? 'immediate'
           : 'extended';
   if (bucket === 'annual_household') {
-    const n = Number(quote.annual_household_peer_count || 0);
+    if (quote.included_in_annual_package) return { offer: 0, list: 0 };
+    const n = Number(quote.annual_household_peer_selected_count ?? quote.annual_household_peer_count ?? 0);
     if (n <= 0) return { offer: 0, list: 0 };
     return {
       offer: Number(quote.annual_household_after_promos ?? 0) / n,

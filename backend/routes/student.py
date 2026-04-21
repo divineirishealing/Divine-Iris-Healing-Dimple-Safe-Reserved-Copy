@@ -618,6 +618,26 @@ def _split_resolved_guest_rows_plain_peer_ext(
     return plain, peer, ext
 
 
+def _selection_counts_plain_peer_display(client: dict, rows: List[dict]) -> Tuple[int, int]:
+    """How many selected guests are plain immediate vs same-key annual peers (for UI labels).
+
+    Unlike :func:`_split_resolved_guest_rows_plain_peer_ext`, this always counts peers in the
+    selection even when their seats are covered by the prepaid annual package (₹0).
+    """
+    im_ids = {str(m.get("id")) for m in (client.get("immediate_family") or []) if m.get("id")}
+    plain = 0
+    peer = 0
+    for r in rows:
+        is_imm = str(r.get("id") or "") in im_ids or bool(r.get("household_client_link"))
+        if not is_imm:
+            continue
+        if bool(r.get("household_client_link")) and bool(r.get("annual_member_dashboard")):
+            peer += 1
+        else:
+            plain += 1
+    return plain, peer
+
+
 async def _apply_portal_guest_line_offer(
     program_id: str,
     currency: str,
@@ -1223,14 +1243,18 @@ async def dashboard_quote(
     ao, fo, eo = _merge_program_dashboard_offers(g_ao, g_fo, g_eo, program_id, per_map)
     if not annual_dashboard_access:
         ao, fo, eo = {}, {}, {}
+    plain_sel, peer_sel = 0, 0
     if id_list:
         fam_by_row = {str(m.get("id")): m for m in fam if m.get("id")}
         resolved_rows = [fam_by_row[i] for i in id_list if i in fam_by_row]
+        plain_sel, peer_sel = _selection_counts_plain_peer_display(client, resolved_rows)
         imm_plain, imm_peer, ext_fc = _split_resolved_guest_rows_plain_peer_ext(
             client, resolved_rows, included_in_package=included
         )
     else:
+        resolved_rows = []
         imm_plain, imm_peer, ext_fc = fc, 0, 0
+        plain_sel, peer_sel = max(0, int(fc)), 0
     fo_plain = _family_offer_for_included_package_guests(included, imm_plain, fo)
     pricing = await compute_dashboard_annual_family_pricing(
         program,
@@ -1264,6 +1288,8 @@ async def dashboard_quote(
             annual_dashboard_access and _program_has_portal_pricing_override(per_map, program_id)
         ),
         **pricing,
+        "annual_household_peer_selected_count": peer_sel,
+        "immediate_family_only_selected_count": plain_sel,
         "quote_show_tax": quote_show_tax,
         "tax_rate_pct": gst_pct if cur == "inr" and quote_show_tax else 0.0,
         "tax_included_estimate": tax_included_estimate if cur == "inr" and quote_show_tax else 0.0,
