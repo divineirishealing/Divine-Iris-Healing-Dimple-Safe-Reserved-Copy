@@ -325,6 +325,13 @@ export default function DashboardUpcomingProgramRowItem({
     [annualHouseholdPeers],
   );
 
+  /** Saved immediate-family rows that are not duplicates of Annual Family Club (same Client Garden id). */
+  const membersNotInAnnualClub = useMemo(
+    () =>
+      (members || []).filter((m) => m == null || m.id == null || !householdPeerIdSet.has(String(m.id))),
+    [members, householdPeerIdSet],
+  );
+
   /** Same-key peers cannot be enrolled as paid add-ons when the program is already in the annual package. */
   const selectableIdsForProgram = useMemo(() => {
     return (enrollableGuests || [])
@@ -924,10 +931,10 @@ export default function DashboardUpcomingProgramRowItem({
                         <span>Add all ({selectableIdsForProgram.length} saved)</span>
                       </label>
                     ) : null}
-                    {members.length > 0 ? (
+                    {membersNotInAnnualClub.length > 0 ? (
                       <div>
                         <ul className="space-y-1.5">
-                          {members.map((m, gidx) => {
+                          {membersNotInAnnualClub.map((m, gidx) => {
                             const mid = m.id || `imm-${gidx}-${m.name}-${m.email}`;
                             return (
                               <li key={mid}>
@@ -949,6 +956,10 @@ export default function DashboardUpcomingProgramRowItem({
                           })}
                         </ul>
                       </div>
+                    ) : (members || []).length > 0 ? (
+                      <p className="text-[11px] text-slate-500 leading-snug">
+                        Everyone in your saved immediate family is already listed under Annual Family Club above.
+                      </p>
                     ) : (
                       <p className="text-[11px] text-slate-400 italic">No immediate family rows yet.</p>
                     )}
