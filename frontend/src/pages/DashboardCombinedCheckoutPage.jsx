@@ -1310,7 +1310,7 @@ export default function DashboardCombinedCheckoutPage() {
               guestBucket === 'annual_household';
             const bucketRoleHint =
               guestBucket === 'annual_household'
-                ? 'Annual household (same key)'
+                ? 'Annual Family Club'
                 : guestBucket === 'immediate'
                   ? 'Immediate family'
                   : guestBucket === 'extended'

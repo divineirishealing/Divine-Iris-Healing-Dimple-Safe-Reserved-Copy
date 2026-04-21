@@ -28,6 +28,12 @@ import { getAuthHeaders } from '../../lib/authHeaders';
 
 const API_ROOT = process.env.REACT_APP_BACKEND_URL;
 
+/** MMM — package-included peer line copy on the family picker. */
+function isMoneyMagicMultiplierProgram(program) {
+  const t = `${program?.title || ''} ${program?.category || ''}`.toLowerCase();
+  return t.includes('money magic') || /\bmmm\b/.test(t);
+}
+
 /** Portal quote: list layout, or compact “offer per person” under Pricing & offer. */
 function AnnualQuoteBreakdown({
   aq,
@@ -72,7 +78,7 @@ function AnnualQuoteBreakdown({
         {!suppressIntro ? (
           <p className="text-[10px] font-bold uppercase tracking-wide text-slate-500">
             {annualDashboardAccess
-              ? 'Offer per person — Annual member · Annual household · Immediate family'
+              ? 'Offer per person — Annual member · Annual Family Club · Immediate family'
               : 'Price per seat (same as website upcoming)'}
           </p>
         ) : null}
@@ -97,7 +103,7 @@ function AnnualQuoteBreakdown({
           ) : null}
           {ah > 0 ? (
             <div className={rowClass}>
-              <span className="font-medium text-slate-800">Annual household (same key)</span>
+              <span className="font-medium text-slate-800">Annual Family Club</span>
               {includedPkg ? (
                 <span className="text-slate-600 text-right">Included in annual package</span>
               ) : (
@@ -146,7 +152,7 @@ function AnnualQuoteBreakdown({
         <>
           <p className="text-[10px] font-bold uppercase tracking-wide text-slate-500">
             {annualDashboardAccess
-              ? 'Prices — Annual Member · Annual household · Immediate family · Friends & extended'
+              ? 'Prices — Annual Member · Annual Family Club · Immediate family · Friends & extended'
               : 'Prices — You · Immediate family · Friends & extended'}
           </p>
           <p className="font-semibold text-slate-900 text-xs">Calculate total amount</p>
@@ -171,7 +177,7 @@ function AnnualQuoteBreakdown({
         ) : null}
         {ah > 0 ? (
           <li className={includedPkg ? 'text-slate-600' : undefined}>
-            Annual household (same key) × {ah}:{' '}
+            Annual Family Club × {ah}:{' '}
             {includedPkg ? (
               <span className="font-medium text-slate-800">included in annual package</span>
             ) : (
@@ -846,7 +852,60 @@ export default function DashboardUpcomingProgramRowItem({
               </div>
             ) : null}
             <div className="flex flex-col gap-4 flex-1 min-h-0 max-h-[min(26rem,55vh)] overflow-y-auto pr-1 pt-2">
-              <div className="min-w-0">
+              {annualHouseholdPeers.length > 0 ? (
+                <div className="min-w-0">
+                  <p className="text-[10px] font-bold uppercase tracking-wide text-violet-700 mb-2">
+                    Annual Family Club
+                  </p>
+                  <ul className="space-y-1.5">
+                    {annualHouseholdPeers.map((m, gidx) => {
+                      const mid = m.id || `ah-${gidx}-${m.name}-${m.email}`;
+                      const peerFrozen = includedPkg;
+                      const mmmPeerCopy = peerFrozen && isMoneyMagicMultiplierProgram(p);
+                      return (
+                        <li key={mid}>
+                          <div
+                            className={`flex items-start gap-2 text-sm ${
+                              peerFrozen ? 'text-slate-500' : 'text-slate-800'
+                            }`}
+                          >
+                            <input
+                              type="checkbox"
+                              className="rounded border-slate-300 mt-0.5 shrink-0"
+                              disabled={peerFrozen || !m.id}
+                              aria-disabled={peerFrozen || !m.id}
+                              checked={peerFrozen ? false : !!m.id && selIds.includes(String(m.id))}
+                              onChange={() =>
+                                m.id && !peerFrozen && toggleFamilyMember(p.id, String(m.id))
+                              }
+                            />
+                            <span className={peerFrozen ? 'cursor-not-allowed' : ''}>
+                              <span className="font-medium">{m.name || '—'}</span>
+                              {m.relationship ? (
+                                <span className="text-slate-500"> ({m.relationship})</span>
+                              ) : null}
+                              {peerFrozen ? (
+                                <span className="block text-[10px] text-violet-800/90 mt-0.5 leading-snug">
+                                  {mmmPeerCopy
+                                    ? 'One life included in annual package'
+                                    : 'Included in annual package (not a separate enrollment)'}
+                                </span>
+                              ) : null}
+                            </span>
+                          </div>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                </div>
+              ) : null}
+              <div
+                className={
+                  annualHouseholdPeers.length > 0
+                    ? 'min-w-0 pt-1 border-t border-amber-200/50'
+                    : 'min-w-0'
+                }
+              >
                 <p className="text-[10px] font-bold uppercase tracking-wide text-slate-500 mb-2">Immediate family</p>
                 {enrollableGuests.length === 0 ? (
                   <p className="text-xs text-slate-500">Add people under the lists below, then save.</p>
@@ -905,48 +964,6 @@ export default function DashboardUpcomingProgramRowItem({
                   </div>
                 )}
               </div>
-              {annualHouseholdPeers.length > 0 ? (
-                <div className="min-w-0 pt-1 border-t border-amber-200/50">
-                  <p className="text-[10px] font-bold uppercase tracking-wide text-violet-700 mb-2">
-                    Annual household (same key)
-                  </p>
-                  {includedPkg ? (
-                    <p className="text-xs text-slate-600 leading-snug rounded-md border border-violet-200/60 bg-violet-50/50 px-2.5 py-2">
-                      <span className="font-medium text-slate-800">
-                        {annualHouseholdPeers.map((m) => (m.name || '').trim() || '—').join(', ')}
-                      </span>
-                      <span className="block text-[10px] text-violet-800/90 mt-1.5">
-                        Included in annual package (not a separate enrollment)
-                      </span>
-                    </p>
-                  ) : (
-                    <ul className="space-y-1.5">
-                      {annualHouseholdPeers.map((m, gidx) => {
-                        const mid = m.id || `ah-${gidx}-${m.name}-${m.email}`;
-                        return (
-                          <li key={mid}>
-                            <label className="flex items-center gap-2 text-sm text-slate-800 cursor-pointer">
-                              <input
-                                type="checkbox"
-                                className="rounded border-slate-300"
-                                disabled={!m.id}
-                                checked={!!m.id && selIds.includes(String(m.id))}
-                                onChange={() => m.id && toggleFamilyMember(p.id, String(m.id))}
-                              />
-                              <span>
-                                {m.name || '—'}
-                                {m.relationship ? (
-                                  <span className="text-slate-500"> ({m.relationship})</span>
-                                ) : null}
-                              </span>
-                            </label>
-                          </li>
-                        );
-                      })}
-                    </ul>
-                  )}
-                </div>
-              ) : null}
               <div className="min-w-0 pt-1 border-t border-amber-200/50">
                 <p className="text-[10px] font-bold uppercase tracking-wide text-slate-500 mb-2">Friends &amp; extended</p>
                 {otherMembers.length > 0 ? (
@@ -1123,7 +1140,10 @@ export default function DashboardUpcomingProgramRowItem({
                         <input
                           type="checkbox"
                           className="rounded border-slate-300 shrink-0 scale-90"
-                          checked={annualSeatUi.notifyQuickPreset === 'custom'}
+                          checked={
+                            annualSeatUi.notifyQuickPreset === 'custom' ||
+                            annualSeatUi.notifyQuickPreset === 'mixed'
+                          }
                           onChange={(e) => {
                             e.stopPropagation();
                             if (e.target.checked) annualSeatUi.onApplyNotifyDraft(p.id, 'all_off');

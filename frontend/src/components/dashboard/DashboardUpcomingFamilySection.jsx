@@ -1775,7 +1775,7 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh, bo
           <div className="flex items-center gap-2 mb-2">
             <Users size={16} className="text-violet-700" />
             <div>
-              <h3 className="text-sm font-semibold text-slate-900">Annual household (Client Garden key)</h3>
+              <h3 className="text-sm font-semibold text-slate-900">Annual Family Club</h3>
               <p className="text-[11px] text-slate-500 mt-0.5 max-w-3xl">
                 Not the same as the lists above. Clubbing appears only when everyone on your key has Annual
                 dashboard access in Client Garden. The primary household contact can add these people as paid
@@ -2031,7 +2031,9 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh, bo
                             type="radio"
                             name={`dash-ntf-${seatModalCtx.programId}`}
                             className="shrink-0 border-slate-300 text-violet-700"
-                            checked={notifyQuickPresetLive === 'custom'}
+                            checked={
+                              notifyQuickPresetLive === 'custom' || notifyQuickPresetLive === 'mixed'
+                            }
                             onChange={() => applyBulkNotify('all_off')}
                           />
                           Custom
