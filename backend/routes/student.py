@@ -514,12 +514,22 @@ async def _household_peer_guest_rows(
 
 
 def _merge_immediate_family_with_household_peers(stored_im: List[dict], peers: List[dict]) -> List[dict]:
-    """Stored rows keep order and win on id collision; append linked household clients."""
+    """Stored rows keep order; on id collision merge household-peer flags from linked Client Garden rows."""
+    peer_by_id = {str(p.get("id")): p for p in (peers or []) if p.get("id")}
     seen: Set[str] = set()
     out: List[dict] = []
     for m in stored_im or []:
-        if m.get("id"):
-            seen.add(str(m["id"]))
+        if not m.get("id"):
+            continue
+        mid = str(m["id"]).strip()
+        seen.add(mid)
+        if mid in peer_by_id:
+            p = peer_by_id[mid]
+            merged = dict(m)
+            merged["household_client_link"] = True
+            merged["annual_member_dashboard"] = bool(p.get("annual_member_dashboard"))
+            out.append(merged)
+        else:
             out.append(m)
     for p in peers or []:
         pid = str(p.get("id") or "").strip()
@@ -535,11 +545,24 @@ async def _all_dashboard_guest_rows_with_household(
     """Stored immediate + other guests + optional same-key Client Garden rows.
 
     ``for_payment=True`` limits linked peers to the primary household contact (checkout / quotes).
+    When someone appears both in saved immediate family and as a household peer, merge peer flags
+    onto the saved row so pricing sees ``household_client_link`` / ``annual_member_dashboard``.
     """
     base = _all_dashboard_guest_rows(client)
     peers = await _household_peer_guest_rows(client_id, client, for_payment=for_payment)
-    seen = {str(m.get("id")) for m in base if m.get("id")}
-    out = list(base)
+    peer_by_id = {str(p.get("id")): p for p in peers if p.get("id")}
+    out: List[dict] = []
+    for m in base:
+        mid = str(m.get("id") or "").strip()
+        if mid and mid in peer_by_id:
+            p = peer_by_id[mid]
+            merged = dict(m)
+            merged["household_client_link"] = True
+            merged["annual_member_dashboard"] = bool(p.get("annual_member_dashboard"))
+            out.append(merged)
+        else:
+            out.append(m)
+    seen = {str(m.get("id")) for m in out if m.get("id")}
     for p in peers:
         pid = str(p.get("id") or "").strip()
         if pid and pid not in seen:
@@ -601,6 +624,7 @@ async def _apply_portal_guest_line_offer(
     fam_unit: float,
     fc: int,
     fo: dict,
+    program: Optional[dict] = None,
 ) -> Tuple[float, float, str, bool]:
     """Apply family-style portal rules to one guest bucket. Returns (gross, after, rule, promo_applied)."""
     cur = (currency or "aed").lower()
@@ -629,11 +653,23 @@ async def _apply_portal_guest_line_offer(
             family_rule = "amount_off"
         elif rule == "fixed_price":
             pseat = _read_currency_amount(fo, "fixed_price", cur)
-            if pseat > 0:
+            # Global dashboard "family fixed" can target short programs (e.g. ₹1,111). For tier-priced
+            # flagship programs (e.g. MMM ₹9,990), use the program tier line instead of that global seat price.
+            use_tier_not_global_fixed = (
+                pseat > 0
+                and fam_unit > 0
+                and pseat < fam_unit * 0.5
+                and bool((program or {}).get("is_flagship"))
+            )
+            if use_tier_not_global_fixed:
+                fam_after = max(0.0, round(fam_line_gross, 2))
+                family_rule = "list"
+            elif pseat > 0:
                 fam_after = max(0.0, round(pseat * fc, 2))
+                family_rule = "fixed_price"
             else:
                 fam_after = max(0.0, round(fam_line_gross, 2))
-            family_rule = "fixed_price"
+                family_rule = "fixed_price"
         else:
             fam_after = max(0.0, round(fam_line_gross, 2))
             family_rule = "list"
@@ -707,10 +743,10 @@ async def compute_dashboard_annual_family_pricing(
         member_rule = "included_in_package"
 
     ig, imm_after, imm_rule, imm_promo = await _apply_portal_guest_line_offer(
-        program_id, currency, fam_unit, imm_fc, family_offer or {}
+        program_id, currency, fam_unit, imm_fc, family_offer or {}, program
     )
     eg, ext_after, ext_rule, ext_promo = await _apply_portal_guest_line_offer(
-        program_id, currency, fam_unit, ext_fc, extended_guest_offer or {}
+        program_id, currency, fam_unit, ext_fc, extended_guest_offer or {}, program
     )
 
     fam_line_gross = round(ig + eg, 2)
