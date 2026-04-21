@@ -568,29 +568,29 @@ async def _resolve_family_rows(
     return fam[:n]
 
 
-def _split_resolved_guest_rows_by_bucket(client: dict, rows: List[dict]) -> Tuple[int, int]:
-    """Count immediate-family vs friends/extended rows (by id membership + CRM household links)."""
-    im_ids = {str(m.get("id")) for m in (client.get("immediate_family") or []) if m.get("id")}
-    imm = sum(
-        1
-        for r in rows
-        if str(r.get("id") or "") in im_ids or bool(r.get("household_client_link"))
-    )
-    return imm, len(rows) - imm
-
-
-def _split_guest_ids_by_bucket(
-    client: dict, id_list: List[str], household_peer_ids: Optional[Set[str]] = None
+def _split_resolved_guest_rows_by_bucket(
+    client: dict, rows: List[dict], *, included_in_package: bool = False
 ) -> Tuple[int, int]:
+    """Count immediate-family vs friends/extended rows (by id membership + CRM household links).
+
+    When ``included_in_package`` is True (program is in the prepaid annual package), seats for
+    linked household peers who have Annual Client Garden access do not add to tier pricing — those
+    programs are already covered for everyone on the same household key.
+    """
     im_ids = {str(m.get("id")) for m in (client.get("immediate_family") or []) if m.get("id")}
-    og_ids = {str(m.get("id")) for m in (client.get("other_guests") or []) if m.get("id")}
-    hp = household_peer_ids or set()
     imm = 0
     ext = 0
-    for i in id_list:
-        if i in im_ids or i in hp:
+    for r in rows:
+        is_imm = str(r.get("id") or "") in im_ids or bool(r.get("household_client_link"))
+        if is_imm:
+            if (
+                included_in_package
+                and bool(r.get("household_client_link"))
+                and bool(r.get("annual_member_dashboard"))
+            ):
+                continue
             imm += 1
-        elif i in og_ids:
+        else:
             ext += 1
     return imm, ext
 
@@ -1012,7 +1012,6 @@ async def _portal_combined_dashboard_total(user: dict, profile: ProfileData) -> 
             "dashboard_program_offers": 1,
         },
     ) or {}
-    household_peer_ids = await _household_peer_ids(client_id, client)
     fam_all = await _all_dashboard_guest_rows_with_household(client_id, client, for_payment=True)
     fam_by_id = {str(m.get("id")) for m in fam_all if m.get("id")}
     fam_by_row = {str(m.get("id")): m for m in fam_all if m.get("id")}
@@ -1034,8 +1033,10 @@ async def _portal_combined_dashboard_total(user: dict, profile: ProfileData) -> 
             if i not in fam_by_id:
                 raise HTTPException(status_code=400, detail="Unknown guest id in portal cart")
         if id_list:
-            imm_fc, ext_fc = _split_guest_ids_by_bucket(client, id_list, household_peer_ids)
             resolved_rows = [fam_by_row[i] for i in id_list if i in fam_by_row]
+            imm_fc, ext_fc = _split_resolved_guest_rows_by_bucket(
+                client, resolved_rows, included_in_package=included
+            )
         else:
             imm_fc, ext_fc = 0, 0
             resolved_rows = []
@@ -1116,7 +1117,6 @@ async def dashboard_quote(
     client = await db.clients.find_one({"id": client_id}, {"_id": 0}) or {}
     sub = client.get("subscription") or {}
     annual_dashboard_access = _annual_dashboard_access(client)
-    household_peer_ids = await _household_peer_ids(client_id, client)
     fam = await _all_dashboard_guest_rows_with_household(client_id, client, for_payment=True)
     id_list = [x.strip() for x in (family_ids or "").split(",") if x.strip()]
     if id_list:
@@ -1131,10 +1131,6 @@ async def dashboard_quote(
         raise HTTPException(status_code=400, detail="Invalid family count")
     if fc > len(fam):
         raise HTTPException(status_code=400, detail="Save more people on your dashboard (immediate family or friends & extended) to cover this many seats")
-    if id_list:
-        imm_fc, ext_fc = _split_guest_ids_by_bucket(client, id_list, household_peer_ids)
-    else:
-        imm_fc, ext_fc = fc, 0
     program = await db.programs.find_one({"id": program_id}, {"_id": 0})
     if not program:
         raise HTTPException(status_code=404, detail="Program not found")
@@ -1170,8 +1166,12 @@ async def dashboard_quote(
     if id_list:
         fam_by_row = {str(m.get("id")): m for m in fam if m.get("id")}
         resolved_rows = [fam_by_row[i] for i in id_list if i in fam_by_row]
+        imm_fc, ext_fc = _split_resolved_guest_rows_by_bucket(
+            client, resolved_rows, included_in_package=included
+        )
         fo_imm = _immediate_line_offer_for_annual_household_peers(ao, fo, resolved_rows)
     else:
+        imm_fc, ext_fc = fc, 0
         fo_imm = fo
     pricing = await compute_dashboard_annual_family_pricing(
         program,
@@ -1363,7 +1363,9 @@ async def dashboard_pay(data: DashboardPayIn, request: Request, user: dict = Dep
     resolved_family = await _resolve_family_rows(
         client_id, client, list(data.family_member_ids or []), int(data.family_count or 0)
     )
-    imm_fc, ext_fc = _split_resolved_guest_rows_by_bucket(client, resolved_family)
+    imm_fc, ext_fc = _split_resolved_guest_rows_by_bucket(
+        client, resolved_family, included_in_package=included
+    )
     fc = len(resolved_family)
     if fc > 12:
         raise HTTPException(status_code=400, detail="Invalid family count")
@@ -1396,7 +1398,9 @@ async def dashboard_pay(data: DashboardPayIn, request: Request, user: dict = Dep
         include_self=not included,
         apply_tier_offer_prices=True,
     )
-    if quote["total"] <= 0:
+    if quote["total"] < 0:
+        raise HTTPException(status_code=400, detail="Invalid quote")
+    if quote["total"] == 0 and not included:
         raise HTTPException(status_code=400, detail="No payable amount for this program")
 
     pref_by_id = {
