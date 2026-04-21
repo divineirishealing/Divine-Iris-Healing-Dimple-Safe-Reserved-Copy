@@ -28,12 +28,6 @@ import { getAuthHeaders } from '../../lib/authHeaders';
 
 const API_ROOT = process.env.REACT_APP_BACKEND_URL;
 
-/** MMM — package-included peer line copy on the family picker. */
-function isMoneyMagicMultiplierProgram(program) {
-  const t = `${program?.title || ''} ${program?.category || ''}`.toLowerCase();
-  return t.includes('money magic') || /\bmmm\b/.test(t);
-}
-
 /** Portal quote: list layout, or compact “offer per person” under Pricing & offer. */
 function AnnualQuoteBreakdown({
   aq,
@@ -861,7 +855,6 @@ export default function DashboardUpcomingProgramRowItem({
                     {annualHouseholdPeers.map((m, gidx) => {
                       const mid = m.id || `ah-${gidx}-${m.name}-${m.email}`;
                       const peerFrozen = includedPkg;
-                      const mmmPeerCopy = peerFrozen && isMoneyMagicMultiplierProgram(p);
                       return (
                         <li key={mid}>
                           <div
@@ -886,9 +879,7 @@ export default function DashboardUpcomingProgramRowItem({
                               ) : null}
                               {peerFrozen ? (
                                 <span className="block text-[10px] text-violet-800/90 mt-0.5 leading-snug">
-                                  {mmmPeerCopy
-                                    ? 'One life included in annual package'
-                                    : 'Included in annual package (not a separate enrollment)'}
+                                  Already included in Annual Package
                                 </span>
                               ) : null}
                             </span>

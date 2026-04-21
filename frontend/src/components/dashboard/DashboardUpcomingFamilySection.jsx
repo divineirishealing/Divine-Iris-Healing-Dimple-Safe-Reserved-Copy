@@ -1965,8 +1965,20 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh, bo
                             “All offline except Myself” applies when your own seat is in the payment (add-on programs).
                           </p>
                         ) : null}
+                        <label className="flex items-center gap-2 cursor-pointer text-[11px] text-slate-800">
+                          <input
+                            type="radio"
+                            name={`dash-att-${seatModalCtx.programId}`}
+                            className="shrink-0 border-slate-300 text-violet-700"
+                            checked={attendanceQuickPresetLive === 'custom'}
+                            onChange={() => {
+                              /* Mixed / per-row modes — keep draft; selection reflects deriveAttendanceQuickPreset */
+                            }}
+                          />
+                          Custom
+                        </label>
                         {attendanceQuickPresetLive === 'custom' ? (
-                          <p className="text-[9px] text-amber-800/90">
+                          <p className="text-[9px] text-amber-800/90 pl-6 -mt-1">
                             Mixed modes — adjust rows below or pick an option above.
                           </p>
                         ) : null}
