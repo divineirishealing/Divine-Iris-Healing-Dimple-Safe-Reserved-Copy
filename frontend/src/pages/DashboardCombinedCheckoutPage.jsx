@@ -29,6 +29,8 @@ import { readUpcomingDashboardSession } from '../lib/dashboardUpcomingSessionSto
 import {
   buildAnnualDashboardCartParticipants,
   buildGuestBucketByIdFromSelection,
+  mergeEnrollableGuestsForPortalCart,
+  guestBucketLookupMembersFromHome,
   mergeGlobalSeatDraft,
 } from '../lib/dashboardCartPrefill';
 import { programIncludedInAnnualPackage } from '../components/dashboard/dashboardUpcomingHelpers';
@@ -120,6 +122,16 @@ function annualPortalSeatUnitBasePrices(quote, participant, guestBucketById, par
     offer: Number(quote.extended_guests_after_promos ?? 0) / n,
     list: Number(quote.extended_guest_line_gross ?? 0) / n,
   };
+}
+
+function resolvePortalGuestBucket(participant, guestBucketById) {
+  if (String(participant.relationship || '').trim() === 'Myself') return 'self';
+  const id = String(participant.dashboard_family_member_id || '').trim();
+  const fromP = participant.portal_guest_bucket;
+  if (fromP === 'immediate' || fromP === 'extended' || fromP === 'annual_household') return fromP;
+  if (id && guestBucketById && guestBucketById[id] === 'annual_household') return 'annual_household';
+  if (id && guestBucketById && guestBucketById[id] === 'immediate') return 'immediate';
+  return 'extended';
 }
 
 const PAYMENT_METHOD_BADGES = {
@@ -502,8 +514,8 @@ export default function DashboardCombinedCheckoutPage() {
           : [];
         const upcoming = home.upcoming_programs || [];
         const annualAccess = !!home.annual_member_dashboard;
-        const immediateFamily = home.immediate_family || [];
-        const enrollableGuests = [...immediateFamily, ...(home.other_guests || [])];
+        const enrollableGuests = mergeEnrollableGuestsForPortalCart(home);
+        const bucketLookupMembers = guestBucketLookupMembersFromHome(home);
         const snap = readUpcomingDashboardSession(email);
         const selectedMap = snap?.selectedFamilyByProgram || {};
         const drafts = snap?.seatDraftsByProgram || {};
@@ -532,10 +544,10 @@ export default function DashboardCombinedCheckoutPage() {
             self,
             bookerEmail: email,
             detectedCountry,
-            immediateFamilyMembers: immediateFamily,
+            immediateFamilyMembers: bucketLookupMembers,
           });
           if (participants && participants.length > 0) {
-            const guestBucketById = buildGuestBucketByIdFromSelection(sel, immediateFamily);
+            const guestBucketById = buildGuestBucketByIdFromSelection(sel, bucketLookupMembers);
             syncProgramLineItem(program, line.tierIndex, participants, {
               familyIds: sel.map(String),
               bookerJoins: includedForSeat ? false : draft?.bookerJoinsProgram !== false,
@@ -1277,6 +1289,7 @@ export default function DashboardCombinedCheckoutPage() {
               meta?.annualIncluded && String(p.relationship || '').trim() === 'Myself';
             const lineQuote = annualQuotesByProgram[String(item.programId)] || null;
             const guestBucketById = meta?.guestBucketById || {};
+            const guestBucket = resolvePortalGuestBucket(p, guestBucketById);
             const portalBase =
               lineQuote && !selfIncluded
                 ? annualPortalSeatUnitBasePrices(lineQuote, p, guestBucketById, item.participants || [])
@@ -1291,6 +1304,18 @@ export default function DashboardCombinedCheckoutPage() {
               : portalBase
                 ? toDisplay(portalBase.list)
                 : getItemPrice(item);
+            const ahIncludedPeer =
+              !selfIncluded &&
+              !!lineQuote?.included_in_annual_package &&
+              guestBucket === 'annual_household';
+            const bucketRoleHint =
+              guestBucket === 'annual_household'
+                ? 'Annual household (same key)'
+                : guestBucket === 'immediate'
+                  ? 'Immediate family'
+                  : guestBucket === 'extended'
+                    ? 'Friends & extended'
+                    : null;
             return (
               <div
                 key={key}
@@ -1307,7 +1332,10 @@ export default function DashboardCombinedCheckoutPage() {
                 </div>
                 <div className="sm:col-span-2 min-w-0 break-words text-gray-700">
                   <span className="text-gray-500 text-[11px] uppercase tracking-wide sm:hidden">Role · </span>
-                  {role}
+                  <span>{role}</span>
+                  {bucketRoleHint ? (
+                    <span className="block text-[10px] text-violet-800/90 mt-0.5 leading-snug">{bucketRoleHint}</span>
+                  ) : null}
                 </div>
                 <div className="sm:col-span-2 min-w-0 break-words text-gray-700">
                   <span className="text-gray-500 text-[11px] uppercase tracking-wide sm:hidden">Attendance · </span>
@@ -1321,6 +1349,10 @@ export default function DashboardCombinedCheckoutPage() {
                   <span className="text-gray-500 text-[11px] uppercase tracking-wide sm:hidden">Seat · </span>
                   {selfIncluded ? (
                     <span className="text-emerald-700 font-semibold text-xs sm:text-sm">Package</span>
+                  ) : ahIncludedPeer ? (
+                    <span className="text-emerald-700 font-semibold text-xs sm:text-sm leading-snug text-right block">
+                      Included in annual package
+                    </span>
                   ) : unitOffer > 0 ? (
                     <span className="inline-flex flex-col sm:flex-row sm:items-end sm:gap-1 sm:justify-end">
                       <span className="text-[#D4AF37] font-semibold">

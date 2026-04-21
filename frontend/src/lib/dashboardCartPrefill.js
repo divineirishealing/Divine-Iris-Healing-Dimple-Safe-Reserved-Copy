@@ -173,6 +173,46 @@ export function mergeGlobalSeatDraft(perProgramDraft, bookerSeatMode, bookerSeat
   };
 }
 
+/**
+ * Merge Sacred Home guest lists for cart participant rows (names + ids).
+ * Same-key annual peers live in `annual_household_peers`, not always in `immediate_family`.
+ */
+export function mergeEnrollableGuestsForPortalCart(home) {
+  const im = home?.immediate_family || [];
+  const ot = home?.other_guests || [];
+  const peers = home?.annual_household_peers || [];
+  const seen = new Set();
+  const out = [];
+  for (const g of [...im, ...ot, ...peers]) {
+    if (!g?.id) continue;
+    const id = String(g.id);
+    if (seen.has(id)) continue;
+    seen.add(id);
+    out.push(g);
+  }
+  for (const g of [...im, ...ot]) {
+    if (g?.id) continue;
+    out.push(g);
+  }
+  return out;
+}
+
+/** Members used to resolve household_client_link for bucket map (immediate + same-key peers only). */
+export function guestBucketLookupMembersFromHome(home) {
+  const im = home?.immediate_family || [];
+  const peers = home?.annual_household_peers || [];
+  const seen = new Set();
+  const out = [];
+  for (const g of [...im, ...peers]) {
+    if (!g?.id) continue;
+    const id = String(g.id);
+    if (seen.has(id)) continue;
+    seen.add(id);
+    out.push(g);
+  }
+  return out;
+}
+
 /** Map selected guest ids → annual_household | immediate | extended (aligned with /dashboard-quote). */
 export function buildGuestBucketByIdFromSelection(selIds, immediateFamilyMembers) {
   const byId = new Map(
