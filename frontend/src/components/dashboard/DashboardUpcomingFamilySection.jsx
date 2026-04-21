@@ -1599,6 +1599,7 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh, bo
                   annualIncludedIds={annualIncludedIds}
                   members={members}
                   otherMembers={otherMembers}
+                  annualHouseholdPeers={annualHouseholdPeers}
                   enrollableGuests={enrollableGuests}
                   selectableFamilyMemberIds={selectableFamilyMemberIds}
                   selectedFamilyByProgram={selectedFamilyByProgram}

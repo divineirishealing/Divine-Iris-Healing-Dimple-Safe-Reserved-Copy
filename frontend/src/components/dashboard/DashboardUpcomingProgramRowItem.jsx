@@ -207,6 +207,8 @@ export default function DashboardUpcomingProgramRowItem({
   annualIncludedIds,
   members,
   otherMembers,
+  /** Client Garden same-key annual peers (primary-only enrollable); not the manual immediate family list. */
+  annualHouseholdPeers = [],
   enrollableGuests,
   selectableFamilyMemberIds,
   selectedFamilyByProgram,
@@ -301,12 +303,15 @@ export default function DashboardUpcomingProgramRowItem({
         self,
         bookerEmail,
         detectedCountry,
-        immediateFamilyMembers: members,
+        immediateFamilyMembers: [...(members || []), ...(annualHouseholdPeers || [])],
       });
     } catch {
       /* empty row */
     }
-    const guestBucketById = buildGuestBucketByIdFromSelection(selIds, members);
+    const guestBucketById = buildGuestBucketByIdFromSelection(selIds, [
+      ...(members || []),
+      ...(annualHouseholdPeers || []),
+    ]);
     syncProgramLineItem(p, tierIdxForDisplay, participants, {
       familyIds: selIds.map(String),
       bookerJoins: includedPkg ? false : annualSeatUi?.draft?.bookerJoinsProgram !== false,
@@ -634,7 +639,11 @@ export default function DashboardUpcomingProgramRowItem({
                   ) : (() => {
                     const bookerJoins = annualSeatUi?.draft?.bookerJoinsProgram !== false;
                     const seatPrice = showSpecialPromo ? afterPromo : dashboardSeatUnit;
-                    const immMemberIds = new Set(members.map(m => m.id ? String(m.id) : null).filter(Boolean));
+                    const immMemberIds = new Set(
+                      [...(members || []), ...(annualHouseholdPeers || [])]
+                        .map((m) => (m.id ? String(m.id) : null))
+                        .filter(Boolean),
+                    );
                     const extMemberIds = new Set(otherMembers.map(m => m.id ? String(m.id) : null).filter(Boolean));
                     const immCount = selIds.filter(id => immMemberIds.has(id)).length;
                     const extCount = selIds.filter(id => extMemberIds.has(id)).length;
@@ -714,7 +723,9 @@ export default function DashboardUpcomingProgramRowItem({
               ) : (() => {
                 const bookerJoins = annualSeatUi?.draft?.bookerJoinsProgram !== false;
                 const seatPrice = showSpecialPromo ? afterPromo : dashboardSeatUnit;
-                const immCount = selIds.filter(id => members.some(m => String(m.id) === id)).length;
+                const immCount = selIds.filter((id) =>
+                  [...(members || []), ...(annualHouseholdPeers || [])].some((m) => String(m.id) === id),
+                ).length;
                 const extCount = selIds.filter(id => otherMembers.some(m => String(m.id) === id)).length;
                 const grandTotal =
                   (price > 0 || offerPrice > 0)
@@ -826,6 +837,35 @@ export default function DashboardUpcomingProgramRowItem({
                   </div>
                 )}
               </div>
+              {annualHouseholdPeers.length > 0 ? (
+                <div className="min-w-0 pt-1 border-t border-amber-200/50">
+                  <p className="text-[10px] font-bold uppercase tracking-wide text-violet-700 mb-2">
+                    Annual household (same key)
+                  </p>
+                  <ul className="space-y-1.5">
+                    {annualHouseholdPeers.map((m, gidx) => {
+                      const mid = m.id || `ah-${gidx}-${m.name}-${m.email}`;
+                      return (
+                        <li key={mid}>
+                          <label className="flex items-center gap-2 text-sm text-slate-800 cursor-pointer">
+                            <input
+                              type="checkbox"
+                              className="rounded border-slate-300"
+                              disabled={!m.id}
+                              checked={!!m.id && selIds.includes(String(m.id))}
+                              onChange={() => m.id && toggleFamilyMember(p.id, String(m.id))}
+                            />
+                            <span>
+                              {m.name || '—'}
+                              {m.relationship ? <span className="text-slate-500"> ({m.relationship})</span> : null}
+                            </span>
+                          </label>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                </div>
+              ) : null}
               <div className="min-w-0 pt-1 border-t border-amber-200/50">
                 <p className="text-[10px] font-bold uppercase tracking-wide text-slate-500 mb-2">Friends &amp; extended</p>
                 {otherMembers.length > 0 ? (
