@@ -182,6 +182,7 @@ const RELATIONSHIPS = [
   'Wife',
   'Son',
   'Daughter',
+  'Household',
   'Other',
 ];
 const LEGACY_IMMEDIATE_REL = {
@@ -277,25 +278,32 @@ function GuestMemberTable({
           </tr>
         </thead>
         <tbody>
-          {members.map((m, idx) => (
+          {members.map((m, idx) => {
+            const rowReadOnly = readOnly || !!m.household_client_link;
+            return (
             <tr
               key={m.id || `row-${idx}`}
               className="border-b border-slate-100 last:border-0 hover:bg-violet-50/30 transition-colors"
             >
               <td className="px-2 py-1.5 align-middle">
+                <div className="flex flex-col gap-0.5 min-w-0">
+                  {m.household_client_link ? (
+                    <span className="text-[9px] font-medium text-violet-700 uppercase tracking-wide">Client Garden · same household key</span>
+                  ) : null}
                 <input
                   value={m.name}
                   onChange={(e) => updateRow(idx, 'name', e.target.value)}
-                  disabled={readOnly}
+                  disabled={rowReadOnly}
                   className="w-full min-w-[6rem] text-[11px] border border-slate-200 rounded px-1.5 py-1 bg-white disabled:opacity-60 disabled:bg-slate-50"
                   placeholder="Full name"
                 />
+                </div>
               </td>
               <td className="px-2 py-1.5 align-middle">
                 <select
                   value={coalesceRelationship(m.relationship)}
                   onChange={(e) => updateRow(idx, 'relationship', e.target.value)}
-                  disabled={readOnly}
+                  disabled={rowReadOnly}
                   className="w-full min-w-[7rem] max-w-[10rem] text-[11px] border border-slate-200 rounded px-1 py-1 bg-white disabled:opacity-60 disabled:bg-slate-50"
                 >
                   {relationships.map((r) => (
@@ -309,7 +317,7 @@ function GuestMemberTable({
                 <input
                   type="date"
                   value={(m.date_of_birth || '').slice(0, 10)}
-                  disabled={readOnly}
+                  disabled={rowReadOnly}
                   onChange={(e) => {
                     const v = e.target.value;
                     setMembers((prev) => {
@@ -339,7 +347,7 @@ function GuestMemberTable({
                   max={120}
                   value={m.age || ''}
                   onChange={(e) => updateRow(idx, 'age', e.target.value)}
-                  disabled={readOnly}
+                  disabled={rowReadOnly}
                   className="w-full max-w-[3.5rem] text-[11px] border border-slate-200 rounded px-1 py-1 bg-white tabular-nums disabled:opacity-60 disabled:bg-slate-50"
                   placeholder="—"
                 />
@@ -348,7 +356,7 @@ function GuestMemberTable({
                 <input
                   value={m.city || ''}
                   onChange={(e) => updateRow(idx, 'city', e.target.value)}
-                  disabled={readOnly}
+                  disabled={rowReadOnly}
                   className="w-full min-w-[4rem] text-[11px] border border-slate-200 rounded px-1.5 py-1 bg-white disabled:opacity-60 disabled:bg-slate-50"
                   placeholder="City"
                 />
@@ -357,7 +365,7 @@ function GuestMemberTable({
                 <input
                   value={m.country || ''}
                   onChange={(e) => updateRow(idx, 'country', e.target.value.slice(0, 120))}
-                  disabled={readOnly}
+                  disabled={rowReadOnly}
                   className="w-full min-w-[6.5rem] text-[11px] border border-slate-200 rounded px-1.5 py-1 bg-white disabled:opacity-60 disabled:bg-slate-50"
                   placeholder="e.g. India"
                   title="Full country name"
@@ -367,7 +375,7 @@ function GuestMemberTable({
                 <input
                   value={m.email || ''}
                   onChange={(e) => updateRow(idx, 'email', e.target.value)}
-                  disabled={readOnly}
+                  disabled={rowReadOnly}
                   className="w-full min-w-[7rem] text-[11px] border border-slate-200 rounded px-1.5 py-1 bg-white disabled:opacity-60 disabled:bg-slate-50"
                   placeholder="Optional"
                 />
@@ -376,13 +384,13 @@ function GuestMemberTable({
                 <input
                   value={m.phone || ''}
                   onChange={(e) => updateRow(idx, 'phone', e.target.value)}
-                  disabled={readOnly}
+                  disabled={rowReadOnly}
                   className="w-full min-w-[5.5rem] text-[11px] border border-slate-200 rounded px-1.5 py-1 bg-white disabled:opacity-60 disabled:bg-slate-50"
                   placeholder="Optional"
                 />
               </td>
               <td className="px-1 py-1.5 align-middle text-center">
-                {!readOnly ? (
+                {!rowReadOnly ? (
                   <button
                     type="button"
                     onClick={() => removeRow(idx)}
@@ -394,7 +402,8 @@ function GuestMemberTable({
                 ) : null}
               </td>
             </tr>
-          ))}
+            );
+          })}
         </tbody>
       </table>
     </div>
@@ -577,6 +586,11 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh, bo
     setMembers(initialMembers);
   }, [initialMembers]);
 
+  const manualImmediateFamilyCount = useMemo(
+    () => members.filter((m) => !m.household_client_link).length,
+    [members]
+  );
+
   const [otherMembers, setOtherMembers] = useState(() => initialOtherMembers);
   React.useEffect(() => {
     setOtherMembers(initialOtherMembers);
@@ -757,7 +771,7 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh, bo
   }, [bookerEmail, homeData, enrollableGuestIdsKey, familyRowCount]);
 
   const addRow = () => {
-    if (members.length >= 12) return;
+    if (manualImmediateFamilyCount >= 12) return;
     setMembers((m) => [
       ...m,
       {
@@ -793,7 +807,7 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh, bo
   };
 
   const saveFamily = async (submitForReview) => {
-    const named = members.filter((m) => (m.name || '').trim());
+    const named = members.filter((m) => !m.household_client_link && (m.name || '').trim());
     if (submitForReview && named.length === 0) {
       toast({
         title: 'Add at least one family member',
@@ -808,17 +822,19 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh, bo
         `${API}/api/student/family`,
         {
           submit_for_review: !!submitForReview,
-          members: members.map((m) => ({
-            id: m.id || undefined,
-            name: m.name,
-            relationship: m.relationship,
-            email: m.email,
-            phone: m.phone,
-            date_of_birth: m.date_of_birth || '',
-            city: m.city || '',
-            age: m.age || '',
-            country: (m.country || '').trim(),
-          })),
+          members: members
+            .filter((m) => !m.household_client_link)
+            .map((m) => ({
+              id: m.id || undefined,
+              name: m.name,
+              relationship: m.relationship,
+              email: m.email,
+              phone: m.phone,
+              date_of_birth: m.date_of_birth || '',
+              city: m.city || '',
+              age: m.age || '',
+              country: (m.country || '').trim(),
+            })),
         },
         { withCredentials: true }
       );
@@ -1694,7 +1710,7 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh, bo
             <button
               type="button"
               onClick={addRow}
-              disabled={immediateFamilyReadOnly || members.length >= 12}
+              disabled={immediateFamilyReadOnly || manualImmediateFamilyCount >= 12}
               className="inline-flex items-center gap-1.5 text-xs font-medium text-[#5D3FD3] border border-violet-200 rounded-full px-3 py-1.5 hover:bg-violet-50 disabled:opacity-40"
             >
               <Plus size={14} /> Add family member

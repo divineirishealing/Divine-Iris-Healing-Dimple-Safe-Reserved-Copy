@@ -1,6 +1,6 @@
 from fastapi import APIRouter, HTTPException, Request, Depends, Query
 from pydantic import BaseModel
-from typing import Optional, List, Dict, Tuple
+from typing import Optional, List, Dict, Tuple, Set
 import os
 import re
 import uuid
@@ -406,8 +406,85 @@ def _all_dashboard_guest_rows(client: dict) -> List[dict]:
     return im + og
 
 
-def _resolve_family_rows(client: dict, family_member_ids: List[str], fallback_count: int) -> List[dict]:
-    fam = _all_dashboard_guest_rows(client)
+async def _household_peer_ids(client_id: str, client: dict) -> Set[str]:
+    """Other Client Garden ids sharing the same household_key (CRM clubbing)."""
+    hk = (client.get("household_key") or "").strip()
+    if not hk or not client_id:
+        return set()
+    rows = await db.clients.find(
+        {"household_key": hk, "id": {"$ne": client_id}},
+        {"_id": 0, "id": 1},
+    ).to_list(80)
+    return {str(r["id"]) for r in rows if r.get("id")}
+
+
+async def _household_peer_guest_rows(client_id: str, client: dict) -> List[dict]:
+    """Build immediate-family-shaped rows from other clients with the same household_key."""
+    hk = (client.get("household_key") or "").strip()
+    if not hk or not client_id:
+        return []
+    rows = await db.clients.find(
+        {"household_key": hk, "id": {"$ne": client_id}},
+        {"_id": 0, "id": 1, "name": 1, "email": 1, "phone": 1, "city": 1, "country": 1},
+    ).sort([("name", 1)]).to_list(80)
+    now = datetime.now(timezone.utc).isoformat()
+    out: List[dict] = []
+    for m in rows:
+        em = (m.get("email") or "").strip()
+        out.append(
+            {
+                "id": m["id"],
+                "name": (m.get("name") or "").strip() or "Household member",
+                "relationship": "Household",
+                "email": em,
+                "phone": (m.get("phone") or "").strip(),
+                "date_of_birth": "",
+                "city": (m.get("city") or "").strip(),
+                "age": "",
+                "attendance_mode": "online",
+                "country": (m.get("country") or "").strip()[:120] or "",
+                "notify_enrollment": bool(em),
+                "household_client_link": True,
+                "updated_at": now,
+            }
+        )
+    return out
+
+
+def _merge_immediate_family_with_household_peers(stored_im: List[dict], peers: List[dict]) -> List[dict]:
+    """Stored rows keep order and win on id collision; append linked household clients."""
+    seen: Set[str] = set()
+    out: List[dict] = []
+    for m in stored_im or []:
+        if m.get("id"):
+            seen.add(str(m["id"]))
+            out.append(m)
+    for p in peers or []:
+        pid = str(p.get("id") or "").strip()
+        if pid and pid not in seen:
+            seen.add(pid)
+            out.append(p)
+    return out
+
+
+async def _all_dashboard_guest_rows_with_household(client_id: str, client: dict) -> List[dict]:
+    """Stored immediate + other guests + other Client Garden rows with the same household_key."""
+    base = _all_dashboard_guest_rows(client)
+    peers = await _household_peer_guest_rows(client_id, client)
+    seen = {str(m.get("id")) for m in base if m.get("id")}
+    out = list(base)
+    for p in peers:
+        pid = str(p.get("id") or "").strip()
+        if pid and pid not in seen:
+            seen.add(pid)
+            out.append(p)
+    return out
+
+
+async def _resolve_family_rows(
+    client_id: str, client: dict, family_member_ids: List[str], fallback_count: int
+) -> List[dict]:
+    fam = await _all_dashboard_guest_rows_with_household(client_id, client)
     ids = [str(x).strip() for x in (family_member_ids or []) if str(x).strip()]
     if ids:
         by_id = {str(m.get("id")): m for m in fam if m.get("id")}
@@ -425,17 +502,29 @@ def _resolve_family_rows(client: dict, family_member_ids: List[str], fallback_co
 
 
 def _split_resolved_guest_rows_by_bucket(client: dict, rows: List[dict]) -> Tuple[int, int]:
-    """Count immediate-family vs friends/extended rows (by id membership)."""
+    """Count immediate-family vs friends/extended rows (by id membership + CRM household links)."""
     im_ids = {str(m.get("id")) for m in (client.get("immediate_family") or []) if m.get("id")}
-    imm = sum(1 for r in rows if str(r.get("id") or "") in im_ids)
+    imm = sum(
+        1
+        for r in rows
+        if str(r.get("id") or "") in im_ids or bool(r.get("household_client_link"))
+    )
     return imm, len(rows) - imm
 
 
-def _split_guest_ids_by_bucket(client: dict, id_list: List[str]) -> Tuple[int, int]:
+def _split_guest_ids_by_bucket(
+    client: dict, id_list: List[str], household_peer_ids: Optional[Set[str]] = None
+) -> Tuple[int, int]:
     im_ids = {str(m.get("id")) for m in (client.get("immediate_family") or []) if m.get("id")}
     og_ids = {str(m.get("id")) for m in (client.get("other_guests") or []) if m.get("id")}
-    imm = sum(1 for i in id_list if i in im_ids)
-    ext = sum(1 for i in id_list if i in og_ids)
+    hp = household_peer_ids or set()
+    imm = 0
+    ext = 0
+    for i in id_list:
+        if i in im_ids or i in hp:
+            imm += 1
+        elif i in og_ids:
+            ext += 1
     return imm, ext
 
 
@@ -823,7 +912,8 @@ async def get_enrollment_prefill(user: dict = Depends(get_current_user)):
     client_id = user.get("client_id")
     client = await db.clients.find_one({"id": client_id}, {"_id": 0}) or {} if client_id else {}
     self_data = _profile_snapshot_for_prefill(user, client)
-    family = client.get("immediate_family") or []
+    peers = await _household_peer_guest_rows(client_id, client) if client_id else []
+    family = _merge_immediate_family_with_household_peers(client.get("immediate_family") or [], peers)
     other_guests = client.get("other_guests") or []
     return {"self": self_data, "immediate_family": family, "other_guests": other_guests}
 
@@ -851,7 +941,8 @@ async def _portal_combined_dashboard_total(user: dict, profile: ProfileData) -> 
             "dashboard_program_offers": 1,
         },
     ) or {}
-    fam_all = _all_dashboard_guest_rows(client)
+    household_peer_ids = await _household_peer_ids(client_id, client)
+    fam_all = await _all_dashboard_guest_rows_with_household(client_id, client)
     fam_by_id = {str(m.get("id")) for m in fam_all if m.get("id")}
     g_ao = settings_doc.get("dashboard_offer_annual") or {}
     g_fo = settings_doc.get("dashboard_offer_family") or {}
@@ -871,7 +962,7 @@ async def _portal_combined_dashboard_total(user: dict, profile: ProfileData) -> 
             if i not in fam_by_id:
                 raise HTTPException(status_code=400, detail="Unknown guest id in portal cart")
         if id_list:
-            imm_fc, ext_fc = _split_guest_ids_by_bucket(client, id_list)
+            imm_fc, ext_fc = _split_guest_ids_by_bucket(client, id_list, household_peer_ids)
         else:
             imm_fc, ext_fc = 0, 0
         included = _portal_included_in_annual_package(program, inc_cfg, sub, client)
@@ -950,7 +1041,8 @@ async def dashboard_quote(
     client = await db.clients.find_one({"id": client_id}, {"_id": 0}) or {}
     sub = client.get("subscription") or {}
     annual_dashboard_access = _annual_dashboard_access(client)
-    fam = _all_dashboard_guest_rows(client)
+    household_peer_ids = await _household_peer_ids(client_id, client)
+    fam = await _all_dashboard_guest_rows_with_household(client_id, client)
     id_list = [x.strip() for x in (family_ids or "").split(",") if x.strip()]
     if id_list:
         fam_by_id = {str(m.get("id")) for m in fam if m.get("id")}
@@ -965,7 +1057,7 @@ async def dashboard_quote(
     if fc > len(fam):
         raise HTTPException(status_code=400, detail="Save more people on your dashboard (immediate family or friends & extended) to cover this many seats")
     if id_list:
-        imm_fc, ext_fc = _split_guest_ids_by_bucket(client, id_list)
+        imm_fc, ext_fc = _split_guest_ids_by_bucket(client, id_list, household_peer_ids)
     else:
         imm_fc, ext_fc = fc, 0
     program = await db.programs.find_one({"id": program_id}, {"_id": 0})
@@ -1186,8 +1278,10 @@ async def dashboard_pay(data: DashboardPayIn, request: Request, user: dict = Dep
     included = _portal_included_in_annual_package(
         program, settings_doc.get("annual_package_included_program_ids"), sub, client
     )
-    all_guests = _all_dashboard_guest_rows(client)
-    resolved_family = _resolve_family_rows(client, list(data.family_member_ids or []), int(data.family_count or 0))
+    all_guests = await _all_dashboard_guest_rows_with_household(client_id, client)
+    resolved_family = await _resolve_family_rows(
+        client_id, client, list(data.family_member_ids or []), int(data.family_count or 0)
+    )
     imm_fc, ext_fc = _split_resolved_guest_rows_by_bucket(client, resolved_family)
     fc = len(resolved_family)
     if fc > 12:
@@ -1490,7 +1584,8 @@ async def get_student_home(user: dict = Depends(get_current_user)):
 
     is_annual = _is_annual_subscriber(sub, client)
     pref_gpay_m, pref_bank_m = _merged_preferred_india_ids(sub, client)
-    immediate_family = client.get("immediate_family") or []
+    hh_peers = await _household_peer_guest_rows(client_id, client) if client_id else []
+    immediate_family = _merge_immediate_family_with_household_peers(client.get("immediate_family") or [], hh_peers)
     other_guests = client.get("other_guests") or []
     immediate_family_locked = _immediate_family_effective_locked(client)
     immediate_family_editing_approved = client.get("immediate_family_editing_approved") is not False
