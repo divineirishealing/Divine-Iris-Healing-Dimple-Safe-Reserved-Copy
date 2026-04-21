@@ -106,10 +106,6 @@ const ClientsTab = () => {
       toast({ title: 'Name is required', variant: 'destructive' });
       return;
     }
-    if (!email && !phone) {
-      toast({ title: 'Add an email or phone', variant: 'destructive' });
-      return;
-    }
     setAddingClient(true);
     try {
       await axios.post(`${API}/clients`, {
@@ -169,7 +165,7 @@ const ClientsTab = () => {
           className="mb-4 rounded-xl border border-[#5D3FD3]/25 bg-gradient-to-r from-purple-50/80 to-white p-4 space-y-3"
         >
           <p className="text-xs font-semibold text-gray-800">Add client manually</p>
-          <p className="text-[10px] text-gray-500">Creates a garden record with source &quot;Manual&quot;. Requires name and at least email or phone.</p>
+          <p className="text-[10px] text-gray-500">Creates a garden record with source &quot;Manual&quot;. Name is required; email and phone are optional (add later in edit if needed).</p>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <Label className="text-[9px] text-gray-500">Name *</Label>
@@ -183,25 +179,25 @@ const ClientsTab = () => {
               />
             </div>
             <div>
-              <Label className="text-[9px] text-gray-500">Email</Label>
+              <Label className="text-[9px] text-gray-500">Email (optional)</Label>
               <Input
                 data-testid="clients-add-email"
                 type="email"
                 value={addForm.email}
                 onChange={(e) => setAddForm((f) => ({ ...f, email: e.target.value }))}
                 className="h-9 text-xs mt-1"
-                placeholder="email@example.com"
+                placeholder="Leave blank if unknown"
                 autoComplete="email"
               />
             </div>
             <div>
-              <Label className="text-[9px] text-gray-500">Phone</Label>
+              <Label className="text-[9px] text-gray-500">Phone (optional)</Label>
               <Input
                 data-testid="clients-add-phone"
                 value={addForm.phone}
                 onChange={(e) => setAddForm((f) => ({ ...f, phone: e.target.value }))}
                 className="h-9 text-xs mt-1"
-                placeholder="Optional if email set"
+                placeholder="Leave blank if unknown"
                 autoComplete="tel"
               />
             </div>

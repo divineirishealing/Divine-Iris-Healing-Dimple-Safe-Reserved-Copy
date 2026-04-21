@@ -361,7 +361,7 @@ async def list_clients(label: Optional[str] = None, search: Optional[str] = None
 
 
 class ClientManualCreate(BaseModel):
-    """Create a single client from Client Garden (trial / manual entry)."""
+    """Create a single client from Client Garden (trial / manual entry). Name only is allowed."""
     name: str
     email: Optional[str] = None
     phone: Optional[str] = None
@@ -371,15 +371,13 @@ class ClientManualCreate(BaseModel):
 
 @router.post("")
 async def create_client_manual(data: ClientManualCreate):
-    """Manually add a client. Requires name and at least one of email or phone."""
+    """Manually add a client. Requires name; email and phone are optional."""
     name = (data.name or "").strip()
     if not name:
         raise HTTPException(status_code=400, detail="Name is required")
 
     email_n = normalize_email(data.email or "")
     phone_n = normalize_phone(data.phone or "")
-    if not email_n and not phone_n:
-        raise HTTPException(status_code=400, detail="Provide at least an email or a phone number")
 
     label_manual = (data.label_manual or "").strip()
     if label_manual and label_manual not in LABELS:
@@ -390,12 +388,13 @@ async def create_client_manual(data: ClientManualCreate):
         dup_query.append({"email": email_n})
     if phone_n:
         dup_query.append({"phone": phone_n})
-    existing = await db.clients.find_one({"$or": dup_query})
-    if existing:
-        raise HTTPException(
-            status_code=409,
-            detail="A client with this email or phone already exists",
-        )
+    if dup_query:
+        existing = await db.clients.find_one({"$or": dup_query})
+        if existing:
+            raise HTTPException(
+                status_code=409,
+                detail="A client with this email or phone already exists",
+            )
 
     now = datetime.now(timezone.utc).isoformat()
     did = f"DID-{str(uuid.uuid4())[:8].upper()}"
