@@ -88,10 +88,34 @@ function loadDashboardEnrollmentDefaults() {
       bookerNotify: !!o.bookerNotify,
       guestMode: o.guestMode === 'offline' ? 'offline' : 'online',
       guestNotify: !!o.guestNotify,
+      /** When set, per–family-member rows for Custom / mixed layouts (id → seat prefs). */
+      guestSeatDefaultsById:
+        o.guestSeatDefaultsById && typeof o.guestSeatDefaultsById === 'object'
+          ? o.guestSeatDefaultsById
+          : null,
     };
   } catch {
     return null;
   }
+}
+
+/** Seed one guest row from saved browser defaults (per-id map when present, else uniform guestMode/guestNotify). */
+function seatDefaultsForGuestId(saved, id) {
+  if (!saved) {
+    return { attendance_mode: 'online', notify_enrollment: false };
+  }
+  const sid = String(id);
+  const byId = saved.guestSeatDefaultsById && saved.guestSeatDefaultsById[sid];
+  if (byId && typeof byId === 'object') {
+    return {
+      attendance_mode: byId.attendance_mode === 'offline' ? 'offline' : 'online',
+      notify_enrollment: !!byId.notify_enrollment,
+    };
+  }
+  return {
+    attendance_mode: saved.guestMode === 'offline' ? 'offline' : 'online',
+    notify_enrollment: !!saved.guestNotify,
+  };
 }
 
 function saveDashboardEnrollmentDefaults(payload) {
@@ -1024,10 +1048,7 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh, bo
         let ch = false;
         sel.forEach((idStr) => {
           if (!gf[idStr]) {
-            gf[idStr] = {
-              attendance_mode: saved && saved.guestMode === 'offline' ? 'offline' : 'online',
-              notify_enrollment: !!(saved && saved.guestNotify),
-            };
+            gf[idStr] = seatDefaultsForGuestId(saved, idStr);
             ch = true;
           }
         });
@@ -1152,10 +1173,7 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh, bo
       const next = { ...prev };
       ids.forEach((id) => {
         if (!next[id]) {
-          next[id] = {
-            attendance_mode: saved && saved.guestMode === 'offline' ? 'offline' : 'online',
-            notify_enrollment: !!(saved && saved.guestNotify),
-          };
+          next[id] = seatDefaultsForGuestId(saved, id);
         }
       });
       return next;
@@ -1356,30 +1374,26 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh, bo
   };
 
   /**
-   * Writes dashboard enrollment defaults to localStorage. When guests are selected, they must share one
-   * attendance mode and one notify flag so a single default row can apply to future enrollments.
+   * Writes dashboard enrollment defaults to localStorage. Stores booker prefs plus either uniform guest
+   * prefs or a per–member map so Custom (mixed) rows can be saved and restored.
    */
   const persistEnrollmentSeatDefaultsToBrowser = (selectedIds, bookerModeIn, bookerNotifyIn, guestFormIn) => {
     const sid = selectedIds.map(String);
-    if (sid.length > 0) {
-      const modes = new Set(sid.map((id) => (guestFormIn[id]?.attendance_mode === 'offline' ? 'offline' : 'online')));
-      const notifs = new Set(sid.map((id) => !!guestFormIn[id]?.notify_enrollment));
-      if (modes.size > 1 || notifs.size > 1) {
-        toast({
-          title: 'Match family rows to save defaults',
-          description:
-            'Use a one-tap preset or the quick options so every selected person has the same attendance and email settings, then try again.',
-          variant: 'destructive',
-        });
-        return false;
-      }
-    }
+    const guestSeatDefaultsById = {};
+    sid.forEach((id) => {
+      const row = guestFormIn[id] || {};
+      guestSeatDefaultsById[id] = {
+        attendance_mode: row.attendance_mode === 'offline' ? 'offline' : 'online',
+        notify_enrollment: !!row.notify_enrollment,
+      };
+    });
+    const first = sid.length > 0 ? guestSeatDefaultsById[sid[0]] : null;
     saveDashboardEnrollmentDefaults({
       bookerMode: bookerModeIn === 'offline' ? 'offline' : 'online',
       bookerNotify: !!bookerNotifyIn,
-      guestMode:
-        sid.length > 0 ? (guestFormIn[sid[0]]?.attendance_mode === 'offline' ? 'offline' : 'online') : 'online',
-      guestNotify: sid.length > 0 ? !!guestFormIn[sid[0]]?.notify_enrollment : false,
+      guestMode: first ? first.attendance_mode : 'online',
+      guestNotify: first ? first.notify_enrollment : false,
+      guestSeatDefaultsById: sid.length > 0 ? guestSeatDefaultsById : {},
     });
     setEnrollmentDefaultsLoaded(true);
     toast({
@@ -2073,7 +2087,7 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh, bo
                     <span className="font-medium">Save these choices as my default for every program</span>
                     <span className="block text-[9px] text-slate-500 mt-0.5 leading-snug">
                       When you add to order, we store them in this browser. Next time you open enrollment, fields fill
-                      automatically. Selected family rows must all match (use a preset) to save.
+                      automatically — including Custom (mixed) per-person attendance and email when you save.
                     </span>
                   </span>
                 </label>
