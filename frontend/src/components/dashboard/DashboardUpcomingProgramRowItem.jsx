@@ -41,7 +41,11 @@ function AnnualQuoteBreakdown({
   if (!aq) {
     return <p className="text-[11px] text-slate-500 italic">Calculating total…</p>;
   }
-  const imm = Number(aq.immediate_family_count || 0);
+  const ah = Number(aq.annual_household_peer_count ?? 0);
+  const immOnly =
+    aq.immediate_family_only_count != null
+      ? Number(aq.immediate_family_only_count)
+      : Math.max(0, Number(aq.immediate_family_count || 0) - ah);
   const ext = Number(aq.extended_guest_count || 0);
   const showSelf = !includedPkg && aq.include_self !== false;
 
@@ -55,7 +59,8 @@ function AnnualQuoteBreakdown({
 
   if (layout === 'table') {
     const selfOffer = Number(aq.self_after_promos ?? 0);
-    const immOfferEach = imm > 0 ? Number(aq.immediate_family_after_promos ?? 0) / imm : null;
+    const ahOfferEach = ah > 0 ? Number(aq.annual_household_after_promos ?? 0) / ah : null;
+    const immOfferEach = immOnly > 0 ? Number(aq.immediate_family_only_after_promos ?? 0) / immOnly : null;
     const extOfferEach = ext > 0 ? Number(aq.extended_guests_after_promos ?? 0) / ext : null;
     const rowClass = 'flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1 text-[11px] text-slate-800';
     return (
@@ -63,7 +68,7 @@ function AnnualQuoteBreakdown({
         {!suppressIntro ? (
           <p className="text-[10px] font-bold uppercase tracking-wide text-slate-500">
             {annualDashboardAccess
-              ? 'Offer price per person (portal)'
+              ? 'Offer per person — Annual member · Annual household · Immediate family'
               : 'Price per seat (same as website upcoming)'}
           </p>
         ) : null}
@@ -86,13 +91,23 @@ function AnnualQuoteBreakdown({
               </span>
             </div>
           ) : null}
-          {imm > 0 ? (
+          {ah > 0 ? (
+            <div className={rowClass}>
+              <span className="font-medium text-slate-800">Annual household (same key)</span>
+              <span className="font-semibold tabular-nums text-slate-900 text-right leading-snug">
+                {symbol}
+                {Math.round(ahOfferEach ?? 0).toLocaleString()} × {ah} = {symbol}
+                {Number(aq.annual_household_after_promos ?? 0).toLocaleString()}
+              </span>
+            </div>
+          ) : null}
+          {immOnly > 0 ? (
             <div className={rowClass}>
               <span className="font-medium text-slate-800">Immediate family</span>
               <span className="font-semibold tabular-nums text-slate-900 text-right leading-snug">
                 {symbol}
-                {Math.round(immOfferEach ?? 0).toLocaleString()} × {imm} = {symbol}
-                {Number(aq.immediate_family_after_promos ?? 0).toLocaleString()}
+                {Math.round(immOfferEach ?? 0).toLocaleString()} × {immOnly} = {symbol}
+                {Number(aq.immediate_family_only_after_promos ?? aq.immediate_family_after_promos ?? 0).toLocaleString()}
               </span>
             </div>
           ) : null}
@@ -106,10 +121,10 @@ function AnnualQuoteBreakdown({
               </span>
             </div>
           ) : null}
-          {!includedPkg && !showSelf && imm === 0 && ext === 0 ? (
+          {!includedPkg && !showSelf && ah === 0 && immOnly === 0 && ext === 0 ? (
             <p className="text-[11px] text-slate-500">Select family members to see offer pricing for guests.</p>
           ) : null}
-          {includedPkg && imm === 0 && ext === 0 ? (
+          {includedPkg && ah === 0 && immOnly === 0 && ext === 0 ? (
             <p className="text-[11px] text-slate-500">Select who is joining to see offer price per guest seat.</p>
           ) : null}
         </div>
@@ -123,7 +138,7 @@ function AnnualQuoteBreakdown({
         <>
           <p className="text-[10px] font-bold uppercase tracking-wide text-slate-500">
             {annualDashboardAccess
-              ? 'Prices — Annual Member · Immediate family · Friends & extended'
+              ? 'Prices — Annual Member · Annual household · Immediate family · Friends & extended'
               : 'Prices — You · Immediate family · Friends & extended'}
           </p>
           <p className="font-semibold text-slate-900 text-xs">Calculate total amount</p>
@@ -146,17 +161,35 @@ function AnnualQuoteBreakdown({
             ) : null}
           </li>
         ) : null}
-        {imm > 0 ? (
+        {ah > 0 ? (
           <li>
-            Immediate family × {imm}:{' '}
+            Annual household (same key) × {ah}:{' '}
             <span className="font-semibold text-slate-900 tabular-nums">
               {symbol}
-              {Number(aq.immediate_family_after_promos ?? 0).toLocaleString()}
+              {Number(aq.annual_household_after_promos ?? 0).toLocaleString()}
             </span>
-            {imm > 1 ? (
+            {ah > 1 ? (
               <span className="text-slate-500 ml-1">
                 ({symbol}
-                {(Number(aq.immediate_family_after_promos) / imm).toFixed(0)} each)
+                {(Number(aq.annual_household_after_promos) / ah).toFixed(0)} each)
+              </span>
+            ) : null}
+          </li>
+        ) : null}
+        {immOnly > 0 ? (
+          <li>
+            Immediate family × {immOnly}:{' '}
+            <span className="font-semibold text-slate-900 tabular-nums">
+              {symbol}
+              {Number(aq.immediate_family_only_after_promos ?? aq.immediate_family_after_promos ?? 0).toLocaleString()}
+            </span>
+            {immOnly > 1 ? (
+              <span className="text-slate-500 ml-1">
+                ({symbol}
+                {(
+                  Number(aq.immediate_family_only_after_promos ?? aq.immediate_family_after_promos ?? 0) / immOnly
+                ).toFixed(0)}{' '}
+                each)
               </span>
             ) : null}
           </li>

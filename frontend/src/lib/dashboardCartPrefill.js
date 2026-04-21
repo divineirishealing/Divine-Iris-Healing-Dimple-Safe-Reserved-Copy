@@ -173,18 +173,25 @@ export function mergeGlobalSeatDraft(perProgramDraft, bookerSeatMode, bookerSeat
   };
 }
 
-/** Map selected guest ids → immediate | extended using immediate-family ids (same split as /dashboard-quote). */
+/** Map selected guest ids → annual_household | immediate | extended (aligned with /dashboard-quote). */
 export function buildGuestBucketByIdFromSelection(selIds, immediateFamilyMembers) {
-  const imm = new Set(
+  const byId = new Map(
     (immediateFamilyMembers || [])
-      .map((m) => (m && m.id != null ? String(m.id) : ''))
-      .filter(Boolean),
+      .filter((m) => m && m.id != null)
+      .map((m) => [String(m.id), m]),
   );
   const out = {};
   for (const raw of selIds || []) {
     const id = String(raw ?? '').trim();
     if (!id) continue;
-    out[id] = imm.has(id) ? 'immediate' : 'extended';
+    const m = byId.get(id);
+    if (m && m.household_client_link) {
+      out[id] = 'annual_household';
+    } else if (m) {
+      out[id] = 'immediate';
+    } else {
+      out[id] = 'extended';
+    }
   }
   return out;
 }

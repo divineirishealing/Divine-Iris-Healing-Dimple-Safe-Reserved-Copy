@@ -439,24 +439,6 @@ def _family_offer_for_included_package_guests(
     return fo_imm or {}
 
 
-def _immediate_line_offer_for_annual_household_peers(
-    annual_offer: dict,
-    family_offer: dict,
-    resolved_guest_rows: Optional[List[dict]],
-) -> dict:
-    """When every selected guest is a linked annual household peer, use the Annual portal column for their seats."""
-    if not resolved_guest_rows:
-        return family_offer or {}
-    if not all(bool(r.get("household_client_link")) for r in resolved_guest_rows):
-        return family_offer or {}
-    if not all(bool(r.get("annual_member_dashboard")) for r in resolved_guest_rows):
-        return family_offer or {}
-    ao = annual_offer or {}
-    if ao.get("enabled"):
-        return ao
-    return family_offer or {}
-
-
 async def _household_peer_ids(client_id: str, client: dict) -> Set[str]:
     """Other Client Garden ids sharing the same household_key.
 
@@ -605,31 +587,35 @@ async def _resolve_family_rows(
     return fam[:n]
 
 
-def _split_resolved_guest_rows_by_bucket(
+def _split_resolved_guest_rows_plain_peer_ext(
     client: dict, rows: List[dict], *, included_in_package: bool = False
-) -> Tuple[int, int]:
-    """Count immediate-family vs friends/extended rows (by id membership + CRM household links).
+) -> Tuple[int, int, int]:
+    """Split selected guests into plain immediate family, annual household peers, and extended.
 
-    When ``included_in_package`` is True (program is in the prepaid annual package), seats for
-    linked household peers who have Annual Client Garden access do not add to tier pricing — those
-    programs are already covered for everyone on the same household key.
+    Peers (``household_client_link`` + ``annual_member_dashboard``) are priced with the **Annual**
+    portal column; plain immediate seats use the **Family** column. When ``included_in_package`` is
+    True, linked annual peers do not add to tier pricing (covered by prepaid package).
     """
     im_ids = {str(m.get("id")) for m in (client.get("immediate_family") or []) if m.get("id")}
-    imm = 0
+    plain = 0
+    peer = 0
     ext = 0
     for r in rows:
         is_imm = str(r.get("id") or "") in im_ids or bool(r.get("household_client_link"))
-        if is_imm:
-            if (
-                included_in_package
-                and bool(r.get("household_client_link"))
-                and bool(r.get("annual_member_dashboard"))
-            ):
-                continue
-            imm += 1
-        else:
+        if not is_imm:
             ext += 1
-    return imm, ext
+            continue
+        is_peer = bool(r.get("household_client_link")) and bool(r.get("annual_member_dashboard"))
+        if included_in_package and is_peer:
+            continue
+        if included_in_package and not is_peer:
+            plain += 1
+            continue
+        if is_peer:
+            peer += 1
+        else:
+            plain += 1
+    return plain, peer, ext
 
 
 async def _apply_portal_guest_line_offer(
@@ -692,7 +678,8 @@ async def compute_dashboard_annual_family_pricing(
     program: dict,
     program_id: str,
     currency: str,
-    immediate_family_count: int,
+    immediate_family_count_plain: int,
+    immediate_family_count_peer: int,
     extended_guest_count: int,
     annual_offer: dict,
     family_offer: dict,
@@ -708,13 +695,18 @@ async def compute_dashboard_annual_family_pricing(
     access is Non-annual (`annual_member_dashboard` false), callers pass empty dicts so only tier
     list/offer applies. `apply_tier_offer_prices` is retained for compatibility; callers use True so
     tier promotional prices match the website.
+
+    ``immediate_family_count_peer`` = same-key annual household peers (Annual portal column);
+    ``immediate_family_count_plain`` = saved immediate family who are not linked peers (Family column).
     """
     cur = (currency or "aed").lower()
     self_tier, fam_tier = _pick_self_and_family_tier_indices(program, tier_index_override)
     self_unit = _portal_tier_unit_price(program, self_tier, cur, apply_tier_offer_prices) if include_self else 0.0
     fam_unit = _portal_tier_unit_price(program, fam_tier, cur, apply_tier_offer_prices)
-    imm_fc = max(0, int(immediate_family_count))
+    imm_fc_plain = max(0, int(immediate_family_count_plain))
+    imm_fc_peer = max(0, int(immediate_family_count_peer))
     ext_fc = max(0, int(extended_guest_count))
+    imm_fc = imm_fc_plain + imm_fc_peer
     fc_total = imm_fc + ext_fc
 
     ao = annual_offer or {}
@@ -751,21 +743,34 @@ async def compute_dashboard_annual_family_pricing(
         self_after = 0.0
         member_rule = "included_in_package"
 
-    ig, imm_after, imm_rule, imm_promo = await _apply_portal_guest_line_offer(
-        program_id, currency, fam_unit, imm_fc, family_offer or {}, program
+    # Annual household peers: same dashboard rules as "You (Annual Member)" (`annual_offer`).
+    ig_p, imm_after_p, imm_rule_p, imm_promo_p = await _apply_portal_guest_line_offer(
+        program_id, currency, fam_unit, imm_fc_peer, ao, program
+    )
+    # Plain immediate family: Family portal column.
+    ig_f, imm_after_f, imm_rule_f, imm_promo_f = await _apply_portal_guest_line_offer(
+        program_id, currency, fam_unit, imm_fc_plain, family_offer or {}, program
     )
     eg, ext_after, ext_rule, ext_promo = await _apply_portal_guest_line_offer(
         program_id, currency, fam_unit, ext_fc, extended_guest_offer or {}, program
     )
 
+    ig = round(ig_p + ig_f, 2)
+    imm_after = round(imm_after_p + imm_after_f, 2)
+    imm_promo = imm_promo_p or imm_promo_f
+    imm_rule = "mixed" if imm_fc_peer > 0 and imm_fc_plain > 0 else (imm_rule_p if imm_fc_peer > 0 else imm_rule_f)
+
     fam_line_gross = round(ig + eg, 2)
     fam_after = round(imm_after + ext_after, 2)
     family_promo_applied = imm_promo or ext_promo
 
-    if imm_fc > 0 and ext_fc > 0:
+    imm_buckets = sum(1 for n in (imm_fc_peer, imm_fc_plain) if n > 0)
+    if imm_buckets > 1 or (imm_buckets > 0 and ext_fc > 0):
         family_pricing_rule = "mixed"
-    elif imm_fc > 0:
-        family_pricing_rule = imm_rule
+    elif imm_fc_peer > 0:
+        family_pricing_rule = imm_rule_p
+    elif imm_fc_plain > 0:
+        family_pricing_rule = imm_rule_f
     elif ext_fc > 0:
         family_pricing_rule = ext_rule
     else:
@@ -785,7 +790,16 @@ async def compute_dashboard_annual_family_pricing(
         "family_unit": fam_unit,
         "family_count": fc_total,
         "immediate_family_count": imm_fc,
+        "immediate_family_only_count": imm_fc_plain,
+        "annual_household_peer_count": imm_fc_peer,
         "extended_guest_count": ext_fc,
+        "annual_household_line_gross": round(ig_p, 2),
+        "annual_household_after_promos": round(imm_after_p, 2),
+        "annual_household_pricing_rule": imm_rule_p,
+        "annual_household_promo_applied": imm_promo_p,
+        "immediate_family_only_line_gross": round(ig_f, 2),
+        "immediate_family_only_after_promos": round(imm_after_f, 2),
+        "immediate_family_only_pricing_rule": imm_rule_f,
         "immediate_family_line_gross": ig,
         "immediate_family_after_promos": imm_after,
         "immediate_family_pricing_rule": imm_rule,
@@ -1080,11 +1094,11 @@ async def _portal_combined_dashboard_total(user: dict, profile: ProfileData) -> 
         included = _portal_included_in_annual_package(program, inc_cfg, sub, client)
         if id_list:
             resolved_rows = [fam_by_row[i] for i in id_list if i in fam_by_row]
-            imm_fc, ext_fc = _split_resolved_guest_rows_by_bucket(
+            imm_plain, imm_peer, ext_fc = _split_resolved_guest_rows_plain_peer_ext(
                 client, resolved_rows, included_in_package=included
             )
         else:
-            imm_fc, ext_fc = 0, 0
+            imm_plain, imm_peer, ext_fc = 0, 0, 0
             resolved_rows = []
         if included:
             include_self = False
@@ -1093,16 +1107,16 @@ async def _portal_combined_dashboard_total(user: dict, profile: ProfileData) -> 
         ao, fo, eo = _merge_program_dashboard_offers(g_ao, g_fo, g_eo, pid, per_map)
         if not annual_dashboard_access:
             ao, fo, eo = {}, {}, {}
-        fo_imm = _immediate_line_offer_for_annual_household_peers(ao, fo, resolved_rows)
-        fo_imm = _family_offer_for_included_package_guests(included, imm_fc, fo_imm)
+        fo_plain = _family_offer_for_included_package_guests(included, imm_plain, fo)
         pricing = await compute_dashboard_annual_family_pricing(
             program,
             pid,
             cur,
-            imm_fc,
+            imm_plain,
+            imm_peer,
             ext_fc,
             ao,
-            fo_imm,
+            fo_plain,
             eo,
             include_self=include_self,
             tier_index_override=line.tier_index,
@@ -1212,22 +1226,21 @@ async def dashboard_quote(
     if id_list:
         fam_by_row = {str(m.get("id")): m for m in fam if m.get("id")}
         resolved_rows = [fam_by_row[i] for i in id_list if i in fam_by_row]
-        imm_fc, ext_fc = _split_resolved_guest_rows_by_bucket(
+        imm_plain, imm_peer, ext_fc = _split_resolved_guest_rows_plain_peer_ext(
             client, resolved_rows, included_in_package=included
         )
-        fo_imm = _immediate_line_offer_for_annual_household_peers(ao, fo, resolved_rows)
     else:
-        imm_fc, ext_fc = fc, 0
-        fo_imm = fo
-    fo_imm = _family_offer_for_included_package_guests(included, imm_fc, fo_imm)
+        imm_plain, imm_peer, ext_fc = fc, 0, 0
+    fo_plain = _family_offer_for_included_package_guests(included, imm_plain, fo)
     pricing = await compute_dashboard_annual_family_pricing(
         program,
         program_id,
         currency,
-        imm_fc,
+        imm_plain,
+        imm_peer,
         ext_fc,
         ao,
-        fo_imm,
+        fo_plain,
         eo,
         include_self=include_self,
         tier_index_override=tier_index,
@@ -1332,6 +1345,7 @@ async def build_admin_dashboard_pricing_snapshot(
             cur_in,
             0,
             0,
+            0,
             ao,
             fo,
             eo,
@@ -1410,7 +1424,7 @@ async def dashboard_pay(data: DashboardPayIn, request: Request, user: dict = Dep
     resolved_family = await _resolve_family_rows(
         client_id, client, list(data.family_member_ids or []), int(data.family_count or 0)
     )
-    imm_fc, ext_fc = _split_resolved_guest_rows_by_bucket(
+    imm_plain, imm_peer, ext_fc = _split_resolved_guest_rows_plain_peer_ext(
         client, resolved_family, included_in_package=included
     )
     fc = len(resolved_family)
@@ -1432,16 +1446,16 @@ async def dashboard_pay(data: DashboardPayIn, request: Request, user: dict = Dep
     ao, fo, eo = _merge_program_dashboard_offers(g_ao, g_fo, g_eo, data.program_id, per_map)
     if not annual_dashboard_access:
         ao, fo, eo = {}, {}, {}
-    fo_imm = _immediate_line_offer_for_annual_household_peers(ao, fo, resolved_family)
-    fo_imm = _family_offer_for_included_package_guests(included, imm_fc, fo_imm)
+    fo_plain = _family_offer_for_included_package_guests(included, imm_plain, fo)
     quote = await compute_dashboard_annual_family_pricing(
         program,
         data.program_id,
         data.currency,
-        imm_fc,
+        imm_plain,
+        imm_peer,
         ext_fc,
         ao,
-        fo_imm,
+        fo_plain,
         eo,
         include_self=not included,
         apply_tier_offer_prices=True,

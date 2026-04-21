@@ -63,17 +63,27 @@ function annualPortalSeatUnitBasePrices(quote, participant, guestBucketById) {
   const id = String(participant.dashboard_family_member_id || '').trim();
   const fromP = participant.portal_guest_bucket;
   const bucket =
-    fromP === 'immediate' || fromP === 'extended'
+    fromP === 'immediate' || fromP === 'extended' || fromP === 'annual_household'
       ? fromP
-      : id && guestBucketById && guestBucketById[id] === 'immediate'
-        ? 'immediate'
-        : 'extended';
-  if (bucket === 'immediate') {
-    const n = Number(quote.immediate_family_count || 0);
+      : id && guestBucketById && guestBucketById[id] === 'annual_household'
+        ? 'annual_household'
+        : id && guestBucketById && guestBucketById[id] === 'immediate'
+          ? 'immediate'
+          : 'extended';
+  if (bucket === 'annual_household') {
+    const n = Number(quote.annual_household_peer_count || 0);
     if (n <= 0) return { offer: 0, list: 0 };
     return {
-      offer: Number(quote.immediate_family_after_promos ?? 0) / n,
-      list: Number(quote.immediate_family_line_gross ?? 0) / n,
+      offer: Number(quote.annual_household_after_promos ?? 0) / n,
+      list: Number(quote.annual_household_line_gross ?? 0) / n,
+    };
+  }
+  if (bucket === 'immediate') {
+    const n = Number(quote.immediate_family_only_count ?? quote.immediate_family_count ?? 0);
+    if (n <= 0) return { offer: 0, list: 0 };
+    return {
+      offer: Number(quote.immediate_family_only_after_promos ?? quote.immediate_family_after_promos ?? 0) / n,
+      list: Number(quote.immediate_family_only_line_gross ?? quote.immediate_family_line_gross ?? 0) / n,
     };
   }
   const n = Number(quote.extended_guest_count || 0);
