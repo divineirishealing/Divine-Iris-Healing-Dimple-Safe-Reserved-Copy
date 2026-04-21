@@ -161,6 +161,7 @@ const ClientsTab = () => {
       {showAddClient && (
         <form
           onSubmit={handleAddClient}
+          noValidate
           data-testid="clients-add-manual-form"
           className="mb-4 rounded-xl border border-[#5D3FD3]/25 bg-gradient-to-r from-purple-50/80 to-white p-4 space-y-3"
         >
@@ -182,7 +183,9 @@ const ClientsTab = () => {
               <Label className="text-[9px] text-gray-500">Email (optional)</Label>
               <Input
                 data-testid="clients-add-email"
-                type="email"
+                type="text"
+                inputMode="email"
+                autoCapitalize="none"
                 value={addForm.email}
                 onChange={(e) => setAddForm((f) => ({ ...f, email: e.target.value }))}
                 className="h-9 text-xs mt-1"
