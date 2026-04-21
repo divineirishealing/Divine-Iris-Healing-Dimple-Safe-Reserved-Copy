@@ -1098,18 +1098,52 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh, bo
     [enrollableGuests]
   );
 
-  const toggleSelectAllFamilyForProgram = (programId) => {
-    if (selectableFamilyMemberIds.length === 0) return;
+  const toggleSelectAllFamilyForProgram = (programId, memberIds) => {
+    const ids =
+      memberIds && memberIds.length > 0 ? memberIds : selectableFamilyMemberIds;
+    if (ids.length === 0) return;
     setSelectedFamilyByProgram((prev) => {
       const cur = prev[programId] || [];
       const curSet = new Set(cur.map(String));
-      const allOn = selectableFamilyMemberIds.every((id) => curSet.has(id));
+      const allOn = ids.every((id) => curSet.has(id));
       if (allOn) {
         return { ...prev, [programId]: [] };
       }
-      return { ...prev, [programId]: [...selectableFamilyMemberIds] };
+      return { ...prev, [programId]: [...ids] };
     });
   };
+
+  /** Included-package programs: same-key household peers are not separate enrollments — drop from selection. */
+  useEffect(() => {
+    if (!annualMemberDashboard || annualHouseholdPeers.length === 0) return;
+    const peerIds = new Set(
+      annualHouseholdPeers.map((m) => (m.id ? String(m.id) : null)).filter(Boolean),
+    );
+    if (peerIds.size === 0) return;
+    setSelectedFamilyByProgram((prev) => {
+      let changed = false;
+      const next = { ...prev };
+      for (const prog of programsForPrefetch) {
+        const included =
+          programIncludedInAnnualPackage(prog, annualIncludedIds) ||
+          annualQuotes[prog.id]?.included_in_annual_package === true;
+        if (!included) continue;
+        const cur = next[prog.id] || [];
+        const filtered = cur.filter((id) => !peerIds.has(String(id)));
+        if (filtered.length !== cur.length) {
+          next[prog.id] = filtered;
+          changed = true;
+        }
+      }
+      return changed ? next : prev;
+    });
+  }, [
+    annualMemberDashboard,
+    annualHouseholdPeers,
+    programsForPrefetch,
+    annualIncludedIds,
+    annualQuotes,
+  ]);
 
   const openEnrollmentSeatModal = (program, includedPkg, selectedIds) => {
     const ids = (selectedIds || []).map((x) => String(x));
@@ -1601,7 +1635,6 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh, bo
                   otherMembers={otherMembers}
                   annualHouseholdPeers={annualHouseholdPeers}
                   enrollableGuests={enrollableGuests}
-                  selectableFamilyMemberIds={selectableFamilyMemberIds}
                   selectedFamilyByProgram={selectedFamilyByProgram}
                   toggleFamilyMember={toggleFamilyMember}
                   toggleSelectAllFamilyForProgram={toggleSelectAllFamilyForProgram}

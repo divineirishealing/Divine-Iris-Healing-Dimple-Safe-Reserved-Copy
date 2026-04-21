@@ -1450,6 +1450,16 @@ async def dashboard_pay(data: DashboardPayIn, request: Request, user: dict = Dep
     resolved_family = await _resolve_family_rows(
         client_id, client, list(data.family_member_ids or []), int(data.family_count or 0)
     )
+    if included:
+        # Same-key annual peers are already covered by the prepaid package — not separate enrollments.
+        resolved_family = [
+            r
+            for r in resolved_family
+            if not (
+                bool(r.get("household_client_link"))
+                and bool(r.get("annual_member_dashboard"))
+            )
+        ]
     imm_plain, imm_peer, ext_fc = _split_resolved_guest_rows_plain_peer_ext(
         client, resolved_family, included_in_package=included
     )

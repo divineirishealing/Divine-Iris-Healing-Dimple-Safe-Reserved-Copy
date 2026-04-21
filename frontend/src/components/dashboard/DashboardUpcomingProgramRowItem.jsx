@@ -257,7 +257,6 @@ export default function DashboardUpcomingProgramRowItem({
   /** Client Garden same-key annual peers (primary-only enrollable); not the manual immediate family list. */
   annualHouseholdPeers = [],
   enrollableGuests,
-  selectableFamilyMemberIds,
   selectedFamilyByProgram,
   toggleFamilyMember,
   toggleSelectAllFamilyForProgram,
@@ -315,6 +314,28 @@ export default function DashboardUpcomingProgramRowItem({
       ((aq?.included_in_annual_package ?? false) ||
         programIncludedInAnnualPackage(p, annualIncludedIds)),
   );
+
+  const householdPeerIdSet = useMemo(
+    () =>
+      new Set(
+        (annualHouseholdPeers || [])
+          .map((m) => (m && m.id != null ? String(m.id) : null))
+          .filter(Boolean),
+      ),
+    [annualHouseholdPeers],
+  );
+
+  /** Same-key peers cannot be enrolled as paid add-ons when the program is already in the annual package. */
+  const selectableIdsForProgram = useMemo(() => {
+    return (enrollableGuests || [])
+      .filter((m) => {
+        if (!m.id) return false;
+        if (includedPkg && householdPeerIdSet.has(String(m.id))) return false;
+        return true;
+      })
+      .map((m) => String(m.id));
+  }, [enrollableGuests, includedPkg, householdPeerIdSet]);
+
   const selIds = selectedFamilyByProgram[p.id] || [];
   const selCount = selIds.length;
   const hasPortalTotal = aq != null && typeof aq.total === 'number';
@@ -831,26 +852,26 @@ export default function DashboardUpcomingProgramRowItem({
                   <p className="text-xs text-slate-500">Add people under the lists below, then save.</p>
                 ) : (
                   <div className="space-y-2">
-                    {selectableFamilyMemberIds.length > 0 ? (
+                    {selectableIdsForProgram.length > 0 ? (
                       <label className="flex items-center gap-2 text-xs font-semibold text-slate-700 cursor-pointer select-none pb-1 border-b border-slate-200/80">
                         <input
                           type="checkbox"
                           className="rounded border-slate-300"
                           checked={
-                            selectableFamilyMemberIds.length > 0 &&
-                            selectableFamilyMemberIds.every((id) => selIds.includes(id))
+                            selectableIdsForProgram.length > 0 &&
+                            selectableIdsForProgram.every((id) => selIds.includes(id))
                           }
                           ref={(el) => {
                             if (!el) return;
-                            const some = selectableFamilyMemberIds.some((id) => selIds.includes(id));
+                            const some = selectableIdsForProgram.some((id) => selIds.includes(id));
                             const all =
-                              selectableFamilyMemberIds.length > 0 &&
-                              selectableFamilyMemberIds.every((id) => selIds.includes(id));
+                              selectableIdsForProgram.length > 0 &&
+                              selectableIdsForProgram.every((id) => selIds.includes(id));
                             el.indeterminate = some && !all;
                           }}
-                          onChange={() => toggleSelectAllFamilyForProgram(p.id)}
+                          onChange={() => toggleSelectAllFamilyForProgram(p.id, selectableIdsForProgram)}
                         />
-                        <span>Add all ({selectableFamilyMemberIds.length} saved)</span>
+                        <span>Add all ({selectableIdsForProgram.length} saved)</span>
                       </label>
                     ) : null}
                     {members.length > 0 ? (
@@ -892,21 +913,36 @@ export default function DashboardUpcomingProgramRowItem({
                   <ul className="space-y-1.5">
                     {annualHouseholdPeers.map((m, gidx) => {
                       const mid = m.id || `ah-${gidx}-${m.name}-${m.email}`;
+                      const peerFrozen = includedPkg;
                       return (
                         <li key={mid}>
-                          <label className="flex items-center gap-2 text-sm text-slate-800 cursor-pointer">
+                          <div
+                            className={`flex items-start gap-2 text-sm ${
+                              peerFrozen ? 'text-slate-500' : 'text-slate-800'
+                            }`}
+                          >
                             <input
                               type="checkbox"
-                              className="rounded border-slate-300"
-                              disabled={!m.id}
-                              checked={!!m.id && selIds.includes(String(m.id))}
-                              onChange={() => m.id && toggleFamilyMember(p.id, String(m.id))}
+                              className="rounded border-slate-300 mt-0.5 shrink-0"
+                              disabled={peerFrozen || !m.id}
+                              aria-disabled={peerFrozen || !m.id}
+                              checked={peerFrozen ? false : !!m.id && selIds.includes(String(m.id))}
+                              onChange={() =>
+                                m.id && !peerFrozen && toggleFamilyMember(p.id, String(m.id))
+                              }
                             />
-                            <span>
-                              {m.name || '—'}
-                              {m.relationship ? <span className="text-slate-500"> ({m.relationship})</span> : null}
+                            <span className={peerFrozen ? 'cursor-not-allowed' : ''}>
+                              <span className="font-medium">{m.name || '—'}</span>
+                              {m.relationship ? (
+                                <span className="text-slate-500"> ({m.relationship})</span>
+                              ) : null}
+                              {peerFrozen ? (
+                                <span className="block text-[10px] text-violet-800/90 mt-0.5 leading-snug">
+                                  Included in annual package (not a separate enrollment)
+                                </span>
+                              ) : null}
                             </span>
-                          </label>
+                          </div>
                         </li>
                       );
                     })}
