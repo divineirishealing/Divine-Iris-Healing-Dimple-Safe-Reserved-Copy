@@ -49,8 +49,28 @@ function combinedNotifyLabel(p) {
   return p.notify ? 'On' : 'Off';
 }
 
+/** How many roster rows (non-booker) fall in each guest bucket — used when quote line counts are missing. */
+function countRosterGuestsInBucket(participants, guestBucketById, bucket) {
+  let c = 0;
+  for (const p of participants || []) {
+    if (String(p.relationship || '').trim() === 'Myself') continue;
+    const id = String(p.dashboard_family_member_id || '').trim();
+    const fromP = p.portal_guest_bucket;
+    const b =
+      fromP === 'immediate' || fromP === 'extended' || fromP === 'annual_household'
+        ? fromP
+        : id && guestBucketById && guestBucketById[id] === 'annual_household'
+          ? 'annual_household'
+          : id && guestBucketById && guestBucketById[id] === 'immediate'
+            ? 'immediate'
+            : 'extended';
+    if (b === bucket) c += 1;
+  }
+  return c;
+}
+
 /** Base-currency amounts from GET /dashboard-quote; apply `toDisplay` like program card prices. */
-function annualPortalSeatUnitBasePrices(quote, participant, guestBucketById) {
+function annualPortalSeatUnitBasePrices(quote, participant, guestBucketById, participants = []) {
   if (!quote) return null;
   const rel = String(participant.relationship || '').trim();
   if (rel === 'Myself') {
@@ -70,9 +90,12 @@ function annualPortalSeatUnitBasePrices(quote, participant, guestBucketById) {
         : id && guestBucketById && guestBucketById[id] === 'immediate'
           ? 'immediate'
           : 'extended';
+  const roster = participants || [];
   if (bucket === 'annual_household') {
     if (quote.included_in_annual_package) return { offer: 0, list: 0 };
-    const n = Number(quote.annual_household_peer_selected_count ?? quote.annual_household_peer_count ?? 0);
+    const nQuote = Number(quote.annual_household_peer_selected_count ?? quote.annual_household_peer_count ?? 0);
+    const nLine = countRosterGuestsInBucket(roster, guestBucketById, 'annual_household');
+    const n = nQuote > 0 ? nQuote : nLine;
     if (n <= 0) return { offer: 0, list: 0 };
     return {
       offer: Number(quote.annual_household_after_promos ?? 0) / n,
@@ -80,14 +103,18 @@ function annualPortalSeatUnitBasePrices(quote, participant, guestBucketById) {
     };
   }
   if (bucket === 'immediate') {
-    const n = Number(quote.immediate_family_only_count ?? quote.immediate_family_count ?? 0);
+    const nQuote = Number(quote.immediate_family_only_count ?? quote.immediate_family_count ?? 0);
+    const nLine = countRosterGuestsInBucket(roster, guestBucketById, 'immediate');
+    const n = nQuote > 0 ? nQuote : nLine;
     if (n <= 0) return { offer: 0, list: 0 };
     return {
       offer: Number(quote.immediate_family_only_after_promos ?? quote.immediate_family_after_promos ?? 0) / n,
       list: Number(quote.immediate_family_only_line_gross ?? quote.immediate_family_line_gross ?? 0) / n,
     };
   }
-  const n = Number(quote.extended_guest_count || 0);
+  const nQuote = Number(quote.extended_guest_count || 0);
+  const nLine = countRosterGuestsInBucket(roster, guestBucketById, 'extended');
+  const n = nQuote > 0 ? nQuote : nLine;
   if (n <= 0) return { offer: 0, list: 0 };
   return {
     offer: Number(quote.extended_guests_after_promos ?? 0) / n,
@@ -662,7 +689,38 @@ export default function DashboardCombinedCheckoutPage() {
   }, [annualQuoteDeps, currency, user?.email]);
 
   const naiveSubtotal = items.reduce((sum, item) => sum + getEffectivePrice(item) * item.participants.length, 0);
-  const subtotal = annualPortalSubtotal != null ? annualPortalSubtotal : naiveSubtotal;
+
+  /** Sum roster seat offers using the same per-bucket math as the table (fixes mismatch vs API-only total). */
+  const cartSubtotalFromRoster = useMemo(() => {
+    let sum = 0;
+    let allQuoted = true;
+    for (const item of items) {
+      const lineQuote = annualQuotesByProgram[String(item.programId)];
+      if (!lineQuote) {
+        allQuoted = false;
+        continue;
+      }
+      const guestBucketById = item.portalLineMeta?.guestBucketById || {};
+      const participants = item.participants || [];
+      for (const p of participants) {
+        const portalBase = annualPortalSeatUnitBasePrices(lineQuote, p, guestBucketById, participants);
+        if (portalBase) {
+          sum += toDisplay(portalBase.offer);
+        } else {
+          allQuoted = false;
+        }
+      }
+    }
+    if (!allQuoted || items.length === 0) return null;
+    return Math.round(sum * 100) / 100;
+  }, [items, annualQuotesByProgram, toDisplay]);
+
+  const subtotal =
+    cartSubtotalFromRoster != null
+      ? cartSubtotalFromRoster
+      : annualPortalSubtotal != null
+        ? annualPortalSubtotal
+        : naiveSubtotal;
   const totalParticipants = items.reduce((sum, i) => sum + i.participants.length, 0);
   const numPrograms = items.length;
 
@@ -678,7 +736,9 @@ export default function DashboardCombinedCheckoutPage() {
         if (selfIncluded) continue;
         const lineQuote = annualQuotesByProgram[String(item.programId)] || null;
         const guestBucketById = meta.guestBucketById || {};
-        const portalBase = lineQuote ? annualPortalSeatUnitBasePrices(lineQuote, p, guestBucketById) : null;
+        const portalBase = lineQuote
+          ? annualPortalSeatUnitBasePrices(lineQuote, p, guestBucketById, item.participants || [])
+          : null;
         const fallbackOffer = getItemOfferPrice(item);
         const unitOfferRaw = portalBase
           ? toDisplay(portalBase.offer)
@@ -1219,7 +1279,7 @@ export default function DashboardCombinedCheckoutPage() {
             const guestBucketById = meta?.guestBucketById || {};
             const portalBase =
               lineQuote && !selfIncluded
-                ? annualPortalSeatUnitBasePrices(lineQuote, p, guestBucketById)
+                ? annualPortalSeatUnitBasePrices(lineQuote, p, guestBucketById, item.participants || [])
                 : null;
             const unitOffer = selfIncluded
               ? 0

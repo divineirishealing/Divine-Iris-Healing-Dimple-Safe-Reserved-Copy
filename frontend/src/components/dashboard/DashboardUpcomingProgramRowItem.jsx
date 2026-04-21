@@ -910,43 +910,41 @@ export default function DashboardUpcomingProgramRowItem({
                   <p className="text-[10px] font-bold uppercase tracking-wide text-violet-700 mb-2">
                     Annual household (same key)
                   </p>
-                  <ul className="space-y-1.5">
-                    {annualHouseholdPeers.map((m, gidx) => {
-                      const mid = m.id || `ah-${gidx}-${m.name}-${m.email}`;
-                      const peerFrozen = includedPkg;
-                      return (
-                        <li key={mid}>
-                          <div
-                            className={`flex items-start gap-2 text-sm ${
-                              peerFrozen ? 'text-slate-500' : 'text-slate-800'
-                            }`}
-                          >
-                            <input
-                              type="checkbox"
-                              className="rounded border-slate-300 mt-0.5 shrink-0"
-                              disabled={peerFrozen || !m.id}
-                              aria-disabled={peerFrozen || !m.id}
-                              checked={peerFrozen ? false : !!m.id && selIds.includes(String(m.id))}
-                              onChange={() =>
-                                m.id && !peerFrozen && toggleFamilyMember(p.id, String(m.id))
-                              }
-                            />
-                            <span className={peerFrozen ? 'cursor-not-allowed' : ''}>
-                              <span className="font-medium">{m.name || '—'}</span>
-                              {m.relationship ? (
-                                <span className="text-slate-500"> ({m.relationship})</span>
-                              ) : null}
-                              {peerFrozen ? (
-                                <span className="block text-[10px] text-violet-800/90 mt-0.5 leading-snug">
-                                  Included in annual package (not a separate enrollment)
-                                </span>
-                              ) : null}
-                            </span>
-                          </div>
-                        </li>
-                      );
-                    })}
-                  </ul>
+                  {includedPkg ? (
+                    <p className="text-xs text-slate-600 leading-snug rounded-md border border-violet-200/60 bg-violet-50/50 px-2.5 py-2">
+                      <span className="font-medium text-slate-800">
+                        {annualHouseholdPeers.map((m) => (m.name || '').trim() || '—').join(', ')}
+                      </span>
+                      <span className="block text-[10px] text-violet-800/90 mt-1.5">
+                        Included in annual package (not a separate enrollment)
+                      </span>
+                    </p>
+                  ) : (
+                    <ul className="space-y-1.5">
+                      {annualHouseholdPeers.map((m, gidx) => {
+                        const mid = m.id || `ah-${gidx}-${m.name}-${m.email}`;
+                        return (
+                          <li key={mid}>
+                            <label className="flex items-center gap-2 text-sm text-slate-800 cursor-pointer">
+                              <input
+                                type="checkbox"
+                                className="rounded border-slate-300"
+                                disabled={!m.id}
+                                checked={!!m.id && selIds.includes(String(m.id))}
+                                onChange={() => m.id && toggleFamilyMember(p.id, String(m.id))}
+                              />
+                              <span>
+                                {m.name || '—'}
+                                {m.relationship ? (
+                                  <span className="text-slate-500"> ({m.relationship})</span>
+                                ) : null}
+                              </span>
+                            </label>
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  )}
                 </div>
               ) : null}
               <div className="min-w-0 pt-1 border-t border-amber-200/50">
