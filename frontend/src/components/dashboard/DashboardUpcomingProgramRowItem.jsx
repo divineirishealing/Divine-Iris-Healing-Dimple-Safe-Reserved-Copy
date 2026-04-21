@@ -28,6 +28,31 @@ import { getAuthHeaders } from '../../lib/authHeaders';
 
 const API_ROOT = process.env.REACT_APP_BACKEND_URL;
 
+/** Ids + emails from Annual Family Club rows — same person can use different id fields across lists. */
+function buildAnnualFamilyClubIdentity(peers) {
+  const idSet = new Set();
+  const emailSet = new Set();
+  for (const m of peers || []) {
+    if (!m) continue;
+    for (const x of [m.id, m._id, m.client_family_id]) {
+      if (x != null && String(x).trim()) idSet.add(String(x));
+    }
+    const em = String(m.email || '').trim().toLowerCase();
+    if (em) emailSet.add(em);
+  }
+  return { idSet, emailSet };
+}
+
+function rowMatchesAnnualFamilyClubIdentity(m, identity) {
+  if (!m || !identity) return false;
+  for (const x of [m.id, m._id, m.client_family_id]) {
+    if (x != null && identity.idSet.has(String(x))) return true;
+  }
+  const em = String(m.email || '').trim().toLowerCase();
+  if (em && identity.emailSet.has(em)) return true;
+  return false;
+}
+
 /** Portal quote: list layout, or compact “offer per person” under Pricing & offer. */
 function AnnualQuoteBreakdown({
   aq,
@@ -315,21 +340,16 @@ export default function DashboardUpcomingProgramRowItem({
         programIncludedInAnnualPackage(p, annualIncludedIds)),
   );
 
-  const householdPeerIdSet = useMemo(
-    () =>
-      new Set(
-        (annualHouseholdPeers || [])
-          .map((m) => (m && m.id != null ? String(m.id) : null))
-          .filter(Boolean),
-      ),
+  const annualFamilyClubIdentity = useMemo(
+    () => buildAnnualFamilyClubIdentity(annualHouseholdPeers),
     [annualHouseholdPeers],
   );
 
-  /** Saved immediate-family rows that are not duplicates of Annual Family Club (same Client Garden id). */
+  /** Saved immediate-family rows that are not duplicates of Annual Family Club (id variants or same email). */
   const membersNotInAnnualClub = useMemo(
     () =>
-      (members || []).filter((m) => m == null || m.id == null || !householdPeerIdSet.has(String(m.id))),
-    [members, householdPeerIdSet],
+      (members || []).filter((m) => m != null && !rowMatchesAnnualFamilyClubIdentity(m, annualFamilyClubIdentity)),
+    [members, annualFamilyClubIdentity],
   );
 
   /** Same-key peers cannot be enrolled as paid add-ons when the program is already in the annual package. */
@@ -337,11 +357,11 @@ export default function DashboardUpcomingProgramRowItem({
     return (enrollableGuests || [])
       .filter((m) => {
         if (!m.id) return false;
-        if (includedPkg && householdPeerIdSet.has(String(m.id))) return false;
+        if (includedPkg && rowMatchesAnnualFamilyClubIdentity(m, annualFamilyClubIdentity)) return false;
         return true;
       })
       .map((m) => String(m.id));
-  }, [enrollableGuests, includedPkg, householdPeerIdSet]);
+  }, [enrollableGuests, includedPkg, annualFamilyClubIdentity]);
 
   const selIds = selectedFamilyByProgram[p.id] || [];
   const selCount = selIds.length;
