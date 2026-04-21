@@ -223,6 +223,7 @@ function GuestMemberTable({
   wrapTestId,
   tableTestId,
   readOnly = false,
+  isPrimaryHouseholdContact = true,
 }) {
   const coalesceRelationship = (raw) => {
     const r = (raw || '').trim();
@@ -288,7 +289,14 @@ function GuestMemberTable({
               <td className="px-2 py-1.5 align-middle">
                 <div className="flex flex-col gap-0.5 min-w-0">
                   {m.household_client_link ? (
-                    <span className="text-[9px] font-medium text-violet-700 uppercase tracking-wide">Client Garden · same household key</span>
+                    <span className="text-[9px] font-medium text-violet-700 uppercase tracking-wide">
+                      Client Garden · same household key
+                      {!readOnly && !isPrimaryHouseholdContact ? (
+                        <span className="block font-normal text-slate-500 normal-case mt-0.5">
+                          Only the primary household contact can pay for linked seats — sign in as primary to enroll everyone.
+                        </span>
+                      ) : null}
+                    </span>
                   ) : null}
                 <input
                   value={m.name}
@@ -580,6 +588,8 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh, bo
   const immediateFamilyReadOnly = familyApproved || (immediateFamilyLocked && !immediateFamilyEditApproved);
   const initialMembers = useMemo(() => homeData?.immediate_family || [], [homeData?.immediate_family]);
   const initialOtherMembers = useMemo(() => homeData?.other_guests || [], [homeData?.other_guests]);
+  /** Only this login may add linked same-key clients as paid seats (checkout / enrollment). */
+  const isPrimaryHouseholdContact = !!homeData?.is_primary_household_contact;
 
   const [members, setMembers] = useState(() => initialMembers);
   React.useEffect(() => {
@@ -596,7 +606,11 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh, bo
     setOtherMembers(initialOtherMembers);
   }, [initialOtherMembers]);
 
-  const enrollableGuests = useMemo(() => [...members, ...otherMembers], [members, otherMembers]);
+  const enrollableGuests = useMemo(() => {
+    const base = [...members, ...otherMembers];
+    if (isPrimaryHouseholdContact) return base;
+    return base.filter((m) => !m.household_client_link);
+  }, [members, otherMembers, isPrimaryHouseholdContact]);
 
   const enrollableGuestIdsKey = useMemo(
     () =>
@@ -1702,6 +1716,7 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh, bo
                 wrapTestId="immediate-family-table-wrap"
                 tableTestId="immediate-family-table"
                 readOnly={immediateFamilyReadOnly}
+                isPrimaryHouseholdContact={isPrimaryHouseholdContact}
               />
             )}
           </div>

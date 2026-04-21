@@ -407,7 +407,12 @@ def _all_dashboard_guest_rows(client: dict) -> List[dict]:
 
 
 async def _household_peer_ids(client_id: str, client: dict) -> Set[str]:
-    """Other Client Garden ids sharing the same household_key (CRM clubbing)."""
+    """Other Client Garden ids sharing the same household_key.
+
+    Used for pricing / cart / checkout. Only the primary household contact may pay for linked accounts.
+    """
+    if not bool(client.get("is_primary_household_contact")):
+        return set()
     hk = (client.get("household_key") or "").strip()
     if not hk or not client_id:
         return set()
@@ -418,8 +423,16 @@ async def _household_peer_ids(client_id: str, client: dict) -> Set[str]:
     return {str(r["id"]) for r in rows if r.get("id")}
 
 
-async def _household_peer_guest_rows(client_id: str, client: dict) -> List[dict]:
-    """Build immediate-family-shaped rows from other clients with the same household_key."""
+async def _household_peer_guest_rows(
+    client_id: str, client: dict, *, for_payment: bool = False
+) -> List[dict]:
+    """Build immediate-family-shaped rows from other clients with the same household_key.
+
+    When ``for_payment`` is True, only the primary household contact gets linked rows (they may pay for
+    all clubbed accounts). When False, everyone with a key sees peers for display on Sacred Home.
+    """
+    if for_payment and not bool(client.get("is_primary_household_contact")):
+        return []
     hk = (client.get("household_key") or "").strip()
     if not hk or not client_id:
         return []
@@ -467,10 +480,15 @@ def _merge_immediate_family_with_household_peers(stored_im: List[dict], peers: L
     return out
 
 
-async def _all_dashboard_guest_rows_with_household(client_id: str, client: dict) -> List[dict]:
-    """Stored immediate + other guests + other Client Garden rows with the same household_key."""
+async def _all_dashboard_guest_rows_with_household(
+    client_id: str, client: dict, *, for_payment: bool = False
+) -> List[dict]:
+    """Stored immediate + other guests + optional same-key Client Garden rows.
+
+    ``for_payment=True`` limits linked peers to the primary household contact (checkout / quotes).
+    """
     base = _all_dashboard_guest_rows(client)
-    peers = await _household_peer_guest_rows(client_id, client)
+    peers = await _household_peer_guest_rows(client_id, client, for_payment=for_payment)
     seen = {str(m.get("id")) for m in base if m.get("id")}
     out = list(base)
     for p in peers:
@@ -484,7 +502,7 @@ async def _all_dashboard_guest_rows_with_household(client_id: str, client: dict)
 async def _resolve_family_rows(
     client_id: str, client: dict, family_member_ids: List[str], fallback_count: int
 ) -> List[dict]:
-    fam = await _all_dashboard_guest_rows_with_household(client_id, client)
+    fam = await _all_dashboard_guest_rows_with_household(client_id, client, for_payment=True)
     ids = [str(x).strip() for x in (family_member_ids or []) if str(x).strip()]
     if ids:
         by_id = {str(m.get("id")): m for m in fam if m.get("id")}
@@ -912,7 +930,11 @@ async def get_enrollment_prefill(user: dict = Depends(get_current_user)):
     client_id = user.get("client_id")
     client = await db.clients.find_one({"id": client_id}, {"_id": 0}) or {} if client_id else {}
     self_data = _profile_snapshot_for_prefill(user, client)
-    peers = await _household_peer_guest_rows(client_id, client) if client_id else []
+    peers = (
+        await _household_peer_guest_rows(client_id, client, for_payment=True)
+        if client_id
+        else []
+    )
     family = _merge_immediate_family_with_household_peers(client.get("immediate_family") or [], peers)
     other_guests = client.get("other_guests") or []
     return {"self": self_data, "immediate_family": family, "other_guests": other_guests}
@@ -942,7 +964,7 @@ async def _portal_combined_dashboard_total(user: dict, profile: ProfileData) -> 
         },
     ) or {}
     household_peer_ids = await _household_peer_ids(client_id, client)
-    fam_all = await _all_dashboard_guest_rows_with_household(client_id, client)
+    fam_all = await _all_dashboard_guest_rows_with_household(client_id, client, for_payment=True)
     fam_by_id = {str(m.get("id")) for m in fam_all if m.get("id")}
     g_ao = settings_doc.get("dashboard_offer_annual") or {}
     g_fo = settings_doc.get("dashboard_offer_family") or {}
@@ -1042,7 +1064,7 @@ async def dashboard_quote(
     sub = client.get("subscription") or {}
     annual_dashboard_access = _annual_dashboard_access(client)
     household_peer_ids = await _household_peer_ids(client_id, client)
-    fam = await _all_dashboard_guest_rows_with_household(client_id, client)
+    fam = await _all_dashboard_guest_rows_with_household(client_id, client, for_payment=True)
     id_list = [x.strip() for x in (family_ids or "").split(",") if x.strip()]
     if id_list:
         fam_by_id = {str(m.get("id")) for m in fam if m.get("id")}
@@ -1278,7 +1300,7 @@ async def dashboard_pay(data: DashboardPayIn, request: Request, user: dict = Dep
     included = _portal_included_in_annual_package(
         program, settings_doc.get("annual_package_included_program_ids"), sub, client
     )
-    all_guests = await _all_dashboard_guest_rows_with_household(client_id, client)
+    all_guests = await _all_dashboard_guest_rows_with_household(client_id, client, for_payment=True)
     resolved_family = await _resolve_family_rows(
         client_id, client, list(data.family_member_ids or []), int(data.family_count or 0)
     )
@@ -1584,7 +1606,7 @@ async def get_student_home(user: dict = Depends(get_current_user)):
 
     is_annual = _is_annual_subscriber(sub, client)
     pref_gpay_m, pref_bank_m = _merged_preferred_india_ids(sub, client)
-    hh_peers = await _household_peer_guest_rows(client_id, client) if client_id else []
+    hh_peers = await _household_peer_guest_rows(client_id, client, for_payment=False) if client_id else []
     immediate_family = _merge_immediate_family_with_household_peers(client.get("immediate_family") or [], hh_peers)
     other_guests = client.get("other_guests") or []
     immediate_family_locked = _immediate_family_effective_locked(client)
@@ -1605,6 +1627,7 @@ async def get_student_home(user: dict = Depends(get_current_user)):
         },
         "dashboard_program_offers": dashboard_program_offers,
         "immediate_family": immediate_family,
+        "is_primary_household_contact": bool(client.get("is_primary_household_contact")),
         "other_guests": other_guests,
         "immediate_family_locked": immediate_family_locked,
         "immediate_family_editing_approved": immediate_family_editing_approved,
