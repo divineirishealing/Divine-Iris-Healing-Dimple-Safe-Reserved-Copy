@@ -856,6 +856,7 @@ async def export_clients_excel():
 
     headers = [
         "DIID",
+        "UUID (internal id)",
         "Legacy DID",
         "Label",
         "Name",
@@ -896,6 +897,7 @@ async def export_clients_excel():
         label = cl.get("label", "Dew")
         row_data = [
             cl.get("diid", ""),
+            cl.get("id", ""),
             cl.get("did", ""),
             label,
             cl.get("name", ""),
@@ -917,7 +919,7 @@ async def export_clients_excel():
             cell.fill = fill
             cell.border = thin_border
 
-    col_widths = [30, 14, 12, 20, 30, 18, 22, 12, 25, 40, 16, 22, 22, 30]
+    col_widths = [30, 38, 14, 12, 20, 30, 18, 22, 12, 25, 40, 16, 22, 22, 30]
     for i, w in enumerate(col_widths):
         ws.column_dimensions[ws.cell(row=1, column=i + 1).column_letter].width = w
 

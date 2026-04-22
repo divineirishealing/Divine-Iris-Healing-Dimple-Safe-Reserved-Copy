@@ -142,7 +142,8 @@ const ClientsTab = () => {
             <Users size={18} className="text-[#D4AF37]" /> Client Garden
           </h2>
           <p className="text-xs text-gray-500 mt-0.5 max-w-2xl">
-            One row per client — contacts, household key, sources, and conversion count. Labels and notes are maintained elsewhere (e.g. conversions sync, <strong className="font-semibold text-gray-700">Dashboard access</strong>).
+            One row per client — contacts, household key, sources, and conversion count. Labels and notes are maintained elsewhere (e.g. conversions sync, <strong className="font-semibold text-gray-700">Dashboard access</strong>).{' '}
+            <strong className="font-semibold text-gray-700">DIID</strong> should exist on every row; use <strong className="font-semibold text-gray-700">Sync All Data</strong> to backfill any missing DIID. The <strong className="font-semibold text-gray-700">UUID</strong> column is the internal canonical record id (API / database key).
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
@@ -239,11 +240,12 @@ const ClientsTab = () => {
             <p className="text-sm">No clients found. Use Add client or Sync All Data to populate.</p>
           </div>
         ) : (
-          <table className="w-full min-w-[1080px] text-left border-collapse text-[10px]" data-testid="clients-table">
+          <table className="w-full min-w-[1240px] text-left border-collapse text-[10px]" data-testid="clients-table">
             <thead>
               <tr className="bg-gray-100 border-b border-gray-200 text-[9px] uppercase tracking-wide text-gray-600">
                 <th className="py-2 pl-3 pr-2 font-semibold sticky left-0 bg-gray-100 z-10">Name</th>
                 <th className="py-2 px-2 font-semibold min-w-[220px]" title="DIID-DIRAyyMM-… (run Sync to backfill legacy rows)">DIID</th>
+                <th className="py-2 px-2 font-semibold min-w-[200px]" title="Stored as id — UUID v7 for new clients, v4 for older rows">UUID</th>
                 <th className="py-2 px-2 font-semibold min-w-[140px]">Email</th>
                 <th className="py-2 px-2 font-semibold min-w-[88px]">Phone</th>
                 <th className="py-2 px-2 font-semibold min-w-[100px]">Household</th>
@@ -286,6 +288,12 @@ const ClientsTab = () => {
                           </span>
                         ) : '—'
                       )}
+                    </td>
+                    <td
+                      className="py-2 px-2 font-mono text-[9px] text-slate-600 truncate max-w-[200px] select-all"
+                      title={cl.id ? `Full id: ${cl.id}` : ''}
+                    >
+                      {cl.id || '—'}
                     </td>
                     <td className="py-2 px-2 text-gray-800 truncate max-w-[180px]" title={cl.email || ''}>{cl.email || '—'}</td>
                     <td className="py-2 px-2 text-gray-600 whitespace-nowrap">{cl.phone || '—'}</td>
@@ -378,6 +386,12 @@ function ClientEditDialog({ client: cl, onClose, onSaved, onDelete, toast }) {
 
         <div className="space-y-4 text-xs">
           <div className="grid grid-cols-2 gap-2 text-[10px] text-gray-600">
+            {cl.id && (
+              <p className="col-span-2">
+                <span className="text-gray-400">UUID (internal record id)</span>{' '}
+                <span className="font-mono text-slate-700 text-[10px] break-all select-all">{cl.id}</span>
+              </p>
+            )}
             {(cl.diid || cl.did) && (
               <p className="col-span-2">
                 <span className="text-gray-400">DIID</span>{' '}
