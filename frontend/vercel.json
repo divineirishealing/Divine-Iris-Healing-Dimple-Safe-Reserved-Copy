@@ -2,6 +2,11 @@
   "ignoreCommand": "node scripts/vercel-ignore-duplicate-projects.cjs",
   "redirects": [
     {
+      "source": "/merkaba",
+      "destination": "/",
+      "permanent": false
+    },
+    {
       "source": "/:path*",
       "has": [{ "type": "host", "value": "divine-iris-healing-dimple-safe-res.vercel.app" }],
       "destination": "https://divineirishealing.com/:path*",

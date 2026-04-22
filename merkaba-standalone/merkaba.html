@@ -1,0 +1,378 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="robots" content="noindex, nofollow" />
+  <title>Divine Merkaba · personal</title>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: system-ui, "Segoe UI", sans-serif;
+      background: linear-gradient(165deg, #020006 0%, #0a0418 45%, #030008 100%);
+      color: rgba(255,255,255,0.88);
+    }
+    .wrap { max-width: 1120px; margin: 0 auto; padding: 12px; }
+    h1 {
+      text-align: center;
+      font-family: Georgia, "Times New Roman", serif;
+      font-size: clamp(1.35rem, 4vw, 2.2rem);
+      margin: 0 0 8px;
+      background: linear-gradient(90deg, #e8d5ff, #D4AF37, #a5b4fc, #D4AF37);
+      -webkit-background-clip: text;
+      background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+    .sub { text-align: center; font-size: 11px; color: rgba(255,255,255,0.45); max-width: 34rem; margin: 0 auto 6px; line-height: 1.5; }
+    .hint { text-align: center; font-size: 10px; color: rgba(212,175,55,0.55); max-width: 28rem; margin: 0 auto 14px; }
+    .toolbar {
+      display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; align-items: center;
+      padding: 12px; border-radius: 16px; border: 1px solid rgba(255,255,255,0.1);
+      background: rgba(0,0,0,0.28); margin-bottom: 12px;
+    }
+    .toolbar button, .toolbar label.btn {
+      padding: 8px 14px; border-radius: 999px; font-size: 12px; cursor: pointer;
+      border: 1px solid rgba(255,255,255,0.2); background: rgba(0,0,0,0.2);
+      color: rgba(255,255,255,0.85);
+    }
+    .toolbar button:hover { background: rgba(255,255,255,0.08); }
+    .toolbar .seg { display: inline-flex; border-radius: 999px; border: 1px solid rgba(255,255,255,0.1); overflow: hidden; }
+    .toolbar .seg button { border: none; border-radius: 0; }
+    .toolbar .seg button.on { background: rgba(212,175,55,0.2); color: #D4AF37; }
+    .toolbar .seg button.on2 { background: rgba(34,211,238,0.15); color: #a5f3fc; }
+    .toolbar input[type=file] { display: none; }
+    .field-pct { font-size: 9px; color: rgba(255,255,255,0.3); width: 100%; text-align: center; }
+    .stage {
+      position: relative; border-radius: 24px; overflow: hidden;
+      border: 1px solid rgba(212,175,55,0.25);
+      background: radial-gradient(ellipse 90% 55% at 50% 20%, rgba(120, 60, 180, 0.5) 0%, transparent 50%),
+        radial-gradient(ellipse 70% 45% at 50% 88%, rgba(20, 5, 40, 0.95) 0%, transparent 45%),
+        linear-gradient(180deg, #010004 0%, #080318 40%, #000003 100%);
+      box-shadow: 0 0 120px rgba(80, 40, 120, 0.2), inset 0 0 140px rgba(0,0,0,0.55);
+    }
+    .stage svg { display: block; width: 100%; height: min(92vh, 960px); }
+    .affirm {
+      position: absolute; left: 0; right: 0; bottom: 0; padding: 16px; text-align: center;
+      background: linear-gradient(0deg, rgba(0,0,0,0.6) 0%, transparent 100%);
+      border-top: 1px solid rgba(255,255,255,0.05);
+      font-family: Georgia, serif; font-size: clamp(0.85rem, 2vw, 1.05rem);
+      color: rgba(255, 251, 235, 0.9); font-style: italic; max-width: 42rem; margin: 0 auto;
+    }
+    .legal { text-align: center; font-size: 10px; color: rgba(255,255,255,0.28); max-width: 36rem; margin: 12px auto 0; line-height: 1.5; }
+    @keyframes merkabaCW { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+    @keyframes merkabaCCW { from { transform: rotate(0deg); } to { transform: rotate(-360deg); } }
+    @keyframes coreGlow { 0%, 100% { opacity: 0.5; } 50% { opacity: 0.95; } }
+    @keyframes rayPulse { 0%, 100% { stroke-opacity: 0.3; } 50% { stroke-opacity: 0.95; } }
+    @keyframes raySharp { 0%, 100% { stroke-opacity: 0.25; } 50% { stroke-opacity: 1; } }
+    @keyframes bhPulse { 0%, 100% { opacity: 0.65; } 50% { opacity: 1; } }
+    @keyframes spiralWobble { from { stroke-dashoffset: 0; } to { stroke-dashoffset: 32; } }
+    @keyframes breatheBelly { 0%, 100% { transform: scale(1, 1.03); } 50% { transform: scale(1, 0.96); } }
+    .tri-outer-cw { animation: merkabaCW 60s linear infinite; }
+    .tri-outer-ccw { animation: merkabaCCW 60s linear infinite; }
+    .tri-mid-cw { animation: merkabaCCW 40s linear infinite; }
+    .tri-mid-ccw { animation: merkabaCW 40s linear infinite; }
+    .tri-inner-cw { animation: merkabaCW 25s linear infinite; }
+    .tri-inner-ccw { animation: merkabaCCW 25s linear infinite; }
+    .core-g { animation: coreGlow 3.2s ease-in-out infinite; }
+    .fig-b { animation: breatheBelly 30s ease-in-out infinite; }
+    body.merk-paused .tri-outer-cw, body.merk-paused .tri-outer-ccw,
+    body.merk-paused .tri-mid-cw, body.merk-paused .tri-mid-ccw,
+    body.merk-paused .tri-inner-cw, body.merk-paused .tri-inner-ccw,
+    body.merk-paused .fig-b { animation-play-state: paused; }
+    body.merk-paused [data-anim] { animation-play-state: paused !important; }
+    @media (prefers-reduced-motion: reduce) {
+      .tri-outer-cw, .tri-outer-ccw, .tri-mid-cw, .tri-mid-ccw, .tri-inner-cw, .tri-inner-ccw, .fig-b { animation: none !important; }
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>Divine Merkaba · personal (offline file)</h1>
+    <p class="sub">Open this <strong>merkaba.html</strong> file in your browser. Your photo is saved only in this browser (localStorage). Not medical advice.</p>
+    <p class="hint">Gold = sunwise · Cyan = moonwise — field tightens a little each 60s while playing.</p>
+
+    <div class="toolbar">
+      <label class="btn" for="pic">＋ Add your picture</label>
+      <input type="file" id="pic" accept="image/*" />
+      <button type="button" id="rm-pic" hidden>Remove photo</button>
+      <span style="width:1px;height:20px;background:rgba(255,255,255,0.1)"></span>
+      <div class="seg" id="pose-seg">
+        <button type="button" data-pose="stand" class="on">Standing</button>
+        <button type="button" data-pose="sit">Sitting</button>
+      </div>
+      <button type="button" id="btn-play">Pause</button>
+      <button type="button" id="btn-reset">Reset size</button>
+      <button type="button" id="btn-next">Next line</button>
+    </div>
+    <p class="field-pct" id="field-pct">Field: 100.0%</p>
+
+    <div class="stage">
+      <svg id="main-svg" viewBox="0 0 1000 1000" xmlns="http://www.w3.org/2000/svg" aria-label="Merkaba meditation field">
+        <defs>
+          <radialGradient id="bh-glow" cx="50%" cy="50%" r="50%">
+            <stop offset="0%" stop-color="#1a0028" /><stop offset="50%" stop-color="#080010" /><stop offset="100%" stop-color="#000" />
+          </radialGradient>
+          <radialGradient id="bh-disk" cx="50%" cy="50%" r="50%">
+            <stop offset="0%" stop-color="rgba(200, 100, 60, 0.5)" /><stop offset="45%" stop-color="rgba(90, 40, 120, 0.4)" /><stop offset="100%" stop-color="transparent" />
+          </radialGradient>
+          <linearGradient id="goldLine" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stop-color="rgba(255, 230, 160, 0.95)" /><stop offset="100%" stop-color="rgba(212, 175, 55, 0.45)" />
+          </linearGradient>
+          <filter id="ray-glow" x="-30%" y="-30%" width="160%" height="160%">
+            <feGaussianBlur stdDeviation="1.3" result="b" />
+            <feMerge><feMergeNode in="b" /><feMergeNode in="SourceGraphic" /></feMerge>
+          </filter>
+          <clipPath id="userPhotoClip"><circle cx="0" cy="0" r="138" /></clipPath>
+        </defs>
+        <ellipse cx="500" cy="110" rx="420" ry="150" fill="rgba(100, 60, 200, 0.09)" />
+        <g>
+          <ellipse cx="500" cy="890" rx="360" ry="64" fill="url(#bh-disk)" opacity="0.92" style="mix-blend-mode: screen" />
+          <ellipse cx="500" cy="890" rx="70" ry="20" fill="url(#bh-glow)" data-anim style="animation: bhPulse 4s ease-in-out infinite" />
+          <ellipse cx="500" cy="890" rx="12" ry="3.5" fill="#000" opacity="0.96" />
+          <path d="M 130 850 A 370 50 0 0 0 870 850" fill="none" stroke="rgba(212, 175, 55, 0.28)" stroke-width="1.4" stroke-dasharray="10 12" data-anim style="animation: spiralWobble 14s linear infinite" />
+          <path d="M 180 865 A 320 40 0 0 0 820 865" fill="none" stroke="rgba(100, 200, 255, 0.28)" stroke-width="1" stroke-dasharray="5 8" data-anim style="animation: spiralWobble 20s linear infinite reverse" />
+        </g>
+        <g id="rings" transform="translate(500,410)"></g>
+        <g id="merkaba-g" transform="translate(500,410)">
+          <g id="slimRoot" transform="scale(1)">
+            <g id="spokes18"></g>
+            <g class="tri-outer-cw">
+              <polygon id="p-up" fill="none" stroke="url(#goldLine)" stroke-width="1.8" stroke-linejoin="round" opacity="0.95" />
+              <polygon id="p-up2" fill="none" stroke="rgba(255, 220, 140, 0.15)" stroke-width="3" />
+            </g>
+            <g class="tri-outer-ccw">
+              <polygon id="p-dn" fill="none" stroke="rgba(150, 220, 255, 0.9)" stroke-width="1.8" stroke-linejoin="round" />
+              <polygon id="p-dn2" fill="none" stroke="rgba(100, 200, 255, 0.2)" stroke-width="3" />
+            </g>
+            <g class="tri-mid-cw"><polygon id="p-mu" fill="none" stroke="rgba(212, 175, 55, 0.45)" stroke-width="1.1" stroke-linejoin="round" stroke-dasharray="6 4" /></g>
+            <g class="tri-mid-ccw"><polygon id="p-md" fill="none" stroke="rgba(120, 200, 255, 0.4)" stroke-width="1.1" stroke-linejoin="round" stroke-dasharray="5 5" /></g>
+            <g class="tri-inner-cw"><polygon id="p-iu" fill="none" stroke="rgba(255, 200, 120, 0.35)" stroke-width="0.8" /></g>
+            <g class="tri-inner-ccw"><polygon id="p-id" fill="none" stroke="rgba(180, 220, 255, 0.3)" stroke-width="0.8" /></g>
+            <circle r="12" class="core-g" fill="rgba(255, 240, 220, 0.4)" />
+            <g id="rays"></g>
+            <g id="shed"></g>
+            <g id="pose-off"><g id="g-stand" class="fig-b"></g><g id="g-sit" class="fig-b" style="display:none"></g></g>
+            <g id="g-photo" style="display:none" class="fig-b">
+              <circle cx="0" cy="0" r="144" fill="none" stroke="rgba(212, 175, 55, 0.4)" stroke-width="1.5" />
+              <image id="userImg" x="-146" y="-145" width="292" height="300" clip-path="url(#userPhotoClip)" preserveAspectRatio="xMidYMid slice" href="" />
+            </g>
+          </g>
+        </g>
+      </svg>
+      <p class="affirm" id="affirm">I release heaviness with love; my body remembers its natural harmony.</p>
+    </div>
+    <p class="legal">For meditation and intention only. Not medical advice. Consult qualified professionals for health concerns.</p>
+  </div>
+  <script>
+(function () {
+  const PHOTO_KEY = 'divine_merkaba_personal_photo_v1';
+  const R = 270, R2 = R * 0.58, R3 = R * 0.36;
+  const tri = (r, up) => up
+    ? '0,-' + r + ' ' + (r * 0.866) + ',' + (r * 0.5) + ' -' + (r * 0.866) + ',' + (r * 0.5)
+    : '0,' + r + ' -' + (r * 0.866) + ',-' + (r * 0.5) + ' ' + (r * 0.866) + ',-' + (r * 0.5);
+  function verts(r) {
+    return [
+      { x: 0, y: -r }, { x: r * 0.866, y: r * 0.5 }, { x: -r * 0.866, y: r * 0.5 },
+      { x: 0, y: r }, { x: -r * 0.866, y: -r * 0.5 }, { x: r * 0.866, y: -r * 0.5 }
+    ];
+  }
+  const MV = verts(R);
+  const RV = verts(R2);
+
+  document.getElementById('p-up').setAttribute('points', tri(R, true));
+  document.getElementById('p-up2').setAttribute('points', tri(R, true));
+  document.getElementById('p-dn').setAttribute('points', tri(R, false));
+  document.getElementById('p-dn2').setAttribute('points', tri(R, false));
+  document.getElementById('p-mu').setAttribute('points', tri(R2, true));
+  document.getElementById('p-md').setAttribute('points', tri(R2, false));
+  document.getElementById('p-iu').setAttribute('points', tri(R3, true));
+  document.getElementById('p-id').setAttribute('points', tri(R3, false));
+
+  const spokes = document.getElementById('spokes18');
+  for (var i = 0; i < 18; i++) {
+    var a = (i / 18) * Math.PI * 2;
+    var ln = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+    ln.setAttribute('x1', '0'); ln.setAttribute('y1', '0');
+    ln.setAttribute('x2', String(Math.sin(a) * R * 0.95));
+    ln.setAttribute('y2', String(-Math.cos(a) * R * 0.95));
+    ln.setAttribute('stroke', 'rgba(200, 180, 255, 0.09)'); ln.setAttribute('stroke-width', '0.45');
+    spokes.appendChild(ln);
+  }
+
+  const rays = document.getElementById('rays');
+  MV.forEach(function (v, k) {
+    var l1 = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+    l1.setAttribute('x1', v.x); l1.setAttribute('y1', v.y);
+    l1.setAttribute('x2', v.x * 0.1); l1.setAttribute('y2', v.y * 0.1 + 5);
+    l1.setAttribute('stroke', 'rgba(100, 230, 255, 0.45)'); l1.setAttribute('stroke-width', '0.65');
+    l1.setAttribute('filter', 'url(#ray-glow)');
+    l1.style.animation = 'rayPulse 2.2s ease-in-out ' + (k * 0.12) + 's infinite';
+    l1.setAttribute('data-anim', '1');
+    rays.appendChild(l1);
+    var l2 = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+    l2.setAttribute('x1', v.x); l2.setAttribute('y1', v.y);
+    l2.setAttribute('x2', v.x * 0.09); l2.setAttribute('y2', v.y * 0.09 + 8);
+    l2.setAttribute('stroke', 'rgba(255,255,255,0.9)'); l2.setAttribute('stroke-width', '1.2');
+    l2.style.animation = 'raySharp 1.4s ease-in-out ' + (k * 0.1) + 's infinite';
+    l2.setAttribute('data-anim', '1');
+    rays.appendChild(l2);
+  });
+  RV.forEach(function (v) {
+    var l = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+    l.setAttribute('x1', v.x); l.setAttribute('y1', v.y);
+    l.setAttribute('x2', v.x * 0.06); l.setAttribute('y2', v.y * 0.06 + 4);
+    l.setAttribute('stroke', 'rgba(120, 200, 255, 0.3)'); l.setAttribute('stroke-width', '0.4');
+    rays.appendChild(l);
+  });
+  MV.forEach(function (v) {
+    var l = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+    l.setAttribute('x1', '0'); l.setAttribute('y1', '0');
+    l.setAttribute('x2', v.x * 0.92); l.setAttribute('y2', v.y * 0.92);
+    l.setAttribute('stroke', 'rgba(200, 160, 255, 0.1)'); l.setAttribute('stroke-width', '0.4');
+    rays.appendChild(l);
+  });
+
+  const shedPaths = [
+    'M-95,-150 Q0,220 0,600', 'M95,-130 Q-40,220 0,600', 'M-60,50 Q-70,340 0,600',
+    'M60,45 Q70,340 0,600', 'M0,-80 Q50,300 0,600', 'M-115,20 Q30,360 0,600'
+  ];
+  const shedG = document.getElementById('shed');
+  shedPaths.forEach(function (d, i) {
+    var p = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+    p.setAttribute('d', d); p.setAttribute('fill', 'none'); p.setAttribute('stroke', 'none');
+    var c1 = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+    c1.setAttribute('r', '3.2'); c1.setAttribute('fill', 'rgba(200, 180, 255, 0.8)');
+    var m1 = document.createElementNS('http://www.w3.org/2000/svg', 'animateMotion');
+    m1.setAttribute('dur', (4.2 + i * 0.3) + 's'); m1.setAttribute('repeatCount', 'indefinite'); m1.setAttribute('path', d); m1.setAttribute('rotate', 'auto');
+    c1.appendChild(m1);
+    var c2 = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+    c2.setAttribute('r', '2'); c2.setAttribute('fill', 'rgba(212, 175, 55, 0.55)');
+    var m2 = document.createElementNS('http://www.w3.org/2000/svg', 'animateMotion');
+    m2.setAttribute('dur', (5.4 + i * 0.25) + 's'); m2.setAttribute('repeatCount', 'indefinite'); m2.setAttribute('path', d); m2.setAttribute('begin', (i * 0.55) + 's');
+    c2.appendChild(m2);
+    var g = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+    g.setAttribute('opacity', '0.55');
+    g.appendChild(c1); g.appendChild(c2);
+    shedG.appendChild(g);
+  });
+
+  var stand = document.getElementById('g-stand');
+  stand.innerHTML = '<circle cx="0" cy="-200" r="16" fill="rgba(10,8,20,0.4)" stroke="rgba(255,248,240,0.85)" stroke-width="2.4" />' +
+    '<path d="M0 -175 L0 -55" stroke="rgba(255,248,240,0.85)" stroke-width="2.4" fill="none" stroke-linecap="round" />' +
+    '<path d="M0 -145 L-40 -90 M0 -145 L40 -90" stroke="rgba(255,248,240,0.85)" stroke-width="2.4" fill="none" stroke-linecap="round" />' +
+    '<path d="M0 -55 L-24 64 M0 -55 L24 64" stroke="rgba(255,248,240,0.85)" stroke-width="2.4" fill="none" stroke-linecap="round" />';
+  var sit = document.getElementById('g-sit');
+  sit.innerHTML = '<circle cx="0" cy="-165" r="14" fill="rgba(10,8,20,0.35)" stroke="rgba(255,248,240,0.88)" stroke-width="2.4" />' +
+    '<path d="M0 -150 Q-50 -72 -50 6 Q-40 32 0 40 Q40 32 50 6 Q50 -72 0 -150" stroke="rgba(255,248,240,0.88)" stroke-width="2.4" fill="none" stroke-linecap="round" />' +
+    '<path d="M-50 6 L-58 20 M50 6 L58 20" stroke="rgba(255,248,240,0.88)" stroke-width="2.4" fill="none" stroke-linecap="round" />';
+
+  const rings = document.getElementById('rings');
+  [100, 165, 230].forEach(function (rad, j) {
+    var c = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+    c.setAttribute('cx', '0'); c.setAttribute('cy', '0'); c.setAttribute('r', String(rad));
+    c.setAttribute('fill', 'none'); c.setAttribute('stroke', 'rgba(212, 175, 55, 0.08)');
+    c.setAttribute('stroke-width', '0.6'); c.setAttribute('stroke-dasharray', (4 + j) + ' ' + (6 + j));
+    c.style.animation = 'spiralWobble ' + (10 + j * 4) + 's linear infinite';
+    c.setAttribute('data-anim', '1');
+    rings.appendChild(c);
+  });
+
+  const affirmations = [
+    'I release heaviness with love; my body remembers its natural harmony.',
+    'Each full turn of the field: I intend my center a little freer, lighter, more at ease.',
+    'Sacred light refines me; I am present in the still center of the Merkaba.',
+    'I welcome vitality, strength, and a body that feels clear, balanced, and well.',
+    'With every turn: old patterns soften; I align with the healthiest, kindest version of me.',
+    'This is my visualization — a loving mirror for intention, not a promise of a specific result.'
+  ];
+  var aIdx = 0;
+  var slim = 1;
+  var playing = !window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  var pose = 'stand';
+  var merkG = document.getElementById('merkaba-g');
+  var rings = document.getElementById('rings');
+  var slimRoot = document.getElementById('slimRoot');
+
+  function setPlaying(p) {
+    playing = p;
+    document.body.classList.toggle('merk-paused', !p);
+    document.getElementById('btn-play').textContent = p ? 'Pause' : 'Play';
+  }
+  setPlaying(playing);
+
+  function applySlim() {
+    slimRoot.setAttribute('transform', 'scale(' + slim + ')');
+    document.getElementById('field-pct').textContent = 'Field: ' + (slim * 100).toFixed(1) + '%';
+  }
+  applySlim();
+
+  setInterval(function () {
+    if (!playing) return;
+    slim = Math.max(0.8, slim - 0.0026);
+    applySlim();
+  }, 60000);
+
+  document.getElementById('btn-play').addEventListener('click', function () { setPlaying(!playing); });
+  document.getElementById('btn-reset').addEventListener('click', function () { slim = 1; applySlim(); });
+  document.getElementById('btn-next').addEventListener('click', function () {
+    aIdx = (aIdx + 1) % affirmations.length;
+    document.getElementById('affirm').textContent = affirmations[aIdx];
+  });
+  document.getElementById('pose-seg').addEventListener('click', function (e) {
+    var t = e.target;
+    if (t.tagName !== 'BUTTON') return;
+    pose = t.getAttribute('data-pose');
+    var sit = pose === 'sit';
+    document.getElementById('g-stand').style.display = sit ? 'none' : 'block';
+    document.getElementById('g-sit').style.display = sit ? 'block' : 'none';
+    [].forEach.call(document.querySelectorAll('#pose-seg button'), function (b) {
+      b.classList.remove('on', 'on2');
+      if (b.getAttribute('data-pose') === (sit ? 'sit' : 'stand')) b.classList.add(sit ? 'on2' : 'on');
+    });
+    merkG.setAttribute('transform', 'translate(500, ' + (410 - (sit ? 10 : 0)) + ')');
+    rings.setAttribute('transform', 'translate(500, ' + (410 - (sit ? 10 : 0)) + ')');
+  });
+
+  var pic = document.getElementById('pic');
+  var rm = document.getElementById('rm-pic');
+  var userImg = document.getElementById('userImg');
+  try {
+    var saved = localStorage.getItem(PHOTO_KEY);
+    if (saved && saved.indexOf('data:image') === 0) { userImg.setAttribute('href', saved); showPhoto(); }
+  } catch (e) {}
+  function showPhoto() {
+    document.getElementById('g-photo').style.display = 'block';
+    document.getElementById('pose-off').style.display = 'none';
+    rm.hidden = false;
+  }
+  function hidePhoto() {
+    document.getElementById('g-photo').style.display = 'none';
+    document.getElementById('pose-off').style.display = 'block';
+    userImg.removeAttribute('href');
+    rm.hidden = true;
+  }
+  pic.addEventListener('change', function () {
+    var f = pic.files && pic.files[0];
+    pic.value = '';
+    if (!f || f.type.indexOf('image') !== 0) return;
+    if (f.size > 2.5 * 1024 * 1024) { alert('Choose an image under 2.5 MB.'); return; }
+    var r = new FileReader();
+    r.onload = function () {
+      var d = r.result;
+      if (typeof d !== 'string') return;
+      userImg.setAttribute('href', d);
+      showPhoto();
+      try { localStorage.setItem(PHOTO_KEY, d); } catch (e) {}
+    };
+    r.readAsDataURL(f);
+  });
+  rm.addEventListener('click', function () {
+    try { localStorage.removeItem(PHOTO_KEY); } catch (e) {}
+    hidePhoto();
+  });
+})();
+  </script>
+</body>
+</html>

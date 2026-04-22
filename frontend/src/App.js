@@ -26,7 +26,6 @@ import ManualPaymentPage from './pages/ManualPaymentPage';
 import ClientIntakePage from './pages/ClientIntakePage';
 import ContactUpdatePage from './pages/ContactUpdatePage';
 import LoginPage from './pages/LoginPage';
-import MerkabaStandalonePage from './pages/MerkabaStandalonePage';
 import StudentDashboard from './pages/StudentDashboard';
 import DashboardLayout from './layouts/DashboardLayout';
 import AuthCallback from './components/auth/AuthCallback';
@@ -89,14 +88,11 @@ const AppContent = () => {
     return <AuthCallback />;
   }
 
-  const isMerkabaOnly = location.pathname === '/merkaba';
-
   return (
     <>
-      {!isMerkabaOnly && <BackendStatusBanner />}
-      {!isMerkabaOnly && <SeoHead />}
+      <BackendStatusBanner />
+      <SeoHead />
       <Routes>
-      <Route path="/merkaba" element={<MerkabaStandalonePage />} />
       <Route path="/" element={<HomePage />} />
       <Route path="/admin" element={<AdminPage />} />
       <Route path="/programs" element={<AllProgramsPage />} />
@@ -143,7 +139,6 @@ const AppContent = () => {
         <Route path="garden/ocean" element={<OceanPage />} />
         <Route path="garden/mandala" element={<MandalaPage />} />
         <Route path="garden/zen" element={<HeadspacePage />} />
-        <Route path="garden/merkaba-weight" element={<Navigate to="/merkaba" replace />} />
         <Route path="bhaad" element={<BhaadPortalPage />} />
         <Route path="tribe" element={<SoulTribePage />} />
         
