@@ -38,11 +38,60 @@ const PAYMENT_MODE_SHORT = {
   free: 'Free',
 };
 
-const ENROLL_TABLE_SCROLL_CLASS =
-  'max-h-[min(72vh,calc(100vh-12.5rem))] overflow-y-auto overflow-x-hidden overscroll-contain';
+const ENROLL_TABLE_INNER_CLASS = 'overflow-x-hidden w-full min-w-0';
 
 const ENROLL_TABLE_CARD_CLASS =
   'rounded-xl border border-gray-200/90 bg-white shadow-sm overflow-hidden w-full min-w-0 max-w-full';
+
+function EnrollPaginationBar({
+  pageSafe,
+  pageSize,
+  total,
+  totalPages,
+  onPageChange,
+  onPageSizeChange,
+}) {
+  const from = total === 0 ? 0 : (pageSafe - 1) * pageSize + 1;
+  const to = Math.min(pageSafe * pageSize, total);
+  const btn =
+    'text-[10px] px-3 py-1 rounded-full border border-gray-200 bg-white hover:bg-gray-50 disabled:opacity-40 disabled:pointer-events-none font-medium text-gray-800';
+  return (
+    <div
+      className="flex flex-wrap items-center justify-between gap-2 px-3 py-2 border-t border-gray-100 bg-gray-50/90 text-[11px]"
+      data-testid="enrollments-pagination"
+    >
+      <span className="tabular-nums text-gray-600">{total === 0 ? '0 rows' : `${from}–${to} of ${total}`}</span>
+      <div className="flex items-center gap-2 flex-wrap">
+        <label className="flex items-center gap-1.5 text-[10px] text-gray-600">
+          Per page
+          <select
+            value={pageSize}
+            onChange={(e) => {
+              onPageSizeChange(Number(e.target.value));
+              onPageChange(1);
+            }}
+            className="text-xs border border-gray-200 rounded-lg px-2 py-1 bg-white min-w-[3.25rem]"
+          >
+            {[8, 12, 16, 24, 32].map((n) => (
+              <option key={n} value={n}>
+                {n}
+              </option>
+            ))}
+          </select>
+        </label>
+        <button type="button" className={btn} disabled={pageSafe <= 1} onClick={() => onPageChange(pageSafe - 1)}>
+          Previous
+        </button>
+        <span className="tabular-nums text-[10px] text-gray-500 min-w-[3.5rem] text-center">
+          {pageSafe} / {totalPages}
+        </span>
+        <button type="button" className={btn} disabled={pageSafe >= totalPages} onClick={() => onPageChange(pageSafe + 1)}>
+          Next
+        </button>
+      </div>
+    </div>
+  );
+}
 
 /** Admin analytics: normalize participant attendance for checkout-level summary. */
 function attendanceBucket(mode) {
@@ -152,6 +201,9 @@ const EnrollmentsTab = () => {
   const [sendingTest, setSendingTest] = useState(false);
   /** Flat map e.g. { usd_to_inr, aed_to_inr } for admin INR column */
   const [fxRates, setFxRates] = useState({});
+  /** Paged tables: no scroll regions — flip pages instead. */
+  const [enrollPage, setEnrollPage] = useState(1);
+  const [enrollPageSize, setEnrollPageSize] = useState(12);
 
   useEffect(() => { loadEnrollments(); }, []);
 
@@ -389,6 +441,30 @@ const EnrollmentsTab = () => {
     });
   }, [programBatchBaseRows, fxRates]);
 
+  useEffect(() => {
+    setEnrollPage(1);
+  }, [viewMode, search, statusFilter, paymentFilter, participantSearch, paidOnlyReport, selectedProgramBatch]);
+
+  const enrollActiveTotal = useMemo(() => {
+    if (viewMode === 'summary') return summaryAnalyticsRows.length;
+    if (viewMode === 'participants') return filteredParticipants.length;
+    if (viewMode === 'program_analytics') return programBatchAnalyticsRows.length;
+    return 0;
+  }, [viewMode, summaryAnalyticsRows, filteredParticipants, programBatchAnalyticsRows]);
+
+  const enrollTotalPages = Math.max(1, Math.ceil(enrollActiveTotal / enrollPageSize));
+  const enrollPageSafe = Math.min(Math.max(1, enrollPage), enrollTotalPages);
+
+  useEffect(() => {
+    if (enrollPage !== enrollPageSafe) setEnrollPage(enrollPageSafe);
+  }, [enrollPage, enrollPageSafe]);
+
+  useEffect(() => {
+    setExpandedId(null);
+  }, [enrollPage]);
+
+  const enrollSliceStart = (enrollPageSafe - 1) * enrollPageSize;
+
   const downloadProgramBatchCsv = () => {
     if (programBatchAnalyticsRows.length === 0) return;
     const headers = [
@@ -511,12 +587,15 @@ const EnrollmentsTab = () => {
         </div>
       </div>
 
-      <div className="mb-6 rounded-xl border border-violet-200/80 bg-gradient-to-br from-violet-50/90 to-white p-4 shadow-sm" data-testid="enrollment-auto-report">
-        <div className="flex items-center gap-2 mb-2">
-          <Mail size={16} className="text-violet-700" />
-          <h3 className="text-sm font-semibold text-gray-900">Automated enrollment reports</h3>
-        </div>
-        <p className="text-[11px] text-gray-600 mb-3 max-w-2xl">
+      <details className="mb-4 rounded-xl border border-violet-200/80 bg-gradient-to-br from-violet-50/90 to-white shadow-sm group" data-testid="enrollment-auto-report">
+        <summary className="cursor-pointer list-none flex items-center gap-2 px-4 py-3 text-sm font-semibold text-gray-900 [&::-webkit-details-marker]:hidden">
+          <Mail size={16} className="text-violet-700 shrink-0" />
+          <span>Automated enrollment reports</span>
+          <span className="text-xs font-normal text-violet-600/80">— click to expand</span>
+          <ChevronDown size={14} className="ml-auto text-gray-400 transition-transform group-open:rotate-180" />
+        </summary>
+        <div className="px-4 pb-4 pt-0 border-t border-violet-100/80">
+        <p className="text-[11px] text-gray-600 mb-3 max-w-2xl pt-3">
           On a schedule, the server emails the same <strong>participant-level</strong> Excel as &quot;Participant Excel&quot; below.
           Uses your SMTP or Resend keys (Admin → API Keys). Check runs every hour; minimum gap between sends is 6 hours, maximum 1 week.
         </p>
@@ -587,20 +666,18 @@ const EnrollmentsTab = () => {
             {sendingTest ? 'Sending…' : 'Send test now'}
           </button>
         </div>
-      </div>
+        </div>
+      </details>
 
       {viewMode === 'participants' && (
-        <p className="text-[11px] text-gray-600 mb-3 max-w-3xl">
-          Every path—program page, session, upcoming, cart, checkout, or student dashboard pay—creates a record in <strong>Enrollments</strong>.
-          <strong>By participant</strong> lists one row per person (not merged): relationship, city/state, attendance, notify, referral, participant email, etc. Checkout total repeats on each row when several people enroll together.
+        <p className="text-[10px] text-gray-500 mb-2">
+          One row per person; checkout total repeats for multi-seat bookings. Use <strong>Previous / Next</strong> to move through rows (no scrolling).
         </p>
       )}
 
       {viewMode === 'program_analytics' && (
-        <p className="text-[11px] text-gray-600 mb-3 max-w-3xl">
-          <strong>Program batch</strong> is for tallying one program at a time: participant roster plus{' '}
-          <strong>running total (INR)</strong> in chronological order. Each checkout is counted <em>once</em> (on participant seat 1 only); other seats in the same booking show the same amount but do not add again, so the running total matches money in for that program.
-          Amount (INR) uses the same rates as the checkout summary.
+        <p className="text-[10px] text-gray-500 mb-2">
+          <strong>Program batch:</strong> roster + running Σ (INR); each payment counted once (seat 1). Paginate with the bar below.
         </p>
       )}
 
@@ -732,17 +809,16 @@ const EnrollmentsTab = () => {
       ) : viewMode === 'summary' ? (
         <div className={ENROLL_TABLE_CARD_CLASS} data-testid="enrollments-summary-table-wrap">
           <p className="text-[10px] text-gray-600 px-3 py-2.5 bg-gradient-to-r from-gray-50 to-white border-b border-gray-100 leading-relaxed">
-            <strong className="text-gray-800">INR columns</strong> use checkout currency and exchange rates when available.{' '}
-            <span className="text-gray-500">Scroll the table body; header stays visible.</span>
+            <strong className="text-gray-800">INR columns</strong> use checkout currency and exchange rates when available. Rows are paged — use the bar below.
           </p>
-          <div className={ENROLL_TABLE_SCROLL_CLASS}>
+          <div className={ENROLL_TABLE_INNER_CLASS}>
             <table className="w-full table-fixed border-collapse text-[10px] sm:text-[11px]">
               <colgroup>
                 {[2, 7, 13, 13, 5, 4, 7, 7, 8, 6, 9, 9, 3].map((pct, i) => (
                   <col key={i} style={{ width: `${pct}%` }} />
                 ))}
               </colgroup>
-              <thead className="sticky top-0 z-20 border-b border-gray-200 bg-gray-100/95 shadow-[0_1px_0_0_rgba(0,0,0,0.06)] backdrop-blur-sm">
+              <thead className="border-b border-gray-200 bg-gray-100">
                 <tr>
                   <th className="text-left px-1 sm:px-2 py-2 font-semibold text-gray-700">#</th>
                   <th className="text-left px-1 sm:px-2 py-2 font-semibold text-gray-700 leading-tight">Invoice</th>
@@ -760,7 +836,7 @@ const EnrollmentsTab = () => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
-              {summaryAnalyticsRows.map(({ enrollment: e, serial, amountInr, cumulativeInr, attendanceLabel, sourceCurrency }) => {
+              {summaryAnalyticsRows.slice(enrollSliceStart, enrollSliceStart + enrollPageSize).map(({ enrollment: e, serial, amountInr, cumulativeInr, attendanceLabel, sourceCurrency }) => {
                 const s = STATUS_MAP[e.status] || { label: e.status || 'Unknown', color: 'bg-gray-100 text-gray-600' };
                 const mode = getPaymentMode(e);
                 const modeInfo = mode ? PAYMENT_MODE_MAP[mode] : null;
@@ -874,6 +950,14 @@ const EnrollmentsTab = () => {
             </tbody>
           </table>
           </div>
+          <EnrollPaginationBar
+            pageSafe={enrollPageSafe}
+            pageSize={enrollPageSize}
+            total={summaryAnalyticsRows.length}
+            totalPages={enrollTotalPages}
+            onPageChange={setEnrollPage}
+            onPageSizeChange={setEnrollPageSize}
+          />
         </div>
       ) : null}
 
@@ -886,16 +970,16 @@ const EnrollmentsTab = () => {
         ) : (
           <div className={ENROLL_TABLE_CARD_CLASS} data-testid="enrollments-participant-table">
             <p className="text-[10px] text-gray-600 px-3 py-2 bg-gray-50/80 border-b border-gray-100">
-              One row per person. Wide layout fits the pane; use row hover and titles on truncated cells for full text.
+              Truncated cells have full text on hover. Page through rows below.
             </p>
-            <div className={ENROLL_TABLE_SCROLL_CLASS}>
+            <div className={ENROLL_TABLE_INNER_CLASS}>
               <table className="w-full table-fixed border-collapse text-[9px] sm:text-[10px]">
                 <colgroup>
                   {Array.from({ length: 23 }).map((_, i) => (
                     <col key={i} style={{ width: `${100 / 23}%` }} />
                   ))}
                 </colgroup>
-                <thead className="sticky top-0 z-20 border-b border-gray-200 bg-gray-100/95 shadow-[0_1px_0_0_rgba(0,0,0,0.06)] backdrop-blur-sm">
+                <thead className="border-b border-gray-200 bg-gray-100">
                   <tr>
                     <th className="text-left px-1 sm:px-1.5 py-2 font-semibold text-gray-700">#</th>
                     <th className="text-left px-1 sm:px-1.5 py-2 font-semibold text-gray-700 leading-tight">Name</th>
@@ -923,7 +1007,7 @@ const EnrollmentsTab = () => {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100">
-                  {filteredParticipants.map((row) => {
+                  {filteredParticipants.slice(enrollSliceStart, enrollSliceStart + enrollPageSize).map((row) => {
                     const cur = (row.payment_currency || '').toLowerCase();
                     const symbols = { inr: '\u20B9', aed: 'AED ', usd: '$' };
                     const sym = symbols[cur] || (cur ? `${cur.toUpperCase()} ` : '');
@@ -980,6 +1064,14 @@ const EnrollmentsTab = () => {
                 </tbody>
               </table>
             </div>
+            <EnrollPaginationBar
+              pageSafe={enrollPageSafe}
+              pageSize={enrollPageSize}
+              total={filteredParticipants.length}
+              totalPages={enrollTotalPages}
+              onPageChange={setEnrollPage}
+              onPageSizeChange={setEnrollPageSize}
+            />
           </div>
         )
       )}
@@ -996,16 +1088,16 @@ const EnrollmentsTab = () => {
         ) : (
           <div className={ENROLL_TABLE_CARD_CLASS} data-testid="enrollments-program-batch-table">
             <p className="text-[10px] text-gray-600 px-3 py-2.5 bg-gray-50/80 border-b border-gray-100 leading-relaxed">
-              Sorted by enrollment <strong>created</strong> (oldest first). <strong>Σ INR</strong> counts each checkout once (seat 1). Scroll inside the pane; header stays put.
+              Sorted by enrollment <strong>created</strong> (oldest first). <strong>Σ INR</strong> counts each checkout once (seat 1). Page with the controls below.
             </p>
-            <div className={ENROLL_TABLE_SCROLL_CLASS}>
+            <div className={ENROLL_TABLE_INNER_CLASS}>
               <table className="w-full table-fixed border-collapse text-[10px] sm:text-[11px]">
                 <colgroup>
                   {[3, 5, 14, 4, 5, 9, 9, 7, 6, 9, 7, 8, 9].map((pct, i) => (
                     <col key={i} style={{ width: `${pct}%` }} />
                   ))}
                 </colgroup>
-                <thead className="sticky top-0 z-20 border-b border-gray-200 bg-gray-100/95 shadow-[0_1px_0_0_rgba(0,0,0,0.06)] backdrop-blur-sm">
+                <thead className="border-b border-gray-200 bg-gray-100">
                   <tr>
                     <th className="text-left px-1 sm:px-2 py-2 font-semibold text-gray-700">#</th>
                     <th className="text-left px-1 sm:px-2 py-2 font-semibold text-gray-700">Seat</th>
@@ -1023,7 +1115,7 @@ const EnrollmentsTab = () => {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100">
-                  {programBatchAnalyticsRows.map(({ row, serial, amountInr, cumulativeInr, countsForRunning, sourceCurrency }) => {
+                  {programBatchAnalyticsRows.slice(enrollSliceStart, enrollSliceStart + enrollPageSize).map(({ row, serial, amountInr, cumulativeInr, countsForRunning, sourceCurrency }) => {
                     const cur = (row.payment_currency || '').toLowerCase();
                     const symbols = { inr: '\u20B9', aed: 'AED ', usd: '$' };
                     const sym = symbols[cur] || (cur ? `${cur.toUpperCase()} ` : '');
@@ -1081,6 +1173,14 @@ const EnrollmentsTab = () => {
                 </tbody>
               </table>
             </div>
+            <EnrollPaginationBar
+              pageSafe={enrollPageSafe}
+              pageSize={enrollPageSize}
+              total={programBatchAnalyticsRows.length}
+              totalPages={enrollTotalPages}
+              onPageChange={setEnrollPage}
+              onPageSizeChange={setEnrollPageSize}
+            />
           </div>
         )
       )}
