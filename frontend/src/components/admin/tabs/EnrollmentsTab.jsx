@@ -1,10 +1,13 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import axios from 'axios';
 import { useToast } from '../../../hooks/use-toast';
-import { FileSpreadsheet, Download, Search, CreditCard, Building2, Upload, Globe, ChevronDown, ChevronUp, LayoutList, Table2, Mail, ClipboardList } from 'lucide-react';
+import { FileSpreadsheet, Download, Search, CreditCard, Building2, Upload, Globe, ChevronDown, ChevronUp, LayoutList, Table2, Mail, ClipboardList, Columns3 } from 'lucide-react';
 import { Input } from '../../ui/input';
 import { Label } from '../../ui/label';
 import { Switch } from '../../ui/switch';
+import { Popover, PopoverContent, PopoverTrigger } from '../../ui/popover';
+import { Checkbox } from '../../ui/checkbox';
+import { cn } from '@/lib/utils';
 
 const API = `${process.env.REACT_APP_BACKEND_URL || ''}/api`;
 
@@ -43,54 +46,110 @@ const ENROLL_TABLE_INNER_CLASS = 'overflow-x-hidden w-full min-w-0';
 const ENROLL_TABLE_CARD_CLASS =
   'rounded-xl border border-gray-200/90 bg-white shadow-sm overflow-hidden w-full min-w-0 max-w-full';
 
-function EnrollPaginationBar({
-  pageSafe,
-  pageSize,
-  total,
-  totalPages,
-  onPageChange,
-  onPageSizeChange,
-}) {
-  const from = total === 0 ? 0 : (pageSafe - 1) * pageSize + 1;
-  const to = Math.min(pageSafe * pageSize, total);
-  const btn =
-    'text-[10px] px-3 py-1 rounded-full border border-gray-200 bg-white hover:bg-gray-50 disabled:opacity-40 disabled:pointer-events-none font-medium text-gray-800';
-  return (
-    <div
-      className="flex flex-wrap items-center justify-between gap-2 px-3 py-2 border-t border-gray-100 bg-gray-50/90 text-[11px]"
-      data-testid="enrollments-pagination"
-    >
-      <span className="tabular-nums text-gray-600">{total === 0 ? '0 rows' : `${from}–${to} of ${total}`}</span>
-      <div className="flex items-center gap-2 flex-wrap">
-        <label className="flex items-center gap-1.5 text-[10px] text-gray-600">
-          Per page
-          <select
-            value={pageSize}
-            onChange={(e) => {
-              onPageSizeChange(Number(e.target.value));
-              onPageChange(1);
-            }}
-            className="text-xs border border-gray-200 rounded-lg px-2 py-1 bg-white min-w-[3.25rem]"
-          >
-            {[8, 12, 16, 24, 32].map((n) => (
-              <option key={n} value={n}>
-                {n}
-              </option>
-            ))}
-          </select>
-        </label>
-        <button type="button" className={btn} disabled={pageSafe <= 1} onClick={() => onPageChange(pageSafe - 1)}>
-          Previous
-        </button>
-        <span className="tabular-nums text-[10px] text-gray-500 min-w-[3.5rem] text-center">
-          {pageSafe} / {totalPages}
-        </span>
-        <button type="button" className={btn} disabled={pageSafe >= totalPages} onClick={() => onPageChange(pageSafe + 1)}>
-          Next
-        </button>
-      </div>
-    </div>
-  );
+const ENROLL_COLS_STORAGE_KEY = 'enrollments-tab-columns-v1';
+
+const SUMMARY_COLUMN_DEFS = [
+  { id: 'serial', label: '#', weight: 2, headClass: 'text-left' },
+  { id: 'invoice', label: 'Invoice', weight: 7, headClass: 'text-left leading-tight' },
+  { id: 'booker', label: 'Booker', weight: 13, headClass: 'text-left leading-tight' },
+  { id: 'program', label: 'Program', weight: 13, headClass: 'text-left leading-tight' },
+  { id: 'origin', label: 'Src', weight: 5, headClass: 'text-left' },
+  { id: 'pax', label: 'Pax', weight: 4, headClass: 'text-center' },
+  { id: 'attend', label: 'Attend.', weight: 7, headClass: 'text-left leading-tight' },
+  { id: 'pay', label: 'Pay', weight: 7, headClass: 'text-left leading-tight' },
+  { id: 'status', label: 'Status', weight: 8, headClass: 'text-left leading-tight' },
+  { id: 'date', label: 'Date', weight: 6, headClass: 'text-left' },
+  { id: 'amtInr', label: 'Amt ₹', weight: 9, headClass: 'text-right leading-tight' },
+  { id: 'runInr', label: 'Σ ₹', weight: 9, headClass: 'text-right leading-tight' },
+  { id: 'expand', label: '▸', weight: 3, headClass: 'w-6 px-0.5' },
+];
+
+const PARTICIPANT_COLUMN_DEFS = [
+  { id: 'slot', label: '#' },
+  { id: 'name', label: 'Name' },
+  { id: 'relation', label: 'Rel.' },
+  { id: 'age', label: 'Age' },
+  { id: 'gender', label: 'Gen.' },
+  { id: 'country', label: 'Ctry' },
+  { id: 'city', label: 'City' },
+  { id: 'state', label: 'St' },
+  { id: 'mode', label: 'Mode' },
+  { id: 'notify', label: 'Ntf' },
+  { id: 'email', label: 'Email' },
+  { id: 'phone', label: 'Ph' },
+  { id: 'wa', label: 'WA' },
+  { id: 'first', label: '1st' },
+  { id: 'ref', label: 'Ref' },
+  { id: 'refBy', label: 'By' },
+  { id: 'amt', label: 'Amt' },
+  { id: 'cur', label: 'Cur' },
+  { id: 'prog', label: 'Prog' },
+  { id: 'booker', label: 'Booker' },
+  { id: 'invoice', label: 'Inv' },
+  { id: 'origin', label: 'Orig' },
+  { id: 'status', label: 'Stat' },
+];
+
+const PROGRAM_BATCH_COLUMN_DEFS = [
+  { id: 'serial', label: '#', weight: 3, headClass: 'text-left' },
+  { id: 'seat', label: 'Seat', weight: 5, headClass: 'text-left' },
+  { id: 'name', label: 'Name', weight: 14, headClass: 'text-left leading-tight' },
+  { id: 'age', label: 'Age', weight: 4, headClass: 'text-left' },
+  { id: 'gender', label: 'Gen.', weight: 5, headClass: 'text-left' },
+  { id: 'city', label: 'City', weight: 9, headClass: 'text-left' },
+  { id: 'country', label: 'Ctry', weight: 9, headClass: 'text-left' },
+  { id: 'mode', label: 'Mode', weight: 7, headClass: 'text-left' },
+  { id: 'origin', label: 'Src', weight: 6, headClass: 'text-left' },
+  { id: 'status', label: 'Status', weight: 9, headClass: 'text-left leading-tight' },
+  { id: 'amt', label: 'Amt', weight: 7, headClass: 'text-right leading-tight' },
+  { id: 'inr', label: 'INR', weight: 8, headClass: 'text-right leading-tight' },
+  { id: 'runInr', label: 'Σ INR', weight: 9, headClass: 'text-right leading-tight' },
+];
+
+function defaultsFromColumnDefs(defs) {
+  return Object.fromEntries(defs.map((d) => [d.id, true]));
+}
+
+function ensureAtLeastOneVisible(vis, defs) {
+  const merged = { ...defaultsFromColumnDefs(defs), ...vis };
+  if (defs.some((d) => merged[d.id] !== false)) return merged;
+  return defaultsFromColumnDefs(defs);
+}
+
+const DEFAULT_COLUMN_VISIBILITY = {
+  summary: defaultsFromColumnDefs(SUMMARY_COLUMN_DEFS),
+  participants: defaultsFromColumnDefs(PARTICIPANT_COLUMN_DEFS),
+  programBatch: defaultsFromColumnDefs(PROGRAM_BATCH_COLUMN_DEFS),
+};
+
+function loadColumnVisibility() {
+  try {
+    const raw = localStorage.getItem(ENROLL_COLS_STORAGE_KEY);
+    if (!raw) {
+      return {
+        summary: { ...DEFAULT_COLUMN_VISIBILITY.summary },
+        participants: { ...DEFAULT_COLUMN_VISIBILITY.participants },
+        programBatch: { ...DEFAULT_COLUMN_VISIBILITY.programBatch },
+      };
+    }
+    const parsed = JSON.parse(raw);
+    return {
+      summary: ensureAtLeastOneVisible(parsed.summary || {}, SUMMARY_COLUMN_DEFS),
+      participants: ensureAtLeastOneVisible(parsed.participants || {}, PARTICIPANT_COLUMN_DEFS),
+      programBatch: ensureAtLeastOneVisible(parsed.programBatch || {}, PROGRAM_BATCH_COLUMN_DEFS),
+    };
+  } catch {
+    return {
+      summary: { ...DEFAULT_COLUMN_VISIBILITY.summary },
+      participants: { ...DEFAULT_COLUMN_VISIBILITY.participants },
+      programBatch: { ...DEFAULT_COLUMN_VISIBILITY.programBatch },
+    };
+  }
+}
+
+function enrollmentOriginKey(originish) {
+  const o = String(originish || '').toLowerCase();
+  return o === 'dashboard' ? 'dashboard' : 'website';
 }
 
 /** Admin analytics: normalize participant attendance for checkout-level summary. */
@@ -201,9 +260,24 @@ const EnrollmentsTab = () => {
   const [sendingTest, setSendingTest] = useState(false);
   /** Flat map e.g. { usd_to_inr, aed_to_inr } for admin INR column */
   const [fxRates, setFxRates] = useState({});
-  /** Paged tables: no scroll regions — flip pages instead. */
-  const [enrollPage, setEnrollPage] = useState(1);
-  const [enrollPageSize, setEnrollPageSize] = useState(12);
+  const [originFilter, setOriginFilter] = useState('all');
+  const [columnVisibility, setColumnVisibility] = useState(loadColumnVisibility);
+
+  useEffect(() => {
+    setColumnVisibility((prev) => ({
+      summary: ensureAtLeastOneVisible(prev.summary, SUMMARY_COLUMN_DEFS),
+      participants: ensureAtLeastOneVisible(prev.participants, PARTICIPANT_COLUMN_DEFS),
+      programBatch: ensureAtLeastOneVisible(prev.programBatch, PROGRAM_BATCH_COLUMN_DEFS),
+    }));
+  }, []);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(ENROLL_COLS_STORAGE_KEY, JSON.stringify(columnVisibility));
+    } catch {
+      /* ignore */
+    }
+  }, [columnVisibility]);
 
   useEffect(() => { loadEnrollments(); }, []);
 
@@ -333,9 +407,11 @@ const EnrollmentsTab = () => {
         const matchStatus = statusFilter === 'all' || e.status === statusFilter;
         const mode = getPaymentMode(e);
         const matchPayment = paymentFilter === 'all' || mode === paymentFilter;
-        return matchSearch && matchStatus && matchPayment;
+        const matchOrigin =
+          originFilter === 'all' || enrollmentOriginKey(e.enrollment_origin) === originFilter;
+        return matchSearch && matchStatus && matchPayment && matchOrigin;
       }),
-    [enrollments, search, statusFilter, paymentFilter],
+    [enrollments, search, statusFilter, paymentFilter, originFilter],
   );
 
   const statusCounts = {};
@@ -365,6 +441,9 @@ const EnrollmentsTab = () => {
   }, [filtered, fxRates]);
 
   const filteredParticipants = participantRows.filter((row) => {
+    const matchOrigin =
+      originFilter === 'all' || enrollmentOriginKey(row.enrollment_origin) === originFilter;
+    if (!matchOrigin) return false;
     if (!participantSearch.trim()) return true;
     const q = participantSearch.toLowerCase();
     return [
@@ -406,6 +485,9 @@ const EnrollmentsTab = () => {
     return participantRows.filter((row) => {
       const title = (row.program || '').trim() || '(Untitled program)';
       if (title !== selectedProgramBatch) return false;
+      if (originFilter !== 'all' && enrollmentOriginKey(row.enrollment_origin) !== originFilter) {
+        return false;
+      }
       if (!participantSearch.trim()) return true;
       const q = participantSearch.toLowerCase();
       return [
@@ -415,7 +497,7 @@ const EnrollmentsTab = () => {
         row.enrollment_id,
       ].filter(Boolean).some((f) => String(f).toLowerCase().includes(q));
     });
-  }, [participantRows, selectedProgramBatch, participantSearch]);
+  }, [participantRows, selectedProgramBatch, participantSearch, originFilter]);
 
   const programBatchAnalyticsRows = useMemo(() => {
     const sorted = [...programBatchBaseRows].sort(
@@ -441,29 +523,28 @@ const EnrollmentsTab = () => {
     });
   }, [programBatchBaseRows, fxRates]);
 
-  useEffect(() => {
-    setEnrollPage(1);
-  }, [viewMode, search, statusFilter, paymentFilter, participantSearch, paidOnlyReport, selectedProgramBatch]);
+  const visSummaryCols = useMemo(
+    () => SUMMARY_COLUMN_DEFS.filter((d) => columnVisibility.summary[d.id] !== false),
+    [columnVisibility.summary],
+  );
+  const summaryColWeightSum = useMemo(
+    () => Math.max(1, visSummaryCols.reduce((s, d) => s + d.weight, 0)),
+    [visSummaryCols],
+  );
 
-  const enrollActiveTotal = useMemo(() => {
-    if (viewMode === 'summary') return summaryAnalyticsRows.length;
-    if (viewMode === 'participants') return filteredParticipants.length;
-    if (viewMode === 'program_analytics') return programBatchAnalyticsRows.length;
-    return 0;
-  }, [viewMode, summaryAnalyticsRows, filteredParticipants, programBatchAnalyticsRows]);
+  const visParticipantCols = useMemo(
+    () => PARTICIPANT_COLUMN_DEFS.filter((d) => columnVisibility.participants[d.id] !== false),
+    [columnVisibility.participants],
+  );
 
-  const enrollTotalPages = Math.max(1, Math.ceil(enrollActiveTotal / enrollPageSize));
-  const enrollPageSafe = Math.min(Math.max(1, enrollPage), enrollTotalPages);
-
-  useEffect(() => {
-    if (enrollPage !== enrollPageSafe) setEnrollPage(enrollPageSafe);
-  }, [enrollPage, enrollPageSafe]);
-
-  useEffect(() => {
-    setExpandedId(null);
-  }, [enrollPage]);
-
-  const enrollSliceStart = (enrollPageSafe - 1) * enrollPageSize;
+  const visProgramBatchCols = useMemo(
+    () => PROGRAM_BATCH_COLUMN_DEFS.filter((d) => columnVisibility.programBatch[d.id] !== false),
+    [columnVisibility.programBatch],
+  );
+  const programBatchWeightSum = useMemo(
+    () => Math.max(1, visProgramBatchCols.reduce((s, d) => s + d.weight, 0)),
+    [visProgramBatchCols],
+  );
 
   const downloadProgramBatchCsv = () => {
     if (programBatchAnalyticsRows.length === 0) return;
@@ -584,6 +665,73 @@ const EnrollmentsTab = () => {
               <Download size={12} /> Program CSV
             </button>
           )}
+          <Popover>
+            <PopoverTrigger asChild>
+              <button
+                type="button"
+                data-testid="enrollments-column-picker"
+                className="flex items-center gap-1 text-[10px] px-3 py-2 rounded-full border border-gray-200 bg-white text-gray-700 hover:bg-gray-50 font-medium shadow-sm"
+              >
+                <Columns3 size={12} /> Columns
+              </button>
+            </PopoverTrigger>
+            <PopoverContent align="end" className="w-80 max-h-[min(24rem,70vh)] flex flex-col">
+              <p className="text-[11px] font-semibold text-gray-800 mb-2 shrink-0">Visible columns ({viewMode === 'program_analytics' ? 'Program batch' : viewMode === 'participants' ? 'Participant' : 'Checkout'})</p>
+              <div className="space-y-2 overflow-y-auto pr-1 flex-1 min-h-0">
+                {(viewMode === 'summary'
+                  ? SUMMARY_COLUMN_DEFS
+                  : viewMode === 'participants'
+                    ? PARTICIPANT_COLUMN_DEFS
+                    : PROGRAM_BATCH_COLUMN_DEFS
+                ).map((def) => {
+                  const vk =
+                    viewMode === 'summary' ? 'summary' : viewMode === 'participants' ? 'participants' : 'programBatch';
+                  return (
+                    <label key={def.id} className="flex items-center gap-2 text-[11px] text-gray-700 cursor-pointer">
+                      <Checkbox
+                        checked={columnVisibility[vk][def.id] !== false}
+                        onCheckedChange={(v) =>
+                          setColumnVisibility((prev) => {
+                            const defs =
+                              vk === 'summary'
+                                ? SUMMARY_COLUMN_DEFS
+                                : vk === 'participants'
+                                  ? PARTICIPANT_COLUMN_DEFS
+                                  : PROGRAM_BATCH_COLUMN_DEFS;
+                            const nextVis = { ...prev[vk], [def.id]: v === true };
+                            const remaining = defs.filter((d) => nextVis[d.id] !== false).length;
+                            if (remaining < 1) return prev;
+                            return { ...prev, [vk]: nextVis };
+                          })
+                        }
+                      />
+                      <span>{def.label || def.id}</span>
+                    </label>
+                  );
+                })}
+              </div>
+              <button
+                type="button"
+                className="mt-3 text-[10px] text-violet-700 font-medium hover:underline shrink-0 text-left"
+                onClick={() => {
+                  const vk =
+                    viewMode === 'summary' ? 'summary' : viewMode === 'participants' ? 'participants' : 'programBatch';
+                  const defs =
+                    viewMode === 'summary'
+                      ? SUMMARY_COLUMN_DEFS
+                      : viewMode === 'participants'
+                        ? PARTICIPANT_COLUMN_DEFS
+                        : PROGRAM_BATCH_COLUMN_DEFS;
+                  setColumnVisibility((prev) => ({
+                    ...prev,
+                    [vk]: defaultsFromColumnDefs(defs),
+                  }));
+                }}
+              >
+                Reset this view to default
+              </button>
+            </PopoverContent>
+          </Popover>
         </div>
       </div>
 
@@ -671,13 +819,13 @@ const EnrollmentsTab = () => {
 
       {viewMode === 'participants' && (
         <p className="text-[10px] text-gray-500 mb-2">
-          One row per person; checkout total repeats for multi-seat bookings. Use <strong>Previous / Next</strong> to move through rows (no scrolling).
+          One row per person; checkout total repeats for multi-seat bookings. Scroll the page to see all rows; use <strong>Columns</strong> to hide fields.
         </p>
       )}
 
       {viewMode === 'program_analytics' && (
         <p className="text-[10px] text-gray-500 mb-2">
-          <strong>Program batch:</strong> roster + running Σ (INR); each payment counted once (seat 1). Paginate with the bar below.
+          <strong>Program batch:</strong> roster + running Σ (INR); each payment counted once (seat 1). Filter by origin below; hide columns from the Columns button.
         </p>
       )}
 
@@ -692,6 +840,25 @@ const EnrollmentsTab = () => {
             />
             Paid / completed only
           </label>
+          <div className="flex items-center gap-1.5 flex-wrap">
+            <span className="text-[9px] text-gray-500 font-medium uppercase tracking-wide">Origin</span>
+            {[
+              { k: 'all', label: 'All' },
+              { k: 'dashboard', label: 'Dash' },
+              { k: 'website', label: 'Web' },
+            ].map(({ k, label }) => (
+              <button
+                key={k}
+                type="button"
+                onClick={() => setOriginFilter(k)}
+                className={`text-[9px] px-2 py-1 rounded-full ${
+                  originFilter === k ? 'bg-slate-800 text-white' : 'bg-gray-100 text-gray-600'
+                }`}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
           <div className="relative flex-1 min-w-[200px] max-w-sm">
             <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
             <Input
@@ -715,6 +882,25 @@ const EnrollmentsTab = () => {
             />
             Paid / completed only
           </label>
+          <div className="flex items-center gap-1.5 flex-wrap">
+            <span className="text-[9px] text-gray-500 font-medium uppercase tracking-wide">Origin</span>
+            {[
+              { k: 'all', label: 'All' },
+              { k: 'dashboard', label: 'Dash' },
+              { k: 'website', label: 'Web' },
+            ].map(({ k, label }) => (
+              <button
+                key={k}
+                type="button"
+                onClick={() => setOriginFilter(k)}
+                className={`text-[9px] px-2 py-1 rounded-full ${
+                  originFilter === k ? 'bg-slate-800 text-white' : 'bg-gray-100 text-gray-600'
+                }`}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
           <div className="flex flex-wrap items-center gap-2">
             <label htmlFor="program-batch-select" className="text-[11px] text-gray-600 whitespace-nowrap">
               Program
@@ -799,6 +985,26 @@ const EnrollmentsTab = () => {
             )
           ))}
         </div>
+
+        <div className="flex items-center gap-1.5 flex-wrap w-full sm:w-auto">
+          <span className="text-[9px] text-gray-500 font-medium uppercase tracking-wide">Origin</span>
+          {[
+            { k: 'all', label: 'All' },
+            { k: 'dashboard', label: 'Dashboard' },
+            { k: 'website', label: 'Website' },
+          ].map(({ k, label }) => (
+            <button
+              key={k}
+              type="button"
+              onClick={() => setOriginFilter(k)}
+              className={`text-[9px] px-2.5 py-1 rounded-full transition-colors ${
+                originFilter === k ? 'bg-slate-800 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+              }`}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
       </div>
       )}
 
@@ -809,34 +1015,30 @@ const EnrollmentsTab = () => {
       ) : viewMode === 'summary' ? (
         <div className={ENROLL_TABLE_CARD_CLASS} data-testid="enrollments-summary-table-wrap">
           <p className="text-[10px] text-gray-600 px-3 py-2.5 bg-gradient-to-r from-gray-50 to-white border-b border-gray-100 leading-relaxed">
-            <strong className="text-gray-800">INR columns</strong> use checkout currency and exchange rates when available. Rows are paged — use the bar below.
+            <strong className="text-gray-800">INR columns</strong> use checkout currency and exchange rates when available. Scroll the page to see all rows; show or hide fields with <strong>Columns</strong>.
           </p>
           <div className={ENROLL_TABLE_INNER_CLASS}>
             <table className="w-full table-fixed border-collapse text-[10px] sm:text-[11px]">
               <colgroup>
-                {[2, 7, 13, 13, 5, 4, 7, 7, 8, 6, 9, 9, 3].map((pct, i) => (
-                  <col key={i} style={{ width: `${pct}%` }} />
+                {visSummaryCols.map((d) => (
+                  <col key={d.id} style={{ width: `${(d.weight / summaryColWeightSum) * 100}%` }} />
                 ))}
               </colgroup>
-              <thead className="border-b border-gray-200 bg-gray-100">
+              <thead className="sticky top-0 z-10 border-b border-gray-200 bg-gray-100">
                 <tr>
-                  <th className="text-left px-1 sm:px-2 py-2 font-semibold text-gray-700">#</th>
-                  <th className="text-left px-1 sm:px-2 py-2 font-semibold text-gray-700 leading-tight">Invoice</th>
-                  <th className="text-left px-1 sm:px-2 py-2 font-semibold text-gray-700 leading-tight">Booker</th>
-                  <th className="text-left px-1 sm:px-2 py-2 font-semibold text-gray-700 leading-tight">Program</th>
-                  <th className="text-left px-1 sm:px-2 py-2 font-semibold text-gray-700">Src</th>
-                  <th className="text-center px-1 sm:px-2 py-2 font-semibold text-gray-700">Pax</th>
-                  <th className="text-left px-1 sm:px-2 py-2 font-semibold text-gray-700 leading-tight">Attend.</th>
-                  <th className="text-left px-1 sm:px-2 py-2 font-semibold text-gray-700 leading-tight">Pay</th>
-                  <th className="text-left px-1 sm:px-2 py-2 font-semibold text-gray-700 leading-tight">Status</th>
-                  <th className="text-left px-1 sm:px-2 py-2 font-semibold text-gray-700">Date</th>
-                  <th className="text-right px-1 sm:px-2 py-2 font-semibold text-gray-700 leading-tight">Amt ₹</th>
-                  <th className="text-right px-1 sm:px-2 py-2 font-semibold text-gray-700 leading-tight">Σ ₹</th>
-                  <th className="w-6 px-0.5 py-2" aria-label="Expand" />
+                  {visSummaryCols.map((d) => (
+                    <th
+                      key={d.id}
+                      className={cn('px-1 sm:px-2 py-2 font-semibold text-gray-700', d.headClass)}
+                      aria-label={d.id === 'expand' ? 'Expand row' : undefined}
+                    >
+                      {d.label}
+                    </th>
+                  ))}
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
-              {summaryAnalyticsRows.slice(enrollSliceStart, enrollSliceStart + enrollPageSize).map(({ enrollment: e, serial, amountInr, cumulativeInr, attendanceLabel, sourceCurrency }) => {
+              {summaryAnalyticsRows.map(({ enrollment: e, serial, amountInr, cumulativeInr, attendanceLabel, sourceCurrency }) => {
                 const s = STATUS_MAP[e.status] || { label: e.status || 'Unknown', color: 'bg-gray-100 text-gray-600' };
                 const mode = getPaymentMode(e);
                 const modeInfo = mode ? PAYMENT_MODE_MAP[mode] : null;
@@ -850,63 +1052,106 @@ const EnrollmentsTab = () => {
                 return (
                   <React.Fragment key={e.id}>
                     <tr className="cursor-pointer odd:bg-white even:bg-violet-50/30 hover:bg-amber-50/40 transition-colors" onClick={() => setExpandedId(isExpanded ? null : e.id)}>
-                      <td className={`${tc} text-gray-500 tabular-nums font-medium`}>{serial}</td>
-                      <td className={`${tc} font-mono text-purple-800 font-medium break-all text-[9px] sm:text-[10px]`} title={e.invoice_number || e.id}>
-                        {e.invoice_number || e.id?.slice(0, 8) || '-'}
-                      </td>
-                      <td className={tc}>
-                        <p className="font-medium text-gray-900 leading-snug line-clamp-2" title={e.booker_name || ''}>{e.booker_name || '-'}</p>
-                        <p className="text-gray-500 text-[9px] truncate" title={e.booker_email || ''}>{e.booker_email || ''}</p>
-                      </td>
-                      <td className={tc}>
-                        <p className="text-gray-800 leading-snug line-clamp-2" title={e.item_title || ''}>{e.item_title || '-'}</p>
-                        {e.item_type ? <p className="text-gray-400 capitalize text-[9px] truncate">{e.item_type}</p> : null}
-                      </td>
-                      <td className={tc}>
-                        <span className={`inline-block text-[9px] px-1.5 py-0.5 rounded-md font-medium ${e.enrollment_origin === 'dashboard' ? 'bg-amber-100 text-amber-900' : 'bg-slate-100 text-slate-700'}`}>
-                          {e.enrollment_origin === 'dashboard' ? 'Dash' : 'Web'}
-                        </span>
-                      </td>
-                      <td className={`${tc} text-center tabular-nums`}>
-                        <span className="font-medium text-gray-900">{e.participant_count || e.participants?.length || 0}</span>
-                      </td>
-                      <td className={`${tc} text-gray-800 text-[9px] sm:text-[10px] leading-tight`} title={attendanceLabel}>
-                        <span className="line-clamp-2 break-words">{attendanceLabel}</span>
-                      </td>
-                      <td className={tc}>
-                        {modeInfo ? (
-                          <span className={`inline-flex items-center gap-0.5 text-[9px] px-1 py-0.5 rounded-md font-medium max-w-full ${modeInfo.color}`} title={modeInfo.label}>
-                            <ModeIcon size={10} className="shrink-0 opacity-80" />
-                            <span className="truncate min-w-0">{payShort}</span>
-                          </span>
-                        ) : <span className="text-gray-400 text-[9px]">—</span>}
-                      </td>
-                      <td className={tc}>
-                        <span className={`inline-block text-[9px] px-1.5 py-0.5 rounded-md font-medium max-w-full truncate ${s.color}`} title={s.label}>{s.label}</span>
-                      </td>
-                      <td className={`${tc} text-gray-600 tabular-nums text-[9px] sm:text-[10px]`}>
-                        {e.created_at ? new Date(e.created_at).toLocaleDateString('en-IN', { day: '2-digit', month: 'short' }) : '-'}
-                      </td>
-                      <td className={`${tc} text-right font-medium text-gray-900 tabular-nums text-[10px] sm:text-[11px]`}>
-                        {rawAmount > 0 ? (
-                          <span title={sourceCurrency !== 'inr' ? `Stored: ${String(currency || '').toUpperCase()}` : ''}>
-                            ₹{amountInr.toLocaleString('en-IN')}
-                          </span>
-                        ) : (
-                          <span className="text-emerald-700 font-semibold">FREE</span>
-                        )}
-                      </td>
-                      <td className={`${tc} text-right font-semibold text-violet-900 tabular-nums text-[10px] sm:text-[11px]`}>
-                        ₹{cumulativeInr.toLocaleString('en-IN')}
-                      </td>
-                      <td className={`${tc} text-center`}>
-                        {isExpanded ? <ChevronUp size={14} className="text-gray-500 mx-auto" /> : <ChevronDown size={14} className="text-gray-500 mx-auto" />}
-                      </td>
+                      {visSummaryCols.map((def) => {
+                        switch (def.id) {
+                          case 'serial':
+                            return <td key={def.id} className={`${tc} text-gray-500 tabular-nums font-medium`}>{serial}</td>;
+                          case 'invoice':
+                            return (
+                              <td key={def.id} className={`${tc} font-mono text-purple-800 font-medium break-all text-[9px] sm:text-[10px]`} title={e.invoice_number || e.id}>
+                                {e.invoice_number || e.id?.slice(0, 8) || '-'}
+                              </td>
+                            );
+                          case 'booker':
+                            return (
+                              <td key={def.id} className={tc}>
+                                <p className="font-medium text-gray-900 leading-snug line-clamp-2" title={e.booker_name || ''}>{e.booker_name || '-'}</p>
+                                <p className="text-gray-500 text-[9px] truncate" title={e.booker_email || ''}>{e.booker_email || ''}</p>
+                              </td>
+                            );
+                          case 'program':
+                            return (
+                              <td key={def.id} className={tc}>
+                                <p className="text-gray-800 leading-snug line-clamp-2" title={e.item_title || ''}>{e.item_title || '-'}</p>
+                                {e.item_type ? <p className="text-gray-400 capitalize text-[9px] truncate">{e.item_type}</p> : null}
+                              </td>
+                            );
+                          case 'origin':
+                            return (
+                              <td key={def.id} className={tc}>
+                                <span className={`inline-block text-[9px] px-1.5 py-0.5 rounded-md font-medium ${e.enrollment_origin === 'dashboard' ? 'bg-amber-100 text-amber-900' : 'bg-slate-100 text-slate-700'}`}>
+                                  {e.enrollment_origin === 'dashboard' ? 'Dash' : 'Web'}
+                                </span>
+                              </td>
+                            );
+                          case 'pax':
+                            return (
+                              <td key={def.id} className={`${tc} text-center tabular-nums`}>
+                                <span className="font-medium text-gray-900">{e.participant_count || e.participants?.length || 0}</span>
+                              </td>
+                            );
+                          case 'attend':
+                            return (
+                              <td key={def.id} className={`${tc} text-gray-800 text-[9px] sm:text-[10px] leading-tight`} title={attendanceLabel}>
+                                <span className="line-clamp-2 break-words">{attendanceLabel}</span>
+                              </td>
+                            );
+                          case 'pay':
+                            return (
+                              <td key={def.id} className={tc}>
+                                {modeInfo ? (
+                                  <span className={`inline-flex items-center gap-0.5 text-[9px] px-1 py-0.5 rounded-md font-medium max-w-full ${modeInfo.color}`} title={modeInfo.label}>
+                                    <ModeIcon size={10} className="shrink-0 opacity-80" />
+                                    <span className="truncate min-w-0">{payShort}</span>
+                                  </span>
+                                ) : <span className="text-gray-400 text-[9px]">—</span>}
+                              </td>
+                            );
+                          case 'status':
+                            return (
+                              <td key={def.id} className={tc}>
+                                <span className={`inline-block text-[9px] px-1.5 py-0.5 rounded-md font-medium max-w-full truncate ${s.color}`} title={s.label}>{s.label}</span>
+                              </td>
+                            );
+                          case 'date':
+                            return (
+                              <td key={def.id} className={`${tc} text-gray-600 tabular-nums text-[9px] sm:text-[10px]`}>
+                                {e.created_at ? new Date(e.created_at).toLocaleDateString('en-IN', { day: '2-digit', month: 'short' }) : '-'}
+                              </td>
+                            );
+                          case 'amtInr':
+                            return (
+                              <td key={def.id} className={`${tc} text-right font-medium text-gray-900 tabular-nums text-[10px] sm:text-[11px]`}>
+                                {rawAmount > 0 ? (
+                                  <span title={sourceCurrency !== 'inr' ? `Stored: ${String(currency || '').toUpperCase()}` : ''}>
+                                    ₹{amountInr.toLocaleString('en-IN')}
+                                  </span>
+                                ) : (
+                                  <span className="text-emerald-700 font-semibold">FREE</span>
+                                )}
+                              </td>
+                            );
+                          case 'runInr':
+                            return (
+                              <td key={def.id} className={`${tc} text-right font-semibold text-violet-900 tabular-nums text-[10px] sm:text-[11px]`}>
+                                ₹{cumulativeInr.toLocaleString('en-IN')}
+                              </td>
+                            );
+                          case 'expand':
+                            return (
+                              <td key={def.id} className={`${tc} text-center`}>
+                                {isExpanded ? <ChevronUp size={14} className="text-gray-500 mx-auto" /> : <ChevronDown size={14} className="text-gray-500 mx-auto" />}
+                              </td>
+                            );
+                          default:
+                            return null;
+                        }
+                      })}
                     </tr>
                     {/* Expanded details */}
                     {isExpanded && (
                       <tr>
-                        <td colSpan={13} className="bg-gray-50 px-4 py-3">
+                        <td colSpan={Math.max(1, visSummaryCols.length)} className="bg-gray-50 px-4 py-3">
                           <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-[10px]">
                             <div><span className="text-gray-400 block">Enrollment ID</span><span className="font-mono">{e.id}</span></div>
                             <div><span className="text-gray-400 block">Origin</span>{e.enrollment_origin === 'dashboard' ? 'Dashboard' : 'Website'}</div>
@@ -950,14 +1195,6 @@ const EnrollmentsTab = () => {
             </tbody>
           </table>
           </div>
-          <EnrollPaginationBar
-            pageSafe={enrollPageSafe}
-            pageSize={enrollPageSize}
-            total={summaryAnalyticsRows.length}
-            totalPages={enrollTotalPages}
-            onPageChange={setEnrollPage}
-            onPageSizeChange={setEnrollPageSize}
-          />
         </div>
       ) : null}
 
@@ -970,44 +1207,32 @@ const EnrollmentsTab = () => {
         ) : (
           <div className={ENROLL_TABLE_CARD_CLASS} data-testid="enrollments-participant-table">
             <p className="text-[10px] text-gray-600 px-3 py-2 bg-gray-50/80 border-b border-gray-100">
-              Truncated cells have full text on hover. Page through rows below.
+              Truncated cells show full text on hover. Scroll the page for more rows.
             </p>
             <div className={ENROLL_TABLE_INNER_CLASS}>
               <table className="w-full table-fixed border-collapse text-[9px] sm:text-[10px]">
                 <colgroup>
-                  {Array.from({ length: 23 }).map((_, i) => (
-                    <col key={i} style={{ width: `${100 / 23}%` }} />
+                  {visParticipantCols.map((d) => (
+                    <col key={d.id} style={{ width: `${100 / Math.max(1, visParticipantCols.length)}%` }} />
                   ))}
                 </colgroup>
-                <thead className="border-b border-gray-200 bg-gray-100">
+                <thead className="sticky top-0 z-10 border-b border-gray-200 bg-gray-100">
                   <tr>
-                    <th className="text-left px-1 sm:px-1.5 py-2 font-semibold text-gray-700">#</th>
-                    <th className="text-left px-1 sm:px-1.5 py-2 font-semibold text-gray-700 leading-tight">Name</th>
-                    <th className="text-left px-1 sm:px-1.5 py-2 font-semibold text-gray-700">Rel.</th>
-                    <th className="text-left px-1 sm:px-1.5 py-2 font-semibold text-gray-700">Age</th>
-                    <th className="text-left px-1 sm:px-1.5 py-2 font-semibold text-gray-700">Gen.</th>
-                    <th className="text-left px-1 sm:px-1.5 py-2 font-semibold text-gray-700">Ctry</th>
-                    <th className="text-left px-1 sm:px-1.5 py-2 font-semibold text-gray-700">City</th>
-                    <th className="text-left px-1 sm:px-1.5 py-2 font-semibold text-gray-700">St</th>
-                    <th className="text-left px-1 sm:px-1.5 py-2 font-semibold text-gray-700">Mode</th>
-                    <th className="text-left px-1 sm:px-1.5 py-2 font-semibold text-gray-700">Ntf</th>
-                    <th className="text-left px-1 sm:px-1.5 py-2 font-semibold text-gray-700">Email</th>
-                    <th className="text-left px-1 sm:px-1.5 py-2 font-semibold text-gray-700">Ph</th>
-                    <th className="text-left px-1 sm:px-1.5 py-2 font-semibold text-gray-700 leading-tight">WA</th>
-                    <th className="text-left px-1 sm:px-1.5 py-2 font-semibold text-gray-700">1st</th>
-                    <th className="text-left px-1 sm:px-1.5 py-2 font-semibold text-gray-700">Ref</th>
-                    <th className="text-left px-1 sm:px-1.5 py-2 font-semibold text-gray-700 leading-tight">By</th>
-                    <th className="text-left px-1 sm:px-1.5 py-2 font-semibold text-gray-700">Amt</th>
-                    <th className="text-left px-1 sm:px-1.5 py-2 font-semibold text-gray-700">Cur</th>
-                    <th className="text-left px-1 sm:px-1.5 py-2 font-semibold text-gray-700">Prog</th>
-                    <th className="text-left px-1 sm:px-1.5 py-2 font-semibold text-gray-700">Booker</th>
-                    <th className="text-left px-1 sm:px-1.5 py-2 font-semibold text-gray-700">Inv</th>
-                    <th className="text-left px-1 sm:px-1.5 py-2 font-semibold text-gray-700">Orig</th>
-                    <th className="text-left px-1 sm:px-1.5 py-2 font-semibold text-gray-700">Stat</th>
+                    {visParticipantCols.map((d) => (
+                      <th
+                        key={d.id}
+                        className={cn(
+                          'text-left px-1 sm:px-1.5 py-2 font-semibold text-gray-700',
+                          ['name', 'wa', 'refBy'].includes(d.id) && 'leading-tight',
+                        )}
+                      >
+                        {d.label}
+                      </th>
+                    ))}
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100">
-                  {filteredParticipants.slice(enrollSliceStart, enrollSliceStart + enrollPageSize).map((row) => {
+                  {filteredParticipants.map((row) => {
                     const cur = (row.payment_currency || '').toLowerCase();
                     const symbols = { inr: '\u20B9', aed: 'AED ', usd: '$' };
                     const sym = symbols[cur] || (cur ? `${cur.toUpperCase()} ` : '');
@@ -1026,52 +1251,79 @@ const EnrollmentsTab = () => {
                         key={`${row.enrollment_id}-${row.participant_index ?? row.participant_name}-${row.participant_email}`}
                         className="odd:bg-white even:bg-violet-50/25 hover:bg-amber-50/35 transition-colors"
                       >
-                        <td className={`${pc} text-gray-500 tabular-nums`}>{slot}</td>
-                        <td className={`${pc} font-medium text-gray-900`} title={row.participant_name || ''}>{row.participant_name || '—'}</td>
-                        <td className={`${pc} text-gray-700`} title={row.relationship}>{row.relationship || '—'}</td>
-                        <td className={`${pc} text-gray-700 tabular-nums`}>{row.age !== '' && row.age != null ? row.age : '—'}</td>
-                        <td className={`${pc} text-gray-700`} title={row.gender}>{row.gender || '—'}</td>
-                        <td className={`${pc} text-gray-700`} title={row.country}>{row.country || '—'}</td>
-                        <td className={`${pc} text-gray-700`} title={row.city}>{row.city || '—'}</td>
-                        <td className={`${pc} text-gray-700`} title={row.state}>{row.state || '—'}</td>
-                        <td className={`${pc} text-gray-700`} title={row.attendance_mode}>{row.attendance_mode || '—'}</td>
-                        <td className={`${pc} text-gray-800`}>{row.notify_enrollment || '—'}</td>
-                        <td className={`${pc} text-gray-600`} title={row.participant_email}>{row.participant_email || '—'}</td>
-                        <td className={`${pc} text-gray-600 font-mono`} title={row.phone}>{row.phone || '—'}</td>
-                        <td className={`${pc} text-gray-600 font-mono`} title={row.whatsapp}>{row.whatsapp || '—'}</td>
-                        <td className={`${pc} text-gray-700`}>{row.is_first_time || '—'}</td>
-                        <td className={`${pc} text-gray-600`} title={row.referral_source}>{row.referral_source || '—'}</td>
-                        <td className={`${pc} text-gray-600`} title={row.referred_by_name}>{row.referred_by_name || '—'}</td>
-                        <td className={`${pc} font-medium text-gray-900 tabular-nums`}>
-                          {amt > 0 ? `${sym}${Number(amt).toLocaleString()}` : '0'}
-                        </td>
-                        <td className={`${pc} uppercase text-gray-600`}>{cur || '—'}</td>
-                        <td className={`${pc} text-gray-700`} title={row.program}>{row.program || '—'}</td>
-                        <td className={`${pc} text-gray-600`}>
-                          <span className="block" title={row.booker_name}>{row.booker_name || '—'}</span>
-                          <span className="block text-gray-400" title={row.booker_phone || ''}>{row.booker_phone || ''}</span>
-                        </td>
-                        <td className={`${pc} font-mono text-purple-800 break-all`} title={row.invoice_number || ''}>{row.invoice_number || row.enrollment_id?.slice(0, 10) || '—'}</td>
-                        <td className={pc}>
-                          <span className={`inline-block text-[9px] px-1 py-0.5 rounded-md font-medium ${row.enrollment_origin === 'dashboard' ? 'bg-amber-100 text-amber-900' : 'bg-slate-100 text-slate-700'}`}>
-                            {row.enrollment_origin === 'dashboard' ? 'Dash' : 'Web'}
-                          </span>
-                        </td>
-                        <td className={`${pc} text-gray-700`} title={row.enrollment_status || row.payment_status}>{row.enrollment_status || row.payment_status || '—'}</td>
+                        {visParticipantCols.map((def) => {
+                          switch (def.id) {
+                            case 'slot':
+                              return <td key={def.id} className={`${pc} text-gray-500 tabular-nums`}>{slot}</td>;
+                            case 'name':
+                              return <td key={def.id} className={`${pc} font-medium text-gray-900`} title={row.participant_name || ''}>{row.participant_name || '—'}</td>;
+                            case 'relation':
+                              return <td key={def.id} className={`${pc} text-gray-700`} title={row.relationship}>{row.relationship || '—'}</td>;
+                            case 'age':
+                              return <td key={def.id} className={`${pc} text-gray-700 tabular-nums`}>{row.age !== '' && row.age != null ? row.age : '—'}</td>;
+                            case 'gender':
+                              return <td key={def.id} className={`${pc} text-gray-700`} title={row.gender}>{row.gender || '—'}</td>;
+                            case 'country':
+                              return <td key={def.id} className={`${pc} text-gray-700`} title={row.country}>{row.country || '—'}</td>;
+                            case 'city':
+                              return <td key={def.id} className={`${pc} text-gray-700`} title={row.city}>{row.city || '—'}</td>;
+                            case 'state':
+                              return <td key={def.id} className={`${pc} text-gray-700`} title={row.state}>{row.state || '—'}</td>;
+                            case 'mode':
+                              return <td key={def.id} className={`${pc} text-gray-700`} title={row.attendance_mode}>{row.attendance_mode || '—'}</td>;
+                            case 'notify':
+                              return <td key={def.id} className={`${pc} text-gray-800`}>{row.notify_enrollment || '—'}</td>;
+                            case 'email':
+                              return <td key={def.id} className={`${pc} text-gray-600`} title={row.participant_email}>{row.participant_email || '—'}</td>;
+                            case 'phone':
+                              return <td key={def.id} className={`${pc} text-gray-600 font-mono`} title={row.phone}>{row.phone || '—'}</td>;
+                            case 'wa':
+                              return <td key={def.id} className={`${pc} text-gray-600 font-mono`} title={row.whatsapp}>{row.whatsapp || '—'}</td>;
+                            case 'first':
+                              return <td key={def.id} className={`${pc} text-gray-700`}>{row.is_first_time || '—'}</td>;
+                            case 'ref':
+                              return <td key={def.id} className={`${pc} text-gray-600`} title={row.referral_source}>{row.referral_source || '—'}</td>;
+                            case 'refBy':
+                              return <td key={def.id} className={`${pc} text-gray-600`} title={row.referred_by_name}>{row.referred_by_name || '—'}</td>;
+                            case 'amt':
+                              return (
+                                <td key={def.id} className={`${pc} font-medium text-gray-900 tabular-nums`}>
+                                  {amt > 0 ? `${sym}${Number(amt).toLocaleString()}` : '0'}
+                                </td>
+                              );
+                            case 'cur':
+                              return <td key={def.id} className={`${pc} uppercase text-gray-600`}>{cur || '—'}</td>;
+                            case 'prog':
+                              return <td key={def.id} className={`${pc} text-gray-700`} title={row.program}>{row.program || '—'}</td>;
+                            case 'booker':
+                              return (
+                                <td key={def.id} className={`${pc} text-gray-600`}>
+                                  <span className="block" title={row.booker_name}>{row.booker_name || '—'}</span>
+                                  <span className="block text-gray-400" title={row.booker_phone || ''}>{row.booker_phone || ''}</span>
+                                </td>
+                              );
+                            case 'invoice':
+                              return <td key={def.id} className={`${pc} font-mono text-purple-800 break-all`} title={row.invoice_number || ''}>{row.invoice_number || row.enrollment_id?.slice(0, 10) || '—'}</td>;
+                            case 'origin':
+                              return (
+                                <td key={def.id} className={pc}>
+                                  <span className={`inline-block text-[9px] px-1 py-0.5 rounded-md font-medium ${row.enrollment_origin === 'dashboard' ? 'bg-amber-100 text-amber-900' : 'bg-slate-100 text-slate-700'}`}>
+                                    {row.enrollment_origin === 'dashboard' ? 'Dash' : 'Web'}
+                                  </span>
+                                </td>
+                              );
+                            case 'status':
+                              return <td key={def.id} className={`${pc} text-gray-700`} title={row.enrollment_status || row.payment_status}>{row.enrollment_status || row.payment_status || '—'}</td>;
+                            default:
+                              return null;
+                          }
+                        })}
                       </tr>
                     );
                   })}
                 </tbody>
               </table>
             </div>
-            <EnrollPaginationBar
-              pageSafe={enrollPageSafe}
-              pageSize={enrollPageSize}
-              total={filteredParticipants.length}
-              totalPages={enrollTotalPages}
-              onPageChange={setEnrollPage}
-              onPageSizeChange={setEnrollPageSize}
-            />
           </div>
         )
       )}
@@ -1088,34 +1340,26 @@ const EnrollmentsTab = () => {
         ) : (
           <div className={ENROLL_TABLE_CARD_CLASS} data-testid="enrollments-program-batch-table">
             <p className="text-[10px] text-gray-600 px-3 py-2.5 bg-gray-50/80 border-b border-gray-100 leading-relaxed">
-              Sorted by enrollment <strong>created</strong> (oldest first). <strong>Σ INR</strong> counts each checkout once (seat 1). Page with the controls below.
+              Sorted by enrollment <strong>created</strong> (oldest first). <strong>Σ INR</strong> counts each checkout once (seat 1). Scroll for more rows.
             </p>
             <div className={ENROLL_TABLE_INNER_CLASS}>
               <table className="w-full table-fixed border-collapse text-[10px] sm:text-[11px]">
                 <colgroup>
-                  {[3, 5, 14, 4, 5, 9, 9, 7, 6, 9, 7, 8, 9].map((pct, i) => (
-                    <col key={i} style={{ width: `${pct}%` }} />
+                  {visProgramBatchCols.map((d) => (
+                    <col key={d.id} style={{ width: `${(d.weight / programBatchWeightSum) * 100}%` }} />
                   ))}
                 </colgroup>
-                <thead className="border-b border-gray-200 bg-gray-100">
+                <thead className="sticky top-0 z-10 border-b border-gray-200 bg-gray-100">
                   <tr>
-                    <th className="text-left px-1 sm:px-2 py-2 font-semibold text-gray-700">#</th>
-                    <th className="text-left px-1 sm:px-2 py-2 font-semibold text-gray-700">Seat</th>
-                    <th className="text-left px-1 sm:px-2 py-2 font-semibold text-gray-700 leading-tight">Name</th>
-                    <th className="text-left px-1 sm:px-2 py-2 font-semibold text-gray-700">Age</th>
-                    <th className="text-left px-1 sm:px-2 py-2 font-semibold text-gray-700">Gen.</th>
-                    <th className="text-left px-1 sm:px-2 py-2 font-semibold text-gray-700">City</th>
-                    <th className="text-left px-1 sm:px-2 py-2 font-semibold text-gray-700">Ctry</th>
-                    <th className="text-left px-1 sm:px-2 py-2 font-semibold text-gray-700">Mode</th>
-                    <th className="text-left px-1 sm:px-2 py-2 font-semibold text-gray-700">Src</th>
-                    <th className="text-left px-1 sm:px-2 py-2 font-semibold text-gray-700 leading-tight">Status</th>
-                    <th className="text-right px-1 sm:px-2 py-2 font-semibold text-gray-700 leading-tight">Amt</th>
-                    <th className="text-right px-1 sm:px-2 py-2 font-semibold text-gray-700 leading-tight">INR</th>
-                    <th className="text-right px-1 sm:px-2 py-2 font-semibold text-gray-700 leading-tight">Σ INR</th>
+                    {visProgramBatchCols.map((d) => (
+                      <th key={d.id} className={cn('px-1 sm:px-2 py-2 font-semibold text-gray-700', d.headClass)}>
+                        {d.label}
+                      </th>
+                    ))}
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100">
-                  {programBatchAnalyticsRows.slice(enrollSliceStart, enrollSliceStart + enrollPageSize).map(({ row, serial, amountInr, cumulativeInr, countsForRunning, sourceCurrency }) => {
+                  {programBatchAnalyticsRows.map(({ row, serial, amountInr, cumulativeInr, countsForRunning, sourceCurrency }) => {
                     const cur = (row.payment_currency || '').toLowerCase();
                     const symbols = { inr: '\u20B9', aed: 'AED ', usd: '$' };
                     const sym = symbols[cur] || (cur ? `${cur.toUpperCase()} ` : '');
@@ -1136,51 +1380,72 @@ const EnrollmentsTab = () => {
                         key={`${row.enrollment_id}-${row.participant_index ?? row.participant_name}-${row.participant_email}-${serial}`}
                         className={`odd:bg-white even:bg-violet-50/25 hover:bg-amber-50/35 transition-colors ${countsForRunning ? '' : 'opacity-[0.92]'}`}
                       >
-                        <td className={`${bc} text-gray-500 tabular-nums`}>{serial}</td>
-                        <td className={`${bc} text-gray-500 tabular-nums text-[9px]`} title={countsForRunning ? 'Counts toward Σ' : 'Same checkout'}>
-                          {seat}
-                        </td>
-                        <td className={`${bc} font-medium text-gray-900`} title={row.participant_name || ''}>{row.participant_name || '—'}</td>
-                        <td className={`${bc} text-gray-700 tabular-nums`}>{row.age !== '' && row.age != null ? row.age : '—'}</td>
-                        <td className={`${bc} text-gray-700`} title={row.gender}>{row.gender || '—'}</td>
-                        <td className={`${bc} text-gray-700`} title={row.city}>{row.city || '—'}</td>
-                        <td className={`${bc} text-gray-700`} title={row.country}>{row.country || '—'}</td>
-                        <td className={`${bc} text-gray-700 text-[9px] sm:text-[10px]`} title={participantAttendanceLabel(row.attendance_mode)}>
-                          {participantAttendanceLabel(row.attendance_mode)}
-                        </td>
-                        <td className={bc}>
-                          <span className={`inline-block text-[9px] px-1 py-0.5 rounded-md font-medium ${row.enrollment_origin === 'dashboard' ? 'bg-amber-100 text-amber-900' : 'bg-slate-100 text-slate-700'}`}>
-                            {row.enrollment_origin === 'dashboard' ? 'Dash' : 'Web'}
-                          </span>
-                        </td>
-                        <td className={bc}>
-                          <span className={`inline-block text-[9px] px-1 py-0.5 rounded-md font-medium max-w-full truncate ${stInfo.color}`} title={stInfo.label}>{stInfo.label}</span>
-                        </td>
-                        <td className={`${bc} text-right font-medium text-gray-900 tabular-nums text-[10px] sm:text-[11px]`}>
-                          {amt > 0 ? (
-                            <span title={sourceCurrency !== 'inr' ? `Stored: ${String(row.payment_currency || '').toUpperCase()}` : ''}>
-                              {sym}{Number(amt).toLocaleString()}
-                            </span>
-                          ) : (
-                            '0'
-                          )}
-                        </td>
-                        <td className={`${bc} text-right tabular-nums text-gray-800`}>₹{amountInr.toLocaleString('en-IN')}</td>
-                        <td className={`${bc} text-right font-semibold text-violet-900 tabular-nums`}>₹{cumulativeInr.toLocaleString('en-IN')}</td>
+                        {visProgramBatchCols.map((def) => {
+                          switch (def.id) {
+                            case 'serial':
+                              return <td key={def.id} className={`${bc} text-gray-500 tabular-nums`}>{serial}</td>;
+                            case 'seat':
+                              return (
+                                <td key={def.id} className={`${bc} text-gray-500 tabular-nums text-[9px]`} title={countsForRunning ? 'Counts toward Σ' : 'Same checkout'}>
+                                  {seat}
+                                </td>
+                              );
+                            case 'name':
+                              return <td key={def.id} className={`${bc} font-medium text-gray-900`} title={row.participant_name || ''}>{row.participant_name || '—'}</td>;
+                            case 'age':
+                              return <td key={def.id} className={`${bc} text-gray-700 tabular-nums`}>{row.age !== '' && row.age != null ? row.age : '—'}</td>;
+                            case 'gender':
+                              return <td key={def.id} className={`${bc} text-gray-700`} title={row.gender}>{row.gender || '—'}</td>;
+                            case 'city':
+                              return <td key={def.id} className={`${bc} text-gray-700`} title={row.city}>{row.city || '—'}</td>;
+                            case 'country':
+                              return <td key={def.id} className={`${bc} text-gray-700`} title={row.country}>{row.country || '—'}</td>;
+                            case 'mode':
+                              return (
+                                <td key={def.id} className={`${bc} text-gray-700 text-[9px] sm:text-[10px]`} title={participantAttendanceLabel(row.attendance_mode)}>
+                                  {participantAttendanceLabel(row.attendance_mode)}
+                                </td>
+                              );
+                            case 'origin':
+                              return (
+                                <td key={def.id} className={bc}>
+                                  <span className={`inline-block text-[9px] px-1 py-0.5 rounded-md font-medium ${row.enrollment_origin === 'dashboard' ? 'bg-amber-100 text-amber-900' : 'bg-slate-100 text-slate-700'}`}>
+                                    {row.enrollment_origin === 'dashboard' ? 'Dash' : 'Web'}
+                                  </span>
+                                </td>
+                              );
+                            case 'status':
+                              return (
+                                <td key={def.id} className={bc}>
+                                  <span className={`inline-block text-[9px] px-1 py-0.5 rounded-md font-medium max-w-full truncate ${stInfo.color}`} title={stInfo.label}>{stInfo.label}</span>
+                                </td>
+                              );
+                            case 'amt':
+                              return (
+                                <td key={def.id} className={`${bc} text-right font-medium text-gray-900 tabular-nums text-[10px] sm:text-[11px]`}>
+                                  {amt > 0 ? (
+                                    <span title={sourceCurrency !== 'inr' ? `Stored: ${String(row.payment_currency || '').toUpperCase()}` : ''}>
+                                      {sym}{Number(amt).toLocaleString()}
+                                    </span>
+                                  ) : (
+                                    '0'
+                                  )}
+                                </td>
+                              );
+                            case 'inr':
+                              return <td key={def.id} className={`${bc} text-right tabular-nums text-gray-800`}>₹{amountInr.toLocaleString('en-IN')}</td>;
+                            case 'runInr':
+                              return <td key={def.id} className={`${bc} text-right font-semibold text-violet-900 tabular-nums`}>₹{cumulativeInr.toLocaleString('en-IN')}</td>;
+                            default:
+                              return null;
+                          }
+                        })}
                       </tr>
                     );
                   })}
                 </tbody>
               </table>
             </div>
-            <EnrollPaginationBar
-              pageSafe={enrollPageSafe}
-              pageSize={enrollPageSize}
-              total={programBatchAnalyticsRows.length}
-              totalPages={enrollTotalPages}
-              onPageChange={setEnrollPage}
-              onPageSizeChange={setEnrollPageSize}
-            />
           </div>
         )
       )}
