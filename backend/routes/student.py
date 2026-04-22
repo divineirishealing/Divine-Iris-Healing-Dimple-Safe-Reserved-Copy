@@ -213,6 +213,8 @@ class ProfileUpdate(BaseModel):
     qualification: Optional[str] = None
     profession: Optional[str] = None
     phone: Optional[str] = None
+    # YYYY-MM-DD or ISO; shown as "date of joining Divine Iris", pending admin approval like other profile fields
+    joined_divine_iris_at: Optional[str] = None
 
 
 class PointsBonusClaim(BaseModel):

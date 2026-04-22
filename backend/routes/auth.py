@@ -373,8 +373,15 @@ async def get_me(request: Request):
     if not user:
         raise HTTPException(status_code=401, detail="Not authenticated")
     joined_divine_iris_at = None
+    pend = (user.get("pending_profile_update") or {}).get("joined_divine_iris_at")
+    if pend is not None and str(pend).strip():
+        joined_divine_iris_at = str(pend).strip()
+    else:
+        uj = user.get("joined_divine_iris_at")
+        if uj is not None and str(uj).strip():
+            joined_divine_iris_at = str(uj).strip()
     cid = user.get("client_id")
-    if cid:
+    if not joined_divine_iris_at and cid:
         client_doc = await db.clients.find_one({"id": cid}, {"_id": 0, "created_at": 1})
         if client_doc and client_doc.get("created_at"):
             joined_divine_iris_at = client_doc["created_at"]

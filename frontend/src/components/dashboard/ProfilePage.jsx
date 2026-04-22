@@ -12,11 +12,13 @@ import { getAuthHeaders } from '../../lib/authHeaders';
 
 const API = process.env.REACT_APP_BACKEND_URL;
 
-function formatJoinDivineIris(iso) {
+function toDateInputValue(iso) {
   if (!iso) return '';
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return String(iso);
-  return d.toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' });
+  const s = String(iso).trim();
+  if (/^\d{4}-\d{2}-\d{2}/.test(s)) return s.slice(0, 10);
+  const d = new Date(s);
+  if (Number.isNaN(d.getTime())) return '';
+  return d.toISOString().slice(0, 10);
 }
 
 const ProfilePage = () => {
@@ -26,6 +28,15 @@ const ProfilePage = () => {
   useEffect(() => {
     checkAuth();
   }, []);
+
+  useEffect(() => {
+    if (user?.joined_divine_iris_at) {
+      setFormData((p) => ({
+        ...p,
+        joined_divine_iris_at: toDateInputValue(user.joined_divine_iris_at),
+      }));
+    }
+  }, [user?.joined_divine_iris_at]);
   const [formData, setFormData] = useState({
     full_name: user?.name || '',
     gender: user?.gender || '',
@@ -34,7 +45,8 @@ const ProfilePage = () => {
     city: user?.city || '',
     qualification: user?.qualification || '',
     profession: user?.profession || '',
-    phone: user?.phone || ''
+    phone: user?.phone || '',
+    joined_divine_iris_at: toDateInputValue(user?.joined_divine_iris_at),
   });
   const [loading, setLoading] = useState(false);
 
@@ -104,15 +116,16 @@ const ProfilePage = () => {
                 <Calendar size={16} className="absolute left-3 top-3 text-gray-400 pointer-events-none" aria-hidden />
                 <Input
                   id="joined-divine-iris"
-                  readOnly
-                  tabIndex={-1}
-                  value={user?.joined_divine_iris_at ? formatJoinDivineIris(user.joined_divine_iris_at) : '—'}
-                  className="pl-10 bg-slate-50 border-slate-200 text-gray-900 cursor-default focus-visible:ring-0 focus-visible:ring-offset-0"
+                  type="date"
+                  name="joined_divine_iris_at"
+                  value={formData.joined_divine_iris_at}
+                  onChange={handleChange}
+                  className="pl-10"
                   aria-describedby="joined-divine-iris-hint"
                 />
               </div>
               <p id="joined-divine-iris-hint" className="text-[10px] text-gray-500">
-                Based on when your profile was first added in our records. This field cannot be edited here.
+                Defaults from your first record on file. You may correct it here; changes are reviewed like the rest of your profile.
               </p>
             </div>
 
