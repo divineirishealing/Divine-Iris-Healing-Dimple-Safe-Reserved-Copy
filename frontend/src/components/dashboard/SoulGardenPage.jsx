@@ -239,7 +239,6 @@ const SoulGardenPage = () => {
         {[
           { to: '/dashboard/garden/mandala', label: 'Mandala' },
           { to: '/dashboard/garden/zen', label: 'Zen space' },
-          { to: '/dashboard/garden/merkaba-weight', label: 'Merkaba · weight release' },
         ].map((l) => (
           <Link
             key={l.to}
