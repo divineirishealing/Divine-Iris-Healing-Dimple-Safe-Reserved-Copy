@@ -122,6 +122,20 @@
     .my-words-actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 10px; }
     .my-words input[type=file] { display: none; }
     .visually-hidden { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0; }
+    .voice-tts-grid {
+      display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 10px 14px; margin: 10px 0 2px;
+      padding: 10px; border-radius: 12px; background: rgba(0,0,0,0.2); border: 1px solid rgba(255,255,255,0.08);
+    }
+    .vctl { font-size: 11px; color: rgba(255,255,255,0.6); }
+    .vctl label { display: flex; flex-direction: column; gap: 4px; }
+    .vctl input[type=range] { width: 100%; }
+    .vctl .num { color: #D4AF37; font-variant-numeric: tabular-nums; font-size: 10px; }
+    .vctl select#voice-select {
+      width: 100%; max-width: 100%; margin-top: 2px; padding: 6px 8px; border-radius: 8px; font-size: 11px;
+      background: rgba(8,6,20,0.8); color: #eee; border: 1px solid rgba(255,255,255,0.15);
+    }
+    .vctl-loop { display: flex; align-items: center; padding-top: 4px; }
+    .vctl-loop input { width: 16px; height: 16px; margin-right: 6px; }
   </style>
 </head>
 <body>
@@ -144,8 +158,9 @@
       <button type="button" id="btn-next">Next line</button>
     </div>
     <div class="sensory-row">
-      <button type="button" id="btn-tone" title="Very quiet hum (use headphones for full effect)">Soft tone: off</button>
+      <button type="button" id="btn-tone" title="Steady hum while on (keeps going until you turn it off)">Soft tone: off</button>
       <label>Volume <input type="range" id="tone-vol" min="0" max="100" value="18" title="Drift volume" /></label>
+      <label>Hum (Hz) <input type="range" id="tone-hz" min="174" max="440" value="256" title="Base pitch of the hum" /> <span class="num" id="tone-hz-disp">256</span></label>
       <button type="button" id="btn-speak" title="Hear the current line">Hear this line</button>
       <button type="button" id="btn-breath" title="Gentle inhale / exhale cue">Breath cue: on</button>
     </div>
@@ -155,6 +170,24 @@
       <p class="my-words-title"><strong>Your words</strong> — Type or paste a paragraph here, or load a plain <code>.txt</code> file. Press <em>Listen</em> to hear it (browser voice). <em>Save text in browser</em> keeps a copy on this device only. Nothing is uploaded.</p>
       <label for="myWords" class="visually-hidden">Your text to speak</label>
       <textarea id="myWords" maxlength="8000" placeholder="Write what you want to release, affirm, or remember. For example: a prayer, a letter to yourself, or a list of what you are letting go of — as intention, not medical advice."></textarea>
+      <div class="voice-tts-grid" id="voice-tts-grid" aria-label="Voice and speed">
+        <div class="vctl">
+          <label>Speech speed (pace) <input type="range" id="speech-rate" min="0.5" max="1.5" step="0.05" value="0.9" />
+          <span class="num" id="speech-rate-disp">0.90</span></label>
+        </div>
+        <div class="vctl">
+          <label>Speech pitch (tone height) <input type="range" id="speech-pitch" min="0.5" max="1.5" step="0.05" value="0.95" />
+          <span class="num" id="speech-pitch-disp">0.95</span></label>
+        </div>
+        <div class="vctl vctl-voice">
+          <label for="voice-select">Voice (your browser’s list may vary)</label>
+          <select id="voice-select"><option value="">Default (browser)</option></select>
+        </div>
+        <div class="vctl vctl-loop">
+          <input type="checkbox" id="chk-loop-tts" />
+          <label for="chk-loop-tts" style="display:inline; font-weight:600;">Loop: repeat the spoken text until you press Stop</label>
+        </div>
+      </div>
       <div class="my-words-actions">
         <label class="btn" for="myWordsFile">Load .txt file</label>
         <input type="file" id="myWordsFile" accept=".txt,text/plain" />
@@ -255,6 +288,9 @@
 (function () {
   const PHOTO_KEY = 'divine_merkaba_personal_photo_v1';
   const MY_WORDS_KEY = 'divine_merkaba_my_words_v1';
+  const TTS_PREFS_KEY = 'divine_merkaba_tts_prefs_v1';
+  var speechUserCancelled = true;
+  var activeSpeechText = '';
   const R = 270, R2 = R * 0.58, R3 = R * 0.36;
   const tri = (r, up) => up
     ? '0,-' + r + ' ' + (r * 0.866) + ',' + (r * 0.5) + ' -' + (r * 0.866) + ',' + (r * 0.5)
@@ -423,6 +459,26 @@
 
   var mainSvg = document.getElementById('main-svg');
   var audioCtx, toneOsc, toneGain, toneOn = false;
+  function getToneHz() {
+    var el = document.getElementById('tone-hz');
+    if (!el) return 256;
+    var min = parseFloat(el.min) || 80;
+    var max = parseFloat(el.max) || 880;
+    var v = parseFloat(el.value);
+    if (isNaN(v)) v = 256;
+    return Math.max(min, Math.min(max, v));
+  }
+  function applyToneHz() {
+    var hz = getToneHz();
+    var d = document.getElementById('tone-hz-disp');
+    if (d) d.textContent = String(Math.round(hz));
+    if (toneOsc && audioCtx) {
+      try {
+        var t = audioCtx.currentTime;
+        toneOsc.frequency.setValueAtTime(hz, t);
+      } catch (e) { toneOsc.frequency.value = hz; }
+    }
+  }
   function setToneVolume() {
     if (!toneGain) return;
     var v = parseInt(document.getElementById('tone-vol').value, 10) / 100;
@@ -436,13 +492,14 @@
       toneOsc = audioCtx.createOscillator();
       toneGain = audioCtx.createGain();
       toneOsc.type = 'sine';
-      toneOsc.frequency.value = 256;
+      toneOsc.frequency.value = getToneHz();
       setToneVolume();
       toneOsc.connect(toneGain);
       toneGain.connect(audioCtx.destination);
       toneOsc.start(0);
     } else {
       if (audioCtx.state === 'suspended') audioCtx.resume();
+      applyToneHz();
     }
     document.getElementById('btn-tone').textContent = 'Soft tone: on';
     toneOn = true;
@@ -459,32 +516,167 @@
     startTone();
   });
   document.getElementById('tone-vol').addEventListener('input', setToneVolume);
+  if (document.getElementById('tone-hz')) {
+    document.getElementById('tone-hz').addEventListener('input', function () {
+      applyToneHz();
+      try {
+        var o = JSON.parse(localStorage.getItem(TTS_PREFS_KEY) || '{}') || {};
+        o.humHz = getToneHz();
+        localStorage.setItem(TTS_PREFS_KEY, JSON.stringify(o));
+      } catch (e) {}
+    });
+  }
 
-  function speakText(text, isLong) {
-    if (!('speechSynthesis' in window)) { alert('Your browser does not support text-to-speech. Try Chrome, Edge, or Safari.'); return; }
+  function getSelectedVoiceObject() {
+    if (!('speechSynthesis' in window)) return null;
+    var sel = document.getElementById('voice-select');
+    if (!sel || !sel.value) return null;
+    var v = speechSynthesis.getVoices();
+    for (var i = 0; i < v.length; i++) {
+      if ((v[i].name + '|' + (v[i].lang || '')) === sel.value) return v[i];
+    }
+    return null;
+  }
+  function buildUtteranceFromText(text) {
     var t = (text || '').trim();
-    if (!t) { alert('Add some text first, or use “Hear this line” for the line at the bottom of the field.'); return; }
-    speechSynthesis.cancel();
+    if (!t) return null;
     var u = new SpeechSynthesisUtterance(t);
-    u.rate = isLong ? 0.9 : 0.88;
-    u.pitch = 0.95;
+    u.rate = parseFloat(document.getElementById('speech-rate').value) || 0.9;
+    u.pitch = parseFloat(document.getElementById('speech-pitch').value) || 0.95;
     u.volume = 0.95;
-    speechSynthesis.speak(u);
+    var vo = getSelectedVoiceObject();
+    if (vo) u.voice = vo;
+    return u;
+  }
+  function startSpeechWithText(text) {
+    if (!('speechSynthesis' in window)) { alert('Your browser does not support text-to-speech. Try Chrome, Edge, or Safari.'); return; }
+    var raw = (text || '').trim();
+    if (!raw) { alert('Add some text first, or use “Hear this line” for the affirmation at the bottom of the view.'); return; }
+    speechSynthesis.cancel();
+    speechUserCancelled = false;
+    activeSpeechText = raw;
+    function speakOnce() {
+      if (speechUserCancelled) return;
+      var t = activeSpeechText.trim();
+      if (!t) return;
+      var u = buildUtteranceFromText(t);
+      if (!u) return;
+      u.onend = function () {
+        if (speechUserCancelled) return;
+        if (document.getElementById('chk-loop-tts').checked) {
+          speakOnce();
+        }
+      };
+      u.onerror = function () { speechUserCancelled = true; };
+      speechSynthesis.speak(u);
+    }
+    speakOnce();
   }
   function speakAffirmation() {
-    speakText(document.getElementById('affirm').textContent, false);
+    startSpeechWithText(document.getElementById('affirm').textContent);
   }
   document.getElementById('btn-speak').addEventListener('click', speakAffirmation);
+
+  function updateTtsSliders() {
+    var r = document.getElementById('speech-rate');
+    var p = document.getElementById('speech-pitch');
+    if (r && document.getElementById('speech-rate-disp')) {
+      document.getElementById('speech-rate-disp').textContent = (parseFloat(r.value) || 0).toFixed(2);
+    }
+    if (p && document.getElementById('speech-pitch-disp')) {
+      document.getElementById('speech-pitch-disp').textContent = (parseFloat(p.value) || 0).toFixed(2);
+    }
+  }
+  function saveTtsPrefs() {
+    try {
+      var sel = document.getElementById('voice-select');
+      localStorage.setItem(TTS_PREFS_KEY, JSON.stringify({
+        rate: parseFloat(document.getElementById('speech-rate').value),
+        pitch: parseFloat(document.getElementById('speech-pitch').value),
+        voice: sel ? sel.value : '',
+        loop: document.getElementById('chk-loop-tts').checked,
+        humHz: getToneHz()
+      }));
+    } catch (e) {}
+  }
+  function setVoiceSelectByValue(wanted) {
+    if (!wanted) return false;
+    var sel = document.getElementById('voice-select');
+    for (var i = 0; i < sel.options.length; i++) {
+      if (sel.options[i].value === wanted) {
+        sel.selectedIndex = i;
+        return true;
+      }
+    }
+    return false;
+  }
+  function applyStoredVoiceToSelect() {
+    try {
+      var j = localStorage.getItem(TTS_PREFS_KEY);
+      if (!j) return;
+      var o = JSON.parse(j);
+      if (o && o.voice) setVoiceSelectByValue(o.voice);
+    } catch (e) {}
+  }
+  function loadTtsPrefs() {
+    try {
+      var j = localStorage.getItem(TTS_PREFS_KEY);
+      if (!j) return;
+      var o = JSON.parse(j);
+      if (o.rate != null) document.getElementById('speech-rate').value = o.rate;
+      if (o.pitch != null) document.getElementById('speech-pitch').value = o.pitch;
+      if (o.humHz != null && document.getElementById('tone-hz')) {
+        document.getElementById('tone-hz').value = o.humHz;
+        applyToneHz();
+      }
+      if (typeof o.loop === 'boolean') document.getElementById('chk-loop-tts').checked = o.loop;
+      if (o.voice) setVoiceSelectByValue(o.voice);
+    } catch (e) {}
+    updateTtsSliders();
+  }
+  function fillVoiceList() {
+    if (!('speechSynthesis' in window)) return;
+    var sel = document.getElementById('voice-select');
+    var keep = sel.value;
+    while (sel.options.length > 1) sel.remove(1);
+    var list = speechSynthesis.getVoices() || [];
+    list.forEach(function (vi) {
+      var opt = document.createElement('option');
+      opt.value = vi.name + '|' + (vi.lang || '');
+      var lab = (vi.name || 'Voice') + (vi.lang ? ' — ' + vi.lang : '');
+      if (vi.default) lab += ' ★';
+      opt.textContent = lab;
+      sel.appendChild(opt);
+    });
+    if (keep) {
+      if (!setVoiceSelectByValue(keep)) applyStoredVoiceToSelect();
+    } else {
+      applyStoredVoiceToSelect();
+    }
+  }
+  if ('speechSynthesis' in window) {
+    fillVoiceList();
+    speechSynthesis.addEventListener('voiceschanged', fillVoiceList);
+    setTimeout(fillVoiceList, 400);
+  }
+  document.getElementById('speech-rate').addEventListener('input', function () { updateTtsSliders(); saveTtsPrefs(); });
+  document.getElementById('speech-pitch').addEventListener('input', function () { updateTtsSliders(); saveTtsPrefs(); });
+  document.getElementById('voice-select').addEventListener('change', saveTtsPrefs);
+  document.getElementById('chk-loop-tts').addEventListener('change', saveTtsPrefs);
 
   var myWordsEl = document.getElementById('myWords');
   try {
     var savedW = localStorage.getItem(MY_WORDS_KEY);
     if (savedW) myWordsEl.value = savedW;
   } catch (e) {}
+  loadTtsPrefs();
+  updateTtsSliders();
+  applyToneHz();
   document.getElementById('btn-listen-words').addEventListener('click', function () {
-    speakText(myWordsEl.value, true);
+    startSpeechWithText(myWordsEl.value);
   });
   document.getElementById('btn-stop-words').addEventListener('click', function () {
+    speechUserCancelled = true;
     if ('speechSynthesis' in window) speechSynthesis.cancel();
   });
   document.getElementById('btn-save-words').addEventListener('click', function () {
