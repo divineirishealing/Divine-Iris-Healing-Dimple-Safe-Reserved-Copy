@@ -297,7 +297,7 @@ const EnrollmentsTab = () => {
   });
 
   return (
-    <div data-testid="enrollments-tab">
+    <div data-testid="enrollments-tab" className="w-full min-w-0 max-w-full">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
         <div className="flex items-center gap-2">
@@ -492,27 +492,43 @@ const EnrollmentsTab = () => {
       ) : viewMode === 'summary' && filtered.length === 0 ? (
         <div className="text-center py-12 text-gray-400 text-sm">No enrollments found</div>
       ) : viewMode === 'summary' ? (
-        <div className="overflow-x-auto border rounded-lg">
-          <p className="text-[10px] text-gray-500 px-3 py-2 bg-gray-50/80 border-b">
+        <div className="w-full min-w-0 rounded-lg border overflow-hidden">
+          <p className="text-[10px] text-gray-500 px-2 sm:px-3 py-2 bg-gray-50/80 border-b break-words">
             Admin analytics: <strong>Amount (INR)</strong> and <strong>Running total (INR)</strong> use stored checkout currency and{' '}
             <span className="font-mono">/api/currency/exchange-rates</span> when available; otherwise rough fallbacks.
           </p>
-          <table className="w-full text-xs">
+          <div className="w-full min-w-0 overflow-x-hidden">
+          <table className="w-full table-fixed text-[10px] sm:text-xs border-collapse">
+            <colgroup>
+              <col style={{ width: '2.5%' }} />
+              <col style={{ width: '7%' }} />
+              <col style={{ width: '14%' }} />
+              <col style={{ width: '16%' }} />
+              <col style={{ width: '6%' }} />
+              <col style={{ width: '3.5%' }} />
+              <col style={{ width: '7%' }} />
+              <col style={{ width: '8%' }} />
+              <col style={{ width: '7%' }} />
+              <col style={{ width: '6%' }} />
+              <col style={{ width: '9%' }} />
+              <col style={{ width: '9%' }} />
+              <col style={{ width: '3.5%' }} />
+            </colgroup>
             <thead className="bg-gray-50 border-b">
               <tr>
-                <th className="text-left px-3 py-2 font-semibold text-gray-600 w-10">#</th>
-                <th className="text-left px-3 py-2 font-semibold text-gray-600">Invoice #</th>
-                <th className="text-left px-3 py-2 font-semibold text-gray-600">Booker</th>
-                <th className="text-left px-3 py-2 font-semibold text-gray-600">Program</th>
-                <th className="text-left px-3 py-2 font-semibold text-gray-600">Origin</th>
-                <th className="text-left px-3 py-2 font-semibold text-gray-600">Pax</th>
-                <th className="text-left px-3 py-2 font-semibold text-gray-600 whitespace-nowrap">Online / Offline</th>
-                <th className="text-left px-3 py-2 font-semibold text-gray-600">Payment Mode</th>
-                <th className="text-left px-3 py-2 font-semibold text-gray-600">Status</th>
-                <th className="text-left px-3 py-2 font-semibold text-gray-600">Date</th>
-                <th className="text-right px-3 py-2 font-semibold text-gray-600 whitespace-nowrap">Amount (INR)</th>
-                <th className="text-right px-3 py-2 font-semibold text-gray-600 whitespace-nowrap">Running total (INR)</th>
-                <th className="w-8"></th>
+                <th className="text-left px-1 sm:px-2 py-1.5 font-semibold text-gray-600">#</th>
+                <th className="text-left px-1 sm:px-2 py-1.5 font-semibold text-gray-600">Invoice</th>
+                <th className="text-left px-1 sm:px-2 py-1.5 font-semibold text-gray-600">Booker</th>
+                <th className="text-left px-1 sm:px-2 py-1.5 font-semibold text-gray-600">Program</th>
+                <th className="text-left px-1 sm:px-2 py-1.5 font-semibold text-gray-600">Origin</th>
+                <th className="text-center px-1 sm:px-2 py-1.5 font-semibold text-gray-600">Pax</th>
+                <th className="text-left px-1 sm:px-2 py-1.5 font-semibold text-gray-600 leading-tight">Online / off</th>
+                <th className="text-left px-1 sm:px-2 py-1.5 font-semibold text-gray-600 leading-tight">Payment</th>
+                <th className="text-left px-1 sm:px-2 py-1.5 font-semibold text-gray-600">Status</th>
+                <th className="text-left px-1 sm:px-2 py-1.5 font-semibold text-gray-600">Date</th>
+                <th className="text-right px-1 sm:px-2 py-1.5 font-semibold text-gray-600 leading-tight">Amt ₹</th>
+                <th className="text-right px-1 sm:px-2 py-1.5 font-semibold text-gray-600 leading-tight">Σ ₹</th>
+                <th className="w-6 px-0"></th>
               </tr>
             </thead>
             <tbody className="divide-y">
@@ -527,45 +543,45 @@ const EnrollmentsTab = () => {
 
                 return (
                   <React.Fragment key={e.id}>
-                    <tr className="hover:bg-gray-50 cursor-pointer" onClick={() => setExpandedId(isExpanded ? null : e.id)}>
-                      <td className="px-3 py-2.5 text-gray-500 tabular-nums font-medium">{serial}</td>
-                      <td className="px-3 py-2.5 font-mono text-purple-700 font-medium text-[10px]">
+                    <tr className="hover:bg-gray-50 cursor-pointer align-top" onClick={() => setExpandedId(isExpanded ? null : e.id)}>
+                      <td className="px-1 sm:px-2 py-1.5 text-gray-500 tabular-nums font-medium">{serial}</td>
+                      <td className="px-1 sm:px-2 py-1.5 font-mono text-purple-700 font-medium text-[9px] break-all">
                         {e.invoice_number || e.id?.slice(0, 8) || '-'}
                       </td>
-                      <td className="px-3 py-2.5">
-                        <p className="font-medium text-gray-900">{e.booker_name || '-'}</p>
-                        <p className="text-gray-400 text-[10px]">{e.booker_email || ''}</p>
-                        {e.phone && <p className="text-gray-400 text-[10px]">{e.phone}</p>}
+                      <td className="px-1 sm:px-2 py-1.5 min-w-0">
+                        <p className="font-medium text-gray-900 truncate" title={e.booker_name || ''}>{e.booker_name || '-'}</p>
+                        <p className="text-gray-400 text-[9px] truncate" title={e.booker_email || ''}>{e.booker_email || ''}</p>
+                        {e.phone && <p className="text-gray-400 text-[9px] truncate" title={e.phone}>{e.phone}</p>}
                       </td>
-                      <td className="px-3 py-2.5">
-                        <p className="text-gray-700">{e.item_title || '-'}</p>
-                        <p className="text-gray-400 capitalize text-[10px]">{e.item_type || ''}</p>
+                      <td className="px-1 sm:px-2 py-1.5 min-w-0">
+                        <p className="text-gray-700 line-clamp-2 break-words" title={e.item_title || ''}>{e.item_title || '-'}</p>
+                        <p className="text-gray-400 capitalize text-[9px] truncate">{e.item_type || ''}</p>
                       </td>
-                      <td className="px-3 py-2.5">
-                        <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${e.enrollment_origin === 'dashboard' ? 'bg-amber-50 text-amber-800' : 'bg-slate-100 text-slate-700'}`}>
-                          {e.enrollment_origin === 'dashboard' ? 'Dashboard' : 'Website'}
+                      <td className="px-1 sm:px-2 py-1.5 min-w-0">
+                        <span className={`inline-block text-[9px] px-1 py-0.5 rounded font-medium max-w-full truncate ${e.enrollment_origin === 'dashboard' ? 'bg-amber-50 text-amber-800' : 'bg-slate-100 text-slate-700'}`}>
+                          {e.enrollment_origin === 'dashboard' ? 'Dash' : 'Web'}
                         </span>
                       </td>
-                      <td className="px-3 py-2.5 text-center">
+                      <td className="px-1 sm:px-2 py-1.5 text-center">
                         <span className="font-medium">{e.participant_count || e.participants?.length || 0}</span>
                       </td>
-                      <td className="px-3 py-2.5 text-gray-800 text-[10px] whitespace-nowrap">
+                      <td className="px-1 sm:px-2 py-1.5 text-gray-800 text-[9px] break-words leading-tight" title={attendanceLabel}>
                         {attendanceLabel}
                       </td>
-                      <td className="px-3 py-2.5">
+                      <td className="px-1 sm:px-2 py-1.5 min-w-0">
                         {modeInfo ? (
-                          <span className={`inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full font-medium ${modeInfo.color}`}>
-                            <ModeIcon size={10} /> {modeInfo.label}
+                          <span className={`inline-flex items-center gap-0.5 text-[9px] px-1 py-0.5 rounded font-medium max-w-full truncate ${modeInfo.color}`} title={modeInfo.label}>
+                            <ModeIcon size={9} className="shrink-0" /> <span className="truncate">{modeInfo.label}</span>
                           </span>
-                        ) : <span className="text-gray-400 text-[10px]">—</span>}
+                        ) : <span className="text-gray-400 text-[9px]">—</span>}
                       </td>
-                      <td className="px-3 py-2.5">
-                        <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${s.color}`}>{s.label}</span>
+                      <td className="px-1 sm:px-2 py-1.5 min-w-0">
+                        <span className={`inline-block text-[9px] px-1 py-0.5 rounded font-medium max-w-full truncate ${s.color}`} title={s.label}>{s.label}</span>
                       </td>
-                      <td className="px-3 py-2.5 text-gray-500 text-[10px] whitespace-nowrap">
+                      <td className="px-1 sm:px-2 py-1.5 text-gray-500 text-[9px] whitespace-nowrap">
                         {e.created_at ? new Date(e.created_at).toLocaleDateString('en-US', { day: 'numeric', month: 'short' }) : '-'}
                       </td>
-                      <td className="px-3 py-2.5 text-right font-medium text-gray-900 tabular-nums whitespace-nowrap">
+                      <td className="px-1 sm:px-2 py-1.5 text-right font-medium text-gray-900 tabular-nums text-[9px] sm:text-[10px] whitespace-nowrap">
                         {rawAmount > 0 ? (
                           <span title={sourceCurrency !== 'inr' ? `Stored: ${String(currency || '').toUpperCase()}` : ''}>
                             ₹{amountInr.toLocaleString('en-IN')}
@@ -574,11 +590,11 @@ const EnrollmentsTab = () => {
                           'FREE'
                         )}
                       </td>
-                      <td className="px-3 py-2.5 text-right font-semibold text-violet-900 tabular-nums whitespace-nowrap">
+                      <td className="px-1 sm:px-2 py-1.5 text-right font-semibold text-violet-900 tabular-nums text-[9px] sm:text-[10px] whitespace-nowrap">
                         ₹{cumulativeInr.toLocaleString('en-IN')}
                       </td>
-                      <td className="px-2">
-                        {isExpanded ? <ChevronUp size={12} className="text-gray-400" /> : <ChevronDown size={12} className="text-gray-400" />}
+                      <td className="px-0 py-1.5 text-center w-6">
+                        {isExpanded ? <ChevronUp size={12} className="text-gray-400 mx-auto" /> : <ChevronDown size={12} className="text-gray-400 mx-auto" />}
                       </td>
                     </tr>
                     {/* Expanded details */}
@@ -626,6 +642,7 @@ const EnrollmentsTab = () => {
               })}
             </tbody>
           </table>
+          </div>
         </div>
       ) : null}
 
@@ -636,33 +653,39 @@ const EnrollmentsTab = () => {
         ) : filteredParticipants.length === 0 ? (
           <div className="text-center py-12 text-gray-400 text-sm">No rows match this filter.</div>
         ) : (
-          <div className="overflow-x-auto border rounded-lg" data-testid="enrollments-participant-table">
-            <table className="w-full text-xs min-w-[1600px]">
+          <div className="w-full min-w-0 rounded-lg border overflow-hidden" data-testid="enrollments-participant-table">
+            <div className="w-full min-w-0 overflow-x-hidden">
+            <table className="w-full table-fixed text-[9px] sm:text-[10px] border-collapse">
+              <colgroup>
+                {Array.from({ length: 23 }).map((_, i) => (
+                  <col key={i} style={{ width: `${100 / 23}%` }} />
+                ))}
+              </colgroup>
               <thead className="bg-gray-50 border-b">
                 <tr>
-                  <th className="text-left px-3 py-2 font-semibold text-gray-600 whitespace-nowrap">#</th>
-                  <th className="text-left px-3 py-2 font-semibold text-gray-600 whitespace-nowrap">Participant</th>
-                  <th className="text-left px-3 py-2 font-semibold text-gray-600 whitespace-nowrap">Relation</th>
-                  <th className="text-left px-3 py-2 font-semibold text-gray-600 whitespace-nowrap">Age</th>
-                  <th className="text-left px-3 py-2 font-semibold text-gray-600 whitespace-nowrap">Gender</th>
-                  <th className="text-left px-3 py-2 font-semibold text-gray-600 whitespace-nowrap">Country</th>
-                  <th className="text-left px-3 py-2 font-semibold text-gray-600 whitespace-nowrap">City</th>
-                  <th className="text-left px-3 py-2 font-semibold text-gray-600 whitespace-nowrap">State</th>
-                  <th className="text-left px-3 py-2 font-semibold text-gray-600 whitespace-nowrap">Mode</th>
-                  <th className="text-left px-3 py-2 font-semibold text-gray-600 whitespace-nowrap">Notify</th>
-                  <th className="text-left px-3 py-2 font-semibold text-gray-600 whitespace-nowrap">Email</th>
-                  <th className="text-left px-3 py-2 font-semibold text-gray-600 whitespace-nowrap">Phone</th>
-                  <th className="text-left px-3 py-2 font-semibold text-gray-600 whitespace-nowrap">WhatsApp</th>
-                  <th className="text-left px-3 py-2 font-semibold text-gray-600 whitespace-nowrap">1st time</th>
-                  <th className="text-left px-3 py-2 font-semibold text-gray-600 whitespace-nowrap">Referral</th>
-                  <th className="text-left px-3 py-2 font-semibold text-gray-600 whitespace-nowrap">Referred by</th>
-                  <th className="text-left px-3 py-2 font-semibold text-gray-600 whitespace-nowrap">Amount</th>
-                  <th className="text-left px-3 py-2 font-semibold text-gray-600 whitespace-nowrap">Cur</th>
-                  <th className="text-left px-3 py-2 font-semibold text-gray-600 whitespace-nowrap">Program</th>
-                  <th className="text-left px-3 py-2 font-semibold text-gray-600 whitespace-nowrap">Booker</th>
-                  <th className="text-left px-3 py-2 font-semibold text-gray-600 whitespace-nowrap">Invoice</th>
-                  <th className="text-left px-3 py-2 font-semibold text-gray-600 whitespace-nowrap">Origin</th>
-                  <th className="text-left px-3 py-2 font-semibold text-gray-600 whitespace-nowrap">Status</th>
+                  <th className="text-left px-1 py-1.5 font-semibold text-gray-600">#</th>
+                  <th className="text-left px-1 py-1.5 font-semibold text-gray-600 leading-tight">Name</th>
+                  <th className="text-left px-1 py-1.5 font-semibold text-gray-600">Rel.</th>
+                  <th className="text-left px-1 py-1.5 font-semibold text-gray-600">Age</th>
+                  <th className="text-left px-1 py-1.5 font-semibold text-gray-600 leading-tight">Gen.</th>
+                  <th className="text-left px-1 py-1.5 font-semibold text-gray-600">Ctry</th>
+                  <th className="text-left px-1 py-1.5 font-semibold text-gray-600">City</th>
+                  <th className="text-left px-1 py-1.5 font-semibold text-gray-600">St</th>
+                  <th className="text-left px-1 py-1.5 font-semibold text-gray-600">Mode</th>
+                  <th className="text-left px-1 py-1.5 font-semibold text-gray-600">Ntf</th>
+                  <th className="text-left px-1 py-1.5 font-semibold text-gray-600">Email</th>
+                  <th className="text-left px-1 py-1.5 font-semibold text-gray-600">Ph</th>
+                  <th className="text-left px-1 py-1.5 font-semibold text-gray-600 leading-tight">WA</th>
+                  <th className="text-left px-1 py-1.5 font-semibold text-gray-600">1st</th>
+                  <th className="text-left px-1 py-1.5 font-semibold text-gray-600">Ref</th>
+                  <th className="text-left px-1 py-1.5 font-semibold text-gray-600 leading-tight">By</th>
+                  <th className="text-left px-1 py-1.5 font-semibold text-gray-600">Amt</th>
+                  <th className="text-left px-1 py-1.5 font-semibold text-gray-600">Cur</th>
+                  <th className="text-left px-1 py-1.5 font-semibold text-gray-600">Prog</th>
+                  <th className="text-left px-1 py-1.5 font-semibold text-gray-600">Booker</th>
+                  <th className="text-left px-1 py-1.5 font-semibold text-gray-600">Inv</th>
+                  <th className="text-left px-1 py-1.5 font-semibold text-gray-600">Orig</th>
+                  <th className="text-left px-1 py-1.5 font-semibold text-gray-600">Stat</th>
                 </tr>
               </thead>
               <tbody className="divide-y">
@@ -675,52 +698,54 @@ const EnrollmentsTab = () => {
                   const pIdx = Number(row.participant_index);
                   let slot = '—';
                   if (Number.isFinite(pTotal) && pTotal > 1 && Number.isFinite(pIdx) && pIdx > 0) {
-                    slot = `${pIdx} / ${pTotal}`;
+                    slot = `${pIdx}/${pTotal}`;
                   } else if (Number.isFinite(pIdx) && pIdx > 0) {
                     slot = String(pIdx);
                   }
+                  const cell = 'px-1 py-1 align-top min-w-0 break-words';
                   return (
                     <tr
                       key={`${row.enrollment_id}-${row.participant_index ?? row.participant_name}-${row.participant_email}`}
                       className="hover:bg-gray-50"
                     >
-                      <td className="px-3 py-2 text-gray-500 tabular-nums whitespace-nowrap">{slot}</td>
-                      <td className="px-3 py-2 font-medium text-gray-900 whitespace-nowrap">{row.participant_name || '—'}</td>
-                      <td className="px-3 py-2 text-gray-700 max-w-[100px] truncate" title={row.relationship}>{row.relationship || '—'}</td>
-                      <td className="px-3 py-2 text-gray-700">{row.age !== '' && row.age != null ? row.age : '—'}</td>
-                      <td className="px-3 py-2 text-gray-700 max-w-[90px] truncate" title={row.gender}>{row.gender || '—'}</td>
-                      <td className="px-3 py-2 text-gray-700">{row.country || '—'}</td>
-                      <td className="px-3 py-2 text-gray-700 max-w-[100px] truncate" title={row.city}>{row.city || '—'}</td>
-                      <td className="px-3 py-2 text-gray-700 max-w-[100px] truncate" title={row.state}>{row.state || '—'}</td>
-                      <td className="px-3 py-2 text-gray-700 whitespace-nowrap">{row.attendance_mode || '—'}</td>
-                      <td className="px-3 py-2 text-gray-800 whitespace-nowrap">{row.notify_enrollment || '—'}</td>
-                      <td className="px-3 py-2 text-gray-600 max-w-[140px] truncate text-[10px]" title={row.participant_email}>{row.participant_email || '—'}</td>
-                      <td className="px-3 py-2 text-gray-600 font-mono text-[10px] whitespace-nowrap">{row.phone || '—'}</td>
-                      <td className="px-3 py-2 text-gray-600 font-mono text-[10px] whitespace-nowrap">{row.whatsapp || '—'}</td>
-                      <td className="px-3 py-2 text-gray-700">{row.is_first_time || '—'}</td>
-                      <td className="px-3 py-2 text-gray-600 max-w-[120px] truncate text-[10px]" title={row.referral_source}>{row.referral_source || '—'}</td>
-                      <td className="px-3 py-2 text-gray-600 max-w-[120px] truncate text-[10px]" title={row.referred_by_name}>{row.referred_by_name || '—'}</td>
-                      <td className="px-3 py-2 font-medium text-gray-900 whitespace-nowrap">
+                      <td className={`${cell} text-gray-500 tabular-nums`}>{slot}</td>
+                      <td className={`${cell} font-medium text-gray-900`} title={row.participant_name || ''}>{row.participant_name || '—'}</td>
+                      <td className={`${cell} text-gray-700`} title={row.relationship}>{row.relationship || '—'}</td>
+                      <td className={`${cell} text-gray-700`}>{row.age !== '' && row.age != null ? row.age : '—'}</td>
+                      <td className={`${cell} text-gray-700`} title={row.gender}>{row.gender || '—'}</td>
+                      <td className={`${cell} text-gray-700`}>{row.country || '—'}</td>
+                      <td className={`${cell} text-gray-700`} title={row.city}>{row.city || '—'}</td>
+                      <td className={`${cell} text-gray-700`} title={row.state}>{row.state || '—'}</td>
+                      <td className={`${cell} text-gray-700`} title={row.attendance_mode}>{row.attendance_mode || '—'}</td>
+                      <td className={`${cell} text-gray-800`}>{row.notify_enrollment || '—'}</td>
+                      <td className={`${cell} text-gray-600`} title={row.participant_email}>{row.participant_email || '—'}</td>
+                      <td className={`${cell} text-gray-600 font-mono`} title={row.phone}>{row.phone || '—'}</td>
+                      <td className={`${cell} text-gray-600 font-mono`} title={row.whatsapp}>{row.whatsapp || '—'}</td>
+                      <td className={`${cell} text-gray-700`}>{row.is_first_time || '—'}</td>
+                      <td className={`${cell} text-gray-600`} title={row.referral_source}>{row.referral_source || '—'}</td>
+                      <td className={`${cell} text-gray-600`} title={row.referred_by_name}>{row.referred_by_name || '—'}</td>
+                      <td className={`${cell} font-medium text-gray-900 tabular-nums`}>
                         {amt > 0 ? `${sym}${Number(amt).toLocaleString()}` : '0'}
                       </td>
-                      <td className="px-3 py-2 uppercase text-gray-600">{cur || '—'}</td>
-                      <td className="px-3 py-2 text-gray-700 max-w-[140px] truncate" title={row.program}>{row.program || '—'}</td>
-                      <td className="px-3 py-2 text-gray-600 max-w-[120px]">
-                        <span className="block truncate" title={row.booker_name}>{row.booker_name || '—'}</span>
-                        <span className="block text-[10px] text-gray-400 truncate">{row.booker_phone || ''}</span>
+                      <td className={`${cell} uppercase text-gray-600`}>{cur || '—'}</td>
+                      <td className={`${cell} text-gray-700`} title={row.program}>{row.program || '—'}</td>
+                      <td className={`${cell} text-gray-600`}>
+                        <span className="block" title={row.booker_name}>{row.booker_name || '—'}</span>
+                        <span className="block text-gray-400" title={row.booker_phone || ''}>{row.booker_phone || ''}</span>
                       </td>
-                      <td className="px-3 py-2 font-mono text-[10px] text-purple-700 whitespace-nowrap">{row.invoice_number || row.enrollment_id?.slice(0, 10) || '—'}</td>
-                      <td className="px-3 py-2">
-                        <span className={`text-[10px] px-2 py-0.5 rounded-full ${row.enrollment_origin === 'dashboard' ? 'bg-amber-50 text-amber-800' : 'bg-slate-100 text-slate-700'}`}>
-                          {row.enrollment_origin === 'dashboard' ? 'Dashboard' : 'Website'}
+                      <td className={`${cell} font-mono text-purple-700 break-all`} title={row.invoice_number || ''}>{row.invoice_number || row.enrollment_id?.slice(0, 10) || '—'}</td>
+                      <td className={cell}>
+                        <span className={`inline-block text-[9px] px-1 py-0.5 rounded font-medium ${row.enrollment_origin === 'dashboard' ? 'bg-amber-50 text-amber-800' : 'bg-slate-100 text-slate-700'}`}>
+                          {row.enrollment_origin === 'dashboard' ? 'Dash' : 'Web'}
                         </span>
                       </td>
-                      <td className="px-3 py-2 text-[10px] text-gray-600 whitespace-nowrap">{row.enrollment_status || row.payment_status || '—'}</td>
+                      <td className={`${cell} text-gray-600`} title={row.enrollment_status || row.payment_status}>{row.enrollment_status || row.payment_status || '—'}</td>
                     </tr>
                   );
                 })}
               </tbody>
             </table>
+            </div>
           </div>
         )
       )}
