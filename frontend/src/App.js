@@ -39,6 +39,7 @@ import TreeOfLifePage from './components/dashboard/TreeOfLifePage';
 import OceanPage from './components/dashboard/OceanPage';
 import MandalaPage from './components/dashboard/MandalaPage';
 import HeadspacePage from './components/dashboard/HeadspacePage';
+import MerkabaWeightReleasePage from './components/dashboard/MerkabaWeightReleasePage';
 import BhaadPortalPage from './components/dashboard/BhaadPortalPage';
 import SoulTribePage from './components/dashboard/SoulTribePage';
 import PointsPage from './components/dashboard/PointsPage';
@@ -139,6 +140,8 @@ const AppContent = () => {
         <Route path="garden/ocean" element={<OceanPage />} />
         <Route path="garden/mandala" element={<MandalaPage />} />
         <Route path="garden/zen" element={<HeadspacePage />} />
+        {/* Personal tool — not linked from Soul Garden; bookmark /dashboard/garden/merkaba-weight */}
+        <Route path="garden/merkaba-weight" element={<MerkabaWeightReleasePage />} />
         <Route path="bhaad" element={<BhaadPortalPage />} />
         <Route path="tribe" element={<SoulTribePage />} />
         
