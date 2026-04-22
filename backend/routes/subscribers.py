@@ -15,6 +15,7 @@ from motor.motor_asyncio import AsyncIOMotorClient
 import os
 from dotenv import load_dotenv
 from pathlib import Path
+from utils.canonical_id import new_entity_id, new_internal_diid
 
 ROOT_DIR = Path(__file__).parent.parent
 load_dotenv(ROOT_DIR / '.env')
@@ -497,9 +498,11 @@ async def upload_subscriber_excel(file: UploadFile = File(...)):
                 )
                 stats["updated"] += 1
             else:
+                _now = datetime.now(timezone.utc).isoformat()
                 new_client = {
-                    "id": str(uuid.uuid4()),
+                    "id": new_entity_id(),
                     "did": f"DID-{str(uuid.uuid4())[:8].upper()}",
+                    "diid": new_internal_diid(name, _now),
                     "email": email,
                     "name": name,
                     "phone": "",
@@ -510,12 +513,12 @@ async def upload_subscriber_excel(file: UploadFile = File(...)):
                     "timeline": [{
                         "type": "Subscriber Upload",
                         "detail": f"Annual: {subscription['annual_program']}",
-                        "date": datetime.now(timezone.utc).isoformat()
+                        "date": _now,
                     }],
                     "subscription": subscription,
                     "notes": "",
-                    "created_at": datetime.now(timezone.utc).isoformat(),
-                    "updated_at": datetime.now(timezone.utc).isoformat()
+                    "created_at": _now,
+                    "updated_at": _now,
                 }
                 await db.clients.insert_one(new_client)
                 stats["created"] += 1
@@ -786,10 +789,12 @@ async def create_subscriber(data: SubscriberCreate):
         )
         return {"message": "Subscriber updated", "id": existing["id"]}
     else:
-        client_id = str(uuid.uuid4())
+        _now = datetime.now(timezone.utc).isoformat()
+        client_id = new_entity_id()
         new_client = {
             "id": client_id,
             "did": f"DID-{str(uuid.uuid4())[:8].upper()}",
+            "diid": new_internal_diid(data.name or "", _now),
             "email": data.email.lower() if data.email else "",
             "name": data.name,
             "phone": "",
@@ -797,11 +802,11 @@ async def create_subscriber(data: SubscriberCreate):
             "label_manual": "Iris",
             "sources": ["Admin Manual"],
             "conversions": [],
-            "timeline": [{"type": "Admin Manual", "detail": f"Annual: {data.annual_program}", "date": datetime.now(timezone.utc).isoformat()}],
+            "timeline": [{"type": "Admin Manual", "detail": f"Annual: {data.annual_program}", "date": _now}],
             "subscription": subscription,
             "notes": "",
-            "created_at": datetime.now(timezone.utc).isoformat(),
-            "updated_at": datetime.now(timezone.utc).isoformat()
+            "created_at": _now,
+            "updated_at": _now,
         }
         await db.clients.insert_one(new_client)
         return {"message": "Subscriber created", "id": client_id}

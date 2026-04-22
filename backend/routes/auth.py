@@ -2,6 +2,7 @@ from fastapi import APIRouter, HTTPException, Request, Response
 from pydantic import BaseModel
 from typing import Optional, Tuple
 import os, uuid, httpx
+from utils.canonical_id import new_entity_id
 from datetime import datetime, timezone, timedelta
 from motor.motor_asyncio import AsyncIOMotorClient
 from dotenv import load_dotenv
@@ -168,7 +169,7 @@ async def _ensure_user_for_impersonation(email: Optional[str], user_id: Optional
         "Iris": 4, "Purple Bees": 4, "Iris Bees": 4,
     }
     tier = tier_map.get(label, 1)
-    new_id = str(uuid.uuid4())
+    new_id = new_entity_id()
     new_user = {
         "id": new_id,
         "email": em,
@@ -306,7 +307,7 @@ async def google_auth_callback(data: AuthSessionStart, response: Response):
         }
         tier = tier_map.get(label, 1)
 
-        user_id = str(uuid.uuid4())
+        user_id = new_entity_id()
         new_user = {
             "id": user_id,
             "email": email,

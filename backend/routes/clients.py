@@ -6,6 +6,7 @@ import logging
 import os
 import uuid
 from motor.motor_asyncio import AsyncIOMotorClient
+from utils.canonical_id import new_entity_id, new_internal_diid
 from dotenv import load_dotenv
 from pathlib import Path
 
@@ -133,8 +134,9 @@ async def sync_clients():
             # Generate DID for new clients (first-time joiners)
             did = f"DID-{str(uuid.uuid4())[:8].upper()}"
             client_doc = {
-                "id": str(uuid.uuid4()),
+                "id": new_entity_id(),
                 "did": did,
+                "diid": new_internal_diid(name or "", now),
                 "email": email,
                 "phone": phone,
                 "name": name,
@@ -289,8 +291,9 @@ async def sync_clients():
             did = f"DID-{str(uuid.uuid4())[:8].upper()}"
             now = datetime.now(timezone.utc).isoformat()
             client_doc = {
-                "id": str(uuid.uuid4()),
+                "id": new_entity_id(),
                 "did": did,
+                "diid": new_internal_diid(e.get("booker_name", "") or "", now),
                 "email": email,
                 "phone": phone,
                 "name": e.get("booker_name", ""),
@@ -398,7 +401,7 @@ async def create_client_manual(data: ClientManualCreate):
 
     now = datetime.now(timezone.utc).isoformat()
     did = f"DID-{str(uuid.uuid4())[:8].upper()}"
-    cid = str(uuid.uuid4())
+    cid = new_entity_id()
     initial_label = label_manual if label_manual else "Dew"
     timeline_entry = {
         "type": "Manual",
@@ -408,6 +411,7 @@ async def create_client_manual(data: ClientManualCreate):
     client_doc = {
         "id": cid,
         "did": did,
+        "diid": new_internal_diid(name, now),
         "email": email_n,
         "phone": phone_n,
         "name": name,

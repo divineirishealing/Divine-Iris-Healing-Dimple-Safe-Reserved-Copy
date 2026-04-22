@@ -4,6 +4,7 @@ import csv
 import io
 import uuid
 from datetime import datetime, timezone
+from utils.canonical_id import new_entity_id, new_internal_diid
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import Response
 from motor.motor_asyncio import AsyncIOMotorClient
@@ -58,11 +59,12 @@ async def _upsert_client_from_contact_form(
             },
         )
         return
-    cid = str(uuid.uuid4())
+    cid = new_entity_id()
     did = f"DID-{str(uuid.uuid4())[:8].upper()}"
     client_doc = {
         "id": cid,
         "did": did,
+        "diid": new_internal_diid(name, now),
         "email": email,
         "name": name,
         "phone": phone,

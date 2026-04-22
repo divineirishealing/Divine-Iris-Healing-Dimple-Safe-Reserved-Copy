@@ -12,6 +12,7 @@ from dotenv import load_dotenv
 from pathlib import Path
 
 from routes.auth import assert_admin_session_or_password
+from utils.canonical_id import new_entity_id, new_internal_diid
 from routes.student import build_admin_dashboard_pricing_snapshot
 
 
@@ -100,16 +101,18 @@ async def upload_bulk_clients(file: UploadFile = File(...)):
                 stats["updated"] += 1
             else:
                 # Create new
+                _now = datetime.now(timezone.utc).isoformat()
                 new_client = {
-                    "id": str(uuid.uuid4()),
+                    "id": new_entity_id(),
                     "did": f"DID-{str(uuid.uuid4())[:8].upper()}",
+                    "diid": new_internal_diid(name, _now),
                     "email": email,
                     "name": name,
                     "phone": phone,
                     "label": tier,
                     "label_manual": tier,
                     "sources": ["Bulk Upload"],
-                    "created_at": datetime.now(timezone.utc).isoformat(),
+                    "created_at": _now,
                     **update_data
                 }
                 await db.clients.insert_one(new_client)

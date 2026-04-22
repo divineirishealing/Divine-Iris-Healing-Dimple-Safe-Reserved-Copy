@@ -13,6 +13,7 @@ import uuid
 from motor.motor_asyncio import AsyncIOMotorClient
 from dotenv import load_dotenv
 from pathlib import Path
+from utils.canonical_id import new_entity_id, new_internal_diid
 
 ROOT_DIR = Path(__file__).parent.parent
 load_dotenv(ROOT_DIR / '.env')
@@ -87,7 +88,9 @@ async def submit_intake(data: ClientIntakeSubmit):
 
     # Create new client record
     new_doc = {
-        "id":         str(uuid.uuid4()),
+        "id":         new_entity_id(),
+        "did":        f"DID-{str(uuid.uuid4())[:8].upper()}",
+        "diid":       new_internal_diid(name, now),
         "name":       name,
         "email":      email,
         "phone":      phone,
