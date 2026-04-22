@@ -96,6 +96,8 @@
     }
     .sensory-row { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; align-items: center; margin-top: 8px; }
     .sensory-row label { font-size: 10px; color: rgba(255,255,255,0.45); }
+    .sensory-row .sensory-loop { display: inline-flex; align-items: center; gap: 4px; font-size: 10px; color: rgba(255,255,255,0.55); max-width: 16rem; line-height: 1.3; }
+    .sensory-row .sensory-loop input { width: 14px; height: 14px; flex-shrink: 0; }
     .sensory-row input[type=range] { width: 100px; vertical-align: middle; }
     .breath-ov {
       position: absolute; top: 10px; left: 0; right: 0; text-align: center; z-index: 30;
@@ -161,6 +163,10 @@
       <button type="button" id="btn-tone" title="Steady hum while on (keeps going until you turn it off)">Soft tone: off</button>
       <label>Volume <input type="range" id="tone-vol" min="0" max="100" value="18" title="Drift volume" /></label>
       <label>Hum (Hz) <input type="range" id="tone-hz" min="174" max="440" value="256" title="Base pitch of the hum" /> <span class="num" id="tone-hz-disp">256</span></label>
+      <span class="sensory-loop" title="When on, the soft hum keeps looping even if you press Pause on the field (it still stops if you turn Soft tone off)">
+        <input type="checkbox" id="chk-hum-loop" />
+        <label for="chk-hum-loop" style="cursor:pointer;">Loop hum: keep playing when field is paused</label>
+      </span>
       <button type="button" id="btn-speak" title="Hear the current line">Hear this line</button>
       <button type="button" id="btn-breath" title="Gentle inhale / exhale cue">Breath cue: on</button>
     </div>
@@ -587,15 +593,33 @@
       document.getElementById('speech-pitch-disp').textContent = (parseFloat(p.value) || 0).toFixed(2);
     }
   }
+  function humKeepsOnWhenFieldPaused() {
+    var c = document.getElementById('chk-hum-loop');
+    return c && c.checked;
+  }
+  function syncHumWithPauseState() {
+    if (!audioCtx) return;
+    try {
+      if (!playing && toneOn) {
+        if (humKeepsOnWhenFieldPaused()) {
+          if (audioCtx.state === 'suspended') audioCtx.resume();
+        } else {
+          if (audioCtx.suspend) audioCtx.suspend();
+        }
+      }
+    } catch (e) {}
+  }
   function saveTtsPrefs() {
     try {
       var sel = document.getElementById('voice-select');
+      var humL = document.getElementById('chk-hum-loop');
       localStorage.setItem(TTS_PREFS_KEY, JSON.stringify({
         rate: parseFloat(document.getElementById('speech-rate').value),
         pitch: parseFloat(document.getElementById('speech-pitch').value),
         voice: sel ? sel.value : '',
         loop: document.getElementById('chk-loop-tts').checked,
-        humHz: getToneHz()
+        humHz: getToneHz(),
+        humLoop: humL ? humL.checked : false
       }));
     } catch (e) {}
   }
@@ -630,6 +654,9 @@
         applyToneHz();
       }
       if (typeof o.loop === 'boolean') document.getElementById('chk-loop-tts').checked = o.loop;
+      if (typeof o.humLoop === 'boolean' && document.getElementById('chk-hum-loop')) {
+        document.getElementById('chk-hum-loop').checked = o.humLoop;
+      }
       if (o.voice) setVoiceSelectByValue(o.voice);
     } catch (e) {}
     updateTtsSliders();
@@ -663,6 +690,12 @@
   document.getElementById('speech-pitch').addEventListener('input', function () { updateTtsSliders(); saveTtsPrefs(); });
   document.getElementById('voice-select').addEventListener('change', saveTtsPrefs);
   document.getElementById('chk-loop-tts').addEventListener('change', saveTtsPrefs);
+  if (document.getElementById('chk-hum-loop')) {
+    document.getElementById('chk-hum-loop').addEventListener('change', function () {
+      saveTtsPrefs();
+      syncHumWithPauseState();
+    });
+  }
 
   var myWordsEl = document.getElementById('myWords');
   try {
@@ -717,11 +750,19 @@
       else if (!p && mainSvg.pauseAnimations) mainSvg.pauseAnimations();
     } catch (e) {}
     try {
-      if (!p && audioCtx && audioCtx.suspend) audioCtx.suspend();
-      else if (p && audioCtx && audioCtx.state === 'suspended' && toneOn) audioCtx.resume();
+      if (!p && audioCtx) {
+        if (toneOn && humKeepsOnWhenFieldPaused()) {
+          if (audioCtx.state === 'suspended' && audioCtx.resume) audioCtx.resume();
+        } else if (audioCtx.suspend) {
+          audioCtx.suspend();
+        }
+      } else if (p && audioCtx && audioCtx.state === 'suspended' && toneOn && audioCtx.resume) {
+        audioCtx.resume();
+      }
     } catch (e) {}
   }
   setPlaying(playing);
+  syncHumWithPauseState();
 
   function applySlim() {
     slimRoot.setAttribute('transform', 'scale(' + slim + ')');
