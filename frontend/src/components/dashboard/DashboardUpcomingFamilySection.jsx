@@ -604,6 +604,14 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh, bo
   const hasHouseholdKey = !!homeData?.has_household_key;
   /** Only this login may add linked same-key clients as paid seats (checkout / enrollment). */
   const isPrimaryHouseholdContact = !!homeData?.is_primary_household_contact;
+  /**
+   * Sacred Home lists all same-key Annual peers for visibility; enrollment/cart only allows them once
+   * the household is fully clubbed (matches backend for_payment / quote resolution).
+   */
+  const enrollableAnnualHouseholdPeers = useMemo(
+    () => (annualHouseholdClubOk ? annualHouseholdPeers : []),
+    [annualHouseholdClubOk, annualHouseholdPeers],
+  );
 
   const [members, setMembers] = useState(() => initialMembers);
   React.useEffect(() => {
@@ -619,9 +627,9 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh, bo
 
   const enrollableGuests = useMemo(() => {
     const base = [...members, ...otherMembers];
-    if (isPrimaryHouseholdContact) return [...base, ...annualHouseholdPeers];
+    if (isPrimaryHouseholdContact) return [...base, ...enrollableAnnualHouseholdPeers];
     return base;
-  }, [members, otherMembers, isPrimaryHouseholdContact, annualHouseholdPeers]);
+  }, [members, otherMembers, isPrimaryHouseholdContact, enrollableAnnualHouseholdPeers]);
 
   const enrollableGuestIdsKey = useMemo(
     () =>
@@ -1791,9 +1799,10 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh, bo
             <div>
               <h3 className="text-sm font-semibold text-slate-900">Annual Family Club</h3>
               <p className="text-[11px] text-slate-500 mt-0.5 max-w-3xl">
-                Not the same as the lists above. Clubbing appears only when everyone on your key has Annual
-                dashboard access in Client Garden. The primary household contact can add these people as paid
-                seats at annual portal pricing.
+                Not the same as the lists above. Anyone on your household key who already has Annual dashboard
+                access in Client Garden is listed here. Linked group checkout at annual portal pricing unlocks
+                once every person on the key has that access; until then, you can still see who is already on
+                Annual.
               </p>
             </div>
           </div>

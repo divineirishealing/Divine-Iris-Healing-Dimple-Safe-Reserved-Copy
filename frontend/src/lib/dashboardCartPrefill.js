@@ -176,11 +176,12 @@ export function mergeGlobalSeatDraft(perProgramDraft, bookerSeatMode, bookerSeat
 /**
  * Merge Sacred Home guest lists for cart participant rows (names + ids).
  * Same-key annual peers live in `annual_household_peers`, not always in `immediate_family`.
+ * Peers are enrollable only when `annual_household_club_ok` (matches backend quote / enrollment-prefill).
  */
 export function mergeEnrollableGuestsForPortalCart(home) {
   const im = home?.immediate_family || [];
   const ot = home?.other_guests || [];
-  const peers = home?.annual_household_peers || [];
+  const peers = home?.annual_household_club_ok ? home?.annual_household_peers || [] : [];
   const seen = new Set();
   const out = [];
   for (const g of [...im, ...ot, ...peers]) {
@@ -200,7 +201,7 @@ export function mergeEnrollableGuestsForPortalCart(home) {
 /** Members used to resolve household_client_link for bucket map (immediate + same-key peers only). */
 export function guestBucketLookupMembersFromHome(home) {
   const im = home?.immediate_family || [];
-  const peers = home?.annual_household_peers || [];
+  const peers = home?.annual_household_club_ok ? home?.annual_household_peers || [] : [];
   const seen = new Set();
   const out = [];
   for (const g of [...im, ...peers]) {

@@ -464,17 +464,29 @@ async def _household_peer_guest_rows(
     """Build immediate-family-shaped rows from other clients with the same household_key.
 
     When ``for_payment`` is True, only the primary household contact gets linked rows (they may pay for
-    all clubbed accounts). When False, everyone with a key sees peers for display on Sacred Home.
+    all clubbed accounts). That path requires ``_household_club_all_annual`` so checkout and cart
+    resolution stay consistent.
+
+    When ``for_payment`` is False (Sacred Home / dashboard home), return other same-key clients who
+    already have Annual dashboard access and portal login allowed — even if someone else on the key
+    (e.g. the primary) is not on Annual yet, so the household is not fully "clubbed."
     """
     if for_payment and not bool(client.get("is_primary_household_contact")):
         return []
     hk = (client.get("household_key") or "").strip()
     if not hk or not client_id:
         return []
-    if not await _household_club_all_annual(hk):
-        return []
+    if for_payment:
+        if not await _household_club_all_annual(hk):
+            return []
+
+    match: dict = {"household_key": hk, "id": {"$ne": client_id}}
+    if not for_payment:
+        match["annual_member_dashboard"] = True
+        match["$nor"] = [{"portal_login_allowed": False}]
+
     rows = await db.clients.find(
-        {"household_key": hk, "id": {"$ne": client_id}},
+        match,
         {
             "_id": 0,
             "id": 1,
