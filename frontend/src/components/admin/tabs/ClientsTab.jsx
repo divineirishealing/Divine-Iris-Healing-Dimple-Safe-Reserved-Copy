@@ -381,14 +381,16 @@ const ClientsTab = () => {
 };
 
 function ClientEditDialog({ client: cl, onClose, onSaved, onDelete, toast }) {
+  const [editEmail, setEditEmail] = useState(cl.email || '');
   const [householdKey, setHouseholdKey] = useState(cl.household_key || '');
   const [primaryHouseholdContact, setPrimaryHouseholdContact] = useState(!!cl.is_primary_household_contact);
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
+    setEditEmail(cl.email || '');
     setHouseholdKey(cl.household_key || '');
     setPrimaryHouseholdContact(!!cl.is_primary_household_contact);
-  }, [cl.id, cl.updated_at, cl.household_key, cl.is_primary_household_contact]);
+  }, [cl.id, cl.updated_at, cl.email, cl.household_key, cl.is_primary_household_contact]);
 
   const cfg = LABEL_CONFIG[cl.label] || LABEL_CONFIG.Dew;
   const RowIcon = cfg.icon;
@@ -398,13 +400,19 @@ function ClientEditDialog({ client: cl, onClose, onSaved, onDelete, toast }) {
     setSaving(true);
     try {
       await axios.put(`${API}/clients/${cl.id}`, {
+        email: (editEmail || '').trim().toLowerCase(),
         household_key: householdKey.trim() || null,
         is_primary_household_contact: primaryHouseholdContact,
       });
       toast({ title: 'Client updated' });
       onSaved();
-    } catch {
-      toast({ title: 'Save failed', variant: 'destructive' });
+    } catch (err) {
+      const d = err.response?.data?.detail;
+      toast({
+        title: 'Save failed',
+        description: typeof d === 'string' ? d : undefined,
+        variant: 'destructive',
+      });
     }
     setSaving(false);
   };
@@ -438,9 +446,25 @@ function ClientEditDialog({ client: cl, onClose, onSaved, onDelete, toast }) {
             {cl.did && cl.diid && (
               <p className="col-span-2"><span className="text-gray-400">Legacy DID</span> <span className="font-mono text-purple-700">{cl.did}</span></p>
             )}
-            <p><span className="text-gray-400">Email</span> {cl.email || '—'}</p>
             <p><span className="text-gray-400">Phone</span> {cl.phone || '—'}</p>
             <p><span className="text-gray-400">First contact</span> {cl.created_at ? new Date(cl.created_at).toLocaleString() : '—'}</p>
+          </div>
+
+          <div className="rounded-lg border border-slate-200 bg-slate-50/80 p-3 space-y-2">
+            <p className="text-[10px] font-semibold text-slate-800">Contact (Client Garden)</p>
+            <div>
+              <Label className="text-[10px] text-gray-500">Email</Label>
+              <Input
+                type="email"
+                data-testid="client-edit-email"
+                value={editEmail}
+                onChange={(e) => setEditEmail(e.target.value)}
+                className="h-8 text-xs mt-1"
+                placeholder="name@example.com"
+                autoComplete="off"
+              />
+              <p className="text-[9px] text-gray-400 mt-1">Used for Google sign-in matching and notifications. Leave blank only if they have no address yet.</p>
+            </div>
           </div>
 
           <div className="rounded-lg border border-slate-200 bg-slate-50/80 p-3 space-y-2">

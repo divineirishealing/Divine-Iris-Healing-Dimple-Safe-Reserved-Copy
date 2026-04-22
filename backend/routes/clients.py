@@ -4,6 +4,7 @@ from typing import Optional, List, Dict, Any
 from datetime import datetime, timezone
 import logging
 import os
+import re
 import uuid
 from motor.motor_asyncio import AsyncIOMotorClient
 from utils.canonical_id import new_entity_id, new_internal_diid
@@ -726,6 +727,7 @@ class ClientUpdate(BaseModel):
     # CRM: same key on each family member’s client row; optional primary flag on the manager’s row
     household_key: Optional[str] = None
     is_primary_household_contact: Optional[bool] = None
+    email: Optional[str] = None
 
 
 @router.put("/{client_id}")
@@ -789,6 +791,31 @@ async def update_client(client_id: str, data: ClientUpdate):
     if data.is_primary_household_contact is not None:
         update_fields["is_primary_household_contact"] = bool(data.is_primary_household_contact)
 
+    if data.email is not None:
+        new_em = normalize_email(data.email)
+        if new_em and "@" not in new_em:
+            raise HTTPException(status_code=400, detail="Invalid email address")
+        old_em = normalize_email(cl.get("email") or "")
+        if new_em != old_em:
+            if new_em:
+                email_pat = re.compile(f"^{re.escape(new_em)}$", re.IGNORECASE)
+                dup_c = await db.clients.find_one(
+                    {"id": {"$ne": client_id}, "email": email_pat},
+                    {"_id": 0, "id": 1},
+                )
+                if dup_c:
+                    raise HTTPException(status_code=409, detail="Another client already uses this email.")
+                dup_u = await db.users.find_one(
+                    {"client_id": {"$ne": client_id}, "email": email_pat},
+                    {"_id": 0, "id": 1},
+                )
+                if dup_u:
+                    raise HTTPException(
+                        status_code=409,
+                        detail="This email is already registered to another portal account.",
+                    )
+            update_fields["email"] = new_em or None
+
     incoming = data.model_dump(exclude_unset=True)
     if "india_discount_member_bands" in incoming:
         bands = data.india_discount_member_bands
@@ -805,13 +832,22 @@ async def update_client(client_id: str, data: ClientUpdate):
 
     await db.clients.update_one({"id": client_id}, {"$set": update_fields})
 
+    if "email" in update_fields:
+        synced = (update_fields["email"] or "").strip()
+        if synced:
+            await db.users.update_many(
+                {"client_id": client_id},
+                {"$set": {"email": synced, "updated_at": update_fields["updated_at"]}},
+            )
+
     # Email when Google / student portal access is newly enabled (was blocked, e.g. after intake)
     if (
         data.portal_login_allowed is not None
         and bool(data.portal_login_allowed) is True
         and cl.get("portal_login_allowed") is False
     ):
-        to_em = (cl.get("email") or "").strip()
+        merged = update_fields.get("email") if "email" in update_fields else cl.get("email")
+        to_em = (merged or "").strip() if merged is not None else ""
         if to_em:
             try:
                 from routes.emails import send_dashboard_access_granted_email

@@ -165,6 +165,7 @@ export default function DashboardAccessTab() {
 
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState(null);
+  const [clientEmail, setClientEmail] = useState('');
   const [saving, setSaving] = useState(false);
   const [annualMemberDashboard, setAnnualMemberDashboard] = useState(false);
   const [portalLoginAllowed, setPortalLoginAllowed] = useState(true);
@@ -391,6 +392,7 @@ export default function DashboardAccessTab() {
 
   const openEdit = (cl) => {
     setEditing(cl);
+    setClientEmail((cl.email || '').trim());
     setAnnualMemberDashboard(!!cl.annual_member_dashboard);
     setPortalLoginAllowed(cl.portal_login_allowed !== false);
     setPreferredPaymentMethod(cl.preferred_payment_method || '');
@@ -423,6 +425,7 @@ export default function DashboardAccessTab() {
       const wasPending = isPendingIntakeReview(editing);
       const newlyGrantedPortal = editing.portal_login_allowed === false && portalLoginAllowed === true;
       await axios.put(`${API}/clients/${editing.id}`, {
+        email: (clientEmail || '').trim().toLowerCase(),
         annual_member_dashboard: annualMemberDashboard,
         portal_login_allowed: portalLoginAllowed,
         intake_pending: false,
@@ -972,12 +975,7 @@ export default function DashboardAccessTab() {
         <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto" data-testid="dashboard-access-edit-dialog">
           <DialogHeader>
             <DialogTitle>Edit dashboard access</DialogTitle>
-            <DialogDescription>
-              {editing?.name || 'Client'}
-              {editing?.email ? (
-                <span className="block text-xs text-gray-500 mt-1">{editing.email}</span>
-              ) : null}
-            </DialogDescription>
+            <DialogDescription>{editing?.name || 'Client'}</DialogDescription>
           </DialogHeader>
 
           {editing && isPendingIntakeReview(editing) && (
@@ -990,6 +988,21 @@ export default function DashboardAccessTab() {
           )}
 
           <div className="space-y-4 py-2">
+            <div>
+              <Label className="text-xs text-gray-600">Client Garden email</Label>
+              <p className="text-[10px] text-gray-400 mb-1">
+                Google sign-in matches this address. Welcome mail uses it when you enable login below.
+              </p>
+              <Input
+                type="email"
+                value={clientEmail}
+                onChange={(e) => setClientEmail(e.target.value)}
+                className="mt-1"
+                placeholder="name@example.com"
+                data-testid="dashboard-access-client-email"
+              />
+            </div>
+
             <div>
               <Label className="text-xs text-gray-600">Access type (Sacred Home)</Label>
               <p className="text-[10px] text-gray-400 mb-1.5">Turn on for annual-member pricing on the dashboard.</p>
