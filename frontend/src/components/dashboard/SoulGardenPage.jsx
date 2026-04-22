@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
+import { Link } from 'react-router-dom';
 import axios from 'axios';
 import { Check, X, Wifi, Monitor, EyeOff, ChevronLeft, ChevronRight, PenLine, Save } from 'lucide-react';
 import { Button } from '../ui/button';
@@ -234,6 +235,22 @@ const SoulGardenPage = () => {
 
   return (
     <div className="max-w-5xl mx-auto space-y-6" data-testid="soul-garden-page">
+      <div className="flex flex-wrap items-center justify-center gap-2">
+        {[
+          { to: '/dashboard/garden/mandala', label: 'Mandala' },
+          { to: '/dashboard/garden/zen', label: 'Zen space' },
+          { to: '/dashboard/garden/merkaba-weight', label: 'Merkaba · weight release' },
+        ].map((l) => (
+          <Link
+            key={l.to}
+            to={l.to}
+            className="text-[11px] font-medium px-3 py-1.5 rounded-full border border-[#5D3FD3]/20 bg-white/80 text-[#5D3FD3] hover:bg-[#5D3FD3]/10 transition-colors"
+          >
+            {l.label}
+          </Link>
+        ))}
+      </div>
+
       {/* ═══ AWRP — 12 Months (WHITE card on purple bg) ═══ */}
       <div className="bg-white/95 backdrop-blur-sm rounded-3xl shadow-xl border border-white/50 p-6 md:p-8" data-testid="awrp-card">
         <div className="text-center mb-6">
