@@ -29,6 +29,21 @@ const PAYMENT_MODE_MAP = {
   free: { label: 'Free', icon: CreditCard, color: 'text-gray-500 bg-gray-50' },
 };
 
+/** Short labels for dense tables (no horizontal scroll). */
+const PAYMENT_MODE_SHORT = {
+  stripe: 'Card',
+  india_bank: 'Bank',
+  india_exly: 'Exly',
+  manual_proof: 'Proof',
+  free: 'Free',
+};
+
+const ENROLL_TABLE_SCROLL_CLASS =
+  'max-h-[min(72vh,calc(100vh-12.5rem))] overflow-y-auto overflow-x-hidden overscroll-contain';
+
+const ENROLL_TABLE_CARD_CLASS =
+  'rounded-xl border border-gray-200/90 bg-white shadow-sm overflow-hidden w-full min-w-0 max-w-full';
+
 /** Admin analytics: normalize participant attendance for checkout-level summary. */
 function attendanceBucket(mode) {
   const m = String(mode || '').toLowerCase().replace(/-/g, '_');
@@ -438,7 +453,7 @@ const EnrollmentsTab = () => {
   };
 
   return (
-    <div data-testid="enrollments-tab">
+    <div data-testid="enrollments-tab" className="w-full min-w-0 max-w-full">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
         <div className="flex items-center gap-2">
@@ -447,7 +462,7 @@ const EnrollmentsTab = () => {
           <span className="text-xs bg-purple-100 text-purple-700 px-2 py-0.5 rounded-full font-medium">{enrollments.length}</span>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <div className="flex rounded-full border border-gray-200 p-0.5 bg-gray-50">
+          <div className="flex rounded-full border border-gray-200/90 p-0.5 bg-gray-50/90 shadow-sm">
             <button
               type="button"
               onClick={() => setViewMode('summary')}
@@ -496,7 +511,7 @@ const EnrollmentsTab = () => {
         </div>
       </div>
 
-      <div className="mb-6 rounded-lg border border-violet-200 bg-violet-50/40 p-4" data-testid="enrollment-auto-report">
+      <div className="mb-6 rounded-xl border border-violet-200/80 bg-gradient-to-br from-violet-50/90 to-white p-4 shadow-sm" data-testid="enrollment-auto-report">
         <div className="flex items-center gap-2 mb-2">
           <Mail size={16} className="text-violet-700" />
           <h3 className="text-sm font-semibold text-gray-900">Automated enrollment reports</h3>
@@ -671,7 +686,7 @@ const EnrollmentsTab = () => {
       {/* Search + Filters (summary) */}
       {viewMode === 'summary' && (
       <div className="flex flex-wrap items-center gap-3 mb-4">
-        <div className="relative flex-1 max-w-xs">
+        <div className="relative flex-1 min-w-[160px] max-w-md">
           <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
           <Input value={search} onChange={e => setSearch(e.target.value)}
             placeholder="Search name, email, phone, invoice..." className="pl-9 text-xs h-9" />
@@ -715,30 +730,36 @@ const EnrollmentsTab = () => {
       ) : viewMode === 'summary' && filtered.length === 0 ? (
         <div className="text-center py-12 text-gray-400 text-sm">No enrollments found</div>
       ) : viewMode === 'summary' ? (
-        <div className="overflow-x-auto border rounded-lg">
-          <p className="text-[10px] text-gray-500 px-3 py-2 bg-gray-50/80 border-b">
-            Admin analytics: <strong>Amount (INR)</strong> and <strong>Running total (INR)</strong> use stored checkout currency and{' '}
-            <span className="font-mono">/api/currency/exchange-rates</span> when available; otherwise rough fallbacks.
+        <div className={ENROLL_TABLE_CARD_CLASS} data-testid="enrollments-summary-table-wrap">
+          <p className="text-[10px] text-gray-600 px-3 py-2.5 bg-gradient-to-r from-gray-50 to-white border-b border-gray-100 leading-relaxed">
+            <strong className="text-gray-800">INR columns</strong> use checkout currency and exchange rates when available.{' '}
+            <span className="text-gray-500">Scroll the table body; header stays visible.</span>
           </p>
-          <table className="w-full text-xs">
-            <thead className="bg-gray-50 border-b">
-              <tr>
-                <th className="text-left px-3 py-2 font-semibold text-gray-600 w-10">#</th>
-                <th className="text-left px-3 py-2 font-semibold text-gray-600">Invoice #</th>
-                <th className="text-left px-3 py-2 font-semibold text-gray-600">Booker</th>
-                <th className="text-left px-3 py-2 font-semibold text-gray-600">Program</th>
-                <th className="text-left px-3 py-2 font-semibold text-gray-600">Origin</th>
-                <th className="text-left px-3 py-2 font-semibold text-gray-600">Pax</th>
-                <th className="text-left px-3 py-2 font-semibold text-gray-600 whitespace-nowrap">Online / Offline</th>
-                <th className="text-left px-3 py-2 font-semibold text-gray-600">Payment Mode</th>
-                <th className="text-left px-3 py-2 font-semibold text-gray-600">Status</th>
-                <th className="text-left px-3 py-2 font-semibold text-gray-600">Date</th>
-                <th className="text-right px-3 py-2 font-semibold text-gray-600 whitespace-nowrap">Amount (INR)</th>
-                <th className="text-right px-3 py-2 font-semibold text-gray-600 whitespace-nowrap">Running total (INR)</th>
-                <th className="w-8"></th>
-              </tr>
-            </thead>
-            <tbody className="divide-y">
+          <div className={ENROLL_TABLE_SCROLL_CLASS}>
+            <table className="w-full table-fixed border-collapse text-[10px] sm:text-[11px]">
+              <colgroup>
+                {[2, 7, 13, 13, 5, 4, 7, 7, 8, 6, 9, 9, 3].map((pct, i) => (
+                  <col key={i} style={{ width: `${pct}%` }} />
+                ))}
+              </colgroup>
+              <thead className="sticky top-0 z-20 border-b border-gray-200 bg-gray-100/95 shadow-[0_1px_0_0_rgba(0,0,0,0.06)] backdrop-blur-sm">
+                <tr>
+                  <th className="text-left px-1 sm:px-2 py-2 font-semibold text-gray-700">#</th>
+                  <th className="text-left px-1 sm:px-2 py-2 font-semibold text-gray-700 leading-tight">Invoice</th>
+                  <th className="text-left px-1 sm:px-2 py-2 font-semibold text-gray-700 leading-tight">Booker</th>
+                  <th className="text-left px-1 sm:px-2 py-2 font-semibold text-gray-700 leading-tight">Program</th>
+                  <th className="text-left px-1 sm:px-2 py-2 font-semibold text-gray-700">Src</th>
+                  <th className="text-center px-1 sm:px-2 py-2 font-semibold text-gray-700">Pax</th>
+                  <th className="text-left px-1 sm:px-2 py-2 font-semibold text-gray-700 leading-tight">Attend.</th>
+                  <th className="text-left px-1 sm:px-2 py-2 font-semibold text-gray-700 leading-tight">Pay</th>
+                  <th className="text-left px-1 sm:px-2 py-2 font-semibold text-gray-700 leading-tight">Status</th>
+                  <th className="text-left px-1 sm:px-2 py-2 font-semibold text-gray-700">Date</th>
+                  <th className="text-right px-1 sm:px-2 py-2 font-semibold text-gray-700 leading-tight">Amt ₹</th>
+                  <th className="text-right px-1 sm:px-2 py-2 font-semibold text-gray-700 leading-tight">Σ ₹</th>
+                  <th className="w-6 px-0.5 py-2" aria-label="Expand" />
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100">
               {summaryAnalyticsRows.map(({ enrollment: e, serial, amountInr, cumulativeInr, attendanceLabel, sourceCurrency }) => {
                 const s = STATUS_MAP[e.status] || { label: e.status || 'Unknown', color: 'bg-gray-100 text-gray-600' };
                 const mode = getPaymentMode(e);
@@ -747,61 +768,63 @@ const EnrollmentsTab = () => {
                 const isExpanded = expandedId === e.id;
                 const rawAmount = e.payment?.amount ?? e.dashboard_mixed_total ?? e.total ?? 0;
                 const currency = e.payment?.currency || e.dashboard_mixed_currency || e.currency || '';
+                const payShort = mode ? (PAYMENT_MODE_SHORT[mode] || (modeInfo ? modeInfo.label.split(' ')[0] : mode)) : '—';
+                const tc = 'px-1 sm:px-2 py-1.5 align-top min-w-0';
 
                 return (
                   <React.Fragment key={e.id}>
-                    <tr className="hover:bg-gray-50 cursor-pointer" onClick={() => setExpandedId(isExpanded ? null : e.id)}>
-                      <td className="px-3 py-2.5 text-gray-500 tabular-nums font-medium">{serial}</td>
-                      <td className="px-3 py-2.5 font-mono text-purple-700 font-medium text-[10px]">
+                    <tr className="cursor-pointer odd:bg-white even:bg-violet-50/30 hover:bg-amber-50/40 transition-colors" onClick={() => setExpandedId(isExpanded ? null : e.id)}>
+                      <td className={`${tc} text-gray-500 tabular-nums font-medium`}>{serial}</td>
+                      <td className={`${tc} font-mono text-purple-800 font-medium break-all text-[9px] sm:text-[10px]`} title={e.invoice_number || e.id}>
                         {e.invoice_number || e.id?.slice(0, 8) || '-'}
                       </td>
-                      <td className="px-3 py-2.5">
-                        <p className="font-medium text-gray-900">{e.booker_name || '-'}</p>
-                        <p className="text-gray-400 text-[10px]">{e.booker_email || ''}</p>
-                        {e.phone && <p className="text-gray-400 text-[10px]">{e.phone}</p>}
+                      <td className={tc}>
+                        <p className="font-medium text-gray-900 leading-snug line-clamp-2" title={e.booker_name || ''}>{e.booker_name || '-'}</p>
+                        <p className="text-gray-500 text-[9px] truncate" title={e.booker_email || ''}>{e.booker_email || ''}</p>
                       </td>
-                      <td className="px-3 py-2.5">
-                        <p className="text-gray-700">{e.item_title || '-'}</p>
-                        <p className="text-gray-400 capitalize text-[10px]">{e.item_type || ''}</p>
+                      <td className={tc}>
+                        <p className="text-gray-800 leading-snug line-clamp-2" title={e.item_title || ''}>{e.item_title || '-'}</p>
+                        {e.item_type ? <p className="text-gray-400 capitalize text-[9px] truncate">{e.item_type}</p> : null}
                       </td>
-                      <td className="px-3 py-2.5">
-                        <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${e.enrollment_origin === 'dashboard' ? 'bg-amber-50 text-amber-800' : 'bg-slate-100 text-slate-700'}`}>
-                          {e.enrollment_origin === 'dashboard' ? 'Dashboard' : 'Website'}
+                      <td className={tc}>
+                        <span className={`inline-block text-[9px] px-1.5 py-0.5 rounded-md font-medium ${e.enrollment_origin === 'dashboard' ? 'bg-amber-100 text-amber-900' : 'bg-slate-100 text-slate-700'}`}>
+                          {e.enrollment_origin === 'dashboard' ? 'Dash' : 'Web'}
                         </span>
                       </td>
-                      <td className="px-3 py-2.5 text-center">
-                        <span className="font-medium">{e.participant_count || e.participants?.length || 0}</span>
+                      <td className={`${tc} text-center tabular-nums`}>
+                        <span className="font-medium text-gray-900">{e.participant_count || e.participants?.length || 0}</span>
                       </td>
-                      <td className="px-3 py-2.5 text-gray-800 text-[10px] whitespace-nowrap">
-                        {attendanceLabel}
+                      <td className={`${tc} text-gray-800 text-[9px] sm:text-[10px] leading-tight`} title={attendanceLabel}>
+                        <span className="line-clamp-2 break-words">{attendanceLabel}</span>
                       </td>
-                      <td className="px-3 py-2.5">
+                      <td className={tc}>
                         {modeInfo ? (
-                          <span className={`inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full font-medium ${modeInfo.color}`}>
-                            <ModeIcon size={10} /> {modeInfo.label}
+                          <span className={`inline-flex items-center gap-0.5 text-[9px] px-1 py-0.5 rounded-md font-medium max-w-full ${modeInfo.color}`} title={modeInfo.label}>
+                            <ModeIcon size={10} className="shrink-0 opacity-80" />
+                            <span className="truncate min-w-0">{payShort}</span>
                           </span>
-                        ) : <span className="text-gray-400 text-[10px]">—</span>}
+                        ) : <span className="text-gray-400 text-[9px]">—</span>}
                       </td>
-                      <td className="px-3 py-2.5">
-                        <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${s.color}`}>{s.label}</span>
+                      <td className={tc}>
+                        <span className={`inline-block text-[9px] px-1.5 py-0.5 rounded-md font-medium max-w-full truncate ${s.color}`} title={s.label}>{s.label}</span>
                       </td>
-                      <td className="px-3 py-2.5 text-gray-500 text-[10px] whitespace-nowrap">
-                        {e.created_at ? new Date(e.created_at).toLocaleDateString('en-US', { day: 'numeric', month: 'short' }) : '-'}
+                      <td className={`${tc} text-gray-600 tabular-nums text-[9px] sm:text-[10px]`}>
+                        {e.created_at ? new Date(e.created_at).toLocaleDateString('en-IN', { day: '2-digit', month: 'short' }) : '-'}
                       </td>
-                      <td className="px-3 py-2.5 text-right font-medium text-gray-900 tabular-nums whitespace-nowrap">
+                      <td className={`${tc} text-right font-medium text-gray-900 tabular-nums text-[10px] sm:text-[11px]`}>
                         {rawAmount > 0 ? (
                           <span title={sourceCurrency !== 'inr' ? `Stored: ${String(currency || '').toUpperCase()}` : ''}>
                             ₹{amountInr.toLocaleString('en-IN')}
                           </span>
                         ) : (
-                          'FREE'
+                          <span className="text-emerald-700 font-semibold">FREE</span>
                         )}
                       </td>
-                      <td className="px-3 py-2.5 text-right font-semibold text-violet-900 tabular-nums whitespace-nowrap">
+                      <td className={`${tc} text-right font-semibold text-violet-900 tabular-nums text-[10px] sm:text-[11px]`}>
                         ₹{cumulativeInr.toLocaleString('en-IN')}
                       </td>
-                      <td className="px-2">
-                        {isExpanded ? <ChevronUp size={12} className="text-gray-400" /> : <ChevronDown size={12} className="text-gray-400" />}
+                      <td className={`${tc} text-center`}>
+                        {isExpanded ? <ChevronUp size={14} className="text-gray-500 mx-auto" /> : <ChevronDown size={14} className="text-gray-500 mx-auto" />}
                       </td>
                     </tr>
                     {/* Expanded details */}
@@ -812,6 +835,7 @@ const EnrollmentsTab = () => {
                             <div><span className="text-gray-400 block">Enrollment ID</span><span className="font-mono">{e.id}</span></div>
                             <div><span className="text-gray-400 block">Origin</span>{e.enrollment_origin === 'dashboard' ? 'Dashboard' : 'Website'}</div>
                             <div><span className="text-gray-400 block">Country</span>{e.booker_country || '-'}</div>
+                            <div><span className="text-gray-400 block">Booker phone</span>{e.phone || '—'}</div>
                             <div><span className="text-gray-400 block">Stored currency</span>{(currency || '').toUpperCase() || '—'}</div>
                             <div><span className="text-gray-400 block">Amount (analytics INR)</span>₹{amountInr.toLocaleString('en-IN')}</div>
                             <div><span className="text-gray-400 block">Attendance (summary)</span>{attendanceLabel}</div>
@@ -849,6 +873,7 @@ const EnrollmentsTab = () => {
               })}
             </tbody>
           </table>
+          </div>
         </div>
       ) : null}
 
@@ -859,91 +884,102 @@ const EnrollmentsTab = () => {
         ) : filteredParticipants.length === 0 ? (
           <div className="text-center py-12 text-gray-400 text-sm">No rows match this filter.</div>
         ) : (
-          <div className="overflow-x-auto border rounded-lg" data-testid="enrollments-participant-table">
-            <table className="w-full text-xs min-w-[1600px]">
-              <thead className="bg-gray-50 border-b">
-                <tr>
-                  <th className="text-left px-3 py-2 font-semibold text-gray-600 whitespace-nowrap">#</th>
-                  <th className="text-left px-3 py-2 font-semibold text-gray-600 whitespace-nowrap">Participant</th>
-                  <th className="text-left px-3 py-2 font-semibold text-gray-600 whitespace-nowrap">Relation</th>
-                  <th className="text-left px-3 py-2 font-semibold text-gray-600 whitespace-nowrap">Age</th>
-                  <th className="text-left px-3 py-2 font-semibold text-gray-600 whitespace-nowrap">Gender</th>
-                  <th className="text-left px-3 py-2 font-semibold text-gray-600 whitespace-nowrap">Country</th>
-                  <th className="text-left px-3 py-2 font-semibold text-gray-600 whitespace-nowrap">City</th>
-                  <th className="text-left px-3 py-2 font-semibold text-gray-600 whitespace-nowrap">State</th>
-                  <th className="text-left px-3 py-2 font-semibold text-gray-600 whitespace-nowrap">Mode</th>
-                  <th className="text-left px-3 py-2 font-semibold text-gray-600 whitespace-nowrap">Notify</th>
-                  <th className="text-left px-3 py-2 font-semibold text-gray-600 whitespace-nowrap">Email</th>
-                  <th className="text-left px-3 py-2 font-semibold text-gray-600 whitespace-nowrap">Phone</th>
-                  <th className="text-left px-3 py-2 font-semibold text-gray-600 whitespace-nowrap">WhatsApp</th>
-                  <th className="text-left px-3 py-2 font-semibold text-gray-600 whitespace-nowrap">1st time</th>
-                  <th className="text-left px-3 py-2 font-semibold text-gray-600 whitespace-nowrap">Referral</th>
-                  <th className="text-left px-3 py-2 font-semibold text-gray-600 whitespace-nowrap">Referred by</th>
-                  <th className="text-left px-3 py-2 font-semibold text-gray-600 whitespace-nowrap">Amount</th>
-                  <th className="text-left px-3 py-2 font-semibold text-gray-600 whitespace-nowrap">Cur</th>
-                  <th className="text-left px-3 py-2 font-semibold text-gray-600 whitespace-nowrap">Program</th>
-                  <th className="text-left px-3 py-2 font-semibold text-gray-600 whitespace-nowrap">Booker</th>
-                  <th className="text-left px-3 py-2 font-semibold text-gray-600 whitespace-nowrap">Invoice</th>
-                  <th className="text-left px-3 py-2 font-semibold text-gray-600 whitespace-nowrap">Origin</th>
-                  <th className="text-left px-3 py-2 font-semibold text-gray-600 whitespace-nowrap">Status</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y">
-                {filteredParticipants.map((row) => {
-                  const cur = (row.payment_currency || '').toLowerCase();
-                  const symbols = { inr: '\u20B9', aed: 'AED ', usd: '$' };
-                  const sym = symbols[cur] || (cur ? `${cur.toUpperCase()} ` : '');
-                  const amt = row.payment_amount;
-                  const pTotal = Number(row.participant_total);
-                  const pIdx = Number(row.participant_index);
-                  let slot = '—';
-                  if (Number.isFinite(pTotal) && pTotal > 1 && Number.isFinite(pIdx) && pIdx > 0) {
-                    slot = `${pIdx} / ${pTotal}`;
-                  } else if (Number.isFinite(pIdx) && pIdx > 0) {
-                    slot = String(pIdx);
-                  }
-                  return (
-                    <tr
-                      key={`${row.enrollment_id}-${row.participant_index ?? row.participant_name}-${row.participant_email}`}
-                      className="hover:bg-gray-50"
-                    >
-                      <td className="px-3 py-2 text-gray-500 tabular-nums whitespace-nowrap">{slot}</td>
-                      <td className="px-3 py-2 font-medium text-gray-900 whitespace-nowrap">{row.participant_name || '—'}</td>
-                      <td className="px-3 py-2 text-gray-700 max-w-[100px] truncate" title={row.relationship}>{row.relationship || '—'}</td>
-                      <td className="px-3 py-2 text-gray-700">{row.age !== '' && row.age != null ? row.age : '—'}</td>
-                      <td className="px-3 py-2 text-gray-700 max-w-[90px] truncate" title={row.gender}>{row.gender || '—'}</td>
-                      <td className="px-3 py-2 text-gray-700">{row.country || '—'}</td>
-                      <td className="px-3 py-2 text-gray-700 max-w-[100px] truncate" title={row.city}>{row.city || '—'}</td>
-                      <td className="px-3 py-2 text-gray-700 max-w-[100px] truncate" title={row.state}>{row.state || '—'}</td>
-                      <td className="px-3 py-2 text-gray-700 whitespace-nowrap">{row.attendance_mode || '—'}</td>
-                      <td className="px-3 py-2 text-gray-800 whitespace-nowrap">{row.notify_enrollment || '—'}</td>
-                      <td className="px-3 py-2 text-gray-600 max-w-[140px] truncate text-[10px]" title={row.participant_email}>{row.participant_email || '—'}</td>
-                      <td className="px-3 py-2 text-gray-600 font-mono text-[10px] whitespace-nowrap">{row.phone || '—'}</td>
-                      <td className="px-3 py-2 text-gray-600 font-mono text-[10px] whitespace-nowrap">{row.whatsapp || '—'}</td>
-                      <td className="px-3 py-2 text-gray-700">{row.is_first_time || '—'}</td>
-                      <td className="px-3 py-2 text-gray-600 max-w-[120px] truncate text-[10px]" title={row.referral_source}>{row.referral_source || '—'}</td>
-                      <td className="px-3 py-2 text-gray-600 max-w-[120px] truncate text-[10px]" title={row.referred_by_name}>{row.referred_by_name || '—'}</td>
-                      <td className="px-3 py-2 font-medium text-gray-900 whitespace-nowrap">
-                        {amt > 0 ? `${sym}${Number(amt).toLocaleString()}` : '0'}
-                      </td>
-                      <td className="px-3 py-2 uppercase text-gray-600">{cur || '—'}</td>
-                      <td className="px-3 py-2 text-gray-700 max-w-[140px] truncate" title={row.program}>{row.program || '—'}</td>
-                      <td className="px-3 py-2 text-gray-600 max-w-[120px]">
-                        <span className="block truncate" title={row.booker_name}>{row.booker_name || '—'}</span>
-                        <span className="block text-[10px] text-gray-400 truncate">{row.booker_phone || ''}</span>
-                      </td>
-                      <td className="px-3 py-2 font-mono text-[10px] text-purple-700 whitespace-nowrap">{row.invoice_number || row.enrollment_id?.slice(0, 10) || '—'}</td>
-                      <td className="px-3 py-2">
-                        <span className={`text-[10px] px-2 py-0.5 rounded-full ${row.enrollment_origin === 'dashboard' ? 'bg-amber-50 text-amber-800' : 'bg-slate-100 text-slate-700'}`}>
-                          {row.enrollment_origin === 'dashboard' ? 'Dashboard' : 'Website'}
-                        </span>
-                      </td>
-                      <td className="px-3 py-2 text-[10px] text-gray-600 whitespace-nowrap">{row.enrollment_status || row.payment_status || '—'}</td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
+          <div className={ENROLL_TABLE_CARD_CLASS} data-testid="enrollments-participant-table">
+            <p className="text-[10px] text-gray-600 px-3 py-2 bg-gray-50/80 border-b border-gray-100">
+              One row per person. Wide layout fits the pane; use row hover and titles on truncated cells for full text.
+            </p>
+            <div className={ENROLL_TABLE_SCROLL_CLASS}>
+              <table className="w-full table-fixed border-collapse text-[9px] sm:text-[10px]">
+                <colgroup>
+                  {Array.from({ length: 23 }).map((_, i) => (
+                    <col key={i} style={{ width: `${100 / 23}%` }} />
+                  ))}
+                </colgroup>
+                <thead className="sticky top-0 z-20 border-b border-gray-200 bg-gray-100/95 shadow-[0_1px_0_0_rgba(0,0,0,0.06)] backdrop-blur-sm">
+                  <tr>
+                    <th className="text-left px-1 sm:px-1.5 py-2 font-semibold text-gray-700">#</th>
+                    <th className="text-left px-1 sm:px-1.5 py-2 font-semibold text-gray-700 leading-tight">Name</th>
+                    <th className="text-left px-1 sm:px-1.5 py-2 font-semibold text-gray-700">Rel.</th>
+                    <th className="text-left px-1 sm:px-1.5 py-2 font-semibold text-gray-700">Age</th>
+                    <th className="text-left px-1 sm:px-1.5 py-2 font-semibold text-gray-700">Gen.</th>
+                    <th className="text-left px-1 sm:px-1.5 py-2 font-semibold text-gray-700">Ctry</th>
+                    <th className="text-left px-1 sm:px-1.5 py-2 font-semibold text-gray-700">City</th>
+                    <th className="text-left px-1 sm:px-1.5 py-2 font-semibold text-gray-700">St</th>
+                    <th className="text-left px-1 sm:px-1.5 py-2 font-semibold text-gray-700">Mode</th>
+                    <th className="text-left px-1 sm:px-1.5 py-2 font-semibold text-gray-700">Ntf</th>
+                    <th className="text-left px-1 sm:px-1.5 py-2 font-semibold text-gray-700">Email</th>
+                    <th className="text-left px-1 sm:px-1.5 py-2 font-semibold text-gray-700">Ph</th>
+                    <th className="text-left px-1 sm:px-1.5 py-2 font-semibold text-gray-700 leading-tight">WA</th>
+                    <th className="text-left px-1 sm:px-1.5 py-2 font-semibold text-gray-700">1st</th>
+                    <th className="text-left px-1 sm:px-1.5 py-2 font-semibold text-gray-700">Ref</th>
+                    <th className="text-left px-1 sm:px-1.5 py-2 font-semibold text-gray-700 leading-tight">By</th>
+                    <th className="text-left px-1 sm:px-1.5 py-2 font-semibold text-gray-700">Amt</th>
+                    <th className="text-left px-1 sm:px-1.5 py-2 font-semibold text-gray-700">Cur</th>
+                    <th className="text-left px-1 sm:px-1.5 py-2 font-semibold text-gray-700">Prog</th>
+                    <th className="text-left px-1 sm:px-1.5 py-2 font-semibold text-gray-700">Booker</th>
+                    <th className="text-left px-1 sm:px-1.5 py-2 font-semibold text-gray-700">Inv</th>
+                    <th className="text-left px-1 sm:px-1.5 py-2 font-semibold text-gray-700">Orig</th>
+                    <th className="text-left px-1 sm:px-1.5 py-2 font-semibold text-gray-700">Stat</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-100">
+                  {filteredParticipants.map((row) => {
+                    const cur = (row.payment_currency || '').toLowerCase();
+                    const symbols = { inr: '\u20B9', aed: 'AED ', usd: '$' };
+                    const sym = symbols[cur] || (cur ? `${cur.toUpperCase()} ` : '');
+                    const amt = row.payment_amount;
+                    const pTotal = Number(row.participant_total);
+                    const pIdx = Number(row.participant_index);
+                    let slot = '—';
+                    if (Number.isFinite(pTotal) && pTotal > 1 && Number.isFinite(pIdx) && pIdx > 0) {
+                      slot = `${pIdx}/${pTotal}`;
+                    } else if (Number.isFinite(pIdx) && pIdx > 0) {
+                      slot = String(pIdx);
+                    }
+                    const pc = 'px-1 sm:px-1.5 py-1.5 align-top min-w-0 break-words';
+                    return (
+                      <tr
+                        key={`${row.enrollment_id}-${row.participant_index ?? row.participant_name}-${row.participant_email}`}
+                        className="odd:bg-white even:bg-violet-50/25 hover:bg-amber-50/35 transition-colors"
+                      >
+                        <td className={`${pc} text-gray-500 tabular-nums`}>{slot}</td>
+                        <td className={`${pc} font-medium text-gray-900`} title={row.participant_name || ''}>{row.participant_name || '—'}</td>
+                        <td className={`${pc} text-gray-700`} title={row.relationship}>{row.relationship || '—'}</td>
+                        <td className={`${pc} text-gray-700 tabular-nums`}>{row.age !== '' && row.age != null ? row.age : '—'}</td>
+                        <td className={`${pc} text-gray-700`} title={row.gender}>{row.gender || '—'}</td>
+                        <td className={`${pc} text-gray-700`} title={row.country}>{row.country || '—'}</td>
+                        <td className={`${pc} text-gray-700`} title={row.city}>{row.city || '—'}</td>
+                        <td className={`${pc} text-gray-700`} title={row.state}>{row.state || '—'}</td>
+                        <td className={`${pc} text-gray-700`} title={row.attendance_mode}>{row.attendance_mode || '—'}</td>
+                        <td className={`${pc} text-gray-800`}>{row.notify_enrollment || '—'}</td>
+                        <td className={`${pc} text-gray-600`} title={row.participant_email}>{row.participant_email || '—'}</td>
+                        <td className={`${pc} text-gray-600 font-mono`} title={row.phone}>{row.phone || '—'}</td>
+                        <td className={`${pc} text-gray-600 font-mono`} title={row.whatsapp}>{row.whatsapp || '—'}</td>
+                        <td className={`${pc} text-gray-700`}>{row.is_first_time || '—'}</td>
+                        <td className={`${pc} text-gray-600`} title={row.referral_source}>{row.referral_source || '—'}</td>
+                        <td className={`${pc} text-gray-600`} title={row.referred_by_name}>{row.referred_by_name || '—'}</td>
+                        <td className={`${pc} font-medium text-gray-900 tabular-nums`}>
+                          {amt > 0 ? `${sym}${Number(amt).toLocaleString()}` : '0'}
+                        </td>
+                        <td className={`${pc} uppercase text-gray-600`}>{cur || '—'}</td>
+                        <td className={`${pc} text-gray-700`} title={row.program}>{row.program || '—'}</td>
+                        <td className={`${pc} text-gray-600`}>
+                          <span className="block" title={row.booker_name}>{row.booker_name || '—'}</span>
+                          <span className="block text-gray-400" title={row.booker_phone || ''}>{row.booker_phone || ''}</span>
+                        </td>
+                        <td className={`${pc} font-mono text-purple-800 break-all`} title={row.invoice_number || ''}>{row.invoice_number || row.enrollment_id?.slice(0, 10) || '—'}</td>
+                        <td className={pc}>
+                          <span className={`inline-block text-[9px] px-1 py-0.5 rounded-md font-medium ${row.enrollment_origin === 'dashboard' ? 'bg-amber-100 text-amber-900' : 'bg-slate-100 text-slate-700'}`}>
+                            {row.enrollment_origin === 'dashboard' ? 'Dash' : 'Web'}
+                          </span>
+                        </td>
+                        <td className={`${pc} text-gray-700`} title={row.enrollment_status || row.payment_status}>{row.enrollment_status || row.payment_status || '—'}</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
           </div>
         )
       )}
@@ -958,92 +994,93 @@ const EnrollmentsTab = () => {
         ) : programBatchAnalyticsRows.length === 0 ? (
           <div className="text-center py-12 text-gray-400 text-sm">No rows for this program and filter.</div>
         ) : (
-          <div className="overflow-x-auto border rounded-lg" data-testid="enrollments-program-batch-table">
-            <p className="text-[10px] text-gray-500 px-3 py-2 bg-gray-50/80 border-b">
-              Rows sorted by enrollment <strong>created</strong> time (oldest first).{' '}
-              <strong>Running total (INR)</strong> increases only on participant seat 1 of each checkout so it matches total money in for this program.
+          <div className={ENROLL_TABLE_CARD_CLASS} data-testid="enrollments-program-batch-table">
+            <p className="text-[10px] text-gray-600 px-3 py-2.5 bg-gray-50/80 border-b border-gray-100 leading-relaxed">
+              Sorted by enrollment <strong>created</strong> (oldest first). <strong>Σ INR</strong> counts each checkout once (seat 1). Scroll inside the pane; header stays put.
             </p>
-            <table className="w-full text-xs min-w-[1000px]">
-              <thead className="bg-gray-50 border-b">
-                <tr>
-                  <th className="text-left px-3 py-2 font-semibold text-gray-600 w-10">#</th>
-                  <th className="text-left px-3 py-2 font-semibold text-gray-600 whitespace-nowrap">Seat</th>
-                  <th className="text-left px-3 py-2 font-semibold text-gray-600">Name</th>
-                  <th className="text-left px-3 py-2 font-semibold text-gray-600">Age</th>
-                  <th className="text-left px-3 py-2 font-semibold text-gray-600">Gender</th>
-                  <th className="text-left px-3 py-2 font-semibold text-gray-600">City</th>
-                  <th className="text-left px-3 py-2 font-semibold text-gray-600">Country</th>
-                  <th className="text-left px-3 py-2 font-semibold text-gray-600">Mode</th>
-                  <th className="text-left px-3 py-2 font-semibold text-gray-600">Origin</th>
-                  <th className="text-left px-3 py-2 font-semibold text-gray-600">Status</th>
-                  <th className="text-right px-3 py-2 font-semibold text-gray-600 whitespace-nowrap">Amount</th>
-                  <th className="text-right px-3 py-2 font-semibold text-gray-600 whitespace-nowrap">Amt (INR)</th>
-                  <th className="text-right px-3 py-2 font-semibold text-gray-600 whitespace-nowrap">Running Σ (INR)</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y">
-                {programBatchAnalyticsRows.map(({ row, serial, amountInr, cumulativeInr, countsForRunning, sourceCurrency }) => {
-                  const cur = (row.payment_currency || '').toLowerCase();
-                  const symbols = { inr: '\u20B9', aed: 'AED ', usd: '$' };
-                  const sym = symbols[cur] || (cur ? `${cur.toUpperCase()} ` : '');
-                  const amt = row.payment_amount;
-                  const pTotal = Number(row.participant_total);
-                  const pIdx = Number(row.participant_index);
-                  let seat = '—';
-                  if (Number.isFinite(pTotal) && pTotal > 1 && Number.isFinite(pIdx) && pIdx > 0) {
-                    seat = `${pIdx} / ${pTotal}`;
-                  } else if (Number.isFinite(pIdx) && pIdx > 0) {
-                    seat = String(pIdx);
-                  }
-                  const st = (row.enrollment_status || row.payment_status || '—').toLowerCase();
-                  const stInfo = STATUS_MAP[st] || { label: row.enrollment_status || row.payment_status || '—', color: 'bg-gray-100 text-gray-600' };
-                  return (
-                    <tr
-                      key={`${row.enrollment_id}-${row.participant_index ?? row.participant_name}-${row.participant_email}-${serial}`}
-                      className={`hover:bg-gray-50 ${countsForRunning ? '' : 'bg-gray-50/40'}`}
-                    >
-                      <td className="px-3 py-2 text-gray-500 tabular-nums">{serial}</td>
-                      <td className="px-3 py-2 text-gray-500 tabular-nums whitespace-nowrap text-[10px]" title={countsForRunning ? 'Counts toward running total' : 'Same checkout; running total unchanged'}>
-                        {seat}
-                      </td>
-                      <td className="px-3 py-2 font-medium text-gray-900 max-w-[140px]">
-                        <span className="block truncate" title={row.participant_name}>{row.participant_name || '—'}</span>
-                      </td>
-                      <td className="px-3 py-2 text-gray-700">{row.age !== '' && row.age != null ? row.age : '—'}</td>
-                      <td className="px-3 py-2 text-gray-700 max-w-[72px] truncate" title={row.gender}>{row.gender || '—'}</td>
-                      <td className="px-3 py-2 text-gray-700 max-w-[100px] truncate" title={row.city}>{row.city || '—'}</td>
-                      <td className="px-3 py-2 text-gray-700 max-w-[90px] truncate" title={row.country}>{row.country || '—'}</td>
-                      <td className="px-3 py-2 text-gray-700 whitespace-nowrap text-[10px]">
-                        {participantAttendanceLabel(row.attendance_mode)}
-                      </td>
-                      <td className="px-3 py-2">
-                        <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${row.enrollment_origin === 'dashboard' ? 'bg-amber-50 text-amber-800' : 'bg-slate-100 text-slate-700'}`}>
-                          {originLabel(row.enrollment_origin)}
-                        </span>
-                      </td>
-                      <td className="px-3 py-2">
-                        <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${stInfo.color}`}>{stInfo.label}</span>
-                      </td>
-                      <td className="px-3 py-2 text-right font-medium text-gray-900 tabular-nums whitespace-nowrap">
-                        {amt > 0 ? (
-                          <span title={sourceCurrency !== 'inr' ? `Stored: ${String(row.payment_currency || '').toUpperCase()}` : ''}>
-                            {sym}{Number(amt).toLocaleString()}
+            <div className={ENROLL_TABLE_SCROLL_CLASS}>
+              <table className="w-full table-fixed border-collapse text-[10px] sm:text-[11px]">
+                <colgroup>
+                  {[3, 5, 14, 4, 5, 9, 9, 7, 6, 9, 7, 8, 9].map((pct, i) => (
+                    <col key={i} style={{ width: `${pct}%` }} />
+                  ))}
+                </colgroup>
+                <thead className="sticky top-0 z-20 border-b border-gray-200 bg-gray-100/95 shadow-[0_1px_0_0_rgba(0,0,0,0.06)] backdrop-blur-sm">
+                  <tr>
+                    <th className="text-left px-1 sm:px-2 py-2 font-semibold text-gray-700">#</th>
+                    <th className="text-left px-1 sm:px-2 py-2 font-semibold text-gray-700">Seat</th>
+                    <th className="text-left px-1 sm:px-2 py-2 font-semibold text-gray-700 leading-tight">Name</th>
+                    <th className="text-left px-1 sm:px-2 py-2 font-semibold text-gray-700">Age</th>
+                    <th className="text-left px-1 sm:px-2 py-2 font-semibold text-gray-700">Gen.</th>
+                    <th className="text-left px-1 sm:px-2 py-2 font-semibold text-gray-700">City</th>
+                    <th className="text-left px-1 sm:px-2 py-2 font-semibold text-gray-700">Ctry</th>
+                    <th className="text-left px-1 sm:px-2 py-2 font-semibold text-gray-700">Mode</th>
+                    <th className="text-left px-1 sm:px-2 py-2 font-semibold text-gray-700">Src</th>
+                    <th className="text-left px-1 sm:px-2 py-2 font-semibold text-gray-700 leading-tight">Status</th>
+                    <th className="text-right px-1 sm:px-2 py-2 font-semibold text-gray-700 leading-tight">Amt</th>
+                    <th className="text-right px-1 sm:px-2 py-2 font-semibold text-gray-700 leading-tight">INR</th>
+                    <th className="text-right px-1 sm:px-2 py-2 font-semibold text-gray-700 leading-tight">Σ INR</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-100">
+                  {programBatchAnalyticsRows.map(({ row, serial, amountInr, cumulativeInr, countsForRunning, sourceCurrency }) => {
+                    const cur = (row.payment_currency || '').toLowerCase();
+                    const symbols = { inr: '\u20B9', aed: 'AED ', usd: '$' };
+                    const sym = symbols[cur] || (cur ? `${cur.toUpperCase()} ` : '');
+                    const amt = row.payment_amount;
+                    const pTotal = Number(row.participant_total);
+                    const pIdx = Number(row.participant_index);
+                    let seat = '—';
+                    if (Number.isFinite(pTotal) && pTotal > 1 && Number.isFinite(pIdx) && pIdx > 0) {
+                      seat = `${pIdx}/${pTotal}`;
+                    } else if (Number.isFinite(pIdx) && pIdx > 0) {
+                      seat = String(pIdx);
+                    }
+                    const st = (row.enrollment_status || row.payment_status || '—').toLowerCase();
+                    const stInfo = STATUS_MAP[st] || { label: row.enrollment_status || row.payment_status || '—', color: 'bg-gray-100 text-gray-600' };
+                    const bc = 'px-1 sm:px-2 py-1.5 align-top min-w-0';
+                    return (
+                      <tr
+                        key={`${row.enrollment_id}-${row.participant_index ?? row.participant_name}-${row.participant_email}-${serial}`}
+                        className={`odd:bg-white even:bg-violet-50/25 hover:bg-amber-50/35 transition-colors ${countsForRunning ? '' : 'opacity-[0.92]'}`}
+                      >
+                        <td className={`${bc} text-gray-500 tabular-nums`}>{serial}</td>
+                        <td className={`${bc} text-gray-500 tabular-nums text-[9px]`} title={countsForRunning ? 'Counts toward Σ' : 'Same checkout'}>
+                          {seat}
+                        </td>
+                        <td className={`${bc} font-medium text-gray-900`} title={row.participant_name || ''}>{row.participant_name || '—'}</td>
+                        <td className={`${bc} text-gray-700 tabular-nums`}>{row.age !== '' && row.age != null ? row.age : '—'}</td>
+                        <td className={`${bc} text-gray-700`} title={row.gender}>{row.gender || '—'}</td>
+                        <td className={`${bc} text-gray-700`} title={row.city}>{row.city || '—'}</td>
+                        <td className={`${bc} text-gray-700`} title={row.country}>{row.country || '—'}</td>
+                        <td className={`${bc} text-gray-700 text-[9px] sm:text-[10px]`} title={participantAttendanceLabel(row.attendance_mode)}>
+                          {participantAttendanceLabel(row.attendance_mode)}
+                        </td>
+                        <td className={bc}>
+                          <span className={`inline-block text-[9px] px-1 py-0.5 rounded-md font-medium ${row.enrollment_origin === 'dashboard' ? 'bg-amber-100 text-amber-900' : 'bg-slate-100 text-slate-700'}`}>
+                            {row.enrollment_origin === 'dashboard' ? 'Dash' : 'Web'}
                           </span>
-                        ) : (
-                          '0'
-                        )}
-                      </td>
-                      <td className="px-3 py-2 text-right tabular-nums whitespace-nowrap text-gray-800">
-                        ₹{amountInr.toLocaleString('en-IN')}
-                      </td>
-                      <td className="px-3 py-2 text-right font-semibold text-violet-900 tabular-nums whitespace-nowrap">
-                        ₹{cumulativeInr.toLocaleString('en-IN')}
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
+                        </td>
+                        <td className={bc}>
+                          <span className={`inline-block text-[9px] px-1 py-0.5 rounded-md font-medium max-w-full truncate ${stInfo.color}`} title={stInfo.label}>{stInfo.label}</span>
+                        </td>
+                        <td className={`${bc} text-right font-medium text-gray-900 tabular-nums text-[10px] sm:text-[11px]`}>
+                          {amt > 0 ? (
+                            <span title={sourceCurrency !== 'inr' ? `Stored: ${String(row.payment_currency || '').toUpperCase()}` : ''}>
+                              {sym}{Number(amt).toLocaleString()}
+                            </span>
+                          ) : (
+                            '0'
+                          )}
+                        </td>
+                        <td className={`${bc} text-right tabular-nums text-gray-800`}>₹{amountInr.toLocaleString('en-IN')}</td>
+                        <td className={`${bc} text-right font-semibold text-violet-900 tabular-nums`}>₹{cumulativeInr.toLocaleString('en-IN')}</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
           </div>
         )
       )}

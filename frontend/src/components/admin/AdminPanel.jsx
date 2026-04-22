@@ -479,7 +479,13 @@ const AdminPanel = () => {
           </div>
         </div>
 
-        <main className={`flex-1 p-6 min-w-0 ${activeTab === 'dashboard_access' ? 'max-w-none w-full' : 'max-w-5xl'}`}>
+        <main
+          className={`flex-1 min-w-0 ${
+            activeTab === 'dashboard_access' || activeTab === 'enrollments'
+              ? 'max-w-none w-full p-4 sm:p-6'
+              : 'max-w-5xl p-6'
+          }`}
+        >
           {/* Settings-based tabs with save button */}
           {activeTab === 'hero' && siteSettings && (
             <div>
