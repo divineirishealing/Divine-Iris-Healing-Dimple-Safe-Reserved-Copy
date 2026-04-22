@@ -1114,7 +1114,7 @@ async def get_client_tax_for_enrollment(enrollment_id: str):
 
     return {
         "india_payment_method": client_doc.get("india_payment_method") or None,
-        "india_discount_percent": client_doc.get("india_discount_percent"),  # None = use site default
+        "india_discount_percent": client_doc.get("india_discount_percent"),  # None = 0% (no client-specific discount)
         "india_discount_member_bands": client_doc.get("india_discount_member_bands") or None,
         "participant_count": participant_count,
         "india_tax_enabled": bool(client_doc.get("india_tax_enabled")),

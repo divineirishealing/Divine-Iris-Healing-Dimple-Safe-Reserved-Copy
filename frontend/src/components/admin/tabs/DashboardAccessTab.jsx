@@ -72,6 +72,8 @@ function discountSummary(cl) {
   if (d !== null && d !== undefined && d !== '') {
     const n = Number(d);
     if (!Number.isNaN(n)) parts.push(`${n}% fallback`);
+  } else if (!hasBands) {
+    parts.push('0%');
   }
   if (!parts.length) return '—';
   return parts.join(' · ');

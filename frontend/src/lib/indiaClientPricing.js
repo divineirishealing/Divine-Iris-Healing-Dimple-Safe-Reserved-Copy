@@ -7,14 +7,16 @@ export function parseIndiaSitePercent(settingsResponse, key, fallback) {
 }
 
 /**
- * Resolved India discount rule before GST (member bands, flat client %, or site alt %).
+ * Resolved India discount rule before GST (member bands, then flat client %).
  * Band rules are exclusive: first matching [min,max] wins; use either % or fixed INR on that band.
+ * When the client has no band match and no `india_discount_percent`, the effective discount is **0%**.
+ * (Site “alt payment” % is not applied here — empty CRM discount means no extra India discount.)
  *
  * @param {object|null} clientPricing
  * @param {number} memberCount
- * @param {number} siteAltPercent
+ * @param {number} [_siteAltPercent] ignored; kept for call-site compatibility
  */
-export function resolveIndiaDiscountRule(clientPricing, memberCount, siteAltPercent) {
+export function resolveIndiaDiscountRule(clientPricing, memberCount, _siteAltPercent) {
   const cp = clientPricing || {};
   const bands = cp.india_discount_member_bands;
   const n = Math.max(0, Math.floor(Number(memberCount)));
@@ -62,8 +64,8 @@ export function resolveIndiaDiscountRule(clientPricing, memberCount, siteAltPerc
     fromBand: false,
     mode: 'percent',
     amountInr: 0,
-    percent: Number(siteAltPercent) || 0,
-    label: 'Alt. payment discount',
+    percent: 0,
+    label: 'No client discount',
   };
 }
 
@@ -116,7 +118,7 @@ export function applyIndiaDiscountRuleToBase(base, rule) {
  * India manual / UPI checkout math — aligned with IndiaPaymentPage (discount on net after cart promos, then GST + platform on taxable base).
  * @param {number} effectiveBase - Amount after cart subtotal minus promo and automatic cart discounts (INR).
  * @param {object|null} clientPricing - From GET /api/student/home `client_india_pricing`.
- * @param {object} settings - Site settings: india_alt_discount_percent, india_gst_percent, india_platform_charge_percent.
+ * @param {object} settings - Site settings: india_gst_percent, india_platform_charge_percent.
  * @param {number} [memberCount] - Total participants; when set, applies `india_discount_member_bands` if configured.
  * @returns {object|null} null if effectiveBase <= 0
  */
@@ -126,7 +128,6 @@ export function computeIndiaCheckoutBreakdown(effectiveBase, clientPricing, sett
 
   const s = settings || {};
   const platformPctN = parseIndiaSitePercent(s, 'india_platform_charge_percent', 3);
-  const altDiscN = parseIndiaSitePercent(s, 'india_alt_discount_percent', 9);
   const siteGstN = parseIndiaSitePercent(s, 'india_gst_percent', 18);
 
   const cp = clientPricing || {};
@@ -135,7 +136,7 @@ export function computeIndiaCheckoutBreakdown(effectiveBase, clientPricing, sett
 
   let rule;
   if (Number.isFinite(mcRaw)) {
-    rule = resolveIndiaDiscountRule(cp, mcRaw, altDiscN);
+    rule = resolveIndiaDiscountRule(cp, mcRaw, 0);
   } else {
     const rawDisc = cp.india_discount_percent;
     const hasClientDiscount = rawDisc != null && rawDisc !== '';
@@ -151,8 +152,8 @@ export function computeIndiaCheckoutBreakdown(effectiveBase, clientPricing, sett
           fromBand: false,
           mode: 'percent',
           amountInr: 0,
-          percent: Number(altDiscN) || 0,
-          label: 'Alt. payment discount',
+          percent: 0,
+          label: 'No client discount',
         };
   }
 
