@@ -2,10 +2,19 @@ import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import axios from 'axios';
 import { RefreshCw, Loader2, LayoutList, Users } from 'lucide-react';
 import { Button } from '../../ui/button';
+import { useSpreadsheetColumnVisibility, SpreadsheetColumnPicker } from '../SpreadsheetColumnPicker';
 import { getApiUrl } from '../../../lib/config';
 import { useToast } from '../../../hooks/use-toast';
 
 const API = getApiUrl();
+
+const ANNUAL_PORTAL_FLAT_COLS = [
+  { id: 'name', label: 'Name', required: true },
+  { id: 'email', label: 'Email' },
+  { id: 'household', label: 'Household' },
+  { id: 'primary', label: 'Primary' },
+];
+const ANNUAL_PORTAL_FLAT_KEY = 'admin-annual-portal-flat-v1';
 
 function sortMembers(a, b) {
   const ap = a.is_primary_household_contact ? 0 : 1;
@@ -26,6 +35,14 @@ export default function AnnualPortalClientsTab() {
   const [loading, setLoading] = useState(true);
   /** 'flat' = one row per person; 'household' = clubbed by household_key */
   const [viewMode, setViewMode] = useState('flat');
+
+  const {
+    visibility: flatColVis,
+    setColumn: setFlatColVis,
+    reset: resetFlatCols,
+    isVisible: flatColVisible,
+    visibleCount: flatVisibleCount,
+  } = useSpreadsheetColumnVisibility(ANNUAL_PORTAL_FLAT_KEY, ANNUAL_PORTAL_FLAT_COLS);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -96,7 +113,7 @@ export default function AnnualPortalClientsTab() {
     return list;
   }, [rows]);
 
-  const colSpanFlat = 4;
+  const colSpanFlat = Math.max(flatVisibleCount, 1);
 
   return (
     <div className="max-w-5xl">
@@ -161,6 +178,14 @@ export default function AnnualPortalClientsTab() {
           <Users className="h-3.5 w-3.5" />
           By household (clubbed counts)
         </button>
+        {viewMode === 'flat' && (
+          <SpreadsheetColumnPicker
+            columns={ANNUAL_PORTAL_FLAT_COLS}
+            visibility={flatColVis}
+            onToggle={setFlatColVis}
+            onReset={resetFlatCols}
+          />
+        )}
       </div>
 
       <div className="rounded-lg border border-gray-200 bg-white overflow-hidden">
@@ -168,10 +193,10 @@ export default function AnnualPortalClientsTab() {
           <table className="w-full text-sm">
             <thead>
               <tr className="bg-gray-50 border-b border-gray-200 text-left text-xs font-medium text-gray-600 uppercase tracking-wide">
-                <th className="px-4 py-3">Name</th>
-                <th className="px-4 py-3">Email</th>
-                <th className="px-4 py-3">Household</th>
-                <th className="px-4 py-3 w-24 text-center">Primary</th>
+                {flatColVisible('name') && <th className="px-4 py-3">Name</th>}
+                {flatColVisible('email') && <th className="px-4 py-3">Email</th>}
+                {flatColVisible('household') && <th className="px-4 py-3">Household</th>}
+                {flatColVisible('primary') && <th className="px-4 py-3 w-24 text-center">Primary</th>}
               </tr>
             </thead>
             <tbody>
@@ -191,12 +216,14 @@ export default function AnnualPortalClientsTab() {
               ) : (
                 [...rows].sort(sortMembers).map((r) => (
                   <tr key={r.id || r.email} className="border-b border-gray-100 hover:bg-gray-50/80">
-                    <td className="px-4 py-2.5 text-gray-900">{(r.name || '').trim() || '—'}</td>
-                    <td className="px-4 py-2.5 text-gray-700">{(r.email || '').trim() || '—'}</td>
-                    <td className="px-4 py-2.5 font-mono text-xs text-slate-600">{(r.household_key || '').trim() || '—'}</td>
+                    {flatColVisible('name') && <td className="px-4 py-2.5 text-gray-900">{(r.name || '').trim() || '—'}</td>}
+                    {flatColVisible('email') && <td className="px-4 py-2.5 text-gray-700">{(r.email || '').trim() || '—'}</td>}
+                    {flatColVisible('household') && <td className="px-4 py-2.5 font-mono text-xs text-slate-600">{(r.household_key || '').trim() || '—'}</td>}
+                    {flatColVisible('primary') && (
                     <td className="px-4 py-2.5 text-center text-gray-800">
                       {r.is_primary_household_contact ? 'Y' : '—'}
                     </td>
+                    )}
                   </tr>
                 ))
               )}

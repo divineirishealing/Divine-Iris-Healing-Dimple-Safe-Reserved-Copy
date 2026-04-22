@@ -9,8 +9,9 @@ import { Label } from '../../ui/label';
 import {
   Upload, Download, FileText, Loader2, Users, ChevronDown, ChevronUp,
   CreditCard, Calendar, Plus, X, Save, Edit2, Trash2, CheckCircle,
-  Settings, Package, UserPlus,
+  Settings, Package,   UserPlus,
 } from 'lucide-react';
+import { useSpreadsheetColumnVisibility, SpreadsheetColumnPicker } from '../SpreadsheetColumnPicker';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 const BACKEND_ORIGIN = process.env.REACT_APP_BACKEND_URL || '';
@@ -19,6 +20,22 @@ const MODE_OPTIONS = ['EMI', 'No EMI', 'Full Paid'];
 const DURATION_UNITS = ['months', 'sessions'];
 /** Catalog + subscriber add-on preset for Home Coming (Circle). */
 const HOME_COMING_PROGRAM_NAME = 'Home Coming Circle';
+
+const SUBSCRIBERS_SHEET_COLS = [
+  { id: 'name', label: 'Name', required: true },
+  { id: 'email', label: 'Email' },
+  { id: 'package', label: 'Package' },
+  { id: 'start', label: 'Start' },
+  { id: 'end', label: 'End' },
+  { id: 'iris', label: 'Iris journey' },
+  { id: 'fee', label: 'Fee' },
+  { id: 'mode', label: 'Mode' },
+  { id: 'pay', label: 'Pay' },
+  { id: 'emis', label: 'EMIs' },
+  { id: 'sessions', label: 'Sessions' },
+  { id: 'actions', label: 'Actions', required: true },
+];
+const SUBSCRIBERS_SHEET_KEY = 'admin-subscribers-sheet-v1';
 
 function normalizePaymentDestinations(pd) {
   if (!pd || typeof pd !== 'object') return { gpay: [], bank: [], primary_gpay_id: '', primary_bank_id: '' };
@@ -1067,7 +1084,7 @@ const SubscriberForm = ({ initial, onSave, onCancel, saving, packages, irisCatal
 };
 
 /* ═══ SUBSCRIBER ROW ═══ */
-const SubscriberRow = ({ s, onRefresh, onEdit, irisCatalog = [], packages = [] }) => {
+const SubscriberRow = ({ s, onRefresh, onEdit, irisCatalog = [], packages = [], isVisible = () => true, detailColSpan = 12 }) => {
   const { toast } = useToast();
   const [open, setOpen] = useState(false);
   const [markingEmi, setMarkingEmi] = useState(null);
@@ -1118,43 +1135,55 @@ const SubscriberRow = ({ s, onRefresh, onEdit, irisCatalog = [], packages = [] }
   return (
     <>
       <tr className="border-b hover:bg-gray-50 text-xs" data-testid={`subscriber-row-${s.id}`}>
+        {isVisible('name') && (
         <td className="px-3 py-2.5 font-medium text-gray-900 sticky left-0 bg-white z-10 border-r">
           <button onClick={() => setOpen(!open)} className="flex items-center gap-2 w-full text-left">
             {open ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
             <span className="truncate max-w-[150px]">{s.name}</span>
           </button>
         </td>
-        <td className="px-3 py-2 text-gray-500 truncate max-w-[140px]">{s.email}</td>
+        )}
+        {isVisible('email') && <td className="px-3 py-2 text-gray-500 truncate max-w-[140px]">{s.email}</td>}
+        {isVisible('package') && (
         <td className="px-3 py-2 text-left max-w-[130px]">
           <p className="truncate text-[10px] font-medium text-gray-900" title={pkgTitle}>{pkgTitle}</p>
           {pkgRow?.valid_from && pkgRow?.valid_to && (
             <p className="text-[8px] text-gray-400 truncate" title={`${pkgRow.valid_from} → ${pkgRow.valid_to}`}>{pkgRow.valid_from} → {pkgRow.valid_to}</p>
           )}
         </td>
-        <td className="px-3 py-2 text-center text-gray-500 whitespace-nowrap">{sub.start_date}</td>
-        <td className="px-3 py-2 text-center text-gray-500 whitespace-nowrap">{sub.end_date || '—'}</td>
+        )}
+        {isVisible('start') && <td className="px-3 py-2 text-center text-gray-500 whitespace-nowrap">{sub.start_date}</td>}
+        {isVisible('end') && <td className="px-3 py-2 text-center text-gray-500 whitespace-nowrap">{sub.end_date || '—'}</td>}
+        {isVisible('iris') && (
         <td className="px-3 py-2 text-left max-w-[200px]">
           <p className="truncate text-[10px] text-gray-800 font-medium" title={journeyLabel}>{journeyLabel}</p>
           <span className={`text-[8px] px-1.5 py-0.5 rounded font-bold ${journeyMode === 'auto' ? 'bg-violet-100 text-violet-700' : 'bg-gray-100 text-gray-600'}`}>{journeyMode}</span>
         </td>
+        )}
+        {isVisible('fee') && (
         <td className="px-3 py-2 text-right font-mono">
           <span>{sub.currency} {sub.total_fee?.toLocaleString()}</span>
           <p className="text-[8px] text-gray-400 font-normal truncate max-w-[100px] ml-auto" title={overrideStr}>{overrideStr}</p>
         </td>
+        )}
+        {isVisible('mode') && (
         <td className="px-3 py-2 text-center">
           <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${sub.payment_mode === 'EMI' ? 'bg-blue-50 text-blue-700' : 'bg-green-50 text-green-700'}`}>{emiPlanLabel}</span>
         </td>
-        <td className="px-3 py-2 text-center text-[9px] text-gray-600 max-w-[88px] truncate" title={payMethodsStr}>{payMethodsStr}</td>
-        <td className="px-3 py-2 text-center">{paidEmis}/{emis.length}</td>
-        <td className="px-3 py-2 text-center">{sess.availed || 0}/{sess.total || 0}</td>
+        )}
+        {isVisible('pay') && <td className="px-3 py-2 text-center text-[9px] text-gray-600 max-w-[88px] truncate" title={payMethodsStr}>{payMethodsStr}</td>}
+        {isVisible('emis') && <td className="px-3 py-2 text-center">{paidEmis}/{emis.length}</td>}
+        {isVisible('sessions') && <td className="px-3 py-2 text-center">{sess.availed || 0}/{sess.total || 0}</td>}
+        {isVisible('actions') && (
         <td className="px-3 py-2 text-center">
           <button onClick={() => onEdit(s)} className="text-[#5D3FD3] hover:text-[#4c32b3]" data-testid={`edit-btn-${s.id}`}><Edit2 size={12} /></button>
         </td>
+        )}
       </tr>
       {/* ═══ ADMIN MIRROR VIEW (same as student sees + edit) ═══ */}
       {open && (
         <tr>
-          <td colSpan={12} className="bg-[#FDFBF7] px-4 py-4 border-b">
+          <td colSpan={detailColSpan} className="bg-[#FDFBF7] px-4 py-4 border-b">
             {/* Top Stats — same as student */}
             <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-9 gap-3 mb-4">
               {[
@@ -1321,6 +1350,14 @@ const SubscribersTab = ({ openManualFormOnMount = false }) => {
   const [bankAccounts, setBankAccounts] = useState([]);
   const [bankForm, setBankForm] = useState(null);
   const [irisCatalog, setIrisCatalog] = useState([]);
+  const {
+    visibility: subColVis,
+    setColumn: setSubColVis,
+    reset: resetSubCols,
+    isVisible: subColVisible,
+    visibleCount: subVisibleCount,
+  } = useSpreadsheetColumnVisibility(SUBSCRIBERS_SHEET_KEY, SUBSCRIBERS_SHEET_COLS);
+
   const fetchData = useCallback(async () => {
     try {
       const [sRes, pRes, payRes, bankRes, irisRes] = await Promise.all([
@@ -1616,27 +1653,46 @@ const SubscribersTab = ({ openManualFormOnMount = false }) => {
           {uploadStats && <div className="mt-2 p-2 bg-green-50 rounded border border-green-200 text-xs">Created: {uploadStats.created}, Updated: {uploadStats.updated}</div>}
         </div>
         <div className="bg-white rounded-lg border shadow-sm overflow-hidden">
-          <div className="px-4 py-3 border-b"><h3 className="font-semibold text-gray-900 text-sm flex items-center gap-2"><Users size={16} /> Subscribers ({subscribers.length})</h3></div>
+          <div className="px-4 py-3 border-b flex flex-wrap items-center justify-between gap-2">
+            <h3 className="font-semibold text-gray-900 text-sm flex items-center gap-2"><Users size={16} /> Subscribers ({subscribers.length})</h3>
+            <SpreadsheetColumnPicker
+              columns={SUBSCRIBERS_SHEET_COLS}
+              visibility={subColVis}
+              onToggle={setSubColVis}
+              onReset={resetSubCols}
+            />
+          </div>
           {loading ? <div className="p-8 text-center"><Loader2 className="animate-spin mx-auto text-gray-400" /></div>
           : subscribers.length === 0 ? <div className="p-8 text-center text-sm text-gray-400 italic">No subscribers yet.</div>
           : (
             <div className="overflow-x-auto">
               <table className="w-full min-w-[1100px]">
                 <thead><tr className="bg-gray-50 text-[10px] font-bold uppercase tracking-wider text-gray-400 border-b">
-                  <th className="px-3 py-2 text-left sticky left-0 bg-gray-50 z-10 border-r">Name</th>
-                  <th className="px-3 py-2 text-left">Email</th>
-                  <th className="px-3 py-2 text-left">Package</th>
-                  <th className="px-3 py-2 text-center">Start</th>
-                  <th className="px-3 py-2 text-center">End</th>
-                  <th className="px-3 py-2 text-left">Iris journey</th>
-                  <th className="px-3 py-2 text-right">Fee</th>
-                  <th className="px-3 py-2 text-center">Mode</th>
-                  <th className="px-3 py-2 text-center">Pay</th>
-                  <th className="px-3 py-2 text-center">EMIs</th>
-                  <th className="px-3 py-2 text-center">Sessions</th>
-                  <th className="px-3 py-2 text-center w-12"></th>
+                  {subColVisible('name') && <th className="px-3 py-2 text-left sticky left-0 bg-gray-50 z-10 border-r">Name</th>}
+                  {subColVisible('email') && <th className="px-3 py-2 text-left">Email</th>}
+                  {subColVisible('package') && <th className="px-3 py-2 text-left">Package</th>}
+                  {subColVisible('start') && <th className="px-3 py-2 text-center">Start</th>}
+                  {subColVisible('end') && <th className="px-3 py-2 text-center">End</th>}
+                  {subColVisible('iris') && <th className="px-3 py-2 text-left">Iris journey</th>}
+                  {subColVisible('fee') && <th className="px-3 py-2 text-right">Fee</th>}
+                  {subColVisible('mode') && <th className="px-3 py-2 text-center">Mode</th>}
+                  {subColVisible('pay') && <th className="px-3 py-2 text-center">Pay</th>}
+                  {subColVisible('emis') && <th className="px-3 py-2 text-center">EMIs</th>}
+                  {subColVisible('sessions') && <th className="px-3 py-2 text-center">Sessions</th>}
+                  {subColVisible('actions') && <th className="px-3 py-2 text-center w-12" />}
                 </tr></thead>
-                <tbody>{subscribers.map(s => <SubscriberRow key={s.id} s={s} onRefresh={fetchData} onEdit={handleEdit} irisCatalog={irisCatalog} packages={packages} />)}</tbody>
+                <tbody>{subscribers.map(s => (
+                  <SubscriberRow
+                    key={s.id}
+                    s={s}
+                    onRefresh={fetchData}
+                    onEdit={handleEdit}
+                    irisCatalog={irisCatalog}
+                    packages={packages}
+                    isVisible={subColVisible}
+                    detailColSpan={Math.max(subVisibleCount, 1)}
+                  />
+                ))}</tbody>
               </table>
             </div>
           )}

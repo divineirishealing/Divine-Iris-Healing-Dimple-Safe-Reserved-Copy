@@ -9,8 +9,28 @@ import axios from 'axios';
 import { useToast } from '../../../hooks/use-toast';
 import { Button } from '../../ui/button';
 import { Download, Upload, Plus, Save, RefreshCw, Search, Trash2, Star } from 'lucide-react';
+import { useSpreadsheetColumnVisibility, SpreadsheetColumnPicker } from '../SpreadsheetColumnPicker';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api/annual-subscribers`;
+
+const ANNUAL_SUB_SHEET_COLS = [
+  { id: 'email', label: 'Email', required: true },
+  { id: 'name', label: 'Name' },
+  { id: 'phone', label: 'Phone' },
+  { id: 'did', label: 'DID' },
+  { id: 'start', label: 'Start' },
+  { id: 'end', label: 'End' },
+  { id: 'portal', label: 'Portal' },
+  { id: 'payMethod', label: 'Pay method' },
+  { id: 'disc', label: 'Disc %' },
+  { id: 'taxOn', label: 'Tax?' },
+  { id: 'taxPct', label: 'Tax %' },
+  { id: 'taxLabel', label: 'Tax label' },
+  { id: 'spon', label: 'Spon %' },
+  { id: 'notes', label: 'Notes' },
+  { id: 'actions', label: 'Actions', required: true },
+];
+const ANNUAL_SUB_SHEET_KEY = 'admin-annual-subscribers-sheet-v1';
 
 const PAY_OPTS = [
   { value: '', label: '—' },
@@ -93,6 +113,11 @@ const AnnualSubscribersTab = () => {
   const [search, setSearch]   = useState('');
   const [uploading, setUploading] = useState(false);
   const uploadRef = useRef(null);
+
+  const { visibility: colVis, setColumn: setColVis, reset: resetCols, isVisible, visibleCount } = useSpreadsheetColumnVisibility(
+    ANNUAL_SUB_SHEET_KEY,
+    ANNUAL_SUB_SHEET_COLS,
+  );
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -243,15 +268,18 @@ const AnnualSubscribersTab = () => {
         </div>
       </div>
 
-      {/* ── search ── */}
-      <div className="relative max-w-xs">
-        <Search size={13} className="absolute left-2.5 top-2.5 text-gray-400" />
-        <input
-          value={search}
-          onChange={e => setSearch(e.target.value)}
-          placeholder="Search name, email, phone…"
-          className="w-full pl-8 pr-3 h-8 text-xs border rounded-lg focus:outline-none focus:ring-1 focus:ring-purple-300"
-        />
+      {/* ── search + columns ── */}
+      <div className="flex flex-wrap items-center gap-2">
+        <div className="relative max-w-xs flex-1 min-w-[200px]">
+          <Search size={13} className="absolute left-2.5 top-2.5 text-gray-400" />
+          <input
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            placeholder="Search name, email, phone…"
+            className="w-full pl-8 pr-3 h-8 text-xs border rounded-lg focus:outline-none focus:ring-1 focus:ring-purple-300"
+          />
+        </div>
+        <SpreadsheetColumnPicker columns={ANNUAL_SUB_SHEET_COLS} visibility={colVis} onToggle={setColVis} onReset={resetCols} />
       </div>
 
       {/* ── info banner ── */}
@@ -269,21 +297,27 @@ const AnnualSubscribersTab = () => {
           <table className="min-w-full text-[11px]">
             <thead>
               <tr className="bg-purple-700 text-white text-left">
-                {[
-                  'Email', 'Name', 'Phone', 'DID',
-                  'Start', 'End',
-                  'Portal', 'Pay Method',
-                  'Disc %', 'Tax?', 'Tax %', 'Tax Label',
-                  'Spon %', 'Notes / Pause', ''
-                ].map(h => (
-                  <th key={h} className="px-2 py-2 whitespace-nowrap font-semibold">{h}</th>
-                ))}
+                {isVisible('email') && <th className="px-2 py-2 whitespace-nowrap font-semibold">Email</th>}
+                {isVisible('name') && <th className="px-2 py-2 whitespace-nowrap font-semibold">Name</th>}
+                {isVisible('phone') && <th className="px-2 py-2 whitespace-nowrap font-semibold">Phone</th>}
+                {isVisible('did') && <th className="px-2 py-2 whitespace-nowrap font-semibold">DID</th>}
+                {isVisible('start') && <th className="px-2 py-2 whitespace-nowrap font-semibold">Start</th>}
+                {isVisible('end') && <th className="px-2 py-2 whitespace-nowrap font-semibold">End</th>}
+                {isVisible('portal') && <th className="px-2 py-2 whitespace-nowrap font-semibold">Portal</th>}
+                {isVisible('payMethod') && <th className="px-2 py-2 whitespace-nowrap font-semibold">Pay Method</th>}
+                {isVisible('disc') && <th className="px-2 py-2 whitespace-nowrap font-semibold">Disc %</th>}
+                {isVisible('taxOn') && <th className="px-2 py-2 whitespace-nowrap font-semibold">Tax?</th>}
+                {isVisible('taxPct') && <th className="px-2 py-2 whitespace-nowrap font-semibold">Tax %</th>}
+                {isVisible('taxLabel') && <th className="px-2 py-2 whitespace-nowrap font-semibold">Tax Label</th>}
+                {isVisible('spon') && <th className="px-2 py-2 whitespace-nowrap font-semibold">Spon %</th>}
+                {isVisible('notes') && <th className="px-2 py-2 whitespace-nowrap font-semibold">Notes / Pause</th>}
+                {isVisible('actions') && <th className="px-2 py-2 whitespace-nowrap font-semibold" />}
               </tr>
             </thead>
             <tbody>
               {visible.length === 0 && (
                 <tr>
-                  <td colSpan={15} className="py-12 text-center text-xs text-gray-400">
+                  <td colSpan={Math.max(visibleCount, 1)} className="py-12 text-center text-xs text-gray-400">
                     No records yet — upload an Excel file or add rows manually.
                   </td>
                 </tr>
@@ -302,80 +336,94 @@ const AnnualSubscribersTab = () => {
                       ${isPaused && !isNew && !isDirty ? 'bg-red-50/20' : ''}
                       hover:bg-gray-50/60`}
                   >
-                    {/* Email */}
+                    {isVisible('email') && (
                     <td className="px-1 py-0.5 min-w-[170px]">
                       {isNew
                         ? <TCell value={row.email} onChange={v => patch(idx, 'email', v)} placeholder="email *" />
                         : <span className="px-1.5 text-gray-600 font-medium">{row.email}</span>
                       }
                     </td>
+                    )}
 
-                    {/* Name */}
+                    {isVisible('name') && (
                     <td className="px-1 py-0.5 min-w-[130px]">
                       <TCell value={row.name} onChange={v => patch(idx, 'name', v)} placeholder="Name" />
                     </td>
+                    )}
 
-                    {/* Phone */}
+                    {isVisible('phone') && (
                     <td className="px-1 py-0.5 min-w-[120px]">
                       <TCell value={row.phone} onChange={v => patch(idx, 'phone', v)} placeholder="+91…" />
                     </td>
+                    )}
 
-                    {/* DID */}
+                    {isVisible('did') && (
                     <td className="px-1 py-0.5 min-w-[80px]">
                       <TCell value={row.did} onChange={v => patch(idx, 'did', v)} placeholder="DI-…" />
                     </td>
+                    )}
 
-                    {/* Start */}
+                    {isVisible('start') && (
                     <td className="px-1 py-0.5 min-w-[110px]">
                       <TCell value={row.annual_start_date} onChange={v => patch(idx, 'annual_start_date', v)} placeholder="YYYY-MM-DD" />
                     </td>
+                    )}
 
-                    {/* End */}
+                    {isVisible('end') && (
                     <td className="px-1 py-0.5 min-w-[110px]">
                       <TCell value={row.annual_end_date} onChange={v => patch(idx, 'annual_end_date', v)} placeholder="YYYY-MM-DD" />
                     </td>
+                    )}
 
-                    {/* Portal */}
+                    {isVisible('portal') && (
                     <td className="px-2 py-0.5 text-center">
                       <Toggle value={row.portal_login_allowed !== false} onChange={v => patch(idx, 'portal_login_allowed', v)} />
                     </td>
+                    )}
 
-                    {/* Payment Method */}
+                    {isVisible('payMethod') && (
                     <td className="px-1 py-0.5 min-w-[100px]">
                       <SCell value={row.india_payment_method} options={PAY_OPTS} onChange={v => patch(idx, 'india_payment_method', v)} />
                     </td>
+                    )}
 
-                    {/* Discount % */}
+                    {isVisible('disc') && (
                     <td className="px-1 py-0.5 min-w-[65px]">
                       <TCell value={row.india_discount_percent} onChange={v => patch(idx, 'india_discount_percent', v)} type="number" placeholder="%" />
                     </td>
+                    )}
 
-                    {/* Tax enabled */}
+                    {isVisible('taxOn') && (
                     <td className="px-2 py-0.5 text-center">
                       <Toggle value={!!row.india_tax_enabled} onChange={v => patch(idx, 'india_tax_enabled', v)} />
                     </td>
+                    )}
 
-                    {/* Tax % */}
+                    {isVisible('taxPct') && (
                     <td className="px-1 py-0.5 min-w-[55px]">
                       <TCell value={row.india_tax_percent} onChange={v => patch(idx, 'india_tax_percent', v)} type="number" placeholder="18" />
                     </td>
+                    )}
 
-                    {/* Tax Label */}
+                    {isVisible('taxLabel') && (
                     <td className="px-1 py-0.5 min-w-[65px]">
                       <TCell value={row.india_tax_label} onChange={v => patch(idx, 'india_tax_label', v)} placeholder="GST" />
                     </td>
+                    )}
 
-                    {/* Sponsorship % */}
+                    {isVisible('spon') && (
                     <td className="px-1 py-0.5 min-w-[60px]">
                       <TCell value={row.sponsorship_discount_percent} onChange={v => patch(idx, 'sponsorship_discount_percent', v)} type="number" placeholder="%" />
                     </td>
+                    )}
 
-                    {/* Notes */}
+                    {isVisible('notes') && (
                     <td className="px-1 py-0.5 min-w-[150px]">
                       <TCell value={row.notes} onChange={v => patch(idx, 'notes', v)} placeholder="pause / note…" />
                     </td>
+                    )}
 
-                    {/* Actions */}
+                    {isVisible('actions') && (
                     <td className="px-2 py-0.5 whitespace-nowrap text-right">
                       <button
                         onClick={() => saveRow(idx)}
@@ -395,6 +443,7 @@ const AnnualSubscribersTab = () => {
                         <Trash2 size={10} />
                       </button>
                     </td>
+                    )}
                   </tr>
                 );
               })}

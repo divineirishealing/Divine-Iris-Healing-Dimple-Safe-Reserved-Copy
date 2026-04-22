@@ -16,8 +16,26 @@ import {
   Droplets, Sprout, TreeDeciduous, Flower2, Star, Sparkles, Crown,
   Edit2, Save, Trash2, UserPlus,
 } from 'lucide-react';
+import { useSpreadsheetColumnVisibility, SpreadsheetColumnPicker } from '../SpreadsheetColumnPicker';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
+
+const CLIENT_GARDEN_COLUMN_DEFS = [
+  { id: 'name', label: 'Name', required: true },
+  { id: 'diid', label: 'DIID' },
+  { id: 'uuid', label: 'UUID' },
+  { id: 'email', label: 'Email' },
+  { id: 'phone', label: 'Phone' },
+  { id: 'household', label: 'Household' },
+  { id: 'pri', label: 'Pri' },
+  { id: 'sources', label: 'Sources' },
+  { id: 'conv', label: 'Conv' },
+  { id: 'first', label: 'First' },
+  { id: 'updated', label: 'Updated' },
+  { id: 'actions', label: 'Actions', required: true },
+];
+
+const CLIENT_GARDEN_COLS_KEY = 'admin-client-garden-columns-v1';
 
 const LABEL_CONFIG = {
   Dew:           { icon: Droplets,       bg: 'bg-sky-50',    border: 'border-sky-200',    text: 'text-sky-700',    badge: 'bg-sky-100 text-sky-700',    desc: 'Default for new leads — until a program is fully paid' },
@@ -61,6 +79,11 @@ const ClientsTab = () => {
   });
   const [addingClient, setAddingClient] = useState(false);
   const [editClient, setEditClient] = useState(null);
+
+  const { visibility: colVis, setColumn: setColVis, reset: resetCols, isVisible } = useSpreadsheetColumnVisibility(
+    CLIENT_GARDEN_COLS_KEY,
+    CLIENT_GARDEN_COLUMN_DEFS,
+  );
 
   const fetchData = useCallback(async () => {
     try {
@@ -222,15 +245,21 @@ const ClientsTab = () => {
         </form>
       )}
 
-      <div className="flex items-center gap-3 mb-4">
+      <div className="flex flex-wrap items-center gap-3 mb-4">
         <div className="bg-gray-900 text-white rounded-lg px-3 py-1.5 text-xs font-semibold">
           {stats.total} Total Clients
         </div>
-        <div className="flex-1 relative">
+        <div className="flex-1 relative min-w-[200px]">
           <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
           <input data-testid="clients-search" type="text" value={searchText} onChange={(e) => setSearchText(e.target.value)}
             placeholder="Search name, email, phone, household, DID, DIID, or internal id…" className="w-full pl-9 pr-3 py-2 text-xs border rounded-lg focus:outline-none focus:ring-1 focus:ring-[#D4AF37]" />
         </div>
+        <SpreadsheetColumnPicker
+          columns={CLIENT_GARDEN_COLUMN_DEFS}
+          visibility={colVis}
+          onToggle={setColVis}
+          onReset={resetCols}
+        />
       </div>
 
       <div className="rounded-xl border border-gray-200 bg-white overflow-hidden overflow-x-auto" data-testid="clients-table-wrap">
@@ -243,18 +272,18 @@ const ClientsTab = () => {
           <table className="w-full min-w-[1240px] text-left border-collapse text-[10px]" data-testid="clients-table">
             <thead>
               <tr className="bg-gray-100 border-b border-gray-200 text-[9px] uppercase tracking-wide text-gray-600">
-                <th className="py-2 pl-3 pr-2 font-semibold sticky left-0 bg-gray-100 z-10">Name</th>
-                <th className="py-2 px-2 font-semibold min-w-[220px]" title="DIID-DIRAyyMM-… (run Sync to backfill legacy rows)">DIID</th>
-                <th className="py-2 px-2 font-semibold min-w-[200px]" title="Stored as id — UUID v7 for new clients, v4 for older rows">UUID</th>
-                <th className="py-2 px-2 font-semibold min-w-[140px]">Email</th>
-                <th className="py-2 px-2 font-semibold min-w-[88px]">Phone</th>
-                <th className="py-2 px-2 font-semibold min-w-[100px]">Household</th>
-                <th className="py-2 px-2 font-semibold w-[40px] text-center">Pri</th>
-                <th className="py-2 px-2 font-semibold min-w-[100px]">Sources</th>
-                <th className="py-2 px-2 font-semibold w-[44px] text-center">Conv</th>
-                <th className="py-2 px-2 font-semibold w-[72px]">First</th>
-                <th className="py-2 px-2 font-semibold w-[72px]">Updated</th>
-                <th className="py-2 pr-3 pl-2 font-semibold w-[88px] text-right sticky right-0 bg-gray-100 z-10">Actions</th>
+                {isVisible('name') && <th className="py-2 pl-3 pr-2 font-semibold sticky left-0 bg-gray-100 z-10">Name</th>}
+                {isVisible('diid') && <th className="py-2 px-2 font-semibold min-w-[220px]" title="DIID-DIRAyyMM-… (run Sync to backfill legacy rows)">DIID</th>}
+                {isVisible('uuid') && <th className="py-2 px-2 font-semibold min-w-[200px]" title="Stored as id — UUID v7 for new clients, v4 for older rows">UUID</th>}
+                {isVisible('email') && <th className="py-2 px-2 font-semibold min-w-[140px]">Email</th>}
+                {isVisible('phone') && <th className="py-2 px-2 font-semibold min-w-[88px]">Phone</th>}
+                {isVisible('household') && <th className="py-2 px-2 font-semibold min-w-[100px]">Household</th>}
+                {isVisible('pri') && <th className="py-2 px-2 font-semibold w-[40px] text-center">Pri</th>}
+                {isVisible('sources') && <th className="py-2 px-2 font-semibold min-w-[100px]">Sources</th>}
+                {isVisible('conv') && <th className="py-2 px-2 font-semibold w-[44px] text-center">Conv</th>}
+                {isVisible('first') && <th className="py-2 px-2 font-semibold w-[72px]">First</th>}
+                {isVisible('updated') && <th className="py-2 px-2 font-semibold w-[72px]">Updated</th>}
+                {isVisible('actions') && <th className="py-2 pr-3 pl-2 font-semibold w-[88px] text-right sticky right-0 bg-gray-100 z-10">Actions</th>}
               </tr>
             </thead>
             <tbody>
@@ -268,6 +297,7 @@ const ClientsTab = () => {
                     data-testid={`client-${cl.id}`}
                     className="group border-b border-gray-100 bg-white align-top hover:bg-amber-50/30"
                   >
+                    {isVisible('name') && (
                     <td className="py-2 pl-3 pr-2 sticky left-0 bg-white z-[1] border-r border-gray-100 group-hover:bg-amber-50/30">
                       <div className="flex items-center gap-1.5 min-w-0">
                         <div className={`w-6 h-6 rounded-full ${cfg.bg} ${cfg.border} border flex items-center justify-center shrink-0`}>
@@ -276,6 +306,8 @@ const ClientsTab = () => {
                         <span className="font-semibold text-gray-900 truncate max-w-[140px]" title={cl.name || ''}>{cl.name || '—'}</span>
                       </div>
                     </td>
+                    )}
+                    {isVisible('diid') && (
                     <td
                       className={`py-2 px-2 font-mono truncate max-w-[260px] text-[9px] ${cl.diid ? 'text-indigo-800' : 'text-amber-800'}`}
                       title={cl.diid || cl.did || ''}
@@ -289,20 +321,24 @@ const ClientsTab = () => {
                         ) : '—'
                       )}
                     </td>
+                    )}
+                    {isVisible('uuid') && (
                     <td
                       className="py-2 px-2 font-mono text-[9px] text-slate-600 truncate max-w-[200px] select-all"
                       title={cl.id ? `Full id: ${cl.id}` : ''}
                     >
                       {cl.id || '—'}
                     </td>
-                    <td className="py-2 px-2 text-gray-800 truncate max-w-[180px]" title={cl.email || ''}>{cl.email || '—'}</td>
-                    <td className="py-2 px-2 text-gray-600 whitespace-nowrap">{cl.phone || '—'}</td>
-                    <td className="py-2 px-2 font-mono text-slate-600 truncate max-w-[120px]" title={cl.household_key || ''}>{cl.household_key || '—'}</td>
-                    <td className="py-2 px-2 text-center text-gray-700">{cl.is_primary_household_contact ? 'Y' : '—'}</td>
-                    <td className="py-2 px-2 text-gray-500" title={sourcesStr}>{truncate(sourcesStr, 40) || '—'}</td>
-                    <td className="py-2 px-2 text-center font-medium text-gray-800">{cl.conversions?.length ?? 0}</td>
-                    <td className="py-2 px-2 text-gray-500 whitespace-nowrap">{cl.created_at ? new Date(cl.created_at).toLocaleDateString() : '—'}</td>
-                    <td className="py-2 px-2 text-gray-500 whitespace-nowrap">{timeAgo(cl.updated_at || cl.created_at)}</td>
+                    )}
+                    {isVisible('email') && <td className="py-2 px-2 text-gray-800 truncate max-w-[180px]" title={cl.email || ''}>{cl.email || '—'}</td>}
+                    {isVisible('phone') && <td className="py-2 px-2 text-gray-600 whitespace-nowrap">{cl.phone || '—'}</td>}
+                    {isVisible('household') && <td className="py-2 px-2 font-mono text-slate-600 truncate max-w-[120px]" title={cl.household_key || ''}>{cl.household_key || '—'}</td>}
+                    {isVisible('pri') && <td className="py-2 px-2 text-center text-gray-700">{cl.is_primary_household_contact ? 'Y' : '—'}</td>}
+                    {isVisible('sources') && <td className="py-2 px-2 text-gray-500" title={sourcesStr}>{truncate(sourcesStr, 40) || '—'}</td>}
+                    {isVisible('conv') && <td className="py-2 px-2 text-center font-medium text-gray-800">{cl.conversions?.length ?? 0}</td>}
+                    {isVisible('first') && <td className="py-2 px-2 text-gray-500 whitespace-nowrap">{cl.created_at ? new Date(cl.created_at).toLocaleDateString() : '—'}</td>}
+                    {isVisible('updated') && <td className="py-2 px-2 text-gray-500 whitespace-nowrap">{timeAgo(cl.updated_at || cl.created_at)}</td>}
+                    {isVisible('actions') && (
                     <td className="py-2 pr-3 pl-2 text-right sticky right-0 bg-white z-[1] border-l border-gray-100 group-hover:bg-amber-50/30">
                       <div className="flex items-center justify-end gap-1">
                         <button
@@ -322,6 +358,7 @@ const ClientsTab = () => {
                         </button>
                       </div>
                     </td>
+                    )}
                   </tr>
                 );
               })}

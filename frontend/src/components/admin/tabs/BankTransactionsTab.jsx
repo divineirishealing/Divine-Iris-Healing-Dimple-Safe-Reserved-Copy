@@ -13,8 +13,21 @@ import {
   Download, Upload, RefreshCw, Search, Tag, X,
   CheckCircle, Link2, Trash2, IndianRupee, Filter
 } from 'lucide-react';
+import { useSpreadsheetColumnVisibility, SpreadsheetColumnPicker } from '../SpreadsheetColumnPicker';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
+
+const BANK_TXN_SHEET_COLS = [
+  { id: 'date', label: 'Date', required: true },
+  { id: 'payer', label: 'Payer / Description' },
+  { id: 'utr', label: 'UTR / Ref' },
+  { id: 'mode', label: 'Mode' },
+  { id: 'amount', label: 'Amount' },
+  { id: 'status', label: 'Status' },
+  { id: 'tagged', label: 'Tagged client' },
+  { id: 'actions', label: 'Actions', required: true },
+];
+const BANK_TXN_SHEET_KEY = 'admin-bank-txns-sheet-v1';
 
 const PM_LABEL = {
   gpay_upi:      'GPay / UPI',
@@ -100,6 +113,11 @@ const BankTransactionsTab = () => {
   const [pickerFor, setPickerFor] = useState(null); // txn id
   const [tagLoading, setTagLoading] = useState({});
   const uploadRef = useRef(null);
+
+  const { visibility: colVis, setColumn: setColVis, reset: resetCols, isVisible, visibleCount } = useSpreadsheetColumnVisibility(
+    BANK_TXN_SHEET_KEY,
+    BANK_TXN_SHEET_COLS,
+  );
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -249,6 +267,7 @@ const BankTransactionsTab = () => {
             </button>
           ))}
         </div>
+        <SpreadsheetColumnPicker columns={BANK_TXN_SHEET_COLS} visibility={colVis} onToggle={setColVis} onReset={resetCols} />
       </div>
 
       {/* Table */}
@@ -259,15 +278,20 @@ const BankTransactionsTab = () => {
           <table className="min-w-full text-[11px]">
             <thead>
               <tr className="bg-blue-700 text-white text-left">
-                {['Date', 'Payer / Description', 'UTR / Ref', 'Mode', 'Amount (₹)', 'Status', 'Tagged Client', ''].map(h => (
-                  <th key={h} className="px-3 py-2 whitespace-nowrap font-semibold">{h}</th>
-                ))}
+                {isVisible('date') && <th className="px-3 py-2 whitespace-nowrap font-semibold">Date</th>}
+                {isVisible('payer') && <th className="px-3 py-2 whitespace-nowrap font-semibold">Payer / Description</th>}
+                {isVisible('utr') && <th className="px-3 py-2 whitespace-nowrap font-semibold">UTR / Ref</th>}
+                {isVisible('mode') && <th className="px-3 py-2 whitespace-nowrap font-semibold">Mode</th>}
+                {isVisible('amount') && <th className="px-3 py-2 whitespace-nowrap font-semibold">Amount (₹)</th>}
+                {isVisible('status') && <th className="px-3 py-2 whitespace-nowrap font-semibold">Status</th>}
+                {isVisible('tagged') && <th className="px-3 py-2 whitespace-nowrap font-semibold">Tagged Client</th>}
+                {isVisible('actions') && <th className="px-3 py-2 whitespace-nowrap font-semibold" />}
               </tr>
             </thead>
             <tbody>
               {visible.length === 0 && (
                 <tr>
-                  <td colSpan={8} className="py-12 text-center text-xs text-gray-400">
+                  <td colSpan={Math.max(visibleCount, 1)} className="py-12 text-center text-xs text-gray-400">
                     No transactions yet — upload a bank statement to get started.
                   </td>
                 </tr>
@@ -275,38 +299,44 @@ const BankTransactionsTab = () => {
               {visible.map(txn => (
                 <tr key={txn.id} className={`border-b hover:bg-gray-50/60 transition-colors ${txn.status === 'untagged' ? '' : 'bg-green-50/20'}`}>
 
-                  {/* Date */}
+                  {isVisible('date') && (
                   <td className="px-3 py-2 whitespace-nowrap text-gray-500">{txn.date || '—'}</td>
+                  )}
 
-                  {/* Payer */}
+                  {isVisible('payer') && (
                   <td className="px-3 py-2 max-w-[180px]">
                     <p className="font-medium text-gray-800 truncate">{txn.payer_name || '—'}</p>
                     {txn.notes && <p className="text-[9px] text-gray-400 truncate">{txn.notes}</p>}
                   </td>
+                  )}
 
-                  {/* UTR */}
+                  {isVisible('utr') && (
                   <td className="px-3 py-2 font-mono text-gray-500 max-w-[140px] truncate">{txn.utr_ref || '—'}</td>
+                  )}
 
-                  {/* Mode */}
+                  {isVisible('mode') && (
                   <td className="px-3 py-2">
                     <span className={`text-[10px] px-2 py-0.5 rounded-full font-semibold ${PM_COLORS[txn.payment_mode] || 'bg-gray-100 text-gray-600'}`}>
                       {PM_LABEL[txn.payment_mode] || txn.payment_mode || '—'}
                     </span>
                   </td>
+                  )}
 
-                  {/* Amount */}
+                  {isVisible('amount') && (
                   <td className="px-3 py-2 font-semibold text-gray-800 whitespace-nowrap">
                     ₹{Number(txn.amount || 0).toLocaleString('en-IN')}
                   </td>
+                  )}
 
-                  {/* Status */}
+                  {isVisible('status') && (
                   <td className="px-3 py-2">
                     <span className={`text-[10px] px-2 py-0.5 rounded-full font-semibold ${STATUS_COLORS[txn.status] || 'bg-gray-100 text-gray-500'}`}>
                       {txn.status === 'tagged' ? 'Tagged' : 'Untagged'}
                     </span>
                   </td>
+                  )}
 
-                  {/* Tagged client */}
+                  {isVisible('tagged') && (
                   <td className="px-3 py-2 min-w-[140px]">
                     {txn.status === 'tagged' ? (
                       <div>
@@ -317,8 +347,9 @@ const BankTransactionsTab = () => {
                       <span className="text-gray-300 italic text-[10px]">Not tagged</span>
                     )}
                   </td>
+                  )}
 
-                  {/* Actions */}
+                  {isVisible('actions') && (
                   <td className="px-3 py-2 whitespace-nowrap">
                     <div className="flex items-center gap-1 relative">
                       {txn.status === 'untagged' ? (
@@ -354,6 +385,7 @@ const BankTransactionsTab = () => {
                       </button>
                     </div>
                   </td>
+                  )}
                 </tr>
               ))}
             </tbody>
