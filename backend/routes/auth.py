@@ -140,28 +140,70 @@ async def _admin_console_session_valid(token: Optional[str]) -> bool:
     return True
 
 
-async def _ensure_user_for_impersonation(email: Optional[str], user_id: Optional[str]) -> dict:
+def _normalize_email(email: Optional[str]) -> str:
+    return (email or "").strip().lower()
+
+
+def _impersonation_placeholder_email(client_id: str) -> str:
+    """Stable synthetic address for portal user rows when Client Garden has no email (admin preview only)."""
+    cid = (client_id or "").strip()
+    return f"no-email.{cid}@impersonation.internal"
+
+
+async def _ensure_user_for_impersonation(
+    email: Optional[str],
+    user_id: Optional[str],
+    client_id: Optional[str] = None,
+) -> dict:
     """Resolve a portal user; create from Client Garden if needed (same rules as Google OAuth)."""
     if user_id:
         user = await db.users.find_one({"id": user_id}, {"_id": 0})
         if user:
             return user
         raise HTTPException(status_code=404, detail="No portal user with this id")
-    em = (email or "").strip().lower()
-    if not em or "@" not in em:
-        raise HTTPException(status_code=400, detail="Valid email is required")
+
+    cid = (client_id or "").strip()
+    client_doc = None
+    if cid:
+        user = await db.users.find_one({"client_id": cid}, {"_id": 0})
+        if user:
+            return user
+        client_doc = await db.clients.find_one({"id": cid}, {"_id": 0})
+        if not client_doc:
+            raise HTTPException(status_code=404, detail="No client with this id")
+
+    em_in = _normalize_email(email)
+    if client_doc is not None:
+        db_em = _normalize_email(client_doc.get("email") or "")
+        if em_in and "@" in em_in and db_em and db_em != em_in:
+            raise HTTPException(
+                status_code=400,
+                detail="Email does not match this client record",
+            )
+        if db_em and "@" in db_em:
+            em = db_em
+        else:
+            em = _impersonation_placeholder_email(cid)
+    else:
+        em = em_in
+        if not em or "@" not in em:
+            raise HTTPException(status_code=400, detail="Valid email is required")
+
     user = await db.users.find_one({"email": em}, {"_id": 0})
     if user:
         return user
-    client_doc = await db.clients.find_one(
-        {"$or": [{"email": em}, {"email": em.strip()}]},
-        {"_id": 0},
-    )
+
+    if client_doc is None:
+        client_doc = await db.clients.find_one(
+            {"$or": [{"email": em}, {"email": em.strip()}]},
+            {"_id": 0},
+        )
     if not client_doc:
         raise HTTPException(
             status_code=404,
             detail="No client or portal user for this email. Add them to Client Garden first.",
         )
+
     label = client_doc.get("label", "Dew")
     tier_map = {
         "Dew": 1, "Seed": 1,
@@ -192,6 +234,7 @@ class ImpersonateBody(BaseModel):
     admin_password: Optional[str] = None
     email: Optional[str] = None
     user_id: Optional[str] = None
+    client_id: Optional[str] = None
 
 # --- ROUTES ---
 
@@ -203,8 +246,8 @@ async def admin_impersonate(request: Request, body: ImpersonateBody, response: R
     Authorization: valid `X-Admin-Session` header (issued by POST /api/admin/clients/login), **or**
     `admin_password` matching site settings. Marks the session so /me reports impersonating.
     """
-    if not body.email and not body.user_id:
-        raise HTTPException(status_code=400, detail="Provide email or user_id")
+    if not body.email and not body.user_id and not body.client_id:
+        raise HTTPException(status_code=400, detail="Provide email, user_id, or client_id")
     hdr = (request.headers.get("X-Admin-Session") or "").strip()
     if await _admin_console_session_valid(hdr):
         pass
@@ -215,7 +258,7 @@ async def admin_impersonate(request: Request, body: ImpersonateBody, response: R
             status_code=401,
             detail="Admin session missing or expired — sign in to admin again, or send admin_password.",
         )
-    user = await _ensure_user_for_impersonation(body.email, body.user_id)
+    user = await _ensure_user_for_impersonation(body.email, body.user_id, body.client_id)
 
     session_token = str(uuid.uuid4())
     expires_at = datetime.now(timezone.utc) + timedelta(days=7)

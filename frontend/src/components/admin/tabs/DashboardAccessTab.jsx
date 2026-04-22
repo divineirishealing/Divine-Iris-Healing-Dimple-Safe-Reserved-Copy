@@ -352,10 +352,11 @@ export default function DashboardAccessTab() {
   const openFullStudentDashboard = async () => {
     const cl = pricingPreviewClient;
     const em = (cl?.email || '').trim();
-    if (!em) {
+    const cid = (cl?.id || '').trim();
+    if (!em && !cid) {
       toast({
-        title: 'No email on file',
-        description: 'Add an email for this client in Client Garden first.',
+        title: 'Cannot open dashboard',
+        description: 'This client record has no id — save the client in Client Garden first.',
         variant: 'destructive',
       });
       return;
@@ -365,7 +366,7 @@ export default function DashboardAccessTab() {
       const adminTok = (typeof localStorage !== 'undefined' && localStorage.getItem('admin_token')) || '';
       const headers = {};
       if (adminTok) headers['X-Admin-Session'] = adminTok;
-      const payload = { email: em };
+      const payload = em ? { email: em } : { client_id: cid };
       if (previewAdminPassword.trim()) payload.admin_password = previewAdminPassword.trim();
       const res = await axios.post(`${getBackendUrl()}/api/auth/impersonate`, payload, {
         withCredentials: true,
@@ -1547,7 +1548,7 @@ export default function DashboardAccessTab() {
               disabled={
                 openingDashboard ||
                 pricingPreviewLoading ||
-                !(pricingPreviewClient?.email || '').trim()
+                (!(pricingPreviewClient?.email || '').trim() && !(pricingPreviewClient?.id || '').trim())
               }
               onClick={openFullStudentDashboard}
               data-testid="dashboard-access-open-full-dashboard"

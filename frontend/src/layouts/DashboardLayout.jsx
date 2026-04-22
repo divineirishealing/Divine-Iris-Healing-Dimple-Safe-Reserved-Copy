@@ -70,6 +70,10 @@ const DashboardLayout = () => {
   const cosmicVariant = getDashboardCosmicVariant(location.pathname);
   const isSacredHomeOverview =
     location.pathname === '/dashboard' || location.pathname === '/dashboard/';
+  const impersonationLabel =
+    user?.email && String(user.email).endsWith('@impersonation.internal')
+      ? `${(user.name || '').trim() || 'Client'} (no email on Client Garden — admin preview login)`
+      : user?.email;
 
   return (
     <div className="min-h-screen relative bg-transparent font-lato antialiased">
@@ -80,7 +84,7 @@ const DashboardLayout = () => {
           data-testid="impersonation-banner"
         >
           <span>
-            Viewing this dashboard as <strong className="font-semibold">{user.email}</strong> (admin preview).
+            Viewing this dashboard as <strong className="font-semibold">{impersonationLabel}</strong>.
           </span>
           <button
             type="button"
