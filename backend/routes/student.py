@@ -1794,6 +1794,11 @@ async def get_student_home(user: dict = Depends(get_current_user)):
     family_approved = bool(client.get("family_approved"))
     family_pending_review = bool(client.get("family_pending_review"))
 
+    crm_email_raw = (client.get("email") or "").strip()
+    portal_email_raw = (user.get("email") or "").strip()
+    synthetic_portal = portal_email_raw.lower().endswith("@impersonation.internal")
+    can_add_contact_email = bool(client_id) and (not crm_email_raw or synthetic_portal)
+
     return {
         "client_id": client_id,
         "upcoming_programs": upcoming,
@@ -1854,7 +1859,48 @@ async def get_student_home(user: dict = Depends(get_current_user)):
         "preferred_payment_method": (client.get("preferred_payment_method") or "").strip() or None,
         "preferred_india_gpay_id": pref_gpay_m,
         "preferred_india_bank_id": pref_bank_m,
+        "contact_email": crm_email_raw or None,
+        "can_add_contact_email": can_add_contact_email,
     }
+
+
+class ContactEmailBody(BaseModel):
+    email: str
+
+
+@router.put("/contact-email")
+async def put_contact_email(data: ContactEmailBody, user: dict = Depends(get_current_user)):
+    """Set Client Garden + portal login email when missing or portal uses an admin preview placeholder."""
+    cid = user.get("client_id")
+    if not cid:
+        raise HTTPException(status_code=400, detail="Your account is not linked to Client Garden.")
+    em = (data.email or "").strip().lower()
+    if not em or "@" not in em or len(em) > 200:
+        raise HTTPException(status_code=400, detail="Please enter a valid email address.")
+
+    client = await db.clients.find_one({"id": cid}, {"_id": 0, "email": 1}) or {}
+    crm_n = (client.get("email") or "").strip().lower()
+    u_em = (user.get("email") or "").strip().lower()
+    synthetic = u_em.endswith("@impersonation.internal")
+
+    if crm_n and not synthetic:
+        raise HTTPException(
+            status_code=403,
+            detail="Your contact email is already on file. To change it, contact your host.",
+        )
+
+    email_pat = re.compile(f"^{re.escape(em)}$", re.IGNORECASE)
+    dup_client = await db.clients.find_one({"id": {"$ne": cid}, "email": email_pat}, {"_id": 0, "id": 1})
+    if dup_client:
+        raise HTTPException(status_code=409, detail="This email is already used for another client record.")
+    dup_user = await db.users.find_one({"id": {"$ne": user["id"]}, "email": email_pat}, {"_id": 0, "id": 1})
+    if dup_user:
+        raise HTTPException(status_code=409, detail="This email is already registered to another portal account.")
+
+    now = datetime.now(timezone.utc).isoformat()
+    await db.clients.update_one({"id": cid}, {"$set": {"email": em, "updated_at": now}})
+    await db.users.update_one({"id": user["id"]}, {"$set": {"email": em, "updated_at": now}})
+    return {"message": "Email saved", "email": em}
 
 
 def _student_order_email_pattern(email: str):

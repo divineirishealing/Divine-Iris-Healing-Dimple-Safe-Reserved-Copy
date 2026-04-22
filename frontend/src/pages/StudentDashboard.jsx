@@ -14,6 +14,7 @@ import { useNavigate } from 'react-router-dom';
 import { useToast } from '../hooks/use-toast';
 import { SANCTUARY_REFERENCE, INTENTIONS_BY_TAB } from '../lib/dashboardSanctuaryCopy';
 import { mergeDashboardVisibility } from '../lib/dashboardVisibility';
+import { getAuthHeaders } from '../lib/authHeaders';
 import DashboardUpcomingFamilySection from '../components/dashboard/DashboardUpcomingFamilySection';
 import { Button } from '../components/ui/button';
 
@@ -175,8 +176,94 @@ const SanctuaryPetalCard = ({ children, className, onClick, delay = 0, testId, v
   );
 };
 
+/** Prompt to save CRM / portal email when missing or portal row uses admin preview placeholder. */
+function DashboardContactEmailPrompt({ apiBase, visible, onSaved }) {
+  const { checkAuth } = useAuth();
+  const { toast } = useToast();
+  const [email, setEmail] = useState('');
+  const [saving, setSaving] = useState(false);
+
+  if (!visible) return null;
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    const trimmed = email.trim().toLowerCase();
+    if (!trimmed || !trimmed.includes('@')) {
+      toast({
+        title: 'Check the address',
+        description: 'Enter a complete email (example: name@domain.com).',
+        variant: 'destructive',
+      });
+      return;
+    }
+    setSaving(true);
+    try {
+      await axios.put(
+        `${apiBase}/api/student/contact-email`,
+        { email: trimmed },
+        { withCredentials: true, headers: getAuthHeaders() },
+      );
+      toast({ title: 'Email saved', description: 'Your Client Garden profile now has this contact email.' });
+      setEmail('');
+      await checkAuth();
+      onSaved?.();
+    } catch (err) {
+      const d = err.response?.data?.detail;
+      const msg = typeof d === 'string' ? d : err.message || 'Could not save';
+      toast({ title: 'Could not save email', description: msg, variant: 'destructive' });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <section
+      className="relative z-10 w-full max-w-[68rem] mx-auto pl-4 pr-6 sm:pr-8 md:pr-10 lg:pr-12 mb-4 md:mb-5"
+      data-testid="dashboard-add-contact-email"
+    >
+      <div className="rounded-[20px] border border-amber-200/90 bg-gradient-to-br from-amber-50/95 to-white/90 backdrop-blur-sm px-5 py-4 shadow-[0_4px_24px_rgba(180,120,0,0.08)]">
+        <h2 className="font-[family-name:'Cinzel',serif] text-[10px] uppercase tracking-[0.18em] text-amber-900/70 mb-1">
+          Contact email
+        </h2>
+        <p className="text-sm text-amber-950/85 leading-snug mb-3">
+          Add the email you want on your Client Garden record for enrollments, receipts, and matching your account.
+          Use the address you check regularly.
+        </p>
+        <form onSubmit={handleSubmit} className="flex flex-col sm:flex-row sm:items-end gap-3">
+          <label className="flex-1 min-w-0 block">
+            <span className="sr-only">Email</span>
+            <input
+              type="email"
+              name="contact-email"
+              autoComplete="email"
+              value={email}
+              onChange={(ev) => setEmail(ev.target.value)}
+              placeholder="you@example.com"
+              className="w-full rounded-xl border border-amber-200/80 bg-white/90 px-3 py-2.5 text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[#5D3FD3]/30 focus:border-[#5D3FD3]/50"
+            />
+          </label>
+          <Button
+            type="submit"
+            disabled={saving}
+            className="shrink-0 bg-[#5D3FD3] hover:bg-[#4c32b3] h-10 px-5"
+          >
+            {saving ? (
+              <>
+                <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                Saving…
+              </>
+            ) : (
+              'Save email'
+            )}
+          </Button>
+        </form>
+      </div>
+    </section>
+  );
+}
+
 const StudentDashboard = () => {
-  const { user } = useAuth();
+  const { user, checkAuth } = useAuth();
   const { settings } = useSiteSettings();
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -414,6 +501,12 @@ const StudentDashboard = () => {
           </div>
         </section>
         )}
+
+        <DashboardContactEmailPrompt
+          apiBase={API}
+          visible={Boolean(!homeLoading && homeData?.can_add_contact_email)}
+          onSaved={refreshHome}
+        />
 
         {dv.upcoming_family ? (
           <>
