@@ -1466,30 +1466,46 @@ export default function DashboardCombinedCheckoutPage() {
                 : `${symbol} 0`}
             </span>
           </div>
-          {showIndiaInrSettlement &&
-          indiaBreakdown &&
-          (indiaBreakdown.gstPct > 0 || indiaBreakdown.platformPct > 0) ? (
-            <div
-              className="space-y-1 border border-amber-200/80 bg-amber-50/50 rounded-lg px-3 py-2.5 mt-2"
-              data-testid="divine-cart-india-settlement"
-            >
-              {indiaBreakdown.gstPct > 0 ? (
-                <div className="flex justify-between text-sm text-amber-950">
+          {indiaBreakdown &&
+          (Math.round(indiaBreakdown.gstAmount) > 0 || Math.round(indiaBreakdown.platformAmount) > 0) ? (
+            <>
+              <div className="flex justify-between text-sm text-gray-700 mt-2 pt-2 border-t border-gray-100">
+                <span>Net (before tax &amp; fees)</span>
+                <span className="tabular-nums">
+                  {symbol} {Math.round(indiaBreakdown.taxableBase).toLocaleString()}
+                </span>
+              </div>
+              {indiaBreakdown.gstPct > 0 && Math.round(indiaBreakdown.gstAmount) > 0 ? (
+                <div className="flex justify-between text-sm text-gray-700" data-testid="divine-cart-gst-line">
                   <span>
                     {indiaBreakdown.taxLabel} ({indiaBreakdown.gstPct}%)
                   </span>
-                  <span className="tabular-nums">{symbol} {Math.round(indiaBreakdown.gstAmount).toLocaleString()}</span>
+                  <span className="tabular-nums">
+                    {symbol} {Math.round(indiaBreakdown.gstAmount).toLocaleString()}
+                  </span>
                 </div>
               ) : null}
-              {indiaBreakdown.platformPct > 0 ? (
-                <div className="flex justify-between text-sm text-amber-950">
+              {indiaBreakdown.platformPct > 0 && Math.round(indiaBreakdown.platformAmount) > 0 ? (
+                <div
+                  className="flex justify-between text-sm text-gray-700"
+                  data-testid="divine-cart-platform-line"
+                >
                   <span>Platform ({indiaBreakdown.platformPct}%)</span>
                   <span className="tabular-nums">
                     {symbol} {Math.round(indiaBreakdown.platformAmount).toLocaleString()}
                   </span>
                 </div>
               ) : null}
-            </div>
+            </>
+          ) : null}
+          {showIndiaInrSettlement ? (
+            <p
+              className="text-[10px] text-amber-900/90 bg-amber-50/60 border border-amber-200/70 rounded-lg px-2.5 py-2 mt-2 leading-snug"
+              data-testid="divine-cart-india-settlement"
+            >
+              Manual / UPI proof uses the same totals as Stripe — GST and platform (if any) are included in the amount
+              above.
+            </p>
           ) : null}
           <div className="flex justify-between font-bold text-lg sm:text-xl border-t border-gray-200 pt-3 mt-2">
             <span>Total</span>

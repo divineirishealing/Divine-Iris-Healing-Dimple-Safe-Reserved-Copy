@@ -881,6 +881,51 @@ async def enrollment_checkout(enrollment_id: str, data: EnrollmentSubmit, reques
 
     final_total = max(0, total - best_discount)
 
+    # ── India INR stack (Client Garden discount + GST + platform on taxable base) — must match Divine Cart UI ──
+    if str(currency).lower() == "inr" and final_total > 0:
+        try:
+            from utils.india_checkout_math import compute_india_checkout_rounded_total
+
+            settings_inr = await db.site_settings.find_one(
+                {"id": "site_settings"},
+                {"_id": 0, "india_gst_percent": 1, "india_platform_charge_percent": 1},
+            )
+            be = (enrollment.get("booker_email") or "").strip().lower()
+            client_pricing = None
+            if be:
+                portal_user = await db.users.find_one({"email": be}, {"_id": 0, "client_id": 1})
+                cid = (portal_user or {}).get("client_id")
+                if cid:
+                    cl = await db.clients.find_one(
+                        {"id": cid},
+                        {
+                            "_id": 0,
+                            "india_discount_percent": 1,
+                            "india_discount_member_bands": 1,
+                            "india_tax_enabled": 1,
+                            "india_tax_percent": 1,
+                            "india_tax_label": 1,
+                        },
+                    )
+                    if cl:
+                        client_pricing = {
+                            "india_discount_percent": cl.get("india_discount_percent"),
+                            "india_discount_member_bands": cl.get("india_discount_member_bands"),
+                            "india_tax_enabled": cl.get("india_tax_enabled"),
+                            "india_tax_percent": cl.get("india_tax_percent"),
+                            "india_tax_label": cl.get("india_tax_label"),
+                        }
+            final_total = float(
+                compute_india_checkout_rounded_total(
+                    float(final_total),
+                    client_pricing,
+                    settings_inr or {},
+                    int(participant_count or 0),
+                )
+            )
+        except Exception as e:
+            logger.warning("India INR checkout stack error: %s", e)
+
     # ── Loyalty points (redeem up to % of basket; burn on payment webhook) ──
     points_redeemed = 0
     points_discount = 0.0
