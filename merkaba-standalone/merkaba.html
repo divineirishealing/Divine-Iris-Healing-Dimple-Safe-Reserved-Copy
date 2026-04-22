@@ -61,6 +61,10 @@
       color: rgba(255, 251, 235, 0.9); font-style: italic; max-width: 42rem; margin: 0 auto;
     }
     .legal { text-align: center; font-size: 10px; color: rgba(255,255,255,0.28); max-width: 36rem; margin: 12px auto 0; line-height: 1.5; }
+    /* Churning mid-body / belly-torso field (intentional visualization) */
+    @keyframes churnSpin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+    @keyframes churnSpinR { from { transform: rotate(360deg); } to { transform: rotate(0deg); } }
+    @keyframes churnWobble { 0%, 100% { transform: scale(1, 1); } 50% { transform: scale(1.05, 0.95); } }
     @keyframes merkabaCW { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
     @keyframes merkabaCCW { from { transform: rotate(0deg); } to { transform: rotate(-360deg); } }
     @keyframes coreGlow { 0%, 100% { opacity: 0.5; } 50% { opacity: 0.95; } }
@@ -77,13 +81,17 @@
     .tri-inner-ccw { animation: merkabaCCW 25s linear infinite; }
     .core-g { animation: coreGlow 3.2s ease-in-out infinite; }
     .fig-b { animation: breatheBelly 30s ease-in-out infinite; }
+    .churn-blob-a { transform-origin: 0 42px; animation: churnSpin 14s linear infinite, churnWobble 5s ease-in-out infinite; }
+    .churn-blob-b { transform-origin: 0 45px; animation: churnSpinR 20s linear infinite, churnWobble 6.5s ease-in-out infinite; }
+    .churn-blob-c { transform-origin: 0 40px; animation: churnSpin 28s linear infinite; opacity: 0.65; }
     body.merk-paused .tri-outer-cw, body.merk-paused .tri-outer-ccw,
     body.merk-paused .tri-mid-cw, body.merk-paused .tri-mid-ccw,
     body.merk-paused .tri-inner-cw, body.merk-paused .tri-inner-ccw,
-    body.merk-paused .fig-b { animation-play-state: paused; }
+    body.merk-paused .fig-b,     body.merk-paused .churn-blob-a, body.merk-paused .churn-blob-b, body.merk-paused .churn-blob-c { animation-play-state: paused; }
     body.merk-paused [data-anim] { animation-play-state: paused !important; }
     @media (prefers-reduced-motion: reduce) {
-      .tri-outer-cw, .tri-outer-ccw, .tri-mid-cw, .tri-mid-ccw, .tri-inner-cw, .tri-inner-ccw, .fig-b { animation: none !important; }
+      .tri-outer-cw, .tri-outer-ccw, .tri-mid-cw, .tri-mid-ccw, .tri-inner-cw, .tri-inner-ccw, .fig-b,
+      .churn-blob-a, .churn-blob-b, .churn-blob-c { animation: none !important; }
     }
   </style>
 </head>
@@ -91,7 +99,7 @@
   <div class="wrap">
     <h1>Divine Merkaba · personal (offline file)</h1>
     <p class="sub">Open this <strong>merkaba.html</strong> file in your browser. Your photo is saved only in this browser (localStorage). Not medical advice.</p>
-    <p class="hint">Gold = sunwise · Cyan = moonwise — field tightens a little each 60s while playing.</p>
+    <p class="hint">Gold = sunwise · Cyan = moonwise. Midsection field churns and spirals (like flowing Merkaba movement) — a visualization for intention, not a physical process.</p>
 
     <div class="toolbar">
       <label class="btn" for="pic">＋ Add your picture</label>
@@ -125,6 +133,19 @@
             <feMerge><feMergeNode in="b" /><feMergeNode in="SourceGraphic" /></feMerge>
           </filter>
           <clipPath id="userPhotoClip"><circle cx="0" cy="0" r="138" /></clipPath>
+          <radialGradient id="churnAmber" cx="50%" cy="50%" r="50%">
+            <stop offset="0%" stop-color="rgba(255, 200, 120, 0.55)" />
+            <stop offset="50%" stop-color="rgba(212, 140, 60, 0.22)" />
+            <stop offset="100%" stop-color="rgba(100, 40, 20, 0)" />
+          </radialGradient>
+          <radialGradient id="churnViolet" cx="50%" cy="50%" r="50%">
+            <stop offset="0%" stop-color="rgba(200, 160, 255, 0.4)" />
+            <stop offset="100%" stop-color="rgba(40, 20, 80, 0)" />
+          </radialGradient>
+          <filter id="churnSoft" x="-50%" y="-50%" width="200%" height="200%">
+            <feGaussianBlur in="SourceGraphic" stdDeviation="8" result="b" />
+            <feMerge><feMergeNode in="b" /><feMergeNode in="SourceGraphic" /></feMerge>
+          </filter>
         </defs>
         <ellipse cx="500" cy="110" rx="420" ry="150" fill="rgba(100, 60, 200, 0.09)" />
         <g>
@@ -135,7 +156,7 @@
           <path d="M 180 865 A 320 40 0 0 0 820 865" fill="none" stroke="rgba(100, 200, 255, 0.28)" stroke-width="1" stroke-dasharray="5 8" data-anim style="animation: spiralWobble 20s linear infinite reverse" />
         </g>
         <g id="rings" transform="translate(500,410)"></g>
-        <g id="merkaba-g" transform="translate(500,410)">
+          <g id="merkaba-g" transform="translate(500,410)">
           <g id="slimRoot" transform="scale(1)">
             <g id="spokes18"></g>
             <g class="tri-outer-cw">
@@ -152,6 +173,19 @@
             <g class="tri-inner-ccw"><polygon id="p-id" fill="none" stroke="rgba(180, 220, 255, 0.3)" stroke-width="0.8" /></g>
             <circle r="12" class="core-g" fill="rgba(255, 240, 220, 0.4)" />
             <g id="rays"></g>
+            <g id="churnBelly" opacity="0.95" style="pointer-events: none" aria-hidden="true">
+              <g class="churn-blob-c" filter="url(#churnSoft)">
+                <ellipse cx="0" cy="42" rx="95" ry="58" fill="url(#churnAmber)" />
+                <ellipse cx="0" cy="48" rx="72" ry="48" fill="url(#churnViolet)" />
+              </g>
+              <g class="churn-blob-a" filter="url(#churnSoft)">
+                <ellipse cx="0" cy="40" rx="88" ry="52" fill="url(#churnAmber)" opacity="0.5" />
+              </g>
+              <g class="churn-blob-b" filter="url(#churnSoft)">
+                <ellipse cx="0" cy="44" rx="62" ry="40" fill="url(#churnViolet)" opacity="0.45" />
+              </g>
+              <g id="churnOrbits"></g>
+            </g>
             <g id="shed"></g>
             <g id="pose-off"><g id="g-stand" class="fig-b"></g><g id="g-sit" class="fig-b" style="display:none"></g></g>
             <g id="g-photo" style="display:none" class="fig-b">
@@ -239,23 +273,62 @@
     'M60,45 Q70,340 0,600', 'M0,-80 Q50,300 0,600', 'M-115,20 Q30,360 0,600'
   ];
   const shedG = document.getElementById('shed');
+  var svgNS = 'http://www.w3.org/2000/svg';
   shedPaths.forEach(function (d, i) {
-    var p = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-    p.setAttribute('d', d); p.setAttribute('fill', 'none'); p.setAttribute('stroke', 'none');
-    var c1 = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+    var c1 = document.createElementNS(svgNS, 'circle');
     c1.setAttribute('r', '3.2'); c1.setAttribute('fill', 'rgba(200, 180, 255, 0.8)');
-    var m1 = document.createElementNS('http://www.w3.org/2000/svg', 'animateMotion');
+    var m1 = document.createElementNS(svgNS, 'animateMotion');
     m1.setAttribute('dur', (4.2 + i * 0.3) + 's'); m1.setAttribute('repeatCount', 'indefinite'); m1.setAttribute('path', d); m1.setAttribute('rotate', 'auto');
     c1.appendChild(m1);
-    var c2 = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+    var c2 = document.createElementNS(svgNS, 'circle');
     c2.setAttribute('r', '2'); c2.setAttribute('fill', 'rgba(212, 175, 55, 0.55)');
-    var m2 = document.createElementNS('http://www.w3.org/2000/svg', 'animateMotion');
+    var m2 = document.createElementNS(svgNS, 'animateMotion');
     m2.setAttribute('dur', (5.4 + i * 0.25) + 's'); m2.setAttribute('repeatCount', 'indefinite'); m2.setAttribute('path', d); m2.setAttribute('begin', (i * 0.55) + 's');
     c2.appendChild(m2);
-    var g = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+    var g = document.createElementNS(svgNS, 'g');
     g.setAttribute('opacity', '0.55');
     g.appendChild(c1); g.appendChild(c2);
     shedG.appendChild(g);
+  });
+
+  function bellyOvalPath(rx, ry, cy) {
+    return 'M' + rx + ',' + cy + ' A' + rx + ',' + ry + ' 0 1 1 -' + rx + ',' + cy + ' A' + rx + ',' + ry + ' 0 1 1 ' + rx + ',' + cy;
+  }
+  var colorsChurn = [
+    'rgba(255, 210, 120, 0.9)', 'rgba(255, 175, 70, 0.75)', 'rgba(200, 160, 255, 0.65)', 'rgba(255, 230, 180, 0.55)',
+    'rgba(220, 160, 90, 0.7)', 'rgba(180, 150, 255, 0.5)'
+  ];
+  var beltSpecs = [
+    { rx: 86, ry: 52, cy: 35 }, { rx: 72, ry: 44, cy: 37 }, { rx: 58, ry: 36, cy: 39 },
+    { rx: 44, ry: 28, cy: 41 }, { rx: 30, ry: 20, cy: 42 }
+  ];
+  var churnOrbits = document.getElementById('churnOrbits');
+  beltSpecs.forEach(function (s, si) {
+    var d = bellyOvalPath(s.rx, s.ry, s.cy);
+    var guide = document.createElementNS(svgNS, 'path');
+    guide.setAttribute('d', d);
+    guide.setAttribute('fill', 'none');
+    guide.setAttribute('stroke', 'rgba(255, 200, 120, 0.12)');
+    guide.setAttribute('stroke-width', '0.5');
+    churnOrbits.appendChild(guide);
+    for (var j = 0; j < 4; j++) {
+      for (var k = 0; k < 2; k++) {
+        var c = document.createElementNS(svgNS, 'circle');
+        c.setAttribute('r', String(1.6 + (si + j) * 0.12));
+        c.setAttribute('fill', colorsChurn[(si + j + k) % colorsChurn.length]);
+        c.setAttribute('opacity', '0.88');
+        var m = document.createElementNS(svgNS, 'animateMotion');
+        m.setAttribute('path', d);
+        m.setAttribute('dur', (1.8 + si * 0.25 + j * 0.35) + 's');
+        m.setAttribute('repeatCount', 'indefinite');
+        m.setAttribute('begin', (si * 0.1 + j * 0.15 + k * 0.4) + 's');
+        m.setAttribute('keyPoints', k ? '1;0' : '0;1');
+        m.setAttribute('keyTimes', '0;1');
+        m.setAttribute('calcMode', 'linear');
+        c.appendChild(m);
+        churnOrbits.appendChild(c);
+      }
+    }
   });
 
   var stand = document.getElementById('g-stand');
@@ -292,13 +365,17 @@
   var playing = !window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   var pose = 'stand';
   var merkG = document.getElementById('merkaba-g');
-  var rings = document.getElementById('rings');
   var slimRoot = document.getElementById('slimRoot');
 
+  var mainSvg = document.getElementById('main-svg');
   function setPlaying(p) {
     playing = p;
     document.body.classList.toggle('merk-paused', !p);
     document.getElementById('btn-play').textContent = p ? 'Pause' : 'Play';
+    try {
+      if (p && mainSvg.unpauseAnimations) mainSvg.unpauseAnimations();
+      else if (!p && mainSvg.pauseAnimations) mainSvg.pauseAnimations();
+    } catch (e) {}
   }
   setPlaying(playing);
 
