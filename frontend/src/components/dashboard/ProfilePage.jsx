@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../hooks/use-toast';
@@ -20,8 +20,12 @@ function formatJoinDivineIris(iso) {
 }
 
 const ProfilePage = () => {
-  const { user } = useAuth();
+  const { user, checkAuth } = useAuth();
   const { toast } = useToast();
+
+  useEffect(() => {
+    checkAuth();
+  }, []);
   const [formData, setFormData] = useState({
     full_name: user?.name || '',
     gender: user?.gender || '',
@@ -65,16 +69,6 @@ const ProfilePage = () => {
         <div>
           <h1 className="text-2xl font-bold text-gray-900">{user?.name}</h1>
           <p className="text-sm text-[#5D3FD3] font-medium">{user?.email}</p>
-          {user?.joined_divine_iris_at && (
-            <p className="mt-2 text-xs text-gray-600 flex items-center gap-1.5">
-              <Calendar size={14} className="text-gray-400 shrink-0" aria-hidden />
-              <span>
-                <span className="text-gray-500">Date of joining Divine Iris</span>
-                {' '}
-                <span className="font-semibold text-gray-800">{formatJoinDivineIris(user.joined_divine_iris_at)}</span>
-              </span>
-            </p>
-          )}
           <div className="mt-2 flex gap-2">
             <span className="text-[10px] px-2 py-1 bg-purple-50 text-purple-700 rounded-full uppercase tracking-wider font-bold">Tier {user?.tier}</span>
             {user?.pending_profile_update && <span className="text-[10px] px-2 py-1 bg-amber-50 text-amber-700 rounded-full uppercase tracking-wider font-bold">Update Pending</span>}
@@ -104,6 +98,24 @@ const ProfilePage = () => {
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="grid md:grid-cols-2 gap-6">
+            <div className="space-y-2 md:col-span-2 pb-2 border-b border-gray-100">
+              <Label htmlFor="joined-divine-iris">Date of joining Divine Iris</Label>
+              <div className="relative">
+                <Calendar size={16} className="absolute left-3 top-3 text-gray-400 pointer-events-none" aria-hidden />
+                <Input
+                  id="joined-divine-iris"
+                  readOnly
+                  tabIndex={-1}
+                  value={user?.joined_divine_iris_at ? formatJoinDivineIris(user.joined_divine_iris_at) : '—'}
+                  className="pl-10 bg-slate-50 border-slate-200 text-gray-900 cursor-default focus-visible:ring-0 focus-visible:ring-offset-0"
+                  aria-describedby="joined-divine-iris-hint"
+                />
+              </div>
+              <p id="joined-divine-iris-hint" className="text-[10px] text-gray-500">
+                Based on when your profile was first added in our records. This field cannot be edited here.
+              </p>
+            </div>
+
             <div className="space-y-2">
               <Label>Full Name</Label>
               <div className="relative">
