@@ -26,6 +26,7 @@ import ManualPaymentPage from './pages/ManualPaymentPage';
 import ClientIntakePage from './pages/ClientIntakePage';
 import ContactUpdatePage from './pages/ContactUpdatePage';
 import LoginPage from './pages/LoginPage';
+import MerkabaStandalonePage from './pages/MerkabaStandalonePage';
 import StudentDashboard from './pages/StudentDashboard';
 import DashboardLayout from './layouts/DashboardLayout';
 import AuthCallback from './components/auth/AuthCallback';
@@ -39,7 +40,6 @@ import TreeOfLifePage from './components/dashboard/TreeOfLifePage';
 import OceanPage from './components/dashboard/OceanPage';
 import MandalaPage from './components/dashboard/MandalaPage';
 import HeadspacePage from './components/dashboard/HeadspacePage';
-import MerkabaWeightReleasePage from './components/dashboard/MerkabaWeightReleasePage';
 import BhaadPortalPage from './components/dashboard/BhaadPortalPage';
 import SoulTribePage from './components/dashboard/SoulTribePage';
 import PointsPage from './components/dashboard/PointsPage';
@@ -89,11 +89,14 @@ const AppContent = () => {
     return <AuthCallback />;
   }
 
+  const isMerkabaOnly = location.pathname === '/merkaba';
+
   return (
     <>
-      <BackendStatusBanner />
-      <SeoHead />
+      {!isMerkabaOnly && <BackendStatusBanner />}
+      {!isMerkabaOnly && <SeoHead />}
       <Routes>
+      <Route path="/merkaba" element={<MerkabaStandalonePage />} />
       <Route path="/" element={<HomePage />} />
       <Route path="/admin" element={<AdminPage />} />
       <Route path="/programs" element={<AllProgramsPage />} />
@@ -140,8 +143,7 @@ const AppContent = () => {
         <Route path="garden/ocean" element={<OceanPage />} />
         <Route path="garden/mandala" element={<MandalaPage />} />
         <Route path="garden/zen" element={<HeadspacePage />} />
-        {/* Personal tool — not linked from Soul Garden; bookmark /dashboard/garden/merkaba-weight */}
-        <Route path="garden/merkaba-weight" element={<MerkabaWeightReleasePage />} />
+        <Route path="garden/merkaba-weight" element={<Navigate to="/merkaba" replace />} />
         <Route path="bhaad" element={<BhaadPortalPage />} />
         <Route path="tribe" element={<SoulTribePage />} />
         

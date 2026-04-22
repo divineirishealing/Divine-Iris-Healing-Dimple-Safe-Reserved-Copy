@@ -146,8 +146,9 @@ const MerkabaWeightReleasePage = () => {
           Divine Merkaba · personal sanctuary
         </h1>
         <p className="text-[11px] text-white/45 max-w-xl mx-auto leading-relaxed">
-          Personal practice space — not linked from the main garden. Bookmark this URL for your own use. Your photo
-          stays in this browser only (not uploaded to our servers). For meditation, not medical advice.
+          Standalone page — not part of the student dashboard. Save{' '}
+          <span className="text-[#D4AF37]/80 font-mono text-[10px]">/merkaba</span> on this site as your personal link. Your
+          photo stays in this browser only (not uploaded to our servers). For meditation, not medical advice.
         </p>
       </div>
 
