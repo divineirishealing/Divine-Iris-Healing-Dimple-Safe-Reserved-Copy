@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import axios from 'axios';
 import { useToast } from '../../../hooks/use-toast';
 import { FileSpreadsheet, Download, Search, CreditCard, Building2, Upload, Globe, ChevronDown, ChevronUp, LayoutList, Table2, Mail } from 'lucide-react';
@@ -28,6 +28,46 @@ const PAYMENT_MODE_MAP = {
   manual_proof: { label: 'Manual Proof', icon: Upload, color: 'text-amber-600 bg-amber-50' },
   free: { label: 'Free', icon: CreditCard, color: 'text-gray-500 bg-gray-50' },
 };
+
+/** Admin analytics: normalize participant attendance for checkout-level summary. */
+function attendanceBucket(mode) {
+  const m = String(mode || '').toLowerCase().replace(/-/g, '_');
+  if (m === 'offline') return 'offline';
+  if (m === 'in_person') return 'in_person';
+  return 'online';
+}
+
+/** One label per enrollment from participant rows (Online / Offline / In person / Mixed / —). */
+function deriveCheckoutAttendanceLabel(participants) {
+  const list = Array.isArray(participants) ? participants : [];
+  if (list.length === 0) return '—';
+  const buckets = list.map((p) => attendanceBucket(p.attendance_mode));
+  const uniq = [...new Set(buckets)];
+  if (uniq.length === 1) {
+    if (uniq[0] === 'offline') return 'Offline';
+    if (uniq[0] === 'in_person') return 'In person';
+    return 'Online';
+  }
+  return 'Mixed';
+}
+
+/**
+ * Convert stored payment amount to INR using /api/currency/exchange-rates keys (`usd_to_inr`, etc.).
+ * Falls back to rough static rates for admin display when a pair is missing.
+ */
+function enrollmentAmountToInr(amount, currency, rates) {
+  const n = Number(amount) || 0;
+  if (n <= 0) return 0;
+  const c = String(currency || 'inr').toLowerCase();
+  if (c === 'inr') return Math.round(n);
+  const key = `${c}_to_inr`;
+  const r = rates && Number(rates[key]);
+  if (r > 0) return Math.round(n * r);
+  const fallback = { usd: 83, aed: 22.6, eur: 90, gbp: 105, cad: 60, aud: 55, sar: 22 };
+  const mult = fallback[c];
+  if (mult) return Math.round(n * mult);
+  return Math.round(n);
+}
 
 const getPaymentMode = (enrollment) => {
   // Check explicit payment_method first
@@ -70,8 +110,20 @@ const EnrollmentsTab = () => {
   });
   const [savingReport, setSavingReport] = useState(false);
   const [sendingTest, setSendingTest] = useState(false);
+  /** Flat map e.g. { usd_to_inr, aed_to_inr } for admin INR column */
+  const [fxRates, setFxRates] = useState({});
 
   useEffect(() => { loadEnrollments(); }, []);
+
+  useEffect(() => {
+    axios
+      .get(`${API}/currency/exchange-rates`)
+      .then((r) => {
+        const raw = r.data?.rates;
+        if (raw && typeof raw === 'object') setFxRates(raw);
+      })
+      .catch(() => {});
+  }, []);
 
   useEffect(() => {
     axios.get(`${API}/settings`)
@@ -178,14 +230,21 @@ const EnrollmentsTab = () => {
     }
   };
 
-  const filtered = enrollments.filter(e => {
-    const matchSearch = !search || [e.id, e.booker_name, e.booker_email, e.item_title, e.phone, e.invoice_number]
-      .filter(Boolean).some(f => f.toLowerCase().includes(search.toLowerCase()));
-    const matchStatus = statusFilter === 'all' || e.status === statusFilter;
-    const mode = getPaymentMode(e);
-    const matchPayment = paymentFilter === 'all' || mode === paymentFilter;
-    return matchSearch && matchStatus && matchPayment;
-  });
+  const filtered = useMemo(
+    () =>
+      enrollments.filter((e) => {
+        const matchSearch =
+          !search ||
+          [e.id, e.booker_name, e.booker_email, e.item_title, e.phone, e.invoice_number]
+            .filter(Boolean)
+            .some((f) => f.toLowerCase().includes(search.toLowerCase()));
+        const matchStatus = statusFilter === 'all' || e.status === statusFilter;
+        const mode = getPaymentMode(e);
+        const matchPayment = paymentFilter === 'all' || mode === paymentFilter;
+        return matchSearch && matchStatus && matchPayment;
+      }),
+    [enrollments, search, statusFilter, paymentFilter],
+  );
 
   const statusCounts = {};
   enrollments.forEach(e => { const s = e.status || 'pending'; statusCounts[s] = (statusCounts[s] || 0) + 1; });
@@ -193,6 +252,25 @@ const EnrollmentsTab = () => {
 
   const paymentCounts = {};
   enrollments.forEach(e => { const m = getPaymentMode(e) || 'unknown'; paymentCounts[m] = (paymentCounts[m] || 0) + 1; });
+
+  /** Summary table: serial #, INR amounts, running total in INR (filtered order). */
+  const summaryAnalyticsRows = useMemo(() => {
+    let cumulativeInr = 0;
+    return filtered.map((e, idx) => {
+      const rawAmount = e.payment?.amount ?? e.dashboard_mixed_total ?? e.total ?? 0;
+      const currency = e.payment?.currency || e.dashboard_mixed_currency || e.currency || 'inr';
+      const amountInr = enrollmentAmountToInr(rawAmount, currency, fxRates);
+      cumulativeInr += amountInr;
+      return {
+        enrollment: e,
+        serial: idx + 1,
+        amountInr,
+        cumulativeInr,
+        attendanceLabel: deriveCheckoutAttendanceLabel(e.participants),
+        sourceCurrency: String(currency || '').toLowerCase() || 'inr',
+      };
+    });
+  }, [filtered, fxRates]);
 
   const filteredParticipants = participantRows.filter((row) => {
     if (!participantSearch.trim()) return true;
@@ -415,36 +493,42 @@ const EnrollmentsTab = () => {
         <div className="text-center py-12 text-gray-400 text-sm">No enrollments found</div>
       ) : viewMode === 'summary' ? (
         <div className="overflow-x-auto border rounded-lg">
+          <p className="text-[10px] text-gray-500 px-3 py-2 bg-gray-50/80 border-b">
+            Admin analytics: <strong>Amount (INR)</strong> and <strong>Running total (INR)</strong> use stored checkout currency and{' '}
+            <span className="font-mono">/api/currency/exchange-rates</span> when available; otherwise rough fallbacks.
+          </p>
           <table className="w-full text-xs">
             <thead className="bg-gray-50 border-b">
               <tr>
+                <th className="text-left px-3 py-2 font-semibold text-gray-600 w-10">#</th>
                 <th className="text-left px-3 py-2 font-semibold text-gray-600">Invoice #</th>
                 <th className="text-left px-3 py-2 font-semibold text-gray-600">Booker</th>
                 <th className="text-left px-3 py-2 font-semibold text-gray-600">Program</th>
                 <th className="text-left px-3 py-2 font-semibold text-gray-600">Origin</th>
                 <th className="text-left px-3 py-2 font-semibold text-gray-600">Pax</th>
-                <th className="text-left px-3 py-2 font-semibold text-gray-600">Amount</th>
+                <th className="text-left px-3 py-2 font-semibold text-gray-600 whitespace-nowrap">Online / Offline</th>
                 <th className="text-left px-3 py-2 font-semibold text-gray-600">Payment Mode</th>
                 <th className="text-left px-3 py-2 font-semibold text-gray-600">Status</th>
                 <th className="text-left px-3 py-2 font-semibold text-gray-600">Date</th>
+                <th className="text-right px-3 py-2 font-semibold text-gray-600 whitespace-nowrap">Amount (INR)</th>
+                <th className="text-right px-3 py-2 font-semibold text-gray-600 whitespace-nowrap">Running total (INR)</th>
                 <th className="w-8"></th>
               </tr>
             </thead>
             <tbody className="divide-y">
-              {filtered.map(e => {
+              {summaryAnalyticsRows.map(({ enrollment: e, serial, amountInr, cumulativeInr, attendanceLabel, sourceCurrency }) => {
                 const s = STATUS_MAP[e.status] || { label: e.status || 'Unknown', color: 'bg-gray-100 text-gray-600' };
                 const mode = getPaymentMode(e);
                 const modeInfo = mode ? PAYMENT_MODE_MAP[mode] : null;
                 const ModeIcon = modeInfo?.icon || CreditCard;
                 const isExpanded = expandedId === e.id;
-                const amount = e.payment?.amount ?? e.dashboard_mixed_total ?? e.total ?? 0;
+                const rawAmount = e.payment?.amount ?? e.dashboard_mixed_total ?? e.total ?? 0;
                 const currency = e.payment?.currency || e.dashboard_mixed_currency || e.currency || '';
-                const symbols = { inr: '₹', aed: 'AED ', usd: '$' };
-                const sym = symbols[currency] || currency.toUpperCase() + ' ';
 
                 return (
                   <React.Fragment key={e.id}>
                     <tr className="hover:bg-gray-50 cursor-pointer" onClick={() => setExpandedId(isExpanded ? null : e.id)}>
+                      <td className="px-3 py-2.5 text-gray-500 tabular-nums font-medium">{serial}</td>
                       <td className="px-3 py-2.5 font-mono text-purple-700 font-medium text-[10px]">
                         {e.invoice_number || e.id?.slice(0, 8) || '-'}
                       </td>
@@ -465,8 +549,8 @@ const EnrollmentsTab = () => {
                       <td className="px-3 py-2.5 text-center">
                         <span className="font-medium">{e.participant_count || e.participants?.length || 0}</span>
                       </td>
-                      <td className="px-3 py-2.5 font-medium text-gray-900">
-                        {amount > 0 ? `${sym}${amount.toLocaleString()}` : 'FREE'}
+                      <td className="px-3 py-2.5 text-gray-800 text-[10px] whitespace-nowrap">
+                        {attendanceLabel}
                       </td>
                       <td className="px-3 py-2.5">
                         {modeInfo ? (
@@ -481,6 +565,18 @@ const EnrollmentsTab = () => {
                       <td className="px-3 py-2.5 text-gray-500 text-[10px] whitespace-nowrap">
                         {e.created_at ? new Date(e.created_at).toLocaleDateString('en-US', { day: 'numeric', month: 'short' }) : '-'}
                       </td>
+                      <td className="px-3 py-2.5 text-right font-medium text-gray-900 tabular-nums whitespace-nowrap">
+                        {rawAmount > 0 ? (
+                          <span title={sourceCurrency !== 'inr' ? `Stored: ${String(currency || '').toUpperCase()}` : ''}>
+                            ₹{amountInr.toLocaleString('en-IN')}
+                          </span>
+                        ) : (
+                          'FREE'
+                        )}
+                      </td>
+                      <td className="px-3 py-2.5 text-right font-semibold text-violet-900 tabular-nums whitespace-nowrap">
+                        ₹{cumulativeInr.toLocaleString('en-IN')}
+                      </td>
                       <td className="px-2">
                         {isExpanded ? <ChevronUp size={12} className="text-gray-400" /> : <ChevronDown size={12} className="text-gray-400" />}
                       </td>
@@ -488,12 +584,14 @@ const EnrollmentsTab = () => {
                     {/* Expanded details */}
                     {isExpanded && (
                       <tr>
-                        <td colSpan={10} className="bg-gray-50 px-4 py-3">
+                        <td colSpan={13} className="bg-gray-50 px-4 py-3">
                           <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-[10px]">
                             <div><span className="text-gray-400 block">Enrollment ID</span><span className="font-mono">{e.id}</span></div>
                             <div><span className="text-gray-400 block">Origin</span>{e.enrollment_origin === 'dashboard' ? 'Dashboard' : 'Website'}</div>
                             <div><span className="text-gray-400 block">Country</span>{e.booker_country || '-'}</div>
-                            <div><span className="text-gray-400 block">Currency</span>{(currency || '').toUpperCase() || '—'}</div>
+                            <div><span className="text-gray-400 block">Stored currency</span>{(currency || '').toUpperCase() || '—'}</div>
+                            <div><span className="text-gray-400 block">Amount (analytics INR)</span>₹{amountInr.toLocaleString('en-IN')}</div>
+                            <div><span className="text-gray-400 block">Attendance (summary)</span>{attendanceLabel}</div>
                             <div><span className="text-gray-400 block">Tier</span>{e.tier_index != null ? `Tier ${e.tier_index + 1}` : '-'}</div>
                             <div><span className="text-gray-400 block">Promo Code</span>{e.promo_code || '-'}</div>
                             <div><span className="text-gray-400 block">Bank/Account</span>{e.bank_name || e.payment?.bank_name || '-'}</div>
