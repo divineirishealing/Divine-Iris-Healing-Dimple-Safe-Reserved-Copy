@@ -93,12 +93,45 @@ async def compute_label(client_doc: dict) -> str:
     return "Dew"
 
 
+def _client_field_empty(doc: dict, key: str) -> bool:
+    v = doc.get(key)
+    return v is None or (isinstance(v, str) and not str(v).strip())
+
+
+async def backfill_missing_client_identifiers() -> int:
+    """
+    Fill `did` (DID-xxxxxxxx) and branded `diid` (DIID-INITIALSyyMM-HEX) on legacy rows.
+    Does not change `updated_at` so Client Garden sort order stays stable.
+    """
+    n = 0
+    async for cl in db.clients.find(
+        {},
+        {"_id": 1, "name": 1, "created_at": 1, "updated_at": 1, "did": 1, "diid": 1},
+    ):
+        set_doc: Dict[str, Any] = {}
+        if _client_field_empty(cl, "did"):
+            set_doc["did"] = f"DID-{uuid.uuid4().hex[:8].upper()}"
+        anchor = cl.get("created_at") or cl.get("updated_at") or datetime.now(timezone.utc).isoformat()
+        if _client_field_empty(cl, "diid"):
+            set_doc["diid"] = new_internal_diid(cl.get("name") or "", anchor)
+        if set_doc:
+            await db.clients.update_one({"_id": cl["_id"]}, {"$set": set_doc})
+            n += 1
+    return n
+
+
 # ========== SYNC / BACKFILL ==========
 
 @router.post("/sync")
 async def sync_clients():
     """Backfill/sync client data from contacts, interests, questions; enrollments count as conversions only after paid checkout."""
-    stats = {"new_clients": 0, "updated": 0, "total_sources_scanned": 0, "conversions_pruned_clients": 0}
+    stats = {
+        "new_clients": 0,
+        "updated": 0,
+        "total_sources_scanned": 0,
+        "conversions_pruned_clients": 0,
+        "identifiers_backfilled": 0,
+    }
 
     # Helper to upsert a client
     async def upsert_client(email: str, phone: str = "", name: str = "", source: str = "", source_detail: str = "", source_date: str = ""):
@@ -337,6 +370,8 @@ async def sync_clients():
         if new_label != cl.get("label"):
             await db.clients.update_one({"id": cl["id"]}, {"$set": {"label": new_label, "updated_at": datetime.now(timezone.utc).isoformat()}})
             stats["updated"] += 1
+
+    stats["identifiers_backfilled"] = await backfill_missing_client_identifiers()
 
     return {"message": "Sync complete", "stats": stats}
 
@@ -820,8 +855,8 @@ async def export_clients_excel():
     ws.title = "Client Garden"
 
     headers = [
-        "DID",
         "DIID",
+        "Legacy DID",
         "Label",
         "Name",
         "Email",
@@ -860,8 +895,8 @@ async def export_clients_excel():
         sources = ", ".join(set(cl.get("sources", [])))
         label = cl.get("label", "Dew")
         row_data = [
-            cl.get("did", ""),
             cl.get("diid", ""),
+            cl.get("did", ""),
             label,
             cl.get("name", ""),
             cl.get("email", ""),
@@ -882,7 +917,7 @@ async def export_clients_excel():
             cell.fill = fill
             cell.border = thin_border
 
-    col_widths = [14, 28, 12, 20, 30, 18, 22, 12, 25, 40, 16, 22, 22, 30]
+    col_widths = [30, 14, 12, 20, 30, 18, 22, 12, 25, 40, 16, 22, 22, 30]
     for i, w in enumerate(col_widths):
         ws.column_dimensions[ws.cell(row=1, column=i + 1).column_letter].width = w
 
