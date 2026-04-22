@@ -1889,14 +1889,6 @@ async def put_contact_email(data: ContactEmailBody, user: dict = Depends(get_cur
             detail="Your contact email is already on file. To change it, contact your host.",
         )
 
-    email_pat = re.compile(f"^{re.escape(em)}$", re.IGNORECASE)
-    dup_client = await db.clients.find_one({"id": {"$ne": cid}, "email": email_pat}, {"_id": 0, "id": 1})
-    if dup_client:
-        raise HTTPException(status_code=409, detail="This email is already used for another client record.")
-    dup_user = await db.users.find_one({"id": {"$ne": user["id"]}, "email": email_pat}, {"_id": 0, "id": 1})
-    if dup_user:
-        raise HTTPException(status_code=409, detail="This email is already registered to another portal account.")
-
     now = datetime.now(timezone.utc).isoformat()
     await db.clients.update_one({"id": cid}, {"$set": {"email": em, "updated_at": now}})
     await db.users.update_one({"id": user["id"]}, {"$set": {"email": em, "updated_at": now}})

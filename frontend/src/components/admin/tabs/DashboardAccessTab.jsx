@@ -991,7 +991,8 @@ export default function DashboardAccessTab() {
             <div>
               <Label className="text-xs text-gray-600">Client Garden email</Label>
               <p className="text-[10px] text-gray-400 mb-1">
-                Google sign-in matches this address. Welcome mail uses it when you enable login below.
+                You may use the same address on multiple clients. Google sign-in resolves to one row (newest with access
+                enabled). Welcome mail uses this address when you enable login below.
               </p>
               <Input
                 type="email"

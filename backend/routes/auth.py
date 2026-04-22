@@ -144,6 +144,25 @@ def _normalize_email(email: Optional[str]) -> str:
     return (email or "").strip().lower()
 
 
+async def _pick_client_by_email(email: str, *, prefer_login_eligible: bool) -> Optional[dict]:
+    """Pick one Client Garden row when several share the same email (newest first)."""
+    em = _normalize_email(email)
+    if not em:
+        return None
+    raw = (email or "").strip()
+    docs = await db.clients.find(
+        {"$or": [{"email": em}, {"email": raw}]},
+        {"_id": 0},
+    ).sort([("updated_at", -1)]).to_list(200)
+    if not docs:
+        return None
+    if prefer_login_eligible:
+        for c in docs:
+            if c.get("portal_login_allowed") is not False:
+                return c
+    return docs[0]
+
+
 def _impersonation_placeholder_email(client_id: str) -> str:
     """Stable synthetic address for portal user rows when Client Garden has no email (admin preview only)."""
     cid = (client_id or "").strip()
@@ -194,10 +213,7 @@ async def _ensure_user_for_impersonation(
         return user
 
     if client_doc is None:
-        client_doc = await db.clients.find_one(
-            {"$or": [{"email": em}, {"email": em.strip()}]},
-            {"_id": 0},
-        )
+        client_doc = await _pick_client_by_email(em, prefer_login_eligible=False)
     if not client_doc:
         raise HTTPException(
             status_code=404,
@@ -318,12 +334,8 @@ async def google_auth_callback(data: AuthSessionStart, response: Response):
     if not email:
         raise HTTPException(status_code=400, detail="No email provided by auth provider")
 
-    # 2. Check strict whitelist against 'clients'
-    # We check if this email exists in our CRM (Client Garden)
-    client_doc = await db.clients.find_one(
-        {"$or": [{"email": email}, {"email": email.strip()}]}, 
-        {"_id": 0}
-    )
+    # 2. Check strict whitelist against 'clients' (same email may exist on multiple rows)
+    client_doc = await _pick_client_by_email(email, prefer_login_eligible=True)
 
     if not client_doc:
         # REJECT LOGIN - User not in portal

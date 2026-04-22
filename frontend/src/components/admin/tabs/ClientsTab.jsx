@@ -463,7 +463,10 @@ function ClientEditDialog({ client: cl, onClose, onSaved, onDelete, toast }) {
                 placeholder="name@example.com"
                 autoComplete="off"
               />
-              <p className="text-[9px] text-gray-400 mt-1">Used for Google sign-in matching and notifications. Leave blank only if they have no address yet.</p>
+              <p className="text-[9px] text-gray-400 mt-1">
+                Same email may be saved on more than one client. Google sign-in picks the newest row with dashboard access
+                enabled, then falls back to the newest match. Leave blank only if they have no address yet.
+              </p>
             </div>
           </div>
 

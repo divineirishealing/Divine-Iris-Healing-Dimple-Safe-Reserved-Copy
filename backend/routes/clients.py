@@ -4,7 +4,6 @@ from typing import Optional, List, Dict, Any
 from datetime import datetime, timezone
 import logging
 import os
-import re
 import uuid
 from motor.motor_asyncio import AsyncIOMotorClient
 from utils.canonical_id import new_entity_id, new_internal_diid
@@ -425,17 +424,12 @@ async def create_client_manual(data: ClientManualCreate):
     if label_manual and label_manual not in LABELS:
         raise HTTPException(status_code=400, detail=f"Invalid label. Use one of: {', '.join(LABELS)}")
 
-    dup_query = []
-    if email_n:
-        dup_query.append({"email": email_n})
     if phone_n:
-        dup_query.append({"phone": phone_n})
-    if dup_query:
-        existing = await db.clients.find_one({"$or": dup_query})
-        if existing:
+        existing_phone = await db.clients.find_one({"phone": phone_n})
+        if existing_phone:
             raise HTTPException(
                 status_code=409,
-                detail="A client with this email or phone already exists",
+                detail="A client with this phone number already exists",
             )
 
     now = datetime.now(timezone.utc).isoformat()
@@ -797,23 +791,6 @@ async def update_client(client_id: str, data: ClientUpdate):
             raise HTTPException(status_code=400, detail="Invalid email address")
         old_em = normalize_email(cl.get("email") or "")
         if new_em != old_em:
-            if new_em:
-                email_pat = re.compile(f"^{re.escape(new_em)}$", re.IGNORECASE)
-                dup_c = await db.clients.find_one(
-                    {"id": {"$ne": client_id}, "email": email_pat},
-                    {"_id": 0, "id": 1},
-                )
-                if dup_c:
-                    raise HTTPException(status_code=409, detail="Another client already uses this email.")
-                dup_u = await db.users.find_one(
-                    {"client_id": {"$ne": client_id}, "email": email_pat},
-                    {"_id": 0, "id": 1},
-                )
-                if dup_u:
-                    raise HTTPException(
-                        status_code=409,
-                        detail="This email is already registered to another portal account.",
-                    )
             update_fields["email"] = new_em or None
 
     incoming = data.model_dump(exclude_unset=True)

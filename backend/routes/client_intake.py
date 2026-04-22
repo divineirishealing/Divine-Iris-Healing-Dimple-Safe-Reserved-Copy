@@ -69,7 +69,8 @@ async def submit_intake(data: ClientIntakeSubmit):
     if data.country: intake_fields["country_name"] = data.country.strip()
     if pm:           intake_fields["preferred_payment_method"] = pm
 
-    existing = await db.clients.find_one({"email": email})
+    matches = await db.clients.find({"email": email}).sort([("updated_at", -1)]).to_list(1)
+    existing = matches[0] if matches else None
 
     if existing:
         if existing.get("intake_submitted_at"):
@@ -83,7 +84,7 @@ async def submit_intake(data: ClientIntakeSubmit):
             "name":  name,
             "phone": phone,
         }
-        await db.clients.update_one({"email": email}, {"$set": update})
+        await db.clients.update_one({"id": existing["id"]}, {"$set": update})
         return {"status": "updated", "message": "Your details have been received. We will be in touch soon."}
 
     # Create new client record
