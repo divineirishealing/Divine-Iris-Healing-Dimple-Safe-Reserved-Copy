@@ -92,14 +92,27 @@
     @media (prefers-reduced-motion: reduce) {
       .tri-outer-cw, .tri-outer-ccw, .tri-mid-cw, .tri-mid-ccw, .tri-inner-cw, .tri-inner-ccw, .fig-b,
       .churn-blob-a, .churn-blob-b, .churn-blob-c { animation: none !important; }
+      .breath-ov { display: none !important; }
     }
+    .sensory-row { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; align-items: center; margin-top: 8px; }
+    .sensory-row label { font-size: 10px; color: rgba(255,255,255,0.45); }
+    .sensory-row input[type=range] { width: 100px; vertical-align: middle; }
+    .breath-ov {
+      position: absolute; top: 10px; left: 0; right: 0; text-align: center; z-index: 30;
+      font-size: 12px; letter-spacing: 0.12em; text-transform: uppercase; pointer-events: none;
+    }
+    .breath-ov .b-in, .breath-ov .b-out { position: absolute; left: 0; right: 0; }
+    .breath-ov .b-in { color: rgba(180, 220, 255, 0.5); animation: brIn 10s ease-in-out infinite; }
+    .breath-ov .b-out { color: rgba(255, 210, 150, 0.45); animation: brOut 10s ease-in-out infinite; }
+    @keyframes brIn { 0%, 40% { opacity: 0.7; } 50%, 100% { opacity: 0; } }
+    @keyframes brOut { 0%, 40% { opacity: 0; } 50%, 90% { opacity: 0.65; } 100% { opacity: 0; } }
   </style>
 </head>
 <body>
   <div class="wrap">
     <h1>Divine Merkaba · personal (offline file)</h1>
     <p class="sub">Open this <strong>merkaba.html</strong> file in your browser. Your photo is saved only in this browser (localStorage). Not medical advice.</p>
-    <p class="hint">Gold = sunwise · Cyan = moonwise. Midsection field churns and spirals (like flowing Merkaba movement) — a visualization for intention, not a physical process.</p>
+    <p class="hint">Gold = sunwise · Cyan = moonwise. Midsection field churns and spirals — a visualization for intention, not a physical process. Pairing <strong>sight + slow breath + soft sound</strong> helps your system settle so intention lands deeper; it does not replace sleep, food, or medical care.</p>
 
     <div class="toolbar">
       <label class="btn" for="pic">＋ Add your picture</label>
@@ -114,9 +127,19 @@
       <button type="button" id="btn-reset">Reset size</button>
       <button type="button" id="btn-next">Next line</button>
     </div>
+    <div class="sensory-row">
+      <button type="button" id="btn-tone" title="Very quiet hum (use headphones for full effect)">Soft tone: off</button>
+      <label>Volume <input type="range" id="tone-vol" min="0" max="100" value="18" title="Drift volume" /></label>
+      <button type="button" id="btn-speak" title="Hear the current line">Hear this line</button>
+      <button type="button" id="btn-breath" title="Gentle inhale / exhale cue">Breath cue: on</button>
+    </div>
     <p class="field-pct" id="field-pct">Field: 100.0%</p>
 
     <div class="stage">
+      <div class="breath-ov" id="breath-ov" aria-hidden="true">
+        <span class="b-in">Breathe in</span>
+        <span class="b-out">Breathe out</span>
+      </div>
       <svg id="main-svg" viewBox="0 0 1000 1000" xmlns="http://www.w3.org/2000/svg" aria-label="Merkaba meditation field">
         <defs>
           <radialGradient id="bh-glow" cx="50%" cy="50%" r="50%">
@@ -358,6 +381,7 @@
     'Sacred light refines me; I am present in the still center of the Merkaba.',
     'I welcome vitality, strength, and a body that feels clear, balanced, and well.',
     'With every turn: old patterns soften; I align with the healthiest, kindest version of me.',
+    'I let my eyes and ears take in this field; with each slow breath, I name what I am ready to release — as intention, with kindness.',
     'This is my visualization — a loving mirror for intention, not a promise of a specific result.'
   ];
   var aIdx = 0;
@@ -368,6 +392,63 @@
   var slimRoot = document.getElementById('slimRoot');
 
   var mainSvg = document.getElementById('main-svg');
+  var audioCtx, toneOsc, toneGain, toneOn = false;
+  function setToneVolume() {
+    if (!toneGain) return;
+    var v = parseInt(document.getElementById('tone-vol').value, 10) / 100;
+    toneGain.gain.value = Math.min(0.12, 0.04 + v * 0.08);
+  }
+  function startTone() {
+    var Ctx = window.AudioContext || window.webkitAudioContext;
+    if (!Ctx) return;
+    if (!audioCtx) {
+      audioCtx = new Ctx();
+      toneOsc = audioCtx.createOscillator();
+      toneGain = audioCtx.createGain();
+      toneOsc.type = 'sine';
+      toneOsc.frequency.value = 256;
+      setToneVolume();
+      toneOsc.connect(toneGain);
+      toneGain.connect(audioCtx.destination);
+      toneOsc.start(0);
+    } else {
+      if (audioCtx.state === 'suspended') audioCtx.resume();
+    }
+    document.getElementById('btn-tone').textContent = 'Soft tone: on';
+    toneOn = true;
+  }
+  function stopTone() {
+    try {
+      if (audioCtx && audioCtx.suspend) audioCtx.suspend();
+    } catch (e) {}
+    document.getElementById('btn-tone').textContent = 'Soft tone: off';
+    toneOn = false;
+  }
+  document.getElementById('btn-tone').addEventListener('click', function () {
+    if (toneOn) { stopTone(); return; }
+    startTone();
+  });
+  document.getElementById('tone-vol').addEventListener('input', setToneVolume);
+
+  function speakAffirmation() {
+    if (!('speechSynthesis' in window)) { alert('Your browser does not support spoken lines.'); return; }
+    var t = document.getElementById('affirm').textContent;
+    speechSynthesis.cancel();
+    var u = new SpeechSynthesisUtterance(t);
+    u.rate = 0.88; u.pitch = 0.95;
+    u.volume = 0.95;
+    speechSynthesis.speak(u);
+  }
+  document.getElementById('btn-speak').addEventListener('click', speakAffirmation);
+
+  var breathEl = document.getElementById('breath-ov');
+  var breathOn = true;
+  document.getElementById('btn-breath').addEventListener('click', function () {
+    breathOn = !breathOn;
+    breathEl.hidden = !breathOn;
+    document.getElementById('btn-breath').textContent = breathOn ? 'Breath cue: on' : 'Breath cue: off';
+  });
+
   function setPlaying(p) {
     playing = p;
     document.body.classList.toggle('merk-paused', !p);
@@ -375,6 +456,10 @@
     try {
       if (p && mainSvg.unpauseAnimations) mainSvg.unpauseAnimations();
       else if (!p && mainSvg.pauseAnimations) mainSvg.pauseAnimations();
+    } catch (e) {}
+    try {
+      if (!p && audioCtx && audioCtx.suspend) audioCtx.suspend();
+      else if (p && audioCtx && audioCtx.state === 'suspended' && toneOn) audioCtx.resume();
     } catch (e) {}
   }
   setPlaying(playing);
