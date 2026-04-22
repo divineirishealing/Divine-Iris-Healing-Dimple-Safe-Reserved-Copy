@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import axios from 'axios';
 import { useToast } from '../../../hooks/use-toast';
-import { FileSpreadsheet, Download, Search, CreditCard, Building2, Upload, Globe, ChevronDown, ChevronUp, LayoutList, Table2, Mail } from 'lucide-react';
+import { FileSpreadsheet, Download, Search, CreditCard, Building2, Upload, Globe, ChevronDown, ChevronUp, LayoutList, Table2, Mail, ClipboardList } from 'lucide-react';
 import { Input } from '../../ui/input';
 import { Label } from '../../ui/label';
 import { Switch } from '../../ui/switch';
@@ -35,6 +35,30 @@ function attendanceBucket(mode) {
   if (m === 'offline') return 'offline';
   if (m === 'in_person') return 'in_person';
   return 'online';
+}
+
+function parseReportDateMs(iso) {
+  if (!iso) return 0;
+  try {
+    return new Date(String(iso).replace('Z', '+00:00')).getTime();
+  } catch {
+    return 0;
+  }
+}
+
+/** Single-participant row: human-readable attendance from stored mode. */
+function participantAttendanceLabel(mode) {
+  const b = attendanceBucket(mode);
+  if (b === 'offline') return 'Offline';
+  if (b === 'in_person') return 'In person';
+  if (!mode) return '—';
+  return 'Online';
+}
+
+function originLabel(origin) {
+  const o = String(origin || '').toLowerCase();
+  if (o === 'dashboard') return 'Dashboard';
+  return 'Website';
 }
 
 /** One label per enrollment from participant rows (Online / Offline / In person / Mixed / —). */
@@ -95,10 +119,11 @@ const EnrollmentsTab = () => {
   const [statusFilter, setStatusFilter] = useState('all');
   const [paymentFilter, setPaymentFilter] = useState('all');
   const [expandedId, setExpandedId] = useState(null);
-  /** summary = one row per checkout; participants = one row per person (all flows use the same enrollments DB). */
+  /** summary = one row per checkout; participants = one row per person; program_analytics = batch tally per program. */
   const [viewMode, setViewMode] = useState('summary');
   const [participantRows, setParticipantRows] = useState([]);
   const [loadingParticipants, setLoadingParticipants] = useState(false);
+  const [selectedProgramBatch, setSelectedProgramBatch] = useState('');
   const [paidOnlyReport, setPaidOnlyReport] = useState(false);
   const [participantSearch, setParticipantSearch] = useState('');
   const [autoReport, setAutoReport] = useState({
@@ -155,7 +180,7 @@ const EnrollmentsTab = () => {
   };
 
   useEffect(() => {
-    if (viewMode === 'participants') loadParticipantReport();
+    if (viewMode === 'participants' || viewMode === 'program_analytics') loadParticipantReport();
   }, [viewMode, paidOnlyReport]);
 
   const loadEnrollments = async () => {
@@ -296,6 +321,122 @@ const EnrollmentsTab = () => {
     ].filter(Boolean).some((f) => String(f).toLowerCase().includes(q));
   });
 
+  const programBatchTitles = useMemo(() => {
+    const set = new Set();
+    participantRows.forEach((r) => {
+      set.add((r.program || '').trim() || '(Untitled program)');
+    });
+    return Array.from(set).sort((a, b) => a.localeCompare(b));
+  }, [participantRows]);
+
+  useEffect(() => {
+    if (viewMode !== 'program_analytics' || programBatchTitles.length === 0) return;
+    setSelectedProgramBatch((prev) => (prev && programBatchTitles.includes(prev) ? prev : programBatchTitles[0]));
+  }, [viewMode, programBatchTitles]);
+
+  const programBatchBaseRows = useMemo(() => {
+    if (!selectedProgramBatch) return [];
+    return participantRows.filter((row) => {
+      const title = (row.program || '').trim() || '(Untitled program)';
+      if (title !== selectedProgramBatch) return false;
+      if (!participantSearch.trim()) return true;
+      const q = participantSearch.toLowerCase();
+      return [
+        row.participant_name,
+        row.participant_email,
+        row.invoice_number,
+        row.enrollment_id,
+      ].filter(Boolean).some((f) => String(f).toLowerCase().includes(q));
+    });
+  }, [participantRows, selectedProgramBatch, participantSearch]);
+
+  const programBatchAnalyticsRows = useMemo(() => {
+    const sorted = [...programBatchBaseRows].sort(
+      (a, b) => parseReportDateMs(a.created_at) - parseReportDateMs(b.created_at),
+    );
+    let cumulativeInr = 0;
+    return sorted.map((row, i) => {
+      const pIdx = Number(row.participant_index);
+      const countsForRunning = !Number.isFinite(pIdx) || pIdx === 1;
+      const rawAmount = row.payment_amount;
+      const currency = row.payment_currency;
+      const amountInr = enrollmentAmountToInr(rawAmount, currency, fxRates);
+      const contributionInr = countsForRunning ? amountInr : 0;
+      cumulativeInr += contributionInr;
+      return {
+        row,
+        serial: i + 1,
+        amountInr,
+        cumulativeInr,
+        countsForRunning,
+        sourceCurrency: String(currency || '').toLowerCase() || 'inr',
+      };
+    });
+  }, [programBatchBaseRows, fxRates]);
+
+  const downloadProgramBatchCsv = () => {
+    if (programBatchAnalyticsRows.length === 0) return;
+    const headers = [
+      '#',
+      'Participant',
+      'Age',
+      'Gender',
+      'City',
+      'Country',
+      'Mode',
+      'Origin',
+      'Status',
+      'Amount',
+      'Currency',
+      'Amount INR',
+      'Running total INR',
+      'Counts in running total',
+      'Invoice',
+      'Enrollment ID',
+    ];
+    const lines = [headers.join(',')];
+    programBatchAnalyticsRows.forEach(
+      ({ row, serial, amountInr, cumulativeInr, countsForRunning }) => {
+        const cur = (row.payment_currency || '').toUpperCase();
+        const amt = row.payment_amount;
+        const esc = (v) => {
+          const s = v == null ? '' : String(v);
+          if (/[",\n]/.test(s)) return `"${s.replace(/"/g, '""')}"`;
+          return s;
+        };
+        lines.push(
+          [
+            serial,
+            esc(row.participant_name),
+            esc(row.age),
+            esc(row.gender),
+            esc(row.city),
+            esc(row.country),
+            esc(participantAttendanceLabel(row.attendance_mode)),
+            esc(originLabel(row.enrollment_origin)),
+            esc(row.enrollment_status || row.payment_status),
+            amt > 0 ? String(amt) : '0',
+            esc(cur),
+            amountInr,
+            cumulativeInr,
+            countsForRunning ? 'yes' : 'no',
+            esc(row.invoice_number),
+            esc(row.enrollment_id),
+          ].join(','),
+        );
+      },
+    );
+    const blob = new Blob([lines.join('\n')], { type: 'text/csv;charset=utf-8' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    const safe = selectedProgramBatch.replace(/[^\w\-]+/g, '_').slice(0, 60);
+    a.download = `program_batch_${safe}_${new Date().toISOString().split('T')[0]}.csv`;
+    a.click();
+    window.URL.revokeObjectURL(url);
+    toast({ title: 'CSV downloaded' });
+  };
+
   return (
     <div data-testid="enrollments-tab">
       {/* Header */}
@@ -322,16 +463,34 @@ const EnrollmentsTab = () => {
             >
               <LayoutList size={12} /> By participant
             </button>
+            <button
+              type="button"
+              onClick={() => setViewMode('program_analytics')}
+              data-testid="enrollments-view-program-batch"
+              className={`flex items-center gap-1 text-[10px] px-3 py-1.5 rounded-full font-medium ${viewMode === 'program_analytics' ? 'bg-white shadow text-purple-800' : 'text-gray-600'}`}
+            >
+              <ClipboardList size={12} /> Program batch
+            </button>
           </div>
           {viewMode === 'summary' ? (
             <button onClick={handleExport} data-testid="export-enrollments"
               className="flex items-center gap-1.5 text-[10px] px-4 py-2 rounded-full bg-green-600 text-white hover:bg-green-700 font-medium">
               <Download size={12} /> Full Excel
             </button>
-          ) : (
+          ) : viewMode === 'participants' ? (
             <button onClick={handleCleanExport} data-testid="export-enrollments-clean"
               className="flex items-center gap-1.5 text-[10px] px-4 py-2 rounded-full bg-green-600 text-white hover:bg-green-700 font-medium">
               <Download size={12} /> Participant Excel
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={downloadProgramBatchCsv}
+              disabled={programBatchAnalyticsRows.length === 0}
+              data-testid="export-program-batch-csv"
+              className="flex items-center gap-1.5 text-[10px] px-4 py-2 rounded-full bg-green-600 text-white hover:bg-green-700 font-medium disabled:opacity-50"
+            >
+              <Download size={12} /> Program CSV
             </button>
           )}
         </div>
@@ -422,6 +581,14 @@ const EnrollmentsTab = () => {
         </p>
       )}
 
+      {viewMode === 'program_analytics' && (
+        <p className="text-[11px] text-gray-600 mb-3 max-w-3xl">
+          <strong>Program batch</strong> is for tallying one program at a time: participant roster plus{' '}
+          <strong>running total (INR)</strong> in chronological order. Each checkout is counted <em>once</em> (on participant seat 1 only); other seats in the same booking show the same amount but do not add again, so the running total matches money in for that program.
+          Amount (INR) uses the same rates as the checkout summary.
+        </p>
+      )}
+
       {viewMode === 'participants' && (
         <div className="flex flex-wrap items-center gap-3 mb-4">
           <label className="flex items-center gap-2 text-[11px] text-gray-700 cursor-pointer">
@@ -442,6 +609,62 @@ const EnrollmentsTab = () => {
               className="pl-9 text-xs h-9"
             />
           </div>
+        </div>
+      )}
+
+      {viewMode === 'program_analytics' && (
+        <div className="flex flex-wrap items-center gap-3 mb-4">
+          <label className="flex items-center gap-2 text-[11px] text-gray-700 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={paidOnlyReport}
+              onChange={(ev) => setPaidOnlyReport(ev.target.checked)}
+              className="rounded border-gray-300"
+            />
+            Paid / completed only
+          </label>
+          <div className="flex flex-wrap items-center gap-2">
+            <label htmlFor="program-batch-select" className="text-[11px] text-gray-600 whitespace-nowrap">
+              Program
+            </label>
+            <select
+              id="program-batch-select"
+              value={selectedProgramBatch}
+              onChange={(e) => setSelectedProgramBatch(e.target.value)}
+              className="text-xs border border-gray-200 rounded-lg px-3 py-2 bg-white min-w-[200px] max-w-md"
+              data-testid="program-batch-program-select"
+            >
+              {programBatchTitles.length === 0 ? (
+                <option value="">—</option>
+              ) : (
+                programBatchTitles.map((t) => (
+                  <option key={t} value={t}>
+                    {t}
+                  </option>
+                ))
+              )}
+            </select>
+          </div>
+          <div className="relative flex-1 min-w-[200px] max-w-sm">
+            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+            <Input
+              value={participantSearch}
+              onChange={(e) => setParticipantSearch(e.target.value)}
+              placeholder="Filter by name, email, invoice…"
+              className="pl-9 text-xs h-9"
+            />
+          </div>
+          {programBatchAnalyticsRows.length > 0 && (
+            <span className="text-[11px] text-gray-500">
+              {programBatchAnalyticsRows.length} row{programBatchAnalyticsRows.length !== 1 ? 's' : ''} · Last Σ{' '}
+              <span className="font-semibold text-violet-900 tabular-nums">
+                ₹
+                {programBatchAnalyticsRows[programBatchAnalyticsRows.length - 1].cumulativeInr.toLocaleString(
+                  'en-IN',
+                )}
+              </span>
+            </span>
+          )}
         </div>
       )}
 
@@ -716,6 +939,106 @@ const EnrollmentsTab = () => {
                         </span>
                       </td>
                       <td className="px-3 py-2 text-[10px] text-gray-600 whitespace-nowrap">{row.enrollment_status || row.payment_status || '—'}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )
+      )}
+
+      {viewMode === 'program_analytics' && (
+        loadingParticipants ? (
+          <div className="text-center py-12 text-gray-400 text-sm">Loading program data…</div>
+        ) : programBatchTitles.length === 0 ? (
+          <div className="text-center py-12 text-gray-400 text-sm">
+            No participant rows loaded. Adjust filters or confirm enrollments exist.
+          </div>
+        ) : programBatchAnalyticsRows.length === 0 ? (
+          <div className="text-center py-12 text-gray-400 text-sm">No rows for this program and filter.</div>
+        ) : (
+          <div className="overflow-x-auto border rounded-lg" data-testid="enrollments-program-batch-table">
+            <p className="text-[10px] text-gray-500 px-3 py-2 bg-gray-50/80 border-b">
+              Rows sorted by enrollment <strong>created</strong> time (oldest first).{' '}
+              <strong>Running total (INR)</strong> increases only on participant seat 1 of each checkout so it matches total money in for this program.
+            </p>
+            <table className="w-full text-xs min-w-[1000px]">
+              <thead className="bg-gray-50 border-b">
+                <tr>
+                  <th className="text-left px-3 py-2 font-semibold text-gray-600 w-10">#</th>
+                  <th className="text-left px-3 py-2 font-semibold text-gray-600 whitespace-nowrap">Seat</th>
+                  <th className="text-left px-3 py-2 font-semibold text-gray-600">Name</th>
+                  <th className="text-left px-3 py-2 font-semibold text-gray-600">Age</th>
+                  <th className="text-left px-3 py-2 font-semibold text-gray-600">Gender</th>
+                  <th className="text-left px-3 py-2 font-semibold text-gray-600">City</th>
+                  <th className="text-left px-3 py-2 font-semibold text-gray-600">Country</th>
+                  <th className="text-left px-3 py-2 font-semibold text-gray-600">Mode</th>
+                  <th className="text-left px-3 py-2 font-semibold text-gray-600">Origin</th>
+                  <th className="text-left px-3 py-2 font-semibold text-gray-600">Status</th>
+                  <th className="text-right px-3 py-2 font-semibold text-gray-600 whitespace-nowrap">Amount</th>
+                  <th className="text-right px-3 py-2 font-semibold text-gray-600 whitespace-nowrap">Amt (INR)</th>
+                  <th className="text-right px-3 py-2 font-semibold text-gray-600 whitespace-nowrap">Running Σ (INR)</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y">
+                {programBatchAnalyticsRows.map(({ row, serial, amountInr, cumulativeInr, countsForRunning, sourceCurrency }) => {
+                  const cur = (row.payment_currency || '').toLowerCase();
+                  const symbols = { inr: '\u20B9', aed: 'AED ', usd: '$' };
+                  const sym = symbols[cur] || (cur ? `${cur.toUpperCase()} ` : '');
+                  const amt = row.payment_amount;
+                  const pTotal = Number(row.participant_total);
+                  const pIdx = Number(row.participant_index);
+                  let seat = '—';
+                  if (Number.isFinite(pTotal) && pTotal > 1 && Number.isFinite(pIdx) && pIdx > 0) {
+                    seat = `${pIdx} / ${pTotal}`;
+                  } else if (Number.isFinite(pIdx) && pIdx > 0) {
+                    seat = String(pIdx);
+                  }
+                  const st = (row.enrollment_status || row.payment_status || '—').toLowerCase();
+                  const stInfo = STATUS_MAP[st] || { label: row.enrollment_status || row.payment_status || '—', color: 'bg-gray-100 text-gray-600' };
+                  return (
+                    <tr
+                      key={`${row.enrollment_id}-${row.participant_index ?? row.participant_name}-${row.participant_email}-${serial}`}
+                      className={`hover:bg-gray-50 ${countsForRunning ? '' : 'bg-gray-50/40'}`}
+                    >
+                      <td className="px-3 py-2 text-gray-500 tabular-nums">{serial}</td>
+                      <td className="px-3 py-2 text-gray-500 tabular-nums whitespace-nowrap text-[10px]" title={countsForRunning ? 'Counts toward running total' : 'Same checkout; running total unchanged'}>
+                        {seat}
+                      </td>
+                      <td className="px-3 py-2 font-medium text-gray-900 max-w-[140px]">
+                        <span className="block truncate" title={row.participant_name}>{row.participant_name || '—'}</span>
+                      </td>
+                      <td className="px-3 py-2 text-gray-700">{row.age !== '' && row.age != null ? row.age : '—'}</td>
+                      <td className="px-3 py-2 text-gray-700 max-w-[72px] truncate" title={row.gender}>{row.gender || '—'}</td>
+                      <td className="px-3 py-2 text-gray-700 max-w-[100px] truncate" title={row.city}>{row.city || '—'}</td>
+                      <td className="px-3 py-2 text-gray-700 max-w-[90px] truncate" title={row.country}>{row.country || '—'}</td>
+                      <td className="px-3 py-2 text-gray-700 whitespace-nowrap text-[10px]">
+                        {participantAttendanceLabel(row.attendance_mode)}
+                      </td>
+                      <td className="px-3 py-2">
+                        <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${row.enrollment_origin === 'dashboard' ? 'bg-amber-50 text-amber-800' : 'bg-slate-100 text-slate-700'}`}>
+                          {originLabel(row.enrollment_origin)}
+                        </span>
+                      </td>
+                      <td className="px-3 py-2">
+                        <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${stInfo.color}`}>{stInfo.label}</span>
+                      </td>
+                      <td className="px-3 py-2 text-right font-medium text-gray-900 tabular-nums whitespace-nowrap">
+                        {amt > 0 ? (
+                          <span title={sourceCurrency !== 'inr' ? `Stored: ${String(row.payment_currency || '').toUpperCase()}` : ''}>
+                            {sym}{Number(amt).toLocaleString()}
+                          </span>
+                        ) : (
+                          '0'
+                        )}
+                      </td>
+                      <td className="px-3 py-2 text-right tabular-nums whitespace-nowrap text-gray-800">
+                        ₹{amountInr.toLocaleString('en-IN')}
+                      </td>
+                      <td className="px-3 py-2 text-right font-semibold text-violet-900 tabular-nums whitespace-nowrap">
+                        ₹{cumulativeInr.toLocaleString('en-IN')}
+                      </td>
                     </tr>
                   );
                 })}
