@@ -372,6 +372,12 @@ async def get_me(request: Request):
     session, user = await _get_valid_session_and_user(request)
     if not user:
         raise HTTPException(status_code=401, detail="Not authenticated")
+    joined_divine_iris_at = None
+    cid = user.get("client_id")
+    if cid:
+        client_doc = await db.clients.find_one({"id": cid}, {"_id": 0, "created_at": 1})
+        if client_doc and client_doc.get("created_at"):
+            joined_divine_iris_at = client_doc["created_at"]
     return {
         "id": user["id"],
         "email": user["email"],
@@ -380,6 +386,8 @@ async def get_me(request: Request):
         "tier": user.get("tier", 1),
         "picture": user.get("picture", ""),
         "client_id": user.get("client_id") or None,
+        # First Client Garden record time (UTC ISO) — shown as "date of joining" on dashboard profile
+        "joined_divine_iris_at": joined_divine_iris_at,
         # India hub pricing (INR / Stripe) — same as geo-India when set or whitelisted
         "pricing_country_override": user.get("pricing_country_override") or None,
         "impersonating": bool(session and session.get("impersonation")),

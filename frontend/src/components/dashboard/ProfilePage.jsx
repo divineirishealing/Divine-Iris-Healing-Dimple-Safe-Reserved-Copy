@@ -12,6 +12,13 @@ import { getAuthHeaders } from '../../lib/authHeaders';
 
 const API = process.env.REACT_APP_BACKEND_URL;
 
+function formatJoinDivineIris(iso) {
+  if (!iso) return '';
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return String(iso);
+  return d.toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' });
+}
+
 const ProfilePage = () => {
   const { user } = useAuth();
   const { toast } = useToast();
@@ -58,6 +65,16 @@ const ProfilePage = () => {
         <div>
           <h1 className="text-2xl font-bold text-gray-900">{user?.name}</h1>
           <p className="text-sm text-[#5D3FD3] font-medium">{user?.email}</p>
+          {user?.joined_divine_iris_at && (
+            <p className="mt-2 text-xs text-gray-600 flex items-center gap-1.5">
+              <Calendar size={14} className="text-gray-400 shrink-0" aria-hidden />
+              <span>
+                <span className="text-gray-500">Date of joining Divine Iris</span>
+                {' '}
+                <span className="font-semibold text-gray-800">{formatJoinDivineIris(user.joined_divine_iris_at)}</span>
+              </span>
+            </p>
+          )}
           <div className="mt-2 flex gap-2">
             <span className="text-[10px] px-2 py-1 bg-purple-50 text-purple-700 rounded-full uppercase tracking-wider font-bold">Tier {user?.tier}</span>
             {user?.pending_profile_update && <span className="text-[10px] px-2 py-1 bg-amber-50 text-amber-700 rounded-full uppercase tracking-wider font-bold">Update Pending</span>}
