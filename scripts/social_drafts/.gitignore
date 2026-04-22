@@ -1,0 +1,6 @@
+drafts/
+.env
+*.png
+*.jpg
+*.jpeg
+*.webp
