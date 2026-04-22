@@ -69,17 +69,34 @@ function resolveCountryCode(raw, detectedCountry) {
   return '';
 }
 
+/** Fill empty fields on `base` from `fill` (for merging immediate family + Annual Family Club rows). */
+function mergeGuestRowsPreferBase(base, fill) {
+  if (!base) return fill ? { ...fill } : undefined;
+  if (!fill) return { ...base };
+  const out = { ...base };
+  for (const k of Object.keys(fill)) {
+    const bv = base[k];
+    const fv = fill[k];
+    const empty = (v) => v == null || (typeof v === 'string' && !String(v).trim());
+    if (empty(bv) && !empty(fv)) out[k] = fv;
+  }
+  return out;
+}
+
 /** Match dashboard family row to cart prefill (ids vary by API shape). */
 export function findEnrollableGuestById(enrollableGuests, id) {
   const s = String(id ?? '').trim();
   if (!s) return undefined;
-  return (enrollableGuests || []).find(
+  const matches = (enrollableGuests || []).filter(
     (g) =>
       g &&
       (String(g.id) === s ||
         String(g._id) === s ||
         (g.client_family_id != null && String(g.client_family_id) === s)),
   );
+  if (matches.length === 0) return undefined;
+  if (matches.length === 1) return matches[0];
+  return matches.reduce((acc, row) => mergeGuestRowsPreferBase(acc, row));
 }
 
 function baseParticipant(program, overrides) {

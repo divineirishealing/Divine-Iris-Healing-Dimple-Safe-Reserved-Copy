@@ -247,6 +247,7 @@ function GuestMemberTable({
   wrapTestId,
   tableTestId,
   readOnly = false,
+  hideRemove = false,
 }) {
   const coalesceRelationship = (raw) => {
     const r = (raw || '').trim();
@@ -409,7 +410,7 @@ function GuestMemberTable({
                 />
               </td>
               <td className="px-1 py-1.5 align-middle text-center">
-                {!rowReadOnly ? (
+                {!rowReadOnly && !hideRemove ? (
                   <button
                     type="button"
                     onClick={() => removeRow(idx)}
@@ -604,13 +605,22 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh, bo
   const hasHouseholdKey = !!homeData?.has_household_key;
   /** Only this login may add linked same-key clients as paid seats (checkout / enrollment). */
   const isPrimaryHouseholdContact = !!homeData?.is_primary_household_contact;
+
+  /** Editable copy of Annual Family Club rows (primary contact updates peer Client Garden profiles). */
+  const [annualPeersDraft, setAnnualPeersDraft] = useState(() =>
+    (annualHouseholdPeers || []).map((row) => ({ ...row })),
+  );
+  useEffect(() => {
+    setAnnualPeersDraft((annualHouseholdPeers || []).map((row) => ({ ...row })));
+  }, [annualHouseholdPeers]);
+
   /**
    * Sacred Home lists all same-key Annual peers for visibility; enrollment/cart only allows them once
    * the household is fully clubbed (matches backend for_payment / quote resolution).
    */
   const enrollableAnnualHouseholdPeers = useMemo(
-    () => (annualHouseholdClubOk ? annualHouseholdPeers : []),
-    [annualHouseholdClubOk, annualHouseholdPeers],
+    () => (annualHouseholdClubOk ? annualPeersDraft : []),
+    [annualHouseholdClubOk, annualPeersDraft],
   );
 
   const [members, setMembers] = useState(() => initialMembers);
@@ -641,7 +651,17 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh, bo
     [enrollableGuests]
   );
 
-  const familyRowCount = members.length + otherMembers.length + annualHouseholdPeers.length;
+  const annualHouseholdPeerIdsKey = useMemo(
+    () =>
+      annualPeersDraft
+        .filter((m) => m.id)
+        .map((m) => String(m.id))
+        .sort()
+        .join(','),
+    [annualPeersDraft]
+  );
+
+  const familyRowCount = members.length + otherMembers.length + annualPeersDraft.length;
 
   const restoredUpcomingRef = useRef(false);
 
@@ -947,6 +967,44 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh, bo
     }
   };
 
+  const saveHouseholdPeers = async () => {
+    if (!isPrimaryHouseholdContact || !hasHouseholdKey) return;
+    const rows = annualPeersDraft.filter((m) => (m.id || '').toString().trim());
+    if (rows.length === 0) return;
+    setSaving(true);
+    try {
+      await axios.put(
+        `${API}/api/student/household-peers`,
+        {
+          members: rows.map((m) => ({
+            id: String(m.id).trim(),
+            name: m.name,
+            email: m.email,
+            phone: m.phone,
+            date_of_birth: m.date_of_birth || '',
+            city: m.city || '',
+            country: (m.country || '').trim(),
+          })),
+        },
+        { withCredentials: true, headers: { ...getAuthHeaders() } },
+      );
+      toast({
+        title: 'Annual Family Club saved',
+        description: 'Linked accounts were updated. You can continue to checkout when city and country are complete for each person.',
+      });
+      enrollmentPrefillCacheRef.current = null;
+      onRefresh?.();
+    } catch (err) {
+      toast({
+        title: 'Could not save',
+        description: err.response?.data?.detail || err.message || 'Try again.',
+        variant: 'destructive',
+      });
+    } finally {
+      setSaving(false);
+    }
+  };
+
   const promoForProgramClicks = useMemo(() => {
     const a = (annualOffer.promo_code || '').trim();
     const f = (familyOffer.promo_code || '').trim();
@@ -1144,10 +1202,8 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh, bo
 
   /** Included-package programs: same-key household peers are not separate enrollments — drop from selection. */
   useEffect(() => {
-    if (!annualMemberDashboard || annualHouseholdPeers.length === 0) return;
-    const peerIds = new Set(
-      annualHouseholdPeers.map((m) => (m.id ? String(m.id) : null)).filter(Boolean),
-    );
+    if (!annualMemberDashboard || !annualHouseholdPeerIdsKey) return;
+    const peerIds = new Set(annualHouseholdPeerIdsKey.split(',').filter(Boolean));
     if (peerIds.size === 0) return;
     setSelectedFamilyByProgram((prev) => {
       let changed = false;
@@ -1168,7 +1224,7 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh, bo
     });
   }, [
     annualMemberDashboard,
-    annualHouseholdPeers,
+    annualHouseholdPeerIdsKey,
     programsForPrefetch,
     annualIncludedIds,
     annualQuotes,
@@ -1655,7 +1711,7 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh, bo
                   annualIncludedIds={annualIncludedIds}
                   members={members}
                   otherMembers={otherMembers}
-                  annualHouseholdPeers={annualHouseholdPeers}
+                  annualHouseholdPeers={annualPeersDraft}
                   enrollableGuests={enrollableGuests}
                   selectedFamilyByProgram={selectedFamilyByProgram}
                   toggleFamilyMember={toggleFamilyMember}
@@ -1812,21 +1868,46 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh, bo
               unlocks when all do.
             </div>
           ) : null}
-          {annualHouseholdPeers.length > 0 ? (
+          {isPrimaryHouseholdContact && annualPeersDraft.length > 0 ? (
+            <div className="mb-3 flex gap-2 rounded-xl border border-emerald-200/90 bg-emerald-50/70 px-3 py-2.5 text-[11px] text-emerald-950">
+              <Lock size={14} className="shrink-0 mt-0.5 text-emerald-700" />
+              <p>
+                As <span className="font-semibold">primary household contact</span>, you can complete city, country, and
+                other details for each linked Annual account here. Save before paying so every participant passes
+                checkout validation.
+              </p>
+            </div>
+          ) : null}
+          {annualPeersDraft.length > 0 ? (
             <div className="mb-3">
               <GuestMemberTable
-                members={annualHouseholdPeers}
-                setMembers={() => {}}
+                members={annualPeersDraft}
+                setMembers={isPrimaryHouseholdContact ? setAnnualPeersDraft : () => {}}
                 relationships={RELATIONSHIPS}
                 relationshipFallback="Household"
                 legacyRelationshipMap={LEGACY_IMMEDIATE_REL}
                 wrapTestId="annual-household-peers-wrap"
                 tableTestId="annual-household-peers-table"
-                readOnly
+                readOnly={!isPrimaryHouseholdContact}
+                hideRemove
               />
             </div>
           ) : null}
-          {annualHouseholdClubOk && isPrimaryHouseholdContact && annualHouseholdPeers.length === 0 ? (
+          {isPrimaryHouseholdContact && annualPeersDraft.length > 0 ? (
+            <div className="flex flex-wrap gap-2 mb-2">
+              <button
+                type="button"
+                onClick={saveHouseholdPeers}
+                disabled={saving || !hasHouseholdKey}
+                className="inline-flex items-center gap-1.5 text-xs font-semibold rounded-full px-4 py-1.5 bg-[#D4AF37] text-white hover:bg-[#b8962e] disabled:opacity-60"
+                data-testid="save-annual-household-peers"
+              >
+                {saving ? <Loader2 size={14} className="animate-spin" /> : null}
+                Save Annual Family Club
+              </button>
+            </div>
+          ) : null}
+          {annualHouseholdClubOk && isPrimaryHouseholdContact && annualPeersDraft.length === 0 ? (
             <p className="text-xs text-slate-400 italic mb-2">No other accounts share your household key.</p>
           ) : null}
         </div>

@@ -1,6 +1,6 @@
 from fastapi import APIRouter, HTTPException, Request, Depends, Query
 from pydantic import BaseModel
-from typing import Optional, List, Dict, Tuple, Set
+from typing import Optional, List, Dict, Tuple, Set, Any
 import os
 import re
 import uuid
@@ -496,12 +496,15 @@ async def _household_peer_guest_rows(
             "city": 1,
             "country": 1,
             "annual_member_dashboard": 1,
+            "date_of_birth": 1,
         },
     ).sort([("name", 1)]).to_list(80)
     now = datetime.now(timezone.utc).isoformat()
     out: List[dict] = []
     for m in rows:
         em = (m.get("email") or "").strip()
+        dob_raw = (m.get("date_of_birth") or "").strip()[:10]
+        age_str = _age_from_dob_iso(dob_raw) if dob_raw else ""
         out.append(
             {
                 "id": m["id"],
@@ -509,9 +512,9 @@ async def _household_peer_guest_rows(
                 "relationship": "Household",
                 "email": em,
                 "phone": (m.get("phone") or "").strip(),
-                "date_of_birth": "",
+                "date_of_birth": dob_raw,
                 "city": (m.get("city") or "").strip(),
-                "age": "",
+                "age": age_str,
                 "attendance_mode": "online",
                 "country": (m.get("country") or "").strip()[:120] or "",
                 "notify_enrollment": bool(em),
@@ -1893,6 +1896,68 @@ async def put_contact_email(data: ContactEmailBody, user: dict = Depends(get_cur
     await db.clients.update_one({"id": cid}, {"$set": {"email": em, "updated_at": now}})
     await db.users.update_one({"id": user["id"]}, {"$set": {"email": em, "updated_at": now}})
     return {"message": "Email saved", "email": em}
+
+
+class HouseholdPeerRowIn(BaseModel):
+    id: str
+    name: Optional[str] = None
+    email: Optional[str] = None
+    phone: Optional[str] = None
+    city: Optional[str] = None
+    country: Optional[str] = None
+    date_of_birth: Optional[str] = None
+
+
+class HouseholdPeersBody(BaseModel):
+    members: List[HouseholdPeerRowIn]
+
+
+@router.put("/household-peers")
+async def put_household_peers(data: HouseholdPeersBody, user: dict = Depends(get_current_user)):
+    """Primary household contact: update Client Garden fields for other same-key annual portal members."""
+    booker_cid = user.get("client_id")
+    if not booker_cid:
+        raise HTTPException(status_code=400, detail="Your account is not linked to Client Garden.")
+    me = await db.clients.find_one(
+        {"id": booker_cid},
+        {"_id": 0, "household_key": 1, "is_primary_household_contact": 1},
+    )
+    if not me or not bool(me.get("is_primary_household_contact")):
+        raise HTTPException(
+            status_code=403,
+            detail="Only the primary household contact can update Annual Family Club details.",
+        )
+    hk = (me.get("household_key") or "").strip()
+    if not hk:
+        raise HTTPException(status_code=400, detail="No household key on your record.")
+
+    now = datetime.now(timezone.utc).isoformat()
+    for row in data.members or []:
+        tid = (row.id or "").strip()
+        if not tid or tid == booker_cid:
+            continue
+        peer = await db.clients.find_one(
+            {"id": tid, "household_key": hk},
+            {"_id": 0, "id": 1},
+        )
+        if not peer:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Cannot update this person: not on your household key.",
+            )
+        set_doc: Dict[str, Any] = {
+            "name": (row.name or "").strip() or "Household member",
+            "email": (row.email or "").strip().lower(),
+            "phone": (row.phone or "").strip(),
+            "city": (row.city or "").strip(),
+            "country": (row.country or "").strip()[:120],
+            "updated_at": now,
+        }
+        dob = (row.date_of_birth or "").strip()[:10]
+        set_doc["date_of_birth"] = dob if dob else None
+        await db.clients.update_one({"id": tid}, {"$set": set_doc})
+
+    return {"message": "Annual Family Club details saved"}
 
 
 def _student_order_email_pattern(email: str):
