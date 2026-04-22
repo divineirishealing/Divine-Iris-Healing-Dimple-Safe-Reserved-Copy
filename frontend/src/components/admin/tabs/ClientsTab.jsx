@@ -223,7 +223,7 @@ const ClientsTab = () => {
         <div className="flex-1 relative">
           <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
           <input data-testid="clients-search" type="text" value={searchText} onChange={(e) => setSearchText(e.target.value)}
-            placeholder="Search name, email, phone, or household key..." className="w-full pl-9 pr-3 py-2 text-xs border rounded-lg focus:outline-none focus:ring-1 focus:ring-[#D4AF37]" />
+            placeholder="Search name, email, phone, household, DID, DIID, or internal id…" className="w-full pl-9 pr-3 py-2 text-xs border rounded-lg focus:outline-none focus:ring-1 focus:ring-[#D4AF37]" />
         </div>
       </div>
 
@@ -234,11 +234,12 @@ const ClientsTab = () => {
             <p className="text-sm">No clients found. Use Add client or Sync All Data to populate.</p>
           </div>
         ) : (
-          <table className="w-full min-w-[1000px] text-left border-collapse text-[10px]" data-testid="clients-table">
+          <table className="w-full min-w-[1180px] text-left border-collapse text-[10px]" data-testid="clients-table">
             <thead>
               <tr className="bg-gray-100 border-b border-gray-200 text-[9px] uppercase tracking-wide text-gray-600">
                 <th className="py-2 pl-3 pr-2 font-semibold sticky left-0 bg-gray-100 z-10">Name</th>
                 <th className="py-2 px-2 font-semibold w-[100px]">DID</th>
+                <th className="py-2 px-2 font-semibold min-w-[200px]">DIID</th>
                 <th className="py-2 px-2 font-semibold min-w-[140px]">Email</th>
                 <th className="py-2 px-2 font-semibold min-w-[88px]">Phone</th>
                 <th className="py-2 px-2 font-semibold min-w-[100px]">Household</th>
@@ -270,6 +271,7 @@ const ClientsTab = () => {
                       </div>
                     </td>
                     <td className="py-2 px-2 font-mono text-purple-700 truncate max-w-[100px]" title={cl.did || ''}>{cl.did || '—'}</td>
+                    <td className="py-2 px-2 font-mono text-indigo-800 truncate max-w-[220px] text-[9px]" title={cl.diid || ''}>{cl.diid || '—'}</td>
                     <td className="py-2 px-2 text-gray-800 truncate max-w-[180px]" title={cl.email || ''}>{cl.email || '—'}</td>
                     <td className="py-2 px-2 text-gray-600 whitespace-nowrap">{cl.phone || '—'}</td>
                     <td className="py-2 px-2 font-mono text-slate-600 truncate max-w-[120px]" title={cl.household_key || ''}>{cl.household_key || '—'}</td>
@@ -362,6 +364,7 @@ function ClientEditDialog({ client: cl, onClose, onSaved, onDelete, toast }) {
         <div className="space-y-4 text-xs">
           <div className="grid grid-cols-2 gap-2 text-[10px] text-gray-600">
             {cl.did && <p><span className="text-gray-400">DID</span> <span className="font-mono text-purple-700">{cl.did}</span></p>}
+            {cl.diid && <p className="col-span-2"><span className="text-gray-400">DIID</span> <span className="font-mono text-indigo-800 text-[10px] break-all">{cl.diid}</span></p>}
             <p><span className="text-gray-400">Email</span> {cl.email || '—'}</p>
             <p><span className="text-gray-400">Phone</span> {cl.phone || '—'}</p>
             <p><span className="text-gray-400">First contact</span> {cl.created_at ? new Date(cl.created_at).toLocaleString() : '—'}</p>

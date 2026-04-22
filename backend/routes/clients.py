@@ -358,6 +358,9 @@ async def list_clients(label: Optional[str] = None, search: Optional[str] = None
             {"email": search_regex},
             {"phone": search_regex},
             {"household_key": search_regex},
+            {"did": search_regex},
+            {"diid": search_regex},
+            {"id": search_regex},
         ]
     clients_list = await db.clients.find(query, {"_id": 0}).sort("updated_at", -1).to_list(1000)
     return clients_list
@@ -818,6 +821,7 @@ async def export_clients_excel():
 
     headers = [
         "DID",
+        "DIID",
         "Label",
         "Name",
         "Email",
@@ -857,6 +861,7 @@ async def export_clients_excel():
         label = cl.get("label", "Dew")
         row_data = [
             cl.get("did", ""),
+            cl.get("diid", ""),
             label,
             cl.get("name", ""),
             cl.get("email", ""),
@@ -877,7 +882,7 @@ async def export_clients_excel():
             cell.fill = fill
             cell.border = thin_border
 
-    col_widths = [14, 12, 20, 30, 18, 22, 12, 25, 40, 16, 22, 22, 30]
+    col_widths = [14, 28, 12, 20, 30, 18, 22, 12, 25, 40, 16, 22, 22, 30]
     for i, w in enumerate(col_widths):
         ws.column_dimensions[ws.cell(row=1, column=i + 1).column_letter].width = w
 
