@@ -676,7 +676,16 @@ async def enrollment_points_summary(
 
 @router.post("/{enrollment_id}/checkout")
 async def enrollment_checkout(enrollment_id: str, data: EnrollmentSubmit, request: Request):
-    """Step 4: Create Stripe checkout with verified enrollment data"""
+    """Create Stripe checkout for a verified enrollment.
+
+    **Public website** (`/api/enrollment/start` → … → checkout): Amount is server program/cart
+    pricing only (plus best-of VIP/promo/auto discount). No portal India GST/platform stack —
+    the Stripe total matches the INR shown on the public enrollment flow.
+
+    **Dashboard / portal** only: Enrollments created via `/api/student/combined-enrollment-start` or
+    other portal helpers carry `dashboard_mixed_total` / `dashboard_checkout_ready`. Those use
+    portal totals and may apply the India Client Garden stack (discount + GST + platform) before Stripe.
+    """
     enrollment = await db.enrollments.find_one({"id": enrollment_id})
     if not enrollment:
         raise HTTPException(status_code=404, detail="Enrollment not found")
@@ -887,9 +896,8 @@ async def enrollment_checkout(enrollment_id: str, data: EnrollmentSubmit, reques
 
     final_total = max(0, total - best_discount)
 
-    # ── India INR stack (Client Garden discount + GST + platform) — portal / Divine Cart only ──
-    # Public website enrollments: Stripe charges the same INR total as program pricing (no extra GST line).
-    # Dashboard flows set dashboard_mixed_total and/or dashboard_checkout_ready on the enrollment doc.
+    # ── India INR stack: **portal enrollments only** (never mixed into public website Stripe) ──
+    # Website enrollments do not have these fields; Stripe amount stays the pricing-hub total above.
     is_dashboard_checkout = enrollment.get("dashboard_mixed_total") is not None or bool(
         enrollment.get("dashboard_checkout_ready")
     )
