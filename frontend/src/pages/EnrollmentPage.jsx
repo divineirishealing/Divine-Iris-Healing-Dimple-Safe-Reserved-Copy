@@ -701,10 +701,8 @@ function EnrollmentPage() {
       if (p.notify || p.attendance_mode === 'online') {
         if (!p.email || !p.email.trim() || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(p.email))
           return toast({ title: `Participant ${i + 1}: Enter a valid email`, variant: 'destructive' });
-      }
-      if (p.notify) {
         if (!p.phone || !p.phone.trim())
-          return toast({ title: `Participant ${i + 1}: Enter phone for enrollment notifications`, variant: 'destructive' });
+          return toast({ title: `Participant ${i + 1}: Enter phone number`, variant: 'destructive' });
       }
     }
     if (!bookerEmail) return toast({ title: 'Participant email is required for verification', variant: 'destructive' });
@@ -721,7 +719,28 @@ function EnrollmentPage() {
           const refName = p.has_referral ? (p.referred_by_name || '') : (p.referral_source === 'Friend / Family' ? (p.referred_by_name || '') : '');
           const refEmailRaw = (p.referred_by_email || '').trim().toLowerCase();
           const refEmail = (p.has_referral || p.referral_source === 'Friend / Family') && refEmailRaw ? refEmailRaw : null;
-          return { name: p.name, relationship: p.relationship, age: parseInt(String(p.age).trim(), 10) || 0, gender: p.gender, country: p.country, city: p.city, state: p.state, attendance_mode: p.attendance_mode, notify: p.notify, email: p.notify ? p.email : null, phone: p.notify && p.phone ? `${p.phone_code || ''}${p.phone}` : null, whatsapp: p.whatsapp ? `${p.wa_code || ''}${p.whatsapp}` : null, is_first_time: p.is_first_time || false, referral_source: p.referral_source || '', referred_by_name: refName, referred_by_email: refEmail };
+          return {
+            name: p.name,
+            relationship: p.relationship,
+            age: parseInt(String(p.age).trim(), 10) || 0,
+            gender: p.gender,
+            country: p.country,
+            city: p.city,
+            state: p.state,
+            attendance_mode: p.attendance_mode,
+            notify: p.notify,
+            email:
+              (p.notify || p.attendance_mode === 'online') ? (p.email || null) : null,
+            phone:
+              (p.notify || p.attendance_mode === 'online') && p.phone
+                ? `${p.phone_code || ''}${p.phone}`
+                : null,
+            whatsapp: p.whatsapp ? `${p.wa_code || ''}${p.whatsapp}` : null,
+            is_first_time: p.is_first_time || false,
+            referral_source: p.referral_source || '',
+            referred_by_name: refName,
+            referred_by_email: refEmail,
+          };
         }),
       });
       const eid = enrollRes.data.enrollment_id;

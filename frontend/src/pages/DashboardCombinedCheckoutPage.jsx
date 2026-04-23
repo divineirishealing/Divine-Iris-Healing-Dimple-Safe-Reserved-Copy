@@ -1049,11 +1049,9 @@ export default function DashboardCombinedCheckoutPage() {
             });
             return false;
           }
-        }
-        if (p.notify) {
           if (!p.phone || !p.phone.trim()) {
             toast({
-              title: `${item.programTitle}: Participant ${i + 1} needs a phone number for notifications`,
+              title: `${item.programTitle}: Participant ${i + 1} needs a phone number`,
               variant: 'destructive',
             });
             return false;
@@ -1094,7 +1092,10 @@ export default function DashboardCombinedCheckoutPage() {
             attendance_mode: p.attendance_mode,
             notify: p.notify,
             email: p.email || null,
-            phone: p.notify && p.phone ? `${p.phone_code || ''}${p.phone}` : null,
+            phone:
+              (p.notify || p.attendance_mode === 'online') && p.phone
+                ? `${p.phone_code || ''}${p.phone}`
+                : null,
             whatsapp: p.whatsapp ? `${p.wa_code || ''}${p.whatsapp}` : null,
             program_id: item.programId,
             program_title: item.programTitle,
