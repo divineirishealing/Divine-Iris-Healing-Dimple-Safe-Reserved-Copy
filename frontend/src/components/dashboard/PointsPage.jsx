@@ -4,7 +4,9 @@ import axios from 'axios';
 import { useToast } from '../../hooks/use-toast';
 import { Card, CardHeader, CardTitle, CardContent } from '../ui/card';
 import { Button } from '../ui/button';
-import { Coins, ChevronLeft, Loader2, Gift, Sparkles } from 'lucide-react';
+import { Input } from '../ui/input';
+import { Label } from '../ui/label';
+import { Coins, ChevronLeft, Loader2, Gift, Sparkles, Link2 } from 'lucide-react';
 
 const API = process.env.REACT_APP_BACKEND_URL;
 
@@ -26,6 +28,10 @@ const PointsPage = () => {
   const [loading, setLoading] = useState(true);
   const [claiming, setClaiming] = useState('');
   const [data, setData] = useState(null);
+  const [extActivity, setExtActivity] = useState('review_google');
+  const [extUrl, setExtUrl] = useState('');
+  const [extQuote, setExtQuote] = useState('');
+  const [extProgramId, setExtProgramId] = useState('');
 
   const load = () => {
     axios
@@ -38,6 +44,13 @@ const PointsPage = () => {
   useEffect(() => {
     load();
   }, []);
+
+  useEffect(() => {
+    const rows = data?.external_reviews?.filter((r) => r.enabled) || [];
+    if (rows.length && !rows.some((r) => r.id === extActivity)) {
+      setExtActivity(rows[0].id);
+    }
+  }, [data, extActivity]);
 
   const claim = async (kind) => {
     setClaiming(kind);
@@ -54,6 +67,54 @@ const PointsPage = () => {
         toast({
           title: 'Could not claim',
           description: r.data?.error?.replace(/_/g, ' ') || 'Try again later',
+          variant: 'destructive',
+        });
+      }
+    } catch {
+      toast({ title: 'Error', variant: 'destructive' });
+    } finally {
+      setClaiming('');
+    }
+  };
+
+  const claimExternalReview = async () => {
+    setClaiming('external_review');
+    try {
+      const r = await axios.post(
+        `${API}/api/student/points/claim-external-review`,
+        {
+          activity_id: extActivity,
+          review_url: extUrl.trim(),
+          program_id: extProgramId || undefined,
+          quote: extQuote.trim() || undefined,
+        },
+        { withCredentials: true }
+      );
+      if (r.data?.ok) {
+        toast({
+          title: 'Points added',
+          description: `${r.data.points} points credited. If you added a quote, it may appear on our testimonial page after review.`,
+        });
+        setExtUrl('');
+        setExtQuote('');
+        load();
+      } else {
+        const err = r.data?.error || 'try_again';
+        const human = {
+          already_awarded: 'You already claimed points for this link.',
+          url_host_mismatch: 'That URL does not match the platform you selected.',
+          program_not_eligible: 'Pick a program you are enrolled in, or leave program blank.',
+          activity_disabled: 'This bonus is turned off right now.',
+          program_not_allowed: 'This activity is limited to certain programs.',
+          unknown_activity: 'Unknown platform.',
+          url_required: 'Paste your public review link.',
+          invalid_url: 'Use a valid http(s) link.',
+          quote_too_long: 'Shorten your quote (max 2000 characters).',
+          url_too_long: 'URL is too long.',
+        };
+        toast({
+          title: 'Could not claim',
+          description: human[err] || String(err).replace(/_/g, ' '),
           variant: 'destructive',
         });
       }
@@ -115,8 +176,11 @@ const PointsPage = () => {
             Divine Iris Points
           </h1>
           <p className="text-sm text-gray-500 mt-1">
-            Earn on paid enrollments, redeem up to {data.max_basket_pct}% of a future order. Points expire in{' '}
-            {data.expiry_months} months.
+            Earn on paid enrollments, redeem up to {data.max_basket_pct}% of a future order
+            {data.redeem_excludes_flagship !== false
+              ? ' (flagship programs are typically excluded from redemption).'
+              : '.'}{' '}
+            Points expire in {data.expiry_months} months.
           </p>
         </div>
         <div className="rounded-2xl border border-amber-200 bg-amber-50/80 px-6 py-4 text-center min-w-[140px]">
@@ -155,10 +219,94 @@ const PointsPage = () => {
             Review bonus
           </Button>
           <p className="text-[11px] text-gray-500 w-full">
-            Each bonus can be claimed once per account. Referral rewards are added automatically when someone you referred completes a paid enrollment (use their account email as referrer when possible).
+            Streak and generic review bonuses are once per account. Referral rewards apply when someone you referred
+            completes a paid enrollment.
           </p>
         </CardContent>
       </Card>
+
+      {(data.external_reviews || []).some((r) => r.enabled) && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base flex items-center gap-2">
+              <Link2 size={18} className="text-sky-600" />
+              Public review links (Google, Trustpilot, Facebook)
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <p className="text-sm text-gray-600">
+              Post a review on the platform, paste the link here, and optionally add a short quote. You earn points once
+              per link. Quotes are saved as hidden testimonials; after admin approval they can show on the testimonial
+              page and filter by program when you select one you are enrolled in.
+            </p>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div className="space-y-1.5">
+                <Label className="text-xs text-gray-600">Platform</Label>
+                <select
+                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                  value={extActivity}
+                  onChange={(e) => setExtActivity(e.target.value)}
+                >
+                  {(data.external_reviews || [])
+                    .filter((r) => r.enabled)
+                    .map((r) => (
+                      <option key={r.id} value={r.id}>
+                        {r.label} (+{r.points} pts)
+                      </option>
+                    ))}
+                </select>
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs text-gray-600">Program (optional)</Label>
+                <select
+                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                  value={extProgramId}
+                  onChange={(e) => setExtProgramId(e.target.value)}
+                >
+                  <option value="">Not specified</option>
+                  {(data.enrolled_programs || []).map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {p.title}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs text-gray-600">Review URL</Label>
+              <Input
+                type="url"
+                placeholder="https://..."
+                value={extUrl}
+                onChange={(e) => setExtUrl(e.target.value)}
+                className="font-mono text-sm"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs text-gray-600">Quote for testimonial page (optional)</Label>
+              <textarea
+                className="flex min-h-[72px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                placeholder="A sentence we may show after moderation…"
+                value={extQuote}
+                onChange={(e) => setExtQuote(e.target.value)}
+              />
+            </div>
+            <Button
+              className="border-amber-200"
+              variant="outline"
+              disabled={!!claiming || !extUrl.trim()}
+              onClick={claimExternalReview}
+            >
+              {claiming === 'external_review' ? (
+                <Loader2 className="animate-spin mr-2 size-4" />
+              ) : (
+                <Link2 className="mr-2 size-4 text-sky-600" />
+              )}
+              Submit review for points
+            </Button>
+          </CardContent>
+        </Card>
+      )}
 
       <Card>
         <CardHeader>

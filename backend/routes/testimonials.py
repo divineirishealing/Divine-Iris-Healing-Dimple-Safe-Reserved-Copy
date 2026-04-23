@@ -1,7 +1,7 @@
 from fastapi import APIRouter, HTTPException
 from models import Testimonial, TestimonialCreate
 from typing import List, Optional, Any, Tuple
-import os, re, json
+import os, re, json, uuid
 from motor.motor_asyncio import AsyncIOMotorClient
 from dotenv import load_dotenv
 from pathlib import Path
@@ -225,6 +225,58 @@ mongo_url = os.environ['MONGO_URL']
 client = AsyncIOMotorClient(mongo_url)
 db = client[os.environ['DB_NAME']]
 
+_EXTERNAL_REVIEW_CATEGORY = {
+    "review_google": "external_review_google",
+    "review_trustpilot": "external_review_trustpilot",
+    "review_facebook": "external_review_facebook",
+}
+_EXTERNAL_REVIEW_ROLE = {
+    "review_google": "Google review",
+    "review_trustpilot": "Trustpilot review",
+    "review_facebook": "Facebook review",
+}
+
+
+async def create_pending_external_review_testimonial(
+    db,
+    *,
+    platform_activity_id: str,
+    review_url: str,
+    quote: str,
+    program_id: str,
+    program_name: str,
+    display_name: str,
+) -> str:
+    """Insert a template testimonial (hidden) so admins can publish it on the testimonial page."""
+    cat = _EXTERNAL_REVIEW_CATEGORY.get(platform_activity_id, "external_review")
+    role = _EXTERNAL_REVIEW_ROLE.get(platform_activity_id, "External review")
+    parts = []
+    if (quote or "").strip():
+        parts.append((quote or "").strip())
+    parts.append(f"Review link: {(review_url or '').strip()}")
+    text = "\n\n".join(parts)
+    count = await db.testimonials.count_documents({})
+    tid = str(uuid.uuid4())
+    name = (display_name or "").strip() or "Member"
+    pid = (program_id or "").strip()
+    pname = (program_name or "").strip()
+    doc = Testimonial(
+        id=tid,
+        type="template",
+        name=name,
+        text=text,
+        program_id=pid,
+        program_name=pname,
+        program_tags=[pid] if pid else [],
+        category=cat,
+        role=role,
+        visible=False,
+        order=count,
+        points_attribution_email="",
+    ).model_dump()
+    await db.testimonials.insert_one(doc)
+    return tid
+
 
 def testimonial_primary_program_id(doc: dict) -> Optional[str]:
     pid = str(doc.get("program_id") or "").strip()
@@ -238,6 +290,9 @@ def testimonial_primary_program_id(doc: dict) -> Optional[str]:
 
 
 def classify_testimonial_points_activity(doc: dict) -> Optional[str]:
+    cat = (doc.get("category") or "").strip().lower()
+    if cat.startswith("external_review"):
+        return None
     typ = (doc.get("type") or "").strip().lower()
     if typ == "video":
         if (doc.get("video_url") or "").strip() or (doc.get("videoId") or "").strip():

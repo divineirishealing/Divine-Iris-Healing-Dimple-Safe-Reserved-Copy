@@ -1,11 +1,13 @@
 """Loyalty points (earn & burn) — balances, grants, redemption, purchase earn."""
 from __future__ import annotations
 
+import hashlib
 import logging
 import re
 import uuid
 from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional, Tuple
+from urllib.parse import urlparse, urlunparse
 
 logger = logging.getLogger(__name__)
 
@@ -17,8 +19,15 @@ DEFAULT_POINTS_ACTIVITIES: List[Dict[str, Any]] = [
     {"id": "transformation_before_after", "label": "Before/after transformation (public)", "points": 80, "enabled": True, "program_ids": []},
     {"id": "streak_30", "label": "30-day dashboard streak (student claim)", "points": 50, "enabled": True, "program_ids": []},
     {"id": "review_submitted", "label": "Review submitted (student claim)", "points": 50, "enabled": True, "program_ids": []},
+    {"id": "review_google", "label": "Google review (link + moderation)", "points": 50, "enabled": True, "program_ids": []},
+    {"id": "review_trustpilot", "label": "Trustpilot review (link + moderation)", "points": 50, "enabled": True, "program_ids": []},
+    {"id": "review_facebook", "label": "Facebook review (link + moderation)", "points": 50, "enabled": True, "program_ids": []},
     {"id": "referral_signup_bonus", "label": "Referrer bonus (new member paid)", "points": 500, "enabled": True, "program_ids": []},
 ]
+
+# Public review platforms — idempotent per account per normalized URL.
+EXTERNAL_REVIEW_ACTIVITY_IDS = frozenset({"review_google", "review_trustpilot", "review_facebook"})
+EXTERNAL_REVIEW_ACTIVITY_ORDER: Tuple[str, ...] = ("review_google", "review_trustpilot", "review_facebook")
 
 ACTIVITY_LEDGER_PREFIX = "activity_"
 
@@ -407,6 +416,116 @@ async def try_award_activity_points(
     return {"awarded": True, "points": pts}
 
 
+def normalize_and_validate_external_review_url(activity_id: str, raw_url: str) -> Tuple[Optional[str], str]:
+    """
+    Returns (normalized_url, error_key). error_key is empty on success.
+    """
+    u = (raw_url or "").strip()
+    if not u:
+        return None, "url_required"
+    if len(u) > 2048:
+        return None, "url_too_long"
+    try:
+        parsed = urlparse(u)
+    except Exception:
+        return None, "invalid_url"
+    if (parsed.scheme or "").lower() not in ("http", "https"):
+        return None, "invalid_url"
+    host = (parsed.hostname or "").lower()
+    if not host:
+        return None, "invalid_url"
+
+    if activity_id == "review_google":
+        ok = (
+            "google." in host
+            or host in ("g.page", "maps.app.goo.gl", "g.co", "goo.gl")
+            or host.endswith(".g.page")
+        )
+    elif activity_id == "review_trustpilot":
+        ok = "trustpilot." in host
+    elif activity_id == "review_facebook":
+        ok = "facebook." in host or host in ("fb.com", "fb.me")
+    else:
+        return None, "unknown_activity"
+    if not ok:
+        return None, "url_host_mismatch"
+
+    norm = urlunparse(
+        (
+            (parsed.scheme or "https").lower(),
+            parsed.netloc.lower(),
+            parsed.path or "",
+            parsed.params or "",
+            parsed.query or "",
+            "",
+        )
+    )
+    return norm, ""
+
+
+async def try_claim_external_review(
+    db,
+    *,
+    email: str,
+    user: dict,
+    activity_id: str,
+    review_url: str,
+    program_id: Optional[str] = None,
+    quote: Optional[str] = None,
+    program_name: Optional[str] = None,
+) -> dict:
+    """
+    Award points once per (email, activity, normalized URL). Creates a hidden testimonial for admin approval.
+    """
+    aid = (activity_id or "").strip()
+    if aid not in EXTERNAL_REVIEW_ACTIVITY_IDS:
+        return {"ok": False, "error": "unknown_activity"}
+
+    norm_url, verr = normalize_and_validate_external_review_url(aid, review_url)
+    if verr:
+        return {"ok": False, "error": verr}
+
+    em = normalize_email(email)
+    if not em:
+        return {"ok": False, "error": "no_email"}
+
+    q = (quote or "").strip()
+    if len(q) > 2000:
+        return {"ok": False, "error": "quote_too_long"}
+
+    ref = hashlib.sha256(f"{em}|{aid}|{norm_url}".encode("utf-8")).hexdigest()
+    pid = (program_id or "").strip() or None
+
+    res = await try_award_activity_points(
+        db,
+        em,
+        aid,
+        ref_unique=ref,
+        program_id=pid,
+        meta={"review_url": norm_url[:500]},
+    )
+    if not res.get("awarded"):
+        return {"ok": False, "error": res.get("reason") or "not_awarded"}
+
+    testimonial_id = None
+    try:
+        from routes.testimonials import create_pending_external_review_testimonial
+
+        testimonial_id = await create_pending_external_review_testimonial(
+            db,
+            platform_activity_id=aid,
+            review_url=norm_url,
+            quote=q,
+            program_id=pid or "",
+            program_name=(program_name or "").strip(),
+            display_name=(user.get("full_name") or user.get("name") or "").strip(),
+        )
+    except Exception as ex:
+        logger.warning("try_claim_external_review testimonial: %s", ex)
+
+    return {"ok": True, "points": int(res.get("points") or 0), "testimonial_id": testimonial_id}
+
+
 async def apply_payment_points_side_effects(
     db,
     *,
@@ -584,6 +703,7 @@ async def points_public_summary(db, email: str) -> dict:
         "expiring_within_days_30": soon,
         "max_basket_pct": cfg["max_basket_pct"],
         "expiry_months": cfg["expiry_months"],
+        "redeem_excludes_flagship": bool(cfg.get("redeem_excludes_flagship", True)),
     }
 
 

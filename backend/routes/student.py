@@ -30,6 +30,42 @@ db = client[os.environ['DB_NAME']]
 logger = logging.getLogger(__name__)
 
 
+async def _student_enrolled_program_choices(email: str) -> List[dict]:
+    from routes.points_logic import normalize_email
+
+    em = normalize_email(email or "")
+    if not em:
+        return []
+    seen: Dict[str, dict] = {}
+    cursor = db.enrollments.find(
+        {"booker_email": em, "item_type": "program", "item_id": {"$exists": True, "$ne": ""}},
+        {"_id": 0, "item_id": 1, "item_title": 1},
+    )
+    async for doc in cursor:
+        pid = str(doc.get("item_id") or "").strip()
+        if not pid or pid in seen:
+            continue
+        seen[pid] = {
+            "id": pid,
+            "title": (doc.get("item_title") or "").strip() or pid,
+        }
+    return list(seen.values())
+
+
+async def _student_has_enrollment_for_program(email: str, program_id: str) -> bool:
+    from routes.points_logic import normalize_email
+
+    em = normalize_email(email or "")
+    pid = (program_id or "").strip()
+    if not em or not pid:
+        return False
+    doc = await db.enrollments.find_one(
+        {"booker_email": em, "item_type": "program", "item_id": pid},
+        {"_id": 1},
+    )
+    return doc is not None
+
+
 def _immediate_family_has_names(rows: Optional[List[dict]]) -> bool:
     return any(((m.get("name") or "").strip()) for m in (rows or []))
 
@@ -223,6 +259,13 @@ class ProfileUpdate(BaseModel):
 
 class PointsBonusClaim(BaseModel):
     kind: str
+
+
+class ExternalReviewClaim(BaseModel):
+    activity_id: str
+    review_url: str
+    program_id: Optional[str] = ""
+    quote: Optional[str] = ""
 
 
 class FamilyMemberIn(BaseModel):
@@ -2685,12 +2728,59 @@ async def comment_on_post(data: TribeComment, user: dict = Depends(get_current_u
 
 @router.get("/points")
 async def student_points_detail(user: dict = Depends(get_current_user)):
-    from routes.points_logic import points_public_summary, recent_ledger
+    from routes.points_logic import points_public_summary, recent_ledger, fetch_points_config, EXTERNAL_REVIEW_ACTIVITY_ORDER
 
     email = user.get("email") or ""
     summary = await points_public_summary(db, email)
     ledger = await recent_ledger(db, email, 40)
-    return {**summary, "ledger": ledger}
+    cfg = await fetch_points_config(db)
+    amap = {a["id"]: a for a in (cfg.get("activities") or [])}
+    external_reviews = []
+    for eid in EXTERNAL_REVIEW_ACTIVITY_ORDER:
+        if eid not in amap:
+            continue
+        a = amap[eid]
+        external_reviews.append(
+            {
+                "id": a["id"],
+                "label": a["label"],
+                "points": int(a.get("points") or 0),
+                "enabled": bool(a.get("enabled", True)),
+            }
+        )
+    enrolled_programs = await _student_enrolled_program_choices(email)
+    return {**summary, "ledger": ledger, "external_reviews": external_reviews, "enrolled_programs": enrolled_programs}
+
+
+@router.post("/points/claim-external-review")
+async def student_claim_external_review(data: ExternalReviewClaim, user: dict = Depends(get_current_user)):
+    from routes.points_logic import try_claim_external_review, fetch_points_config
+
+    email = user.get("email") or ""
+    cfg = await fetch_points_config(db)
+    if not cfg.get("enabled"):
+        return {"ok": False, "error": "points_disabled"}
+
+    pid = (data.program_id or "").strip()
+    if pid and not await _student_has_enrollment_for_program(email, pid):
+        return {"ok": False, "error": "program_not_eligible"}
+
+    program_name = ""
+    if pid:
+        pr = await db.programs.find_one({"id": pid}, {"_id": 0, "title": 1})
+        if pr:
+            program_name = (pr.get("title") or "").strip()
+
+    return await try_claim_external_review(
+        db,
+        email=email,
+        user=user,
+        activity_id=data.activity_id.strip(),
+        review_url=data.review_url,
+        program_id=pid or None,
+        quote=data.quote or "",
+        program_name=program_name,
+    )
 
 
 @router.post("/points/claim-bonus")
