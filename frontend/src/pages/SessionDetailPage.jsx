@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import axios from 'axios';
-import { ArrowLeft, Clock, Wifi, MapPin, Quote, ChevronLeft, ChevronRight, Send, MessageCircle, ShoppingCart } from 'lucide-react';
+import { ArrowLeft, CalendarDays, Clock, Wifi, MapPin, Quote, ChevronLeft, ChevronRight, Send, MessageCircle, ShoppingCart } from 'lucide-react';
 import Header from '../components/Header';
 import Footer from '../components/Footer';
 import FloatingButtons from '../components/FloatingButtons';
@@ -28,6 +28,19 @@ const LIGHT_PURPLE_GRADIENTS = {
   medium: 'linear-gradient(160deg, #f3edff 0%, #ece4ff 30%, #f5eef8 60%, #faf5f0 100%)',
   strong: 'linear-gradient(160deg, #ede5ff 0%, #e0d0ff 30%, #efe6f8 60%, #f5efea 100%)',
 };
+
+function formatSessionDateLabel(raw) {
+  const t = String(raw || '').trim();
+  if (!t) return '';
+  const d = t.slice(0, 10);
+  if (/^\d{4}-\d{2}-\d{2}$/.test(d)) {
+    const dt = new Date(`${d}T12:00:00`);
+    if (!Number.isNaN(dt.getTime())) {
+      return dt.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' });
+    }
+  }
+  return t;
+}
 
 const applyStyle = (styleObj, defaults = {}) => {
   if (!styleObj || Object.keys(styleObj).length === 0) return defaults;
@@ -292,6 +305,33 @@ function SessionDetailPage() {
         <Clock size={10} /> {session.duration}
       </span>
     ) : null,
+    available_dates_badge: (() => {
+      const dates = (session.available_dates || []).filter(Boolean).sort();
+      if (!dates.length) return null;
+      const first = formatSessionDateLabel(dates[0]);
+      const last = formatSessionDateLabel(dates[dates.length - 1]);
+      const label = dates.length === 1 ? first : `${first} – ${last}`;
+      return (
+        <span
+          key="avail-dates"
+          className="text-[10px] px-3 py-1.5 rounded-full font-semibold flex items-center gap-1.5 border max-w-[min(100%,20rem)]"
+          style={{ backgroundColor: `${badgeBg}25`, color: badgeTextColor, borderColor: `${badgeTextColor}40` }}
+        >
+          <CalendarDays size={12} className="shrink-0" />
+          <span className="leading-tight text-left">{dates.length > 1 ? `${label} · ${dates.length} days` : label}</span>
+        </span>
+      );
+    })(),
+    time_slots_badge: (session.time_slots || []).filter(Boolean).length ? (
+      <span
+        key="slots"
+        className="text-[10px] px-3 py-1.5 rounded-full font-semibold flex items-center gap-1.5 border max-w-[min(100%,22rem)]"
+        style={{ backgroundColor: `${badgeBg}25`, color: badgeTextColor, borderColor: `${badgeTextColor}40` }}
+      >
+        <Clock size={10} className="shrink-0" />
+        <span className="leading-tight text-left">{(session.time_slots || []).join(' · ')}</span>
+      </span>
+    ) : null,
     title: (
       <h1 key="title" className="mb-3" data-testid="session-detail-title"
         style={applyStyle(sessionTpl.hero_title_style || sessionTpl.title_style, { ...HEADING, color: '#fff', fontSize: 'clamp(1.8rem, 4vw, 2.5rem)', fontVariant: 'small-caps', letterSpacing: '0.08em' })}>
@@ -309,40 +349,45 @@ function SessionDetailPage() {
         )}
         {sessionOfferPrice > 0 ? (
           <>
-            <span className="text-xl font-bold" style={applyStyle(sessionTpl.hero_price_style, { color: accentColor })}>{formatPrice(sessionOfferPrice)}</span>
-            <span className="text-base text-white/40 line-through">{formatPrice(getPrice(session))}</span>
+            <span className="text-2xl font-bold tabular-nums md:text-3xl lg:text-4xl" style={applyStyle(sessionTpl.hero_price_style, { color: accentColor })}>{formatPrice(sessionOfferPrice)}</span>
+            <span className="text-lg text-white/40 line-through md:text-xl">{formatPrice(getPrice(session))}</span>
           </>
         ) : (
-          <span className="text-xl font-bold" style={applyStyle(sessionTpl.hero_price_style, { color: accentColor })}>{formatPrice(getPrice(session))}</span>
+          <span className="text-2xl font-bold tabular-nums md:text-3xl lg:text-4xl" style={applyStyle(sessionTpl.hero_price_style, { color: accentColor })}>{formatPrice(getPrice(session))}</span>
         )}
       </div>
     ) : null,
   };
 
-  const heroOrder = getOrder('detail_hero') || ['back_button','session_type_badge','duration_badge','title','gold_line','price'];
-  // Group badges together
+  const heroOrder =
+    getOrder('detail_hero') ||
+    ['back_button', 'session_type_badge', 'duration_badge', 'available_dates_badge', 'time_slots_badge', 'title', 'gold_line', 'price'];
+  const heroBadgeKeys = [
+    'session_type_badge',
+    'duration_badge',
+    'available_dates_badge',
+    'time_slots_badge',
+  ];
   const renderHeroItems = () => {
     const items = [];
     let badgesRendered = false;
-    heroOrder.forEach(key => {
-      if (key === 'session_type_badge' || key === 'duration_badge') {
+    heroOrder.forEach((key) => {
+      if (heroBadgeKeys.includes(key)) {
         if (!badgesRendered) {
           badgesRendered = true;
-          const showType = heroOrder.includes('session_type_badge');
-          const showDur = heroOrder.includes('duration_badge');
-          if (showType || showDur) {
+          const toShow = heroBadgeKeys.filter((k) => heroOrder.includes(k) && heroElements[k]);
+          if (toShow.length) {
             items.push(
-              <div key="badges" className="flex items-center gap-3 mb-4">
-                {showType && heroElements.session_type_badge}
-                {showDur && heroElements.duration_badge}
+              <div key="badges" className="flex flex-wrap items-center gap-3 mb-4">
+                {toShow.map((k) => heroElements[k])}
               </div>
             );
           }
         }
       } else if (key === 'back_button') {
         items.push(heroElements.back_button);
-      } else {
-        if (heroElements[key]) items.push(heroElements[key]);
+      } else if (heroElements[key]) {
+        items.push(heroElements[key]);
       }
     });
     return items;

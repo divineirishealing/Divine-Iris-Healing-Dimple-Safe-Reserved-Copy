@@ -394,6 +394,30 @@ function ProgramDetailPage() {
     !!(program.timing && String(program.timing).trim()) ||
     tierScheduleLines.length > 0;
 
+  const heroScheduleItems = [];
+  if (program.duration && String(program.duration).trim()) {
+    heroScheduleItems.push({ key: 'dur', label: 'Duration', value: String(program.duration).trim() });
+  }
+  if (program.start_date && String(program.start_date).trim()) {
+    heroScheduleItems.push({ key: 'sd', label: 'Starts', value: formatProgramDateDisplay(program.start_date) });
+  }
+  if (program.end_date && String(program.end_date).trim()) {
+    heroScheduleItems.push({ key: 'ed', label: 'Ends', value: formatProgramDateDisplay(program.end_date) });
+  }
+  if (program.timing && String(program.timing).trim()) {
+    const tz = program.time_zone ? ` · ${String(program.time_zone).trim()}` : '';
+    heroScheduleItems.push({ key: 'tm', label: 'Time', value: `${String(program.timing).trim()}${tz}` });
+  }
+
+  const showHeroPrice =
+    program.show_pricing_on_card !== false &&
+    program.enrollment_open !== false &&
+    String(program.enrollment_status || 'open').toLowerCase() !== 'closed';
+  const tiersLen = program.duration_tiers?.length || 0;
+  const heroPriceBase = tiersLen > 0 ? getPrice(program, 0) : getPrice(program);
+  const heroPriceOffer = tiersLen > 0 ? getOfferPrice(program, 0) : getOfferPrice(program);
+  const heroHasAmount = heroPriceOffer > 0 || heroPriceBase > 0;
+
   const SectionTitle = ({ children, style: extra }) => (
     <h2 className="text-center mb-4" style={applyStyle(extra || template.section_title_style, { ...HEADING, fontSize: '1.6rem' })}>{children}</h2>
   );
@@ -551,6 +575,73 @@ function ProgramDetailPage() {
         </h1>
         <p className="relative z-10 mb-6" style={applyStyle(template.subtitle_style, { ...LABEL, color: heroAccent })}>{program.category || 'FLAGSHIP PROGRAM'}</p>
         {template.hero_line_visible !== false && <div className="relative z-10 w-14 h-0.5" style={{ background: heroAccent, marginTop: `${template.hero_line_gap || '10'}px` }} />}
+
+        {(showHeroPrice && heroHasAmount) || heroScheduleItems.length > 0 ? (
+          <div className="relative z-10 mt-8 w-full max-w-3xl px-2 pb-10">
+            <div
+              className="rounded-2xl border border-white/20 bg-black/45 px-5 py-5 shadow-2xl backdrop-blur-xl md:rounded-3xl md:px-8 md:py-7"
+              style={{
+                boxShadow: `0 24px 60px -24px rgba(0,0,0,0.65), 0 0 0 1px ${heroAccent}28 inset`,
+              }}
+              data-testid="program-hero-schedule-price"
+            >
+              {showHeroPrice && heroHasAmount && (
+                <div className="border-b border-white/10 pb-5 text-center md:pb-6">
+                  <p className="text-[10px] font-bold uppercase tracking-[0.3em] text-white/50 md:text-[11px]">Investment</p>
+                  <div className="mt-2 flex flex-wrap items-baseline justify-center gap-3">
+                    {heroPriceOffer > 0 ? (
+                      <>
+                        <span
+                          className="text-3xl font-semibold tabular-nums md:text-4xl lg:text-5xl"
+                          style={{ ...globalPricingStyle, color: heroAccent }}
+                        >
+                          {symbol} {heroPriceOffer.toLocaleString()}
+                        </span>
+                        {heroPriceBase > heroPriceOffer && (
+                          <span className="text-lg text-white/35 line-through md:text-2xl">
+                            {symbol} {heroPriceBase.toLocaleString()}
+                          </span>
+                        )}
+                      </>
+                    ) : (
+                      <span
+                        className="text-3xl font-semibold tabular-nums md:text-4xl lg:text-5xl"
+                        style={{ ...globalPricingStyle, color: heroAccent }}
+                      >
+                        {symbol} {heroPriceBase.toLocaleString()}
+                      </span>
+                    )}
+                  </div>
+                  {tiersLen > 1 && (
+                    <p className="mt-2 text-[10px] text-white/45">Starting rate for the first option — all tiers below</p>
+                  )}
+                </div>
+              )}
+              {heroScheduleItems.length > 0 && (
+                <div
+                  className={`grid gap-3 sm:grid-cols-2 ${showHeroPrice && heroHasAmount ? 'pt-5 md:pt-6' : ''}`}
+                >
+                  {heroScheduleItems.map((row) => (
+                    <div
+                      key={row.key}
+                      className="rounded-xl border border-white/12 bg-white/[0.07] px-4 py-3 text-left md:px-5 md:py-4"
+                    >
+                      <p className="text-[9px] font-bold uppercase tracking-[0.2em] text-white/45 md:text-[10px]">{row.label}</p>
+                      <p
+                        className="mt-1 text-sm font-semibold leading-snug text-white md:text-base lg:text-lg [text-wrap:balance]"
+                        style={{ fontFamily: 'var(--heading-font, "Cinzel", Georgia, serif)' }}
+                      >
+                        {row.value}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        ) : (
+          <div className="relative z-10 pb-10" />
+        )}
       </section>
 
       {sections.map((section, idx) => renderSection(section, idx))}
