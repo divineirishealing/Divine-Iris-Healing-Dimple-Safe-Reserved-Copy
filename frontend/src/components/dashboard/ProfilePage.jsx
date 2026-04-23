@@ -9,8 +9,7 @@ import { Card, CardHeader, CardTitle, CardContent } from '../ui/card';
 import { User, MapPin, Calendar, Briefcase, GraduationCap, ClipboardList, ChevronRight } from 'lucide-react';
 import axios from 'axios';
 import { getAuthHeaders } from '../../lib/authHeaders';
-
-const API = process.env.REACT_APP_BACKEND_URL;
+import { getApiUrl } from '../../lib/config';
 
 function toDateInputValue(iso) {
   if (!iso) return '';
@@ -63,16 +62,32 @@ const ProfilePage = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    const apiRoot = getApiUrl();
+    if (!apiRoot) {
+      toast({
+        title: "Cannot save profile",
+        description: "This site build is missing the API URL. Please contact support.",
+        variant: "destructive",
+      });
+      return;
+    }
     setLoading(true);
     try {
-      await axios.put(`${API}/api/student/profile`, formData, {
+      await axios.put(`${apiRoot.replace(/\/$/, "")}/student/profile`, formData, {
         withCredentials: true,
         headers: getAuthHeaders(),
       });
       await checkAuth();
       toast({ title: "Profile Submitted", description: "Your changes are pending approval." });
     } catch (err) {
-      toast({ title: "Error", description: "Failed to update profile.", variant: "destructive" });
+      const detail = err?.response?.data?.detail;
+      const msg =
+        typeof detail === "string"
+          ? detail
+          : Array.isArray(detail)
+            ? detail.map((d) => d?.msg || d).join(" ")
+            : err?.message || "Failed to update profile.";
+      toast({ title: "Error", description: msg, variant: "destructive" });
     } finally {
       setLoading(false);
     }
