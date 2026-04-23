@@ -110,19 +110,55 @@ const Stars = ({ rating = 5 }) => (
   </div>
 );
 
+/** Quote + author typography on program detail carousel must match SoulfulTestimonialFull (modal). */
+const MODAL_QUOTE_STYLE = {
+  fontFamily: "'Cormorant Garamond', Georgia, serif",
+  fontSize: 'clamp(0.98rem, 1.5vw, 1.08rem)',
+  color: '#1e0a4e',
+  lineHeight: 1.95,
+  fontStyle: 'italic',
+};
+
 /* ── Shared card footer (identical layout for written + video) ──────────── */
 const CardFooter = ({ name, role, program_name, centered = false, compact = false }) => (
   <>
     <div className="h-px"
       style={{ background: 'linear-gradient(90deg, transparent, rgba(212,175,55,0.5) 30%, rgba(109,40,217,0.4) 70%, transparent)', margin: compact ? '6px 0' : '12px 0' }} />
     <div className={`w-full min-w-0 ${centered ? 'text-center' : ''}`}>
-      <p style={{ fontFamily: "'Lato', sans-serif", fontWeight: 800, fontSize: compact ? '0.84rem' : '0.9rem', color: '#1a0a4e', letterSpacing: '0.02em', textAlign: centered ? 'center' : undefined }}>
+      <p style={{
+        fontFamily: "'Lato', sans-serif",
+        fontWeight: 800,
+        fontSize: compact ? '1rem' : '0.9rem',
+        color: compact ? '#1a1040' : '#1a0a4e',
+        letterSpacing: '0.02em',
+        textAlign: centered ? 'center' : undefined,
+      }}>
         {name}
       </p>
-      <p style={{ fontFamily: "'Lato', sans-serif", fontSize: compact ? '0.62rem' : '0.68rem', color: '#7c6a9a', fontStyle: 'italic', marginTop: compact ? 1 : 2, minHeight: compact ? '1.6em' : '2.2em', textAlign: centered ? 'center' : undefined, visibility: role ? 'visible' : 'hidden' }}>
+      <p style={{
+        fontFamily: "'Lato', sans-serif",
+        fontSize: compact ? '0.75rem' : '0.68rem',
+        color: compact ? '#8b7a9a' : '#7c6a9a',
+        fontStyle: 'italic',
+        marginTop: compact ? 4 : 2,
+        minHeight: compact ? '2.4em' : '2.2em',
+        textAlign: centered ? 'center' : undefined,
+        visibility: role ? 'visible' : 'hidden',
+      }}>
         {role || '\u00A0'}
       </p>
-      <p style={{ fontFamily: "'Cormorant Garamond', Georgia, serif", fontSize: compact ? '0.68rem' : '0.74rem', color: '#b8860b', fontStyle: 'italic', marginTop: compact ? 1 : 2, letterSpacing: '0.03em', fontWeight: 600, textAlign: centered ? 'center' : undefined, visibility: program_name ? 'visible' : 'hidden', minHeight: compact ? '1em' : '1.2em' }}>
+      <p style={{
+        fontFamily: "'Cormorant Garamond', Georgia, serif",
+        fontSize: compact ? '0.8rem' : '0.74rem',
+        color: compact ? '#D4AF37' : '#b8860b',
+        fontStyle: 'italic',
+        marginTop: compact ? 2 : 2,
+        letterSpacing: compact ? '0.02em' : '0.03em',
+        fontWeight: 600,
+        textAlign: centered ? 'center' : undefined,
+        visibility: program_name ? 'visible' : 'hidden',
+        minHeight: compact ? '1.2em' : '1.2em',
+      }}>
         {program_name || '\u00A0'}
       </p>
     </div>
@@ -434,16 +470,16 @@ export const SoulfulWrittenCard = ({
           <p style={
             quoteStyle
               ? { textAlign: 'center', ...quoteStyle }
-              : {
-                  fontFamily: "'Cormorant Garamond', Georgia, serif",
-                  fontSize: uniform
-                    ? (compactProgram ? '0.82rem' : '0.88rem')
-                    : '0.92rem',
-                  lineHeight: compactProgram ? 1.65 : 1.8,
-                  color: '#1e0a4e',
-                  fontStyle: 'italic',
-                  textAlign: 'center',
-                }
+              : uniform && compactProgram
+                ? { textAlign: 'center', ...MODAL_QUOTE_STYLE }
+                : {
+                    fontFamily: "'Cormorant Garamond', Georgia, serif",
+                    fontSize: uniform ? '0.88rem' : '0.92rem',
+                    lineHeight: 1.8,
+                    color: '#1e0a4e',
+                    fontStyle: 'italic',
+                    textAlign: 'center',
+                  }
           }>
             {uniform ? (displayText ? `"${displayText}"` : '') : displayText}
           </p>
@@ -725,13 +761,18 @@ export const SoulfulUniformVideoCard = ({ testimonial, onPlay, onOpen, footerCen
         style={{ flex: compactProgram ? '0 0 auto' : 1, display: 'flex', flexDirection: 'column' }}>
         <div style={{ flex: compactProgram ? '0 0 auto' : 1 }}>
           {text && (
-            <p style={{
-              fontFamily:"'Cormorant Garamond',Georgia,serif",
-              fontSize: compactProgram ? '0.82rem' : '0.88rem',
-              lineHeight: compactProgram ? 1.65 : 1.8,
-              color:'#1e0a4e',
-              fontStyle:'italic', textAlign:'center',
-            }}>
+            <p style={
+              compactProgram
+                ? { textAlign: 'center', ...MODAL_QUOTE_STYLE }
+                : {
+                    fontFamily: "'Cormorant Garamond', Georgia, serif",
+                    fontSize: '0.88rem',
+                    lineHeight: 1.8,
+                    color: '#1e0a4e',
+                    fontStyle: 'italic',
+                    textAlign: 'center',
+                  }
+            }>
               "{text.length > 120 ? text.substring(0,120)+'…' : text}"
             </p>
           )}
