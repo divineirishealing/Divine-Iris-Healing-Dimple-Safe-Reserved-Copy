@@ -565,72 +565,68 @@ function ProgramDetailPage() {
     <div className="min-h-screen">
       <Header />
 
-      {/* HERO */}
-      <section data-testid="program-hero" className="relative min-h-[50vh] flex flex-col items-center justify-center text-center px-6 pt-20"
-        style={{ background: template.hero_image ? 'transparent' : `linear-gradient(180deg, ${heroBg} 0%, ${heroBg}dd 50%, ${heroBg} 100%)` }}>
+      {/* HERO — title centered; schedule & price quiet strip bottom-left */}
+      <section
+        data-testid="program-hero"
+        className="relative flex min-h-[52vh] flex-col px-5 pb-6 pt-20 md:min-h-[58vh] md:px-10 md:pb-8"
+        style={{ background: template.hero_image ? 'transparent' : `linear-gradient(180deg, ${heroBg} 0%, ${heroBg}dd 50%, ${heroBg} 100%)` }}
+      >
         {template.hero_image && <div className="absolute inset-0" style={{ backgroundImage: `url(${resolveImageUrl(template.hero_image)})`, backgroundSize: 'cover', backgroundPosition: 'center' }} />}
         {template.hero_image && <div className="absolute inset-0" style={{ background: '#000', opacity: (template.overlay_opacity || 70) / 100 }} />}
-        <h1 data-testid="program-title" className="relative z-10 text-white mb-4 max-w-4xl" style={applyStyle(template.title_style, { ...HEADING, color: '#fff', fontSize: 'clamp(1.8rem, 4vw, 3rem)', fontVariant: 'small-caps', letterSpacing: '0.05em', lineHeight: 1.3 })}>
-          {program.title}
-        </h1>
-        <p className="relative z-10 mb-6" style={applyStyle(template.subtitle_style, { ...LABEL, color: heroAccent })}>{program.category || 'FLAGSHIP PROGRAM'}</p>
-        {template.hero_line_visible !== false && <div className="relative z-10 w-14 h-0.5" style={{ background: heroAccent, marginTop: `${template.hero_line_gap || '10'}px` }} />}
+        <div className="relative z-10 flex min-h-0 flex-1 flex-col items-center justify-center text-center">
+          <h1 data-testid="program-title" className="mb-4 max-w-4xl text-white" style={applyStyle(template.title_style, { ...HEADING, color: '#fff', fontSize: 'clamp(1.8rem, 4vw, 3rem)', fontVariant: 'small-caps', letterSpacing: '0.05em', lineHeight: 1.3 })}>
+            {program.title}
+          </h1>
+          <p className="mb-6" style={applyStyle(template.subtitle_style, { ...LABEL, color: heroAccent })}>{program.category || 'FLAGSHIP PROGRAM'}</p>
+          {template.hero_line_visible !== false && <div className="w-14 h-0.5" style={{ background: heroAccent, marginTop: `${template.hero_line_gap || '10'}px` }} />}
+        </div>
 
         {(showHeroPrice && heroHasAmount) || heroScheduleItems.length > 0 ? (
-          <div className="relative z-10 mt-8 w-full max-w-3xl px-2 pb-10">
+          <div className="relative z-10 mt-6 w-full max-w-md self-start md:mt-8 md:max-w-lg">
             <div
-              className="rounded-2xl border border-white/20 bg-black/45 px-5 py-5 shadow-2xl backdrop-blur-xl md:rounded-3xl md:px-8 md:py-7"
-              style={{
-                boxShadow: `0 24px 60px -24px rgba(0,0,0,0.65), 0 0 0 1px ${heroAccent}28 inset`,
-              }}
+              className="rounded-lg border border-white/[0.08] bg-black/20 px-4 py-3 text-left shadow-none backdrop-blur-sm md:px-5 md:py-4"
               data-testid="program-hero-schedule-price"
             >
               {showHeroPrice && heroHasAmount && (
-                <div className="border-b border-white/10 pb-5 text-center md:pb-6">
-                  <p className="text-[10px] font-bold uppercase tracking-[0.3em] text-white/50 md:text-[11px]">Investment</p>
-                  <div className="mt-2 flex flex-wrap items-baseline justify-center gap-3">
+                <div className={`${heroScheduleItems.length > 0 ? 'border-b border-white/[0.06] pb-3' : ''}`}>
+                  <p className="text-[9px] font-medium uppercase tracking-[0.22em] text-white/40">Investment</p>
+                  <div className="mt-1 flex flex-wrap items-baseline gap-x-2 gap-y-0">
                     {heroPriceOffer > 0 ? (
                       <>
                         <span
-                          className="text-3xl font-semibold tabular-nums md:text-4xl lg:text-5xl"
-                          style={{ ...globalPricingStyle, color: heroAccent }}
+                          className="text-xl font-semibold tabular-nums md:text-2xl"
+                          style={{ ...globalPricingStyle, color: heroAccent, opacity: 0.92 }}
                         >
                           {symbol} {heroPriceOffer.toLocaleString()}
                         </span>
                         {heroPriceBase > heroPriceOffer && (
-                          <span className="text-lg text-white/35 line-through md:text-2xl">
+                          <span className="text-sm text-white/30 line-through md:text-base">
                             {symbol} {heroPriceBase.toLocaleString()}
                           </span>
                         )}
                       </>
                     ) : (
                       <span
-                        className="text-3xl font-semibold tabular-nums md:text-4xl lg:text-5xl"
-                        style={{ ...globalPricingStyle, color: heroAccent }}
+                        className="text-xl font-semibold tabular-nums md:text-2xl"
+                        style={{ ...globalPricingStyle, color: heroAccent, opacity: 0.92 }}
                       >
                         {symbol} {heroPriceBase.toLocaleString()}
                       </span>
                     )}
                   </div>
                   {tiersLen > 1 && (
-                    <p className="mt-2 text-[10px] text-white/45">Starting rate for the first option — all tiers below</p>
+                    <p className="mt-1.5 text-[10px] leading-snug text-white/35">Starting rate for the first option — all tiers below</p>
                   )}
                 </div>
               )}
               {heroScheduleItems.length > 0 && (
                 <div
-                  className={`grid gap-3 sm:grid-cols-2 ${showHeroPrice && heroHasAmount ? 'pt-5 md:pt-6' : ''}`}
+                  className={`grid grid-cols-2 gap-x-4 gap-y-2.5 text-left ${showHeroPrice && heroHasAmount ? 'pt-3' : ''}`}
                 >
                   {heroScheduleItems.map((row) => (
-                    <div
-                      key={row.key}
-                      className="rounded-xl border border-white/12 bg-white/[0.07] px-4 py-3 text-left md:px-5 md:py-4"
-                    >
-                      <p className="text-[9px] font-bold uppercase tracking-[0.2em] text-white/45 md:text-[10px]">{row.label}</p>
-                      <p
-                        className="mt-1 text-sm font-semibold leading-snug text-white md:text-base lg:text-lg [text-wrap:balance]"
-                        style={{ fontFamily: 'var(--heading-font, "Cinzel", Georgia, serif)' }}
-                      >
+                    <div key={row.key} className="min-w-0">
+                      <p className="text-[9px] font-medium uppercase tracking-[0.18em] text-white/35">{row.label}</p>
+                      <p className="mt-0.5 text-xs font-normal leading-snug text-white/80 [text-wrap:balance] md:text-sm">
                         {row.value}
                       </p>
                     </div>
@@ -639,9 +635,7 @@ function ProgramDetailPage() {
               )}
             </div>
           </div>
-        ) : (
-          <div className="relative z-10 pb-10" />
-        )}
+        ) : null}
       </section>
 
       {sections.map((section, idx) => renderSection(section, idx))}
