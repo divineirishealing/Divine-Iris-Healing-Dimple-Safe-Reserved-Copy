@@ -701,8 +701,10 @@ function EnrollmentPage() {
       if (p.notify || p.attendance_mode === 'online') {
         if (!p.email || !p.email.trim() || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(p.email))
           return toast({ title: `Participant ${i + 1}: Enter a valid email`, variant: 'destructive' });
+      }
+      if (p.notify) {
         if (!p.phone || !p.phone.trim())
-          return toast({ title: `Participant ${i + 1}: Enter phone number`, variant: 'destructive' });
+          return toast({ title: `Participant ${i + 1}: Enter phone for enrollment notifications`, variant: 'destructive' });
       }
     }
     if (!bookerEmail) return toast({ title: 'Participant email is required for verification', variant: 'destructive' });
@@ -731,10 +733,9 @@ function EnrollmentPage() {
             notify: p.notify,
             email:
               (p.notify || p.attendance_mode === 'online') ? (p.email || null) : null,
-            phone:
-              (p.notify || p.attendance_mode === 'online') && p.phone
-                ? `${p.phone_code || ''}${p.phone}`
-                : null,
+            phone: (p.phone || '').trim()
+              ? `${p.phone_code || ''}${String(p.phone).trim()}`
+              : null,
             whatsapp: p.whatsapp ? `${p.wa_code || ''}${p.whatsapp}` : null,
             is_first_time: p.is_first_time || false,
             referral_source: p.referral_source || '',

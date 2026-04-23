@@ -519,7 +519,9 @@ function CartPage() {
         if (!p.state || !p.state.trim()) { toast({ title: `${item.programTitle}: Participant ${i + 1} needs state`, variant: 'destructive' }); return false; }
         if (p.notify || p.attendance_mode === 'online') {
           if (!p.email || !p.email.trim() || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(p.email)) { toast({ title: `${item.programTitle}: Participant ${i + 1} needs a valid email`, variant: 'destructive' }); return false; }
-          if (!p.phone || !p.phone.trim()) { toast({ title: `${item.programTitle}: Participant ${i + 1} needs a phone number`, variant: 'destructive' }); return false; }
+        }
+        if (p.notify) {
+          if (!p.phone || !p.phone.trim()) { toast({ title: `${item.programTitle}: Participant ${i + 1} needs a phone number for notifications`, variant: 'destructive' }); return false; }
         }
       }
     }
@@ -568,10 +570,9 @@ function CartPage() {
             name: p.name, relationship: p.relationship, age: parseInt(p.age),
             gender: p.gender, country: p.country, city: p.city, state: p.state, attendance_mode: p.attendance_mode,
             notify: p.notify, email: p.email || null,
-            phone:
-              (p.notify || p.attendance_mode === 'online') && p.phone
-                ? `${p.phone_code || ''}${p.phone}`
-                : null,
+            phone: (p.phone || '').trim()
+              ? `${p.phone_code || ''}${String(p.phone).trim()}`
+              : null,
             whatsapp: p.whatsapp ? `${p.wa_code || ''}${p.whatsapp}` : null,
             program_id: item.programId, program_title: item.programTitle,
             is_first_time: p.is_first_time || false, referral_source: p.referral_source || '',
