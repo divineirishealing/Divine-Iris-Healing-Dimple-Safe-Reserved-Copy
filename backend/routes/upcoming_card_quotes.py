@@ -40,7 +40,7 @@ async def list_upcoming_card_quotes(visible_only: bool = False):
         query = {}
     items = await db.upcoming_card_quotes.find(query, {"_id": 0}).sort(
         [("program_id", 1), ("order", 1)]
-    ).to_list(200)
+    ).to_list(800)
     return [_serialize_quote(x) for x in items]
 
 

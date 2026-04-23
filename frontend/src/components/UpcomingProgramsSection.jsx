@@ -6,6 +6,7 @@ import { useCurrency } from '../context/CurrencyContext';
 import { useCart } from '../context/CartContext';
 import { useToast } from '../hooks/use-toast';
 import { Monitor, Calendar, Clock, AlertTriangle, Wifi, ShoppingCart, Check, Bell, Heart, Gift, Users } from 'lucide-react';
+import { cn } from '../lib/utils';
 
 // Map common timezone abbreviations to UTC offset in hours
 const TZ_OFFSETS = {
@@ -108,7 +109,7 @@ const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
 
 /* ─── FOMO Subtitle Rotator ─── */
-const FomoSubtitle = ({ messages, style }) => {
+const FomoSubtitle = ({ messages, style, compact = false, intervalMs = 3500, testId = 'fomo-subtitle' }) => {
   const [index, setIndex] = useState(0);
   const [visible, setVisible] = useState(true);
 
@@ -120,16 +121,19 @@ const FomoSubtitle = ({ messages, style }) => {
         setIndex(prev => (prev + 1) % messages.length);
         setVisible(true);
       }, 600);
-    }, 3500);
+    }, intervalMs);
     return () => clearInterval(cycle);
-  }, [messages]);
+  }, [messages, intervalMs]);
 
   if (!messages || messages.length === 0) return null;
 
   return (
     <p
-      data-testid="fomo-subtitle"
-      className="text-sm text-gray-900 mt-3 transition-all duration-500 ease-in-out"
+      data-testid={testId}
+      className={cn(
+        'transition-all duration-500 ease-in-out',
+        compact ? 'text-xs text-gray-600 mt-2 leading-relaxed italic' : 'text-sm text-gray-900 mt-3'
+      )}
       style={{
         ...style,
         opacity: visible ? 1 : 0,
@@ -206,7 +210,7 @@ function durationPillDisplay(isAnnualTier, durationStr) {
   return durationStr;
 }
 
-const UpcomingCard = ({ program }) => {
+const UpcomingCard = ({ program, cardQuoteMessages = [] }) => {
   const navigate = useNavigate();
   const { getPrice, getOfferPrice, symbol, country: detectedCountry } = useCurrency();
   const { addItem, items } = useCart();
@@ -406,7 +410,18 @@ const UpcomingCard = ({ program }) => {
             </span>
           )}
         </div>
-        <p className="text-gray-500 text-xs leading-relaxed mb-3 line-clamp-2 flex-1">{program.description}</p>
+        <p className="text-gray-500 text-xs leading-relaxed mb-2 line-clamp-2 flex-1">{program.description}</p>
+        {cardQuoteMessages.length > 0 && (
+          <div className="mb-3 rounded-lg border border-[#D4AF37]/20 bg-amber-50/40 px-2.5 py-2 min-h-[3rem]" data-testid={`upcoming-card-quote-${program.id}`}>
+            <p className="text-[9px] font-semibold uppercase tracking-wider text-[#b8962e] mb-0.5">Voices from participants</p>
+            <FomoSubtitle
+              messages={cardQuoteMessages}
+              compact
+              intervalMs={4200}
+              testId={`upcoming-card-quote-rotator-${program.id}`}
+            />
+          </div>
+        )}
 
         {enrollStatus === 'open' ? (
           <>
@@ -645,6 +660,7 @@ const CrossSellBanner = ({ rules, programs }) => {
 
 const UpcomingProgramsSection = ({ sectionConfig, inline }) => {
   const [programs, setPrograms] = useState([]);
+  const [cardQuotesByProgram, setCardQuotesByProgram] = useState({});
   const [sponsorData, setSponsorData] = useState(null);
   const [sponsorConfig, setSponsorConfig] = useState(null);
   const [comboDiscount, setComboDiscount] = useState(null);
@@ -654,6 +670,30 @@ const UpcomingProgramsSection = ({ sectionConfig, inline }) => {
     axios.get(`${API}/programs?visible_only=true&upcoming_only=true`)
       .then(r => setPrograms(r.data))
       .catch(err => console.error('Error loading upcoming programs:', err));
+    axios
+      .get(`${API}/upcoming-card-quotes?visible_only=true`)
+      .then((r) => {
+        const rows = Array.isArray(r.data) ? r.data : [];
+        const by = {};
+        rows.forEach((q) => {
+          const pid = String(q.program_id || '').trim();
+          const text = String(q.text || '').trim();
+          if (!pid || !text) return;
+          if (!by[pid]) by[pid] = [];
+          by[pid].push(q);
+        });
+        Object.keys(by).forEach((pid) => {
+          by[pid].sort((a, b) => (Number(a.order) || 0) - (Number(b.order) || 0));
+          by[pid] = by[pid].map((q) => {
+            const author = String(q.author || '').trim();
+            const role = String(q.role || '').trim();
+            const tail = [author, role].filter(Boolean).join(', ');
+            return tail ? `“${text}” — ${tail}` : `“${text}”`;
+          });
+        });
+        setCardQuotesByProgram(by);
+      })
+      .catch(() => setCardQuotesByProgram({}));
     axios.get(`${API}/settings`).then(r => {
       setSponsorData(r.data?.sponsor_home);
       const sc = (r.data?.homepage_sections || []).find(s => s.id === 'sponsor');
@@ -705,7 +745,11 @@ const UpcomingProgramsSection = ({ sectionConfig, inline }) => {
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 items-stretch">
             {sorted.map((program) => (
-              <UpcomingCard key={program.id} program={program} />
+              <UpcomingCard
+                key={program.id}
+                program={program}
+                cardQuoteMessages={cardQuotesByProgram[String(program.id)] || []}
+              />
             ))}
           </div>
         </>
@@ -745,7 +789,11 @@ const UpcomingProgramsSection = ({ sectionConfig, inline }) => {
               </div>
               {/* Cards */}
               {sorted.map((program) => (
-                <UpcomingCard key={program.id} program={program} />
+                <UpcomingCard
+                  key={program.id}
+                  program={program}
+                  cardQuoteMessages={cardQuotesByProgram[String(program.id)] || []}
+                />
               ))}
 
               {/* Combo Discount Banner — spans full width below cards on mobile, beside sponsor on desktop */}
