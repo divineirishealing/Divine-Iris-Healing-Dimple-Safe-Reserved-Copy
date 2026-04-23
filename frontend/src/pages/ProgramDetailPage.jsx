@@ -8,7 +8,13 @@ import { resolveImageUrl } from '../lib/imageUtils';
 import { renderMarkdown } from '../lib/renderMarkdown';
 import { useCurrency } from '../context/CurrencyContext';
 import { HEADING, SUBTITLE, BODY, GOLD, LABEL, CONTAINER, NARROW, WIDE, SECTION_PY } from '../lib/designTokens';
-import { SoulfulWrittenCard, SoulfulUniformVideoCard, SoulfulTestimonialFull } from '../components/SoulfulTestimonialCard';
+import {
+  SoulfulWrittenCard,
+  SoulfulUniformVideoCard,
+  SoulfulTestimonialFull,
+  templateTestimonialHasPhotos,
+} from '../components/SoulfulTestimonialCard';
+import { applyWrittenQuoteStyle } from '../lib/transformationsWrittenQuoteStyle';
 import { Dialog, DialogContent } from '../components/ui/dialog';
 import { useSeoPage } from '../context/SeoPageContext';
 
@@ -346,6 +352,11 @@ function ProgramDetailPage() {
   const heroAccent = template.accent_color || GOLD;
   const heroBg = template.hero_bg || '#1a1a1a';
 
+  const writtenQuoteStyle = useMemo(
+    () => applyWrittenQuoteStyle(settings?.page_heroes?.transformations?.written_story_quote_style),
+    [settings]
+  );
+
   // Global pricing style
   const globalPricingStyle = {
     fontFamily: settings?.pricing_font || 'Cinzel, Georgia, serif',
@@ -523,15 +534,11 @@ function ProgramDetailPage() {
         const rawCards = testimonials.filter(t =>
           t.type === 'template' || (t.type === 'video' && (t.video_url || t.videoId))
         );
-        // Interleave: video, written, video, written…
-        const videoGroup   = rawCards.filter(c => c.type === 'video');
-        const writtenGroup = rawCards.filter(c => c.type === 'template');
-        const allCards = [];
-        const maxLen = Math.max(videoGroup.length, writtenGroup.length);
-        for (let i = 0; i < maxLen; i++) {
-          if (i < videoGroup.length)   allCards.push(videoGroup[i]);
-          if (i < writtenGroup.length) allCards.push(writtenGroup[i]);
-        }
+        const videoGroup = rawCards.filter((c) => c.type === 'video');
+        const writtenGroup = rawCards.filter((c) => c.type === 'template');
+        const writtenWithPic = writtenGroup.filter((t) => templateTestimonialHasPhotos(t));
+        const writtenWithoutPic = writtenGroup.filter((t) => !templateTestimonialHasPhotos(t));
+        const allCards = [...writtenWithPic, ...writtenWithoutPic, ...videoGroup];
         const CARD_W  = 300;
         const CARD_GAP = 20;
         const times = Math.ceil(10 / Math.max(allCards.length, 1));
@@ -582,7 +589,16 @@ function ProgramDetailPage() {
                           onPlay={(embedUrl, platform) => setSelectedEmbed({ embedUrl, platform })}
                           onOpen={url => window.open(url, '_blank')}
                         />
-                      : <SoulfulWrittenCard testimonial={t} uniform footerCentered compactProgram onClick={() => setSelectedTemplate(t)} />
+                      : (
+                          <SoulfulWrittenCard
+                            testimonial={t}
+                            uniform
+                            footerCentered
+                            compactProgram
+                            quoteStyle={writtenQuoteStyle}
+                            onClick={() => setSelectedTemplate(t)}
+                          />
+                        )
                     }
                   </div>
                 ))}
@@ -595,7 +611,9 @@ function ProgramDetailPage() {
                 className="max-w-3xl max-h-[90vh] flex flex-col gap-0 p-0 overflow-hidden rounded-2xl"
                 style={{ border: '1px solid rgba(123,104,238,0.15)' }}>
                 <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
-                  {selectedTemplate && <SoulfulTestimonialFull testimonial={selectedTemplate} />}
+                  {selectedTemplate && (
+                    <SoulfulTestimonialFull testimonial={selectedTemplate} quoteStyle={writtenQuoteStyle} />
+                  )}
                 </div>
               </DialogContent>
             </Dialog>

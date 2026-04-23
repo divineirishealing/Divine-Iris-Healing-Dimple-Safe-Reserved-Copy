@@ -70,7 +70,7 @@ function legacyImageString(v) {
 }
 
 /** Mongo/API may send null; merge legacy image/before_image when photos missing or not coerced. */
-function writtenMediaFrom(testimonial) {
+export function writtenMediaFrom(testimonial) {
   if (!testimonial) {
     return { photos: [], photo_labels: [], photo_mode: 'single', image: '', before_image: '' };
   }
@@ -95,6 +95,12 @@ function writtenMediaFrom(testimonial) {
   }
 
   return { photos, photo_labels, photo_mode, image, before_image };
+}
+
+/** True if template testimonial shows a photo on the card (same rules as writtenMediaFrom). */
+export function templateTestimonialHasPhotos(testimonial) {
+  if (!testimonial || (testimonial.type || '').trim().toLowerCase() !== 'template') return false;
+  return writtenMediaFrom(testimonial).photos.length > 0;
 }
 
 /* ── Stars ───────────────────────────────────────────────────────────────── */
