@@ -1049,9 +1049,11 @@ export default function DashboardCombinedCheckoutPage() {
             });
             return false;
           }
+        }
+        if (p.notify) {
           if (!p.phone || !p.phone.trim()) {
             toast({
-              title: `${item.programTitle}: Participant ${i + 1} needs a phone number`,
+              title: `${item.programTitle}: Participant ${i + 1} needs a phone number for notifications`,
               variant: 'destructive',
             });
             return false;

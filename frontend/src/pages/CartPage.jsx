@@ -519,7 +519,9 @@ function CartPage() {
         if (!p.state || !p.state.trim()) { toast({ title: `${item.programTitle}: Participant ${i + 1} needs state`, variant: 'destructive' }); return false; }
         if (p.notify || p.attendance_mode === 'online') {
           if (!p.email || !p.email.trim() || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(p.email)) { toast({ title: `${item.programTitle}: Participant ${i + 1} needs a valid email`, variant: 'destructive' }); return false; }
-          if (!p.phone || !p.phone.trim()) { toast({ title: `${item.programTitle}: Participant ${i + 1} needs a phone number`, variant: 'destructive' }); return false; }
+        }
+        if (p.notify) {
+          if (!p.phone || !p.phone.trim()) { toast({ title: `${item.programTitle}: Participant ${i + 1} needs a phone number for notifications`, variant: 'destructive' }); return false; }
         }
       }
     }
