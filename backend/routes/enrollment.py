@@ -3,6 +3,7 @@ from pydantic import BaseModel, EmailStr, Field
 from typing import Optional, List
 
 from country_normalize import normalize_country_iso2
+from routes.clients import ensure_client_from_enrollment_lead
 import os, re, random, uuid, logging, httpx, dns.resolver, html, asyncio
 from motor.motor_asyncio import AsyncIOMotorClient
 from dotenv import load_dotenv
@@ -326,6 +327,10 @@ async def insert_enrollment_from_profile(profile: ProfileData, request: Request,
                 enrollment["item_title"] = str(p0.program_title).strip()
 
     await db.enrollments.insert_one(enrollment)
+    try:
+        await ensure_client_from_enrollment_lead(enrollment)
+    except Exception as ex:
+        logger.warning("ensure_client_from_enrollment_lead after insert: %s", ex)
 
     msg = (
         "Enrollment saved. You can complete payment below."
@@ -408,6 +413,12 @@ async def update_enrollment_phone(enrollment_id: str, data: PhoneUpdate):
         {"id": enrollment_id},
         {"$set": {"phone": data.phone, "updated_at": datetime.now(timezone.utc).isoformat()}}
     )
+    full = await db.enrollments.find_one({"id": enrollment_id}, {"_id": 0})
+    if full:
+        try:
+            await ensure_client_from_enrollment_lead(full)
+        except Exception as ex:
+            logger.warning("ensure_client_from_enrollment_lead after update-phone: %s", ex)
     return {"updated": True}
 
 
@@ -455,6 +466,13 @@ async def verify_email_otp(enrollment_id: str, data: EmailOTPVerify):
 
     # Cleanup OTP
     await db.email_otps.delete_one({"email": email, "enrollment_id": enrollment_id})
+
+    full = await db.enrollments.find_one({"id": enrollment_id}, {"_id": 0})
+    if full:
+        try:
+            await ensure_client_from_enrollment_lead(full)
+        except Exception as ex:
+            logger.warning("ensure_client_from_enrollment_lead after verify-otp: %s", ex)
 
     return {"verified": True, "message": "Email verified successfully."}
 

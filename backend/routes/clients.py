@@ -42,6 +42,96 @@ def normalize_phone(phone: str) -> str:
     return (phone or "").strip().replace(" ", "").replace("-", "")
 
 
+async def ensure_client_from_enrollment_lead(enrollment: Dict[str, Any]) -> None:
+    """
+    Create or update a Client Garden row for an enrollment booker. New clients get DID + DIID.
+    Re-running for the same enrollment id is a no-op for timeline (uses lead_enrollment_ids).
+    """
+    try:
+        email = normalize_email(enrollment.get("booker_email", ""))
+        if not email:
+            return
+        phone = normalize_phone(
+            str(enrollment.get("phone") or enrollment.get("booker_phone") or "")
+        )
+        eid = str(enrollment.get("id") or "").strip()
+        name = (enrollment.get("booker_name") or "").strip() or email.split("@")[0]
+        program_title = (enrollment.get("item_title") or "").strip()
+        now = datetime.now(timezone.utc).isoformat()
+        created_ref = enrollment.get("created_at") or now
+
+        or_query: List[Dict[str, Any]] = [{"email": email}]
+        if phone:
+            or_query.append({"phone": phone})
+        existing = await db.clients.find_one({"$or": or_query})
+
+        detail = " — ".join(p for p in (program_title, eid) if p)[:500] or (eid or "Enrollment")
+        timeline_entry = {
+            "type": "Enrollment",
+            "detail": detail,
+            "date": created_ref,
+        }
+
+        if existing:
+            lead_ids = list(existing.get("lead_enrollment_ids") or [])
+            is_new_lead = bool(eid) and eid not in lead_ids
+            set_fields: Dict[str, Any] = {"updated_at": now}
+            if name and not (existing.get("name") or "").strip():
+                set_fields["name"] = name
+            if phone and not (existing.get("phone") or "").strip():
+                set_fields["phone"] = phone
+            if _client_field_empty(existing, "did"):
+                set_fields["did"] = f"DID-{uuid.uuid4().hex[:8].upper()}"
+            if _client_field_empty(existing, "diid"):
+                anchor = existing.get("created_at") or created_ref
+                set_fields["diid"] = new_internal_diid(
+                    (existing.get("name") or name or "")[:200], anchor
+                )
+            backfill_only = {k for k in set_fields.keys() if k != "updated_at"}
+
+            if is_new_lead:
+                add_to_set: Dict[str, Any] = {"sources": "Enrollment"}
+                if eid:
+                    add_to_set["lead_enrollment_ids"] = eid
+                await db.clients.update_one(
+                    {"id": existing["id"]},
+                    {
+                        "$addToSet": add_to_set,
+                        "$push": {"timeline": timeline_entry},
+                        "$set": set_fields,
+                    },
+                )
+            elif backfill_only:
+                await db.clients.update_one(
+                    {"id": existing["id"]},
+                    {"$set": set_fields},
+                )
+            return
+
+        did = f"DID-{uuid.uuid4().hex[:8].upper()}"
+        client_doc: Dict[str, Any] = {
+            "id": new_entity_id(),
+            "did": did,
+            "diid": new_internal_diid(name, created_ref),
+            "email": email,
+            "phone": phone or "",
+            "name": name,
+            "label": "Dew",
+            "label_manual": "",
+            "sources": ["Enrollment"],
+            "conversions": [],
+            "timeline": [timeline_entry],
+            "notes": "",
+            "created_at": now,
+            "updated_at": now,
+        }
+        if eid:
+            client_doc["lead_enrollment_ids"] = [eid]
+        await db.clients.insert_one(client_doc)
+    except Exception as e:
+        logger.warning("ensure_client_from_enrollment_lead failed: %s", e)
+
+
 def enrollment_counts_as_paid_conversion(enrollment: Dict[str, Any], txs_for_enrollment: List[dict]) -> bool:
     """
     A conversion is recorded only after the payment/checkout loop succeeds.

@@ -8,6 +8,7 @@ from datetime import datetime, timezone
 import mimetypes
 
 import s3_storage
+from routes.clients import ensure_client_from_enrollment_lead
 
 ROOT_DIR = Path(__file__).parent.parent
 load_dotenv(ROOT_DIR / '.env')
@@ -546,6 +547,10 @@ async def approve_payment_proof(proof_id: str):
             "updated_at": datetime.now(timezone.utc).isoformat(),
         }
         await db.enrollments.insert_one(new_enrollment)
+        try:
+            await ensure_client_from_enrollment_lead(new_enrollment)
+        except Exception as ex:
+            logger.warning("ensure_client_from_enrollment_lead after synthetic india enrollment: %s", ex)
         await db.india_payment_proofs.update_one({"id": proof_id}, {"$set": {"enrollment_id": enrollment_id}})
 
     if enrollment_id:

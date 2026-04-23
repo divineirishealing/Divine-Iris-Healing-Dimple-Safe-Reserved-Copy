@@ -58,7 +58,7 @@ const SUMMARY_COLUMN_DEFS = [
   { id: 'attend', label: 'Attend.', weight: 7, headClass: 'text-left leading-tight' },
   { id: 'pay', label: 'Pay', weight: 7, headClass: 'text-left leading-tight' },
   { id: 'status', label: 'Status', weight: 8, headClass: 'text-left leading-tight' },
-  { id: 'date', label: 'Date', weight: 6, headClass: 'text-left' },
+  { id: 'date', label: 'When', weight: 10, headClass: 'text-left leading-tight' },
   { id: 'amtInr', label: 'Amt ₹', weight: 9, headClass: 'text-right leading-tight' },
   { id: 'runInr', label: 'Σ ₹', weight: 9, headClass: 'text-right leading-tight' },
   { id: 'expand', label: '▸', weight: 3, headClass: 'w-6 px-0.5' },
@@ -166,6 +166,23 @@ function parseReportDateMs(iso) {
     return new Date(String(iso).replace('Z', '+00:00')).getTime();
   } catch {
     return 0;
+  }
+}
+
+/** Admin enrollment table: show calendar date + clock time (local timezone). */
+function formatEnrollReportDateTime(iso) {
+  if (!iso) return '-';
+  try {
+    return new Date(String(iso).replace('Z', '+00:00')).toLocaleString('en-IN', {
+      day: '2-digit',
+      month: 'short',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: true,
+    });
+  } catch {
+    return '-';
   }
 }
 
@@ -1115,8 +1132,12 @@ const EnrollmentsTab = () => {
                             );
                           case 'date':
                             return (
-                              <td key={def.id} className={`${tc} text-gray-600 tabular-nums text-[9px] sm:text-[10px]`}>
-                                {e.created_at ? new Date(e.created_at).toLocaleDateString('en-IN', { day: '2-digit', month: 'short' }) : '-'}
+                              <td
+                                key={def.id}
+                                className={`${tc} text-gray-600 text-[9px] sm:text-[10px] leading-tight max-w-[7.5rem]`}
+                                title={e.created_at ? String(e.created_at) : ''}
+                              >
+                                {formatEnrollReportDateTime(e.created_at)}
                               </td>
                             );
                           case 'amtInr':

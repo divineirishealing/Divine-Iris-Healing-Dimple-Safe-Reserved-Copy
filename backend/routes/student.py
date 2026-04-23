@@ -4,6 +4,7 @@ from typing import Optional, List, Dict, Tuple, Set, Any
 import os
 import re
 import uuid
+import logging
 from motor.motor_asyncio import AsyncIOMotorClient
 from datetime import datetime, timezone
 from dotenv import load_dotenv
@@ -13,6 +14,7 @@ from models_extended import JourneyLog
 from iris_journey import resolve_iris_journey
 from routes.programs import fetch_programs_with_deadline_sync, sort_programs_like_homepage
 from routes.enrollment import ProfileData, insert_enrollment_from_profile
+from routes.clients import ensure_client_from_enrollment_lead
 from routes.currency import assert_claimed_hub_matches_stripe
 from country_normalize import normalize_country_iso2
 
@@ -24,6 +26,8 @@ router = APIRouter(prefix="/api/student", tags=["Student Dashboard"])
 mongo_url = os.environ['MONGO_URL']
 client = AsyncIOMotorClient(mongo_url)
 db = client[os.environ['DB_NAME']]
+
+logger = logging.getLogger(__name__)
 
 
 def _immediate_family_has_names(rows: Optional[List[dict]]) -> bool:
@@ -1632,6 +1636,10 @@ async def dashboard_pay(data: DashboardPayIn, request: Request, user: dict = Dep
         "updated_at": datetime.now(timezone.utc).isoformat(),
     }
     await db.enrollments.insert_one(enrollment)
+    try:
+        await ensure_client_from_enrollment_lead(enrollment)
+    except Exception as ex:
+        logger.warning("ensure_client_from_enrollment_lead after dashboard enrollment: %s", ex)
     tier_for_checkout = quote.get("family_tier_index") if included else quote.get("self_tier_index")
     return {
         "enrollment_id": receipt_id,
