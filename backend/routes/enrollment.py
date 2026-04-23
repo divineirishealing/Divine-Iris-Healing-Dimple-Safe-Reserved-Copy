@@ -678,9 +678,9 @@ async def enrollment_points_summary(
 async def enrollment_checkout(enrollment_id: str, data: EnrollmentSubmit, request: Request):
     """Create Stripe checkout for a verified enrollment.
 
-    **Public website** (`/api/enrollment/start` → … → checkout): Amount is server program/cart
-    pricing only (plus best-of VIP/promo/auto discount). No portal India GST/platform stack —
-    the Stripe total matches the INR shown on the public enrollment flow.
+    **Public website** (Stripe only): `/api/enrollment/start` → … → checkout. Amount is program/cart
+    pricing plus best-of VIP/promo/auto discount only. **No GST** (and no portal India fee stack) is
+    added — the Stripe charge matches the INR total shown on the public enrollment / homepage flow.
 
     **Dashboard / portal** only: Enrollments created via `/api/student/combined-enrollment-start` or
     other portal helpers carry `dashboard_mixed_total` / `dashboard_checkout_ready`. Those use
@@ -896,8 +896,7 @@ async def enrollment_checkout(enrollment_id: str, data: EnrollmentSubmit, reques
 
     final_total = max(0, total - best_discount)
 
-    # ── India INR stack: **portal enrollments only** (never mixed into public website Stripe) ──
-    # Website enrollments do not have these fields; Stripe amount stays the pricing-hub total above.
+    # ── GST / portal India fees: dashboard enrollments only. Website Stripe never enters this block. ──
     is_dashboard_checkout = enrollment.get("dashboard_mixed_total") is not None or bool(
         enrollment.get("dashboard_checkout_ready")
     )
