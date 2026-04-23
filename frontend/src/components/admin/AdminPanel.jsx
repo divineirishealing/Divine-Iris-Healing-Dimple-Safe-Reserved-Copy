@@ -95,6 +95,28 @@ function photosFromTestimonialApi(t) {
   return [];
 }
 
+/** Coerce GET /sessions payloads into { id, title, ... }[] so admin tagging UI never shows blank pills. */
+function normalizeSessionsFromApi(data) {
+  if (data == null) return [];
+  const raw = Array.isArray(data) ? data : (data.sessions || data.items || data.data);
+  if (!Array.isArray(raw)) return [];
+  return raw
+    .map((row, idx) => {
+      if (row == null || typeof row !== 'object') return null;
+      const id =
+        row.id != null && String(row.id).trim() !== ''
+          ? String(row.id).trim()
+          : row._id != null
+            ? String(row._id).trim()
+            : '';
+      const titleRaw = String(row.title ?? row.name ?? '').trim();
+      const shortId = id.length > 12 ? `${id.slice(0, 8)}…` : id;
+      const title = titleRaw || (id ? `Untitled (${shortId})` : `Session ${idx + 1}`);
+      return { ...row, id, title };
+    })
+    .filter((s) => s && s.id);
+}
+
 const AdminPanel = () => {
   const { toast } = useToast();
   const { refreshSettings } = useSiteSettings();
@@ -147,7 +169,7 @@ const AdminPanel = () => {
       }
 
       if (results[0].status === 'fulfilled') setPrograms(results[0].value.data);
-      if (results[1].status === 'fulfilled') setSessions(results[1].value.data);
+      if (results[1].status === 'fulfilled') setSessions(normalizeSessionsFromApi(results[1].value.data));
       if (results[2].status === 'fulfilled') setTestimonials(results[2].value.data);
       if (results[3].status === 'fulfilled') setStats(results[3].value.data);
       if (results[4].status === 'fulfilled') setSubscribers(results[4].value.data);
@@ -172,6 +194,20 @@ const AdminPanel = () => {
   }, []);
 
   useEffect(() => { loadAll(); }, [loadAll]);
+
+  useEffect(() => {
+    if (!showTestimonialForm) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await axios.get(`${API}/sessions`, { timeout: 60000 });
+        if (!cancelled) setSessions(normalizeSessionsFromApi(res.data));
+      } catch (e) {
+        console.error('Refetch sessions for testimonial form:', e);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [showTestimonialForm]);
 
   // ... (Keep existing CRUD functions for Programs, Sessions, Testimonials, Stats) ...
   // To save space in this response, I'm assuming the existing CRUD functions remain here. 
@@ -792,7 +828,7 @@ const AdminPanel = () => {
                         const res = await axios.post(`${API}/sessions/upload-excel`, formData, { headers: { 'Content-Type': 'multipart/form-data' }, timeout: 30000 });
                         toast({ title: res.data.message });
                         const sess = await axios.get(`${API}/sessions`);
-                        setSessions(sess.data);
+                        setSessions(normalizeSessionsFromApi(sess.data));
                       } catch (err) {
                         console.error('Upload error:', err);
                         toast({ title: err.response?.data?.detail || 'Upload failed. Check file format.', variant: 'destructive', duration: 10000 });
@@ -1241,13 +1277,28 @@ const AdminPanel = () => {
                     <div>
                       <Label>Tag to Sessions</Label>
                       <div className="flex flex-wrap gap-1 mt-1 p-2 border rounded-md max-h-24 overflow-y-auto">
-                        {sessions.map(s => (
-                          <button key={s.id} type="button"
-                            onClick={() => { const tags = testimonialForm.session_tags || []; setTestimonialForm({...testimonialForm, session_tags: tags.includes(s.id) ? tags.filter(x => x !== s.id) : [...tags, s.id]}); }}
-                            className={`text-[10px] px-2 py-0.5 rounded-full border ${(testimonialForm.session_tags || []).includes(s.id) ? 'bg-amber-100 border-amber-300 text-amber-700' : 'bg-gray-50 border-gray-200 text-gray-500 hover:bg-gray-100'}`}>
-                            {s.title}
-                          </button>
-                        ))}
+                        {sessions.length === 0 ? (
+                          <p className="text-[10px] text-gray-400 w-full">No sessions loaded yet. If this stays empty, check that GET /sessions works (Retry now above) or open the Sessions tab.</p>
+                        ) : (
+                          sessions.map((s) => (
+                            <button
+                              key={s.id}
+                              type="button"
+                              aria-pressed={(testimonialForm.session_tags || []).includes(s.id)}
+                              aria-label={`Tag testimonial to session: ${s.title}`}
+                              onClick={() => {
+                                const tags = testimonialForm.session_tags || [];
+                                setTestimonialForm({
+                                  ...testimonialForm,
+                                  session_tags: tags.includes(s.id) ? tags.filter((x) => x !== s.id) : [...tags, s.id],
+                                });
+                              }}
+                              className={`text-[10px] px-2 py-0.5 rounded-full border min-h-[22px] ${(testimonialForm.session_tags || []).includes(s.id) ? 'bg-amber-100 border-amber-300 text-amber-700' : 'bg-gray-50 border-gray-200 text-gray-500 hover:bg-gray-100'}`}
+                            >
+                              {s.title}
+                            </button>
+                          ))
+                        )}
                       </div>
                     </div>
                   </div>
