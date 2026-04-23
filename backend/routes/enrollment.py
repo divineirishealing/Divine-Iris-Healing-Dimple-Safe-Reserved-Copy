@@ -3,7 +3,7 @@ from pydantic import BaseModel, EmailStr, Field
 from typing import Optional, List
 
 from country_normalize import normalize_country_iso2
-import os, re, random, uuid, logging, httpx, dns.resolver
+import os, re, random, uuid, logging, httpx, dns.resolver, html, asyncio
 from motor.motor_asyncio import AsyncIOMotorClient
 from dotenv import load_dotenv
 from pathlib import Path
@@ -1020,7 +1020,6 @@ async def enrollment_checkout(enrollment_id: str, data: EnrollmentSubmit, reques
         await generate_participant_uids(fake_session_id)
 
         # Send confirmation emails in background
-        import asyncio
         asyncio.create_task(send_enrollment_emails(fake_session_id))
 
         logger.info(f"[FREE ENROLLMENT] enrollment_id={enrollment_id}, item={data.item_id}")
@@ -1186,6 +1185,51 @@ class QuoteRequest(BaseModel):
     message: str = ""
 
 
+async def _send_quote_request_notification(quote: dict) -> None:
+    """Email footer/support address when someone submits the public contact form."""
+    try:
+        settings = await db.site_settings.find_one({"id": "site_settings"}, {"_id": 0, "footer_email": 1})
+        notify_to = ((settings or {}).get("footer_email") or "").strip() or "support@divineirishealing.com"
+        from routes.emails import send_email
+
+        name = html.escape(quote.get("name") or "")
+        email = html.escape(quote.get("email") or "")
+        phone = html.escape(quote.get("phone") or "")
+        program_title = html.escape(quote.get("program_title") or "")
+        tier_label = html.escape(quote.get("tier_label") or "")
+        program_id = html.escape(quote.get("program_id") or "")
+        message = html.escape(quote.get("message") or "")
+        qid = html.escape(quote.get("id") or "")
+
+        subject = f"New contact form — {quote.get('name', 'Visitor').strip()[:80] or 'Visitor'}"
+        body = f"""
+        <div style="font-family: 'Lato', Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+            <div style="background: #1a1a1a; color: #D4AF37; padding: 16px; text-align: center; border-radius: 8px 8px 0 0;">
+                <h1 style="margin: 0; font-size: 18px;">New contact / quote request</h1>
+            </div>
+            <div style="background: #fff; border: 1px solid #e5e7eb; border-top: none; padding: 20px; border-radius: 0 0 8px 8px; font-size: 14px;">
+                <table style="width: 100%; border-collapse: collapse;">
+                    <tr><td style="padding: 6px 0; color: #6b7280; width: 120px;">ID</td><td style="padding: 6px 0;">{qid}</td></tr>
+                    <tr><td style="padding: 6px 0; color: #6b7280;">Name</td><td style="padding: 6px 0; font-weight: 600;">{name}</td></tr>
+                    <tr><td style="padding: 6px 0; color: #6b7280;">Email</td><td style="padding: 6px 0;"><a href="mailto:{email}">{email}</a></td></tr>
+                    <tr><td style="padding: 6px 0; color: #6b7280;">Phone</td><td style="padding: 6px 0;">{phone or '—'}</td></tr>
+                    <tr><td style="padding: 6px 0; color: #6b7280;">Program / topic</td><td style="padding: 6px 0;">{program_title or '—'}</td></tr>
+                    <tr><td style="padding: 6px 0; color: #6b7280;">Tier</td><td style="padding: 6px 0;">{tier_label or '—'}</td></tr>
+                    <tr><td style="padding: 6px 0; color: #6b7280;">Program ID</td><td style="padding: 6px 0;">{program_id or '—'}</td></tr>
+                </table>
+                <p style="margin: 16px 0 4px; color: #6b7280; font-size: 12px;">Message</p>
+                <div style="background: #f9fafb; padding: 12px; border-radius: 6px; white-space: pre-wrap;">{message or '—'}</div>
+                <p style="margin-top: 16px; font-size: 11px; color: #9ca3af;">Also in Admin → Inbox → Contacts.</p>
+            </div>
+        </div>
+        """
+        result = await send_email(notify_to, subject, body)
+        if not result:
+            logger.warning("Quote request notification: send_email returned no result (check SMTP / Resend).")
+    except Exception as e:
+        logger.warning(f"Quote request notification failed: {e}")
+
+
 @router.post("/quote-request")
 async def submit_quote_request(data: QuoteRequest):
     """Save a quote request for annual/custom pricing programs."""
@@ -1205,6 +1249,7 @@ async def submit_quote_request(data: QuoteRequest):
         "created_at": datetime.now(timezone.utc).isoformat(),
     }
     await db.quote_requests.insert_one(quote)
+    asyncio.create_task(_send_quote_request_notification(quote))
     return {"message": "Quote request submitted successfully", "id": quote["id"]}
 
 
