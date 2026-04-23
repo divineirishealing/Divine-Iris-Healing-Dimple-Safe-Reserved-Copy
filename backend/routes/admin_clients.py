@@ -125,6 +125,17 @@ async def upload_bulk_clients(file: UploadFile = File(...)):
 
 # --- PROFILE APPROVALS ---
 
+def _pending_profile_to_stored_fields(pending: dict) -> dict:
+    """Map dashboard profile payload onto user/client fields. `full_name` becomes `name`."""
+    if not pending:
+        return {}
+    out = {k: v for k, v in pending.items() if k != "full_name"}
+    fn = pending.get("full_name")
+    if fn is not None and str(fn).strip():
+        out["name"] = str(fn).strip()
+    return out
+
+
 @router.get("/approvals")
 async def get_pending_approvals():
     """Get users with pending profile updates."""
@@ -142,25 +153,28 @@ async def approve_profile(user_id: str):
         raise HTTPException(status_code=404, detail="No pending update found")
     
     update_data = user["pending_profile_update"]
-    
-    # Apply updates to User
+    stored_fields = _pending_profile_to_stored_fields(update_data)
+    now = datetime.now(timezone.utc).isoformat()
+
+    # Apply updates to User (`name` is canonical; avoid persisting duplicate `full_name`)
     await db.users.update_one(
         {"id": user_id},
         {
             "$set": {
-                **update_data, 
-                "profile_approved": True, 
+                **stored_fields,
+                "profile_approved": True,
                 "pending_profile_update": None,
-                "updated_at": datetime.now(timezone.utc).isoformat()
-            }
-        }
+                "updated_at": now,
+            },
+            "$unset": {"full_name": ""},
+        },
     )
-    
-    # Also sync to Client record if linked
-    if user.get("client_id"):
+
+    # Also sync to Client record if linked (clients use `name`, not `full_name`)
+    if user.get("client_id") and stored_fields:
         await db.clients.update_one(
             {"id": user["client_id"]},
-            {"$set": update_data}
+            {"$set": {**stored_fields, "updated_at": now}},
         )
 
     try:

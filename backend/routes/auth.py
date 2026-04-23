@@ -1,6 +1,6 @@
 from fastapi import APIRouter, HTTPException, Request, Response
 from pydantic import BaseModel
-from typing import Optional, Tuple
+from typing import Any, Optional, Tuple
 import os, uuid, httpx
 from utils.canonical_id import new_entity_id
 from datetime import datetime, timezone, timedelta
@@ -422,15 +422,24 @@ async def google_auth_callback(data: AuthSessionStart, response: Response):
         }
     }
 
+def _profile_field_overlay(user: dict, pending: dict, doc_key: str, pend_key: Optional[str] = None) -> Any:
+    """Prefer keys present on pending submission so the dashboard matches what was saved for approval."""
+    pk = pend_key if pend_key is not None else doc_key
+    if pk in pending:
+        return pending[pk]
+    return user.get(doc_key)
+
+
 @router.get("/me")
 async def get_me(request: Request):
     session, user = await _get_valid_session_and_user(request)
     if not user:
         raise HTTPException(status_code=401, detail="Not authenticated")
+    pending = user.get("pending_profile_update") or {}
     joined_divine_iris_at = None
-    pend = (user.get("pending_profile_update") or {}).get("joined_divine_iris_at")
-    if pend is not None and str(pend).strip():
-        joined_divine_iris_at = str(pend).strip()
+    pend_joined = pending.get("joined_divine_iris_at")
+    if pend_joined is not None and str(pend_joined).strip():
+        joined_divine_iris_at = str(pend_joined).strip()
     else:
         uj = user.get("joined_divine_iris_at")
         if uj is not None and str(uj).strip():
@@ -440,16 +449,29 @@ async def get_me(request: Request):
         client_doc = await db.clients.find_one({"id": cid}, {"_id": 0, "created_at": 1})
         if client_doc and client_doc.get("created_at"):
             joined_divine_iris_at = client_doc["created_at"]
+
+    display_name = user.get("name") or user.get("full_name") or ""
+    if "full_name" in pending:
+        display_name = pending["full_name"] or display_name
+
     return {
         "id": user["id"],
         "email": user["email"],
-        "name": user["name"],
+        "name": display_name,
         "role": user.get("role", "student"),
         "tier": user.get("tier", 1),
         "picture": user.get("picture", ""),
         "client_id": user.get("client_id") or None,
         # First Client Garden record time (UTC ISO) — shown as "date of joining" on dashboard profile
         "joined_divine_iris_at": joined_divine_iris_at,
+        "gender": _profile_field_overlay(user, pending, "gender"),
+        "place_of_birth": _profile_field_overlay(user, pending, "place_of_birth"),
+        "date_of_birth": _profile_field_overlay(user, pending, "date_of_birth"),
+        "city": _profile_field_overlay(user, pending, "city"),
+        "qualification": _profile_field_overlay(user, pending, "qualification"),
+        "profession": _profile_field_overlay(user, pending, "profession"),
+        "phone": _profile_field_overlay(user, pending, "phone"),
+        "pending_profile_update": user.get("pending_profile_update") or None,
         # India hub pricing (INR / Stripe) — same as geo-India when set or whitelisted
         "pricing_country_override": user.get("pricing_country_override") or None,
         "impersonating": bool(session and session.get("impersonation")),

@@ -29,25 +29,32 @@ const ProfilePage = () => {
     checkAuth();
   }, []);
 
-  useEffect(() => {
-    if (user?.joined_divine_iris_at) {
-      setFormData((p) => ({
-        ...p,
-        joined_divine_iris_at: toDateInputValue(user.joined_divine_iris_at),
-      }));
-    }
-  }, [user?.joined_divine_iris_at]);
   const [formData, setFormData] = useState({
-    full_name: user?.name || '',
-    gender: user?.gender || '',
-    place_of_birth: user?.place_of_birth || '',
-    date_of_birth: user?.date_of_birth || '',
-    city: user?.city || '',
-    qualification: user?.qualification || '',
-    profession: user?.profession || '',
-    phone: user?.phone || '',
-    joined_divine_iris_at: toDateInputValue(user?.joined_divine_iris_at),
+    full_name: '',
+    gender: '',
+    place_of_birth: '',
+    date_of_birth: '',
+    city: '',
+    qualification: '',
+    profession: '',
+    phone: '',
+    joined_divine_iris_at: '',
   });
+
+  useEffect(() => {
+    if (!user) return;
+    setFormData({
+      full_name: user.name || user.full_name || '',
+      gender: user.gender || '',
+      place_of_birth: user.place_of_birth || '',
+      date_of_birth: toDateInputValue(user.date_of_birth),
+      city: user.city || '',
+      qualification: user.qualification || '',
+      profession: user.profession || '',
+      phone: user.phone || '',
+      joined_divine_iris_at: toDateInputValue(user.joined_divine_iris_at),
+    });
+  }, [user]);
   const [loading, setLoading] = useState(false);
 
   const handleChange = (e) => {
@@ -62,6 +69,7 @@ const ProfilePage = () => {
         withCredentials: true,
         headers: getAuthHeaders(),
       });
+      await checkAuth();
       toast({ title: "Profile Submitted", description: "Your changes are pending approval." });
     } catch (err) {
       toast({ title: "Error", description: "Failed to update profile.", variant: "destructive" });
