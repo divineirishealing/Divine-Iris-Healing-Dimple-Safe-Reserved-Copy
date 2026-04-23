@@ -110,8 +110,13 @@ function normalizeSessionsFromApi(data) {
             ? String(row._id).trim()
             : '';
       const titleRaw = String(row.title ?? row.name ?? '').trim();
+      const descRaw = String(row.description ?? '').trim().replace(/\s+/g, ' ');
+      const descPreview = descRaw.length > 80 ? `${descRaw.slice(0, 77)}…` : descRaw;
       const shortId = id.length > 12 ? `${id.slice(0, 8)}…` : id;
-      const title = titleRaw || (id ? `Untitled (${shortId})` : `Session ${idx + 1}`);
+      const title =
+        titleRaw ||
+        descPreview ||
+        (id ? `Unnamed session (${shortId})` : `Session ${idx + 1}`);
       return { ...row, id, title };
     })
     .filter((s) => s && s.id);

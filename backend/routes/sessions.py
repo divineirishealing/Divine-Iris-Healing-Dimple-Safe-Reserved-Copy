@@ -17,13 +17,42 @@ mongo_url = os.environ['MONGO_URL']
 client = AsyncIOMotorClient(mongo_url)
 db = client[os.environ['DB_NAME']]
 
+
+def _strip_mongo_id(doc: dict) -> dict:
+    return {k: v for k, v in doc.items() if k != "_id"}
+
+
+def _bookable_session_from_doc(doc: dict) -> Optional[Session]:
+    """Parse a Mongo row as a healing-session document; skip login rows and malformed docs."""
+    try:
+        s = Session(**_strip_mongo_id(doc))
+    except Exception:
+        return None
+    title = (s.title or "").strip()
+    if title:
+        return s
+    desc = (s.description or "").strip().replace("\n", " ")
+    if desc:
+        display = desc if len(desc) <= 80 else desc[:77] + "…"
+        return s.model_copy(update={"title": display})
+    sid = str(s.id)
+    short = f"{sid[:8]}…" if len(sid) > 8 else sid
+    return s.model_copy(update={"title": f"Unnamed session ({short})"})
+
+
 @router.get("", response_model=List[Session])
 async def get_sessions(visible_only: Optional[bool] = None):
-    query = {}
+    # User login cookies are stored in the same collection (`token`, `user_id`, …) — never list those as bookable sessions.
+    query: dict = {"token": {"$exists": False}}
     if visible_only:
         query["visible"] = True
-    sessions = await db.sessions.find(query).sort("order", 1).to_list(100)
-    return [Session(**session) for session in sessions]
+    raw = await db.sessions.find(query).sort("order", 1).to_list(100)
+    out: List[Session] = []
+    for doc in raw:
+        s = _bookable_session_from_doc(doc)
+        if s:
+            out.append(s)
+    return out
 
 @router.post("/upload-excel")
 async def upload_sessions_excel(file: UploadFile = File(...)):

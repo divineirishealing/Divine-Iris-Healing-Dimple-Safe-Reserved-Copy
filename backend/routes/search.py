@@ -27,8 +27,12 @@ async def global_search(q: str, limit: int = 20):
     ).to_list(limit)
 
     sessions = await db.sessions.find(
-        {"$or": [{"title": pattern}, {"subtitle": pattern}, {"description": pattern}], "visible": True},
-        {"_id": 0, "id": 1, "title": 1, "subtitle": 1, "image": 1, "slug": 1}
+        {
+            "$or": [{"title": pattern}, {"subtitle": pattern}, {"description": pattern}],
+            "visible": True,
+            "token": {"$exists": False},
+        },
+        {"_id": 0, "id": 1, "title": 1, "subtitle": 1, "image": 1, "slug": 1},
     ).to_list(limit)
 
     testimonials = await db.testimonials.find(

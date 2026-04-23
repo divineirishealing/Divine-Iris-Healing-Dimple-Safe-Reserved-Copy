@@ -63,7 +63,7 @@ async def sitemap_xml():
         if pid:
             urls.append((_full_url(base, f"/program/{pid}"), "weekly"))
 
-    sessions = await db.sessions.find({"visible": True}, {"id": 1}).to_list(500)
+    sessions = await db.sessions.find({"visible": True, "token": {"$exists": False}}, {"id": 1}).to_list(500)
     for s in sessions:
         sid = s.get("id")
         if sid:

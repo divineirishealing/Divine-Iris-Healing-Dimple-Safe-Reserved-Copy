@@ -328,7 +328,7 @@ async def sync_clients():
         programs_cache[p["id"]] = p
 
     sessions_cache = {}
-    all_sessions = await db.sessions.find({}, {"_id": 0}).to_list(100)
+    all_sessions = await db.sessions.find({"token": {"$exists": False}}, {"_id": 0}).to_list(100)
     for ss in all_sessions:
         sessions_cache[ss["id"]] = ss
 
