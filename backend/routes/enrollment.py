@@ -887,8 +887,13 @@ async def enrollment_checkout(enrollment_id: str, data: EnrollmentSubmit, reques
 
     final_total = max(0, total - best_discount)
 
-    # ── India INR stack (Client Garden discount + GST + platform on taxable base) — must match Divine Cart UI ──
-    if str(currency).lower() == "inr" and final_total > 0:
+    # ── India INR stack (Client Garden discount + GST + platform) — portal / Divine Cart only ──
+    # Public website enrollments: Stripe charges the same INR total as program pricing (no extra GST line).
+    # Dashboard flows set dashboard_mixed_total and/or dashboard_checkout_ready on the enrollment doc.
+    is_dashboard_checkout = enrollment.get("dashboard_mixed_total") is not None or bool(
+        enrollment.get("dashboard_checkout_ready")
+    )
+    if str(currency).lower() == "inr" and final_total > 0 and is_dashboard_checkout:
         try:
             from utils.india_checkout_math import compute_india_checkout_rounded_total
 
