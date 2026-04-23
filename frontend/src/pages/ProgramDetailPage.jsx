@@ -89,6 +89,20 @@ function stripForMeta(htmlOrText) {
     .slice(0, 165);
 }
 
+/** YYYY-MM-DD → readable; otherwise return as stored. */
+function formatProgramDateDisplay(raw) {
+  const t = String(raw || '').trim();
+  if (!t) return '';
+  const d = t.slice(0, 10);
+  if (/^\d{4}-\d{2}-\d{2}$/.test(d)) {
+    const dt = new Date(`${d}T12:00:00`);
+    if (!Number.isNaN(dt.getTime())) {
+      return dt.toLocaleDateString(undefined, { weekday: 'short', year: 'numeric', month: 'short', day: 'numeric' });
+    }
+  }
+  return t;
+}
+
 function ProgramDetailPage() {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -220,6 +234,21 @@ function ProgramDetailPage() {
       ? programSections.filter(s => s.is_enabled).sort((a, b) => (a.order || 0) - (b.order || 0))
       : getDefaultSections(program);
   })();
+
+  const tierScheduleLines = (program.duration_tiers || [])
+    .map((t, i) => ({
+      label: String(t.label || `Option ${i + 1}`).trim() || `Option ${i + 1}`,
+      start: String(t.start_date || '').trim(),
+      end: String(t.end_date || '').trim(),
+    }))
+    .filter((x) => x.start || x.end);
+
+  const hasPageScheduleCopy =
+    !!(program.duration && String(program.duration).trim()) ||
+    !!(program.start_date && String(program.start_date).trim()) ||
+    !!(program.end_date && String(program.end_date).trim()) ||
+    !!(program.timing && String(program.timing).trim()) ||
+    tierScheduleLines.length > 0;
 
   const SectionTitle = ({ children, style: extra }) => (
     <h2 className="text-center mb-4" style={applyStyle(extra || template.section_title_style, { ...HEADING, fontSize: '1.6rem' })}>{children}</h2>
@@ -388,13 +417,15 @@ function ProgramDetailPage() {
           <div className="max-w-3xl mx-auto text-center">
             <GoldLine type="cta" />
 
-            {/* Duration / Dates / Timing — above pricing */}
-            {((program.show_duration_on_page && program.duration) || (program.show_timing_on_page && program.timing) || (program.show_start_date_on_page && program.start_date)) && (
-              <div data-testid="program-info-bar" className="flex flex-wrap items-center justify-center gap-x-6 gap-y-2 mb-8 text-gray-500 text-xs">
-                {program.show_duration_on_page && program.duration && <span className="flex items-center gap-1.5"><span className="w-1.5 h-1.5 rounded-full" style={{ background: heroAccent }} /> {program.duration}</span>}
-                {program.show_start_date_on_page && program.start_date && <span className="flex items-center gap-1.5"><span className="w-1.5 h-1.5 rounded-full" style={{ background: heroAccent }} /> Starts: {program.start_date}</span>}
-                {program.show_timing_on_page && program.timing && (() => {
-                  if (!program.time_zone) return <span className="flex items-center gap-1.5"><span className="w-1.5 h-1.5 rounded-full" style={{ background: heroAccent }} /> {program.timing}</span>;
+            {/* Duration / dates / timing — above pricing (show when data exists; detail page is the canonical place for schedule) */}
+            {hasPageScheduleCopy && (
+              <div data-testid="program-info-bar" className="mb-8 space-y-4">
+                <div className="flex flex-wrap items-center justify-center gap-x-6 gap-y-2 text-gray-500 text-xs">
+                {program.duration && String(program.duration).trim() && <span className="flex items-center gap-1.5"><span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: heroAccent }} /> <span className="text-left">{String(program.duration).trim()}</span></span>}
+                {program.start_date && String(program.start_date).trim() && <span className="flex items-center gap-1.5"><span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: heroAccent }} /> Starts: {formatProgramDateDisplay(program.start_date)}</span>}
+                {program.end_date && String(program.end_date).trim() && <span className="flex items-center gap-1.5"><span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: heroAccent }} /> Ends: {formatProgramDateDisplay(program.end_date)}</span>}
+                {program.timing && String(program.timing).trim() && (() => {
+                  if (!program.time_zone) return <span className="flex items-center gap-1.5"><span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: heroAccent }} /> {String(program.timing).trim()}</span>;
                   try {
                     const COUNTRY_TZ_MAP = {
                       'IN': { offset: 5.5, abbr: 'IST' }, 'AE': { offset: 4, abbr: 'GST' },
@@ -416,10 +447,10 @@ function ProgramDetailPage() {
                     }
                     // Same timezone — show source timing as-is
                     if (programOffset === null || Math.abs(viewerOffset - programOffset) < 0.1) {
-                      return <span className="flex items-center gap-1.5"><span className="w-1.5 h-1.5 rounded-full" style={{ background: heroAccent }} /> {program.timing} {viewerTzAbbr}</span>;
+                      return <span className="flex items-center gap-1.5"><span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: heroAccent }} /> {String(program.timing).trim()} {viewerTzAbbr}</span>;
                     }
                     // Different timezone — convert and show only viewer's time
-                    const parts = program.timing.split(/\s*[-–—to]+\s*/i);
+                    const parts = String(program.timing).trim().split(/\s*[-–—to]+\s*/i);
                     const converted = parts.map(p => {
                       const m = p.trim().match(/(\d{1,2})(?::(\d{2}))?\s*(AM|PM)/i);
                       if (!m) return null;
@@ -432,11 +463,29 @@ function ProgramDetailPage() {
                       return lm > 0 ? `${dh}:${String(lm).padStart(2, '0')} ${per}` : `${dh} ${per}`;
                     }).filter(Boolean);
                     if (converted.length > 0) {
-                      return <span className="flex items-center gap-1.5"><span className="w-1.5 h-1.5 rounded-full" style={{ background: heroAccent }} /> {converted.join(' - ')} {viewerTzAbbr}</span>;
+                      return <span className="flex items-center gap-1.5"><span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: heroAccent }} /> {converted.join(' - ')} {viewerTzAbbr}</span>;
                     }
-                    return <span className="flex items-center gap-1.5"><span className="w-1.5 h-1.5 rounded-full" style={{ background: heroAccent }} /> {program.timing} {programTz}</span>;
-                  } catch { return <span className="flex items-center gap-1.5"><span className="w-1.5 h-1.5 rounded-full" style={{ background: heroAccent }} /> {program.timing} {program.time_zone}</span>; }
+                    return <span className="flex items-center gap-1.5"><span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: heroAccent }} /> {String(program.timing).trim()} {programTz}</span>;
+                  } catch { return <span className="flex items-center gap-1.5"><span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: heroAccent }} /> {String(program.timing).trim()} {program.time_zone}</span>; }
                 })()}
+                </div>
+                {tierScheduleLines.length > 0 && (
+                  <div data-testid="program-tier-schedule" className="max-w-lg mx-auto text-left border border-gray-100 rounded-lg px-4 py-3 bg-gray-50/80">
+                    <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-500 mb-2">Scheduled dates by option</p>
+                    <ul className="text-xs text-gray-700 space-y-1.5">
+                      {tierScheduleLines.map((row, idx) => (
+                        <li key={`${row.label}-${idx}`} className="flex flex-col sm:flex-row sm:flex-wrap sm:gap-x-2">
+                          <span className="font-medium text-gray-900">{row.label}</span>
+                          <span className="text-gray-600">
+                            {row.start ? <>Starts {formatProgramDateDisplay(row.start)}</> : null}
+                            {row.start && row.end ? ' · ' : null}
+                            {row.end ? <>Ends {formatProgramDateDisplay(row.end)}</> : null}
+                          </span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
               </div>
             )}
 
