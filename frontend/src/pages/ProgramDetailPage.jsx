@@ -235,9 +235,6 @@ function ProgramDetailPage() {
   })();
 
   const heroScheduleItems = [];
-  if (program.duration && String(program.duration).trim()) {
-    heroScheduleItems.push({ key: 'dur', label: 'Duration', value: String(program.duration).trim() });
-  }
   if (program.start_date && String(program.start_date).trim()) {
     heroScheduleItems.push({ key: 'sd', label: 'Starts', value: formatProgramDateDisplay(program.start_date) });
   }
@@ -261,9 +258,8 @@ function ProgramDetailPage() {
   const heroStart = heroScheduleItems.find((r) => r.key === 'sd');
   const heroEnd = heroScheduleItems.find((r) => r.key === 'ed');
   const heroTime = heroScheduleItems.find((r) => r.key === 'tm');
-  const heroDur = heroScheduleItems.find((r) => r.key === 'dur');
   const showHeroFooter =
-    !!(heroStart || heroEnd || heroDur || heroTime || (showHeroPrice && heroHasAmount));
+    !!(heroStart || heroEnd || heroTime || (showHeroPrice && heroHasAmount));
 
   const SectionTitle = ({ children, style: extra }) => (
     <h2 className="text-center mb-4" style={applyStyle(extra || template.section_title_style, { ...HEADING, fontSize: '1.6rem' })}>{children}</h2>
@@ -452,12 +448,6 @@ function ProgramDetailPage() {
                 <p className="flex flex-wrap items-baseline gap-x-2 text-sm font-normal leading-snug text-white/85 [text-wrap:balance] md:text-base">
                   <span className="shrink-0 text-[9px] font-medium uppercase tracking-[0.2em]" style={{ color: heroAccent }}>{heroTime.label}:</span>
                   <span>{heroTime.value}</span>
-                </p>
-              )}
-              {heroDur && (
-                <p className="flex flex-wrap items-baseline gap-x-2 text-sm font-normal leading-snug text-white/85 md:text-base">
-                  <span className="shrink-0 text-[9px] font-medium uppercase tracking-[0.2em]" style={{ color: heroAccent }}>{heroDur.label}:</span>
-                  <span>{heroDur.value}</span>
                 </p>
               )}
               {showHeroPrice && heroHasAmount && (
