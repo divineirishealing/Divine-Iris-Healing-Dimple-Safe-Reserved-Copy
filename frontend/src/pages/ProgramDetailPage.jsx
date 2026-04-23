@@ -586,6 +586,7 @@ function ProgramDetailPage() {
                     style={{ width: CARD_W, flexShrink: 0, alignSelf: 'stretch' }}>
                     {t.type === 'video'
                       ? <SoulfulUniformVideoCard testimonial={t} footerCentered compactProgram
+                          quoteStyle={writtenQuoteStyle}
                           onPlay={(embedUrl, platform) => setSelectedEmbed({ embedUrl, platform })}
                           onOpen={url => window.open(url, '_blank')}
                         />

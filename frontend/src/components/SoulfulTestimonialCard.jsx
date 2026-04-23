@@ -653,7 +653,15 @@ export const SoulfulWrittenSnippet = ({ text, name, role, rating = 5 }) => {
 /* ══════════════════════════════════════════════════════════════════════════
    UNIFORM VIDEO CARD  —  same jewel-tone template as written card
    ══════════════════════════════════════════════════════════════════════════ */
-export const SoulfulUniformVideoCard = ({ testimonial, onPlay, onOpen, footerCentered = false, compactProgram = false }) => {
+export const SoulfulUniformVideoCard = ({
+  testimonial,
+  onPlay,
+  onOpen,
+  footerCentered = false,
+  compactProgram = false,
+  /** Match SoulfulWrittenCard: e.g. program page `writtenQuoteStyle` from Transformations hero settings */
+  quoteStyle = null,
+}) => {
   const { name, role, program_name, rating = 5, video_url, videoId, thumbnail, text } = testimonial;
   const parsed   = parseVideo(video_url) || (videoId ? parseVideo(`https://youtu.be/${videoId}`) : null);
   const thumbSrc = thumbnail || parsed?.thumbUrl;
@@ -768,16 +776,18 @@ export const SoulfulUniformVideoCard = ({ testimonial, onPlay, onOpen, footerCen
         <div style={{ flex: compactProgram ? '0 0 auto' : 1 }}>
           {text && (
             <p style={
-              compactProgram
-                ? { textAlign: 'center', ...MODAL_QUOTE_STYLE }
-                : {
-                    fontFamily: "'Cormorant Garamond', Georgia, serif",
-                    fontSize: '0.88rem',
-                    lineHeight: 1.8,
-                    color: '#1e0a4e',
-                    fontStyle: 'italic',
-                    textAlign: 'center',
-                  }
+              quoteStyle
+                ? { textAlign: 'center', ...quoteStyle }
+                : compactProgram
+                  ? { textAlign: 'center', ...MODAL_QUOTE_STYLE }
+                  : {
+                      fontFamily: "'Cormorant Garamond', Georgia, serif",
+                      fontSize: '0.88rem',
+                      lineHeight: 1.8,
+                      color: '#1e0a4e',
+                      fontStyle: 'italic',
+                      textAlign: 'center',
+                    }
             }>
               "{text.length > 120 ? text.substring(0,120)+'…' : text}"
             </p>
