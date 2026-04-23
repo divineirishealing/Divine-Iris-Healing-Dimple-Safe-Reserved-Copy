@@ -870,8 +870,6 @@ export default function DashboardCombinedCheckoutPage() {
       : 0;
   const totalDiscountIncludingIndia = totalDiscountAmount + indiaClientDiscountAmt;
 
-  const payableTotal = indiaBreakdown ? indiaBreakdown.roundedTotal : total;
-
   const indiaPaymentTag = clientIndiaPricing?.india_payment_method;
 
   const { list: paymentMethodsForDisplay, tagged: paymentMethodsTagged } = useMemo(
@@ -888,10 +886,19 @@ export default function DashboardCombinedCheckoutPage() {
   /** Subscriber has India-tagged methods from admin (UPI / bank / manual) — show proof paths even when IP ≠ IN. */
   const memberIndiaTagged =
     pmLower.includes('gpay') || pmLower.includes('bank') || pmLower.includes('manual');
-  /** Stripe rail: hide India INR stack (Client Garden discount / GST / platform). Show again if they pick manual or Exly. */
+  /**
+   * India GST + platform apply only for manual / Exly rails. Stripe card checkout uses the taxable
+   * base (after India Client Garden discount) with no extra 18% / platform line items.
+   */
   const showIndiaInrSettlement =
     !!indiaBreakdown &&
     (!hasStripe || portalPayMode === 'manual' || portalPayMode === 'exly');
+
+  const payableTotal = indiaBreakdown
+    ? showIndiaInrSettlement
+      ? indiaBreakdown.roundedTotal
+      : Math.round(indiaBreakdown.taxableBase)
+    : total;
   const bookerIndia = String(bookerCountry || '').trim().toUpperCase() === 'IN';
   const siteIndiaAlternatePayments =
     !!paymentSettings.india_enabled && (detectedCountry === 'IN' || bookerIndia);

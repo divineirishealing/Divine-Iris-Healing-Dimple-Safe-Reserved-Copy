@@ -696,13 +696,10 @@ async def enrollment_points_summary(
 async def enrollment_checkout(enrollment_id: str, data: EnrollmentSubmit, request: Request):
     """Create Stripe checkout for a verified enrollment.
 
-    **Public website** (Stripe only): `/api/enrollment/start` → … → checkout. Amount is program/cart
-    pricing plus best-of VIP/promo/auto discount only. **No GST** (and no portal India fee stack) is
-    added — the Stripe charge matches the INR total shown on the public enrollment / homepage flow.
-
-    **Dashboard / portal** only: Enrollments created via `/api/student/combined-enrollment-start` or
-    other portal helpers carry `dashboard_mixed_total` / `dashboard_checkout_ready`. Those use
-    portal totals and may apply the India Client Garden stack (discount + GST + platform) before Stripe.
+    **Stripe only:** Amount is program/cart pricing (or `dashboard_mixed_total`) minus best-of
+    VIP/promo/auto discount. **India GST and platform fees are not added** on this endpoint — Stripe
+    charges the same INR subtotal the UI shows for card checkout. (UPI/bank/manual India flows use
+    `/india-payment` and related routes, which still apply GST when configured.)
     """
     enrollment = await db.enrollments.find_one({"id": enrollment_id})
     if not enrollment:
@@ -913,54 +910,6 @@ async def enrollment_checkout(enrollment_id: str, data: EnrollmentSubmit, reques
         best_source = "auto"
 
     final_total = max(0, total - best_discount)
-
-    # ── GST / portal India fees: dashboard enrollments only. Website Stripe never enters this block. ──
-    is_dashboard_checkout = enrollment.get("dashboard_mixed_total") is not None or bool(
-        enrollment.get("dashboard_checkout_ready")
-    )
-    if str(currency).lower() == "inr" and final_total > 0 and is_dashboard_checkout:
-        try:
-            from utils.india_checkout_math import compute_india_checkout_rounded_total
-
-            settings_inr = await db.site_settings.find_one(
-                {"id": "site_settings"},
-                {"_id": 0, "india_gst_percent": 1, "india_platform_charge_percent": 1},
-            )
-            be = (enrollment.get("booker_email") or "").strip().lower()
-            client_pricing = None
-            if be:
-                portal_user = await db.users.find_one({"email": be}, {"_id": 0, "client_id": 1})
-                cid = (portal_user or {}).get("client_id")
-                if cid:
-                    cl = await db.clients.find_one(
-                        {"id": cid},
-                        {
-                            "_id": 0,
-                            "india_discount_percent": 1,
-                            "india_discount_member_bands": 1,
-                            "india_tax_enabled": 1,
-                            "india_tax_percent": 1,
-                            "india_tax_label": 1,
-                        },
-                    )
-                    if cl:
-                        client_pricing = {
-                            "india_discount_percent": cl.get("india_discount_percent"),
-                            "india_discount_member_bands": cl.get("india_discount_member_bands"),
-                            "india_tax_enabled": cl.get("india_tax_enabled"),
-                            "india_tax_percent": cl.get("india_tax_percent"),
-                            "india_tax_label": cl.get("india_tax_label"),
-                        }
-            final_total = float(
-                compute_india_checkout_rounded_total(
-                    float(final_total),
-                    client_pricing,
-                    settings_inr or {},
-                    int(participant_count or 0),
-                )
-            )
-        except Exception as e:
-            logger.warning("India INR checkout stack error: %s", e)
 
     # ── Loyalty points (redeem up to % of basket; burn on payment webhook) ──
     points_redeemed = 0
