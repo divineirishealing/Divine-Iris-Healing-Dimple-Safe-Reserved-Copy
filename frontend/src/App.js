@@ -53,6 +53,7 @@ import { AuthProvider } from './context/AuthContext';
 import { Analytics } from '@vercel/analytics/react';
 import SeoHead from './components/SeoHead';
 import BackendStatusBanner from './components/BackendStatusBanner';
+import PageAnalyticsBeacon from './components/PageAnalyticsBeacon';
 import { resolveImageUrl } from './lib/imageUtils';
 
 const CurrencyGate = ({ children }) => {
@@ -90,6 +91,7 @@ const AppContent = () => {
 
   return (
     <>
+      <PageAnalyticsBeacon />
       <BackendStatusBanner />
       <SeoHead />
       <Routes>

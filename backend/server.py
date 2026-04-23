@@ -12,7 +12,7 @@ from pathlib import Path
 import mimetypes
 
 # Import routes
-from routes import programs, sessions, testimonials, stats, newsletter, upload, payments, webhook, currency, site_settings, seo_sitemap, enrollment, promotions, discounts, session_extras, india_payments, notify_me, inbox, clients, text_testimonials, upcoming_card_quotes, search, fraud
+from routes import programs, sessions, testimonials, stats, newsletter, upload, payments, webhook, currency, site_settings, seo_sitemap, enrollment, promotions, discounts, session_extras, india_payments, notify_me, inbox, clients, text_testimonials, upcoming_card_quotes, search, fraud, site_analytics
 from routes import s3_media_proxy
 from routes import admin_clients, student, points as points_admin
 from routes import auth
@@ -83,7 +83,14 @@ async def redirect_india_payment_page(enrollment_id: str, request: Request):
 api_router = APIRouter(prefix="/api")
 
 # Paths that are high-volume file serving — excluded from request logging
-_SKIP_LOG_PREFIXES = ("/api/image/", "/api/uploads/", "/api/s3-media/", "/static/", "/api/health")
+_SKIP_LOG_PREFIXES = (
+    "/api/image/",
+    "/api/uploads/",
+    "/api/s3-media/",
+    "/static/",
+    "/api/health",
+    "/api/analytics/collect",
+)
 
 @app.middleware("http")
 async def log_api_requests(request: Request, call_next):
@@ -211,6 +218,16 @@ async def ensure_api_logs_ttl_index():
         background=True,
     )
 
+
+@app.on_event("startup")
+async def ensure_site_page_views_ttl_index():
+    """Roll anonymous page views after ~90 days to cap collection size."""
+    await db.site_page_views.create_index(
+        "ts",
+        expireAfterSeconds=7776000,
+        background=True,
+    )
+
 @app.get("/api/uploads/payment_proofs/{filename}")
 async def serve_payment_proof(filename: str):
     file_path = UPLOAD_DIR / "payment_proofs" / filename
@@ -257,6 +274,8 @@ app.include_router(annual_subscribers_module.router)
 app.include_router(client_intake_module.router)
 app.include_router(bank_transactions_module.router)
 app.include_router(enrollment_auto_report_module.router)
+app.include_router(site_analytics.collect_router)
+app.include_router(site_analytics.admin_router)
 
 @api_router.get("/admin/api-keys")
 async def get_api_keys():

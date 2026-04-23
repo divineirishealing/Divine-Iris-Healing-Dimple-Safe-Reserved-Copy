@@ -12,7 +12,7 @@ import { resolveImageUrl, rememberPublicApiBase, rememberS3VirtualHostRewrite } 
 import {
   Settings, Package, Calendar, MessageSquare, BarChart3, Mail, Inbox,
   Trash2, Edit, Plus, X, Eye, EyeOff, Save, ArrowUp, ArrowDown,
-  Globe, Layout, Image, Users, Palette, Gift, Monitor, Wifi,   Tag, ChevronLeft, ChevronRight, ChevronDown, Upload, FileText, DollarSign, Quote, Star, ShieldAlert,   CreditCard, UserPlus, Search, Wallet, Sparkles, Link2, KeyRound
+  Globe, Layout, Image, Users, Palette, Gift, Monitor, Wifi,   Tag, ChevronLeft, ChevronRight, ChevronDown, Upload, FileText, DollarSign, Quote, Star, ShieldAlert,   CreditCard, UserPlus, Search, Wallet, Sparkles, Link2, KeyRound, LineChart
 } from 'lucide-react';
 
 import { getApiUrl } from '../../lib/config';
@@ -31,6 +31,7 @@ import { SessionCalendarManager, SessionTestimonialsManager, SessionQuestionsMan
 import SessionVisibilityPanel from './tabs/SessionVisibilityPanel';
 import GlobalStylesTab from './tabs/GlobalStylesTab';
 import SeoSettingsTab from './tabs/SeoSettingsTab';
+import SiteAnalyticsTab from './tabs/SiteAnalyticsTab';
 import PromotionsTab from './tabs/PromotionsTab';
 import ExchangeRatesTab from './tabs/ExchangeRatesTab';
 import DiscountsTab from './tabs/DiscountsTab';
@@ -361,6 +362,7 @@ const AdminPanel = () => {
       { key: 'header_footer', label: 'Header & Footer', icon: Globe },
       { key: 'styles', label: 'Global Styles', icon: Palette },
       { key: 'seo', label: 'SEO', icon: Search },
+      { key: 'site_analytics', label: 'Site analytics', icon: LineChart },
       { key: 'testimonials', label: 'Testimonials', icon: MessageSquare },
       { key: 'text_testimonials', label: 'Text Quotes', icon: Quote },
     ]},
@@ -583,6 +585,8 @@ const AdminPanel = () => {
               <Button data-testid="save-seo-btn" onClick={saveSiteSettings} className="bg-[#D4AF37] hover:bg-[#b8962e] mt-5"><Save size={14} className="mr-1" /> Save Changes</Button>
             </div>
           )}
+
+          {activeTab === 'site_analytics' && <SiteAnalyticsTab />}
 
           {activeTab === 'enrollments' && <EnrollmentsTab />}
           {activeTab === 'inbox' && <InboxTab />}
