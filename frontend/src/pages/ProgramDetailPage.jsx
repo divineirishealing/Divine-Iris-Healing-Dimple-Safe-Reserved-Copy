@@ -421,47 +421,49 @@ function ProgramDetailPage() {
         {template.hero_image && <div className="absolute inset-0" style={{ backgroundImage: `url(${resolveImageUrl(template.hero_image)})`, backgroundSize: 'cover', backgroundPosition: 'center' }} />}
         {template.hero_image && <div className="absolute inset-0" style={{ background: '#000', opacity: (template.overlay_opacity || 70) / 100 }} />}
         <div className="relative z-10 flex min-h-0 flex-1 flex-col items-center justify-center text-center">
-          <h1 data-testid="program-title" className="mb-4 max-w-4xl text-white" style={applyStyle(template.title_style, { ...HEADING, color: '#fff', fontSize: 'clamp(1.8rem, 4vw, 3rem)', fontVariant: 'small-caps', letterSpacing: '0.05em', lineHeight: 1.3 })}>
-            {program.title}
-          </h1>
-          <p className="mb-6" style={applyStyle(template.subtitle_style, { ...LABEL, color: heroAccent })}>{program.category || 'FLAGSHIP PROGRAM'}</p>
-          {template.hero_line_visible !== false && <div className="w-14 h-0.5" style={{ background: heroAccent, marginTop: `${template.hero_line_gap || '10'}px` }} />}
+          <div className="translate-y-5 md:translate-y-9">
+            <h1 data-testid="program-title" className="mb-4 max-w-4xl text-white" style={applyStyle(template.title_style, { ...HEADING, color: '#fff', fontSize: 'clamp(1.8rem, 4vw, 3rem)', fontVariant: 'small-caps', letterSpacing: '0.05em', lineHeight: 1.3 })}>
+              {program.title}
+            </h1>
+            <p className="mb-6" style={applyStyle(template.subtitle_style, { ...LABEL, color: heroAccent })}>{program.category || 'FLAGSHIP PROGRAM'}</p>
+            {template.hero_line_visible !== false && <div className="mx-auto w-14 h-0.5" style={{ background: heroAccent, marginTop: `${template.hero_line_gap || '10'}px` }} />}
+          </div>
         </div>
 
         {showHeroFooter ? (
           <div
-            className="relative z-10 mt-8 w-full max-w-sm self-start text-left"
+            className="relative z-10 mt-8 w-full max-w-xl self-start text-left"
             data-testid="program-hero-schedule-price"
           >
-            <div className="flex flex-col gap-4">
+            <div className="flex flex-col gap-3.5">
               {heroStart && (
-                <div>
-                  <p className="text-[9px] font-medium uppercase tracking-[0.2em]" style={{ color: heroAccent }}>{heroStart.label}</p>
-                  <p className="mt-0.5 text-sm font-normal leading-snug text-white/85 [text-wrap:balance] md:text-base">{heroStart.value}</p>
-                </div>
+                <p className="flex flex-wrap items-baseline gap-x-2 text-sm font-normal leading-snug text-white/85 [text-wrap:balance] md:text-base">
+                  <span className="shrink-0 text-[9px] font-medium uppercase tracking-[0.2em]" style={{ color: heroAccent }}>{heroStart.label}:</span>
+                  <span>{heroStart.value}</span>
+                </p>
               )}
               {heroEnd && (
-                <div>
-                  <p className="text-[9px] font-medium uppercase tracking-[0.2em]" style={{ color: heroAccent }}>{heroEnd.label}</p>
-                  <p className="mt-0.5 text-sm font-normal leading-snug text-white/85 [text-wrap:balance] md:text-base">{heroEnd.value}</p>
-                </div>
+                <p className="flex flex-wrap items-baseline gap-x-2 text-sm font-normal leading-snug text-white/85 [text-wrap:balance] md:text-base">
+                  <span className="shrink-0 text-[9px] font-medium uppercase tracking-[0.2em]" style={{ color: heroAccent }}>{heroEnd.label}:</span>
+                  <span>{heroEnd.value}</span>
+                </p>
               )}
               {heroDur && (
-                <div>
-                  <p className="text-[9px] font-medium uppercase tracking-[0.2em]" style={{ color: heroAccent }}>{heroDur.label}</p>
-                  <p className="mt-0.5 text-sm font-normal leading-snug text-white/85 md:text-base">{heroDur.value}</p>
-                </div>
+                <p className="flex flex-wrap items-baseline gap-x-2 text-sm font-normal leading-snug text-white/85 md:text-base">
+                  <span className="shrink-0 text-[9px] font-medium uppercase tracking-[0.2em]" style={{ color: heroAccent }}>{heroDur.label}:</span>
+                  <span>{heroDur.value}</span>
+                </p>
               )}
               {heroTime && (
-                <div>
-                  <p className="text-[9px] font-medium uppercase tracking-[0.2em]" style={{ color: heroAccent }}>{heroTime.label}</p>
-                  <p className="mt-0.5 text-sm font-normal leading-snug text-white/85 [text-wrap:balance] md:text-base">{heroTime.value}</p>
-                </div>
+                <p className="flex flex-wrap items-baseline gap-x-2 text-sm font-normal leading-snug text-white/85 [text-wrap:balance] md:text-base">
+                  <span className="shrink-0 text-[9px] font-medium uppercase tracking-[0.2em]" style={{ color: heroAccent }}>{heroTime.label}:</span>
+                  <span>{heroTime.value}</span>
+                </p>
               )}
               {showHeroPrice && heroHasAmount && (
                 <div>
-                  <p className="text-[9px] font-medium uppercase tracking-[0.2em]" style={{ color: heroAccent }}>Investment</p>
-                  <div className="mt-1 flex flex-col items-start gap-0.5">
+                  <p className="flex flex-wrap items-baseline gap-x-2 gap-y-1 text-sm leading-snug md:text-base">
+                    <span className="shrink-0 text-[9px] font-medium uppercase tracking-[0.2em]" style={{ color: heroAccent }}>Investment:</span>
                     {heroPriceOffer > 0 ? (
                       <>
                         <span
@@ -484,10 +486,10 @@ function ProgramDetailPage() {
                         {symbol} {heroPriceBase.toLocaleString()}
                       </span>
                     )}
-                    {tiersLen > 1 && (
-                      <p className="mt-1 max-w-[14rem] text-[10px] leading-snug text-white/35">Starting rate for the first option — all tiers below</p>
-                    )}
-                  </div>
+                  </p>
+                  {tiersLen > 1 && (
+                    <p className="mt-1.5 max-w-[18rem] text-[10px] leading-snug text-white/35">Starting rate for the first option — all tiers below</p>
+                  )}
                 </div>
               )}
             </div>
