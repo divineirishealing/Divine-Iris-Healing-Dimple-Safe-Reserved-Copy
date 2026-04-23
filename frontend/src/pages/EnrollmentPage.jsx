@@ -422,7 +422,7 @@ function EnrollmentPage() {
       .catch(() => {});
   }, [sourceDashboard, type, item, id, resumeId, detectedCountry, toast]);
 
-  // Resume enrollment from cancel/back — restore all filled info and jump to payment step
+  // Resume enrollment from cancel/back — restore fields; only skip to pay if server marked contact verified (email OTP done).
   useEffect(() => {
     if (!resumeId) return;
     axios.get(`${API}/enrollment/${resumeId}`).then(r => {
@@ -447,10 +447,20 @@ function EnrollmentPage() {
           };
         }));
       }
-      setEmailVerified(true);
-      setOtpSent(true);
-      setStep(1);
-      toast({ title: "Welcome back", description: "Your information is saved — continue to payment.", variant: "default" });
+      const contactOk = !!(e.phone_verified && e.email_verified);
+      setEmailVerified(contactOk);
+      setOtpSent(false);
+      setOtp('');
+      setStep(contactOk ? 1 : 0);
+      toast(
+        contactOk
+          ? { title: 'Welcome back', description: 'Your information is saved — continue to payment.', variant: 'default' }
+          : {
+              title: 'Almost there',
+              description: 'Your details were restored. Enter the verification code from your email (tap Send code) before paying.',
+              variant: 'default',
+            },
+      );
     }).catch(() => {});
   }, [resumeId]);
 

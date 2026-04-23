@@ -629,7 +629,10 @@ async def enrollment_points_summary(
     if not enrollment:
         raise HTTPException(status_code=404, detail="Enrollment not found")
     if not enrollment.get("phone_verified"):
-        raise HTTPException(status_code=403, detail="Phone not verified")
+        raise HTTPException(
+            status_code=403,
+            detail="Complete email verification first (6-digit code). Payment unlocks after that step.",
+        )
 
     from routes.points_logic import (
         fetch_points_config,
@@ -680,7 +683,10 @@ async def enrollment_checkout(enrollment_id: str, data: EnrollmentSubmit, reques
 
     # Verify enrollment is complete
     if not enrollment.get("phone_verified"):
-        raise HTTPException(status_code=400, detail="Phone not verified")
+        raise HTTPException(
+            status_code=400,
+            detail="Complete email verification first (6-digit code). Payment unlocks after that step.",
+        )
 
     # ── Currency verification: re-check IP before payment ──
     from routes.currency import detect_ip_info, get_base_currency, get_display_currency, resolve_booker_pricing_hub_email
