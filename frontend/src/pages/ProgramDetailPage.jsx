@@ -258,6 +258,14 @@ function ProgramDetailPage() {
   const heroPriceOffer = tiersLen > 0 ? getOfferPrice(program, 0) : getOfferPrice(program);
   const heroHasAmount = heroPriceOffer > 0 || heroPriceBase > 0;
 
+  const heroStart = heroScheduleItems.find((r) => r.key === 'sd');
+  const heroEnd = heroScheduleItems.find((r) => r.key === 'ed');
+  const heroTime = heroScheduleItems.find((r) => r.key === 'tm');
+  const heroDur = heroScheduleItems.find((r) => r.key === 'dur');
+  const heroLeftShowDuration = !!(heroDur && !heroStart && !heroEnd);
+  const showHeroFooter =
+    !!(heroStart || heroEnd || heroLeftShowDuration || heroTime || (showHeroPrice && heroHasAmount));
+
   const SectionTitle = ({ children, style: extra }) => (
     <h2 className="text-center mb-4" style={applyStyle(extra || template.section_title_style, { ...HEADING, fontSize: '1.6rem' })}>{children}</h2>
   );
@@ -405,7 +413,7 @@ function ProgramDetailPage() {
     <div className="min-h-screen">
       <Header />
 
-      {/* HERO — title centered; schedule & price quiet strip bottom-left */}
+      {/* HERO — title centered; bottom bar: dates left, time center, investment right (no box) */}
       <section
         data-testid="program-hero"
         className="relative flex min-h-[52vh] flex-col px-5 pb-6 pt-20 md:min-h-[58vh] md:px-10 md:pb-8"
@@ -421,56 +429,76 @@ function ProgramDetailPage() {
           {template.hero_line_visible !== false && <div className="w-14 h-0.5" style={{ background: heroAccent, marginTop: `${template.hero_line_gap || '10'}px` }} />}
         </div>
 
-        {(showHeroPrice && heroHasAmount) || heroScheduleItems.length > 0 ? (
-          <div className="relative z-10 mt-6 w-full max-w-md self-start md:mt-8 md:max-w-lg">
-            <div
-              className="rounded-lg border border-white/[0.08] bg-black/20 px-4 py-3 text-left shadow-none backdrop-blur-sm md:px-5 md:py-4"
-              data-testid="program-hero-schedule-price"
-            >
+        {showHeroFooter ? (
+          <div
+            className="relative z-10 mt-8 grid w-full max-w-5xl grid-cols-1 gap-y-5 self-center sm:grid-cols-3 sm:items-end sm:gap-x-6 md:gap-x-10"
+            data-testid="program-hero-schedule-price"
+          >
+            <div className="min-w-0 text-left sm:pr-2">
+              {(heroStart || heroEnd || heroLeftShowDuration) && (
+                <div className="flex flex-col gap-3">
+                  {heroStart && (
+                    <div>
+                      <p className="text-[9px] font-medium uppercase tracking-[0.2em] text-white/38">{heroStart.label}</p>
+                      <p className="mt-0.5 text-sm font-normal leading-snug text-white/85 [text-wrap:balance] md:text-base">{heroStart.value}</p>
+                    </div>
+                  )}
+                  {heroEnd && (
+                    <div>
+                      <p className="text-[9px] font-medium uppercase tracking-[0.2em] text-white/38">{heroEnd.label}</p>
+                      <p className="mt-0.5 text-sm font-normal leading-snug text-white/85 [text-wrap:balance] md:text-base">{heroEnd.value}</p>
+                    </div>
+                  )}
+                  {heroLeftShowDuration && heroDur && (
+                    <div>
+                      <p className="text-[9px] font-medium uppercase tracking-[0.2em] text-white/38">{heroDur.label}</p>
+                      <p className="mt-0.5 text-sm font-normal leading-snug text-white/85 md:text-base">{heroDur.value}</p>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+
+            <div className="min-w-0 text-center sm:px-2">
+              {heroTime && (
+                <div>
+                  <p className="text-[9px] font-medium uppercase tracking-[0.2em] text-white/38">{heroTime.label}</p>
+                  <p className="mt-0.5 text-sm font-normal leading-snug text-white/85 [text-wrap:balance] md:text-base">{heroTime.value}</p>
+                </div>
+              )}
+            </div>
+
+            <div className="min-w-0 text-right sm:pl-2">
               {showHeroPrice && heroHasAmount && (
-                <div className={`${heroScheduleItems.length > 0 ? 'border-b border-white/[0.06] pb-3' : ''}`}>
-                  <p className="text-[9px] font-medium uppercase tracking-[0.22em] text-white/40">Investment</p>
-                  <div className="mt-1 flex flex-wrap items-baseline gap-x-2 gap-y-0">
+                <div>
+                  <p className="text-[9px] font-medium uppercase tracking-[0.2em] text-white/38">Investment</p>
+                  <div className="mt-1 flex flex-col items-end gap-0.5 sm:items-end">
                     {heroPriceOffer > 0 ? (
                       <>
                         <span
-                          className="text-xl font-semibold tabular-nums md:text-2xl"
-                          style={{ ...globalPricingStyle, color: heroAccent, opacity: 0.92 }}
+                          className="text-lg font-semibold tabular-nums md:text-xl"
+                          style={{ ...globalPricingStyle, color: heroAccent, opacity: 0.9 }}
                         >
                           {symbol} {heroPriceOffer.toLocaleString()}
                         </span>
                         {heroPriceBase > heroPriceOffer && (
-                          <span className="text-sm text-white/30 line-through md:text-base">
+                          <span className="text-xs text-white/32 line-through md:text-sm">
                             {symbol} {heroPriceBase.toLocaleString()}
                           </span>
                         )}
                       </>
                     ) : (
                       <span
-                        className="text-xl font-semibold tabular-nums md:text-2xl"
-                        style={{ ...globalPricingStyle, color: heroAccent, opacity: 0.92 }}
+                        className="text-lg font-semibold tabular-nums md:text-xl"
+                        style={{ ...globalPricingStyle, color: heroAccent, opacity: 0.9 }}
                       >
                         {symbol} {heroPriceBase.toLocaleString()}
                       </span>
                     )}
+                    {tiersLen > 1 && (
+                      <p className="mt-1 max-w-[14rem] text-[10px] leading-snug text-white/35">Starting rate for the first option — all tiers below</p>
+                    )}
                   </div>
-                  {tiersLen > 1 && (
-                    <p className="mt-1.5 text-[10px] leading-snug text-white/35">Starting rate for the first option — all tiers below</p>
-                  )}
-                </div>
-              )}
-              {heroScheduleItems.length > 0 && (
-                <div
-                  className={`grid grid-cols-2 gap-x-4 gap-y-2.5 text-left ${showHeroPrice && heroHasAmount ? 'pt-3' : ''}`}
-                >
-                  {heroScheduleItems.map((row) => (
-                    <div key={row.key} className="min-w-0">
-                      <p className="text-[9px] font-medium uppercase tracking-[0.18em] text-white/35">{row.label}</p>
-                      <p className="mt-0.5 text-xs font-normal leading-snug text-white/80 [text-wrap:balance] md:text-sm">
-                        {row.value}
-                      </p>
-                    </div>
-                  ))}
                 </div>
               )}
             </div>
