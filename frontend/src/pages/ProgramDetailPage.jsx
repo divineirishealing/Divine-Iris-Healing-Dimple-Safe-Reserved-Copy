@@ -174,6 +174,11 @@ function ProgramDetailPage() {
     return () => clearInterval(timer);
   }, [imgTestimonialsCount, currentTestimonial]);
 
+  const writtenQuoteStyle = useMemo(
+    () => applyWrittenQuoteStyle(settings?.page_heroes?.transformations?.written_story_quote_style),
+    [settings]
+  );
+
   if (loading) return <div className="min-h-screen flex items-center justify-center bg-[#1a1a1a]"><p className="text-gray-400 text-xs" style={BODY}>Loading...</p></div>;
   if (!program) return (
     <div className="min-h-screen flex items-center justify-center bg-[#1a1a1a]">
@@ -351,11 +356,6 @@ function ProgramDetailPage() {
   const template = settings?.page_heroes?.program_template || {};
   const heroAccent = template.accent_color || GOLD;
   const heroBg = template.hero_bg || '#1a1a1a';
-
-  const writtenQuoteStyle = useMemo(
-    () => applyWrittenQuoteStyle(settings?.page_heroes?.transformations?.written_story_quote_style),
-    [settings]
-  );
 
   // Global pricing style
   const globalPricingStyle = {
