@@ -17,6 +17,7 @@ import {
 import { applyWrittenQuoteStyle } from '../lib/transformationsWrittenQuoteStyle';
 import { Dialog, DialogContent } from '../components/ui/dialog';
 import { useSeoPage } from '../context/SeoPageContext';
+import { CalendarCheck2, CalendarDays, Clock, Hourglass } from 'lucide-react';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
@@ -101,6 +102,149 @@ function formatProgramDateDisplay(raw) {
     }
   }
   return t;
+}
+
+function ScheduleMetaCard({ icon: Icon, label, children, accent, wide = false }) {
+  return (
+    <div
+      className={`group flex items-start gap-4 md:gap-5 rounded-2xl md:rounded-3xl border border-stone-200/90 bg-gradient-to-br from-white via-white to-stone-50/95 px-5 py-5 md:px-7 md:py-6 shadow-[0_10px_40px_-15px_rgba(15,23,42,0.25)] transition-all duration-300 hover:-translate-y-0.5 hover:shadow-[0_20px_50px_-20px_rgba(15,23,42,0.3)] hover:border-stone-300 ${
+        wide ? 'sm:col-span-2' : ''
+      }`}
+    >
+      <div
+        className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl md:h-14 md:w-14 transition-transform duration-300 group-hover:scale-[1.03]"
+        style={{
+          background: `linear-gradient(160deg, ${accent}28, ${accent}0f)`,
+          color: accent,
+          boxShadow: `inset 0 1px 0 ${accent}40, 0 4px 14px -6px ${accent}66`,
+        }}
+        aria-hidden
+      >
+        <Icon className="h-6 w-6 md:h-7 md:w-7" strokeWidth={1.65} />
+      </div>
+      <div className="min-w-0 flex-1 text-left pt-0.5">
+        <p className="mb-2 text-[10px] font-bold uppercase tracking-[0.28em] text-stone-500 md:text-[11px]">{label}</p>
+        <div
+          className="text-lg font-semibold leading-snug text-stone-900 md:text-xl lg:text-2xl [text-wrap:balance]"
+          style={{ fontFamily: 'var(--heading-font, "Cinzel", Georgia, serif)', fontWeight: 600 }}
+        >
+          {children}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function renderProgramTimingCard(program, heroAccent, detectedCountry) {
+  if (!program?.timing || !String(program.timing).trim()) return null;
+  const timing = String(program.timing).trim();
+  if (!program.time_zone) {
+    return (
+      <ScheduleMetaCard icon={Clock} label="Session time" accent={heroAccent} wide>
+        {timing}
+      </ScheduleMetaCard>
+    );
+  }
+  try {
+    const COUNTRY_TZ_MAP = {
+      IN: { offset: 5.5, abbr: 'IST' },
+      AE: { offset: 4, abbr: 'GST' },
+      US: { offset: -5, abbr: 'EST' },
+      GB: { offset: 0, abbr: 'GMT' },
+      CA: { offset: -5, abbr: 'EST' },
+      AU: { offset: 10, abbr: 'AEST' },
+      SG: { offset: 8, abbr: 'SGT' },
+      DE: { offset: 1, abbr: 'CET' },
+      SA: { offset: 3, abbr: 'AST' },
+      QA: { offset: 3, abbr: 'AST' },
+      PK: { offset: 5, abbr: 'PKT' },
+      JP: { offset: 9, abbr: 'JST' },
+      NZ: { offset: 12, abbr: 'NZST' },
+      MY: { offset: 8, abbr: 'MYT' },
+    };
+    const countryTz = detectedCountry ? COUNTRY_TZ_MAP[detectedCountry] : null;
+    const viewerOffset = countryTz ? countryTz.offset : -(new Date().getTimezoneOffset()) / 60;
+    const viewerTzAbbr = countryTz ? countryTz.abbr : new Date().toLocaleTimeString('en-US', { timeZoneName: 'short' }).split(' ').pop();
+    const programTz = program.time_zone;
+    const tzOffsets = {
+      GST: 4,
+      Dubai: 4,
+      UAE: 4,
+      IST: 5.5,
+      India: 5.5,
+      EST: -5,
+      EDT: -4,
+      CST: -6,
+      CDT: -5,
+      PST: -8,
+      PDT: -7,
+      GMT: 0,
+      UTC: 0,
+      BST: 1,
+      CET: 1,
+      AEST: 10,
+      JST: 9,
+      SGT: 8,
+      AST: 3,
+      Arabia: 3,
+      PKT: 5,
+    };
+    let programOffset = null;
+    for (const [key, val] of Object.entries(tzOffsets)) {
+      if (programTz.toUpperCase().includes(key.toUpperCase())) {
+        programOffset = val;
+        break;
+      }
+    }
+    if (programOffset === null || Math.abs(viewerOffset - programOffset) < 0.1) {
+      return (
+        <ScheduleMetaCard icon={Clock} label="Session time" accent={heroAccent} wide>
+          <span className="block">{timing}</span>
+          <span className="mt-2 block text-sm font-normal leading-normal text-stone-600 md:text-base">{viewerTzAbbr}</span>
+        </ScheduleMetaCard>
+      );
+    }
+    const parts = timing.split(/\s*[-–—to]+\s*/i);
+    const converted = parts
+      .map((part) => {
+        const m = part.trim().match(/(\d{1,2})(?::(\d{2}))?\s*(AM|PM)/i);
+        if (!m) return null;
+        let h = parseInt(m[1], 10);
+        const min = parseInt(m[2] || '0', 10);
+        const ap = m[3].toUpperCase();
+        if (ap === 'PM' && h !== 12) h += 12;
+        if (ap === 'AM' && h === 12) h = 0;
+        let localMin = h * 60 + min - programOffset * 60 + viewerOffset * 60;
+        localMin = ((localMin % 1440) + 1440) % 1440;
+        const lh = Math.floor(localMin / 60);
+        const lm = localMin % 60;
+        const per = lh >= 12 ? 'PM' : 'AM';
+        const dh = lh % 12 || 12;
+        return lm > 0 ? `${dh}:${String(lm).padStart(2, '0')} ${per}` : `${dh} ${per}`;
+      })
+      .filter(Boolean);
+    if (converted.length > 0) {
+      return (
+        <ScheduleMetaCard icon={Clock} label="Session time (your local)" accent={heroAccent} wide>
+          <span className="block">{converted.join(' — ')}</span>
+          <span className="mt-2 block text-sm font-normal leading-normal text-stone-600 md:text-base">{viewerTzAbbr}</span>
+        </ScheduleMetaCard>
+      );
+    }
+    return (
+      <ScheduleMetaCard icon={Clock} label="Session time" accent={heroAccent} wide>
+        <span className="block">{timing}</span>
+        <span className="mt-2 block text-sm font-normal leading-normal text-stone-600 md:text-base">{programTz}</span>
+      </ScheduleMetaCard>
+    );
+  } catch {
+    return (
+      <ScheduleMetaCard icon={Clock} label="Session time" accent={heroAccent} wide>
+        <span className="block">{timing}</span>
+        <span className="mt-2 block text-sm font-normal leading-normal text-stone-600 md:text-base">{program.time_zone}</span>
+      </ScheduleMetaCard>
+    );
+  }
 }
 
 function ProgramDetailPage() {
@@ -417,75 +561,88 @@ function ProgramDetailPage() {
           <div className="max-w-3xl mx-auto text-center">
             <GoldLine type="cta" />
 
-            {/* Duration / dates / timing — above pricing (show when data exists; detail page is the canonical place for schedule) */}
+            {/* Schedule & timing — prominent card stack above pricing */}
             {hasPageScheduleCopy && (
-              <div data-testid="program-info-bar" className="mb-8 space-y-4">
-                <div className="flex flex-wrap items-center justify-center gap-x-6 gap-y-2 text-gray-500 text-xs">
-                {program.duration && String(program.duration).trim() && <span className="flex items-center gap-1.5"><span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: heroAccent }} /> <span className="text-left">{String(program.duration).trim()}</span></span>}
-                {program.start_date && String(program.start_date).trim() && <span className="flex items-center gap-1.5"><span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: heroAccent }} /> Starts: {formatProgramDateDisplay(program.start_date)}</span>}
-                {program.end_date && String(program.end_date).trim() && <span className="flex items-center gap-1.5"><span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: heroAccent }} /> Ends: {formatProgramDateDisplay(program.end_date)}</span>}
-                {program.timing && String(program.timing).trim() && (() => {
-                  if (!program.time_zone) return <span className="flex items-center gap-1.5"><span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: heroAccent }} /> {String(program.timing).trim()}</span>;
-                  try {
-                    const COUNTRY_TZ_MAP = {
-                      'IN': { offset: 5.5, abbr: 'IST' }, 'AE': { offset: 4, abbr: 'GST' },
-                      'US': { offset: -5, abbr: 'EST' }, 'GB': { offset: 0, abbr: 'GMT' },
-                      'CA': { offset: -5, abbr: 'EST' }, 'AU': { offset: 10, abbr: 'AEST' },
-                      'SG': { offset: 8, abbr: 'SGT' }, 'DE': { offset: 1, abbr: 'CET' },
-                      'SA': { offset: 3, abbr: 'AST' }, 'QA': { offset: 3, abbr: 'AST' },
-                      'PK': { offset: 5, abbr: 'PKT' }, 'JP': { offset: 9, abbr: 'JST' },
-                      'NZ': { offset: 12, abbr: 'NZST' }, 'MY': { offset: 8, abbr: 'MYT' },
-                    };
-                    const countryTz = detectedCountry ? COUNTRY_TZ_MAP[detectedCountry] : null;
-                    const viewerOffset = countryTz ? countryTz.offset : -(new Date().getTimezoneOffset()) / 60;
-                    const viewerTzAbbr = countryTz ? countryTz.abbr : new Date().toLocaleTimeString('en-US', { timeZoneName: 'short' }).split(' ').pop();
-                    const programTz = program.time_zone;
-                    const tzOffsets = { 'GST': 4, 'Dubai': 4, 'UAE': 4, 'IST': 5.5, 'India': 5.5, 'EST': -5, 'EDT': -4, 'CST': -6, 'CDT': -5, 'PST': -8, 'PDT': -7, 'GMT': 0, 'UTC': 0, 'BST': 1, 'CET': 1, 'AEST': 10, 'JST': 9, 'SGT': 8, 'AST': 3, 'Arabia': 3, 'PKT': 5 };
-                    let programOffset = null;
-                    for (const [key, val] of Object.entries(tzOffsets)) {
-                      if (programTz.toUpperCase().includes(key.toUpperCase())) { programOffset = val; break; }
-                    }
-                    // Same timezone — show source timing as-is
-                    if (programOffset === null || Math.abs(viewerOffset - programOffset) < 0.1) {
-                      return <span className="flex items-center gap-1.5"><span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: heroAccent }} /> {String(program.timing).trim()} {viewerTzAbbr}</span>;
-                    }
-                    // Different timezone — convert and show only viewer's time
-                    const parts = String(program.timing).trim().split(/\s*[-–—to]+\s*/i);
-                    const converted = parts.map(p => {
-                      const m = p.trim().match(/(\d{1,2})(?::(\d{2}))?\s*(AM|PM)/i);
-                      if (!m) return null;
-                      let h = parseInt(m[1]); const min = parseInt(m[2] || '0'); const ap = m[3].toUpperCase();
-                      if (ap === 'PM' && h !== 12) h += 12; if (ap === 'AM' && h === 12) h = 0;
-                      let localMin = (h * 60 + min) - (programOffset * 60) + (viewerOffset * 60);
-                      localMin = ((localMin % 1440) + 1440) % 1440;
-                      const lh = Math.floor(localMin / 60); const lm = localMin % 60;
-                      const per = lh >= 12 ? 'PM' : 'AM'; const dh = lh % 12 || 12;
-                      return lm > 0 ? `${dh}:${String(lm).padStart(2, '0')} ${per}` : `${dh} ${per}`;
-                    }).filter(Boolean);
-                    if (converted.length > 0) {
-                      return <span className="flex items-center gap-1.5"><span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: heroAccent }} /> {converted.join(' - ')} {viewerTzAbbr}</span>;
-                    }
-                    return <span className="flex items-center gap-1.5"><span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: heroAccent }} /> {String(program.timing).trim()} {programTz}</span>;
-                  } catch { return <span className="flex items-center gap-1.5"><span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: heroAccent }} /> {String(program.timing).trim()} {program.time_zone}</span>; }
-                })()}
+              <div data-testid="program-info-bar" className="mb-10 md:mb-14 max-w-3xl mx-auto">
+                <div className="relative mb-8 md:mb-10 text-center">
+                  <div
+                    className="mx-auto mb-4 h-px w-16 md:w-24 rounded-full opacity-90"
+                    style={{ background: `linear-gradient(90deg, transparent, ${heroAccent}, transparent)` }}
+                    aria-hidden
+                  />
+                  <p
+                    className="mb-2 text-[10px] font-bold uppercase tracking-[0.35em] text-stone-500 md:text-[11px]"
+                    style={{ color: heroAccent }}
+                  >
+                    When we gather
+                  </p>
+                  <h2
+                    className="mx-auto max-w-xl text-2xl font-semibold leading-tight text-stone-900 md:text-3xl lg:text-[2.15rem]"
+                    style={{ fontFamily: 'var(--heading-font, "Cinzel", Georgia, serif)' }}
+                  >
+                    Schedule &amp; timing
+                  </h2>
                 </div>
-                {tierScheduleLines.length > 0 && (
-                  <div data-testid="program-tier-schedule" className="max-w-lg mx-auto text-left border border-gray-100 rounded-lg px-4 py-3 bg-gray-50/80">
-                    <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-500 mb-2">Scheduled dates by option</p>
-                    <ul className="text-xs text-gray-700 space-y-1.5">
-                      {tierScheduleLines.map((row, idx) => (
-                        <li key={`${row.label}-${idx}`} className="flex flex-col sm:flex-row sm:flex-wrap sm:gap-x-2">
-                          <span className="font-medium text-gray-900">{row.label}</span>
-                          <span className="text-gray-600">
-                            {row.start ? <>Starts {formatProgramDateDisplay(row.start)}</> : null}
-                            {row.start && row.end ? ' · ' : null}
-                            {row.end ? <>Ends {formatProgramDateDisplay(row.end)}</> : null}
-                          </span>
-                        </li>
-                      ))}
-                    </ul>
+
+                <div
+                  className="rounded-[1.75rem] md:rounded-[2rem] border border-stone-200/90 bg-gradient-to-b from-stone-100/40 via-white to-white p-1.5 shadow-[0_25px_60px_-28px_rgba(15,23,42,0.35)] md:p-2"
+                  style={{ boxShadow: `0 25px 60px -28px rgba(15,23,42,0.35), 0 0 0 1px ${heroAccent}14 inset` }}
+                >
+                  <div className="rounded-[1.35rem] bg-white/95 px-4 py-6 backdrop-blur-sm md:rounded-[1.65rem] md:px-8 md:py-9 lg:px-10 lg:py-10">
+                    <div className="grid gap-4 sm:grid-cols-2 sm:gap-5">
+                      {program.duration && String(program.duration).trim() && (
+                        <ScheduleMetaCard icon={Hourglass} label="Duration" accent={heroAccent}>
+                          {String(program.duration).trim()}
+                        </ScheduleMetaCard>
+                      )}
+                      {program.start_date && String(program.start_date).trim() && (
+                        <ScheduleMetaCard icon={CalendarDays} label="Starts" accent={heroAccent}>
+                          {formatProgramDateDisplay(program.start_date)}
+                        </ScheduleMetaCard>
+                      )}
+                      {program.end_date && String(program.end_date).trim() && (
+                        <ScheduleMetaCard icon={CalendarCheck2} label="Ends" accent={heroAccent}>
+                          {formatProgramDateDisplay(program.end_date)}
+                        </ScheduleMetaCard>
+                      )}
+                      {renderProgramTimingCard(program, heroAccent, detectedCountry)}
+                    </div>
+
+                    {tierScheduleLines.length > 0 && (
+                      <div
+                        data-testid="program-tier-schedule"
+                        className="mt-6 border-t border-stone-200/80 pt-6 md:mt-8 md:pt-8"
+                      >
+                        <p
+                          className="mb-4 text-center text-[10px] font-bold uppercase tracking-[0.28em] text-stone-500 md:mb-5 md:text-[11px]"
+                          style={{ color: heroAccent }}
+                        >
+                          By enrollment option
+                        </p>
+                        <ul className="space-y-3 md:space-y-4">
+                          {tierScheduleLines.map((row, idx) => (
+                            <li
+                              key={`${row.label}-${idx}`}
+                              className="flex flex-col gap-1 rounded-2xl border border-stone-200/80 bg-gradient-to-r from-stone-50/90 to-white px-5 py-4 text-left shadow-sm md:flex-row md:items-center md:justify-between md:px-6 md:py-5"
+                            >
+                              <span
+                                className="text-base font-semibold text-stone-900 md:text-lg"
+                                style={{ fontFamily: 'var(--heading-font, "Cinzel", Georgia, serif)' }}
+                              >
+                                {row.label}
+                              </span>
+                              <span className="text-sm leading-relaxed text-stone-600 md:text-base md:text-right">
+                                {row.start ? <span className="font-medium text-stone-800">Starts {formatProgramDateDisplay(row.start)}</span> : null}
+                                {row.start && row.end ? <span className="mx-2 text-stone-300">·</span> : null}
+                                {row.end ? <span className="font-medium text-stone-800">Ends {formatProgramDateDisplay(row.end)}</span> : null}
+                              </span>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
                   </div>
-                )}
+                </div>
               </div>
             )}
 
