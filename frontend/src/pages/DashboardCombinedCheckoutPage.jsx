@@ -32,6 +32,7 @@ import {
   mergeEnrollableGuestsForPortalCart,
   guestBucketLookupMembersFromHome,
   mergeGlobalSeatDraft,
+  effectiveParticipantCountry,
 } from '../lib/dashboardCartPrefill';
 import { programIncludedInAnnualPackage } from '../components/dashboard/dashboardUpcomingHelpers';
 
@@ -1020,7 +1021,8 @@ export default function DashboardCombinedCheckoutPage() {
           });
           return false;
         }
-        if (!p.country) {
+        const countryEff = effectiveParticipantCountry(p, bookerCountry, detectedCountry);
+        if (!countryEff) {
           toast({
             title: `${item.programTitle}: Participant ${i + 1} needs country`,
             variant: 'destructive',
@@ -1062,7 +1064,7 @@ export default function DashboardCombinedCheckoutPage() {
       }
     }
     return true;
-  }, [items, toast]);
+  }, [items, toast, bookerCountry, detectedCountry]);
 
   const startTrustedEnrollment = async () => {
     if (!validateAndProceed()) return;
@@ -1088,7 +1090,7 @@ export default function DashboardCombinedCheckoutPage() {
             relationship: p.relationship,
             age: Number.isFinite(ageNum) ? ageNum : 0,
             gender: p.gender,
-            country: p.country,
+            country: effectiveParticipantCountry(p, bookerCountry, detectedCountry),
             city: p.city,
             state: p.state,
             attendance_mode: p.attendance_mode,

@@ -62,11 +62,35 @@ function ageFromDobIso(dob) {
 }
 
 function resolveCountryCode(raw, detectedCountry) {
-  const c = String(raw || '').trim().slice(0, 4);
-  if (c && COUNTRIES_WITH_PHONE.some((x) => x.code === c)) return c;
+  const normalized = String(raw || '').trim();
+  const u = normalized.toUpperCase();
+  if (u.length === 2 && /^[A-Z]{2}$/.test(u)) {
+    if (COUNTRIES_WITH_PHONE.some((x) => x.code === u)) return u;
+    return u;
+  }
+  if (u.length >= 2) {
+    const prefix2 = u.slice(0, 2);
+    if (COUNTRIES_WITH_PHONE.some((x) => x.code === prefix2)) return prefix2;
+  }
+  const low = normalized.toLowerCase();
+  if (low.includes('india')) return 'IN';
+  if (low.includes('emirates') || /\buae\b/i.test(normalized) || low.includes('dubai')) return 'AE';
+  const d = String(detectedCountry || '').trim().toUpperCase();
+  if (d.length === 2 && /^[A-Z]{2}$/.test(d)) return d;
+  return 'AE';
+}
+
+/** Country for validation / API when a cart row is missing ISO2 (common for booker if profile only has city). */
+export function effectiveParticipantCountry(p, bookerCountry, detectedCountry) {
+  const c = String(p?.country || '').trim();
+  if (c) return c;
+  if (String(p?.relationship || '').trim() === 'Myself') {
+    const b = String(bookerCountry || '').trim();
+    if (b) return b;
+  }
   const d = String(detectedCountry || '').trim();
-  if (d && COUNTRIES_WITH_PHONE.some((x) => x.code === d)) return d;
-  return '';
+  if (d) return d;
+  return 'AE';
 }
 
 /** Fill empty fields on `base` from `fill` (for merging immediate family + Annual Family Club rows). */
