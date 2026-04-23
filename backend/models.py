@@ -515,7 +515,7 @@ class SiteSettings(BaseModel):
     enable_loyalty: bool = False
     loyalty_discount_pct: float = 0  # % off for returning clients (have existing UID)
     # Points wallet (earn & burn) — separate from % loyalty discount above
-    points_enabled: bool = False
+    points_enabled: bool = True
     points_max_basket_pct: float = 20.0  # max % of order payable with points
     points_expiry_months: int = 6
     points_inr_per_point: float = 1.0  # cash value of 1 point when redeeming in INR (100 pts ≈ ₹100)

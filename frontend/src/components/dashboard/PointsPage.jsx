@@ -148,9 +148,16 @@ const PointsPage = () => {
               <Coins className="text-amber-600" size={22} /> Points
             </CardTitle>
           </CardHeader>
-          <CardContent>
+          <CardContent className="space-y-3">
             <p className="text-sm text-gray-600">
-              The points program is not active yet. When it is enabled, your balance and history will appear here.
+              The points program is turned off in your studio settings right now, so review links and bonuses are hidden.
+            </p>
+            <p className="text-sm text-gray-600">
+              <span className="font-medium text-gray-800">Administrators:</span> open the admin panel →{' '}
+              <span className="font-medium">Points wallet</span>, switch on <span className="font-medium">Wallet enabled</span>, then
+              set the <span className="font-medium">On</span> toggles for Google / Trustpilot / Facebook under Earn activities, and
+              click <span className="font-medium">Save wallet</span>. Students will then see the full Points page including public
+              review links.
             </p>
           </CardContent>
         </Card>

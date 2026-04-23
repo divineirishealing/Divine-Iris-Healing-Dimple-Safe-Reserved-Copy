@@ -38,7 +38,7 @@ def normalize_email(email: str) -> str:
 
 def _default_config() -> dict:
     return {
-        "enabled": False,
+        "enabled": True,
         "max_basket_pct": 20.0,
         "expiry_months": 6,
         "points_inr_per_point": 1.0,
@@ -94,7 +94,8 @@ def merge_points_activities(stored: Optional[list]) -> List[Dict[str, Any]]:
 def load_points_config(raw: Optional[dict]) -> dict:
     s = raw or {}
     base = _default_config()
-    base["enabled"] = bool(s.get("points_enabled", False))
+    # Default True when the key is omitted so older site_settings docs activate the wallet without a migration.
+    base["enabled"] = bool(s.get("points_enabled", True))
     base["max_basket_pct"] = float(s.get("points_max_basket_pct", 20.0))
     base["expiry_months"] = int(s.get("points_expiry_months", 6))
     base["points_inr_per_point"] = float(s.get("points_inr_per_point", 1.0))

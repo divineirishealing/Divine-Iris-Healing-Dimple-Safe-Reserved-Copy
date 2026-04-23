@@ -11,7 +11,7 @@ const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
 
 const emptyWallet = {
-  points_enabled: false,
+  points_enabled: true,
   points_max_basket_pct: 20,
   points_expiry_months: 6,
   points_inr_per_point: 1,
@@ -156,10 +156,16 @@ export default function PointsWalletTab() {
       </div>
 
       <div className="bg-white rounded-lg border p-5">
-        <div className="flex items-center justify-between mb-4">
-          <div className="flex items-center gap-2">
-            <Star size={16} className="text-amber-600" />
-            <span className="text-sm font-semibold text-gray-900">Wallet enabled</span>
+        <div className="flex items-start justify-between gap-4 mb-4">
+          <div className="flex flex-col gap-0.5">
+            <div className="flex items-center gap-2">
+              <Star size={16} className="text-amber-600" />
+              <span className="text-sm font-semibold text-gray-900">Wallet enabled</span>
+            </div>
+            <p className="text-[10px] text-gray-500 max-w-xl">
+              When on, students see the Points page with balances, bonuses, and public review links (Google / Trustpilot /
+              Facebook). Turn on those rows under Earn activities and save.
+            </p>
           </div>
           <Switch
             checked={!!wallet.points_enabled}
