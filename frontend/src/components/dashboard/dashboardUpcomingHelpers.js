@@ -22,11 +22,18 @@ export function pickTierIndexForDashboard(program, preferAnnualTier) {
  */
 function programKeywordInAnnualPackage(p) {
   const blob = `${p?.title || ''} ${p?.category || ''}`.toLowerCase();
-  const keys = ['money magic', 'mmm', 'atomic weight', 'awrp'];
+  const keys = [
+    'money magic',
+    'mmm',
+    'atomic weight',
+    'awrp',
+    'stress detox',
+    'cortisol reset',
+  ];
   return keys.some((k) => blob.includes(k));
 }
 
-/** Programs covered by the annual package list and/or keyword fallback (MMM, Stress Detox, …). */
+/** Programs covered by the annual package id list and/or keyword fallback (MMM, AWRP, Stress Detox, …). */
 export function programIncludedInAnnualPackage(p, configuredIds) {
   const ids = Array.isArray(configuredIds)
     ? configuredIds.map((x) => String(x).trim()).filter(Boolean)
