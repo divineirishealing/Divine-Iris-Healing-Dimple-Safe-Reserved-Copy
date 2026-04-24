@@ -15,21 +15,34 @@ export function pickTierIndexForDashboard(program, preferAnnualTier) {
   return 0;
 }
 
-/** MMM / AWRP etc. — already in annual package; member only pays for family add-ons. */
+/**
+ * Title/category keyword fallback for annual prepaid package (must stay aligned with
+ * backend `_program_keyword_in_annual_package`). When admins set a non-empty id list,
+ * we still OR these keywords — same as Python `pid in ids or keyword`.
+ */
+function programKeywordInAnnualPackage(p) {
+  const blob = `${p?.title || ''} ${p?.category || ''}`.toLowerCase();
+  const keys = [
+    'money magic',
+    'mmm',
+    'atomic weight',
+    'awrp',
+    'stress detox',
+    'cortisol reset',
+  ];
+  return keys.some((k) => blob.includes(k));
+}
+
+/** Programs covered by the annual package list and/or keyword fallback (MMM, Stress Detox, …). */
 export function programIncludedInAnnualPackage(p, configuredIds) {
   const ids = Array.isArray(configuredIds)
     ? configuredIds.map((x) => String(x).trim()).filter(Boolean)
     : [];
+  const keyword = programKeywordInAnnualPackage(p);
   if (ids.length > 0) {
-    return ids.includes(String(p.id));
+    return ids.includes(String(p?.id)) || keyword;
   }
-  const t = `${p.title || ''} ${p.category || ''}`.toLowerCase();
-  return (
-    t.includes('money magic') ||
-    t.includes('mmm') ||
-    t.includes('atomic weight') ||
-    t.includes('awrp')
-  );
+  return keyword;
 }
 
 /**
