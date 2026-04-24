@@ -107,17 +107,60 @@ function mergeGuestRowsPreferBase(base, fill) {
   return out;
 }
 
+/** Merge rows that share the same primary candidate id so Sacred Home + peer payloads combine (names often live only on peer rows). */
+function mergeGuestRowsByPrimaryId(orderedRows) {
+  const byPrimary = new Map();
+  for (const g of orderedRows) {
+    const keys = candidateIdsForGuestRow(g);
+    if (!keys.length) continue;
+    const primary = keys[0];
+    const prev = byPrimary.get(primary);
+    if (!prev) {
+      byPrimary.set(primary, { ...g });
+      continue;
+    }
+    let merged = mergeGuestRowsPreferBase({ ...prev }, g);
+    merged.household_client_link = !!(prev.household_client_link || g.household_client_link);
+    merged.annual_member_dashboard = !!(prev.annual_member_dashboard || g.annual_member_dashboard);
+    byPrimary.set(primary, merged);
+  }
+  return byPrimary;
+}
+
+function guestDisplayNameFromRow(g) {
+  if (!g) return '';
+  const parts = [g.name, g.full_name, g.display_name, g.client_name].map((x) => String(x || '').trim());
+  const n = parts.find(Boolean) || '';
+  const e = String(g.email || '').trim();
+  return n || e || '';
+}
+
+/** All id-like keys we store on dashboard / CRM guest rows (same person may appear under different ids). */
+function candidateIdsForGuestRow(g) {
+  if (!g || typeof g !== 'object') return [];
+  const keys = [
+    g.id,
+    g._id,
+    g.client_family_id,
+    g.client_id,
+    g.linked_client_id,
+    g.household_client_id,
+    g.dashboard_family_member_id,
+  ];
+  const out = [];
+  for (const x of keys) {
+    if (x == null) continue;
+    const t = String(x).trim();
+    if (t) out.push(t);
+  }
+  return out;
+}
+
 /** Match dashboard family row to cart prefill (ids vary by API shape). */
 export function findEnrollableGuestById(enrollableGuests, id) {
   const s = String(id ?? '').trim();
   if (!s) return undefined;
-  const matches = (enrollableGuests || []).filter(
-    (g) =>
-      g &&
-      (String(g.id) === s ||
-        String(g._id) === s ||
-        (g.client_family_id != null && String(g.client_family_id) === s)),
-  );
+  const matches = (enrollableGuests || []).filter((g) => g && candidateIdsForGuestRow(g).includes(s));
   if (matches.length === 0) return undefined;
   if (matches.length === 1) return matches[0];
   return matches.reduce((acc, row) => mergeGuestRowsPreferBase(acc, row));
@@ -222,18 +265,12 @@ export function mergeGlobalSeatDraft(perProgramDraft, bookerSeatMode, bookerSeat
 export function mergeEnrollableGuestsForPortalCart(home) {
   const im = home?.immediate_family || [];
   const ot = home?.other_guests || [];
-  const peers = home?.annual_household_club_ok ? home?.annual_household_peers || [] : [];
-  const seen = new Set();
-  const out = [];
-  for (const g of [...im, ...ot, ...peers]) {
-    if (!g?.id) continue;
-    const id = String(g.id);
-    if (seen.has(id)) continue;
-    seen.add(id);
-    out.push(g);
-  }
+  /** Always merge peers for name/id lookup on checkout — Sacred Home may list them even when club_ok is false. */
+  const peers = home?.annual_household_peers || [];
+  const mergedMap = mergeGuestRowsByPrimaryId([...im, ...ot, ...peers]);
+  const out = Array.from(mergedMap.values());
   for (const g of [...im, ...ot]) {
-    if (g?.id) continue;
+    if (candidateIdsForGuestRow(g).length) continue;
     out.push(g);
   }
   return out;
@@ -242,26 +279,20 @@ export function mergeEnrollableGuestsForPortalCart(home) {
 /** Members used to resolve household_client_link for bucket map (immediate + same-key peers only). */
 export function guestBucketLookupMembersFromHome(home) {
   const im = home?.immediate_family || [];
-  const peers = home?.annual_household_club_ok ? home?.annual_household_peers || [] : [];
-  const seen = new Set();
-  const out = [];
-  for (const g of [...im, ...peers]) {
-    if (!g?.id) continue;
-    const id = String(g.id);
-    if (seen.has(id)) continue;
-    seen.add(id);
-    out.push(g);
-  }
-  return out;
+  const peers = home?.annual_household_peers || [];
+  const mergedMap = mergeGuestRowsByPrimaryId([...im, ...peers]);
+  return Array.from(mergedMap.values());
 }
 
 /** Map selected guest ids → annual_household | immediate | extended (aligned with /dashboard-quote). */
 export function buildGuestBucketByIdFromSelection(selIds, immediateFamilyMembers) {
-  const byId = new Map(
-    (immediateFamilyMembers || [])
-      .filter((m) => m && m.id != null)
-      .map((m) => [String(m.id), m]),
-  );
+  const byId = new Map();
+  for (const m of immediateFamilyMembers || []) {
+    if (!m) continue;
+    for (const k of candidateIdsForGuestRow(m)) {
+      if (!byId.has(k)) byId.set(k, m);
+    }
+  }
   const out = {};
   for (const raw of selIds || []) {
     const id = String(raw ?? '').trim();
@@ -333,10 +364,11 @@ export function buildAnnualDashboardCartParticipants({
   }
 
   const guestBucketById = buildGuestBucketByIdFromSelection(selectedMemberIds, immediateFamilyMembers);
+  const guestLookupPool = [...(enrollableGuests || []), ...(immediateFamilyMembers || [])];
 
   const ids = (selectedMemberIds || []).map((x) => String(x));
   for (const id of ids) {
-    const member = findEnrollableGuestById(enrollableGuests, id);
+    const member = findEnrollableGuestById(guestLookupPool, id);
     const row = guestForm[id] || guestForm[String(id)] || {};
     const attendance_mode = row.attendance_mode === 'offline' ? 'offline' : 'online';
     const notifyEnrollment = !!row.notify_enrollment;
@@ -346,7 +378,7 @@ export function buildAnnualDashboardCartParticipants({
     const age =
       (member && (String(member.age || '').trim() || ageFromDobIso(member.date_of_birth))) || '';
     const city = member ? String(member.city || '').trim() : '';
-    const rawName = member ? String(member.name || '').trim() : '';
+    const rawName = member ? guestDisplayNameFromRow(member) : '';
     const rawEmail = member ? String(member.email || '').trim() : '';
     const displayName = rawName || rawEmail || `Guest (${id.length > 10 ? `…${id.slice(-6)}` : id})`;
     const relationship = member
