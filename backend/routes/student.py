@@ -398,6 +398,18 @@ def _program_keyword_in_annual_package(program: dict) -> bool:
     return any(k in blob for k in keys)
 
 
+def _peer_row_included_in_guest_annual_package(
+    program: dict, configured_ids: Optional[List], row: dict
+) -> bool:
+    """Program is on the prepaid annual-package list and this row is a same-key household peer with
+    Client Garden Annual access. Used when the logged-in payer is not annual but linked accounts are."""
+    if not _program_included_in_annual_package(program, configured_ids):
+        return False
+    if not bool(row.get("household_client_link")):
+        return False
+    return bool(row.get("annual_member_dashboard"))
+
+
 def _program_included_in_annual_package(program: dict, configured_ids: Optional[List] = None) -> bool:
     """Programs in annual package: member seat included; they only pay for family add-ons.
 
@@ -667,7 +679,12 @@ async def _resolve_family_rows(
 
 
 def _split_resolved_guest_rows_plain_peer_ext(
-    client: dict, rows: List[dict], *, included_in_package: bool = False
+    client: dict,
+    rows: List[dict],
+    *,
+    included_in_package: bool = False,
+    program: Optional[dict] = None,
+    annual_package_program_ids: Optional[List] = None,
 ) -> Tuple[int, int, int]:
     """Split selected guests into plain immediate family, annual household peers, and extended.
 
@@ -677,6 +694,9 @@ def _split_resolved_guest_rows_plain_peer_ext(
     clubbed for checkout; the link flag alone determines the annual column. Plain immediate seats
     use the **Family** column. When ``included_in_package`` is True, linked annual peers do not add
     to tier pricing (covered by prepaid package).
+
+    When the payer is not on an annual dashboard package but a peer has Annual access and the program
+    is in the annual package list, that peer seat is waived (their own package covers it).
     """
     im_ids = {str(m.get("id")) for m in (client.get("immediate_family") or []) if m.get("id")}
     plain = 0
@@ -689,6 +709,13 @@ def _split_resolved_guest_rows_plain_peer_ext(
             continue
         is_peer = bool(r.get("household_client_link"))
         if included_in_package and is_peer:
+            continue
+        if (
+            not included_in_package
+            and program is not None
+            and is_peer
+            and _peer_row_included_in_guest_annual_package(program, annual_package_program_ids, r)
+        ):
             continue
         if included_in_package and not is_peer:
             plain += 1
@@ -789,21 +816,25 @@ async def compute_dashboard_annual_family_pricing(
     include_self: bool = True,
     tier_index_override: Optional[int] = None,
     apply_tier_offer_prices: bool = True,
+    *,
+    booker_annual_portal: bool = True,
 ) -> dict:
     """Portal pricing for logged-in clients (Sacred Home + Divine Cart).
 
     Tier `offer_price_*` is used when set (same basis as the public website). Optional dashboard overlays
-    (`annual_offer`, `family_offer`, `extended_guest_offer`) are merged by callers; when Client Garden
-    access is Non-annual (`annual_member_dashboard` false), callers pass empty dicts so only tier
-    list/offer applies. `apply_tier_offer_prices` is retained for compatibility; callers use True so
-    tier promotional prices match the website.
+    (`annual_offer`, `family_offer`, `extended_guest_offer`) are merged by callers.
+
+    When ``booker_annual_portal`` is True (Client Garden Annual access), the booker's seat uses the
+    annual offer column; household peers also use the annual column. When False, the booker's seat
+    uses the **family / immediate** column (same basis as plain immediate guests), while peers still
+    use the annual column so linked Annual members get the correct rate.
 
     ``immediate_family_count_peer`` = same-key annual household peers (Annual portal column);
     ``immediate_family_count_plain`` = saved immediate family who are not linked peers (Family column).
     """
     cur = (currency or "aed").lower()
     self_tier, fam_tier = _pick_self_and_family_tier_indices(program, tier_index_override)
-    self_unit = _portal_tier_unit_price(program, self_tier, cur, apply_tier_offer_prices) if include_self else 0.0
+    self_unit_list = _portal_tier_unit_price(program, self_tier, cur, apply_tier_offer_prices) if include_self else 0.0
     fam_unit = _portal_tier_unit_price(program, fam_tier, cur, apply_tier_offer_prices)
     imm_fc_plain = max(0, int(immediate_family_count_plain))
     imm_fc_peer = max(0, int(immediate_family_count_peer))
@@ -812,38 +843,49 @@ async def compute_dashboard_annual_family_pricing(
     fc_total = imm_fc + ext_fc
 
     ao = annual_offer or {}
+    fo_for_self = family_offer or {}
 
     annual_promo_applied = False
-    if include_self and ao.get("enabled"):
-        rule = (ao.get("pricing_rule") or "promo").lower().strip()
-        if rule in ("promo", ""):
-            code = (ao.get("promo_code") or "").strip()
-            ap = await _promo_doc_for_program(code, program_id) if code else None
-            d = _promo_discount_on_line(ap, self_unit, cur)
-            self_after = max(0.0, round(self_unit - d, 2))
-            annual_promo_applied = bool(ap) and d > 0
-            member_rule = "promo"
-        elif rule == "percent_off":
-            pct = min(100.0, max(0.0, float(ao.get("percent_off") or 0)))
-            self_after = max(0.0, round(self_unit * (1 - pct / 100), 2))
-            member_rule = "percent_off"
-        elif rule == "amount_off":
-            amt = _read_currency_amount(ao, "amount_off", cur)
-            self_after = max(0.0, round(self_unit - min(self_unit, amt), 2))
-            member_rule = "amount_off"
-        elif rule == "fixed_price":
-            fp = _read_currency_amount(ao, "fixed_price", cur)
-            self_after = max(0.0, round(fp, 2)) if fp > 0 else max(0.0, round(self_unit, 2))
-            member_rule = "fixed_price"
+    if include_self:
+        if booker_annual_portal:
+            self_unit = self_unit_list
+            if ao.get("enabled"):
+                rule = (ao.get("pricing_rule") or "promo").lower().strip()
+                if rule in ("promo", ""):
+                    code = (ao.get("promo_code") or "").strip()
+                    ap = await _promo_doc_for_program(code, program_id) if code else None
+                    d = _promo_discount_on_line(ap, self_unit, cur)
+                    self_after = max(0.0, round(self_unit - d, 2))
+                    annual_promo_applied = bool(ap) and d > 0
+                    member_rule = "promo"
+                elif rule == "percent_off":
+                    pct = min(100.0, max(0.0, float(ao.get("percent_off") or 0)))
+                    self_after = max(0.0, round(self_unit * (1 - pct / 100), 2))
+                    member_rule = "percent_off"
+                elif rule == "amount_off":
+                    amt = _read_currency_amount(ao, "amount_off", cur)
+                    self_after = max(0.0, round(self_unit - min(self_unit, amt), 2))
+                    member_rule = "amount_off"
+                elif rule == "fixed_price":
+                    fp = _read_currency_amount(ao, "fixed_price", cur)
+                    self_after = max(0.0, round(fp, 2)) if fp > 0 else max(0.0, round(self_unit, 2))
+                    member_rule = "fixed_price"
+                else:
+                    self_after = max(0.0, round(self_unit, 2))
+                    member_rule = "list"
+            else:
+                self_after = max(0.0, round(self_unit, 2))
+                member_rule = "list"
         else:
-            self_after = max(0.0, round(self_unit, 2))
-            member_rule = "list"
-    elif include_self:
-        self_after = max(0.0, round(self_unit, 2))
-        member_rule = "list"
+            # Non-annual payer: "You" uses Family / immediate column (fam tier + family_offer).
+            self_unit = fam_unit
+            _sg, self_after, member_rule, annual_promo_applied = await _apply_portal_guest_line_offer(
+                program_id, currency, fam_unit, 1, fo_for_self, program
+            )
     else:
         self_after = 0.0
         member_rule = "included_in_package"
+        self_unit = 0.0
 
     # Annual household peers: same dashboard rules as "You (Annual Member)" (`annual_offer`).
     ig_p, imm_after_p, imm_rule_p, imm_promo_p = await _apply_portal_guest_line_offer(
@@ -1197,7 +1239,11 @@ async def _portal_combined_dashboard_total(user: dict, profile: ProfileData) -> 
         if id_list:
             resolved_rows = [fam_by_row[i] for i in id_list if i in fam_by_row]
             imm_plain, imm_peer, ext_fc = _split_resolved_guest_rows_plain_peer_ext(
-                client, resolved_rows, included_in_package=included
+                client,
+                resolved_rows,
+                included_in_package=included,
+                program=program,
+                annual_package_program_ids=inc_cfg,
             )
         else:
             imm_plain, imm_peer, ext_fc = 0, 0, 0
@@ -1207,8 +1253,6 @@ async def _portal_combined_dashboard_total(user: dict, profile: ProfileData) -> 
         else:
             include_self = bool(line.booker_joins)
         ao, fo, eo = _merge_program_dashboard_offers(g_ao, g_fo, g_eo, pid, per_map)
-        if not annual_dashboard_access:
-            ao, fo, eo = {}, {}, {}
         fo_plain = _family_offer_for_included_package_guests(included, imm_plain, fo)
         pricing = await compute_dashboard_annual_family_pricing(
             program,
@@ -1223,6 +1267,7 @@ async def _portal_combined_dashboard_total(user: dict, profile: ProfileData) -> 
             include_self=include_self,
             tier_index_override=line.tier_index,
             apply_tier_offer_prices=True,
+            booker_annual_portal=annual_dashboard_access,
         )
         total += float(pricing.get("total") or 0)
     return round(total, 2), cur
@@ -1323,15 +1368,18 @@ async def dashboard_quote(
     g_eo = settings_doc.get("dashboard_offer_extended") or {}
     per_map = settings_doc.get("dashboard_program_offers") or {}
     ao, fo, eo = _merge_program_dashboard_offers(g_ao, g_fo, g_eo, program_id, per_map)
-    if not annual_dashboard_access:
-        ao, fo, eo = {}, {}, {}
     plain_sel, peer_sel = 0, 0
+    inc_cfg = settings_doc.get("annual_package_included_program_ids")
     if id_list:
         fam_by_row = {str(m.get("id")): m for m in fam if m.get("id")}
         resolved_rows = [fam_by_row[i] for i in id_list if i in fam_by_row]
         plain_sel, peer_sel = _selection_counts_plain_peer_display(client, resolved_rows)
         imm_plain, imm_peer, ext_fc = _split_resolved_guest_rows_plain_peer_ext(
-            client, resolved_rows, included_in_package=included
+            client,
+            resolved_rows,
+            included_in_package=included,
+            program=program,
+            annual_package_program_ids=inc_cfg,
         )
     else:
         resolved_rows = []
@@ -1351,7 +1399,9 @@ async def dashboard_quote(
         include_self=include_self,
         tier_index_override=tier_index,
         apply_tier_offer_prices=True,
+        booker_annual_portal=annual_dashboard_access,
     )
+    peer_pkg_inc = max(0, int(peer_sel) - int(imm_peer)) if id_list else 0
     cur = str(pricing.get("currency") or "aed").lower()
     gst_pct = float(settings_doc.get("india_gst_percent") or 18)
     tot = float(pricing.get("total") or 0)
