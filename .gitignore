@@ -141,3 +141,6 @@ issues.md
 
 # Local plans (not for version control)
 plans/
+
+# Personal tools (not part of this project)
+personal/
