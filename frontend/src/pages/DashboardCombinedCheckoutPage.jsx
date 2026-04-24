@@ -60,12 +60,12 @@ function countRosterGuestsInBucket(participants, guestBucketById, bucket) {
     const id = String(p.dashboard_family_member_id || '').trim();
     const fromP = p.portal_guest_bucket;
     const b =
-      fromP === 'immediate' || fromP === 'extended' || fromP === 'annual_household'
-        ? fromP
-        : id && guestBucketById && guestBucketById[id] === 'annual_household'
-          ? 'annual_household'
-          : id && guestBucketById && guestBucketById[id] === 'immediate'
-            ? 'immediate'
+      id && guestBucketById && guestBucketById[id] === 'annual_household'
+        ? 'annual_household'
+        : id && guestBucketById && guestBucketById[id] === 'immediate'
+          ? 'immediate'
+          : fromP === 'immediate' || fromP === 'extended' || fromP === 'annual_household'
+            ? fromP
             : 'extended';
     if (b === bucket) c += 1;
   }
@@ -85,13 +85,14 @@ function annualPortalSeatUnitBasePrices(quote, participant, guestBucketById, par
   }
   const id = String(participant.dashboard_family_member_id || '').trim();
   const fromP = participant.portal_guest_bucket;
+  /** `guestBucketById` from dashboard sync wins over stale `portal_guest_bucket` on the row. */
   const bucket =
-    fromP === 'immediate' || fromP === 'extended' || fromP === 'annual_household'
-      ? fromP
-      : id && guestBucketById && guestBucketById[id] === 'annual_household'
-        ? 'annual_household'
-        : id && guestBucketById && guestBucketById[id] === 'immediate'
-          ? 'immediate'
+    id && guestBucketById && guestBucketById[id] === 'annual_household'
+      ? 'annual_household'
+      : id && guestBucketById && guestBucketById[id] === 'immediate'
+        ? 'immediate'
+        : fromP === 'immediate' || fromP === 'extended' || fromP === 'annual_household'
+          ? fromP
           : 'extended';
   const roster = participants || [];
   if (bucket === 'annual_household') {
@@ -129,9 +130,9 @@ function resolvePortalGuestBucket(participant, guestBucketById) {
   if (String(participant.relationship || '').trim() === 'Myself') return 'self';
   const id = String(participant.dashboard_family_member_id || '').trim();
   const fromP = participant.portal_guest_bucket;
-  if (fromP === 'immediate' || fromP === 'extended' || fromP === 'annual_household') return fromP;
   if (id && guestBucketById && guestBucketById[id] === 'annual_household') return 'annual_household';
   if (id && guestBucketById && guestBucketById[id] === 'immediate') return 'immediate';
+  if (fromP === 'immediate' || fromP === 'extended' || fromP === 'annual_household') return fromP;
   return 'extended';
 }
 
@@ -1411,7 +1412,8 @@ export default function DashboardCombinedCheckoutPage() {
               </p>
               <p className="text-sm sm:text-base font-semibold text-green-700 mt-2 tabular-nums">
                 Save {symbol}
-                {(seatListOfferRollup.listTotal - seatListOfferRollup.offerTotal).toLocaleString()} on listed prices
+                {(seatListOfferRollup.listTotal - seatListOfferRollup.offerTotal).toLocaleString()} vs list — already
+                included in subtotal
               </p>
             </div>
           ) : null}
@@ -1472,7 +1474,7 @@ export default function DashboardCombinedCheckoutPage() {
             </div>
           ) : null}
           <div className="flex justify-between text-sm font-semibold text-green-800 border-t border-dashed border-green-200/80 pt-2 mt-2">
-            <span>Total discount</span>
+            <span>Extra off (promos &amp; rewards)</span>
             <span className="tabular-nums">
               {totalDiscountIncludingIndia > 0
                 ? `-${symbol} ${totalDiscountIncludingIndia.toLocaleString()}`
