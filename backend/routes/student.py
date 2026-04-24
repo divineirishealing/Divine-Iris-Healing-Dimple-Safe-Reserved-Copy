@@ -800,12 +800,11 @@ async def _apply_portal_guest_line_offer(
             family_rule = "amount_off"
         elif rule == "fixed_price":
             pseat = _read_currency_amount(fo, "fixed_price", cur)
-            # Global dashboard "family fixed" (e.g. ₹1,111) is meant to cap cheap add-on seats on big
-            # programs, not to undercut each program's own tier/offer line. If fixed is **below** the
-            # tier unit, keep list pricing (e.g. Stress Detox ₹1,200 vs global ₹1,111). If fixed is
-            # **above** tier, it still applies (intentional uplift). For sub-list family promos, use
-            # per-program dashboard offers or percent/amount off instead of global fixed.
-            use_tier_not_global_fixed = pseat > 0 and fam_unit > 0 and pseat < fam_unit
+            # Global dashboard fixed (e.g. ₹1,111 family / ₹1,200 extended) vs a much larger tier list
+            # (e.g. MMM): use the program tier line so flagship pricing is not replaced by a short-course
+            # global seat price. When fixed is close to tier (e.g. detox), keep fixed — callers route
+            # the account holder to the right column (extended vs immediate family).
+            use_tier_not_global_fixed = pseat > 0 and fam_unit > 0 and pseat < fam_unit * 0.5
             if use_tier_not_global_fixed:
                 fam_after = max(0.0, round(fam_line_gross, 2))
                 family_rule = "list"
@@ -846,9 +845,10 @@ async def compute_dashboard_annual_family_pricing(
     (`annual_offer`, `family_offer`, `extended_guest_offer`) are merged by callers.
 
     When ``booker_annual_portal`` is True (Client Garden Annual access), the booker's seat uses the
-    annual offer column; household peers also use the annual column. When False, the booker's seat
-    uses the **family / immediate** column (same basis as plain immediate guests), while peers still
-    use the annual column so linked Annual members get the correct rate.
+    annual offer column; household peers also use the annual column. When False, the booker's
+    **own seat** uses the **extended** offer column (``extended_guest_offer`` — e.g. ₹1,200), not
+    the immediate-family column (e.g. ₹1,111). Plain immediate-family guest seats still use
+    ``family_offer``; annual peers still use ``annual_offer``.
 
     ``immediate_family_count_peer`` = same-key annual household peers (Annual portal column);
     ``immediate_family_count_plain`` = saved immediate family who are not linked peers (Family column).
@@ -864,7 +864,6 @@ async def compute_dashboard_annual_family_pricing(
     fc_total = imm_fc + ext_fc
 
     ao = annual_offer or {}
-    fo_for_self = family_offer or {}
 
     annual_promo_applied = False
     if include_self:
@@ -898,10 +897,10 @@ async def compute_dashboard_annual_family_pricing(
                 self_after = max(0.0, round(self_unit, 2))
                 member_rule = "list"
         else:
-            # Non-annual payer: "You" uses Family / immediate column (fam tier + family_offer).
+            # Non-annual payer: "You" uses Extended / "other" column — not immediate family (₹1,111).
             self_unit = fam_unit
             _sg, self_after, member_rule, annual_promo_applied = await _apply_portal_guest_line_offer(
-                program_id, currency, fam_unit, 1, fo_for_self, program
+                program_id, currency, fam_unit, 1, extended_guest_offer or {}, program
             )
     else:
         self_after = 0.0

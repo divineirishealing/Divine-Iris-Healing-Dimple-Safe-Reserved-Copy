@@ -642,17 +642,19 @@ const DashboardSettingsTab = ({ settings, onChange, programs = [] }) => {
             <strong className="text-gray-700 font-medium">Member, immediate family, and friends &amp; extended use separate portal pricing</strong>
             — different promos, % off, amounts, or fixed prices per column. Extended guests do not use the family column unless you
             mirror the same rules there. Checkout currency follows the student&apos;s region.{' '}
-            <strong className="text-gray-700">These portal rules (global and per-program below) apply only when the client&apos;s Dashboard Access type is Annual</strong>
-            in Client Garden; Non-annual access uses public website tier pricing at checkout.
+            <strong className="text-gray-700">Global and per-program overrides below apply on Sacred Home / Divine Cart</strong>{' '}
+            for both Annual and Non-annual dashboard access; tier list prices are the baseline before column rules.
           </p>
           <p className="text-[10px] text-gray-500 mb-4 border-l-2 border-[#D4AF37]/50 pl-2">
-            Columns: <strong>your seat</strong> · <strong>immediate household</strong> · <strong>friends &amp; extended</strong>.
+            Columns: <strong>annual member (your seat)</strong> · <strong>immediate household</strong> ·{' '}
+            <strong>friends &amp; extended</strong>. For <strong>Non-annual</strong> clients, their own seat uses the{' '}
+            <strong>friends &amp; extended</strong> column; immediate-family guests use the middle column; annual household peers use the annual column.
           </p>
           <p className="text-[10px] text-gray-600 mb-4 leading-snug rounded-md border border-slate-200/80 bg-slate-50/90 px-2.5 py-2">
             <strong className="text-gray-800">Two dashboard access types (Client Garden):</strong>{' '}
             <strong>Annual</strong> — programs ticked under &quot;Annual package — included programs&quot; do not charge the
             member&apos;s own seat; all other programs use the portal offers here (global + per-program).{' '}
-            <strong>Non-annual</strong> — checkout matches the public website (upcoming program tier list/offer); these columns are ignored.
+            <strong>Non-annual</strong> — the account holder&apos;s seat uses the friends &amp; extended offers; package inclusion does not apply.
           </p>
         </div>
 
