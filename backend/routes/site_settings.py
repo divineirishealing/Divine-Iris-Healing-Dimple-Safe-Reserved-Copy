@@ -74,6 +74,13 @@ def _mongo_doc_for_site_settings(doc: Optional[dict]) -> dict:
         out["inr_whitelist_emails"] = _normalize_inr_whitelist_from_payload(wl)
     ph = out.get("pricing_hub_email_overrides")
     out["pricing_hub_email_overrides"] = _normalize_pricing_hub_email_overrides(ph)
+    dm = out.get("dashboard_maintenance_bypass_emails")
+    if dm is None:
+        out["dashboard_maintenance_bypass_emails"] = []
+    elif not isinstance(dm, list):
+        out["dashboard_maintenance_bypass_emails"] = []
+    else:
+        out["dashboard_maintenance_bypass_emails"] = _normalize_inr_whitelist_from_payload(dm)
     return out
 
 
@@ -199,6 +206,14 @@ async def update_settings(payload: Dict[str, Any]):
         update_data['dashboard_program_offers'] = raw['dashboard_program_offers']
     if raw.get('dashboard_element_visibility') is not None:
         update_data['dashboard_element_visibility'] = raw['dashboard_element_visibility']
+    if "dashboard_maintenance_bypass_emails" in payload:
+        update_data["dashboard_maintenance_bypass_emails"] = _normalize_inr_whitelist_from_payload(
+            payload.get("dashboard_maintenance_bypass_emails")
+        )
+    if hasattr(settings, "model_fields_set") and "dashboard_maintenance_enabled" in settings.model_fields_set:
+        update_data["dashboard_maintenance_enabled"] = bool(settings.dashboard_maintenance_enabled)
+    if raw.get("dashboard_maintenance_message") is not None:
+        update_data["dashboard_maintenance_message"] = raw["dashboard_maintenance_message"]
     if raw.get('india_payment_gateway') is not None:
         update_data['india_payment_gateway'] = raw['india_payment_gateway']
     if raw.get('india_bank_accounts') is not None:

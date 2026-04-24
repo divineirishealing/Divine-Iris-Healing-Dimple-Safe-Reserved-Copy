@@ -18,7 +18,7 @@ from routes import admin_clients, student, points as points_admin
 from routes import auth
 from routes import contact_update
 from routes.auth import get_current_user
-from routes.student import list_student_orders_impl
+from routes.student import list_student_orders_impl, get_current_student_user
 from routes import subscribers
 from routes import emi_payments
 from routes import annual_subscribers as annual_subscribers_module
@@ -134,7 +134,7 @@ async def health():
 
 @api_router.get("/student/orders", tags=["Student Dashboard"])
 @api_router.get("/student/order-history", tags=["Student Dashboard"])
-async def student_orders_list(user: dict = Depends(get_current_user)):
+async def student_orders_list(user: dict = Depends(get_current_student_user)):
     """Registered on api_router (same mount chain as /api/health) so order history is always reachable."""
     return await list_student_orders_impl(user)
 

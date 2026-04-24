@@ -1,14 +1,19 @@
 import React, { useState, useMemo } from 'react';
 import { Outlet, useLocation } from 'react-router-dom';
+import axios from 'axios';
 import { useAuth } from '../context/AuthContext';
 import { useDashboardScrollSession } from '../hooks/useDashboardScrollSession';
 import { useSiteSettings } from '../context/SiteSettingsContext';
 import { NavLink } from 'react-router-dom';
-import { Loader2, Menu, X, Home, Sprout, Calendar, TrendingUp, Sparkles, Heart, BookOpen, User, CreditCard, LogOut, Coins, ShoppingCart, ClipboardList } from 'lucide-react';
+import { Loader2, Menu, X, Home, Sprout, Calendar, TrendingUp, Sparkles, Heart, BookOpen, User, CreditCard, LogOut, Coins, ShoppingCart, ClipboardList, Wrench } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { CosmicDashboardBackground } from '../components/dashboard/CosmicDashboardBackground';
 import { getDashboardCosmicVariant } from '../lib/dashboardCosmicThemes';
 import { mergeDashboardVisibility } from '../lib/dashboardVisibility';
+import { getApiUrl } from '../lib/config';
+import { getAuthHeaders } from '../lib/authHeaders';
+
+const STUDENT_API = getApiUrl();
 
 const NAV_ITEMS = [
   { to: '/dashboard', label: 'Overview', icon: Home, exact: true, visKey: null },
@@ -37,6 +42,47 @@ const DashboardLayout = () => {
   const location = useLocation();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [bgVideo, setBgVideo] = useState('');
+  const [sacredHomeCheckDone, setSacredHomeCheckDone] = useState(false);
+  const [sacredHomeMaintenanceMessage, setSacredHomeMaintenanceMessage] = useState(null);
+
+  React.useEffect(() => {
+    if (loading || !user) return;
+    if (user.impersonating) {
+      setSacredHomeMaintenanceMessage(null);
+      setSacredHomeCheckDone(true);
+      return;
+    }
+    let cancelled = false;
+    setSacredHomeCheckDone(false);
+    (async () => {
+      try {
+        await axios.get(`${STUDENT_API}/student/home`, {
+          withCredentials: true,
+          headers: getAuthHeaders(),
+          timeout: 25000,
+        });
+        if (!cancelled) {
+          setSacredHomeMaintenanceMessage(null);
+          setSacredHomeCheckDone(true);
+        }
+      } catch (e) {
+        if (cancelled) return;
+        const st = e.response?.status;
+        const d = e.response?.data?.detail;
+        if (st === 503 && d && typeof d === 'object' && d.maintenance) {
+          setSacredHomeMaintenanceMessage(
+            typeof d.message === 'string' ? d.message : 'Sacred Home is temporarily unavailable.'
+          );
+        } else {
+          setSacredHomeMaintenanceMessage(null);
+        }
+        setSacredHomeCheckDone(true);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [loading, user?.id, user?.email, user?.impersonating]);
 
   React.useEffect(() => {
     fetch(`${process.env.REACT_APP_BACKEND_URL}/api/settings`)
@@ -66,6 +112,50 @@ const DashboardLayout = () => {
   }
 
   if (!user) { window.location.href = '/login'; return null; }
+
+  if (!sacredHomeCheckDone) {
+    return (
+      <div
+        className="min-h-screen flex items-center justify-center relative overflow-hidden font-lato"
+        style={{
+          background: 'linear-gradient(165deg, #1a0a3e 0%, #2d1b69 45%, #4c1d95 100%)',
+        }}
+      >
+        <div
+          className="absolute inset-0 opacity-50 pointer-events-none"
+          style={{
+            background:
+              'radial-gradient(ellipse 100% 60% at 50% 0%, rgba(196, 181, 253, 0.22) 0%, transparent 55%)',
+          }}
+        />
+        <Loader2 className="animate-spin text-[#D4AF37] relative z-10 drop-shadow-[0_0_12px_rgba(212,175,55,0.5)]" size={32} />
+      </div>
+    );
+  }
+
+  if (sacredHomeMaintenanceMessage) {
+    return (
+      <div
+        className="min-h-screen flex flex-col items-center justify-center px-6 py-12 font-lato bg-gradient-to-b from-[#1a0a3e] via-[#2d1b69] to-[#1e1050] text-slate-100"
+        data-testid="dashboard-maintenance-screen"
+      >
+        <Wrench className="h-12 w-12 text-[#D4AF37] mb-4 opacity-90" aria-hidden />
+        <h1 className="text-xl font-semibold text-center text-white mb-3" style={{ fontFamily: "'Cinzel', Georgia, serif" }}>
+          Sacred Home is paused
+        </h1>
+        <p className="text-sm text-center text-violet-100/90 max-w-md leading-relaxed mb-8">
+          {sacredHomeMaintenanceMessage}
+        </p>
+        <button
+          type="button"
+          onClick={() => logout('/login')}
+          className="rounded-lg bg-[#D4AF37] text-slate-900 px-5 py-2.5 text-sm font-medium hover:bg-[#c9a532]"
+        >
+          Sign out
+        </button>
+      </div>
+    );
+  }
 
   const cosmicVariant = getDashboardCosmicVariant(location.pathname);
   const isSacredHomeOverview =

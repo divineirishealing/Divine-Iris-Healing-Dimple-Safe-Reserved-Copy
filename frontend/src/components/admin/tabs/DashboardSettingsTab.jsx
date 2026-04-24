@@ -5,7 +5,7 @@ import { Input } from '../../ui/input';
 import { Button } from '../../ui/button';
 import { Switch } from '../../ui/switch';
 import { Textarea } from '../../ui/textarea';
-import { RefreshCw, Sparkles, Users, Layers, LayoutGrid, PanelLeft, Upload } from 'lucide-react';
+import { RefreshCw, Sparkles, Users, Layers, LayoutGrid, PanelLeft, Upload, Wrench } from 'lucide-react';
 import { useToast } from '../../../hooks/use-toast';
 import { useSiteSettings } from '../../../context/SiteSettingsContext';
 import { DASHBOARD_VISIBILITY_KEYS, DEFAULT_DASHBOARD_VISIBILITY } from '../../../lib/dashboardVisibility';
@@ -631,6 +631,73 @@ const DashboardSettingsTab = ({ settings, onChange, programs = [] }) => {
             />
           </div>
         ) : null}
+      </div>
+
+      {/* Sacred Home maintenance — closes student API for everyone except bypass emails & admin impersonation */}
+      <div
+        className="mt-8 rounded-lg border border-amber-300/80 bg-amber-50/50 p-6 space-y-4"
+        data-testid="dashboard-maintenance-admin"
+      >
+        <div className="flex items-start gap-2">
+          <Wrench className="h-5 w-5 text-amber-800 shrink-0 mt-0.5" aria-hidden />
+          <div>
+            <h3 className="text-sm font-semibold text-gray-900">Sacred Home maintenance mode</h3>
+            <p className="text-[11px] text-gray-600 mt-1 leading-snug">
+              When <strong>on</strong>, clients cannot load Sacred Home or any{' '}
+              <code className="text-[10px] bg-white/80 px-1 rounded">/api/student/*</code> route (503).{' '}
+              <strong>Admin</strong> uses <code className="text-[10px] bg-white/80 px-1 rounded">/admin</code> — unaffected.{' '}
+              <strong>Admin impersonation</strong> (&quot;view as client&quot;) still works. Add your own login email under{' '}
+              <em>Bypass emails</em> so you can test the real dashboard while it stays closed for everyone else.
+            </p>
+          </div>
+        </div>
+        <div className="flex items-center justify-between gap-3 flex-wrap">
+          <Label className="text-xs font-medium text-gray-800">Close Sacred Home for clients</Label>
+          <Switch
+            checked={!!settings.dashboard_maintenance_enabled}
+            onCheckedChange={(v) =>
+              onChange({
+                ...settings,
+                dashboard_maintenance_enabled: !!v,
+              })
+            }
+          />
+        </div>
+        <div className="space-y-1.5">
+          <Label className="text-[11px] text-gray-700">Message for clients (shown on maintenance screen)</Label>
+          <Textarea
+            value={
+              settings.dashboard_maintenance_message ||
+              'Sacred Home is temporarily unavailable while we make improvements. Please check back soon.'
+            }
+            onChange={(e) =>
+              onChange({
+                ...settings,
+                dashboard_maintenance_message: e.target.value,
+              })
+            }
+            className="text-xs min-h-[72px]"
+            rows={3}
+          />
+        </div>
+        <div className="space-y-1.5">
+          <Label className="text-[11px] text-gray-700">Bypass emails (comma-separated — can still use Sacred Home)</Label>
+          <Input
+            className="text-xs font-mono h-9"
+            placeholder="you@example.com, dev@example.com"
+            value={(settings.dashboard_maintenance_bypass_emails || []).join(', ')}
+            onChange={(e) => {
+              const emails = e.target.value
+                .split(/[,;\n]+/)
+                .map((s) => s.trim().toLowerCase())
+                .filter((s) => s.includes('@'));
+              onChange({
+                ...settings,
+                dashboard_maintenance_bypass_emails: emails,
+              });
+            }}
+          />
+        </div>
       </div>
 
       {/* Student dashboard: annual vs family offers (Sacred Home) */}

@@ -586,6 +586,12 @@ class SiteSettings(BaseModel):
     dashboard_program_offers: Dict[str, Any] = Field(default_factory=dict)
     # Student dashboard: show/hide overview tiles and sidebar links (Admin → Dashboard). Missing keys = visible.
     dashboard_element_visibility: Dict[str, Any] = Field(default_factory=dict)
+    # Sacred Home maintenance: blocks /api/student/* for signed-in clients except bypass emails & admin impersonation.
+    dashboard_maintenance_enabled: bool = False
+    dashboard_maintenance_message: str = (
+        "Sacred Home is temporarily unavailable while we make improvements. Please check back soon."
+    )
+    dashboard_maintenance_bypass_emails: List[str] = Field(default_factory=list)
     india_payment_gateway: dict = {}
     india_bank_accounts: list = []
     # Site-wide GPay / UPI IDs (manual proof flows; same shape as subscriber payment_destinations.gpay rows)
@@ -768,6 +774,9 @@ class SiteSettingsUpdate(BaseModel):
     annual_package_included_program_ids: Optional[List[str]] = None
     dashboard_program_offers: Optional[Dict[str, Any]] = None
     dashboard_element_visibility: Optional[Dict[str, Any]] = None
+    dashboard_maintenance_enabled: Optional[bool] = None
+    dashboard_maintenance_message: Optional[str] = None
+    dashboard_maintenance_bypass_emails: Optional[List[str]] = None
     enrollment_auto_report_enabled: Optional[bool] = None
     enrollment_auto_report_emails: Optional[str] = None
     enrollment_auto_report_interval_hours: Optional[int] = None

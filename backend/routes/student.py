@@ -9,7 +9,7 @@ from motor.motor_asyncio import AsyncIOMotorClient
 from datetime import datetime, timezone
 from dotenv import load_dotenv
 from pathlib import Path
-from .auth import get_current_user
+from .auth import get_current_user, _get_valid_session_and_user
 from models_extended import JourneyLog
 from iris_journey import resolve_iris_journey
 from routes.programs import fetch_programs_with_deadline_sync, sort_programs_like_homepage
@@ -28,6 +28,40 @@ client = AsyncIOMotorClient(mongo_url)
 db = client[os.environ['DB_NAME']]
 
 logger = logging.getLogger(__name__)
+
+
+async def get_current_student_user(request: Request, user: dict = Depends(get_current_user)):
+    """Like ``get_current_user`` but enforces Sacred Home maintenance mode (503) when enabled."""
+    session, _ = await _get_valid_session_and_user(request)
+    if session and session.get("impersonation"):
+        return user
+    doc = await db.site_settings.find_one(
+        {"id": "site_settings"},
+        {
+            "_id": 0,
+            "dashboard_maintenance_enabled": 1,
+            "dashboard_maintenance_message": 1,
+            "dashboard_maintenance_bypass_emails": 1,
+        },
+    )
+    if not doc or not bool(doc.get("dashboard_maintenance_enabled")):
+        return user
+    em = (user.get("email") or "").strip().lower()
+    bypass = doc.get("dashboard_maintenance_bypass_emails") or []
+    bypass_set = {
+        str(x).strip().lower()
+        for x in bypass
+        if str(x).strip() and "@" in str(x)
+    }
+    if em in bypass_set:
+        return user
+    msg = (doc.get("dashboard_maintenance_message") or "").strip() or (
+        "Sacred Home is temporarily unavailable while we make improvements. Please check back soon."
+    )
+    raise HTTPException(
+        status_code=503,
+        detail={"maintenance": True, "message": msg},
+    )
 
 
 async def _student_enrolled_program_choices(email: str) -> List[dict]:
@@ -1089,7 +1123,7 @@ def _normalize_attendance_mode(raw: Optional[str]) -> str:
 
 
 @router.put("/family")
-async def update_immediate_family(data: FamilyUpdate, user: dict = Depends(get_current_user)):
+async def update_immediate_family(data: FamilyUpdate, user: dict = Depends(get_current_student_user)):
     """Save immediate family members for dashboard offers / enrollment context (max 12)."""
     client_id = user.get("client_id")
     if not client_id:
@@ -1177,7 +1211,7 @@ async def update_immediate_family(data: FamilyUpdate, user: dict = Depends(get_c
 
 
 @router.put("/other-guests")
-async def update_other_guests(data: FamilyUpdate, user: dict = Depends(get_current_user)):
+async def update_other_guests(data: FamilyUpdate, user: dict = Depends(get_current_student_user)):
     """Friends, cousins, extended family, etc. — same fields as immediate family; max 12 rows."""
     client_id = user.get("client_id")
     if not client_id:
@@ -1235,7 +1269,7 @@ async def update_other_guests(data: FamilyUpdate, user: dict = Depends(get_curre
 
 
 @router.get("/enrollment-prefill")
-async def get_enrollment_prefill(user: dict = Depends(get_current_user)):
+async def get_enrollment_prefill(user: dict = Depends(get_current_student_user)):
     """Profile + family list for dashboard-origin enrollment (skip retyping public form fields)."""
     client_id = user.get("client_id")
     client = await db.clients.find_one({"id": client_id}, {"_id": 0}) or {} if client_id else {}
@@ -1334,7 +1368,7 @@ async def _portal_combined_dashboard_total(user: dict, profile: ProfileData) -> 
 
 
 @router.post("/combined-enrollment-start")
-async def student_combined_enrollment_start(profile: ProfileData, request: Request, user: dict = Depends(get_current_user)):
+async def student_combined_enrollment_start(profile: ProfileData, request: Request, user: dict = Depends(get_current_student_user)):
     """Portal Divine Cart: create enrollment without email OTP; booker must match logged-in student."""
     uemail = (user.get("email") or "").strip().lower()
     if not uemail:
@@ -1369,7 +1403,7 @@ async def dashboard_quote(
     currency: str = "aed",
     booker_joins: bool = True,
     tier_index: Optional[int] = Query(None, description="Flagship duration tier index (1 month, 3 month, annual, …)"),
-    user: dict = Depends(get_current_user),
+    user: dict = Depends(get_current_student_user),
 ):
     """Portal pricing for logged-in clients (Sacred Home + Divine Cart).
 
@@ -1613,7 +1647,7 @@ async def build_admin_dashboard_pricing_snapshot(
 
 
 @router.post("/dashboard-pay")
-async def dashboard_pay(data: DashboardPayIn, request: Request, user: dict = Depends(get_current_user)):
+async def dashboard_pay(data: DashboardPayIn, request: Request, user: dict = Depends(get_current_student_user)):
     """Create a verified enrollment with portal (annual/family) pricing; client then POSTs /api/enrollment/{id}/checkout."""
     from routes.enrollment import ParticipantData, detect_ip_info
 
@@ -1828,7 +1862,7 @@ async def dashboard_pay(data: DashboardPayIn, request: Request, user: dict = Dep
 
 
 @router.get("/home")
-async def get_student_home(user: dict = Depends(get_current_user)):
+async def get_student_home(user: dict = Depends(get_current_student_user)):
     """Fetch personalized home data: Schedule, Package, Financials, Programs."""
     client_id = user.get("client_id")
     client = await db.clients.find_one({"id": client_id}, {"_id": 0}) or {}
@@ -2059,7 +2093,7 @@ class ContactEmailBody(BaseModel):
 
 
 @router.put("/contact-email")
-async def put_contact_email(data: ContactEmailBody, user: dict = Depends(get_current_user)):
+async def put_contact_email(data: ContactEmailBody, user: dict = Depends(get_current_student_user)):
     """Set Client Garden + portal login email when missing or portal uses an admin preview placeholder."""
     cid = user.get("client_id")
     if not cid:
@@ -2100,7 +2134,7 @@ class HouseholdPeersBody(BaseModel):
 
 
 @router.put("/household-peers")
-async def put_household_peers(data: HouseholdPeersBody, user: dict = Depends(get_current_user)):
+async def put_household_peers(data: HouseholdPeersBody, user: dict = Depends(get_current_student_user)):
     """Primary household contact: update Client Garden fields for other same-key annual portal members."""
     booker_cid = user.get("client_id")
     if not booker_cid:
@@ -2513,7 +2547,7 @@ async def list_student_orders_impl(user: dict):
 
 
 @router.put("/profile")
-async def update_profile(data: ProfileUpdate, user: dict = Depends(get_current_user)):
+async def update_profile(data: ProfileUpdate, user: dict = Depends(get_current_student_user)):
     """Submit profile for approval."""
     update_dict = {k: v for k, v in data.dict().items() if v is not None}
     
@@ -2535,7 +2569,7 @@ class JourneyLogCreate(BaseModel):
     rating: int
 
 @router.post("/logs")
-async def create_journey_log(data: JourneyLogCreate, user: dict = Depends(get_current_user)):
+async def create_journey_log(data: JourneyLogCreate, user: dict = Depends(get_current_student_user)):
     client_id = user.get("client_id")
     if not client_id:
         raise HTTPException(status_code=400, detail="User not linked to client record")
@@ -2548,7 +2582,7 @@ async def create_journey_log(data: JourneyLogCreate, user: dict = Depends(get_cu
     return {"message": "Log saved", "id": log.id}
 
 @router.get("/logs")
-async def get_journey_logs(user: dict = Depends(get_current_user)):
+async def get_journey_logs(user: dict = Depends(get_current_student_user)):
     client_id = user.get("client_id")
     logs = await db.journey_logs.find(
         {"client_id": client_id}, {"_id": 0}
@@ -2562,7 +2596,7 @@ class ModeChoice(BaseModel):
     mode: str  # "online" | "offline"
 
 @router.post("/choose-mode")
-async def choose_session_mode(data: ModeChoice, user: dict = Depends(get_current_user)):
+async def choose_session_mode(data: ModeChoice, user: dict = Depends(get_current_student_user)):
     """Student chooses online/offline for a scheduled session."""
     client_id = user.get("client_id")
     if not client_id:
@@ -2623,7 +2657,7 @@ class DailyProgressCreate(BaseModel):
     extraordinary_note: str = ""
 
 @router.post("/daily-progress")
-async def save_daily_progress(data: DailyProgressCreate, user: dict = Depends(get_current_user)):
+async def save_daily_progress(data: DailyProgressCreate, user: dict = Depends(get_current_student_user)):
     """Save or update a daily progress entry."""
     client_id = user.get("client_id")
     if not client_id:
@@ -2650,7 +2684,7 @@ async def save_daily_progress(data: DailyProgressCreate, user: dict = Depends(ge
     return {"message": "Progress saved"}
 
 @router.get("/daily-progress")
-async def get_daily_progress(month: str = "", user: dict = Depends(get_current_user)):
+async def get_daily_progress(month: str = "", user: dict = Depends(get_current_student_user)):
     """Get daily progress entries. Optional: filter by month (YYYY-MM)."""
     client_id = user.get("client_id")
     query = {"client_id": client_id}
@@ -2660,7 +2694,7 @@ async def get_daily_progress(month: str = "", user: dict = Depends(get_current_u
     return entries
 
 @router.get("/extraordinary-moments")
-async def get_extraordinary_moments(user: dict = Depends(get_current_user)):
+async def get_extraordinary_moments(user: dict = Depends(get_current_student_user)):
     """Get all extraordinary moments for a student."""
     client_id = user.get("client_id")
     entries = await db.daily_progress.find(
@@ -2681,7 +2715,7 @@ class PauseRequest(BaseModel):
     reason: str = ""
 
 @router.post("/pause-program")
-async def pause_program(data: PauseRequest, user: dict = Depends(get_current_user)):
+async def pause_program(data: PauseRequest, user: dict = Depends(get_current_student_user)):
     """Student requests to pause a program (if admin has enabled it)."""
     client_id = user.get("client_id")
     client_doc = await db.clients.find_one({"id": client_id})
@@ -2712,7 +2746,7 @@ async def pause_program(data: PauseRequest, user: dict = Depends(get_current_use
     return {"message": f"{data.program_name} paused until {data.pause_end}"}
 
 @router.post("/resume-program")
-async def resume_program(data: ModeChoice, user: dict = Depends(get_current_user)):
+async def resume_program(data: ModeChoice, user: dict = Depends(get_current_student_user)):
     """Student resumes a paused program."""
     client_id = user.get("client_id")
     client_doc = await db.clients.find_one({"id": client_id})
@@ -2743,7 +2777,7 @@ class ResumeRequest(BaseModel):
     program_name: str
 
 @router.post("/resume-program-simple")
-async def resume_program_simple(data: ResumeRequest, user: dict = Depends(get_current_user)):
+async def resume_program_simple(data: ResumeRequest, user: dict = Depends(get_current_student_user)):
     """Student resumes a paused program (simple)."""
     client_id = user.get("client_id")
     client_doc = await db.clients.find_one({"id": client_id})
@@ -2782,7 +2816,7 @@ class BhaadRelease(BaseModel):
     date: str
 
 @router.post("/bhaad-release")
-async def save_bhaad_release(data: BhaadRelease, user: dict = Depends(get_current_user)):
+async def save_bhaad_release(data: BhaadRelease, user: dict = Depends(get_current_student_user)):
     client_id = user.get("client_id") or user.get("id")
     entry = {
         "id": str(__import__('uuid').uuid4()),
@@ -2796,7 +2830,7 @@ async def save_bhaad_release(data: BhaadRelease, user: dict = Depends(get_curren
     return {"message": "Released and transformed"}
 
 @router.get("/bhaad-history")
-async def get_bhaad_history(user: dict = Depends(get_current_user)):
+async def get_bhaad_history(user: dict = Depends(get_current_student_user)):
     client_id = user.get("client_id") or user.get("id")
     items = await db.bhaad_releases.find({"client_id": client_id}, {"_id": 0}).sort("created_at", -1).to_list(50)
     return items
@@ -2819,12 +2853,12 @@ class TribeComment(BaseModel):
     text: str
 
 @router.get("/tribe/posts")
-async def get_tribe_posts(user: dict = Depends(get_current_user)):
+async def get_tribe_posts(user: dict = Depends(get_current_student_user)):
     posts = await db.tribe_posts.find({}, {"_id": 0}).sort("created_at", -1).to_list(50)
     return posts
 
 @router.post("/tribe/posts")
-async def create_tribe_post(data: TribePostCreate, user: dict = Depends(get_current_user)):
+async def create_tribe_post(data: TribePostCreate, user: dict = Depends(get_current_student_user)):
     post = {
         "id": str(__import__('uuid').uuid4()),
         "author_id": user.get("client_id") or user.get("id"),
@@ -2841,7 +2875,7 @@ async def create_tribe_post(data: TribePostCreate, user: dict = Depends(get_curr
     return post
 
 @router.post("/tribe/react")
-async def react_to_post(data: TribeReact, user: dict = Depends(get_current_user)):
+async def react_to_post(data: TribeReact, user: dict = Depends(get_current_student_user)):
     await db.tribe_posts.update_one(
         {"id": data.post_id},
         {"$inc": {f"reactions.{data.emoji}": 1}}
@@ -2849,7 +2883,7 @@ async def react_to_post(data: TribeReact, user: dict = Depends(get_current_user)
     return {"message": "Reacted"}
 
 @router.post("/tribe/comment")
-async def comment_on_post(data: TribeComment, user: dict = Depends(get_current_user)):
+async def comment_on_post(data: TribeComment, user: dict = Depends(get_current_student_user)):
     comment = {
         "author": user.get("name", "Member"),
         "text": data.text,
@@ -2863,7 +2897,7 @@ async def comment_on_post(data: TribeComment, user: dict = Depends(get_current_u
 
 
 @router.get("/points")
-async def student_points_detail(user: dict = Depends(get_current_user)):
+async def student_points_detail(user: dict = Depends(get_current_student_user)):
     from routes.points_logic import points_public_summary, recent_ledger, fetch_points_config, EXTERNAL_REVIEW_ACTIVITY_ORDER
 
     email = user.get("email") or ""
@@ -2889,7 +2923,7 @@ async def student_points_detail(user: dict = Depends(get_current_user)):
 
 
 @router.post("/points/claim-external-review")
-async def student_claim_external_review(data: ExternalReviewClaim, user: dict = Depends(get_current_user)):
+async def student_claim_external_review(data: ExternalReviewClaim, user: dict = Depends(get_current_student_user)):
     from routes.points_logic import try_claim_external_review, fetch_points_config
 
     email = user.get("email") or ""
@@ -2920,7 +2954,7 @@ async def student_claim_external_review(data: ExternalReviewClaim, user: dict = 
 
 
 @router.post("/points/claim-bonus")
-async def student_points_claim_bonus(data: PointsBonusClaim, user: dict = Depends(get_current_user)):
+async def student_points_claim_bonus(data: PointsBonusClaim, user: dict = Depends(get_current_student_user)):
     from routes.points_logic import claim_one_time_bonus
 
     return await claim_one_time_bonus(db, user.get("email") or "", data.kind.strip().lower(), user)
