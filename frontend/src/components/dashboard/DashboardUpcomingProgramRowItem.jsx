@@ -362,11 +362,12 @@ export default function DashboardUpcomingProgramRowItem({
   const afterPromo = Math.max(0, baseForPromo - disc);
   const showSpecialPromo = Boolean(promoForProgramClicks && validated && disc > 0 && !promoPricesLoading);
 
-  /** Backend + Client Garden heuristics (MMM/AWRP keywords). Use OR: API `false` must not block keyword match. */
+  /** Program appears on the admin “Annual package — included programs” list (or keyword fallback when list empty). */
+  const programOnAnnualPackageList = programIncludedInAnnualPackage(p, annualIncludedIds);
+  /** Logged-in user’s own seat is prepaid (Annual dashboard access + program on package list). */
   const includedPkg = Boolean(
     annualDashboardAccess &&
-      ((aq?.included_in_annual_package ?? false) ||
-        programIncludedInAnnualPackage(p, annualIncludedIds)),
+      ((aq?.included_in_annual_package ?? false) || programOnAnnualPackageList),
   );
 
   const annualFamilyClubIdentity = useMemo(
@@ -428,7 +429,7 @@ export default function DashboardUpcomingProgramRowItem({
         bookerEmail,
         detectedCountry,
         immediateFamilyMembers: [...(members || []), ...(annualHouseholdPeers || [])],
-        programInAnnualPackageList: programIncludedInAnnualPackage(p, annualIncludedIds),
+        programInAnnualPackageList,
       });
     } catch {
       /* empty row */
@@ -911,7 +912,21 @@ export default function DashboardUpcomingProgramRowItem({
                   <ul className="space-y-1.5">
                     {annualHouseholdPeers.map((m, gidx) => {
                       const mid = m.id || `ah-${gidx}-${m.name}-${m.email}`;
-                      const peerFrozen = includedPkg;
+                      const peerMatchesClub = rowMatchesAnnualFamilyClubIdentity(m, annualFamilyClubIdentity);
+                      const peerHasAnnualDash = m?.annual_member_dashboard !== false;
+                      /** Annual primary + package program: peers aren’t paid add-ons (unchecked, frozen). */
+                      const peerFrozenAnnualPrimary = includedPkg && peerMatchesClub;
+                      /** Non-annual primary paying for household: peers’ own annual package covers this program (MMM/AWRP list). */
+                      const peerSeatPrepaidWhenPrimaryNotAnnual =
+                        !annualDashboardAccess &&
+                        programOnAnnualPackageList &&
+                        peerMatchesClub &&
+                        peerHasAnnualDash;
+                      const peerFrozen = peerFrozenAnnualPrimary || peerSeatPrepaidWhenPrimaryNotAnnual;
+                      const peerChecked = peerFrozenAnnualPrimary
+                        ? false
+                        : !!m.id && selIds.includes(String(m.id));
+                      const showIncludedHint = peerFrozenAnnualPrimary || peerSeatPrepaidWhenPrimaryNotAnnual;
                       return (
                         <li key={mid}>
                           <div
@@ -924,7 +939,7 @@ export default function DashboardUpcomingProgramRowItem({
                               className="rounded border-slate-300 mt-0.5 shrink-0"
                               disabled={peerFrozen || !m.id}
                               aria-disabled={peerFrozen || !m.id}
-                              checked={peerFrozen ? false : !!m.id && selIds.includes(String(m.id))}
+                              checked={peerChecked}
                               onChange={() =>
                                 m.id && !peerFrozen && toggleFamilyMember(p.id, String(m.id))
                               }
@@ -934,9 +949,11 @@ export default function DashboardUpcomingProgramRowItem({
                               {m.relationship ? (
                                 <span className="text-slate-500"> ({m.relationship})</span>
                               ) : null}
-                              {peerFrozen ? (
+                              {showIncludedHint ? (
                                 <span className="block text-[10px] text-violet-800/90 mt-0.5 leading-snug">
-                                  Already included in Annual Package
+                                  {peerSeatPrepaidWhenPrimaryNotAnnual
+                                    ? 'Already included in their Annual Package'
+                                    : 'Already included in Annual Package'}
                                 </span>
                               ) : null}
                             </span>
