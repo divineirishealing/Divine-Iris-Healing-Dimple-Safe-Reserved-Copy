@@ -800,9 +800,12 @@ async def _apply_portal_guest_line_offer(
             family_rule = "amount_off"
         elif rule == "fixed_price":
             pseat = _read_currency_amount(fo, "fixed_price", cur)
-            # Global dashboard "family fixed" can target short programs (e.g. ₹1,111). For tier-priced
-            # flagship programs (e.g. MMM ₹9,990), use the program tier line instead of that global seat price.
-            use_tier_not_global_fixed = pseat > 0 and fam_unit > 0 and pseat < fam_unit * 0.5
+            # Global dashboard "family fixed" (e.g. ₹1,111) is meant to cap cheap add-on seats on big
+            # programs, not to undercut each program's own tier/offer line. If fixed is **below** the
+            # tier unit, keep list pricing (e.g. Stress Detox ₹1,200 vs global ₹1,111). If fixed is
+            # **above** tier, it still applies (intentional uplift). For sub-list family promos, use
+            # per-program dashboard offers or percent/amount off instead of global fixed.
+            use_tier_not_global_fixed = pseat > 0 and fam_unit > 0 and pseat < fam_unit
             if use_tier_not_global_fixed:
                 fam_after = max(0.0, round(fam_line_gross, 2))
                 family_rule = "list"
