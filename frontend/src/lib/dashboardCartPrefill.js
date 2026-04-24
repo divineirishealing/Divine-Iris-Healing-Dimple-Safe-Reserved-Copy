@@ -322,6 +322,8 @@ export function buildAnnualDashboardCartParticipants({
   bookerEmail,
   detectedCountry,
   immediateFamilyMembers,
+  /** Program id/title on annual package list (site settings) — for peer “included in package” seats when payer is not annual. */
+  programInAnnualPackageList = false,
 }) {
   const participants = [];
   const guestForm = seatDraft?.guestSeatForm || {};
@@ -386,6 +388,10 @@ export function buildAnnualDashboardCartParticipants({
       : 'Other';
     const idStr = String(id);
     const portalGuestBucket = guestBucketById[idStr] || 'extended';
+    const peerIncludedInAnnualPackage =
+      !!programInAnnualPackageList &&
+      !!member?.household_client_link &&
+      !!member?.annual_member_dashboard;
     participants.push(
       baseParticipant(program, {
         name: displayName,
@@ -405,6 +411,7 @@ export function buildAnnualDashboardCartParticipants({
         is_first_time: false,
         portal_guest_bucket: portalGuestBucket,
         dashboard_family_member_id: idStr,
+        peer_included_in_annual_package: peerIncludedInAnnualPackage,
       })
     );
   }

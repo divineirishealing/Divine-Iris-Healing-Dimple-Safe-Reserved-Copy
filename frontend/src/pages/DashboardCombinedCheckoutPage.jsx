@@ -96,14 +96,13 @@ function annualPortalSeatUnitBasePrices(quote, participant, guestBucketById, par
           : 'extended';
   const roster = participants || [];
   if (bucket === 'annual_household') {
+    if (participant.peer_included_in_annual_package) return { offer: 0, list: 0 };
     if (quote.included_in_annual_package) return { offer: 0, list: 0 };
-    const nQuote = Number(quote.annual_household_peer_selected_count ?? quote.annual_household_peer_count ?? 0);
-    const nLine = countRosterGuestsInBucket(roster, guestBucketById, 'annual_household');
-    const n = nQuote > 0 ? nQuote : nLine;
-    if (n <= 0) return { offer: 0, list: 0 };
+    const nPayable = Number(quote.annual_household_peer_count ?? 0);
+    if (nPayable <= 0) return { offer: 0, list: 0 };
     return {
-      offer: Number(quote.annual_household_after_promos ?? 0) / n,
-      list: Number(quote.annual_household_line_gross ?? 0) / n,
+      offer: Number(quote.annual_household_after_promos ?? 0) / nPayable,
+      list: Number(quote.annual_household_line_gross ?? 0) / nPayable,
     };
   }
   if (bucket === 'immediate') {
@@ -599,6 +598,7 @@ export default function DashboardCombinedCheckoutPage() {
             bookerEmail: email,
             detectedCountry,
             immediateFamilyMembers: bucketLookupMembers,
+            programInAnnualPackageList: programIncludedInAnnualPackage(program, annualIncludedIds),
           });
           if (participants && participants.length > 0) {
             const guestBucketById = buildGuestBucketByIdFromSelection(sel, bucketLookupMembers);
@@ -1372,8 +1372,8 @@ export default function DashboardCombinedCheckoutPage() {
                 : getItemPrice(item);
             const ahIncludedPeer =
               !selfIncluded &&
-              !!lineQuote?.included_in_annual_package &&
-              guestBucket === 'annual_household';
+              guestBucket === 'annual_household' &&
+              (!!lineQuote?.included_in_annual_package || !!p.peer_included_in_annual_package);
             const bucketRoleHint =
               guestBucket === 'annual_household'
                 ? 'Annual Family Club'

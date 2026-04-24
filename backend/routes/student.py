@@ -1313,9 +1313,10 @@ async def dashboard_quote(
 ):
     """Portal pricing for logged-in clients (Sacred Home + Divine Cart).
 
-    Dashboard Settings offer columns (annual / family / extended) apply only when
-    Client Garden access type is Annual (`annual_member_dashboard`). Non-annual
-    access uses the same tier list/offer basis as the public website (no portal overlays).
+    Dashboard offer columns: the **booker's** seat uses the annual column only when
+    ``annual_member_dashboard`` is true; otherwise it uses the family / immediate column.
+    Household peers still use the annual column, and per-guest package inclusion can waive
+    peer seats when the program is on the annual package list and the peer has Annual access.
     """
     client_id = user.get("client_id")
     if not client_id:
@@ -1421,6 +1422,7 @@ async def dashboard_quote(
         ),
         **pricing,
         "annual_household_peer_selected_count": peer_sel,
+        "annual_household_peer_package_included_count": peer_pkg_inc,
         "immediate_family_only_selected_count": plain_sel,
         "quote_show_tax": quote_show_tax,
         "tax_rate_pct": gst_pct if cur == "inr" and quote_show_tax else 0.0,
@@ -1495,8 +1497,6 @@ async def build_admin_dashboard_pricing_snapshot(
         included = _portal_included_in_annual_package(program, inc_cfg, sub, client)
         include_self = False if included else True
         ao, fo, eo = _merge_program_dashboard_offers(g_ao, g_fo, g_eo, pid, per_map)
-        if not annual_dashboard_access:
-            ao, fo, eo = {}, {}, {}
         pricing = await compute_dashboard_annual_family_pricing(
             program,
             pid,
@@ -1510,6 +1510,7 @@ async def build_admin_dashboard_pricing_snapshot(
             include_self=include_self,
             tier_index_override=tier_idx,
             apply_tier_offer_prices=True,
+            booker_annual_portal=annual_dashboard_access,
         )
         cur = str(pricing.get("currency") or cur_in).lower()
         tot = float(pricing.get("total") or 0)
@@ -1585,8 +1586,13 @@ async def dashboard_pay(data: DashboardPayIn, request: Request, user: dict = Dep
     if included:
         # Same-key household peers are already covered by the prepaid package — not separate enrollments.
         resolved_family = [r for r in resolved_family if not bool(r.get("household_client_link"))]
+    inc_cfg_pay = settings_doc.get("annual_package_included_program_ids")
     imm_plain, imm_peer, ext_fc = _split_resolved_guest_rows_plain_peer_ext(
-        client, resolved_family, included_in_package=included
+        client,
+        resolved_family,
+        included_in_package=included,
+        program=program,
+        annual_package_program_ids=inc_cfg_pay,
     )
     fc = len(resolved_family)
     if fc > 12:
@@ -1605,8 +1611,6 @@ async def dashboard_pay(data: DashboardPayIn, request: Request, user: dict = Dep
     g_eo = settings_doc.get("dashboard_offer_extended") or {}
     per_map = settings_doc.get("dashboard_program_offers") or {}
     ao, fo, eo = _merge_program_dashboard_offers(g_ao, g_fo, g_eo, data.program_id, per_map)
-    if not annual_dashboard_access:
-        ao, fo, eo = {}, {}, {}
     fo_plain = _family_offer_for_included_package_guests(included, imm_plain, fo)
     quote = await compute_dashboard_annual_family_pricing(
         program,
@@ -1620,6 +1624,7 @@ async def dashboard_pay(data: DashboardPayIn, request: Request, user: dict = Dep
         eo,
         include_self=not included,
         apply_tier_offer_prices=True,
+        booker_annual_portal=annual_dashboard_access,
     )
     if quote["total"] < 0:
         raise HTTPException(status_code=400, detail="Invalid quote")

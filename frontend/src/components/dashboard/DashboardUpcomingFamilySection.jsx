@@ -1550,6 +1550,7 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh, bo
           bookerEmail,
           detectedCountry,
           immediateFamilyMembers: bucketLookupMembers,
+          programInAnnualPackageList: programIncludedInAnnualPackage(program, annualIncludedIds),
         });
       } else {
         // Non-annual: respect selectedIds + attendance modes from modal (draft already merged)
@@ -1566,6 +1567,7 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh, bo
             bookerEmail,
             detectedCountry,
             immediateFamilyMembers: bucketLookupMembers,
+            programInAnnualPackageList: programIncludedInAnnualPackage(program, annualIncludedIds),
           }) || (nonAnnualBookerJoins
             ? buildSelfOnlyCartParticipants(pre.self, program, bookerEmail, detectedCountry, nonAnnualBookerMode)
             : null);

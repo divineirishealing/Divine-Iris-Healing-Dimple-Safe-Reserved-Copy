@@ -66,15 +66,17 @@ function AnnualQuoteBreakdown({
   if (!aq) {
     return <p className="text-[11px] text-slate-500 italic">Calculating total…</p>;
   }
-  const ah = Number(
-    aq.annual_household_peer_selected_count ?? aq.annual_household_peer_count ?? 0,
+  const ahSel = Number(aq.annual_household_peer_selected_count ?? aq.annual_household_peer_count ?? 0);
+  const ahPay = Number(aq.annual_household_peer_count ?? 0);
+  const ahPkg = Number(
+    aq.annual_household_peer_package_included_count ?? Math.max(0, ahSel - ahPay),
   );
   const immOnly =
     aq.immediate_family_only_selected_count != null
       ? Number(aq.immediate_family_only_selected_count)
       : aq.immediate_family_only_count != null
         ? Number(aq.immediate_family_only_count)
-        : Math.max(0, Number(aq.immediate_family_count || 0) - ah);
+        : Math.max(0, Number(aq.immediate_family_count || 0) - ahSel);
   const ext = Number(aq.extended_guest_count || 0);
   const showSelf = !includedPkg && aq.include_self !== false;
 
@@ -88,7 +90,7 @@ function AnnualQuoteBreakdown({
 
   if (layout === 'table') {
     const selfOffer = Number(aq.self_after_promos ?? 0);
-    const ahOfferEach = ah > 0 ? Number(aq.annual_household_after_promos ?? 0) / ah : null;
+    const ahOfferEach = ahPay > 0 ? Number(aq.annual_household_after_promos ?? 0) / ahPay : null;
     const immOfferEach = immOnly > 0 ? Number(aq.immediate_family_only_after_promos ?? 0) / immOnly : null;
     const extOfferEach = ext > 0 ? Number(aq.extended_guests_after_promos ?? 0) / ext : null;
     const rowClass = 'flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1 text-[11px] text-slate-800';
@@ -98,7 +100,7 @@ function AnnualQuoteBreakdown({
           <p className="text-[10px] font-bold uppercase tracking-wide text-slate-500">
             {annualDashboardAccess
               ? 'Offer per person — Annual member · Annual Family Club · Immediate family'
-              : 'Price per seat (same as website upcoming)'}
+              : 'Offer per seat — You (family column) · Annual Family Club (annual column) · others'}
           </p>
         ) : null}
         <div className="rounded-md border border-slate-200 bg-white w-full px-3 py-2.5 space-y-2">
@@ -120,16 +122,33 @@ function AnnualQuoteBreakdown({
               </span>
             </div>
           ) : null}
-          {ah > 0 ? (
+          {ahSel > 0 ? (
             <div className={rowClass}>
               <span className="font-medium text-slate-800">Annual Family Club</span>
               {includedPkg ? (
                 <span className="text-slate-600 text-right">Included in annual package</span>
-              ) : (
+              ) : ahPay > 0 ? (
                 <span className="font-semibold tabular-nums text-slate-900 text-right leading-snug">
                   {symbol}
-                  {Math.round(ahOfferEach ?? 0).toLocaleString()} × {ah} = {symbol}
+                  {Math.round(ahOfferEach ?? 0).toLocaleString()} × {ahPay} = {symbol}
                   {Number(aq.annual_household_after_promos ?? 0).toLocaleString()}
+                  {ahPkg > 0 ? (
+                    <span className="block text-[10px] font-normal text-slate-600 mt-0.5">
+                      {ahPkg} seat{ahPkg !== 1 ? 's' : ''} included (peer annual package)
+                    </span>
+                  ) : null}
+                </span>
+              ) : (
+                <span className="text-slate-600 text-right leading-snug">
+                  {ahPkg > 0 ? (
+                    <>
+                      {ahPkg} seat{ahPkg !== 1 ? 's' : ''} included in peer annual package
+                    </>
+                  ) : (
+                    <span className="tabular-nums">
+                      {symbol}0 — see Divine Cart for detail
+                    </span>
+                  )}
                 </span>
               )}
             </div>
@@ -154,10 +173,10 @@ function AnnualQuoteBreakdown({
               </span>
             </div>
           ) : null}
-          {!includedPkg && !showSelf && ah === 0 && immOnly === 0 && ext === 0 ? (
+          {!includedPkg && !showSelf && ahSel === 0 && immOnly === 0 && ext === 0 ? (
             <p className="text-[11px] text-slate-500">Select family members to see offer pricing for guests.</p>
           ) : null}
-          {includedPkg && ah === 0 && immOnly === 0 && ext === 0 ? (
+          {includedPkg && ahSel === 0 && immOnly === 0 && ext === 0 ? (
             <p className="text-[11px] text-slate-500">Select who is joining to see offer price per guest seat.</p>
           ) : null}
         </div>
@@ -194,24 +213,34 @@ function AnnualQuoteBreakdown({
             ) : null}
           </li>
         ) : null}
-        {ah > 0 ? (
+        {ahSel > 0 ? (
           <li className={includedPkg ? 'text-slate-600' : undefined}>
-            Annual Family Club × {ah}:{' '}
+            Annual Family Club × {ahSel}:{' '}
             {includedPkg ? (
               <span className="font-medium text-slate-800">included in annual package</span>
-            ) : (
+            ) : ahPay > 0 ? (
               <>
                 <span className="font-semibold text-slate-900 tabular-nums">
                   {symbol}
                   {Number(aq.annual_household_after_promos ?? 0).toLocaleString()}
                 </span>
-                {ah > 1 ? (
+                {ahPay > 1 ? (
                   <span className="text-slate-500 ml-1">
                     ({symbol}
-                    {(Number(aq.annual_household_after_promos) / ah).toFixed(0)} each)
+                    {(Number(aq.annual_household_after_promos) / ahPay).toFixed(0)} each on {ahPay} paid seat
+                    {ahPay !== 1 ? 's' : ''})
+                  </span>
+                ) : null}
+                {ahPkg > 0 ? (
+                  <span className="text-slate-600 block text-[10px] mt-0.5">
+                    {ahPkg} included via peer annual package
                   </span>
                 ) : null}
               </>
+            ) : ahPkg > 0 ? (
+              <span className="font-medium text-slate-800">all included (peer annual package)</span>
+            ) : (
+              <span className="tabular-nums text-slate-600">{symbol}0</span>
             )}
           </li>
         ) : null}
@@ -399,6 +428,7 @@ export default function DashboardUpcomingProgramRowItem({
         bookerEmail,
         detectedCountry,
         immediateFamilyMembers: [...(members || []), ...(annualHouseholdPeers || [])],
+        programInAnnualPackageList: programIncludedInAnnualPackage(p, annualIncludedIds),
       });
     } catch {
       /* empty row */
