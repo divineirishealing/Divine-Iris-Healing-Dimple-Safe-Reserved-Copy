@@ -136,6 +136,58 @@ function resolvePortalGuestBucket(participant, guestBucketById) {
   return 'extended';
 }
 
+/**
+ * Cart lines often lose or stale `portalLineMeta.guestBucketById` (localStorage, older sync).
+ * Quote counts + family id order match GET /dashboard-quote resolution — rebuild buckets when
+ * meta is missing or wrongly marks guests as extended while the quote has no extended seats.
+ */
+function reconcileGuestBuckets(base, quote, participants, familyIds) {
+  const map = { ...(base || {}) };
+  if (!quote) return map;
+
+  const guestRows = (participants || []).filter((p) => String(p.relationship || '').trim() !== 'Myself');
+  const idsInOrder = [];
+  const seen = new Set();
+  for (const p of guestRows) {
+    const id = String(p.dashboard_family_member_id || '').trim();
+    if (!id || seen.has(id)) continue;
+    seen.add(id);
+    idsInOrder.push(id);
+  }
+  if (!idsInOrder.length) return map;
+
+  const ahSel = Number(quote.annual_household_peer_selected_count ?? quote.annual_household_peer_count ?? 0);
+  const immSel = Number(quote.immediate_family_only_selected_count ?? quote.immediate_family_only_count ?? 0);
+  const extSel = Number(quote.extended_guest_count || 0);
+  if (ahSel + immSel + extSel !== idsInOrder.length) return map;
+
+  const missing = idsInOrder.some((id) => !map[id]);
+  const wrongExtended = extSel === 0 && idsInOrder.some((id) => map[id] === 'extended');
+  if (!missing && !wrongExtended) return map;
+
+  const order = (familyIds || []).map(String).filter(Boolean);
+  const orderedIds = order.length
+    ? [...new Set([...order.filter((id) => idsInOrder.includes(id)), ...idsInOrder])]
+    : [...idsInOrder];
+
+  let idx = 0;
+  for (let i = 0; i < ahSel && idx < orderedIds.length; i++) {
+    map[orderedIds[idx++]] = 'annual_household';
+  }
+  for (let i = 0; i < immSel && idx < orderedIds.length; i++) {
+    map[orderedIds[idx++]] = 'immediate';
+  }
+  for (let i = 0; i < extSel && idx < orderedIds.length; i++) {
+    map[orderedIds[idx++]] = 'extended';
+  }
+  return map;
+}
+
+function effectiveGuestBucketById(item, lineQuote) {
+  const meta = item.portalLineMeta || {};
+  return reconcileGuestBuckets(meta.guestBucketById, lineQuote, item.participants || [], meta.familyIds);
+}
+
 const PAYMENT_METHOD_BADGES = {
   stripe: { label: 'Stripe', className: 'bg-violet-100/90 text-violet-900 border-violet-200/80' },
   gpay: { label: 'GPay / UPI', className: 'bg-emerald-100/90 text-emerald-900 border-emerald-200/80' },
@@ -714,7 +766,7 @@ export default function DashboardCombinedCheckoutPage() {
         allQuoted = false;
         continue;
       }
-      const guestBucketById = item.portalLineMeta?.guestBucketById || {};
+      const guestBucketById = effectiveGuestBucketById(item, lineQuote);
       const participants = item.participants || [];
       for (const p of participants) {
         const portalBase = annualPortalSeatUnitBasePrices(lineQuote, p, guestBucketById, participants);
@@ -749,7 +801,7 @@ export default function DashboardCombinedCheckoutPage() {
           meta.annualIncluded && String(p.relationship || '').trim() === 'Myself';
         if (selfIncluded) continue;
         const lineQuote = annualQuotesByProgram[String(item.programId)] || null;
-        const guestBucketById = meta.guestBucketById || {};
+        const guestBucketById = lineQuote ? effectiveGuestBucketById(item, lineQuote) : meta.guestBucketById || {};
         const portalBase = lineQuote
           ? annualPortalSeatUnitBasePrices(lineQuote, p, guestBucketById, item.participants || [])
           : null;
@@ -1302,7 +1354,7 @@ export default function DashboardCombinedCheckoutPage() {
             const selfIncluded =
               meta?.annualIncluded && String(p.relationship || '').trim() === 'Myself';
             const lineQuote = annualQuotesByProgram[String(item.programId)] || null;
-            const guestBucketById = meta?.guestBucketById || {};
+            const guestBucketById = lineQuote ? effectiveGuestBucketById(item, lineQuote) : meta?.guestBucketById || {};
             const guestBucket = resolvePortalGuestBucket(p, guestBucketById);
             const portalBase =
               lineQuote && !selfIncluded
