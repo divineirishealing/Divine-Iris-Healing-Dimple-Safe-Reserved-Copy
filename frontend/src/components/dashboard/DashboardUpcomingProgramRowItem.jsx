@@ -62,6 +62,8 @@ function AnnualQuoteBreakdown({
   layout = 'list',
   /** Client Garden Dashboard Access = Annual — portal offer columns & per-program overrides apply. */
   annualDashboardAccess = false,
+  /** Program is on admin annual-package list (MMM, AWRP, …) — used for non-annual payer copy. */
+  programOnAnnualPackageList = false,
 }) {
   if (!aq) {
     return <p className="text-[11px] text-slate-500 italic">Calculating total…</p>;
@@ -104,6 +106,15 @@ function AnnualQuoteBreakdown({
           </p>
         ) : null}
         <div className="rounded-md border border-slate-200 bg-white w-full px-3 py-2.5 space-y-2">
+          {!includedPkg &&
+          programOnAnnualPackageList &&
+          !annualDashboardAccess &&
+          ahSel > 0 ? (
+            <p className="text-[10px] text-violet-900/90 bg-violet-50/90 border border-violet-100 rounded-md px-2.5 py-1.5 leading-snug">
+              This program is on the annual package list. Annual Family Club peers with their own Annual
+              access may have seats covered by their package — see the club line below.
+            </p>
+          ) : null}
           {includedPkg ? (
             <div className={rowClass}>
               <span className="text-slate-700">Your seat</span>
@@ -759,6 +770,7 @@ export default function DashboardUpcomingProgramRowItem({
                       symbol={symbol}
                       includedPkg={includedPkg}
                       annualDashboardAccess={annualDashboardAccess}
+                      programOnAnnualPackageList={programOnAnnualPackageList}
                       suppressIntro
                       layout="table"
                     />
