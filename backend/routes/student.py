@@ -392,16 +392,9 @@ def _read_currency_amount(offer: dict, prefix: str, cur: str) -> float:
 
 
 def _program_keyword_in_annual_package(program: dict) -> bool:
-    """Title/category heuristics when admin does not list every program ID explicitly."""
+    """Title/category heuristics when the annual-package id list is empty (admin left all unchecked)."""
     blob = f"{program.get('title') or ''} {program.get('category') or ''}".lower()
-    keys = (
-        "money magic",
-        "mmm",
-        "atomic weight",
-        "awrp",
-        "stress detox",
-        "cortisol reset",
-    )
+    keys = ("money magic", "mmm", "atomic weight", "awrp")
     return any(k in blob for k in keys)
 
 
@@ -420,16 +413,15 @@ def _peer_row_included_in_guest_annual_package(
 def _program_included_in_annual_package(program: dict, configured_ids: Optional[List] = None) -> bool:
     """Programs in annual package: member seat included; they only pay for family add-ons.
 
-    If `annual_package_included_program_ids` is non-empty, a program matches when its id is listed
-    **or** it matches the keyword fallback (MMM, AWRP, …). Listing ids no longer hides keyword
-    matches — otherwise MMM can disappear from inclusion when admins curate a partial id list.
-    If the list is empty, only keyword fallback applies.
+    If the admin saves a non-empty ``annual_package_included_program_ids`` (any program checked),
+    inclusion is **only** by id — unchecked programs use normal portal offers. If the list is
+    empty (all unchecked), fall back to title keywords (MMM, Money Magic, Atomic Weight / AWRP).
     """
     keyword = _program_keyword_in_annual_package(program)
     ids = [str(x).strip() for x in (configured_ids or []) if str(x).strip()]
     if ids:
         pid = str(program.get("id") or "")
-        return pid in set(ids) or keyword
+        return pid in set(ids)
     return keyword
 
 

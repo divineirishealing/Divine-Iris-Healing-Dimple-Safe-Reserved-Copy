@@ -16,33 +16,27 @@ export function pickTierIndexForDashboard(program, preferAnnualTier) {
 }
 
 /**
- * Title/category keyword fallback for annual prepaid package (must stay aligned with
- * backend `_program_keyword_in_annual_package`). When admins set a non-empty id list,
- * we still OR these keywords — same as Python `pid in ids or keyword`.
+ * Title/category fallback when annual package id list is empty (admin left all unchecked).
+ * Must stay aligned with backend `_program_keyword_in_annual_package`.
  */
 function programKeywordInAnnualPackage(p) {
   const blob = `${p?.title || ''} ${p?.category || ''}`.toLowerCase();
-  const keys = [
-    'money magic',
-    'mmm',
-    'atomic weight',
-    'awrp',
-    'stress detox',
-    'cortisol reset',
-  ];
+  const keys = ['money magic', 'mmm', 'atomic weight', 'awrp'];
   return keys.some((k) => blob.includes(k));
 }
 
-/** Programs covered by the annual package id list and/or keyword fallback (MMM, AWRP, Stress Detox, …). */
+/**
+ * Annual package “member seat included”: checked program ids only when the admin list is non-empty;
+ * otherwise keyword detection (MMM, AWRP, …). Unchecked programs get portal offers.
+ */
 export function programIncludedInAnnualPackage(p, configuredIds) {
   const ids = Array.isArray(configuredIds)
     ? configuredIds.map((x) => String(x).trim()).filter(Boolean)
     : [];
-  const keyword = programKeywordInAnnualPackage(p);
   if (ids.length > 0) {
-    return ids.includes(String(p?.id)) || keyword;
+    return ids.includes(String(p?.id));
   }
-  return keyword;
+  return programKeywordInAnnualPackage(p);
 }
 
 /**
