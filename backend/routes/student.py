@@ -604,13 +604,28 @@ async def _all_dashboard_guest_rows_with_household(
 ) -> List[dict]:
     """Stored immediate + other guests + optional same-key Client Garden rows.
 
-    ``for_payment=True`` limits linked peers to the primary household contact (checkout / quotes).
-    When someone appears both in saved immediate family and as a household peer, merge peer flags
-    onto the saved row so pricing sees ``household_client_link`` / ``annual_member_dashboard``.
+    ``for_payment=True`` is for checkout / quotes (primary contact only gets payable peer rows
+    from :func:`_household_peer_guest_rows`).
+
+    **Pricing alignment:** Sacred Home lists Annual Family Club using ``for_payment=False`` (peers
+    who already have Annual dashboard access). Strict ``for_payment=True`` returns **no** peers
+    until *every* client on the household key is Annual + portal-allowed, so merge/append would
+    miss linked seats and they would price as plain immediate family. For payment we therefore
+    merge and append using the **same dashboard-visible peer list** as Sacred Home, while keeping
+    the strict call available for callers that need it elsewhere.
+
+    When someone appears both in saved immediate family and as a household peer, merge
+    ``household_client_link`` / ``annual_member_dashboard`` onto the saved row.
     """
     base = _all_dashboard_guest_rows(client)
-    peers = await _household_peer_guest_rows(client_id, client, for_payment=for_payment)
-    peer_by_id = {str(p.get("id") or "").strip(): p for p in peers if p.get("id")}
+    if for_payment:
+        peers_vis = await _household_peer_guest_rows(client_id, client, for_payment=False)
+        peer_by_id = {str(p.get("id") or "").strip(): p for p in (peers_vis or []) if p.get("id")}
+        peers_to_append = list(peers_vis or [])
+    else:
+        peers = await _household_peer_guest_rows(client_id, client, for_payment=False)
+        peer_by_id = {str(p.get("id") or "").strip(): p for p in peers if p.get("id")}
+        peers_to_append = list(peers)
     out: List[dict] = []
     for m in base:
         mid = str(m.get("id") or "").strip()
@@ -623,7 +638,7 @@ async def _all_dashboard_guest_rows_with_household(
         else:
             out.append(m)
     seen = {str(m.get("id")) for m in out if m.get("id")}
-    for p in peers:
+    for p in peers_to_append:
         pid = str(p.get("id") or "").strip()
         if pid and pid not in seen:
             seen.add(pid)
@@ -1518,15 +1533,8 @@ async def dashboard_pay(data: DashboardPayIn, request: Request, user: dict = Dep
         client_id, client, list(data.family_member_ids or []), int(data.family_count or 0)
     )
     if included:
-        # Same-key annual peers are already covered by the prepaid package — not separate enrollments.
-        resolved_family = [
-            r
-            for r in resolved_family
-            if not (
-                bool(r.get("household_client_link"))
-                and bool(r.get("annual_member_dashboard"))
-            )
-        ]
+        # Same-key household peers are already covered by the prepaid package — not separate enrollments.
+        resolved_family = [r for r in resolved_family if not bool(r.get("household_client_link"))]
     imm_plain, imm_peer, ext_fc = _split_resolved_guest_rows_plain_peer_ext(
         client, resolved_family, included_in_package=included
     )
