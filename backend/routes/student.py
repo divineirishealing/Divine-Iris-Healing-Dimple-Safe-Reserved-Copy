@@ -394,14 +394,7 @@ def _read_currency_amount(offer: dict, prefix: str, cur: str) -> float:
 def _program_keyword_in_annual_package(program: dict) -> bool:
     """Title/category heuristics when admin does not list every program ID explicitly."""
     blob = f"{program.get('title') or ''} {program.get('category') or ''}".lower()
-    keys = (
-        "money magic",
-        "mmm",
-        "atomic weight",
-        "awrp",
-        "stress detox",
-        "cortisol reset",
-    )
+    keys = ("money magic", "mmm", "atomic weight", "awrp")
     return any(k in blob for k in keys)
 
 

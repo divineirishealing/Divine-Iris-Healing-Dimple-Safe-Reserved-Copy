@@ -22,14 +22,7 @@ export function pickTierIndexForDashboard(program, preferAnnualTier) {
  */
 function programKeywordInAnnualPackage(p) {
   const blob = `${p?.title || ''} ${p?.category || ''}`.toLowerCase();
-  const keys = [
-    'money magic',
-    'mmm',
-    'atomic weight',
-    'awrp',
-    'stress detox',
-    'cortisol reset',
-  ];
+  const keys = ['money magic', 'mmm', 'atomic weight', 'awrp'];
   return keys.some((k) => blob.includes(k));
 }
 
