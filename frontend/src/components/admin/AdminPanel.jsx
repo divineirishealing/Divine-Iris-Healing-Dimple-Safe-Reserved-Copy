@@ -332,7 +332,18 @@ const AdminPanel = () => {
     try {
       const freshRes = await axios.get(`${API}/settings`);
       const fresh = freshRes.data || {};
-      const payload = { ...fresh, ...siteSettings };
+      let merged = { ...siteSettings };
+      const bypassEl =
+        typeof document !== 'undefined' ? document.querySelector('[data-maintenance-bypass-input]') : null;
+      if (bypassEl && 'value' in bypassEl) {
+        const raw = String(bypassEl.value || '');
+        const emails = raw
+          .split(/[,;\n]+/)
+          .map((s) => s.trim().toLowerCase())
+          .filter((s) => s.includes('@'));
+        merged = { ...merged, dashboard_maintenance_bypass_emails: emails };
+      }
+      const payload = { ...fresh, ...merged };
       const res = await axios.put(`${API}/settings`, payload);
       toast({ title: 'Settings saved!' });
       if (res.data) setSiteSettings(res.data);

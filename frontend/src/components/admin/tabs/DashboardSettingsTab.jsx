@@ -10,6 +10,7 @@ import { useToast } from '../../../hooks/use-toast';
 import { useSiteSettings } from '../../../context/SiteSettingsContext';
 import { DASHBOARD_VISIBILITY_KEYS, DEFAULT_DASHBOARD_VISIBILITY } from '../../../lib/dashboardVisibility';
 import { resolveImageUrl } from '../../../lib/imageUtils';
+import { parseMaintenanceBypassEmails } from '../../../lib/parseMaintenanceBypassEmails';
 
 const BACKEND = (process.env.REACT_APP_BACKEND_URL || '').replace(/\/$/, '');
 const API = BACKEND ? `${BACKEND}/api` : '';
@@ -117,6 +118,14 @@ const DashboardSettingsTab = ({ settings, onChange, programs = [] }) => {
   const { refreshSettings } = useSiteSettings();
   const [bgVideoDragActive, setBgVideoDragActive] = useState(false);
   const [sanctuaryVideoDragActive, setSanctuaryVideoDragActive] = useState(false);
+  /** Raw text so commas/spaces while typing are not lost (parsing only on blur + save). */
+  const [maintenanceBypassDraft, setMaintenanceBypassDraft] = useState(() =>
+    (settings.dashboard_maintenance_bypass_emails || []).join(', ')
+  );
+  const maintenanceBypassSig = JSON.stringify(settings.dashboard_maintenance_bypass_emails || []);
+  React.useEffect(() => {
+    setMaintenanceBypassDraft((settings.dashboard_maintenance_bypass_emails || []).join(', '));
+  }, [maintenanceBypassSig]);
   const dashboard = settings.dashboard_settings || { 
     title: "Sanctuary", 
     primaryColor: "#5D3FD3", 
@@ -683,20 +692,21 @@ const DashboardSettingsTab = ({ settings, onChange, programs = [] }) => {
         <div className="space-y-1.5">
           <Label className="text-[11px] text-gray-700">Bypass emails (comma-separated — can still use Sacred Home)</Label>
           <Input
+            data-maintenance-bypass-input
             className="text-xs font-mono h-9"
             placeholder="you@example.com, dev@example.com"
-            value={(settings.dashboard_maintenance_bypass_emails || []).join(', ')}
-            onChange={(e) => {
-              const emails = e.target.value
-                .split(/[,;\n]+/)
-                .map((s) => s.trim().toLowerCase())
-                .filter((s) => s.includes('@'));
+            value={maintenanceBypassDraft}
+            onChange={(e) => setMaintenanceBypassDraft(e.target.value)}
+            onBlur={() =>
               onChange({
                 ...settings,
-                dashboard_maintenance_bypass_emails: emails,
-              });
-            }}
+                dashboard_maintenance_bypass_emails: parseMaintenanceBypassEmails(maintenanceBypassDraft),
+              })
+            }
           />
+          <p className="text-[10px] text-gray-500">
+            Type commas freely; the list is applied when you leave this field or click Save.
+          </p>
         </div>
       </div>
 
