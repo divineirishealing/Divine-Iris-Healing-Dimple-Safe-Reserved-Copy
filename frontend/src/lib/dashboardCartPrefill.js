@@ -299,7 +299,11 @@ export function buildGuestBucketByIdFromSelection(selIds, immediateFamilyMembers
     const id = String(raw ?? '').trim();
     if (!id) continue;
     const m = byId.get(id);
-    if (m && m.household_client_link) {
+    const isAfcRow =
+      m &&
+      (m.household_client_link ||
+        String(m.relationship || '').trim().toLowerCase() === 'household');
+    if (isAfcRow) {
       out[id] = 'annual_household';
     } else if (m) {
       out[id] = 'immediate';
@@ -393,8 +397,12 @@ export function buildAnnualDashboardCartParticipants({
       member?.annual_portal_access != null
         ? !!member.annual_portal_access
         : !!member?.annual_member_dashboard;
+    const isAfcMember =
+      !!member &&
+      (!!member.household_client_link ||
+        String(member.relationship || '').trim().toLowerCase() === 'household');
     const peerIncludedInAnnualPackage =
-      !!programInAnnualPackageList && !!member?.household_client_link && peerAnnualPortal;
+      !!programInAnnualPackageList && isAfcMember && peerAnnualPortal;
     participants.push(
       baseParticipant(program, {
         name: displayName,

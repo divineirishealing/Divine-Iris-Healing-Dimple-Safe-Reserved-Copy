@@ -527,6 +527,29 @@ async def _household_peer_ids(client_id: str, client: dict) -> Set[str]:
     return {str(r["id"]) for r in rows if r.get("id")}
 
 
+async def _household_peer_ids_for_pricing(client_id: str, client: dict) -> Set[str]:
+    """Other Client Garden ids on the same ``household_key`` as the logged-in client.
+
+    Used to classify Annual Family Club seats for portal pricing even when a guest row is missing
+    ``household_client_link`` (merge/id drift). Unlike :func:`_household_peer_ids`, does not require
+    primary household contact — classification only; who may pay for whom stays enforced elsewhere.
+    """
+    hk = (client.get("household_key") or "").strip()
+    if not hk or not client_id:
+        return set()
+    rows = await db.clients.find(
+        {"household_key": hk, "id": {"$ne": client_id}},
+        {"_id": 0, "id": 1},
+    ).to_list(80)
+    return {str(r["id"]) for r in rows if r.get("id")}
+
+
+def _row_is_annual_family_club_peer(r: dict, household_peer_ids: Set[str]) -> bool:
+    """True when this guest row is an Annual Family Club / same-key household peer."""
+    rid = str(r.get("id") or "").strip()
+    return bool(r.get("household_client_link")) or (bool(rid) and rid in household_peer_ids)
+
+
 async def _household_peer_guest_rows(
     client_id: str, client: dict, *, for_payment: bool = False
 ) -> List[dict]:
@@ -703,29 +726,33 @@ def _split_resolved_guest_rows_plain_peer_ext(
     included_in_package: bool = False,
     program: Optional[dict] = None,
     annual_package_program_ids: Optional[List] = None,
+    household_peer_ids: Optional[Set[str]] = None,
 ) -> Tuple[int, int, int]:
     """Split selected guests into plain immediate family, annual household peers, and extended.
 
-    Peers (``household_client_link`` — same-key household club members returned for payment) are
-    priced with the **Annual** portal column, matching the primary member’s annual offer. Linked
-    clients may not all have ``annual_member_dashboard`` true in Mongo while the household is still
-    clubbed for checkout; the link flag alone determines the annual column. Plain immediate seats
-    use the **Family** column. When ``included_in_package`` is True, linked annual peers do not add
-    to tier pricing (covered by prepaid package).
+    Annual Family Club / same-key peers are priced with the **Annual** portal column (annual member
+    discount). A row counts as a peer if ``household_client_link`` is set **or** its id appears in
+    ``household_peer_ids`` (other clients on the same ``household_key``), so pricing stays correct
+    when merge data omits the link flag. Plain immediate seats use the **Family** column. When
+    ``included_in_package`` is True, linked annual peers do not add to tier pricing (covered by
+    prepaid package).
 
     When the payer is not on an annual dashboard package but a peer has Annual access and the program
     is in the annual package list, that peer seat is waived (their own package covers it).
     """
     im_ids = {str(m.get("id")) for m in (client.get("immediate_family") or []) if m.get("id")}
+    pid_set = household_peer_ids or set()
     plain = 0
     peer = 0
     ext = 0
     for r in rows:
-        is_imm = str(r.get("id") or "") in im_ids or bool(r.get("household_client_link"))
+        rid = str(r.get("id") or "").strip()
+        on_household_key = bool(rid) and rid in pid_set
+        is_imm = rid in im_ids or bool(r.get("household_client_link")) or on_household_key
         if not is_imm:
             ext += 1
             continue
-        is_peer = bool(r.get("household_client_link"))
+        is_peer = bool(r.get("household_client_link")) or on_household_key
         if included_in_package and is_peer:
             continue
         if (
@@ -745,20 +772,29 @@ def _split_resolved_guest_rows_plain_peer_ext(
     return plain, peer, ext
 
 
-def _selection_counts_plain_peer_display(client: dict, rows: List[dict]) -> Tuple[int, int]:
+def _selection_counts_plain_peer_display(
+    client: dict,
+    rows: List[dict],
+    *,
+    household_peer_ids: Optional[Set[str]] = None,
+) -> Tuple[int, int]:
     """How many selected guests are plain immediate vs same-key annual peers (for UI labels).
 
     Unlike :func:`_split_resolved_guest_rows_plain_peer_ext`, this always counts peers in the
     selection even when their seats are covered by the prepaid annual package (₹0).
     """
     im_ids = {str(m.get("id")) for m in (client.get("immediate_family") or []) if m.get("id")}
+    pid_set = household_peer_ids or set()
     plain = 0
     peer = 0
     for r in rows:
-        is_imm = str(r.get("id") or "") in im_ids or bool(r.get("household_client_link"))
+        rid = str(r.get("id") or "").strip()
+        on_household_key = bool(rid) and rid in pid_set
+        is_peer_row = bool(r.get("household_client_link")) or on_household_key
+        is_imm = rid in im_ids or bool(r.get("household_client_link")) or on_household_key
         if not is_imm:
             continue
-        if bool(r.get("household_client_link")):
+        if is_peer_row:
             peer += 1
         else:
             plain += 1
@@ -855,7 +891,9 @@ async def compute_dashboard_annual_family_pricing(
     """
     cur = (currency or "aed").lower()
     self_tier, fam_tier = _pick_self_and_family_tier_indices(program, tier_index_override)
-    self_unit_list = _portal_tier_unit_price(program, self_tier, cur, apply_tier_offer_prices) if include_self else 0.0
+    # Annual member + Annual Family Club seats share the same tier basis as "You (Annual)" before column offers.
+    annual_member_list_unit = _portal_tier_unit_price(program, self_tier, cur, apply_tier_offer_prices)
+    self_unit_list = annual_member_list_unit if include_self else 0.0
     fam_unit = _portal_tier_unit_price(program, fam_tier, cur, apply_tier_offer_prices)
     imm_fc_plain = max(0, int(immediate_family_count_plain))
     imm_fc_peer = max(0, int(immediate_family_count_peer))
@@ -907,9 +945,9 @@ async def compute_dashboard_annual_family_pricing(
         member_rule = "included_in_package"
         self_unit = 0.0
 
-    # Annual household peers: same dashboard rules as "You (Annual Member)" (`annual_offer`).
+    # Annual household peers: same tier basis and `annual_offer` as the annual member seat — not `fam_unit` alone.
     ig_p, imm_after_p, imm_rule_p, imm_promo_p = await _apply_portal_guest_line_offer(
-        program_id, currency, fam_unit, imm_fc_peer, ao, program
+        program_id, currency, annual_member_list_unit, imm_fc_peer, ao, program
     )
     # Plain immediate family: Family portal column.
     ig_f, imm_after_f, imm_rule_f, imm_promo_f = await _apply_portal_guest_line_offer(
@@ -1223,6 +1261,7 @@ async def _portal_combined_dashboard_total(user: dict, profile: ProfileData) -> 
     client = await db.clients.find_one({"id": client_id}, {"_id": 0}) or {}
     sub = client.get("subscription") or {}
     annual_dashboard_access = _annual_dashboard_access(client)
+    hp_ids = await _household_peer_ids_for_pricing(client_id, client)
     cur = (profile.portal_cart_currency or "aed").strip().lower()
     settings_doc = await db.site_settings.find_one(
         {"id": "site_settings"},
@@ -1264,6 +1303,7 @@ async def _portal_combined_dashboard_total(user: dict, profile: ProfileData) -> 
                 included_in_package=included,
                 program=program,
                 annual_package_program_ids=inc_cfg,
+                household_peer_ids=hp_ids,
             )
         else:
             imm_plain, imm_peer, ext_fc = 0, 0, 0
@@ -1333,10 +1373,11 @@ async def dashboard_quote(
 ):
     """Portal pricing for logged-in clients (Sacred Home + Divine Cart).
 
-    Dashboard offer columns: the **booker's** seat uses the annual column only when
-    ``annual_member_dashboard`` is true; otherwise it uses the family / immediate column.
-    Household peers still use the annual column, and per-guest package inclusion can waive
-    peer seats when the program is on the annual package list and the peer has Annual access.
+    Dashboard columns: annual member seat, immediate family, friends & extended. The booker's own
+    seat uses the annual column when they have annual portal access; otherwise the extended column.
+    Annual Family Club (same household_key) guests use the annual member column and discount; peers
+    are detected from ``household_client_link`` or household id lookup. Package inclusion can waive
+    peer seats when applicable.
     """
     client_id = user.get("client_id")
     if not client_id:
@@ -1345,6 +1386,7 @@ async def dashboard_quote(
     client = await db.clients.find_one({"id": client_id}, {"_id": 0}) or {}
     sub = client.get("subscription") or {}
     annual_dashboard_access = _annual_dashboard_access(client)
+    hp_ids = await _household_peer_ids_for_pricing(client_id, client)
     fam = await _all_dashboard_guest_rows_with_household(client_id, client, for_payment=True)
     id_list = [x.strip() for x in (family_ids or "").split(",") if x.strip()]
     if id_list:
@@ -1394,13 +1436,16 @@ async def dashboard_quote(
     if id_list:
         fam_by_row = {str(m.get("id")): m for m in fam if m.get("id")}
         resolved_rows = [fam_by_row[i] for i in id_list if i in fam_by_row]
-        plain_sel, peer_sel = _selection_counts_plain_peer_display(client, resolved_rows)
+        plain_sel, peer_sel = _selection_counts_plain_peer_display(
+            client, resolved_rows, household_peer_ids=hp_ids
+        )
         imm_plain, imm_peer, ext_fc = _split_resolved_guest_rows_plain_peer_ext(
             client,
             resolved_rows,
             included_in_package=included,
             program=program,
             annual_package_program_ids=inc_cfg,
+            household_peer_ids=hp_ids,
         )
     else:
         resolved_rows = []
@@ -1579,6 +1624,7 @@ async def dashboard_pay(data: DashboardPayIn, request: Request, user: dict = Dep
     client = await db.clients.find_one({"id": client_id}, {"_id": 0}) or {}
     sub = client.get("subscription") or {}
     annual_dashboard_access = _annual_dashboard_access(client)
+    hp_ids = await _household_peer_ids_for_pricing(client_id, client)
     program = await db.programs.find_one({"id": data.program_id}, {"_id": 0})
     if not program:
         raise HTTPException(status_code=404, detail="Program not found")
@@ -1605,7 +1651,9 @@ async def dashboard_pay(data: DashboardPayIn, request: Request, user: dict = Dep
     )
     if included:
         # Same-key household peers are already covered by the prepaid package — not separate enrollments.
-        resolved_family = [r for r in resolved_family if not bool(r.get("household_client_link"))]
+        resolved_family = [
+            r for r in resolved_family if not _row_is_annual_family_club_peer(r, hp_ids)
+        ]
     inc_cfg_pay = settings_doc.get("annual_package_included_program_ids")
     imm_plain, imm_peer, ext_fc = _split_resolved_guest_rows_plain_peer_ext(
         client,
@@ -1613,6 +1661,7 @@ async def dashboard_pay(data: DashboardPayIn, request: Request, user: dict = Dep
         included_in_package=included,
         program=program,
         annual_package_program_ids=inc_cfg_pay,
+        household_peer_ids=hp_ids,
     )
     fc = len(resolved_family)
     if fc > 12:
