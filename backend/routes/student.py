@@ -656,9 +656,12 @@ def _split_resolved_guest_rows_plain_peer_ext(
 ) -> Tuple[int, int, int]:
     """Split selected guests into plain immediate family, annual household peers, and extended.
 
-    Peers (``household_client_link`` + ``annual_member_dashboard``) are priced with the **Annual**
-    portal column; plain immediate seats use the **Family** column. When ``included_in_package`` is
-    True, linked annual peers do not add to tier pricing (covered by prepaid package).
+    Peers (``household_client_link`` — same-key household club members returned for payment) are
+    priced with the **Annual** portal column, matching the primary member’s annual offer. Linked
+    clients may not all have ``annual_member_dashboard`` true in Mongo while the household is still
+    clubbed for checkout; the link flag alone determines the annual column. Plain immediate seats
+    use the **Family** column. When ``included_in_package`` is True, linked annual peers do not add
+    to tier pricing (covered by prepaid package).
     """
     im_ids = {str(m.get("id")) for m in (client.get("immediate_family") or []) if m.get("id")}
     plain = 0
@@ -669,7 +672,7 @@ def _split_resolved_guest_rows_plain_peer_ext(
         if not is_imm:
             ext += 1
             continue
-        is_peer = bool(r.get("household_client_link")) and bool(r.get("annual_member_dashboard"))
+        is_peer = bool(r.get("household_client_link"))
         if included_in_package and is_peer:
             continue
         if included_in_package and not is_peer:
@@ -695,7 +698,7 @@ def _selection_counts_plain_peer_display(client: dict, rows: List[dict]) -> Tupl
         is_imm = str(r.get("id") or "") in im_ids or bool(r.get("household_client_link"))
         if not is_imm:
             continue
-        if bool(r.get("household_client_link")) and bool(r.get("annual_member_dashboard")):
+        if bool(r.get("household_client_link")):
             peer += 1
         else:
             plain += 1

@@ -641,6 +641,18 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh, bo
     return base;
   }, [members, otherMembers, isPrimaryHouseholdContact, enrollableAnnualHouseholdPeers]);
 
+  /** Merge duplicate ids so household-peer flags win — matches Divine Cart / dashboard-quote buckets. */
+  const bucketLookupMembers = useMemo(() => {
+    const byId = new Map();
+    for (const m of enrollableGuests) {
+      if (!m?.id) continue;
+      const id = String(m.id);
+      const prev = byId.get(id);
+      byId.set(id, prev ? { ...prev, ...m } : m);
+    }
+    return Array.from(byId.values());
+  }, [enrollableGuests]);
+
   const enrollableGuestIdsKey = useMemo(
     () =>
       enrollableGuests
@@ -1537,7 +1549,7 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh, bo
           self: pre.self,
           bookerEmail,
           detectedCountry,
-          immediateFamilyMembers: members,
+          immediateFamilyMembers: bucketLookupMembers,
         });
       } else {
         // Non-annual: respect selectedIds + attendance modes from modal (draft already merged)
@@ -1553,7 +1565,7 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh, bo
             self: pre.self,
             bookerEmail,
             detectedCountry,
-            immediateFamilyMembers: members,
+            immediateFamilyMembers: bucketLookupMembers,
           }) || (nonAnnualBookerJoins
             ? buildSelfOnlyCartParticipants(pre.self, program, bookerEmail, detectedCountry, nonAnnualBookerMode)
             : null);
@@ -1562,7 +1574,7 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh, bo
       /* syncProgramLineItem still updates line meta */
     }
 
-    const guestBucketById = buildGuestBucketByIdFromSelection(selectedIds, members);
+    const guestBucketById = buildGuestBucketByIdFromSelection(selectedIds, bucketLookupMembers);
     syncProgramLineItem(program, tierIdx, participants, {
       familyIds: selectedIds.map(String),
       bookerJoins: included ? false : draft?.bookerJoinsProgram !== false,
