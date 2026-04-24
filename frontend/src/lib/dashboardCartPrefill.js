@@ -122,6 +122,7 @@ function mergeGuestRowsByPrimaryId(orderedRows) {
     let merged = mergeGuestRowsPreferBase({ ...prev }, g);
     merged.household_client_link = !!(prev.household_client_link || g.household_client_link);
     merged.annual_member_dashboard = !!(prev.annual_member_dashboard || g.annual_member_dashboard);
+    merged.annual_portal_access = !!(prev.annual_portal_access || g.annual_portal_access);
     byPrimary.set(primary, merged);
   }
   return byPrimary;
@@ -388,10 +389,12 @@ export function buildAnnualDashboardCartParticipants({
       : 'Other';
     const idStr = String(id);
     const portalGuestBucket = guestBucketById[idStr] || 'extended';
+    const peerAnnualPortal =
+      member?.annual_portal_access != null
+        ? !!member.annual_portal_access
+        : !!member?.annual_member_dashboard;
     const peerIncludedInAnnualPackage =
-      !!programInAnnualPackageList &&
-      !!member?.household_client_link &&
-      !!member?.annual_member_dashboard;
+      !!programInAnnualPackageList && !!member?.household_client_link && peerAnnualPortal;
     participants.push(
       baseParticipant(program, {
         name: displayName,

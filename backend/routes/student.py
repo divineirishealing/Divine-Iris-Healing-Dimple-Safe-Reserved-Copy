@@ -190,8 +190,14 @@ def _subscription_annual_package_signals(sub: dict) -> bool:
 
 
 def _annual_dashboard_access(client: dict) -> bool:
-    """Client Garden / Dashboard Access: Annual vs Non-annual. Drives portal offers + tier promotional pricing."""
-    return bool(client.get("annual_member_dashboard"))
+    """True when Client Garden marks Annual dashboard access or subscription data matches a prepaid annual package.
+
+    Drives portal offers, tier promotional pricing, package inclusion, and household club eligibility.
+    """
+    if bool(client.get("annual_member_dashboard")):
+        return True
+    sub = client.get("subscription") or {}
+    return _subscription_annual_package_signals(sub)
 
 
 def _is_annual_subscriber(sub: dict, client: dict) -> bool:
@@ -202,11 +208,9 @@ def _is_annual_subscriber(sub: dict, client: dict) -> bool:
 
 
 def _portal_included_in_annual_package(program: dict, inc_cfg, _sub: dict, client: dict) -> bool:
-    """Prepaid annual-package inclusion: program must be in the configured package, and Client Garden access must be Annual.
+    """Prepaid annual-package inclusion: program on the configured list and effective annual portal access.
 
-    Subscription fields (`package_id`, etc.) may be missing or stale in Mongo; we do not require
-    subscription heuristics here — otherwise included programs (e.g. MMM) still charge the member seat.
-    Non-annual dashboard access never gets package inclusion.
+    Access is CRM Annual or subscription-shaped annual package (:func:`_annual_dashboard_access`).
     """
     if not _program_included_in_annual_package(program, inc_cfg):
         return False
@@ -402,12 +406,19 @@ def _peer_row_included_in_guest_annual_package(
     program: dict, configured_ids: Optional[List], row: dict
 ) -> bool:
     """Program is on the prepaid annual-package list and this row is a same-key household peer with
-    Client Garden Annual access. Used when the logged-in payer is not annual but linked accounts are."""
+    effective annual portal access. Used when the logged-in payer is not annual but linked accounts are."""
     if not _program_included_in_annual_package(program, configured_ids):
         return False
     if not bool(row.get("household_client_link")):
         return False
-    return bool(row.get("annual_member_dashboard"))
+    if "annual_portal_access" in row:
+        return bool(row.get("annual_portal_access"))
+    return _annual_dashboard_access(
+        {
+            "annual_member_dashboard": row.get("annual_member_dashboard"),
+            "subscription": row.get("subscription") or {},
+        }
+    )
 
 
 def _program_included_in_annual_package(program: dict, configured_ids: Optional[List] = None) -> bool:
@@ -467,18 +478,18 @@ def _all_dashboard_guest_rows(client: dict) -> List[dict]:
 
 
 async def _household_club_all_annual(household_key: str) -> bool:
-    """True only when every client with this household_key has Annual dashboard access and portal is not blocked."""
+    """True only when every client with this household_key has effective annual portal access and portal is not blocked."""
     hk = (household_key or "").strip()
     if not hk:
         return False
     rows = await db.clients.find(
         {"household_key": hk},
-        {"_id": 0, "annual_member_dashboard": 1, "portal_login_allowed": 1},
+        {"_id": 0, "annual_member_dashboard": 1, "portal_login_allowed": 1, "subscription": 1},
     ).to_list(100)
     if not rows:
         return False
     for c in rows:
-        if not bool(c.get("annual_member_dashboard")):
+        if not _annual_dashboard_access(c):
             return False
         if c.get("portal_login_allowed") is False:
             return False
@@ -538,10 +549,11 @@ async def _household_peer_guest_rows(
         if not await _household_club_all_annual(hk):
             return []
 
-    match: dict = {"household_key": hk, "id": {"$ne": client_id}}
-    if not for_payment:
-        match["annual_member_dashboard"] = True
-        match["$nor"] = [{"portal_login_allowed": False}]
+    match: dict = {
+        "household_key": hk,
+        "id": {"$ne": client_id},
+        "$nor": [{"portal_login_allowed": False}],
+    }
 
     rows = await db.clients.find(
         match,
@@ -554,15 +566,19 @@ async def _household_peer_guest_rows(
             "city": 1,
             "country": 1,
             "annual_member_dashboard": 1,
+            "subscription": 1,
             "date_of_birth": 1,
         },
     ).sort([("name", 1)]).to_list(80)
+    if not for_payment:
+        rows = [m for m in rows if _annual_dashboard_access(m)]
     now = datetime.now(timezone.utc).isoformat()
     out: List[dict] = []
     for m in rows:
         em = (m.get("email") or "").strip()
         dob_raw = (m.get("date_of_birth") or "").strip()[:10]
         age_str = _age_from_dob_iso(dob_raw) if dob_raw else ""
+        portal_access = _annual_dashboard_access(m)
         out.append(
             {
                 "id": m["id"],
@@ -578,6 +594,7 @@ async def _household_peer_guest_rows(
                 "notify_enrollment": bool(em),
                 "household_client_link": True,
                 "annual_member_dashboard": bool(m.get("annual_member_dashboard")),
+                "annual_portal_access": portal_access,
                 "updated_at": now,
             }
         )
@@ -599,6 +616,7 @@ def _merge_immediate_family_with_household_peers(stored_im: List[dict], peers: L
             merged = dict(m)
             merged["household_client_link"] = True
             merged["annual_member_dashboard"] = bool(p.get("annual_member_dashboard"))
+            merged["annual_portal_access"] = bool(p.get("annual_portal_access"))
             out.append(merged)
         else:
             out.append(m)
@@ -645,6 +663,7 @@ async def _all_dashboard_guest_rows_with_household(
             merged = dict(m)
             merged["household_client_link"] = True
             merged["annual_member_dashboard"] = bool(p.get("annual_member_dashboard"))
+            merged["annual_portal_access"] = bool(p.get("annual_portal_access"))
             out.append(merged)
         else:
             out.append(m)
@@ -1923,6 +1942,7 @@ async def get_student_home(user: dict = Depends(get_current_user)):
         "upcoming_programs": upcoming,
         "is_annual_subscriber": is_annual,
         "annual_member_dashboard": bool(client.get("annual_member_dashboard")),
+        "annual_portal_access": _annual_dashboard_access(client),
         "subscription_annual_package_signals": _subscription_annual_package_signals(sub),
         "dashboard_offers": {
             "annual": dashboard_offer_annual,

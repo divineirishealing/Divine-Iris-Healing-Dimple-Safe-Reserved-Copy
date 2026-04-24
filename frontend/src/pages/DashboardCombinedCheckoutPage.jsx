@@ -566,7 +566,10 @@ export default function DashboardCombinedCheckoutPage() {
           ? settingsRes.data.annual_package_included_program_ids
           : [];
         const upcoming = home.upcoming_programs || [];
-        const annualAccess = !!home.annual_member_dashboard;
+        const annualAccess =
+          home.annual_portal_access != null
+            ? !!home.annual_portal_access
+            : !!(home.annual_member_dashboard || home.subscription_annual_package_signals);
         const enrollableGuests = mergeEnrollableGuestsForPortalCart(home);
         const bucketLookupMembers = guestBucketLookupMembersFromHome(home);
         const snap = readUpcomingDashboardSession(email);

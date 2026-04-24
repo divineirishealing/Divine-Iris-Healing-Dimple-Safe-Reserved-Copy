@@ -925,7 +925,10 @@ export default function DashboardUpcomingProgramRowItem({
                     {annualHouseholdPeers.map((m, gidx) => {
                       const mid = m.id || `ah-${gidx}-${m.name}-${m.email}`;
                       const peerMatchesClub = rowMatchesAnnualFamilyClubIdentity(m, annualFamilyClubIdentity);
-                      const peerHasAnnualDash = m?.annual_member_dashboard !== false;
+                      const peerHasAnnualDash =
+                        m?.annual_portal_access != null
+                          ? !!m.annual_portal_access
+                          : m?.annual_member_dashboard !== false;
                       /** Annual primary + package program: peers aren’t paid add-ons (unchecked, frozen). */
                       const peerFrozenAnnualPrimary = includedPkg && peerMatchesClub;
                       /** Non-annual primary paying for household: peers’ own annual package covers this program (MMM/AWRP list). */

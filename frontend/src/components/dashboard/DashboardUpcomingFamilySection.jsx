@@ -590,8 +590,14 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh, bo
   const extendedOffer = offers.extended || {};
   /** Subscription / schedule heuristics (year-long tier, modal paths). */
   const isAnnualSubscriber = homeData?.is_annual_subscriber;
-  /** Client Garden Dashboard Access = Annual — drives dashboard offer columns + portal quote overlays. */
-  const annualMemberDashboard = !!homeData?.annual_member_dashboard;
+  /**
+   * Effective annual portal pricing (CRM Annual or subscription-shaped package). Matches backend
+   * `annual_portal_access` on GET /student/home.
+   */
+  const annualPortalAccess =
+    homeData?.annual_portal_access != null
+      ? !!homeData.annual_portal_access
+      : !!(homeData?.annual_member_dashboard || homeData?.subscription_annual_package_signals);
   const immediateFamilyLocked = !!homeData?.immediate_family_locked;
   const immediateFamilyEditApproved = homeData?.immediate_family_editing_approved !== false;
   const familyApproved = !!homeData?.family_approved;
@@ -1021,11 +1027,11 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh, bo
     const a = (annualOffer.promo_code || '').trim();
     const f = (familyOffer.promo_code || '').trim();
     const x = (extendedOffer.promo_code || '').trim();
-    if (annualMemberDashboard) return annualOffer.enabled && a ? a : '';
+    if (annualPortalAccess) return annualOffer.enabled && a ? a : '';
     if (familyOffer.enabled && f) return f;
     if (extendedOffer.enabled && x) return x;
     return '';
-  }, [annualMemberDashboard, annualOffer, familyOffer, extendedOffer]);
+  }, [annualPortalAccess, annualOffer, familyOffer, extendedOffer]);
 
   const prefetchProgramsKey = useMemo(
     () => programsForPrefetch.map((p) => p.id).join(','),
@@ -1044,10 +1050,10 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh, bo
       if (!p.is_flagship || tiers.length === 0) return 0;
       const saved = dashboardTierByProgram[p.id];
       if (typeof saved === 'number' && saved >= 0 && saved < tiers.length) return saved;
-      // Prefer annual tier only when Client Garden access type is Annual — not subscription alone
-      return pickTierIndexForDashboard(p, !!annualMemberDashboard) ?? 0;
+      // Prefer annual tier when effective annual portal access (CRM or subscription-shaped package)
+      return pickTierIndexForDashboard(p, !!annualPortalAccess) ?? 0;
     },
-    [dashboardTierByProgram, annualMemberDashboard]
+    [dashboardTierByProgram, annualPortalAccess]
   );
 
   const dashboardTierKey = useMemo(
@@ -1071,7 +1077,7 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh, bo
         const ids = selectedFamilyByProgram[p.id] || [];
         const draft = seatDraftsByProgram[p.id];
         const includedInPkg =
-          annualMemberDashboard && (programIncludedInAnnualPackage(p, annualIncludedIds) || false);
+          annualPortalAccess && (programIncludedInAnnualPackage(p, annualIncludedIds) || false);
         const bookerJoins = includedInPkg ? false : draft?.bookerJoinsProgram !== false;
         const params =
           ids.length > 0
@@ -1100,7 +1106,7 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh, bo
       cancelled = true;
     };
   }, [
-    annualMemberDashboard,
+    annualPortalAccess,
     currencyReady,
     portalQuoteCurrency,
     prefetchProgramsKey,
@@ -1214,7 +1220,7 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh, bo
 
   /** Included-package programs: same-key household peers are not separate enrollments — drop from selection. */
   useEffect(() => {
-    if (!annualMemberDashboard || !annualHouseholdPeerIdsKey) return;
+    if (!annualPortalAccess || !annualHouseholdPeerIdsKey) return;
     const peerIds = new Set(annualHouseholdPeerIdsKey.split(',').filter(Boolean));
     if (peerIds.size === 0) return;
     setSelectedFamilyByProgram((prev) => {
@@ -1235,7 +1241,7 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh, bo
       return changed ? next : prev;
     });
   }, [
-    annualMemberDashboard,
+    annualPortalAccess,
     annualHouseholdPeerIdsKey,
     programsForPrefetch,
     annualIncludedIds,
@@ -1371,7 +1377,7 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh, bo
     const prog = programsForPrefetch.find((x) => String(x.id) === String(programId));
     if (!prog) return;
     const includedPkg =
-      annualMemberDashboard &&
+      annualPortalAccess &&
       (programIncludedInAnnualPackage(prog, annualIncludedIds) || !!annualQuotes[programId]?.included_in_annual_package);
     const ids = (selectedFamilyByProgram[programId] || []).map(String);
     setSeatDraftsByProgram((prev) => {
@@ -1686,7 +1692,7 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh, bo
             {upcomingList.map((p) => {
               const sel = selectedFamilyByProgram[p.id] || [];
               const includedForSeat =
-                annualMemberDashboard &&
+                annualPortalAccess &&
                 (programIncludedInAnnualPackage(p, annualIncludedIds) ||
                   !!annualQuotes[p.id]?.included_in_annual_package);
               const seatCtxMini = { includedPkg: includedForSeat, selectedIds: sel };
@@ -1711,7 +1717,7 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh, bo
                   key={p.id}
                   program={p}
                   isAnnual={isAnnualSubscriber}
-                  annualDashboardAccess={annualMemberDashboard}
+                  annualDashboardAccess={annualPortalAccess}
                   bookerEmail={bookerEmail}
                   detectedCountry={detectedCountry}
                   symbol={portalQuoteSymbol}
