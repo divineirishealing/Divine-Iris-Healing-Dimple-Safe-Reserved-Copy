@@ -22,7 +22,7 @@ import {
   ClipboardList,
   Trash2,
 } from 'lucide-react';
-import { computeCrossSellDiscount } from '../lib/crossSellPricing';
+import { computeCrossSellDiscount, normalizeCartItemTierIndex } from '../lib/crossSellPricing';
 import MotivationalSignupFlash from '../components/MotivationalSignupFlash';
 import { ManualPaymentProofBody } from '../components/dashboard/ManualPaymentProofBody';
 import { getAuthHeaders } from '../lib/authHeaders';
@@ -1320,12 +1320,13 @@ export default function DashboardCombinedCheckoutPage() {
         display_rate: isPrimary ? 1 : undefined,
         origin_url: window.location.origin,
         promo_code: promoResult?.code || null,
-        tier_index: firstItem.tierIndex,
+        tier_index:
+          firstItem.type === 'session' ? firstItem.tierIndex ?? null : normalizeCartItemTierIndex(firstItem),
         points_to_redeem:
           pointsSummary?.enabled ? Math.max(0, parseInt(String(pointsToRedeem), 10) || 0) : 0,
         cart_items: items.map((i) => ({
           program_id: i.programId,
-          tier_index: i.tierIndex,
+          tier_index: normalizeCartItemTierIndex(i),
           participants_count: i.participants.length,
         })),
         portal_checkout_cancel: true,

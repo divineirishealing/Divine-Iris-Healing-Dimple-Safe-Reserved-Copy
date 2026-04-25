@@ -1,4 +1,18 @@
 /**
+ * Tier index sent with checkout/cart API payloads must match cross-sell matching on the server
+ * (Mongo rules use string tiers like "0"). Undefined tier must not become "" in cart_tier_set.
+ */
+export function normalizeCartItemTierIndex(item) {
+  if (item?.type === 'session') {
+    if (item.tierIndex != null && item.tierIndex !== '') return item.tierIndex;
+    return null;
+  }
+  if (item?.tierIndex != null && item.tierIndex !== '') return item.tierIndex;
+  if (item?.isFlagship && (item?.durationTiers || []).length) return 0;
+  return 0;
+}
+
+/**
  * Cross-sell bundle discount (same rules as EnrollmentPage / CartPage).
  * When the "buy" program (+ optional tier) is in the cart, the current program line gets the target discount.
  *

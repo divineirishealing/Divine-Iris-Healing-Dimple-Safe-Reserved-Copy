@@ -13,6 +13,7 @@ import {
   ShieldCheck, ShieldAlert, ShoppingCart, FileText, Gift
 } from 'lucide-react';
 import MotivationalSignupFlash from '../components/MotivationalSignupFlash';
+import { normalizeCartItemTierIndex } from '../lib/crossSellPricing';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
@@ -130,7 +131,10 @@ function CartCheckoutPage() {
           num_programs: numPrograms, num_participants: totalParticipants,
           subtotal, email: bookerEmail, currency,
           program_ids: items.map(i => i.programId),
-          cart_items: items.map(i => ({ program_id: i.programId, tier_index: i.tierIndex })),
+          cart_items: items.map((i) => ({
+            program_id: i.programId,
+            tier_index: normalizeCartItemTierIndex(i),
+          })),
         });
         setAutoDiscounts(res.data);
       } catch { setAutoDiscounts({ group_discount: 0, combo_discount: 0, loyalty_discount: 0, total_discount: 0 }); }
@@ -199,9 +203,14 @@ function CartCheckoutPage() {
         enrollment_id: enrollmentId, item_type: firstItem.type === 'session' ? 'session' : 'program', item_id: firstItem.programId, currency,
         display_currency: displayCurrency, display_rate: isPrimary ? 1 : undefined,
         origin_url: window.location.origin, promo_code: promoResult?.code || null,
-        tier_index: firstItem.tierIndex,
+        tier_index:
+          firstItem.type === 'session' ? firstItem.tierIndex ?? null : normalizeCartItemTierIndex(firstItem),
         points_to_redeem: pointsSummary?.enabled ? Math.max(0, parseInt(String(pointsToRedeem), 10) || 0) : 0,
-        cart_items: items.map(i => ({ program_id: i.programId, tier_index: i.tierIndex, participants_count: i.participants.length })),
+        cart_items: items.map((i) => ({
+          program_id: i.programId,
+          tier_index: normalizeCartItemTierIndex(i),
+          participants_count: i.participants.length,
+        })),
         browser_timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
         browser_languages: navigator.languages ? [...navigator.languages] : [navigator.language],
       });

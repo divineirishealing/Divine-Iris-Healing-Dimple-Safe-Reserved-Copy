@@ -178,7 +178,16 @@ async def calculate_discounts(data: dict):
         pid_set = set(str(p) for p in program_ids)
         cart_tier_set = set()
         for ci in cart_items:
-            cart_tier_set.add((str(ci.get("program_id", "")), str(ci.get("tier_index", ""))))
+            pid = str(ci.get("program_id", "") or "").strip()
+            if not pid:
+                continue
+            raw_tier = ci.get("tier_index")
+            if raw_tier is None or raw_tier == "":
+                # Align with frontend: flagship programs default tier 0; omitting tier_index must not become "".
+                tier_key = "0"
+            else:
+                tier_key = str(raw_tier)
+            cart_tier_set.add((pid, tier_key))
         
         for rule in cross_sell_rules:
             if not rule.get("enabled", True):
