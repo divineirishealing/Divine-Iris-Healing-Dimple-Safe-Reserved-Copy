@@ -16,6 +16,7 @@ import os
 from dotenv import load_dotenv
 from pathlib import Path
 from utils.canonical_id import new_entity_id, new_internal_diid
+from utils.garden_labels import iris_label_for_year
 
 ROOT_DIR = Path(__file__).parent.parent
 load_dotenv(ROOT_DIR / '.env')
@@ -506,8 +507,8 @@ async def upload_subscriber_excel(file: UploadFile = File(...)):
                     "email": email,
                     "name": name,
                     "phone": "",
-                    "label": "Iris",
-                    "label_manual": "Iris",
+                    "label": iris_label_for_year(1),
+                    "label_manual": iris_label_for_year(1),
                     "sources": ["Subscriber Upload"],
                     "conversions": [],
                     "timeline": [{
@@ -798,8 +799,8 @@ async def create_subscriber(data: SubscriberCreate):
             "email": data.email.lower() if data.email else "",
             "name": data.name,
             "phone": "",
-            "label": "Iris",
-            "label_manual": "Iris",
+            "label": iris_label_for_year(1),
+            "label_manual": iris_label_for_year(1),
             "sources": ["Admin Manual"],
             "conversions": [],
             "timeline": [{"type": "Admin Manual", "detail": f"Annual: {data.annual_program}", "date": _now}],

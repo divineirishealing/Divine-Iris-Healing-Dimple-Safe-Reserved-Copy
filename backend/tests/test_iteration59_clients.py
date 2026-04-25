@@ -2,9 +2,20 @@
 Test iteration 59: Client Garden CRM APIs
 Tests: sync, list, filter, search, stats, update, delete, export CSV
 """
+import os
+import sys
+from pathlib import Path
+
 import pytest
 import requests
-import os
+
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+from utils.garden_labels import (  # noqa: E402
+    CANONICAL_LABEL_SET,
+    LABEL_ROOT,
+    label_filter_variants,
+    normalize_label,
+)
 
 BASE_URL = os.environ.get('REACT_APP_BACKEND_URL', '').rstrip('/')
 
@@ -26,9 +37,12 @@ class TestClientsStats:
         """Stats by_label contains expected label names"""
         response = requests.get(f"{BASE_URL}/api/clients/stats")
         data = response.json()
-        valid_labels = ["Dew", "Seed", "Root", "Bloom", "Iris", "Purple Bees", "Iris Bees"]
         for label in data["by_label"].keys():
-            assert label in valid_labels, f"Unknown label: {label}"
+            if label is None:
+                continue
+            assert (
+                label in CANONICAL_LABEL_SET or normalize_label(label) in CANONICAL_LABEL_SET
+            ), f"Unknown label: {label}"
 
 
 class TestClientsList:
@@ -60,8 +74,9 @@ class TestClientsList:
         response = requests.get(f"{BASE_URL}/api/clients", params={"label": "Dew"})
         assert response.status_code == 200
         data = response.json()
+        variants = set(label_filter_variants("Dew"))
         for cl in data:
-            assert cl["label"] == "Dew", f"Expected label=Dew, got {cl['label']}"
+            assert cl["label"] in variants, f"Expected Dew family label, got {cl['label']}"
         print(f"Dew clients count: {len(data)}")
 
     def test_filter_by_label_seed(self):
@@ -69,8 +84,9 @@ class TestClientsList:
         response = requests.get(f"{BASE_URL}/api/clients", params={"label": "Seed"})
         assert response.status_code == 200
         data = response.json()
+        variants = set(label_filter_variants("Seed"))
         for cl in data:
-            assert cl["label"] == "Seed", f"Expected label=Seed, got {cl['label']}"
+            assert cl["label"] in variants, f"Expected Seed family label, got {cl['label']}"
         print(f"Seed clients count: {len(data)}")
 
     def test_filter_by_label_bloom(self):
@@ -78,8 +94,9 @@ class TestClientsList:
         response = requests.get(f"{BASE_URL}/api/clients", params={"label": "Bloom"})
         assert response.status_code == 200
         data = response.json()
+        variants = set(label_filter_variants("Bloom"))
         for cl in data:
-            assert cl["label"] == "Bloom", f"Expected label=Bloom, got {cl['label']}"
+            assert cl["label"] in variants, f"Expected Bloom family label, got {cl['label']}"
         print(f"Bloom clients count: {len(data)}")
 
     def test_search_by_name(self):
@@ -184,8 +201,8 @@ class TestClientUpdateDelete:
         # Verify update
         response = requests.get(f"{BASE_URL}/api/clients/{client_id}")
         updated = response.json()
-        assert updated["label_manual"] == "Root", "label_manual not set"
-        assert updated["label"] == "Root", "label should match manual override"
+        assert updated["label_manual"] == LABEL_ROOT, "label_manual not normalized"
+        assert updated["label"] == LABEL_ROOT, "label should match manual override"
         print(f"Set manual label 'Root' for client {client_id}")
         
         # Restore - clear manual label

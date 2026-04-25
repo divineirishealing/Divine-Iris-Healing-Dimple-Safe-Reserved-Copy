@@ -21,6 +21,7 @@ import { getApiUrl } from '../../../lib/config';
 
 const CLIENT_GARDEN_COLUMN_DEFS = [
   { id: 'name', label: 'Name', required: true },
+  { id: 'garden_label', label: 'Garden label' },
   { id: 'diid', label: 'DIID' },
   { id: 'uuid', label: 'UUID' },
   { id: 'email', label: 'Email' },
@@ -29,22 +30,90 @@ const CLIENT_GARDEN_COLUMN_DEFS = [
   { id: 'pri', label: 'Pri' },
   { id: 'sources', label: 'Sources' },
   { id: 'conv', label: 'Conv' },
-  { id: 'first', label: 'First' },
+  { id: 'first_program', label: '1st program' },
+  { id: 'first', label: 'First seen' },
   { id: 'updated', label: 'Updated' },
   { id: 'actions', label: 'Actions', required: true },
 ];
 
-const CLIENT_GARDEN_COLS_KEY = 'admin-client-garden-columns-v1';
+const CLIENT_GARDEN_COLS_KEY = 'admin-client-garden-columns-v2';
 
-const LABEL_CONFIG = {
-  Dew:           { icon: Droplets,       bg: 'bg-sky-50',    border: 'border-sky-200',    text: 'text-sky-700',    badge: 'bg-sky-100 text-sky-700',    desc: 'Default for new leads — until a program is fully paid' },
-  Seed:          { icon: Sprout,         bg: 'bg-lime-50',   border: 'border-lime-200',   text: 'text-lime-700',   badge: 'bg-lime-100 text-lime-700',  desc: 'Joined a workshop' },
-  Root:          { icon: TreeDeciduous,  bg: 'bg-amber-50',  border: 'border-amber-200',  text: 'text-amber-700',  badge: 'bg-amber-100 text-amber-700', desc: 'Converted to a flagship program' },
-  Bloom:         { icon: Flower2,        bg: 'bg-pink-50',   border: 'border-pink-200',   text: 'text-pink-700',   badge: 'bg-pink-100 text-pink-700',  desc: 'Multiple programs or repeat client' },
-  Iris:          { icon: Star,           bg: 'bg-purple-50', border: 'border-purple-200', text: 'text-purple-700', badge: 'bg-purple-100 text-purple-700', desc: 'Annual Program Subscriber' },
-  'Purple Bees': { icon: Sparkles,       bg: 'bg-violet-50', border: 'border-violet-200', text: 'text-violet-700', badge: 'bg-violet-100 text-violet-700', desc: 'Soulful referral partner' },
-  'Iris Bees':   { icon: Crown,          bg: 'bg-yellow-50', border: 'border-yellow-200', text: 'text-yellow-700', badge: 'bg-yellow-100 text-yellow-700', desc: 'Brand Ambassador' },
+/** Maps full canonical labels + legacy short names to row icon/colors (keep in sync with backend ``label_stripe_key``). */
+function gardenLabelStripeKey(label) {
+  const s = (label || '').trim();
+  if (!s || s === 'Dew' || s.startsWith('Dew —') || s.startsWith('Dew -')) return 'dew';
+  if (s === 'Seed' || s.startsWith('Seed —') || s.startsWith('Seed -')) return 'seed';
+  if (s === 'Root' || s.startsWith('Root —') || s.startsWith('Root -')) return 'root';
+  if (s === 'Bloom' || s.startsWith('Bloom —') || s.startsWith('Bloom -')) return 'bloom';
+  if (s === 'Iris' || /^Year\s+\d+:/i.test(s)) return 'iris';
+  if (s.includes('Purple Bees')) return 'purpleBees';
+  if (s.includes('Iris Bees')) return 'irisBees';
+  return 'dew';
+}
+
+const LABEL_FAMILY_STYLES = {
+  dew: {
+    icon: Droplets,
+    bg: 'bg-sky-50',
+    border: 'border-sky-200',
+    text: 'text-sky-700',
+    badge: 'bg-sky-100 text-sky-700',
+    desc: 'Inquiry / lead — The Spark',
+  },
+  seed: {
+    icon: Sprout,
+    bg: 'bg-lime-50',
+    border: 'border-lime-200',
+    text: 'text-lime-700',
+    badge: 'bg-lime-100 text-lime-700',
+    desc: 'Workshop — The Potential',
+  },
+  root: {
+    icon: TreeDeciduous,
+    bg: 'bg-amber-50',
+    border: 'border-amber-200',
+    text: 'text-amber-700',
+    badge: 'bg-amber-100 text-amber-700',
+    desc: 'Flagship — The Grounding',
+  },
+  bloom: {
+    icon: Flower2,
+    bg: 'bg-pink-50',
+    border: 'border-pink-200',
+    text: 'text-pink-700',
+    badge: 'bg-pink-100 text-pink-700',
+    desc: 'Repeat client — The Unfolding',
+  },
+  iris: {
+    icon: Star,
+    bg: 'bg-purple-50',
+    border: 'border-purple-200',
+    text: 'text-purple-700',
+    badge: 'bg-purple-100 text-purple-700',
+    desc: 'Annual journey — Iris years 1–12',
+  },
+  purpleBees: {
+    icon: Sparkles,
+    bg: 'bg-violet-50',
+    border: 'border-violet-200',
+    text: 'text-violet-700',
+    badge: 'bg-violet-100 text-violet-700',
+    desc: 'Referral partners — The Messengers',
+  },
+  irisBees: {
+    icon: Crown,
+    bg: 'bg-yellow-50',
+    border: 'border-yellow-200',
+    text: 'text-yellow-700',
+    badge: 'bg-yellow-100 text-yellow-700',
+    desc: 'Brand Ambassadors',
+  },
 };
+
+function labelStyleForClient(label) {
+  const k = gardenLabelStripeKey(label);
+  return LABEL_FAMILY_STYLES[k] || LABEL_FAMILY_STYLES.dew;
+}
 
 const timeAgo = (dateStr) => {
   if (!dateStr) return '';
@@ -327,10 +396,11 @@ const ClientsTab = () => {
             <p className="text-sm">No clients found. Use Add client or Sync All Data to populate.</p>
           </div>
         ) : (
-          <table className="w-full min-w-[1240px] text-left border-collapse text-[10px]" data-testid="clients-table">
+          <table className="w-full min-w-[1680px] text-left border-collapse text-[10px]" data-testid="clients-table">
             <thead>
               <tr className="bg-gray-100 border-b border-gray-200 text-[9px] uppercase tracking-wide text-gray-600">
                 {isVisible('name') && <th className="py-2 pl-3 pr-2 font-semibold sticky left-0 bg-gray-100 z-10">Name</th>}
+                {isVisible('garden_label') && <th className="py-2 px-2 font-semibold min-w-[200px]" title="Client Garden journey label">Garden label</th>}
                 {isVisible('diid') && <th className="py-2 px-2 font-semibold min-w-[220px]" title="DIID-DIRAyyMM-… (run Sync to backfill legacy rows)">DIID</th>}
                 {isVisible('uuid') && <th className="py-2 px-2 font-semibold min-w-[200px]" title="Stored as id — UUID v7 for new clients, v4 for older rows">UUID</th>}
                 {isVisible('email') && <th className="py-2 px-2 font-semibold min-w-[140px]">Email</th>}
@@ -339,14 +409,15 @@ const ClientsTab = () => {
                 {isVisible('pri') && <th className="py-2 px-2 font-semibold w-[40px] text-center">Pri</th>}
                 {isVisible('sources') && <th className="py-2 px-2 font-semibold min-w-[100px]">Sources</th>}
                 {isVisible('conv') && <th className="py-2 px-2 font-semibold w-[44px] text-center">Conv</th>}
-                {isVisible('first') && <th className="py-2 px-2 font-semibold w-[72px]">First</th>}
+                {isVisible('first_program') && <th className="py-2 px-2 font-semibold min-w-[120px]" title="First paid program from conversions (by date)">1st program</th>}
+                {isVisible('first') && <th className="py-2 px-2 font-semibold w-[72px]">First seen</th>}
                 {isVisible('updated') && <th className="py-2 px-2 font-semibold w-[72px]">Updated</th>}
                 {isVisible('actions') && <th className="py-2 pr-3 pl-2 font-semibold w-[88px] text-right sticky right-0 bg-gray-100 z-10">Actions</th>}
               </tr>
             </thead>
             <tbody>
               {clients.map((cl) => {
-                const cfg = LABEL_CONFIG[cl.label] || LABEL_CONFIG.Dew;
+                const cfg = labelStyleForClient(cl.label);
                 const Icon = cfg.icon;
                 const sourcesStr = (cl.sources || []).join(', ');
                 return (
@@ -363,6 +434,14 @@ const ClientsTab = () => {
                         </div>
                         <span className="font-semibold text-gray-900 truncate max-w-[140px]" title={cl.name || ''}>{cl.name || '—'}</span>
                       </div>
+                    </td>
+                    )}
+                    {isVisible('garden_label') && (
+                    <td
+                      className="py-2 px-2 text-gray-800 align-top max-w-[320px]"
+                      title={cl.label || ''}
+                    >
+                      <span className="line-clamp-2 text-[9px] leading-snug">{cl.label || '—'}</span>
                     </td>
                     )}
                     {isVisible('diid') && (
@@ -394,6 +473,11 @@ const ClientsTab = () => {
                     {isVisible('pri') && <td className="py-2 px-2 text-center text-gray-700">{cl.is_primary_household_contact ? 'Y' : '—'}</td>}
                     {isVisible('sources') && <td className="py-2 px-2 text-gray-500" title={sourcesStr}>{truncate(sourcesStr, 40) || '—'}</td>}
                     {isVisible('conv') && <td className="py-2 px-2 text-center font-medium text-gray-800">{cl.conversions?.length ?? 0}</td>}
+                    {isVisible('first_program') && (
+                    <td className="py-2 px-2 text-gray-700 max-w-[200px]" title={cl.first_program || ''}>
+                      <span className="line-clamp-2 text-[9px] leading-snug">{cl.first_program || '—'}</span>
+                    </td>
+                    )}
                     {isVisible('first') && <td className="py-2 px-2 text-gray-500 whitespace-nowrap">{cl.created_at ? new Date(cl.created_at).toLocaleDateString() : '—'}</td>}
                     {isVisible('updated') && <td className="py-2 px-2 text-gray-500 whitespace-nowrap">{timeAgo(cl.updated_at || cl.created_at)}</td>}
                     {isVisible('actions') && (
@@ -450,7 +534,7 @@ function ClientEditDialog({ client: cl, onClose, onSaved, onDelete, toast }) {
     setPrimaryHouseholdContact(!!cl.is_primary_household_contact);
   }, [cl.id, cl.updated_at, cl.email, cl.household_key, cl.is_primary_household_contact]);
 
-  const cfg = LABEL_CONFIG[cl.label] || LABEL_CONFIG.Dew;
+  const cfg = labelStyleForClient(cl.label);
   const RowIcon = cfg.icon;
   const timeline = [...(cl.timeline || [])].sort((a, b) => new Date(b.date) - new Date(a.date));
 
@@ -505,6 +589,10 @@ function ClientEditDialog({ client: cl, onClose, onSaved, onDelete, toast }) {
               <p className="col-span-2"><span className="text-gray-400">Legacy DID</span> <span className="font-mono text-purple-700">{cl.did}</span></p>
             )}
             <p><span className="text-gray-400">Phone</span> {cl.phone || '—'}</p>
+            <p className="col-span-2"><span className="text-gray-400">Garden label</span>{' '}<span className="text-gray-800">{cl.label || '—'}</span></p>
+            {cl.first_program ? (
+              <p className="col-span-2"><span className="text-gray-400">First program joined</span>{' '}<span className="text-gray-800">{cl.first_program}</span></p>
+            ) : null}
             <p><span className="text-gray-400">First contact</span> {cl.created_at ? new Date(cl.created_at).toLocaleString() : '—'}</p>
           </div>
 

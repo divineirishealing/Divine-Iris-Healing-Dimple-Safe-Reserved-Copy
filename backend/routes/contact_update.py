@@ -5,6 +5,7 @@ import io
 import uuid
 from datetime import datetime, timezone
 from utils.canonical_id import new_entity_id, new_internal_diid
+from utils.garden_labels import LABEL_DEW
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import Response
 from motor.motor_asyncio import AsyncIOMotorClient
@@ -70,7 +71,7 @@ async def _upsert_client_from_contact_form(
         "phone": phone,
         "city": city,
         "country": country,
-        "label": "Dew",
+        "label": LABEL_DEW,
         "label_manual": "",
         "sources": ["Contact update link"],
         "conversions": [],

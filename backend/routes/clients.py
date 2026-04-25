@@ -13,6 +13,18 @@ from utils.canonical_id import (
     normalize_annual_diid,
     validate_annual_diid_format,
 )
+from utils.garden_labels import (
+    LABEL_DEW,
+    LABEL_ROOT,
+    LABEL_BLOOM,
+    LABEL_SEED,
+    normalize_label,
+    is_allowed_manual_label,
+    label_filter_variants,
+    label_stripe_key,
+    iris_anniversary_year_from_client,
+    iris_label_for_year,
+)
 from dotenv import load_dotenv
 from pathlib import Path
 
@@ -61,17 +73,13 @@ db = client[os.environ['DB_NAME']]
 
 logger = logging.getLogger(__name__)
 
-# Label hierarchy (garden journey)
-LABELS = ["Dew", "Seed", "Root", "Bloom", "Iris", "Purple Bees", "Iris Bees"]
-LABEL_DESCRIPTIONS = {
-    "Dew": "Inquired or expressed interest",
-    "Seed": "Joined a workshop",
-    "Root": "Converted to a flagship program",
-    "Bloom": "Enrolled in multiple programs or repeat client",
-    "Iris": "Annual Program Subscriber",
-    "Purple Bees": "Soulful referral partner",
-    "Iris Bees": "Brand Ambassador",
-}
+def _first_program_title(conversions: Optional[List]) -> str:
+    """Earliest paid conversion by ``date`` — program title they first joined with."""
+    convs = [c for c in (conversions or []) if (c.get("program_title") or "").strip()]
+    if not convs:
+        return ""
+    convs_sorted = sorted(convs, key=lambda c: (c.get("date") or ""))
+    return (convs_sorted[0].get("program_title") or "").strip()
 
 
 def normalize_email(email: str) -> str:
@@ -156,7 +164,7 @@ async def ensure_client_from_enrollment_lead(enrollment: Dict[str, Any]) -> None
             "email": email,
             "phone": phone or "",
             "name": name,
-            "label": "Dew",
+            "label": LABEL_DEW,
             "label_manual": "",
             "sources": ["Enrollment"],
             "conversions": [],
@@ -192,35 +200,36 @@ async def compute_label(client_doc: dict) -> str:
 
     - No manual override and zero paid-program conversions → Dew (leads, first-time,
       or checkout not finished).
-    - With conversions, stage advances (Seed → Root → Bloom / Iris) from program data.
+    - With conversions, stage advances (Seed → Root → Bloom / Iris years) from program data.
     """
     lm = (client_doc.get("label_manual") or "").strip()
     if lm:
-        return lm
+        return normalize_label(lm)
 
     conversions = client_doc.get("conversions", [])
     if not conversions:
-        return "Dew"
+        return LABEL_DEW
 
     flagship_count = sum(1 for c in conversions if c.get("is_flagship"))
     workshop_count = sum(1 for c in conversions if not c.get("is_flagship"))
     total = len(conversions)
 
-    # Check for annual subscription (Iris) - any program with "annual" in tier
+    # Annual / year-long enrollment → Iris year 1–12 from subscription start when present
     has_annual = any(
         "annual" in (c.get("tier_label", "") or "").lower()
         or (c.get("duration_unit", "") == "year")
         for c in conversions
     )
     if has_annual:
-        return "Iris"
+        y = iris_anniversary_year_from_client(client_doc)
+        return iris_label_for_year(y)
     if total >= 3 or (flagship_count >= 1 and workshop_count >= 1):
-        return "Bloom"
+        return LABEL_BLOOM
     if flagship_count >= 1:
-        return "Root"
+        return LABEL_ROOT
     if workshop_count >= 1 or total >= 1:
-        return "Seed"
-    return "Dew"
+        return LABEL_SEED
+    return LABEL_DEW
 
 
 def _client_field_empty(doc: dict, key: str) -> bool:
@@ -303,7 +312,7 @@ async def sync_clients():
                 "email": email,
                 "phone": phone,
                 "name": name,
-                "label": "Dew",
+                "label": LABEL_DEW,
                 "label_manual": "",
                 "sources": [source],
                 "conversions": [],
@@ -460,7 +469,7 @@ async def sync_clients():
                 "email": email,
                 "phone": phone,
                 "name": e.get("booker_name", ""),
-                "label": "Dew",
+                "label": LABEL_DEW,
                 "label_manual": "",
                 "sources": ["Enrollment"],
                 "conversions": [conversion_entry],
@@ -493,12 +502,23 @@ async def sync_clients():
             )
             stats["conversions_pruned_clients"] += 1
 
-    # 5. Now recompute labels for all clients
+    # 5. Normalize legacy short labels and recompute automatic labels
     all_clients = await db.clients.find({}, {"_id": 0}).to_list(5000)
+    now_iso = datetime.now(timezone.utc).isoformat()
     for cl in all_clients:
+        lm = (cl.get("label_manual") or "").strip()
+        set_doc: Dict[str, Any] = {}
+        if lm:
+            nlm = normalize_label(lm)
+            if nlm != lm:
+                set_doc["label_manual"] = nlm
+                cl = {**cl, "label_manual": nlm}
         new_label = await compute_label(cl)
         if new_label != cl.get("label"):
-            await db.clients.update_one({"id": cl["id"]}, {"$set": {"label": new_label, "updated_at": datetime.now(timezone.utc).isoformat()}})
+            set_doc["label"] = new_label
+        if set_doc:
+            set_doc["updated_at"] = now_iso
+            await db.clients.update_one({"id": cl["id"]}, {"$set": set_doc})
             stats["updated"] += 1
 
     stats["identifiers_backfilled"] = await backfill_missing_client_identifiers()
@@ -512,7 +532,11 @@ async def sync_clients():
 async def list_clients(label: Optional[str] = None, search: Optional[str] = None, intake_pending: Optional[str] = None):
     query = {}
     if label:
-        query["label"] = label
+        variants = label_filter_variants(label)
+        if len(variants) == 1:
+            query["label"] = variants[0]
+        else:
+            query["label"] = {"$in": variants}
     if intake_pending == "true":
         query["intake_pending"] = True
         query["portal_login_allowed"] = False
@@ -528,6 +552,8 @@ async def list_clients(label: Optional[str] = None, search: Optional[str] = None
             {"id": search_regex},
         ]
     clients_list = await db.clients.find(query, {"_id": 0}).sort("updated_at", -1).to_list(1000)
+    for cl in clients_list:
+        cl["first_program"] = _first_program_title(cl.get("conversions"))
     return clients_list
 
 
@@ -551,8 +577,13 @@ async def create_client_manual(data: ClientManualCreate):
     phone_n = normalize_phone(data.phone or "")
 
     label_manual = (data.label_manual or "").strip()
-    if label_manual and label_manual not in LABELS:
-        raise HTTPException(status_code=400, detail=f"Invalid label. Use one of: {', '.join(LABELS)}")
+    if label_manual:
+        if not is_allowed_manual_label(label_manual):
+            raise HTTPException(
+                status_code=400,
+                detail="Invalid garden label — use Dew / Seed / Root / Bloom, Iris year 1–12, Purple Bees, or Iris Bees (short or full title).",
+            )
+        label_manual = normalize_label(label_manual)
 
     if phone_n:
         existing_phone = await db.clients.find_one({"phone": phone_n})
@@ -565,7 +596,7 @@ async def create_client_manual(data: ClientManualCreate):
     now = datetime.now(timezone.utc).isoformat()
     did = f"DID-{str(uuid.uuid4())[:8].upper()}"
     cid = new_entity_id()
-    initial_label = label_manual if label_manual else "Dew"
+    initial_label = label_manual if label_manual else LABEL_DEW
     timeline_entry = {
         "type": "Manual",
         "detail": "Added from Client Garden",
@@ -603,7 +634,7 @@ async def client_stats():
     pipeline = [
         {"$group": {"_id": "$label", "count": {"$sum": 1}}},
     ]
-    results = await db.clients.aggregate(pipeline).to_list(20)
+    results = await db.clients.aggregate(pipeline).to_list(200)
     label_counts = {r["_id"]: r["count"] for r in results}
     total = sum(label_counts.values())
     return {"total": total, "by_label": label_counts}
@@ -968,8 +999,8 @@ async def _create_client_for_annual_portal_upload(
         "email": email_n,
         "phone": "",
         "name": name,
-        "label": "Iris",
-        "label_manual": "Iris",
+        "label": iris_label_for_year(1),
+        "label_manual": iris_label_for_year(1),
         "sources": ["Annual portal import"],
         "conversions": [],
         "timeline": [timeline_entry],
@@ -1732,6 +1763,7 @@ async def get_client(client_id: str):
     cl = await db.clients.find_one({"id": client_id}, {"_id": 0})
     if not cl:
         raise HTTPException(status_code=404, detail="Client not found")
+    cl["first_program"] = _first_program_title(cl.get("conversions"))
     return cl
 
 
@@ -1813,6 +1845,10 @@ async def update_client(client_id: str, data: ClientUpdate):
     update_fields = {"updated_at": datetime.now(timezone.utc).isoformat()}
     if data.label_manual is not None:
         lm = (data.label_manual or "").strip()
+        if lm:
+            if not is_allowed_manual_label(lm):
+                raise HTTPException(status_code=400, detail="Invalid garden label")
+            lm = normalize_label(lm)
         update_fields["label_manual"] = lm
         if lm:
             update_fields["label"] = lm
@@ -1952,6 +1988,7 @@ async def export_clients_excel():
         "UUID (internal id)",
         "Legacy DID",
         "Label",
+        "First program joined",
         "Name",
         "Email",
         "Phone",
@@ -1969,13 +2006,13 @@ async def export_clients_excel():
     thin_border = Border(bottom=Side(style="thin", color="E8E0C8"))
 
     label_fills = {
-        "Dew": PatternFill(start_color="E0F2FE", end_color="E0F2FE", fill_type="solid"),
-        "Seed": PatternFill(start_color="ECFCCB", end_color="ECFCCB", fill_type="solid"),
-        "Root": PatternFill(start_color="FEF3C7", end_color="FEF3C7", fill_type="solid"),
-        "Bloom": PatternFill(start_color="FCE7F3", end_color="FCE7F3", fill_type="solid"),
-        "Iris": PatternFill(start_color="F3E8FF", end_color="F3E8FF", fill_type="solid"),
-        "Purple Bees": PatternFill(start_color="EDE9FE", end_color="EDE9FE", fill_type="solid"),
-        "Iris Bees": PatternFill(start_color="FEF9C3", end_color="FEF9C3", fill_type="solid"),
+        "dew": PatternFill(start_color="E0F2FE", end_color="E0F2FE", fill_type="solid"),
+        "seed": PatternFill(start_color="ECFCCB", end_color="ECFCCB", fill_type="solid"),
+        "root": PatternFill(start_color="FEF3C7", end_color="FEF3C7", fill_type="solid"),
+        "bloom": PatternFill(start_color="FCE7F3", end_color="FCE7F3", fill_type="solid"),
+        "iris": PatternFill(start_color="F3E8FF", end_color="F3E8FF", fill_type="solid"),
+        "purple_bees": PatternFill(start_color="EDE9FE", end_color="EDE9FE", fill_type="solid"),
+        "iris_bees": PatternFill(start_color="FEF9C3", end_color="FEF9C3", fill_type="solid"),
     }
 
     for col, h in enumerate(headers, 1):
@@ -1987,12 +2024,14 @@ async def export_clients_excel():
     for idx, cl in enumerate(clients_list, 2):
         programs = ", ".join(set(c.get("program_title", "") for c in cl.get("conversions", []) if c.get("program_title")))
         sources = ", ".join(set(cl.get("sources", [])))
-        label = cl.get("label", "Dew")
+        label = cl.get("label") or LABEL_DEW
+        first_prog = _first_program_title(cl.get("conversions"))
         row_data = [
             cl.get("diid", ""),
             cl.get("id", ""),
             cl.get("did", ""),
             label,
+            first_prog,
             cl.get("name", ""),
             cl.get("email", ""),
             cl.get("phone", ""),
@@ -2006,13 +2045,13 @@ async def export_clients_excel():
             cl.get("notes", ""),
         ]
 
-        fill = label_fills.get(label, PatternFill())
+        fill = label_fills.get(label_stripe_key(label), PatternFill())
         for col, val in enumerate(row_data, 1):
             cell = ws.cell(row=idx, column=col, value=str(val) if val else "")
             cell.fill = fill
             cell.border = thin_border
 
-    col_widths = [30, 38, 14, 12, 20, 30, 18, 22, 12, 25, 40, 16, 22, 22, 30]
+    col_widths = [30, 38, 14, 52, 28, 20, 30, 18, 22, 12, 25, 40, 16, 22, 22, 30]
     for i, w in enumerate(col_widths):
         ws.column_dimensions[ws.cell(row=1, column=i + 1).column_letter].width = w
 

@@ -3,6 +3,7 @@ from pydantic import BaseModel
 from typing import Any, Optional, Tuple
 import os, uuid, httpx
 from utils.canonical_id import new_entity_id
+from utils.garden_labels import client_tier_from_label
 from datetime import datetime, timezone, timedelta
 from motor.motor_asyncio import AsyncIOMotorClient
 from dotenv import load_dotenv
@@ -220,13 +221,7 @@ async def _ensure_user_for_impersonation(
             detail="No client or portal user for this email. Add them to Client Garden first.",
         )
 
-    label = client_doc.get("label", "Dew")
-    tier_map = {
-        "Dew": 1, "Seed": 1,
-        "Root": 2, "Bloom": 2,
-        "Iris": 4, "Purple Bees": 4, "Iris Bees": 4,
-    }
-    tier = tier_map.get(label, 1)
+    tier = client_tier_from_label(client_doc.get("label", ""))
     new_id = new_entity_id()
     new_user = {
         "id": new_id,
@@ -354,13 +349,7 @@ async def google_auth_callback(data: AuthSessionStart, response: Response):
     if not user:
         # Create new user linked to client
         # Determine Tier based on Client Label
-        label = client_doc.get("label", "Dew")
-        tier_map = {
-            "Dew": 1, "Seed": 1, 
-            "Root": 2, "Bloom": 2, 
-            "Iris": 4, "Purple Bees": 4, "Iris Bees": 4
-        }
-        tier = tier_map.get(label, 1)
+        tier = client_tier_from_label(client_doc.get("label", ""))
 
         user_id = new_entity_id()
         new_user = {
