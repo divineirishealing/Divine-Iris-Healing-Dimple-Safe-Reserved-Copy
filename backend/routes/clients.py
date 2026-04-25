@@ -10,7 +10,6 @@ from motor.motor_asyncio import AsyncIOMotorClient
 from utils.canonical_id import (
     new_entity_id,
     new_internal_diid,
-    build_annual_diid_from_name_yymm,
     normalize_annual_diid,
     validate_annual_diid_format,
 )
@@ -19,6 +18,40 @@ from pathlib import Path
 
 ROOT_DIR = Path(__file__).parent.parent
 load_dotenv(ROOT_DIR / '.env')
+
+
+def _name_initial_segment_for_annual_diid(name: str) -> str:
+    """Same rules as ``canonical_id._name_initial_segment`` (four A–Z letters from display name)."""
+
+    parts = (name or "").strip().split()
+
+    def letters(w: str) -> str:
+        return "".join(c for c in w.upper() if c.isalpha())
+
+    if len(parts) >= 2:
+        a = letters(parts[0])[:2].ljust(2, "X")
+        b = letters(parts[-1])[:2].ljust(2, "X")
+        return (a + b)[:4]
+    if len(parts) == 1:
+        p = letters(parts[0])
+        return (p + "XXXX")[:4]
+    return "XXXX"
+
+
+def _build_annual_diid_from_name_yymm(name: str, yymm_digits: str) -> Optional[str]:
+    """Build full Annual DIID from name + 4 YYMM digits (used when the sheet has YYMM only)."""
+
+    t = (yymm_digits or "").strip()
+    m = re.fullmatch(r"(\d{4})", t)
+    if not m:
+        return None
+    t = m.group(1)
+    yy, mm = int(t[:2]), int(t[2:4])
+    if mm < 1 or mm > 12:
+        return None
+    initials = _name_initial_segment_for_annual_diid(name or "")
+    return f"{initials}{yy:02d}{mm:02d}"
+
 
 router = APIRouter(prefix="/api/clients", tags=["Clients"])
 
@@ -1189,7 +1222,7 @@ async def _annual_portal_row_replace_from_excel(
                         f"Row {row_idx}: for YYMM-only DIID {ad_raw!r}, set the Name column (or ensure the client has a name)"
                     )
                     return None
-                built = build_annual_diid_from_name_yymm(nm, ad_raw)
+                built = _build_annual_diid_from_name_yymm(nm, ad_raw)
                 if not built:
                     errors.append(
                         f"Row {row_idx}: invalid YYMM in {ad_raw!r} (month must be 01–12)"
