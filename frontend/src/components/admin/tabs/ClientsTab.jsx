@@ -1,20 +1,13 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
 import { useToast } from '../../../hooks/use-toast';
 import { Button } from '../../ui/button';
 import { Input } from '../../ui/input';
 import { Label } from '../../ui/label';
 import {
-  Dialog,
-  DialogContent,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '../../ui/dialog';
-import {
   Users, Search, Download, RefreshCw,
   Droplets, Sprout, TreeDeciduous, Flower2, Star, Sparkles, Crown,
-  Edit2, Save, Trash2, UserPlus,
+  Edit2, Save, Trash2, UserPlus, X,
 } from 'lucide-react';
 import { useSpreadsheetColumnVisibility, SpreadsheetColumnPicker } from '../SpreadsheetColumnPicker';
 import { getApiUrl } from '../../../lib/config';
@@ -142,6 +135,13 @@ function splitDiid(diid) {
   return { middle: (parts[1] || '').trim(), suffix: (parts[parts.length - 1] || '').trim() };
 }
 
+function buildLabelOptionsForSelect(gardenLabelOptions, cl) {
+  const o = [...(gardenLabelOptions || [])];
+  const cur = (cl.label_manual || '').trim() ? (cl.label || '') : '';
+  if (cur && !o.includes(cur)) o.unshift(cur);
+  return o;
+}
+
 const ClientsTab = () => {
   const { toast } = useToast();
   const [clients, setClients] = useState([]);
@@ -155,7 +155,11 @@ const ClientsTab = () => {
     phone: '',
   });
   const [addingClient, setAddingClient] = useState(false);
-  const [editClient, setEditClient] = useState(null);
+  /** Inline row edit — one row at a time, no modal */
+  const [editingId, setEditingId] = useState(null);
+  const [draft, setDraft] = useState(null);
+  const [gardenLabelOptions, setGardenLabelOptions] = useState([]);
+  const [rowSaving, setRowSaving] = useState(false);
   const [exporting, setExporting] = useState(false);
 
   const { visibility: colVis, setColumn: setColVis, reset: resetCols, isVisible } = useSpreadsheetColumnVisibility(
@@ -179,6 +183,83 @@ const ClientsTab = () => {
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await axios.get(`${getApiUrl()}/clients/garden-label-options`);
+        if (!cancelled) setGardenLabelOptions(res.data?.labels || []);
+      } catch {
+        if (!cancelled) setGardenLabelOptions([]);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
+
+  useEffect(() => {
+    if (editingId && !clients.some((c) => c.id === editingId)) {
+      setEditingId(null);
+      setDraft(null);
+    }
+  }, [clients, editingId]);
+
+  const beginEdit = (cl) => {
+    setEditingId(cl.id);
+    setDraft({
+      email: cl.email || '',
+      household_key: cl.household_key || '',
+      is_primary_household_contact: !!cl.is_primary_household_contact,
+      labelManual: (cl.label_manual || '').trim() ? (cl.label || cl.label_manual || '') : '',
+      diidMiddle: splitDiid(cl.diid).middle,
+      editPhone: cl.phone || '',
+      firstProgramManual: cl.first_program_manual ? String(cl.first_program_manual) : '',
+    });
+  };
+
+  const cancelEdit = () => {
+    setEditingId(null);
+    setDraft(null);
+  };
+
+  const updateDraft = (patch) => {
+    setDraft((prev) => (prev ? { ...prev, ...patch } : prev));
+  };
+
+  const saveRow = async () => {
+    if (!editingId || !draft) return;
+    const cl = clients.find((c) => c.id === editingId);
+    if (!cl) return;
+    setRowSaving(true);
+    try {
+      const payload = {
+        email: (draft.email || '').trim().toLowerCase(),
+        household_key: (draft.household_key || '').trim() || null,
+        is_primary_household_contact: draft.is_primary_household_contact,
+        label_manual: (draft.labelManual || '').trim() ? draft.labelManual : '',
+        phone: (draft.editPhone || '').trim() || null,
+        first_program_manual: (draft.firstProgramManual || '').trim() || null,
+      };
+      const midNorm = (draft.diidMiddle || '').trim().toUpperCase();
+      const origMid = (splitDiid(cl.diid).middle || '').trim().toUpperCase();
+      if (midNorm && midNorm !== origMid) {
+        payload.diid_middle = midNorm;
+      }
+      await axios.put(`${getApiUrl()}/clients/${editingId}`, payload);
+      toast({ title: 'Client updated' });
+      setEditingId(null);
+      setDraft(null);
+      await fetchData();
+    } catch (err) {
+      const d = err.response?.data?.detail;
+      toast({
+        title: 'Save failed',
+        description: typeof d === 'string' ? d : undefined,
+        variant: 'destructive',
+      });
+    }
+    setRowSaving(false);
+  };
+
   const handleSync = async () => {
     setSyncing(true);
     try {
@@ -199,8 +280,11 @@ const ClientsTab = () => {
     try {
       await axios.delete(`${getApiUrl()}/clients/${id}`);
       toast({ title: 'Client removed' });
+      if (editingId === id) {
+        setEditingId(null);
+        setDraft(null);
+      }
       fetchData();
-      setEditClient((c) => (c?.id === id ? null : c));
     } catch { toast({ title: 'Delete failed', variant: 'destructive' }); }
   };
 
@@ -294,9 +378,9 @@ const ClientsTab = () => {
           <h2 className="text-lg font-bold text-gray-900 flex items-center gap-2">
             <Users size={18} className="text-[#D4AF37]" /> Client Garden
           </h2>
-          <p className="text-xs text-gray-500 mt-0.5 max-w-2xl">
-            One row per client — contacts, household key, sources, and conversion count. Labels and notes are maintained elsewhere (e.g. conversions sync, <strong className="font-semibold text-gray-700">Dashboard access</strong>).{' '}
-            <strong className="font-semibold text-gray-700">DIID</strong> should exist on every row; use <strong className="font-semibold text-gray-700">Sync All Data</strong> to backfill any missing DIID. The <strong className="font-semibold text-gray-700">UUID</strong> column is the internal canonical record id (API / database key).
+          <p className="text-xs text-gray-500 mt-0.5 max-w-3xl">
+            One row per client — use <strong className="font-semibold text-gray-700">Edit</strong> to change garden label, DIID middle, email, phone (+country code), household, first program, and primary contact <strong className="font-semibold text-gray-700">in the grid</strong> (no popup). Save or Cancel in the Actions column. Conversions and sources still come from sync.{' '}
+            <strong className="font-semibold text-gray-700">DIID</strong> should exist on every row; use <strong className="font-semibold text-gray-700">Sync All Data</strong> to backfill. <strong className="font-semibold text-gray-700">UUID</strong> is the internal record id.
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
@@ -427,7 +511,7 @@ const ClientsTab = () => {
                 {isVisible('first_program') && <th className="py-2 px-2 font-semibold min-w-[120px]" title="First paid program from conversions (by date)">1st program</th>}
                 {isVisible('first') && <th className="py-2 px-2 font-semibold w-[72px]">First seen</th>}
                 {isVisible('updated') && <th className="py-2 px-2 font-semibold w-[72px]">Updated</th>}
-                {isVisible('actions') && <th className="py-2 pr-3 pl-2 font-semibold w-[88px] text-right sticky right-0 bg-gray-100 z-10">Actions</th>}
+                {isVisible('actions') && <th className="py-2 pr-3 pl-2 font-semibold min-w-[120px] text-right sticky right-0 bg-gray-100 z-10">Actions</th>}
               </tr>
             </thead>
             <tbody>
@@ -435,14 +519,22 @@ const ClientsTab = () => {
                 const cfg = labelStyleForClient(cl.label);
                 const Icon = cfg.icon;
                 const sourcesStr = (cl.sources || []).join(', ');
+                const isEditing = editingId === cl.id;
+                const d = isEditing && draft ? draft : null;
+                const labelOpts = buildLabelOptionsForSelect(gardenLabelOptions, cl);
+                const stickyNameBg = isEditing ? 'bg-amber-50/95' : 'bg-white group-hover:bg-amber-50/30';
+                const stickyActionsBg = isEditing ? 'bg-amber-50/95' : 'bg-white group-hover:bg-amber-50/30';
                 return (
                   <tr
                     key={cl.id}
                     data-testid={`client-${cl.id}`}
-                    className="group border-b border-gray-100 bg-white align-top hover:bg-amber-50/30"
+                    data-editing={isEditing ? 'true' : undefined}
+                    className={`group border-b border-gray-100 align-top ${
+                      isEditing ? 'bg-amber-50/40 ring-1 ring-inset ring-amber-200/50' : 'bg-white hover:bg-amber-50/30'
+                    }`}
                   >
                     {isVisible('name') && (
-                    <td className="py-2 pl-3 pr-2 sticky left-0 bg-white z-[1] border-r border-gray-100 group-hover:bg-amber-50/30">
+                    <td className={`py-2 pl-3 pr-2 sticky left-0 z-[1] border-r border-gray-100 ${stickyNameBg}`}>
                       <div className="flex items-center gap-1.5 min-w-0">
                         <div className={`w-6 h-6 rounded-full ${cfg.bg} ${cfg.border} border flex items-center justify-center shrink-0`}>
                           <Icon size={10} className={cfg.text} />
@@ -452,25 +544,55 @@ const ClientsTab = () => {
                     </td>
                     )}
                     {isVisible('garden_label') && (
-                    <td
-                      className="py-2 px-2 text-gray-800 align-top max-w-[320px]"
-                      title={cl.label || ''}
-                    >
-                      <span className="line-clamp-2 text-[9px] leading-snug">{cl.label || '—'}</span>
+                    <td className="py-1 px-1 text-gray-800 align-top max-w-[320px] min-w-[160px]" title={d ? '' : (cl.label || '')}>
+                      {d ? (
+                        <select
+                          data-testid="client-garden-label"
+                          className="w-full max-w-[300px] h-8 text-[9px] rounded border border-slate-300 bg-white px-1"
+                          value={d.labelManual || ''}
+                          onChange={(e) => updateDraft({ labelManual: e.target.value })}
+                        >
+                          <option value="">Automatic (sync &amp; conversions)</option>
+                          {labelOpts.map((lab) => (
+                            <option key={lab} value={lab}>{lab}</option>
+                          ))}
+                        </select>
+                      ) : (
+                        <span className="line-clamp-2 text-[9px] leading-snug px-1">{cl.label || '—'}</span>
+                      )}
                     </td>
                     )}
                     {isVisible('diid') && (
                     <td
-                      className={`py-2 px-2 font-mono truncate max-w-[260px] text-[9px] ${cl.diid ? 'text-indigo-800' : 'text-amber-800'}`}
+                      className={`py-1 px-1 font-mono text-[9px] align-top max-w-[280px] ${cl.diid ? 'text-indigo-800' : 'text-amber-800'}`}
                       title={cl.diid || cl.did || ''}
                     >
-                      {cl.diid || (
-                        cl.did ? (
-                          <span>
-                            {cl.did}
-                            <span className="text-[8px] font-sans text-gray-400 ml-1 normal-case">legacy — Sync to add DIID</span>
-                          </span>
-                        ) : '—'
+                      {d ? (
+                        <div className="flex items-center gap-0.5 flex-wrap">
+                          <span className="text-indigo-800 shrink-0">DIID-</span>
+                          <Input
+                            data-testid="client-diid-middle"
+                            value={d.diidMiddle}
+                            onChange={(e) => updateDraft({ diidMiddle: e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 8) })}
+                            className="h-7 w-[5.75rem] text-[9px] px-1 font-mono uppercase py-0"
+                            placeholder="ABCD2404"
+                            maxLength={8}
+                            autoComplete="off"
+                          />
+                          <span className="text-indigo-800">-</span>
+                          <span className="text-indigo-600 shrink-0">{splitDiid(cl.diid).suffix || '—'}</span>
+                        </div>
+                      ) : (
+                        <span className="block truncate px-1">
+                          {cl.diid || (
+                            cl.did ? (
+                              <span>
+                                {cl.did}
+                                <span className="text-[8px] font-sans text-gray-400 ml-1 normal-case">legacy — Sync</span>
+                              </span>
+                            ) : '—'
+                          )}
+                        </span>
                       )}
                     </td>
                     )}
@@ -482,34 +604,132 @@ const ClientsTab = () => {
                       {cl.id || '—'}
                     </td>
                     )}
-                    {isVisible('email') && <td className="py-2 px-2 text-gray-800 truncate max-w-[180px]" title={cl.email || ''}>{cl.email || '—'}</td>}
-                    {isVisible('phone') && <td className="py-2 px-2 text-gray-600 whitespace-nowrap">{cl.phone || '—'}</td>}
-                    {isVisible('household') && <td className="py-2 px-2 font-mono text-slate-600 truncate max-w-[120px]" title={cl.household_key || ''}>{cl.household_key || '—'}</td>}
-                    {isVisible('pri') && <td className="py-2 px-2 text-center text-gray-700">{cl.is_primary_household_contact ? 'Y' : '—'}</td>}
+                    {isVisible('email') && (
+                    <td className="py-1 px-1 text-gray-800 max-w-[200px] align-top" title={d ? '' : (cl.email || '')}>
+                      {d ? (
+                        <Input
+                          type="email"
+                          data-testid="client-edit-email"
+                          value={d.email}
+                          onChange={(e) => updateDraft({ email: e.target.value })}
+                          className="h-7 text-[9px] w-full min-w-[100px] px-1.5"
+                          placeholder="email"
+                          autoComplete="off"
+                        />
+                      ) : (
+                        <span className="block truncate px-1">{cl.email || '—'}</span>
+                      )}
+                    </td>
+                    )}
+                    {isVisible('phone') && (
+                    <td className="py-1 px-1 text-gray-600 align-top whitespace-nowrap min-w-[100px]">
+                      {d ? (
+                        <Input
+                          type="tel"
+                          data-testid="client-edit-phone"
+                          value={d.editPhone}
+                          onChange={(e) => updateDraft({ editPhone: e.target.value })}
+                          className="h-7 text-[9px] w-full min-w-[96px] px-1.5 font-mono"
+                          placeholder="+91…"
+                          autoComplete="tel"
+                        />
+                      ) : (
+                        <span className="px-1">{cl.phone || '—'}</span>
+                      )}
+                    </td>
+                    )}
+                    {isVisible('household') && (
+                    <td className="py-1 px-1 font-mono text-slate-600 max-w-[140px] align-top" title={d ? '' : (cl.household_key || '')}>
+                      {d ? (
+                        <Input
+                          data-testid="client-household-key"
+                          value={d.household_key}
+                          onChange={(e) => updateDraft({ household_key: e.target.value })}
+                          className="h-7 text-[9px] w-full px-1.5 font-mono"
+                          placeholder="key"
+                          maxLength={200}
+                        />
+                      ) : (
+                        <span className="block truncate px-1">{cl.household_key || '—'}</span>
+                      )}
+                    </td>
+                    )}
+                    {isVisible('pri') && (
+                    <td className="py-2 px-2 text-center text-gray-700 align-top">
+                      {d ? (
+                        <input
+                          type="checkbox"
+                          data-testid="client-primary-household-contact"
+                          checked={d.is_primary_household_contact}
+                          onChange={(e) => updateDraft({ is_primary_household_contact: e.target.checked })}
+                          className="rounded border-slate-300"
+                          title="Primary household contact"
+                        />
+                      ) : (
+                        <span>{cl.is_primary_household_contact ? 'Y' : '—'}</span>
+                      )}
+                    </td>
+                    )}
                     {isVisible('sources') && <td className="py-2 px-2 text-gray-500" title={sourcesStr}>{truncate(sourcesStr, 40) || '—'}</td>}
                     {isVisible('conv') && <td className="py-2 px-2 text-center font-medium text-gray-800">{cl.conversions?.length ?? 0}</td>}
                     {isVisible('first_program') && (
-                    <td className="py-2 px-2 text-gray-700 max-w-[200px]" title={cl.first_program || ''}>
-                      <span className="line-clamp-2 text-[9px] leading-snug">{cl.first_program || '—'}</span>
+                    <td className="py-1 px-1 text-gray-700 max-w-[220px] align-top" title={d ? '' : (cl.first_program || '')}>
+                      {d ? (
+                        <Input
+                          data-testid="client-first-program-manual"
+                          value={d.firstProgramManual}
+                          onChange={(e) => updateDraft({ firstProgramManual: e.target.value })}
+                          className="h-7 text-[9px] w-full min-w-[100px] px-1.5"
+                          placeholder="Optional override"
+                          maxLength={500}
+                        />
+                      ) : (
+                        <span className="line-clamp-2 text-[9px] leading-snug px-1">{cl.first_program || '—'}</span>
+                      )}
                     </td>
                     )}
                     {isVisible('first') && <td className="py-2 px-2 text-gray-500 whitespace-nowrap">{cl.created_at ? new Date(cl.created_at).toLocaleDateString() : '—'}</td>}
                     {isVisible('updated') && <td className="py-2 px-2 text-gray-500 whitespace-nowrap">{timeAgo(cl.updated_at || cl.created_at)}</td>}
                     {isVisible('actions') && (
-                    <td className="py-2 pr-3 pl-2 text-right sticky right-0 bg-white z-[1] border-l border-gray-100 group-hover:bg-amber-50/30">
-                      <div className="flex items-center justify-end gap-1">
-                        <button
-                          type="button"
-                          className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[#D4AF37] hover:bg-amber-50 font-medium"
-                          onClick={() => setEditClient(cl)}
-                        >
-                          <Edit2 size={10} /> Edit
-                        </button>
+                    <td className={`py-1 pr-2 pl-1 text-right sticky right-0 z-[1] border-l border-gray-100 ${stickyActionsBg}`}>
+                      <div className="flex flex-col items-end gap-1 sm:flex-row sm:justify-end sm:items-center">
+                        {isEditing ? (
+                          <>
+                            <button
+                              type="button"
+                              data-testid="client-save"
+                              className="inline-flex items-center gap-0.5 px-2 py-1 rounded bg-[#D4AF37] text-white text-[9px] font-medium hover:bg-[#b8962e] disabled:opacity-50"
+                              onClick={saveRow}
+                              disabled={rowSaving}
+                            >
+                              <Save size={10} /> {rowSaving ? '…' : 'Save'}
+                            </button>
+                            <button
+                              type="button"
+                              className="inline-flex items-center gap-0.5 px-2 py-1 rounded border border-slate-300 text-[9px] text-gray-700 hover:bg-slate-50 disabled:opacity-50"
+                              onClick={cancelEdit}
+                              disabled={rowSaving}
+                            >
+                              <X size={10} /> Cancel
+                            </button>
+                          </>
+                        ) : (
+                          <button
+                            type="button"
+                            className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[#D4AF37] hover:bg-amber-50 font-medium text-[9px] disabled:opacity-40 disabled:pointer-events-none"
+                            onClick={() => beginEdit(cl)}
+                            disabled={editingId !== null}
+                          >
+                            <Edit2 size={10} /> Edit
+                          </button>
+                        )}
                         <button
                           type="button"
                           data-testid={`client-delete-${cl.id}`}
-                          className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-red-400 hover:bg-red-50"
+                          className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-red-400 hover:bg-red-50 disabled:opacity-40"
                           onClick={() => handleDelete(cl.id)}
+                          disabled={rowSaving}
+                          title="Remove client"
                         >
                           <Trash2 size={10} />
                         </button>
@@ -524,298 +744,9 @@ const ClientsTab = () => {
         )}
       </div>
 
-      {editClient && (
-        <ClientEditDialog
-          client={editClient}
-          onClose={() => setEditClient(null)}
-          onSaved={() => { fetchData(); setEditClient(null); }}
-          onDelete={() => handleDelete(editClient.id)}
-          toast={toast}
-        />
-      )}
     </div>
   );
 };
 
-function ClientEditDialog({ client: cl, onClose, onSaved, onDelete, toast }) {
-  const [editEmail, setEditEmail] = useState(cl.email || '');
-  const [householdKey, setHouseholdKey] = useState(cl.household_key || '');
-  const [primaryHouseholdContact, setPrimaryHouseholdContact] = useState(!!cl.is_primary_household_contact);
-  const [gardenLabelOptions, setGardenLabelOptions] = useState([]);
-  const [labelManual, setLabelManual] = useState('');
-  const [diidMiddle, setDiidMiddle] = useState('');
-  const [editPhone, setEditPhone] = useState('');
-  const [firstProgramManual, setFirstProgramManual] = useState('');
-  const [saving, setSaving] = useState(false);
-
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      try {
-        const res = await axios.get(`${getApiUrl()}/clients/garden-label-options`);
-        if (!cancelled) setGardenLabelOptions(res.data?.labels || []);
-      } catch {
-        if (!cancelled) setGardenLabelOptions([]);
-      }
-    })();
-    return () => { cancelled = true; };
-  }, []);
-
-  useEffect(() => {
-    setEditEmail(cl.email || '');
-    setHouseholdKey(cl.household_key || '');
-    setPrimaryHouseholdContact(!!cl.is_primary_household_contact);
-    setLabelManual((cl.label_manual || '').trim() ? (cl.label || cl.label_manual || '') : '');
-    setDiidMiddle(splitDiid(cl.diid).middle);
-    setEditPhone(cl.phone || '');
-    setFirstProgramManual(cl.first_program_manual ? String(cl.first_program_manual) : '');
-  }, [cl.id, cl.updated_at, cl.email, cl.household_key, cl.is_primary_household_contact, cl.label, cl.label_manual, cl.diid, cl.phone, cl.first_program_manual]);
-
-  const labelOptionsForSelect = useMemo(() => {
-    const o = [...gardenLabelOptions];
-    const cur = (cl.label_manual || '').trim() ? (cl.label || '') : '';
-    if (cur && !o.includes(cur)) o.unshift(cur);
-    return o;
-  }, [gardenLabelOptions, cl.label, cl.label_manual]);
-
-  const diidSuffix = splitDiid(cl.diid).suffix;
-
-  const cfg = labelStyleForClient(cl.label);
-  const RowIcon = cfg.icon;
-  const timeline = [...(cl.timeline || [])].sort((a, b) => new Date(b.date) - new Date(a.date));
-
-  const handleSave = async () => {
-    setSaving(true);
-    try {
-      const payload = {
-        email: (editEmail || '').trim().toLowerCase(),
-        household_key: householdKey.trim() || null,
-        is_primary_household_contact: primaryHouseholdContact,
-        label_manual: (labelManual || '').trim() ? labelManual : '',
-        phone: (editPhone || '').trim() || null,
-        first_program_manual: (firstProgramManual || '').trim() || null,
-      };
-      const midNorm = (diidMiddle || '').trim().toUpperCase();
-      const origMid = (splitDiid(cl.diid).middle || '').trim().toUpperCase();
-      if (midNorm && midNorm !== origMid) {
-        payload.diid_middle = midNorm;
-      }
-      await axios.put(`${getApiUrl()}/clients/${cl.id}`, payload);
-      toast({ title: 'Client updated' });
-      onSaved();
-    } catch (err) {
-      const d = err.response?.data?.detail;
-      toast({
-        title: 'Save failed',
-        description: typeof d === 'string' ? d : undefined,
-        variant: 'destructive',
-      });
-    }
-    setSaving(false);
-  };
-
-  return (
-    <Dialog open onOpenChange={(v) => !v && onClose()}>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto" data-testid={`client-detail-${cl.id}`}>
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2 pr-6">
-            <div className={`w-8 h-8 rounded-full ${cfg.bg} ${cfg.border} border flex items-center justify-center shrink-0`}>
-              <RowIcon size={14} className={cfg.text} />
-            </div>
-            <span className="truncate text-base">{cl.name || 'Client'}</span>
-          </DialogTitle>
-        </DialogHeader>
-
-        <div className="space-y-4 text-xs">
-          <div className="grid grid-cols-2 gap-2 text-[10px] text-gray-600">
-            {cl.id && (
-              <p className="col-span-2">
-                <span className="text-gray-400">UUID (internal record id)</span>{' '}
-                <span className="font-mono text-slate-700 text-[10px] break-all select-all">{cl.id}</span>
-              </p>
-            )}
-            {cl.did && cl.diid && (
-              <p className="col-span-2"><span className="text-gray-400">Legacy DID</span> <span className="font-mono text-purple-700">{cl.did}</span></p>
-            )}
-            <p><span className="text-gray-400">First contact</span> {cl.created_at ? new Date(cl.created_at).toLocaleString() : '—'}</p>
-            <p className="col-span-2 text-[9px] text-gray-400">
-              Effective label and first program below may come from sync until you set overrides.
-            </p>
-          </div>
-
-          <div className="rounded-lg border border-slate-200 bg-slate-50/80 p-3 space-y-3">
-            <p className="text-[10px] font-semibold text-slate-800">Garden label</p>
-            <select
-              data-testid="client-garden-label"
-              className="w-full h-9 text-[11px] rounded-md border border-slate-300 bg-white px-2"
-              value={labelManual || ''}
-              onChange={(e) => setLabelManual(e.target.value)}
-            >
-              <option value="">Automatic (from sync &amp; paid conversions)</option>
-              {labelOptionsForSelect.map((lab) => (
-                <option key={lab} value={lab}>{lab}</option>
-              ))}
-            </select>
-            {!labelOptionsForSelect.includes(labelManual) && (labelManual || '').trim() ? (
-              <p className="text-[9px] text-amber-700">Custom label on file — choose a standard label above to replace it.</p>
-            ) : null}
-          </div>
-
-          <div className="rounded-lg border border-slate-200 bg-slate-50/80 p-3 space-y-2">
-            <p className="text-[10px] font-semibold text-slate-800">DIID (edit middle segment)</p>
-            <p className="text-[9px] text-gray-500">
-              Format: <span className="font-mono">DIID-</span>
-              <strong>ABCD</strong>
-              <span className="font-mono">2404</span>
-              <span className="font-mono">-XXXXXXXX</span>
-              — four letters (from name initials) + YYMM (year/month). Suffix stays the same unless the row has no DIID yet (then one is created).
-            </p>
-            <div className="flex items-center gap-1 flex-wrap font-mono text-[11px]">
-              <span className="text-indigo-800 shrink-0">DIID-</span>
-              <Input
-                data-testid="client-diid-middle"
-                value={diidMiddle}
-                onChange={(e) => setDiidMiddle(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 8))}
-                className="h-8 text-xs w-[7.5rem] font-mono uppercase"
-                placeholder="ABCD2404"
-                maxLength={8}
-                autoComplete="off"
-              />
-              <span className="text-indigo-800">-</span>
-              <span className="text-indigo-600 min-w-[5rem]" title="Suffix is stable for this row">{diidSuffix || '—'}</span>
-            </div>
-          </div>
-
-          <div className="rounded-lg border border-slate-200 bg-slate-50/80 p-3 space-y-2">
-            <p className="text-[10px] font-semibold text-slate-800">Contact (Client Garden)</p>
-            <div>
-              <Label className="text-[10px] text-gray-500">Email</Label>
-              <Input
-                type="email"
-                data-testid="client-edit-email"
-                value={editEmail}
-                onChange={(e) => setEditEmail(e.target.value)}
-                className="h-8 text-xs mt-1"
-                placeholder="name@example.com"
-                autoComplete="off"
-              />
-              <p className="text-[9px] text-gray-400 mt-1">
-                Same email may be saved on more than one client. Google sign-in picks the newest row with dashboard access
-                enabled, then falls back to the newest match. Leave blank only if they have no address yet.
-              </p>
-            </div>
-            <div>
-              <Label className="text-[10px] text-gray-500">Phone (include country code)</Label>
-              <Input
-                type="tel"
-                data-testid="client-edit-phone"
-                value={editPhone}
-                onChange={(e) => setEditPhone(e.target.value)}
-                className="h-8 text-xs mt-1 font-mono"
-                placeholder="+91 98765 43210"
-                autoComplete="tel"
-              />
-              <p className="text-[9px] text-gray-400 mt-1">Stored with a leading + when you add a country code (e.g. +1, +91, +44).</p>
-            </div>
-          </div>
-
-          <div className="rounded-lg border border-slate-200 bg-slate-50/80 p-3 space-y-2">
-            <p className="text-[10px] font-semibold text-slate-800">First program (optional)</p>
-            <p className="text-[9px] text-gray-500">
-              Overrides the title from the earliest paid conversion for this client. Clear the field to use conversion data again.
-            </p>
-            <Input
-              data-testid="client-first-program-manual"
-              value={firstProgramManual}
-              onChange={(e) => setFirstProgramManual(e.target.value)}
-              className="h-8 text-xs"
-              placeholder="e.g. Atomic Weight Release Program (AWRP)"
-              maxLength={500}
-            />
-          </div>
-
-          <div className="rounded-lg border border-slate-200 bg-slate-50/80 p-3 space-y-2">
-            <p className="text-[10px] font-semibold text-slate-800 flex items-center gap-1"><Users size={12} className="text-slate-500" /> Household (CRM)</p>
-            <div>
-              <Label className="text-[10px] text-gray-500">Household key</Label>
-              <Input
-                data-testid="client-household-key"
-                value={householdKey}
-                onChange={(e) => setHouseholdKey(e.target.value)}
-                className="h-8 text-xs mt-1 font-mono"
-                placeholder="Same key on each family member row"
-                maxLength={200}
-              />
-            </div>
-            <label className="flex items-center gap-2 cursor-pointer">
-              <input
-                type="checkbox"
-                data-testid="client-primary-household-contact"
-                checked={primaryHouseholdContact}
-                onChange={(e) => setPrimaryHouseholdContact(e.target.checked)}
-                className="rounded border-slate-300"
-              />
-              <span className="text-[11px]">Primary household contact</span>
-            </label>
-          </div>
-
-          <div>
-            <p className="text-[9px] text-gray-400 uppercase tracking-wider mb-1">Sources</p>
-            <div className="flex flex-wrap gap-1">
-              {(cl.sources || []).length ? (cl.sources || []).map((s, i) => (
-                <span key={i} className="text-[10px] bg-gray-100 border rounded-full px-2 py-0.5 text-gray-600">{s}</span>
-              )) : <span className="text-[10px] text-gray-400">—</span>}
-            </div>
-          </div>
-
-          {cl.conversions?.length > 0 && (
-            <div>
-              <p className="text-[9px] text-gray-400 uppercase tracking-wider mb-1">Conversions ({cl.conversions.length})</p>
-              <div className="space-y-1 max-h-32 overflow-y-auto border rounded-md p-2 bg-gray-50/80">
-                {cl.conversions.map((c, i) => (
-                  <div key={i} className="flex justify-between gap-2 text-[10px]">
-                    <span className="truncate text-gray-800">{c.program_title || c.status}</span>
-                    <span className="text-gray-400 shrink-0">{c.date ? new Date(c.date).toLocaleDateString() : ''}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {timeline.length > 0 && (
-            <div>
-              <p className="text-[9px] text-gray-400 uppercase tracking-wider mb-1">Journey timeline</p>
-              <div className="max-h-28 overflow-y-auto space-y-1 text-[10px] text-gray-600 border rounded-md p-2">
-                {timeline.slice(0, 15).map((t, i) => (
-                  <div key={i} className="flex gap-2">
-                    <span className="text-gray-400 shrink-0">{t.date ? timeAgo(t.date) : ''}</span>
-                    <span>{t.type}{t.detail ? ` — ${t.detail}` : ''}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-        </div>
-
-        <DialogFooter className="gap-2 sm:gap-0 flex-col sm:flex-row sm:justify-between">
-          <button
-            type="button"
-            data-testid="client-delete"
-            onClick={() => onDelete()}
-            className="text-red-500 hover:text-red-700 text-xs flex items-center gap-1 mr-auto"
-          >
-            <Trash2 size={12} /> Remove client
-          </button>
-          <div className="flex gap-2">
-            <Button type="button" variant="outline" size="sm" className="text-xs" onClick={onClose}>Cancel</Button>
-            <Button data-testid="client-save" size="sm" className="text-xs bg-[#D4AF37] hover:bg-[#b8962e]" onClick={handleSave} disabled={saving}>
-              <Save size={12} className="mr-1" /> {saving ? 'Saving…' : 'Save'}
-            </Button>
-          </div>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
-  );
-}
 
 export default ClientsTab;
