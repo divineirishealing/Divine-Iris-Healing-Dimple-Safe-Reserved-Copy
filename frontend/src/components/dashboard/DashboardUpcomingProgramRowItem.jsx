@@ -17,6 +17,7 @@ import { CountdownTimer, compactTierButtonLabel } from '../UpcomingProgramsSecti
 import {
   pickTierIndexForDashboard,
   programIncludedInAnnualPackage,
+  nonYearLongTierIndices,
   promoDiscountAmount,
 } from './dashboardUpcomingHelpers';
 import {
@@ -346,6 +347,9 @@ export default function DashboardUpcomingProgramRowItem({
   openEnrollmentSeatModal,
   annualSeatUi = null,
   enrollmentSelf = null,
+  /** When booker is on annual package + year-long tier, guests are quoted on this shorter tier index. */
+  familyPaidTierIndex,
+  onFamilyPaidTierChange,
   dashboardTierIndex,
   onDashboardTierChange,
   /** Admin cross-sell rules (e.g. AWRP tier → % off another program); same engine as public cart / enrollment. */
@@ -361,6 +365,7 @@ export default function DashboardUpcomingProgramRowItem({
 
   const tiers = p.duration_tiers || [];
   const hasTiers = p.is_flagship && tiers.length > 0;
+  const familyPaidTierOptions = useMemo(() => nonYearLongTierIndices(p), [p]);
 
   const tierIdxForDisplay =
     typeof dashboardTierIndex === 'number'
@@ -451,6 +456,34 @@ export default function DashboardUpcomingProgramRowItem({
   const selIds = selectedFamilyByProgram[p.id] || [];
   const selCount = selIds.length;
 
+  const needsFamilyPaidTier = Boolean(
+    includedPkg && tierIsYearLong && selCount > 0 && familyPaidTierOptions.length > 0,
+  );
+  const familyPaidTierReady =
+    !needsFamilyPaidTier ||
+    (typeof familyPaidTierIndex === 'number' &&
+      familyPaidTierOptions.includes(familyPaidTierIndex));
+
+  const cartTierIdxForSync = useMemo(() => {
+    if (
+      includedPkg &&
+      tierIsYearLong &&
+      selCount > 0 &&
+      typeof familyPaidTierIndex === 'number' &&
+      familyPaidTierOptions.includes(familyPaidTierIndex)
+    ) {
+      return familyPaidTierIndex;
+    }
+    return tierIdxForDisplay;
+  }, [
+    includedPkg,
+    tierIsYearLong,
+    selCount,
+    familyPaidTierIndex,
+    familyPaidTierOptions,
+    tierIdxForDisplay,
+  ]);
+
   const crossSellDiscount = useMemo(
     () =>
       computeCrossSellDiscount(
@@ -502,7 +535,12 @@ export default function DashboardUpcomingProgramRowItem({
   const afterPromoXs = Math.max(0, afterPromo - crossUnitAdj);
   const offerPriceXs = offerPrice > 0 ? Math.max(0, offerPrice - crossUnitAdj) : offerPrice;
 
-  const hasPortalTotal = aq != null && typeof aq.total === 'number';
+  const portalQuoteAwaitingFamilyTier = aq?._awaitingFamilyPaidTier === true;
+  const familyPaidTierQuoteBlocked =
+    needsFamilyPaidTier &&
+    (!familyPaidTierReady || portalQuoteAwaitingFamilyTier);
+  const hasPortalTotal =
+    aq != null && typeof aq.total === 'number' && !portalQuoteAwaitingFamilyTier;
   const bookerEnrollingSelf = annualSeatUi?.draft?.bookerJoinsProgram !== false;
   /**
    * Paying seats: quote total &gt; 0. Guest-only with no one selected yet: allow Update if the line is already
@@ -517,13 +555,15 @@ export default function DashboardUpcomingProgramRowItem({
   /** Included package: total can be 0 (member seat only). Otherwise require a positive quote total, or cart clear path above. */
   const canAddToDivineCart = showContact
     ? Boolean(canSaveGuestOnlyClear)
-    : hasPortalTotal
-      ? Boolean(
-          (includedPkg && Number(aq.total) >= 0) ||
-            (!includedPkg && aq.total > 0) ||
-            canSaveGuestOnlyClear,
-        )
-      : Boolean(enrollStatus === 'open' && !showContact);
+    : familyPaidTierQuoteBlocked
+      ? false
+      : hasPortalTotal
+        ? Boolean(
+            (includedPkg && Number(aq.total) >= 0) ||
+              (!includedPkg && aq.total > 0) ||
+              canSaveGuestOnlyClear,
+          )
+        : Boolean(enrollStatus === 'open' && !showContact);
 
   const [addingToCheckout, setAddingToCheckout] = useState(false);
   const [annualPricingOpen, setAnnualPricingOpen] = useState(true);
@@ -571,7 +611,7 @@ export default function DashboardUpcomingProgramRowItem({
     } catch (err) {
       return { kind: 'error', detail: err?.response?.data?.detail || err?.message || 'Network error' };
     }
-    const normalizedTier = normalizeCartProgramTier(p, tierIdxForDisplay);
+    const normalizedTier = normalizeCartProgramTier(p, cartTierIdxForSync);
     const existingLine = cartItems.find(
       (i) =>
         i.type === 'program' &&
@@ -589,7 +629,7 @@ export default function DashboardUpcomingProgramRowItem({
       ...(members || []),
       ...(annualHouseholdPeers || []),
     ]);
-    syncProgramLineItem(p, tierIdxForDisplay, participants, {
+    syncProgramLineItem(p, cartTierIdxForSync, participants, {
       familyIds: selIds.map(String),
       bookerJoins: includedPkg ? false : annualSeatUi?.draft?.bookerJoinsProgram !== false,
       /** Must match dashboard / quote: annual add-ons were always false here before, so Divine Cart used title heuristics and dropped real lines. */
@@ -851,6 +891,52 @@ export default function DashboardUpcomingProgramRowItem({
                   </div>
                 </div>
               ) : null}
+              {enrollStatus === 'open' && needsFamilyPaidTier ? (
+                <div
+                  data-testid={`dashboard-family-paid-tier-${p.id}`}
+                  className="mb-3 rounded-lg border border-amber-200 bg-amber-50/85 px-3 py-2.5"
+                >
+                  <p className="text-[9px] font-bold uppercase tracking-wide text-amber-900 mb-1">
+                    Duration for family &amp; guest seats
+                  </p>
+                  <p className="text-[10px] text-slate-700 leading-snug mb-2">
+                    Your annual package covers your seat for this program. Choose how long guests are enrolling so we
+                    can show the correct price instead of a misleading ₹0.
+                  </p>
+                  <div
+                    className={`grid gap-1 ${
+                      familyPaidTierOptions.length <= 1
+                        ? 'grid-cols-1'
+                        : familyPaidTierOptions.length === 2
+                          ? 'grid-cols-2'
+                          : 'grid-cols-3'
+                    }`}
+                  >
+                    {familyPaidTierOptions.map((i) => {
+                      const t = tiers[i];
+                      if (!t) return null;
+                      return (
+                        <button
+                          key={i}
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onFamilyPaidTierChange?.(i);
+                          }}
+                          title={t.label || undefined}
+                          className={`min-h-[2.25rem] px-1.5 text-[10px] leading-tight rounded-full border transition-all flex items-center justify-center text-center ${
+                            familyPaidTierIndex === i
+                              ? 'bg-amber-600 text-white border-amber-600'
+                              : 'bg-white text-gray-700 border-amber-200 hover:border-amber-500'
+                          }`}
+                        >
+                          <span className="line-clamp-2 break-words">{compactTierButtonLabel(t.label)}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              ) : null}
               {enrollStatus === 'open' &&
                 offerPrice > 0 &&
                 deadline &&
@@ -985,6 +1071,15 @@ export default function DashboardUpcomingProgramRowItem({
                           and complete enrollment.
                         </p>
                       </div>
+                    ) : familyPaidTierQuoteBlocked ? (
+                      <div className="rounded-md border border-amber-200 bg-amber-50/90 px-3 py-2.5 text-[11px] text-slate-800 leading-snug space-y-1.5">
+                        <p className="font-bold text-slate-900">Select duration for guest seats</p>
+                        <p className="text-slate-700">
+                          Your seat is included in your annual package. Choose a paid length under{' '}
+                          <span className="font-medium">Duration for family &amp; guest seats</span> (for example 1 Month
+                          or 3 Months). We do not show ₹0 for guests until a duration is selected.
+                        </p>
+                      </div>
                     ) : (
                       <AnnualQuoteBreakdown
                         aq={aq}
@@ -1105,7 +1200,7 @@ export default function DashboardUpcomingProgramRowItem({
                   })()}
                 </div>
               ) : null}
-              {aq && !showContact ? (
+              {aq && !showContact && !familyPaidTierQuoteBlocked ? (
                 <div className="text-[11px] text-slate-600 mt-2 pt-2 border-t border-slate-100 leading-snug space-y-1">
                   <p>
                     Your selection total{includedPkg ? ' (guests & add-ons)' : ''}:{' '}
@@ -1588,19 +1683,21 @@ export default function DashboardUpcomingProgramRowItem({
                   !canAddToDivineCart
                     ? showContact && !canSaveGuestOnlyClear
                       ? 'Annual / year-long tier is custom — contact us for pricing. Shorter tiers can use Divine Cart.'
-                      : hasPortalTotal
-                        ? includedPkg && selCount < 1
-                          ? 'Select family members to join or wait for pricing.'
-                          : !bookerEnrollingSelf && selCount === 0 && !isInCart
-                            ? 'Select family guests or check “I am enrolling myself”, then add to Divine Cart.'
-                            : (aq.total || 0) <= 0
-                              ? 'No amount due for this selection.'
-                              : ''
-                        : showContact
-                          ? 'Use contact for pricing for this program.'
-                          : !aq && enrollStatus === 'open'
-                            ? 'Loading pricing…'
-                            : 'Enrollment is closed.'
+                      : familyPaidTierQuoteBlocked
+                        ? 'Choose how long guest seats run (e.g. 1 Month or 3 Months) to see pricing and update Divine Cart.'
+                        : hasPortalTotal
+                          ? includedPkg && selCount < 1
+                            ? 'Select family members to join or wait for pricing.'
+                            : !bookerEnrollingSelf && selCount === 0 && !isInCart
+                              ? 'Select family guests or check “I am enrolling myself”, then add to Divine Cart.'
+                              : (aq.total || 0) <= 0
+                                ? 'No amount due for this selection.'
+                                : ''
+                          : showContact
+                            ? 'Use contact for pricing for this program.'
+                            : !aq && enrollStatus === 'open'
+                              ? 'Loading pricing…'
+                              : 'Enrollment is closed.'
                     : canSaveGuestOnlyClear
                       ? 'Remove this program from your cart (no seats selected).'
                       : undefined

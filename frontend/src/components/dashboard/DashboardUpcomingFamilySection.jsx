@@ -22,7 +22,12 @@ import { useCurrency } from '../../context/CurrencyContext';
 import { useAuth } from '../../context/AuthContext';
 import { useSiteSettings } from '../../context/SiteSettingsContext';
 import { useCart, normalizeCartProgramTier } from '../../context/CartContext';
-import { pickTierIndexForDashboard, programIncludedInAnnualPackage } from './dashboardUpcomingHelpers';
+import {
+  pickTierIndexForDashboard,
+  programIncludedInAnnualPackage,
+  programTierIsYearLong,
+  nonYearLongTierIndices,
+} from './dashboardUpcomingHelpers';
 import {
   buildAnnualDashboardCartParticipants,
   buildGuestBucketByIdFromSelection,
@@ -855,7 +860,9 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh, bo
       const slim = {};
       Object.entries(data.seatDraftsByProgram).forEach(([k, v]) => {
         if (!v || typeof v !== 'object') return;
-        slim[k] = { bookerJoinsProgram: v.bookerJoinsProgram !== false };
+        const row = { bookerJoinsProgram: v.bookerJoinsProgram !== false };
+        if (typeof v.familyPaidTierIndex === 'number') row.familyPaidTierIndex = v.familyPaidTierIndex;
+        slim[k] = row;
       });
       setSeatDraftsByProgram(slim);
     }
@@ -1129,12 +1136,35 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh, bo
         const includedInPkg =
           annualPortalAccess && (programIncludedInAnnualPackage(p, annualIncludedIds) || false);
         const bookerJoins = includedInPkg ? false : draft?.bookerJoinsProgram !== false;
+        const uiTier = getDashboardTier(p);
+        const paidTierOptions = nonYearLongTierIndices(p);
+        const needsFamilyPaidTier =
+          includedInPkg &&
+          programTierIsYearLong(p, uiTier) &&
+          ids.length > 0 &&
+          paidTierOptions.length > 0;
+        let quoteTier = uiTier;
+        if (needsFamilyPaidTier) {
+          const pick = draft?.familyPaidTierIndex;
+          if (
+            typeof pick === 'number' &&
+            pick >= 0 &&
+            paidTierOptions.includes(pick)
+          ) {
+            quoteTier = pick;
+          } else {
+            return Promise.resolve({
+              id: p.id,
+              data: { _awaitingFamilyPaidTier: true, program_id: p.id },
+            });
+          }
+        }
         const params =
           ids.length > 0
             ? { program_id: p.id, currency: portalQuoteCurrency, family_ids: ids.join(','), booker_joins: bookerJoins }
             : { program_id: p.id, currency: portalQuoteCurrency, family_count: 0, booker_joins: bookerJoins };
         if (p.is_flagship && (p.duration_tiers || []).length > 0) {
-          params.tier_index = getDashboardTier(p);
+          params.tier_index = quoteTier;
         }
         return axios
           .get(`${API}/api/student/dashboard-quote`, {
@@ -1167,6 +1197,27 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh, bo
     getDashboardTier,
     annualIncludedIds,
   ]);
+
+  /** Clear guest paid-duration choice when no family/guests are selected for that program. */
+  useEffect(() => {
+    setSeatDraftsByProgram((prev) => {
+      let next = prev;
+      let any = false;
+      for (const prog of programsForPrefetch) {
+        const pid = prog.id;
+        if ((selectedFamilyByProgram[pid] || []).length > 0) continue;
+        const d = next[pid];
+        if (d && d.familyPaidTierIndex != null) {
+          if (next === prev) next = { ...prev };
+          const cur = { ...d };
+          delete cur.familyPaidTierIndex;
+          next[pid] = cur;
+          any = true;
+        }
+      }
+      return any ? next : prev;
+    });
+  }, [programsForPrefetch, familySelectionKey]);
 
   /** Per-program guest seat rows: each upcoming card keeps its own attendance/notify for selected members. */
   useEffect(() => {
@@ -1402,7 +1453,8 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh, bo
       partial.bookerSeatMode !== undefined ||
       partial.bookerSeatNotify !== undefined ||
       partial.guestSeatForm !== undefined ||
-      partial.bookerJoinsProgram !== undefined;
+      partial.bookerJoinsProgram !== undefined ||
+      partial.familyPaidTierIndex !== undefined;
     if (touchesDraft) {
       setSeatDraftsByProgram((prev) => {
         const cur = { ...(prev[programId] || createEmptySeatDraft()) };
@@ -1412,6 +1464,13 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh, bo
         }
         if (partial.bookerSeatNotify !== undefined) cur.bookerSeatNotify = !!partial.bookerSeatNotify;
         if (partial.guestSeatForm !== undefined) cur.guestSeatForm = partial.guestSeatForm;
+        if (partial.familyPaidTierIndex !== undefined) {
+          if (partial.familyPaidTierIndex === null) {
+            delete cur.familyPaidTierIndex;
+          } else {
+            cur.familyPaidTierIndex = partial.familyPaidTierIndex;
+          }
+        }
         return { ...prev, [programId]: cur };
       });
     }
@@ -1853,8 +1912,20 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh, bo
                   toggleSelectAllFamilyForProgram={toggleSelectAllFamilyForProgram}
                   openEnrollmentSeatModal={openEnrollmentSeatModal}
                   dashboardTierIndex={getDashboardTier(p)}
+                  familyPaidTierIndex={draftRow.familyPaidTierIndex}
+                  onFamilyPaidTierChange={(tierIdx) => patchSeatDraft(p.id, { familyPaidTierIndex: tierIdx })}
                   onDashboardTierChange={(programId, tierIndex) => {
                     setDashboardTierByProgram((prev) => ({ ...prev, [programId]: tierIndex }));
+                    const prog = programsForPrefetch.find((x) => String(x.id) === String(programId));
+                    if (!prog) return;
+                    if (!programTierIsYearLong(prog, tierIndex)) {
+                      patchSeatDraft(programId, { familyPaidTierIndex: null });
+                      return;
+                    }
+                    const guestCount = (selectedFamilyByProgram[programId] || []).length;
+                    if (guestCount > 0) {
+                      patchSeatDraft(programId, { familyPaidTierIndex: null });
+                    }
                   }}
                   enrollmentSelf={enrollmentSelf}
                   crossSellRules={crossSellRules}

@@ -15,6 +15,29 @@ export function pickTierIndexForDashboard(program, preferAnnualTier) {
   return 0;
 }
 
+/** True when this duration tier is year-long (Annual) — family add-ons need a separate paid tier for quoting. */
+export function programTierIsYearLong(program, tierIndex) {
+  const tiers = program?.duration_tiers || [];
+  if (!program?.is_flagship || !tiers.length) return false;
+  const i =
+    typeof tierIndex === 'number' && tierIndex >= 0 && tierIndex < tiers.length ? tierIndex : 0;
+  const t = tiers[i];
+  if (!t) return false;
+  const l = (t.label || '').toLowerCase();
+  return l.includes('annual') || l.includes('year') || t.duration_unit === 'year';
+}
+
+/** Tier indices that are not year-long (for “family seats” duration picker). */
+export function nonYearLongTierIndices(program) {
+  const tiers = program?.duration_tiers || [];
+  if (!program?.is_flagship || !tiers.length) return [];
+  const out = [];
+  for (let i = 0; i < tiers.length; i += 1) {
+    if (!programTierIsYearLong(program, i)) out.push(i);
+  }
+  return out;
+}
+
 /**
  * Title/category fallback when annual package id list is empty (admin left all unchecked).
  * Must stay aligned with backend `_program_keyword_in_annual_package`.
