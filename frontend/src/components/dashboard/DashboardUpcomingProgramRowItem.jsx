@@ -1093,11 +1093,17 @@ export default function DashboardUpcomingProgramRowItem({
                   className="mb-3 rounded-lg border border-amber-200 bg-amber-50/85 px-3 py-2.5"
                 >
                   <p className="text-[9px] font-bold uppercase tracking-wide text-amber-900 mb-1">
-                    Duration for family &amp; guest seats
+                    Choose duration — family &amp; guest seats
                   </p>
                   <p className="text-[10px] text-slate-700 leading-snug mb-2">
-                    Your annual package covers your seat for this program. Choose how long guests are enrolling so we
-                    can show the correct price instead of a misleading ₹0.
+                    For example <span className="font-medium">1 Month</span> or{' '}
+                    <span className="font-medium">3 Months</span>. Each guest&apos;s duration unlocks real portal totals
+                    and Divine Cart bundle math: a <span className="font-medium">3 Month</span> flagship add-on can make a
+                    companion program (e.g. Healing Migraine) <span className="font-medium">100% off</span>;{' '}
+                    <span className="font-medium">1 Month</span> may use a smaller bundle (e.g.{' '}
+                    <span className="font-medium">25% off</span>); <span className="font-medium">your seat</span> may use
+                    its own offer (e.g. <span className="font-medium">₹333</span>) when your rules apply—we avoid showing
+                    ₹0 until durations are chosen.
                   </p>
                   <div
                     className={`grid gap-1 ${
@@ -1269,11 +1275,18 @@ export default function DashboardUpcomingProgramRowItem({
                       </div>
                     ) : familyPaidTierQuoteBlocked ? (
                       <div className="rounded-md border border-amber-200 bg-amber-50/90 px-3 py-2.5 text-[11px] text-slate-800 leading-snug space-y-1.5">
-                        <p className="font-bold text-slate-900">Select duration for guest seats</p>
+                        <p className="font-bold text-slate-900">
+                          Choose duration for family &amp; guest seats (for example 1 Month or 3 Months)
+                        </p>
                         <p className="text-slate-700">
-                          Your seat is included in your annual package. Choose a paid length under{' '}
-                          <span className="font-medium">Duration for family &amp; guest seats</span> (for example 1 Month
-                          or 3 Months). We do not show ₹0 for guests until a duration is selected.
+                          Your seat is included in your annual package for this program. Use the row{' '}
+                          <span className="font-medium">Choose duration — family &amp; guest seats</span> on the left and
+                          the small duration chips under each selected name. Once set, Divine Cart can apply cross-program
+                          bundles—for example a guest on <span className="font-medium">3 Months</span> flagship may get{' '}
+                          <span className="font-medium">100% off</span> Healing Migraine, a guest on{' '}
+                          <span className="font-medium">1 Month</span> may get <span className="font-medium">25% off</span>,
+                          and <span className="font-medium">your own</span> companion seat may price at a fixed offer (e.g.{' '}
+                          <span className="font-medium">₹333</span>) per your configured rules.
                         </p>
                       </div>
                     ) : (
@@ -1906,7 +1919,7 @@ export default function DashboardUpcomingProgramRowItem({
                     ? showContact && !canSaveGuestOnlyClear
                       ? 'Annual / year-long tier is custom — contact us for pricing. Shorter tiers can use Divine Cart.'
                       : familyPaidTierQuoteBlocked
-                        ? 'Choose how long guest seats run (e.g. 1 Month or 3 Months) to see pricing and update Divine Cart.'
+                        ? 'Choose each guest duration first. Bundle rates (e.g. 3M: 100% off HM, 1M: 25% off, your line e.g. ₹333) need that to calculate.'
                         : hasPortalTotal
                           ? includedPkg && selCount < 1
                             ? 'Select family members to join or wait for pricing.'
