@@ -9,6 +9,7 @@ LABEL_DEW = "Dew — The Spark (Inquiry)."
 LABEL_SEED = "Seed — The Potential (Workshop)."
 LABEL_ROOT = "Root — The Grounding (Personal Session)."
 LABEL_BLOOM = "Bloom — The Unfolding (Repeat Client)."
+LABEL_IRIS_SEEKER = "Iris — The Seeker."
 
 IRIS_YEAR_LABELS: Dict[int, str] = {
     1: "Year 1: Iris Essence — The Presence.",
@@ -33,6 +34,7 @@ ORDERED_JOURNEY_LABELS: List[str] = [
     LABEL_SEED,
     LABEL_ROOT,
     LABEL_BLOOM,
+    LABEL_IRIS_SEEKER,
 ] + [IRIS_YEAR_LABELS[i] for i in range(1, 13)] + [
     LABEL_PURPLE_BEES,
     LABEL_IRIS_BEES,
@@ -55,6 +57,11 @@ LEGACY_TO_CANONICAL: Dict[str, str] = {
     "iris": IRIS_YEAR_LABELS[1],
     "purple bees": LABEL_PURPLE_BEES,
     "iris bees": LABEL_IRIS_BEES,
+    "Iris - The Seeker": LABEL_IRIS_SEEKER,
+    "Iris — The Seeker": LABEL_IRIS_SEEKER,
+    "Iris The Seeker": LABEL_IRIS_SEEKER,
+    "iris - the seeker": LABEL_IRIS_SEEKER,
+    "iris the seeker": LABEL_IRIS_SEEKER,
 }
 
 LABEL_DESCRIPTIONS: Dict[str, str] = {
@@ -62,6 +69,7 @@ LABEL_DESCRIPTIONS: Dict[str, str] = {
     LABEL_SEED: "Joined a workshop — The Potential.",
     LABEL_ROOT: "Converted to a flagship program — The Grounding.",
     LABEL_BLOOM: "Multiple programs or repeat client — The Unfolding.",
+    LABEL_IRIS_SEEKER: "Exploring before or beside the annual journey — The Seeker.",
     **{IRIS_YEAR_LABELS[i]: f"Annual journey — year {i} of 12." for i in range(1, 13)},
     LABEL_PURPLE_BEES: "Referral partners — The Messengers.",
     LABEL_IRIS_BEES: "Brand Ambassadors.",
@@ -115,6 +123,8 @@ def label_stripe_key(label: Optional[str]) -> str:
         return "root"
     if n == LABEL_BLOOM:
         return "bloom"
+    if n == LABEL_IRIS_SEEKER:
+        return "iris_seeker"
     if n == LABEL_PURPLE_BEES:
         return "purple_bees"
     if n == LABEL_IRIS_BEES:
@@ -146,7 +156,7 @@ def iris_anniversary_year_from_client(client_doc: dict) -> int:
 def client_tier_from_label(label: Optional[str]) -> int:
     """Student portal tier from garden label (supports legacy short names)."""
     key = label_stripe_key(label)
-    if key in ("dew", "seed"):
+    if key in ("dew", "seed", "iris_seeker"):
         return 1
     if key in ("root", "bloom"):
         return 2

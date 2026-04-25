@@ -6,6 +6,7 @@ import uuid
 from datetime import datetime, timezone
 from utils.canonical_id import new_entity_id, new_internal_diid
 from utils.garden_labels import LABEL_DEW
+from utils.person_name import normalize_person_name
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import Response
 from motor.motor_asyncio import AsyncIOMotorClient
@@ -97,7 +98,7 @@ async def submit_contact_update(token: str, body: SubmitBody):
     doc = await db.contact_update_links.find_one({"token": token, "active": True})
     if not doc:
         raise HTTPException(status_code=404, detail="This link is invalid or no longer active.")
-    name = body.name.strip()
+    name = normalize_person_name(body.name.strip())
     email = str(body.email).strip().lower()
     phone = body.phone.strip()
     city = body.city.strip()

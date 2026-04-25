@@ -14,6 +14,7 @@ from motor.motor_asyncio import AsyncIOMotorClient
 from dotenv import load_dotenv
 from pathlib import Path
 from utils.canonical_id import new_entity_id, new_internal_diid
+from utils.person_name import normalize_person_name
 
 ROOT_DIR = Path(__file__).parent.parent
 load_dotenv(ROOT_DIR / '.env')
@@ -40,7 +41,7 @@ class ClientIntakeSubmit(BaseModel):
 
 @router.post("")
 async def submit_intake(data: ClientIntakeSubmit):
-    name  = (data.name or "").strip()
+    name = normalize_person_name((data.name or "").strip())
     email = (data.email or "").strip().lower()
     phone = (data.phone or "").strip()
 

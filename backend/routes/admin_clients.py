@@ -14,6 +14,7 @@ from pathlib import Path
 from routes.auth import assert_admin_session_or_password
 from utils.canonical_id import new_entity_id, new_internal_diid
 from routes.student import build_admin_dashboard_pricing_snapshot
+from utils.person_name import normalize_person_name
 
 
 class DashboardPreviewBody(BaseModel):
@@ -63,7 +64,7 @@ async def upload_bulk_clients(file: UploadFile = File(...)):
             if not email or email == "nan":
                 continue
                 
-            name = str(row.get("name", "")).strip()
+            name = normalize_person_name(str(row.get("name", "")).strip())
             phone = str(row.get("phone", "")).strip()
             tier = str(row.get("tier", "Dew")).strip()
             city = str(row.get("city", "")).strip()
@@ -132,7 +133,7 @@ def _pending_profile_to_stored_fields(pending: dict) -> dict:
     out = {k: v for k, v in pending.items() if k != "full_name"}
     fn = pending.get("full_name")
     if fn is not None and str(fn).strip():
-        out["name"] = str(fn).strip()
+        out["name"] = normalize_person_name(str(fn).strip())
     return out
 
 

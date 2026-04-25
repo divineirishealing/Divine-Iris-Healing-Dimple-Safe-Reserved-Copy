@@ -17,6 +17,7 @@ from dotenv import load_dotenv
 from pathlib import Path
 from utils.canonical_id import new_entity_id, new_internal_diid
 from utils.garden_labels import iris_label_for_year
+from utils.person_name import normalize_person_name
 
 ROOT_DIR = Path(__file__).parent.parent
 load_dotenv(ROOT_DIR / '.env')
@@ -388,7 +389,8 @@ async def upload_subscriber_excel(file: UploadFile = File(...)):
     for idx, row in df.iterrows():
         try:
             email = safe_str(row.get("email")).lower()
-            name = safe_str(row.get("name"))
+            name_raw = safe_str(row.get("name")).strip()
+            name = normalize_person_name(name_raw) if name_raw else ""
 
             if not email and not name:
                 stats["skipped"] += 1
@@ -784,20 +786,23 @@ async def create_subscriber(data: SubscriberCreate):
         existing = await db.clients.find_one({"name": {"$regex": f"^{data.name}$", "$options": "i"}})
 
     if existing:
+        raw_nm = str(data.name or "").strip()
+        set_nm = normalize_person_name(raw_nm) if raw_nm else (existing.get("name") or "")
         await db.clients.update_one(
             {"_id": existing["_id"]},
-            {"$set": {"subscription": subscription, "name": data.name or existing.get("name"), "updated_at": datetime.now(timezone.utc).isoformat()}}
+            {"$set": {"subscription": subscription, "name": set_nm, "updated_at": datetime.now(timezone.utc).isoformat()}}
         )
         return {"message": "Subscriber updated", "id": existing["id"]}
     else:
         _now = datetime.now(timezone.utc).isoformat()
         client_id = new_entity_id()
+        disp_nm = normalize_person_name(str(data.name or "").strip())
         new_client = {
             "id": client_id,
             "did": f"DID-{str(uuid.uuid4())[:8].upper()}",
-            "diid": new_internal_diid(data.name or "", _now),
+            "diid": new_internal_diid(disp_nm or "", _now),
             "email": data.email.lower() if data.email else "",
-            "name": data.name,
+            "name": disp_nm,
             "phone": "",
             "label": iris_label_for_year(1),
             "label_manual": iris_label_for_year(1),
@@ -857,7 +862,7 @@ async def update_subscriber(client_id: str, data: SubscriberCreate):
 
     update_fields = {"subscription": subscription, "updated_at": datetime.now(timezone.utc).isoformat()}
     if data.name:
-        update_fields["name"] = data.name
+        update_fields["name"] = normalize_person_name(str(data.name).strip())
     if data.email:
         update_fields["email"] = data.email.lower()
 

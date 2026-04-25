@@ -27,6 +27,7 @@ from utils.garden_labels import (
     iris_anniversary_year_from_client,
     iris_label_for_year,
 )
+from utils.person_name import normalize_person_name
 from dotenv import load_dotenv
 from pathlib import Path
 
@@ -111,7 +112,11 @@ async def resolve_referrer_client(db, self_client_id: str, referrer_id_raw: Opti
     ref = await db.clients.find_one({"id": rid}, {"_id": 0, "name": 1, "email": 1})
     if not ref:
         raise HTTPException(status_code=404, detail="Referrer UUID not found in Client Garden")
-    display = ((ref.get("name") or "").strip() or (ref.get("email") or "").strip() or rid)
+    raw_nm = (ref.get("name") or "").strip()
+    if raw_nm:
+        display = normalize_person_name(raw_nm)
+    else:
+        display = (ref.get("email") or "").strip() or rid
     return rid, display
 
 
@@ -200,7 +205,10 @@ async def ensure_client_from_enrollment_lead(enrollment: Dict[str, Any]) -> None
             str(enrollment.get("phone") or enrollment.get("booker_phone") or "")
         )
         eid = str(enrollment.get("id") or "").strip()
-        name = (enrollment.get("booker_name") or "").strip() or email.split("@")[0]
+        raw_nm = (enrollment.get("booker_name") or "").strip() or (
+            email.split("@")[0] if email else ""
+        )
+        name = normalize_person_name(raw_nm) if raw_nm else ""
         program_title = (enrollment.get("item_title") or "").strip()
         now = datetime.now(timezone.utc).isoformat()
         created_ref = enrollment.get("created_at") or now
@@ -373,6 +381,8 @@ async def sync_clients():
     async def upsert_client(email: str, phone: str = "", name: str = "", source: str = "", source_detail: str = "", source_date: str = ""):
         email = normalize_email(email)
         phone = normalize_phone(phone)
+        name_raw = (name or "").strip()
+        name = normalize_person_name(name_raw) if name_raw else ""
         if not email and not phone:
             return
 
@@ -550,8 +560,9 @@ async def sync_clients():
                 )
             # Update name/phone if missing
             update_set = {}
-            if e.get("booker_name") and not existing.get("name"):
-                update_set["name"] = e["booker_name"]
+            booker_nm = normalize_person_name((e.get("booker_name") or "").strip())
+            if booker_nm and not existing.get("name"):
+                update_set["name"] = booker_nm
             if phone and not existing.get("phone"):
                 update_set["phone"] = phone
             if update_set:
@@ -559,13 +570,14 @@ async def sync_clients():
         else:
             did = f"DID-{str(uuid.uuid4())[:8].upper()}"
             now = datetime.now(timezone.utc).isoformat()
+            booker_nm = normalize_person_name((e.get("booker_name") or "").strip())
             client_doc = {
                 "id": new_entity_id(),
                 "did": did,
-                "diid": new_internal_diid(e.get("booker_name", "") or "", now),
+                "diid": new_internal_diid(booker_nm or "", now),
                 "email": email,
                 "phone": phone,
-                "name": e.get("booker_name", ""),
+                "name": booker_nm,
                 "label": LABEL_DEW,
                 "label_manual": "",
                 "sources": ["Enrollment"],
@@ -666,7 +678,7 @@ class ClientManualCreate(BaseModel):
 @router.post("")
 async def create_client_manual(data: ClientManualCreate):
     """Manually add a client. Requires name; email and phone are optional."""
-    name = (data.name or "").strip()
+    name = normalize_person_name((data.name or "").strip())
     if not name:
         raise HTTPException(status_code=400, detail="Name is required")
 
@@ -678,7 +690,7 @@ async def create_client_manual(data: ClientManualCreate):
         if not is_allowed_manual_label(label_manual):
             raise HTTPException(
                 status_code=400,
-                detail="Invalid garden label — use Dew / Seed / Root / Bloom, Iris year 1–12, Purple Bees, or Iris Bees (short or full title).",
+                detail="Invalid garden label — use Dew / Seed / Root / Bloom, Iris — The Seeker, Iris year 1–12, Purple Bees, or Iris Bees (short or full title).",
             )
         label_manual = normalize_label(label_manual)
 
@@ -1030,8 +1042,9 @@ def _display_name_for_portal_upload(
     if "row_name" in col_map:
         n = _annual_upload_cell_str(row, col_map["row_name"]).strip()
         if n:
-            return n
-    return (cl.get("name") or "").strip()
+            return normalize_person_name(n)
+    cur = (cl.get("name") or "").strip()
+    return normalize_person_name(cur) if cur else ""
 
 
 async def _find_single_client_by_name(name: str) -> Tuple[Optional[Dict[str, Any]], Optional[str]]:
@@ -1082,7 +1095,7 @@ async def _create_client_for_annual_portal_upload(
     errors: List[str],
 ) -> Optional[Dict[str, Any]]:
     """New Client Garden row with generated id; annual_member_dashboard on. Email optional."""
-    name = (name or "").strip()
+    name = normalize_person_name((name or "").strip())
     if not name:
         return None
     email_n = normalize_email(_annual_upload_cell_str(row, col_map.get("email")))
@@ -1970,7 +1983,8 @@ async def update_client(client_id: str, data: ClientUpdate):
     if data.notes is not None:
         update_fields["notes"] = data.notes
     if data.name is not None:
-        update_fields["name"] = data.name
+        nm = str(data.name).strip()
+        update_fields["name"] = normalize_person_name(nm) if nm else ""
     if "phone" in incoming:
         pn = normalize_phone(str(data.phone) if data.phone is not None else "")
         update_fields["phone"] = pn or None

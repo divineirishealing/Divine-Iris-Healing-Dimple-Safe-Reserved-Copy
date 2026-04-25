@@ -6,7 +6,7 @@ import { Input } from '../../ui/input';
 import { Label } from '../../ui/label';
 import {
   Users, Search, Download, RefreshCw,
-  Droplets, Sprout, TreeDeciduous, Flower2, Star, Sparkles, Crown,
+  Droplets, Sprout, TreeDeciduous, Flower2, Star, Sparkles, Crown, Compass,
   Edit2, Save, Trash2, UserPlus, X,
 } from 'lucide-react';
 import { useSpreadsheetColumnVisibility, SpreadsheetColumnPicker } from '../SpreadsheetColumnPicker';
@@ -40,6 +40,7 @@ function gardenLabelStripeKey(label) {
   if (s === 'Seed' || s.startsWith('Seed —') || s.startsWith('Seed -')) return 'seed';
   if (s === 'Root' || s.startsWith('Root —') || s.startsWith('Root -')) return 'root';
   if (s === 'Bloom' || s.startsWith('Bloom —') || s.startsWith('Bloom -')) return 'bloom';
+  if (s.includes('The Seeker') || /^Iris\s+[—-]\s*The Seeker/i.test(s)) return 'irisSeeker';
   if (s === 'Iris' || /^Year\s+\d+:/i.test(s)) return 'iris';
   if (s.includes('Purple Bees')) return 'purpleBees';
   if (s.includes('Iris Bees')) return 'irisBees';
@@ -78,6 +79,14 @@ const LABEL_FAMILY_STYLES = {
     text: 'text-pink-700',
     badge: 'bg-pink-100 text-pink-700',
     desc: 'Repeat client — The Unfolding',
+  },
+  irisSeeker: {
+    icon: Compass,
+    bg: 'bg-indigo-50',
+    border: 'border-indigo-200',
+    text: 'text-indigo-700',
+    badge: 'bg-indigo-100 text-indigo-700',
+    desc: 'The Seeker — exploring the path',
   },
   iris: {
     icon: Star,

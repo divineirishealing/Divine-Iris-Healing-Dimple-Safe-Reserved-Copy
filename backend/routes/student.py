@@ -17,6 +17,7 @@ from routes.enrollment import ProfileData, insert_enrollment_from_profile
 from routes.clients import ensure_client_from_enrollment_lead
 from routes.currency import assert_claimed_hub_matches_stripe
 from country_normalize import normalize_country_iso2
+from utils.person_name import normalize_person_name
 
 ROOT_DIR = Path(__file__).parent.parent
 load_dotenv(ROOT_DIR / '.env')
@@ -1100,7 +1101,8 @@ def _profile_snapshot_for_prefill(user: dict, client: dict) -> dict:
     city = snap.get("city") or (client or {}).get("city") or ""
     dob = snap.get("date_of_birth") or ""
     age = _age_from_dob_iso(dob) if dob else ""
-    name = snap.get("full_name") or user.get("name") or ""
+    name_raw = (snap.get("full_name") or user.get("name") or "").strip()
+    name = normalize_person_name(name_raw) if name_raw else ""
     country = (client or {}).get("country") or user.get("country") or ""
     return {
         "name": name,
@@ -1155,7 +1157,7 @@ async def update_immediate_family(data: FamilyUpdate, user: dict = Depends(get_c
 
     out: List[dict] = []
     for m in (data.members or [])[:12]:
-        name = (m.name or "").strip()
+        name = normalize_person_name((m.name or "").strip())
         if not name:
             continue
         em = (m.email or "").strip()
@@ -1221,7 +1223,7 @@ async def update_other_guests(data: FamilyUpdate, user: dict = Depends(get_curre
 
     out: List[dict] = []
     for m in (data.members or [])[:12]:
-        name = (m.name or "").strip()
+        name = normalize_person_name((m.name or "").strip())
         if not name:
             continue
         em = (m.email or "").strip()
@@ -2167,7 +2169,9 @@ async def put_household_peers(data: HouseholdPeersBody, user: dict = Depends(get
                 detail=f"Cannot update this person: not on your household key.",
             )
         set_doc: Dict[str, Any] = {
-            "name": (row.name or "").strip() or "Household member",
+            "name": normalize_person_name(
+                ((row.name or "").strip() or "Household member")
+            ),
             "email": (row.email or "").strip().lower(),
             "phone": (row.phone or "").strip(),
             "city": (row.city or "").strip(),
