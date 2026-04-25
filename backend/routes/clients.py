@@ -1958,7 +1958,7 @@ class ClientUpdate(BaseModel):
     name: Optional[str] = None
     phone: Optional[str] = None
     immediate_family_editing_approved: Optional[bool] = None
-    """When False, Google / student portal sign-in is blocked until set to True."""
+    # When False, Google / student portal sign-in is blocked until set to True.
     portal_login_allowed: Optional[bool] = None
     india_tax_enabled: Optional[bool] = None
     india_tax_percent: Optional[float] = None
@@ -2211,6 +2211,7 @@ async def export_clients_excel():
         "Phone",
         "Household key",
         "Primary household contact",
+        "Annual program",
         "Sources",
         "Programs Enrolled",
         "Total Conversions",
@@ -2258,6 +2259,7 @@ async def export_clients_excel():
             cl.get("phone", ""),
             cl.get("household_key") or "",
             "Yes" if cl.get("is_primary_household_contact") else "",
+            "Yes" if cl.get("annual_member_dashboard") else "No",
             sources,
             programs,
             len(cl.get("conversions", [])),
@@ -2272,7 +2274,7 @@ async def export_clients_excel():
             cell.fill = fill
             cell.border = thin_border
 
-    col_widths = [30, 38, 14, 52, 28, 20, 14, 24, 36, 22, 30, 18, 22, 12, 25, 40, 16, 22, 22, 30]
+    col_widths = [30, 38, 14, 52, 28, 20, 14, 24, 36, 22, 30, 18, 22, 12, 14, 25, 40, 16, 22, 22, 30]
     for i, w in enumerate(col_widths):
         ws.column_dimensions[ws.cell(row=1, column=i + 1).column_letter].width = w
 

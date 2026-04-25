@@ -24,6 +24,7 @@ const CLIENT_GARDEN_COLUMN_DEFS = [
   { id: 'sources', label: 'Sources' },
   { id: 'conv', label: 'Conv' },
   { id: 'first_program', label: '1st program' },
+  { id: 'annual_program', label: 'Annual' },
   { id: 'how_found', label: 'How found' },
   { id: 'referrer', label: 'Referrer' },
   { id: 'first', label: 'First seen' },
@@ -31,7 +32,7 @@ const CLIENT_GARDEN_COLUMN_DEFS = [
   { id: 'actions', label: 'Actions', required: true },
 ];
 
-const CLIENT_GARDEN_COLS_KEY = 'admin-client-garden-columns-v3';
+const CLIENT_GARDEN_COLS_KEY = 'admin-client-garden-columns-v4';
 
 /** Maps full canonical labels + legacy short names to row icon/colors (keep in sync with backend ``label_stripe_key``). */
 function gardenLabelStripeKey(label) {
@@ -247,6 +248,7 @@ const ClientsTab = () => {
       diidMiddle: splitDiid(cl.diid).middle,
       editPhone: cl.phone || '',
       firstProgramManual: cl.first_program_manual ? String(cl.first_program_manual) : '',
+      annualMemberDashboard: !!cl.annual_member_dashboard,
       discoverySource: cl.discovery_source || '',
       discoveryOtherNote: cl.discovery_other_note ? String(cl.discovery_other_note) : '',
       referredByClientId: cl.referred_by_client_id ? String(cl.referred_by_client_id) : '',
@@ -297,6 +299,7 @@ const ClientsTab = () => {
         email: (draft.email || '').trim().toLowerCase(),
         household_key: (draft.household_key || '').trim() || null,
         is_primary_household_contact: draft.is_primary_household_contact,
+        annual_member_dashboard: !!draft.annualMemberDashboard,
         label_manual: (draft.labelManual || '').trim() ? draft.labelManual : '',
         phone: (draft.editPhone || '').trim() || null,
         first_program_manual: (draft.firstProgramManual || '').trim() || null,
@@ -450,7 +453,7 @@ const ClientsTab = () => {
             <Users size={18} className="text-[#D4AF37]" /> Client Garden
           </h2>
           <p className="text-xs text-gray-500 mt-0.5 max-w-3xl">
-            One row per client — use <strong className="font-semibold text-gray-700">Edit</strong> for <strong className="font-semibold text-gray-700">name</strong>, <strong className="font-semibold text-gray-700">first seen</strong> (date), garden label, DIID middle, contact fields, <strong className="font-semibold text-gray-700">how they found us</strong>, and <strong className="font-semibold text-gray-700">referrer UUID</strong>. Save or Cancel in Actions. Conversions/sources still come from sync.{' '}
+            One row per client — use <strong className="font-semibold text-gray-700">Edit</strong> for <strong className="font-semibold text-gray-700">name</strong>, <strong className="font-semibold text-gray-700">first seen</strong>, <strong className="font-semibold text-gray-700">annual program</strong> (Yes/No), garden label, DIID middle, contact fields, <strong className="font-semibold text-gray-700">how they found us</strong>, and <strong className="font-semibold text-gray-700">referrer UUID</strong>. Save or Cancel in Actions. Conversions/sources still come from sync.{' '}
             <strong className="font-semibold text-gray-700">DIID</strong> should exist on every row; use <strong className="font-semibold text-gray-700">Sync All Data</strong> to backfill. <strong className="font-semibold text-gray-700">UUID</strong> is the internal record id.
           </p>
         </div>
@@ -580,6 +583,7 @@ const ClientsTab = () => {
                 {isVisible('sources') && <th className="py-2 px-2 font-semibold min-w-[100px]">Sources</th>}
                 {isVisible('conv') && <th className="py-2 px-2 font-semibold w-[44px] text-center">Conv</th>}
                 {isVisible('first_program') && <th className="py-2 px-2 font-semibold min-w-[120px]" title="First paid program from conversions (by date)">1st program</th>}
+                {isVisible('annual_program') && <th className="py-2 px-2 font-semibold w-[52px] text-center" title="Annual program member (Sacred Home annual pricing tag)">Annual</th>}
                 {isVisible('how_found') && <th className="py-2 px-2 font-semibold min-w-[100px]" title="How they first found Divine Iris">How found</th>}
                 {isVisible('referrer') && <th className="py-2 px-2 font-semibold min-w-[120px]" title="Referred-by client (when source is Referral)">Referrer</th>}
                 {isVisible('first') && <th className="py-2 px-2 font-semibold min-w-[108px]" title="First seen in garden (editable)">First seen</th>}
@@ -770,6 +774,24 @@ const ClientsTab = () => {
                         />
                       ) : (
                         <span className="line-clamp-2 text-[9px] leading-snug px-1">{cl.first_program || '—'}</span>
+                      )}
+                    </td>
+                    )}
+                    {isVisible('annual_program') && (
+                    <td className="py-1 px-1 text-center align-top">
+                      {d ? (
+                        <select
+                          data-testid="client-annual-program"
+                          className="h-7 w-full min-w-[48px] max-w-[56px] text-[9px] rounded border border-slate-300 bg-white px-0.5 mx-auto"
+                          value={d.annualMemberDashboard ? 'yes' : 'no'}
+                          onChange={(e) => updateDraft({ annualMemberDashboard: e.target.value === 'yes' })}
+                          title="Annual program (dashboard / pricing tag)"
+                        >
+                          <option value="yes">Yes</option>
+                          <option value="no">No</option>
+                        </select>
+                      ) : (
+                        <span className="text-[9px] font-medium text-gray-800">{cl.annual_member_dashboard ? 'Yes' : 'No'}</span>
                       )}
                     </td>
                     )}
