@@ -37,6 +37,7 @@ import {
 } from '../../lib/dashboardUpcomingSessionStorage';
 import { getAuthHeaders } from '../../lib/authHeaders';
 import DashboardUpcomingProgramRowItem from './DashboardUpcomingProgramRowItem';
+import { CrossSellBanner } from '../UpcomingProgramsSection';
 import { Button } from '../ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '../ui/dialog';
 
@@ -540,6 +541,44 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh, bo
   const seatDraftsRef = useRef({});
   const enrollmentPrefillCacheRef = useRef(null);
   const [enrollmentSelf, setEnrollmentSelf] = useState(null);
+  const [crossSellRules, setCrossSellRules] = useState([]);
+  const [catalogProgramsForCrossSell, setCatalogProgramsForCrossSell] = useState([]);
+
+  useEffect(() => {
+    let cancelled = false;
+    axios
+      .get(`${API}/api/discounts/settings`)
+      .then((r) => {
+        if (cancelled) return;
+        if (r.data?.enable_cross_sell && Array.isArray(r.data.cross_sell_rules) && r.data.cross_sell_rules.length > 0) {
+          setCrossSellRules(r.data.cross_sell_rules.filter((rule) => rule.enabled !== false));
+        } else {
+          setCrossSellRules([]);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) setCrossSellRules([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    axios
+      .get(`${API}/api/programs?visible_only=true`)
+      .then((r) => {
+        if (cancelled) return;
+        setCatalogProgramsForCrossSell(Array.isArray(r.data) ? r.data : []);
+      })
+      .catch(() => {
+        if (!cancelled) setCatalogProgramsForCrossSell([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   useEffect(() => {
     seatDraftsRef.current = seatDraftsByProgram;
@@ -1684,6 +1723,12 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh, bo
           </div>
         ) : null}
 
+        {crossSellRules.length > 0 && catalogProgramsForCrossSell.length > 0 ? (
+          <div className="mb-4 [&>div]:mt-0">
+            <CrossSellBanner rules={crossSellRules} programs={catalogProgramsForCrossSell} />
+          </div>
+        ) : null}
+
         {showOfferCountdownStrip && (
           <div
             className="mb-4 flex flex-col sm:flex-row sm:flex-wrap sm:items-center gap-2 sm:gap-x-4 rounded-xl border border-[rgba(212,175,55,0.28)] bg-gradient-to-r from-amber-50/75 via-white/55 to-violet-50/45 px-3 py-2.5"
@@ -1764,6 +1809,7 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh, bo
                     setDashboardTierByProgram((prev) => ({ ...prev, [programId]: tierIndex }));
                   }}
                   enrollmentSelf={enrollmentSelf}
+                  crossSellRules={crossSellRules}
                   annualSeatUi={{
                     draft: draftRow,
                     attendanceQuickPreset: attendanceQuick,

@@ -19,6 +19,7 @@ import {
   programIncludedInAnnualPackage,
   promoDiscountAmount,
 } from './dashboardUpcomingHelpers';
+import { computeCrossSellDiscount } from '../../lib/crossSellPricing';
 import {
   buildAnnualDashboardCartParticipants,
   buildGuestBucketByIdFromSelection,
@@ -330,6 +331,8 @@ export default function DashboardUpcomingProgramRowItem({
   enrollmentSelf = null,
   dashboardTierIndex,
   onDashboardTierChange,
+  /** Admin cross-sell rules (e.g. AWRP tier → % off another program); same engine as public cart / enrollment. */
+  crossSellRules = [],
 }) {
   const navigate = useNavigate();
   const { syncProgramLineItem, items: cartItems } = useCart();
@@ -373,6 +376,14 @@ export default function DashboardUpcomingProgramRowItem({
   const afterPromo = Math.max(0, baseForPromo - disc);
   const showSpecialPromo = Boolean(promoForProgramClicks && validated && disc > 0 && !promoPricesLoading);
 
+  const cartLinesForCrossSell = useMemo(
+    () =>
+      (cartItems || [])
+        .filter((i) => i.type === 'program')
+        .map((i) => ({ programId: i.programId, tierIndex: i.tierIndex })),
+    [cartItems],
+  );
+
   /** Program appears on the admin “Annual package — included programs” list (or keyword fallback when list empty). */
   const programOnAnnualPackageList = programIncludedInAnnualPackage(p, annualIncludedIds);
   /** Logged-in user’s own seat is prepaid (Annual dashboard access + program on package list). */
@@ -406,6 +417,29 @@ export default function DashboardUpcomingProgramRowItem({
 
   const selIds = selectedFamilyByProgram[p.id] || [];
   const selCount = selIds.length;
+
+  const crossSellDiscount = useMemo(
+    () =>
+      computeCrossSellDiscount(
+        crossSellRules,
+        p.id,
+        tierIdxForDisplay,
+        afterPromo,
+        cartLinesForCrossSell,
+      ),
+    [crossSellRules, p.id, tierIdxForDisplay, afterPromo, cartLinesForCrossSell],
+  );
+
+  const bookerPaysForCrossSell = includedPkg ? false : annualSeatUi?.draft?.bookerJoinsProgram !== false;
+  const payingSeatsForCrossSell = (bookerPaysForCrossSell ? 1 : 0) + selIds.length;
+  const crossSellLineDeduction =
+    crossSellDiscount && crossSellDiscount.amount > 0 && payingSeatsForCrossSell > 0
+      ? crossSellDiscount.amount * payingSeatsForCrossSell
+      : 0;
+  const crossUnitAdj = crossSellDiscount?.amount > 0 ? crossSellDiscount.amount : 0;
+  const afterPromoXs = Math.max(0, afterPromo - crossUnitAdj);
+  const offerPriceXs = offerPrice > 0 ? Math.max(0, offerPrice - crossUnitAdj) : offerPrice;
+
   const hasPortalTotal = aq != null && typeof aq.total === 'number';
   /** Included package: total can be 0 (member seat only). Otherwise require a positive quote total. */
   const canAddToDivineCart = hasPortalTotal
@@ -710,15 +744,23 @@ export default function DashboardUpcomingProgramRowItem({
                   <div className="flex flex-col gap-1 w-full">
                     <div className="flex flex-wrap items-baseline gap-2">
                       <span className="text-xl font-bold text-[#D4AF37] tabular-nums">
-                        {symbol} {afterPromo.toLocaleString()}
+                        {symbol}{' '}
+                        {(crossUnitAdj > 0 ? afterPromoXs : afterPromo).toLocaleString()}
                       </span>
                       <span className="text-xs text-gray-400 line-through tabular-nums">
-                        {symbol} {baseForPromo.toLocaleString()}
+                        {symbol}{' '}
+                        {(crossUnitAdj > 0 ? afterPromo : baseForPromo).toLocaleString()}
                       </span>
                     </div>
                     <span className="text-xs text-violet-700 font-medium">
                       With {promoForProgramClicks} (on offer price)
                     </span>
+                    {crossUnitAdj > 0 ? (
+                      <span className="text-[10px] text-amber-900 font-medium">
+                        {crossSellDiscount?.label || 'Bundle'}: −{symbol}
+                        {crossUnitAdj.toLocaleString()} vs cart add-ons when combined programs are in your order
+                      </span>
+                    ) : null}
                     {offerPrice > 0 && price > offerPrice ? (
                       <span className="text-[10px] text-gray-400">List {symbol}
                         {price.toLocaleString()}
@@ -728,11 +770,17 @@ export default function DashboardUpcomingProgramRowItem({
                 ) : offerPrice > 0 ? (
                   <>
                     <span className="text-xl font-bold text-[#D4AF37] tabular-nums">
-                      {symbol} {offerPrice.toLocaleString()}
+                      {symbol} {(crossUnitAdj > 0 ? offerPriceXs : offerPrice).toLocaleString()}
                     </span>
                     <span className="text-xs text-gray-400 line-through tabular-nums">
                       {symbol} {price.toLocaleString()}
                     </span>
+                    {crossUnitAdj > 0 ? (
+                      <span className="text-[10px] text-amber-900 font-medium block w-full">
+                        {crossSellDiscount?.label || 'Bundle'}: −{symbol}
+                        {crossUnitAdj.toLocaleString()}
+                      </span>
+                    ) : null}
                   </>
                 ) : price > 0 ? (
                   <span className="text-xl font-bold text-gray-900 tabular-nums">
@@ -776,7 +824,9 @@ export default function DashboardUpcomingProgramRowItem({
                     />
                   ) : (() => {
                     const bookerJoins = annualSeatUi?.draft?.bookerJoinsProgram !== false;
-                    const seatPrice = showSpecialPromo ? afterPromo : dashboardSeatUnit;
+                    const seatPriceBase = showSpecialPromo ? afterPromo : dashboardSeatUnit;
+                    const seatPrice =
+                      crossUnitAdj > 0 ? Math.max(0, seatPriceBase - crossUnitAdj) : seatPriceBase;
                     const immMemberIds = new Set(
                       [...(members || []), ...(annualHouseholdPeers || [])]
                         .map((m) => (m.id ? String(m.id) : null))
@@ -852,15 +902,26 @@ export default function DashboardUpcomingProgramRowItem({
                 </div>
               ) : null}
               {aq ? (
-                <p className="text-[11px] text-slate-600 mt-2 pt-2 border-t border-slate-100 leading-snug">
-                  Your selection total{includedPkg ? ' (guests & add-ons)' : ''}:{' '}
-                  <span className="font-semibold text-slate-800 tabular-nums">
-                    {symbol} {Number(aq.total ?? 0).toLocaleString()}
-                  </span>
-                </p>
+                <div className="text-[11px] text-slate-600 mt-2 pt-2 border-t border-slate-100 leading-snug space-y-1">
+                  <p>
+                    Your selection total{includedPkg ? ' (guests & add-ons)' : ''}:{' '}
+                    <span className="font-semibold text-slate-800 tabular-nums">
+                      {symbol}{' '}
+                      {Math.max(0, Number(aq.total ?? 0) - crossSellLineDeduction).toLocaleString()}
+                    </span>
+                  </p>
+                  {crossSellLineDeduction > 0 ? (
+                    <p className="text-[10px] text-amber-900 font-medium">
+                      Includes {crossSellDiscount?.label || 'bundle'} (−{symbol}
+                      {crossSellLineDeduction.toLocaleString()})
+                    </p>
+                  ) : null}
+                </div>
               ) : (() => {
                 const bookerJoins = annualSeatUi?.draft?.bookerJoinsProgram !== false;
-                const seatPrice = showSpecialPromo ? afterPromo : dashboardSeatUnit;
+                const seatPriceBase = showSpecialPromo ? afterPromo : dashboardSeatUnit;
+                const seatPrice =
+                  crossUnitAdj > 0 ? Math.max(0, seatPriceBase - crossUnitAdj) : seatPriceBase;
                 const immCount = selIds.filter((id) =>
                   [...(members || []), ...(annualHouseholdPeers || [])].some((m) => String(m.id) === id),
                 ).length;

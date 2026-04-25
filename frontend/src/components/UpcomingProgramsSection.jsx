@@ -629,7 +629,7 @@ const ComboBanner = ({ programs, comboRules }) => {
   );
 };
 
-const CrossSellBanner = ({ rules, programs }) => {
+export const CrossSellBanner = ({ rules, programs }) => {
   const { symbol } = useCurrency();
 
   const allOffers = rules.flatMap(rule => {

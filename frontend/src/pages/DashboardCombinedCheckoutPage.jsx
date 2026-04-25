@@ -840,6 +840,7 @@ export default function DashboardCombinedCheckoutPage() {
     group_discount: 0,
     combo_discount: 0,
     loyalty_discount: 0,
+    cross_sell_discount: 0,
     total_discount: 0,
   });
 
@@ -862,6 +863,7 @@ export default function DashboardCombinedCheckoutPage() {
           group_discount: 0,
           combo_discount: 0,
           loyalty_discount: 0,
+          cross_sell_discount: 0,
           total_discount: 0,
         });
       }
@@ -898,7 +900,8 @@ export default function DashboardCombinedCheckoutPage() {
   const totalAutoDiscount =
     (autoDiscounts.group_discount || 0) +
     (autoDiscounts.combo_discount || 0) +
-    (autoDiscounts.loyalty_discount || 0);
+    (autoDiscounts.loyalty_discount || 0) +
+    (autoDiscounts.cross_sell_discount || 0);
   const totalDiscountAmount = totalAutoDiscount + discount;
   const total = Math.max(0, subtotal - discount - totalAutoDiscount);
 
@@ -1499,6 +1502,14 @@ export default function DashboardCombinedCheckoutPage() {
               <span>Loyalty</span>
               <span className="tabular-nums">
                 -{symbol} {autoDiscounts.loyalty_discount.toLocaleString()}
+              </span>
+            </div>
+          )}
+          {autoDiscounts.cross_sell_discount > 0 && (
+            <div className="flex justify-between text-sm text-green-700" data-testid="dashboard-checkout-cross-sell">
+              <span>Bundle / cross-sell</span>
+              <span className="tabular-nums">
+                -{symbol} {autoDiscounts.cross_sell_discount.toLocaleString()}
               </span>
             </div>
           )}
