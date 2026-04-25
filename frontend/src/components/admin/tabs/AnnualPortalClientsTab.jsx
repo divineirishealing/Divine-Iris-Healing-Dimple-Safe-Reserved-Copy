@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import axios from 'axios';
-import { RefreshCw, Loader2, LayoutList, Users, Pencil } from 'lucide-react';
+import { RefreshCw, Loader2, LayoutList, Users, Pencil, Download, Upload } from 'lucide-react';
 import { Button } from '../../ui/button';
 import { useSpreadsheetColumnVisibility, SpreadsheetColumnPicker } from '../SpreadsheetColumnPicker';
 import { getApiUrl } from '../../../lib/config';
@@ -67,6 +67,9 @@ export default function AnnualPortalClientsTab() {
   /** 'flat' = one row per person; 'household' = clubbed by household_key */
   const [viewMode, setViewMode] = useState('flat');
   const [editRow, setEditRow] = useState(null);
+  const [excelFile, setExcelFile] = useState(null);
+  const [excelUploading, setExcelUploading] = useState(false);
+  const [uploadReport, setUploadReport] = useState(null);
 
   const {
     visibility: flatColVis,
@@ -94,6 +97,61 @@ export default function AnnualPortalClientsTab() {
   useEffect(() => {
     load();
   }, [load]);
+
+  const downloadExcelTemplate = useCallback(async () => {
+    try {
+      const res = await axios.get(`${API}/clients/annual-portal-subscription-template`, {
+        responseType: 'blob',
+      });
+      const blob = new Blob([res.data], {
+        type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      });
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'annual_portal_subscription_template.xlsx';
+      a.click();
+      window.URL.revokeObjectURL(url);
+      toast({ title: 'Template downloaded' });
+    } catch (err) {
+      const d = err.response?.data?.detail;
+      const msg = typeof d === 'string' ? d : err.message || 'Download failed';
+      toast({ title: 'Could not download template', description: msg, variant: 'destructive' });
+    }
+  }, [toast]);
+
+  const uploadExcel = useCallback(async () => {
+    if (!excelFile) {
+      toast({ title: 'Choose an Excel file first', variant: 'destructive' });
+      return;
+    }
+    setExcelUploading(true);
+    setUploadReport(null);
+    try {
+      const fd = new FormData();
+      fd.append('file', excelFile);
+      const { data } = await axios.post(`${API}/clients/annual-portal-subscription-upload`, fd, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      });
+      setUploadReport(data);
+      const errN = Number(data.error_count || 0);
+      toast({
+        title: 'Upload finished',
+        description: `Updated ${data.updated ?? 0} row(s).${errN ? ` ${errN} issue(s) — see below.` : ''}`,
+        variant: errN ? 'destructive' : 'default',
+      });
+      setExcelFile(null);
+      await load();
+    } catch (err) {
+      const d = err.response?.data?.detail;
+      let msg = err.message || 'Upload failed';
+      if (typeof d === 'string') msg = d;
+      else if (Array.isArray(d)) msg = d.map((x) => x.msg || x).join('; ');
+      toast({ title: 'Upload failed', description: msg, variant: 'destructive' });
+    } finally {
+      setExcelUploading(false);
+    }
+  }, [excelFile, load, toast]);
 
   const stats = useMemo(() => {
     const keyCounts = new Map();
@@ -164,14 +222,63 @@ export default function AnnualPortalClientsTab() {
         <div className="min-w-0">
           <h2 className="text-base font-semibold text-gray-900">Annual + dashboard (Client Garden)</h2>
           <p className="text-xs text-gray-600 mt-0.5 max-w-3xl">
-            Full-width sheet view. Sacred Home annual on the client record, portal not blocked. Counts are for this tab only.
+            Full-width sheet view. Sacred Home annual on the client record, portal not blocked. Match spreadsheet rows by{' '}
+            <strong>email</strong>; use the template for column names. Only annual dashboard clients are updated.
           </p>
         </div>
-        <Button type="button" variant="outline" size="sm" onClick={load} disabled={loading} className="shrink-0 h-8 text-xs">
-          {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
-          <span className="ml-1.5">Refresh</span>
-        </Button>
+        <div className="flex flex-wrap items-center gap-2 shrink-0">
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={downloadExcelTemplate}
+            className="h-8 text-xs border-[#217346] text-[#1b5e20] hover:bg-[#e8f5e9]"
+          >
+            <Download className="h-3.5 w-3.5 mr-1" />
+            Template
+          </Button>
+          <label className="inline-flex items-center gap-1.5 text-xs text-neutral-700 cursor-pointer border border-[#c6c6c6] rounded-sm px-2 py-1 bg-white hover:bg-neutral-50">
+            <input
+              type="file"
+              accept=".xlsx,.xlsm,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+              className="sr-only"
+              onChange={(e) => {
+                setExcelFile(e.target.files?.[0] || null);
+                setUploadReport(null);
+              }}
+            />
+            <span className="max-w-[10rem] truncate">{excelFile ? excelFile.name : 'Choose .xlsx'}</span>
+          </label>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={uploadExcel}
+            disabled={excelUploading || !excelFile}
+            className="h-8 text-xs"
+          >
+            {excelUploading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Upload className="h-3.5 w-3.5" />}
+            <span className="ml-1">Upload</span>
+          </Button>
+          <Button type="button" variant="outline" size="sm" onClick={load} disabled={loading} className="h-8 text-xs">
+            {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
+            <span className="ml-1.5">Refresh</span>
+          </Button>
+        </div>
       </div>
+
+      {uploadReport && (uploadReport.errors?.length > 0 || uploadReport.error_count > 0) && (
+        <div className="shrink-0 text-[11px] border border-amber-300 bg-amber-50 text-amber-950 rounded-sm px-2 py-2 max-h-32 overflow-y-auto">
+          <p className="font-semibold mb-1">
+            Upload issues ({uploadReport.error_count ?? uploadReport.errors?.length ?? 0})
+          </p>
+          <ul className="list-disc pl-4 space-y-0.5 font-mono">
+            {(uploadReport.errors || []).slice(0, 50).map((line, i) => (
+              <li key={i}>{line}</li>
+            ))}
+          </ul>
+        </div>
+      )}
 
       {!loading && rows.length > 0 && (
         <div className="flex flex-wrap items-center gap-1.5 shrink-0 text-[11px] text-gray-800 border border-[#c6c6c6] bg-[#e7e7e7] px-2 py-1 rounded-sm">

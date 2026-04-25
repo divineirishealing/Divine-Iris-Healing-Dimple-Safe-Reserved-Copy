@@ -1,7 +1,7 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, UploadFile, File
 from pydantic import BaseModel, Field, field_validator, model_validator
-from typing import Optional, List, Dict, Any
-from datetime import datetime, timezone
+from typing import Optional, List, Dict, Any, Tuple
+from datetime import date, datetime, timezone
 import logging
 import os
 import uuid
@@ -823,6 +823,325 @@ async def patch_annual_subscription(client_id: str, data: AnnualSubscriptionUpda
         {"$set": {"annual_subscription": merged, "updated_at": now}},
     )
     return {"annual_subscription": merged}
+
+
+def _annual_upload_norm_header(h: Any) -> str:
+    return (str(h or "").strip().lower().replace("*", "").replace("\n", " "))
+
+
+def _annual_upload_cell_str(row: tuple, idx: Optional[int]) -> str:
+    if idx is None or idx >= len(row):
+        return ""
+    v = row[idx]
+    if v is None:
+        return ""
+    if isinstance(v, datetime):
+        return v.date().isoformat()
+    if isinstance(v, date):
+        return v.isoformat()
+    return str(v).strip()
+
+
+ANNUAL_PORTAL_UPLOAD_SPECS: List[Tuple[str, Tuple[str, ...]]] = [
+    ("email", ("email", "e-mail")),
+    ("annual_diid", ("annual diid", "annual_diid", "member diid", "diid")),
+    ("start_date", ("start", "start date", "subscription start", "start_date")),
+    ("end_date", ("end", "end date", "subscription end", "end_date")),
+    ("awrp_year_label", ("awrp year", "awrp_year", "awrp_year_label")),
+    ("package_sku", ("package", "package_sku", "sku")),
+    ("awrp_months_used", ("awrp months used", "awrp_months_used")),
+    ("mmm_months_used", ("mmm months used", "mmm_months_used")),
+    ("turbo_sessions_used", ("turbo sessions used", "turbo_sessions_used", "turbo")),
+    ("meta_downloads_used", ("meta downloads used", "meta_downloads_used", "meta")),
+    ("usage_source", ("usage source", "usage_source")),
+]
+
+
+def _annual_portal_upload_col_map(header_cells: List[Any]) -> Dict[str, int]:
+    norm = [_annual_upload_norm_header(c) for c in header_cells]
+    col_map: Dict[str, int] = {}
+    for field, aliases in ANNUAL_PORTAL_UPLOAD_SPECS:
+        for i, n in enumerate(norm):
+            if n in aliases:
+                col_map[field] = i
+                break
+    return col_map
+
+
+def _parse_package_cell_for_upload(val: str) -> Optional[str]:
+    t = (val or "").strip().lower().replace(" ", "_")
+    if not t:
+        return None
+    if t == HOME_COMING_SKU or t in ("homecoming", "hc"):
+        return HOME_COMING_SKU
+    if "home" in t and "coming" in t.replace("_", ""):
+        return HOME_COMING_SKU
+    return "__invalid__"
+
+
+def _parse_int_cell_strict(val: str) -> Tuple[Optional[int], Optional[str]]:
+    s = (val or "").strip()
+    if not s:
+        return None, None
+    try:
+        n = int(float(s))
+        if n < 0:
+            return None, "must be non-negative"
+        return n, None
+    except ValueError:
+        return None, "not a number"
+
+
+def _coerce_upload_date(s: str, label: str) -> tuple[Optional[str], Optional[str]]:
+    if not (s or "").strip():
+        return None, None
+    t = str(s).strip()
+    if len(t) >= 10 and t[4] == "-" and t[7] == "-":
+        try:
+            datetime.strptime(t[:10], "%Y-%m-%d")
+            return t[:10], None
+        except ValueError:
+            return None, f"invalid {label} (use YYYY-MM-DD)"
+    return None, f"invalid {label} (use YYYY-MM-DD)"
+
+
+@router.get("/annual-portal-subscription-template")
+async def download_annual_portal_subscription_template():
+    """Blank / sample Excel for bulk Home Coming annual_subscription updates (match by email)."""
+    import io
+    from openpyxl import Workbook
+    from openpyxl.styles import Font, PatternFill, Alignment
+    from fastapi.responses import StreamingResponse
+
+    labels = [
+        "Email",
+        "Annual DIID",
+        "Start date",
+        "End date",
+        "AWRP year",
+        "Package",
+        "AWRP months used",
+        "MMM months used",
+        "Turbo sessions used",
+        "Meta downloads used",
+        "Usage source",
+    ]
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "Annual portal"
+    hdr_font = Font(bold=True, color="FFFFFF", size=11)
+    hdr_fill = PatternFill(start_color="217346", end_color="217346", fill_type="solid")
+    for col_idx, lab in enumerate(labels, 1):
+        c = ws.cell(row=1, column=col_idx, value=lab)
+        c.font = hdr_font
+        c.fill = hdr_fill
+        c.alignment = Alignment(horizontal="center")
+    sample = [
+        "client@example.com",
+        "JADO2504",
+        "2025-04-01",
+        "2026-03-31",
+        "AWRP3.0",
+        "Home Coming",
+        "3",
+        "1",
+        "0",
+        "0",
+        "manual",
+    ]
+    note_font = Font(italic=True, color="666666", size=10)
+    for col_idx, val in enumerate(sample, 1):
+        c = ws.cell(row=2, column=col_idx, value=val)
+        c.font = note_font
+    widths = [28, 14, 12, 12, 12, 14, 14, 14, 16, 16, 14]
+    for i, w in enumerate(widths, 1):
+        ws.column_dimensions[ws.cell(row=1, column=i).column_letter].width = w
+    out = io.BytesIO()
+    wb.save(out)
+    out.seek(0)
+    return StreamingResponse(
+        out,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={
+            "Content-Disposition": "attachment; filename=annual_portal_subscription_template.xlsx"
+        },
+    )
+
+
+@router.post("/annual-portal-subscription-upload")
+async def upload_annual_portal_subscription_excel(file: UploadFile = File(...)):
+    """
+    Update annual_subscription on Client Garden rows matched by email.
+    Only clients with annual_member_dashboard and portal_login_allowed != False are updated.
+    """
+    import io
+    from openpyxl import load_workbook
+
+    fn = (file.filename or "").lower()
+    if not fn.endswith((".xlsx", ".xlsm")):
+        raise HTTPException(
+            status_code=400,
+            detail="Upload a .xlsx file (use Download template).",
+        )
+    raw = await file.read()
+    if len(raw) > 8 * 1024 * 1024:
+        raise HTTPException(status_code=400, detail="File too large (max 8 MB).")
+
+    try:
+        wb = load_workbook(io.BytesIO(raw), data_only=True)
+    except Exception:
+        raise HTTPException(status_code=400, detail="Could not read Excel file.")
+
+    ws = wb.active
+    header_row = [c.value for c in ws[1]]
+    col_map = _annual_portal_upload_col_map(header_row)
+    if "email" not in col_map:
+        raise HTTPException(
+            status_code=400,
+            detail="Sheet must have an Email column (see template).",
+        )
+
+    updated = 0
+    skipped_empty = 0
+    errors: List[str] = []
+    max_rows = 5000
+    row_count = 0
+
+    for row_idx, row in enumerate(ws.iter_rows(min_row=2, values_only=True), start=2):
+        row_count += 1
+        if row_count > max_rows:
+            errors.append(f"Stopped after {max_rows} data rows.")
+            break
+        if not row or not any(v not in (None, "") for v in row):
+            skipped_empty += 1
+            continue
+
+        email = normalize_email(_annual_upload_cell_str(row, col_map.get("email")))
+        if not email:
+            errors.append(f"Row {row_idx}: missing email")
+            continue
+
+        cl = await db.clients.find_one({"email": email})
+        if not cl:
+            errors.append(f"Row {row_idx}: no client with email {email}")
+            continue
+        if not cl.get("annual_member_dashboard"):
+            errors.append(
+                f"Row {row_idx}: {email} is not an annual dashboard client — skipped"
+            )
+            continue
+        if cl.get("portal_login_allowed") is False:
+            errors.append(
+                f"Row {row_idx}: {email} has portal blocked — skipped"
+            )
+            continue
+
+        cid = cl["id"]
+        patch: Dict[str, Any] = {}
+
+        ad_raw = _annual_upload_cell_str(row, col_map.get("annual_diid"))
+        if ad_raw:
+            ad = normalize_annual_diid(ad_raw)
+            if not validate_annual_diid_format(ad):
+                errors.append(
+                    f"Row {row_idx}: Annual DIID must be 4 letters + YYMM (got {ad_raw!r})"
+                )
+                continue
+            dup = await db.clients.find_one(
+                {
+                    "annual_subscription.annual_diid": ad,
+                    "id": {"$ne": cid},
+                }
+            )
+            if dup:
+                errors.append(
+                    f"Row {row_idx}: DIID {ad} already used by another client"
+                )
+                continue
+            patch["annual_diid"] = ad
+
+        sd = _annual_upload_cell_str(row, col_map.get("start_date"))
+        if sd:
+            d_ok, err = _coerce_upload_date(sd, "start date")
+            if err:
+                errors.append(f"Row {row_idx}: {err}")
+                continue
+            patch["start_date"] = d_ok
+
+        ed = _annual_upload_cell_str(row, col_map.get("end_date"))
+        if ed:
+            d_ok, err = _coerce_upload_date(ed, "end date")
+            if err:
+                errors.append(f"Row {row_idx}: {err}")
+                continue
+            patch["end_date"] = d_ok
+
+        awrp = _annual_upload_cell_str(row, col_map.get("awrp_year_label"))
+        if awrp:
+            patch["awrp_year_label"] = awrp
+
+        pkg_raw = _annual_upload_cell_str(row, col_map.get("package_sku"))
+        if pkg_raw:
+            sku = _parse_package_cell_for_upload(pkg_raw)
+            if sku == "__invalid__":
+                errors.append(
+                    f"Row {row_idx}: package must be Home Coming (got {pkg_raw!r})"
+                )
+                continue
+            patch["package_sku"] = sku
+
+        usage_patch: Dict[str, Any] = {}
+        usage_field_err: Optional[str] = None
+        for u_key, spec in (
+            ("awrp_months_used", "awrp_months_used"),
+            ("mmm_months_used", "mmm_months_used"),
+            ("turbo_sessions_used", "turbo_sessions_used"),
+            ("meta_downloads_used", "meta_downloads_used"),
+        ):
+            cell = _annual_upload_cell_str(row, col_map.get(spec))
+            if not cell:
+                continue
+            n, ierr = _parse_int_cell_strict(cell)
+            if ierr:
+                usage_field_err = f"Row {row_idx}: {spec} {ierr}"
+                break
+            if n is not None:
+                usage_patch[u_key] = n
+        if usage_field_err:
+            errors.append(usage_field_err)
+            continue
+        if usage_patch:
+            patch["usage"] = usage_patch
+
+        us = _annual_upload_cell_str(row, col_map.get("usage_source"))
+        if us:
+            t = us.strip().lower()
+            if t not in ("manual", "system"):
+                errors.append(
+                    f"Row {row_idx}: usage source must be manual or system"
+                )
+                continue
+            patch["usage_source"] = t
+
+        if not patch:
+            skipped_empty += 1
+            continue
+
+        prev_sub: Dict[str, Any] = dict(cl.get("annual_subscription") or {})
+        merged = _merge_annual_subscription(prev_sub, patch)
+        now = datetime.now(timezone.utc).isoformat()
+        await db.clients.update_one(
+            {"id": cid},
+            {"$set": {"annual_subscription": merged, "updated_at": now}},
+        )
+        updated += 1
+
+    return {
+        "updated": updated,
+        "skipped_empty_rows": skipped_empty,
+        "errors": errors[:100],
+        "error_count": len(errors),
+    }
 
 
 class BulkSetPortalLoginBody(BaseModel):
