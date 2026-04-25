@@ -279,7 +279,7 @@ const ClientsTab = () => {
   };
 
   return (
-    <div data-testid="clients-tab">
+    <div data-testid="clients-tab" className="w-full max-w-none min-w-0">
       <div className="flex items-center justify-between mb-4">
         <div>
           <h2 className="text-lg font-bold text-gray-900 flex items-center gap-2">
@@ -389,14 +389,20 @@ const ClientsTab = () => {
         />
       </div>
 
-      <div className="rounded-xl border border-gray-200 bg-white overflow-hidden overflow-x-auto" data-testid="clients-table-wrap">
+      <div
+        className="rounded-xl border border-gray-200 bg-white overflow-hidden overflow-x-auto w-full max-w-none"
+        data-testid="clients-table-wrap"
+      >
         {clients.length === 0 ? (
           <div className="text-center py-16 text-gray-400">
             <Users size={32} className="mx-auto mb-2 opacity-30" />
             <p className="text-sm">No clients found. Use Add client or Sync All Data to populate.</p>
           </div>
         ) : (
-          <table className="w-full min-w-[1680px] text-left border-collapse text-[10px]" data-testid="clients-table">
+          <table
+            className="w-full min-w-full text-left border-collapse text-[10px] table-auto"
+            data-testid="clients-table"
+          >
             <thead>
               <tr className="bg-gray-100 border-b border-gray-200 text-[9px] uppercase tracking-wide text-gray-600">
                 {isVisible('name') && <th className="py-2 pl-3 pr-2 font-semibold sticky left-0 bg-gray-100 z-10">Name</th>}
