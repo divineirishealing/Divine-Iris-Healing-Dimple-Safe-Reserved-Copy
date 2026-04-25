@@ -12,14 +12,81 @@ export function normalizeCartItemTierIndex(item) {
   return 0;
 }
 
+/** All stable keys for a participant (id + email when both exist) so cart lines with partial data still match. */
+export function participantCrossSellIdentityKeys(p) {
+  const keys = new Set();
+  if (!p || typeof p !== 'object') return keys;
+  const mid = String(p.dashboard_family_member_id || p.dashboardFamilyMemberId || '').trim();
+  if (mid) keys.add(`m:${mid}`);
+  const em = String(p.email || '').trim().toLowerCase();
+  if (em) keys.add(`e:${em}`);
+  return keys;
+}
+
 /** Stable identity across cart lines: family id from Sacred Home, else email (e.g. booker "Myself"). */
 export function participantCrossSellIdentity(p) {
-  if (!p || typeof p !== 'object') return '';
-  const mid = String(p.dashboard_family_member_id || p.dashboardFamilyMemberId || '').trim();
+  const mid = String(p?.dashboard_family_member_id || p?.dashboardFamilyMemberId || '').trim();
   if (mid) return `m:${mid}`;
-  const em = String(p.email || '').trim().toLowerCase();
+  const em = String(p?.email || '').trim().toLowerCase();
   if (em) return `e:${em}`;
   return '';
+}
+
+export function addParticipantCrossSellKeysToSet(p, set) {
+  if (!set) return;
+  for (const k of participantCrossSellIdentityKeys(p)) set.add(k);
+}
+
+export function crossSellParticipantKeysOverlap(participant, buyerKeySet) {
+  if (!buyerKeySet?.size) return false;
+  for (const k of participantCrossSellIdentityKeys(participant)) {
+    if (buyerKeySet.has(k)) return true;
+  }
+  return false;
+}
+
+function collectCrossSellRuleMatches(crossSellRules, targetProgramId, cartLineSummaries, strictBuyTier) {
+  const out = [];
+  if (!crossSellRules?.length || !targetProgramId || !cartLineSummaries?.length) return out;
+  const pidStr = String(targetProgramId);
+  for (const rule of crossSellRules) {
+    if (rule.enabled === false) continue;
+    const targets =
+      rule.targets ||
+      (rule.get_program_id
+        ? [
+            {
+              program_id: rule.get_program_id,
+              discount_value: rule.discount_value,
+              discount_type: rule.discount_type,
+            },
+          ]
+        : []);
+    const matchTarget = targets.find((t) => String(t.program_id) === pidStr);
+    if (!matchTarget) continue;
+    const buyTier = rule.buy_tier;
+    let buyInCart = false;
+    if (strictBuyTier) {
+      buyInCart =
+        buyTier !== '' && buyTier !== undefined && buyTier !== null
+          ? cartLineSummaries.some(
+              (i) =>
+                String(i.programId) === String(rule.buy_program_id) &&
+                String(i.tierIndex) === String(buyTier),
+            )
+          : cartLineSummaries.some((i) => String(i.programId) === String(rule.buy_program_id));
+    } else {
+      buyInCart = cartLineSummaries.some((i) => String(i.programId) === String(rule.buy_program_id));
+    }
+    if (buyInCart) {
+      out.push({
+        rule,
+        matchTarget,
+        buyProgramId: String(rule.buy_program_id || '').trim(),
+      });
+    }
+  }
+  return out;
 }
 
 /**
@@ -45,47 +112,16 @@ export function buildDashboardCrossSellPreviewParticipants({
 }
 
 /**
- * All enabled rules whose target is `targetProgramId` and whose buy-program (+ tier) is in the cart.
+ * All enabled rules whose target is `targetProgramId` and whose buy-program is in the cart.
+ * Uses strict buy-tier matching first; if none match, falls back to buy-program-only so e.g. 1M AWRP
+ * still pairs with a rule recorded for another tier (multitier / admin tier drift).
  * @param {Array<{ programId: string, tierIndex: number }>} cartLineSummaries
  * @returns {Array<{ rule: object, matchTarget: object, buyProgramId: string }>}
  */
 export function findAllCrossSellRulesForTarget(crossSellRules, targetProgramId, cartLineSummaries) {
-  const out = [];
-  if (!crossSellRules?.length || !targetProgramId || !cartLineSummaries?.length) return out;
-  const pidStr = String(targetProgramId);
-  for (const rule of crossSellRules) {
-    if (rule.enabled === false) continue;
-    const targets =
-      rule.targets ||
-      (rule.get_program_id
-        ? [
-            {
-              program_id: rule.get_program_id,
-              discount_value: rule.discount_value,
-              discount_type: rule.discount_type,
-            },
-          ]
-        : []);
-    const matchTarget = targets.find((t) => String(t.program_id) === pidStr);
-    if (!matchTarget) continue;
-    const buyTier = rule.buy_tier;
-    const buyInCart =
-      buyTier !== '' && buyTier !== undefined && buyTier !== null
-        ? cartLineSummaries.some(
-            (i) =>
-              String(i.programId) === String(rule.buy_program_id) &&
-              String(i.tierIndex) === String(buyTier),
-          )
-        : cartLineSummaries.some((i) => String(i.programId) === String(rule.buy_program_id));
-    if (buyInCart) {
-      out.push({
-        rule,
-        matchTarget,
-        buyProgramId: String(rule.buy_program_id || '').trim(),
-      });
-    }
-  }
-  return out;
+  const strict = collectCrossSellRuleMatches(crossSellRules, targetProgramId, cartLineSummaries, true);
+  if (strict.length) return strict;
+  return collectCrossSellRuleMatches(crossSellRules, targetProgramId, cartLineSummaries, false);
 }
 
 /**
@@ -125,11 +161,9 @@ export function bestNetPayableForCrossSellSeat(
     if (!buyLine?.participants?.length) continue;
     const buyerKeys = new Set();
     for (const bp of buyLine.participants) {
-      const bk = participantCrossSellIdentity(bp);
-      if (bk) buyerKeys.add(bk);
+      addParticipantCrossSellKeysToSet(bp, buyerKeys);
     }
-    const k = participantCrossSellIdentity(participant);
-    if (!k || !buyerKeys.has(k)) continue;
+    if (!crossSellParticipantKeysOverlap(participant, buyerKeys)) continue;
 
     const t = m.matchTarget;
     let netRule = baseline;
@@ -161,15 +195,13 @@ export function crossSellEligibleParticipantCount(targetLineItem, buyProgramId, 
   );
   if (!buyLine?.participants?.length) return 0;
   const buyerKeys = new Set();
-  for (const p of buyLine.participants) {
-    const k = participantCrossSellIdentity(p);
-    if (k) buyerKeys.add(k);
+  for (const bp of buyLine.participants) {
+    addParticipantCrossSellKeysToSet(bp, buyerKeys);
   }
   if (!buyerKeys.size) return 0;
   let n = 0;
   for (const p of targetLineItem.participants || []) {
-    const k = participantCrossSellIdentity(p);
-    if (k && buyerKeys.has(k)) n += 1;
+    if (crossSellParticipantKeysOverlap(p, buyerKeys)) n += 1;
   }
   return n;
 }
