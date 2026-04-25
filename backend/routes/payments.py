@@ -159,12 +159,102 @@ async def backfill_transaction_portal_ids(session_id: str, tx: dict) -> None:
     )
 
 
+async def backfill_transaction_portal_ids_from_booker_email(session_id: str, tx: dict) -> None:
+    """Link payment to portal user when there is no enrollment (e.g. Razorpay landing page)."""
+    if tx.get("portal_user_id"):
+        return
+    be_norm = ((tx.get("booker_email") or "").strip().lower())
+    if not be_norm:
+        return
+    pud = await db.users.find_one({"email": be_norm}, {"id": 1, "client_id": 1})
+    if not pud:
+        return
+    pset = {
+        "portal_user_id": pud.get("id"),
+        "updated_at": datetime.now(timezone.utc),
+    }
+    pcid = (pud.get("client_id") or "").strip()
+    if pcid:
+        pset["portal_client_id"] = pcid
+    await db.payment_transactions.update_one(
+        {"stripe_session_id": session_id},
+        {"$set": pset},
+    )
+
+
+async def send_simple_payment_receipt(txn: dict) -> None:
+    """Minimal receipt for standalone payments (no enrollment record)."""
+    to = (txn.get("booker_email") or "").strip()
+    if not to:
+        return
+    name = (txn.get("booker_name") or "there").strip()
+    title = (txn.get("item_title") or "Your purchase").strip()
+    amt = txn.get("amount", 0)
+    cur = (txn.get("currency") or "inr").upper()
+    sym = CURRENCY_SYMBOLS.get((txn.get("currency") or "inr").lower(), "")
+    inv = (txn.get("invoice_number") or "").strip()
+    html = f"""
+    <div style="font-family: Georgia, serif; max-width: 560px; margin: 0 auto;">
+      <p>Hi {name},</p>
+      <p>Thank you — we received your payment.</p>
+      <p><strong>{title}</strong><br/>
+      Amount: {sym}{amt} {cur}</p>
+      {f'<p>Reference: {inv}</p>' if inv else ''}
+      <p style="color:#666;font-size:13px;">Divine Iris Healing</p>
+    </div>
+    """
+    from key_manager import get_key
+
+    receipt_sender = await get_key("receipt_email") or os.environ.get("RECEIPT_EMAIL", "receipt@divineirishealing.com")
+    await send_email(to, f"Payment received — {title}", html, from_email=receipt_sender)
+
+
+async def _run_standalone_razorpay_success_hooks(session_id: str, tx: dict) -> None:
+    """Fulfillment for Razorpay landing-page checkouts (no enrollment)."""
+    await backfill_transaction_portal_ids_from_booker_email(session_id, tx)
+    tx = await db.payment_transactions.find_one({"stripe_session_id": session_id}, {"_id": 0}) or tx
+
+    try:
+        from routes.points_logic import run_post_payment_loyalty
+
+        txn_clean = {k: v for k, v in tx.items() if k != "_id"}
+        await run_post_payment_loyalty(db, txn_clean)
+    except Exception as e:
+        logger.warning("Points Razorpay landing loyalty: %s", e)
+
+    txn_clean = {
+        k: v
+        for k, v in (
+            await db.payment_transactions.find_one({"stripe_session_id": session_id}, {"_id": 0}) or tx
+        ).items()
+        if k != "_id"
+    }
+    if not txn_clean.get("emails_sent"):
+        try:
+            await send_simple_payment_receipt(txn_clean)
+            await db.payment_transactions.update_one(
+                {"stripe_session_id": session_id},
+                {
+                    "$set": {
+                        "emails_sent": True,
+                        "updated_at": datetime.now(timezone.utc),
+                    }
+                },
+            )
+        except Exception as e:
+            logger.error("Razorpay landing receipt: %s", e)
+
+
 async def run_enrollment_razorpay_success_hooks(session_id: str) -> None:
-    """After Razorpay verify marks txn paid: same fulfillment as Stripe webhook (no card fraud probe)."""
+    """After Razorpay verify marks txn paid: enrollment completion or standalone landing receipt."""
     tx = await db.payment_transactions.find_one({"stripe_session_id": session_id}, {"_id": 0})
     if not tx:
         logger.warning("Razorpay hooks: no transaction for session_id=%s", session_id)
         return
+    if not tx.get("enrollment_id"):
+        await _run_standalone_razorpay_success_hooks(session_id, tx)
+        return
+
     enrollment_id = tx.get("enrollment_id")
 
     await backfill_transaction_portal_ids(session_id, tx)
