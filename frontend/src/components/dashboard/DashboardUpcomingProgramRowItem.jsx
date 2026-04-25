@@ -445,17 +445,24 @@ export default function DashboardUpcomingProgramRowItem({
   const afterPromo = Math.max(0, baseForPromo - disc);
   const showSpecialPromo = Boolean(promoForProgramClicks && validated && disc > 0 && !promoPricesLoading);
 
+  /** Per cart line tier for bundle rules. Do not substitute dashboard “card” tier for every line — Annual on the card is one index while guest add-on lines (e.g. 3‑month AWRP) carry another; strict buy_tier must see the line’s real tier or HM never matches 100% off. */
   const cartLinesForCrossSell = useMemo(
     () =>
       (cartItems || [])
         .filter((i) => i.type === 'program')
         .map((i) => {
+          const fromItem = normalizeCartProgramTier(i, i.tierIndex);
+          const tierExplicit = i.tierIndex != null && i.tierIndex !== '';
           const fromDash =
             typeof resolveCartCrossSellTier === 'function'
               ? resolveCartCrossSellTier(i.programId)
               : null;
           const tierIndex =
-            typeof fromDash === 'number' && fromDash >= 0 ? fromDash : normalizeCartItemTierIndex(i);
+            tierExplicit
+              ? fromItem
+              : typeof fromDash === 'number' && fromDash >= 0
+                ? fromDash
+                : normalizeCartItemTierIndex(i);
           return { programId: i.programId, tierIndex };
         }),
     [cartItems, resolveCartCrossSellTier],
