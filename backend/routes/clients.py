@@ -843,6 +843,10 @@ def _annual_upload_cell_str(row: tuple, idx: Optional[int]) -> str:
 
 
 ANNUAL_PORTAL_UPLOAD_SPECS: List[Tuple[str, Tuple[str, ...]]] = [
+    (
+        "client_id",
+        ("client id", "client_id", "uuid", "garden id", "client uuid"),
+    ),
     ("email", ("email", "e-mail")),
     ("annual_diid", ("annual diid", "annual_diid", "member diid", "diid")),
     ("start_date", ("start", "start date", "subscription start", "start_date")),
@@ -892,7 +896,7 @@ def _parse_int_cell_strict(val: str) -> Tuple[Optional[int], Optional[str]]:
         return None, "not a number"
 
 
-def _coerce_upload_date(s: str, label: str) -> tuple[Optional[str], Optional[str]]:
+def _coerce_upload_date(s: str, label: str) -> Tuple[Optional[str], Optional[str]]:
     if not (s or "").strip():
         return None, None
     t = str(s).strip()
@@ -907,13 +911,14 @@ def _coerce_upload_date(s: str, label: str) -> tuple[Optional[str], Optional[str
 
 @router.get("/annual-portal-subscription-template")
 async def download_annual_portal_subscription_template():
-    """Blank / sample Excel for bulk Home Coming annual_subscription updates (match by email)."""
+    """Excel for bulk Home Coming annual_subscription updates — match by Client id and/or email."""
     import io
     from openpyxl import Workbook
     from openpyxl.styles import Font, PatternFill, Alignment
     from fastapi.responses import StreamingResponse
 
     labels = [
+        "Client id",
         "Email",
         "Annual DIID",
         "Start date",
@@ -936,8 +941,9 @@ async def download_annual_portal_subscription_template():
         c.font = hdr_font
         c.fill = hdr_fill
         c.alignment = Alignment(horizontal="center")
-    sample = [
-        "client@example.com",
+    sample_primary = [
+        "",
+        "primary@example.com",
         "JADO2504",
         "2025-04-01",
         "2026-03-31",
@@ -949,11 +955,28 @@ async def download_annual_portal_subscription_template():
         "0",
         "manual",
     ]
+    sample_peer = [
+        "paste-uuid-from-admin-grid",
+        "",
+        "CHJA2504",
+        "2025-04-01",
+        "2026-03-31",
+        "AWRP3.0",
+        "Home Coming",
+        "0",
+        "0",
+        "0",
+        "0",
+        "manual",
+    ]
     note_font = Font(italic=True, color="666666", size=10)
-    for col_idx, val in enumerate(sample, 1):
+    for col_idx, val in enumerate(sample_primary, 1):
         c = ws.cell(row=2, column=col_idx, value=val)
         c.font = note_font
-    widths = [28, 14, 12, 12, 12, 14, 14, 14, 16, 16, 14]
+    for col_idx, val in enumerate(sample_peer, 1):
+        c = ws.cell(row=3, column=col_idx, value=val)
+        c.font = note_font
+    widths = [36, 28, 14, 12, 12, 12, 14, 14, 14, 16, 16, 14]
     for i, w in enumerate(widths, 1):
         ws.column_dimensions[ws.cell(row=1, column=i).column_letter].width = w
     out = io.BytesIO()
@@ -971,7 +994,8 @@ async def download_annual_portal_subscription_template():
 @router.post("/annual-portal-subscription-upload")
 async def upload_annual_portal_subscription_excel(file: UploadFile = File(...)):
     """
-    Update annual_subscription on Client Garden rows matched by email.
+    Update annual_subscription on Client Garden rows matched by Client id (UUID) and/or email.
+    Use Client id for household members with no email; leave Email blank or must match that row.
     Only clients with annual_member_dashboard and portal_login_allowed != False are updated.
     """
     import io
@@ -995,10 +1019,10 @@ async def upload_annual_portal_subscription_excel(file: UploadFile = File(...)):
     ws = wb.active
     header_row = [c.value for c in ws[1]]
     col_map = _annual_portal_upload_col_map(header_row)
-    if "email" not in col_map:
+    if "email" not in col_map and "client_id" not in col_map:
         raise HTTPException(
             status_code=400,
-            detail="Sheet must have an Email column (see template).",
+            detail="Sheet must have an Email column and/or Client id (see template).",
         )
 
     updated = 0
@@ -1006,6 +1030,8 @@ async def upload_annual_portal_subscription_excel(file: UploadFile = File(...)):
     errors: List[str] = []
     max_rows = 5000
     row_count = 0
+    _template_sample_ids = frozenset({"paste-uuid-from-admin-grid"})
+    _template_sample_emails = frozenset({"client@example.com", "primary@example.com"})
 
     for row_idx, row in enumerate(ws.iter_rows(min_row=2, values_only=True), start=2):
         row_count += 1
@@ -1016,23 +1042,45 @@ async def upload_annual_portal_subscription_excel(file: UploadFile = File(...)):
             skipped_empty += 1
             continue
 
+        cid_cell = _annual_upload_cell_str(row, col_map.get("client_id")).strip()
         email = normalize_email(_annual_upload_cell_str(row, col_map.get("email")))
-        if not email:
-            errors.append(f"Row {row_idx}: missing email")
+        if cid_cell in _template_sample_ids or (
+            not cid_cell and email in _template_sample_emails
+        ):
+            skipped_empty += 1
             continue
 
-        cl = await db.clients.find_one({"email": email})
-        if not cl:
-            errors.append(f"Row {row_idx}: no client with email {email}")
+        cl: Optional[Dict[str, Any]] = None
+        if cid_cell:
+            cl = await db.clients.find_one({"id": cid_cell})
+            if not cl:
+                errors.append(f"Row {row_idx}: no client with Client id {cid_cell}")
+                continue
+            if email and normalize_email(cl.get("email") or "") != email:
+                errors.append(
+                    f"Row {row_idx}: Email does not match this Client id — fix or clear Email"
+                )
+                continue
+        elif email:
+            cl = await db.clients.find_one({"email": email})
+            if not cl:
+                errors.append(f"Row {row_idx}: no client with email {email}")
+                continue
+        else:
+            errors.append(
+                f"Row {row_idx}: set Client id (from admin grid) or Email — both empty"
+            )
             continue
+
+        row_label = email or (cl.get("email") or "") or cid_cell
         if not cl.get("annual_member_dashboard"):
             errors.append(
-                f"Row {row_idx}: {email} is not an annual dashboard client — skipped"
+                f"Row {row_idx}: {row_label} is not an annual dashboard client — skipped"
             )
             continue
         if cl.get("portal_login_allowed") is False:
             errors.append(
-                f"Row {row_idx}: {email} has portal blocked — skipped"
+                f"Row {row_idx}: {row_label} has portal blocked — skipped"
             )
             continue
 

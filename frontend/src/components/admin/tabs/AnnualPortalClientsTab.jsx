@@ -17,6 +17,7 @@ const API = getApiUrl();
 const ANNUAL_PORTAL_FLAT_COLS = [
   { id: 'sn', label: '#', required: true },
   { id: 'name', label: 'Name', required: true },
+  { id: 'client_id', label: 'Client id' },
   { id: 'email', label: 'Email' },
   { id: 'household', label: 'Household' },
   { id: 'primary', label: 'Primary' },
@@ -28,7 +29,7 @@ const ANNUAL_PORTAL_FLAT_COLS = [
   { id: 'usage', label: 'Usage' },
   { id: 'edit', label: 'Edit', required: true },
 ];
-const ANNUAL_PORTAL_FLAT_KEY = 'admin-annual-portal-flat-v3';
+const ANNUAL_PORTAL_FLAT_KEY = 'admin-annual-portal-flat-v4';
 
 /** Excel-like grid: gray chrome, tight cells, full-area scroll */
 const sheetFrame =
@@ -222,8 +223,7 @@ export default function AnnualPortalClientsTab() {
         <div className="min-w-0">
           <h2 className="text-base font-semibold text-gray-900">Annual + dashboard (Client Garden)</h2>
           <p className="text-xs text-gray-600 mt-0.5 max-w-3xl">
-            Full-width sheet view. Sacred Home annual on the client record, portal not blocked. Match spreadsheet rows by{' '}
-            <strong>email</strong>; use the template for column names. Only annual dashboard clients are updated.
+            Full-width sheet view. Sacred Home annual on the client record, portal not blocked.             Use <strong>Email</strong> or <strong>Client id</strong> (from the grid) in Excel — members without email stay clubbed under the household; put their row’s Client id in the sheet, not the primary’s email.
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2 shrink-0">
@@ -352,6 +352,7 @@ export default function AnnualPortalClientsTab() {
                   <th className={`${thBase} text-center w-11 tabular-nums`}>#</th>
                 )}
                 {flatColVisible('name') && <th className={thBase}>Name</th>}
+                {flatColVisible('client_id') && <th className={thBase}>Client id</th>}
                 {flatColVisible('email') && <th className={thBase}>Email</th>}
                 {flatColVisible('household') && <th className={thBase}>Household</th>}
                 {flatColVisible('primary') && <th className={`${thBase} text-center`}>Primary</th>}
@@ -390,6 +391,11 @@ export default function AnnualPortalClientsTab() {
                       </td>
                     )}
                     {flatColVisible('name') && <td className={`${tdBase} font-medium`}>{(r.name || '').trim() || '—'}</td>}
+                    {flatColVisible('client_id') && (
+                      <td className={`${tdBase} font-mono text-[11px] text-neutral-800 break-all max-w-[8rem]`}>
+                        {(r.id || '').trim() || '—'}
+                      </td>
+                    )}
                     {flatColVisible('email') && <td className={`${tdBase} text-neutral-800`}>{(r.email || '').trim() || '—'}</td>}
                     {flatColVisible('household') && <td className={`${tdBase} font-mono text-[12px] text-neutral-800`}>{(r.household_key || '').trim() || '—'}</td>}
                     {flatColVisible('primary') && (
@@ -466,6 +472,7 @@ export default function AnnualPortalClientsTab() {
                         <tr>
                           <th className={`${thBase} text-center w-11 tabular-nums`}>#</th>
                           <th className={`${thBase} pl-3`}>Name</th>
+                          <th className={`${thBase} font-mono text-[10px]`}>Client id</th>
                           <th className={thBase}>Email</th>
                           <th className={`${thBase} text-center w-16`}>Primary</th>
                           <th className={`${thBase} font-mono`}>DIID</th>
@@ -484,6 +491,9 @@ export default function AnnualPortalClientsTab() {
                               {serialByRowKey.get(r.id || r.email) ?? '—'}
                             </td>
                             <td className={`${tdBase} pl-3 font-medium`}>{(r.name || '').trim() || '—'}</td>
+                            <td className={`${tdBase} font-mono text-[10px] text-neutral-800 break-all max-w-[7rem]`}>
+                              {(r.id || '').trim() || '—'}
+                            </td>
                             <td className={`${tdBase} text-neutral-800`}>{(r.email || '').trim() || '—'}</td>
                             <td className={`${tdBase} text-center`}>
                               {r.is_primary_household_contact ? 'Y' : '—'}
