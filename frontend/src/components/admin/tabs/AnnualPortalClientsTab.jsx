@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import axios from 'axios';
 import { RefreshCw, Loader2, LayoutList, Users, Pencil, Download, Upload } from 'lucide-react';
 import { Button } from '../../ui/button';
@@ -29,6 +29,9 @@ const ANNUAL_PORTAL_FLAT_COLS = [
   { id: 'edit', label: 'Edit', required: true },
 ];
 const ANNUAL_PORTAL_FLAT_KEY = 'admin-annual-portal-flat-v6';
+
+const EXCEL_ACCEPT =
+  '.xlsx,.xlsm,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel';
 
 function colLabel(id) {
   return ANNUAL_PORTAL_FLAT_COLS.find((c) => c.id === id)?.label ?? id;
@@ -72,7 +75,7 @@ export default function AnnualPortalClientsTab() {
   const [viewMode, setViewMode] = useState('flat');
   const [editRow, setEditRow] = useState(null);
   const [excelFile, setExcelFile] = useState(null);
-  const [excelFileInputKey, setExcelFileInputKey] = useState(0);
+  const excelFileInputRef = useRef(null);
   const [excelUploading, setExcelUploading] = useState(false);
   const [uploadReport, setUploadReport] = useState(null);
 
@@ -156,7 +159,7 @@ export default function AnnualPortalClientsTab() {
       }
       toast({ title: 'Upload finished', description: desc, variant });
       setExcelFile(null);
-      setExcelFileInputKey((k) => k + 1);
+      if (excelFileInputRef.current) excelFileInputRef.current.value = '';
       await load();
     } catch (err) {
       const d = err.response?.data?.detail;
@@ -245,19 +248,14 @@ export default function AnnualPortalClientsTab() {
         <Download className="h-3.5 w-3.5 mr-1" />
         Template
       </Button>
-      <label className="inline-flex items-center gap-1.5 text-xs text-neutral-700 cursor-pointer border border-[#c6c6c6] rounded-sm px-2 py-1 bg-white hover:bg-neutral-50">
-        <input
-          key={excelFileInputKey}
-          type="file"
-          accept=".xlsx,.xlsm,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-          className="sr-only"
-          onChange={(e) => {
-            setExcelFile(e.target.files?.[0] || null);
-            setUploadReport(null);
-          }}
-        />
-        <span className="max-w-[10rem] truncate">{excelFile ? excelFile.name : 'Choose .xlsx'}</span>
-      </label>
+      <button
+        type="button"
+        onClick={() => excelFileInputRef.current?.click()}
+        className="inline-flex items-center gap-1.5 text-xs text-neutral-700 cursor-pointer border border-[#c6c6c6] rounded-sm px-2 py-1 bg-white hover:bg-neutral-50 min-h-8"
+        aria-label="Choose Excel file to upload"
+      >
+        <span className="max-w-[10rem] truncate text-left">{excelFile ? excelFile.name : 'Choose .xlsx'}</span>
+      </button>
       <Button
         type="button"
         variant="outline"
@@ -278,6 +276,18 @@ export default function AnnualPortalClientsTab() {
 
   return (
     <div className="w-full min-w-0 flex flex-col gap-2">
+      {/* One file input for both toolbars; label+sr-only was unreliable with duplicate pickers */}
+      <input
+        ref={excelFileInputRef}
+        type="file"
+        accept={EXCEL_ACCEPT}
+        className="sr-only"
+        tabIndex={-1}
+        onChange={(e) => {
+          setExcelFile(e.target.files?.[0] || null);
+          setUploadReport(null);
+        }}
+      />
       <div className="flex flex-wrap items-start justify-between gap-3 shrink-0">
         <div className="min-w-0">
           <h2 className="text-base font-semibold text-gray-900">Annual + dashboard (Client Garden)</h2>
