@@ -7,6 +7,7 @@ import { useCart } from '../context/CartContext';
 import { useToast } from '../hooks/use-toast';
 import { Monitor, Calendar, Clock, AlertTriangle, Wifi, ShoppingCart, Check, Bell, Heart, Gift, Users } from 'lucide-react';
 import { cn } from '../lib/utils';
+import { computeCrossSellDiscount } from '../lib/crossSellPricing';
 
 // Map common timezone abbreviations to UTC offset in hours
 const TZ_OFFSETS = {
@@ -210,7 +211,7 @@ function durationPillDisplay(isAnnualTier, durationStr) {
   return durationStr;
 }
 
-const UpcomingCard = ({ program, cardQuoteMessages = [] }) => {
+const UpcomingCard = ({ program, cardQuoteMessages = [], crossSellRules = [] }) => {
   const navigate = useNavigate();
   const { getPrice, getOfferPrice, symbol, country: detectedCountry } = useCurrency();
   const { addItem, items } = useCart();
@@ -224,6 +225,22 @@ const UpcomingCard = ({ program, cardQuoteMessages = [] }) => {
   const isAnnual = tier && (tier.label.toLowerCase().includes('annual') || tier.label.toLowerCase().includes('year') || tier.duration_unit === 'year');
   const price = getPrice(program, hasTiers ? selectedTier : null);
   const offerPrice = getOfferPrice(program, hasTiers ? selectedTier : null);
+  const effectiveUnitPrice = offerPrice > 0 ? offerPrice : price;
+  const cartItems = items.map((i) => ({ programId: i.programId, tierIndex: i.tierIndex }));
+  const crossSellDiscount =
+    crossSellRules.length > 0
+      ? computeCrossSellDiscount(
+          crossSellRules,
+          program.id,
+          hasTiers ? selectedTier : null,
+          effectiveUnitPrice,
+          cartItems,
+        )
+      : null;
+  const crossSellFinal =
+    crossSellDiscount && effectiveUnitPrice > 0
+      ? Math.max(0, effectiveUnitPrice - crossSellDiscount.amount)
+      : null;
 
   const showContact = isAnnual && price === 0;
   const inCart = items.some(i => i.programId === program.id && i.tierIndex === selectedTier);
@@ -479,17 +496,38 @@ const UpcomingCard = ({ program, cardQuoteMessages = [] }) => {
                 </div>
               ) : (
                 <>
-                  <div className="flex items-baseline gap-2 mb-2">
-                    {offerPrice > 0 ? (
-                      <>
-                        <span className="text-xl font-bold text-[#D4AF37]">{symbol} {offerPrice.toLocaleString()}</span>
-                        <span className="text-xs text-gray-400 line-through">{symbol} {price.toLocaleString()}</span>
-                      </>
-                    ) : price > 0 ? (
-                      <span className="text-xl font-bold text-gray-900">{symbol} {price.toLocaleString()}</span>
-                    ) : (
-                      <span className="text-xl font-bold text-green-600">FREE</span>
-                    )}
+                  <div className="flex flex-col gap-0.5 mb-2">
+                    <div className="flex items-baseline gap-2 flex-wrap">
+                      {crossSellFinal != null && crossSellDiscount ? (
+                        <>
+                          <span className="text-xl font-bold text-[#D4AF37]" data-testid={`upcoming-price-bundle-${program.id}`}>
+                            {symbol} {crossSellFinal.toLocaleString()}
+                          </span>
+                          <span className="text-xs text-gray-400 line-through">{symbol} {effectiveUnitPrice.toLocaleString()}</span>
+                          {offerPrice > 0 && price > offerPrice ? (
+                            <span className="text-[10px] text-gray-400 line-through">{symbol} {price.toLocaleString()}</span>
+                          ) : null}
+                        </>
+                      ) : offerPrice > 0 ? (
+                        <>
+                          <span className="text-xl font-bold text-[#D4AF37]">{symbol} {offerPrice.toLocaleString()}</span>
+                          <span className="text-xs text-gray-400 line-through">{symbol} {price.toLocaleString()}</span>
+                        </>
+                      ) : price > 0 ? (
+                        <span className="text-xl font-bold text-gray-900">{symbol} {price.toLocaleString()}</span>
+                      ) : (
+                        <span className="text-xl font-bold text-green-600">FREE</span>
+                      )}
+                    </div>
+                    {crossSellDiscount ? (
+                      <p className="text-[9px] text-emerald-700 flex items-center gap-1" data-testid={`upcoming-crosssell-hint-${program.id}`}>
+                        <Gift size={10} className="shrink-0" />
+                        <span>
+                          {crossSellDiscount.label || 'Bundle'}: −{crossSellDiscount.value}
+                          {crossSellDiscount.type === 'percentage' ? '%' : ` ${symbol}`} (cart)
+                        </span>
+                      </p>
+                    ) : null}
                   </div>
                   <div className="flex gap-1.5">
                     <button onClick={() => navigate(`/program/${program.id}`)} data-testid={`upcoming-know-more-${program.id}`}
@@ -583,9 +621,13 @@ const ComboBanner = ({ programs, comboRules }) => {
   const rules = [...comboRules].sort((a, b) => a.min_programs - b.min_programs);
 
   const handleAddAll = () => {
+    const maxNeeded = Math.max(...rules.map((r) => Number(r.min_programs) || 2), 2);
     let added = 0;
-    programs.forEach(p => {
-      if (!items.some(i => i.programId === p.id)) { addItem(p, 0); added++; }
+    programs.slice(0, maxNeeded).forEach((p) => {
+      if (!items.some((i) => i.programId === p.id)) {
+        addItem(p, 0);
+        added++;
+      }
     });
     toast({ title: added > 0 ? `${added} program${added > 1 ? 's' : ''} added to cart!` : 'Already in cart' });
   };
@@ -660,16 +702,23 @@ const CrossSellBanner = ({ rules, programs }) => {
 
 const UpcomingProgramsSection = ({ sectionConfig, inline }) => {
   const [programs, setPrograms] = useState([]);
+  /** All visible programs — resolves cross-sell / combo copy when trigger programs are flagship-only. */
+  const [allVisiblePrograms, setAllVisiblePrograms] = useState([]);
   const [cardQuotesByProgram, setCardQuotesByProgram] = useState({});
   const [sponsorData, setSponsorData] = useState(null);
   const [sponsorConfig, setSponsorConfig] = useState(null);
   const [comboDiscount, setComboDiscount] = useState(null);
   const [crossSellRules, setCrossSellRules] = useState([]);
   const [groupDiscount, setGroupDiscount] = useState(null);
+  const [loyaltyInfo, setLoyaltyInfo] = useState(null);
   useEffect(() => {
     axios.get(`${API}/programs?visible_only=true&upcoming_only=true`)
       .then(r => setPrograms(r.data))
       .catch(err => console.error('Error loading upcoming programs:', err));
+    axios
+      .get(`${API}/programs?visible_only=true`)
+      .then((r) => setAllVisiblePrograms(Array.isArray(r.data) ? r.data : []))
+      .catch(() => setAllVisiblePrograms([]));
     axios
       .get(`${API}/upcoming-card-quotes?visible_only=true`)
       .then((r) => {
@@ -714,6 +763,13 @@ const UpcomingProgramsSection = ({ sectionConfig, inline }) => {
       if (r.data?.enable_group_discount && r.data?.group_discount_rules?.length > 0) {
         setGroupDiscount(r.data.group_discount_rules);
       }
+      if (r.data?.enable_loyalty) {
+        setLoyaltyInfo({
+          pct: Number(r.data.loyalty_discount_pct) || 0,
+        });
+      } else {
+        setLoyaltyInfo(null);
+      }
     }).catch(() => {});
   }, []);
 
@@ -727,6 +783,12 @@ const UpcomingProgramsSection = ({ sectionConfig, inline }) => {
   });
 
   const openPrograms = sorted.filter(p => {
+    const s = p.enrollment_status || (p.enrollment_open !== false ? 'open' : 'closed');
+    return s === 'open';
+  });
+
+  const catalogForDiscounts = allVisiblePrograms.length > 0 ? allVisiblePrograms : sorted;
+  const openVisiblePrograms = catalogForDiscounts.filter((p) => {
     const s = p.enrollment_status || (p.enrollment_open !== false ? 'open' : 'closed');
     return s === 'open';
   });
@@ -749,6 +811,7 @@ const UpcomingProgramsSection = ({ sectionConfig, inline }) => {
                 key={program.id}
                 program={program}
                 cardQuoteMessages={cardQuotesByProgram[String(program.id)] || []}
+                crossSellRules={crossSellRules}
               />
             ))}
           </div>
@@ -793,13 +856,14 @@ const UpcomingProgramsSection = ({ sectionConfig, inline }) => {
                   key={program.id}
                   program={program}
                   cardQuoteMessages={cardQuotesByProgram[String(program.id)] || []}
+                  crossSellRules={crossSellRules}
                 />
               ))}
 
               {/* Combo Discount Banner — spans full width below cards on mobile, beside sponsor on desktop */}
-              {comboDiscount && openPrograms.length >= (comboDiscount.rules[0]?.min_programs || 2) && (
+              {comboDiscount && comboDiscount.rules?.length > 0 && (
                 <div className="lg:hidden col-span-full" data-testid="combo-banner-mobile">
-                  <ComboBanner programs={openPrograms} comboRules={comboDiscount.rules} />
+                  <ComboBanner programs={openVisiblePrograms} comboRules={comboDiscount.rules} />
                 </div>
               )}
               <div className="h-full">
@@ -815,16 +879,16 @@ const UpcomingProgramsSection = ({ sectionConfig, inline }) => {
       )}
 
       {/* Combo Banner — desktop full width below grid */}
-      {!inline && comboDiscount && openPrograms.length >= (comboDiscount.rules[0]?.min_programs || 2) && (
+      {!inline && comboDiscount && comboDiscount.rules?.length > 0 && (
         <div className="hidden lg:block mt-6">
-          <ComboBanner programs={openPrograms} comboRules={comboDiscount.rules} />
+          <ComboBanner programs={openVisiblePrograms} comboRules={comboDiscount.rules} />
         </div>
       )}
 
       {/* Cross-Sell Strips — full width below cards */}
       {!inline && crossSellRules.length > 0 && (
         <div className="mt-4">
-          <CrossSellBanner rules={crossSellRules} programs={sorted} />
+          <CrossSellBanner rules={crossSellRules} programs={catalogForDiscounts} />
         </div>
       )}
 
@@ -837,7 +901,7 @@ const UpcomingProgramsSection = ({ sectionConfig, inline }) => {
               {groupDiscount.map((rule, i) => {
                 const progIds = rule.program_ids || [];
                 const progNames = progIds.length > 0
-                  ? progIds.map(pid => sorted.find(p => String(p.id) === String(pid))?.title).filter(Boolean)
+                  ? progIds.map(pid => catalogForDiscounts.find(p => String(p.id) === String(pid))?.title).filter(Boolean)
                   : [];
                 return (
                   <p key={i} className="text-xs text-gray-800">
@@ -849,6 +913,18 @@ const UpcomingProgramsSection = ({ sectionConfig, inline }) => {
                 );
               })}
             </div>
+          </div>
+        </div>
+      )}
+
+      {!inline && loyaltyInfo && loyaltyInfo.pct > 0 && (
+        <div className="rounded-xl border border-violet-200/50 bg-gradient-to-r from-violet-50 via-white to-violet-50 px-5 py-3 mt-4" data-testid="loyalty-discount-banner">
+          <div className="flex items-start gap-3">
+            <Gift size={16} className="text-violet-600 shrink-0 mt-0.5" />
+            <p className="text-xs text-gray-800">
+              <strong className="text-violet-700">Loyalty:</strong> returning clients (with an existing enrollment UID) save up to{' '}
+              <strong className="text-violet-700">{loyaltyInfo.pct}%</strong> at checkout when you enroll with the same email.
+            </p>
           </div>
         </div>
       )}

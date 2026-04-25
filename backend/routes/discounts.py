@@ -161,7 +161,7 @@ async def calculate_discounts(data: dict):
     cross_sell_discount = 0
     cross_sell_details = []
     cart_items = data.get("cart_items", [])
-    if program_ids and len(program_ids) >= 2:
+    if settings.get("enable_cross_sell") and program_ids and len(program_ids) >= 2:
         cross_sell_rules = settings.get("cross_sell_rules", [])
         pid_set = set(str(p) for p in program_ids)
         cart_tier_set = set()

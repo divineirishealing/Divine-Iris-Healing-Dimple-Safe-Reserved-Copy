@@ -18,6 +18,7 @@ import {
 } from 'lucide-react';
 import StarField from '../components/ui/StarField';
 import MotivationalSignupFlash from '../components/MotivationalSignupFlash';
+import { computeCrossSellDiscount } from '../lib/crossSellPricing';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
@@ -585,26 +586,13 @@ function EnrollmentPage() {
 
   // Cross-sell: check if "buy" program is in cart → this program gets discount
   const { items: cartItems } = useCart();
-  const crossSellDiscount = (() => {
-    if (!crossSellRules.length || effectiveUnitPrice <= 0) return null;
-    for (const rule of crossSellRules) {
-      const targets = rule.targets || (rule.get_program_id ? [{ program_id: rule.get_program_id, discount_value: rule.discount_value, discount_type: rule.discount_type }] : []);
-      const matchTarget = targets.find(t => String(t.program_id) === String(id));
-      if (!matchTarget) continue;
-      // Check buy program + tier in cart
-      const buyTier = rule.buy_tier;
-      const buyInCart = (buyTier !== '' && buyTier !== undefined && buyTier !== null)
-        ? cartItems.some(i => String(i.programId) === String(rule.buy_program_id) && String(i.tierIndex) === String(buyTier))
-        : cartItems.some(i => String(i.programId) === String(rule.buy_program_id));
-      if (buyInCart) {
-        const disc = matchTarget.discount_type === 'percentage'
-          ? Math.round(effectiveUnitPrice * (matchTarget.discount_value || 0) / 100)
-          : (matchTarget.discount_value || 0);
-        return { amount: disc, label: rule.label, value: matchTarget.discount_value, type: matchTarget.discount_type };
-      }
-    }
-    return null;
-  })();
+  const crossSellDiscount = computeCrossSellDiscount(
+    crossSellRules,
+    id,
+    hasTiers ? selectedTier : null,
+    effectiveUnitPrice,
+    cartItems.map((i) => ({ programId: i.programId, tierIndex: i.tierIndex })),
+  );
   const finalUnitPrice = crossSellDiscount ? Math.max(0, effectiveUnitPrice - crossSellDiscount.amount) : effectiveUnitPrice;
 
   // VIP/Special offer check

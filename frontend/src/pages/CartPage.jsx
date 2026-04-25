@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 import { ShieldCheck, ShieldAlert } from 'lucide-react';
 import MotivationalSignupFlash from '../components/MotivationalSignupFlash';
+import { computeCrossSellDiscount } from '../lib/crossSellPricing';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
@@ -467,11 +468,16 @@ function CartPage() {
   const [vipOffers, setVipOffers] = useState({}); // { programId: { matched, label, discount_type, ... } }
 
   useEffect(() => {
-    axios.get(`${API}/discounts/settings`).then(r => {
-      if (r.data?.enable_cross_sell && r.data?.cross_sell_rules?.length > 0) {
-        setCrossSellRules(r.data.cross_sell_rules.filter(r => r.enabled !== false));
-      }
-    }).catch(() => {});
+    axios
+      .get(`${API}/discounts/settings`)
+      .then((r) => {
+        if (r.data?.enable_cross_sell && r.data?.cross_sell_rules?.length > 0) {
+          setCrossSellRules(r.data.cross_sell_rules.filter((rule) => rule.enabled !== false));
+        } else {
+          setCrossSellRules([]);
+        }
+      })
+      .catch(() => setCrossSellRules([]));
   }, []);
 
   // Check VIP offers for each cart item
@@ -657,25 +663,14 @@ function CartPage() {
 
           {/* Cart items */}
           {items.map((item, itemIdx) => {
-            // Calculate cross-sell discount for this specific item
-            let itemCrossSell = null;
-            for (const rule of crossSellRules) {
-              const targets = rule.targets || (rule.get_program_id ? [{ program_id: rule.get_program_id, discount_value: rule.discount_value, discount_type: rule.discount_type }] : []);
-              const matchTarget = targets.find(t => String(t.program_id) === String(item.programId));
-              if (!matchTarget) continue;
-              const buyTier = rule.buy_tier;
-              const buyInCart = (buyTier !== '' && buyTier !== undefined && buyTier !== null)
-                ? items.some(i => String(i.programId) === String(rule.buy_program_id) && String(i.tierIndex) === String(buyTier))
-                : items.some(i => String(i.programId) === String(rule.buy_program_id));
-              if (buyInCart) {
-                const effPrice = getEffectivePrice(item);
-                const disc = matchTarget.discount_type === 'percentage'
-                  ? Math.round(effPrice * (matchTarget.discount_value || 0) / 100)
-                  : (matchTarget.discount_value || 0);
-                itemCrossSell = { amount: disc, label: rule.label, value: matchTarget.discount_value, type: matchTarget.discount_type };
-                break;
-              }
-            }
+            const cartLines = items.map((i) => ({ programId: i.programId, tierIndex: i.tierIndex }));
+            const itemCrossSell = computeCrossSellDiscount(
+              crossSellRules,
+              item.programId,
+              item.tierIndex,
+              getEffectivePrice(item),
+              cartLines,
+            );
             return (
               <CartItemCard key={item.id} item={item}
                 onRemove={() => removeItem(item.id)}
@@ -693,24 +688,19 @@ function CartPage() {
             // Calculate total cross-sell discount from all items
             let totalCrossSell = 0;
             const crossSellDetails = [];
+            const cartLines = items.map((i) => ({ programId: i.programId, tierIndex: i.tierIndex }));
             for (const item of items) {
-              for (const rule of crossSellRules) {
-                const targets = rule.targets || (rule.get_program_id ? [{ program_id: rule.get_program_id, discount_value: rule.discount_value, discount_type: rule.discount_type }] : []);
-                const matchTarget = targets.find(t => String(t.program_id) === String(item.programId));
-                if (!matchTarget) continue;
-                const buyTier = rule.buy_tier;
-                const buyInCart = (buyTier !== '' && buyTier !== undefined && buyTier !== null)
-                  ? items.some(i => String(i.programId) === String(rule.buy_program_id) && String(i.tierIndex) === String(buyTier))
-                  : items.some(i => String(i.programId) === String(rule.buy_program_id));
-                if (buyInCart) {
-                  const effPrice = getEffectivePrice(item);
-                  const disc = matchTarget.discount_type === 'percentage'
-                    ? Math.round(effPrice * (matchTarget.discount_value || 0) / 100) * item.participants.length
-                    : (matchTarget.discount_value || 0) * item.participants.length;
-                  totalCrossSell += disc;
-                  crossSellDetails.push({ label: rule.label, amount: disc, item: item.programTitle });
-                  break;
-                }
+              const unitCs = computeCrossSellDiscount(
+                crossSellRules,
+                item.programId,
+                item.tierIndex,
+                getEffectivePrice(item),
+                cartLines,
+              );
+              if (unitCs) {
+                const disc = unitCs.amount * item.participants.length;
+                totalCrossSell += disc;
+                crossSellDetails.push({ label: unitCs.label, amount: disc, item: item.programTitle });
               }
             }
             // Calculate VIP discounts per item
