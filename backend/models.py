@@ -515,6 +515,8 @@ class SiteSettings(BaseModel):
     checkout_promo_code_visible: bool = True
     enable_loyalty: bool = False
     loyalty_discount_pct: float = 0  # % off for returning clients (have existing UID)
+    # Program cross-sell (buy A → discount on B); rules in cross_sell_rules
+    enable_cross_sell: bool = False
     # Points wallet (earn & burn) — separate from % loyalty discount above
     points_enabled: bool = True
     points_max_basket_pct: float = 20.0  # max % of order payable with points
@@ -717,6 +719,7 @@ class SiteSettingsUpdate(BaseModel):
     checkout_promo_code_visible: Optional[bool] = None
     enable_loyalty: Optional[bool] = None
     loyalty_discount_pct: Optional[float] = None
+    enable_cross_sell: Optional[bool] = None
     points_enabled: Optional[bool] = None
     points_max_basket_pct: Optional[float] = None
     points_expiry_months: Optional[int] = None
