@@ -540,7 +540,7 @@ export default function DashboardUpcomingProgramRowItem({
     return 'synced';
   };
 
-  const goProgram = () => navigate(`/program/${p.id}`);
+  const goProgram = () => navigate(`/program/${p.id}?source=dashboard`);
 
   const handleAddToDivineCart = async (e) => {
     e.stopPropagation();

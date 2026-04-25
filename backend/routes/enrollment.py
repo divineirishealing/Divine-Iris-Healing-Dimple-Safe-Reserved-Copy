@@ -200,6 +200,19 @@ class EnrollmentSubmit(BaseModel):
     browser_timezone: Optional[str] = None
     browser_languages: Optional[list] = None
     points_to_redeem: Optional[int] = 0
+    # When True, Stripe cancel/back returns to portal Divine Cart instead of public /enroll.
+    portal_checkout_cancel: Optional[bool] = None
+
+
+def stripe_checkout_cancel_url(origin: str, data: EnrollmentSubmit, enrollment_id: str) -> str:
+    from urllib.parse import urlencode
+
+    if data.portal_checkout_cancel:
+        return f"{origin.rstrip('/')}/dashboard/combined-checkout?{urlencode({'eid': enrollment_id})}"
+    cancel_url = f"{origin.rstrip('/')}/enroll/{data.item_type}/{data.item_id}?resume={enrollment_id}"
+    if data.tier_index is not None:
+        cancel_url += f"&tier={data.tier_index}"
+    return cancel_url
 
 
 # ─── HELPERS ───
@@ -728,9 +741,7 @@ async def enrollment_checkout(enrollment_id: str, data: EnrollmentSubmit, reques
     origin = resolve_checkout_public_origin(data, request)
     host_url = str(request.base_url).rstrip("/")
     success_url = f"{origin}/payment/success?session_id={{CHECKOUT_SESSION_ID}}"
-    cancel_url = f"{origin}/enroll/{data.item_type}/{data.item_id}?resume={enrollment_id}"
-    if data.tier_index is not None:
-        cancel_url += f"&tier={data.tier_index}"
+    cancel_url = stripe_checkout_cancel_url(origin, data, enrollment_id)
 
     stripe_checkout = StripeCheckout(
         api_key=await _get_stripe_key(),

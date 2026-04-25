@@ -130,6 +130,7 @@ export default function DashboardProgramPaymentModal({
           promo_code: null,
           tier_index: tierIndex != null ? tierIndex : null,
           points_to_redeem: 0,
+          portal_checkout_cancel: true,
           browser_timezone:
             typeof Intl !== 'undefined' ? Intl.DateTimeFormat().resolvedOptions().timeZone : '',
           browser_languages:

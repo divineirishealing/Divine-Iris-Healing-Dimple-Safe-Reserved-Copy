@@ -1328,6 +1328,7 @@ export default function DashboardCombinedCheckoutPage() {
           tier_index: i.tierIndex,
           participants_count: i.participants.length,
         })),
+        portal_checkout_cancel: true,
         browser_timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
         browser_languages: navigator.languages ? [...navigator.languages] : [navigator.language],
       });

@@ -107,6 +107,7 @@ function ProgramDetailPage() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const promoFromQuery = (searchParams.get('promo') || '').trim();
+  const sourceDashboard = searchParams.get('source') === 'dashboard';
   const { setPageSeo, clearPageSeo } = useSeoPage();
   const { getPrice, getOfferPrice, symbol } = useCurrency();
 
@@ -114,6 +115,7 @@ function ProgramDetailPage() {
     const q = new URLSearchParams();
     if (tierIdx !== undefined && tierIdx !== null && tierIdx !== '') q.set('tier', String(tierIdx));
     if (promoFromQuery) q.set('promo', promoFromQuery);
+    if (sourceDashboard) q.set('source', 'dashboard');
     const s = q.toString();
     return s ? `?${s}` : '';
   };

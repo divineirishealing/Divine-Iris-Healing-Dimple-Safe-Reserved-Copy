@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useMemo } from 'react';
+import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import axios from 'axios';
 import Header from '../components/Header';
@@ -330,6 +330,17 @@ function EnrollmentPage() {
     }
   }, [item]);
   const [enrollmentId, setEnrollmentId] = useState(null);
+  const goBackFromPayStep = useCallback(() => {
+    if (!sourceDashboard) {
+      setStep(0);
+      return;
+    }
+    const q = new URLSearchParams();
+    if (enrollmentId) q.set('eid', enrollmentId);
+    if (promoFromUrl) q.set('promo', promoFromUrl);
+    const qs = q.toString();
+    navigate(qs ? `/dashboard/combined-checkout?${qs}` : '/dashboard/combined-checkout');
+  }, [sourceDashboard, enrollmentId, promoFromUrl, navigate]);
   const [vpnDetected, setVpnDetected] = useState(false);
   const [participants, setParticipants] = useState([emptyParticipant()]);
   const [promoCode, setPromoCode] = useState('');
@@ -820,6 +831,7 @@ function EnrollmentPage() {
             origin_url: window.location.origin, promo_code: promoResult?.code || null,
             tier_index: selectedTier,
             points_to_redeem: 0,
+            portal_checkout_cancel: sourceDashboard,
             browser_timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
             browser_languages: navigator.languages ? [...navigator.languages] : [navigator.language],
           });
@@ -845,6 +857,7 @@ function EnrollmentPage() {
         origin_url: window.location.origin, promo_code: promoResult?.code || null,
         tier_index: selectedTier,
         points_to_redeem: pointsSummary?.enabled ? Math.max(0, parseInt(String(pointsToRedeem), 10) || 0) : 0,
+        portal_checkout_cancel: sourceDashboard,
         browser_timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
         browser_languages: navigator.languages ? [...navigator.languages] : [navigator.language],
       });
@@ -873,6 +886,7 @@ function EnrollmentPage() {
         promo_code: promoResult?.code || null,
         tier_index: selectedTier,
         points_to_redeem: pointsSummary?.enabled ? Math.max(0, parseInt(String(pointsToRedeem), 10) || 0) : 0,
+        portal_checkout_cancel: sourceDashboard,
         browser_timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
         browser_languages: navigator.languages ? [...navigator.languages] : [navigator.language],
       });
@@ -912,7 +926,16 @@ function EnrollmentPage() {
             setRazorpayBusy(false);
           }
         },
-        modal: { ondismiss: () => setRazorpayBusy(false) },
+        modal: {
+          ondismiss: () => {
+            setRazorpayBusy(false);
+            if (sourceDashboard && enrollmentId) {
+              const q = new URLSearchParams({ eid: enrollmentId });
+              if (promoFromUrl) q.set('promo', promoFromUrl);
+              navigate(`/dashboard/combined-checkout?${q.toString()}`);
+            }
+          },
+        },
       };
       const rzp = new window.Razorpay(options);
       rzp.on('payment.failed', () => {
@@ -1276,7 +1299,7 @@ function EnrollmentPage() {
                           {phone && <p><strong>Phone:</strong> {countryCode}{phone}</p>}
                         </div>
                         <div className="flex gap-3">
-                          <Button variant="outline" onClick={() => setStep(0)} className="rounded-full"><ChevronLeft size={16} /></Button>
+                          <Button variant="outline" onClick={goBackFromPayStep} className="rounded-full"><ChevronLeft size={16} /></Button>
                           <Button data-testid="pay-now-btn" onClick={handleCheckout} disabled={processing}
                             className="flex-1 bg-[#D4AF37] hover:bg-[#b8962e] text-white py-3 rounded-full">
                             {processing ? <><Loader2 className="animate-spin mr-2" size={16} /> Completing...</> : <><Check size={14} className="mr-2" /> Complete Registration</>}
@@ -1385,7 +1408,12 @@ function EnrollmentPage() {
                         </div>
                         <button
                           onClick={() => {
-                            window.history.replaceState(null, '', `/enroll/${type}/${id}?tier=${selectedTier || 0}&resume=${enrollmentId}`);
+                            const enrollQs = new URLSearchParams({
+                              tier: String(selectedTier ?? 0),
+                              resume: enrollmentId,
+                            });
+                            if (sourceDashboard) enrollQs.set('source', 'dashboard');
+                            window.history.replaceState(null, '', `/enroll/${type}/${id}?${enrollQs.toString()}`);
                             const params = new URLSearchParams({
                               program: item?.title || '',
                               price: String(subtotal || 0),
@@ -1411,7 +1439,12 @@ function EnrollmentPage() {
                         {paymentSettings.manual_form_enabled && (
                         <button
                           onClick={() => {
-                            window.history.replaceState(null, '', `/enroll/${type}/${id}?tier=${selectedTier || 0}&resume=${enrollmentId}`);
+                            const enrollQsManual = new URLSearchParams({
+                              tier: String(selectedTier ?? 0),
+                              resume: enrollmentId,
+                            });
+                            if (sourceDashboard) enrollQsManual.set('source', 'dashboard');
+                            window.history.replaceState(null, '', `/enroll/${type}/${id}?${enrollQsManual.toString()}`);
                             navigate(`/manual-payment/${enrollmentId}`);
                           }}
                           className="flex items-center justify-between w-full border rounded-lg p-4 mt-2 hover:border-teal-400 hover:bg-teal-50/50 transition-all group"
@@ -1432,7 +1465,7 @@ function EnrollmentPage() {
                     )}
 
                     <div className="flex gap-3">
-                      <Button variant="outline" onClick={() => setStep(0)} className="rounded-full"><ChevronLeft size={16} /></Button>
+                      <Button variant="outline" onClick={goBackFromPayStep} className="rounded-full"><ChevronLeft size={16} /></Button>
                       <Button data-testid="pay-now-btn" onClick={handleCheckout} disabled={processing || razorpayBusy}
                         className="flex-1 bg-[#D4AF37] hover:bg-[#b8962e] text-white py-3 rounded-full">
                         {processing ? <><Loader2 className="animate-spin mr-2" size={16} /> {displayCheckoutTotal <= 0 ? 'Registering...' : 'Redirecting...'}</> : displayCheckoutTotal <= 0 ? <><Check size={14} className="mr-2" /> Complete Registration</> : <><Lock size={14} className="mr-2" /> Pay {effectiveSymbol} {displayCheckoutTotal.toLocaleString()}</>}
