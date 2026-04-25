@@ -694,7 +694,7 @@ async def enrollment_points_summary(
 
 @router.post("/{enrollment_id}/checkout")
 async def enrollment_checkout(enrollment_id: str, data: EnrollmentSubmit, request: Request):
-    """Create Stripe Checkout for a verified enrollment. For INR + Razorpay use ``checkout-razorpay``."""
+    """Create Stripe Checkout for a verified enrollment."""
     from routes.enrollment_checkout_prepare import (
         enrollment_checkout_prepare,
         enrollment_run_free_checkout,
@@ -805,126 +805,6 @@ async def enrollment_checkout(enrollment_id: str, data: EnrollmentSubmit, reques
     )
 
     return {"url": session.url, "session_id": session.session_id}
-
-
-@router.post("/{enrollment_id}/checkout-razorpay")
-async def enrollment_checkout_razorpay(enrollment_id: str, data: EnrollmentSubmit, request: Request):
-    """Create a Razorpay Order (INR). Client must open Checkout.js and POST payment details to /api/payments/razorpay/verify."""
-    from key_manager import get_key
-    from routes.enrollment_checkout_prepare import enrollment_checkout_prepare, enrollment_run_free_checkout
-
-    prep = await enrollment_checkout_prepare(
-        db,
-        enrollment_id,
-        data,
-        request,
-        get_enrollment_pricing=get_enrollment_pricing,
-        checkout_total_from_cart_items=_checkout_total_from_cart_items,
-    )
-    if prep["kind"] == "free":
-        return await enrollment_run_free_checkout(db, prep, attach_portal_ids=_attach_portal_ids_to_transaction)
-
-    if (prep["currency"] or "").lower() != "inr":
-        raise HTTPException(
-            status_code=400,
-            detail="Razorpay is only available when checkout currency is INR.",
-        )
-
-    key_id = (await get_key("razorpay_key_id")).strip()
-    key_secret = (await get_key("razorpay_key_secret")).strip()
-    if not key_id or not key_secret:
-        raise HTTPException(status_code=503, detail="Razorpay is not configured.")
-
-    final_total = float(prep["final_total"])
-    amount_paise = int(round(final_total * 100))
-    if amount_paise < 100:
-        raise HTTPException(status_code=400, detail="Amount too small for Razorpay (minimum ₹1).")
-
-    session_key = f"rz_{uuid.uuid4().hex}"
-
-    now = datetime.now(timezone.utc)
-    month_prefix = now.strftime("%Y-%m")
-    count = await db.payment_transactions.count_documents({"invoice_number": {"$regex": f"^{month_prefix}"}})
-    invoice_number = f"{month_prefix}-{str(count + 1).zfill(3)}"
-    receipt = f"{invoice_number}-{enrollment_id[:8]}"[:40]
-
-    enr = prep["enrollment"]
-    item = prep["item"]
-    data = prep["data"]
-
-    async with httpx.AsyncClient(timeout=45) as client:
-        ro = await client.post(
-            "https://api.razorpay.com/v1/orders",
-            auth=(key_id, key_secret),
-            json={
-                "amount": amount_paise,
-                "currency": "INR",
-                "receipt": receipt,
-                "notes": {"enrollment_id": enrollment_id, "internal_session": session_key},
-            },
-        )
-    if ro.status_code >= 400:
-        logger.warning("Razorpay order error: %s", ro.text[:500])
-        raise HTTPException(status_code=502, detail="Could not create Razorpay order. Try Stripe or retry.")
-
-    order = ro.json()
-    order_id = order.get("id")
-    if not order_id:
-        raise HTTPException(status_code=502, detail="Razorpay did not return an order id.")
-
-    transaction = {
-        "id": str(uuid.uuid4()),
-        "invoice_number": invoice_number,
-        "enrollment_id": enrollment_id,
-        "stripe_session_id": session_key,
-        "razorpay_order_id": order_id,
-        "payment_provider": "razorpay",
-        "item_type": data.item_type,
-        "item_id": data.item_id,
-        "item_title": item.get("title", "") if item else "",
-        "amount": final_total,
-        "currency": prep["currency"],
-        "stripe_currency": "inr",
-        "stripe_amount": final_total,
-        "payment_status": "pending",
-        "booker_name": enr.get("booker_name"),
-        "booker_email": enr.get("booker_email"),
-        "phone": enr.get("phone"),
-        "participants": enr.get("participants"),
-        "participant_count": prep["participant_count"],
-        "attendance": enr.get("attendance"),
-        "tier_index": data.tier_index,
-        "pre_points_total": prep["pre_points_total"],
-        "points_redeemed": prep["points_redeemed"],
-        "points_discount": round(float(prep["points_discount"]), 2),
-        "created_at": datetime.now(timezone.utc),
-        "updated_at": datetime.now(timezone.utc),
-    }
-    await _attach_portal_ids_to_transaction(transaction, enr)
-    await db.payment_transactions.insert_one(transaction)
-
-    await db.enrollments.update_one(
-        {"id": enrollment_id},
-        {
-            "$set": {
-                "step": 4,
-                "status": "checkout_started",
-                "stripe_session_id": session_key,
-                "updated_at": datetime.now(timezone.utc).isoformat(),
-            }
-        },
-    )
-
-    return {
-        "key_id": key_id,
-        "order_id": order_id,
-        "amount": amount_paise,
-        "currency": "INR",
-        "session_id": session_key,
-        "name": (enr.get("booker_name") or "")[:200],
-        "email": (enr.get("booker_email") or "")[:200],
-        "description": ((item or {}).get("title") or "Enrollment")[:250],
-    }
 
 
 @router.get("/{enrollment_id}")

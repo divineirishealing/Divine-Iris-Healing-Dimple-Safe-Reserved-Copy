@@ -327,7 +327,6 @@ function EnrollmentPage() {
   const [crossSellRules, setCrossSellRules] = useState([]);
   const [pointsSummary, setPointsSummary] = useState(null);
   const [pointsToRedeem, setPointsToRedeem] = useState(0);
-  const [razorpayConfig, setRazorpayConfig] = useState({ enabled: false, keyId: '' });
 
   // Auto-derive booker from first participant
   const firstP = participants[0] || {};
@@ -377,10 +376,6 @@ function EnrollmentPage() {
     if (type === 'session') {
       axios.get(`${API}/session-extras/testimonials?session_id=${id}`).then(r => setSessionTestimonials(r.data || [])).catch(() => {});
     }
-    axios
-      .get(`${API}/payments/razorpay/config`)
-      .then((r) => setRazorpayConfig({ enabled: !!r.data?.enabled, keyId: r.data?.key_id || '' }))
-      .catch(() => setRazorpayConfig({ enabled: false, keyId: '' }));
   }, [id, type, navigate]);
 
   useEffect(() => {
@@ -805,42 +800,18 @@ function EnrollmentPage() {
     finally { setLoading(false); }
   };
 
-  const checkoutPayload = () => ({
-    enrollment_id: enrollmentId,
-    item_type: type,
-    item_id: id,
-    currency: priceCurrency,
-    display_currency: priceCurrency,
-    display_rate: isPrimary ? 1 : undefined,
-    origin_url: window.location.origin,
-    promo_code: promoResult?.code || null,
-    tier_index: selectedTier,
-    points_to_redeem: pointsSummary?.enabled ? Math.max(0, parseInt(String(pointsToRedeem), 10) || 0) : 0,
-    browser_timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
-    browser_languages: navigator.languages ? [...navigator.languages] : [navigator.language],
-  });
-
-  const loadRazorpayScript = () =>
-    new Promise((resolve, reject) => {
-      if (typeof window === 'undefined') {
-        reject(new Error('No window'));
-        return;
-      }
-      if (window.Razorpay) {
-        resolve();
-        return;
-      }
-      const s = document.createElement('script');
-      s.src = 'https://checkout.razorpay.com/v1/checkout.js';
-      s.onload = () => resolve();
-      s.onerror = () => reject(new Error('Could not load Razorpay'));
-      document.body.appendChild(s);
-    });
-
   const handleCheckout = async () => {
     setProcessing(true);
     try {
-      const res = await axios.post(`${API}/enrollment/${enrollmentId}/checkout`, checkoutPayload());
+      const res = await axios.post(`${API}/enrollment/${enrollmentId}/checkout`, {
+        enrollment_id: enrollmentId, item_type: type, item_id: id, currency: priceCurrency,
+        display_currency: priceCurrency, display_rate: isPrimary ? 1 : undefined,
+        origin_url: window.location.origin, promo_code: promoResult?.code || null,
+        tier_index: selectedTier,
+        points_to_redeem: pointsSummary?.enabled ? Math.max(0, parseInt(String(pointsToRedeem), 10) || 0) : 0,
+        browser_timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+        browser_languages: navigator.languages ? [...navigator.languages] : [navigator.language],
+      });
       if (res.data.url === '__FREE_SUCCESS__') {
         // Free enrollment — go directly to success page
         navigate(`/payment/success?session_id=${res.data.session_id}`);
@@ -848,69 +819,6 @@ function EnrollmentPage() {
         window.location.href = res.data.url;
       }
     } catch (err) { toast({ title: 'Error', description: err.response?.data?.detail || 'Something went wrong', variant: 'destructive' }); setProcessing(false); }
-  };
-
-  const handleRazorpayCheckout = async () => {
-    if (!enrollmentId) return;
-    setProcessing(true);
-    try {
-      await loadRazorpayScript();
-      const res = await axios.post(`${API}/enrollment/${enrollmentId}/checkout-razorpay`, checkoutPayload());
-      const d = res.data;
-      if (d.url === '__FREE_SUCCESS__') {
-        navigate(`/payment/success?session_id=${d.session_id}`);
-        setProcessing(false);
-        return;
-      }
-      const options = {
-        key: d.key_id,
-        amount: d.amount,
-        currency: d.currency,
-        order_id: d.order_id,
-        name: 'Divine Iris Healing',
-        description: d.description || 'Program enrollment',
-        prefill: {
-          name: d.name || undefined,
-          email: d.email || undefined,
-        },
-        handler: async (response) => {
-          try {
-            await axios.post(`${API}/payments/razorpay/verify`, {
-              razorpay_order_id: response.razorpay_order_id,
-              razorpay_payment_id: response.razorpay_payment_id,
-              razorpay_signature: response.razorpay_signature,
-            });
-            navigate(`/payment/success?session_id=${encodeURIComponent(d.session_id)}`);
-          } catch (e) {
-            const msg = e.response?.data?.detail;
-            toast({
-              title: 'Could not confirm payment',
-              description: typeof msg === 'string' ? msg : e.message || 'Try again or contact support',
-              variant: 'destructive',
-            });
-          } finally {
-            setProcessing(false);
-          }
-        },
-        modal: {
-          ondismiss: () => setProcessing(false),
-        },
-      };
-      const rzp = new window.Razorpay(options);
-      rzp.on('payment.failed', () => {
-        toast({ title: 'Payment was not completed', variant: 'destructive' });
-        setProcessing(false);
-      });
-      rzp.open();
-    } catch (err) {
-      const detail = err.response?.data?.detail;
-      toast({
-        title: 'Could not start Razorpay',
-        description: typeof detail === 'string' ? detail : err.message || 'Failed',
-        variant: 'destructive',
-      });
-      setProcessing(false);
-    }
   };
 
   if (!item) return <div className="min-h-screen flex items-center justify-center"><Loader2 className="animate-spin text-[#D4AF37]" size={32} /></div>;
@@ -1306,29 +1214,6 @@ function EnrollmentPage() {
                       </div>
                     )}
 
-                    {priceCurrency === 'inr' && razorpayConfig.enabled && displayCheckoutTotal > 0 && (
-                      <div className="mb-4 border border-sky-200 rounded-lg p-4 bg-sky-50/70" data-testid="razorpay-enrollment-option">
-                        <div className="flex items-center gap-2 mb-2">
-                          <CreditCard size={16} className="text-sky-700" />
-                          <span className="text-sm font-semibold text-gray-900">Pay with Razorpay</span>
-                          <span className="text-[9px] bg-sky-100 text-sky-800 px-2 py-0.5 rounded-full font-medium">UPI &amp; cards</span>
-                        </div>
-                        <p className="text-[10px] text-gray-600 mb-3">
-                          Same total as Stripe. Opens Razorpay checkout in this window (India-focused gateway).
-                        </p>
-                        <Button
-                          type="button"
-                          variant="outline"
-                          className="w-full border-sky-300 text-sky-900 hover:bg-sky-100/80 rounded-full"
-                          disabled={processing}
-                          onClick={handleRazorpayCheckout}
-                        >
-                          {processing ? <Loader2 className="animate-spin mr-2 h-4 w-4" /> : <Lock size={14} className="mr-2" />}
-                          Pay ₹{displayCheckoutTotal.toLocaleString()} with Razorpay
-                        </Button>
-                      </div>
-                    )}
-
                     {/* India payment options — only show if enabled in admin */}
                     {detectedCountry === 'IN' && paymentSettings.india_enabled && (
                       <div className="mb-4" data-testid="india-payment-options">
@@ -1410,9 +1295,7 @@ function EnrollmentPage() {
                       </Button>
                     </div>
 
-                    <p className="text-[10px] text-gray-400 mt-3 text-center flex items-center justify-center gap-1">
-                      <Lock size={10} /> Secure payment via Stripe{priceCurrency === 'inr' && razorpayConfig.enabled ? ' or Razorpay' : ''}
-                    </p>
+                    <p className="text-[10px] text-gray-400 mt-3 text-center flex items-center justify-center gap-1"><Lock size={10} /> Secure payment via Stripe</p>
                       </>
                     )}
                   </div>

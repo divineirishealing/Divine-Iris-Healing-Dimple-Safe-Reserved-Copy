@@ -12,7 +12,7 @@ import { resolveImageUrl, rememberPublicApiBase, rememberS3VirtualHostRewrite } 
 import {
   Settings, Package, Calendar, MessageSquare, BarChart3, Mail, Inbox,
   Trash2, Edit, Plus, X, Eye, EyeOff, Save, ArrowUp, ArrowDown,
-  Globe, Layout, Image, Users, Palette, Gift, Monitor, Wifi,   Tag, ChevronLeft, ChevronRight, ChevronDown, Upload, FileText, DollarSign, Quote, Star, ShieldAlert,   CreditCard, UserPlus, Search, Wallet, Sparkles, Link2, KeyRound, LineChart
+  Globe, Layout, Image, Users, Palette, Gift, Monitor, Wifi,   Tag, ChevronLeft, ChevronRight, ChevronDown, Upload, FileText, DollarSign, Quote, Star, ShieldAlert,   CreditCard, UserPlus, Search, Wallet, Sparkles, Link2, KeyRound, LineChart, IndianRupee
 } from 'lucide-react';
 
 import { getApiUrl } from '../../lib/config';
@@ -56,6 +56,7 @@ import ContactUpdateLinkTab from './tabs/ContactUpdateLinkTab';
 import AnnualSubscribersTab from './tabs/AnnualSubscribersTab';
 import AnnualPortalClientsTab from './tabs/AnnualPortalClientsTab';
 import DashboardAccessTab from './tabs/DashboardAccessTab';
+import RazorpayAdminCheckoutTab from './tabs/RazorpayAdminCheckoutTab';
 
 const API = getApiUrl();
 
@@ -392,6 +393,7 @@ const AdminPanel = () => {
     ]},
     { label: 'Transactions', icon: CreditCard, tabs: [
       { key: 'enrollments', label: 'Enrollments', icon: Users },
+      { key: 'razorpay_admin_checkout', label: 'Razorpay (admin)', icon: IndianRupee },
       { key: 'payment_settings', label: 'Indian Payment', icon: Tag },
       { key: 'india_payments', label: 'India Proofs', icon: Tag },
       { key: 'bank_transactions', label: 'Bank Transactions', icon: Tag },
@@ -602,6 +604,7 @@ const AdminPanel = () => {
           {activeTab === 'site_analytics' && <SiteAnalyticsTab />}
 
           {activeTab === 'enrollments' && <EnrollmentsTab />}
+          {activeTab === 'razorpay_admin_checkout' && <RazorpayAdminCheckoutTab />}
           {activeTab === 'inbox' && <InboxTab />}
           {activeTab === 'clients' && (
             <div>

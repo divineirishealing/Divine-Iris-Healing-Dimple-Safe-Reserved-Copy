@@ -10,7 +10,7 @@ from datetime import datetime, timezone
 from typing import Optional
 
 import httpx
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Request
 from motor.motor_asyncio import AsyncIOMotorClient
 from pydantic import BaseModel, field_validator
 from dotenv import load_dotenv
@@ -137,12 +137,16 @@ async def razorpay_verify_payment(body: RazorpayVerifyBody):
 
 @router.get("/landing/preview")
 async def razorpay_landing_preview(
+    request: Request,
     item_type: str,
     item_id: str,
     tier_index: Optional[int] = None,
 ):
-    """INR total for landing page (server-priced; same rules as create-order)."""
+    """INR total for admin Razorpay tool only (not exposed on public site)."""
+    from routes.auth import assert_admin_session_or_password
     from routes.enrollment import _per_person_price_for_program
+
+    await assert_admin_session_or_password(request, None)
 
     t = (item_type or "").strip().lower()
     if t not in ("program", "session"):
@@ -183,10 +187,13 @@ async def razorpay_landing_preview(
 
 
 @router.post("/landing/create-order")
-async def razorpay_landing_create_order(body: RazorpayLandingCreateBody):
-    """Create Razorpay order + pending transaction for public INR landing (Stripe not involved)."""
+async def razorpay_landing_create_order(request: Request, body: RazorpayLandingCreateBody):
+    """Create Razorpay order + pending transaction — admin console only."""
+    from routes.auth import assert_admin_session_or_password
     from key_manager import get_key
     from routes.enrollment import _per_person_price_for_program
+
+    await assert_admin_session_or_password(request, None)
 
     key_id = (await get_key("razorpay_key_id")).strip()
     key_secret = (await get_key("razorpay_key_secret")).strip()
@@ -270,6 +277,7 @@ async def razorpay_landing_create_order(body: RazorpayLandingCreateBody):
         "razorpay_order_id": order_id,
         "payment_provider": "razorpay",
         "razorpay_landing": True,
+        "created_via": "admin_razorpay_checkout",
         "item_type": item_type,
         "item_id": item_id,
         "item_title": title,

@@ -43,7 +43,6 @@ import BhaadPortalPage from './components/dashboard/BhaadPortalPage';
 import SoulTribePage from './components/dashboard/SoulTribePage';
 import PointsPage from './components/dashboard/PointsPage';
 import DashboardCombinedCheckoutPage from './pages/DashboardCombinedCheckoutPage';
-import RazorpayLandingPage from './pages/RazorpayLandingPage';
 import { Toaster } from './components/ui/toaster';
 import { HelmetProvider } from 'react-helmet-async';
 import { SiteSettingsProvider } from './context/SiteSettingsContext';
@@ -111,7 +110,6 @@ const AppContent = () => {
       <Route path="/cart/checkout" element={<CartCheckoutPage />} />
       <Route path="/payment/success" element={<PaymentSuccessPage />} />
       <Route path="/payment/cancel" element={<PaymentCancelPage />} />
-      <Route path="/pay/razorpay/:type/:id" element={<RazorpayLandingPage />} />
       <Route path="/india-payment/:enrollmentId" element={<IndiaPaymentPage />} />
       <Route path="/manual-payment/:enrollmentId" element={<ManualPaymentPage />} />
       <Route path="/manual-payment" element={<ManualPaymentPage />} />
