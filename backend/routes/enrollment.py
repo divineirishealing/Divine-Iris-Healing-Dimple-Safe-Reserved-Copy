@@ -694,363 +694,39 @@ async def enrollment_points_summary(
 
 @router.post("/{enrollment_id}/checkout")
 async def enrollment_checkout(enrollment_id: str, data: EnrollmentSubmit, request: Request):
-    """Create Stripe checkout for a verified enrollment.
-
-    **Stripe only:** Amount is program/cart pricing (or `dashboard_mixed_total`) minus best-of
-    VIP/promo/auto discount. **India GST and platform fees are not added** on this endpoint — Stripe
-    charges the same INR subtotal the UI shows for card checkout. (UPI/bank/manual India flows use
-    `/india-payment` and related routes, which still apply GST when configured.)
-    """
-    enrollment = await db.enrollments.find_one({"id": enrollment_id})
-    if not enrollment:
-        raise HTTPException(status_code=404, detail="Enrollment not found")
-
-    # Verify enrollment is complete
-    if not enrollment.get("phone_verified"):
-        raise HTTPException(
-            status_code=400,
-            detail="Complete email verification first (6-digit code). Payment unlocks after that step.",
-        )
-
-    # ── Currency verification: re-check IP before payment ──
-    from routes.currency import detect_ip_info, get_base_currency, get_display_currency, resolve_booker_pricing_hub_email
-    ip_country, vpn_detected = await detect_ip_info(request)
-    server_currency = get_base_currency(ip_country, vpn_detected)
-    claimed_currency = (data.currency or "usd").lower()
-    
-    # ── INR Override: Check 3 methods for NRI/whitelisted students ──
-    inr_override = False
-    booker_email = enrollment.get("booker_email", "").lower().strip()
-
-    email_hub = await resolve_booker_pricing_hub_email(booker_email)
-    if email_hub:
-        server_currency = email_hub
-    
-    # Method 1: Email whitelist
-    settings = await db.site_settings.find_one({"id": "site_settings"}, {"_id": 0, "inr_whitelist_emails": 1})
-    whitelist = [e.lower().strip() for e in (settings or {}).get("inr_whitelist_emails", [])]
-    if booker_email in whitelist:
-        inr_override = True
-    
-    # Method 2: Invite token (stored in enrollment)
-    if enrollment.get("inr_invite_token"):
-        token_doc = await db.inr_invite_tokens.find_one({"token": enrollment["inr_invite_token"], "active": True})
-        if token_doc:
-            inr_override = True
-    
-    # Method 3: INR promo code (stored in enrollment)
-    if enrollment.get("inr_promo_applied"):
-        inr_override = True
-    
-    # Apply INR override or strict protection
-    if inr_override and claimed_currency == "inr":
-        pass  # Allow INR even from abroad
-    elif claimed_currency == "inr" and server_currency != "inr":
-        raise HTTPException(status_code=403, detail="Currency mismatch — your region does not qualify for INR pricing. Please refresh the page.")
-    if claimed_currency == "aed" and server_currency == "usd" and not inr_override:
-        raise HTTPException(status_code=403, detail="Currency mismatch — please refresh the page.")
-    
-    # Force correct base currency from server-side IP check (overrides stale frontend cache)
-    if server_currency == "inr" and claimed_currency != "inr":
-        data.currency = "inr"
-        data.display_currency = "inr"
-    elif server_currency == "aed" and claimed_currency not in ("aed", "inr") and not inr_override:
-        data.currency = "aed"
-        if not data.display_currency or data.display_currency == "usd":
-            data.display_currency = "aed"
-
-    # Always enforce display_currency server-side from live IP detection.
-    # This ensures the Stripe page always matches what was shown on the homepage,
-    # unless the booker has a per-email hub override (same as /currency/detect).
-    server_display_currency = email_hub if email_hub else get_display_currency(ip_country, vpn_detected)
-    if server_display_currency:
-        data.display_currency = server_display_currency
-
-    # Get pricing (server-side, not from client)
-    # Store browser signals for fraud detection audit trail
-    if data.browser_timezone or data.browser_languages:
-        await db.enrollments.update_one({"id": enrollment_id}, {"$set": {
-            "browser_timezone": data.browser_timezone,
-            "browser_languages": data.browser_languages,
-            "updated_at": datetime.now(timezone.utc).isoformat(),
-        }})
-
-    if enrollment.get("dashboard_mixed_total") is not None:
-        total = float(enrollment["dashboard_mixed_total"])
-        currency = (enrollment.get("dashboard_mixed_currency") or data.currency or "aed").lower()
-        participant_count = enrollment.get("participant_count", 1)
-        pricing_resp = {
-            "pricing": {"total": total, "currency": currency, "participant_count": participant_count},
-            "security": {
-                "vpn_blocked": False,
-                "fraud_warning": None,
-                "checks": {},
-                "ip_country": ip_country,
-                "claimed_country": enrollment.get("booker_country", ""),
-                "country_mismatch": False,
-                "inr_eligible": currency == "inr",
-            },
-        }
-    else:
-        pricing_resp = await get_enrollment_pricing(
-            enrollment_id, data.item_type, data.item_id,
-            tier_index=data.tier_index, client_currency=data.currency,
-            browser_timezone=data.browser_timezone, browser_languages=data.browser_languages,
-        )
-        total = pricing_resp["pricing"]["total"]
-        currency = pricing_resp["pricing"]["currency"]
-        participant_count = enrollment.get("participant_count", 1)
-
-        cart_lines = data.cart_items or []
-        if cart_lines:
-            agg_total, agg_headcount = await _checkout_total_from_cart_items(cart_lines, currency)
-            if agg_total > 0 and agg_headcount > 0:
-                total = agg_total
-                participant_count = agg_headcount
-                pricing_resp["pricing"]["total"] = total
-                pricing_resp["pricing"]["participant_count"] = participant_count
-
-    # Apply promo code discount (server-side validation) — skip if dashboard already baked promos into total
-    promo_discount = 0
-    if enrollment.get("dashboard_mixed_total") is None and data.promo_code:
-        try:
-            promo = await db.promotions.find_one({"code": data.promo_code.strip().upper(), "active": True}, {"_id": 0})
-            if promo:
-                discount_type = promo.get("discount_type", "percentage")
-                if discount_type == "percentage":
-                    pct = promo.get("discount_percentage", 0)
-                    promo_discount = round(total * pct / 100, 2)
-                else:
-                    promo_discount = float(promo.get(f"discount_{currency}", promo.get("discount_aed", 0)))
-        except Exception as e:
-            logger.warning(f"Promo code error: {e}")
-
-    # Apply auto-discounts (group, loyalty, etc.)
-    auto_discount = 0
-    try:
-        from routes.discounts import calculate_discounts as _calc_discounts
-        cart_lines_dc = data.cart_items or []
-        num_programs_dc = len(cart_lines_dc) if cart_lines_dc else 1
-        num_participants_dc = participant_count
-        if cart_lines_dc:
-            npc_sum = sum(int(ci.get("participants_count") or 0) for ci in cart_lines_dc)
-            if npc_sum > 0:
-                num_participants_dc = npc_sum
-        program_ids_dc = [str(ci.get("program_id")) for ci in cart_lines_dc if ci.get("program_id")]
-        disc_result = await _calc_discounts({
-            "num_programs": num_programs_dc,
-            "num_participants": num_participants_dc,
-            "subtotal": total,
-            "email": enrollment.get("booker_email", ""),
-            "currency": currency,
-            "program_ids": program_ids_dc,
-            "cart_items": cart_lines_dc,
-        })
-        auto_discount = float(disc_result.get("total_discount", 0))
-    except Exception as e:
-        logger.warning(f"Auto discount calc error: {e}")
-
-    # Apply Special/VIP Offers — match by email or phone
-    vip_discount = 0
-    vip_offer_name = ""
-    try:
-        settings = await db.site_settings.find_one({"id": "site_settings"}, {"_id": 0, "special_offers": 1})
-        special_offers = (settings or {}).get("special_offers", [])
-        booker_email = (enrollment.get("booker_email") or "").lower().strip()
-        booker_phone = (enrollment.get("phone") or "").replace(" ", "").replace("-", "").replace("+", "").lstrip("0")
-        # Also check participant emails/phones
-        participants = enrollment.get("participants", [])
-        all_emails = {booker_email} | {(p.get("email") or "").lower().strip() for p in participants}
-        all_phones = {booker_phone} | {(p.get("phone") or "").replace(" ", "").replace("-", "").replace("+", "").lstrip("0") for p in participants}
-        all_emails.discard("")
-        all_phones.discard("")
-
-        for offer in special_offers:
-            if not offer.get("enabled", True):
-                continue
-            # Check if this offer applies to this program
-            offer_programs = offer.get("program_ids", [])
-            if offer_programs and data.item_id and str(data.item_id) not in [str(p) for p in offer_programs]:
-                continue
-            # Match by email or phone
-            offer_people = offer.get("people", [])
-            matched = False
-            for person in offer_people:
-                person_email = (person.get("email") or "").lower().strip()
-                person_phone = (person.get("phone") or "").replace(" ", "").replace("-", "").replace("+", "").lstrip("0")
-                if person_email and person_email in all_emails:
-                    matched = True
-                    break
-                if person_phone and person_phone in all_phones:
-                    matched = True
-                    break
-            if matched:
-                if offer.get("discount_type") == "fixed":
-                    vip_discount = float(offer.get("discount_amount", 0))
-                else:
-                    vip_discount = round(total * float(offer.get("discount_pct", 0)) / 100, 2)
-                vip_offer_name = offer.get("label", offer.get("code", "VIP"))
-                logger.info(f"VIP offer '{vip_offer_name}' matched for {booker_email or booker_phone}: -{vip_discount}")
-                break
-    except Exception as e:
-        logger.warning(f"VIP offer check error: {e}")
-
-    # NO STACKING: Only the single best discount applies
-    # Priority: VIP > Promo > auto (combo/group/loyalty/cross-sell)
-    best_discount = 0
-    best_source = ""
-    if vip_discount > 0:
-        best_discount = vip_discount
-        best_source = f"vip:{vip_offer_name}"
-    elif promo_discount > 0:
-        best_discount = promo_discount
-        best_source = f"promo:{data.promo_code}"
-    elif auto_discount > 0:
-        best_discount = auto_discount
-        best_source = "auto"
-
-    final_total = max(0, total - best_discount)
-
-    # ── Loyalty points (redeem up to % of basket; burn on payment webhook) ──
-    points_redeemed = 0
-    points_discount = 0.0
-    pre_points_total = float(final_total)
-    try:
-        from routes.points_logic import (
-            fetch_points_config,
-            available_balance,
-            compute_points_redemption,
-            normalize_email,
-            flagship_blocks_points_redemption,
-        )
-
-        cfg_pts = await fetch_points_config(db)
-        cart_prog_ids = [str(ci.get("program_id")) for ci in (data.cart_items or []) if ci.get("program_id")]
-        blocked_flagship, _ = await flagship_blocks_points_redemption(
-            db,
-            cfg_pts,
-            item_type=data.item_type or "",
-            item_id=data.item_id or "",
-            cart_program_ids=cart_prog_ids,
-        )
-        req_pts = 0 if blocked_flagship else int(data.points_to_redeem or 0)
-        if cfg_pts["enabled"] and req_pts > 0 and final_total > 0:
-            be_pts = normalize_email(enrollment.get("booker_email", ""))
-            avail_pts = await available_balance(db, be_pts)
-            points_redeemed, points_discount = compute_points_redemption(
-                req_pts, float(final_total), currency, avail_pts, cfg_pts
-            )
-            final_total = max(0.0, round(float(final_total) - float(points_discount), 2))
-    except Exception as e:
-        logger.warning(f"Points redemption calc error: {e}")
-
-    # Store VIP discount in enrollment
-    if vip_discount > 0:
-        await db.enrollments.update_one({"id": enrollment_id}, {"$set": {
-            "vip_discount": vip_discount, "vip_offer_name": vip_offer_name,
-        }})
-
-    # Store item info in enrollment for reference
-    collection = "programs" if data.item_type == "program" else "sessions"
-    item = await db[collection].find_one({"id": data.item_id}, {"_id": 0})
-    await db.enrollments.update_one({"id": enrollment_id}, {"$set": {
-        "item_type": data.item_type, "item_id": data.item_id,
-        "item_title": item.get("title", "") if item else "",
-    }})
-
-    if final_total <= 0:
-        # Free enrollment — skip Stripe, complete directly
-        fake_session_id = f"free_{uuid.uuid4().hex[:12]}"
-
-        transaction = {
-            "id": str(uuid.uuid4()),
-            "enrollment_id": enrollment_id,
-            "stripe_session_id": fake_session_id,
-            "item_type": data.item_type,
-            "item_id": data.item_id,
-            "item_title": item.get("title", "") if item else "",
-            "amount": 0,
-            "currency": currency,
-            "payment_status": "paid",
-            "booker_name": enrollment.get("booker_name"),
-            "booker_email": enrollment.get("booker_email"),
-            "phone": enrollment.get("phone"),
-            "participants": enrollment.get("participants"),
-            "participant_count": participant_count,
-            "attendance": enrollment.get("attendance"),
-            "tier_index": data.tier_index,
-            "is_free": True,
-            "pre_points_total": pre_points_total,
-            "points_redeemed": points_redeemed,
-            "points_discount": round(float(points_discount), 2),
-            "created_at": datetime.now(timezone.utc),
-            "updated_at": datetime.now(timezone.utc),
-        }
-        await _attach_portal_ids_to_transaction(transaction, enrollment)
-        await db.payment_transactions.insert_one(transaction)
-
-        await db.enrollments.update_one(
-            {"id": enrollment_id},
-            {"$set": {
-                "step": 5,
-                "status": "completed",
-                "stripe_session_id": fake_session_id,
-                "is_free": True,
-                "updated_at": datetime.now(timezone.utc).isoformat(),
-            }}
-        )
-
-        # Generate UIDs for participants
-        from routes.payments import generate_participant_uids, send_enrollment_emails
-        await generate_participant_uids(fake_session_id)
-
-        # Send confirmation emails in background
-        asyncio.create_task(send_enrollment_emails(fake_session_id))
-
-        logger.info(f"[FREE ENROLLMENT] enrollment_id={enrollment_id}, item={data.item_id}")
-        return {"url": f"__FREE_SUCCESS__", "session_id": fake_session_id}
-
-    # BIN validation placeholder - in production, this would check card BIN vs location
-    # For now, we log the mismatch for monitoring
-    if pricing_resp["security"]["country_mismatch"]:
-        logger.warning(
-            f"Country mismatch for enrollment {enrollment_id}: "
-            f"IP={pricing_resp['security']['ip_country']}, "
-            f"Claimed={pricing_resp['security']['claimed_country']}"
-        )
-
-    # Create Stripe checkout via existing payments system
-    from routes.payments import _get_stripe_key
-    from emergentintegrations.payments.stripe.checkout import (
-        StripeCheckout, CheckoutSessionRequest
+    """Create Stripe Checkout for a verified enrollment. For INR + Razorpay use ``checkout-razorpay``."""
+    from routes.enrollment_checkout_prepare import (
+        enrollment_checkout_prepare,
+        enrollment_run_free_checkout,
+        resolve_checkout_public_origin,
     )
 
-    collection = "programs" if data.item_type == "program" else "sessions"
-    item = await db[collection].find_one({"id": data.item_id})
+    prep = await enrollment_checkout_prepare(
+        db,
+        enrollment_id,
+        data,
+        request,
+        get_enrollment_pricing=get_enrollment_pricing,
+        checkout_total_from_cart_items=_checkout_total_from_cart_items,
+    )
+    if prep["kind"] == "free":
+        return await enrollment_run_free_checkout(db, prep, attach_portal_ids=_attach_portal_ids_to_transaction)
 
-    # Build public-facing URLs for Stripe redirects
-    # Priority: client origin_url > Origin header > X-Forwarded-Host > Referer > base_url
-    origin = ""
-    if data.origin_url and "cluster-" not in data.origin_url:
-        origin = data.origin_url.strip().rstrip('/')
-    if not origin:
-        origin = request.headers.get("origin", "").strip()
-    if not origin or "cluster-" in origin:
-        fwd_host = request.headers.get("x-forwarded-host", "").strip()
-        if fwd_host and "cluster-" not in fwd_host:
-            scheme = request.headers.get("x-forwarded-proto", "https")
-            origin = f"{scheme}://{fwd_host}"
-        else:
-            referer = request.headers.get("referer", "").strip()
-            if referer:
-                from urllib.parse import urlparse
-                parsed = urlparse(referer)
-                origin = f"{parsed.scheme}://{parsed.netloc}"
-            else:
-                origin = str(request.base_url).rstrip('/')
-    origin = origin.rstrip('/')
+    from routes.payments import _get_stripe_key, create_checkout_no_adaptive
+    from emergentintegrations.payments.stripe.checkout import StripeCheckout, CheckoutSessionRequest
 
-    host_url = str(request.base_url).rstrip('/')
+    data = prep["data"]
+    enrollment_id = prep["enrollment_id"]
+    enrollment = prep["enrollment"]
+    final_total = prep["final_total"]
+    currency = prep["currency"]
+    stripe_currency = prep["stripe_currency"]
+    stripe_amount = prep["stripe_amount"]
+    participant_count = prep["participant_count"]
+    item = prep["item"]
+
+    origin = resolve_checkout_public_origin(data, request)
+    host_url = str(request.base_url).rstrip("/")
     success_url = f"{origin}/payment/success?session_id={{CHECKOUT_SESSION_ID}}"
     cancel_url = f"{origin}/enroll/{data.item_type}/{data.item_id}?resume={enrollment_id}"
     if data.tier_index is not None:
@@ -1058,22 +734,8 @@ async def enrollment_checkout(enrollment_id: str, data: EnrollmentSubmit, reques
 
     stripe_checkout = StripeCheckout(
         api_key=await _get_stripe_key(),
-        webhook_url=f"{host_url}/api/webhook/stripe"
+        webhook_url=f"{host_url}/api/webhook/stripe",
     )
-
-    # Stripe charge rules:
-    # - INR: ALWAYS charge the exact ₹ price from the pricing hub. Never convert.
-    # - AED (UAE exact) / USD (US exact): charge as-is for those countries.
-    # - AED/USD base for OTHER countries (UK→GBP, SG→SGD, etc.): convert to local currency.
-    stripe_currency = currency
-    stripe_amount = float(final_total)
-    if currency != "inr" and data.display_currency and data.display_currency != currency:
-        from routes.currency import fetch_live_rates, convert_amount
-        rates = await fetch_live_rates()
-        converted = convert_amount(float(final_total), currency, data.display_currency, rates)
-        if converted and converted > 0:
-            stripe_currency = data.display_currency
-            stripe_amount = float(converted)
 
     checkout_request = CheckoutSessionRequest(
         amount=stripe_amount,
@@ -1084,34 +746,31 @@ async def enrollment_checkout(enrollment_id: str, data: EnrollmentSubmit, reques
             "enrollment_id": enrollment_id,
             "item_type": data.item_type,
             "item_id": data.item_id,
-            "item_title": item.get("title", ""),
+            "item_title": item.get("title", "") if item else "",
             "email": enrollment.get("booker_email", "") or "",
             "phone": enrollment.get("phone", "") or "",
             "name": enrollment.get("booker_name", "") or "",
             "participant_count": str(participant_count),
             "currency": currency,
             "booker_country": enrollment.get("booker_country", "") or "",
-        }
+        },
     )
 
-    from routes.payments import create_checkout_no_adaptive
     session = await create_checkout_no_adaptive(stripe_checkout, checkout_request)
 
-    # Generate invoice number: YYYY-MM-001
-    now = datetime.now(timezone.utc)
-    month_prefix = now.strftime("%Y-%m")
+    month_prefix = datetime.now(timezone.utc).strftime("%Y-%m")
     count = await db.payment_transactions.count_documents({"invoice_number": {"$regex": f"^{month_prefix}"}})
     invoice_number = f"{month_prefix}-{str(count + 1).zfill(3)}"
 
-    # Save transaction
     transaction = {
         "id": str(uuid.uuid4()),
         "invoice_number": invoice_number,
         "enrollment_id": enrollment_id,
         "stripe_session_id": session.session_id,
+        "payment_provider": "stripe",
         "item_type": data.item_type,
         "item_id": data.item_id,
-        "item_title": item.get("title", ""),
+        "item_title": item.get("title", "") if item else "",
         "amount": float(final_total),
         "currency": currency,
         "stripe_currency": stripe_currency,
@@ -1124,27 +783,148 @@ async def enrollment_checkout(enrollment_id: str, data: EnrollmentSubmit, reques
         "participant_count": participant_count,
         "attendance": enrollment.get("attendance"),
         "tier_index": data.tier_index,
-        "pre_points_total": pre_points_total,
-        "points_redeemed": points_redeemed,
-        "points_discount": round(float(points_discount), 2),
+        "pre_points_total": prep["pre_points_total"],
+        "points_redeemed": prep["points_redeemed"],
+        "points_discount": round(float(prep["points_discount"]), 2),
         "created_at": datetime.now(timezone.utc),
         "updated_at": datetime.now(timezone.utc),
     }
     await _attach_portal_ids_to_transaction(transaction, enrollment)
     await db.payment_transactions.insert_one(transaction)
 
-    # Update enrollment status
     await db.enrollments.update_one(
         {"id": enrollment_id},
-        {"$set": {
-            "step": 4,
-            "status": "checkout_started",
-            "stripe_session_id": session.session_id,
-            "updated_at": datetime.now(timezone.utc).isoformat(),
-        }}
+        {
+            "$set": {
+                "step": 4,
+                "status": "checkout_started",
+                "stripe_session_id": session.session_id,
+                "updated_at": datetime.now(timezone.utc).isoformat(),
+            }
+        },
     )
 
     return {"url": session.url, "session_id": session.session_id}
+
+
+@router.post("/{enrollment_id}/checkout-razorpay")
+async def enrollment_checkout_razorpay(enrollment_id: str, data: EnrollmentSubmit, request: Request):
+    """Create a Razorpay Order (INR). Client must open Checkout.js and POST payment details to /api/payments/razorpay/verify."""
+    from key_manager import get_key
+    from routes.enrollment_checkout_prepare import enrollment_checkout_prepare, enrollment_run_free_checkout
+
+    prep = await enrollment_checkout_prepare(
+        db,
+        enrollment_id,
+        data,
+        request,
+        get_enrollment_pricing=get_enrollment_pricing,
+        checkout_total_from_cart_items=_checkout_total_from_cart_items,
+    )
+    if prep["kind"] == "free":
+        return await enrollment_run_free_checkout(db, prep, attach_portal_ids=_attach_portal_ids_to_transaction)
+
+    if (prep["currency"] or "").lower() != "inr":
+        raise HTTPException(
+            status_code=400,
+            detail="Razorpay is only available when checkout currency is INR.",
+        )
+
+    key_id = (await get_key("razorpay_key_id")).strip()
+    key_secret = (await get_key("razorpay_key_secret")).strip()
+    if not key_id or not key_secret:
+        raise HTTPException(status_code=503, detail="Razorpay is not configured.")
+
+    final_total = float(prep["final_total"])
+    amount_paise = int(round(final_total * 100))
+    if amount_paise < 100:
+        raise HTTPException(status_code=400, detail="Amount too small for Razorpay (minimum ₹1).")
+
+    session_key = f"rz_{uuid.uuid4().hex}"
+
+    now = datetime.now(timezone.utc)
+    month_prefix = now.strftime("%Y-%m")
+    count = await db.payment_transactions.count_documents({"invoice_number": {"$regex": f"^{month_prefix}"}})
+    invoice_number = f"{month_prefix}-{str(count + 1).zfill(3)}"
+    receipt = f"{invoice_number}-{enrollment_id[:8]}"[:40]
+
+    enr = prep["enrollment"]
+    item = prep["item"]
+    data = prep["data"]
+
+    async with httpx.AsyncClient(timeout=45) as client:
+        ro = await client.post(
+            "https://api.razorpay.com/v1/orders",
+            auth=(key_id, key_secret),
+            json={
+                "amount": amount_paise,
+                "currency": "INR",
+                "receipt": receipt,
+                "notes": {"enrollment_id": enrollment_id, "internal_session": session_key},
+            },
+        )
+    if ro.status_code >= 400:
+        logger.warning("Razorpay order error: %s", ro.text[:500])
+        raise HTTPException(status_code=502, detail="Could not create Razorpay order. Try Stripe or retry.")
+
+    order = ro.json()
+    order_id = order.get("id")
+    if not order_id:
+        raise HTTPException(status_code=502, detail="Razorpay did not return an order id.")
+
+    transaction = {
+        "id": str(uuid.uuid4()),
+        "invoice_number": invoice_number,
+        "enrollment_id": enrollment_id,
+        "stripe_session_id": session_key,
+        "razorpay_order_id": order_id,
+        "payment_provider": "razorpay",
+        "item_type": data.item_type,
+        "item_id": data.item_id,
+        "item_title": item.get("title", "") if item else "",
+        "amount": final_total,
+        "currency": prep["currency"],
+        "stripe_currency": "inr",
+        "stripe_amount": final_total,
+        "payment_status": "pending",
+        "booker_name": enr.get("booker_name"),
+        "booker_email": enr.get("booker_email"),
+        "phone": enr.get("phone"),
+        "participants": enr.get("participants"),
+        "participant_count": prep["participant_count"],
+        "attendance": enr.get("attendance"),
+        "tier_index": data.tier_index,
+        "pre_points_total": prep["pre_points_total"],
+        "points_redeemed": prep["points_redeemed"],
+        "points_discount": round(float(prep["points_discount"]), 2),
+        "created_at": datetime.now(timezone.utc),
+        "updated_at": datetime.now(timezone.utc),
+    }
+    await _attach_portal_ids_to_transaction(transaction, enr)
+    await db.payment_transactions.insert_one(transaction)
+
+    await db.enrollments.update_one(
+        {"id": enrollment_id},
+        {
+            "$set": {
+                "step": 4,
+                "status": "checkout_started",
+                "stripe_session_id": session_key,
+                "updated_at": datetime.now(timezone.utc).isoformat(),
+            }
+        },
+    )
+
+    return {
+        "key_id": key_id,
+        "order_id": order_id,
+        "amount": amount_paise,
+        "currency": "INR",
+        "session_id": session_key,
+        "name": (enr.get("booker_name") or "")[:200],
+        "email": (enr.get("booker_email") or "")[:200],
+        "description": ((item or {}).get("title") or "Enrollment")[:250],
+    }
 
 
 @router.get("/{enrollment_id}")

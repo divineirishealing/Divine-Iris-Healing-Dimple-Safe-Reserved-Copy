@@ -159,6 +159,66 @@ async def backfill_transaction_portal_ids(session_id: str, tx: dict) -> None:
     )
 
 
+async def run_enrollment_razorpay_success_hooks(session_id: str) -> None:
+    """After Razorpay verify marks txn paid: same fulfillment as Stripe webhook (no card fraud probe)."""
+    tx = await db.payment_transactions.find_one({"stripe_session_id": session_id}, {"_id": 0})
+    if not tx:
+        logger.warning("Razorpay hooks: no transaction for session_id=%s", session_id)
+        return
+    enrollment_id = tx.get("enrollment_id")
+
+    await backfill_transaction_portal_ids(session_id, tx)
+    tx = await db.payment_transactions.find_one({"stripe_session_id": session_id}, {"_id": 0}) or tx
+
+    try:
+        from routes.points_logic import run_post_payment_loyalty
+
+        txn_clean = {k: v for k, v in tx.items() if k != "_id"}
+        await run_post_payment_loyalty(db, txn_clean)
+    except Exception as e:
+        logger.warning("Points Razorpay loyalty: %s", e)
+
+    if enrollment_id:
+        await db.enrollments.update_one(
+            {"id": enrollment_id},
+            {
+                "$set": {
+                    "status": "completed",
+                    "payment_method": "razorpay",
+                    "paid_at": datetime.now(timezone.utc).isoformat(),
+                    "updated_at": datetime.now(timezone.utc).isoformat(),
+                }
+            },
+        )
+
+    try:
+        await generate_participant_uids(session_id)
+    except Exception as e:
+        logger.warning("Razorpay UID generation: %s", e)
+
+    txn_clean = {
+        k: v
+        for k, v in (
+            await db.payment_transactions.find_one({"stripe_session_id": session_id}, {"_id": 0}) or tx
+        ).items()
+        if k != "_id"
+    }
+    if not txn_clean.get("emails_sent"):
+        try:
+            await send_enrollment_receipt(txn_clean)
+            await db.payment_transactions.update_one(
+                {"stripe_session_id": session_id},
+                {
+                    "$set": {
+                        "emails_sent": True,
+                        "updated_at": datetime.now(timezone.utc),
+                    }
+                },
+            )
+        except Exception as e:
+            logger.error("Razorpay receipt email: %s", e)
+
+
 async def _get_stripe_key():
     """Get Stripe key from key_manager (MongoDB) with .env fallback."""
     try:
@@ -770,6 +830,21 @@ async def check_payment_status(session_id: str, http_request: Request, backgroun
             "payment_status": "paid",
             "amount": tx.get("amount", 0),
             "currency": tx.get("currency", "usd"),
+            "item_title": tx.get("item_title", ""),
+            "program_links": program_links,
+            "community_whatsapp": community_whatsapp,
+            "participants": participants,
+            "booker_name": booker_name,
+            "booker_email": booker_email,
+        }
+
+    # Razorpay — no Stripe Checkout session to poll; client confirms via /razorpay/verify
+    if session_id.startswith("rz_") or tx.get("payment_provider") == "razorpay":
+        return {
+            "status": "open",
+            "payment_status": tx.get("payment_status", "pending"),
+            "amount": tx.get("amount", 0),
+            "currency": tx.get("currency", "inr"),
             "item_title": tx.get("item_title", ""),
             "program_links": program_links,
             "community_whatsapp": community_whatsapp,
