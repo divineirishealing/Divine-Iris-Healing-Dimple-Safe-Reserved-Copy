@@ -18,6 +18,8 @@ import {
   pickTierIndexForDashboard,
   programIncludedInAnnualPackage,
   nonYearLongTierIndices,
+  programTierIsYearLong,
+  resolveEffectiveGuestTierForQuote,
   promoDiscountAmount,
 } from './dashboardUpcomingHelpers';
 import {
@@ -113,6 +115,10 @@ function AnnualQuoteBreakdown({
     const immOfferEach = immOnly > 0 ? Number(aq.immediate_family_only_after_promos ?? 0) / immOnly : null;
     const extOfferEach = ext > 0 ? Number(aq.extended_guests_after_promos ?? 0) / ext : null;
     const rowClass = 'flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1 text-[11px] text-slate-800';
+    const tierGuestParts = (aq._tierQuoteParts || []).filter(
+      (tp) => tp && !tp.include_self && tp.guestSeats > 0,
+    );
+    const usePerTierGuestLines = Boolean(aq._mergedDashboardQuotes && tierGuestParts.length > 0);
     return (
       <div className="text-[11px] text-slate-800 leading-snug w-full min-w-0 space-y-2">
         {!suppressIntro ? (
@@ -181,7 +187,21 @@ function AnnualQuoteBreakdown({
               )}
             </div>
           ) : null}
-          {immOnly > 0 ? (
+          {usePerTierGuestLines
+            ? tierGuestParts.map((tp) => (
+                <div key={`g-${tp.tierIndex}`} className={rowClass}>
+                  <span className="font-medium text-slate-800">Guests ({tp.tierLabel})</span>
+                  <span className="font-semibold tabular-nums text-slate-900 text-right leading-snug">
+                    {symbol}
+                    {Number(tp.guestTotal ?? 0).toLocaleString()}
+                    <span className="text-slate-500 font-normal text-[10px] ml-1">
+                      · {tp.guestSeats} seat{tp.guestSeats !== 1 ? 's' : ''}
+                    </span>
+                  </span>
+                </div>
+              ))
+            : null}
+          {!usePerTierGuestLines && immOnly > 0 ? (
             <div className={rowClass}>
               <span className="font-medium text-slate-800">Immediate family</span>
               <span className="font-semibold tabular-nums text-slate-900 text-right leading-snug">
@@ -191,7 +211,7 @@ function AnnualQuoteBreakdown({
               </span>
             </div>
           ) : null}
-          {ext > 0 ? (
+          {!usePerTierGuestLines && ext > 0 ? (
             <div className={rowClass}>
               <span className="font-medium text-slate-800">Friends &amp; extended</span>
               <span className="font-semibold tabular-nums text-slate-900 text-right leading-snug">
@@ -316,6 +336,30 @@ function AnnualQuoteBreakdown({
   );
 }
 
+/** Per-guest duration when multiple flagship tiers exist (mixed 1M / 3M, etc.). */
+function MemberDurationChips({ tiers, valueTier, onPick, disabled }) {
+  if (!tiers || tiers.length <= 1) return null;
+  return (
+    <div className="mt-1.5 flex flex-wrap gap-1 pl-6" onClick={(e) => e.stopPropagation()}>
+      {tiers.map((t, i) => (
+        <button
+          key={i}
+          type="button"
+          disabled={disabled}
+          onClick={() => onPick(i)}
+          className={`rounded-full px-2 py-0.5 text-[9px] font-semibold border transition-colors ${
+            valueTier === i
+              ? 'bg-[#D4AF37] text-white border-[#D4AF37]'
+              : 'bg-white text-slate-600 border-slate-200 hover:border-[#D4AF37]/60'
+          }`}
+        >
+          {compactTierButtonLabel(t.label)}
+        </button>
+      ))}
+    </div>
+  );
+}
+
 /**
  * Upcoming program row: non-annual = homepage-style horizontal card (hero + body).
  * Annual = row: program card | stacked pricing (collapsible), family (collapsible), attendance (collapsible) + pay.
@@ -350,6 +394,7 @@ export default function DashboardUpcomingProgramRowItem({
   /** When booker is on annual package + year-long tier, guests are quoted on this shorter tier index. */
   familyPaidTierIndex,
   onFamilyPaidTierChange,
+  onMemberTierChange,
   dashboardTierIndex,
   onDashboardTierChange,
   /** Admin cross-sell rules (e.g. AWRP tier → % off another program); same engine as public cart / enrollment. */
@@ -459,29 +504,50 @@ export default function DashboardUpcomingProgramRowItem({
   const needsFamilyPaidTier = Boolean(
     includedPkg && tierIsYearLong && selCount > 0 && familyPaidTierOptions.length > 0,
   );
-  const familyPaidTierReady =
-    !needsFamilyPaidTier ||
-    (typeof familyPaidTierIndex === 'number' &&
-      familyPaidTierOptions.includes(familyPaidTierIndex));
+  const guestTierIncomplete =
+    needsFamilyPaidTier &&
+    selCount > 0 &&
+    selIds.some((id) =>
+      programTierIsYearLong(
+        p,
+        resolveEffectiveGuestTierForQuote(p, id, {
+          memberTierById: annualSeatUi?.draft?.memberTierById,
+          familyPaidTierIndex,
+          uiTier: tierIdxForDisplay,
+          needsFamilyPaidTier,
+        }),
+      ),
+    );
 
   const cartTierIdxForSync = useMemo(() => {
-    if (
-      includedPkg &&
-      tierIsYearLong &&
-      selCount > 0 &&
-      typeof familyPaidTierIndex === 'number' &&
-      familyPaidTierOptions.includes(familyPaidTierIndex)
-    ) {
-      return familyPaidTierIndex;
+    if (!selCount) return tierIdxForDisplay;
+    if (includedPkg && tierIsYearLong && selCount > 0 && familyPaidTierOptions.length > 0) {
+      const set = new Set();
+      for (const id of selIds) {
+        set.add(
+          resolveEffectiveGuestTierForQuote(p, id, {
+            memberTierById: annualSeatUi?.draft?.memberTierById,
+            familyPaidTierIndex,
+            uiTier: tierIdxForDisplay,
+            needsFamilyPaidTier,
+          }),
+        );
+      }
+      if (set.size === 1) return [...set][0];
+      return tierIdxForDisplay;
     }
     return tierIdxForDisplay;
   }, [
     includedPkg,
     tierIsYearLong,
     selCount,
+    selIds,
     familyPaidTierIndex,
     familyPaidTierOptions,
     tierIdxForDisplay,
+    needsFamilyPaidTier,
+    annualSeatUi?.draft?.memberTierById,
+    p.id,
   ]);
 
   const crossSellDiscount = useMemo(
@@ -537,8 +603,7 @@ export default function DashboardUpcomingProgramRowItem({
 
   const portalQuoteAwaitingFamilyTier = aq?._awaitingFamilyPaidTier === true;
   const familyPaidTierQuoteBlocked =
-    needsFamilyPaidTier &&
-    (!familyPaidTierReady || portalQuoteAwaitingFamilyTier);
+    needsFamilyPaidTier && (guestTierIncomplete || portalQuoteAwaitingFamilyTier);
   const hasPortalTotal =
     aq != null && typeof aq.total === 'number' && !portalQuoteAwaitingFamilyTier;
   const bookerEnrollingSelf = annualSeatUi?.draft?.bookerJoinsProgram !== false;
@@ -572,8 +637,23 @@ export default function DashboardUpcomingProgramRowItem({
 
   /** @returns {'synced' | 'removed' | 'noop' | 'noop_profile' | { kind: 'error', detail: string }} */
   const syncThisProgramToDivineCart = async () => {
-    let participants = null;
     const emailFallback = String(bookerEmail || user?.email || '').trim();
+    const seatDraft = annualSeatUi?.draft;
+    const bookerJoinsSeat = includedPkg ? false : seatDraft?.bookerJoinsProgram !== false;
+    const immPool = [...(members || []), ...(annualHouseholdPeers || [])];
+
+    const tierPartTotal = (tierIdx, includeSelf) => {
+      const parts = aq?._tierQuoteParts;
+      if (!parts || !Array.isArray(parts)) return aq?.total != null ? Number(aq.total) : null;
+      const nt = normalizeCartProgramTier(p, tierIdx);
+      const hit = parts.find((tp) => {
+        if (includeSelf) return tp.include_self === true;
+        return !tp.include_self && normalizeCartProgramTier(p, tp.tierIndex) === nt;
+      });
+      return hit && hit.total != null ? Number(hit.total) : null;
+    };
+
+    let selfMerged = null;
     try {
       let selfRaw = enrollmentSelf;
       if (!selfRaw) {
@@ -587,56 +667,161 @@ export default function DashboardUpcomingProgramRowItem({
           selfRaw = null;
         }
       }
-      const selfMerged = {
+      selfMerged = {
         ...(selfRaw && typeof selfRaw === 'object' ? selfRaw : {}),
         name: String(selfRaw?.name || user?.name || user?.full_name || '').trim(),
         email: String(selfRaw?.email || emailFallback || '').trim(),
       };
-      const bookerJoinsSeat = includedPkg ? false : annualSeatUi?.draft?.bookerJoinsProgram !== false;
       if (bookerJoinsSeat && !includedPkg && !selfMerged.email && !selfMerged.name) {
         return 'noop_profile';
       }
+    } catch (err) {
+      return { kind: 'error', detail: err?.response?.data?.detail || err?.message || 'Network error' };
+    }
+
+    const groups = new Map();
+    for (const gid of selIds) {
+      const t = resolveEffectiveGuestTierForQuote(p, gid, {
+        memberTierById: seatDraft?.memberTierById,
+        familyPaidTierIndex,
+        uiTier: tierIdxForDisplay,
+        needsFamilyPaidTier,
+      });
+      if (!groups.has(t)) groups.set(t, []);
+      groups.get(t).push(gid);
+    }
+
+    const normalizedBookerTier = normalizeCartProgramTier(p, tierIdxForDisplay);
+    let useSingleLine = false;
+    if (!bookerJoinsSeat) {
+      useSingleLine = groups.size <= 1;
+    } else if (selIds.length === 0) {
+      useSingleLine = true;
+    } else if (groups.size === 1) {
+      const [onlyT] = [...groups.keys()];
+      useSingleLine = normalizeCartProgramTier(p, onlyT) === normalizedBookerTier;
+    } else {
+      useSingleLine = false;
+    }
+
+    const desiredNormTiers = new Set();
+    if (bookerJoinsSeat) desiredNormTiers.add(normalizedBookerTier);
+    for (const t of groups.keys()) {
+      desiredNormTiers.add(normalizeCartProgramTier(p, t));
+    }
+    if (!bookerJoinsSeat && selIds.length === 0) {
+      desiredNormTiers.clear();
+    }
+
+    let participants;
+    try {
       participants = buildAnnualDashboardCartParticipants({
         program: p,
         includedPkg,
         selectedMemberIds: selIds,
-        seatDraft: annualSeatUi?.draft,
+        seatDraft,
         enrollableGuests,
         self: selfMerged,
         bookerEmail: emailFallback,
         detectedCountry,
-        immediateFamilyMembers: [...(members || []), ...(annualHouseholdPeers || [])],
+        immediateFamilyMembers: immPool,
         programInAnnualPackageList: programOnAnnualPackageList,
       });
     } catch (err) {
       return { kind: 'error', detail: err?.response?.data?.detail || err?.message || 'Network error' };
     }
-    const normalizedTier = normalizeCartProgramTier(p, cartTierIdxForSync);
-    const existingLine = cartItems.find(
-      (i) =>
-        i.type === 'program' &&
-        String(i.programId) === String(p.id) &&
-        normalizeCartProgramTier(i, i.tierIndex) === normalizedTier,
-    );
+
     if (!participants?.length) {
-      if (existingLine) {
-        removeItem(existingLine.id);
-        return 'removed';
+      let removed = false;
+      for (const item of [...cartItems]) {
+        if (item.type !== 'program' || String(item.programId) !== String(p.id)) continue;
+        removeItem(item.id);
+        removed = true;
       }
-      return 'noop';
+      return removed ? 'removed' : 'noop';
     }
-    const guestBucketById = buildGuestBucketByIdFromSelection(selIds, [
-      ...(members || []),
-      ...(annualHouseholdPeers || []),
-    ]);
-    syncProgramLineItem(p, cartTierIdxForSync, participants, {
-      familyIds: selIds.map(String),
-      bookerJoins: includedPkg ? false : annualSeatUi?.draft?.bookerJoinsProgram !== false,
-      /** Must match dashboard / quote: annual add-ons were always false here before, so Divine Cart used title heuristics and dropped real lines. */
-      annualIncluded: !!includedPkg,
-      portalQuoteTotal: aq?.total != null ? Number(aq.total) : null,
-      guestBucketById,
-    });
+
+    for (const item of [...cartItems]) {
+      if (item.type !== 'program' || String(item.programId) !== String(p.id)) continue;
+      const nt = normalizeCartProgramTier(p, item.tierIndex);
+      if (!desiredNormTiers.has(nt)) removeItem(item.id);
+    }
+
+    if (useSingleLine) {
+      const lineTier =
+        !bookerJoinsSeat && selIds.length > 0
+          ? normalizeCartProgramTier(p, [...groups.keys()][0])
+          : normalizedBookerTier;
+      const guestBucketById = buildGuestBucketByIdFromSelection(selIds, immPool);
+      syncProgramLineItem(p, lineTier, participants, {
+        familyIds: selIds.map(String),
+        bookerJoins: bookerJoinsSeat,
+        annualIncluded: !!includedPkg,
+        portalQuoteTotal: aq?.total != null ? Number(aq.total) : null,
+        guestBucketById,
+      });
+      return 'synced';
+    }
+
+    if (bookerJoinsSeat) {
+      let bookerParticipants;
+      try {
+        bookerParticipants = buildAnnualDashboardCartParticipants({
+          program: p,
+          includedPkg,
+          selectedMemberIds: [],
+          seatDraft,
+          enrollableGuests,
+          self: selfMerged,
+          bookerEmail: emailFallback,
+          detectedCountry,
+          immediateFamilyMembers: immPool,
+          programInAnnualPackageList: programOnAnnualPackageList,
+        });
+      } catch (err) {
+        return { kind: 'error', detail: err?.response?.data?.detail || err?.message || 'Network error' };
+      }
+      if (bookerParticipants?.length) {
+        syncProgramLineItem(p, normalizedBookerTier, bookerParticipants, {
+          familyIds: [],
+          bookerJoins: true,
+          annualIncluded: !!includedPkg,
+          portalQuoteTotal: tierPartTotal(normalizedBookerTier, true),
+          guestBucketById: {},
+        });
+      }
+    }
+
+    for (const [t, gids] of groups) {
+      const nt = normalizeCartProgramTier(p, t);
+      let gp;
+      try {
+        gp = buildAnnualDashboardCartParticipants({
+          program: p,
+          includedPkg,
+          selectedMemberIds: gids,
+          seatDraft,
+          enrollableGuests,
+          self: selfMerged,
+          bookerEmail: emailFallback,
+          detectedCountry,
+          immediateFamilyMembers: immPool,
+          programInAnnualPackageList: programOnAnnualPackageList,
+        });
+      } catch (err) {
+        return { kind: 'error', detail: err?.response?.data?.detail || err?.message || 'Network error' };
+      }
+      if (!gp?.length) continue;
+      const gb = buildGuestBucketByIdFromSelection(gids, immPool);
+      syncProgramLineItem(p, nt, gp, {
+        familyIds: gids.map(String),
+        bookerJoins: false,
+        annualIncluded: !!includedPkg,
+        portalQuoteTotal: tierPartTotal(nt, false),
+        guestBucketById: gb,
+      });
+    }
+
     return 'synced';
   };
 
@@ -689,6 +874,17 @@ export default function DashboardUpcomingProgramRowItem({
 
   const tierGridClass =
     tiers.length <= 1 ? 'grid-cols-1' : tiers.length === 2 ? 'grid-cols-2' : 'grid-cols-3';
+
+  const effectiveTierForMember = (mid) =>
+    resolveEffectiveGuestTierForQuote(p, mid, {
+      memberTierById: annualSeatUi?.draft?.memberTierById,
+      familyPaidTierIndex,
+      uiTier: tierIdxForDisplay,
+      needsFamilyPaidTier,
+    });
+
+  const showMemberTierPickers =
+    annualDashboardAccess && enrollStatus === 'open' && hasTiers && tiers.length > 1;
 
   const outerShellClass = `w-full mr-auto transition-all duration-300 ${enrollStatus === 'closed' ? 'opacity-60' : ''}`;
 
@@ -1334,6 +1530,14 @@ export default function DashboardUpcomingProgramRowItem({
                               ) : null}
                             </span>
                           </div>
+                          {showMemberTierPickers && peerChecked && m.id && !peerFrozen ? (
+                            <MemberDurationChips
+                              tiers={tiers}
+                              valueTier={effectiveTierForMember(String(m.id))}
+                              disabled={!m.id}
+                              onPick={(i) => onMemberTierChange?.(String(m.id), i)}
+                            />
+                          ) : null}
                         </li>
                       );
                     })}
@@ -1379,6 +1583,7 @@ export default function DashboardUpcomingProgramRowItem({
                         <ul className="space-y-1.5">
                           {membersNotInAnnualClub.map((m, gidx) => {
                             const mid = m.id || `imm-${gidx}-${m.name}-${m.email}`;
+                            const checkedImm = !!m.id && selIds.includes(String(m.id));
                             return (
                               <li key={mid}>
                                 <label className="flex items-center gap-2 text-sm text-slate-800 cursor-pointer">
@@ -1386,7 +1591,7 @@ export default function DashboardUpcomingProgramRowItem({
                                     type="checkbox"
                                     className="rounded border-slate-300"
                                     disabled={!m.id}
-                                    checked={!!m.id && selIds.includes(String(m.id))}
+                                    checked={checkedImm}
                                     onChange={() => m.id && toggleFamilyMember(p.id, String(m.id))}
                                   />
                                   <span>
@@ -1394,6 +1599,14 @@ export default function DashboardUpcomingProgramRowItem({
                                     {m.relationship ? <span className="text-slate-500"> ({m.relationship})</span> : null}
                                   </span>
                                 </label>
+                                {showMemberTierPickers && checkedImm && m.id ? (
+                                  <MemberDurationChips
+                                    tiers={tiers}
+                                    valueTier={effectiveTierForMember(String(m.id))}
+                                    disabled={!m.id}
+                                    onPick={(i) => onMemberTierChange?.(String(m.id), i)}
+                                  />
+                                ) : null}
                               </li>
                             );
                           })}
@@ -1415,6 +1628,7 @@ export default function DashboardUpcomingProgramRowItem({
                   <ul className="space-y-1.5">
                     {otherMembers.map((m, gidx) => {
                       const mid = m.id || `ext-${gidx}-${m.name}-${m.email}`;
+                      const checkedExt = !!m.id && selIds.includes(String(m.id));
                       return (
                         <li key={mid}>
                           <label className="flex items-center gap-2 text-sm text-slate-800 cursor-pointer">
@@ -1422,7 +1636,7 @@ export default function DashboardUpcomingProgramRowItem({
                               type="checkbox"
                               className="rounded border-slate-300"
                               disabled={!m.id}
-                              checked={!!m.id && selIds.includes(String(m.id))}
+                              checked={checkedExt}
                               onChange={() => m.id && toggleFamilyMember(p.id, String(m.id))}
                             />
                             <span>
@@ -1430,6 +1644,14 @@ export default function DashboardUpcomingProgramRowItem({
                               {m.relationship ? <span className="text-slate-500"> ({m.relationship})</span> : null}
                             </span>
                           </label>
+                          {showMemberTierPickers && checkedExt && m.id ? (
+                            <MemberDurationChips
+                              tiers={tiers}
+                              valueTier={effectiveTierForMember(String(m.id))}
+                              disabled={!m.id}
+                              onPick={(i) => onMemberTierChange?.(String(m.id), i)}
+                            />
+                          ) : null}
                         </li>
                       );
                     })}

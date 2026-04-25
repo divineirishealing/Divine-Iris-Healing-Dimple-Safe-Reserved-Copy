@@ -86,3 +86,123 @@ export function promoDiscountAmount(promoResult, subtotalRaw, currency) {
   }
   return promoResult[`discount_${currency}`] || promoResult.discount_aed || 0;
 }
+
+/**
+ * Per-guest tier for portal quote: explicit `memberTierById`, else package year-long default, else UI tier.
+ */
+export function resolveEffectiveGuestTierForQuote(program, guestId, opts) {
+  const tiers = program?.duration_tiers || [];
+  const max = tiers.length;
+  const id = String(guestId ?? '');
+  const { memberTierById, familyPaidTierIndex, uiTier, needsFamilyPaidTier } = opts || {};
+  const fromMap = memberTierById && id ? memberTierById[id] : undefined;
+  if (typeof fromMap === 'number' && fromMap >= 0 && (max === 0 || fromMap < max)) {
+    return fromMap;
+  }
+  if (needsFamilyPaidTier && typeof familyPaidTierIndex === 'number' && familyPaidTierIndex >= 0) {
+    if (max === 0 || familyPaidTierIndex < max) return familyPaidTierIndex;
+  }
+  const u = typeof uiTier === 'number' && uiTier >= 0 ? uiTier : 0;
+  return max === 0 || u < max ? u : 0;
+}
+
+/** Seed tier when a guest is newly checked: non–year-long preferred when booker UI is year-long + package. */
+export function defaultTierForNewGuestSelection(program, uiTier, familyPaidTierIndex, needsFamilyPaidTier) {
+  if (needsFamilyPaidTier) {
+    if (typeof familyPaidTierIndex === 'number' && familyPaidTierIndex >= 0) return familyPaidTierIndex;
+    const ny = nonYearLongTierIndices(program);
+    if (ny.length) return ny[0];
+  }
+  const tiers = program?.duration_tiers || [];
+  if (!program?.is_flagship || !tiers.length) return 0;
+  const u = typeof uiTier === 'number' && uiTier >= 0 && uiTier < tiers.length ? uiTier : 0;
+  return u;
+}
+
+const MERGE_SUM_NUMERIC_KEYS = [
+  'total',
+  'list_subtotal',
+  'offer_subtotal',
+  'portal_discount_total',
+  'self_unit',
+  'self_after_promos',
+  'annual_household_line_gross',
+  'annual_household_after_promos',
+  'immediate_family_only_line_gross',
+  'immediate_family_only_after_promos',
+  'extended_guest_line_gross',
+  'extended_guests_after_promos',
+  'immediate_family_line_gross',
+  'immediate_family_after_promos',
+  'family_line_gross',
+  'family_after_promos',
+  'immediate_family_count',
+  'immediate_family_only_count',
+  'annual_household_peer_count',
+  'extended_guest_count',
+  'family_count',
+  'tax_included_estimate',
+];
+
+const MERGE_SUM_INT_META_KEYS = [
+  'annual_household_peer_selected_count',
+  'immediate_family_only_selected_count',
+  'annual_household_peer_package_included_count',
+];
+
+/**
+ * Merge several GET /dashboard-quote responses (same program, disjoint guest sets and/or self-only row).
+ * Adds `_mergedDashboardQuotes`, `_tierQuoteParts` for UI when more than one tier is involved.
+ */
+export function mergeDashboardQuoteResponses(program, parts) {
+  if (!parts || parts.length === 0) return null;
+  if (parts.length === 1) {
+    const only = parts[0].data;
+    if (!only || typeof only !== 'object') return only;
+    return { ...only, _mergedDashboardQuotes: false, _tierQuoteParts: parts };
+  }
+  const tiers = program?.duration_tiers || [];
+  const base = parts[0].data && typeof parts[0].data === 'object' ? { ...parts[0].data } : {};
+  const merged = { ...base };
+  for (const k of MERGE_SUM_NUMERIC_KEYS) {
+    let s = 0;
+    for (const p of parts) {
+      const v = p.data?.[k];
+      s += typeof v === 'number' && !Number.isNaN(v) ? v : Number(v || 0);
+    }
+    merged[k] = Math.round(s * 100) / 100;
+  }
+  for (const k of MERGE_SUM_INT_META_KEYS) {
+    let s = 0;
+    for (const p of parts) {
+      const v = p.data?.[k];
+      s += typeof v === 'number' && !Number.isNaN(v) ? v : Number(v || 0);
+    }
+    merged[k] = s;
+  }
+  merged.include_self = parts.some((p) => p.data?.include_self === true);
+
+  merged._mergedDashboardQuotes = true;
+  merged._tierQuoteParts = parts.map((p) => {
+    const ti = p.tierIndex;
+    const t = tiers[ti];
+    const imm = Number(p.data?.immediate_family_only_count || 0);
+    const peer = Number(p.data?.annual_household_peer_count || 0);
+    const ext = Number(p.data?.extended_guest_count || 0);
+    const guestSeats = imm + peer + ext;
+    const guestTotal =
+      Number(p.data?.immediate_family_only_after_promos || 0) +
+      Number(p.data?.annual_household_after_promos || 0) +
+      Number(p.data?.extended_guests_after_promos || 0);
+    return {
+      tierIndex: ti,
+      tierLabel: t?.label || `Tier ${ti}`,
+      include_self: !!p.data?.include_self,
+      total: Number(p.data?.total || 0),
+      guestSeats,
+      guestTotal,
+      data: p.data,
+    };
+  });
+  return merged;
+}

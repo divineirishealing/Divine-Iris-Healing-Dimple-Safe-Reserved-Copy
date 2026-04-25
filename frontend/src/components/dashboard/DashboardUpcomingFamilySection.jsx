@@ -27,6 +27,9 @@ import {
   programIncludedInAnnualPackage,
   programTierIsYearLong,
   nonYearLongTierIndices,
+  mergeDashboardQuoteResponses,
+  resolveEffectiveGuestTierForQuote,
+  defaultTierForNewGuestSelection,
 } from './dashboardUpcomingHelpers';
 import {
   buildAnnualDashboardCartParticipants,
@@ -862,6 +865,13 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh, bo
         if (!v || typeof v !== 'object') return;
         const row = { bookerJoinsProgram: v.bookerJoinsProgram !== false };
         if (typeof v.familyPaidTierIndex === 'number') row.familyPaidTierIndex = v.familyPaidTierIndex;
+        if (v.memberTierById && typeof v.memberTierById === 'object') {
+          const mt = {};
+          Object.entries(v.memberTierById).forEach(([id, ti]) => {
+            if (typeof ti === 'number' && ti >= 0) mt[String(id)] = ti;
+          });
+          if (Object.keys(mt).length) row.memberTierById = mt;
+        }
         slim[k] = row;
       });
       setSeatDraftsByProgram(slim);
@@ -1129,51 +1139,119 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh, bo
       return;
     }
     let cancelled = false;
+
+    const guestTierGroups = (p, idList, draft, uiTier, needsFamilyPaidTier) => {
+      const m = new Map();
+      for (const gid of idList) {
+        const t = resolveEffectiveGuestTierForQuote(p, gid, {
+          memberTierById: draft?.memberTierById,
+          familyPaidTierIndex: draft?.familyPaidTierIndex,
+          uiTier,
+          needsFamilyPaidTier,
+        });
+        if (!m.has(t)) m.set(t, []);
+        m.get(t).push(gid);
+      }
+      return m;
+    };
+
     Promise.all(
-      programs.map((p) => {
-        const ids = selectedFamilyByProgram[p.id] || [];
-        const draft = seatDraftsByProgram[p.id];
-        const includedInPkg =
-          annualPortalAccess && (programIncludedInAnnualPackage(p, annualIncludedIds) || false);
-        const bookerJoins = includedInPkg ? false : draft?.bookerJoinsProgram !== false;
-        const uiTier = getDashboardTier(p);
-        const paidTierOptions = nonYearLongTierIndices(p);
-        const needsFamilyPaidTier =
-          includedInPkg &&
-          programTierIsYearLong(p, uiTier) &&
-          ids.length > 0 &&
-          paidTierOptions.length > 0;
-        let quoteTier = uiTier;
-        if (needsFamilyPaidTier) {
-          const pick = draft?.familyPaidTierIndex;
-          if (
-            typeof pick === 'number' &&
-            pick >= 0 &&
-            paidTierOptions.includes(pick)
-          ) {
-            quoteTier = pick;
-          } else {
-            return Promise.resolve({
-              id: p.id,
-              data: { _awaitingFamilyPaidTier: true, program_id: p.id },
-            });
+      programs.map((p) =>
+        (async () => {
+          const ids = (selectedFamilyByProgram[p.id] || []).map(String);
+          const draft = seatDraftsByProgram[p.id];
+          const includedInPkg =
+            annualPortalAccess && (programIncludedInAnnualPackage(p, annualIncludedIds) || false);
+          const bookerJoins = includedInPkg ? false : draft?.bookerJoinsProgram !== false;
+          const uiTier = getDashboardTier(p);
+          const paidTierOptions = nonYearLongTierIndices(p);
+          const needsFamilyPaidTier =
+            includedInPkg &&
+            programTierIsYearLong(p, uiTier) &&
+            ids.length > 0 &&
+            paidTierOptions.length > 0;
+
+          if (ids.length > 0 && needsFamilyPaidTier) {
+            for (const gid of ids) {
+              const t = resolveEffectiveGuestTierForQuote(p, gid, {
+                memberTierById: draft?.memberTierById,
+                familyPaidTierIndex: draft?.familyPaidTierIndex,
+                uiTier,
+                needsFamilyPaidTier,
+              });
+              if (programTierIsYearLong(p, t)) {
+                return {
+                  id: p.id,
+                  data: { _awaitingFamilyPaidTier: true, program_id: p.id },
+                };
+              }
+            }
           }
-        }
-        const params =
-          ids.length > 0
-            ? { program_id: p.id, currency: portalQuoteCurrency, family_ids: ids.join(','), booker_joins: bookerJoins }
-            : { program_id: p.id, currency: portalQuoteCurrency, family_count: 0, booker_joins: bookerJoins };
-        if (p.is_flagship && (p.duration_tiers || []).length > 0) {
-          params.tier_index = quoteTier;
-        }
-        return axios
-          .get(`${API}/api/student/dashboard-quote`, {
-            params,
-            withCredentials: true,
-          })
-          .then((r) => ({ id: p.id, data: r.data }))
-          .catch(() => ({ id: p.id, data: null }));
-      })
+
+          const flagship = p.is_flagship && (p.duration_tiers || []).length > 0;
+          const groups = guestTierGroups(p, ids, draft, uiTier, needsFamilyPaidTier);
+
+          const quotePart = async (tierIdx, familyIdsList, bj) => {
+            const params = {
+              program_id: p.id,
+              currency: portalQuoteCurrency,
+              booker_joins: bj,
+            };
+            if (familyIdsList && familyIdsList.length > 0) {
+              params.family_ids = familyIdsList.join(',');
+            } else {
+              params.family_count = 0;
+            }
+            if (flagship) params.tier_index = tierIdx;
+            try {
+              const r = await axios.get(`${API}/api/student/dashboard-quote`, {
+                params,
+                withCredentials: true,
+              });
+              return { tierIndex: tierIdx, data: r.data };
+            } catch {
+              return { tierIndex: tierIdx, data: null };
+            }
+          };
+
+          let parts;
+          if (!bookerJoins) {
+            if (ids.length === 0) {
+              parts = [await quotePart(uiTier, [], false)];
+            } else if (groups.size === 1) {
+              const [t, gids] = [...groups.entries()][0];
+              parts = [await quotePart(t, gids, false)];
+            } else {
+              parts = await Promise.all(
+                [...groups.entries()].map(([t, gids]) => quotePart(t, gids, false)),
+              );
+            }
+          } else if (ids.length === 0) {
+            parts = [await quotePart(uiTier, [], true)];
+          } else if (groups.size === 1) {
+            const [onlyT, gids] = [...groups.entries()][0];
+            if (onlyT === uiTier) {
+              parts = [await quotePart(uiTier, gids, true)];
+            } else {
+              const selfP = await quotePart(uiTier, [], true);
+              const gP = await quotePart(onlyT, gids, false);
+              parts = [selfP, gP];
+            }
+          } else {
+            const selfP = await quotePart(uiTier, [], true);
+            const guestPs = await Promise.all(
+              [...groups.entries()].map(([t, gids]) => quotePart(t, gids, false)),
+            );
+            parts = [selfP, ...guestPs];
+          }
+
+          if (parts.some((x) => !x.data)) {
+            return { id: p.id, data: null };
+          }
+          const merged = mergeDashboardQuoteResponses(p, parts);
+          return { id: p.id, data: merged };
+        })()
+      )
     ).then((rows) => {
       if (cancelled) return;
       const next = {};
@@ -1207,10 +1285,11 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh, bo
         const pid = prog.id;
         if ((selectedFamilyByProgram[pid] || []).length > 0) continue;
         const d = next[pid];
-        if (d && d.familyPaidTierIndex != null) {
+        if (d && (d.familyPaidTierIndex != null || d.memberTierById)) {
           if (next === prev) next = { ...prev };
           const cur = { ...d };
           delete cur.familyPaidTierIndex;
+          delete cur.memberTierById;
           next[pid] = cur;
           any = true;
         }
@@ -1218,6 +1297,60 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh, bo
       return any ? next : prev;
     });
   }, [programsForPrefetch, familySelectionKey]);
+
+  /** Seed per-guest tier defaults when members are newly checked (mixed durations). */
+  useEffect(() => {
+    setSeatDraftsByProgram((prev) => {
+      let next = prev;
+      let any = false;
+      for (const prog of programsForPrefetch) {
+        const pid = prog.id;
+        const sel = (selectedFamilyByProgram[pid] || []).map(String);
+        const tiers = prog.duration_tiers || [];
+        let uiT = dashboardTierByProgram[pid];
+        if (typeof uiT !== 'number' || uiT < 0 || uiT >= tiers.length) {
+          uiT = pickTierIndexForDashboard(prog, !!annualPortalAccess) ?? 0;
+        }
+        const includedInPkg =
+          annualPortalAccess && (programIncludedInAnnualPackage(prog, annualIncludedIds) || false);
+        const needsFam =
+          includedInPkg &&
+          programTierIsYearLong(prog, uiT) &&
+          sel.length > 0 &&
+          nonYearLongTierIndices(prog).length > 0;
+        const curDraft = { ...(next[pid] || createEmptySeatDraft()) };
+        const map = { ...(curDraft.memberTierById || {}) };
+        let ch = false;
+        for (const id of sel) {
+          if (map[id] === undefined) {
+            map[id] = defaultTierForNewGuestSelection(prog, uiT, curDraft.familyPaidTierIndex, needsFam);
+            ch = true;
+          }
+        }
+        Object.keys(map).forEach((k) => {
+          if (!sel.includes(k)) {
+            delete map[k];
+            ch = true;
+          }
+        });
+        if (ch) {
+          if (next === prev) next = { ...prev };
+          next[pid] = {
+            ...curDraft,
+            memberTierById: Object.keys(map).length ? map : undefined,
+          };
+          any = true;
+        }
+      }
+      return any ? next : prev;
+    });
+  }, [
+    programsForPrefetch,
+    familySelectionKey,
+    dashboardTierByProgram,
+    annualPortalAccess,
+    annualIncludedIds,
+  ]);
 
   /** Per-program guest seat rows: each upcoming card keeps its own attendance/notify for selected members. */
   useEffect(() => {
@@ -1454,7 +1587,8 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh, bo
       partial.bookerSeatNotify !== undefined ||
       partial.guestSeatForm !== undefined ||
       partial.bookerJoinsProgram !== undefined ||
-      partial.familyPaidTierIndex !== undefined;
+      partial.familyPaidTierIndex !== undefined ||
+      partial.memberTierById !== undefined;
     if (touchesDraft) {
       setSeatDraftsByProgram((prev) => {
         const cur = { ...(prev[programId] || createEmptySeatDraft()) };
@@ -1469,6 +1603,24 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh, bo
             delete cur.familyPaidTierIndex;
           } else {
             cur.familyPaidTierIndex = partial.familyPaidTierIndex;
+          }
+        }
+        if (partial.memberTierById !== undefined) {
+          if (partial.memberTierById === null) {
+            delete cur.memberTierById;
+          } else {
+            const next = { ...(cur.memberTierById || {}) };
+            Object.entries(partial.memberTierById).forEach(([k, v]) => {
+              const id = String(k);
+              if (v === null || v === undefined) {
+                delete next[id];
+              } else {
+                const n = Number(v);
+                if (!Number.isNaN(n)) next[id] = n;
+              }
+            });
+            if (Object.keys(next).length) cur.memberTierById = next;
+            else delete cur.memberTierById;
           }
         }
         return { ...prev, [programId]: cur };
@@ -1912,12 +2064,14 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh, bo
                   toggleSelectAllFamilyForProgram={toggleSelectAllFamilyForProgram}
                   openEnrollmentSeatModal={openEnrollmentSeatModal}
                   dashboardTierIndex={getDashboardTier(p)}
+                  memberTierById={draftRow.memberTierById}
                   familyPaidTierIndex={draftRow.familyPaidTierIndex}
                   onFamilyPaidTierChange={(tierIdx) => patchSeatDraft(p.id, { familyPaidTierIndex: tierIdx })}
                   onDashboardTierChange={(programId, tierIndex) => {
                     setDashboardTierByProgram((prev) => ({ ...prev, [programId]: tierIndex }));
                     const prog = programsForPrefetch.find((x) => String(x.id) === String(programId));
                     if (!prog) return;
+                    patchSeatDraft(programId, { memberTierById: null });
                     if (!programTierIsYearLong(prog, tierIndex)) {
                       patchSeatDraft(programId, { familyPaidTierIndex: null });
                       return;
@@ -1927,6 +2081,9 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh, bo
                       patchSeatDraft(programId, { familyPaidTierIndex: null });
                     }
                   }}
+                  onMemberTierChange={(memberId, tierIdx) =>
+                    patchSeatDraft(p.id, { memberTierById: { [String(memberId)]: tierIdx } })
+                  }
                   enrollmentSelf={enrollmentSelf}
                   crossSellRules={crossSellRules}
                   resolveCartCrossSellTier={resolveCartCrossSellTier}
