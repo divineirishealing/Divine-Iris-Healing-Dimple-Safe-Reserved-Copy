@@ -137,9 +137,10 @@ export default function AnnualPortalClientsTab() {
     setUploadReport(null);
     try {
       const fd = new FormData();
-      fd.append('file', excelFile);
+      fd.append('file', excelFile, excelFile.name || 'upload.xlsx');
+      // Do not set Content-Type: axios adds multipart boundary; a bare multipart/form-data breaks FastAPI upload
       const { data } = await axios.post(`${API}/clients/annual-portal-subscription-upload`, fd, {
-        headers: { 'Content-Type': 'multipart/form-data' },
+        timeout: 120000,
       });
       setUploadReport(data);
       const errN = Number(data.error_count || 0);
@@ -247,14 +248,20 @@ export default function AnnualPortalClientsTab() {
         <Download className="h-3.5 w-3.5 mr-1" />
         Template
       </Button>
-      <button
-        type="button"
-        onClick={() => excelFileInputRef.current?.click()}
-        className="inline-flex items-center gap-1.5 text-xs text-neutral-700 cursor-pointer border border-[#c6c6c6] rounded-sm px-2 py-1 bg-white hover:bg-neutral-50 min-h-8"
-        aria-label="Choose Excel file to upload"
-      >
-        <span className="max-w-[10rem] truncate text-left">{excelFile ? excelFile.name : 'Choose .xlsx'}</span>
-      </button>
+      <label className="relative inline-flex items-center text-xs text-neutral-700 cursor-pointer border border-[#c6c6c6] rounded-sm px-2 py-1 bg-white hover:bg-neutral-50 min-h-8 min-w-[7rem]">
+        <input
+          ref={excelFileInputRef}
+          type="file"
+          accept={EXCEL_ACCEPT}
+          className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
+          aria-label="Choose Excel file to upload"
+          onChange={(e) => {
+            setExcelFile(e.target.files?.[0] || null);
+            setUploadReport(null);
+          }}
+        />
+        <span className="pointer-events-none max-w-[10rem] truncate">{excelFile ? excelFile.name : 'Choose .xlsx'}</span>
+      </label>
       <Button
         type="button"
         variant="outline"
@@ -275,18 +282,6 @@ export default function AnnualPortalClientsTab() {
 
   return (
     <div className="w-full min-w-0 flex flex-col gap-2">
-      {/* Single hidden input; opened via button next to the grid */}
-      <input
-        ref={excelFileInputRef}
-        type="file"
-        accept={EXCEL_ACCEPT}
-        className="sr-only"
-        tabIndex={-1}
-        onChange={(e) => {
-          setExcelFile(e.target.files?.[0] || null);
-          setUploadReport(null);
-        }}
-      />
       <div className="shrink-0 min-w-0">
         <h2 className="text-base font-semibold text-gray-900">Annual + dashboard (Client Garden)</h2>
         <p className="text-xs text-gray-600 mt-0.5 max-w-3xl">
