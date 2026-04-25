@@ -1701,6 +1701,16 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh, bo
           </div>
         </div>
 
+        {!annualPortalAccess ? (
+          <p
+            className="mb-4 text-center text-[11px] text-slate-600 leading-relaxed px-1"
+            data-testid="dashboard-website-pricing-note"
+          >
+            Pricing and offers use the same published tier rates and cart discounts as the main website (not the
+            Annual+Dashboard member columns).
+          </p>
+        ) : null}
+
         {homeData?.awrp_batch?.id ? (
           <div
             className="mb-4 rounded-xl border border-teal-200/90 bg-gradient-to-r from-teal-50/90 via-white/60 to-emerald-50/50 px-3 py-2.5 text-center sm:text-left"

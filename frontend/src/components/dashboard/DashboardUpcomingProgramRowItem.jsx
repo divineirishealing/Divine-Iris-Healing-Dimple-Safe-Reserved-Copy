@@ -82,6 +82,8 @@ function AnnualQuoteBreakdown({
         : Math.max(0, Number(aq.immediate_family_count || 0) - ahSel);
   const ext = Number(aq.extended_guest_count || 0);
   const showSelf = !includedPkg && aq.include_self !== false;
+  /** Same roster bucket as backend; label matches website parity when not on Annual+Dashboard. */
+  const linkedHouseholdLabel = annualDashboardAccess ? 'Annual Family Club' : 'Linked household';
 
   const selfStrike =
     !includedPkg && Number(aq.self_unit) > Number(aq.self_after_promos ?? 0) ? (
@@ -103,7 +105,7 @@ function AnnualQuoteBreakdown({
           <p className="text-[10px] font-bold uppercase tracking-wide text-slate-500">
             {annualDashboardAccess
               ? 'Offer per person — Annual member · Annual Family Club · Immediate family'
-              : 'Offer per seat — You (family column) · Annual Family Club (annual column) · others'}
+              : 'Offer per seat — same published rates as the main website for this tier · You · linked household · immediate family · friends & extended'}
           </p>
         ) : null}
         <div className="rounded-md border border-slate-200 bg-white w-full px-3 py-2.5 space-y-2">
@@ -112,8 +114,8 @@ function AnnualQuoteBreakdown({
           !annualDashboardAccess &&
           ahSel > 0 ? (
             <p className="text-[10px] text-violet-900/90 bg-violet-50/90 border border-violet-100 rounded-md px-2.5 py-1.5 leading-snug">
-              This program is on the annual package list. Annual Family Club peers with their own Annual
-              access may have seats covered by their package — see the club line below.
+              This program is on the annual package list. Linked household members with their own Annual+Dashboard
+              access may have seats covered by their package — see the household line below.
             </p>
           ) : null}
           {includedPkg ? (
@@ -136,7 +138,7 @@ function AnnualQuoteBreakdown({
           ) : null}
           {ahSel > 0 ? (
             <div className={rowClass}>
-              <span className="font-medium text-slate-800">Annual Family Club</span>
+              <span className="font-medium text-slate-800">{linkedHouseholdLabel}</span>
               {includedPkg ? (
                 <span className="text-slate-600 text-right">Included in annual package</span>
               ) : ahPay > 0 ? (
@@ -203,7 +205,7 @@ function AnnualQuoteBreakdown({
           <p className="text-[10px] font-bold uppercase tracking-wide text-slate-500">
             {annualDashboardAccess
               ? 'Prices — Annual Member · Annual Family Club · Immediate family · Friends & extended'
-              : 'Prices — You · Immediate family · Friends & extended'}
+              : 'Prices — same as the main website for this tier · You · Linked household · Immediate family · Friends & extended'}
           </p>
           <p className="font-semibold text-slate-900 text-xs">Calculate total amount</p>
         </>
@@ -227,7 +229,7 @@ function AnnualQuoteBreakdown({
         ) : null}
         {ahSel > 0 ? (
           <li className={includedPkg ? 'text-slate-600' : undefined}>
-            Annual Family Club × {ahSel}:{' '}
+            {linkedHouseholdLabel} × {ahSel}:{' '}
             {includedPkg ? (
               <span className="font-medium text-slate-800">included in annual package</span>
             ) : ahPay > 0 ? (
@@ -355,7 +357,7 @@ export default function DashboardUpcomingProgramRowItem({
 
   const price = getPrice(p, hasTiers ? tierIdxForDisplay : null);
   const offerPrice = getOfferPrice(p, hasTiers ? tierIdxForDisplay : null);
-  /** Public-site style unit: tier offer when set, else list (portal quote adds dashboard overlays only for Annual access). */
+  /** Tier offer when set, else list — matches program page; portal column overlays apply only with Annual+Dashboard access (backend). */
   const dashboardSeatUnit = offerPrice > 0 ? offerPrice : price;
   const showContact = !subscriberIsAnnual && tierIsYearLong && price === 0;
 
@@ -980,7 +982,7 @@ export default function DashboardUpcomingProgramRowItem({
               {annualHouseholdPeers.length > 0 ? (
                 <div className="min-w-0">
                   <p className="text-[10px] font-bold uppercase tracking-wide text-violet-700 mb-2">
-                    Annual Family Club
+                    {annualDashboardAccess ? 'Annual Family Club' : 'Linked household'}
                   </p>
                   <ul className="space-y-1.5">
                     {annualHouseholdPeers.map((m, gidx) => {

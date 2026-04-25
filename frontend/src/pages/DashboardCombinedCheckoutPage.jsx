@@ -366,6 +366,8 @@ export default function DashboardCombinedCheckoutPage() {
   const [clientPreferredPaymentMethod, setClientPreferredPaymentMethod] = useState('');
   const [annualPortalSubtotal, setAnnualPortalSubtotal] = useState(null);
   const [annualQuotesByProgram, setAnnualQuotesByProgram] = useState({});
+  /** Matches Sacred Home / GET student home — drives roster labels (Linked household vs Annual Family Club). */
+  const [bookerAnnualPortalAccess, setBookerAnnualPortalAccess] = useState(false);
   const promoFromUrlApplied = useRef(false);
   /** When true, skip the "empty cart → back to dashboard" redirect (e.g. after pay redirect or intentional clear + orders). */
   const suppressEmptyCartRedirectRef = useRef(false);
@@ -496,11 +498,17 @@ export default function DashboardCombinedCheckoutPage() {
     ])
       .then(([homeRes, prefillRes]) => {
         if (cancelled) return;
-        const pm = homeRes.data?.payment_methods;
+        const h = homeRes.data || {};
+        const pm = h.payment_methods;
         if (Array.isArray(pm) && pm.length) setPaymentMethods(pm);
         setPortalSelf(prefillRes.data?.self || null);
-        setClientIndiaPricing(homeRes.data?.client_india_pricing || null);
-        setClientPreferredPaymentMethod(String(homeRes.data?.preferred_payment_method || '').trim());
+        setClientIndiaPricing(h.client_india_pricing || null);
+        setClientPreferredPaymentMethod(String(h.preferred_payment_method || '').trim());
+        const ap =
+          h.annual_portal_access != null
+            ? !!h.annual_portal_access
+            : !!(h.annual_member_dashboard || h.subscription_annual_package_signals);
+        setBookerAnnualPortalAccess(ap);
       })
       .catch(() => {});
     return () => {
@@ -570,6 +578,7 @@ export default function DashboardCombinedCheckoutPage() {
           home.annual_portal_access != null
             ? !!home.annual_portal_access
             : !!(home.annual_member_dashboard || home.subscription_annual_package_signals);
+        setBookerAnnualPortalAccess(annualAccess);
         const enrollableGuests = mergeEnrollableGuestsForPortalCart(home);
         const bucketLookupMembers = guestBucketLookupMembersFromHome(home);
         const snap = readUpcomingDashboardSession(email);
@@ -1382,7 +1391,9 @@ export default function DashboardCombinedCheckoutPage() {
               (!!lineQuote?.included_in_annual_package || !!p.peer_included_in_annual_package);
             const bucketRoleHint =
               guestBucket === 'annual_household'
-                ? 'Annual Family Club'
+                ? bookerAnnualPortalAccess
+                  ? 'Annual Family Club'
+                  : 'Linked household'
                 : guestBucket === 'immediate'
                   ? 'Immediate family'
                   : guestBucket === 'extended'
