@@ -14,7 +14,7 @@ import { Button } from '../components/ui/button';
 import {
   User, Monitor, Wifi, Mail, Phone, CreditCard, Lock, Plus, Trash2,
   ChevronRight, ChevronLeft, Check, ShieldAlert, ShieldCheck,
-  Loader2, Bell, BellOff, Tag, Calendar, FileText, Quote, Clock, Gift, Star
+  Loader2, Bell, BellOff, Tag, Calendar, FileText, Quote, Clock, Gift, Star, IndianRupee
 } from 'lucide-react';
 import StarField from '../components/ui/StarField';
 import MotivationalSignupFlash from '../components/MotivationalSignupFlash';
@@ -40,6 +40,24 @@ const COUNTRIES = [
   { code: "IT", name: "Italy", phone: "+39" }, { code: "ES", name: "Spain", phone: "+34" },
   { code: "NL", name: "Netherlands", phone: "+31" }, { code: "NZ", name: "New Zealand", phone: "+64" },
 ].sort((a, b) => a.name.localeCompare(b.name));
+
+function loadRazorpayScript() {
+  return new Promise((resolve, reject) => {
+    if (typeof window === 'undefined') {
+      reject(new Error('No window'));
+      return;
+    }
+    if (window.Razorpay) {
+      resolve();
+      return;
+    }
+    const s = document.createElement('script');
+    s.src = 'https://checkout.razorpay.com/v1/checkout.js';
+    s.onload = () => resolve();
+    s.onerror = () => reject(new Error('Could not load Razorpay'));
+    document.body.appendChild(s);
+  });
+}
 
 function splitPhoneForEnrollment(fullPhone, countries) {
   const raw = String(fullPhone || '').replace(/[\s-]/g, '');
@@ -327,6 +345,8 @@ function EnrollmentPage() {
   const [crossSellRules, setCrossSellRules] = useState([]);
   const [pointsSummary, setPointsSummary] = useState(null);
   const [pointsToRedeem, setPointsToRedeem] = useState(0);
+  const [razorpayConfig, setRazorpayConfig] = useState({ enabled: false, key_id: null });
+  const [razorpayBusy, setRazorpayBusy] = useState(false);
 
   // Auto-derive booker from first participant
   const firstP = participants[0] || {};
@@ -377,6 +397,13 @@ function EnrollmentPage() {
       axios.get(`${API}/session-extras/testimonials?session_id=${id}`).then(r => setSessionTestimonials(r.data || [])).catch(() => {});
     }
   }, [id, type, navigate]);
+
+  useEffect(() => {
+    axios
+      .get(`${API}/payments/razorpay/config`)
+      .then((r) => setRazorpayConfig(r.data || { enabled: false }))
+      .catch(() => setRazorpayConfig({ enabled: false }));
+  }, []);
 
   useEffect(() => {
     dashboardPrefillDoneRef.current = false;
@@ -671,6 +698,15 @@ function EnrollmentPage() {
       ? Math.max(0, Math.round((total - pointsCashEstimate) * 100) / 100)
       : total;
 
+  const razorpayEligible = useMemo(() => {
+    if (!razorpayConfig?.enabled || !enrollmentId) return false;
+    if (String(priceCurrency || '').toLowerCase() !== 'inr') return false;
+    if (detectedCountry !== 'IN') return false;
+    if (String(bookerCountry || '').toUpperCase() !== 'IN') return false;
+    if (displayCheckoutTotal <= 0) return false;
+    return true;
+  }, [razorpayConfig, enrollmentId, priceCurrency, detectedCountry, bookerCountry, displayCheckoutTotal]);
+
   const validatePromo = async () => {
     if (!promoCode.trim()) return;
     setPromoLoading(true);
@@ -819,6 +855,75 @@ function EnrollmentPage() {
         window.location.href = res.data.url;
       }
     } catch (err) { toast({ title: 'Error', description: err.response?.data?.detail || 'Something went wrong', variant: 'destructive' }); setProcessing(false); }
+  };
+
+  const handleRazorpayCheckout = async () => {
+    if (!razorpayEligible || !enrollmentId) return;
+    setRazorpayBusy(true);
+    try {
+      await loadRazorpayScript();
+      const { data: co } = await axios.post(`${API}/enrollment/${enrollmentId}/checkout-razorpay`, {
+        enrollment_id: enrollmentId,
+        item_type: type,
+        item_id: id,
+        currency: priceCurrency,
+        display_currency: priceCurrency,
+        display_rate: isPrimary ? 1 : undefined,
+        origin_url: window.location.origin,
+        promo_code: promoResult?.code || null,
+        tier_index: selectedTier,
+        points_to_redeem: pointsSummary?.enabled ? Math.max(0, parseInt(String(pointsToRedeem), 10) || 0) : 0,
+        browser_timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+        browser_languages: navigator.languages ? [...navigator.languages] : [navigator.language],
+      });
+      const contactDigits = phone && countryCode ? `${countryCode}${phone}`.replace(/\D/g, '') : '';
+      const options = {
+        key: co.key_id,
+        amount: co.amount,
+        currency: co.currency,
+        order_id: co.order_id,
+        name: 'Divine Iris Healing',
+        description: co.description || item?.title || 'Enrollment',
+        prefill: {
+          name: co.name || bookerName,
+          email: co.email || bookerEmail,
+          ...(contactDigits ? { contact: contactDigits } : {}),
+        },
+        handler: async (response) => {
+          try {
+            await axios.post(`${API}/payments/razorpay/verify`, {
+              razorpay_order_id: response.razorpay_order_id,
+              razorpay_payment_id: response.razorpay_payment_id,
+              razorpay_signature: response.razorpay_signature,
+            });
+            navigate(`/payment/success?session_id=${encodeURIComponent(co.session_id)}`);
+          } catch (err) {
+            toast({
+              title: 'Payment verification failed',
+              description: err.response?.data?.detail || err.message || 'Contact support',
+              variant: 'destructive',
+            });
+          } finally {
+            setRazorpayBusy(false);
+          }
+        },
+        modal: { ondismiss: () => setRazorpayBusy(false) },
+      };
+      const rzp = new window.Razorpay(options);
+      rzp.on('payment.failed', () => {
+        toast({ title: 'Payment not completed', variant: 'destructive' });
+        setRazorpayBusy(false);
+      });
+      rzp.open();
+    } catch (err) {
+      const d = err.response?.data?.detail;
+      toast({
+        title: 'Could not start Razorpay',
+        description: typeof d === 'string' ? d : err.message || 'Try again or use card checkout',
+        variant: 'destructive',
+      });
+      setRazorpayBusy(false);
+    }
   };
 
   if (!item) return <div className="min-h-screen flex items-center justify-center"><Loader2 className="animate-spin text-[#D4AF37]" size={32} /></div>;
@@ -1264,6 +1369,26 @@ function EnrollmentPage() {
                           <ChevronRight size={16} className="text-gray-400 group-hover:text-purple-600" />
                         </button>
 
+                        {razorpayEligible && (
+                        <button
+                          type="button"
+                          onClick={handleRazorpayCheckout}
+                          disabled={razorpayBusy || processing || !enrollmentId}
+                          className="flex items-center justify-between w-full border border-amber-200 rounded-lg p-4 mt-2 hover:border-amber-500 hover:bg-amber-50/60 transition-all group"
+                          data-testid="enrollment-razorpay-option">
+                          <div className="flex items-center gap-3">
+                            <div className="w-8 h-8 bg-amber-100 rounded-lg flex items-center justify-center">
+                              <IndianRupee size={14} className="text-amber-700" />
+                            </div>
+                            <div className="text-left">
+                              <span className="text-sm font-medium text-gray-900 group-hover:text-amber-800">Razorpay (UPI, cards, netbanking)</span>
+                              <p className="text-[10px] text-gray-600">Available when your base country is India and you pay from India</p>
+                            </div>
+                          </div>
+                          {razorpayBusy ? <Loader2 size={16} className="animate-spin text-amber-600" /> : <ChevronRight size={16} className="text-gray-400 group-hover:text-amber-600" />}
+                        </button>
+                        )}
+
                         {paymentSettings.manual_form_enabled && (
                         <button
                           onClick={() => {
@@ -1287,15 +1412,40 @@ function EnrollmentPage() {
                       </div>
                     )}
 
+                    {razorpayEligible && !(detectedCountry === 'IN' && paymentSettings.india_enabled) && (
+                      <div className="mb-4" data-testid="enrollment-razorpay-standalone">
+                        <p className="text-[10px] text-gray-600 mb-2">
+                          Pay in INR with UPI, cards, or netbanking via Razorpay. Shown only when India is your base country, checkout is in INR, and your connection is from India.
+                        </p>
+                        <button
+                          type="button"
+                          onClick={handleRazorpayCheckout}
+                          disabled={razorpayBusy || processing || !enrollmentId}
+                          className="flex items-center justify-between w-full border border-amber-200 rounded-lg p-4 hover:border-amber-500 hover:bg-amber-50/60 transition-all group"
+                          data-testid="enrollment-razorpay-option-standalone">
+                          <div className="flex items-center gap-3">
+                            <div className="w-8 h-8 bg-amber-100 rounded-lg flex items-center justify-center">
+                              <IndianRupee size={14} className="text-amber-700" />
+                            </div>
+                            <div className="text-left">
+                              <span className="text-sm font-medium text-gray-900 group-hover:text-amber-800">Razorpay (UPI, cards, netbanking)</span>
+                              <p className="text-[10px] text-gray-600">INR · India only</p>
+                            </div>
+                          </div>
+                          {razorpayBusy ? <Loader2 size={16} className="animate-spin text-amber-600" /> : <ChevronRight size={16} className="text-gray-400 group-hover:text-amber-600" />}
+                        </button>
+                      </div>
+                    )}
+
                     <div className="flex gap-3">
                       <Button variant="outline" onClick={() => setStep(0)} className="rounded-full"><ChevronLeft size={16} /></Button>
-                      <Button data-testid="pay-now-btn" onClick={handleCheckout} disabled={processing}
+                      <Button data-testid="pay-now-btn" onClick={handleCheckout} disabled={processing || razorpayBusy}
                         className="flex-1 bg-[#D4AF37] hover:bg-[#b8962e] text-white py-3 rounded-full">
                         {processing ? <><Loader2 className="animate-spin mr-2" size={16} /> {displayCheckoutTotal <= 0 ? 'Registering...' : 'Redirecting...'}</> : displayCheckoutTotal <= 0 ? <><Check size={14} className="mr-2" /> Complete Registration</> : <><Lock size={14} className="mr-2" /> Pay {effectiveSymbol} {displayCheckoutTotal.toLocaleString()}</>}
                       </Button>
                     </div>
 
-                    <p className="text-[10px] text-gray-400 mt-3 text-center flex items-center justify-center gap-1"><Lock size={10} /> Secure payment via Stripe</p>
+                    <p className="text-[10px] text-gray-400 mt-3 text-center flex items-center justify-center gap-1"><Lock size={10} /> {razorpayEligible ? 'Secure payment via Stripe or Razorpay' : 'Secure payment via Stripe'}</p>
                       </>
                     )}
                   </div>
