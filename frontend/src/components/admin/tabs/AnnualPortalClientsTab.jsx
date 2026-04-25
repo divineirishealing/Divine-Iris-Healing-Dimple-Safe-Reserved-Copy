@@ -232,6 +232,50 @@ export default function AnnualPortalClientsTab() {
 
   const colSpanFlat = Math.max(flatVisibleCount, 1);
 
+  /** Same actions in the page header and above the grid so upload stays next to the table. */
+  const excelToolbar = (wrapClassName) => (
+    <div className={wrapClassName}>
+      <Button
+        type="button"
+        variant="outline"
+        size="sm"
+        onClick={downloadExcelTemplate}
+        className="h-8 text-xs border-[#217346] text-[#1b5e20] hover:bg-[#e8f5e9]"
+      >
+        <Download className="h-3.5 w-3.5 mr-1" />
+        Template
+      </Button>
+      <label className="inline-flex items-center gap-1.5 text-xs text-neutral-700 cursor-pointer border border-[#c6c6c6] rounded-sm px-2 py-1 bg-white hover:bg-neutral-50">
+        <input
+          key={excelFileInputKey}
+          type="file"
+          accept=".xlsx,.xlsm,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+          className="sr-only"
+          onChange={(e) => {
+            setExcelFile(e.target.files?.[0] || null);
+            setUploadReport(null);
+          }}
+        />
+        <span className="max-w-[10rem] truncate">{excelFile ? excelFile.name : 'Choose .xlsx'}</span>
+      </label>
+      <Button
+        type="button"
+        variant="outline"
+        size="sm"
+        onClick={uploadExcel}
+        disabled={excelUploading || !excelFile}
+        className="h-8 text-xs"
+      >
+        {excelUploading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Upload className="h-3.5 w-3.5" />}
+        <span className="ml-1">Upload</span>
+      </Button>
+      <Button type="button" variant="outline" size="sm" onClick={load} disabled={loading} className="h-8 text-xs">
+        {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
+        <span className="ml-1.5">Refresh</span>
+      </Button>
+    </div>
+  );
+
   return (
     <div className="w-full min-w-0 flex flex-col gap-2">
       <div className="flex flex-wrap items-start justify-between gap-3 shrink-0">
@@ -243,46 +287,7 @@ export default function AnnualPortalClientsTab() {
             <strong>Upload</strong> finds columns by <strong>header title</strong> (not left-to-right order); if row 1 is a dashboard title, headers on row 2 are detected automatically. Members without email: use <strong>Client id</strong>.
           </p>
         </div>
-        <div className="flex flex-wrap items-center gap-2 shrink-0">
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            onClick={downloadExcelTemplate}
-            className="h-8 text-xs border-[#217346] text-[#1b5e20] hover:bg-[#e8f5e9]"
-          >
-            <Download className="h-3.5 w-3.5 mr-1" />
-            Template
-          </Button>
-          <label className="inline-flex items-center gap-1.5 text-xs text-neutral-700 cursor-pointer border border-[#c6c6c6] rounded-sm px-2 py-1 bg-white hover:bg-neutral-50">
-            <input
-              key={excelFileInputKey}
-              type="file"
-              accept=".xlsx,.xlsm,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-              className="sr-only"
-              onChange={(e) => {
-                setExcelFile(e.target.files?.[0] || null);
-                setUploadReport(null);
-              }}
-            />
-            <span className="max-w-[10rem] truncate">{excelFile ? excelFile.name : 'Choose .xlsx'}</span>
-          </label>
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            onClick={uploadExcel}
-            disabled={excelUploading || !excelFile}
-            className="h-8 text-xs"
-          >
-            {excelUploading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Upload className="h-3.5 w-3.5" />}
-            <span className="ml-1">Upload</span>
-          </Button>
-          <Button type="button" variant="outline" size="sm" onClick={load} disabled={loading} className="h-8 text-xs">
-            {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
-            <span className="ml-1.5">Refresh</span>
-          </Button>
-        </div>
+        {excelToolbar('flex flex-wrap items-center gap-2 shrink-0')}
       </div>
 
       {uploadReport && (
@@ -419,6 +424,10 @@ export default function AnnualPortalClientsTab() {
       />
 
       <div className={sheetFrame}>
+        <div className="shrink-0 flex flex-wrap items-center gap-2 border-b border-[#8c8c8c] bg-[#e8f0e8] px-2 py-1.5">
+          <span className="text-[10px] font-bold text-[#1b5e20] uppercase tracking-wide mr-0.5">Excel on this table</span>
+          {excelToolbar('flex flex-wrap items-center gap-2')}
+        </div>
         <div className={sheetScroll}>
         {viewMode === 'flat' ? (
           <table className={tableGrid}>
@@ -608,7 +617,7 @@ export default function AnnualPortalClientsTab() {
       </div>
       {!loading && rows.length > 0 && viewMode === 'flat' && (
         <p className="text-[11px] text-neutral-500 shrink-0 px-0.5">
-          {rows.length} rows · {householdGroups.length} groups (household view)
+          {rows.length} rows · {householdGroups.length} household groups
         </p>
       )}
     </div>
