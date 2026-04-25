@@ -15,6 +15,16 @@ client = AsyncIOMotorClient(mongo_url)
 db = client[os.environ['DB_NAME']]
 
 
+def _discount_bool(doc: dict, key: str, default: bool = False) -> bool:
+    """Mongo may store null; dict.get(key, default) returns None when key exists with null."""
+    if not doc or key not in doc:
+        return default
+    v = doc[key]
+    if v is None:
+        return default
+    return bool(v)
+
+
 @router.get("/settings")
 async def get_discount_settings():
     """Get global discount & loyalty settings."""
@@ -44,6 +54,8 @@ async def get_discount_settings():
             "points_bonus_referral": 500,
             "points_redeem_excludes_flagship": True,
             "points_activities": load_points_config({}).get("activities", []),
+            "cross_sell_rules": [],
+            "enable_cross_sell": False,
         }
     pts_cfg = load_points_config(settings or {})
     return {
@@ -58,7 +70,7 @@ async def get_discount_settings():
         "enable_loyalty": settings.get("enable_loyalty", False),
         "loyalty_discount_pct": settings.get("loyalty_discount_pct", 0),
         "cross_sell_rules": settings.get("cross_sell_rules", []),
-        "enable_cross_sell": settings.get("enable_cross_sell", False),
+        "enable_cross_sell": _discount_bool(settings, "enable_cross_sell", False),
         "special_offers": settings.get("special_offers", []),
         "points_enabled": settings.get("points_enabled", True),
         "points_max_basket_pct": settings.get("points_max_basket_pct", 20.0),

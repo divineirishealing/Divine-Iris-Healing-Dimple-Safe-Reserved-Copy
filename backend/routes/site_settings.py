@@ -168,6 +168,9 @@ async def update_settings(payload: Dict[str, Any]):
     # Defensive: Pydantic v2 partial bodies should still persist explicit False
     if hasattr(settings, "model_fields_set") and "checkout_promo_code_visible" in settings.model_fields_set:
         update_data["checkout_promo_code_visible"] = bool(settings.checkout_promo_code_visible)
+    # Raw JSON — same as other toggles; ensures master cross-sell switch always persists on partial PUTs
+    if "enable_cross_sell" in payload:
+        update_data["enable_cross_sell"] = bool(payload["enable_cross_sell"])
     # Also include fields explicitly set to empty string or empty list
     for field in ['terms_content', 'privacy_content', 'refund_cancellation_policy_content']:
         if raw.get(field) is not None or (field in raw and raw[field] == ''):

@@ -62,7 +62,11 @@ export default function DiscountsTab() {
         axios.get(`${API}/discounts/settings`),
         axios.get(`${API}/programs`),
       ]);
-      setSettings((prev) => ({ ...prev, ...pickDiscountPayload(dRes.data || {}) }));
+      setSettings((prev) => {
+        const patch = pickDiscountPayload(dRes.data || {});
+        if ('enable_cross_sell' in patch) patch.enable_cross_sell = !!patch.enable_cross_sell;
+        return { ...prev, ...patch };
+      });
       setPrograms(pRes.data || []);
     } catch (e) { console.error(e); }
     finally { setLoading(false); }
@@ -71,7 +75,12 @@ export default function DiscountsTab() {
   const saveSettings = async () => {
     setSaving(true);
     try {
-      await axios.put(`${API}/settings`, pickDiscountPayload(settings));
+      const res = await axios.put(`${API}/settings`, pickDiscountPayload(settings));
+      if (res.data) {
+        const patch = pickDiscountPayload(res.data);
+        if ('enable_cross_sell' in patch) patch.enable_cross_sell = !!patch.enable_cross_sell;
+        setSettings((prev) => ({ ...prev, ...patch }));
+      }
       toast({ title: 'Discount settings saved!' });
     } catch (e) {
       toast({ title: 'Error saving', variant: 'destructive' });
