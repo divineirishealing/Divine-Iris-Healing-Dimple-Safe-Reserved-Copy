@@ -832,12 +832,7 @@ export default function DashboardCombinedCheckoutPage() {
     () =>
       programCartLines.map((i) => ({
         programId: i.programId,
-        tierIndex:
-          i.tierIndex != null && i.tierIndex !== ''
-            ? i.tierIndex
-            : i.isFlagship && (i.durationTiers || []).length
-              ? 0
-              : 0,
+        tierIndex: normalizeCartItemTierIndex(i),
       })),
     [programCartLines],
   );
@@ -849,12 +844,7 @@ export default function DashboardCombinedCheckoutPage() {
     let total = 0;
     const rows = [];
     for (const item of programCartLines) {
-      const ti =
-        item.tierIndex != null && item.tierIndex !== ''
-          ? item.tierIndex
-          : item.isFlagship && (item.durationTiers || []).length
-            ? 0
-            : 0;
+      const ti = normalizeCartItemTierIndex(item);
       const unitCs = computeCrossSellDiscount(
         crossSellRules,
         item.programId,
@@ -1004,17 +994,19 @@ export default function DashboardCombinedCheckoutPage() {
 
   const crossSellDisplayRows = useMemo(() => {
     if (clientXs >= apiCrossSellDiscount && clientCrossSellRows.length > 0) {
-      return clientCrossSellRows;
+      return clientCrossSellRows.filter((r) => Number(r.amount) > 0);
     }
     const det = autoDiscounts.cross_sell_details;
     if (Array.isArray(det) && det.length > 0) {
-      return det.map((d) => ({
-        label: d.rule || d.code || 'Bundle',
-        amount: Number(d.amount) || 0,
-        title: '',
-      }));
+      return det
+        .map((d) => ({
+          label: d.rule || d.code || 'Bundle',
+          amount: Number(d.amount) || 0,
+          title: '',
+        }))
+        .filter((r) => r.amount > 0);
     }
-    return clientCrossSellRows;
+    return clientCrossSellRows.filter((r) => Number(r.amount) > 0);
   }, [
     apiCrossSellDiscount,
     autoDiscounts.cross_sell_details,

@@ -15,7 +15,7 @@ import {
 } from 'lucide-react';
 import { ShieldCheck, ShieldAlert } from 'lucide-react';
 import MotivationalSignupFlash from '../components/MotivationalSignupFlash';
-import { computeCrossSellDiscount } from '../lib/crossSellPricing';
+import { computeCrossSellDiscount, normalizeCartItemTierIndex } from '../lib/crossSellPricing';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
@@ -663,11 +663,14 @@ function CartPage() {
 
           {/* Cart items */}
           {items.map((item, itemIdx) => {
-            const cartLines = items.map((i) => ({ programId: i.programId, tierIndex: i.tierIndex }));
+            const cartLines = items.map((i) => ({
+              programId: i.programId,
+              tierIndex: normalizeCartItemTierIndex(i),
+            }));
             const itemCrossSell = computeCrossSellDiscount(
               crossSellRules,
               item.programId,
-              item.tierIndex,
+              normalizeCartItemTierIndex(item),
               getEffectivePrice(item),
               cartLines,
             );
@@ -688,12 +691,15 @@ function CartPage() {
             // Calculate total cross-sell discount from all items
             let totalCrossSell = 0;
             const crossSellDetails = [];
-            const cartLines = items.map((i) => ({ programId: i.programId, tierIndex: i.tierIndex }));
+            const cartLines = items.map((i) => ({
+              programId: i.programId,
+              tierIndex: normalizeCartItemTierIndex(i),
+            }));
             for (const item of items) {
               const unitCs = computeCrossSellDiscount(
                 crossSellRules,
                 item.programId,
-                item.tierIndex,
+                normalizeCartItemTierIndex(item),
                 getEffectivePrice(item),
                 cartLines,
               );

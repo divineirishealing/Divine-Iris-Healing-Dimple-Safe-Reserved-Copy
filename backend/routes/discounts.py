@@ -198,6 +198,9 @@ async def calculate_discounts(data: dict):
             buy_match = False
             if buy_tier and buy_tier != "None" and buy_tier != "":
                 buy_match = (buy_id, buy_tier) in cart_tier_set
+                # Portal cart may store a different tier index than the rule (e.g. 0 vs 1-month); still honor bundle if buy program is in cart.
+                if not buy_match and buy_id in pid_set:
+                    buy_match = True
             else:
                 buy_match = buy_id in pid_set
             
@@ -220,21 +223,44 @@ async def calculate_discounts(data: dict):
                 if disc_type == "percentage":
                     target_prog = await db.programs.find_one({"id": get_id}, {"_id": 0})
                     if target_prog:
-                        currency = data.get("currency", "usd")
+                        currency = (data.get("currency", "usd") or "usd").lower()
+                        tiers = target_prog.get("duration_tiers") or []
+                        cart_line = next(
+                            (ci for ci in cart_items if str(ci.get("program_id", "")).strip() == get_id),
+                            None,
+                        )
+                        raw_line_tier = cart_line.get("tier_index") if cart_line else None
+                        ti = None
                         if get_tier and get_tier != "None" and get_tier != "":
-                            tiers = target_prog.get("duration_tiers", [])
-                            ti = int(get_tier) if get_tier.isdigit() else 0
-                            if ti < len(tiers):
-                                # Use offer price if available, else original
-                                target_price = tiers[ti].get(f"offer_price_{currency}", 0) or tiers[ti].get(f"price_{currency}", 0)
-                            else:
-                                target_price = 0
+                            ti = int(get_tier) if str(get_tier).isdigit() else 0
+                        elif raw_line_tier is not None and raw_line_tier != "":
+                            try:
+                                ti = int(raw_line_tier)
+                            except (TypeError, ValueError):
+                                ti = 0
                         else:
-                            # Use offer price if available, else original
-                            target_price = target_prog.get(f"offer_price_{currency}", 0) or target_prog.get(f"price_{currency}", 0)
-                        amt = round(target_price * disc_val / 100)
-                        cross_sell_discount += amt
-                        cross_sell_details.append({"rule": rule.get("label", ""), "code": rule.get("code", ""), "amount": amt})
+                            ti = 0
+                        target_price = 0.0
+                        if tiers and 0 <= ti < len(tiers):
+                            row = tiers[ti]
+                            target_price = float(row.get(f"offer_price_{currency}", 0) or 0) or float(
+                                row.get(f"price_{currency}", 0) or 0
+                            )
+                        if target_price <= 0 and tiers:
+                            row0 = tiers[0]
+                            target_price = float(row0.get(f"offer_price_{currency}", 0) or 0) or float(
+                                row0.get(f"price_{currency}", 0) or 0
+                            )
+                        if target_price <= 0:
+                            target_price = float(target_prog.get(f"offer_price_{currency}", 0) or 0) or float(
+                                target_prog.get(f"price_{currency}", 0) or 0
+                            )
+                        amt = int(round(target_price * float(disc_val) / 100))
+                        if amt > 0:
+                            cross_sell_discount += amt
+                            cross_sell_details.append(
+                                {"rule": rule.get("label", ""), "code": rule.get("code", ""), "amount": amt}
+                            )
                 else:
                     cross_sell_discount += disc_val
                     cross_sell_details.append({"rule": rule.get("label", ""), "code": rule.get("code", ""), "amount": disc_val})
