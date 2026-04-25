@@ -9,7 +9,7 @@ import {
   Loader2,
   ChevronDown,
 } from 'lucide-react';
-import { useCart } from '../../context/CartContext';
+import { useCart, normalizeCartProgramTier } from '../../context/CartContext';
 import { useToast } from '../../hooks/use-toast';
 import { resolveImageUrl } from '../../lib/imageUtils';
 import { buildHomepageStyleDatetimeBadges } from '../../lib/upcomingHomepagePresentation';
@@ -337,7 +337,7 @@ export default function DashboardUpcomingProgramRowItem({
   crossSellRules = [],
 }) {
   const navigate = useNavigate();
-  const { syncProgramLineItem, items: cartItems } = useCart();
+  const { syncProgramLineItem, removeItem, items: cartItems } = useCart();
   const isInCart = cartItems.some((i) => String(i.programId) === String(p.id));
   const { toast } = useToast();
 
@@ -443,10 +443,23 @@ export default function DashboardUpcomingProgramRowItem({
   const offerPriceXs = offerPrice > 0 ? Math.max(0, offerPrice - crossUnitAdj) : offerPrice;
 
   const hasPortalTotal = aq != null && typeof aq.total === 'number';
-  /** Included package: total can be 0 (member seat only). Otherwise require a positive quote total. */
+  const bookerEnrollingSelf = annualSeatUi?.draft?.bookerJoinsProgram !== false;
+  /**
+   * Paying seats: quote total &gt; 0. Guest-only with no one selected yet: allow Update if the line is already
+   * in the cart so the booker can remove themselves / clear the line without re-checking the box.
+   */
+  const canSaveGuestOnlyClear =
+    !includedPkg &&
+    hasPortalTotal &&
+    !bookerEnrollingSelf &&
+    selCount === 0 &&
+    isInCart;
+  /** Included package: total can be 0 (member seat only). Otherwise require a positive quote total, or cart clear path above. */
   const canAddToDivineCart = hasPortalTotal
     ? Boolean(
-        (includedPkg && Number(aq.total) >= 0) || (!includedPkg && aq.total > 0),
+        (includedPkg && Number(aq.total) >= 0) ||
+          (!includedPkg && aq.total > 0) ||
+          canSaveGuestOnlyClear,
       )
     : Boolean(enrollStatus === 'open' && !showContact);
 
@@ -455,6 +468,7 @@ export default function DashboardUpcomingProgramRowItem({
   const [annualFamilyOpen, setAnnualFamilyOpen] = useState(true);
   const [annualAttendanceOpen, setAnnualAttendanceOpen] = useState(true);
 
+  /** @returns {'synced' | 'removed' | 'noop'} */
   const syncThisProgramToDivineCart = async () => {
     let participants = null;
     try {
@@ -481,6 +495,20 @@ export default function DashboardUpcomingProgramRowItem({
     } catch {
       /* empty row */
     }
+    const normalizedTier = normalizeCartProgramTier(p, tierIdxForDisplay);
+    const existingLine = cartItems.find(
+      (i) =>
+        i.type === 'program' &&
+        String(i.programId) === String(p.id) &&
+        normalizeCartProgramTier(i, i.tierIndex) === normalizedTier,
+    );
+    if (!participants?.length) {
+      if (existingLine) {
+        removeItem(existingLine.id);
+        return 'removed';
+      }
+      return 'noop';
+    }
     const guestBucketById = buildGuestBucketByIdFromSelection(selIds, [
       ...(members || []),
       ...(annualHouseholdPeers || []),
@@ -493,6 +521,7 @@ export default function DashboardUpcomingProgramRowItem({
       portalQuoteTotal: aq?.total != null ? Number(aq.total) : null,
       guestBucketById,
     });
+    return 'synced';
   };
 
   const goProgram = () => navigate(`/program/${p.id}`);
@@ -501,11 +530,18 @@ export default function DashboardUpcomingProgramRowItem({
     e.stopPropagation();
     setAddingToCheckout(true);
     try {
-      await syncThisProgramToDivineCart();
-      toast({
-        title: 'Order updated',
-        description: `${p.title || 'Program'} is in your order. Click DIVINE CART in the sidebar when you are ready to review and pay.`,
-      });
+      const action = await syncThisProgramToDivineCart();
+      if (action === 'synced') {
+        toast({
+          title: 'Order updated',
+          description: `${p.title || 'Program'} is in your order. Click DIVINE CART in the sidebar when you are ready to review and pay.`,
+        });
+      } else if (action === 'removed') {
+        toast({
+          title: 'Removed from Divine Cart',
+          description: `${p.title || 'Program'} had no seats selected. Add family on the card or check “I am enrolling myself” to add it again.`,
+        });
+      }
     } finally {
       setAddingToCheckout(false);
     }
@@ -1386,15 +1422,19 @@ export default function DashboardUpcomingProgramRowItem({
                     ? hasPortalTotal
                       ? includedPkg && selCount < 1
                         ? 'Select family members to join or wait for pricing.'
-                        : (aq.total || 0) <= 0
-                          ? 'No amount due for this selection.'
-                          : ''
+                        : !bookerEnrollingSelf && selCount === 0 && !isInCart
+                          ? 'Select family guests or check “I am enrolling myself”, then add to Divine Cart.'
+                          : (aq.total || 0) <= 0
+                            ? 'No amount due for this selection.'
+                            : ''
                       : showContact
                         ? 'Use contact for pricing for this program.'
                         : !aq && enrollStatus === 'open'
                           ? 'Loading pricing…'
                           : 'Enrollment is closed.'
-                    : undefined
+                    : canSaveGuestOnlyClear
+                      ? 'Remove this program from your cart (no seats selected).'
+                      : undefined
                 }
                 onClick={handleAddToDivineCart}
                 className="w-full inline-flex items-center justify-center gap-2 rounded-full py-2.5 px-5 text-[10px] tracking-wider uppercase font-medium transition-all duration-300 bg-[#D4AF37] text-white hover:bg-[#b8962e] disabled:opacity-50 disabled:pointer-events-none shadow-sm"

@@ -21,7 +21,7 @@ import { useToast } from '../../hooks/use-toast';
 import { useCurrency } from '../../context/CurrencyContext';
 import { useAuth } from '../../context/AuthContext';
 import { useSiteSettings } from '../../context/SiteSettingsContext';
-import { useCart } from '../../context/CartContext';
+import { useCart, normalizeCartProgramTier } from '../../context/CartContext';
 import { pickTierIndexForDashboard, programIncludedInAnnualPackage } from './dashboardUpcomingHelpers';
 import {
   buildAnnualDashboardCartParticipants,
@@ -480,7 +480,7 @@ function DashboardEnrollmentCountdown({ deadline, programTitle }) {
 
 export default function DashboardUpcomingFamilySection({ homeData, onRefresh, bookerEmail = '' }) {
   const navigate = useNavigate();
-  const { syncProgramLineItem, itemCount } = useCart();
+  const { syncProgramLineItem, removeItem, items: cartItems, itemCount } = useCart();
   const { toast } = useToast();
   const { settings: siteSettings } = useSiteSettings();
   const { user } = useAuth();
@@ -1621,6 +1621,34 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh, bo
       /* syncProgramLineItem still updates line meta */
     }
 
+    const normalizedTier = normalizeCartProgramTier(program, tierIdx);
+    const existingLine = cartItems.find(
+      (i) =>
+        i.type === 'program' &&
+        String(i.programId) === String(program.id) &&
+        normalizeCartProgramTier(i, i.tierIndex) === normalizedTier,
+    );
+
+    setEnrollmentSeatOpen(false);
+    setSeatModalCtx(null);
+
+    if (!participants?.length) {
+      if (existingLine) {
+        removeItem(existingLine.id);
+        toast({
+          title: 'Removed from Divine Cart',
+          description: `${program.title || 'Program'} had no seats selected.`,
+        });
+      } else {
+        toast({
+          title: 'No seats to add',
+          description: 'Check “I am enrolling myself” or select family guests, then try again.',
+          variant: 'destructive',
+        });
+      }
+      return;
+    }
+
     const guestBucketById = buildGuestBucketByIdFromSelection(selectedIds, bucketLookupMembers);
     syncProgramLineItem(program, tierIdx, participants, {
       familyIds: selectedIds.map(String),
@@ -1630,8 +1658,6 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh, bo
       guestBucketById,
     });
 
-    setEnrollmentSeatOpen(false);
-    setSeatModalCtx(null);
     toast({
       title: 'Order updated',
       description: `${program.title || 'Program'} is in your order. Click DIVINE CART in the sidebar when you are ready to review and pay.`,
