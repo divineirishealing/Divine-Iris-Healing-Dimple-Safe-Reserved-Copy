@@ -825,7 +825,17 @@ async def enrollment_checkout_razorpay(enrollment_id: str, data: EnrollmentSubmi
     if prep["kind"] == "free":
         raise HTTPException(status_code=400, detail="No payment required for this enrollment.")
 
-    ss_doc = await db.site_settings.find_one({"id": "site_settings"}, {"_id": 0, "enrollment_razorpay_enabled": 1})
+    enrollment = prep["enrollment"]
+
+    ss_doc = await db.site_settings.find_one(
+        {"id": "site_settings"},
+        {
+            "_id": 0,
+            "enrollment_razorpay_enabled": 1,
+            "india_gst_percent": 1,
+            "india_platform_charge_percent": 1,
+        },
+    )
     if (ss_doc or {}).get("enrollment_razorpay_enabled") is False:
         raise HTTPException(
             status_code=403,
@@ -839,7 +849,6 @@ async def enrollment_checkout_razorpay(enrollment_id: str, data: EnrollmentSubmi
             detail="Razorpay is only available when your connection is detected from India.",
         )
 
-    enrollment = prep["enrollment"]
     booker_cc = normalize_country_iso2(str(enrollment.get("booker_country") or ""))
     if booker_cc != "IN":
         raise HTTPException(
@@ -854,16 +863,41 @@ async def enrollment_checkout_razorpay(enrollment_id: str, data: EnrollmentSubmi
             detail="Razorpay is only available for INR checkout.",
         )
 
-    final_total = float(prep["final_total"])
-    if final_total <= 0:
+    list_inr = float(prep["final_total"])
+    if list_inr <= 0:
         raise HTTPException(status_code=400, detail="Invalid amount.")
+
+    participant_count = max(1, int(prep.get("participant_count") or 1))
+    booker_email = (enrollment.get("booker_email") or "").strip().lower()
+    client_id = (enrollment.get("client_id") or "").strip()
+    _cp_proj = {
+        "_id": 0,
+        "india_discount_percent": 1,
+        "india_discount_member_bands": 1,
+        "india_tax_enabled": 1,
+        "india_tax_percent": 1,
+        "india_tax_label": 1,
+    }
+    client_pricing_doc = None
+    if client_id:
+        client_pricing_doc = await db.clients.find_one({"id": client_id}, _cp_proj)
+    if not client_pricing_doc and booker_email:
+        client_pricing_doc = await db.clients.find_one({"email": booker_email}, _cp_proj)
+
+    from utils.india_checkout_math import compute_india_checkout_breakdown
+
+    india_br = compute_india_checkout_breakdown(list_inr, client_pricing_doc, ss_doc, participant_count)
+    if not india_br or india_br.get("rounded_total_inr", 0) <= 0:
+        raise HTTPException(status_code=400, detail="Could not compute India checkout total.")
+
+    charged_inr = float(india_br["rounded_total_inr"])
 
     key_id = (await get_key("razorpay_key_id")).strip()
     key_secret = (await get_key("razorpay_key_secret")).strip()
     if not key_id or not key_secret:
         raise HTTPException(status_code=503, detail="Razorpay is not configured.")
 
-    amount_paise = int(round(final_total * 100))
+    amount_paise = int(round(charged_inr * 100))
     if amount_paise < 100:
         raise HTTPException(status_code=400, detail="Amount too small (minimum ₹1).")
 
@@ -877,7 +911,6 @@ async def enrollment_checkout_razorpay(enrollment_id: str, data: EnrollmentSubmi
     pdata = prep["data"]
     enrollment_id = prep["enrollment_id"]
     item = prep["item"]
-    participant_count = prep["participant_count"]
 
     async with httpx.AsyncClient(timeout=45) as client_http:
         ro = await client_http.post(
@@ -914,10 +947,12 @@ async def enrollment_checkout_razorpay(enrollment_id: str, data: EnrollmentSubmi
         "item_type": pdata.item_type,
         "item_id": pdata.item_id,
         "item_title": item.get("title", "") if item else "",
-        "amount": float(final_total),
+        "amount": charged_inr,
         "currency": currency,
         "stripe_currency": "inr",
-        "stripe_amount": float(final_total),
+        "stripe_amount": charged_inr,
+        "enrollment_list_inr": round(list_inr, 2),
+        "india_checkout_breakdown": india_br,
         "payment_status": "pending",
         "booker_name": enrollment.get("booker_name"),
         "booker_email": enrollment.get("booker_email"),
@@ -956,6 +991,7 @@ async def enrollment_checkout_razorpay(enrollment_id: str, data: EnrollmentSubmi
         "name": (enrollment.get("booker_name") or "")[:200],
         "email": (enrollment.get("booker_email") or "").strip().lower(),
         "description": (item.get("title", "") if item else "Enrollment")[:250],
+        "india_breakdown": india_br,
     }
 
 

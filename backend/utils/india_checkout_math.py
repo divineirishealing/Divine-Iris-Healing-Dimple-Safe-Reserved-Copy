@@ -75,19 +75,19 @@ def _apply_rule_to_base(base: float, rule: Dict[str, Any]) -> float:
     return (b * pct) / 100.0
 
 
-def compute_india_checkout_rounded_total(
+def compute_india_checkout_breakdown(
     effective_base: float,
     client_pricing: Optional[Dict[str, Any]],
     site_settings: Optional[Dict[str, Any]],
     member_count: int,
-) -> float:
+) -> Optional[Dict[str, Any]]:
     """
-    effective_base: INR amount after cart-level promo / VIP / auto discounts.
-    Returns rounded integer INR (Stripe paise / whole rupees as used elsewhere).
+    effective_base: INR after enrollment/cart promo, VIP, auto discounts, points (matches Razorpay/India flows).
+    Returns line items for GST + platform on taxable (after optional CRM India discount), or None if base invalid.
     """
     base = float(effective_base)
     if not math.isfinite(base) or base <= 0:
-        return 0.0
+        return None
 
     s = site_settings or {}
     platform_pct = _parse_percent(s.get("india_platform_charge_percent"), 3.0)
@@ -113,4 +113,29 @@ def compute_india_checkout_rounded_total(
     gst_amt = (taxable * gst_pct) / 100.0
     platform_amt = (taxable * platform_pct) / 100.0
     final = taxable + gst_amt + platform_amt
-    return float(round(final))
+    rounded = float(round(final))
+    return {
+        "list_price_inr": round(base, 2),
+        "india_discount_inr": round(discount_amt, 2),
+        "taxable_inr": round(taxable, 2),
+        "gst_pct": gst_pct,
+        "gst_inr": round(gst_amt, 2),
+        "platform_pct": platform_pct,
+        "platform_inr": round(platform_amt, 2),
+        "charged_total_inr": round(final, 2),
+        "rounded_total_inr": rounded,
+    }
+
+
+def compute_india_checkout_rounded_total(
+    effective_base: float,
+    client_pricing: Optional[Dict[str, Any]],
+    site_settings: Optional[Dict[str, Any]],
+    member_count: int,
+) -> float:
+    """
+    effective_base: INR amount after cart-level promo / VIP / auto discounts.
+    Returns rounded integer INR (Stripe paise / whole rupees as used elsewhere).
+    """
+    b = compute_india_checkout_breakdown(effective_base, client_pricing, site_settings, member_count)
+    return b["rounded_total_inr"] if b else 0.0

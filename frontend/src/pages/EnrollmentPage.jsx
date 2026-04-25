@@ -888,7 +888,6 @@ function EnrollmentPage() {
         browser_timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
         browser_languages: navigator.languages ? [...navigator.languages] : [navigator.language],
       });
-      const contactDigits = phone && countryCode ? `${countryCode}${phone}`.replace(/\D/g, '') : '';
       const options = {
         key: co.key_id,
         amount: co.amount,
@@ -896,10 +895,16 @@ function EnrollmentPage() {
         order_id: co.order_id,
         name: 'Divine Iris Healing',
         description: co.description || item?.title || 'Enrollment',
+        /** Explicit methods so UPI stays available (phone prefill omitted — it was forcing “Using as +91…” and can hide UPI in some layouts). */
+        method: {
+          upi: true,
+          card: true,
+          netbanking: true,
+          wallet: true,
+        },
         prefill: {
           name: co.name || bookerName,
           email: co.email || bookerEmail,
-          ...(contactDigits ? { contact: contactDigits } : {}),
         },
         handler: async (response) => {
           try {
@@ -1331,20 +1336,55 @@ function EnrollmentPage() {
                       </div>
                     )}
 
-                    {/* India payment options — only show if enabled in admin */}
-                    {detectedCountry === 'IN' && paymentSettings.india_enabled && (
-                      <div className="mb-4" data-testid="india-payment-options">
-                        {/* Stripe card option first with guidance */}
+                    {/* India + INR: Stripe and Razorpay together (does not require “India payment options” admin toggle). */}
+                    {detectedCountry === 'IN' && String(priceCurrency || '').toLowerCase() === 'inr' && displayCheckoutTotal > 0 && (
+                      <div className="mb-4" data-testid="india-stripe-razorpay-block">
                         <div className="border-2 border-[#D4AF37] rounded-lg p-4 mb-3 bg-[#D4AF37]/5">
-                          <div className="flex items-center gap-2 mb-2">
+                          <div className="flex items-center gap-2 mb-2 flex-wrap">
                             <CreditCard size={16} className="text-[#D4AF37]" />
-                            <span className="text-sm font-semibold text-gray-900">Pay with Card (Stripe)</span>
-                            <span className="text-[9px] bg-green-100 text-green-700 px-2 py-0.5 rounded-full font-medium">International</span>
+                            <span className="text-sm font-semibold text-gray-900">Pay with card (Stripe)</span>
+                            <span className="text-[9px] bg-green-100 text-green-700 px-2 py-0.5 rounded-full font-medium">India & international cards</span>
                           </div>
-                          <p className="text-[10px] text-gray-600 mb-2">Secure international payment. Your card must be <strong>enabled for international transactions</strong>.</p>
-                          <p className="text-[9px] text-gray-400 italic">Contact your bank to enable international payments if not already active.</p>
+                          <p className="text-[10px] text-gray-600 mb-2">
+                            Use the <strong>Pay</strong> button below for Stripe Checkout. Indian cards usually work; some banks require international usage enabled.
+                          </p>
+                          <p className="text-[9px] text-gray-400 italic">Pricing shown on the left is the program total in INR before India GST/platform — Stripe uses that list price unless you use Razorpay.</p>
                         </div>
 
+                        {razorpayEligible && (
+                        <>
+                          <div className="relative my-3">
+                            <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-gray-200" /></div>
+                            <div className="relative flex justify-center"><span className="bg-white px-3 text-[10px] text-gray-400 uppercase">Or pay with Razorpay (India)</span></div>
+                          </div>
+                          <p className="text-[10px] text-gray-600 mb-2">
+                            Razorpay charges <strong>list price + GST % and platform %</strong> from Payment Settings (same rules as India receipts). UPI and other methods depend on your Razorpay dashboard; we request all standard methods.
+                          </p>
+                          <button
+                            type="button"
+                            onClick={handleRazorpayCheckout}
+                            disabled={razorpayBusy || processing || !enrollmentId}
+                            className="flex items-center justify-between w-full border border-amber-200 rounded-lg p-4 hover:border-amber-500 hover:bg-amber-50/60 transition-all group"
+                            data-testid="enrollment-razorpay-option">
+                            <div className="flex items-center gap-3">
+                              <div className="w-8 h-8 bg-amber-100 rounded-lg flex items-center justify-center">
+                                <IndianRupee size={14} className="text-amber-700" />
+                              </div>
+                              <div className="text-left">
+                                <span className="text-sm font-medium text-gray-900 group-hover:text-amber-800">Razorpay — UPI, cards, netbanking</span>
+                                <p className="text-[10px] text-gray-600">Total includes GST and platform per your admin settings</p>
+                              </div>
+                            </div>
+                            {razorpayBusy ? <Loader2 size={16} className="animate-spin text-amber-600" /> : <ChevronRight size={16} className="text-gray-400 group-hover:text-amber-600" />}
+                          </button>
+                        </>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Exly / manual — only when India options enabled in admin */}
+                    {detectedCountry === 'IN' && paymentSettings.india_enabled && displayCheckoutTotal > 0 && (
+                      <div className="mb-4" data-testid="india-payment-options">
                         <div className="relative my-3">
                           <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-gray-200" /></div>
                           <div className="relative flex justify-center"><span className="bg-white px-3 text-[10px] text-gray-400 uppercase">Or pay via India options</span></div>
@@ -1357,7 +1397,6 @@ function EnrollmentPage() {
                         </div>
                         <button
                           onClick={() => {
-                            // Preserve resume URL so back button restores state
                             window.history.replaceState(null, '', `/enroll/${type}/${id}?tier=${selectedTier || 0}&resume=${enrollmentId}`);
                             const params = new URLSearchParams({
                               program: item?.title || '',
@@ -1381,26 +1420,6 @@ function EnrollmentPage() {
                           <ChevronRight size={16} className="text-gray-400 group-hover:text-purple-600" />
                         </button>
 
-                        {razorpayEligible && (
-                        <button
-                          type="button"
-                          onClick={handleRazorpayCheckout}
-                          disabled={razorpayBusy || processing || !enrollmentId}
-                          className="flex items-center justify-between w-full border border-amber-200 rounded-lg p-4 mt-2 hover:border-amber-500 hover:bg-amber-50/60 transition-all group"
-                          data-testid="enrollment-razorpay-option">
-                          <div className="flex items-center gap-3">
-                            <div className="w-8 h-8 bg-amber-100 rounded-lg flex items-center justify-center">
-                              <IndianRupee size={14} className="text-amber-700" />
-                            </div>
-                            <div className="text-left">
-                              <span className="text-sm font-medium text-gray-900 group-hover:text-amber-800">Razorpay (UPI, cards, netbanking)</span>
-                              <p className="text-[10px] text-gray-600">Available when your base country is India and you pay from India</p>
-                            </div>
-                          </div>
-                          {razorpayBusy ? <Loader2 size={16} className="animate-spin text-amber-600" /> : <ChevronRight size={16} className="text-gray-400 group-hover:text-amber-600" />}
-                        </button>
-                        )}
-
                         {paymentSettings.manual_form_enabled && (
                         <button
                           onClick={() => {
@@ -1421,31 +1440,6 @@ function EnrollmentPage() {
                           <ChevronRight size={16} className="text-gray-400 group-hover:text-teal-600" />
                         </button>
                         )}
-                      </div>
-                    )}
-
-                    {razorpayEligible && !(detectedCountry === 'IN' && paymentSettings.india_enabled) && (
-                      <div className="mb-4" data-testid="enrollment-razorpay-standalone">
-                        <p className="text-[10px] text-gray-600 mb-2">
-                          Pay in INR with UPI, cards, or netbanking via Razorpay. Shown only when India is your base country, checkout is in INR, and your connection is from India.
-                        </p>
-                        <button
-                          type="button"
-                          onClick={handleRazorpayCheckout}
-                          disabled={razorpayBusy || processing || !enrollmentId}
-                          className="flex items-center justify-between w-full border border-amber-200 rounded-lg p-4 hover:border-amber-500 hover:bg-amber-50/60 transition-all group"
-                          data-testid="enrollment-razorpay-option-standalone">
-                          <div className="flex items-center gap-3">
-                            <div className="w-8 h-8 bg-amber-100 rounded-lg flex items-center justify-center">
-                              <IndianRupee size={14} className="text-amber-700" />
-                            </div>
-                            <div className="text-left">
-                              <span className="text-sm font-medium text-gray-900 group-hover:text-amber-800">Razorpay (UPI, cards, netbanking)</span>
-                              <p className="text-[10px] text-gray-600">INR · India only</p>
-                            </div>
-                          </div>
-                          {razorpayBusy ? <Loader2 size={16} className="animate-spin text-amber-600" /> : <ChevronRight size={16} className="text-gray-400 group-hover:text-amber-600" />}
-                        </button>
                       </div>
                     )}
 
