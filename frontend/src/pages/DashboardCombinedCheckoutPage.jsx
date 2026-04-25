@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react'
 import { computeIndiaCheckoutBreakdown, parseIndiaSitePercent } from '../lib/indiaClientPricing';
 import { useNavigate, useSearchParams, useLocation } from 'react-router-dom';
 import axios from 'axios';
-import { useCart } from '../context/CartContext';
+import { useCart, normalizeCartProgramTier } from '../context/CartContext';
 import { useCurrency } from '../context/CurrencyContext';
 import { useToast } from '../hooks/use-toast';
 import { Input } from '../components/ui/input';
@@ -596,6 +596,16 @@ export default function DashboardCombinedCheckoutPage() {
           if (line.type !== 'program') continue;
           const program = upcoming.find((p) => String(p.id) === String(line.programId));
           if (!program) continue;
+
+          const sameProgramLines = items.filter(
+            (i) => i.type === 'program' && String(i.programId) === String(line.programId),
+          );
+          const distinctTiers = new Set(
+            sameProgramLines.map((i) => String(normalizeCartProgramTier(program, i.tierIndex))),
+          );
+          if (distinctTiers.size > 1) {
+            continue;
+          }
 
           const includedForSeat =
             annualAccess && programIncludedInAnnualPackage(program, annualIncludedIds);

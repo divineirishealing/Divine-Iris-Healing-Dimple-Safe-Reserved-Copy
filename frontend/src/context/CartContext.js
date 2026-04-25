@@ -145,8 +145,8 @@ export const CartProvider = ({ children }) => {
   }, [items]);
 
   /**
-   * Add a program line or replace its participants if the same programId + tierIndex exists.
-   * Keeps Divine Cart in sync when dashboard seat picks change after the program was already in the cart.
+   * Upsert one program line for (programId + tierIndex). Other tiers of the same program stay in the cart
+   * so e.g. AWRP 1 month and AWRP 3 month can each carry different participants.
    */
   const syncProgramLineItem = useCallback((program, tierIndex, participantsOverride = null, portalLineMeta = null) => {
     const tiers = programTiersList(program);
@@ -202,10 +202,11 @@ export const CartProvider = ({ children }) => {
         return [...prev, newItem];
       }
       const tierIdx = forProgram.findIndex((i) => normalizeTierFromCartItem(i) === normalizedTier);
-      const existing = tierIdx !== -1 ? forProgram[tierIdx] : forProgram[0];
-      const kept = prev.filter(
-        (i) => !(i.type === 'program' && String(i.programId) === programIdStr),
-      );
+      const existing = tierIdx !== -1 ? forProgram[tierIdx] : null;
+      const withoutThisProgramTier = prev.filter((i) => {
+        if (i.type !== 'program' || String(i.programId) !== programIdStr) return true;
+        return normalizeTierFromCartItem(i) !== normalizedTier;
+      });
       const mergedMeta =
         portalLineMeta && typeof portalLineMeta === 'object'
           ? { ...(existing?.portalLineMeta || {}), ...portalLineMeta }
@@ -221,7 +222,7 @@ export const CartProvider = ({ children }) => {
       };
       try {
         if (
-          forProgram.length === 1 &&
+          existing &&
           normalizeTierFromCartItem(existing) === normalizedTier &&
           JSON.stringify(existing.participants) === JSON.stringify(participants) &&
           JSON.stringify(existing.portalLineMeta || null) === JSON.stringify(nextLine.portalLineMeta || null)
@@ -231,7 +232,7 @@ export const CartProvider = ({ children }) => {
       } catch {
         /* compare failed — apply update */
       }
-      return [...kept, nextLine];
+      return [...withoutThisProgramTier, nextLine];
     });
     return true;
   }, []);
