@@ -29,6 +29,17 @@ const ANNUAL_PORTAL_FLAT_COLS = [
 ];
 const ANNUAL_PORTAL_FLAT_KEY = 'admin-annual-portal-flat-v2';
 
+/** Excel-like grid: gray chrome, tight cells, full-area scroll */
+const sheetFrame =
+  'flex flex-col rounded-sm border border-[#8c8c8c] bg-[#f2f2f2] shadow-[inset_0_1px_0_0_rgba(255,255,255,0.6)] overflow-hidden min-h-[280px] h-[calc(100dvh-11.5rem)] max-h-[calc(100dvh-4rem)]';
+const sheetScroll = 'flex-1 w-full overflow-auto min-h-0 bg-white';
+const tableGrid = 'w-full border-collapse text-[13px] leading-snug min-w-[64rem]';
+const thBase =
+  'border border-[#c6c6c6] bg-[#e7e7e7] px-2 py-1.5 text-left text-[11px] font-semibold text-neutral-900 uppercase tracking-wide whitespace-nowrap sticky top-0 z-20 shadow-[0_1px_0_#b0b0b0]';
+const tdBase = 'border border-[#d0d0d0] px-2 py-1 align-top text-neutral-900';
+const rowEven = 'bg-white';
+const rowOdd = 'bg-[#fafafa]';
+
 function sortMembers(a, b) {
   const ap = a.is_primary_household_contact ? 0 : 1;
   const bp = b.is_primary_household_contact ? 0 : 1;
@@ -136,67 +147,63 @@ export default function AnnualPortalClientsTab() {
   const colSpanFlat = Math.max(flatVisibleCount, 1);
 
   return (
-    <div className="max-w-7xl">
-      <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 mb-4">
-        <div>
-          <h2 className="text-lg font-semibold text-gray-900">Annual + dashboard (Client Garden)</h2>
-          <p className="text-sm text-gray-600 mt-1">
-            Sacred Home annual on the client record, with portal login allowed (not blocked). Use list or household view; counts reflect this tab only.
+    <div className="w-full min-w-0 flex flex-col gap-2">
+      <div className="flex flex-wrap items-start justify-between gap-3 shrink-0">
+        <div className="min-w-0">
+          <h2 className="text-base font-semibold text-gray-900">Annual + dashboard (Client Garden)</h2>
+          <p className="text-xs text-gray-600 mt-0.5 max-w-3xl">
+            Full-width sheet view. Sacred Home annual on the client record, portal not blocked. Counts are for this tab only.
           </p>
         </div>
-        <Button type="button" variant="outline" size="sm" onClick={load} disabled={loading} className="shrink-0 self-start">
+        <Button type="button" variant="outline" size="sm" onClick={load} disabled={loading} className="shrink-0 h-8 text-xs">
           {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
           <span className="ml-1.5">Refresh</span>
         </Button>
       </div>
 
       {!loading && rows.length > 0 && (
-        <div className="flex flex-wrap items-center gap-2 mb-3 text-xs text-gray-700">
-          <span className="rounded-full bg-purple-50 border border-purple-100 px-2.5 py-1 font-medium">
+        <div className="flex flex-wrap items-center gap-1.5 shrink-0 text-[11px] text-gray-800 border border-[#c6c6c6] bg-[#e7e7e7] px-2 py-1 rounded-sm">
+          <span className="font-semibold px-1.5 py-0.5 bg-white/80 border border-[#c6c6c6] rounded-sm">
             {stats.members} member{stats.members === 1 ? '' : 's'}
           </span>
-          <span className="rounded-full bg-slate-50 border border-slate-200 px-2.5 py-1">
-            {stats.householdsWithKey} household{stats.householdsWithKey === 1 ? '' : 's'} with a key
+          <span className="px-1.5 py-0.5 bg-white/60 border border-[#d0d0d0] rounded-sm">
+            {stats.householdsWithKey} household{stats.householdsWithKey === 1 ? '' : 's'} w/ key
           </span>
-          <span className="rounded-full bg-slate-50 border border-slate-200 px-2.5 py-1">
-            {stats.multiMemberHouseholds} multi-member (same key, 2+)
-          </span>
-          <span className="rounded-full bg-amber-50 border border-amber-100 px-2.5 py-1">
-            {stats.primaryContacts} primary
-          </span>
+          <span className="px-1.5 py-0.5 bg-white/60 border border-[#d0d0d0] rounded-sm">{stats.multiMemberHouseholds} multi</span>
+          <span className="px-1.5 py-0.5 bg-white/60 border border-[#d0d0d0] rounded-sm">{stats.primaryContacts} primary</span>
           {stats.singlesNoKey > 0 && (
-            <span className="rounded-full bg-gray-50 border border-gray-200 px-2.5 py-1 text-gray-600">
-              {stats.singlesNoKey} no household key
+            <span className="px-1.5 py-0.5 bg-amber-50 border border-amber-200/80 rounded-sm text-amber-950">
+              {stats.singlesNoKey} no key
             </span>
           )}
         </div>
       )}
 
-      <div className="flex flex-wrap items-center gap-2 mb-3">
-        <span className="text-xs font-medium text-gray-500 uppercase tracking-wide mr-1">View</span>
+      <div className="flex flex-wrap items-center gap-2 shrink-0 border border-[#c6c6c6] bg-[#f2f2f2] px-2 py-1.5 rounded-sm">
+        <span className="text-[10px] font-bold text-neutral-600 uppercase tracking-wider mr-1">View</span>
         <button
           type="button"
           onClick={() => setViewMode('flat')}
-          className={`inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-medium transition-colors ${
+          className={`inline-flex items-center gap-1.5 border px-2.5 py-1 text-[11px] font-medium transition-colors rounded-sm ${
             viewMode === 'flat'
-              ? 'border-purple-300 bg-purple-50 text-purple-900'
-              : 'border-gray-200 bg-white text-gray-600 hover:bg-gray-50'
+              ? 'border-[#217346] bg-[#e8f5e9] text-[#1b5e20] shadow-sm'
+              : 'border-[#c6c6c6] bg-white text-neutral-700 hover:bg-neutral-50'
           }`}
         >
           <LayoutList className="h-3.5 w-3.5" />
-          List (subscription + household)
+          List
         </button>
         <button
           type="button"
           onClick={() => setViewMode('household')}
-          className={`inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-medium transition-colors ${
+          className={`inline-flex items-center gap-1.5 border px-2.5 py-1 text-[11px] font-medium transition-colors rounded-sm ${
             viewMode === 'household'
-              ? 'border-purple-300 bg-purple-50 text-purple-900'
-              : 'border-gray-200 bg-white text-gray-600 hover:bg-gray-50'
+              ? 'border-[#217346] bg-[#e8f5e9] text-[#1b5e20] shadow-sm'
+              : 'border-[#c6c6c6] bg-white text-neutral-700 hover:bg-neutral-50'
           }`}
         >
           <Users className="h-3.5 w-3.5" />
-          By household (clubbed counts)
+          By household
         </button>
         {viewMode === 'flat' && (
           <SpreadsheetColumnPicker
@@ -216,82 +223,84 @@ export default function AnnualPortalClientsTab() {
         onSaved={() => load()}
       />
 
-      <div className="rounded-lg border border-gray-200 bg-white overflow-x-auto">
+      <div className={sheetFrame}>
+        <div className={sheetScroll}>
         {viewMode === 'flat' ? (
-          <table className="w-full text-sm min-w-[56rem]">
+          <table className={tableGrid}>
             <thead>
-              <tr className="bg-gray-50 border-b border-gray-200 text-left text-xs font-medium text-gray-600 uppercase tracking-wide">
-                {flatColVisible('name') && <th className="px-4 py-3">Name</th>}
-                {flatColVisible('email') && <th className="px-4 py-3">Email</th>}
-                {flatColVisible('household') && <th className="px-4 py-3">Household</th>}
-                {flatColVisible('primary') && <th className="px-4 py-3 w-24 text-center">Primary</th>}
-                {flatColVisible('diid') && <th className="px-4 py-3 whitespace-nowrap">Annual DIID</th>}
-                {flatColVisible('start') && <th className="px-4 py-3 whitespace-nowrap">Start</th>}
-                {flatColVisible('end') && <th className="px-4 py-3 whitespace-nowrap">End</th>}
-                {flatColVisible('package') && <th className="px-4 py-3">Package</th>}
-                {flatColVisible('awrp_year') && <th className="px-4 py-3 whitespace-nowrap">AWRP year</th>}
-                {flatColVisible('usage') && <th className="px-4 py-3 min-w-[14rem]">Usage</th>}
-                {flatColVisible('edit') && <th className="px-4 py-3 w-24 text-center">Edit</th>}
+              <tr>
+                {flatColVisible('name') && <th className={thBase}>Name</th>}
+                {flatColVisible('email') && <th className={thBase}>Email</th>}
+                {flatColVisible('household') && <th className={thBase}>Household</th>}
+                {flatColVisible('primary') && <th className={`${thBase} text-center`}>Primary</th>}
+                {flatColVisible('diid') && <th className={thBase}>Annual DIID</th>}
+                {flatColVisible('start') && <th className={thBase}>Start</th>}
+                {flatColVisible('end') && <th className={thBase}>End</th>}
+                {flatColVisible('package') && <th className={thBase}>Package</th>}
+                {flatColVisible('awrp_year') && <th className={thBase}>AWRP year</th>}
+                {flatColVisible('usage') && <th className={thBase}>Usage</th>}
+                {flatColVisible('edit') && <th className={`${thBase} text-center`}>Edit</th>}
               </tr>
             </thead>
             <tbody>
               {loading && rows.length === 0 ? (
                 <tr>
-                  <td colSpan={colSpanFlat} className="px-4 py-8 text-center text-gray-500">
+                  <td colSpan={colSpanFlat} className={`${tdBase} py-10 text-center text-neutral-500 bg-white`}>
                     <Loader2 className="h-6 w-6 animate-spin inline-block mr-2 align-middle" />
                     Loading…
                   </td>
                 </tr>
               ) : rows.length === 0 ? (
                 <tr>
-                  <td colSpan={colSpanFlat} className="px-4 py-8 text-center text-gray-500">
+                  <td colSpan={colSpanFlat} className={`${tdBase} py-10 text-center text-neutral-500 bg-white`}>
                     No matching clients.
                   </td>
                 </tr>
               ) : (
-                [...rows].sort(sortMembers).map((r) => {
+                [...rows].sort(sortMembers).map((r, idx) => {
                   const sub = r.annual_subscription || {};
+                  const stripe = idx % 2 === 0 ? rowEven : rowOdd;
                   return (
-                  <tr key={r.id || r.email} className="border-b border-gray-100 hover:bg-gray-50/80">
-                    {flatColVisible('name') && <td className="px-4 py-2.5 text-gray-900">{(r.name || '').trim() || '—'}</td>}
-                    {flatColVisible('email') && <td className="px-4 py-2.5 text-gray-700">{(r.email || '').trim() || '—'}</td>}
-                    {flatColVisible('household') && <td className="px-4 py-2.5 font-mono text-xs text-slate-600">{(r.household_key || '').trim() || '—'}</td>}
+                  <tr key={r.id || r.email} className={`${stripe} hover:bg-[#e8f4fc]`}>
+                    {flatColVisible('name') && <td className={`${tdBase} font-medium`}>{(r.name || '').trim() || '—'}</td>}
+                    {flatColVisible('email') && <td className={`${tdBase} text-neutral-800`}>{(r.email || '').trim() || '—'}</td>}
+                    {flatColVisible('household') && <td className={`${tdBase} font-mono text-[12px] text-neutral-800`}>{(r.household_key || '').trim() || '—'}</td>}
                     {flatColVisible('primary') && (
-                    <td className="px-4 py-2.5 text-center text-gray-800">
+                    <td className={`${tdBase} text-center tabular-nums`}>
                       {r.is_primary_household_contact ? 'Y' : '—'}
                     </td>
                     )}
                     {flatColVisible('diid') && (
-                      <td className="px-4 py-2.5 font-mono text-xs text-slate-800">{(sub.annual_diid || '').trim() || '—'}</td>
+                      <td className={`${tdBase} font-mono text-[12px] whitespace-nowrap`}>{(sub.annual_diid || '').trim() || '—'}</td>
                     )}
                     {flatColVisible('start') && (
-                      <td className="px-4 py-2.5 text-gray-700 whitespace-nowrap">{sub.start_date || '—'}</td>
+                      <td className={`${tdBase} font-mono text-[12px] whitespace-nowrap`}>{sub.start_date || '—'}</td>
                     )}
                     {flatColVisible('end') && (
-                      <td className="px-4 py-2.5 text-gray-700 whitespace-nowrap">{sub.end_date || '—'}</td>
+                      <td className={`${tdBase} font-mono text-[12px] whitespace-nowrap`}>{sub.end_date || '—'}</td>
                     )}
                     {flatColVisible('package') && (
-                      <td className="px-4 py-2.5 text-gray-800">{packageLabel(sub)}</td>
+                      <td className={tdBase}>{packageLabel(sub)}</td>
                     )}
                     {flatColVisible('awrp_year') && (
-                      <td className="px-4 py-2.5 text-gray-700">{(sub.awrp_year_label || '').trim() || '—'}</td>
+                      <td className={tdBase}>{(sub.awrp_year_label || '').trim() || '—'}</td>
                     )}
                     {flatColVisible('usage') && (
-                      <td className="px-4 py-2.5 text-xs text-gray-600 leading-snug">
+                      <td className={`${tdBase} text-[12px] text-neutral-800 whitespace-normal break-words`}>
                         {sub.usage && Object.keys(sub.usage).length > 0 ? formatHomeComingUsageSummary(sub) : '—'}
                       </td>
                     )}
                     {flatColVisible('edit') && (
-                      <td className="px-4 py-2.5 text-center">
+                      <td className={`${tdBase} text-center p-0`}>
                         <Button
                           type="button"
                           variant="ghost"
                           size="sm"
-                          className="h-8 px-2"
+                          className="h-7 w-full rounded-none hover:bg-[#d4e8f7]"
                           onClick={() => setEditRow(r)}
                           aria-label="Edit annual subscription"
                         >
-                          <Pencil className="h-4 w-4" />
+                          <Pencil className="h-3.5 w-3.5" />
                         </Button>
                       </td>
                     )}
@@ -301,16 +310,16 @@ export default function AnnualPortalClientsTab() {
             </tbody>
           </table>
         ) : (
-          <div className="divide-y divide-gray-100">
+          <div className="min-w-full">
             {loading && rows.length === 0 ? (
-              <div className="px-4 py-8 text-center text-gray-500">
+              <div className="px-4 py-10 text-center text-neutral-500 bg-white">
                 <Loader2 className="h-6 w-6 animate-spin inline-block mr-2 align-middle" />
                 Loading…
               </div>
             ) : householdGroups.length === 0 ? (
-              <div className="px-4 py-8 text-center text-gray-500">No matching clients.</div>
+              <div className="px-4 py-10 text-center text-neutral-500 bg-white">No matching clients.</div>
             ) : (
-              householdGroups.map((g) => {
+              householdGroups.map((g, gi) => {
                 const n = g.members.length;
                 const title = g.householdKey
                   ? g.householdKey
@@ -318,42 +327,43 @@ export default function AnnualPortalClientsTab() {
                     ? `No household key · ${(g.members[0].name || '').trim() || '—'}`
                     : 'No household key';
                 return (
-                  <div key={g.householdKey || g.members.map((m) => m.id).join('-')} className="bg-white">
-                    <div className="flex flex-wrap items-baseline justify-between gap-2 px-4 py-2.5 bg-slate-50 border-b border-slate-100">
-                      <span className="font-mono text-xs font-semibold text-slate-800">{title}</span>
-                      <span className="text-[11px] font-medium text-purple-800 bg-purple-100/80 rounded-full px-2 py-0.5">
+                  <div key={g.householdKey || g.members.map((m) => m.id).join('-')} className={gi > 0 ? 'border-t-2 border-[#8c8c8c]' : ''}>
+                    <div className="flex flex-wrap items-baseline justify-between gap-2 px-2 py-1 bg-[#e7e7e7] border-b border-[#c6c6c6]">
+                      <span className="font-mono text-[12px] font-semibold text-neutral-900">{title}</span>
+                      <span className="text-[11px] font-medium text-[#1b5e20] bg-[#e8f5e9] border border-[#a5d6a7] px-2 py-0.5 rounded-sm">
                         {n} in tab
                       </span>
                     </div>
-                    <table className="w-full text-sm">
+                    <table className={tableGrid}>
                       <thead>
-                        <tr className="text-left text-[10px] font-medium text-gray-500 uppercase tracking-wide border-b border-gray-100">
-                          <th className="px-4 py-2 pl-6">Name</th>
-                          <th className="px-4 py-2">Email</th>
-                          <th className="px-4 py-2 w-24 text-center">Primary</th>
-                          <th className="px-4 py-2 font-mono">DIID</th>
-                          <th className="px-4 py-2 w-20 text-center">Edit</th>
+                        <tr>
+                          <th className={`${thBase} pl-3`}>Name</th>
+                          <th className={thBase}>Email</th>
+                          <th className={`${thBase} text-center w-16`}>Primary</th>
+                          <th className={`${thBase} font-mono`}>DIID</th>
+                          <th className={`${thBase} text-center w-14`}>Edit</th>
                         </tr>
                       </thead>
                       <tbody>
-                        {g.members.map((r) => {
+                        {g.members.map((r, ri) => {
                           const sub = r.annual_subscription || {};
+                          const stripe = ri % 2 === 0 ? rowEven : rowOdd;
                           return (
-                          <tr key={r.id || r.email} className="border-b border-gray-50 hover:bg-gray-50/80">
-                            <td className="px-4 py-2 pl-6 text-gray-900">{(r.name || '').trim() || '—'}</td>
-                            <td className="px-4 py-2 text-gray-700">{(r.email || '').trim() || '—'}</td>
-                            <td className="px-4 py-2 text-center text-gray-800">
+                          <tr key={r.id || r.email} className={`${stripe} hover:bg-[#e8f4fc]`}>
+                            <td className={`${tdBase} pl-3 font-medium`}>{(r.name || '').trim() || '—'}</td>
+                            <td className={`${tdBase} text-neutral-800`}>{(r.email || '').trim() || '—'}</td>
+                            <td className={`${tdBase} text-center`}>
                               {r.is_primary_household_contact ? 'Y' : '—'}
                             </td>
-                            <td className="px-4 py-2 font-mono text-[11px] text-slate-700">
+                            <td className={`${tdBase} font-mono text-[12px]`}>
                               {(sub.annual_diid || '').trim() || '—'}
                             </td>
-                            <td className="px-4 py-2 text-center">
+                            <td className={`${tdBase} text-center p-0`}>
                               <Button
                                 type="button"
                                 variant="ghost"
                                 size="sm"
-                                className="h-7 px-2"
+                                className="h-7 w-full rounded-none hover:bg-[#d4e8f7]"
                                 onClick={() => setEditRow(r)}
                               >
                                 <Pencil className="h-3.5 w-3.5" />
@@ -369,9 +379,12 @@ export default function AnnualPortalClientsTab() {
             )}
           </div>
         )}
+        </div>
       </div>
       {!loading && rows.length > 0 && viewMode === 'flat' && (
-        <p className="text-xs text-gray-500 mt-2">{rows.length} rows · {householdGroups.length} groups if clubbed</p>
+        <p className="text-[11px] text-neutral-500 shrink-0 px-0.5">
+          {rows.length} rows · {householdGroups.length} groups (household view)
+        </p>
       )}
     </div>
   );

@@ -535,7 +535,9 @@ const AdminPanel = () => {
 
         <main
           className={`flex-1 min-w-0 ${
-            activeTab === 'dashboard_access' || activeTab === 'enrollments'
+            activeTab === 'dashboard_access' ||
+            activeTab === 'enrollments' ||
+            activeTab === 'annual_portal_clients'
               ? 'max-w-none w-full p-4 sm:p-6'
               : 'max-w-5xl p-6'
           }`}
