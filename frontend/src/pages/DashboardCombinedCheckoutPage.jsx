@@ -1004,6 +1004,12 @@ export default function DashboardCombinedCheckoutPage() {
     cartLinesNormalizedForCrossSell,
   ]);
 
+  /** List − offer on roster seats; shown as its own discount row and included in “Total discounts”. */
+  const portalListOfferSavings = useMemo(() => {
+    const raw = seatListOfferRollup.listTotal - seatListOfferRollup.offerTotal;
+    return raw > 0 ? Math.round(raw * 100) / 100 : 0;
+  }, [seatListOfferRollup.listTotal, seatListOfferRollup.offerTotal]);
+
   const cartProgramIdsForUrgency = useMemo(
     () =>
       [...new Set(items.filter((i) => i.type !== 'session').map((i) => String(i.programId).trim()).filter(Boolean))],
@@ -1146,7 +1152,8 @@ export default function DashboardCombinedCheckoutPage() {
     indiaBreakdown && Number(indiaBreakdown.discountAmt) > 0
       ? Math.round(Number(indiaBreakdown.discountAmt))
       : 0;
-  const totalDiscountIncludingIndia = totalDiscountAmount + indiaClientDiscountAmt;
+  const totalDiscountIncludingIndia =
+    totalDiscountAmount + indiaClientDiscountAmt + portalListOfferSavings;
 
   const indiaPaymentTag = clientIndiaPricing?.india_payment_method;
 
@@ -1748,30 +1755,23 @@ export default function DashboardCombinedCheckoutPage() {
           </p>
         ) : null}
         <div className="border-t border-gray-200 mt-4 pt-4 space-y-1.5">
-          {seatListOfferRollup.listTotal > seatListOfferRollup.offerTotal ? (
-            <div className="text-center mb-4 pb-3 border-b border-gray-100">
-              <p className="text-[10px] sm:text-xs font-bold uppercase tracking-[0.14em] text-gray-500 mb-2">
-                Program prices — list → offer
-              </p>
-              <p className="text-xl sm:text-2xl md:text-3xl font-bold text-gray-900 tabular-nums leading-tight">
-                <span className="line-through decoration-2 text-gray-400">
-                  {symbol}
-                  {seatListOfferRollup.listTotal.toLocaleString()}
+          {portalListOfferSavings > 0 ? (
+            <>
+              <div className="flex justify-between text-sm text-gray-700">
+                <span>Program prices (list)</span>
+                <span className="tabular-nums">
+                  {symbol} {seatListOfferRollup.listTotal.toLocaleString()}
                 </span>
-                <span className="mx-2 sm:mx-3 text-gray-300 font-light">–</span>
-                <span className="text-[#D4AF37]">
-                  {symbol}
-                  {seatListOfferRollup.offerTotal.toLocaleString()}
+              </div>
+              <div className="flex justify-between text-sm text-green-700">
+                <span>Program offer savings</span>
+                <span className="tabular-nums">
+                  -{symbol} {portalListOfferSavings.toLocaleString()}
                 </span>
-              </p>
-              <p className="text-sm sm:text-base font-semibold text-green-700 mt-2 tabular-nums">
-                Save {symbol}
-                {(seatListOfferRollup.listTotal - seatListOfferRollup.offerTotal).toLocaleString()} vs list — already
-                included in subtotal
-              </p>
-            </div>
+              </div>
+            </>
           ) : null}
-          <div className="flex justify-between text-sm text-gray-700">
+          <div className="flex justify-between text-sm font-medium text-gray-900">
             <span>Subtotal</span>
             <span className="tabular-nums">
               {symbol} {subtotal.toLocaleString()}
