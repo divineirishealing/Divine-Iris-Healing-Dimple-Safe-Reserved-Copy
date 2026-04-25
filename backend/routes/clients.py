@@ -153,6 +153,29 @@ def normalize_phone(phone: str) -> str:
     return "".join(c for c in t if c.isdigit())
 
 
+def _coerce_client_created_at_iso(raw: str) -> str:
+    """Admin CRM: accept YYYY-MM-DD or ISO 8601; store UTC ISO string."""
+    t = (raw or "").strip()
+    if not t:
+        raise HTTPException(status_code=400, detail="First seen date is empty.")
+    if re.fullmatch(r"\d{4}-\d{2}-\d{2}", t):
+        try:
+            d = datetime.strptime(t, "%Y-%m-%d").date()
+        except ValueError:
+            raise HTTPException(status_code=400, detail="Invalid First seen date.")
+        return datetime(d.year, d.month, d.day, 0, 0, 0, tzinfo=timezone.utc).isoformat()
+    try:
+        p = datetime.fromisoformat(t.replace("Z", "+00:00"))
+    except ValueError:
+        raise HTTPException(
+            status_code=400,
+            detail="First seen must be YYYY-MM-DD or a valid ISO 8601 datetime.",
+        )
+    if p.tzinfo is None:
+        p = p.replace(tzinfo=timezone.utc)
+    return p.astimezone(timezone.utc).isoformat()
+
+
 _DIID_MIDDLE_RE = re.compile(r"^[A-Za-z]{4}\d{4}$")
 
 
@@ -1961,6 +1984,8 @@ class ClientUpdate(BaseModel):
     discovery_source: Optional[str] = None
     discovery_other_note: Optional[str] = None
     referred_by_client_id: Optional[str] = None
+    # CRM grid first-seen column: YYYY-MM-DD or ISO 8601 → stored as UTC ISO on ``created_at``
+    created_at: Optional[str] = None
 
 
 @router.put("/{client_id}")
@@ -1985,6 +2010,8 @@ async def update_client(client_id: str, data: ClientUpdate):
     if data.name is not None:
         nm = str(data.name).strip()
         update_fields["name"] = normalize_person_name(nm) if nm else ""
+    if "created_at" in incoming and data.created_at is not None:
+        update_fields["created_at"] = _coerce_client_created_at_iso(str(data.created_at))
     if "phone" in incoming:
         pn = normalize_phone(str(data.phone) if data.phone is not None else "")
         update_fields["phone"] = pn or None
@@ -2105,6 +2132,17 @@ async def update_client(client_id: str, data: ClientUpdate):
                 {"$set": {"email": synced, "updated_at": update_fields["updated_at"]}},
             )
 
+    if "name" in update_fields:
+        await db.users.update_many(
+            {"client_id": client_id},
+            {
+                "$set": {
+                    "name": update_fields.get("name") or "",
+                    "updated_at": update_fields["updated_at"],
+                }
+            },
+        )
+
     # Email when Google / student portal access is newly enabled (was blocked, e.g. after intake)
     if (
         data.portal_login_allowed is not None
@@ -2117,7 +2155,10 @@ async def update_client(client_id: str, data: ClientUpdate):
             try:
                 from routes.emails import send_dashboard_access_granted_email
 
-                await send_dashboard_access_granted_email(to_em, cl.get("name") or "")
+                greet_name = (
+                    update_fields.get("name") if "name" in update_fields else cl.get("name")
+                ) or ""
+                await send_dashboard_access_granted_email(to_em, greet_name)
             except Exception:
                 logger.exception("send_dashboard_access_granted_email failed for client_id=%s", client_id)
 

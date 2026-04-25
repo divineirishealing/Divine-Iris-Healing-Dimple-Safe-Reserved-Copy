@@ -137,6 +137,17 @@ function truncate(s, n) {
   return `${t.slice(0, n)}…`;
 }
 
+/** ``YYYY-MM-DD`` for ``<input type="date">`` from stored ``created_at`` (ISO or parseable date). */
+function createdAtToDateInput(iso) {
+  if (!iso) return '';
+  const s = String(iso).trim();
+  const m = s.match(/^(\d{4}-\d{2}-\d{2})/);
+  if (m) return m[1];
+  const t = new Date(s);
+  if (!Number.isNaN(t.getTime())) return t.toISOString().slice(0, 10);
+  return '';
+}
+
 /** Parse ``DIID-{middle}-{suffix}`` for the editable middle segment (4 letters + YYMM). */
 function splitDiid(diid) {
   const d = (diid || '').trim();
@@ -227,6 +238,8 @@ const ClientsTab = () => {
   const beginEdit = (cl) => {
     setEditingId(cl.id);
     setDraft({
+      editName: cl.name || '',
+      firstSeenDate: createdAtToDateInput(cl.created_at),
       email: cl.email || '',
       household_key: cl.household_key || '',
       is_primary_household_contact: !!cl.is_primary_household_contact,
@@ -270,9 +283,17 @@ const ClientsTab = () => {
     if (!editingId || !draft) return;
     const cl = clients.find((c) => c.id === editingId);
     if (!cl) return;
+    if (!(draft.editName || '').trim()) {
+      toast({ title: 'Name is required', variant: 'destructive' });
+      return;
+    }
+    let firstSeen = (draft.firstSeenDate || '').trim() || createdAtToDateInput(cl.created_at);
+    if (!firstSeen) firstSeen = new Date().toISOString().slice(0, 10);
     setRowSaving(true);
     try {
       const payload = {
+        name: (draft.editName || '').trim(),
+        created_at: firstSeen,
         email: (draft.email || '').trim().toLowerCase(),
         household_key: (draft.household_key || '').trim() || null,
         is_primary_household_contact: draft.is_primary_household_contact,
@@ -429,7 +450,7 @@ const ClientsTab = () => {
             <Users size={18} className="text-[#D4AF37]" /> Client Garden
           </h2>
           <p className="text-xs text-gray-500 mt-0.5 max-w-3xl">
-            One row per client — use <strong className="font-semibold text-gray-700">Edit</strong> for garden label, DIID middle, contact fields, <strong className="font-semibold text-gray-700">how they found us</strong> (Ads, Instagram, Referral, …), and <strong className="font-semibold text-gray-700">referrer UUID</strong> (name fills from that client). Save or Cancel in Actions. Conversions/sources still come from sync.{' '}
+            One row per client — use <strong className="font-semibold text-gray-700">Edit</strong> for <strong className="font-semibold text-gray-700">name</strong>, <strong className="font-semibold text-gray-700">first seen</strong> (date), garden label, DIID middle, contact fields, <strong className="font-semibold text-gray-700">how they found us</strong>, and <strong className="font-semibold text-gray-700">referrer UUID</strong>. Save or Cancel in Actions. Conversions/sources still come from sync.{' '}
             <strong className="font-semibold text-gray-700">DIID</strong> should exist on every row; use <strong className="font-semibold text-gray-700">Sync All Data</strong> to backfill. <strong className="font-semibold text-gray-700">UUID</strong> is the internal record id.
           </p>
         </div>
@@ -561,7 +582,7 @@ const ClientsTab = () => {
                 {isVisible('first_program') && <th className="py-2 px-2 font-semibold min-w-[120px]" title="First paid program from conversions (by date)">1st program</th>}
                 {isVisible('how_found') && <th className="py-2 px-2 font-semibold min-w-[100px]" title="How they first found Divine Iris">How found</th>}
                 {isVisible('referrer') && <th className="py-2 px-2 font-semibold min-w-[120px]" title="Referred-by client (when source is Referral)">Referrer</th>}
-                {isVisible('first') && <th className="py-2 px-2 font-semibold w-[72px]">First seen</th>}
+                {isVisible('first') && <th className="py-2 px-2 font-semibold min-w-[108px]" title="First seen in garden (editable)">First seen</th>}
                 {isVisible('updated') && <th className="py-2 px-2 font-semibold w-[72px]">Updated</th>}
                 {isVisible('actions') && <th className="py-2 pr-3 pl-2 font-semibold min-w-[120px] text-right sticky right-0 bg-gray-100 z-10">Actions</th>}
               </tr>
@@ -591,7 +612,19 @@ const ClientsTab = () => {
                         <div className={`w-6 h-6 rounded-full ${cfg.bg} ${cfg.border} border flex items-center justify-center shrink-0`}>
                           <Icon size={10} className={cfg.text} />
                         </div>
-                        <span className="font-semibold text-gray-900 truncate max-w-[140px]" title={cl.name || ''}>{cl.name || '—'}</span>
+                        {d ? (
+                          <Input
+                            data-testid="client-edit-name"
+                            value={d.editName}
+                            onChange={(e) => updateDraft({ editName: e.target.value })}
+                            className="h-7 text-[10px] min-w-[100px] max-w-[180px] px-1.5 font-semibold"
+                            placeholder="Full name"
+                            maxLength={200}
+                            autoComplete="name"
+                          />
+                        ) : (
+                          <span className="font-semibold text-gray-900 truncate max-w-[140px]" title={cl.name || ''}>{cl.name || '—'}</span>
+                        )}
                       </div>
                     </td>
                     )}
@@ -818,7 +851,21 @@ const ClientsTab = () => {
                       )}
                     </td>
                     )}
-                    {isVisible('first') && <td className="py-2 px-2 text-gray-500 whitespace-nowrap">{cl.created_at ? new Date(cl.created_at).toLocaleDateString() : '—'}</td>}
+                    {isVisible('first') && (
+                    <td className="py-1 px-1 text-gray-600 align-top whitespace-nowrap min-w-[108px]">
+                      {d ? (
+                        <input
+                          type="date"
+                          data-testid="client-first-seen"
+                          className="h-7 w-full min-w-[104px] text-[9px] rounded border border-slate-300 bg-white px-1"
+                          value={d.firstSeenDate || ''}
+                          onChange={(e) => updateDraft({ firstSeenDate: e.target.value })}
+                        />
+                      ) : (
+                        <span className="py-2 px-2 inline-block text-gray-500">{cl.created_at ? new Date(cl.created_at).toLocaleDateString() : '—'}</span>
+                      )}
+                    </td>
+                    )}
                     {isVisible('updated') && <td className="py-2 px-2 text-gray-500 whitespace-nowrap">{timeAgo(cl.updated_at || cl.created_at)}</td>}
                     {isVisible('actions') && (
                     <td className={`py-1 pr-2 pl-1 text-right sticky right-0 z-[1] border-l border-gray-100 ${stickyActionsBg}`}>
