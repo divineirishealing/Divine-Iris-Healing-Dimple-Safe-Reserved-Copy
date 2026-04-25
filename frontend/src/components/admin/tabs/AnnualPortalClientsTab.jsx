@@ -172,8 +172,8 @@ export default function AnnualPortalClientsTab() {
         variant = 'destructive';
         desc =
           skipNoData > 0
-            ? `No rows updated. ${skipNoData} matched a client but had no subscription/household fields to apply — see summary.`
-            : 'No rows updated — check header row, Email Id / Client id, and filled columns. See summary below.';
+            ? `No rows updated. ${skipNoData} row(s) had only Email / Client id — add at least one data column (dates, DIID, etc.). See summary.`
+            : 'No rows updated — check header row, Email Id / Client id, and data columns. See summary below.';
       }
       toast({ title: 'Upload finished', description: desc, variant });
       setExcelFile(null);
@@ -351,7 +351,7 @@ export default function AnnualPortalClientsTab() {
         <p className="text-xs text-gray-600 mt-0.5 max-w-3xl">
           Table columns: #, Name, Email Id, Start/End Date, DIID, HomeComing, Usage (summary), HOUSEHOLD, PRIMARY, Client id.{' '}
           <strong>Template</strong> uses the same order; usage counts are split into separate columns for upload.{' '}
-          <strong>Upload</strong> finds columns by <strong>header title</strong> (not left-to-right order); if row 1 is a dashboard title, headers on row 2 are detected automatically. Members without email: use <strong>Client id</strong>.
+          <strong>Upload</strong> finds columns by <strong>header title</strong> (not left-to-right order). Each column in the file <strong>replaces</strong> what is stored (empty cells clear dates, DIID, package, household; blank usage cells become 0; blank PRIMARY counts as N). Columns you remove from the file are left unchanged in the database. If row 1 is a title row, headers on the next row are detected automatically. Members without email: use <strong>Client id</strong>.
         </p>
       </div>
 
@@ -396,7 +396,7 @@ export default function AnnualPortalClientsTab() {
           </p>
           {(uploadReport.updated ?? 0) === 0 && (
             <p className="mt-1 text-[10px] opacity-90">
-              If the sheet has a title on row 1, column titles must be on the row the import detected. Rows need at least one of: DIID, dates, HomeComing, usage counts, HOUSEHOLD, PRIMARY, or Client id with other fields.
+              If the sheet has a title on row 1, column titles must be on the row the import detected. Besides Email / Client id, include at least one column you want to write (dates, DIID, HomeComing, usage, HOUSEHOLD, PRIMARY, etc.). Empty cells in those columns clear stored values.
             </p>
           )}
           {uploadReport.matched_columns && Object.keys(uploadReport.matched_columns).length > 0 && (

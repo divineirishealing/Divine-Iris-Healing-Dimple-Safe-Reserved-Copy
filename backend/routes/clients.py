@@ -963,6 +963,167 @@ def _coerce_upload_date(s: str, label: str) -> Tuple[Optional[str], Optional[str
     return None, f"invalid {label} (use YYYY-MM-DD)"
 
 
+ANNUAL_PORTAL_UPLOAD_PAYLOAD_KEYS = frozenset(
+    {
+        "household_key",
+        "is_primary_household_contact",
+        "annual_diid",
+        "start_date",
+        "end_date",
+        "package_sku",
+        "usage_source",
+        "awrp_months_used",
+        "mmm_months_used",
+        "turbo_sessions_used",
+        "meta_downloads_used",
+    }
+)
+
+ANNUAL_PORTAL_USAGE_SPECS = (
+    ("awrp_months_used", "awrp_months_used"),
+    ("mmm_months_used", "mmm_months_used"),
+    ("turbo_sessions_used", "turbo_sessions_used"),
+    ("meta_downloads_used", "meta_downloads_used"),
+)
+
+
+async def _annual_portal_row_replace_from_excel(
+    row: tuple,
+    col_map: Dict[str, int],
+    row_idx: int,
+    cl: Dict[str, Any],
+    errors: List[str],
+) -> Optional[Tuple[Dict[str, Any], Dict[str, Any]]]:
+    """
+    Columns present in the upload header are the source of truth for that row.
+    Empty cells clear subscription scalars, household key, and usage source;
+    blank PRIMARY is treated as N; usage counters in mapped columns default to 0 when blank.
+    Columns not present in the sheet leave existing DB values unchanged.
+    """
+    cid = str(cl.get("id") or "")
+    prev_sub: Dict[str, Any] = dict(cl.get("annual_subscription") or {})
+    new_sub: Dict[str, Any] = dict(prev_sub)
+    new_sub.pop("awrp_year_label", None)
+    client_extra: Dict[str, Any] = {}
+
+    if "household_key" in col_map:
+        hk_raw = _annual_upload_cell_str(row, col_map["household_key"])
+        hk = (hk_raw or "").strip()[:200]
+        client_extra["household_key"] = hk if hk else None
+
+    if "is_primary_household_contact" in col_map:
+        prim_raw = _annual_upload_cell_str(row, col_map["is_primary_household_contact"])
+        pt = prim_raw.strip().upper()
+        if not pt or pt in ("N", "NO", "0", "FALSE", "-", "—"):
+            client_extra["is_primary_household_contact"] = False
+        elif pt in ("Y", "YES", "1", "TRUE"):
+            client_extra["is_primary_household_contact"] = True
+        else:
+            pl = prim_raw.strip().lower()
+            if pl in ("y", "yes", "1", "true"):
+                client_extra["is_primary_household_contact"] = True
+            elif pl in ("n", "no", "0", "false"):
+                client_extra["is_primary_household_contact"] = False
+            else:
+                errors.append(
+                    f"Row {row_idx}: PRIMARY must be Y or N (got {prim_raw!r})"
+                )
+                return None
+
+    if "annual_diid" in col_map:
+        ad_raw = _annual_upload_cell_str(row, col_map["annual_diid"]).strip()
+        if not ad_raw:
+            new_sub.pop("annual_diid", None)
+        else:
+            ad = normalize_annual_diid(ad_raw)
+            if not validate_annual_diid_format(ad):
+                errors.append(
+                    f"Row {row_idx}: Annual DIID must be 4 letters + YYMM (got {ad_raw!r})"
+                )
+                return None
+            prev_ad = str(prev_sub.get("annual_diid") or "").strip()
+            if ad != prev_ad:
+                dup = await db.clients.find_one(
+                    {
+                        "annual_subscription.annual_diid": ad,
+                        "id": {"$ne": cid},
+                    }
+                )
+                if dup:
+                    errors.append(
+                        f"Row {row_idx}: DIID {ad} already used by another client"
+                    )
+                    return None
+            new_sub["annual_diid"] = ad
+
+    if "package_sku" in col_map:
+        pkg_raw = _annual_upload_cell_str(row, col_map["package_sku"]).strip()
+        if not pkg_raw:
+            new_sub.pop("package_sku", None)
+        else:
+            sku = _parse_package_cell_for_upload(pkg_raw)
+            if sku == "__invalid__":
+                errors.append(
+                    f"Row {row_idx}: package must be Home Coming (got {pkg_raw!r})"
+                )
+                return None
+            new_sub["package_sku"] = sku
+
+    if "start_date" in col_map:
+        i_sd = col_map["start_date"]
+        v_sd = row[i_sd] if i_sd < len(row) else None
+        if v_sd in (None, ""):
+            new_sub.pop("start_date", None)
+        else:
+            d_ok, err = _coerce_upload_date_value(v_sd, "start date")
+            if err:
+                errors.append(f"Row {row_idx}: {err}")
+                return None
+            new_sub["start_date"] = d_ok
+
+    if "end_date" in col_map:
+        i_ed = col_map["end_date"]
+        v_ed = row[i_ed] if i_ed < len(row) else None
+        if v_ed in (None, ""):
+            new_sub.pop("end_date", None)
+        else:
+            d_ok, err = _coerce_upload_date_value(v_ed, "end date")
+            if err:
+                errors.append(f"Row {row_idx}: {err}")
+                return None
+            new_sub["end_date"] = d_ok
+
+    if any(spec in col_map for _, spec in ANNUAL_PORTAL_USAGE_SPECS):
+        prev_u = dict(new_sub.get("usage") or {})
+        for u_key, spec in ANNUAL_PORTAL_USAGE_SPECS:
+            if spec in col_map:
+                cell = _annual_upload_cell_str(row, col_map[spec])
+                if not cell:
+                    n = 0
+                else:
+                    n, ierr = _parse_int_cell_strict(cell)
+                    if ierr:
+                        errors.append(f"Row {row_idx}: {spec} {ierr}")
+                        return None
+                prev_u[u_key] = n
+        new_sub["usage"] = prev_u
+
+    if "usage_source" in col_map:
+        us = _annual_upload_cell_str(row, col_map["usage_source"]).strip()
+        if not us:
+            new_sub.pop("usage_source", None)
+        else:
+            t = us.lower()
+            if t not in ("manual", "system"):
+                errors.append(
+                    f"Row {row_idx}: usage source must be manual or system"
+                )
+                return None
+            new_sub["usage_source"] = t
+
+    return new_sub, client_extra
+
+
 @router.get("/annual-portal-subscription-template")
 async def download_annual_portal_subscription_template():
     """Excel for bulk Home Coming annual_subscription updates — match by Client id and/or email."""
@@ -1058,9 +1219,11 @@ async def download_annual_portal_subscription_template():
 @router.post("/annual-portal-subscription-upload")
 async def upload_annual_portal_subscription_excel(file: UploadFile = File(...)):
     """
-    Update annual_subscription on Client Garden rows matched by Client id (UUID) and/or email.
-    Use Client id for household members with no email; leave Email blank or must match that row.
-    Only clients with annual_member_dashboard and portal_login_allowed != False are updated.
+    Replace annual_subscription / household fields from the sheet for each matched row.
+    Any column present in the header overwrites (empty cell clears dates, DIID, package, household;
+    blank usage cells become 0; blank PRIMARY becomes N). Columns omitted from the file are unchanged.
+    Match rows by Client id (UUID) and/or email. Only annual_member_dashboard clients with portal
+    not explicitly blocked are updated.
     """
     import io
     from openpyxl import load_workbook
@@ -1160,129 +1323,23 @@ async def upload_annual_portal_subscription_excel(file: UploadFile = File(...)):
             continue
 
         cid = cl["id"]
-        patch: Dict[str, Any] = {}
-        client_extra: Dict[str, Any] = {}
-
-        hk_raw = _annual_upload_cell_str(row, col_map.get("household_key"))
-        if hk_raw:
-            hk = hk_raw.strip()[:200]
-            client_extra["household_key"] = hk if hk else None
-
-        prim_raw = _annual_upload_cell_str(row, col_map.get("is_primary_household_contact"))
-        if prim_raw:
-            pt = prim_raw.strip().upper()
-            if pt in ("Y", "YES", "1", "TRUE"):
-                client_extra["is_primary_household_contact"] = True
-            elif pt in ("N", "NO", "0", "FALSE", "-", "—"):
-                client_extra["is_primary_household_contact"] = False
-            else:
-                pl = prim_raw.strip().lower()
-                if pl in ("y", "yes", "1", "true"):
-                    client_extra["is_primary_household_contact"] = True
-                elif pl in ("n", "no", "0", "false"):
-                    client_extra["is_primary_household_contact"] = False
-                else:
-                    errors.append(
-                        f"Row {row_idx}: PRIMARY must be Y or N (got {prim_raw!r})"
-                    )
-                    continue
-
-        ad_raw = _annual_upload_cell_str(row, col_map.get("annual_diid"))
-        if ad_raw:
-            ad = normalize_annual_diid(ad_raw)
-            if not validate_annual_diid_format(ad):
-                errors.append(
-                    f"Row {row_idx}: Annual DIID must be 4 letters + YYMM (got {ad_raw!r})"
-                )
-                continue
-            dup = await db.clients.find_one(
-                {
-                    "annual_subscription.annual_diid": ad,
-                    "id": {"$ne": cid},
-                }
-            )
-            if dup:
-                errors.append(
-                    f"Row {row_idx}: DIID {ad} already used by another client"
-                )
-                continue
-            patch["annual_diid"] = ad
-
-        i_sd = col_map.get("start_date")
-        if i_sd is not None:
-            v_sd = row[i_sd] if i_sd < len(row) else None
-            if v_sd not in (None, ""):
-                d_ok, err = _coerce_upload_date_value(v_sd, "start date")
-                if err:
-                    errors.append(f"Row {row_idx}: {err}")
-                    continue
-                patch["start_date"] = d_ok
-
-        i_ed = col_map.get("end_date")
-        if i_ed is not None:
-            v_ed = row[i_ed] if i_ed < len(row) else None
-            if v_ed not in (None, ""):
-                d_ok, err = _coerce_upload_date_value(v_ed, "end date")
-                if err:
-                    errors.append(f"Row {row_idx}: {err}")
-                    continue
-                patch["end_date"] = d_ok
-
-        pkg_raw = _annual_upload_cell_str(row, col_map.get("package_sku"))
-        if pkg_raw:
-            sku = _parse_package_cell_for_upload(pkg_raw)
-            if sku == "__invalid__":
-                errors.append(
-                    f"Row {row_idx}: package must be Home Coming (got {pkg_raw!r})"
-                )
-                continue
-            patch["package_sku"] = sku
-
-        usage_patch: Dict[str, Any] = {}
-        usage_field_err: Optional[str] = None
-        for u_key, spec in (
-            ("awrp_months_used", "awrp_months_used"),
-            ("mmm_months_used", "mmm_months_used"),
-            ("turbo_sessions_used", "turbo_sessions_used"),
-            ("meta_downloads_used", "meta_downloads_used"),
-        ):
-            cell = _annual_upload_cell_str(row, col_map.get(spec))
-            if not cell:
-                continue
-            n, ierr = _parse_int_cell_strict(cell)
-            if ierr:
-                usage_field_err = f"Row {row_idx}: {spec} {ierr}"
-                break
-            if n is not None:
-                usage_patch[u_key] = n
-        if usage_field_err:
-            errors.append(usage_field_err)
-            continue
-        if usage_patch:
-            patch["usage"] = usage_patch
-
-        us = _annual_upload_cell_str(row, col_map.get("usage_source"))
-        if us:
-            t = us.strip().lower()
-            if t not in ("manual", "system"):
-                errors.append(
-                    f"Row {row_idx}: usage source must be manual or system"
-                )
-                continue
-            patch["usage_source"] = t
-
-        if not patch and not client_extra:
+        if not (set(col_map.keys()) & ANNUAL_PORTAL_UPLOAD_PAYLOAD_KEYS):
             skipped_no_data += 1
             continue
 
+        built = await _annual_portal_row_replace_from_excel(
+            row, col_map, row_idx, cl, errors
+        )
+        if built is None:
+            continue
+        new_sub, client_extra = built
+
         now = datetime.now(timezone.utc).isoformat()
-        set_doc: Dict[str, Any] = {"updated_at": now}
-        if patch:
-            prev_sub: Dict[str, Any] = dict(cl.get("annual_subscription") or {})
-            merged = _merge_annual_subscription(prev_sub, patch)
-            set_doc["annual_subscription"] = merged
-        if client_extra:
-            set_doc.update(client_extra)
+        set_doc: Dict[str, Any] = {
+            "annual_subscription": new_sub,
+            "updated_at": now,
+        }
+        set_doc.update(client_extra)
         await db.clients.update_one({"id": cid}, {"$set": set_doc})
         updated += 1
 
