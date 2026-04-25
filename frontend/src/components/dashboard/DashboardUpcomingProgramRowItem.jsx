@@ -72,10 +72,16 @@ function AnnualQuoteBreakdown({
   annualDashboardAccess = false,
   /** Program is on admin annual-package list (MMM, AWRP, …) — used for non-annual payer copy. */
   programOnAnnualPackageList = false,
+  /** Year-long duration tier selected — clearer copy for prepaid annual package. */
+  yearLongTierSelected = false,
 }) {
   if (!aq) {
     return <p className="text-[11px] text-slate-500 italic">Calculating total…</p>;
   }
+  const includedCopy =
+    includedPkg && yearLongTierSelected
+      ? 'Already included in Annual Package'
+      : 'Included in annual package';
   const ahSel = Number(aq.annual_household_peer_selected_count ?? aq.annual_household_peer_count ?? 0);
   const ahPay = Number(aq.annual_household_peer_count ?? 0);
   const ahPkg = Number(
@@ -128,7 +134,7 @@ function AnnualQuoteBreakdown({
           {includedPkg ? (
             <div className={rowClass}>
               <span className="text-slate-700">Your seat</span>
-              <span className="text-slate-600 text-right">Included in annual package</span>
+              <span className="text-slate-600 text-right">{includedCopy}</span>
             </div>
           ) : null}
           {showSelf ? (
@@ -147,7 +153,7 @@ function AnnualQuoteBreakdown({
             <div className={rowClass}>
               <span className="font-medium text-slate-800">{linkedHouseholdLabel}</span>
               {includedPkg ? (
-                <span className="text-slate-600 text-right">Included in annual package</span>
+                <span className="text-slate-600 text-right">{includedCopy}</span>
               ) : ahPay > 0 ? (
                 <span className="font-semibold tabular-nums text-slate-900 text-right leading-snug">
                   {symbol}
@@ -218,7 +224,9 @@ function AnnualQuoteBreakdown({
         </>
       ) : null}
       <ul className="list-none space-y-1.5 pl-0 text-[11px]">
-        {includedPkg ? <li className="text-slate-600">Your seat: included in annual package</li> : null}
+        {includedPkg ? (
+          <li className="text-slate-600">Your seat: {includedCopy}</li>
+        ) : null}
         {showSelf ? (
           <li>
             {annualDashboardAccess ? 'You (Annual Member)' : 'You'}:{' '}
@@ -238,7 +246,7 @@ function AnnualQuoteBreakdown({
           <li className={includedPkg ? 'text-slate-600' : undefined}>
             {linkedHouseholdLabel} × {ahSel}:{' '}
             {includedPkg ? (
-              <span className="font-medium text-slate-800">included in annual package</span>
+              <span className="font-medium text-slate-800">{includedCopy}</span>
             ) : ahPay > 0 ? (
               <>
                 <span className="font-semibold text-slate-900 tabular-nums">
@@ -369,8 +377,6 @@ export default function DashboardUpcomingProgramRowItem({
   const offerPrice = getOfferPrice(p, hasTiers ? tierIdxForDisplay : null);
   /** Tier offer when set, else list — matches program page; portal column overlays apply only with Annual+Dashboard access (backend). */
   const dashboardSeatUnit = offerPrice > 0 ? offerPrice : price;
-  /** Year-long (Annual) tier with no published list price: always custom / contact — never show as Included or ₹0 self-serve. */
-  const showContact = tierIsYearLong && price === 0;
 
   const deadline = p.deadline_date || p.start_date;
   const expired = useMemo(() => {
@@ -412,6 +418,12 @@ export default function DashboardUpcomingProgramRowItem({
     annualDashboardAccess &&
       ((aq?.included_in_annual_package ?? false) || programOnAnnualPackageList),
   );
+
+  /**
+   * Year-long (Annual) tier with no list price: custom / contact for clients not on the annual package.
+   * Annual Program clients (included package) keep normal “included in annual package” copy and cart.
+   */
+  const showContact = tierIsYearLong && price === 0 && !includedPkg;
 
   const annualFamilyClubIdentity = useMemo(
     () => buildAnnualFamilyClubIdentity(annualHouseholdPeers),
@@ -931,7 +943,11 @@ export default function DashboardUpcomingProgramRowItem({
                       </span>
                     ) : null}
                     <span className="text-xl font-bold text-green-600 leading-tight">
-                      {hasTiers && tier?.label ? 'Included' : 'FREE'}
+                      {hasTiers && tier?.label
+                        ? includedPkg && tierIsYearLong
+                          ? 'Already included in Annual Package'
+                          : 'Included'
+                        : 'FREE'}
                     </span>
                   </div>
                 )}
@@ -976,6 +992,7 @@ export default function DashboardUpcomingProgramRowItem({
                         includedPkg={includedPkg}
                         annualDashboardAccess={annualDashboardAccess}
                         programOnAnnualPackageList={programOnAnnualPackageList}
+                        yearLongTierSelected={tierIsYearLong}
                         suppressIntro
                         layout="table"
                       />
@@ -1026,7 +1043,11 @@ export default function DashboardUpcomingProgramRowItem({
                                 </span>
                               ) : null}
                               <span className="font-bold text-green-600">
-                                {hasTiers && tier?.label ? 'Included' : 'FREE'}
+                                {hasTiers && tier?.label
+                                  ? includedPkg && tierIsYearLong
+                                    ? 'Already included in Annual Package'
+                                    : 'Included'
+                                  : 'FREE'}
                               </span>
                             </span>
                           </div>
