@@ -538,6 +538,8 @@ class SiteSettings(BaseModel):
     india_payment_links: List[Dict] = []  # [{type: "exly"|"gpay"|"bank", label: "...", url: "...", details: "...", enabled: true}]
     # India alternative payment settings
     india_payment_enabled: bool = False
+    # Public program/session enrollment: show Razorpay (requires API keys + India IP + INR + booker IN)
+    enrollment_razorpay_enabled: bool = True
     india_gst_percent: float = 18  # GST %
     # Annual member dashboard: show estimated GST row on /api/student/dashboard-quote pricing table
     dashboard_annual_quote_show_tax: bool = True
@@ -733,6 +735,7 @@ class SiteSettingsUpdate(BaseModel):
     india_payment_links: Optional[List[Dict]] = None
     india_alt_discount_percent: Optional[float] = None
     india_payment_enabled: Optional[bool] = None
+    enrollment_razorpay_enabled: Optional[bool] = None
     india_gst_percent: Optional[float] = None
     dashboard_annual_quote_show_tax: Optional[bool] = None
     india_platform_charge_percent: Optional[float] = None

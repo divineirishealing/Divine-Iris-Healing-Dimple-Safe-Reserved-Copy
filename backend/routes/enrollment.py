@@ -825,6 +825,13 @@ async def enrollment_checkout_razorpay(enrollment_id: str, data: EnrollmentSubmi
     if prep["kind"] == "free":
         raise HTTPException(status_code=400, detail="No payment required for this enrollment.")
 
+    ss_doc = await db.site_settings.find_one({"id": "site_settings"}, {"_id": 0, "enrollment_razorpay_enabled": 1})
+    if (ss_doc or {}).get("enrollment_razorpay_enabled") is False:
+        raise HTTPException(
+            status_code=403,
+            detail="Razorpay enrollment checkout is turned off in site settings.",
+        )
+
     ip_country, _ = await detect_ip_info(request)
     if (ip_country or "").upper() != "IN":
         raise HTTPException(

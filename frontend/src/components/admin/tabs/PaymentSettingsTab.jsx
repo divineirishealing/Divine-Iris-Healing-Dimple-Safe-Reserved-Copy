@@ -27,6 +27,7 @@ const PaymentSettingsTab = () => {
   const [disclaimerEnabled, setDisclaimerEnabled] = useState(true);
   const [disclaimerStyle, setDisclaimerStyle] = useState({ font_size: '14px', font_weight: '600', font_color: '#991b1b', bg_color: '#fef2f2', border_color: '#f87171' });
   const [indiaEnabled, setIndiaEnabled] = useState(false);
+  const [enrollmentRazorpayEnabled, setEnrollmentRazorpayEnabled] = useState(true);
   const [manualFormEnabled, setManualFormEnabled] = useState(true);
   const [exlyLink, setExlyLink] = useState('');
   const [altDiscountPct, setAltDiscountPct] = useState(9);
@@ -45,6 +46,7 @@ const PaymentSettingsTab = () => {
       setDisclaimerEnabled(r.data.payment_disclaimer_enabled !== false);
       if (r.data.payment_disclaimer_style) setDisclaimerStyle(prev => ({ ...prev, ...r.data.payment_disclaimer_style }));
       setIndiaEnabled(r.data.india_payment_enabled || false);
+      setEnrollmentRazorpayEnabled(r.data.enrollment_razorpay_enabled !== false);
       setManualFormEnabled(r.data.manual_form_enabled !== false);
       setExlyLink(r.data.india_exly_link || '');
       setAltDiscountPct(r.data.india_alt_discount_percent ?? 9);
@@ -100,6 +102,7 @@ const PaymentSettingsTab = () => {
         payment_disclaimer_enabled: disclaimerEnabled,
         payment_disclaimer_style: disclaimerStyle,
         india_payment_enabled: indiaEnabled,
+        enrollment_razorpay_enabled: enrollmentRazorpayEnabled,
         manual_form_enabled: manualFormEnabled,
         india_exly_link: exlyLink,
         india_alt_discount_percent: parseFloat(altDiscountPct) || 9,
@@ -220,6 +223,26 @@ const PaymentSettingsTab = () => {
           <input type="checkbox" checked={indiaEnabled} onChange={e => setIndiaEnabled(e.target.checked)} className="sr-only peer" />
           <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-green-500"></div>
           <span className="ml-2 text-xs font-medium text-gray-700">{indiaEnabled ? 'Enabled' : 'Disabled'}</span>
+        </label>
+      </div>
+
+      {/* Razorpay on public enrollment */}
+      <div className="mb-6 bg-gray-50 border rounded-lg p-5 flex items-center justify-between">
+        <div>
+          <h3 className="text-sm font-semibold text-gray-900">Razorpay on enrollment</h3>
+          <p className="text-[10px] text-gray-400">
+            Show the Razorpay button on program/session enrollment (India IP, India base country, INR). API keys stay in API Keys; turn this off to hide Razorpay without removing keys.
+          </p>
+        </div>
+        <label className="relative inline-flex items-center cursor-pointer" data-testid="enrollment-razorpay-toggle">
+          <input
+            type="checkbox"
+            checked={enrollmentRazorpayEnabled}
+            onChange={(e) => setEnrollmentRazorpayEnabled(e.target.checked)}
+            className="sr-only peer"
+          />
+          <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-green-500" />
+          <span className="ml-2 text-xs font-medium text-gray-700">{enrollmentRazorpayEnabled ? 'On' : 'Off'}</span>
         </label>
       </div>
 

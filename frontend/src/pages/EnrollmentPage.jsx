@@ -339,7 +339,17 @@ function EnrollmentPage() {
   const [emailVerified, setEmailVerified] = useState(false);
   const [processing, setProcessing] = useState(false);
   const [discountSettings, setDiscountSettings] = useState({ enable_referral: true, checkout_promo_code_visible: true });
-  const [paymentSettings, setPaymentSettings] = useState({ disclaimer: '', disclaimer_enabled: true, disclaimer_style: {}, india_links: [], india_exly_link: '', india_bank_details: {}, india_enabled: false, manual_form_enabled: true });
+  const [paymentSettings, setPaymentSettings] = useState({
+    disclaimer: '',
+    disclaimer_enabled: true,
+    disclaimer_style: {},
+    india_links: [],
+    india_exly_link: '',
+    india_bank_details: {},
+    india_enabled: false,
+    enrollment_razorpay_enabled: true,
+    manual_form_enabled: true,
+  });
   const [sessionTestimonials, setSessionTestimonials] = useState([]);
   const [urgencyQuotes, setUrgencyQuotes] = useState([]);
   const [crossSellRules, setCrossSellRules] = useState([]);
@@ -385,6 +395,7 @@ function EnrollmentPage() {
         india_exly_link: s.india_exly_link || '',
         india_bank_details: s.india_bank_details || {},
         india_enabled: s.india_payment_enabled || false,
+        enrollment_razorpay_enabled: s.enrollment_razorpay_enabled !== false,
         manual_form_enabled: s.manual_form_enabled !== false,
       });
       setUrgencyQuotes(s.enrollment_urgency_quotes || []);
@@ -699,13 +710,14 @@ function EnrollmentPage() {
       : total;
 
   const razorpayEligible = useMemo(() => {
+    if (paymentSettings.enrollment_razorpay_enabled === false) return false;
     if (!razorpayConfig?.enabled || !enrollmentId) return false;
     if (String(priceCurrency || '').toLowerCase() !== 'inr') return false;
     if (detectedCountry !== 'IN') return false;
     if (String(bookerCountry || '').toUpperCase() !== 'IN') return false;
     if (displayCheckoutTotal <= 0) return false;
     return true;
-  }, [razorpayConfig, enrollmentId, priceCurrency, detectedCountry, bookerCountry, displayCheckoutTotal]);
+  }, [paymentSettings.enrollment_razorpay_enabled, razorpayConfig, enrollmentId, priceCurrency, detectedCountry, bookerCountry, displayCheckoutTotal]);
 
   const validatePromo = async () => {
     if (!promoCode.trim()) return;
