@@ -113,7 +113,7 @@ function PortalPricingRuleFields({ offer, onPatch, variant }) {
   );
 }
 
-const DashboardSettingsTab = ({ settings, onChange, programs = [] }) => {
+const DashboardSettingsTab = ({ settings, onChange, programs = [], onOpenAdminTab }) => {
   const { toast } = useToast();
   const { refreshSettings } = useSiteSettings();
   const [bgVideoDragActive, setBgVideoDragActive] = useState(false);
@@ -712,6 +712,46 @@ const DashboardSettingsTab = ({ settings, onChange, programs = [] }) => {
 
       {/* Student dashboard: annual vs family offers (Sacred Home) */}
       <div className="mt-8 bg-white rounded-lg border p-6 space-y-6" data-testid="dashboard-offers-admin">
+        {typeof onOpenAdminTab === 'function' && (
+          <div
+            className="rounded-lg border border-violet-200 bg-violet-50/60 p-4 space-y-3 -mt-1"
+            data-testid="dashboard-annual-excel-nav"
+          >
+            <div className="flex items-center gap-2">
+              <Upload className="h-4 w-4 text-violet-700 shrink-0" />
+              <h4 className="text-xs font-semibold text-gray-900">Upload Excel — annual & dashboard (Sacred Home)</h4>
+            </div>
+            <p className="text-[10px] text-gray-600 leading-relaxed">
+              Bulk updates use <strong>.xlsx</strong> templates.{' '}
+              <strong>Annual Subscribers</strong> is a standalone list (optional roster; does not change Client Garden).{' '}
+              <strong>Annual Portal Clients</strong> updates existing clients — subscription dates, household keys, HomeComing
+              package — for who appears on Sacred Home.
+            </p>
+            <div className="flex flex-wrap gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="text-[11px] h-8 border-violet-300 bg-white hover:bg-violet-50"
+                onClick={() => onOpenAdminTab('annual_subscribers')}
+                data-testid="dashboard-goto-annual-subscribers-excel"
+              >
+                Annual Subscribers — template & upload
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="text-[11px] h-8 border-violet-300 bg-white hover:bg-violet-50"
+                onClick={() => onOpenAdminTab('annual_portal_clients')}
+                data-testid="dashboard-goto-annual-portal-excel"
+              >
+                Annual Portal Clients — template &amp; upload
+              </Button>
+            </div>
+          </div>
+        )}
+
         <div>
           <h3 className="text-sm font-semibold text-gray-900 mb-1">Student dashboard — offers</h3>
           <p className="text-[11px] text-gray-500 mb-2">

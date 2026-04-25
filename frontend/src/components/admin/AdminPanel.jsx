@@ -575,7 +575,19 @@ const AdminPanel = () => {
 
           {activeTab === 'dashboard_settings' && siteSettings && (
             <div>
-              <DashboardSettingsTab settings={siteSettings} programs={programs} onChange={setSiteSettings} />
+              <DashboardSettingsTab
+                settings={siteSettings}
+                programs={programs}
+                onChange={setSiteSettings}
+                onOpenAdminTab={(key) => {
+                  setActiveTab(key);
+                  try {
+                    localStorage.setItem('admin_active_tab', key);
+                  } catch (_) {
+                    /* ignore */
+                  }
+                }}
+              />
               <Button onClick={saveSiteSettings} className="bg-[#D4AF37] hover:bg-[#b8962e] mt-5"><Save size={14} className="mr-1" /> Save Changes</Button>
             </div>
           )}
