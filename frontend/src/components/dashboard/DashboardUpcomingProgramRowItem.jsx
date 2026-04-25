@@ -909,7 +909,16 @@ export default function DashboardUpcomingProgramRowItem({
                     {symbol} {price.toLocaleString()}
                   </span>
                 ) : (
-                  <span className="text-xl font-bold text-green-600">FREE</span>
+                  <div className="flex flex-col gap-0.5">
+                    {hasTiers && tier?.label ? (
+                      <span className="text-[11px] font-bold text-slate-600 uppercase tracking-wide">
+                        {tier.label}
+                      </span>
+                    ) : null}
+                    <span className="text-xl font-bold text-green-600 leading-tight">
+                      {hasTiers && tier?.label ? 'Included' : 'FREE'}
+                    </span>
+                  </div>
                 )}
               </div>
               {/* Absorb extra row height on xl so the white card meets the right column bottom */}
@@ -983,7 +992,16 @@ export default function DashboardUpcomingProgramRowItem({
                         ) : bookerJoins ? (
                           <div className={rowClass}>
                             <span className="font-medium text-slate-800">Your seat</span>
-                            <span className="font-bold text-green-600">FREE</span>
+                            <span className="flex flex-col items-end text-right gap-0.5">
+                              {hasTiers && tier?.label ? (
+                                <span className="text-[10px] font-semibold text-slate-500 uppercase tracking-wide">
+                                  {tier.label}
+                                </span>
+                              ) : null}
+                              <span className="font-bold text-green-600">
+                                {hasTiers && tier?.label ? 'Included' : 'FREE'}
+                              </span>
+                            </span>
                           </div>
                         ) : (
                           <div className={`${rowClass} opacity-50`}>

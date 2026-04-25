@@ -740,6 +740,21 @@ export default function DashboardCombinedCheckoutPage() {
     return offer > 0 ? offer : list;
   };
 
+  /** Flagship cart line: human-readable tier for roster (distinguishes multiple lines for same program). */
+  const cartItemTierLabel = (item) => {
+    if (!item?.isFlagship) return '';
+    const tiers = item.durationTiers || [];
+    if (!tiers.length) return '';
+    const fromItem = String(item.tierLabel || '').trim();
+    if (fromItem) return fromItem;
+    const idx =
+      typeof item.tierIndex === 'number' && item.tierIndex >= 0 && item.tierIndex < tiers.length
+        ? item.tierIndex
+        : 0;
+    const lab = tiers[idx]?.label;
+    return lab ? String(lab).trim() : '';
+  };
+
   useEffect(() => {
     if (!annualQuoteDeps) {
       setAnnualPortalSubtotal(null);
@@ -1634,6 +1649,7 @@ export default function DashboardCombinedCheckoutPage() {
                   : guestBucket === 'extended'
                     ? 'Friends & extended'
                     : null;
+            const rosterTierLabel = cartItemTierLabel(item);
             return (
               <div
                 key={key}
@@ -1654,6 +1670,11 @@ export default function DashboardCombinedCheckoutPage() {
                 <div className="sm:col-span-3 min-w-0 break-words">
                   <span className="text-gray-500 text-[11px] uppercase tracking-wide sm:hidden">Program · </span>
                   <span className="font-medium text-gray-900">{item.programTitle}</span>
+                  {rosterTierLabel ? (
+                    <span className="block text-[10px] sm:text-[11px] text-gray-500 mt-0.5 font-medium leading-snug">
+                      {rosterTierLabel}
+                    </span>
+                  ) : null}
                 </div>
                 <div className="sm:col-span-2 min-w-0 break-words">
                   <span className="text-gray-500 text-[11px] uppercase tracking-wide sm:hidden">Name · </span>
@@ -1864,10 +1885,19 @@ export default function DashboardCombinedCheckoutPage() {
               above.
             </p>
           ) : null}
-          <div className="flex justify-between font-bold text-lg sm:text-xl border-t border-gray-200 pt-3 mt-2">
+          <div className="flex justify-between items-start gap-3 font-bold text-lg sm:text-xl border-t border-gray-200 pt-3 mt-2">
             <span>Total</span>
-            <span className="text-[#D4AF37] tabular-nums">
-              {displayCheckoutTotal <= 0 ? 'FREE' : `${symbol} ${displayCheckoutTotal.toLocaleString()}`}
+            <span className="text-[#D4AF37] tabular-nums text-right">
+              {displayCheckoutTotal <= 0 ? (
+                <span className="flex flex-col items-end gap-0.5">
+                  <span>No payment due</span>
+                  <span className="text-[10px] font-normal text-gray-500 max-w-[14rem] leading-snug">
+                    Duration / tier is shown on each program row above.
+                  </span>
+                </span>
+              ) : (
+                `${symbol} ${displayCheckoutTotal.toLocaleString()}`
+              )}
             </span>
           </div>
         </div>
