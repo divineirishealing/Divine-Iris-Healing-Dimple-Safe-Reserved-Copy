@@ -202,6 +202,8 @@ class EnrollmentSubmit(BaseModel):
     points_to_redeem: Optional[int] = 0
     # When True, Stripe cancel/back returns to portal Divine Cart instead of public /enroll.
     portal_checkout_cancel: Optional[bool] = None
+    # Optional: UI total after discounts/points; server uses it only if within tight tolerance of recomputed amount.
+    client_declared_payable: Optional[float] = None
 
 
 def stripe_checkout_cancel_url(origin: str, data: EnrollmentSubmit, enrollment_id: str) -> str:

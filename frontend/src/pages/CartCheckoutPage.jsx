@@ -231,9 +231,10 @@ function CartCheckoutPage() {
         })),
         browser_timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
         browser_languages: navigator.languages ? [...navigator.languages] : [navigator.language],
+        client_declared_payable: displayCheckoutTotal,
       });
-      clearCart();
       if (res.data.url === '__FREE_SUCCESS__') {
+        clearCart();
         navigate(`/payment/success?session_id=${res.data.session_id}`);
       } else {
         window.location.href = res.data.url;

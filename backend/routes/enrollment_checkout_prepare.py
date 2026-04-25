@@ -406,6 +406,20 @@ async def enrollment_checkout_prepare(
     except Exception as e:
         logger.warning("Points redemption calc error: %s", e)
 
+    # Snap Stripe charge to what the user saw when server math differs only slightly (≤ ₹5 or ≤ $0.05).
+    declared = getattr(data, "client_declared_payable", None)
+    if declared is not None and float(final_total) > 0:
+        try:
+            d = float(declared)
+            if d >= 0:
+                cur = float(final_total)
+                diff = abs(cur - d)
+                tol = 5.0 if str(currency or "").lower() == "inr" else 0.05
+                if diff <= tol + 1e-9:
+                    final_total = round(d, 2)
+        except (TypeError, ValueError):
+            pass
+
     if vip_discount > 0:
         await db.enrollments.update_one(
             {"id": enrollment_id},

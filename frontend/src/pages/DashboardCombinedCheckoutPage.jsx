@@ -1348,10 +1348,11 @@ export default function DashboardCombinedCheckoutPage() {
         portal_checkout_cancel: true,
         browser_timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
         browser_languages: navigator.languages ? [...navigator.languages] : [navigator.language],
+        client_declared_payable: displayCheckoutTotal,
       });
-      suppressEmptyCartRedirectRef.current = true;
-      clearCart();
       if (res.data.url === '__FREE_SUCCESS__') {
+        suppressEmptyCartRedirectRef.current = true;
+        clearCart();
         navigate(`/payment/success?session_id=${res.data.session_id}`);
       } else {
         window.location.href = res.data.url;
@@ -1429,8 +1430,8 @@ export default function DashboardCombinedCheckoutPage() {
           <p className="text-xs text-violet-200/90 mt-2 max-w-xl leading-snug">
             <strong className="font-semibold text-white">Already paid or approved?</strong> Open{' '}
             <span className="text-white font-medium">Order history</span> in the sidebar (or the button above). This page
-            keeps your seat list until checkout finishes; it clears when payment is complete or after you submit proof and
-            we detect a completed enrollment.
+            keeps your seat list until checkout finishes. Leaving Stripe without paying does not clear your cart; it clears
+            when payment completes or after you submit proof and we detect a completed enrollment.
           </p>
           <div className="mt-3 rounded-xl border border-white/20 bg-white/10 backdrop-blur-sm px-3 py-2.5">
             <PaymentMethodTags

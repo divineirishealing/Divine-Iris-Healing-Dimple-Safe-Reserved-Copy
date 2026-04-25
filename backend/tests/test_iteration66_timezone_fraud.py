@@ -114,6 +114,21 @@ class TestEnrollmentSubmitModelFields:
         )
         print(f"✓ Checkout endpoint accepts portal_checkout_cancel field (status: {resp.status_code})")
 
+    def test_checkout_accepts_client_declared_payable(self, api_client, test_enrollment_id):
+        """POST /api/enrollment/{id}/checkout should accept client_declared_payable field"""
+        checkout_data = {
+            "enrollment_id": test_enrollment_id,
+            "item_type": "program",
+            "item_id": "quad-layer-healing",
+            "currency": "inr",
+            "client_declared_payable": 14748.0,
+        }
+        resp = api_client.post(f"{BASE_URL}/api/enrollment/{test_enrollment_id}/checkout", json=checkout_data)
+        assert resp.status_code != 422, (
+            f"client_declared_payable field not accepted - got validation error: {resp.text}"
+        )
+        print(f"✓ Checkout endpoint accepts client_declared_payable field (status: {resp.status_code})")
+
 
 class TestPricingTimezoneCheck:
     """Tests for timezone-based India validation in pricing logic"""
@@ -462,6 +477,7 @@ class TestBackendCodeStructure:
         assert "browser_timezone" in model_section, "browser_timezone field not in EnrollmentSubmit model"
         assert "browser_languages" in model_section, "browser_languages field not in EnrollmentSubmit model"
         assert "portal_checkout_cancel" in model_section, "portal_checkout_cancel field not in EnrollmentSubmit model"
+        assert "client_declared_payable" in model_section, "client_declared_payable field not in EnrollmentSubmit model"
         assert "Optional" in model_section, "Fields should be Optional"
         
         print(f"✓ EnrollmentSubmit model has browser_timezone and browser_languages as Optional fields")
