@@ -15,6 +15,7 @@ import {
 const API = getApiUrl();
 
 const ANNUAL_PORTAL_FLAT_COLS = [
+  { id: 'sn', label: '#', required: true },
   { id: 'name', label: 'Name', required: true },
   { id: 'email', label: 'Email' },
   { id: 'household', label: 'Household' },
@@ -27,7 +28,7 @@ const ANNUAL_PORTAL_FLAT_COLS = [
   { id: 'usage', label: 'Usage' },
   { id: 'edit', label: 'Edit', required: true },
 ];
-const ANNUAL_PORTAL_FLAT_KEY = 'admin-annual-portal-flat-v2';
+const ANNUAL_PORTAL_FLAT_KEY = 'admin-annual-portal-flat-v3';
 
 /** Excel-like grid: gray chrome, tight cells, full-area scroll */
 const sheetFrame =
@@ -144,6 +145,17 @@ export default function AnnualPortalClientsTab() {
     return list;
   }, [rows]);
 
+  const sortedRows = useMemo(() => [...rows].sort(sortMembers), [rows]);
+
+  /** Same serial in list and household views (sorted list order). */
+  const serialByRowKey = useMemo(() => {
+    const map = new Map();
+    sortedRows.forEach((m, i) => {
+      map.set(m.id || m.email, i + 1);
+    });
+    return map;
+  }, [sortedRows]);
+
   const colSpanFlat = Math.max(flatVisibleCount, 1);
 
   return (
@@ -229,6 +241,9 @@ export default function AnnualPortalClientsTab() {
           <table className={tableGrid}>
             <thead>
               <tr>
+                {flatColVisible('sn') && (
+                  <th className={`${thBase} text-center w-11 tabular-nums`}>#</th>
+                )}
                 {flatColVisible('name') && <th className={thBase}>Name</th>}
                 {flatColVisible('email') && <th className={thBase}>Email</th>}
                 {flatColVisible('household') && <th className={thBase}>Household</th>}
@@ -257,11 +272,16 @@ export default function AnnualPortalClientsTab() {
                   </td>
                 </tr>
               ) : (
-                [...rows].sort(sortMembers).map((r, idx) => {
+                sortedRows.map((r, idx) => {
                   const sub = r.annual_subscription || {};
                   const stripe = idx % 2 === 0 ? rowEven : rowOdd;
                   return (
                   <tr key={r.id || r.email} className={`${stripe} hover:bg-[#e8f4fc]`}>
+                    {flatColVisible('sn') && (
+                      <td className={`${tdBase} text-center tabular-nums text-neutral-700 font-medium bg-[#f3f3f3]`}>
+                        {idx + 1}
+                      </td>
+                    )}
                     {flatColVisible('name') && <td className={`${tdBase} font-medium`}>{(r.name || '').trim() || '—'}</td>}
                     {flatColVisible('email') && <td className={`${tdBase} text-neutral-800`}>{(r.email || '').trim() || '—'}</td>}
                     {flatColVisible('household') && <td className={`${tdBase} font-mono text-[12px] text-neutral-800`}>{(r.household_key || '').trim() || '—'}</td>}
@@ -337,6 +357,7 @@ export default function AnnualPortalClientsTab() {
                     <table className={tableGrid}>
                       <thead>
                         <tr>
+                          <th className={`${thBase} text-center w-11 tabular-nums`}>#</th>
                           <th className={`${thBase} pl-3`}>Name</th>
                           <th className={thBase}>Email</th>
                           <th className={`${thBase} text-center w-16`}>Primary</th>
@@ -350,6 +371,11 @@ export default function AnnualPortalClientsTab() {
                           const stripe = ri % 2 === 0 ? rowEven : rowOdd;
                           return (
                           <tr key={r.id || r.email} className={`${stripe} hover:bg-[#e8f4fc]`}>
+                            <td
+                              className={`${tdBase} text-center tabular-nums text-neutral-700 font-medium bg-[#f3f3f3]`}
+                            >
+                              {serialByRowKey.get(r.id || r.email) ?? '—'}
+                            </td>
                             <td className={`${tdBase} pl-3 font-medium`}>{(r.name || '').trim() || '—'}</td>
                             <td className={`${tdBase} text-neutral-800`}>{(r.email || '').trim() || '—'}</td>
                             <td className={`${tdBase} text-center`}>
