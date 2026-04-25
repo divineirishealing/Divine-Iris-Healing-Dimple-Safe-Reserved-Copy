@@ -47,6 +47,14 @@ const API = `${BACKEND_URL}/api`;
 
 const PORTAL_CHECKOUT_PATH = '/dashboard/combined-checkout';
 
+/** One GET /dashboard-quote per cart line: same program can appear twice (e.g. AWRP 1 mo vs 3 mo) with different tiers. */
+function annualPortalQuoteMapKey(item) {
+  if (!item || item.type !== 'program') return '';
+  const pid = String(item.programId ?? '').trim();
+  const ti = normalizeCartProgramTier(item, item.tierIndex);
+  return `${pid}:${ti}`;
+}
+
 function combinedAttendanceLabel(p) {
   if (p.attendance_mode === 'online') return 'Online (Zoom)';
   if (p.attendance_mode === 'in_person') return 'In person';
@@ -787,24 +795,25 @@ export default function DashboardCombinedCheckoutPage() {
           ...(ids ? { family_ids: ids } : { family_count: 0 }),
           booker_joins: bj,
         };
-        if (i.isFlagship && (i.durationTiers || []).length > 0 && typeof i.tierIndex === 'number') {
-          quoteParams.tier_index = i.tierIndex;
+        if (i.isFlagship && (i.durationTiers || []).length > 0) {
+          quoteParams.tier_index = normalizeCartProgramTier(i, i.tierIndex);
         }
+        const mapKey = annualPortalQuoteMapKey(i);
         return axios
           .get(`${API}/student/dashboard-quote`, {
             params: quoteParams,
             withCredentials: true,
             headers,
           })
-          .then((r) => ({ programId: pid, data: r.data, total: Number(r.data?.total) }))
-          .catch(() => ({ programId: pid, data: null, total: null }));
+          .then((r) => ({ mapKey, data: r.data, total: Number(r.data?.total) }))
+          .catch(() => ({ mapKey, data: null, total: null }));
       }),
     ).then((results) => {
       if (cancelled) return;
       const map = {};
       const totals = [];
       for (const row of results) {
-        map[row.programId] = row.data;
+        if (row.mapKey) map[row.mapKey] = row.data;
         totals.push(row.total);
       }
       setAnnualQuotesByProgram(map);
@@ -842,7 +851,7 @@ export default function DashboardCombinedCheckoutPage() {
     let sum = 0;
     let allQuoted = true;
     for (const item of items) {
-      const lineQuote = annualQuotesByProgram[String(item.programId)];
+      const lineQuote = annualQuotesByProgram[annualPortalQuoteMapKey(item)];
       if (!lineQuote) {
         allQuoted = false;
         continue;
@@ -906,7 +915,7 @@ export default function DashboardCombinedCheckoutPage() {
       const selfIncluded =
         meta.annualIncluded && String(p.relationship || '').trim() === 'Myself';
       if (selfIncluded) return { offer: 0, list: 0 };
-      const lineQuote = annualQuotesByProgram[String(item.programId)] || null;
+      const lineQuote = annualQuotesByProgram[annualPortalQuoteMapKey(item)] || null;
       const guestBucketById = lineQuote ? effectiveGuestBucketById(item, lineQuote) : meta.guestBucketById || {};
       const portalBase = lineQuote
         ? annualPortalSeatUnitBasePrices(lineQuote, p, guestBucketById, item.participants || [])
@@ -948,7 +957,7 @@ export default function DashboardCombinedCheckoutPage() {
         const selfIncluded =
           meta.annualIncluded && String(p.relationship || '').trim() === 'Myself';
         if (selfIncluded) continue;
-        const lineQuote = annualQuotesByProgram[String(item.programId)] || null;
+        const lineQuote = annualQuotesByProgram[annualPortalQuoteMapKey(item)] || null;
         const guestBucketById = lineQuote ? effectiveGuestBucketById(item, lineQuote) : meta.guestBucketById || {};
         const portalBase = lineQuote
           ? annualPortalSeatUnitBasePrices(lineQuote, p, guestBucketById, item.participants || [])
@@ -1595,7 +1604,7 @@ export default function DashboardCombinedCheckoutPage() {
             const meta = item.portalLineMeta;
             const selfIncluded =
               meta?.annualIncluded && String(p.relationship || '').trim() === 'Myself';
-            const lineQuote = annualQuotesByProgram[String(item.programId)] || null;
+            const lineQuote = annualQuotesByProgram[annualPortalQuoteMapKey(item)] || null;
             const guestBucketById = lineQuote ? effectiveGuestBucketById(item, lineQuote) : meta?.guestBucketById || {};
             const guestBucket = resolvePortalGuestBucket(p, guestBucketById);
             const portalBase =

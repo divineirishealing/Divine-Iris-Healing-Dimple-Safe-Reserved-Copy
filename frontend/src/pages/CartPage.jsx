@@ -503,6 +503,18 @@ function CartPage() {
       .catch(() => {});
   }, []);
 
+  /** Dashboard Divine Cart sync: line total matches GET /dashboard-quote; catalog tier rows may not include portal-only offers. */
+  const getPortalSyncedUnitOffer = (item) => {
+    if (item.type !== 'program') return null;
+    const raw = item.portalLineMeta?.portalQuoteTotal;
+    if (raw == null) return null;
+    const total = Number(raw);
+    if (!Number.isFinite(total) || total <= 0) return null;
+    const n = item.participants?.length || 0;
+    if (n <= 0) return null;
+    return Math.round((total / n) * 100) / 100;
+  };
+
   const getItemPrice = (item) => {
     if (item.type === 'session') {
       const fakeProgram = { is_flagship: false, duration_tiers: [], price_aed: item.price_aed, price_inr: item.price_inr, price_usd: item.price_usd };
@@ -514,6 +526,8 @@ function CartPage() {
   };
 
   const getItemOfferPrice = (item) => {
+    const portalUnit = getPortalSyncedUnitOffer(item);
+    if (portalUnit != null) return portalUnit;
     if (item.type === 'session') {
       const fakeProgram = { is_flagship: false, duration_tiers: [], offer_price_aed: item.offer_price_aed, offer_price_inr: item.offer_price_inr, offer_price_usd: item.offer_price_usd };
       return getOfferPrice(fakeProgram);
