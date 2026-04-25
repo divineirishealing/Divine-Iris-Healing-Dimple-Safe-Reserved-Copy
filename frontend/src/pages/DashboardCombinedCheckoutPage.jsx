@@ -21,6 +21,7 @@ import {
   ExternalLink,
   ClipboardList,
 } from 'lucide-react';
+import { computeCrossSellDiscount } from '../lib/crossSellPricing';
 import MotivationalSignupFlash from '../components/MotivationalSignupFlash';
 import { ManualPaymentProofBody } from '../components/dashboard/ManualPaymentProofBody';
 import { getAuthHeaders } from '../lib/authHeaders';
@@ -366,6 +367,7 @@ export default function DashboardCombinedCheckoutPage() {
   const [clientPreferredPaymentMethod, setClientPreferredPaymentMethod] = useState('');
   const [annualPortalSubtotal, setAnnualPortalSubtotal] = useState(null);
   const [annualQuotesByProgram, setAnnualQuotesByProgram] = useState({});
+  const [crossSellRules, setCrossSellRules] = useState([]);
   /** Matches Sacred Home / GET student home — drives roster labels (Linked household vs Annual Family Club). */
   const [bookerAnnualPortalAccess, setBookerAnnualPortalAccess] = useState(false);
   const promoFromUrlApplied = useRef(false);
@@ -674,6 +676,27 @@ export default function DashboardCombinedCheckoutPage() {
     };
   }, [location.pathname]);
 
+  useEffect(() => {
+    let cancelled = false;
+    axios
+      .get(`${API}/discounts/settings`)
+      .then((r) => {
+        if (cancelled) return;
+        const raw = r.data?.cross_sell_rules;
+        if (r.data?.enable_cross_sell && Array.isArray(raw) && raw.length) {
+          setCrossSellRules(raw.filter((rule) => rule.enabled !== false));
+        } else {
+          setCrossSellRules([]);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) setCrossSellRules([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   const getItemPrice = (item) => {
     const tiers = item.durationTiers || [];
     const hasTiers = item.isFlagship && tiers.length > 0;
@@ -800,7 +823,53 @@ export default function DashboardCombinedCheckoutPage() {
         ? annualPortalSubtotal
         : naiveSubtotal;
   const totalParticipants = items.reduce((sum, i) => sum + i.participants.length, 0);
-  const numPrograms = items.length;
+  const programCartLines = useMemo(() => items.filter((i) => i.type === 'program'), [items]);
+  const numPrograms = programCartLines.length;
+
+  /** Same as CartPage: bundle discounts from rules + cart lines (API /discounts/calculate tier matching can miss). */
+  const cartLinesNormalizedForCrossSell = useMemo(
+    () =>
+      programCartLines.map((i) => ({
+        programId: i.programId,
+        tierIndex:
+          i.tierIndex != null && i.tierIndex !== ''
+            ? i.tierIndex
+            : i.isFlagship && (i.durationTiers || []).length
+              ? 0
+              : 0,
+      })),
+    [programCartLines],
+  );
+
+  const { clientCrossSellTotal, clientCrossSellRows } = useMemo(() => {
+    if (!crossSellRules.length || !programCartLines.length) {
+      return { clientCrossSellTotal: 0, clientCrossSellRows: [] };
+    }
+    let total = 0;
+    const rows = [];
+    for (const item of programCartLines) {
+      const ti =
+        item.tierIndex != null && item.tierIndex !== ''
+          ? item.tierIndex
+          : item.isFlagship && (item.durationTiers || []).length
+            ? 0
+            : 0;
+      const unitCs = computeCrossSellDiscount(
+        crossSellRules,
+        item.programId,
+        ti,
+        getEffectivePrice(item),
+        cartLinesNormalizedForCrossSell,
+      );
+      if (unitCs?.amount > 0) {
+        const n = item.participants?.length || 0;
+        const disc = unitCs.amount * n;
+        total += disc;
+        rows.push({ label: unitCs.label, amount: disc, title: item.programTitle });
+      }
+    }
+    return { clientCrossSellTotal: Math.round(total * 100) / 100, clientCrossSellRows: rows };
+  }, [crossSellRules, programCartLines, cartLinesNormalizedForCrossSell, currency, toDisplay]);
 
   /** Sum of list vs offer unit prices per paying seat (matches roster columns) for “list – offer” savings line. */
   const seatListOfferRollup = useMemo(() => {
@@ -863,8 +932,16 @@ export default function DashboardCombinedCheckoutPage() {
           subtotal,
           email: bookerEmail,
           currency,
-          program_ids: items.map((i) => i.programId),
-          cart_items: items.map((i) => ({ program_id: i.programId, tier_index: i.tierIndex })),
+          program_ids: programCartLines.map((i) => i.programId),
+          cart_items: programCartLines.map((i) => ({
+            program_id: i.programId,
+            tier_index:
+              i.tierIndex != null && i.tierIndex !== ''
+                ? i.tierIndex
+                : i.isFlagship && (i.durationTiers || []).length
+                  ? 0
+                  : 0,
+          })),
         });
         setAutoDiscounts(res.data);
       } catch {
@@ -879,7 +956,7 @@ export default function DashboardCombinedCheckoutPage() {
     };
     const timer = setTimeout(fetchDiscounts, 300);
     return () => clearTimeout(timer);
-  }, [subtotal, totalParticipants, numPrograms, bookerEmail, currency, items]);
+  }, [subtotal, totalParticipants, numPrograms, bookerEmail, currency, items, programCartLines]);
 
   const validatePromo = async () => {
     if (!promoCode.trim()) return;
@@ -906,13 +983,14 @@ export default function DashboardCombinedCheckoutPage() {
       return Math.round(subtotal * promoResult.discount_percentage / 100);
     return promoResult[`discount_${currency}`] || promoResult.discount_aed || 0;
   })();
-  const totalAutoDiscount =
+  /** Group / combo / loyalty from API only — bundle/cross-sell matches CartPage via computeCrossSellDiscount. */
+  const stackAutoDiscount =
     (autoDiscounts.group_discount || 0) +
     (autoDiscounts.combo_discount || 0) +
-    (autoDiscounts.loyalty_discount || 0) +
-    (autoDiscounts.cross_sell_discount || 0);
+    (autoDiscounts.loyalty_discount || 0);
+  const totalAutoDiscount = stackAutoDiscount + clientCrossSellTotal;
   const totalDiscountAmount = totalAutoDiscount + discount;
-  const total = Math.max(0, subtotal - discount - totalAutoDiscount);
+  const total = Math.max(0, subtotal - discount - clientCrossSellTotal - stackAutoDiscount);
 
   /** INR: same stack as India payment page (Client Garden + Payment Settings) on net after cart promos. */
   const indiaBreakdown = useMemo(() => {
@@ -1516,14 +1594,23 @@ export default function DashboardCombinedCheckoutPage() {
               </span>
             </div>
           )}
-          {autoDiscounts.cross_sell_discount > 0 && (
-            <div className="flex justify-between text-sm text-green-700" data-testid="dashboard-checkout-cross-sell">
-              <span>Bundle / cross-sell</span>
-              <span className="tabular-nums">
-                -{symbol} {autoDiscounts.cross_sell_discount.toLocaleString()}
+          {clientCrossSellRows.map((row, i) => (
+            <div
+              key={`xs-${i}-${row.title}`}
+              className="flex justify-between text-sm text-green-700"
+              data-testid={`dashboard-checkout-cross-sell-${i}`}
+            >
+              <span className="flex items-center gap-1 min-w-0">
+                <Gift size={14} className="shrink-0 text-green-700" />
+                <span className="truncate">
+                  {row.label || 'Bundle'} ({row.title})
+                </span>
+              </span>
+              <span className="tabular-nums shrink-0">
+                -{symbol} {row.amount.toLocaleString()}
               </span>
             </div>
-          )}
+          ))}
           {discount > 0 && (
             <div className="flex justify-between text-sm text-green-700">
               <span>Promo ({promoResult?.code})</span>
