@@ -26,10 +26,9 @@ const ANNUAL_PORTAL_FLAT_COLS = [
   { id: 'household', label: 'HOUSEHOLD' },
   { id: 'primary', label: 'PRIMARY' },
   { id: 'client_id', label: 'Client id' },
-  { id: 'awrp_year', label: 'AWRP year' },
   { id: 'edit', label: 'Edit', required: true },
 ];
-const ANNUAL_PORTAL_FLAT_KEY = 'admin-annual-portal-flat-v5';
+const ANNUAL_PORTAL_FLAT_KEY = 'admin-annual-portal-flat-v6';
 
 function colLabel(id) {
   return ANNUAL_PORTAL_FLAT_COLS.find((c) => c.id === id)?.label ?? id;
@@ -227,7 +226,7 @@ export default function AnnualPortalClientsTab() {
         <div className="min-w-0">
           <h2 className="text-base font-semibold text-gray-900">Annual + dashboard (Client Garden)</h2>
           <p className="text-xs text-gray-600 mt-0.5 max-w-3xl">
-            Table columns: #, Name, Email Id, Start/End Date, DIID, HomeComing, Usage (summary), HOUSEHOLD, PRIMARY, Client id, AWRP year.{' '}
+            Table columns: #, Name, Email Id, Start/End Date, DIID, HomeComing, Usage (summary), HOUSEHOLD, PRIMARY, Client id.{' '}
             <strong>Template</strong> uses the same order; usage counts are split into separate columns for upload.{' '}
             <strong>Upload</strong> finds columns by <strong>header title</strong> (not left-to-right order). Members without email: use <strong>Client id</strong>.
           </p>
@@ -367,7 +366,6 @@ export default function AnnualPortalClientsTab() {
                 {flatColVisible('household') && <th className={thBase}>{colLabel('household')}</th>}
                 {flatColVisible('primary') && <th className={`${thBase} text-center`}>{colLabel('primary')}</th>}
                 {flatColVisible('client_id') && <th className={thBase}>{colLabel('client_id')}</th>}
-                {flatColVisible('awrp_year') && <th className={thBase}>{colLabel('awrp_year')}</th>}
                 {flatColVisible('edit') && <th className={`${thBase} text-center`}>{colLabel('edit')}</th>}
               </tr>
             </thead>
@@ -425,9 +423,6 @@ export default function AnnualPortalClientsTab() {
                       <td className={`${tdBase} font-mono text-[11px] text-neutral-800 break-all max-w-[8rem]`}>
                         {(r.id || '').trim() || '—'}
                       </td>
-                    )}
-                    {flatColVisible('awrp_year') && (
-                      <td className={tdBase}>{(sub.awrp_year_label || '').trim() || '—'}</td>
                     )}
                     {flatColVisible('edit') && (
                       <td className={`${tdBase} text-center p-0`}>

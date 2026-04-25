@@ -32,7 +32,6 @@ export default function AnnualSubscriptionEditDialog({ open, onOpenChange, row, 
   const [diid, setDiid] = useState('');
   const [start, setStart] = useState('');
   const [end, setEnd] = useState('');
-  const [awrpYear, setAwrpYear] = useState('');
   const [uAwrp, setUAwrp] = useState('');
   const [uMmm, setUMmm] = useState('');
   const [uTurbo, setUTurbo] = useState('');
@@ -46,7 +45,6 @@ export default function AnnualSubscriptionEditDialog({ open, onOpenChange, row, 
     setDiid(sub.annual_diid || '');
     setStart(sub.start_date || '');
     setEnd(sub.end_date || '');
-    setAwrpYear(sub.awrp_year_label || '');
     setUAwrp(u.awrp_months_used ?? '');
     setUMmm(u.mmm_months_used ?? '');
     setUTurbo(u.turbo_sessions_used ?? '');
@@ -80,7 +78,6 @@ export default function AnnualSubscriptionEditDialog({ open, onOpenChange, row, 
         package_sku: HOME_COMING_SKU,
         start_date: start.trim() || null,
         end_date: end.trim() || null,
-        awrp_year_label: awrpYear.trim() || null,
         usage: {
           awrp_months_used: numOrZero(uAwrp),
           mmm_months_used: numOrZero(uMmm),
@@ -155,17 +152,6 @@ export default function AnnualSubscriptionEditDialog({ open, onOpenChange, row, 
                 {ent.meta_downloads} Meta Download.
               </span>
             </p>
-          </div>
-
-          <div className="grid gap-1.5">
-            <Label htmlFor="awrp-year">AWRP year label</Label>
-            <Input
-              id="awrp-year"
-              value={awrpYear}
-              onChange={(e) => setAwrpYear(e.target.value)}
-              placeholder="e.g. AWRP3.0"
-              autoComplete="off"
-            />
           </div>
 
           <div className="grid gap-1.5">

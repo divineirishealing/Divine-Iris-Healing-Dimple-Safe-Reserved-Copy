@@ -633,7 +633,6 @@ class AnnualSubscriptionUpdate(BaseModel):
     package_sku: Optional[str] = None
     start_date: Optional[str] = None
     end_date: Optional[str] = None
-    awrp_year_label: Optional[str] = None
     usage: Optional[AnnualSubscriptionUsagePatch] = None
     """manual = admin/backfill; system = derived from bookings (future)."""
 
@@ -709,13 +708,6 @@ def _merge_annual_subscription(
         else:
             out["end_date"] = v
 
-    if "awrp_year_label" in patch:
-        v = patch["awrp_year_label"]
-        if v is None or (isinstance(v, str) and not v.strip()):
-            out.pop("awrp_year_label", None)
-        else:
-            out["awrp_year_label"] = (v or "").strip()
-
     if "usage_source" in patch:
         v = patch["usage_source"]
         if v is None or v == "":
@@ -736,6 +728,7 @@ def _merge_annual_subscription(
                     u_prev[uk] = int(uv)
             out["usage"] = u_prev
 
+    out.pop("awrp_year_label", None)
     return out
 
 
@@ -801,10 +794,6 @@ async def patch_annual_subscription(client_id: str, data: AnnualSubscriptionUpda
     if "end_date" in raw:
         patch["end_date"] = _coerce_annual_date_field(raw["end_date"], "end_date")
 
-    if "awrp_year_label" in raw:
-        v = raw["awrp_year_label"]
-        patch["awrp_year_label"] = v
-
     if "usage_source" in raw:
         patch["usage_source"] = raw["usage_source"]
 
@@ -857,7 +846,6 @@ ANNUAL_PORTAL_UPLOAD_SPECS: List[Tuple[str, Tuple[str, ...]]] = [
         "end_date",
         ("end", "end date", "subscription end", "end_date", "enddate"),
     ),
-    ("awrp_year_label", ("awrp year", "awrp_year", "awrp_year_label")),
     (
         "package_sku",
         ("package", "package_sku", "sku", "homecoming", "home coming"),
@@ -934,7 +922,7 @@ async def download_annual_portal_subscription_template():
     from openpyxl.styles import Font, PatternFill, Alignment
     from fastapi.responses import StreamingResponse
 
-    # Same order as Admin → Annual + dashboard list (# … AWRP year). Upload matches by header text, not position.
+    # Same order as Admin → Annual + dashboard list. Upload matches by header text, not position.
     labels = [
         "#",
         "Name",
@@ -951,7 +939,6 @@ async def download_annual_portal_subscription_template():
         "HOUSEHOLD",
         "PRIMARY",
         "Client id",
-        "AWRP year",
     ]
     wb = Workbook()
     ws = wb.active
@@ -979,7 +966,6 @@ async def download_annual_portal_subscription_template():
         "Poonam Rathee",
         "Y",
         "",
-        "AWRP3.0",
     ]
     sample_peer = [
         "2",
@@ -997,7 +983,6 @@ async def download_annual_portal_subscription_template():
         "Poonam Rathee",
         "N",
         "paste-uuid-from-admin-grid",
-        "AWRP3.0",
     ]
     note_font = Font(italic=True, color="666666", size=10)
     for col_idx, val in enumerate(sample_primary, 1):
@@ -1006,7 +991,7 @@ async def download_annual_portal_subscription_template():
     for col_idx, val in enumerate(sample_peer, 1):
         c = ws.cell(row=3, column=col_idx, value=val)
         c.font = note_font
-    widths = [5, 18, 26, 12, 12, 12, 14, 10, 10, 10, 10, 10, 22, 8, 36, 12]
+    widths = [5, 18, 26, 12, 12, 12, 14, 10, 10, 10, 10, 10, 22, 8, 36]
     for i, w in enumerate(widths, 1):
         ws.column_dimensions[ws.cell(row=1, column=i).column_letter].width = w
     out = io.BytesIO()
@@ -1178,10 +1163,6 @@ async def upload_annual_portal_subscription_excel(file: UploadFile = File(...)):
                 errors.append(f"Row {row_idx}: {err}")
                 continue
             patch["end_date"] = d_ok
-
-        awrp = _annual_upload_cell_str(row, col_map.get("awrp_year_label"))
-        if awrp:
-            patch["awrp_year_label"] = awrp
 
         pkg_raw = _annual_upload_cell_str(row, col_map.get("package_sku"))
         if pkg_raw:
