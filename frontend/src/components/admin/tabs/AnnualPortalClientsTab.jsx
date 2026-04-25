@@ -162,9 +162,11 @@ export default function AnnualPortalClientsTab() {
       setUploadReport(data);
       const errN = Number(data.error_count || 0);
       const upd = Number(data.updated ?? 0);
+      const created = Number(data.clients_created ?? 0);
       const skipNoData = Number(data.skipped_no_data_rows ?? 0);
       let variant = 'default';
       let desc = `Updated ${upd} row(s).`;
+      if (created > 0) desc += ` Created ${created} new client(s).`;
       if (errN) {
         variant = 'destructive';
         desc += ` ${errN} issue(s) — see summary below.`;
@@ -351,7 +353,7 @@ export default function AnnualPortalClientsTab() {
         <p className="text-xs text-gray-600 mt-0.5 max-w-3xl">
           Table columns: #, Name, Email Id, Start/End Date, DIID, HomeComing, Usage (summary), HOUSEHOLD, PRIMARY, Client id.{' '}
           <strong>Template</strong> uses the same order; usage counts are split into separate columns for upload.{' '}
-          <strong>Upload</strong> finds columns by <strong>header title</strong> (not left-to-right order). Each column in the file <strong>replaces</strong> what is stored (empty cells clear dates, DIID, package, household; blank usage cells become 0; blank PRIMARY counts as N). Columns you remove from the file are left unchanged in the database. If row 1 is a title row, headers on the next row are detected automatically. Match rows by <strong>Client id</strong> and/or <strong>Email</strong>, or if both are empty, by <strong>Name</strong> (exact match to one client). <strong>DIID</strong> may be full (e.g. JADO2504) or <strong>4 digits YYMM only</strong> (e.g. 2503) — the system adds the 4 letter prefix from the <strong>Name</strong> cell or the client’s stored name.
+          <strong>Upload</strong> finds columns by <strong>header title</strong> (not left-to-right order). Each column in the file <strong>replaces</strong> what is stored (empty cells clear dates, DIID, package, household; blank usage cells become 0; blank PRIMARY counts as N). <strong>DIID</strong> can be full 8 characters (letters+YYMM) or <strong>YYMM only</strong> (4 digits); letters are taken from <strong>Name</strong>. Match rows by Client id, Email, or <strong>Name</strong> (+ <strong>HOUSEHOLD</strong> when names repeat); new household members get a generated Client id. If row 1 is a title row, headers on the next row are detected automatically.
         </p>
       </div>
 
@@ -368,6 +370,12 @@ export default function AnnualPortalClientsTab() {
           <p className="font-semibold mb-1">Upload summary</p>
           <p>
             Updated <strong>{uploadReport.updated ?? 0}</strong>
+            {uploadReport.clients_created != null && Number(uploadReport.clients_created) > 0 && (
+              <>
+                {' '}
+                · New clients <strong>{uploadReport.clients_created}</strong>
+              </>
+            )}
             {uploadReport.skipped_blank_rows != null && (
               <>
                 {' '}

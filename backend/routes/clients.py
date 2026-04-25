@@ -835,7 +835,7 @@ def _annual_upload_cell_str(row: tuple, idx: Optional[int]) -> str:
 
 
 def _annual_diid_cell_raw(row: tuple, idx: Optional[int]) -> str:
-    """Integers/floats from Excel (e.g. 2503) become 4-digit strings without .0."""
+    """Excel may store YYMM as int/float (e.g. 2503); normalize to digits without .0."""
     if idx is None or idx >= len(row):
         return ""
     v = row[idx]
@@ -843,7 +843,7 @@ def _annual_diid_cell_raw(row: tuple, idx: Optional[int]) -> str:
         return ""
     if isinstance(v, (int, float)) and not isinstance(v, bool):
         f = float(v)
-        if f == int(f) and 0 <= int(f) <= 999_999_999_999:
+        if f == int(f) and -1e12 <= f <= 1e12:
             return str(int(f))
     s = str(v).strip()
     if re.match(r"^\d+\.0+$", s):
@@ -871,20 +871,111 @@ async def _find_single_client_by_name(name: str) -> Tuple[Optional[Dict[str, Any
     async for doc in cur:
         matches.append(doc)
     if not matches:
-        return None, f"no client with exact name {n!r} — set Client id or Email"
+        return None, f"no client with exact name {n!r} — add Client id, use a unique Name + HOUSEHOLD, or leave Email if present"
     if len(matches) > 1:
-        return None, f"more than one client with name {n!r} — set Client id or Email"
+        return None, f"more than one client with name {n!r} — set Client id or disambiguate with HOUSEHOLD on the row"
     return matches[0], None
+
+
+async def _find_client_by_name_and_household(
+    name: str, household_key: str
+) -> Tuple[Optional[Dict[str, Any]], Optional[str]]:
+    n = (name or "").strip()
+    hk = (household_key or "").strip()
+    if not n or not hk:
+        return None, None
+    esc_n = re.escape(n)
+    cur = db.clients.find(
+        {
+            "name": {"$regex": f"^{esc_n}$", "$options": "i"},
+            "household_key": hk,
+        }
+    ).limit(2)
+    matches: List[Dict[str, Any]] = []
+    async for doc in cur:
+        matches.append(doc)
+    if len(matches) == 1:
+        return matches[0], None
+    if len(matches) > 1:
+        return None, f"more than one client with name {n!r} in household {hk!r} — set Client id"
+    return None, None
+
+
+async def _create_client_for_annual_portal_upload(
+    row: tuple,
+    col_map: Dict[str, int],
+    row_idx: int,
+    name: str,
+    errors: List[str],
+) -> Optional[Dict[str, Any]]:
+    """New Client Garden row with generated id; annual_member_dashboard on. Email optional."""
+    name = (name or "").strip()
+    if not name:
+        return None
+    email_n = normalize_email(_annual_upload_cell_str(row, col_map.get("email")))
+    if email_n:
+        existing = await db.clients.find_one({"email": email_n})
+        if existing:
+            errors.append(
+                f"Row {row_idx}: email {email_n} is already used by another client — use that row's Client id, or clear Email to create a member without login email"
+            )
+            return None
+    now = datetime.now(timezone.utc).isoformat()
+    cid = new_entity_id()
+    did = f"DID-{str(uuid.uuid4())[:8].upper()}"
+    timeline_entry = {
+        "type": "Manual",
+        "detail": "Created from annual portal Excel import",
+        "date": now,
+    }
+    doc: Dict[str, Any] = {
+        "id": cid,
+        "did": did,
+        "diid": new_internal_diid(name, now),
+        "email": email_n,
+        "phone": "",
+        "name": name,
+        "label": "Iris",
+        "label_manual": "Iris",
+        "sources": ["Annual portal import"],
+        "conversions": [],
+        "timeline": [timeline_entry],
+        "notes": "",
+        "created_at": now,
+        "updated_at": now,
+        "portal_login_allowed": True,
+        "annual_member_dashboard": True,
+    }
+    if "household_key" in col_map:
+        hk_raw = _annual_upload_cell_str(row, col_map["household_key"]).strip()
+        if hk_raw:
+            doc["household_key"] = hk_raw[:200]
+    if "is_primary_household_contact" in col_map:
+        prim_raw = _annual_upload_cell_str(row, col_map["is_primary_household_contact"])
+        pt = prim_raw.strip().upper()
+        if not pt or pt in ("N", "NO", "0", "FALSE", "-", "—"):
+            doc["is_primary_household_contact"] = False
+        elif pt in ("Y", "YES", "1", "TRUE"):
+            doc["is_primary_household_contact"] = True
+        else:
+            pl = prim_raw.strip().lower()
+            if pl in ("y", "yes", "1", "true"):
+                doc["is_primary_household_contact"] = True
+            elif pl in ("n", "no", "0", "false"):
+                doc["is_primary_household_contact"] = False
+            else:
+                errors.append(
+                    f"Row {row_idx}: PRIMARY must be Y or N (got {prim_raw!r})"
+                )
+                return None
+    await db.clients.insert_one(doc)
+    return doc
 
 
 ANNUAL_PORTAL_UPLOAD_SPECS: List[Tuple[str, Tuple[str, ...]]] = [
     (
         "client_id",
         ("client id", "client_id", "clientid", "uuid", "garden id", "client uuid"),
-    ),
-    (
-        "row_name",
-        ("name", "member name", "client name", "full name", "display name", "client"),
     ),
     (
         "email",
@@ -896,6 +987,10 @@ ANNUAL_PORTAL_UPLOAD_SPECS: List[Tuple[str, Tuple[str, ...]]] = [
             "e mail",
             "email address",
         ),
+    ),
+    (
+        "row_name",
+        ("name", "member name", "client name", "full name", "display name", "client"),
     ),
     ("annual_diid", ("annual diid", "annual_diid", "member diid", "diid")),
     (
@@ -938,7 +1033,7 @@ def _annual_portal_upload_col_map(header_cells: List[Any]) -> Dict[str, int]:
 
 
 def _find_annual_portal_header_row(ws: Any) -> Tuple[int, List[Any]]:
-    """First row (1-based) that looks like a header: has Email and/or Client id column."""
+    """First row (1-based) that looks like a header: Email, Client id, and/or Name."""
     max_scan = min(30, max(ws.max_row or 1, 1))
     max_c = max(ws.max_column or 40, 1)
     for r in range(1, max_scan + 1):
@@ -946,7 +1041,7 @@ def _find_annual_portal_header_row(ws: Any) -> Tuple[int, List[Any]]:
         if not any(x not in (None, "") for x in cells):
             continue
         cmap = _annual_portal_upload_col_map(cells)
-        if "email" in cmap or "client_id" in cmap:
+        if "email" in cmap or "client_id" in cmap or "row_name" in cmap:
             return r, cells
     cells0 = [ws.cell(row=1, column=c).value for c in range(1, max_c + 1)]
     return 1, cells0
@@ -1079,7 +1174,7 @@ async def _annual_portal_row_replace_from_excel(
                 return None
 
     if "annual_diid" in col_map:
-        ad_raw = _annual_diid_cell_raw(row, col_map["annual_diid"])
+        ad_raw = _annual_diid_cell_raw(row, col_map["annual_diid"]).strip()
         if not ad_raw:
             new_sub.pop("annual_diid", None)
         else:
@@ -1087,17 +1182,17 @@ async def _annual_portal_row_replace_from_excel(
             ad_norm = normalize_annual_diid(ad_raw)
             if validate_annual_diid_format(ad_norm):
                 ad = ad_norm
-            elif re.fullmatch(r"\d{4}", ad_raw.strip()):
+            elif re.fullmatch(r"\d{4}", ad_raw):
                 nm = _display_name_for_portal_upload(row, col_map, cl)
                 if not nm:
                     errors.append(
-                        f"Row {row_idx}: for YYMM-only {ad_raw!r}, set the Name column or ensure this client has a name in the system"
+                        f"Row {row_idx}: for YYMM-only DIID {ad_raw!r}, set the Name column (or ensure the client has a name)"
                     )
                     return None
-                built = build_annual_diid_from_name_yymm(nm, ad_raw.strip())
+                built = build_annual_diid_from_name_yymm(nm, ad_raw)
                 if not built:
                     errors.append(
-                        f"Row {row_idx}: invalid month in {ad_raw!r} (YYMM: month must be 01–12)"
+                        f"Row {row_idx}: invalid YYMM in {ad_raw!r} (month must be 01–12)"
                     )
                     return None
                 ad = built
@@ -1242,13 +1337,14 @@ async def download_annual_portal_subscription_template():
         "Y",
         "",
     ]
+    # Row 3: DIID as YYMM only (4 digits) — server builds 4 letters from Name + YYMM
     sample_peer = [
         "2",
         "Child Member",
         "",
         "2025-04-01",
         "2026-03-31",
-        "CHJA2504",
+        "2503",
         "Home Coming",
         "0",
         "0",
@@ -1284,11 +1380,10 @@ async def download_annual_portal_subscription_template():
 @router.post("/annual-portal-subscription-upload")
 async def upload_annual_portal_subscription_excel(file: UploadFile = File(...)):
     """
-    Replace annual_subscription / household fields from the sheet for each matched row.
-    Any column present in the header overwrites (empty cell clears dates, DIID, package, household;
-    blank usage cells become 0; blank PRIMARY becomes N). Columns omitted from the file are unchanged.
-    Match rows by Client id (UUID) and/or email. Only annual_member_dashboard clients with portal
-    not explicitly blocked are updated.
+    Replace annual_subscription / household fields from the sheet per row.
+    Match by Client id, Email, or Name (+ optional HOUSEHOLD). Unmatched Name+HOUSEHOLD rows can
+    create a new client (generated UUID). DIID may be full FFLlYYMM or YYMM only (letters from Name).
+    Import sets annual_member_dashboard for updated clients. portal_login_allowed False still skips.
     """
     import io
     from openpyxl import load_workbook
@@ -1311,10 +1406,14 @@ async def upload_annual_portal_subscription_excel(file: UploadFile = File(...)):
     ws = wb.active
     header_row_idx, header_row = _find_annual_portal_header_row(ws)
     col_map = _annual_portal_upload_col_map(header_row)
-    if "email" not in col_map and "client_id" not in col_map:
+    if (
+        "email" not in col_map
+        and "client_id" not in col_map
+        and "row_name" not in col_map
+    ):
         raise HTTPException(
             status_code=400,
-            detail="Sheet must have an Email Id / Email column and/or Client id (see template). If row 1 is a title, put headers on the next row.",
+            detail="Sheet must have an Email column, Client id column, and/or Name column (see template). If row 1 is a title, put headers on the next row.",
         )
 
     matched_labels = {
@@ -1324,6 +1423,7 @@ async def upload_annual_portal_subscription_excel(file: UploadFile = File(...)):
     }
 
     updated = 0
+    clients_created = 0
     skipped_blank = 0
     skipped_no_data = 0
     errors: List[str] = []
@@ -1370,27 +1470,45 @@ async def upload_annual_portal_subscription_excel(file: UploadFile = File(...)):
                 errors.append(f"Row {row_idx}: no client with email {email}")
                 continue
         else:
-            if "row_name" in col_map:
-                nm = _annual_upload_cell_str(row, col_map["row_name"]).strip()
-                if nm:
-                    by_n, nerr = await _find_single_client_by_name(nm)
-                    if nerr:
-                        errors.append(f"Row {row_idx}: {nerr}")
-                        continue
-                    if by_n is not None:
-                        cl = by_n
-            if cl is None:
+            nm = _annual_upload_cell_str(row, col_map.get("row_name")).strip()
+            if not nm:
                 errors.append(
-                    f"Row {row_idx}: set Client id, Email, or a unique exact Name (from Name column) to match one client"
+                    f"Row {row_idx}: set Client id, Email, or Name — all empty for this row"
                 )
                 continue
+            hk_cell = ""
+            if "household_key" in col_map:
+                hk_cell = _annual_upload_cell_str(row, col_map["household_key"]).strip()
+            if hk_cell:
+                cl_nh, ehk = await _find_client_by_name_and_household(nm, hk_cell)
+                if ehk:
+                    errors.append(f"Row {row_idx}: {ehk}")
+                    continue
+                cl = cl_nh
+                if cl is None:
+                    created = await _create_client_for_annual_portal_upload(
+                        row, col_map, row_idx, nm, errors
+                    )
+                    if created is None:
+                        continue
+                    cl = created
+                    clients_created += 1
+            else:
+                by_n, nerr = await _find_single_client_by_name(nm)
+                if nerr:
+                    errors.append(f"Row {row_idx}: {nerr}")
+                    continue
+                cl = by_n
+                if cl is None:
+                    created = await _create_client_for_annual_portal_upload(
+                        row, col_map, row_idx, nm, errors
+                    )
+                    if created is None:
+                        continue
+                    cl = created
+                    clients_created += 1
 
-        row_label = email or (cl.get("email") or "") or cid_cell
-        if not cl.get("annual_member_dashboard"):
-            errors.append(
-                f"Row {row_idx}: {row_label} is not an annual dashboard client — skipped"
-            )
-            continue
+        row_label = email or (cl.get("email") or "") or cid_cell or (cl.get("name") or "")
         if cl.get("portal_login_allowed") is False:
             errors.append(
                 f"Row {row_idx}: {row_label} has portal blocked — skipped"
@@ -1412,6 +1530,7 @@ async def upload_annual_portal_subscription_excel(file: UploadFile = File(...)):
         now = datetime.now(timezone.utc).isoformat()
         set_doc: Dict[str, Any] = {
             "annual_subscription": new_sub,
+            "annual_member_dashboard": True,
             "updated_at": now,
         }
         set_doc.update(client_extra)
@@ -1420,6 +1539,7 @@ async def upload_annual_portal_subscription_excel(file: UploadFile = File(...)):
 
     return {
         "updated": updated,
+        "clients_created": clients_created,
         "skipped_blank_rows": skipped_blank,
         "skipped_no_data_rows": skipped_no_data,
         "skipped_empty_rows": skipped_blank + skipped_no_data,
