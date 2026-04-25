@@ -20,6 +20,7 @@ import {
   Gift,
   ExternalLink,
   ClipboardList,
+  Trash2,
 } from 'lucide-react';
 import { computeCrossSellDiscount } from '../lib/crossSellPricing';
 import MotivationalSignupFlash from '../components/MotivationalSignupFlash';
@@ -322,7 +323,7 @@ export default function DashboardCombinedCheckoutPage() {
   const location = useLocation();
   const [searchParams, setSearchParams] = useSearchParams();
   const { user } = useAuth();
-  const { items, clearCart, syncProgramLineItem, removeItem } = useCart();
+  const { items, clearCart, syncProgramLineItem, removeItem, updateItemParticipants } = useCart();
   const {
     country: detectedCountry,
     symbol,
@@ -1371,6 +1372,30 @@ export default function DashboardCombinedCheckoutPage() {
 
   const rosterParticipantCount = rosterRows.length;
 
+  const removeRosterSeat = useCallback(
+    (item, participantIndex) => {
+      const list = item.participants || [];
+      if (participantIndex < 0 || participantIndex >= list.length) return;
+      if (list.length <= 1) {
+        removeItem(item.id);
+        toast({
+          title: 'Removed from cart',
+          description: `${item.programTitle || 'Program'} was removed from your order.`,
+        });
+        return;
+      }
+      updateItemParticipants(
+        item.id,
+        list.filter((_, i) => i !== participantIndex),
+      );
+      toast({
+        title: 'Seat removed',
+        description: `Removed one seat from ${item.programTitle || 'this program'}.`,
+      });
+    },
+    [removeItem, updateItemParticipants, toast],
+  );
+
   if (items.length === 0) return null;
 
   return (
@@ -1482,7 +1507,18 @@ export default function DashboardCombinedCheckoutPage() {
                 key={key}
                 className="grid grid-cols-1 sm:grid-cols-12 gap-2 py-3.5 text-xs sm:text-sm text-gray-900 leading-snug"
               >
-                <div className="sm:col-span-1 text-gray-500 tabular-nums font-medium">{n + 1}</div>
+                <div className="sm:col-span-1 flex flex-row sm:flex-col items-center sm:items-start gap-2 text-gray-500">
+                  <span className="tabular-nums font-medium shrink-0">{n + 1}</span>
+                  <button
+                    type="button"
+                    className="p-1 rounded-md text-red-600 hover:text-red-700 hover:bg-red-50 border border-transparent hover:border-red-100 transition-colors"
+                    aria-label={`Remove ${name} from ${item.programTitle}`}
+                    data-testid={`dashboard-checkout-remove-seat-${key}`}
+                    onClick={() => removeRosterSeat(item, idx)}
+                  >
+                    <Trash2 className="h-4 w-4" strokeWidth={2} />
+                  </button>
+                </div>
                 <div className="sm:col-span-3 min-w-0 break-words">
                   <span className="text-gray-500 text-[11px] uppercase tracking-wide sm:hidden">Program · </span>
                   <span className="font-medium text-gray-900">{item.programTitle}</span>
