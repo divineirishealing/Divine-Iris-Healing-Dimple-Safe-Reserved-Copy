@@ -614,6 +614,8 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh, bo
   const [persistEnrollmentDefaultsOnContinue, setPersistEnrollmentDefaultsOnContinue] = useState(false);
   const [seatDraftsByProgram, setSeatDraftsByProgram] = useState({});
   const seatDraftsRef = useRef({});
+  /** Latest Sacred Home snapshot for synchronous / unmount flush (rAF + no unmount save dropped tier & attendance). */
+  const upcomingSessionPersistRef = useRef(null);
   const enrollmentPrefillCacheRef = useRef(null);
   const [enrollmentSelf, setEnrollmentSelf] = useState(null);
   const [crossSellRules, setCrossSellRules] = useState([]);
@@ -822,34 +824,45 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh, bo
       : '';
   const showOfferCountdownStrip = Boolean(exclusiveOfferLine || countdownDeadline);
 
+  if (bookerEmail && upcomingSessionHydrated) {
+    upcomingSessionPersistRef.current = {
+      selectedFamilyByProgram,
+      seatDraftsByProgram,
+      enrollmentSeatOpen,
+      seatModalCtx,
+      bookerSeatMode,
+      bookerSeatNotify,
+      guestSeatForm,
+      persistEnrollmentDefaultsOnContinue,
+      enrollmentDefaultsLoaded,
+    };
+  }
+
   useEffect(() => {
     if (typeof sessionStorage === 'undefined' || !bookerEmail) return;
     if (!upcomingSessionHydrated) return;
-    const save = () => {
+    const flush = () => {
       try {
+        const p = upcomingSessionPersistRef.current;
+        if (!p) return;
         sessionStorage.setItem(
           upcomingSessionStorageKey(bookerEmail),
           JSON.stringify({
             v: UPCOMING_SESSION_V,
             savedAt: Date.now(),
-            selectedFamilyByProgram,
-            seatDraftsByProgram,
-            enrollmentSeatOpen,
-            seatModalCtx,
-            bookerSeatMode,
-            bookerSeatNotify,
-            guestSeatForm,
-            persistEnrollmentDefaultsOnContinue,
-            enrollmentDefaultsLoaded,
+            ...p,
           })
         );
       } catch (_) {
         /* ignore quota / private mode */
       }
     };
-    const id = requestAnimationFrame(save);
+    flush();
+    const onPageHide = () => flush();
+    window.addEventListener('pagehide', onPageHide);
     return () => {
-      cancelAnimationFrame(id);
+      window.removeEventListener('pagehide', onPageHide);
+      flush();
     };
   }, [
     bookerEmail,
