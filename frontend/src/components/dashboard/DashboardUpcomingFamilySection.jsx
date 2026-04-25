@@ -1095,6 +1095,16 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh, bo
     [dashboardTierByProgram, annualPortalAccess]
   );
 
+  /** Cross-sell buy-tier must follow dashboard tier controls, not a stale cart line until the next sync. */
+  const resolveCartCrossSellTier = useCallback(
+    (programId) => {
+      const prog = programsForPrefetch.find((x) => String(x.id) === String(programId));
+      if (!prog) return null;
+      return getDashboardTier(prog);
+    },
+    [programsForPrefetch, getDashboardTier]
+  );
+
   const dashboardTierKey = useMemo(
     () => programsForPrefetch.map((p) => `${p.id}:${getDashboardTier(p)}`).join('|'),
     [programsForPrefetch, getDashboardTier]
@@ -1846,6 +1856,7 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh, bo
                   }}
                   enrollmentSelf={enrollmentSelf}
                   crossSellRules={crossSellRules}
+                  resolveCartCrossSellTier={resolveCartCrossSellTier}
                   annualSeatUi={{
                     draft: draftRow,
                     attendanceQuickPreset: attendanceQuick,

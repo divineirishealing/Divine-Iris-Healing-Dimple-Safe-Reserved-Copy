@@ -46,7 +46,7 @@ export function computeCrossSellDiscount(
     const matchTarget = targets.find((t) => String(t.program_id) === String(programId));
     if (!matchTarget) continue;
     const buyTier = rule.buy_tier;
-    let buyInCart =
+    const buyInCart =
       buyTier !== '' && buyTier !== undefined && buyTier !== null
         ? cartItems.some(
             (i) =>
@@ -54,16 +54,6 @@ export function computeCrossSellDiscount(
               String(i.tierIndex) === String(buyTier),
           )
         : cartItems.some((i) => String(i.programId) === String(rule.buy_program_id));
-    // Rule tier and cart tier can disagree after normalization; bundle still applies if buy program is in cart.
-    if (
-      !buyInCart &&
-      buyTier !== '' &&
-      buyTier !== undefined &&
-      buyTier !== null &&
-      cartItems.some((i) => String(i.programId) === String(rule.buy_program_id))
-    ) {
-      buyInCart = true;
-    }
     if (buyInCart) {
       const disc =
         matchTarget.discount_type === 'percentage'

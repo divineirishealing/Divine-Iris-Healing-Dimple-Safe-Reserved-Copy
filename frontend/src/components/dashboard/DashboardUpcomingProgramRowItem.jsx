@@ -19,7 +19,7 @@ import {
   programIncludedInAnnualPackage,
   promoDiscountAmount,
 } from './dashboardUpcomingHelpers';
-import { computeCrossSellDiscount } from '../../lib/crossSellPricing';
+import { computeCrossSellDiscount, normalizeCartItemTierIndex } from '../../lib/crossSellPricing';
 import {
   buildAnnualDashboardCartParticipants,
   buildGuestBucketByIdFromSelection,
@@ -336,6 +336,8 @@ export default function DashboardUpcomingProgramRowItem({
   onDashboardTierChange,
   /** Admin cross-sell rules (e.g. AWRP tier → % off another program); same engine as public cart / enrollment. */
   crossSellRules = [],
+  /** Dashboard tier picker can be ahead of cart `tierIndex`; use this so bundle matches the tier shown on each card. */
+  resolveCartCrossSellTier = null,
 }) {
   const navigate = useNavigate();
   const { user } = useAuth();
@@ -384,8 +386,16 @@ export default function DashboardUpcomingProgramRowItem({
     () =>
       (cartItems || [])
         .filter((i) => i.type === 'program')
-        .map((i) => ({ programId: i.programId, tierIndex: i.tierIndex })),
-    [cartItems],
+        .map((i) => {
+          const fromDash =
+            typeof resolveCartCrossSellTier === 'function'
+              ? resolveCartCrossSellTier(i.programId)
+              : null;
+          const tierIndex =
+            typeof fromDash === 'number' && fromDash >= 0 ? fromDash : normalizeCartItemTierIndex(i);
+          return { programId: i.programId, tierIndex };
+        }),
+    [cartItems, resolveCartCrossSellTier],
   );
 
   /** Program appears on the admin “Annual package — included programs” list (or keyword fallback when list empty). */

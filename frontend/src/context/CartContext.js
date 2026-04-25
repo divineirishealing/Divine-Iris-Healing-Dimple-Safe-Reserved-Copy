@@ -194,29 +194,35 @@ export const CartProvider = ({ children }) => {
     };
 
     setItems((prev) => {
-      const idx = prev.findIndex(
-        (i) =>
-          i.type === 'program' &&
-          String(i.programId) === String(program.id) &&
-          normalizeTierFromCartItem(i) === normalizedTier,
+      const programIdStr = String(program.id);
+      const forProgram = prev.filter(
+        (i) => i.type === 'program' && String(i.programId) === programIdStr,
       );
-      if (idx === -1) {
+      if (forProgram.length === 0) {
         return [...prev, newItem];
       }
-      const existing = prev[idx];
+      const tierIdx = forProgram.findIndex((i) => normalizeTierFromCartItem(i) === normalizedTier);
+      const existing = tierIdx !== -1 ? forProgram[tierIdx] : forProgram[0];
+      const kept = prev.filter(
+        (i) => !(i.type === 'program' && String(i.programId) === programIdStr),
+      );
       const mergedMeta =
         portalLineMeta && typeof portalLineMeta === 'object'
-          ? { ...(existing.portalLineMeta || {}), ...portalLineMeta }
-          : existing.portalLineMeta;
+          ? { ...(existing?.portalLineMeta || {}), ...portalLineMeta }
+          : existing?.portalLineMeta;
       const nextLine = {
-        ...existing,
+        ...(existing || {}),
+        ...newItem,
+        id: existing?.id || newItem.id,
         tierIndex: normalizedTier,
-        tierLabel: tier?.label || existing.tierLabel || 'Standard',
+        tierLabel: tier?.label || existing?.tierLabel || 'Standard',
         participants,
         portalLineMeta: mergedMeta,
       };
       try {
         if (
+          forProgram.length === 1 &&
+          normalizeTierFromCartItem(existing) === normalizedTier &&
           JSON.stringify(existing.participants) === JSON.stringify(participants) &&
           JSON.stringify(existing.portalLineMeta || null) === JSON.stringify(nextLine.portalLineMeta || null)
         ) {
@@ -225,7 +231,7 @@ export const CartProvider = ({ children }) => {
       } catch {
         /* compare failed — apply update */
       }
-      return prev.map((i, j) => (j === idx ? nextLine : i));
+      return [...kept, nextLine];
     });
     return true;
   }, []);

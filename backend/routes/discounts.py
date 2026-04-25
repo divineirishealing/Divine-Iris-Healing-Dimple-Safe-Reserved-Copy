@@ -197,10 +197,8 @@ async def calculate_discounts(data: dict):
             
             buy_match = False
             if buy_tier and buy_tier != "None" and buy_tier != "":
+                # One rule per buy tier: do not treat "AWRP in cart" as matching every tier-specific bundle.
                 buy_match = (buy_id, buy_tier) in cart_tier_set
-                # Portal cart may store a different tier index than the rule (e.g. 0 vs 1-month); still honor bundle if buy program is in cart.
-                if not buy_match and buy_id in pid_set:
-                    buy_match = True
             else:
                 buy_match = buy_id in pid_set
             
