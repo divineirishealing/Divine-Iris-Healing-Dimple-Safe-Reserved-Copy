@@ -113,6 +113,53 @@ export function crossSellEligibleParticipantCount(targetLineItem, buyProgramId, 
   return n;
 }
 
+/** One seat: percentage of that seat's payable unit, or fixed amount from rule target. */
+export function crossSellDiscountForSeat(matchTarget, unitPrice) {
+  if (!matchTarget || unitPrice <= 0) return 0;
+  if (matchTarget.discount_type === 'percentage') {
+    return Math.round((Number(unitPrice) * (Number(matchTarget.discount_value) || 0)) / 100);
+  }
+  return Number(matchTarget.discount_value) || 0;
+}
+
+/**
+ * Sum cross-sell for a cart line: only participants also on the buy line; each seat uses its own unit price
+ * (e.g. portal immediate vs extended). Needed when HM is 100% for one guest (Deepti on 3M AWRP) but not another.
+ */
+export function sumCrossSellLineDiscount(
+  crossSellRules,
+  lineItem,
+  cartLineSummaries,
+  allProgramLines,
+  getUnitPriceForParticipant,
+) {
+  const match = findCrossSellRuleForTarget(crossSellRules, lineItem.programId, cartLineSummaries);
+  if (!match?.buyProgramId) return { total: 0, label: '' };
+  const buyLine = (allProgramLines || []).find(
+    (i) => i.type !== 'session' && String(i.programId) === String(match.buyProgramId),
+  );
+  if (!buyLine?.participants?.length) return { total: 0, label: match.rule.label || '' };
+  const buyerKeys = new Set();
+  for (const p of buyLine.participants) {
+    const k = participantCrossSellIdentity(p);
+    if (k) buyerKeys.add(k);
+  }
+  let total = 0;
+  for (const p of lineItem.participants || []) {
+    const k = participantCrossSellIdentity(p);
+    if (!k || !buyerKeys.has(k)) continue;
+    const unit =
+      typeof getUnitPriceForParticipant === 'function'
+        ? Number(getUnitPriceForParticipant(lineItem, p)) || 0
+        : 0;
+    total += crossSellDiscountForSeat(match.matchTarget, unit);
+  }
+  return {
+    total: Math.round(total * 100) / 100,
+    label: match.rule.label || '',
+  };
+}
+
 /**
  * Cross-sell bundle discount (same rules as EnrollmentPage / CartPage).
  * When the "buy" program (+ optional tier) is in the cart, the current program line gets the target discount.

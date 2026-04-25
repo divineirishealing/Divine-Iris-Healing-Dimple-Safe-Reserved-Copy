@@ -20,6 +20,7 @@ import {
   crossSellEligibleParticipantCount,
   findCrossSellRuleForTarget,
   normalizeCartItemTierIndex,
+  sumCrossSellLineDiscount,
 } from '../lib/crossSellPricing';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
@@ -76,6 +77,7 @@ const CartItemCard = ({
   copySource,
   crossSellDiscount,
   crossSellEligibleCount = null,
+  crossSellSavingsTotal = null,
   vipOffer,
 }) => {
   const [expanded, setExpanded] = useState(true);
@@ -97,10 +99,15 @@ const CartItemCard = ({
       : xsUnit > 0
         ? { type: 'crosssell', amount: xsUnit, label: crossSellDiscount.label }
         : { type: 'none', amount: 0 };
-  const lineTotalNoVip =
-    xsUnit > 0 && xsEligible < pCount
-      ? Math.max(0, effectivePrice - xsUnit) * xsEligible + effectivePrice * (pCount - xsEligible)
-      : Math.max(0, effectivePrice - xsUnit) * pCount;
+  const bundleOff =
+    crossSellSavingsTotal != null && crossSellSavingsTotal > 0
+      ? crossSellSavingsTotal
+      : xsUnit > 0 && xsEligible < pCount
+        ? xsUnit * xsEligible
+        : xsUnit > 0
+          ? xsUnit * pCount
+          : 0;
+  const lineTotalNoVip = Math.max(0, effectivePrice * pCount - bundleOff);
   const afterVipUnit = vipDisc > 0 ? Math.max(0, effectivePrice - vipDisc) : effectivePrice;
   const lineTotal =
     vipDisc > 0 ? afterVipUnit * pCount : xsUnit > 0 ? lineTotalNoVip : effectivePrice * pCount;
@@ -117,7 +124,7 @@ const CartItemCard = ({
     bestItemDisc.type === 'vip'
       ? bestItemDisc.amount * pCount
       : bestItemDisc.type === 'crosssell'
-        ? xsUnit * xsEligible
+        ? bundleOff
         : 0;
   const isSession = item.type === 'session';
 
@@ -746,10 +753,17 @@ function CartPage() {
               getEffectivePrice(item),
               cartLines,
             );
+            const summ = sumCrossSellLineDiscount(
+              crossSellRules,
+              item,
+              cartLines,
+              programLines,
+              (it, p) => getEffectivePrice(it),
+            );
             const ruleMatch = findCrossSellRuleForTarget(crossSellRules, item.programId, cartLines);
             const buyId = ruleMatch?.buyProgramId;
             const xsEligible =
-              itemCrossSell && buyId && item.participants?.length
+              summ.total > 0 && buyId && item.participants?.length
                 ? crossSellEligibleParticipantCount(item, buyId, programLines)
                 : 0;
             return (
@@ -759,8 +773,9 @@ function CartPage() {
                 symbol={symbol} getItemPrice={getItemPrice} getItemOfferPrice={getItemOfferPrice}
                 showReferral={discountSettings.enable_referral} detectedCountry={detectedCountry}
                 copySource={itemIdx > 0 ? items[0] : null}
-                crossSellDiscount={xsEligible > 0 ? itemCrossSell : null}
+                crossSellDiscount={summ.total > 0 ? itemCrossSell : null}
                 crossSellEligibleCount={xsEligible > 0 ? xsEligible : null}
+                crossSellSavingsTotal={summ.total > 0 ? summ.total : null}
                 vipOffer={vipOffers[item.programId] || null} />
             );
           })}
@@ -776,24 +791,16 @@ function CartPage() {
             }));
             const programLines = items.filter((i) => i.type === 'program');
             for (const item of items) {
-              const unitCs = computeCrossSellDiscount(
+              const summ = sumCrossSellLineDiscount(
                 crossSellRules,
-                item.programId,
-                normalizeCartItemTierIndex(item),
-                getEffectivePrice(item),
+                item,
                 cartLines,
+                programLines,
+                (it, p) => getEffectivePrice(it),
               );
-              if (unitCs) {
-                const ruleMatch = findCrossSellRuleForTarget(crossSellRules, item.programId, cartLines);
-                const buyId = ruleMatch?.buyProgramId;
-                const n =
-                  buyId && item.participants?.length
-                    ? crossSellEligibleParticipantCount(item, buyId, programLines)
-                    : 0;
-                if (n <= 0) continue;
-                const disc = unitCs.amount * n;
-                totalCrossSell += disc;
-                crossSellDetails.push({ label: unitCs.label, amount: disc, item: item.programTitle });
+              if (summ.total > 0) {
+                totalCrossSell += summ.total;
+                crossSellDetails.push({ label: summ.label, amount: summ.total, item: item.programTitle });
               }
             }
             // Calculate VIP discounts per item

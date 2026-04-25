@@ -23,9 +23,7 @@ import {
   Trash2,
 } from 'lucide-react';
 import {
-  computeCrossSellDiscount,
-  crossSellEligibleParticipantCount,
-  findCrossSellRuleForTarget,
+  sumCrossSellLineDiscount,
   normalizeCartItemTierIndex,
 } from '../lib/crossSellPricing';
 import MotivationalSignupFlash from '../components/MotivationalSignupFlash';
@@ -846,36 +844,42 @@ export default function DashboardCombinedCheckoutPage() {
     if (!crossSellRules.length || !programCartLines.length) {
       return { clientCrossSellTotal: 0, clientCrossSellRows: [] };
     }
+    const payableUnitForParticipant = (item, p) => {
+      const meta = item.portalLineMeta || {};
+      const selfIncluded =
+        meta.annualIncluded && String(p.relationship || '').trim() === 'Myself';
+      if (selfIncluded) return 0;
+      const lineQuote = annualQuotesByProgram[String(item.programId)] || null;
+      const guestBucketById = lineQuote ? effectiveGuestBucketById(item, lineQuote) : meta.guestBucketById || {};
+      const portalBase = lineQuote
+        ? annualPortalSeatUnitBasePrices(lineQuote, p, guestBucketById, item.participants || [])
+        : null;
+      const fallbackOffer = getItemOfferPrice(item);
+      const unitOfferRaw = portalBase
+        ? toDisplay(portalBase.offer)
+        : fallbackOffer > 0
+          ? fallbackOffer
+          : getItemPrice(item);
+      const unitListRaw = portalBase ? toDisplay(portalBase.list) : getItemPrice(item);
+      return unitOfferRaw > 0 ? unitOfferRaw : unitListRaw;
+    };
     let total = 0;
     const rows = [];
     for (const item of programCartLines) {
-      const ti = normalizeCartItemTierIndex(item);
-      const unitCs = computeCrossSellDiscount(
+      const summ = sumCrossSellLineDiscount(
         crossSellRules,
-        item.programId,
-        ti,
-        getEffectivePrice(item),
+        item,
         cartLinesNormalizedForCrossSell,
+        programCartLines,
+        payableUnitForParticipant,
       );
-      if (unitCs?.amount > 0) {
-        const ruleMatch = findCrossSellRuleForTarget(
-          crossSellRules,
-          item.programId,
-          cartLinesNormalizedForCrossSell,
-        );
-        const buyId = ruleMatch?.buyProgramId;
-        const n =
-          buyId && item.participants?.length
-            ? crossSellEligibleParticipantCount(item, buyId, programCartLines)
-            : 0;
-        if (n <= 0) continue;
-        const disc = unitCs.amount * n;
-        total += disc;
-        rows.push({ label: unitCs.label, amount: disc, title: item.programTitle });
+      if (summ.total > 0) {
+        total += summ.total;
+        rows.push({ label: summ.label, amount: summ.total, title: item.programTitle });
       }
     }
     return { clientCrossSellTotal: Math.round(total * 100) / 100, clientCrossSellRows: rows };
-  }, [crossSellRules, programCartLines, cartLinesNormalizedForCrossSell, currency, toDisplay]);
+  }, [crossSellRules, programCartLines, cartLinesNormalizedForCrossSell, annualQuotesByProgram, currency, toDisplay]);
 
   /** Sum of list vs offer unit prices per paying seat (matches roster columns) for “list – offer” savings line. */
   const seatListOfferRollup = useMemo(() => {
