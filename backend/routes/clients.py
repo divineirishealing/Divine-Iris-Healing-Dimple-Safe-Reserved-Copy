@@ -1,12 +1,17 @@
 from fastapi import APIRouter, HTTPException
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 from typing import Optional, List, Dict, Any
 from datetime import datetime, timezone
 import logging
 import os
 import uuid
 from motor.motor_asyncio import AsyncIOMotorClient
-from utils.canonical_id import new_entity_id, new_internal_diid
+from utils.canonical_id import (
+    new_entity_id,
+    new_internal_diid,
+    normalize_annual_diid,
+    validate_annual_diid_format,
+)
 from dotenv import load_dotenv
 from pathlib import Path
 
@@ -586,11 +591,238 @@ async def list_annual_portal_subscribers():
         "email": 1,
         "household_key": 1,
         "is_primary_household_contact": 1,
+        "annual_subscription": 1,
     }
     rows = (
         await db.clients.find(query, proj).sort([("name", 1)]).to_list(5000)
     )
     return {"clients": rows}
+
+
+HOME_COMING_SKU = "home_coming"
+
+
+class AnnualSubscriptionUsagePatch(BaseModel):
+    awrp_months_used: Optional[int] = None
+    mmm_months_used: Optional[int] = None
+    turbo_sessions_used: Optional[int] = None
+    meta_downloads_used: Optional[int] = None
+
+    @field_validator(
+        "awrp_months_used",
+        "mmm_months_used",
+        "turbo_sessions_used",
+        "meta_downloads_used",
+    )
+    @classmethod
+    def _non_negative(cls, v: Optional[int]) -> Optional[int]:
+        if v is None:
+            return v
+        if int(v) < 0:
+            raise ValueError("usage counts must be non-negative")
+        return int(v)
+
+
+class AnnualSubscriptionUpdate(BaseModel):
+    """
+    Partial update for annual_subscription on a client (Home Coming SKU, DIID, dates, usage).
+    Omitted fields are unchanged. Explicit null clears start_date, end_date, annual_diid, etc.
+    """
+
+    annual_diid: Optional[str] = None
+    package_sku: Optional[str] = None
+    start_date: Optional[str] = None
+    end_date: Optional[str] = None
+    awrp_year_label: Optional[str] = None
+    usage: Optional[AnnualSubscriptionUsagePatch] = None
+    """manual = admin/backfill; system = derived from bookings (future)."""
+
+    usage_source: Optional[str] = None
+
+    @field_validator("usage_source")
+    @classmethod
+    def _usage_source(cls, v: Optional[str]) -> Optional[str]:
+        if v is None:
+            return v
+        t = (v or "").strip().lower()
+        if t not in ("manual", "system"):
+            raise ValueError("usage_source must be 'manual' or 'system'")
+        return t
+
+
+def _coerce_annual_date_field(raw: Optional[str], field_label: str) -> Any:
+    """
+    For PATCH: None means caller did not include field. '' or explicit null (becomes None in body)
+    clears. Non-empty must be YYYY-MM-DD.
+    Returns NOT_PROVIDED sentinel vs '' vs 'YYYY-MM-DD' — actually we use exclude_unset on model.
+    """
+    if raw is None:
+        return None
+    s = (raw or "").strip()
+    if not s:
+        return ""
+    if len(s) >= 10 and s[4] == "-" and s[7] == "-":
+        try:
+            datetime.strptime(s[:10], "%Y-%m-%d")
+        except ValueError:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Invalid {field_label} — use YYYY-MM-DD",
+            )
+        return s[:10]
+    raise HTTPException(
+        status_code=400,
+        detail=f"Invalid {field_label} — use YYYY-MM-DD",
+    )
+
+
+def _merge_annual_subscription(
+    prev: Optional[Dict[str, Any]], patch: Dict[str, Any]
+) -> Dict[str, Any]:
+    out: Dict[str, Any] = dict(prev or {})
+
+    if "annual_diid" in patch:
+        v = patch["annual_diid"]
+        if v is None or v == "":
+            out.pop("annual_diid", None)
+        else:
+            out["annual_diid"] = v
+
+    if "package_sku" in patch:
+        v = patch["package_sku"]
+        if v is None or v == "":
+            out.pop("package_sku", None)
+        else:
+            out["package_sku"] = v
+
+    if "start_date" in patch:
+        v = patch["start_date"]
+        if v is None or v == "":
+            out.pop("start_date", None)
+        else:
+            out["start_date"] = v
+
+    if "end_date" in patch:
+        v = patch["end_date"]
+        if v is None or v == "":
+            out.pop("end_date", None)
+        else:
+            out["end_date"] = v
+
+    if "awrp_year_label" in patch:
+        v = patch["awrp_year_label"]
+        if v is None or (isinstance(v, str) and not v.strip()):
+            out.pop("awrp_year_label", None)
+        else:
+            out["awrp_year_label"] = (v or "").strip()
+
+    if "usage_source" in patch:
+        v = patch["usage_source"]
+        if v is None or v == "":
+            out.pop("usage_source", None)
+        else:
+            out["usage_source"] = v
+
+    if "usage" in patch:
+        u = patch["usage"]
+        if u is None:
+            out.pop("usage", None)
+        elif isinstance(u, dict):
+            u_prev: Dict[str, Any] = dict(out.get("usage") or {})
+            for uk, uv in u.items():
+                if uv is None:
+                    u_prev.pop(uk, None)
+                else:
+                    u_prev[uk] = int(uv)
+            out["usage"] = u_prev
+
+    return out
+
+
+@router.patch("/{client_id}/annual-subscription")
+async def patch_annual_subscription(client_id: str, data: AnnualSubscriptionUpdate):
+    """
+    Update Home Coming / annual subscription fields. annual_diid must be unique (FFLLYYMM).
+    """
+    cl = await db.clients.find_one({"id": client_id})
+    if not cl:
+        raise HTTPException(status_code=404, detail="Client not found")
+    if not cl.get("annual_member_dashboard"):
+        raise HTTPException(
+            status_code=400,
+            detail="Client does not have annual member dashboard access",
+        )
+
+    raw = data.model_dump(exclude_unset=True)
+    patch: Dict[str, Any] = {}
+
+    if "annual_diid" in raw:
+        ad_raw = raw["annual_diid"]
+        if ad_raw is None or (isinstance(ad_raw, str) and not ad_raw.strip()):
+            patch["annual_diid"] = None
+        else:
+            ad = normalize_annual_diid(str(ad_raw))
+            if not validate_annual_diid_format(ad):
+                raise HTTPException(
+                    status_code=400,
+                    detail="annual_diid must be 4 letters + YYMM (e.g. ANRA2504)",
+                )
+            dup = await db.clients.find_one(
+                {
+                    "annual_subscription.annual_diid": ad,
+                    "id": {"$ne": client_id},
+                }
+            )
+            if dup:
+                raise HTTPException(
+                    status_code=400,
+                    detail="This annual DIID is already assigned to another client",
+                )
+            patch["annual_diid"] = ad
+
+    if "package_sku" in raw:
+        sku_raw = raw["package_sku"]
+        if sku_raw is None or (isinstance(sku_raw, str) and not str(sku_raw).strip()):
+            patch["package_sku"] = None
+        else:
+            sku = str(sku_raw).strip().lower()
+            if sku != HOME_COMING_SKU:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"package_sku must be '{HOME_COMING_SKU}'",
+                )
+            patch["package_sku"] = sku
+
+    if "start_date" in raw:
+        patch["start_date"] = _coerce_annual_date_field(
+            raw["start_date"], "start_date"
+        )
+
+    if "end_date" in raw:
+        patch["end_date"] = _coerce_annual_date_field(raw["end_date"], "end_date")
+
+    if "awrp_year_label" in raw:
+        v = raw["awrp_year_label"]
+        patch["awrp_year_label"] = v
+
+    if "usage_source" in raw:
+        patch["usage_source"] = raw["usage_source"]
+
+    if "usage" in raw:
+        if raw["usage"] is None:
+            patch["usage"] = None
+        else:
+            patch["usage"] = raw["usage"]
+
+    prev_sub: Dict[str, Any] = dict(cl.get("annual_subscription") or {})
+    merged = _merge_annual_subscription(prev_sub, patch)
+
+    now = datetime.now(timezone.utc).isoformat()
+    await db.clients.update_one(
+        {"id": client_id},
+        {"$set": {"annual_subscription": merged, "updated_at": now}},
+    )
+    return {"annual_subscription": merged}
 
 
 class BulkSetPortalLoginBody(BaseModel):

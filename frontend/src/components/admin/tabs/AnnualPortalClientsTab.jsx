@@ -1,10 +1,16 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import axios from 'axios';
-import { RefreshCw, Loader2, LayoutList, Users } from 'lucide-react';
+import { RefreshCw, Loader2, LayoutList, Users, Pencil } from 'lucide-react';
 import { Button } from '../../ui/button';
 import { useSpreadsheetColumnVisibility, SpreadsheetColumnPicker } from '../SpreadsheetColumnPicker';
 import { getApiUrl } from '../../../lib/config';
 import { useToast } from '../../../hooks/use-toast';
+import AnnualSubscriptionEditDialog from './AnnualSubscriptionEditDialog';
+import {
+  HOME_COMING_SKU,
+  HOME_COMING_DISPLAY,
+  formatHomeComingUsageSummary,
+} from '../../../lib/homeComingAnnual';
 
 const API = getApiUrl();
 
@@ -13,8 +19,15 @@ const ANNUAL_PORTAL_FLAT_COLS = [
   { id: 'email', label: 'Email' },
   { id: 'household', label: 'Household' },
   { id: 'primary', label: 'Primary' },
+  { id: 'diid', label: 'Annual DIID' },
+  { id: 'start', label: 'Start' },
+  { id: 'end', label: 'End' },
+  { id: 'package', label: 'Package' },
+  { id: 'awrp_year', label: 'AWRP year' },
+  { id: 'usage', label: 'Usage' },
+  { id: 'edit', label: 'Edit', required: true },
 ];
-const ANNUAL_PORTAL_FLAT_KEY = 'admin-annual-portal-flat-v1';
+const ANNUAL_PORTAL_FLAT_KEY = 'admin-annual-portal-flat-v2';
 
 function sortMembers(a, b) {
   const ap = a.is_primary_household_contact ? 0 : 1;
@@ -29,12 +42,19 @@ function sortMembers(a, b) {
  * Client Garden members who are flagged annual (Sacred Home) and have dashboard access
  * (portal not explicitly blocked). Optional household grouping and count summaries.
  */
+function packageLabel(sub) {
+  if (!sub?.package_sku) return '—';
+  if (sub.package_sku === HOME_COMING_SKU) return HOME_COMING_DISPLAY;
+  return sub.package_sku;
+}
+
 export default function AnnualPortalClientsTab() {
   const { toast } = useToast();
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(true);
   /** 'flat' = one row per person; 'household' = clubbed by household_key */
   const [viewMode, setViewMode] = useState('flat');
+  const [editRow, setEditRow] = useState(null);
 
   const {
     visibility: flatColVis,
@@ -116,7 +136,7 @@ export default function AnnualPortalClientsTab() {
   const colSpanFlat = Math.max(flatVisibleCount, 1);
 
   return (
-    <div className="max-w-5xl">
+    <div className="max-w-7xl">
       <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 mb-4">
         <div>
           <h2 className="text-lg font-semibold text-gray-900">Annual + dashboard (Client Garden)</h2>
@@ -164,7 +184,7 @@ export default function AnnualPortalClientsTab() {
           }`}
         >
           <LayoutList className="h-3.5 w-3.5" />
-          List (name, email, household, primary)
+          List (subscription + household)
         </button>
         <button
           type="button"
@@ -188,15 +208,30 @@ export default function AnnualPortalClientsTab() {
         )}
       </div>
 
-      <div className="rounded-lg border border-gray-200 bg-white overflow-hidden">
+      <AnnualSubscriptionEditDialog
+        open={!!editRow}
+        onOpenChange={(o) => !o && setEditRow(null)}
+        row={editRow}
+        toast={toast}
+        onSaved={() => load()}
+      />
+
+      <div className="rounded-lg border border-gray-200 bg-white overflow-x-auto">
         {viewMode === 'flat' ? (
-          <table className="w-full text-sm">
+          <table className="w-full text-sm min-w-[56rem]">
             <thead>
               <tr className="bg-gray-50 border-b border-gray-200 text-left text-xs font-medium text-gray-600 uppercase tracking-wide">
                 {flatColVisible('name') && <th className="px-4 py-3">Name</th>}
                 {flatColVisible('email') && <th className="px-4 py-3">Email</th>}
                 {flatColVisible('household') && <th className="px-4 py-3">Household</th>}
                 {flatColVisible('primary') && <th className="px-4 py-3 w-24 text-center">Primary</th>}
+                {flatColVisible('diid') && <th className="px-4 py-3 whitespace-nowrap">Annual DIID</th>}
+                {flatColVisible('start') && <th className="px-4 py-3 whitespace-nowrap">Start</th>}
+                {flatColVisible('end') && <th className="px-4 py-3 whitespace-nowrap">End</th>}
+                {flatColVisible('package') && <th className="px-4 py-3">Package</th>}
+                {flatColVisible('awrp_year') && <th className="px-4 py-3 whitespace-nowrap">AWRP year</th>}
+                {flatColVisible('usage') && <th className="px-4 py-3 min-w-[14rem]">Usage</th>}
+                {flatColVisible('edit') && <th className="px-4 py-3 w-24 text-center">Edit</th>}
               </tr>
             </thead>
             <tbody>
@@ -214,7 +249,9 @@ export default function AnnualPortalClientsTab() {
                   </td>
                 </tr>
               ) : (
-                [...rows].sort(sortMembers).map((r) => (
+                [...rows].sort(sortMembers).map((r) => {
+                  const sub = r.annual_subscription || {};
+                  return (
                   <tr key={r.id || r.email} className="border-b border-gray-100 hover:bg-gray-50/80">
                     {flatColVisible('name') && <td className="px-4 py-2.5 text-gray-900">{(r.name || '').trim() || '—'}</td>}
                     {flatColVisible('email') && <td className="px-4 py-2.5 text-gray-700">{(r.email || '').trim() || '—'}</td>}
@@ -224,8 +261,42 @@ export default function AnnualPortalClientsTab() {
                       {r.is_primary_household_contact ? 'Y' : '—'}
                     </td>
                     )}
+                    {flatColVisible('diid') && (
+                      <td className="px-4 py-2.5 font-mono text-xs text-slate-800">{(sub.annual_diid || '').trim() || '—'}</td>
+                    )}
+                    {flatColVisible('start') && (
+                      <td className="px-4 py-2.5 text-gray-700 whitespace-nowrap">{sub.start_date || '—'}</td>
+                    )}
+                    {flatColVisible('end') && (
+                      <td className="px-4 py-2.5 text-gray-700 whitespace-nowrap">{sub.end_date || '—'}</td>
+                    )}
+                    {flatColVisible('package') && (
+                      <td className="px-4 py-2.5 text-gray-800">{packageLabel(sub)}</td>
+                    )}
+                    {flatColVisible('awrp_year') && (
+                      <td className="px-4 py-2.5 text-gray-700">{(sub.awrp_year_label || '').trim() || '—'}</td>
+                    )}
+                    {flatColVisible('usage') && (
+                      <td className="px-4 py-2.5 text-xs text-gray-600 leading-snug">
+                        {sub.usage && Object.keys(sub.usage).length > 0 ? formatHomeComingUsageSummary(sub) : '—'}
+                      </td>
+                    )}
+                    {flatColVisible('edit') && (
+                      <td className="px-4 py-2.5 text-center">
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          className="h-8 px-2"
+                          onClick={() => setEditRow(r)}
+                          aria-label="Edit annual subscription"
+                        >
+                          <Pencil className="h-4 w-4" />
+                        </Button>
+                      </td>
+                    )}
                   </tr>
-                ))
+                );})
               )}
             </tbody>
           </table>
@@ -260,18 +331,36 @@ export default function AnnualPortalClientsTab() {
                           <th className="px-4 py-2 pl-6">Name</th>
                           <th className="px-4 py-2">Email</th>
                           <th className="px-4 py-2 w-24 text-center">Primary</th>
+                          <th className="px-4 py-2 font-mono">DIID</th>
+                          <th className="px-4 py-2 w-20 text-center">Edit</th>
                         </tr>
                       </thead>
                       <tbody>
-                        {g.members.map((r) => (
+                        {g.members.map((r) => {
+                          const sub = r.annual_subscription || {};
+                          return (
                           <tr key={r.id || r.email} className="border-b border-gray-50 hover:bg-gray-50/80">
                             <td className="px-4 py-2 pl-6 text-gray-900">{(r.name || '').trim() || '—'}</td>
                             <td className="px-4 py-2 text-gray-700">{(r.email || '').trim() || '—'}</td>
                             <td className="px-4 py-2 text-center text-gray-800">
                               {r.is_primary_household_contact ? 'Y' : '—'}
                             </td>
+                            <td className="px-4 py-2 font-mono text-[11px] text-slate-700">
+                              {(sub.annual_diid || '').trim() || '—'}
+                            </td>
+                            <td className="px-4 py-2 text-center">
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="sm"
+                                className="h-7 px-2"
+                                onClick={() => setEditRow(r)}
+                              >
+                                <Pencil className="h-3.5 w-3.5" />
+                              </Button>
+                            </td>
                           </tr>
-                        ))}
+                        );})}
                       </tbody>
                     </table>
                   </div>

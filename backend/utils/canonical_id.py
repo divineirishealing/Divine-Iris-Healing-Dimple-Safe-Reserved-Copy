@@ -7,10 +7,15 @@
 
 from __future__ import annotations
 
+import re
 import secrets
 from datetime import datetime, timezone
+from typing import Optional, Tuple
 
 from uuid6 import uuid7
+
+# Annual membership DIID (Client Garden): four letters (2 first + 2 last) + YYMM — unique per subscriber.
+_ANNUAL_DIID_RE = re.compile(r"^[A-Za-z]{4}\d{4}$")
 
 
 def new_entity_id() -> str:
@@ -48,6 +53,46 @@ def _name_initial_segment(name: str) -> str:
         p = letters(parts[0])
         return (p + "XXXX")[:4]
     return "XXXX"
+
+
+def normalize_annual_diid(raw: str) -> str:
+    return (raw or "").strip().upper()
+
+
+def validate_annual_diid_format(raw: str) -> bool:
+    return bool(_ANNUAL_DIID_RE.match(normalize_annual_diid(raw)))
+
+
+def annual_diid_yy_mm_from_iso(date_iso: str) -> Optional[Tuple[int, int]]:
+    """Return (yy, mm) in UTC from YYYY-MM-DD or ISO datetime string."""
+
+    s = (date_iso or "").strip()
+    if not s:
+        return None
+    if s.endswith("Z"):
+        s = s[:-1] + "+00:00"
+    try:
+        if len(s) >= 10 and s[4] == "-" and s[7] == "-":
+            dt = datetime.strptime(s[:10], "%Y-%m-%d").replace(tzinfo=timezone.utc)
+        else:
+            dt = datetime.fromisoformat(s)
+    except ValueError:
+        return None
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=timezone.utc)
+    dt = dt.astimezone(timezone.utc)
+    return (dt.year % 100, dt.month)
+
+
+def suggest_annual_diid_from_name(name: str, start_date_iso: str) -> Optional[str]:
+    """Build FFLlYYMM from display name and subscription start date (no uniqueness check)."""
+
+    yy_mm = annual_diid_yy_mm_from_iso(start_date_iso)
+    if not yy_mm:
+        return None
+    yy, mm = yy_mm
+    initials = _name_initial_segment(name)
+    return f"{initials}{yy:02d}{mm:02d}"
 
 
 def new_internal_diid(name: str, created_at_iso: str) -> str:
