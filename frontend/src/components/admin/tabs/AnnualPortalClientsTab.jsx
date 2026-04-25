@@ -72,6 +72,7 @@ export default function AnnualPortalClientsTab() {
   const [viewMode, setViewMode] = useState('flat');
   const [editRow, setEditRow] = useState(null);
   const [excelFile, setExcelFile] = useState(null);
+  const [excelFileInputKey, setExcelFileInputKey] = useState(0);
   const [excelUploading, setExcelUploading] = useState(false);
   const [uploadReport, setUploadReport] = useState(null);
 
@@ -139,12 +140,23 @@ export default function AnnualPortalClientsTab() {
       });
       setUploadReport(data);
       const errN = Number(data.error_count || 0);
-      toast({
-        title: 'Upload finished',
-        description: `Updated ${data.updated ?? 0} row(s).${errN ? ` ${errN} issue(s) — see below.` : ''}`,
-        variant: errN ? 'destructive' : 'default',
-      });
+      const upd = Number(data.updated ?? 0);
+      const skipNoData = Number(data.skipped_no_data_rows ?? 0);
+      let variant = 'default';
+      let desc = `Updated ${upd} row(s).`;
+      if (errN) {
+        variant = 'destructive';
+        desc += ` ${errN} issue(s) — see summary below.`;
+      } else if (upd === 0) {
+        variant = 'destructive';
+        desc =
+          skipNoData > 0
+            ? `No rows updated. ${skipNoData} matched a client but had no subscription/household fields to apply — see summary.`
+            : 'No rows updated — check header row, Email Id / Client id, and filled columns. See summary below.';
+      }
+      toast({ title: 'Upload finished', description: desc, variant });
       setExcelFile(null);
+      setExcelFileInputKey((k) => k + 1);
       await load();
     } catch (err) {
       const d = err.response?.data?.detail;
@@ -228,7 +240,7 @@ export default function AnnualPortalClientsTab() {
           <p className="text-xs text-gray-600 mt-0.5 max-w-3xl">
             Table columns: #, Name, Email Id, Start/End Date, DIID, HomeComing, Usage (summary), HOUSEHOLD, PRIMARY, Client id.{' '}
             <strong>Template</strong> uses the same order; usage counts are split into separate columns for upload.{' '}
-            <strong>Upload</strong> finds columns by <strong>header title</strong> (not left-to-right order). Members without email: use <strong>Client id</strong>.
+            <strong>Upload</strong> finds columns by <strong>header title</strong> (not left-to-right order); if row 1 is a dashboard title, headers on row 2 are detected automatically. Members without email: use <strong>Client id</strong>.
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2 shrink-0">
@@ -244,6 +256,7 @@ export default function AnnualPortalClientsTab() {
           </Button>
           <label className="inline-flex items-center gap-1.5 text-xs text-neutral-700 cursor-pointer border border-[#c6c6c6] rounded-sm px-2 py-1 bg-white hover:bg-neutral-50">
             <input
+              key={excelFileInputKey}
               type="file"
               accept=".xlsx,.xlsm,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
               className="sr-only"
@@ -272,16 +285,74 @@ export default function AnnualPortalClientsTab() {
         </div>
       </div>
 
-      {uploadReport && (uploadReport.errors?.length > 0 || uploadReport.error_count > 0) && (
-        <div className="shrink-0 text-[11px] border border-amber-300 bg-amber-50 text-amber-950 rounded-sm px-2 py-2 max-h-32 overflow-y-auto">
-          <p className="font-semibold mb-1">
-            Upload issues ({uploadReport.error_count ?? uploadReport.errors?.length ?? 0})
+      {uploadReport && (
+        <div
+          className={`shrink-0 text-[11px] rounded-sm px-2 py-2 border ${
+            (uploadReport.error_count || 0) > 0 || (uploadReport.errors?.length || 0) > 0
+              ? 'border-amber-300 bg-amber-50 text-amber-950'
+              : (uploadReport.updated ?? 0) > 0
+                ? 'border-green-200 bg-green-50 text-green-950'
+                : 'border-amber-300 bg-amber-50 text-amber-950'
+          }`}
+        >
+          <p className="font-semibold mb-1">Upload summary</p>
+          <p>
+            Updated <strong>{uploadReport.updated ?? 0}</strong>
+            {uploadReport.skipped_blank_rows != null && (
+              <>
+                {' '}
+                · Blank / template rows skipped <strong>{uploadReport.skipped_blank_rows}</strong>
+              </>
+            )}
+            {uploadReport.skipped_no_data_rows != null && (
+              <>
+                {' '}
+                · Matched client, no data to apply <strong>{uploadReport.skipped_no_data_rows}</strong>
+              </>
+            )}
+            {uploadReport.skipped_blank_rows == null &&
+              uploadReport.skipped_empty_rows != null && (
+                <>
+                  {' '}
+                  · Skipped rows <strong>{uploadReport.skipped_empty_rows}</strong>
+                </>
+              )}
+            {uploadReport.header_row != null && (
+              <>
+                {' '}
+                · Header row (Excel) <strong>{uploadReport.header_row}</strong>
+              </>
+            )}
           </p>
-          <ul className="list-disc pl-4 space-y-0.5 font-mono">
-            {(uploadReport.errors || []).slice(0, 50).map((line, i) => (
-              <li key={i}>{line}</li>
-            ))}
-          </ul>
+          {(uploadReport.updated ?? 0) === 0 && (
+            <p className="mt-1 text-[10px] opacity-90">
+              If the sheet has a title on row 1, column titles must be on the row the import detected. Rows need at least one of: DIID, dates, HomeComing, usage counts, HOUSEHOLD, PRIMARY, or Client id with other fields.
+            </p>
+          )}
+          {uploadReport.matched_columns && Object.keys(uploadReport.matched_columns).length > 0 && (
+            <details className="mt-1.5">
+              <summary className="cursor-pointer select-none">Matched columns</summary>
+              <ul className="mt-1 font-mono text-[10px] list-disc pl-4 space-y-0.5">
+                {Object.entries(uploadReport.matched_columns).map(([k, v]) => (
+                  <li key={k}>
+                    {k}: {v}
+                  </li>
+                ))}
+              </ul>
+            </details>
+          )}
+          {((uploadReport.errors?.length || 0) > 0 || (uploadReport.error_count || 0) > 0) && (
+            <div className="mt-2 max-h-32 overflow-y-auto">
+              <p className="font-semibold mb-1">
+                Issues ({uploadReport.error_count ?? uploadReport.errors?.length ?? 0})
+              </p>
+              <ul className="list-disc pl-4 space-y-0.5 font-mono">
+                {(uploadReport.errors || []).slice(0, 50).map((line, i) => (
+                  <li key={i}>{line}</li>
+                ))}
+              </ul>
+            </div>
+          )}
         </div>
       )}
 

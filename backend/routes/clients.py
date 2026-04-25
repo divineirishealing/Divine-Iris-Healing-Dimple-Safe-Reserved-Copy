@@ -4,6 +4,7 @@ from typing import Optional, List, Dict, Any, Tuple
 from datetime import date, datetime, timezone
 import logging
 import os
+import re
 import uuid
 from motor.motor_asyncio import AsyncIOMotorClient
 from utils.canonical_id import (
@@ -815,7 +816,8 @@ async def patch_annual_subscription(client_id: str, data: AnnualSubscriptionUpda
 
 
 def _annual_upload_norm_header(h: Any) -> str:
-    return (str(h or "").strip().lower().replace("*", "").replace("\n", " "))
+    s = (str(h or "").strip().lower().replace("*", "").replace("\n", " "))
+    return re.sub(r"\s+", " ", s)
 
 
 def _annual_upload_cell_str(row: tuple, idx: Optional[int]) -> str:
@@ -834,9 +836,19 @@ def _annual_upload_cell_str(row: tuple, idx: Optional[int]) -> str:
 ANNUAL_PORTAL_UPLOAD_SPECS: List[Tuple[str, Tuple[str, ...]]] = [
     (
         "client_id",
-        ("client id", "client_id", "uuid", "garden id", "client uuid"),
+        ("client id", "client_id", "clientid", "uuid", "garden id", "client uuid"),
     ),
-    ("email", ("email", "e-mail", "email id")),
+    (
+        "email",
+        (
+            "email",
+            "e-mail",
+            "email id",
+            "emailid",
+            "e mail",
+            "email address",
+        ),
+    ),
     ("annual_diid", ("annual diid", "annual_diid", "member diid", "diid")),
     (
         "start_date",
@@ -875,6 +887,43 @@ def _annual_portal_upload_col_map(header_cells: List[Any]) -> Dict[str, int]:
                 col_map[field] = i
                 break
     return col_map
+
+
+def _find_annual_portal_header_row(ws: Any) -> Tuple[int, List[Any]]:
+    """First row (1-based) that looks like a header: has Email and/or Client id column."""
+    max_scan = min(30, max(ws.max_row or 1, 1))
+    max_c = max(ws.max_column or 40, 1)
+    for r in range(1, max_scan + 1):
+        cells = [ws.cell(row=r, column=c).value for c in range(1, max_c + 1)]
+        if not any(x not in (None, "") for x in cells):
+            continue
+        cmap = _annual_portal_upload_col_map(cells)
+        if "email" in cmap or "client_id" in cmap:
+            return r, cells
+    cells0 = [ws.cell(row=1, column=c).value for c in range(1, max_c + 1)]
+    return 1, cells0
+
+
+def _coerce_upload_date_value(v: Any, label: str) -> Tuple[Optional[str], Optional[str]]:
+    """Accept ISO string, Excel date cell, or serial number."""
+    if v is None:
+        return None, None
+    if isinstance(v, datetime):
+        return v.date().isoformat(), None
+    if isinstance(v, date):
+        return v.isoformat(), None
+    if isinstance(v, (int, float)) and not isinstance(v, bool):
+        try:
+            from openpyxl.utils.datetime import from_excel
+
+            dt = from_excel(float(v))
+            return dt.date().isoformat(), None
+        except Exception:
+            pass
+    s = str(v).strip()
+    if not s:
+        return None, None
+    return _coerce_upload_date(s, label)
 
 
 def _parse_package_cell_for_upload(val: str) -> Optional[str]:
@@ -1032,29 +1081,40 @@ async def upload_annual_portal_subscription_excel(file: UploadFile = File(...)):
         raise HTTPException(status_code=400, detail="Could not read Excel file.")
 
     ws = wb.active
-    header_row = [c.value for c in ws[1]]
+    header_row_idx, header_row = _find_annual_portal_header_row(ws)
     col_map = _annual_portal_upload_col_map(header_row)
     if "email" not in col_map and "client_id" not in col_map:
         raise HTTPException(
             status_code=400,
-            detail="Sheet must have an Email Id / Email column and/or Client id (see template).",
+            detail="Sheet must have an Email Id / Email column and/or Client id (see template). If row 1 is a title, put headers on the next row.",
         )
 
+    matched_labels = {
+        field: str(header_row[idx] or "").strip() or field
+        for field, idx in col_map.items()
+        if idx < len(header_row)
+    }
+
     updated = 0
-    skipped_empty = 0
+    skipped_blank = 0
+    skipped_no_data = 0
     errors: List[str] = []
     max_rows = 5000
     row_count = 0
+    data_start = header_row_idx + 1
     _template_sample_ids = frozenset({"paste-uuid-from-admin-grid"})
     _template_sample_emails = frozenset({"client@example.com", "primary@example.com"})
 
-    for row_idx, row in enumerate(ws.iter_rows(min_row=2, values_only=True), start=2):
+    for row_idx, row in enumerate(
+        ws.iter_rows(min_row=data_start, values_only=True),
+        start=data_start,
+    ):
         row_count += 1
         if row_count > max_rows:
             errors.append(f"Stopped after {max_rows} data rows.")
             break
         if not row or not any(v not in (None, "") for v in row):
-            skipped_empty += 1
+            skipped_blank += 1
             continue
 
         cid_cell = _annual_upload_cell_str(row, col_map.get("client_id")).strip()
@@ -1062,7 +1122,7 @@ async def upload_annual_portal_subscription_excel(file: UploadFile = File(...)):
         if cid_cell in _template_sample_ids or (
             not cid_cell and email in _template_sample_emails
         ):
-            skipped_empty += 1
+            skipped_blank += 1
             continue
 
         cl: Optional[Dict[str, Any]] = None
@@ -1148,21 +1208,25 @@ async def upload_annual_portal_subscription_excel(file: UploadFile = File(...)):
                 continue
             patch["annual_diid"] = ad
 
-        sd = _annual_upload_cell_str(row, col_map.get("start_date"))
-        if sd:
-            d_ok, err = _coerce_upload_date(sd, "start date")
-            if err:
-                errors.append(f"Row {row_idx}: {err}")
-                continue
-            patch["start_date"] = d_ok
+        i_sd = col_map.get("start_date")
+        if i_sd is not None:
+            v_sd = row[i_sd] if i_sd < len(row) else None
+            if v_sd not in (None, ""):
+                d_ok, err = _coerce_upload_date_value(v_sd, "start date")
+                if err:
+                    errors.append(f"Row {row_idx}: {err}")
+                    continue
+                patch["start_date"] = d_ok
 
-        ed = _annual_upload_cell_str(row, col_map.get("end_date"))
-        if ed:
-            d_ok, err = _coerce_upload_date(ed, "end date")
-            if err:
-                errors.append(f"Row {row_idx}: {err}")
-                continue
-            patch["end_date"] = d_ok
+        i_ed = col_map.get("end_date")
+        if i_ed is not None:
+            v_ed = row[i_ed] if i_ed < len(row) else None
+            if v_ed not in (None, ""):
+                d_ok, err = _coerce_upload_date_value(v_ed, "end date")
+                if err:
+                    errors.append(f"Row {row_idx}: {err}")
+                    continue
+                patch["end_date"] = d_ok
 
         pkg_raw = _annual_upload_cell_str(row, col_map.get("package_sku"))
         if pkg_raw:
@@ -1208,7 +1272,7 @@ async def upload_annual_portal_subscription_excel(file: UploadFile = File(...)):
             patch["usage_source"] = t
 
         if not patch and not client_extra:
-            skipped_empty += 1
+            skipped_no_data += 1
             continue
 
         now = datetime.now(timezone.utc).isoformat()
@@ -1224,7 +1288,11 @@ async def upload_annual_portal_subscription_excel(file: UploadFile = File(...)):
 
     return {
         "updated": updated,
-        "skipped_empty_rows": skipped_empty,
+        "skipped_blank_rows": skipped_blank,
+        "skipped_no_data_rows": skipped_no_data,
+        "skipped_empty_rows": skipped_blank + skipped_no_data,
+        "header_row": header_row_idx,
+        "matched_columns": matched_labels,
         "errors": errors[:100],
         "error_count": len(errors),
     }
