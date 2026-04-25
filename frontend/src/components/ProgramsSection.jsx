@@ -5,15 +5,14 @@ import { resolveImageUrl } from '../lib/imageUtils';
 import { useCurrency } from '../context/CurrencyContext';
 import { useCart } from '../context/CartContext';
 import { useToast } from '../hooks/use-toast';
-import { ShoppingCart, Check, Gift } from 'lucide-react';
+import { ShoppingCart, Check } from 'lucide-react';
 import { HEADING, BODY, CONTAINER, applySectionStyle } from '../lib/designTokens';
 import { UpcomingCard } from './UpcomingProgramsSection';
-import { computeCrossSellDiscount } from '../lib/crossSellPricing';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
 /* ── Flagship card (non-replicated) — purple Know More + optional tiers/pricing ── */
-const SimpleFlagshipCard = ({ program, crossSellRules = [] }) => {
+const SimpleFlagshipCard = ({ program }) => {
   const navigate = useNavigate();
   const { getPrice, getOfferPrice, symbol } = useCurrency();
   const { addItem, items } = useCart();
@@ -28,22 +27,6 @@ const SimpleFlagshipCard = ({ program, crossSellRules = [] }) => {
   const isAnnual = tier && (tier.label.toLowerCase().includes('annual') || tier.label.toLowerCase().includes('year'));
   const price = getPrice(program, showTiers ? selectedTier : null);
   const offerPrice = getOfferPrice(program, showTiers ? selectedTier : null);
-  const effectiveUnitPrice = offerPrice > 0 ? offerPrice : price;
-  const cartItems = items.map((i) => ({ programId: i.programId, tierIndex: i.tierIndex }));
-  const crossSellDiscount =
-    crossSellRules.length > 0
-      ? computeCrossSellDiscount(
-          crossSellRules,
-          program.id,
-          showTiers ? selectedTier : null,
-          effectiveUnitPrice,
-          cartItems,
-        )
-      : null;
-  const crossSellFinal =
-    crossSellDiscount && effectiveUnitPrice > 0
-      ? Math.max(0, effectiveUnitPrice - crossSellDiscount.amount)
-      : null;
   const showContact = isAnnual && price === 0;
   const inCart = items.some(i => i.programId === program.id && i.tierIndex === selectedTier);
   const enrollStatus = program.enrollment_status || (program.enrollment_open !== false ? 'open' : 'closed');
@@ -130,17 +113,7 @@ const SimpleFlagshipCard = ({ program, crossSellRules = [] }) => {
             ) : (
               <div className="flex flex-col gap-0.5">
                 <div className="flex items-baseline gap-2 flex-wrap">
-                  {crossSellFinal != null && crossSellDiscount ? (
-                    <>
-                      <span className="text-lg font-bold text-[#D4AF37]" data-testid={`flagship-price-bundle-${program.id}`}>
-                        {symbol} {crossSellFinal.toLocaleString()}
-                      </span>
-                      <span className="text-xs text-gray-400 line-through">{symbol} {effectiveUnitPrice.toLocaleString()}</span>
-                      {offerPrice > 0 && price > offerPrice ? (
-                        <span className="text-[10px] text-gray-400 line-through">{symbol} {price.toLocaleString()}</span>
-                      ) : null}
-                    </>
-                  ) : offerPrice > 0 ? (
+                  {offerPrice > 0 ? (
                     <>
                       <span className="text-lg font-bold text-[#D4AF37]">{symbol} {offerPrice.toLocaleString()}</span>
                       <span className="text-xs text-gray-400 line-through">{symbol} {price.toLocaleString()}</span>
@@ -151,15 +124,6 @@ const SimpleFlagshipCard = ({ program, crossSellRules = [] }) => {
                     <span className="text-lg font-bold text-green-600">FREE</span>
                   )}
                 </div>
-                {crossSellDiscount ? (
-                  <p className="text-[9px] text-emerald-700 flex items-center gap-1">
-                    <Gift size={10} className="shrink-0" />
-                    <span>
-                      {crossSellDiscount.label || 'Bundle'}: −{crossSellDiscount.value}
-                      {crossSellDiscount.type === 'percentage' ? '%' : ` ${symbol}`} (cart)
-                    </span>
-                  </p>
-                ) : null}
               </div>
             )}
           </div>
@@ -204,7 +168,6 @@ const ProgramsSection = ({ sectionConfig }) => {
   const navigate = useNavigate();
   const [programs, setPrograms] = useState([]);
   const [hero, setHero] = useState({});
-  const [crossSellRules, setCrossSellRules] = useState([]);
   useEffect(() => {
     axios.get(`${API}/programs?visible_only=true`).then(r => {
       if (r.data?.length > 0) setPrograms(r.data.filter(p => p.is_flagship && !p.is_group_program));
@@ -212,16 +175,6 @@ const ProgramsSection = ({ sectionConfig }) => {
     axios.get(`${API}/settings`).then(r => {
       setHero(r.data?.page_heroes?.programs || {});
     }).catch(() => {});
-    axios
-      .get(`${API}/discounts/settings`)
-      .then((r) => {
-        if (r.data?.enable_cross_sell && r.data?.cross_sell_rules?.length > 0) {
-          setCrossSellRules(r.data.cross_sell_rules.filter((rule) => rule.enabled !== false));
-        } else {
-          setCrossSellRules([]);
-        }
-      })
-      .catch(() => setCrossSellRules([]));
   }, []);
 
   if (programs.length === 0) return null;
@@ -240,8 +193,8 @@ const ProgramsSection = ({ sectionConfig }) => {
         <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8 max-w-6xl mx-auto">
           {programs.map(p =>
             (p.is_upcoming && p.replicate_to_flagship)
-              ? <UpcomingCard key={p.id} program={p} crossSellRules={crossSellRules} />
-              : <SimpleFlagshipCard key={p.id} program={p} crossSellRules={crossSellRules} />
+              ? <UpcomingCard key={p.id} program={p} />
+              : <SimpleFlagshipCard key={p.id} program={p} />
           )}
         </div>
       </div>

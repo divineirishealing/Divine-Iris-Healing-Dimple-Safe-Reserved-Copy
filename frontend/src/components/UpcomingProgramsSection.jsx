@@ -7,7 +7,6 @@ import { useCart } from '../context/CartContext';
 import { useToast } from '../hooks/use-toast';
 import { Monitor, Calendar, Clock, AlertTriangle, Wifi, ShoppingCart, Check, Bell, Heart, Gift, Users } from 'lucide-react';
 import { cn } from '../lib/utils';
-import { computeCrossSellDiscount } from '../lib/crossSellPricing';
 
 // Map common timezone abbreviations to UTC offset in hours
 const TZ_OFFSETS = {
@@ -211,7 +210,7 @@ function durationPillDisplay(isAnnualTier, durationStr) {
   return durationStr;
 }
 
-const UpcomingCard = ({ program, cardQuoteMessages = [], crossSellRules = [] }) => {
+const UpcomingCard = ({ program, cardQuoteMessages = [] }) => {
   const navigate = useNavigate();
   const { getPrice, getOfferPrice, symbol, country: detectedCountry } = useCurrency();
   const { addItem, items } = useCart();
@@ -225,22 +224,6 @@ const UpcomingCard = ({ program, cardQuoteMessages = [], crossSellRules = [] }) 
   const isAnnual = tier && (tier.label.toLowerCase().includes('annual') || tier.label.toLowerCase().includes('year') || tier.duration_unit === 'year');
   const price = getPrice(program, hasTiers ? selectedTier : null);
   const offerPrice = getOfferPrice(program, hasTiers ? selectedTier : null);
-  const effectiveUnitPrice = offerPrice > 0 ? offerPrice : price;
-  const cartItems = items.map((i) => ({ programId: i.programId, tierIndex: i.tierIndex }));
-  const crossSellDiscount =
-    crossSellRules.length > 0
-      ? computeCrossSellDiscount(
-          crossSellRules,
-          program.id,
-          hasTiers ? selectedTier : null,
-          effectiveUnitPrice,
-          cartItems,
-        )
-      : null;
-  const crossSellFinal =
-    crossSellDiscount && effectiveUnitPrice > 0
-      ? Math.max(0, effectiveUnitPrice - crossSellDiscount.amount)
-      : null;
 
   const showContact = isAnnual && price === 0;
   const inCart = items.some(i => i.programId === program.id && i.tierIndex === selectedTier);
@@ -498,17 +481,7 @@ const UpcomingCard = ({ program, cardQuoteMessages = [], crossSellRules = [] }) 
                 <>
                   <div className="flex flex-col gap-0.5 mb-2">
                     <div className="flex items-baseline gap-2 flex-wrap">
-                      {crossSellFinal != null && crossSellDiscount ? (
-                        <>
-                          <span className="text-xl font-bold text-[#D4AF37]" data-testid={`upcoming-price-bundle-${program.id}`}>
-                            {symbol} {crossSellFinal.toLocaleString()}
-                          </span>
-                          <span className="text-xs text-gray-400 line-through">{symbol} {effectiveUnitPrice.toLocaleString()}</span>
-                          {offerPrice > 0 && price > offerPrice ? (
-                            <span className="text-[10px] text-gray-400 line-through">{symbol} {price.toLocaleString()}</span>
-                          ) : null}
-                        </>
-                      ) : offerPrice > 0 ? (
+                      {offerPrice > 0 ? (
                         <>
                           <span className="text-xl font-bold text-[#D4AF37]">{symbol} {offerPrice.toLocaleString()}</span>
                           <span className="text-xs text-gray-400 line-through">{symbol} {price.toLocaleString()}</span>
@@ -519,15 +492,6 @@ const UpcomingCard = ({ program, cardQuoteMessages = [], crossSellRules = [] }) 
                         <span className="text-xl font-bold text-green-600">FREE</span>
                       )}
                     </div>
-                    {crossSellDiscount ? (
-                      <p className="text-[9px] text-emerald-700 flex items-center gap-1" data-testid={`upcoming-crosssell-hint-${program.id}`}>
-                        <Gift size={10} className="shrink-0" />
-                        <span>
-                          {crossSellDiscount.label || 'Bundle'}: −{crossSellDiscount.value}
-                          {crossSellDiscount.type === 'percentage' ? '%' : ` ${symbol}`} (cart)
-                        </span>
-                      </p>
-                    ) : null}
                   </div>
                   <div className="flex gap-1.5">
                     <button onClick={() => navigate(`/program/${program.id}`)} data-testid={`upcoming-know-more-${program.id}`}
@@ -811,7 +775,6 @@ const UpcomingProgramsSection = ({ sectionConfig, inline }) => {
                 key={program.id}
                 program={program}
                 cardQuoteMessages={cardQuotesByProgram[String(program.id)] || []}
-                crossSellRules={crossSellRules}
               />
             ))}
           </div>
@@ -856,7 +819,6 @@ const UpcomingProgramsSection = ({ sectionConfig, inline }) => {
                   key={program.id}
                   program={program}
                   cardQuoteMessages={cardQuotesByProgram[String(program.id)] || []}
-                  crossSellRules={crossSellRules}
                 />
               ))}
 
