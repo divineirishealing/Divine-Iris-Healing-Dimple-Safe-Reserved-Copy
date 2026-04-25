@@ -282,6 +282,9 @@ const Footer = () => {
                 <li>
                   <button onClick={() => navigate('/privacy')} className="hover:text-[#D4AF37] transition-colors" data-testid="footer-privacy-link">Privacy Policy</button>
                 </li>
+                <li>
+                  <button onClick={() => navigate('/refund-cancellation')} className="hover:text-[#D4AF37] transition-colors" data-testid="footer-refund-cancellation-link">Refund & Cancellation</button>
+                </li>
               </ul>
             </div>
           </div>

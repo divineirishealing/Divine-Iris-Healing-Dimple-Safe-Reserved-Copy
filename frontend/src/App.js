@@ -18,6 +18,7 @@ import CartPage from './pages/CartPage';
 import CartCheckoutPage from './pages/CartCheckoutPage';
 import TermsPage from './pages/TermsPage';
 import PrivacyPage from './pages/PrivacyPage';
+import RefundCancellationPolicyPage from './pages/RefundCancellationPolicyPage';
 import AboutPage from './pages/AboutPage';
 import BlogPage from './pages/BlogPage';
 import SponsorPage from './pages/SponsorPage';
@@ -119,6 +120,7 @@ const AppContent = () => {
       <Route path="/update-contact/:token" element={<ContactUpdatePage />} />
       <Route path="/terms" element={<TermsPage />} />
       <Route path="/privacy" element={<PrivacyPage />} />
+      <Route path="/refund-cancellation" element={<RefundCancellationPolicyPage />} />
       <Route path="/about" element={<AboutPage />} />
       <Route path="/blog" element={<BlogPage />} />
       <Route path="/sponsor" element={<SponsorPage />} />

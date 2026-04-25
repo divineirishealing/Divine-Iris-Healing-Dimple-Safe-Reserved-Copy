@@ -26,6 +26,7 @@ STATIC_PATHS = [
     "/sponsor",
     "/terms",
     "/privacy",
+    "/refund-cancellation",
     "/cart",
     "/login",
 ]

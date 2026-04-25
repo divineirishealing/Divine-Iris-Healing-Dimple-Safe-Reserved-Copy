@@ -52,7 +52,7 @@ const HeaderFooterTab = ({ settings, onChange }) => {
     { key: 'social', label: 'Social Media' },
     { key: 'footer_nav', label: 'Footer Navigation' },
     { key: 'footer', label: 'Footer Content' },
-    { key: 'legal', label: 'Terms & Privacy' },
+    { key: 'legal', label: 'Legal pages' },
     { key: 'emails', label: 'Sender Emails' },
   ];
 
@@ -401,6 +401,7 @@ const HeaderFooterTab = ({ settings, onChange }) => {
           { value: '/dashboardaccessform', label: 'Dashboard access form' },
           { value: '/terms', label: 'Terms & Conditions' },
           { value: '/privacy', label: 'Privacy Policy' },
+          { value: '/refund-cancellation', label: 'Refund & Cancellation Policy' },
         ];
         const menuItems = s.footer_menu_items?.length ? s.footer_menu_items : DEFAULT_MENU;
         const programsConfig = s.footer_programs_config || {};
@@ -516,6 +517,18 @@ const HeaderFooterTab = ({ settings, onChange }) => {
               onChange={e => set('privacy_content', e.target.value)}
               rows={10}
               placeholder="Enter your Privacy Policy content here..."
+              className="text-xs"
+            />
+          </div>
+          <div className="bg-white rounded-lg p-5 shadow-sm border">
+            <p className="text-xs font-semibold text-gray-800 mb-1">Refund & Cancellation Policy</p>
+            <p className="text-[10px] text-gray-400 mb-3">Content displayed on the /refund-cancellation page.</p>
+            <Textarea
+              data-testid="refund-cancellation-content-editor"
+              value={s.refund_cancellation_policy_content || ''}
+              onChange={e => set('refund_cancellation_policy_content', e.target.value)}
+              rows={10}
+              placeholder="Refunds, cancellations, transfer rules, administrative fees, contact for disputes..."
               className="text-xs"
             />
           </div>

@@ -492,6 +492,7 @@ class SiteSettings(BaseModel):
     # Legal pages
     terms_content: str = ""
     privacy_content: str = ""
+    refund_cancellation_policy_content: str = ""
     # Sender email configuration
     sender_emails: List[Dict] = []  # [{purpose: "receipt", email: "...", label: "Payment Receipts"}, ...]
     # Per-section styles
@@ -699,6 +700,7 @@ class SiteSettingsUpdate(BaseModel):
     show_soundcloud: Optional[bool] = None
     terms_content: Optional[str] = None
     privacy_content: Optional[str] = None
+    refund_cancellation_policy_content: Optional[str] = None
     sender_emails: Optional[List[Dict]] = None
     sections: Optional[Dict] = None
     program_section_template: Optional[List[Dict]] = None

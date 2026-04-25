@@ -39,6 +39,10 @@ export const SEO_ROUTE_TABLE = {
     title: 'Privacy Policy',
     description: 'How Divine Iris Healing collects, uses and protects your information.',
   },
+  '/refund-cancellation': {
+    title: 'Refund & Cancellation Policy',
+    description: 'Refunds, cancellations and administrative fees for Divine Iris Healing programs and services.',
+  },
   '/blog': {
     title: 'Blog',
     description: 'Articles and insights on healing, awareness and transformation from Divine Iris.',

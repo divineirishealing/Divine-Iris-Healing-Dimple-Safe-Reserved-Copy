@@ -169,7 +169,7 @@ async def update_settings(payload: Dict[str, Any]):
     if hasattr(settings, "model_fields_set") and "checkout_promo_code_visible" in settings.model_fields_set:
         update_data["checkout_promo_code_visible"] = bool(settings.checkout_promo_code_visible)
     # Also include fields explicitly set to empty string or empty list
-    for field in ['terms_content', 'privacy_content']:
+    for field in ['terms_content', 'privacy_content', 'refund_cancellation_policy_content']:
         if raw.get(field) is not None or (field in raw and raw[field] == ''):
             update_data[field] = raw[field] if raw[field] is not None else ''
     if raw.get('sender_emails') is not None:
