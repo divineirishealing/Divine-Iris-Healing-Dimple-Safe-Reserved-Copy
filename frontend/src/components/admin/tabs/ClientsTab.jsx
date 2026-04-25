@@ -24,12 +24,14 @@ const CLIENT_GARDEN_COLUMN_DEFS = [
   { id: 'sources', label: 'Sources' },
   { id: 'conv', label: 'Conv' },
   { id: 'first_program', label: '1st program' },
+  { id: 'how_found', label: 'How found' },
+  { id: 'referrer', label: 'Referrer' },
   { id: 'first', label: 'First seen' },
   { id: 'updated', label: 'Updated' },
   { id: 'actions', label: 'Actions', required: true },
 ];
 
-const CLIENT_GARDEN_COLS_KEY = 'admin-client-garden-columns-v2';
+const CLIENT_GARDEN_COLS_KEY = 'admin-client-garden-columns-v3';
 
 /** Maps full canonical labels + legacy short names to row icon/colors (keep in sync with backend ``label_stripe_key``). */
 function gardenLabelStripeKey(label) {
@@ -159,6 +161,7 @@ const ClientsTab = () => {
   const [editingId, setEditingId] = useState(null);
   const [draft, setDraft] = useState(null);
   const [gardenLabelOptions, setGardenLabelOptions] = useState([]);
+  const [discoveryOptions, setDiscoveryOptions] = useState([]);
   const [rowSaving, setRowSaving] = useState(false);
   const [exporting, setExporting] = useState(false);
 
@@ -187,10 +190,19 @@ const ClientsTab = () => {
     let cancelled = false;
     (async () => {
       try {
-        const res = await axios.get(`${getApiUrl()}/clients/garden-label-options`);
-        if (!cancelled) setGardenLabelOptions(res.data?.labels || []);
+        const [gRes, dRes] = await Promise.all([
+          axios.get(`${getApiUrl()}/clients/garden-label-options`),
+          axios.get(`${getApiUrl()}/clients/discovery-options`),
+        ]);
+        if (!cancelled) {
+          setGardenLabelOptions(gRes.data?.labels || []);
+          setDiscoveryOptions(dRes.data?.sources || []);
+        }
       } catch {
-        if (!cancelled) setGardenLabelOptions([]);
+        if (!cancelled) {
+          setGardenLabelOptions([]);
+          setDiscoveryOptions([]);
+        }
       }
     })();
     return () => { cancelled = true; };
@@ -213,6 +225,10 @@ const ClientsTab = () => {
       diidMiddle: splitDiid(cl.diid).middle,
       editPhone: cl.phone || '',
       firstProgramManual: cl.first_program_manual ? String(cl.first_program_manual) : '',
+      discoverySource: cl.discovery_source || '',
+      discoveryOtherNote: cl.discovery_other_note ? String(cl.discovery_other_note) : '',
+      referredByClientId: cl.referred_by_client_id ? String(cl.referred_by_client_id) : '',
+      referredByNamePreview: cl.referred_by_name ? String(cl.referred_by_name) : '',
     });
   };
 
@@ -223,6 +239,22 @@ const ClientsTab = () => {
 
   const updateDraft = (patch) => {
     setDraft((prev) => (prev ? { ...prev, ...patch } : prev));
+  };
+
+  const lookupReferrerName = async (uuidRaw) => {
+    const u = (uuidRaw || '').trim();
+    if (!u) {
+      setDraft((prev) => (prev ? { ...prev, referredByNamePreview: '' } : prev));
+      return;
+    }
+    try {
+      const res = await axios.get(`${getApiUrl()}/clients/${u}`);
+      const nm = (res.data?.name || res.data?.email || '').trim() || u;
+      setDraft((prev) => (prev ? { ...prev, referredByNamePreview: nm } : prev));
+    } catch {
+      toast({ title: 'Referrer UUID not found', variant: 'destructive' });
+      setDraft((prev) => (prev ? { ...prev, referredByNamePreview: '' } : prev));
+    }
   };
 
   const saveRow = async () => {
@@ -238,6 +270,15 @@ const ClientsTab = () => {
         label_manual: (draft.labelManual || '').trim() ? draft.labelManual : '',
         phone: (draft.editPhone || '').trim() || null,
         first_program_manual: (draft.firstProgramManual || '').trim() || null,
+        discovery_source: (draft.discoverySource || '').trim() || null,
+        discovery_other_note:
+          (draft.discoverySource === 'Other'
+            ? (draft.discoveryOtherNote || '').trim()
+            : '') || null,
+        referred_by_client_id:
+          (draft.discoverySource === 'Referral'
+            ? (draft.referredByClientId || '').trim()
+            : '') || null,
       };
       const midNorm = (draft.diidMiddle || '').trim().toUpperCase();
       const origMid = (splitDiid(cl.diid).middle || '').trim().toUpperCase();
@@ -379,7 +420,7 @@ const ClientsTab = () => {
             <Users size={18} className="text-[#D4AF37]" /> Client Garden
           </h2>
           <p className="text-xs text-gray-500 mt-0.5 max-w-3xl">
-            One row per client — use <strong className="font-semibold text-gray-700">Edit</strong> to change garden label, DIID middle, email, phone (+country code), household, first program, and primary contact <strong className="font-semibold text-gray-700">in the grid</strong> (no popup). Save or Cancel in the Actions column. Conversions and sources still come from sync.{' '}
+            One row per client — use <strong className="font-semibold text-gray-700">Edit</strong> for garden label, DIID middle, contact fields, <strong className="font-semibold text-gray-700">how they found us</strong> (Ads, Instagram, Referral, …), and <strong className="font-semibold text-gray-700">referrer UUID</strong> (name fills from that client). Save or Cancel in Actions. Conversions/sources still come from sync.{' '}
             <strong className="font-semibold text-gray-700">DIID</strong> should exist on every row; use <strong className="font-semibold text-gray-700">Sync All Data</strong> to backfill. <strong className="font-semibold text-gray-700">UUID</strong> is the internal record id.
           </p>
         </div>
@@ -509,6 +550,8 @@ const ClientsTab = () => {
                 {isVisible('sources') && <th className="py-2 px-2 font-semibold min-w-[100px]">Sources</th>}
                 {isVisible('conv') && <th className="py-2 px-2 font-semibold w-[44px] text-center">Conv</th>}
                 {isVisible('first_program') && <th className="py-2 px-2 font-semibold min-w-[120px]" title="First paid program from conversions (by date)">1st program</th>}
+                {isVisible('how_found') && <th className="py-2 px-2 font-semibold min-w-[100px]" title="How they first found Divine Iris">How found</th>}
+                {isVisible('referrer') && <th className="py-2 px-2 font-semibold min-w-[120px]" title="Referred-by client (when source is Referral)">Referrer</th>}
                 {isVisible('first') && <th className="py-2 px-2 font-semibold w-[72px]">First seen</th>}
                 {isVisible('updated') && <th className="py-2 px-2 font-semibold w-[72px]">Updated</th>}
                 {isVisible('actions') && <th className="py-2 pr-3 pl-2 font-semibold min-w-[120px] text-right sticky right-0 bg-gray-100 z-10">Actions</th>}
@@ -685,6 +728,84 @@ const ClientsTab = () => {
                         />
                       ) : (
                         <span className="line-clamp-2 text-[9px] leading-snug px-1">{cl.first_program || '—'}</span>
+                      )}
+                    </td>
+                    )}
+                    {isVisible('how_found') && (
+                    <td className="py-1 px-1 text-gray-800 align-top min-w-[100px] max-w-[200px]">
+                      {d ? (
+                        <div className="space-y-1">
+                          <select
+                            data-testid="client-discovery-source"
+                            className="w-full h-7 text-[9px] rounded border border-slate-300 bg-white px-1"
+                            value={d.discoverySource || ''}
+                            onChange={(e) => {
+                              const v = e.target.value;
+                              updateDraft({
+                                discoverySource: v,
+                                ...(v !== 'Referral'
+                                  ? { referredByClientId: '', referredByNamePreview: '' }
+                                  : {}),
+                                ...(v !== 'Other' ? { discoveryOtherNote: '' } : {}),
+                              });
+                            }}
+                          >
+                            <option value="">—</option>
+                            {discoveryOptions.map((s) => (
+                              <option key={s} value={s}>{s}</option>
+                            ))}
+                          </select>
+                          {d.discoverySource === 'Other' ? (
+                            <Input
+                              data-testid="client-discovery-other"
+                              value={d.discoveryOtherNote}
+                              onChange={(e) => updateDraft({ discoveryOtherNote: e.target.value })}
+                              className="h-7 text-[9px] px-1.5"
+                              placeholder="Specify…"
+                              maxLength={500}
+                            />
+                          ) : null}
+                        </div>
+                      ) : (
+                        <span className="line-clamp-3 text-[9px] leading-snug px-1" title={cl.discovery_other_note || ''}>
+                          {cl.discovery_source || '—'}
+                          {cl.discovery_source === 'Other' && cl.discovery_other_note
+                            ? ` · ${truncate(cl.discovery_other_note, 36)}`
+                            : ''}
+                        </span>
+                      )}
+                    </td>
+                    )}
+                    {isVisible('referrer') && (
+                    <td className="py-1 px-1 text-gray-800 align-top min-w-[120px] max-w-[220px]" title={cl.referred_by_client_id || ''}>
+                      {d ? (
+                        d.discoverySource === 'Referral' ? (
+                          <div className="space-y-1">
+                            <Input
+                              data-testid="client-referred-by-uuid"
+                              value={d.referredByClientId}
+                              onChange={(e) => updateDraft({ referredByClientId: e.target.value })}
+                              onBlur={(e) => lookupReferrerName(e.target.value)}
+                              className="h-7 text-[9px] w-full px-1.5 font-mono"
+                              placeholder="Referrer UUID"
+                              autoComplete="off"
+                            />
+                            <p className="text-[8px] text-gray-600 px-0.5 line-clamp-2" title={d.referredByNamePreview || ''}>
+                              {d.referredByNamePreview ? `→ ${d.referredByNamePreview}` : 'Paste UUID, tab out to resolve name'}
+                            </p>
+                          </div>
+                        ) : (
+                          <span className="text-[9px] text-gray-400 px-1">Set How found to Referral</span>
+                        )
+                      ) : (
+                        <div className="px-1 text-[9px] leading-snug">
+                          <span className="font-medium text-gray-800">{cl.referred_by_name || '—'}</span>
+                          {cl.referred_by_client_id ? (
+                            <span className="block text-[8px] text-gray-500 font-mono truncate mt-0.5" title={cl.referred_by_client_id}>
+                              {cl.referred_by_client_id}
+                            </span>
+                          ) : null}
+                        </div>
                       )}
                     </td>
                     )}

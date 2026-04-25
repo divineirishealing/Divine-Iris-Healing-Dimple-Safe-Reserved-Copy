@@ -75,6 +75,46 @@ db = client[os.environ['DB_NAME']]
 
 logger = logging.getLogger(__name__)
 
+# How clients first found Divine Iris (CRM attribution)
+DISCOVERY_SOURCES: Tuple[str, ...] = (
+    "Ads",
+    "Instagram",
+    "Youtube",
+    "Facebook",
+    "Google",
+    "Website",
+    "Referral",
+    "Other",
+)
+_DISCOVERY_LOWER = {s.lower(): s for s in DISCOVERY_SOURCES}
+
+
+def normalize_discovery_source_value(raw: Optional[str]) -> Optional[str]:
+    t = (raw or "").strip()
+    if not t:
+        return None
+    canon = _DISCOVERY_LOWER.get(t.lower())
+    if not canon:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Invalid how-they-found-us value. Use one of: {', '.join(DISCOVERY_SOURCES)}",
+        )
+    return canon
+
+
+async def resolve_referrer_client(db, self_client_id: str, referrer_id_raw: Optional[str]) -> Tuple[Optional[str], Optional[str]]:
+    rid = (referrer_id_raw or "").strip()
+    if not rid:
+        return None, None
+    if rid == self_client_id:
+        raise HTTPException(status_code=400, detail="Referrer cannot be the same client")
+    ref = await db.clients.find_one({"id": rid}, {"_id": 0, "name": 1, "email": 1})
+    if not ref:
+        raise HTTPException(status_code=404, detail="Referrer UUID not found in Client Garden")
+    display = ((ref.get("name") or "").strip() or (ref.get("email") or "").strip() or rid)
+    return rid, display
+
+
 def _first_program_title(conversions: Optional[List]) -> str:
     """Earliest paid conversion by ``date`` — program title they first joined with."""
     convs = [c for c in (conversions or []) if (c.get("program_title") or "").strip()]
@@ -701,6 +741,12 @@ async def client_stats():
 async def garden_label_options():
     """Canonical Client Garden labels for admin dropdowns (order matches journey)."""
     return {"labels": ORDERED_JOURNEY_LABELS}
+
+
+@router.get("/discovery-options")
+async def discovery_options():
+    """Allowed values for how the client first found Divine Iris."""
+    return {"sources": list(DISCOVERY_SOURCES)}
 
 
 @router.get("/annual-portal-subscribers")
@@ -1899,6 +1945,9 @@ class ClientUpdate(BaseModel):
     household_key: Optional[str] = None
     is_primary_household_contact: Optional[bool] = None
     email: Optional[str] = None
+    discovery_source: Optional[str] = None
+    discovery_other_note: Optional[str] = None
+    referred_by_client_id: Optional[str] = None
 
 
 @router.put("/{client_id}")
@@ -1932,6 +1981,42 @@ async def update_client(client_id: str, data: ClientUpdate):
     if "first_program_manual" in incoming:
         fp = (data.first_program_manual or "").strip() if data.first_program_manual is not None else ""
         update_fields["first_program_manual"] = fp if fp else None
+
+    if "discovery_source" in incoming:
+        ds_in = data.discovery_source
+        if ds_in is None or (isinstance(ds_in, str) and not str(ds_in).strip()):
+            update_fields["discovery_source"] = None
+        else:
+            update_fields["discovery_source"] = normalize_discovery_source_value(str(ds_in))
+    if "discovery_other_note" in incoming:
+        on = (
+            (data.discovery_other_note or "").strip()
+            if data.discovery_other_note is not None
+            else ""
+        )
+        update_fields["discovery_other_note"] = (on[:500] if on else None)
+
+    eff_disc = update_fields.get("discovery_source", cl.get("discovery_source"))
+    if "discovery_source" in incoming and eff_disc != "Referral":
+        update_fields["referred_by_client_id"] = None
+        update_fields["referred_by_name"] = None
+
+    if "referred_by_client_id" in incoming:
+        raw_rb = data.referred_by_client_id
+        eff_disc = update_fields.get("discovery_source", cl.get("discovery_source"))
+        if raw_rb is None or (isinstance(raw_rb, str) and not str(raw_rb).strip()):
+            update_fields["referred_by_client_id"] = None
+            update_fields["referred_by_name"] = None
+        elif eff_disc != "Referral":
+            raise HTTPException(
+                status_code=400,
+                detail="Set How they found us to Referral before saving a referrer UUID.",
+            )
+        else:
+            rid, rname = await resolve_referrer_client(db, client_id, str(raw_rb))
+            update_fields["referred_by_client_id"] = rid
+            update_fields["referred_by_name"] = rname
+
     if data.immediate_family_editing_approved is not None:
         update_fields["immediate_family_editing_approved"] = bool(data.immediate_family_editing_approved)
     if data.portal_login_allowed is not None:
@@ -2063,6 +2148,10 @@ async def export_clients_excel():
         "Label",
         "First program joined",
         "Name",
+        "How found us",
+        "Other (detail)",
+        "Referrer UUID",
+        "Referrer name",
         "Email",
         "Phone",
         "Household key",
@@ -2106,6 +2195,10 @@ async def export_clients_excel():
             label,
             first_prog,
             cl.get("name", ""),
+            cl.get("discovery_source") or "",
+            cl.get("discovery_other_note") or "",
+            cl.get("referred_by_client_id") or "",
+            cl.get("referred_by_name") or "",
             cl.get("email", ""),
             cl.get("phone", ""),
             cl.get("household_key") or "",
@@ -2124,7 +2217,7 @@ async def export_clients_excel():
             cell.fill = fill
             cell.border = thin_border
 
-    col_widths = [30, 38, 14, 52, 28, 20, 30, 18, 22, 12, 25, 40, 16, 22, 22, 30]
+    col_widths = [30, 38, 14, 52, 28, 20, 14, 24, 36, 22, 30, 18, 22, 12, 25, 40, 16, 22, 22, 30]
     for i, w in enumerate(col_widths):
         ws.column_dimensions[ws.cell(row=1, column=i + 1).column_letter].width = w
 
