@@ -5,6 +5,7 @@ from datetime import date, datetime, timezone
 import logging
 import os
 import re
+import secrets
 import uuid
 from motor.motor_asyncio import AsyncIOMotorClient
 from utils.canonical_id import (
@@ -18,6 +19,7 @@ from utils.garden_labels import (
     LABEL_ROOT,
     LABEL_BLOOM,
     LABEL_SEED,
+    ORDERED_JOURNEY_LABELS,
     normalize_label,
     is_allowed_manual_label,
     label_filter_variants,
@@ -82,12 +84,67 @@ def _first_program_title(conversions: Optional[List]) -> str:
     return (convs_sorted[0].get("program_title") or "").strip()
 
 
+def effective_first_program(client_doc: dict) -> str:
+    """CRM override ``first_program_manual`` wins; else earliest conversion title."""
+    manual = (client_doc.get("first_program_manual") or "").strip()
+    if manual:
+        return manual
+    return _first_program_title(client_doc.get("conversions"))
+
+
 def normalize_email(email: str) -> str:
     return (email or "").strip().lower()
 
 
 def normalize_phone(phone: str) -> str:
-    return (phone or "").strip().replace(" ", "").replace("-", "")
+    """Strip separators; preserve leading ``+`` for country codes (E.164-style storage)."""
+    t = (phone or "").strip()
+    if not t:
+        return ""
+    t = re.sub(r"[\s\-\(\)\.]", "", t)
+    if t.startswith("+"):
+        digits = "".join(c for c in t[1:] if c.isdigit())
+        return f"+{digits}" if digits else ""
+    return "".join(c for c in t if c.isdigit())
+
+
+_DIID_MIDDLE_RE = re.compile(r"^[A-Za-z]{4}\d{4}$")
+
+
+def _split_internal_diid(diid: Optional[str]) -> Tuple[Optional[str], Optional[str]]:
+    d = (diid or "").strip()
+    if not d or not d.upper().startswith("DIID-"):
+        return None, None
+    parts = d.split("-")
+    if len(parts) < 3:
+        return None, None
+    middle = parts[1].strip().upper()
+    suffix = parts[-1].strip().upper()
+    if not middle or not suffix:
+        return None, None
+    return middle, suffix
+
+
+def _validate_diid_middle(middle: str) -> str:
+    m = (middle or "").strip().upper()
+    if not _DIID_MIDDLE_RE.match(m):
+        raise HTTPException(
+            status_code=400,
+            detail="DIID middle must be 4 letters (A–Z) + 4 digits (YYMM), e.g. ABCD2404",
+        )
+    return m
+
+
+async def _new_diid_with_middle(db, client_id: str, cl: dict, middle_raw: str) -> str:
+    mid = _validate_diid_middle(middle_raw)
+    _, suf = _split_internal_diid(cl.get("diid"))
+    if not suf:
+        suf = secrets.token_hex(4).upper()
+    new_diid = f"DIID-{mid}-{suf}"
+    dupe = await db.clients.find_one({"diid": new_diid, "id": {"$ne": client_id}})
+    if dupe:
+        raise HTTPException(status_code=409, detail="That DIID is already in use by another client")
+    return new_diid
 
 
 async def ensure_client_from_enrollment_lead(enrollment: Dict[str, Any]) -> None:
@@ -553,7 +610,7 @@ async def list_clients(label: Optional[str] = None, search: Optional[str] = None
         ]
     clients_list = await db.clients.find(query, {"_id": 0}).sort("updated_at", -1).to_list(1000)
     for cl in clients_list:
-        cl["first_program"] = _first_program_title(cl.get("conversions"))
+        cl["first_program"] = effective_first_program(cl)
     return clients_list
 
 
@@ -638,6 +695,12 @@ async def client_stats():
     label_counts = {r["_id"]: r["count"] for r in results}
     total = sum(label_counts.values())
     return {"total": total, "by_label": label_counts}
+
+
+@router.get("/garden-label-options")
+async def garden_label_options():
+    """Canonical Client Garden labels for admin dropdowns (order matches journey)."""
+    return {"labels": ORDERED_JOURNEY_LABELS}
 
 
 @router.get("/annual-portal-subscribers")
@@ -1763,7 +1826,7 @@ async def get_client(client_id: str):
     cl = await db.clients.find_one({"id": client_id}, {"_id": 0})
     if not cl:
         raise HTTPException(status_code=404, detail="Client not found")
-    cl["first_program"] = _first_program_title(cl.get("conversions"))
+    cl["first_program"] = effective_first_program(cl)
     return cl
 
 
@@ -1807,6 +1870,8 @@ class IndiaDiscountMemberBand(BaseModel):
 
 class ClientUpdate(BaseModel):
     label_manual: Optional[str] = None
+    diid_middle: Optional[str] = None  # 4 letters + YYMM between DIID- and hex suffix
+    first_program_manual: Optional[str] = None  # optional CRM override for first program column
     notes: Optional[str] = None
     name: Optional[str] = None
     phone: Optional[str] = None
@@ -1843,6 +1908,7 @@ async def update_client(client_id: str, data: ClientUpdate):
         raise HTTPException(status_code=404, detail="Client not found")
 
     update_fields = {"updated_at": datetime.now(timezone.utc).isoformat()}
+    incoming = data.model_dump(exclude_unset=True)
     if data.label_manual is not None:
         lm = (data.label_manual or "").strip()
         if lm:
@@ -1856,8 +1922,16 @@ async def update_client(client_id: str, data: ClientUpdate):
         update_fields["notes"] = data.notes
     if data.name is not None:
         update_fields["name"] = data.name
-    if data.phone is not None:
-        update_fields["phone"] = data.phone
+    if "phone" in incoming:
+        pn = normalize_phone(str(data.phone) if data.phone is not None else "")
+        update_fields["phone"] = pn or None
+    if "diid_middle" in incoming and str(data.diid_middle or "").strip():
+        update_fields["diid"] = await _new_diid_with_middle(
+            db, client_id, cl, str(data.diid_middle).strip()
+        )
+    if "first_program_manual" in incoming:
+        fp = (data.first_program_manual or "").strip() if data.first_program_manual is not None else ""
+        update_fields["first_program_manual"] = fp if fp else None
     if data.immediate_family_editing_approved is not None:
         update_fields["immediate_family_editing_approved"] = bool(data.immediate_family_editing_approved)
     if data.portal_login_allowed is not None:
@@ -1909,7 +1983,6 @@ async def update_client(client_id: str, data: ClientUpdate):
         if new_em != old_em:
             update_fields["email"] = new_em or None
 
-    incoming = data.model_dump(exclude_unset=True)
     if "india_discount_member_bands" in incoming:
         bands = data.india_discount_member_bands
         if bands:
@@ -2025,7 +2098,7 @@ async def export_clients_excel():
         programs = ", ".join(set(c.get("program_title", "") for c in cl.get("conversions", []) if c.get("program_title")))
         sources = ", ".join(set(cl.get("sources", [])))
         label = cl.get("label") or LABEL_DEW
-        first_prog = _first_program_title(cl.get("conversions"))
+        first_prog = effective_first_program(cl)
         row_data = [
             cl.get("diid", ""),
             cl.get("id", ""),

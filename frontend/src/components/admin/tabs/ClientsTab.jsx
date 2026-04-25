@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import axios from 'axios';
 import { useToast } from '../../../hooks/use-toast';
 import { Button } from '../../ui/button';
@@ -131,6 +131,15 @@ function truncate(s, n) {
   const t = (s || '').trim();
   if (t.length <= n) return t;
   return `${t.slice(0, n)}…`;
+}
+
+/** Parse ``DIID-{middle}-{suffix}`` for the editable middle segment (4 letters + YYMM). */
+function splitDiid(diid) {
+  const d = (diid || '').trim();
+  if (!d.toUpperCase().startsWith('DIID-')) return { middle: '', suffix: '' };
+  const parts = d.split('-');
+  if (parts.length < 3) return { middle: '', suffix: '' };
+  return { middle: (parts[1] || '').trim(), suffix: (parts[parts.length - 1] || '').trim() };
 }
 
 const ClientsTab = () => {
@@ -532,13 +541,44 @@ function ClientEditDialog({ client: cl, onClose, onSaved, onDelete, toast }) {
   const [editEmail, setEditEmail] = useState(cl.email || '');
   const [householdKey, setHouseholdKey] = useState(cl.household_key || '');
   const [primaryHouseholdContact, setPrimaryHouseholdContact] = useState(!!cl.is_primary_household_contact);
+  const [gardenLabelOptions, setGardenLabelOptions] = useState([]);
+  const [labelManual, setLabelManual] = useState('');
+  const [diidMiddle, setDiidMiddle] = useState('');
+  const [editPhone, setEditPhone] = useState('');
+  const [firstProgramManual, setFirstProgramManual] = useState('');
   const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await axios.get(`${getApiUrl()}/clients/garden-label-options`);
+        if (!cancelled) setGardenLabelOptions(res.data?.labels || []);
+      } catch {
+        if (!cancelled) setGardenLabelOptions([]);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
 
   useEffect(() => {
     setEditEmail(cl.email || '');
     setHouseholdKey(cl.household_key || '');
     setPrimaryHouseholdContact(!!cl.is_primary_household_contact);
-  }, [cl.id, cl.updated_at, cl.email, cl.household_key, cl.is_primary_household_contact]);
+    setLabelManual((cl.label_manual || '').trim() ? (cl.label || cl.label_manual || '') : '');
+    setDiidMiddle(splitDiid(cl.diid).middle);
+    setEditPhone(cl.phone || '');
+    setFirstProgramManual(cl.first_program_manual ? String(cl.first_program_manual) : '');
+  }, [cl.id, cl.updated_at, cl.email, cl.household_key, cl.is_primary_household_contact, cl.label, cl.label_manual, cl.diid, cl.phone, cl.first_program_manual]);
+
+  const labelOptionsForSelect = useMemo(() => {
+    const o = [...gardenLabelOptions];
+    const cur = (cl.label_manual || '').trim() ? (cl.label || '') : '';
+    if (cur && !o.includes(cur)) o.unshift(cur);
+    return o;
+  }, [gardenLabelOptions, cl.label, cl.label_manual]);
+
+  const diidSuffix = splitDiid(cl.diid).suffix;
 
   const cfg = labelStyleForClient(cl.label);
   const RowIcon = cfg.icon;
@@ -547,11 +587,20 @@ function ClientEditDialog({ client: cl, onClose, onSaved, onDelete, toast }) {
   const handleSave = async () => {
     setSaving(true);
     try {
-      await axios.put(`${getApiUrl()}/clients/${cl.id}`, {
+      const payload = {
         email: (editEmail || '').trim().toLowerCase(),
         household_key: householdKey.trim() || null,
         is_primary_household_contact: primaryHouseholdContact,
-      });
+        label_manual: (labelManual || '').trim() ? labelManual : '',
+        phone: (editPhone || '').trim() || null,
+        first_program_manual: (firstProgramManual || '').trim() || null,
+      };
+      const midNorm = (diidMiddle || '').trim().toUpperCase();
+      const origMid = (splitDiid(cl.diid).middle || '').trim().toUpperCase();
+      if (midNorm && midNorm !== origMid) {
+        payload.diid_middle = midNorm;
+      }
+      await axios.put(`${getApiUrl()}/clients/${cl.id}`, payload);
       toast({ title: 'Client updated' });
       onSaved();
     } catch (err) {
@@ -585,21 +634,56 @@ function ClientEditDialog({ client: cl, onClose, onSaved, onDelete, toast }) {
                 <span className="font-mono text-slate-700 text-[10px] break-all select-all">{cl.id}</span>
               </p>
             )}
-            {(cl.diid || cl.did) && (
-              <p className="col-span-2">
-                <span className="text-gray-400">DIID</span>{' '}
-                <span className="font-mono text-indigo-800 text-[10px] break-all">{cl.diid || `${cl.did} (legacy — use Sync All Data to assign DIID)`}</span>
-              </p>
-            )}
             {cl.did && cl.diid && (
               <p className="col-span-2"><span className="text-gray-400">Legacy DID</span> <span className="font-mono text-purple-700">{cl.did}</span></p>
             )}
-            <p><span className="text-gray-400">Phone</span> {cl.phone || '—'}</p>
-            <p className="col-span-2"><span className="text-gray-400">Garden label</span>{' '}<span className="text-gray-800">{cl.label || '—'}</span></p>
-            {cl.first_program ? (
-              <p className="col-span-2"><span className="text-gray-400">First program joined</span>{' '}<span className="text-gray-800">{cl.first_program}</span></p>
-            ) : null}
             <p><span className="text-gray-400">First contact</span> {cl.created_at ? new Date(cl.created_at).toLocaleString() : '—'}</p>
+            <p className="col-span-2 text-[9px] text-gray-400">
+              Effective label and first program below may come from sync until you set overrides.
+            </p>
+          </div>
+
+          <div className="rounded-lg border border-slate-200 bg-slate-50/80 p-3 space-y-3">
+            <p className="text-[10px] font-semibold text-slate-800">Garden label</p>
+            <select
+              data-testid="client-garden-label"
+              className="w-full h-9 text-[11px] rounded-md border border-slate-300 bg-white px-2"
+              value={labelManual || ''}
+              onChange={(e) => setLabelManual(e.target.value)}
+            >
+              <option value="">Automatic (from sync &amp; paid conversions)</option>
+              {labelOptionsForSelect.map((lab) => (
+                <option key={lab} value={lab}>{lab}</option>
+              ))}
+            </select>
+            {!labelOptionsForSelect.includes(labelManual) && (labelManual || '').trim() ? (
+              <p className="text-[9px] text-amber-700">Custom label on file — choose a standard label above to replace it.</p>
+            ) : null}
+          </div>
+
+          <div className="rounded-lg border border-slate-200 bg-slate-50/80 p-3 space-y-2">
+            <p className="text-[10px] font-semibold text-slate-800">DIID (edit middle segment)</p>
+            <p className="text-[9px] text-gray-500">
+              Format: <span className="font-mono">DIID-</span>
+              <strong>ABCD</strong>
+              <span className="font-mono">2404</span>
+              <span className="font-mono">-XXXXXXXX</span>
+              — four letters (from name initials) + YYMM (year/month). Suffix stays the same unless the row has no DIID yet (then one is created).
+            </p>
+            <div className="flex items-center gap-1 flex-wrap font-mono text-[11px]">
+              <span className="text-indigo-800 shrink-0">DIID-</span>
+              <Input
+                data-testid="client-diid-middle"
+                value={diidMiddle}
+                onChange={(e) => setDiidMiddle(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 8))}
+                className="h-8 text-xs w-[7.5rem] font-mono uppercase"
+                placeholder="ABCD2404"
+                maxLength={8}
+                autoComplete="off"
+              />
+              <span className="text-indigo-800">-</span>
+              <span className="text-indigo-600 min-w-[5rem]" title="Suffix is stable for this row">{diidSuffix || '—'}</span>
+            </div>
           </div>
 
           <div className="rounded-lg border border-slate-200 bg-slate-50/80 p-3 space-y-2">
@@ -620,6 +704,34 @@ function ClientEditDialog({ client: cl, onClose, onSaved, onDelete, toast }) {
                 enabled, then falls back to the newest match. Leave blank only if they have no address yet.
               </p>
             </div>
+            <div>
+              <Label className="text-[10px] text-gray-500">Phone (include country code)</Label>
+              <Input
+                type="tel"
+                data-testid="client-edit-phone"
+                value={editPhone}
+                onChange={(e) => setEditPhone(e.target.value)}
+                className="h-8 text-xs mt-1 font-mono"
+                placeholder="+91 98765 43210"
+                autoComplete="tel"
+              />
+              <p className="text-[9px] text-gray-400 mt-1">Stored with a leading + when you add a country code (e.g. +1, +91, +44).</p>
+            </div>
+          </div>
+
+          <div className="rounded-lg border border-slate-200 bg-slate-50/80 p-3 space-y-2">
+            <p className="text-[10px] font-semibold text-slate-800">First program (optional)</p>
+            <p className="text-[9px] text-gray-500">
+              Overrides the title from the earliest paid conversion for this client. Clear the field to use conversion data again.
+            </p>
+            <Input
+              data-testid="client-first-program-manual"
+              value={firstProgramManual}
+              onChange={(e) => setFirstProgramManual(e.target.value)}
+              className="h-8 text-xs"
+              placeholder="e.g. Atomic Weight Release Program (AWRP)"
+              maxLength={500}
+            />
           </div>
 
           <div className="rounded-lg border border-slate-200 bg-slate-50/80 p-3 space-y-2">
