@@ -796,6 +796,13 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh, bo
   const familyRowCount = members.length + otherMembers.length + annualPeersDraft.length;
 
   const restoredUpcomingRef = useRef(false);
+  /** False until Sacred Home session is read from sessionStorage — avoids autosave wiping tiers/attendance with empty initial state. */
+  const [upcomingSessionHydrated, setUpcomingSessionHydrated] = useState(false);
+
+  useEffect(() => {
+    restoredUpcomingRef.current = false;
+    setUpcomingSessionHydrated(false);
+  }, [bookerEmail]);
 
   const nearestUpcomingProgram = useMemo(() => {
     const list = upcomingList
@@ -817,6 +824,7 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh, bo
 
   useEffect(() => {
     if (typeof sessionStorage === 'undefined' || !bookerEmail) return;
+    if (!upcomingSessionHydrated) return;
     const save = () => {
       try {
         sessionStorage.setItem(
@@ -842,10 +850,10 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh, bo
     const id = requestAnimationFrame(save);
     return () => {
       cancelAnimationFrame(id);
-      save();
     };
   }, [
     bookerEmail,
+    upcomingSessionHydrated,
     selectedFamilyByProgram,
     seatDraftsByProgram,
     enrollmentSeatOpen,
@@ -865,6 +873,7 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh, bo
       raw = sessionStorage.getItem(upcomingSessionStorageKey(bookerEmail));
     } catch (_) {
       restoredUpcomingRef.current = true;
+      setUpcomingSessionHydrated(true);
       return;
     }
     if (!raw) {
@@ -875,6 +884,7 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh, bo
         setBookerSeatNotify(savedDefaults.bookerNotify !== false);
         setEnrollmentDefaultsLoaded(true);
       }
+      setUpcomingSessionHydrated(true);
       return;
     }
     let data;
@@ -882,14 +892,17 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh, bo
       data = JSON.parse(raw);
     } catch {
       restoredUpcomingRef.current = true;
+      setUpcomingSessionHydrated(true);
       return;
     }
     if (!data || data.v !== UPCOMING_SESSION_V) {
       restoredUpcomingRef.current = true;
+      setUpcomingSessionHydrated(true);
       return;
     }
     if (Date.now() - (data.savedAt || 0) > UPCOMING_SESSION_MAX_AGE_MS) {
       restoredUpcomingRef.current = true;
+      setUpcomingSessionHydrated(true);
       return;
     }
 
@@ -953,6 +966,7 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh, bo
       setSeatModalCtx(seatCtx);
       setEnrollmentSeatOpen(true);
     }
+    setUpcomingSessionHydrated(true);
   }, [bookerEmail, homeData, enrollableGuestIdsKey, familyRowCount]);
 
   const addRow = () => {
