@@ -26,6 +26,7 @@ import {
   buildFullPortalRosterCartParticipants,
 } from '../../lib/dashboardCartPrefill';
 import { getAuthHeaders } from '../../lib/authHeaders';
+import { useAuth } from '../../context/AuthContext';
 
 const API_ROOT = process.env.REACT_APP_BACKEND_URL;
 
@@ -337,6 +338,7 @@ export default function DashboardUpcomingProgramRowItem({
   crossSellRules = [],
 }) {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const { syncProgramLineItem, removeItem, items: cartItems } = useCart();
   const isInCart = cartItems.some((i) => String(i.programId) === String(p.id));
   const { toast } = useToast();
@@ -468,17 +470,31 @@ export default function DashboardUpcomingProgramRowItem({
   const [annualFamilyOpen, setAnnualFamilyOpen] = useState(true);
   const [annualAttendanceOpen, setAnnualAttendanceOpen] = useState(true);
 
-  /** @returns {'synced' | 'removed' | 'noop'} */
+  /** @returns {'synced' | 'removed' | 'noop' | 'noop_profile' | { kind: 'error', detail: string }} */
   const syncThisProgramToDivineCart = async () => {
     let participants = null;
+    const emailFallback = String(bookerEmail || user?.email || '').trim();
     try {
-      let self = enrollmentSelf;
-      if (!self) {
-        const r = await axios.get(`${API_ROOT}/api/student/enrollment-prefill`, {
-          withCredentials: true,
-          headers: getAuthHeaders(),
-        });
-        self = (r.data || {}).self;
+      let selfRaw = enrollmentSelf;
+      if (!selfRaw) {
+        try {
+          const r = await axios.get(`${API_ROOT}/api/student/enrollment-prefill`, {
+            withCredentials: true,
+            headers: getAuthHeaders(),
+          });
+          selfRaw = (r.data || {}).self;
+        } catch {
+          selfRaw = null;
+        }
+      }
+      const selfMerged = {
+        ...(selfRaw && typeof selfRaw === 'object' ? selfRaw : {}),
+        name: String(selfRaw?.name || user?.name || user?.full_name || '').trim(),
+        email: String(selfRaw?.email || emailFallback || '').trim(),
+      };
+      const bookerJoinsSeat = includedPkg ? false : annualSeatUi?.draft?.bookerJoinsProgram !== false;
+      if (bookerJoinsSeat && !includedPkg && !selfMerged.email && !selfMerged.name) {
+        return 'noop_profile';
       }
       participants = buildAnnualDashboardCartParticipants({
         program: p,
@@ -486,14 +502,14 @@ export default function DashboardUpcomingProgramRowItem({
         selectedMemberIds: selIds,
         seatDraft: annualSeatUi?.draft,
         enrollableGuests,
-        self,
-        bookerEmail,
+        self: selfMerged,
+        bookerEmail: emailFallback,
         detectedCountry,
         immediateFamilyMembers: [...(members || []), ...(annualHouseholdPeers || [])],
         programInAnnualPackageList,
       });
-    } catch {
-      /* empty row */
+    } catch (err) {
+      return { kind: 'error', detail: err?.response?.data?.detail || err?.message || 'Network error' };
     }
     const normalizedTier = normalizeCartProgramTier(p, tierIdxForDisplay);
     const existingLine = cartItems.find(
@@ -531,6 +547,14 @@ export default function DashboardUpcomingProgramRowItem({
     setAddingToCheckout(true);
     try {
       const action = await syncThisProgramToDivineCart();
+      if (action?.kind === 'error') {
+        toast({
+          title: 'Could not reach server',
+          description: String(action.detail || 'Check your connection and try again.'),
+          variant: 'destructive',
+        });
+        return;
+      }
       if (action === 'synced') {
         toast({
           title: 'Order updated',
@@ -540,6 +564,18 @@ export default function DashboardUpcomingProgramRowItem({
         toast({
           title: 'Removed from Divine Cart',
           description: `${p.title || 'Program'} had no seats selected. Add family on the card or check “I am enrolling myself” to add it again.`,
+        });
+      } else if (action === 'noop_profile') {
+        toast({
+          title: 'Profile needed',
+          description: 'Add a name or email to your account (or refresh) so we can put your seat in Divine Cart.',
+          variant: 'destructive',
+        });
+      } else if (action === 'noop') {
+        toast({
+          title: 'Cart not updated',
+          description: 'No seats were added. If this keeps happening, refresh the page or open DIVINE CART from the sidebar.',
+          variant: 'destructive',
         });
       }
     } finally {

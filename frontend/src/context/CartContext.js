@@ -25,6 +25,11 @@ function normalizeTierFromCartItem(item) {
   return normalizeCartProgramTier(item, item.tierIndex);
 }
 
+/** API may use snake_case (program page) or camelCase (upcoming/home). */
+function programTiersList(program) {
+  return program?.duration_tiers || program?.durationTiers || [];
+}
+
 /** Merge duplicate program+tier rows (legacy bad state); prefer line with portal meta / more seats. */
 function dedupeProgramCartItems(items) {
   const result = [];
@@ -85,7 +90,7 @@ export const CartProvider = ({ children }) => {
   useEffect(() => { saveCart(items); }, [items]);
 
   const addItem = useCallback((program, tierIndex, participantsOverride = null) => {
-    const tiers = program.duration_tiers || [];
+    const tiers = programTiersList(program);
     const normalizedTier = normalizeCartProgramTier(program, tierIndex);
     const tier = tiers[normalizedTier] || null;
     const exists = items.find(
@@ -96,11 +101,12 @@ export const CartProvider = ({ children }) => {
     );
     if (exists) return false;
 
+    const sess = program.session_mode ?? program.sessionMode;
     const defaultParticipant = {
       name: '', relationship: 'Myself', age: '', gender: '',
       country: '', city: '', state: '',
-      attendance_mode: program.session_mode === 'remote' ? 'offline' : 'online',
-      notify: program.session_mode !== 'remote', email: '', phone: '',
+      attendance_mode: sess === 'remote' ? 'offline' : 'online',
+      notify: sess !== 'remote', email: '', phone: '',
       phone_code: '', wa_code: '', whatsapp: '',
       is_first_time: true, referral_source: '', referred_by_email: '',
     };
@@ -118,10 +124,10 @@ export const CartProvider = ({ children }) => {
       programTitle: program.title,
       programImage: program.image,
       programCategory: program.category,
-      sessionMode: program.session_mode,
+      sessionMode: sess,
       tierIndex: normalizedTier,
       tierLabel: tier?.label || 'Standard',
-      isFlagship: program.is_flagship,
+      isFlagship: program.is_flagship ?? program.isFlagship,
       durationTiers: tiers,
       offer_price_aed: program.offer_price_aed || 0,
       offer_price_inr: program.offer_price_inr || 0,
@@ -143,14 +149,15 @@ export const CartProvider = ({ children }) => {
    * Keeps Divine Cart in sync when dashboard seat picks change after the program was already in the cart.
    */
   const syncProgramLineItem = useCallback((program, tierIndex, participantsOverride = null, portalLineMeta = null) => {
-    const tiers = program.duration_tiers || [];
+    const tiers = programTiersList(program);
     const normalizedTier = normalizeCartProgramTier(program, tierIndex);
     const tier = tiers[normalizedTier] || null;
+    const sess = program.session_mode ?? program.sessionMode;
     const defaultParticipant = {
       name: '', relationship: 'Myself', age: '', gender: '',
       country: '', city: '', state: '',
-      attendance_mode: program.session_mode === 'remote' ? 'offline' : 'online',
-      notify: program.session_mode !== 'remote', email: '', phone: '',
+      attendance_mode: sess === 'remote' ? 'offline' : 'online',
+      notify: sess !== 'remote', email: '', phone: '',
       phone_code: '', wa_code: '', whatsapp: '',
       is_first_time: true, referral_source: '', referred_by_email: '',
     };
@@ -168,10 +175,10 @@ export const CartProvider = ({ children }) => {
       programTitle: program.title,
       programImage: program.image,
       programCategory: program.category,
-      sessionMode: program.session_mode,
+      sessionMode: sess,
       tierIndex: normalizedTier,
       tierLabel: tier?.label || 'Standard',
-      isFlagship: program.is_flagship,
+      isFlagship: program.is_flagship ?? program.isFlagship,
       durationTiers: tiers,
       offer_price_aed: program.offer_price_aed || 0,
       offer_price_inr: program.offer_price_inr || 0,
