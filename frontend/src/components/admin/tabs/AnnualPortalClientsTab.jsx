@@ -1,6 +1,15 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import axios from 'axios';
-import { RefreshCw, Loader2, LayoutList, Users, Pencil, Download, Upload } from 'lucide-react';
+import {
+  RefreshCw,
+  Loader2,
+  LayoutList,
+  Users,
+  Pencil,
+  Download,
+  Upload,
+  UploadCloud,
+} from 'lucide-react';
 import { Button } from '../../ui/button';
 import { useSpreadsheetColumnVisibility, SpreadsheetColumnPicker } from '../SpreadsheetColumnPicker';
 import { getApiUrl } from '../../../lib/config';
@@ -32,6 +41,12 @@ const ANNUAL_PORTAL_FLAT_KEY = 'admin-annual-portal-flat-v6';
 
 const EXCEL_ACCEPT =
   '.xlsx,.xlsm,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel';
+
+function isAllowedExcelFile(file) {
+  if (!file?.name) return false;
+  const n = file.name.toLowerCase();
+  return n.endsWith('.xlsx') || n.endsWith('.xlsm');
+}
 
 function colLabel(id) {
   return ANNUAL_PORTAL_FLAT_COLS.find((c) => c.id === id)?.label ?? id;
@@ -76,6 +91,8 @@ export default function AnnualPortalClientsTab() {
   const [editRow, setEditRow] = useState(null);
   const [excelFile, setExcelFile] = useState(null);
   const excelFileInputRef = useRef(null);
+  const excelDropDepthRef = useRef(0);
+  const [excelDropHighlight, setExcelDropHighlight] = useState(false);
   const [excelUploading, setExcelUploading] = useState(false);
   const [uploadReport, setUploadReport] = useState(null);
 
@@ -172,6 +189,53 @@ export default function AnnualPortalClientsTab() {
       setExcelUploading(false);
     }
   }, [excelFile, load, toast]);
+
+  const handleExcelDragEnter = useCallback((e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    excelDropDepthRef.current += 1;
+    setExcelDropHighlight(true);
+  }, []);
+
+  const handleExcelDragLeave = useCallback((e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    excelDropDepthRef.current = Math.max(0, excelDropDepthRef.current - 1);
+    if (excelDropDepthRef.current === 0) setExcelDropHighlight(false);
+  }, []);
+
+  const handleExcelDragOver = useCallback((e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    try {
+      e.dataTransfer.dropEffect = 'copy';
+    } catch {
+      /* ignore */
+    }
+  }, []);
+
+  const handleExcelDrop = useCallback(
+    (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      excelDropDepthRef.current = 0;
+      setExcelDropHighlight(false);
+      const f = e.dataTransfer?.files?.[0];
+      if (!f) return;
+      if (!isAllowedExcelFile(f)) {
+        toast({
+          title: 'Not an Excel file',
+          description: 'Use .xlsx or .xlsm (download Template if needed).',
+          variant: 'destructive',
+        });
+        return;
+      }
+      setExcelFile(f);
+      setUploadReport(null);
+      if (excelFileInputRef.current) excelFileInputRef.current.value = '';
+    },
+    [toast],
+  );
 
   const stats = useMemo(() => {
     const keyCounts = new Map();
@@ -425,9 +489,34 @@ export default function AnnualPortalClientsTab() {
       />
 
       <div className={sheetFrame}>
-        <div className="shrink-0 flex flex-wrap items-center gap-2 border-b border-[#8c8c8c] bg-[#e8f0e8] px-2 py-1.5">
-          <span className="text-[10px] font-bold text-[#1b5e20] uppercase tracking-wide mr-0.5">Excel</span>
-          {excelToolbar}
+        <div
+          className={`shrink-0 border-b border-[#8c8c8c] transition-[background-color,box-shadow] ${
+            excelDropHighlight
+              ? 'bg-[#cde6cd] shadow-[inset_0_0_0_2px_#217346]'
+              : 'bg-[#e8f0e8]'
+          }`}
+          onDragEnter={handleExcelDragEnter}
+          onDragLeave={handleExcelDragLeave}
+          onDragOver={handleExcelDragOver}
+          onDrop={handleExcelDrop}
+        >
+          <div className="flex flex-wrap items-center gap-2 px-2 py-1.5">
+            <span className="text-[10px] font-bold text-[#1b5e20] uppercase tracking-wide mr-0.5">Excel</span>
+            {excelToolbar}
+          </div>
+          <div
+            className={`px-2 pb-2 pt-0 flex items-start gap-2 rounded-sm mx-2 mb-1.5 border border-dashed ${
+              excelDropHighlight ? 'border-[#217346] bg-white/70' : 'border-[#a8c4a8] bg-white/40'
+            }`}
+          >
+            <UploadCloud
+              className={`h-4 w-4 shrink-0 mt-0.5 ${excelDropHighlight ? 'text-[#1b5e20]' : 'text-neutral-500'}`}
+              aria-hidden
+            />
+            <p className={`text-[10px] leading-snug ${excelDropHighlight ? 'text-[#1b5e20] font-medium' : 'text-neutral-600'}`}>
+              <span className="font-semibold">Drag and drop</span> a .xlsx or .xlsm file here, or use Choose — then press Upload.
+            </p>
+          </div>
         </div>
         <div className={sheetScroll}>
         {viewMode === 'flat' ? (
