@@ -506,7 +506,7 @@ export default function DashboardUpcomingProgramRowItem({
         bookerEmail: emailFallback,
         detectedCountry,
         immediateFamilyMembers: [...(members || []), ...(annualHouseholdPeers || [])],
-        programInAnnualPackageList,
+        programInAnnualPackageList: programOnAnnualPackageList,
       });
     } catch (err) {
       return { kind: 'error', detail: err?.response?.data?.detail || err?.message || 'Network error' };
