@@ -406,7 +406,7 @@ async def enrollment_checkout_prepare(
     except Exception as e:
         logger.warning("Points redemption calc error: %s", e)
 
-    # Snap Stripe charge to what the user saw when server math differs only slightly (≤ ₹5 or ≤ $0.05).
+    # Snap Stripe charge to UI when within tolerance (portal INR allows larger drift: bundle/quote vs DB tiers).
     declared = getattr(data, "client_declared_payable", None)
     if declared is not None and float(final_total) > 0:
         try:
@@ -414,7 +414,11 @@ async def enrollment_checkout_prepare(
             if d >= 0:
                 cur = float(final_total)
                 diff = abs(cur - d)
-                tol = 5.0 if str(currency or "").lower() == "inr" else 0.05
+                is_portal = getattr(data, "portal_checkout_cancel", None) is True
+                if str(currency or "").lower() == "inr":
+                    tol = 500.0 if is_portal else 5.0
+                else:
+                    tol = 1.0 if is_portal else 0.05
                 if diff <= tol + 1e-9:
                     final_total = round(d, 2)
         except (TypeError, ValueError):

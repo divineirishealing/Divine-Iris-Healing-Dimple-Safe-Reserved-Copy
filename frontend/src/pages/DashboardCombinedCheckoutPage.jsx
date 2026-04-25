@@ -987,17 +987,25 @@ export default function DashboardCombinedCheckoutPage() {
     }
     return promoResult[`discount_${currency}`] || promoResult.discount_aed || 0;
   })();
-  /** Same engine as checkout: /discounts/calculate (cross-sell % uses DB tier prices like Stripe). */
+  /**
+   * Cross-sell: use the larger of client (portal unit prices + rules) and API (DB tier prices).
+   * API-only missed bundles when tier/quote paths differ; client-only drifted from Stripe — checkout sends client_declared_payable.
+   */
   const apiCrossSellDiscount = Number(autoDiscounts.cross_sell_discount) || 0;
+  const clientXs = Math.round((clientCrossSellTotal || 0) * 100) / 100;
+  const effectiveCrossSellDiscount = Math.max(clientXs, apiCrossSellDiscount);
   const stackAutoDiscount =
     (autoDiscounts.group_discount || 0) +
     (autoDiscounts.combo_discount || 0) +
     (autoDiscounts.loyalty_discount || 0);
-  const totalAutoDiscount = stackAutoDiscount + apiCrossSellDiscount;
+  const totalAutoDiscount = stackAutoDiscount + effectiveCrossSellDiscount;
   const totalDiscountAmount = totalAutoDiscount + discount;
-  const total = Math.max(0, subtotal - discount - apiCrossSellDiscount - stackAutoDiscount);
+  const total = Math.max(0, subtotal - discount - effectiveCrossSellDiscount - stackAutoDiscount);
 
   const crossSellDisplayRows = useMemo(() => {
+    if (clientXs >= apiCrossSellDiscount && clientCrossSellRows.length > 0) {
+      return clientCrossSellRows;
+    }
     const det = autoDiscounts.cross_sell_details;
     if (Array.isArray(det) && det.length > 0) {
       return det.map((d) => ({
@@ -1007,7 +1015,12 @@ export default function DashboardCombinedCheckoutPage() {
       }));
     }
     return clientCrossSellRows;
-  }, [autoDiscounts.cross_sell_details, clientCrossSellRows]);
+  }, [
+    apiCrossSellDiscount,
+    autoDiscounts.cross_sell_details,
+    clientCrossSellRows,
+    clientXs,
+  ]);
 
   /** INR: same stack as India payment page (Client Garden + Payment Settings) on net after cart promos. */
   const indiaBreakdown = useMemo(() => {
