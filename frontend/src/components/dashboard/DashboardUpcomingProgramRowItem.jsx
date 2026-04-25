@@ -313,7 +313,7 @@ function AnnualQuoteBreakdown({
  */
 export default function DashboardUpcomingProgramRowItem({
   program: p,
-  isAnnual: subscriberIsAnnual,
+  isAnnual: _subscriberIsAnnual,
   /** Client Garden Dashboard Access = Annual — portal quote applies dashboard offer overlays. */
   annualDashboardAccess = false,
   bookerEmail = '',
@@ -369,10 +369,8 @@ export default function DashboardUpcomingProgramRowItem({
   const offerPrice = getOfferPrice(p, hasTiers ? tierIdxForDisplay : null);
   /** Tier offer when set, else list — matches program page; portal column overlays apply only with Annual+Dashboard access (backend). */
   const dashboardSeatUnit = offerPrice > 0 ? offerPrice : price;
-  /** Match public UpcomingProgramsSection: year-long tier with list price 0 → contact. Annual+Dashboard keeps legacy gate for subscribers. */
-  const showContact = annualDashboardAccess
-    ? !subscriberIsAnnual && tierIsYearLong && price === 0
-    : tierIsYearLong && price === 0;
+  /** Year-long (Annual) tier with no published list price: always custom / contact — never show as Included or ₹0 self-serve. */
+  const showContact = tierIsYearLong && price === 0;
 
   const deadline = p.deadline_date || p.start_date;
   const expired = useMemo(() => {
@@ -505,13 +503,15 @@ export default function DashboardUpcomingProgramRowItem({
     selCount === 0 &&
     isInCart;
   /** Included package: total can be 0 (member seat only). Otherwise require a positive quote total, or cart clear path above. */
-  const canAddToDivineCart = hasPortalTotal
-    ? Boolean(
-        (includedPkg && Number(aq.total) >= 0) ||
-          (!includedPkg && aq.total > 0) ||
-          canSaveGuestOnlyClear,
-      )
-    : Boolean(enrollStatus === 'open' && !showContact);
+  const canAddToDivineCart = showContact
+    ? Boolean(canSaveGuestOnlyClear)
+    : hasPortalTotal
+      ? Boolean(
+          (includedPkg && Number(aq.total) >= 0) ||
+            (!includedPkg && aq.total > 0) ||
+            canSaveGuestOnlyClear,
+        )
+      : Boolean(enrollStatus === 'open' && !showContact);
 
   const [addingToCheckout, setAddingToCheckout] = useState(false);
   const [annualPricingOpen, setAnnualPricingOpen] = useState(true);
@@ -862,7 +862,22 @@ export default function DashboardUpcomingProgramRowItem({
                   );
                 })()}
               <div className="flex flex-wrap items-baseline gap-2 mb-1">
-                {showSpecialPromo ? (
+                {showContact ? (
+                  <div className="flex flex-col gap-1 w-full">
+                    {hasTiers && tier?.label ? (
+                      <span className="text-[11px] font-bold text-slate-600 uppercase tracking-wide">
+                        {tier.label}
+                      </span>
+                    ) : null}
+                    <span className="text-lg sm:text-xl font-bold text-slate-800 leading-snug">
+                      Custom — contact for pricing
+                    </span>
+                    <span className="text-[10px] text-slate-600 leading-snug max-w-md">
+                      This duration is quoted individually. Use Know More to reach us, or complete shorter tiers (e.g.
+                      1&nbsp;Month / 3&nbsp;Months) in Divine Cart if those fit you.
+                    </span>
+                  </div>
+                ) : showSpecialPromo ? (
                   <div className="flex flex-col gap-1 w-full">
                     <div className="flex flex-wrap items-baseline gap-2">
                       <span className="text-xl font-bold text-[#D4AF37] tabular-nums">
@@ -944,15 +959,27 @@ export default function DashboardUpcomingProgramRowItem({
               {annualPricingOpen ? (
                 <div className="min-w-0 w-full pt-2">
                   {aq ? (
-                    <AnnualQuoteBreakdown
-                      aq={aq}
-                      symbol={symbol}
-                      includedPkg={includedPkg}
-                      annualDashboardAccess={annualDashboardAccess}
-                      programOnAnnualPackageList={programOnAnnualPackageList}
-                      suppressIntro
-                      layout="table"
-                    />
+                    showContact ? (
+                      <div className="rounded-md border border-amber-200 bg-amber-50/90 px-3 py-2.5 text-[11px] text-slate-800 leading-snug space-y-1.5">
+                        <p className="font-bold text-slate-900">
+                          {tier?.label ? `${tier.label}: ` : ''}Custom pricing
+                        </p>
+                        <p className="text-slate-700">
+                          Online totals are not shown for this duration. Please contact us to confirm your investment
+                          and complete enrollment.
+                        </p>
+                      </div>
+                    ) : (
+                      <AnnualQuoteBreakdown
+                        aq={aq}
+                        symbol={symbol}
+                        includedPkg={includedPkg}
+                        annualDashboardAccess={annualDashboardAccess}
+                        programOnAnnualPackageList={programOnAnnualPackageList}
+                        suppressIntro
+                        layout="table"
+                      />
+                    )
                   ) : (() => {
                     const bookerJoins = annualSeatUi?.draft?.bookerJoinsProgram !== false;
                     const seatPriceBase = showSpecialPromo ? afterPromo : dashboardSeatUnit;
@@ -1009,26 +1036,42 @@ export default function DashboardUpcomingProgramRowItem({
                             <span className="text-slate-400 italic text-[10px]">not enrolling yourself</span>
                           </div>
                         )}
-                        {showSpecialPromo && (
+                        {showSpecialPromo && !showContact ? (
                           <div className={`${rowClass} text-[10px] text-violet-700`}>
                             <span>With {promoForProgramClicks} (on offer price)</span>
                           </div>
-                        )}
-                        {immCount > 0 && (
+                        ) : null}
+                        {showContact && (immCount > 0 || extCount > 0) ? (
                           <div className={rowClass}>
-                            <span className="font-medium text-slate-800">Immediate family</span>
-                            <span className="font-semibold tabular-nums text-slate-900 text-right leading-snug">
-                              {symbol}{seatPrice.toLocaleString()} × {immCount} = {symbol}{immTotal.toLocaleString()}
+                            <span className="font-medium text-slate-800">Guests selected</span>
+                            <span className="text-slate-600 text-right leading-snug">
+                              Contact for pricing
+                              <span className="block text-[10px] font-normal text-slate-500">
+                                {immCount > 0 ? `${immCount} immediate` : ''}
+                                {immCount > 0 && extCount > 0 ? ' · ' : ''}
+                                {extCount > 0 ? `${extCount} friends & extended` : ''}
+                              </span>
                             </span>
                           </div>
-                        )}
-                        {extCount > 0 && (
-                          <div className={rowClass}>
-                            <span className="font-medium text-slate-800">Friends &amp; extended</span>
-                            <span className="font-semibold tabular-nums text-slate-900 text-right leading-snug">
-                              {symbol}{seatPrice.toLocaleString()} × {extCount} = {symbol}{extTotal.toLocaleString()}
-                            </span>
-                          </div>
+                        ) : (
+                          <>
+                            {immCount > 0 ? (
+                              <div className={rowClass}>
+                                <span className="font-medium text-slate-800">Immediate family</span>
+                                <span className="font-semibold tabular-nums text-slate-900 text-right leading-snug">
+                                  {symbol}{seatPrice.toLocaleString()} × {immCount} = {symbol}{immTotal.toLocaleString()}
+                                </span>
+                              </div>
+                            ) : null}
+                            {extCount > 0 ? (
+                              <div className={rowClass}>
+                                <span className="font-medium text-slate-800">Friends &amp; extended</span>
+                                <span className="font-semibold tabular-nums text-slate-900 text-right leading-snug">
+                                  {symbol}{seatPrice.toLocaleString()} × {extCount} = {symbol}{extTotal.toLocaleString()}
+                                </span>
+                              </div>
+                            ) : null}
+                          </>
                         )}
                         {immCount === 0 && extCount === 0 && enrollableGuests.length > 0 && (
                           <p className="text-[11px] text-slate-500">Select who is joining to see offer price per guest seat.</p>
@@ -1041,7 +1084,7 @@ export default function DashboardUpcomingProgramRowItem({
                   })()}
                 </div>
               ) : null}
-              {aq ? (
+              {aq && !showContact ? (
                 <div className="text-[11px] text-slate-600 mt-2 pt-2 border-t border-slate-100 leading-snug space-y-1">
                   <p>
                     Your selection total{includedPkg ? ' (guests & add-ons)' : ''}:{' '}
@@ -1057,7 +1100,7 @@ export default function DashboardUpcomingProgramRowItem({
                     </p>
                   ) : null}
                 </div>
-              ) : (() => {
+              ) : !aq ? (() => {
                 const bookerJoins = annualSeatUi?.draft?.bookerJoinsProgram !== false;
                 const seatPriceBase = showSpecialPromo ? afterPromo : dashboardSeatUnit;
                 const seatPrice =
@@ -1081,7 +1124,8 @@ export default function DashboardUpcomingProgramRowItem({
                     Uncheck "I am enrolling myself" to enroll guests only.
                   </p>
                 );
-              })()}
+              })()
+              : null}
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-[minmax(13rem,1fr)_minmax(13rem,1fr)] gap-3 lg:gap-x-3 items-start w-full min-w-0 flex-1 min-h-0">
@@ -1521,19 +1565,21 @@ export default function DashboardUpcomingProgramRowItem({
                 disabled={!canAddToDivineCart || addingToCheckout}
                 title={
                   !canAddToDivineCart
-                    ? hasPortalTotal
-                      ? includedPkg && selCount < 1
-                        ? 'Select family members to join or wait for pricing.'
-                        : !bookerEnrollingSelf && selCount === 0 && !isInCart
-                          ? 'Select family guests or check “I am enrolling myself”, then add to Divine Cart.'
-                          : (aq.total || 0) <= 0
-                            ? 'No amount due for this selection.'
-                            : ''
-                      : showContact
-                        ? 'Use contact for pricing for this program.'
-                        : !aq && enrollStatus === 'open'
-                          ? 'Loading pricing…'
-                          : 'Enrollment is closed.'
+                    ? showContact && !canSaveGuestOnlyClear
+                      ? 'Annual / year-long tier is custom — contact us for pricing. Shorter tiers can use Divine Cart.'
+                      : hasPortalTotal
+                        ? includedPkg && selCount < 1
+                          ? 'Select family members to join or wait for pricing.'
+                          : !bookerEnrollingSelf && selCount === 0 && !isInCart
+                            ? 'Select family guests or check “I am enrolling myself”, then add to Divine Cart.'
+                            : (aq.total || 0) <= 0
+                              ? 'No amount due for this selection.'
+                              : ''
+                        : showContact
+                          ? 'Use contact for pricing for this program.'
+                          : !aq && enrollStatus === 'open'
+                            ? 'Loading pricing…'
+                            : 'Enrollment is closed.'
                     : canSaveGuestOnlyClear
                       ? 'Remove this program from your cart (no seats selected).'
                       : undefined
