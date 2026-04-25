@@ -417,6 +417,7 @@ export default function DashboardCombinedCheckoutPage() {
       return JSON.stringify({
         sel: snap.selectedFamilyByProgram,
         drafts: snap.seatDraftsByProgram,
+        dt: snap.dashboardTierByProgram,
         bm: snap.bookerSeatMode,
         bn: snap.bookerSeatNotify,
         gf: snap.guestSeatForm,

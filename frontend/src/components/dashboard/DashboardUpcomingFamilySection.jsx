@@ -830,6 +830,7 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh, bo
     upcomingSessionPersistRef.current = {
       selectedFamilyByProgram,
       seatDraftsByProgram,
+      dashboardTierByProgram,
       enrollmentSeatOpen,
       seatModalCtx,
       bookerSeatMode,
@@ -871,6 +872,7 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh, bo
     upcomingSessionHydrated,
     selectedFamilyByProgram,
     seatDraftsByProgram,
+    dashboardTierByProgram,
     enrollmentSeatOpen,
     seatModalCtx,
     bookerSeatMode,
@@ -962,6 +964,21 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh, bo
       });
       setSeatDraftsByProgram(slim);
     }
+    if (data.dashboardTierByProgram && typeof data.dashboardTierByProgram === 'object') {
+      const dt = {};
+      const rawDt = data.dashboardTierByProgram;
+      for (const prog of programs) {
+        const pid = String(prog.id);
+        const v = rawDt[pid];
+        if (typeof v !== 'number' || !Number.isFinite(v) || v < 0) continue;
+        const tiers = prog.duration_tiers || [];
+        if (!prog.is_flagship || tiers.length === 0) continue;
+        dt[pid] = Math.max(0, Math.min(tiers.length - 1, Math.floor(v)));
+      }
+      if (Object.keys(dt).length > 0) {
+        setDashboardTierByProgram((prev) => ({ ...prev, ...dt }));
+      }
+    }
     if (data.bookerSeatMode !== undefined) {
       setBookerSeatMode(data.bookerSeatMode === 'offline' ? 'offline' : 'online');
     }
@@ -1000,7 +1017,7 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh, bo
       return;
     }
 
-    const { drafts, globalBooker, updated } = reconcileSeatDraftsFromPortalCart(
+    const { drafts, globalBooker, updated, dashboardTierByProgramPatch } = reconcileSeatDraftsFromPortalCart(
       seatDraftsByProgram,
       upcomingList,
       cartItems,
@@ -1017,6 +1034,21 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh, bo
           }
         }
         return merged;
+      });
+    }
+    if (dashboardTierByProgramPatch && Object.keys(dashboardTierByProgramPatch).length > 0) {
+      setDashboardTierByProgram((prev) => {
+        const next = { ...prev };
+        for (const prog of upcomingList) {
+          const pid = String(prog.id);
+          const raw = dashboardTierByProgramPatch[pid];
+          if (typeof raw !== 'number' || !Number.isFinite(raw)) continue;
+          const tiers = prog.duration_tiers || [];
+          if (!prog.is_flagship || tiers.length === 0) continue;
+          const clamped = Math.max(0, Math.min(tiers.length - 1, Math.floor(raw)));
+          next[pid] = clamped;
+        }
+        return next;
       });
     }
     if (globalBooker?.mode) {

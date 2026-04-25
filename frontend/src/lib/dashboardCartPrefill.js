@@ -523,21 +523,26 @@ export function reconcileSeatDraftsFromPortalCart(prevByPid, upcomingPrograms, c
   const linesByPid = new Map();
   for (const item of cartItems || []) {
     if (item.type !== 'program') continue;
-    const meta = item.portalLineMeta;
-    if (!meta || typeof meta !== 'object') continue;
     const pid = String(item.programId);
     if (!upcomingIds.has(pid)) continue;
     if (!linesByPid.has(pid)) linesByPid.set(pid, []);
     linesByPid.get(pid).push(item);
   }
   if (linesByPid.size === 0) {
-    return { drafts: prevByPid, globalBooker: null, updated: false };
+    return {
+      drafts: prevByPid,
+      globalBooker: null,
+      updated: false,
+      dashboardTierByProgramPatch: null,
+    };
   }
 
   const next = { ...prevByPid };
   let sawBooker = false;
   let globalBookerMode = 'online';
   let globalBookerNotify = true;
+  /** Card duration picker (`dashboardTierByProgram`) — from cart lines that include Myself (annual guest-only lines have no Myself). */
+  const dashboardTierByProgramPatch = {};
 
   for (const [pid, lines] of linesByPid) {
     const cur =
@@ -554,6 +559,7 @@ export function reconcileSeatDraftsFromPortalCart(prevByPid, upcomingPrograms, c
         const rel = String(p.relationship || '').trim();
         if (rel === 'Myself') {
           sawBooker = true;
+          dashboardTierByProgramPatch[pid] = tier;
           const bm = cartParticipantToDraftAttendance(p);
           globalBookerMode = bm;
           bookerSeatMode = bm;
@@ -585,5 +591,7 @@ export function reconcileSeatDraftsFromPortalCart(prevByPid, upcomingPrograms, c
     drafts: next,
     globalBooker: sawBooker ? { mode: globalBookerMode, notify: globalBookerNotify } : null,
     updated: true,
+    dashboardTierByProgramPatch:
+      Object.keys(dashboardTierByProgramPatch).length > 0 ? dashboardTierByProgramPatch : null,
   };
 }
