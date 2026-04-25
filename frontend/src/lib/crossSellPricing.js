@@ -126,6 +126,32 @@ export function crossSellDiscountForSeat(matchTarget, unitPrice) {
  * Sum cross-sell for a cart line: only participants also on the buy line; each seat uses its own unit price
  * (e.g. portal immediate vs extended). Needed when HM is 100% for one guest (Deepti on 3M AWRP) but not another.
  */
+/** Discount amount for one participant on `lineItem` when they also appear on the buy-program line. */
+export function crossSellSeatDiscountAmount(
+  crossSellRules,
+  lineItem,
+  participant,
+  cartLineSummaries,
+  allProgramLines,
+  grossPayableUnit,
+) {
+  if (!crossSellRules?.length || grossPayableUnit <= 0 || !lineItem || !participant) return 0;
+  const match = findCrossSellRuleForTarget(crossSellRules, lineItem.programId, cartLineSummaries);
+  if (!match?.buyProgramId) return 0;
+  const buyLine = (allProgramLines || []).find(
+    (i) => i.type !== 'session' && String(i.programId) === String(match.buyProgramId),
+  );
+  if (!buyLine?.participants?.length) return 0;
+  const buyerKeys = new Set();
+  for (const bp of buyLine.participants) {
+    const bk = participantCrossSellIdentity(bp);
+    if (bk) buyerKeys.add(bk);
+  }
+  const k = participantCrossSellIdentity(participant);
+  if (!k || !buyerKeys.has(k)) return 0;
+  return crossSellDiscountForSeat(match.matchTarget, grossPayableUnit);
+}
+
 export function sumCrossSellLineDiscount(
   crossSellRules,
   lineItem,

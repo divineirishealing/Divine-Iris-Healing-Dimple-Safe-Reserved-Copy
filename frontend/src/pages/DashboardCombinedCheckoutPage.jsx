@@ -25,6 +25,7 @@ import {
 import {
   sumCrossSellLineDiscount,
   normalizeCartItemTierIndex,
+  crossSellSeatDiscountAmount,
 } from '../lib/crossSellPricing';
 import MotivationalSignupFlash from '../components/MotivationalSignupFlash';
 import { ManualPaymentProofBody } from '../components/dashboard/ManualPaymentProofBody';
@@ -795,38 +796,6 @@ export default function DashboardCombinedCheckoutPage() {
 
   const naiveSubtotal = items.reduce((sum, item) => sum + getEffectivePrice(item) * item.participants.length, 0);
 
-  /** Sum roster seat offers using the same per-bucket math as the table (fixes mismatch vs API-only total). */
-  const cartSubtotalFromRoster = useMemo(() => {
-    let sum = 0;
-    let allQuoted = true;
-    for (const item of items) {
-      const lineQuote = annualQuotesByProgram[String(item.programId)];
-      if (!lineQuote) {
-        allQuoted = false;
-        continue;
-      }
-      const guestBucketById = effectiveGuestBucketById(item, lineQuote);
-      const participants = item.participants || [];
-      for (const p of participants) {
-        const portalBase = annualPortalSeatUnitBasePrices(lineQuote, p, guestBucketById, participants);
-        if (portalBase) {
-          sum += toDisplay(portalBase.offer);
-        } else {
-          allQuoted = false;
-        }
-      }
-    }
-    if (!allQuoted || items.length === 0) return null;
-    return Math.round(sum * 100) / 100;
-  }, [items, annualQuotesByProgram, toDisplay]);
-
-  const subtotal =
-    cartSubtotalFromRoster != null
-      ? cartSubtotalFromRoster
-      : annualPortalSubtotal != null
-        ? annualPortalSubtotal
-        : naiveSubtotal;
-  const totalParticipants = items.reduce((sum, i) => sum + i.participants.length, 0);
   const programCartLines = useMemo(() => items.filter((i) => i.type === 'program'), [items]);
   const numPrograms = programCartLines.length;
 
@@ -839,6 +808,68 @@ export default function DashboardCombinedCheckoutPage() {
       })),
     [programCartLines],
   );
+
+  /**
+   * Sum roster seat payables from portal quotes, with cross-sell embedded per seat (matches “At a glance” column).
+   * When this is non-null, do not subtract bundle again in effectiveCrossSellDiscount.
+   */
+  const cartSubtotalFromRoster = useMemo(() => {
+    let sum = 0;
+    let allQuoted = true;
+    for (const item of items) {
+      const lineQuote = annualQuotesByProgram[String(item.programId)];
+      if (!lineQuote) {
+        allQuoted = false;
+        continue;
+      }
+      const guestBucketById = effectiveGuestBucketById(item, lineQuote);
+      const participants = item.participants || [];
+      const meta = item.portalLineMeta || {};
+      for (const p of participants) {
+        const selfIncluded =
+          meta.annualIncluded && String(p.relationship || '').trim() === 'Myself';
+        if (selfIncluded) continue;
+        const portalBase = annualPortalSeatUnitBasePrices(lineQuote, p, guestBucketById, participants);
+        if (!portalBase) {
+          allQuoted = false;
+          continue;
+        }
+        const unitOfferRaw = toDisplay(portalBase.offer);
+        const unitListRaw = toDisplay(portalBase.list);
+        const gross = unitOfferRaw > 0 ? unitOfferRaw : unitListRaw;
+        const xs =
+          crossSellRules?.length && gross > 0
+            ? crossSellSeatDiscountAmount(
+                crossSellRules,
+                item,
+                p,
+                cartLinesNormalizedForCrossSell,
+                programCartLines,
+                gross,
+              )
+            : 0;
+        sum += Math.max(0, gross - xs);
+      }
+    }
+    if (!allQuoted || items.length === 0) return null;
+    return Math.round(sum * 100) / 100;
+  }, [
+    items,
+    annualQuotesByProgram,
+    toDisplay,
+    crossSellRules,
+    programCartLines,
+    cartLinesNormalizedForCrossSell,
+  ]);
+
+  const subtotal =
+    cartSubtotalFromRoster != null
+      ? cartSubtotalFromRoster
+      : annualPortalSubtotal != null
+        ? annualPortalSubtotal
+        : naiveSubtotal;
+  const totalParticipants = items.reduce((sum, i) => sum + i.participants.length, 0);
+  const portalRosterSubtotalActive = cartSubtotalFromRoster != null;
 
   const { clientCrossSellTotal, clientCrossSellRows } = useMemo(() => {
     if (!crossSellRules.length || !programCartLines.length) {
@@ -908,15 +939,34 @@ export default function DashboardCombinedCheckoutPage() {
         const payable = unitOfferRaw > 0 ? unitOfferRaw : unitListRaw;
         const listPart =
           unitOfferRaw > 0 && unitListRaw > unitOfferRaw ? unitListRaw : payable;
+        const xs =
+          crossSellRules?.length && payable > 0
+            ? crossSellSeatDiscountAmount(
+                crossSellRules,
+                item,
+                p,
+                cartLinesNormalizedForCrossSell,
+                programCartLines,
+                payable,
+              )
+            : 0;
         listTotal += listPart;
-        offerTotal += payable;
+        offerTotal += Math.max(0, payable - xs);
       }
     }
     return {
       listTotal: Math.round(listTotal * 100) / 100,
       offerTotal: Math.round(offerTotal * 100) / 100,
     };
-  }, [items, annualQuotesByProgram, currency, toDisplay]);
+  }, [
+    items,
+    annualQuotesByProgram,
+    currency,
+    toDisplay,
+    crossSellRules,
+    programCartLines,
+    cartLinesNormalizedForCrossSell,
+  ]);
 
   const cartProgramIdsForUrgency = useMemo(
     () =>
@@ -1002,7 +1052,9 @@ export default function DashboardCombinedCheckoutPage() {
    */
   const apiCrossSellDiscount = Number(autoDiscounts.cross_sell_discount) || 0;
   const clientXs = Math.round((clientCrossSellTotal || 0) * 100) / 100;
-  const effectiveCrossSellDiscount = Math.max(clientXs, apiCrossSellDiscount);
+  const effectiveCrossSellDiscount = portalRosterSubtotalActive
+    ? 0
+    : Math.max(clientXs, apiCrossSellDiscount);
   const stackAutoDiscount =
     (autoDiscounts.group_discount || 0) +
     (autoDiscounts.combo_discount || 0) +
@@ -1012,6 +1064,7 @@ export default function DashboardCombinedCheckoutPage() {
   const total = Math.max(0, subtotal - discount - effectiveCrossSellDiscount - stackAutoDiscount);
 
   const crossSellDisplayRows = useMemo(() => {
+    if (portalRosterSubtotalActive) return [];
     if (clientXs >= apiCrossSellDiscount && clientCrossSellRows.length > 0) {
       return clientCrossSellRows.filter((r) => Number(r.amount) > 0);
     }
@@ -1031,6 +1084,7 @@ export default function DashboardCombinedCheckoutPage() {
     autoDiscounts.cross_sell_details,
     clientCrossSellRows,
     clientXs,
+    portalRosterSubtotalActive,
   ]);
 
   /** INR: same stack as India payment page (Client Garden + Payment Settings) on net after cart promos. */
@@ -1521,12 +1575,12 @@ export default function DashboardCombinedCheckoutPage() {
               lineQuote && !selfIncluded
                 ? annualPortalSeatUnitBasePrices(lineQuote, p, guestBucketById, item.participants || [])
                 : null;
-            const unitOffer = selfIncluded
+            const unitOfferRaw = selfIncluded
               ? 0
               : portalBase
                 ? toDisplay(portalBase.offer)
                 : getItemOfferPrice(item);
-            const unitList = selfIncluded
+            const unitListRaw = selfIncluded
               ? 0
               : portalBase
                 ? toDisplay(portalBase.list)
@@ -1535,6 +1589,28 @@ export default function DashboardCombinedCheckoutPage() {
               !selfIncluded &&
               guestBucket === 'annual_household' &&
               (!!lineQuote?.included_in_annual_package || !!p.peer_included_in_annual_package);
+            const grossForCrossSell =
+              selfIncluded || ahIncludedPeer
+                ? 0
+                : unitOfferRaw > 0
+                  ? unitOfferRaw
+                  : unitListRaw;
+            const xsDisc =
+              !selfIncluded &&
+              !ahIncludedPeer &&
+              crossSellRules?.length &&
+              grossForCrossSell > 0
+                ? crossSellSeatDiscountAmount(
+                    crossSellRules,
+                    item,
+                    p,
+                    cartLinesNormalizedForCrossSell,
+                    programCartLines,
+                    grossForCrossSell,
+                  )
+                : 0;
+            const displayPayable =
+              selfIncluded || ahIncludedPeer ? 0 : Math.max(0, grossForCrossSell - xsDisc);
             const bucketRoleHint =
               guestBucket === 'annual_household'
                 ? bookerAnnualPortalAccess
@@ -1593,20 +1669,29 @@ export default function DashboardCombinedCheckoutPage() {
                     <span className="text-emerald-700 font-semibold text-xs sm:text-sm leading-snug text-right block">
                       Included in annual package
                     </span>
-                  ) : unitOffer > 0 ? (
+                  ) : displayPayable > 0 ? (
                     <span className="inline-flex flex-col sm:flex-row sm:items-end sm:gap-1 sm:justify-end">
                       <span className="text-[#D4AF37] font-semibold">
-                        {symbol} {unitOffer.toLocaleString()}
+                        {symbol} {displayPayable.toLocaleString()}
                       </span>
-                      {unitList > unitOffer ? (
+                      {unitListRaw > displayPayable ? (
                         <span className="line-through text-gray-400 text-xs font-normal">
-                          {symbol} {unitList.toLocaleString()}
+                          {symbol} {unitListRaw.toLocaleString()}
                         </span>
                       ) : null}
                     </span>
+                  ) : unitListRaw > 0 ? (
+                    <span className="inline-flex flex-col sm:flex-row sm:items-end sm:gap-1 sm:justify-end">
+                      <span className="text-[#D4AF37] font-semibold">
+                        {symbol} {displayPayable.toLocaleString()}
+                      </span>
+                      <span className="line-through text-gray-400 text-xs font-normal">
+                        {symbol} {unitListRaw.toLocaleString()}
+                      </span>
+                    </span>
                   ) : (
                     <span className="font-semibold text-gray-900">
-                      {symbol} {unitList.toLocaleString()}
+                      {symbol} {unitListRaw.toLocaleString()}
                     </span>
                   )}
                 </div>
