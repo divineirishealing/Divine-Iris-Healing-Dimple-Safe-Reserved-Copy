@@ -15,7 +15,12 @@ import {
 } from 'lucide-react';
 import { ShieldCheck, ShieldAlert } from 'lucide-react';
 import MotivationalSignupFlash from '../components/MotivationalSignupFlash';
-import { computeCrossSellDiscount, normalizeCartItemTierIndex } from '../lib/crossSellPricing';
+import {
+  computeCrossSellDiscount,
+  crossSellEligibleParticipantCount,
+  findCrossSellRuleForTarget,
+  normalizeCartItemTierIndex,
+} from '../lib/crossSellPricing';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
@@ -59,18 +64,61 @@ const emptyParticipant = (mode = 'online') => ({
   is_first_time: true, referral_source: '', referred_by_email: '',
 });
 
-const CartItemCard = ({ item, onRemove, onUpdateParticipants, symbol, getItemPrice, getItemOfferPrice, showReferral, detectedCountry, copySource, crossSellDiscount, vipOffer }) => {
+const CartItemCard = ({
+  item,
+  onRemove,
+  onUpdateParticipants,
+  symbol,
+  getItemPrice,
+  getItemOfferPrice,
+  showReferral,
+  detectedCountry,
+  copySource,
+  crossSellDiscount,
+  crossSellEligibleCount = null,
+  vipOffer,
+}) => {
   const [expanded, setExpanded] = useState(true);
   const tier = item.durationTiers?.[item.tierIndex];
   const price = getItemPrice(item);
   const offerPrice = getItemOfferPrice(item);
   const effectivePrice = offerPrice > 0 ? offerPrice : price;
   const vipDisc = vipOffer ? (vipOffer.discount_type === 'fixed' ? (vipOffer.discount_amount || 0) : Math.round(effectivePrice * (vipOffer.discount_pct || 0) / 100)) : 0;
-  // NO STACKING: best single discount per item
-  const bestItemDisc = vipDisc > 0 ? { type: 'vip', amount: vipDisc, label: vipOffer?.label } :
-    crossSellDiscount ? { type: 'crosssell', amount: crossSellDiscount.amount, label: crossSellDiscount.label } : { type: 'none', amount: 0 };
-  const afterVipPrice = Math.max(0, effectivePrice - bestItemDisc.amount);
   const pCount = item.participants.length;
+  const xsEligible =
+    crossSellDiscount && crossSellEligibleCount != null && crossSellEligibleCount > 0
+      ? Math.min(crossSellEligibleCount, pCount)
+      : 0;
+  const xsUnit = xsEligible > 0 ? crossSellDiscount.amount : 0;
+  // NO STACKING: best single discount per item (cross-sell only on seats also on the buy program line)
+  const bestItemDisc =
+    vipDisc > 0
+      ? { type: 'vip', amount: vipDisc, label: vipOffer?.label }
+      : xsUnit > 0
+        ? { type: 'crosssell', amount: xsUnit, label: crossSellDiscount.label }
+        : { type: 'none', amount: 0 };
+  const lineTotalNoVip =
+    xsUnit > 0 && xsEligible < pCount
+      ? Math.max(0, effectivePrice - xsUnit) * xsEligible + effectivePrice * (pCount - xsEligible)
+      : Math.max(0, effectivePrice - xsUnit) * pCount;
+  const afterVipUnit = vipDisc > 0 ? Math.max(0, effectivePrice - vipDisc) : effectivePrice;
+  const lineTotal =
+    vipDisc > 0 ? afterVipUnit * pCount : xsUnit > 0 ? lineTotalNoVip : effectivePrice * pCount;
+  const uniformCrossSell = xsUnit > 0 && xsEligible === pCount && pCount > 0;
+  const perPersonLabel =
+    vipDisc > 0
+      ? afterVipUnit
+      : uniformCrossSell
+        ? Math.max(0, effectivePrice - xsUnit)
+        : xsUnit > 0 && xsEligible > 0 && xsEligible < pCount
+          ? null
+          : effectivePrice;
+  const savingsLine =
+    bestItemDisc.type === 'vip'
+      ? bestItemDisc.amount * pCount
+      : bestItemDisc.type === 'crosssell'
+        ? xsUnit * xsEligible
+        : 0;
   const isSession = item.type === 'session';
 
   const updateParticipant = (idx, field, value) => {
@@ -127,9 +175,31 @@ const CartItemCard = ({ item, onRemove, onUpdateParticipants, symbol, getItemPri
               <span className="text-[10px] bg-[#D4AF37]/10 text-[#D4AF37] px-2 py-0.5 rounded-full font-medium">{tier?.label || 'Standard'}</span>
             )}
             {bestItemDisc.amount > 0 ? (
-              <span className="text-[10px] text-gray-400"><span className={`font-bold ${bestItemDisc.type === 'vip' ? 'text-purple-600' : 'text-green-600'}`}>{symbol} {afterVipPrice.toLocaleString()}</span> <span className="line-through">{symbol} {effectivePrice.toLocaleString()}</span> / person
-                <span className={`text-[8px] ${bestItemDisc.type === 'vip' ? 'text-purple-500' : 'text-green-500'}`}> ({bestItemDisc.label})</span>
-              </span>
+              perPersonLabel != null ? (
+                <span className="text-[10px] text-gray-400">
+                  <span className={`font-bold ${bestItemDisc.type === 'vip' ? 'text-purple-600' : 'text-green-600'}`}>
+                    {symbol} {perPersonLabel.toLocaleString()}
+                  </span>{' '}
+                  <span className="line-through">
+                    {symbol} {effectivePrice.toLocaleString()}
+                  </span>{' '}
+                  / person
+                  <span className={`text-[8px] ${bestItemDisc.type === 'vip' ? 'text-purple-500' : 'text-green-500'}`}>
+                    {' '}
+                    ({bestItemDisc.label})
+                  </span>
+                </span>
+              ) : (
+                <span className="text-[10px] text-gray-400">
+                  <span className="font-bold text-green-600">
+                    {bestItemDisc.label}: {symbol}
+                    {Math.max(0, effectivePrice - xsUnit).toLocaleString()} on {xsEligible} seat
+                    {xsEligible !== 1 ? 's' : ''},{' '}
+                    {symbol}
+                    {effectivePrice.toLocaleString()} on {pCount - xsEligible}
+                  </span>
+                </span>
+              )
             ) : offerPrice > 0 ? (
               <span className="text-[10px] text-gray-400"><span className="text-[#D4AF37] font-medium">{symbol} {offerPrice.toLocaleString()}</span> <span className="line-through">{symbol} {price.toLocaleString()}</span> / person</span>
             ) : (
@@ -139,10 +209,11 @@ const CartItemCard = ({ item, onRemove, onUpdateParticipants, symbol, getItemPri
         </div>
         <div className="flex items-center gap-2">
           <div className="text-right">
-            <span className="text-sm font-bold text-[#D4AF37]">{symbol} {(afterVipPrice * pCount).toLocaleString()}</span>
-            {bestItemDisc.amount > 0 && (
+            <span className="text-sm font-bold text-[#D4AF37]">{symbol} {lineTotal.toLocaleString()}</span>
+            {savingsLine > 0 && (
               <p className={`text-[8px] flex items-center justify-end gap-0.5 ${bestItemDisc.type === 'vip' ? 'text-purple-500' : 'text-green-500'}`}>
-                {bestItemDisc.type === 'vip' ? <Star size={8} /> : <Gift size={8} />} -{symbol}{bestItemDisc.amount}
+                {bestItemDisc.type === 'vip' ? <Star size={8} /> : <Gift size={8} />} -{symbol}
+                {savingsLine.toLocaleString()}
               </p>
             )}
           </div>
@@ -667,6 +738,7 @@ function CartPage() {
               programId: i.programId,
               tierIndex: normalizeCartItemTierIndex(i),
             }));
+            const programLines = items.filter((i) => i.type === 'program');
             const itemCrossSell = computeCrossSellDiscount(
               crossSellRules,
               item.programId,
@@ -674,6 +746,12 @@ function CartPage() {
               getEffectivePrice(item),
               cartLines,
             );
+            const ruleMatch = findCrossSellRuleForTarget(crossSellRules, item.programId, cartLines);
+            const buyId = ruleMatch?.buyProgramId;
+            const xsEligible =
+              itemCrossSell && buyId && item.participants?.length
+                ? crossSellEligibleParticipantCount(item, buyId, programLines)
+                : 0;
             return (
               <CartItemCard key={item.id} item={item}
                 onRemove={() => removeItem(item.id)}
@@ -681,7 +759,8 @@ function CartPage() {
                 symbol={symbol} getItemPrice={getItemPrice} getItemOfferPrice={getItemOfferPrice}
                 showReferral={discountSettings.enable_referral} detectedCountry={detectedCountry}
                 copySource={itemIdx > 0 ? items[0] : null}
-                crossSellDiscount={itemCrossSell}
+                crossSellDiscount={xsEligible > 0 ? itemCrossSell : null}
+                crossSellEligibleCount={xsEligible > 0 ? xsEligible : null}
                 vipOffer={vipOffers[item.programId] || null} />
             );
           })}
@@ -695,6 +774,7 @@ function CartPage() {
               programId: i.programId,
               tierIndex: normalizeCartItemTierIndex(i),
             }));
+            const programLines = items.filter((i) => i.type === 'program');
             for (const item of items) {
               const unitCs = computeCrossSellDiscount(
                 crossSellRules,
@@ -704,7 +784,14 @@ function CartPage() {
                 cartLines,
               );
               if (unitCs) {
-                const disc = unitCs.amount * item.participants.length;
+                const ruleMatch = findCrossSellRuleForTarget(crossSellRules, item.programId, cartLines);
+                const buyId = ruleMatch?.buyProgramId;
+                const n =
+                  buyId && item.participants?.length
+                    ? crossSellEligibleParticipantCount(item, buyId, programLines)
+                    : 0;
+                if (n <= 0) continue;
+                const disc = unitCs.amount * n;
                 totalCrossSell += disc;
                 crossSellDetails.push({ label: unitCs.label, amount: disc, item: item.programTitle });
               }

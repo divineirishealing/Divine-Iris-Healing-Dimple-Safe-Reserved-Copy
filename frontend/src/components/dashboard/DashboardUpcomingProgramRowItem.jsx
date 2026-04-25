@@ -19,7 +19,13 @@ import {
   programIncludedInAnnualPackage,
   promoDiscountAmount,
 } from './dashboardUpcomingHelpers';
-import { computeCrossSellDiscount, normalizeCartItemTierIndex } from '../../lib/crossSellPricing';
+import {
+  buildDashboardCrossSellPreviewParticipants,
+  computeCrossSellDiscount,
+  crossSellEligibleParticipantCount,
+  findCrossSellRuleForTarget,
+  normalizeCartItemTierIndex,
+} from '../../lib/crossSellPricing';
 import {
   buildAnnualDashboardCartParticipants,
   buildGuestBucketByIdFromSelection,
@@ -448,10 +454,39 @@ export default function DashboardUpcomingProgramRowItem({
   );
 
   const bookerPaysForCrossSell = includedPkg ? false : annualSeatUi?.draft?.bookerJoinsProgram !== false;
-  const payingSeatsForCrossSell = (bookerPaysForCrossSell ? 1 : 0) + selIds.length;
+  const crossSellEligibleSeats = useMemo(() => {
+    if (!crossSellDiscount?.amount) return 0;
+    const ruleMatch = findCrossSellRuleForTarget(crossSellRules, p.id, cartLinesForCrossSell);
+    const buyId = ruleMatch?.buyProgramId;
+    if (!buyId) return 0;
+    const programLines = (cartItems || []).filter((i) => i.type === 'program');
+    const previewParticipants = buildDashboardCrossSellPreviewParticipants({
+      includedPkg,
+      bookerJoinsProgram: annualSeatUi?.draft?.bookerJoinsProgram !== false,
+      selectedMemberIds: selIds,
+      self: enrollmentSelf,
+      bookerEmail,
+    });
+    return crossSellEligibleParticipantCount(
+      { programId: p.id, participants: previewParticipants },
+      buyId,
+      programLines,
+    );
+  }, [
+    crossSellDiscount?.amount,
+    crossSellRules,
+    p.id,
+    cartLinesForCrossSell,
+    cartItems,
+    includedPkg,
+    annualSeatUi?.draft?.bookerJoinsProgram,
+    selIds,
+    enrollmentSelf,
+    bookerEmail,
+  ]);
   const crossSellLineDeduction =
-    crossSellDiscount && crossSellDiscount.amount > 0 && payingSeatsForCrossSell > 0
-      ? crossSellDiscount.amount * payingSeatsForCrossSell
+    crossSellDiscount && crossSellDiscount.amount > 0 && crossSellEligibleSeats > 0
+      ? crossSellDiscount.amount * crossSellEligibleSeats
       : 0;
   const crossUnitAdj = crossSellDiscount?.amount > 0 ? crossSellDiscount.amount : 0;
   const afterPromoXs = Math.max(0, afterPromo - crossUnitAdj);

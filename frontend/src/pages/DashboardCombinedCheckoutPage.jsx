@@ -22,7 +22,12 @@ import {
   ClipboardList,
   Trash2,
 } from 'lucide-react';
-import { computeCrossSellDiscount, normalizeCartItemTierIndex } from '../lib/crossSellPricing';
+import {
+  computeCrossSellDiscount,
+  crossSellEligibleParticipantCount,
+  findCrossSellRuleForTarget,
+  normalizeCartItemTierIndex,
+} from '../lib/crossSellPricing';
 import MotivationalSignupFlash from '../components/MotivationalSignupFlash';
 import { ManualPaymentProofBody } from '../components/dashboard/ManualPaymentProofBody';
 import { getAuthHeaders } from '../lib/authHeaders';
@@ -853,7 +858,17 @@ export default function DashboardCombinedCheckoutPage() {
         cartLinesNormalizedForCrossSell,
       );
       if (unitCs?.amount > 0) {
-        const n = item.participants?.length || 0;
+        const ruleMatch = findCrossSellRuleForTarget(
+          crossSellRules,
+          item.programId,
+          cartLinesNormalizedForCrossSell,
+        );
+        const buyId = ruleMatch?.buyProgramId;
+        const n =
+          buyId && item.participants?.length
+            ? crossSellEligibleParticipantCount(item, buyId, programCartLines)
+            : 0;
+        if (n <= 0) continue;
         const disc = unitCs.amount * n;
         total += disc;
         rows.push({ label: unitCs.label, amount: disc, title: item.programTitle });

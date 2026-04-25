@@ -18,7 +18,12 @@ import {
 } from 'lucide-react';
 import StarField from '../components/ui/StarField';
 import MotivationalSignupFlash from '../components/MotivationalSignupFlash';
-import { computeCrossSellDiscount } from '../lib/crossSellPricing';
+import {
+  computeCrossSellDiscount,
+  crossSellEligibleParticipantCount,
+  findCrossSellRuleForTarget,
+  normalizeCartItemTierIndex,
+} from '../lib/crossSellPricing';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
@@ -594,17 +599,41 @@ function EnrollmentPage() {
   const unitPrice = item ? (showIndiaHubPricing ? getLocalPrice(item, hasTiers ? selectedTier : null) : toDisplay(getLocalPrice(item, hasTiers ? selectedTier : null))) : 0;
   const offerUnitPrice = item ? (showIndiaHubPricing ? getLocalOfferPrice(item, hasTiers ? selectedTier : null) : toDisplay(getLocalOfferPrice(item, hasTiers ? selectedTier : null))) : 0;
   const effectiveUnitPrice = offerUnitPrice > 0 ? offerUnitPrice : unitPrice;
+  const pCount = participants.length;
 
-  // Cross-sell: check if "buy" program is in cart → this program gets discount
+  // Cross-sell: "buy" program in cart → discount only on seats whose participant is also on that buy line
   const { items: cartItems } = useCart();
+  const cartLineSummaries = useMemo(
+    () =>
+      cartItems.map((i) => ({
+        programId: i.programId,
+        tierIndex: normalizeCartItemTierIndex(i),
+      })),
+    [cartItems],
+  );
+  const programCartLines = useMemo(
+    () => cartItems.filter((i) => i.type === 'program'),
+    [cartItems],
+  );
   const crossSellDiscount = computeCrossSellDiscount(
     crossSellRules,
     id,
     hasTiers ? selectedTier : null,
     effectiveUnitPrice,
-    cartItems.map((i) => ({ programId: i.programId, tierIndex: i.tierIndex })),
+    cartLineSummaries,
   );
-  const finalUnitPrice = crossSellDiscount ? Math.max(0, effectiveUnitPrice - crossSellDiscount.amount) : effectiveUnitPrice;
+  const csMatch = findCrossSellRuleForTarget(crossSellRules, id, cartLineSummaries);
+  const buyId = csMatch?.buyProgramId;
+  const crossSellEligible =
+    buyId && crossSellDiscount
+      ? crossSellEligibleParticipantCount({ programId: id, participants }, buyId, programCartLines)
+      : 0;
+  const discountedUnit =
+    crossSellDiscount && crossSellEligible > 0
+      ? Math.max(0, effectiveUnitPrice - crossSellDiscount.amount)
+      : effectiveUnitPrice;
+  const subtotalAfterCross =
+    discountedUnit * crossSellEligible + effectiveUnitPrice * (pCount - crossSellEligible);
 
   // VIP/Special offer check
   const [vipOffer, setVipOffer] = useState(null);
@@ -622,18 +651,26 @@ function EnrollmentPage() {
     return () => clearTimeout(timer);
   }, [participants[0]?.email, participants[0]?.phone, participants[0]?.phone_code, id]);
 
-  const vipDiscount = vipOffer ? (
-    vipOffer.discount_type === 'fixed' ? (vipOffer.discount_amount || 0) : Math.round(finalUnitPrice * (vipOffer.discount_pct || 0) / 100)
-  ) : 0;
+  const vipDiscount = vipOffer
+    ? vipOffer.discount_type === 'fixed'
+      ? vipOffer.discount_amount || 0
+      : Math.round(effectiveUnitPrice * (vipOffer.discount_pct || 0) / 100)
+    : 0;
 
-  // NO STACKING: best single discount wins
-  // Priority: VIP > CrossSell > Promo (auto-discounts handled at checkout)
-  const bestDiscount = vipDiscount > 0 ? { type: 'vip', amount: vipDiscount } :
-    crossSellDiscount?.amount > 0 ? { type: 'crosssell', amount: crossSellDiscount.amount } : { type: 'none', amount: 0 };
-  const afterDiscountPrice = Math.max(0, finalUnitPrice - bestDiscount.amount);
-
-  const pCount = participants.length;
-  const subtotalRaw = afterDiscountPrice * pCount;
+  // NO STACKING: better of VIP (all seats) vs cross-sell (eligible seats only)
+  const crossTotalSaved =
+    crossSellDiscount && crossSellEligible > 0 ? crossSellDiscount.amount * crossSellEligible : 0;
+  const vipTotalSaved = vipDiscount * pCount;
+  const useVipNotCross = vipDiscount > 0 && vipTotalSaved >= crossTotalSaved;
+  const subtotalRaw = useVipNotCross
+    ? Math.max(0, effectiveUnitPrice - vipDiscount) * pCount
+    : subtotalAfterCross;
+  const afterDiscountPrice = pCount > 0 ? subtotalRaw / pCount : 0;
+  const bestDiscount = useVipNotCross
+    ? { type: 'vip', amount: vipDiscount }
+    : crossTotalSaved > 0 && crossSellDiscount
+      ? { type: 'crosssell', amount: crossSellDiscount.amount, value: crossSellDiscount.value, label: crossSellDiscount.label, discount_type: crossSellDiscount.type }
+      : { type: 'none', amount: 0 };
 
   const [autoDiscounts, setAutoDiscounts] = useState({ group_discount: 0, combo_discount: 0, loyalty_discount: 0, total_discount: 0 });
 
@@ -1078,8 +1115,8 @@ function EnrollmentPage() {
                     </div>
                     {bestDiscount.type === 'crosssell' && (
                       <div className="flex justify-between text-xs text-green-600">
-                        <span className="flex items-center gap-1"><Gift size={10} /> {crossSellDiscount.label || 'Cross-sell'}</span>
-                        <span>-{crossSellDiscount.value}{crossSellDiscount.type === 'percentage' ? '%' : ` ${symbol}`}</span>
+                        <span className="flex items-center gap-1"><Gift size={10} /> {bestDiscount.label || 'Cross-sell'}</span>
+                        <span>-{bestDiscount.value}{bestDiscount.discount_type === 'percentage' ? '%' : ` ${symbol}`}</span>
                       </div>
                     )}
                     {bestDiscount.type === 'vip' && (
