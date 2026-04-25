@@ -95,6 +95,24 @@ def suggest_annual_diid_from_name(name: str, start_date_iso: str) -> Optional[st
     return f"{initials}{yy:02d}{mm:02d}"
 
 
+def build_annual_diid_from_name_yymm(name: str, yymm_digits: str) -> Optional[str]:
+    """
+    When the sheet has only 4 digits (YYMM), build full Annual DIID: 4 letters from name + YYMM.
+    Example: name="Jane D", yymm="2503" -> initials + "2503" (8 chars, same as manual entry).
+    """
+
+    t = (yymm_digits or "").strip()
+    m = re.fullmatch(r"(\d{4})", t)
+    if not m:
+        return None
+    t = m.group(1)
+    yy, mm = int(t[:2]), int(t[2:4])
+    if mm < 1 or mm > 12:
+        return None
+    initials = _name_initial_segment(name or "")
+    return f"{initials}{yy:02d}{mm:02d}"
+
+
 def new_internal_diid(name: str, created_at_iso: str) -> str:
     """
     Internal DIID, format: DIID-{INITIALS}{YYMM}-{8-hex}

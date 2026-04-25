@@ -351,7 +351,7 @@ export default function AnnualPortalClientsTab() {
         <p className="text-xs text-gray-600 mt-0.5 max-w-3xl">
           Table columns: #, Name, Email Id, Start/End Date, DIID, HomeComing, Usage (summary), HOUSEHOLD, PRIMARY, Client id.{' '}
           <strong>Template</strong> uses the same order; usage counts are split into separate columns for upload.{' '}
-          <strong>Upload</strong> finds columns by <strong>header title</strong> (not left-to-right order). Each column in the file <strong>replaces</strong> what is stored (empty cells clear dates, DIID, package, household; blank usage cells become 0; blank PRIMARY counts as N). Columns you remove from the file are left unchanged in the database. If row 1 is a title row, headers on the next row are detected automatically. Members without email: use <strong>Client id</strong>.
+          <strong>Upload</strong> finds columns by <strong>header title</strong> (not left-to-right order). Each column in the file <strong>replaces</strong> what is stored (empty cells clear dates, DIID, package, household; blank usage cells become 0; blank PRIMARY counts as N). Columns you remove from the file are left unchanged in the database. If row 1 is a title row, headers on the next row are detected automatically. Match rows by <strong>Client id</strong> and/or <strong>Email</strong>, or if both are empty, by <strong>Name</strong> (exact match to one client). <strong>DIID</strong> may be full (e.g. JADO2504) or <strong>4 digits YYMM only</strong> (e.g. 2503) — the system adds the 4 letter prefix from the <strong>Name</strong> cell or the client’s stored name.
         </p>
       </div>
 

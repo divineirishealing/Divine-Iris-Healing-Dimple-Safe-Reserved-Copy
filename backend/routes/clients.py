@@ -10,6 +10,7 @@ from motor.motor_asyncio import AsyncIOMotorClient
 from utils.canonical_id import (
     new_entity_id,
     new_internal_diid,
+    build_annual_diid_from_name_yymm,
     normalize_annual_diid,
     validate_annual_diid_format,
 )
@@ -833,10 +834,57 @@ def _annual_upload_cell_str(row: tuple, idx: Optional[int]) -> str:
     return str(v).strip()
 
 
+def _annual_diid_cell_raw(row: tuple, idx: Optional[int]) -> str:
+    """Integers/floats from Excel (e.g. 2503) become 4-digit strings without .0."""
+    if idx is None or idx >= len(row):
+        return ""
+    v = row[idx]
+    if v is None:
+        return ""
+    if isinstance(v, (int, float)) and not isinstance(v, bool):
+        f = float(v)
+        if f == int(f) and 0 <= int(f) <= 999_999_999_999:
+            return str(int(f))
+    s = str(v).strip()
+    if re.match(r"^\d+\.0+$", s):
+        s = s.split(".", 1)[0]
+    return s
+
+
+def _display_name_for_portal_upload(
+    row: tuple, col_map: Dict[str, int], cl: Dict[str, Any]
+) -> str:
+    if "row_name" in col_map:
+        n = _annual_upload_cell_str(row, col_map["row_name"]).strip()
+        if n:
+            return n
+    return (cl.get("name") or "").strip()
+
+
+async def _find_single_client_by_name(name: str) -> Tuple[Optional[Dict[str, Any]], Optional[str]]:
+    n = (name or "").strip()
+    if not n:
+        return None, None
+    esc = re.escape(n)
+    cur = db.clients.find({"name": {"$regex": f"^{esc}$", "$options": "i"}}).limit(2)
+    matches: List[Dict[str, Any]] = []
+    async for doc in cur:
+        matches.append(doc)
+    if not matches:
+        return None, f"no client with exact name {n!r} — set Client id or Email"
+    if len(matches) > 1:
+        return None, f"more than one client with name {n!r} — set Client id or Email"
+    return matches[0], None
+
+
 ANNUAL_PORTAL_UPLOAD_SPECS: List[Tuple[str, Tuple[str, ...]]] = [
     (
         "client_id",
         ("client id", "client_id", "clientid", "uuid", "garden id", "client uuid"),
+    ),
+    (
+        "row_name",
+        ("name", "member name", "client name", "full name", "display name", "client"),
     ),
     (
         "email",
@@ -1031,14 +1079,31 @@ async def _annual_portal_row_replace_from_excel(
                 return None
 
     if "annual_diid" in col_map:
-        ad_raw = _annual_upload_cell_str(row, col_map["annual_diid"]).strip()
+        ad_raw = _annual_diid_cell_raw(row, col_map["annual_diid"])
         if not ad_raw:
             new_sub.pop("annual_diid", None)
         else:
-            ad = normalize_annual_diid(ad_raw)
-            if not validate_annual_diid_format(ad):
+            ad: Optional[str] = None
+            ad_norm = normalize_annual_diid(ad_raw)
+            if validate_annual_diid_format(ad_norm):
+                ad = ad_norm
+            elif re.fullmatch(r"\d{4}", ad_raw.strip()):
+                nm = _display_name_for_portal_upload(row, col_map, cl)
+                if not nm:
+                    errors.append(
+                        f"Row {row_idx}: for YYMM-only {ad_raw!r}, set the Name column or ensure this client has a name in the system"
+                    )
+                    return None
+                built = build_annual_diid_from_name_yymm(nm, ad_raw.strip())
+                if not built:
+                    errors.append(
+                        f"Row {row_idx}: invalid month in {ad_raw!r} (YYMM: month must be 01–12)"
+                    )
+                    return None
+                ad = built
+            else:
                 errors.append(
-                    f"Row {row_idx}: Annual DIID must be 4 letters + YYMM (got {ad_raw!r})"
+                    f"Row {row_idx}: Annual DIID must be 8 characters (4 letters + YYMM) or 4 digits YYMM only (got {ad_raw!r})"
                 )
                 return None
             prev_ad = str(prev_sub.get("annual_diid") or "").strip()
@@ -1305,10 +1370,20 @@ async def upload_annual_portal_subscription_excel(file: UploadFile = File(...)):
                 errors.append(f"Row {row_idx}: no client with email {email}")
                 continue
         else:
-            errors.append(
-                f"Row {row_idx}: set Client id (from admin grid) or Email — both empty"
-            )
-            continue
+            if "row_name" in col_map:
+                nm = _annual_upload_cell_str(row, col_map["row_name"]).strip()
+                if nm:
+                    by_n, nerr = await _find_single_client_by_name(nm)
+                    if nerr:
+                        errors.append(f"Row {row_idx}: {nerr}")
+                        continue
+                    if by_n is not None:
+                        cl = by_n
+            if cl is None:
+                errors.append(
+                    f"Row {row_idx}: set Client id, Email, or a unique exact Name (from Name column) to match one client"
+                )
+                continue
 
         row_label = email or (cl.get("email") or "") or cid_cell
         if not cl.get("annual_member_dashboard"):
