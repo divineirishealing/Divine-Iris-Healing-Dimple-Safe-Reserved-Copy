@@ -1,5 +1,10 @@
 /** Map dashboard family + enrollment-prefill "self" into CartContext participant rows. */
 
+import { normalizeCartProgramTier } from '../context/CartContext';
+
+/** Set to `Date.now()` when leaving Divine Cart so Sacred Home can merge cart → seat drafts (cart is in localStorage). */
+export const RECONCILE_CART_FROM_CHECKOUT_KEY = 'dih_dash_reconcile_cart';
+
 const COUNTRIES_WITH_PHONE = [
   { code: 'IN', name: 'India', phone: '+91' },
   { code: 'AE', name: 'UAE', phone: '+971' },
@@ -501,4 +506,84 @@ export function buildFullPortalRosterCartParticipants(programLike, pre, bookerEm
     );
   }
   return rows.length > 0 ? rows : null;
+}
+
+/**
+ * Merge Divine Cart portal lines (localStorage) into Sacred Home `seatDraftsByProgram`.
+ * Cart rows carry canonical tierIndex + participant attendance after “Update Divine Cart”.
+ */
+function cartParticipantToDraftAttendance(p) {
+  const am = p?.attendance_mode;
+  if (am === 'offline' || am === 'in_person') return 'offline';
+  return 'online';
+}
+
+export function reconcileSeatDraftsFromPortalCart(prevByPid, upcomingPrograms, cartItems) {
+  const upcomingIds = new Set((upcomingPrograms || []).map((p) => String(p?.id)));
+  const linesByPid = new Map();
+  for (const item of cartItems || []) {
+    if (item.type !== 'program') continue;
+    const meta = item.portalLineMeta;
+    if (!meta || typeof meta !== 'object') continue;
+    const pid = String(item.programId);
+    if (!upcomingIds.has(pid)) continue;
+    if (!linesByPid.has(pid)) linesByPid.set(pid, []);
+    linesByPid.get(pid).push(item);
+  }
+  if (linesByPid.size === 0) {
+    return { drafts: prevByPid, globalBooker: null, updated: false };
+  }
+
+  const next = { ...prevByPid };
+  let sawBooker = false;
+  let globalBookerMode = 'online';
+  let globalBookerNotify = true;
+
+  for (const [pid, lines] of linesByPid) {
+    const cur =
+      next[pid] && typeof next[pid] === 'object' ? { ...next[pid] } : { bookerJoinsProgram: true };
+    const memberTierById = { ...(cur.memberTierById || {}) };
+    const guestSeatForm = { ...(cur.guestSeatForm || {}) };
+    let bookerSeatMode = cur.bookerSeatMode;
+    let bookerSeatNotify = cur.bookerSeatNotify;
+    const bookerJoinsProgram = lines.every((item) => item.portalLineMeta?.bookerJoins !== false);
+
+    for (const item of lines) {
+      const tier = normalizeCartProgramTier(item, item.tierIndex);
+      for (const p of item.participants || []) {
+        const rel = String(p.relationship || '').trim();
+        if (rel === 'Myself') {
+          sawBooker = true;
+          const bm = cartParticipantToDraftAttendance(p);
+          globalBookerMode = bm;
+          bookerSeatMode = bm;
+          globalBookerNotify = p.notify !== false;
+          bookerSeatNotify = globalBookerNotify;
+        } else {
+          const gid = String(p.dashboard_family_member_id || '').trim();
+          if (!gid) continue;
+          memberTierById[gid] = tier;
+          guestSeatForm[gid] = {
+            attendance_mode: cartParticipantToDraftAttendance(p),
+            notify_enrollment: !!p.notify,
+          };
+        }
+      }
+    }
+
+    next[pid] = {
+      ...cur,
+      bookerJoinsProgram,
+      memberTierById: Object.keys(memberTierById).length ? memberTierById : undefined,
+      guestSeatForm: Object.keys(guestSeatForm).length ? guestSeatForm : undefined,
+      ...(bookerSeatMode !== undefined ? { bookerSeatMode } : {}),
+      ...(bookerSeatNotify !== undefined ? { bookerSeatNotify } : {}),
+    };
+  }
+
+  return {
+    drafts: next,
+    globalBooker: sawBooker ? { mode: globalBookerMode, notify: globalBookerNotify } : null,
+    updated: true,
+  };
 }

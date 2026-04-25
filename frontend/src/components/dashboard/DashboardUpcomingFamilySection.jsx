@@ -37,6 +37,8 @@ import {
   buildFullPortalRosterCartParticipants,
   buildSelfOnlyCartParticipants,
   mergeGlobalSeatDraft,
+  reconcileSeatDraftsFromPortalCart,
+  RECONCILE_CART_FROM_CHECKOUT_KEY,
 } from '../../lib/dashboardCartPrefill';
 import {
   UPCOMING_SESSION_V,
@@ -981,6 +983,55 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh, bo
     }
     setUpcomingSessionHydrated(true);
   }, [bookerEmail, homeData, enrollableGuestIdsKey, familyRowCount]);
+
+  /** After Divine Cart, localStorage cart is canonical for tier + attendance; merge into Sacred Home drafts once when returning. */
+  useEffect(() => {
+    if (!upcomingSessionHydrated || !bookerEmail) return;
+    try {
+      const raw = sessionStorage.getItem(RECONCILE_CART_FROM_CHECKOUT_KEY);
+      if (raw == null || raw === '') return;
+      const ts = Number(raw);
+      if (!Number.isFinite(ts) || Date.now() - ts > 5 * 60 * 1000) {
+        sessionStorage.removeItem(RECONCILE_CART_FROM_CHECKOUT_KEY);
+        return;
+      }
+      sessionStorage.removeItem(RECONCILE_CART_FROM_CHECKOUT_KEY);
+    } catch {
+      return;
+    }
+
+    const { drafts, globalBooker, updated } = reconcileSeatDraftsFromPortalCart(
+      seatDraftsByProgram,
+      upcomingList,
+      cartItems,
+    );
+    if (updated) {
+      setSeatDraftsByProgram(drafts);
+      setGuestSeatForm((prev) => {
+        const merged = { ...prev };
+        for (const d of Object.values(drafts)) {
+          const gf = d?.guestSeatForm;
+          if (!gf || typeof gf !== 'object') continue;
+          for (const [gid, row] of Object.entries(gf)) {
+            merged[gid] = { ...(merged[gid] || {}), ...row };
+          }
+        }
+        return merged;
+      });
+    }
+    if (globalBooker?.mode) {
+      setBookerSeatMode(globalBooker.mode);
+    }
+    if (globalBooker && globalBooker.notify !== undefined) {
+      setBookerSeatNotify(!!globalBooker.notify);
+    }
+  }, [
+    upcomingSessionHydrated,
+    bookerEmail,
+    upcomingList,
+    cartItems,
+    seatDraftsByProgram,
+  ]);
 
   const addRow = () => {
     if (manualImmediateFamilyCount >= 12) return;

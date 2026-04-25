@@ -39,6 +39,7 @@ import {
   guestBucketLookupMembersFromHome,
   mergeGlobalSeatDraft,
   effectiveParticipantCountry,
+  RECONCILE_CART_FROM_CHECKOUT_KEY,
 } from '../lib/dashboardCartPrefill';
 import { programIncludedInAnnualPackage } from '../components/dashboard/dashboardUpcomingHelpers';
 
@@ -396,6 +397,16 @@ export default function DashboardCombinedCheckoutPage() {
     document.addEventListener('visibilitychange', onVis);
     return () => document.removeEventListener('visibilitychange', onVis);
   }, [location.pathname]);
+
+  useEffect(() => {
+    return () => {
+      try {
+        sessionStorage.setItem(RECONCILE_CART_FROM_CHECKOUT_KEY, String(Date.now()));
+      } catch (_) {
+        /* ignore */
+      }
+    };
+  }, []);
 
   const sacredHomeSessionKey = useMemo(() => {
     const email = (user?.email || '').trim();
