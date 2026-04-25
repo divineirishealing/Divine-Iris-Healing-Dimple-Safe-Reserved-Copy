@@ -847,12 +847,23 @@ ANNUAL_PORTAL_UPLOAD_SPECS: List[Tuple[str, Tuple[str, ...]]] = [
         "client_id",
         ("client id", "client_id", "uuid", "garden id", "client uuid"),
     ),
-    ("email", ("email", "e-mail")),
+    ("email", ("email", "e-mail", "email id")),
     ("annual_diid", ("annual diid", "annual_diid", "member diid", "diid")),
     ("start_date", ("start", "start date", "subscription start", "start_date")),
     ("end_date", ("end", "end date", "subscription end", "end_date")),
     ("awrp_year_label", ("awrp year", "awrp_year", "awrp_year_label")),
-    ("package_sku", ("package", "package_sku", "sku")),
+    (
+        "package_sku",
+        ("package", "package_sku", "sku", "homecoming", "home coming"),
+    ),
+    (
+        "household_key",
+        ("household", "household_key", "household key"),
+    ),
+    (
+        "is_primary_household_contact",
+        ("primary", "is_primary", "primary household", "is primary"),
+    ),
     ("awrp_months_used", ("awrp months used", "awrp_months_used")),
     ("mmm_months_used", ("mmm months used", "mmm_months_used")),
     ("turbo_sessions_used", ("turbo sessions used", "turbo_sessions_used", "turbo")),
@@ -918,18 +929,21 @@ async def download_annual_portal_subscription_template():
     from fastapi.responses import StreamingResponse
 
     labels = [
+        "Name",
+        "Email Id",
         "Client id",
-        "Email",
-        "Annual DIID",
-        "Start date",
-        "End date",
+        "Start Date",
+        "End Date",
+        "DIID",
         "AWRP year",
-        "Package",
+        "HomeComing",
         "AWRP months used",
         "MMM months used",
         "Turbo sessions used",
         "Meta downloads used",
         "Usage source",
+        "HOUSEHOLD",
+        "PRIMARY",
     ]
     wb = Workbook()
     ws = wb.active
@@ -942,11 +956,12 @@ async def download_annual_portal_subscription_template():
         c.fill = hdr_fill
         c.alignment = Alignment(horizontal="center")
     sample_primary = [
-        "",
+        "Jane Primary",
         "primary@example.com",
-        "JADO2504",
+        "",
         "2025-04-01",
         "2026-03-31",
+        "JADO2504",
         "AWRP3.0",
         "Home Coming",
         "3",
@@ -954,13 +969,16 @@ async def download_annual_portal_subscription_template():
         "0",
         "0",
         "manual",
+        "Poonam Rathee",
+        "Y",
     ]
     sample_peer = [
-        "paste-uuid-from-admin-grid",
+        "Child Member",
         "",
-        "CHJA2504",
+        "paste-uuid-from-admin-grid",
         "2025-04-01",
         "2026-03-31",
+        "CHJA2504",
         "AWRP3.0",
         "Home Coming",
         "0",
@@ -968,6 +986,8 @@ async def download_annual_portal_subscription_template():
         "0",
         "0",
         "manual",
+        "Poonam Rathee",
+        "N",
     ]
     note_font = Font(italic=True, color="666666", size=10)
     for col_idx, val in enumerate(sample_primary, 1):
@@ -976,7 +996,7 @@ async def download_annual_portal_subscription_template():
     for col_idx, val in enumerate(sample_peer, 1):
         c = ws.cell(row=3, column=col_idx, value=val)
         c.font = note_font
-    widths = [36, 28, 14, 12, 12, 12, 14, 14, 14, 16, 16, 14]
+    widths = [18, 26, 36, 12, 12, 12, 12, 14, 10, 10, 10, 10, 10, 22, 8]
     for i, w in enumerate(widths, 1):
         ws.column_dimensions[ws.cell(row=1, column=i).column_letter].width = w
     out = io.BytesIO()
@@ -1022,7 +1042,7 @@ async def upload_annual_portal_subscription_excel(file: UploadFile = File(...)):
     if "email" not in col_map and "client_id" not in col_map:
         raise HTTPException(
             status_code=400,
-            detail="Sheet must have an Email column and/or Client id (see template).",
+            detail="Sheet must have an Email Id / Email column and/or Client id (see template).",
         )
 
     updated = 0
@@ -1086,6 +1106,31 @@ async def upload_annual_portal_subscription_excel(file: UploadFile = File(...)):
 
         cid = cl["id"]
         patch: Dict[str, Any] = {}
+        client_extra: Dict[str, Any] = {}
+
+        hk_raw = _annual_upload_cell_str(row, col_map.get("household_key"))
+        if hk_raw:
+            hk = hk_raw.strip()[:200]
+            client_extra["household_key"] = hk if hk else None
+
+        prim_raw = _annual_upload_cell_str(row, col_map.get("is_primary_household_contact"))
+        if prim_raw:
+            pt = prim_raw.strip().upper()
+            if pt in ("Y", "YES", "1", "TRUE"):
+                client_extra["is_primary_household_contact"] = True
+            elif pt in ("N", "NO", "0", "FALSE", "-", "—"):
+                client_extra["is_primary_household_contact"] = False
+            else:
+                pl = prim_raw.strip().lower()
+                if pl in ("y", "yes", "1", "true"):
+                    client_extra["is_primary_household_contact"] = True
+                elif pl in ("n", "no", "0", "false"):
+                    client_extra["is_primary_household_contact"] = False
+                else:
+                    errors.append(
+                        f"Row {row_idx}: PRIMARY must be Y or N (got {prim_raw!r})"
+                    )
+                    continue
 
         ad_raw = _annual_upload_cell_str(row, col_map.get("annual_diid"))
         if ad_raw:
@@ -1171,17 +1216,19 @@ async def upload_annual_portal_subscription_excel(file: UploadFile = File(...)):
                 continue
             patch["usage_source"] = t
 
-        if not patch:
+        if not patch and not client_extra:
             skipped_empty += 1
             continue
 
-        prev_sub: Dict[str, Any] = dict(cl.get("annual_subscription") or {})
-        merged = _merge_annual_subscription(prev_sub, patch)
         now = datetime.now(timezone.utc).isoformat()
-        await db.clients.update_one(
-            {"id": cid},
-            {"$set": {"annual_subscription": merged, "updated_at": now}},
-        )
+        set_doc: Dict[str, Any] = {"updated_at": now}
+        if patch:
+            prev_sub: Dict[str, Any] = dict(cl.get("annual_subscription") or {})
+            merged = _merge_annual_subscription(prev_sub, patch)
+            set_doc["annual_subscription"] = merged
+        if client_extra:
+            set_doc.update(client_extra)
+        await db.clients.update_one({"id": cid}, {"$set": set_doc})
         updated += 1
 
     return {

@@ -17,19 +17,23 @@ const API = getApiUrl();
 const ANNUAL_PORTAL_FLAT_COLS = [
   { id: 'sn', label: '#', required: true },
   { id: 'name', label: 'Name', required: true },
-  { id: 'client_id', label: 'Client id' },
-  { id: 'email', label: 'Email' },
-  { id: 'household', label: 'Household' },
-  { id: 'primary', label: 'Primary' },
-  { id: 'diid', label: 'Annual DIID' },
-  { id: 'start', label: 'Start' },
-  { id: 'end', label: 'End' },
-  { id: 'package', label: 'Package' },
-  { id: 'awrp_year', label: 'AWRP year' },
+  { id: 'email', label: 'Email Id' },
+  { id: 'start', label: 'Start Date' },
+  { id: 'end', label: 'End Date' },
+  { id: 'diid', label: 'DIID' },
+  { id: 'package', label: 'HomeComing' },
   { id: 'usage', label: 'Usage' },
+  { id: 'household', label: 'HOUSEHOLD' },
+  { id: 'primary', label: 'PRIMARY' },
+  { id: 'client_id', label: 'Client id' },
+  { id: 'awrp_year', label: 'AWRP year' },
   { id: 'edit', label: 'Edit', required: true },
 ];
-const ANNUAL_PORTAL_FLAT_KEY = 'admin-annual-portal-flat-v4';
+const ANNUAL_PORTAL_FLAT_KEY = 'admin-annual-portal-flat-v5';
+
+function colLabel(id) {
+  return ANNUAL_PORTAL_FLAT_COLS.find((c) => c.id === id)?.label ?? id;
+}
 
 /** Excel-like grid: gray chrome, tight cells, full-area scroll */
 const sheetFrame =
@@ -223,7 +227,9 @@ export default function AnnualPortalClientsTab() {
         <div className="min-w-0">
           <h2 className="text-base font-semibold text-gray-900">Annual + dashboard (Client Garden)</h2>
           <p className="text-xs text-gray-600 mt-0.5 max-w-3xl">
-            Full-width sheet view. Sacred Home annual on the client record, portal not blocked.             Use <strong>Email</strong> or <strong>Client id</strong> (from the grid) in Excel — members without email stay clubbed under the household; put their row’s Client id in the sheet, not the primary’s email.
+            Columns match the standard annual sheet (#, Name, Email Id, dates, DIID, HomeComing, Usage, HOUSEHOLD, PRIMARY).{' '}
+            <strong>Template</strong> / <strong>Upload</strong> use the same headers; set <strong>Email Id</strong> or <strong>Client id</strong> per row.
+            Members without email: use their Client id, not the primary’s email.
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2 shrink-0">
@@ -349,20 +355,20 @@ export default function AnnualPortalClientsTab() {
             <thead>
               <tr>
                 {flatColVisible('sn') && (
-                  <th className={`${thBase} text-center w-11 tabular-nums`}>#</th>
+                  <th className={`${thBase} text-center w-11 tabular-nums`}>{colLabel('sn')}</th>
                 )}
-                {flatColVisible('name') && <th className={thBase}>Name</th>}
-                {flatColVisible('client_id') && <th className={thBase}>Client id</th>}
-                {flatColVisible('email') && <th className={thBase}>Email</th>}
-                {flatColVisible('household') && <th className={thBase}>Household</th>}
-                {flatColVisible('primary') && <th className={`${thBase} text-center`}>Primary</th>}
-                {flatColVisible('diid') && <th className={thBase}>Annual DIID</th>}
-                {flatColVisible('start') && <th className={thBase}>Start</th>}
-                {flatColVisible('end') && <th className={thBase}>End</th>}
-                {flatColVisible('package') && <th className={thBase}>Package</th>}
-                {flatColVisible('awrp_year') && <th className={thBase}>AWRP year</th>}
-                {flatColVisible('usage') && <th className={thBase}>Usage</th>}
-                {flatColVisible('edit') && <th className={`${thBase} text-center`}>Edit</th>}
+                {flatColVisible('name') && <th className={thBase}>{colLabel('name')}</th>}
+                {flatColVisible('email') && <th className={thBase}>{colLabel('email')}</th>}
+                {flatColVisible('start') && <th className={thBase}>{colLabel('start')}</th>}
+                {flatColVisible('end') && <th className={thBase}>{colLabel('end')}</th>}
+                {flatColVisible('diid') && <th className={thBase}>{colLabel('diid')}</th>}
+                {flatColVisible('package') && <th className={thBase}>{colLabel('package')}</th>}
+                {flatColVisible('usage') && <th className={thBase}>{colLabel('usage')}</th>}
+                {flatColVisible('household') && <th className={thBase}>{colLabel('household')}</th>}
+                {flatColVisible('primary') && <th className={`${thBase} text-center`}>{colLabel('primary')}</th>}
+                {flatColVisible('client_id') && <th className={thBase}>{colLabel('client_id')}</th>}
+                {flatColVisible('awrp_year') && <th className={thBase}>{colLabel('awrp_year')}</th>}
+                {flatColVisible('edit') && <th className={`${thBase} text-center`}>{colLabel('edit')}</th>}
               </tr>
             </thead>
             <tbody>
@@ -391,37 +397,37 @@ export default function AnnualPortalClientsTab() {
                       </td>
                     )}
                     {flatColVisible('name') && <td className={`${tdBase} font-medium`}>{(r.name || '').trim() || '—'}</td>}
-                    {flatColVisible('client_id') && (
-                      <td className={`${tdBase} font-mono text-[11px] text-neutral-800 break-all max-w-[8rem]`}>
-                        {(r.id || '').trim() || '—'}
-                      </td>
-                    )}
                     {flatColVisible('email') && <td className={`${tdBase} text-neutral-800`}>{(r.email || '').trim() || '—'}</td>}
-                    {flatColVisible('household') && <td className={`${tdBase} font-mono text-[12px] text-neutral-800`}>{(r.household_key || '').trim() || '—'}</td>}
-                    {flatColVisible('primary') && (
-                    <td className={`${tdBase} text-center tabular-nums`}>
-                      {r.is_primary_household_contact ? 'Y' : '—'}
-                    </td>
-                    )}
-                    {flatColVisible('diid') && (
-                      <td className={`${tdBase} font-mono text-[12px] whitespace-nowrap`}>{(sub.annual_diid || '').trim() || '—'}</td>
-                    )}
                     {flatColVisible('start') && (
                       <td className={`${tdBase} font-mono text-[12px] whitespace-nowrap`}>{sub.start_date || '—'}</td>
                     )}
                     {flatColVisible('end') && (
                       <td className={`${tdBase} font-mono text-[12px] whitespace-nowrap`}>{sub.end_date || '—'}</td>
                     )}
+                    {flatColVisible('diid') && (
+                      <td className={`${tdBase} font-mono text-[12px] whitespace-nowrap`}>{(sub.annual_diid || '').trim() || '—'}</td>
+                    )}
                     {flatColVisible('package') && (
                       <td className={tdBase}>{packageLabel(sub)}</td>
-                    )}
-                    {flatColVisible('awrp_year') && (
-                      <td className={tdBase}>{(sub.awrp_year_label || '').trim() || '—'}</td>
                     )}
                     {flatColVisible('usage') && (
                       <td className={`${tdBase} text-[12px] text-neutral-800 whitespace-normal break-words`}>
                         {sub.usage && Object.keys(sub.usage).length > 0 ? formatHomeComingUsageSummary(sub) : '—'}
                       </td>
+                    )}
+                    {flatColVisible('household') && <td className={`${tdBase} font-mono text-[12px] text-neutral-800`}>{(r.household_key || '').trim() || '—'}</td>}
+                    {flatColVisible('primary') && (
+                    <td className={`${tdBase} text-center tabular-nums`}>
+                      {r.is_primary_household_contact ? 'Y' : '—'}
+                    </td>
+                    )}
+                    {flatColVisible('client_id') && (
+                      <td className={`${tdBase} font-mono text-[11px] text-neutral-800 break-all max-w-[8rem]`}>
+                        {(r.id || '').trim() || '—'}
+                      </td>
+                    )}
+                    {flatColVisible('awrp_year') && (
+                      <td className={tdBase}>{(sub.awrp_year_label || '').trim() || '—'}</td>
                     )}
                     {flatColVisible('edit') && (
                       <td className={`${tdBase} text-center p-0`}>
@@ -470,13 +476,17 @@ export default function AnnualPortalClientsTab() {
                     <table className={tableGrid}>
                       <thead>
                         <tr>
-                          <th className={`${thBase} text-center w-11 tabular-nums`}>#</th>
-                          <th className={`${thBase} pl-3`}>Name</th>
-                          <th className={`${thBase} font-mono text-[10px]`}>Client id</th>
-                          <th className={thBase}>Email</th>
-                          <th className={`${thBase} text-center w-16`}>Primary</th>
-                          <th className={`${thBase} font-mono`}>DIID</th>
-                          <th className={`${thBase} text-center w-14`}>Edit</th>
+                          <th className={`${thBase} text-center w-11 tabular-nums`}>{colLabel('sn')}</th>
+                          <th className={`${thBase} pl-3`}>{colLabel('name')}</th>
+                          <th className={thBase}>{colLabel('email')}</th>
+                          <th className={thBase}>{colLabel('start')}</th>
+                          <th className={thBase}>{colLabel('end')}</th>
+                          <th className={`${thBase} font-mono`}>{colLabel('diid')}</th>
+                          <th className={thBase}>{colLabel('package')}</th>
+                          <th className={thBase}>{colLabel('usage')}</th>
+                          <th className={`${thBase} text-center w-14`}>{colLabel('primary')}</th>
+                          <th className={`${thBase} font-mono text-[10px]`}>{colLabel('client_id')}</th>
+                          <th className={`${thBase} text-center w-14`}>{colLabel('edit')}</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -491,15 +501,21 @@ export default function AnnualPortalClientsTab() {
                               {serialByRowKey.get(r.id || r.email) ?? '—'}
                             </td>
                             <td className={`${tdBase} pl-3 font-medium`}>{(r.name || '').trim() || '—'}</td>
-                            <td className={`${tdBase} font-mono text-[10px] text-neutral-800 break-all max-w-[7rem]`}>
-                              {(r.id || '').trim() || '—'}
-                            </td>
                             <td className={`${tdBase} text-neutral-800`}>{(r.email || '').trim() || '—'}</td>
+                            <td className={`${tdBase} font-mono text-[12px] whitespace-nowrap`}>{sub.start_date || '—'}</td>
+                            <td className={`${tdBase} font-mono text-[12px] whitespace-nowrap`}>{sub.end_date || '—'}</td>
+                            <td className={`${tdBase} font-mono text-[12px]`}>
+                              {(sub.annual_diid || '').trim() || '—'}
+                            </td>
+                            <td className={tdBase}>{packageLabel(sub)}</td>
+                            <td className={`${tdBase} text-[11px] text-neutral-800`}>
+                              {sub.usage && Object.keys(sub.usage).length > 0 ? formatHomeComingUsageSummary(sub) : '—'}
+                            </td>
                             <td className={`${tdBase} text-center`}>
                               {r.is_primary_household_contact ? 'Y' : '—'}
                             </td>
-                            <td className={`${tdBase} font-mono text-[12px]`}>
-                              {(sub.annual_diid || '').trim() || '—'}
+                            <td className={`${tdBase} font-mono text-[10px] text-neutral-800 break-all max-w-[7rem]`}>
+                              {(r.id || '').trim() || '—'}
                             </td>
                             <td className={`${tdBase} text-center p-0`}>
                               <Button
