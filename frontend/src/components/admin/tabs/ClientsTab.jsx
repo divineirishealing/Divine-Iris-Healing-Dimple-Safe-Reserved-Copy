@@ -17,8 +17,7 @@ import {
   Edit2, Save, Trash2, UserPlus,
 } from 'lucide-react';
 import { useSpreadsheetColumnVisibility, SpreadsheetColumnPicker } from '../SpreadsheetColumnPicker';
-
-const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
+import { getApiUrl } from '../../../lib/config';
 
 const CLIENT_GARDEN_COLUMN_DEFS = [
   { id: 'name', label: 'Name', required: true },
@@ -79,6 +78,7 @@ const ClientsTab = () => {
   });
   const [addingClient, setAddingClient] = useState(false);
   const [editClient, setEditClient] = useState(null);
+  const [exporting, setExporting] = useState(false);
 
   const { visibility: colVis, setColumn: setColVis, reset: resetCols, isVisible } = useSpreadsheetColumnVisibility(
     CLIENT_GARDEN_COLS_KEY,
@@ -87,11 +87,12 @@ const ClientsTab = () => {
 
   const fetchData = useCallback(async () => {
     try {
+      const api = getApiUrl();
       const params = {};
       if (searchText.trim()) params.search = searchText.trim();
       const [cRes, sRes] = await Promise.all([
-        axios.get(`${API}/clients`, { params }),
-        axios.get(`${API}/clients/stats`),
+        axios.get(`${api}/clients`, { params }),
+        axios.get(`${api}/clients/stats`),
       ]);
       setClients(cRes.data || []);
       setStats(sRes.data || { total: 0, by_label: {} });
@@ -103,7 +104,7 @@ const ClientsTab = () => {
   const handleSync = async () => {
     setSyncing(true);
     try {
-      const res = await axios.post(`${API}/clients/sync`);
+      const res = await axios.post(`${getApiUrl()}/clients/sync`);
       const st = res.data.stats || {};
       const idFill = typeof st.identifiers_backfilled === 'number' ? st.identifiers_backfilled : 0;
       toast({
@@ -118,7 +119,7 @@ const ClientsTab = () => {
   const handleDelete = async (id) => {
     if (!window.confirm('Remove this client?')) return;
     try {
-      await axios.delete(`${API}/clients/${id}`);
+      await axios.delete(`${getApiUrl()}/clients/${id}`);
       toast({ title: 'Client removed' });
       fetchData();
       setEditClient((c) => (c?.id === id ? null : c));
@@ -136,7 +137,7 @@ const ClientsTab = () => {
     }
     setAddingClient(true);
     try {
-      await axios.post(`${API}/clients`, {
+      await axios.post(`${getApiUrl()}/clients`, {
         name,
         email: email || undefined,
         phone: phone || undefined,
@@ -154,6 +155,57 @@ const ClientsTab = () => {
       });
     } finally {
       setAddingClient(false);
+    }
+  };
+
+  const handleExportExcel = async () => {
+    setExporting(true);
+    try {
+      const res = await axios.get(`${getApiUrl()}/clients/export/csv`, {
+        responseType: 'blob',
+        timeout: 120000,
+      });
+      const blob = new Blob([res.data], {
+        type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      });
+      const cd = res.headers['content-disposition'];
+      let filename = `divine_iris_clients_${new Date().toISOString().slice(0, 16).replace(/[-:T]/g, '')}.xlsx`;
+      if (cd) {
+        const m = /filename\*?=(?:UTF-8'')?["']?([^"';]+)/i.exec(cd);
+        if (m?.[1]) filename = decodeURIComponent(m[1].replace(/["']/g, '').trim());
+      }
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      window.URL.revokeObjectURL(url);
+      toast({ title: 'Export downloaded', description: filename });
+    } catch (err) {
+      let msg = err.message || 'Request failed';
+      const data = err.response?.data;
+      if (data instanceof Blob) {
+        try {
+          const t = await data.text();
+          try {
+            const j = JSON.parse(t);
+            if (typeof j.detail === 'string') msg = j.detail;
+            else if (Array.isArray(j.detail)) msg = j.detail.map((x) => x.msg || x).join('; ');
+            else msg = t.slice(0, 200);
+          } catch {
+            msg = t.slice(0, 200) || msg;
+          }
+        } catch {
+          /* keep msg */
+        }
+      } else if (typeof data?.detail === 'string') {
+        msg = data.detail;
+      }
+      toast({ title: 'Export failed', description: msg, variant: 'destructive' });
+    } finally {
+      setExporting(false);
     }
   };
 
@@ -181,8 +233,14 @@ const ClientsTab = () => {
           <Button data-testid="clients-sync" onClick={handleSync} disabled={syncing} variant="outline" className="text-[10px] h-8 gap-1.5">
             <RefreshCw size={12} className={syncing ? 'animate-spin' : ''} /> {syncing ? 'Syncing...' : 'Sync All Data'}
           </Button>
-          <Button data-testid="clients-download" onClick={() => window.open(`${API}/clients/export/csv`, '_blank')} variant="outline" className="text-[10px] h-8 gap-1.5 border-[#D4AF37] text-[#D4AF37] hover:bg-[#D4AF37]/10">
-            <Download size={12} /> Export Excel
+          <Button
+            data-testid="clients-download"
+            onClick={handleExportExcel}
+            disabled={exporting}
+            variant="outline"
+            className="text-[10px] h-8 gap-1.5 border-[#D4AF37] text-[#D4AF37] hover:bg-[#D4AF37]/10"
+          >
+            <Download size={12} className={exporting ? 'animate-pulse' : ''} /> {exporting ? 'Exporting…' : 'Export Excel'}
           </Button>
         </div>
       </div>
@@ -399,7 +457,7 @@ function ClientEditDialog({ client: cl, onClose, onSaved, onDelete, toast }) {
   const handleSave = async () => {
     setSaving(true);
     try {
-      await axios.put(`${API}/clients/${cl.id}`, {
+      await axios.put(`${getApiUrl()}/clients/${cl.id}`, {
         email: (editEmail || '').trim().toLowerCase(),
         household_key: householdKey.trim() || null,
         is_primary_household_contact: primaryHouseholdContact,
