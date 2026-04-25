@@ -517,6 +517,30 @@ def _merge_program_dashboard_offers_with_batch(
     return ao, fo, eo
 
 
+def _merged_portal_offers_for_payer(
+    annual_dashboard_access: bool,
+    program_id: str,
+    settings_doc: dict,
+    client: dict,
+) -> Tuple[dict, dict, dict, Optional[str]]:
+    """Annual+Dashboard: global + per-program + AWRP cohort overlays.
+
+    Clients without Annual+Dashboard access use **catalog tier pricing only** (same basis as the public
+    website): no dashboard offer columns, no per-program portal overrides, no batch overlays.
+    """
+    if not annual_dashboard_access:
+        return {}, {}, {}, None
+    g_ao = settings_doc.get("dashboard_offer_annual") or {}
+    g_fo = settings_doc.get("dashboard_offer_family") or {}
+    g_eo = settings_doc.get("dashboard_offer_extended") or {}
+    per_map = settings_doc.get("dashboard_program_offers") or {}
+    batch_root = settings_doc.get("awrp_batch_program_offers") or {}
+    batch_id = _client_awrp_batch_id(client)
+    brow = _batch_portal_row_for_program(batch_root, batch_id, program_id)
+    ao, fo, eo = _merge_program_dashboard_offers_with_batch(g_ao, g_fo, g_eo, program_id, per_map, brow)
+    return ao, fo, eo, batch_id
+
+
 def _client_awrp_batch_id(client: Optional[dict]) -> Optional[str]:
     if not client:
         return None
@@ -1358,15 +1382,9 @@ async def _portal_combined_dashboard_total(user: dict, profile: ProfileData) -> 
             "awrp_batch_program_offers": 1,
         },
     ) or {}
-    batch_root = settings_doc.get("awrp_batch_program_offers") or {}
-    batch_id = _client_awrp_batch_id(client)
     fam_all = await _all_dashboard_guest_rows_with_household(client_id, client, for_payment=True)
     fam_by_id = {str(m.get("id")) for m in fam_all if m.get("id")}
     fam_by_row = {str(m.get("id")): m for m in fam_all if m.get("id")}
-    g_ao = settings_doc.get("dashboard_offer_annual") or {}
-    g_fo = settings_doc.get("dashboard_offer_family") or {}
-    g_eo = settings_doc.get("dashboard_offer_extended") or {}
-    per_map = settings_doc.get("dashboard_program_offers") or {}
     inc_cfg = settings_doc.get("annual_package_included_program_ids")
     total = 0.0
     for line in lines:
@@ -1398,8 +1416,7 @@ async def _portal_combined_dashboard_total(user: dict, profile: ProfileData) -> 
             include_self = False
         else:
             include_self = bool(line.booker_joins)
-        brow = _batch_portal_row_for_program(batch_root, batch_id, pid)
-        ao, fo, eo = _merge_program_dashboard_offers_with_batch(g_ao, g_fo, g_eo, pid, per_map, brow)
+        ao, fo, eo, _batch_for_line = _merged_portal_offers_for_payer(annual_dashboard_access, pid, settings_doc, client)
         fo_plain = _family_offer_for_included_package_guests(included, imm_plain, fo)
         pricing = await compute_dashboard_annual_family_pricing(
             program,
@@ -1460,11 +1477,14 @@ async def dashboard_quote(
 ):
     """Portal pricing for logged-in clients (Sacred Home + Divine Cart).
 
-    Dashboard columns: annual member seat, immediate family, friends & extended. The booker's own
-    seat uses the annual column when they have annual portal access; otherwise the extended column.
-    Annual Family Club (same household_key) guests use the annual member column and discount; peers
-    are detected from ``household_client_link`` or household id lookup. Package inclusion can waive
-    peer seats when applicable.
+    **Annual+Dashboard** clients use portal columns (annual / family / extended), per-program
+    overrides, and AWRP cohort overlays.
+
+    **Other** logged-in clients (portal access without Annual+Dashboard) use **catalog tier pricing
+    only** — same basis as the public website (no dashboard offer columns or batch overlays).
+
+    Annual Family Club guest routing still applies when peers are selected; waived seats follow
+    package rules only for annual payers.
     """
     client_id = user.get("client_id")
     if not client_id:
@@ -1514,14 +1534,19 @@ async def dashboard_quote(
         include_self = False
     else:
         include_self = bool(booker_joins)
-    g_ao = settings_doc.get("dashboard_offer_annual") or {}
-    g_fo = settings_doc.get("dashboard_offer_family") or {}
-    g_eo = settings_doc.get("dashboard_offer_extended") or {}
     per_map = settings_doc.get("dashboard_program_offers") or {}
-    batch_root = settings_doc.get("awrp_batch_program_offers") or {}
-    batch_id = _client_awrp_batch_id(client)
-    brow = _batch_portal_row_for_program(batch_root, batch_id, program_id)
-    ao, fo, eo = _merge_program_dashboard_offers_with_batch(g_ao, g_fo, g_eo, program_id, per_map, brow)
+    ao, fo, eo, batch_id = _merged_portal_offers_for_payer(
+        annual_dashboard_access, program_id, settings_doc, client
+    )
+    if annual_dashboard_access:
+        brow = _batch_portal_row_for_program(
+            settings_doc.get("awrp_batch_program_offers") or {},
+            batch_id,
+            program_id,
+        )
+        program_portal_pricing_override = _program_has_portal_pricing_override(per_map, program_id, brow)
+    else:
+        program_portal_pricing_override = False
     plain_sel, peer_sel = 0, 0
     inc_cfg = settings_doc.get("annual_package_included_program_ids")
     if id_list:
@@ -1573,11 +1598,8 @@ async def dashboard_quote(
         "program_id": program_id,
         "program_title": program.get("title", ""),
         "included_in_annual_package": included,
-        "program_portal_pricing_override": bool(
-            annual_dashboard_access
-            and _program_has_portal_pricing_override(per_map, program_id, brow)
-        ),
-        "awrp_batch_id": batch_id,
+        "program_portal_pricing_override": bool(program_portal_pricing_override),
+        "awrp_batch_id": batch_id if annual_dashboard_access else None,
         **pricing,
         "annual_household_peer_selected_count": peer_sel,
         "annual_household_peer_package_included_count": peer_pkg_inc,
@@ -1632,12 +1654,7 @@ async def build_admin_dashboard_pricing_snapshot(
             "dashboard_annual_quote_show_tax": 1,
         },
     ) or {}
-    g_ao = settings_doc.get("dashboard_offer_annual") or {}
-    g_fo = settings_doc.get("dashboard_offer_family") or {}
-    g_eo = settings_doc.get("dashboard_offer_extended") or {}
     per_map = settings_doc.get("dashboard_program_offers") or {}
-    batch_root = settings_doc.get("awrp_batch_program_offers") or {}
-    batch_id = _client_awrp_batch_id(client)
     inc_cfg = settings_doc.get("annual_package_included_program_ids")
     gst_pct = float(settings_doc.get("india_gst_percent") or 18)
     qst = settings_doc.get("dashboard_annual_quote_show_tax", True)
@@ -1657,8 +1674,16 @@ async def build_admin_dashboard_pricing_snapshot(
         tier_idx = _dashboard_tier_index_for_preview(program, annual_dashboard_access)
         included = _portal_included_in_annual_package(program, inc_cfg, sub, client)
         include_self = False if included else True
-        brow = _batch_portal_row_for_program(batch_root, batch_id, pid)
-        ao, fo, eo = _merge_program_dashboard_offers_with_batch(g_ao, g_fo, g_eo, pid, per_map, brow)
+        ao, fo, eo, batch_id_snap = _merged_portal_offers_for_payer(annual_dashboard_access, pid, settings_doc, client)
+        if annual_dashboard_access:
+            brow = _batch_portal_row_for_program(
+                settings_doc.get("awrp_batch_program_offers") or {},
+                batch_id_snap,
+                pid,
+            )
+            ppo = _program_has_portal_pricing_override(per_map, pid, brow)
+        else:
+            ppo = False
         pricing = await compute_dashboard_annual_family_pricing(
             program,
             pid,
@@ -1684,9 +1709,7 @@ async def build_admin_dashboard_pricing_snapshot(
                 "program_id": pid,
                 "program_title": program.get("title") or raw.get("title") or "",
                 "included_in_annual_package": included,
-                "portal_pricing_override": bool(
-                    annual_dashboard_access and _program_has_portal_pricing_override(per_map, pid, brow)
-                ),
+                "portal_pricing_override": bool(ppo),
                 "tier_index": tier_idx,
                 "self_after_promos": pricing.get("self_after_promos"),
                 "total": pricing.get("total"),
@@ -1773,14 +1796,9 @@ async def dashboard_pay(data: DashboardPayIn, request: Request, user: dict = Dep
             detail="This program is already included in your annual package — select one or more family members to enroll.",
         )
 
-    g_ao = settings_doc.get("dashboard_offer_annual") or {}
-    g_fo = settings_doc.get("dashboard_offer_family") or {}
-    g_eo = settings_doc.get("dashboard_offer_extended") or {}
-    per_map = settings_doc.get("dashboard_program_offers") or {}
-    batch_root = settings_doc.get("awrp_batch_program_offers") or {}
-    bid = _client_awrp_batch_id(client)
-    brow = _batch_portal_row_for_program(batch_root, bid, data.program_id)
-    ao, fo, eo = _merge_program_dashboard_offers_with_batch(g_ao, g_fo, g_eo, data.program_id, per_map, brow)
+    ao, fo, eo, _bid = _merged_portal_offers_for_payer(
+        annual_dashboard_access, data.program_id, settings_doc, client
+    )
     fo_plain = _family_offer_for_included_package_guests(included, imm_plain, fo)
     quote = await compute_dashboard_annual_family_pricing(
         program,
@@ -1933,6 +1951,7 @@ async def get_student_home(user: dict = Depends(get_current_student_user)):
     """Fetch personalized home data: Schedule, Package, Financials, Programs."""
     client_id = user.get("client_id")
     client = await db.clients.find_one({"id": client_id}, {"_id": 0}) or {}
+    annual_portal_access_effective = _annual_dashboard_access(client)
 
     # 1. Upcoming programs — same pipeline + ordering as public homepage (GET /api/programs?visible_only&upcoming_only)
     upcoming_models = await fetch_programs_with_deadline_sync(db, True, True)
@@ -1958,9 +1977,9 @@ async def get_student_home(user: dict = Depends(get_current_student_user)):
     dashboard_offer_extended = settings_doc.get("dashboard_offer_extended") or {}
     dashboard_program_offers = settings_doc.get("dashboard_program_offers") or {}
     awrp_batches_cfg = settings_doc.get("awrp_portal_batches") or []
-    batch_id_home = _client_awrp_batch_id(client)
+    batch_id_home = _client_awrp_batch_id(client) if annual_portal_access_effective else None
     awrp_batch_payload = None
-    if batch_id_home and isinstance(awrp_batches_cfg, list):
+    if annual_portal_access_effective and batch_id_home and isinstance(awrp_batches_cfg, list):
         meta = next(
             (
                 b
@@ -2115,15 +2134,19 @@ async def get_student_home(user: dict = Depends(get_current_student_user)):
         "upcoming_programs": upcoming,
         "is_annual_subscriber": is_annual,
         "annual_member_dashboard": bool(client.get("annual_member_dashboard")),
-        "annual_portal_access": _annual_dashboard_access(client),
+        "annual_portal_access": annual_portal_access_effective,
         "subscription_annual_package_signals": _subscription_annual_package_signals(sub),
-        "dashboard_offers": {
-            "annual": dashboard_offer_annual,
-            "family": dashboard_offer_family,
-            "extended": dashboard_offer_extended,
-        },
-        "dashboard_program_offers": dashboard_program_offers,
-        "awrp_batch": awrp_batch_payload,
+        "dashboard_offers": (
+            {
+                "annual": dashboard_offer_annual,
+                "family": dashboard_offer_family,
+                "extended": dashboard_offer_extended,
+            }
+            if annual_portal_access_effective
+            else {"annual": {}, "family": {}, "extended": {}}
+        ),
+        "dashboard_program_offers": dashboard_program_offers if annual_portal_access_effective else {},
+        "awrp_batch": awrp_batch_payload if annual_portal_access_effective else None,
         "immediate_family": immediate_family,
         "annual_household_peers": annual_household_peers,
         "annual_household_club_ok": annual_household_club_ok,
