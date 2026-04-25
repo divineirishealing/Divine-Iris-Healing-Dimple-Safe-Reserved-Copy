@@ -589,6 +589,10 @@ class SiteSettings(BaseModel):
     annual_package_included_program_ids: List[str] = Field(default_factory=list)
     # Per-program portal pricing overrides: { program_id: { "annual": {...}, "family": {...}, "extended": {...} } } shallow-merged with globals
     dashboard_program_offers: Dict[str, Any] = Field(default_factory=dict)
+    # Existing AWRP / cohort batches: assign clients (awrp_batch_id) for layered portal pricing in Sacred Home
+    awrp_portal_batches: List[Dict] = Field(default_factory=list)  # [{ "id": "2025-01", "label": "…", "notes": "…" }]
+    # { batch_id: { program_id: { annual, family, extended } } } merged after dashboard_program_offers for that client
+    awrp_batch_program_offers: Dict[str, Any] = Field(default_factory=dict)
     # Student dashboard: show/hide overview tiles and sidebar links (Admin → Dashboard). Missing keys = visible.
     dashboard_element_visibility: Dict[str, Any] = Field(default_factory=dict)
     # Sacred Home maintenance: blocks /api/student/* for signed-in clients except bypass emails & admin impersonation.
@@ -781,6 +785,8 @@ class SiteSettingsUpdate(BaseModel):
     dashboard_offer_extended: Optional[Dict] = None
     annual_package_included_program_ids: Optional[List[str]] = None
     dashboard_program_offers: Optional[Dict[str, Any]] = None
+    awrp_portal_batches: Optional[List[Dict]] = None
+    awrp_batch_program_offers: Optional[Dict[str, Any]] = None
     dashboard_element_visibility: Optional[Dict[str, Any]] = None
     dashboard_maintenance_enabled: Optional[bool] = None
     dashboard_maintenance_message: Optional[str] = None

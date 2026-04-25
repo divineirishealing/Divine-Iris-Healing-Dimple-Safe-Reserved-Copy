@@ -5,7 +5,7 @@ import { Input } from '../../ui/input';
 import { Button } from '../../ui/button';
 import { Switch } from '../../ui/switch';
 import { Textarea } from '../../ui/textarea';
-import { RefreshCw, Sparkles, Users, Layers, LayoutGrid, PanelLeft, Upload, Wrench } from 'lucide-react';
+import { RefreshCw, Sparkles, Users, Layers, LayoutGrid, PanelLeft, Upload, Wrench, Plus, Trash2 } from 'lucide-react';
 import { useToast } from '../../../hooks/use-toast';
 import { useSiteSettings } from '../../../context/SiteSettingsContext';
 import { DASHBOARD_VISIBILITY_KEYS, DEFAULT_DASHBOARD_VISIBILITY } from '../../../lib/dashboardVisibility';
@@ -215,10 +215,107 @@ const DashboardSettingsTab = ({ settings, onChange, programs = [], onOpenAdminTa
       },
     });
   };
+  const setProgramExtended = (pid, patch) => {
+    const row = progOffers[pid] || {};
+    onChange({
+      ...settings,
+      dashboard_program_offers: {
+        ...progOffers,
+        [pid]: { ...row, extended: { ...(row.extended || {}), ...patch } },
+      },
+    });
+  };
   const clearProgramOffers = (pid) => {
     const next = { ...progOffers };
     delete next[pid];
     onChange({ ...settings, dashboard_program_offers: next });
+  };
+
+  const awrpBatches = Array.isArray(settings.awrp_portal_batches) ? settings.awrp_portal_batches : [];
+  const batchOffersRoot = settings.awrp_batch_program_offers || {};
+  const [cohortEditId, setCohortEditId] = React.useState('');
+  const cohortBatchSig = JSON.stringify(awrpBatches.map((b) => String(b?.id || '')));
+  React.useEffect(() => {
+    const ids = awrpBatches.map((b) => String(b?.id || '').trim()).filter(Boolean);
+    if (!ids.length) return;
+    if (!cohortEditId || !ids.includes(cohortEditId)) setCohortEditId(ids[0]);
+  }, [cohortBatchSig]); // eslint-disable-line react-hooks/exhaustive-deps -- sync when admin adds/removes cohort rows
+
+  const cohortId = cohortEditId || (awrpBatches[0] && String(awrpBatches[0].id)) || '';
+  const cohortProgOffers = cohortId ? batchOffersRoot[cohortId] || {} : {};
+
+  const addAwrpBatch = () => {
+    const nid = `cohort-${Date.now()}`;
+    onChange({
+      ...settings,
+      awrp_portal_batches: [...awrpBatches, { id: nid, label: 'New AWRP batch', notes: '' }],
+    });
+    setCohortEditId(nid);
+  };
+  const patchAwrpBatch = (id, patch) => {
+    onChange({
+      ...settings,
+      awrp_portal_batches: awrpBatches.map((b) => (String(b.id) === String(id) ? { ...b, ...patch } : b)),
+    });
+  };
+  const removeAwrpBatch = (id) => {
+    const nextB = awrpBatches.filter((b) => String(b.id) !== String(id));
+    const nextO = { ...batchOffersRoot };
+    delete nextO[id];
+    onChange({ ...settings, awrp_portal_batches: nextB, awrp_batch_program_offers: nextO });
+    setCohortEditId(nextB[0] ? String(nextB[0].id) : '');
+  };
+
+  const setCohortProgramAnnual = (pid, patch) => {
+    if (!cohortId) return;
+    const row = cohortProgOffers[pid] || {};
+    onChange({
+      ...settings,
+      awrp_batch_program_offers: {
+        ...batchOffersRoot,
+        [cohortId]: {
+          ...cohortProgOffers,
+          [pid]: { ...row, annual: { ...(row.annual || {}), ...patch } },
+        },
+      },
+    });
+  };
+  const setCohortProgramFamily = (pid, patch) => {
+    if (!cohortId) return;
+    const row = cohortProgOffers[pid] || {};
+    onChange({
+      ...settings,
+      awrp_batch_program_offers: {
+        ...batchOffersRoot,
+        [cohortId]: {
+          ...cohortProgOffers,
+          [pid]: { ...row, family: { ...(row.family || {}), ...patch } },
+        },
+      },
+    });
+  };
+  const setCohortProgramExtended = (pid, patch) => {
+    if (!cohortId) return;
+    const row = cohortProgOffers[pid] || {};
+    onChange({
+      ...settings,
+      awrp_batch_program_offers: {
+        ...batchOffersRoot,
+        [cohortId]: {
+          ...cohortProgOffers,
+          [pid]: { ...row, extended: { ...(row.extended || {}), ...patch } },
+        },
+      },
+    });
+  };
+  const clearCohortProgramOffers = (pid) => {
+    if (!cohortId) return;
+    const next = { ...cohortProgOffers };
+    delete next[pid];
+    onChange({
+      ...settings,
+      awrp_batch_program_offers: { ...batchOffersRoot, [cohortId]: next },
+    });
   };
 
   const update = (field, value) => {
@@ -1173,6 +1270,172 @@ const DashboardSettingsTab = ({ settings, onChange, programs = [], onOpenAdminTa
                 );
               })}
             </div>
+          )}
+        </div>
+
+        <div
+          className="mt-8 rounded-lg border border-teal-200/80 bg-teal-50/25 p-4 space-y-3"
+          data-testid="dashboard-awrp-batches"
+        >
+          <div className="flex items-start gap-2">
+            <Users size={16} className="text-teal-700 mt-0.5 shrink-0" />
+            <div className="min-w-0 flex-1">
+              <h3 className="text-sm font-semibold text-gray-900">AWRP / existing-batch cohorts (portal pricing)</h3>
+              <p className="text-[11px] text-gray-500 leading-snug mt-0.5">
+                Define cohorts (e.g. January 2025 AWRP). Assign each subscriber in{' '}
+                <strong className="text-gray-700">Admin → Subscribers</strong> to a cohort ID. When they sign in to Sacred
+                Home, <strong className="text-gray-700">dashboard quotes</strong> merge these per-program overrides on top of
+                the normal portal pricing table. Leave a program empty to use defaults for that cohort.
+              </p>
+            </div>
+            <Button type="button" variant="outline" size="sm" className="text-[10px] h-8 shrink-0" onClick={addAwrpBatch}>
+              <Plus size={12} className="mr-1" /> Add batch
+            </Button>
+          </div>
+          {awrpBatches.length === 0 ? (
+            <p className="text-[11px] text-gray-500 italic">No batches yet — add one, then set per-program portal rules for that cohort.</p>
+          ) : (
+            <>
+              <div className="flex flex-wrap items-center gap-2">
+                <Label className="text-[10px] text-gray-600">Editing cohort</Label>
+                <select
+                  value={cohortId}
+                  onChange={(e) => setCohortEditId(e.target.value)}
+                  className="border rounded-md px-2 py-1 text-xs bg-white min-w-[10rem]"
+                  data-testid="dashboard-awrp-batch-select"
+                >
+                  {awrpBatches.map((b) => (
+                    <option key={b.id} value={b.id}>
+                      {(b.label || b.id || '').slice(0, 48) || b.id}
+                    </option>
+                  ))}
+                </select>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="text-[10px] h-7 text-red-600"
+                  onClick={() => cohortId && removeAwrpBatch(cohortId)}
+                >
+                  <Trash2 size={12} className="mr-1" /> Remove
+                </Button>
+              </div>
+              {cohortId ? (
+                <div className="grid md:grid-cols-3 gap-2">
+                  <div>
+                    <Label className="text-[9px] text-gray-500">Cohort ID (stored on subscriber)</Label>
+                    <Input
+                      value={awrpBatches.find((b) => String(b.id) === cohortId)?.id || ''}
+                      onChange={(e) => {
+                        const old = cohortId;
+                        const nid = e.target.value.trim();
+                        if (!nid || nid === old) return;
+                        const relabel = awrpBatches.map((b) =>
+                          String(b.id) === old ? { ...b, id: nid } : b,
+                        );
+                        const nOffers = { ...batchOffersRoot };
+                        if (nOffers[old]) {
+                          nOffers[nid] = nOffers[old];
+                          delete nOffers[old];
+                        }
+                        setCohortEditId(nid);
+                        onChange({
+                          ...settings,
+                          awrp_portal_batches: relabel,
+                          awrp_batch_program_offers: nOffers,
+                        });
+                      }}
+                      className="text-xs font-mono h-8"
+                    />
+                  </div>
+                  <div>
+                    <Label className="text-[9px] text-gray-500">Display label</Label>
+                    <Input
+                      value={awrpBatches.find((b) => String(b.id) === cohortId)?.label || ''}
+                      onChange={(e) => patchAwrpBatch(cohortId, { label: e.target.value })}
+                      className="text-xs h-8"
+                      placeholder="e.g. AWRP — Jan 2025"
+                    />
+                  </div>
+                  <div className="md:col-span-1">
+                    <Label className="text-[9px] text-gray-500">Notes (optional, shown on dashboard)</Label>
+                    <Input
+                      value={awrpBatches.find((b) => String(b.id) === cohortId)?.notes || ''}
+                      onChange={(e) => patchAwrpBatch(cohortId, { notes: e.target.value })}
+                      className="text-xs h-8"
+                      placeholder="Short note for members"
+                    />
+                  </div>
+                </div>
+              ) : null}
+              {cohortId && upcomingForPortalPricing.length > 0 ? (
+                <div className="space-y-2 max-h-[360px] overflow-y-auto pr-1 border border-teal-100/80 rounded-lg bg-white/80 p-2">
+                  {upcomingForPortalPricing.map((p) => {
+                    const row = cohortProgOffers[p.id] || {};
+                    const hasRow =
+                      (row.annual && Object.keys(row.annual).length > 0) ||
+                      (row.family && Object.keys(row.family).length > 0) ||
+                      (row.extended && Object.keys(row.extended).length > 0);
+                    return (
+                      <details
+                        key={`cohort-${cohortId}-${p.id}`}
+                        className="group border border-gray-200 rounded-lg bg-white/90 open:shadow-sm"
+                      >
+                        <summary className="cursor-pointer list-none px-3 py-2 text-xs font-medium text-gray-900 flex items-center justify-between gap-2">
+                          <span className="truncate">{p.title || p.id}</span>
+                          {hasRow ? (
+                            <span className="text-[9px] font-normal text-teal-800 bg-teal-100/80 px-1.5 py-0.5 rounded">
+                              Cohort override
+                            </span>
+                          ) : (
+                            <span className="text-[9px] font-normal text-gray-400">Default</span>
+                          )}
+                        </summary>
+                        <div className="px-3 pb-3 pt-0 grid md:grid-cols-3 gap-3 border-t border-gray-100">
+                          <div className="space-y-1">
+                            <Label className="text-[10px] text-amber-900">Member seat</Label>
+                            <PortalPricingRuleFields
+                              offer={row.annual}
+                              onPatch={(patch) => setCohortProgramAnnual(p.id, patch)}
+                              variant="annual"
+                            />
+                          </div>
+                          <div className="space-y-1">
+                            <Label className="text-[10px] text-violet-900">Immediate family</Label>
+                            <PortalPricingRuleFields
+                              offer={row.family}
+                              onPatch={(patch) => setCohortProgramFamily(p.id, patch)}
+                              variant="family"
+                            />
+                          </div>
+                          <div className="space-y-1">
+                            <Label className="text-[10px] text-sky-900">Friends &amp; extended</Label>
+                            <PortalPricingRuleFields
+                              offer={row.extended}
+                              onPatch={(patch) => setCohortProgramExtended(p.id, patch)}
+                              variant="extended"
+                            />
+                          </div>
+                          <div className="md:col-span-3">
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              className="text-[10px] h-7"
+                              onClick={() => clearCohortProgramOffers(p.id)}
+                            >
+                              Clear cohort overrides for this program
+                            </Button>
+                          </div>
+                        </div>
+                      </details>
+                    );
+                  })}
+                </div>
+              ) : cohortId ? (
+                <p className="text-[11px] text-gray-500 italic">No upcoming programs — mark programs as Upcoming to configure cohort pricing.</p>
+              ) : null}
+            </>
           )}
         </div>
 

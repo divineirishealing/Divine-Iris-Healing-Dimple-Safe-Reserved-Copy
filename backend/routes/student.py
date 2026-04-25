@@ -489,20 +489,67 @@ def _merge_program_dashboard_offers(
     return ao, fo, eo
 
 
-def _program_has_portal_pricing_override(per_map: Optional[dict], program_id: str) -> bool:
-    row = (per_map or {}).get(str(program_id)) if isinstance(per_map, dict) else None
+def _portal_offer_row_has_overrides(row: Optional[dict]) -> bool:
     if not isinstance(row, dict):
         return False
-    a = row.get("annual")
-    f = row.get("family")
-    e = row.get("extended")
-    if isinstance(a, dict) and len(a) > 0:
-        return True
-    if isinstance(f, dict) and len(f) > 0:
-        return True
-    if isinstance(e, dict) and len(e) > 0:
-        return True
+    for col in ("annual", "family", "extended"):
+        x = row.get(col)
+        if isinstance(x, dict) and len(x) > 0:
+            return True
     return False
+
+
+def _merge_program_dashboard_offers_with_batch(
+    global_ao: dict,
+    global_fo: dict,
+    global_eo: dict,
+    program_id: str,
+    per_map: Optional[dict],
+    batch_program_row: Optional[dict],
+) -> Tuple[dict, dict, dict]:
+    """Merge global + per-program portal offers, then layer AWRP / cohort batch row on top (batch wins)."""
+    ao, fo, eo = _merge_program_dashboard_offers(global_ao, global_fo, global_eo, program_id, per_map)
+    if not isinstance(batch_program_row, dict):
+        return ao, fo, eo
+    ao = {**ao, **(batch_program_row.get("annual") or {})}
+    fo = {**fo, **(batch_program_row.get("family") or {})}
+    eo = {**eo, **(batch_program_row.get("extended") or {})}
+    return ao, fo, eo
+
+
+def _client_awrp_batch_id(client: Optional[dict]) -> Optional[str]:
+    if not client:
+        return None
+    for key in ("awrp_batch_id",):
+        raw = client.get(key)
+        if raw is not None and str(raw).strip():
+            return str(raw).strip()
+    sub = client.get("subscription") or {}
+    raw = sub.get("awrp_batch_id")
+    if raw is not None and str(raw).strip():
+        return str(raw).strip()
+    return None
+
+
+def _batch_portal_row_for_program(batch_offers_root: Optional[dict], batch_id: Optional[str], program_id: str) -> Optional[dict]:
+    if not batch_id or not isinstance(batch_offers_root, dict):
+        return None
+    bmap = batch_offers_root.get(batch_id)
+    if not isinstance(bmap, dict):
+        return None
+    row = bmap.get(str(program_id))
+    return row if isinstance(row, dict) else None
+
+
+def _program_has_portal_pricing_override(
+    per_map: Optional[dict],
+    program_id: str,
+    batch_program_row: Optional[dict] = None,
+) -> bool:
+    row = (per_map or {}).get(str(program_id)) if isinstance(per_map, dict) else None
+    if _portal_offer_row_has_overrides(row):
+        return True
+    return _portal_offer_row_has_overrides(batch_program_row)
 
 
 def _all_dashboard_guest_rows(client: dict) -> List[dict]:
@@ -1308,8 +1355,11 @@ async def _portal_combined_dashboard_total(user: dict, profile: ProfileData) -> 
             "dashboard_offer_extended": 1,
             "annual_package_included_program_ids": 1,
             "dashboard_program_offers": 1,
+            "awrp_batch_program_offers": 1,
         },
     ) or {}
+    batch_root = settings_doc.get("awrp_batch_program_offers") or {}
+    batch_id = _client_awrp_batch_id(client)
     fam_all = await _all_dashboard_guest_rows_with_household(client_id, client, for_payment=True)
     fam_by_id = {str(m.get("id")) for m in fam_all if m.get("id")}
     fam_by_row = {str(m.get("id")): m for m in fam_all if m.get("id")}
@@ -1348,7 +1398,8 @@ async def _portal_combined_dashboard_total(user: dict, profile: ProfileData) -> 
             include_self = False
         else:
             include_self = bool(line.booker_joins)
-        ao, fo, eo = _merge_program_dashboard_offers(g_ao, g_fo, g_eo, pid, per_map)
+        brow = _batch_portal_row_for_program(batch_root, batch_id, pid)
+        ao, fo, eo = _merge_program_dashboard_offers_with_batch(g_ao, g_fo, g_eo, pid, per_map, brow)
         fo_plain = _family_offer_for_included_package_guests(included, imm_plain, fo)
         pricing = await compute_dashboard_annual_family_pricing(
             program,
@@ -1451,6 +1502,7 @@ async def dashboard_quote(
             "dashboard_offer_extended": 1,
             "annual_package_included_program_ids": 1,
             "dashboard_program_offers": 1,
+            "awrp_batch_program_offers": 1,
             "india_gst_percent": 1,
             "dashboard_annual_quote_show_tax": 1,
         },
@@ -1466,7 +1518,10 @@ async def dashboard_quote(
     g_fo = settings_doc.get("dashboard_offer_family") or {}
     g_eo = settings_doc.get("dashboard_offer_extended") or {}
     per_map = settings_doc.get("dashboard_program_offers") or {}
-    ao, fo, eo = _merge_program_dashboard_offers(g_ao, g_fo, g_eo, program_id, per_map)
+    batch_root = settings_doc.get("awrp_batch_program_offers") or {}
+    batch_id = _client_awrp_batch_id(client)
+    brow = _batch_portal_row_for_program(batch_root, batch_id, program_id)
+    ao, fo, eo = _merge_program_dashboard_offers_with_batch(g_ao, g_fo, g_eo, program_id, per_map, brow)
     plain_sel, peer_sel = 0, 0
     inc_cfg = settings_doc.get("annual_package_included_program_ids")
     if id_list:
@@ -1519,8 +1574,10 @@ async def dashboard_quote(
         "program_title": program.get("title", ""),
         "included_in_annual_package": included,
         "program_portal_pricing_override": bool(
-            annual_dashboard_access and _program_has_portal_pricing_override(per_map, program_id)
+            annual_dashboard_access
+            and _program_has_portal_pricing_override(per_map, program_id, brow)
         ),
+        "awrp_batch_id": batch_id,
         **pricing,
         "annual_household_peer_selected_count": peer_sel,
         "annual_household_peer_package_included_count": peer_pkg_inc,
@@ -1570,6 +1627,7 @@ async def build_admin_dashboard_pricing_snapshot(
             "dashboard_offer_extended": 1,
             "annual_package_included_program_ids": 1,
             "dashboard_program_offers": 1,
+            "awrp_batch_program_offers": 1,
             "india_gst_percent": 1,
             "dashboard_annual_quote_show_tax": 1,
         },
@@ -1578,6 +1636,8 @@ async def build_admin_dashboard_pricing_snapshot(
     g_fo = settings_doc.get("dashboard_offer_family") or {}
     g_eo = settings_doc.get("dashboard_offer_extended") or {}
     per_map = settings_doc.get("dashboard_program_offers") or {}
+    batch_root = settings_doc.get("awrp_batch_program_offers") or {}
+    batch_id = _client_awrp_batch_id(client)
     inc_cfg = settings_doc.get("annual_package_included_program_ids")
     gst_pct = float(settings_doc.get("india_gst_percent") or 18)
     qst = settings_doc.get("dashboard_annual_quote_show_tax", True)
@@ -1597,7 +1657,8 @@ async def build_admin_dashboard_pricing_snapshot(
         tier_idx = _dashboard_tier_index_for_preview(program, annual_dashboard_access)
         included = _portal_included_in_annual_package(program, inc_cfg, sub, client)
         include_self = False if included else True
-        ao, fo, eo = _merge_program_dashboard_offers(g_ao, g_fo, g_eo, pid, per_map)
+        brow = _batch_portal_row_for_program(batch_root, batch_id, pid)
+        ao, fo, eo = _merge_program_dashboard_offers_with_batch(g_ao, g_fo, g_eo, pid, per_map, brow)
         pricing = await compute_dashboard_annual_family_pricing(
             program,
             pid,
@@ -1624,7 +1685,7 @@ async def build_admin_dashboard_pricing_snapshot(
                 "program_title": program.get("title") or raw.get("title") or "",
                 "included_in_annual_package": included,
                 "portal_pricing_override": bool(
-                    annual_dashboard_access and _program_has_portal_pricing_override(per_map, pid)
+                    annual_dashboard_access and _program_has_portal_pricing_override(per_map, pid, brow)
                 ),
                 "tier_index": tier_idx,
                 "self_after_promos": pricing.get("self_after_promos"),
@@ -1676,6 +1737,7 @@ async def dashboard_pay(data: DashboardPayIn, request: Request, user: dict = Dep
             "dashboard_offer_extended": 1,
             "annual_package_included_program_ids": 1,
             "dashboard_program_offers": 1,
+            "awrp_batch_program_offers": 1,
         },
     ) or {}
     included = _portal_included_in_annual_package(
@@ -1715,7 +1777,10 @@ async def dashboard_pay(data: DashboardPayIn, request: Request, user: dict = Dep
     g_fo = settings_doc.get("dashboard_offer_family") or {}
     g_eo = settings_doc.get("dashboard_offer_extended") or {}
     per_map = settings_doc.get("dashboard_program_offers") or {}
-    ao, fo, eo = _merge_program_dashboard_offers(g_ao, g_fo, g_eo, data.program_id, per_map)
+    batch_root = settings_doc.get("awrp_batch_program_offers") or {}
+    bid = _client_awrp_batch_id(client)
+    brow = _batch_portal_row_for_program(batch_root, bid, data.program_id)
+    ao, fo, eo = _merge_program_dashboard_offers_with_batch(g_ao, g_fo, g_eo, data.program_id, per_map, brow)
     fo_plain = _family_offer_for_included_package_guests(included, imm_plain, fo)
     quote = await compute_dashboard_annual_family_pricing(
         program,
@@ -1881,6 +1946,7 @@ async def get_student_home(user: dict = Depends(get_current_student_user)):
             "dashboard_offer_family": 1,
             "dashboard_offer_extended": 1,
             "dashboard_program_offers": 1,
+            "awrp_portal_batches": 1,
             "india_gpay_accounts": 1,
             "india_bank_accounts": 1,
             "india_bank_details": 1,
@@ -1891,6 +1957,26 @@ async def get_student_home(user: dict = Depends(get_current_student_user)):
     dashboard_offer_family = settings_doc.get("dashboard_offer_family") or {}
     dashboard_offer_extended = settings_doc.get("dashboard_offer_extended") or {}
     dashboard_program_offers = settings_doc.get("dashboard_program_offers") or {}
+    awrp_batches_cfg = settings_doc.get("awrp_portal_batches") or []
+    batch_id_home = _client_awrp_batch_id(client)
+    awrp_batch_payload = None
+    if batch_id_home and isinstance(awrp_batches_cfg, list):
+        meta = next(
+            (
+                b
+                for b in awrp_batches_cfg
+                if isinstance(b, dict) and str(b.get("id") or "").strip() == batch_id_home
+            ),
+            None,
+        )
+        if meta:
+            awrp_batch_payload = {
+                "id": batch_id_home,
+                "label": (meta.get("label") or batch_id_home).strip(),
+                "notes": (meta.get("notes") or "").strip(),
+            }
+        else:
+            awrp_batch_payload = {"id": batch_id_home, "label": batch_id_home, "notes": ""}
     
     # 2. Subscription data (from Excel upload)
     sub = client.get("subscription", {})
@@ -2037,6 +2123,7 @@ async def get_student_home(user: dict = Depends(get_current_student_user)):
             "extended": dashboard_offer_extended,
         },
         "dashboard_program_offers": dashboard_program_offers,
+        "awrp_batch": awrp_batch_payload,
         "immediate_family": immediate_family,
         "annual_household_peers": annual_household_peers,
         "annual_household_club_ok": annual_household_club_ok,

@@ -1662,6 +1662,28 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh, bo
           </div>
         </div>
 
+        {homeData?.awrp_batch?.id ? (
+          <div
+            className="mb-4 rounded-xl border border-teal-200/90 bg-gradient-to-r from-teal-50/90 via-white/60 to-emerald-50/50 px-3 py-2.5 text-center sm:text-left"
+            data-testid="dashboard-awrp-cohort-banner"
+          >
+            <p className="text-[11px] font-semibold text-teal-950 leading-snug">
+              Your cohort pricing applies here:{' '}
+              <span className="font-bold">
+                {homeData.awrp_batch.label || homeData.awrp_batch.id}
+              </span>
+              {homeData.awrp_batch.label &&
+              homeData.awrp_batch.id &&
+              String(homeData.awrp_batch.label) !== String(homeData.awrp_batch.id) ? (
+                <span className="font-normal text-teal-800/90"> ({homeData.awrp_batch.id})</span>
+              ) : null}
+            </p>
+            {homeData.awrp_batch.notes ? (
+              <p className="text-[10px] text-teal-900/85 mt-1.5 leading-relaxed">{homeData.awrp_batch.notes}</p>
+            ) : null}
+          </div>
+        ) : null}
+
         {showOfferCountdownStrip && (
           <div
             className="mb-4 flex flex-col sm:flex-row sm:flex-wrap sm:items-center gap-2 sm:gap-x-4 rounded-xl border border-[rgba(212,175,55,0.28)] bg-gradient-to-r from-amber-50/75 via-white/55 to-violet-50/45 px-3 py-2.5"

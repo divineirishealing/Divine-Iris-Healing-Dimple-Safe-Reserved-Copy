@@ -638,7 +638,7 @@ async def list_subscribers():
     """Get all clients with subscription data."""
     clients = await db.clients.find(
         {"subscription": {"$exists": True}},
-        {"_id": 0, "id": 1, "name": 1, "email": 1, "label": 1, "subscription": 1}
+        {"_id": 0, "id": 1, "name": 1, "email": 1, "label": 1, "subscription": 1, "awrp_batch_id": 1},
     ).to_list(5000)
     return clients
 
@@ -723,6 +723,15 @@ class SubscriberCreate(BaseModel):
     # Iris annual journey (access tier by year on the path). manual = fixed year; auto = from start_date anniversaries
     iris_year: int = 1
     iris_year_mode: str = "manual"  # "manual" | "auto"
+    # Sacred Home portal cohort (Admin → Dashboard → AWRP batches); optional
+    awrp_batch_id: Optional[str] = None
+
+
+def _normalize_awrp_batch_id(v: Any) -> Optional[str]:
+    if v is None:
+        return None
+    s = str(v).strip()
+    return s if s else None
 
 
 def _normalize_iris_fields(data: SubscriberCreate) -> Dict[str, object]:
@@ -790,7 +799,14 @@ async def create_subscriber(data: SubscriberCreate):
         set_nm = normalize_person_name(raw_nm) if raw_nm else (existing.get("name") or "")
         await db.clients.update_one(
             {"_id": existing["_id"]},
-            {"$set": {"subscription": subscription, "name": set_nm, "updated_at": datetime.now(timezone.utc).isoformat()}}
+            {
+                "$set": {
+                    "subscription": subscription,
+                    "name": set_nm,
+                    "awrp_batch_id": _normalize_awrp_batch_id(data.awrp_batch_id),
+                    "updated_at": datetime.now(timezone.utc).isoformat(),
+                }
+            },
         )
         return {"message": "Subscriber updated", "id": existing["id"]}
     else:
@@ -811,6 +827,7 @@ async def create_subscriber(data: SubscriberCreate):
             "timeline": [{"type": "Admin Manual", "detail": f"Annual: {data.annual_program}", "date": _now}],
             "subscription": subscription,
             "notes": "",
+            "awrp_batch_id": _normalize_awrp_batch_id(data.awrp_batch_id),
             "created_at": _now,
             "updated_at": _now,
         }
@@ -860,7 +877,11 @@ async def update_subscriber(client_id: str, data: SubscriberCreate):
         **_normalize_iris_fields(data),
     }
 
-    update_fields = {"subscription": subscription, "updated_at": datetime.now(timezone.utc).isoformat()}
+    update_fields = {
+        "subscription": subscription,
+        "updated_at": datetime.now(timezone.utc).isoformat(),
+        "awrp_batch_id": _normalize_awrp_batch_id(data.awrp_batch_id),
+    }
     if data.name:
         update_fields["name"] = normalize_person_name(str(data.name).strip())
     if data.email:

@@ -25,6 +25,7 @@ const SUBSCRIBERS_SHEET_COLS = [
   { id: 'name', label: 'Name', required: true },
   { id: 'email', label: 'Email' },
   { id: 'package', label: 'Package' },
+  { id: 'awrp_batch', label: 'Portal cohort' },
   { id: 'start', label: 'Start' },
   { id: 'end', label: 'End' },
   { id: 'iris', label: 'Iris journey' },
@@ -375,6 +376,7 @@ const newDestId = () =>
 
 const blankForm = () => ({
   name: '', email: '', package_id: '', annual_program: '', start_date: '', end_date: '',
+  awrp_batch_id: '',
   total_fee: 0, currency: 'INR', display_currency: 'INR', payment_mode: 'No EMI', num_emis: 0, emi_day: 30,
   emis: [], programs: [], programs_detail: [], bi_annual_download: 0, quarterly_releases: 0,
   payment_methods: ['stripe', 'manual'],
@@ -882,6 +884,26 @@ const SubscriberForm = ({ initial, onSave, onCancel, saving, packages, irisCatal
         </p>
       </div>
 
+      <div className="rounded-lg border border-teal-100 bg-teal-50/30 p-3 space-y-2">
+        <Label className="text-xs">Sacred Home — AWRP / portal cohort (optional)</Label>
+        <select
+          value={f.awrp_batch_id || ''}
+          onChange={(e) => set('awrp_batch_id', e.target.value)}
+          className="w-full border rounded-md px-2 py-2 text-sm bg-white"
+          data-testid="subscriber-awrp-batch-select"
+        >
+          <option value="">— None — use standard portal pricing</option>
+          {(indiaSite?.awrp_portal_batches || []).map((b) => (
+            <option key={b.id} value={b.id}>
+              {(b.label || b.id) + (b.id && b.label && String(b.id) !== String(b.label) ? ` (${b.id})` : '')}
+            </option>
+          ))}
+        </select>
+        <p className="text-[9px] text-gray-500">
+          Cohorts are defined in Admin → Dashboard settings → AWRP batches. This only affects logged-in dashboard quotes.
+        </p>
+      </div>
+
       {/* Row 2 */}
       <div className="grid grid-cols-2 md:grid-cols-6 gap-3">
         <div><Label className="text-xs">Total Fee</Label><Input type="text" inputMode="decimal" value={f.total_fee} onChange={e => handleTotalFeeChange(e.target.value)} /></div>
@@ -1152,6 +1174,13 @@ const SubscriberRow = ({ s, onRefresh, onEdit, irisCatalog = [], packages = [], 
           )}
         </td>
         )}
+        {isVisible('awrp_batch') && (
+          <td className="px-3 py-2 text-left max-w-[100px]">
+            <span className="text-[10px] text-teal-800 font-mono truncate block" title={s.awrp_batch_id || ''}>
+              {s.awrp_batch_id || '—'}
+            </span>
+          </td>
+        )}
         {isVisible('start') && <td className="px-3 py-2 text-center text-gray-500 whitespace-nowrap">{sub.start_date}</td>}
         {isVisible('end') && <td className="px-3 py-2 text-center text-gray-500 whitespace-nowrap">{sub.end_date || '—'}</td>}
         {isVisible('iris') && (
@@ -1186,8 +1215,9 @@ const SubscriberRow = ({ s, onRefresh, onEdit, irisCatalog = [], packages = [], 
           <td colSpan={detailColSpan} className="bg-[#FDFBF7] px-4 py-4 border-b">
             {/* Top Stats — same as student */}
             <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-9 gap-3 mb-4">
-              {[
+                {[
                 { label: 'Package', value: pkgTitle, color: 'text-gray-900' },
+                { label: 'Portal cohort', value: s.awrp_batch_id || '—', color: 'text-teal-800' },
                 { label: 'Period', value: `${sub.start_date || '—'} → ${sub.end_date || '—'}`, color: 'text-gray-700' },
                 { label: 'Disc/tax', value: overrideStr, color: 'text-gray-600' },
                 { label: 'Pay methods', value: payMethodsStr, color: 'text-gray-600' },
@@ -1511,7 +1541,8 @@ const SubscribersTab = ({ openManualFormOnMount = false }) => {
       : '',
     preferred_india_gpay_id: editTarget.subscription?.preferred_india_gpay_id || '',
     preferred_india_bank_id: editTarget.subscription?.preferred_india_bank_id || '',
-    sessions: editTarget.subscription?.sessions || { carry_forward: 0, current: 0, total: 0, availed: 0, yet_to_avail: 0, due: 0, scheduled_dates: [] }
+    sessions: editTarget.subscription?.sessions || { carry_forward: 0, current: 0, total: 0, availed: 0, yet_to_avail: 0, due: 0, scheduled_dates: [] },
+    awrp_batch_id: editTarget.awrp_batch_id || editTarget.subscription?.awrp_batch_id || '',
   } : null;
 
   // Payment approval handlers
@@ -1671,6 +1702,7 @@ const SubscribersTab = ({ openManualFormOnMount = false }) => {
                   {subColVisible('name') && <th className="px-3 py-2 text-left sticky left-0 bg-gray-50 z-10 border-r">Name</th>}
                   {subColVisible('email') && <th className="px-3 py-2 text-left">Email</th>}
                   {subColVisible('package') && <th className="px-3 py-2 text-left">Package</th>}
+                  {subColVisible('awrp_batch') && <th className="px-3 py-2 text-left">Portal cohort</th>}
                   {subColVisible('start') && <th className="px-3 py-2 text-center">Start</th>}
                   {subColVisible('end') && <th className="px-3 py-2 text-center">End</th>}
                   {subColVisible('iris') && <th className="px-3 py-2 text-left">Iris journey</th>}

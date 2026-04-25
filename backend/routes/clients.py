@@ -1986,6 +1986,8 @@ class ClientUpdate(BaseModel):
     referred_by_client_id: Optional[str] = None
     # CRM grid first-seen column: YYYY-MM-DD or ISO 8601 → stored as UTC ISO on ``created_at``
     created_at: Optional[str] = None
+    # Portal cohort for layered AWRP / batch pricing (Admin → Dashboard settings)
+    awrp_batch_id: Optional[str] = None
 
 
 @router.put("/{client_id}")
@@ -2100,6 +2102,12 @@ async def update_client(client_id: str, data: ClientUpdate):
         update_fields["household_key"] = hk if hk else None
     if data.is_primary_household_contact is not None:
         update_fields["is_primary_household_contact"] = bool(data.is_primary_household_contact)
+    if "awrp_batch_id" in incoming:
+        ab = data.awrp_batch_id
+        if ab is None or (isinstance(ab, str) and not str(ab).strip()):
+            update_fields["awrp_batch_id"] = None
+        else:
+            update_fields["awrp_batch_id"] = str(ab).strip()
 
     if data.email is not None:
         new_em = normalize_email(data.email)
