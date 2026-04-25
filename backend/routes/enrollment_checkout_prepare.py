@@ -247,7 +247,8 @@ async def enrollment_checkout_prepare(
         except Exception as e:
             logger.warning("Promo code error: %s", e)
 
-    auto_discount = 0
+    disc_result: dict = {}
+    auto_discount = 0.0
     try:
         from routes.discounts import calculate_discounts as _calc_discounts
 
@@ -273,6 +274,8 @@ async def enrollment_checkout_prepare(
         auto_discount = float(disc_result.get("total_discount", 0))
     except Exception as e:
         logger.warning("Auto discount calc error: %s", e)
+        disc_result = {}
+        auto_discount = 0.0
 
     vip_discount = 0
     vip_offer_name = ""
@@ -317,15 +320,58 @@ async def enrollment_checkout_prepare(
     except Exception as e:
         logger.warning("VIP offer check error: %s", e)
 
-    best_discount = 0
+    # Cart UI stacks promo + group/combo/loyalty/cross-sell. VIP/special offer stays exclusive (single best).
     if vip_discount > 0:
-        best_discount = vip_discount
-    elif promo_discount > 0:
-        best_discount = promo_discount
-    elif auto_discount > 0:
-        best_discount = auto_discount
+        after_cart_deals = max(0.0, round(float(total) - float(vip_discount), 2))
+    else:
+        promo_d = float(promo_discount or 0)
+        auto_d = float(disc_result.get("total_discount", 0)) if disc_result else 0.0
+        after_cart_deals = max(0.0, round(float(total) - promo_d - auto_d, 2))
 
-    final_total = max(0, total - best_discount)
+    final_total = float(after_cart_deals)
+
+    # Portal Stripe (INR): charge taxable base after Client Garden CRM discount (no GST add-on), matching
+    # Divine Cart / dashboard flows when `portal_checkout_cancel` is sent. Skip for pre-mixed admin totals.
+    if (
+        str(currency or "").lower() == "inr"
+        and final_total > 0
+        and enrollment.get("dashboard_mixed_total") is None
+        and getattr(data, "portal_checkout_cancel", None) is True
+    ):
+        try:
+            ss_inr = await db.site_settings.find_one(
+                {"id": "site_settings"},
+                {"_id": 0, "india_gst_percent": 1, "india_platform_charge_percent": 1},
+            )
+            booker_em = (enrollment.get("booker_email") or "").strip().lower()
+            cid = (enrollment.get("client_id") or "").strip()
+            cp_proj = {
+                "_id": 0,
+                "india_discount_percent": 1,
+                "india_discount_member_bands": 1,
+                "india_tax_enabled": 1,
+                "india_tax_percent": 1,
+                "india_tax_label": 1,
+            }
+            cp_doc = None
+            if cid:
+                cp_doc = await db.clients.find_one({"id": cid}, cp_proj)
+            if not cp_doc and booker_em:
+                cp_doc = await db.clients.find_one({"email": booker_em}, cp_proj)
+            from utils.india_checkout_math import compute_india_checkout_breakdown
+
+            br = compute_india_checkout_breakdown(
+                float(final_total),
+                cp_doc,
+                ss_inr,
+                max(1, int(participant_count or 1)),
+            )
+            if br:
+                tx = float(br.get("taxable_inr") or 0)
+                if tx > 0:
+                    final_total = round(tx, 2)
+        except Exception as e:
+            logger.warning("INR Stripe taxable base alignment error: %s", e)
 
     points_redeemed = 0
     points_discount = 0.0

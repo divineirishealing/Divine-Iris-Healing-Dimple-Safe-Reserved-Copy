@@ -121,7 +121,13 @@ function CartCheckoutPage() {
     [items],
   );
 
-  const [autoDiscounts, setAutoDiscounts] = useState({ group_discount: 0, combo_discount: 0, loyalty_discount: 0, total_discount: 0 });
+  const [autoDiscounts, setAutoDiscounts] = useState({
+    group_discount: 0,
+    combo_discount: 0,
+    loyalty_discount: 0,
+    cross_sell_discount: 0,
+    total_discount: 0,
+  });
 
   useEffect(() => {
     if (subtotal <= 0) return;
@@ -137,7 +143,15 @@ function CartCheckoutPage() {
           })),
         });
         setAutoDiscounts(res.data);
-      } catch { setAutoDiscounts({ group_discount: 0, combo_discount: 0, loyalty_discount: 0, total_discount: 0 }); }
+      } catch {
+        setAutoDiscounts({
+          group_discount: 0,
+          combo_discount: 0,
+          loyalty_discount: 0,
+          cross_sell_discount: 0,
+          total_discount: 0,
+        });
+      }
     };
     const timer = setTimeout(fetchDiscounts, 300);
     return () => clearTimeout(timer);
@@ -148,7 +162,11 @@ function CartCheckoutPage() {
     if (promoResult.discount_type === 'percentage') return Math.round(subtotal * promoResult.discount_percentage / 100);
     return promoResult[`discount_${currency}`] || promoResult.discount_aed || 0;
   })();
-  const totalAutoDiscount = (autoDiscounts.group_discount || 0) + (autoDiscounts.combo_discount || 0) + (autoDiscounts.loyalty_discount || 0);
+  const totalAutoDiscount =
+    (autoDiscounts.group_discount || 0) +
+    (autoDiscounts.combo_discount || 0) +
+    (autoDiscounts.loyalty_discount || 0) +
+    (autoDiscounts.cross_sell_discount || 0);
   const total = Math.max(0, subtotal - discount - totalAutoDiscount);
 
   useEffect(() => {
@@ -281,6 +299,12 @@ function CartCheckoutPage() {
                   {autoDiscounts.loyalty_discount > 0 && (
                     <div className="flex justify-between text-xs text-green-600" data-testid="discount-loyalty">
                       <span>Loyalty Discount</span><span>-{symbol} {autoDiscounts.loyalty_discount.toLocaleString()}</span>
+                    </div>
+                  )}
+                  {autoDiscounts.cross_sell_discount > 0 && (
+                    <div className="flex justify-between text-xs text-green-600" data-testid="discount-cross-sell">
+                      <span>Bundle / cross-sell</span>
+                      <span>-{symbol} {autoDiscounts.cross_sell_discount.toLocaleString()}</span>
                     </div>
                   )}
                   {discount > 0 && (
