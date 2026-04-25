@@ -5,11 +5,61 @@ export const useCart = () => useContext(CartContext);
 
 const STORAGE_KEY = 'divine_iris_cart';
 
+/**
+ * Canonical tier index for cart matching. Flagship: default 0 when missing/invalid; non-flagship: always 0.
+ * Prevents duplicate lines for the same program (e.g. tierIndex undefined vs 0 from different sync paths).
+ */
+export function normalizeCartProgramTier(program, tierIndex) {
+  const tiers = program.duration_tiers || program.durationTiers || [];
+  const isFlagship = !!(program.is_flagship ?? program.isFlagship);
+  if (isFlagship && tiers.length > 0) {
+    if (tierIndex == null || tierIndex === '' || Number.isNaN(Number(tierIndex))) return 0;
+    const n = Number(tierIndex);
+    if (!Number.isFinite(n) || n < 0 || n >= tiers.length) return 0;
+    return n;
+  }
+  return 0;
+}
+
+function normalizeTierFromCartItem(item) {
+  return normalizeCartProgramTier(item, item.tierIndex);
+}
+
+/** Merge duplicate program+tier rows (legacy bad state); prefer line with portal meta / more seats. */
+function dedupeProgramCartItems(items) {
+  const result = [];
+  const keyToIndex = new Map();
+  const lineScore = (x) =>
+    (x.portalLineMeta && Object.keys(x.portalLineMeta).length ? 4 : 0) + (x.participants?.length || 0);
+  for (const item of items) {
+    if (item.type !== 'program') {
+      result.push(item);
+      continue;
+    }
+    const nt = normalizeTierFromCartItem(item);
+    const canon = { ...item, tierIndex: nt };
+    const key = `${String(canon.programId)}:${nt}`;
+    if (!keyToIndex.has(key)) {
+      keyToIndex.set(key, result.length);
+      result.push(canon);
+    } else {
+      const idx = keyToIndex.get(key);
+      const prev = result[idx];
+      const pick = lineScore(canon) > lineScore(prev) ? canon : prev;
+      result[idx] = { ...pick, tierIndex: nt, id: prev.id };
+    }
+  }
+  return result;
+}
+
 const loadCart = () => {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
-    return raw ? JSON.parse(raw) : [];
-  } catch { return []; }
+    const parsed = raw ? JSON.parse(raw) : [];
+    return dedupeProgramCartItems(parsed);
+  } catch {
+    return [];
+  }
 };
 
 const saveCart = (items) => {
@@ -19,12 +69,31 @@ const saveCart = (items) => {
 export const CartProvider = ({ children }) => {
   const [items, setItems] = useState(loadCart);
 
+  /** One-time merge of duplicate program lines (e.g. tierIndex undefined vs 0) without full page reload. */
+  useEffect(() => {
+    setItems((prev) => {
+      const next = dedupeProgramCartItems(prev);
+      try {
+        if (JSON.stringify(prev) === JSON.stringify(next)) return prev;
+      } catch {
+        return next;
+      }
+      return next;
+    });
+  }, []);
+
   useEffect(() => { saveCart(items); }, [items]);
 
   const addItem = useCallback((program, tierIndex, participantsOverride = null) => {
     const tiers = program.duration_tiers || [];
-    const tier = tiers[tierIndex] || null;
-    const exists = items.find(i => i.programId === program.id && i.tierIndex === tierIndex);
+    const normalizedTier = normalizeCartProgramTier(program, tierIndex);
+    const tier = tiers[normalizedTier] || null;
+    const exists = items.find(
+      (i) =>
+        i.type === 'program' &&
+        String(i.programId) === String(program.id) &&
+        normalizeTierFromCartItem(i) === normalizedTier,
+    );
     if (exists) return false;
 
     const defaultParticipant = {
@@ -43,14 +112,14 @@ export const CartProvider = ({ children }) => {
     }
 
     const newItem = {
-      id: `${program.id}-${tierIndex}-${Date.now()}`,
+      id: `${program.id}-${normalizedTier}-${Date.now()}`,
       type: 'program',
       programId: program.id,
       programTitle: program.title,
       programImage: program.image,
       programCategory: program.category,
       sessionMode: program.session_mode,
-      tierIndex,
+      tierIndex: normalizedTier,
       tierLabel: tier?.label || 'Standard',
       isFlagship: program.is_flagship,
       durationTiers: tiers,
@@ -75,7 +144,8 @@ export const CartProvider = ({ children }) => {
    */
   const syncProgramLineItem = useCallback((program, tierIndex, participantsOverride = null, portalLineMeta = null) => {
     const tiers = program.duration_tiers || [];
-    const tier = tiers[tierIndex] || null;
+    const normalizedTier = normalizeCartProgramTier(program, tierIndex);
+    const tier = tiers[normalizedTier] || null;
     const defaultParticipant = {
       name: '', relationship: 'Myself', age: '', gender: '',
       country: '', city: '', state: '',
@@ -92,14 +162,14 @@ export const CartProvider = ({ children }) => {
     }
 
     const newItem = {
-      id: `${program.id}-${tierIndex}-${Date.now()}`,
+      id: `${program.id}-${normalizedTier}-${Date.now()}`,
       type: 'program',
       programId: program.id,
       programTitle: program.title,
       programImage: program.image,
       programCategory: program.category,
       sessionMode: program.session_mode,
-      tierIndex,
+      tierIndex: normalizedTier,
       tierLabel: tier?.label || 'Standard',
       isFlagship: program.is_flagship,
       durationTiers: tiers,
@@ -117,7 +187,12 @@ export const CartProvider = ({ children }) => {
     };
 
     setItems((prev) => {
-      const idx = prev.findIndex((i) => i.programId === program.id && i.tierIndex === tierIndex);
+      const idx = prev.findIndex(
+        (i) =>
+          i.type === 'program' &&
+          String(i.programId) === String(program.id) &&
+          normalizeTierFromCartItem(i) === normalizedTier,
+      );
       if (idx === -1) {
         return [...prev, newItem];
       }
@@ -126,7 +201,13 @@ export const CartProvider = ({ children }) => {
         portalLineMeta && typeof portalLineMeta === 'object'
           ? { ...(existing.portalLineMeta || {}), ...portalLineMeta }
           : existing.portalLineMeta;
-      const nextLine = { ...existing, participants, portalLineMeta: mergedMeta };
+      const nextLine = {
+        ...existing,
+        tierIndex: normalizedTier,
+        tierLabel: tier?.label || existing.tierLabel || 'Standard',
+        participants,
+        portalLineMeta: mergedMeta,
+      };
       try {
         if (
           JSON.stringify(existing.participants) === JSON.stringify(participants) &&

@@ -1638,7 +1638,7 @@ export default function DashboardCombinedCheckoutPage() {
             </div>
           ) : null}
           <div className="flex justify-between text-sm font-semibold text-green-800 border-t border-dashed border-green-200/80 pt-2 mt-2">
-            <span>Extra off (promos &amp; rewards)</span>
+            <span>Total discounts (sum of lines above)</span>
             <span className="tabular-nums">
               {totalDiscountIncludingIndia > 0
                 ? `-${symbol} ${totalDiscountIncludingIndia.toLocaleString()}`
