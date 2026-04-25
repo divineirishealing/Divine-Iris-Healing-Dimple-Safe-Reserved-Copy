@@ -920,6 +920,7 @@ export default function DashboardCombinedCheckoutPage() {
     combo_discount: 0,
     loyalty_discount: 0,
     cross_sell_discount: 0,
+    cross_sell_details: [],
     total_discount: 0,
   });
 
@@ -951,12 +952,12 @@ export default function DashboardCombinedCheckoutPage() {
           combo_discount: 0,
           loyalty_discount: 0,
           cross_sell_discount: 0,
+          cross_sell_details: [],
           total_discount: 0,
         });
       }
     };
-    const timer = setTimeout(fetchDiscounts, 300);
-    return () => clearTimeout(timer);
+    fetchDiscounts();
   }, [subtotal, totalParticipants, numPrograms, bookerEmail, currency, items, programCartLines]);
 
   const validatePromo = async () => {
@@ -980,18 +981,33 @@ export default function DashboardCombinedCheckoutPage() {
 
   const discount = (() => {
     if (!promoResult) return 0;
-    if (promoResult.discount_type === 'percentage')
-      return Math.round(subtotal * promoResult.discount_percentage / 100);
+    if (promoResult.discount_type === 'percentage') {
+      const raw = (subtotal * (promoResult.discount_percentage || 0)) / 100;
+      return Math.round(raw * 100) / 100;
+    }
     return promoResult[`discount_${currency}`] || promoResult.discount_aed || 0;
   })();
-  /** Group / combo / loyalty from API only — bundle/cross-sell matches CartPage via computeCrossSellDiscount. */
+  /** Same engine as checkout: /discounts/calculate (cross-sell % uses DB tier prices like Stripe). */
+  const apiCrossSellDiscount = Number(autoDiscounts.cross_sell_discount) || 0;
   const stackAutoDiscount =
     (autoDiscounts.group_discount || 0) +
     (autoDiscounts.combo_discount || 0) +
     (autoDiscounts.loyalty_discount || 0);
-  const totalAutoDiscount = stackAutoDiscount + clientCrossSellTotal;
+  const totalAutoDiscount = stackAutoDiscount + apiCrossSellDiscount;
   const totalDiscountAmount = totalAutoDiscount + discount;
-  const total = Math.max(0, subtotal - discount - clientCrossSellTotal - stackAutoDiscount);
+  const total = Math.max(0, subtotal - discount - apiCrossSellDiscount - stackAutoDiscount);
+
+  const crossSellDisplayRows = useMemo(() => {
+    const det = autoDiscounts.cross_sell_details;
+    if (Array.isArray(det) && det.length > 0) {
+      return det.map((d) => ({
+        label: d.rule || d.code || 'Bundle',
+        amount: Number(d.amount) || 0,
+        title: '',
+      }));
+    }
+    return clientCrossSellRows;
+  }, [autoDiscounts.cross_sell_details, clientCrossSellRows]);
 
   /** INR: same stack as India payment page (Client Garden + Payment Settings) on net after cart promos. */
   const indiaBreakdown = useMemo(() => {
@@ -1632,16 +1648,16 @@ export default function DashboardCombinedCheckoutPage() {
               </span>
             </div>
           )}
-          {clientCrossSellRows.map((row, i) => (
+          {crossSellDisplayRows.map((row, i) => (
             <div
-              key={`xs-${i}-${row.title}`}
+              key={`xs-${i}-${row.label}-${row.amount}`}
               className="flex justify-between text-sm text-green-700"
               data-testid={`dashboard-checkout-cross-sell-${i}`}
             >
               <span className="flex items-center gap-1 min-w-0">
                 <Gift size={14} className="shrink-0 text-green-700" />
                 <span className="truncate">
-                  {row.label || 'Bundle'} ({row.title})
+                  {row.title ? `${row.label || 'Bundle'} (${row.title})` : row.label || 'Bundle'}
                 </span>
               </span>
               <span className="tabular-nums shrink-0">

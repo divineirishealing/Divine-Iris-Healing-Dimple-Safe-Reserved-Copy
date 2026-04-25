@@ -369,7 +369,8 @@ async def enrollment_checkout_prepare(
             if br:
                 tx = float(br.get("taxable_inr") or 0)
                 if tx > 0:
-                    final_total = round(tx, 2)
+                    # Match Divine Cart: Math.round(taxableBase) whole rupees for Stripe.
+                    final_total = float(int(round(tx)))
         except Exception as e:
             logger.warning("INR Stripe taxable base alignment error: %s", e)
 
