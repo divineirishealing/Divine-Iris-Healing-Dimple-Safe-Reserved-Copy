@@ -1547,7 +1547,8 @@ export default function DashboardCombinedCheckoutPage() {
                 : `${symbol} 0`}
             </span>
           </div>
-          {indiaBreakdown &&
+          {showIndiaInrSettlement &&
+          indiaBreakdown &&
           (Math.round(indiaBreakdown.gstAmount) > 0 || Math.round(indiaBreakdown.platformAmount) > 0) ? (
             <>
               <div className="flex justify-between text-sm text-gray-700 mt-2 pt-2 border-t border-gray-100">
