@@ -235,9 +235,8 @@ export default function AnnualPortalClientsTab() {
 
   const colSpanFlat = Math.max(flatVisibleCount, 1);
 
-  /** Same actions in the page header and above the grid so upload stays next to the table. */
-  const excelToolbar = (wrapClassName) => (
-    <div className={wrapClassName}>
+  const excelToolbar = (
+    <div className="flex flex-wrap items-center gap-2">
       <Button
         type="button"
         variant="outline"
@@ -276,7 +275,7 @@ export default function AnnualPortalClientsTab() {
 
   return (
     <div className="w-full min-w-0 flex flex-col gap-2">
-      {/* One file input for both toolbars; label+sr-only was unreliable with duplicate pickers */}
+      {/* Single hidden input; opened via button next to the grid */}
       <input
         ref={excelFileInputRef}
         type="file"
@@ -288,16 +287,13 @@ export default function AnnualPortalClientsTab() {
           setUploadReport(null);
         }}
       />
-      <div className="flex flex-wrap items-start justify-between gap-3 shrink-0">
-        <div className="min-w-0">
-          <h2 className="text-base font-semibold text-gray-900">Annual + dashboard (Client Garden)</h2>
-          <p className="text-xs text-gray-600 mt-0.5 max-w-3xl">
-            Table columns: #, Name, Email Id, Start/End Date, DIID, HomeComing, Usage (summary), HOUSEHOLD, PRIMARY, Client id.{' '}
-            <strong>Template</strong> uses the same order; usage counts are split into separate columns for upload.{' '}
-            <strong>Upload</strong> finds columns by <strong>header title</strong> (not left-to-right order); if row 1 is a dashboard title, headers on row 2 are detected automatically. Members without email: use <strong>Client id</strong>.
-          </p>
-        </div>
-        {excelToolbar('flex flex-wrap items-center gap-2 shrink-0')}
+      <div className="shrink-0 min-w-0">
+        <h2 className="text-base font-semibold text-gray-900">Annual + dashboard (Client Garden)</h2>
+        <p className="text-xs text-gray-600 mt-0.5 max-w-3xl">
+          Table columns: #, Name, Email Id, Start/End Date, DIID, HomeComing, Usage (summary), HOUSEHOLD, PRIMARY, Client id.{' '}
+          <strong>Template</strong> uses the same order; usage counts are split into separate columns for upload.{' '}
+          <strong>Upload</strong> finds columns by <strong>header title</strong> (not left-to-right order); if row 1 is a dashboard title, headers on row 2 are detected automatically. Members without email: use <strong>Client id</strong>.
+        </p>
       </div>
 
       {uploadReport && (
@@ -435,8 +431,8 @@ export default function AnnualPortalClientsTab() {
 
       <div className={sheetFrame}>
         <div className="shrink-0 flex flex-wrap items-center gap-2 border-b border-[#8c8c8c] bg-[#e8f0e8] px-2 py-1.5">
-          <span className="text-[10px] font-bold text-[#1b5e20] uppercase tracking-wide mr-0.5">Excel on this table</span>
-          {excelToolbar('flex flex-wrap items-center gap-2')}
+          <span className="text-[10px] font-bold text-[#1b5e20] uppercase tracking-wide mr-0.5">Excel</span>
+          {excelToolbar}
         </div>
         <div className={sheetScroll}>
         {viewMode === 'flat' ? (
