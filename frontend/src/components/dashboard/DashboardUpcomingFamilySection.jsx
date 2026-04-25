@@ -1062,15 +1062,12 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh, bo
     }
   };
 
+  /** Website upcoming cards do not auto-apply dashboard family/extended promos — only Annual+Dashboard uses portal promo codes. */
   const promoForProgramClicks = useMemo(() => {
+    if (!annualPortalAccess) return '';
     const a = (annualOffer.promo_code || '').trim();
-    const f = (familyOffer.promo_code || '').trim();
-    const x = (extendedOffer.promo_code || '').trim();
-    if (annualPortalAccess) return annualOffer.enabled && a ? a : '';
-    if (familyOffer.enabled && f) return f;
-    if (extendedOffer.enabled && x) return x;
-    return '';
-  }, [annualPortalAccess, annualOffer, familyOffer, extendedOffer]);
+    return annualOffer.enabled && a ? a : '';
+  }, [annualPortalAccess, annualOffer]);
 
   const prefetchProgramsKey = useMemo(
     () => programsForPrefetch.map((p) => p.id).join(','),
@@ -1112,6 +1109,10 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh, bo
 
   useEffect(() => {
     if (!currencyReady) {
+      setAnnualQuotes({});
+      return;
+    }
+    if (!annualPortalAccess) {
       setAnnualQuotes({});
       return;
     }
@@ -1742,12 +1743,13 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh, bo
             className="mb-4 text-center text-[11px] text-slate-600 leading-relaxed px-1"
             data-testid="dashboard-website-pricing-note"
           >
-            Pricing and offers use the same published tier rates and cart discounts as the main website (not the
-            Annual+Dashboard member columns).
+            Pricing matches the homepage Upcoming Programs cards: published list/offer for your tier and currency (no
+            member portal quote or auto-applied dashboard promo codes). Cart bundles and Divine Cart discounts still
+            apply at checkout like on the public site.
           </p>
         ) : null}
 
-        {homeData?.awrp_batch?.id ? (
+        {annualPortalAccess && homeData?.awrp_batch?.id ? (
           <div
             className="mb-4 rounded-xl border border-teal-200/90 bg-gradient-to-r from-teal-50/90 via-white/60 to-emerald-50/50 px-3 py-2.5 text-center sm:text-left"
             data-testid="dashboard-awrp-cohort-banner"
@@ -1833,10 +1835,10 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh, bo
                   annualDashboardAccess={annualPortalAccess}
                   bookerEmail={bookerEmail}
                   detectedCountry={detectedCountry}
-                  symbol={portalQuoteSymbol}
-                  currency={portalQuoteCurrency}
-                  getPrice={displayGetPrice}
-                  getOfferPrice={displayGetOfferPrice}
+                  symbol={annualPortalAccess ? portalQuoteSymbol : symbol}
+                  currency={annualPortalAccess ? portalQuoteCurrency : currency}
+                  getPrice={annualPortalAccess ? displayGetPrice : getPrice}
+                  getOfferPrice={annualPortalAccess ? displayGetOfferPrice : getOfferPrice}
                   promoForProgramClicks={promoForProgramClicks}
                   promoByProgramId={promoByProgramId}
                   promoPricesLoading={promoPricesLoading}

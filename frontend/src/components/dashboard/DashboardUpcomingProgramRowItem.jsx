@@ -363,7 +363,10 @@ export default function DashboardUpcomingProgramRowItem({
   const offerPrice = getOfferPrice(p, hasTiers ? tierIdxForDisplay : null);
   /** Tier offer when set, else list — matches program page; portal column overlays apply only with Annual+Dashboard access (backend). */
   const dashboardSeatUnit = offerPrice > 0 ? offerPrice : price;
-  const showContact = !subscriberIsAnnual && tierIsYearLong && price === 0;
+  /** Match public UpcomingProgramsSection: year-long tier with list price 0 → contact. Annual+Dashboard keeps legacy gate for subscribers. */
+  const showContact = annualDashboardAccess
+    ? !subscriberIsAnnual && tierIsYearLong && price === 0
+    : tierIsYearLong && price === 0;
 
   const deadline = p.deadline_date || p.start_date;
   const expired = useMemo(() => {
