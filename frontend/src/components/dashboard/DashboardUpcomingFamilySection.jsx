@@ -143,6 +143,40 @@ function createEmptySeatDraft() {
   };
 }
 
+/** Restore seat drafts from session without dropping attendance / notify (must match what we persist). */
+function sanitizeSeatDraftFromSession(v) {
+  if (!v || typeof v !== 'object') return null;
+  const row = { bookerJoinsProgram: v.bookerJoinsProgram !== false };
+  if (typeof v.familyPaidTierIndex === 'number') row.familyPaidTierIndex = v.familyPaidTierIndex;
+  if (v.memberTierById && typeof v.memberTierById === 'object') {
+    const mt = {};
+    Object.entries(v.memberTierById).forEach(([id, ti]) => {
+      if (typeof ti === 'number' && ti >= 0) mt[String(id)] = ti;
+    });
+    if (Object.keys(mt).length) row.memberTierById = mt;
+  }
+  if (v.bookerSeatMode === 'offline' || v.bookerSeatMode === 'online') {
+    row.bookerSeatMode = v.bookerSeatMode;
+  }
+  if (v.bookerSeatNotify !== undefined && v.bookerSeatNotify !== null) {
+    row.bookerSeatNotify = !!v.bookerSeatNotify;
+  }
+  if (v.guestSeatForm && typeof v.guestSeatForm === 'object') {
+    const gf = {};
+    Object.entries(v.guestSeatForm).forEach(([gid, g]) => {
+      if (!g || typeof g !== 'object') return;
+      const id = String(gid);
+      const am = g.attendance_mode === 'offline' ? 'offline' : 'online';
+      gf[id] = {
+        attendance_mode: am,
+        notify_enrollment: !!g.notify_enrollment,
+      };
+    });
+    if (Object.keys(gf).length) row.guestSeatForm = gf;
+  }
+  return row;
+}
+
 /** Matches modal state to a bulk attendance preset (for radio / checkbox group). */
 function deriveAttendanceQuickPreset(ctx, guestForm, bookerMode) {
   if (!ctx) return 'custom';
@@ -895,17 +929,8 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh, bo
     if (data.seatDraftsByProgram && typeof data.seatDraftsByProgram === 'object') {
       const slim = {};
       Object.entries(data.seatDraftsByProgram).forEach(([k, v]) => {
-        if (!v || typeof v !== 'object') return;
-        const row = { bookerJoinsProgram: v.bookerJoinsProgram !== false };
-        if (typeof v.familyPaidTierIndex === 'number') row.familyPaidTierIndex = v.familyPaidTierIndex;
-        if (v.memberTierById && typeof v.memberTierById === 'object') {
-          const mt = {};
-          Object.entries(v.memberTierById).forEach(([id, ti]) => {
-            if (typeof ti === 'number' && ti >= 0) mt[String(id)] = ti;
-          });
-          if (Object.keys(mt).length) row.memberTierById = mt;
-        }
-        slim[k] = row;
+        const row = sanitizeSeatDraftFromSession(v);
+        if (row) slim[k] = row;
       });
       setSeatDraftsByProgram(slim);
     }
