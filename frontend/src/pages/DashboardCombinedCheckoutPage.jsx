@@ -836,19 +836,20 @@ export default function DashboardCombinedCheckoutPage() {
         }
         const unitOfferRaw = toDisplay(portalBase.offer);
         const unitListRaw = toDisplay(portalBase.list);
-        const gross = unitOfferRaw > 0 ? unitOfferRaw : unitListRaw;
+        const baseline = unitOfferRaw > 0 ? unitOfferRaw : unitListRaw;
         const xs =
-          crossSellRules?.length && gross > 0
+          crossSellRules?.length && baseline > 0
             ? crossSellSeatDiscountAmount(
                 crossSellRules,
                 item,
                 p,
                 cartLinesNormalizedForCrossSell,
                 programCartLines,
-                gross,
+                unitOfferRaw,
+                unitListRaw,
               )
             : 0;
-        sum += Math.max(0, gross - xs);
+        sum += Math.max(0, baseline - xs);
       }
     }
     if (!allQuoted || items.length === 0) return null;
@@ -875,11 +876,11 @@ export default function DashboardCombinedCheckoutPage() {
     if (!crossSellRules.length || !programCartLines.length) {
       return { clientCrossSellTotal: 0, clientCrossSellRows: [] };
     }
-    const payableUnitForParticipant = (item, p) => {
+    const offerListForParticipant = (item, p) => {
       const meta = item.portalLineMeta || {};
       const selfIncluded =
         meta.annualIncluded && String(p.relationship || '').trim() === 'Myself';
-      if (selfIncluded) return 0;
+      if (selfIncluded) return { offer: 0, list: 0 };
       const lineQuote = annualQuotesByProgram[String(item.programId)] || null;
       const guestBucketById = lineQuote ? effectiveGuestBucketById(item, lineQuote) : meta.guestBucketById || {};
       const portalBase = lineQuote
@@ -892,7 +893,7 @@ export default function DashboardCombinedCheckoutPage() {
           ? fallbackOffer
           : getItemPrice(item);
       const unitListRaw = portalBase ? toDisplay(portalBase.list) : getItemPrice(item);
-      return unitOfferRaw > 0 ? unitOfferRaw : unitListRaw;
+      return { offer: unitOfferRaw, list: unitListRaw };
     };
     let total = 0;
     const rows = [];
@@ -902,7 +903,7 @@ export default function DashboardCombinedCheckoutPage() {
         item,
         cartLinesNormalizedForCrossSell,
         programCartLines,
-        payableUnitForParticipant,
+        offerListForParticipant,
       );
       if (summ.total > 0) {
         total += summ.total;
@@ -936,22 +937,23 @@ export default function DashboardCombinedCheckoutPage() {
         const unitListRaw = portalBase
           ? toDisplay(portalBase.list)
           : getItemPrice(item);
-        const payable = unitOfferRaw > 0 ? unitOfferRaw : unitListRaw;
+        const baseline = unitOfferRaw > 0 ? unitOfferRaw : unitListRaw;
         const listPart =
-          unitOfferRaw > 0 && unitListRaw > unitOfferRaw ? unitListRaw : payable;
+          unitOfferRaw > 0 && unitListRaw > unitOfferRaw ? unitListRaw : baseline;
         const xs =
-          crossSellRules?.length && payable > 0
+          crossSellRules?.length && baseline > 0
             ? crossSellSeatDiscountAmount(
                 crossSellRules,
                 item,
                 p,
                 cartLinesNormalizedForCrossSell,
                 programCartLines,
-                payable,
+                unitOfferRaw,
+                unitListRaw,
               )
             : 0;
         listTotal += listPart;
-        offerTotal += Math.max(0, payable - xs);
+        offerTotal += Math.max(0, baseline - xs);
       }
     }
     return {
@@ -1589,7 +1591,7 @@ export default function DashboardCombinedCheckoutPage() {
               !selfIncluded &&
               guestBucket === 'annual_household' &&
               (!!lineQuote?.included_in_annual_package || !!p.peer_included_in_annual_package);
-            const grossForCrossSell =
+            const rosterBaseline =
               selfIncluded || ahIncludedPeer
                 ? 0
                 : unitOfferRaw > 0
@@ -1599,18 +1601,19 @@ export default function DashboardCombinedCheckoutPage() {
               !selfIncluded &&
               !ahIncludedPeer &&
               crossSellRules?.length &&
-              grossForCrossSell > 0
+              rosterBaseline > 0
                 ? crossSellSeatDiscountAmount(
                     crossSellRules,
                     item,
                     p,
                     cartLinesNormalizedForCrossSell,
                     programCartLines,
-                    grossForCrossSell,
+                    unitOfferRaw,
+                    unitListRaw,
                   )
                 : 0;
             const displayPayable =
-              selfIncluded || ahIncludedPeer ? 0 : Math.max(0, grossForCrossSell - xsDisc);
+              selfIncluded || ahIncludedPeer ? 0 : Math.max(0, rosterBaseline - xsDisc);
             const bucketRoleHint =
               guestBucket === 'annual_household'
                 ? bookerAnnualPortalAccess

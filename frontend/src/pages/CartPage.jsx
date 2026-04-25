@@ -758,7 +758,12 @@ function CartPage() {
               item,
               cartLines,
               programLines,
-              (it, p) => getEffectivePrice(it),
+              (it) => {
+                const offer =
+                  getItemOfferPrice(it) > 0 ? getItemOfferPrice(it) : getEffectivePrice(it);
+                const list = getItemPrice(it);
+                return { offer, list };
+              },
             );
             const ruleMatch = findCrossSellRuleForTarget(crossSellRules, item.programId, cartLines);
             const buyId = ruleMatch?.buyProgramId;
@@ -796,7 +801,12 @@ function CartPage() {
                 item,
                 cartLines,
                 programLines,
-                (it, p) => getEffectivePrice(it),
+                (it) => {
+                  const offer =
+                    getItemOfferPrice(it) > 0 ? getItemOfferPrice(it) : getEffectivePrice(it);
+                  const list = getItemPrice(it);
+                  return { offer, list };
+                },
               );
               if (summ.total > 0) {
                 totalCrossSell += summ.total;

@@ -45,11 +45,13 @@ export function buildDashboardCrossSellPreviewParticipants({
 }
 
 /**
+ * All enabled rules whose target is `targetProgramId` and whose buy-program (+ tier) is in the cart.
  * @param {Array<{ programId: string, tierIndex: number }>} cartLineSummaries
- * @returns {{ rule: object, matchTarget: object, buyProgramId: string } | null}
+ * @returns {Array<{ rule: object, matchTarget: object, buyProgramId: string }>}
  */
-export function findCrossSellRuleForTarget(crossSellRules, targetProgramId, cartLineSummaries) {
-  if (!crossSellRules?.length || !targetProgramId || !cartLineSummaries?.length) return null;
+export function findAllCrossSellRulesForTarget(crossSellRules, targetProgramId, cartLineSummaries) {
+  const out = [];
+  if (!crossSellRules?.length || !targetProgramId || !cartLineSummaries?.length) return out;
   const pidStr = String(targetProgramId);
   for (const rule of crossSellRules) {
     if (rule.enabled === false) continue;
@@ -76,14 +78,73 @@ export function findCrossSellRuleForTarget(crossSellRules, targetProgramId, cart
           )
         : cartLineSummaries.some((i) => String(i.programId) === String(rule.buy_program_id));
     if (buyInCart) {
-      return {
+      out.push({
         rule,
         matchTarget,
         buyProgramId: String(rule.buy_program_id || '').trim(),
-      };
+      });
     }
   }
-  return null;
+  return out;
+}
+
+/**
+ * @param {Array<{ programId: string, tierIndex: number }>} cartLineSummaries
+ * @returns {{ rule: object, matchTarget: object, buyProgramId: string } | null}
+ */
+export function findCrossSellRuleForTarget(crossSellRules, targetProgramId, cartLineSummaries) {
+  const all = findAllCrossSellRulesForTarget(crossSellRules, targetProgramId, cartLineSummaries);
+  if (!all.length) return null;
+  const first = all[0];
+  return { rule: first.rule, matchTarget: first.matchTarget, buyProgramId: first.buyProgramId };
+}
+
+/**
+ * Lowest payable for this seat after considering every matching bundle rule on both portal offer and list.
+ * Picks the client-best outcome (does not stack weaker promos on top of a stronger bundle).
+ */
+export function bestNetPayableForCrossSellSeat(
+  lineItem,
+  participant,
+  cartLineSummaries,
+  allProgramLines,
+  unitOfferRaw,
+  unitListRaw,
+  ruleMatches,
+) {
+  const O = Number(unitOfferRaw) || 0;
+  const L = Number(unitListRaw) || 0;
+  const baseline = O > 0 ? O : L;
+  if (baseline <= 0 || !ruleMatches?.length) return Math.round(baseline * 100) / 100;
+
+  let best = baseline;
+  for (const m of ruleMatches) {
+    const buyLine = (allProgramLines || []).find(
+      (i) => i.type !== 'session' && String(i.programId) === String(m.buyProgramId),
+    );
+    if (!buyLine?.participants?.length) continue;
+    const buyerKeys = new Set();
+    for (const bp of buyLine.participants) {
+      const bk = participantCrossSellIdentity(bp);
+      if (bk) buyerKeys.add(bk);
+    }
+    const k = participantCrossSellIdentity(participant);
+    if (!k || !buyerKeys.has(k)) continue;
+
+    const t = m.matchTarget;
+    let netRule = baseline;
+    if (O > 0 && L > 0) {
+      const netO = Math.max(0, O - crossSellDiscountForSeat(t, O));
+      const netL = Math.max(0, L - crossSellDiscountForSeat(t, L));
+      netRule = Math.min(netO, netL);
+    } else if (O > 0) {
+      netRule = Math.max(0, O - crossSellDiscountForSeat(t, O));
+    } else if (L > 0) {
+      netRule = Math.max(0, L - crossSellDiscountForSeat(t, L));
+    }
+    best = Math.min(best, netRule);
+  }
+  return Math.round(best * 100) / 100;
 }
 
 /**
@@ -126,63 +187,75 @@ export function crossSellDiscountForSeat(matchTarget, unitPrice) {
  * Sum cross-sell for a cart line: only participants also on the buy line; each seat uses its own unit price
  * (e.g. portal immediate vs extended). Needed when HM is 100% for one guest (Deepti on 3M AWRP) but not another.
  */
-/** Discount amount for one participant on `lineItem` when they also appear on the buy-program line. */
+/**
+ * Discount amount (portal baseline minus best bundle net) for one participant.
+ * Baseline is offer when offer &gt; 0, else list. Evaluates every matching rule and offer vs list so e.g. 100% on list beats a weaker portal-only promo.
+ */
 export function crossSellSeatDiscountAmount(
   crossSellRules,
   lineItem,
   participant,
   cartLineSummaries,
   allProgramLines,
-  grossPayableUnit,
+  unitOfferRaw,
+  unitListRaw,
 ) {
-  if (!crossSellRules?.length || grossPayableUnit <= 0 || !lineItem || !participant) return 0;
-  const match = findCrossSellRuleForTarget(crossSellRules, lineItem.programId, cartLineSummaries);
-  if (!match?.buyProgramId) return 0;
-  const buyLine = (allProgramLines || []).find(
-    (i) => i.type !== 'session' && String(i.programId) === String(match.buyProgramId),
+  const O = Number(unitOfferRaw) || 0;
+  const L = Number(unitListRaw) || 0;
+  const baseline = O > 0 ? O : L;
+  if (!crossSellRules?.length || baseline <= 0 || !lineItem || !participant) return 0;
+  const matches = findAllCrossSellRulesForTarget(crossSellRules, lineItem.programId, cartLineSummaries);
+  if (!matches.length) return 0;
+  const best = bestNetPayableForCrossSellSeat(
+    lineItem,
+    participant,
+    cartLineSummaries,
+    allProgramLines,
+    O,
+    L,
+    matches,
   );
-  if (!buyLine?.participants?.length) return 0;
-  const buyerKeys = new Set();
-  for (const bp of buyLine.participants) {
-    const bk = participantCrossSellIdentity(bp);
-    if (bk) buyerKeys.add(bk);
-  }
-  const k = participantCrossSellIdentity(participant);
-  if (!k || !buyerKeys.has(k)) return 0;
-  return crossSellDiscountForSeat(match.matchTarget, grossPayableUnit);
+  return Math.round(Math.max(0, baseline - best) * 100) / 100;
 }
 
+/**
+ * @param {(item: object, p: object) => { offer: number, list: number } | null} getOfferAndListForParticipant
+ */
 export function sumCrossSellLineDiscount(
   crossSellRules,
   lineItem,
   cartLineSummaries,
   allProgramLines,
-  getUnitPriceForParticipant,
+  getOfferAndListForParticipant,
 ) {
-  const match = findCrossSellRuleForTarget(crossSellRules, lineItem.programId, cartLineSummaries);
-  if (!match?.buyProgramId) return { total: 0, label: '' };
-  const buyLine = (allProgramLines || []).find(
-    (i) => i.type !== 'session' && String(i.programId) === String(match.buyProgramId),
-  );
-  if (!buyLine?.participants?.length) return { total: 0, label: match.rule.label || '' };
-  const buyerKeys = new Set();
-  for (const p of buyLine.participants) {
-    const k = participantCrossSellIdentity(p);
-    if (k) buyerKeys.add(k);
-  }
+  const matches = findAllCrossSellRulesForTarget(crossSellRules, lineItem.programId, cartLineSummaries);
+  if (!matches.length) return { total: 0, label: '' };
+
   let total = 0;
   for (const p of lineItem.participants || []) {
-    const k = participantCrossSellIdentity(p);
-    if (!k || !buyerKeys.has(k)) continue;
-    const unit =
-      typeof getUnitPriceForParticipant === 'function'
-        ? Number(getUnitPriceForParticipant(lineItem, p)) || 0
-        : 0;
-    total += crossSellDiscountForSeat(match.matchTarget, unit);
+    const pair =
+      typeof getOfferAndListForParticipant === 'function' ? getOfferAndListForParticipant(lineItem, p) : null;
+    if (!pair) continue;
+    const O = Number(pair.offer) || 0;
+    const L = Number(pair.list) || 0;
+    const baseline = O > 0 ? O : L;
+    if (baseline <= 0) continue;
+
+    const best = bestNetPayableForCrossSellSeat(
+      lineItem,
+      p,
+      cartLineSummaries,
+      allProgramLines,
+      O,
+      L,
+      matches,
+    );
+    total += baseline - best;
   }
+
   return {
     total: Math.round(total * 100) / 100,
-    label: match.rule.label || '',
+    label: matches[0]?.rule?.label || '',
   };
 }
 
@@ -209,15 +282,21 @@ export function computeCrossSellDiscount(
     programId: i.programId,
     tierIndex: i.tierIndex != null && i.tierIndex !== '' ? i.tierIndex : normalizeCartItemTierIndex(i),
   }));
-  const match = findCrossSellRuleForTarget(crossSellRules, programId, cartSummaries);
-  if (!match) return null;
-  const { matchTarget, rule } = match;
-  const disc =
-    matchTarget.discount_type === 'percentage'
-      ? Math.round((effectiveUnitPrice * (matchTarget.discount_value || 0)) / 100)
-      : matchTarget.discount_value || 0;
+  const matches = findAllCrossSellRulesForTarget(crossSellRules, programId, cartSummaries);
+  if (!matches.length) return null;
+  let bestDisc = 0;
+  let best = null;
+  for (const m of matches) {
+    const disc = crossSellDiscountForSeat(m.matchTarget, effectiveUnitPrice);
+    if (disc > bestDisc) {
+      bestDisc = disc;
+      best = m;
+    }
+  }
+  if (!best) return null;
+  const { matchTarget, rule } = best;
   return {
-    amount: disc,
+    amount: bestDisc,
     label: rule.label,
     value: matchTarget.discount_value,
     type: matchTarget.discount_type,
