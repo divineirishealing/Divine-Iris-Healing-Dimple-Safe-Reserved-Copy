@@ -493,11 +493,12 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh, bo
   const { settings: siteSettings } = useSiteSettings();
   const { user } = useAuth();
   const annualIncludedIds = siteSettings?.annual_package_included_program_ids;
-   const {
+  const {
     getPrice,
     getOfferPrice,
     symbol,
     currency,
+    baseCurrency,
     ready: currencyReady,
     displayCurrency,
     isPrimary,
@@ -505,8 +506,40 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh, bo
     country: detectedCountry,
   } = useCurrency();
 
-  /** Same pricing hub as payment gateway: GET /api/currency/detect (whitelist + IP + VPN) — do not duplicate rules here. */
-  const portalQuoteCurrency = currencyReady ? currency : 'aed';
+  /**
+   * INR portal hub for quotes + Divine Cart — mirrors EnrollmentPage `showIndiaHubPricing` so Sacred Home
+   * does not show USD when detect/cache lags but the booker still qualifies (whitelist, IN override, hub inr).
+   * Server GET /dashboard-quote still runs assert_claimed_hub_matches_stripe; rules stay aligned with /currency/detect.
+   */
+  const showIndiaHubPricingForPortal = useMemo(() => {
+    if (baseCurrency === 'inr') return true;
+    const em = (bookerEmail || user?.email || '').toLowerCase().trim();
+    if (em) {
+      const rows = Array.isArray(siteSettings?.pricing_hub_email_overrides)
+        ? siteSettings.pricing_hub_email_overrides
+        : [];
+      for (const row of rows) {
+        if (String(row.email || '').toLowerCase().trim() !== em) continue;
+        const h = String(row.hub || '').toLowerCase().trim();
+        if (h === 'inr') return true;
+      }
+    }
+    if ((user?.pricing_country_override || '').toUpperCase() === 'IN') return true;
+    const wl = (siteSettings?.inr_whitelist_emails || [])
+      .map((e) => String(e).toLowerCase().trim())
+      .filter(Boolean);
+    if (em && wl.includes(em)) return true;
+    return false;
+  }, [
+    baseCurrency,
+    siteSettings?.pricing_hub_email_overrides,
+    siteSettings?.inr_whitelist_emails,
+    user?.pricing_country_override,
+    user?.email,
+    bookerEmail,
+  ]);
+
+  const portalQuoteCurrency = currencyReady ? (showIndiaHubPricingForPortal ? 'inr' : currency) : 'aed';
 
   const portalQuoteSymbol = portalQuoteCurrency === 'inr' ? '₹' : symbol;
 
