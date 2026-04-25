@@ -849,8 +849,14 @@ ANNUAL_PORTAL_UPLOAD_SPECS: List[Tuple[str, Tuple[str, ...]]] = [
     ),
     ("email", ("email", "e-mail", "email id")),
     ("annual_diid", ("annual diid", "annual_diid", "member diid", "diid")),
-    ("start_date", ("start", "start date", "subscription start", "start_date")),
-    ("end_date", ("end", "end date", "subscription end", "end_date")),
+    (
+        "start_date",
+        ("start", "start date", "subscription start", "start_date", "startdate"),
+    ),
+    (
+        "end_date",
+        ("end", "end date", "subscription end", "end_date", "enddate"),
+    ),
     ("awrp_year_label", ("awrp year", "awrp_year", "awrp_year_label")),
     (
         "package_sku",
@@ -928,14 +934,14 @@ async def download_annual_portal_subscription_template():
     from openpyxl.styles import Font, PatternFill, Alignment
     from fastapi.responses import StreamingResponse
 
+    # Same order as Admin → Annual + dashboard list (# … AWRP year). Upload matches by header text, not position.
     labels = [
+        "#",
         "Name",
         "Email Id",
-        "Client id",
         "Start Date",
         "End Date",
         "DIID",
-        "AWRP year",
         "HomeComing",
         "AWRP months used",
         "MMM months used",
@@ -944,6 +950,8 @@ async def download_annual_portal_subscription_template():
         "Usage source",
         "HOUSEHOLD",
         "PRIMARY",
+        "Client id",
+        "AWRP year",
     ]
     wb = Workbook()
     ws = wb.active
@@ -956,13 +964,12 @@ async def download_annual_portal_subscription_template():
         c.fill = hdr_fill
         c.alignment = Alignment(horizontal="center")
     sample_primary = [
+        "1",
         "Jane Primary",
         "primary@example.com",
-        "",
         "2025-04-01",
         "2026-03-31",
         "JADO2504",
-        "AWRP3.0",
         "Home Coming",
         "3",
         "1",
@@ -971,15 +978,16 @@ async def download_annual_portal_subscription_template():
         "manual",
         "Poonam Rathee",
         "Y",
+        "",
+        "AWRP3.0",
     ]
     sample_peer = [
+        "2",
         "Child Member",
         "",
-        "paste-uuid-from-admin-grid",
         "2025-04-01",
         "2026-03-31",
         "CHJA2504",
-        "AWRP3.0",
         "Home Coming",
         "0",
         "0",
@@ -988,6 +996,8 @@ async def download_annual_portal_subscription_template():
         "manual",
         "Poonam Rathee",
         "N",
+        "paste-uuid-from-admin-grid",
+        "AWRP3.0",
     ]
     note_font = Font(italic=True, color="666666", size=10)
     for col_idx, val in enumerate(sample_primary, 1):
@@ -996,7 +1006,7 @@ async def download_annual_portal_subscription_template():
     for col_idx, val in enumerate(sample_peer, 1):
         c = ws.cell(row=3, column=col_idx, value=val)
         c.font = note_font
-    widths = [18, 26, 36, 12, 12, 12, 12, 14, 10, 10, 10, 10, 10, 22, 8]
+    widths = [5, 18, 26, 12, 12, 12, 14, 10, 10, 10, 10, 10, 22, 8, 36, 12]
     for i, w in enumerate(widths, 1):
         ws.column_dimensions[ws.cell(row=1, column=i).column_letter].width = w
     out = io.BytesIO()

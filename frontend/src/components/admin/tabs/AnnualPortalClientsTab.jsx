@@ -227,9 +227,9 @@ export default function AnnualPortalClientsTab() {
         <div className="min-w-0">
           <h2 className="text-base font-semibold text-gray-900">Annual + dashboard (Client Garden)</h2>
           <p className="text-xs text-gray-600 mt-0.5 max-w-3xl">
-            Columns match the standard annual sheet (#, Name, Email Id, dates, DIID, HomeComing, Usage, HOUSEHOLD, PRIMARY).{' '}
-            <strong>Template</strong> / <strong>Upload</strong> use the same headers; set <strong>Email Id</strong> or <strong>Client id</strong> per row.
-            Members without email: use their Client id, not the primary’s email.
+            Table columns: #, Name, Email Id, Start/End Date, DIID, HomeComing, Usage (summary), HOUSEHOLD, PRIMARY, Client id, AWRP year.{' '}
+            <strong>Template</strong> uses the same order; usage counts are split into separate columns for upload.{' '}
+            <strong>Upload</strong> finds columns by <strong>header title</strong> (not left-to-right order). Members without email: use <strong>Client id</strong>.
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2 shrink-0">
