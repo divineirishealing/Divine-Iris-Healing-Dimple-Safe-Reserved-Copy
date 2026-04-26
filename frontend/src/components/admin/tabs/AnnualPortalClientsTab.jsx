@@ -9,8 +9,11 @@ import {
   Download,
   Upload,
   UploadCloud,
+  Filter,
 } from 'lucide-react';
 import { Button } from '../../ui/button';
+import { Input } from '../../ui/input';
+import { Popover, PopoverContent, PopoverTrigger } from '../../ui/popover';
 import { useSpreadsheetColumnVisibility, SpreadsheetColumnPicker } from '../SpreadsheetColumnPicker';
 import { getApiUrl } from '../../../lib/config';
 import { useToast } from '../../../hooks/use-toast';
@@ -52,14 +55,14 @@ function colLabel(id) {
   return ANNUAL_PORTAL_FLAT_COLS.find((c) => c.id === id)?.label ?? id;
 }
 
-/** Excel-like grid: gray chrome, tight cells, full-area scroll */
+/** Excel-like grid: gray chrome, tight cells, full-area scroll — Lato for readability */
 const sheetFrame =
-  'flex flex-col rounded-sm border border-[#8c8c8c] bg-[#f2f2f2] shadow-[inset_0_1px_0_0_rgba(255,255,255,0.6)] overflow-hidden min-h-[280px] h-[calc(100dvh-11.5rem)] max-h-[calc(100dvh-4rem)]';
-const sheetScroll = 'flex-1 w-full overflow-auto min-h-0 bg-white';
-const tableGrid = 'w-full border-collapse text-[13px] leading-snug min-w-[64rem]';
+  'font-lato antialiased flex flex-col rounded-sm border border-[#8c8c8c] bg-[#f2f2f2] shadow-[inset_0_1px_0_0_rgba(255,255,255,0.6)] overflow-hidden min-h-[280px] h-[calc(100dvh-11.5rem)] max-h-[calc(100dvh-4rem)]';
+const sheetScroll = 'flex-1 w-full overflow-auto min-h-0 bg-white font-lato';
+const tableGrid = 'w-full border-collapse text-[13px] leading-snug min-w-[64rem] font-lato';
 const thBase =
-  'border border-[#c6c6c6] bg-[#e7e7e7] px-2 py-1.5 text-left text-[11px] font-semibold text-neutral-900 uppercase tracking-wide whitespace-nowrap sticky top-0 z-20 shadow-[0_1px_0_#b0b0b0]';
-const tdBase = 'border border-[#d0d0d0] px-2 py-1 align-top text-neutral-900';
+  'border border-[#c6c6c6] bg-[#e7e7e7] px-2 py-1.5 text-left text-[11px] font-semibold text-neutral-900 tracking-wide whitespace-nowrap sticky top-0 z-20 shadow-[0_1px_0_#b0b0b0]';
+const tdBase = 'border border-[#d0d0d0] px-2 py-1 align-top text-neutral-800';
 const rowEven = 'bg-white';
 const rowOdd = 'bg-[#fafafa]';
 
@@ -82,6 +85,174 @@ function packageLabel(sub) {
   return sub.package_sku;
 }
 
+const FILTER_BLANKS = '(Blanks)';
+
+/** Filter value per column — must match cell display text. */
+function getAnnualPortalFilterValue(r, colId) {
+  const sub = r?.annual_subscription || {};
+  switch (colId) {
+    case 'name':
+      return (r.name || '').trim() || FILTER_BLANKS;
+    case 'email':
+      return (r.email || '').trim().toLowerCase() || FILTER_BLANKS;
+    case 'start':
+      return (sub.start_date || '').trim() || FILTER_BLANKS;
+    case 'end':
+      return (sub.end_date || '').trim() || FILTER_BLANKS;
+    case 'diid':
+      return (sub.annual_diid || '').trim() || FILTER_BLANKS;
+    case 'package':
+      return packageLabel(sub);
+    case 'usage':
+      if (sub.usage && Object.keys(sub.usage).length > 0) {
+        return formatHomeComingUsageSummary(sub);
+      }
+      return FILTER_BLANKS;
+    case 'household':
+      return (r.household_key || '').trim() || FILTER_BLANKS;
+    case 'primary':
+      return r.is_primary_household_contact ? 'Y' : '—';
+    case 'client_id':
+      return (r.id || '').trim() || FILTER_BLANKS;
+    default:
+      return FILTER_BLANKS;
+  }
+}
+
+function annualPortalPassesColumnFilters(r, filters) {
+  for (const [colId, sel] of Object.entries(filters)) {
+    if (sel == null) continue;
+    const v = getAnnualPortalFilterValue(r, colId);
+    if (!sel.has(v)) return false;
+  }
+  return true;
+}
+
+function rowsForAnnualPortalFilterOptions(allRows, columnFilters, colId) {
+  return allRows.filter((row) => {
+    for (const [cid, sel] of Object.entries(columnFilters)) {
+      if (cid === colId || sel == null) continue;
+      if (!sel.has(getAnnualPortalFilterValue(row, cid))) return false;
+    }
+    return true;
+  });
+}
+
+function AnnualPortalExcelColumnFilter({ colId, title, optionRows, activeFilter, onSetFilter }) {
+  const [open, setOpen] = useState(false);
+  const [search, setSearch] = useState('');
+  const options = useMemo(() => {
+    const u = new Set();
+    for (const row of optionRows) {
+      u.add(getAnnualPortalFilterValue(row, colId));
+    }
+    return [...u].sort((a, b) => String(a).localeCompare(String(b), undefined, { sensitivity: 'base' }));
+  }, [optionRows, colId]);
+
+  const filteredOpts = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    if (!q) return options;
+    return options.filter((o) => String(o).toLowerCase().includes(q));
+  }, [options, search]);
+
+  const isChecked = (opt) => activeFilter === null || activeFilter.has(opt);
+
+  const toggle = (opt) => {
+    const universe = new Set(options);
+    const cur = activeFilter === null ? new Set(universe) : new Set(activeFilter);
+    if (cur.has(opt)) cur.delete(opt);
+    else cur.add(opt);
+    if (cur.size === universe.size) onSetFilter(null);
+    else onSetFilter(cur);
+  };
+
+  const selectAll = () => {
+    onSetFilter(null);
+    setSearch('');
+  };
+
+  const hasFilter = activeFilter !== null;
+
+  return (
+    <Popover open={open} onOpenChange={(v) => { setOpen(v); if (!v) setSearch(''); }}>
+      <PopoverTrigger asChild>
+        <button
+          type="button"
+          data-testid={`annual-portal-filter-${colId}`}
+          className={`inline-flex shrink-0 rounded p-0.5 hover:bg-neutral-200/90 ${hasFilter ? 'text-[#217346]' : 'text-neutral-400'}`}
+          title={`Filter ${title}`}
+          aria-label={`Filter column ${title}`}
+        >
+          <Filter size={11} strokeWidth={2.5} />
+        </button>
+      </PopoverTrigger>
+      <PopoverContent align="start" className="w-64 p-2 text-[10px] font-lato" onClick={(e) => e.stopPropagation()}>
+        <div className="space-y-2">
+          <Input
+            placeholder="Search values…"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="h-7 text-[10px] px-2"
+          />
+          <div className="flex gap-1 flex-wrap">
+            <Button type="button" variant="outline" size="sm" className="h-6 text-[9px] px-2 py-0" onClick={selectAll}>
+              Select all
+            </Button>
+          </div>
+          <div className="max-h-52 overflow-y-auto border border-neutral-100 rounded-md divide-y divide-neutral-50">
+            {filteredOpts.length === 0 ? (
+              <p className="text-neutral-400 text-[9px] p-2">No values</p>
+            ) : (
+              filteredOpts.map((opt) => (
+                <label
+                  key={`${colId}-${String(opt).slice(0, 64)}`}
+                  className="flex items-start gap-2 px-2 py-1 hover:bg-neutral-50 cursor-pointer"
+                >
+                  <input
+                    type="checkbox"
+                    checked={isChecked(opt)}
+                    onChange={() => toggle(opt)}
+                    className="mt-0.5 rounded border-neutral-300 shrink-0"
+                  />
+                  <span className="break-all text-neutral-800 leading-tight" title={String(opt)}>
+                    {String(opt).length > 80 ? `${String(opt).slice(0, 80)}…` : String(opt)}
+                  </span>
+                </label>
+              ))
+            )}
+          </div>
+        </div>
+      </PopoverContent>
+    </Popover>
+  );
+}
+
+function AnnualPortalFilterableTh({ children, colId, title, className, optionRows, columnFilters, setColumnFilters }) {
+  const activeFilter = columnFilters[colId] ?? null;
+  const setFilter = (next) => {
+    setColumnFilters((prev) => {
+      const p = { ...prev };
+      if (next === null) delete p[colId];
+      else p[colId] = next;
+      return p;
+    });
+  };
+  return (
+    <th className={className} title={title}>
+      <div className="flex items-center gap-1 min-w-0">
+        <span className="truncate flex-1 min-w-0">{children}</span>
+        <AnnualPortalExcelColumnFilter
+          colId={colId}
+          title={title || String(children)}
+          optionRows={optionRows}
+          activeFilter={activeFilter}
+          onSetFilter={setFilter}
+        />
+      </div>
+    </th>
+  );
+}
+
 export default function AnnualPortalClientsTab() {
   const { toast } = useToast();
   const [rows, setRows] = useState([]);
@@ -95,6 +266,27 @@ export default function AnnualPortalClientsTab() {
   const [excelDropHighlight, setExcelDropHighlight] = useState(false);
   const [excelUploading, setExcelUploading] = useState(false);
   const [uploadReport, setUploadReport] = useState(null);
+  /** Excel-style: colId → Set of allowed values; missing = no filter */
+  const [columnFilters, setColumnFilters] = useState({});
+
+  const filteredRows = useMemo(
+    () => rows.filter((r) => annualPortalPassesColumnFilters(r, columnFilters)),
+    [rows, columnFilters],
+  );
+
+  const filterOptionBaseByCol = useMemo(() => {
+    const ids = ANNUAL_PORTAL_FLAT_COLS.map((c) => c.id).filter((id) => id !== 'sn' && id !== 'edit');
+    const out = {};
+    for (const id of ids) {
+      out[id] = rowsForAnnualPortalFilterOptions(rows, columnFilters, id);
+    }
+    return out;
+  }, [rows, columnFilters]);
+
+  const columnFilterActiveCount = useMemo(
+    () => Object.values(columnFilters).filter((s) => s != null).length,
+    [columnFilters],
+  );
 
   const {
     visibility: flatColVis,
@@ -270,7 +462,7 @@ export default function AnnualPortalClientsTab() {
   const stats = useMemo(() => {
     const keyCounts = new Map();
     let primaryContacts = 0;
-    for (const r of rows) {
+    for (const r of filteredRows) {
       if (r.is_primary_household_contact) primaryContacts += 1;
       const hk = (r.household_key || '').trim();
       if (hk) keyCounts.set(hk, (keyCounts.get(hk) || 0) + 1);
@@ -281,19 +473,19 @@ export default function AnnualPortalClientsTab() {
     }
     const householdsWithKey = keyCounts.size;
     const membersWithHouseholdKey = [...keyCounts.values()].reduce((a, b) => a + b, 0);
-    const singlesNoKey = rows.length - membersWithHouseholdKey;
+    const singlesNoKey = filteredRows.length - membersWithHouseholdKey;
     return {
-      members: rows.length,
+      members: filteredRows.length,
       householdsWithKey,
       multiMemberHouseholds,
       primaryContacts,
       singlesNoKey,
     };
-  }, [rows]);
+  }, [filteredRows]);
 
   const householdGroups = useMemo(() => {
     const byKey = new Map();
-    for (const r of rows) {
+    for (const r of filteredRows) {
       const hk = (r.household_key || '').trim();
       const gk = hk || `__single:${r.id}`;
       if (!byKey.has(gk)) {
@@ -315,9 +507,9 @@ export default function AnnualPortalClientsTab() {
       return ak.localeCompare(bk);
     });
     return list;
-  }, [rows]);
+  }, [filteredRows]);
 
-  const sortedRows = useMemo(() => [...rows].sort(sortMembers), [rows]);
+  const sortedRows = useMemo(() => [...filteredRows].sort(sortMembers), [filteredRows]);
 
   /** Same serial in list and household views (sorted list order). */
   const serialByRowKey = useMemo(() => {
@@ -387,12 +579,13 @@ export default function AnnualPortalClientsTab() {
   );
 
   return (
-    <div className="w-full min-w-0 flex flex-col gap-2">
+    <div className="w-full min-w-0 flex flex-col gap-2 font-lato antialiased">
       <div className="shrink-0 min-w-0">
-        <h2 className="text-base font-semibold text-gray-900">Annual + dashboard (Client Garden)</h2>
-        <p className="text-xs text-gray-600 mt-0.5 max-w-3xl">
+        <h2 className="text-base font-semibold text-gray-900 tracking-tight">Annual + dashboard (Client Garden)</h2>
+        <p className="text-xs text-gray-600 mt-0.5 max-w-3xl leading-relaxed">
           When <strong>End Date</strong> (below) is in the past, Sacred Home clears the client&apos;s <strong>Annual</strong> access flag automatically (next login, quote, or opening this list). Members see a renewal reminder on the dashboard in the last 30 days and after expiry.{' '}
           Table columns: #, Name, Email Id, Start/End Date, DIID, HomeComing, Usage (summary), HOUSEHOLD, PRIMARY, Client id.{' '}
+          Use the <strong>funnel icon</strong> in each column header to filter values (like Excel); filters apply to both List and By household views.{' '}
           <strong>Template</strong> is a blank sheet with sample rows; <strong>Download Excel</strong> exports the current list in the same columns so you can edit and upload.{' '}
           Usage counts are split into separate columns for upload.{' '}
           <strong>Upload</strong> finds columns by <strong>header title</strong> (not left-to-right order). Each column in the file <strong>replaces</strong> what is stored (empty cells clear dates, DIID, package, household; blank usage cells become 0; blank PRIMARY counts as N). <strong>DIID</strong> can be full 8 characters (letters+YYMM) or <strong>YYMM only</strong> (4 digits); letters are taken from <strong>Name</strong>. Match rows by Client id, Email, or <strong>Name</strong> (+ <strong>HOUSEHOLD</strong> when names repeat); new household members get a generated Client id. If row 1 is a title row, headers on the next row are detected automatically.
@@ -528,6 +721,15 @@ export default function AnnualPortalClientsTab() {
             onReset={resetFlatCols}
           />
         )}
+        {columnFilterActiveCount > 0 && (
+          <button
+            type="button"
+            onClick={() => setColumnFilters({})}
+            className="text-[11px] font-medium text-[#1b5e20] underline-offset-2 hover:underline"
+          >
+            Clear {columnFilterActiveCount} column filter{columnFilterActiveCount === 1 ? '' : 's'}
+          </button>
+        )}
       </div>
 
       <AnnualSubscriptionEditDialog
@@ -576,16 +778,126 @@ export default function AnnualPortalClientsTab() {
                 {flatColVisible('sn') && (
                   <th className={`${thBase} text-center w-11 tabular-nums`}>{colLabel('sn')}</th>
                 )}
-                {flatColVisible('name') && <th className={thBase}>{colLabel('name')}</th>}
-                {flatColVisible('email') && <th className={thBase}>{colLabel('email')}</th>}
-                {flatColVisible('start') && <th className={thBase}>{colLabel('start')}</th>}
-                {flatColVisible('end') && <th className={thBase}>{colLabel('end')}</th>}
-                {flatColVisible('diid') && <th className={thBase}>{colLabel('diid')}</th>}
-                {flatColVisible('package') && <th className={thBase}>{colLabel('package')}</th>}
-                {flatColVisible('usage') && <th className={thBase}>{colLabel('usage')}</th>}
-                {flatColVisible('household') && <th className={thBase}>{colLabel('household')}</th>}
-                {flatColVisible('primary') && <th className={`${thBase} text-center`}>{colLabel('primary')}</th>}
-                {flatColVisible('client_id') && <th className={thBase}>{colLabel('client_id')}</th>}
+                {flatColVisible('name') && (
+                  <AnnualPortalFilterableTh
+                    colId="name"
+                    title="Name"
+                    className={thBase}
+                    optionRows={filterOptionBaseByCol.name}
+                    columnFilters={columnFilters}
+                    setColumnFilters={setColumnFilters}
+                  >
+                    {colLabel('name')}
+                  </AnnualPortalFilterableTh>
+                )}
+                {flatColVisible('email') && (
+                  <AnnualPortalFilterableTh
+                    colId="email"
+                    title="Email Id"
+                    className={thBase}
+                    optionRows={filterOptionBaseByCol.email}
+                    columnFilters={columnFilters}
+                    setColumnFilters={setColumnFilters}
+                  >
+                    {colLabel('email')}
+                  </AnnualPortalFilterableTh>
+                )}
+                {flatColVisible('start') && (
+                  <AnnualPortalFilterableTh
+                    colId="start"
+                    title="Start Date"
+                    className={thBase}
+                    optionRows={filterOptionBaseByCol.start}
+                    columnFilters={columnFilters}
+                    setColumnFilters={setColumnFilters}
+                  >
+                    {colLabel('start')}
+                  </AnnualPortalFilterableTh>
+                )}
+                {flatColVisible('end') && (
+                  <AnnualPortalFilterableTh
+                    colId="end"
+                    title="End Date"
+                    className={thBase}
+                    optionRows={filterOptionBaseByCol.end}
+                    columnFilters={columnFilters}
+                    setColumnFilters={setColumnFilters}
+                  >
+                    {colLabel('end')}
+                  </AnnualPortalFilterableTh>
+                )}
+                {flatColVisible('diid') && (
+                  <AnnualPortalFilterableTh
+                    colId="diid"
+                    title="DIID"
+                    className={thBase}
+                    optionRows={filterOptionBaseByCol.diid}
+                    columnFilters={columnFilters}
+                    setColumnFilters={setColumnFilters}
+                  >
+                    {colLabel('diid')}
+                  </AnnualPortalFilterableTh>
+                )}
+                {flatColVisible('package') && (
+                  <AnnualPortalFilterableTh
+                    colId="package"
+                    title="HomeComing"
+                    className={thBase}
+                    optionRows={filterOptionBaseByCol.package}
+                    columnFilters={columnFilters}
+                    setColumnFilters={setColumnFilters}
+                  >
+                    {colLabel('package')}
+                  </AnnualPortalFilterableTh>
+                )}
+                {flatColVisible('usage') && (
+                  <AnnualPortalFilterableTh
+                    colId="usage"
+                    title="Usage"
+                    className={thBase}
+                    optionRows={filterOptionBaseByCol.usage}
+                    columnFilters={columnFilters}
+                    setColumnFilters={setColumnFilters}
+                  >
+                    {colLabel('usage')}
+                  </AnnualPortalFilterableTh>
+                )}
+                {flatColVisible('household') && (
+                  <AnnualPortalFilterableTh
+                    colId="household"
+                    title="HOUSEHOLD"
+                    className={thBase}
+                    optionRows={filterOptionBaseByCol.household}
+                    columnFilters={columnFilters}
+                    setColumnFilters={setColumnFilters}
+                  >
+                    {colLabel('household')}
+                  </AnnualPortalFilterableTh>
+                )}
+                {flatColVisible('primary') && (
+                  <AnnualPortalFilterableTh
+                    colId="primary"
+                    title="PRIMARY"
+                    className={`${thBase} text-center`}
+                    optionRows={filterOptionBaseByCol.primary}
+                    columnFilters={columnFilters}
+                    setColumnFilters={setColumnFilters}
+                  >
+                    {colLabel('primary')}
+                  </AnnualPortalFilterableTh>
+                )}
+                {flatColVisible('client_id') && (
+                  <AnnualPortalFilterableTh
+                    colId="client_id"
+                    title="Client id"
+                    className={thBase}
+                    optionRows={filterOptionBaseByCol.client_id}
+                    columnFilters={columnFilters}
+                    setColumnFilters={setColumnFilters}
+                  >
+                    {colLabel('client_id')}
+                  </AnnualPortalFilterableTh>
+                )}
                 {flatColVisible('edit') && <th className={`${thBase} text-center`}>{colLabel('edit')}</th>}
               </tr>
             </thead>
@@ -692,15 +1004,96 @@ export default function AnnualPortalClientsTab() {
                       <thead>
                         <tr>
                           <th className={`${thBase} text-center w-11 tabular-nums`}>{colLabel('sn')}</th>
-                          <th className={`${thBase} pl-3`}>{colLabel('name')}</th>
-                          <th className={thBase}>{colLabel('email')}</th>
-                          <th className={thBase}>{colLabel('start')}</th>
-                          <th className={thBase}>{colLabel('end')}</th>
-                          <th className={`${thBase} font-mono`}>{colLabel('diid')}</th>
-                          <th className={thBase}>{colLabel('package')}</th>
-                          <th className={thBase}>{colLabel('usage')}</th>
-                          <th className={`${thBase} text-center w-14`}>{colLabel('primary')}</th>
-                          <th className={`${thBase} font-mono text-[10px]`}>{colLabel('client_id')}</th>
+                          <AnnualPortalFilterableTh
+                            colId="name"
+                            title="Name"
+                            className={`${thBase} pl-3`}
+                            optionRows={filterOptionBaseByCol.name}
+                            columnFilters={columnFilters}
+                            setColumnFilters={setColumnFilters}
+                          >
+                            {colLabel('name')}
+                          </AnnualPortalFilterableTh>
+                          <AnnualPortalFilterableTh
+                            colId="email"
+                            title="Email Id"
+                            className={thBase}
+                            optionRows={filterOptionBaseByCol.email}
+                            columnFilters={columnFilters}
+                            setColumnFilters={setColumnFilters}
+                          >
+                            {colLabel('email')}
+                          </AnnualPortalFilterableTh>
+                          <AnnualPortalFilterableTh
+                            colId="start"
+                            title="Start Date"
+                            className={thBase}
+                            optionRows={filterOptionBaseByCol.start}
+                            columnFilters={columnFilters}
+                            setColumnFilters={setColumnFilters}
+                          >
+                            {colLabel('start')}
+                          </AnnualPortalFilterableTh>
+                          <AnnualPortalFilterableTh
+                            colId="end"
+                            title="End Date"
+                            className={thBase}
+                            optionRows={filterOptionBaseByCol.end}
+                            columnFilters={columnFilters}
+                            setColumnFilters={setColumnFilters}
+                          >
+                            {colLabel('end')}
+                          </AnnualPortalFilterableTh>
+                          <AnnualPortalFilterableTh
+                            colId="diid"
+                            title="DIID"
+                            className={`${thBase} font-mono`}
+                            optionRows={filterOptionBaseByCol.diid}
+                            columnFilters={columnFilters}
+                            setColumnFilters={setColumnFilters}
+                          >
+                            {colLabel('diid')}
+                          </AnnualPortalFilterableTh>
+                          <AnnualPortalFilterableTh
+                            colId="package"
+                            title="HomeComing"
+                            className={thBase}
+                            optionRows={filterOptionBaseByCol.package}
+                            columnFilters={columnFilters}
+                            setColumnFilters={setColumnFilters}
+                          >
+                            {colLabel('package')}
+                          </AnnualPortalFilterableTh>
+                          <AnnualPortalFilterableTh
+                            colId="usage"
+                            title="Usage"
+                            className={thBase}
+                            optionRows={filterOptionBaseByCol.usage}
+                            columnFilters={columnFilters}
+                            setColumnFilters={setColumnFilters}
+                          >
+                            {colLabel('usage')}
+                          </AnnualPortalFilterableTh>
+                          <AnnualPortalFilterableTh
+                            colId="primary"
+                            title="PRIMARY"
+                            className={`${thBase} text-center w-14`}
+                            optionRows={filterOptionBaseByCol.primary}
+                            columnFilters={columnFilters}
+                            setColumnFilters={setColumnFilters}
+                          >
+                            {colLabel('primary')}
+                          </AnnualPortalFilterableTh>
+                          <AnnualPortalFilterableTh
+                            colId="client_id"
+                            title="Client id"
+                            className={`${thBase} font-mono text-[10px]`}
+                            optionRows={filterOptionBaseByCol.client_id}
+                            columnFilters={columnFilters}
+                            setColumnFilters={setColumnFilters}
+                          >
+                            {colLabel('client_id')}
+                          </AnnualPortalFilterableTh>
                           <th className={`${thBase} text-center w-14`}>{colLabel('edit')}</th>
                         </tr>
                       </thead>
