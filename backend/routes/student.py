@@ -994,8 +994,17 @@ async def _apply_portal_guest_line_offer(
     fc: int,
     fo: dict,
     program: Optional[dict] = None,
+    *,
+    allow_tier_list_fallback: bool = True,
 ) -> Tuple[float, float, str, bool]:
-    """Apply family-style portal rules to one guest bucket. Returns (gross, after, rule, promo_applied)."""
+    """Apply family-style portal rules to one guest bucket. Returns (gross, after, rule, promo_applied).
+
+    When ``allow_tier_list_fallback`` is True and rule is fixed_price, a very low fixed amount vs
+    ``fam_unit`` triggers list pricing (avoids applying a short-course global family fixed to a
+    flagship tier line). Set False for **annual-offer** household-peer lines so fixed member prices
+    (e.g. ₹333) still apply when the tier list unit is higher (e.g. ₹999) — same basis as the
+    booker's own annual seat.
+    """
     cur = (currency or "aed").lower()
     fc = max(0, int(fc))
     if fc <= 0:
@@ -1026,7 +1035,9 @@ async def _apply_portal_guest_line_offer(
             # (e.g. MMM): use the program tier line so flagship pricing is not replaced by a short-course
             # global seat price. When fixed is close to tier (e.g. detox), keep fixed — callers route
             # the account holder to the right column (extended vs immediate family).
-            use_tier_not_global_fixed = pseat > 0 and fam_unit > 0 and pseat < fam_unit * 0.5
+            use_tier_not_global_fixed = (
+                allow_tier_list_fallback and pseat > 0 and fam_unit > 0 and pseat < fam_unit * 0.5
+            )
             if use_tier_not_global_fixed:
                 fam_after = max(0.0, round(fam_line_gross, 2))
                 family_rule = "list"
@@ -1133,7 +1144,13 @@ async def compute_dashboard_annual_family_pricing(
 
     # Annual household peers: same tier basis and `annual_offer` as the annual member seat — not `fam_unit` alone.
     ig_p, imm_after_p, imm_rule_p, imm_promo_p = await _apply_portal_guest_line_offer(
-        program_id, currency, annual_member_list_unit, imm_fc_peer, ao, program
+        program_id,
+        currency,
+        annual_member_list_unit,
+        imm_fc_peer,
+        ao,
+        program,
+        allow_tier_list_fallback=False,
     )
     # Plain immediate family: Family portal column.
     ig_f, imm_after_f, imm_rule_f, imm_promo_f = await _apply_portal_guest_line_offer(
