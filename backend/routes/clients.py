@@ -799,6 +799,7 @@ async def list_annual_portal_subscribers():
     Clients with annual-member (Sacred Home) dashboard on their record and portal login not blocked.
     Used for admin listing; does not include clients with portal_login_allowed explicitly False.
     """
+    await expire_all_overdue_annual_dashboard_clients(db)
     query = {
         "annual_member_dashboard": True,
         "$nor": [{"portal_login_allowed": False}],
@@ -819,6 +820,113 @@ async def list_annual_portal_subscribers():
 
 
 HOME_COMING_SKU = "home_coming"
+
+# Sacred Home nudge when annual_subscription.end_date is within this many days (inclusive).
+_ANNUAL_RENEWAL_WARN_DAYS = 30
+
+
+def parse_annual_subscription_end_date(client: Dict[str, Any]) -> Optional[date]:
+    """Calendar end date from Client Garden ``annual_subscription`` (YYYY-MM-DD), or None."""
+    sub = client.get("annual_subscription") or {}
+    end = (sub.get("end_date") or "").strip()
+    if not end or len(end) < 10:
+        return None
+    try:
+        return datetime.strptime(end[:10], "%Y-%m-%d").date()
+    except ValueError:
+        return None
+
+
+def utc_today() -> date:
+    return datetime.now(timezone.utc).date()
+
+
+def annual_subscription_period_expired(client: Dict[str, Any]) -> bool:
+    """True when ``annual_subscription.end_date`` is strictly before today (UTC calendar date)."""
+    end_d = parse_annual_subscription_end_date(client)
+    if not end_d:
+        return False
+    return utc_today() > end_d
+
+
+async def persist_annual_member_expiry_if_overdue(db, client: Dict[str, Any]) -> Dict[str, Any]:
+    """If CRM annual flag is on but Home Coming end_date has passed, set ``annual_member_dashboard`` False."""
+    if not isinstance(client, dict) or not client.get("id"):
+        return client
+    if not bool(client.get("annual_member_dashboard")):
+        return client
+    if not annual_subscription_period_expired(client):
+        return client
+    now = datetime.now(timezone.utc).isoformat()
+    await db.clients.update_one(
+        {"id": client["id"]},
+        {"$set": {"annual_member_dashboard": False, "updated_at": now}},
+    )
+    out = dict(client)
+    out["annual_member_dashboard"] = False
+    return out
+
+
+async def expire_all_overdue_annual_dashboard_clients(db) -> int:
+    """Clear ``annual_member_dashboard`` for every client whose ``annual_subscription.end_date`` has passed."""
+    q = {
+        "annual_member_dashboard": True,
+        "annual_subscription.end_date": {"$regex": r"^\d{4}-\d{2}-\d{2}"},
+    }
+    stale_ids: List[str] = []
+    async for doc in db.clients.find(q, {"_id": 0, "id": 1, "annual_subscription": 1}):
+        if annual_subscription_period_expired(doc):
+            cid = doc.get("id")
+            if cid:
+                stale_ids.append(cid)
+    if not stale_ids:
+        return 0
+    now = datetime.now(timezone.utc).isoformat()
+    res = await db.clients.update_many(
+        {"id": {"$in": stale_ids}},
+        {"$set": {"annual_member_dashboard": False, "updated_at": now}},
+    )
+    return int(res.modified_count)
+
+
+def annual_renewal_reminder_for_portal(client: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+    """
+    Banner payload for Sacred Home when ``annual_subscription.end_date`` is set:
+    expiring within ``_ANNUAL_RENEWAL_WARN_DAYS`` (and still annual), or already ended.
+    """
+    end_d = parse_annual_subscription_end_date(client)
+    if not end_d:
+        return None
+    today = utc_today()
+    days_left = (end_d - today).days
+    end_s = end_d.isoformat()
+    if days_left < 0:
+        return {
+            "kind": "expired",
+            "end_date": end_s,
+            "message": (
+                "Your annual Sacred Home period ended on this date. Renew with Divine Iris to keep "
+                "member pricing, package inclusions, and your journey benefits."
+            ),
+        }
+    if days_left <= _ANNUAL_RENEWAL_WARN_DAYS and bool(client.get("annual_member_dashboard")):
+        if days_left == 0:
+            msg = (
+                "Your annual plan ends today. Renew soon to continue uninterrupted member pricing and benefits."
+            )
+        elif days_left == 1:
+            msg = "Your annual plan ends tomorrow. Renew to keep your member benefits and growth path."
+        else:
+            msg = (
+                f"Your annual plan ends in {days_left} days ({end_s}). Renew on time to keep member pricing and Sacred Home benefits."
+            )
+        return {
+            "kind": "expiring",
+            "end_date": end_s,
+            "days_remaining": days_left,
+            "message": msg,
+        }
+    return None
 
 
 class AnnualSubscriptionUsagePatch(BaseModel):

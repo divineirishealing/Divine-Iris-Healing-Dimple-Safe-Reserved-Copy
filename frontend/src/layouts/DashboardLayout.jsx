@@ -44,6 +44,8 @@ const DashboardLayout = () => {
   const [bgVideo, setBgVideo] = useState('');
   const [sacredHomeCheckDone, setSacredHomeCheckDone] = useState(false);
   const [sacredHomeMaintenanceMessage, setSacredHomeMaintenanceMessage] = useState(null);
+  /** From GET /api/student/home — annual_subscription end date nudge (renewal). */
+  const [annualRenewalReminder, setAnnualRenewalReminder] = useState(null);
 
   React.useEffect(() => {
     if (loading || !user) return;
@@ -56,13 +58,14 @@ const DashboardLayout = () => {
     setSacredHomeCheckDone(false);
     (async () => {
       try {
-        await axios.get(`${STUDENT_API}/student/home`, {
+        const res = await axios.get(`${STUDENT_API}/student/home`, {
           withCredentials: true,
           headers: getAuthHeaders(),
           timeout: 25000,
         });
         if (!cancelled) {
           setSacredHomeMaintenanceMessage(null);
+          setAnnualRenewalReminder(res.data?.annual_renewal_reminder || null);
           setSacredHomeCheckDone(true);
         }
       } catch (e) {
@@ -76,6 +79,7 @@ const DashboardLayout = () => {
         } else {
           setSacredHomeMaintenanceMessage(null);
         }
+        setAnnualRenewalReminder(null);
         setSacredHomeCheckDone(true);
       }
     })();
@@ -304,6 +308,28 @@ const DashboardLayout = () => {
       {/* ═══ MAIN CONTENT ═══ */}
       <main className={cn('relative z-20 min-h-screen', user?.impersonating && 'pt-[52px]')}>
         <div className="p-4 md:p-8 pb-24 md:pb-28">
+          {annualRenewalReminder && typeof annualRenewalReminder.message === 'string' && (
+            <div
+              role="status"
+              data-testid="annual-renewal-reminder"
+              className={cn(
+                'mb-4 md:mb-6 max-w-4xl mx-auto rounded-xl border px-4 py-3 shadow-sm',
+                annualRenewalReminder.kind === 'expired'
+                  ? 'border-rose-200/90 bg-rose-50/95 text-rose-950'
+                  : 'border-amber-200/90 bg-amber-50/95 text-amber-950'
+              )}
+            >
+              <p className="text-xs font-semibold uppercase tracking-wide opacity-80">
+                {annualRenewalReminder.kind === 'expired' ? 'Annual access ended' : 'Renewal reminder'}
+              </p>
+              <p className="text-sm mt-1.5 leading-relaxed">{annualRenewalReminder.message}</p>
+              {annualRenewalReminder.end_date ? (
+                <p className="text-[11px] mt-2 opacity-75 tabular-nums">
+                  Plan end date (admin): {annualRenewalReminder.end_date}
+                </p>
+              ) : null}
+            </div>
+          )}
           <Outlet />
         </div>
       </main>

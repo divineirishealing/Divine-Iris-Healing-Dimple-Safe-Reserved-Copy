@@ -14,7 +14,12 @@ from models_extended import JourneyLog
 from iris_journey import resolve_iris_journey
 from routes.programs import fetch_programs_with_deadline_sync, sort_programs_like_homepage
 from routes.enrollment import ProfileData, insert_enrollment_from_profile
-from routes.clients import ensure_client_from_enrollment_lead
+from routes.clients import (
+    annual_renewal_reminder_for_portal,
+    annual_subscription_period_expired,
+    ensure_client_from_enrollment_lead,
+    persist_annual_member_expiry_if_overdue,
+)
 from routes.currency import assert_claimed_hub_matches_stripe
 from country_normalize import normalize_country_iso2
 from utils.person_name import normalize_person_name
@@ -29,6 +34,14 @@ client = AsyncIOMotorClient(mongo_url)
 db = client[os.environ['DB_NAME']]
 
 logger = logging.getLogger(__name__)
+
+
+async def _student_client_row_with_expiry(client_id: Optional[str]) -> dict:
+    """Load client row and persist annual→non-annual when ``annual_subscription.end_date`` has passed."""
+    if not client_id:
+        return {}
+    row = await db.clients.find_one({"id": client_id}, {"_id": 0}) or {}
+    return await persist_annual_member_expiry_if_overdue(db, row)
 
 
 async def get_current_student_user(request: Request, user: dict = Depends(get_current_user)):
@@ -229,6 +242,8 @@ def _annual_dashboard_access(client: dict) -> bool:
 
     Drives portal offers, tier promotional pricing, package inclusion, and household club eligibility.
     """
+    if annual_subscription_period_expired(client):
+        return False
     if bool(client.get("annual_member_dashboard")):
         return True
     sub = client.get("subscription") or {}
@@ -1345,7 +1360,7 @@ async def update_other_guests(data: FamilyUpdate, user: dict = Depends(get_curre
 async def get_enrollment_prefill(user: dict = Depends(get_current_student_user)):
     """Profile + family list for dashboard-origin enrollment (skip retyping public form fields)."""
     client_id = user.get("client_id")
-    client = await db.clients.find_one({"id": client_id}, {"_id": 0}) or {} if client_id else {}
+    client = await _student_client_row_with_expiry(client_id) if client_id else {}
     self_data = _profile_snapshot_for_prefill(user, client)
     peers = (
         await _household_peer_guest_rows(client_id, client, for_payment=True)
@@ -1365,7 +1380,7 @@ async def _portal_combined_dashboard_total(user: dict, profile: ProfileData) -> 
     client_id = user.get("client_id")
     if not client_id:
         return None
-    client = await db.clients.find_one({"id": client_id}, {"_id": 0}) or {}
+    client = await _student_client_row_with_expiry(client_id)
     sub = client.get("subscription") or {}
     annual_dashboard_access = _annual_dashboard_access(client)
     hp_ids = await _household_peer_ids_for_pricing(client_id, client)
@@ -1490,7 +1505,7 @@ async def dashboard_quote(
     if not client_id:
         raise HTTPException(status_code=400, detail="User not linked to client record")
     await assert_claimed_hub_matches_stripe(request, currency)
-    client = await db.clients.find_one({"id": client_id}, {"_id": 0}) or {}
+    client = await _student_client_row_with_expiry(client_id)
     sub = client.get("subscription") or {}
     annual_dashboard_access = _annual_dashboard_access(client)
     hp_ids = await _household_peer_ids_for_pricing(client_id, client)
@@ -1630,7 +1645,7 @@ async def build_admin_dashboard_pricing_snapshot(
     Same portal math as GET /dashboard-quote for each upcoming program (self only, no guests).
     Used by admin Dashboard Access preview — no student session / impersonation.
     """
-    client = await db.clients.find_one({"id": client_id}, {"_id": 0})
+    client = await _student_client_row_with_expiry(client_id)
     if not client:
         return None
     sub = client.get("subscription") or {}
@@ -1741,7 +1756,7 @@ async def dashboard_pay(data: DashboardPayIn, request: Request, user: dict = Dep
     if not client_id:
         raise HTTPException(status_code=400, detail="User not linked to client record")
     await assert_claimed_hub_matches_stripe(request, data.currency)
-    client = await db.clients.find_one({"id": client_id}, {"_id": 0}) or {}
+    client = await _student_client_row_with_expiry(client_id)
     sub = client.get("subscription") or {}
     annual_dashboard_access = _annual_dashboard_access(client)
     hp_ids = await _household_peer_ids_for_pricing(client_id, client)
@@ -1950,7 +1965,7 @@ async def dashboard_pay(data: DashboardPayIn, request: Request, user: dict = Dep
 async def get_student_home(user: dict = Depends(get_current_student_user)):
     """Fetch personalized home data: Schedule, Package, Financials, Programs."""
     client_id = user.get("client_id")
-    client = await db.clients.find_one({"id": client_id}, {"_id": 0}) or {}
+    client = await _student_client_row_with_expiry(client_id)
     annual_portal_access_effective = _annual_dashboard_access(client)
 
     # 1. Upcoming programs — same pipeline + ordering as public homepage (GET /api/programs?visible_only&upcoming_only)
@@ -2197,6 +2212,7 @@ async def get_student_home(user: dict = Depends(get_current_student_user)):
         "preferred_india_bank_id": pref_bank_m,
         "contact_email": crm_email_raw or None,
         "can_add_contact_email": can_add_contact_email,
+        "annual_renewal_reminder": annual_renewal_reminder_for_portal(client),
     }
 
 

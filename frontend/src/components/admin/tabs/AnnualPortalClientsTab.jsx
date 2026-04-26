@@ -351,6 +351,7 @@ export default function AnnualPortalClientsTab() {
       <div className="shrink-0 min-w-0">
         <h2 className="text-base font-semibold text-gray-900">Annual + dashboard (Client Garden)</h2>
         <p className="text-xs text-gray-600 mt-0.5 max-w-3xl">
+          When <strong>End Date</strong> (below) is in the past, Sacred Home clears the client&apos;s <strong>Annual</strong> access flag automatically (next login, quote, or opening this list). Members see a renewal reminder on the dashboard in the last 30 days and after expiry.{' '}
           Table columns: #, Name, Email Id, Start/End Date, DIID, HomeComing, Usage (summary), HOUSEHOLD, PRIMARY, Client id.{' '}
           <strong>Template</strong> uses the same order; usage counts are split into separate columns for upload.{' '}
           <strong>Upload</strong> finds columns by <strong>header title</strong> (not left-to-right order). Each column in the file <strong>replaces</strong> what is stored (empty cells clear dates, DIID, package, household; blank usage cells become 0; blank PRIMARY counts as N). <strong>DIID</strong> can be full 8 characters (letters+YYMM) or <strong>YYMM only</strong> (4 digits); letters are taken from <strong>Name</strong>. Match rows by Client id, Email, or <strong>Name</strong> (+ <strong>HOUSEHOLD</strong> when names repeat); new household members get a generated Client id. If row 1 is a title row, headers on the next row are detected automatically.
