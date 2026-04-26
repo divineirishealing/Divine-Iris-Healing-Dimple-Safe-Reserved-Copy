@@ -154,10 +154,16 @@ def normalize_phone(phone: str) -> str:
 
 
 def _coerce_client_created_at_iso(raw: str) -> str:
-    """Admin CRM: accept YYYY-MM-DD or ISO 8601; store UTC ISO string."""
+    """Admin CRM: accept YYYY-MM (first of month), YYYY-MM-DD, or ISO 8601; store UTC ISO string."""
     t = (raw or "").strip()
     if not t:
         raise HTTPException(status_code=400, detail="First seen date is empty.")
+    if re.fullmatch(r"\d{4}-\d{2}", t):
+        try:
+            d = datetime.strptime(t + "-01", "%Y-%m-%d").date()
+        except ValueError:
+            raise HTTPException(status_code=400, detail="Invalid First seen month.")
+        return datetime(d.year, d.month, d.day, 0, 0, 0, tzinfo=timezone.utc).isoformat()
     if re.fullmatch(r"\d{4}-\d{2}-\d{2}", t):
         try:
             d = datetime.strptime(t, "%Y-%m-%d").date()
@@ -169,7 +175,7 @@ def _coerce_client_created_at_iso(raw: str) -> str:
     except ValueError:
         raise HTTPException(
             status_code=400,
-            detail="First seen must be YYYY-MM-DD or a valid ISO 8601 datetime.",
+            detail="First seen must be YYYY-MM, YYYY-MM-DD, or a valid ISO 8601 datetime.",
         )
     if p.tzinfo is None:
         p = p.replace(tzinfo=timezone.utc)
@@ -1984,7 +1990,7 @@ class ClientUpdate(BaseModel):
     discovery_source: Optional[str] = None
     discovery_other_note: Optional[str] = None
     referred_by_client_id: Optional[str] = None
-    # CRM grid first-seen column: YYYY-MM-DD or ISO 8601 → stored as UTC ISO on ``created_at``
+    # CRM grid first-seen column: YYYY-MM (1st of month), YYYY-MM-DD, or ISO 8601 → stored as UTC ISO on ``created_at``
     created_at: Optional[str] = None
     # Portal cohort for layered AWRP / batch pricing (Admin → Dashboard settings)
     awrp_batch_id: Optional[str] = None

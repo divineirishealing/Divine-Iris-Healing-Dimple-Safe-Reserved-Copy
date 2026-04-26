@@ -149,6 +149,59 @@ function createdAtToDateInput(iso) {
   return '';
 }
 
+/** ``YYYY-MM`` for ``<input type="month">`` (first seen = month + year only in UI). */
+function createdAtToMonthInput(iso) {
+  const ymd = createdAtToDateInput(iso);
+  if (!ymd) return '';
+  return ymd.slice(0, 7);
+}
+
+/** Grid display: MM/YYYY from stored date (calendar month of first seen). */
+function formatFirstSeenMonthYear(iso) {
+  const ymd = createdAtToDateInput(iso);
+  if (!ymd) return '—';
+  const [y, mo] = ymd.split('-');
+  if (!y || !mo) return '—';
+  return `${mo}/${y}`;
+}
+
+/** Match backend ``_name_initial_segment`` (``canonical_id``) for DIID middle prefix. */
+function nameInitialSegment(name) {
+  const parts = (name || '').trim().split(/\s+/).filter(Boolean);
+  const letters = (w) => (w || '').toUpperCase().replace(/[^A-Z]/g, '');
+  if (parts.length >= 2) {
+    const a = letters(parts[0]).slice(0, 2).padEnd(2, 'X');
+    const b = letters(parts[parts.length - 1]).slice(0, 2).padEnd(2, 'X');
+    return (a + b).slice(0, 4);
+  }
+  if (parts.length === 1) {
+    const p = letters(parts[0]);
+    return (p + 'XXXX').slice(0, 4);
+  }
+  return 'XXXX';
+}
+
+/** ``YYMM`` from ``YYYY-MM`` (month picker value). */
+function yyMmFromYearMonthStr(ym) {
+  const m = String(ym || '').trim().match(/^(\d{4})-(\d{2})$/);
+  if (!m) return '0101';
+  const y = parseInt(m[1], 10);
+  const mo = parseInt(m[2], 10);
+  if (!Number.isFinite(y) || !Number.isFinite(mo) || mo < 1 || mo > 12) return '0101';
+  const yy = y % 100;
+  return `${String(yy).padStart(2, '0')}${String(mo).padStart(2, '0')}`;
+}
+
+/** Keep first four letters of middle if present; else derive from name. Append YYMM from first-seen month. */
+function diidMiddleWithYyMm(middle, editName, yearMonth) {
+  const yyMm = yyMmFromYearMonthStr(yearMonth);
+  const raw = (middle || '').trim().toUpperCase().replace(/[^A-Z0-9]/g, '');
+  if (raw.length >= 4 && /^[A-Z]{4}/.test(raw)) {
+    return `${raw.slice(0, 4)}${yyMm}`;
+  }
+  return `${nameInitialSegment(editName)}${yyMm}`;
+}
+
 /** Parse ``DIID-{middle}-{suffix}`` for the editable middle segment (4 letters + YYMM). */
 function splitDiid(diid) {
   const d = (diid || '').trim();
@@ -240,7 +293,7 @@ const ClientsTab = () => {
     setEditingId(cl.id);
     setDraft({
       editName: cl.name || '',
-      firstSeenDate: createdAtToDateInput(cl.created_at),
+      firstSeenDate: createdAtToMonthInput(cl.created_at),
       email: cl.email || '',
       household_key: cl.household_key || '',
       is_primary_household_contact: !!cl.is_primary_household_contact,
@@ -289,8 +342,10 @@ const ClientsTab = () => {
       toast({ title: 'Name is required', variant: 'destructive' });
       return;
     }
-    let firstSeen = (draft.firstSeenDate || '').trim() || createdAtToDateInput(cl.created_at);
-    if (!firstSeen) firstSeen = new Date().toISOString().slice(0, 10);
+    let rawSeen = (draft.firstSeenDate || '').trim();
+    if (!rawSeen) rawSeen = createdAtToMonthInput(cl.created_at);
+    if (!rawSeen) rawSeen = new Date().toISOString().slice(0, 7);
+    const firstSeen = /^\d{4}-\d{2}$/.test(rawSeen) ? `${rawSeen}-01` : createdAtToDateInput(cl.created_at) || `${rawSeen}-01`;
     setRowSaving(true);
     try {
       const payload = {
@@ -453,7 +508,7 @@ const ClientsTab = () => {
             <Users size={18} className="text-[#D4AF37]" /> Client Garden
           </h2>
           <p className="text-xs text-gray-500 mt-0.5 max-w-3xl">
-            One row per client — use <strong className="font-semibold text-gray-700">Edit</strong> for <strong className="font-semibold text-gray-700">name</strong>, <strong className="font-semibold text-gray-700">first seen</strong>, <strong className="font-semibold text-gray-700">annual program</strong> (Yes/No), garden label, DIID middle, contact fields, <strong className="font-semibold text-gray-700">how they found us</strong>, and <strong className="font-semibold text-gray-700">referrer UUID</strong>. Save or Cancel in Actions. Conversions/sources still come from sync.{' '}
+            One row per client — use <strong className="font-semibold text-gray-700">Edit</strong> for <strong className="font-semibold text-gray-700">name</strong>, <strong className="font-semibold text-gray-700">first seen</strong> (month and year; stored as the 1st of that month), <strong className="font-semibold text-gray-700">annual program</strong> (Yes/No), garden label, DIID middle (YYMM updates when you change first seen), contact fields, <strong className="font-semibold text-gray-700">how they found us</strong>, and <strong className="font-semibold text-gray-700">referrer UUID</strong>. Save or Cancel in Actions. Conversions/sources still come from sync.{' '}
             <strong className="font-semibold text-gray-700">DIID</strong> should exist on every row; use <strong className="font-semibold text-gray-700">Sync All Data</strong> to backfill. <strong className="font-semibold text-gray-700">UUID</strong> is the internal record id.
           </p>
         </div>
@@ -586,7 +641,7 @@ const ClientsTab = () => {
                 {isVisible('annual_program') && <th className="py-2 px-2 font-semibold w-[52px] text-center" title="Annual program member (Sacred Home annual pricing tag)">Annual</th>}
                 {isVisible('how_found') && <th className="py-2 px-2 font-semibold min-w-[100px]" title="How they first found Divine Iris">How found</th>}
                 {isVisible('referrer') && <th className="py-2 px-2 font-semibold min-w-[120px]" title="Referred-by client (when source is Referral)">Referrer</th>}
-                {isVisible('first') && <th className="py-2 px-2 font-semibold min-w-[108px]" title="First seen in garden (editable)">First seen</th>}
+                {isVisible('first') && <th className="py-2 px-2 font-semibold min-w-[108px]" title="First seen: month and year (editable); DIID middle YYMM follows this month">First seen</th>}
                 {isVisible('updated') && <th className="py-2 px-2 font-semibold w-[72px]">Updated</th>}
                 {isVisible('actions') && <th className="py-2 pr-3 pl-2 font-semibold min-w-[120px] text-right sticky right-0 bg-gray-100 z-10">Actions</th>}
               </tr>
@@ -877,14 +932,22 @@ const ClientsTab = () => {
                     <td className="py-1 px-1 text-gray-600 align-top whitespace-nowrap min-w-[108px]">
                       {d ? (
                         <input
-                          type="date"
+                          type="month"
                           data-testid="client-first-seen"
                           className="h-7 w-full min-w-[104px] text-[9px] rounded border border-slate-300 bg-white px-1"
                           value={d.firstSeenDate || ''}
-                          onChange={(e) => updateDraft({ firstSeenDate: e.target.value })}
+                          onChange={(e) => {
+                            const v = e.target.value;
+                            updateDraft({
+                              firstSeenDate: v,
+                              diidMiddle: diidMiddleWithYyMm(d.diidMiddle, d.editName, v),
+                            });
+                          }}
                         />
                       ) : (
-                        <span className="py-2 px-2 inline-block text-gray-500">{cl.created_at ? new Date(cl.created_at).toLocaleDateString() : '—'}</span>
+                        <span className="py-2 px-2 inline-block text-gray-500" title={cl.created_at ? createdAtToDateInput(cl.created_at) : ''}>
+                          {formatFirstSeenMonthYear(cl.created_at)}
+                        </span>
                       )}
                     </td>
                     )}
