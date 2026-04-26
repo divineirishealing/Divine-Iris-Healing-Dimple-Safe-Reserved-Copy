@@ -26,6 +26,7 @@ const CLIENT_GARDEN_COLUMN_DEFS = [
   { id: 'sr', label: 'SR No', required: true },
   { id: 'name', label: 'Name', required: true },
   { id: 'annual_program', label: 'Annual' },
+  { id: 'portal_cohort', label: 'Portal cohort' },
   { id: 'google_login', label: 'Google login' },
   { id: 'preferred_pay', label: 'Preferred pay' },
   { id: 'tagged_pay', label: 'Tagged pay' },
@@ -222,6 +223,22 @@ function buildLabelOptionsForSelect(gardenLabelOptions, cl) {
 /** Excel-style (Blanks) bucket for empty cells */
 const FILTER_BLANKS = '(Blanks)';
 
+function clientPortalCohortId(cl) {
+  return String(cl.awrp_batch_id || (cl.subscription && cl.subscription.awrp_batch_id) || '').trim();
+}
+
+/** Sacred Home batch pricing cohort — label from site settings when available. */
+function clientPortalCohortDisplay(cl, awrpPortalBatches) {
+  const id = clientPortalCohortId(cl);
+  if (!id) return '—';
+  const list = Array.isArray(awrpPortalBatches) ? awrpPortalBatches : [];
+  const b = list.find((x) => String(x?.id || '') === id);
+  if (b && b.label && String(b.label) !== id) {
+    return `${b.label} (${id})`;
+  }
+  return (b && b.label) || id;
+}
+
 function formatClientGardenApiError(err) {
   const d = err.response?.data?.detail;
   if (typeof d === 'string') return d;
@@ -256,6 +273,10 @@ function getClientFilterValue(cl, colId, siteInfo = {}) {
       return (cl.first_program || '').trim() || FILTER_BLANKS;
     case 'annual_program':
       return cl.annual_member_dashboard ? 'Yes' : 'No';
+    case 'portal_cohort': {
+      const id = clientPortalCohortId(cl);
+      return id || FILTER_BLANKS;
+    }
     case 'google_login':
       return cl.portal_login_allowed === false ? 'Blocked' : 'Allowed';
     case 'preferred_pay':
@@ -449,6 +470,10 @@ const ClientsTab = () => {
   /** Site settings — Indian Payment rows for Tagged pay column (same as Dashboard access). */
   const [indiaSite, setIndiaSite] = useState(null);
   const [viewAsLoadingId, setViewAsLoadingId] = useState(null);
+  /** Multi-select for bulk portal cohort assignment */
+  const [bulkSelectedIds, setBulkSelectedIds] = useState(() => new Set());
+  const [bulkCohortPick, setBulkCohortPick] = useState('');
+  const [bulkCohortApplying, setBulkCohortApplying] = useState(false);
   /** Excel-style column filters: colId → Set of allowed cell values; missing key = no filter */
   const [columnFilters, setColumnFilters] = useState({});
 
@@ -548,6 +573,7 @@ const ClientsTab = () => {
   }, [clients, editingId]);
 
   const beginEdit = (cl) => {
+    setBulkSelectedIds(new Set());
     setEditingId(cl.id);
     setDraft({
       editName: cl.name || '',
@@ -564,6 +590,7 @@ const ClientsTab = () => {
       discoveryOtherNote: cl.discovery_other_note ? String(cl.discovery_other_note) : '',
       referredByClientId: cl.referred_by_client_id ? String(cl.referred_by_client_id) : '',
       referredByNamePreview: cl.referred_by_name ? String(cl.referred_by_name) : '',
+      awrpBatchId: clientPortalCohortId(cl),
     });
   };
 
@@ -625,6 +652,7 @@ const ClientsTab = () => {
           (draft.discoverySource === 'Referral'
             ? (draft.referredByClientId || '').trim()
             : '') || null,
+        awrp_batch_id: (draft.awrpBatchId || '').trim() || null,
       };
       const midNorm = (draft.diidMiddle || '').trim().toUpperCase();
       const origMid = (splitDiid(cl.diid).middle || '').trim().toUpperCase();
@@ -645,6 +673,54 @@ const ClientsTab = () => {
       });
     }
     setRowSaving(false);
+  };
+
+  const toggleBulkOne = (id, checked) => {
+    setBulkSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (checked) next.add(id);
+      else next.delete(id);
+      return next;
+    });
+  };
+
+  const bulkListIds = useMemo(() => displayClients.map((c) => c.id), [displayClients]);
+  const allBulkInViewSelected =
+    bulkListIds.length > 0 && bulkListIds.every((id) => bulkSelectedIds.has(id));
+
+  const toggleBulkAllInView = () => {
+    if (editingId) return;
+    if (allBulkInViewSelected) {
+      setBulkSelectedIds(new Set());
+      return;
+    }
+    setBulkSelectedIds(new Set(bulkListIds));
+  };
+
+  const applyBulkPortalCohort = async () => {
+    const ids = [...bulkSelectedIds];
+    if (ids.length === 0 || editingId) return;
+    const v = (bulkCohortPick || '').trim();
+    setBulkCohortApplying(true);
+    try {
+      await Promise.all(
+        ids.map((clientId) =>
+          axios.put(`${getApiUrl()}/clients/${clientId}`, { awrp_batch_id: v || null }),
+        ),
+      );
+      toast({ title: 'Portal cohort updated', description: `${ids.length} client(s).` });
+      setBulkSelectedIds(new Set());
+      await fetchData();
+    } catch (err) {
+      const d = err.response?.data?.detail;
+      toast({
+        title: 'Bulk update failed',
+        description: typeof d === 'string' ? d : undefined,
+        variant: 'destructive',
+      });
+    } finally {
+      setBulkCohortApplying(false);
+    }
   };
 
   /** Open Sacred Home as this client (same as Dashboard access → View as). */
@@ -705,6 +781,12 @@ const ClientsTab = () => {
     try {
       await axios.delete(`${getApiUrl()}/clients/${id}`);
       toast({ title: 'Client removed' });
+      setBulkSelectedIds((prev) => {
+        if (!prev.has(id)) return prev;
+        const next = new Set(prev);
+        next.delete(id);
+        return next;
+      });
       if (editingId === id) {
         setEditingId(null);
         setDraft(null);
@@ -806,6 +888,7 @@ const ClientsTab = () => {
           <p className="text-xs text-gray-500 mt-0.5 max-w-3xl">
             One row per client — use <strong className="font-semibold text-gray-700">Edit</strong> for <strong className="font-semibold text-gray-700">name</strong>, <strong className="font-semibold text-gray-700">first seen</strong> (month and year; stored as the 1st of that month), <strong className="font-semibold text-gray-700">annual program</strong> (Yes/No), garden label, DIID middle (YYMM updates when you change first seen), contact fields, <strong className="font-semibold text-gray-700">how they found us</strong>, and <strong className="font-semibold text-gray-700">referrer UUID</strong>. <strong className="font-semibold text-gray-700">Google login</strong>, <strong className="font-semibold text-gray-700">preferred / tagged payment</strong>, <strong className="font-semibold text-gray-700">GST</strong>, and <strong className="font-semibold text-gray-700">discount</strong> mirror Dashboard access (read-only here; edit under Admin → Dashboard access). <strong className="font-semibold text-gray-700">View as</strong> opens their Sacred Home. Save or Cancel in Actions. Conversions/sources still come from sync.{' '}
             <strong className="font-semibold text-gray-700">Primary HH</strong> marks the primary household contact for that household key.{' '}
+            <strong className="font-semibold text-gray-700">Portal cohort</strong> ties a client to an AWRP / batch defined in Admin → Dashboard settings; they then see that cohort&apos;s portal prices on Sacred Home when they have annual dashboard access. Select rows with the checkboxes in <strong className="font-semibold text-gray-700">SR No</strong> to assign a cohort in bulk.{' '}
             <strong className="font-semibold text-gray-700">DIID</strong> and <strong className="font-semibold text-gray-700">UUID</strong> are shown in the last columns; use <strong className="font-semibold text-gray-700">Sync All Data</strong> to backfill DIID.
           </p>
         </div>
@@ -929,6 +1012,48 @@ const ClientsTab = () => {
         </p>
       )}
 
+      {bulkSelectedIds.size > 0 && (
+        <div
+          className="mb-3 flex flex-wrap items-center gap-2 rounded-lg border border-teal-200 bg-teal-50/60 px-3 py-2 text-[11px]"
+          data-testid="clients-bulk-cohort-bar"
+        >
+          <span className="font-semibold text-teal-900">{bulkSelectedIds.size} selected</span>
+          <span className="text-teal-800/90">Set portal cohort:</span>
+          <select
+            value={bulkCohortPick}
+            onChange={(e) => setBulkCohortPick(e.target.value)}
+            disabled={!!editingId || bulkCohortApplying}
+            className="h-8 min-w-[10rem] rounded border border-teal-300 bg-white px-2 text-[10px] text-gray-800"
+            data-testid="clients-bulk-cohort-select"
+          >
+            <option value="">— Clear cohort (standard pricing) —</option>
+            {(siteInfo.awrp_portal_batches || []).map((b) => (
+              <option key={b.id} value={b.id}>
+                {(b.label || b.id) + (b.id && b.label && String(b.id) !== String(b.label) ? ` (${b.id})` : '')}
+              </option>
+            ))}
+          </select>
+          <Button
+            type="button"
+            size="sm"
+            className="h-8 text-[10px] bg-teal-700 hover:bg-teal-800 text-white"
+            disabled={!!editingId || bulkCohortApplying}
+            data-testid="clients-bulk-cohort-apply"
+            onClick={() => applyBulkPortalCohort()}
+          >
+            {bulkCohortApplying ? 'Applying…' : 'Apply to selected'}
+          </Button>
+          <button
+            type="button"
+            className="text-[10px] text-teal-800 underline-offset-2 hover:underline"
+            disabled={bulkCohortApplying}
+            onClick={() => setBulkSelectedIds(new Set())}
+          >
+            Clear selection
+          </button>
+        </div>
+      )}
+
       <div
         className="rounded-xl border border-gray-200 bg-white overflow-hidden overflow-x-auto w-full max-w-none"
         data-testid="clients-table-wrap"
@@ -956,9 +1081,20 @@ const ClientsTab = () => {
                 {isVisible('sr') && (
                   <th
                     className={`py-2 px-1 font-semibold text-center bg-gray-100 ${TH_STICKY_SR}`}
-                    title="Serial number in the current list (after search and column filters)"
+                    title="Select rows for bulk portal cohort, or serial number in the current list"
                   >
-                    SR No
+                    <div className="flex flex-col items-center gap-1">
+                      <input
+                        type="checkbox"
+                        checked={allBulkInViewSelected}
+                        disabled={editingId !== null || bulkListIds.length === 0}
+                        onChange={toggleBulkAllInView}
+                        className="rounded border-slate-300"
+                        aria-label="Select all rows in this list"
+                        data-testid="clients-select-all-bulk"
+                      />
+                      <span className="text-[8px] font-semibold normal-case tracking-normal">SR</span>
+                    </div>
                   </th>
                 )}
                 {isVisible('name') && (
@@ -985,6 +1121,19 @@ const ClientsTab = () => {
                     siteInfo={siteInfo}
                   >
                     Annual
+                  </FilterableTh>
+                )}
+                {isVisible('portal_cohort') && (
+                  <FilterableTh
+                    colId="portal_cohort"
+                    title="Sacred Home portal cohort (batch pricing)"
+                    className="py-2 px-2 font-semibold min-w-[100px] max-w-[160px]"
+                    optionClients={filterOptionBaseByCol.portal_cohort}
+                    columnFilters={columnFilters}
+                    setColumnFilters={setColumnFilters}
+                    siteInfo={siteInfo}
+                  >
+                    Cohort
                   </FilterableTh>
                 )}
                 {isVisible('google_login') && (
@@ -1261,7 +1410,20 @@ const ClientsTab = () => {
                       className={`py-2 px-1 text-center text-gray-700 tabular-nums text-[10px] font-semibold ${TD_STICKY_SR} ${stickyNameBg}`}
                       title={`Row ${rowIdx + 1} in the current list`}
                     >
-                      {rowIdx + 1}
+                      <div className="flex flex-col items-center gap-1">
+                        {!isEditing && (
+                          <input
+                            type="checkbox"
+                            checked={bulkSelectedIds.has(cl.id)}
+                            disabled={editingId !== null}
+                            onChange={(e) => toggleBulkOne(cl.id, e.target.checked)}
+                            className="rounded border-slate-300"
+                            aria-label={`Select ${cl.name || cl.id}`}
+                            data-testid={`client-bulk-sel-${cl.id}`}
+                          />
+                        )}
+                        <span>{rowIdx + 1}</span>
+                      </div>
                     </td>
                     )}
                     {isVisible('name') && (
@@ -1301,6 +1463,32 @@ const ClientsTab = () => {
                         </select>
                       ) : (
                         <span className="text-[9px] font-medium text-gray-800">{cl.annual_member_dashboard ? 'Yes' : 'No'}</span>
+                      )}
+                    </td>
+                    )}
+                    {isVisible('portal_cohort') && (
+                    <td
+                      className="py-1 px-1 text-[9px] text-teal-900 align-top max-w-[180px] leading-snug"
+                      title={clientPortalCohortId(cl) || ''}
+                    >
+                      {d ? (
+                        <select
+                          data-testid="client-portal-cohort"
+                          className="w-full h-8 text-[9px] rounded border border-teal-200 bg-white px-1"
+                          value={d.awrpBatchId || ''}
+                          onChange={(e) => updateDraft({ awrpBatchId: e.target.value })}
+                        >
+                          <option value="">— None —</option>
+                          {(siteInfo.awrp_portal_batches || []).map((b) => (
+                            <option key={b.id} value={b.id}>
+                              {(b.label || b.id) + (b.id && b.label && String(b.id) !== String(b.label) ? ` (${b.id})` : '')}
+                            </option>
+                          ))}
+                        </select>
+                      ) : (
+                        <span className="line-clamp-3 px-0.5">
+                          {clientPortalCohortDisplay(cl, siteInfo.awrp_portal_batches)}
+                        </span>
                       )}
                     </td>
                     )}

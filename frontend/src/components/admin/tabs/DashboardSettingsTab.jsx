@@ -1282,10 +1282,12 @@ const DashboardSettingsTab = ({ settings, onChange, programs = [], onOpenAdminTa
             <div className="min-w-0 flex-1">
               <h3 className="text-sm font-semibold text-gray-900">AWRP / existing-batch cohorts (portal pricing)</h3>
               <p className="text-[11px] text-gray-500 leading-snug mt-0.5">
-                Define cohorts (e.g. January 2025 AWRP). Assign each subscriber in{' '}
-                <strong className="text-gray-700">Admin → Subscribers</strong> to a cohort ID. When they sign in to Sacred
-                Home, <strong className="text-gray-700">dashboard quotes</strong> merge these per-program overrides on top of
-                the normal portal pricing table. Leave a program empty to use defaults for that cohort.
+                Define cohorts (e.g. January 2025 AWRP), then set per-program prices below for each cohort. Assign people by
+                cohort ID in <strong className="text-gray-700">Admin → Subscribers</strong>, or in{' '}
+                <strong className="text-gray-700">Admin → Client Garden</strong> (Cohort column or bulk select via SR checkboxes).
+                Clients need <strong className="text-gray-700">Annual = Yes</strong> (annual dashboard access) for these
+                overrides to apply on Sacred Home; batch pricing layers on top of the normal portal pricing table. Leave a
+                program empty to use defaults for that cohort.
               </p>
             </div>
             <Button type="button" variant="outline" size="sm" className="text-[10px] h-8 shrink-0" onClick={addAwrpBatch}>
