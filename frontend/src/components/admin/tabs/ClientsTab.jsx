@@ -14,26 +14,33 @@ import { useSpreadsheetColumnVisibility, SpreadsheetColumnPicker } from '../Spre
 import { getApiUrl } from '../../../lib/config';
 
 const CLIENT_GARDEN_COLUMN_DEFS = [
+  { id: 'sr', label: 'SR No', required: true },
   { id: 'name', label: 'Name', required: true },
+  { id: 'annual_program', label: 'Annual' },
+  { id: 'email', label: 'Email ID' },
+  { id: 'phone', label: 'Phone No' },
   { id: 'garden_label', label: 'Garden label' },
-  { id: 'diid', label: 'DIID' },
-  { id: 'uuid', label: 'UUID' },
-  { id: 'email', label: 'Email' },
-  { id: 'phone', label: 'Phone' },
   { id: 'household', label: 'Household' },
-  { id: 'pri', label: 'Pri' },
+  { id: 'pri', label: 'Primary HH' },
   { id: 'sources', label: 'Sources' },
   { id: 'conv', label: 'Conv' },
   { id: 'first_program', label: '1st program' },
-  { id: 'annual_program', label: 'Annual' },
   { id: 'how_found', label: 'How found' },
   { id: 'referrer', label: 'Referrer' },
   { id: 'first', label: 'First seen' },
   { id: 'updated', label: 'Updated' },
+  { id: 'diid', label: 'DIID' },
+  { id: 'uuid', label: 'UUID' },
   { id: 'actions', label: 'Actions', required: true },
 ];
 
-const CLIENT_GARDEN_COLS_KEY = 'admin-client-garden-columns-v4';
+const CLIENT_GARDEN_COLS_KEY = 'admin-client-garden-columns-v5';
+
+/** Sticky lead columns: SR then Name (horizontal scroll). */
+const TH_STICKY_SR = 'w-11 min-w-[2.75rem] max-w-[2.75rem] sticky left-0 z-[12] border-r border-gray-100';
+const TH_STICKY_NAME = 'min-w-[120px] sticky left-11 z-[11] border-r border-gray-100';
+const TD_STICKY_SR = 'w-11 min-w-[2.75rem] max-w-[2.75rem] sticky left-0 z-[1] border-r border-gray-100';
+const TD_STICKY_NAME = 'min-w-[120px] sticky left-11 z-[1] border-r border-gray-100';
 
 /** Maps full canonical labels + legacy short names to row icon/colors (keep in sync with backend ``label_stripe_key``). */
 function gardenLabelStripeKey(label) {
@@ -450,7 +457,7 @@ const ClientsTab = () => {
   useEffect(() => { fetchData(); }, [fetchData]);
 
   const filterOptionBaseByCol = useMemo(() => {
-    const ids = CLIENT_GARDEN_COLUMN_DEFS.map((c) => c.id).filter((id) => id !== 'actions');
+    const ids = CLIENT_GARDEN_COLUMN_DEFS.map((c) => c.id).filter((id) => id !== 'actions' && id !== 'sr');
     const out = {};
     for (const id of ids) {
       out[id] = clientsForFilterOptions(clients, columnFilters, id);
@@ -728,7 +735,8 @@ const ClientsTab = () => {
           </h2>
           <p className="text-xs text-gray-500 mt-0.5 max-w-3xl">
             One row per client — use <strong className="font-semibold text-gray-700">Edit</strong> for <strong className="font-semibold text-gray-700">name</strong>, <strong className="font-semibold text-gray-700">first seen</strong> (month and year; stored as the 1st of that month), <strong className="font-semibold text-gray-700">annual program</strong> (Yes/No), garden label, DIID middle (YYMM updates when you change first seen), contact fields, <strong className="font-semibold text-gray-700">how they found us</strong>, and <strong className="font-semibold text-gray-700">referrer UUID</strong>. Save or Cancel in Actions. Conversions/sources still come from sync.{' '}
-            <strong className="font-semibold text-gray-700">DIID</strong> should exist on every row; use <strong className="font-semibold text-gray-700">Sync All Data</strong> to backfill. <strong className="font-semibold text-gray-700">UUID</strong> is the internal record id.
+            <strong className="font-semibold text-gray-700">Primary HH</strong> marks the primary household contact for that household key.{' '}
+            <strong className="font-semibold text-gray-700">DIID</strong> and <strong className="font-semibold text-gray-700">UUID</strong> are shown in the last columns; use <strong className="font-semibold text-gray-700">Sync All Data</strong> to backfill DIID.
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
@@ -875,16 +883,60 @@ const ClientsTab = () => {
           >
             <thead>
               <tr className="bg-gray-100 border-b border-gray-200 text-[9px] uppercase tracking-wide text-gray-600">
+                {isVisible('sr') && (
+                  <th
+                    className={`py-2 px-1 font-semibold text-center bg-gray-100 ${TH_STICKY_SR}`}
+                    title="Serial number in the current list (after search and column filters)"
+                  >
+                    SR No
+                  </th>
+                )}
                 {isVisible('name') && (
                   <FilterableTh
                     colId="name"
                     title="Name"
-                    className="py-2 pl-3 pr-2 font-semibold sticky left-0 bg-gray-100 z-10 min-w-[120px]"
+                    className={`py-2 pl-3 pr-2 font-semibold bg-gray-100 ${TH_STICKY_NAME}`}
                     optionClients={filterOptionBaseByCol.name}
                     columnFilters={columnFilters}
                     setColumnFilters={setColumnFilters}
                   >
                     Name
+                  </FilterableTh>
+                )}
+                {isVisible('annual_program') && (
+                  <FilterableTh
+                    colId="annual_program"
+                    title="Annual program (Sacred Home / dashboard pricing tag)"
+                    className="py-2 px-2 font-semibold w-[56px] text-center"
+                    optionClients={filterOptionBaseByCol.annual_program}
+                    columnFilters={columnFilters}
+                    setColumnFilters={setColumnFilters}
+                  >
+                    Annual
+                  </FilterableTh>
+                )}
+                {isVisible('email') && (
+                  <FilterableTh
+                    colId="email"
+                    title="Email ID"
+                    className="py-2 px-2 font-semibold min-w-[140px]"
+                    optionClients={filterOptionBaseByCol.email}
+                    columnFilters={columnFilters}
+                    setColumnFilters={setColumnFilters}
+                  >
+                    Email ID
+                  </FilterableTh>
+                )}
+                {isVisible('phone') && (
+                  <FilterableTh
+                    colId="phone"
+                    title="Phone number"
+                    className="py-2 px-2 font-semibold min-w-[88px]"
+                    optionClients={filterOptionBaseByCol.phone}
+                    columnFilters={columnFilters}
+                    setColumnFilters={setColumnFilters}
+                  >
+                    Phone No
                   </FilterableTh>
                 )}
                 {isVisible('garden_label') && (
@@ -897,54 +949,6 @@ const ClientsTab = () => {
                     setColumnFilters={setColumnFilters}
                   >
                     Garden label
-                  </FilterableTh>
-                )}
-                {isVisible('diid') && (
-                  <FilterableTh
-                    colId="diid"
-                    title="DIID"
-                    className="py-2 px-2 font-semibold min-w-[220px]"
-                    optionClients={filterOptionBaseByCol.diid}
-                    columnFilters={columnFilters}
-                    setColumnFilters={setColumnFilters}
-                  >
-                    DIID
-                  </FilterableTh>
-                )}
-                {isVisible('uuid') && (
-                  <FilterableTh
-                    colId="uuid"
-                    title="UUID"
-                    className="py-2 px-2 font-semibold min-w-[200px]"
-                    optionClients={filterOptionBaseByCol.uuid}
-                    columnFilters={columnFilters}
-                    setColumnFilters={setColumnFilters}
-                  >
-                    UUID
-                  </FilterableTh>
-                )}
-                {isVisible('email') && (
-                  <FilterableTh
-                    colId="email"
-                    title="Email"
-                    className="py-2 px-2 font-semibold min-w-[140px]"
-                    optionClients={filterOptionBaseByCol.email}
-                    columnFilters={columnFilters}
-                    setColumnFilters={setColumnFilters}
-                  >
-                    Email
-                  </FilterableTh>
-                )}
-                {isVisible('phone') && (
-                  <FilterableTh
-                    colId="phone"
-                    title="Phone"
-                    className="py-2 px-2 font-semibold min-w-[88px]"
-                    optionClients={filterOptionBaseByCol.phone}
-                    columnFilters={columnFilters}
-                    setColumnFilters={setColumnFilters}
-                  >
-                    Phone
                   </FilterableTh>
                 )}
                 {isVisible('household') && (
@@ -962,13 +966,13 @@ const ClientsTab = () => {
                 {isVisible('pri') && (
                   <FilterableTh
                     colId="pri"
-                    title="Primary household"
-                    className="py-2 px-2 font-semibold w-[52px] text-center"
+                    title="Primary household contact — Y = this row is the main contact for the household key (Sacred Home / billing linkage)"
+                    className="py-2 px-2 font-semibold w-[56px] text-center"
                     optionClients={filterOptionBaseByCol.pri}
                     columnFilters={columnFilters}
                     setColumnFilters={setColumnFilters}
                   >
-                    Pri
+                    Primary HH
                   </FilterableTh>
                 )}
                 {isVisible('sources') && (
@@ -1005,18 +1009,6 @@ const ClientsTab = () => {
                     setColumnFilters={setColumnFilters}
                   >
                     1st program
-                  </FilterableTh>
-                )}
-                {isVisible('annual_program') && (
-                  <FilterableTh
-                    colId="annual_program"
-                    title="Annual program"
-                    className="py-2 px-2 font-semibold w-[56px] text-center"
-                    optionClients={filterOptionBaseByCol.annual_program}
-                    columnFilters={columnFilters}
-                    setColumnFilters={setColumnFilters}
-                  >
-                    Annual
                   </FilterableTh>
                 )}
                 {isVisible('how_found') && (
@@ -1067,11 +1059,35 @@ const ClientsTab = () => {
                     Updated
                   </FilterableTh>
                 )}
-                {isVisible('actions') && <th className="py-2 pr-3 pl-2 font-semibold min-w-[120px] text-right sticky right-0 bg-gray-100 z-10">Actions</th>}
+                {isVisible('diid') && (
+                  <FilterableTh
+                    colId="diid"
+                    title="DIID (internal client id)"
+                    className="py-2 px-2 font-semibold min-w-[220px]"
+                    optionClients={filterOptionBaseByCol.diid}
+                    columnFilters={columnFilters}
+                    setColumnFilters={setColumnFilters}
+                  >
+                    DIID
+                  </FilterableTh>
+                )}
+                {isVisible('uuid') && (
+                  <FilterableTh
+                    colId="uuid"
+                    title="UUID — internal record id"
+                    className="py-2 px-2 font-semibold min-w-[200px]"
+                    optionClients={filterOptionBaseByCol.uuid}
+                    columnFilters={columnFilters}
+                    setColumnFilters={setColumnFilters}
+                  >
+                    UUID
+                  </FilterableTh>
+                )}
+                {isVisible('actions') && <th className="py-2 pr-3 pl-2 font-semibold min-w-[120px] text-right sticky right-0 bg-gray-100 z-[13]">Actions</th>}
               </tr>
             </thead>
             <tbody>
-              {displayClients.map((cl) => {
+              {displayClients.map((cl, rowIdx) => {
                 const cfg = labelStyleForClient(cl.label);
                 const Icon = cfg.icon;
                 const sourcesStr = (cl.sources || []).join(', ');
@@ -1089,8 +1105,16 @@ const ClientsTab = () => {
                       isEditing ? 'bg-amber-50/40 ring-1 ring-inset ring-amber-200/50' : 'bg-white hover:bg-amber-50/30'
                     }`}
                   >
+                    {isVisible('sr') && (
+                    <td
+                      className={`py-2 px-1 text-center text-gray-700 tabular-nums text-[10px] font-semibold ${TD_STICKY_SR} ${stickyNameBg}`}
+                      title={`Row ${rowIdx + 1} in the current list`}
+                    >
+                      {rowIdx + 1}
+                    </td>
+                    )}
                     {isVisible('name') && (
-                    <td className={`py-2 pl-3 pr-2 sticky left-0 z-[1] border-r border-gray-100 ${stickyNameBg}`}>
+                    <td className={`py-2 pl-3 pr-2 ${TD_STICKY_NAME} ${stickyNameBg}`}>
                       <div className="flex items-center gap-1.5 min-w-0">
                         <div className={`w-6 h-6 rounded-full ${cfg.bg} ${cfg.border} border flex items-center justify-center shrink-0`}>
                           <Icon size={10} className={cfg.text} />
@@ -1111,65 +1135,22 @@ const ClientsTab = () => {
                       </div>
                     </td>
                     )}
-                    {isVisible('garden_label') && (
-                    <td className="py-1 px-1 text-gray-800 align-top max-w-[320px] min-w-[160px]" title={d ? '' : (cl.label || '')}>
+                    {isVisible('annual_program') && (
+                    <td className="py-1 px-1 text-center align-top">
                       {d ? (
                         <select
-                          data-testid="client-garden-label"
-                          className="w-full max-w-[300px] h-8 text-[9px] rounded border border-slate-300 bg-white px-1"
-                          value={d.labelManual || ''}
-                          onChange={(e) => updateDraft({ labelManual: e.target.value })}
+                          data-testid="client-annual-program"
+                          className="h-7 w-full min-w-[48px] max-w-[56px] text-[9px] rounded border border-slate-300 bg-white px-0.5 mx-auto"
+                          value={d.annualMemberDashboard ? 'yes' : 'no'}
+                          onChange={(e) => updateDraft({ annualMemberDashboard: e.target.value === 'yes' })}
+                          title="Annual program (dashboard / pricing tag)"
                         >
-                          <option value="">Automatic (sync &amp; conversions)</option>
-                          {labelOpts.map((lab) => (
-                            <option key={lab} value={lab}>{lab}</option>
-                          ))}
+                          <option value="yes">Yes</option>
+                          <option value="no">No</option>
                         </select>
                       ) : (
-                        <span className="line-clamp-2 text-[9px] leading-snug px-1">{cl.label || '—'}</span>
+                        <span className="text-[9px] font-medium text-gray-800">{cl.annual_member_dashboard ? 'Yes' : 'No'}</span>
                       )}
-                    </td>
-                    )}
-                    {isVisible('diid') && (
-                    <td
-                      className={`py-1 px-1 font-mono text-[9px] align-top max-w-[280px] ${cl.diid ? 'text-indigo-800' : 'text-amber-800'}`}
-                      title={cl.diid || cl.did || ''}
-                    >
-                      {d ? (
-                        <div className="flex items-center gap-0.5 flex-wrap">
-                          <span className="text-indigo-800 shrink-0">DIID-</span>
-                          <Input
-                            data-testid="client-diid-middle"
-                            value={d.diidMiddle}
-                            onChange={(e) => updateDraft({ diidMiddle: e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 8) })}
-                            className="h-7 w-[5.75rem] text-[9px] px-1 font-mono uppercase py-0"
-                            placeholder="ABCD2404"
-                            maxLength={8}
-                            autoComplete="off"
-                          />
-                          <span className="text-indigo-800">-</span>
-                          <span className="text-indigo-600 shrink-0">{splitDiid(cl.diid).suffix || '—'}</span>
-                        </div>
-                      ) : (
-                        <span className="block truncate px-1">
-                          {cl.diid || (
-                            cl.did ? (
-                              <span>
-                                {cl.did}
-                                <span className="text-[8px] font-sans text-gray-400 ml-1 normal-case">legacy — Sync</span>
-                              </span>
-                            ) : '—'
-                          )}
-                        </span>
-                      )}
-                    </td>
-                    )}
-                    {isVisible('uuid') && (
-                    <td
-                      className="py-2 px-2 font-mono text-[9px] text-slate-600 truncate max-w-[200px] select-all"
-                      title={cl.id ? `Full id: ${cl.id}` : ''}
-                    >
-                      {cl.id || '—'}
                     </td>
                     )}
                     {isVisible('email') && (
@@ -1206,6 +1187,25 @@ const ClientsTab = () => {
                       )}
                     </td>
                     )}
+                    {isVisible('garden_label') && (
+                    <td className="py-1 px-1 text-gray-800 align-top max-w-[320px] min-w-[160px]" title={d ? '' : (cl.label || '')}>
+                      {d ? (
+                        <select
+                          data-testid="client-garden-label"
+                          className="w-full max-w-[300px] h-8 text-[9px] rounded border border-slate-300 bg-white px-1"
+                          value={d.labelManual || ''}
+                          onChange={(e) => updateDraft({ labelManual: e.target.value })}
+                        >
+                          <option value="">Automatic (sync &amp; conversions)</option>
+                          {labelOpts.map((lab) => (
+                            <option key={lab} value={lab}>{lab}</option>
+                          ))}
+                        </select>
+                      ) : (
+                        <span className="line-clamp-2 text-[9px] leading-snug px-1">{cl.label || '—'}</span>
+                      )}
+                    </td>
+                    )}
                     {isVisible('household') && (
                     <td className="py-1 px-1 font-mono text-slate-600 max-w-[140px] align-top" title={d ? '' : (cl.household_key || '')}>
                       {d ? (
@@ -1231,7 +1231,7 @@ const ClientsTab = () => {
                           checked={d.is_primary_household_contact}
                           onChange={(e) => updateDraft({ is_primary_household_contact: e.target.checked })}
                           className="rounded border-slate-300"
-                          title="Primary household contact"
+                          title="Primary household contact — main person for this household key"
                         />
                       ) : (
                         <span>{cl.is_primary_household_contact ? 'Y' : '—'}</span>
@@ -1253,24 +1253,6 @@ const ClientsTab = () => {
                         />
                       ) : (
                         <span className="line-clamp-2 text-[9px] leading-snug px-1">{cl.first_program || '—'}</span>
-                      )}
-                    </td>
-                    )}
-                    {isVisible('annual_program') && (
-                    <td className="py-1 px-1 text-center align-top">
-                      {d ? (
-                        <select
-                          data-testid="client-annual-program"
-                          className="h-7 w-full min-w-[48px] max-w-[56px] text-[9px] rounded border border-slate-300 bg-white px-0.5 mx-auto"
-                          value={d.annualMemberDashboard ? 'yes' : 'no'}
-                          onChange={(e) => updateDraft({ annualMemberDashboard: e.target.value === 'yes' })}
-                          title="Annual program (dashboard / pricing tag)"
-                        >
-                          <option value="yes">Yes</option>
-                          <option value="no">No</option>
-                        </select>
-                      ) : (
-                        <span className="text-[9px] font-medium text-gray-800">{cl.annual_member_dashboard ? 'Yes' : 'No'}</span>
                       )}
                     </td>
                     )}
@@ -1376,8 +1358,50 @@ const ClientsTab = () => {
                     </td>
                     )}
                     {isVisible('updated') && <td className="py-2 px-2 text-gray-500 whitespace-nowrap">{timeAgo(cl.updated_at || cl.created_at)}</td>}
+                    {isVisible('diid') && (
+                    <td
+                      className={`py-1 px-1 font-mono text-[9px] align-top max-w-[280px] ${cl.diid ? 'text-indigo-800' : 'text-amber-800'}`}
+                      title={cl.diid || cl.did || ''}
+                    >
+                      {d ? (
+                        <div className="flex items-center gap-0.5 flex-wrap">
+                          <span className="text-indigo-800 shrink-0">DIID-</span>
+                          <Input
+                            data-testid="client-diid-middle"
+                            value={d.diidMiddle}
+                            onChange={(e) => updateDraft({ diidMiddle: e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 8) })}
+                            className="h-7 w-[5.75rem] text-[9px] px-1 font-mono uppercase py-0"
+                            placeholder="ABCD2404"
+                            maxLength={8}
+                            autoComplete="off"
+                          />
+                          <span className="text-indigo-800">-</span>
+                          <span className="text-indigo-600 shrink-0">{splitDiid(cl.diid).suffix || '—'}</span>
+                        </div>
+                      ) : (
+                        <span className="block truncate px-1">
+                          {cl.diid || (
+                            cl.did ? (
+                              <span>
+                                {cl.did}
+                                <span className="text-[8px] font-sans text-gray-400 ml-1 normal-case">legacy — Sync</span>
+                              </span>
+                            ) : '—'
+                          )}
+                        </span>
+                      )}
+                    </td>
+                    )}
+                    {isVisible('uuid') && (
+                    <td
+                      className="py-2 px-2 font-mono text-[9px] text-slate-600 truncate max-w-[200px] select-all"
+                      title={cl.id ? `Full id: ${cl.id}` : ''}
+                    >
+                      {cl.id || '—'}
+                    </td>
+                    )}
                     {isVisible('actions') && (
-                    <td className={`py-1 pr-2 pl-1 text-right sticky right-0 z-[1] border-l border-gray-100 ${stickyActionsBg}`}>
+                    <td className={`py-1 pr-2 pl-1 text-right sticky right-0 z-[13] border-l border-gray-100 ${stickyActionsBg}`}>
                       <div className="flex flex-col items-end gap-1 sm:flex-row sm:justify-end sm:items-center">
                         {isEditing ? (
                           <>
