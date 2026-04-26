@@ -1008,7 +1008,11 @@ export default function DashboardAccessTab() {
 
             <div>
               <Label className="text-xs text-gray-600">Access type (Sacred Home)</Label>
-              <p className="text-[10px] text-gray-400 mb-1.5">Turn on for annual-member pricing on the dashboard.</p>
+              <p className="text-[10px] text-gray-400 mb-1.5">
+                Turn on for annual-member pricing on the dashboard. If <strong>End Date</strong> under Annual + dashboard
+                is in the past, Sacred Home still treats the subscription as expired until you extend dates there (or via
+                Excel).
+              </p>
               <select
                 value={annualMemberDashboard ? 'annual' : 'non_annual'}
                 onChange={(e) => setAnnualMemberDashboard(e.target.value === 'annual')}
@@ -1038,7 +1042,9 @@ export default function DashboardAccessTab() {
                     Allow Google login to student dashboard
                   </span>
                   <span className="text-[10px] text-gray-500 block mt-1 leading-snug">
-                    When you enable this for someone who was blocked (e.g. after intake), they receive a welcome email at this address with a link to sign in.
+                    When you enable this for someone who was blocked (e.g. after intake), they receive a welcome email at this address with a link to sign in.{' '}
+                    <strong>Client Garden</strong> (Annual + dashboard) and Excel upload only include people who are Annual{' '}
+                    <em>and</em> have this box checked — blocked rows are skipped.
                   </span>
                 </span>
               </label>

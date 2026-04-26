@@ -798,8 +798,12 @@ async def list_annual_portal_subscribers():
     """
     Clients with annual-member (Sacred Home) dashboard on their record and portal login not blocked.
     Used for admin listing; does not include clients with portal_login_allowed explicitly False.
+
+    Overdue ``annual_subscription.end_date`` is **not** bulk-cleared here — that used to wipe
+    ``annual_member_dashboard`` as soon as admins opened this tab, making saves look broken.
+    Student-facing routes still call :func:`persist_annual_member_expiry_if_overdue` so effective
+    portal access stays correct.
     """
-    await expire_all_overdue_annual_dashboard_clients(db)
     query = {
         "annual_member_dashboard": True,
         "$nor": [{"portal_login_allowed": False}],
@@ -868,7 +872,11 @@ async def persist_annual_member_expiry_if_overdue(db, client: Dict[str, Any]) ->
 
 
 async def expire_all_overdue_annual_dashboard_clients(db) -> int:
-    """Clear ``annual_member_dashboard`` for every client whose ``annual_subscription.end_date`` has passed."""
+    """Clear ``annual_member_dashboard`` for every client whose ``annual_subscription.end_date`` has passed.
+
+    Not called from the admin list/export endpoints (that caused saves to appear to vanish when
+    staff opened Client Garden). Student routes still use :func:`persist_annual_member_expiry_if_overdue`.
+    """
     q = {
         "annual_member_dashboard": True,
         "annual_subscription.end_date": {"$regex": r"^\d{4}-\d{2}-\d{2}"},
@@ -1067,11 +1075,6 @@ async def patch_annual_subscription(client_id: str, data: AnnualSubscriptionUpda
     cl = await db.clients.find_one({"id": client_id})
     if not cl:
         raise HTTPException(status_code=404, detail="Client not found")
-    if not cl.get("annual_member_dashboard"):
-        raise HTTPException(
-            status_code=400,
-            detail="Client does not have annual member dashboard access",
-        )
 
     raw = data.model_dump(exclude_unset=True)
     patch: Dict[str, Any] = {}
@@ -1642,7 +1645,6 @@ async def download_annual_portal_subscription_export():
     from openpyxl.styles import Font, PatternFill, Alignment
     from fastapi.responses import StreamingResponse
 
-    await expire_all_overdue_annual_dashboard_clients(db)
     query = {
         "annual_member_dashboard": True,
         "$nor": [{"portal_login_allowed": False}],
