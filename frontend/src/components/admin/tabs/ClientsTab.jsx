@@ -1,13 +1,14 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import axios from 'axios';
 import { useToast } from '../../../hooks/use-toast';
 import { Button } from '../../ui/button';
 import { Input } from '../../ui/input';
 import { Label } from '../../ui/label';
+import { Popover, PopoverContent, PopoverTrigger } from '../../ui/popover';
 import {
   Users, Search, Download, RefreshCw,
   Droplets, Sprout, TreeDeciduous, Flower2, Star, Sparkles, Crown, Compass,
-  Edit2, Save, Trash2, UserPlus, X,
+  Edit2, Save, Trash2, UserPlus, X, Filter,
 } from 'lucide-react';
 import { useSpreadsheetColumnVisibility, SpreadsheetColumnPicker } from '../SpreadsheetColumnPicker';
 import { getApiUrl } from '../../../lib/config';
@@ -218,6 +219,192 @@ function buildLabelOptionsForSelect(gardenLabelOptions, cl) {
   return o;
 }
 
+/** Excel-style (Blanks) bucket for empty cells */
+const FILTER_BLANKS = '(Blanks)';
+
+/** Stable string per column for filter matching (must match display semantics). */
+function getClientFilterValue(cl, colId) {
+  switch (colId) {
+    case 'name':
+      return (cl.name || '').trim() || FILTER_BLANKS;
+    case 'garden_label':
+      return (cl.label || '').trim() || FILTER_BLANKS;
+    case 'diid':
+      return (cl.diid || cl.did || '').trim() || FILTER_BLANKS;
+    case 'uuid':
+      return (cl.id || '').trim() || FILTER_BLANKS;
+    case 'email':
+      return (cl.email || '').trim().toLowerCase() || FILTER_BLANKS;
+    case 'phone':
+      return (cl.phone || '').trim() || FILTER_BLANKS;
+    case 'household':
+      return (cl.household_key || '').trim() || FILTER_BLANKS;
+    case 'pri':
+      return cl.is_primary_household_contact ? 'Yes' : '—';
+    case 'sources':
+      return (cl.sources || []).length ? (cl.sources || []).join(', ') : FILTER_BLANKS;
+    case 'conv':
+      return String(cl.conversions?.length ?? 0);
+    case 'first_program':
+      return (cl.first_program || '').trim() || FILTER_BLANKS;
+    case 'annual_program':
+      return cl.annual_member_dashboard ? 'Yes' : 'No';
+    case 'how_found': {
+      const base = (cl.discovery_source || '').trim();
+      if (!base) return FILTER_BLANKS;
+      if (base === 'Other' && (cl.discovery_other_note || '').trim()) {
+        return `${base} · ${String(cl.discovery_other_note).trim().slice(0, 120)}`;
+      }
+      return base;
+    }
+    case 'referrer':
+      return (cl.referred_by_name || cl.referred_by_client_id || '').trim() || FILTER_BLANKS;
+    case 'first': {
+      const fs = formatFirstSeenMonthYear(cl.created_at);
+      return fs === '—' ? FILTER_BLANKS : fs;
+    }
+    case 'updated':
+      return timeAgo(cl.updated_at || cl.created_at) || FILTER_BLANKS;
+    default:
+      return FILTER_BLANKS;
+  }
+}
+
+function clientPassesColumnFilters(cl, filters) {
+  for (const [colId, sel] of Object.entries(filters)) {
+    if (sel == null) continue;
+    const v = getClientFilterValue(cl, colId);
+    if (!sel.has(v)) return false;
+  }
+  return true;
+}
+
+/** Per-column option list: rows matching every *other* active filter (Excel cascading). */
+function clientsForFilterOptions(allClients, columnFilters, colId) {
+  return allClients.filter((cl) => {
+    for (const [cid, sel] of Object.entries(columnFilters)) {
+      if (cid === colId || sel == null) continue;
+      if (!sel.has(getClientFilterValue(cl, cid))) return false;
+    }
+    return true;
+  });
+}
+
+function ExcelColumnFilter({ colId, title, optionClients, activeFilter, onSetFilter }) {
+  const [open, setOpen] = useState(false);
+  const [search, setSearch] = useState('');
+  const options = useMemo(() => {
+    const u = new Set();
+    for (const cl of optionClients) {
+      u.add(getClientFilterValue(cl, colId));
+    }
+    return [...u].sort((a, b) => String(a).localeCompare(String(b), undefined, { sensitivity: 'base' }));
+  }, [optionClients, colId]);
+
+  const filteredOpts = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    if (!q) return options;
+    return options.filter((o) => String(o).toLowerCase().includes(q));
+  }, [options, search]);
+
+  const isChecked = (opt) => activeFilter === null || activeFilter.has(opt);
+
+  const toggle = (opt) => {
+    const universe = new Set(options);
+    const cur = activeFilter === null ? new Set(universe) : new Set(activeFilter);
+    if (cur.has(opt)) cur.delete(opt);
+    else cur.add(opt);
+    if (cur.size === universe.size) onSetFilter(null);
+    else onSetFilter(cur);
+  };
+
+  const selectAll = () => {
+    onSetFilter(null);
+    setSearch('');
+  };
+
+  const hasFilter = activeFilter !== null;
+
+  return (
+    <Popover open={open} onOpenChange={(v) => { setOpen(v); if (!v) setSearch(''); }}>
+      <PopoverTrigger asChild>
+        <button
+          type="button"
+          data-testid={`client-filter-${colId}`}
+          className={`inline-flex shrink-0 rounded p-0.5 hover:bg-gray-200/80 ${hasFilter ? 'text-[#D4AF37]' : 'text-gray-400'}`}
+          title={`Filter ${title}`}
+          aria-label={`Filter column ${title}`}
+        >
+          <Filter size={11} strokeWidth={2.5} />
+        </button>
+      </PopoverTrigger>
+      <PopoverContent align="start" className="w-64 p-2 text-[10px]" onClick={(e) => e.stopPropagation()}>
+        <div className="space-y-2">
+          <Input
+            placeholder="Search values…"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="h-7 text-[10px] px-2"
+          />
+          <div className="flex gap-1 flex-wrap">
+            <Button type="button" variant="outline" size="sm" className="h-6 text-[9px] px-2 py-0" onClick={selectAll}>
+              Select all
+            </Button>
+          </div>
+          <div className="max-h-52 overflow-y-auto border border-gray-100 rounded-md divide-y divide-gray-50">
+            {filteredOpts.length === 0 ? (
+              <p className="text-gray-400 text-[9px] p-2">No values</p>
+            ) : (
+              filteredOpts.map((opt) => (
+                <label
+                  key={`${colId}-${String(opt).slice(0, 64)}`}
+                  className="flex items-start gap-2 px-2 py-1 hover:bg-gray-50 cursor-pointer"
+                >
+                  <input
+                    type="checkbox"
+                    checked={isChecked(opt)}
+                    onChange={() => toggle(opt)}
+                    className="mt-0.5 rounded border-gray-300 shrink-0"
+                  />
+                  <span className="break-all text-gray-800 leading-tight" title={String(opt)}>
+                    {String(opt).length > 80 ? `${String(opt).slice(0, 80)}…` : String(opt)}
+                  </span>
+                </label>
+              ))
+            )}
+          </div>
+        </div>
+      </PopoverContent>
+    </Popover>
+  );
+}
+
+function FilterableTh({ children, colId, title, className, optionClients, columnFilters, setColumnFilters }) {
+  const activeFilter = columnFilters[colId] ?? null;
+  const setFilter = (next) => {
+    setColumnFilters((prev) => {
+      const p = { ...prev };
+      if (next === null) delete p[colId];
+      else p[colId] = next;
+      return p;
+    });
+  };
+  return (
+    <th className={className} title={title}>
+      <div className="flex items-center gap-1 min-w-0">
+        <span className="truncate flex-1 min-w-0">{children}</span>
+        <ExcelColumnFilter
+          colId={colId}
+          title={title || String(children)}
+          optionClients={optionClients}
+          activeFilter={activeFilter}
+          onSetFilter={setFilter}
+        />
+      </div>
+    </th>
+  );
+}
+
 const ClientsTab = () => {
   const { toast } = useToast();
   const [clients, setClients] = useState([]);
@@ -238,6 +425,8 @@ const ClientsTab = () => {
   const [discoveryOptions, setDiscoveryOptions] = useState([]);
   const [rowSaving, setRowSaving] = useState(false);
   const [exporting, setExporting] = useState(false);
+  /** Excel-style column filters: colId → Set of allowed cell values; missing key = no filter */
+  const [columnFilters, setColumnFilters] = useState({});
 
   const { visibility: colVis, setColumn: setColVis, reset: resetCols, isVisible } = useSpreadsheetColumnVisibility(
     CLIENT_GARDEN_COLS_KEY,
@@ -259,6 +448,36 @@ const ClientsTab = () => {
   }, [searchText]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
+
+  const filterOptionBaseByCol = useMemo(() => {
+    const ids = CLIENT_GARDEN_COLUMN_DEFS.map((c) => c.id).filter((id) => id !== 'actions');
+    const out = {};
+    for (const id of ids) {
+      out[id] = clientsForFilterOptions(clients, columnFilters, id);
+    }
+    return out;
+  }, [clients, columnFilters]);
+
+  const clientsRowFiltered = useMemo(
+    () => clients.filter((cl) => clientPassesColumnFilters(cl, columnFilters)),
+    [clients, columnFilters],
+  );
+
+  const displayClients = useMemo(() => {
+    let rows = clientsRowFiltered;
+    if (editingId) {
+      const ed = clients.find((c) => c.id === editingId);
+      if (ed && !rows.some((r) => r.id === editingId)) {
+        rows = [...rows, ed];
+      }
+    }
+    return rows;
+  }, [clientsRowFiltered, clients, editingId]);
+
+  const columnFilterActiveCount = useMemo(
+    () => Object.values(columnFilters).filter((s) => s != null).length,
+    [columnFilters],
+  );
 
   useEffect(() => {
     let cancelled = false;
@@ -609,7 +828,28 @@ const ClientsTab = () => {
           onToggle={setColVis}
           onReset={resetCols}
         />
+        {columnFilterActiveCount > 0 ? (
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="h-8 text-[10px]"
+            data-testid="clients-clear-column-filters"
+            onClick={() => setColumnFilters({})}
+          >
+            Clear column filters ({columnFilterActiveCount})
+          </Button>
+        ) : null}
       </div>
+
+      {clients.length > 0 && (
+        <p className="text-[10px] text-gray-500 mb-2">
+          Showing <span className="font-semibold text-gray-700">{clientsRowFiltered.length}</span> of{' '}
+          <span className="font-semibold text-gray-700">{clients.length}</span> in this list
+          {searchText.trim() ? ' (search applied)' : ''}
+          {columnFilterActiveCount > 0 ? ` · ${columnFilterActiveCount} column filter(s)` : ''}
+        </p>
+      )}
 
       <div
         className="rounded-xl border border-gray-200 bg-white overflow-hidden overflow-x-auto w-full max-w-none"
@@ -620,6 +860,14 @@ const ClientsTab = () => {
             <Users size={32} className="mx-auto mb-2 opacity-30" />
             <p className="text-sm">No clients found. Use Add client or Sync All Data to populate.</p>
           </div>
+        ) : clientsRowFiltered.length === 0 && !editingId ? (
+          <div className="text-center py-16 text-gray-400">
+            <Filter size={32} className="mx-auto mb-2 opacity-30" />
+            <p className="text-sm text-gray-600">No rows match your column filters.</p>
+            <Button type="button" variant="outline" size="sm" className="mt-3 text-[10px]" onClick={() => setColumnFilters({})}>
+              Clear column filters
+            </Button>
+          </div>
         ) : (
           <table
             className="w-full min-w-full text-left border-collapse text-[10px] table-auto"
@@ -627,27 +875,203 @@ const ClientsTab = () => {
           >
             <thead>
               <tr className="bg-gray-100 border-b border-gray-200 text-[9px] uppercase tracking-wide text-gray-600">
-                {isVisible('name') && <th className="py-2 pl-3 pr-2 font-semibold sticky left-0 bg-gray-100 z-10">Name</th>}
-                {isVisible('garden_label') && <th className="py-2 px-2 font-semibold min-w-[200px]" title="Client Garden journey label">Garden label</th>}
-                {isVisible('diid') && <th className="py-2 px-2 font-semibold min-w-[220px]" title="DIID-DIRAyyMM-… (run Sync to backfill legacy rows)">DIID</th>}
-                {isVisible('uuid') && <th className="py-2 px-2 font-semibold min-w-[200px]" title="Stored as id — UUID v7 for new clients, v4 for older rows">UUID</th>}
-                {isVisible('email') && <th className="py-2 px-2 font-semibold min-w-[140px]">Email</th>}
-                {isVisible('phone') && <th className="py-2 px-2 font-semibold min-w-[88px]">Phone</th>}
-                {isVisible('household') && <th className="py-2 px-2 font-semibold min-w-[100px]">Household</th>}
-                {isVisible('pri') && <th className="py-2 px-2 font-semibold w-[40px] text-center">Pri</th>}
-                {isVisible('sources') && <th className="py-2 px-2 font-semibold min-w-[100px]">Sources</th>}
-                {isVisible('conv') && <th className="py-2 px-2 font-semibold w-[44px] text-center">Conv</th>}
-                {isVisible('first_program') && <th className="py-2 px-2 font-semibold min-w-[120px]" title="First paid program from conversions (by date)">1st program</th>}
-                {isVisible('annual_program') && <th className="py-2 px-2 font-semibold w-[52px] text-center" title="Annual program member (Sacred Home annual pricing tag)">Annual</th>}
-                {isVisible('how_found') && <th className="py-2 px-2 font-semibold min-w-[100px]" title="How they first found Divine Iris">How found</th>}
-                {isVisible('referrer') && <th className="py-2 px-2 font-semibold min-w-[120px]" title="Referred-by client (when source is Referral)">Referrer</th>}
-                {isVisible('first') && <th className="py-2 px-2 font-semibold min-w-[108px]" title="First seen: month and year (editable); DIID middle YYMM follows this month">First seen</th>}
-                {isVisible('updated') && <th className="py-2 px-2 font-semibold w-[72px]">Updated</th>}
+                {isVisible('name') && (
+                  <FilterableTh
+                    colId="name"
+                    title="Name"
+                    className="py-2 pl-3 pr-2 font-semibold sticky left-0 bg-gray-100 z-10 min-w-[120px]"
+                    optionClients={filterOptionBaseByCol.name}
+                    columnFilters={columnFilters}
+                    setColumnFilters={setColumnFilters}
+                  >
+                    Name
+                  </FilterableTh>
+                )}
+                {isVisible('garden_label') && (
+                  <FilterableTh
+                    colId="garden_label"
+                    title="Client Garden journey label"
+                    className="py-2 px-2 font-semibold min-w-[200px]"
+                    optionClients={filterOptionBaseByCol.garden_label}
+                    columnFilters={columnFilters}
+                    setColumnFilters={setColumnFilters}
+                  >
+                    Garden label
+                  </FilterableTh>
+                )}
+                {isVisible('diid') && (
+                  <FilterableTh
+                    colId="diid"
+                    title="DIID"
+                    className="py-2 px-2 font-semibold min-w-[220px]"
+                    optionClients={filterOptionBaseByCol.diid}
+                    columnFilters={columnFilters}
+                    setColumnFilters={setColumnFilters}
+                  >
+                    DIID
+                  </FilterableTh>
+                )}
+                {isVisible('uuid') && (
+                  <FilterableTh
+                    colId="uuid"
+                    title="UUID"
+                    className="py-2 px-2 font-semibold min-w-[200px]"
+                    optionClients={filterOptionBaseByCol.uuid}
+                    columnFilters={columnFilters}
+                    setColumnFilters={setColumnFilters}
+                  >
+                    UUID
+                  </FilterableTh>
+                )}
+                {isVisible('email') && (
+                  <FilterableTh
+                    colId="email"
+                    title="Email"
+                    className="py-2 px-2 font-semibold min-w-[140px]"
+                    optionClients={filterOptionBaseByCol.email}
+                    columnFilters={columnFilters}
+                    setColumnFilters={setColumnFilters}
+                  >
+                    Email
+                  </FilterableTh>
+                )}
+                {isVisible('phone') && (
+                  <FilterableTh
+                    colId="phone"
+                    title="Phone"
+                    className="py-2 px-2 font-semibold min-w-[88px]"
+                    optionClients={filterOptionBaseByCol.phone}
+                    columnFilters={columnFilters}
+                    setColumnFilters={setColumnFilters}
+                  >
+                    Phone
+                  </FilterableTh>
+                )}
+                {isVisible('household') && (
+                  <FilterableTh
+                    colId="household"
+                    title="Household"
+                    className="py-2 px-2 font-semibold min-w-[100px]"
+                    optionClients={filterOptionBaseByCol.household}
+                    columnFilters={columnFilters}
+                    setColumnFilters={setColumnFilters}
+                  >
+                    Household
+                  </FilterableTh>
+                )}
+                {isVisible('pri') && (
+                  <FilterableTh
+                    colId="pri"
+                    title="Primary household"
+                    className="py-2 px-2 font-semibold w-[52px] text-center"
+                    optionClients={filterOptionBaseByCol.pri}
+                    columnFilters={columnFilters}
+                    setColumnFilters={setColumnFilters}
+                  >
+                    Pri
+                  </FilterableTh>
+                )}
+                {isVisible('sources') && (
+                  <FilterableTh
+                    colId="sources"
+                    title="Sources"
+                    className="py-2 px-2 font-semibold min-w-[100px]"
+                    optionClients={filterOptionBaseByCol.sources}
+                    columnFilters={columnFilters}
+                    setColumnFilters={setColumnFilters}
+                  >
+                    Sources
+                  </FilterableTh>
+                )}
+                {isVisible('conv') && (
+                  <FilterableTh
+                    colId="conv"
+                    title="Conversions count"
+                    className="py-2 px-2 font-semibold w-[52px] text-center"
+                    optionClients={filterOptionBaseByCol.conv}
+                    columnFilters={columnFilters}
+                    setColumnFilters={setColumnFilters}
+                  >
+                    Conv
+                  </FilterableTh>
+                )}
+                {isVisible('first_program') && (
+                  <FilterableTh
+                    colId="first_program"
+                    title="First paid program"
+                    className="py-2 px-2 font-semibold min-w-[120px]"
+                    optionClients={filterOptionBaseByCol.first_program}
+                    columnFilters={columnFilters}
+                    setColumnFilters={setColumnFilters}
+                  >
+                    1st program
+                  </FilterableTh>
+                )}
+                {isVisible('annual_program') && (
+                  <FilterableTh
+                    colId="annual_program"
+                    title="Annual program"
+                    className="py-2 px-2 font-semibold w-[56px] text-center"
+                    optionClients={filterOptionBaseByCol.annual_program}
+                    columnFilters={columnFilters}
+                    setColumnFilters={setColumnFilters}
+                  >
+                    Annual
+                  </FilterableTh>
+                )}
+                {isVisible('how_found') && (
+                  <FilterableTh
+                    colId="how_found"
+                    title="How found"
+                    className="py-2 px-2 font-semibold min-w-[100px]"
+                    optionClients={filterOptionBaseByCol.how_found}
+                    columnFilters={columnFilters}
+                    setColumnFilters={setColumnFilters}
+                  >
+                    How found
+                  </FilterableTh>
+                )}
+                {isVisible('referrer') && (
+                  <FilterableTh
+                    colId="referrer"
+                    title="Referrer"
+                    className="py-2 px-2 font-semibold min-w-[120px]"
+                    optionClients={filterOptionBaseByCol.referrer}
+                    columnFilters={columnFilters}
+                    setColumnFilters={setColumnFilters}
+                  >
+                    Referrer
+                  </FilterableTh>
+                )}
+                {isVisible('first') && (
+                  <FilterableTh
+                    colId="first"
+                    title="First seen"
+                    className="py-2 px-2 font-semibold min-w-[108px]"
+                    optionClients={filterOptionBaseByCol.first}
+                    columnFilters={columnFilters}
+                    setColumnFilters={setColumnFilters}
+                  >
+                    First seen
+                  </FilterableTh>
+                )}
+                {isVisible('updated') && (
+                  <FilterableTh
+                    colId="updated"
+                    title="Updated"
+                    className="py-2 px-2 font-semibold w-[80px]"
+                    optionClients={filterOptionBaseByCol.updated}
+                    columnFilters={columnFilters}
+                    setColumnFilters={setColumnFilters}
+                  >
+                    Updated
+                  </FilterableTh>
+                )}
                 {isVisible('actions') && <th className="py-2 pr-3 pl-2 font-semibold min-w-[120px] text-right sticky right-0 bg-gray-100 z-10">Actions</th>}
               </tr>
             </thead>
             <tbody>
-              {clients.map((cl) => {
+              {displayClients.map((cl) => {
                 const cfg = labelStyleForClient(cl.label);
                 const Icon = cfg.icon;
                 const sourcesStr = (cl.sources || []).join(', ');
