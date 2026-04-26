@@ -35,6 +35,19 @@ function videoUploadErrorMessage(err) {
   return err?.message || 'Upload failed.';
 }
 
+/** True if ``by_tier`` on a portal program row has any saved member/family/extended fields. */
+function portalProgOfferHasTierOverrides(byTier) {
+  if (!byTier || typeof byTier !== 'object') return false;
+  return Object.values(byTier).some((trow) => {
+    if (!trow || typeof trow !== 'object') return false;
+    return (
+      (trow.annual && Object.keys(trow.annual).length > 0) ||
+      (trow.family && Object.keys(trow.family).length > 0) ||
+      (trow.extended && Object.keys(trow.extended).length > 0)
+    );
+  });
+}
+
 /** Member, family, or extended guest line: pricing_rule + fields (reused for global and per-program overrides). */
 function PortalPricingRuleFields({ offer, onPatch, variant }) {
   const o = offer || {};
@@ -231,6 +244,62 @@ const DashboardSettingsTab = ({ settings, onChange, programs = [], onOpenAdminTa
     onChange({ ...settings, dashboard_program_offers: next });
   };
 
+  const setProgramTierAnnual = (pid, tierIdx, patch) => {
+    const row = progOffers[pid] || {};
+    const tkey = String(tierIdx);
+    const byTier = { ...(row.by_tier || {}) };
+    const tr = byTier[tkey] || {};
+    byTier[tkey] = { ...tr, annual: { ...(tr.annual || {}), ...patch } };
+    onChange({
+      ...settings,
+      dashboard_program_offers: {
+        ...progOffers,
+        [pid]: { ...row, by_tier: byTier },
+      },
+    });
+  };
+  const setProgramTierFamily = (pid, tierIdx, patch) => {
+    const row = progOffers[pid] || {};
+    const tkey = String(tierIdx);
+    const byTier = { ...(row.by_tier || {}) };
+    const tr = byTier[tkey] || {};
+    byTier[tkey] = { ...tr, family: { ...(tr.family || {}), ...patch } };
+    onChange({
+      ...settings,
+      dashboard_program_offers: {
+        ...progOffers,
+        [pid]: { ...row, by_tier: byTier },
+      },
+    });
+  };
+  const setProgramTierExtended = (pid, tierIdx, patch) => {
+    const row = progOffers[pid] || {};
+    const tkey = String(tierIdx);
+    const byTier = { ...(row.by_tier || {}) };
+    const tr = byTier[tkey] || {};
+    byTier[tkey] = { ...tr, extended: { ...(tr.extended || {}), ...patch } };
+    onChange({
+      ...settings,
+      dashboard_program_offers: {
+        ...progOffers,
+        [pid]: { ...row, by_tier: byTier },
+      },
+    });
+  };
+  const clearProgramTierOffers = (pid, tierIdx) => {
+    const row = progOffers[pid] || {};
+    const tkey = String(tierIdx);
+    const byTier = { ...(row.by_tier || {}) };
+    delete byTier[tkey];
+    const nextRow = { ...row };
+    if (Object.keys(byTier).length) nextRow.by_tier = byTier;
+    else delete nextRow.by_tier;
+    onChange({
+      ...settings,
+      dashboard_program_offers: { ...progOffers, [pid]: nextRow },
+    });
+  };
+
   const awrpBatches = Array.isArray(settings.awrp_portal_batches) ? settings.awrp_portal_batches : [];
   const batchOffersRoot = settings.awrp_batch_program_offers || {};
   const [cohortEditId, setCohortEditId] = React.useState('');
@@ -315,6 +384,78 @@ const DashboardSettingsTab = ({ settings, onChange, programs = [], onOpenAdminTa
     onChange({
       ...settings,
       awrp_batch_program_offers: { ...batchOffersRoot, [cohortId]: next },
+    });
+  };
+
+  const setCohortProgramTierAnnual = (pid, tierIdx, patch) => {
+    if (!cohortId) return;
+    const row = cohortProgOffers[pid] || {};
+    const tkey = String(tierIdx);
+    const byTier = { ...(row.by_tier || {}) };
+    const tr = byTier[tkey] || {};
+    byTier[tkey] = { ...tr, annual: { ...(tr.annual || {}), ...patch } };
+    onChange({
+      ...settings,
+      awrp_batch_program_offers: {
+        ...batchOffersRoot,
+        [cohortId]: {
+          ...cohortProgOffers,
+          [pid]: { ...row, by_tier: byTier },
+        },
+      },
+    });
+  };
+  const setCohortProgramTierFamily = (pid, tierIdx, patch) => {
+    if (!cohortId) return;
+    const row = cohortProgOffers[pid] || {};
+    const tkey = String(tierIdx);
+    const byTier = { ...(row.by_tier || {}) };
+    const tr = byTier[tkey] || {};
+    byTier[tkey] = { ...tr, family: { ...(tr.family || {}), ...patch } };
+    onChange({
+      ...settings,
+      awrp_batch_program_offers: {
+        ...batchOffersRoot,
+        [cohortId]: {
+          ...cohortProgOffers,
+          [pid]: { ...row, by_tier: byTier },
+        },
+      },
+    });
+  };
+  const setCohortProgramTierExtended = (pid, tierIdx, patch) => {
+    if (!cohortId) return;
+    const row = cohortProgOffers[pid] || {};
+    const tkey = String(tierIdx);
+    const byTier = { ...(row.by_tier || {}) };
+    const tr = byTier[tkey] || {};
+    byTier[tkey] = { ...tr, extended: { ...(tr.extended || {}), ...patch } };
+    onChange({
+      ...settings,
+      awrp_batch_program_offers: {
+        ...batchOffersRoot,
+        [cohortId]: {
+          ...cohortProgOffers,
+          [pid]: { ...row, by_tier: byTier },
+        },
+      },
+    });
+  };
+  const clearCohortProgramTierOffers = (pid, tierIdx) => {
+    if (!cohortId) return;
+    const row = cohortProgOffers[pid] || {};
+    const tkey = String(tierIdx);
+    const byTier = { ...(row.by_tier || {}) };
+    delete byTier[tkey];
+    const nextRow = { ...row };
+    if (Object.keys(byTier).length) nextRow.by_tier = byTier;
+    else delete nextRow.by_tier;
+    onChange({
+      ...settings,
+      awrp_batch_program_offers: {
+        ...batchOffersRoot,
+        [cohortId]: { ...cohortProgOffers, [pid]: nextRow },
+      },
     });
   };
 
@@ -1207,7 +1348,10 @@ const DashboardSettingsTab = ({ settings, onChange, programs = [], onOpenAdminTa
                 Optional. Override <strong>member</strong>, <strong>immediate family</strong>, and <strong>friends &amp; extended</strong>{' '}
                 pricing per program. Values override global defaults for portal checkout only, and{' '}
                 <strong className="text-gray-700">only for clients with Dashboard Access = Annual</strong> (same as the three columns above).
-                Non-annual access ignores these overrides and uses website list/offer prices.
+                Programs with <strong className="text-gray-700">duration tiers</strong> (e.g. AWRP 1 month vs 3 months) can use the{' '}
+                <strong className="text-gray-700">same defaults for all tiers</strong> from the three columns above, or set{' '}
+                <strong className="text-gray-700">per-tier overrides</strong> below — those apply when the member selects that tier on Sacred Home
+                (tier index 0 = first tier, 1 = second, …). Non-annual access ignores these overrides and uses website list/offer prices.
               </p>
             </div>
           </div>
@@ -1217,10 +1361,15 @@ const DashboardSettingsTab = ({ settings, onChange, programs = [], onOpenAdminTa
             <div className="space-y-2 max-h-[480px] overflow-y-auto pr-1">
               {upcomingForPortalPricing.map((p) => {
                 const row = progOffers[p.id] || {};
-                const hasRow =
+                const hasBaseRow =
                   (row.annual && Object.keys(row.annual).length > 0) ||
                   (row.family && Object.keys(row.family).length > 0) ||
                   (row.extended && Object.keys(row.extended).length > 0);
+                const hasTierRow = portalProgOfferHasTierOverrides(row.by_tier);
+                const hasRow = hasBaseRow || hasTierRow;
+                const tierBadge =
+                  hasBaseRow && hasTierRow ? 'Custom + tiers' : hasTierRow ? 'Tier overrides' : hasBaseRow ? 'Custom' : null;
+                const durTiers = p.duration_tiers || [];
                 return (
                   <details
                     key={p.id}
@@ -1229,13 +1378,18 @@ const DashboardSettingsTab = ({ settings, onChange, programs = [], onOpenAdminTa
                   >
                     <summary className="cursor-pointer list-none px-3 py-2 text-xs font-medium text-gray-900 flex items-center justify-between gap-2">
                       <span className="truncate">{p.title || p.id}</span>
-                      {hasRow ? (
-                        <span className="text-[9px] font-normal text-indigo-700 bg-indigo-100/80 px-1.5 py-0.5 rounded">Custom</span>
+                      {tierBadge ? (
+                        <span className="text-[9px] font-normal text-indigo-700 bg-indigo-100/80 px-1.5 py-0.5 rounded shrink-0">
+                          {tierBadge}
+                        </span>
                       ) : (
                         <span className="text-[9px] font-normal text-gray-400">Global defaults</span>
                       )}
                     </summary>
                     <div className="px-3 pb-3 pt-0 grid md:grid-cols-3 gap-3 border-t border-gray-100">
+                      <div className="md:col-span-3 text-[10px] text-gray-500 -mb-1">
+                        Defaults for all tiers (optional). Leave empty to use only global portal columns, or combine with per-tier blocks below.
+                      </div>
                       <div className="space-y-1">
                         <Label className="text-[10px] text-amber-900">Member seat override</Label>
                         <PortalPricingRuleFields
@@ -1260,6 +1414,66 @@ const DashboardSettingsTab = ({ settings, onChange, programs = [], onOpenAdminTa
                           variant="extended"
                         />
                       </div>
+                      {durTiers.length > 0 ? (
+                        <div className="md:col-span-3 space-y-3 border-t border-indigo-100/80 pt-3 mt-1">
+                          <p className="text-[10px] font-medium text-indigo-950">
+                            Per duration tier (optional — merged on top of defaults above for that tier only)
+                          </p>
+                          {durTiers.map((tier, ti) => {
+                            const trow = (row.by_tier || {})[String(ti)] || {};
+                            const tlab = (tier && tier.label) || `Tier ${ti + 1}`;
+                            return (
+                              <div
+                                key={`${p.id}-tier-${ti}`}
+                                className="rounded-md border border-indigo-100 bg-white/95 p-2 space-y-2"
+                                data-testid={`dashboard-prog-offer-tier-${p.id}-${ti}`}
+                              >
+                                <div className="flex flex-wrap items-center justify-between gap-2">
+                                  <span className="text-[10px] font-semibold text-indigo-900">
+                                    {tlab}{' '}
+                                    <span className="font-normal text-gray-500">(tier index {ti})</span>
+                                  </span>
+                                  <Button
+                                    type="button"
+                                    variant="ghost"
+                                    size="sm"
+                                    className="text-[10px] h-7 text-gray-600"
+                                    onClick={() => clearProgramTierOffers(p.id, ti)}
+                                  >
+                                    Clear this tier
+                                  </Button>
+                                </div>
+                                <div className="grid md:grid-cols-3 gap-2">
+                                  <div className="space-y-1">
+                                    <Label className="text-[9px] text-amber-900">Member</Label>
+                                    <PortalPricingRuleFields
+                                      offer={trow.annual}
+                                      onPatch={(patch) => setProgramTierAnnual(p.id, ti, patch)}
+                                      variant="annual"
+                                    />
+                                  </div>
+                                  <div className="space-y-1">
+                                    <Label className="text-[9px] text-violet-900">Immediate family</Label>
+                                    <PortalPricingRuleFields
+                                      offer={trow.family}
+                                      onPatch={(patch) => setProgramTierFamily(p.id, ti, patch)}
+                                      variant="family"
+                                    />
+                                  </div>
+                                  <div className="space-y-1">
+                                    <Label className="text-[9px] text-sky-900">Friends &amp; extended</Label>
+                                    <PortalPricingRuleFields
+                                      offer={trow.extended}
+                                      onPatch={(patch) => setProgramTierExtended(p.id, ti, patch)}
+                                      variant="extended"
+                                    />
+                                  </div>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      ) : null}
                       <div className="md:col-span-3">
                         <Button type="button" variant="outline" size="sm" className="text-[10px] h-7" onClick={() => clearProgramOffers(p.id)}>
                           Clear overrides for this program
@@ -1374,10 +1588,20 @@ const DashboardSettingsTab = ({ settings, onChange, programs = [], onOpenAdminTa
                 <div className="space-y-2 max-h-[360px] overflow-y-auto pr-1 border border-teal-100/80 rounded-lg bg-white/80 p-2">
                   {upcomingForPortalPricing.map((p) => {
                     const row = cohortProgOffers[p.id] || {};
-                    const hasRow =
+                    const hasBaseRow =
                       (row.annual && Object.keys(row.annual).length > 0) ||
                       (row.family && Object.keys(row.family).length > 0) ||
                       (row.extended && Object.keys(row.extended).length > 0);
+                    const hasTierRow = portalProgOfferHasTierOverrides(row.by_tier);
+                    const cohortBadge =
+                      hasBaseRow && hasTierRow
+                        ? 'Cohort + tiers'
+                        : hasTierRow
+                          ? 'Tier overrides'
+                          : hasBaseRow
+                            ? 'Cohort override'
+                            : null;
+                    const durTiers = p.duration_tiers || [];
                     return (
                       <details
                         key={`cohort-${cohortId}-${p.id}`}
@@ -1385,15 +1609,18 @@ const DashboardSettingsTab = ({ settings, onChange, programs = [], onOpenAdminTa
                       >
                         <summary className="cursor-pointer list-none px-3 py-2 text-xs font-medium text-gray-900 flex items-center justify-between gap-2">
                           <span className="truncate">{p.title || p.id}</span>
-                          {hasRow ? (
-                            <span className="text-[9px] font-normal text-teal-800 bg-teal-100/80 px-1.5 py-0.5 rounded">
-                              Cohort override
+                          {cohortBadge ? (
+                            <span className="text-[9px] font-normal text-teal-800 bg-teal-100/80 px-1.5 py-0.5 rounded shrink-0">
+                              {cohortBadge}
                             </span>
                           ) : (
                             <span className="text-[9px] font-normal text-gray-400">Default</span>
                           )}
                         </summary>
                         <div className="px-3 pb-3 pt-0 grid md:grid-cols-3 gap-3 border-t border-gray-100">
+                          <div className="md:col-span-3 text-[10px] text-gray-500 -mb-1">
+                            Cohort defaults for all tiers (optional). Per-tier blocks layer on top when set.
+                          </div>
                           <div className="space-y-1">
                             <Label className="text-[10px] text-amber-900">Member seat</Label>
                             <PortalPricingRuleFields
@@ -1418,6 +1645,63 @@ const DashboardSettingsTab = ({ settings, onChange, programs = [], onOpenAdminTa
                               variant="extended"
                             />
                           </div>
+                          {durTiers.length > 0 ? (
+                            <div className="md:col-span-3 space-y-3 border-t border-teal-100/80 pt-3 mt-1">
+                              <p className="text-[10px] font-medium text-teal-950">Per duration tier (optional)</p>
+                              {durTiers.map((tier, ti) => {
+                                const trow = (row.by_tier || {})[String(ti)] || {};
+                                const tlab = (tier && tier.label) || `Tier ${ti + 1}`;
+                                return (
+                                  <div
+                                    key={`cohort-${cohortId}-${p.id}-tier-${ti}`}
+                                    className="rounded-md border border-teal-100 bg-white/95 p-2 space-y-2"
+                                  >
+                                    <div className="flex flex-wrap items-center justify-between gap-2">
+                                      <span className="text-[10px] font-semibold text-teal-900">
+                                        {tlab}{' '}
+                                        <span className="font-normal text-gray-500">(tier index {ti})</span>
+                                      </span>
+                                      <Button
+                                        type="button"
+                                        variant="ghost"
+                                        size="sm"
+                                        className="text-[10px] h-7 text-gray-600"
+                                        onClick={() => clearCohortProgramTierOffers(p.id, ti)}
+                                      >
+                                        Clear this tier
+                                      </Button>
+                                    </div>
+                                    <div className="grid md:grid-cols-3 gap-2">
+                                      <div className="space-y-1">
+                                        <Label className="text-[9px] text-amber-900">Member</Label>
+                                        <PortalPricingRuleFields
+                                          offer={trow.annual}
+                                          onPatch={(patch) => setCohortProgramTierAnnual(p.id, ti, patch)}
+                                          variant="annual"
+                                        />
+                                      </div>
+                                      <div className="space-y-1">
+                                        <Label className="text-[9px] text-violet-900">Immediate family</Label>
+                                        <PortalPricingRuleFields
+                                          offer={trow.family}
+                                          onPatch={(patch) => setCohortProgramTierFamily(p.id, ti, patch)}
+                                          variant="family"
+                                        />
+                                      </div>
+                                      <div className="space-y-1">
+                                        <Label className="text-[9px] text-sky-900">Friends &amp; extended</Label>
+                                        <PortalPricingRuleFields
+                                          offer={trow.extended}
+                                          onPatch={(patch) => setCohortProgramTierExtended(p.id, ti, patch)}
+                                          variant="extended"
+                                        />
+                                      </div>
+                                    </div>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          ) : null}
                           <div className="md:col-span-3">
                             <Button
                               type="button"

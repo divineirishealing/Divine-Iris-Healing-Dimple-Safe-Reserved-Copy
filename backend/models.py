@@ -587,11 +587,11 @@ class SiteSettings(BaseModel):
     dashboard_offer_extended: Dict = Field(default_factory=dict)
     # When non-empty, these program IDs are "included in annual package" (member pays family seats only). Empty = use title keywords (MMM, AWRP, …).
     annual_package_included_program_ids: List[str] = Field(default_factory=list)
-    # Per-program portal pricing overrides: { program_id: { "annual": {...}, "family": {...}, "extended": {...} } } shallow-merged with globals
+    # Per-program portal pricing overrides: { program_id: { annual, family, extended, by_tier?: { "0"|"1"|…: { annual, family, extended } } } } merged with globals; tier keys match duration_tier index on Sacred Home
     dashboard_program_offers: Dict[str, Any] = Field(default_factory=dict)
     # Existing AWRP / cohort batches: assign clients (awrp_batch_id) for layered portal pricing in Sacred Home
     awrp_portal_batches: List[Dict] = Field(default_factory=list)  # [{ "id": "2025-01", "label": "…", "notes": "…" }]
-    # { batch_id: { program_id: { annual, family, extended } } } merged after dashboard_program_offers for that client
+    # { batch_id: { program_id: { annual, family, extended, by_tier?: { … } } } } merged after dashboard_program_offers for that client
     awrp_batch_program_offers: Dict[str, Any] = Field(default_factory=dict)
     # Student dashboard: show/hide overview tiles and sidebar links (Admin → Dashboard). Missing keys = visible.
     dashboard_element_visibility: Dict[str, Any] = Field(default_factory=dict)

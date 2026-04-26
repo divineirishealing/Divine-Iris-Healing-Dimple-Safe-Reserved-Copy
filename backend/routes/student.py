@@ -358,6 +358,8 @@ class DashboardPayIn(BaseModel):
     booker_attendance_mode: Optional[str] = "online"
     booker_notify: bool = True
     guest_seat_prefs: List[DashboardGuestSeatPref] = []
+    # Flagship duration tier (0 = first tier, e.g. 1 month; 1 = second, e.g. 3 months). Must match dashboard-quote.
+    tier_index: Optional[int] = None
 
 
 def _tier_unit_price(program: dict, tier_index: Optional[int], cur: str) -> float:
@@ -486,14 +488,46 @@ def _program_included_in_annual_package(program: dict, configured_ids: Optional[
     return keyword
 
 
+def _portal_tier_key(tier_index: Optional[int]) -> Optional[str]:
+    """String key for ``dashboard_program_offers[program_id].by_tier`` (and batch offers)."""
+    if tier_index is None:
+        return None
+    try:
+        ti = int(tier_index)
+    except (TypeError, ValueError):
+        return None
+    if ti < 0:
+        return None
+    return str(ti)
+
+
+def _tier_merge_offer_columns(
+    base_annual: dict,
+    base_family: dict,
+    base_extended: dict,
+    tier_patch: Optional[dict],
+) -> Tuple[dict, dict, dict]:
+    if not isinstance(tier_patch, dict):
+        return base_annual, base_family, base_extended
+    ao = {**base_annual, **(tier_patch.get("annual") or {})}
+    fo = {**base_family, **(tier_patch.get("family") or {})}
+    eo = {**base_extended, **(tier_patch.get("extended") or {})}
+    return ao, fo, eo
+
+
 def _merge_program_dashboard_offers(
     global_ao: dict,
     global_fo: dict,
     global_eo: dict,
     program_id: str,
     per_map: Optional[dict],
+    tier_index: Optional[int] = None,
 ) -> Tuple[dict, dict, dict]:
-    """Shallow-merge global annual / family / extended guest offer dicts with per-program overrides."""
+    """Shallow-merge global annual / family / extended guest offer dicts with per-program overrides.
+
+    When ``tier_index`` is set and the program row defines ``by_tier[str(tier_index)]``, those
+    annual/family/extended dicts are merged on top (for flagship 1-month vs 3-month, etc.).
+    """
     pid = str(program_id)
     row = (per_map or {}).get(pid) if isinstance(per_map, dict) else None
     if not isinstance(row, dict):
@@ -501,6 +535,12 @@ def _merge_program_dashboard_offers(
     ao = {**(global_ao or {}), **(row.get("annual") or {})}
     fo = {**(global_fo or {}), **(row.get("family") or {})}
     eo = {**(global_eo or {}), **(row.get("extended") or {})}
+    tk = _portal_tier_key(tier_index)
+    if tk:
+        bt = row.get("by_tier")
+        if isinstance(bt, dict):
+            tier_patch = bt.get(tk)
+            ao, fo, eo = _tier_merge_offer_columns(ao, fo, eo, tier_patch)
     return ao, fo, eo
 
 
@@ -514,6 +554,19 @@ def _portal_offer_row_has_overrides(row: Optional[dict]) -> bool:
     return False
 
 
+def _portal_offer_row_has_overrides_deep(row: Optional[dict]) -> bool:
+    """True if program or batch offer row has top-level or any ``by_tier`` overrides."""
+    if _portal_offer_row_has_overrides(row):
+        return True
+    bt = row.get("by_tier") if isinstance(row, dict) else None
+    if not isinstance(bt, dict):
+        return False
+    for sub in bt.values():
+        if _portal_offer_row_has_overrides(sub):
+            return True
+    return False
+
+
 def _merge_program_dashboard_offers_with_batch(
     global_ao: dict,
     global_fo: dict,
@@ -521,14 +574,23 @@ def _merge_program_dashboard_offers_with_batch(
     program_id: str,
     per_map: Optional[dict],
     batch_program_row: Optional[dict],
+    tier_index: Optional[int] = None,
 ) -> Tuple[dict, dict, dict]:
     """Merge global + per-program portal offers, then layer AWRP / cohort batch row on top (batch wins)."""
-    ao, fo, eo = _merge_program_dashboard_offers(global_ao, global_fo, global_eo, program_id, per_map)
+    ao, fo, eo = _merge_program_dashboard_offers(
+        global_ao, global_fo, global_eo, program_id, per_map, tier_index
+    )
     if not isinstance(batch_program_row, dict):
         return ao, fo, eo
     ao = {**ao, **(batch_program_row.get("annual") or {})}
     fo = {**fo, **(batch_program_row.get("family") or {})}
     eo = {**eo, **(batch_program_row.get("extended") or {})}
+    tk = _portal_tier_key(tier_index)
+    if tk:
+        bt = batch_program_row.get("by_tier")
+        if isinstance(bt, dict):
+            tier_patch = bt.get(tk)
+            ao, fo, eo = _tier_merge_offer_columns(ao, fo, eo, tier_patch)
     return ao, fo, eo
 
 
@@ -537,6 +599,7 @@ def _merged_portal_offers_for_payer(
     program_id: str,
     settings_doc: dict,
     client: dict,
+    tier_index: Optional[int] = None,
 ) -> Tuple[dict, dict, dict, Optional[str]]:
     """Annual+Dashboard: global + per-program + AWRP cohort overlays.
 
@@ -552,7 +615,9 @@ def _merged_portal_offers_for_payer(
     batch_root = settings_doc.get("awrp_batch_program_offers") or {}
     batch_id = _client_awrp_batch_id(client)
     brow = _batch_portal_row_for_program(batch_root, batch_id, program_id)
-    ao, fo, eo = _merge_program_dashboard_offers_with_batch(g_ao, g_fo, g_eo, program_id, per_map, brow)
+    ao, fo, eo = _merge_program_dashboard_offers_with_batch(
+        g_ao, g_fo, g_eo, program_id, per_map, brow, tier_index
+    )
     return ao, fo, eo, batch_id
 
 
@@ -586,9 +651,9 @@ def _program_has_portal_pricing_override(
     batch_program_row: Optional[dict] = None,
 ) -> bool:
     row = (per_map or {}).get(str(program_id)) if isinstance(per_map, dict) else None
-    if _portal_offer_row_has_overrides(row):
+    if _portal_offer_row_has_overrides_deep(row):
         return True
-    return _portal_offer_row_has_overrides(batch_program_row)
+    return _portal_offer_row_has_overrides_deep(batch_program_row)
 
 
 def _all_dashboard_guest_rows(client: dict) -> List[dict]:
@@ -1431,7 +1496,9 @@ async def _portal_combined_dashboard_total(user: dict, profile: ProfileData) -> 
             include_self = False
         else:
             include_self = bool(line.booker_joins)
-        ao, fo, eo, _batch_for_line = _merged_portal_offers_for_payer(annual_dashboard_access, pid, settings_doc, client)
+        ao, fo, eo, _batch_for_line = _merged_portal_offers_for_payer(
+            annual_dashboard_access, pid, settings_doc, client, tier_index=line.tier_index
+        )
         fo_plain = _family_offer_for_included_package_guests(included, imm_plain, fo)
         pricing = await compute_dashboard_annual_family_pricing(
             program,
@@ -1551,7 +1618,7 @@ async def dashboard_quote(
         include_self = bool(booker_joins)
     per_map = settings_doc.get("dashboard_program_offers") or {}
     ao, fo, eo, batch_id = _merged_portal_offers_for_payer(
-        annual_dashboard_access, program_id, settings_doc, client
+        annual_dashboard_access, program_id, settings_doc, client, tier_index=tier_index
     )
     if annual_dashboard_access:
         brow = _batch_portal_row_for_program(
@@ -1689,7 +1756,9 @@ async def build_admin_dashboard_pricing_snapshot(
         tier_idx = _dashboard_tier_index_for_preview(program, annual_dashboard_access)
         included = _portal_included_in_annual_package(program, inc_cfg, sub, client)
         include_self = False if included else True
-        ao, fo, eo, batch_id_snap = _merged_portal_offers_for_payer(annual_dashboard_access, pid, settings_doc, client)
+        ao, fo, eo, batch_id_snap = _merged_portal_offers_for_payer(
+            annual_dashboard_access, pid, settings_doc, client, tier_index=tier_idx
+        )
         if annual_dashboard_access:
             brow = _batch_portal_row_for_program(
                 settings_doc.get("awrp_batch_program_offers") or {},
@@ -1811,8 +1880,9 @@ async def dashboard_pay(data: DashboardPayIn, request: Request, user: dict = Dep
             detail="This program is already included in your annual package — select one or more family members to enroll.",
         )
 
+    pay_tier = data.tier_index
     ao, fo, eo, _bid = _merged_portal_offers_for_payer(
-        annual_dashboard_access, data.program_id, settings_doc, client
+        annual_dashboard_access, data.program_id, settings_doc, client, tier_index=pay_tier
     )
     fo_plain = _family_offer_for_included_package_guests(included, imm_plain, fo)
     quote = await compute_dashboard_annual_family_pricing(
@@ -1826,6 +1896,7 @@ async def dashboard_pay(data: DashboardPayIn, request: Request, user: dict = Dep
         fo_plain,
         eo,
         include_self=not included,
+        tier_index_override=pay_tier,
         apply_tier_offer_prices=True,
         booker_annual_portal=annual_dashboard_access,
     )
