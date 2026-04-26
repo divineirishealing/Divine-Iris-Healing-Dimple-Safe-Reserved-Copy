@@ -11,6 +11,8 @@ import {
   UploadCloud,
   Filter,
   ArrowDownAZ,
+  Search,
+  X,
 } from 'lucide-react';
 import { Button } from '../../ui/button';
 import { Input } from '../../ui/input';
@@ -243,8 +245,39 @@ function annualPortalPassesColumnFilters(r, filters) {
   return true;
 }
 
-function rowsForAnnualPortalFilterOptions(allRows, columnFilters, colId) {
+/** Lowercased haystack for quick “find in sheet” search (all visible columns). */
+function annualPortalRowSearchHaystack(r) {
+  const sub = r?.annual_subscription || {};
+  const usageStr =
+    sub.usage && Object.keys(sub.usage).length > 0 ? formatHomeComingUsageSummary(sub) : '';
+  const parts = [
+    r.name,
+    r.email,
+    r.id,
+    r.household_key,
+    sub.start_date,
+    sub.end_date,
+    sub.annual_diid,
+    packageLabel(sub),
+    usageStr,
+    getAnnualPortalFilterValue(r, 'primary'),
+  ];
+  return parts.map((p) => String(p ?? '').toLowerCase()).join(' ');
+}
+
+/** Whitespace-separated tokens; every token must appear somewhere in the haystack (AND). */
+function annualPortalRowMatchesListSearch(r, rawQuery) {
+  const q = String(rawQuery ?? '').trim().toLowerCase();
+  if (!q) return true;
+  const tokens = q.split(/\s+/).filter(Boolean);
+  if (tokens.length === 0) return true;
+  const hay = annualPortalRowSearchHaystack(r);
+  return tokens.every((t) => hay.includes(t));
+}
+
+function rowsForAnnualPortalFilterOptions(allRows, columnFilters, colId, listSearch) {
   return allRows.filter((row) => {
+    if (!annualPortalRowMatchesListSearch(row, listSearch)) return false;
     for (const [cid, sel] of Object.entries(columnFilters)) {
       if (cid === colId || sel == null) continue;
       if (!sel.has(getAnnualPortalFilterValue(row, cid))) return false;
@@ -474,20 +507,27 @@ export default function AnnualPortalClientsTab() {
   const [columnFilters, setColumnFilters] = useState({});
   /** Single-column sort: { column, mode } — see fullAnnualPortalSort */
   const [columnSort, setColumnSort] = useState(null);
+  /** Free-text search across the row (name, email, id, household, dates, DIID, etc.). */
+  const [listSearch, setListSearch] = useState('');
 
   const filteredRows = useMemo(
-    () => rows.filter((r) => annualPortalPassesColumnFilters(r, columnFilters)),
-    [rows, columnFilters],
+    () =>
+      rows.filter(
+        (r) =>
+          annualPortalPassesColumnFilters(r, columnFilters) &&
+          annualPortalRowMatchesListSearch(r, listSearch),
+      ),
+    [rows, columnFilters, listSearch],
   );
 
   const filterOptionBaseByCol = useMemo(() => {
     const ids = ANNUAL_PORTAL_FLAT_COLS.map((c) => c.id).filter((id) => id !== 'sn' && id !== 'edit');
     const out = {};
     for (const id of ids) {
-      out[id] = rowsForAnnualPortalFilterOptions(rows, columnFilters, id);
+      out[id] = rowsForAnnualPortalFilterOptions(rows, columnFilters, id, listSearch);
     }
     return out;
-  }, [rows, columnFilters]);
+  }, [rows, columnFilters, listSearch]);
 
   const columnFilterActiveCount = useMemo(
     () => Object.values(columnFilters).filter((s) => s != null).length,
@@ -797,7 +837,7 @@ export default function AnnualPortalClientsTab() {
         <p className="text-xs text-gray-600 mt-0.5 max-w-3xl leading-relaxed">
           When <strong>End Date</strong> (below) is in the past, Sacred Home clears the client&apos;s <strong>Annual</strong> access flag automatically (next login, quote, or opening this list). Members see a renewal reminder on the dashboard in the last 30 days and after expiry.{' '}
           Table columns: #, Name, Email Id, Start/End Date, DIID, HomeComing, Usage (summary), HOUSEHOLD, PRIMARY, Client id.{' '}
-          Use the <strong>A–Z icon</strong> to sort (alphabetical, dates oldest/newest, primary first, etc.) and the <strong>funnel</strong> to filter; both apply in List and By household.{' '}
+          Use <strong>Search</strong> to find rows by name, email, id, household, dates, DIID, or usage; separate words all must match. Use the <strong>A–Z icon</strong> to sort (alphabetical, dates oldest/newest, primary first, etc.) and the <strong>funnel</strong> to filter; search, sort, and column filters work together in List and By household.{' '}
           <strong>Template</strong> is a blank sheet with sample rows; <strong>Download Excel</strong> exports the current list in the same columns so you can edit and upload.{' '}
           Usage counts are split into separate columns for upload.{' '}
           <strong>Upload</strong> finds columns by <strong>header title</strong> (not left-to-right order). Each column in the file <strong>replaces</strong> what is stored (empty cells clear dates, DIID, package, household; blank usage cells become 0; blank PRIMARY counts as N). <strong>DIID</strong> can be full 8 characters (letters+YYMM) or <strong>YYMM only</strong> (4 digits); letters are taken from <strong>Name</strong>. Match rows by Client id, Email, or <strong>Name</strong> (+ <strong>HOUSEHOLD</strong> when names repeat); new household members get a generated Client id. If row 1 is a title row, headers on the next row are detected automatically.
@@ -900,7 +940,35 @@ export default function AnnualPortalClientsTab() {
       )}
 
       <div className="flex flex-wrap items-center gap-2 shrink-0 border border-[#c6c6c6] bg-[#f2f2f2] px-2 py-1.5 rounded-sm">
-        <span className="text-[10px] font-bold text-neutral-600 uppercase tracking-wider mr-1">View</span>
+        <div className="flex items-center gap-1.5 w-full sm:w-auto sm:flex-1 sm:min-w-0 sm:max-w-xl">
+          <label htmlFor="annual-portal-list-search" className="sr-only">
+            Search list
+          </label>
+          <Search className="h-3.5 w-3.5 text-neutral-500 shrink-0" aria-hidden />
+          <Input
+            id="annual-portal-list-search"
+            data-testid="annual-portal-list-search"
+            value={listSearch}
+            onChange={(e) => setListSearch(e.target.value)}
+            placeholder="Search name, email, id, household, dates, DIID, usage…"
+            className="h-8 text-[11px] flex-1 min-w-0 bg-white border-[#c6c6c6] font-lato"
+            disabled={loading}
+          />
+          {listSearch.trim() !== '' && (
+            <button
+              type="button"
+              className="shrink-0 rounded p-1 text-neutral-500 hover:bg-neutral-200/80 hover:text-neutral-800"
+              title="Clear search"
+              aria-label="Clear search"
+              onClick={() => setListSearch('')}
+            >
+              <X className="h-3.5 w-3.5" />
+            </button>
+          )}
+        </div>
+        <span className="text-[10px] font-bold text-neutral-600 uppercase tracking-wider mr-1 sm:ml-0.5">
+          View
+        </span>
         <button
           type="button"
           onClick={() => setViewMode('flat')}
