@@ -10,6 +10,7 @@ import {
   Plus, X, Edit, Trash2, Save, Tag, Percent, Clock, Zap, Gift,
   Calendar, Users, Check
 } from 'lucide-react';
+import { formatDateDdMonYyyy } from '../../../lib/utils';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
@@ -327,7 +328,8 @@ const PromotionsTab = ({ programs }) => {
                   }
                   {' · '}{p.applicable_to === 'all' ? 'All programs' : `${(p.applicable_program_ids || []).length} programs`}
                   {p.usage_limit > 0 && ` · ${p.used_count || 0}/${p.usage_limit} used`}
-                  {p.expiry_date && ` · Expires ${new Date(p.expiry_date).toLocaleDateString()}`}
+                  {p.expiry_date &&
+                    ` · Expires ${formatDateDdMonYyyy(String(p.expiry_date).slice(0, 10)) || p.expiry_date}`}
                 </p>
               </div>
               <div className="flex items-center gap-2">

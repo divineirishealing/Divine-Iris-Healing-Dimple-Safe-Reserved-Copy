@@ -12,6 +12,7 @@ import {
   Settings, Package,   UserPlus,
 } from 'lucide-react';
 import { useSpreadsheetColumnVisibility, SpreadsheetColumnPicker } from '../SpreadsheetColumnPicker';
+import { formatDateDdMonYyyy } from '../../../lib/utils';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 const BACKEND_ORIGIN = process.env.REACT_APP_BACKEND_URL || '';
@@ -1751,7 +1752,14 @@ const SubscribersTab = ({ openManualFormOnMount = false }) => {
                     <div><span className="text-gray-400">Method:</span> <strong className="text-gray-700 uppercase">{p.payment_method}</strong></div>
                     <div><span className="text-gray-400">Amount:</span> <strong className="text-gray-700 font-mono">{p.amount?.toLocaleString()}</strong></div>
                     <div><span className="text-gray-400">Transaction ID:</span> <strong className="text-gray-700 font-mono">{p.transaction_id || '-'}</strong></div>
-                    <div><span className="text-gray-400">Date:</span> <strong className="text-gray-700">{p.submitted_at?.slice(0, 10)}</strong></div>
+                    <div>
+                      <span className="text-gray-400">Date:</span>{' '}
+                      <strong className="text-gray-700">
+                        {p.submitted_at
+                          ? formatDateDdMonYyyy(String(p.submitted_at).slice(0, 10)) || p.submitted_at.slice(0, 10)
+                          : '—'}
+                      </strong>
+                    </div>
                     {p.paid_by_name && <div><span className="text-gray-400">Paid by:</span> <strong className="text-gray-700">{p.paid_by_name}</strong></div>}
                     {p.bank_code && <div><span className="text-gray-400">Bank:</span> <strong className="text-gray-700">{p.bank_code}</strong></div>}
                   </div>

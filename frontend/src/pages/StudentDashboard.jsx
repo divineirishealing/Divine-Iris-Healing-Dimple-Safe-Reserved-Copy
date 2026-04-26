@@ -346,7 +346,7 @@ const StudentDashboard = () => {
 
   const welcomeSubtitle = useMemo(() => {
     const d = new Date();
-    const weekday = d.toLocaleDateString('en-US', { weekday: 'long' });
+    const weekday = d.toLocaleDateString('en-GB', { weekday: 'long' });
     const ymd = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
     const todayDisp = formatDateDdMonYyyy(ymd);
     const rawName = (pkg.program_name || '').trim();

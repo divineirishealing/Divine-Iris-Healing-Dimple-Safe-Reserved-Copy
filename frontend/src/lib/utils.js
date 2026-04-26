@@ -7,9 +7,15 @@ export function cn(...inputs) {
 
 const DASH_MONS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
-/** Parse YYYY-MM-DD or ISO start to local Date (noon). */
+/** Parse YYYY-MM-DD, ISO string, or Date to local calendar Date (noon). */
 function parseDashboardDateInput(val) {
   if (val == null || val === "") return null;
+  if (val instanceof Date && !Number.isNaN(val.getTime())) {
+    const y = val.getFullYear();
+    const m = val.getMonth();
+    const d = val.getDate();
+    return new Date(y, m, d, 12, 0, 0, 0);
+  }
   const s = String(val).trim().slice(0, 10);
   if (/^\d{4}-\d{2}-\d{2}$/.test(s)) {
     const [y, m, d] = s.split("-").map(Number);
@@ -48,6 +54,23 @@ export function formatDateDdMonYyyy(val) {
   const day = String(t.getDate()).padStart(2, "0");
   const mon = DASH_MONS[t.getMonth()];
   return `${day}-${mon}-${t.getFullYear()}`;
+}
+
+/**
+ * Timestamp for admin / activity rows: `26-Apr-2026, 14:05` (local date + 24h time).
+ */
+export function formatDateTimeDdMonYyyy(val) {
+  if (val == null || val === "") return "—";
+  const t = val instanceof Date ? val : new Date(val);
+  if (Number.isNaN(t.getTime())) return "—";
+  const y = t.getFullYear();
+  const mo = t.getMonth();
+  const d = t.getDate();
+  const day = String(d).padStart(2, "0");
+  const mon = DASH_MONS[mo];
+  const hh = String(t.getHours()).padStart(2, "0");
+  const mm = String(t.getMinutes()).padStart(2, "0");
+  return `${day}-${mon}-${y}, ${hh}:${mm}`;
 }
 
 /** Schedule time: single line, trimmed; use em dash when empty (matches date cells). */

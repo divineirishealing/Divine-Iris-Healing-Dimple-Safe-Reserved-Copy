@@ -26,8 +26,15 @@ import {
   HOME_COMING_DISPLAY,
   formatHomeComingUsageSummary,
 } from '../../../lib/homeComingAnnual';
+import { formatDateDdMonYyyy } from '../../../lib/utils';
 
 const API = getApiUrl();
+
+function formatPortalSubscriptionDate(raw) {
+  const s = (raw || '').trim();
+  if (!s) return '—';
+  return formatDateDdMonYyyy(s.slice(0, 10)) || s;
+}
 
 const ANNUAL_PORTAL_FLAT_COLS = [
   { id: 'sn', label: '#', required: true },
@@ -1270,10 +1277,10 @@ export default function AnnualPortalClientsTab() {
                     )}
                     {flatColVisible('email') && <td className={`${tdBase} text-neutral-800`}>{(r.email || '').trim() || '—'}</td>}
                     {flatColVisible('start') && (
-                      <td className={tdTabular}>{sub.start_date || '—'}</td>
+                      <td className={tdTabular}>{formatPortalSubscriptionDate(sub.start_date)}</td>
                     )}
                     {flatColVisible('end') && (
-                      <td className={tdTabular}>{sub.end_date || '—'}</td>
+                      <td className={tdTabular}>{formatPortalSubscriptionDate(sub.end_date)}</td>
                     )}
                     {flatColVisible('diid') && (
                       <td className={tdTabular}>{(sub.annual_diid || '').trim() || '—'}</td>
@@ -1496,8 +1503,8 @@ export default function AnnualPortalClientsTab() {
                               </span>
                             </td>
                             <td className={`${tdBase} text-neutral-800`}>{(r.email || '').trim() || '—'}</td>
-                            <td className={tdTabular}>{sub.start_date || '—'}</td>
-                            <td className={tdTabular}>{sub.end_date || '—'}</td>
+                            <td className={tdTabular}>{formatPortalSubscriptionDate(sub.start_date)}</td>
+                            <td className={tdTabular}>{formatPortalSubscriptionDate(sub.end_date)}</td>
                             <td className={tdTabular}>{(sub.annual_diid || '').trim() || '—'}</td>
                             <td className={tdBase}>{packageLabel(sub)}</td>
                             <td className={`${tdBase} text-[11px] text-neutral-800`}>

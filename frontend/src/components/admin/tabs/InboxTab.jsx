@@ -6,6 +6,7 @@ import { Textarea } from '../../ui/textarea';
 import { Switch } from '../../ui/switch';
 import { Label } from '../../ui/label';
 import { Mail, MessageSquare, Heart, Send, Trash2, ChevronDown, ChevronUp, Clock, Search, Users, Link2, Download } from 'lucide-react';
+import { formatDateTimeDdMonYyyy } from '../../../lib/utils';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
@@ -15,17 +16,7 @@ const STATUS_COLORS = {
   replied: 'bg-green-100 text-green-700',
 };
 
-const timeAgo = (dateStr) => {
-  if (!dateStr) return '';
-  const diff = Date.now() - new Date(dateStr).getTime();
-  const mins = Math.floor(diff / 60000);
-  if (mins < 60) return `${mins}m ago`;
-  const hrs = Math.floor(mins / 60);
-  if (hrs < 24) return `${hrs}h ago`;
-  const days = Math.floor(hrs / 24);
-  if (days < 30) return `${days}d ago`;
-  return new Date(dateStr).toLocaleDateString();
-};
+const inboxDateTime = (dateStr) => (dateStr ? formatDateTimeDdMonYyyy(dateStr) : '');
 
 const InboxTab = () => {
   const { toast } = useToast();
@@ -181,7 +172,7 @@ const InboxTab = () => {
                   </p>
                 </div>
                 <div className="flex items-center gap-2 flex-shrink-0">
-                  <span className="text-[10px] text-gray-400 flex items-center gap-1"><Clock size={10} />{timeAgo(item.created_at)}</span>
+                  <span className="text-[10px] text-gray-400 flex items-center gap-1"><Clock size={10} />{inboxDateTime(item.created_at)}</span>
                   {isExpanded ? <ChevronUp size={14} className="text-gray-400" /> : <ChevronDown size={14} className="text-gray-400" />}
                 </div>
               </div>
@@ -244,8 +235,8 @@ const ExpandedItem = ({ item, section, programs, onReply, onDelete, toast }) => 
         {item.email && <DetailField label="Email" value={item.email} />}
         {item.phone && <DetailField label="Phone" value={item.phone} />}
         {item.program_title && <DetailField label="Program/Session" value={item.program_title} />}
-        {item.created_at && <DetailField label="Submitted" value={new Date(item.created_at).toLocaleString()} />}
-        {item.replied_at && <DetailField label="Replied" value={new Date(item.replied_at).toLocaleString()} />}
+        {item.created_at && <DetailField label="Submitted" value={formatDateTimeDdMonYyyy(item.created_at)} />}
+        {item.replied_at && <DetailField label="Replied" value={formatDateTimeDdMonYyyy(item.replied_at)} />}
       </div>
 
       {/* Full Message */}

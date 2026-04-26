@@ -7,7 +7,7 @@ import { Label } from '../../ui/label';
 import { Switch } from '../../ui/switch';
 import { Popover, PopoverContent, PopoverTrigger } from '../../ui/popover';
 import { Checkbox } from '../../ui/checkbox';
-import { cn } from '@/lib/utils';
+import { cn, formatDateTimeDdMonYyyy } from '@/lib/utils';
 
 const API = `${process.env.REACT_APP_BACKEND_URL || ''}/api`;
 
@@ -169,18 +169,12 @@ function parseReportDateMs(iso) {
   }
 }
 
-/** Admin enrollment table: show calendar date + clock time (local timezone). */
+/** Admin enrollment table: DD-Mon-YYYY, HH:MM (local). */
 function formatEnrollReportDateTime(iso) {
   if (!iso) return '-';
   try {
-    return new Date(String(iso).replace('Z', '+00:00')).toLocaleString('en-IN', {
-      day: '2-digit',
-      month: 'short',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-      hour12: true,
-    });
+    const s = formatDateTimeDdMonYyyy(String(iso).replace('Z', '+00:00'));
+    return s === '—' ? '-' : s;
   } catch {
     return '-';
   }
@@ -808,7 +802,7 @@ const EnrollmentsTab = () => {
           </div>
           <div className="text-[10px] text-gray-500 flex items-end">
             {autoReport.enrollment_auto_report_last_sent_at
-              ? `Last sent: ${new Date(autoReport.enrollment_auto_report_last_sent_at).toLocaleString()}`
+              ? `Last sent: ${formatDateTimeDdMonYyyy(autoReport.enrollment_auto_report_last_sent_at)}`
               : 'Last sent: —'}
           </div>
         </div>
@@ -1186,7 +1180,7 @@ const EnrollmentsTab = () => {
                             <div><span className="text-gray-400 block">Bank/Account</span>{e.bank_name || e.payment?.bank_name || '-'}</div>
                             <div><span className="text-gray-400 block">VPN Detected</span>{e.vpn_detected ? 'Yes' : 'No'}</div>
                             <div><span className="text-gray-400 block">Stripe Session</span><span className="font-mono truncate block max-w-[150px]">{e.stripe_session_id || '-'}</span></div>
-                            <div><span className="text-gray-400 block">Updated</span>{e.updated_at ? new Date(e.updated_at).toLocaleString() : '-'}</div>
+                            <div><span className="text-gray-400 block">Updated</span>{e.updated_at ? formatDateTimeDdMonYyyy(e.updated_at) : '-'}</div>
                           </div>
                           {/* Participants */}
                           {e.participants?.length > 0 && (

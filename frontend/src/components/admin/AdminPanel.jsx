@@ -16,6 +16,7 @@ import {
 } from 'lucide-react';
 
 import { getApiUrl } from '../../lib/config';
+import { formatDateTimeDdMonYyyy } from '../../lib/utils';
 import CollapsibleSection from './CollapsibleSection';
 import HeroSettingsTab from './tabs/HeroSettingsTab';
 import AboutSettingsTab from './tabs/AboutSettingsTab';
@@ -684,7 +685,7 @@ const AdminPanel = () => {
                           <td className="px-4 py-2.5 text-xs text-gray-400">{i + 1}</td>
                           <td className="px-4 py-2.5 font-medium text-gray-800">{sub.email}</td>
                           <td className="px-4 py-2.5 text-xs text-gray-500">
-                            {sub.subscribed_at ? new Date(sub.subscribed_at).toLocaleString() : '—'}
+                            {sub.subscribed_at ? formatDateTimeDdMonYyyy(sub.subscribed_at) : '—'}
                           </td>
                           <td className="px-4 py-2.5 text-right">
                             <button

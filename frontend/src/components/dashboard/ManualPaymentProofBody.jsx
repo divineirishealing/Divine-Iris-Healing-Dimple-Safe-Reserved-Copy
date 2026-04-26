@@ -10,6 +10,7 @@ import {
 } from 'lucide-react';
 import { resolveImageUrl, isLikelyImageUrl } from '../../lib/imageUtils';
 import { buildIndiaGpayOptions, gpayRowMatchesPreference } from '../../lib/indiaPaymentTags';
+import { formatDateDdMonYyyy } from '../../lib/utils';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
@@ -883,14 +884,14 @@ export function ManualPaymentProofBody({
                         <div className="flex items-center gap-2 text-xs">
                           <Calendar size={12} className="text-purple-400" />
                           <span className="text-gray-500">Start:</span>
-                          <span className="font-medium text-gray-900">{new Date(itemDetails.start_date).toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' })}</span>
+                          <span className="font-medium text-gray-900">{formatDateDdMonYyyy(itemDetails.start_date) || '—'}</span>
                         </div>
                       )}
                       {itemDetails.end_date && (
                         <div className="flex items-center gap-2 text-xs">
                           <Calendar size={12} className="text-purple-400" />
                           <span className="text-gray-500">End:</span>
-                          <span className="font-medium text-gray-900">{new Date(itemDetails.end_date).toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' })}</span>
+                          <span className="font-medium text-gray-900">{formatDateDdMonYyyy(itemDetails.end_date) || '—'}</span>
                         </div>
                       )}
                       {itemDetails.duration && (

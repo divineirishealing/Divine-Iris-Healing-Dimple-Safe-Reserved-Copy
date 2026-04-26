@@ -6,7 +6,7 @@ import { useCurrency } from '../context/CurrencyContext';
 import { useCart } from '../context/CartContext';
 import { useToast } from '../hooks/use-toast';
 import { Monitor, Calendar, Clock, AlertTriangle, Wifi, ShoppingCart, Check, Bell, Heart, Gift, Users } from 'lucide-react';
-import { cn } from '../lib/utils';
+import { cn, formatDateDdMonYyyy } from '../lib/utils';
 
 // Map common timezone abbreviations to UTC offset in hours
 const TZ_OFFSETS = {
@@ -285,11 +285,14 @@ const UpcomingCard = ({ program, cardQuoteMessages = [] }) => {
       t.duration_unit === 'year');
   const durationOnImage = durationPillDisplay(tier ? isAnnualTierRow(tier) : false, autoDuration);
 
-  // Format date to standard: "27 Mar 2026"
+  // Format date: DD-Mon-YYYY (e.g. 26-Apr-2026)
   const fmtDate = (d) => {
     const dt = parseDate(d);
     if (!dt) return d || '';
-    return dt.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+    const y = dt.getFullYear();
+    const m = String(dt.getMonth() + 1).padStart(2, '0');
+    const day = String(dt.getDate()).padStart(2, '0');
+    return formatDateDdMonYyyy(`${y}-${m}-${day}`) || d || '';
   };
 
   // Convert timing to viewer's local time

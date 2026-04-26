@@ -17,6 +17,7 @@ import {
 import { applyWrittenQuoteStyle } from '../lib/transformationsWrittenQuoteStyle';
 import { Dialog, DialogContent } from '../components/ui/dialog';
 import { useSeoPage } from '../context/SeoPageContext';
+import { formatDateDdMonYyyy } from '../lib/utils';
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
 
@@ -88,16 +89,18 @@ function stripForMeta(htmlOrText) {
     .slice(0, 165);
 }
 
-/** YYYY-MM-DD → readable; otherwise return as stored. */
+/** YYYY-MM-DD → weekday, DD-Mon-YYYY; otherwise return as stored. */
 function formatProgramDateDisplay(raw) {
   const t = String(raw || '').trim();
   if (!t) return '';
   const d = t.slice(0, 10);
   if (/^\d{4}-\d{2}-\d{2}$/.test(d)) {
+    const core = formatDateDdMonYyyy(d);
+    if (!core) return t;
     const dt = new Date(`${d}T12:00:00`);
-    if (!Number.isNaN(dt.getTime())) {
-      return dt.toLocaleDateString(undefined, { weekday: 'short', year: 'numeric', month: 'short', day: 'numeric' });
-    }
+    if (Number.isNaN(dt.getTime())) return t;
+    const wk = dt.toLocaleDateString('en-GB', { weekday: 'short' });
+    return `${wk}, ${core}`;
   }
   return t;
 }

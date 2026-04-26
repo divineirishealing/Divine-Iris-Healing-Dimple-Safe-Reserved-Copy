@@ -20,6 +20,7 @@ import {
   discountSummary,
   formatTaggedPaymentDetails,
 } from '../../../lib/adminClientAccessDisplay';
+import { formatDateDdMonYyyy, formatDateTimeDdMonYyyy } from '../../../lib/utils';
 
 const CLIENT_GARDEN_COLUMN_DEFS = [
   { id: 'sr', label: 'SR No', required: true },
@@ -141,18 +142,6 @@ function labelStyleForClient(label) {
   return LABEL_FAMILY_STYLES[k] || LABEL_FAMILY_STYLES.dew;
 }
 
-const timeAgo = (dateStr) => {
-  if (!dateStr) return '';
-  const diff = Date.now() - new Date(dateStr).getTime();
-  const mins = Math.floor(diff / 60000);
-  if (mins < 60) return `${mins}m ago`;
-  const hrs = Math.floor(mins / 60);
-  if (hrs < 24) return `${hrs}h ago`;
-  const days = Math.floor(hrs / 24);
-  if (days < 30) return `${days}d ago`;
-  return new Date(dateStr).toLocaleDateString();
-};
-
 function truncate(s, n) {
   const t = (s || '').trim();
   if (t.length <= n) return t;
@@ -175,15 +164,6 @@ function createdAtToMonthInput(iso) {
   const ymd = createdAtToDateInput(iso);
   if (!ymd) return '';
   return ymd.slice(0, 7);
-}
-
-/** Grid display: MM/YYYY from stored date (calendar month of first seen). */
-function formatFirstSeenMonthYear(iso) {
-  const ymd = createdAtToDateInput(iso);
-  if (!ymd) return '—';
-  const [y, mo] = ymd.split('-');
-  if (!y || !mo) return '—';
-  return `${mo}/${y}`;
 }
 
 /** Match backend ``_name_initial_segment`` (``canonical_id``) for DIID middle prefix. */
@@ -297,11 +277,13 @@ function getClientFilterValue(cl, colId, siteInfo = {}) {
     case 'referrer':
       return (cl.referred_by_name || cl.referred_by_client_id || '').trim() || FILTER_BLANKS;
     case 'first': {
-      const fs = formatFirstSeenMonthYear(cl.created_at);
-      return fs === '—' ? FILTER_BLANKS : fs;
+      const fs = formatDateDdMonYyyy(cl.created_at);
+      return !fs ? FILTER_BLANKS : fs;
     }
-    case 'updated':
-      return timeAgo(cl.updated_at || cl.created_at) || FILTER_BLANKS;
+    case 'updated': {
+      const s = formatDateTimeDdMonYyyy(cl.updated_at || cl.created_at);
+      return s === '—' ? FILTER_BLANKS : s;
+    }
     default:
       return FILTER_BLANKS;
   }
@@ -1553,12 +1535,16 @@ const ClientsTab = () => {
                         />
                       ) : (
                         <span className="py-2 px-2 inline-block text-gray-500" title={cl.created_at ? createdAtToDateInput(cl.created_at) : ''}>
-                          {formatFirstSeenMonthYear(cl.created_at)}
+                          {formatDateDdMonYyyy(cl.created_at) || '—'}
                         </span>
                       )}
                     </td>
                     )}
-                    {isVisible('updated') && <td className="py-2 px-2 text-gray-500 whitespace-nowrap">{timeAgo(cl.updated_at || cl.created_at)}</td>}
+                    {isVisible('updated') && (
+                      <td className="py-2 px-2 text-gray-500 whitespace-nowrap">
+                        {formatDateTimeDdMonYyyy(cl.updated_at || cl.created_at)}
+                      </td>
+                    )}
                     {isVisible('diid') && (
                     <td
                       className={`py-1 px-1 font-mono text-[9px] align-top max-w-[280px] ${cl.diid ? 'text-indigo-800' : 'text-amber-800'}`}

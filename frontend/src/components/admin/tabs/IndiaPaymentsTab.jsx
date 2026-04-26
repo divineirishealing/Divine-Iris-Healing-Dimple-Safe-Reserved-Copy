@@ -7,6 +7,7 @@ import { Input } from '../../ui/input';
 import { Switch } from '../../ui/switch';
 import { useToast } from '../../../hooks/use-toast';
 import { getApiUrl, getBackendUrl, isUploadApiReachable } from '../../../lib/config';
+import { formatDateTimeDdMonYyyy } from '../../../lib/utils';
 
 const API = getApiUrl();
 const BACKEND = getBackendUrl() || '';
@@ -132,7 +133,7 @@ const IndiaPaymentsTab = () => {
                     <span><strong>Paid to:</strong> {proof.bank_name || '-'}</span>
                   </div>
                   <p className="text-[9px] text-gray-400 mt-1 flex items-center gap-1">
-                    <Clock size={9} /> {new Date(proof.created_at).toLocaleString()}
+                    <Clock size={9} /> {formatDateTimeDdMonYyyy(proof.created_at)}
                   </p>
                 </div>
 

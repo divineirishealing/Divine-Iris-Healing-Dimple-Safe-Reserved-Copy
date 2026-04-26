@@ -7,6 +7,7 @@ import { Switch } from '../../ui/switch';
 import { Label } from '../../ui/label';
 import { useToast } from '../../../hooks/use-toast';
 import CollapsibleSection from '../CollapsibleSection';
+import { formatDateDdMonYyyy } from '../../../lib/utils';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
@@ -481,7 +482,7 @@ const ReceiptTemplateTab = () => {
                     <div className="text-right">
                       <p className="font-bold text-[#D4AF37]">TAX INVOICE</p>
                       <p className="text-gray-500">Invoice #: A0001</p>
-                      <p className="text-gray-500">Date: {new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}</p>
+                      <p className="text-gray-500">Date: {formatDateDdMonYyyy(new Date()) || '—'}</p>
                     </div>
                   </div>
                   <table className="w-full text-[9px]">

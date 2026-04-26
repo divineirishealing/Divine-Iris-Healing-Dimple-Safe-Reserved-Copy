@@ -7,6 +7,7 @@ import { Label } from '../../ui/label';
 import { Switch } from '../../ui/switch';
 import { Link2, Copy, Download, Loader2, RefreshCw, Ban, ExternalLink } from 'lucide-react';
 import { getApiUrl } from '../../../lib/config';
+import { formatDateTimeDdMonYyyy } from '../../../lib/utils';
 
 const API = getApiUrl();
 
@@ -233,7 +234,7 @@ const ContactUpdateLinkTab = () => {
                         )}
                       </td>
                       <td className="px-3 py-2 text-xs text-gray-500 whitespace-nowrap">
-                        {row.created_at ? new Date(row.created_at).toLocaleString() : '—'}
+                        {row.created_at ? formatDateTimeDdMonYyyy(row.created_at) : '—'}
                       </td>
                       <td className="px-3 py-2">
                         {active && (
@@ -276,7 +277,7 @@ const ContactUpdateLinkTab = () => {
                 {submissions.map((s) => (
                   <tr key={s.id} className="border-b border-gray-50">
                     <td className="px-3 py-2 text-xs text-gray-500 whitespace-nowrap">
-                      {s.created_at ? new Date(s.created_at).toLocaleString() : '—'}
+                      {s.created_at ? formatDateTimeDdMonYyyy(s.created_at) : '—'}
                     </td>
                     <td className="px-3 py-2">{s.name}</td>
                     <td className="px-3 py-2">{s.email}</td>

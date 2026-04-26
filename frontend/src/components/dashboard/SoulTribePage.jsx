@@ -3,7 +3,7 @@ import axios from 'axios';
 import { Heart, MessageCircle, Send, Image as ImageIcon, Smile, Star, Loader2, MoreHorizontal } from 'lucide-react';
 import { Button } from '../ui/button';
 import { useToast } from '../../hooks/use-toast';
-import { cn } from '../../lib/utils';
+import { cn, formatDateTimeDdMonYyyy } from '../../lib/utils';
 
 const API = process.env.REACT_APP_BACKEND_URL;
 
@@ -15,14 +15,6 @@ const REACTIONS = [
   { emoji: '🌟', label: 'Star' },
   { emoji: '🤗', label: 'Hug' },
 ];
-
-const timeAgo = (date) => {
-  const s = Math.floor((Date.now() - new Date(date).getTime()) / 1000);
-  if (s < 60) return 'just now';
-  if (s < 3600) return `${Math.floor(s / 60)}m ago`;
-  if (s < 86400) return `${Math.floor(s / 3600)}h ago`;
-  return `${Math.floor(s / 86400)}d ago`;
-};
 
 const PostCard = ({ post, onReact, onComment }) => {
   const [showComments, setShowComments] = useState(false);
@@ -40,7 +32,14 @@ const PostCard = ({ post, onReact, onComment }) => {
         </div>
         <div className="flex-1">
           <p className="text-sm font-semibold text-gray-900">{post.author_name || 'Soul Tribe Member'}</p>
-          <p className="text-[10px] text-gray-400">{timeAgo(post.created_at)} {post.badge && <span className="ml-1 px-1.5 py-0.5 rounded-full bg-[#D4AF37]/10 text-[#D4AF37] text-[8px] font-bold">{post.badge}</span>}</p>
+          <p className="text-[10px] text-gray-400">
+            {formatDateTimeDdMonYyyy(post.created_at)}{' '}
+            {post.badge && (
+              <span className="ml-1 px-1.5 py-0.5 rounded-full bg-[#D4AF37]/10 text-[#D4AF37] text-[8px] font-bold">
+                {post.badge}
+              </span>
+            )}
+          </p>
         </div>
       </div>
 
@@ -106,7 +105,7 @@ const PostCard = ({ post, onReact, onComment }) => {
               <div className="bg-white rounded-xl px-3 py-2 text-xs flex-1">
                 <span className="font-semibold text-gray-900">{c.author}</span>{' '}
                 <span className="text-gray-600">{c.text}</span>
-                <p className="text-[9px] text-gray-400 mt-0.5">{timeAgo(c.created_at)}</p>
+                <p className="text-[9px] text-gray-400 mt-0.5">{formatDateTimeDdMonYyyy(c.created_at)}</p>
               </div>
             </div>
           ))}

@@ -1,3 +1,5 @@
+import { formatDateDdMonYyyy } from './utils';
+
 /**
  * Date/time/duration presentation aligned with UpcomingProgramsSection (homepage upcoming cards).
  */
@@ -137,7 +139,10 @@ export function parseProgramDate(d) {
 export function formatUpcomingCardDate(d) {
   const dt = parseProgramDate(d);
   if (!dt) return d || '';
-  return dt.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+  const y = dt.getFullYear();
+  const m = String(dt.getMonth() + 1).padStart(2, '0');
+  const day = String(dt.getDate()).padStart(2, '0');
+  return formatDateDdMonYyyy(`${y}-${m}-${day}`) || d || '';
 }
 
 /** Gold duration pill on card image — same rules as UpcomingProgramsSection. */

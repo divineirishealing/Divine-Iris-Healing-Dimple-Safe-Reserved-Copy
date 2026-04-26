@@ -7,17 +7,13 @@ import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 import { Label } from '../ui/label';
 import { Coins, ChevronLeft, Loader2, Gift, Sparkles, Link2 } from 'lucide-react';
+import { formatDateTimeDdMonYyyy } from '../../lib/utils';
 
 const API = process.env.REACT_APP_BACKEND_URL;
 
 function formatLedgerRow(row) {
   const d = row.created_at;
-  const dateStr = d
-    ? new Date(typeof d === 'string' ? d : d).toLocaleString(undefined, {
-        dateStyle: 'medium',
-        timeStyle: 'short',
-      })
-    : '—';
+  const dateStr = d ? formatDateTimeDdMonYyyy(typeof d === 'string' ? d : d) : '—';
   const delta = row.delta ?? 0;
   const sign = delta >= 0 ? '+' : '';
   return { dateStr, sign, delta, reason: row.reason || '—', ref: row.ref_id || '' };

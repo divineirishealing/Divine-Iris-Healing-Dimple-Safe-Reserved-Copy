@@ -6,7 +6,7 @@ import { useDashboardScrollSession } from '../hooks/useDashboardScrollSession';
 import { useSiteSettings } from '../context/SiteSettingsContext';
 import { NavLink } from 'react-router-dom';
 import { Loader2, Menu, X, Home, Sprout, Calendar, TrendingUp, Sparkles, Heart, BookOpen, User, CreditCard, LogOut, Coins, ShoppingCart, ClipboardList, Wrench } from 'lucide-react';
-import { cn } from '../lib/utils';
+import { cn, formatDateDdMonYyyy } from '../lib/utils';
 import { CosmicDashboardBackground } from '../components/dashboard/CosmicDashboardBackground';
 import { getDashboardCosmicVariant } from '../lib/dashboardCosmicThemes';
 import { mergeDashboardVisibility } from '../lib/dashboardVisibility';
@@ -325,7 +325,9 @@ const DashboardLayout = () => {
               <p className="text-sm mt-1.5 leading-relaxed">{annualRenewalReminder.message}</p>
               {annualRenewalReminder.end_date ? (
                 <p className="text-[11px] mt-2 opacity-75 tabular-nums">
-                  Plan end date (admin): {annualRenewalReminder.end_date}
+                  Plan end date (admin):{' '}
+                  {formatDateDdMonYyyy(String(annualRenewalReminder.end_date).slice(0, 10)) ||
+                    annualRenewalReminder.end_date}
                 </p>
               ) : null}
             </div>

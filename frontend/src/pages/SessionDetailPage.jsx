@@ -14,6 +14,7 @@ import { useSeoPage } from '../context/SeoPageContext';
 import { HEADING, SUBTITLE } from '../lib/designTokens';
 import { resolveImageUrl } from '../lib/imageUtils';
 import StarField from '../components/ui/StarField';
+import { formatDateDdMonYyyy } from '../lib/utils';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 
@@ -36,7 +37,9 @@ function formatSessionDateLabel(raw) {
   if (/^\d{4}-\d{2}-\d{2}$/.test(d)) {
     const dt = new Date(`${d}T12:00:00`);
     if (!Number.isNaN(dt.getTime())) {
-      return dt.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' });
+      const wk = dt.toLocaleDateString('en-GB', { weekday: 'short' });
+      const core = formatDateDdMonYyyy(d);
+      return core ? `${wk}, ${core}` : t;
     }
   }
   return t;

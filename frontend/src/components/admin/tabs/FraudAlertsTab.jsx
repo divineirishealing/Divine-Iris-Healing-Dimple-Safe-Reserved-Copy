@@ -8,6 +8,7 @@ import {
   ShieldAlert, ShieldCheck, Shield, Eye, AlertTriangle,
   ChevronDown, ChevronUp, Search, RefreshCw, Ban, CheckCircle, X, Mail
 } from 'lucide-react';
+import { formatDateTimeDdMonYyyy } from '../../../lib/utils';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
@@ -229,7 +230,7 @@ const FraudAlertsTab = () => {
                     <p className="text-[10px] text-gray-500 truncate">{alert.booker_email} &mdash; {alert.enrollment_id}</p>
                   </div>
                   <div className="text-right">
-                    <p className="text-[10px] text-gray-400">{new Date(alert.created_at).toLocaleDateString()}</p>
+                    <p className="text-[10px] text-gray-400">{formatDateTimeDdMonYyyy(alert.created_at)}</p>
                     <p className="text-xs font-medium text-gray-700">
                       {alert.signals?.currency_charged?.toUpperCase()} {alert.signals?.amount_charged?.toLocaleString()}
                     </p>
