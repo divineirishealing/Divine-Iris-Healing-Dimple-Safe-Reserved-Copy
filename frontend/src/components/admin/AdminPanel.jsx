@@ -445,8 +445,8 @@ const AdminPanel = () => {
   const allTabs = TAB_GROUPS.flatMap(g => g.tabs);
 
   return (
-    <div data-testid="admin-panel" className="min-h-screen bg-gray-50">
-      <div className="bg-gray-900 text-white py-3 px-4 flex justify-between items-center">
+    <div data-testid="admin-panel" className="min-h-screen bg-gray-50 flex flex-col">
+      <div className="shrink-0 bg-gray-900 text-white py-3 px-4 flex justify-between items-center">
         <div className="flex items-center gap-3">
           <button onClick={() => setSidebarCollapsed(!sidebarCollapsed)} className="text-gray-400 hover:text-white transition-colors hidden md:block">
             {sidebarCollapsed ? <ChevronRight size={16} /> : <ChevronLeft size={16} />}
@@ -462,22 +462,22 @@ const AdminPanel = () => {
 
       {/* Backend wake-up notice */}
       {dataError && (
-        <div className="bg-amber-50 border-b border-amber-200 px-4 py-2 flex items-center gap-3">
+        <div className="shrink-0 bg-amber-50 border-b border-amber-200 px-4 py-2 flex items-center gap-3">
           <div className="w-4 h-4 border-2 border-amber-500 border-t-transparent rounded-full animate-spin flex-shrink-0" />
           <span className="text-xs text-amber-700 font-medium">Backend is waking up (Render free tier sleeps after inactivity) — retrying automatically, please wait 30–60 seconds…</span>
           <button onClick={() => loadAll()} className="ml-auto text-xs text-amber-600 underline hover:text-amber-800">Retry now</button>
         </div>
       )}
       {dataLoading && !dataError && (
-        <div className="bg-blue-50 border-b border-blue-100 px-4 py-1.5 flex items-center gap-2">
+        <div className="shrink-0 bg-blue-50 border-b border-blue-100 px-4 py-1.5 flex items-center gap-2">
           <div className="w-3 h-3 border-2 border-blue-400 border-t-transparent rounded-full animate-spin flex-shrink-0" />
           <span className="text-[11px] text-blue-600">Loading your data…</span>
         </div>
       )}
 
-      <div className="flex">
+      <div className="flex flex-1 min-h-0">
         {/* COLLAPSIBLE GROUPED SIDEBAR */}
-        <aside className={`${sidebarCollapsed ? 'w-12' : 'w-56'} bg-white border-r min-h-[calc(100vh-48px)] hidden md:block transition-all duration-200 overflow-y-auto`}>
+        <aside className={`${sidebarCollapsed ? 'w-12' : 'w-56'} bg-white border-r min-h-0 hidden md:block self-stretch transition-all duration-200 overflow-y-auto`}>
           {sidebarCollapsed ? (
             /* Collapsed — icons only */
             <div className="p-1.5 space-y-1">
@@ -524,7 +524,7 @@ const AdminPanel = () => {
         </aside>
 
         {/* Mobile tabs */}
-        <div className="md:hidden w-full overflow-x-auto border-b bg-white">
+        <div className="md:hidden shrink-0 w-full overflow-x-auto border-b bg-white">
           <div className="flex">
             {allTabs.map(tab => (
               <button key={tab.key} onClick={() => switchTab(tab.key)}
@@ -536,7 +536,7 @@ const AdminPanel = () => {
         </div>
 
         <main
-          className={`flex-1 min-w-0 ${
+          className={`flex flex-col min-h-0 flex-1 min-w-0 ${
             activeTab === 'dashboard_access' ||
             activeTab === 'enrollments' ||
             activeTab === 'annual_portal_clients' ||

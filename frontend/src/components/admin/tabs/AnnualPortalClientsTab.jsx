@@ -58,7 +58,7 @@ function colLabel(id) {
 
 /** Excel-like grid: gray chrome, tight cells, full-area scroll — Lato for readability */
 const sheetFrame =
-  'font-lato antialiased flex flex-col rounded-sm border border-[#8c8c8c] bg-[#f2f2f2] shadow-[inset_0_1px_0_0_rgba(255,255,255,0.6)] overflow-hidden min-h-[280px] h-[calc(100dvh-11.5rem)] max-h-[calc(100dvh-4rem)]';
+  'font-lato antialiased flex flex-col flex-1 min-h-0 rounded-sm border border-[#8c8c8c] bg-[#f2f2f2] shadow-[inset_0_1px_0_0_rgba(255,255,255,0.6)] overflow-hidden';
 const sheetScroll = 'flex-1 w-full overflow-auto min-h-0 bg-white font-lato';
 const tableGrid = 'w-full border-collapse text-[13px] leading-snug min-w-[64rem] font-lato';
 const thBase =
@@ -791,7 +791,7 @@ export default function AnnualPortalClientsTab() {
   );
 
   return (
-    <div className="w-full min-w-0 flex flex-col gap-2 font-lato antialiased">
+    <div className="w-full min-w-0 flex flex-1 min-h-0 flex-col gap-2 font-lato antialiased">
       <div className="shrink-0 min-w-0">
         <h2 className="text-base font-semibold text-gray-900 tracking-tight">Annual + dashboard (Client Garden)</h2>
         <p className="text-xs text-gray-600 mt-0.5 max-w-3xl leading-relaxed">
