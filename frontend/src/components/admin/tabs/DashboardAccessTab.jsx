@@ -1043,8 +1043,7 @@ export default function DashboardAccessTab() {
                   </span>
                   <span className="text-[10px] text-gray-500 block mt-1 leading-snug">
                     When you enable this for someone who was blocked (e.g. after intake), they receive a welcome email at this address with a link to sign in.{' '}
-                    <strong>Client Garden</strong> (Annual + dashboard) and Excel upload only include people who are Annual{' '}
-                    <em>and</em> have this box checked — blocked rows are skipped.
+                    The <strong>Annual + dashboard</strong> sheet lists everyone tagged Annual; <strong>Excel import</strong> still skips rows with login blocked until you allow sign-in here.
                   </span>
                 </span>
               </label>

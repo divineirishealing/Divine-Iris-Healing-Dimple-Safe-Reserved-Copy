@@ -796,18 +796,16 @@ async def discovery_options():
 @router.get("/annual-portal-subscribers")
 async def list_annual_portal_subscribers():
     """
-    Clients with annual-member (Sacred Home) dashboard on their record and portal login not blocked.
-    Used for admin listing; does not include clients with portal_login_allowed explicitly False.
+    Clients with ``annual_member_dashboard`` True — same cohort as **Annual program = Yes** in the
+    main Client Garden grid. Includes rows with Google login blocked; the UI can flag those.
+    (Excel upload still skips ``portal_login_allowed`` False until sign-in is allowed.)
 
     Overdue ``annual_subscription.end_date`` is **not** bulk-cleared here — that used to wipe
     ``annual_member_dashboard`` as soon as admins opened this tab, making saves look broken.
     Student-facing routes still call :func:`persist_annual_member_expiry_if_overdue` so effective
     portal access stays correct.
     """
-    query = {
-        "annual_member_dashboard": True,
-        "$nor": [{"portal_login_allowed": False}],
-    }
+    query = {"annual_member_dashboard": True}
     proj = {
         "_id": 0,
         "id": 1,
@@ -816,6 +814,7 @@ async def list_annual_portal_subscribers():
         "household_key": 1,
         "is_primary_household_contact": 1,
         "annual_subscription": 1,
+        "portal_login_allowed": 1,
     }
     rows = (
         await db.clients.find(query, proj).sort([("name", 1)]).to_list(5000)
@@ -1645,10 +1644,7 @@ async def download_annual_portal_subscription_export():
     from openpyxl.styles import Font, PatternFill, Alignment
     from fastapi.responses import StreamingResponse
 
-    query = {
-        "annual_member_dashboard": True,
-        "$nor": [{"portal_login_allowed": False}],
-    }
+    query = {"annual_member_dashboard": True}
     proj = {
         "_id": 0,
         "id": 1,
@@ -1657,6 +1653,7 @@ async def download_annual_portal_subscription_export():
         "household_key": 1,
         "is_primary_household_contact": 1,
         "annual_subscription": 1,
+        "portal_login_allowed": 1,
     }
     clients_list = await db.clients.find(query, proj).sort([("name", 1)]).to_list(5000)
 

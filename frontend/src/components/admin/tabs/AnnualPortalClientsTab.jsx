@@ -72,6 +72,10 @@ const tdTabular = `${tdBase} tabular-nums text-[13px] whitespace-nowrap`;
 const rowEven = 'bg-white';
 const rowOdd = 'bg-[#fafafa]';
 
+function annualPortalGoogleLoginBlocked(r) {
+  return r?.portal_login_allowed === false;
+}
+
 function packageLabel(sub) {
   if (!sub?.package_sku) return '—';
   if (sub.package_sku === HOME_COMING_SKU) return HOME_COMING_DISPLAY;
@@ -835,7 +839,7 @@ export default function AnnualPortalClientsTab() {
       <div className="shrink-0 min-w-0">
         <h2 className="text-base font-semibold text-gray-900 tracking-tight">Annual + dashboard (Client Garden)</h2>
         <p className="text-xs text-gray-600 mt-0.5 max-w-3xl leading-relaxed">
-          Rows appear here only when <strong>Annual</strong> is on in Dashboard access <em>and</em> <strong>Google login</strong> is allowed (blocked clients are omitted; Excel import skips them too). When <strong>End Date</strong> (below) is in the past, Sacred Home no longer treats them as an active annual on the student dashboard until dates are renewed (CRM flags are not cleared just by opening this page). Members see a renewal reminder in the last 30 days and after expiry.{' '}
+          This list matches <strong>Annual program = Yes</strong> in the main Client Garden grid (and Dashboard access). A <strong>Login off</strong> tag means Google sign-in is still blocked — turn it on under Dashboard access for portal login; <strong>Excel import</strong> skips blocked rows until then. When <strong>End Date</strong> (below) is in the past, Sacred Home no longer treats them as an active annual on the student dashboard until dates are renewed (CRM flags are not cleared just by opening this page). Members see a renewal reminder in the last 30 days and after expiry.{' '}
           Table columns: #, Name, Email Id, Start/End Date, DIID, HomeComing, Usage (summary), HOUSEHOLD, PRIMARY, Client id.{' '}
           Use <strong>Search</strong> to find rows by name, email, id, household, dates, DIID, or usage; separate words all must match. Use the <strong>A–Z icon</strong> to sort (alphabetical, dates oldest/newest, primary first, etc.) and the <strong>funnel</strong> to filter; search, sort, and column filters work together in List and By household.{' '}
           <strong>Template</strong> is a blank sheet with sample rows; <strong>Download Excel</strong> exports the current list in the same columns so you can edit and upload.{' '}
@@ -1245,7 +1249,25 @@ export default function AnnualPortalClientsTab() {
                         {idx + 1}
                       </td>
                     )}
-                    {flatColVisible('name') && <td className={`${tdBase} font-medium`}>{(r.name || '').trim() || '—'}</td>}
+                    {flatColVisible('name') && (
+                      <td
+                        className={`${tdBase} font-medium`}
+                        title={
+                          annualPortalGoogleLoginBlocked(r)
+                            ? 'Google login blocked — enable in Dashboard access'
+                            : undefined
+                        }
+                      >
+                        <span className="inline-flex items-center gap-1.5 flex-wrap">
+                          <span>{(r.name || '').trim() || '—'}</span>
+                          {annualPortalGoogleLoginBlocked(r) && (
+                            <span className="text-[9px] font-semibold uppercase tracking-wide text-amber-950 bg-amber-100 border border-amber-300/90 px-1 py-px rounded-sm shrink-0">
+                              Login off
+                            </span>
+                          )}
+                        </span>
+                      </td>
+                    )}
                     {flatColVisible('email') && <td className={`${tdBase} text-neutral-800`}>{(r.email || '').trim() || '—'}</td>}
                     {flatColVisible('start') && (
                       <td className={tdTabular}>{sub.start_date || '—'}</td>
@@ -1456,7 +1478,23 @@ export default function AnnualPortalClientsTab() {
                             >
                               {serialByRowKey.get(r.id || r.email) ?? '—'}
                             </td>
-                            <td className={`${tdBase} pl-3 font-medium`}>{(r.name || '').trim() || '—'}</td>
+                            <td
+                              className={`${tdBase} pl-3 font-medium`}
+                              title={
+                                annualPortalGoogleLoginBlocked(r)
+                                  ? 'Google login blocked — enable in Dashboard access'
+                                  : undefined
+                              }
+                            >
+                              <span className="inline-flex items-center gap-1.5 flex-wrap">
+                                <span>{(r.name || '').trim() || '—'}</span>
+                                {annualPortalGoogleLoginBlocked(r) && (
+                                  <span className="text-[9px] font-semibold uppercase tracking-wide text-amber-950 bg-amber-100 border border-amber-300/90 px-1 py-px rounded-sm shrink-0">
+                                    Login off
+                                  </span>
+                                )}
+                              </span>
+                            </td>
                             <td className={`${tdBase} text-neutral-800`}>{(r.email || '').trim() || '—'}</td>
                             <td className={tdTabular}>{sub.start_date || '—'}</td>
                             <td className={tdTabular}>{sub.end_date || '—'}</td>
