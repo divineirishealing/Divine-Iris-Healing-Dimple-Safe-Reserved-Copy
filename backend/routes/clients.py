@@ -689,7 +689,10 @@ async def list_clients(label: Optional[str] = None, search: Optional[str] = None
             {"diid": search_regex},
             {"id": search_regex},
         ]
-    clients_list = await db.clients.find(query, {"_id": 0}).sort("updated_at", -1).to_list(1000)
+    # Stable order so inline edits + refetch do not jump the row to the top (``updated_at`` changes every save).
+    clients_list = await db.clients.find(query, {"_id": 0}).sort(
+        [("created_at", 1), ("name", 1), ("id", 1)]
+    ).to_list(1000)
     for cl in clients_list:
         cl["first_program"] = effective_first_program(cl)
     return clients_list
