@@ -8,15 +8,28 @@ import { Popover, PopoverContent, PopoverTrigger } from '../../ui/popover';
 import {
   Users, Search, Download, RefreshCw,
   Droplets, Sprout, TreeDeciduous, Flower2, Star, Sparkles, Crown, Compass,
-  Edit2, Save, Trash2, UserPlus, X, Filter,
+  Edit2, Save, Trash2, UserPlus, X, Filter, Eye,
 } from 'lucide-react';
 import { useSpreadsheetColumnVisibility, SpreadsheetColumnPicker } from '../SpreadsheetColumnPicker';
-import { getApiUrl } from '../../../lib/config';
+import { getApiUrl, getBackendUrl } from '../../../lib/config';
+import { useAuth } from '../../../context/AuthContext';
+import {
+  PREFERRED_LABEL,
+  labelFrom,
+  gstSummary,
+  discountSummary,
+  formatTaggedPaymentDetails,
+} from '../../../lib/adminClientAccessDisplay';
 
 const CLIENT_GARDEN_COLUMN_DEFS = [
   { id: 'sr', label: 'SR No', required: true },
   { id: 'name', label: 'Name', required: true },
   { id: 'annual_program', label: 'Annual' },
+  { id: 'google_login', label: 'Google login' },
+  { id: 'preferred_pay', label: 'Preferred pay' },
+  { id: 'tagged_pay', label: 'Tagged pay' },
+  { id: 'gst', label: 'GST' },
+  { id: 'discount', label: 'Discount' },
   { id: 'email', label: 'Email ID' },
   { id: 'phone', label: 'Phone No' },
   { id: 'garden_label', label: 'Garden label' },
@@ -34,7 +47,7 @@ const CLIENT_GARDEN_COLUMN_DEFS = [
   { id: 'actions', label: 'Actions', required: true },
 ];
 
-const CLIENT_GARDEN_COLS_KEY = 'admin-client-garden-columns-v5';
+const CLIENT_GARDEN_COLS_KEY = 'admin-client-garden-columns-v6';
 
 /** Sticky lead columns: SR then Name (horizontal scroll). */
 const TH_STICKY_SR = 'w-11 min-w-[2.75rem] max-w-[2.75rem] sticky left-0 z-[12] border-r border-gray-100';
@@ -229,8 +242,15 @@ function buildLabelOptionsForSelect(gardenLabelOptions, cl) {
 /** Excel-style (Blanks) bucket for empty cells */
 const FILTER_BLANKS = '(Blanks)';
 
+function formatClientGardenApiError(err) {
+  const d = err.response?.data?.detail;
+  if (typeof d === 'string') return d;
+  if (Array.isArray(d)) return d.map((x) => x.msg || JSON.stringify(x)).join('; ');
+  return err.message || 'Request failed';
+}
+
 /** Stable string per column for filter matching (must match display semantics). */
-function getClientFilterValue(cl, colId) {
+function getClientFilterValue(cl, colId, siteInfo = {}) {
   switch (colId) {
     case 'name':
       return (cl.name || '').trim() || FILTER_BLANKS;
@@ -256,6 +276,16 @@ function getClientFilterValue(cl, colId) {
       return (cl.first_program || '').trim() || FILTER_BLANKS;
     case 'annual_program':
       return cl.annual_member_dashboard ? 'Yes' : 'No';
+    case 'google_login':
+      return cl.portal_login_allowed === false ? 'Blocked' : 'Allowed';
+    case 'preferred_pay':
+      return labelFrom(PREFERRED_LABEL, cl.preferred_payment_method);
+    case 'tagged_pay':
+      return formatTaggedPaymentDetails(cl, siteInfo);
+    case 'gst':
+      return gstSummary(cl);
+    case 'discount':
+      return discountSummary(cl);
     case 'how_found': {
       const base = (cl.discovery_source || '').trim();
       if (!base) return FILTER_BLANKS;
@@ -277,36 +307,36 @@ function getClientFilterValue(cl, colId) {
   }
 }
 
-function clientPassesColumnFilters(cl, filters) {
+function clientPassesColumnFilters(cl, filters, siteInfo) {
   for (const [colId, sel] of Object.entries(filters)) {
     if (sel == null) continue;
-    const v = getClientFilterValue(cl, colId);
+    const v = getClientFilterValue(cl, colId, siteInfo);
     if (!sel.has(v)) return false;
   }
   return true;
 }
 
 /** Per-column option list: rows matching every *other* active filter (Excel cascading). */
-function clientsForFilterOptions(allClients, columnFilters, colId) {
+function clientsForFilterOptions(allClients, columnFilters, colId, siteInfo) {
   return allClients.filter((cl) => {
     for (const [cid, sel] of Object.entries(columnFilters)) {
       if (cid === colId || sel == null) continue;
-      if (!sel.has(getClientFilterValue(cl, cid))) return false;
+      if (!sel.has(getClientFilterValue(cl, cid, siteInfo))) return false;
     }
     return true;
   });
 }
 
-function ExcelColumnFilter({ colId, title, optionClients, activeFilter, onSetFilter }) {
+function ExcelColumnFilter({ colId, title, optionClients, activeFilter, onSetFilter, siteInfo }) {
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState('');
   const options = useMemo(() => {
     const u = new Set();
     for (const cl of optionClients) {
-      u.add(getClientFilterValue(cl, colId));
+      u.add(getClientFilterValue(cl, colId, siteInfo));
     }
     return [...u].sort((a, b) => String(a).localeCompare(String(b), undefined, { sensitivity: 'base' }));
-  }, [optionClients, colId]);
+  }, [optionClients, colId, siteInfo]);
 
   const filteredOpts = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -386,7 +416,7 @@ function ExcelColumnFilter({ colId, title, optionClients, activeFilter, onSetFil
   );
 }
 
-function FilterableTh({ children, colId, title, className, optionClients, columnFilters, setColumnFilters }) {
+function FilterableTh({ children, colId, title, className, optionClients, columnFilters, setColumnFilters, siteInfo }) {
   const activeFilter = columnFilters[colId] ?? null;
   const setFilter = (next) => {
     setColumnFilters((prev) => {
@@ -406,6 +436,7 @@ function FilterableTh({ children, colId, title, className, optionClients, column
           optionClients={optionClients}
           activeFilter={activeFilter}
           onSetFilter={setFilter}
+          siteInfo={siteInfo}
         />
       </div>
     </th>
@@ -414,6 +445,7 @@ function FilterableTh({ children, colId, title, className, optionClients, column
 
 const ClientsTab = () => {
   const { toast } = useToast();
+  const { checkAuth } = useAuth();
   const [clients, setClients] = useState([]);
   const [stats, setStats] = useState({ total: 0, by_label: {} });
   const [searchText, setSearchText] = useState('');
@@ -432,6 +464,9 @@ const ClientsTab = () => {
   const [discoveryOptions, setDiscoveryOptions] = useState([]);
   const [rowSaving, setRowSaving] = useState(false);
   const [exporting, setExporting] = useState(false);
+  /** Site settings — Indian Payment rows for Tagged pay column (same as Dashboard access). */
+  const [indiaSite, setIndiaSite] = useState(null);
+  const [viewAsLoadingId, setViewAsLoadingId] = useState(null);
   /** Excel-style column filters: colId → Set of allowed cell values; missing key = no filter */
   const [columnFilters, setColumnFilters] = useState({});
 
@@ -456,18 +491,33 @@ const ClientsTab = () => {
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
+  useEffect(() => {
+    let cancelled = false;
+    axios
+      .get(`${getApiUrl()}/settings`)
+      .then((r) => {
+        if (!cancelled) setIndiaSite(r.data || {});
+      })
+      .catch(() => {
+        if (!cancelled) setIndiaSite({});
+      });
+    return () => { cancelled = true; };
+  }, []);
+
+  const siteInfo = indiaSite || {};
+
   const filterOptionBaseByCol = useMemo(() => {
     const ids = CLIENT_GARDEN_COLUMN_DEFS.map((c) => c.id).filter((id) => id !== 'actions' && id !== 'sr');
     const out = {};
     for (const id of ids) {
-      out[id] = clientsForFilterOptions(clients, columnFilters, id);
+      out[id] = clientsForFilterOptions(clients, columnFilters, id, siteInfo);
     }
     return out;
-  }, [clients, columnFilters]);
+  }, [clients, columnFilters, siteInfo]);
 
   const clientsRowFiltered = useMemo(
-    () => clients.filter((cl) => clientPassesColumnFilters(cl, columnFilters)),
-    [clients, columnFilters],
+    () => clients.filter((cl) => clientPassesColumnFilters(cl, columnFilters, siteInfo)),
+    [clients, columnFilters, siteInfo],
   );
 
   const displayClients = useMemo(() => {
@@ -615,6 +665,44 @@ const ClientsTab = () => {
     setRowSaving(false);
   };
 
+  /** Open Sacred Home as this client (same as Dashboard access → View as). */
+  const viewAsClient = async (cl) => {
+    const em = (cl?.email || '').trim();
+    const cid = (cl?.id || '').trim();
+    if (!em && !cid) {
+      toast({
+        title: 'Cannot open dashboard',
+        description: 'Add an email or save the client so they have an id.',
+        variant: 'destructive',
+      });
+      return;
+    }
+    setViewAsLoadingId(cl.id);
+    try {
+      const adminTok = (typeof localStorage !== 'undefined' && localStorage.getItem('admin_token')) || '';
+      const headers = {};
+      if (adminTok) headers['X-Admin-Session'] = adminTok;
+      const payload = em ? { email: em } : { client_id: cid };
+      const res = await axios.post(`${getBackendUrl()}/api/auth/impersonate`, payload, {
+        withCredentials: true,
+        headers,
+      });
+      if (res.data.session_token) {
+        localStorage.setItem('session_token', res.data.session_token);
+      }
+      await checkAuth();
+      window.location.href = '/dashboard';
+    } catch (err) {
+      toast({
+        title: 'Could not open their dashboard',
+        description: formatClientGardenApiError(err),
+        variant: 'destructive',
+      });
+    } finally {
+      setViewAsLoadingId(null);
+    }
+  };
+
   const handleSync = async () => {
     setSyncing(true);
     try {
@@ -734,7 +822,7 @@ const ClientsTab = () => {
             <Users size={18} className="text-[#D4AF37]" /> Client Garden
           </h2>
           <p className="text-xs text-gray-500 mt-0.5 max-w-3xl">
-            One row per client — use <strong className="font-semibold text-gray-700">Edit</strong> for <strong className="font-semibold text-gray-700">name</strong>, <strong className="font-semibold text-gray-700">first seen</strong> (month and year; stored as the 1st of that month), <strong className="font-semibold text-gray-700">annual program</strong> (Yes/No), garden label, DIID middle (YYMM updates when you change first seen), contact fields, <strong className="font-semibold text-gray-700">how they found us</strong>, and <strong className="font-semibold text-gray-700">referrer UUID</strong>. Save or Cancel in Actions. Conversions/sources still come from sync.{' '}
+            One row per client — use <strong className="font-semibold text-gray-700">Edit</strong> for <strong className="font-semibold text-gray-700">name</strong>, <strong className="font-semibold text-gray-700">first seen</strong> (month and year; stored as the 1st of that month), <strong className="font-semibold text-gray-700">annual program</strong> (Yes/No), garden label, DIID middle (YYMM updates when you change first seen), contact fields, <strong className="font-semibold text-gray-700">how they found us</strong>, and <strong className="font-semibold text-gray-700">referrer UUID</strong>. <strong className="font-semibold text-gray-700">Google login</strong>, <strong className="font-semibold text-gray-700">preferred / tagged payment</strong>, <strong className="font-semibold text-gray-700">GST</strong>, and <strong className="font-semibold text-gray-700">discount</strong> mirror Dashboard access (read-only here; edit under Admin → Dashboard access). <strong className="font-semibold text-gray-700">View as</strong> opens their Sacred Home. Save or Cancel in Actions. Conversions/sources still come from sync.{' '}
             <strong className="font-semibold text-gray-700">Primary HH</strong> marks the primary household contact for that household key.{' '}
             <strong className="font-semibold text-gray-700">DIID</strong> and <strong className="font-semibold text-gray-700">UUID</strong> are shown in the last columns; use <strong className="font-semibold text-gray-700">Sync All Data</strong> to backfill DIID.
           </p>
@@ -899,6 +987,7 @@ const ClientsTab = () => {
                     optionClients={filterOptionBaseByCol.name}
                     columnFilters={columnFilters}
                     setColumnFilters={setColumnFilters}
+                    siteInfo={siteInfo}
                   >
                     Name
                   </FilterableTh>
@@ -911,8 +1000,74 @@ const ClientsTab = () => {
                     optionClients={filterOptionBaseByCol.annual_program}
                     columnFilters={columnFilters}
                     setColumnFilters={setColumnFilters}
+                    siteInfo={siteInfo}
                   >
                     Annual
+                  </FilterableTh>
+                )}
+                {isVisible('google_login') && (
+                  <FilterableTh
+                    colId="google_login"
+                    title="Google login — student dashboard"
+                    className="py-2 px-2 font-semibold min-w-[72px] text-center"
+                    optionClients={filterOptionBaseByCol.google_login}
+                    columnFilters={columnFilters}
+                    setColumnFilters={setColumnFilters}
+                    siteInfo={siteInfo}
+                  >
+                    Google login
+                  </FilterableTh>
+                )}
+                {isVisible('preferred_pay') && (
+                  <FilterableTh
+                    colId="preferred_pay"
+                    title="Preferred payment (intake / CRM)"
+                    className="py-2 px-2 font-semibold min-w-[88px]"
+                    optionClients={filterOptionBaseByCol.preferred_pay}
+                    columnFilters={columnFilters}
+                    setColumnFilters={setColumnFilters}
+                    siteInfo={siteInfo}
+                  >
+                    Preferred pay
+                  </FilterableTh>
+                )}
+                {isVisible('tagged_pay') && (
+                  <FilterableTh
+                    colId="tagged_pay"
+                    title="Tagged payment mode + pinned GPay/bank from Site Settings"
+                    className="py-2 px-2 font-semibold min-w-[120px]"
+                    optionClients={filterOptionBaseByCol.tagged_pay}
+                    columnFilters={columnFilters}
+                    setColumnFilters={setColumnFilters}
+                    siteInfo={siteInfo}
+                  >
+                    Tagged pay
+                  </FilterableTh>
+                )}
+                {isVisible('gst') && (
+                  <FilterableTh
+                    colId="gst"
+                    title="India GST / tax on dashboard"
+                    className="py-2 px-2 font-semibold min-w-[72px]"
+                    optionClients={filterOptionBaseByCol.gst}
+                    columnFilters={columnFilters}
+                    setColumnFilters={setColumnFilters}
+                    siteInfo={siteInfo}
+                  >
+                    GST
+                  </FilterableTh>
+                )}
+                {isVisible('discount') && (
+                  <FilterableTh
+                    colId="discount"
+                    title="India discount (percent or member bands)"
+                    className="py-2 px-2 font-semibold min-w-[88px]"
+                    optionClients={filterOptionBaseByCol.discount}
+                    columnFilters={columnFilters}
+                    setColumnFilters={setColumnFilters}
+                    siteInfo={siteInfo}
+                  >
+                    Discount
                   </FilterableTh>
                 )}
                 {isVisible('email') && (
@@ -923,6 +1078,7 @@ const ClientsTab = () => {
                     optionClients={filterOptionBaseByCol.email}
                     columnFilters={columnFilters}
                     setColumnFilters={setColumnFilters}
+                    siteInfo={siteInfo}
                   >
                     Email ID
                   </FilterableTh>
@@ -935,6 +1091,7 @@ const ClientsTab = () => {
                     optionClients={filterOptionBaseByCol.phone}
                     columnFilters={columnFilters}
                     setColumnFilters={setColumnFilters}
+                    siteInfo={siteInfo}
                   >
                     Phone No
                   </FilterableTh>
@@ -947,6 +1104,7 @@ const ClientsTab = () => {
                     optionClients={filterOptionBaseByCol.garden_label}
                     columnFilters={columnFilters}
                     setColumnFilters={setColumnFilters}
+                    siteInfo={siteInfo}
                   >
                     Garden label
                   </FilterableTh>
@@ -959,6 +1117,7 @@ const ClientsTab = () => {
                     optionClients={filterOptionBaseByCol.household}
                     columnFilters={columnFilters}
                     setColumnFilters={setColumnFilters}
+                    siteInfo={siteInfo}
                   >
                     Household
                   </FilterableTh>
@@ -971,6 +1130,7 @@ const ClientsTab = () => {
                     optionClients={filterOptionBaseByCol.pri}
                     columnFilters={columnFilters}
                     setColumnFilters={setColumnFilters}
+                    siteInfo={siteInfo}
                   >
                     Primary HH
                   </FilterableTh>
@@ -983,6 +1143,7 @@ const ClientsTab = () => {
                     optionClients={filterOptionBaseByCol.sources}
                     columnFilters={columnFilters}
                     setColumnFilters={setColumnFilters}
+                    siteInfo={siteInfo}
                   >
                     Sources
                   </FilterableTh>
@@ -995,6 +1156,7 @@ const ClientsTab = () => {
                     optionClients={filterOptionBaseByCol.conv}
                     columnFilters={columnFilters}
                     setColumnFilters={setColumnFilters}
+                    siteInfo={siteInfo}
                   >
                     Conv
                   </FilterableTh>
@@ -1007,6 +1169,7 @@ const ClientsTab = () => {
                     optionClients={filterOptionBaseByCol.first_program}
                     columnFilters={columnFilters}
                     setColumnFilters={setColumnFilters}
+                    siteInfo={siteInfo}
                   >
                     1st program
                   </FilterableTh>
@@ -1019,6 +1182,7 @@ const ClientsTab = () => {
                     optionClients={filterOptionBaseByCol.how_found}
                     columnFilters={columnFilters}
                     setColumnFilters={setColumnFilters}
+                    siteInfo={siteInfo}
                   >
                     How found
                   </FilterableTh>
@@ -1031,6 +1195,7 @@ const ClientsTab = () => {
                     optionClients={filterOptionBaseByCol.referrer}
                     columnFilters={columnFilters}
                     setColumnFilters={setColumnFilters}
+                    siteInfo={siteInfo}
                   >
                     Referrer
                   </FilterableTh>
@@ -1043,6 +1208,7 @@ const ClientsTab = () => {
                     optionClients={filterOptionBaseByCol.first}
                     columnFilters={columnFilters}
                     setColumnFilters={setColumnFilters}
+                    siteInfo={siteInfo}
                   >
                     First seen
                   </FilterableTh>
@@ -1055,6 +1221,7 @@ const ClientsTab = () => {
                     optionClients={filterOptionBaseByCol.updated}
                     columnFilters={columnFilters}
                     setColumnFilters={setColumnFilters}
+                    siteInfo={siteInfo}
                   >
                     Updated
                   </FilterableTh>
@@ -1067,6 +1234,7 @@ const ClientsTab = () => {
                     optionClients={filterOptionBaseByCol.diid}
                     columnFilters={columnFilters}
                     setColumnFilters={setColumnFilters}
+                    siteInfo={siteInfo}
                   >
                     DIID
                   </FilterableTh>
@@ -1079,11 +1247,12 @@ const ClientsTab = () => {
                     optionClients={filterOptionBaseByCol.uuid}
                     columnFilters={columnFilters}
                     setColumnFilters={setColumnFilters}
+                    siteInfo={siteInfo}
                   >
                     UUID
                   </FilterableTh>
                 )}
-                {isVisible('actions') && <th className="py-2 pr-3 pl-2 font-semibold min-w-[120px] text-right sticky right-0 bg-gray-100 z-[13]">Actions</th>}
+                {isVisible('actions') && <th className="py-2 pr-3 pl-2 font-semibold min-w-[168px] text-right sticky right-0 bg-gray-100 z-[13]">Actions</th>}
               </tr>
             </thead>
             <tbody>
@@ -1151,6 +1320,38 @@ const ClientsTab = () => {
                       ) : (
                         <span className="text-[9px] font-medium text-gray-800">{cl.annual_member_dashboard ? 'Yes' : 'No'}</span>
                       )}
+                    </td>
+                    )}
+                    {isVisible('google_login') && (
+                    <td className="py-1 px-1 text-center align-top whitespace-nowrap">
+                      <span
+                        className={`text-[9px] font-semibold ${cl.portal_login_allowed === false ? 'text-red-600' : 'text-green-700'}`}
+                      >
+                        {cl.portal_login_allowed === false ? 'Blocked' : 'Allowed'}
+                      </span>
+                    </td>
+                    )}
+                    {isVisible('preferred_pay') && (
+                    <td className="py-1 px-1 text-gray-800 align-top max-w-[100px]" title={labelFrom(PREFERRED_LABEL, cl.preferred_payment_method)}>
+                      <span className="text-[9px] leading-snug break-words">
+                        {labelFrom(PREFERRED_LABEL, cl.preferred_payment_method)}
+                      </span>
+                    </td>
+                    )}
+                    {isVisible('tagged_pay') && (
+                    <td
+                      className="py-1 px-1 text-gray-800 align-top text-[9px] leading-snug break-words max-w-[200px]"
+                      title={formatTaggedPaymentDetails(cl, siteInfo)}
+                    >
+                      {formatTaggedPaymentDetails(cl, siteInfo)}
+                    </td>
+                    )}
+                    {isVisible('gst') && (
+                    <td className="py-1 px-1 text-gray-800 align-top whitespace-nowrap text-[9px]">{gstSummary(cl)}</td>
+                    )}
+                    {isVisible('discount') && (
+                    <td className="py-1 px-1 text-gray-800 align-top text-[9px] leading-snug max-w-[140px]" title={discountSummary(cl)}>
+                      {discountSummary(cl)}
                     </td>
                     )}
                     {isVisible('email') && (
@@ -1402,7 +1603,20 @@ const ClientsTab = () => {
                     )}
                     {isVisible('actions') && (
                     <td className={`py-1 pr-2 pl-1 text-right sticky right-0 z-[13] border-l border-gray-100 ${stickyActionsBg}`}>
-                      <div className="flex flex-col items-end gap-1 sm:flex-row sm:justify-end sm:items-center">
+                      <div className="flex flex-col items-end gap-1 sm:flex-row sm:justify-end sm:items-center flex-wrap">
+                        {!isEditing && (
+                          <button
+                            type="button"
+                            data-testid={`client-view-as-${cl.id}`}
+                            className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[#5D3FD3] hover:bg-violet-50 font-medium text-[9px] disabled:opacity-40"
+                            onClick={() => viewAsClient(cl)}
+                            disabled={editingId !== null || viewAsLoadingId !== null}
+                            title="Open Sacred Home as this client"
+                          >
+                            <Eye size={10} className={viewAsLoadingId === cl.id ? 'animate-pulse' : ''} />
+                            {viewAsLoadingId === cl.id ? '…' : 'View as'}
+                          </button>
+                        )}
                         {isEditing ? (
                           <>
                             <button
