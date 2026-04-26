@@ -1630,9 +1630,13 @@ ANNUAL_PORTAL_EXCEL_HEADER_LABELS = [
 ]
 
 
-@router.get("/annual-portal-subscription-export")
+@router.get("/annual-portal-subscribers/export")
 async def download_annual_portal_subscription_export():
-    """Current Annual + dashboard rows in the same shape as the template — edit and re-upload."""
+    """Current Annual + dashboard rows in the same shape as the template — edit and re-upload.
+
+    Path uses two segments so it is never captured by ``GET /{client_id}`` (single-segment
+    ``/annual-portal-subscription-export`` was matched as a client id → 404).
+    """
     import io
     from openpyxl import Workbook
     from openpyxl.styles import Font, PatternFill, Alignment

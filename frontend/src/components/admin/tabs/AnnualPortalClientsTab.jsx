@@ -147,7 +147,7 @@ export default function AnnualPortalClientsTab() {
 
   const downloadExcelCurrent = useCallback(async () => {
     try {
-      const res = await axios.get(`${API}/clients/annual-portal-subscription-export`, {
+      const res = await axios.get(`${API}/clients/annual-portal-subscribers/export`, {
         responseType: 'blob',
       });
       const blob = new Blob([res.data], {
