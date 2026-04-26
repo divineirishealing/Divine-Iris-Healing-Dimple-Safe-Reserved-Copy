@@ -1610,6 +1610,103 @@ async def _annual_portal_row_replace_from_excel(
     return new_sub, client_extra
 
 
+# Admin Annual + dashboard: Excel header row — must stay aligned with upload column aliases in ANNUAL_PORTAL_UPLOAD_SPECS.
+ANNUAL_PORTAL_EXCEL_HEADER_LABELS = [
+    "#",
+    "Name",
+    "Email Id",
+    "Start Date",
+    "End Date",
+    "DIID",
+    "HomeComing",
+    "AWRP months used",
+    "MMM months used",
+    "Turbo sessions used",
+    "Meta downloads used",
+    "Usage source",
+    "HOUSEHOLD",
+    "PRIMARY",
+    "Client id",
+]
+
+
+@router.get("/annual-portal-subscription-export")
+async def download_annual_portal_subscription_export():
+    """Current Annual + dashboard rows in the same shape as the template — edit and re-upload."""
+    import io
+    from openpyxl import Workbook
+    from openpyxl.styles import Font, PatternFill, Alignment
+    from fastapi.responses import StreamingResponse
+
+    await expire_all_overdue_annual_dashboard_clients(db)
+    query = {
+        "annual_member_dashboard": True,
+        "$nor": [{"portal_login_allowed": False}],
+    }
+    proj = {
+        "_id": 0,
+        "id": 1,
+        "name": 1,
+        "email": 1,
+        "household_key": 1,
+        "is_primary_household_contact": 1,
+        "annual_subscription": 1,
+    }
+    clients_list = await db.clients.find(query, proj).sort([("name", 1)]).to_list(5000)
+
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "Annual portal"
+    hdr_font = Font(bold=True, color="FFFFFF", size=11)
+    hdr_fill = PatternFill(start_color="217346", end_color="217346", fill_type="solid")
+    for col_idx, lab in enumerate(ANNUAL_PORTAL_EXCEL_HEADER_LABELS, 1):
+        c = ws.cell(row=1, column=col_idx, value=lab)
+        c.font = hdr_font
+        c.fill = hdr_fill
+        c.alignment = Alignment(horizontal="center")
+
+    for row_idx, cl in enumerate(clients_list, start=2):
+        sub = cl.get("annual_subscription") or {}
+        usage = sub.get("usage") or {}
+        pkg = (sub.get("package_sku") or "").strip().lower()
+        home_cell = "Home Coming" if pkg == HOME_COMING_SKU else (sub.get("package_sku") or "")
+        ws.cell(row=row_idx, column=1, value=row_idx - 1)
+        ws.cell(row=row_idx, column=2, value=(cl.get("name") or "").strip() or None)
+        ws.cell(row=row_idx, column=3, value=(cl.get("email") or "").strip() or None)
+        ws.cell(row=row_idx, column=4, value=(sub.get("start_date") or "").strip() or None)
+        ws.cell(row=row_idx, column=5, value=(sub.get("end_date") or "").strip() or None)
+        ws.cell(row=row_idx, column=6, value=(sub.get("annual_diid") or "").strip() or None)
+        ws.cell(row=row_idx, column=7, value=home_cell or None)
+        ws.cell(row=row_idx, column=8, value=int(usage.get("awrp_months_used") or 0))
+        ws.cell(row=row_idx, column=9, value=int(usage.get("mmm_months_used") or 0))
+        ws.cell(row=row_idx, column=10, value=int(usage.get("turbo_sessions_used") or 0))
+        ws.cell(row=row_idx, column=11, value=int(usage.get("meta_downloads_used") or 0))
+        us_src = (sub.get("usage_source") or "").strip().lower()
+        ws.cell(row=row_idx, column=12, value=us_src if us_src in ("manual", "system") else None)
+        ws.cell(row=row_idx, column=13, value=(cl.get("household_key") or "").strip() or None)
+        ws.cell(
+            row=row_idx,
+            column=14,
+            value="Y" if cl.get("is_primary_household_contact") else "N",
+        )
+        ws.cell(row=row_idx, column=15, value=cl.get("id") or None)
+
+    widths = [5, 18, 26, 12, 12, 12, 14, 10, 10, 10, 10, 10, 22, 8, 36]
+    for i, w in enumerate(widths, 1):
+        ws.column_dimensions[ws.cell(row=1, column=i).column_letter].width = w
+
+    ts = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M")
+    fname = f"annual_portal_subscribers_{ts}.xlsx"
+    out = io.BytesIO()
+    wb.save(out)
+    out.seek(0)
+    return StreamingResponse(
+        out,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": f'attachment; filename="{fname}"'},
+    )
+
+
 @router.get("/annual-portal-subscription-template")
 async def download_annual_portal_subscription_template():
     """Excel for bulk Home Coming annual_subscription updates — match by Client id and/or email."""
@@ -1618,24 +1715,7 @@ async def download_annual_portal_subscription_template():
     from openpyxl.styles import Font, PatternFill, Alignment
     from fastapi.responses import StreamingResponse
 
-    # Same order as Admin → Annual + dashboard list. Upload matches by header text, not position.
-    labels = [
-        "#",
-        "Name",
-        "Email Id",
-        "Start Date",
-        "End Date",
-        "DIID",
-        "HomeComing",
-        "AWRP months used",
-        "MMM months used",
-        "Turbo sessions used",
-        "Meta downloads used",
-        "Usage source",
-        "HOUSEHOLD",
-        "PRIMARY",
-        "Client id",
-    ]
+    labels = ANNUAL_PORTAL_EXCEL_HEADER_LABELS
     wb = Workbook()
     ws = wb.active
     ws.title = "Annual portal"

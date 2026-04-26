@@ -145,6 +145,34 @@ export default function AnnualPortalClientsTab() {
     }
   }, [toast]);
 
+  const downloadExcelCurrent = useCallback(async () => {
+    try {
+      const res = await axios.get(`${API}/clients/annual-portal-subscription-export`, {
+        responseType: 'blob',
+      });
+      const blob = new Blob([res.data], {
+        type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      });
+      const cd = res.headers['content-disposition'];
+      let filename = 'annual_portal_subscribers.xlsx';
+      if (cd) {
+        const m = /filename\*?=(?:UTF-8'')?["']?([^"';]+)/i.exec(cd);
+        if (m?.[1]) filename = decodeURIComponent(m[1].replace(/["']/g, '').trim());
+      }
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      a.click();
+      window.URL.revokeObjectURL(url);
+      toast({ title: 'Excel downloaded', description: 'Edit and upload the same file to apply changes.' });
+    } catch (err) {
+      const d = err.response?.data?.detail;
+      const msg = typeof d === 'string' ? d : err.message || 'Download failed';
+      toast({ title: 'Could not download Excel', description: msg, variant: 'destructive' });
+    }
+  }, [toast]);
+
   const uploadExcel = useCallback(async () => {
     if (!excelFile) {
       toast({ title: 'Choose an Excel file first', variant: 'destructive' });
@@ -314,6 +342,18 @@ export default function AnnualPortalClientsTab() {
         <Download className="h-3.5 w-3.5 mr-1" />
         Template
       </Button>
+      <Button
+        type="button"
+        variant="outline"
+        size="sm"
+        onClick={downloadExcelCurrent}
+        disabled={loading}
+        className="h-8 text-xs border-[#217346] text-[#1b5e20] hover:bg-[#e8f5e9]"
+        title="Same columns as Template, filled with current Annual + dashboard list"
+      >
+        <Download className="h-3.5 w-3.5 mr-1" />
+        Download Excel
+      </Button>
       <label className="relative inline-flex items-center text-xs text-neutral-700 cursor-pointer border border-[#c6c6c6] rounded-sm px-2 py-1 bg-white hover:bg-neutral-50 min-h-8 min-w-[7rem]">
         <input
           ref={excelFileInputRef}
@@ -353,7 +393,8 @@ export default function AnnualPortalClientsTab() {
         <p className="text-xs text-gray-600 mt-0.5 max-w-3xl">
           When <strong>End Date</strong> (below) is in the past, Sacred Home clears the client&apos;s <strong>Annual</strong> access flag automatically (next login, quote, or opening this list). Members see a renewal reminder on the dashboard in the last 30 days and after expiry.{' '}
           Table columns: #, Name, Email Id, Start/End Date, DIID, HomeComing, Usage (summary), HOUSEHOLD, PRIMARY, Client id.{' '}
-          <strong>Template</strong> uses the same order; usage counts are split into separate columns for upload.{' '}
+          <strong>Template</strong> is a blank sheet with sample rows; <strong>Download Excel</strong> exports the current list in the same columns so you can edit and upload.{' '}
+          Usage counts are split into separate columns for upload.{' '}
           <strong>Upload</strong> finds columns by <strong>header title</strong> (not left-to-right order). Each column in the file <strong>replaces</strong> what is stored (empty cells clear dates, DIID, package, household; blank usage cells become 0; blank PRIMARY counts as N). <strong>DIID</strong> can be full 8 characters (letters+YYMM) or <strong>YYMM only</strong> (4 digits); letters are taken from <strong>Name</strong>. Match rows by Client id, Email, or <strong>Name</strong> (+ <strong>HOUSEHOLD</strong> when names repeat); new household members get a generated Client id. If row 1 is a title row, headers on the next row are detected automatically.
         </p>
       </div>
