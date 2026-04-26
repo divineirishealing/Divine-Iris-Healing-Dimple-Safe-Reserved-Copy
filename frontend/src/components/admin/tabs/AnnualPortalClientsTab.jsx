@@ -10,6 +10,7 @@ import {
   Upload,
   UploadCloud,
   Filter,
+  ArrowDownAZ,
 } from 'lucide-react';
 import { Button } from '../../ui/button';
 import { Input } from '../../ui/input';
@@ -62,9 +63,133 @@ const sheetScroll = 'flex-1 w-full overflow-auto min-h-0 bg-white font-lato';
 const tableGrid = 'w-full border-collapse text-[13px] leading-snug min-w-[64rem] font-lato';
 const thBase =
   'border border-[#c6c6c6] bg-[#e7e7e7] px-2 py-1.5 text-left text-[11px] font-semibold text-neutral-900 tracking-wide whitespace-nowrap sticky top-0 z-20 shadow-[0_1px_0_#b0b0b0]';
-const tdBase = 'border border-[#d0d0d0] px-2 py-1 align-top text-neutral-800';
+const tdBase =
+  'border border-[#d0d0d0] px-2 py-1 align-top text-neutral-800 font-lato';
+/** Dates, ids: Lato + tabular nums (no monospace). */
+const tdTabular = `${tdBase} tabular-nums text-[13px] whitespace-nowrap`;
 const rowEven = 'bg-white';
 const rowOdd = 'bg-[#fafafa]';
+
+function packageLabel(sub) {
+  if (!sub?.package_sku) return '—';
+  if (sub.package_sku === HOME_COMING_SKU) return HOME_COMING_DISPLAY;
+  return sub.package_sku;
+}
+
+function ymdMs(raw) {
+  const t = (raw || '').trim().slice(0, 10);
+  if (!t || t.length < 10) return null;
+  const ms = Date.parse(`${t}T12:00:00Z`);
+  return Number.isNaN(ms) ? null : ms;
+}
+
+function strColCompare(a, b, getStr, desc) {
+  const va = String(getStr(a) ?? '')
+    .trim()
+    .toLowerCase();
+  const vb = String(getStr(b) ?? '')
+    .trim()
+    .toLowerCase();
+  const empty = (x) => !x;
+  const ea = empty(va);
+  const eb = empty(vb);
+  if (ea && eb) return 0;
+  if (ea) return 1;
+  if (eb) return -1;
+  const c = va.localeCompare(vb, undefined, { sensitivity: 'base' });
+  return desc ? -c : c;
+}
+
+function dateColCompare(a, b, getYmd, newestFirst) {
+  const ka = ymdMs(getYmd(a));
+  const kb = ymdMs(getYmd(b));
+  if (ka == null && kb == null) return 0;
+  if (ka == null) return 1;
+  if (kb == null) return -1;
+  const diff = ka - kb;
+  return newestFirst ? -diff : diff;
+}
+
+function primaryColCompare(a, b, nonPrimaryFirst) {
+  const ya = a.is_primary_household_contact ? 1 : 0;
+  const yb = b.is_primary_household_contact ? 1 : 0;
+  if (nonPrimaryFirst) return ya - yb;
+  return yb - ya;
+}
+
+/** sortState: { column, mode } — mode depends on sortKind (text: asc|desc, date: old|new, primary: y_first|n_first). */
+function fullAnnualPortalSort(a, b, sortState) {
+  if (!sortState?.column) return sortMembers(a, b);
+  const { column: col, mode } = sortState;
+  let c = 0;
+  switch (col) {
+    case 'name':
+      c = strColCompare(a, b, (x) => x.name, mode === 'desc');
+      break;
+    case 'email':
+      c = strColCompare(a, b, (x) => x.email, mode === 'desc');
+      break;
+    case 'household':
+      c = strColCompare(a, b, (x) => x.household_key, mode === 'desc');
+      break;
+    case 'package':
+      c = strColCompare(
+        a,
+        b,
+        (x) => packageLabel(x.annual_subscription || {}),
+        mode === 'desc',
+      );
+      break;
+    case 'usage':
+      c = strColCompare(
+        a,
+        b,
+        (x) => {
+          const s = x.annual_subscription || {};
+          if (s.usage && Object.keys(s.usage).length > 0) {
+            return formatHomeComingUsageSummary(s);
+          }
+          return '';
+        },
+        mode === 'desc',
+      );
+      break;
+    case 'diid':
+      c = strColCompare(
+        a,
+        b,
+        (x) => (x.annual_subscription || {}).annual_diid,
+        mode === 'desc',
+      );
+      break;
+    case 'client_id':
+      c = strColCompare(a, b, (x) => x.id, mode === 'desc');
+      break;
+    case 'start':
+      c = dateColCompare(
+        a,
+        b,
+        (x) => (x.annual_subscription || {}).start_date,
+        mode === 'new',
+      );
+      break;
+    case 'end':
+      c = dateColCompare(
+        a,
+        b,
+        (x) => (x.annual_subscription || {}).end_date,
+        mode === 'new',
+      );
+      break;
+    case 'primary':
+      c = primaryColCompare(a, b, mode === 'n_first');
+      break;
+    default:
+      c = 0;
+  }
+  if (c !== 0) return c;
+  return sortMembers(a, b);
+}
 
 function sortMembers(a, b) {
   const ap = a.is_primary_household_contact ? 0 : 1;
@@ -73,16 +198,6 @@ function sortMembers(a, b) {
   const an = (a.name || '').trim().toLowerCase();
   const bn = (b.name || '').trim().toLowerCase();
   return an.localeCompare(bn);
-}
-
-/**
- * Client Garden members who are flagged annual (Sacred Home) and have dashboard access
- * (portal not explicitly blocked). Optional household grouping and count summaries.
- */
-function packageLabel(sub) {
-  if (!sub?.package_sku) return '—';
-  if (sub.package_sku === HOME_COMING_SKU) return HOME_COMING_DISPLAY;
-  return sub.package_sku;
 }
 
 const FILTER_BLANKS = '(Blanks)';
@@ -136,6 +251,75 @@ function rowsForAnnualPortalFilterOptions(allRows, columnFilters, colId) {
     }
     return true;
   });
+}
+
+/** sortKind: text (A/Z), date (old/new), primary (Y vs non-Y first). */
+function AnnualPortalSortButton({ colId, title, sortKind, columnSort, setColumnSort }) {
+  const [open, setOpen] = useState(false);
+  const active = columnSort?.column === colId;
+  const pick = (mode) => {
+    setColumnSort({ column: colId, mode });
+    setOpen(false);
+  };
+  const clearHere = () => {
+    if (columnSort?.column === colId) setColumnSort(null);
+    setOpen(false);
+  };
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <button
+          type="button"
+          data-testid={`annual-portal-sort-${colId}`}
+          className={`inline-flex shrink-0 rounded p-0.5 hover:bg-neutral-200/90 ${active ? 'text-[#1565c0]' : 'text-neutral-400'}`}
+          title={`Sort ${title}`}
+          aria-label={`Sort column ${title}`}
+        >
+          <ArrowDownAZ size={11} strokeWidth={2.5} />
+        </button>
+      </PopoverTrigger>
+      <PopoverContent align="start" className="w-56 p-2 text-[11px] font-lato" onClick={(e) => e.stopPropagation()}>
+        <p className="text-[9px] font-semibold text-neutral-500 uppercase tracking-wide mb-1.5">Sort</p>
+        <div className="flex flex-col gap-0.5">
+          {sortKind === 'text' && (
+            <>
+              <Button type="button" variant="ghost" size="sm" className="h-7 text-[10px] justify-start px-2 font-lato" onClick={() => pick('asc')}>
+                A → Z (alphabetical)
+              </Button>
+              <Button type="button" variant="ghost" size="sm" className="h-7 text-[10px] justify-start px-2 font-lato" onClick={() => pick('desc')}>
+                Z → A (reverse)
+              </Button>
+            </>
+          )}
+          {sortKind === 'date' && (
+            <>
+              <Button type="button" variant="ghost" size="sm" className="h-7 text-[10px] justify-start px-2 font-lato" onClick={() => pick('old')}>
+                Oldest first
+              </Button>
+              <Button type="button" variant="ghost" size="sm" className="h-7 text-[10px] justify-start px-2 font-lato" onClick={() => pick('new')}>
+                Newest first
+              </Button>
+            </>
+          )}
+          {sortKind === 'primary' && (
+            <>
+              <Button type="button" variant="ghost" size="sm" className="h-7 text-[10px] justify-start px-2 font-lato" onClick={() => pick('y_first')}>
+                Primary (Y) first
+              </Button>
+              <Button type="button" variant="ghost" size="sm" className="h-7 text-[10px] justify-start px-2 font-lato" onClick={() => pick('n_first')}>
+                Non-primary first
+              </Button>
+            </>
+          )}
+          {active && (
+            <Button type="button" variant="outline" size="sm" className="h-7 text-[10px] mt-1 font-lato" onClick={clearHere}>
+              Clear this column sort
+            </Button>
+          )}
+        </div>
+      </PopoverContent>
+    </Popover>
+  );
 }
 
 function AnnualPortalExcelColumnFilter({ colId, title, optionRows, activeFilter, onSetFilter }) {
@@ -227,7 +411,18 @@ function AnnualPortalExcelColumnFilter({ colId, title, optionRows, activeFilter,
   );
 }
 
-function AnnualPortalFilterableTh({ children, colId, title, className, optionRows, columnFilters, setColumnFilters }) {
+function AnnualPortalFilterableTh({
+  children,
+  colId,
+  title,
+  className,
+  optionRows,
+  columnFilters,
+  setColumnFilters,
+  sortKind,
+  columnSort,
+  setColumnSort,
+}) {
   const activeFilter = columnFilters[colId] ?? null;
   const setFilter = (next) => {
     setColumnFilters((prev) => {
@@ -238,9 +433,18 @@ function AnnualPortalFilterableTh({ children, colId, title, className, optionRow
     });
   };
   return (
-    <th className={className} title={title}>
-      <div className="flex items-center gap-1 min-w-0">
+    <th className={`${className} font-lato`} title={title}>
+      <div className="flex items-center gap-0.5 min-w-0">
         <span className="truncate flex-1 min-w-0">{children}</span>
+        {sortKind ? (
+          <AnnualPortalSortButton
+            colId={colId}
+            title={title || String(children)}
+            sortKind={sortKind}
+            columnSort={columnSort}
+            setColumnSort={setColumnSort}
+          />
+        ) : null}
         <AnnualPortalExcelColumnFilter
           colId={colId}
           title={title || String(children)}
@@ -268,6 +472,8 @@ export default function AnnualPortalClientsTab() {
   const [uploadReport, setUploadReport] = useState(null);
   /** Excel-style: colId → Set of allowed values; missing = no filter */
   const [columnFilters, setColumnFilters] = useState({});
+  /** Single-column sort: { column, mode } — see fullAnnualPortalSort */
+  const [columnSort, setColumnSort] = useState(null);
 
   const filteredRows = useMemo(
     () => rows.filter((r) => annualPortalPassesColumnFilters(r, columnFilters)),
@@ -287,6 +493,8 @@ export default function AnnualPortalClientsTab() {
     () => Object.values(columnFilters).filter((s) => s != null).length,
     [columnFilters],
   );
+
+  const sortActive = columnSort != null && columnSort.column != null;
 
   const {
     visibility: flatColVis,
@@ -494,7 +702,7 @@ export default function AnnualPortalClientsTab() {
       byKey.get(gk).members.push(r);
     }
     for (const g of byKey.values()) {
-      g.members.sort(sortMembers);
+      g.members.sort((a, b) => fullAnnualPortalSort(a, b, columnSort));
     }
     const list = [...byKey.values()];
     list.sort((a, b) => {
@@ -507,9 +715,13 @@ export default function AnnualPortalClientsTab() {
       return ak.localeCompare(bk);
     });
     return list;
-  }, [filteredRows]);
+  }, [filteredRows, columnSort]);
 
-  const sortedRows = useMemo(() => [...filteredRows].sort(sortMembers), [filteredRows]);
+  const sortedRows = useMemo(() => {
+    const base = [...filteredRows];
+    base.sort((a, b) => fullAnnualPortalSort(a, b, columnSort));
+    return base;
+  }, [filteredRows, columnSort]);
 
   /** Same serial in list and household views (sorted list order). */
   const serialByRowKey = useMemo(() => {
@@ -585,7 +797,7 @@ export default function AnnualPortalClientsTab() {
         <p className="text-xs text-gray-600 mt-0.5 max-w-3xl leading-relaxed">
           When <strong>End Date</strong> (below) is in the past, Sacred Home clears the client&apos;s <strong>Annual</strong> access flag automatically (next login, quote, or opening this list). Members see a renewal reminder on the dashboard in the last 30 days and after expiry.{' '}
           Table columns: #, Name, Email Id, Start/End Date, DIID, HomeComing, Usage (summary), HOUSEHOLD, PRIMARY, Client id.{' '}
-          Use the <strong>funnel icon</strong> in each column header to filter values (like Excel); filters apply to both List and By household views.{' '}
+          Use the <strong>A–Z icon</strong> to sort (alphabetical, dates oldest/newest, primary first, etc.) and the <strong>funnel</strong> to filter; both apply in List and By household.{' '}
           <strong>Template</strong> is a blank sheet with sample rows; <strong>Download Excel</strong> exports the current list in the same columns so you can edit and upload.{' '}
           Usage counts are split into separate columns for upload.{' '}
           <strong>Upload</strong> finds columns by <strong>header title</strong> (not left-to-right order). Each column in the file <strong>replaces</strong> what is stored (empty cells clear dates, DIID, package, household; blank usage cells become 0; blank PRIMARY counts as N). <strong>DIID</strong> can be full 8 characters (letters+YYMM) or <strong>YYMM only</strong> (4 digits); letters are taken from <strong>Name</strong>. Match rows by Client id, Email, or <strong>Name</strong> (+ <strong>HOUSEHOLD</strong> when names repeat); new household members get a generated Client id. If row 1 is a title row, headers on the next row are detected automatically.
@@ -645,7 +857,7 @@ export default function AnnualPortalClientsTab() {
           {uploadReport.matched_columns && Object.keys(uploadReport.matched_columns).length > 0 && (
             <details className="mt-1.5">
               <summary className="cursor-pointer select-none">Matched columns</summary>
-              <ul className="mt-1 font-mono text-[10px] list-disc pl-4 space-y-0.5">
+              <ul className="mt-1 font-lato text-[10px] list-disc pl-4 space-y-0.5">
                 {Object.entries(uploadReport.matched_columns).map(([k, v]) => (
                   <li key={k}>
                     {k}: {v}
@@ -659,7 +871,7 @@ export default function AnnualPortalClientsTab() {
               <p className="font-semibold mb-1">
                 Issues ({uploadReport.error_count ?? uploadReport.errors?.length ?? 0})
               </p>
-              <ul className="list-disc pl-4 space-y-0.5 font-mono">
+              <ul className="list-disc pl-4 space-y-0.5 font-lato text-[10px]">
                 {(uploadReport.errors || []).slice(0, 50).map((line, i) => (
                   <li key={i}>{line}</li>
                 ))}
@@ -730,6 +942,15 @@ export default function AnnualPortalClientsTab() {
             Clear {columnFilterActiveCount} column filter{columnFilterActiveCount === 1 ? '' : 's'}
           </button>
         )}
+        {sortActive && (
+          <button
+            type="button"
+            onClick={() => setColumnSort(null)}
+            className="text-[11px] font-medium text-[#1565c0] underline-offset-2 hover:underline"
+          >
+            Clear column sort (restore primary · name order)
+          </button>
+        )}
       </div>
 
       <AnnualSubscriptionEditDialog
@@ -776,7 +997,7 @@ export default function AnnualPortalClientsTab() {
             <thead>
               <tr>
                 {flatColVisible('sn') && (
-                  <th className={`${thBase} text-center w-11 tabular-nums`}>{colLabel('sn')}</th>
+                  <th className={`${thBase} font-lato text-center w-11 tabular-nums`}>{colLabel('sn')}</th>
                 )}
                 {flatColVisible('name') && (
                   <AnnualPortalFilterableTh
@@ -786,6 +1007,9 @@ export default function AnnualPortalClientsTab() {
                     optionRows={filterOptionBaseByCol.name}
                     columnFilters={columnFilters}
                     setColumnFilters={setColumnFilters}
+                    sortKind="text"
+                    columnSort={columnSort}
+                    setColumnSort={setColumnSort}
                   >
                     {colLabel('name')}
                   </AnnualPortalFilterableTh>
@@ -798,6 +1022,9 @@ export default function AnnualPortalClientsTab() {
                     optionRows={filterOptionBaseByCol.email}
                     columnFilters={columnFilters}
                     setColumnFilters={setColumnFilters}
+                    sortKind="text"
+                    columnSort={columnSort}
+                    setColumnSort={setColumnSort}
                   >
                     {colLabel('email')}
                   </AnnualPortalFilterableTh>
@@ -810,6 +1037,9 @@ export default function AnnualPortalClientsTab() {
                     optionRows={filterOptionBaseByCol.start}
                     columnFilters={columnFilters}
                     setColumnFilters={setColumnFilters}
+                    sortKind="date"
+                    columnSort={columnSort}
+                    setColumnSort={setColumnSort}
                   >
                     {colLabel('start')}
                   </AnnualPortalFilterableTh>
@@ -822,6 +1052,9 @@ export default function AnnualPortalClientsTab() {
                     optionRows={filterOptionBaseByCol.end}
                     columnFilters={columnFilters}
                     setColumnFilters={setColumnFilters}
+                    sortKind="date"
+                    columnSort={columnSort}
+                    setColumnSort={setColumnSort}
                   >
                     {colLabel('end')}
                   </AnnualPortalFilterableTh>
@@ -834,6 +1067,9 @@ export default function AnnualPortalClientsTab() {
                     optionRows={filterOptionBaseByCol.diid}
                     columnFilters={columnFilters}
                     setColumnFilters={setColumnFilters}
+                    sortKind="text"
+                    columnSort={columnSort}
+                    setColumnSort={setColumnSort}
                   >
                     {colLabel('diid')}
                   </AnnualPortalFilterableTh>
@@ -846,6 +1082,9 @@ export default function AnnualPortalClientsTab() {
                     optionRows={filterOptionBaseByCol.package}
                     columnFilters={columnFilters}
                     setColumnFilters={setColumnFilters}
+                    sortKind="text"
+                    columnSort={columnSort}
+                    setColumnSort={setColumnSort}
                   >
                     {colLabel('package')}
                   </AnnualPortalFilterableTh>
@@ -858,6 +1097,9 @@ export default function AnnualPortalClientsTab() {
                     optionRows={filterOptionBaseByCol.usage}
                     columnFilters={columnFilters}
                     setColumnFilters={setColumnFilters}
+                    sortKind="text"
+                    columnSort={columnSort}
+                    setColumnSort={setColumnSort}
                   >
                     {colLabel('usage')}
                   </AnnualPortalFilterableTh>
@@ -870,6 +1112,9 @@ export default function AnnualPortalClientsTab() {
                     optionRows={filterOptionBaseByCol.household}
                     columnFilters={columnFilters}
                     setColumnFilters={setColumnFilters}
+                    sortKind="text"
+                    columnSort={columnSort}
+                    setColumnSort={setColumnSort}
                   >
                     {colLabel('household')}
                   </AnnualPortalFilterableTh>
@@ -882,6 +1127,9 @@ export default function AnnualPortalClientsTab() {
                     optionRows={filterOptionBaseByCol.primary}
                     columnFilters={columnFilters}
                     setColumnFilters={setColumnFilters}
+                    sortKind="primary"
+                    columnSort={columnSort}
+                    setColumnSort={setColumnSort}
                   >
                     {colLabel('primary')}
                   </AnnualPortalFilterableTh>
@@ -894,11 +1142,14 @@ export default function AnnualPortalClientsTab() {
                     optionRows={filterOptionBaseByCol.client_id}
                     columnFilters={columnFilters}
                     setColumnFilters={setColumnFilters}
+                    sortKind="text"
+                    columnSort={columnSort}
+                    setColumnSort={setColumnSort}
                   >
                     {colLabel('client_id')}
                   </AnnualPortalFilterableTh>
                 )}
-                {flatColVisible('edit') && <th className={`${thBase} text-center`}>{colLabel('edit')}</th>}
+                {flatColVisible('edit') && <th className={`${thBase} font-lato text-center`}>{colLabel('edit')}</th>}
               </tr>
             </thead>
             <tbody>
@@ -929,13 +1180,13 @@ export default function AnnualPortalClientsTab() {
                     {flatColVisible('name') && <td className={`${tdBase} font-medium`}>{(r.name || '').trim() || '—'}</td>}
                     {flatColVisible('email') && <td className={`${tdBase} text-neutral-800`}>{(r.email || '').trim() || '—'}</td>}
                     {flatColVisible('start') && (
-                      <td className={`${tdBase} font-mono text-[12px] whitespace-nowrap`}>{sub.start_date || '—'}</td>
+                      <td className={tdTabular}>{sub.start_date || '—'}</td>
                     )}
                     {flatColVisible('end') && (
-                      <td className={`${tdBase} font-mono text-[12px] whitespace-nowrap`}>{sub.end_date || '—'}</td>
+                      <td className={tdTabular}>{sub.end_date || '—'}</td>
                     )}
                     {flatColVisible('diid') && (
-                      <td className={`${tdBase} font-mono text-[12px] whitespace-nowrap`}>{(sub.annual_diid || '').trim() || '—'}</td>
+                      <td className={tdTabular}>{(sub.annual_diid || '').trim() || '—'}</td>
                     )}
                     {flatColVisible('package') && (
                       <td className={tdBase}>{packageLabel(sub)}</td>
@@ -945,14 +1196,16 @@ export default function AnnualPortalClientsTab() {
                         {sub.usage && Object.keys(sub.usage).length > 0 ? formatHomeComingUsageSummary(sub) : '—'}
                       </td>
                     )}
-                    {flatColVisible('household') && <td className={`${tdBase} font-mono text-[12px] text-neutral-800`}>{(r.household_key || '').trim() || '—'}</td>}
+                    {flatColVisible('household') && (
+                      <td className={`${tdBase} tabular-nums text-[13px] text-neutral-800`}>{(r.household_key || '').trim() || '—'}</td>
+                    )}
                     {flatColVisible('primary') && (
                     <td className={`${tdBase} text-center tabular-nums`}>
                       {r.is_primary_household_contact ? 'Y' : '—'}
                     </td>
                     )}
                     {flatColVisible('client_id') && (
-                      <td className={`${tdBase} font-mono text-[11px] text-neutral-800 break-all max-w-[8rem]`}>
+                      <td className={`${tdBase} tabular-nums text-[12px] text-neutral-800 break-all max-w-[8rem]`}>
                         {(r.id || '').trim() || '—'}
                       </td>
                     )}
@@ -995,7 +1248,7 @@ export default function AnnualPortalClientsTab() {
                 return (
                   <div key={g.householdKey || g.members.map((m) => m.id).join('-')} className={gi > 0 ? 'border-t-2 border-[#8c8c8c]' : ''}>
                     <div className="flex flex-wrap items-baseline justify-between gap-2 px-2 py-1 bg-[#e7e7e7] border-b border-[#c6c6c6]">
-                      <span className="font-mono text-[12px] font-semibold text-neutral-900">{title}</span>
+                      <span className="font-lato text-[12px] font-semibold text-neutral-900 tabular-nums">{title}</span>
                       <span className="text-[11px] font-medium text-[#1b5e20] bg-[#e8f5e9] border border-[#a5d6a7] px-2 py-0.5 rounded-sm">
                         {n} in tab
                       </span>
@@ -1003,7 +1256,7 @@ export default function AnnualPortalClientsTab() {
                     <table className={tableGrid}>
                       <thead>
                         <tr>
-                          <th className={`${thBase} text-center w-11 tabular-nums`}>{colLabel('sn')}</th>
+                          <th className={`${thBase} font-lato text-center w-11 tabular-nums`}>{colLabel('sn')}</th>
                           <AnnualPortalFilterableTh
                             colId="name"
                             title="Name"
@@ -1011,6 +1264,9 @@ export default function AnnualPortalClientsTab() {
                             optionRows={filterOptionBaseByCol.name}
                             columnFilters={columnFilters}
                             setColumnFilters={setColumnFilters}
+                            sortKind="text"
+                            columnSort={columnSort}
+                            setColumnSort={setColumnSort}
                           >
                             {colLabel('name')}
                           </AnnualPortalFilterableTh>
@@ -1021,6 +1277,9 @@ export default function AnnualPortalClientsTab() {
                             optionRows={filterOptionBaseByCol.email}
                             columnFilters={columnFilters}
                             setColumnFilters={setColumnFilters}
+                            sortKind="text"
+                            columnSort={columnSort}
+                            setColumnSort={setColumnSort}
                           >
                             {colLabel('email')}
                           </AnnualPortalFilterableTh>
@@ -1031,6 +1290,9 @@ export default function AnnualPortalClientsTab() {
                             optionRows={filterOptionBaseByCol.start}
                             columnFilters={columnFilters}
                             setColumnFilters={setColumnFilters}
+                            sortKind="date"
+                            columnSort={columnSort}
+                            setColumnSort={setColumnSort}
                           >
                             {colLabel('start')}
                           </AnnualPortalFilterableTh>
@@ -1041,16 +1303,22 @@ export default function AnnualPortalClientsTab() {
                             optionRows={filterOptionBaseByCol.end}
                             columnFilters={columnFilters}
                             setColumnFilters={setColumnFilters}
+                            sortKind="date"
+                            columnSort={columnSort}
+                            setColumnSort={setColumnSort}
                           >
                             {colLabel('end')}
                           </AnnualPortalFilterableTh>
                           <AnnualPortalFilterableTh
                             colId="diid"
                             title="DIID"
-                            className={`${thBase} font-mono`}
+                            className={thBase}
                             optionRows={filterOptionBaseByCol.diid}
                             columnFilters={columnFilters}
                             setColumnFilters={setColumnFilters}
+                            sortKind="text"
+                            columnSort={columnSort}
+                            setColumnSort={setColumnSort}
                           >
                             {colLabel('diid')}
                           </AnnualPortalFilterableTh>
@@ -1061,6 +1329,9 @@ export default function AnnualPortalClientsTab() {
                             optionRows={filterOptionBaseByCol.package}
                             columnFilters={columnFilters}
                             setColumnFilters={setColumnFilters}
+                            sortKind="text"
+                            columnSort={columnSort}
+                            setColumnSort={setColumnSort}
                           >
                             {colLabel('package')}
                           </AnnualPortalFilterableTh>
@@ -1071,6 +1342,9 @@ export default function AnnualPortalClientsTab() {
                             optionRows={filterOptionBaseByCol.usage}
                             columnFilters={columnFilters}
                             setColumnFilters={setColumnFilters}
+                            sortKind="text"
+                            columnSort={columnSort}
+                            setColumnSort={setColumnSort}
                           >
                             {colLabel('usage')}
                           </AnnualPortalFilterableTh>
@@ -1081,20 +1355,26 @@ export default function AnnualPortalClientsTab() {
                             optionRows={filterOptionBaseByCol.primary}
                             columnFilters={columnFilters}
                             setColumnFilters={setColumnFilters}
+                            sortKind="primary"
+                            columnSort={columnSort}
+                            setColumnSort={setColumnSort}
                           >
                             {colLabel('primary')}
                           </AnnualPortalFilterableTh>
                           <AnnualPortalFilterableTh
                             colId="client_id"
                             title="Client id"
-                            className={`${thBase} font-mono text-[10px]`}
+                            className={thBase}
                             optionRows={filterOptionBaseByCol.client_id}
                             columnFilters={columnFilters}
                             setColumnFilters={setColumnFilters}
+                            sortKind="text"
+                            columnSort={columnSort}
+                            setColumnSort={setColumnSort}
                           >
                             {colLabel('client_id')}
                           </AnnualPortalFilterableTh>
-                          <th className={`${thBase} text-center w-14`}>{colLabel('edit')}</th>
+                          <th className={`${thBase} font-lato text-center w-14`}>{colLabel('edit')}</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -1110,11 +1390,9 @@ export default function AnnualPortalClientsTab() {
                             </td>
                             <td className={`${tdBase} pl-3 font-medium`}>{(r.name || '').trim() || '—'}</td>
                             <td className={`${tdBase} text-neutral-800`}>{(r.email || '').trim() || '—'}</td>
-                            <td className={`${tdBase} font-mono text-[12px] whitespace-nowrap`}>{sub.start_date || '—'}</td>
-                            <td className={`${tdBase} font-mono text-[12px] whitespace-nowrap`}>{sub.end_date || '—'}</td>
-                            <td className={`${tdBase} font-mono text-[12px]`}>
-                              {(sub.annual_diid || '').trim() || '—'}
-                            </td>
+                            <td className={tdTabular}>{sub.start_date || '—'}</td>
+                            <td className={tdTabular}>{sub.end_date || '—'}</td>
+                            <td className={tdTabular}>{(sub.annual_diid || '').trim() || '—'}</td>
                             <td className={tdBase}>{packageLabel(sub)}</td>
                             <td className={`${tdBase} text-[11px] text-neutral-800`}>
                               {sub.usage && Object.keys(sub.usage).length > 0 ? formatHomeComingUsageSummary(sub) : '—'}
@@ -1122,7 +1400,7 @@ export default function AnnualPortalClientsTab() {
                             <td className={`${tdBase} text-center`}>
                               {r.is_primary_household_contact ? 'Y' : '—'}
                             </td>
-                            <td className={`${tdBase} font-mono text-[10px] text-neutral-800 break-all max-w-[7rem]`}>
+                            <td className={`${tdBase} tabular-nums text-[12px] text-neutral-800 break-all max-w-[7rem]`}>
                               {(r.id || '').trim() || '—'}
                             </td>
                             <td className={`${tdBase} text-center p-0`}>
