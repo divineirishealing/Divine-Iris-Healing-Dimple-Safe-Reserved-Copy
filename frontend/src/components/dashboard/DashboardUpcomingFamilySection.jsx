@@ -2137,8 +2137,9 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh, bo
                 <CalendarDays size={20} strokeWidth={1.75} aria-hidden />
               </div>
               <div className="min-w-0 flex-1 pt-0.5">
-                <p className="text-[10px] font-semibold tracking-wide text-teal-800/95">Upcoming program</p>
-                <h3 className="text-base font-semibold text-slate-900 leading-tight mt-0.5">Open enrollments</h3>
+                <h3 className="text-[10px] font-semibold tracking-[0.14em] text-teal-800/95 uppercase">
+                  Upcoming program
+                </h3>
               </div>
             </div>
             <div
@@ -2201,8 +2202,7 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh, bo
                 <Wallet size={20} strokeWidth={1.75} aria-hidden />
               </div>
               <div className="min-w-0 flex-1 pt-0.5">
-                <p className="text-[10px] font-semibold tracking-wide text-violet-800/95">Financials</p>
-                <h3 className="text-base font-semibold text-slate-900 leading-tight mt-0.5">Payments &amp; EMIs</h3>
+                <h3 className="text-base font-semibold text-slate-900 leading-tight">Payments &amp; EMIs</h3>
               </div>
             </div>
             <div
@@ -2245,8 +2245,7 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh, bo
                 <CircleDollarSign size={20} strokeWidth={1.75} aria-hidden />
               </div>
               <div className="min-w-0 flex-1 pt-0.5">
-                <p className="text-[10px] font-semibold tracking-wide text-[#8b6914]">Investment</p>
-                <h3 className="text-base font-semibold text-slate-900 leading-tight mt-0.5">Program investment</h3>
+                <h3 className="text-base font-semibold text-slate-900 leading-tight">Program investment</h3>
               </div>
             </div>
             <div
