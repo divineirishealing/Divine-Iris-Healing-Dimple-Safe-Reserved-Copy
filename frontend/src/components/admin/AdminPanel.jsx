@@ -26,6 +26,7 @@ import HomepageSectionsTab from './tabs/HomepageSectionsTab';
 import NewsletterSettingsTab from './tabs/NewsletterSettingsTab';
 import HeaderFooterTab from './tabs/HeaderFooterTab';
 import DashboardSettingsTab from './tabs/DashboardSettingsTab';
+import DashboardHomeComingTab from './tabs/DashboardHomeComingTab';
 import SanctuarySettingsTab from './tabs/SanctuarySettingsTab';
 import EnrollmentsTab from './tabs/EnrollmentsTab';
 import { SessionCalendarManager, SessionTestimonialsManager, SessionQuestionsManager } from './tabs/SessionManagerTabs';
@@ -416,6 +417,7 @@ const AdminPanel = () => {
     ]},
     { label: 'Dashboard', icon: Layout, tabs: [
       { key: 'dashboard_settings', label: 'Dashboard Config', icon: Layout },
+      { key: 'dashboard_home_coming', label: 'Home Coming (Sacred Home)', icon: Sparkles },
       { key: 'sanctuary_settings', label: 'Sanctuary Design', icon: Image },
       { key: 'add_annual_subscriber', label: 'Add annual subscriber', icon: UserPlus },
     ]},
@@ -590,6 +592,13 @@ const AdminPanel = () => {
                   }
                 }}
               />
+              <Button onClick={saveSiteSettings} className="bg-[#D4AF37] hover:bg-[#b8962e] mt-5"><Save size={14} className="mr-1" /> Save Changes</Button>
+            </div>
+          )}
+
+          {activeTab === 'dashboard_home_coming' && siteSettings && (
+            <div>
+              <DashboardHomeComingTab settings={siteSettings} programs={programs} onChange={setSiteSettings} />
               <Button onClick={saveSiteSettings} className="bg-[#D4AF37] hover:bg-[#b8962e] mt-5"><Save size={14} className="mr-1" /> Save Changes</Button>
             </div>
           )}
