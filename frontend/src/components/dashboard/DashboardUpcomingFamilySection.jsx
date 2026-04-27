@@ -16,6 +16,9 @@ import {
   Monitor,
   Wifi,
   Send,
+  CalendarDays,
+  Wallet,
+  CircleDollarSign,
 } from 'lucide-react';
 import { useToast } from '../../hooks/use-toast';
 import { useCurrency } from '../../context/CurrencyContext';
@@ -801,6 +804,7 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh, bo
   const familyRowCount = members.length + otherMembers.length + annualPeersDraft.length;
 
   const restoredUpcomingRef = useRef(false);
+  const upcomingDetailRef = useRef(null);
   /** False until Sacred Home session is read from sessionStorage — avoids autosave wiping tiers/attendance with empty initial state. */
   const [upcomingSessionHydrated, setUpcomingSessionHydrated] = useState(false);
 
@@ -2120,16 +2124,180 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh, bo
     >
       <div className="flex flex-col gap-4 md:gap-5">
         <div
-          className="rounded-[22px] border border-teal-200/80 bg-white/90 backdrop-blur-xl px-5 py-5 md:px-6 md:py-6 shadow-[0_4px_32px_rgba(20,120,140,0.07)]"
+          className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-5"
+          data-testid="dashboard-sacred-home-overview-row"
+        >
+          <div
+            className="rounded-3xl border border-teal-200/70 bg-gradient-to-br from-white/98 via-white/94 to-teal-50/40 backdrop-blur-xl px-5 py-5 md:px-6 md:py-6 shadow-[0_12px_40px_-14px_rgba(13,148,136,0.22)] ring-1 ring-teal-900/[0.04] flex flex-col gap-3.5"
+            data-overview-box="upcoming-snapshot"
+            data-section-tag="upcoming-program"
+          >
+            <div className="flex items-start gap-3">
+              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-teal-100 to-emerald-50 text-teal-700 shadow-sm ring-1 ring-teal-200/60">
+                <CalendarDays size={20} strokeWidth={1.75} aria-hidden />
+              </div>
+              <div className="min-w-0 flex-1 pt-0.5">
+                <p className="text-[10px] font-semibold tracking-wide text-teal-800/95">Upcoming program</p>
+                <h3 className="text-base font-semibold text-slate-900 leading-tight mt-0.5">Open enrollments</h3>
+              </div>
+            </div>
+            <div
+              className="h-px w-full bg-gradient-to-r from-transparent via-teal-200/55 to-transparent shrink-0"
+              aria-hidden
+            />
+            {upcomingList.length === 0 ? (
+              <p className="text-[11px] text-slate-600 leading-relaxed">
+                No programs are listed yet — check back soon.
+              </p>
+            ) : (
+              <dl className="grid gap-2.5 text-[11px] text-slate-700">
+                <div className="flex justify-between gap-2">
+                  <dt className="text-slate-500">On your list</dt>
+                  <dd className="font-semibold text-slate-900 text-right tabular-nums">{upcomingList.length}</dd>
+                </div>
+                {upcomingList[0] ? (
+                  <>
+                    <div className="flex justify-between gap-2 items-start">
+                      <dt className="text-slate-500 shrink-0 pt-0.5">Featured</dt>
+                      <dd className="font-medium text-slate-900 text-right line-clamp-2 leading-snug max-w-[14rem]">
+                        {upcomingList[0].title}
+                      </dd>
+                    </div>
+                    {upcomingList[0].start_date || upcomingList[0].deadline_date ? (
+                      <div className="flex justify-between gap-2">
+                        <dt className="text-slate-500">Key date</dt>
+                        <dd className="font-medium text-slate-900 text-right tabular-nums">
+                          {formatDateDdMonYyyy(
+                            String(
+                              upcomingList[0].deadline_date || upcomingList[0].start_date || '',
+                            ).slice(0, 10),
+                          ) || '—'}
+                        </dd>
+                      </div>
+                    ) : null}
+                  </>
+                ) : null}
+              </dl>
+            )}
+            <Button
+              type="button"
+              variant="outline"
+              className="mt-auto h-9 text-xs border-teal-200/90 text-teal-900 bg-white/80 hover:bg-teal-50/90 rounded-full shadow-sm"
+              onClick={() =>
+                upcomingDetailRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+              }
+            >
+              View programs &amp; enroll
+            </Button>
+          </div>
+
+          <div
+            className="rounded-3xl border border-violet-200/70 bg-gradient-to-br from-white/98 via-violet-50/25 to-white/95 backdrop-blur-xl px-5 py-5 md:px-6 md:py-6 shadow-[0_12px_40px_-14px_rgba(91,33,182,0.14)] ring-1 ring-violet-900/[0.04] flex flex-col gap-3.5"
+            data-overview-box="financials"
+            data-section-tag="financials"
+          >
+            <div className="flex items-start gap-3">
+              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-violet-100 to-violet-50/80 text-violet-700 shadow-sm ring-1 ring-violet-200/60">
+                <Wallet size={20} strokeWidth={1.75} aria-hidden />
+              </div>
+              <div className="min-w-0 flex-1 pt-0.5">
+                <p className="text-[10px] font-semibold tracking-wide text-violet-800/95">Financials</p>
+                <h3 className="text-base font-semibold text-slate-900 leading-tight mt-0.5">Payments &amp; EMIs</h3>
+              </div>
+            </div>
+            <div
+              className="h-px w-full bg-gradient-to-r from-transparent via-violet-200/50 to-transparent shrink-0"
+              aria-hidden
+            />
+            <dl className="grid gap-2.5 text-[11px] text-slate-700">
+              <div className="flex justify-between gap-2">
+                <dt className="text-slate-500">Status</dt>
+                <dd className="font-medium text-slate-900 text-right">{overviewFin?.status || '—'}</dd>
+              </div>
+              {overviewFin?.emi_plan ? (
+                <div className="flex justify-between gap-2">
+                  <dt className="text-slate-500">Installments</dt>
+                  <dd className="font-medium text-slate-900 text-right">{overviewFin.emi_plan}</dd>
+                </div>
+              ) : null}
+              <div className="flex justify-between gap-2">
+                <dt className="text-slate-500">Next due</dt>
+                <dd className="font-medium text-slate-900 text-right">{overviewNextDueLabel}</dd>
+              </div>
+            </dl>
+            <Button
+              type="button"
+              variant="outline"
+              className="mt-auto h-9 text-xs border-violet-200/90 text-violet-900 bg-white/80 hover:bg-violet-50/90 rounded-full shadow-sm"
+              onClick={() => navigate('/dashboard/financials')}
+            >
+              Open Financials
+            </Button>
+          </div>
+
+          <div
+            className="rounded-3xl border border-[#D4AF37]/45 bg-gradient-to-br from-amber-50/55 via-white/96 to-amber-50/30 backdrop-blur-xl px-5 py-5 md:px-6 md:py-6 shadow-[0_12px_40px_-14px_rgba(180,130,40,0.18)] ring-1 ring-amber-900/[0.06] flex flex-col gap-3.5"
+            data-overview-box="investment"
+            data-section-tag="investment"
+          >
+            <div className="flex items-start gap-3">
+              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-amber-100 to-[#fef3c7] text-[#92400e] shadow-sm ring-1 ring-amber-200/70">
+                <CircleDollarSign size={20} strokeWidth={1.75} aria-hidden />
+              </div>
+              <div className="min-w-0 flex-1 pt-0.5">
+                <p className="text-[10px] font-semibold tracking-wide text-[#8b6914]">Investment</p>
+                <h3 className="text-base font-semibold text-slate-900 leading-tight mt-0.5">Program investment</h3>
+              </div>
+            </div>
+            <div
+              className="h-px w-full bg-gradient-to-r from-transparent via-amber-200/60 to-transparent shrink-0"
+              aria-hidden
+            />
+            <dl className="grid gap-2.5 text-[11px] text-slate-700">
+              <div className="flex justify-between gap-2">
+                <dt className="text-slate-500">Total fee</dt>
+                <dd className="font-medium text-slate-900 text-right tabular-nums">
+                  {formatOverviewMoney(overviewFin?.total_fee)}
+                </dd>
+              </div>
+              <div className="flex justify-between gap-2">
+                <dt className="text-slate-500">Paid so far</dt>
+                <dd className="font-medium text-emerald-800 text-right tabular-nums">
+                  {formatOverviewMoney(overviewFin?.total_paid)}
+                </dd>
+              </div>
+              <div className="flex justify-between gap-2">
+                <dt className="text-slate-500">Balance</dt>
+                <dd className="font-medium text-slate-900 text-right tabular-nums">
+                  {formatOverviewMoney(overviewFin?.remaining)}
+                </dd>
+              </div>
+            </dl>
+            <p className="text-[10px] text-slate-500 leading-snug">
+              Upload proof, track EMIs, and manage payment mode on the Financials page.
+            </p>
+            <Button
+              type="button"
+              variant="outline"
+              className="mt-auto h-9 text-xs border-[#D4AF37]/55 text-[#6b5210] bg-white/85 hover:bg-amber-50/95 rounded-full shadow-sm"
+              onClick={() => navigate('/dashboard/financials')}
+            >
+              View payment details
+            </Button>
+          </div>
+        </div>
+
+        <div
+          ref={upcomingDetailRef}
+          id="sacred-home-upcoming-detail"
+          className="rounded-3xl border border-teal-200/75 bg-gradient-to-b from-white/96 via-white/92 to-teal-50/25 backdrop-blur-xl px-5 py-5 md:px-7 md:py-7 shadow-[0_14px_48px_-18px_rgba(15,118,136,0.2)] ring-1 ring-teal-900/[0.05]"
           data-overview-box="upcoming-program"
-          data-section-tag="upcoming-program"
         >
         <div className="mb-4 md:mb-5 flex flex-col items-center text-center">
           <UpcomingProgramsIrisBloom />
-          <p className="mt-2 text-[10px] font-semibold tracking-wide text-teal-800">Upcoming program</p>
           <h2
             id="dashboard-upcoming-programs-heading"
-            className="font-[family-name:'Cinzel',serif] mt-1 px-2 text-lg font-bold tracking-tight text-[#3b0764] drop-shadow-sm md:text-2xl lg:text-3xl"
+            className="font-[family-name:'Cinzel',serif] mt-2 px-2 text-lg font-bold tracking-tight text-[#3b0764] drop-shadow-sm md:text-2xl lg:text-3xl"
           >
             Upcoming programs
           </h2>
@@ -2319,86 +2487,21 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh, bo
         </div>
 
         <div
-          className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-5"
-          data-testid="dashboard-sacred-home-overview-secondary"
-        >
-          <div
-            className="rounded-[22px] border border-violet-200/75 bg-white/90 backdrop-blur-xl px-5 py-5 md:px-6 md:py-5 shadow-[0_4px_28px_rgba(100,60,180,0.06)] flex flex-col gap-3"
-            data-overview-box="financials"
-            data-section-tag="financials"
-          >
-            <p className="text-[10px] font-semibold tracking-wide text-violet-800">Financials</p>
-            <h3 className="text-base font-semibold text-slate-900 leading-tight">Payments &amp; EMIs</h3>
-            <dl className="grid gap-2 text-[11px] text-slate-700">
-              <div className="flex justify-between gap-2">
-                <dt className="text-slate-500">Status</dt>
-                <dd className="font-medium text-slate-900 text-right">{overviewFin?.status || '—'}</dd>
-              </div>
-              {overviewFin?.emi_plan ? (
-                <div className="flex justify-between gap-2">
-                  <dt className="text-slate-500">Installments</dt>
-                  <dd className="font-medium text-slate-900 text-right">{overviewFin.emi_plan}</dd>
-                </div>
-              ) : null}
-              <div className="flex justify-between gap-2">
-                <dt className="text-slate-500">Next due</dt>
-                <dd className="font-medium text-slate-900 text-right">{overviewNextDueLabel}</dd>
-              </div>
-            </dl>
-            <Button
-              type="button"
-              variant="outline"
-              className="mt-1 h-9 text-xs border-violet-200"
-              onClick={() => navigate('/dashboard/financials')}
-            >
-              Open Financials
-            </Button>
-          </div>
-          <div
-            className="rounded-[22px] border border-[#D4AF37]/40 bg-gradient-to-br from-amber-50/50 via-white/95 to-white/90 backdrop-blur-xl px-5 py-5 md:px-6 md:py-5 shadow-[0_4px_28px_rgba(180,140,40,0.08)] flex flex-col gap-3"
-            data-overview-box="investment"
-            data-section-tag="investment"
-          >
-            <p className="text-[10px] font-semibold tracking-wide text-[#8b6914]">Investment</p>
-            <h3 className="text-base font-semibold text-slate-900 leading-tight">Program investment</h3>
-            <dl className="grid gap-2 text-[11px] text-slate-700">
-              <div className="flex justify-between gap-2">
-                <dt className="text-slate-500">Total fee</dt>
-                <dd className="font-medium text-slate-900 text-right tabular-nums">
-                  {formatOverviewMoney(overviewFin?.total_fee)}
-                </dd>
-              </div>
-              <div className="flex justify-between gap-2">
-                <dt className="text-slate-500">Paid so far</dt>
-                <dd className="font-medium text-emerald-800 text-right tabular-nums">
-                  {formatOverviewMoney(overviewFin?.total_paid)}
-                </dd>
-              </div>
-              <div className="flex justify-between gap-2">
-                <dt className="text-slate-500">Balance</dt>
-                <dd className="font-medium text-slate-900 text-right tabular-nums">
-                  {formatOverviewMoney(overviewFin?.remaining)}
-                </dd>
-              </div>
-            </dl>
-            <p className="text-[10px] text-slate-500 leading-snug">
-              Upload proof, track EMIs, and manage payment mode on the Financials page.
-            </p>
-            <Button
-              type="button"
-              variant="outline"
-              className="mt-0 h-9 text-xs border-[#D4AF37]/50 text-[#6b5210] hover:bg-amber-50"
-              onClick={() => navigate('/dashboard/financials')}
-            >
-              View payment details
-            </Button>
-          </div>
-        </div>
-
-        <div
-          className="rounded-[22px] border border-slate-200/85 bg-white/90 backdrop-blur-xl px-5 py-5 md:px-6 md:py-6 shadow-[0_4px_28px_rgba(60,60,80,0.05)]"
+          className="rounded-3xl border border-slate-200/80 bg-gradient-to-br from-white/98 via-slate-50/40 to-violet-50/25 backdrop-blur-xl px-5 py-5 md:px-7 md:py-7 shadow-[0_12px_44px_-16px_rgba(30,27,75,0.12)] ring-1 ring-slate-900/[0.04]"
           data-overview-box="household"
         >
+        <div className="flex items-start gap-3 mb-5 pb-4 border-b border-slate-200/70">
+          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-violet-100 to-violet-50/90 text-violet-700 shadow-sm ring-1 ring-violet-200/55">
+            <Users size={20} strokeWidth={1.75} aria-hidden />
+          </div>
+          <div className="min-w-0 pt-0.5">
+            <p className="text-[10px] font-semibold tracking-wide text-violet-800/90">Household</p>
+            <h3 className="text-base font-semibold text-slate-900 leading-tight mt-0.5">Family &amp; guests</h3>
+            <p className="text-[11px] text-slate-500 mt-1 leading-snug">
+              Who travels with you on programs — immediate family, annual club peers, and extended guests.
+            </p>
+          </div>
+        </div>
         <div className="pt-0">
           <div className="flex items-center gap-2 mb-3">
             <Users size={16} className="text-violet-700" />
