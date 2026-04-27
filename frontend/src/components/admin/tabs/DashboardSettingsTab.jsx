@@ -544,6 +544,7 @@ const DashboardSettingsTab = ({ settings, onChange, programs = [], onOpenAdminTa
     'footer_quote',
   ];
   const navKeys = [
+    'nav_upcoming',
     'nav_soul_garden',
     'nav_sessions',
     'nav_progress',
@@ -563,6 +564,7 @@ const DashboardSettingsTab = ({ settings, onChange, programs = [], onOpenAdminTa
     next.upcoming_family = true;
     next.profile_card = true;
     next.nav_profile = true;
+    next.nav_upcoming = true;
     onChange({ ...settings, dashboard_element_visibility: next });
     toast({ title: 'Preset applied', description: 'Overview shows upcoming, family & profile only. Menu: Profile + Overview. Click Save in Admin to persist.' });
   };

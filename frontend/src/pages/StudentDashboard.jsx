@@ -10,7 +10,7 @@ import {
 import { cn, formatDateDdMonYyyy, formatDashboardTime, dashboardStudentScheduleTable } from '../lib/utils';
 import { buildDashboardScheduleRows, summarizeDatedProgramProgress } from '../lib/dashboardSchedule';
 import axios from 'axios';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { useToast } from '../hooks/use-toast';
 import { SANCTUARY_REFERENCE, INTENTIONS_BY_TAB } from '../lib/dashboardSanctuaryCopy';
 import { mergeDashboardVisibility } from '../lib/dashboardVisibility';
@@ -266,6 +266,7 @@ const StudentDashboard = () => {
   const { user, checkAuth } = useAuth();
   const { settings } = useSiteSettings();
   const navigate = useNavigate();
+  const location = useLocation();
   const { toast } = useToast();
   const [homeData, setHomeData] = useState(null);
   const [homeLoading, setHomeLoading] = useState(true);
@@ -331,6 +332,19 @@ const StudentDashboard = () => {
   useEffect(() => {
     refreshHome();
   }, [refreshHome]);
+
+  useEffect(() => {
+    const id = location.hash?.replace(/^#/, '').trim();
+    if (!id || homeLoading) return;
+    const timer = window.setTimeout(() => {
+      const el = document.getElementById(id);
+      if (el) {
+        const y = el.getBoundingClientRect().top + window.scrollY - 72;
+        window.scrollTo({ top: Math.max(0, y), behavior: 'smooth' });
+      }
+    }, 150);
+    return () => window.clearTimeout(timer);
+  }, [location.hash, location.pathname, homeLoading]);
 
   const pts = homeData?.points;
   const pkg = homeData?.package || {};

@@ -5,7 +5,7 @@ import { useAuth } from '../context/AuthContext';
 import { useDashboardScrollSession } from '../hooks/useDashboardScrollSession';
 import { useSiteSettings } from '../context/SiteSettingsContext';
 import { NavLink } from 'react-router-dom';
-import { Loader2, Menu, X, Home, Sprout, Calendar, TrendingUp, Sparkles, Heart, BookOpen, User, CreditCard, LogOut, Coins, ShoppingCart, ClipboardList, Wrench } from 'lucide-react';
+import { Loader2, Menu, X, Home, Sprout, Calendar, TrendingUp, Sparkles, Heart, BookOpen, User, CreditCard, LogOut, Coins, ShoppingCart, ClipboardList, Wrench, LayoutGrid } from 'lucide-react';
 import { cn, formatDateDdMonYyyy } from '../lib/utils';
 import { CosmicDashboardBackground } from '../components/dashboard/CosmicDashboardBackground';
 import { getDashboardCosmicVariant } from '../lib/dashboardCosmicThemes';
@@ -17,17 +17,34 @@ const STUDENT_API = getApiUrl();
 
 const NAV_ITEMS = [
   { to: '/dashboard', label: 'Overview', icon: Home, exact: true, visKey: null },
+  {
+    to: '/dashboard',
+    label: 'Upcoming programs',
+    icon: LayoutGrid,
+    hash: 'sacred-home-programs',
+    visKey: 'nav_upcoming',
+  },
   { to: '/dashboard/garden', label: 'Soul Garden', icon: Sprout, visKey: 'nav_soul_garden' },
-  { to: '/dashboard/sessions', label: 'Schedule & calendar', icon: Calendar, visKey: 'nav_sessions' },
+  { to: '/dashboard/sessions', label: 'Your growth schedule', icon: Calendar, visKey: 'nav_sessions' },
+  { to: '/dashboard/financials', label: 'Payments & EMIs', icon: CreditCard, visKey: 'nav_financials' },
   { to: '/dashboard/progress', label: 'Progress', icon: TrendingUp, visKey: 'nav_progress' },
   { to: '/dashboard/bhaad', label: 'Bhaad Portal', icon: Sparkles, visKey: 'nav_bhaad' },
   { to: '/dashboard/tribe', label: 'Soul Tribe', icon: Heart, visKey: 'nav_tribe' },
-  { to: '/dashboard/financials', label: 'Financials', icon: CreditCard, visKey: 'nav_financials' },
   { to: '/dashboard/orders', label: 'Order history', icon: ClipboardList, visKey: null },
-  { to: '/dashboard/combined-checkout', label: 'DIVINE CART', icon: ShoppingCart, visKey: null },
+  { to: '/dashboard/combined-checkout', label: 'Divine Cart', icon: ShoppingCart, visKey: null },
   { to: '/dashboard/points', label: 'Points', icon: Coins, visKey: 'nav_points' },
   { to: '/dashboard/profile', label: 'Profile', icon: User, visKey: 'nav_profile' },
 ];
+
+function isDashboardNavActive(location, item) {
+  if (item.hash) {
+    return location.pathname === '/dashboard' && location.hash === `#${item.hash}`;
+  }
+  if (item.exact) {
+    return location.pathname === '/dashboard' && !location.hash;
+  }
+  return location.pathname === item.to;
+}
 
 const DashboardLayout = () => {
   const { user, loading, logout } = useAuth();
@@ -265,17 +282,28 @@ const DashboardLayout = () => {
             <p className="text-[10px] text-white/35 mt-0.5 truncate">{user?.name}</p>
           </NavLink>
           <p className="text-[8px] uppercase tracking-[0.2em] text-cyan-200/40 px-3 pt-2 pb-1">Journey</p>
-          {visibleNavItems.map(item => (
-            <NavLink key={item.to} to={item.to} end={item.exact}
-              onClick={() => setSidebarOpen(false)}
-              className={({ isActive }) => cn(
-                "flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm transition-all",
-                isActive ? "bg-[#D4AF37]/15 text-[#D4AF37]" : "text-white/60 hover:text-white hover:bg-white/5"
-              )}>
-              <item.icon size={16} />
-              <span>{item.label}</span>
-            </NavLink>
-          ))}
+          {visibleNavItems.map((item) => {
+            const to = item.hash ? { pathname: '/dashboard', hash: item.hash } : item.to;
+            return (
+              <NavLink
+                key={item.hash ? `dashboard#${item.hash}` : item.to}
+                to={to}
+                end={item.exact}
+                onClick={() => setSidebarOpen(false)}
+                className={() =>
+                  cn(
+                    'flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm transition-all',
+                    isDashboardNavActive(location, item)
+                      ? 'bg-[#D4AF37]/15 text-[#D4AF37]'
+                      : 'text-white/60 hover:text-white hover:bg-white/5'
+                  )
+                }
+              >
+                <item.icon size={16} />
+                <span>{item.label}</span>
+              </NavLink>
+            );
+          })}
 
           {dv.nav_roadmap && (
             <>
