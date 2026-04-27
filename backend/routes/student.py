@@ -2194,7 +2194,8 @@ async def get_student_home(user: dict = Depends(get_current_student_user)):
                 pass
     show_pin = False
     contact_only_pin = False
-    non_annual_contact_only = bool(settings_doc.get("dashboard_sacred_home_non_annual_contact_only", False))
+    # Only an explicit True in site_settings enables the wall; missing / false / null → Divine Cart for non-annual.
+    non_annual_contact_only = settings_doc.get("dashboard_sacred_home_non_annual_contact_only") is True
     if pin_annual_id:
         if annual_portal_access_effective:
             show_pin = True

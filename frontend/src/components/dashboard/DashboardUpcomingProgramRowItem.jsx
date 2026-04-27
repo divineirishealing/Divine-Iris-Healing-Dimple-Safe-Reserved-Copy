@@ -47,9 +47,9 @@ function SacredHomeContactInitiationColumn({ sacred }) {
 
   return (
     <div className="rounded-xl border border-teal-200/80 bg-gradient-to-b from-teal-50/90 to-white p-4 sm:p-5 shadow-sm w-full max-w-xl space-y-3">
-      <p className="text-[10px] font-bold uppercase tracking-wide text-teal-900">Home Coming · Annual path</p>
+      <p className="text-[10px] font-bold uppercase tracking-wide text-teal-900">Home Coming</p>
       <p className="text-sm text-slate-700 leading-relaxed">
-        You&apos;re viewing the annual program on Sacred Home before initiation. Use the button below to reach us — after initiation, member pricing and Divine Cart checkout unlock here.
+        Use <strong>1 Month</strong>, <strong>3 Months</strong>, or other tiers on the program card for dates and list pricing. If checkout is enabled for your account, Divine Cart appears below; otherwise use the button to reach us for initiation.
       </p>
       <a
         href={href}
@@ -507,6 +507,12 @@ export default function DashboardUpcomingProgramRowItem({
   const showContact = tierIsYearLong && price === 0 && !includedPkg;
   const sacred = p.sacred_home_display;
   const contactInitiationMode = Boolean(sacred?.contact_only);
+  /** Pinned Sacred Home product: always show 1 Month / 3 Months (etc.) tier chips so dates/pricing track the tier, even if checkout is still contact-only. */
+  const showSacredHomeTierPicker =
+    (!contactInitiationMode || p.dashboard_annual_product_pin) &&
+    hasTiers &&
+    enrollStatus === 'open' &&
+    tiers.length > 1;
 
   const annualFamilyClubIdentity = useMemo(
     () => buildAnnualFamilyClubIdentity(annualHouseholdPeers),
@@ -1105,7 +1111,7 @@ export default function DashboardUpcomingProgramRowItem({
                 )}
               </div>
               <p className="text-gray-500 text-xs leading-relaxed mb-2 line-clamp-3">{p.description}</p>
-              {!contactInitiationMode && hasTiers && enrollStatus === 'open' && tiers.length > 1 ? (
+              {showSacredHomeTierPicker ? (
                 <div data-testid={`dashboard-tier-selector-annual-${p.id}`} className="mb-3">
                   <p className="text-[9px] font-bold uppercase tracking-wide text-slate-500 mb-1.5">Duration / tier</p>
                   <div className={`grid ${tierGridClass} gap-1`}>
@@ -1989,7 +1995,7 @@ export default function DashboardUpcomingProgramRowItem({
           <div className="w-full min-w-0 flex-1">
             {contactInitiationMode ? (
               <p className="text-[10px] text-slate-500 text-center sm:text-right leading-snug py-2">
-                Checkout opens after you&apos;re initiated as an annual member.
+                Divine Cart opens when checkout is enabled for your membership, or after you&apos;re initiated as an annual member.
               </p>
             ) : enrollStatus === 'open' ? (
               <button
