@@ -1086,7 +1086,7 @@ export default function DashboardAccessTab() {
               {indiaTaxEnabled && (
                 <div className="grid grid-cols-2 gap-2 pl-1">
                   <div>
-                    <Label className="text-[10px] text-gray-500">Rate %</Label>
+                    <Label className="text-[10px] text-gray-500">Rate % (0 = no tax)</Label>
                     <Input
                       type="number"
                       min="0"
@@ -1307,7 +1307,7 @@ export default function DashboardAccessTab() {
               {bulkTaxEnabled && bulkApply.tax && (
                 <div className="grid grid-cols-2 gap-2 pl-1">
                   <div>
-                    <Label className="text-[10px] text-gray-500">Rate %</Label>
+                    <Label className="text-[10px] text-gray-500">Rate % (0 = no tax)</Label>
                     <Input
                       type="number"
                       min="0"

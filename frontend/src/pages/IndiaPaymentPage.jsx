@@ -99,10 +99,17 @@ const IndiaPaymentPage = () => {
     const altDisc = parseIndiaSitePercent(settings, 'india_alt_discount_percent', 9);
     const rule = resolveIndiaDiscountRule(clientTax || {}, participantCount, altDisc);
 
-    // Client-specific tax (GST on after-discount price)
+    // Client-specific tax (GST on after-discount price); 0% is valid (do not coerce with ||).
+    const siteGstN = parseIndiaSitePercent(settings, 'india_gst_percent', 18);
     const taxEnabled = clientTax ? !!clientTax.india_tax_enabled : true;
+    const rawC = clientTax?.india_tax_percent;
+    const cNum = Number(rawC);
     const gstPct = taxEnabled
-      ? (clientTax?.india_tax_enabled ? (clientTax.india_tax_percent ?? 18) : (settings.india_gst_percent || 18))
+      ? clientTax?.india_tax_enabled
+        ? rawC != null && rawC !== '' && Number.isFinite(cNum)
+          ? Math.max(0, Math.min(100, cNum))
+          : siteGstN
+        : siteGstN
       : 0;
     const taxLabel = clientTax?.india_tax_label || 'GST';
 

@@ -106,7 +106,7 @@ const PaymentSettingsTab = () => {
         manual_form_enabled: manualFormEnabled,
         india_exly_link: exlyLink,
         india_alt_discount_percent: parseFloat(altDiscountPct) || 9,
-        india_gst_percent: parseFloat(gstPct) || 18,
+        india_gst_percent: Math.max(0, Math.min(100, pctOr(gstPct, 18))),
         dashboard_annual_quote_show_tax: !!dashboardAnnualQuoteShowTax,
         india_platform_charge_percent: (() => {
           const p = parseFloat(platformPct);
@@ -297,7 +297,7 @@ const PaymentSettingsTab = () => {
           </div>
           <div>
             <label className="text-xs font-semibold text-gray-700 block mb-1">GST (%)</label>
-            <p className="text-[10px] text-gray-400 mb-1.5">On taxable amount</p>
+            <p className="text-[10px] text-gray-400 mb-1.5">On taxable amount. Use 0 for no tax.</p>
             <Input data-testid="india-gst-input" type="number" value={gstPct}
               onChange={e => setGstPct(e.target.value)} className="text-xs h-9" min={0} max={100} />
           </div>

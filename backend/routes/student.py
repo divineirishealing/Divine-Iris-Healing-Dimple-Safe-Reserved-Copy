@@ -337,6 +337,20 @@ def _add_months_subscription_end(date_str: str, months: int) -> str:
     return end.isoformat()
 
 
+def _site_gst_percent(settings_doc: dict) -> float:
+    """Site default GST for INR quotes; 0 is valid (do not use ``or 18``)."""
+    raw = (settings_doc or {}).get("india_gst_percent")
+    if raw is None:
+        return 18.0
+    try:
+        v = float(raw)
+    except (TypeError, ValueError):
+        return 18.0
+    if v != v:  # NaN
+        return 18.0
+    return v
+
+
 def _portal_included_in_annual_package(program: dict, inc_cfg, _sub: dict, client: dict) -> bool:
     """Prepaid annual-package inclusion: program on the configured list and effective annual portal access.
 
@@ -1764,7 +1778,7 @@ async def dashboard_quote(
     )
     peer_pkg_inc = max(0, int(peer_sel) - int(imm_peer)) if id_list else 0
     cur = str(pricing.get("currency") or "aed").lower()
-    gst_pct = float(settings_doc.get("india_gst_percent") or 18)
+    gst_pct = _site_gst_percent(settings_doc)
     tot = float(pricing.get("total") or 0)
     quote_show_tax = settings_doc.get("dashboard_annual_quote_show_tax", True)
     if quote_show_tax is None:
@@ -1835,7 +1849,7 @@ async def build_admin_dashboard_pricing_snapshot(
     ) or {}
     per_map = settings_doc.get("dashboard_program_offers") or {}
     inc_cfg = settings_doc.get("annual_package_included_program_ids")
-    gst_pct = float(settings_doc.get("india_gst_percent") or 18)
+    gst_pct = _site_gst_percent(settings_doc)
     qst = settings_doc.get("dashboard_annual_quote_show_tax", True)
     quote_show_tax = True if qst is None else bool(qst)
 

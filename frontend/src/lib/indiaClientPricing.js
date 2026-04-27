@@ -162,10 +162,16 @@ export function computeIndiaCheckoutBreakdown(effectiveBase, clientPricing, sett
   const discountLabel = rule.label;
 
   const taxEnabled = clientPricing ? !!cp.india_tax_enabled : true;
+  const rawClientTaxPct = cp.india_tax_percent;
+  const clientTaxNum = Number(rawClientTaxPct);
   const gstPct = !taxEnabled
     ? 0
     : cp.india_tax_enabled
-      ? Number(cp.india_tax_percent) || siteGstN
+      ? rawClientTaxPct != null &&
+          rawClientTaxPct !== '' &&
+          Number.isFinite(clientTaxNum)
+        ? Math.max(0, Math.min(100, clientTaxNum))
+        : siteGstN
       : siteGstN;
   const taxLabel = String(cp.india_tax_label || 'GST').trim() || 'GST';
 
