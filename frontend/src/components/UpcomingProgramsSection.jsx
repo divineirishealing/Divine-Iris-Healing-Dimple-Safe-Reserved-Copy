@@ -766,7 +766,7 @@ const UpcomingProgramsSection = ({ sectionConfig, inline }) => {
   };
 
   const content = (
-    <div className={inline ? "" : "max-w-7xl mx-auto"}>
+    <div className={inline ? '' : 'w-full'}>
       {inline ? (
         <>
           <div className="text-center mb-8">
@@ -904,9 +904,18 @@ const UpcomingProgramsSection = ({ sectionConfig, inline }) => {
       data-testid="upcoming-programs-section"
       data-section="upcoming-programs"
       aria-label="Upcoming programs"
-      className="py-6 sm:py-8"
+      className="w-full"
     >
-      <div className={inline ? '' : 'max-w-7xl mx-auto px-2 sm:px-3'}>{content}</div>
+      <div
+        className="rounded-[22px] border border-teal-200/80 bg-white/92 backdrop-blur-xl shadow-[0_4px_32px_rgba(20,120,140,0.08)] px-3 py-6 sm:px-5 sm:py-8 md:px-7 md:py-10"
+        data-overview-box="upcoming-program"
+        data-section-tag="upcoming-program"
+      >
+        <p className="text-center text-[10px] font-semibold tracking-wide text-teal-800 mb-3 sm:mb-4">
+          Upcoming program
+        </p>
+        <div className="max-w-7xl mx-auto w-full px-1 sm:px-0">{content}</div>
+      </div>
     </section>
   );
 };

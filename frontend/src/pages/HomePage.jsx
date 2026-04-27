@@ -160,18 +160,23 @@ function HomePage() {
         if (!Component) return null;
         const bg = sectionGradients[i];
         const isHero = sec.component === 'HeroSection';
-        const { eyebrow, variant, isDark } = homeSectionBoxMeta(sec);
+        const isUpcoming = sec.id === 'upcoming';
+        const boxMeta = isHero || isUpcoming ? null : homeSectionBoxMeta(sec);
 
         return (
           <div key={sec.id} style={bg ? { background: bg } : undefined}>
             {isHero ? (
               <Component sectionConfig={sec} />
+            ) : isUpcoming ? (
+              <div className="container mx-auto px-4 py-4 md:py-6" data-home-section={sec.id}>
+                <Component sectionConfig={sec} />
+              </div>
             ) : (
               <div className="container mx-auto px-4 py-4 md:py-6">
                 <HomeSectionBox
-                  eyebrow={eyebrow}
-                  variant={variant}
-                  isDark={isDark}
+                  eyebrow={boxMeta.eyebrow}
+                  variant={boxMeta.variant}
+                  isDark={boxMeta.isDark}
                   data-home-section={sec.id}
                 >
                   <Component sectionConfig={sec} />
