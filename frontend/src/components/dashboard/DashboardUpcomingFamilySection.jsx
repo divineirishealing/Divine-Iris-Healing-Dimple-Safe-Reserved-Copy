@@ -46,7 +46,6 @@ import {
   upcomingSessionStorageKey,
 } from '../../lib/dashboardUpcomingSessionStorage';
 import { getAuthHeaders } from '../../lib/authHeaders';
-import { formatDateDdMonYyyy } from '../../lib/utils';
 import DashboardUpcomingProgramRowItem from './DashboardUpcomingProgramRowItem';
 import { CrossSellBanner } from '../UpcomingProgramsSection';
 import { Button } from '../ui/button';
@@ -2090,26 +2089,6 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh, bo
       .catch(() => {});
   }, [loadEnrollmentPrefill]);
 
-  const overviewFin = homeData?.financials;
-  const overviewCurrency = overviewFin?.currency || 'INR';
-  const formatOverviewMoney = (n) => {
-    const v = Number(n);
-    if (overviewFin == null || Number.isNaN(v)) return '—';
-    try {
-      return new Intl.NumberFormat(undefined, {
-        style: 'currency',
-        currency: overviewCurrency,
-        maximumFractionDigits: 0,
-      }).format(v);
-    } catch {
-      return `${v.toLocaleString()} ${overviewCurrency}`;
-    }
-  };
-  const overviewNextDueLabel =
-    !overviewFin?.next_due || overviewFin.next_due === 'No pending dues'
-      ? 'No pending dues'
-      : formatDateDdMonYyyy(String(overviewFin.next_due).slice(0, 10)) || String(overviewFin.next_due);
-
   return (
     <section
       id="sacred-home-programs"
@@ -2118,54 +2097,7 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh, bo
       aria-labelledby="dashboard-upcoming-programs-heading"
       data-section="upcoming-programs"
     >
-      <div className="flex flex-col gap-4 md:gap-5 lg:flex-row lg:items-start lg:gap-5">
-        <nav
-          className="flex flex-row lg:flex-col gap-2 lg:gap-2 shrink-0 overflow-x-auto lg:overflow-visible w-full lg:w-44 xl:w-48 lg:sticky lg:top-20 self-start rounded-2xl border border-[rgba(160,100,220,0.2)] bg-white/65 backdrop-blur-xl px-2.5 py-2.5 lg:px-3 lg:py-3 shadow-[0_8px_28px_rgba(100,60,180,0.1)]"
-          aria-label="Sacred Home index"
-          data-testid="sacred-home-index-rail"
-        >
-          <p className="hidden lg:block text-[8px] font-semibold uppercase tracking-[0.16em] text-violet-800/60 px-1">
-            Quick index
-          </p>
-          <button
-            type="button"
-            className="text-left rounded-xl px-2.5 py-2 min-w-[7.5rem] lg:min-w-0 hover:bg-violet-100/55 transition-colors border border-transparent hover:border-violet-200/40 shrink-0"
-            onClick={() =>
-              document
-                .getElementById('sacred-home-programs-body')
-                ?.scrollIntoView({ behavior: 'smooth', block: 'start' })
-            }
-          >
-            <span className="text-[10px] font-semibold tracking-[0.12em] text-teal-800 uppercase">
-              Upcoming program
-            </span>
-            <span className="block text-[11px] text-slate-600 mt-1 leading-snug">
-              {upcomingList.length ? `${upcomingList.length} on your list` : 'Nothing listed yet'}
-            </span>
-          </button>
-          <button
-            type="button"
-            className="text-left rounded-xl px-2.5 py-2 min-w-[7.5rem] lg:min-w-0 hover:bg-violet-100/55 transition-colors border border-transparent hover:border-violet-200/40 shrink-0"
-            onClick={() => navigate('/dashboard/financials')}
-          >
-            <span className="text-[10px] font-semibold text-violet-900">Payments &amp; EMIs</span>
-            <span className="block text-[11px] text-slate-600 mt-1 leading-snug line-clamp-2">
-              {overviewFin?.status || '—'} · Next: {overviewNextDueLabel}
-            </span>
-          </button>
-          <button
-            type="button"
-            className="text-left rounded-xl px-2.5 py-2 min-w-[7.5rem] lg:min-w-0 hover:bg-violet-100/55 transition-colors border border-transparent hover:border-violet-200/40 shrink-0"
-            onClick={() => navigate('/dashboard/financials')}
-          >
-            <span className="text-[10px] font-semibold text-[#8b6914]">Program investment</span>
-            <span className="block text-[11px] text-slate-600 mt-1 tabular-nums">
-              Balance {formatOverviewMoney(overviewFin?.remaining)}
-            </span>
-          </button>
-        </nav>
-
-        <div className="min-w-0 flex-1 flex flex-col gap-4 md:gap-5">
+      <div className="flex flex-col gap-4 md:gap-5">
         <div
           id="sacred-home-programs-body"
           className="rounded-[28px] border border-[rgba(160,100,220,0.14)] bg-white/70 backdrop-blur-xl px-5 py-5 md:px-7 md:py-6 shadow-[0_4px_48px_rgba(140,60,220,0.08)]"
@@ -2596,7 +2528,6 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh, bo
           </div>
         </div>
         </div>
-      </div>
       </div>
 
       <Dialog

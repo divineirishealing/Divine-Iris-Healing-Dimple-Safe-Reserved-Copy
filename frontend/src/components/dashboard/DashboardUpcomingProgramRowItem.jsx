@@ -641,7 +641,6 @@ export default function DashboardUpcomingProgramRowItem({
   const [addingToCheckout, setAddingToCheckout] = useState(false);
   const [annualPricingOpen, setAnnualPricingOpen] = useState(true);
   const [annualFamilyOpen, setAnnualFamilyOpen] = useState(true);
-  const [annualAttendanceOpen, setAnnualAttendanceOpen] = useState(true);
 
   /** @returns {'synced' | 'removed' | 'noop' | 'noop_profile' | { kind: 'error', detail: string }} */
   const syncThisProgramToDivineCart = async () => {
@@ -1470,7 +1469,7 @@ export default function DashboardUpcomingProgramRowItem({
               : null}
             </div>
 
-            <div className="grid grid-cols-1 lg:grid-cols-[minmax(13rem,1fr)_minmax(13rem,1fr)] gap-3 lg:gap-x-3 items-start w-full min-w-0 flex-1 min-h-0">
+            <div className="flex flex-col gap-3 w-full min-w-0 flex-1 min-h-0">
               <div className="rounded-xl border border-amber-100/80 bg-amber-50/25 p-3 sm:p-4 min-h-0 flex flex-col min-w-[13rem] w-full">
               <button
                 type="button"
@@ -1700,24 +1699,8 @@ export default function DashboardUpcomingProgramRowItem({
               ) : null}
               </div>
 
-            {/* Attendance & notification — column beside family; shell matches Pricing & offer */}
-            <div className="rounded-xl border border-slate-200 bg-white p-3 sm:p-4 shadow-sm min-h-0 flex flex-col min-w-[13rem] w-full">
-              <button
-                type="button"
-                className="w-full flex items-center justify-between gap-2 text-left rounded-lg outline-none focus-visible:ring-2 focus-visible:ring-[#D4AF37]/40"
-                onClick={() => setAnnualAttendanceOpen((o) => !o)}
-                aria-expanded={annualAttendanceOpen}
-              >
-                <span className="text-[9px] sm:text-[10px] font-bold tracking-tight text-slate-600 whitespace-nowrap">
-                  Attendance &amp; notification
-                </span>
-                <ChevronDown
-                  className={`h-4 w-4 text-slate-500 shrink-0 transition-transform ${annualAttendanceOpen ? '' : '-rotate-90'}`}
-                  aria-hidden
-                />
-              </button>
-              {annualAttendanceOpen ? (
-                <div className="flex flex-col gap-2 w-full min-w-0 pt-2">
+            {/* Attendance & notification — full width below family (stacked layout) */}
+            <div className="rounded-xl border border-slate-200 bg-white p-3 sm:p-4 shadow-sm min-h-0 flex flex-col w-full min-w-0">
                 {annualSeatUi && (!includedPkg || selCount >= 1) ? (
                   <div
                     className="w-full rounded-lg border border-slate-200 bg-white px-2.5 py-2"
@@ -1857,8 +1840,6 @@ export default function DashboardUpcomingProgramRowItem({
                 </div>
               </div>
             ) : null}
-                </div>
-              ) : null}
             </div>
 
             </div>
