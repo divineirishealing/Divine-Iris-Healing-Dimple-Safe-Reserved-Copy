@@ -22,6 +22,50 @@ const DURATION_UNITS = ['months', 'sessions'];
 /** Catalog + subscriber add-on preset for Home Coming (Circle). */
 const HOME_COMING_PROGRAM_NAME = 'Home Coming Circle';
 
+/** Standard list amounts from Admin → Home Coming (Sacred Home); keys may be lowercase in API. */
+function sacredHomeStandardTotals(siteSettings) {
+  const raw = siteSettings?.dashboard_sacred_home_standard_prices || {};
+  const pick = (k) => {
+    const v = raw[k] ?? raw[String(k).toUpperCase()];
+    if (v == null || v === '') return null;
+    const n = Number(v);
+    return Number.isFinite(n) && n > 0 ? n : null;
+  };
+  return { INR: pick('inr'), USD: pick('usd'), AED: pick('aed') };
+}
+
+function sacredHomePinnedTitleAndId(siteSettings, programs) {
+  const id = String(siteSettings?.dashboard_sacred_home_annual_program_id || '').trim();
+  if (!id) return { programId: '', title: null };
+  const p = (programs || []).find((x) => String(x?.id) === id);
+  const title = (p?.title || '').trim() || null;
+  return { programId: id, title };
+}
+
+/** One catalog line: 12 mo, per-month = annual list / 12 when Sacred Home totals exist. */
+function buildHomeComingLineFromSacredHome(siteSettings, programs) {
+  const { programId, title } = sacredHomePinnedTitleAndId(siteSettings, programs);
+  const totals = sacredHomeStandardTotals(siteSettings);
+  const months = 12;
+  const price_per_unit = {};
+  const offer_per_unit = {};
+  (['INR', 'USD', 'AED']).forEach((cur) => {
+    const total = totals[cur];
+    if (total == null) return;
+    const per = total / months;
+    price_per_unit[cur] = per;
+    offer_per_unit[cur] = per;
+  });
+  return {
+    name: title || HOME_COMING_PROGRAM_NAME,
+    program_id: programId,
+    duration_value: months,
+    duration_unit: 'months',
+    price_per_unit,
+    offer_per_unit,
+  };
+}
+
 const SUBSCRIBERS_SHEET_COLS = [
   { id: 'name', label: 'Name', required: true },
   { id: 'email', label: 'Email' },
@@ -103,7 +147,7 @@ const NumInput = ({ value, onChange, className = '', bold = false }) => (
   />
 );
 
-const PackageEditor = ({ pkg, onSave, saving, onDelete, onNewVersion }) => {
+const PackageEditor = ({ pkg, onSave, saving, onDelete, onNewVersion, siteSettings, programs = [] }) => {
   const [c, setC] = useState(pkg);
   const [progName, setProgName] = useState('');
   const [progVal, setProgVal] = useState(12);
@@ -146,11 +190,30 @@ const PackageEditor = ({ pkg, onSave, saving, onDelete, onNewVersion }) => {
       toastPkg({ title: 'Home Coming is already in this package row' });
       return;
     }
-    set('included_programs', [...(c.included_programs || []), {
-      name: HOME_COMING_PROGRAM_NAME, program_id: '', duration_value: 12, duration_unit: 'months', price_per_unit: {}, offer_per_unit: {},
-    }]);
-    toastPkg({ title: `${HOME_COMING_PROGRAM_NAME} added to catalog` });
+    const line = siteSettings
+      ? buildHomeComingLineFromSacredHome(siteSettings, programs)
+      : {
+          name: HOME_COMING_PROGRAM_NAME,
+          program_id: '',
+          duration_value: 12,
+          duration_unit: 'months',
+          price_per_unit: {},
+          offer_per_unit: {},
+        };
+    const hasPulled = !!(line.price_per_unit?.INR || line.price_per_unit?.USD || line.price_per_unit?.AED);
+    set('included_programs', [...(c.included_programs || []), line]);
+    toastPkg({
+      title: hasPulled ? `${line.name} added — list prices from Sacred Home (per month × 12)` : `${line.name} added — set Sacred Home tab prices to pull INR/USD/AED`,
+    });
   };
+
+  const sacredTotals = sacredHomeStandardTotals(siteSettings);
+  const { programId: sacredPinId, title: sacredPinTitle } = sacredHomePinnedTitleAndId(siteSettings, programs);
+  const sacredHomeRefParts = ['INR', 'USD', 'AED']
+    .map((cur) => (sacredTotals[cur] != null ? `${cur} ${sacredTotals[cur].toLocaleString()}` : null))
+    .filter(Boolean);
+  const showSacredHomeReferenceRow = Boolean(siteSettings && (sacredPinId || sacredHomeRefParts.length > 0));
+  const sacredRefLabel = sacredPinTitle || HOME_COMING_PROGRAM_NAME;
   const removeProg = (idx) => { if (!locked) set('included_programs', c.included_programs.filter((_, i) => i !== idx)); };
   const toggleLock = () => setC(prev => ({ ...prev, is_locked: !prev.is_locked }));
 
@@ -260,6 +323,21 @@ const PackageEditor = ({ pkg, onSave, saving, onDelete, onNewVersion }) => {
             </tr>
           </thead>
           <tbody>
+            {showSacredHomeReferenceRow && (
+              <tr className="border-b border-teal-200/80 bg-teal-50/40 text-[9px]">
+                <td className="px-2 py-1 align-middle" colSpan={3}>
+                  <span className="font-semibold text-teal-950">{sacredRefLabel}</span>
+                  <span className="text-teal-700 font-normal"> · Sacred Home list (annual)</span>
+                  <span className="block text-[8px] text-teal-800/80 font-normal mt-0.5">
+                    Same source as the student upcoming card; &quot;Home Coming&quot; below copies these into editable cells (÷12 per month).
+                  </span>
+                </td>
+                <td className="px-1 py-1 align-middle text-right font-mono text-teal-900" colSpan={5 + (showIntl ? 4 : 0)}>
+                  {sacredHomeRefParts.length > 0 ? sacredHomeRefParts.join(' · ') : '—'}
+                </td>
+                <td className="w-4 p-0 bg-teal-50/20" aria-hidden />
+              </tr>
+            )}
             {(c.included_programs || []).map((p, i) => (
               <tr key={i} className="border-t hover:bg-gray-50/50">
                 <td className="px-2 py-0.5"><Input value={p.name} onChange={e => updateProg(i, 'name', e.target.value)} className="h-6 text-[10px] border-0 bg-transparent px-0" disabled={locked} /></td>
@@ -359,7 +437,7 @@ const PackageEditor = ({ pkg, onSave, saving, onDelete, onNewVersion }) => {
             <NumInput value={progVal} onChange={v => setProgVal(v)} className="w-10" />
             <select value={progUnit} onChange={e => setProgUnit(e.target.value)} className="h-7 text-[8px] border rounded px-0.5">{DURATION_UNITS.map(u => <option key={u} value={u}>{u === 'months' ? 'mo' : 'ss'}</option>)}</select>
             <Button size="sm" variant="outline" onClick={addProg} className="h-6 px-1.5" title="Add custom program line"><Plus size={9} /></Button>
-            <Button size="sm" variant="outline" onClick={addHomeComingToCatalog} className="h-6 px-1.5 text-[8px] whitespace-nowrap border-[#5D3FD3]/40 text-[#5D3FD3]" title="Add Home Coming Circle (12 mo)">
+            <Button size="sm" variant="outline" onClick={addHomeComingToCatalog} className="h-6 px-1.5 text-[8px] whitespace-nowrap border-[#5D3FD3]/40 text-[#5D3FD3]" title="Add row from Sacred Home list prices (Admin → Home Coming), or blank line">
               Home Coming
             </Button>
           </div>
@@ -1361,7 +1439,7 @@ const SubscriberRow = ({ s, onRefresh, onEdit, irisCatalog = [], packages = [], 
 
 /* ═══ MAIN TAB ═══ */
 /** @param {{ openManualFormOnMount?: boolean }} props — when true (e.g. Dashboard shortcut), open the manual add form on first mount */
-const SubscribersTab = ({ openManualFormOnMount = false }) => {
+const SubscribersTab = ({ openManualFormOnMount = false, siteSettings = null, programs = [] }) => {
   const { toast } = useToast();
   const [subscribers, setSubscribers] = useState([]);
   const [packages, setPackages] = useState([]);
@@ -1631,7 +1709,16 @@ const SubscribersTab = ({ openManualFormOnMount = false }) => {
               <strong className="text-gray-800">Standard package (catalog):</strong> one set of programs and list prices for everyone. Use <strong>Valid from / Valid to</strong> + <strong>New Ver</strong> when list prices or default tax/discount change. Each subscriber can still have their own <strong>individual discount %</strong> and <strong>individual tax %</strong> on their record (admin form / Excel).
             </p>
             {packages.map(pkg => (
-              <PackageEditor key={pkg.package_id} pkg={pkg} onSave={handleSavePkg} saving={savingPkg} onDelete={packages.length > 1 ? handleDeletePkg : null} onNewVersion={handleNewVersion} />
+              <PackageEditor
+                key={pkg.package_id}
+                pkg={pkg}
+                onSave={handleSavePkg}
+                saving={savingPkg}
+                onDelete={packages.length > 1 ? handleDeletePkg : null}
+                onNewVersion={handleNewVersion}
+                siteSettings={siteSettings}
+                programs={programs}
+              />
             ))}
             <div className="flex gap-2 items-end">
               <Input value={newPkgName} onChange={e => setNewPkgName(e.target.value)} placeholder="New package name..." className="h-8 text-sm w-64" onKeyDown={e => e.key === 'Enter' && handleCreatePkg()} />
