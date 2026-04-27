@@ -132,7 +132,7 @@ async def list_packages():
             package_name="Home Coming",
             valid_from="",
             valid_to="",
-            tax_rates={"INR": 0.18, "AED": 0.05, "USD": 0},
+            tax_rates={"INR": 0, "AED": 0, "USD": 0},
             offer_total={},
             included_programs=[
                 IncludedProgram(name="AWRP", duration_value=12, duration_unit="months"),

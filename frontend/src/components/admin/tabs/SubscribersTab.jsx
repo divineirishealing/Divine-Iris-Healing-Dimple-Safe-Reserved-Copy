@@ -76,7 +76,8 @@ function normalizePaymentDestinations(pd) {
 }
 
 /* ═══ PACKAGE PRICING (one standard offer; new row per validity / tax / discount change) ═══ */
-const DEFAULT_TAX_DECIMAL = { INR: 0.18, AED: 0.05, USD: 0 };
+/** Catalog fallback when a currency has no explicit tax_rates entry — 0 = no tax (set per currency in the row above). */
+const DEFAULT_TAX_DECIMAL = { INR: 0, AED: 0, USD: 0 };
 
 export function packageTaxDecimal(pkg, currency) {
   const cur = currency || 'INR';
@@ -158,7 +159,8 @@ const PackageEditor = ({ pkg, onSave, saving, onDelete, onNewVersion }) => {
   const setTaxPct = (cur, pctStr) => {
     if (locked) return;
     const pct = parseFloat(pctStr);
-    const dec = Number.isFinite(pct) ? Math.max(0, Math.min(100, pct)) / 100 : DEFAULT_TAX_DECIMAL[cur] ?? 0;
+    // Empty / invalid while typing must not snap back to non-zero defaults; treat as 0%.
+    const dec = Number.isFinite(pct) ? Math.max(0, Math.min(100, pct)) / 100 : 0;
     setC((prev) => ({ ...prev, tax_rates: { ...(prev.tax_rates || {}), [cur]: dec } }));
   };
 
@@ -314,6 +316,7 @@ const PackageEditor = ({ pkg, onSave, saving, onDelete, onNewVersion }) => {
 
         <div className="border-t pt-3 space-y-2">
           <p className="text-[10px] font-semibold text-gray-700 uppercase tracking-wide">Tax %</p>
+          <p className="text-[9px] text-gray-500 leading-snug">0 = no tax on this package for that currency. Save after editing.</p>
           <div className="grid grid-cols-3 gap-2">
             <div>
               <Label className="text-[9px] text-gray-500">INR</Label>
