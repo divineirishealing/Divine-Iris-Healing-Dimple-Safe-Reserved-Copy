@@ -672,9 +672,7 @@ const AdminPanel = () => {
               }}
             />
           )}
-          {activeTab === 'subscribers_crm' && (
-            <SubscribersTab siteSettings={siteSettings} programs={programs} />
-          )}
+          {activeTab === 'subscribers_crm' && <SubscribersTab />}
           {activeTab === 'scheduler' && <SchedulerTab />}
 
           {/* ===== SUBSCRIBERS TAB ===== */}

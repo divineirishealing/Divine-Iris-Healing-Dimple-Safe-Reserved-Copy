@@ -232,8 +232,8 @@ def _merged_preferred_india_ids(sub: dict, client: dict) -> Tuple[str, str]:
 _HOME_COMING_INCLUDES: List[Dict[str, str]] = [
     {"id": "awrp", "short": "AWRP", "summary": "12 months · Atomic Weight Release Program"},
     {"id": "mmm", "short": "MMM", "summary": "6 months · Money Magic Multiplier"},
-    {"id": "turbo", "short": "Quarterly releases", "summary": "4 Turbo / quarterly sessions"},
-    {"id": "meta", "short": "Bi-annual downloads", "summary": "2 Meta / bi-annual sessions"},
+    {"id": "turbo", "short": "Turbo Release", "summary": "4 Turbo Release sessions"},
+    {"id": "meta", "short": "Meta Downloads", "summary": "2 Meta Downloads sessions"},
 ]
 
 

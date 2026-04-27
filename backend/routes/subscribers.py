@@ -126,23 +126,20 @@ async def list_packages():
     """List all annual packages."""
     packages = await db.annual_packages.find({}, {"_id": 0}).to_list(100)
     if not packages:
-        # Seed a default package
+        # Seed single Home Coming bundle — line items are fixed; use offer_total + tax for catalog price.
         default = AnnualPackage(
-            package_id="PKG-STANDARD",
-            package_name="Standard Annual",
-            valid_from="2026-04-01",
-            valid_to="2027-03-31",
+            package_id="PKG-HOME-COMING",
+            package_name="Home Coming",
+            valid_from="",
+            valid_to="",
             tax_rates={"INR": 0.18, "AED": 0.05, "USD": 0},
+            offer_total={},
             included_programs=[
-                IncludedProgram(name="AWRP", duration_value=12, duration_unit="months",
-                    price_per_unit={"INR": 90000, "USD": 1800, "AED": 4500},
-                    offer_per_unit={"INR": 45000, "USD": 900, "AED": 2250}),
-                IncludedProgram(name="Money Magic Multiplier", duration_value=6, duration_unit="months",
-                    price_per_unit={"INR": 20000, "USD": 325, "AED": 1200},
-                    offer_per_unit={"INR": 10000, "USD": 163, "AED": 600}),
-                IncludedProgram(name="Bi-Annual Downloads", duration_value=2, duration_unit="sessions"),
-                IncludedProgram(name="Quarterly Meetups", duration_value=4, duration_unit="sessions"),
-            ]
+                IncludedProgram(name="AWRP", duration_value=12, duration_unit="months"),
+                IncludedProgram(name="Money Magic Multiplier", duration_value=6, duration_unit="months"),
+                IncludedProgram(name="Turbo Release", duration_value=4, duration_unit="sessions"),
+                IncludedProgram(name="Meta Downloads", duration_value=2, duration_unit="sessions"),
+            ],
         ).dict()
         default["created_at"] = datetime.now(timezone.utc).isoformat()
         await db.annual_packages.insert_one(default)
@@ -287,7 +284,7 @@ async def update_pricing_config(data: AnnualPackage):
         if existing:
             pkg_id = existing["package_id"]
         else:
-            pkg_id = "PKG-STANDARD"
+            pkg_id = "PKG-HOME-COMING"
     update = data.dict()
     update["package_id"] = pkg_id
     update["included_programs"] = [p.dict() for p in data.included_programs]

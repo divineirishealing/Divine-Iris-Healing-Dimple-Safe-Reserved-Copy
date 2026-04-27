@@ -18,52 +18,34 @@ const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 const BACKEND_ORIGIN = process.env.REACT_APP_BACKEND_URL || '';
 const CURRENCIES = ['INR', 'USD', 'AED'];
 const MODE_OPTIONS = ['EMI', 'No EMI', 'Full Paid'];
-const DURATION_UNITS = ['months', 'sessions'];
 /** Catalog + subscriber add-on preset for Home Coming (Circle). */
 const HOME_COMING_PROGRAM_NAME = 'Home Coming Circle';
 
-/** Standard list amounts from Admin → Home Coming (Sacred Home); keys may be lowercase in API. */
-function sacredHomeStandardTotals(siteSettings) {
-  const raw = siteSettings?.dashboard_sacred_home_standard_prices || {};
-  const pick = (k) => {
-    const v = raw[k] ?? raw[String(k).toUpperCase()];
-    if (v == null || v === '') return null;
-    const n = Number(v);
-    return Number.isFinite(n) && n > 0 ? n : null;
-  };
-  return { INR: pick('inr'), USD: pick('usd'), AED: pick('aed') };
-}
-
-function sacredHomePinnedTitleAndId(siteSettings, programs) {
-  const id = String(siteSettings?.dashboard_sacred_home_annual_program_id || '').trim();
-  if (!id) return { programId: '', title: null };
-  const p = (programs || []).find((x) => String(x?.id) === id);
-  const title = (p?.title || '').trim() || null;
-  return { programId: id, title };
-}
-
-/** One catalog line: 12 mo, per-month = annual list / 12 when Sacred Home totals exist. */
-function buildHomeComingLineFromSacredHome(siteSettings, programs) {
-  const { programId, title } = sacredHomePinnedTitleAndId(siteSettings, programs);
-  const totals = sacredHomeStandardTotals(siteSettings);
-  const months = 12;
-  const price_per_unit = {};
-  const offer_per_unit = {};
-  (['INR', 'USD', 'AED']).forEach((cur) => {
-    const total = totals[cur];
-    if (total == null) return;
-    const per = total / months;
-    price_per_unit[cur] = per;
-    offer_per_unit[cur] = per;
+/** Single Home Coming bundle: fixed program rows; pricing is package offer_total + tax. */
+function mergeHomeComingIncludedPrograms(fromDb) {
+  const list = Array.isArray(fromDb) ? fromDb : [];
+  const lower = (s) => String(s || '').toLowerCase();
+  const findLegacy = (pred) => list.find((p) => pred(lower(p.name || '')));
+  const legacyAwrp = findLegacy((n) => n.includes('awrp'));
+  const legacyMmm = findLegacy((n) => n.includes('money magic') || n.includes('mmm'));
+  const legacyTurbo = findLegacy((n) => n.includes('turbo') || n.includes('quarter') || n.includes('meetup'));
+  const legacyMeta = findLegacy(
+    (n) => n.includes('meta') || n.includes('bi-annual') || (n.includes('download') && !n.includes('turbo'))
+  );
+  const row = (name, duration_value, duration_unit, leg) => ({
+    name,
+    program_id: leg?.program_id || '',
+    duration_value,
+    duration_unit,
+    price_per_unit: {},
+    offer_per_unit: {},
   });
-  return {
-    name: title || HOME_COMING_PROGRAM_NAME,
-    program_id: programId,
-    duration_value: months,
-    duration_unit: 'months',
-    price_per_unit,
-    offer_per_unit,
-  };
+  return [
+    row('AWRP', 12, 'months', legacyAwrp),
+    row('Money Magic Multiplier', 6, 'months', legacyMmm),
+    row('Turbo Release', 4, 'sessions', legacyTurbo),
+    row('Meta Downloads', 2, 'sessions', legacyMeta),
+  ];
 }
 
 const SUBSCRIBERS_SHEET_COLS = [
@@ -147,305 +129,196 @@ const NumInput = ({ value, onChange, className = '', bold = false }) => (
   />
 );
 
-const PackageEditor = ({ pkg, onSave, saving, onDelete, onNewVersion, siteSettings, programs = [] }) => {
-  const [c, setC] = useState(pkg);
-  const [progName, setProgName] = useState('');
-  const [progVal, setProgVal] = useState(12);
-  const [progUnit, setProgUnit] = useState('months');
-  const [showIntl, setShowIntl] = useState(false);
+const PackageEditor = ({ pkg, onSave, saving, onDelete, onNewVersion }) => {
+  const [c, setC] = useState(() => ({
+    ...pkg,
+    included_programs: mergeHomeComingIncludedPrograms(pkg.included_programs),
+  }));
   const [stats, setStats] = useState(null);
-  const { toast: toastPkg } = useToast();
 
-  useEffect(() => { setC(pkg); }, [pkg]);
+  useEffect(() => {
+    setC({
+      ...pkg,
+      included_programs: mergeHomeComingIncludedPrograms(pkg.included_programs),
+    });
+  }, [pkg]);
+
   useEffect(() => {
     if (pkg.package_id) {
-      axios.get(`${API}/admin/subscribers/packages/${pkg.package_id}/stats`).then(r => setStats(r.data)).catch(() => {});
+      axios.get(`${API}/admin/subscribers/packages/${pkg.package_id}/stats`).then((r) => setStats(r.data)).catch(() => {});
     }
   }, [pkg.package_id]);
 
   const locked = c.is_locked;
-  const set = (k, v) => { if (!locked) setC(prev => ({ ...prev, [k]: v })); };
-  const updateProg = (idx, field, val) => {
-    if (locked) return;
-    const progs = [...(c.included_programs || [])];
-    progs[idx] = { ...progs[idx], [field]: field === 'duration_value' ? parseInt(val) || 0 : val };
-    set('included_programs', progs);
+  const set = (k, v) => {
+    if (!locked) setC((prev) => ({ ...prev, [k]: v }));
   };
-  const updateProgPrice = (idx, priceField, cur, val) => {
-    if (locked) return;
-    const progs = [...(c.included_programs || [])];
-    const existing = progs[idx][priceField] || {};
-    progs[idx] = { ...progs[idx], [priceField]: { ...existing, [cur]: parseFloat(val) || 0 } };
-    set('included_programs', progs);
-  };
-  const addProg = () => {
-    if (locked || !progName.trim()) return;
-    set('included_programs', [...(c.included_programs || []), { name: progName.trim(), program_id: '', duration_value: parseInt(progVal) || 1, duration_unit: progUnit, price_per_unit: {}, offer_per_unit: {} }]);
-    setProgName('');
-  };
-  const addHomeComingToCatalog = () => {
-    if (locked) return;
-    const exists = (c.included_programs || []).some((p) => (p.name || '').toLowerCase().includes('home coming'));
-    if (exists) {
-      toastPkg({ title: 'Home Coming is already in this package row' });
-      return;
-    }
-    const line = siteSettings
-      ? buildHomeComingLineFromSacredHome(siteSettings, programs)
-      : {
-          name: HOME_COMING_PROGRAM_NAME,
-          program_id: '',
-          duration_value: 12,
-          duration_unit: 'months',
-          price_per_unit: {},
-          offer_per_unit: {},
-        };
-    const hasPulled = !!(line.price_per_unit?.INR || line.price_per_unit?.USD || line.price_per_unit?.AED);
-    set('included_programs', [...(c.included_programs || []), line]);
-    toastPkg({
-      title: hasPulled ? `${line.name} added — list prices from Sacred Home (per month × 12)` : `${line.name} added — set Sacred Home tab prices to pull INR/USD/AED`,
-    });
-  };
+  const toggleLock = () => setC((prev) => ({ ...prev, is_locked: !prev.is_locked }));
 
-  const sacredTotals = sacredHomeStandardTotals(siteSettings);
-  const { programId: sacredPinId, title: sacredPinTitle } = sacredHomePinnedTitleAndId(siteSettings, programs);
-  const sacredHomeRefParts = ['INR', 'USD', 'AED']
-    .map((cur) => (sacredTotals[cur] != null ? `${cur} ${sacredTotals[cur].toLocaleString()}` : null))
-    .filter(Boolean);
-  const showSacredHomeReferenceRow = Boolean(siteSettings && (sacredPinId || sacredHomeRefParts.length > 0));
-  const sacredRefLabel = sacredPinTitle || HOME_COMING_PROGRAM_NAME;
-  const removeProg = (idx) => { if (!locked) set('included_programs', c.included_programs.filter((_, i) => i !== idx)); };
-  const toggleLock = () => setC(prev => ({ ...prev, is_locked: !prev.is_locked }));
-
-  // Calculations
-  const getTotal = (p, cur) => (p.price_per_unit?.[cur] || 0) * (p.duration_value || 0);
-  const getOfferTotal = (p, cur) => (p.offer_per_unit?.[cur] || 0) * (p.duration_value || 0);
-  const getDisc = (p, cur) => { const t = getTotal(p, cur), o = getOfferTotal(p, cur); return t > 0 && o > 0 ? Math.round(((t - o) / t) * 100) : 0; };
-  const sumTotal = (cur) => (c.included_programs || []).reduce((s, p) => s + getTotal(p, cur), 0);
-  const sumOffer = (cur) => (c.included_programs || []).reduce((s, p) => s + getOfferTotal(p, cur), 0);
-  const addlDisc = c.additional_discount_pct || 0;
-  const afterDisc = (cur) => { const o = sumOffer(cur); return o - (o * addlDisc / 100); };
-  const getTax = (cur) => afterDisc(cur) * packageTaxDecimal(c, cur);
-  const getFinal = (cur) => afterDisc(cur) + getTax(cur);
   const setTaxPct = (cur, pctStr) => {
     if (locked) return;
     const pct = parseFloat(pctStr);
     const dec = Number.isFinite(pct) ? Math.max(0, Math.min(100, pct)) / 100 : DEFAULT_TAX_DECIMAL[cur] ?? 0;
-    setC(prev => ({ ...prev, tax_rates: { ...(prev.tax_rates || {}), [cur]: dec } }));
+    setC((prev) => ({ ...prev, tax_rates: { ...(prev.tax_rates || {}), [cur]: dec } }));
   };
-  // Use offer_total override if set, otherwise calculated
-  const displayFinal = (cur) => (c.offer_total?.[cur] > 0 ? c.offer_total[cur] : getFinal(cur));
-  const setOfferTotal = (cur, v) => setC(prev => ({ ...prev, offer_total: { ...(prev.offer_total || {}), [cur]: parseFloat(v) || 0 } }));
+
+  const setOfferTotal = (cur, v) =>
+    setC((prev) => ({ ...prev, offer_total: { ...(prev.offer_total || {}), [cur]: parseFloat(v) || 0 } }));
+
+  const handleSave = () => {
+    onSave({
+      ...c,
+      package_name: c.package_name || 'Home Coming',
+      included_programs: mergeHomeComingIncludedPrograms(c.included_programs),
+    });
+  };
+
+  const unitLabel = (u) => (u === 'months' ? 'mo' : 'sessions');
 
   return (
     <div className={`border rounded-xl shadow-sm overflow-hidden ${locked ? 'ring-2 ring-amber-300' : ''}`} data-testid={`package-${c.package_id}`}>
-      {/* Header */}
-      <div className={`px-4 py-2 flex items-center justify-between border-b ${locked ? 'bg-amber-50' : 'bg-gradient-to-r from-purple-50 to-amber-50'}`}>
+      <div className={`px-4 py-3 flex flex-wrap items-center justify-between gap-2 border-b ${locked ? 'bg-amber-50' : 'bg-gradient-to-r from-purple-50 to-amber-50'}`}>
         <div className="flex items-center gap-2 flex-1 min-w-0">
-          <span className="text-[9px] font-mono bg-[#5D3FD3] text-white px-2 py-0.5 rounded shrink-0">{c.package_id}</span>
-          {locked ? (
-            <span className="text-sm font-semibold text-gray-700 truncate">{c.package_name}</span>
-          ) : (
-            <Input value={c.package_name} onChange={e => set('package_name', e.target.value)} className="h-7 text-sm font-semibold border-0 bg-transparent w-40 px-1" />
-          )}
+          <span className="text-[10px] font-mono bg-[#5D3FD3] text-white px-2 py-0.5 rounded shrink-0">{c.package_id}</span>
+          <span className="text-sm font-semibold text-gray-800">Home Coming</span>
           {c.version > 1 && <span className="text-[8px] bg-gray-200 px-1.5 py-0.5 rounded">v{c.version}</span>}
-          {c.valid_from && <span className="text-[8px] text-gray-400 shrink-0">{c.valid_from} → {c.valid_to}</span>}
           {locked && <span className="text-[8px] bg-amber-200 text-amber-800 px-1.5 py-0.5 rounded font-bold">LOCKED</span>}
         </div>
         <div className="flex gap-1 shrink-0">
-          <Button size="sm" variant="outline" onClick={toggleLock} className={`h-6 text-[9px] px-2 ${locked ? 'border-amber-300 text-amber-700' : ''}`} data-testid={`lock-pkg-${c.package_id}`}>
+          <Button size="sm" variant="outline" onClick={toggleLock} className={`h-7 text-[10px] px-2 ${locked ? 'border-amber-300 text-amber-700' : ''}`} data-testid={`lock-pkg-${c.package_id}`}>
             {locked ? 'Unlock' : 'Lock'}
           </Button>
-          {onNewVersion && <Button size="sm" variant="outline" onClick={() => onNewVersion(c.package_id)} className="h-6 text-[9px] px-2">New Ver</Button>}
-          {onDelete && <Button size="sm" variant="outline" onClick={() => onDelete(c.package_id)} className="h-6 text-[9px] px-2 text-red-500 border-red-200"><Trash2 size={9} /></Button>}
-          <Button size="sm" onClick={() => onSave(c)} disabled={saving} className="bg-[#5D3FD3] hover:bg-[#4c32b3] h-6 text-[9px] px-2" data-testid={`save-pkg-${c.package_id}`}>
-            <Save size={9} className="mr-1" /> Save
+          {onNewVersion && (
+            <Button size="sm" variant="outline" onClick={() => onNewVersion(c.package_id)} className="h-7 text-[10px] px-2">
+              New Ver
+            </Button>
+          )}
+          {onDelete && (
+            <Button size="sm" variant="outline" onClick={() => onDelete(c.package_id)} className="h-7 text-[10px] px-2 text-red-500 border-red-200">
+              <Trash2 size={10} />
+            </Button>
+          )}
+          <Button size="sm" onClick={handleSave} disabled={saving} className="bg-[#5D3FD3] hover:bg-[#4c32b3] h-7 text-[10px] px-2" data-testid={`save-pkg-${c.package_id}`}>
+            <Save size={10} className="mr-1" /> Save
           </Button>
         </div>
       </div>
 
-      {/* Stats Row */}
       {stats && (
-        <div className="px-4 py-1.5 bg-gray-50 border-b flex gap-4 text-[9px]">
-          <span className="text-gray-500">People: <strong className="text-gray-800">{stats.total_people}</strong></span>
-          <span className="text-green-600">Received: <strong>{stats.total_received.toLocaleString()}</strong></span>
-          <span className="text-red-600">Due: <strong>{stats.total_due.toLocaleString()}</strong></span>
-          <span className="text-blue-600">On EMI: <strong>{stats.emi_count}</strong></span>
-          <span className="text-green-600">EMI Rcvd: <strong>{stats.emi_received.toLocaleString()}</strong></span>
-          <span className="text-red-600">EMI Due: <strong>{stats.emi_due.toLocaleString()}</strong></span>
+        <div className="px-4 py-2 bg-gray-50 border-b flex flex-wrap gap-4 text-[10px]">
+          <span className="text-gray-600">
+            People: <strong className="text-gray-900">{stats.total_people}</strong>
+          </span>
+          <span className="text-green-600">
+            Received: <strong>{stats.total_received.toLocaleString()}</strong>
+          </span>
+          <span className="text-red-600">
+            Due: <strong>{stats.total_due.toLocaleString()}</strong>
+          </span>
+          <span className="text-blue-600">
+            On EMI: <strong>{stats.emi_count}</strong>
+          </span>
         </div>
       )}
 
-      {/* Config Row — validity + discount define this pricing row for the standard annual offer */}
-      <div className="px-3 py-1.5 grid grid-cols-2 sm:grid-cols-4 md:grid-cols-8 gap-2 bg-gray-50/50 border-b text-[9px]">
-        <div><Label className="text-[8px]">Duration (mo)</Label><NumInput value={c.duration_months} onChange={v => set('duration_months', parseInt(v) || 12)} /></div>
-        <div><Label className="text-[8px]">Valid from</Label><Input type="date" value={c.valid_from || ''} onChange={e => set('valid_from', e.target.value)} className="h-7 text-xs" disabled={locked} title="Subscribers with start date in this window should use this package row" /></div>
-        <div><Label className="text-[8px]">Valid to</Label><Input type="date" value={c.valid_to || ''} onChange={e => set('valid_to', e.target.value)} className="h-7 text-xs" disabled={locked} /></div>
-        <div><Label className="text-[8px]">Sessions</Label><NumInput value={c.default_sessions_current} onChange={v => set('default_sessions_current', parseInt(v) || 0)} /></div>
-        <div><Label className="text-[8px]">Pkg discount %</Label><NumInput value={c.additional_discount_pct || 0} onChange={v => set('additional_discount_pct', parseFloat(v) || 0)} title="Extra % off after line offers" /></div>
-        <div><Label className="text-[8px]">Late fee/day</Label><NumInput value={c.late_fee_per_day || 0} onChange={v => set('late_fee_per_day', parseFloat(v) || 0)} /></div>
-        <div><Label className="text-[8px]">Channel fee</Label><NumInput value={c.channelization_fee || 0} onChange={v => set('channelization_fee', parseFloat(v) || 0)} /></div>
-        <div className="flex items-end gap-2">
-          <label className="flex items-center gap-1 text-[8px] text-gray-500 cursor-pointer">
-            <input type="checkbox" checked={showIntl} onChange={e => setShowIntl(e.target.checked)} className="w-3 h-3" />USD/AED
-          </label>
-        </div>
-      </div>
-      <div className="px-3 py-1.5 grid grid-cols-3 md:grid-cols-6 gap-2 bg-amber-50/20 border-b text-[9px]">
-        <div className="md:col-span-3 text-[8px] text-gray-500 flex items-center">
-          Tax % (applied after pkg discount). Use a new package row + validity when government or policy rates change.
-        </div>
-        <div><Label className="text-[8px]">Tax INR %</Label><NumInput value={Math.round((packageTaxDecimal(c, 'INR') * 100) * 100) / 100} onChange={v => setTaxPct('INR', v)} /></div>
-        <div><Label className="text-[8px]">Tax AED %</Label><NumInput value={Math.round((packageTaxDecimal(c, 'AED') * 100) * 100) / 100} onChange={v => setTaxPct('AED', v)} /></div>
-        <div><Label className="text-[8px]">Tax USD %</Label><NumInput value={Math.round((packageTaxDecimal(c, 'USD') * 100) * 100) / 100} onChange={v => setTaxPct('USD', v)} /></div>
-      </div>
+      <div className="px-4 py-3 space-y-4">
+        <p className="text-[11px] text-gray-600 leading-relaxed">
+          Single annual bundle — <strong className="text-gray-800">12 mo AWRP</strong>, <strong className="text-gray-800">6 mo MMM</strong>,{' '}
+          <strong className="text-gray-800">4 Turbo Release</strong>, <strong className="text-gray-800">2 Meta Downloads</strong>. Pricing: set{' '}
+          <strong className="text-gray-800">package offer</strong> per currency (used on subscriber forms and previews).
+        </p>
 
-      {/* Programs Table — INR default, toggle for USD/AED */}
-      <div className="overflow-x-auto">
-        <table className="w-full text-[10px]">
-          <thead>
-            <tr className="bg-gray-50 text-[8px] text-gray-400 uppercase border-b">
-              <th className="px-2 py-1 text-left">Program</th>
-              <th className="px-1 py-1 text-center w-8">Dur</th>
-              <th className="px-1 py-1 text-center w-9">Unit</th>
-              <th className="px-1 py-1 text-right border-l bg-blue-50/50">/Unit</th>
-              <th className="px-1 py-1 text-right bg-blue-50/30">Offer/U</th>
-              <th className="px-1 py-1 text-right bg-gray-100">Total</th>
-              <th className="px-1 py-1 text-right bg-blue-50/30">Offer</th>
-              <th className="px-1 py-1 text-center bg-green-50">%</th>
-              {showIntl && (<>
-                <th className="px-1 py-1 text-right border-l">USD/U</th>
-                <th className="px-1 py-1 text-right">USD Off/U</th>
-                <th className="px-1 py-1 text-right border-l bg-amber-50/50">AED/U</th>
-                <th className="px-1 py-1 text-right bg-amber-50/30">AED Off/U</th>
-              </>)}
-              <th className="w-4"></th>
-            </tr>
-          </thead>
-          <tbody>
-            {showSacredHomeReferenceRow && (
-              <tr className="border-b border-teal-200/80 bg-teal-50/40 text-[9px]">
-                <td className="px-2 py-1 align-middle" colSpan={3}>
-                  <span className="font-semibold text-teal-950">{sacredRefLabel}</span>
-                  <span className="text-teal-700 font-normal"> · Sacred Home list (annual)</span>
-                  <span className="block text-[8px] text-teal-800/80 font-normal mt-0.5">
-                    Same source as the student upcoming card; &quot;Home Coming&quot; below copies these into editable cells (÷12 per month).
-                  </span>
-                </td>
-                <td className="px-1 py-1 align-middle text-right font-mono text-teal-900" colSpan={5 + (showIntl ? 4 : 0)}>
-                  {sacredHomeRefParts.length > 0 ? sacredHomeRefParts.join(' · ') : '—'}
-                </td>
-                <td className="w-4 p-0 bg-teal-50/20" aria-hidden />
-              </tr>
-            )}
-            {(c.included_programs || []).map((p, i) => (
-              <tr key={i} className="border-t hover:bg-gray-50/50">
-                <td className="px-2 py-0.5"><Input value={p.name} onChange={e => updateProg(i, 'name', e.target.value)} className="h-6 text-[10px] border-0 bg-transparent px-0" disabled={locked} /></td>
-                <td className="px-1 py-0.5"><NumInput value={p.duration_value} onChange={v => updateProg(i, 'duration_value', v)} className="text-center" /></td>
-                <td className="px-1 py-0.5">
-                  <select value={p.duration_unit} onChange={e => updateProg(i, 'duration_unit', e.target.value)} className="h-6 text-[9px] border rounded px-0 w-full bg-transparent" disabled={locked}>
-                    {DURATION_UNITS.map(u => <option key={u} value={u}>{u === 'months' ? 'mo' : 'ss'}</option>)}
-                  </select>
-                </td>
-                <td className="px-1 py-0.5 border-l bg-blue-50/20"><NumInput value={p.price_per_unit?.INR || 0} onChange={v => updateProgPrice(i, 'price_per_unit', 'INR', v)} /></td>
-                <td className="px-1 py-0.5 bg-blue-50/10"><NumInput value={p.offer_per_unit?.INR || 0} onChange={v => updateProgPrice(i, 'offer_per_unit', 'INR', v)} bold className="text-[#5D3FD3]" /></td>
-                <td className="px-1 py-0.5 bg-gray-50 text-right font-mono text-[9px] text-gray-500">{getTotal(p,'INR').toLocaleString()}</td>
-                <td className="px-1 py-0.5 bg-blue-50/10 text-right font-mono text-[9px] font-bold text-[#5D3FD3]">{getOfferTotal(p,'INR').toLocaleString()}</td>
-                <td className="px-1 py-0.5 bg-green-50/50 text-center"><span className={`text-[9px] font-bold ${getDisc(p,'INR')>0?'text-green-600':'text-gray-300'}`}>{getDisc(p,'INR')>0?`${getDisc(p,'INR')}%`:'-'}</span></td>
-                {showIntl && (<>
-                  <td className="px-1 py-0.5 border-l"><NumInput value={p.price_per_unit?.USD||0} onChange={v=>updateProgPrice(i,'price_per_unit','USD',v)} /></td>
-                  <td className="px-1 py-0.5"><NumInput value={p.offer_per_unit?.USD||0} onChange={v=>updateProgPrice(i,'offer_per_unit','USD',v)} bold className="text-[#5D3FD3]" /></td>
-                  <td className="px-1 py-0.5 border-l bg-amber-50/20"><NumInput value={p.price_per_unit?.AED||0} onChange={v=>updateProgPrice(i,'price_per_unit','AED',v)} /></td>
-                  <td className="px-1 py-0.5 bg-amber-50/10"><NumInput value={p.offer_per_unit?.AED||0} onChange={v=>updateProgPrice(i,'offer_per_unit','AED',v)} bold className="text-[#5D3FD3]" /></td>
-                </>)}
-                <td className="px-0.5"><button onClick={() => removeProg(i)} className="text-gray-300 hover:text-red-500" disabled={locked}><X size={9} /></button></td>
-              </tr>
-            ))}
-            {/* Footer rows */}
-            {(c.included_programs || []).length > 0 && (<>
-              <tr className="border-t-2 border-gray-200 bg-gray-50 font-bold text-[9px]">
-                <td className="px-2 py-1" colSpan={3}>Subtotal</td>
-                <td className="px-1 py-1 border-l"></td>
-                <td className="px-1 py-1"></td>
-                <td className="px-1 py-1 bg-gray-100 text-right font-mono">{sumTotal('INR').toLocaleString()}</td>
-                <td className="px-1 py-1 text-right font-mono text-[#5D3FD3]">{sumOffer('INR').toLocaleString()}</td>
-                <td className="px-1 py-1 bg-green-50/50 text-center">{(() => { const t=sumTotal('INR'),o=sumOffer('INR'); return t>0&&o>0?<span className="text-green-600">{Math.round((t-o)/t*100)}%</span>:'-'; })()}</td>
-                {showIntl && (<>
-                  <td className="px-1 py-1 border-l"></td>
-                  <td className="px-1 py-1 text-right font-mono text-[#5D3FD3]">{sumOffer('USD').toLocaleString()}</td>
-                  <td className="px-1 py-1 border-l"></td>
-                  <td className="px-1 py-1 text-right font-mono text-[#5D3FD3]">{sumOffer('AED').toLocaleString()}</td>
-                </>)}
-                <td></td>
-              </tr>
-              {addlDisc > 0 && (
-                <tr className="text-[9px] text-red-600 bg-red-50/30">
-                  <td className="px-2 py-0.5" colSpan={3}>Pkg Disc ({addlDisc}%)</td>
-                  <td className="px-1 py-0.5 border-l" colSpan={3}></td>
-                  <td className="px-1 py-0.5 text-right font-mono">-{(sumOffer('INR')*addlDisc/100).toLocaleString()}</td>
-                  <td className="px-1 py-0.5"></td>
-                  {showIntl && <td className="px-1 py-0.5" colSpan={4}></td>}
-                  <td></td>
-                </tr>
-              )}
-              <tr className="text-[9px] text-gray-500 bg-orange-50/30">
-                <td className="px-2 py-0.5" colSpan={3}>Tax</td>
-                <td className="px-1 py-0.5 border-l text-right text-gray-400" colSpan={2}>{Math.round(packageTaxDecimal(c, 'INR') * 100)}% (INR)</td>
-                <td className="px-1 py-0.5"></td>
-                <td className="px-1 py-0.5 text-right font-mono">{getTax('INR').toLocaleString()}</td>
-                <td className="px-1 py-0.5"></td>
-                {showIntl && (<>
-                  <td className="px-1 py-0.5 border-l text-center text-gray-300" colSpan={2}>USD {Math.round(packageTaxDecimal(c, 'USD') * 100)}%</td>
-                  <td className="px-1 py-0.5 border-l text-right text-gray-400">AED {Math.round(packageTaxDecimal(c, 'AED') * 100)}%</td>
-                  <td className="px-1 py-0.5 text-right font-mono">{getTax('AED').toLocaleString()}</td>
-                </>)}
-                <td></td>
-              </tr>
-              <tr className="bg-[#5D3FD3]/10 font-bold text-[10px] text-[#5D3FD3]">
-                <td className="px-2 py-1.5" colSpan={3}>Annual Price</td>
-                <td className="px-1 py-1.5 border-l" colSpan={3}></td>
-                <td className="px-1 py-1.5 text-right font-mono">{getFinal('INR').toLocaleString()}</td>
-                <td className="px-1 py-1.5"></td>
-                {showIntl && (<>
-                  <td className="px-1 py-1.5 border-l"></td>
-                  <td className="px-1 py-1.5 text-right font-mono">{afterDisc('USD').toLocaleString()}</td>
-                  <td className="px-1 py-1.5 border-l"></td>
-                  <td className="px-1 py-1.5 text-right font-mono">{getFinal('AED').toLocaleString()}</td>
-                </>)}
-                <td></td>
-              </tr>
-              {/* Package Offer Total (override) */}
-              <tr className="border-t-2 border-[#D4AF37] bg-[#D4AF37]/5 text-[10px]">
-                <td className="px-2 py-1.5 font-bold text-[#D4AF37]" colSpan={3}>Package Offer Price</td>
-                <td className="px-1 py-1.5 border-l" colSpan={3}></td>
-                <td className="px-1 py-1"><NumInput value={c.offer_total?.INR || 0} onChange={v => setOfferTotal('INR', v)} bold className="text-[#D4AF37] bg-[#D4AF37]/10 border-[#D4AF37]/30" /></td>
-                <td className="px-1 py-1.5"></td>
-                {showIntl && (<>
-                  <td className="px-1 py-1 border-l"></td>
-                  <td className="px-1 py-1"><NumInput value={c.offer_total?.USD || 0} onChange={v => setOfferTotal('USD', v)} bold className="text-[#D4AF37]" /></td>
-                  <td className="px-1 py-1 border-l"></td>
-                  <td className="px-1 py-1"><NumInput value={c.offer_total?.AED || 0} onChange={v => setOfferTotal('AED', v)} bold className="text-[#D4AF37]" /></td>
-                </>)}
-                <td></td>
-              </tr>
-            </>)}
-          </tbody>
-        </table>
-        {!locked && (
-          <div className="px-2 py-1 border-t bg-gray-50 flex flex-wrap gap-2 items-end">
-            <Input value={progName} onChange={e => setProgName(e.target.value)} placeholder="Add program..." className="h-6 text-[9px] flex-1 min-w-[120px]" onKeyDown={e => e.key === 'Enter' && (e.preventDefault(), addProg())} />
-            <NumInput value={progVal} onChange={v => setProgVal(v)} className="w-10" />
-            <select value={progUnit} onChange={e => setProgUnit(e.target.value)} className="h-7 text-[8px] border rounded px-0.5">{DURATION_UNITS.map(u => <option key={u} value={u}>{u === 'months' ? 'mo' : 'ss'}</option>)}</select>
-            <Button size="sm" variant="outline" onClick={addProg} className="h-6 px-1.5" title="Add custom program line"><Plus size={9} /></Button>
-            <Button size="sm" variant="outline" onClick={addHomeComingToCatalog} className="h-6 px-1.5 text-[8px] whitespace-nowrap border-[#5D3FD3]/40 text-[#5D3FD3]" title="Add row from Sacred Home list prices (Admin → Home Coming), or blank line">
-              Home Coming
-            </Button>
+        <ul className="text-xs text-gray-800 space-y-1 border rounded-md bg-gray-50/80 px-3 py-2.5">
+          {(c.included_programs || []).map((p, i) => (
+            <li key={i} className="flex justify-between gap-2">
+              <span>{p.name}</span>
+              <span className="text-gray-500 font-mono tabular-nums">
+                {p.duration_value} {unitLabel(p.duration_unit)}
+              </span>
+            </li>
+          ))}
+        </ul>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 text-xs">
+          <div>
+            <Label className="text-[10px] text-gray-600">Validity from</Label>
+            <Input type="date" value={c.valid_from || ''} onChange={(e) => set('valid_from', e.target.value)} className="h-8 mt-0.5" disabled={locked} />
           </div>
-        )}
+          <div>
+            <Label className="text-[10px] text-gray-600">Validity to</Label>
+            <Input type="date" value={c.valid_to || ''} onChange={(e) => set('valid_to', e.target.value)} className="h-8 mt-0.5" disabled={locked} />
+          </div>
+          <div>
+            <Label className="text-[10px] text-gray-600">Subscription length (months)</Label>
+            <NumInput value={c.duration_months} onChange={(v) => set('duration_months', parseInt(v, 10) || 12)} className="mt-0.5" />
+          </div>
+          <div>
+            <Label className="text-[10px] text-gray-600">Coaching sessions (bucket)</Label>
+            <NumInput value={c.default_sessions_current} onChange={(v) => set('default_sessions_current', parseInt(v, 10) || 0)} className="mt-0.5" />
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
+          <div>
+            <Label className="text-[10px] text-gray-600">Extra discount % (optional)</Label>
+            <NumInput value={c.additional_discount_pct || 0} onChange={(v) => set('additional_discount_pct', parseFloat(v) || 0)} className="mt-0.5" />
+          </div>
+          <div>
+            <Label className="text-[10px] text-gray-600">Late fee / day</Label>
+            <NumInput value={c.late_fee_per_day || 0} onChange={(v) => set('late_fee_per_day', parseFloat(v) || 0)} className="mt-0.5" />
+          </div>
+          <div>
+            <Label className="text-[10px] text-gray-600">Channelisation fee</Label>
+            <NumInput value={c.channelization_fee || 0} onChange={(v) => set('channelization_fee', parseFloat(v) || 0)} className="mt-0.5" />
+          </div>
+        </div>
+
+        <label className="flex items-center gap-2 text-xs text-gray-700">
+          <input
+            type="checkbox"
+            checked={!!c.show_late_fees}
+            onChange={(e) => set('show_late_fees', e.target.checked)}
+            disabled={locked}
+            className="rounded border-gray-300"
+          />
+          Show late fees to students by default
+        </label>
+
+        <div className="border-t pt-3 space-y-2">
+          <p className="text-[10px] font-semibold text-gray-700 uppercase tracking-wide">Tax %</p>
+          <div className="grid grid-cols-3 gap-2">
+            <div>
+              <Label className="text-[9px] text-gray-500">INR</Label>
+              <NumInput value={Math.round((packageTaxDecimal(c, 'INR') * 100) * 100) / 100} onChange={(v) => setTaxPct('INR', v)} className="mt-0.5" />
+            </div>
+            <div>
+              <Label className="text-[9px] text-gray-500">AED</Label>
+              <NumInput value={Math.round((packageTaxDecimal(c, 'AED') * 100) * 100) / 100} onChange={(v) => setTaxPct('AED', v)} className="mt-0.5" />
+            </div>
+            <div>
+              <Label className="text-[9px] text-gray-500">USD</Label>
+              <NumInput value={Math.round((packageTaxDecimal(c, 'USD') * 100) * 100) / 100} onChange={(v) => setTaxPct('USD', v)} className="mt-0.5" />
+            </div>
+          </div>
+        </div>
+
+        <div className="border-t pt-3 space-y-2 bg-[#D4AF37]/5 rounded-lg p-3 border border-[#D4AF37]/25">
+          <p className="text-[10px] font-semibold text-[#8a6d1d] uppercase tracking-wide">Package offer (catalog total)</p>
+          <p className="text-[10px] text-gray-600">Amount shown on subscriber add/edit when this currency is selected.</p>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+            {['INR', 'USD', 'AED'].map((cur) => (
+              <div key={cur}>
+                <Label className="text-[9px] text-gray-600">{cur}</Label>
+                <NumInput value={c.offer_total?.[cur] || 0} onChange={(v) => setOfferTotal(cur, v)} bold className="mt-0.5 text-[#8a6d1d]" />
+              </div>
+            ))}
+          </div>
+        </div>
       </div>
     </div>
   );
 };
+
 
 /* ═══ SUBSCRIBER FORM ═══ */
 const newDestId = () =>
@@ -610,34 +483,38 @@ const SubscriberForm = ({ initial, onSave, onCancel, saving, packages, irisCatal
     };
   }, [selectedPkg, f.currency, f.individual_discount_pct, f.individual_tax_pct]);
 
-  // Auto-fill from selected package
+  // Auto-fill from selected package (Home Coming: offer_total per currency wins over empty line math)
   const applyPackage = (pkg) => {
     if (!pkg) return;
-    const programs = (pkg.included_programs || []).map(p => p.name);
-    const biAnnual = (pkg.included_programs || []).find(p => p.name.toLowerCase().includes('bi-annual') || p.name.toLowerCase().includes('download'));
-    const quarterly = (pkg.included_programs || []).find(p => p.name.toLowerCase().includes('quarter') || p.name.toLowerCase().includes('meetup'));
-    // Sum offer_per_unit × duration for total fee
-    const totalOffer = (pkg.included_programs || []).reduce((s, p) => {
-      const opu = p.offer_per_unit?.[f.currency] || 0;
-      return s + (opu * (p.duration_value || 0));
+    const cur = f.currency || 'INR';
+    const lines = mergeHomeComingIncludedPrograms(pkg.included_programs);
+    const programs = lines.map((p) => p.name);
+    const meta = lines.find((p) => (p.name || '').toLowerCase().includes('meta'));
+    const turbo = lines.find((p) => (p.name || '').toLowerCase().includes('turbo'));
+    const totalOffer = lines.reduce((s, p) => {
+      const opu = p.offer_per_unit?.[cur] || 0;
+      return s + opu * (p.duration_value || 0);
     }, 0);
     const addlDisc = pkg.additional_discount_pct || 0;
     const afterDisc = totalOffer - (totalOffer * addlDisc / 100);
-    const taxAmt = afterDisc * packageTaxDecimal(pkg, f.currency);
+    const taxAmt = afterDisc * packageTaxDecimal(pkg, cur);
+    const overrideRaw = pkg.offer_total?.[cur];
+    const override = overrideRaw != null && parseFloat(overrideRaw) > 0 ? parseFloat(overrideRaw) : null;
+    const totalFee = override != null ? Math.round(override * 100) / 100 : Math.round((afterDisc + taxAmt) * 100) / 100;
 
-    setF(prev => ({
+    setF((prev) => ({
       ...prev,
-      total_fee: Math.round((afterDisc + taxAmt) * 100) / 100 || prev.total_fee,
+      total_fee: totalFee || prev.total_fee,
       programs: programs.length > 0 ? programs : prev.programs,
-      bi_annual_download: biAnnual ? biAnnual.duration_value : prev.bi_annual_download,
-      quarterly_releases: quarterly ? quarterly.duration_value : prev.quarterly_releases,
+      bi_annual_download: meta ? meta.duration_value : prev.bi_annual_download,
+      quarterly_releases: turbo ? turbo.duration_value : prev.quarterly_releases,
       sessions: {
         ...prev.sessions,
         current: pkg.default_sessions_current || prev.sessions.current,
         carry_forward: pkg.default_sessions_carry_forward || prev.sessions.carry_forward,
         total: (pkg.default_sessions_carry_forward || 0) + (pkg.default_sessions_current || 0),
         yet_to_avail: (pkg.default_sessions_carry_forward || 0) + (pkg.default_sessions_current || 0) - (prev.sessions.availed || 0),
-      }
+      },
     }));
     setAutoFilled(true);
   };
@@ -679,7 +556,13 @@ const SubscriberForm = ({ initial, onSave, onCancel, saving, packages, irisCatal
     set('currency', cur);
     set('display_currency', cur);
     if (selectedPkg && !initial) {
-      const totalOffer = (selectedPkg.included_programs || []).reduce((s, p) => s + ((p.offer_per_unit?.[cur] || 0) * (p.duration_value || 0)), 0);
+      const o = selectedPkg.offer_total?.[cur];
+      if (o != null && parseFloat(o) > 0) {
+        set('total_fee', Math.round(parseFloat(o) * 100) / 100);
+        return;
+      }
+      const lines = mergeHomeComingIncludedPrograms(selectedPkg.included_programs);
+      const totalOffer = lines.reduce((s, p) => s + ((p.offer_per_unit?.[cur] || 0) * (p.duration_value || 0)), 0);
       const disc = effectiveIndividualDiscountPct(f, selectedPkg);
       const afterDisc = totalOffer - (totalOffer * disc / 100);
       const taxAmt = afterDisc * effectiveIndividualTaxDecimal(f, selectedPkg, cur);
@@ -869,7 +752,7 @@ const SubscriberForm = ({ initial, onSave, onCancel, saving, packages, irisCatal
 
       <div className="rounded-lg border border-gray-200 bg-white p-3 space-y-2" data-testid="subscriber-programs-compact">
         <Label className="text-xs font-semibold uppercase tracking-wider text-gray-500">Programs on this subscription</Label>
-        <p className="text-[9px] text-gray-500">Add <strong>{HOME_COMING_PROGRAM_NAME}</strong> from the package area, or use the catalog &quot;Home Coming&quot; button when editing packages. Chips below are what we store for the student app.</p>
+        <p className="text-[9px] text-gray-500">Add <strong>{HOME_COMING_PROGRAM_NAME}</strong> as a chip if needed; the catalog bundle is fixed (AWRP · MMM · Turbo · Meta). Chips below are what we store for the student app.</p>
         <div className="flex flex-wrap gap-1.5 items-center">
           {(f.programs_detail || []).length === 0 ? (
             <span className="text-[9px] text-gray-400 italic">None</span>
@@ -1438,8 +1321,8 @@ const SubscriberRow = ({ s, onRefresh, onEdit, irisCatalog = [], packages = [], 
 };
 
 /* ═══ MAIN TAB ═══ */
-/** @param {{ openManualFormOnMount?: boolean, siteSettings?: object, programs?: object[] }} props */
-const SubscribersTab = ({ openManualFormOnMount = false, siteSettings = null, programs = [] }) => {
+/** @param {{ openManualFormOnMount?: boolean }} props */
+const SubscribersTab = ({ openManualFormOnMount = false }) => {
   const { toast } = useToast();
   const [subscribers, setSubscribers] = useState([]);
   const [packages, setPackages] = useState([]);
@@ -1453,7 +1336,6 @@ const SubscribersTab = ({ openManualFormOnMount = false, siteSettings = null, pr
   const [saving, setSaving] = useState(false);
   const [savingPkg, setSavingPkg] = useState(false);
   const [configOpen, setConfigOpen] = useState(false);
-  const [newPkgName, setNewPkgName] = useState('');
   const [subView, setSubView] = useState('subscribers'); // subscribers | approvals | banks
   const [pendingPayments, setPendingPayments] = useState([]);
   const [bankAccounts, setBankAccounts] = useState([]);
@@ -1524,19 +1406,6 @@ const SubscribersTab = ({ openManualFormOnMount = false, siteSettings = null, pr
       toast({ title: `New version created: ${res.data.new_package_id}` });
       fetchData();
     } catch (err) { toast({ title: 'Error creating version', variant: 'destructive' }); }
-  };
-
-  const handleCreatePkg = async () => {
-    if (!newPkgName.trim()) return;
-    try {
-      const res = await axios.post(`${API}/admin/subscribers/packages`, {
-        package_name: newPkgName.trim(), package_id: `PKG-${newPkgName.trim().toUpperCase().replace(/\s+/g, '-').slice(0, 10)}`,
-        duration_months: 12, included_programs: [], default_sessions_current: 12
-      });
-      toast({ title: `Package ${res.data.package_id} created` });
-      setNewPkgName('');
-      fetchData();
-    } catch (err) { toast({ title: 'Error', variant: 'destructive' }); }
   };
 
   const handleUpload = async () => {
@@ -1705,9 +1574,10 @@ const SubscribersTab = ({ openManualFormOnMount = false, siteSettings = null, pr
         {configOpen && (
           <div className="space-y-3">
             <p className="text-xs text-gray-600 bg-white border rounded-lg px-3 py-2">
-              <strong className="text-gray-800">Standard package (catalog):</strong> one set of programs and list prices for everyone. Use <strong>Valid from / Valid to</strong> + <strong>New Ver</strong> when list prices or default tax/discount change. Each subscriber can still have their own <strong>individual discount %</strong> and <strong>individual tax %</strong> on their record (admin form / Excel).
+              <strong className="text-gray-800">Home Coming catalog:</strong> fixed bundle (12 AWRP · 6 MMM · 4 Turbo Release · 2 Meta Downloads). Set{' '}
+              <strong className="text-gray-800">package offer</strong> per currency and tax. Use <strong>New Ver</strong> only when you need a dated pricing snapshot. Subscribers keep their own discount/tax overrides on their record.
             </p>
-            {packages.map(pkg => (
+            {packages.map((pkg) => (
               <PackageEditor
                 key={pkg.package_id}
                 pkg={pkg}
@@ -1715,14 +1585,8 @@ const SubscribersTab = ({ openManualFormOnMount = false, siteSettings = null, pr
                 saving={savingPkg}
                 onDelete={packages.length > 1 ? handleDeletePkg : null}
                 onNewVersion={handleNewVersion}
-                siteSettings={siteSettings}
-                programs={programs}
               />
             ))}
-            <div className="flex gap-2 items-end">
-              <Input value={newPkgName} onChange={e => setNewPkgName(e.target.value)} placeholder="New package name..." className="h-8 text-sm w-64" onKeyDown={e => e.key === 'Enter' && handleCreatePkg()} />
-              <Button size="sm" variant="outline" onClick={handleCreatePkg} disabled={!newPkgName.trim()}><Plus size={14} className="mr-1" /> New Package</Button>
-            </div>
           </div>
         )}
         <div

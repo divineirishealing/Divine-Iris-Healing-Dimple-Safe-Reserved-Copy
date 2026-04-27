@@ -3,7 +3,7 @@
 export const HOME_COMING_SKU = 'home_coming';
 export const HOME_COMING_DISPLAY = 'Home Coming';
 
-/** Included in Home Coming: 12 mo AWRP, 6 mo MMM, 4 Turbo (quarterly), 2 Meta (bi-annual). */
+/** Included in Home Coming: 12 mo AWRP, 6 mo MMM, 4 Turbo Release, 2 Meta Downloads. */
 export const HOME_COMING_ENTITLEMENTS = {
   awrp_months: 12,
   mmm_months: 6,
@@ -15,8 +15,8 @@ export const HOME_COMING_ENTITLEMENTS = {
 export const HOME_COMING_INCLUDES = [
   { id: 'awrp', short: 'AWRP', summary: '12 months · Atomic Weight Release Program' },
   { id: 'mmm', short: 'MMM', summary: '6 months · Money Magic Multiplier' },
-  { id: 'turbo', short: 'Quarterly releases', summary: '4 Turbo / quarterly sessions' },
-  { id: 'meta', short: 'Bi-annual downloads', summary: '2 Meta / bi-annual sessions' },
+  { id: 'turbo', short: 'Turbo Release', summary: '4 Turbo Release sessions' },
+  { id: 'meta', short: 'Meta Downloads', summary: '2 Meta Downloads sessions' },
 ];
 
 function nameInitialsFour(name) {
