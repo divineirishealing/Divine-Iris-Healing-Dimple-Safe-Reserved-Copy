@@ -1438,17 +1438,8 @@ const SubscriberRow = ({ s, onRefresh, onEdit, irisCatalog = [], packages = [], 
 };
 
 /* ═══ MAIN TAB ═══ */
-/**
- * @param {{ openManualFormOnMount?: boolean, mode?: 'full' | 'package_catalog', onOpenAdminTab?: (key: string) => void }} props
- * — mode package_catalog: only annual package editors (people live under Annual + dashboard / Annual Subscribers).
- */
-const SubscribersTab = ({
-  openManualFormOnMount = false,
-  siteSettings = null,
-  programs = [],
-  mode = 'full',
-  onOpenAdminTab,
-}) => {
+/** @param {{ openManualFormOnMount?: boolean, siteSettings?: object, programs?: object[] }} props */
+const SubscribersTab = ({ openManualFormOnMount = false, siteSettings = null, programs = [] }) => {
   const { toast } = useToast();
   const [subscribers, setSubscribers] = useState([]);
   const [packages, setPackages] = useState([]);
@@ -1494,35 +1485,15 @@ const SubscribersTab = ({
     finally { setLoading(false); }
   }, []);
 
-  const fetchPackagesOnly = useCallback(async () => {
-    setLoading(true);
-    try {
-      const pRes = await axios.get(`${API}/admin/subscribers/packages`);
-      setPackages(pRes.data || []);
-    } catch (e) { console.error(e); }
-    finally { setLoading(false); }
-  }, []);
-
-  const refreshAfterPkgChange = useCallback(() => {
-    if (mode === 'package_catalog') fetchPackagesOnly();
-    else fetchData();
-  }, [mode, fetchPackagesOnly, fetchData]);
+  useEffect(() => { fetchData(); }, [fetchData]);
 
   useEffect(() => {
-    if (mode === 'package_catalog') {
-      fetchPackagesOnly();
-      return;
-    }
-    fetchData();
-  }, [mode, fetchData, fetchPackagesOnly]);
-
-  useEffect(() => {
-    if (mode !== 'full' || !openManualFormOnMount || manualMountOpened.current) return;
+    if (!openManualFormOnMount || manualMountOpened.current) return;
     manualMountOpened.current = true;
     setEditTarget(null);
     setShowForm(true);
     setSubView('subscribers');
-  }, [mode, openManualFormOnMount]);
+  }, [openManualFormOnMount]);
 
   const handleSavePkg = async (pkgData) => {
     setSavingPkg(true);
@@ -1533,7 +1504,7 @@ const SubscribersTab = ({
         await axios.post(`${API}/admin/subscribers/packages`, pkgData);
       }
       toast({ title: 'Package saved' });
-      refreshAfterPkgChange();
+      fetchData();
     } catch (err) { toast({ title: 'Error', variant: 'destructive' }); }
     finally { setSavingPkg(false); }
   };
@@ -1543,7 +1514,7 @@ const SubscribersTab = ({
     try {
       await axios.delete(`${API}/admin/subscribers/packages/${pkgId}`);
       toast({ title: 'Package deleted' });
-      refreshAfterPkgChange();
+      fetchData();
     } catch (err) { toast({ title: 'Error', variant: 'destructive' }); }
   };
 
@@ -1551,7 +1522,7 @@ const SubscribersTab = ({
     try {
       const res = await axios.post(`${API}/admin/subscribers/packages/${pkgId}/new-version`);
       toast({ title: `New version created: ${res.data.new_package_id}` });
-      refreshAfterPkgChange();
+      fetchData();
     } catch (err) { toast({ title: 'Error creating version', variant: 'destructive' }); }
   };
 
@@ -1564,7 +1535,7 @@ const SubscribersTab = ({
       });
       toast({ title: `Package ${res.data.package_id} created` });
       setNewPkgName('');
-      refreshAfterPkgChange();
+      fetchData();
     } catch (err) { toast({ title: 'Error', variant: 'destructive' }); }
   };
 
@@ -1689,84 +1660,6 @@ const SubscribersTab = ({
       fetchData();
     } catch (err) { toast({ title: 'Error', variant: 'destructive' }); }
   };
-
-  const goTab = (key) => {
-    if (onOpenAdminTab) onOpenAdminTab(key);
-  };
-
-  if (mode === 'package_catalog') {
-    return (
-      <div className="space-y-6 max-w-6xl" data-testid="annual-package-catalog">
-        <div>
-          <h2 className="text-xl font-semibold text-gray-900">Annual package catalog</h2>
-          <p className="text-sm text-gray-600 mt-2 leading-relaxed max-w-3xl">
-            Standard programs, list prices, and tax windows for <strong className="text-gray-800">dashboard annual memberships</strong>.
-            This page is only configuration — add or edit people in{' '}
-            <button
-              type="button"
-              className="text-[#5D3FD3] font-medium hover:underline"
-              onClick={() => goTab('annual_portal_clients')}
-            >
-              Clients → Annual + dashboard
-            </button>
-            {' '}or the{' '}
-            <button
-              type="button"
-              className="text-[#5D3FD3] font-medium hover:underline"
-              onClick={() => goTab('annual_subscribers')}
-            >
-              Annual Subscribers
-            </button>
-            {' '}sheet (import, payments, bank accounts).
-          </p>
-          <p className="text-xs text-gray-500 mt-2">
-            Sacred Home list prices (INR / USD / AED) are set under{' '}
-            <button type="button" className="text-[#5D3FD3] hover:underline" onClick={() => goTab('dashboard_home_coming')}>
-              Dashboard → Home Coming (Sacred Home)
-            </button>
-            .
-          </p>
-        </div>
-
-        {loading ? (
-          <div className="py-16 flex justify-center">
-            <Loader2 className="animate-spin text-gray-400 w-8 h-8" />
-          </div>
-        ) : (
-          <div className="space-y-4">
-            <p className="text-xs text-gray-600 bg-white border rounded-lg px-3 py-2">
-              <strong className="text-gray-800">One catalog row per pricing period:</strong> programs, validity dates, package discount, and tax.
-              Use <strong>New Ver</strong> when prices or tax change. Individual subscriber overrides stay on each person&apos;s record elsewhere.
-            </p>
-            {packages.map((pkg) => (
-              <PackageEditor
-                key={pkg.package_id}
-                pkg={pkg}
-                onSave={handleSavePkg}
-                saving={savingPkg}
-                onDelete={packages.length > 1 ? handleDeletePkg : null}
-                onNewVersion={handleNewVersion}
-                siteSettings={siteSettings}
-                programs={programs}
-              />
-            ))}
-            <div className="flex flex-wrap gap-2 items-end">
-              <Input
-                value={newPkgName}
-                onChange={(e) => setNewPkgName(e.target.value)}
-                placeholder="New package name…"
-                className="h-9 text-sm w-64 max-w-full"
-                onKeyDown={(e) => e.key === 'Enter' && handleCreatePkg()}
-              />
-              <Button size="sm" variant="outline" onClick={handleCreatePkg} disabled={!newPkgName.trim()}>
-                <Plus size={14} className="mr-1" /> New package
-              </Button>
-            </div>
-          </div>
-        )}
-      </div>
-    );
-  }
 
   return (
     <div className="space-y-5">

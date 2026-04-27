@@ -53,6 +53,7 @@ import ProfileApprovals from './tabs/ProfileApprovals';
 import TextTestimonialsTab from './tabs/TextTestimonialsTab';
 import FraudAlertsTab from './tabs/FraudAlertsTab';
 import SubscribersTab from './tabs/SubscribersTab';
+import AnnualPackageCatalogTemplate from './tabs/AnnualPackageCatalogTemplate';
 import SchedulerTab from './tabs/SchedulerTab';
 import ContactUpdateLinkTab from './tabs/ContactUpdateLinkTab';
 import AnnualSubscribersTab from './tabs/AnnualSubscribersTab';
@@ -410,7 +411,8 @@ const AdminPanel = () => {
       { key: 'clients', label: 'Client Garden', icon: Users },
       { key: 'dashboard_access', label: 'Dashboard access', icon: KeyRound },
       { key: 'annual_portal_clients', label: 'Annual + dashboard', icon: Sparkles },
-      { key: 'add_annual_subscriber', label: 'Annual package catalog', icon: Package },
+      { key: 'add_annual_subscriber', label: 'Annual template', icon: Package },
+      { key: 'subscribers_crm', label: 'Subscriptions & packages', icon: CreditCard },
       { key: 'contact_update_link', label: 'Contact update link', icon: Link2 },
       { key: 'subscribers', label: 'Subscribers', icon: Mail },
       { key: 'annual_subscribers', label: 'Annual Subscribers', icon: Star },
@@ -659,10 +661,7 @@ const AdminPanel = () => {
           {activeTab === 'text_testimonials' && <TextTestimonialsTab />}
           {activeTab === 'annual_subscribers' && <AnnualSubscribersTab />}
           {activeTab === 'add_annual_subscriber' && (
-            <SubscribersTab
-              mode="package_catalog"
-              siteSettings={siteSettings}
-              programs={programs}
+            <AnnualPackageCatalogTemplate
               onOpenAdminTab={(key) => {
                 setActiveTab(key);
                 try {
@@ -672,6 +671,9 @@ const AdminPanel = () => {
                 }
               }}
             />
+          )}
+          {activeTab === 'subscribers_crm' && (
+            <SubscribersTab siteSettings={siteSettings} programs={programs} />
           )}
           {activeTab === 'scheduler' && <SchedulerTab />}
 
