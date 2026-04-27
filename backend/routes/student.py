@@ -2163,11 +2163,7 @@ async def get_student_home(user: dict = Depends(get_current_student_user)):
             "dashboard_offer_extended": 1,
             "dashboard_program_offers": 1,
             "dashboard_sacred_home_annual_program_id": 1,
-            "dashboard_sacred_home_standard_prices": 1,
             "dashboard_sacred_home_show_non_annual": 1,
-            "dashboard_sacred_home_non_annual_contact_only": 1,
-            "dashboard_sacred_home_non_annual_cta_label": 1,
-            "dashboard_sacred_home_non_annual_cta_href": 1,
             "awrp_portal_batches": 1,
             "india_gpay_accounts": 1,
             "india_bank_accounts": 1,
@@ -2180,39 +2176,16 @@ async def get_student_home(user: dict = Depends(get_current_student_user)):
     if show_non_annual_pin is None:
         show_non_annual_pin = True
     show_non_annual_pin = bool(show_non_annual_pin)
-    cta_lbl = (settings_doc.get("dashboard_sacred_home_non_annual_cta_label") or "Contact For Initiation").strip() or "Contact For Initiation"
-    cta_href = (settings_doc.get("dashboard_sacred_home_non_annual_cta_href") or "/contact").strip() or "/contact"
-    raw_std = settings_doc.get("dashboard_sacred_home_standard_prices") or {}
-    std_prices: Dict[str, float] = {}
-    if isinstance(raw_std, dict):
-        for k, v in raw_std.items():
-            try:
-                fv = float(v)
-                if fv > 0:
-                    std_prices[str(k).lower()] = round(fv, 2)
-            except (TypeError, ValueError):
-                pass
     show_pin = False
-    contact_only_pin = False
-    # Only an explicit True in site_settings enables the wall; missing / false / null → Divine Cart for non-annual.
-    non_annual_contact_only = settings_doc.get("dashboard_sacred_home_non_annual_contact_only") is True
     if pin_annual_id:
         if annual_portal_access_effective:
             show_pin = True
-            contact_only_pin = False
         elif show_non_annual_pin:
             show_pin = True
-            contact_only_pin = non_annual_contact_only
     if show_pin:
         pin_doc = await program_dict_with_deadline_sync(db, pin_annual_id)
         if pin_doc:
             pin_doc["dashboard_annual_product_pin"] = True
-            pin_doc["sacred_home_display"] = {
-                "contact_only": contact_only_pin,
-                "cta_label": cta_lbl if contact_only_pin else "",
-                "cta_href": cta_href if contact_only_pin else "",
-                "standard_prices": std_prices,
-            }
             rest = [p for p in upcoming if str(p.get("id")) != str(pin_annual_id)]
             upcoming = [pin_doc] + rest
     dashboard_offer_annual = settings_doc.get("dashboard_offer_annual") or {}

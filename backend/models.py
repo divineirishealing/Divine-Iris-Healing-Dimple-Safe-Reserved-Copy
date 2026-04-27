@@ -589,14 +589,8 @@ class SiteSettings(BaseModel):
     annual_package_included_program_ids: List[str] = Field(default_factory=list)
     # Sacred Home: prepend this catalog program to `upcoming_programs` (renewal / Home Coming product).
     dashboard_sacred_home_annual_program_id: str = ""
-    # Optional display amounts for non-annual viewers (keys: inr, usd, aed); hub currency picks one on the card.
-    dashboard_sacred_home_standard_prices: Dict[str, float] = Field(default_factory=dict)
-    # When True, logged-in Sacred Home users without Annual dashboard access still see the pinned program (contact CTA).
+    # When True, logged-in Sacred Home users without Annual dashboard access still see the pinned program (same catalog details + checkout as the website).
     dashboard_sacred_home_show_non_annual: bool = True
-    # When True, non-annual viewers see Contact for initiation only (no Divine Cart on pinned program). False = catalog checkout.
-    dashboard_sacred_home_non_annual_contact_only: bool = False
-    dashboard_sacred_home_non_annual_cta_label: str = "Contact For Initiation"
-    dashboard_sacred_home_non_annual_cta_href: str = "/contact"
     # Per-program portal pricing overrides: { program_id: { annual, family, extended, by_tier?: { "0"|"1"|…: { annual, family, extended } } } } merged with globals; tier keys match duration_tier index on Sacred Home
     dashboard_program_offers: Dict[str, Any] = Field(default_factory=dict)
     # Existing AWRP / cohort batches: assign clients (awrp_batch_id) for layered portal pricing in Sacred Home
@@ -795,11 +789,7 @@ class SiteSettingsUpdate(BaseModel):
     dashboard_offer_extended: Optional[Dict] = None
     annual_package_included_program_ids: Optional[List[str]] = None
     dashboard_sacred_home_annual_program_id: Optional[str] = None
-    dashboard_sacred_home_standard_prices: Optional[Dict[str, float]] = None
     dashboard_sacred_home_show_non_annual: Optional[bool] = None
-    dashboard_sacred_home_non_annual_contact_only: Optional[bool] = None
-    dashboard_sacred_home_non_annual_cta_label: Optional[str] = None
-    dashboard_sacred_home_non_annual_cta_href: Optional[str] = None
     dashboard_program_offers: Optional[Dict[str, Any]] = None
     awrp_portal_batches: Optional[List[Dict]] = None
     awrp_batch_program_offers: Optional[Dict[str, Any]] = None

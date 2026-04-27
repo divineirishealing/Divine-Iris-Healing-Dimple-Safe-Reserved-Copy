@@ -39,30 +39,6 @@ import { useAuth } from '../../context/AuthContext';
 
 const API_ROOT = process.env.REACT_APP_BACKEND_URL;
 
-/** Non-annual Sacred Home: contact CTA (standard list is on the program card at left). */
-function SacredHomeContactInitiationColumn({ sacred }) {
-  const href = (sacred?.cta_href || '/contact').trim() || '/contact';
-  const label = (sacred?.cta_label || 'Contact For Initiation').trim() || 'Contact For Initiation';
-  const external = /^https?:\/\//i.test(href);
-
-  return (
-    <div className="rounded-xl border border-teal-200/80 bg-gradient-to-b from-teal-50/90 to-white p-4 sm:p-5 shadow-sm w-full max-w-xl space-y-3">
-      <p className="text-[10px] font-bold uppercase tracking-wide text-teal-900">Home Coming</p>
-      <p className="text-sm text-slate-700 leading-relaxed">
-        Use <strong>1 Month</strong>, <strong>3 Months</strong>, or other tiers on the program card for dates and list pricing. If checkout is enabled for your account, Divine Cart appears below; otherwise use the button to reach us for initiation.
-      </p>
-      <a
-        href={href}
-        {...(external ? { target: '_blank', rel: 'noopener noreferrer' } : {})}
-        data-testid="sacred-home-contact-initiation-cta"
-        className="inline-flex w-full items-center justify-center rounded-full bg-teal-700 text-white py-3 px-5 text-[10px] font-bold tracking-wider uppercase shadow-sm hover:bg-teal-800 transition-colors"
-      >
-        {label}
-      </a>
-    </div>
-  );
-}
-
 /** Ids + emails from Annual Family Club rows — same person can use different id fields across lists. */
 function buildAnnualFamilyClubIdentity(peers) {
   const idSet = new Set();
@@ -505,14 +481,7 @@ export default function DashboardUpcomingProgramRowItem({
    * Annual Program clients (included package) keep normal “included in annual package” copy and cart.
    */
   const showContact = tierIsYearLong && price === 0 && !includedPkg;
-  const sacred = p.sacred_home_display;
-  const contactInitiationMode = Boolean(sacred?.contact_only);
-  /** Pinned Sacred Home product: always show 1 Month / 3 Months (etc.) tier chips so dates/pricing track the tier, even if checkout is still contact-only. */
-  const showSacredHomeTierPicker =
-    (!contactInitiationMode || p.dashboard_annual_product_pin) &&
-    hasTiers &&
-    enrollStatus === 'open' &&
-    tiers.length > 1;
+  const showSacredHomeTierPicker = hasTiers && enrollStatus === 'open' && tiers.length > 1;
 
   const annualFamilyClubIdentity = useMemo(
     () => buildAnnualFamilyClubIdentity(annualHouseholdPeers),
@@ -657,9 +626,7 @@ export default function DashboardUpcomingProgramRowItem({
     selCount === 0 &&
     isInCart;
   /** Included package: total can be 0 (member seat only). Otherwise require a positive quote total, or cart clear path above. */
-  const canAddToDivineCart = contactInitiationMode
-    ? false
-    : showContact
+  const canAddToDivineCart = showContact
     ? Boolean(canSaveGuestOnlyClear)
     : familyPaidTierQuoteBlocked
       ? false
@@ -1136,7 +1103,7 @@ export default function DashboardUpcomingProgramRowItem({
                   </div>
                 </div>
               ) : null}
-              {!contactInitiationMode && enrollStatus === 'open' && needsFamilyPaidTier ? (
+              {enrollStatus === 'open' && needsFamilyPaidTier ? (
                 <div
                   data-testid={`dashboard-family-paid-tier-${p.id}`}
                   className="mb-3 rounded-lg border border-amber-200 bg-amber-50/85 px-3 py-2.5"
@@ -1188,8 +1155,7 @@ export default function DashboardUpcomingProgramRowItem({
                   </div>
                 </div>
               ) : null}
-              {!contactInitiationMode &&
-                enrollStatus === 'open' &&
+              {enrollStatus === 'open' &&
                 offerPrice > 0 &&
                 deadline &&
                 (() => {
@@ -1212,33 +1178,7 @@ export default function DashboardUpcomingProgramRowItem({
                   );
                 })()}
               <div className="flex flex-wrap items-baseline gap-2 mb-1">
-                {contactInitiationMode ? (
-                  <div className="flex flex-col gap-1 w-full">
-                    {(() => {
-                      const std = sacred?.standard_prices || {};
-                      const cur = (currency || 'inr').toLowerCase();
-                      const amt = Number(std[cur] || 0);
-                      if (amt > 0) {
-                        return (
-                          <>
-                            <span className="text-[10px] font-bold uppercase text-teal-800 tracking-wide">Standard list</span>
-                            <span className="text-xl font-bold text-[#D4AF37] tabular-nums">
-                              {symbol} {amt.toLocaleString()}
-                            </span>
-                            <span className="text-[10px] text-slate-600 leading-snug">
-                              Member rates apply after initiation.
-                            </span>
-                          </>
-                        );
-                      }
-                      return (
-                        <span className="text-sm text-slate-700 leading-snug">
-                          Connect with us for investment details.
-                        </span>
-                      );
-                    })()}
-                  </div>
-                ) : showContact ? (
+                {showContact ? (
                   <div className="flex flex-col gap-1 w-full">
                     {hasTiers && tier?.label ? (
                       <span className="text-[11px] font-bold text-slate-600 uppercase tracking-wide">
@@ -1323,9 +1263,6 @@ export default function DashboardUpcomingProgramRowItem({
 
                    {/* 2 — Pricing & offer, Choose members to join, Attendance & checkout (stacked); cart at bottom aligns with Know More on xl */}
           <div className="flex flex-col gap-4 flex-1 min-w-0 w-full min-h-0 xl:min-h-0 xl:h-full">
-            {contactInitiationMode ? (
-              <SacredHomeContactInitiationColumn sacred={sacred} />
-            ) : (
             <>
             <div className="rounded-xl border border-slate-200 bg-white p-3 sm:p-4 shadow-sm min-h-0 flex flex-col min-w-0 w-full max-w-xl">
               <button
@@ -1962,7 +1899,6 @@ export default function DashboardUpcomingProgramRowItem({
             ) : null}
 
             </>
-            )}
 
           </div>
         </div>
@@ -1993,11 +1929,7 @@ export default function DashboardUpcomingProgramRowItem({
             )}
           </div>
           <div className="w-full min-w-0 flex-1">
-            {contactInitiationMode ? (
-              <p className="text-[10px] text-slate-500 text-center sm:text-right leading-snug py-2">
-                Divine Cart opens when checkout is enabled for your membership, or after you&apos;re initiated as an annual member.
-              </p>
-            ) : enrollStatus === 'open' ? (
+            {enrollStatus === 'open' ? (
               <button
                 type="button"
                 disabled={!canAddToDivineCart || addingToCheckout}
