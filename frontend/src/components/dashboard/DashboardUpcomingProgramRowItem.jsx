@@ -1260,7 +1260,7 @@ export default function DashboardUpcomingProgramRowItem({
             </div>
           </div>
 
-                   {/* 2 — Pricing & offer, Choose members to join, Attendance & checkout (stacked); cart at bottom aligns with Know More on xl */}
+                   {/* 2 — Pricing & offer; members + attendance side-by-side on lg; cart at bottom */}
           <div className="flex flex-col gap-4 flex-1 min-w-0 w-full min-h-0 xl:min-h-0 xl:h-full">
             <>
             <div className="rounded-xl border border-slate-200 bg-white p-3 sm:p-4 shadow-sm min-h-0 flex flex-col min-w-0 w-full max-w-xl">
@@ -1469,8 +1469,8 @@ export default function DashboardUpcomingProgramRowItem({
               : null}
             </div>
 
-            <div className="flex flex-col gap-3 w-full min-w-0 flex-1 min-h-0">
-              <div className="rounded-xl border border-amber-100/80 bg-amber-50/25 p-3 sm:p-4 min-h-0 flex flex-col min-w-[13rem] w-full">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 lg:gap-x-4 items-stretch min-w-0 w-full flex-1 min-h-0">
+              <div className="rounded-xl border border-amber-100/80 bg-amber-50/25 p-3 sm:p-4 min-h-0 min-w-0 w-full h-full flex flex-col">
               <button
                 type="button"
                 className="w-full flex items-center justify-between gap-2 text-left rounded-lg outline-none focus-visible:ring-2 focus-visible:ring-amber-400/50"
@@ -1699,8 +1699,8 @@ export default function DashboardUpcomingProgramRowItem({
               ) : null}
               </div>
 
-            {/* Attendance & notification — full width below family (stacked layout) */}
-            <div className="rounded-xl border border-slate-200 bg-white p-3 sm:p-4 shadow-sm min-h-0 flex flex-col w-full min-w-0">
+            {/* Attendance & notification — right column on lg (fills space beside member list) */}
+            <div className="rounded-xl border border-slate-200 bg-white p-3 sm:p-4 shadow-sm min-h-0 min-w-0 w-full h-full flex flex-col">
                 {annualSeatUi && (!includedPkg || selCount >= 1) ? (
                   <div
                     className="w-full rounded-lg border border-slate-200 bg-white px-2.5 py-2"
