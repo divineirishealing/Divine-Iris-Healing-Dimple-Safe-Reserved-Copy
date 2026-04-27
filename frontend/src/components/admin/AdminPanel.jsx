@@ -12,7 +12,7 @@ import { resolveImageUrl, rememberPublicApiBase, rememberS3VirtualHostRewrite } 
 import {
   Settings, Package, Calendar, MessageSquare, BarChart3, Mail, Inbox,
   Trash2, Edit, Plus, X, Eye, EyeOff, Save, ArrowUp, ArrowDown,
-  Globe, Layout, Image, Users, Palette, Gift, Monitor, Wifi,   Tag, ChevronLeft, ChevronRight, ChevronDown, Upload, FileText, DollarSign, Quote, Star, ShieldAlert,   CreditCard, UserPlus, Search, Wallet, Sparkles, Link2, KeyRound, LineChart, IndianRupee
+  Globe, Layout, Image, Users, Palette, Gift, Monitor, Wifi,   Tag, ChevronLeft, ChevronRight, ChevronDown, Upload, FileText, DollarSign, Quote, Star, ShieldAlert,   CreditCard, Search, Wallet, Sparkles, Link2, KeyRound, LineChart, IndianRupee
 } from 'lucide-react';
 
 import { getApiUrl } from '../../lib/config';
@@ -410,6 +410,7 @@ const AdminPanel = () => {
       { key: 'clients', label: 'Client Garden', icon: Users },
       { key: 'dashboard_access', label: 'Dashboard access', icon: KeyRound },
       { key: 'annual_portal_clients', label: 'Annual + dashboard', icon: Sparkles },
+      { key: 'add_annual_subscriber', label: 'Annual package catalog', icon: Package },
       { key: 'contact_update_link', label: 'Contact update link', icon: Link2 },
       { key: 'subscribers', label: 'Subscribers', icon: Mail },
       { key: 'annual_subscribers', label: 'Annual Subscribers', icon: Star },
@@ -419,7 +420,6 @@ const AdminPanel = () => {
       { key: 'dashboard_settings', label: 'Dashboard Config', icon: Layout },
       { key: 'dashboard_home_coming', label: 'Home Coming (Sacred Home)', icon: Sparkles },
       { key: 'sanctuary_settings', label: 'Sanctuary Design', icon: Image },
-      { key: 'add_annual_subscriber', label: 'Add annual subscriber', icon: UserPlus },
     ]},
   ];
 
@@ -659,7 +659,19 @@ const AdminPanel = () => {
           {activeTab === 'text_testimonials' && <TextTestimonialsTab />}
           {activeTab === 'annual_subscribers' && <AnnualSubscribersTab />}
           {activeTab === 'add_annual_subscriber' && (
-            <SubscribersTab openManualFormOnMount siteSettings={siteSettings} programs={programs} />
+            <SubscribersTab
+              mode="package_catalog"
+              siteSettings={siteSettings}
+              programs={programs}
+              onOpenAdminTab={(key) => {
+                setActiveTab(key);
+                try {
+                  localStorage.setItem('admin_active_tab', key);
+                } catch (_) {
+                  /* ignore */
+                }
+              }}
+            />
           )}
           {activeTab === 'scheduler' && <SchedulerTab />}
 
