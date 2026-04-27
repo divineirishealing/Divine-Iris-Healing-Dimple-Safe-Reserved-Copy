@@ -2165,6 +2165,7 @@ async def get_student_home(user: dict = Depends(get_current_student_user)):
             "dashboard_sacred_home_annual_program_id": 1,
             "dashboard_sacred_home_standard_prices": 1,
             "dashboard_sacred_home_show_non_annual": 1,
+            "dashboard_sacred_home_non_annual_contact_only": 1,
             "dashboard_sacred_home_non_annual_cta_label": 1,
             "dashboard_sacred_home_non_annual_cta_href": 1,
             "awrp_portal_batches": 1,
@@ -2193,13 +2194,14 @@ async def get_student_home(user: dict = Depends(get_current_student_user)):
                 pass
     show_pin = False
     contact_only_pin = False
+    non_annual_contact_only = bool(settings_doc.get("dashboard_sacred_home_non_annual_contact_only", False))
     if pin_annual_id:
         if annual_portal_access_effective:
             show_pin = True
             contact_only_pin = False
         elif show_non_annual_pin:
             show_pin = True
-            contact_only_pin = True
+            contact_only_pin = non_annual_contact_only
     if show_pin:
         pin_doc = await program_dict_with_deadline_sync(db, pin_annual_id)
         if pin_doc:

@@ -223,6 +223,10 @@ async def update_settings(payload: Dict[str, Any]):
         update_data['india_bank_accounts'] = raw['india_bank_accounts']
     if hasattr(settings, "model_fields_set") and "dashboard_annual_quote_show_tax" in settings.model_fields_set:
         update_data["dashboard_annual_quote_show_tax"] = bool(settings.dashboard_annual_quote_show_tax)
+    if "dashboard_sacred_home_non_annual_contact_only" in payload:
+        update_data["dashboard_sacred_home_non_annual_contact_only"] = bool(
+            payload["dashboard_sacred_home_non_annual_contact_only"]
+        )
     # Explicit 0 must persist (Pydantic / exclude_unset quirks); raw JSON is source of truth.
     if "india_platform_charge_percent" in payload:
         try:

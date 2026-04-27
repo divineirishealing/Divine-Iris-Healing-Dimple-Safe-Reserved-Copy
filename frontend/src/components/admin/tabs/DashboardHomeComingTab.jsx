@@ -27,8 +27,8 @@ export default function DashboardHomeComingTab({ settings, onChange, programs = 
         <p className="text-[11px] text-gray-600 mt-1 leading-relaxed max-w-3xl">
           Pin one <strong className="text-gray-800">catalog program</strong> to the top of the Sacred Home upcoming strip.
           <strong className="text-gray-800"> Annual members</strong> get full pricing and Divine Cart.{' '}
-          <strong className="text-gray-800">Non-annual</strong> members (still on Sacred Home) see your{' '}
-          <strong className="text-gray-800">standard prices</strong> and a <strong className="text-gray-800">Contact for initiation</strong> button instead of checkout.
+          <strong className="text-gray-800">Non-annual</strong> members can either use <strong className="text-gray-800">catalog checkout</strong> on the pin (default) or, if you turn on the switch below, only your{' '}
+          <strong className="text-gray-800">standard list</strong> plus <strong className="text-gray-800">Contact for initiation</strong>.
         </p>
       </div>
 
@@ -93,6 +93,23 @@ export default function DashboardHomeComingTab({ settings, onChange, programs = 
             checked={settings.dashboard_sacred_home_show_non_annual !== false}
             onCheckedChange={(v) => onChange({ ...settings, dashboard_sacred_home_show_non_annual: !!v })}
             data-testid="dashboard-home-coming-show-non-annual"
+          />
+        </div>
+
+        <div className="flex items-center justify-between gap-3 rounded-md border border-white/80 bg-white/60 px-3 py-2">
+          <div>
+            <p className="text-xs font-medium text-gray-900">Non-annual: contact for initiation only (no checkout)</p>
+            <p className="text-[10px] text-gray-600 mt-0.5">
+              When <strong>on</strong>, logged-in members without Annual access see only your contact button on the pinned program (no Divine Cart).
+              When <strong>off</strong>, they use normal tier pricing and checkout like the public catalog.
+            </p>
+          </div>
+          <Switch
+            checked={!!settings.dashboard_sacred_home_non_annual_contact_only}
+            onCheckedChange={(v) =>
+              onChange({ ...settings, dashboard_sacred_home_non_annual_contact_only: !!v })
+            }
+            data-testid="dashboard-home-coming-non-annual-contact-only"
           />
         </div>
 
