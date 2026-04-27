@@ -92,6 +92,41 @@ export function formatDashboardStatDate(val) {
 }
 
 /**
+ * Subscription / package validity end: add months with day-30 anchor rule.
+ * Uses UTC calendar components so YYYY-MM-DD matches backend and avoids `toISOString()` day shifts.
+ */
+export function addMonthsSubscriptionEnd(dateStr, months) {
+  if (!dateStr || !String(dateStr).trim()) return "";
+  const m = parseInt(months, 10);
+  const monthsAdd = Number.isFinite(m) && m > 0 ? m : 12;
+  const ds = String(dateStr).trim().slice(0, 10);
+  const parts = ds.split("-");
+  if (parts.length !== 3) return "";
+  const y = parseInt(parts[0], 10);
+  const mo = parseInt(parts[1], 10);
+  const day = parseInt(parts[2], 10);
+  if (!Number.isFinite(y) || !Number.isFinite(mo) || !Number.isFinite(day)) return "";
+  const d = new Date(Date.UTC(y, mo - 1, day));
+  if (Number.isNaN(d.getTime())) return "";
+  const targetMonth = d.getUTCMonth() + monthsAdd;
+  const targetYear = d.getUTCFullYear() + Math.floor(targetMonth / 12);
+  const actualMonth = ((targetMonth % 12) + 12) % 12;
+  const daysInMonth = new Date(Date.UTC(targetYear, actualMonth + 1, 0)).getUTCDate();
+  let end;
+  if (daysInMonth >= 30) {
+    end = new Date(Date.UTC(targetYear, actualMonth, 30));
+  } else {
+    const spillDays = 30 - daysInMonth;
+    const jsMonthNext = actualMonth + 1;
+    const jsYear = targetYear + Math.floor(jsMonthNext / 12);
+    const jsMonthFinal = jsMonthNext % 12;
+    end = new Date(Date.UTC(jsYear, jsMonthFinal, spillDays));
+  }
+  const pad2 = (n) => String(n).padStart(2, "0");
+  return `${end.getUTCFullYear()}-${pad2(end.getUTCMonth() + 1)}-${pad2(end.getUTCDate())}`;
+}
+
+/**
  * Sacred Exchange EMI Schedule typography — reuse for My Programs tables and other dashboard grids.
  * Body text-sm; headers uppercase 10px gray-400; dates/amounts tabular-nums (dashboard uses Lato).
  */

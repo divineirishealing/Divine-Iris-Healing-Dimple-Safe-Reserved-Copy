@@ -6,7 +6,8 @@ import re
 import uuid
 import logging
 from motor.motor_asyncio import AsyncIOMotorClient
-from datetime import datetime, timezone
+import calendar
+from datetime import datetime, timezone, date
 from dotenv import load_dotenv
 from pathlib import Path
 from .auth import get_current_user, _get_valid_session_and_user
@@ -295,6 +296,45 @@ def _is_annual_subscriber(sub: dict, client: dict) -> bool:
     if _annual_dashboard_access(client):
         return True
     return _subscription_annual_package_signals(sub)
+
+
+def _parse_ymd_loose(s: Optional[str]) -> Optional[date]:
+    if not s or not str(s).strip():
+        return None
+    try:
+        return datetime.strptime(str(s).strip()[:10], "%Y-%m-%d").date()
+    except ValueError:
+        return None
+
+
+def _add_months_subscription_end(date_str: str, months: int) -> str:
+    """End date for subscriptions: add months, day-30 anchor (matches ``addMonthsSubscriptionEnd`` in frontend utils)."""
+    if not (date_str or "").strip():
+        return ""
+    try:
+        months_i = int(months)
+    except (TypeError, ValueError):
+        months_i = 12
+    months_i = max(1, min(120, months_i))
+    ds = str(date_str).strip()[:10]
+    try:
+        d = datetime.strptime(ds, "%Y-%m-%d").date()
+    except ValueError:
+        return ""
+    y, m0 = d.year, d.month - 1
+    target_month = m0 + months_i
+    target_year = y + target_month // 12
+    actual_month = ((target_month % 12) + 12) % 12
+    days_in_month = calendar.monthrange(target_year, actual_month + 1)[1]
+    if days_in_month >= 30:
+        end = date(target_year, actual_month + 1, 30)
+    else:
+        spill = 30 - days_in_month
+        js_month_next = actual_month + 1
+        js_year = target_year + js_month_next // 12
+        js_month_final = js_month_next % 12
+        end = date(js_year, js_month_final + 1, spill)
+    return end.isoformat()
 
 
 def _portal_included_in_annual_package(program: dict, inc_cfg, _sub: dict, client: dict) -> bool:
@@ -2185,6 +2225,19 @@ async def get_student_home(user: dict = Depends(get_current_student_user)):
     
     # 2. Subscription data (from Excel upload)
     sub = client.get("subscription", {})
+    pkg_id_home = (sub.get("package_id") or "").strip()
+    pkg_row_home = None
+    if pkg_id_home:
+        pkg_row_home = await db.annual_packages.find_one(
+            {"package_id": pkg_id_home},
+            {"_id": 0, "duration_months": 1, "valid_from": 1, "valid_to": 1},
+        )
+    dur_months_home = 12
+    if pkg_row_home and pkg_row_home.get("duration_months") is not None:
+        try:
+            dur_months_home = max(1, min(120, int(pkg_row_home["duration_months"])))
+        except (TypeError, ValueError):
+            dur_months_home = 12
     sess = sub.get("sessions", {})
     emis = sub.get("emis", [])
 
@@ -2229,6 +2282,10 @@ async def get_student_home(user: dict = Depends(get_current_student_user)):
         "next_session_date": sess.get("scheduled_dates", [None])[0] if sess.get("scheduled_dates") else client.get("active_package", {}).get("next_session_date"),
         "start_date": sub.get("start_date", ""),
         "end_date": sub.get("end_date", ""),
+        "package_id": pkg_id_home,
+        "duration_months": dur_months_home,
+        "catalog_valid_from": (pkg_row_home.get("valid_from") or "") if pkg_row_home else "",
+        "catalog_valid_to": (pkg_row_home.get("valid_to") or "") if pkg_row_home else "",
         "bi_annual_download": sub.get("bi_annual_download", 0),
         "quarterly_releases": sub.get("quarterly_releases", 0),
     }
@@ -2420,6 +2477,84 @@ async def put_contact_email(data: ContactEmailBody, user: dict = Depends(get_cur
     await db.clients.update_one({"id": cid}, {"$set": {"email": em, "updated_at": now}})
     await db.users.update_one({"id": user["id"]}, {"$set": {"email": em, "updated_at": now}})
     return {"message": "Email saved", "email": em}
+
+
+class MembershipPeriodBody(BaseModel):
+    start_date: str
+
+
+@router.put("/membership-period")
+async def put_membership_period(data: MembershipPeriodBody, user: dict = Depends(get_current_student_user)):
+    """Annual package members set membership start; end date is derived from the package duration (same rule as admin)."""
+    cid = user.get("client_id")
+    if not cid:
+        raise HTTPException(status_code=400, detail="Your account is not linked to Client Garden.")
+    client = await _student_client_row_with_expiry(cid)
+    if not client:
+        raise HTTPException(status_code=404, detail="Client not found")
+    sub = dict(client.get("subscription") or {})
+    if not _is_annual_subscriber(sub, client):
+        raise HTTPException(
+            status_code=403,
+            detail="Membership dates can only be set for annual package subscribers.",
+        )
+    pkg_id = (sub.get("package_id") or "").strip()
+    if not pkg_id:
+        raise HTTPException(
+            status_code=400,
+            detail="No package is linked to your subscription. Your host must assign a package before you can set membership dates.",
+        )
+    pkg_row = await db.annual_packages.find_one({"package_id": pkg_id}, {"_id": 0}) or {}
+    duration = 12
+    if pkg_row.get("duration_months") is not None:
+        try:
+            duration = max(1, min(120, int(pkg_row["duration_months"])))
+        except (TypeError, ValueError):
+            duration = 12
+    start_d = _parse_ymd_loose(data.start_date)
+    if not start_d:
+        raise HTTPException(status_code=400, detail="Enter a valid start date (YYYY-MM-DD).")
+    vf = _parse_ymd_loose(pkg_row.get("valid_from") or "")
+    vt = _parse_ymd_loose(pkg_row.get("valid_to") or "")
+    if vf and start_d < vf:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Start date must be on or after the package offer window ({vf.isoformat()}).",
+        )
+    if vt and start_d > vt:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Start date must be on or before the package offer window ({vt.isoformat()}).",
+        )
+    emis = sub.get("emis") or []
+    if any(isinstance(e, dict) and e.get("status") == "paid" for e in emis):
+        raise HTTPException(
+            status_code=409,
+            detail="Membership start cannot be changed after a payment is recorded. Contact your host to adjust your record.",
+        )
+    start_s = start_d.isoformat()
+    end_s = _add_months_subscription_end(start_s, duration)
+    if not end_s:
+        raise HTTPException(status_code=400, detail="Could not compute membership end date.")
+    sub["start_date"] = start_s
+    sub["end_date"] = end_s
+    pd = sub.get("programs_detail")
+    if isinstance(pd, list):
+        for p in pd:
+            if isinstance(p, dict):
+                p["start_date"] = start_s
+                p["end_date"] = end_s
+    now = datetime.now(timezone.utc).isoformat()
+    await db.clients.update_one(
+        {"id": cid},
+        {"$set": {"subscription": sub, "updated_at": now}},
+    )
+    emi_note = None
+    if isinstance(emis, list) and len(emis) > 0:
+        emi_note = (
+            "If you have an EMI plan, due dates may still reflect the previous period until your host updates them."
+        )
+    return {"start_date": start_s, "end_date": end_s, "emi_schedule_note": emi_note}
 
 
 class HouseholdPeerRowIn(BaseModel):

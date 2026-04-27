@@ -6,6 +6,7 @@ import {
   formatDateDdMonYyyy,
   formatDashboardStatDate,
   dashboardEmiTable,
+  addMonthsSubscriptionEnd,
 } from '../../lib/utils';
 import { Card, CardHeader, CardTitle, CardContent } from '../ui/card';
 import { Button } from '../ui/button';
@@ -14,7 +15,7 @@ import { Label } from '../ui/label';
 import {
   CreditCard, CheckCircle, Clock, AlertCircle,
   ArrowRight, ChevronDown, ChevronUp, X, Upload,
-  Building2, Smartphone, Wallet, Globe, FileText
+  Building2, Smartphone, Wallet, Globe, FileText, Calendar,
 } from 'lucide-react';
 import { useToast } from '../../hooks/use-toast';
 import { resolveImageUrl, isLikelyImageUrl } from '../../lib/imageUtils';
@@ -628,11 +629,14 @@ const PaymentModal = ({
 const VOLUNTARY_EMI_PLACEHOLDER = { number: 0, amount: 0, due_date: '', status: 'due' };
 
 const FinancialsPage = () => {
+  const { toast } = useToast();
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [showAllEmis, setShowAllEmis] = useState(false);
   const [payingEmi, setPayingEmi] = useState(null);
   const [showIndiaInfo, setShowIndiaInfo] = useState(false);
+  const [membershipStart, setMembershipStart] = useState('');
+  const [membershipSaving, setMembershipSaving] = useState(false);
 
   const fetchData = () => {
     axios.get(`${API}/api/student/home`, { withCredentials: true })
@@ -642,6 +646,13 @@ const FinancialsPage = () => {
   };
 
   useEffect(() => { fetchData(); }, []);
+
+  const pkg = data?.package || {};
+  const durationMonths = pkg.duration_months || 12;
+  useEffect(() => {
+    const s = pkg.start_date;
+    setMembershipStart(s ? String(s).slice(0, 10) : '');
+  }, [pkg.start_date]);
 
   if (loading) return (
     <div className="flex items-center justify-center py-20">
@@ -662,6 +673,47 @@ const FinancialsPage = () => {
   const indiaTaxInfo = data?.india_tax_info;
   const voluntaryCredits = fin.voluntary_credits_total || 0;
   const canManualIndia = (methods || []).some((m) => ['manual', 'gpay', 'bank'].includes(m));
+  const showMembershipPeriodCard =
+    data?.is_annual_subscriber && (pkg.package_id || '').trim();
+  const computedMembershipEnd =
+    membershipStart && /^\d{4}-\d{2}-\d{2}$/.test(membershipStart)
+      ? addMonthsSubscriptionEnd(membershipStart, durationMonths)
+      : '';
+  const anyPaidEmi = emis.some((e) => e && e.status === 'paid');
+  const catalogFrom = (pkg.catalog_valid_from || '').trim().slice(0, 10);
+  const catalogTo = (pkg.catalog_valid_to || '').trim().slice(0, 10);
+
+  const saveMembershipPeriod = () => {
+    if (!membershipStart || !computedMembershipEnd) {
+      toast({ title: 'Choose a start date', variant: 'destructive' });
+      return;
+    }
+    setMembershipSaving(true);
+    axios
+      .put(
+        `${API}/api/student/membership-period`,
+        { start_date: membershipStart },
+        { withCredentials: true },
+      )
+      .then((res) => {
+        toast({ title: 'Membership period saved' });
+        if (res.data?.emi_schedule_note) {
+          toast({ title: 'Note', description: res.data.emi_schedule_note });
+        }
+        fetchData();
+      })
+      .catch((err) => {
+        const d = err.response?.data?.detail;
+        const msg =
+          typeof d === 'string'
+            ? d
+            : Array.isArray(d)
+              ? d.map((x) => x.msg || x).join(' ')
+              : d?.message || err.message || 'Could not save';
+        toast({ title: 'Could not save', description: String(msg), variant: 'destructive' });
+      })
+      .finally(() => setMembershipSaving(false));
+  };
 
   return (
     <div className="max-w-5xl mx-auto space-y-6" data-testid="financials-page">
@@ -726,6 +778,68 @@ const FinancialsPage = () => {
         <p className="text-[11px] text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 -mt-2">
           Your fee includes <strong>{indiaTaxInfo.percent}% {indiaTaxInfo.label}</strong> applicable on India payments (GPay / UPI / Bank Transfer).
         </p>
+      )}
+
+      {showMembershipPeriodCard && (
+        <Card data-testid="membership-period-card">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base flex items-center gap-2">
+              <Calendar size={16} className="text-[#5D3FD3]" /> Membership period
+            </CardTitle>
+            <p className="text-[11px] text-gray-500 font-normal leading-snug">
+              Choose when your annual membership starts. The end date is set automatically from your package length ({durationMonths} months).
+              {(catalogFrom || catalogTo) && (
+                <>
+                  {' '}
+                  Catalog offer window
+                  {catalogFrom ? ` from ${formatDateDdMonYyyy(catalogFrom)}` : ''}
+                  {catalogTo ? ` to ${formatDateDdMonYyyy(catalogTo)}` : ''}.
+                </>
+              )}
+            </p>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {anyPaidEmi && (
+              <p className="text-[11px] text-amber-900 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+                Membership dates are locked after a payment is recorded. To change them, contact your host.
+              </p>
+            )}
+            <div className="flex flex-wrap items-end gap-3">
+              <div>
+                <Label className="text-xs">Membership starts</Label>
+                <Input
+                  type="date"
+                  className="h-9 mt-1 w-[11rem]"
+                  value={membershipStart}
+                  onChange={(e) => setMembershipStart(e.target.value)}
+                  disabled={anyPaidEmi}
+                  data-testid="membership-start-input"
+                />
+              </div>
+              <div>
+                <Label className="text-xs text-gray-500">Ends (automatic)</Label>
+                <p className="h-9 mt-1 flex items-center text-sm font-semibold tabular-nums text-gray-800">
+                  {computedMembershipEnd ? formatDateDdMonYyyy(computedMembershipEnd) : '—'}
+                </p>
+              </div>
+              <Button
+                type="button"
+                size="sm"
+                className="h-9 bg-[#5D3FD3] hover:bg-[#4c32b3]"
+                disabled={anyPaidEmi || membershipSaving || !computedMembershipEnd}
+                onClick={saveMembershipPeriod}
+                data-testid="membership-period-save"
+              >
+                {membershipSaving ? <Clock size={14} className="animate-spin" /> : 'Save dates'}
+              </Button>
+            </div>
+            {(pkg.start_date || pkg.end_date) && (
+              <p className="text-[10px] text-gray-400">
+                On file: {formatDateDdMonYyyy(pkg.start_date) || '—'} → {formatDateDdMonYyyy(pkg.end_date) || '—'}
+              </p>
+            )}
+          </CardContent>
+        </Card>
       )}
 
       {/* Payment Progress */}

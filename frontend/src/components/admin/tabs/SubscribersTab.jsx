@@ -12,7 +12,7 @@ import {
   Settings, Package,   UserPlus,
 } from 'lucide-react';
 import { useSpreadsheetColumnVisibility, SpreadsheetColumnPicker } from '../SpreadsheetColumnPicker';
-import { formatDateDdMonYyyy } from '../../../lib/utils';
+import { formatDateDdMonYyyy, addMonthsSubscriptionEnd } from '../../../lib/utils';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 const BACKEND_ORIGIN = process.env.REACT_APP_BACKEND_URL || '';
@@ -121,21 +121,6 @@ function effectiveIndividualTaxDecimal(form, pkg, currency) {
   return Math.max(0, Math.min(100, n)) / 100;
 }
 
-/** End date for subscriptions / package validity: add months, anchor day 30 rule (matches subscriber end date). */
-const addMonths = (dateStr, months) => {
-  if (!dateStr) return '';
-  const d = new Date(dateStr);
-  const targetMonth = d.getMonth() + months;
-  const targetYear = d.getFullYear() + Math.floor(targetMonth / 12);
-  const actualMonth = ((targetMonth % 12) + 12) % 12;
-  const daysInMonth = new Date(targetYear, actualMonth + 1, 0).getDate();
-  if (daysInMonth >= 30) {
-    return new Date(targetYear, actualMonth, 30).toISOString().split('T')[0];
-  }
-  const spillDays = 30 - daysInMonth;
-  return new Date(targetYear, actualMonth + 1, spillDays).toISOString().split('T')[0];
-};
-
 const NumInput = ({ value, onChange, className = '', bold = false }) => (
   <input type="text" inputMode="decimal" value={value}
     onChange={e => onChange(e.target.value)}
@@ -184,7 +169,7 @@ const PackageEditor = ({ pkg, onSave, saving, onDelete, onNewVersion }) => {
     if (!fromStr || !String(fromStr).trim()) return '';
     const m = parseInt(monthsVal, 10);
     const n = Number.isFinite(m) && m > 0 ? m : 12;
-    return addMonths(fromStr, n);
+    return addMonthsSubscriptionEnd(fromStr, n);
   };
 
   const onValidFromChange = (e) => {
@@ -568,7 +553,7 @@ const SubscriberForm = ({ initial, onSave, onCancel, saving, packages, irisCatal
     set('start_date', val);
     if (val) {
       const months = selectedPkg?.duration_months || 12;
-      set('end_date', addMonths(val, months));
+      set('end_date', addMonthsSubscriptionEnd(val, months));
       // Regenerate EMI due dates: EMI #1 starts 1 month before batch start
       if (f.num_emis > 0) {
         const day = f.emi_day || 30;
