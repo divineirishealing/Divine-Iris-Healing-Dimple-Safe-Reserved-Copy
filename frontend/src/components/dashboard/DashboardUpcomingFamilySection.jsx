@@ -16,9 +16,6 @@ import {
   Monitor,
   Wifi,
   Send,
-  CalendarDays,
-  Wallet,
-  CircleDollarSign,
 } from 'lucide-react';
 import { useToast } from '../../hooks/use-toast';
 import { useCurrency } from '../../context/CurrencyContext';
@@ -804,7 +801,6 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh, bo
   const familyRowCount = members.length + otherMembers.length + annualPeersDraft.length;
 
   const restoredUpcomingRef = useRef(false);
-  const upcomingDetailRef = useRef(null);
   /** False until Sacred Home session is read from sessionStorage — avoids autosave wiping tiers/attendance with empty initial state. */
   const [upcomingSessionHydrated, setUpcomingSessionHydrated] = useState(false);
 
@@ -2122,174 +2118,57 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh, bo
       aria-labelledby="dashboard-upcoming-programs-heading"
       data-section="upcoming-programs"
     >
-      <div className="flex flex-col gap-4 md:gap-5">
-        <div
-          className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-5"
-          data-testid="dashboard-sacred-home-overview-row"
+      <div className="flex flex-col gap-4 md:gap-5 lg:flex-row lg:items-start lg:gap-5">
+        <nav
+          className="flex flex-row lg:flex-col gap-2 lg:gap-2 shrink-0 overflow-x-auto lg:overflow-visible w-full lg:w-44 xl:w-48 lg:sticky lg:top-20 self-start rounded-2xl border border-[rgba(160,100,220,0.2)] bg-white/65 backdrop-blur-xl px-2.5 py-2.5 lg:px-3 lg:py-3 shadow-[0_8px_28px_rgba(100,60,180,0.1)]"
+          aria-label="Sacred Home index"
+          data-testid="sacred-home-index-rail"
         >
-          <div
-            className="rounded-3xl border border-teal-200/70 bg-gradient-to-br from-white/98 via-white/94 to-teal-50/40 backdrop-blur-xl px-5 py-5 md:px-6 md:py-6 shadow-[0_12px_40px_-14px_rgba(13,148,136,0.22)] ring-1 ring-teal-900/[0.04] flex flex-col gap-3.5"
-            data-overview-box="upcoming-snapshot"
-            data-section-tag="upcoming-program"
+          <p className="hidden lg:block text-[8px] font-semibold uppercase tracking-[0.16em] text-violet-800/60 px-1">
+            Quick index
+          </p>
+          <button
+            type="button"
+            className="text-left rounded-xl px-2.5 py-2 min-w-[7.5rem] lg:min-w-0 hover:bg-violet-100/55 transition-colors border border-transparent hover:border-violet-200/40 shrink-0"
+            onClick={() =>
+              document
+                .getElementById('sacred-home-programs-body')
+                ?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+            }
           >
-            <div className="flex items-start gap-3">
-              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-teal-100 to-emerald-50 text-teal-700 shadow-sm ring-1 ring-teal-200/60">
-                <CalendarDays size={20} strokeWidth={1.75} aria-hidden />
-              </div>
-              <div className="min-w-0 flex-1 pt-0.5">
-                <h3 className="text-[10px] font-semibold tracking-[0.14em] text-teal-800/95 uppercase">
-                  Upcoming program
-                </h3>
-              </div>
-            </div>
-            <div
-              className="h-px w-full bg-gradient-to-r from-transparent via-teal-200/55 to-transparent shrink-0"
-              aria-hidden
-            />
-            {upcomingList.length === 0 ? (
-              <p className="text-[11px] text-slate-600 leading-relaxed">
-                No programs are listed yet — check back soon.
-              </p>
-            ) : (
-              <dl className="grid gap-2.5 text-[11px] text-slate-700">
-                <div className="flex justify-between gap-2">
-                  <dt className="text-slate-500">On your list</dt>
-                  <dd className="font-semibold text-slate-900 text-right tabular-nums">{upcomingList.length}</dd>
-                </div>
-                {upcomingList[0] ? (
-                  <>
-                    <div className="flex justify-between gap-2 items-start">
-                      <dt className="text-slate-500 shrink-0 pt-0.5">Featured</dt>
-                      <dd className="font-medium text-slate-900 text-right line-clamp-2 leading-snug max-w-[14rem]">
-                        {upcomingList[0].title}
-                      </dd>
-                    </div>
-                    {upcomingList[0].start_date || upcomingList[0].deadline_date ? (
-                      <div className="flex justify-between gap-2">
-                        <dt className="text-slate-500">Key date</dt>
-                        <dd className="font-medium text-slate-900 text-right tabular-nums">
-                          {formatDateDdMonYyyy(
-                            String(
-                              upcomingList[0].deadline_date || upcomingList[0].start_date || '',
-                            ).slice(0, 10),
-                          ) || '—'}
-                        </dd>
-                      </div>
-                    ) : null}
-                  </>
-                ) : null}
-              </dl>
-            )}
-            <Button
-              type="button"
-              variant="outline"
-              className="mt-auto h-9 text-xs border-teal-200/90 text-teal-900 bg-white/80 hover:bg-teal-50/90 rounded-full shadow-sm"
-              onClick={() =>
-                upcomingDetailRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
-              }
-            >
-              View programs &amp; enroll
-            </Button>
-          </div>
-
-          <div
-            className="rounded-3xl border border-violet-200/70 bg-gradient-to-br from-white/98 via-violet-50/25 to-white/95 backdrop-blur-xl px-5 py-5 md:px-6 md:py-6 shadow-[0_12px_40px_-14px_rgba(91,33,182,0.14)] ring-1 ring-violet-900/[0.04] flex flex-col gap-3.5"
-            data-overview-box="financials"
-            data-section-tag="financials"
+            <span className="text-[10px] font-semibold tracking-[0.12em] text-teal-800 uppercase">
+              Upcoming program
+            </span>
+            <span className="block text-[11px] text-slate-600 mt-1 leading-snug">
+              {upcomingList.length ? `${upcomingList.length} on your list` : 'Nothing listed yet'}
+            </span>
+          </button>
+          <button
+            type="button"
+            className="text-left rounded-xl px-2.5 py-2 min-w-[7.5rem] lg:min-w-0 hover:bg-violet-100/55 transition-colors border border-transparent hover:border-violet-200/40 shrink-0"
+            onClick={() => navigate('/dashboard/financials')}
           >
-            <div className="flex items-start gap-3">
-              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-violet-100 to-violet-50/80 text-violet-700 shadow-sm ring-1 ring-violet-200/60">
-                <Wallet size={20} strokeWidth={1.75} aria-hidden />
-              </div>
-              <div className="min-w-0 flex-1 pt-0.5">
-                <h3 className="text-base font-semibold text-slate-900 leading-tight">Payments &amp; EMIs</h3>
-              </div>
-            </div>
-            <div
-              className="h-px w-full bg-gradient-to-r from-transparent via-violet-200/50 to-transparent shrink-0"
-              aria-hidden
-            />
-            <dl className="grid gap-2.5 text-[11px] text-slate-700">
-              <div className="flex justify-between gap-2">
-                <dt className="text-slate-500">Status</dt>
-                <dd className="font-medium text-slate-900 text-right">{overviewFin?.status || '—'}</dd>
-              </div>
-              {overviewFin?.emi_plan ? (
-                <div className="flex justify-between gap-2">
-                  <dt className="text-slate-500">Installments</dt>
-                  <dd className="font-medium text-slate-900 text-right">{overviewFin.emi_plan}</dd>
-                </div>
-              ) : null}
-              <div className="flex justify-between gap-2">
-                <dt className="text-slate-500">Next due</dt>
-                <dd className="font-medium text-slate-900 text-right">{overviewNextDueLabel}</dd>
-              </div>
-            </dl>
-            <Button
-              type="button"
-              variant="outline"
-              className="mt-auto h-9 text-xs border-violet-200/90 text-violet-900 bg-white/80 hover:bg-violet-50/90 rounded-full shadow-sm"
-              onClick={() => navigate('/dashboard/financials')}
-            >
-              Open Financials
-            </Button>
-          </div>
-
-          <div
-            className="rounded-3xl border border-[#D4AF37]/45 bg-gradient-to-br from-amber-50/55 via-white/96 to-amber-50/30 backdrop-blur-xl px-5 py-5 md:px-6 md:py-6 shadow-[0_12px_40px_-14px_rgba(180,130,40,0.18)] ring-1 ring-amber-900/[0.06] flex flex-col gap-3.5"
-            data-overview-box="investment"
-            data-section-tag="investment"
+            <span className="text-[10px] font-semibold text-violet-900">Payments &amp; EMIs</span>
+            <span className="block text-[11px] text-slate-600 mt-1 leading-snug line-clamp-2">
+              {overviewFin?.status || '—'} · Next: {overviewNextDueLabel}
+            </span>
+          </button>
+          <button
+            type="button"
+            className="text-left rounded-xl px-2.5 py-2 min-w-[7.5rem] lg:min-w-0 hover:bg-violet-100/55 transition-colors border border-transparent hover:border-violet-200/40 shrink-0"
+            onClick={() => navigate('/dashboard/financials')}
           >
-            <div className="flex items-start gap-3">
-              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-amber-100 to-[#fef3c7] text-[#92400e] shadow-sm ring-1 ring-amber-200/70">
-                <CircleDollarSign size={20} strokeWidth={1.75} aria-hidden />
-              </div>
-              <div className="min-w-0 flex-1 pt-0.5">
-                <h3 className="text-base font-semibold text-slate-900 leading-tight">Program investment</h3>
-              </div>
-            </div>
-            <div
-              className="h-px w-full bg-gradient-to-r from-transparent via-amber-200/60 to-transparent shrink-0"
-              aria-hidden
-            />
-            <dl className="grid gap-2.5 text-[11px] text-slate-700">
-              <div className="flex justify-between gap-2">
-                <dt className="text-slate-500">Total fee</dt>
-                <dd className="font-medium text-slate-900 text-right tabular-nums">
-                  {formatOverviewMoney(overviewFin?.total_fee)}
-                </dd>
-              </div>
-              <div className="flex justify-between gap-2">
-                <dt className="text-slate-500">Paid so far</dt>
-                <dd className="font-medium text-emerald-800 text-right tabular-nums">
-                  {formatOverviewMoney(overviewFin?.total_paid)}
-                </dd>
-              </div>
-              <div className="flex justify-between gap-2">
-                <dt className="text-slate-500">Balance</dt>
-                <dd className="font-medium text-slate-900 text-right tabular-nums">
-                  {formatOverviewMoney(overviewFin?.remaining)}
-                </dd>
-              </div>
-            </dl>
-            <p className="text-[10px] text-slate-500 leading-snug">
-              Upload proof, track EMIs, and manage payment mode on the Financials page.
-            </p>
-            <Button
-              type="button"
-              variant="outline"
-              className="mt-auto h-9 text-xs border-[#D4AF37]/55 text-[#6b5210] bg-white/85 hover:bg-amber-50/95 rounded-full shadow-sm"
-              onClick={() => navigate('/dashboard/financials')}
-            >
-              View payment details
-            </Button>
-          </div>
-        </div>
+            <span className="text-[10px] font-semibold text-[#8b6914]">Program investment</span>
+            <span className="block text-[11px] text-slate-600 mt-1 tabular-nums">
+              Balance {formatOverviewMoney(overviewFin?.remaining)}
+            </span>
+          </button>
+        </nav>
 
+        <div className="min-w-0 flex-1 flex flex-col gap-4 md:gap-5">
         <div
-          ref={upcomingDetailRef}
-          id="sacred-home-upcoming-detail"
-          className="rounded-3xl border border-teal-200/75 bg-gradient-to-b from-white/96 via-white/92 to-teal-50/25 backdrop-blur-xl px-5 py-5 md:px-7 md:py-7 shadow-[0_14px_48px_-18px_rgba(15,118,136,0.2)] ring-1 ring-teal-900/[0.05]"
+          id="sacred-home-programs-body"
+          className="rounded-[28px] border border-[rgba(160,100,220,0.14)] bg-white/70 backdrop-blur-xl px-5 py-5 md:px-7 md:py-6 shadow-[0_4px_48px_rgba(140,60,220,0.08)]"
           data-overview-box="upcoming-program"
         >
         <div className="mb-4 md:mb-5 flex flex-col items-center text-center">
@@ -2717,6 +2596,7 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh, bo
           </div>
         </div>
         </div>
+      </div>
       </div>
 
       <Dialog
