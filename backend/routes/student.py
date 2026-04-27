@@ -12,7 +12,11 @@ from pathlib import Path
 from .auth import get_current_user, _get_valid_session_and_user
 from models_extended import JourneyLog
 from iris_journey import resolve_iris_journey
-from routes.programs import fetch_programs_with_deadline_sync, sort_programs_like_homepage
+from routes.programs import (
+    fetch_programs_with_deadline_sync,
+    program_dict_with_deadline_sync,
+    sort_programs_like_homepage,
+)
 from routes.enrollment import ProfileData, insert_enrollment_from_profile
 from routes.clients import (
     HOME_COMING_SKU,
@@ -2104,6 +2108,7 @@ async def get_student_home(user: dict = Depends(get_current_student_user)):
             "dashboard_offer_family": 1,
             "dashboard_offer_extended": 1,
             "dashboard_program_offers": 1,
+            "dashboard_sacred_home_annual_program_id": 1,
             "awrp_portal_batches": 1,
             "india_gpay_accounts": 1,
             "india_bank_accounts": 1,
@@ -2111,6 +2116,13 @@ async def get_student_home(user: dict = Depends(get_current_student_user)):
             "india_upi_id": 1,
         },
     ) or {}
+    pin_annual_id = (settings_doc.get("dashboard_sacred_home_annual_program_id") or "").strip()
+    if pin_annual_id and annual_portal_access_effective:
+        pin_doc = await program_dict_with_deadline_sync(db, pin_annual_id)
+        if pin_doc:
+            pin_doc["dashboard_annual_product_pin"] = True
+            rest = [p for p in upcoming if str(p.get("id")) != str(pin_annual_id)]
+            upcoming = [pin_doc] + rest
     dashboard_offer_annual = settings_doc.get("dashboard_offer_annual") or {}
     dashboard_offer_family = settings_doc.get("dashboard_offer_family") or {}
     dashboard_offer_extended = settings_doc.get("dashboard_offer_extended") or {}

@@ -587,6 +587,8 @@ class SiteSettings(BaseModel):
     dashboard_offer_extended: Dict = Field(default_factory=dict)
     # When non-empty, these program IDs are "included in annual package" (member pays family seats only). Empty = use title keywords (MMM, AWRP, …).
     annual_package_included_program_ids: List[str] = Field(default_factory=list)
+    # Sacred Home: prepend this catalog program to `upcoming_programs` for Annual dashboard clients (renewal / Home Coming product).
+    dashboard_sacred_home_annual_program_id: str = ""
     # Per-program portal pricing overrides: { program_id: { annual, family, extended, by_tier?: { "0"|"1"|…: { annual, family, extended } } } } merged with globals; tier keys match duration_tier index on Sacred Home
     dashboard_program_offers: Dict[str, Any] = Field(default_factory=dict)
     # Existing AWRP / cohort batches: assign clients (awrp_batch_id) for layered portal pricing in Sacred Home
@@ -784,6 +786,7 @@ class SiteSettingsUpdate(BaseModel):
     dashboard_offer_family: Optional[Dict] = None
     dashboard_offer_extended: Optional[Dict] = None
     annual_package_included_program_ids: Optional[List[str]] = None
+    dashboard_sacred_home_annual_program_id: Optional[str] = None
     dashboard_program_offers: Optional[Dict[str, Any]] = None
     awrp_portal_batches: Optional[List[Dict]] = None
     awrp_batch_program_offers: Optional[Dict[str, Any]] = None

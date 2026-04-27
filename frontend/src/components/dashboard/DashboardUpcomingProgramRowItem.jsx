@@ -1023,6 +1023,14 @@ export default function DashboardUpcomingProgramRowItem({
               <p className="text-[#D4AF37] text-[10px] tracking-wider mb-0.5 uppercase">{p.category || 'Program'}</p>
               <div className="flex items-start gap-2 mb-1.5 flex-wrap">
                 <h3 className="text-base font-semibold text-gray-900 leading-tight pr-1">{p.title}</h3>
+                {p.dashboard_annual_product_pin && (
+                  <span
+                    data-testid={`dashboard-pinned-annual-product-${p.id}`}
+                    className="flex-shrink-0 inline-flex items-center rounded-md border border-teal-600/35 bg-teal-50/95 text-[8px] font-bold uppercase tracking-wider text-teal-900 px-2 py-0.5"
+                  >
+                    Home Coming
+                  </span>
+                )}
                 {hasTiers && tierIsYearLong && (
                   <span className="flex-shrink-0 inline-flex items-center rounded-md border border-[#D4AF37]/40 bg-amber-50/95 text-[8px] font-bold uppercase tracking-wider text-[#6b5210] px-2 py-0.5">
                     Annual

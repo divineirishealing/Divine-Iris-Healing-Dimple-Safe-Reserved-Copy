@@ -33,6 +33,38 @@ def sort_programs_like_homepage(programs: List[Program]) -> List[Program]:
     return sorted(programs, key=lambda p: (_program_status_rank(p), p.order))
 
 
+async def program_dict_with_deadline_sync(db_ref, program_id: str) -> Optional[dict]:
+    """Load one program by id, apply the same enrollment deadline auto-close as the public list. Returns model_dump or None."""
+    raw = await db_ref.programs.find_one({"id": program_id}, {"_id": 0})
+    if not raw:
+        return None
+    prog = Program(**raw)
+    now = datetime.now(timezone.utc)
+    deadline = raw.get("deadline_date") or raw.get("start_date") or ""
+    if deadline and prog.enrollment_status == "open":
+        try:
+            dl = (
+                datetime.fromisoformat(deadline + "T23:59:59+00:00")
+                if "T" not in str(deadline)
+                else datetime.fromisoformat(str(deadline))
+            )
+            if dl < now:
+                prog = prog.model_copy(
+                    update={
+                        "enrollment_status": "closed",
+                        "enrollment_open": False,
+                        "closure_text": prog.closure_text or "Registration Closed",
+                    }
+                )
+                await db_ref.programs.update_one(
+                    {"id": prog.id},
+                    {"$set": {"enrollment_status": "closed", "enrollment_open": False}},
+                )
+        except (ValueError, TypeError):
+            pass
+    return prog.model_dump()
+
+
 async def fetch_programs_with_deadline_sync(
     db_ref,
     visible_only: Optional[bool] = None,

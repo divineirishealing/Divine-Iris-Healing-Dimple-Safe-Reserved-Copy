@@ -330,6 +330,15 @@ const DashboardLayout = () => {
                     annualRenewalReminder.end_date}
                 </p>
               ) : null}
+              <p className="text-[11px] mt-2">
+                <a
+                  href="#sacred-home-programs"
+                  className="font-semibold text-amber-900 underline underline-offset-2 hover:opacity-90"
+                >
+                  Open annual / Home Coming program on Sacred Home
+                </a>
+                <span className="opacity-80"> — pinned at the top when your admin has set it under Dashboard settings.</span>
+              </p>
             </div>
           )}
           <Outlet />

@@ -1726,6 +1726,46 @@ const DashboardSettingsTab = ({ settings, onChange, programs = [], onOpenAdminTa
         </div>
 
         <div
+          className="mt-6 rounded-lg border border-teal-200/80 bg-teal-50/30 p-4 space-y-2"
+          data-testid="dashboard-sacred-home-annual-product"
+        >
+          <h3 className="text-sm font-semibold text-gray-900">Sacred Home — Home Coming / annual product (pinned)</h3>
+          <p className="text-[11px] text-gray-600 leading-snug">
+            Pick one <strong className="text-gray-800">catalog program</strong> (create it under Admin → Programs if needed — e.g. &quot;Home Coming Renewal&quot; with tiers and prices).
+            It is <strong className="text-gray-800">automatically shown at the top</strong> of the Sacred Home upcoming list for every client with{' '}
+            <strong className="text-gray-800">Dashboard Access = Annual</strong>, with normal dashboard quotes and checkout — same as other upcoming rows.
+          </p>
+          <div>
+            <Label className="text-xs text-gray-700">Program to pin on Sacred Home</Label>
+            <select
+              className="mt-1 w-full max-w-md border rounded-md px-2 py-2 text-sm bg-white"
+              data-testid="dashboard-sacred-home-annual-program-select"
+              value={settings.dashboard_sacred_home_annual_program_id || ''}
+              onChange={(e) =>
+                onChange({
+                  ...settings,
+                  dashboard_sacred_home_annual_program_id: e.target.value || '',
+                })
+              }
+            >
+              <option value="">— None — use homepage upcoming list only</option>
+              {[...(programs || [])]
+                .filter((p) => p && p.id)
+                .sort((a, b) => (a.title || '').localeCompare(b.title || '', undefined, { sensitivity: 'base' }))
+                .map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.title || p.id}
+                    {p.is_upcoming ? ' · Upcoming' : ''}
+                  </option>
+                ))}
+            </select>
+          </div>
+          <p className="text-[10px] text-gray-500">
+            Where members see it: <strong className="text-gray-700">Sacred Home</strong> main programs strip (scroll to upcoming cards). Save site settings after changing.
+          </p>
+        </div>
+
+        <div
           className="mt-6 rounded-lg border border-slate-200 bg-slate-50/60 p-4 space-y-2"
           data-testid="annual-included-programs"
         >
