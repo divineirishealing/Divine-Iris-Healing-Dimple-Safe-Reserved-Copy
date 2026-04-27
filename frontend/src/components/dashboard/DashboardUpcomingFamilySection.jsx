@@ -46,6 +46,7 @@ import {
   upcomingSessionStorageKey,
 } from '../../lib/dashboardUpcomingSessionStorage';
 import { getAuthHeaders } from '../../lib/authHeaders';
+import { formatDateDdMonYyyy } from '../../lib/utils';
 import DashboardUpcomingProgramRowItem from './DashboardUpcomingProgramRowItem';
 import { CrossSellBanner } from '../UpcomingProgramsSection';
 import { Button } from '../ui/button';
@@ -2050,7 +2051,7 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh, bo
 
     toast({
       title: 'Order updated',
-      description: `${program.title || 'Program'} is in your order. Click DIVINE CART in the sidebar when you are ready to review and pay.`,
+      description: `${program.title || 'Program'} is in your order. Open Divine Cart in the sidebar when you are ready to review and pay.`,
     });
   };
 
@@ -2089,16 +2090,47 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh, bo
       .catch(() => {});
   }, [loadEnrollmentPrefill]);
 
+  const overviewFin = homeData?.financials;
+  const overviewCurrency = overviewFin?.currency || 'INR';
+  const formatOverviewMoney = (n) => {
+    const v = Number(n);
+    if (overviewFin == null || Number.isNaN(v)) return '—';
+    try {
+      return new Intl.NumberFormat(undefined, {
+        style: 'currency',
+        currency: overviewCurrency,
+        maximumFractionDigits: 0,
+      }).format(v);
+    } catch {
+      return `${v.toLocaleString()} ${overviewCurrency}`;
+    }
+  };
+  const overviewNextDueLabel =
+    !overviewFin?.next_due || overviewFin.next_due === 'No pending dues'
+      ? 'No pending dues'
+      : formatDateDdMonYyyy(String(overviewFin.next_due).slice(0, 10)) || String(overviewFin.next_due);
+
   return (
     <section
       id="sacred-home-programs"
       className="w-full max-w-[68rem] mx-auto pl-4 pr-6 sm:pr-8 md:pr-10 lg:pr-12 mb-4 md:mb-6"
       data-testid="dashboard-upcoming-family"
+      aria-labelledby="dashboard-upcoming-programs-heading"
+      data-section="upcoming-programs"
     >
-      <div className="rounded-[28px] border border-[rgba(160,100,220,0.14)] bg-white/70 backdrop-blur-xl px-5 py-5 md:px-7 md:py-6 shadow-[0_4px_48px_rgba(140,60,220,0.08)]">
+      <div className="flex flex-col gap-4 md:gap-5">
+        <div
+          className="rounded-[22px] border border-teal-200/80 bg-white/90 backdrop-blur-xl px-5 py-5 md:px-6 md:py-6 shadow-[0_4px_32px_rgba(20,120,140,0.07)]"
+          data-overview-box="upcoming-program"
+          data-section-tag="upcoming-program"
+        >
         <div className="mb-4 md:mb-5 flex flex-col items-center text-center">
           <UpcomingProgramsIrisBloom />
-          <h2 className="font-[family-name:'Cinzel',serif] mt-2 px-2 text-lg font-bold tracking-tight text-[#3b0764] drop-shadow-sm md:text-2xl lg:text-3xl">
+          <p className="mt-2 text-[10px] font-semibold tracking-wide text-teal-800">Upcoming program</p>
+          <h2
+            id="dashboard-upcoming-programs-heading"
+            className="font-[family-name:'Cinzel',serif] mt-1 px-2 text-lg font-bold tracking-tight text-[#3b0764] drop-shadow-sm md:text-2xl lg:text-3xl"
+          >
             Upcoming programs
           </h2>
           <div className="mt-3 flex w-full flex-wrap justify-center gap-2 sm:justify-end">
@@ -2111,7 +2143,7 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh, bo
               data-testid="dashboard-open-combined-checkout"
             >
               <CreditCard size={16} className="text-violet-700" />
-              <span className="text-xs font-semibold">DIVINE CART</span>
+              <span className="text-xs font-semibold">Divine Cart</span>
               {itemCount > 0 ? (
                 <span className="min-w-[1.25rem] h-5 px-1.5 rounded-full bg-violet-600 text-white text-[10px] font-bold tabular-nums flex items-center justify-center">
                   {itemCount}
@@ -2284,8 +2316,90 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh, bo
             })}
           </div>
         )}
+        </div>
 
-        <div className="border-t border-slate-200/80 pt-4 mt-2">
+        <div
+          className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-5"
+          data-testid="dashboard-sacred-home-overview-secondary"
+        >
+          <div
+            className="rounded-[22px] border border-violet-200/75 bg-white/90 backdrop-blur-xl px-5 py-5 md:px-6 md:py-5 shadow-[0_4px_28px_rgba(100,60,180,0.06)] flex flex-col gap-3"
+            data-overview-box="financials"
+            data-section-tag="financials"
+          >
+            <p className="text-[10px] font-semibold tracking-wide text-violet-800">Financials</p>
+            <h3 className="text-base font-semibold text-slate-900 leading-tight">Payments &amp; EMIs</h3>
+            <dl className="grid gap-2 text-[11px] text-slate-700">
+              <div className="flex justify-between gap-2">
+                <dt className="text-slate-500">Status</dt>
+                <dd className="font-medium text-slate-900 text-right">{overviewFin?.status || '—'}</dd>
+              </div>
+              {overviewFin?.emi_plan ? (
+                <div className="flex justify-between gap-2">
+                  <dt className="text-slate-500">Installments</dt>
+                  <dd className="font-medium text-slate-900 text-right">{overviewFin.emi_plan}</dd>
+                </div>
+              ) : null}
+              <div className="flex justify-between gap-2">
+                <dt className="text-slate-500">Next due</dt>
+                <dd className="font-medium text-slate-900 text-right">{overviewNextDueLabel}</dd>
+              </div>
+            </dl>
+            <Button
+              type="button"
+              variant="outline"
+              className="mt-1 h-9 text-xs border-violet-200"
+              onClick={() => navigate('/dashboard/financials')}
+            >
+              Open Financials
+            </Button>
+          </div>
+          <div
+            className="rounded-[22px] border border-[#D4AF37]/40 bg-gradient-to-br from-amber-50/50 via-white/95 to-white/90 backdrop-blur-xl px-5 py-5 md:px-6 md:py-5 shadow-[0_4px_28px_rgba(180,140,40,0.08)] flex flex-col gap-3"
+            data-overview-box="investment"
+            data-section-tag="investment"
+          >
+            <p className="text-[10px] font-semibold tracking-wide text-[#8b6914]">Investment</p>
+            <h3 className="text-base font-semibold text-slate-900 leading-tight">Program investment</h3>
+            <dl className="grid gap-2 text-[11px] text-slate-700">
+              <div className="flex justify-between gap-2">
+                <dt className="text-slate-500">Total fee</dt>
+                <dd className="font-medium text-slate-900 text-right tabular-nums">
+                  {formatOverviewMoney(overviewFin?.total_fee)}
+                </dd>
+              </div>
+              <div className="flex justify-between gap-2">
+                <dt className="text-slate-500">Paid so far</dt>
+                <dd className="font-medium text-emerald-800 text-right tabular-nums">
+                  {formatOverviewMoney(overviewFin?.total_paid)}
+                </dd>
+              </div>
+              <div className="flex justify-between gap-2">
+                <dt className="text-slate-500">Balance</dt>
+                <dd className="font-medium text-slate-900 text-right tabular-nums">
+                  {formatOverviewMoney(overviewFin?.remaining)}
+                </dd>
+              </div>
+            </dl>
+            <p className="text-[10px] text-slate-500 leading-snug">
+              Upload proof, track EMIs, and manage payment mode on the Financials page.
+            </p>
+            <Button
+              type="button"
+              variant="outline"
+              className="mt-0 h-9 text-xs border-[#D4AF37]/50 text-[#6b5210] hover:bg-amber-50"
+              onClick={() => navigate('/dashboard/financials')}
+            >
+              View payment details
+            </Button>
+          </div>
+        </div>
+
+        <div
+          className="rounded-[22px] border border-slate-200/85 bg-white/90 backdrop-blur-xl px-5 py-5 md:px-6 md:py-6 shadow-[0_4px_28px_rgba(60,60,80,0.05)]"
+          data-overview-box="household"
+        >
+        <div className="pt-0">
           <div className="flex items-center gap-2 mb-3">
             <Users size={16} className="text-violet-700" />
             <div>
@@ -2500,6 +2614,7 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh, bo
             */}
           </div>
         </div>
+        </div>
       </div>
 
       <Dialog
@@ -2518,7 +2633,7 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh, bo
               Set attendance and enrollment notification email for your order — including the WhatsApp group link when
               applicable. Use <strong className="text-slate-800">Save defaults &amp; close</strong> to store choices in this
               browser, or <strong className="text-slate-800">Add to order</strong> with the checkbox below to save defaults when
-              you update the cart. Open <strong className="text-slate-800">DIVINE CART</strong> in the sidebar when you are ready to review and pay.
+              you update the cart. Open <strong className="text-slate-800">Divine Cart</strong> in the sidebar when you are ready to review and pay.
             </DialogDescription>
           </DialogHeader>
 

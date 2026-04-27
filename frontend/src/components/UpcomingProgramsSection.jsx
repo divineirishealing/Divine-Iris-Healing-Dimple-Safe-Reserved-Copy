@@ -899,9 +899,22 @@ const UpcomingProgramsSection = ({ sectionConfig, inline }) => {
   if (inline) return <div data-testid="upcoming-programs-section">{content}</div>;
 
   return (
-    <section id="upcoming" data-testid="upcoming-programs-section" className="py-12">
+    <section
+      id="upcoming"
+      data-testid="upcoming-programs-section"
+      data-section="upcoming-programs"
+      aria-label="Upcoming programs"
+      className="py-12"
+    >
       <div className="container mx-auto px-4">
-        {content}
+        <div
+          className="rounded-[22px] border border-teal-200/75 bg-white/90 backdrop-blur-xl px-4 py-8 sm:px-6 sm:py-10 shadow-[0_4px_32px_rgba(20,120,140,0.07)]"
+          data-overview-box="upcoming-program"
+          data-section-tag="upcoming-program"
+        >
+          <p className="text-center text-[10px] font-semibold tracking-wide text-teal-800 mb-3">Upcoming program</p>
+          {content}
+        </div>
       </div>
     </section>
   );

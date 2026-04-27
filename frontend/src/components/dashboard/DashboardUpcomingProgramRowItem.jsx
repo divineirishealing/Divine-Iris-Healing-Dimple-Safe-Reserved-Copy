@@ -122,7 +122,7 @@ function AnnualQuoteBreakdown({
     return (
       <div className="text-[11px] text-slate-800 leading-snug w-full min-w-0 space-y-2">
         {!suppressIntro ? (
-          <p className="text-[10px] font-bold uppercase tracking-wide text-slate-500">
+          <p className="text-[10px] font-bold tracking-wide text-slate-500">
             {annualDashboardAccess
               ? 'Offer per person — Annual member · Annual Family Club · Immediate family'
               : 'Offer per seat — same published rates as the main website for this tier · You · linked household · immediate family · friends & extended'}
@@ -236,7 +236,7 @@ function AnnualQuoteBreakdown({
     <div className="space-y-2 text-[11px] text-slate-700 leading-snug">
       {!suppressIntro ? (
         <>
-          <p className="text-[10px] font-bold uppercase tracking-wide text-slate-500">
+          <p className="text-[10px] font-bold tracking-wide text-slate-500">
             {annualDashboardAccess
               ? 'Prices — Annual Member · Annual Family Club · Immediate family · Friends & extended'
               : 'Prices — same as the main website for this tier · You · Linked household · Immediate family · Friends & extended'}
@@ -983,7 +983,7 @@ export default function DashboardUpcomingProgramRowItem({
                 {p.exclusive_offer_enabled && p.exclusive_offer_text && (
                   <span
                     data-testid={`dashboard-exclusive-offer-${p.id}`}
-                    className="bg-red-600 text-white text-[10px] font-bold px-2.5 py-1 rounded-full shadow-lg tracking-wide uppercase animate-pulse text-right leading-snug max-w-[55%]"
+                    className="bg-red-600 text-white text-[10px] font-bold px-2.5 py-1 rounded-full shadow-lg tracking-wide animate-pulse text-right leading-snug max-w-[55%]"
                   >
                     {p.exclusive_offer_text}
                   </span>
@@ -993,14 +993,14 @@ export default function DashboardUpcomingProgramRowItem({
           </>
         ) : enrollStatus === 'coming_soon' ? (
           <div className="absolute inset-0 bg-black/25 flex items-center justify-center z-20">
-            <span className="bg-blue-600/95 text-white text-sm font-bold px-6 py-2.5 rounded-full tracking-wider uppercase shadow-xl border border-white/20">
-              Coming Soon
+            <span className="bg-blue-600/95 text-white text-sm font-bold px-6 py-2.5 rounded-full tracking-wide shadow-xl border border-white/20">
+              Coming soon
             </span>
           </div>
         ) : (
           <div className="absolute inset-0 bg-black/35 flex items-center justify-center z-20">
-            <span className="bg-gray-900/92 text-white text-sm font-bold px-5 py-2.5 rounded-full tracking-wider uppercase shadow-xl border border-white/15 text-center max-w-[90%]">
-              {p.closure_text || 'Registration Closed'}
+            <span className="bg-gray-900/92 text-white text-sm font-bold px-5 py-2.5 rounded-full tracking-wide shadow-xl border border-white/15 text-center max-w-[90%]">
+              {p.closure_text || 'Registration closed'}
             </span>
           </div>
         )}
@@ -1021,26 +1021,26 @@ export default function DashboardUpcomingProgramRowItem({
           >
             {heroBlock}
             <div className="p-4 flex flex-col flex-1 min-h-0 xl:min-h-0">
-              <p className="text-[#D4AF37] text-[10px] tracking-wider mb-0.5 uppercase">{p.category || 'Program'}</p>
+              <p className="text-[#D4AF37] text-[10px] tracking-wide mb-0.5">{p.category || 'Program'}</p>
               <div className="flex items-start gap-2 mb-1.5 flex-wrap">
                 <h3 className="text-base font-semibold text-gray-900 leading-tight pr-1">{p.title}</h3>
                 {p.dashboard_annual_product_pin && (
                   <span
                     data-testid={`dashboard-pinned-annual-product-${p.id}`}
-                    className="flex-shrink-0 inline-flex items-center rounded-md border border-teal-600/35 bg-teal-50/95 text-[8px] font-bold uppercase tracking-wider text-teal-900 px-2 py-0.5"
+                    className="flex-shrink-0 inline-flex items-center rounded-md border border-teal-600/35 bg-teal-50/95 text-[8px] font-bold tracking-wide text-teal-900 px-2 py-0.5"
                   >
-                    Home Coming
+                    Home coming
                   </span>
                 )}
                 {hasTiers && tierIsYearLong && (
-                  <span className="flex-shrink-0 inline-flex items-center rounded-md border border-[#D4AF37]/40 bg-amber-50/95 text-[8px] font-bold uppercase tracking-wider text-[#6b5210] px-2 py-0.5">
+                  <span className="flex-shrink-0 inline-flex items-center rounded-md border border-[#D4AF37]/40 bg-amber-50/95 text-[8px] font-bold tracking-wide text-[#6b5210] px-2 py-0.5">
                     Annual
                   </span>
                 )}
                 {p.highlight_label && (
                   <span
                     data-testid={`dashboard-highlight-annual-${p.id}`}
-                    className={`flex-shrink-0 inline-flex items-center gap-1 text-[8px] font-bold tracking-wider uppercase px-2 py-1 rounded-full whitespace-nowrap ${
+                    className={`flex-shrink-0 inline-flex items-center gap-1 text-[8px] font-bold tracking-wide px-2 py-1 rounded-full whitespace-nowrap ${
                       p.highlight_style === 'glow' ? 'animate-pulse' : ''
                     }`}
                     style={
@@ -1080,7 +1080,7 @@ export default function DashboardUpcomingProgramRowItem({
               <p className="text-gray-500 text-xs leading-relaxed mb-2 line-clamp-3">{p.description}</p>
               {showSacredHomeTierPicker ? (
                 <div data-testid={`dashboard-tier-selector-annual-${p.id}`} className="mb-3">
-                  <p className="text-[9px] font-bold uppercase tracking-wide text-slate-500 mb-1.5">Duration / tier</p>
+                  <p className="text-[9px] font-bold tracking-wide text-slate-500 mb-1.5">Duration / tier</p>
                   <div className={`grid ${tierGridClass} gap-1`}>
                     {tiers.map((t, i) => (
                       <button
@@ -1108,7 +1108,7 @@ export default function DashboardUpcomingProgramRowItem({
                   data-testid={`dashboard-family-paid-tier-${p.id}`}
                   className="mb-3 rounded-lg border border-amber-200 bg-amber-50/85 px-3 py-2.5"
                 >
-                  <p className="text-[9px] font-bold uppercase tracking-wide text-amber-900 mb-1">
+                  <p className="text-[9px] font-bold tracking-wide text-amber-900 mb-1">
                     Choose duration — family &amp; guest seats
                   </p>
                   <p className="text-[10px] text-slate-700 leading-snug mb-2">
@@ -1169,7 +1169,7 @@ export default function DashboardUpcomingProgramRowItem({
                     <div className="flex items-center gap-2 bg-red-50 border border-red-200 rounded-lg px-3 py-2 mb-3">
                       <Bell size={14} className="text-red-500 flex-shrink-0" />
                       <div className="text-xs leading-snug min-w-0">
-                        <span className="font-bold text-red-600 uppercase tracking-wide">{p.offer_text || 'Exclusive'}</span>
+                        <span className="font-bold text-red-600 tracking-wide">{p.offer_text || 'Exclusive'}</span>
                         <span className="text-red-600 ml-1.5">
                           ends in {days}d {hours}h {mins}m
                         </span>
@@ -1181,7 +1181,7 @@ export default function DashboardUpcomingProgramRowItem({
                 {showContact ? (
                   <div className="flex flex-col gap-1 w-full">
                     {hasTiers && tier?.label ? (
-                      <span className="text-[11px] font-bold text-slate-600 uppercase tracking-wide">
+                      <span className="text-[11px] font-bold text-slate-600 tracking-wide">
                         {tier.label}
                       </span>
                     ) : null}
@@ -1242,7 +1242,7 @@ export default function DashboardUpcomingProgramRowItem({
                 ) : (
                   <div className="flex flex-col gap-0.5">
                     {hasTiers && tier?.label ? (
-                      <span className="text-[11px] font-bold text-slate-600 uppercase tracking-wide">
+                      <span className="text-[11px] font-bold text-slate-600 tracking-wide">
                         {tier.label}
                       </span>
                     ) : null}
@@ -1271,7 +1271,7 @@ export default function DashboardUpcomingProgramRowItem({
                 onClick={() => setAnnualPricingOpen((o) => !o)}
                 aria-expanded={annualPricingOpen}
               >
-                <span className="text-[10px] font-bold uppercase tracking-wide text-slate-600">Pricing &amp; offer</span>
+                <span className="text-[10px] font-bold tracking-wide text-slate-600">Pricing &amp; offer</span>
                 <ChevronDown
                   className={`h-4 w-4 text-slate-500 shrink-0 transition-transform ${annualPricingOpen ? '' : '-rotate-90'}`}
                   aria-hidden
@@ -1359,7 +1359,7 @@ export default function DashboardUpcomingProgramRowItem({
                             <span className="font-medium text-slate-800">Your seat</span>
                             <span className="flex flex-col items-end text-right gap-0.5">
                               {hasTiers && tier?.label ? (
-                                <span className="text-[10px] font-semibold text-slate-500 uppercase tracking-wide">
+                                <span className="text-[10px] font-semibold text-slate-500 tracking-wide">
                                   {tier.label}
                                 </span>
                               ) : null}
@@ -1478,7 +1478,7 @@ export default function DashboardUpcomingProgramRowItem({
                 onClick={() => setAnnualFamilyOpen((o) => !o)}
                 aria-expanded={annualFamilyOpen}
               >
-                <span className="text-[10px] font-bold uppercase tracking-wide text-slate-600">Choose members to join</span>
+                <span className="text-[10px] font-bold tracking-wide text-slate-600">Choose members to join</span>
                 <ChevronDown
                   className={`h-4 w-4 text-slate-500 shrink-0 transition-transform ${annualFamilyOpen ? '' : '-rotate-90'}`}
                   aria-hidden
@@ -1505,7 +1505,7 @@ export default function DashboardUpcomingProgramRowItem({
             <div className="flex flex-col gap-4 flex-1 min-h-0 max-h-[min(26rem,55vh)] overflow-y-auto pr-1 pt-2">
               {annualHouseholdPeers.length > 0 ? (
                 <div className="min-w-0">
-                  <p className="text-[10px] font-bold uppercase tracking-wide text-violet-700 mb-2">
+                  <p className="text-[10px] font-bold tracking-wide text-violet-700 mb-2">
                     {annualDashboardAccess ? 'Annual Family Club' : 'Linked household'}
                   </p>
                   <ul className="space-y-1.5">
@@ -1581,7 +1581,7 @@ export default function DashboardUpcomingProgramRowItem({
                     : 'min-w-0'
                 }
               >
-                <p className="text-[10px] font-bold uppercase tracking-wide text-slate-500 mb-2">Immediate family</p>
+                <p className="text-[10px] font-bold tracking-wide text-slate-500 mb-2">Immediate family</p>
                 {enrollableGuests.length === 0 ? (
                   <p className="text-xs text-slate-500">Add people under the lists below, then save.</p>
                 ) : (
@@ -1653,7 +1653,7 @@ export default function DashboardUpcomingProgramRowItem({
                 )}
               </div>
               <div className="min-w-0 pt-1 border-t border-amber-200/50">
-                <p className="text-[10px] font-bold uppercase tracking-wide text-slate-500 mb-2">Friends &amp; extended</p>
+                <p className="text-[10px] font-bold tracking-wide text-slate-500 mb-2">Friends &amp; extended</p>
                 {otherMembers.length > 0 ? (
                   <ul className="space-y-1.5">
                     {otherMembers.map((m, gidx) => {
@@ -1708,7 +1708,7 @@ export default function DashboardUpcomingProgramRowItem({
                 onClick={() => setAnnualAttendanceOpen((o) => !o)}
                 aria-expanded={annualAttendanceOpen}
               >
-                <span className="text-[9px] sm:text-[10px] font-bold uppercase tracking-tight text-slate-600 whitespace-nowrap">
+                <span className="text-[9px] sm:text-[10px] font-bold tracking-tight text-slate-600 whitespace-nowrap">
                   Attendance &amp; notification
                 </span>
                 <ChevronDown
@@ -1747,7 +1747,7 @@ export default function DashboardUpcomingProgramRowItem({
 
                 <div className="w-full flex flex-col gap-0 divide-y divide-slate-200">
                   <div className="flex flex-col gap-1.5 py-2 first:pt-0 w-full">
-                    <span className="text-[9px] font-bold uppercase tracking-wide text-slate-500 shrink-0">
+                    <span className="text-[9px] font-bold tracking-wide text-slate-500 shrink-0">
                       Attendance
                     </span>
                     <div className="flex flex-wrap items-center gap-x-3 gap-y-1 flex-1 min-w-0">
@@ -1805,7 +1805,7 @@ export default function DashboardUpcomingProgramRowItem({
                   </div>
 
                   <div className="flex flex-col gap-1.5 py-2 w-full">
-                    <span className="text-[9px] font-bold uppercase tracking-wide text-slate-500 shrink-0 leading-snug">
+                    <span className="text-[9px] font-bold tracking-wide text-slate-500 shrink-0 leading-snug">
                       Enrollment email
                     </span>
                     <div className="flex flex-wrap items-center gap-x-3 gap-y-1 flex-1 min-w-0">
@@ -1871,7 +1871,7 @@ export default function DashboardUpcomingProgramRowItem({
                 <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2 sm:gap-4 w-full min-w-0">
                   <button
                     type="button"
-                    className="text-violet-700 font-bold uppercase tracking-wide text-[9px] underline underline-offset-2 hover:text-violet-900 p-0 bg-transparent border-0 cursor-pointer text-left shrink-0 sm:pt-0.5"
+                    className="text-violet-700 font-bold tracking-wide text-[9px] underline underline-offset-2 hover:text-violet-900 p-0 bg-transparent border-0 cursor-pointer text-left shrink-0 sm:pt-0.5"
                     onClick={(e) => {
                       e.stopPropagation();
                       annualSeatUi.onOpenPerPersonSeatModal?.();
@@ -1891,7 +1891,7 @@ export default function DashboardUpcomingProgramRowItem({
                     checked={!!annualSeatUi.persistEnrollmentDefaultsOnContinue}
                     onChange={(e) => annualSeatUi.onPersistEnrollmentDefaultsChange?.(e.target.checked)}
                   />
-                  <span className="font-semibold text-[9px] text-slate-800 uppercase tracking-wide leading-snug">
+                  <span className="font-semibold text-[9px] text-slate-800 tracking-wide leading-snug">
                     Save as my default for every program (this browser)
                   </span>
                 </label>
@@ -1914,7 +1914,7 @@ export default function DashboardUpcomingProgramRowItem({
                   goProgram();
                 }}
                 data-testid={`dashboard-know-more-annual-${p.id}`}
-                className="w-full inline-flex items-center justify-center bg-[#1a1a1a] hover:bg-[#333] text-white py-2.5 px-5 rounded-full text-[10px] tracking-wider transition-all duration-300 uppercase font-medium"
+                className="w-full inline-flex items-center justify-center bg-[#1a1a1a] hover:bg-[#333] text-white py-2.5 px-5 rounded-full text-[10px] tracking-wide transition-all duration-300 font-medium"
               >
                 Know More
               </button>
@@ -1922,7 +1922,7 @@ export default function DashboardUpcomingProgramRowItem({
               <button
                 type="button"
                 disabled
-                className="w-full bg-gray-300 text-gray-500 py-2.5 rounded-full text-[10px] tracking-wider uppercase font-medium cursor-not-allowed"
+                className="w-full bg-gray-300 text-gray-500 py-2.5 rounded-full text-[10px] tracking-wide font-medium cursor-not-allowed"
               >
                 {p.closure_text || 'Closed'}
               </button>
@@ -1957,7 +1957,7 @@ export default function DashboardUpcomingProgramRowItem({
                       : undefined
                 }
                 onClick={handleAddToDivineCart}
-                className="w-full inline-flex items-center justify-center gap-2 rounded-full py-2.5 px-5 text-[10px] tracking-wider uppercase font-medium transition-all duration-300 bg-[#D4AF37] text-white hover:bg-[#b8962e] disabled:opacity-50 disabled:pointer-events-none shadow-sm"
+                className="w-full inline-flex items-center justify-center gap-2 rounded-full py-2.5 px-5 text-[10px] tracking-wide font-medium transition-all duration-300 bg-[#D4AF37] text-white hover:bg-[#b8962e] disabled:opacity-50 disabled:pointer-events-none shadow-sm"
                 aria-label="Add to Divine Cart"
                 data-testid={`dashboard-divine-cart-${p.id}`}
               >
@@ -1972,7 +1972,7 @@ export default function DashboardUpcomingProgramRowItem({
               <button
                 type="button"
                 disabled
-                className="w-full inline-flex items-center justify-center gap-2 rounded-full py-2.5 px-5 text-[10px] tracking-wider uppercase font-medium bg-gray-300 text-gray-500 cursor-not-allowed shadow-sm"
+                className="w-full inline-flex items-center justify-center gap-2 rounded-full py-2.5 px-5 text-[10px] tracking-wide font-medium bg-gray-300 text-gray-500 cursor-not-allowed shadow-sm"
                 aria-label="Add to Divine Cart"
                 data-testid={`dashboard-divine-cart-${p.id}`}
               >
