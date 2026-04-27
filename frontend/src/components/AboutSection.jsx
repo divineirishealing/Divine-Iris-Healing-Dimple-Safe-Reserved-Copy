@@ -1,16 +1,8 @@
-import React, { useState, useEffect } from 'react';
-import axios from 'axios';
+import React from 'react';
 import { HEADING, SUBTITLE, BODY, GOLD, LABEL, CONTAINER } from '../lib/designTokens';
 import { renderMarkdown } from '../lib/renderMarkdown';
-
-const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
-const API = `${BACKEND_URL}/api`;
-
-function resolveUrl(url) {
-  if (!url) return '';
-  if (url.startsWith('/api/image/')) return `${BACKEND_URL}${url}`;
-  return url;
-}
+import { useSiteSettings } from '../context/SiteSettingsContext';
+import { resolveImageUrl } from '../lib/imageUtils';
 
 const applyStyle = (styleObj, defaults = {}) => {
   if (!styleObj || Object.keys(styleObj).length === 0) return defaults;
@@ -25,11 +17,9 @@ const applyStyle = (styleObj, defaults = {}) => {
 };
 
 const AboutSection = ({ sectionConfig }) => {
-  const [settings, setSettings] = useState(null);
-  useEffect(() => { axios.get(`${API}/settings`).then(r => setSettings(r.data)).catch(() => {}); }, []);
-
+  const { settings } = useSiteSettings();
   const s = settings || {};
-  const aboutImage = s.about_image ? resolveUrl(s.about_image) : '';
+  const aboutImage = s.about_image ? resolveImageUrl(s.about_image) : '';
 
   return (
     <section id="about" data-testid="about-section" className="py-12">
