@@ -334,6 +334,13 @@ const StudentDashboard = () => {
 
   const pts = homeData?.points;
   const pkg = homeData?.package || {};
+  const homeComing = homeData?.home_coming;
+  const displayProgramLabel = useMemo(() => {
+    if (homeComing?.full_label) return homeComing.full_label;
+    const n = (pkg.home_coming_label || pkg.program_name || '').trim();
+    if (!n || /^no active package$/i.test(n)) return SANCTUARY_REFERENCE.financialsDefaultProgram;
+    return n;
+  }, [homeComing?.full_label, pkg.home_coming_label, pkg.program_name]);
   /** Backend default when there is no subscriber package — hide journey week line & hero stat pills until real data exists. */
   const isNoActivePackage =
     !(pkg.program_name || '').trim() || /^no active package$/i.test(String(pkg.program_name).trim());
@@ -350,6 +357,13 @@ const StudentDashboard = () => {
     const ymd = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
     const todayDisp = formatDateDdMonYyyy(ymd);
     const rawName = (pkg.program_name || '').trim();
+    if (homeComing?.year != null) {
+      const programPhrase = `Home Coming · Year ${homeComing.year} journey`;
+      const weekN = typeof pkg.used_sessions === 'number' && pkg.used_sessions >= 0 ? pkg.used_sessions : null;
+      const lead =
+        weekN != null ? `Week ${weekN} of your ${programPhrase}` : `Your ${programPhrase}`;
+      return `${lead} · ${weekday}, ${todayDisp} · ${SANCTUARY_REFERENCE.welcomeAffirmation}`;
+    }
     if (!rawName || /^no active package$/i.test(rawName)) {
       return `${weekday}, ${todayDisp} · ${SANCTUARY_REFERENCE.welcomeAffirmation}`;
     }
@@ -358,15 +372,18 @@ const StudentDashboard = () => {
     const lead =
       weekN != null ? `Week ${weekN} of your ${programPhrase}` : `Your ${programPhrase}`;
     return `${lead} · ${weekday}, ${todayDisp} · ${SANCTUARY_REFERENCE.welcomeAffirmation}`;
-  }, [pkg.program_name, pkg.used_sessions]);
+  }, [homeComing?.year, pkg.program_name, pkg.used_sessions]);
 
   const profileTierLine = useMemo(() => {
+    if (homeComing?.year != null && irisJourney?.title) {
+      return `✦ Home Coming · Year ${homeComing.year} — ${irisJourney.title}`;
+    }
     if (irisJourney?.year != null && irisJourney.title) {
       return `✦ ${tierLabel} — ${irisJourney.title} · Year ${irisJourney.year}`;
     }
     if (user?.tier === 4) return SANCTUARY_REFERENCE.profileTierZenith;
     return `✦ ${tierLabel} path`;
-  }, [irisJourney, tierLabel, user?.tier]);
+  }, [homeComing?.year, irisJourney, tierLabel, user?.tier]);
 
   const dashboardScheduleRows = useMemo(
     () => buildDashboardScheduleRows(homeData?.schedule_preview, homeData?.programs),
@@ -749,7 +766,7 @@ const StudentDashboard = () => {
               </div>
               <div className="w-full mt-2 space-y-0 text-[11px]">
                 {[
-                  [SANCTUARY_REFERENCE.rowProgram, pkg.program_name || SANCTUARY_REFERENCE.financialsDefaultProgram],
+                  [SANCTUARY_REFERENCE.rowProgram, displayProgramLabel],
                   [SANCTUARY_REFERENCE.rowMemberSince, formatDateDdMonYyyy(pkg.start_date) || '—'],
                   [SANCTUARY_REFERENCE.rowStatus, null, 'status'],
                   [SANCTUARY_REFERENCE.rowSessionsDone, pkg.total_sessions ? `${pkg.used_sessions ?? 0} of ${pkg.total_sessions}` : '—'],
@@ -777,6 +794,15 @@ const StudentDashboard = () => {
                   );
                 })}
               </div>
+              {homeComing?.includes?.length ? (
+                <p
+                  className="text-[9px] text-slate-500 leading-snug mt-1.5"
+                  title={homeComing.includes.map((i) => i.summary).join('\n')}
+                >
+                  <span className="text-slate-400">Includes </span>
+                  {homeComing.includes.map((i) => i.short).join(' · ')}
+                </p>
+              ) : null}
               <div className="h-px my-2 bg-slate-100" />
               <div className="flex gap-2">
                 {[
@@ -868,7 +894,7 @@ const StudentDashboard = () => {
                 <div className="min-w-0">
                   <h3 className="text-[10px] font-bold uppercase tracking-[0.12em] text-slate-500">{SANCTUARY_REFERENCE.financialsEye}</h3>
                   <p className="text-sm font-bold text-slate-900 truncate">
-                    {pkg.program_name || SANCTUARY_REFERENCE.financialsDefaultProgram}
+                    {displayProgramLabel}
                   </p>
                 </div>
               </div>
@@ -1105,7 +1131,7 @@ const StudentDashboard = () => {
           )}
           {[
             { visKey: 'profile_card', testId: 'petal-profile-m', icon: User, color: '#f5c840', variant: 'gold', title: SANCTUARY_REFERENCE.profileEye, sub: user?.name || 'Student', to: '/dashboard/profile', delay: 200 },
-            { visKey: 'financials_card', testId: 'petal-financials-m', icon: CreditCard, color: '#fdba74', variant: 'ember', title: SANCTUARY_REFERENCE.financialsEye, sub: homeData?.financials?.status || pkg.program_name || SANCTUARY_REFERENCE.financialsDefaultProgram, to: '/dashboard/financials', delay: 300 },
+            { visKey: 'financials_card', testId: 'petal-financials-m', icon: CreditCard, color: '#fdba74', variant: 'ember', title: SANCTUARY_REFERENCE.financialsEye, sub: homeData?.financials?.status || displayProgramLabel, to: '/dashboard/financials', delay: 300 },
             { visKey: 'intentions_diary', testId: 'petal-diary-m', icon: BookOpen, color: '#93C5FD', variant: 'sky', title: SANCTUARY_REFERENCE.intentionsEye, sub: SANCTUARY_REFERENCE.intentionsTitle, to: '/dashboard/diary', delay: 400 },
             { visKey: 'transformations_card', testId: 'petal-galaxy-m', icon: Heart, color: '#F9A8D4', variant: 'rose', title: SANCTUARY_REFERENCE.speaksEye, sub: SANCTUARY_REFERENCE.transformationsHint, to: '/transformations', delay: 500 },
           ].filter((item) => dv[item.visKey]).map(item => (

@@ -850,9 +850,9 @@ const SubscriberForm = ({ initial, onSave, onCancel, saving, packages, irisCatal
         </div>
       </div>
 
-      {/* Iris journey year (access tier on the 12-year path) */}
+      {/* Iris journey year = Home Coming “version” (1st year, 2nd renewal, …) on the 12-year path */}
       <div className="rounded-lg border border-purple-100 bg-purple-50/40 p-3 space-y-2">
-        <p className="text-[10px] font-semibold text-[#5D3FD3] uppercase tracking-wider">Iris journey (yearly tier)</p>
+        <p className="text-[10px] font-semibold text-[#5D3FD3] uppercase tracking-wider">Home Coming · Iris year (renewal / version)</p>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
           <div>
             <Label className="text-xs">Journey year</Label>
@@ -881,7 +881,7 @@ const SubscriberForm = ({ initial, onSave, onCancel, saving, packages, irisCatal
           </div>
         </div>
         <p className="text-[10px] text-gray-500 leading-relaxed">
-          Manual is the default. Switch to Automatic when you want the tier to follow subscription anniversaries (Year 1 = first 365 days from Start Date, up to Year 12).
+          This is the member&apos;s <strong>Home Coming</strong> year (dashboard shows &quot;Home Coming · Year N&quot;). Set <strong>2, 3, 4…</strong> when they renew into their next annual cycle. Manual is the default; use Automatic to advance from Start Date in 365-day blocks (up to Year 12).
         </p>
       </div>
 

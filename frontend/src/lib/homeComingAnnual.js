@@ -11,6 +11,14 @@ export const HOME_COMING_ENTITLEMENTS = {
   meta_downloads: 2,
 };
 
+/** Four pillars (matches `/api/student/home` `home_coming.includes` for dashboards and tooltips). */
+export const HOME_COMING_INCLUDES = [
+  { id: 'awrp', short: 'AWRP', summary: '12 months · Atomic Weight Release Program' },
+  { id: 'mmm', short: 'MMM', summary: '6 months · Money Magic Multiplier' },
+  { id: 'turbo', short: 'Quarterly releases', summary: '4 Turbo / quarterly sessions' },
+  { id: 'meta', short: 'Bi-annual downloads', summary: '2 Meta / bi-annual sessions' },
+];
+
 function nameInitialsFour(name) {
   const parts = (name || '')
     .trim()

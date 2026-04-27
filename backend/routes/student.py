@@ -15,6 +15,7 @@ from iris_journey import resolve_iris_journey
 from routes.programs import fetch_programs_with_deadline_sync, sort_programs_like_homepage
 from routes.enrollment import ProfileData, insert_enrollment_from_profile
 from routes.clients import (
+    HOME_COMING_SKU,
     annual_renewal_reminder_for_portal,
     annual_subscription_period_expired,
     ensure_client_from_enrollment_lead,
@@ -224,6 +225,41 @@ def _merged_preferred_india_ids(sub: dict, client: dict) -> Tuple[str, str]:
     return (gpay_sub or gpay_cli, bank_sub or bank_cli)
 
 
+_HOME_COMING_INCLUDES: List[Dict[str, str]] = [
+    {"id": "awrp", "short": "AWRP", "summary": "12 months · Atomic Weight Release Program"},
+    {"id": "mmm", "short": "MMM", "summary": "6 months · Money Magic Multiplier"},
+    {"id": "turbo", "short": "Quarterly releases", "summary": "4 Turbo / quarterly sessions"},
+    {"id": "meta", "short": "Bi-annual downloads", "summary": "2 Meta / bi-annual sessions"},
+]
+
+
+def _home_coming_payload(client: dict, sub: dict, iris_journey: dict) -> Optional[dict]:
+    """Home Coming (annual) brand + version year + four pillars for the student dashboard."""
+    if not _is_annual_subscriber(sub, client):
+        return None
+    try:
+        y = int(iris_journey.get("year") or 1)
+    except (TypeError, ValueError):
+        y = 1
+    y = max(1, min(12, y))
+    a_sub = client.get("annual_subscription") or {}
+    sku_hc = (a_sub.get("package_sku") or "").strip() == HOME_COMING_SKU
+    meta_title = (iris_journey.get("title") or "").strip()
+    meta_sub = (iris_journey.get("subtitle") or "").strip()
+    poetic = (iris_journey.get("label") or "").strip()
+    return {
+        "display_name": "Home Coming",
+        "year": y,
+        "version_label": f"Year {y}",
+        "full_label": f"Home Coming · Year {y}",
+        "iris_title": meta_title,
+        "iris_subtitle": meta_sub,
+        "iris_poetic_label": poetic,
+        "subscription_sku_home_coming": sku_hc,
+        "includes": [dict(x) for x in _HOME_COMING_INCLUDES],
+    }
+
+
 def _subscription_annual_package_signals(sub: dict) -> bool:
     """True when the subscriber record looks like a paid annual package (no CRM dashboard flag)."""
     if (sub.get("annual_program") or "").strip():
@@ -232,7 +268,7 @@ def _subscription_annual_package_signals(sub: dict) -> bool:
         return True
     for p in sub.get("programs_detail") or []:
         blob = f"{p.get('label', '')} {p.get('name', '')}".lower()
-        if "annual" in blob or "year" in blob:
+        if "annual" in blob or "year" in blob or "home coming" in blob or "homecoming" in blob:
             return True
     return False
 
@@ -2208,6 +2244,9 @@ async def get_student_home(user: dict = Depends(get_current_student_user)):
     banks = await db.bank_accounts.find({"is_active": True}, {"_id": 0}).to_list(10)
 
     iris_journey = resolve_iris_journey(sub)
+    home_coming = _home_coming_payload(client, sub, iris_journey)
+    if home_coming:
+        package = {**package, "home_coming_label": home_coming["full_label"]}
 
     from routes.points_logic import points_public_summary
 
@@ -2273,6 +2312,7 @@ async def get_student_home(user: dict = Depends(get_current_student_user)):
         "channelization_fee": sub.get("channelization_fee", 0),
         "show_late_fees": sub.get("show_late_fees", False),
         "iris_journey": iris_journey,
+        "home_coming": home_coming,
         "points": loyalty_points,
         "user_details": {
             "full_name": user.get("full_name") or user.get("name"),

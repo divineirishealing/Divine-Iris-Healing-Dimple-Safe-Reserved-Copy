@@ -73,7 +73,7 @@ export const SANCTUARY_REFERENCE = {
   intentionsProgMonthly: 'Week 2 of 4 · April 2026',
 
   financialsEye: 'Sacred Exchange',
-  financialsDefaultProgram: 'AWRP Annual',
+  financialsDefaultProgram: 'Home Coming',
 
   diaryLastPrefix: 'Last entry:',
   diaryEmpty: 'Start capturing your inner transformation...',

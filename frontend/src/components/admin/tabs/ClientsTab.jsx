@@ -25,7 +25,7 @@ import { formatDateDdMonYyyy, formatDateTimeDdMonYyyy } from '../../../lib/utils
 const CLIENT_GARDEN_COLUMN_DEFS = [
   { id: 'sr', label: 'SR No', required: true },
   { id: 'name', label: 'Name', required: true },
-  { id: 'annual_program', label: 'Annual' },
+  { id: 'annual_program', label: 'Home Coming' },
   { id: 'portal_cohort', label: 'Portal cohort' },
   { id: 'google_login', label: 'Google login' },
   { id: 'preferred_pay', label: 'Preferred pay' },
@@ -886,7 +886,7 @@ const ClientsTab = () => {
             <Users size={18} className="text-[#D4AF37]" /> Client Garden
           </h2>
           <p className="text-xs text-gray-500 mt-0.5 max-w-3xl">
-            One row per client — use <strong className="font-semibold text-gray-700">Edit</strong> for <strong className="font-semibold text-gray-700">name</strong>, <strong className="font-semibold text-gray-700">first seen</strong> (month and year; stored as the 1st of that month), <strong className="font-semibold text-gray-700">annual program</strong> (Yes/No), garden label, DIID middle (YYMM updates when you change first seen), contact fields, <strong className="font-semibold text-gray-700">how they found us</strong>, and <strong className="font-semibold text-gray-700">referrer UUID</strong>. <strong className="font-semibold text-gray-700">Google login</strong>, <strong className="font-semibold text-gray-700">preferred / tagged payment</strong>, <strong className="font-semibold text-gray-700">GST</strong>, and <strong className="font-semibold text-gray-700">discount</strong> mirror Dashboard access (read-only here; edit under Admin → Dashboard access). <strong className="font-semibold text-gray-700">View as</strong> opens their Sacred Home. Save or Cancel in Actions. Conversions/sources still come from sync.{' '}
+            One row per client — use <strong className="font-semibold text-gray-700">Edit</strong> for <strong className="font-semibold text-gray-700">name</strong>, <strong className="font-semibold text-gray-700">first seen</strong> (month and year; stored as the 1st of that month), <strong className="font-semibold text-gray-700">Home Coming</strong> portal (Yes/No), garden label, DIID middle (YYMM updates when you change first seen), contact fields, <strong className="font-semibold text-gray-700">how they found us</strong>, and <strong className="font-semibold text-gray-700">referrer UUID</strong>. <strong className="font-semibold text-gray-700">Google login</strong>, <strong className="font-semibold text-gray-700">preferred / tagged payment</strong>, <strong className="font-semibold text-gray-700">GST</strong>, and <strong className="font-semibold text-gray-700">discount</strong> mirror Dashboard access (read-only here; edit under Admin → Dashboard access). <strong className="font-semibold text-gray-700">View as</strong> opens their Sacred Home. Save or Cancel in Actions. Conversions/sources still come from sync.{' '}
             <strong className="font-semibold text-gray-700">Primary HH</strong> marks the primary household contact for that household key.{' '}
             <strong className="font-semibold text-gray-700">Portal cohort</strong> ties a client to an AWRP / batch defined in Admin → Dashboard settings; they then see that cohort&apos;s portal prices on Sacred Home when they have annual dashboard access. Select rows with the checkboxes in <strong className="font-semibold text-gray-700">SR No</strong> to assign a cohort in bulk.{' '}
             <strong className="font-semibold text-gray-700">DIID</strong> and <strong className="font-semibold text-gray-700">UUID</strong> are shown in the last columns; use <strong className="font-semibold text-gray-700">Sync All Data</strong> to backfill DIID.
@@ -1113,14 +1113,14 @@ const ClientsTab = () => {
                 {isVisible('annual_program') && (
                   <FilterableTh
                     colId="annual_program"
-                    title="Annual program (Sacred Home / dashboard pricing tag)"
+                    title="Home Coming — annual portal access (Sacred Home / dashboard pricing)"
                     className="py-2 px-2 font-semibold w-[56px] text-center"
                     optionClients={filterOptionBaseByCol.annual_program}
                     columnFilters={columnFilters}
                     setColumnFilters={setColumnFilters}
                     siteInfo={siteInfo}
                   >
-                    Annual
+                    HC
                   </FilterableTh>
                 )}
                 {isVisible('portal_cohort') && (
@@ -1456,7 +1456,7 @@ const ClientsTab = () => {
                           className="h-7 w-full min-w-[48px] max-w-[56px] text-[9px] rounded border border-slate-300 bg-white px-0.5 mx-auto"
                           value={d.annualMemberDashboard ? 'yes' : 'no'}
                           onChange={(e) => updateDraft({ annualMemberDashboard: e.target.value === 'yes' })}
-                          title="Annual program (dashboard / pricing tag)"
+                          title="Home Coming — annual portal (dashboard / pricing)"
                         >
                           <option value="yes">Yes</option>
                           <option value="no">No</option>
