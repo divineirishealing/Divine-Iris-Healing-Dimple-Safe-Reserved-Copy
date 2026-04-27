@@ -121,6 +121,21 @@ function effectiveIndividualTaxDecimal(form, pkg, currency) {
   return Math.max(0, Math.min(100, n)) / 100;
 }
 
+/** End date for subscriptions / package validity: add months, anchor day 30 rule (matches subscriber end date). */
+const addMonths = (dateStr, months) => {
+  if (!dateStr) return '';
+  const d = new Date(dateStr);
+  const targetMonth = d.getMonth() + months;
+  const targetYear = d.getFullYear() + Math.floor(targetMonth / 12);
+  const actualMonth = ((targetMonth % 12) + 12) % 12;
+  const daysInMonth = new Date(targetYear, actualMonth + 1, 0).getDate();
+  if (daysInMonth >= 30) {
+    return new Date(targetYear, actualMonth, 30).toISOString().split('T')[0];
+  }
+  const spillDays = 30 - daysInMonth;
+  return new Date(targetYear, actualMonth + 1, spillDays).toISOString().split('T')[0];
+};
+
 const NumInput = ({ value, onChange, className = '', bold = false }) => (
   <input type="text" inputMode="decimal" value={value}
     onChange={e => onChange(e.target.value)}
@@ -164,6 +179,33 @@ const PackageEditor = ({ pkg, onSave, saving, onDelete, onNewVersion }) => {
 
   const setOfferTotal = (cur, v) =>
     setC((prev) => ({ ...prev, offer_total: { ...(prev.offer_total || {}), [cur]: parseFloat(v) || 0 } }));
+
+  const recalcValidityTo = (fromStr, monthsVal) => {
+    if (!fromStr || !String(fromStr).trim()) return '';
+    const m = parseInt(monthsVal, 10);
+    const n = Number.isFinite(m) && m > 0 ? m : 12;
+    return addMonths(fromStr, n);
+  };
+
+  const onValidFromChange = (e) => {
+    if (locked) return;
+    const v = e.target.value;
+    setC((prev) => ({
+      ...prev,
+      valid_from: v,
+      valid_to: v ? recalcValidityTo(v, prev.duration_months) : '',
+    }));
+  };
+
+  const onDurationMonthsChange = (raw) => {
+    if (locked) return;
+    const n = parseInt(raw, 10) || 12;
+    setC((prev) => {
+      const next = { ...prev, duration_months: n };
+      if (prev.valid_from) next.valid_to = recalcValidityTo(prev.valid_from, n);
+      return next;
+    });
+  };
 
   const handleSave = () => {
     onSave({
@@ -242,15 +284,16 @@ const PackageEditor = ({ pkg, onSave, saving, onDelete, onNewVersion }) => {
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 text-xs">
           <div>
             <Label className="text-[10px] text-gray-600">Validity from</Label>
-            <Input type="date" value={c.valid_from || ''} onChange={(e) => set('valid_from', e.target.value)} className="h-8 mt-0.5" disabled={locked} />
+            <Input type="date" value={c.valid_from || ''} onChange={onValidFromChange} className="h-8 mt-0.5" disabled={locked} />
           </div>
           <div>
             <Label className="text-[10px] text-gray-600">Validity to</Label>
             <Input type="date" value={c.valid_to || ''} onChange={(e) => set('valid_to', e.target.value)} className="h-8 mt-0.5" disabled={locked} />
+            <p className="text-[9px] text-gray-500 mt-0.5 leading-snug">Filled automatically from start + subscription length; adjust manually if needed.</p>
           </div>
           <div>
             <Label className="text-[10px] text-gray-600">Subscription length (months)</Label>
-            <NumInput value={c.duration_months} onChange={(v) => set('duration_months', parseInt(v, 10) || 12)} className="mt-0.5" />
+            <NumInput value={c.duration_months} onChange={onDurationMonthsChange} className="mt-0.5" />
           </div>
           <div>
             <Label className="text-[10px] text-gray-600">Coaching sessions (bucket)</Label>
@@ -350,23 +393,6 @@ const buildEmis = (count, existing = []) => {
     arr.push(ex || { number: i, date: '', amount: 0, remaining: 0, due_date: '', status: 'pending' });
   }
   return arr;
-};
-
-const addMonths = (dateStr, months) => {
-  if (!dateStr) return '';
-  const d = new Date(dateStr);
-  const targetMonth = d.getMonth() + months;
-  const targetYear = d.getFullYear() + Math.floor(targetMonth / 12);
-  const actualMonth = ((targetMonth % 12) + 12) % 12;
-  // Target day is always 30. If the month has < 30 days (Feb), spill into next month.
-  // Feb 28 days → 30th = March 2nd. Feb 29 days (leap) → 30th = March 1st.
-  const daysInMonth = new Date(targetYear, actualMonth + 1, 0).getDate();
-  if (daysInMonth >= 30) {
-    return new Date(targetYear, actualMonth, 30).toISOString().split('T')[0];
-  }
-  // Spill: e.g. Feb has 28 days, we want "30th" = Feb 28 + 2 = March 2
-  const spillDays = 30 - daysInMonth;
-  return new Date(targetYear, actualMonth + 1, spillDays).toISOString().split('T')[0];
 };
 
 const PAY_METHOD_LABELS = {
