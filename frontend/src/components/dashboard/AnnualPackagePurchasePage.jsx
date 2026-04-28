@@ -857,33 +857,39 @@ export default function AnnualPackagePurchasePage() {
                       {scheduleTitle}
                     </p>
                     <div className="overflow-x-auto max-h-[min(28rem,70vh)] overflow-y-auto">
-                      <table className="w-full min-w-[900px] table-fixed border-collapse text-[10px] text-left">
+                      <table className="w-full min-w-[900px] table-fixed border-collapse text-center text-[10px]">
                         <colgroup>
-                          {Array.from({ length: 9 }).map((_, i) => (
-                            <col key={String(i)} style={{ width: `${100 / 9}%` }} />
-                          ))}
+                          <col style={{ width: '6%' }} />
+                          <col style={{ width: '10%' }} />
+                          <col style={{ width: '14%' }} />
+                          <col style={{ width: '6%' }} />
+                          <col style={{ width: '6%' }} />
+                          <col style={{ width: '12%' }} />
+                          <col style={{ width: '12%' }} />
+                          <col style={{ width: '11%' }} />
+                          <col style={{ width: '23%' }} />
                         </colgroup>
                         <thead>
                           <tr className="bg-[rgba(252,250,255,0.95)] border-b border-[rgba(160,100,240,0.12)] text-[rgba(80,55,145,0.75)]">
-                            <th className="font-bold uppercase tracking-wide px-1.5 py-2 align-bottom text-center whitespace-nowrap">
+                            <th className="font-bold uppercase tracking-wide px-1.5 py-2 align-bottom whitespace-nowrap">
                               Sr #
                             </th>
-                            <th className="font-bold uppercase tracking-wide px-1.5 py-2 align-bottom text-right whitespace-nowrap">
+                            <th className="font-bold uppercase tracking-wide py-2 pl-1 pr-5 align-bottom whitespace-nowrap -translate-x-0.5">
                               Energy Exchange
                             </th>
-                            <th className="font-bold uppercase tracking-wide px-1.5 py-2 align-bottom whitespace-nowrap">
+                            <th className="font-bold uppercase tracking-wide py-2 pl-3 pr-1.5 align-bottom whitespace-nowrap">
                               Due date
                             </th>
-                            <th className="font-bold uppercase tracking-wide px-1.5 py-2 text-right align-bottom whitespace-nowrap">
+                            <th className="font-bold uppercase tracking-wide px-0.5 py-2 align-bottom whitespace-nowrap">
                               Late fee
                             </th>
-                            <th className="font-bold uppercase tracking-wide px-1.5 py-2 text-right align-bottom whitespace-nowrap">
+                            <th className="font-bold uppercase tracking-wide px-0.5 py-2 align-bottom whitespace-nowrap">
                               Ch. fee
                             </th>
-                            <th className="font-bold uppercase tracking-wide px-1.5 py-2 text-right align-bottom whitespace-nowrap">
+                            <th className="font-bold uppercase tracking-wide px-1.5 py-2 align-bottom whitespace-nowrap">
                               Total amount
                             </th>
-                            <th className="font-bold uppercase tracking-wide px-1.5 py-2 align-bottom text-center whitespace-nowrap">
+                            <th className="font-bold uppercase tracking-wide px-1.5 py-2 align-bottom whitespace-nowrap">
                               Pay here
                             </th>
                             <th className="font-bold uppercase tracking-wide px-1.5 py-2 align-bottom whitespace-nowrap">
@@ -934,16 +940,16 @@ export default function AnnualPackagePurchasePage() {
                                 key={row.key}
                                 className="border-b border-[rgba(160,100,240,0.08)] last:border-b-0 align-top"
                               >
-                                <td className="px-1.5 py-2.5 align-middle text-center tabular-nums">
+                                <td className="px-1.5 py-2.5 align-middle tabular-nums">
                                   <span className="font-bold text-[#3b0764]">{row.n}</span>
                                 </td>
-                                <td className="px-1.5 py-2.5 align-middle text-right font-semibold tabular-nums break-words">
+                                <td className="py-2.5 pl-1 pr-5 align-middle font-semibold tabular-nums break-words -translate-x-0.5">
                                   {energyExchangeShown}
                                 </td>
-                                <td className="px-1.5 py-2.5 align-middle break-words text-[9px] sm:text-[10px] font-medium">
+                                <td className="py-2.5 pl-3 pr-1.5 align-middle break-words text-[9px] sm:text-[10px] font-medium">
                                   {dueStr}
                                 </td>
-                                <td className="px-1.5 py-2.5 align-middle text-right text-[9px] tabular-nums break-words">
+                                <td className="px-0.5 py-2.5 align-middle text-[9px] tabular-nums break-words">
                                   {onTimeLate}
                                   {showRateHint && lateFeePerDay > 0 ? (
                                     <span className="mt-0.5 block text-[8px] font-normal text-[rgba(100,55,155,0.45)] normal-case">
@@ -952,7 +958,7 @@ export default function AnnualPackagePurchasePage() {
                                     </span>
                                   ) : null}
                                 </td>
-                                <td className="px-1.5 py-2.5 align-middle text-right text-[9px] tabular-nums break-words">
+                                <td className="px-0.5 py-2.5 align-middle text-[9px] tabular-nums break-words">
                                   {onTimeCh}
                                   {showRateHint && channelizationFee > 0 ? (
                                     <span className="mt-0.5 block text-[8px] font-normal text-[rgba(100,55,155,0.45)] normal-case">
@@ -961,12 +967,12 @@ export default function AnnualPackagePurchasePage() {
                                     </span>
                                   ) : null}
                                 </td>
-                                <td className="px-1.5 py-2.5 align-middle text-right font-semibold tabular-nums break-words">
+                                <td className="px-1.5 py-2.5 align-middle font-semibold tabular-nums break-words">
                                   {totalAmountShown}
                                 </td>
-                                <td className="px-1.5 py-2.5 align-middle text-center">
+                                <td className="px-1.5 py-2.5 align-middle">
                                   <span
-                                    className="inline-flex max-w-full min-w-0 items-center justify-center rounded-md bg-violet-100/90 px-1.5 py-1 text-[8px] font-semibold uppercase leading-tight tracking-wide text-[#4c1d95]"
+                                    className="mx-auto inline-flex max-w-full min-w-0 items-center justify-center rounded-md bg-violet-100/90 px-1.5 py-1 text-[8px] font-semibold uppercase leading-tight tracking-wide text-[#4c1d95]"
                                     title={payHereLabel}
                                   >
                                     {payHereLabel}
@@ -978,7 +984,7 @@ export default function AnnualPackagePurchasePage() {
                                 <td className="px-1.5 py-2.5 align-middle break-words">
                                   <Link
                                     to="/dashboard/financials"
-                                    className="inline-flex max-w-full min-w-0 items-center gap-1 break-words text-[9px] font-semibold text-[#6d28d9] hover:text-[#5b21b6] hover:underline"
+                                    className="mx-auto inline-flex max-w-full min-w-0 items-center justify-center gap-1 break-words text-[9px] font-semibold text-[#6d28d9] hover:text-[#5b21b6] hover:underline"
                                   >
                                     <FileText size={12} className="shrink-0 opacity-80" aria-hidden />
                                     Sacred Exchange
