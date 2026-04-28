@@ -24,6 +24,10 @@ import { pickTierIndexForDashboard } from './dashboardUpcomingHelpers';
 
 const API = process.env.REACT_APP_BACKEND_URL;
 
+/** Mirrors backend `_HOME_COMING_INCLUDES` shorts — subtitle for Divine Iris bundle. */
+const DIVINE_IRIS_HOME_COMING_PROGRAMS_LABEL =
+  'AWRP · MMM · Turbo Release · Meta Downloads';
+
 const PAY_MODES = [
   { value: 'full', label: 'Pay in full (checkout now)' },
   { value: 'emi_monthly', label: 'EMI — monthly' },
@@ -126,6 +130,10 @@ export default function AnnualPackagePurchasePage() {
   const catalogFrom = (pkg.catalog_valid_from || '').trim().slice(0, 10);
   const catalogTo = (pkg.catalog_valid_to || '').trim().slice(0, 10);
   const hc = homeData?.home_coming;
+  const subtitleFourPrograms =
+    hc?.includes?.length > 0
+      ? hc.includes.map((i) => i.short).join(' · ')
+      : DIVINE_IRIS_HOME_COMING_PROGRAMS_LABEL;
 
   useEffect(() => {
     if (!homeData || prefsInitDone.current) return;
@@ -223,12 +231,21 @@ export default function AnnualPackagePurchasePage() {
 
   return (
     <div className="max-w-3xl mx-auto space-y-6 px-4 py-6 pb-16" data-testid="annual-package-purchase-page">
-      <div className="space-y-1">
-        <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2" style={{ fontFamily: "'Cinzel', Georgia, serif" }}>
-          <Package className="text-violet-700 shrink-0" size={26} />
-          Home Coming · Annual package
+      <div className="text-center space-y-3 max-w-2xl mx-auto">
+        <div className="flex justify-center">
+          <Package className="text-violet-700 opacity-90" size={28} aria-hidden />
+        </div>
+        <h1
+          className="text-xl sm:text-2xl md:text-[1.65rem] font-bold text-gray-900 tracking-[0.14em] uppercase leading-tight px-2"
+          style={{ fontFamily: "'Cinzel', Georgia, serif" }}
+          data-testid="divine-iris-home-coming-title"
+        >
+          Divine Iris Home Coming
         </h1>
-        <p className="text-sm text-gray-500">
+        <p className="text-sm sm:text-[0.95rem] text-gray-600 font-medium leading-snug px-1" data-testid="divine-iris-home-coming-subtitle">
+          {subtitleFourPrograms}
+        </p>
+        <p className="text-xs sm:text-sm text-gray-500 leading-relaxed">
           Choose how you would like to pay, anchor a start date for your membership, then continue to Divine Cart. Live EMI status and proof upload stay on{' '}
           <Link className="text-[#5D3FD3] font-semibold hover:underline" to="/dashboard/financials">
             Sacred Exchange (Financials)
@@ -292,14 +309,11 @@ export default function AnnualPackagePurchasePage() {
         </Card>
       ) : (
         <Card className="border-amber-100 shadow-sm">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-lg">{pinnedProgram.title || 'Home Coming offering'}</CardTitle>
-            {hc?.includes?.length ? (
-              <p className="text-[11px] text-gray-600 leading-relaxed">
-                <span className="text-gray-500">Includes </span>
-                {hc.includes.map((i) => i.short).join(' · ')}
-              </p>
-            ) : null}
+          <CardHeader className="pb-2 text-center sm:text-left">
+            <CardTitle className="text-base text-gray-800 font-semibold">
+              {pinnedProgram.title || 'Catalog enrollment'}
+            </CardTitle>
+            <p className="text-[11px] text-gray-500 mt-1">Bundle reference — same program as pinned on Sacred Home.</p>
             {(catalogFrom || catalogTo) && (
               <p className="text-[11px] text-amber-900/90 bg-amber-50/90 border border-amber-100 rounded-lg px-3 py-2">
                 Package offer window{catalogFrom ? ` · from ${formatDateDdMonYyyy(catalogFrom)}` : ''}
@@ -364,24 +378,37 @@ export default function AnnualPackagePurchasePage() {
               </p>
             </div>
 
-            <div className="rounded-xl border border-gray-100 bg-gray-50/80 p-4 space-y-2">
-              <span className="text-xs font-semibold text-gray-700">Quoted total (your tier &amp; hub)</span>
+            <div className="rounded-xl border border-gray-100 bg-gray-50/80 p-4 space-y-3">
+              <span className="block text-xs font-semibold text-gray-700 text-center sm:text-left">
+                Quoted total (your tier &amp; hub)
+              </span>
               {quoteLoading ? (
                 <p className="text-sm text-gray-500">Fetching quote…</p>
-              ) : quote?.included_in_annual_package ? (
-                <p className="text-sm text-emerald-800">
-                  This program is included in your prepaid annual package for your seat —{' '}
-                  <Link to="/dashboard#sacred-home-programs" className="underline font-semibold">
-                    add family seats
-                  </Link>{' '}
-                  from Upcoming programs if needed.
-                </p>
               ) : (
-                <p className="text-2xl font-bold text-gray-900 tabular-nums">
-                  {symbol}
-                  {Number(displayTotal || 0).toLocaleString()}{' '}
-                  <span className="text-sm font-medium text-gray-500">{quoteCur}</span>
-                </p>
+                <>
+                  <p className="text-center sm:text-left">
+                    <span className="text-3xl font-bold text-gray-900 tabular-nums tracking-tight" data-testid="annual-offer-quoted-amount">
+                      {symbol}
+                      {Number(displayTotal || 0).toLocaleString()}{' '}
+                      <span className="text-base font-semibold text-gray-500">{quoteCur}</span>
+                    </span>
+                  </p>
+                  {quote?.included_in_annual_package ? (
+                    <div className="rounded-lg border border-emerald-200/80 bg-emerald-50/90 px-3 py-2.5 text-left">
+                      <p className="text-sm text-emerald-900 leading-snug">
+                        Your seat is covered by your prepaid annual package for this bundle. Add paid seats for family from{' '}
+                        <Link to="/dashboard#sacred-home-programs" className="underline font-semibold">
+                          Upcoming programs
+                        </Link>
+                        .
+                      </p>
+                    </div>
+                  ) : (
+                    <p className="text-[11px] text-gray-500 text-center sm:text-left">
+                      Amount matches Divine Cart / catalog pricing for this hub and tier.
+                    </p>
+                  )}
+                </>
               )}
             </div>
 
