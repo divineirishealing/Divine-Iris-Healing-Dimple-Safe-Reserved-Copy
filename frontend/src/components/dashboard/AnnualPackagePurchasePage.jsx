@@ -12,7 +12,7 @@ import {
   ShoppingCart,
   User,
   Heart,
-  FileText,
+  Paperclip,
 } from 'lucide-react';
 import { Button } from '../ui/button';
 import { Label } from '../ui/label';
@@ -935,6 +935,23 @@ export default function AnnualPackagePurchasePage() {
                             const payHereLabel = emiRow?.payment_method
                               ? formatSchedulePayTag(emiRow.payment_method)
                               : schedulePayTag;
+                            const receiptHref =
+                              emiRow?.receipt_url && String(emiRow.receipt_url).trim()
+                                ? `${getApiUrl()}${emiRow.receipt_url}`
+                                : null;
+                            const payHereOpensEmiModal =
+                              typeof row.n === 'number' &&
+                              !Number.isNaN(row.n) &&
+                              emiRow &&
+                              emiRow.status !== 'paid' &&
+                              emiRow.status !== 'submitted';
+                            const onPayHereClick = () => {
+                              if (payHereOpensEmiModal) {
+                                navigate(`/dashboard/financials?payEmi=${row.n}`);
+                                return;
+                              }
+                              goCheckout();
+                            };
                             return (
                               <tr
                                 key={row.key}
@@ -971,24 +988,58 @@ export default function AnnualPackagePurchasePage() {
                                   {totalAmountShown}
                                 </td>
                                 <td className="px-1.5 py-2.5 align-middle">
-                                  <span
-                                    className="mx-auto inline-flex max-w-full min-w-0 items-center justify-center rounded-md bg-violet-100/90 px-1.5 py-1 text-[8px] font-semibold uppercase leading-tight tracking-wide text-[#4c1d95]"
-                                    title={payHereLabel}
-                                  >
-                                    {payHereLabel}
-                                  </span>
+                                  {emiRow?.status === 'paid' ? (
+                                    <span
+                                      className="mx-auto inline-flex max-w-full min-w-0 items-center justify-center rounded-md bg-emerald-100/90 px-1.5 py-1 text-[8px] font-semibold uppercase leading-tight tracking-wide text-emerald-900"
+                                      title="This installment is paid"
+                                    >
+                                      Paid · {payHereLabel}
+                                    </span>
+                                  ) : emiRow?.status === 'submitted' ? (
+                                    <button
+                                      type="button"
+                                      onClick={() => navigate('/dashboard/financials')}
+                                      className="mx-auto w-full max-w-full rounded-md border border-amber-200/90 bg-amber-50/90 px-1.5 py-1 text-[8px] font-semibold uppercase leading-tight tracking-wide text-amber-950 hover:bg-amber-100/90"
+                                      title="Open Sacred Exchange to see proof status"
+                                    >
+                                      Pending review
+                                    </button>
+                                  ) : (
+                                    <button
+                                      type="button"
+                                      onClick={onPayHereClick}
+                                      className="mx-auto w-full max-w-full cursor-pointer rounded-md border border-violet-200/80 bg-violet-100/90 px-1.5 py-1 text-[8px] font-semibold uppercase leading-tight tracking-wide text-[#4c1d95] shadow-sm hover:bg-violet-200/70"
+                                      title={
+                                        payHereOpensEmiModal
+                                          ? `Pay with ${payHereLabel} — opens checkout on Sacred Exchange`
+                                          : 'Continue to checkout for your Home Coming bundle'
+                                      }
+                                    >
+                                      Pay · {payHereLabel}
+                                    </button>
+                                  )}
                                 </td>
                                 <td className="px-1.5 py-2.5 align-middle break-words text-[9px] text-[rgba(80,55,145,0.75)] tabular-nums">
                                   {paidDateCell}
                                 </td>
                                 <td className="px-1.5 py-2.5 align-middle break-words">
-                                  <Link
-                                    to="/dashboard/financials"
-                                    className="mx-auto inline-flex max-w-full min-w-0 items-center justify-center gap-1 break-words text-[9px] font-semibold text-[#6d28d9] hover:text-[#5b21b6] hover:underline"
-                                  >
-                                    <FileText size={12} className="shrink-0 opacity-80" aria-hidden />
-                                    Sacred Exchange
-                                  </Link>
+                                  {receiptHref ? (
+                                    <a
+                                      href={receiptHref}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className="mx-auto inline-flex max-w-full min-w-0 items-center justify-center gap-1 break-words text-[9px] font-semibold text-[#6d28d9] hover:text-[#5b21b6] hover:underline"
+                                    >
+                                      <Paperclip size={12} className="shrink-0 opacity-80" aria-hidden />
+                                      Receipt file
+                                    </a>
+                                  ) : emiRow?.status === 'paid' ? (
+                                    <span className="text-[9px] text-[rgba(90,55,135,0.55)]">
+                                      Receipt with host
+                                    </span>
+                                  ) : (
+                                    <span className="text-[9px] text-[rgba(90,55,135,0.38)]">—</span>
+                                  )}
                                 </td>
                               </tr>
                             );

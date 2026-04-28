@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import axios from 'axios';
 import {
   cn,
@@ -631,6 +631,7 @@ const VOLUNTARY_EMI_PLACEHOLDER = { number: 0, amount: 0, due_date: '', status: 
 
 const FinancialsPage = () => {
   const { toast } = useToast();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [showAllEmis, setShowAllEmis] = useState(false);
@@ -647,6 +648,37 @@ const FinancialsPage = () => {
   };
 
   useEffect(() => { fetchData(); }, []);
+
+  /* Deep-link from annual package schedule: /dashboard/financials?payEmi=3 */
+  useEffect(() => {
+    if (loading || !data) return;
+    const raw = searchParams.get('payEmi');
+    if (raw == null || String(raw).trim() === '') return;
+    const num = Number(raw);
+    const emisList = data.financials?.emis || [];
+    const clearParam = () => {
+      const next = new URLSearchParams(searchParams);
+      next.delete('payEmi');
+      setSearchParams(next, { replace: true });
+    };
+    if (Number.isNaN(num) || !emisList.length) {
+      clearParam();
+      return;
+    }
+    const emi = emisList.find((e) => Number(e?.number) === num);
+    if (!emi || emi.status === 'paid' || emi.status === 'submitted') {
+      clearParam();
+      return;
+    }
+    const isOverdue = emi.due_date && new Date(emi.due_date) < new Date();
+    const daysLate = isOverdue
+      ? Math.max(0, Math.floor((Date.now() - new Date(emi.due_date).getTime()) / 86400000))
+      : 0;
+    const lateFee = daysLate * (data.late_fee_per_day || 0);
+    const channelFee = isOverdue && daysLate > 0 ? (data.channelization_fee || 0) : 0;
+    setPayingEmi({ ...emi, lateFee, channelFee });
+    clearParam();
+  }, [loading, data, searchParams, setSearchParams]);
 
   const pkg = data?.package || {};
   const durationMonths = pkg.duration_months || 12;
