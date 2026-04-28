@@ -49,6 +49,7 @@ function isDashboardNavActive(location, item) {
 
 const DashboardLayout = () => {
   const { user, loading, logout } = useAuth();
+  const { settings } = useSiteSettings();
 
   useDashboardScrollSession();
   const sacredHomeLogoSrc = settings?.logo_url ? resolveImageUrl(settings.logo_url) : '';
