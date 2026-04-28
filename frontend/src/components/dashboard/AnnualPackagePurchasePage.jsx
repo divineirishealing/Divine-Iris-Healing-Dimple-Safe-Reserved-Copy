@@ -24,6 +24,7 @@ import { getAuthHeaders } from '../../lib/authHeaders';
 import { pickTierIndexForDashboard } from './dashboardUpcomingHelpers';
 import DashboardUpcomingProgramsIrisBloom from './DashboardUpcomingProgramsIrisBloom';
 import { getApiUrl } from '../../lib/config';
+import { irisYearLabelNoPeriod } from '../../lib/irisJourney';
 
 /** Mirrors backend `_HOME_COMING_INCLUDES` shorts — subtitle for Divine Iris bundle. */
 const DIVINE_IRIS_HOME_COMING_PROGRAMS_LABEL =
@@ -199,6 +200,38 @@ export default function AnnualPackagePurchasePage() {
   const userTier =
     typeof homeData?.user_details?.tier === 'string' ? homeData.user_details.tier.trim() : '';
 
+  /** Opening lines: Year 2+ mirrors “completed Year n−1 … with Year n …” (see iris_journey labels). */
+  const irisWelcomeLeadEl = useMemo(() => {
+    const ij = homeData?.iris_journey;
+    const y = Math.min(12, Math.max(1, Number(ij?.year) || 1));
+    const strip = (t) => String(t || '').replace(/\.\s*$/, '').trim();
+    const currentClean = strip(ij?.label) || irisYearLabelNoPeriod(y);
+    const namePrefix = memberFirstName ? (
+      <>
+        <span className="font-semibold text-[#4c1d95]">{memberFirstName}</span>,{' '}
+      </>
+    ) : null;
+
+    if (y >= 2) {
+      const prevClean = irisYearLabelNoPeriod(y - 1);
+      return (
+        <>
+          {namePrefix}
+          thank you for completing {prevClean}. Your presence weaves luminous thread through this lineage;
+          we hold you softly as you continue into sacred growth and higher becoming with {currentClean}.
+        </>
+      );
+    }
+
+    return (
+      <>
+        {namePrefix}
+        thank you for choosing Divine Iris as you step into {currentClean}. Your presence weaves luminous
+        thread through this lineage; we hold you softly as you deepen into sacred growth and higher becoming.
+      </>
+    );
+  }, [homeData?.iris_journey, memberFirstName]);
+
   useEffect(() => {
     if (!homeData || prefsInitDone.current) return;
     prefsInitDone.current = true;
@@ -359,13 +392,11 @@ export default function AnnualPackagePurchasePage() {
               <div className="flex gap-3 sm:gap-4">
                 <Sparkles className="h-9 w-9 shrink-0 text-[#a855f7] opacity-[0.92] mt-0.5 drop-shadow-[0_0_12px_rgba(168,85,247,0.35)]" aria-hidden />
                 <div className="min-w-0 flex-1 space-y-4">
-                  <p className="font-[family-name:'Playfair_Display',Georgia,serif] text-[17px] sm:text-lg leading-relaxed text-[#2e1067]/92">
-                    {memberFirstName ? (
-                      <>
-                        <span className="font-semibold text-[#4c1d95]">{memberFirstName}</span>,{' '}
-                      </>
-                    ) : null}
-                    thank you for choosing Divine Iris. Your presence weaves luminous thread through this lineage; we hold you softly as you continue into sacred growth and higher becoming.
+                  <p
+                    className="font-[family-name:'Playfair_Display',Georgia,serif] text-[17px] sm:text-lg leading-relaxed text-[#2e1067]/92"
+                    data-testid="home-coming-welcome-lead"
+                  >
+                    {irisWelcomeLeadEl}
                   </p>
                   {lap?.start_date || lap?.end_date ? (
                     <div className="rounded-2xl border border-white/80 bg-white/58 px-4 py-3.5 shadow-sm shadow-violet-200/40">
