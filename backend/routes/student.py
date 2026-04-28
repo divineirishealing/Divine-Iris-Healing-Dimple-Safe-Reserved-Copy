@@ -318,7 +318,16 @@ def _subscription_annual_package_signals(sub: dict) -> bool:
 
 
 def _annual_dashboard_access(client: dict) -> bool:
-    """True when Client Garden marks Annual dashboard access or subscription data matches a prepaid annual package.
+    """True when the client may use Annual portal pricing (same gate as ``annual_portal_access`` on ``/home``).
+
+    **Primary (Client Garden):** ``annual_member_dashboard`` — the **Annual program / Home Coming** cohort
+    (column often shown as HC Yes / annual portal access on the client row).
+
+    **Fallback:** subscription-shaped data (package id, annual_program, programs_detail heuristics) when CRM
+    has not set the flag yet.
+
+    **Expiry:** if ``annual_subscription.end_date`` (or equivalent) is past, :func:`annual_subscription_period_expired`
+    clears effective access even when flags were left on in admin UIs.
 
     Drives portal offers, tier promotional pricing, package inclusion, and household club eligibility.
     """
@@ -391,9 +400,18 @@ def _site_gst_percent(settings_doc: dict) -> float:
 
 
 def _portal_included_in_annual_package(program: dict, inc_cfg, _sub: dict, client: dict) -> bool:
-    """Prepaid annual-package inclusion: program on the configured list and effective annual portal access.
+    """Whether the booker’s **own member seat** is prepaid by the Home Coming / annual bundle (₹0 self line).
 
-    Access is CRM Annual or subscription-shaped annual package (:func:`_annual_dashboard_access`).
+    **Program side** — :func:`_program_included_in_annual_package`:
+    if ``annual_package_included_program_ids`` is non-empty, only those program ids match; if empty, title
+    keywords (MMM, AWRP, …) match.
+
+    **Client side** — :func:`_annual_dashboard_access`: must be an **Annual + Dashboard / Home Coming** client
+    in practice (``annual_member_dashboard`` in Client Garden, or subscription-shaped annual package, and not past
+    the CRM annual subscription end window).
+
+    Both must pass. Program eligibility alone is not enough without annual portal access; annual access alone
+    is not enough if the program is not on the admin list (when list is non-empty) / keyword set (when list empty).
     """
     if not _program_included_in_annual_package(program, inc_cfg):
         return False
