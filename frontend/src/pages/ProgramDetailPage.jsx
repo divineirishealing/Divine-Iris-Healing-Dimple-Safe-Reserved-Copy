@@ -505,12 +505,12 @@ function ProgramDetailPage() {
 
         {(showHeroFooter || showHeroTierDock) ? (
           <div
-            className={`relative z-10 mt-8 flex w-full flex-col gap-6 lg:mt-auto ${showHeroFooter && showHeroTierDock ? 'lg:flex-row lg:items-end lg:justify-between lg:gap-10' : showHeroTierDock ? 'lg:justify-end' : ''}`}
+            className={`relative z-10 mt-auto flex w-full flex-col gap-6 pt-6 lg:gap-10 ${showHeroFooter && showHeroTierDock ? 'lg:flex-row lg:items-end lg:justify-between' : showHeroTierDock ? 'lg:justify-end' : ''}`}
             data-testid="program-hero-footer-row"
           >
             {showHeroFooter ? (
               <div
-                className={`w-full max-w-xl self-start text-left ${showHeroTierDock ? 'lg:max-w-md' : ''}`}
+                className={`w-full max-w-xl self-start text-left lg:self-end ${showHeroTierDock ? 'lg:max-w-md' : ''}`}
                 data-testid="program-hero-schedule-price"
               >
                 <div className="flex flex-col gap-3.5">
@@ -570,62 +570,102 @@ function ProgramDetailPage() {
 
             {showHeroTierDock ? (
               <div
-                className="flex w-full max-w-[18rem] flex-col gap-5 self-end text-right"
+                className="flex w-full max-w-[min(100%,28rem)] flex-col gap-3 self-end text-right"
                 data-testid="program-hero-tier-dock"
               >
+                <p
+                  className="text-[9px] font-medium uppercase tracking-[0.2em]"
+                  style={{ color: heroAccent }}
+                >
+                  Enroll now
+                </p>
                 {program.duration_tiers.map((tier, tIdx) => {
                   const isAnnual = tier.label?.toLowerCase().includes('annual') || tier.label?.toLowerCase().includes('year') || tier.duration_unit === 'year';
                   const tierPrice = getPrice(program, tIdx);
                   const tierOffer = getOfferPrice(program, tIdx);
                   const showContact = isAnnual && tierPrice === 0;
-                  const selected = heroTierIdx === tIdx;
                   return (
-                    <div key={tIdx} className="flex flex-col items-end gap-1.5 text-right">
-                      <p className="flex flex-wrap items-baseline justify-end gap-x-2 gap-y-1 text-sm font-normal leading-snug text-white/85 [text-wrap:balance] md:text-base">
-                        <span
-                          className={`shrink-0 text-[9px] font-medium uppercase tracking-[0.2em] ${selected ? 'underline underline-offset-[3px]' : ''}`}
-                          style={{ color: heroAccent }}
-                        >
-                          {tier.label}:
-                        </span>
-                        <span className="min-w-0">
-                          {showContact ? (
-                            <span className="text-[10px] leading-snug text-white/65 md:text-xs">Contact for customised pricing</span>
-                          ) : tierOffer > 0 ? (
-                            <>
-                              <span className="text-lg font-semibold tabular-nums md:text-xl" style={{ ...globalPricingStyle, color: heroAccent }}>
-                                {symbol} {tierOffer.toLocaleString()}
-                              </span>
-                              {tierPrice > tierOffer && (
-                                <span className="ml-2 text-xs text-white/35 line-through md:text-sm">
-                                  {symbol} {tierPrice.toLocaleString()}
-                                </span>
-                              )}
-                            </>
-                          ) : tierPrice > 0 ? (
-                            <span className="text-lg font-semibold tabular-nums md:text-xl" style={{ ...globalPricingStyle, color: heroAccent }}>
+                    <div
+                      key={tIdx}
+                      className="flex w-full flex-wrap items-baseline justify-end gap-x-2 gap-y-1 text-sm font-normal leading-snug text-white/85 [text-wrap:balance] md:flex-nowrap md:text-base"
+                    >
+                      <span className="shrink-0 text-[9px] font-medium uppercase tracking-[0.2em]" style={{ color: heroAccent }}>
+                        {tier.label}:
+                      </span>
+                      {showContact ? (
+                        <>
+                          <span className="min-w-0 text-[10px] text-white/70 md:text-xs">Contact for customised pricing</span>
+                          <button
+                            type="button"
+                            data-testid={`hero-tier-${tIdx}`}
+                            onClick={() => {
+                              setHeroTierIdx(tIdx);
+                              navigate(`/contact?program=${program.id}&title=${encodeURIComponent(program.title)}&tier=${tier.label}`);
+                            }}
+                            className="shrink-0 text-[9px] font-medium uppercase tracking-[0.2em] transition-opacity hover:opacity-90"
+                            style={{ color: heroAccent, background: 'none', border: 'none', padding: 0, cursor: 'pointer' }}
+                          >
+                            CONTACT US
+                          </button>
+                        </>
+                      ) : tierOffer > 0 ? (
+                        <>
+                          <span className="shrink-0 text-base font-semibold tabular-nums md:text-lg" style={{ ...globalPricingStyle, color: heroAccent }}>
+                            {symbol} {tierOffer.toLocaleString()}
+                          </span>
+                          {tierPrice > tierOffer && (
+                            <span className="shrink-0 text-xs text-white/45 line-through md:text-sm">
                               {symbol} {tierPrice.toLocaleString()}
                             </span>
-                          ) : (
-                            <span className="text-[10px] italic text-white/55 md:text-xs">Contact for customised pricing</span>
                           )}
-                        </span>
-                      </p>
-                      <button
-                        type="button"
-                        data-testid={`hero-tier-${tIdx}`}
-                        tabIndex={0}
-                        onClick={() => {
-                          setHeroTierIdx(tIdx);
-                          showContact
-                            ? navigate(`/contact?program=${program.id}&title=${encodeURIComponent(program.title)}&tier=${tier.label}`)
-                            : navigate(`/enroll/program/${program.id}${enrollProgramQuery(tIdx)}`);
-                        }}
-                        className="text-[9px] font-medium uppercase tracking-[0.2em] transition-opacity hover:opacity-90"
-                        style={{ color: heroAccent, background: 'none', border: 'none', padding: 0, cursor: 'pointer' }}
-                      >
-                        {showContact ? 'CONTACT US' : 'SELECT'}
-                      </button>
+                          <button
+                            type="button"
+                            data-testid={`hero-tier-${tIdx}`}
+                            onClick={() => {
+                              setHeroTierIdx(tIdx);
+                              navigate(`/enroll/program/${program.id}${enrollProgramQuery(tIdx)}`);
+                            }}
+                            className="shrink-0 text-[9px] font-medium uppercase tracking-[0.2em] transition-opacity hover:opacity-90"
+                            style={{ color: heroAccent, background: 'none', border: 'none', padding: 0, cursor: 'pointer' }}
+                          >
+                            SELECT
+                          </button>
+                        </>
+                      ) : tierPrice > 0 ? (
+                        <>
+                          <span className="shrink-0 text-base font-semibold tabular-nums md:text-lg" style={{ ...globalPricingStyle, color: heroAccent }}>
+                            {symbol} {tierPrice.toLocaleString()}
+                          </span>
+                          <button
+                            type="button"
+                            data-testid={`hero-tier-${tIdx}`}
+                            onClick={() => {
+                              setHeroTierIdx(tIdx);
+                              navigate(`/enroll/program/${program.id}${enrollProgramQuery(tIdx)}`);
+                            }}
+                            className="shrink-0 text-[9px] font-medium uppercase tracking-[0.2em] transition-opacity hover:opacity-90"
+                            style={{ color: heroAccent, background: 'none', border: 'none', padding: 0, cursor: 'pointer' }}
+                          >
+                            SELECT
+                          </button>
+                        </>
+                      ) : (
+                        <>
+                          <span className="min-w-0 text-[10px] italic text-white/70 md:text-xs">Contact for customised pricing</span>
+                          <button
+                            type="button"
+                            data-testid={`hero-tier-${tIdx}`}
+                            onClick={() => {
+                              setHeroTierIdx(tIdx);
+                              navigate(`/contact?program=${program.id}&title=${encodeURIComponent(program.title)}&tier=${tier.label}`);
+                            }}
+                            className="shrink-0 text-[9px] font-medium uppercase tracking-[0.2em] transition-opacity hover:opacity-90"
+                            style={{ color: heroAccent, background: 'none', border: 'none', padding: 0, cursor: 'pointer' }}
+                          >
+                            CONTACT US
+                          </button>
+                        </>
+                      )}
                     </div>
                   );
                 })}
@@ -635,7 +675,7 @@ function ProgramDetailPage() {
                       type="button"
                       data-testid="hero-enroll-btn"
                       onClick={() => navigate(`/enroll/program/${program.id}${enrollProgramQuery(heroTierIdx)}`)}
-                      className="border-0 bg-transparent px-0 py-2 text-[9px] font-medium uppercase tracking-[0.2em] transition-opacity hover:opacity-90 md:text-[10px]"
+                      className="border-0 bg-transparent px-0 py-1 text-[9px] font-medium uppercase tracking-[0.2em] transition-opacity hover:opacity-90 md:text-[10px]"
                       style={{ color: heroAccent }}
                     >
                       ENROLL NOW
