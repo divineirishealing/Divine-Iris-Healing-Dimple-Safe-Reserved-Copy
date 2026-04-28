@@ -244,6 +244,15 @@ export default function AnnualPackagePurchasePage() {
   const pkg = homeData?.package || {};
   const fin = homeData?.financials || {};
   const emis = fin.emis || [];
+  const emiByNumber = useMemo(() => {
+    const m = new Map();
+    for (const e of emis) {
+      if (!e || e.number == null) continue;
+      const n = Number(e.number);
+      if (!Number.isNaN(n)) m.set(n, e);
+    }
+    return m;
+  }, [emis]);
   const lateFeePerDay = Number(homeData?.late_fee_per_day ?? 0);
   const channelizationFee = Number(homeData?.channelization_fee ?? 0);
   const showLateFeesOnFile = homeData?.show_late_fees === true;
@@ -844,14 +853,11 @@ export default function AnnualPackagePurchasePage() {
                       {scheduleTitle}
                     </p>
                     <div className="overflow-x-auto max-h-[min(28rem,70vh)] overflow-y-auto">
-                      <table className="w-full min-w-[720px] text-[10px] text-left border-collapse">
+                      <table className="w-full min-w-[780px] text-[10px] text-left border-collapse">
                         <thead>
                           <tr className="bg-[rgba(252,250,255,0.95)] border-b border-[rgba(160,100,240,0.12)] text-[rgba(80,55,145,0.75)]">
-                            <th className="font-bold uppercase tracking-wide px-2 py-2 align-bottom w-[6.5rem]">
-                              Batch
-                            </th>
-                            <th className="font-bold uppercase tracking-wide px-2 py-2 text-right align-bottom whitespace-nowrap">
-                              Amount
+                            <th className="font-bold uppercase tracking-wide px-2 py-2 align-bottom w-10 text-center whitespace-nowrap">
+                              Sr #
                             </th>
                             <th className="font-bold uppercase tracking-wide px-2 py-2 align-bottom whitespace-nowrap">
                               Payment due date
@@ -862,10 +868,16 @@ export default function AnnualPackagePurchasePage() {
                             <th className="font-bold uppercase tracking-wide px-2 py-2 text-right align-bottom whitespace-nowrap">
                               Ch. fee
                             </th>
-                            <th className="font-bold uppercase tracking-wide px-2 py-2 text-right align-bottom min-w-[7.5rem]">
-                              Total pay here
+                            <th className="font-bold uppercase tracking-wide px-2 py-2 text-right align-bottom whitespace-nowrap">
+                              Total amount
                             </th>
-                            <th className="font-bold uppercase tracking-wide px-2 py-2 align-bottom w-[5.5rem]">
+                            <th className="font-bold uppercase tracking-wide px-2 py-2 align-bottom min-w-[6.5rem] whitespace-nowrap">
+                              Pay here <span className="font-normal normal-case text-[9px] text-[rgba(100,55,155,0.5)]">(method)</span>
+                            </th>
+                            <th className="font-bold uppercase tracking-wide px-2 py-2 align-bottom whitespace-nowrap">
+                              Paid date
+                            </th>
+                            <th className="font-bold uppercase tracking-wide px-2 py-2 align-bottom w-[5.25rem]">
                               Receipt
                             </th>
                           </tr>
@@ -875,37 +887,36 @@ export default function AnnualPackagePurchasePage() {
                             const dueStr = row.dueDisplay ?? (row.due ? formatDateDdMonYyyy(row.due) : '—');
                             const hasNumericAmount =
                               row.amount != null && row.amountDisplay == null && !Number.isNaN(Number(row.amount));
-                            const amountShown =
+                            const totalAmountShown =
                               row.amountDisplay != null
                                 ? row.amountDisplay
                                 : hasNumericAmount
                                   ? `${symbol}${Number(toDisplay(row.amount)).toLocaleString()}`
                                   : '—';
-                            const totalPayShown =
-                              hasNumericAmount
-                                ? `${symbol}${Number(toDisplay(row.amount)).toLocaleString()}`
-                                : row.amountDisplay && row.amountDisplay !== 'Any amount you wish'
-                                  ? row.amountDisplay
-                                  : '—';
                             const onTimeLate = '—';
                             const onTimeCh = '—';
                             const showRateHint =
                               showLateFeesOnFile && (lateFeePerDay > 0 || channelizationFee > 0);
+                            const emiRow =
+                              typeof row.n === 'number' && !Number.isNaN(row.n)
+                                ? emiByNumber.get(row.n)
+                                : null;
+                            let paidDateCell = '—';
+                            if (emiRow && emiRow.status === 'paid') {
+                              const rawPd = emiRow.paid_date || emiRow.date || '';
+                              paidDateCell = rawPd
+                                ? formatDateDdMonYyyy(String(rawPd).slice(0, 10)) || '—'
+                                : 'Paid';
+                            }
                             return (
                               <tr
                                 key={row.key}
                                 className="border-b border-[rgba(160,100,240,0.08)] last:border-b-0 align-top"
                               >
-                                <td className="px-2 py-2.5 align-top">
-                                  <span className="font-bold tabular-nums text-[#3b0764]">{row.n}</span>
-                                  <span className="mt-1 block text-[9px] font-medium text-[rgba(80,55,145,0.85)] whitespace-nowrap leading-tight">
-                                    {dueStr}
-                                  </span>
+                                <td className="px-2 py-2.5 align-top text-center tabular-nums">
+                                  <span className="font-bold text-[#3b0764]">{row.n}</span>
                                 </td>
-                                <td className="px-2 py-2.5 text-right font-semibold tabular-nums align-top whitespace-nowrap">
-                                  {amountShown}
-                                </td>
-                                <td className="px-2 py-2.5 align-top whitespace-nowrap text-[9px] sm:text-[10px]">
+                                <td className="px-2 py-2.5 align-top whitespace-nowrap text-[9px] sm:text-[10px] font-medium">
                                   {dueStr}
                                 </td>
                                 <td className="px-2 py-2.5 text-right align-top text-[9px] tabular-nums whitespace-nowrap">
@@ -926,14 +937,19 @@ export default function AnnualPackagePurchasePage() {
                                     </span>
                                   ) : null}
                                 </td>
-                                <td className="px-2 py-2.5 text-right align-top">
-                                  <div className="font-bold tabular-nums whitespace-nowrap">{totalPayShown}</div>
+                                <td className="px-2 py-2.5 text-right font-semibold tabular-nums align-top whitespace-nowrap">
+                                  {totalAmountShown}
+                                </td>
+                                <td className="px-2 py-2.5 align-top">
                                   <span
-                                    className="mt-1 inline-block max-w-[10rem] truncate rounded-md bg-violet-100/90 px-1.5 py-0.5 text-[8px] font-semibold uppercase tracking-wide text-[#4c1d95]"
+                                    className="inline-block max-w-[10rem] truncate rounded-md bg-violet-100/90 px-1.5 py-0.5 text-[8px] font-semibold uppercase tracking-wide text-[#4c1d95]"
                                     title={schedulePayTag}
                                   >
                                     {schedulePayTag}
                                   </span>
+                                </td>
+                                <td className="px-2 py-2.5 align-top whitespace-nowrap text-[9px] text-[rgba(80,55,145,0.75)] tabular-nums">
+                                  {paidDateCell}
                                 </td>
                                 <td className="px-2 py-2.5 align-top">
                                   <Link
