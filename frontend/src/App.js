@@ -85,8 +85,8 @@ const AppContent = () => {
     }).catch(() => {});
   }, []);
 
-  // Handle OAuth callback (implicit flow via hash fragment)
-  if (location.hash && location.hash.includes('session_id=')) {
+  // OAuth return: hash #exchange=… → exchange one-time token for session (see AuthCallback)
+  if (location.hash && location.hash.includes('exchange=')) {
     return <AuthCallback />;
   }
 

@@ -18,6 +18,14 @@ services:
         sync: false        # Set to your Render backend URL e.g. https://divine-iris-backend.onrender.com
       - key: FRONTEND_URL
         sync: false        # Public site: https://divineirishealing.com (or https://www.divineirishealing.com)
+      # Student portal Google OAuth (replace Emergent-hosted login). Register redirect URI in Google Cloud Console:
+      # https://YOUR_BACKEND_ORIGIN/api/auth/google/callback — optionally set GOOGLE_OAUTH_REDIRECT_URI if proxies hide Host.
+      - key: GOOGLE_OAUTH_CLIENT_ID
+        sync: false
+      - key: GOOGLE_OAUTH_CLIENT_SECRET
+        sync: false
+      - key: GOOGLE_OAUTH_REDIRECT_URI
+        sync: false        # Optional; defaults from request Host + path /api/auth/google/callback
       - key: ALLOWED_ORIGINS
         value: "https://divineirishealing.com,https://www.divineirishealing.com,https://divine-iris-healing-dimple-safe-res.vercel.app"
       - key: AWS_S3_BUCKET

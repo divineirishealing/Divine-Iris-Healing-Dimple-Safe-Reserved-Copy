@@ -33,19 +33,16 @@ export const AuthProvider = ({ children }) => {
   };
 
   useEffect(() => {
-    // CRITICAL: If returning from OAuth callback, skip the /me check.
-    // AuthCallback will exchange the session_id and establish the session first.
-    if (window.location.hash?.includes('session_id=')) {
-      setLoading(false); // Let AuthCallback handle loading state
+    // OAuth callback hash #exchange=… or legacy handling done in AuthCallback route.
+    if (window.location.hash?.includes('exchange=')) {
+      setLoading(false);
       return;
     }
     checkAuth();
   }, []);
 
   const login = () => {
-    // Redirect to Emergent Auth
-    const redirectUrl = window.location.origin + '/dashboard'; 
-    window.location.href = `https://auth.emergentagent.com/?redirect=${encodeURIComponent(redirectUrl)}`;
+    window.location.href = `${getBackendUrl()}/api/auth/google/start`;
   };
 
   const logout = async (redirectTo = '/login') => {
