@@ -500,7 +500,7 @@ function ProgramDetailPage() {
                     )}
                   </p>
                   {tiersLen > 1 && (
-                    <p className="mt-1.5 max-w-[18rem] text-[10px] leading-snug text-white/35">Starting rate for the first option — all tiers below</p>
+                    <p className="mt-1.5 max-w-[18rem] text-[10px] leading-snug text-white/35">Starting price for the first option — all tiers below</p>
                   )}
                 </div>
               )}
