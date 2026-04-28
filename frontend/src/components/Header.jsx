@@ -114,11 +114,13 @@ const Header = () => {
   const pillFont = offer.pill_font || 'Lato';
   const bannerColor = offer.banner_color || '#dc2626';
 
-  // Auto-pull nearest upcoming program name + deadline for countdown (same as card)
-  const nearestUpcoming = programs
-    .filter(p => p.is_upcoming && (p.deadline_date || p.start_date))
-    .sort((a, b) => (a.deadline_date || a.start_date).localeCompare(b.deadline_date || b.start_date))[0] || null;
-  const bannerEnabled = offer.banner_enabled && nearestUpcoming;
+  /** Upcoming programs with a deadline/start for offer banner — earliest first; show up to 3 badges. */
+  const MAX_OFFER_BANNER_PROGRAMS = 3;
+  const upcomingProgramsForBanner = programs
+    .filter((p) => p.is_upcoming && (p.deadline_date || p.start_date))
+    .sort((a, b) => String(a.deadline_date || a.start_date).localeCompare(String(b.deadline_date || b.start_date)))
+    .slice(0, MAX_OFFER_BANNER_PROGRAMS);
+  const bannerEnabled = offer.banner_enabled && upcomingProgramsForBanner.length > 0;
 
   const shouldShowOffer = (label) => {
     if (!pillEnabled) return false;
@@ -267,20 +269,39 @@ const Header = () => {
         </div>
       </header>
 
-      {/* Countdown banner - flush below nav (same fixed stack, no top offset gap) */}
+      {/* Countdown banner — one badge per upcoming program (up to 3), each links to program page */}
       {bannerEnabled && (
-        <div data-testid="offer-banner" className="flex w-full items-center justify-center gap-3 py-1.5 cursor-pointer"
+        <div
+          data-testid="offer-banner"
+          className="flex w-full flex-wrap items-center justify-center gap-x-3 gap-y-1.5 px-2 py-1.5"
           style={{ fontFamily: "'Lato', sans-serif", background: `linear-gradient(to right, ${bannerColor}, ${bannerColor}dd, ${bannerColor})` }}
-          onClick={() => handleNav(`/program/${nearestUpcoming.id}`)}>
-          <Sparkles size={12} className="text-white/80" />
-          <span className="text-[10px] font-bold tracking-[0.15em] uppercase text-white">{nearestUpcoming.title}</span>
-          {offer.banner_text && <><span className="text-white/40 text-[10px]">|</span><span className="text-[10px] font-semibold tracking-wider uppercase text-white/90">{offer.banner_text}</span></>}
-          <span className="text-white/40 text-[10px]">|</span>
-          <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-white/80 tracking-wider">
-            <Clock size={10} />
-            <OfferCountdown endDate={nearestUpcoming.deadline_date || nearestUpcoming.start_date} />
-          </span>
-          <span className="text-[9px] tracking-wider uppercase text-white/50">&rarr;</span>
+        >
+          {upcomingProgramsForBanner.map((p) => (
+            <button
+              key={p.id}
+              type="button"
+              data-testid={`offer-banner-program-${p.id}`}
+              onClick={() => handleNav(`/program/${p.id}`)}
+              className="inline-flex max-w-full flex-wrap items-center justify-center gap-x-1.5 gap-y-0.5 rounded-sm px-1 py-0.5 text-left transition-opacity hover:opacity-90 sm:max-w-none"
+            >
+              <Sparkles size={12} className="shrink-0 text-white/80" />
+              <span className="max-w-[min(52vw,15rem)] truncate text-[10px] font-bold uppercase tracking-[0.12em] text-white sm:max-w-[18rem]">
+                {p.title}
+              </span>
+              {offer.banner_text && (
+                <>
+                  <span className="shrink-0 text-[10px] text-white/40">|</span>
+                  <span className="shrink-0 text-[10px] font-semibold uppercase tracking-wider text-white/90">{offer.banner_text}</span>
+                </>
+              )}
+              <span className="shrink-0 text-[10px] text-white/40">|</span>
+              <span className="inline-flex shrink-0 items-center gap-1 text-[10px] font-semibold tracking-wider text-white/80">
+                <Clock size={10} />
+                <OfferCountdown endDate={p.deadline_date || p.start_date} />
+              </span>
+              <span className="shrink-0 text-[9px] uppercase tracking-wider text-white/50">&rarr;</span>
+            </button>
+          ))}
         </div>
       )}
       </div>
