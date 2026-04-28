@@ -49,17 +49,26 @@ function programKeywordInAnnualPackage(p) {
 }
 
 /**
- * Annual package “member seat included”: checked program ids only when the admin list is non-empty;
- * otherwise keyword detection (MMM, AWRP, …). Unchecked programs get portal offers.
+ * Annual-package “included” for the booker seat: strict program ids when the admin list is non-empty,
+ * unless `eligibleForAnnualPortalKeywords` reflects Sacred Home annual+dashboard access — then pillar
+ * keywords still match (MMM, Atomic Weight…) when admins left a partial checklist.
+ * When the list is empty: keyword fallback only.
  */
-export function programIncludedInAnnualPackage(p, configuredIds) {
+export function programIncludedInAnnualPackage(
+  p,
+  configuredIds,
+  eligibleForAnnualPortalKeywords = false
+) {
   const ids = Array.isArray(configuredIds)
     ? configuredIds.map((x) => String(x).trim()).filter(Boolean)
     : [];
+  const kw = programKeywordInAnnualPackage(p);
   if (ids.length > 0) {
-    return ids.includes(String(p?.id));
+    const byId = ids.includes(String(p?.id));
+    if (eligibleForAnnualPortalKeywords) return byId || kw;
+    return byId;
   }
-  return programKeywordInAnnualPackage(p);
+  return kw;
 }
 
 /**

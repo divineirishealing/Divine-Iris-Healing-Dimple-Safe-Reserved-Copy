@@ -402,22 +402,31 @@ def _site_gst_percent(settings_doc: dict) -> float:
 def _portal_included_in_annual_package(program: dict, inc_cfg, _sub: dict, client: dict) -> bool:
     """Whether the booker’s **own member seat** is prepaid by the Home Coming / annual bundle (₹0 self line).
 
-    **Program side** — :func:`_program_included_in_annual_package`:
-    if ``annual_package_included_program_ids`` is non-empty, only those program ids match; if empty, title
-    keywords (MMM, AWRP, …) match.
+    **Access** — requires :func:`_annual_dashboard_access` (Annual + Dashboard / HC in CRM, subscription not expired).
 
-    **Client side** — :func:`_annual_dashboard_access`: must be an **Annual + Dashboard / Home Coming** client
-    in practice (``annual_member_dashboard`` in Client Garden, or subscription-shaped annual package, and not past
-    the CRM annual subscription end window).
+    **Program** —
+    Uses :func:`_program_included_in_annual_package` first (explicit checklist when non-empty **or**
+    pillar keywords when the checklist is empty).
 
-    Both must pass. Program eligibility alone is not enough without annual portal access; annual access alone
-    is not enough if the program is not on the admin list (when list is non-empty) / keyword set (when list empty).
+    If access passes but the checklist is **non-empty** and the strict id match fails, we still waive the seat
+    when :func:`_program_keyword_in_annual_package` matches — so pillar programs (MMM, Atomic Weight/AWRP, …)
+    stay aligned with the bundled Home Coming catalog even when admins only ticked some rows in Dashboard settings.
+
+    Turbo / Meta pillars must remain on the explicit list unless their keywords are expanded separately.
     """
-    if not _program_included_in_annual_package(program, inc_cfg):
-        return False
     if not _annual_dashboard_access(client):
         return False
-    return True
+    if _program_included_in_annual_package(program, inc_cfg):
+        return True
+    raw_inc = inc_cfg if isinstance(inc_cfg, list) else []
+    configured_ids_nonempty = [
+        str(x).strip()
+        for x in raw_inc
+        if str(x).strip()
+    ]
+    if configured_ids_nonempty and _program_keyword_in_annual_package(program):
+        return True
+    return False
 
 
 def _overlay_program_metadata(merged_programs: List[dict], old_detail: List[dict]) -> List[dict]:

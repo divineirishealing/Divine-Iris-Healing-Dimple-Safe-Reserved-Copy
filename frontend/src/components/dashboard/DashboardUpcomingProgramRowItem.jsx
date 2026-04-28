@@ -468,8 +468,8 @@ export default function DashboardUpcomingProgramRowItem({
     [cartItems, resolveCartCrossSellTier],
   );
 
-  /** Program appears on the admin “Annual package — included programs” list (or keyword fallback when list empty). */
-  const programOnAnnualPackageList = programIncludedInAnnualPackage(p, annualIncludedIds);
+  /** Program eligible for waived member seat (admin list ± pillar keywords for annual-portal Sacred Home cohorts). */
+  const programOnAnnualPackageList = programIncludedInAnnualPackage(p, annualIncludedIds, annualDashboardAccess);
   /** Logged-in user’s own seat is prepaid (Annual dashboard access + program on package list). */
   const includedPkg = Boolean(
     annualDashboardAccess &&
