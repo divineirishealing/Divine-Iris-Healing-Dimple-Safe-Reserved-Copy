@@ -130,11 +130,23 @@ function ProgramDetailPage() {
   const [selectedTemplate, setSelectedTemplate] = useState(null);
   const [selectedEmbed, setSelectedEmbed]       = useState(null);
   const [lightboxImg, setLightboxImg] = useState(null);
+  const [heroTierIdx, setHeroTierIdx] = useState(0);
 
   useEffect(() => {
     window.scrollTo(0, 0);
     loadData();
   }, [id]);
+
+  /** Sync tier selection from enroll links (?tier=N) once program is loaded. */
+  useEffect(() => {
+    if (!program?.duration_tiers?.length) return;
+    const t = searchParams.get('tier');
+    if (t == null || t === '') return;
+    const n = parseInt(t, 10);
+    if (!Number.isNaN(n) && n >= 0 && n < program.duration_tiers.length) {
+      setHeroTierIdx(n);
+    }
+  }, [program?.id, program?.duration_tiers?.length, searchParams]);
 
   useEffect(() => {
     if (!program?.title) return;
@@ -270,6 +282,7 @@ function ProgramDetailPage() {
     program.enrollment_open !== false &&
     String(program.enrollment_status || 'open').toLowerCase() !== 'closed';
   const tiersLen = program.duration_tiers?.length || 0;
+  const showTierUi = program.show_tiers_on_card !== false && tiersLen > 0;
   const heroPriceBase = tiersLen > 0 ? getPrice(program, 0) : getPrice(program);
   const heroPriceOffer = tiersLen > 0 ? getOfferPrice(program, 0) : getOfferPrice(program);
   const heroHasAmount = heroPriceOffer > 0 || heroPriceBase > 0;
@@ -277,11 +290,16 @@ function ProgramDetailPage() {
   const heroStart = heroScheduleItems.find((r) => r.key === 'sd');
   const heroEnd = heroScheduleItems.find((r) => r.key === 'ed');
   const heroTime = heroScheduleItems.find((r) => r.key === 'tm');
-  const showHeroFooter =
-    !!(
-      (!registrationClosed && (heroStart || heroEnd || heroTime)) ||
-      (showHeroPrice && heroHasAmount)
-    );
+  /** Schedule / single-price block (no duplicated tier breakdown when tier UI is enabled). */
+  const heroLeftScheduleBlock = !registrationClosed && (heroStart || heroEnd || heroTime);
+  const heroLeftInvestmentSingle = showHeroPrice && heroHasAmount && !showTierUi;
+  const showHeroFooter = !!(heroLeftScheduleBlock || heroLeftInvestmentSingle);
+  /** Stacked duration tiers + enroll in hero (right column on large screens). */
+  const showHeroTierDock = showTierUi && showHeroPrice;
+
+  const detailEnrollStatus = registrationClosed
+    ? 'closed'
+    : program.enrollment_status || (program.enrollment_open !== false ? 'open' : 'closed');
 
   const SectionTitle = ({ children, style: extra }) => (
     <h2 className="text-center mb-4" style={applyStyle(extra || template.section_title_style, { ...HEADING, fontSize: '1.6rem' })}>{children}</h2>
@@ -430,7 +448,7 @@ function ProgramDetailPage() {
     <div className="min-h-screen">
       <Header />
 
-      {/* HERO — title centered; schedule & price: single vertical stack bottom-left, gold labels */}
+      {/* HERO — title centered; schedule & single-tier price bottom-left; duration tiers stacked bottom-right when tier UI is on */}
       <section
         data-testid="program-hero"
         className="relative flex min-h-[52vh] flex-col px-5 pb-6 pt-20 md:min-h-[58vh] md:px-10 md:pb-8"
@@ -448,63 +466,149 @@ function ProgramDetailPage() {
           </div>
         </div>
 
-        {showHeroFooter ? (
+        {(showHeroFooter || showHeroTierDock) ? (
           <div
-            className="relative z-10 mt-8 w-full max-w-xl self-start text-left"
-            data-testid="program-hero-schedule-price"
+            className={`relative z-10 mt-8 flex w-full flex-col gap-6 lg:mt-auto ${showHeroFooter && showHeroTierDock ? 'lg:flex-row lg:items-end lg:justify-between lg:gap-10' : showHeroTierDock ? 'lg:justify-end' : ''}`}
+            data-testid="program-hero-footer-row"
           >
-            <div className="flex flex-col gap-3.5">
-              {heroStart && (
-                <p className="flex flex-wrap items-baseline gap-x-2 text-sm font-normal leading-snug text-white/85 [text-wrap:balance] md:text-base">
-                  <span className="shrink-0 text-[9px] font-medium uppercase tracking-[0.2em]" style={{ color: heroAccent }}>{heroStart.label}:</span>
-                  <span>{heroStart.value}</span>
-                </p>
-              )}
-              {heroEnd && (
-                <p className="flex flex-wrap items-baseline gap-x-2 text-sm font-normal leading-snug text-white/85 [text-wrap:balance] md:text-base">
-                  <span className="shrink-0 text-[9px] font-medium uppercase tracking-[0.2em]" style={{ color: heroAccent }}>{heroEnd.label}:</span>
-                  <span>{heroEnd.value}</span>
-                </p>
-              )}
-              {heroTime && (
-                <p className="flex flex-wrap items-baseline gap-x-2 text-sm font-normal leading-snug text-white/85 [text-wrap:balance] md:text-base">
-                  <span className="shrink-0 text-[9px] font-medium uppercase tracking-[0.2em]" style={{ color: heroAccent }}>{heroTime.label}:</span>
-                  <span>{heroTime.value}</span>
-                </p>
-              )}
-              {showHeroPrice && heroHasAmount && (
-                <div>
-                  <p className="flex flex-wrap items-baseline gap-x-2 gap-y-1 text-sm leading-snug md:text-base">
-                    <span className="shrink-0 text-[9px] font-medium uppercase tracking-[0.2em]" style={{ color: heroAccent }}>Investment:</span>
-                    {heroPriceOffer > 0 ? (
-                      <>
-                        <span
-                          className="text-lg font-semibold tabular-nums md:text-xl"
-                          style={{ ...globalPricingStyle, color: heroAccent, opacity: 0.9 }}
-                        >
-                          {symbol} {heroPriceOffer.toLocaleString()}
-                        </span>
-                        {heroPriceBase > heroPriceOffer && (
-                          <span className="text-xs text-white/32 line-through md:text-sm">
+            {showHeroFooter ? (
+              <div
+                className={`w-full max-w-xl self-start text-left ${showHeroTierDock ? 'lg:max-w-md' : ''}`}
+                data-testid="program-hero-schedule-price"
+              >
+                <div className="flex flex-col gap-3.5">
+                  {heroStart && (
+                    <p className="flex flex-wrap items-baseline gap-x-2 text-sm font-normal leading-snug text-white/85 [text-wrap:balance] md:text-base">
+                      <span className="shrink-0 text-[9px] font-medium uppercase tracking-[0.2em]" style={{ color: heroAccent }}>{heroStart.label}:</span>
+                      <span>{heroStart.value}</span>
+                    </p>
+                  )}
+                  {heroEnd && (
+                    <p className="flex flex-wrap items-baseline gap-x-2 text-sm font-normal leading-snug text-white/85 [text-wrap:balance] md:text-base">
+                      <span className="shrink-0 text-[9px] font-medium uppercase tracking-[0.2em]" style={{ color: heroAccent }}>{heroEnd.label}:</span>
+                      <span>{heroEnd.value}</span>
+                    </p>
+                  )}
+                  {heroTime && (
+                    <p className="flex flex-wrap items-baseline gap-x-2 text-sm font-normal leading-snug text-white/85 [text-wrap:balance] md:text-base">
+                      <span className="shrink-0 text-[9px] font-medium uppercase tracking-[0.2em]" style={{ color: heroAccent }}>{heroTime.label}:</span>
+                      <span>{heroTime.value}</span>
+                    </p>
+                  )}
+                  {showHeroPrice && heroHasAmount && !showTierUi && (
+                    <div>
+                      <p className="flex flex-wrap items-baseline gap-x-2 gap-y-1 text-sm leading-snug md:text-base">
+                        <span className="shrink-0 text-[9px] font-medium uppercase tracking-[0.2em]" style={{ color: heroAccent }}>Investment:</span>
+                        {heroPriceOffer > 0 ? (
+                          <>
+                            <span
+                              className="text-lg font-semibold tabular-nums md:text-xl"
+                              style={{ ...globalPricingStyle, color: heroAccent, opacity: 0.9 }}
+                            >
+                              {symbol} {heroPriceOffer.toLocaleString()}
+                            </span>
+                            {heroPriceBase > heroPriceOffer && (
+                              <span className="text-xs text-white/32 line-through md:text-sm">
+                                {symbol} {heroPriceBase.toLocaleString()}
+                              </span>
+                            )}
+                          </>
+                        ) : (
+                          <span
+                            className="text-lg font-semibold tabular-nums md:text-xl"
+                            style={{ ...globalPricingStyle, color: heroAccent, opacity: 0.9 }}
+                          >
                             {symbol} {heroPriceBase.toLocaleString()}
                           </span>
                         )}
-                      </>
-                    ) : (
-                      <span
-                        className="text-lg font-semibold tabular-nums md:text-xl"
-                        style={{ ...globalPricingStyle, color: heroAccent, opacity: 0.9 }}
-                      >
-                        {symbol} {heroPriceBase.toLocaleString()}
-                      </span>
-                    )}
-                  </p>
-                  {tiersLen > 1 && (
-                    <p className="mt-1.5 max-w-[18rem] text-[10px] leading-snug text-white/35">Starting price for the first option — all tiers below</p>
+                      </p>
+                      {tiersLen > 1 && (
+                        <p className="mt-1.5 max-w-[18rem] text-[10px] leading-snug text-white/35">Starting price for the first option — all tiers below</p>
+                      )}
+                    </div>
                   )}
                 </div>
-              )}
-            </div>
+              </div>
+            ) : null}
+
+            {showHeroTierDock ? (
+              <div
+                className="flex w-full max-w-[15.5rem] flex-col gap-3 self-end"
+                data-testid="program-hero-tier-dock"
+              >
+                {program.duration_tiers.map((tier, tIdx) => {
+                  const isAnnual = tier.label?.toLowerCase().includes('annual') || tier.label?.toLowerCase().includes('year') || tier.duration_unit === 'year';
+                  const tierPrice = getPrice(program, tIdx);
+                  const tierOffer = getOfferPrice(program, tIdx);
+                  const showContact = isAnnual && tierPrice === 0;
+                  const selected = heroTierIdx === tIdx;
+                  return (
+                    <div
+                      key={tIdx}
+                      role="button"
+                      tabIndex={0}
+                      data-testid={`hero-tier-${tIdx}`}
+                      onKeyDown={(e) => {
+                        if (e.key !== 'Enter' && e.key !== ' ') return;
+                        e.preventDefault();
+                        setHeroTierIdx(tIdx);
+                        showContact ? navigate(`/contact?program=${program.id}&title=${encodeURIComponent(program.title)}&tier=${tier.label}`) : navigate(`/enroll/program/${program.id}${enrollProgramQuery(tIdx)}`);
+                      }}
+                      className={`cursor-pointer rounded-lg border px-4 py-3 shadow-lg transition-all duration-300 [&:focus-visible]:outline-none [&:focus-visible]:ring-2 [&:focus-visible]:ring-[#D4AF37]/55 ${
+                        selected ? 'border-[#D4AF37] ring-2 ring-[#D4AF37]/30' : 'border-white/25 bg-white/95 hover:border-[#D4AF37]/80'
+                      }`}
+                      onClick={() => {
+                        setHeroTierIdx(tIdx);
+                        showContact ? navigate(`/contact?program=${program.id}&title=${encodeURIComponent(program.title)}&tier=${tier.label}`) : navigate(`/enroll/program/${program.id}${enrollProgramQuery(tIdx)}`);
+                      }}
+                    >
+                      <p className="mb-2 text-xs font-semibold uppercase tracking-[0.12em] text-gray-900" style={{ fontFamily: "'Lato', sans-serif" }}>{tier.label}</p>
+                      {showContact ? (
+                        <div>
+                          <p className="mb-2 text-[10px] leading-snug text-gray-400">Contact for customised pricing</p>
+                          <span className="inline-block w-full py-2 text-center text-[10px] font-medium uppercase tracking-[0.15em] text-white" style={{ background: heroAccent }}>Contact Us</span>
+                        </div>
+                      ) : (
+                        <div>
+                          <div className="mb-2">
+                            {tierOffer > 0 ? (
+                              <>
+                                <p className="text-sm font-semibold tabular-nums" style={{ ...globalPricingStyle, fontSize: '0.95rem' }}>{symbol} {tierOffer.toLocaleString()}</p>
+                                {tierPrice > tierOffer && (
+                                  <p className="text-[10px] text-gray-400 line-through">{symbol} {tierPrice.toLocaleString()}</p>
+                                )}
+                              </>
+                            ) : tierPrice > 0 ? (
+                              <p className="text-sm font-semibold tabular-nums" style={{ ...globalPricingStyle, fontSize: '0.95rem' }}>{symbol} {tierPrice.toLocaleString()}</p>
+                            ) : (
+                              <p className="text-[10px] italic text-gray-400">Contact for customised pricing</p>
+                            )}
+                          </div>
+                          <span className="inline-block w-full bg-gray-900 py-2 text-center text-[10px] font-medium uppercase tracking-[0.15em] text-white">Select</span>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+                <div className="flex flex-col items-stretch pt-1">
+                  {detailEnrollStatus === 'open' ? (
+                    <button
+                      type="button"
+                      data-testid="hero-enroll-btn"
+                      onClick={() => navigate(`/enroll/program/${program.id}${enrollProgramQuery(heroTierIdx)}`)}
+                      className="text-white px-6 py-3 text-[10px] font-medium uppercase tracking-[0.2em] shadow-md transition-opacity hover:opacity-90 md:px-8 md:text-[11px]"
+                      style={{ background: heroAccent }}
+                    >
+                      Enroll Now
+                    </button>
+                  ) : (
+                    <div data-testid="hero-express-interest" className="rounded-lg border border-white/20 bg-white/95 p-3 shadow-lg">
+                      <ExpressInterestInline programId={program.id} programTitle={program.title} accent={heroAccent} />
+                    </div>
+                  )}
+                </div>
+              </div>
+            ) : null}
           </div>
         ) : null}
       </section>
@@ -585,9 +689,6 @@ function ProgramDetailPage() {
 
             <div className="flex flex-col items-center gap-4 justify-center">
               {(() => {
-                const enrollStatus = registrationClosed
-                  ? 'closed'
-                  : program.enrollment_status || (program.enrollment_open !== false ? 'open' : 'closed');
                 const hasTiers = program.duration_tiers?.length > 0;
 
                 // No purchase pricing on page (admin off, or enrollment closed, etc.) → Express Your Interest
@@ -597,7 +698,7 @@ function ProgramDetailPage() {
                 }
 
                 // Prices shown and enrollment allows checkout → Enroll Now; else interest (e.g. coming_soon)
-                if (enrollStatus === 'open') {
+                if (detailEnrollStatus === 'open') {
                   return (
                     <button data-testid="enroll-btn" onClick={() => navigate(`/enroll/program/${program.id}${enrollProgramQuery()}`)}
                       className="text-white px-10 py-3 text-xs tracking-[0.2em] uppercase transition-colors hover:opacity-90" style={{ background: heroAccent }}>Enroll Now</button>
