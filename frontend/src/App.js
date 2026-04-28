@@ -33,6 +33,7 @@ import AuthCallback from './components/auth/AuthCallback';
 import ProfilePage from './components/dashboard/ProfilePage';
 import OrderHistoryPage from './components/dashboard/OrderHistoryPage';
 import FinancialsPage from './components/dashboard/FinancialsPage';
+import AnnualPackagePurchasePage from './components/dashboard/AnnualPackagePurchasePage';
 import CalendarPage from './components/dashboard/CalendarPage';
 import ProgressPage from './components/dashboard/ProgressPage';
 import SoulGardenPage from './components/dashboard/SoulGardenPage';
@@ -134,6 +135,7 @@ const AppContent = () => {
         <Route path="profile" element={<ProfilePage />} />
         <Route path="orders" element={<OrderHistoryPage />} />
         <Route path="financials" element={<FinancialsPage />} />
+        <Route path="home-coming-package" element={<AnnualPackagePurchasePage />} />
         <Route path="points" element={<PointsPage />} />
         <Route path="combined-checkout" element={<DashboardCombinedCheckoutPage />} />
         <Route path="sessions" element={<CalendarPage />} />

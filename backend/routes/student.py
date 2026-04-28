@@ -2444,6 +2444,8 @@ async def get_student_home(user: dict = Depends(get_current_student_user)):
         "contact_email": crm_email_raw or None,
         "can_add_contact_email": can_add_contact_email,
         "annual_renewal_reminder": annual_renewal_reminder_for_portal(client),
+        # Student-chosen prefs for Home Coming / annual package (shown on dedicated purchase page; admin-visible on client doc).
+        "annual_package_offer_prefs": client.get("annual_package_offer_prefs") if isinstance(client.get("annual_package_offer_prefs"), dict) else None,
     }
 
 
@@ -2476,6 +2478,51 @@ async def put_contact_email(data: ContactEmailBody, user: dict = Depends(get_cur
     await db.clients.update_one({"id": cid}, {"$set": {"email": em, "updated_at": now}})
     await db.users.update_one({"id": user["id"]}, {"$set": {"email": em, "updated_at": now}})
     return {"message": "Email saved", "email": em}
+
+
+class AnnualPackageOfferPrefsBody(BaseModel):
+    desired_start_date: Optional[str] = ""
+    payment_mode: Optional[str] = "full"
+    emi_notes: Optional[str] = ""
+
+
+def _normalize_annual_offer_payment_mode(raw: Optional[str]) -> str:
+    s = (raw or "").strip().lower().replace("-", "_")
+    allowed = {"full", "emi_monthly", "emi_quarterly", "emi_yearly"}
+    if s == "emi":
+        return "emi_monthly"
+    return s if s in allowed else "full"
+
+
+@router.put("/annual-package-offer-preferences")
+async def put_annual_package_offer_preferences(
+    data: AnnualPackageOfferPrefsBody, user: dict = Depends(get_current_student_user)
+):
+    """Store Home Coming / annual package purchase preferences on the client record (admin CRM)."""
+    cid = user.get("client_id")
+    if not cid:
+        raise HTTPException(status_code=400, detail="Your account is not linked to Client Garden.")
+    start = (data.desired_start_date or "").strip()[:10]
+    if start and len(start) == 10:
+        try:
+            datetime.strptime(start, "%Y-%m-%d")
+        except ValueError:
+            raise HTTPException(status_code=400, detail="Start date must be YYYY-MM-DD.")
+    elif start:
+        raise HTTPException(status_code=400, detail="Start date must be YYYY-MM-DD.")
+    mode = _normalize_annual_offer_payment_mode(data.payment_mode)
+    notes = (data.emi_notes or "").strip()
+    if len(notes) > 800:
+        raise HTTPException(status_code=400, detail="Note is too long (max 800 characters).")
+    now = datetime.now(timezone.utc).isoformat()
+    prefs = {
+        "desired_start_date": start or None,
+        "payment_mode": mode,
+        "emi_notes": notes or None,
+        "updated_at": now,
+    }
+    await db.clients.update_one({"id": cid}, {"$set": {"annual_package_offer_prefs": prefs, "updated_at": now}})
+    return {"saved": True, "annual_package_offer_prefs": prefs}
 
 
 class MembershipPeriodBody(BaseModel):

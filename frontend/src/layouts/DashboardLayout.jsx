@@ -5,7 +5,7 @@ import { useAuth } from '../context/AuthContext';
 import { useDashboardScrollSession } from '../hooks/useDashboardScrollSession';
 import { useSiteSettings } from '../context/SiteSettingsContext';
 import { NavLink } from 'react-router-dom';
-import { Loader2, Menu, X, Home, Sprout, Calendar, TrendingUp, Sparkles, Heart, BookOpen, User, CreditCard, LogOut, Coins, ShoppingCart, ClipboardList, Wrench, LayoutGrid } from 'lucide-react';
+import { Loader2, Menu, X, Home, Sprout, Calendar, TrendingUp, Sparkles, Heart, BookOpen, User, CreditCard, LogOut, Coins, ShoppingCart, ClipboardList, Wrench, LayoutGrid, Package } from 'lucide-react';
 import { cn, formatDateDdMonYyyy } from '../lib/utils';
 import { CosmicDashboardBackground } from '../components/dashboard/CosmicDashboardBackground';
 import { getDashboardCosmicVariant } from '../lib/dashboardCosmicThemes';
@@ -25,6 +25,7 @@ const NAV_ITEMS = [
     hash: 'sacred-home-programs',
     visKey: 'nav_upcoming',
   },
+  { to: '/dashboard/home-coming-package', label: 'Home Coming package', icon: Package, visKey: null },
   { to: '/dashboard/garden', label: 'Soul Garden', icon: Sprout, visKey: 'nav_soul_garden' },
   { to: '/dashboard/sessions', label: 'Your growth schedule', icon: Calendar, visKey: 'nav_sessions' },
   { to: '/dashboard/financials', label: 'Payments & EMIs', icon: CreditCard, visKey: 'nav_financials' },
