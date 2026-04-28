@@ -11,6 +11,7 @@ import { useSiteSettings } from '../../../context/SiteSettingsContext';
 import { DASHBOARD_VISIBILITY_KEYS, DEFAULT_DASHBOARD_VISIBILITY } from '../../../lib/dashboardVisibility';
 import { resolveImageUrl } from '../../../lib/imageUtils';
 import { parseMaintenanceBypassEmails } from '../../../lib/parseMaintenanceBypassEmails';
+import { canonicalSiteProgramId } from '../../dashboard/dashboardUpcomingHelpers';
 
 const BACKEND = (process.env.REACT_APP_BACKEND_URL || '').replace(/\/$/, '');
 const API = BACKEND ? `${BACKEND}/api` : '';
@@ -192,8 +193,8 @@ const DashboardSettingsTab = ({ settings, onChange, programs = [], onOpenAdminTa
 
   const includedProgramIds = settings.annual_package_included_program_ids || [];
   const toggleIncludedProgram = (id) => {
-    const sid = String(id);
-    const next = new Set((includedProgramIds || []).map(String));
+    const sid = canonicalSiteProgramId(id);
+    const next = new Set((includedProgramIds || []).map(canonicalSiteProgramId));
     if (next.has(sid)) next.delete(sid);
     else next.add(sid);
     onChange({ ...settings, annual_package_included_program_ids: [...next] });
@@ -1749,7 +1750,7 @@ const DashboardSettingsTab = ({ settings, onChange, programs = [], onOpenAdminTa
                   <input
                     type="checkbox"
                     className="mt-0.5 rounded border-gray-300"
-                    checked={includedProgramIds.map(String).includes(String(p.id))}
+                    checked={includedProgramIds.map(canonicalSiteProgramId).includes(canonicalSiteProgramId(p.id))}
                     onChange={() => toggleIncludedProgram(p.id)}
                   />
                   <span>

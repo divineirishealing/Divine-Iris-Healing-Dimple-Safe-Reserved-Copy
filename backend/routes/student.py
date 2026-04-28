@@ -399,6 +399,19 @@ def _site_gst_percent(settings_doc: dict) -> float:
     return v
 
 
+def _canonical_site_program_id_for_annual_pkg(raw) -> str:
+    """Normalize program IDs for annual-package checklist matching (strip; UUID strings are case-insensitive)."""
+    s = str(raw or "").strip()
+    if not s:
+        return ""
+    if len(s) == 36 and s.count("-") == 4:
+        try:
+            return str(uuid.UUID(s))
+        except (ValueError, TypeError, AttributeError):
+            return s.lower()
+    return s
+
+
 def _portal_included_in_annual_package(program: dict, inc_cfg, _sub: dict, client: dict) -> bool:
     """Whether the booker’s **own member seat** is prepaid by the Home Coming / annual bundle (₹0 self line).
 
@@ -639,11 +652,16 @@ def _program_included_in_annual_package(program: dict, configured_ids: Optional[
     If the admin saves a non-empty ``annual_package_included_program_ids`` (any program checked),
     inclusion is **only** by id — unchecked programs use normal portal offers. If the list is
     empty (all unchecked), fall back to title keywords (MMM, Money Magic, Atomic Weight / AWRP).
+
+    IDs are compared in canonical form so checklist rows saved from admin still match Mongo
+    ``programs.id`` when casing or whitespace differs (UUIDs).
     """
     keyword = _program_keyword_in_annual_package(program)
-    ids = [str(x).strip() for x in (configured_ids or []) if str(x).strip()]
+    ids = [
+        _canonical_site_program_id_for_annual_pkg(x) for x in (configured_ids or []) if str(x).strip()
+    ]
     if ids:
-        pid = str(program.get("id") or "")
+        pid = _canonical_site_program_id_for_annual_pkg(program.get("id") or program.get("_id") or "")
         return pid in set(ids)
     return keyword
 

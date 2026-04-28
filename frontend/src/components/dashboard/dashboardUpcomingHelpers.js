@@ -1,4 +1,19 @@
 /**
+ * Normalize program ids for annual-package checklist matching (matches backend
+ * `_canonical_site_program_id_for_annual_pkg`): trim; UUID strings compared case-insensitively.
+ */
+export function canonicalSiteProgramId(raw) {
+  const s = String(raw ?? '').trim();
+  if (!s) return '';
+  if (s.length === 36 && (s.match(/-/g) || []).length === 4) {
+    const m =
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+    if (m.test(s)) return s.toLowerCase();
+  }
+  return s;
+}
+
+/**
  * Tier index for flagship programs: prefer annual-duration tier when `preferAnnualTier` (Client Garden
  * Annual access), else first tier (e.g. 1 Month). Do not use subscription-only “annual subscriber” here.
  */
@@ -60,11 +75,11 @@ export function programIncludedInAnnualPackage(
   eligibleForAnnualPortalKeywords = false
 ) {
   const ids = Array.isArray(configuredIds)
-    ? configuredIds.map((x) => String(x).trim()).filter(Boolean)
+    ? configuredIds.map((x) => canonicalSiteProgramId(x)).filter(Boolean)
     : [];
   const kw = programKeywordInAnnualPackage(p);
   if (ids.length > 0) {
-    const byId = ids.includes(String(p?.id));
+    const byId = ids.includes(canonicalSiteProgramId(p?.id ?? p?._id));
     if (eligibleForAnnualPortalKeywords) return byId || kw;
     return byId;
   }
