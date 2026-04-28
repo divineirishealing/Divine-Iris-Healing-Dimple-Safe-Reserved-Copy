@@ -123,10 +123,11 @@ The `render.yaml` at the repo root configures everything automatically.
 1. Push this repo to GitHub
 2. Go to [render.com](https://render.com) → New → Blueprint
 3. Connect your GitHub repo — Render reads `render.yaml` automatically
-4. Set the two secret environment variables in the Render dashboard:
+4. Set required secrets in the Render dashboard (at minimum):
    - `MONGO_URL` → your MongoDB Atlas connection string
    - `HOST_URL` → your Render service URL (e.g. `https://divine-iris-backend.onrender.com`)
-5. Click **Deploy**
+5. For **Google student login**, add `GOOGLE_OAUTH_CLIENT_ID`, `GOOGLE_OAUTH_CLIENT_SECRET`, and ensure `FRONTEND_URL` matches your live React app. In Google Cloud Console, add an OAuth Web client and set **Authorized redirect URI** to `{HOST_URL}/api/auth/google/callback` (exact match). If you use a custom API domain or unusual proxy headers, set `GOOGLE_OAUTH_REDIRECT_URI` to that same callback URL.
+6. Click **Deploy**
 
 ### Environment Variables Reference
 
@@ -135,6 +136,10 @@ The `render.yaml` at the repo root configures everything automatically.
 | `MONGO_URL` | ✅ Yes | MongoDB Atlas connection string |
 | `DB_NAME` | ✅ Yes (default: `divineIris`) | MongoDB database name |
 | `HOST_URL` | ✅ Yes | Public URL of this backend service |
+| `FRONTEND_URL` | Recommended | Public URL of the React app (OAuth redirects and links) |
+| `GOOGLE_OAUTH_CLIENT_ID` | For Google login | From Google Cloud Console → Credentials |
+| `GOOGLE_OAUTH_CLIENT_SECRET` | For Google login | Paired with client ID |
+| `GOOGLE_OAUTH_REDIRECT_URI` | Optional | Full callback URL if not inferred from request host |
 | `STRIPE_API_KEY` | Optional | Can be set via Admin Panel instead |
 | `STRIPE_WEBHOOK_SECRET` | Optional | From Stripe Dashboard > Webhooks |
 | `SMTP_HOST` | Optional | Can be set via Admin Panel instead |
@@ -146,6 +151,7 @@ The `render.yaml` at the repo root configures everything automatically.
 > **Note:** Stripe keys, SMTP credentials, and email sender addresses can all be
 > configured through the **Admin Panel** inside the app after first deploy.
 > You only need `MONGO_URL`, `DB_NAME`, and `HOST_URL` to get started.
+> Enable Google login by setting the `GOOGLE_OAUTH_*` variables and the redirect URI in Google Cloud.
 
 ---
 
