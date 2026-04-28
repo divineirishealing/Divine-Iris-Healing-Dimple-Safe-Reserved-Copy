@@ -21,6 +21,15 @@ export default function AnnualPackageCatalogTemplate({ onOpenAdminTab }) {
 
         <ol className="list-decimal list-inside text-sm text-gray-800 space-y-3">
           <li>
+            <span className="font-medium text-gray-900">Home Coming catalog offer (PACK prices &amp; validity)</span>
+            <span className="text-gray-600"> — PKG row: offer window, catalog total, optional “start on the 3rd”.</span>
+            <div className="mt-2 pl-5">
+              <Button type="button" size="sm" variant="outline" className="text-xs" onClick={() => go('annual_package_offer')}>
+                Open Home Coming catalog
+              </Button>
+            </div>
+          </li>
+          <li>
             <span className="font-medium text-gray-900">Package catalog &amp; client subscriptions</span>
             <span className="text-gray-600"> — PKG rows, EMI, manual add, Excel to clients.</span>
             <div className="mt-2 pl-5">
@@ -55,7 +64,7 @@ export default function AnnualPackageCatalogTemplate({ onOpenAdminTab }) {
         <div className="pt-4 border-t border-gray-100">
           <p className="text-[11px] text-gray-500 uppercase tracking-wide font-medium mb-2">One-line map</p>
           <div className="text-xs font-mono text-gray-700 bg-gray-50 rounded-md p-3 space-y-1.5 border border-gray-100">
-            <div>Pricing row (PKG-…) → Subscriptions &amp; packages → Pkg Config</div>
+            <div>Pricing row (PKG-…) → Admin → Home Coming catalog (dedicated tab)</div>
             <div>Home Coming card → Dashboard → Home Coming</div>
             <div>Portal clients → Annual + dashboard · Extra annual sheet → Annual Subscribers</div>
           </div>

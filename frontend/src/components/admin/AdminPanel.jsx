@@ -57,6 +57,7 @@ import AnnualPackageCatalogTemplate from './tabs/AnnualPackageCatalogTemplate';
 import SchedulerTab from './tabs/SchedulerTab';
 import ContactUpdateLinkTab from './tabs/ContactUpdateLinkTab';
 import AnnualSubscribersTab from './tabs/AnnualSubscribersTab';
+import AnnualPackageOfferTab from './tabs/AnnualPackageOfferTab';
 import AnnualPortalClientsTab from './tabs/AnnualPortalClientsTab';
 import DashboardAccessTab from './tabs/DashboardAccessTab';
 import RazorpayAdminCheckoutTab from './tabs/RazorpayAdminCheckoutTab';
@@ -413,6 +414,7 @@ const AdminPanel = () => {
       { key: 'annual_portal_clients', label: 'Annual + dashboard', icon: Sparkles },
       { key: 'add_annual_subscriber', label: 'Annual template', icon: Package },
       { key: 'subscribers_crm', label: 'Subscriptions & packages', icon: CreditCard },
+      { key: 'annual_package_offer', label: 'Home Coming catalog', icon: Package },
       { key: 'contact_update_link', label: 'Contact update link', icon: Link2 },
       { key: 'subscribers', label: 'Subscribers', icon: Mail },
       { key: 'annual_subscribers', label: 'Annual Subscribers', icon: Star },
@@ -672,7 +674,19 @@ const AdminPanel = () => {
               }}
             />
           )}
-          {activeTab === 'subscribers_crm' && <SubscribersTab />}
+          {activeTab === 'subscribers_crm' && (
+            <SubscribersTab
+              onOpenAnnualPackageOffer={() => {
+                setActiveTab('annual_package_offer');
+                try {
+                  localStorage.setItem('admin_active_tab', 'annual_package_offer');
+                } catch (_) {
+                  /* ignore */
+                }
+              }}
+            />
+          )}
+          {activeTab === 'annual_package_offer' && <AnnualPackageOfferTab />}
           {activeTab === 'scheduler' && <SchedulerTab />}
 
           {/* ===== SUBSCRIBERS TAB ===== */}
