@@ -18,7 +18,7 @@ import { getAuthHeaders } from '../lib/authHeaders';
 import DashboardUpcomingFamilySection from '../components/dashboard/DashboardUpcomingFamilySection';
 import { Button } from '../components/ui/button';
 
-const API = process.env.REACT_APP_BACKEND_URL;
+import { getApiUrl, getBackendUrl } from '../lib/config';
 
 function daysActiveSince(iso) {
   if (!iso) return null;
@@ -54,7 +54,7 @@ function ScheduleModeToggle({ slot, onModeSaved, compact }) {
     if (!persistable) return;
     try {
       await axios.post(
-        `${API}/api/student/choose-mode`,
+        `${getApiUrl()}/student/choose-mode`,
         { program_name: slot.program_name, session_index: slot.session_index, mode },
         { withCredentials: true }
       );
@@ -310,7 +310,7 @@ const StudentDashboard = () => {
     setHomeErrorKind(null);
     setHomeLoading(true);
     axios
-      .get(`${API}/api/student/home`, { withCredentials: true })
+      .get(`${getApiUrl()}/student/home`, { withCredentials: true })
       .then((res) => setHomeData(res.data))
       .catch((err) => {
         setHomeData(null);
@@ -466,7 +466,7 @@ const StudentDashboard = () => {
   }, [dashboardScheduleRows, homeData?.package, homeData?.upcoming_programs]);
 
   return (
-    <div className="absolute inset-0 overflow-y-auto overflow-x-hidden" data-testid="student-dashboard">
+    <div className="relative w-full min-h-screen overflow-y-auto overflow-x-hidden" data-testid="student-dashboard">
       {/* ═══ CONTENT ═══ */}
       <div className="relative z-10 min-h-full flex flex-col items-center pb-8 md:pb-12">
 
@@ -534,7 +534,7 @@ const StudentDashboard = () => {
         )}
 
         <DashboardContactEmailPrompt
-          apiBase={API}
+          apiBase={getBackendUrl()}
           visible={Boolean(!homeLoading && homeData?.can_add_contact_email)}
           onSaved={refreshHome}
         />

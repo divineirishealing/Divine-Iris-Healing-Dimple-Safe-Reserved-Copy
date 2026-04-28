@@ -453,10 +453,12 @@ async def google_oauth_start(request: Request):
     """Begin Google OAuth — redirects to accounts.google.com (no third-party auth host)."""
     client_id = (os.environ.get("GOOGLE_OAUTH_CLIENT_ID") or "").strip()
     if not client_id:
-        raise HTTPException(
-            status_code=503,
-            detail="Google sign-in is not configured. Add GOOGLE_OAUTH_CLIENT_ID and GOOGLE_OAUTH_CLIENT_SECRET to the API server (see Render env).",
+        fe = _public_frontend_base().rstrip("/")
+        q = quote_plus(
+            "Google sign-in is not configured yet. Add GOOGLE_OAUTH_CLIENT_ID and GOOGLE_OAUTH_CLIENT_SECRET "
+            "in Render (backend service) → Environment, then redeploy."
         )
+        return RedirectResponse(url=f"{fe}/login?error={q}", status_code=302)
     redirect_uri = _google_oauth_redirect_uri(request)
     state = secrets.token_urlsafe(32)
     await db.oauth_states.insert_one(

@@ -424,7 +424,9 @@ const DashboardLayout = () => {
               </p>
             </div>
           )}
-          <Outlet />
+          <div className="relative w-full min-h-[60vh]">
+            <Outlet />
+          </div>
         </div>
       </main>
     </div>
