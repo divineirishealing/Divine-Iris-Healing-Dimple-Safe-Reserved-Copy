@@ -83,6 +83,7 @@ export default function AnnualPackagePurchasePage() {
   const { toast } = useToast();
   const { syncProgramLineItem, itemCount: cartCount } = useCart();
   const { baseCurrency, symbol, toDisplay } = useCurrency();
+  const [loading, setLoading] = useState(true);
   const [homeData, setHomeData] = useState(null);
   const [quote, setQuote] = useState(null);
   const [quoteLoading, setQuoteLoading] = useState(false);
