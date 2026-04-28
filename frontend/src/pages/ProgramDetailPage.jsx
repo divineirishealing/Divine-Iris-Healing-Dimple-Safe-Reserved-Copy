@@ -40,7 +40,7 @@ const ExpressInterestInline = ({ programId, programTitle, accent }) => {
     return (
       <button data-testid="express-interest-btn" onClick={() => setShowForm(true)}
         className="text-white px-10 py-3 text-xs tracking-[0.2em] uppercase transition-colors hover:opacity-90" style={{ background: accent }}>
-        Express Your Interest
+        Express your interest
       </button>
     );
   }
@@ -502,7 +502,7 @@ function ProgramDetailPage() {
 
             {program.show_tiers_on_card !== false && program.duration_tiers?.length > 0 && (
               <div data-testid="duration-tiers" className="max-w-3xl mx-auto mb-10">
-                {program.show_pricing_on_card !== false ? (
+                {showHeroPrice ? (
                   <div className={`grid gap-4 ${program.duration_tiers.length === 3 ? 'sm:grid-cols-3' : program.duration_tiers.length === 2 ? 'sm:grid-cols-2' : 'max-w-xs mx-auto'}`}>
                     {program.duration_tiers.map((tier, tIdx) => {
                       const isAnnual = tier.label?.toLowerCase().includes('annual') || tier.label?.toLowerCase().includes('year') || tier.duration_unit === 'year';
@@ -541,7 +541,7 @@ function ProgramDetailPage() {
             )}
 
             {/* Regular pricing when no tiers */}
-            {program.show_pricing_on_card !== false && (!program.duration_tiers || program.duration_tiers.length === 0) && program.enrollment_open !== false && (
+            {showHeroPrice && (!program.duration_tiers || program.duration_tiers.length === 0) && (
               <div className="mb-10" data-testid="regular-pricing">
                 <div className="max-w-xs mx-auto text-center">
                   {(() => {
@@ -567,16 +567,15 @@ function ProgramDetailPage() {
             <div className="flex flex-col items-center gap-4 justify-center">
               {(() => {
                 const enrollStatus = program.enrollment_status || (program.enrollment_open !== false ? 'open' : 'closed');
-                const pricingHidden = program.show_pricing_on_card === false;
                 const hasTiers = program.duration_tiers?.length > 0;
 
-                // No pricing shown → always Express Your Interest (notified when enrollment opens)
+                // No purchase pricing on page (admin off, or enrollment closed, etc.) → Express Your Interest
                 // Avoid duplicate: if tiers block already renders the Express Interest widget, skip here
-                if (pricingHidden) {
+                if (!showHeroPrice) {
                   return hasTiers ? null : <ExpressInterestInline programId={program.id} programTitle={program.title} accent={heroAccent} />;
                 }
 
-                // Pricing visible → Enroll Now if open, Express Interest if closed
+                // Prices shown and enrollment allows checkout → Enroll Now; else interest (e.g. coming_soon)
                 if (enrollStatus === 'open') {
                   return (
                     <button data-testid="enroll-btn" onClick={() => navigate(`/enroll/program/${program.id}${enrollProgramQuery()}`)}
