@@ -12,7 +12,7 @@ import {
   Settings, Package,   UserPlus,
 } from 'lucide-react';
 import { useSpreadsheetColumnVisibility, SpreadsheetColumnPicker } from '../SpreadsheetColumnPicker';
-import { formatDateDdMonYyyy, addMonthsSubscriptionEnd } from '../../../lib/utils';
+import { formatDateDdMonYyyy, addMonthsSubscriptionEnd, nextDateWithDayOfMonth } from '../../../lib/utils';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 const BACKEND_ORIGIN = process.env.REACT_APP_BACKEND_URL || '';
@@ -167,31 +167,30 @@ const PackageEditor = ({ pkg, onSave, saving, onDelete, onNewVersion }) => {
   const setOfferTotal = (cur, v) =>
     setC((prev) => ({ ...prev, offer_total: { ...(prev.offer_total || {}), [cur]: parseFloat(v) || 0 } }));
 
-  const recalcValidityTo = (fromStr, monthsVal) => {
-    if (!fromStr || !String(fromStr).trim()) return '';
-    const m = parseInt(monthsVal, 10);
-    const n = Number.isFinite(m) && m > 0 ? m : 12;
-    return addMonthsSubscriptionEnd(fromStr, n);
+  const suggestCatalogOfferEndMonths = (months) => {
+    if (locked) return;
+    setC((prev) => {
+      const from = (prev.valid_from || '').trim();
+      if (!from) return prev;
+      const m = parseInt(months, 10);
+      const n = Number.isFinite(m) && m > 0 ? m : 12;
+      return {
+        ...prev,
+        valid_to: addMonthsSubscriptionEnd(from, n),
+      };
+    });
   };
 
   const onValidFromChange = (e) => {
     if (locked) return;
     const v = e.target.value;
-    setC((prev) => ({
-      ...prev,
-      valid_from: v,
-      valid_to: v ? recalcValidityTo(v, prev.duration_months) : '',
-    }));
+    setC((prev) => ({ ...prev, valid_from: v }));
   };
 
   const onDurationMonthsChange = (raw) => {
     if (locked) return;
     const n = parseInt(raw, 10) || 12;
-    setC((prev) => {
-      const next = { ...prev, duration_months: n };
-      if (prev.valid_from) next.valid_to = recalcValidityTo(prev.valid_from, n);
-      return next;
-    });
+    setC((prev) => ({ ...prev, duration_months: n }));
   };
 
   const handleSave = () => {
@@ -252,9 +251,11 @@ const PackageEditor = ({ pkg, onSave, saving, onDelete, onNewVersion }) => {
 
       <div className="px-4 py-3 space-y-4">
         <p className="text-[11px] text-gray-600 leading-relaxed">
-          Single annual bundle — <strong className="text-gray-800">12 mo AWRP</strong>, <strong className="text-gray-800">6 mo MMM</strong>,{' '}
-          <strong className="text-gray-800">4 Turbo Release</strong>, <strong className="text-gray-800">2 Meta Downloads</strong>. Pricing: set{' '}
-          <strong className="text-gray-800">package offer</strong> per currency (used on subscriber forms and previews).
+          <strong className="text-gray-800">One catalog product</strong> — bundled annual access:{' '}
+          <strong className="text-gray-800">12 mo AWRP</strong>, <strong className="text-gray-800">6 mo MMM</strong>,{' '}
+          <strong className="text-gray-800">4 Turbo Release</strong>, <strong className="text-gray-800">2 Meta Downloads</strong>. Set{' '}
+          <strong className="text-gray-800">catalog price</strong> below; <strong className="text-gray-800">offer dates</strong> only control when this
+          price may be sold (not how long each member stays — that is subscription length).
         </p>
 
         <ul className="text-xs text-gray-800 space-y-1 border rounded-md bg-gray-50/80 px-3 py-2.5">
@@ -270,21 +271,61 @@ const PackageEditor = ({ pkg, onSave, saving, onDelete, onNewVersion }) => {
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 text-xs">
           <div>
-            <Label className="text-[10px] text-gray-600">Validity from</Label>
+            <Label className="text-[10px] text-gray-600">Catalog offer valid from</Label>
             <Input type="date" value={c.valid_from || ''} onChange={onValidFromChange} className="h-8 mt-0.5" disabled={locked} />
+            <p className="text-[9px] text-gray-500 mt-0.5 leading-snug">First day this price row is available.</p>
           </div>
           <div>
-            <Label className="text-[10px] text-gray-600">Validity to</Label>
+            <Label className="text-[10px] text-gray-600">Catalog offer valid to</Label>
             <Input type="date" value={c.valid_to || ''} onChange={(e) => set('valid_to', e.target.value)} className="h-8 mt-0.5" disabled={locked} />
-            <p className="text-[9px] text-gray-500 mt-0.5 leading-snug">Filled automatically from start + subscription length; adjust manually if needed.</p>
+            <div className="flex flex-wrap gap-1 mt-1">
+              {!locked && (c.valid_from || '').trim() && (
+                <>
+                  <button
+                    type="button"
+                    className="text-[9px] px-1.5 py-0.5 rounded border border-violet-200 text-violet-800 bg-violet-50/80 hover:bg-violet-100"
+                    onClick={() => suggestCatalogOfferEndMonths(12)}
+                  >
+                    End +12 mo after start
+                  </button>
+                  <button
+                    type="button"
+                    className="text-[9px] px-1.5 py-0.5 rounded border border-gray-200 text-gray-700 bg-gray-50 hover:bg-gray-100"
+                    onClick={() => suggestCatalogOfferEndMonths(24)}
+                  >
+                    End +24 mo after start
+                  </button>
+                </>
+              )}
+            </div>
+            <p className="text-[9px] text-gray-500 mt-0.5 leading-snug">Last day this catalog price applies — edit freely for multi‑year catalogs.</p>
           </div>
           <div>
-            <Label className="text-[10px] text-gray-600">Subscription length (months)</Label>
+            <Label className="text-[10px] text-gray-600">Member subscription length (months)</Label>
             <NumInput value={c.duration_months} onChange={onDurationMonthsChange} className="mt-0.5" />
+            <p className="text-[9px] text-gray-500 mt-0.5 leading-snug">How long annual access lasts after each person&apos;s start date.</p>
           </div>
           <div>
             <Label className="text-[10px] text-gray-600">Coaching sessions (bucket)</Label>
             <NumInput value={c.default_sessions_current} onChange={(v) => set('default_sessions_current', parseInt(v, 10) || 0)} className="mt-0.5" />
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs max-w-xl">
+          <div>
+            <Label className="text-[10px] text-gray-600">Preferred membership start day (optional)</Label>
+            <NumInput
+              value={c.preferred_membership_day_of_month ?? 0}
+              onChange={(v) => {
+                const raw = parseInt(v, 10);
+                const n = Number.isFinite(raw) ? Math.min(28, Math.max(0, raw)) : 0;
+                set('preferred_membership_day_of_month', n);
+              }}
+              className="mt-0.5"
+            />
+            <p className="text-[9px] text-gray-500 mt-0.5 leading-snug">
+              Use <strong className="text-gray-700">3</strong> to offer a quick‑pick “start on the 3rd”; <strong>0</strong> = any calendar day (default).
+            </p>
           </div>
         </div>
 
@@ -698,7 +739,23 @@ const SubscriberForm = ({ initial, onSave, onCancel, saving, packages, irisCatal
         </div>
         <div><Label className="text-xs">Name *</Label><Input value={f.name} onChange={e => set('name', e.target.value)} data-testid="form-name" /></div>
         <div><Label className="text-xs">Email</Label><Input value={f.email} onChange={e => set('email', e.target.value)} data-testid="form-email" /></div>
-        <div><Label className="text-xs">Start Date</Label><Input type="date" value={f.start_date} onChange={e => handleStartDateChange(e.target.value)} data-testid="form-start-date" /></div>
+        <div>
+          <Label className="text-xs">Start Date</Label>
+          <Input type="date" value={f.start_date} onChange={e => handleStartDateChange(e.target.value)} data-testid="form-start-date" />
+          {selectedPkg && selectedPkg.preferred_membership_day_of_month >= 1 && selectedPkg.preferred_membership_day_of_month <= 28 && (
+            <button
+              type="button"
+              className="mt-1.5 text-[10px] font-medium text-violet-700 hover:text-violet-900 underline underline-offset-2"
+              onClick={() => {
+                const dom = selectedPkg.preferred_membership_day_of_month;
+                const ymd = nextDateWithDayOfMonth(null, dom);
+                if (ymd) handleStartDateChange(ymd);
+              }}
+            >
+              Set next start on day {selectedPkg.preferred_membership_day_of_month} of month
+            </button>
+          )}
+        </div>
         <div><Label className="text-xs">End Date (auto)</Label><Input type="date" value={f.end_date} onChange={e => set('end_date', e.target.value)} className="bg-gray-50" /></div>
       </div>
 
@@ -717,7 +774,7 @@ const SubscriberForm = ({ initial, onSave, onCancel, saving, packages, irisCatal
                 <span className="font-mono text-[9px] text-gray-500">({selectedPkg.package_id})</span></span>
             </div>
             <div>
-              <span className="text-gray-400 block">Validity</span>
+              <span className="text-gray-400 block">Catalog offer</span>
               <span className="font-medium text-gray-800">{packagePricingPreview.validWindow}</span>
             </div>
             <div>

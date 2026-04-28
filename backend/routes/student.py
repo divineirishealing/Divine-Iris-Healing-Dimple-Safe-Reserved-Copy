@@ -2220,7 +2220,13 @@ async def get_student_home(user: dict = Depends(get_current_student_user)):
     if pkg_id_home:
         pkg_row_home = await db.annual_packages.find_one(
             {"package_id": pkg_id_home},
-            {"_id": 0, "duration_months": 1, "valid_from": 1, "valid_to": 1},
+            {
+                "_id": 0,
+                "duration_months": 1,
+                "valid_from": 1,
+                "valid_to": 1,
+                "preferred_membership_day_of_month": 1,
+            },
         )
     dur_months_home = 12
     if pkg_row_home and pkg_row_home.get("duration_months") is not None:
@@ -2276,6 +2282,9 @@ async def get_student_home(user: dict = Depends(get_current_student_user)):
         "duration_months": dur_months_home,
         "catalog_valid_from": (pkg_row_home.get("valid_from") or "") if pkg_row_home else "",
         "catalog_valid_to": (pkg_row_home.get("valid_to") or "") if pkg_row_home else "",
+        "preferred_membership_day_of_month": int(pkg_row_home.get("preferred_membership_day_of_month") or 0)
+        if pkg_row_home
+        else 0,
         "bi_annual_download": sub.get("bi_annual_download", 0),
         "quarterly_releases": sub.get("quarterly_releases", 0),
     }

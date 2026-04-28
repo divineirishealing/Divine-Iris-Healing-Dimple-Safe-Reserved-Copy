@@ -7,6 +7,7 @@ import {
   formatDashboardStatDate,
   dashboardEmiTable,
   addMonthsSubscriptionEnd,
+  nextDateWithDayOfMonth,
 } from '../../lib/utils';
 import { Card, CardHeader, CardTitle, CardContent } from '../ui/card';
 import { Button } from '../ui/button';
@@ -682,6 +683,15 @@ const FinancialsPage = () => {
   const anyPaidEmi = emis.some((e) => e && e.status === 'paid');
   const catalogFrom = (pkg.catalog_valid_from || '').trim().slice(0, 10);
   const catalogTo = (pkg.catalog_valid_to || '').trim().slice(0, 10);
+  const preferredDom = Math.min(
+    28,
+    Math.max(
+      0,
+      typeof pkg.preferred_membership_day_of_month === 'number'
+        ? pkg.preferred_membership_day_of_month
+        : parseInt(pkg.preferred_membership_day_of_month, 10) || 0,
+    ),
+  );
 
   const saveMembershipPeriod = () => {
     if (!membershipStart || !computedMembershipEnd) {
@@ -791,7 +801,7 @@ const FinancialsPage = () => {
               {(catalogFrom || catalogTo) && (
                 <>
                   {' '}
-                  Catalog offer window
+                  Catalog offer window (when this bundle could be purchased)
                   {catalogFrom ? ` from ${formatDateDdMonYyyy(catalogFrom)}` : ''}
                   {catalogTo ? ` to ${formatDateDdMonYyyy(catalogTo)}` : ''}.
                 </>
@@ -822,6 +832,22 @@ const FinancialsPage = () => {
                   {computedMembershipEnd ? formatDateDdMonYyyy(computedMembershipEnd) : '—'}
                 </p>
               </div>
+              {preferredDom >= 1 && preferredDom <= 28 && (
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  className="h-9 text-xs shrink-0 border-violet-200 text-violet-900 bg-violet-50/50 hover:bg-violet-50"
+                  disabled={anyPaidEmi}
+                  onClick={() => {
+                    const ymd = nextDateWithDayOfMonth(null, preferredDom);
+                    if (ymd) setMembershipStart(ymd);
+                  }}
+                  data-testid="membership-anchor-day"
+                >
+                  Next start on day {preferredDom}
+                </Button>
+              )}
               <Button
                 type="button"
                 size="sm"

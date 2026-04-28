@@ -114,6 +114,8 @@ class AnnualPackage(BaseModel):
     channelization_fee: float = 0  # one-time fee when payment is late
     show_late_fees: bool = False  # toggle: show/hide late fees by default
     default_currency: str = "INR"  # default currency for subscribers
+    # Optional: suggest membership / EMI start anchored to this calendar day (1–28); 0 = any day.
+    preferred_membership_day_of_month: int = 0
     notes: str = ""
     is_locked: bool = False  # safety lock — prevents accidental edits
     is_active: bool = True  # can still tag subscribers when locked+active

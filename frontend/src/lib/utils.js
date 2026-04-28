@@ -127,6 +127,29 @@ export function addMonthsSubscriptionEnd(dateStr, months) {
 }
 
 /**
+ * Next local calendar date (YYYY-MM-DD) on or after `from`, whose day-of-month is `dom`.
+ * Used for optional membership start anchored to e.g. the 3rd of each month. `dom` is clamped 1–28.
+ */
+export function nextDateWithDayOfMonth(from, dom) {
+  const n = Math.floor(Number(dom));
+  if (!Number.isFinite(n) || n < 1 || n > 28) return "";
+  const start = parseDashboardDateInput(from);
+  const base = start || new Date();
+  base.setHours(12, 0, 0, 0);
+  const pad2 = (x) => String(x).padStart(2, "0");
+  for (let addM = 0; addM < 48; addM += 1) {
+    const x = new Date(base.getFullYear(), base.getMonth() + addM, 1, 12, 0, 0, 0);
+    const dim = new Date(x.getFullYear(), x.getMonth() + 1, 0).getDate();
+    const day = Math.min(n, dim);
+    const cand = new Date(x.getFullYear(), x.getMonth(), day, 12, 0, 0, 0);
+    if (cand >= base) {
+      return `${cand.getFullYear()}-${pad2(cand.getMonth() + 1)}-${pad2(cand.getDate())}`;
+    }
+  }
+  return "";
+}
+
+/**
  * Sacred Exchange EMI Schedule typography — reuse for My Programs tables and other dashboard grids.
  * Body text-sm; headers uppercase 10px gray-400; dates/amounts tabular-nums (dashboard uses Lato).
  */
