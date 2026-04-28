@@ -301,6 +301,7 @@ const UpcomingCard = ({ program, cardQuoteMessages = [] }) => {
   const enrollStatus = expired ? 'closed' : (program.enrollment_status || (program.enrollment_open !== false ? 'open' : 'closed'));
   const [notifyEmail, setNotifyEmail] = useState('');
   const [notifySubmitted, setNotifySubmitted] = useState(false);
+  const [interestOpen, setInterestOpen] = useState(false);
 
   const handleNotifyMe = async () => {
     if (!notifyEmail) return;
@@ -528,16 +529,45 @@ const UpcomingCard = ({ program, cardQuoteMessages = [] }) => {
             </button>
           </div>
         ) : (
-          /* Enrollment OFF — just Know More + disabled closure button */
-          <div className="border-t pt-3 mt-auto flex gap-1.5">
-            <button onClick={() => navigate(`/program/${program.id}`)} data-testid={`upcoming-know-more-${program.id}`}
-              className="flex-1 bg-[#1a1a1a] hover:bg-[#333] text-white py-2 rounded-full text-[10px] tracking-wider transition-all duration-300 uppercase font-medium">
-              Know More
-            </button>
-            <button disabled data-testid={`upcoming-enroll-disabled-${program.id}`}
-              className="flex-1 bg-gray-300 text-gray-500 py-2 rounded-full text-[10px] tracking-wider uppercase font-medium cursor-not-allowed">
-              {program.closure_text || 'Closed'}
-            </button>
+          <div className="border-t pt-3 mt-auto" data-testid={`upcoming-closed-actions-${program.id}`}>
+            {notifySubmitted ? (
+              <p className="text-[10px] text-green-700 text-center font-medium">
+                You&apos;ll be notified when enrollment opens.
+              </p>
+            ) : interestOpen ? (
+              <div className="flex flex-col gap-2">
+                <input
+                  type="email"
+                  value={notifyEmail}
+                  onChange={(e) => setNotifyEmail(e.target.value)}
+                  placeholder="Your email"
+                  className="w-full rounded-full border border-gray-200 px-3 py-2 text-[10px] focus:outline-none focus:border-[#D4AF37]"
+                  data-testid={`upcoming-interest-email-${program.id}`}
+                />
+                <div className="flex gap-1.5">
+                  <button
+                    type="button"
+                    onClick={handleNotifyMe}
+                    className="flex-1 bg-[#D4AF37] hover:bg-[#b8962e] text-white py-2 rounded-full text-[10px] font-semibold tracking-wider uppercase"
+                    data-testid={`upcoming-interest-submit-${program.id}`}
+                  >
+                    Submit
+                  </button>
+                  <button type="button" onClick={() => setInterestOpen(false)} className="px-3 py-2 text-[9px] text-gray-500 uppercase">
+                    Back
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={() => setInterestOpen(true)}
+                className="w-full bg-[#D4AF37] hover:bg-[#b8962e] text-white py-2.5 rounded-full text-[10px] tracking-wider uppercase font-medium"
+                data-testid={`upcoming-express-interest-${program.id}`}
+              >
+                Express your interest
+              </button>
+            )}
           </div>
         )}
       </div>

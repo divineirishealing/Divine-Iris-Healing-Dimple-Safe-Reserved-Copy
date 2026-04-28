@@ -258,6 +258,12 @@ function ProgramDetailPage() {
     return !Number.isNaN(t.getTime()) && t.getTime() < Date.now();
   })();
 
+  /** True when signup is not available (deadline passed, toggle off, or status closed — same idea as Sacred Home upcoming). */
+  const registrationClosed =
+    enrollmentExpiredByDeadline ||
+    program.enrollment_open === false ||
+    String(program.enrollment_status || 'open').toLowerCase() === 'closed';
+
   const showHeroPrice =
     program.show_pricing_on_card !== false &&
     !enrollmentExpiredByDeadline &&
@@ -272,7 +278,10 @@ function ProgramDetailPage() {
   const heroEnd = heroScheduleItems.find((r) => r.key === 'ed');
   const heroTime = heroScheduleItems.find((r) => r.key === 'tm');
   const showHeroFooter =
-    !!(heroStart || heroEnd || heroTime || (showHeroPrice && heroHasAmount));
+    !!(
+      (!registrationClosed && (heroStart || heroEnd || heroTime)) ||
+      (showHeroPrice && heroHasAmount)
+    );
 
   const SectionTitle = ({ children, style: extra }) => (
     <h2 className="text-center mb-4" style={applyStyle(extra || template.section_title_style, { ...HEADING, fontSize: '1.6rem' })}>{children}</h2>
@@ -535,13 +544,15 @@ function ProgramDetailPage() {
                     })}
                   </div>
                 ) : (
-                  /* Pricing invisible — show tier names + single Express Your Interest */
+                  /* Pricing invisible — tier labels only when enrollment still open but prices hidden in admin */
                   <div className="text-center">
-                    <div className="flex gap-3 justify-center mb-6">
-                      {program.duration_tiers.map((tier, tIdx) => (
-                        <span key={tIdx} className="px-4 py-2 border border-gray-200 rounded-full text-sm text-gray-600">{tier.label}</span>
-                      ))}
-                    </div>
+                    {!registrationClosed ? (
+                      <div className="flex gap-3 justify-center mb-6">
+                        {program.duration_tiers.map((tier, tIdx) => (
+                          <span key={tIdx} className="px-4 py-2 border border-gray-200 rounded-full text-sm text-gray-600">{tier.label}</span>
+                        ))}
+                      </div>
+                    ) : null}
                     <ExpressInterestInline programId={program.id} programTitle={program.title} accent={heroAccent} />
                   </div>
                 )}
@@ -574,7 +585,7 @@ function ProgramDetailPage() {
 
             <div className="flex flex-col items-center gap-4 justify-center">
               {(() => {
-                const enrollStatus = enrollmentExpiredByDeadline
+                const enrollStatus = registrationClosed
                   ? 'closed'
                   : program.enrollment_status || (program.enrollment_open !== false ? 'open' : 'closed');
                 const hasTiers = program.duration_tiers?.length > 0;
