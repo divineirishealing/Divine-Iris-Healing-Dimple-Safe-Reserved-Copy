@@ -262,6 +262,37 @@ def _offer_total_from_annual_package(pkg_row: Optional[dict], currency: str) -> 
     return 0.0
 
 
+def _trim_calendar_ymd(v: Any) -> str:
+    """Return YYYY-MM-DD prefix when plausible; otherwise ''."""
+    x = str(v or "").strip()
+    return x[:10] if len(x) >= 10 and x[4] == "-" and x[7] == "-" else ""
+
+
+def _last_annual_package_portal_payload(
+    client: dict,
+    sub: dict,
+    pkg_row_home: Optional[dict],
+) -> Optional[dict]:
+    """Current / last Sacred Home enrollment window (subscription Excel + Client Garden annual_subscription)."""
+    asy = client.get("annual_subscription") or {}
+    start = _trim_calendar_ymd(asy.get("start_date")) or _trim_calendar_ymd(sub.get("start_date"))
+    end = _trim_calendar_ymd(asy.get("end_date")) or _trim_calendar_ymd(sub.get("end_date"))
+    if not start and not end:
+        return None
+    prog = (sub.get("annual_program") or "").strip()
+    if not prog:
+        prog = str((pkg_row_home or {}).get("package_name") or "").strip()
+    if not prog:
+        prog = str(asy.get("package_sku") or "").strip()
+    pkg_id = (sub.get("package_id") or "").strip() or str(asy.get("package_sku") or "").strip()
+    return {
+        "program_label": prog or "Annual program",
+        "package_id": pkg_id or None,
+        "start_date": start or None,
+        "end_date": end or None,
+    }
+
+
 async def _active_home_coming_package_catalog_row() -> Optional[dict]:
     """Highest-version annual package row that is still active for catalog/pricing defaults."""
     rows = (
@@ -2336,6 +2367,7 @@ async def get_student_home(user: dict = Depends(get_current_student_user)):
                 "valid_from": 1,
                 "valid_to": 1,
                 "preferred_membership_day_of_month": 1,
+                "package_name": 1,
             },
         )
     dur_months_home = 12
@@ -2398,6 +2430,8 @@ async def get_student_home(user: dict = Depends(get_current_student_user)):
         "bi_annual_download": sub.get("bi_annual_download", 0),
         "quarterly_releases": sub.get("quarterly_releases", 0),
     }
+
+    last_annual_package = _last_annual_package_portal_payload(client, sub, pkg_row_home)
 
     # 5. Programs in their kitty — rich objects with duration, dates, status
     programs_list = await _raw_programs_from_subscription(sub)
@@ -2570,6 +2604,8 @@ async def get_student_home(user: dict = Depends(get_current_student_user)):
         "annual_package_offer_prefs": client.get("annual_package_offer_prefs") if isinstance(client.get("annual_package_offer_prefs"), dict) else None,
         # Active Home Coming catalog row (admin annual_packages): multi-currency offer_total for display on Home Coming package page.
         "annual_catalog_bundle": annual_catalog_bundle,
+        # Enrollment window + label from subscription / annual_subscription — Home Coming gratitude card.
+        "last_annual_package": last_annual_package,
     }
 
 

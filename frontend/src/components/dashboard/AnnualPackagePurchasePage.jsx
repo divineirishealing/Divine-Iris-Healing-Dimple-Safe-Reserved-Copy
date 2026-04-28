@@ -7,6 +7,8 @@ import {
   Calendar,
   Clock,
   Info,
+  Sparkles,
+  TrendingUp,
   ShoppingCart,
   User,
   Heart,
@@ -184,6 +186,19 @@ export default function AnnualPackagePurchasePage() {
     );
   }, [catalogOfferTotal]);
 
+  const lap = homeData?.last_annual_package;
+  const memberFirstName = useMemo(() => {
+    const raw =
+      typeof homeData?.user_details?.full_name === 'string'
+        ? homeData.user_details.full_name.trim()
+        : '';
+    if (!raw) return '';
+    return raw.split(/\s+/)[0];
+  }, [homeData?.user_details?.full_name]);
+
+  const userTier =
+    typeof homeData?.user_details?.tier === 'string' ? homeData.user_details.tier.trim() : '';
+
   useEffect(() => {
     if (!homeData || prefsInitDone.current) return;
     prefsInitDone.current = true;
@@ -337,6 +352,65 @@ export default function AnnualPackagePurchasePage() {
             >
               {subtitleFourPrograms}
             </p>
+            <div
+              className="mt-6 w-full max-w-2xl rounded-[22px] border border-[rgba(196,168,252,0.45)] bg-gradient-to-br from-[#faf8ff]/96 via-[#fffefd]/93 to-[#f5f0ff]/93 px-4 py-5 sm:px-6 sm:py-6 text-left shadow-[0_12px_48px_rgba(124,58,237,0.12)] backdrop-blur-sm"
+              data-testid="home-coming-welcome-banner"
+            >
+              <div className="flex gap-3 sm:gap-4">
+                <Sparkles className="h-9 w-9 shrink-0 text-[#a855f7] opacity-[0.92] mt-0.5 drop-shadow-[0_0_12px_rgba(168,85,247,0.35)]" aria-hidden />
+                <div className="min-w-0 flex-1 space-y-4">
+                  <p className="font-[family-name:'Playfair_Display',Georgia,serif] text-[17px] sm:text-lg leading-relaxed text-[#2e1067]/92">
+                    {memberFirstName ? (
+                      <>
+                        <span className="font-semibold text-[#4c1d95]">{memberFirstName}</span>,{' '}
+                      </>
+                    ) : null}
+                    thank you for choosing Divine Iris. Your presence weaves luminous thread through this lineage; we hold you softly as you continue into sacred growth and higher becoming.
+                  </p>
+                  {lap?.start_date || lap?.end_date ? (
+                    <div className="rounded-2xl border border-white/80 bg-white/58 px-4 py-3.5 shadow-sm shadow-violet-200/40">
+                      <p className="text-[10px] uppercase tracking-[0.16em] text-[rgba(100,55,155,0.42)] font-semibold mb-2">
+                        Your annual package · on record
+                      </p>
+                      <p className="text-sm font-semibold text-[#3b0764]" data-testid="last-annual-package-label">
+                        {lap.program_label || 'Annual program'}
+                      </p>
+                      <dl className="mt-3 flex flex-wrap gap-x-10 gap-y-2 text-[13px] text-[rgba(60,35,115,0.88)] tabular-nums">
+                        <div>
+                          <dt className="text-[10px] uppercase tracking-[0.1em] text-[rgba(100,55,155,0.4)] mb-1">Start date</dt>
+                          <dd>{lap.start_date ? formatDateDdMonYyyy(lap.start_date) : '—'}</dd>
+                        </div>
+                        <div>
+                          <dt className="text-[10px] uppercase tracking-[0.1em] text-[rgba(100,55,155,0.4)] mb-1">End date</dt>
+                          <dd>{lap.end_date ? formatDateDdMonYyyy(lap.end_date) : '—'}</dd>
+                        </div>
+                      </dl>
+                    </div>
+                  ) : null}
+                  <div className="flex gap-3">
+                    <TrendingUp className="shrink-0 h-6 w-6 text-[#8b5cf6]/85 mt-0.5" aria-hidden />
+                    <div className="space-y-2 text-[13px] leading-relaxed text-[rgba(60,35,115,0.82)]">
+                      <p>
+                        As your journey unfolds, Sacred pricing can ripen into <strong>higher tiers of value</strong>
+                        — catalogue duration tiers deepen with continuity, renewals, and steadfast presence in your package path; preferential honours meet you{' '}
+                        <em className="not-italic font-semibold text-[#5b21b6]">automatically</em> along the arc.
+                      </p>
+                      {userTier ? (
+                        <p className="text-[12px] text-[rgba(90,55,155,0.68)]">
+                          Sacred Home tier on your profile:&nbsp;
+                          <span className="font-semibold italic text-[#5b21b6]">{userTier}</span>
+                          {' — '}stay with the unfolding; deepening tiers blossom with devotion to the pathway.
+                        </p>
+                      ) : (
+                        <p className="text-[12px] text-[rgba(90,55,155,0.62)] italic">
+                          Stay wholehearted — tier-based Sacred offers widen as your commitment seasons with love.
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
             <p className="mt-4 max-w-lg text-[13px] sm:text-sm italic leading-relaxed font-[family-name:'Playfair_Display',Georgia,serif] text-[rgba(90,40,135,0.55)]">
               {HEART_QUOTE}
               <Heart className="inline-block ml-1.5 w-3 h-3 text-rose-400/70 align-middle" aria-hidden />
