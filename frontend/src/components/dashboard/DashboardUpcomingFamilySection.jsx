@@ -2070,7 +2070,7 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh, bo
       <div className="flex flex-col gap-4 md:gap-5">
         <div
           id="sacred-home-programs-body"
-          className="rounded-[28px] border border-[rgba(160,100,220,0.14)] bg-white/70 backdrop-blur-xl px-5 py-5 md:px-7 md:py-6 shadow-[0_4px_48px_rgba(140,60,220,0.08)]"
+          className="rounded-[28px] border border-[rgba(160,100,220,0.2)] bg-white/45 backdrop-blur-xl px-5 py-5 md:px-7 md:py-6 shadow-[0_4px_48px_rgba(140,60,220,0.1)]"
           data-overview-box="upcoming-program"
         >
         <div className="mb-4 md:mb-5 flex flex-col items-center text-center">

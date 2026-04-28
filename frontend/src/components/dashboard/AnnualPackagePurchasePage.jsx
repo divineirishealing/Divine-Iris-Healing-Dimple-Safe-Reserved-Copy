@@ -225,7 +225,7 @@ export default function AnnualPackagePurchasePage() {
         className="w-full max-w-[68rem] mx-auto pl-4 pr-6 sm:pr-8 md:pr-10 lg:pr-12 py-6 md:py-8"
         data-testid="annual-package-purchase-loading"
       >
-        <div className="rounded-[28px] border border-[rgba(160,100,240,0.14)] bg-white/70 backdrop-blur-xl px-5 py-16 flex flex-col items-center justify-center gap-3 text-slate-600 shadow-[0_4px_48px_rgba(140,60,220,0.08)]">
+        <div className="rounded-[28px] border border-[rgba(160,100,240,0.2)] bg-white/45 backdrop-blur-xl px-5 py-16 flex flex-col items-center justify-center gap-3 text-slate-600 shadow-[0_4px_48px_rgba(140,60,220,0.1)]">
           <Clock className="h-8 w-8 animate-spin text-[#5D3FD3]" aria-hidden />
           <p className="text-sm font-light tracking-wide">Gathering your sanctuary…</p>
         </div>
@@ -235,7 +235,8 @@ export default function AnnualPackagePurchasePage() {
 
   const showPaymentStatus = Number(fin.total_fee) > 0 || emis.length > 0;
 
-  const glassOuter = 'rounded-[28px] border border-[rgba(160,100,240,0.14)] bg-white/65 backdrop-blur-xl shadow-[0_4px_48px_rgba(140,60,220,0.08)] overflow-hidden';
+  const glassOuter =
+    'rounded-[28px] border border-[rgba(160,100,240,0.2)] bg-white/45 backdrop-blur-xl shadow-[0_4px_48px_rgba(140,60,220,0.1)] overflow-hidden';
 
   const glassInset =
     'rounded-2xl border border-[rgba(160,100,240,0.15)] bg-gradient-to-br from-white/55 to-[rgba(250,245,255,0.45)] backdrop-blur-md px-4 py-4 md:px-5 md:py-5';

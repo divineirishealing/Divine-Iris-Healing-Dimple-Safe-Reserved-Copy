@@ -158,7 +158,7 @@ const SanctuaryPetalCard = ({ children, className, onClick, delay = 0, testId, v
         'animate-[petalIn_0.7s_ease-out_both]',
         overviewV2
           ? cn(
-              'rounded-[24px] border border-[rgba(160,100,220,0.11)] bg-white/75 backdrop-blur-xl shadow-[0_4px_32px_rgba(120,60,200,0.07)]',
+              'rounded-[24px] border border-[rgba(160,100,220,0.16)] bg-white/48 backdrop-blur-xl shadow-[0_4px_32px_rgba(120,60,200,0.1)]',
               'before:pointer-events-none before:absolute before:top-0 before:left-6 before:right-6 before:z-[1] before:h-[1.5px] before:rounded-sm before:content-[""]',
               topLine,
               'hover:-translate-y-1 hover:shadow-[0_12px_48px_rgba(120,60,200,0.13)]'
@@ -477,7 +477,7 @@ const StudentDashboard = () => {
           className="relative z-10 w-full max-w-[68rem] mx-auto pl-4 pr-6 sm:pr-8 md:pr-10 lg:pr-12 pt-4 pb-2 md:pt-6 md:pb-4 mb-4 md:mb-6 animate-[fadeSlideUp_0.8s_ease-out_both]"
         >
           <div
-            className="relative flex flex-col gap-6 md:flex-row md:items-center md:justify-between rounded-[28px] border border-[rgba(160,100,240,0.14)] bg-white/70 backdrop-blur-xl px-6 py-6 md:px-9 md:py-7 shadow-[0_4px_48px_rgba(140,60,220,0.08)] overflow-hidden"
+            className="relative flex flex-col gap-6 md:flex-row md:items-center md:justify-between rounded-[28px] border border-[rgba(160,100,240,0.2)] bg-white/45 backdrop-blur-xl px-6 py-6 md:px-9 md:py-7 shadow-[0_4px_48px_rgba(140,60,220,0.1)] overflow-hidden"
             data-testid="dashboard-greeting"
           >
             <div className="pointer-events-none absolute top-0 left-0 right-0 h-0.5 bg-gradient-to-r from-transparent via-[#c084fc] via-[#f5c840] via-[#f9a8d4] to-transparent" />
@@ -547,7 +547,7 @@ const StudentDashboard = () => {
                 aria-busy="true"
                 data-testid="dashboard-upcoming-loading"
               >
-                <div className="rounded-[28px] border border-[rgba(160,100,240,0.14)] bg-white/70 backdrop-blur-xl px-5 py-14 flex flex-col items-center justify-center gap-3 text-slate-600">
+                <div className="rounded-[28px] border border-[rgba(160,100,240,0.2)] bg-white/45 backdrop-blur-xl px-5 py-14 flex flex-col items-center justify-center gap-3 text-slate-600">
                   <Loader2 className="h-8 w-8 animate-spin text-[#5D3FD3]" aria-hidden />
                   <p className="text-sm">Loading upcoming programs…</p>
                 </div>

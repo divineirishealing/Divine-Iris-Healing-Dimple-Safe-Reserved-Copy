@@ -456,6 +456,20 @@ export function CosmicDashboardBackground({
           }
         />
       )}
+      {/* Depth + warmth on Sacred Home light shell so the scene never reads as flat white. */}
+      {isSacredHomeLight ? (
+        <div
+          className="absolute inset-0 pointer-events-none opacity-90"
+          style={{
+            background: `
+              radial-gradient(ellipse 100% 85% at 50% 35%, rgba(253, 244, 255, 0.14) 0%, transparent 52%),
+              radial-gradient(ellipse 80% 65% at 12% 92%, rgba(88, 28, 135, 0.22) 0%, transparent 45%),
+              linear-gradient(175deg, rgba(30,10,80,0.12) 0%, transparent 42%, rgba(49,46,129,0.15) 100%)
+            `,
+          }}
+          aria-hidden
+        />
+      ) : null}
       {isSacredHomeLight ? null : isImmersivePurple ? (
         <>
           <div
