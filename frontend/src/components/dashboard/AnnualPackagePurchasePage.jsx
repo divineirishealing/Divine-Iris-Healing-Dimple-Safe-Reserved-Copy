@@ -420,7 +420,7 @@ export default function AnnualPackagePurchasePage() {
   const displayTotal = toDisplay(totalRaw);
   const quoteCur = (quote?.currency || baseCurrency || 'inr').toUpperCase();
 
-  /** Hub/catalog total for illustration when quote is 0 (e.g. seat already in annual bundle). */
+  /** Basis for splitting the payment schedule: live quote when > 0, else Home Coming catalog (annual purchase / renewal). */
   const scheduleSplitTotal = useMemo(() => {
     if (totalRaw > 0) return totalRaw;
     if (catalogAmountHub != null && Number(catalogAmountHub) > 0) return Number(catalogAmountHub);
@@ -435,6 +435,10 @@ export default function AnnualPackagePurchasePage() {
     () => buildPaymentScheduleRows(paymentMode, scheduleSplitTotal, desiredStart, durationMonths),
     [paymentMode, scheduleSplitTotal, desiredStart, durationMonths],
   );
+
+  /** Hero number under “Quoted total”: catalog renewal/purchase reference when checkout line is ₹0. */
+  const displayQuotedHero = totalRaw > 0 ? displayTotal : toDisplay(scheduleSplitTotal);
+  const heroIsCatalogRenewalRef = totalRaw <= 0 && scheduleSplitTotal > 0;
 
   const scheduleTitle = useMemo(() => {
     if (paymentMode === 'full') return 'Payment schedule · pay in full';
@@ -844,7 +848,9 @@ export default function AnnualPackagePurchasePage() {
 
                 <div className={cn(glassInset, 'space-y-3')}>
                   <span className="block text-xs font-semibold text-[rgba(55,35,115,0.75)] tracking-wide uppercase text-[10px]">
-                    Quoted total (your tier &amp; hub)
+                    {heroIsCatalogRenewalRef
+                      ? 'Annual / renewal reference (catalog bundle)'
+                      : 'Quoted total (your tier & hub)'}
                   </span>
                   {quoteLoading ? (
                     <p className="text-sm text-[rgba(60,35,115,0.45)] italic">Receiving your tier&apos;s whispered numbers…</p>
@@ -853,25 +859,50 @@ export default function AnnualPackagePurchasePage() {
                       <p className="text-center sm:text-left">
                         <span className="text-3xl sm:text-[2rem] font-bold text-[#1a0a3d] tabular-nums tracking-tight drop-shadow-[0_1px_0_rgba(255,255,255,0.5)]" data-testid="annual-offer-quoted-amount">
                           {symbol}
-                          {Number(displayTotal || 0).toLocaleString()}{' '}
+                          {Number(displayQuotedHero || 0).toLocaleString()}{' '}
                           <span className="text-base font-semibold text-[rgba(80,55,145,0.45)]">{quoteCur}</span>
                         </span>
                       </p>
+                      {heroIsCatalogRenewalRef ? (
+                        <p className="text-[11px] text-[rgba(60,35,115,0.72)] text-center sm:text-left leading-relaxed">
+                          This is your <strong>Home Coming annual program</strong> figure for <strong>purchase or renewal</strong> on your pricing hub
+                          (same row as the catalog card above). Checking out this pinned program may show ₹0 while your <em>current</em> seat already
+                          covers it — the schedule still uses this bundle so you and your host can plan pay-in-full or EMIs for the{' '}
+                          <strong>next Sacred Home cycle</strong>.
+                        </p>
+                      ) : null}
                       {quote?.included_in_annual_package ? (
                         <div className="rounded-xl border border-emerald-300/35 bg-emerald-50/80 px-3.5 py-3 text-left">
                           <p className="text-sm text-emerald-950/95 leading-snug font-medium">
-                            Your seat rests inside your prepaid annual garden for this bundle. Invite paid seats for family from{' '}
-                            <Link to="/dashboard#sacred-home-programs" className="underline decoration-emerald-600/50 font-semibold text-emerald-900">
-                              Upcoming programs
-                            </Link>
-                            .
+                            {heroIsCatalogRenewalRef ? (
+                              <>
+                                Today&apos;s line item can read as included for <strong>this</strong> bundle while your annual garden is active.
+                                For <strong>renewal or a new annual enrollment</strong>, align with the amount above, your payment-schedule preference,
+                                and <Link to="/dashboard/financials" className="underline decoration-emerald-600/50 font-semibold text-emerald-900">
+                                  Sacred Exchange
+                                </Link>
+                                . Family seats stay on{' '}
+                                <Link to="/dashboard#sacred-home-programs" className="underline decoration-emerald-600/50 font-semibold text-emerald-900">
+                                  Upcoming programs
+                                </Link>
+                                .
+                              </>
+                            ) : (
+                              <>
+                                Your seat rests inside your prepaid annual garden for this bundle. Invite paid seats for family from{' '}
+                                <Link to="/dashboard#sacred-home-programs" className="underline decoration-emerald-600/50 font-semibold text-emerald-900">
+                                  Upcoming programs
+                                </Link>
+                                .
+                              </>
+                            )}
                           </p>
                         </div>
-                      ) : (
+                      ) : !heroIsCatalogRenewalRef ? (
                         <p className="text-[11px] text-[rgba(60,35,115,0.52)] text-center sm:text-left">
                           Mirrors Divine Cart — catalog pricing for this hub &amp; tier.
                         </p>
-                      )}
+                      ) : null}
                     </>
                   )}
                 </div>
