@@ -189,10 +189,12 @@ function buildPaymentScheduleRows(mode, total, startYmd, durationMonths) {
 function formatSchedulePayTag(raw) {
   const k = String(raw || '').trim().toLowerCase();
   if (!k) return 'As set with host';
-  if (k === 'gpay_upi') return 'GPay / UPI';
-  if (k === 'bank_transfer') return 'Bank transfer';
-  if (k === 'cash_deposit') return 'Cash deposit';
-  if (k === 'stripe') return 'Stripe';
+  if (k === 'gpay_upi' || k === 'gpay' || k === 'upi') return 'GPay / UPI';
+  if (k === 'bank_transfer' || k === 'bank' || k === 'neft' || k === 'rtgs' || k === 'imps') return 'Bank transfer';
+  if (k === 'cash_deposit' || k === 'cash') return 'Cash deposit';
+  if (k === 'stripe' || k === 'card' || k === 'cards') return 'Stripe';
+  if (k === 'any' || k === 'multiple' || k === 'all') return 'GPay / UPI / Bank';
+  if (k === 'razorpay') return 'Razorpay';
   return k.replace(/_/g, ' ');
 }
 
@@ -257,9 +259,11 @@ export default function AnnualPackagePurchasePage() {
   const channelizationFee = Number(homeData?.channelization_fee ?? 0);
   const showLateFeesOnFile = homeData?.show_late_fees === true;
   const schedulePayTag = useMemo(() => {
-    const first = (homeData?.preferred_payment_method || fin.payment_mode || '').trim();
-    return formatSchedulePayTag(first);
-  }, [homeData?.preferred_payment_method, fin.payment_mode]);
+    const pref = (homeData?.preferred_payment_method || '').trim();
+    const indiaTag = (homeData?.client_india_pricing?.india_payment_method || '').trim();
+    const finMode = (fin.payment_mode || '').trim();
+    return formatSchedulePayTag(pref || indiaTag || finMode);
+  }, [homeData?.preferred_payment_method, homeData?.client_india_pricing?.india_payment_method, fin.payment_mode]);
   const durationMonths = Math.max(1, Number(pkg.duration_months) || 12);
   const preferredDom = Math.min(
     28,
@@ -853,14 +857,20 @@ export default function AnnualPackagePurchasePage() {
                       {scheduleTitle}
                     </p>
                     <div className="overflow-x-auto max-h-[min(28rem,70vh)] overflow-y-auto">
-                      <table className="w-full min-w-[780px] text-[10px] text-left border-collapse">
+                      <table className="w-full min-w-[860px] text-[10px] text-left border-collapse">
                         <thead>
                           <tr className="bg-[rgba(252,250,255,0.95)] border-b border-[rgba(160,100,240,0.12)] text-[rgba(80,55,145,0.75)]">
-                            <th className="font-bold uppercase tracking-wide px-2 py-2 align-bottom w-10 text-center whitespace-nowrap">
+                            <th className="font-bold uppercase tracking-wide px-2 py-2 align-bottom w-11 text-center whitespace-nowrap">
                               Sr #
                             </th>
+                            <th className="font-bold uppercase tracking-wide px-2 py-2 align-bottom text-right whitespace-nowrap min-w-[7rem]">
+                              <span className="block leading-[1.25]">Energy Exchange</span>
+                              <span className="mt-0.5 block font-normal normal-case text-[9px] tracking-normal text-[rgba(100,55,155,0.52)]">
+                                (amount)
+                              </span>
+                            </th>
                             <th className="font-bold uppercase tracking-wide px-2 py-2 align-bottom whitespace-nowrap">
-                              Payment due date
+                              Due date
                             </th>
                             <th className="font-bold uppercase tracking-wide px-2 py-2 text-right align-bottom whitespace-nowrap">
                               Late fee
@@ -871,8 +881,8 @@ export default function AnnualPackagePurchasePage() {
                             <th className="font-bold uppercase tracking-wide px-2 py-2 text-right align-bottom whitespace-nowrap">
                               Total amount
                             </th>
-                            <th className="font-bold uppercase tracking-wide px-2 py-2 align-bottom min-w-[6.5rem] whitespace-nowrap">
-                              Pay here <span className="font-normal normal-case text-[9px] text-[rgba(100,55,155,0.5)]">(method)</span>
+                            <th className="font-bold uppercase tracking-wide px-2 py-2 align-bottom min-w-[5.5rem] text-center whitespace-nowrap">
+                              Pay here
                             </th>
                             <th className="font-bold uppercase tracking-wide px-2 py-2 align-bottom whitespace-nowrap">
                               Paid date
@@ -887,7 +897,7 @@ export default function AnnualPackagePurchasePage() {
                             const dueStr = row.dueDisplay ?? (row.due ? formatDateDdMonYyyy(row.due) : '—');
                             const hasNumericAmount =
                               row.amount != null && row.amountDisplay == null && !Number.isNaN(Number(row.amount));
-                            const totalAmountShown =
+                            const energyExchangeShown =
                               row.amountDisplay != null
                                 ? row.amountDisplay
                                 : hasNumericAmount
@@ -895,6 +905,12 @@ export default function AnnualPackagePurchasePage() {
                                   : '—';
                             const onTimeLate = '—';
                             const onTimeCh = '—';
+                            const lateNum = 0;
+                            const chNum = 0;
+                            const totalAmountShown =
+                              hasNumericAmount
+                                ? `${symbol}${Number(toDisplay(Number(row.amount) + lateNum + chNum)).toLocaleString()}`
+                                : energyExchangeShown;
                             const showRateHint =
                               showLateFeesOnFile && (lateFeePerDay > 0 || channelizationFee > 0);
                             const emiRow =
@@ -908,18 +924,24 @@ export default function AnnualPackagePurchasePage() {
                                 ? formatDateDdMonYyyy(String(rawPd).slice(0, 10)) || '—'
                                 : 'Paid';
                             }
+                            const payHereLabel = emiRow?.payment_method
+                              ? formatSchedulePayTag(emiRow.payment_method)
+                              : schedulePayTag;
                             return (
                               <tr
                                 key={row.key}
                                 className="border-b border-[rgba(160,100,240,0.08)] last:border-b-0 align-top"
                               >
-                                <td className="px-2 py-2.5 align-top text-center tabular-nums">
+                                <td className="px-2 py-2.5 align-middle text-center tabular-nums">
                                   <span className="font-bold text-[#3b0764]">{row.n}</span>
                                 </td>
-                                <td className="px-2 py-2.5 align-top whitespace-nowrap text-[9px] sm:text-[10px] font-medium">
+                                <td className="px-2 py-2.5 align-middle text-right font-semibold tabular-nums whitespace-nowrap">
+                                  {energyExchangeShown}
+                                </td>
+                                <td className="px-2 py-2.5 align-middle whitespace-nowrap text-[9px] sm:text-[10px] font-medium">
                                   {dueStr}
                                 </td>
-                                <td className="px-2 py-2.5 text-right align-top text-[9px] tabular-nums whitespace-nowrap">
+                                <td className="px-2 py-2.5 align-middle text-right text-[9px] tabular-nums whitespace-nowrap">
                                   {onTimeLate}
                                   {showRateHint && lateFeePerDay > 0 ? (
                                     <span className="mt-0.5 block text-[8px] font-normal text-[rgba(100,55,155,0.45)] normal-case">
@@ -928,7 +950,7 @@ export default function AnnualPackagePurchasePage() {
                                     </span>
                                   ) : null}
                                 </td>
-                                <td className="px-2 py-2.5 text-right align-top text-[9px] tabular-nums whitespace-nowrap">
+                                <td className="px-2 py-2.5 align-middle text-right text-[9px] tabular-nums whitespace-nowrap">
                                   {onTimeCh}
                                   {showRateHint && channelizationFee > 0 ? (
                                     <span className="mt-0.5 block text-[8px] font-normal text-[rgba(100,55,155,0.45)] normal-case">
@@ -937,21 +959,21 @@ export default function AnnualPackagePurchasePage() {
                                     </span>
                                   ) : null}
                                 </td>
-                                <td className="px-2 py-2.5 text-right font-semibold tabular-nums align-top whitespace-nowrap">
+                                <td className="px-2 py-2.5 align-middle text-right font-semibold tabular-nums whitespace-nowrap">
                                   {totalAmountShown}
                                 </td>
-                                <td className="px-2 py-2.5 align-top">
+                                <td className="px-2 py-2.5 align-middle text-center">
                                   <span
-                                    className="inline-block max-w-[10rem] truncate rounded-md bg-violet-100/90 px-1.5 py-0.5 text-[8px] font-semibold uppercase tracking-wide text-[#4c1d95]"
-                                    title={schedulePayTag}
+                                    className="inline-flex max-w-[11rem] items-center justify-center truncate rounded-md bg-violet-100/90 px-2 py-1 text-[8px] font-semibold uppercase tracking-wide text-[#4c1d95]"
+                                    title={payHereLabel}
                                   >
-                                    {schedulePayTag}
+                                    {payHereLabel}
                                   </span>
                                 </td>
-                                <td className="px-2 py-2.5 align-top whitespace-nowrap text-[9px] text-[rgba(80,55,145,0.75)] tabular-nums">
+                                <td className="px-2 py-2.5 align-middle whitespace-nowrap text-[9px] text-[rgba(80,55,145,0.75)] tabular-nums">
                                   {paidDateCell}
                                 </td>
-                                <td className="px-2 py-2.5 align-top">
+                                <td className="px-2 py-2.5 align-middle">
                                   <Link
                                     to="/dashboard/financials"
                                     className="inline-flex items-center gap-1 text-[9px] font-semibold text-[#6d28d9] hover:text-[#5b21b6] hover:underline"
