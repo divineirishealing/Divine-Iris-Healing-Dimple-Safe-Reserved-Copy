@@ -69,10 +69,25 @@ function offerTotalForCurrency(offerTotal, currency) {
   return null;
 }
 
+/** Split ``total`` into ``n`` equal parts (2 dp); remainder cents spread across first rows. */
+function splitAmountsEqually(total, n) {
+  const t = Math.max(0, Number(total) || 0);
+  const count = Math.max(1, Math.floor(Number(n)) || 1);
+  if (t <= 0) return Array(count).fill(0);
+  const cents = Math.round(t * 100);
+  const base = Math.floor(cents / count);
+  const rem = cents - base * count;
+  const arr = [];
+  for (let i = 0; i < count; i++) {
+    arr.push((base + (i < rem ? 1 : 0)) / 100);
+  }
+  return arr;
+}
+
 function buildEmiPreview(mode, total, startYmd, durationMonths) {
   if (!total || total <= 0 || mode === 'full' || mode === 'emi_flexi') return [];
   const n = emiInstallmentCount(mode, durationMonths);
-  const each = Math.round((total / n) * 100) / 100;
+  const amounts = splitAmountsEqually(total, n);
   let base;
   if (startYmd && /^\d{4}-\d{2}-\d{2}$/.test(startYmd)) {
     base = new Date(`${startYmd}T12:00:00`);
@@ -93,7 +108,7 @@ function buildEmiPreview(mode, total, startYmd, durationMonths) {
     out.push({
       n: i + 1,
       due: due.toISOString().slice(0, 10),
-      amount: each,
+      amount: amounts[i] ?? 0,
     });
   }
   return out;
@@ -404,9 +419,21 @@ export default function AnnualPackagePurchasePage() {
   const totalRaw = Number(quote?.total ?? 0);
   const displayTotal = toDisplay(totalRaw);
   const quoteCur = (quote?.currency || baseCurrency || 'inr').toUpperCase();
+
+  /** Hub/catalog total for illustration when quote is 0 (e.g. seat already in annual bundle). */
+  const scheduleSplitTotal = useMemo(() => {
+    if (totalRaw > 0) return totalRaw;
+    if (catalogAmountHub != null && Number(catalogAmountHub) > 0) return Number(catalogAmountHub);
+    for (const [, v] of catalogAllPositiveEntries) {
+      const n = Number(v);
+      if (!Number.isNaN(n) && n > 0) return n;
+    }
+    return 0;
+  }, [totalRaw, catalogAmountHub, catalogAllPositiveEntries]);
+
   const paymentScheduleRows = useMemo(
-    () => buildPaymentScheduleRows(paymentMode, totalRaw, desiredStart, durationMonths),
-    [paymentMode, totalRaw, desiredStart, durationMonths],
+    () => buildPaymentScheduleRows(paymentMode, scheduleSplitTotal, desiredStart, durationMonths),
+    [paymentMode, scheduleSplitTotal, desiredStart, durationMonths],
   );
 
   const scheduleTitle = useMemo(() => {
@@ -807,7 +834,7 @@ export default function AnnualPackagePurchasePage() {
                           <span className="font-semibold tabular-nums text-right shrink-0 min-w-[5.5rem]">
                             {row.amountDisplay != null
                               ? row.amountDisplay
-                              : `${symbol}${Number(row.amount).toLocaleString()}`}
+                              : `${symbol}${Number(toDisplay(row.amount ?? 0)).toLocaleString()}`}
                           </span>
                         </div>
                       ))}
