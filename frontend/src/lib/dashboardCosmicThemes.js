@@ -388,8 +388,10 @@ export function resolveCosmicTheme(variant) {
 export function getDashboardCosmicVariant(pathname) {
   const p = pathname || '';
   if (!p.startsWith('/dashboard')) return 'deep_space';
-  /** Light “Sacred Home” shell only on overview; other routes keep violet field. */
-  if (p === '/dashboard' || p === '/dashboard/') return 'sacred_home_light';
+  /** Light “Sacred Home” shell — dashboard overview and Home Coming enrollment use the same cozy healing backdrop. */
+  if (p === '/dashboard' || p === '/dashboard/' || p === '/dashboard/home-coming-package') {
+    return 'sacred_home_light';
+  }
   return 'immersive_purple';
 }
 

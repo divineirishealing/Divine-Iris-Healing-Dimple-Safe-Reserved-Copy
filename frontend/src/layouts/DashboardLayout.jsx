@@ -211,15 +211,15 @@ const DashboardLayout = () => {
         </div>
       )}
       <CosmicDashboardBackground
-        videoActive={Boolean(bgVideo) && !isSacredHomeOverview}
+        videoActive={Boolean(bgVideo) && !isHealingSanctuaryBackdrop}
         variant={cosmicVariant}
         sacredHomeRemountKey={
-          isSacredHomeOverview ? String(user?.id || user?.email || user?.name || 'student') : undefined
+          isHealingSanctuaryBackdrop ? String(user?.id || user?.email || user?.name || 'student') : undefined
         }
       />
 
       {/* Optional admin video — kept subtle so constellations & planets stay the hero */}
-      {bgVideo && !isSacredHomeOverview && (
+      {bgVideo && !isHealingSanctuaryBackdrop && (
         <video
           autoPlay
           loop
@@ -232,7 +232,7 @@ const DashboardLayout = () => {
           <source src={bgVideo.startsWith('/') ? `${process.env.REACT_APP_BACKEND_URL}${bgVideo}` : bgVideo} type="video/mp4" />
         </video>
       )}
-      {bgVideo && !isSacredHomeOverview && (
+      {bgVideo && !isHealingSanctuaryBackdrop && (
         <div
           className="fixed inset-0 z-[2] pointer-events-none"
           style={{
@@ -243,7 +243,7 @@ const DashboardLayout = () => {
       )}
 
       {/* Edge depth — violet routes only; light overview stays open and airy */}
-      {!isSacredHomeOverview && (
+      {!isHealingSanctuaryBackdrop && (
         <div
           className="fixed inset-0 z-[3] pointer-events-none"
           style={{
