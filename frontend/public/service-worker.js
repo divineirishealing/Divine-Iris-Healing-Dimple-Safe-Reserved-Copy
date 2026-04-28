@@ -1,7 +1,7 @@
 /* Offline-first shell for the static site (free CDN). API calls still need a live backend.
    Bump CACHE when users must drop stale JS/CSS after a deploy (CRA chunk names change, but SW may
    still serve older chunks from the previous cache until the name changes). */
-const CACHE = 'dih-site-v8';
+const CACHE = 'dih-site-v9';
 
 function shellUrl() {
   return `${self.location.origin}/index.html`;

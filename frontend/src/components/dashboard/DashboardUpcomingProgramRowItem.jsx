@@ -475,13 +475,18 @@ export default function DashboardUpcomingProgramRowItem({
     : [];
   /** List + pillar keywords (MMM, Atomic Weight / AWRP, …); third arg true matches backend portal inclusion. */
   const listOrPillarAnnualPackageMatch = programIncludedInAnnualPackage(p, annualIncludedIdsSafe, true);
-  const programOnAnnualPackageList = annualDashboardAccess
-    ? listOrPillarAnnualPackageMatch
-    : programIncludedInAnnualPackage(p, annualIncludedIdsSafe, false);
-  /** Member seat prepaid: trust dashboard-quote or client list/pillar rules. */
+  const programOnAnnualPackageList =
+    annualDashboardAccess || _subscriberIsAnnual === true
+      ? listOrPillarAnnualPackageMatch
+      : programIncludedInAnnualPackage(p, annualIncludedIdsSafe, false);
+  /**
+   * Member seat already prepaid — do not quote self again for pillar/Home Coming catalog programs (e.g. 12‑mo AWRP,
+   * MMM tiers bundled in annual). Trust API || (annual member + checklist/keywords).
+   */
+  const qualifiesAnnualPackageSelf =
+    (annualDashboardAccess || _subscriberIsAnnual === true) && listOrPillarAnnualPackageMatch;
   const includedPkg = Boolean(
-    (aq?.included_in_annual_package === true) ||
-      (annualDashboardAccess && listOrPillarAnnualPackageMatch),
+    (aq?.included_in_annual_package === true) || qualifiesAnnualPackageSelf,
   );
 
   /**

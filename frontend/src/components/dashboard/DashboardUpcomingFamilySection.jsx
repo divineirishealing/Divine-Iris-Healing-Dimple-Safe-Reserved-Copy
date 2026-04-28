@@ -1955,7 +1955,10 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh, bo
           bookerEmail,
           detectedCountry,
           immediateFamilyMembers: bucketLookupMembers,
-          programInAnnualPackageList: programIncludedInAnnualPackage(program, annualIncludedIds, annualPortalAccess),
+          programInAnnualPackageList:
+            annualPortalAccess || isAnnualSubscriber
+              ? programIncludedInAnnualPackage(program, annualIncludedIds, true)
+              : programIncludedInAnnualPackage(program, annualIncludedIds, false),
         });
       } else {
         // Non-annual: respect selectedIds + attendance modes from modal (draft already merged)
@@ -1972,7 +1975,10 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh, bo
             bookerEmail,
             detectedCountry,
             immediateFamilyMembers: bucketLookupMembers,
-            programInAnnualPackageList: programIncludedInAnnualPackage(program, annualIncludedIds, annualPortalAccess),
+            programInAnnualPackageList:
+            annualPortalAccess || isAnnualSubscriber
+              ? programIncludedInAnnualPackage(program, annualIncludedIds, true)
+              : programIncludedInAnnualPackage(program, annualIncludedIds, false),
           }) || (nonAnnualBookerJoins
             ? buildSelfOnlyCartParticipants(pre.self, program, bookerEmail, detectedCountry, nonAnnualBookerMode)
             : null);
@@ -2180,7 +2186,7 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh, bo
               const sel = selectedFamilyByProgram[p.id] || [];
               const includedForSeat =
                 !!annualQuotes[p.id]?.included_in_annual_package ||
-                (annualPortalAccess &&
+                ((annualPortalAccess || !!isAnnualSubscriber) &&
                   programIncludedInAnnualPackage(p, annualIdsSafe, true));
               const seatCtxMini = { includedPkg: includedForSeat, selectedIds: sel };
               const draftRow = mergeGlobalSeatDraft(

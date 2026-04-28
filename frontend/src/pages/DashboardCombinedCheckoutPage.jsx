@@ -597,6 +597,7 @@ export default function DashboardCombinedCheckoutPage() {
         const home = homeRes.data || {};
         const pre = preRes.data || {};
         const self = pre.self;
+        const isAnnualSubscriberHome = !!home.is_annual_subscriber;
         const annualIncludedIds = Array.isArray(settingsRes.data?.annual_package_included_program_ids)
           ? settingsRes.data.annual_package_included_program_ids
           : [];
@@ -627,8 +628,9 @@ export default function DashboardCombinedCheckoutPage() {
             continue;
           }
 
+          const pillarAnnual = programIncludedInAnnualPackage(program, annualIncludedIds, true);
           const includedForSeat =
-            annualAccess && programIncludedInAnnualPackage(program, annualIncludedIds, annualAccess);
+            (annualAccess || isAnnualSubscriberHome) && pillarAnnual;
           const sel = selectedMap[program.id] || selectedMap[String(program.id)] || [];
           const perDraft = drafts[program.id] || drafts[String(program.id)];
           const draft = mergeGlobalSeatDraft(
@@ -647,7 +649,10 @@ export default function DashboardCombinedCheckoutPage() {
             bookerEmail: email,
             detectedCountry,
             immediateFamilyMembers: bucketLookupMembers,
-            programInAnnualPackageList: programIncludedInAnnualPackage(program, annualIncludedIds, annualAccess),
+            programInAnnualPackageList:
+              annualAccess || isAnnualSubscriberHome
+                ? pillarAnnual
+                : programIncludedInAnnualPackage(program, annualIncludedIds, false),
           });
           if (participants && participants.length > 0) {
             const guestBucketById = buildGuestBucketByIdFromSelection(sel, bucketLookupMembers);
