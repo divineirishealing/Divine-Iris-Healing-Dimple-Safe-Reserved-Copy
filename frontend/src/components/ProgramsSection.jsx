@@ -29,7 +29,15 @@ const SimpleFlagshipCard = ({ program }) => {
   const offerPrice = getOfferPrice(program, showTiers ? selectedTier : null);
   const showContact = isAnnual && price === 0;
   const inCart = items.some(i => i.programId === program.id && i.tierIndex === selectedTier);
-  const enrollStatus = program.enrollment_status || (program.enrollment_open !== false ? 'open' : 'closed');
+  const enrollmentDeadline = program.deadline_date || program.start_date;
+  const enrollmentExpiredByDeadline = (() => {
+    if (!enrollmentDeadline) return false;
+    const t = new Date(enrollmentDeadline);
+    return !Number.isNaN(t.getTime()) && t.getTime() < Date.now();
+  })();
+  const enrollStatus = enrollmentExpiredByDeadline
+    ? 'closed'
+    : program.enrollment_status || (program.enrollment_open !== false ? 'open' : 'closed');
 
   const handleAddToCart = () => {
     const added = addItem(program, selectedTier);

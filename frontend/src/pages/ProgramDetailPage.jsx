@@ -251,8 +251,16 @@ function ProgramDetailPage() {
     heroScheduleItems.push({ key: 'tm', label: 'Time', value: `${String(program.timing).trim()}${tz}` });
   }
 
+  const enrollmentDeadline = program.deadline_date || program.start_date;
+  const enrollmentExpiredByDeadline = (() => {
+    if (!enrollmentDeadline) return false;
+    const t = new Date(enrollmentDeadline);
+    return !Number.isNaN(t.getTime()) && t.getTime() < Date.now();
+  })();
+
   const showHeroPrice =
     program.show_pricing_on_card !== false &&
+    !enrollmentExpiredByDeadline &&
     program.enrollment_open !== false &&
     String(program.enrollment_status || 'open').toLowerCase() !== 'closed';
   const tiersLen = program.duration_tiers?.length || 0;
@@ -566,7 +574,9 @@ function ProgramDetailPage() {
 
             <div className="flex flex-col items-center gap-4 justify-center">
               {(() => {
-                const enrollStatus = program.enrollment_status || (program.enrollment_open !== false ? 'open' : 'closed');
+                const enrollStatus = enrollmentExpiredByDeadline
+                  ? 'closed'
+                  : program.enrollment_status || (program.enrollment_open !== false ? 'open' : 'closed');
                 const hasTiers = program.duration_tiers?.length > 0;
 
                 // No purchase pricing on page (admin off, or enrollment closed, etc.) → Express Your Interest
