@@ -12,6 +12,7 @@ import {
   ShoppingCart,
   User,
   Heart,
+  FileText,
 } from 'lucide-react';
 import { Button } from '../ui/button';
 import { Label } from '../ui/label';
@@ -185,6 +186,16 @@ function buildPaymentScheduleRows(mode, total, startYmd, durationMonths) {
   }));
 }
 
+function formatSchedulePayTag(raw) {
+  const k = String(raw || '').trim().toLowerCase();
+  if (!k) return 'As set with host';
+  if (k === 'gpay_upi') return 'GPay / UPI';
+  if (k === 'bank_transfer') return 'Bank transfer';
+  if (k === 'cash_deposit') return 'Cash deposit';
+  if (k === 'stripe') return 'Stripe';
+  return k.replace(/_/g, ' ');
+}
+
 /**
  * Dedicated Home Coming / annual bundle page: purchase options, illustrative EMI plan, and link to live payment status on Financials.
  */
@@ -233,6 +244,13 @@ export default function AnnualPackagePurchasePage() {
   const pkg = homeData?.package || {};
   const fin = homeData?.financials || {};
   const emis = fin.emis || [];
+  const lateFeePerDay = Number(homeData?.late_fee_per_day ?? 0);
+  const channelizationFee = Number(homeData?.channelization_fee ?? 0);
+  const showLateFeesOnFile = homeData?.show_late_fees === true;
+  const schedulePayTag = useMemo(() => {
+    const first = (homeData?.preferred_payment_method || fin.payment_mode || '').trim();
+    return formatSchedulePayTag(first);
+  }, [homeData?.preferred_payment_method, fin.payment_mode]);
   const durationMonths = Math.max(1, Number(pkg.duration_months) || 12);
   const preferredDom = Math.min(
     28,
@@ -825,24 +843,119 @@ export default function AnnualPackagePurchasePage() {
                     <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-[rgba(80,55,145,0.55)] px-3 py-2.5 bg-[rgba(250,245,255,0.7)] border-b border-[rgba(160,100,240,0.08)]">
                       {scheduleTitle}
                     </p>
-                    <div className="max-h-52 overflow-y-auto divide-y divide-[rgba(160,100,240,0.1)]">
-                      {paymentScheduleRows.map((row) => (
-                        <div
-                          key={row.key}
-                          className="flex justify-between items-center gap-2 px-3 py-2 text-[11px] text-[rgba(50,35,95,0.88)]"
-                        >
-                          <span className="tabular-nums opacity-70 shrink-0 w-8">{row.n}</span>
-                          <span className="text-center flex-1 min-w-0 px-1">
-                            {row.dueDisplay ?? formatDateDdMonYyyy(row.due)}
-                          </span>
-                          <span className="font-semibold tabular-nums text-right shrink-0 min-w-[5.5rem]">
-                            {row.amountDisplay != null
-                              ? row.amountDisplay
-                              : `${symbol}${Number(toDisplay(row.amount ?? 0)).toLocaleString()}`}
-                          </span>
-                        </div>
-                      ))}
+                    <div className="overflow-x-auto max-h-[min(28rem,70vh)] overflow-y-auto">
+                      <table className="w-full min-w-[720px] text-[10px] text-left border-collapse">
+                        <thead>
+                          <tr className="bg-[rgba(252,250,255,0.95)] border-b border-[rgba(160,100,240,0.12)] text-[rgba(80,55,145,0.75)]">
+                            <th className="font-bold uppercase tracking-wide px-2 py-2 align-bottom w-[6.5rem]">
+                              Batch
+                            </th>
+                            <th className="font-bold uppercase tracking-wide px-2 py-2 text-right align-bottom whitespace-nowrap">
+                              Amount
+                            </th>
+                            <th className="font-bold uppercase tracking-wide px-2 py-2 align-bottom whitespace-nowrap">
+                              Payment due date
+                            </th>
+                            <th className="font-bold uppercase tracking-wide px-2 py-2 text-right align-bottom whitespace-nowrap">
+                              Late fee
+                            </th>
+                            <th className="font-bold uppercase tracking-wide px-2 py-2 text-right align-bottom whitespace-nowrap">
+                              Ch. fee
+                            </th>
+                            <th className="font-bold uppercase tracking-wide px-2 py-2 text-right align-bottom min-w-[7.5rem]">
+                              Total pay here
+                            </th>
+                            <th className="font-bold uppercase tracking-wide px-2 py-2 align-bottom w-[5.5rem]">
+                              Receipt
+                            </th>
+                          </tr>
+                        </thead>
+                        <tbody className="text-[rgba(50,35,95,0.9)]">
+                          {paymentScheduleRows.map((row) => {
+                            const dueStr = row.dueDisplay ?? (row.due ? formatDateDdMonYyyy(row.due) : '—');
+                            const hasNumericAmount =
+                              row.amount != null && row.amountDisplay == null && !Number.isNaN(Number(row.amount));
+                            const amountShown =
+                              row.amountDisplay != null
+                                ? row.amountDisplay
+                                : hasNumericAmount
+                                  ? `${symbol}${Number(toDisplay(row.amount)).toLocaleString()}`
+                                  : '—';
+                            const totalPayShown =
+                              hasNumericAmount
+                                ? `${symbol}${Number(toDisplay(row.amount)).toLocaleString()}`
+                                : row.amountDisplay && row.amountDisplay !== 'Any amount you wish'
+                                  ? row.amountDisplay
+                                  : '—';
+                            const onTimeLate = '—';
+                            const onTimeCh = '—';
+                            const showRateHint =
+                              showLateFeesOnFile && (lateFeePerDay > 0 || channelizationFee > 0);
+                            return (
+                              <tr
+                                key={row.key}
+                                className="border-b border-[rgba(160,100,240,0.08)] last:border-b-0 align-top"
+                              >
+                                <td className="px-2 py-2.5 align-top">
+                                  <span className="font-bold tabular-nums text-[#3b0764]">{row.n}</span>
+                                  <span className="mt-1 block text-[9px] font-medium text-[rgba(80,55,145,0.85)] whitespace-nowrap leading-tight">
+                                    {dueStr}
+                                  </span>
+                                </td>
+                                <td className="px-2 py-2.5 text-right font-semibold tabular-nums align-top whitespace-nowrap">
+                                  {amountShown}
+                                </td>
+                                <td className="px-2 py-2.5 align-top whitespace-nowrap text-[9px] sm:text-[10px]">
+                                  {dueStr}
+                                </td>
+                                <td className="px-2 py-2.5 text-right align-top text-[9px] tabular-nums whitespace-nowrap">
+                                  {onTimeLate}
+                                  {showRateHint && lateFeePerDay > 0 ? (
+                                    <span className="mt-0.5 block text-[8px] font-normal text-[rgba(100,55,155,0.45)] normal-case">
+                                      if overdue: {symbol}
+                                      {Number(toDisplay(lateFeePerDay)).toLocaleString()}/day
+                                    </span>
+                                  ) : null}
+                                </td>
+                                <td className="px-2 py-2.5 text-right align-top text-[9px] tabular-nums whitespace-nowrap">
+                                  {onTimeCh}
+                                  {showRateHint && channelizationFee > 0 ? (
+                                    <span className="mt-0.5 block text-[8px] font-normal text-[rgba(100,55,155,0.45)] normal-case">
+                                      if late: {symbol}
+                                      {Number(toDisplay(channelizationFee)).toLocaleString()}
+                                    </span>
+                                  ) : null}
+                                </td>
+                                <td className="px-2 py-2.5 text-right align-top">
+                                  <div className="font-bold tabular-nums whitespace-nowrap">{totalPayShown}</div>
+                                  <span
+                                    className="mt-1 inline-block max-w-[10rem] truncate rounded-md bg-violet-100/90 px-1.5 py-0.5 text-[8px] font-semibold uppercase tracking-wide text-[#4c1d95]"
+                                    title={schedulePayTag}
+                                  >
+                                    {schedulePayTag}
+                                  </span>
+                                </td>
+                                <td className="px-2 py-2.5 align-top">
+                                  <Link
+                                    to="/dashboard/financials"
+                                    className="inline-flex items-center gap-1 text-[9px] font-semibold text-[#6d28d9] hover:text-[#5b21b6] hover:underline"
+                                  >
+                                    <FileText size={12} className="shrink-0 opacity-80" aria-hidden />
+                                    Sacred Exchange
+                                  </Link>
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
                     </div>
+                    {showLateFeesOnFile && (lateFeePerDay > 0 || channelizationFee > 0) ? (
+                      <p className="border-t border-[rgba(160,100,240,0.08)] bg-[rgba(250,245,255,0.4)] px-3 py-2 text-[9px] leading-snug text-[rgba(80,55,145,0.58)]">
+                        Illustrative rows assume <strong>on-time</strong> pay — no late or channelization charges. Your
+                        Client Garden rates apply if a kindness date is missed.
+                      </p>
+                    ) : null}
                   </div>
                 ) : null}
 
