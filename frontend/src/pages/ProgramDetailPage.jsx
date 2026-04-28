@@ -21,10 +21,11 @@ import { formatDateDdMonYyyy } from '../lib/utils';
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
 
-const ExpressInterestInline = ({ programId, programTitle, accent }) => {
+const ExpressInterestInline = ({ programId, programTitle, accent, variant = 'default' }) => {
   const [email, setEmail] = useState('');
   const [submitted, setSubmitted] = useState(false);
   const [showForm, setShowForm] = useState(false);
+  const hero = variant === 'hero';
 
   const handleSubmit = async () => {
     if (!email) return;
@@ -34,25 +35,61 @@ const ExpressInterestInline = ({ programId, programTitle, accent }) => {
     } catch {}
   };
 
-  if (submitted) return <p className="text-green-600 text-sm font-medium" data-testid="express-interest-success">You'll be notified when enrollment opens!</p>;
+  if (submitted) {
+    return (
+      <p
+        className={hero ? 'text-xs font-medium leading-snug text-white/90' : 'text-green-600 text-sm font-medium'}
+        data-testid="express-interest-success"
+      >
+        You&apos;ll be notified when enrollment opens!
+      </p>
+    );
+  }
 
   if (!showForm) {
     return (
-      <button data-testid="express-interest-btn" onClick={() => setShowForm(true)}
-        className="text-white px-10 py-3 text-xs tracking-[0.2em] uppercase transition-colors hover:opacity-90" style={{ background: accent }}>
+      <button
+        data-testid="express-interest-btn"
+        onClick={() => setShowForm(true)}
+        className={
+          hero
+            ? 'bg-transparent px-0 py-1 text-left text-[9px] font-medium uppercase tracking-[0.2em] transition-opacity hover:opacity-90'
+            : 'text-white px-10 py-3 text-xs tracking-[0.2em] uppercase transition-colors hover:opacity-90'
+        }
+        style={hero ? { color: accent } : { background: accent }}
+      >
         Express your interest
       </button>
     );
   }
 
   return (
-    <div className="flex flex-col items-center gap-3 w-full max-w-md" data-testid="express-interest-form">
-      <p className="text-sm text-gray-600">Enter your email to get notified when enrollment opens</p>
-      <div className="flex gap-2 w-full">
-        <input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="Your email"
-          className="flex-1 border border-gray-300 rounded-full px-4 py-2.5 text-sm focus:outline-none focus:border-blue-400" />
-        <button onClick={handleSubmit} data-testid="express-interest-submit"
-          className="text-white px-6 py-2.5 text-xs tracking-[0.15em] uppercase transition-colors hover:opacity-90 rounded-full" style={{ background: accent }}>
+    <div className={`flex flex-col gap-3 ${hero ? 'w-full max-w-none items-stretch text-left' : 'items-center w-full max-w-md'}`} data-testid="express-interest-form">
+      <p className={hero ? 'text-[10px] leading-snug text-white/75' : 'text-sm text-gray-600'}>
+        Enter your email to get notified when enrollment opens
+      </p>
+      <div className={`flex gap-2 w-full ${hero ? 'flex-col sm:flex-row' : ''}`}>
+        <input
+          type="email"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          placeholder="Your email"
+          className={
+            hero
+              ? 'flex-1 border-0 border-b border-white/35 bg-transparent px-0 py-2 text-sm text-white placeholder:text-white/40 focus:border-white/70 focus:outline-none focus:ring-0'
+              : 'flex-1 border border-gray-300 rounded-full px-4 py-2.5 text-sm focus:outline-none focus:border-blue-400'
+          }
+        />
+        <button
+          onClick={handleSubmit}
+          data-testid="express-interest-submit"
+          className={
+            hero
+              ? 'shrink-0 bg-transparent px-0 py-2 text-left text-[9px] font-medium uppercase tracking-[0.2em] transition-opacity hover:opacity-90'
+              : 'text-white px-6 py-2.5 text-xs tracking-[0.15em] uppercase transition-colors hover:opacity-90 rounded-full'
+          }
+          style={hero ? { color: accent } : { background: accent }}
+        >
           Submit
         </button>
       </div>
@@ -533,7 +570,7 @@ function ProgramDetailPage() {
 
             {showHeroTierDock ? (
               <div
-                className="flex w-full max-w-[15.5rem] flex-col gap-3 self-end"
+                className="flex w-full max-w-[18rem] flex-col gap-5 self-end text-right"
                 data-testid="program-hero-tier-dock"
               >
                 {program.duration_tiers.map((tier, tIdx) => {
@@ -543,67 +580,69 @@ function ProgramDetailPage() {
                   const showContact = isAnnual && tierPrice === 0;
                   const selected = heroTierIdx === tIdx;
                   return (
-                    <div
-                      key={tIdx}
-                      role="button"
-                      tabIndex={0}
-                      data-testid={`hero-tier-${tIdx}`}
-                      onKeyDown={(e) => {
-                        if (e.key !== 'Enter' && e.key !== ' ') return;
-                        e.preventDefault();
-                        setHeroTierIdx(tIdx);
-                        showContact ? navigate(`/contact?program=${program.id}&title=${encodeURIComponent(program.title)}&tier=${tier.label}`) : navigate(`/enroll/program/${program.id}${enrollProgramQuery(tIdx)}`);
-                      }}
-                      className={`cursor-pointer rounded-lg border px-4 py-3 shadow-lg transition-all duration-300 [&:focus-visible]:outline-none [&:focus-visible]:ring-2 [&:focus-visible]:ring-[#D4AF37]/55 ${
-                        selected ? 'border-[#D4AF37] ring-2 ring-[#D4AF37]/30' : 'border-white/25 bg-white/95 hover:border-[#D4AF37]/80'
-                      }`}
-                      onClick={() => {
-                        setHeroTierIdx(tIdx);
-                        showContact ? navigate(`/contact?program=${program.id}&title=${encodeURIComponent(program.title)}&tier=${tier.label}`) : navigate(`/enroll/program/${program.id}${enrollProgramQuery(tIdx)}`);
-                      }}
-                    >
-                      <p className="mb-2 text-xs font-semibold uppercase tracking-[0.12em] text-gray-900" style={{ fontFamily: "'Lato', sans-serif" }}>{tier.label}</p>
-                      {showContact ? (
-                        <div>
-                          <p className="mb-2 text-[10px] leading-snug text-gray-400">Contact for customised pricing</p>
-                          <span className="inline-block w-full py-2 text-center text-[10px] font-medium uppercase tracking-[0.15em] text-white" style={{ background: heroAccent }}>Contact Us</span>
-                        </div>
-                      ) : (
-                        <div>
-                          <div className="mb-2">
-                            {tierOffer > 0 ? (
-                              <>
-                                <p className="text-sm font-semibold tabular-nums" style={{ ...globalPricingStyle, fontSize: '0.95rem' }}>{symbol} {tierOffer.toLocaleString()}</p>
-                                {tierPrice > tierOffer && (
-                                  <p className="text-[10px] text-gray-400 line-through">{symbol} {tierPrice.toLocaleString()}</p>
-                                )}
-                              </>
-                            ) : tierPrice > 0 ? (
-                              <p className="text-sm font-semibold tabular-nums" style={{ ...globalPricingStyle, fontSize: '0.95rem' }}>{symbol} {tierPrice.toLocaleString()}</p>
-                            ) : (
-                              <p className="text-[10px] italic text-gray-400">Contact for customised pricing</p>
-                            )}
-                          </div>
-                          <span className="inline-block w-full bg-gray-900 py-2 text-center text-[10px] font-medium uppercase tracking-[0.15em] text-white">Select</span>
-                        </div>
-                      )}
+                    <div key={tIdx} className="flex flex-col items-end gap-1.5 text-right">
+                      <p className="flex flex-wrap items-baseline justify-end gap-x-2 gap-y-1 text-sm font-normal leading-snug text-white/85 [text-wrap:balance] md:text-base">
+                        <span
+                          className={`shrink-0 text-[9px] font-medium uppercase tracking-[0.2em] ${selected ? 'underline underline-offset-[3px]' : ''}`}
+                          style={{ color: heroAccent }}
+                        >
+                          {tier.label}:
+                        </span>
+                        <span className="min-w-0">
+                          {showContact ? (
+                            <span className="text-[10px] leading-snug text-white/65 md:text-xs">Contact for customised pricing</span>
+                          ) : tierOffer > 0 ? (
+                            <>
+                              <span className="text-lg font-semibold tabular-nums md:text-xl" style={{ ...globalPricingStyle, color: heroAccent }}>
+                                {symbol} {tierOffer.toLocaleString()}
+                              </span>
+                              {tierPrice > tierOffer && (
+                                <span className="ml-2 text-xs text-white/35 line-through md:text-sm">
+                                  {symbol} {tierPrice.toLocaleString()}
+                                </span>
+                              )}
+                            </>
+                          ) : tierPrice > 0 ? (
+                            <span className="text-lg font-semibold tabular-nums md:text-xl" style={{ ...globalPricingStyle, color: heroAccent }}>
+                              {symbol} {tierPrice.toLocaleString()}
+                            </span>
+                          ) : (
+                            <span className="text-[10px] italic text-white/55 md:text-xs">Contact for customised pricing</span>
+                          )}
+                        </span>
+                      </p>
+                      <button
+                        type="button"
+                        data-testid={`hero-tier-${tIdx}`}
+                        tabIndex={0}
+                        onClick={() => {
+                          setHeroTierIdx(tIdx);
+                          showContact
+                            ? navigate(`/contact?program=${program.id}&title=${encodeURIComponent(program.title)}&tier=${tier.label}`)
+                            : navigate(`/enroll/program/${program.id}${enrollProgramQuery(tIdx)}`);
+                        }}
+                        className="text-[9px] font-medium uppercase tracking-[0.2em] transition-opacity hover:opacity-90"
+                        style={{ color: heroAccent, background: 'none', border: 'none', padding: 0, cursor: 'pointer' }}
+                      >
+                        {showContact ? 'CONTACT US' : 'SELECT'}
+                      </button>
                     </div>
                   );
                 })}
-                <div className="flex flex-col items-stretch pt-1">
+                <div className="flex flex-col items-end pt-1">
                   {detailEnrollStatus === 'open' ? (
                     <button
                       type="button"
                       data-testid="hero-enroll-btn"
                       onClick={() => navigate(`/enroll/program/${program.id}${enrollProgramQuery(heroTierIdx)}`)}
-                      className="text-white px-6 py-3 text-[10px] font-medium uppercase tracking-[0.2em] shadow-md transition-opacity hover:opacity-90 md:px-8 md:text-[11px]"
-                      style={{ background: heroAccent }}
+                      className="border-0 bg-transparent px-0 py-2 text-[9px] font-medium uppercase tracking-[0.2em] transition-opacity hover:opacity-90 md:text-[10px]"
+                      style={{ color: heroAccent }}
                     >
-                      Enroll Now
+                      ENROLL NOW
                     </button>
                   ) : (
-                    <div data-testid="hero-express-interest" className="rounded-lg border border-white/20 bg-white/95 p-3 shadow-lg">
-                      <ExpressInterestInline programId={program.id} programTitle={program.title} accent={heroAccent} />
+                    <div data-testid="hero-express-interest">
+                      <ExpressInterestInline variant="hero" programId={program.id} programTitle={program.title} accent={heroAccent} />
                     </div>
                   )}
                 </div>
