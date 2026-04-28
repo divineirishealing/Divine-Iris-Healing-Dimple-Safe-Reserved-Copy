@@ -182,8 +182,8 @@ const DashboardLayout = () => {
   }
 
   const cosmicVariant = getDashboardCosmicVariant(location.pathname);
-  const isSacredHomeOverview =
-    location.pathname === '/dashboard' || location.pathname === '/dashboard/';
+  /** Match CosmicDashboardBackground: light Sacred Home routes use illustrated healing backdrop, not violet wash + canvas. */
+  const isHealingSanctuaryBackdrop = cosmicVariant === 'sacred_home_light';
   const impersonationLabel =
     user?.email && String(user.email).endsWith('@impersonation.internal')
       ? `${(user.name || '').trim() || 'Client'} (no email on Client Garden — admin preview login)`
