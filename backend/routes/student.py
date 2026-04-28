@@ -238,6 +238,45 @@ _HOME_COMING_INCLUDES: List[Dict[str, str]] = [
 ]
 
 
+def _offer_total_from_annual_package(pkg_row: Optional[dict], currency: str) -> float:
+    """Admin Home Coming bundle total on ``annual_packages.offer_total`` (keys INR / USD / AED).
+
+    Mirrors subscriber add/edit logic: this is the canonical catalog checkout total when present.
+    """
+    if not pkg_row or not isinstance(pkg_row.get("offer_total"), dict):
+        return 0.0
+    ot = pkg_row["offer_total"]
+    cu = (currency or "aed").strip().lower()
+    for k in (cu.upper(), cu, cu.capitalize()):
+        if k in ot and ot[k] is not None and str(ot[k]).strip() != "":
+            try:
+                return max(0.0, round(float(ot[k]), 2))
+            except (TypeError, ValueError):
+                pass
+    for key, val in ot.items():
+        if key is not None and str(key).lower() == cu:
+            try:
+                return max(0.0, round(float(val), 2))
+            except (TypeError, ValueError):
+                return 0.0
+    return 0.0
+
+
+async def _active_home_coming_package_catalog_row() -> Optional[dict]:
+    """Highest-version annual package row that is still active for catalog/pricing defaults."""
+    rows = (
+        await db.annual_packages.find({}, {"_id": 0, "offer_total": 1, "is_active": 1, "version": 1})
+        .sort([("version", -1)])
+        .to_list(60)
+    )
+    if not rows:
+        return None
+    for r in rows:
+        if r.get("is_active") is not False:
+            return r
+    return rows[0]
+
+
 def _home_coming_payload(client: dict, sub: dict, iris_journey: dict) -> Optional[dict]:
     """Home Coming (annual) brand + version year + four pillars for the student dashboard."""
     if not _is_annual_subscriber(sub, client):
@@ -1718,6 +1757,7 @@ async def dashboard_quote(
             "awrp_batch_program_offers": 1,
             "india_gst_percent": 1,
             "dashboard_annual_quote_show_tax": 1,
+            "dashboard_sacred_home_annual_program_id": 1,
         },
     ) or {}
     included = _portal_included_in_annual_package(
@@ -1776,6 +1816,18 @@ async def dashboard_quote(
         apply_tier_offer_prices=True,
         booker_annual_portal=annual_dashboard_access,
     )
+    # Sacred Home pinned program: use Home Coming catalog PACKAGE OFFER total from annual_packages
+    # (admin "Package offer (catalog total)") when tier-line math is empty or secondary.
+    pin_program_id = (settings_doc.get("dashboard_sacred_home_annual_program_id") or "").strip()
+    if pin_program_id and str(program_id).strip() == str(pin_program_id).strip() and not included:
+        pkg_cat = await _active_home_coming_package_catalog_row()
+        co = _offer_total_from_annual_package(pkg_cat, currency)
+        if co > 0:
+            pricing["total"] = co
+            pricing["offer_subtotal"] = co
+            pricing["list_subtotal"] = co
+            pricing["portal_discount_total"] = 0.0
+
     peer_pkg_inc = max(0, int(peer_sel) - int(imm_peer)) if id_list else 0
     cur = str(pricing.get("currency") or "aed").lower()
     gst_pct = _site_gst_percent(settings_doc)
