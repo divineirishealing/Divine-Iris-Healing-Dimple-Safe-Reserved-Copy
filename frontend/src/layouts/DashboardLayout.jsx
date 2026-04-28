@@ -12,11 +12,12 @@ import { getDashboardCosmicVariant } from '../lib/dashboardCosmicThemes';
 import { mergeDashboardVisibility } from '../lib/dashboardVisibility';
 import { getApiUrl } from '../lib/config';
 import { getAuthHeaders } from '../lib/authHeaders';
+import { resolveImageUrl } from '../lib/imageUtils';
 
 const STUDENT_API = getApiUrl();
 
 const NAV_ITEMS = [
-  { to: '/dashboard', label: 'Overview', icon: Home, exact: true, visKey: null },
+  { to: '/dashboard', label: 'Dashboard', icon: Home, exact: true, visKey: null },
   {
     to: '/dashboard',
     label: 'Upcoming programs',
@@ -30,7 +31,7 @@ const NAV_ITEMS = [
   { to: '/dashboard/progress', label: 'Progress', icon: TrendingUp, visKey: 'nav_progress' },
   { to: '/dashboard/bhaad', label: 'Bhaad Portal', icon: Sparkles, visKey: 'nav_bhaad' },
   { to: '/dashboard/tribe', label: 'Soul Tribe', icon: Heart, visKey: 'nav_tribe' },
-  { to: '/dashboard/orders', label: 'Order history', icon: ClipboardList, visKey: null },
+  { to: '/dashboard/orders', label: 'Order History', icon: ClipboardList, visKey: null },
   { to: '/dashboard/combined-checkout', label: 'Divine Cart', icon: ShoppingCart, visKey: null },
   { to: '/dashboard/points', label: 'Points', icon: Coins, visKey: 'nav_points' },
   { to: '/dashboard/profile', label: 'Profile', icon: User, visKey: 'nav_profile' },
@@ -50,7 +51,7 @@ const DashboardLayout = () => {
   const { user, loading, logout } = useAuth();
 
   useDashboardScrollSession();
-  const { settings } = useSiteSettings();
+  const sacredHomeLogoSrc = settings?.logo_url ? resolveImageUrl(settings.logo_url) : '';
   const dv = useMemo(() => mergeDashboardVisibility(settings), [settings]);
   const visibleNavItems = useMemo(
     () => NAV_ITEMS.filter((item) => !item.visKey || dv[item.visKey]),
@@ -255,7 +256,7 @@ const DashboardLayout = () => {
       <button
         type="button"
         onClick={() => setSidebarOpen(!sidebarOpen)}
-        className="fixed bottom-6 left-6 z-[70] w-12 h-12 rounded-full flex items-center justify-center text-violet-900 bg-white/90 hover:bg-white border border-white shadow-[0_8px_32px_rgba(30,27,75,0.35)] hover:shadow-[0_12px_40px_rgba(30,27,75,0.45)] transition-all backdrop-blur-sm"
+        className="fixed bottom-6 left-6 z-[70] w-12 h-12 rounded-full flex items-center justify-center text-violet-800 bg-white hover:bg-violet-50 border border-violet-200/90 shadow-[0_8px_28px_rgba(76,29,149,0.15)] hover:shadow-[0_10px_32px_rgba(76,29,149,0.18)] transition-all"
         aria-expanded={sidebarOpen}
         aria-label={sidebarOpen ? 'Close menu' : 'Open menu'}
         data-testid="sidebar-toggle"
@@ -264,72 +265,126 @@ const DashboardLayout = () => {
       </button>
 
       {/* ═══ COLLAPSIBLE SIDEBAR (slides from left) ═══ */}
-      {sidebarOpen && <div className="fixed inset-0 z-40 bg-black/40" onClick={() => setSidebarOpen(false)} />}
-      <div className={cn(
-        "fixed top-0 left-0 bottom-0 w-64 z-50 transition-transform duration-300 pt-[env(safe-area-inset-top,0px)]",
-        sidebarOpen ? "translate-x-0" : "-translate-x-full"
-      )} style={{
-        background: 'linear-gradient(165deg, rgba(8,6,28,0.94) 0%, rgba(4,6,22,0.92) 100%)',
-        backdropFilter: 'blur(22px)',
-        borderRight: '1px solid rgba(100, 200, 255, 0.08)',
-        boxShadow: '8px 0 32px rgba(0,0,0,0.4)',
-      }}>
-        <div className="p-4 space-y-1 overflow-y-auto h-full">
-          <NavLink to="/dashboard" end onClick={() => setSidebarOpen(false)} className="block px-3 pt-3 pb-2 mb-1">
-            <span className="text-sm font-bold bg-gradient-to-r from-[#E8D5A3] via-[#D4AF37] to-[#A78BFA] bg-clip-text text-transparent">
-              Sanctuary
-            </span>
-            <p className="text-[10px] text-white/35 mt-0.5 truncate">{user?.name}</p>
-          </NavLink>
-          <p className="text-[8px] uppercase tracking-[0.2em] text-cyan-200/40 px-3 pt-2 pb-1">Journey</p>
-          {visibleNavItems.map((item) => {
-            const to = item.hash ? { pathname: '/dashboard', hash: item.hash } : item.to;
-            return (
-              <NavLink
-                key={item.hash ? `dashboard#${item.hash}` : item.to}
-                to={to}
-                end={item.exact}
-                onClick={() => setSidebarOpen(false)}
-                className={() =>
-                  cn(
-                    'flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm transition-all',
-                    isDashboardNavActive(location, item)
-                      ? 'bg-[#D4AF37]/15 text-[#D4AF37]'
-                      : 'text-white/60 hover:text-white hover:bg-white/5'
-                  )
-                }
-              >
-                <item.icon size={16} />
-                <span>{item.label}</span>
-              </NavLink>
-            );
-          })}
-
-          {dv.nav_roadmap && (
-            <>
-              <div className="border-t border-white/5 my-3" />
-              <p className="text-[8px] uppercase tracking-[0.2em] text-cyan-200/40 px-3 pt-1 pb-1">More</p>
-              <NavLink to="/dashboard/roadmap" onClick={() => setSidebarOpen(false)}
-                className={({ isActive }) => cn("flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm transition-all", isActive ? "bg-[#D4AF37]/15 text-[#D4AF37]" : "text-white/60 hover:text-white hover:bg-white/5")}>
-                <BookOpen size={16} /><span>Growth Roadmap</span>
-              </NavLink>
-            </>
-          )}
-
-          <button
-            type="button"
-            onClick={() => {
-              if (user?.impersonating) {
-                logout('/admin');
-                return;
-              }
-              logout();
-              window.location.href = '/';
-            }}
-            className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm text-red-400/60 hover:text-red-400 hover:bg-red-400/5 transition-all w-full mt-4"
+      {sidebarOpen && (
+        <div
+          className="fixed inset-0 z-40 bg-black/25 backdrop-blur-[1px]"
+          onClick={() => setSidebarOpen(false)}
+          aria-hidden
+        />
+      )}
+      <div
+        className={cn(
+          'fixed top-0 left-0 bottom-0 w-[272px] max-w-[min(88vw,20rem)] z-50 transition-transform duration-300 ease-out pt-[env(safe-area-inset-top,0px)] shadow-[6px_0_32px_rgba(76,29,149,0.07)] flex flex-col bg-white border-r border-gray-200',
+          sidebarOpen ? 'translate-x-0' : '-translate-x-full'
+        )}
+        data-testid="dashboard-sidebar"
+      >
+        <div className="flex flex-col flex-1 min-h-0 overflow-hidden">
+          <NavLink
+            to="/dashboard"
+            end
+            onClick={() => setSidebarOpen(false)}
+            className="shrink-0 px-4 pt-6 pb-4 border-b border-gray-100 flex flex-col gap-3 sm:flex-row sm:items-start hover:bg-violet-50/60 transition-colors"
           >
-            <LogOut size={16} /><span>{user?.impersonating ? 'End preview' : 'Sign Out'}</span>
-          </button>
+            {sacredHomeLogoSrc ? (
+              <img
+                src={sacredHomeLogoSrc}
+                alt="Divine Iris"
+                className="h-12 max-w-[8.5rem] w-auto object-contain object-left shrink-0"
+                onError={(e) => {
+                  e.currentTarget.style.display = 'none';
+                }}
+              />
+            ) : (
+              <div
+                className="h-12 w-12 rounded-xl shrink-0 flex items-center justify-center bg-gradient-to-br from-violet-100 to-purple-50 border border-violet-200/80"
+                aria-hidden
+              >
+                <Sparkles className="h-6 w-6 text-violet-700 opacity-90" strokeWidth={1.5} />
+              </div>
+            )}
+            <div className="min-w-0 pt-0.5 flex-1">
+              <p
+                className="text-[0.85rem] font-semibold tracking-[0.06em] text-violet-950 uppercase leading-snug"
+                style={{ fontFamily: "'Cormorant Garamond', 'Cinzel', Georgia, serif" }}
+              >
+                Sacred Home
+              </p>
+              <p className="text-[10px] text-gray-500 mt-1 tracking-[0.12em] uppercase font-medium">Member dashboard</p>
+              {user?.name ? <p className="text-[10px] text-gray-400 mt-2 truncate leading-tight">{user.name}</p> : null}
+            </div>
+          </NavLink>
+
+          <div className="flex-1 overflow-y-auto overscroll-contain px-2.5 py-2 pb-6">
+            <p className="text-[9px] font-semibold uppercase tracking-[0.2em] text-gray-400 px-2.5 pt-1 pb-2">Journey</p>
+            {visibleNavItems.map((item) => {
+              const to = item.hash ? { pathname: '/dashboard', hash: item.hash } : item.to;
+              const active = isDashboardNavActive(location, item);
+              return (
+                <NavLink
+                  key={item.hash ? `dashboard#${item.hash}` : item.to}
+                  to={to}
+                  end={item.exact}
+                  onClick={() => setSidebarOpen(false)}
+                  className={cn(
+                    'flex items-center gap-3 px-2.5 py-2.5 rounded-xl text-[13px] font-medium transition-colors mb-0.5',
+                    active ? 'bg-violet-100 text-violet-900 shadow-sm shadow-violet-100' : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+                  )}
+                >
+                  <item.icon
+                    size={18}
+                    strokeWidth={active ? 2.25 : 1.75}
+                    className={cn('shrink-0', active ? 'text-violet-700' : 'text-gray-400')}
+                  />
+                  <span>{item.label}</span>
+                </NavLink>
+              );
+            })}
+
+            {dv.nav_roadmap && (
+              <>
+                <div className="border-t border-gray-100 my-3 mx-1" />
+                <p className="text-[9px] font-semibold uppercase tracking-[0.2em] text-gray-400 px-2.5 pt-1 pb-2">More</p>
+                <NavLink
+                  to="/dashboard/roadmap"
+                  onClick={() => setSidebarOpen(false)}
+                  className={({ isActive }) =>
+                    cn(
+                      'flex items-center gap-3 px-2.5 py-2.5 rounded-xl text-[13px] font-medium transition-colors mb-0.5',
+                      isActive
+                        ? 'bg-violet-100 text-violet-900 shadow-sm shadow-violet-100'
+                        : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+                    )
+                  }
+                >
+                  {({ isActive }) => (
+                    <>
+                      <BookOpen size={18} strokeWidth={isActive ? 2.25 : 1.75} className={cn('shrink-0', isActive ? 'text-violet-700' : 'text-gray-400')} />
+                      <span>Growth Roadmap</span>
+                    </>
+                  )}
+                </NavLink>
+              </>
+            )}
+          </div>
+
+          <div className="shrink-0 border-t border-gray-100 px-2.5 py-3 bg-gray-50/80">
+            <button
+              type="button"
+              onClick={() => {
+                if (user?.impersonating) {
+                  logout('/admin');
+                  return;
+                }
+                logout();
+                window.location.href = '/';
+              }}
+              className="flex w-full items-center gap-3 px-2.5 py-2.5 rounded-xl text-[13px] font-medium text-rose-600/90 hover:bg-rose-50 hover:text-rose-700 transition-colors"
+            >
+              <LogOut size={18} className="shrink-0 opacity-70" strokeWidth={1.75} />
+              <span>{user?.impersonating ? 'End preview' : 'Sign Out'}</span>
+            </button>
+          </div>
         </div>
       </div>
 
