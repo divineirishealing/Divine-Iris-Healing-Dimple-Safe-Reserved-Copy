@@ -573,12 +573,13 @@ function ProgramDetailPage() {
                 className="flex w-full max-w-[min(100%,28rem)] flex-col gap-3 self-end text-right"
                 data-testid="program-hero-tier-dock"
               >
-                <p
-                  className="text-[9px] font-medium uppercase tracking-[0.2em]"
-                  style={{ color: heroAccent }}
-                >
-                  Enroll now
-                </p>
+                <div className="mb-1 flex w-full justify-end" data-testid="program-hero-tier-dock-title">
+                  <span className="rounded-sm bg-white px-4 py-2 shadow-sm">
+                    <span className="text-[9px] font-medium uppercase tracking-[0.2em]" style={{ color: heroAccent }}>
+                      ENROLL NOW
+                    </span>
+                  </span>
+                </div>
                 {program.duration_tiers.map((tier, tIdx) => {
                   const isAnnual = tier.label?.toLowerCase().includes('annual') || tier.label?.toLowerCase().includes('year') || tier.duration_unit === 'year';
                   const tierPrice = getPrice(program, tIdx);
