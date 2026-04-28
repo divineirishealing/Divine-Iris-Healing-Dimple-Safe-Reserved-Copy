@@ -32,11 +32,12 @@ const DIVINE_IRIS_HOME_COMING_PROGRAMS_LABEL =
 
 const HEART_QUOTE = 'You are exactly where you need to be — trust the becoming.';
 
-const PAY_MODES = [
-  { value: 'full', label: 'Pay in full (checkout now)' },
-  { value: 'emi_monthly', label: 'EMI — monthly' },
-  { value: 'emi_quarterly', label: 'EMI — quarterly' },
-  { value: 'emi_yearly', label: 'EMI — yearly' },
+const ALL_PAY_MODES = [
+  { value: 'full', label: 'PAY IN FULL (CHECKOUT NOW)' },
+  { value: 'emi_monthly', label: 'EMI — MONTHLY' },
+  { value: 'emi_quarterly', label: 'EMI — QUARTERLY' },
+  { value: 'emi_yearly', label: 'EMI — YEARLY' },
+  { value: 'emi_flexi', label: 'FLEXI — ANY AMOUNT, ANY TIME' },
 ];
 
 function emiInstallmentCount(mode, durationMonths) {
@@ -69,7 +70,7 @@ function offerTotalForCurrency(offerTotal, currency) {
 }
 
 function buildEmiPreview(mode, total, startYmd, durationMonths) {
-  if (!total || total <= 0 || mode === 'full') return [];
+  if (!total || total <= 0 || mode === 'full' || mode === 'emi_flexi') return [];
   const n = emiInstallmentCount(mode, durationMonths);
   const each = Math.round((total / n) * 100) / 100;
   let base;
@@ -96,6 +97,77 @@ function buildEmiPreview(mode, total, startYmd, durationMonths) {
     });
   }
   return out;
+}
+
+/** Rows for the illustrative schedule table (all payment modes). */
+function buildPaymentScheduleRows(mode, total, startYmd, durationMonths) {
+  const totalNum = Math.max(0, Number(total) || 0);
+
+  if (mode === 'full') {
+    let due;
+    if (startYmd && /^\d{4}-\d{2}-\d{2}$/.test(startYmd)) {
+      due = startYmd;
+    } else {
+      due = new Date().toISOString().slice(0, 10);
+    }
+    return [
+      {
+        key: 'pay-full',
+        n: 1,
+        due,
+        dueDisplay: null,
+        amount: totalNum,
+        amountDisplay: null,
+      },
+    ];
+  }
+
+  if (mode === 'emi_flexi') {
+    const rows = [
+      {
+        key: 'flex-a',
+        n: 1,
+        due: null,
+        dueDisplay: 'Whenever you choose',
+        amount: null,
+        amountDisplay: 'Any amount you wish',
+      },
+    ];
+    if (totalNum > 0) {
+      rows.push({
+        key: 'flex-ref',
+        n: '—',
+        due: null,
+        dueDisplay: 'Balance reference (quoted total)',
+        amount: totalNum,
+        amountDisplay: null,
+      });
+    }
+    return rows;
+  }
+
+  if (totalNum <= 0) {
+    return [
+      {
+        key: 'emi-pending',
+        n: 1,
+        due: null,
+        dueDisplay: 'Confirmed with your host',
+        amount: null,
+        amountDisplay: 'Installment amounts when total is set',
+      },
+    ];
+  }
+
+  const emi = buildEmiPreview(mode, totalNum, startYmd, durationMonths);
+  return emi.map((r) => ({
+    key: `emi-${r.n}`,
+    n: r.n,
+    due: r.due,
+    dueDisplay: null,
+    amount: r.amount,
+    amountDisplay: null,
+  }));
 }
 
 /**
@@ -200,6 +272,20 @@ export default function AnnualPackagePurchasePage() {
   const userTier =
     typeof homeData?.user_details?.tier === 'string' ? homeData.user_details.tier.trim() : '';
 
+  const visiblePayModes = useMemo(() => {
+    const monthlyOk = homeData?.annual_package_offer_monthly_emi_visible !== false;
+    return ALL_PAY_MODES.filter((m) => m.value !== 'emi_monthly' || monthlyOk);
+  }, [homeData?.annual_package_offer_monthly_emi_visible]);
+
+  const nextSacredYearStartsLabel = useMemo(() => {
+    const ij = homeData?.iris_journey;
+    const y = Math.min(12, Math.max(1, Number(ij?.year) || 1));
+    if (y >= 12) {
+      return `${irisYearLabelNoPeriod(12)} · sacred renewal window starts`;
+    }
+    return `${irisYearLabelNoPeriod(y + 1)} starts`;
+  }, [homeData?.iris_journey]);
+
   /** Opening lines: Year 2+ mirrors “completed Year n−1 … with Year n …” (see iris_journey labels). */
   const irisWelcomeLeadEl = useMemo(() => {
     const ij = homeData?.iris_journey;
@@ -236,9 +322,15 @@ export default function AnnualPackagePurchasePage() {
     if (!homeData || prefsInitDone.current) return;
     prefsInitDone.current = true;
     const p = homeData.annual_package_offer_prefs;
+    const monthlyOk = homeData.annual_package_offer_monthly_emi_visible !== false;
+    const allowed = new Set(['full', 'emi_quarterly', 'emi_yearly', 'emi_flexi']);
+    if (monthlyOk) allowed.add('emi_monthly');
     if (p && typeof p === 'object') {
       if (p.desired_start_date) setDesiredStart(String(p.desired_start_date).slice(0, 10));
-      if (p.payment_mode) setPaymentMode(String(p.payment_mode));
+      if (p.payment_mode) {
+        const pm = String(p.payment_mode).trim();
+        setPaymentMode(allowed.has(pm) ? pm : 'full');
+      }
       if (p.emi_notes) setEmiNotes(String(p.emi_notes));
     } else if (preferredDom >= 1 && preferredDom <= 28) {
       const ymd = nextDateWithDayOfMonth(null, preferredDom);
@@ -246,6 +338,14 @@ export default function AnnualPackagePurchasePage() {
     }
     setPrefsLoaded(true);
   }, [homeData, preferredDom]);
+
+  useEffect(() => {
+    if (!homeData || !prefsLoaded) return;
+    const monthlyOk = homeData.annual_package_offer_monthly_emi_visible !== false;
+    if (!monthlyOk && paymentMode === 'emi_monthly') {
+      setPaymentMode('full');
+    }
+  }, [homeData, homeData?.annual_package_offer_monthly_emi_visible, prefsLoaded, paymentMode]);
 
   useEffect(() => {
     if (!pinnedProgram || !baseCurrency) {
@@ -304,10 +404,17 @@ export default function AnnualPackagePurchasePage() {
   const totalRaw = Number(quote?.total ?? 0);
   const displayTotal = toDisplay(totalRaw);
   const quoteCur = (quote?.currency || baseCurrency || 'inr').toUpperCase();
-  const emiPreview = useMemo(
-    () => buildEmiPreview(paymentMode, totalRaw, desiredStart, durationMonths),
+  const paymentScheduleRows = useMemo(
+    () => buildPaymentScheduleRows(paymentMode, totalRaw, desiredStart, durationMonths),
     [paymentMode, totalRaw, desiredStart, durationMonths],
   );
+
+  const scheduleTitle = useMemo(() => {
+    if (paymentMode === 'full') return 'Payment schedule · pay in full';
+    if (paymentMode === 'emi_flexi') return 'Payment schedule · flexi';
+    const n = paymentScheduleRows.length;
+    return `Payment schedule · ${n} installment${n === 1 ? '' : 's'}`;
+  }, [paymentMode, paymentScheduleRows.length]);
 
   const goCheckout = () => {
     if (!pinnedProgram) return;
@@ -616,9 +723,15 @@ export default function AnnualPackagePurchasePage() {
                 </div>
 
                 <div className="flex flex-wrap items-end gap-3">
-                  <div>
-                    <Label className="text-[11px] flex items-center gap-1.5 text-[rgba(70,35,125,0.65)] uppercase tracking-[0.12em] font-semibold">
-                      <Calendar size={12} className="opacity-70" aria-hidden /> Preferred membership start
+                  <div className="min-w-0 max-w-full">
+                    <Label className="text-[11px] flex items-start gap-2 text-[rgba(70,35,125,0.65)] uppercase tracking-[0.12em] font-semibold leading-snug">
+                      <Calendar size={12} className="opacity-70 shrink-0 mt-0.5" aria-hidden />
+                      <span>
+                        <span className="block text-[10px] font-bold tracking-[0.14em] text-[rgba(100,55,155,0.45)]">Next sacred year · start date</span>
+                        <span className="block normal-case tracking-normal text-[12px] font-semibold text-[#3b0764] mt-1 max-w-[22rem]">
+                          {nextSacredYearStartsLabel}
+                        </span>
+                      </span>
                     </Label>
                     <Input
                       type="date"
@@ -646,15 +759,17 @@ export default function AnnualPackagePurchasePage() {
                 </div>
 
                 <div className="space-y-2">
-                  <Label className="text-[11px] uppercase tracking-[0.12em] text-[rgba(70,35,125,0.65)] font-semibold">Payment structure (preference)</Label>
+                  <Label className="text-[11px] uppercase tracking-[0.12em] text-[rgba(70,35,125,0.65)] font-semibold">
+                    Payment structure (preference)
+                  </Label>
                   <div className="grid gap-2.5 sm:grid-cols-2">
-                    {PAY_MODES.map((m) => (
+                    {visiblePayModes.map((m) => (
                       <button
                         key={m.value}
                         type="button"
                         onClick={() => setPaymentMode(m.value)}
                         className={cn(
-                          'text-left rounded-2xl border px-3.5 py-3 text-[12px] font-medium transition-all duration-200',
+                          'text-left rounded-2xl border px-3.5 py-3 text-[10px] sm:text-[11px] font-semibold uppercase tracking-wide transition-all duration-200 leading-snug',
                           paymentMode === m.value
                             ? 'border-[rgba(124,58,237,0.55)] bg-gradient-to-br from-violet-100/90 to-[rgba(250,245,255,0.85)] shadow-[0_2px_12px_rgba(124,58,237,0.12)] text-[#3730a3]'
                             : 'border-[rgba(160,140,190,0.25)] bg-white/50 hover:bg-white/80 hover:border-violet-200/70 text-[rgba(50,35,95,0.85)]',
@@ -667,9 +782,38 @@ export default function AnnualPackagePurchasePage() {
                   </div>
                   <p className="text-[10px] text-[rgba(60,35,115,0.5)] flex items-start gap-1.5 leading-relaxed mt-2">
                     <Info size={12} className="shrink-0 mt-0.5 text-violet-500" aria-hidden />
-                    We softly save your preference for your host. Final EMI timing is lovingly confirmed in Client Garden; the illustrative table below flows from today&apos;s quoted total.
+                    We softly save your preference for your host. Final timing is lovingly confirmed in Client Garden; the schedule below opens for every choice — fixed installments, pay in full, or Flexi (any amount, any time).
                   </p>
                 </div>
+
+                {pinnedProgram && paymentScheduleRows.length > 0 ? (
+                  <div
+                    className="rounded-2xl border border-[rgba(160,100,240,0.15)] bg-white/40 backdrop-blur-sm overflow-hidden"
+                    data-testid="annual-offer-payment-schedule"
+                  >
+                    <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-[rgba(80,55,145,0.55)] px-3 py-2.5 bg-[rgba(250,245,255,0.7)] border-b border-[rgba(160,100,240,0.08)]">
+                      {scheduleTitle}
+                    </p>
+                    <div className="max-h-52 overflow-y-auto divide-y divide-[rgba(160,100,240,0.1)]">
+                      {paymentScheduleRows.map((row) => (
+                        <div
+                          key={row.key}
+                          className="flex justify-between items-center gap-2 px-3 py-2 text-[11px] text-[rgba(50,35,95,0.88)]"
+                        >
+                          <span className="tabular-nums opacity-70 shrink-0 w-8">{row.n}</span>
+                          <span className="text-center flex-1 min-w-0 px-1">
+                            {row.dueDisplay ?? formatDateDdMonYyyy(row.due)}
+                          </span>
+                          <span className="font-semibold tabular-nums text-right shrink-0 min-w-[5.5rem]">
+                            {row.amountDisplay != null
+                              ? row.amountDisplay
+                              : `${symbol}${Number(row.amount).toLocaleString()}`}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ) : null}
 
                 <div className={cn(glassInset, 'space-y-3')}>
                   <span className="block text-xs font-semibold text-[rgba(55,35,115,0.75)] tracking-wide uppercase text-[10px]">
@@ -704,26 +848,6 @@ export default function AnnualPackagePurchasePage() {
                     </>
                   )}
                 </div>
-
-                {paymentMode !== 'full' && totalRaw > 0 && emiPreview.length > 0 ? (
-                  <div className="rounded-2xl border border-[rgba(160,100,240,0.15)] bg-white/40 backdrop-blur-sm overflow-hidden">
-                    <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-[rgba(80,55,145,0.55)] px-3 py-2.5 bg-[rgba(250,245,255,0.7)] border-b border-[rgba(160,100,240,0.08)]">
-                      Gentle estimate · {emiPreview.length} installments
-                    </p>
-                    <div className="max-h-52 overflow-y-auto divide-y divide-[rgba(160,100,240,0.1)]">
-                      {emiPreview.map((row) => (
-                        <div key={row.n} className="flex justify-between items-center px-3 py-2 text-[11px] text-[rgba(50,35,95,0.88)]">
-                          <span className="tabular-nums opacity-60">#{row.n}</span>
-                          <span>{formatDateDdMonYyyy(row.due)}</span>
-                          <span className="font-semibold tabular-nums">
-                            {symbol}
-                            {Number(row.amount).toLocaleString()}
-                          </span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                ) : null}
 
                 <div>
                   <Label className="text-[11px] uppercase tracking-[0.1em] text-[rgba(70,35,125,0.55)] font-semibold">Note for your host (optional)</Label>

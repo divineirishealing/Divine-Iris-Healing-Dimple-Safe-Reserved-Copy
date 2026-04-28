@@ -74,6 +74,8 @@ export default function DashboardAccessTab() {
   const [clientEmail, setClientEmail] = useState('');
   const [saving, setSaving] = useState(false);
   const [annualMemberDashboard, setAnnualMemberDashboard] = useState(false);
+  /** When False, student Home Coming package page hides EMI — monthly for this client only. */
+  const [annualPackageOfferMonthlyEmiVisible, setAnnualPackageOfferMonthlyEmiVisible] = useState(true);
   const [portalLoginAllowed, setPortalLoginAllowed] = useState(true);
   const [preferredPaymentMethod, setPreferredPaymentMethod] = useState('');
   const [indiaPaymentMethod, setIndiaPaymentMethod] = useState('');
@@ -300,6 +302,7 @@ export default function DashboardAccessTab() {
     setEditing(cl);
     setClientEmail((cl.email || '').trim());
     setAnnualMemberDashboard(!!cl.annual_member_dashboard);
+    setAnnualPackageOfferMonthlyEmiVisible(cl.annual_package_offer_monthly_emi_visible !== false);
     setPortalLoginAllowed(cl.portal_login_allowed !== false);
     setPreferredPaymentMethod(cl.preferred_payment_method || '');
     setIndiaPaymentMethod(cl.india_payment_method || '');
@@ -333,6 +336,7 @@ export default function DashboardAccessTab() {
       await axios.put(`${API}/clients/${editing.id}`, {
         email: (clientEmail || '').trim().toLowerCase(),
         annual_member_dashboard: annualMemberDashboard,
+        annual_package_offer_monthly_emi_visible: annualPackageOfferMonthlyEmiVisible,
         portal_login_allowed: portalLoginAllowed,
         intake_pending: false,
         // Empty string clears (backend treats "" as unset for these fields).
@@ -925,6 +929,24 @@ export default function DashboardAccessTab() {
                 <option value="non_annual">Non-annual</option>
                 <option value="annual">Annual</option>
               </select>
+              {annualMemberDashboard && (
+                <div className="mt-2 rounded-lg border border-violet-200/80 bg-violet-50/40 px-3 py-2.5">
+                  <label className="flex items-start gap-2.5 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={annualPackageOfferMonthlyEmiVisible}
+                      onChange={(e) => setAnnualPackageOfferMonthlyEmiVisible(e.target.checked)}
+                      className="mt-0.5 rounded border-gray-300"
+                      data-testid="dashboard-access-monthly-emi-on-package-page"
+                    />
+                    <span className="text-[11px] text-gray-800 leading-snug">
+                      <span className="font-semibold">Show monthly EMI</span> on the student{' '}
+                      <strong>Home Coming package</strong> page. Uncheck to hide the monthly installment option for this
+                      client only (quarterly, yearly, full pay, and Flexi stay available).
+                    </span>
+                  </label>
+                </div>
+              )}
             </div>
 
             <div

@@ -2602,6 +2602,8 @@ async def get_student_home(user: dict = Depends(get_current_student_user)):
         "annual_renewal_reminder": annual_renewal_reminder_for_portal(client),
         # Student-chosen prefs for Home Coming / annual package (shown on dedicated purchase page; admin-visible on client doc).
         "annual_package_offer_prefs": client.get("annual_package_offer_prefs") if isinstance(client.get("annual_package_offer_prefs"), dict) else None,
+        # When False, Sacred Home package page omits the monthly EMI option for this client (Admin → Dashboard access).
+        "annual_package_offer_monthly_emi_visible": client.get("annual_package_offer_monthly_emi_visible") is not False,
         # Active Home Coming catalog row (admin annual_packages): multi-currency offer_total for display on Home Coming package page.
         "annual_catalog_bundle": annual_catalog_bundle,
         # Enrollment window + label from subscription / annual_subscription — Home Coming gratitude card.
@@ -2648,9 +2650,11 @@ class AnnualPackageOfferPrefsBody(BaseModel):
 
 def _normalize_annual_offer_payment_mode(raw: Optional[str]) -> str:
     s = (raw or "").strip().lower().replace("-", "_")
-    allowed = {"full", "emi_monthly", "emi_quarterly", "emi_yearly"}
+    allowed = {"full", "emi_monthly", "emi_quarterly", "emi_yearly", "emi_flexi"}
     if s == "emi":
         return "emi_monthly"
+    if s == "flexi":
+        return "emi_flexi"
     return s if s in allowed else "full"
 
 
@@ -2671,6 +2675,9 @@ async def put_annual_package_offer_preferences(
     elif start:
         raise HTTPException(status_code=400, detail="Start date must be YYYY-MM-DD.")
     mode = _normalize_annual_offer_payment_mode(data.payment_mode)
+    cli_pm = await db.clients.find_one({"id": cid}, {"_id": 0, "annual_package_offer_monthly_emi_visible": 1})
+    if mode == "emi_monthly" and cli_pm and cli_pm.get("annual_package_offer_monthly_emi_visible") is False:
+        mode = "full"
     notes = (data.emi_notes or "").strip()
     if len(notes) > 800:
         raise HTTPException(status_code=400, detail="Note is too long (max 800 characters).")
