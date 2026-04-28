@@ -75,16 +75,11 @@ function AnnualQuoteBreakdown({
   annualDashboardAccess = false,
   /** Program is on admin annual-package list (MMM, AWRP, …) — used for non-annual payer copy. */
   programOnAnnualPackageList = false,
-  /** Year-long duration tier selected — clearer copy for prepaid annual package. */
-  yearLongTierSelected = false,
 }) {
   if (!aq) {
     return <p className="text-[11px] text-slate-500 italic">Calculating total…</p>;
   }
-  const includedCopy =
-    includedPkg && yearLongTierSelected
-      ? 'Already included in Annual Package'
-      : 'Included in annual package';
+  const includedCopy = 'Already included in your annual package';
   const ahSel = Number(aq.annual_household_peer_selected_count ?? aq.annual_household_peer_count ?? 0);
   const ahPay = Number(aq.annual_household_peer_count ?? 0);
   const ahPkg = Number(
@@ -1023,14 +1018,6 @@ export default function DashboardUpcomingProgramRowItem({
               <p className="text-[#D4AF37] text-[10px] tracking-wide mb-0.5">{p.category || 'Program'}</p>
               <div className="flex items-start gap-2 mb-1.5 flex-wrap">
                 <h3 className="text-base font-semibold text-gray-900 leading-tight pr-1">{p.title}</h3>
-                {p.dashboard_annual_product_pin && (
-                  <span
-                    data-testid={`dashboard-pinned-annual-product-${p.id}`}
-                    className="flex-shrink-0 inline-flex items-center rounded-md border border-teal-600/35 bg-teal-50/95 text-[8px] font-bold tracking-wide text-teal-900 px-2 py-0.5"
-                  >
-                    Home coming
-                  </span>
-                )}
                 {hasTiers && tierIsYearLong && (
                   <span className="flex-shrink-0 inline-flex items-center rounded-md border border-[#D4AF37]/40 bg-amber-50/95 text-[8px] font-bold tracking-wide text-[#6b5210] px-2 py-0.5">
                     Annual
@@ -1155,6 +1142,7 @@ export default function DashboardUpcomingProgramRowItem({
                 </div>
               ) : null}
               {enrollStatus === 'open' &&
+                !includedPkg &&
                 offerPrice > 0 &&
                 deadline &&
                 (() => {
@@ -1177,7 +1165,19 @@ export default function DashboardUpcomingProgramRowItem({
                   );
                 })()}
               <div className="flex flex-wrap items-baseline gap-2 mb-1">
-                {showContact ? (
+                {includedPkg ? (
+                  <div className="flex flex-col gap-1 w-full">
+                    {hasTiers && tier?.label ? (
+                      <span className="text-[11px] font-bold text-slate-600 tracking-wide">{tier.label}</span>
+                    ) : null}
+                    <span className="text-lg sm:text-xl font-bold text-emerald-700 leading-snug">
+                      Already included in your annual package
+                    </span>
+                    <span className="text-[10px] text-slate-600 leading-snug max-w-md">
+                      Your membership covers your seat — add family or guests in the enrollment panel when needed.
+                    </span>
+                  </div>
+                ) : showContact ? (
                   <div className="flex flex-col gap-1 w-full">
                     {hasTiers && tier?.label ? (
                       <span className="text-[11px] font-bold text-slate-600 tracking-wide">
@@ -1312,7 +1312,6 @@ export default function DashboardUpcomingProgramRowItem({
                         includedPkg={includedPkg}
                         annualDashboardAccess={annualDashboardAccess}
                         programOnAnnualPackageList={programOnAnnualPackageList}
-                        yearLongTierSelected={tierIsYearLong}
                         suppressIntro
                         layout="table"
                       />
@@ -1340,6 +1339,13 @@ export default function DashboardUpcomingProgramRowItem({
                             <span className={`text-slate-700 ${!bookerJoins ? 'line-through opacity-50' : ''}`}>Your seat</span>
                             <span className="text-slate-600 text-right">{bookerJoins ? 'Contact for pricing' : <span className="text-slate-400 italic text-[10px]">not enrolling</span>}</span>
                           </div>
+                        ) : includedPkg && bookerJoins ? (
+                          <div className={rowClass}>
+                            <span className="font-medium text-slate-800">Your seat</span>
+                            <span className="font-semibold text-emerald-700 text-right leading-snug max-w-[14rem]">
+                              Already included in your annual package
+                            </span>
+                          </div>
                         ) : bookerJoins && seatPrice > 0 ? (
                           <div className={rowClass}>
                             <span className="font-medium text-slate-800">Your seat</span>
@@ -1363,11 +1369,11 @@ export default function DashboardUpcomingProgramRowItem({
                                 </span>
                               ) : null}
                               <span className="font-bold text-green-600">
-                                {hasTiers && tier?.label
-                                  ? includedPkg && tierIsYearLong
-                                    ? 'Already included in Annual Package'
-                                    : 'Included'
-                                  : 'FREE'}
+                                {includedPkg
+                                  ? 'Already included in your annual package'
+                                  : hasTiers && tier?.label
+                                    ? 'Included'
+                                    : 'FREE'}
                               </span>
                             </span>
                           </div>
