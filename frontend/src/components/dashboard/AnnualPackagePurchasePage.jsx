@@ -21,8 +21,7 @@ import { useCurrency } from '../../context/CurrencyContext';
 import { getAuthHeaders } from '../../lib/authHeaders';
 import { pickTierIndexForDashboard } from './dashboardUpcomingHelpers';
 import DashboardUpcomingProgramsIrisBloom from './DashboardUpcomingProgramsIrisBloom';
-
-const API = process.env.REACT_APP_BACKEND_URL;
+import { getApiUrl } from '../../lib/config';
 
 /** Mirrors backend `_HOME_COMING_INCLUDES` shorts — subtitle for Divine Iris bundle. */
 const DIVINE_IRIS_HOME_COMING_PROGRAMS_LABEL =
@@ -98,7 +97,7 @@ export default function AnnualPackagePurchasePage() {
   const refresh = useCallback(() => {
     setLoading(true);
     axios
-      .get(`${API}/api/student/home`, { withCredentials: true })
+      .get(`${getApiUrl()}/student/home`, { withCredentials: true })
       .then((res) => setHomeData(res.data))
       .catch(() => {
         setHomeData(null);
@@ -133,7 +132,8 @@ export default function AnnualPackagePurchasePage() {
   const hc = homeData?.home_coming;
   const subtitleFourPrograms =
     hc?.includes?.length > 0
-      ? hc.includes.map((i) => i.short).join(' · ')
+      ? hc.includes.map((i) => (i && typeof i === 'object' ? i.short : '') || '').filter(Boolean).join(' · ') ||
+        DIVINE_IRIS_HOME_COMING_PROGRAMS_LABEL
       : DIVINE_IRIS_HOME_COMING_PROGRAMS_LABEL;
 
   useEffect(() => {
@@ -169,7 +169,7 @@ export default function AnnualPackagePurchasePage() {
       params.tier_index = tierIdx;
     }
     axios
-      .get(`${API}/api/student/dashboard-quote`, {
+      .get(`${getApiUrl()}/student/dashboard-quote`, {
         params,
         withCredentials: true,
         headers: getAuthHeaders(),
@@ -183,7 +183,7 @@ export default function AnnualPackagePurchasePage() {
     if (!homeData?.client_id) return;
     axios
       .put(
-        `${API}/api/student/annual-package-offer-preferences`,
+        `${getApiUrl()}/student/annual-package-offer-preferences`,
         {
           desired_start_date: desiredStart,
           payment_mode: paymentMode,
@@ -220,7 +220,7 @@ export default function AnnualPackagePurchasePage() {
     navigate('/dashboard/combined-checkout');
   };
 
-  if (loading || !homeData) {
+  if (loading) {
     return (
       <section
         className="w-full max-w-[68rem] mx-auto pl-4 pr-6 sm:pr-8 md:pr-10 lg:pr-12 py-6 md:py-8"
@@ -229,6 +229,25 @@ export default function AnnualPackagePurchasePage() {
         <div className="rounded-[28px] border border-[rgba(160,100,240,0.2)] bg-white/45 backdrop-blur-xl px-5 py-16 flex flex-col items-center justify-center gap-3 text-slate-600 shadow-[0_4px_48px_rgba(140,60,220,0.1)]">
           <Clock className="h-8 w-8 animate-spin text-[#5D3FD3]" aria-hidden />
           <p className="text-sm font-light tracking-wide">Gathering your sanctuary…</p>
+        </div>
+      </section>
+    );
+  }
+
+  if (!homeData) {
+    return (
+      <section
+        className="w-full max-w-[68rem] mx-auto pl-4 pr-6 sm:pr-8 md:pr-10 lg:pr-12 py-6 md:py-8"
+        data-testid="annual-package-purchase-error"
+      >
+        <div className="rounded-[28px] border border-red-200/90 bg-white/85 backdrop-blur-xl px-5 py-12 flex flex-col items-center justify-center gap-4 text-center text-slate-800 shadow-[0_4px_48px_rgba(140,60,220,0.08)]">
+          <p className="text-sm font-medium text-[#5b21b6] max-w-md">We could not load your Sacred Home data from the server.</p>
+          <p className="text-xs text-slate-600 max-w-md">
+            Try again, or use the circle menu at the bottom-left for Financials · Sign out.
+          </p>
+          <Button type="button" className="bg-[#5D3FD3]" onClick={() => refresh()}>
+            Retry
+          </Button>
         </div>
       </section>
     );
