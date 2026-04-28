@@ -479,10 +479,14 @@ export default function AnnualPackagePurchasePage() {
   }, [paymentMode, paymentScheduleRows.length]);
 
   const goCheckout = () => {
-    if (!pinnedProgram) return;
-    const tierIdx = pickTierIndexForDashboard(pinnedProgram, true) ?? 0;
-    syncProgramLineItem(pinnedProgram, tierIdx, null, { fromAnnualOfferPage: true });
-    navigate('/dashboard/combined-checkout');
+    if (pinnedProgram) {
+      const tierIdx = pickTierIndexForDashboard(pinnedProgram, true) ?? 0;
+      syncProgramLineItem(pinnedProgram, tierIdx, null, { fromAnnualOfferPage: true });
+      navigate('/dashboard/combined-checkout');
+      return;
+    }
+    /* Illustrative schedule or no catalog pin: still send members somewhere to pay (combined-checkout needs a line item). */
+    navigate('/dashboard/financials');
   };
 
   if (loading) {
