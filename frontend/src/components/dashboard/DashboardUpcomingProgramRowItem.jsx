@@ -463,12 +463,25 @@ export default function DashboardUpcomingProgramRowItem({
     [cartItems, resolveCartCrossSellTier],
   );
 
-  /** Program eligible for waived member seat (admin list ± pillar keywords for annual-portal Sacred Home cohorts). */
-  const programOnAnnualPackageList = programIncludedInAnnualPackage(p, annualIncludedIds, annualDashboardAccess);
-  /** Logged-in user’s own seat is prepaid (Annual dashboard access + program on package list). */
+  /** Normalize admin ids (site settings may stringify late or use odd shapes after hydration). */
+  const annualIncludedIdsSafe = Array.isArray(annualIncludedIds)
+    ? annualIncludedIds
+        .map((x) => {
+          if (x == null) return null;
+          if (typeof x === 'object' && x !== null && 'id' in x) return String(x.id);
+          return String(x);
+        })
+        .filter(Boolean)
+    : [];
+  /** List + pillar keywords (MMM, Atomic Weight / AWRP, …); third arg true matches backend portal inclusion. */
+  const listOrPillarAnnualPackageMatch = programIncludedInAnnualPackage(p, annualIncludedIdsSafe, true);
+  const programOnAnnualPackageList = annualDashboardAccess
+    ? listOrPillarAnnualPackageMatch
+    : programIncludedInAnnualPackage(p, annualIncludedIdsSafe, false);
+  /** Member seat prepaid: trust dashboard-quote or client list/pillar rules. */
   const includedPkg = Boolean(
-    annualDashboardAccess &&
-      ((aq?.included_in_annual_package ?? false) || programOnAnnualPackageList),
+    (aq?.included_in_annual_package === true) ||
+      (annualDashboardAccess && listOrPillarAnnualPackageMatch),
   );
 
   /**
@@ -503,6 +516,11 @@ export default function DashboardUpcomingProgramRowItem({
 
   const selIds = selectedFamilyByProgram[p.id] || [];
   const selCount = selIds.length;
+
+  const onlyBookerIncludedNoGuestSeats =
+    includedPkg &&
+    selIds.length === 0 &&
+    (annualSeatUi?.draft?.bookerJoinsProgram !== false);
 
   const needsFamilyPaidTier = Boolean(
     includedPkg && tierIsYearLong && selCount > 0 && familyPaidTierOptions.length > 0,
@@ -1435,10 +1453,16 @@ export default function DashboardUpcomingProgramRowItem({
                 <div className="text-[11px] text-slate-600 mt-2 pt-2 border-t border-slate-100 leading-snug space-y-1">
                   <p>
                     Your selection total{includedPkg ? ' (guests & add-ons)' : ''}:{' '}
-                    <span className="font-semibold text-slate-800 tabular-nums">
-                      {symbol}{' '}
-                      {Math.max(0, Number(aq.total ?? 0) - crossSellLineDeduction).toLocaleString()}
-                    </span>
+                    {onlyBookerIncludedNoGuestSeats ? (
+                      <span className="font-semibold text-emerald-700">
+                        Already included in your annual package (no charge for your seat)
+                      </span>
+                    ) : (
+                      <span className="font-semibold text-slate-800 tabular-nums">
+                        {symbol}{' '}
+                        {Math.max(0, Number(aq.total ?? 0) - crossSellLineDeduction).toLocaleString()}
+                      </span>
+                    )}
                   </p>
                   {crossSellLineDeduction > 0 ? (
                     <p className="text-[10px] text-amber-900 font-medium">
@@ -1463,8 +1487,21 @@ export default function DashboardUpcomingProgramRowItem({
                 const hasGuests = immCount > 0 || extCount > 0;
                 return (bookerJoins || hasGuests) ? (
                   <p className="text-[11px] text-slate-600 mt-2 pt-2 border-t border-slate-100 leading-snug">
-                    Your selection total{hasGuests ? ' (guests & add-ons)' : ''}:{' '}
-                    <span className="font-semibold text-slate-800 tabular-nums">{symbol} {grandTotal.toLocaleString()}</span>
+                    {includedPkg && bookerJoins && !hasGuests ? (
+                      <>
+                        Your selection total:{' '}
+                        <span className="font-semibold text-emerald-700">
+                          Already included in your annual package (no charge for your seat)
+                        </span>
+                      </>
+                    ) : (
+                      <>
+                        Your selection total{hasGuests ? ' (guests & add-ons)' : ''}:{' '}
+                        <span className="font-semibold text-slate-800 tabular-nums">
+                          {symbol} {grandTotal.toLocaleString()}
+                        </span>
+                      </>
+                    )}
                   </p>
                 ) : (
                   <p className="text-[11px] text-slate-400 italic mt-2 pt-2 border-t border-slate-100">
@@ -1901,7 +1938,7 @@ export default function DashboardUpcomingProgramRowItem({
                   goProgram();
                 }}
                 data-testid={`dashboard-know-more-annual-${p.id}`}
-                className="w-full inline-flex items-center justify-center bg-[#1a1a1a] hover:bg-[#333] text-white py-2.5 px-5 rounded-full text-[10px] tracking-wide transition-all duration-300 font-medium"
+                className="w-full inline-flex items-center justify-center bg-[#1a1a1a] hover:bg-[#333] text-white py-2.5 px-5 rounded-full text-[10px] tracking-wide transition-all duration-300 font-medium uppercase"
               >
                 Know More
               </button>
@@ -1944,7 +1981,7 @@ export default function DashboardUpcomingProgramRowItem({
                       : undefined
                 }
                 onClick={handleAddToDivineCart}
-                className="w-full inline-flex items-center justify-center gap-2 rounded-full py-2.5 px-5 text-[10px] tracking-wide font-medium transition-all duration-300 bg-[#D4AF37] text-white hover:bg-[#b8962e] disabled:opacity-50 disabled:pointer-events-none shadow-sm"
+                className="w-full inline-flex items-center justify-center gap-2 rounded-full py-2.5 px-5 text-[10px] tracking-wide font-medium uppercase transition-all duration-300 bg-[#D4AF37] text-white hover:bg-[#b8962e] disabled:opacity-50 disabled:pointer-events-none shadow-sm"
                 aria-label="Add to Divine Cart"
                 data-testid={`dashboard-divine-cart-${p.id}`}
               >
@@ -1959,7 +1996,7 @@ export default function DashboardUpcomingProgramRowItem({
               <button
                 type="button"
                 disabled
-                className="w-full inline-flex items-center justify-center gap-2 rounded-full py-2.5 px-5 text-[10px] tracking-wide font-medium bg-gray-300 text-gray-500 cursor-not-allowed shadow-sm"
+                className="w-full inline-flex items-center justify-center gap-2 rounded-full py-2.5 px-5 text-[10px] tracking-wide font-medium uppercase bg-gray-300 text-gray-500 cursor-not-allowed shadow-sm"
                 aria-label="Add to Divine Cart"
                 data-testid={`dashboard-divine-cart-${p.id}`}
               >

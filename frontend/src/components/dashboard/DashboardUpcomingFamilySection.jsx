@@ -2168,11 +2168,20 @@ export default function DashboardUpcomingFamilySection({ homeData, onRefresh, bo
         ) : (
           <div className="space-y-5 mb-4 max-w-full">
             {upcomingList.map((p) => {
+              const annualIdsSafe = Array.isArray(annualIncludedIds)
+                ? annualIncludedIds
+                    .map((x) => {
+                      if (x == null) return null;
+                      if (typeof x === 'object' && x !== null && 'id' in x) return String(x.id);
+                      return String(x);
+                    })
+                    .filter(Boolean)
+                : [];
               const sel = selectedFamilyByProgram[p.id] || [];
               const includedForSeat =
-                annualPortalAccess &&
-                (programIncludedInAnnualPackage(p, annualIncludedIds, annualPortalAccess) ||
-                  !!annualQuotes[p.id]?.included_in_annual_package);
+                !!annualQuotes[p.id]?.included_in_annual_package ||
+                (annualPortalAccess &&
+                  programIncludedInAnnualPackage(p, annualIdsSafe, true));
               const seatCtxMini = { includedPkg: includedForSeat, selectedIds: sel };
               const draftRow = mergeGlobalSeatDraft(
                 seatDraftsByProgram[p.id],
