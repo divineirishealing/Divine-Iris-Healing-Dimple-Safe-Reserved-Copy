@@ -573,18 +573,28 @@ function ProgramDetailPage() {
                 className="flex w-full max-w-[min(100%,28rem)] flex-col gap-3 self-end text-right"
                 data-testid="program-hero-tier-dock"
               >
-                <div className="mb-1 flex w-full justify-end" data-testid="program-hero-tier-dock-title">
-                  <span className="rounded-sm bg-white px-4 py-2 shadow-sm">
-                    <span className="text-[9px] font-medium uppercase tracking-[0.2em]" style={{ color: heroAccent }}>
+                {detailEnrollStatus === 'open' && (
+                  <div className="mb-1 flex w-full justify-end" data-testid="program-hero-tier-dock-title">
+                    <button
+                      type="button"
+                      data-testid="hero-enroll-btn"
+                      onClick={() => navigate(`/enroll/program/${program.id}${enrollProgramQuery(heroTierIdx)}`)}
+                      className="rounded-sm px-5 py-2.5 text-[11px] font-bold uppercase tracking-[0.18em] text-white shadow-md transition-opacity hover:opacity-90 md:text-xs md:tracking-[0.2em]"
+                      style={{ background: heroAccent }}
+                    >
                       ENROLL NOW
-                    </span>
-                  </span>
-                </div>
+                    </button>
+                  </div>
+                )}
                 {program.duration_tiers.map((tier, tIdx) => {
-                  const isAnnual = tier.label?.toLowerCase().includes('annual') || tier.label?.toLowerCase().includes('year') || tier.duration_unit === 'year';
+                  const isAnnual =
+                    tier.label?.toLowerCase().includes('annual') ||
+                    tier.label?.toLowerCase().includes('year') ||
+                    tier.duration_unit === 'year';
+                  if (isAnnual) return null;
+
                   const tierPrice = getPrice(program, tIdx);
                   const tierOffer = getOfferPrice(program, tIdx);
-                  const showContact = isAnnual && tierPrice === 0;
                   return (
                     <div
                       key={tIdx}
@@ -593,23 +603,7 @@ function ProgramDetailPage() {
                       <span className="shrink-0 text-[9px] font-medium uppercase tracking-[0.2em]" style={{ color: heroAccent }}>
                         {tier.label}:
                       </span>
-                      {showContact ? (
-                        <>
-                          <span className="min-w-0 text-[10px] text-white/70 md:text-xs">Contact for customised pricing</span>
-                          <button
-                            type="button"
-                            data-testid={`hero-tier-${tIdx}`}
-                            onClick={() => {
-                              setHeroTierIdx(tIdx);
-                              navigate(`/contact?program=${program.id}&title=${encodeURIComponent(program.title)}&tier=${tier.label}`);
-                            }}
-                            className="shrink-0 text-[9px] font-medium uppercase tracking-[0.2em] transition-opacity hover:opacity-90"
-                            style={{ color: heroAccent, background: 'none', border: 'none', padding: 0, cursor: 'pointer' }}
-                          >
-                            CONTACT US
-                          </button>
-                        </>
-                      ) : tierOffer > 0 ? (
+                      {tierOffer > 0 ? (
                         <>
                           <span className="shrink-0 text-base font-semibold tabular-nums md:text-lg" style={{ ...globalPricingStyle, color: heroAccent }}>
                             {symbol} {tierOffer.toLocaleString()}
@@ -670,23 +664,11 @@ function ProgramDetailPage() {
                     </div>
                   );
                 })}
-                <div className="flex flex-col items-end pt-1">
-                  {detailEnrollStatus === 'open' ? (
-                    <button
-                      type="button"
-                      data-testid="hero-enroll-btn"
-                      onClick={() => navigate(`/enroll/program/${program.id}${enrollProgramQuery(heroTierIdx)}`)}
-                      className="border-0 bg-transparent px-0 py-1 text-[9px] font-medium uppercase tracking-[0.2em] transition-opacity hover:opacity-90 md:text-[10px]"
-                      style={{ color: heroAccent }}
-                    >
-                      ENROLL NOW
-                    </button>
-                  ) : (
-                    <div data-testid="hero-express-interest">
-                      <ExpressInterestInline variant="hero" programId={program.id} programTitle={program.title} accent={heroAccent} />
-                    </div>
-                  )}
-                </div>
+                {detailEnrollStatus !== 'open' && (
+                  <div className="flex flex-col items-end pt-2" data-testid="hero-express-interest">
+                    <ExpressInterestInline variant="hero" programId={program.id} programTitle={program.title} accent={heroAccent} />
+                  </div>
+                )}
               </div>
             ) : null}
           </div>
