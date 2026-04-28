@@ -347,6 +347,25 @@ const StudentDashboard = () => {
   }, [location.hash, location.pathname, homeLoading]);
 
   const pts = homeData?.points;
+  /** True when at least one Sacred Home overview tile can render (admin visibility + points gate). */
+  const hasAnySacredHomeSection = useMemo(() => {
+    if (!dv) return true;
+    if (
+      dv.hero ||
+      dv.upcoming_family ||
+      dv.schedule_card ||
+      dv.profile_card ||
+      dv.journey_compass ||
+      dv.financials_card ||
+      dv.intentions_diary ||
+      dv.transformations_card ||
+      dv.footer_quote
+    ) {
+      return true;
+    }
+    if (dv.loyalty_points && pts?.enabled) return true;
+    return false;
+  }, [dv, pts?.enabled]);
   const pkg = homeData?.package || {};
   const homeComing = homeData?.home_coming;
   const displayProgramLabel = useMemo(() => {
@@ -539,6 +558,88 @@ const StudentDashboard = () => {
           onSaved={refreshHome}
         />
 
+        {/* Load state: upcoming block used to own the spinner — if hero+upcoming are both on, keep one loader there only; otherwise show here so hero-off / upcoming-off never yields a blank screen. */}
+        {homeLoading && !dv.upcoming_family && (
+          <section
+            className="w-full max-w-[68rem] mx-auto pl-4 pr-6 sm:pr-8 md:pr-10 lg:pr-12 mb-4 md:mb-6"
+            aria-busy="true"
+            data-testid="dashboard-home-loading"
+          >
+            <div className="rounded-[28px] border border-[rgba(160,100,240,0.2)] bg-white/45 backdrop-blur-xl px-5 py-14 flex flex-col items-center justify-center gap-3 text-slate-600">
+              <Loader2 className="h-8 w-8 animate-spin text-[#5D3FD3]" aria-hidden />
+              <p className="text-sm text-center">Welcoming your Sacred Home…</p>
+            </div>
+          </section>
+        )}
+        {!homeLoading && homeFetchError && (
+          <section className="w-full max-w-[68rem] mx-auto pl-4 pr-6 sm:pr-8 md:pr-10 lg:pr-12 mb-4 md:mb-6" data-testid="dashboard-home-error">
+            <div className="rounded-[28px] border border-red-200 bg-red-50/90 px-5 py-5 text-sm text-red-950">
+              <p className="font-semibold">
+                {homeErrorKind === 'auth' ? 'Could not load dashboard — not signed in' : 'Could not load dashboard'}
+              </p>
+              <p className="text-xs mt-1 text-red-900/85">
+                {homeErrorKind === 'auth' ? (
+                  <>
+                    This page needs a valid session. In private/incognito windows, sign in again from{' '}
+                    <button
+                      type="button"
+                      className="font-medium text-[#5D3FD3] underline"
+                      onClick={() => navigate('/login')}
+                    >
+                      Log in
+                    </button>
+                    . If you are already signed in, tap Retry.
+                  </>
+                ) : (
+                  <>
+                    Check your connection and tap Retry. For payments you can also open Financials from the sidebar menu.
+                  </>
+                )}
+              </p>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="mt-3 h-9 text-xs border-red-300"
+                onClick={refreshHome}
+              >
+                Retry
+              </Button>
+            </div>
+          </section>
+        )}
+        {!homeLoading && homeData && !homeFetchError && !hasAnySacredHomeSection && (
+          <section
+            className="w-full max-w-[68rem] mx-auto pl-4 pr-6 sm:pr-8 md:pr-10 lg:pr-12 mb-4 md:mb-6"
+            data-testid="dashboard-overview-all-hidden"
+          >
+            <div className="rounded-[28px] border border-[rgba(160,100,240,0.22)] bg-white/45 backdrop-blur-xl px-5 py-8 text-center text-slate-700">
+              <p className="font-[family-name:'Cinzel',serif] text-[10px] uppercase tracking-[0.2em] text-[rgba(100,60,160,0.55)] mb-2">
+                Sacred Home
+              </p>
+              <p className="text-sm font-medium text-[#1a0a3d] mb-2">Nothing is enabled on this page right now.</p>
+              <p className="text-xs text-slate-600 max-w-md mx-auto leading-relaxed mb-4">
+                An administrator can turn sections back on under Admin → Dashboard settings. You can still open other areas
+                from the menu.
+              </p>
+              <div className="flex flex-wrap items-center justify-center gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="h-9 text-xs border-violet-200"
+                  onClick={() => navigate('/dashboard/financials')}
+                >
+                  Financials
+                </Button>
+                <Button type="button" size="sm" className="h-9 text-xs bg-[#5D3FD3]" onClick={() => navigate('/dashboard/profile')}>
+                  Profile
+                </Button>
+              </div>
+            </div>
+          </section>
+        )}
+
         {dv.upcoming_family ? (
           <>
             {homeLoading && (
@@ -550,44 +651,6 @@ const StudentDashboard = () => {
                 <div className="rounded-[28px] border border-[rgba(160,100,240,0.2)] bg-white/45 backdrop-blur-xl px-5 py-14 flex flex-col items-center justify-center gap-3 text-slate-600">
                   <Loader2 className="h-8 w-8 animate-spin text-[#5D3FD3]" aria-hidden />
                   <p className="text-sm">Loading upcoming programs…</p>
-                </div>
-              </section>
-            )}
-            {!homeLoading && homeFetchError && (
-              <section className="w-full max-w-[68rem] mx-auto pl-4 pr-6 sm:pr-8 md:pr-10 lg:pr-12 mb-4 md:mb-6" data-testid="dashboard-upcoming-error">
-                <div className="rounded-[28px] border border-red-200 bg-red-50/90 px-5 py-5 text-sm text-red-950">
-                  <p className="font-semibold">
-                    {homeErrorKind === 'auth' ? 'Could not load programs — not signed in' : 'Could not load programs'}
-                  </p>
-                  <p className="text-xs mt-1 text-red-900/85">
-                    {homeErrorKind === 'auth' ? (
-                      <>
-                        This page needs a valid session. In private/incognito windows, sign in again from{' '}
-                        <button
-                          type="button"
-                          className="font-medium text-[#5D3FD3] underline"
-                          onClick={() => navigate('/login')}
-                        >
-                          Log in
-                        </button>
-                        . If you are already signed in, tap Retry.
-                      </>
-                    ) : (
-                      <>
-                        Check your connection and tap Retry. For payments you can also open Financials from the sidebar
-                        menu.
-                      </>
-                    )}
-                  </p>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    className="mt-3 h-9 text-xs border-red-300"
-                    onClick={refreshHome}
-                  >
-                    Retry
-                  </Button>
                 </div>
               </section>
             )}
