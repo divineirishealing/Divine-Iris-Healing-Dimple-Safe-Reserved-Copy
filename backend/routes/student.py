@@ -265,7 +265,20 @@ def _offer_total_from_annual_package(pkg_row: Optional[dict], currency: str) -> 
 async def _active_home_coming_package_catalog_row() -> Optional[dict]:
     """Highest-version annual package row that is still active for catalog/pricing defaults."""
     rows = (
-        await db.annual_packages.find({}, {"_id": 0, "offer_total": 1, "is_active": 1, "version": 1})
+        await db.annual_packages.find(
+            {},
+            {
+                "_id": 0,
+                "package_id": 1,
+                "package_name": 1,
+                "duration_months": 1,
+                "valid_from": 1,
+                "valid_to": 1,
+                "offer_total": 1,
+                "is_active": 1,
+                "version": 1,
+            },
+        )
         .sort([("version", -1)])
         .to_list(60)
     )
@@ -2471,6 +2484,18 @@ async def get_student_home(user: dict = Depends(get_current_student_user)):
     synthetic_portal = portal_email_raw.lower().endswith("@impersonation.internal")
     can_add_contact_email = bool(client_id) and (not crm_email_raw or synthetic_portal)
 
+    annual_catalog_bundle = None
+    cat_row = await _active_home_coming_package_catalog_row()
+    if cat_row:
+        annual_catalog_bundle = {
+            "package_id": str(cat_row.get("package_id") or ""),
+            "package_name": str(cat_row.get("package_name") or ""),
+            "duration_months": cat_row.get("duration_months"),
+            "valid_from": str(cat_row.get("valid_from") or ""),
+            "valid_to": str(cat_row.get("valid_to") or ""),
+            "offer_total": cat_row.get("offer_total") if isinstance(cat_row.get("offer_total"), dict) else {},
+        }
+
     return {
         "client_id": client_id,
         "upcoming_programs": upcoming,
@@ -2543,6 +2568,8 @@ async def get_student_home(user: dict = Depends(get_current_student_user)):
         "annual_renewal_reminder": annual_renewal_reminder_for_portal(client),
         # Student-chosen prefs for Home Coming / annual package (shown on dedicated purchase page; admin-visible on client doc).
         "annual_package_offer_prefs": client.get("annual_package_offer_prefs") if isinstance(client.get("annual_package_offer_prefs"), dict) else None,
+        # Active Home Coming catalog row (admin annual_packages): multi-currency offer_total for display on Home Coming package page.
+        "annual_catalog_bundle": annual_catalog_bundle,
     }
 
 

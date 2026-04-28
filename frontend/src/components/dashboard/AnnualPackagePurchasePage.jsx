@@ -44,6 +44,27 @@ function emiInstallmentCount(mode, durationMonths) {
   return 1;
 }
 
+/** Pick admin catalog offer for the member's pricing hub (offer_total keys: INR, AED, USD, …). */
+function offerTotalForCurrency(offerTotal, currency) {
+  if (!offerTotal || typeof offerTotal !== 'object') return null;
+  const c = (currency || 'inr').toString();
+  const up = c.toUpperCase();
+  const lo = c.toLowerCase();
+  for (const k of [up, lo, c]) {
+    if (k in offerTotal && offerTotal[k] != null && String(offerTotal[k]).trim() !== '') {
+      const n = Number(offerTotal[k]);
+      if (!Number.isNaN(n)) return n;
+    }
+  }
+  for (const [key, val] of Object.entries(offerTotal)) {
+    if (String(key).toLowerCase() === lo) {
+      const n = Number(val);
+      if (!Number.isNaN(n)) return n;
+    }
+  }
+  return null;
+}
+
 function buildEmiPreview(mode, total, startYmd, durationMonths) {
   if (!total || total <= 0 || mode === 'full') return [];
   const n = emiInstallmentCount(mode, durationMonths);
@@ -135,6 +156,33 @@ export default function AnnualPackagePurchasePage() {
       ? hc.includes.map((i) => (i && typeof i === 'object' ? i.short : '') || '').filter(Boolean).join(' · ') ||
         DIVINE_IRIS_HOME_COMING_PROGRAMS_LABEL
       : DIVINE_IRIS_HOME_COMING_PROGRAMS_LABEL;
+
+  const catalogBundle = homeData?.annual_catalog_bundle;
+  const catalogOfferTotal = catalogBundle?.offer_total;
+  const catalogAmountHub = useMemo(
+    () => offerTotalForCurrency(catalogOfferTotal, baseCurrency),
+    [catalogOfferTotal, baseCurrency],
+  );
+  const catalogDisplayAmount = catalogAmountHub != null ? toDisplay(catalogAmountHub) : null;
+  const catalogOtherCurrencies = useMemo(() => {
+    if (!catalogOfferTotal || typeof catalogOfferTotal !== 'object') return [];
+    const hub = (baseCurrency || 'inr').toLowerCase();
+    return Object.entries(catalogOfferTotal).filter(
+      ([k]) => k && String(k).toLowerCase() !== hub && Number(catalogOfferTotal[k]) > 0,
+    );
+  }, [catalogOfferTotal, baseCurrency]);
+
+  /** Non-empty catalog amounts (fallback when user's hub key is missing). */
+  const catalogAllPositiveEntries = useMemo(() => {
+    if (!catalogOfferTotal || typeof catalogOfferTotal !== 'object') return [];
+    return Object.entries(catalogOfferTotal).filter(
+      ([, v]) =>
+        v != null &&
+        String(v).trim() !== '' &&
+        !Number.isNaN(Number(v)) &&
+        Number(v) >= 0,
+    );
+  }, [catalogOfferTotal]);
 
   useEffect(() => {
     if (!homeData || prefsInitDone.current) return;
@@ -355,6 +403,79 @@ export default function AnnualPackagePurchasePage() {
                   Pay next installment or upload proof
                   <ArrowRight size={16} className="ml-2 shrink-0 opacity-90" />
                 </Button>
+              </div>
+            ) : null}
+
+            {catalogBundle ? (
+              <div
+                className={cn(glassInset, 'text-center sm:text-left')}
+                data-testid="home-coming-catalog-total"
+              >
+                <div className="flex items-start gap-2 mb-2">
+                  <ShoppingCart size={18} className="text-[#5D3FD3] shrink-0 mt-0.5" aria-hidden />
+                  <div className="min-w-0">
+                    <h2 className="text-[15px] font-[family-name:'Cinzel',serif] font-semibold text-[#3b0764] tracking-wide">
+                      Total annual program price (Home Coming catalog)
+                    </h2>
+                    <p className="text-[11px] text-[rgba(60,35,115,0.55)] mt-1 leading-snug">
+                      {catalogBundle.package_name || 'Home Coming'}
+                      {typeof catalogBundle.duration_months === 'number'
+                        ? ` · ${catalogBundle.duration_months}-month bundle`
+                        : ''}
+                      {' — '}package offer totals from Admin (Sacred Home catalog enrollment uses the same row).
+                    </p>
+                  </div>
+                </div>
+                {catalogAmountHub != null && catalogDisplayAmount != null ? (
+                  <p className="mt-3">
+                    <span className="text-[2rem] sm:text-[2.35rem] font-bold text-[#1a0a3d] tabular-nums tracking-tight">
+                      {symbol}
+                      {Number(catalogDisplayAmount).toLocaleString()}
+                    </span>{' '}
+                    <span className="text-lg font-semibold text-[rgba(80,55,145,0.55)]">
+                      {(baseCurrency || 'inr').toUpperCase()}
+                    </span>
+                  </p>
+                ) : catalogAllPositiveEntries.length > 0 ? (
+                  <div className="mt-3 space-y-1">
+                    {catalogAllPositiveEntries.map(([k, v]) => (
+                      <p
+                        key={String(k)}
+                        className="text-[1.35rem] sm:text-[1.5rem] font-bold text-[#1a0a3d] tabular-nums"
+                      >
+                        <span className="text-base font-semibold text-[rgba(80,55,145,0.55)] mr-1.5 inline-block">
+                          {String(k).toUpperCase()}
+                        </span>
+                        {Number(v).toLocaleString()}
+                      </p>
+                    ))}
+                    {catalogAmountHub == null ? (
+                      <p className="text-[10px] text-[rgba(60,35,115,0.45)] mt-2 max-w-xl leading-relaxed">
+                        No catalog amount published for your current pricing hub (
+                        {(baseCurrency || 'inr').toUpperCase()}). Listed amounts above are entered in Admin.
+                      </p>
+                    ) : null}
+                  </div>
+                ) : (
+                  <p className="mt-3 text-sm text-amber-900/90 bg-amber-50/95 border border-amber-200/80 rounded-xl px-3 py-2.5 leading-snug">
+                    Your host has not entered the catalog package offer total yet. They set it under{' '}
+                    <strong>Admin → Home Coming catalog → Package offer</strong>
+                    {' — '}then your total annual price will show here.
+                  </p>
+                )}
+                {catalogOtherCurrencies.length > 0 && catalogAmountHub != null ? (
+                  <p className="text-[10px] text-[rgba(60,35,115,0.48)] mt-3 leading-relaxed">
+                    Other pricing hubs:{' '}
+                    {catalogOtherCurrencies.map(([k, v], idx) => (
+                      <span key={`${k}-${idx}`}>
+                        {idx > 0 ? ' · ' : ''}
+                        <span className="font-semibold tabular-nums">
+                          {String(k).toUpperCase()} {Number(v).toLocaleString()}
+                        </span>
+                      </span>
+                    ))}
+                  </p>
+                ) : null}
               </div>
             ) : null}
 
