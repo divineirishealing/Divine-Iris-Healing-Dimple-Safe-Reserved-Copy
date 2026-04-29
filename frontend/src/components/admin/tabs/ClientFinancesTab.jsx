@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import axios from 'axios';
-import { IndianRupee, Loader2, Pencil, RefreshCw, Search } from 'lucide-react';
+import { Columns3, IndianRupee, Loader2, Pencil, RefreshCw, Search } from 'lucide-react';
 import { getApiUrl } from '../../../lib/config';
 import { buildClientFinancePutPayload } from '../../../lib/clientFinanceAdmin';
 import { serverBandsToRows, validateBandRows } from '../../../lib/indiaDiscountBandsUi';
@@ -23,10 +23,39 @@ import {
   DialogTitle,
   DialogDescription,
 } from '../../ui/dialog';
+import {
+  DropdownMenu,
+  DropdownMenuCheckboxItem,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '../../ui/dropdown-menu';
 import { useToast } from '../../../hooks/use-toast';
 
 const API = getApiUrl();
 const FINANCE_PRESELECT_KEY = 'admin_finance_focus_client_id';
+const FINANCE_COL_STORAGE = 'iris_annual_abundance_columns_v1';
+
+/** Column ids in table order. Only `hideable` columns appear in the Columns menu. */
+const FINANCE_COLUMNS = [
+  { id: 'name', label: 'Name', hideable: false },
+  { id: 'email', label: 'Email', hideable: true },
+  { id: 'start', label: 'Start', hideable: true },
+  { id: 'end', label: 'End', hideable: true },
+  { id: 'status', label: 'Status', hideable: true },
+  { id: 'iris', label: 'Iris / label', hideable: true },
+  { id: 'payMethod', label: 'Pay method', hideable: true },
+  { id: 'annualFee', label: 'Annual fee', hideable: true },
+  { id: 'mode', label: 'Mode', hideable: true },
+  { id: 'emiCount', label: 'EMIs', hideable: true },
+  { id: 'discount', label: 'Discount', hideable: true },
+  { id: 'tax', label: 'Tax', hideable: true },
+  { id: 'totalAmount', label: 'Total amount', hideable: true },
+  { id: 'paidApproved', label: 'Paid (approved proofs)', hideable: true },
+  { id: 'edit', label: 'Edit', hideable: false },
+];
 
 function formatAnnualDate(raw) {
   const s = (raw || '').trim();
@@ -58,13 +87,114 @@ function annualFeeLine(cl) {
   return `${n.toLocaleString()} ${cur}`;
 }
 
-function paymentModeLine(cl) {
+function subscriptionCurrency(cl) {
   const sub = subscriptionBlock(cl);
-  const pm = (sub.payment_mode || '').trim();
-  if (pm) return pm;
+  return (sub.currency || 'INR').toString().trim() || 'INR';
+}
+
+/** Home Coming pay shape: EMI plan vs lump-sum. */
+function installmentModeLabel(cl) {
+  const sub = subscriptionBlock(cl);
   const emis = sub.emis;
-  if (Array.isArray(emis) && emis.length) return 'EMI schedule';
-  return '—';
+  if (Array.isArray(emis) && emis.length > 0) return 'EMI';
+  const pm = (sub.payment_mode || '').trim().toLowerCase();
+  if (pm.includes('emi')) return 'EMI';
+  return 'Full paid';
+}
+
+function emiInstallmentCount(cl) {
+  const sub = subscriptionBlock(cl);
+  const emis = sub.emis;
+  if (!Array.isArray(emis) || !emis.length) return '—';
+  return String(emis.length);
+}
+
+function hasGroupDiscountBands(cl) {
+  const bands = cl.india_discount_member_bands;
+  return Array.isArray(bands) && bands.length > 0;
+}
+
+/**
+ * Estimated payable from package fee + simple % discount + GST (matches common India setup).
+ * When tiered group bands exist, total is approximate — reconcile in Subscribers.
+ */
+function computedFinanceTotal(cl) {
+  const sub = subscriptionBlock(cl);
+  const fee = Number(sub.total_fee);
+  const currency = subscriptionCurrency(cl);
+  if (!Number.isFinite(fee) || fee <= 0) {
+    return { amount: null, approximate: false, currency };
+  }
+  let x = fee;
+  let approximate = false;
+  if (hasGroupDiscountBands(cl)) {
+    approximate = true;
+  } else {
+    const dp = cl.india_discount_percent;
+    if (dp != null && dp !== '') {
+      const d = Number(dp);
+      if (Number.isFinite(d) && d > 0) x *= 1 - d / 100;
+    }
+  }
+  if (cl.india_tax_enabled) {
+    const t = Number(cl.india_tax_percent ?? 18);
+    if (Number.isFinite(t) && t > 0) x *= 1 + t / 100;
+  }
+  return { amount: Math.round(x * 100) / 100, approximate, currency };
+}
+
+function formatMoneyAmount(amount, currency) {
+  if (amount == null || !Number.isFinite(amount)) return '—';
+  return `${Number(amount).toLocaleString()} ${currency || 'INR'}`;
+}
+
+function paidApprovedSummary(cl, rollup) {
+  const tot = computedFinanceTotal(cl);
+  const currency = tot.currency;
+  if (!rollup || !rollup.approved_count) {
+    return {
+      line1: '—',
+      line2: '',
+      badge: null,
+      title: 'No approved manual payment proofs on file (Stripe-only flows may be empty).',
+    };
+  }
+  const paid = Number(rollup.approved_total) || 0;
+  const lastAmt = rollup.last_amount != null ? Number(rollup.last_amount) : null;
+  const lastTs = (rollup.last_event_iso || '').trim();
+  const lastDay = lastTs.length >= 10 ? lastTs.slice(0, 10) : '';
+  const lastDateLabel = formatAnnualDate(lastDay);
+  const line1 = `${paid.toLocaleString()} ${currency} · ${rollup.approved_count} proof(s)`;
+  const line2 =
+    lastAmt != null && Number.isFinite(lastAmt)
+      ? `Last: ${lastAmt.toLocaleString()} ${currency} · ${lastDateLabel}`
+      : lastDateLabel !== '—'
+        ? `Last proof: ${lastDateLabel}`
+        : '';
+
+  let badge = null;
+  if (tot.amount != null && Number.isFinite(tot.amount)) {
+    const delta = paid - tot.amount;
+    if (Math.abs(delta) < 1) {
+      badge = { text: tot.approximate ? 'Matches est. total' : 'Matches total', kind: 'ok' };
+    } else if (delta < -1) {
+      badge = {
+        text: `Short ${Math.abs(delta).toLocaleString()} ${currency}`,
+        kind: 'short',
+      };
+    } else {
+      badge = { text: `Over ${delta.toLocaleString()} ${currency}`, kind: 'over' };
+    }
+  } else {
+    badge = { text: 'Set fee to validate', kind: 'muted' };
+  }
+
+  return {
+    line1,
+    line2,
+    badge,
+    title: [line1, line2].filter(Boolean).join('\n'),
+  };
 }
 
 function paymentMethodSummary(cl) {
@@ -76,14 +206,6 @@ function paymentMethodSummary(cl) {
   if (pl) return pl;
   if (tl) return tl;
   return '—';
-}
-
-function emiProgressLine(cl) {
-  const sub = subscriptionBlock(cl);
-  const emis = sub.emis;
-  if (!Array.isArray(emis) || !emis.length) return '—';
-  const paid = emis.filter((e) => e.status === 'paid').length;
-  return `${paid}/${emis.length} paid`;
 }
 
 /**
@@ -114,6 +236,21 @@ export default function ClientFinancesTab() {
   const [crmLateFeePerDay, setCrmLateFeePerDay] = useState('');
   const [crmChannelizationFee, setCrmChannelizationFee] = useState('');
   const [crmShowLateFees, setCrmShowLateFees] = useState('');
+
+  const [columnVisibility, setColumnVisibility] = useState(() => {
+    try {
+      const raw = localStorage.getItem(FINANCE_COL_STORAGE);
+      if (raw) return JSON.parse(raw);
+    } catch (_) {}
+    return {};
+  });
+
+  const persistColumns = useCallback((next) => {
+    setColumnVisibility(next);
+    try {
+      localStorage.setItem(FINANCE_COL_STORAGE, JSON.stringify(next));
+    } catch (_) {}
+  }, []);
 
   useEffect(() => {
     axios
@@ -289,7 +426,121 @@ export default function ClientFinancesTab() {
     });
   }, [editing?.annual_period_ledger]);
 
-  const colCount = 13;
+  const visibleColumns = useMemo(
+    () => FINANCE_COLUMNS.filter((c) => !c.hideable || columnVisibility[c.id] !== false),
+    [columnVisibility],
+  );
+  const colCount = visibleColumns.length;
+
+  const renderCell = (cl, colId) => {
+    const asub = cl.annual_subscription || {};
+    const life = cl.annual_portal_lifecycle;
+    const rollup = cl.finance_payment_rollup;
+    const fin = computedFinanceTotal(cl);
+    const paidInfo = paidApprovedSummary(cl, rollup);
+
+    switch (colId) {
+      case 'name':
+        return (
+          <td className="px-2 py-2 font-medium text-gray-900 whitespace-nowrap">
+            {(cl.name || '').trim() || '—'}
+          </td>
+        );
+      case 'email':
+        return (
+          <td className="px-2 py-2 text-gray-600 max-w-[9rem] truncate" title={cl.email}>
+            {(cl.email || '').trim() || '—'}
+          </td>
+        );
+      case 'start':
+        return (
+          <td className="px-2 py-2 tabular-nums whitespace-nowrap">{formatAnnualDate(asub.start_date)}</td>
+        );
+      case 'end':
+        return (
+          <td className="px-2 py-2 tabular-nums whitespace-nowrap">{formatAnnualDate(asub.end_date)}</td>
+        );
+      case 'status':
+        return <td className="px-2 py-2 whitespace-nowrap">{life?.label ?? '—'}</td>;
+      case 'iris':
+        return (
+          <td className="px-2 py-2 text-[11px] text-gray-800 max-w-[10rem] leading-snug">
+            {irisTierLine(cl)}
+          </td>
+        );
+      case 'payMethod':
+        return (
+          <td className="px-2 py-2 text-[11px] max-w-[8rem] leading-snug">{paymentMethodSummary(cl)}</td>
+        );
+      case 'annualFee':
+        return <td className="px-2 py-2 tabular-nums whitespace-nowrap">{annualFeeLine(cl)}</td>;
+      case 'mode':
+        return <td className="px-2 py-2 whitespace-nowrap">{installmentModeLabel(cl)}</td>;
+      case 'emiCount':
+        return (
+          <td className="px-2 py-2 tabular-nums whitespace-nowrap">{emiInstallmentCount(cl)}</td>
+        );
+      case 'discount':
+        return <td className="px-2 py-2 text-[11px]">{discountSummary(cl)}</td>;
+      case 'tax':
+        return <td className="px-2 py-2 text-[11px]">{gstSummary(cl)}</td>;
+      case 'totalAmount': {
+        const title = fin.approximate
+          ? 'Tiered group discounts: showing package fee + tax only — set exact payable in Subscribers.'
+          : 'Payable after simple % discount (when no tier bands) plus GST if enabled.';
+        return (
+          <td className="px-2 py-2 tabular-nums whitespace-nowrap text-[11px]" title={title}>
+            {formatMoneyAmount(fin.amount, fin.currency)}
+            {fin.approximate ? <span className="text-amber-600"> ~</span> : null}
+          </td>
+        );
+      }
+      case 'paidApproved':
+        return (
+          <td
+            className="px-2 py-2 text-[11px] max-w-[12rem] leading-snug align-top"
+            title={paidInfo.title}
+          >
+            <div className="text-gray-800">{paidInfo.line1}</div>
+            {paidInfo.line2 ? (
+              <div className="text-[10px] text-gray-500 mt-0.5">{paidInfo.line2}</div>
+            ) : null}
+            {paidInfo.badge ? (
+              <div
+                className={`mt-1 text-[10px] font-medium ${
+                  paidInfo.badge.kind === 'ok'
+                    ? 'text-emerald-700'
+                    : paidInfo.badge.kind === 'short'
+                      ? 'text-amber-700'
+                      : paidInfo.badge.kind === 'over'
+                        ? 'text-sky-700'
+                        : 'text-gray-500'
+                }`}
+              >
+                {paidInfo.badge.text}
+              </div>
+            ) : null}
+          </td>
+        );
+      case 'edit':
+        return (
+          <td className="px-2 py-2 text-right">
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="h-8 gap-1 text-[#D4AF37] px-2"
+              onClick={() => openEdit(cl)}
+            >
+              <Pencil size={14} />
+              Edit
+            </Button>
+          </td>
+        );
+      default:
+        return <td className="px-2 py-2">—</td>;
+    }
+  };
 
   return (
     <div className="flex flex-col flex-1 min-h-0 p-6">
@@ -298,10 +549,11 @@ export default function ClientFinancesTab() {
         <h2 className="text-lg font-semibold text-gray-900">Iris Annual Abundance</h2>
       </div>
       <p className="text-xs text-gray-500 mb-4 shrink-0 max-w-3xl">
-        <strong>Annual money view:</strong> Home Coming window, subscriber fee &amp; EMI mode from Excel/Subscribers, CRM
-        payment rails, India discounts &amp; taxes. Includes anyone with the <strong>Annual</strong> CRM flag, Home
-        Coming start/end dates, or a priced subscriber row (package, fee, or EMIs). Edit subscription totals in{' '}
-        <strong>Subscribers</strong> or <strong>Annual + dashboard</strong>; open a row for proof submissions.
+        <strong>Annual money view:</strong> Home Coming window, subscriber fee from Subscribers/Excel, CRM rails, India
+        discounts &amp; taxes. <strong>Total amount</strong> estimates payable (fee ± % discount + GST); tiered group
+        bands show ~. <strong>Paid</strong> sums <em>approved</em> manual proofs vs that total. Use{' '}
+        <strong>Columns</strong> to hide fields. Edit subscription fee/EMIs in <strong>Subscribers</strong> or{' '}
+        <strong>Annual + dashboard</strong>; open a row for proof detail.
       </p>
 
       <div className="flex flex-wrap items-center gap-2 mb-3 shrink-0">
@@ -319,25 +571,53 @@ export default function ClientFinancesTab() {
           {loading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
           Search / refresh
         </Button>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button type="button" variant="outline" size="sm" className="h-9 gap-1">
+              <Columns3 className="h-3.5 w-3.5" />
+              Columns
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-56">
+            <DropdownMenuLabel>Show columns</DropdownMenuLabel>
+            <DropdownMenuSeparator />
+            {FINANCE_COLUMNS.filter((c) => c.hideable).map((c) => (
+              <DropdownMenuCheckboxItem
+                key={c.id}
+                checked={columnVisibility[c.id] !== false}
+                onCheckedChange={(checked) => persistColumns({ ...columnVisibility, [c.id]: !!checked })}
+              >
+                {c.label}
+              </DropdownMenuCheckboxItem>
+            ))}
+            <DropdownMenuSeparator />
+            <DropdownMenuItem
+              onSelect={() => {
+                persistColumns({});
+              }}
+            >
+              Show all columns
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
 
       <div className="flex-1 min-h-0 overflow-auto rounded-lg border bg-white">
-        <table className="w-full text-xs min-w-[72rem]">
+        <table className="w-full text-xs min-w-[92rem]">
           <thead className="bg-gray-50 border-b sticky top-0 z-10">
             <tr>
-              <th className="text-left px-2 py-2 font-semibold text-gray-700 whitespace-nowrap">Name</th>
-              <th className="text-left px-2 py-2 font-semibold text-gray-700 whitespace-nowrap">Email</th>
-              <th className="text-left px-2 py-2 font-semibold text-gray-700 whitespace-nowrap">Start</th>
-              <th className="text-left px-2 py-2 font-semibold text-gray-700 whitespace-nowrap">End</th>
-              <th className="text-left px-2 py-2 font-semibold text-gray-700 whitespace-nowrap">Status</th>
-              <th className="text-left px-2 py-2 font-semibold text-gray-700 whitespace-nowrap">Iris / label</th>
-              <th className="text-left px-2 py-2 font-semibold text-gray-700 whitespace-nowrap">Annual fee</th>
-              <th className="text-left px-2 py-2 font-semibold text-gray-700 whitespace-nowrap">Pay method</th>
-              <th className="text-left px-2 py-2 font-semibold text-gray-700 whitespace-nowrap">Mode</th>
-              <th className="text-left px-2 py-2 font-semibold text-gray-700 whitespace-nowrap">EMIs</th>
-              <th className="text-left px-2 py-2 font-semibold text-gray-700 whitespace-nowrap">Discount</th>
-              <th className="text-left px-2 py-2 font-semibold text-gray-700 whitespace-nowrap">Tax</th>
-              <th className="text-right px-2 py-2 font-semibold text-gray-700 w-20">Edit</th>
+              {visibleColumns.map((c) => (
+                <th
+                  key={c.id}
+                  className={
+                    c.id === 'edit'
+                      ? 'text-right px-2 py-2 font-semibold text-gray-700 w-24'
+                      : 'text-left px-2 py-2 font-semibold text-gray-700 whitespace-nowrap'
+                  }
+                >
+                  {c.label}
+                </th>
+              ))}
             </tr>
           </thead>
           <tbody>
@@ -356,44 +636,13 @@ export default function ClientFinancesTab() {
                 </td>
               </tr>
             ) : (
-              rows.map((cl) => {
-                const asub = cl.annual_subscription || {};
-                const life = cl.annual_portal_lifecycle;
-                return (
-                  <tr key={cl.id || cl.email} className="border-b border-gray-100 hover:bg-gray-50/80">
-                    <td className="px-2 py-2 font-medium text-gray-900 whitespace-nowrap">
-                      {(cl.name || '').trim() || '—'}
-                    </td>
-                    <td className="px-2 py-2 text-gray-600 max-w-[9rem] truncate" title={cl.email}>
-                      {(cl.email || '').trim() || '—'}
-                    </td>
-                    <td className="px-2 py-2 tabular-nums whitespace-nowrap">{formatAnnualDate(asub.start_date)}</td>
-                    <td className="px-2 py-2 tabular-nums whitespace-nowrap">{formatAnnualDate(asub.end_date)}</td>
-                    <td className="px-2 py-2 whitespace-nowrap">{life?.label ?? '—'}</td>
-                    <td className="px-2 py-2 text-[11px] text-gray-800 max-w-[10rem] leading-snug">
-                      {irisTierLine(cl)}
-                    </td>
-                    <td className="px-2 py-2 tabular-nums whitespace-nowrap">{annualFeeLine(cl)}</td>
-                    <td className="px-2 py-2 text-[11px] max-w-[8rem] leading-snug">{paymentMethodSummary(cl)}</td>
-                    <td className="px-2 py-2 whitespace-nowrap">{paymentModeLine(cl)}</td>
-                    <td className="px-2 py-2 tabular-nums whitespace-nowrap">{emiProgressLine(cl)}</td>
-                    <td className="px-2 py-2 text-[11px]">{discountSummary(cl)}</td>
-                    <td className="px-2 py-2 text-[11px]">{gstSummary(cl)}</td>
-                    <td className="px-2 py-2 text-right">
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="sm"
-                        className="h-8 gap-1 text-[#D4AF37] px-2"
-                        onClick={() => openEdit(cl)}
-                      >
-                        <Pencil size={14} />
-                        Edit
-                      </Button>
-                    </td>
-                  </tr>
-                );
-              })
+              rows.map((cl) => (
+                <tr key={cl.id || cl.email} className="border-b border-gray-100 hover:bg-gray-50/80">
+                  {visibleColumns.map((c) => (
+                    <React.Fragment key={c.id}>{renderCell(cl, c.id)}</React.Fragment>
+                  ))}
+                </tr>
+              ))
             )}
           </tbody>
         </table>
@@ -436,8 +685,12 @@ export default function ClientFinancesTab() {
                   <p className="font-medium tabular-nums">{annualFeeLine(editing || {})}</p>
                 </div>
                 <div>
-                  <span className="text-gray-500">Payment mode</span>
-                  <p className="font-medium">{paymentModeLine(editing || {})}</p>
+                  <span className="text-gray-500">Mode</span>
+                  <p className="font-medium">{installmentModeLabel(editing || {})}</p>
+                </div>
+                <div>
+                  <span className="text-gray-500"># EMIs</span>
+                  <p className="font-medium tabular-nums">{emiInstallmentCount(editing || {})}</p>
                 </div>
                 <div>
                   <span className="text-gray-500">Voluntary credits</span>

@@ -825,12 +825,50 @@ async def list_annual_portal_subscribers():
     return {"clients": out}
 
 
+async def _finance_payment_rollups_for_client_ids(
+    client_ids: List[str],
+) -> Dict[str, Dict[str, Any]]:
+    """Sum approved manual payment proofs per client; latest proof by approved_at / submitted_at."""
+    ids = [str(i).strip() for i in client_ids if i and str(i).strip()]
+    if not ids:
+        return {}
+    out: Dict[str, Dict[str, Any]] = {}
+    cursor = db.payment_submissions.find(
+        {"client_id": {"$in": ids}, "status": "approved"},
+        {"_id": 0, "client_id": 1, "amount": 1, "approved_at": 1, "submitted_at": 1},
+    )
+    async for s in cursor:
+        cid = s.get("client_id")
+        if not cid:
+            continue
+        bucket = out.setdefault(
+            cid,
+            {
+                "approved_total": 0.0,
+                "approved_count": 0,
+                "last_event_iso": None,
+                "last_amount": None,
+            },
+        )
+        amt = float(s.get("amount") or 0)
+        bucket["approved_total"] = round(bucket["approved_total"] + amt, 2)
+        bucket["approved_count"] = int(bucket["approved_count"]) + 1
+        ts = (s.get("approved_at") or s.get("submitted_at") or "").strip()
+        if ts and (bucket["last_event_iso"] is None or ts > bucket["last_event_iso"]):
+            bucket["last_event_iso"] = ts
+            bucket["last_amount"] = round(amt, 2)
+    return out
+
+
 @router.get("/annual-finance-roster")
 async def list_annual_finance_roster(search: Optional[str] = None):
     """
     Clients who should appear on **Iris Annual Abundance**: annual CRM flag **or** priced Home Coming window **or**
     paid subscriber row (package / fee / EMIs). Includes people who have Excel/subscription data but never had
     ``annual_member_dashboard`` toggled in Client Garden.
+
+    Each row may include ``finance_payment_rollup``: approved manual proof totals (``approved_total``, latest
+    proof date) for grid validation vs estimated payable.
     """
     roster_match: Dict[str, Any] = {
         "$or": [
@@ -893,6 +931,11 @@ async def list_annual_finance_roster(search: Optional[str] = None):
         d = dict(row)
         d["annual_portal_lifecycle"] = annual_portal_lifecycle_payload(d)
         out.append(d)
+    ids_roll = [str(d.get("id") or "").strip() for d in out if d.get("id")]
+    rollups = await _finance_payment_rollups_for_client_ids(ids_roll)
+    for d in out:
+        cid = str(d.get("id") or "").strip()
+        d["finance_payment_rollup"] = rollups.get(cid) if cid and cid in rollups else None
     return {"clients": out}
 
 
