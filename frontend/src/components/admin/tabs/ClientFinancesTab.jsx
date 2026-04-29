@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import axios from 'axios';
-import { Columns3, IndianRupee, Loader2, Pencil, RefreshCw, Search } from 'lucide-react';
+import { Columns3, Filter, IndianRupee, Loader2, Pencil, RefreshCw, Search } from 'lucide-react';
 import { getApiUrl } from '../../../lib/config';
 import { buildClientFinancePutPayload } from '../../../lib/clientFinanceAdmin';
 import { serverBandsToRows, validateBandRows } from '../../../lib/indiaDiscountBandsUi';
@@ -15,6 +15,7 @@ import {
 import { formatDateDdMonYyyy } from '../../../lib/utils';
 import { Button } from '../../ui/button';
 import { Input } from '../../ui/input';
+import { Popover, PopoverContent, PopoverTrigger } from '../../ui/popover';
 import {
   Dialog,
   DialogContent,
@@ -208,6 +209,211 @@ function paymentMethodSummary(cl) {
   return '—';
 }
 
+const FINANCE_FILTER_BLANKS = '(Blanks)';
+const FINANCE_FILTERABLE_COL_IDS = new Set(
+  FINANCE_COLUMNS.filter((c) => c.id !== 'edit').map((c) => c.id),
+);
+
+function getFinanceFilterValue(r, colId) {
+  if (!FINANCE_FILTERABLE_COL_IDS.has(colId)) return FINANCE_FILTER_BLANKS;
+  const asub = r?.annual_subscription || {};
+  const life = r?.annual_portal_lifecycle;
+  const rollup = r?.finance_payment_rollup;
+  const fin = computedFinanceTotal(r);
+  const paidInfo = paidApprovedSummary(r, rollup);
+  switch (colId) {
+    case 'name':
+      return (r.name || '').trim() || FINANCE_FILTER_BLANKS;
+    case 'email':
+      return (r.email || '').trim().toLowerCase() || FINANCE_FILTER_BLANKS;
+    case 'start':
+      return (asub.start_date || '').trim() ? formatAnnualDate(asub.start_date) : FINANCE_FILTER_BLANKS;
+    case 'end':
+      return (asub.end_date || '').trim() ? formatAnnualDate(asub.end_date) : FINANCE_FILTER_BLANKS;
+    case 'status':
+      return (life?.label || '').trim() || FINANCE_FILTER_BLANKS;
+    case 'iris': {
+      const ir = irisTierLine(r);
+      return ir === '—' ? FINANCE_FILTER_BLANKS : ir;
+    }
+    case 'payMethod': {
+      const pm = paymentMethodSummary(r);
+      return pm === '—' ? FINANCE_FILTER_BLANKS : pm;
+    }
+    case 'annualFee': {
+      const af = annualFeeLine(r);
+      return af === '—' ? FINANCE_FILTER_BLANKS : af;
+    }
+    case 'mode':
+      return installmentModeLabel(r);
+    case 'emiCount': {
+      const ec = emiInstallmentCount(r);
+      return ec === '—' ? FINANCE_FILTER_BLANKS : ec;
+    }
+    case 'discount': {
+      const d = discountSummary(r);
+      return d === '—' ? FINANCE_FILTER_BLANKS : d;
+    }
+    case 'tax': {
+      const t = gstSummary(r);
+      return t === '—' ? FINANCE_FILTER_BLANKS : t;
+    }
+    case 'totalAmount':
+      if (fin.amount == null || !Number.isFinite(fin.amount)) return FINANCE_FILTER_BLANKS;
+      return `${formatMoneyAmount(fin.amount, fin.currency)}${fin.approximate ? ' ~' : ''}`;
+    case 'paidApproved':
+      return paidInfo.line1 === '—' || !paidInfo.line1 ? FINANCE_FILTER_BLANKS : paidInfo.line1;
+    default:
+      return FINANCE_FILTER_BLANKS;
+  }
+}
+
+function financePassesColumnFilters(r, filters) {
+  for (const [colId, sel] of Object.entries(filters)) {
+    if (sel == null) continue;
+    const v = getFinanceFilterValue(r, colId);
+    if (!sel.has(v)) return false;
+  }
+  return true;
+}
+
+function rowsForFinanceFilterOptions(allRows, columnFilters, colId) {
+  return allRows.filter((row) => {
+    for (const [cid, sel] of Object.entries(columnFilters)) {
+      if (cid === colId || sel == null) continue;
+      if (!sel.has(getFinanceFilterValue(row, cid))) return false;
+    }
+    return true;
+  });
+}
+
+function FinanceColumnFilter({ colId, title, optionRows, activeFilter, onSetFilter }) {
+  const [open, setOpen] = useState(false);
+  const [search, setSearch] = useState('');
+  const options = useMemo(() => {
+    const u = new Set();
+    for (const row of optionRows) {
+      u.add(getFinanceFilterValue(row, colId));
+    }
+    return [...u].sort((a, b) => String(a).localeCompare(String(b), undefined, { sensitivity: 'base' }));
+  }, [optionRows, colId]);
+
+  const filteredOpts = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    if (!q) return options;
+    return options.filter((o) => String(o).toLowerCase().includes(q));
+  }, [options, search]);
+
+  const isChecked = (opt) => activeFilter === null || activeFilter.has(opt);
+
+  const toggle = (opt) => {
+    const universe = new Set(options);
+    const cur = activeFilter === null ? new Set(universe) : new Set(activeFilter);
+    if (cur.has(opt)) cur.delete(opt);
+    else cur.add(opt);
+    if (cur.size === universe.size) onSetFilter(null);
+    else onSetFilter(cur);
+  };
+
+  const selectAll = () => {
+    onSetFilter(null);
+    setSearch('');
+  };
+
+  const hasFilter = activeFilter !== null;
+
+  return (
+    <Popover
+      open={open}
+      onOpenChange={(v) => {
+        setOpen(v);
+        if (!v) setSearch('');
+      }}
+    >
+      <PopoverTrigger asChild>
+        <button
+          type="button"
+          data-testid={`finance-roster-filter-${colId}`}
+          className={`inline-flex shrink-0 rounded p-0.5 hover:bg-gray-200/90 ${hasFilter ? 'text-emerald-700' : 'text-gray-400'}`}
+          title={`Filter ${title}`}
+          aria-label={`Filter column ${title}`}
+        >
+          <Filter className="h-3 w-3" strokeWidth={2.5} />
+        </button>
+      </PopoverTrigger>
+      <PopoverContent align="start" className="w-64 p-2 text-[10px]" onClick={(e) => e.stopPropagation()}>
+        <div className="space-y-2">
+          <Input
+            placeholder="Search values…"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="h-7 text-[10px] px-2"
+          />
+          <Button type="button" variant="outline" size="sm" className="h-6 text-[9px] px-2 py-0" onClick={selectAll}>
+            Select all
+          </Button>
+          <div className="max-h-52 overflow-y-auto border border-gray-100 rounded-md divide-y divide-gray-50">
+            {filteredOpts.length === 0 ? (
+              <p className="text-gray-400 text-[9px] p-2">No values</p>
+            ) : (
+              filteredOpts.map((opt) => (
+                <label
+                  key={`${colId}-${String(opt).slice(0, 64)}`}
+                  className="flex items-start gap-2 px-2 py-1 hover:bg-gray-50 cursor-pointer"
+                >
+                  <input
+                    type="checkbox"
+                    checked={isChecked(opt)}
+                    onChange={() => toggle(opt)}
+                    className="mt-0.5 rounded border-gray-300 shrink-0"
+                  />
+                  <span className="break-all text-gray-800 leading-tight" title={String(opt)}>
+                    {String(opt).length > 80 ? `${String(opt).slice(0, 80)}…` : String(opt)}
+                  </span>
+                </label>
+              ))
+            )}
+          </div>
+        </div>
+      </PopoverContent>
+    </Popover>
+  );
+}
+
+function FinanceFilterableTh({
+  colId,
+  title,
+  className,
+  optionRows,
+  columnFilters,
+  setColumnFilters,
+  children,
+}) {
+  const activeFilter = columnFilters[colId] ?? null;
+  const setFilter = (next) => {
+    setColumnFilters((prev) => {
+      const p = { ...prev };
+      if (next === null) delete p[colId];
+      else p[colId] = next;
+      return p;
+    });
+  };
+  return (
+    <th className={className} title={title}>
+      <div className="flex items-center gap-0.5 min-w-0">
+        <span className="truncate flex-1 min-w-0">{children}</span>
+        <FinanceColumnFilter
+          colId={colId}
+          title={title || String(children)}
+          optionRows={optionRows}
+          activeFilter={activeFilter}
+          onSetFilter={setFilter}
+        />
+      </div>
+    </th>
+  );
+}
+
 /**
  * Annual CRM members only — dates, subscriber fee/EMI, payment rails, India discount/tax (editable).
  */
@@ -251,6 +457,8 @@ export default function ClientFinancesTab() {
       localStorage.setItem(FINANCE_COL_STORAGE, JSON.stringify(next));
     } catch (_) {}
   }, []);
+
+  const [columnFilters, setColumnFilters] = useState({});
 
   useEffect(() => {
     axios
@@ -410,6 +618,25 @@ export default function ClientFinancesTab() {
 
   const rows = useMemo(() => clients || [], [clients]);
 
+  const filterOptionBaseByCol = useMemo(() => {
+    const out = {};
+    for (const c of FINANCE_COLUMNS) {
+      if (c.id === 'edit') continue;
+      out[c.id] = rowsForFinanceFilterOptions(rows, columnFilters, c.id);
+    }
+    return out;
+  }, [rows, columnFilters]);
+
+  const displayedRows = useMemo(
+    () => rows.filter((r) => financePassesColumnFilters(r, columnFilters)),
+    [rows, columnFilters],
+  );
+
+  const columnFilterActiveCount = useMemo(
+    () => Object.values(columnFilters).filter((s) => s !== null && s !== undefined).length,
+    [columnFilters],
+  );
+
   const editingSub = subscriptionBlock(editing);
   const editingAnnual = editing?.annual_subscription && typeof editing.annual_subscription === 'object'
     ? editing.annual_subscription
@@ -552,8 +779,8 @@ export default function ClientFinancesTab() {
         <strong>Annual money view:</strong> Home Coming window, subscriber fee from Subscribers/Excel, CRM rails, India
         discounts &amp; taxes. <strong>Total amount</strong> estimates payable (fee ± % discount + GST); tiered group
         bands show ~. <strong>Paid</strong> sums <em>approved</em> manual proofs vs that total. Use{' '}
-        <strong>Columns</strong> to hide fields. Edit subscription fee/EMIs in <strong>Subscribers</strong> or{' '}
-        <strong>Annual + dashboard</strong>; open a row for proof detail.
+        <strong>Columns</strong> to show/hide fields; <strong>funnel</strong> on each header to filter (like Annual + dashboard). Edit fee/EMIs in{' '}
+        <strong>Subscribers</strong> or <strong>Annual + dashboard</strong>; open a row for proof detail.
       </p>
 
       <div className="flex flex-wrap items-center gap-2 mb-3 shrink-0">
@@ -600,24 +827,49 @@ export default function ClientFinancesTab() {
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
+        {columnFilterActiveCount > 0 && (
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            className="h-9 text-xs text-gray-600"
+            onClick={() => setColumnFilters({})}
+          >
+            Clear {columnFilterActiveCount} column filter{columnFilterActiveCount === 1 ? '' : 's'}
+          </Button>
+        )}
       </div>
 
       <div className="flex-1 min-h-0 overflow-auto rounded-lg border bg-white">
         <table className="w-full text-xs min-w-[92rem]">
           <thead className="bg-gray-50 border-b sticky top-0 z-10">
             <tr>
-              {visibleColumns.map((c) => (
-                <th
-                  key={c.id}
-                  className={
-                    c.id === 'edit'
-                      ? 'text-right px-2 py-2 font-semibold text-gray-700 w-24'
-                      : 'text-left px-2 py-2 font-semibold text-gray-700 whitespace-nowrap'
-                  }
-                >
-                  {c.label}
-                </th>
-              ))}
+              {visibleColumns.map((c) =>
+                c.id === 'edit' ? (
+                  <th
+                    key={c.id}
+                    className="text-right px-2 py-2 font-semibold text-gray-700 w-24"
+                  >
+                    {c.label}
+                  </th>
+                ) : (
+                  <FinanceFilterableTh
+                    key={c.id}
+                    colId={c.id}
+                    title={c.label}
+                    className={
+                      c.id === 'paidApproved'
+                        ? 'text-left px-2 py-2 font-semibold text-gray-700 max-w-[14rem]'
+                        : 'text-left px-2 py-2 font-semibold text-gray-700 whitespace-nowrap'
+                    }
+                    optionRows={filterOptionBaseByCol[c.id] || []}
+                    columnFilters={columnFilters}
+                    setColumnFilters={setColumnFilters}
+                  >
+                    {c.label}
+                  </FinanceFilterableTh>
+                ),
+              )}
             </tr>
           </thead>
           <tbody>
@@ -635,8 +887,21 @@ export default function ClientFinancesTab() {
                   subscriber fee (Excel or Subscribers) so this list can pick them up.
                 </td>
               </tr>
+            ) : displayedRows.length === 0 ? (
+              <tr>
+                <td colSpan={colCount} className="px-6 py-12 text-center text-gray-400 text-sm">
+                  No rows match the current column filters.{' '}
+                  <button
+                    type="button"
+                    className="text-[#D4AF37] font-medium underline underline-offset-2"
+                    onClick={() => setColumnFilters({})}
+                  >
+                    Clear column filters
+                  </button>
+                </td>
+              </tr>
             ) : (
-              rows.map((cl) => (
+              displayedRows.map((cl) => (
                 <tr key={cl.id || cl.email} className="border-b border-gray-100 hover:bg-gray-50/80">
                   {visibleColumns.map((c) => (
                     <React.Fragment key={c.id}>{renderCell(cl, c.id)}</React.Fragment>
