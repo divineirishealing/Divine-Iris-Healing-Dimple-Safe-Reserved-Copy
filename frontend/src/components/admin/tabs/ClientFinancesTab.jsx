@@ -599,7 +599,7 @@ export default function ClientFinancesTab() {
     return body;
   };
 
-  const putIndiaTagBody = (cl, tagVal) => {
+  const putIndiaTagBody = (_cl, tagVal) => {
     const v = (tagVal || '').trim();
     const body = { india_payment_method: v || '' };
     const tag = v.toLowerCase();
@@ -846,73 +846,99 @@ export default function ClientFinancesTab() {
             </div>
           </td>
         );
-      case 'payMethod':
+      case 'payMethod': {
+        const needAcctPick =
+          (showGpayRow && indiaGpayOpts.length >= 1) || (showBankRow && indiaBankOpts.length >= 1);
         return (
-          <td className="px-2 py-2 text-[10px] max-w-[10rem] align-top">
-            <div className="space-y-1">
+          <td className="px-1 py-1 align-middle whitespace-nowrap max-w-[13rem]">
+            <div className="flex items-center gap-0.5 flex-nowrap">
               <select
-                className="h-7 w-full text-[10px] border rounded px-0.5 bg-white"
+                className="h-7 w-[4.85rem] min-w-0 shrink text-[10px] border rounded px-0.5 bg-white"
                 disabled={crmBusy}
+                title="Preferred payment method"
                 value={(cl.preferred_payment_method || '').trim()}
                 onChange={(e) => saveClientFinanceInline(cl.id, putPreferredBody(cl, e.target.value))}
               >
-                <option value="">— Preferred —</option>
-                <option value="gpay_upi">GPay / UPI</option>
-                <option value="bank_transfer">Bank transfer</option>
-                <option value="cash_deposit">Cash deposit</option>
+                <option value="">Pref</option>
+                <option value="gpay_upi">GPay</option>
+                <option value="bank_transfer">Bank</option>
+                <option value="cash_deposit">Cash</option>
                 <option value="stripe">Stripe</option>
               </select>
               <select
-                className="h-7 w-full text-[10px] border rounded px-0.5 bg-white"
+                className="h-7 w-[4.85rem] min-w-0 shrink text-[10px] border rounded px-0.5 bg-white"
                 disabled={crmBusy}
+                title="Payment method tag (rails on checkout)"
                 value={(cl.india_payment_method || '').trim()}
                 onChange={(e) => saveClientFinanceInline(cl.id, putIndiaTagBody(cl, e.target.value))}
               >
-                <option value="">— Tag —</option>
-                <option value="gpay_upi">GPay / UPI</option>
-                <option value="bank_transfer">Bank transfer</option>
-                <option value="cash_deposit">Cash deposit</option>
+                <option value="">Tag</option>
+                <option value="gpay_upi">GPay</option>
+                <option value="bank_transfer">Bank</option>
+                <option value="cash_deposit">Cash</option>
                 <option value="stripe">Stripe</option>
-                <option value="any">Any / multiple</option>
+                <option value="any">Any</option>
               </select>
-              {showGpayRow && indiaGpayOpts.length >= 1 ? (
-                <select
-                  className="h-7 w-full text-[10px] border rounded px-0.5 bg-white"
-                  disabled={crmBusy}
-                  value={(cl.preferred_india_gpay_id || '').trim()}
-                  onChange={(e) =>
-                    saveClientFinanceInline(cl.id, { preferred_india_gpay_id: e.target.value })
-                  }
-                >
-                  <option value="">All UPIs</option>
-                  {indiaGpayOpts.map((o) => (
-                    <option key={o.tag_id} value={o.tag_id}>
-                      {o.display_label || o.label}
-                    </option>
-                  ))}
-                </select>
+              {needAcctPick ? (
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <button
+                      type="button"
+                      title="Pin UPI / bank account from Site Settings"
+                      className="h-7 w-7 shrink-0 inline-flex items-center justify-center rounded border border-gray-200 bg-white text-gray-600 text-sm leading-none hover:bg-gray-50 disabled:opacity-50"
+                      disabled={crmBusy}
+                    >
+                      ⋯
+                    </button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-64 p-2 text-[10px]" align="start" onClick={(e) => e.stopPropagation()}>
+                    <p className="text-[9px] text-gray-500 mb-2">Tag a specific Divine Iris account (optional).</p>
+                    {showGpayRow && indiaGpayOpts.length >= 1 ? (
+                      <div className="mb-2">
+                        <span className="text-gray-600 font-medium block mb-0.5">UPI</span>
+                        <select
+                          className="h-8 w-full text-[10px] border rounded px-1 bg-white"
+                          value={(cl.preferred_india_gpay_id || '').trim()}
+                          onChange={(e) =>
+                            saveClientFinanceInline(cl.id, { preferred_india_gpay_id: e.target.value })
+                          }
+                        >
+                          <option value="">All UPIs</option>
+                          {indiaGpayOpts.map((o) => (
+                            <option key={o.tag_id} value={o.tag_id}>
+                              {o.display_label || o.label}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    ) : null}
+                    {showBankRow && indiaBankOpts.length >= 1 ? (
+                      <div>
+                        <span className="text-gray-600 font-medium block mb-0.5">Bank</span>
+                        <select
+                          className="h-8 w-full text-[10px] border rounded px-1 bg-white"
+                          value={(cl.preferred_india_bank_id || '').trim()}
+                          onChange={(e) =>
+                            saveClientFinanceInline(cl.id, { preferred_india_bank_id: e.target.value })
+                          }
+                        >
+                          <option value="">All accounts</option>
+                          {indiaBankOpts.map((o) => (
+                            <option key={o.tag_id} value={o.tag_id}>
+                              {o.label}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    ) : null}
+                  </PopoverContent>
+                </Popover>
               ) : null}
-              {showBankRow && indiaBankOpts.length >= 1 ? (
-                <select
-                  className="h-7 w-full text-[10px] border rounded px-0.5 bg-white"
-                  disabled={crmBusy}
-                  value={(cl.preferred_india_bank_id || '').trim()}
-                  onChange={(e) =>
-                    saveClientFinanceInline(cl.id, { preferred_india_bank_id: e.target.value })
-                  }
-                >
-                  <option value="">All banks</option>
-                  {indiaBankOpts.map((o) => (
-                    <option key={o.tag_id} value={o.tag_id}>
-                      {o.label}
-                    </option>
-                  ))}
-                </select>
-              ) : null}
-              {crmBusy ? <Loader2 className="h-3.5 w-3.5 animate-spin text-gray-400" /> : null}
+              {crmBusy ? <Loader2 className="h-3.5 w-3.5 animate-spin text-gray-400 shrink-0" /> : null}
             </div>
           </td>
         );
+      }
       case 'annualFee':
         if (!canPkg) {
           return (
