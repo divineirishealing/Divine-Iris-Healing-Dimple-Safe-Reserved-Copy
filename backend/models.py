@@ -544,6 +544,13 @@ class SiteSettings(BaseModel):
     # Public program/session enrollment: show Razorpay (requires API keys + India IP + INR + booker IN)
     enrollment_razorpay_enabled: bool = True
     india_gst_percent: float = 18  # GST %
+    # Sacred Home / portal defaults when subscription Excel row is absent or non-authoritative and CRM has no override.
+    portal_standard_late_fee_per_day: float = 0.0
+    portal_standard_channelization_fee: float = 0.0
+    portal_standard_show_late_fees: bool = True
+    # When None, portal merge falls back to india_alt_discount_percent / india_gst_percent respectively.
+    portal_standard_india_discount_percent: Optional[float] = None
+    portal_standard_india_tax_percent: Optional[float] = None
     # Annual member dashboard: show estimated GST row on /api/student/dashboard-quote pricing table
     dashboard_annual_quote_show_tax: bool = True
     india_platform_charge_percent: float = 3  # Platform charge %
@@ -750,6 +757,11 @@ class SiteSettingsUpdate(BaseModel):
     india_payment_enabled: Optional[bool] = None
     enrollment_razorpay_enabled: Optional[bool] = None
     india_gst_percent: Optional[float] = None
+    portal_standard_late_fee_per_day: Optional[float] = None
+    portal_standard_channelization_fee: Optional[float] = None
+    portal_standard_show_late_fees: Optional[bool] = None
+    portal_standard_india_discount_percent: Optional[float] = None
+    portal_standard_india_tax_percent: Optional[float] = None
     dashboard_annual_quote_show_tax: Optional[bool] = None
     india_platform_charge_percent: Optional[float] = None
     india_upi_id: Optional[str] = None

@@ -86,6 +86,11 @@ export default function DashboardAccessTab() {
   const [indiaTaxEnabled, setIndiaTaxEnabled] = useState(false);
   const [indiaTaxPercent, setIndiaTaxPercent] = useState(18);
   const [indiaTaxLabel, setIndiaTaxLabel] = useState('GST');
+  /** CRM portal fee defaults: empty = follow site / subscription merge. */
+  const [crmLateFeePerDay, setCrmLateFeePerDay] = useState('');
+  const [crmChannelizationFee, setCrmChannelizationFee] = useState('');
+  /** '' | 'true' | 'false' — empty = use site default in merge. */
+  const [crmShowLateFees, setCrmShowLateFees] = useState('');
   const [selectedIds, setSelectedIds] = useState([]);
   const [bulkLoading, setBulkLoading] = useState(false);
 
@@ -313,6 +318,18 @@ export default function DashboardAccessTab() {
     setIndiaTaxEnabled(!!cl.india_tax_enabled);
     setIndiaTaxPercent(cl.india_tax_percent ?? 18);
     setIndiaTaxLabel(cl.india_tax_label || 'GST');
+    setCrmLateFeePerDay(
+      cl.crm_late_fee_per_day != null && cl.crm_late_fee_per_day !== '' ? String(cl.crm_late_fee_per_day) : '',
+    );
+    setCrmChannelizationFee(
+      cl.crm_channelization_fee != null && cl.crm_channelization_fee !== ''
+        ? String(cl.crm_channelization_fee)
+        : '',
+    );
+    {
+      const sh = cl.crm_show_late_fees;
+      setCrmShowLateFees(sh === true ? 'true' : sh === false ? 'false' : '');
+    }
     setDialogOpen(true);
   };
 
@@ -352,6 +369,17 @@ export default function DashboardAccessTab() {
         preferred_india_gpay_id: (preferredIndiaGpayId || '').trim() || '',
         preferred_india_bank_id: (preferredIndiaBankId || '').trim() || '',
         india_discount_member_bands: bandsPayload,
+        crm_late_fee_per_day: (() => {
+          if (crmLateFeePerDay === '' || crmLateFeePerDay == null) return null;
+          const n = parseFloat(String(crmLateFeePerDay).replace(/,/g, ''));
+          return Number.isFinite(n) ? n : null;
+        })(),
+        crm_channelization_fee: (() => {
+          if (crmChannelizationFee === '' || crmChannelizationFee == null) return null;
+          const n = parseFloat(String(crmChannelizationFee).replace(/,/g, ''));
+          return Number.isFinite(n) ? n : null;
+        })(),
+        crm_show_late_fees: crmShowLateFees === '' ? null : crmShowLateFees === 'true',
       });
       toast({
         title: 'Saved',
@@ -1130,6 +1158,53 @@ export default function DashboardAccessTab() {
                   </div>
                 </div>
               )}
+            </div>
+
+            <div className="rounded-lg border border-slate-200 bg-slate-50/60 px-3 py-3 space-y-3">
+              <p className="text-xs font-semibold text-gray-800">Late fee &amp; channelization (CRM)</p>
+              <p className="text-[10px] text-gray-500">
+                Optional defaults for Sacred Home. Leave blank to use site-wide portal defaults. If this client has a
+                priced subscriber row in Excel, filled cells there still override these (and empty Excel cells fall back
+                to CRM, then site).
+              </p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                <div>
+                  <Label className="text-[10px] text-gray-500">Late fee / day</Label>
+                  <Input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={crmLateFeePerDay}
+                    onChange={(e) => setCrmLateFeePerDay(e.target.value)}
+                    placeholder="Site default"
+                    className="h-9 text-sm mt-0.5"
+                  />
+                </div>
+                <div>
+                  <Label className="text-[10px] text-gray-500">Channelization fee</Label>
+                  <Input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={crmChannelizationFee}
+                    onChange={(e) => setCrmChannelizationFee(e.target.value)}
+                    placeholder="Site default"
+                    className="h-9 text-sm mt-0.5"
+                  />
+                </div>
+              </div>
+              <div>
+                <Label className="text-[10px] text-gray-500">Show late-fee line</Label>
+                <select
+                  value={crmShowLateFees}
+                  onChange={(e) => setCrmShowLateFees(e.target.value)}
+                  className="w-full text-sm border rounded-md px-2 py-2 bg-white mt-0.5"
+                >
+                  <option value="">Site default</option>
+                  <option value="true">Yes</option>
+                  <option value="false">No</option>
+                </select>
+              </div>
             </div>
           </div>
 

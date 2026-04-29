@@ -34,6 +34,14 @@ const PaymentSettingsTab = () => {
   const [gstPct, setGstPct] = useState(18);
   const [dashboardAnnualQuoteShowTax, setDashboardAnnualQuoteShowTax] = useState(true);
   const [platformPct, setPlatformPct] = useState(3);
+  /** Portal-wide defaults for Sacred Home (per-client CRM + subscriber row still override when set). */
+  const [portalStdLate, setPortalStdLate] = useState('0');
+  const [portalStdCh, setPortalStdCh] = useState('0');
+  const [portalStdShowLate, setPortalStdShowLate] = useState(true);
+  /** Empty = use same % as “Alt. Payment Discount” above. */
+  const [portalStdIndiaDisc, setPortalStdIndiaDisc] = useState('');
+  /** Empty = use same % as GST above. */
+  const [portalStdIndiaTax, setPortalStdIndiaTax] = useState('');
   const [inrWhitelistEmails, setInrWhitelistEmails] = useState([]);
   /** @type {[{ email: string, hub: string }]} Per-email pricing hub (inr|aed|usd); same detection path as NRI INR whitelist. */
   const [pricingHubEmailOverrides, setPricingHubEmailOverrides] = useState([]);
@@ -53,6 +61,15 @@ const PaymentSettingsTab = () => {
       setGstPct(r.data.india_gst_percent ?? 18);
       setDashboardAnnualQuoteShowTax(r.data.dashboard_annual_quote_show_tax !== false);
       setPlatformPct(r.data.india_platform_charge_percent ?? 3);
+      const pl = r.data.portal_standard_late_fee_per_day;
+      setPortalStdLate(pl != null && pl !== '' ? String(pl) : '0');
+      const pch = r.data.portal_standard_channelization_fee;
+      setPortalStdCh(pch != null && pch !== '' ? String(pch) : '0');
+      setPortalStdShowLate(r.data.portal_standard_show_late_fees !== false);
+      const pid = r.data.portal_standard_india_discount_percent;
+      setPortalStdIndiaDisc(pid != null && pid !== '' ? String(pid) : '');
+      const pit = r.data.portal_standard_india_tax_percent;
+      setPortalStdIndiaTax(pit != null && pit !== '' ? String(pit) : '');
       setInrWhitelistEmails(Array.isArray(r.data.inr_whitelist_emails) ? r.data.inr_whitelist_emails : []);
       setPricingHubEmailOverrides(
         Array.isArray(r.data.pricing_hub_email_overrides) ? r.data.pricing_hub_email_overrides : []
@@ -114,6 +131,29 @@ const PaymentSettingsTab = () => {
         })(),
         inr_whitelist_emails: emails,
         pricing_hub_email_overrides: hubOverrides,
+        portal_standard_late_fee_per_day: (() => {
+          const n = parseFloat(portalStdLate);
+          return Number.isFinite(n) ? n : 0;
+        })(),
+        portal_standard_channelization_fee: (() => {
+          const n = parseFloat(portalStdCh);
+          return Number.isFinite(n) ? n : 0;
+        })(),
+        portal_standard_show_late_fees: !!portalStdShowLate,
+        portal_standard_india_discount_percent:
+          portalStdIndiaDisc === '' || portalStdIndiaDisc == null
+            ? null
+            : (() => {
+                const n = parseFloat(String(portalStdIndiaDisc).replace(/,/g, ''));
+                return Number.isFinite(n) ? n : null;
+              })(),
+        portal_standard_india_tax_percent:
+          portalStdIndiaTax === '' || portalStdIndiaTax == null
+            ? null
+            : (() => {
+                const n = parseFloat(String(portalStdIndiaTax).replace(/,/g, ''));
+                return Number.isFinite(n) ? n : null;
+              })(),
       });
       const saved = res.data?.inr_whitelist_emails;
       setInrWhitelistEmails(Array.isArray(saved) ? saved : emails);
@@ -339,6 +379,83 @@ const PaymentSettingsTab = () => {
             </p>
           ) : null}
           <p className="text-[#D4AF37] font-bold">Total: INR {receiptPreviewExample.totalInr.toLocaleString()}</p>
+        </div>
+      </div>
+
+      <div className="mb-6 bg-amber-50/40 border border-amber-200 rounded-lg p-5">
+        <div className="flex items-center gap-2 mb-2">
+          <IndianRupee size={16} className="text-amber-700" />
+          <h3 className="text-sm font-semibold text-gray-900">Sacred Home — site-wide defaults</h3>
+        </div>
+        <p className="text-[10px] text-gray-500 mb-4">
+          Applied on the student portal when a client has no CRM override and no priced subscriber row (Excel). Late
+          fees and channelization still follow the subscriber row when it is authoritative; India discount and tax use
+          the subscriber &ldquo;individual&rdquo; columns when set there.
+        </p>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-3">
+          <div>
+            <label className="text-xs font-semibold text-gray-700 block mb-1">Late fee / day</label>
+            <Input
+              type="number"
+              value={portalStdLate}
+              onChange={(e) => setPortalStdLate(e.target.value)}
+              className="text-xs h-9"
+              min={0}
+              step="0.01"
+            />
+          </div>
+          <div>
+            <label className="text-xs font-semibold text-gray-700 block mb-1">Channelization fee</label>
+            <Input
+              type="number"
+              value={portalStdCh}
+              onChange={(e) => setPortalStdCh(e.target.value)}
+              className="text-xs h-9"
+              min={0}
+              step="0.01"
+            />
+          </div>
+          <div className="flex items-end pb-1">
+            <label className="flex items-center gap-2 cursor-pointer text-xs font-medium text-gray-800">
+              <input
+                type="checkbox"
+                checked={!!portalStdShowLate}
+                onChange={(e) => setPortalStdShowLate(e.target.checked)}
+                className="rounded border-amber-300"
+              />
+              Show late-fee line where relevant
+            </label>
+          </div>
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div>
+            <label className="text-xs font-semibold text-gray-700 block mb-1">Portal default India discount (%)</label>
+            <p className="text-[10px] text-gray-400 mb-1">Leave blank to use the same value as Alt. Payment Discount above.</p>
+            <Input
+              type="number"
+              value={portalStdIndiaDisc}
+              onChange={(e) => setPortalStdIndiaDisc(e.target.value)}
+              className="text-xs h-9"
+              min={0}
+              max={100}
+              step="0.5"
+              placeholder={`Same as alt (e.g. ${altDiscountPct})`}
+            />
+          </div>
+          <div>
+            <label className="text-xs font-semibold text-gray-700 block mb-1">Portal default India tax (%)</label>
+            <p className="text-[10px] text-gray-400 mb-1">Leave blank to use the same value as GST above.</p>
+            <Input
+              type="number"
+              value={portalStdIndiaTax}
+              onChange={(e) => setPortalStdIndiaTax(e.target.value)}
+              className="text-xs h-9"
+              min={0}
+              max={100}
+              step="0.5"
+              placeholder={`Same as GST (e.g. ${gstPct})`}
+            />
+          </div>
         </div>
       </div>
       </CollapsibleSection>

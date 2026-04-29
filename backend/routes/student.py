@@ -7,6 +7,7 @@ import uuid
 import logging
 from motor.motor_asyncio import AsyncIOMotorClient
 import calendar
+import math
 from datetime import datetime, timezone, date
 from dotenv import load_dotenv
 from pathlib import Path
@@ -41,6 +42,128 @@ client = AsyncIOMotorClient(mongo_url)
 db = client[os.environ['DB_NAME']]
 
 logger = logging.getLogger(__name__)
+
+
+def _optional_float(v: Any) -> Optional[float]:
+    if v is None or v == "":
+        return None
+    try:
+        n = float(v)
+        return n if math.isfinite(n) else None
+    except (TypeError, ValueError):
+        return None
+
+
+def _subscription_is_authoritative(sub: Optional[dict]) -> bool:
+    """True when Excel/subscriber row carries a priced package (overrides CRM portal fee defaults)."""
+    if not sub:
+        return False
+    if str(sub.get("package_id") or "").strip():
+        return True
+    try:
+        if float(sub.get("total_fee") or 0) > 0:
+            return True
+    except (TypeError, ValueError):
+        pass
+    emis = sub.get("emis")
+    return isinstance(emis, list) and len(emis) > 0
+
+
+def _merge_portal_late_channel_show(client: dict, sub: Optional[dict], site_doc: dict) -> Dict[str, Any]:
+    sub = sub or {}
+    ss = site_doc or {}
+    auth = _subscription_is_authoritative(sub)
+    std_late = _optional_float(ss.get("portal_standard_late_fee_per_day"))
+    if std_late is None:
+        std_late = 0.0
+    std_ch = _optional_float(ss.get("portal_standard_channelization_fee"))
+    if std_ch is None:
+        std_ch = 0.0
+    std_show_raw = ss.get("portal_standard_show_late_fees")
+    std_show = True if std_show_raw is None else bool(std_show_raw)
+
+    crm_late = _optional_float(client.get("crm_late_fee_per_day"))
+    crm_ch = _optional_float(client.get("crm_channelization_fee"))
+    crm_show = client.get("crm_show_late_fees")
+
+    late_sub = _optional_float(sub.get("late_fee_per_day")) if auth else None
+    ch_sub = _optional_float(sub.get("channelization_fee")) if auth else None
+
+    late = late_sub if late_sub is not None else (crm_late if crm_late is not None else std_late)
+    channel = ch_sub if ch_sub is not None else (crm_ch if crm_ch is not None else std_ch)
+
+    if auth and sub.get("show_late_fees") is not None:
+        show = bool(sub.get("show_late_fees"))
+    elif crm_show is not None:
+        show = bool(crm_show)
+    else:
+        show = std_show
+
+    return {"late_fee_per_day": late, "channelization_fee": channel, "show_late_fees": show}
+
+
+def _portal_std_india_discount(site_doc: dict) -> float:
+    ss = site_doc or {}
+    v = _optional_float(ss.get("portal_standard_india_discount_percent"))
+    if v is not None:
+        return v
+    alt = _optional_float(ss.get("india_alt_discount_percent"))
+    return float(alt if alt is not None else 0.0)
+
+
+def _portal_std_india_tax(site_doc: dict) -> float:
+    ss = site_doc or {}
+    v = _optional_float(ss.get("portal_standard_india_tax_percent"))
+    if v is not None:
+        return v
+    g = _optional_float(ss.get("india_gst_percent"))
+    return float(g if g is not None else 18.0)
+
+
+def _merge_client_india_pricing_portal(client: dict, sub: Optional[dict], site_doc: dict) -> Dict[str, Any]:
+    """Merged India manual-checkout fields for Sacred Home (subscription individual % / tax, else CRM, else site portal standards)."""
+    sub = sub or {}
+    auth = _subscription_is_authoritative(sub)
+    std_disc = _portal_std_india_discount(site_doc)
+    std_tax = _portal_std_india_tax(site_doc)
+
+    sub_disc_f = _optional_float(sub.get("individual_discount_pct")) if auth else None
+
+    if auth and sub_disc_f is not None:
+        eff_disc = float(sub_disc_f)
+    elif client.get("india_discount_percent") is not None:
+        eff_disc = float(client["india_discount_percent"])
+    else:
+        eff_disc = float(std_disc)
+
+    sub_tax_f = _optional_float(sub.get("individual_tax_pct")) if auth else None
+
+    if auth and sub_tax_f is not None:
+        eff_tax = float(sub_tax_f)
+        eff_tax_enabled = eff_tax > 0
+        eff_label = client.get("india_tax_label") or "GST"
+    else:
+        eff_tax_enabled = bool(client.get("india_tax_enabled"))
+        eff_label = client.get("india_tax_label") or "GST"
+        if eff_tax_enabled:
+            cp = _optional_float(client.get("india_tax_percent"))
+            eff_tax = float(cp if cp is not None else std_tax)
+        else:
+            eff_tax = float(_optional_float(client.get("india_tax_percent")) or 0.0)
+
+    bands = client.get("india_discount_member_bands")
+    if not isinstance(bands, list):
+        bands = None
+
+    pm = (client.get("india_payment_method") or "").strip()
+    return {
+        "india_payment_method": pm or None,
+        "india_discount_percent": eff_disc,
+        "india_discount_member_bands": bands or None,
+        "india_tax_enabled": eff_tax_enabled,
+        "india_tax_percent": eff_tax,
+        "india_tax_label": eff_label,
+    }
 
 
 async def _student_client_row_with_expiry(client_id: Optional[str]) -> dict:
@@ -2352,6 +2475,13 @@ async def get_student_home(user: dict = Depends(get_current_student_user)):
             "india_bank_accounts": 1,
             "india_bank_details": 1,
             "india_upi_id": 1,
+            "portal_standard_late_fee_per_day": 1,
+            "portal_standard_channelization_fee": 1,
+            "portal_standard_show_late_fees": 1,
+            "portal_standard_india_discount_percent": 1,
+            "portal_standard_india_tax_percent": 1,
+            "india_alt_discount_percent": 1,
+            "india_gst_percent": 1,
         },
     ) or {}
     pin_annual_id = (settings_doc.get("dashboard_sacred_home_annual_program_id") or "").strip()
@@ -2612,9 +2742,7 @@ async def get_student_home(user: dict = Depends(get_current_student_user)):
         "payment_methods": payment_methods,
         "payment_destinations": payment_destinations,
         "bank_accounts": banks,
-        "late_fee_per_day": sub.get("late_fee_per_day", 0),
-        "channelization_fee": sub.get("channelization_fee", 0),
-        "show_late_fees": sub.get("show_late_fees", False),
+        **_merge_portal_late_channel_show(client, sub, settings_doc),
         "iris_journey": iris_journey,
         # Automatic "journey year you are entering" for Home Coming renewal (garden label + lifecycle).
         "renewal_entering_iris_year": renewal_entering_iris_year(client, sub, iris_journey),
@@ -2637,15 +2765,8 @@ async def get_student_home(user: dict = Depends(get_current_student_user)):
             "india_upi_id": settings_doc.get("india_upi_id") or "",
         },
         "india_tax_info": india_tax_info,
-        # Mirrors Client Garden + site defaults for India manual checkout (discount → GST → platform on after-discount base).
-        "client_india_pricing": {
-            "india_payment_method": (client.get("india_payment_method") or "") or None,
-            "india_discount_percent": client.get("india_discount_percent"),
-            "india_discount_member_bands": client.get("india_discount_member_bands") or None,
-            "india_tax_enabled": bool(client.get("india_tax_enabled")),
-            "india_tax_percent": float(client.get("india_tax_percent") or 18.0),
-            "india_tax_label": client.get("india_tax_label") or "GST",
-        },
+        # Mirrors Client Garden + site portal defaults (subscription Excel overrides when authoritative).
+        "client_india_pricing": _merge_client_india_pricing_portal(client, sub, settings_doc),
         "preferred_payment_method": (client.get("preferred_payment_method") or "").strip() or None,
         "preferred_india_gpay_id": pref_gpay_m,
         "preferred_india_bank_id": pref_bank_m,

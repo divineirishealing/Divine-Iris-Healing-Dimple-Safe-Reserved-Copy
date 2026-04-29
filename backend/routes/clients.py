@@ -2197,6 +2197,10 @@ class ClientUpdate(BaseModel):
     created_at: Optional[str] = None
     # Portal cohort for layered AWRP / batch pricing (Admin → Dashboard settings)
     awrp_batch_id: Optional[str] = None
+    # CRM defaults for Sacred Home fees when subscription row is missing or non-authoritative (Excel still wins when set).
+    crm_late_fee_per_day: Optional[float] = None
+    crm_channelization_fee: Optional[float] = None
+    crm_show_late_fees: Optional[bool] = None
 
 
 @router.put("/{client_id}")
@@ -2321,6 +2325,22 @@ async def update_client(client_id: str, data: ClientUpdate):
             update_fields["awrp_batch_id"] = None
         else:
             update_fields["awrp_batch_id"] = str(ab).strip()
+
+    if "crm_late_fee_per_day" in incoming:
+        raw = data.crm_late_fee_per_day
+        if raw is None:
+            update_fields["crm_late_fee_per_day"] = None
+        else:
+            update_fields["crm_late_fee_per_day"] = float(raw)
+    if "crm_channelization_fee" in incoming:
+        raw = data.crm_channelization_fee
+        if raw is None:
+            update_fields["crm_channelization_fee"] = None
+        else:
+            update_fields["crm_channelization_fee"] = float(raw)
+    if "crm_show_late_fees" in incoming:
+        raw = data.crm_show_late_fees
+        update_fields["crm_show_late_fees"] = None if raw is None else bool(raw)
 
     if data.email is not None:
         new_em = normalize_email(data.email)

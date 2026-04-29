@@ -229,6 +229,26 @@ async def update_settings(payload: Dict[str, Any]):
             update_data["india_platform_charge_percent"] = float(payload["india_platform_charge_percent"])
         except (TypeError, ValueError):
             pass
+    if "portal_standard_india_discount_percent" in payload:
+        v = payload.get("portal_standard_india_discount_percent")
+        if v is None or v == "":
+            update_data["portal_standard_india_discount_percent"] = None
+        else:
+            try:
+                update_data["portal_standard_india_discount_percent"] = float(v)
+            except (TypeError, ValueError):
+                raise HTTPException(
+                    status_code=400, detail="Invalid portal_standard_india_discount_percent"
+                )
+    if "portal_standard_india_tax_percent" in payload:
+        v = payload.get("portal_standard_india_tax_percent")
+        if v is None or v == "":
+            update_data["portal_standard_india_tax_percent"] = None
+        else:
+            try:
+                update_data["portal_standard_india_tax_percent"] = float(v)
+            except (TypeError, ValueError):
+                raise HTTPException(status_code=400, detail="Invalid portal_standard_india_tax_percent")
     if raw.get('india_gpay_accounts') is not None:
         update_data['india_gpay_accounts'] = raw['india_gpay_accounts']
     if raw.get('india_bank_details') is not None:
