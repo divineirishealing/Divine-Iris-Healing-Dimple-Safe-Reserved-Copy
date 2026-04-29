@@ -48,13 +48,12 @@ const DIVINE_IRIS_HOME_COMING_PROGRAMS_LABEL =
 
 const HEART_QUOTE = 'You are exactly where you need to be — trust the becoming.';
 
-/** Full Home Coming bundle contents (shown in ALL CAPS in the catalog block). */
+/** Full Home Coming bundle contents (shown in ALL CAPS). AWRP = Atomic Weight Release Program — one line only. */
 const HOME_COMING_BUNDLE_INCLUDES_LINES = [
-  '12-MONTH AWRP',
+  '12-MONTH ATOMIC WEIGHT RELEASE PROGRAM (AWRP)',
   '6-MONTH MMM',
   '4 TURBO RELEASE',
   '2 META DOWNLOADS',
-  'ATOMIC WEIGHT RELEASE PROGRAM (AWRP)',
 ];
 
 const ALL_PAY_MODES = [
@@ -1253,11 +1252,14 @@ export default function AnnualPackagePurchasePage() {
             ) : (
               <div className="space-y-5">
                 <div className="text-center sm:text-left border-b border-[rgba(160,100,240,0.12)] pb-4 mb-2">
-                  <h2 className="font-[family-name:'Playfair_Display',Georgia,serif] text-xl text-[#1a0a3d]/95 font-semibold tracking-tight">
-                    {pinnedProgram.title || 'Catalog enrollment'}
+                  <h2
+                    className="font-[family-name:'Playfair_Display',Georgia,serif] text-xl text-[#1a0a3d]/95 font-semibold tracking-tight"
+                    data-testid="home-coming-annual-program-title"
+                  >
+                    Home Coming Annual Program
                   </h2>
                   <p className="mt-3 text-[12px] leading-relaxed text-[rgba(45,25,95,0.82)] font-[family-name:'Playfair_Display',Georgia,serif]">
-                    One gentle annual home for your practice — what is held in this bundle:
+                    One gentle annual home for your soul — what is held in this bundle:
                   </p>
                   <ul className="mt-2 space-y-1 text-[10px] sm:text-[11px] font-bold uppercase tracking-[0.08em] text-[#3b0764] list-none pl-0">
                     {HOME_COMING_BUNDLE_INCLUDES_LINES.map((line) => (
