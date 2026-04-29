@@ -916,10 +916,11 @@ export default function AnnualPackagePurchasePage() {
             >
               {subtitleFourPrograms}
             </p>
-            <div
-              className="mt-6 w-full max-w-[34rem] rounded-[22px] border border-[rgba(196,168,252,0.45)] bg-gradient-to-br from-[#faf8ff]/96 via-[#fffefd]/93 to-[#f5f0ff]/93 px-4 py-5 sm:px-6 sm:py-6 text-left shadow-[0_12px_48px_rgba(124,58,237,0.12)] backdrop-blur-sm"
-              data-testid="home-coming-welcome-banner"
-            >
+            <div className="mt-6 w-full flex justify-center lg:justify-start">
+              <div
+                className="w-full max-w-[34rem] rounded-[22px] border border-[rgba(196,168,252,0.45)] bg-gradient-to-br from-[#faf8ff]/96 via-[#fffefd]/93 to-[#f5f0ff]/93 px-3.5 py-5 sm:px-4 sm:py-6 text-left shadow-[0_12px_48px_rgba(124,58,237,0.12)] backdrop-blur-sm"
+                data-testid="home-coming-welcome-banner"
+              >
               <div className="flex gap-3 sm:gap-4">
                 <Sparkles className="h-9 w-9 shrink-0 text-[#a855f7] opacity-[0.92] mt-0.5 drop-shadow-[0_0_12px_rgba(168,85,247,0.35)]" aria-hidden />
                 <div className="min-w-0 flex-1 space-y-4">
@@ -1035,6 +1036,7 @@ export default function AnnualPackagePurchasePage() {
                   </div>
                 </div>
               </div>
+            </div>
             </div>
             <p className="mt-4 max-w-lg text-[13px] sm:text-sm italic leading-relaxed font-[family-name:'Playfair_Display',Georgia,serif] text-[rgba(90,40,135,0.55)]">
               {HEART_QUOTE}
