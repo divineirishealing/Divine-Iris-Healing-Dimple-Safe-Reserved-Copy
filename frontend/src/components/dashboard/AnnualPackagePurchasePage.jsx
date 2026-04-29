@@ -9,7 +9,6 @@ import {
   Clock,
   Info,
   Sparkles,
-  TrendingUp,
   ShoppingCart,
   User,
   Heart,
@@ -48,6 +47,15 @@ const DIVINE_IRIS_HOME_COMING_PROGRAMS_LABEL =
   'AWRP · MMM · Turbo Release · Meta Downloads';
 
 const HEART_QUOTE = 'You are exactly where you need to be — trust the becoming.';
+
+/** Full Home Coming bundle contents (shown in ALL CAPS in the catalog block). */
+const HOME_COMING_BUNDLE_INCLUDES_LINES = [
+  '12-MONTH AWRP',
+  '6-MONTH MMM',
+  '4 TURBO RELEASE',
+  '2 META DOWNLOADS',
+  'ATOMIC WEIGHT RELEASE PROGRAM (AWRP)',
+];
 
 const ALL_PAY_MODES = [
   { value: 'full', label: 'Pay in Full' },
@@ -444,9 +452,6 @@ export default function AnnualPackagePurchasePage() {
     if (!raw) return '';
     return raw.split(/\s+/)[0];
   }, [homeData?.user_details?.full_name]);
-
-  const userTier =
-    typeof homeData?.user_details?.tier === 'string' ? homeData.user_details.tier.trim() : '';
 
   const visiblePayModes = useMemo(() => {
     const monthlyOk = homeData?.annual_package_offer_monthly_emi_visible !== false;
@@ -980,14 +985,6 @@ export default function AnnualPackagePurchasePage() {
                           </p>
                         ) : null}
                       </div>
-                      <div className="min-w-0 max-w-full sm:max-w-[min(100%,20rem)] rounded-xl border border-white/80 bg-white/55 px-3 py-2">
-                        <p className="text-[9px] uppercase tracking-[0.12em] text-[rgba(100,55,155,0.45)] font-semibold mb-1">
-                          Entering (automatic)
-                        </p>
-                        <p className="text-[11px] text-[rgba(60,35,115,0.55)] leading-snug">
-                          Placement follows your Client Garden path{membershipCycleDatesLocked ? ' — see dates below.' : '.'}
-                        </p>
-                      </div>
                       {preferredDom >= 1 && preferredDom <= 28 && !membershipCycleDatesLocked ? (
                         <Button
                           type="button"
@@ -1037,42 +1034,12 @@ export default function AnnualPackagePurchasePage() {
                       </p>
                     ) : null}
                   </div>
-                  <div className="flex gap-3">
-                    <TrendingUp className="shrink-0 h-6 w-6 text-[#8b5cf6]/85 mt-0.5" aria-hidden />
-                    <div className="space-y-2 text-[13px] leading-relaxed text-[rgba(60,35,115,0.82)]">
-                      <p>
-                        As your journey unfolds, Sacred pricing can ripen into <strong>higher tiers of value</strong>
-                        — catalogue duration tiers deepen with continuity, renewals, and steadfast presence in your package path; preferential honours meet you{' '}
-                        <em className="not-italic font-semibold text-[#5b21b6]">automatically</em> along the arc.
-                      </p>
-                      {userTier ? (
-                        <p className="text-[12px] text-[rgba(90,55,155,0.68)]">
-                          Sacred Home tier on your profile:&nbsp;
-                          <span className="font-semibold italic text-[#5b21b6]">{userTier}</span>
-                          {' — '}stay with the unfolding; deepening tiers blossom with devotion to the pathway.
-                        </p>
-                      ) : (
-                        <p className="text-[12px] text-[rgba(90,55,155,0.62)] italic">
-                          Stay wholehearted — tier-based Sacred offers widen as your commitment seasons with love.
-                        </p>
-                      )}
-                    </div>
-                  </div>
                 </div>
               </div>
             </div>
             <p className="mt-4 max-w-lg text-[13px] sm:text-sm italic leading-relaxed font-[family-name:'Playfair_Display',Georgia,serif] text-[rgba(90,40,135,0.55)]">
               {HEART_QUOTE}
               <Heart className="inline-block ml-1.5 w-3 h-3 text-rose-400/70 align-middle" aria-hidden />
-            </p>
-            <p className="mt-4 max-w-xl text-[11px] sm:text-[12px] text-[rgba(60,35,115,0.55)] leading-relaxed px-2">
-              Anchor your membership start date above, then scroll to <strong className="font-semibold text-[#5b21b6]">Payment structure</strong> and{' '}
-              <strong className="font-semibold text-[#5b21b6]">Payment schedule</strong> below for full pay, EMI, or Flexi — use{' '}
-              <strong className="font-semibold text-[#5b21b6]">Pay · Stripe</strong> on the installment you wish. EMI status and proofs live on{' '}
-              <Link className="font-semibold text-[#6d28d9] hover:text-[#5b21b6] underline underline-offset-2 decoration-violet-300/70" to="/dashboard/financials">
-                Sacred Exchange
-              </Link>
-              .
             </p>
             <div className="mt-5 flex w-full flex-wrap justify-center gap-2 sm:justify-center">
               <Button
@@ -1082,7 +1049,7 @@ export default function AnnualPackagePurchasePage() {
                 onClick={() => navigate('/dashboard/combined-checkout')}
               >
                 <CreditCard size={16} className="text-violet-700 shrink-0" />
-                <span className="text-xs font-semibold">Divine Cart</span>
+                <span className="text-xs font-semibold uppercase tracking-wide">DIVINE CART</span>
                 {cartCount > 0 ? (
                   <span className="min-w-[1.25rem] h-5 px-1.5 rounded-full bg-violet-600 text-white text-[10px] font-bold tabular-nums flex items-center justify-center">
                     {cartCount}
@@ -1289,9 +1256,14 @@ export default function AnnualPackagePurchasePage() {
                   <h2 className="font-[family-name:'Playfair_Display',Georgia,serif] text-xl text-[#1a0a3d]/95 font-semibold tracking-tight">
                     {pinnedProgram.title || 'Catalog enrollment'}
                   </h2>
-                  <p className="text-[11px] text-[rgba(60,35,115,0.5)] mt-1.5">
-                    Bundle reference — aligned with what is pinned on Sacred Home · Upcoming programs
+                  <p className="mt-3 text-[12px] leading-relaxed text-[rgba(45,25,95,0.82)] font-[family-name:'Playfair_Display',Georgia,serif]">
+                    One gentle annual home for your practice — what is held in this bundle:
                   </p>
+                  <ul className="mt-2 space-y-1 text-[10px] sm:text-[11px] font-bold uppercase tracking-[0.08em] text-[#3b0764] list-none pl-0">
+                    {HOME_COMING_BUNDLE_INCLUDES_LINES.map((line) => (
+                      <li key={line}>{line}</li>
+                    ))}
+                  </ul>
                   {(catalogFrom || catalogTo) && (
                     <p className="text-[11px] mt-4 text-[#6b4420] bg-[rgba(255,251,235,0.85)] border border-[rgba(212,175,55,0.28)] rounded-xl px-3 py-2.5 inline-block max-w-xl">
                       Offer window{catalogFrom ? ` from ${formatDateDdMonYyyy(catalogFrom)}` : ''}
@@ -1299,11 +1271,6 @@ export default function AnnualPackagePurchasePage() {
                     </p>
                   )}
                 </div>
-
-                <p className="text-[11px] text-[rgba(60,35,115,0.55)] leading-snug">
-                  Membership start and journey year for your next cycle are set in the <strong>welcome card above</strong>{' '}
-                  (same fields — we keep payment choices here).
-                </p>
 
                 <div className="space-y-4">
                   <div className="space-y-2">
@@ -1357,7 +1324,7 @@ export default function AnnualPackagePurchasePage() {
                   </div>
                   <p className="text-[10px] text-[rgba(60,35,115,0.5)] flex items-start gap-1.5 leading-relaxed">
                     <Info size={12} className="shrink-0 mt-0.5 text-violet-500" aria-hidden />
-                    We softly save your preference for your host. Final timing is lovingly confirmed in Client Garden; the schedule below opens for every choice — fixed installments, pay in full, or Flexi (any amount, any time).
+                    We save your choices for your host. Pay in full, EMIs, or Flexi — all walk side by side below.
                   </p>
                 </div>
 
@@ -1530,9 +1497,9 @@ export default function AnnualPackagePurchasePage() {
                           <tfoot>
                             <tr className="bg-[rgba(244,240,255,0.95)] border-t-2 border-[rgba(160,100,240,0.22)] text-[#3b0764]">
                               <td colSpan={2} className="px-1.5 py-2.5 text-left text-[9px] font-bold uppercase tracking-wide">
-                                Row total
+                                ROW TOTAL
                                 {paymentScheduleEmiRowCount > 0
-                                  ? ` · ${paymentScheduleEmiRowCount} installment${paymentScheduleEmiRowCount !== 1 ? 's' : ''}`
+                                  ? ` · ${paymentScheduleEmiRowCount} INSTALLMENT${paymentScheduleEmiRowCount !== 1 ? 'S' : ''}`
                                   : null}
                               </td>
                               <td className="py-2.5 text-[9px] text-[rgba(80,55,145,0.55)]">—</td>
@@ -1540,8 +1507,8 @@ export default function AnnualPackagePurchasePage() {
                                 {symbol}
                                 {Number(toDisplay(paymentScheduleNumericTotal)).toLocaleString()}
                               </td>
-                              <td colSpan={3} className="px-1.5 py-2.5 text-[9px] text-[rgba(80,55,145,0.6)] text-left font-normal normal-case">
-                                Illustrative schedule total (matches quoted bundle).
+                              <td colSpan={3} className="px-1.5 py-2.5 text-[9px] text-[rgba(80,55,145,0.65)] text-left font-semibold uppercase tracking-wide">
+                                ILLUSTRATIVE TOTAL · MATCHES QUOTED BUNDLE
                               </td>
                             </tr>
                           </tfoot>
@@ -1555,10 +1522,10 @@ export default function AnnualPackagePurchasePage() {
                 ) : null}
 
                 <div className={cn(glassInset, 'space-y-3')}>
-                  <span className="block text-xs font-semibold text-[rgba(55,35,115,0.75)] tracking-wide uppercase text-[10px]">
+                  <span className="block text-[10px] font-bold text-[rgba(55,35,115,0.85)] tracking-[0.14em] uppercase">
                     {heroIsCatalogRenewalRef
-                      ? 'Annual / renewal reference (catalog bundle)'
-                      : 'Quoted total (your tier & hub)'}
+                      ? 'YOUR HOME COMING BUNDLE — PRICING REFERENCE'
+                      : 'QUOTED TOTAL — YOUR TIER & HUB'}
                   </span>
                   {quoteLoading ? (
                     <p className="text-sm text-[rgba(60,35,115,0.45)] italic">Receiving your tier&apos;s whispered numbers…</p>
@@ -1578,27 +1545,18 @@ export default function AnnualPackagePurchasePage() {
                           {Number(quote.client_crm_discount_amount).toLocaleString()} {quoteCur}).
                         </p>
                       ) : null}
-                      {heroIsCatalogRenewalRef ? (
-                        <p className="text-[11px] text-[rgba(60,35,115,0.72)] text-center sm:text-left leading-relaxed">
-                          This is your <strong>Home Coming annual program</strong> figure for <strong>purchase or renewal</strong> on your pricing hub
-                          (same row as the catalog card above). Checking out this pinned program may show ₹0 while your <em>current</em> seat already
-                          covers it — the schedule still uses this bundle so you and your host can plan pay-in-full or EMIs for the{' '}
-                          <strong>next Sacred Home cycle</strong>.
-                        </p>
-                      ) : null}
                       {quote?.included_in_annual_package ? (
                         <div className="rounded-xl border border-emerald-300/35 bg-emerald-50/80 px-3.5 py-3 text-left">
-                          <p className="text-sm text-emerald-950/95 leading-snug font-medium">
+                          <p className="text-[11px] text-emerald-950/95 leading-snug font-medium">
                             {heroIsCatalogRenewalRef ? (
                               <>
-                                Today&apos;s line item can read as included for <strong>this</strong> bundle while your annual garden is active.
-                                For <strong>renewal or a new annual enrollment</strong>, align with the amount above, your payment-schedule preference,
-                                and <Link to="/dashboard/financials" className="underline decoration-emerald-600/50 font-semibold text-emerald-900">
-                                  Sacred Exchange
-                                </Link>
-                                . Family seats stay on{' '}
-                                <Link to="/dashboard#sacred-home-programs" className="underline decoration-emerald-600/50 font-semibold text-emerald-900">
-                                  Upcoming programs
+                                If your seat is already covered, checkout may show ₹0 — use{' '}
+                                <Link to="/dashboard/financials" className="underline font-semibold text-emerald-900">
+                                  SACRED EXCHANGE
+                                </Link>{' '}
+                                for renewals; family seats on{' '}
+                                <Link to="/dashboard#sacred-home-programs" className="underline font-semibold text-emerald-900">
+                                  UPCOMING PROGRAMS
                                 </Link>
                                 .
                               </>
@@ -1636,16 +1594,21 @@ export default function AnnualPackagePurchasePage() {
                 <div className="flex flex-col sm:flex-row gap-3 pt-2">
                   <Button
                     type="button"
-                    className="flex-1 h-11 bg-gradient-to-r from-violet-700 to-[#6d28d9] hover:from-violet-800 hover:to-violet-800 shadow-lg shadow-violet-900/20"
+                    className="flex-1 h-11 bg-gradient-to-r from-violet-700 to-[#6d28d9] hover:from-violet-800 hover:to-violet-800 shadow-lg shadow-violet-900/20 text-[11px] font-bold uppercase tracking-wide"
                     disabled={!canContinueToCheckout}
                     onClick={goCheckout}
                     data-testid="annual-offer-checkout"
                   >
                     <ShoppingCart size={18} className="mr-2 shrink-0" />
-                    Continue to Divine Cart
+                    CONTINUE TO DIVINE CART
                   </Button>
-                  <Button type="button" variant="outline" className="flex-1 h-11 border-[rgba(160,80,220,0.35)] bg-white/60 hover:bg-white/90" asChild>
-                    <Link to="/dashboard#sacred-home-programs">Browse all upcoming programs</Link>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="flex-1 h-11 border-[rgba(160,80,220,0.35)] bg-white/60 hover:bg-white/90 text-[11px] font-bold uppercase tracking-wide"
+                    asChild
+                  >
+                    <Link to="/dashboard#sacred-home-programs">BROWSE ALL UPCOMING PROGRAMS</Link>
                   </Button>
                 </div>
               </div>
