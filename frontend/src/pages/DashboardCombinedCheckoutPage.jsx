@@ -1158,9 +1158,15 @@ export default function DashboardCombinedCheckoutPage() {
         m.annualOfferPaymentMode !== 'full' &&
         m.annualOfferPaymentMode !== 'emi_flexi'
       ) {
+        const payNRaw = m.homeComingPayInstallmentN;
+        const payInstallmentN =
+          typeof payNRaw === 'number' && !Number.isNaN(payNRaw) && payNRaw >= 1
+            ? Math.floor(payNRaw)
+            : 1;
         return {
           mode: m.annualOfferPaymentMode,
           preview: Array.isArray(m.annualOfferSchedulePreview) ? m.annualOfferSchedulePreview : [],
+          payInstallmentN,
         };
       }
     }
@@ -1753,8 +1759,12 @@ export default function DashboardCombinedCheckoutPage() {
             <p className="font-semibold text-[13px]">Home Coming · Installment plan</p>
             <p className="text-[11px] mt-1 text-violet-900/90 leading-relaxed">
               You chose <strong>EMI</strong> on the Home Coming page. This screen is for{' '}
-              <strong>today&apos;s payment</strong> (installment 1). Later installments are recorded on Sacred Exchange
-              with your host.
+              <strong>today&apos;s payment</strong>{' '}
+              (installment {homeComingAnnualOfferPlan.payInstallmentN}
+              {homeComingAnnualOfferPlan.preview.length > 0
+                ? ` of ${homeComingAnnualOfferPlan.preview.length}`
+                : ''}
+              ). Later installments are recorded on Sacred Exchange with your host.
             </p>
             {homeComingAnnualOfferPlan.preview.length > 0 ? (
               <ul className="mt-2 text-[10px] tabular-nums text-violet-900/85 space-y-0.5 max-h-28 overflow-y-auto border-t border-violet-100/80 pt-2">

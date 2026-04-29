@@ -622,11 +622,59 @@ export default function AnnualPackagePurchasePage() {
     [homeData?.user_details, user, baseCurrency],
   );
 
-  const goCheckout = () => {
+  /** Amount sent to Divine Cart / Stripe for Home Coming — one installment for EMI, never the full bundle total. */
+  const resolveHomeComingQuotedTotal = useCallback(
+    (clickedRow) => {
+      if (paymentMode === 'full') {
+        return scheduleSplitTotal;
+      }
+      if (paymentMode === 'emi_flexi') {
+        if (clickedRow && typeof clickedRow.amount === 'number' && clickedRow.amount > 0) {
+          return clickedRow.amount;
+        }
+        return scheduleSplitTotal;
+      }
+      if (
+        clickedRow &&
+        typeof clickedRow.amount === 'number' &&
+        !Number.isNaN(clickedRow.amount) &&
+        clickedRow.amount > 0
+      ) {
+        return clickedRow.amount;
+      }
+      const firstInst = paymentScheduleRows.find(
+        (r) =>
+          String(r.key || '').startsWith('emi-') &&
+          typeof r.amount === 'number' &&
+          !Number.isNaN(r.amount) &&
+          r.amount > 0,
+      );
+      return firstInst ? firstInst.amount : scheduleSplitTotal;
+    },
+    [paymentMode, scheduleSplitTotal, paymentScheduleRows],
+  );
+
+  const resolveHomeComingPayInstallmentN = useCallback(
+    (clickedRow) => {
+      if (paymentMode !== 'emi_monthly' && paymentMode !== 'emi_quarterly' && paymentMode !== 'emi_yearly') {
+        return null;
+      }
+      if (typeof clickedRow?.n === 'number' && !Number.isNaN(clickedRow.n) && clickedRow.n >= 1) {
+        return clickedRow.n;
+      }
+      return 1;
+    },
+    [paymentMode],
+  );
+
+  /** Optional `clickedRow`: schedule row when using Pay · Stripe on a specific installment. */
+  const goCheckout = (clickedRow = null) => {
     const autoQs = useAutoStripeCheckout ? '?autoPay=1' : '';
     if (pinnedProgram) {
       const tierIdx = pickTierIndexForDashboard(pinnedProgram, true) ?? 0;
       const participants = buildSacredHomeQuickPayParticipants(pinnedProgram);
+      const quoted = resolveHomeComingQuotedTotal(clickedRow);
+      const payInstallmentN = resolveHomeComingPayInstallmentN(clickedRow);
       const schedulePreview =
         paymentMode !== 'full' && paymentMode !== 'emi_flexi'
           ? paymentScheduleRows
@@ -639,12 +687,16 @@ export default function AnnualPackagePurchasePage() {
               }))
           : null;
       flushSync(() => {
-        syncProgramLineItem(pinnedProgram, tierIdx, participants, {
+        const meta = {
           fromAnnualOfferPage: true,
-          ...(scheduleSplitTotal > 0 ? { homeComingQuotedTotal: scheduleSplitTotal } : {}),
+          ...(quoted > 0 ? { homeComingQuotedTotal: quoted } : {}),
           annualOfferPaymentMode: paymentMode,
           ...(schedulePreview && schedulePreview.length ? { annualOfferSchedulePreview: schedulePreview } : {}),
-        });
+        };
+        if (payInstallmentN != null) {
+          meta.homeComingPayInstallmentN = payInstallmentN;
+        }
+        syncProgramLineItem(pinnedProgram, tierIdx, participants, meta);
       });
       navigate(`/dashboard/combined-checkout${autoQs}`);
       return;
@@ -1274,7 +1326,7 @@ export default function AnnualPackagePurchasePage() {
                                 navigate(`/dashboard/financials?payEmi=${row.n}`);
                                 return;
                               }
-                              goCheckout();
+                              goCheckout(row);
                             };
                             return (
                               <tr
