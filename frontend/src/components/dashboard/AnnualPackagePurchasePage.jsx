@@ -478,11 +478,44 @@ export default function AnnualPackagePurchasePage() {
     return `Payment schedule · ${n} installment${n === 1 ? '' : 's'}`;
   }, [paymentMode, paymentScheduleRows.length]);
 
+  const memberHasStripe = useMemo(
+    () => (homeData?.payment_methods || []).some((m) => String(m).toLowerCase() === 'stripe'),
+    [homeData?.payment_methods],
+  );
+
+  /** Single-click Pay on schedule: jump straight to Stripe Checkout when subscription allows Stripe and India-only is not chosen. */
+  const useAutoStripeCheckout = useMemo(() => {
+    if (!memberHasStripe) return false;
+    const pref = String(homeData?.preferred_payment_method || '').trim().toLowerCase();
+    const india = String(homeData?.client_india_pricing?.india_payment_method || '').trim().toLowerCase();
+    const mode = String(fin.payment_mode || '').trim().toLowerCase();
+    const raw = pref || india || mode;
+    if (!raw) return true;
+    if (
+      raw.includes('gpay') ||
+      raw.includes('upi') ||
+      raw.includes('bank') ||
+      raw === 'manual' ||
+      raw.includes('exly') ||
+      raw.includes('neft') ||
+      raw.includes('cash')
+    ) {
+      return false;
+    }
+    return true;
+  }, [
+    memberHasStripe,
+    homeData?.preferred_payment_method,
+    homeData?.client_india_pricing?.india_payment_method,
+    fin.payment_mode,
+  ]);
+
   const goCheckout = () => {
+    const autoQs = useAutoStripeCheckout ? '?autoPay=1' : '';
     if (pinnedProgram) {
       const tierIdx = pickTierIndexForDashboard(pinnedProgram, true) ?? 0;
       syncProgramLineItem(pinnedProgram, tierIdx, null, { fromAnnualOfferPage: true });
-      navigate('/dashboard/combined-checkout');
+      navigate(`/dashboard/combined-checkout${autoQs}`);
       return;
     }
     /* Illustrative schedule or no catalog pin: still send members somewhere to pay (combined-checkout needs a line item). */

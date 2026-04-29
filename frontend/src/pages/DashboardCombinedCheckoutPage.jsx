@@ -349,6 +349,7 @@ export default function DashboardCombinedCheckoutPage() {
   const currency = baseCurrency;
 
   const eidParam = searchParams.get('eid');
+  const autoPayFlag = searchParams.get('autoPay');
   const [enrollmentId, setEnrollmentId] = useState(eidParam);
   const [promoCode, setPromoCode] = useState(() => searchParams.get('promo') || '');
   const [promoResult, setPromoResult] = useState(null);
@@ -374,6 +375,8 @@ export default function DashboardCombinedCheckoutPage() {
   const [pointsToRedeem, setPointsToRedeem] = useState(0);
   const [paymentMethods, setPaymentMethods] = useState(['stripe']);
   const [enrollmentSubmitLoading, setEnrollmentSubmitLoading] = useState(false);
+  const autoPayEnrollKickedRef = useRef(false);
+  const autoPayCheckoutKickedRef = useRef(false);
   const [portalSelf, setPortalSelf] = useState(null);
   /** Client Garden India fields — same basis as India payment page / manual proof. */
   const [clientIndiaPricing, setClientIndiaPricing] = useState(null);
@@ -1445,12 +1448,26 @@ export default function DashboardCombinedCheckoutPage() {
           .catch(() => {});
       }
       toast({ title: enrollRes.data.message || 'Ready for payment' });
-      const next = new URLSearchParams();
-      next.set('eid', eid);
-      if (promoResult?.code) next.set('promo', promoResult.code);
-      else if (promoCode) next.set('promo', promoCode);
-      setSearchParams(next, { replace: true });
+      setSearchParams(
+        (prev) => {
+          const next = new URLSearchParams(prev);
+          next.set('eid', eid);
+          if (promoResult?.code) next.set('promo', promoResult.code);
+          else if (promoCode) next.set('promo', promoCode);
+          return next;
+        },
+        { replace: true },
+      );
     } catch (err) {
+      const ap = searchParams.get('autoPay');
+      if (ap === '1' || ap === 'stripe') {
+        autoPayEnrollKickedRef.current = false;
+        setSearchParams((prev) => {
+          const n = new URLSearchParams(prev);
+          n.delete('autoPay');
+          return n;
+        }, { replace: true });
+      }
       toast({
         title: 'Error',
         description: err.response?.data?.detail || 'Failed',
@@ -1496,6 +1513,15 @@ export default function DashboardCombinedCheckoutPage() {
         window.location.href = res.data.url;
       }
     } catch (err) {
+      const ap = searchParams.get('autoPay');
+      if (ap === '1' || ap === 'stripe') {
+        autoPayCheckoutKickedRef.current = false;
+        setSearchParams((prev) => {
+          const n = new URLSearchParams(prev);
+          n.delete('autoPay');
+          return n;
+        }, { replace: true });
+      }
       toast({
         title: 'Payment Error',
         description: err.response?.data?.detail || 'Try again',
@@ -1504,6 +1530,71 @@ export default function DashboardCombinedCheckoutPage() {
       setProcessing(false);
     }
   };
+
+  const validateAndProceedRef = useRef(validateAndProceed);
+  validateAndProceedRef.current = validateAndProceed;
+  const startTrustedEnrollmentRef = useRef(startTrustedEnrollment);
+  startTrustedEnrollmentRef.current = startTrustedEnrollment;
+  const handleCheckoutRef = useRef(handleCheckout);
+  handleCheckoutRef.current = handleCheckout;
+
+  useEffect(() => {
+    if (autoPayFlag !== '1' && autoPayFlag !== 'stripe') {
+      autoPayEnrollKickedRef.current = false;
+      autoPayCheckoutKickedRef.current = false;
+    }
+  }, [autoPayFlag]);
+
+  /** Home Coming schedule “Pay · Stripe” — create enrollment if needed and redirect to Stripe Checkout. */
+  useEffect(() => {
+    if (autoPayFlag !== '1' && autoPayFlag !== 'stripe') return;
+    if (items.length === 0) return;
+    const eid = String(enrollmentId || eidParam || '').trim();
+    if (eid) return;
+    if (autoPayEnrollKickedRef.current || enrollmentSubmitLoading) return;
+    autoPayEnrollKickedRef.current = true;
+    if (!validateAndProceedRef.current()) {
+      autoPayEnrollKickedRef.current = false;
+      setSearchParams((prev) => {
+        const n = new URLSearchParams(prev);
+        n.delete('autoPay');
+        return n;
+      }, { replace: true });
+      toast({
+        title: 'Complete your seat details',
+        description: 'Fill every required field on the Divine Cart, then use Pay again from Sacred Home.',
+        variant: 'destructive',
+      });
+      return;
+    }
+    void startTrustedEnrollmentRef.current();
+  }, [autoPayFlag, items.length, enrollmentId, eidParam, enrollmentSubmitLoading, setSearchParams, toast]);
+
+  useEffect(() => {
+    if (autoPayFlag !== '1' && autoPayFlag !== 'stripe') return;
+    if (items.length === 0) return;
+    const eid = String(enrollmentId || '').trim();
+    if (!eid) return;
+    if (!hasStripe) {
+      if (!autoPayCheckoutKickedRef.current) {
+        autoPayCheckoutKickedRef.current = true;
+        setSearchParams((prev) => {
+          const n = new URLSearchParams(prev);
+          n.delete('autoPay');
+          return n;
+        }, { replace: true });
+        toast({
+          title: 'Open Sacred Exchange',
+          description: 'India payments (UPI / bank) are completed on Payments & EMIs.',
+        });
+        navigate('/dashboard/financials');
+      }
+      return;
+    }
+    if (autoPayCheckoutKickedRef.current || processing) return;
+    autoPayCheckoutKickedRef.current = true;
+    void handleCheckoutRef.current();
+  }, [autoPayFlag, items.length, enrollmentId, hasStripe, processing, navigate, setSearchParams, toast]);
 
   const portalReturnQs = useMemo(() => {
     const q = new URLSearchParams();
