@@ -924,6 +924,7 @@ async def list_annual_finance_roster(search: Optional[str] = None):
         "crm_channelization_fee": 1,
         "crm_show_late_fees": 1,
         "annual_period_ledger": 1,
+        "annual_package_offer_prefs": 1,
     }
     rows = await db.clients.find(query, proj).sort([("name", 1), ("id", 1)]).to_list(5000)
     out = []

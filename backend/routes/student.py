@@ -2549,20 +2549,40 @@ async def get_student_home(user: dict = Depends(get_current_student_user)):
         except (TypeError, ValueError):
             dur_months_home = 12
     sess = sub.get("sessions", {})
-    emis = sub.get("emis", [])
+    emis = sub.get("emis") or []
+    pm_sub = (sub.get("payment_mode") or "").strip()
+    try:
+        sur_pct = float(sub.get("installment_surcharge_percent") or 0)
+    except (TypeError, ValueError):
+        sur_pct = 0.0
+    sur_pct = max(0.0, min(100.0, sur_pct))
+    base_package_fee = float(sub.get("total_fee") or 0)
+    is_emi_plan = pm_sub == "EMI" and len(emis) > 0
+    effective_total_fee = (
+        round(base_package_fee * (1.0 + sur_pct / 100.0), 2)
+        if is_emi_plan and sur_pct > 0 and base_package_fee > 0
+        else base_package_fee
+    )
 
     # 3. Financials - derived from subscription
     paid_emis = sum(1 for e in emis if e.get("status") == "paid")
     total_emis = len(emis)
     voluntary_credits = float(sub.get("voluntary_credits_total") or 0)
-    total_paid_emis = sum(e.get("amount", 0) for e in emis if e.get("status") == "paid")
+    total_paid_emis = sum(float(e.get("amount", 0) or 0) for e in emis if e.get("status") == "paid")
     total_paid = total_paid_emis + voluntary_credits
-    total_fee = sub.get("total_fee", 0)
+    total_fee = effective_total_fee
     remaining = max(0, total_fee - total_paid)
 
     financials = {
-        "status": client.get("payment_status") or ("Paid" if remaining <= 0 and total_fee > 0 else ("EMI" if total_emis > 0 else "N/A")),
+        "status": client.get("payment_status")
+        or (
+            "Paid"
+            if remaining <= 0 and total_fee > 0
+            else ("EMI" if total_emis > 0 else "N/A")
+        ),
         "total_fee": total_fee,
+        "base_package_fee": base_package_fee,
+        "installment_surcharge_percent": sur_pct if is_emi_plan else 0.0,
         "currency": sub.get("currency", "INR"),
         "total_paid": total_paid,
         "remaining": remaining,

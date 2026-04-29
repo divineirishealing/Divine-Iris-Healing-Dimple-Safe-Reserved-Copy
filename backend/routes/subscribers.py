@@ -747,9 +747,15 @@ def _normalize_iris_fields(data: SubscriberCreate) -> Dict[str, object]:
 
 
 def _emi_due_date_iso(start_yyyy_mm_dd: str, month_offset: int, emi_day: int) -> str:
-    """Match Subscribers tab: due month = start month + month_offset, day capped to month length."""
-    if not start_yyyy_mm_dd or len(start_yyyy_mm_dd) < 10 or not emi_day:
+    """Due month = start month + month_offset (same as Subscribers); day = min(emi_day, days in month).
+
+    Iris Annual Abundance regenerations pass emi_day=27 so dues land on the 27th when the month allows.
+    """
+    if not start_yyyy_mm_dd or len(start_yyyy_mm_dd) < 10:
         return ""
+    day = int(emi_day) if emi_day else 27
+    if day < 1:
+        day = 27
     try:
         y = int(start_yyyy_mm_dd[0:4])
         mo = int(start_yyyy_mm_dd[5:7])
@@ -757,14 +763,18 @@ def _emi_due_date_iso(start_yyyy_mm_dd: str, month_offset: int, emi_day: int) ->
         y += total_m // 12
         m2 = total_m % 12 + 1
         dim = calendar.monthrange(y, m2)[1]
-        d = min(int(emi_day), dim)
+        d = min(day, dim)
         return f"{y:04d}-{m2:02d}-{d:02d}"
     except (ValueError, TypeError):
         return ""
 
 
 def _regenerate_emi_schedule_inplace(sub: Dict[str, Any]) -> None:
-    """Align EMI rows with payment_mode, num_emis, total_fee (preserve paid rows)."""
+    """Align EMI rows with payment_mode, num_emis, total_fee (preserve paid rows).
+
+    Dues use the 27th of the month (clamped to month length). Optional ``installment_surcharge_percent``
+    inflates the split total (e.g. quarterly / monthly plans) before dividing across EMIs.
+    """
     pm = (sub.get("payment_mode") or "No EMI").strip()
     n = int(sub.get("num_emis") or 0)
     if pm != "EMI":
@@ -777,9 +787,22 @@ def _regenerate_emi_schedule_inplace(sub: Dict[str, Any]) -> None:
         sub["emis"] = []
         return
     fee = float(sub.get("total_fee") or 0)
+    try:
+        sur = float(sub.get("installment_surcharge_percent") or 0)
+    except (TypeError, ValueError):
+        sur = 0.0
+    sur = max(0.0, min(100.0, sur))
+    gross = round(fee * (1.0 + sur / 100.0), 2) if fee > 0 else 0.0
     start = (sub.get("start_date") or "").strip()[:10]
-    emi_day = int(sub.get("emi_day") or 30)
-    per = round(fee / n) if n else 0
+    emi_day_portal = 27
+    sub["emi_day"] = emi_day_portal
+    cents_total = int(round(gross * 100))
+    base_cents = cents_total // n if n else 0
+    extra = cents_total % n if n else 0
+    installment_amounts: List[float] = []
+    for i in range(n):
+        c = base_cents + (1 if i < extra else 0)
+        installment_amounts.append(round(c / 100.0, 2))
     old_list = list(sub.get("emis") or [])
     new_emis: List[Dict[str, Any]] = []
     for i in range(1, n + 1):
@@ -787,12 +810,13 @@ def _regenerate_emi_schedule_inplace(sub: Dict[str, Any]) -> None:
         if ex and str(ex.get("status", "")).lower() == "paid":
             new_emis.append(dict(ex))
             continue
-        due = _emi_due_date_iso(start, i - 2, emi_day)
+        due = _emi_due_date_iso(start, i - 2, emi_day_portal)
+        per_inst = installment_amounts[i - 1] if i <= len(installment_amounts) else 0.0
         merged = dict(ex) if ex else {}
         merged.update(
             {
                 "number": i,
-                "amount": per,
+                "amount": per_inst,
                 "due_date": due,
             }
         )
@@ -815,6 +839,8 @@ class AnnualPackageFieldsPatch(BaseModel):
     num_emis: Optional[int] = None
     iris_year: Optional[int] = None
     iris_year_mode: Optional[str] = None  # manual | auto
+    # Extra % on base package fee before splitting across EMIs (quarterly / monthly plans).
+    installment_surcharge_percent: Optional[float] = None
 
 
 @router.patch("/annual-package/{client_id}")
@@ -871,6 +897,12 @@ async def patch_annual_package_fields(client_id: str, data: AnnualPackageFieldsP
         if m not in ("manual", "auto"):
             raise HTTPException(status_code=400, detail="iris_year_mode must be manual or auto")
         sub["iris_year_mode"] = m
+    if "installment_surcharge_percent" in raw:
+        sp = raw["installment_surcharge_percent"]
+        if sp is None:
+            sub["installment_surcharge_percent"] = 0.0
+        else:
+            sub["installment_surcharge_percent"] = max(0.0, min(100.0, float(sp)))
 
     _regenerate_emi_schedule_inplace(sub)
     now = datetime.now(timezone.utc).isoformat()

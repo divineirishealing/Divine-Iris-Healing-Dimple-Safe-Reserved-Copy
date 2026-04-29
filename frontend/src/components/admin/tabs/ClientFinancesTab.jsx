@@ -2,9 +2,9 @@ import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import axios from 'axios';
 import { Columns3, Filter, IndianRupee, Loader2, Pencil, RefreshCw, Search } from 'lucide-react';
 import { getApiUrl } from '../../../lib/config';
-import { buildClientFinancePutPayload } from '../../../lib/clientFinanceAdmin';
-import { serverBandsToRows, validateBandRows } from '../../../lib/indiaDiscountBandsUi';
-import ClientFinanceFields from '../ClientFinanceFields';
+import { serverBandsToRows, validateBandRows, rowsToBandsPayload } from '../../../lib/indiaDiscountBandsUi';
+import { buildIndiaGpayOptions, buildIndiaBankOptions } from '../../../lib/indiaPaymentTags';
+import IndiaDiscountBandsEditor from '../IndiaDiscountBandsEditor';
 import {
   gstSummary,
   discountSummary,
@@ -51,6 +51,7 @@ function hasAnnualPackageRow(cl) {
 
 /** Column ids in table order. Only `hideable` columns appear in the Columns menu. */
 const FINANCE_COLUMNS = [
+  { id: 'sno', label: 'S.No', hideable: false },
   { id: 'name', label: 'Name', hideable: false },
   { id: 'email', label: 'Email', hideable: true },
   { id: 'start', label: 'Start', hideable: true },
@@ -59,13 +60,18 @@ const FINANCE_COLUMNS = [
   { id: 'iris', label: 'Iris / label', hideable: true },
   { id: 'payMethod', label: 'Pay method', hideable: true },
   { id: 'annualFee', label: 'Annual fee', hideable: true },
-  { id: 'mode', label: 'Mode', hideable: true },
-  { id: 'emiCount', label: 'EMIs', hideable: true },
   { id: 'discount', label: 'Discount', hideable: true },
   { id: 'tax', label: 'Tax', hideable: true },
+  { id: 'chFee', label: 'Ch. fee', hideable: true },
+  { id: 'lateFee', label: 'Late fee', hideable: true },
+  { id: 'mode', label: 'Billing mode', hideable: true },
+  { id: 'emiCount', label: 'EMIs', hideable: true },
+  { id: 'surPct', label: 'Inst. +%', hideable: true },
+  { id: 'userPlan', label: 'Student plan', hideable: true },
+  { id: 'sessionMode', label: 'Session mode', hideable: true },
   { id: 'totalAmount', label: 'Total amount', hideable: true },
-  { id: 'paidApproved', label: 'Paid (approved proofs)', hideable: true },
-  { id: 'edit', label: 'CRM · proofs', hideable: false },
+  { id: 'paidApproved', label: 'Paid status', hideable: true },
+  { id: 'edit', label: 'Proofs', hideable: false },
 ];
 
 function formatAnnualDate(raw) {
@@ -103,6 +109,42 @@ function subscriptionCurrency(cl) {
   return (sub.currency || 'INR').toString().trim() || 'INR';
 }
 
+function offerPrefs(cl) {
+  const p = cl?.annual_package_offer_prefs;
+  return p && typeof p === 'object' ? p : {};
+}
+
+function studentOfferPaymentLabel(cl) {
+  const m = String(offerPrefs(cl).payment_mode || 'full').toLowerCase();
+  const labels = {
+    full: 'Full pay',
+    emi_monthly: 'Monthly',
+    emi_quarterly: 'Quarterly',
+    emi_yearly: 'Yearly',
+    emi_flexi: 'Flexi',
+  };
+  return labels[m] || m || '—';
+}
+
+function sessionModeDisplay(cl) {
+  const p = String(offerPrefs(cl).participation_mode || 'online').toLowerCase();
+  return p === 'offline' ? 'Offline' : 'Online';
+}
+
+/** Base package fee with optional installment surcharge (matches server EMI split). */
+function subscriptionFeeBeforeAdjustments(cl) {
+  const sub = subscriptionBlock(cl);
+  const base = Number(sub.total_fee);
+  if (!Number.isFinite(base) || base <= 0) return null;
+  const sur = Number(sub.installment_surcharge_percent || 0);
+  const isEmi =
+    (sub.payment_mode || '').trim() === 'EMI' &&
+    Number(sub.num_emis) > 0;
+  if (!isEmi || !Number.isFinite(sur) || sur <= 0) return base;
+  const adj = base * (1 + Math.min(100, Math.max(0, sur)) / 100);
+  return Math.round(adj * 100) / 100;
+}
+
 /** Home Coming pay shape: EMI plan vs lump-sum. */
 function installmentModeLabel(cl) {
   const sub = subscriptionBlock(cl);
@@ -130,10 +172,9 @@ function hasGroupDiscountBands(cl) {
  * When tiered group bands exist, total is approximate — reconcile in Subscribers.
  */
 function computedFinanceTotal(cl) {
-  const sub = subscriptionBlock(cl);
-  const fee = Number(sub.total_fee);
+  const fee = subscriptionFeeBeforeAdjustments(cl);
   const currency = subscriptionCurrency(cl);
-  if (!Number.isFinite(fee) || fee <= 0) {
+  if (fee == null || !Number.isFinite(fee) || fee <= 0) {
     return { amount: null, approximate: false, currency };
   }
   let x = fee;
@@ -221,7 +262,7 @@ function paymentMethodSummary(cl) {
 
 const FINANCE_FILTER_BLANKS = '(Blanks)';
 const FINANCE_FILTERABLE_COL_IDS = new Set(
-  FINANCE_COLUMNS.filter((c) => c.id !== 'edit').map((c) => c.id),
+  FINANCE_COLUMNS.filter((c) => c.id !== 'edit' && c.id !== 'sno').map((c) => c.id),
 );
 
 function getFinanceFilterValue(r, colId) {
@@ -253,6 +294,29 @@ function getFinanceFilterValue(r, colId) {
     case 'annualFee': {
       const af = annualFeeLine(r);
       return af === '—' ? FINANCE_FILTER_BLANKS : af;
+    }
+    case 'chFee': {
+      const v = r.crm_channelization_fee;
+      if (v == null || v === '') return FINANCE_FILTER_BLANKS;
+      return String(v);
+    }
+    case 'lateFee': {
+      const v = r.crm_late_fee_per_day;
+      if (v == null || v === '') return FINANCE_FILTER_BLANKS;
+      return String(v);
+    }
+    case 'userPlan': {
+      const u = studentOfferPaymentLabel(r);
+      return u === '—' ? FINANCE_FILTER_BLANKS : u;
+    }
+    case 'sessionMode': {
+      return sessionModeDisplay(r);
+    }
+    case 'surPct': {
+      const sub = subscriptionBlock(r);
+      const s = Number(sub.installment_surcharge_percent || 0);
+      if (!Number.isFinite(s) || s <= 0) return FINANCE_FILTER_BLANKS;
+      return `${s}%`;
     }
     case 'mode':
       return installmentModeLabel(r);
@@ -440,18 +504,7 @@ export default function ClientFinancesTab() {
   const [paymentHistory, setPaymentHistory] = useState([]);
   const [loadingPayments, setLoadingPayments] = useState(false);
 
-  const [preferredPaymentMethod, setPreferredPaymentMethod] = useState('');
-  const [indiaPaymentMethod, setIndiaPaymentMethod] = useState('');
-  const [preferredIndiaGpayId, setPreferredIndiaGpayId] = useState('');
-  const [preferredIndiaBankId, setPreferredIndiaBankId] = useState('');
-  const [indiaDiscountPercent, setIndiaDiscountPercent] = useState('');
   const [indiaDiscountBandRows, setIndiaDiscountBandRows] = useState([]);
-  const [indiaTaxEnabled, setIndiaTaxEnabled] = useState(false);
-  const [indiaTaxPercent, setIndiaTaxPercent] = useState(18);
-  const [indiaTaxLabel, setIndiaTaxLabel] = useState('GST');
-  const [crmLateFeePerDay, setCrmLateFeePerDay] = useState('');
-  const [crmChannelizationFee, setCrmChannelizationFee] = useState('');
-  const [crmShowLateFees, setCrmShowLateFees] = useState('');
 
   const [columnVisibility, setColumnVisibility] = useState(() => {
     try {
@@ -496,56 +549,71 @@ export default function ClientFinancesTab() {
     } finally {
       setLoading(false);
     }
-  }, [searchText]);
+  }, [searchText, toast]);
 
   useEffect(() => {
     fetchData();
   }, [fetchData]);
 
-  const setIndiaMethodTagged = (v) => {
-    setIndiaPaymentMethod(v);
-    const gpayOk = v === 'gpay_upi' || v === 'any' || v === '';
-    const bankOk = v === 'bank_transfer' || v === 'cash_deposit' || v === 'any' || v === '';
-    if (!gpayOk) setPreferredIndiaGpayId('');
-    if (!bankOk) setPreferredIndiaBankId('');
+  const indiaGpayOpts = useMemo(() => buildIndiaGpayOptions(indiaSite || {}), [indiaSite]);
+  const indiaBankOpts = useMemo(() => buildIndiaBankOptions(indiaSite || {}), [indiaSite]);
+
+  const [financeRowSaving, setFinanceRowSaving] = useState({});
+
+  const saveClientFinanceInline = useCallback(
+    async (clientId, patchFields) => {
+      if (!clientId || !patchFields || typeof patchFields !== 'object') return;
+      setFinanceRowSaving((s) => ({ ...s, [clientId]: true }));
+      try {
+        await axios.put(`${API}/clients/${clientId}`, patchFields);
+        toast({ title: 'CRM saved', description: 'Rails, discount, tax, or fees updated for this row.' });
+        await fetchData();
+      } catch (e) {
+        toast({
+          title: 'Save failed',
+          description: e.response?.data?.detail || e.message,
+          variant: 'destructive',
+        });
+      } finally {
+        setFinanceRowSaving((s) => {
+          const next = { ...s };
+          delete next[clientId];
+          return next;
+        });
+      }
+    },
+    [fetchData, toast],
+  );
+
+  const putPreferredBody = (_cl, prefVal) => {
+    const low = (prefVal || '').trim().toLowerCase();
+    const body = { preferred_payment_method: low || '' };
+    if (low === 'stripe') {
+      body.preferred_india_gpay_id = '';
+      body.preferred_india_bank_id = '';
+    } else if (low === 'bank_transfer' || low === 'cash_deposit') {
+      body.preferred_india_gpay_id = '';
+    } else if (low === 'gpay_upi') {
+      body.preferred_india_bank_id = '';
+    }
+    return body;
   };
 
-  const onPreferredPaymentChange = (v) => {
-    const low = (v || '').trim().toLowerCase();
-    setPreferredPaymentMethod(v);
-    if (low === 'stripe') {
-      setPreferredIndiaGpayId('');
-      setPreferredIndiaBankId('');
-    } else if (low === 'bank_transfer' || low === 'cash_deposit') {
-      setPreferredIndiaGpayId('');
-    } else if (low === 'gpay_upi') {
-      setPreferredIndiaBankId('');
-    }
+  const putIndiaTagBody = (cl, tagVal) => {
+    const v = (tagVal || '').trim();
+    const body = { india_payment_method: v || '' };
+    const tag = v.toLowerCase();
+    const gpayOk = tag === 'gpay_upi' || tag === 'any' || tag === '';
+    const bankOk =
+      tag === 'bank_transfer' || tag === 'cash_deposit' || tag === 'any' || tag === '';
+    if (!gpayOk) body.preferred_india_gpay_id = '';
+    if (!bankOk) body.preferred_india_bank_id = '';
+    return body;
   };
 
   const openEdit = useCallback((cl) => {
     setEditing(cl);
-    setPreferredPaymentMethod(cl.preferred_payment_method || '');
-    setIndiaPaymentMethod(cl.india_payment_method || '');
-    setPreferredIndiaGpayId(cl.preferred_india_gpay_id || '');
-    setPreferredIndiaBankId(cl.preferred_india_bank_id || '');
-    setIndiaDiscountPercent(cl.india_discount_percent ?? '');
     setIndiaDiscountBandRows(serverBandsToRows(cl.india_discount_member_bands || []));
-    setIndiaTaxEnabled(!!cl.india_tax_enabled);
-    setIndiaTaxPercent(cl.india_tax_percent ?? 18);
-    setIndiaTaxLabel(cl.india_tax_label || 'GST');
-    setCrmLateFeePerDay(
-      cl.crm_late_fee_per_day != null && cl.crm_late_fee_per_day !== '' ? String(cl.crm_late_fee_per_day) : '',
-    );
-    setCrmChannelizationFee(
-      cl.crm_channelization_fee != null && cl.crm_channelization_fee !== ''
-        ? String(cl.crm_channelization_fee)
-        : '',
-    );
-    {
-      const sh = cl.crm_show_late_fees;
-      setCrmShowLateFees(sh === true ? 'true' : sh === false ? 'false' : '');
-    }
     setDialogOpen(true);
   }, []);
 
@@ -588,22 +656,9 @@ export default function ClientFinancesTab() {
     setSaving(true);
     try {
       await axios.put(`${API}/clients/${editing.id}`, {
-        ...buildClientFinancePutPayload({
-          preferredPaymentMethod,
-          indiaPaymentMethod,
-          preferredIndiaGpayId,
-          preferredIndiaBankId,
-          indiaDiscountPercent,
-          indiaDiscountBandRows,
-          indiaTaxEnabled,
-          indiaTaxPercent,
-          indiaTaxLabel,
-          crmLateFeePerDay,
-          crmChannelizationFee,
-          crmShowLateFees,
-        }),
+        india_discount_member_bands: rowsToBandsPayload(indiaDiscountBandRows),
       });
-      toast({ title: 'Saved', description: 'Finance fields updated.' });
+      toast({ title: 'Saved', description: 'Group discount rules updated.' });
       closeDialog();
       await fetchData();
     } catch (e) {
@@ -622,16 +677,14 @@ export default function ClientFinancesTab() {
     const id = localStorage.getItem(FINANCE_PRESELECT_KEY);
     if (!id) return;
     localStorage.removeItem(FINANCE_PRESELECT_KEY);
-    const cl = clients.find((c) => c.id === id);
-    if (cl) openEdit(cl);
-  }, [clients, openEdit]);
+  }, [clients]);
 
   const rows = useMemo(() => clients || [], [clients]);
 
   const filterOptionBaseByCol = useMemo(() => {
     const out = {};
     for (const c of FINANCE_COLUMNS) {
-      if (c.id === 'edit') continue;
+      if (c.id === 'edit' || c.id === 'sno') continue;
       out[c.id] = rowsForFinanceFilterOptions(rows, columnFilters, c.id);
     }
     return out;
@@ -697,7 +750,7 @@ export default function ClientFinancesTab() {
   );
   const colCount = visibleColumns.length;
 
-  const renderCell = (cl, colId) => {
+  const renderCell = (cl, colId, rowIndex) => {
     const asub = cl.annual_subscription || {};
     const life = cl.annual_portal_lifecycle;
     const rollup = cl.finance_payment_rollup;
@@ -705,9 +758,30 @@ export default function ClientFinancesTab() {
     const paidInfo = paidApprovedSummary(cl, rollup);
     const sub = subscriptionBlock(cl);
     const pkgBusy = !!packageSaving[cl.id];
+    const crmBusy = !!financeRowSaving[cl.id];
+    const rowBusy = pkgBusy || crmBusy;
     const canPkg = hasAnnualPackageRow(cl);
+    const prefLow = String(cl.preferred_payment_method || '').trim().toLowerCase();
+    const tagLow = String(cl.india_payment_method || '').trim().toLowerCase();
+    const showGpayRow =
+      prefLow === 'gpay_upi' ||
+      tagLow === 'gpay_upi' ||
+      tagLow === 'gpay' ||
+      tagLow === 'upi' ||
+      tagLow === 'any';
+    const showBankRow =
+      prefLow === 'bank_transfer' ||
+      prefLow === 'cash_deposit' ||
+      tagLow === 'bank_transfer' ||
+      tagLow === 'cash_deposit' ||
+      tagLow === 'cash' ||
+      tagLow === 'any';
 
     switch (colId) {
+      case 'sno':
+        return (
+          <td className="px-2 py-2 tabular-nums text-gray-500 w-10 text-center">{rowIndex}</td>
+        );
       case 'name':
         return (
           <td className="px-2 py-2 font-medium text-gray-900 whitespace-nowrap">
@@ -749,7 +823,7 @@ export default function ClientFinancesTab() {
                 min={1}
                 max={12}
                 className="h-7 w-11 text-[11px] px-1"
-                disabled={pkgBusy}
+                disabled={rowBusy}
                 defaultValue={sub.iris_year ?? 1}
                 key={`iy-${cl.id}-${sub.iris_year}-${sub.iris_year_mode}`}
                 onBlur={(e) => {
@@ -761,20 +835,83 @@ export default function ClientFinancesTab() {
               />
               <select
                 className="h-7 text-[10px] border rounded px-1 max-w-[4.75rem] bg-white"
-                disabled={pkgBusy}
+                disabled={rowBusy}
                 value={(sub.iris_year_mode || 'manual').toLowerCase() === 'auto' ? 'auto' : 'manual'}
                 onChange={(e) => saveAnnualPackage(cl.id, { iris_year_mode: e.target.value })}
               >
                 <option value="manual">manual</option>
                 <option value="auto">auto</option>
               </select>
-              {pkgBusy ? <Loader2 className="h-3.5 w-3.5 animate-spin text-gray-400" /> : null}
+              {rowBusy ? <Loader2 className="h-3.5 w-3.5 animate-spin text-gray-400" /> : null}
             </div>
           </td>
         );
       case 'payMethod':
         return (
-          <td className="px-2 py-2 text-[11px] max-w-[8rem] leading-snug">{paymentMethodSummary(cl)}</td>
+          <td className="px-2 py-2 text-[10px] max-w-[10rem] align-top">
+            <div className="space-y-1">
+              <select
+                className="h-7 w-full text-[10px] border rounded px-0.5 bg-white"
+                disabled={crmBusy}
+                value={(cl.preferred_payment_method || '').trim()}
+                onChange={(e) => saveClientFinanceInline(cl.id, putPreferredBody(cl, e.target.value))}
+              >
+                <option value="">— Preferred —</option>
+                <option value="gpay_upi">GPay / UPI</option>
+                <option value="bank_transfer">Bank transfer</option>
+                <option value="cash_deposit">Cash deposit</option>
+                <option value="stripe">Stripe</option>
+              </select>
+              <select
+                className="h-7 w-full text-[10px] border rounded px-0.5 bg-white"
+                disabled={crmBusy}
+                value={(cl.india_payment_method || '').trim()}
+                onChange={(e) => saveClientFinanceInline(cl.id, putIndiaTagBody(cl, e.target.value))}
+              >
+                <option value="">— Tag —</option>
+                <option value="gpay_upi">GPay / UPI</option>
+                <option value="bank_transfer">Bank transfer</option>
+                <option value="cash_deposit">Cash deposit</option>
+                <option value="stripe">Stripe</option>
+                <option value="any">Any / multiple</option>
+              </select>
+              {showGpayRow && indiaGpayOpts.length >= 1 ? (
+                <select
+                  className="h-7 w-full text-[10px] border rounded px-0.5 bg-white"
+                  disabled={crmBusy}
+                  value={(cl.preferred_india_gpay_id || '').trim()}
+                  onChange={(e) =>
+                    saveClientFinanceInline(cl.id, { preferred_india_gpay_id: e.target.value })
+                  }
+                >
+                  <option value="">All UPIs</option>
+                  {indiaGpayOpts.map((o) => (
+                    <option key={o.tag_id} value={o.tag_id}>
+                      {o.display_label || o.label}
+                    </option>
+                  ))}
+                </select>
+              ) : null}
+              {showBankRow && indiaBankOpts.length >= 1 ? (
+                <select
+                  className="h-7 w-full text-[10px] border rounded px-0.5 bg-white"
+                  disabled={crmBusy}
+                  value={(cl.preferred_india_bank_id || '').trim()}
+                  onChange={(e) =>
+                    saveClientFinanceInline(cl.id, { preferred_india_bank_id: e.target.value })
+                  }
+                >
+                  <option value="">All banks</option>
+                  {indiaBankOpts.map((o) => (
+                    <option key={o.tag_id} value={o.tag_id}>
+                      {o.label}
+                    </option>
+                  ))}
+                </select>
+              ) : null}
+              {crmBusy ? <Loader2 className="h-3.5 w-3.5 animate-spin text-gray-400" /> : null}
+            </div>
+          </td>
         );
       case 'annualFee':
         if (!canPkg) {
@@ -789,7 +926,7 @@ export default function ClientFinancesTab() {
             <div className="flex items-center gap-1 flex-wrap">
               <Input
                 className="h-7 w-[6.75rem] text-[11px] tabular-nums px-1.5"
-                disabled={pkgBusy}
+                disabled={rowBusy}
                 defaultValue={
                   sub.total_fee != null && sub.total_fee !== ''
                     ? String(sub.total_fee).replace(/,/g, '')
@@ -809,8 +946,26 @@ export default function ClientFinancesTab() {
               <span className="text-[10px] text-gray-500 whitespace-nowrap">
                 {(sub.currency || 'INR').toString().slice(0, 3)}
               </span>
-              {pkgBusy ? <Loader2 className="h-3.5 w-3.5 animate-spin shrink-0 text-gray-400" /> : null}
+              {rowBusy ? <Loader2 className="h-3.5 w-3.5 animate-spin shrink-0 text-gray-400" /> : null}
             </div>
+          </td>
+        );
+      case 'userPlan':
+        return (
+          <td
+            className="px-2 py-2 text-[11px] text-gray-700 whitespace-nowrap"
+            title="Student choice on Sacred Home annual package page"
+          >
+            {studentOfferPaymentLabel(cl)}
+          </td>
+        );
+      case 'sessionMode':
+        return (
+          <td
+            className="px-2 py-2 text-[11px] whitespace-nowrap"
+            title="Student participation preference (online / offline)"
+          >
+            {sessionModeDisplay(cl)}
           </td>
         );
       case 'mode':
@@ -874,10 +1029,200 @@ export default function ClientFinancesTab() {
             </td>
           );
         }
+      case 'surPct': {
+        if (!canPkg) {
+          return (
+            <td className="px-2 py-2 text-[11px] text-gray-400 whitespace-nowrap">—</td>
+          );
+        }
+        const isEmi = (sub.payment_mode || '').trim() === 'EMI';
+        return (
+          <td className="px-2 py-2 tabular-nums whitespace-nowrap align-top">
+            <div className="flex items-center gap-0.5">
+              <Input
+                type="number"
+                min={0}
+                max={100}
+                step={0.5}
+                className="h-7 w-12 text-[11px] px-1"
+                disabled={pkgBusy || !isEmi}
+                defaultValue={
+                  isEmi && sub.installment_surcharge_percent != null && sub.installment_surcharge_percent !== ''
+                    ? String(sub.installment_surcharge_percent)
+                    : '0'
+                }
+                key={`sr-${cl.id}-${sub.installment_surcharge_percent}-${isEmi}`}
+                onBlur={(e) => {
+                  if (!isEmi) return;
+                  const n = Math.min(100, Math.max(0, parseFloat(e.target.value.replace(/,/g, '')) || 0));
+                  const prev = Number(sub.installment_surcharge_percent || 0);
+                  if (Math.abs(n - prev) > 0.001) {
+                    saveAnnualPackage(cl.id, { installment_surcharge_percent: n });
+                  }
+                }}
+              />
+              <span className="text-[10px] text-gray-500">%</span>
+              {pkgBusy ? <Loader2 className="h-3.5 w-3.5 animate-spin text-gray-400" /> : null}
+            </div>
+            {!isEmi ? (
+              <p className="text-[9px] text-gray-400 mt-0.5">EMI only</p>
+            ) : null}
+          </td>
+        );
+      }
       case 'discount':
-        return <td className="px-2 py-2 text-[11px]">{discountSummary(cl)}</td>;
+        return (
+          <td className="px-2 py-2 align-top">
+            <div className="flex items-center gap-0.5">
+              <Input
+                type="number"
+                min={0}
+                max={100}
+                step={0.5}
+                className="h-7 w-14 text-[11px] px-1"
+                disabled={crmBusy}
+                defaultValue={
+                  cl.india_discount_percent != null && cl.india_discount_percent !== ''
+                    ? String(cl.india_discount_percent)
+                    : ''
+                }
+                key={`dp-${cl.id}-${cl.india_discount_percent}`}
+                onBlur={(e) => {
+                  const t = e.target.value.replace(/,/g, '').trim();
+                  const n = t === '' ? 0 : parseFloat(t);
+                  if (!Number.isFinite(n) || n < 0) return;
+                  const prev = Number(cl.india_discount_percent || 0);
+                  if (Math.abs(n - prev) > 0.001) {
+                    saveClientFinanceInline(cl.id, { india_discount_percent: n });
+                  }
+                }}
+              />
+              <span className="text-[10px] text-gray-500">%</span>
+              {crmBusy ? <Loader2 className="h-3.5 w-3.5 animate-spin text-gray-400" /> : null}
+            </div>
+          </td>
+        );
       case 'tax':
-        return <td className="px-2 py-2 text-[11px]">{gstSummary(cl)}</td>;
+        return (
+          <td className="px-2 py-2 align-top">
+            <label className="flex items-center gap-1 text-[10px] cursor-pointer">
+              <input
+                type="checkbox"
+                checked={!!cl.india_tax_enabled}
+                disabled={crmBusy}
+                onChange={(e) => {
+                  const on = e.target.checked;
+                  saveClientFinanceInline(cl.id, {
+                    india_tax_enabled: on,
+                    india_tax_percent: on ? Number(cl.india_tax_percent ?? 18) || 18 : null,
+                  });
+                }}
+                className="rounded border-gray-300 shrink-0"
+              />
+              <span className="text-gray-600">GST</span>
+            </label>
+            <div className="flex items-center gap-0.5 mt-1">
+              <Input
+                type="number"
+                min={0}
+                max={100}
+                step={0.5}
+                className="h-7 w-12 text-[11px] px-1"
+                disabled={crmBusy || !cl.india_tax_enabled}
+                defaultValue={String(cl.india_tax_percent ?? 18)}
+                key={`tx-${cl.id}-${cl.india_tax_enabled}-${cl.india_tax_percent}`}
+                onBlur={(e) => {
+                  if (!cl.india_tax_enabled) return;
+                  const n = parseFloat(e.target.value.replace(/,/g, ''));
+                  if (!Number.isFinite(n) || n < 0) return;
+                  const prev = Number(cl.india_tax_percent ?? 18);
+                  if (Math.abs(n - prev) > 0.001) {
+                    saveClientFinanceInline(cl.id, { india_tax_percent: n });
+                  }
+                }}
+              />
+              <span className="text-[10px] text-gray-500">%</span>
+            </div>
+          </td>
+        );
+      case 'chFee':
+        return (
+          <td className="px-2 py-2 tabular-nums">
+            <div className="flex items-center gap-1">
+              <Input
+                className="h-7 w-[4.5rem] text-[11px] px-1"
+                disabled={crmBusy}
+                defaultValue={
+                  cl.crm_channelization_fee != null && cl.crm_channelization_fee !== ''
+                    ? String(cl.crm_channelization_fee)
+                    : ''
+                }
+                key={`ch-${cl.id}-${cl.crm_channelization_fee}`}
+                onBlur={(e) => {
+                  const t = e.target.value.replace(/,/g, '').trim();
+                  const n = t === '' ? null : parseFloat(t);
+                  const prevRaw = cl.crm_channelization_fee;
+                  const prev =
+                    prevRaw == null || prevRaw === '' ? null : Number(prevRaw);
+                  if (n == null && prev == null) return;
+                  if (
+                    n != null &&
+                    Number.isFinite(n) &&
+                    prev != null &&
+                    Number.isFinite(prev) &&
+                    Math.abs(n - prev) < 0.009
+                  ) {
+                    return;
+                  }
+                  saveClientFinanceInline(cl.id, {
+                    crm_channelization_fee:
+                      n != null && Number.isFinite(n) ? n : null,
+                  });
+                }}
+              />
+              {crmBusy ? <Loader2 className="h-3.5 w-3.5 animate-spin text-gray-400" /> : null}
+            </div>
+          </td>
+        );
+      case 'lateFee':
+        return (
+          <td className="px-2 py-2 tabular-nums">
+            <div className="flex items-center gap-1">
+              <Input
+                className="h-7 w-[4.5rem] text-[11px] px-1"
+                disabled={crmBusy}
+                defaultValue={
+                  cl.crm_late_fee_per_day != null && cl.crm_late_fee_per_day !== ''
+                    ? String(cl.crm_late_fee_per_day)
+                    : ''
+                }
+                key={`lf-${cl.id}-${cl.crm_late_fee_per_day}`}
+                onBlur={(e) => {
+                  const t = e.target.value.replace(/,/g, '').trim();
+                  const n = t === '' ? null : parseFloat(t);
+                  const prevRaw = cl.crm_late_fee_per_day;
+                  const prev =
+                    prevRaw == null || prevRaw === '' ? null : Number(prevRaw);
+                  if (n == null && prev == null) return;
+                  if (
+                    n != null &&
+                    Number.isFinite(n) &&
+                    prev != null &&
+                    Number.isFinite(prev) &&
+                    Math.abs(n - prev) < 0.009
+                  ) {
+                    return;
+                  }
+                  saveClientFinanceInline(cl.id, {
+                    crm_late_fee_per_day:
+                      n != null && Number.isFinite(n) ? n : null,
+                  });
+                }}
+              />
+              {crmBusy ? <Loader2 className="h-3.5 w-3.5 animate-spin text-gray-400" /> : null}
+            </div>
+          </td>
+        );
       case 'totalAmount': {
         const title = fin.approximate
           ? 'Tiered group discounts: showing package fee + tax only — set exact payable in Subscribers.'
@@ -889,10 +1234,13 @@ export default function ClientFinancesTab() {
           </td>
         );
       }
-      case 'paidApproved':
+      case 'paidApproved': {
+        const emis = Array.isArray(sub.emis) ? sub.emis : [];
+        const pmBill = (sub.payment_mode || '').trim();
+        const showInstallments = emis.length > 0 && pmBill === 'EMI';
         return (
           <td
-            className="px-2 py-2 text-[11px] max-w-[12rem] leading-snug align-top"
+            className="px-2 py-2 text-[11px] max-w-[14rem] leading-snug align-top"
             title={paidInfo.title}
           >
             <div className="text-gray-800">{paidInfo.line1}</div>
@@ -914,8 +1262,22 @@ export default function ClientFinancesTab() {
                 {paidInfo.badge.text}
               </div>
             ) : null}
+            {showInstallments ? (
+              <ul className="mt-2 space-y-1 border-t border-gray-100 pt-2 text-[10px] text-gray-700 max-h-40 overflow-y-auto">
+                {emis.map((e) => (
+                  <li key={e.number} className="tabular-nums flex gap-1 justify-between gap-2">
+                    <span className="text-gray-500 shrink-0">#{e.number}</span>
+                    <span className="min-w-0 truncate" title={e.due_date}>
+                      {formatAnnualDate(e.due_date)} · {(e.status || '—').toString()}
+                    </span>
+                    <span className="shrink-0">{Number(e.amount || 0).toLocaleString()}</span>
+                  </li>
+                ))}
+              </ul>
+            ) : null}
           </td>
         );
+      }
       case 'edit':
         return (
           <td className="px-2 py-2 text-right">
@@ -927,7 +1289,7 @@ export default function ClientFinancesTab() {
               onClick={() => openEdit(cl)}
             >
               <Pencil size={14} />
-              CRM · proofs
+              Proofs
             </Button>
           </td>
         );
@@ -942,14 +1304,14 @@ export default function ClientFinancesTab() {
         <IndianRupee size={20} className="text-[#D4AF37]" />
         <h2 className="text-lg font-semibold text-gray-900">Iris Annual Abundance</h2>
       </div>
-      <p className="text-xs text-gray-500 mb-4 shrink-0 max-w-3xl">
-        <strong>Annual money view:</strong> Home Coming window, subscriber fee from Subscribers/Excel, CRM rails, India
-        discounts &amp; taxes. <strong>Total amount</strong> estimates payable (fee ± % discount + GST); tiered group
-        bands show ~. <strong>Paid</strong> sums <em>approved</em> manual proofs vs that total. Use{' '}
-        <strong>Columns</strong> to show/hide fields; <strong>funnel</strong> on each header to filter (like Annual + dashboard).
-        Edit <strong>annual fee, EMI mode, # EMIs, Iris year</strong> inline when a <strong>Subscribers</strong> row exists; open{' '}
-        <strong>CRM · proofs</strong> for rails, discounts, taxes, and payment history. Home Coming dates stay in{' '}
-        <strong>Annual + dashboard</strong> or Excel.
+      <p className="text-xs text-gray-500 mb-4 shrink-0 max-w-4xl">
+        Excel-style grid: <strong>S.No</strong> is row order in the current view. Edit <strong>pay method, annual fee,
+        discount, GST, channelization &amp; late fees, billing mode, EMIs, installment surcharge</strong> in-place — saved
+        values match the <strong>student dashboard</strong>. <strong>Student plan</strong> and <strong>Session mode</strong> come from
+        Sacred Home preferences. Installment rows bill on the <strong>27th</strong> (per month).{' '}
+        <strong>Total amount</strong> is estimated after discount + GST; tiered group bands show ~. Use{' '}
+        <strong>Columns</strong> / funnel filters as needed. <strong>Proofs</strong> opens payment history and optional group
+        discount rules only.
       </p>
 
       <div className="flex flex-wrap items-center gap-2 mb-3 shrink-0">
@@ -1010,7 +1372,7 @@ export default function ClientFinancesTab() {
       </div>
 
       <div className="flex-1 min-h-0 overflow-auto rounded-lg border bg-white">
-        <table className="w-full text-xs min-w-[92rem]">
+        <table className="w-full text-xs min-w-[118rem]">
           <thead className="bg-gray-50 border-b sticky top-0 z-10">
             <tr>
               {visibleColumns.map((c) =>
@@ -1070,10 +1432,10 @@ export default function ClientFinancesTab() {
                 </td>
               </tr>
             ) : (
-              displayedRows.map((cl) => (
+              displayedRows.map((cl, idx) => (
                 <tr key={cl.id || cl.email} className="border-b border-gray-100 hover:bg-gray-50/80">
                   {visibleColumns.map((c) => (
-                    <React.Fragment key={c.id}>{renderCell(cl, c.id)}</React.Fragment>
+                    <React.Fragment key={c.id}>{renderCell(cl, c.id, idx + 1)}</React.Fragment>
                   ))}
                 </tr>
               ))
@@ -1085,7 +1447,7 @@ export default function ClientFinancesTab() {
       <Dialog open={dialogOpen} onOpenChange={(o) => !o && closeDialog()}>
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto" data-testid="client-finances-edit-dialog">
           <DialogHeader>
-            <DialogTitle>Iris Annual Abundance</DialogTitle>
+            <DialogTitle>Proofs, ledger &amp; group discounts</DialogTitle>
             <DialogDescription>
               {(editing?.name || 'Client').trim()}
               {editing?.email ? ` · ${(editing.email || '').trim()}` : null}
@@ -1099,7 +1461,8 @@ export default function ClientFinancesTab() {
             <div className="rounded-lg border border-violet-200/80 bg-violet-50/50 px-3 py-3 space-y-2 text-xs">
               <p className="font-semibold text-gray-900">Annual window &amp; package (read-only)</p>
               <p className="text-[10px] text-gray-500 -mt-1">
-                Change dates and package totals via <strong>Annual + dashboard</strong> or <strong>Subscribers</strong>.
+                Most fields are edited in the grid. This panel is read-only summary, proofs, and optional{' '}
+                <strong>participant-count discount bands</strong>.
               </p>
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                 <div>
@@ -1249,36 +1612,12 @@ export default function ClientFinancesTab() {
               )}
             </div>
 
-            <div>
-              <p className="text-xs font-semibold text-gray-800 mb-2">CRM: rails, discounts &amp; taxes</p>
-              <ClientFinanceFields
-                indiaSite={indiaSite}
-                preferredPaymentMethod={preferredPaymentMethod}
-                onPreferredPaymentChange={onPreferredPaymentChange}
-                indiaPaymentMethod={indiaPaymentMethod}
-                onIndiaPaymentMethodChange={setIndiaMethodTagged}
-                preferredIndiaGpayId={preferredIndiaGpayId}
-                onPreferredIndiaGpayIdChange={setPreferredIndiaGpayId}
-                preferredIndiaBankId={preferredIndiaBankId}
-                onPreferredIndiaBankIdChange={setPreferredIndiaBankId}
-                indiaDiscountPercent={indiaDiscountPercent}
-                onIndiaDiscountPercentChange={setIndiaDiscountPercent}
-                indiaDiscountBandRows={indiaDiscountBandRows}
-                onIndiaDiscountBandRowsChange={setIndiaDiscountBandRows}
-                indiaTaxEnabled={indiaTaxEnabled}
-                onIndiaTaxEnabledChange={setIndiaTaxEnabled}
-                indiaTaxPercent={indiaTaxPercent}
-                onIndiaTaxPercentChange={setIndiaTaxPercent}
-                indiaTaxLabel={indiaTaxLabel}
-                onIndiaTaxLabelChange={setIndiaTaxLabel}
-                crmLateFeePerDay={crmLateFeePerDay}
-                onCrmLateFeePerDayChange={setCrmLateFeePerDay}
-                crmChannelizationFee={crmChannelizationFee}
-                onCrmChannelizationFeeChange={setCrmChannelizationFee}
-                crmShowLateFees={crmShowLateFees}
-                onCrmShowLateFeesChange={setCrmShowLateFees}
-                testIdPrefix="client-finances"
-              />
+            <div className="rounded-lg border border-dashed border-gray-200 bg-gray-50/40 px-3 py-3">
+              <p className="text-xs font-semibold text-gray-800 mb-2">Optional: group discount by participant count</p>
+              <p className="text-[10px] text-gray-500 mb-2">
+                First matching rule wins at Sacred Exchange checkout. Save here or from Dashboard Access.
+              </p>
+              <IndiaDiscountBandsEditor rows={indiaDiscountBandRows} onChange={setIndiaDiscountBandRows} />
             </div>
           </div>
 
@@ -1292,7 +1631,7 @@ export default function ClientFinancesTab() {
               onClick={handleSave}
               disabled={saving}
             >
-              {saving ? 'Saving…' : 'Save CRM finance fields'}
+              {saving ? 'Saving…' : 'Save group discount rules'}
             </Button>
           </DialogFooter>
         </DialogContent>
