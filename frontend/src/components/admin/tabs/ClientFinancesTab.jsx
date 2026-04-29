@@ -288,10 +288,10 @@ export default function ClientFinancesTab() {
         <h2 className="text-lg font-semibold text-gray-900">Client finances</h2>
       </div>
       <p className="text-xs text-gray-500 mb-4 shrink-0 max-w-3xl">
-        <strong>Annual subscribers only</strong> (same list as <strong>Annual + dashboard</strong>): Home Coming window,
-        subscriber package fee &amp; EMI mode from Excel/Subscribers, CRM payment rails, India discounts &amp; taxes. Edit
-        subscription totals in <strong>Subscribers</strong> or <strong>Annual + dashboard</strong>; proof submissions
-        appear below when you open a row.
+        <strong>Annual money view:</strong> Home Coming window, subscriber fee &amp; EMI mode from Excel/Subscribers, CRM
+        payment rails, India discounts &amp; taxes. Includes anyone with the <strong>Annual</strong> CRM flag, Home
+        Coming start/end dates, or a priced subscriber row (package, fee, or EMIs). Edit subscription totals in{' '}
+        <strong>Subscribers</strong> or <strong>Annual + dashboard</strong>; open a row for proof submissions.
       </p>
 
       <div className="flex flex-wrap items-center gap-2 mb-3 shrink-0">
@@ -341,7 +341,8 @@ export default function ClientFinancesTab() {
             ) : rows.length === 0 ? (
               <tr>
                 <td colSpan={colCount} className="px-6 py-12 text-center text-gray-400 text-sm">
-                  No annual subscribers match. Tag clients as Annual in Client Garden or Dashboard access first.
+                  No one qualifies yet. Enable <strong>Annual</strong> in Dashboard access, or set Home Coming dates /
+                  subscriber fee (Excel or Subscribers) so this list can pick them up.
                 </td>
               </tr>
             ) : (

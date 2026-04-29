@@ -827,13 +827,30 @@ async def list_annual_portal_subscribers():
 @router.get("/annual-finance-roster")
 async def list_annual_finance_roster(search: Optional[str] = None):
     """
-    Annual CRM members (``annual_member_dashboard``) with subscription + India finance fields
-    for the **Client finances** admin tab (dates, fees, EMIs, discounts/taxes — same cohort as Annual + dashboard).
+    Clients who should appear on **Client finances**: annual CRM flag **or** priced Home Coming window **or**
+    paid subscriber row (package / fee / EMIs). Includes people who have Excel/subscription data but never had
+    ``annual_member_dashboard`` toggled in Client Garden.
     """
-    query: Dict[str, Any] = {"annual_member_dashboard": True}
+    roster_match: Dict[str, Any] = {
+        "$or": [
+            {"annual_member_dashboard": True},
+            {"annual_subscription.start_date": {"$exists": True, "$nin": [None, ""]}},
+            {"annual_subscription.end_date": {"$exists": True, "$nin": [None, ""]}},
+            {"subscription.package_id": {"$exists": True, "$nin": [None, ""]}},
+            {"subscription.total_fee": {"$gt": 0}},
+            {
+                "$and": [
+                    {"subscription.total_fee": {"$type": "string"}},
+                    {"subscription.total_fee": {"$regex": r"^[1-9]"}},
+                ]
+            },
+            {"subscription.annual_program": {"$exists": True, "$nin": [None, ""]}},
+            {"subscription.emis.0": {"$exists": True}},
+        ]
+    }
     if search:
         search_regex = {"$regex": search, "$options": "i"}
-        query["$or"] = [
+        search_or = [
             {"name": search_regex},
             {"email": search_regex},
             {"phone": search_regex},
@@ -842,6 +859,9 @@ async def list_annual_finance_roster(search: Optional[str] = None):
             {"diid": search_regex},
             {"id": search_regex},
         ]
+        query: Dict[str, Any] = {"$and": [roster_match, {"$or": search_or}]}
+    else:
+        query = roster_match
     proj = {
         "_id": 0,
         "id": 1,
