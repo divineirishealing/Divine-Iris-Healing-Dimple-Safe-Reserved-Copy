@@ -42,6 +42,7 @@ import {
   RECONCILE_CART_FROM_CHECKOUT_KEY,
 } from '../lib/dashboardCartPrefill';
 import { programIncludedInAnnualPackage } from '../components/dashboard/dashboardUpcomingHelpers';
+import { formatDateDdMonYyyy } from '../lib/utils';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
@@ -1145,6 +1146,25 @@ export default function DashboardCombinedCheckoutPage() {
       : 0,
   );
 
+  /** Home Coming package page: EMI vs full — show schedule hint on checkout. */
+  const homeComingAnnualOfferPlan = useMemo(() => {
+    for (const i of items) {
+      const m = i.portalLineMeta;
+      if (
+        m?.fromAnnualOfferPage &&
+        m?.annualOfferPaymentMode &&
+        m.annualOfferPaymentMode !== 'full' &&
+        m.annualOfferPaymentMode !== 'emi_flexi'
+      ) {
+        return {
+          mode: m.annualOfferPaymentMode,
+          preview: Array.isArray(m.annualOfferSchedulePreview) ? m.annualOfferSchedulePreview : [],
+        };
+      }
+    }
+    return null;
+  }, [items]);
+
   const crossSellDisplayRows = useMemo(() => {
     if (portalRosterSubtotalActive) return [];
     if (clientXs >= apiCrossSellDiscount && clientCrossSellRows.length > 0) {
@@ -1723,6 +1743,37 @@ export default function DashboardCombinedCheckoutPage() {
       </div>
 
       <div className="bg-white/95 backdrop-blur rounded-xl border border-[rgba(212,175,55,0.35)] shadow-lg p-4 sm:p-5 mb-6 w-full">
+        {homeComingAnnualOfferPlan ? (
+          <div
+            className="mb-4 rounded-lg border border-violet-200 bg-violet-50/95 px-3 py-2.5 text-sm text-violet-950"
+            data-testid="home-coming-emi-checkout-banner"
+          >
+            <p className="font-semibold text-[13px]">Home Coming · Installment plan</p>
+            <p className="text-[11px] mt-1 text-violet-900/90 leading-relaxed">
+              You chose <strong>EMI</strong> on the Home Coming page. This screen is for{' '}
+              <strong>today&apos;s payment</strong> (installment 1). Later installments are recorded on Sacred Exchange
+              with your host.
+            </p>
+            {homeComingAnnualOfferPlan.preview.length > 0 ? (
+              <ul className="mt-2 text-[10px] tabular-nums text-violet-900/85 space-y-0.5 max-h-28 overflow-y-auto border-t border-violet-100/80 pt-2">
+                {homeComingAnnualOfferPlan.preview.slice(0, 12).map((r, idx) => (
+                  <li key={`${r.n}-${idx}`}>
+                    <span className="font-semibold">{r.n}.</span>{' '}
+                    {r.due
+                      ? formatDateDdMonYyyy(String(r.due).slice(0, 10)) || String(r.due).slice(0, 10)
+                      : '—'}
+                    {r.amount != null && !Number.isNaN(Number(r.amount))
+                      ? ` · ${Number(r.amount).toLocaleString()}`
+                      : ''}
+                  </li>
+                ))}
+                {homeComingAnnualOfferPlan.preview.length > 12 ? (
+                  <li className="text-violet-700/80 italic">… full schedule on Sacred Exchange</li>
+                ) : null}
+              </ul>
+            ) : null}
+          </div>
+        ) : null}
         <p className="text-xs font-bold uppercase tracking-[0.12em] text-[#D4AF37] mb-3">
           At a glance — who is enrolling
         </p>

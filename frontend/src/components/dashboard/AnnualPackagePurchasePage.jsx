@@ -342,6 +342,20 @@ export default function AnnualPackagePurchasePage() {
     return ALL_PAY_MODES.filter((m) => m.value !== 'emi_monthly' || monthlyOk);
   }, [homeData?.annual_package_offer_monthly_emi_visible]);
 
+  /** First structured EMI mode we offer in the hero (Full vs EMI). Flexi stays in the lower form only. */
+  const heroPreferredEmiMode = useMemo(() => {
+    const order = ['emi_monthly', 'emi_quarterly', 'emi_yearly'];
+    for (const v of order) {
+      if (visiblePayModes.some((m) => m.value === v)) return v;
+    }
+    return null;
+  }, [visiblePayModes]);
+
+  const heroEmiModeLabel = useMemo(() => {
+    const m = visiblePayModes.find((x) => x.value === heroPreferredEmiMode);
+    return m?.label || 'EMI';
+  }, [visiblePayModes, heroPreferredEmiMode]);
+
   const nextSacredYearStartsLabel = useMemo(() => {
     const lbl = irisYearLabelNoPeriod(autoRenewalYear);
     return `${lbl} · anchor your membership start`;
@@ -420,6 +434,17 @@ export default function AnnualPackagePurchasePage() {
       setPaymentMode('full');
     }
   }, [homeData, homeData?.annual_package_offer_monthly_emi_visible, prefsLoaded, paymentMode]);
+
+  useEffect(() => {
+    if (!prefsLoaded || !homeData) return;
+    if (
+      !heroPreferredEmiMode &&
+      paymentMode !== 'full' &&
+      paymentMode !== 'emi_flexi'
+    ) {
+      setPaymentMode('full');
+    }
+  }, [prefsLoaded, homeData, heroPreferredEmiMode, paymentMode]);
 
   useEffect(() => {
     if (!pinnedProgram || !baseCurrency) {
@@ -545,6 +570,16 @@ export default function AnnualPackagePurchasePage() {
     fin.payment_mode,
   ]);
 
+  const heroPayCtaLabel = useMemo(() => {
+    const yr = irisYearLabelNoPeriod(autoRenewalYear);
+    const stripeHint = useAutoStripeCheckout ? ' · Stripe (one step)' : ' · Divine Cart';
+    if (paymentMode === 'full' || paymentMode === 'emi_flexi') {
+      return `Pay in full · ${yr}${stripeHint}`;
+    }
+    const nPlan = emiInstallmentCount(paymentMode, durationMonths);
+    return `Pay installment 1 of ${nPlan} · ${yr}${stripeHint}`;
+  }, [autoRenewalYear, useAutoStripeCheckout, paymentMode, durationMonths]);
+
   /** Minimal valid booker row so Divine Cart autoPay can pass validateAndProceed without empty placeholders. */
   const buildSacredHomeQuickPayParticipants = useCallback(
     (program) => {
@@ -592,10 +627,23 @@ export default function AnnualPackagePurchasePage() {
     if (pinnedProgram) {
       const tierIdx = pickTierIndexForDashboard(pinnedProgram, true) ?? 0;
       const participants = buildSacredHomeQuickPayParticipants(pinnedProgram);
+      const schedulePreview =
+        paymentMode !== 'full' && paymentMode !== 'emi_flexi'
+          ? paymentScheduleRows
+              .filter((r) => r.key !== 'flex-a' && r.key !== 'flex-ref')
+              .slice(0, 36)
+              .map((r) => ({
+                n: r.n,
+                due: r.due || null,
+                amount: typeof r.amount === 'number' ? r.amount : null,
+              }))
+          : null;
       flushSync(() => {
         syncProgramLineItem(pinnedProgram, tierIdx, participants, {
           fromAnnualOfferPage: true,
           ...(scheduleSplitTotal > 0 ? { homeComingQuotedTotal: scheduleSplitTotal } : {}),
+          annualOfferPaymentMode: paymentMode,
+          ...(schedulePreview && schedulePreview.length ? { annualOfferSchedulePreview: schedulePreview } : {}),
         });
       });
       navigate(`/dashboard/combined-checkout${autoQs}`);
@@ -788,16 +836,105 @@ export default function AnnualPackagePurchasePage() {
                       </p>
                     )}
                     {pinnedProgram && renewalEndYmd && scheduleSplitTotal > 0 ? (
-                      <Button
-                        type="button"
-                        className="w-full sm:w-auto h-11 bg-gradient-to-r from-violet-700 to-[#6d28d9] hover:from-violet-800 hover:to-violet-800 shadow-lg shadow-violet-900/20"
-                        onClick={goCheckout}
-                        data-testid="annual-offer-one-click-pay"
-                      >
-                        <CreditCard size={18} className="mr-2 shrink-0" />
-                        Pay {irisYearLabelNoPeriod(autoRenewalYear)}
-                        {useAutoStripeCheckout ? ' · Stripe (one step)' : ' · Divine Cart'}
-                      </Button>
+                      <div className="space-y-3">
+                        <div className="space-y-2">
+                          <p className="text-[9px] uppercase tracking-[0.14em] text-[rgba(100,55,155,0.48)] font-semibold">
+                            Payment plan
+                          </p>
+                          <div className="flex flex-wrap gap-2">
+                            <button
+                              type="button"
+                              onClick={() => setPaymentMode('full')}
+                              className={cn(
+                                'flex-1 min-w-[8rem] rounded-xl border px-3 py-2.5 text-left transition-all text-[11px] font-semibold',
+                                paymentMode === 'full'
+                                  ? 'border-[rgba(124,58,237,0.65)] bg-violet-100/90 text-[#3730a3] shadow-sm'
+                                  : 'border-[rgba(160,140,190,0.35)] bg-white/60 text-[rgba(50,35,95,0.85)] hover:bg-white/90',
+                              )}
+                              data-testid="annual-hero-pay-full"
+                            >
+                              Full pay
+                            </button>
+                            {heroPreferredEmiMode ? (
+                              <button
+                                type="button"
+                                onClick={() => setPaymentMode(heroPreferredEmiMode)}
+                                className={cn(
+                                  'flex-1 min-w-[8rem] rounded-xl border px-3 py-2.5 text-left transition-all text-[11px] font-semibold leading-snug',
+                                  paymentMode === heroPreferredEmiMode
+                                    ? 'border-[rgba(124,58,237,0.65)] bg-violet-100/90 text-[#3730a3] shadow-sm'
+                                    : 'border-[rgba(160,140,190,0.35)] bg-white/60 text-[rgba(50,35,95,0.85)] hover:bg-white/90',
+                                )}
+                                data-testid="annual-hero-pay-emi"
+                              >
+                                {heroEmiModeLabel}
+                              </button>
+                            ) : null}
+                          </div>
+                        </div>
+                        {paymentMode !== 'full' &&
+                        paymentMode !== 'emi_flexi' &&
+                        scheduleSplitTotal > 0 ? (
+                          <div className="rounded-xl border border-violet-200/70 bg-white/70 overflow-hidden">
+                            <p className="text-[9px] font-bold uppercase tracking-[0.12em] text-[rgba(80,55,145,0.55)] px-3 py-2 bg-[rgba(250,245,255,0.85)] border-b border-violet-100/80">
+                              Installment schedule (preview)
+                            </p>
+                            <div className="overflow-x-auto max-h-48 overflow-y-auto">
+                              <table className="w-full text-[11px] text-left border-collapse">
+                                <thead>
+                                  <tr className="text-[9px] uppercase tracking-wide text-[rgba(90,55,135,0.55)] border-b border-violet-100">
+                                    <th className="font-semibold px-2 py-1.5 pl-3">#</th>
+                                    <th className="font-semibold px-2 py-1.5 tabular-nums">Due</th>
+                                    <th className="font-semibold px-2 py-1.5 pr-3 text-right">Amount</th>
+                                  </tr>
+                                </thead>
+                                <tbody>
+                                  {paymentScheduleRows
+                                    .filter((r) => r.key !== 'flex-a' && r.key !== 'flex-ref')
+                                    .map((row) => {
+                                      const dueStr =
+                                        row.dueDisplay ??
+                                        (row.due ? formatDateDdMonYyyy(row.due) : '—');
+                                      const amt =
+                                        row.amount != null && !Number.isNaN(Number(row.amount))
+                                          ? `${symbol}${Number(toDisplay(row.amount)).toLocaleString()}`
+                                          : '—';
+                                      return (
+                                        <tr
+                                          key={row.key}
+                                          className="border-b border-violet-50/90 text-[rgba(50,35,95,0.9)]"
+                                        >
+                                          <td className="px-2 py-1.5 pl-3 tabular-nums font-medium">
+                                            {row.n}
+                                          </td>
+                                          <td className="px-2 py-1.5 tabular-nums text-[10px] sm:text-[11px]">
+                                            {dueStr}
+                                          </td>
+                                          <td className="px-2 py-1.5 pr-3 text-right tabular-nums font-medium">
+                                            {amt}
+                                          </td>
+                                        </tr>
+                                      );
+                                    })}
+                                </tbody>
+                              </table>
+                            </div>
+                            <p className="text-[9px] text-[rgba(90,55,135,0.55)] px-3 py-2 border-t border-violet-100/80 leading-snug">
+                              This checkout takes you to the payment screen for today&apos;s charge. Remaining installments
+                              stay on Sacred Exchange with your host.
+                            </p>
+                          </div>
+                        ) : null}
+                        <Button
+                          type="button"
+                          className="w-full sm:w-auto h-11 bg-gradient-to-r from-violet-700 to-[#6d28d9] hover:from-violet-800 hover:to-violet-800 shadow-lg shadow-violet-900/20"
+                          onClick={goCheckout}
+                          data-testid="annual-offer-one-click-pay"
+                        >
+                          <CreditCard size={18} className="mr-2 shrink-0" />
+                          {heroPayCtaLabel}
+                        </Button>
+                      </div>
                     ) : !pinnedProgram ? (
                       <p className="text-[11px] text-amber-900/85 bg-amber-50/90 border border-amber-200/80 rounded-lg px-2.5 py-2">
                         Your host still needs to pin the Home Coming catalog program on Sacred Home — then checkout opens
