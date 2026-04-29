@@ -37,7 +37,17 @@ import { useToast } from '../../../hooks/use-toast';
 
 const API = getApiUrl();
 const FINANCE_PRESELECT_KEY = 'admin_finance_focus_client_id';
-const FINANCE_COL_STORAGE = 'iris_annual_abundance_columns_v1';
+const FINANCE_PKG_MODE_OPTIONS = ['EMI', 'No EMI', 'Full Paid'];
+
+function hasAnnualPackageRow(cl) {
+  const s = cl?.subscription;
+  if (!s || typeof s !== 'object') return false;
+  if ((s.package_id || '').trim()) return true;
+  if (s.total_fee != null && String(s.total_fee).trim() !== '') return true;
+  if ((s.annual_program || '').trim()) return true;
+  if (Array.isArray(s.emis) && s.emis.length) return true;
+  return false;
+}
 
 /** Column ids in table order. Only `hideable` columns appear in the Columns menu. */
 const FINANCE_COLUMNS = [
@@ -55,7 +65,7 @@ const FINANCE_COLUMNS = [
   { id: 'tax', label: 'Tax', hideable: true },
   { id: 'totalAmount', label: 'Total amount', hideable: true },
   { id: 'paidApproved', label: 'Paid (approved proofs)', hideable: true },
-  { id: 'edit', label: 'Edit', hideable: false },
+  { id: 'edit', label: 'CRM · proofs', hideable: false },
 ];
 
 function formatAnnualDate(raw) {
@@ -637,6 +647,34 @@ export default function ClientFinancesTab() {
     [columnFilters],
   );
 
+  const [packageSaving, setPackageSaving] = useState({});
+
+  const saveAnnualPackage = useCallback(async (clientId, patch) => {
+    if (!clientId) return;
+    setPackageSaving((s) => ({ ...s, [clientId]: true }));
+    try {
+      const { data } = await axios.patch(`${API}/admin/subscribers/annual-package/${clientId}`, patch);
+      const sub = data?.subscription;
+      if (sub) {
+        setClients((prev) => prev.map((c) => (c.id === clientId ? { ...c, subscription: sub } : c)));
+        setEditing((ed) => (ed && ed.id === clientId ? { ...ed, subscription: sub } : ed));
+      }
+      toast({ title: 'Package saved', description: 'Annual fee / EMI fields updated for this row.' });
+    } catch (e) {
+      toast({
+        title: 'Package save failed',
+        description: e.response?.data?.detail || e.message,
+        variant: 'destructive',
+      });
+    } finally {
+      setPackageSaving((s) => {
+        const next = { ...s };
+        delete next[clientId];
+        return next;
+      });
+    }
+  }, [toast]);
+
   const editingSub = subscriptionBlock(editing);
   const editingAnnual = editing?.annual_subscription && typeof editing.annual_subscription === 'object'
     ? editing.annual_subscription
@@ -665,6 +703,9 @@ export default function ClientFinancesTab() {
     const rollup = cl.finance_payment_rollup;
     const fin = computedFinanceTotal(cl);
     const paidInfo = paidApprovedSummary(cl, rollup);
+    const sub = subscriptionBlock(cl);
+    const pkgBusy = !!packageSaving[cl.id];
+    const canPkg = hasAnnualPackageRow(cl);
 
     switch (colId) {
       case 'name':
@@ -690,9 +731,45 @@ export default function ClientFinancesTab() {
       case 'status':
         return <td className="px-2 py-2 whitespace-nowrap">{life?.label ?? '—'}</td>;
       case 'iris':
+        if (!canPkg) {
+          return (
+            <td className="px-2 py-2 text-[11px] text-gray-800 max-w-[10rem] leading-snug">
+              {irisTierLine(cl)}
+              <div className="text-[10px] text-gray-400 mt-0.5">Add subscriber row in Subscribers</div>
+            </td>
+          );
+        }
         return (
-          <td className="px-2 py-2 text-[11px] text-gray-800 max-w-[10rem] leading-snug">
-            {irisTierLine(cl)}
+          <td className="px-2 py-2 text-[11px] max-w-[11rem] align-top">
+            <div className="text-gray-600 leading-tight line-clamp-2 mb-1">{irisTierLine(cl)}</div>
+            <div className="flex flex-wrap items-center gap-1">
+              <span className="text-[10px] text-gray-500">Yr</span>
+              <Input
+                type="number"
+                min={1}
+                max={12}
+                className="h-7 w-11 text-[11px] px-1"
+                disabled={pkgBusy}
+                defaultValue={sub.iris_year ?? 1}
+                key={`iy-${cl.id}-${sub.iris_year}-${sub.iris_year_mode}`}
+                onBlur={(e) => {
+                  const n = parseInt(e.target.value, 10);
+                  if (!Number.isFinite(n)) return;
+                  const y = Math.min(12, Math.max(1, n));
+                  if (y !== Number(sub.iris_year)) saveAnnualPackage(cl.id, { iris_year: y });
+                }}
+              />
+              <select
+                className="h-7 text-[10px] border rounded px-1 max-w-[4.75rem] bg-white"
+                disabled={pkgBusy}
+                value={(sub.iris_year_mode || 'manual').toLowerCase() === 'auto' ? 'auto' : 'manual'}
+                onChange={(e) => saveAnnualPackage(cl.id, { iris_year_mode: e.target.value })}
+              >
+                <option value="manual">manual</option>
+                <option value="auto">auto</option>
+              </select>
+              {pkgBusy ? <Loader2 className="h-3.5 w-3.5 animate-spin text-gray-400" /> : null}
+            </div>
           </td>
         );
       case 'payMethod':
@@ -700,13 +777,103 @@ export default function ClientFinancesTab() {
           <td className="px-2 py-2 text-[11px] max-w-[8rem] leading-snug">{paymentMethodSummary(cl)}</td>
         );
       case 'annualFee':
-        return <td className="px-2 py-2 tabular-nums whitespace-nowrap">{annualFeeLine(cl)}</td>;
-      case 'mode':
-        return <td className="px-2 py-2 whitespace-nowrap">{installmentModeLabel(cl)}</td>;
-      case 'emiCount':
+        if (!canPkg) {
+          return (
+            <td className="px-2 py-2 tabular-nums whitespace-nowrap text-[11px] text-gray-400">
+              {annualFeeLine(cl)}
+            </td>
+          );
+        }
         return (
-          <td className="px-2 py-2 tabular-nums whitespace-nowrap">{emiInstallmentCount(cl)}</td>
+          <td className="px-2 py-2 align-top">
+            <div className="flex items-center gap-1 flex-wrap">
+              <Input
+                className="h-7 w-[6.75rem] text-[11px] tabular-nums px-1.5"
+                disabled={pkgBusy}
+                defaultValue={
+                  sub.total_fee != null && sub.total_fee !== ''
+                    ? String(sub.total_fee).replace(/,/g, '')
+                    : ''
+                }
+                key={`tf-${cl.id}-${sub.total_fee}`}
+                onBlur={(e) => {
+                  const raw = e.target.value.replace(/,/g, '').trim();
+                  const n = parseFloat(raw);
+                  if (!Number.isFinite(n) || n < 0) return;
+                  const prev = Number(sub.total_fee);
+                  if (!Number.isFinite(prev) || Math.abs(n - prev) > 0.009) {
+                    saveAnnualPackage(cl.id, { total_fee: n });
+                  }
+                }}
+              />
+              <span className="text-[10px] text-gray-500 whitespace-nowrap">
+                {(sub.currency || 'INR').toString().slice(0, 3)}
+              </span>
+              {pkgBusy ? <Loader2 className="h-3.5 w-3.5 animate-spin shrink-0 text-gray-400" /> : null}
+            </div>
+          </td>
         );
+      case 'mode':
+        if (!canPkg) {
+          return (
+            <td className="px-2 py-2 whitespace-nowrap text-gray-400">{installmentModeLabel(cl)}</td>
+          );
+        }
+        {
+          const pmRaw = (sub.payment_mode || 'No EMI').trim();
+          const pmSelect = FINANCE_PKG_MODE_OPTIONS.includes(pmRaw) ? pmRaw : 'No EMI';
+          return (
+            <td className="px-2 py-2 whitespace-nowrap">
+              <div className="flex items-center gap-1">
+                <select
+                  className="h-7 text-[11px] border rounded px-1 max-w-[6.75rem] bg-white"
+                  disabled={pkgBusy}
+                  value={pmSelect}
+                  onChange={(e) => saveAnnualPackage(cl.id, { payment_mode: e.target.value })}
+                >
+                  {FINANCE_PKG_MODE_OPTIONS.map((m) => (
+                    <option key={m} value={m}>
+                      {m}
+                    </option>
+                  ))}
+                </select>
+                {pkgBusy ? <Loader2 className="h-3.5 w-3.5 animate-spin text-gray-400" /> : null}
+              </div>
+            </td>
+          );
+        }
+      case 'emiCount':
+        if (!canPkg) {
+          return (
+            <td className="px-2 py-2 tabular-nums whitespace-nowrap text-gray-400">
+              {emiInstallmentCount(cl)}
+            </td>
+          );
+        }
+        {
+          const isEmi = (sub.payment_mode || '').trim() === 'EMI';
+          return (
+            <td className="px-2 py-2 tabular-nums whitespace-nowrap">
+              <div className="flex items-center gap-1">
+                <Input
+                  type="number"
+                  min={0}
+                  max={12}
+                  className="h-7 w-12 text-[11px] px-1"
+                  disabled={pkgBusy || !isEmi}
+                  defaultValue={isEmi ? String(sub.num_emis ?? 0) : '0'}
+                  key={`ne-${cl.id}-${sub.num_emis}-${isEmi}`}
+                  onBlur={(e) => {
+                    if (!isEmi) return;
+                    const n = Math.min(12, Math.max(0, parseInt(e.target.value, 10) || 0));
+                    if (n !== Number(sub.num_emis || 0)) saveAnnualPackage(cl.id, { num_emis: n });
+                  }}
+                />
+                {pkgBusy ? <Loader2 className="h-3.5 w-3.5 animate-spin text-gray-400" /> : null}
+              </div>
+            </td>
+          );
+        }
       case 'discount':
         return <td className="px-2 py-2 text-[11px]">{discountSummary(cl)}</td>;
       case 'tax':
@@ -760,7 +927,7 @@ export default function ClientFinancesTab() {
               onClick={() => openEdit(cl)}
             >
               <Pencil size={14} />
-              Edit
+              CRM · proofs
             </Button>
           </td>
         );
@@ -779,8 +946,10 @@ export default function ClientFinancesTab() {
         <strong>Annual money view:</strong> Home Coming window, subscriber fee from Subscribers/Excel, CRM rails, India
         discounts &amp; taxes. <strong>Total amount</strong> estimates payable (fee ± % discount + GST); tiered group
         bands show ~. <strong>Paid</strong> sums <em>approved</em> manual proofs vs that total. Use{' '}
-        <strong>Columns</strong> to show/hide fields; <strong>funnel</strong> on each header to filter (like Annual + dashboard). Edit fee/EMIs in{' '}
-        <strong>Subscribers</strong> or <strong>Annual + dashboard</strong>; open a row for proof detail.
+        <strong>Columns</strong> to show/hide fields; <strong>funnel</strong> on each header to filter (like Annual + dashboard).
+        Edit <strong>annual fee, EMI mode, # EMIs, Iris year</strong> inline when a <strong>Subscribers</strong> row exists; open{' '}
+        <strong>CRM · proofs</strong> for rails, discounts, taxes, and payment history. Home Coming dates stay in{' '}
+        <strong>Annual + dashboard</strong> or Excel.
       </p>
 
       <div className="flex flex-wrap items-center gap-2 mb-3 shrink-0">

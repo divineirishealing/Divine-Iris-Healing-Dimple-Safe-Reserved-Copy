@@ -11,6 +11,7 @@ import io
 import uuid
 import math
 from datetime import datetime, timezone
+import calendar
 from motor.motor_asyncio import AsyncIOMotorClient
 import os
 from dotenv import load_dotenv
@@ -743,6 +744,142 @@ def _normalize_iris_fields(data: SubscriberCreate) -> Dict[str, object]:
         y = 1
     y = max(1, min(12, y))
     return {"iris_year": y, "iris_year_mode": mode}
+
+
+def _emi_due_date_iso(start_yyyy_mm_dd: str, month_offset: int, emi_day: int) -> str:
+    """Match Subscribers tab: due month = start month + month_offset, day capped to month length."""
+    if not start_yyyy_mm_dd or len(start_yyyy_mm_dd) < 10 or not emi_day:
+        return ""
+    try:
+        y = int(start_yyyy_mm_dd[0:4])
+        mo = int(start_yyyy_mm_dd[5:7])
+        total_m = mo - 1 + month_offset
+        y += total_m // 12
+        m2 = total_m % 12 + 1
+        dim = calendar.monthrange(y, m2)[1]
+        d = min(int(emi_day), dim)
+        return f"{y:04d}-{m2:02d}-{d:02d}"
+    except (ValueError, TypeError):
+        return ""
+
+
+def _regenerate_emi_schedule_inplace(sub: Dict[str, Any]) -> None:
+    """Align EMI rows with payment_mode, num_emis, total_fee (preserve paid rows)."""
+    pm = (sub.get("payment_mode") or "No EMI").strip()
+    n = int(sub.get("num_emis") or 0)
+    if pm != "EMI":
+        sub["num_emis"] = 0
+        sub["emis"] = []
+        return
+    n = max(0, min(12, n))
+    sub["num_emis"] = n
+    if n <= 0:
+        sub["emis"] = []
+        return
+    fee = float(sub.get("total_fee") or 0)
+    start = (sub.get("start_date") or "").strip()[:10]
+    emi_day = int(sub.get("emi_day") or 30)
+    per = round(fee / n) if n else 0
+    old_list = list(sub.get("emis") or [])
+    new_emis: List[Dict[str, Any]] = []
+    for i in range(1, n + 1):
+        ex = next((e for e in old_list if int(e.get("number") or 0) == i), None)
+        if ex and str(ex.get("status", "")).lower() == "paid":
+            new_emis.append(dict(ex))
+            continue
+        due = _emi_due_date_iso(start, i - 2, emi_day)
+        merged = dict(ex) if ex else {}
+        merged.update(
+            {
+                "number": i,
+                "amount": per,
+                "due_date": due,
+            }
+        )
+        if "date" not in merged:
+            merged["date"] = ""
+        if merged.get("remaining") is None:
+            merged["remaining"] = 0
+        if not merged.get("status"):
+            merged["status"] = "due"
+        new_emis.append(merged)
+    sub["emis"] = new_emis
+
+
+class AnnualPackageFieldsPatch(BaseModel):
+    """Partial update for Iris annual subscriber package row (matches Subscribers tab fields)."""
+
+    total_fee: Optional[float] = None
+    currency: Optional[str] = None
+    payment_mode: Optional[str] = None  # EMI | No EMI | Full Paid
+    num_emis: Optional[int] = None
+    iris_year: Optional[int] = None
+    iris_year_mode: Optional[str] = None  # manual | auto
+
+
+@router.patch("/annual-package/{client_id}")
+async def patch_annual_package_fields(client_id: str, data: AnnualPackageFieldsPatch):
+    """
+    Update subscription package scalars for admin grids (e.g. Iris Annual Abundance inline edit).
+    Regenerates EMI schedule when mode/count/fee change; preserves paid EMI rows.
+    """
+    client_doc = await db.clients.find_one({"id": client_id})
+    if not client_doc:
+        raise HTTPException(status_code=404, detail="Client not found")
+    sub = dict(client_doc.get("subscription") or {})
+    if not sub:
+        raise HTTPException(
+            status_code=400,
+            detail="No subscription package on this client — create or link one in Subscribers first.",
+        )
+
+    raw = data.model_dump(exclude_unset=True)
+    if "currency" in raw:
+        c = str(raw["currency"] or "").strip().upper()
+        if c:
+            sub["currency"] = c
+            sub["display_currency"] = c
+    if "total_fee" in raw:
+        tf = raw["total_fee"]
+        if tf is None:
+            sub["total_fee"] = 0
+        else:
+            sub["total_fee"] = max(0.0, float(tf))
+    if "payment_mode" in raw:
+        pm = str(raw["payment_mode"] or "").strip()
+        allowed = {"EMI", "No EMI", "Full Paid"}
+        if pm not in allowed:
+            raise HTTPException(
+                status_code=400,
+                detail=f"payment_mode must be one of: {', '.join(sorted(allowed))}",
+            )
+        sub["payment_mode"] = pm
+    if "num_emis" in raw:
+        ne = raw["num_emis"]
+        if ne is None:
+            sub["num_emis"] = 0
+        else:
+            sub["num_emis"] = max(0, min(12, int(ne)))
+    if "iris_year" in raw:
+        iy = raw["iris_year"]
+        if iy is None:
+            sub["iris_year"] = 1
+        else:
+            sub["iris_year"] = max(1, min(12, int(iy)))
+    if "iris_year_mode" in raw:
+        m = str(raw["iris_year_mode"] or "").strip().lower()
+        if m not in ("manual", "auto"):
+            raise HTTPException(status_code=400, detail="iris_year_mode must be manual or auto")
+        sub["iris_year_mode"] = m
+
+    _regenerate_emi_schedule_inplace(sub)
+    now = datetime.now(timezone.utc).isoformat()
+    sub["updated_at"] = now
+    await db.clients.update_one(
+        {"id": client_id},
+        {"$set": {"subscription": sub, "updated_at": now}},
+    )
+    return {"subscription": sub}
 
 
 @router.post("/create")
