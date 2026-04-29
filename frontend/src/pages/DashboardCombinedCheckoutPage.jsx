@@ -1152,6 +1152,20 @@ export default function DashboardCombinedCheckoutPage() {
   );
 
   /**
+   * Home Coming page already bakes CRM courtesy % into the quoted installment / catalog total — do not
+   * run Client Garden India discount again on checkout (would double-apply).
+   */
+  const clientIndiaPricingForCheckout = useMemo(() => {
+    if (!hasHomeComingCatalogPay) return clientIndiaPricing;
+    if (!clientIndiaPricing) return null;
+    return {
+      ...clientIndiaPricing,
+      india_discount_percent: 0,
+      india_discount_member_bands: null,
+    };
+  }, [clientIndiaPricing, hasHomeComingCatalogPay]);
+
+  /**
    * Home Coming: roster subtotal omits the prepaid seat (`annualIncluded`), so `total` excludes that program.
    * Add the quoted installment (or full-pay slice) explicitly — do not Math.max with dashboard-quote bundle totals.
    */
@@ -1211,7 +1225,7 @@ export default function DashboardCombinedCheckoutPage() {
   /** INR: same stack as India payment page (Client Garden + Payment Settings) on net after cart promos. */
   const indiaBreakdown = useMemo(() => {
     if (String(currency).toLowerCase() !== 'inr') return null;
-    return computeIndiaCheckoutBreakdown(totalForPayment, clientIndiaPricing, {
+    return computeIndiaCheckoutBreakdown(totalForPayment, clientIndiaPricingForCheckout, {
       india_alt_discount_percent: paymentSettings.india_alt_discount_percent,
       india_gst_percent: paymentSettings.india_gst_percent,
       india_platform_charge_percent: paymentSettings.india_platform_charge_percent,
@@ -1220,7 +1234,7 @@ export default function DashboardCombinedCheckoutPage() {
     currency,
     totalForPayment,
     totalParticipants,
-    clientIndiaPricing,
+    clientIndiaPricingForCheckout,
     paymentSettings.india_alt_discount_percent,
     paymentSettings.india_gst_percent,
     paymentSettings.india_platform_charge_percent,
