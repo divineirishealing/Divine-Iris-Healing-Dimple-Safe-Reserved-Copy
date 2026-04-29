@@ -18,6 +18,13 @@ import {
 import { Button } from '../ui/button';
 import { Label } from '../ui/label';
 import { Input } from '../ui/input';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '../ui/select';
 import { cn, formatDateDdMonYyyy, formatDashboardStatDate, nextDateWithDayOfMonth, addMonthsSubscriptionEnd } from '../../lib/utils';
 import { useToast } from '../../hooks/use-toast';
 import { useCart } from '../../context/CartContext';
@@ -36,11 +43,11 @@ const DIVINE_IRIS_HOME_COMING_PROGRAMS_LABEL =
 const HEART_QUOTE = 'You are exactly where you need to be — trust the becoming.';
 
 const ALL_PAY_MODES = [
-  { value: 'full', label: 'PAY IN FULL (CHECKOUT NOW)' },
-  { value: 'emi_monthly', label: 'EMI — MONTHLY' },
-  { value: 'emi_quarterly', label: 'EMI — QUARTERLY' },
-  { value: 'emi_yearly', label: 'EMI — YEARLY' },
-  { value: 'emi_flexi', label: 'FLEXI — ANY AMOUNT, ANY TIME' },
+  { value: 'full', label: 'Pay in Full' },
+  { value: 'emi_monthly', label: 'EMI — Monthly' },
+  { value: 'emi_quarterly', label: 'EMI — Quarterly' },
+  { value: 'emi_yearly', label: 'EMI — Yearly' },
+  { value: 'emi_flexi', label: 'Flexi — any amount, any time' },
 ];
 
 function emiInstallmentCount(mode, durationMonths) {
@@ -219,6 +226,8 @@ export default function AnnualPackagePurchasePage() {
 
   const [desiredStart, setDesiredStart] = useState('');
   const [paymentMode, setPaymentMode] = useState('full');
+  /** Home Coming annual path: online vs offline only (no in-person seat on this bundle). */
+  const [annualParticipationMode, setAnnualParticipationMode] = useState('online');
   const [emiNotes, setEmiNotes] = useState('');
 
   const refresh = useCallback(() => {
@@ -406,6 +415,9 @@ export default function AnnualPackagePurchasePage() {
         setPaymentMode(allowed.has(pm) ? pm : 'full');
       }
       if (p.emi_notes) setEmiNotes(String(p.emi_notes));
+      if (p.participation_mode === 'offline' || p.participation_mode === 'online') {
+        setAnnualParticipationMode(p.participation_mode);
+      }
     } else if (preferredDom >= 1 && preferredDom <= 28) {
       const ymd = nextDateWithDayOfMonth(null, preferredDom);
       if (ymd) setDesiredStart(ymd);
@@ -465,12 +477,13 @@ export default function AnnualPackagePurchasePage() {
         {
           desired_start_date: desiredStart,
           payment_mode: paymentMode,
+          participation_mode: annualParticipationMode,
           emi_notes: emiNotes,
         },
         { withCredentials: true },
       )
       .catch(() => {})
-  }, [homeData?.client_id, desiredStart, paymentMode, emiNotes]);
+  }, [homeData?.client_id, desiredStart, paymentMode, annualParticipationMode, emiNotes]);
 
   useEffect(() => {
     if (!prefsLoaded) return;
@@ -481,7 +494,7 @@ export default function AnnualPackagePurchasePage() {
     return () => {
       if (prefsSaveTimer.current) clearTimeout(prefsSaveTimer.current);
     };
-  }, [desiredStart, paymentMode, emiNotes, prefsLoaded, persistPrefs]);
+  }, [desiredStart, paymentMode, annualParticipationMode, emiNotes, prefsLoaded, persistPrefs]);
 
   const totalRaw = Number(quote?.total ?? 0);
   const displayTotal = toDisplay(totalRaw);
@@ -555,7 +568,7 @@ export default function AnnualPackagePurchasePage() {
 
   /** Minimal valid booker row so Divine Cart autoPay can pass validateAndProceed without empty placeholders. */
   const buildSacredHomeQuickPayParticipants = useCallback(
-    (program) => {
+    (_program) => {
       const name =
         (homeData?.user_details?.full_name || user?.full_name || user?.name || '').trim() ||
         'Sacred Home member';
@@ -566,8 +579,7 @@ export default function AnnualPackagePurchasePage() {
       const city = String(homeData?.user_details?.city || '').trim() || '—';
       const state =
         String(homeData?.user_details?.state || homeData?.user_details?.city || '—').trim() || '—';
-      const sess = program?.session_mode ?? program?.sessionMode;
-      const attendance_mode = sess === 'remote' ? 'offline' : 'in_person';
+      const attendance_mode = annualParticipationMode === 'offline' ? 'offline' : 'online';
       return [
         {
           name,
@@ -578,7 +590,7 @@ export default function AnnualPackagePurchasePage() {
           city,
           state,
           attendance_mode,
-          notify: false,
+          notify: attendance_mode === 'online',
           email: '',
           phone: '',
           phone_code: '',
@@ -592,7 +604,7 @@ export default function AnnualPackagePurchasePage() {
         },
       ];
     },
-    [homeData?.user_details, user, baseCurrency],
+    [homeData?.user_details, user, baseCurrency, annualParticipationMode],
   );
 
   /** Amount sent to Divine Cart / Stripe for Home Coming — one installment for EMI, never the full bundle total. */
@@ -664,6 +676,7 @@ export default function AnnualPackagePurchasePage() {
           fromAnnualOfferPage: true,
           /** Roster pricing must treat the booker as package-covered so subtotal is not the full tier (only `homeComingQuotedTotal` is payable). */
           annualIncluded: true,
+          annualOfferParticipation: annualParticipationMode,
           ...(quoted > 0 ? { homeComingQuotedTotal: quoted } : {}),
           annualOfferPaymentMode: paymentMode,
           ...(schedulePreview && schedulePreview.length ? { annualOfferSchedulePreview: schedulePreview } : {}),
@@ -1073,29 +1086,57 @@ export default function AnnualPackagePurchasePage() {
                   (same fields — we keep payment choices here).
                 </p>
 
-                <div className="space-y-2">
-                  <Label className="text-[11px] uppercase tracking-[0.12em] text-[rgba(70,35,125,0.65)] font-semibold">
-                    Payment structure (preference)
-                  </Label>
-                  <div className="grid gap-2.5 sm:grid-cols-2">
-                    {visiblePayModes.map((m) => (
-                      <button
-                        key={m.value}
-                        type="button"
-                        onClick={() => setPaymentMode(m.value)}
-                        className={cn(
-                          'text-left rounded-2xl border px-3.5 py-3 text-[10px] sm:text-[11px] font-semibold uppercase tracking-wide transition-all duration-200 leading-snug',
-                          paymentMode === m.value
-                            ? 'border-[rgba(124,58,237,0.55)] bg-gradient-to-br from-violet-100/90 to-[rgba(250,245,255,0.85)] shadow-[0_2px_12px_rgba(124,58,237,0.12)] text-[#3730a3]'
-                            : 'border-[rgba(160,140,190,0.25)] bg-white/50 hover:bg-white/80 hover:border-violet-200/70 text-[rgba(50,35,95,0.85)]',
-                        )}
-                        data-testid={`annual-offer-mode-${m.value}`}
+                <div className="space-y-4">
+                  <div className="space-y-2">
+                    <Label className="text-[11px] uppercase tracking-[0.12em] text-[rgba(70,35,125,0.65)] font-semibold">
+                      Payment structure (preference)
+                    </Label>
+                    <Select value={paymentMode} onValueChange={setPaymentMode}>
+                      <SelectTrigger
+                        className="h-10 max-w-md border-[rgba(160,80,220,0.22)] bg-white/75 text-[13px] font-medium text-[rgba(50,35,95,0.92)]"
+                        data-testid="annual-offer-payment-mode-select"
                       >
-                        {m.label}
-                      </button>
-                    ))}
+                        <SelectValue placeholder="Choose how you wish to pay" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {visiblePayModes.map((m) => (
+                          <SelectItem
+                            key={m.value}
+                            value={m.value}
+                            className="text-[13px]"
+                            data-testid={`annual-offer-mode-${m.value}`}
+                          >
+                            {m.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                   </div>
-                  <p className="text-[10px] text-[rgba(60,35,115,0.5)] flex items-start gap-1.5 leading-relaxed mt-2">
+                  <div className="space-y-2">
+                    <Label className="text-[11px] uppercase tracking-[0.12em] text-[rgba(70,35,125,0.65)] font-semibold">
+                      Participation (annual path)
+                    </Label>
+                    <Select value={annualParticipationMode} onValueChange={setAnnualParticipationMode}>
+                      <SelectTrigger
+                        className="h-10 max-w-md border-[rgba(160,80,220,0.22)] bg-white/75 text-[13px] font-medium text-[rgba(50,35,95,0.92)]"
+                        data-testid="annual-offer-participation-select"
+                      >
+                        <SelectValue placeholder="Online or offline" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="online" className="text-[13px]" data-testid="annual-offer-participation-online">
+                          Online
+                        </SelectItem>
+                        <SelectItem value="offline" className="text-[13px]" data-testid="annual-offer-participation-offline">
+                          Offline
+                        </SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <p className="text-[10px] text-[rgba(60,35,115,0.48)] leading-relaxed">
+                      Home Coming annual programs use online or offline participation only — there is no in-person seat type for this bundle.
+                    </p>
+                  </div>
+                  <p className="text-[10px] text-[rgba(60,35,115,0.5)] flex items-start gap-1.5 leading-relaxed">
                     <Info size={12} className="shrink-0 mt-0.5 text-violet-500" aria-hidden />
                     We softly save your preference for your host. Final timing is lovingly confirmed in Client Garden; the schedule below opens for every choice — fixed installments, pay in full, or Flexi (any amount, any time).
                   </p>

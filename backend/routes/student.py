@@ -2699,6 +2699,8 @@ class AnnualPackageOfferPrefsBody(BaseModel):
     desired_start_date: Optional[str] = ""
     payment_mode: Optional[str] = "full"
     emi_notes: Optional[str] = ""
+    # Home Coming annual bundle: online vs offline participation (no in-person path for this catalog).
+    participation_mode: Optional[str] = "online"
 
 
 def _normalize_annual_offer_payment_mode(raw: Optional[str]) -> str:
@@ -2709,6 +2711,13 @@ def _normalize_annual_offer_payment_mode(raw: Optional[str]) -> str:
     if s == "flexi":
         return "emi_flexi"
     return s if s in allowed else "full"
+
+
+def _normalize_annual_offer_participation_mode(raw: Optional[str]) -> str:
+    s = (raw or "").strip().lower()
+    if s in ("offline", "off_line", "off-line"):
+        return "offline"
+    return "online"
 
 
 @router.put("/annual-package-offer-preferences")
@@ -2735,10 +2744,12 @@ async def put_annual_package_offer_preferences(
     if len(notes) > 800:
         raise HTTPException(status_code=400, detail="Note is too long (max 800 characters).")
     now = datetime.now(timezone.utc).isoformat()
+    participation = _normalize_annual_offer_participation_mode(data.participation_mode)
     prefs = {
         "desired_start_date": start or None,
         "payment_mode": mode,
         "emi_notes": notes or None,
+        "participation_mode": participation,
         "updated_at": now,
     }
     await db.clients.update_one({"id": cid}, {"$set": {"annual_package_offer_prefs": prefs, "updated_at": now}})
