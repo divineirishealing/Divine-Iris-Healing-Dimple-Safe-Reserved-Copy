@@ -320,10 +320,8 @@ async def _active_home_coming_package_catalog_row() -> Optional[dict]:
     return rows[0]
 
 
-def _home_coming_payload(client: dict, sub: dict, iris_journey: dict) -> Optional[dict]:
-    """Home Coming (annual) brand + version year + four pillars for the student dashboard."""
-    if not _is_annual_subscriber(sub, client):
-        return None
+def _home_coming_branding_dict(client: dict, iris_journey: dict) -> dict:
+    """Home Coming UI: year labels + pillar includes (no subscriber gate)."""
     try:
         y = int(iris_journey.get("year") or 1)
     except (TypeError, ValueError):
@@ -345,6 +343,13 @@ def _home_coming_payload(client: dict, sub: dict, iris_journey: dict) -> Optiona
         "subscription_sku_home_coming": sku_hc,
         "includes": [dict(x) for x in _HOME_COMING_INCLUDES],
     }
+
+
+def _home_coming_payload(client: dict, sub: dict, iris_journey: dict) -> Optional[dict]:
+    """Home Coming (annual) brand + version year + four pillars for the student dashboard."""
+    if not _is_annual_subscriber(sub, client):
+        return None
+    return _home_coming_branding_dict(client, iris_journey)
 
 
 def _subscription_annual_package_signals(sub: dict) -> bool:
@@ -2491,6 +2496,9 @@ async def get_student_home(user: dict = Depends(get_current_student_user)):
 
     iris_journey = resolve_iris_journey(sub)
     home_coming = _home_coming_payload(client, sub, iris_journey)
+    if home_coming is None and last_annual_package:
+        # Lapsed / between-year renewals: keep four-pillar copy when a previous annual window exists on file.
+        home_coming = _home_coming_branding_dict(client, iris_journey)
     if home_coming:
         package = {**package, "home_coming_label": home_coming["full_label"]}
 
@@ -2570,6 +2578,11 @@ async def get_student_home(user: dict = Depends(get_current_student_user)):
         "channelization_fee": sub.get("channelization_fee", 0),
         "show_late_fees": sub.get("show_late_fees", False),
         "iris_journey": iris_journey,
+        # Manual / auto iris year from Client Garden subscription (renewal UI default).
+        "subscription_journey": {
+            "iris_year": sub.get("iris_year"),
+            "iris_year_mode": sub.get("iris_year_mode") or "manual",
+        },
         "home_coming": home_coming,
         "points": loyalty_points,
         "user_details": {
@@ -2646,6 +2659,7 @@ class AnnualPackageOfferPrefsBody(BaseModel):
     desired_start_date: Optional[str] = ""
     payment_mode: Optional[str] = "full"
     emi_notes: Optional[str] = ""
+    iris_renewal_year: Optional[int] = None  # 1–12: journey year being purchased (e.g. 2 after Year 1)
 
 
 def _normalize_annual_offer_payment_mode(raw: Optional[str]) -> str:
@@ -2681,11 +2695,20 @@ async def put_annual_package_offer_preferences(
     notes = (data.emi_notes or "").strip()
     if len(notes) > 800:
         raise HTTPException(status_code=400, detail="Note is too long (max 800 characters).")
+    ry = data.iris_renewal_year
+    if ry is not None:
+        try:
+            ry = int(ry)
+        except (TypeError, ValueError):
+            raise HTTPException(status_code=400, detail="iris_renewal_year must be an integer 1–12.")
+        if ry < 1 or ry > 12:
+            raise HTTPException(status_code=400, detail="iris_renewal_year must be between 1 and 12.")
     now = datetime.now(timezone.utc).isoformat()
     prefs = {
         "desired_start_date": start or None,
         "payment_mode": mode,
         "emi_notes": notes or None,
+        "iris_renewal_year": ry,
         "updated_at": now,
     }
     await db.clients.update_one({"id": cid}, {"$set": {"annual_package_offer_prefs": prefs, "updated_at": now}})

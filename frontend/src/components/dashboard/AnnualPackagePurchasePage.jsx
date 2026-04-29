@@ -18,7 +18,7 @@ import {
 import { Button } from '../ui/button';
 import { Label } from '../ui/label';
 import { Input } from '../ui/input';
-import { cn, formatDateDdMonYyyy, formatDashboardStatDate, nextDateWithDayOfMonth } from '../../lib/utils';
+import { cn, formatDateDdMonYyyy, formatDashboardStatDate, nextDateWithDayOfMonth, addMonthsSubscriptionEnd } from '../../lib/utils';
 import { useToast } from '../../hooks/use-toast';
 import { useCart } from '../../context/CartContext';
 import { useAuth } from '../../context/AuthContext';
@@ -42,6 +42,17 @@ const ALL_PAY_MODES = [
   { value: 'emi_yearly', label: 'EMI — YEARLY' },
   { value: 'emi_flexi', label: 'FLEXI — ANY AMOUNT, ANY TIME' },
 ];
+
+function defaultIrisRenewalYearFromHome(homeData) {
+  const subJ = homeData?.subscription_journey;
+  const mode = String(subJ?.iris_year_mode || 'manual').toLowerCase();
+  if (mode === 'manual' && subJ?.iris_year != null && String(subJ.iris_year).trim() !== '') {
+    const y = parseInt(subJ.iris_year, 10);
+    if (!Number.isNaN(y)) return Math.min(12, Math.max(1, y + 1));
+  }
+  const cur = Math.min(12, Math.max(1, Number(homeData?.iris_journey?.year) || 1));
+  return Math.min(12, cur + 1);
+}
 
 function emiInstallmentCount(mode, durationMonths) {
   const d = Math.max(1, Number(durationMonths) || 12);
@@ -220,6 +231,7 @@ export default function AnnualPackagePurchasePage() {
   const [desiredStart, setDesiredStart] = useState('');
   const [paymentMode, setPaymentMode] = useState('full');
   const [emiNotes, setEmiNotes] = useState('');
+  const [irisRenewalYear, setIrisRenewalYear] = useState(2);
 
   const refresh = useCallback(() => {
     setLoading(true);
@@ -268,6 +280,10 @@ export default function AnnualPackagePurchasePage() {
     return formatSchedulePayTag(pref || indiaTag || finMode);
   }, [homeData?.preferred_payment_method, homeData?.client_india_pricing?.india_payment_method, fin.payment_mode]);
   const durationMonths = Math.max(1, Number(pkg.duration_months) || 12);
+  const renewalEndYmd = useMemo(() => {
+    if (!desiredStart || !/^\d{4}-\d{2}-\d{2}$/.test(desiredStart)) return '';
+    return addMonthsSubscriptionEnd(desiredStart, durationMonths) || '';
+  }, [desiredStart, durationMonths]);
   const preferredDom = Math.min(
     28,
     Math.max(0, typeof pkg.preferred_membership_day_of_month === 'number' ? pkg.preferred_membership_day_of_month : parseInt(pkg.preferred_membership_day_of_month, 10) || 0),
@@ -309,6 +325,14 @@ export default function AnnualPackagePurchasePage() {
   }, [catalogOfferTotal]);
 
   const lap = homeData?.last_annual_package;
+  const portalLife = homeData?.annual_portal_lifecycle;
+  const lapEndYmd = (lap?.end_date || '').trim().slice(0, 10);
+  const todayYmd = new Date().toISOString().slice(0, 10);
+  const lapEnded = lapEndYmd.length === 10 && lapEndYmd < todayYmd;
+  const isRenewalSeason =
+    portalLife?.status === 'expired' ||
+    portalLife?.status === 'renewal_due' ||
+    lapEnded;
   const memberFirstName = useMemo(() => {
     const raw =
       typeof homeData?.user_details?.full_name === 'string'
@@ -327,15 +351,11 @@ export default function AnnualPackagePurchasePage() {
   }, [homeData?.annual_package_offer_monthly_emi_visible]);
 
   const nextSacredYearStartsLabel = useMemo(() => {
-    const ij = homeData?.iris_journey;
-    const y = Math.min(12, Math.max(1, Number(ij?.year) || 1));
-    if (y >= 12) {
-      return `${irisYearLabelNoPeriod(12)} · sacred renewal window starts`;
-    }
-    return `${irisYearLabelNoPeriod(y + 1)} starts`;
-  }, [homeData?.iris_journey]);
+    const lbl = irisYearLabelNoPeriod(irisRenewalYear);
+    return `${lbl} · anchor your membership start`;
+  }, [irisRenewalYear]);
 
-  /** Opening lines: Year 2+ mirrors “completed Year n−1 … with Year n …” (see iris_journey labels). */
+  /** Opening lines: renewal season vs in-journey vs Year 1 welcome. */
   const irisWelcomeLeadEl = useMemo(() => {
     const ij = homeData?.iris_journey;
     const y = Math.min(12, Math.max(1, Number(ij?.year) || 1));
@@ -346,6 +366,19 @@ export default function AnnualPackagePurchasePage() {
         <span className="font-semibold text-[#4c1d95]">{memberFirstName}</span>,{' '}
       </>
     ) : null;
+    const renewLbl = irisYearLabelNoPeriod(irisRenewalYear);
+
+    if (isRenewalSeason) {
+      return (
+        <>
+          {namePrefix}
+          thank you for walking your Sacred Home path. Your previous annual window on file has completed or is in its
+          renewal season; the path continues with <span className="font-semibold text-[#4c1d95]">{renewLbl}</span>.
+          Anchor your next start date below — we show the matching bundle end date for that cycle, then you can checkout
+          in one step when you feel a full yes.
+        </>
+      );
+    }
 
     if (y >= 2) {
       const prevClean = irisYearLabelNoPeriod(y - 1);
@@ -365,7 +398,7 @@ export default function AnnualPackagePurchasePage() {
         thread through this lineage; we hold you softly as you deepen into sacred growth and higher becoming.
       </>
     );
-  }, [homeData?.iris_journey, memberFirstName]);
+  }, [homeData?.iris_journey, memberFirstName, isRenewalSeason, irisRenewalYear]);
 
   useEffect(() => {
     if (!homeData || prefsInitDone.current) return;
@@ -381,9 +414,18 @@ export default function AnnualPackagePurchasePage() {
         setPaymentMode(allowed.has(pm) ? pm : 'full');
       }
       if (p.emi_notes) setEmiNotes(String(p.emi_notes));
+      if (p.iris_renewal_year != null && String(p.iris_renewal_year).trim() !== '') {
+        const yr = parseInt(p.iris_renewal_year, 10);
+        if (!Number.isNaN(yr) && yr >= 1 && yr <= 12) setIrisRenewalYear(yr);
+      } else {
+        setIrisRenewalYear(defaultIrisRenewalYearFromHome(homeData));
+      }
     } else if (preferredDom >= 1 && preferredDom <= 28) {
       const ymd = nextDateWithDayOfMonth(null, preferredDom);
       if (ymd) setDesiredStart(ymd);
+      setIrisRenewalYear(defaultIrisRenewalYearFromHome(homeData));
+    } else {
+      setIrisRenewalYear(defaultIrisRenewalYearFromHome(homeData));
     }
     setPrefsLoaded(true);
   }, [homeData, preferredDom]);
@@ -433,11 +475,12 @@ export default function AnnualPackagePurchasePage() {
           desired_start_date: desiredStart,
           payment_mode: paymentMode,
           emi_notes: emiNotes,
+          iris_renewal_year: irisRenewalYear,
         },
         { withCredentials: true },
       )
       .catch(() => {})
-  }, [homeData?.client_id, desiredStart, paymentMode, emiNotes]);
+  }, [homeData?.client_id, desiredStart, paymentMode, emiNotes, irisRenewalYear]);
 
   useEffect(() => {
     if (!prefsLoaded) return;
@@ -448,7 +491,7 @@ export default function AnnualPackagePurchasePage() {
     return () => {
       if (prefsSaveTimer.current) clearTimeout(prefsSaveTimer.current);
     };
-  }, [desiredStart, paymentMode, emiNotes, prefsLoaded, persistPrefs]);
+  }, [desiredStart, paymentMode, emiNotes, irisRenewalYear, prefsLoaded, persistPrefs]);
 
   const totalRaw = Number(quote?.total ?? 0);
   const displayTotal = toDisplay(totalRaw);
@@ -473,6 +516,11 @@ export default function AnnualPackagePurchasePage() {
   /** Hero number under “Quoted total”: catalog renewal/purchase reference when checkout line is ₹0. */
   const displayQuotedHero = totalRaw > 0 ? displayTotal : toDisplay(scheduleSplitTotal);
   const heroIsCatalogRenewalRef = totalRaw <= 0 && scheduleSplitTotal > 0;
+  const hasPayableCheckoutTotal = totalRaw > 0 || scheduleSplitTotal > 0;
+  const checkoutBlockedByAnnualInclusion = quote?.included_in_annual_package === true;
+  const canContinueToCheckout = Boolean(
+    pinnedProgram && !quoteLoading && hasPayableCheckoutTotal && !checkoutBlockedByAnnualInclusion,
+  );
 
   const scheduleTitle = useMemo(() => {
     if (paymentMode === 'full') return 'Payment schedule · pay in full';
@@ -660,7 +708,7 @@ export default function AnnualPackagePurchasePage() {
                   {lap?.start_date || lap?.end_date ? (
                     <div className="rounded-2xl border border-white/80 bg-white/58 px-4 py-3.5 shadow-sm shadow-violet-200/40">
                       <p className="text-[10px] uppercase tracking-[0.16em] text-[rgba(100,55,155,0.42)] font-semibold mb-2">
-                        Your annual package · on record
+                        Previous annual cycle · on record
                       </p>
                       <p className="text-sm font-semibold text-[#3b0764]" data-testid="last-annual-package-label">
                         {lap.program_label || 'Annual program'}
@@ -677,6 +725,109 @@ export default function AnnualPackagePurchasePage() {
                       </dl>
                     </div>
                   ) : null}
+                  <div className="rounded-2xl border border-[rgba(124,58,237,0.35)] bg-gradient-to-br from-violet-50/90 to-white/70 px-4 py-3.5 shadow-sm shadow-violet-200/30 space-y-3">
+                    <p className="text-[10px] uppercase tracking-[0.16em] text-[rgba(100,55,155,0.48)] font-semibold">
+                      Next Sacred Home cycle
+                    </p>
+                    <div className="flex flex-wrap items-end gap-3">
+                      <div className="min-w-0 max-w-full">
+                        <Label className="text-[10px] flex items-start gap-2 text-[rgba(70,35,125,0.65)] uppercase tracking-[0.12em] font-semibold leading-snug">
+                          <Calendar size={12} className="opacity-70 shrink-0 mt-0.5" aria-hidden />
+                          <span>
+                            <span className="block text-[10px] font-bold tracking-[0.14em] text-[rgba(100,55,155,0.45)]">
+                              {nextSacredYearStartsLabel}
+                            </span>
+                            <span className="block normal-case tracking-normal text-[11px] font-medium text-[rgba(60,35,115,0.65)] mt-1 max-w-[22rem]">
+                              Start date for the bundle you are paying for (e.g. 3 May 2027 for Year 2).
+                            </span>
+                          </span>
+                        </Label>
+                        <Input
+                          type="date"
+                          className="h-10 mt-1.5 w-[11.75rem] border-[rgba(160,80,220,0.22)] bg-white/75"
+                          value={desiredStart}
+                          onChange={(e) => setDesiredStart(e.target.value)}
+                          data-testid="annual-offer-start-date-hero"
+                        />
+                      </div>
+                      <div>
+                        <Label className="text-[10px] uppercase tracking-[0.12em] text-[rgba(70,35,125,0.65)] font-semibold block mb-1">
+                          Journey year you are entering
+                        </Label>
+                        <select
+                          className="h-10 rounded-md border border-[rgba(160,80,220,0.22)] bg-white/75 px-2 text-[13px] text-[#3b0764] font-medium min-w-[7rem]"
+                          value={irisRenewalYear}
+                          onChange={(e) => setIrisRenewalYear(parseInt(e.target.value, 10) || 1)}
+                          aria-label="Iris journey year for renewal"
+                          data-testid="annual-offer-iris-renewal-year"
+                        >
+                          {Array.from({ length: 12 }, (_, i) => i + 1).map((n) => (
+                            <option key={n} value={n}>
+                              Year {n}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                      {preferredDom >= 1 && preferredDom <= 28 ? (
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          className="h-10 border-violet-200/90 text-violet-900 bg-white/70 hover:bg-violet-50"
+                          onClick={() => {
+                            const ymd = nextDateWithDayOfMonth(null, preferredDom);
+                            if (ymd) setDesiredStart(ymd);
+                          }}
+                        >
+                          Next {preferredDom}
+                          {preferredDom === 1 ? 'st' : preferredDom === 2 ? 'nd' : preferredDom === 3 ? 'rd' : 'th'} of month
+                        </Button>
+                      ) : null}
+                    </div>
+                    {renewalEndYmd ? (
+                      <div className="rounded-xl border border-violet-200/60 bg-white/65 px-3 py-2.5">
+                        <p className="text-[11px] font-semibold text-[#3b0764]">
+                          {irisYearLabelNoPeriod(irisRenewalYear)}
+                        </p>
+                        <dl className="mt-2 flex flex-wrap gap-x-8 gap-y-1 text-[12px] text-[rgba(60,35,115,0.88)] tabular-nums">
+                          <div>
+                            <dt className="text-[9px] uppercase tracking-[0.1em] text-[rgba(100,55,155,0.4)] mb-0.5">
+                              New cycle start
+                            </dt>
+                            <dd>{formatDateDdMonYyyy(desiredStart)}</dd>
+                          </div>
+                          <div>
+                            <dt className="text-[9px] uppercase tracking-[0.1em] text-[rgba(100,55,155,0.4)] mb-0.5">
+                              Bundle end ({durationMonths} mo)
+                            </dt>
+                            <dd>{formatDateDdMonYyyy(renewalEndYmd)}</dd>
+                          </div>
+                        </dl>
+                      </div>
+                    ) : (
+                      <p className="text-[11px] text-[rgba(90,55,135,0.62)]">
+                        Pick a start date to see the matching end date for your Home Coming bundle (same rule as Client
+                        Garden: month-span anchor).
+                      </p>
+                    )}
+                    {pinnedProgram && renewalEndYmd && scheduleSplitTotal > 0 ? (
+                      <Button
+                        type="button"
+                        className="w-full sm:w-auto h-11 bg-gradient-to-r from-violet-700 to-[#6d28d9] hover:from-violet-800 hover:to-violet-800 shadow-lg shadow-violet-900/20"
+                        onClick={goCheckout}
+                        data-testid="annual-offer-one-click-pay"
+                      >
+                        <CreditCard size={18} className="mr-2 shrink-0" />
+                        Pay {irisYearLabelNoPeriod(irisRenewalYear)}
+                        {useAutoStripeCheckout ? ' · Stripe (one step)' : ' · Divine Cart'}
+                      </Button>
+                    ) : !pinnedProgram ? (
+                      <p className="text-[11px] text-amber-900/85 bg-amber-50/90 border border-amber-200/80 rounded-lg px-2.5 py-2">
+                        Your host still needs to pin the Home Coming catalog program on Sacred Home — then checkout opens
+                        here with your dates.
+                      </p>
+                    ) : null}
+                  </div>
                   <div className="flex gap-3">
                     <TrendingUp className="shrink-0 h-6 w-6 text-[#8b5cf6]/85 mt-0.5" aria-hidden />
                     <div className="space-y-2 text-[13px] leading-relaxed text-[rgba(60,35,115,0.82)]">
@@ -874,41 +1025,10 @@ export default function AnnualPackagePurchasePage() {
                   )}
                 </div>
 
-                <div className="flex flex-wrap items-end gap-3">
-                  <div className="min-w-0 max-w-full">
-                    <Label className="text-[11px] flex items-start gap-2 text-[rgba(70,35,125,0.65)] uppercase tracking-[0.12em] font-semibold leading-snug">
-                      <Calendar size={12} className="opacity-70 shrink-0 mt-0.5" aria-hidden />
-                      <span>
-                        <span className="block text-[10px] font-bold tracking-[0.14em] text-[rgba(100,55,155,0.45)]">Next sacred year · start date</span>
-                        <span className="block normal-case tracking-normal text-[12px] font-semibold text-[#3b0764] mt-1 max-w-[22rem]">
-                          {nextSacredYearStartsLabel}
-                        </span>
-                      </span>
-                    </Label>
-                    <Input
-                      type="date"
-                      className="h-10 mt-1.5 w-[11.75rem] border-[rgba(160,80,220,0.22)] bg-white/75"
-                      value={desiredStart}
-                      onChange={(e) => setDesiredStart(e.target.value)}
-                      data-testid="annual-offer-start-date"
-                    />
-                  </div>
-                  {preferredDom >= 1 && preferredDom <= 28 ? (
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      className="h-10 border-violet-200/90 text-violet-900 bg-white/70 hover:bg-violet-50"
-                      onClick={() => {
-                        const ymd = nextDateWithDayOfMonth(null, preferredDom);
-                        if (ymd) setDesiredStart(ymd);
-                      }}
-                    >
-                      Next {preferredDom}
-                      {preferredDom === 1 ? 'st' : preferredDom === 2 ? 'nd' : preferredDom === 3 ? 'rd' : 'th'} of month
-                    </Button>
-                  ) : null}
-                </div>
+                <p className="text-[11px] text-[rgba(60,35,115,0.55)] leading-snug">
+                  Membership start and journey year for your next cycle are set in the <strong>welcome card above</strong>{' '}
+                  (same fields — we keep payment choices here).
+                </p>
 
                 <div className="space-y-2">
                   <Label className="text-[11px] uppercase tracking-[0.12em] text-[rgba(70,35,125,0.65)] font-semibold">
@@ -1222,7 +1342,7 @@ export default function AnnualPackagePurchasePage() {
                   <Button
                     type="button"
                     className="flex-1 h-11 bg-gradient-to-r from-violet-700 to-[#6d28d9] hover:from-violet-800 hover:to-violet-800 shadow-lg shadow-violet-900/20"
-                    disabled={!quote || quote.included_in_annual_package || totalRaw <= 0}
+                    disabled={!canContinueToCheckout}
                     onClick={goCheckout}
                     data-testid="annual-offer-checkout"
                   >
