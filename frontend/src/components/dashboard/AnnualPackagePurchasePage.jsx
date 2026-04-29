@@ -1001,24 +1001,26 @@ export default function AnnualPackagePurchasePage() {
                       ) : null}
                     </div>
                     {cycleDisplayEnd ? (
-                      <div className="rounded-xl border border-violet-200/60 bg-white/65 px-3 py-2.5">
-                        <p className="text-[11px] font-semibold text-[#3b0764]">
-                          {irisYearLabelNoPeriod(autoRenewalYear)}
-                        </p>
-                        <dl className="mt-2 flex flex-wrap gap-x-8 gap-y-1 text-[12px] text-[rgba(60,35,115,0.88)] tabular-nums">
-                          <div>
-                            <dt className="text-[9px] uppercase tracking-[0.1em] text-[rgba(100,55,155,0.4)] mb-0.5">
-                              New cycle start
-                            </dt>
-                            <dd>{formatDateDdMonYyyy(cycleDisplayStart)}</dd>
-                          </div>
-                          <div>
-                            <dt className="text-[9px] uppercase tracking-[0.1em] text-[rgba(100,55,155,0.4)] mb-0.5">
-                              Bundle end ({durationMonths} mo)
-                            </dt>
-                            <dd>{formatDateDdMonYyyy(cycleDisplayEnd)}</dd>
-                          </div>
-                        </dl>
+                      <div className="w-full max-w-none rounded-xl border border-violet-200/60 bg-white/80 px-3 sm:px-4 py-2">
+                        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between sm:gap-x-4">
+                          <p className="text-[11px] font-semibold text-[#3b0764] leading-snug sm:min-w-0 sm:flex-1">
+                            {irisYearLabelNoPeriod(autoRenewalYear)}
+                          </p>
+                          <dl className="mt-0 flex w-full sm:w-auto flex-row flex-wrap items-baseline gap-x-8 sm:gap-x-10 gap-y-0 text-[12px] text-[rgba(60,35,115,0.88)] tabular-nums sm:shrink-0">
+                            <div className="min-w-0">
+                              <dt className="text-[9px] uppercase tracking-[0.1em] text-[rgba(100,55,155,0.4)] mb-0.5 whitespace-nowrap">
+                                New cycle start
+                              </dt>
+                              <dd>{formatDateDdMonYyyy(cycleDisplayStart)}</dd>
+                            </div>
+                            <div className="min-w-0">
+                              <dt className="text-[9px] uppercase tracking-[0.1em] text-[rgba(100,55,155,0.4)] mb-0.5 whitespace-nowrap">
+                                Bundle end ({durationMonths} mo)
+                              </dt>
+                              <dd>{formatDateDdMonYyyy(cycleDisplayEnd)}</dd>
+                            </div>
+                          </dl>
+                        </div>
                       </div>
                     ) : (
                       <p className="text-[11px] text-[rgba(90,55,135,0.62)]">
