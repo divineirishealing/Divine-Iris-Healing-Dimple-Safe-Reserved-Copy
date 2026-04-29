@@ -330,6 +330,21 @@ async def enrollment_checkout_prepare(
 
     final_total = float(after_cart_deals)
 
+    # Sacred Home / Home Coming: roster can price ₹0 (current seat already inside annual) while the
+    # portal sends client_declared_payable from the catalog renewal reference. Dashboard Stripe only.
+    _decl_lift = getattr(data, "client_declared_payable", None)
+    if (
+        _decl_lift is not None
+        and float(final_total) <= 0
+        and getattr(data, "portal_checkout_cancel", None) is True
+    ):
+        try:
+            _dl = float(_decl_lift)
+            if _dl > 0:
+                final_total = round(_dl, 2)
+        except (TypeError, ValueError):
+            pass
+
     # Portal Stripe (INR): charge taxable base after Client Garden CRM discount (no GST add-on), matching
     # Divine Cart / dashboard flows when `portal_checkout_cancel` is sent. Skip for pre-mixed admin totals.
     if (

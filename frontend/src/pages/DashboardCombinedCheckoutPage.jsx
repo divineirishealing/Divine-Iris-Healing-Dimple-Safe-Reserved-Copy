@@ -1127,6 +1127,24 @@ export default function DashboardCombinedCheckoutPage() {
   const totalDiscountAmount = totalAutoDiscount + discount;
   const total = Math.max(0, subtotal - discount - effectiveCrossSellDiscount - stackAutoDiscount);
 
+  /** Home Coming pay-from-schedule: catalog/renewal amount while roster still shows annual-included ₹0. */
+  const homeComingQuotedRenewalTotal = useMemo(() => {
+    let max = 0;
+    for (const i of items) {
+      const raw = i.portalLineMeta?.homeComingQuotedTotal;
+      const n = typeof raw === 'number' ? raw : parseFloat(String(raw || ''), 10);
+      if (!Number.isNaN(n) && n > max) max = n;
+    }
+    return max;
+  }, [items]);
+
+  const totalForPayment = Math.max(
+    total,
+    homeComingQuotedRenewalTotal > 0
+      ? Math.round(toDisplay(homeComingQuotedRenewalTotal) * 100) / 100
+      : 0,
+  );
+
   const crossSellDisplayRows = useMemo(() => {
     if (portalRosterSubtotalActive) return [];
     if (clientXs >= apiCrossSellDiscount && clientCrossSellRows.length > 0) {
@@ -1154,14 +1172,14 @@ export default function DashboardCombinedCheckoutPage() {
   /** INR: same stack as India payment page (Client Garden + Payment Settings) on net after cart promos. */
   const indiaBreakdown = useMemo(() => {
     if (String(currency).toLowerCase() !== 'inr') return null;
-    return computeIndiaCheckoutBreakdown(total, clientIndiaPricing, {
+    return computeIndiaCheckoutBreakdown(totalForPayment, clientIndiaPricing, {
       india_alt_discount_percent: paymentSettings.india_alt_discount_percent,
       india_gst_percent: paymentSettings.india_gst_percent,
       india_platform_charge_percent: paymentSettings.india_platform_charge_percent,
     }, totalParticipants);
   }, [
     currency,
-    total,
+    totalForPayment,
     totalParticipants,
     clientIndiaPricing,
     paymentSettings.india_alt_discount_percent,
@@ -1205,7 +1223,7 @@ export default function DashboardCombinedCheckoutPage() {
     ? showIndiaInrSettlement
       ? indiaBreakdown.roundedTotal
       : Math.round(indiaBreakdown.taxableBase)
-    : total;
+    : totalForPayment;
   const bookerIndia = String(bookerCountry || '').trim().toUpperCase() === 'IN';
   const siteIndiaAlternatePayments =
     !!paymentSettings.india_enabled && (detectedCountry === 'IN' || bookerIndia);

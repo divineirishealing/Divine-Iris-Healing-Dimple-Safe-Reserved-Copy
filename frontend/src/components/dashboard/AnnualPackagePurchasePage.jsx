@@ -563,7 +563,10 @@ export default function AnnualPackagePurchasePage() {
       const tierIdx = pickTierIndexForDashboard(pinnedProgram, true) ?? 0;
       const participants = buildSacredHomeQuickPayParticipants(pinnedProgram);
       flushSync(() => {
-        syncProgramLineItem(pinnedProgram, tierIdx, participants, { fromAnnualOfferPage: true });
+        syncProgramLineItem(pinnedProgram, tierIdx, participants, {
+          fromAnnualOfferPage: true,
+          ...(scheduleSplitTotal > 0 ? { homeComingQuotedTotal: scheduleSplitTotal } : {}),
+        });
       });
       navigate(`/dashboard/combined-checkout${autoQs}`);
       return;
