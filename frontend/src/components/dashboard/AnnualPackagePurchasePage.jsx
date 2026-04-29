@@ -917,7 +917,7 @@ export default function AnnualPackagePurchasePage() {
               {subtitleFourPrograms}
             </p>
             <div
-              className="mt-6 w-full max-w-[39rem] rounded-[22px] border border-[rgba(196,168,252,0.45)] bg-gradient-to-br from-[#faf8ff]/96 via-[#fffefd]/93 to-[#f5f0ff]/93 px-4 py-5 sm:px-6 sm:py-6 text-left shadow-[0_12px_48px_rgba(124,58,237,0.12)] backdrop-blur-sm"
+              className="mt-6 w-full max-w-[34rem] rounded-[22px] border border-[rgba(196,168,252,0.45)] bg-gradient-to-br from-[#faf8ff]/96 via-[#fffefd]/93 to-[#f5f0ff]/93 px-4 py-5 sm:px-6 sm:py-6 text-left shadow-[0_12px_48px_rgba(124,58,237,0.12)] backdrop-blur-sm"
               data-testid="home-coming-welcome-banner"
             >
               <div className="flex gap-3 sm:gap-4">
