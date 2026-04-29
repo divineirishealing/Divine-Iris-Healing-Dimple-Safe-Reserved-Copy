@@ -60,14 +60,6 @@ const DEFAULT_SECTIONS = [
   { id: 'sponsor', title: 'Shine a Light in a Life', subtitle: 'Healing flows when we support each other.', component: 'SponsorSection', removable: false },
   { id: 'programs', title: 'Flagship Programs', subtitle: 'Our signature healing journeys', component: 'ProgramsSection', removable: false },
   { id: 'sessions', title: 'Upcoming Sessions', subtitle: '', component: 'SessionsSection', removable: false },
-  {
-    id: 'payments_teaser',
-    title: '',
-    subtitle:
-      'Installment-friendly options are available on many journeys. Once you enroll, your member dashboard shows each due date, what is paid, and a simple place to upload payment proof.',
-    component: 'PaymentsEmiTeaserSection',
-    removable: true,
-  },
   { id: 'stats', title: '', subtitle: '', component: 'StatsSection', removable: true },
   { id: 'testimonials', title: 'Transformations', subtitle: '', component: 'TestimonialsSection', removable: false },
   { id: 'trust', title: "Why We're Loved", subtitle: 'Trusted by our community', component: 'TrustSection', removable: false },

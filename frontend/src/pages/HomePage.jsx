@@ -13,8 +13,6 @@ import TextTestimonialsStrip from '../components/TextTestimonialsStrip';
 import TrustSection from '../components/TrustSection';
 import NewsletterSection from '../components/NewsletterSection';
 import CustomSection from '../components/CustomSection';
-import PaymentsEmiTeaserSection from '../components/PaymentsEmiTeaserSection';
-import HomeSectionBox from '../components/home/HomeSectionBox';
 import Footer from '../components/Footer';
 import FloatingButtons from '../components/FloatingButtons';
 
@@ -25,7 +23,6 @@ const COMPONENT_MAP = {
   SponsorSection,
   ProgramsSection,
   SessionsSection,
-  PaymentsEmiTeaserSection,
   StatsSection,
   TestimonialsSection,
   TextTestimonialsStrip,
@@ -36,41 +33,6 @@ const COMPONENT_MAP = {
 
 // Dark sections keep their own opaque backgrounds
 const DARK_SECTIONS = new Set(['HeroSection', 'SessionsSection', 'StatsSection']);
-
-/** Eyebrow labels + chrome variant for boxed homepage sections (hero stays full-bleed). */
-const HOME_SECTION_BOX = {
-  about: { eyebrow: 'Your healing guide', variant: 'violet' },
-  text_testimonials: { eyebrow: 'Words that stayed', variant: 'slate' },
-  upcoming: { eyebrow: 'Upcoming programs', variant: 'teal' },
-  sponsor: { eyebrow: 'Support the work', variant: 'gold' },
-  programs: { eyebrow: 'Programs & journeys', variant: 'violet' },
-  sessions: { eyebrow: 'Your growth schedule', variant: 'gold', isDark: true },
-  payments_teaser: { eyebrow: 'Your payments & EMIs', variant: 'teal' },
-  stats: { eyebrow: 'Your journey in numbers', variant: 'gold', isDark: true },
-  testimonials: { eyebrow: 'Stories & gratitude', variant: 'teal' },
-  trust: { eyebrow: 'Why people trust us', variant: 'slate' },
-  newsletter: { eyebrow: 'Stay connected', variant: 'violet' },
-  custom: { eyebrow: 'More', variant: 'slate' },
-};
-
-function homeSectionBoxMeta(sec) {
-  const preset = HOME_SECTION_BOX[sec.id];
-  if (preset) {
-    return {
-      eyebrow: preset.eyebrow,
-      variant: preset.variant || 'teal',
-      isDark: preset.isDark ?? DARK_SECTIONS.has(sec.component),
-    };
-  }
-  const fallbackEyebrow = (sec.title || sec.id || 'Section')
-    .replace(/_/g, ' ')
-    .replace(/\b\w/g, (c) => c.toUpperCase());
-  return {
-    eyebrow: fallbackEyebrow,
-    variant: 'slate',
-    isDark: DARK_SECTIONS.has(sec.component),
-  };
-}
 
 // Two alternating gradients that chain seamlessly:
 // A ends at #ffffff, B starts at #ffffff → seamless
@@ -86,7 +48,6 @@ const DEFAULT_ORDER = [
   { id: 'sponsor', component: 'SponsorSection', visible: true },
   { id: 'programs', component: 'ProgramsSection', visible: true },
   { id: 'sessions', component: 'SessionsSection', visible: true },
-  { id: 'payments_teaser', component: 'PaymentsEmiTeaserSection', visible: true },
   { id: 'stats', component: 'StatsSection', visible: true },
   { id: 'testimonials', component: 'TestimonialsSection', visible: true },
   { id: 'newsletter', component: 'NewsletterSection', visible: true },
@@ -159,30 +120,9 @@ function HomePage() {
         const Component = COMPONENT_MAP[sec.component];
         if (!Component) return null;
         const bg = sectionGradients[i];
-        const isHero = sec.component === 'HeroSection';
-        const isUpcoming = sec.id === 'upcoming';
-        const boxMeta = isHero || isUpcoming ? null : homeSectionBoxMeta(sec);
-
         return (
           <div key={sec.id} style={bg ? { background: bg } : undefined}>
-            {isHero ? (
-              <Component sectionConfig={sec} />
-            ) : isUpcoming ? (
-              <div className="container mx-auto px-4 py-4 md:py-6" data-home-section={sec.id}>
-                <Component sectionConfig={sec} />
-              </div>
-            ) : (
-              <div className="container mx-auto px-4 py-4 md:py-6">
-                <HomeSectionBox
-                  eyebrow={boxMeta.eyebrow}
-                  variant={boxMeta.variant}
-                  isDark={boxMeta.isDark}
-                  data-home-section={sec.id}
-                >
-                  <Component sectionConfig={sec} />
-                </HomeSectionBox>
-              </div>
-            )}
+            <Component sectionConfig={sec} />
           </div>
         );
       })}
