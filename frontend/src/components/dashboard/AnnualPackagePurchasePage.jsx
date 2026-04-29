@@ -689,6 +689,8 @@ export default function AnnualPackagePurchasePage() {
       flushSync(() => {
         const meta = {
           fromAnnualOfferPage: true,
+          /** Roster pricing must treat the booker as package-covered so subtotal is not the full tier (only `homeComingQuotedTotal` is payable). */
+          annualIncluded: true,
           ...(quoted > 0 ? { homeComingQuotedTotal: quoted } : {}),
           annualOfferPaymentMode: paymentMode,
           ...(schedulePreview && schedulePreview.length ? { annualOfferSchedulePreview: schedulePreview } : {}),

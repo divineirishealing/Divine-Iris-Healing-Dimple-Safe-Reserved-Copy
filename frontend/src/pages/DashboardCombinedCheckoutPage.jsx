@@ -1141,12 +1141,23 @@ export default function DashboardCombinedCheckoutPage() {
     return max;
   }, [items]);
 
-  const totalForPayment = Math.max(
-    total,
+  const homeComingQuotedDisplay =
     homeComingQuotedRenewalTotal > 0
       ? Math.round(toDisplay(homeComingQuotedRenewalTotal) * 100) / 100
-      : 0,
+      : 0;
+
+  /** True when paying a Home Coming catalog / EMI slice (`homeComingQuotedTotal`), not line-item tier totals. */
+  const hasHomeComingCatalogPay = items.some(
+    (i) => i.portalLineMeta?.fromAnnualOfferPage && homeComingQuotedDisplay > 0,
   );
+
+  /**
+   * Home Coming: roster subtotal omits the prepaid seat (`annualIncluded`), so `total` excludes that program.
+   * Add the quoted installment (or full-pay slice) explicitly — do not Math.max with dashboard-quote bundle totals.
+   */
+  const totalForPayment = hasHomeComingCatalogPay
+    ? Math.max(0, Math.round((total + homeComingQuotedDisplay) * 100) / 100)
+    : Math.max(0, total);
 
   /** Home Coming package page: EMI vs full — show schedule hint on checkout. */
   const homeComingAnnualOfferPlan = useMemo(() => {
