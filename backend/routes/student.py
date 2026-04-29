@@ -2892,6 +2892,11 @@ async def get_student_home(user: dict = Depends(get_current_student_user)):
         "india_tax_info": india_tax_info,
         # Mirrors Client Garden + site portal defaults (subscription Excel overrides when authoritative).
         "client_india_pricing": _merge_client_india_pricing_portal(client, sub, settings_doc),
+        # Raw CRM % / bands (portal merge in `client_india_pricing` may inject site defaults — use this for catalog list vs offer).
+        "client_discount_source": {
+            "india_discount_percent": client.get("india_discount_percent"),
+            "india_discount_member_bands": client.get("india_discount_member_bands"),
+        },
         "preferred_payment_method": (client.get("preferred_payment_method") or "").strip() or None,
         "preferred_india_gpay_id": pref_gpay_m,
         "preferred_india_bank_id": pref_bank_m,

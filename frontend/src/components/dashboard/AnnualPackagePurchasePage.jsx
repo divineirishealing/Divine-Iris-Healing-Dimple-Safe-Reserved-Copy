@@ -35,6 +35,7 @@ import { pickTierIndexForDashboard } from './dashboardUpcomingHelpers';
 import DashboardUpcomingProgramsIrisBloom from './DashboardUpcomingProgramsIrisBloom';
 import { getApiUrl } from '../../lib/config';
 import { irisYearLabelNoPeriod } from '../../lib/irisJourney';
+import { resolveIndiaDiscountRule, applyIndiaDiscountRuleToBase } from '../../lib/indiaClientPricing';
 
 /** Mirrors backend `_HOME_COMING_INCLUDES` shorts — subtitle for Divine Iris bundle. */
 const DIVINE_IRIS_HOME_COMING_PROGRAMS_LABEL =
@@ -301,6 +302,49 @@ export default function AnnualPackagePurchasePage() {
     [catalogOfferTotal, baseCurrency],
   );
   const catalogDisplayAmount = catalogAmountHub != null ? toDisplay(catalogAmountHub) : null;
+
+  /** CRM-only discount on catalog list (same basis as Sacred Home quotes); excludes site portal default %. */
+  const catalogCourtesyBreakdown = useMemo(() => {
+    if (catalogAmountHub == null || !(Number(catalogAmountHub) > 0) || !homeData) return null;
+    const src = homeData.client_discount_source;
+    if (!src) return null;
+    const hasBands =
+      Array.isArray(src.india_discount_member_bands) && src.india_discount_member_bands.length > 0;
+    const hasPct = src.india_discount_percent != null && src.india_discount_percent !== '';
+    if (!hasBands && !hasPct) return null;
+    const fam = homeData.immediate_family;
+    const n = Math.max(1, 1 + (Array.isArray(fam) ? fam.length : 0));
+    const cp = {
+      india_discount_percent: src.india_discount_percent,
+      india_discount_member_bands: src.india_discount_member_bands,
+    };
+    const rule = resolveIndiaDiscountRule(cp, n, 0);
+    const hubCur = (baseCurrency || 'inr').toLowerCase();
+    if (rule.mode === 'amount' && rule.amountInr > 0 && hubCur !== 'inr') {
+      return null;
+    }
+    const listNum = Number(catalogAmountHub);
+    const applied = applyIndiaDiscountRuleToBase(listNum, rule);
+    const discountAmt = Math.round(Number(applied.discountAmt || 0) * 100) / 100;
+    if (discountAmt <= 0) return null;
+    const finalNum = Math.max(0, Math.round((listNum - discountAmt) * 100) / 100);
+    const listDisplay = toDisplay(listNum);
+    const finalDisplay = toDisplay(finalNum);
+    const pctLabel =
+      applied.discountKind === 'percent' && applied.discountNominalPercent != null
+        ? `${Number(applied.discountNominalPercent).toFixed(1).replace(/\.0$/, '')}%`
+        : null;
+    return {
+      ruleLabel: rule.fromBand ? 'Group offer' : 'Special offer',
+      discountAmt,
+      finalNum,
+      listDisplay,
+      finalDisplay,
+      pctLabel,
+      isAmountBand: rule.mode === 'amount' && rule.amountInr > 0,
+    };
+  }, [catalogAmountHub, homeData, baseCurrency, toDisplay]);
+
   const catalogOtherCurrencies = useMemo(() => {
     if (!catalogOfferTotal || typeof catalogOfferTotal !== 'object') return [];
     const hub = (baseCurrency || 'inr').toLowerCase();
@@ -503,13 +547,19 @@ export default function AnnualPackagePurchasePage() {
   /** Basis for splitting the payment schedule: live quote when > 0, else Home Coming catalog (annual purchase / renewal). */
   const scheduleSplitTotal = useMemo(() => {
     if (totalRaw > 0) return totalRaw;
+    if (
+      catalogCourtesyBreakdown != null &&
+      Number(catalogCourtesyBreakdown.finalNum) > 0
+    ) {
+      return Number(catalogCourtesyBreakdown.finalNum);
+    }
     if (catalogAmountHub != null && Number(catalogAmountHub) > 0) return Number(catalogAmountHub);
     for (const [, v] of catalogAllPositiveEntries) {
       const n = Number(v);
       if (!Number.isNaN(n) && n > 0) return n;
     }
     return 0;
-  }, [totalRaw, catalogAmountHub, catalogAllPositiveEntries]);
+  }, [totalRaw, catalogAmountHub, catalogCourtesyBreakdown, catalogAllPositiveEntries]);
 
   const paymentScheduleRows = useMemo(
     () => buildPaymentScheduleRows(paymentMode, scheduleSplitTotal, desiredStart, durationMonths),
@@ -998,15 +1048,79 @@ export default function AnnualPackagePurchasePage() {
                   </div>
                 </div>
                 {catalogAmountHub != null && catalogDisplayAmount != null ? (
-                  <p className="mt-3">
-                    <span className="text-[2rem] sm:text-[2.35rem] font-bold text-[#1a0a3d] tabular-nums tracking-tight">
-                      {symbol}
-                      {Number(catalogDisplayAmount).toLocaleString()}
-                    </span>{' '}
-                    <span className="text-lg font-semibold text-[rgba(80,55,145,0.55)]">
-                      {(baseCurrency || 'inr').toUpperCase()}
-                    </span>
-                  </p>
+                  <div className="mt-3 space-y-3">
+                    {catalogCourtesyBreakdown ? (
+                      <>
+                        <p className="text-[11px] text-left text-[rgba(60,35,115,0.5)]">
+                          <span className="uppercase tracking-[0.12em] font-semibold text-[rgba(100,55,155,0.45)]">
+                            Catalog price
+                          </span>
+                        </p>
+                        <p className="text-left">
+                          <span className="text-xl sm:text-2xl font-semibold text-[rgba(80,55,145,0.45)] tabular-nums line-through decoration-[rgba(120,80,160,0.35)]">
+                            {symbol}
+                            {Number(catalogCourtesyBreakdown.listDisplay).toLocaleString()}
+                          </span>{' '}
+                          <span className="text-sm font-medium text-[rgba(80,55,145,0.45)]">
+                            {(baseCurrency || 'inr').toUpperCase()}
+                          </span>
+                        </p>
+                        <div className="rounded-xl border border-[rgba(212,175,55,0.35)] bg-gradient-to-r from-[#fffbf0]/95 via-white/90 to-[#fdf6e3]/90 px-3.5 py-3 text-left shadow-sm shadow-amber-900/5">
+                          <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-[#8b6914] mb-1">
+                            {catalogCourtesyBreakdown.ruleLabel}
+                          </p>
+                          <p className="text-[12px] text-[#5c4a12] leading-snug">
+                            {catalogCourtesyBreakdown.pctLabel ? (
+                              <>
+                                <strong className="text-[#6b5210]">{catalogCourtesyBreakdown.pctLabel}</strong> off your
+                                catalog bundle
+                              </>
+                            ) : catalogCourtesyBreakdown.isAmountBand ? (
+                              <>
+                                <strong className="text-[#6b5210] tabular-nums">
+                                  {symbol}
+                                  {Number(catalogCourtesyBreakdown.discountAmt).toLocaleString()}
+                                </strong>{' '}
+                                courtesy on this bundle
+                              </>
+                            ) : (
+                              <>
+                                Courtesy savings:{' '}
+                                <strong className="text-[#6b5210] tabular-nums">
+                                  {symbol}
+                                  {Number(catalogCourtesyBreakdown.discountAmt).toLocaleString()}
+                                </strong>
+                              </>
+                            )}
+                          </p>
+                        </div>
+                        <div className="pt-1">
+                          <p className="text-[11px] uppercase tracking-[0.14em] font-semibold text-[#3b0764]/80 mb-1 text-left">
+                            Final price
+                          </p>
+                          <p className="text-left">
+                            <span className="text-[2rem] sm:text-[2.35rem] font-bold text-[#1a0a3d] tabular-nums tracking-tight">
+                              {symbol}
+                              {Number(catalogCourtesyBreakdown.finalDisplay).toLocaleString()}
+                            </span>{' '}
+                            <span className="text-lg font-semibold text-[rgba(80,55,145,0.55)]">
+                              {(baseCurrency || 'inr').toUpperCase()}
+                            </span>
+                          </p>
+                        </div>
+                      </>
+                    ) : (
+                      <p className="mt-0">
+                        <span className="text-[2rem] sm:text-[2.35rem] font-bold text-[#1a0a3d] tabular-nums tracking-tight">
+                          {symbol}
+                          {Number(catalogDisplayAmount).toLocaleString()}
+                        </span>{' '}
+                        <span className="text-lg font-semibold text-[rgba(80,55,145,0.55)]">
+                          {(baseCurrency || 'inr').toUpperCase()}
+                        </span>
+                      </p>
+                    )}
+                  </div>
                 ) : catalogAllPositiveEntries.length > 0 ? (
                   <div className="mt-3 space-y-1">
                     {catalogAllPositiveEntries.map(([k, v]) => (
