@@ -278,6 +278,16 @@ export default function ClientFinancesTab() {
     ? editing.annual_subscription
     : {};
   const editingEmis = Array.isArray(editingSub.emis) ? editingSub.emis : [];
+  const editingLedger = useMemo(() => {
+    const raw = editing?.annual_period_ledger;
+    if (!Array.isArray(raw) || !raw.length) return [];
+    return [...raw].sort((a, b) => {
+      const ta = (a.archived_at || '').slice(0, 10);
+      const tb = (b.archived_at || '').slice(0, 10);
+      if (ta !== tb) return ta.localeCompare(tb);
+      return String(a.id || '').localeCompare(String(b.id || ''));
+    });
+  }, [editing?.annual_period_ledger]);
 
   const colCount = 13;
 
@@ -438,6 +448,42 @@ export default function ClientFinancesTab() {
                 </div>
               </div>
             </div>
+
+            {editingLedger.length > 0 && (
+              <div className="rounded-lg border border-amber-200/80 bg-amber-50/40 px-3 py-3 space-y-2 text-xs">
+                <p className="font-semibold text-gray-900">Past annual periods (ledger)</p>
+                <p className="text-[10px] text-gray-500 -mt-1">
+                  Archived when Home Coming start, end, or annual DIID changes (same client UUID).
+                </p>
+                <ul className="space-y-2 max-h-48 overflow-y-auto">
+                  {editingLedger.map((e) => (
+                    <li key={e.id} className="border-b border-amber-100/80 pb-2 last:border-0 last:pb-0">
+                      <p className="font-medium tabular-nums text-gray-800">
+                        {formatAnnualDate(e.start_date)} → {formatAnnualDate(e.end_date)}
+                        {e.annual_diid ? (
+                          <span className="text-gray-600 font-normal"> · {e.annual_diid}</span>
+                        ) : null}
+                      </p>
+                      <p className="text-[10px] text-gray-500 mt-0.5">
+                        Archived {formatAnnualDate((e.archived_at || '').slice(0, 10))}
+                        {e.iris_year_at_archive != null
+                          ? ` · Iris year ${e.iris_year_at_archive} at archive`
+                          : ''}
+                        {e.source
+                          ? ` · ${
+                              e.source === 'excel_import'
+                                ? 'Excel import'
+                                : e.source === 'admin_patch'
+                                  ? 'API / admin'
+                                  : e.source
+                            }`
+                          : ''}
+                      </p>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
 
             {editingEmis.length > 0 && (
               <div className="rounded-lg border border-gray-200 bg-gray-50/60 px-3 py-3">

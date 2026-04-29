@@ -814,6 +814,7 @@ async def list_annual_portal_subscribers():
         "is_primary_household_contact": 1,
         "annual_subscription": 1,
         "portal_login_allowed": 1,
+        "annual_period_ledger": 1,
     }
     rows = await db.clients.find(query, proj).sort([("name", 1)]).to_list(5000)
     out = []
@@ -884,6 +885,7 @@ async def list_annual_finance_roster(search: Optional[str] = None):
         "crm_late_fee_per_day": 1,
         "crm_channelization_fee": 1,
         "crm_show_late_fees": 1,
+        "annual_period_ledger": 1,
     }
     rows = await db.clients.find(query, proj).sort([("name", 1), ("id", 1)]).to_list(5000)
     out = []
@@ -1060,6 +1062,71 @@ class AnnualSubscriptionUpdate(BaseModel):
         return t
 
 
+# Archived Home Coming windows when dates / annual DIID change (renewal, import, or admin edit).
+_ANNUAL_PERIOD_LEDGER_MAX = 48
+
+
+def _annual_period_triplet(sub: Optional[Dict[str, Any]]) -> Tuple[str, str, str]:
+    s = sub or {}
+    ad = normalize_annual_diid(s.get("annual_diid"))
+    return (
+        (s.get("start_date") or "").strip()[:10],
+        (s.get("end_date") or "").strip()[:10],
+        ad or "",
+    )
+
+
+def _should_archive_prior_period(prev_sub: Dict[str, Any], merged_sub: Dict[str, Any]) -> bool:
+    ps = prev_sub or {}
+    start = (ps.get("start_date") or "").strip()
+    end = (ps.get("end_date") or "").strip()
+    if not start or not end:
+        return False
+    return _annual_period_triplet(ps) != _annual_period_triplet(merged_sub)
+
+
+def _iris_year_int(client_doc: Dict[str, Any]) -> Optional[int]:
+    sub0 = (client_doc or {}).get("subscription") or {}
+    raw = sub0.get("iris_year")
+    if raw is None:
+        return None
+    try:
+        y = int(raw)
+        return y if 1 <= y <= 12 else None
+    except (TypeError, ValueError):
+        return None
+
+
+def _append_annual_period_ledger(
+    client_doc: Dict[str, Any],
+    prev_sub: Dict[str, Any],
+    merged_sub: Dict[str, Any],
+    *,
+    source: str,
+    iris_year: Optional[int] = None,
+) -> Optional[List[Dict[str, Any]]]:
+    """Return a new ledger list if a completed prior window should be archived; else None."""
+    if not _should_archive_prior_period(prev_sub, merged_sub):
+        return None
+    ps = dict(prev_sub or {})
+    entry: Dict[str, Any] = {
+        "id": str(uuid.uuid4()),
+        "archived_at": datetime.now(timezone.utc).isoformat(),
+        "source": source,
+        "start_date": (ps.get("start_date") or "").strip()[:10] or None,
+        "end_date": (ps.get("end_date") or "").strip()[:10] or None,
+        "annual_diid": (ps.get("annual_diid") or "").strip() or None,
+        "package_sku": (ps.get("package_sku") or "").strip() or None,
+    }
+    if iris_year is not None:
+        entry["iris_year_at_archive"] = int(iris_year)
+    existing = list((client_doc or {}).get("annual_period_ledger") or [])
+    existing.append(entry)
+    if len(existing) > _ANNUAL_PERIOD_LEDGER_MAX:
+        existing = existing[-_ANNUAL_PERIOD_LEDGER_MAX :]
+    return existing
+
+
 def _coerce_annual_date_field(raw: Optional[str], field_label: str) -> Any:
     """
     For PATCH: None means caller did not include field. '' or explicit null (becomes None in body)
@@ -1147,6 +1214,10 @@ def _merge_annual_subscription(
 async def patch_annual_subscription(client_id: str, data: AnnualSubscriptionUpdate):
     """
     Update Home Coming / annual subscription fields. annual_diid must be unique (FFLLYYMM).
+
+    When start_date, end_date, or annual_diid change and the previous window had both start and
+    end dates set, that prior window is appended to ``annual_period_ledger`` on the client
+    (most recent 48 entries kept).
     """
     cl = await db.clients.find_one({"id": client_id})
     if not cl:
@@ -1213,11 +1284,21 @@ async def patch_annual_subscription(client_id: str, data: AnnualSubscriptionUpda
     merged = _merge_annual_subscription(prev_sub, patch)
 
     now = datetime.now(timezone.utc).isoformat()
-    await db.clients.update_one(
-        {"id": client_id},
-        {"$set": {"annual_subscription": merged, "updated_at": now}},
+    set_doc: Dict[str, Any] = {"annual_subscription": merged, "updated_at": now}
+    ledger = _append_annual_period_ledger(
+        cl,
+        prev_sub,
+        merged,
+        source="admin_patch",
+        iris_year=_iris_year_int(cl),
     )
-    return {"annual_subscription": merged}
+    if ledger is not None:
+        set_doc["annual_period_ledger"] = ledger
+    await db.clients.update_one({"id": client_id}, {"$set": set_doc})
+    out: Dict[str, Any] = {"annual_subscription": merged}
+    if ledger is not None:
+        out["annual_period_ledger"] = ledger
+    return out
 
 
 def _annual_upload_norm_header(h: Any) -> str:
@@ -2019,6 +2100,16 @@ async def upload_annual_portal_subscription_excel(file: UploadFile = File(...)):
             "annual_member_dashboard": True,
             "updated_at": now,
         }
+        prev_sub_ex = dict(cl.get("annual_subscription") or {})
+        ledger_ex = _append_annual_period_ledger(
+            cl,
+            prev_sub_ex,
+            new_sub,
+            source="excel_import",
+            iris_year=_iris_year_int(cl),
+        )
+        if ledger_ex is not None:
+            set_doc["annual_period_ledger"] = ledger_ex
         set_doc.update(client_extra)
         await db.clients.update_one({"id": cid}, {"$set": set_doc})
         updated += 1
