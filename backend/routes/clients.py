@@ -824,6 +824,56 @@ async def list_annual_portal_subscribers():
     return {"clients": out}
 
 
+@router.get("/annual-finance-roster")
+async def list_annual_finance_roster(search: Optional[str] = None):
+    """
+    Annual CRM members (``annual_member_dashboard``) with subscription + India finance fields
+    for the **Client finances** admin tab (dates, fees, EMIs, discounts/taxes — same cohort as Annual + dashboard).
+    """
+    query: Dict[str, Any] = {"annual_member_dashboard": True}
+    if search:
+        search_regex = {"$regex": search, "$options": "i"}
+        query["$or"] = [
+            {"name": search_regex},
+            {"email": search_regex},
+            {"phone": search_regex},
+            {"household_key": search_regex},
+            {"did": search_regex},
+            {"diid": search_regex},
+            {"id": search_regex},
+        ]
+    proj = {
+        "_id": 0,
+        "id": 1,
+        "name": 1,
+        "email": 1,
+        "label": 1,
+        "phone": 1,
+        "annual_subscription": 1,
+        "subscription": 1,
+        "portal_login_allowed": 1,
+        "preferred_payment_method": 1,
+        "india_payment_method": 1,
+        "preferred_india_gpay_id": 1,
+        "preferred_india_bank_id": 1,
+        "india_discount_percent": 1,
+        "india_discount_member_bands": 1,
+        "india_tax_enabled": 1,
+        "india_tax_percent": 1,
+        "india_tax_label": 1,
+        "crm_late_fee_per_day": 1,
+        "crm_channelization_fee": 1,
+        "crm_show_late_fees": 1,
+    }
+    rows = await db.clients.find(query, proj).sort([("name", 1), ("id", 1)]).to_list(5000)
+    out = []
+    for row in rows:
+        d = dict(row)
+        d["annual_portal_lifecycle"] = annual_portal_lifecycle_payload(d)
+        out.append(d)
+    return {"clients": out}
+
+
 HOME_COMING_SKU = "home_coming"
 
 # Sacred Home renewal nudge when ``annual_subscription.end_date`` is within this many days (inclusive).
