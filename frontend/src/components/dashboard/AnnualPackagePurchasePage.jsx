@@ -342,20 +342,6 @@ export default function AnnualPackagePurchasePage() {
     return ALL_PAY_MODES.filter((m) => m.value !== 'emi_monthly' || monthlyOk);
   }, [homeData?.annual_package_offer_monthly_emi_visible]);
 
-  /** First structured EMI mode we offer in the hero (Full vs EMI). Flexi stays in the lower form only. */
-  const heroPreferredEmiMode = useMemo(() => {
-    const order = ['emi_monthly', 'emi_quarterly', 'emi_yearly'];
-    for (const v of order) {
-      if (visiblePayModes.some((m) => m.value === v)) return v;
-    }
-    return null;
-  }, [visiblePayModes]);
-
-  const heroEmiModeLabel = useMemo(() => {
-    const m = visiblePayModes.find((x) => x.value === heroPreferredEmiMode);
-    return m?.label || 'EMI';
-  }, [visiblePayModes, heroPreferredEmiMode]);
-
   const nextSacredYearStartsLabel = useMemo(() => {
     const lbl = irisYearLabelNoPeriod(autoRenewalYear);
     return `${lbl} · anchor your membership start`;
@@ -437,14 +423,11 @@ export default function AnnualPackagePurchasePage() {
 
   useEffect(() => {
     if (!prefsLoaded || !homeData) return;
-    if (
-      !heroPreferredEmiMode &&
-      paymentMode !== 'full' &&
-      paymentMode !== 'emi_flexi'
-    ) {
+    const allowed = new Set(visiblePayModes.map((m) => m.value));
+    if (!allowed.has(paymentMode)) {
       setPaymentMode('full');
     }
-  }, [prefsLoaded, homeData, heroPreferredEmiMode, paymentMode]);
+  }, [prefsLoaded, homeData, visiblePayModes, paymentMode]);
 
   useEffect(() => {
     if (!pinnedProgram || !baseCurrency) {
@@ -569,16 +552,6 @@ export default function AnnualPackagePurchasePage() {
     homeData?.client_india_pricing?.india_payment_method,
     fin.payment_mode,
   ]);
-
-  const heroPayCtaLabel = useMemo(() => {
-    const yr = irisYearLabelNoPeriod(autoRenewalYear);
-    const stripeHint = useAutoStripeCheckout ? ' · Stripe (one step)' : ' · Divine Cart';
-    if (paymentMode === 'full' || paymentMode === 'emi_flexi') {
-      return `Pay in full · ${yr}${stripeHint}`;
-    }
-    const nPlan = emiInstallmentCount(paymentMode, durationMonths);
-    return `Pay installment 1 of ${nPlan} · ${yr}${stripeHint}`;
-  }, [autoRenewalYear, useAutoStripeCheckout, paymentMode, durationMonths]);
 
   /** Minimal valid booker row so Divine Cart autoPay can pass validateAndProceed without empty placeholders. */
   const buildSacredHomeQuickPayParticipants = useCallback(
@@ -889,107 +862,7 @@ export default function AnnualPackagePurchasePage() {
                         Garden: month-span anchor).
                       </p>
                     )}
-                    {pinnedProgram && renewalEndYmd && scheduleSplitTotal > 0 ? (
-                      <div className="space-y-3">
-                        <div className="space-y-2">
-                          <p className="text-[9px] uppercase tracking-[0.14em] text-[rgba(100,55,155,0.48)] font-semibold">
-                            Payment plan
-                          </p>
-                          <div className="flex flex-wrap gap-2">
-                            <button
-                              type="button"
-                              onClick={() => setPaymentMode('full')}
-                              className={cn(
-                                'flex-1 min-w-[8rem] rounded-xl border px-3 py-2.5 text-left transition-all text-[11px] font-semibold',
-                                paymentMode === 'full'
-                                  ? 'border-[rgba(124,58,237,0.65)] bg-violet-100/90 text-[#3730a3] shadow-sm'
-                                  : 'border-[rgba(160,140,190,0.35)] bg-white/60 text-[rgba(50,35,95,0.85)] hover:bg-white/90',
-                              )}
-                              data-testid="annual-hero-pay-full"
-                            >
-                              Full pay
-                            </button>
-                            {heroPreferredEmiMode ? (
-                              <button
-                                type="button"
-                                onClick={() => setPaymentMode(heroPreferredEmiMode)}
-                                className={cn(
-                                  'flex-1 min-w-[8rem] rounded-xl border px-3 py-2.5 text-left transition-all text-[11px] font-semibold leading-snug',
-                                  paymentMode === heroPreferredEmiMode
-                                    ? 'border-[rgba(124,58,237,0.65)] bg-violet-100/90 text-[#3730a3] shadow-sm'
-                                    : 'border-[rgba(160,140,190,0.35)] bg-white/60 text-[rgba(50,35,95,0.85)] hover:bg-white/90',
-                                )}
-                                data-testid="annual-hero-pay-emi"
-                              >
-                                {heroEmiModeLabel}
-                              </button>
-                            ) : null}
-                          </div>
-                        </div>
-                        {paymentMode !== 'full' &&
-                        paymentMode !== 'emi_flexi' &&
-                        scheduleSplitTotal > 0 ? (
-                          <div className="rounded-xl border border-violet-200/70 bg-white/70 overflow-hidden">
-                            <p className="text-[9px] font-bold uppercase tracking-[0.12em] text-[rgba(80,55,145,0.55)] px-3 py-2 bg-[rgba(250,245,255,0.85)] border-b border-violet-100/80">
-                              Installment schedule (preview)
-                            </p>
-                            <div className="overflow-x-auto max-h-48 overflow-y-auto">
-                              <table className="w-full text-[11px] text-left border-collapse">
-                                <thead>
-                                  <tr className="text-[9px] uppercase tracking-wide text-[rgba(90,55,135,0.55)] border-b border-violet-100">
-                                    <th className="font-semibold px-2 py-1.5 pl-3">#</th>
-                                    <th className="font-semibold px-2 py-1.5 tabular-nums">Due</th>
-                                    <th className="font-semibold px-2 py-1.5 pr-3 text-right">Amount</th>
-                                  </tr>
-                                </thead>
-                                <tbody>
-                                  {paymentScheduleRows
-                                    .filter((r) => r.key !== 'flex-a' && r.key !== 'flex-ref')
-                                    .map((row) => {
-                                      const dueStr =
-                                        row.dueDisplay ??
-                                        (row.due ? formatDateDdMonYyyy(row.due) : '—');
-                                      const amt =
-                                        row.amount != null && !Number.isNaN(Number(row.amount))
-                                          ? `${symbol}${Number(toDisplay(row.amount)).toLocaleString()}`
-                                          : '—';
-                                      return (
-                                        <tr
-                                          key={row.key}
-                                          className="border-b border-violet-50/90 text-[rgba(50,35,95,0.9)]"
-                                        >
-                                          <td className="px-2 py-1.5 pl-3 tabular-nums font-medium">
-                                            {row.n}
-                                          </td>
-                                          <td className="px-2 py-1.5 tabular-nums text-[10px] sm:text-[11px]">
-                                            {dueStr}
-                                          </td>
-                                          <td className="px-2 py-1.5 pr-3 text-right tabular-nums font-medium">
-                                            {amt}
-                                          </td>
-                                        </tr>
-                                      );
-                                    })}
-                                </tbody>
-                              </table>
-                            </div>
-                            <p className="text-[9px] text-[rgba(90,55,135,0.55)] px-3 py-2 border-t border-violet-100/80 leading-snug">
-                              This checkout takes you to the payment screen for today&apos;s charge. Remaining installments
-                              stay on Sacred Exchange with your host.
-                            </p>
-                          </div>
-                        ) : null}
-                        <Button
-                          type="button"
-                          className="w-full sm:w-auto h-11 bg-gradient-to-r from-violet-700 to-[#6d28d9] hover:from-violet-800 hover:to-violet-800 shadow-lg shadow-violet-900/20"
-                          onClick={goCheckout}
-                          data-testid="annual-offer-one-click-pay"
-                        >
-                          <CreditCard size={18} className="mr-2 shrink-0" />
-                          {heroPayCtaLabel}
-                        </Button>
-                      </div>
-                    ) : !pinnedProgram ? (
+                    {!pinnedProgram ? (
                       <p className="text-[11px] text-amber-900/85 bg-amber-50/90 border border-amber-200/80 rounded-lg px-2.5 py-2">
                         Your host still needs to pin the Home Coming catalog program on Sacred Home — then checkout opens
                         here with your dates.
@@ -1025,7 +898,9 @@ export default function AnnualPackagePurchasePage() {
               <Heart className="inline-block ml-1.5 w-3 h-3 text-rose-400/70 align-middle" aria-hidden />
             </p>
             <p className="mt-4 max-w-xl text-[11px] sm:text-[12px] text-[rgba(60,35,115,0.55)] leading-relaxed px-2">
-              Choose how you wish to nourish this commitment — anchor a membership start date, choose full pay or EMI, then continue when you are ready. EMI status and proofs live on{' '}
+              Anchor your membership start date above, then scroll to <strong className="font-semibold text-[#5b21b6]">Payment structure</strong> and{' '}
+              <strong className="font-semibold text-[#5b21b6]">Payment schedule</strong> below for full pay, EMI, or Flexi — use{' '}
+              <strong className="font-semibold text-[#5b21b6]">Pay · Stripe</strong> on the installment you wish. EMI status and proofs live on{' '}
               <Link className="font-semibold text-[#6d28d9] hover:text-[#5b21b6] underline underline-offset-2 decoration-violet-300/70" to="/dashboard/financials">
                 Sacred Exchange
               </Link>
