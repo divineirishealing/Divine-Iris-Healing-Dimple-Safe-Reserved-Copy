@@ -64,7 +64,7 @@ function combinedAttendanceLabel(p) {
 }
 
 function combinedNotifyLabel(p) {
-  if (p.attendance_mode === 'online') return 'On (Zoom)';
+  /** Attendance column already says "Online (Zoom)" — keep notify as on/off only. */
   return p.notify ? 'On' : 'Off';
 }
 
@@ -1188,10 +1188,22 @@ export default function DashboardCombinedCheckoutPage() {
           typeof payNRaw === 'number' && !Number.isNaN(payNRaw) && payNRaw >= 1
             ? Math.floor(payNRaw)
             : 1;
+        const preview = Array.isArray(m.annualOfferSchedulePreview) ? m.annualOfferSchedulePreview : [];
+        const instRow =
+          preview.find((r) => Number(r?.n) === payInstallmentN) ?? preview[payInstallmentN - 1] ?? null;
+        const dueRaw = instRow?.due != null ? String(instRow.due).slice(0, 10) : '';
+        const currentEmiDueLabel = dueRaw ? formatDateDdMonYyyy(dueRaw) || dueRaw : null;
+        let currentEmiMonthYear = null;
+        if (currentEmiDueLabel) {
+          const parts = currentEmiDueLabel.split('-');
+          if (parts.length === 3) currentEmiMonthYear = `${parts[1]} ${parts[2]}`;
+        }
         return {
           mode: m.annualOfferPaymentMode,
-          preview: Array.isArray(m.annualOfferSchedulePreview) ? m.annualOfferSchedulePreview : [],
+          preview,
           payInstallmentN,
+          currentEmiDueLabel,
+          currentEmiMonthYear,
         };
       }
     }
@@ -1781,13 +1793,35 @@ export default function DashboardCombinedCheckoutPage() {
             className="mb-4 rounded-lg border border-violet-200 bg-violet-50/95 px-3 py-2.5 text-sm text-violet-950"
             data-testid="home-coming-emi-checkout-banner"
           >
-            <p className="font-semibold text-[13px]">Home Coming · Installment plan</p>
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+              <p className="font-semibold text-[13px]">Home Coming · Installment plan</p>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="shrink-0 border-violet-300 bg-white/90 text-violet-950 hover:bg-violet-100/80 h-8 text-[11px]"
+                onClick={() => navigate('/dashboard/home-coming-package')}
+                data-testid="home-coming-emi-back"
+              >
+                <ChevronLeft size={14} className="mr-0.5" /> Back to Home Coming
+              </Button>
+            </div>
             <p className="text-[11px] mt-1 text-violet-900/90 leading-relaxed">
               You chose <strong>EMI</strong> on the Home Coming page. This screen is for{' '}
-              <strong>today&apos;s payment</strong>{' '}
+              <strong>today&apos;s payment</strong>
+              {homeComingAnnualOfferPlan.currentEmiMonthYear ? (
+                <>
+                  {' '}
+                  — calendar month <strong>{homeComingAnnualOfferPlan.currentEmiMonthYear}</strong>
+                </>
+              ) : null}
+              {' '}
               (installment {homeComingAnnualOfferPlan.payInstallmentN}
               {homeComingAnnualOfferPlan.preview.length > 0
                 ? ` of ${homeComingAnnualOfferPlan.preview.length}`
+                : ''}
+              {homeComingAnnualOfferPlan.currentEmiDueLabel
+                ? `, due ${homeComingAnnualOfferPlan.currentEmiDueLabel}`
                 : ''}
               ). Later installments are recorded on Sacred Exchange with your host.
             </p>
