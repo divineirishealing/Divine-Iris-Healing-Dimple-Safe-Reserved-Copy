@@ -800,10 +800,9 @@ async def list_annual_portal_subscribers():
     main Client Garden grid. Includes rows with Google login blocked; the UI can flag those.
     (Excel upload still skips ``portal_login_allowed`` False until sign-in is allowed.)
 
-    Overdue ``annual_subscription.end_date`` is **not** bulk-cleared here — that used to wipe
-    ``annual_member_dashboard`` as soon as admins opened this tab, making saves look broken.
-    Student-facing routes still call :func:`persist_annual_member_expiry_if_overdue` so effective
-    portal access stays correct.
+    **Lapsed annuals** (``annual_subscription.end_date`` in the past) stay in this list for admin
+    history; each row includes :func:`annual_portal_lifecycle_payload`. Sacred Home **effective**
+    access and package inclusions are date-gated in ``/api/student`` (see ``_annual_dashboard_access``).
     """
     query = {"annual_member_dashboard": True}
     proj = {
@@ -816,16 +815,19 @@ async def list_annual_portal_subscribers():
         "annual_subscription": 1,
         "portal_login_allowed": 1,
     }
-    rows = (
-        await db.clients.find(query, proj).sort([("name", 1)]).to_list(5000)
-    )
-    return {"clients": rows}
+    rows = await db.clients.find(query, proj).sort([("name", 1)]).to_list(5000)
+    out = []
+    for row in rows:
+        d = dict(row)
+        d["annual_portal_lifecycle"] = annual_portal_lifecycle_payload(d)
+        out.append(d)
+    return {"clients": out}
 
 
 HOME_COMING_SKU = "home_coming"
 
-# Sacred Home nudge when annual_subscription.end_date is within this many days (inclusive).
-_ANNUAL_RENEWAL_WARN_DAYS = 30
+# Sacred Home renewal nudge when ``annual_subscription.end_date`` is within this many days (inclusive).
+_ANNUAL_RENEWAL_WARN_DAYS = 15
 
 
 def parse_annual_subscription_end_date(client: Dict[str, Any]) -> Optional[date]:
@@ -852,48 +854,53 @@ def annual_subscription_period_expired(client: Dict[str, Any]) -> bool:
     return utc_today() > end_d
 
 
+def annual_portal_lifecycle_payload(client: Dict[str, Any]) -> Dict[str, Any]:
+    """Admin/student summary: active annual window, renewal window (see ``_ANNUAL_RENEWAL_WARN_DAYS``), or lapsed."""
+    end_d = parse_annual_subscription_end_date(client)
+    today = utc_today()
+    if not end_d:
+        return {
+            "status": "no_end_date",
+            "label": "No end date",
+            "days_until_end": None,
+            "end_date": None,
+        }
+    days_left = (end_d - today).days
+    end_s = end_d.isoformat()
+    if days_left < 0:
+        return {
+            "status": "expired",
+            "label": "Lapsed",
+            "days_until_end": days_left,
+            "end_date": end_s,
+        }
+    if days_left <= _ANNUAL_RENEWAL_WARN_DAYS:
+        return {
+            "status": "renewal_due",
+            "label": "Renewal due",
+            "days_until_end": days_left,
+            "end_date": end_s,
+        }
+    return {
+        "status": "active",
+        "label": "Active",
+        "days_until_end": days_left,
+        "end_date": end_s,
+    }
+
+
 async def persist_annual_member_expiry_if_overdue(db, client: Dict[str, Any]) -> Dict[str, Any]:
-    """If CRM annual flag is on but Home Coming end_date has passed, set ``annual_member_dashboard`` False."""
-    if not isinstance(client, dict) or not client.get("id"):
-        return client
-    if not bool(client.get("annual_member_dashboard")):
-        return client
-    if not annual_subscription_period_expired(client):
-        return client
-    now = datetime.now(timezone.utc).isoformat()
-    await db.clients.update_one(
-        {"id": client["id"]},
-        {"$set": {"annual_member_dashboard": False, "updated_at": now}},
-    )
-    out = dict(client)
-    out["annual_member_dashboard"] = False
-    return out
+    """Legacy hook: no longer writes to the database.
+
+    ``annual_member_dashboard`` is kept for the Annual+ admin roster; student inclusions and portal
+    pricing use :func:`annual_subscription_period_expired` / ``_annual_dashboard_access`` instead.
+    """
+    return client if isinstance(client, dict) else {}
 
 
 async def expire_all_overdue_annual_dashboard_clients(db) -> int:
-    """Clear ``annual_member_dashboard`` for every client whose ``annual_subscription.end_date`` has passed.
-
-    Not called from the admin list/export endpoints (that caused saves to appear to vanish when
-    staff opened Client Garden). Student routes still use :func:`persist_annual_member_expiry_if_overdue`.
-    """
-    q = {
-        "annual_member_dashboard": True,
-        "annual_subscription.end_date": {"$regex": r"^\d{4}-\d{2}-\d{2}"},
-    }
-    stale_ids: List[str] = []
-    async for doc in db.clients.find(q, {"_id": 0, "id": 1, "annual_subscription": 1}):
-        if annual_subscription_period_expired(doc):
-            cid = doc.get("id")
-            if cid:
-                stale_ids.append(cid)
-    if not stale_ids:
-        return 0
-    now = datetime.now(timezone.utc).isoformat()
-    res = await db.clients.update_many(
-        {"id": {"$in": stale_ids}},
-        {"$set": {"annual_member_dashboard": False, "updated_at": now}},
-    )
-    return int(res.modified_count)
+    """No-op (formerly bulk-cleared ``annual_member_dashboard``). Lapsed rows remain for admin history."""
+    return 0
 
 
 def annual_renewal_reminder_for_portal(client: Dict[str, Any]) -> Optional[Dict[str, Any]]:

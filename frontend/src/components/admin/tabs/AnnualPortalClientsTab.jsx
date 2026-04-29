@@ -42,6 +42,7 @@ const ANNUAL_PORTAL_FLAT_COLS = [
   { id: 'email', label: 'Email Id' },
   { id: 'start', label: 'Start Date' },
   { id: 'end', label: 'End Date' },
+  { id: 'status', label: 'Status' },
   { id: 'diid', label: 'DIID' },
   { id: 'package', label: 'HomeComing' },
   { id: 'usage', label: 'Usage' },
@@ -50,7 +51,7 @@ const ANNUAL_PORTAL_FLAT_COLS = [
   { id: 'client_id', label: 'Client id' },
   { id: 'edit', label: 'Edit', required: true },
 ];
-const ANNUAL_PORTAL_FLAT_KEY = 'admin-annual-portal-flat-v6';
+const ANNUAL_PORTAL_FLAT_KEY = 'admin-annual-portal-flat-v7';
 
 const EXCEL_ACCEPT =
   '.xlsx,.xlsm,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel';
@@ -78,6 +79,35 @@ const tdBase =
 const tdTabular = `${tdBase} tabular-nums text-[13px] whitespace-nowrap`;
 const rowEven = 'bg-white';
 const rowOdd = 'bg-[#fafafa]';
+
+/** Row background from API ``annual_portal_lifecycle`` (overrides zebra when set). */
+function annualPortalRowTone(r) {
+  const st = r?.annual_portal_lifecycle?.status;
+  if (st === 'expired') return 'bg-rose-50/95 hover:bg-rose-100/90';
+  if (st === 'renewal_due') return 'bg-amber-50/95 hover:bg-amber-100/90';
+  if (st === 'no_end_date') return 'bg-slate-50/95 hover:bg-slate-100/90';
+  return null;
+}
+
+/** Stable sort string: renewal (soonest first), active, lapsed (recent first), no end date. */
+function annualPortalStatusSortString(r) {
+  const life = r?.annual_portal_lifecycle;
+  if (!life?.status) return '9-unknown';
+  const d = life.days_until_end;
+  if (life.status === 'renewal_due') {
+    const dd = Math.min(9999, Math.max(0, d ?? 0));
+    return `0-${String(dd).padStart(4, '0')}`;
+  }
+  if (life.status === 'active') {
+    const dd = Math.min(9999, Math.max(0, d ?? 0));
+    return `1-${String(10000 - dd).padStart(4, '0')}`;
+  }
+  if (life.status === 'expired') {
+    const ago = Math.min(9999, Math.max(0, -(d ?? 0)));
+    return `2-${String(ago).padStart(4, '0')}`;
+  }
+  return '3-0000';
+}
 
 function annualPortalGoogleLoginBlocked(r) {
   return r?.portal_login_allowed === false;
@@ -194,6 +224,9 @@ function fullAnnualPortalSort(a, b, sortState) {
         mode === 'new',
       );
       break;
+    case 'status':
+      c = strColCompare(a, b, (x) => annualPortalStatusSortString(x), mode === 'desc');
+      break;
     case 'primary':
       c = primaryColCompare(a, b, mode === 'n_first');
       break;
@@ -227,6 +260,8 @@ function getAnnualPortalFilterValue(r, colId) {
       return (sub.start_date || '').trim() || FILTER_BLANKS;
     case 'end':
       return (sub.end_date || '').trim() || FILTER_BLANKS;
+    case 'status':
+      return (r.annual_portal_lifecycle?.label || '').trim() || FILTER_BLANKS;
     case 'diid':
       return (sub.annual_diid || '').trim() || FILTER_BLANKS;
     case 'package':
@@ -269,6 +304,8 @@ function annualPortalRowSearchHaystack(r) {
     sub.start_date,
     sub.end_date,
     sub.annual_diid,
+    r.annual_portal_lifecycle?.label,
+    r.annual_portal_lifecycle?.days_until_end,
     packageLabel(sub),
     usageStr,
     getAnnualPortalFilterValue(r, 'primary'),
@@ -846,7 +883,7 @@ export default function AnnualPortalClientsTab() {
       <div className="shrink-0 min-w-0">
         <h2 className="text-base font-semibold text-gray-900 tracking-tight">Annual + dashboard (Client Garden)</h2>
         <p className="text-xs text-gray-600 mt-0.5 max-w-3xl leading-relaxed">
-          This list matches <strong>Home Coming (HC) = Yes</strong> in the main Client Garden grid (and Dashboard access). A <strong>Login off</strong> tag means Google sign-in is still blocked — turn it on under Dashboard access for portal login; <strong>Excel import</strong> skips blocked rows until then. When <strong>End Date</strong> (below) is in the past, Sacred Home no longer treats them as an active annual on the student dashboard until dates are renewed (CRM flags are not cleared just by opening this page). Members see a renewal reminder in the last 30 days and after expiry.{' '}
+          This list matches <strong>Home Coming (HC) = Yes</strong> in the main Client Garden grid (and Dashboard access). A <strong>Login off</strong> tag means Google sign-in is still blocked — turn it on under Dashboard access for portal login; <strong>Excel import</strong> skips blocked rows until then. When <strong>End Date</strong> passes, Sacred Home stops treating them as an <em>active</em> annual for pricing and AWRP/MMM inclusions until dates are renewed; they remain on this roster as <strong>Lapsed</strong> (rose highlight) for your records. Within the last <strong>15 days</strong> before end date they are <strong>Renewal due</strong> (amber); students see the renewal banner over the same window.
           Table columns: #, Name, Email Id, Start/End Date, DIID, HomeComing, Usage (summary), HOUSEHOLD, PRIMARY, Client id.{' '}
           Use <strong>Search</strong> to find rows by name, email, id, household, dates, DIID, or usage; separate words all must match. Use the <strong>A–Z icon</strong> to sort (alphabetical, dates oldest/newest, primary first, etc.) and the <strong>funnel</strong> to filter; search, sort, and column filters work together in List and By household.{' '}
           <strong>Template</strong> is a blank sheet with sample rows; <strong>Download Excel</strong> exports the current list in the same columns so you can edit and upload.{' '}
@@ -1138,6 +1175,21 @@ export default function AnnualPortalClientsTab() {
                     {colLabel('end')}
                   </AnnualPortalFilterableTh>
                 )}
+                {flatColVisible('status') && (
+                  <AnnualPortalFilterableTh
+                    colId="status"
+                    title="Status"
+                    className={thBase}
+                    optionRows={filterOptionBaseByCol.status}
+                    columnFilters={columnFilters}
+                    setColumnFilters={setColumnFilters}
+                    sortKind="text"
+                    columnSort={columnSort}
+                    setColumnSort={setColumnSort}
+                  >
+                    {colLabel('status')}
+                  </AnnualPortalFilterableTh>
+                )}
                 {flatColVisible('diid') && (
                   <AnnualPortalFilterableTh
                     colId="diid"
@@ -1249,8 +1301,10 @@ export default function AnnualPortalClientsTab() {
                 sortedRows.map((r, idx) => {
                   const sub = r.annual_subscription || {};
                   const stripe = idx % 2 === 0 ? rowEven : rowOdd;
+                  const tone = annualPortalRowTone(r);
+                  const life = r.annual_portal_lifecycle;
                   return (
-                  <tr key={r.id || r.email} className={`${stripe} hover:bg-[#e8f4fc]`}>
+                  <tr key={r.id || r.email} className={`${tone || stripe} ${tone ? '' : 'hover:bg-[#e8f4fc]'}`}>
                     {flatColVisible('sn') && (
                       <td className={`${tdBase} text-center tabular-nums text-neutral-700 font-medium bg-[#f3f3f3]`}>
                         {idx + 1}
@@ -1281,6 +1335,21 @@ export default function AnnualPortalClientsTab() {
                     )}
                     {flatColVisible('end') && (
                       <td className={tdTabular}>{formatPortalSubscriptionDate(sub.end_date)}</td>
+                    )}
+                    {flatColVisible('status') && (
+                      <td className={`${tdBase} whitespace-nowrap`}>
+                        <span className="font-semibold text-neutral-900">{life?.label ?? '—'}</span>
+                        {life?.status === 'renewal_due' && life.days_until_end != null && (
+                          <span className="block text-[11px] font-medium text-amber-900/85 tabular-nums">
+                            {life.days_until_end}d left
+                          </span>
+                        )}
+                        {life?.status === 'expired' && life.days_until_end != null && (
+                          <span className="block text-[11px] font-medium text-rose-900/85 tabular-nums">
+                            ended {Math.abs(life.days_until_end)}d ago
+                          </span>
+                        )}
+                      </td>
                     )}
                     {flatColVisible('diid') && (
                       <td className={tdTabular}>{(sub.annual_diid || '').trim() || '—'}</td>
@@ -1407,6 +1476,19 @@ export default function AnnualPortalClientsTab() {
                             {colLabel('end')}
                           </AnnualPortalFilterableTh>
                           <AnnualPortalFilterableTh
+                            colId="status"
+                            title="Status"
+                            className={thBase}
+                            optionRows={filterOptionBaseByCol.status}
+                            columnFilters={columnFilters}
+                            setColumnFilters={setColumnFilters}
+                            sortKind="text"
+                            columnSort={columnSort}
+                            setColumnSort={setColumnSort}
+                          >
+                            {colLabel('status')}
+                          </AnnualPortalFilterableTh>
+                          <AnnualPortalFilterableTh
                             colId="diid"
                             title="DIID"
                             className={thBase}
@@ -1478,8 +1560,10 @@ export default function AnnualPortalClientsTab() {
                         {g.members.map((r, ri) => {
                           const sub = r.annual_subscription || {};
                           const stripe = ri % 2 === 0 ? rowEven : rowOdd;
+                          const tone = annualPortalRowTone(r);
+                          const life = r.annual_portal_lifecycle;
                           return (
-                          <tr key={r.id || r.email} className={`${stripe} hover:bg-[#e8f4fc]`}>
+                          <tr key={r.id || r.email} className={`${tone || stripe} ${tone ? '' : 'hover:bg-[#e8f4fc]'}`}>
                             <td
                               className={`${tdBase} text-center tabular-nums text-neutral-700 font-medium bg-[#f3f3f3]`}
                             >
@@ -1505,6 +1589,19 @@ export default function AnnualPortalClientsTab() {
                             <td className={`${tdBase} text-neutral-800`}>{(r.email || '').trim() || '—'}</td>
                             <td className={tdTabular}>{formatPortalSubscriptionDate(sub.start_date)}</td>
                             <td className={tdTabular}>{formatPortalSubscriptionDate(sub.end_date)}</td>
+                            <td className={`${tdBase} whitespace-nowrap`}>
+                              <span className="font-semibold text-neutral-900">{life?.label ?? '—'}</span>
+                              {life?.status === 'renewal_due' && life.days_until_end != null && (
+                                <span className="block text-[10px] font-medium text-amber-900/85 tabular-nums">
+                                  {life.days_until_end}d left
+                                </span>
+                              )}
+                              {life?.status === 'expired' && life.days_until_end != null && (
+                                <span className="block text-[10px] font-medium text-rose-900/85 tabular-nums">
+                                  ended {Math.abs(life.days_until_end)}d ago
+                                </span>
+                              )}
+                            </td>
                             <td className={tdTabular}>{(sub.annual_diid || '').trim() || '—'}</td>
                             <td className={tdBase}>{packageLabel(sub)}</td>
                             <td className={`${tdBase} text-[11px] text-neutral-800`}>

@@ -21,10 +21,10 @@ from routes.programs import (
 from routes.enrollment import ProfileData, insert_enrollment_from_profile
 from routes.clients import (
     HOME_COMING_SKU,
+    annual_portal_lifecycle_payload,
     annual_renewal_reminder_for_portal,
     annual_subscription_period_expired,
     ensure_client_from_enrollment_lead,
-    persist_annual_member_expiry_if_overdue,
 )
 from routes.currency import assert_claimed_hub_matches_stripe
 from country_normalize import normalize_country_iso2
@@ -43,11 +43,10 @@ logger = logging.getLogger(__name__)
 
 
 async def _student_client_row_with_expiry(client_id: Optional[str]) -> dict:
-    """Load client row and persist annual→non-annual when ``annual_subscription.end_date`` has passed."""
+    """Load client row. Effective annual access is date-gated in :func:`_annual_dashboard_access` (CRM flag kept for admin)."""
     if not client_id:
         return {}
-    row = await db.clients.find_one({"id": client_id}, {"_id": 0}) or {}
-    return await persist_annual_member_expiry_if_overdue(db, row)
+    return await db.clients.find_one({"id": client_id}, {"_id": 0}) or {}
 
 
 async def get_current_student_user(request: Request, user: dict = Depends(get_current_user)):
@@ -2600,6 +2599,7 @@ async def get_student_home(user: dict = Depends(get_current_student_user)):
         "contact_email": crm_email_raw or None,
         "can_add_contact_email": can_add_contact_email,
         "annual_renewal_reminder": annual_renewal_reminder_for_portal(client),
+        "annual_portal_lifecycle": annual_portal_lifecycle_payload(client),
         # Student-chosen prefs for Home Coming / annual package (shown on dedicated purchase page; admin-visible on client doc).
         "annual_package_offer_prefs": client.get("annual_package_offer_prefs") if isinstance(client.get("annual_package_offer_prefs"), dict) else None,
         # When False, Sacred Home package page omits the monthly EMI option for this client (Admin → Dashboard access).
