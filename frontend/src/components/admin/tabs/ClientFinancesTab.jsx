@@ -454,11 +454,11 @@ function FinanceColumnFilter({ colId, title, optionRows, activeFilter, onSetFilt
         <button
           type="button"
           data-testid={`finance-roster-filter-${colId}`}
-          className={`inline-flex shrink-0 rounded p-0.5 hover:bg-gray-200/90 ${hasFilter ? 'text-emerald-700' : 'text-gray-400'}`}
+          className={`inline-flex shrink-0 rounded p-0.5 hover:bg-gray-200/80 ${hasFilter ? 'text-[#D4AF37]' : 'text-gray-400'}`}
           title={`Filter ${title}`}
           aria-label={`Filter column ${title}`}
         >
-          <Filter className="h-3 w-3" strokeWidth={2.5} />
+          <Filter size={11} strokeWidth={2.5} />
         </button>
       </PopoverTrigger>
       <PopoverContent align="start" className="w-64 p-2 text-[10px]" onClick={(e) => e.stopPropagation()}>
@@ -520,7 +520,7 @@ function FinanceFilterableTh({
   };
   return (
     <th className={className} title={title}>
-      <div className="flex items-center gap-0.5 min-w-0">
+      <div className="flex items-center gap-1 min-w-0">
         <span className="truncate flex-1 min-w-0">{children}</span>
         <FinanceColumnFilter
           colId={colId}
@@ -800,41 +800,54 @@ export default function ClientFinancesTab() {
     switch (colId) {
       case 'sno':
         return (
-          <td className="px-2 py-2 tabular-nums text-gray-500 w-10 text-center">{rowIndex}</td>
+          <td className="py-2 px-1 text-center text-gray-700 tabular-nums text-[10px] font-semibold w-11">
+            {rowIndex}
+          </td>
         );
       case 'name':
         return (
-          <td className="px-2 py-2 font-medium text-gray-900 whitespace-nowrap">
+          <td className="py-2 pl-3 pr-2 align-top text-[10px] font-semibold text-gray-900 whitespace-nowrap">
             {(cl.name || '').trim() || '—'}
           </td>
         );
       case 'email':
         return (
-          <td className="px-2 py-2 text-gray-600 max-w-[9rem] truncate" title={cl.email}>
+          <td className="py-2 px-2 align-top text-[10px] text-gray-600 max-w-[9rem] truncate" title={cl.email}>
             {(cl.email || '').trim() || '—'}
           </td>
         );
       case 'start':
         return (
-          <td className="px-2 py-2 tabular-nums whitespace-nowrap">{formatAnnualDate(asub.start_date)}</td>
+          <td className="py-2 px-2 align-top text-[10px] tabular-nums text-gray-800 whitespace-nowrap">
+            {formatAnnualDate(asub.start_date)}
+          </td>
         );
       case 'end':
         return (
-          <td className="px-2 py-2 tabular-nums whitespace-nowrap">{formatAnnualDate(asub.end_date)}</td>
+          <td className="py-2 px-2 align-top text-[10px] tabular-nums text-gray-800 whitespace-nowrap">
+            {formatAnnualDate(asub.end_date)}
+          </td>
         );
-      case 'status':
-        return <td className="px-2 py-2 whitespace-nowrap">{life?.label ?? '—'}</td>;
+      case 'status': {
+        const lbl = life?.label ?? '—';
+        const active = String(lbl).toLowerCase() === 'active';
+        return (
+          <td className="py-2 px-2 align-top text-[10px] whitespace-nowrap">
+            <span className={active ? 'font-semibold text-green-700' : 'text-gray-800'}>{lbl}</span>
+          </td>
+        );
+      }
       case 'iris':
         if (!canPkg) {
           return (
-            <td className="px-2 py-2 text-[11px] text-gray-800 max-w-[10rem] leading-snug">
+            <td className="py-2 px-2 align-top text-[10px] text-gray-800 max-w-[10rem] leading-snug">
               {irisTierLine(cl)}
               <div className="text-[10px] text-gray-400 mt-0.5">Add subscriber row in Subscribers</div>
             </td>
           );
         }
         return (
-          <td className="px-2 py-2 text-[11px] max-w-[11rem] align-top">
+          <td className="py-2 px-2 align-top text-[10px] max-w-[11rem]">
             <div className="text-gray-600 leading-tight line-clamp-2 mb-1">{irisTierLine(cl)}</div>
             <div className="flex flex-wrap items-center gap-1">
               <span className="text-[10px] text-gray-500">Yr</span>
@@ -842,7 +855,7 @@ export default function ClientFinancesTab() {
                 type="number"
                 min={1}
                 max={12}
-                className="h-7 w-11 text-[11px] px-1"
+                className="h-7 w-11 text-[10px] px-1 border border-slate-300"
                 disabled={rowBusy}
                 defaultValue={sub.iris_year ?? 1}
                 key={`iy-${cl.id}-${sub.iris_year}-${sub.iris_year_mode}`}
@@ -854,7 +867,7 @@ export default function ClientFinancesTab() {
                 }}
               />
               <select
-                className="h-7 text-[10px] border rounded px-1 max-w-[4.75rem] bg-white"
+                className="h-7 text-[10px] border border-slate-300 rounded px-1 max-w-[4.75rem] bg-white"
                 disabled={rowBusy}
                 value={(sub.iris_year_mode || 'manual').toLowerCase() === 'auto' ? 'auto' : 'manual'}
                 onChange={(e) => saveAnnualPackage(cl.id, { iris_year_mode: e.target.value })}
@@ -871,10 +884,10 @@ export default function ClientFinancesTab() {
         const needAcctPick =
           (showGpayRow && indiaGpayOpts.length >= 1) || (showBankRow && indiaBankOpts.length >= 1);
         return (
-          <td className="px-1 py-1 align-middle whitespace-nowrap max-w-[11rem]">
+          <td className="py-2 px-2 align-top text-[10px] whitespace-nowrap max-w-[11rem]">
             <div className="flex items-center gap-0.5 flex-nowrap">
               <select
-                className="h-7 w-[9.25rem] min-w-0 shrink text-[10px] border rounded px-0.5 bg-white"
+                className="h-7 w-[9.25rem] min-w-0 shrink text-[10px] border border-slate-300 rounded px-0.5 bg-white"
                 disabled={crmBusy}
                 title="Admin-tagged payment method (checkout rails)"
                 value={vSel}
@@ -895,7 +908,7 @@ export default function ClientFinancesTab() {
                     <button
                       type="button"
                       title="Pin UPI / bank account from Site Settings"
-                      className="h-7 w-7 shrink-0 inline-flex items-center justify-center rounded border border-gray-200 bg-white text-gray-600 text-sm leading-none hover:bg-gray-50 disabled:opacity-50"
+                      className="h-7 w-7 shrink-0 inline-flex items-center justify-center rounded border border-slate-300 bg-white text-gray-600 text-sm leading-none hover:bg-gray-50 disabled:opacity-50"
                       disabled={crmBusy}
                     >
                       ⋯
@@ -907,7 +920,7 @@ export default function ClientFinancesTab() {
                       <div className="mb-2">
                         <span className="text-gray-600 font-medium block mb-0.5">UPI</span>
                         <select
-                          className="h-8 w-full text-[10px] border rounded px-1 bg-white"
+                          className="h-8 w-full text-[10px] border border-slate-300 rounded px-1 bg-white"
                           value={(cl.preferred_india_gpay_id || '').trim()}
                           onChange={(e) =>
                             saveClientFinanceInline(cl.id, { preferred_india_gpay_id: e.target.value })
@@ -926,7 +939,7 @@ export default function ClientFinancesTab() {
                       <div>
                         <span className="text-gray-600 font-medium block mb-0.5">Bank</span>
                         <select
-                          className="h-8 w-full text-[10px] border rounded px-1 bg-white"
+                          className="h-8 w-full text-[10px] border border-slate-300 rounded px-1 bg-white"
                           value={(cl.preferred_india_bank_id || '').trim()}
                           onChange={(e) =>
                             saveClientFinanceInline(cl.id, { preferred_india_bank_id: e.target.value })
@@ -952,16 +965,16 @@ export default function ClientFinancesTab() {
       case 'annualFee':
         if (!canPkg) {
           return (
-            <td className="px-2 py-2 tabular-nums whitespace-nowrap text-[11px] text-gray-400">
+            <td className="py-2 px-2 align-top text-[10px] tabular-nums whitespace-nowrap text-gray-400">
               {annualFeeLine(cl)}
             </td>
           );
         }
         return (
-          <td className="px-2 py-2 align-top">
+          <td className="py-2 px-2 align-top text-[10px]">
             <div className="flex items-center gap-1 flex-wrap">
               <Input
-                className="h-7 w-[6.75rem] text-[11px] tabular-nums px-1.5"
+                className="h-7 w-[6.75rem] text-[10px] tabular-nums px-1.5 border border-slate-300"
                 disabled={rowBusy}
                 defaultValue={
                   sub.total_fee != null && sub.total_fee !== ''
@@ -989,7 +1002,7 @@ export default function ClientFinancesTab() {
       case 'userPlan':
         return (
           <td
-            className="px-2 py-2 text-[11px] text-gray-700 whitespace-nowrap"
+            className="py-2 px-2 align-top text-[10px] text-gray-700 whitespace-nowrap"
             title="Student choice on Sacred Home annual package page"
           >
             {studentOfferPaymentLabel(cl)}
@@ -998,7 +1011,7 @@ export default function ClientFinancesTab() {
       case 'sessionMode':
         return (
           <td
-            className="px-2 py-2 text-[11px] whitespace-nowrap"
+            className="py-2 px-2 align-top text-[10px] whitespace-nowrap"
             title="Student participation preference (online / offline)"
           >
             {sessionModeDisplay(cl)}
@@ -1007,17 +1020,17 @@ export default function ClientFinancesTab() {
       case 'mode':
         if (!canPkg) {
           return (
-            <td className="px-2 py-2 whitespace-nowrap text-gray-400">{installmentModeLabel(cl)}</td>
+            <td className="py-2 px-2 align-top text-[10px] whitespace-nowrap text-gray-400">{installmentModeLabel(cl)}</td>
           );
         }
         {
           const pmRaw = (sub.payment_mode || 'No EMI').trim();
           const pmSelect = FINANCE_PKG_MODE_OPTIONS.includes(pmRaw) ? pmRaw : 'No EMI';
           return (
-            <td className="px-2 py-2 whitespace-nowrap">
+            <td className="py-2 px-2 align-top text-[10px] whitespace-nowrap">
               <div className="flex items-center gap-1">
                 <select
-                  className="h-7 text-[11px] border rounded px-1 max-w-[6.75rem] bg-white"
+                  className="h-7 text-[10px] border border-slate-300 rounded px-1 max-w-[6.75rem] bg-white"
                   disabled={pkgBusy}
                   value={pmSelect}
                   onChange={(e) => saveAnnualPackage(cl.id, { payment_mode: e.target.value })}
@@ -1036,7 +1049,7 @@ export default function ClientFinancesTab() {
       case 'emiCount':
         if (!canPkg) {
           return (
-            <td className="px-2 py-2 tabular-nums whitespace-nowrap text-gray-400">
+            <td className="py-2 px-2 align-top text-[10px] tabular-nums whitespace-nowrap text-gray-400">
               {emiInstallmentCount(cl)}
             </td>
           );
@@ -1044,13 +1057,13 @@ export default function ClientFinancesTab() {
         {
           const isEmi = (sub.payment_mode || '').trim() === 'EMI';
           return (
-            <td className="px-2 py-2 tabular-nums whitespace-nowrap">
+            <td className="py-2 px-2 align-top text-[10px] tabular-nums whitespace-nowrap">
               <div className="flex items-center gap-1">
                 <Input
                   type="number"
                   min={0}
                   max={12}
-                  className="h-7 w-12 text-[11px] px-1"
+                  className="h-7 w-12 text-[10px] px-1 border border-slate-300"
                   disabled={pkgBusy || !isEmi}
                   defaultValue={isEmi ? String(sub.num_emis ?? 0) : '0'}
                   key={`ne-${cl.id}-${sub.num_emis}-${isEmi}`}
@@ -1068,19 +1081,19 @@ export default function ClientFinancesTab() {
       case 'surPct': {
         if (!canPkg) {
           return (
-            <td className="px-2 py-2 text-[11px] text-gray-400 whitespace-nowrap">—</td>
+            <td className="py-2 px-2 align-top text-[10px] text-gray-400 whitespace-nowrap">—</td>
           );
         }
         const isEmi = (sub.payment_mode || '').trim() === 'EMI';
         return (
-          <td className="px-2 py-2 tabular-nums whitespace-nowrap align-top">
+          <td className="py-2 px-2 align-top text-[10px] tabular-nums whitespace-nowrap text-gray-800">
             <div className="flex items-center gap-0.5">
               <Input
                 type="number"
                 min={0}
                 max={100}
                 step={0.5}
-                className="h-7 w-12 text-[11px] px-1"
+                className="h-7 w-12 text-[10px] px-1 border border-slate-300"
                 disabled={pkgBusy || !isEmi}
                 defaultValue={
                   isEmi && sub.installment_surcharge_percent != null && sub.installment_surcharge_percent !== ''
@@ -1108,14 +1121,14 @@ export default function ClientFinancesTab() {
       }
       case 'discount':
         return (
-          <td className="px-2 py-2 align-top">
+          <td className="py-2 px-2 align-top text-[10px]">
             <div className="flex items-center gap-0.5">
               <Input
                 type="number"
                 min={0}
                 max={100}
                 step={0.5}
-                className="h-7 w-14 text-[11px] px-1"
+                className="h-7 w-14 text-[10px] px-1 border border-slate-300"
                 disabled={crmBusy}
                 defaultValue={
                   cl.india_discount_percent != null && cl.india_discount_percent !== ''
@@ -1140,7 +1153,7 @@ export default function ClientFinancesTab() {
         );
       case 'tax':
         return (
-          <td className="px-2 py-2 align-top">
+          <td className="py-2 px-2 align-top text-[10px]">
             <label className="flex items-center gap-1 text-[10px] cursor-pointer">
               <input
                 type="checkbox"
@@ -1163,7 +1176,7 @@ export default function ClientFinancesTab() {
                 min={0}
                 max={100}
                 step={0.5}
-                className="h-7 w-12 text-[11px] px-1"
+                className="h-7 w-12 text-[10px] px-1 border border-slate-300"
                 disabled={crmBusy || !cl.india_tax_enabled}
                 defaultValue={String(cl.india_tax_percent ?? 18)}
                 key={`tx-${cl.id}-${cl.india_tax_enabled}-${cl.india_tax_percent}`}
@@ -1183,10 +1196,10 @@ export default function ClientFinancesTab() {
         );
       case 'chFee':
         return (
-          <td className="px-2 py-2 tabular-nums">
+          <td className="py-2 px-2 align-top text-[10px] tabular-nums">
             <div className="flex items-center gap-1">
               <Input
-                className="h-7 w-[4.5rem] text-[11px] px-1"
+                className="h-7 w-[4.5rem] text-[10px] px-1 border border-slate-300"
                 disabled={crmBusy}
                 defaultValue={
                   cl.crm_channelization_fee != null && cl.crm_channelization_fee !== ''
@@ -1222,10 +1235,10 @@ export default function ClientFinancesTab() {
         );
       case 'lateFee':
         return (
-          <td className="px-2 py-2 tabular-nums">
+          <td className="py-2 px-2 align-top text-[10px] tabular-nums">
             <div className="flex items-center gap-1">
               <Input
-                className="h-7 w-[4.5rem] text-[11px] px-1"
+                className="h-7 w-[4.5rem] text-[10px] px-1 border border-slate-300"
                 disabled={crmBusy}
                 defaultValue={
                   cl.crm_late_fee_per_day != null && cl.crm_late_fee_per_day !== ''
@@ -1264,7 +1277,7 @@ export default function ClientFinancesTab() {
           ? 'Tiered group discounts: showing package fee + tax only — set exact payable in Subscribers.'
           : 'Payable after simple % discount (when no tier bands) plus GST if enabled.';
         return (
-          <td className="px-2 py-2 tabular-nums whitespace-nowrap text-[11px]" title={title}>
+          <td className="py-2 px-2 align-top text-[10px] tabular-nums whitespace-nowrap text-gray-800" title={title}>
             {formatMoneyAmount(fin.amount, fin.currency)}
             {fin.approximate ? <span className="text-amber-600"> ~</span> : null}
           </td>
@@ -1276,7 +1289,7 @@ export default function ClientFinancesTab() {
         const showInstallments = emis.length > 0 && pmBill === 'EMI';
         return (
           <td
-            className="px-2 py-2 text-[11px] max-w-[14rem] leading-snug align-top"
+            className="py-2 px-2 align-top text-[10px] max-w-[14rem] leading-snug text-gray-800"
             title={paidInfo.title}
           >
             <div className="text-gray-800">{paidInfo.line1}</div>
@@ -1316,31 +1329,31 @@ export default function ClientFinancesTab() {
       }
       case 'edit':
         return (
-          <td className="px-2 py-2 text-right">
+          <td className="py-2 px-2 align-top text-[10px] text-right">
             <Button
               type="button"
               variant="ghost"
               size="sm"
-              className="h-8 gap-1 text-[#D4AF37] px-2"
+              className="h-8 gap-1 text-violet-700 hover:text-violet-900 hover:bg-violet-50 px-2"
               onClick={() => openEdit(cl)}
             >
-              <Pencil size={14} />
+              <Pencil size={14} className="text-[#D4AF37]" />
               Proofs
             </Button>
           </td>
         );
       default:
-        return <td className="px-2 py-2">—</td>;
+        return <td className="py-2 px-2 align-top text-[10px]">—</td>;
     }
   };
 
   return (
-    <div className="flex flex-col flex-1 min-h-0 p-6">
+    <div className="flex flex-col flex-1 min-h-0 p-6 w-full max-w-none min-w-0">
       <div className="flex items-center gap-2 mb-1 shrink-0">
         <IndianRupee size={20} className="text-[#D4AF37]" />
-        <h2 className="text-lg font-semibold text-gray-900">Iris Annual Abundance</h2>
+        <h2 className="text-lg font-bold text-gray-900 flex items-center gap-2">Iris Annual Abundance</h2>
       </div>
-      <p className="text-xs text-gray-500 mb-4 shrink-0 max-w-4xl">
+      <p className="text-xs text-gray-500 mt-0.5 mb-4 shrink-0 max-w-4xl">
         Excel-style grid: <strong>S.No</strong> is row order in the current view. Edit <strong>pay method, annual fee,
         discount, GST, channelization &amp; late fees, billing mode, EMIs, installment surcharge</strong> in-place — saved
         values match the <strong>student dashboard</strong>. <strong>Student plan</strong> and <strong>Session mode</strong> come from
@@ -1407,15 +1420,30 @@ export default function ClientFinancesTab() {
         )}
       </div>
 
-      <div className="flex-1 min-h-0 overflow-auto rounded-lg border bg-white">
-        <table className="w-full text-xs min-w-[118rem]">
-          <thead className="bg-gray-50 border-b sticky top-0 z-10">
-            <tr>
+      {rows.length > 0 && (
+        <p className="text-[10px] text-gray-500 mb-2 shrink-0">
+          Showing <span className="font-semibold text-gray-700">{displayedRows.length}</span> of{' '}
+          <span className="font-semibold text-gray-700">{rows.length}</span> in this list
+          {String(searchText || '').trim() ? ' (search applied)' : ''}
+          {columnFilterActiveCount > 0 ? ` · ${columnFilterActiveCount} column filter(s)` : ''}
+        </p>
+      )}
+
+      <div
+        className="flex-1 min-h-0 rounded-xl border border-gray-200 bg-white overflow-hidden overflow-x-auto w-full max-w-none"
+        data-testid="finance-roster-table-wrap"
+      >
+        <table
+          className="w-full min-w-[118rem] text-left border-collapse text-[10px] table-auto"
+          data-testid="finance-roster-table"
+        >
+          <thead className="sticky top-0 z-10">
+            <tr className="bg-gray-100 border-b border-gray-200 text-[9px] uppercase tracking-wide text-gray-600">
               {visibleColumns.map((c) =>
                 c.id === 'edit' ? (
                   <th
                     key={c.id}
-                    className="text-right px-2 py-2 font-semibold text-gray-700 w-24"
+                    className="py-2 px-2 font-semibold text-right bg-gray-100 w-24"
                   >
                     {c.label}
                   </th>
@@ -1426,8 +1454,8 @@ export default function ClientFinancesTab() {
                     title={c.label}
                     className={
                       c.id === 'paidApproved'
-                        ? 'text-left px-2 py-2 font-semibold text-gray-700 max-w-[14rem]'
-                        : 'text-left px-2 py-2 font-semibold text-gray-700 whitespace-nowrap'
+                        ? 'text-left py-2 px-2 font-semibold bg-gray-100 max-w-[14rem]'
+                        : 'text-left py-2 px-2 font-semibold bg-gray-100 whitespace-nowrap'
                     }
                     optionRows={filterOptionBaseByCol[c.id] || []}
                     columnFilters={columnFilters}
@@ -1442,34 +1470,44 @@ export default function ClientFinancesTab() {
           <tbody>
             {loading && rows.length === 0 ? (
               <tr>
-                <td colSpan={colCount} className="px-6 py-12 text-center text-gray-400 text-sm">
-                  <Loader2 className="h-6 w-6 animate-spin inline-block mr-2 align-middle" />
-                  Loading…
+                <td colSpan={colCount} className="px-6 py-16 text-center text-gray-400">
+                  <Loader2 className="h-8 w-8 animate-spin inline-block mb-2 text-gray-300" />
+                  <p className="text-sm">Loading…</p>
                 </td>
               </tr>
             ) : rows.length === 0 ? (
               <tr>
-                <td colSpan={colCount} className="px-6 py-12 text-center text-gray-400 text-sm">
-                  No one qualifies yet. Enable <strong>Annual</strong> in Dashboard access, or set Home Coming dates /
-                  subscriber fee (Excel or Subscribers) so this list can pick them up.
+                <td colSpan={colCount} className="px-6 py-16 text-center text-gray-400">
+                  <IndianRupee size={32} className="mx-auto mb-2 opacity-30" />
+                  <p className="text-sm text-gray-600">
+                    No one qualifies yet. Enable <strong className="font-semibold text-gray-700">Annual</strong> in
+                    Dashboard access, or set Home Coming dates / subscriber fee (Excel or Subscribers) so this list can
+                    pick them up.
+                  </p>
                 </td>
               </tr>
             ) : displayedRows.length === 0 ? (
               <tr>
-                <td colSpan={colCount} className="px-6 py-12 text-center text-gray-400 text-sm">
-                  No rows match the current column filters.{' '}
-                  <button
+                <td colSpan={colCount} className="px-6 py-16 text-center text-gray-400">
+                  <Filter size={32} className="mx-auto mb-2 opacity-30" />
+                  <p className="text-sm text-gray-600">No rows match the current column filters.</p>
+                  <Button
                     type="button"
-                    className="text-[#D4AF37] font-medium underline underline-offset-2"
+                    variant="outline"
+                    size="sm"
+                    className="mt-3 text-[10px]"
                     onClick={() => setColumnFilters({})}
                   >
                     Clear column filters
-                  </button>
+                  </Button>
                 </td>
               </tr>
             ) : (
               displayedRows.map((cl, idx) => (
-                <tr key={cl.id || cl.email} className="border-b border-gray-100 hover:bg-gray-50/80">
+                <tr
+                  key={cl.id || cl.email}
+                  className="group border-b border-gray-100 align-top bg-white hover:bg-amber-50/30"
+                >
                   {visibleColumns.map((c) => (
                     <React.Fragment key={c.id}>{renderCell(cl, c.id, idx + 1)}</React.Fragment>
                   ))}
@@ -1575,7 +1613,7 @@ export default function ClientFinancesTab() {
               <div className="rounded-lg border border-gray-200 bg-gray-50/60 px-3 py-3">
                 <p className="text-xs font-semibold text-gray-900 mb-2">EMI schedule</p>
                 <div className="overflow-x-auto">
-                  <table className="w-full text-[11px] border-collapse">
+                  <table className="w-full text-[10px] border-collapse">
                     <thead>
                       <tr className="border-b text-left text-gray-500">
                         <th className="py-1 pr-2">#</th>
@@ -1618,7 +1656,7 @@ export default function ClientFinancesTab() {
                 <p className="text-xs text-gray-500">No submissions on file.</p>
               ) : (
                 <div className="overflow-x-auto max-h-48 overflow-y-auto">
-                  <table className="w-full text-[11px] border-collapse">
+                  <table className="w-full text-[10px] border-collapse">
                     <thead>
                       <tr className="border-b text-left text-gray-500">
                         <th className="py-1 pr-2">When</th>
