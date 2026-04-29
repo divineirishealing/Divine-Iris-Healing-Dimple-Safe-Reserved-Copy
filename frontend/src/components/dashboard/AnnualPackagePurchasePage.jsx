@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
+import { flushSync } from 'react-dom';
 import axios from 'axios';
 import { Link, useNavigate } from 'react-router-dom';
 import {
@@ -20,6 +21,7 @@ import { Input } from '../ui/input';
 import { cn, formatDateDdMonYyyy, formatDashboardStatDate, nextDateWithDayOfMonth } from '../../lib/utils';
 import { useToast } from '../../hooks/use-toast';
 import { useCart } from '../../context/CartContext';
+import { useAuth } from '../../context/AuthContext';
 import { useCurrency } from '../../context/CurrencyContext';
 import { getAuthHeaders } from '../../lib/authHeaders';
 import { pickTierIndexForDashboard } from './dashboardUpcomingHelpers';
@@ -204,6 +206,7 @@ function formatSchedulePayTag(raw) {
 export default function AnnualPackagePurchasePage() {
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { user } = useAuth();
   const { syncProgramLineItem, itemCount: cartCount } = useCart();
   const { baseCurrency, symbol, toDisplay } = useCurrency();
   const [loading, setLoading] = useState(true);
@@ -478,10 +481,11 @@ export default function AnnualPackagePurchasePage() {
     return `Payment schedule · ${n} installment${n === 1 ? '' : 's'}`;
   }, [paymentMode, paymentScheduleRows.length]);
 
-  const memberHasStripe = useMemo(
-    () => (homeData?.payment_methods || []).some((m) => String(m).toLowerCase() === 'stripe'),
-    [homeData?.payment_methods],
-  );
+  const memberHasStripe = useMemo(() => {
+    const pm = homeData?.payment_methods;
+    if (!pm || !Array.isArray(pm) || pm.length === 0) return true;
+    return pm.some((m) => String(m).toLowerCase() === 'stripe');
+  }, [homeData?.payment_methods]);
 
   /** Single-click Pay on schedule: jump straight to Stripe Checkout when subscription allows Stripe and India-only is not chosen. */
   const useAutoStripeCheckout = useMemo(() => {
@@ -490,31 +494,77 @@ export default function AnnualPackagePurchasePage() {
     const india = String(homeData?.client_india_pricing?.india_payment_method || '').trim().toLowerCase();
     const mode = String(fin.payment_mode || '').trim().toLowerCase();
     const raw = pref || india || mode;
+    const indiaOnly =
+      raw &&
+      (raw.includes('gpay') ||
+        raw.includes('upi') ||
+        raw.includes('bank') ||
+        raw === 'manual' ||
+        raw.includes('exly') ||
+        raw.includes('neft') ||
+        raw.includes('cash'));
+    if (indiaOnly) return false;
+    if (schedulePayTag === 'Stripe') return true;
     if (!raw) return true;
-    if (
-      raw.includes('gpay') ||
-      raw.includes('upi') ||
-      raw.includes('bank') ||
-      raw === 'manual' ||
-      raw.includes('exly') ||
-      raw.includes('neft') ||
-      raw.includes('cash')
-    ) {
-      return false;
-    }
-    return true;
+    return raw.includes('stripe') || raw === 'card' || raw === 'cards';
   }, [
     memberHasStripe,
+    schedulePayTag,
     homeData?.preferred_payment_method,
     homeData?.client_india_pricing?.india_payment_method,
     fin.payment_mode,
   ]);
 
+  /** Minimal valid booker row so Divine Cart autoPay can pass validateAndProceed without empty placeholders. */
+  const buildSacredHomeQuickPayParticipants = useCallback(
+    (program) => {
+      const name =
+        (homeData?.user_details?.full_name || user?.full_name || user?.name || '').trim() ||
+        'Sacred Home member';
+      const hub = (baseCurrency || 'inr').toLowerCase();
+      const country =
+        String(user?.country || '').trim() ||
+        (hub === 'inr' ? 'IN' : hub === 'aed' ? 'AE' : hub === 'usd' ? 'US' : 'AE');
+      const city = String(homeData?.user_details?.city || '').trim() || '—';
+      const state =
+        String(homeData?.user_details?.state || homeData?.user_details?.city || '—').trim() || '—';
+      const sess = program?.session_mode ?? program?.sessionMode;
+      const attendance_mode = sess === 'remote' ? 'offline' : 'in_person';
+      return [
+        {
+          name,
+          relationship: 'Myself',
+          age: '',
+          gender: 'Other',
+          country,
+          city,
+          state,
+          attendance_mode,
+          notify: false,
+          email: '',
+          phone: '',
+          phone_code: '',
+          wa_code: '',
+          whatsapp: '',
+          is_first_time: false,
+          referral_source: '',
+          referred_by_email: '',
+          referred_by_name: '',
+          has_referral: false,
+        },
+      ];
+    },
+    [homeData?.user_details, user, baseCurrency],
+  );
+
   const goCheckout = () => {
     const autoQs = useAutoStripeCheckout ? '?autoPay=1' : '';
     if (pinnedProgram) {
       const tierIdx = pickTierIndexForDashboard(pinnedProgram, true) ?? 0;
-      syncProgramLineItem(pinnedProgram, tierIdx, null, { fromAnnualOfferPage: true });
+      const participants = buildSacredHomeQuickPayParticipants(pinnedProgram);
+      flushSync(() => {
+        syncProgramLineItem(pinnedProgram, tierIdx, participants, { fromAnnualOfferPage: true });
+      });
       navigate(`/dashboard/combined-checkout${autoQs}`);
       return;
     }

@@ -587,6 +587,7 @@ export default function DashboardCombinedCheckoutPage() {
     const email = (user?.email || '').trim();
     if (!email || !portalCartLineKey || location.pathname !== PORTAL_CHECKOUT_PATH) return;
     if (enrollmentId || eidParam) return;
+    if (autoPayFlag === '1' || autoPayFlag === 'stripe') return;
 
     let cancelled = false;
     (async () => {
@@ -684,6 +685,7 @@ export default function DashboardCombinedCheckoutPage() {
     location.pathname,
     enrollmentId,
     eidParam,
+    autoPayFlag,
     detectedCountry,
     syncProgramLineItem,
     removeItem,
