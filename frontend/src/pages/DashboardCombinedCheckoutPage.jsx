@@ -620,6 +620,8 @@ export default function DashboardCombinedCheckoutPage() {
 
         for (const line of [...items]) {
           if (line.type !== 'program') continue;
+          /** Home Coming / annual-offer quick pay: roster sync would see “included package, no guests selected” and remove the line. */
+          if (line.portalLineMeta?.fromAnnualOfferPage) continue;
           const program = upcoming.find((p) => String(p.id) === String(line.programId));
           if (!program) continue;
 
