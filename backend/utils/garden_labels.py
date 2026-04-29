@@ -135,6 +135,15 @@ def label_stripe_key(label: Optional[str]) -> str:
     return "dew"
 
 
+def iris_year_from_garden_label(label: Optional[str]) -> Optional[int]:
+    """If ``label`` is canonical ``Year n: Iris …``, return *n*; else ``None``."""
+    n = normalize_label(label or "")
+    for i in range(1, 13):
+        if n == IRIS_YEAR_LABELS[i]:
+            return i
+    return None
+
+
 def iris_anniversary_year_from_client(client_doc: dict) -> int:
     """Which Iris year (1–12) from ``annual_subscription.start_date``, else 1."""
     sub = client_doc.get("annual_subscription") or {}

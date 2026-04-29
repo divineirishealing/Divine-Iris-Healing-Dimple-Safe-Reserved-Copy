@@ -29,6 +29,7 @@ from routes.clients import (
 from routes.currency import assert_claimed_hub_matches_stripe
 from country_normalize import normalize_country_iso2
 from utils.person_name import normalize_person_name
+from utils.garden_labels import iris_year_from_garden_label, label_stripe_key
 
 ROOT_DIR = Path(__file__).parent.parent
 load_dotenv(ROOT_DIR / '.env')
@@ -350,6 +351,43 @@ def _home_coming_payload(client: dict, sub: dict, iris_journey: dict) -> Optiona
     if not _is_annual_subscriber(sub, client):
         return None
     return _home_coming_branding_dict(client, iris_journey)
+
+
+def renewal_entering_iris_year(client: dict, sub: dict, iris_journey: dict) -> int:
+    """Which Iris year (1–12) the member is *entering* on Home Coming — automatic from Client Garden label + journey.
+
+    Uses the canonical garden taxonomy (Dew → Year 1 entry; ``Year n: Iris …`` labels; Purple Bees / Iris Bees
+    follow subscription journey). When the annual period is in renewal window, lapsed, or past end date, steps
+    forward one year (max 12).
+    """
+    if not isinstance(client, dict):
+        return 1
+    label_raw = client.get("label") or ""
+    key = label_stripe_key(label_raw)
+
+    # Dew / Seed / Root / Bloom / Iris — The Seeker → first Sacred Home annual cycle
+    if key in ("dew", "seed", "root", "bloom", "iris_seeker"):
+        return 1
+
+    try:
+        jy = int((iris_journey or {}).get("year") or 1)
+    except (TypeError, ValueError):
+        jy = 1
+    jy = max(1, min(12, jy))
+
+    y_label = iris_year_from_garden_label(label_raw)
+    if y_label is not None:
+        jy = max(jy, y_label)
+
+    life = annual_portal_lifecycle_payload(client)
+    st = (life or {}).get("status") or ""
+    step_up = (
+        st in ("expired", "renewal_due")
+        or annual_subscription_period_expired(client)
+    )
+    if step_up:
+        return min(12, jy + 1)
+    return min(12, jy)
 
 
 def _subscription_annual_package_signals(sub: dict) -> bool:
@@ -2578,6 +2616,8 @@ async def get_student_home(user: dict = Depends(get_current_student_user)):
         "channelization_fee": sub.get("channelization_fee", 0),
         "show_late_fees": sub.get("show_late_fees", False),
         "iris_journey": iris_journey,
+        # Automatic "journey year you are entering" for Home Coming renewal (garden label + lifecycle).
+        "renewal_entering_iris_year": renewal_entering_iris_year(client, sub, iris_journey),
         # Manual / auto iris year from Client Garden subscription (renewal UI default).
         "subscription_journey": {
             "iris_year": sub.get("iris_year"),
@@ -2659,7 +2699,6 @@ class AnnualPackageOfferPrefsBody(BaseModel):
     desired_start_date: Optional[str] = ""
     payment_mode: Optional[str] = "full"
     emi_notes: Optional[str] = ""
-    iris_renewal_year: Optional[int] = None  # 1–12: journey year being purchased (e.g. 2 after Year 1)
 
 
 def _normalize_annual_offer_payment_mode(raw: Optional[str]) -> str:
@@ -2695,20 +2734,11 @@ async def put_annual_package_offer_preferences(
     notes = (data.emi_notes or "").strip()
     if len(notes) > 800:
         raise HTTPException(status_code=400, detail="Note is too long (max 800 characters).")
-    ry = data.iris_renewal_year
-    if ry is not None:
-        try:
-            ry = int(ry)
-        except (TypeError, ValueError):
-            raise HTTPException(status_code=400, detail="iris_renewal_year must be an integer 1–12.")
-        if ry < 1 or ry > 12:
-            raise HTTPException(status_code=400, detail="iris_renewal_year must be between 1 and 12.")
     now = datetime.now(timezone.utc).isoformat()
     prefs = {
         "desired_start_date": start or None,
         "payment_mode": mode,
         "emi_notes": notes or None,
-        "iris_renewal_year": ry,
         "updated_at": now,
     }
     await db.clients.update_one({"id": cid}, {"$set": {"annual_package_offer_prefs": prefs, "updated_at": now}})

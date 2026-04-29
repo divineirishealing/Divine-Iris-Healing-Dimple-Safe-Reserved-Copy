@@ -43,17 +43,6 @@ const ALL_PAY_MODES = [
   { value: 'emi_flexi', label: 'FLEXI — ANY AMOUNT, ANY TIME' },
 ];
 
-function defaultIrisRenewalYearFromHome(homeData) {
-  const subJ = homeData?.subscription_journey;
-  const mode = String(subJ?.iris_year_mode || 'manual').toLowerCase();
-  if (mode === 'manual' && subJ?.iris_year != null && String(subJ.iris_year).trim() !== '') {
-    const y = parseInt(subJ.iris_year, 10);
-    if (!Number.isNaN(y)) return Math.min(12, Math.max(1, y + 1));
-  }
-  const cur = Math.min(12, Math.max(1, Number(homeData?.iris_journey?.year) || 1));
-  return Math.min(12, cur + 1);
-}
-
 function emiInstallmentCount(mode, durationMonths) {
   const d = Math.max(1, Number(durationMonths) || 12);
   if (mode === 'emi_monthly') return d;
@@ -231,7 +220,6 @@ export default function AnnualPackagePurchasePage() {
   const [desiredStart, setDesiredStart] = useState('');
   const [paymentMode, setPaymentMode] = useState('full');
   const [emiNotes, setEmiNotes] = useState('');
-  const [irisRenewalYear, setIrisRenewalYear] = useState(2);
 
   const refresh = useCallback(() => {
     setLoading(true);
@@ -333,6 +321,10 @@ export default function AnnualPackagePurchasePage() {
     portalLife?.status === 'expired' ||
     portalLife?.status === 'renewal_due' ||
     lapEnded;
+  const autoRenewalYear = useMemo(
+    () => Math.min(12, Math.max(1, parseInt(homeData?.renewal_entering_iris_year, 10) || 1)),
+    [homeData?.renewal_entering_iris_year],
+  );
   const memberFirstName = useMemo(() => {
     const raw =
       typeof homeData?.user_details?.full_name === 'string'
@@ -351,9 +343,9 @@ export default function AnnualPackagePurchasePage() {
   }, [homeData?.annual_package_offer_monthly_emi_visible]);
 
   const nextSacredYearStartsLabel = useMemo(() => {
-    const lbl = irisYearLabelNoPeriod(irisRenewalYear);
+    const lbl = irisYearLabelNoPeriod(autoRenewalYear);
     return `${lbl} · anchor your membership start`;
-  }, [irisRenewalYear]);
+  }, [autoRenewalYear]);
 
   /** Opening lines: renewal season vs in-journey vs Year 1 welcome. */
   const irisWelcomeLeadEl = useMemo(() => {
@@ -366,7 +358,7 @@ export default function AnnualPackagePurchasePage() {
         <span className="font-semibold text-[#4c1d95]">{memberFirstName}</span>,{' '}
       </>
     ) : null;
-    const renewLbl = irisYearLabelNoPeriod(irisRenewalYear);
+    const renewLbl = irisYearLabelNoPeriod(autoRenewalYear);
 
     if (isRenewalSeason) {
       return (
@@ -398,7 +390,7 @@ export default function AnnualPackagePurchasePage() {
         thread through this lineage; we hold you softly as you deepen into sacred growth and higher becoming.
       </>
     );
-  }, [homeData?.iris_journey, memberFirstName, isRenewalSeason, irisRenewalYear]);
+  }, [homeData?.iris_journey, memberFirstName, isRenewalSeason, autoRenewalYear]);
 
   useEffect(() => {
     if (!homeData || prefsInitDone.current) return;
@@ -414,18 +406,9 @@ export default function AnnualPackagePurchasePage() {
         setPaymentMode(allowed.has(pm) ? pm : 'full');
       }
       if (p.emi_notes) setEmiNotes(String(p.emi_notes));
-      if (p.iris_renewal_year != null && String(p.iris_renewal_year).trim() !== '') {
-        const yr = parseInt(p.iris_renewal_year, 10);
-        if (!Number.isNaN(yr) && yr >= 1 && yr <= 12) setIrisRenewalYear(yr);
-      } else {
-        setIrisRenewalYear(defaultIrisRenewalYearFromHome(homeData));
-      }
     } else if (preferredDom >= 1 && preferredDom <= 28) {
       const ymd = nextDateWithDayOfMonth(null, preferredDom);
       if (ymd) setDesiredStart(ymd);
-      setIrisRenewalYear(defaultIrisRenewalYearFromHome(homeData));
-    } else {
-      setIrisRenewalYear(defaultIrisRenewalYearFromHome(homeData));
     }
     setPrefsLoaded(true);
   }, [homeData, preferredDom]);
@@ -475,12 +458,11 @@ export default function AnnualPackagePurchasePage() {
           desired_start_date: desiredStart,
           payment_mode: paymentMode,
           emi_notes: emiNotes,
-          iris_renewal_year: irisRenewalYear,
         },
         { withCredentials: true },
       )
       .catch(() => {})
-  }, [homeData?.client_id, desiredStart, paymentMode, emiNotes, irisRenewalYear]);
+  }, [homeData?.client_id, desiredStart, paymentMode, emiNotes]);
 
   useEffect(() => {
     if (!prefsLoaded) return;
@@ -491,7 +473,7 @@ export default function AnnualPackagePurchasePage() {
     return () => {
       if (prefsSaveTimer.current) clearTimeout(prefsSaveTimer.current);
     };
-  }, [desiredStart, paymentMode, emiNotes, irisRenewalYear, prefsLoaded, persistPrefs]);
+  }, [desiredStart, paymentMode, emiNotes, prefsLoaded, persistPrefs]);
 
   const totalRaw = Number(quote?.total ?? 0);
   const displayTotal = toDisplay(totalRaw);
@@ -738,7 +720,9 @@ export default function AnnualPackagePurchasePage() {
                               {nextSacredYearStartsLabel}
                             </span>
                             <span className="block normal-case tracking-normal text-[11px] font-medium text-[rgba(60,35,115,0.65)] mt-1 max-w-[22rem]">
-                              Start date for the bundle you are paying for (e.g. 3 May 2027 for Year 2).
+                              Start date for the bundle you are paying for (e.g. 3 May 2027). Your Iris journey year is
+                              placed automatically from your Client Garden path (Dew → Bloom, then Year 1–12, Purple Bees
+                              &amp; Iris Bees).
                             </span>
                           </span>
                         </Label>
@@ -750,23 +734,16 @@ export default function AnnualPackagePurchasePage() {
                           data-testid="annual-offer-start-date-hero"
                         />
                       </div>
-                      <div>
-                        <Label className="text-[10px] uppercase tracking-[0.12em] text-[rgba(70,35,125,0.65)] font-semibold block mb-1">
-                          Journey year you are entering
-                        </Label>
-                        <select
-                          className="h-10 rounded-md border border-[rgba(160,80,220,0.22)] bg-white/75 px-2 text-[13px] text-[#3b0764] font-medium min-w-[7rem]"
-                          value={irisRenewalYear}
-                          onChange={(e) => setIrisRenewalYear(parseInt(e.target.value, 10) || 1)}
-                          aria-label="Iris journey year for renewal"
-                          data-testid="annual-offer-iris-renewal-year"
+                      <div className="min-w-0 max-w-full sm:max-w-[min(100%,20rem)] rounded-xl border border-white/80 bg-white/55 px-3 py-2">
+                        <p className="text-[9px] uppercase tracking-[0.12em] text-[rgba(100,55,155,0.45)] font-semibold mb-1">
+                          Entering (automatic)
+                        </p>
+                        <p
+                          className="text-[12px] font-semibold text-[#3b0764] leading-snug"
+                          data-testid="annual-offer-renewal-year-auto"
                         >
-                          {Array.from({ length: 12 }, (_, i) => i + 1).map((n) => (
-                            <option key={n} value={n}>
-                              Year {n}
-                            </option>
-                          ))}
-                        </select>
+                          {irisYearLabelNoPeriod(autoRenewalYear)}
+                        </p>
                       </div>
                       {preferredDom >= 1 && preferredDom <= 28 ? (
                         <Button
@@ -787,7 +764,7 @@ export default function AnnualPackagePurchasePage() {
                     {renewalEndYmd ? (
                       <div className="rounded-xl border border-violet-200/60 bg-white/65 px-3 py-2.5">
                         <p className="text-[11px] font-semibold text-[#3b0764]">
-                          {irisYearLabelNoPeriod(irisRenewalYear)}
+                          {irisYearLabelNoPeriod(autoRenewalYear)}
                         </p>
                         <dl className="mt-2 flex flex-wrap gap-x-8 gap-y-1 text-[12px] text-[rgba(60,35,115,0.88)] tabular-nums">
                           <div>
@@ -818,7 +795,7 @@ export default function AnnualPackagePurchasePage() {
                         data-testid="annual-offer-one-click-pay"
                       >
                         <CreditCard size={18} className="mr-2 shrink-0" />
-                        Pay {irisYearLabelNoPeriod(irisRenewalYear)}
+                        Pay {irisYearLabelNoPeriod(autoRenewalYear)}
                         {useAutoStripeCheckout ? ' · Stripe (one step)' : ' · Divine Cart'}
                       </Button>
                     ) : !pinnedProgram ? (
